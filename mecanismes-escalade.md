@@ -162,3 +162,4 @@ Les corrections apportées résolvent l'incohérence identifiée et établissent
 2. Utiliser un processus de validation automatisé pour vérifier la cohérence des instructions d'escalade et de rétrogradation
 3. Exécuter régulièrement des tests d'escalade et de rétrogradation pour s'assurer que le comportement reste conforme aux attentes
 4. Collecter des métriques sur la fréquence et la pertinence des escalades et rétrogradations pour optimiser les critères
+5. Évaluer régulièrement l'efficacité des mécanismes d'escalade et de rétrogradation
