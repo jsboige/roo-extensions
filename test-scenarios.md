@@ -261,3 +261,7 @@ Qu'est-ce que le pattern MVC en développement web ?
 3. Vérifier que la réponse inclut la suggestion de rétrogradation
 4. Vérifier que la tâche est traitée correctement malgré la suggestion
 5. Documenter le résultat exact obtenu
+
+### Test de Notification d'Escalade pour Architect Complex (Mise à jour)
+
+**Scénario de test** : Vérifier la notification d'escalade par Architect Complex après une escalade depuis Architect Simple avec des critères plus précis
