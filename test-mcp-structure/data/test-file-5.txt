@@ -1,0 +1,4 @@
+# Fichier de test impair (test-file-5.txt)
+
+Ce fichier est utilisé pour tester le MCP quickfiles.
+Il contient des données différentes car son numéro est impair (5).

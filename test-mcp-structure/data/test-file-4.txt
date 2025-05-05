@@ -1,0 +1,4 @@
+# Fichier de test pair (test-file-4.txt)
+
+Ce fichier est utilisé pour tester le MCP quickfiles.
+Il contient des données de test pour le fichier numéro 4.
