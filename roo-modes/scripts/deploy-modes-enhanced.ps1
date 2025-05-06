@@ -4,7 +4,7 @@
 
 param (
     [Parameter(Mandatory = $false)]
-    [string]$ConfigFile = "modes/standard-modes.json",
+    [string]$ConfigFile = "../configs/standard-modes.json",
     
     [Parameter(Mandatory = $false)]
     [ValidateSet("global", "local")]
@@ -47,7 +47,7 @@ $configFilePath = Join-Path -Path $scriptDir -ChildPath $ConfigFile
 
 if (-not (Test-Path -Path $configFilePath)) {
     Write-ColorOutput "Erreur: Le fichier de configuration '$ConfigFile' n'existe pas." "Red"
-    Write-ColorOutput "Assurez-vous que le fichier existe dans le répertoire 'roo-config/modes/'." "Red"
+    Write-ColorOutput "Assurez-vous que le fichier existe dans le répertoire 'roo-modes/configs/'." "Red"
     exit 1
 }
 
@@ -71,6 +71,7 @@ if ($DeploymentType -eq "global") {
 } else {
     # Déploiement local (dans le répertoire du projet)
     $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+    # Ajustement pour la nouvelle structure de répertoires (scripts est maintenant un sous-répertoire de roo-modes)
     $destinationFile = Join-Path -Path $projectRoot -ChildPath ".roomodes"
 }
 
@@ -238,19 +239,19 @@ Ce document fournit les instructions pour déployer les modes personnalisés Roo
 
 4. Déployez les modes personnalisés :
    ```
-   cd roo-config
+   cd roo-modes/scripts
    ./deploy-modes-enhanced.ps1 -DeploymentType global -Force
    ```
 
 5. Pour un déploiement local (spécifique au projet) :
    ```
-   cd roo-config
+   cd roo-modes/scripts
    ./deploy-modes-enhanced.ps1 -DeploymentType local -Force
    ```
 
 6. Pour exécuter les tests après le déploiement :
    ```
-   cd roo-config
+   cd roo-modes/scripts
    ./deploy-modes-enhanced.ps1 -DeploymentType global -Force -TestAfterDeploy
    ```
 
