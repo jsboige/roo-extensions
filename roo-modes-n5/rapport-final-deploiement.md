@@ -29,17 +29,18 @@ Ce rapport présente les résultats du déploiement de l'architecture d'orchestr
 ## Problèmes Rencontrés et Solutions
 
 1. **Problèmes d'encodage des fichiers JSON**
-   - Les fichiers de configuration JSON contiennent des caractères accentués qui ne sont pas correctement encodés
-   - Les tests d'escalade et de désescalade échouent en raison de ces problèmes d'encodage
-   - Solution proposée : Ré-encoder tous les fichiers JSON en UTF-8 sans BOM (Byte Order Mark)
+   - Les fichiers de configuration JSON contenaient des caractères accentués qui n'étaient pas correctement encodés
+   - Les tests d'escalade et de désescalade échouaient en raison de ces problèmes d'encodage
+   - Solution appliquée : Ré-encodage de tous les fichiers JSON en UTF-8 sans BOM (Byte Order Mark)
 
 2. **Incompatibilités de syntaxe JSON**
-   - Certains fichiers JSON contiennent des erreurs de syntaxe, notamment dans les fichiers mini-modes.json, medium-modes.json et oracle-modes.json
-   - Solution proposée : Valider et corriger la syntaxe JSON à l'aide d'un validateur JSON
+   - Certains fichiers JSON contenaient des erreurs de syntaxe, notamment dans les fichiers mini-modes.json, medium-modes.json et oracle-modes.json
+   - Solution appliquée : Validation et correction de la syntaxe JSON à l'aide d'un validateur JSON
 
-3. **Problèmes de compatibilité avec les tests**
-   - Les tests d'escalade et de désescalade ne peuvent pas charger correctement les configurations en raison des problèmes d'encodage
-   - Solution proposée : Corriger les problèmes d'encodage et adapter les tests pour qu'ils gèrent correctement les caractères spéciaux
+3. **Simplification des instructions personnalisées**
+   - Pour résoudre les problèmes d'encodage, les instructions personnalisées ont été simplifiées dans les fichiers de configuration
+   - Cette simplification a entraîné des avertissements dans les tests d'escalade et de désescalade concernant les mécanismes manquants
+   - Solution proposée : Restaurer les instructions personnalisées complètes tout en maintenant l'encodage UTF-8 sans BOM
 
 ## État Actuel du Déploiement
 
@@ -50,42 +51,41 @@ L'architecture d'orchestration à 5 niveaux est partiellement déployée :
 - ✅ Scripts de déploiement implémentés
 - ✅ Documentation créée
 - ✅ Tests implémentés
-- ❌ Tests d'escalade réussis (problèmes d'encodage)
-- ❌ Tests de désescalade réussis (problèmes d'encodage)
-- ❌ Déploiement en mode local réussi (problèmes d'encodage)
+- ✅ Problèmes d'encodage corrigés
+- ✅ Syntaxe JSON validée et corrigée
+- ✅ Déploiement en mode local réussi
+- ⚠️ Tests d'escalade partiellement réussis (avertissements sur les mécanismes d'escalade)
+- ⚠️ Tests de désescalade partiellement réussis (avertissements sur les mécanismes de désescalade)
 
 ## Prochaines Étapes
 
-1. **Correction des problèmes d'encodage**
-   - Ré-encoder tous les fichiers JSON en UTF-8 sans BOM
-   - Valider la syntaxe JSON de tous les fichiers de configuration
-   - Adapter les tests pour qu'ils gèrent correctement les caractères spéciaux
+1. **Restauration des instructions personnalisées complètes**
+   - Restaurer les instructions personnalisées complètes dans les fichiers de configuration tout en maintenant l'encodage UTF-8 sans BOM
+   - Vérifier que les mécanismes d'escalade et de désescalade sont correctement définis dans les instructions personnalisées
 
 2. **Finalisation des tests**
-   - Exécuter à nouveau les tests d'escalade et de désescalade après correction des problèmes d'encodage
+   - Exécuter à nouveau les tests d'escalade et de désescalade après restauration des instructions personnalisées
    - Vérifier que tous les mécanismes fonctionnent correctement
 
-3. **Déploiement en mode local**
-   - Exécuter le script de déploiement en mode local après correction des problèmes d'encodage
-   - Vérifier que la configuration est correctement déployée
-
-4. **Déploiement en mode global**
+3. **Déploiement en mode global**
    - Préparer les instructions pour le déploiement en mode global
    - Exécuter le déploiement en mode global
    - Vérifier que la configuration est correctement déployée
 
-5. **Formation et documentation**
+4. **Formation et documentation**
    - Former les utilisateurs à l'utilisation de la nouvelle architecture
    - Compléter la documentation avec les retours d'expérience
 
 ## Conclusion
 
-L'implémentation de l'architecture d'orchestration à 5 niveaux de complexité pour les modes Roo a été réalisée, mais des problèmes d'encodage et de syntaxe JSON ont été identifiés lors des tests. Ces problèmes doivent être résolus avant que l'architecture puisse être considérée comme pleinement opérationnelle.
+L'implémentation de l'architecture d'orchestration à 5 niveaux de complexité pour les modes Roo a été réalisée avec succès en ce qui concerne la correction des problèmes d'encodage et de syntaxe JSON. Les fichiers de configuration sont maintenant des JSON valides et le script de déploiement a réussi à valider et à fusionner les configurations.
+
+Cependant, la simplification des instructions personnalisées pour résoudre les problèmes d'encodage a entraîné des avertissements dans les tests d'escalade et de désescalade concernant les mécanismes manquants. Ces avertissements devront être résolus en restaurant les instructions personnalisées complètes tout en maintenant l'encodage UTF-8 sans BOM.
 
 Malgré ces défis, l'architecture proposée offre une approche structurée pour gérer des tâches de complexité variable, en optimisant l'utilisation des ressources et en assurant une escalade/désescalade efficace entre les différents niveaux de complexité.
 
-Les prochaines étapes se concentreront sur la correction des problèmes d'encodage, la finalisation des tests et le déploiement complet de l'architecture.
+Les prochaines étapes se concentreront sur la restauration des instructions personnalisées complètes, la finalisation des tests et le déploiement complet de l'architecture.
 
 ---
 
-*Rapport généré le 06/05/2025 à 16:30*
+*Rapport mis à jour le 06/05/2025 à 18:43*
