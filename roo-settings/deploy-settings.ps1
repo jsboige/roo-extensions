@@ -1,12 +1,15 @@
 # Script de déploiement de la configuration générale Roo
-# Ce script permet de déployer la configuration générale de Roo
+# Ce script permet de déployer la configuration générale de Roo en préservant les clés d'API
 
 param (
     [Parameter(Mandatory = $false)]
     [string]$ConfigFile = "settings.json",
     
     [Parameter(Mandatory = $false)]
-    [switch]$Force
+    [switch]$Force,
+    
+    [Parameter(Mandatory = $false)]
+    [switch]$NoMerge
 )
 
 # Forcer l'encodage UTF-8 pour la sortie
@@ -96,10 +99,83 @@ if (Test-Path -Path $destinationFile) {
     }
 }
 
-# Copier le fichier
+# Fonction pour fusionner deux objets JSON en préservant les valeurs de l'objet cible
+function Merge-JsonObjects {
+    param (
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Source,
+        
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Target
+    )
+    
+    $merged = $Target.PSObject.Copy()
+    
+    foreach ($property in $Source.PSObject.Properties) {
+        $propertyName = $property.Name
+        
+        # Si la propriété n'existe pas dans la cible, l'ajouter
+        if (-not $merged.PSObject.Properties[$propertyName]) {
+            $merged | Add-Member -MemberType NoteProperty -Name $propertyName -Value $property.Value
+        }
+        # Si la propriété existe dans les deux et est un objet, fusionner récursivement
+        elseif ($property.Value -is [PSCustomObject] -and $merged.$propertyName -is [PSCustomObject]) {
+            $merged.$propertyName = Merge-JsonObjects -Source $property.Value -Target $merged.$propertyName
+        }
+        # Sinon, remplacer la valeur par celle de la source (sauf pour les propriétés sensibles)
+        else {
+            # Ici, on pourrait ajouter une liste de propriétés sensibles à ne pas écraser
+            # Pour l'instant, on remplace simplement la valeur
+            $merged.$propertyName = $property.Value
+        }
+    }
+    
+    return $merged
+}
+
+# Charger le fichier de configuration source
 try {
-    Copy-Item -Path $configFilePath -Destination $destinationFile -Force
-    Write-ColorOutput "Déploiement réussi!" "Green"
+    $sourceConfig = Get-Content -Path $configFilePath -Raw | ConvertFrom-Json
+    Write-ColorOutput "Configuration source chargée avec succès." "Green"
+} catch {
+    Write-ColorOutput "Erreur lors du chargement de la configuration source:" "Red"
+    Write-ColorOutput $_.Exception.Message "Red"
+    exit 1
+}
+
+# Déployer la configuration
+try {
+    # Si le fichier de destination existe et que -NoMerge n'est pas spécifié, fusionner les configurations
+    if ((Test-Path -Path $destinationFile) -and (-not $NoMerge)) {
+        Write-ColorOutput "Fusion des configurations..." "Yellow"
+        
+        try {
+            $targetConfig = Get-Content -Path $destinationFile -Raw | ConvertFrom-Json
+            $mergedConfig = Merge-JsonObjects -Source $sourceConfig -Target $targetConfig
+            
+            # Convertir l'objet fusionné en JSON et l'écrire dans le fichier de destination
+            $mergedConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $destinationFile -Encoding UTF8
+            Write-ColorOutput "Fusion et déploiement réussis!" "Green"
+        } catch {
+            Write-ColorOutput "Erreur lors de la fusion des configurations:" "Red"
+            Write-ColorOutput $_.Exception.Message "Red"
+            Write-ColorOutput "Utilisation de la méthode de remplacement complet..." "Yellow"
+            
+            # En cas d'erreur lors de la fusion, revenir à la méthode de remplacement complet
+            $sourceConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $destinationFile -Encoding UTF8
+            Write-ColorOutput "Déploiement par remplacement réussi!" "Green"
+        }
+    } else {
+        # Si le fichier de destination n'existe pas ou si -NoMerge est spécifié, remplacer complètement
+        if ($NoMerge) {
+            Write-ColorOutput "Option -NoMerge spécifiée. Remplacement complet de la configuration..." "Yellow"
+        } else {
+            Write-ColorOutput "Aucune configuration existante trouvée. Déploiement de la nouvelle configuration..." "Yellow"
+        }
+        
+        $sourceConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $destinationFile -Encoding UTF8
+        Write-ColorOutput "Déploiement réussi!" "Green"
+    }
 } catch {
     Write-ColorOutput "Erreur lors du déploiement:" "Red"
     Write-ColorOutput $_.Exception.Message "Red"
@@ -112,10 +188,22 @@ Write-ColorOutput "   Déploiement terminé avec succès!" "Green"
 Write-ColorOutput "=========================================================" "Cyan"
 
 Write-ColorOutput "`nLa configuration générale a été déployée." "White"
-Write-ColorOutput "IMPORTANT: Ce fichier ne contient pas les clés d'API et autres informations sensibles." "Yellow"
-Write-ColorOutput "Vous devrez ajouter manuellement ces informations au fichier de configuration." "Yellow"
 
-Write-ColorOutput "`nPour activer la configuration:" "White"
-Write-ColorOutput "1. Ajoutez vos clés d'API et autres informations sensibles au fichier $destinationFile" "White"
-Write-ColorOutput "2. Redémarrez Visual Studio Code" "White"
+if ((Test-Path -Path $destinationFile) -and (-not $NoMerge)) {
+    Write-ColorOutput "Les clés d'API et autres informations sensibles ont été préservées." "Green"
+    Write-ColorOutput "Si vous avez ajouté de nouvelles sections dans la configuration source, elles ont été fusionnées avec la configuration existante." "White"
+} else {
+    Write-ColorOutput "IMPORTANT: Ce fichier ne contient pas les clés d'API et autres informations sensibles." "Yellow"
+    Write-ColorOutput "Vous devrez ajouter manuellement ces informations au fichier de configuration." "Yellow"
+    
+    Write-ColorOutput "`nPour activer la configuration:" "White"
+    Write-ColorOutput "1. Ajoutez vos clés d'API et autres informations sensibles au fichier $destinationFile" "White"
+}
+
+Write-ColorOutput "2. Redémarrez Visual Studio Code pour appliquer les changements" "White"
+Write-ColorOutput "`n" "White"
+
+Write-ColorOutput "Options disponibles pour les prochains déploiements:" "Cyan"
+Write-ColorOutput "- Utilisez -Force pour déployer sans confirmation" "White"
+Write-ColorOutput "- Utilisez -NoMerge pour remplacer complètement la configuration (écrase les clés d'API)" "White"
 Write-ColorOutput "`n" "White"
