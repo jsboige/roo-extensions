@@ -13,6 +13,9 @@ param (
     [switch]$Force
 )
 
+# Forcer l'encodage UTF-8 pour la sortie
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 # Fonction pour afficher des messages colorés
 function Write-ColorOutput {
     param (
@@ -40,7 +43,7 @@ $configFilePath = Join-Path -Path $scriptDir -ChildPath $ConfigFile
 
 if (-not (Test-Path -Path $configFilePath)) {
     Write-ColorOutput "Erreur: Le fichier de configuration '$ConfigFile' n'existe pas." "Red"
-    Write-ColorOutput "Assurez-vous que le fichier existe dans le répertoire 'roo-config/modes/'." "Red"
+    Write-ColorOutput "Assurez-vous que le fichier existe dans le répertoire 'roo-modes/modes/'." "Red"
     exit 1
 }
 

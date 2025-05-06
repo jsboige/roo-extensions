@@ -36,7 +36,7 @@ Le script `deploy-modes.ps1` permet de déployer une configuration de modes soit
 
 ### Paramètres
 
-- `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-config/`)
+- `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-modes/`)
   - Par défaut : `modes/standard-modes.json`
 
 - `-DeploymentType` : Type de déploiement
@@ -50,22 +50,22 @@ Le script `deploy-modes.ps1` permet de déployer une configuration de modes soit
 
 1. Déployer la configuration standard globalement :
    ```powershell
-   .\roo-config\deploy-modes.ps1
+   .\roo-modes\deploy-modes.ps1
    ```
 
 2. Déployer la configuration standard localement :
    ```powershell
-   .\roo-config\deploy-modes.ps1 -DeploymentType local
+   .\roo-modes\deploy-modes.ps1 -DeploymentType local
    ```
 
 3. Déployer une configuration personnalisée globalement :
    ```powershell
-   .\roo-config\deploy-modes.ps1 -ConfigFile modes/ma-config.json
+   .\roo-modes\deploy-modes.ps1 -ConfigFile modes/ma-config.json
    ```
 
 4. Déployer une configuration personnalisée localement sans confirmation :
    ```powershell
-   .\roo-config\deploy-modes.ps1 -ConfigFile modes/ma-config.json -DeploymentType local -Force
+   .\roo-modes\deploy-modes.ps1 -ConfigFile modes/ma-config.json -DeploymentType local -Force
    ```
 
 ## Création de configurations personnalisées
@@ -74,15 +74,29 @@ Vous pouvez créer vos propres configurations de modes en copiant et modifiant l
 
 1. Créez un nouveau fichier dans le répertoire `modes/` :
    ```powershell
-   Copy-Item -Path "roo-config/modes/standard-modes.json" -Destination "roo-config/modes/ma-config.json"
+   Copy-Item -Path "roo-modes/modes/standard-modes.json" -Destination "roo-modes/modes/ma-config.json"
    ```
 
 2. Modifiez le fichier selon vos besoins.
 
 3. Déployez la configuration comme décrit ci-dessus.
 
+## Relation avec roo-settings
+
+Le répertoire `roo-modes` se concentre uniquement sur la configuration des modes personnalisés, tandis que le répertoire `roo-settings` gère les configurations générales de Roo. Les deux sont complémentaires :
+
+- **roo-modes** : Définit les modes personnalisés, leurs propriétés et comportements
+- **roo-settings** : Définit les paramètres globaux et les associations entre modes et profils d'API
+
+Pour une configuration complète de Roo, vous devrez généralement déployer à la fois :
+1. Une configuration de modes (via `roo-modes/deploy-modes.ps1`)
+2. Une configuration générale (via `roo-settings/deploy-settings.ps1`)
+
+Pour plus d'informations sur les configurations générales, consultez la [documentation de roo-settings](../roo-settings/README.md).
+
 ## Recommandations
 
 - Pour un environnement de développement personnel, utilisez le déploiement global pour avoir les modes disponibles dans tous vos projets.
 - Pour un projet partagé, utilisez le déploiement local pour que chaque développeur ait la même configuration.
 - Commitez vos configurations personnalisées dans le répertoire `modes/` pour les partager avec l'équipe.
+- Après chaque déploiement, redémarrez Visual Studio Code pour appliquer les changements.
