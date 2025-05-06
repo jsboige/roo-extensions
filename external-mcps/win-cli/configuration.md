@@ -266,6 +266,107 @@ Cette configuration :
 - Conserve un historique de 1000 commandes
 - Utilise une journalisation de niveau info sans fichier journal
 
+## Configuration dans Roo (mcp_settings.json)
+
+En plus de la configuration du serveur MCP Win-CLI lui-même, il est nécessaire de configurer Roo pour qu'il puisse se connecter au serveur. Cette configuration se fait dans le fichier `mcp_settings.json` de Roo.
+
+### Localisation du fichier mcp_settings.json
+
+Le fichier `mcp_settings.json` se trouve généralement à l'emplacement suivant :
+
+- Windows : `%USERPROFILE%\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+
+Par exemple : `C:\Users\votre-nom\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+
+### Configuration du serveur Win-CLI dans mcp_settings.json
+
+Voici un exemple de configuration pour le serveur MCP Win-CLI dans le fichier `mcp_settings.json` :
+
+```json
+{
+  "mcpServers": {
+    "win-cli": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "execute_command",
+        "get_command_history",
+        "ssh_execute",
+        "ssh_disconnect",
+        "create_ssh_connection",
+        "read_ssh_connections",
+        "update_ssh_connection",
+        "delete_ssh_connection",
+        "get_current_directory"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@simonb97/server-win-cli"
+      ],
+      "transportType": "stdio",
+      "disabled": false
+    }
+  }
+}
+```
+
+### Explication des paramètres
+
+- `win-cli` : Nom du serveur MCP, utilisé pour l'identifier dans Roo
+- `autoApprove` : Liste des outils qui seront automatiquement approuvés sans demander confirmation à l'utilisateur (vide par défaut pour des raisons de sécurité)
+- `alwaysAllow` : Liste des outils fournis par le serveur MCP Win-CLI qui sont autorisés à être utilisés
+- `command` : Commande utilisée pour démarrer le serveur (ici, `cmd`)
+- `args` : Arguments passés à la commande pour démarrer le serveur
+- `transportType` : Type de transport utilisé pour la communication avec le serveur (ici, `stdio`)
+- `disabled` : Indique si le serveur est désactivé ou non
+
+### Utilisation du script batch dans la configuration
+
+Vous pouvez également configurer Roo pour utiliser le script batch `run-win-cli.bat` au lieu de la commande npx directe :
+
+```json
+{
+  "mcpServers": {
+    "win-cli": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "execute_command",
+        "get_command_history",
+        "ssh_execute",
+        "ssh_disconnect",
+        "create_ssh_connection",
+        "read_ssh_connections",
+        "update_ssh_connection",
+        "delete_ssh_connection",
+        "get_current_directory"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "chemin\\vers\\external-mcps\\win-cli\\run-win-cli.bat"
+      ],
+      "transportType": "stdio",
+      "disabled": false
+    }
+  }
+}
+```
+
+Remplacez `chemin\\vers\\` par le chemin absolu vers le répertoire contenant le script.
+
+### Modification de la configuration
+
+Pour modifier la configuration du serveur MCP Win-CLI dans Roo :
+
+1. Ouvrez VS Code
+2. Accédez aux paramètres de Roo (via l'icône de menu ⋮)
+3. Allez dans la section "MCP Servers"
+4. Modifiez les paramètres du serveur "win-cli" selon vos besoins
+5. Sauvegardez les paramètres
+6. Redémarrez VS Code pour appliquer les changements
+
 ## Application des modifications
 
 Après avoir modifié le fichier de configuration :

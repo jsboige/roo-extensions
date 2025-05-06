@@ -54,10 +54,17 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 ## Structure du Projet
 
 - `.roomodes` : Configuration des modes personnalisés
-- `custom-modes/` : Documentation et ressources pour les modes personnalisés
-- `optimized-agents/` : Architecture optimisée des agents Roo pour réduire les coûts
-  - `docs/` : Documentation détaillée sur l'architecture
+- `roo-modes/` : Répertoire principal pour les modes personnalisés
+  - `configs/` : Configurations des modes
+  - `docs/` : Documentation conceptuelle et guides
+  - `examples/` : Exemples de configurations
+  - `scripts/` : Scripts de déploiement
+  - `tests/` : Tests pour les modes personnalisés
+- `custom-modes/` : [OBSOLÈTE] Redirigé vers roo-modes
+- `optimized-agents/` : [OBSOLÈTE] Redirigé vers roo-modes
+- `roo-config/` : [OBSOLÈTE] Redirigé vers roo-modes
 - `scheduler/` : Extensions et configurations pour Roo Scheduler
+- `external-mcps/` : Configuration et documentation pour les MCPs externes
 
 ## Modes Disponibles
 

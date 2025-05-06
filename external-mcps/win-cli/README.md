@@ -39,6 +39,7 @@ Le serveur MCP Win-CLI fournit les outils suivants :
 - `configuration.md` - Guide de configuration du serveur MCP Win-CLI
 - `exemples.md` - Exemples d'utilisation du serveur MCP Win-CLI
 - `securite.md` - Bonnes pratiques de sécurité pour l'utilisation du serveur MCP Win-CLI
+- `run-win-cli.bat` - Script batch pour démarrer facilement le serveur MCP Win-CLI
 
 ## Liens utiles
 
