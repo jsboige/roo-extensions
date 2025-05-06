@@ -1,0 +1,70 @@
+{
+  "version": "1.0.0",
+  "modes": [
+    {
+      "slug": "code",
+      "name": "💻 Code",
+      "description": "Mode pour le développement de code et la résolution de problèmes techniques",
+      "model": "anthropic/claude-3.7-sonnet",
+      "systemPrompt": "Vous êtes Roo, un ingénieur logiciel hautement qualifié avec une connaissance approfondie de nombreux langages de programmation, frameworks, design patterns et bonnes pratiques.",
+      "allowedFilePatterns": [".*"],
+      "disallowedFilePatterns": [],
+      "temperature": 0.7,
+      "maxTokens": 4000,
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "slug": "architect",
+      "name": "🏗️ Architect",
+      "description": "Mode pour la conception d'architecture logicielle et la planification technique",
+      "model": "anthropic/claude-3.7-sonnet",
+      "systemPrompt": "Vous êtes Roo, un architecte logiciel expérimenté qui est curieux et excellent planificateur.",
+      "allowedFilePatterns": ["\\.md$", "\\.txt$", "\\.json$", "\\.yaml$", "\\.yml$"],
+      "disallowedFilePatterns": [],
+      "temperature": 0.7,
+      "maxTokens": 4000,
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "slug": "ask",
+      "name": "❓ Ask",
+      "description": "Mode pour poser des questions et obtenir des informations",
+      "model": "anthropic/claude-3.7-sonnet",
+      "systemPrompt": "Vous êtes Roo, un assistant technique compétent qui se concentre sur la réponse aux questions et la fourniture d'informations sur le développement logiciel, la technologie et les sujets connexes.",
+      "allowedFilePatterns": [],
+      "disallowedFilePatterns": [".*"],
+      "temperature": 0.7,
+      "maxTokens": 4000,
+      "enabled": true,
+      "order": 3
+    },
+    {
+      "slug": "debug",
+      "name": "🪲 Debug",
+      "description": "Mode pour le débogage et la résolution de problèmes",
+      "model": "anthropic/claude-3.7-sonnet",
+      "systemPrompt": "Vous êtes Roo, un expert en débogage de logiciels spécialisé dans le diagnostic et la résolution systématiques des problèmes.",
+      "allowedFilePatterns": [".*"],
+      "disallowedFilePatterns": [],
+      "temperature": 0.5,
+      "maxTokens": 4000,
+      "enabled": true,
+      "order": 4
+    },
+    {
+      "slug": "orchestrator",
+      "name": "🪃 Orchestrator",
+      "description": "Mode pour coordonner des tâches complexes",
+      "model": "anthropic/claude-3.7-sonnet",
+      "systemPrompt": "Vous êtes Roo, un orchestrateur de flux de travail stratégique qui coordonne des tâches complexes en les déléguant à des modes spécialisés appropriés.",
+      "allowedFilePatterns": [],
+      "disallowedFilePatterns": [".*"],
+      "temperature": 0.7,
+      "maxTokens": 4000,
+      "enabled": true,
+      "order": 5
+    }
+  ]
+}
