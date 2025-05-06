@@ -70,11 +70,29 @@ Une fois le serveur MCP SearXNG installé, vous devez le configurer dans Roo :
 4. Ajoutez un nouveau serveur avec les informations suivantes :
    - Nom : `searxng`
    - Type : `stdio`
-   - Commande : `cmd /c mcp-searxng` (Windows) ou `mcp-searxng` (macOS/Linux)
+   - Commande : `cmd` (Windows) ou `/bin/bash` (macOS/Linux)
+   - Arguments : `/c node "C:\Users\<username>\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"` (Windows) ou `-c "node $(npm root -g)/mcp-searxng/dist/index.js"` (macOS/Linux)
+   - Note : Remplacez `<username>` par votre nom d'utilisateur Windows. N'utilisez PAS la variable `%APPDATA%` car elle n'est pas interprétée correctement dans ce contexte.
    - Activé : `true`
    - Démarrage automatique : `true` (optionnel)
 5. Sauvegardez les paramètres
 6. Redémarrez VS Code pour appliquer les changements
+
+### Utilisation du script batch (alternative pour Windows)
+
+Si vous préférez utiliser un script batch pour lancer le serveur, vous pouvez :
+
+1. Créer un fichier `run-searxng.bat` avec le contenu suivant :
+   ```batch
+   @echo off
+   echo Démarrage du serveur MCP SearXNG...
+   node "C:\Users\<username>\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"
+   REM Remplacez <username> par votre nom d'utilisateur Windows
+   ```
+
+2. Configurer le serveur MCP dans Roo avec :
+   - Commande : `cmd`
+   - Arguments : `/c chemin\vers\run-searxng.bat`
 
 ## Résolution des problèmes
 
@@ -84,6 +102,7 @@ Une fois le serveur MCP SearXNG installé, vous devez le configurer dans Roo :
 - Vérifiez que npm est correctement installé : `npm --version`
 - Essayez d'installer le package globalement : `npm install -g mcp-searxng`
 - Vérifiez les journaux d'erreur dans la console
+- **Problème connu** : Les scripts de lancement (`mcp-searxng`, `mcp-searxng.cmd`, `mcp-searxng.ps1`) peuvent être corrompus ou vides. Dans ce cas, utilisez la méthode d'exécution directe avec Node.js comme décrit dans la section "Configuration dans Roo".
 
 ### Le serveur démarre mais n'est pas détecté par Roo
 
