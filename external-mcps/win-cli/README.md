@@ -17,6 +17,7 @@ Ce serveur MCP est particulièrement utile pour les utilisateurs Windows qui sou
 - Gestion des connexions SSH
 - Historique des commandes exécutées
 - Exécution de commandes dans des répertoires spécifiques
+- Accès direct aux ressources système via les URI
 
 ## Outils disponibles
 
@@ -31,6 +32,28 @@ Le serveur MCP Win-CLI fournit les outils suivants :
 7. **update_ssh_connection** - Met à jour une connexion SSH existante
 8. **delete_ssh_connection** - Supprime une connexion SSH existante
 9. **get_current_directory** - Récupère le répertoire de travail actuel
+
+## Ressources directes
+
+Le serveur MCP Win-CLI fournit également des ressources directes accessibles via des URI spécifiques :
+
+1. **cli://currentdir** - Le répertoire de travail actuel du serveur CLI
+2. **ssh://config** - Toutes les configurations de connexion SSH
+3. **cli://config** - La configuration principale du serveur CLI (sans les données sensibles)
+
+## Fonctionnalités optimales et limitations
+
+### Ce qui fonctionne bien
+- **Commandes simples** : Les commandes basiques dans tous les shells fonctionnent parfaitement
+- **Ressources directes** : L'accès aux ressources via URI est rapide et fiable
+- **Gestion SSH** : La création et gestion des connexions SSH est stable
+- **Historique des commandes** : Le suivi des commandes exécutées est précis
+
+### Limitations actuelles
+- **Commandes complexes** : Les commandes avec plusieurs opérateurs de redirection ou pipes complexes peuvent parfois échouer
+- **Commandes interactives** : Les commandes nécessitant une interaction utilisateur continue peuvent être instables
+- **Séparateurs de commandes** : Seul le séparateur `;` est pleinement supporté dans la configuration par défaut
+- **Performances** : Les commandes générant une sortie volumineuse peuvent ralentir le serveur
 
 ## Structure du dossier
 

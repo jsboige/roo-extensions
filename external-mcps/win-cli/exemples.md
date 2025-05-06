@@ -370,7 +370,9 @@ Ce workflow complet :
 
 Ce workflow analyse la taille de tous les dossiers dans le répertoire courant et affiche leur taille en mégaoctets.
 
-## Bonnes pratiques
+## Bonnes pratiques et optimisations
+
+### Bonnes pratiques générales
 
 1. **Utilisez le shell approprié** pour chaque tâche :
    - PowerShell pour les tâches d'administration Windows et le traitement de données
@@ -384,3 +386,105 @@ Ce workflow analyse la taille de tous les dossiers dans le répertoire courant e
 4. **Utilisez les séparateurs de commande avec précaution** et conformément à la configuration de sécurité
 
 5. **Vérifiez l'historique des commandes** régulièrement pour suivre les actions effectuées
+
+### Optimisations pour Roo
+
+1. **Utilisez les ressources directes** pour un accès rapide aux informations système :
+
+```xml
+<access_mcp_resource>
+<server_name>win-cli</server_name>
+<uri>cli://currentdir</uri>
+</access_mcp_resource>
+```
+
+2. **Préférez les commandes simples** aux commandes complexes :
+
+```xml
+<!-- À éviter -->
+<use_mcp_tool>
+<server_name>win-cli</server_name>
+<tool_name>execute_command</tool_name>
+<arguments>
+{
+  "shell": "powershell",
+  "command": "Get-Process | Where-Object { $_.CPU -gt 10 } | Sort-Object CPU -Descending | Select-Object -First 5 | Format-Table Name, CPU, WorkingSet"
+}
+</arguments>
+</use_mcp_tool>
+
+<!-- Préférer -->
+<use_mcp_tool>
+<server_name>win-cli</server_name>
+<tool_name>execute_command</tool_name>
+<arguments>
+{
+  "shell": "powershell",
+  "command": "Get-Process | Sort-Object CPU -Descending | Select-Object -First 5 -Property Name, CPU, WorkingSet"
+}
+</arguments>
+</use_mcp_tool>
+```
+
+3. **Divisez les commandes complexes** en plusieurs commandes simples :
+
+```xml
+<!-- Étape 1 : Obtenir les processus -->
+<use_mcp_tool>
+<server_name>win-cli</server_name>
+<tool_name>execute_command</tool_name>
+<arguments>
+{
+  "shell": "powershell",
+  "command": "Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 | Export-Csv -Path temp_processes.csv -NoTypeInformation"
+}
+</arguments>
+</use_mcp_tool>
+
+<!-- Étape 2 : Analyser les résultats -->
+<use_mcp_tool>
+<server_name>win-cli</server_name>
+<tool_name>execute_command</tool_name>
+<arguments>
+{
+  "shell": "powershell",
+  "command": "Import-Csv -Path temp_processes.csv | Select-Object -First 5 | Format-Table Name, CPU, WorkingSet"
+}
+</arguments>
+</use_mcp_tool>
+```
+
+### Contournement des limitations
+
+1. **Pour les commandes avec pipes complexes** :
+   - Utilisez des fichiers temporaires pour stocker les résultats intermédiaires
+   - Divisez la commande en plusieurs étapes
+   - Utilisez des variables PowerShell pour stocker les résultats intermédiaires
+
+2. **Pour les commandes interactives** :
+   - Utilisez des paramètres pour automatiser les réponses (ex: `-Confirm:$false` en PowerShell)
+   - Préparez des scripts non-interactifs à exécuter
+   - Utilisez des fichiers de configuration plutôt que des entrées interactives
+
+3. **Pour les séparateurs de commandes** :
+   - Utilisez principalement le séparateur `;` qui est le plus stable
+   - Pour les dépendances entre commandes, utilisez des scripts PowerShell avec des structures conditionnelles
+   - Exemple :
+   
+```xml
+<use_mcp_tool>
+<server_name>win-cli</server_name>
+<tool_name>execute_command</tool_name>
+<arguments>
+{
+  "shell": "powershell",
+  "command": "$result = Test-Path 'file.txt'; if ($result) { Write-Host 'Le fichier existe' } else { Write-Host 'Le fichier n\\'existe pas' }"
+}
+</arguments>
+</use_mcp_tool>
+```
+
+4. **Pour les sorties volumineuses** :
+   - Limitez les résultats avec `Select-Object -First N` en PowerShell
+   - Redirigez la sortie vers un fichier puis lisez-le partiellement
+   - Utilisez des filtres pour réduire la quantité de données (grep, findstr, Where-Object)

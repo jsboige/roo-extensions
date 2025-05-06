@@ -197,8 +197,63 @@ Utilisez cette liste pour vérifier régulièrement la sécurité de votre confi
 - [ ] Le serveur s'exécute avec les privilèges minimaux nécessaires
 - [ ] Les mises à jour de sécurité sont appliquées régulièrement
 
+## Sécurité dans les modes personnalisés Roo
+
+Lorsque vous utilisez le serveur MCP Win-CLI avec des modes personnalisés Roo, des considérations de sécurité supplémentaires s'appliquent.
+
+### Contrôle d'accès par mode
+
+Configurez les autorisations d'accès au MCP Win-CLI en fonction du mode Roo :
+
+1. **Modes simples** : Limitez l'accès aux commandes de base et aux ressources directes uniquement
+2. **Modes complexes** : Accordez un accès plus étendu, mais toujours avec des restrictions appropriées
+
+Exemple de configuration dans le fichier `.roomodes` :
+
+```json
+{
+  "slug": "code-simple",
+  "name": "💻 Code Simple",
+  "model": "anthropic/claude-3.5-sonnet",
+  "roleDefinition": "You are Roo Code (version simple)...",
+  "groups": ["read", "edit", "mcp"],
+  "customInstructions": "Utilisez le MCP win-cli uniquement pour des commandes simples et non destructives..."
+}
+```
+
+### Isolation des environnements
+
+Pour les modes personnalisés qui utilisent le MCP Win-CLI :
+
+1. **Créez des configurations spécifiques** pour chaque mode
+2. **Utilisez des répertoires de travail dédiés** pour chaque type de mode
+3. **Définissez des listes de commandes autorisées** spécifiques à chaque mode
+
+### Bonnes pratiques pour les modes personnalisés
+
+1. **Mode Code Simple** :
+   - Limitez l'accès aux commandes de base (dir, ls, echo)
+   - Désactivez les commandes de modification du système
+   - Utilisez principalement les ressources directes
+
+2. **Mode Debug Simple** :
+   - Autorisez les commandes de diagnostic (Get-Process, netstat)
+   - Limitez l'accès aux fichiers système
+   - Désactivez les commandes de modification
+
+3. **Mode Architect** :
+   - Privilégiez l'accès en lecture seule
+   - Limitez l'exécution de commandes aux outils de documentation
+   - Utilisez des répertoires de travail isolés
+
+4. **Mode Orchestrator** :
+   - Configurez des permissions granulaires selon les sous-tâches
+   - Utilisez un système de validation avant exécution
+   - Implémentez des quotas d'utilisation
+
 ## Ressources supplémentaires
 
 - [Documentation officielle de Win-CLI MCP](https://github.com/simonb97/server-win-cli)
 - [Bonnes pratiques de sécurité pour PowerShell](https://docs.microsoft.com/en-us/powershell/scripting/security/security-features)
 - [Sécurité des commandes Windows](https://docs.microsoft.com/en-us/windows-server/administration/windows-commands/windows-commands-security)
+- [Guide de sécurité pour les modes personnalisés Roo](../custom-modes/docs/securite.md)

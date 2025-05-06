@@ -73,8 +73,18 @@ Pour plus d'informations sur l'architecture et l'implémentation des modes perso
 - [Critères de Décision](./docs/criteres-decision/) - Critères pour le routage des tâches
 - [Optimisation](./docs/optimisation/) - Recommandations pour l'optimisation des prompts
 - [Implémentation](./docs/implementation/) - Stratégie d'implémentation progressive
+- [Utilisation MCP Win-CLI](./docs/utilisation-mcp-win-cli.md) - Guide d'utilisation du MCP Win-CLI dans les modes personnalisés
+
+## Intégration avec les MCP Servers
+
+Les modes personnalisés peuvent tirer parti des serveurs MCP (Model Context Protocol) pour étendre leurs capacités. Ces serveurs fournissent des outils et des ressources supplémentaires qui peuvent être utilisés par les agents Roo.
+
+### MCP Win-CLI
+
+Le serveur MCP Win-CLI est particulièrement utile pour les modes personnalisés, car il permet d'exécuter des commandes dans différents shells Windows et d'accéder à des ressources système. Pour plus d'informations sur son utilisation dans les modes personnalisés, consultez le [guide d'utilisation du MCP Win-CLI](./docs/utilisation-mcp-win-cli.md).
 
 ## Ressources Additionnelles
 
 - [Templates](./templates/) - Modèles pour créer de nouveaux modes personnalisés
 - [Examples](./examples/) - Exemples de modes personnalisés
+- [Documentation MCP Win-CLI](../external-mcps/win-cli/) - Documentation complète du serveur MCP Win-CLI

@@ -14,14 +14,28 @@ Ce guide détaille les étapes pour installer le serveur MCP Win-CLI qui permet 
 
 ### Méthode 1 : Installation via NPX (recommandée)
 
-La méthode la plus simple pour installer et exécuter le serveur MCP Win-CLI est d'utiliser npx, qui permet d'exécuter des packages npm sans les installer globalement.
+La méthode la plus simple et la plus fiable pour installer et exécuter le serveur MCP Win-CLI est d'utiliser npx, qui permet d'exécuter des packages npm sans les installer globalement.
 
 ```bash
 # Installation et exécution en une seule commande
 npx -y @simonb97/server-win-cli
 ```
 
-Cette commande téléchargera et exécutera automatiquement le serveur MCP Win-CLI. Vous pouvez l'utiliser directement dans votre terminal à chaque fois que vous souhaitez démarrer le serveur.
+Cette commande téléchargera et exécutera automatiquement la dernière version du serveur MCP Win-CLI. Vous pouvez l'utiliser directement dans votre terminal à chaque fois que vous souhaitez démarrer le serveur.
+
+#### Configuration dans Roo avec NPX
+
+Pour configurer le serveur MCP Win-CLI dans Roo en utilisant NPX, utilisez la commande suivante dans la configuration des serveurs MCP :
+
+```
+cmd /c npx -y @simonb97/server-win-cli
+```
+
+Cette méthode présente plusieurs avantages :
+- Utilise toujours la dernière version du serveur
+- Évite les problèmes de chemin et de permissions
+- Fonctionne de manière cohérente sur tous les systèmes Windows
+- Ne nécessite pas d'installation permanente
 
 ### Méthode 2 : Installation globale via NPM
 
@@ -77,6 +91,26 @@ Une fois le serveur MCP Win-CLI installé, vous devez le configurer dans Roo :
    - Démarrage automatique : `true` (optionnel)
 5. Sauvegardez les paramètres
 6. Redémarrez VS Code pour appliquer les changements
+
+### Configuration optimale pour Roo
+
+Pour une expérience optimale avec Roo, nous recommandons la configuration suivante :
+
+```json
+{
+  "name": "win-cli",
+  "type": "stdio",
+  "command": "cmd /c npx -y @simonb97/server-win-cli",
+  "enabled": true,
+  "autoStart": true
+}
+```
+
+Cette configuration garantit :
+- L'utilisation de la dernière version du serveur
+- Le démarrage automatique du serveur avec Roo
+- La compatibilité avec les commandes PowerShell, CMD et Git Bash
+- L'accès aux ressources directes via les URI
 
 ## Installation des shells supplémentaires
 

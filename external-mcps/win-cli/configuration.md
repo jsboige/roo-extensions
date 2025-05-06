@@ -266,6 +266,68 @@ Cette configuration :
 - Conserve un historique de 1000 commandes
 - Utilise une journalisation de niveau info sans fichier journal
 
+## Configuration optimisée pour les ressources directes
+
+Les ressources directes sont une fonctionnalité puissante du MCP Win-CLI qui permet d'accéder rapidement à certaines informations système sans exécuter de commandes. Pour optimiser leur utilisation, assurez-vous que votre configuration inclut les éléments suivants :
+
+```json
+{
+  "resources": {
+    "enabled": true,
+    "refreshInterval": 5000,
+    "cacheTimeout": 60000
+  }
+}
+```
+
+Cette configuration :
+- Active les ressources directes
+- Rafraîchit les données toutes les 5 secondes
+- Conserve les données en cache pendant 60 secondes
+
+## Gestion des limitations connues
+
+### Limitation des commandes complexes
+
+Pour contourner les problèmes avec les commandes complexes, vous pouvez ajuster la configuration suivante :
+
+```json
+{
+  "execution": {
+    "timeout": 30000,
+    "maxOutputSize": 1048576,
+    "bufferSize": 4096,
+    "splitComplexCommands": true
+  }
+}
+```
+
+Cette configuration :
+- Augmente le délai d'attente pour les commandes longues (30 secondes)
+- Limite la taille maximale de sortie pour éviter les problèmes de mémoire
+- Définit une taille de tampon appropriée pour les sorties volumineuses
+- Active la division automatique des commandes complexes
+
+### Optimisation des séparateurs de commande
+
+Si vous rencontrez des problèmes avec les séparateurs de commande, vous pouvez utiliser cette configuration plus restrictive mais plus stable :
+
+```json
+{
+  "security": {
+    "commandSeparators": [";"],
+    "allowCommandChaining": true,
+    "maxCommandsPerChain": 3,
+    "validateEachCommand": true
+  }
+}
+```
+
+Cette configuration :
+- N'autorise que le séparateur `;`
+- Limite le nombre de commandes par chaîne à 3
+- Valide chaque commande individuellement avant exécution
+
 ## Application des modifications
 
 Après avoir modifié le fichier de configuration :
