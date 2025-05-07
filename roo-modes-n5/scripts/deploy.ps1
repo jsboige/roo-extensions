@@ -154,36 +154,8 @@ Write-Host "Déploiement des configurations..." -ForegroundColor Cyan
 
 $rooModesPath = Join-Path -Path $rooConfigPath -ChildPath "modes.json"
 
-# Vérifier si le fichier modes.json existe déjà
-if (Test-Path -Path $rooModesPath) {
-    Write-Host "Le fichier modes.json existe déjà. Voulez-vous :" -ForegroundColor Yellow
-    Write-Host "1. Remplacer le fichier existant" -ForegroundColor Yellow
-    Write-Host "2. Fusionner avec le fichier existant" -ForegroundColor Yellow
-    Write-Host "3. Annuler le déploiement" -ForegroundColor Yellow
-
-    $choice = Read-Host "Votre choix (1-3)"
-
-    switch ($choice) {
-        "1" {
-            Deploy-ConfigFile -sourcePath $mergedModesPath -destinationPath $rooModesPath -configName "modes"
-        }
-        "2" {
-            Merge-Configurations -sourceConfigPath $mergedModesPath -existingConfigPath $rooModesPath -configName "modes"
-        }
-        "3" {
-            Write-Host "Déploiement annulé" -ForegroundColor Yellow
-            exit 0
-        }
-        default {
-            Write-Host "Choix invalide. Déploiement annulé" -ForegroundColor Red
-            exit 1
-        }
-    }
-}
-else {
-    # Si le fichier n'existe pas, le déployer directement
-    Deploy-ConfigFile -sourcePath $mergedModesPath -destinationPath $rooModesPath -configName "modes"
-}
+# Déployer directement en remplaçant le fichier existant
+Deploy-ConfigFile -sourcePath $mergedModesPath -destinationPath $rooModesPath -configName "modes"
 
 # Création d'un fichier de sauvegarde
 $backupPath = Join-Path -Path $rootPath -ChildPath "backup"
