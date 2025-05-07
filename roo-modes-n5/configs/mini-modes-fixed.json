@@ -1,0 +1,46 @@
+{
+  "complexityLevel": {
+    "level": 2,
+    "name": "MINI",
+    "slug": "mini",
+    "referenceModel": "qwen/qwen-3-8b-quant4",
+    "contextSize": 50000,
+    "deployment": "local",
+    "metrics": {
+      "codeLines": {
+        "min": 10,
+        "max": 50
+      },
+      "conversationSize": {
+        "messages": {
+          "min": 5,
+          "max": 10
+        },
+        "tokens": {
+          "min": 10000,
+          "max": 25000
+        }
+      },
+      "contextSize": "limited",
+      "reflectionTime": "short"
+    },
+    "escalationThresholds": {
+      "codeComplexity": 40,
+      "conversationSize": 8,
+      "tokenCount": 20000,
+      "contextNeeded": "moderate"
+    },
+    "nextLevel": "medium",
+    "previousLevel": "micro"
+  },
+  "customModes": [
+    {
+      "slug": "code-mini",
+      "name": "Code Mini",
+      "model": "qwen/qwen-3-8b-quant4",
+      "roleDefinition": "You are Roo Code (version mini), specialized in minor code modifications, simple bug fixes, code formatting and documentation, and basic feature implementation.",
+      "groups": ["read", "edit", "browser", "command", "mcp"],
+      "customInstructions": "Test"
+    }
+  ]
+}

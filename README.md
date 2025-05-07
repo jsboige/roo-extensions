@@ -54,26 +54,21 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 ## Structure du Projet
 
 - `.roomodes` : Configuration des modes personnalisés
-- `custom-modes/` : Documentation et ressources pour les modes personnalisés
-- `optimized-agents/` : Architecture optimisée des agents Roo pour réduire les coûts
-  - `docs/` : Documentation détaillée sur l'architecture
+- `roo-modes/` : Répertoire principal pour les modes personnalisés
+  - `configs/` : Configurations des modes
+  - `docs/` : Documentation conceptuelle et guides
+  - `examples/` : Exemples de configurations
+  - `scripts/` : Scripts de déploiement
+  - `tests/` : Tests pour les modes personnalisés
+- `custom-modes/` : [OBSOLÈTE] Redirigé vers roo-modes
+- `optimized-agents/` : [OBSOLÈTE] Redirigé vers roo-modes
+- `roo-config/` : [OBSOLÈTE] Redirigé vers roo-modes
 - `scheduler/` : Extensions et configurations pour Roo Scheduler
-- `external-mcps/` : Serveurs MCP externes pour étendre les capacités de Roo
-  - `git-mcp/` : Serveur MCP pour interagir avec Git
-  - `github-mcp/` : Serveur MCP pour interagir avec GitHub
-  - `searxng/` : Serveur MCP pour effectuer des recherches web
-  - `win-cli/` : Serveur MCP pour interagir avec le système d'exploitation Windows
-
-## MCP Servers Disponibles
-
-| Serveur | Description | Fonctionnalités principales |
-|---------|-------------|----------------------------|
-| Git MCP | Interaction avec des dépôts Git locaux | Commit, push, pull, branch, status, diff, etc. |
-| GitHub MCP | Interaction avec l'API GitHub | Gestion de dépôts, issues, pull requests, etc. |
-| SearXNG | Recherche web via SearXNG | Recherche web, lecture de contenu d'URL |
-| Win-CLI | Interaction avec Windows | Exécution de commandes, gestion SSH, etc. |
-
-Pour utiliser ces serveurs MCP, assurez-vous qu'ils sont correctement configurés dans le fichier `mcp_settings.json` de Roo.
+<<<<<<< HEAD
+- `external-mcps/` : Configuration et documentation pour les MCPs externes
+=======
+- `external-mcps/` : Configuration et documentation pour les MCPs externes
+>>>>>>> 6bb8c4a8d5ed77761b5c2552312f55a719a7082b
 
 ## Modes Disponibles
 

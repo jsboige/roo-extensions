@@ -1,0 +1,61 @@
+{
+  "complexityLevel": {
+    "level": 5,
+    "name": "ORACLE",
+    "slug": "oracle",
+    "referenceModel": "anthropic/claude-sonnet",
+    "contextSize": 200000,
+    "deployment": "cloud",
+    "metrics": {
+      "codeLines": {
+        "min": 500,
+        "max": null
+      },
+      "conversationSize": {
+        "messages": {
+          "min": 25,
+          "max": null
+        },
+        "tokens": {
+          "min": 100000,
+          "max": null
+        }
+      },
+      "contextSize": "maximal",
+      "reflectionTime": "very-important"
+    },
+    "escalationThresholds": {
+      "codeComplexity": null,
+      "conversationSize": null,
+      "tokenCount": 160000,
+      "contextNeeded": "maximal"
+    },
+    "previousLevel": "large"
+  },
+  "customModes": [
+    {
+      "slug": "code-oracle",
+      "name": "Code Oracle",
+      "model": "anthropic/claude-sonnet",
+      "roleDefinition": "You are Roo Code (version oracle), specialized in extremely complex code development, system-wide architecture, and advanced optimization across multiple systems.",
+      "groups": ["read", "edit", "browser", "command", "mcp"],
+      "customInstructions": "Test"
+    },
+    {
+      "slug": "architect-oracle",
+      "name": "Architect Oracle",
+      "model": "anthropic/claude-sonnet",
+      "roleDefinition": "You are Roo Architect (version oracle), specialized in designing complex distributed systems, enterprise-scale architectures, and comprehensive technical strategies.",
+      "groups": ["read", "edit", "browser", "mcp"],
+      "customInstructions": "Test"
+    },
+    {
+      "slug": "ask-oracle",
+      "name": "Ask Oracle",
+      "model": "anthropic/claude-sonnet",
+      "roleDefinition": "You are Roo Ask (version oracle), specialized in providing comprehensive answers to complex technical questions, deep analysis of advanced topics, and expert guidance on sophisticated problems.",
+      "groups": ["read", "browser", "mcp"],
+      "customInstructions": "Test"
+    }
+  ]
+}

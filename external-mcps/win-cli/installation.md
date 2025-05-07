@@ -112,6 +112,36 @@ Cette configuration garantit :
 - La compatibilité avec les commandes PowerShell, CMD et Git Bash
 - L'accès aux ressources directes via les URI
 
+## Utilisation du script batch run-win-cli.bat
+
+Pour simplifier le démarrage du serveur MCP Win-CLI, un script batch `run-win-cli.bat` est fourni dans le répertoire `external-mcps/win-cli/`. Ce script permet de démarrer le serveur en un seul clic sans avoir à taper la commande complète.
+
+### Contenu du script
+
+Le script `run-win-cli.bat` contient les commandes suivantes :
+
+```batch
+@echo off
+echo Démarrage du serveur MCP Win-CLI...
+npx -y @simonb97/server-win-cli
+```
+
+### Utilisation du script
+
+Pour utiliser le script :
+
+1. Naviguez jusqu'au répertoire `external-mcps/win-cli/` dans l'explorateur de fichiers
+2. Double-cliquez sur le fichier `run-win-cli.bat`
+3. Une fenêtre de terminal s'ouvrira et le serveur MCP Win-CLI démarrera automatiquement
+
+### Création d'un raccourci (optionnel)
+
+Vous pouvez également créer un raccourci vers ce script sur votre bureau ou dans votre barre des tâches pour un accès encore plus rapide :
+
+1. Faites un clic droit sur le fichier `run-win-cli.bat`
+2. Sélectionnez "Créer un raccourci"
+3. Déplacez le raccourci créé vers l'emplacement de votre choix
+
 ## Installation des shells supplémentaires
 
 ### Git Bash
@@ -158,6 +188,45 @@ npm update -g @simonb97/server-win-cli
 # Si installé localement dans un projet
 npm update @simonb97/server-win-cli
 ```
+
+## Vérification et test de l'installation
+
+Après avoir installé et configuré le serveur MCP Win-CLI, il est important de vérifier que tout fonctionne correctement.
+
+### Vérification de l'installation
+
+1. Démarrez le serveur MCP Win-CLI en utilisant l'une des méthodes suivantes :
+   - Via le script batch : double-cliquez sur `run-win-cli.bat`
+   - Via npx : exécutez `npx -y @simonb97/server-win-cli` dans un terminal
+   - Via la commande globale (si installé globalement) : exécutez `win-cli-server` dans un terminal
+
+2. Vérifiez que le serveur démarre correctement et affiche un message de confirmation similaire à :
+   ```
+   MCP Server Win-CLI démarré et en attente de connexions...
+   ```
+
+### Test des fonctionnalités
+
+Pour tester que le serveur fonctionne correctement avec Roo :
+
+1. Assurez-vous que le serveur MCP Win-CLI est en cours d'exécution
+2. Ouvrez VS Code avec l'extension Roo
+3. Dans Roo, essayez d'utiliser l'outil `execute_command` avec une commande simple comme :
+   ```
+   {
+     "shell": "powershell",
+     "command": "Get-Date"
+   }
+   ```
+4. Vérifiez que la commande s'exécute correctement et que le résultat est affiché dans Roo
+
+### Redémarrage de VS Code
+
+Après avoir configuré le serveur MCP Win-CLI dans les paramètres de Roo, il est nécessaire de redémarrer VS Code pour que les changements soient pris en compte :
+
+1. Fermez complètement VS Code
+2. Redémarrez VS Code
+3. Vérifiez que le serveur MCP Win-CLI est connecté en consultant les journaux de Roo ou en essayant d'utiliser l'un des outils fournis par le serveur
 
 ## Désinstallation
 

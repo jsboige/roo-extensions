@@ -1,0 +1,46 @@
+{
+  "complexityLevel": {
+    "level": 3,
+    "name": "MEDIUM",
+    "slug": "medium",
+    "referenceModel": "qwen/qwen-3-32b-quant4",
+    "contextSize": 70000,
+    "deployment": "local",
+    "metrics": {
+      "codeLines": {
+        "min": 50,
+        "max": 200
+      },
+      "conversationSize": {
+        "messages": {
+          "min": 10,
+          "max": 15
+        },
+        "tokens": {
+          "min": 25000,
+          "max": 50000
+        }
+      },
+      "contextSize": "moderate",
+      "reflectionTime": "medium"
+    },
+    "escalationThresholds": {
+      "codeComplexity": 150,
+      "conversationSize": 13,
+      "tokenCount": 40000,
+      "contextNeeded": "extended"
+    },
+    "nextLevel": "large",
+    "previousLevel": "mini"
+  },
+  "customModes": [
+    {
+      "slug": "code-medium",
+      "name": "Code Medium",
+      "model": "qwen/qwen-3-32b-quant4",
+      "roleDefinition": "You are Roo Code (version medium), specialized in code modifications, bug fixes, code formatting and documentation, and feature implementation.",
+      "groups": ["read", "edit", "browser", "command", "mcp"],
+      "customInstructions": "Test"
+    }
+  ]
+}
