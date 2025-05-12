@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "servers": [
+    {
+      "name": "searxng",
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\%USERNAME%\\AppData\\Roaming\\npm\\node_modules\\mcp-searxng\\dist\\index.js"
+      ],
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour effectuer des recherches web via SearXNG",
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      }
+    },
+    {
+      "name": "win-cli",
+      "type": "stdio",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@simonb97/server-win-cli"
+      ],
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour exécuter des commandes CLI sur Windows"
+    }
+  ],
+  "settings": {
+    "autoStartEnabled": true,
+    "connectionTimeout": 30000,
+    "reconnectAttempts": 3,
+    "logLevel": "info"
+  }
+}
