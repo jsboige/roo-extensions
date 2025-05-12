@@ -10,9 +10,11 @@ Le Model Context Protocol (MCP) est un protocole qui permet à Roo de communique
 
 Ce dossier est organisé par serveur MCP :
 
+- `filesystem/` - Documentation pour le serveur MCP Filesystem (accès au système de fichiers)
+- `git/` - Documentation pour le serveur MCP Git (interaction avec GitHub)
+- `github/` - Documentation pour le serveur MCP GitHub (interaction avec GitHub)
 - `searxng/` - Documentation pour le serveur MCP SearXNG (recherche web)
 - `win-cli/` - Documentation pour le serveur MCP Win-CLI (commandes Windows)
-- (D'autres serveurs MCP seront ajoutés au fur et à mesure)
 
 Chaque sous-dossier contient :
 - Un guide d'installation
@@ -21,6 +23,18 @@ Chaque sous-dossier contient :
 - Des notes sur les personnalisations spécifiques
 
 ## Serveurs MCP disponibles
+
+### Filesystem
+
+Le serveur MCP Filesystem permet à Roo d'interagir avec le système de fichiers local. Il offre des fonctionnalités pour lire, écrire, rechercher et manipuler des fichiers et des répertoires sur la machine locale.
+
+### Git
+
+Le serveur MCP Git permet à Roo d'interagir avec l'API GitHub pour effectuer diverses opérations sur les dépôts, les fichiers, les issues et les pull requests. Ce serveur MCP est basé sur le même package que le serveur MCP GitHub, mais il est configuré avec un identifiant différent pour permettre une utilisation distincte.
+
+### GitHub
+
+Le serveur MCP GitHub permet à Roo d'interagir avec l'API GitHub pour effectuer diverses opérations sur les dépôts, les fichiers, les issues et les pull requests. Ce serveur MCP facilite l'intégration de Roo avec GitHub pour la gestion de projets et le développement collaboratif.
 
 ### SearXNG
 

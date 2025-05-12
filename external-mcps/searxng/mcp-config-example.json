@@ -1,20 +1,22 @@
 {
-  "searxng": {
-    "autoApprove": [],
-    "alwaysAllow": [
-      "searxng_web_search",
-      "web_url_read"
-    ],
-    "command": "cmd",
-    "args": [
-      "/c",
-      "node",
-      "C:\\Users\\<username>\\AppData\\Roaming\\npm\\node_modules\\mcp-searxng\\dist\\index.js"
-    ],
-    "transportType": "stdio",
-    "disabled": false,
-    "env": {
-      "SEARXNG_URL": "https://search.myia.io/"
+  "mcpServers": {
+    "searxng": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "searxng_web_search",
+        "web_url_read"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\<username>\\AppData\\Roaming\\npm\\node_modules\\mcp-searxng\\dist\\index.js"
+      ],
+      "transportType": "stdio",
+      "disabled": false,
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      }
     }
   }
 }

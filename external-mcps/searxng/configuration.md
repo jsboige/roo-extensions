@@ -129,17 +129,66 @@ Vous pouvez configurer des limites pour éviter de surcharger les instances Sear
 
 ## Intégration avec Roo
 
-Pour que Roo utilise votre configuration personnalisée, assurez-vous que le serveur MCP SearXNG est correctement configuré dans les paramètres de Roo :
+Pour que Roo utilise votre configuration personnalisée, assurez-vous que le serveur MCP SearXNG est correctement configuré dans les paramètres de Roo. Il existe deux méthodes principales pour configurer le serveur SearXNG dans Roo :
+
+### Méthode 1 : Utilisation de NPX (recommandée pour les débutants)
 
 ```json
 {
-  "name": "searxng",
-  "type": "stdio",
-  "command": "cmd /c mcp-searxng",
-  "enabled": true,
-  "autoStart": true
+  "mcpServers": {
+    "searxng": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "searxng_web_search",
+        "web_url_read"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "mcp-searxng"
+      ],
+      "transportType": "stdio",
+      "disabled": false,
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      }
+    }
+  }
 }
 ```
+
+### Méthode 2 : Utilisation du module installé globalement (plus stable)
+
+Si vous avez installé le module `mcp-searxng` globalement avec `npm install -g mcp-searxng`, utilisez cette configuration :
+
+```json
+{
+  "mcpServers": {
+    "searxng": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "searxng_web_search",
+        "web_url_read"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\<username>\\AppData\\Roaming\\npm\\node_modules\\mcp-searxng\\dist\\index.js"
+      ],
+      "transportType": "stdio",
+      "disabled": false,
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      }
+    }
+  }
+}
+```
+
+> **Important** : Remplacez `<username>` par votre nom d'utilisateur Windows dans le chemin du fichier.
 
 ## Résolution des problèmes
 

@@ -280,7 +280,9 @@ Par exemple : `C:\Users\votre-nom\AppData\Roaming\Code\User\globalStorage\roovet
 
 ### Configuration du serveur Win-CLI dans mcp_settings.json
 
-Voici un exemple de configuration pour le serveur MCP Win-CLI dans le fichier `mcp_settings.json` :
+Voici un exemple de configuration pour le serveur MCP Win-CLI dans le fichier `mcp_settings.json`. Il existe deux méthodes principales pour configurer le serveur Win-CLI dans Roo :
+
+#### Méthode 1 : Utilisation de NPX (recommandée pour les débutants)
 
 ```json
 {
@@ -311,6 +313,41 @@ Voici un exemple de configuration pour le serveur MCP Win-CLI dans le fichier `m
   }
 }
 ```
+
+#### Méthode 2 : Utilisation du module installé globalement (plus stable)
+
+Si vous avez installé le module `@simonb97/server-win-cli` globalement avec `npm install -g @simonb97/server-win-cli`, utilisez cette configuration :
+
+```json
+{
+  "mcpServers": {
+    "win-cli": {
+      "autoApprove": [],
+      "alwaysAllow": [
+        "execute_command",
+        "get_command_history",
+        "ssh_execute",
+        "ssh_disconnect",
+        "create_ssh_connection",
+        "read_ssh_connections",
+        "update_ssh_connection",
+        "delete_ssh_connection",
+        "get_current_directory"
+      ],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "C:\\Users\\<username>\\AppData\\Roaming\\npm\\node_modules\\@simonb97\\server-win-cli\\dist\\index.js"
+      ],
+      "transportType": "stdio",
+      "disabled": false
+    }
+  }
+}
+```
+
+> **Important** : Remplacez `<username>` par votre nom d'utilisateur Windows dans le chemin du fichier.
 
 ### Explication des paramètres
 
