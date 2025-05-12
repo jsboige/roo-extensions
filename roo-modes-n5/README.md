@@ -69,9 +69,18 @@ Une attention particulière est portée au nettoyage des fichiers intermédiaire
 - Suppression de ces fichiers à la fin de chaque tâche
 - Documentation des fichiers conservés dans le rapport final
 
-## Coexistence avec l'Organisation Existante
+## Coexistence avec l'Architecture à 2 Niveaux
 
-Cette nouvelle architecture coexiste harmonieusement avec l'organisation existante dans `roo-modes/`. Les deux systèmes peuvent fonctionner en parallèle, permettant une migration progressive.
+Cette nouvelle architecture à 5 niveaux coexiste harmonieusement avec l'architecture à 2 niveaux (Simple/Complexe) dans `roo-modes/`. Les deux systèmes peuvent fonctionner en parallèle, permettant une migration progressive.
+
+La correspondance approximative entre les deux architectures est la suivante :
+- **MICRO** : Niveau unique à l'architecture n5 (pas d'équivalent direct)
+- **MINI** : Correspond partiellement aux modes "Simple"
+- **MEDIUM** : Correspond partiellement aux modes "Simple"
+- **LARGE** : Correspond partiellement aux modes "Complexe"
+- **ORACLE** : Correspond partiellement aux modes "Complexe"
+
+Pour plus de détails sur la migration depuis l'architecture à 2 niveaux, consultez le document `docs/guide-migration.md`.
 
 ## Déploiement
 
@@ -92,4 +101,13 @@ node tests/test-desescalade.js
 
 ## Documentation
 
-Pour plus d'informations, consultez les documents dans le répertoire `docs/`.
+Pour plus d'informations, consultez les documents dans le répertoire `docs/` :
+
+- `guide-utilisation.md` - Guide d'utilisation détaillé de l'architecture à 5 niveaux
+- `guide-migration.md` - Guide pour migrer depuis l'architecture à 2 niveaux
+- `guide-migration-roo-compatible.md` - Guide pour assurer la compatibilité avec Roo standard
+
+Des documents supplémentaires sur l'architecture à 5 niveaux sont également disponibles dans le répertoire principal `docs/` du projet, notamment :
+- `docs/architecture-orchestration-5-niveaux.md` - Description détaillée de l'architecture
+- `docs/specification-n-niveaux-complexite.md` - Spécifications techniques des niveaux de complexité
+- `docs/guide-escalade-desescalade.md` - Guide sur les mécanismes d'escalade et de désescalade

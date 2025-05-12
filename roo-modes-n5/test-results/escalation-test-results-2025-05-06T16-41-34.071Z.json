@@ -1,0 +1,384 @@
+{
+  "timestamp": "2025-05-06T16:41:34.058Z",
+  "thresholds": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "thresholds": {
+        "codeComplexity": 8,
+        "conversationSize": 4,
+        "tokenCount": 8000,
+        "contextNeeded": "limited"
+      },
+      "valid": true,
+      "errors": []
+    },
+    "mini": {
+      "level": 2,
+      "name": "MINI",
+      "slug": "mini",
+      "thresholds": {
+        "codeComplexity": 40,
+        "conversationSize": 8,
+        "tokenCount": 20000,
+        "contextNeeded": "moderate"
+      },
+      "valid": true,
+      "errors": []
+    },
+    "medium": {
+      "level": 3,
+      "name": "MEDIUM",
+      "slug": "medium",
+      "thresholds": {
+        "codeComplexity": 150,
+        "conversationSize": 13,
+        "tokenCount": 40000,
+        "contextNeeded": "extended"
+      },
+      "valid": true,
+      "errors": []
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "thresholds": {
+        "codeComplexity": 400,
+        "conversationSize": 20,
+        "tokenCount": 80000,
+        "contextNeeded": "maximal"
+      },
+      "valid": true,
+      "errors": []
+    },
+    "oracle": {
+      "level": 5,
+      "name": "ORACLE",
+      "slug": "oracle",
+      "thresholds": {
+        "codeComplexity": null,
+        "conversationSize": null,
+        "tokenCount": 160000,
+        "contextNeeded": "maximal"
+      },
+      "valid": true,
+      "errors": []
+    }
+  },
+  "mechanisms": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "mini": {
+      "level": 2,
+      "name": "MINI",
+      "slug": "mini",
+      "valid": false,
+      "errors": [
+        "Mode code-mini : Mécanisme d'escalade manquant",
+        "Mode code-mini : Formats d'escalade manquants"
+      ],
+      "warnings": [
+        "Mode code-mini : Critères d'escalade potentiellement manquants ou mal formatés",
+        "Mode code-mini : Processus d'évaluation continue potentiellement manquant"
+      ]
+    },
+    "medium": {
+      "level": 3,
+      "name": "MEDIUM",
+      "slug": "medium",
+      "valid": false,
+      "errors": [
+        "Mode code-medium : Mécanisme d'escalade manquant",
+        "Mode code-medium : Formats d'escalade manquants"
+      ],
+      "warnings": [
+        "Mode code-medium : Critères d'escalade potentiellement manquants ou mal formatés",
+        "Mode code-medium : Processus d'évaluation continue potentiellement manquant"
+      ]
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "oracle": {
+      "level": 5,
+      "name": "ORACLE",
+      "slug": "oracle",
+      "valid": false,
+      "errors": [
+        "Mode code-oracle : Mécanisme d'escalade manquant",
+        "Mode code-oracle : Formats d'escalade manquants",
+        "Mode architect-oracle : Mécanisme d'escalade manquant",
+        "Mode architect-oracle : Formats d'escalade manquants",
+        "Mode ask-oracle : Mécanisme d'escalade manquant",
+        "Mode ask-oracle : Formats d'escalade manquants"
+      ],
+      "warnings": [
+        "Mode code-oracle : Critères d'escalade potentiellement manquants ou mal formatés",
+        "Mode code-oracle : Processus d'évaluation continue potentiellement manquant",
+        "Mode architect-oracle : Critères d'escalade potentiellement manquants ou mal formatés",
+        "Mode architect-oracle : Processus d'évaluation continue potentiellement manquant",
+        "Mode ask-oracle : Critères d'escalade potentiellement manquants ou mal formatés",
+        "Mode ask-oracle : Processus d'évaluation continue potentiellement manquant"
+      ]
+    }
+  },
+  "scenarios": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 18,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 6,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 13000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": true,
+          "passed": false
+        }
+      ],
+      "valid": false
+    },
+    "mini": {
+      "level": 2,
+      "name": "MINI",
+      "slug": "mini",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 10,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 25000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "medium": {
+      "level": 3,
+      "name": "MEDIUM",
+      "slug": "medium",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 160,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 15,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 45000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 410,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 22,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 85000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "oracle": {
+      "level": 5,
+      "name": "ORACLE",
+      "slug": "oracle",
+      "scenarios": [
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 165000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    }
+  },
+  "summary": {
+    "total": 18,
+    "passed": 24,
+    "failed": 4,
+    "warnings": 10
+  }
+}

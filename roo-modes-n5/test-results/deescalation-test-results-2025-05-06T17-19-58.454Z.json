@@ -1,0 +1,327 @@
+{
+  "timestamp": "2025-05-06T17:19:58.432Z",
+  "mechanisms": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Niveau MICRO : pas de désescalade possible (niveau le plus bas)"
+      ]
+    },
+    "mini": {
+      "level": 2,
+      "name": "MINI",
+      "slug": "mini",
+      "valid": false,
+      "errors": [
+        "Mode code-mini : Mécanisme de désescalade manquant",
+        "Mode code-mini : Format de désescalade manquant",
+        "Mode debug-mini : Mécanisme de désescalade manquant",
+        "Mode debug-mini : Format de désescalade manquant",
+        "Mode architect-mini : Mécanisme de désescalade manquant",
+        "Mode architect-mini : Format de désescalade manquant",
+        "Mode ask-mini : Mécanisme de désescalade manquant",
+        "Mode ask-mini : Format de désescalade manquant",
+        "Mode orchestrator-mini : Mécanisme de désescalade manquant",
+        "Mode orchestrator-mini : Format de désescalade manquant"
+      ],
+      "warnings": [
+        "Mode code-mini : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode code-mini : Référence au niveau précédent (MICRO) potentiellement manquante",
+        "Mode debug-mini : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode debug-mini : Référence au niveau précédent (MICRO) potentiellement manquante",
+        "Mode architect-mini : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode architect-mini : Référence au niveau précédent (MICRO) potentiellement manquante",
+        "Mode ask-mini : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode ask-mini : Référence au niveau précédent (MICRO) potentiellement manquante",
+        "Mode orchestrator-mini : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode orchestrator-mini : Référence au niveau précédent (MICRO) potentiellement manquante"
+      ]
+    },
+    "medium": {
+      "level": 3,
+      "name": "MEDIUM",
+      "slug": "medium",
+      "valid": false,
+      "errors": [
+        "Mode code-medium : Mécanisme de désescalade manquant",
+        "Mode code-medium : Format de désescalade manquant"
+      ],
+      "warnings": [
+        "Mode code-medium : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode code-medium : Référence au niveau précédent (MINI) potentiellement manquante"
+      ]
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "valid": false,
+      "errors": [
+        "Mode code-large : Mécanisme de désescalade manquant",
+        "Mode code-large : Format de désescalade manquant"
+      ],
+      "warnings": [
+        "Mode code-large : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode code-large : Référence au niveau précédent (MEDIUM) potentiellement manquante"
+      ]
+    },
+    "oracle": {
+      "level": 5,
+      "name": "ORACLE",
+      "slug": "oracle",
+      "valid": true,
+      "errors": [],
+      "warnings": [
+        "Mode code-oracle : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode code-oracle : Référence au niveau précédent (LARGE) potentiellement manquante",
+        "Mode architect-oracle : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode architect-oracle : Référence au niveau précédent (LARGE) potentiellement manquante",
+        "Mode debug-oracle : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode debug-oracle : Référence au niveau précédent (LARGE) potentiellement manquante",
+        "Mode ask-oracle : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode ask-oracle : Référence au niveau précédent (LARGE) potentiellement manquante",
+        "Mode orchestrator-oracle : Critères de désescalade potentiellement manquants ou mal formatés",
+        "Mode orchestrator-oracle : Référence au niveau précédent (LARGE) potentiellement manquante"
+      ]
+    }
+  },
+  "scenarios": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "scenarios": [
+        {
+          "name": "Pas de désescalade (niveau le plus bas)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedDeescalation": false,
+          "actualDeescalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "mini": {
+      "level": 2,
+      "name": "MINI",
+      "slug": "mini",
+      "scenarios": [
+        {
+          "name": "Désescalade par complexité de code",
+          "input": {
+            "codeComplexity": 0,
+            "conversationSize": 20,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par taille de conversation",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 3,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 20,
+            "tokenCount": 5000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas de désescalade (au-dessus des seuils)",
+          "input": {
+            "codeComplexity": 1000,
+            "conversationSize": 30,
+            "tokenCount": 100000
+          },
+          "expectedDeescalation": false,
+          "actualDeescalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "medium": {
+      "level": 3,
+      "name": "MEDIUM",
+      "slug": "medium",
+      "scenarios": [
+        {
+          "name": "Désescalade par complexité de code",
+          "input": {
+            "codeComplexity": 40,
+            "conversationSize": 20,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par taille de conversation",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 8,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 20,
+            "tokenCount": 20000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas de désescalade (au-dessus des seuils)",
+          "input": {
+            "codeComplexity": 1000,
+            "conversationSize": 30,
+            "tokenCount": 100000
+          },
+          "expectedDeescalation": false,
+          "actualDeescalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "scenarios": [
+        {
+          "name": "Désescalade par complexité de code",
+          "input": {
+            "codeComplexity": 190,
+            "conversationSize": 20,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par taille de conversation",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 13,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 20,
+            "tokenCount": 45000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas de désescalade (au-dessus des seuils)",
+          "input": {
+            "codeComplexity": 1000,
+            "conversationSize": 30,
+            "tokenCount": 100000
+          },
+          "expectedDeescalation": false,
+          "actualDeescalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    },
+    "oracle": {
+      "level": 5,
+      "name": "ORACLE",
+      "slug": "oracle",
+      "scenarios": [
+        {
+          "name": "Désescalade par complexité de code",
+          "input": {
+            "codeComplexity": 490,
+            "conversationSize": 20,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par taille de conversation",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 18,
+            "tokenCount": 50000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Désescalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 300,
+            "conversationSize": 20,
+            "tokenCount": 95000
+          },
+          "expectedDeescalation": true,
+          "actualDeescalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas de désescalade (au-dessus des seuils)",
+          "input": {
+            "codeComplexity": 1000,
+            "conversationSize": 30,
+            "tokenCount": 100000
+          },
+          "expectedDeescalation": false,
+          "actualDeescalation": true,
+          "passed": false
+        }
+      ],
+      "valid": false
+    }
+  },
+  "summary": {
+    "total": 17,
+    "passed": 18,
+    "failed": 4,
+    "warnings": 25
+  }
+}

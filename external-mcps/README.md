@@ -1,6 +1,6 @@
 # MCPs Externes pour Roo
 
-Ce dossier contient la documentation et les instructions pour l'installation et la configuration des serveurs MCP (Model Context Protocol) externes utilisés avec Roo.
+Ce dossier contient la documentation et les instructions pour l'installation et la configuration des serveurs MCP (Model Context Protocol) externes utilisés avec Roo. Ces MCPs sont pleinement intégrés dans l'architecture à 5 niveaux (n5) et optimisés pour chaque niveau de complexité.
 
 ## Qu'est-ce qu'un MCP ?
 
@@ -26,9 +26,26 @@ Chaque sous-dossier contient :
 
 SearXNG est un métamoteur de recherche qui permet d'effectuer des recherches web via différents moteurs de recherche. Le serveur MCP SearXNG permet à Roo d'effectuer des recherches web et d'accéder aux résultats.
 
+**Intégration avec l'architecture n5** :
+- Utilisé prioritairement dans les niveaux MEDIUM à ORACLE
+- Optimisé pour la recherche d'informations contextuelles
+- Permet de réduire la consommation de tokens en fournissant des informations ciblées
+
 ### Win-CLI
 
 Win-CLI est un serveur MCP qui permet à Roo d'exécuter des commandes dans différents shells Windows (PowerShell, CMD, Git Bash). Il offre également des fonctionnalités pour la gestion des connexions SSH.
+
+**Intégration avec l'architecture n5** :
+- Utilisé dans tous les niveaux de complexité
+- Prioritaire par rapport aux outils standards de terminal
+- Optimisé pour l'exécution efficace de commandes système
+- Permet une meilleure gestion des ressources système
+
+### Autres MCPs en développement
+
+D'autres serveurs MCP sont en cours de développement pour étendre davantage les capacités de Roo dans l'architecture à 5 niveaux :
+- **QuickFiles** - Pour la manipulation efficace de fichiers
+- **JinaNavigator** - Pour la navigation et l'extraction de contenu web
 
 ## Comment ajouter un nouveau serveur MCP
 
@@ -44,3 +61,13 @@ Pour ajouter un nouveau serveur MCP à cette documentation :
 ## Contribution
 
 N'hésitez pas à contribuer à cette documentation en ajoutant de nouveaux serveurs MCP ou en améliorant la documentation existante.
+
+## Utilisation dans l'architecture à 5 niveaux
+
+Pour plus d'informations sur l'utilisation optimale des MCPs dans l'architecture à 5 niveaux, consultez le document `docs/guide-utilisation-mcps.md` à la racine du projet.
+
+Ce guide détaille :
+- La stratégie d'utilisation des MCPs selon le niveau de complexité
+- Les bonnes pratiques pour optimiser les performances
+- Les cas d'usage recommandés pour chaque MCP
+- Les exemples d'intégration dans différents scénarios

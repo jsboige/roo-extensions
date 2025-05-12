@@ -1,6 +1,8 @@
-# Roo Modes
+# Roo Modes (Architecture à 2 Niveaux)
 
-Ce répertoire contient tout ce qui concerne les modes personnalisés pour Roo.
+Ce répertoire contient tout ce qui concerne les modes personnalisés pour Roo dans l'architecture à 2 niveaux (Simple/Complexe).
+
+> **Note** : Cette architecture coexiste avec la nouvelle architecture à 5 niveaux (n5) implémentée dans le répertoire `roo-modes-n5/`. Pour les nouveaux développements, il est recommandé d'utiliser l'architecture à 5 niveaux.
 
 ## Structure du répertoire
 
@@ -30,7 +32,15 @@ roo-modes/
 
 ### Configuration des modes
 
-Les modes sont configurés dans le fichier `configs/standard-modes.json`. Ce fichier contient la définition de tous les modes standard disponibles dans Roo.
+Les modes sont configurés dans le fichier `configs/standard-modes.json`. Ce fichier contient la définition de tous les modes standard disponibles dans Roo, organisés selon l'architecture à 2 niveaux (Simple/Complexe).
+
+### Relation avec l'architecture à 5 niveaux
+
+Cette architecture à 2 niveaux peut être considérée comme une version simplifiée de l'architecture à 5 niveaux, où :
+- Les modes "Simple" correspondent approximativement aux niveaux MINI et MEDIUM
+- Les modes "Complexe" correspondent approximativement aux niveaux LARGE et ORACLE
+
+Pour une granularité plus fine et une meilleure optimisation des ressources, consultez l'architecture à 5 niveaux dans le répertoire `roo-modes-n5/`.
 
 ### Déploiement des modes
 

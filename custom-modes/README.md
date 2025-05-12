@@ -1,12 +1,18 @@
-# Architecture des Modes Personnalisés Roo
+# [OBSOLÈTE] Architecture des Modes Personnalisés Roo
 
-Ce projet vise à concevoir une architecture optimisée pour les modes personnalisés Roo qui améliore l'efficacité tout en optimisant les coûts sans perdre en qualité.
+> **IMPORTANT** : Ce répertoire est obsolète et maintenu uniquement pour référence historique. Pour les modes personnalisés, veuillez utiliser :
+> - `roo-modes/` pour l'architecture à 2 niveaux (Simple/Complexe)
+> - `roo-modes-n5/` pour la nouvelle architecture à 5 niveaux de complexité
+
+Ce projet visait à concevoir une architecture optimisée pour les modes personnalisés Roo qui améliore l'efficacité tout en optimisant les coûts sans perdre en qualité.
 
 ## Contexte
 
 Actuellement, tous les agents Roo (orchestrator, code, debug, architect, ask) utilisent Claude Sonnet, un modèle performant mais coûteux. L'objectif est d'utiliser des modèles locaux ou moins coûteux pour certaines tâches ou sous-tâches, tout en conservant Claude Sonnet pour les tâches complexes nécessitant ses capacités avancées.
 
 ## Architecture à Deux Niveaux (Simple/Complexe)
+
+> **Note** : Cette architecture à 2 niveaux a été remplacée par l'architecture à 5 niveaux (n5) qui offre une granularité plus fine et une meilleure optimisation des ressources. Voir `roo-modes-n5/` pour la nouvelle implémentation.
 
 L'architecture à deux niveaux dédouble chaque profil d'agent en versions "simple" et "complexe" pour optimiser les coûts tout en maintenant la qualité des résultats.
 
@@ -78,3 +84,17 @@ Pour plus d'informations sur l'architecture et l'implémentation des modes perso
 
 - [Templates](./templates/) - Modèles pour créer de nouveaux modes personnalisés
 - [Examples](./examples/) - Exemples de modes personnalisés
+
+## Migration vers l'Architecture à 5 Niveaux
+
+Pour migrer de cette architecture à 2 niveaux vers la nouvelle architecture à 5 niveaux, consultez les ressources suivantes :
+
+- [Architecture d'Orchestration à 5 Niveaux](../docs/architecture-orchestration-5-niveaux.md)
+- [Spécification des Niveaux de Complexité](../docs/specification-n-niveaux-complexite.md)
+- [Guide de Migration](../roo-modes-n5/docs/guide-migration.md)
+
+L'architecture à 5 niveaux offre plusieurs avantages par rapport à cette architecture à 2 niveaux :
+- Granularité plus fine pour une meilleure adaptation aux tâches
+- Mécanismes d'escalade et de désescalade plus sophistiqués
+- Utilisation optimisée des MCPs externes
+- Meilleure gestion des ressources et des coûts
