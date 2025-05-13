@@ -19,24 +19,23 @@ Le projet implémente une architecture innovante qui organise les profils d'agen
 
 3. **MEDIUM** : Utilise des modèles intermédiaires pour les tâches de complexité moyenne
    - Développement de fonctionnalités
-   - Débogage standard
-   - Documentation technique
+   - Refactoring modéré
+   - Analyse de code
+   - Explications techniques
 
 4. **LARGE** : Utilise des modèles avancés pour les tâches complexes
-   - Refactoring important
-   - Conception de composants
+   - Architecture de systèmes
+   - Refactoring majeur
+   - Optimisation de performance
    - Analyses détaillées
 
 5. **ORACLE** : Utilise les modèles les plus puissants pour les tâches très complexes
-   - Refactoring majeur
-   - Conception d'architecture
-   - Optimisation de performance
-   - Analyses approfondies
-   - Problèmes complexes
+   - Conception de systèmes distribués
+   - Optimisation avancée
+   - Synthèse de recherche
+   - Analyses multi-domaines
 
-Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats, en dirigeant chaque tâche vers le modèle le plus approprié selon sa complexité. L'architecture inclut également des mécanismes d'escalade et de désescalade pour passer d'un niveau à l'autre selon l'évolution de la complexité des tâches.
-
-## Installation et Utilisation
+Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats.
 
 ### Prérequis
 
@@ -62,7 +61,7 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
 
 3. Redémarrez Roo pour appliquer les nouveaux modes.
 
-### Utilisation
+## Utilisation
 
 Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être sélectionnés comme n'importe quel autre mode.
 
@@ -114,11 +113,11 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 
 ## Modes Disponibles
 
-| Mode | MICRO | MINI | MEDIUM | LARGE | ORACLE |
+| Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
 |------|-------|------|--------|-------|--------|
-| Code | Modifications très simples | Modifications mineures | Développement standard | Refactoring important | Architecture complète |
-| Debug | Erreurs évidentes | Bugs simples | Débogage standard | Bugs complexes | Problèmes système |
-| Architect | Diagrammes simples | Documentation basique | Conception de composants | Conception système | Migrations complexes |
+| Code | Modifications minimes | Bugs simples | Développement de fonctionnalités | Refactoring majeur | Conception de systèmes |
+| Debug | Erreurs simples | Bugs isolés | Problèmes modérés | Bugs complexes | Problèmes systémiques |
+| Architect | Suggestions rapides | Conseils simples | Conception de modules | Architecture de systèmes | Conception distribuée |
 | Ask | Réponses courtes | Questions factuelles | Explications techniques | Analyses détaillées | Synthèses complexes |
 | Orchestrator | Tâches unitaires | Délégation simple | Coordination standard | Coordination avancée | Orchestration complexe |
 
@@ -144,13 +143,13 @@ Pour utiliser les modèles Qwen 3, consultez la documentation dans `roo-config/q
 
 Le projet intègre plusieurs serveurs MCP (Model Context Protocol) externes pour étendre les capacités de Roo :
 
-- **SearXNG** : Permet d'effectuer des recherches web via différents moteurs de recherche
-  - Recherche d'informations en ligne
-  - Accès à des contenus web récents
-  - Extraction d'informations de pages web
+- **SearXNG** : Permet d'effectuer des recherches web
+  - Recherche multi-moteurs
+  - Filtrage par date et type de contenu
+  - Extraction de contenu web
 
-- **Win-CLI** : Permet d'exécuter des commandes dans différents shells Windows
-  - Exécution de commandes PowerShell, CMD, Git Bash
+- **Win-CLI** : Permet d'exécuter des commandes système
+  - Exécution de commandes PowerShell, CMD et Git Bash
   - Gestion des connexions SSH
   - Accès aux fonctionnalités système
 
@@ -168,12 +167,18 @@ Pour plus d'informations sur l'utilisation des MCPs, consultez le répertoire `m
 
 ## Contribution
 
-Les contributions sont les bienvenues ! Pour contribuer :
+Les contributions sont les bienvenues ! Voici comment contribuer :
 
 1. Forkez le dépôt
-2. Créez une branche pour votre fonctionnalité
-3. Soumettez une pull request
+2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/amazing-feature`)
+3. Committez vos changements (`git commit -m 'Add some amazing feature'`)
+4. Poussez vers la branche (`git push origin feature/amazing-feature`)
+5. Ouvrez une Pull Request
+
+## Note sur l'encodage des fichiers
+
+**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
 
 ## Licence
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
+Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
