@@ -9,7 +9,7 @@ Ce document présente la nouvelle structure de configuration de Roo, mise en pla
 La configuration de Roo est désormais organisée en deux répertoires distincts :
 
 1. **roo-modes** : Contient les configurations spécifiques aux modes personnalisés
-2. **roo-settings** : Contient les configurations générales de Roo
+2. **roo-config/settings** : Contient les configurations générales de Roo
 
 Cette séparation permet une meilleure organisation et une gestion plus claire des différents aspects de la configuration.
 
@@ -21,7 +21,7 @@ roo-extensions/
 │   ├── deploy-modes.ps1     # Script de déploiement des modes
 │   └── README.md            # Documentation des modes
 │
-└── roo-settings/            # Configurations générales
+└── roo-config/settings/            # Configurations générales
     ├── settings.json        # Fichier de configuration générale
     ├── deploy-settings.ps1  # Script de déploiement des paramètres
     └── README.md            # Documentation des paramètres généraux
@@ -39,7 +39,7 @@ Les configurations des modes définissent les modes personnalisés disponibles d
 - **Localement** : Pour un projet spécifique
   - Emplacement : `.roomodes` à la racine du projet
 
-### 2. Configurations générales (roo-settings)
+### 2. Configurations générales (roo-config/settings)
 
 Les configurations générales définissent les paramètres globaux de Roo, indépendamment des modes personnalisés. Ces configurations incluent :
 
@@ -80,13 +80,13 @@ Exemples :
 Le script `deploy-settings.ps1` permet de déployer les configurations générales :
 
 ```powershell
-.\roo-settings\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
+.\roo-config/settings\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
 ```
 
 Exemple :
 ```powershell
 # Déploiement de la configuration générale
-.\roo-settings\deploy-settings.ps1
+.\roo-config/settings\deploy-settings.ps1
 ```
 
 ## Flux de déploiement
@@ -116,4 +116,4 @@ sequenceDiagram
 Pour plus d'informations sur chaque type de configuration, consultez les documents suivants :
 
 - [Documentation des modes personnalisés](./roo-modes/README.md)
-- [Documentation des configurations générales](./roo-settings/README.md)
+- [Documentation des configurations générales](./roo-config/settings/README.md)

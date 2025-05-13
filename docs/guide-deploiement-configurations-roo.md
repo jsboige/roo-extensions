@@ -7,7 +7,7 @@ Ce guide détaille les procédures de déploiement pour les différentes configu
 Suite à la restructuration, Roo utilise désormais deux types de configurations distincts :
 
 1. **Configurations des modes personnalisés** (répertoire `roo-modes`)
-2. **Configurations générales** (répertoire `roo-settings`)
+2. **Configurations générales** (répertoire `roo-config/settings`)
 
 Chaque type de configuration dispose de son propre script de déploiement et de ses propres emplacements de destination.
 
@@ -85,11 +85,11 @@ Les configurations générales sont déployées à un emplacement spécifique se
 2. **Exécutez le script de déploiement** avec les paramètres appropriés :
 
    ```powershell
-   .\roo-settings\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
+   .\roo-config/settings\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
    ```
 
    Paramètres :
-   - `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-settings/`)
+   - `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-config/settings/`)
      - Par défaut : `settings.json`
    - `-Force` : Force le remplacement du fichier de destination sans demander de confirmation
 
@@ -105,10 +105,10 @@ Les configurations générales sont déployées à un emplacement spécifique se
 
 ```powershell
 # Déploiement de la configuration générale standard
-.\roo-settings\deploy-settings.ps1
+.\roo-config/settings\deploy-settings.ps1
 
 # Déploiement d'une configuration personnalisée sans confirmation
-.\roo-settings\deploy-settings.ps1 -ConfigFile ma-config.json -Force
+.\roo-config/settings\deploy-settings.ps1 -ConfigFile ma-config.json -Force
 ```
 
 ## Scénarios de déploiement courants
@@ -122,7 +122,7 @@ Pour configurer Roo sur une nouvelle machine, vous devez déployer à la fois le
 .\roo-modes\deploy-modes.ps1
 
 # Déployer la configuration générale
-.\roo-settings\deploy-settings.ps1
+.\roo-config/settings\deploy-settings.ps1
 ```
 
 Ensuite, ajoutez manuellement vos clés d'API et autres informations sensibles au fichier de configuration générale.
@@ -147,7 +147,7 @@ Pour mettre à jour les configurations après des modifications :
 .\roo-modes\deploy-modes.ps1 [-DeploymentType <global|local>]
 
 # Mettre à jour la configuration générale
-.\roo-settings\deploy-settings.ps1
+.\roo-config/settings\deploy-settings.ps1
 ```
 
 ## Dépannage
@@ -195,5 +195,5 @@ Ce guide vous a présenté les procédures de déploiement pour les différentes
 
 Pour plus d'informations sur les configurations spécifiques, consultez :
 - [Documentation des modes personnalisés](./roo-modes/README.md)
-- [Documentation des configurations générales](./roo-settings/README.md)
+- [Documentation des configurations générales](./roo-config/settings/README.md)
 - [Documentation de la structure globale](./documentation-structure-configuration-roo.md)

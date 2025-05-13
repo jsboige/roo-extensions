@@ -1,0 +1,81 @@
+{
+  "qwen3_profiles": {
+    "qwen3_0.6b": {
+      "model": "Qwen/Qwen3-0.6B-Base",
+      "description": "Modèle dense de 0.6B paramètres, idéal pour les tâches légères et les appareils à ressources limitées",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_4b": {
+      "model": "Qwen/Qwen3-4B-Base",
+      "description": "Modèle dense de 4B paramètres, bon équilibre entre performance et ressources requises",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_14b": {
+      "model": "Qwen/Qwen3-14B-Base",
+      "description": "Modèle dense de 14B paramètres, performances avancées pour la plupart des tâches",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_32b": {
+      "model": "Qwen/Qwen3-32B-Base",
+      "description": "Modèle dense de 32B paramètres, haute performance pour les tâches complexes",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_30b_a3b": {
+      "model": "Qwen/Qwen3-30B-A3B",
+      "description": "Modèle MoE de 30B paramètres (3B actifs), excellent rapport performance/ressources",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_235b_a22b": {
+      "model": "Qwen/Qwen3-235B-A22B",
+      "description": "Modèle MoE phare de 235B paramètres (22B actifs), performances de pointe",
+      "parameters": {
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "top_k": 40,
+        "min_p": 0.05,
+        "presence_penalty": 0
+      }
+    },
+    "qwen3_thinking_mode": {
+      "description": "Paramètres optimaux pour le mode 'thinking' de Qwen 3",
+      "parameters": {
+        "temperature": 0.6,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0,
+        "presence_penalty": 1.5,
+        "enable_thinking": true
+      }
+    }
+  }
+}

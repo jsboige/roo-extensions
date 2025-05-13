@@ -623,7 +623,7 @@ flowchart TD
       "micro": 9000,
       "mini": 22500,
       "medium": 45000,
-      "large": 90000,
+      "large": 50000,
       "oracle": 180000
     }
   },

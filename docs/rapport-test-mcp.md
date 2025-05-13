@@ -72,9 +72,9 @@ Le MCP quickfiles permet de manipuler plusieurs fichiers simultanément, ce qui 
  * <arguments>
  * {
  *   "paths": [
- *     "./test-mcp-structure/data/test-file-1.txt",
- *     "./test-mcp-structure/data/test-file-2.txt",
- *     "./test-mcp-structure/data/test-file-3.txt"
+ *     "./tests/mcp-structure/data/test-file-1.txt",
+ *     "./tests/mcp-structure/data/test-file-2.txt",
+ *     "./tests/mcp-structure/data/test-file-3.txt"
  *   ],
  *   "show_line_numbers": true
  * }
@@ -141,7 +141,7 @@ Pour exécuter les tests, suivez ces étapes:
 
 2. Vérifiez que la structure de répertoires et les fichiers ont été créés correctement:
    ```powershell
-   Get-ChildItem -Path .\test-mcp-structure -Recurse
+   Get-ChildItem -Path .\tests/mcp-structure -Recurse
    ```
 
 3. Exécutez le script JavaScript pour tester les MCPs:
@@ -183,7 +183,7 @@ Les fichiers créés (`test-mcp-powershell.ps1` et `test-mcp.js`) peuvent servir
 - Le contenu de chaque fichier a été correctement formaté
 
 ```
-## Fichier: ./test-mcp-structure/data/test-file-1.txt
+## Fichier: ./tests/mcp-structure/data/test-file-1.txt
 1 | # Fichier de test impair (test-file-1.txt)
 ...
 ```
@@ -195,7 +195,7 @@ Les fichiers créés (`test-mcp-powershell.ps1` et `test-mcp.js`) peuvent servir
 - La structure hiérarchique a été correctement représentée
 
 ```
-## Répertoire: ./test-mcp-structure
+## Répertoire: ./tests/mcp-structure
 📁 config/
   📄 settings.json - 336 B (14 lignes)
 ...
