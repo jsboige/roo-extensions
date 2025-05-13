@@ -41,6 +41,116 @@ Le serveur MCP Win-CLI fournit également des ressources directes accessibles vi
 2. **ssh://config** - Toutes les configurations de connexion SSH
 3. **cli://config** - La configuration principale du serveur CLI (sans les données sensibles)
 
+## Prérequis
+
+- Node.js (version 14 ou supérieure)
+- npm (généralement installé avec Node.js)
+- Windows 10 ou 11
+- PowerShell, CMD ou Git Bash installé (selon les shells que vous souhaitez utiliser)
+- Pour les fonctionnalités SSH : OpenSSH Client installé
+
+## Installation
+
+Consultez le fichier [installation.md](./installation.md) pour les instructions détaillées d'installation.
+
+## Configuration dans Roo
+
+### ⚠️ Points importants à noter
+
+1. **Nom du serveur** : Utilisez un nom simple comme "win-cli" plutôt qu'un chemin GitHub complet pour éviter les problèmes de configuration.
+2. **Évitez le suffixe "-global"** : N'ajoutez pas "-global" au nom du serveur, car cela peut causer des problèmes de reconnaissance.
+3. **Chemins absolus** : Utilisez des chemins absolus pour les fichiers, pas des variables d'environnement comme `%APPDATA%`.
+4. **Sécurité** : Soyez prudent avec les commandes exécutées, car elles s'exécutent avec les mêmes privilèges que VS Code.
+
+### Configuration recommandée (utilisant le script batch)
+
+```json
+{
+  "win-cli": {
+    "command": "cmd",
+    "args": [
+      "/c",
+      "D:\\chemin\\vers\\external-mcps\\win-cli\\run-win-cli.bat"
+    ],
+    "disabled": false,
+    "autoApprove": [],
+    "alwaysAllow": [
+      "execute_command",
+      "get_command_history",
+      "get_current_directory"
+    ],
+    "transportType": "stdio"
+  }
+}
+```
+
+### Configuration alternative (exécution directe)
+
+Si vous rencontrez des problèmes avec le script batch, vous pouvez utiliser cette configuration alternative qui exécute directement le fichier JavaScript du serveur :
+
+```json
+{
+  "win-cli": {
+    "command": "cmd",
+    "args": [
+      "/c",
+      "node",
+      "C:\\Users\\<username>\\AppData\\Roaming\\npm\\node_modules\\@simonb97\\server-win-cli\\dist\\index.js"
+    ],
+    "disabled": false,
+    "autoApprove": [],
+    "alwaysAllow": [
+      "execute_command",
+      "get_command_history",
+      "get_current_directory"
+    ],
+    "transportType": "stdio"
+  }
+}
+```
+
+> **Important** : Remplacez `<username>` par votre nom d'utilisateur Windows.
+
+## Utilisation
+
+Consultez le fichier [exemples.md](./exemples.md) pour des exemples concrets d'utilisation du serveur MCP Win-CLI avec Roo.
+
+### Exemples rapides
+
+#### Exécuter une commande PowerShell
+
+```
+use_mcp_tool
+server_name: win-cli
+tool_name: execute_command
+arguments: {
+  "command": "Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 5",
+  "shell": "powershell"
+}
+```
+
+#### Exécuter une commande CMD
+
+```
+use_mcp_tool
+server_name: win-cli
+tool_name: execute_command
+arguments: {
+  "command": "dir /b /s *.json",
+  "shell": "cmd",
+  "cwd": "D:\\mon\\projet"
+}
+```
+
+#### Obtenir l'historique des commandes
+
+```
+use_mcp_tool
+server_name: win-cli
+tool_name: get_command_history
+arguments: {}
+```
+
 ## Fonctionnalités optimales et limitations
 
 ### Ce qui fonctionne bien
@@ -55,6 +165,34 @@ Le serveur MCP Win-CLI fournit également des ressources directes accessibles vi
 - **Séparateurs de commandes** : Seul le séparateur `;` est pleinement supporté dans la configuration par défaut
 - **Performances** : Les commandes générant une sortie volumineuse peuvent ralentir le serveur
 
+## Résolution des problèmes
+
+### Le serveur ne démarre pas
+
+- Vérifiez que Node.js est correctement installé : `node --version`
+- Vérifiez que npm est correctement installé : `npm --version`
+- Essayez d'installer le package globalement : `npm install -g @simonb97/server-win-cli`
+- Vérifiez les journaux d'erreur dans la console
+
+### Problèmes d'exécution des commandes
+
+1. **Problème** : Erreur "Command not found" ou "Command failed"
+   **Solution** : Vérifiez que la commande existe dans le shell spécifié et que vous avez les permissions nécessaires pour l'exécuter.
+
+2. **Problème** : Commande bloquée ou sans réponse
+   **Solution** : Évitez les commandes interactives qui attendent une entrée utilisateur. Utilisez des flags pour rendre les commandes non-interactives (ex: `-y`, `-force`, etc.).
+
+3. **Problème** : Erreur avec les chemins de fichiers
+   **Solution** : Utilisez des chemins absolus et doublez les barres obliques inverses (`\\`) dans les chemins Windows.
+
+### Problèmes de configuration dans Roo
+
+1. **Problème** : Erreur "Server not found" ou "Tool not found"
+   **Solution** : Assurez-vous que le nom du serveur dans la configuration est simple (ex: "win-cli") et non un chemin complet.
+
+2. **Problème** : Erreur "Command not found"
+   **Solution** : Vérifiez que le chemin vers la commande est correct et que le package est installé.
+
 ## Structure du dossier
 
 - `README.md` - Ce fichier d'introduction
@@ -68,3 +206,5 @@ Le serveur MCP Win-CLI fournit également des ressources directes accessibles vi
 
 - [Dépôt GitHub de Win-CLI MCP](https://github.com/simonb97/server-win-cli)
 - [Documentation NPM](https://www.npmjs.com/package/@simonb97/server-win-cli)
+- [Documentation PowerShell](https://docs.microsoft.com/fr-fr/powershell/)
+- [Documentation CMD](https://docs.microsoft.com/fr-fr/windows-server/administration/windows-commands/windows-commands)

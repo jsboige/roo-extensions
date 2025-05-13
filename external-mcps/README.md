@@ -25,6 +25,58 @@ Chaque sous-dossier contient :
 - Des exemples d'utilisation
 - Des notes sur les personnalisations spécifiques
 
+## Pièges courants à éviter lors de la configuration des MCPs
+
+### 1. Problèmes de nommage des serveurs
+
+#### ⚠️ Évitez les noms de serveurs avec chemins complets
+
+**Problème** : Utiliser des noms de serveurs avec des chemins GitHub complets comme `github.com/modelcontextprotocol/servers/tree/main/src/git` au lieu de noms simples comme `git`.
+
+**Solution** : Utilisez toujours des noms simples et descriptifs pour vos serveurs MCP dans la configuration de Roo. Par exemple, utilisez `git`, `github`, `searxng`, `win-cli`, etc.
+
+#### ⚠️ Évitez le suffixe "-global"
+
+**Problème** : Ajouter le suffixe "-global" aux noms des serveurs MCP (par exemple, `git-global` au lieu de `git`).
+
+**Solution** : N'ajoutez jamais le suffixe "-global" aux noms des serveurs MCP, car cela peut causer des problèmes de reconnaissance par Roo.
+
+### 2. Problèmes de chemins
+
+#### ⚠️ Évitez les variables d'environnement dans les chemins
+
+**Problème** : Utiliser des variables d'environnement comme `%APPDATA%` dans les chemins de configuration MCP.
+
+**Solution** : Utilisez toujours des chemins absolus complets (par exemple, `C:\Users\username\AppData\Roaming\...`).
+
+#### ⚠️ Attention aux barres obliques dans les chemins Windows
+
+**Problème** : Utiliser des barres obliques simples (`\`) dans les chemins Windows, ce qui peut causer des problèmes d'échappement.
+
+**Solution** : Doublez toujours les barres obliques inverses (`\\`) dans les chemins Windows ou utilisez des barres obliques normales (`/`).
+
+### 3. Problèmes d'installation
+
+#### ⚠️ Scripts de lancement corrompus ou vides
+
+**Problème** : Les scripts de lancement (`mcp-searxng`, `git-mcp-server`, etc.) peuvent être corrompus ou vides après l'installation.
+
+**Solution** : Utilisez la méthode d'exécution directe avec Node.js en spécifiant le chemin complet vers le fichier JavaScript du serveur.
+
+#### ⚠️ Dépendances manquantes
+
+**Problème** : Certaines dépendances peuvent ne pas être installées automatiquement.
+
+**Solution** : Vérifiez les prérequis dans la documentation de chaque MCP et installez manuellement les dépendances manquantes.
+
+### 4. Problèmes de sécurité
+
+#### ⚠️ Tokens et informations sensibles exposés
+
+**Problème** : Stocker des tokens d'API et autres informations sensibles en clair dans les fichiers de configuration.
+
+**Solution** : Utilisez des variables d'environnement ou des fichiers de configuration séparés pour les informations sensibles, et ne les partagez jamais dans des dépôts publics.
+
 ## Serveurs MCP disponibles
 
 ### Git MCP
@@ -42,6 +94,32 @@ SearXNG est un métamoteur de recherche qui permet d'effectuer des recherches we
 ### Win-CLI
 
 Win-CLI est un serveur MCP qui permet à Roo d'exécuter des commandes dans différents shells Windows (PowerShell, CMD, Git Bash). Il offre également des fonctionnalités pour la gestion des connexions SSH.
+
+## Guide rapide de configuration
+
+### 1. Installation des serveurs MCP
+
+Consultez les guides d'installation spécifiques dans chaque sous-dossier pour des instructions détaillées.
+
+### 2. Configuration dans Roo
+
+1. Ouvrez le fichier de configuration MCP de Roo situé à :
+   - Windows : `C:\Users\<username>\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+   - macOS/Linux : `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`
+
+2. Ajoutez ou modifiez les configurations des serveurs MCP en suivant les exemples fournis dans chaque sous-dossier.
+
+3. Redémarrez VS Code pour appliquer les changements.
+
+### 3. Vérification de la configuration
+
+Pour vérifier que vos serveurs MCP sont correctement configurés, ouvrez Roo et utilisez la commande suivante :
+
+```
+Quels serveurs MCP sont actuellement connectés ?
+```
+
+Roo devrait lister tous les serveurs MCP configurés et leur état de connexion.
 
 ## Comment ajouter un nouveau serveur MCP
 
