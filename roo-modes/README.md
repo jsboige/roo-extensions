@@ -2,9 +2,9 @@
 
 Ce dossier contient tous les modes Roo, y compris:
 
-- **n5/**: Modes Roo avec architecture Ã  5 niveaux (anciennement roo-modes-n5)
-- **custom/**: Modes personnalisÃ©s (anciennement custom-modes)
-- **optimized/**: Agents optimisÃ©s (anciennement optimized-agents)
+- **n5/**: Modes Roo avec architecture à 5 niveaux (anciennement roo-modes-n5)
+- **custom/**: Modes personnalisés (anciennement custom-modes)
+- **optimized/**: Agents optimisés (anciennement optimized-agents)
 
 ## Structure
 

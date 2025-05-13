@@ -2,7 +2,7 @@
 
 Ce dossier contient toutes les configurations pour Roo, y compris:
 
-- **settings/**: ParamÃ¨tres Roo (anciennement roo-settings)
+- **settings/**: Paramètres Roo (anciennement roo-settings)
 - **scheduler/**: Configuration du planificateur Roo (anciennement scheduler)
 
 ## Structure
