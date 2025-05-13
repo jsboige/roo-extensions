@@ -1,0 +1,3 @@
+[submodule "mcps/mcp-servers"]
+	path = mcps/mcp-servers
+	url = https://github.com/jsboige/jsboige-mcp-servers.git
