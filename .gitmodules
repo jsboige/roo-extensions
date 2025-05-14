@@ -1,0 +1,3 @@
+[submodule "external-mcps/win-cli/server"]
+	path = external-mcps/win-cli/server
+	url = https://github.com/jsboige/win-cli-mcp-server

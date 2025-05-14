@@ -1,0 +1,165 @@
+{
+  "timestamp": "2025-05-06T12:18:50.714Z",
+  "thresholds": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "thresholds": {
+        "codeComplexity": 8,
+        "conversationSize": 4,
+        "tokenCount": 8000,
+        "contextNeeded": "limited"
+      },
+      "valid": false,
+      "errors": [
+        "Configuration du niveau suivant (mini) non trouvée"
+      ]
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "thresholds": {
+        "codeComplexity": 400,
+        "conversationSize": 20,
+        "tokenCount": 80000,
+        "contextNeeded": "maximal"
+      },
+      "valid": false,
+      "errors": [
+        "Configuration du niveau suivant (oracle) non trouvée"
+      ]
+    }
+  },
+  "mechanisms": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "valid": true,
+      "errors": [],
+      "warnings": []
+    }
+  },
+  "scenarios": {
+    "micro": {
+      "level": 1,
+      "name": "MICRO",
+      "slug": "micro",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 18,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 6,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 13000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": true,
+          "passed": false
+        }
+      ],
+      "valid": false
+    },
+    "large": {
+      "level": 4,
+      "name": "LARGE",
+      "slug": "large",
+      "scenarios": [
+        {
+          "name": "Escalade par complexité de code",
+          "input": {
+            "codeComplexity": 410,
+            "conversationSize": 5,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par taille de conversation",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 22,
+            "tokenCount": 10000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Escalade par nombre de tokens",
+          "input": {
+            "codeComplexity": 50,
+            "conversationSize": 5,
+            "tokenCount": 85000
+          },
+          "expectedEscalation": true,
+          "actualEscalation": true,
+          "passed": true
+        },
+        {
+          "name": "Pas d'escalade (sous les seuils)",
+          "input": {
+            "codeComplexity": 10,
+            "conversationSize": 3,
+            "tokenCount": 5000
+          },
+          "expectedEscalation": false,
+          "actualEscalation": false,
+          "passed": true
+        }
+      ],
+      "valid": true
+    }
+  },
+  "summary": {
+    "total": 8,
+    "passed": 9,
+    "failed": 3,
+    "warnings": 0
+  }
+}

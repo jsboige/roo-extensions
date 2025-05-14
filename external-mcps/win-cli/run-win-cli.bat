@@ -1,0 +1,3 @@
+@echo off
+echo Démarrage du serveur MCP Win-CLI...
+npx -y @simonb97/server-win-cli

@@ -1,0 +1,13 @@
+{
+    "features":  [
+                     "quickfiles",
+                     "jinavigator"
+                 ],
+    "appName":  "TestMCPApp",
+    "version":  "1.0.0",
+    "settings":  {
+                     "maxRetries":  3,
+                     "timeout":  30,
+                     "logLevel":  "INFO"
+                 }
+}

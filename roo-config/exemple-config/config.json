@@ -1,0 +1,55 @@
+{
+  "version": "1.0.0",
+  "general": {
+    "defaultMode": "code",
+    "theme": "dark",
+    "language": "fr",
+    "autoSave": true,
+    "telemetry": false
+  },
+  "editor": {
+    "fontSize": 14,
+    "fontFamily": "Consolas, 'Courier New', monospace",
+    "tabSize": 2,
+    "wordWrap": "on",
+    "lineNumbers": "on",
+    "formatOnSave": true
+  },
+  "ai": {
+    "model": "anthropic/claude-3.7-sonnet",
+    "temperature": 0.7,
+    "maxTokens": 4000,
+    "systemPrompt": "Vous êtes Roo, un assistant IA spécialisé dans le développement logiciel."
+  },
+  "tools": {
+    "enabledTools": [
+      "read_file",
+      "write_to_file",
+      "apply_diff",
+      "execute_command",
+      "browser_action",
+      "search_files",
+      "list_files"
+    ],
+    "customTools": []
+  },
+  "mcp": {
+    "enabledServers": [
+      "searxng",
+      "win-cli",
+      "quickfiles",
+      "jupyter",
+      "jinavigator"
+    ]
+  },
+  "shortcuts": {
+    "newChat": "Ctrl+Shift+R",
+    "switchMode": "Ctrl+Shift+M",
+    "clearChat": "Ctrl+Shift+L"
+  },
+  "appearance": {
+    "chatBubbleStyle": "modern",
+    "codeBlockTheme": "dracula",
+    "animationsEnabled": true
+  }
+}

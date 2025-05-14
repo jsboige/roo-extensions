@@ -1,0 +1,17 @@
+{
+  "name": "git",
+  "type": "stdio",
+  "command": "node",
+  "args": [
+    "${workspaceFolder}/external-mcps/git-mcp/server/dist/index.js"
+  ],
+  "env": {
+    "MCP_TRANSPORT_TYPE": "stdio",
+    "MCP_LOG_LEVEL": "info",
+    "GIT_SIGN_COMMITS": "false"
+  },
+  "enabled": true,
+  "autoStart": true,
+  "description": "Serveur MCP pour interagir avec Git",
+  "inputs": []
+}
