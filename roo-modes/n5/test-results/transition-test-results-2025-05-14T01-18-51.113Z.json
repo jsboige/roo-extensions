@@ -1,0 +1,1991 @@
+{
+  "timestamp": "2025-05-14T01-18-51.113Z",
+  "escalation": {
+    "total": 36,
+    "passed": 8,
+    "failed": 28,
+    "details": [
+      {
+        "source": "code-micro",
+        "target": "code-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-micro",
+        "target": "debug-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-micro",
+        "target": "architect-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-micro",
+        "target": "ask-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-micro",
+        "target": "orchestrator-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-micro",
+        "target": "code-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-micro",
+        "target": "debug-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "debug-micro",
+        "target": "architect-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-micro",
+        "target": "ask-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-micro",
+        "target": "orchestrator-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-micro",
+        "target": "code-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-micro",
+        "target": "debug-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-micro",
+        "target": "architect-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "architect-micro",
+        "target": "ask-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-micro",
+        "target": "orchestrator-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-micro",
+        "target": "code-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-micro",
+        "target": "debug-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-micro",
+        "target": "architect-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-micro",
+        "target": "ask-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "ask-micro",
+        "target": "orchestrator-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "code-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "debug-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "architect-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "ask-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "orchestrator-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-mini",
+        "target": "code-medium",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "code-medium",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "code-medium",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "code-medium",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "code-medium",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-medium",
+        "target": "code-large",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-large",
+        "target": "code-oracle",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-large",
+        "target": "architect-oracle",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-large",
+        "target": "debug-oracle",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-large",
+        "target": "ask-oracle",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-large",
+        "target": "orchestrator-oracle",
+        "valid": false,
+        "reason": "Transition invalide"
+      }
+    ]
+  },
+  "deescalation": {
+    "total": 36,
+    "passed": 8,
+    "failed": 28,
+    "details": [
+      {
+        "source": "code-mini",
+        "target": "code-micro",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-mini",
+        "target": "debug-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-mini",
+        "target": "architect-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-mini",
+        "target": "ask-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-mini",
+        "target": "orchestrator-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "code-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "debug-micro",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "architect-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "ask-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-mini",
+        "target": "orchestrator-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "code-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "debug-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "architect-micro",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "ask-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "architect-mini",
+        "target": "orchestrator-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "code-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "debug-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "architect-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "ask-micro",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "ask-mini",
+        "target": "orchestrator-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "code-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "debug-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "architect-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "ask-micro",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "orchestrator-micro",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-medium",
+        "target": "code-mini",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-medium",
+        "target": "debug-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-medium",
+        "target": "architect-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-medium",
+        "target": "ask-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-medium",
+        "target": "orchestrator-mini",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "code-large",
+        "target": "code-medium",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "code-oracle",
+        "target": "code-large",
+        "valid": true,
+        "reason": "Transition valide"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "code-large",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "code-large",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "code-large",
+        "valid": false,
+        "reason": "Transition invalide"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "code-large",
+        "valid": false,
+        "reason": "Transition invalide"
+      }
+    ]
+  },
+  "invalid": {
+    "total": 255,
+    "passed": 255,
+    "failed": 0,
+    "details": [
+      {
+        "source": "code-micro",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-micro",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-micro",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-micro",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-micro",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-micro",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-mini",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-mini",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-mini",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-mini",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-mini",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-medium",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-large",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "code-oracle",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "architect-oracle",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "debug-oracle",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "ask-oracle",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "code",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "debug",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "architect",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "ask",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "orchestrator",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "code-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "debug-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "architect-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "ask-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "orchestrator-simple",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "code-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "debug-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "architect-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "ask-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      },
+      {
+        "source": "orchestrator-oracle",
+        "target": "orchestrator-complex",
+        "valid": false,
+        "reason": "Transition vers un mode natif"
+      }
+    ]
+  },
+  "summary": {
+    "total": 327,
+    "passed": 271,
+    "failed": 56
+  }
+}
