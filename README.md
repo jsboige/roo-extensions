@@ -36,12 +36,19 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
    git clone https://github.com/votre-utilisateur/roo-extensions.git
    ```
 
-2. Copiez le fichier `.roomodes` dans le répertoire approprié de votre installation Roo :
+2. Utilisez le script de déploiement automatisé pour installer les modes personnalisés :
+   ```powershell
+   .\roo-modes\scripts\deploy-roo-modes.ps1 -DeploymentType both
+   ```
+   
+   Ou copiez manuellement le fichier `.roomodes` dans le répertoire approprié de votre installation Roo :
    ```bash
    cp .roomodes [chemin-vers-votre-dossier-roo-settings]
    ```
 
 3. Redémarrez Roo pour appliquer les nouveaux modes.
+
+Pour plus de détails, consultez le [Guide d'installation et de configuration des modes personnalisés](roo-modes/docs/implementation/guide-installation-modes-personnalises.md).
 
 ### Utilisation
 
@@ -57,8 +64,11 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 - `roo-modes/` : Répertoire principal pour les modes personnalisés
   - `configs/` : Configurations des modes
   - `docs/` : Documentation conceptuelle et guides
+    - `implementation/` : Guides d'implémentation et de déploiement
+      - `guide-installation-modes-personnalises.md` : Guide complet d'installation et de configuration
   - `examples/` : Exemples de configurations
   - `scripts/` : Scripts de déploiement
+    - `deploy-roo-modes.ps1` : Script automatisé pour le déploiement des modes personnalisés
   - `tests/` : Tests pour les modes personnalisés
 - `custom-modes/` : [OBSOLÈTE] Redirigé vers roo-modes
 - `optimized-agents/` : [OBSOLÈTE] Redirigé vers roo-modes
