@@ -139,7 +139,7 @@ Utilisez des chemins absolus complets et doublez les barres obliques inverses da
 
 Remplacez toutes les informations sensibles par des placeholders dans les exemples de configuration :
 - ✅ `"GITHUB_PERSONAL_ACCESS_TOKEN": "<VOTRE_TOKEN_GITHUB_ICI>"`
-- ❌ `"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_1234...ABCD"`
+- ❌ `"GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_1234...ABCD"` (ne jamais inclure de vrais tokens)
 
 ### 4. Commandes et arguments
 
