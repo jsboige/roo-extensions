@@ -33,7 +33,13 @@
     "nextLevel": "oracle",
     "previousLevel": "medium",
     "family": "n5",
-    "allowedFamilyTransitions": ["n5"]
+    "allowedFamilyTransitions": ["n5"],
+    "deescalationMechanism": {
+      "enabled": true,
+      "targetLevel": "previous",
+      "preserveType": true,
+      "allowCrossTypeTransition": false
+    }
   },
   "customModes": [
     {
