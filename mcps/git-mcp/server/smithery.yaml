@@ -1,0 +1,69 @@
+# Smithery configuration for git-mcp-server
+# Defines how to build and run the server in the Smithery environment.
+
+# Build configuration pointing to the existing Dockerfile in the root.
+build:
+  dockerfile: Dockerfile # Path to the Dockerfile relative to this config file
+  dockerBuildPath: . # Docker build context path relative to this config file
+
+# Defines the command to start the MCP server.
+startCommand:
+  # Type must be 'stdio' for standard I/O based MCP servers, as required by Smithery.
+  type: stdio
+
+  # JSON Schema defining the configuration options users can provide when deploying.
+  configSchema:
+    type: object
+    properties:
+      gitSignCommits:
+        type: boolean
+        description: "Enable signing commits using the -S flag via the GIT_SIGN_COMMITS env var. Requires server-side GPG/SSH key configuration within the Smithery environment if enabled. Defaults to false."
+        default: false
+      logLevel:
+        type: string
+        enum:
+          [
+            "debug",
+            "info",
+            "notice",
+            "warning",
+            "error",
+            "crit",
+            "alert",
+            "emerg",
+          ]
+        description: "Minimum logging level for the server, passed via the MCP_LOG_LEVEL env var. Defaults to 'info'."
+        default: "info"
+    # No properties are strictly required for the server to start.
+    required: []
+
+  # JavaScript function executed in a sandbox to generate the final command details.
+  # Receives the validated configuration object based on configSchema.
+  # Must return an object with 'command', 'args', and 'env'.
+  commandFunction: |
+    (config) => {
+      // Initialize an empty environment variables object.
+      const envVars = {};
+
+      // Set GIT_SIGN_COMMITS environment variable if the user enabled it in the config.
+      // The server's git_commit tool logic reads this variable.
+      if (config.gitSignCommits === true) {
+        envVars.GIT_SIGN_COMMITS = "true";
+      }
+
+      // Set MCP_LOG_LEVEL environment variable based on user config.
+      // The server's logger utility reads this variable.
+      if (config.logLevel) {
+        envVars.MCP_LOG_LEVEL = config.logLevel;
+      }
+      
+      // Smithery requires stdio, so we don't need to set MCP_TRANSPORT_TYPE here.
+      // It will default or be handled internally by Smithery's environment.
+
+      // Return the command, arguments, and environment variables.
+      return {
+        command: "node",             // The executable to run.
+        args: ["dist/index.js"],     // Arguments for the executable (path to the built server).
+        env: envVars                 // Environment variables for the server process.
+      };
+    }
