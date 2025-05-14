@@ -1,0 +1,27 @@
+{
+  "github.com/modelcontextprotocol/servers/tree/main/src/filesystem": {
+    "command": "cmd",
+    "args": [
+      "/c",
+      "npx",
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "D:\\chemin\\vers\\votre\\repertoire",
+      "d:\\chemin\\vers\\votre\\repertoire"
+    ],
+    "disabled": false,
+    "autoApprove": [],
+    "alwaysAllow": [
+      "list_allowed_directories",
+      "list_directory",
+      "read_file",
+      "search_files",
+      "create_directory",
+      "get_file_info",
+      "edit_file",
+      "move_file",
+      "write_file"
+    ],
+    "transportType": "stdio"
+  }
+}
