@@ -1,48 +1,140 @@
-# MCPs Externes
+# MCPs (Model Context Protocol)
 
-Ce dossier contient tous les MCPs (Model Context Protocol) externes disponibles pour étendre les capacités de Roo.
+Ce répertoire contient l'ensemble des serveurs MCP (Model Context Protocol) disponibles pour étendre les capacités des modèles de langage (LLM) dans le projet Roo.
 
-## MCPs disponibles
+## Qu'est-ce que MCP?
 
-### SearXNG
-- **Description** : Intégration avec le moteur de recherche SearXNG pour permettre à Roo d'effectuer des recherches web.
-- **Fonctionnalités** : Recherche web, lecture de contenu d'URL.
-- **Dossier** : [searxng/](./searxng/)
+Le Model Context Protocol (MCP) est un protocole qui permet aux modèles de langage (LLM) d'interagir avec des outils et des ressources externes. Il définit un format standard pour:
 
-### Win-CLI
-- **Description** : Intégration avec l'interface en ligne de commande Windows pour exécuter des commandes système.
-- **Fonctionnalités** : Exécution de commandes PowerShell, CMD et Git Bash, gestion des connexions SSH.
-- **Dossier** : [win-cli/](./win-cli/)
+1. La découverte d'outils et de ressources
+2. L'invocation d'outils
+3. L'accès aux ressources
+4. La gestion des erreurs et des résultats
 
-### Git
-- **Description** : Intégration avec Git pour la gestion de versions.
-- **Fonctionnalités** : Opérations Git courantes (clone, commit, push, pull, etc.).
-- **Dossier** : [git/](./git/)
+Ce protocole permet d'étendre considérablement les capacités des LLM en leur donnant accès à des fonctionnalités externes comme la recherche d'informations en temps réel, l'accès à des API, la manipulation de fichiers, l'analyse de code, et bien plus encore.
 
-### GitHub
-- **Description** : Intégration avec l'API GitHub pour interagir avec les dépôts GitHub.
-- **Fonctionnalités** : Gestion des issues, pull requests, et autres fonctionnalités GitHub.
-- **Dossier** : [github/](./github/)
+## Structure du répertoire
 
-## Utilisation avec l'architecture à 5 niveaux (N5)
+Le répertoire `mcps` est organisé en deux grandes sections:
 
-Les MCPs externes peuvent être utilisés avec tous les niveaux de l'architecture N5, mais leur utilisation est optimisée selon le niveau de complexité :
+### 1. MCPs Internes (`mcps/mcp-servers`)
 
-- **Micro/Mini** : Utilisation basique des MCPs avec des requêtes simples
-- **Medium** : Utilisation intermédiaire avec des requêtes plus complexes
-- **Large/Oracle** : Utilisation avancée avec orchestration de plusieurs MCPs
+Ce sous-module contient les serveurs MCP développés en interne et maintenus dans le cadre du projet. Ces serveurs sont conçus pour être légers, performants et faciles à utiliser.
 
-## Installation
+Serveurs disponibles:
+- **QuickFiles**: Manipulation rapide et efficace de fichiers multiples
+- **JinaNavigator**: Conversion de pages web en Markdown
+- **Jupyter**: Interaction avec des notebooks Jupyter
 
-Chaque MCP a ses propres instructions d'installation. Consultez le README.md dans chaque sous-dossier pour des instructions spécifiques.
+[En savoir plus sur les MCPs internes](./mcp-servers/README.md)
 
-## Configuration
+### 2. MCPs Externes (`mcps/external-mcps`)
 
-Pour configurer un MCP dans Roo, vous devez ajouter sa configuration dans le fichier `servers.json` de Roo. Voici un exemple de configuration :
+Ce répertoire contient les serveurs MCP externes intégrés au projet. Ces serveurs fournissent des fonctionnalités supplémentaires pour interagir avec divers systèmes et services.
+
+Serveurs disponibles:
+- **Docker**: Interaction avec Docker via le protocole MCP
+- **Filesystem**: Interaction avec le système de fichiers local
+- **Git**: Opérations Git courantes (clone, commit, push, pull, etc.)
+- **GitHub**: Interaction avec l'API GitHub (issues, pull requests, etc.)
+- **SearXNG**: Recherche web via le moteur de recherche SearXNG
+- **Win-CLI**: Exécution de commandes dans le terminal Windows
+
+[En savoir plus sur les MCPs externes](./external-mcps/README.md)
+
+## Description des MCPs disponibles
+
+### MCPs Internes
+
+#### QuickFiles Server
+Un serveur MCP qui fournit des méthodes pour lire rapidement le contenu de répertoires et fichiers multiples:
+- Lecture de plusieurs fichiers en une seule requête
+- Extraction de portions spécifiques de fichiers
+- Listage détaillé du contenu des répertoires
+- Édition de fichiers multiples avec application de diffs
+
+[Documentation QuickFiles](./mcp-servers/servers/quickfiles-server/README.md)
+
+#### JinaNavigator Server
+Un serveur MCP qui utilise l'API Jina pour convertir des pages web en Markdown:
+- Conversion de pages web en format Markdown
+- Extraction de portions spécifiques du contenu
+- Accès via URI au format jina://{url}
+- Extraction du plan hiérarchique des titres
+
+[Documentation JinaNavigator](./mcp-servers/servers/jinavigator-server/README.md)
+
+#### Jupyter MCP Server
+Un serveur MCP qui permet d'interagir avec des notebooks Jupyter:
+- Gestion des notebooks (lecture, création, modification)
+- Gestion des kernels (démarrage, arrêt, interruption)
+- Exécution de code (cellules individuelles ou notebooks complets)
+- Récupération des sorties textuelles et riches (images, HTML, etc.)
+
+[Documentation Jupyter MCP](./mcp-servers/servers/jupyter-mcp-server/README.md)
+
+### MCPs Externes
+
+#### Docker
+MCP pour interagir avec Docker, permettant de gérer des conteneurs, des images et des volumes.
+
+#### Filesystem
+MCP pour interagir avec le système de fichiers local, offrant des opérations avancées sur les fichiers et répertoires.
+
+#### Git
+MCP pour interagir avec des dépôts Git, permettant d'effectuer toutes les opérations Git courantes.
+
+#### GitHub
+MCP pour interagir avec l'API GitHub, permettant de gérer des issues, des pull requests et d'autres fonctionnalités GitHub.
+
+#### SearXNG
+MCP pour interagir avec le moteur de recherche SearXNG, permettant d'effectuer des recherches web et d'accéder à du contenu en ligne.
+
+#### Win-CLI
+MCP pour exécuter des commandes dans le terminal Windows, offrant un accès complet aux fonctionnalités du système d'exploitation.
+
+## Installation et configuration
+
+### Prérequis généraux
+- Node.js 14.x ou supérieur
+- npm 6.x ou supérieur
+- Git
+
+### Installation des MCPs internes
+
+```bash
+# Cloner le sous-module mcp-servers
+git submodule update --init --recursive mcps/mcp-servers
+
+# Installer les dépendances principales
+cd mcps/mcp-servers
+npm install
+
+# Installer tous les serveurs MCP
+npm run install-all
+
+# Configurer les serveurs
+npm run setup-config
+```
+
+Pour des instructions d'installation spécifiques à chaque serveur MCP interne, consultez leur documentation respective.
+
+### Installation des MCPs externes
+
+Chaque MCP externe dispose de son propre guide d'installation dans son répertoire respectif. Consultez le fichier README.md de chaque MCP pour plus d'informations.
+
+### Configuration dans Roo
+
+Pour configurer un MCP dans Roo, vous devez ajouter sa configuration dans le fichier `servers.json` de Roo. Voici un exemple de configuration:
 
 ```json
 {
   "servers": [
+    {
+      "name": "quickfiles",
+      "command": "cmd /c node D:\\chemin\\vers\\mcps\\mcp-servers\\servers\\quickfiles-server\\build\\index.js",
+      "autostart": true
+    },
     {
       "name": "searxng",
       "command": "cmd /c npx -y mcp-searxng",
@@ -57,16 +149,53 @@ Pour configurer un MCP dans Roo, vous devez ajouter sa configuration dans le fic
 }
 ```
 
-## Développement de nouveaux MCPs
+## Utilisation
 
-Pour développer un nouveau MCP, vous pouvez vous inspirer des MCPs existants. Un MCP doit implémenter le protocole MCP (Model Context Protocol) et exposer des outils et/ou des ressources.
+Une fois les serveurs MCP configurés et démarrés, ils peuvent être utilisés par les modèles de langage compatibles avec le protocole MCP. Les outils et ressources exposés par chaque serveur MCP sont automatiquement découverts et peuvent être utilisés dans les conversations avec le modèle.
+
+### Exemples d'utilisation
+
+#### QuickFiles Server
+```
+Utilisateur: Peux-tu lire les fichiers de configuration dans le dossier config?
+
+LLM: Je vais lire les fichiers de configuration pour vous.
+[Utilisation de l'outil quickfiles-server.read_multiple_files]
+Voici le contenu des fichiers de configuration...
+```
+
+#### Jupyter MCP Server
+```
+Utilisateur: Crée un notebook Python qui analyse des données.
+
+LLM: Je vais créer un notebook pour vous.
+[Utilisation de l'outil jupyter-mcp-server.create_notebook]
+J'ai créé un nouveau notebook avec du code pour analyser des données.
+```
+
+#### JinaNavigator Server
+```
+Utilisateur: Peux-tu convertir la page d'accueil de GitHub en Markdown?
+
+LLM: Je vais convertir cette page pour vous.
+[Utilisation de l'outil jinavigator-server.convert_web_to_markdown]
+Voici le contenu de la page GitHub en format Markdown...
+```
 
 ## Dépannage
 
-Si un MCP ne fonctionne pas correctement, vérifiez les points suivants :
-1. Le MCP est-il correctement installé ?
-2. Le MCP est-il correctement configuré dans `servers.json` ?
-3. Le MCP est-il démarré ?
-4. Y a-t-il des erreurs dans les logs ?
+Si un MCP ne fonctionne pas correctement, vérifiez les points suivants:
+1. Le MCP est-il correctement installé?
+2. Le MCP est-il correctement configuré dans `servers.json`?
+3. Le MCP est-il démarré?
+4. Y a-t-il des erreurs dans les logs?
 
-Pour plus d'informations, consultez le [guide d'utilisation des MCPs](../docs/guide-utilisation-mcps.md).
+Pour plus d'informations sur le dépannage:
+- [Guide de dépannage général](./mcp-servers/docs/troubleshooting.md)
+- [Guide de dépannage du MCP Jupyter](./mcp-servers/docs/jupyter-mcp-troubleshooting.md)
+
+## Ressources
+
+- [Spécification MCP officielle](https://github.com/microsoft/mcp)
+- [Documentation sur l'architecture MCP](./mcp-servers/docs/architecture.md)
+- [Guide de contribution](./mcp-servers/CONTRIBUTING.md)
