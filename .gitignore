@@ -1,4 +1,4 @@
-# Fichiers systËme
+# Fichiers syst√®me
 .DS_Store
 Thumbs.db
 desktop.ini
@@ -77,14 +77,17 @@ yarn-error.log*
 *.bak
 *.backup
 
-# Fichiers spÈcifiques ‡ Roo
+# Fichiers sp√©cifiques √† Roo
 .roo-cache/
 .roo-logs/
 .roo/
 
-# Dossiers spÈcifiques au projet
+# Dossiers sp√©cifiques au projet
 backup/
 scripts/
 
-# Fichiers de configuration dÈplacÈs
-# Note: new-roomodes.json et vscode-custom-modes.json ont ÈtÈ dÈplacÈs dans roo-modes/configs/
+# Fichiers de configuration d√©plac√©s
+# Note: new-roomodes.json et vscode-custom-modes.json ont √©t√© d√©plac√©s dans roo-modes/configs/
+
+# Fichiers de sauvegarde sp√©cifiques
+roo-modes-n5/backup/
