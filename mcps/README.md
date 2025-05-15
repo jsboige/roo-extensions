@@ -1,6 +1,20 @@
+<!-- START_SECTION: metadata -->
+---
+title: "MCPs (Model Context Protocol)"
+description: "Documentation des serveurs MCP pour étendre les capacités des modèles de langage"
+tags: #documentation #mcp #overview
+date_created: "2025-05-14"
+date_updated: "2025-05-14"
+version: "1.0.0"
+author: "Équipe MCP"
+---
+<!-- END_SECTION: metadata -->
+
 # MCPs (Model Context Protocol)
 
 Ce répertoire contient l'ensemble des serveurs MCP (Model Context Protocol) disponibles pour étendre les capacités des modèles de langage (LLM) dans le projet Roo.
+
+> **Documentation complète** : Pour une documentation complète et organisée, consultez le [fichier INDEX.md](./INDEX.md) qui sert de point d'entrée principal pour toute la documentation des MCPs.
 
 ## Qu'est-ce que MCP?
 
@@ -196,6 +210,8 @@ Pour plus d'informations sur le dépannage:
 
 ## Ressources
 
+- [Index de la documentation](./INDEX.md) - Point d'entrée principal pour toute la documentation
+- [Guide de recherche](./SEARCH.md) - Comment rechercher efficacement dans la documentation
 - [Spécification MCP officielle](https://github.com/microsoft/mcp)
 - [Documentation sur l'architecture MCP](./mcp-servers/docs/architecture.md)
 - [Guide de contribution](./mcp-servers/CONTRIBUTING.md)
