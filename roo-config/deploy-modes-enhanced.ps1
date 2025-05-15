@@ -70,7 +70,8 @@ if ($DeploymentType -eq "global") {
     }
 } else {
     # Déploiement local (dans le répertoire du projet)
-    $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+    # Pour un déploiement local, le projectRoot doit être le répertoire racine du projet
+    $projectRoot = Split-Path -Parent $scriptDir
     $destinationFile = Join-Path -Path $projectRoot -ChildPath ".roomodes"
 }
 
@@ -88,10 +89,86 @@ if (Test-Path -Path $destinationFile) {
     }
 }
 
-# Copier le fichier
+# Fonction pour vérifier l'encodage d'un fichier
+function Test-FileEncoding {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+    
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($Path)
+        $encoding = "Unknown"
+        
+        # Vérifier le BOM (Byte Order Mark)
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            $encoding = "UTF-8 with BOM"
+        } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+            $encoding = "UTF-16 BE"
+        } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+            $encoding = "UTF-16 LE"
+        } else {
+            # Essayer de détecter UTF-8 sans BOM
+            $isUtf8 = $true
+            $i = 0
+            while ($i -lt $bytes.Length) {
+                if ($bytes[$i] -ge 0x80) {
+                    # Vérifier la séquence UTF-8
+                    if ($bytes[$i] -ge 0xC0 -and $bytes[$i] -le 0xDF -and $i + 1 -lt $bytes.Length -and $bytes[$i + 1] -ge 0x80 -and $bytes[$i + 1] -le 0xBF) {
+                        $i += 2
+                    } elseif ($bytes[$i] -ge 0xE0 -and $bytes[$i] -le 0xEF -and $i + 2 -lt $bytes.Length -and $bytes[$i + 1] -ge 0x80 -and $bytes[$i + 1] -le 0xBF -and $bytes[$i + 2] -ge 0x80 -and $bytes[$i + 2] -le 0xBF) {
+                        $i += 3
+                    } elseif ($bytes[$i] -ge 0xF0 -and $bytes[$i] -le 0xF7 -and $i + 3 -lt $bytes.Length -and $bytes[$i + 1] -ge 0x80 -and $bytes[$i + 1] -le 0xBF -and $bytes[$i + 2] -ge 0x80 -and $bytes[$i + 2] -le 0xBF -and $bytes[$i + 3] -ge 0x80 -and $bytes[$i + 3] -le 0xBF) {
+                        $i += 4
+                    } else {
+                        $isUtf8 = $false
+                        break
+                    }
+                } else {
+                    $i++
+                }
+            }
+            
+            if ($isUtf8) {
+                $encoding = "UTF-8 without BOM"
+            } else {
+                $encoding = "ANSI/Windows-1252 or other"
+            }
+        }
+        
+        return $encoding
+    } catch {
+        return "Error: $($_.Exception.Message)"
+    }
+}
+
+# Copier le fichier avec encodage UTF-8 explicite
 try {
-    Copy-Item -Path $configFilePath -Destination $destinationFile -Force
+    # Vérifier l'encodage du fichier source
+    $sourceEncoding = Test-FileEncoding -Path $configFilePath
+    Write-ColorOutput "Encodage du fichier source: $sourceEncoding" "Cyan"
+    
+    # Lire le contenu avec l'encodage approprié
+    if ($sourceEncoding -eq "UTF-8 with BOM" -or $sourceEncoding -eq "UTF-8 without BOM") {
+        $content = Get-Content -Path $configFilePath -Raw -Encoding UTF8
+    } else {
+        # Pour les autres encodages, essayer de lire avec l'encodage par défaut puis convertir
+        $content = Get-Content -Path $configFilePath -Raw
+        Write-ColorOutput "Attention: Le fichier source n'est pas en UTF-8. Conversion automatique appliquée." "Yellow"
+    }
+    
+    # Écrire le contenu en UTF-8 sans BOM
+    [System.IO.File]::WriteAllText($destinationFile, $content, [System.Text.UTF8Encoding]::new($false))
+    
     Write-ColorOutput "Déploiement réussi!" "Green"
+    
+    # Vérifier l'encodage du fichier de destination
+    $destEncoding = Test-FileEncoding -Path $destinationFile
+    Write-ColorOutput "Encodage du fichier de destination: $destEncoding" "Cyan"
+    
+    if ($destEncoding -ne "UTF-8 without BOM") {
+        Write-ColorOutput "Avertissement: Le fichier de destination n'est pas en UTF-8 sans BOM." "Yellow"
+    }
 } catch {
     Write-ColorOutput "Erreur lors du déploiement:" "Red"
     Write-ColorOutput $_.Exception.Message "Red"
@@ -100,7 +177,11 @@ try {
 
 # Vérifier que les fichiers sont identiques
 try {
-    $diff = Compare-Object -ReferenceObject (Get-Content $configFilePath) -DifferenceObject (Get-Content $destinationFile)
+    # Utiliser l'encodage UTF-8 explicite pour la comparaison
+    $sourceContent = Get-Content -Path $configFilePath -Encoding UTF8
+    $destContent = Get-Content -Path $destinationFile -Encoding UTF8
+    
+    $diff = Compare-Object -ReferenceObject $sourceContent -DifferenceObject $destContent
     
     if ($null -eq $diff) {
         Write-ColorOutput "Vérification réussie: Les fichiers sont identiques." "Green"
@@ -108,6 +189,13 @@ try {
         Write-ColorOutput "Avertissement: Les fichiers ne sont pas identiques." "Yellow"
         Write-ColorOutput "Différences trouvées:" "Yellow"
         $diff | Format-Table -AutoSize
+        
+        # Afficher plus de détails sur les différences
+        Write-ColorOutput "Détails des différences:" "Yellow"
+        foreach ($d in $diff) {
+            $side = if ($d.SideIndicator -eq "<=") { "Source" } else { "Destination" }
+            Write-ColorOutput "$($side): $($d.InputObject)" "Yellow"
+        }
     }
 } catch {
     Write-ColorOutput "Erreur lors de la vérification des fichiers:" "Red"
