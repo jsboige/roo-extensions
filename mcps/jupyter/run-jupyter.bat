@@ -1,0 +1,3 @@
+@echo off
+echo Démarrage du serveur MCP Jupyter...
+node "c:/dev/roo-extensions/mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js"
