@@ -111,6 +111,20 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
   - `scripts/` : Scripts de test
 - `archive/` : Contenu obsolète ou archivé
 
+## Documentation
+
+Le projet dispose d'une documentation détaillée répartie dans plusieurs fichiers README spécialisés :
+
+- [**roo-modes/n5/tests/README.md**](roo-modes/n5/tests/README.md) : Documentation complète des tests de l'architecture d'orchestration à 5 niveaux, incluant les mécanismes d'escalade et de désescalade, les objectifs des tests, leur structure et fonctionnement, ainsi que des instructions pour exécuter et interpréter les résultats des tests.
+
+- [**roo-modes/scripts/README.md**](roo-modes/scripts/README.md) : Documentation des scripts de gestion des modes Roo, couvrant les scripts de déploiement, le système de verrouillage de famille, et les outils de validation et mise à jour des modes. Inclut des exemples d'utilisation et les bonnes pratiques.
+
+- [**mcps/scripts/README.md**](mcps/scripts/README.md) : Documentation des scripts pour les serveurs MCP, détaillant les scripts de lancement, de test et d'installation pour les différents serveurs MCP (QuickFiles, JinaNavigator, Jupyter). Inclut des exemples d'utilisation et des conseils de dépannage.
+
+- [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
+
+Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
+
 ## Modes Disponibles
 
 | Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
