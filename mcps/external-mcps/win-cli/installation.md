@@ -80,7 +80,7 @@ Une fois le serveur MCP Win-CLI installé, vous devez le configurer dans Roo :
 
 ## Utilisation du script batch run-win-cli.bat
 
-Pour simplifier le démarrage du serveur MCP Win-CLI, un script batch `run-win-cli.bat` est fourni dans le répertoire `mcps/win-cli/`. Ce script permet de démarrer le serveur en un seul clic sans avoir à taper la commande complète.
+Pour simplifier le démarrage du serveur MCP Win-CLI, un script batch `run-win-cli.bat` est fourni dans le répertoire `mcps/external-mcps/win-cli/`. Ce script permet de démarrer le serveur en un seul clic sans avoir à taper la commande complète.
 
 ### Contenu du script
 
@@ -96,7 +96,7 @@ npx -y @simonb97/server-win-cli
 
 Pour utiliser le script :
 
-1. Naviguez jusqu'au répertoire `mcps/win-cli/` dans l'explorateur de fichiers
+1. Naviguez jusqu'au répertoire `mcps/external-mcps/win-cli/` dans l'explorateur de fichiers
 2. Double-cliquez sur le fichier `run-win-cli.bat`
 3. Une fenêtre de terminal s'ouvrira et le serveur MCP Win-CLI démarrera automatiquement
 
