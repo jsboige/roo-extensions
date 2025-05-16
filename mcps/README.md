@@ -29,30 +29,33 @@ Ce protocole permet d'étendre considérablement les capacités des LLM en leur 
 
 ## Structure du répertoire
 
-Le répertoire `mcps` est organisé en deux grandes sections:
+Le répertoire `mcps` est organisé comme suit:
 
-### 1. MCPs Internes (`mcps/mcp-servers`)
+### MCPs (`mcps/mcp-servers`)
 
-Ce sous-module contient les serveurs MCP développés en interne et maintenus dans le cadre du projet. Ces serveurs sont conçus pour être légers, performants et faciles à utiliser.
+Ce sous-module contient tous les serveurs MCP développés et maintenus dans le cadre du projet. Ces serveurs sont conçus pour être légers, performants et faciles à utiliser.
 
-Serveurs disponibles:
+#### MCPs Internes
+Serveurs développés en interne:
 - **QuickFiles**: Manipulation rapide et efficace de fichiers multiples
 - **JinaNavigator**: Conversion de pages web en Markdown
 - **Jupyter**: Interaction avec des notebooks Jupyter
+- **GitHub Projects**: Gestion des projets GitHub (prototype)
 
-[En savoir plus sur les MCPs internes](./mcp-servers/README.md)
-
-### 2. MCPs Externes (`mcps/external-mcps`)
-
-Ce répertoire contient les serveurs MCP externes intégrés au projet. Ces serveurs fournissent des fonctionnalités supplémentaires pour interagir avec divers systèmes et services.
-
-Serveurs disponibles:
+#### MCPs Externes
+Serveurs externes intégrés au projet:
 - **Docker**: Interaction avec Docker via le protocole MCP
 - **Filesystem**: Interaction avec le système de fichiers local
 - **Git**: Opérations Git courantes (clone, commit, push, pull, etc.)
 - **GitHub**: Interaction avec l'API GitHub (issues, pull requests, etc.)
 - **SearXNG**: Recherche web via le moteur de recherche SearXNG
 - **Win-CLI**: Exécution de commandes dans le terminal Windows
+
+[En savoir plus sur les MCPs](./mcp-servers/README.md)
+
+### Documentation des MCPs externes (`mcps/external-mcps`)
+
+Ce répertoire contient la documentation des serveurs MCP externes intégrés au projet.
 
 [En savoir plus sur les MCPs externes](./external-mcps/README.md)
 
@@ -114,7 +117,7 @@ MCP pour exécuter des commandes dans le terminal Windows, offrant un accès com
 - npm 6.x ou supérieur
 - Git
 
-### Installation des MCPs internes
+### Installation des MCPs
 
 ```bash
 # Cloner le sous-module mcp-servers
@@ -131,11 +134,7 @@ npm run install-all
 npm run setup-config
 ```
 
-Pour des instructions d'installation spécifiques à chaque serveur MCP interne, consultez leur documentation respective.
-
-### Installation des MCPs externes
-
-Chaque MCP externe dispose de son propre guide d'installation dans son répertoire respectif. Consultez le fichier README.md de chaque MCP pour plus d'informations.
+Pour des instructions d'installation spécifiques à chaque serveur MCP, consultez leur documentation respective dans le sous-module `mcps/mcp-servers/servers`.
 
 ### Configuration dans Roo
 
@@ -146,8 +145,18 @@ Pour configurer un MCP dans Roo, vous devez ajouter sa configuration dans le fic
   "servers": [
     {
       "name": "quickfiles",
-      "command": "cmd /c node D:\\chemin\\vers\\mcps\\mcp-servers\\servers\\quickfiles-server\\build\\index.js",
+      "command": "cmd /c \"cd /d %~dp0\\..\\mcps\\mcp-servers\\servers\\quickfiles-server && run-quickfiles.bat\"",
       "autostart": true
+    },
+    {
+      "name": "jinavigator",
+      "command": "cmd /c \"cd /d %~dp0\\..\\mcps\\mcp-servers\\servers\\jinavigator-server && run-jinavigator.bat\"",
+      "autostart": true
+    },
+    {
+      "name": "jupyter",
+      "command": "cmd /c \"cd /d %~dp0\\..\\mcps\\mcp-servers\\servers\\jupyter-mcp-server && run-jupyter.bat\"",
+      "autostart": false
     },
     {
       "name": "searxng",
@@ -162,6 +171,8 @@ Pour configurer un MCP dans Roo, vous devez ajouter sa configuration dans le fic
   ]
 }
 ```
+
+Notez que les chemins ont été mis à jour pour utiliser les scripts batch créés dans les dossiers des serveurs MCP.
 
 ## Utilisation
 
