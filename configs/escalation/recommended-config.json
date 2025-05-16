@@ -1,0 +1,130 @@
+{
+  "version": "1.0.0",
+  "date": "2025-05-16",
+  "description": "Configuration recommandée basée sur l'analyse comparative des trois configurations d'escalade testées",
+  "models": {
+    "CodeSimple": "qwen/qwen3-14b",
+    "CodeComplex": "anthropic/claude-3.7-sonnet",
+    "DebugSimple": "qwen/qwen3-8b",
+    "DebugComplex": "anthropic/claude-3.7-sonnet",
+    "ArchitectSimple": "qwen/qwen3-32b",
+    "ArchitectComplex": "anthropic/claude-3.7-sonnet",
+    "AskSimple": "qwen/qwen3-8b",
+    "AskComplex": "anthropic/claude-3.7-sonnet",
+    "OrchestratorSimple": "qwen/qwen3-14b",
+    "OrchestratorComplex": "anthropic/claude-3.7-sonnet"
+  },
+  "escalationThresholds": {
+    "CodeSimple": 0.75,
+    "DebugSimple": 0.70,
+    "ArchitectSimple": 0.90,
+    "AskSimple": 0.70,
+    "OrchestratorSimple": 0.80
+  },
+  "internalEscalationThresholds": {
+    "CodeSimple": 0.60,
+    "DebugSimple": 0.55,
+    "ArchitectSimple": 0.80,
+    "AskSimple": 0.60,
+    "OrchestratorSimple": 0.70
+  },
+  "escalationDelays": {
+    "CodeSimple": 2,
+    "DebugSimple": 1,
+    "ArchitectSimple": 5,
+    "AskSimple": 2,
+    "OrchestratorSimple": 3
+  },
+  "customEscalationCriteria": {
+    "CodeSimple": {
+      "codeComplexity": 0.80,
+      "algorithmicComplexity": 0.70,
+      "domainSpecificKnowledge": 0.60,
+      "toolingRequirements": 0.70,
+      "multipleLanguages": 0.65,
+      "securityRequirements": 0.75
+    },
+    "DebugSimple": {
+      "errorComplexity": 0.70,
+      "systemInteractions": 0.60,
+      "performanceIssues": 0.80,
+      "distributedSystems": 0.50,
+      "concurrencyIssues": 0.65,
+      "memoryManagement": 0.75
+    },
+    "ArchitectSimple": {
+      "systemScale": 0.90,
+      "distributedArchitecture": 0.80,
+      "securityRequirements": 0.70,
+      "integrationComplexity": 0.80,
+      "dataModelComplexity": 0.85,
+      "performanceRequirements": 0.75
+    },
+    "AskSimple": {
+      "topicComplexity": 0.70,
+      "detailLevel": 0.60,
+      "domainSpecificKnowledge": 0.70,
+      "multipartQuestion": 0.60,
+      "technicalDepth": 0.65,
+      "comparativeAnalysis": 0.75
+    },
+    "OrchestratorSimple": {
+      "taskComplexity": 0.80,
+      "interdependencies": 0.70,
+      "teamCoordination": 0.60,
+      "timelineConstraints": 0.70,
+      "resourceAllocation": 0.75,
+      "stakeholderManagement": 0.65
+    }
+  },
+  "justifications": {
+    "CodeSimple": "Le modèle qwen3-14b offre un bon équilibre entre qualité (4.0/5) et temps de réponse (~8s), avec un comportement d'escalade approprié. Il est suffisamment puissant pour traiter des tâches simples et intermédiaires, tout en reconnaissant ses limites pour les tâches complexes.",
+    "DebugSimple": "Le modèle qwen3-8b présente le meilleur équilibre entre qualité (3.0/5) et temps de réponse (~4s). Le modèle qwen3-1.7b:free s'est avéré trop limité, tandis que le qwen3-30b-a3b est excessivement lent pour les gains de qualité obtenus.",
+    "ArchitectSimple": "Le modèle qwen3-32b offre une excellente qualité (4.5/5) malgré un temps de réponse plus long (~19s). Sa capacité à traiter des tâches complexes d'architecture sans escalade justifie son utilisation, avec des seuils d'escalade plus élevés pour limiter les transitions inutiles.",
+    "AskSimple": "Le modèle qwen3-8b offre un bon équilibre entre qualité (3.5/5) et temps de réponse (~9s), avec un comportement d'escalade approprié. Il est suffisamment rapide pour les questions simples tout en reconnaissant ses limites pour les analyses complexes.",
+    "OrchestratorSimple": "Le modèle qwen3-14b présente le meilleur équilibre entre qualité (4.0/5) et temps de réponse (~10s). Le modèle qwen3-30b-a3b, bien que plus puissant, entraîne des temps de réponse excessifs (~25-30s) qui nuisent à l'expérience utilisateur pour les tâches d'orchestration."
+  },
+  "performanceMetrics": {
+    "averageResponseTimes": {
+      "CodeSimple": 8,
+      "DebugSimple": 4,
+      "ArchitectSimple": 19,
+      "AskSimple": 9,
+      "OrchestratorSimple": 10
+    },
+    "qualityScores": {
+      "CodeSimple": 4.0,
+      "DebugSimple": 3.0,
+      "ArchitectSimple": 4.5,
+      "AskSimple": 3.5,
+      "OrchestratorSimple": 4.0
+    },
+    "escalationRates": {
+      "CodeSimple": {
+        "external": 0.33,
+        "internal": 0.33
+      },
+      "DebugSimple": {
+        "external": 0.67,
+        "internal": 0.00
+      },
+      "ArchitectSimple": {
+        "external": 0.00,
+        "internal": 0.00
+      },
+      "AskSimple": {
+        "external": 0.33,
+        "internal": 0.33
+      },
+      "OrchestratorSimple": {
+        "external": 0.00,
+        "internal": 0.00
+      }
+    }
+  },
+  "optimizationGoals": {
+    "qualityWeight": 0.6,
+    "speedWeight": 0.3,
+    "costWeight": 0.1
+  }
+}

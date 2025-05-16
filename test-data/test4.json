@@ -1,0 +1,15 @@
+{
+  "testName": "Escalade Ask Simple vers Complex",
+  "fromMode": "ask-simple",
+  "toMode": "ask-complex",
+  "task": "Expliquer en détail le fonctionnement des transformers et leur application en NLP",
+  "expectedEscalation": true,
+  "expectedEscalationType": "Externe",
+  "actualEscalation": true,
+  "actualEscalationType": "Interne",
+  "escalationTime": "00:00:45",
+  "escalationMessage": "Cette question nécessite une explication technique approfondie qui dépasse mes capacités",
+  "success": false,
+  "notes": "L'escalade s'est produite mais avec un type incorrect (Interne au lieu d'Externe)",
+  "timestamp": "2025-05-15T16:20:12"
+}

@@ -1,0 +1,52 @@
+{
+  "configurations": [
+    {
+      "name": "Test Escalade Qwen",
+      "description": "Configuration pour tester l'escalade entre différents modèles Qwen (modes simples) et Claude 3.7 Sonnet (modes complexes)",
+      "modes": {
+        "code-simple": "qwen/qwen3-14b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-8b",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-14b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-8b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-1.7b:free",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    },
+    {
+      "name": "Test Escalade Qwen Avancé",
+      "description": "Configuration pour tester l'escalade avec des modèles Qwen plus puissants pour les modes simples",
+      "modes": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-30b-a3b",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-30b-a3b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-14b",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    },
+    {
+      "name": "Test Escalade Mixte",
+      "description": "Configuration pour tester l'escalade avec un mélange de modèles Qwen de différentes tailles pour les modes simples",
+      "modes": {
+        "code-simple": "qwen/qwen3-14b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-1.7b:free",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-8b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-30b-a3b",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    }
+  ]
+}

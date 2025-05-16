@@ -1,0 +1,198 @@
+{
+  "version": "1.0.0",
+  "modes": [
+    {
+      "slug": "code",
+      "name": "💻 Code",
+      "description": "Mode standard pour le développement de code",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.ts$",
+        "\\.js$",
+        "\\.html$",
+        "\\.css$",
+        "\\.py$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "write_to_file",
+        "insert_content",
+        "search_and_replace",
+        "list_files",
+        "execute_command",
+        "browser_action"
+      ]
+    },
+    {
+      "slug": "code-simple",
+      "name": "💻 Code Simple",
+      "description": "Mode pour modifications mineures, documentation et fonctionnalités basiques",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.txt$"
+      ],
+      "defaultModel": "qwen/qwen3-14b",
+      "tools": [
+        "read_file",
+        "write_to_file",
+        "insert_content",
+        "search_and_replace",
+        "list_files"
+      ]
+    },
+    {
+      "slug": "code-complex",
+      "name": "💻 Code Complexe",
+      "description": "Mode pour modifications techniques avancées et architecture",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.ts$",
+        "\\.js$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "write_to_file",
+        "insert_content",
+        "search_and_replace",
+        "list_files",
+        "execute_command"
+      ]
+    },
+    {
+      "slug": "debug-simple",
+      "name": "🪲 Debug Simple",
+      "description": "Mode pour diagnostiquer des problèmes simples",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.txt$"
+      ],
+      "defaultModel": "qwen/qwen3-8b",
+      "tools": [
+        "read_file",
+        "list_files",
+        "ask_followup_question"
+      ]
+    },
+    {
+      "slug": "debug-complex",
+      "name": "🪲 Debug Complexe",
+      "description": "Mode pour diagnostiquer des problèmes complexes",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.js$",
+        "\\.ts$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "list_files",
+        "ask_followup_question",
+        "execute_command"
+      ]
+    },
+    {
+      "slug": "architect-simple",
+      "name": "🏗️ Architect Simple",
+      "description": "Mode pour conception architecturale simple",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$"
+      ],
+      "defaultModel": "qwen/qwen3-14b",
+      "tools": [
+        "read_file",
+        "write_to_file",
+        "list_files"
+      ]
+    },
+    {
+      "slug": "architect-complex",
+      "name": "🏗️ Architect Complexe",
+      "description": "Mode pour conception architecturale complexe",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "write_to_file",
+        "list_files",
+        "execute_command"
+      ]
+    },
+    {
+      "slug": "ask-simple",
+      "name": "❓ Ask Simple",
+      "description": "Mode pour répondre à des questions simples",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$"
+      ],
+      "defaultModel": "qwen/qwen3-8b",
+      "tools": [
+        "read_file",
+        "list_files"
+      ]
+    },
+    {
+      "slug": "ask-complex",
+      "name": "❓ Ask Complexe",
+      "description": "Mode pour répondre à des questions complexes",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "list_files",
+        "execute_command"
+      ]
+    },
+    {
+      "slug": "orchestrator-simple",
+      "name": "🪃 Orchestrator Simple",
+      "description": "Mode pour tâches simples et coordination",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$"
+      ],
+      "defaultModel": "qwen/qwen3-1.7b:free",
+      "tools": [
+        "read_file",
+        "list_files",
+        "ask_followup_question"
+      ]
+    },
+    {
+      "slug": "orchestrator-complex",
+      "name": "🪃 Orchestrator Complexe",
+      "description": "Mode pour orchestration de tâches complexes",
+      "allowedFilePatterns": [
+        "\\.json$",
+        "\\.md$",
+        "\\.js$"
+      ],
+      "defaultModel": "anthropic/claude-3.7-sonnet",
+      "tools": [
+        "read_file",
+        "list_files",
+        "ask_followup_question",
+        "execute_command"
+      ]
+    }
+  ],
+  "settings": {
+    "autoStartEnabled": true,
+    "tokenBudget": 100000,
+    "defaultMode": "code"
+  }
+}

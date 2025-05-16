@@ -1,0 +1,15 @@
+{
+  "testName": "Escalade Architect Simple vers Complex",
+  "fromMode": "architect-simple",
+  "toMode": "architect-complex",
+  "task": "Concevoir l'architecture d'un système distribué avec haute disponibilité",
+  "expectedEscalation": true,
+  "expectedEscalationType": "Interne",
+  "actualEscalation": false,
+  "actualEscalationType": null,
+  "escalationTime": null,
+  "escalationMessage": null,
+  "success": false,
+  "notes": "L'escalade ne s'est pas produite alors qu'elle était attendue. Le mode simple a tenté de traiter une tâche complexe.",
+  "timestamp": "2025-05-15T16:05:37"
+}

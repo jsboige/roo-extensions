@@ -74,7 +74,21 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 
 ## Structure du Projet
 
+Le dépôt a été réorganisé pour une meilleure maintenabilité et une structure plus cohérente :
+
 - `.roomodes` : Configuration des modes personnalisés
+- `configs/` : Configurations pour le projet
+  - `escalation/` : Configurations pour les mécanismes d'escalade
+- `docs/` : Documentation générale du projet
+  - `escalation/` : Documentation sur les mécanismes d'escalade
+- `mcps/` : Configuration et documentation pour les MCPs externes
+  - `mcp-servers/` : Serveurs MCP
+  - `external-mcps/` : Documentation pour les MCPs externes
+- `roo-config/` : Configurations pour Roo
+  - `modes/` : Configurations de modes standard
+  - `settings/` : Paramètres généraux
+  - `scheduler/` : Extensions et configurations pour Roo Scheduler
+  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
 - `roo-modes/` : Répertoire principal pour les modes personnalisés
   - `configs/` : Configurations des modes (architecture à 2 niveaux)
   - `docs/` : Documentation conceptuelle et guides
@@ -88,27 +102,14 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
     - `tests/` : Tests pour les mécanismes d'escalade et désescalade
   - `custom/` : Modes personnalisés spécifiques
   - `optimized/` : Modes optimisés pour différents modèles
-- `roo-config/` : Configurations pour Roo
-  - `modes/` : Configurations de modes standard
-  - `settings/` : Paramètres généraux
-  - `scheduler/` : Extensions et configurations pour Roo Scheduler
-  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
-- `mcps/` : Configuration et documentation pour les MCPs externes
-  - `searxng/` : MCP pour la recherche web
-  - `win-cli/` : MCP pour les commandes Windows
-  - `git/` : MCP pour les opérations Git
-  - `github/` : MCP pour l'API GitHub
-- `docs/` : Documentation générale du projet
-  - Guides d'utilisation
-  - Rapports de tests
-  - Spécifications techniques
 - `scripts/` : Scripts utilitaires pour le projet
-  - Tests de scénarios
-  - Utilitaires de déploiement
+  - `escalation/` : Scripts pour les mécanismes d'escalade
+- `templates/` : Modèles pour les rapports et autres documents
+- `test-data/` : Données de test
+- `test-results/` : Résultats des tests
 - `tests/` : Tests et scénarios de test
-  - `mcp-structure/` : Tests pour la structure MCP
-  - `mcp-win-cli/` : Tests pour le MCP Win-CLI
-  - `scripts/` : Scripts de test
+  - `escalation/` : Tests pour les mécanismes d'escalade
+  - `mcp/` : Tests pour les MCPs
 - `archive/` : Contenu obsolète ou archivé
 
 ## Documentation
@@ -122,6 +123,10 @@ Le projet dispose d'une documentation détaillée répartie dans plusieurs fichi
 - [**mcps/scripts/README.md**](mcps/scripts/README.md) : Documentation des scripts pour les serveurs MCP, détaillant les scripts de lancement, de test et d'installation pour les différents serveurs MCP (QuickFiles, JinaNavigator, Jupyter). Inclut des exemples d'utilisation et des conseils de dépannage.
 
 - [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
+
+- [**docs/escalation/continuous-evaluation-guide.md**](docs/escalation/continuous-evaluation-guide.md) : Guide pour l'évaluation continue des performances d'escalade, incluant les métriques à surveiller et les ajustements recommandés.
+
+- [**tests/escalation/rapport-tests-escalade.md**](tests/escalation/rapport-tests-escalade.md) : Rapport d'analyse des tests d'escalade, incluant les résultats des tests et les recommandations.
 
 Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
 

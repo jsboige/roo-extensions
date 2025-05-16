@@ -1,0 +1,15 @@
+{
+  "testName": "Pas d'escalade Orchestrator Complex",
+  "fromMode": "orchestrator-complex",
+  "toMode": null,
+  "task": "Coordonner l'exécution d'une série de tâches interdépendantes",
+  "expectedEscalation": false,
+  "expectedEscalationType": null,
+  "actualEscalation": false,
+  "actualEscalationType": null,
+  "escalationTime": null,
+  "escalationMessage": null,
+  "success": true,
+  "notes": "Aucune escalade n'était attendue et aucune ne s'est produite. Le mode complex a correctement géré la tâche.",
+  "timestamp": "2025-05-15T16:45:30"
+}

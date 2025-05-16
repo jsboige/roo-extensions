@@ -1,0 +1,15 @@
+{
+  "testName": "Escalade Debug Simple vers Complex",
+  "fromMode": "debug-simple",
+  "toMode": "debug-complex",
+  "task": "Déboguer une application React avec des problèmes de performance",
+  "expectedEscalation": true,
+  "expectedEscalationType": "Externe",
+  "actualEscalation": true,
+  "actualEscalationType": "Externe",
+  "escalationTime": "00:02:15",
+  "escalationMessage": "Cette tâche nécessite une analyse approfondie des performances qui dépasse mes capacités",
+  "success": true,
+  "notes": "L'escalade s'est produite après détection de la complexité du problème de performance",
+  "timestamp": "2025-05-15T15:10:22"
+}

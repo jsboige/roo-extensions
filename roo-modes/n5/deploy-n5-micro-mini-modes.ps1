@@ -35,7 +35,10 @@ Write-ColorOutput "=========================================================" "C
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $microModesPath = Join-Path -Path $scriptDir -ChildPath "configs/micro-modes.json"
 $miniModesPath = Join-Path -Path $scriptDir -ChildPath "configs/mini-modes.json"
-$standardModesPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) -ChildPath "configs/standard-modes.json"
+# Chemin original (commenté)
+# $standardModesPath = Join-Path -Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) -ChildPath "configs/standard-modes.json"
+# Chemin corrigé pour pointer vers l'emplacement réel du fichier
+$standardModesPath = Join-Path -Path (Split-Path -Parent $scriptDir) -ChildPath "configs/standard-modes.json"
 
 # Vérifier que les fichiers source existent
 if (-not (Test-Path -Path $microModesPath)) {
