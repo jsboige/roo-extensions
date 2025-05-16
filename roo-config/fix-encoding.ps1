@@ -1,96 +1,61 @@
-# Script de correction d'encodage pour les fichiers de configuration Roo
-# Ce script corrige les problèmes d'encodage dans les fichiers de configuration
+# Script pour corriger l'encodage du fichier custom_modes.json
+# Ce script lit le fichier JSON, le convertit en objet PowerShell, puis le réécrit en UTF-8 sans BOM
 
-param (
-    [Parameter(Mandatory = $false)]
-    [string]$Path = ".",
-    
-    [Parameter(Mandatory = $false)]
-    [switch]$Recursive,
-    
-    [Parameter(Mandatory = $false)]
-    [string[]]$FilePatterns = @("*.json", "*.md", "*.txt"),
-    
-    [Parameter(Mandatory = $false)]
-    [switch]$Backup,
-    
-    [Parameter(Mandatory = $false)]
-    [switch]$Force
-)
+# Chemin du fichier global
+$globalFilePath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\custom_modes.json"
 
-# Fonction pour afficher des messages colorés
-function Write-ColorOutput {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-        
-        [Parameter(Mandatory = $false)]
-        [string]$ForegroundColor = "White"
-    )
-    
-    $originalColor = $host.UI.RawUI.ForegroundColor
-    $host.UI.RawUI.ForegroundColor = $ForegroundColor
-    Write-Output $Message
-    $host.UI.RawUI.ForegroundColor = $originalColor
+# Vérifier si le fichier existe
+if (-not (Test-Path -Path $globalFilePath)) {
+    Write-Host "Erreur: Le fichier $globalFilePath n'existe pas." -ForegroundColor Red
+    exit 1
 }
 
-# Bannière
-Write-ColorOutput "`n=========================================================" "Cyan"
-Write-ColorOutput "   Correction d'encodage pour les fichiers de configuration Roo" "Cyan"
-Write-ColorOutput "=========================================================" "Cyan"
-
-# Obtenir la liste des fichiers à analyser
-$files = @()
-if ($Recursive) {
-    $files = Get-ChildItem -Path $Path -Recurse -File -Include $FilePatterns
+# Afficher l'encodage actuel
+$bytes = [System.IO.File]::ReadAllBytes($globalFilePath)
+if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    Write-Host "Le fichier est actuellement encodé en UTF-8 avec BOM" -ForegroundColor Yellow
 } else {
-    $files = Get-ChildItem -Path $Path -File -Include $FilePatterns
+    Write-Host "Le fichier est actuellement encodé en UTF-8 sans BOM ou un autre encodage" -ForegroundColor Yellow
 }
 
-Write-ColorOutput "`nTraitement de $($files.Count) fichiers..." "Yellow"
-
-# Traiter chaque fichier
-$correctedFiles = 0
-
-foreach ($file in $files) {
-    Write-ColorOutput "`nTraitement du fichier: $($file.FullName)" "White"
+try {
+    # Lire le contenu du fichier JSON
+    Write-Host "Lecture du fichier JSON..." -ForegroundColor Cyan
+    $jsonContent = Get-Content -Path $globalFilePath -Raw -ErrorAction Stop
     
-    # Créer une sauvegarde si demandé
-    if ($Backup) {
-        $backupPath = "$($file.FullName).bak"
-        Copy-Item -Path $file.FullName -Destination $backupPath -Force
-        Write-ColorOutput "Sauvegarde créée: $backupPath" "Yellow"
-    }
+    # Convertir le JSON en objet PowerShell
+    Write-Host "Conversion du JSON en objet PowerShell..." -ForegroundColor Cyan
+    $jsonObject = ConvertFrom-Json $jsonContent -ErrorAction Stop
     
-    try {
-        # Lire le contenu du fichier
-        $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
-        $hasBOM = $false
-        
-        # Vérifier si le fichier a un BOM UTF-8
-        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-            $hasBOM = $true
-            Write-ColorOutput "Le fichier a un BOM UTF-8" "Yellow"
-        }
-        
-        # Lire le contenu avec l'encodage approprié
-        $content = Get-Content -Path $file.FullName -Raw
-        
-        # Écrire le contenu en UTF-8 sans BOM
-        [System.IO.File]::WriteAllText($file.FullName, $content, [System.Text.UTF8Encoding]::new($false))
-        
-        Write-ColorOutput "Fichier converti en UTF-8 sans BOM" "Green"
-        $correctedFiles++
-    } catch {
-        Write-ColorOutput "Erreur lors du traitement du fichier: $($_.Exception.Message)" "Red"
+    # Convertir l'objet PowerShell en JSON avec encodage UTF-8
+    Write-Host "Reconversion en JSON..." -ForegroundColor Cyan
+    $jsonString = ConvertTo-Json $jsonObject -Depth 100
+    
+    # Créer une copie de sauvegarde
+    $backupPath = "$globalFilePath.backup"
+    Copy-Item -Path $globalFilePath -Destination $backupPath -Force
+    Write-Host "Copie de sauvegarde créée: $backupPath" -ForegroundColor Green
+    
+    # Écrire le contenu en UTF-8 sans BOM
+    Write-Host "Écriture du fichier en UTF-8 sans BOM..." -ForegroundColor Cyan
+    [System.IO.File]::WriteAllText($globalFilePath, $jsonString, [System.Text.UTF8Encoding]::new($false))
+    
+    Write-Host "Correction d'encodage réussie!" -ForegroundColor Green
+    
+    # Vérifier l'encodage après correction
+    $bytes = [System.IO.File]::ReadAllBytes($globalFilePath)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        Write-Host "Le fichier est maintenant encodé en UTF-8 avec BOM" -ForegroundColor Yellow
+    } else {
+        Write-Host "Le fichier est maintenant encodé en UTF-8 sans BOM" -ForegroundColor Green
     }
+} catch {
+    Write-Host "Erreur lors de la correction de l'encodage:" -ForegroundColor Red
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    exit 1
 }
 
-# Afficher le résumé
-Write-ColorOutput "`n=========================================================" "Cyan"
-Write-ColorOutput "   Résumé de la correction" "Cyan"
-Write-ColorOutput "=========================================================" "Cyan"
-
-Write-ColorOutput "`n$correctedFiles fichiers ont été convertis en UTF-8 sans BOM." "Green"
-
-Write-ColorOutput "`nPour plus d'informations sur les problèmes d'encodage, consultez le fichier docs/guide-encodage.md" "White"
+Write-Host "`nPour activer les modes:" -ForegroundColor Cyan
+Write-Host "1. Redémarrez Visual Studio Code" -ForegroundColor White
+Write-Host "2. Ouvrez la palette de commandes (Ctrl+Shift+P)" -ForegroundColor White
+Write-Host "3. Tapez 'Roo: Switch Mode' et sélectionnez un des modes" -ForegroundColor White
