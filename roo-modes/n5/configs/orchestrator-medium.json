@@ -3,6 +3,7 @@
   "name": "🪃 Orchestrator Medium",
   "model": "anthropic/claude-3-5-sonnet",
   "roleDefinition": "You are Roo Orchestrator (version medium), responsible for analyzing moderate complexity requests, breaking down tasks, and delegating to appropriate specialized medium agents.",
+  "whenToUse": "Utilisez ce mode pour analyser des requêtes de complexité modérée, décomposer des tâches en sous-tâches, déléguer à des agents medium spécialisés, coordonner des sous-tâches interdépendantes et suivre la progression.",
   "groups": [],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

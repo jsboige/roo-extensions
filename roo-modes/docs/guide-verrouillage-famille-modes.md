@@ -21,8 +21,10 @@ Ce document présente le système de verrouillage de famille pour les modes Roo,
 
 Le système Roo utilise différents modes spécialisés pour traiter des tâches de complexité variable. Ces modes sont organisés en deux familles principales :
 
-1. **Famille "simple"** : Modes optimisés pour les tâches simples, utilisant des modèles plus légers (Claude 3.5 Sonnet)
-2. **Famille "complex"** : Modes optimisés pour les tâches complexes, utilisant des modèles plus puissants (Claude 3.7 Sonnet)
+1. **Famille "simple"** : Modes optimisés pour les tâches simples, généralement associés à des modèles plus légers via des profils (comme Claude 3.5 Sonnet)
+2. **Famille "complex"** : Modes optimisés pour les tâches complexes, généralement associés à des modèles plus puissants via des profils (comme Claude 3.7 Sonnet)
+
+> **Note**: Avec l'architecture basée sur les profils, les modèles spécifiques utilisés par chaque famille peuvent être facilement modifiés en changeant de profil, sans altérer la structure des familles.
 
 ### Problème identifié
 
@@ -198,13 +200,29 @@ Pour mettre à jour le système :
 
 ## Évolution future
 
-### Intégration avec l'architecture à 5 niveaux
+### Intégration avec l'architecture à 5 niveaux et les profils
 
-Le système de verrouillage de famille est conçu pour être compatible avec l'architecture à 5 niveaux (MICRO, MINI, MEDIUM, LARGE, ORACLE). Pour l'intégrer :
+Le système de verrouillage de famille est conçu pour être compatible avec l'architecture à 5 niveaux (MICRO, MINI, MEDIUM, LARGE, ORACLE) et avec le système de profils. Pour l'intégrer :
 
 1. Définir des familles pour chaque niveau de complexité
 2. Mettre à jour les métadonnées de famille dans les configurations des modes
 3. Adapter les règles de transition pour permettre des transitions entre niveaux de complexité au sein de la même famille
+4. Créer des profils adaptés à chaque niveau de complexité, comme le profil "n5" qui définit des modèles spécifiques pour chaque niveau
+
+```json
+{
+  "name": "n5",
+  "description": "Profil pour la famille de modes n5",
+  "defaultModel": "anthropic/claude-3.5-sonnet",
+  "modeOverrides": {
+    "code-micro": "anthropic/claude-3-haiku",
+    "code-mini": "anthropic/claude-3.5-sonnet",
+    "code-medium": "anthropic/claude-3.5-sonnet",
+    "code-large": "anthropic/claude-3.7-sonnet",
+    "code-oracle": "anthropic/claude-3.7-opus"
+  }
+}
+```
 
 ### Améliorations possibles
 
@@ -219,3 +237,18 @@ Le système est conçu pour être évolutif et compatible avec les futures versi
 1. Suivre les mises à jour de Roo et adapter les scripts si nécessaire
 2. Maintenir une documentation à jour
 3. Effectuer des tests réguliers pour vérifier le bon fonctionnement du système
+4. Mettre à jour les profils pour prendre en charge les nouveaux modèles de langage
+
+## Intégration avec le système de profils
+
+Le système de verrouillage de famille fonctionne en tandem avec le système de profils pour offrir une solution complète et flexible :
+
+1. **Familles de modes** : Définissent les groupes logiques de modes et les transitions autorisées
+2. **Profils** : Définissent les modèles de langage à utiliser pour chaque mode
+
+Cette séparation des préoccupations permet :
+- De modifier les modèles utilisés sans affecter la structure des familles
+- De faire évoluer les familles sans modifier les associations aux modèles
+- D'adapter rapidement la configuration à différents contextes (économique, haute performance, etc.)
+
+Pour plus d'informations sur le système de profils, consultez le [Guide d'utilisation des profils](../../docs/guide-utilisation-profils-modes.md).

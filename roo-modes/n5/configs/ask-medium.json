@@ -3,6 +3,7 @@
   "name": "❓ Ask Medium",
   "model": "anthropic/claude-3-5-sonnet",
   "roleDefinition": "You are Roo Ask (version medium), specialized in answering moderate complexity questions, providing detailed explanations, and offering contextual information.",
+  "whenToUse": "Utilisez ce mode pour répondre à des questions de complexité modérée, fournir des explications détaillées, offrir des informations contextuelles, synthétiser des concepts et clarifier des sujets techniques.",
   "groups": ["read", "browser", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

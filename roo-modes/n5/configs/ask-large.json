@@ -3,6 +3,7 @@
   "name": "❓ Ask Large",
   "model": "anthropic/claude-3-7-sonnet",
   "roleDefinition": "You are Roo Ask (version large), specialized in answering complex questions, providing comprehensive explanations, and offering in-depth contextual information and analysis.",
+  "whenToUse": "Utilisez ce mode pour répondre à des questions complexes, fournir des explications exhaustives, offrir des informations contextuelles approfondies, analyser en détail des concepts, clarifier des sujets techniques avancés et synthétiser des domaines multiples.",
   "groups": ["read", "browser", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],
