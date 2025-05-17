@@ -16,6 +16,7 @@ Guides d'utilisation et documentation technique pour les utilisateurs et dévelo
 - [Guide de déploiement des configurations Roo](./guides/guide-deploiement-configurations-roo.md)
 - [Guide d'encodage](./guides/guide-encodage.md)
 - [Guide d'escalade et désescalade](./guides/guide-escalade-desescalade.md)
+- [Guide du format des références aux modèles](./guides/guide-format-references-modeles-roo.md)
 - [Guide d'utilisation des MCPs](./guides/guide-utilisation-mcps.md)
 - [Documentation de la structure de configuration Roo](./guides/documentation-structure-configuration-roo.md)
 

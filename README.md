@@ -75,6 +75,7 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 ## Structure du Projet
 
 - `.roomodes` : Configuration des modes personnalisés
+- `roo-code/` : Sous-module Git contenant le code source de Roo
 - `roo-modes/` : Répertoire principal pour les modes personnalisés
   - `configs/` : Configurations des modes (architecture à 2 niveaux)
   - `docs/` : Documentation conceptuelle et guides
@@ -122,6 +123,8 @@ Le projet dispose d'une documentation détaillée répartie dans plusieurs fichi
 - [**mcps/scripts/README.md**](mcps/scripts/README.md) : Documentation des scripts pour les serveurs MCP, détaillant les scripts de lancement, de test et d'installation pour les différents serveurs MCP (QuickFiles, JinaNavigator, Jupyter). Inclut des exemples d'utilisation et des conseils de dépannage.
 
 - [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
+
+- [**docs/guides/guide-maintenance-configuration-roo.md**](docs/guides/guide-maintenance-configuration-roo.md) : Guide complet de maintenance et mise à jour de la configuration Roo, expliquant les workflows pour mettre à jour les commandes autorisées, ajouter ou modifier des modes personnalisés, mettre à jour les configurations d'API, corriger les problèmes d'encodage et déployer les mises à jour.
 
 Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
 
@@ -179,6 +182,36 @@ Le projet intègre plusieurs serveurs MCP (Model Context Protocol) externes pour
 
 Pour plus d'informations sur l'utilisation des MCPs, consultez le répertoire `mcps/` et le document `docs/guide-utilisation-mcps.md`.
 
+## Sous-module Roo-Code
+
+Le dépôt inclut le code source de Roo comme sous-module Git dans le répertoire `roo-code/`. Ce sous-module facilite les références au code interne de Roo et permet d'explorer le fonctionnement interne de l'application.
+
+### Objectif
+
+- Faciliter les investigations sur le fonctionnement interne de Roo
+- Permettre des références précises au code source dans la documentation
+- Assurer la cohérence entre les extensions développées et le code principal de Roo
+
+### Utilisation
+
+Pour explorer le code source de Roo :
+
+```bash
+cd roo-code
+```
+
+Vous pouvez ensuite naviguer dans le code source pour comprendre le fonctionnement interne ou faire des références précises dans votre documentation.
+
+### Mise à jour du sous-module
+
+Pour mettre à jour le sous-module vers la dernière version du dépôt Roo :
+
+```bash
+git submodule update --remote roo-code
+git add roo-code
+git commit -m "Update Roo-Code submodule to latest version"
+```
+
 ## Contribution
 
 Les contributions sont les bienvenues ! Voici comment contribuer :
@@ -189,9 +222,23 @@ Les contributions sont les bienvenues ! Voici comment contribuer :
 4. Poussez vers la branche (`git push origin feature/amazing-feature`)
 5. Ouvrez une Pull Request
 
-## Note sur l'encodage des fichiers
+## Maintenance de la configuration Roo
 
-**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
+Le projet inclut un ensemble complet d'outils pour maintenir et mettre à jour la configuration de Roo. Ces outils permettent de gérer les modes, corriger les problèmes d'encodage, déployer les configurations et diagnostiquer les problèmes courants.
+
+### Workflows de maintenance
+
+- **Mise à jour des commandes autorisées** : Modification et déploiement des commandes autorisées pour chaque mode
+- **Ajout ou modification de modes personnalisés** : Création et déploiement de nouveaux modes ou modification des modes existants
+- **Mise à jour des configurations d'API** : Modification des paramètres des serveurs MCP et autres API
+- **Correction des problèmes d'encodage** : Diagnostic et correction des problèmes d'encodage dans les fichiers JSON
+- **Déploiement des mises à jour** : Déploiement global ou local des configurations mises à jour
+
+Pour des instructions détaillées sur ces workflows, consultez le [Guide de maintenance et mise à jour de la configuration Roo](docs/guides/guide-maintenance-configuration-roo.md).
+
+### Note sur l'encodage des fichiers
+
+**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM. Des scripts de diagnostic et de correction sont disponibles dans le dossier `roo-config/diagnostic-scripts/` et `roo-config/encoding-scripts/`.
 
 ## Licence
 
