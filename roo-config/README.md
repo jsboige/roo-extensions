@@ -1,201 +1,118 @@
-﻿# Configuration Roo
+﻿# Outils de déploiement et correction d'encodage pour Roo
 
-Ce répertoire centralise toutes les configurations pour l'assistant IA Roo, permettant une gestion unifiée des paramètres, modes, et fonctionnalités avancées. Il fournit les fichiers de configuration et les scripts de déploiement nécessaires pour personnaliser l'expérience Roo selon vos besoins.
+Ce répertoire contient un ensemble d'outils pour déployer les modes Roo (simple et complex) sur Windows et résoudre les problèmes d'encodage courants.
 
-## Objectif général
+## Problématique
 
-Le répertoire `roo-config/` a pour objectif de :
+Le déploiement des modes Roo sur Windows peut rencontrer des problèmes d'encodage, notamment pour les caractères accentués et les emojis. Ces problèmes peuvent rendre les fichiers JSON invalides et empêcher le chargement correct des modes dans Visual Studio Code.
 
-- Centraliser les configurations de Roo dans un emplacement unique
-- Fournir des scripts de déploiement pour faciliter l'installation
-- Offrir des exemples et des modèles de configuration
-- Permettre la personnalisation des modes, paramètres et comportements de Roo
-- Faciliter la migration et la synchronisation des configurations entre différentes machines
+## Structure des outils
 
-## Structure du répertoire
+### Organisation des dossiers
 
-### Sous-répertoires principaux
-
-- **settings/**: Paramètres généraux de Roo (anciennement roo-settings)
-  - Configuration globale de l'assistant
-  - Paramètres d'autorisation et de sécurité
-  - Configuration du terminal et du navigateur
-  - Association entre modes et profils d'API
-
-- **modes/**: Configurations des modes personnalisés
-  - Définition des modes standard et personnalisés
-  - Paramètres spécifiques à chaque mode
-  - Instructions personnalisées pour les différents modes
-
-- **scheduler/**: Configuration du planificateur Roo
-  - Guides d'installation et de configuration
-  - Documentation pour l'automatisation des tâches
-
-- **exemple-config/**: Exemples de configuration
-  - Modèles de fichiers config.json, modes.json et servers.json
-  - Exemples de configuration pour différents cas d'utilisation
-
-- **qwen3-profiles/**: Profils pour les modèles Qwen 3
-  - Paramètres optimisés pour les différents modèles Qwen
-  - Documentation sur l'intégration avec l'architecture N5
-
-### Fichiers de configuration importants
-
-- **model-configs.json**: Configuration des modèles d'IA utilisés par Roo
-- **settings/settings.json**: Paramètres globaux de Roo
-- **settings/modes.json**: Association entre modes et profils d'API
-- **settings/servers.json**: Configuration des serveurs MCP
-- **modes/standard-modes.json**: Définition des modes standard
+- **`encoding-scripts/`** - Scripts de correction d'encodage
+- **`deployment-scripts/`** - Scripts de déploiement des modes
+- **`diagnostic-scripts/`** - Scripts de diagnostic et vérification
+- **`config-templates/`** - Modèles de fichiers de configuration
+- **`docs/`** - Documentation supplémentaire
+- **`modes/`** - Fichiers de modes standards
+- **`qwen3-profiles/`** - Profils pour le modèle Qwen3
+- **`scheduler/`** - Configuration du planificateur
+- **`settings/`** - Paramètres de configuration
+- **`backups/`** - Fichiers de sauvegarde
 
 ### Scripts de déploiement
 
-- **deploy-modes.ps1**: Script PowerShell pour déployer les configurations de modes
-  ```powershell
-  .\deploy-modes.ps1 [-ConfigFile <chemin>] [-DeploymentType <global|local>] [-Force]
-  ```
+- **`deployment-scripts/simple-deploy.ps1`** - Script simplifié pour déployer les modes avec l'option force
+- **`deployment-scripts/deploy-modes-simple-complex.ps1`** - Script principal de déploiement avec gestion améliorée de l'encodage
+- **`deployment-scripts/deploy-modes-enhanced.ps1`** - Version améliorée du script de déploiement
+- **`deployment-scripts/force-deploy-with-encoding-fix.ps1`** - Script qui force le déploiement avec correction d'encodage
+- **`deployment-scripts/create-clean-modes.ps1`** - Script pour créer des modes propres
 
-- **deploy-modes-enhanced.ps1**: Version améliorée avec options supplémentaires
-  ```powershell
-  .\deploy-modes-enhanced.ps1 [-ConfigFile <chemin>] [-DeploymentType <global|local>] [-Force] [-PrepareGitInstructions] [-TestAfterDeploy]
-  ```
+### Scripts de correction d'encodage
 
-- **settings/deploy-settings.ps1**: Script pour déployer les paramètres généraux
-  ```powershell
-  .\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
-  ```
+- **`encoding-scripts/fix-encoding-simple.ps1`** - Correction simple des problèmes d'encodage courants
+- **`encoding-scripts/fix-encoding-complete.ps1`** - Correction complète des caractères mal encodés et des emojis
+- **`encoding-scripts/fix-encoding-advanced.ps1`** - Correction avancée avec plus d'options
+- **`encoding-scripts/fix-encoding-direct.ps1`** - Correction directe des caractères problématiques
+- **`encoding-scripts/fix-encoding-regex.ps1`** - Correction utilisant des expressions régulières
+- **`encoding-scripts/fix-encoding-final.ps1`** - Version finale et optimisée de la correction d'encodage
+- **`encoding-scripts/fix-source-encoding.ps1`** - Correction de l'encodage des fichiers source
 
-### Scripts utilitaires
+### Scripts de vérification
 
-- **encoding-diagnostic.ps1**: Diagnostic d'encodage des fichiers de configuration
-- **fix-encoding.ps1**: Correction des problèmes d'encodage dans les fichiers
+- **`diagnostic-scripts/check-deployed-encoding.ps1`** - Vérifie l'encodage du fichier déployé
+- **`diagnostic-scripts/verify-deployed-modes.ps1`** - Vérifie les modes déployés et leur encodage
+- **`diagnostic-scripts/encoding-diagnostic.ps1`** - Diagnostic complet des problèmes d'encodage
+- **`diagnostic-scripts/diagnostic-rapide-encodage.ps1`** - Outil de diagnostic rapide avec correction automatique
 
-### Documentation
+### Outils interactifs
 
-- **guide-import-export.md**: Guide pour exporter/importer les configurations entre machines
-- **REDIRECTION.md**: Information sur la migration vers le nouveau répertoire `roo-modes`
-- **scheduler/Guide_Installation_Roo_Scheduler.md**: Guide d'installation du planificateur
-- **scheduler/Guide_Edition_Directe_Configurations_Roo_Scheduler.md**: Guide d'édition des configurations du planificateur
+- **`deployment-scripts/deploy-guide-interactif.ps1`** - Guide interactif pour le déploiement des modes
 
-## Utilisation des scripts de déploiement
+## Guide d'utilisation rapide
 
-### Déploiement des modes
+### Déploiement simple
 
-Le script `deploy-modes.ps1` permet de déployer une configuration de modes soit globalement (pour toutes les instances de VS Code), soit localement (pour un projet spécifique).
-
-#### Syntaxe
+Pour un déploiement rapide des modes simple et complex:
 
 ```powershell
-.\deploy-modes.ps1 [-ConfigFile <chemin>] [-DeploymentType <global|local>] [-Force]
+.\deployment-scripts\simple-deploy.ps1
 ```
 
-#### Paramètres
+### Diagnostic et correction d'encodage
 
-- `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-config/`)
-  - Par défaut : `modes/standard-modes.json`
-
-- `-DeploymentType` : Type de déploiement
-  - `global` : Déploie la configuration pour toutes les instances de VS Code
-  - `local` : Déploie la configuration uniquement pour le projet courant
-  - Par défaut : `global`
-
-- `-Force` : Force le remplacement du fichier de destination sans demander de confirmation
-
-#### Exemples
-
-1. Déployer la configuration standard globalement :
-   ```powershell
-   .\deploy-modes.ps1
-   ```
-
-2. Déployer une configuration personnalisée localement :
-   ```powershell
-   .\deploy-modes.ps1 -ConfigFile modes/my-custom-modes.json -DeploymentType local
-   ```
-
-### Déploiement des paramètres généraux
-
-Le script `settings/deploy-settings.ps1` permet de déployer la configuration générale de Roo.
-
-#### Syntaxe
+Pour diagnostiquer les problèmes d'encodage dans un fichier:
 
 ```powershell
-.\settings\deploy-settings.ps1 [-ConfigFile <chemin>] [-Force]
+.\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
 ```
 
-#### Paramètres
+Pour corriger automatiquement les problèmes:
 
-- `-ConfigFile` : Chemin du fichier de configuration à déployer (relatif au répertoire `roo-config/settings/`)
-  - Par défaut : `settings.json`
+```powershell
+.\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json" -Fix
+```
 
-- `-Force` : Force le remplacement du fichier de destination sans demander de confirmation
+### Déploiement guidé
 
-#### Exemples
+Pour un déploiement guidé avec vérification d'encodage:
 
-1. Déployer la configuration générale standard :
-   ```powershell
-   .\settings\deploy-settings.ps1
-   ```
+```powershell
+.\deployment-scripts\deploy-guide-interactif.ps1
+```
 
-2. Déployer une configuration personnalisée sans confirmation :
-   ```powershell
-   .\settings\deploy-settings.ps1 -ConfigFile ma-config.json -Force
-   ```
+## Workflow recommandé
 
-## Relations entre les différentes configurations
+1. **Vérifier l'encodage** du fichier source avec `diagnostic-scripts\check-deployed-encoding.ps1`
+2. **Corriger l'encodage** si nécessaire avec `encoding-scripts\fix-encoding-complete.ps1` ou `encoding-scripts\fix-encoding-final.ps1`
+3. **Déployer les modes** avec `deployment-scripts\deploy-modes-simple-complex.ps1` ou `deployment-scripts\simple-deploy.ps1`
+4. **Vérifier le déploiement** avec `diagnostic-scripts\verify-deployed-modes.ps1`
+5. **Redémarrer Visual Studio Code** et activer les modes
 
-### Relation entre settings.json et modes.json
+## Documentation complète
 
-- **settings.json** contient les paramètres globaux de Roo et les associations entre modes et profils d'API
-- **modes.json** définit les modes disponibles et leurs propriétés spécifiques
-- L'association se fait via la section `modeApiConfigs` dans settings.json qui mappe chaque mode à un profil d'API
+Pour une documentation complète sur les problèmes d'encodage et leur résolution:
 
-### Relation avec roo-modes
+- [Guide d'encodage pour Windows](../docs/guides/guide-encodage-windows.md)
+- [Rapport final de déploiement](../docs/rapports/rapport-final-deploiement-modes-windows.md)
+- [Guide d'import/export](docs/guide-import-export.md)
 
-- Le répertoire `roo-config/settings` gère les configurations générales de Roo
-- Le répertoire `roo-modes` se concentre sur la définition des modes personnalisés
-- Pour une configuration complète, il faut généralement déployer à la fois :
-  1. Une configuration générale (via `roo-config/settings/deploy-settings.ps1`)
-  2. Une configuration de modes (via `roo-config/deploy-modes.ps1` ou `roo-modes/deploy-modes.ps1`)
+## Dépannage
 
-## Bonnes pratiques pour modifier les configurations
+Si vous rencontrez des problèmes lors du déploiement:
 
-### Modification des paramètres généraux
+1. Exécutez `diagnostic-scripts\diagnostic-rapide-encodage.ps1` pour identifier les problèmes
+2. Utilisez `encoding-scripts\fix-encoding-complete.ps1` pour corriger les problèmes d'encodage
+3. Forcez le déploiement avec `deployment-scripts\force-deploy-with-encoding-fix.ps1`
+4. Vérifiez le résultat avec `diagnostic-scripts\verify-deployed-modes.ps1`
 
-1. **Sauvegardez d'abord** : Exportez votre configuration actuelle avant toute modification
-2. **Utilisez les exemples** : Basez-vous sur les exemples fournis dans `exemple-config/`
-3. **Testez localement** : Déployez d'abord en mode local pour tester vos modifications
-4. **Vérifiez l'encodage** : Assurez-vous que vos fichiers sont en UTF-8 sans BOM
-5. **Redémarrez VS Code** : Après chaque déploiement pour appliquer les changements
+Si les problèmes persistent, consultez le [rapport final de déploiement](../docs/rapports/rapport-final-deploiement-modes-windows.md) pour des solutions plus avancées.
 
-### Modification des modes
+## Contribution
 
-1. **Comprenez la structure** : Familiarisez-vous avec la structure du fichier `modes/standard-modes.json`
-2. **Modifiez progressivement** : Faites des modifications incrémentales et testez-les
-3. **Respectez le format JSON** : Assurez-vous que votre fichier reste valide
-4. **Documentez vos changements** : Ajoutez des commentaires pour expliquer vos modifications
-5. **Utilisez le script amélioré** : Préférez `deploy-modes-enhanced.ps1` qui offre plus d'options
+Ces outils sont en constante amélioration. Si vous rencontrez des problèmes non couverts ou si vous avez des suggestions d'amélioration, n'hésitez pas à contribuer ou à signaler les problèmes.
 
-### Sécurité
+---
 
-- Ne stockez jamais de clés d'API ou d'informations sensibles dans les fichiers de configuration partagés
-- Ajoutez manuellement vos clés d'API après le déploiement
-- Utilisez les scripts d'import/export pour sauvegarder vos configurations complètes dans un emplacement sécurisé
-
-## Import et export de configurations
-
-Pour synchroniser vos configurations entre différentes machines, consultez le guide détaillé dans `guide-import-export.md`. Ce guide explique comment :
-
-1. Exporter votre configuration depuis une machine source
-2. Importer cette configuration sur une machine cible
-3. Utiliser des scripts d'automatisation pour faciliter ce processus
-4. Synchroniser via un dépôt Git pour une solution plus avancée
-
-## Résolution des problèmes courants
-
-- **Problèmes d'encodage** : Utilisez `encoding-diagnostic.ps1` pour diagnostiquer et `fix-encoding.ps1` pour corriger
-- **Modes non disponibles** : Vérifiez que le déploiement a réussi et redémarrez VS Code
-- **Erreurs JSON** : Validez vos fichiers JSON avec un validateur en ligne
-- **Chemins incorrects** : Assurez-vous que les chemins relatifs sont corrects dans vos scripts
-- **Conflits de configuration** : Vérifiez que vos configurations ne contiennent pas de définitions contradictoires
-
-Pour plus d'informations sur les configurations spécifiques, consultez les README.md dans les sous-répertoires correspondants.
+Développé pour faciliter le déploiement des modes Roo sur Windows et résoudre les problèmes d'encodage courants.

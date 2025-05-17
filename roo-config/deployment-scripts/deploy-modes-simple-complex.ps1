@@ -1,5 +1,6 @@
-# Script de déploiement des modes simples/complex pour Roo
+# Script de déploiement des modes simples/complex pour Roo (Version améliorée)
 # Ce script permet de déployer rapidement les modes simples et complexes soit globalement, soit localement
+# Avec gestion améliorée de l'encodage pour les caractères accentués
 
 param (
     [Parameter(Mandatory = $false)]
@@ -10,7 +11,10 @@ param (
     [switch]$Force,
     
     [Parameter(Mandatory = $false)]
-    [switch]$TestAfterDeploy
+    [switch]$TestAfterDeploy,
+    
+    [Parameter(Mandatory = $false)]
+    [switch]$DebugMode
 )
 
 # Fonction pour afficher des messages colorés
@@ -32,6 +36,7 @@ function Write-ColorOutput {
 # Bannière
 Write-ColorOutput "`n=========================================================" "Cyan"
 Write-ColorOutput "   Déploiement des modes simples/complex pour Roo" "Cyan"
+Write-ColorOutput "   (Version améliorée avec correction d'encodage)" "Cyan"
 Write-ColorOutput "=========================================================" "Cyan"
 
 # Vérifier que le fichier de configuration existe
@@ -135,24 +140,63 @@ function Test-FileEncoding {
     }
 }
 
+# Fonction pour valider le JSON
+function Test-JsonContent {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Json
+    )
+    
+    try {
+        $null = ConvertFrom-Json $Json
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+# Créer une sauvegarde du fichier source
+$backupFilePath = "$configFilePath.backup"
+if (-not (Test-Path -Path $backupFilePath)) {
+    try {
+        Copy-Item -Path $configFilePath -Destination $backupFilePath -Force
+        Write-ColorOutput "Sauvegarde du fichier source créée: $backupFilePath" "Green"
+    } catch {
+        Write-ColorOutput "Avertissement: Impossible de créer une sauvegarde du fichier source." "Yellow"
+        Write-ColorOutput $_.Exception.Message "Yellow"
+    }
+}
+
 # Copier le fichier avec encodage UTF-8 explicite
 try {
     # Vérifier l'encodage du fichier source
     $sourceEncoding = Test-FileEncoding -Path $configFilePath
     Write-ColorOutput "Encodage du fichier source: $sourceEncoding" "Cyan"
     
-    # Lire le contenu avec l'encodage approprié
-    # Lire le contenu du fichier JSON
-    $jsonContent = Get-Content -Path $configFilePath -Raw
+    # Lire le contenu du fichier JSON avec encodage UTF-8
+    $jsonContent = [System.IO.File]::ReadAllText($configFilePath, [System.Text.Encoding]::UTF8)
+    
+    if ($DebugMode) {
+        Write-ColorOutput "Contenu brut du fichier source (premiers 500 caractères):" "Yellow"
+        Write-ColorOutput $jsonContent.Substring(0, [Math]::Min(500, $jsonContent.Length)) "Yellow"
+    }
+    
+    # Vérifier que le JSON est valide
+    if (-not (Test-JsonContent -Json $jsonContent)) {
+        Write-ColorOutput "Erreur: Le fichier JSON source n'est pas valide." "Red"
+        Write-ColorOutput "Vérifiez le format du fichier et réessayez." "Red"
+        exit 1
+    }
     
     # Convertir le JSON en objet PowerShell
     $jsonObject = ConvertFrom-Json $jsonContent
     
-    # Convertir l'objet PowerShell en JSON avec encodage UTF-8
-    $jsonString = ConvertTo-Json $jsonObject -Depth 100
+    # Convertir l'objet PowerShell en JSON avec encodage UTF-8 et formatage préservé
+    $jsonString = ConvertTo-Json $jsonObject -Depth 100 -Compress:$false
     
-    # Écrire le contenu en UTF-8 avec BOM pour une meilleure compatibilité
-    [System.IO.File]::WriteAllText($destinationFile, $jsonString, [System.Text.Encoding]::UTF8)
+    # Écrire le contenu en UTF-8 sans BOM pour une meilleure compatibilité
+    $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($destinationFile, $jsonString, $utf8NoBomEncoding)
     
     Write-ColorOutput "Déploiement réussi!" "Green"
     
@@ -160,8 +204,13 @@ try {
     $destEncoding = Test-FileEncoding -Path $destinationFile
     Write-ColorOutput "Encodage du fichier de destination: $destEncoding" "Cyan"
     
-    if ($destEncoding -ne "UTF-8 without BOM") {
-        Write-ColorOutput "Avertissement: Le fichier de destination n'est pas en UTF-8 sans BOM." "Yellow"
+    # Vérifier que le JSON de destination est valide
+    $destContent = [System.IO.File]::ReadAllText($destinationFile, [System.Text.Encoding]::UTF8)
+    if (Test-JsonContent -Json $destContent) {
+        Write-ColorOutput "Validation JSON: Le fichier de destination contient du JSON valide." "Green"
+    } else {
+        Write-ColorOutput "Avertissement: Le fichier de destination ne contient pas du JSON valide." "Red"
+        Write-ColorOutput "Le déploiement a été effectué mais le fichier pourrait ne pas fonctionner correctement." "Red"
     }
 } catch {
     Write-ColorOutput "Erreur lors du déploiement:" "Red"
