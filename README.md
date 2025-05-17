@@ -1,6 +1,16 @@
 # Roo Extensions
 
-Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage.
+Ce dépôt contient des extensions, configurations et outils pour Roo, un assistant IA basé sur des modèles de langage avancés. Le projet se concentre sur l'optimisation des modes Roo, la configuration des serveurs MCP et la fourniture d'outils de maintenance.
+
+## Vue d'ensemble du projet
+
+Roo Extensions est un projet complet qui vise à étendre et améliorer les capacités de Roo à travers plusieurs composants clés :
+
+1. **Architecture à 5 niveaux (n5)** : Une approche innovante qui organise les profils d'agent Roo en cinq niveaux de complexité pour optimiser les coûts et la qualité des résultats.
+2. **Modes personnalisés** : Des modes Roo optimisés pour différents modèles de langage et cas d'utilisation.
+3. **Configuration Roo** : Des outils pour déployer et maintenir la configuration de Roo, y compris la gestion des problèmes d'encodage.
+4. **Serveurs MCP** : Des serveurs Model Context Protocol qui étendent les capacités de Roo avec des fonctionnalités comme la recherche web, l'exécution de commandes système, et plus encore.
+5. **Documentation** : Une documentation complète couvrant tous les aspects du projet.
 
 ## Architecture à 5 Niveaux de Complexité (n5)
 
@@ -35,12 +45,62 @@ Le projet implémente une architecture innovante qui organise les profils d'agen
    - Synthèse de recherche
    - Analyses multi-domaines
 
-Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats.
+Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats. Pour plus de détails, consultez la [documentation de l'architecture n5](roo-modes/n5/README.md).
+
+## Structure du Projet
+
+Le projet est organisé en plusieurs répertoires principaux, chacun avec un rôle spécifique :
+
+### [roo-config/](roo-config/README.md)
+Outils de déploiement et de configuration pour Roo, incluant :
+- Scripts de déploiement des modes
+- Scripts de correction d'encodage
+- Scripts de diagnostic
+- Modèles de configuration
+- Paramètres et modes standards
+
+### [roo-modes/](roo-modes/README.md)
+Modes personnalisés pour Roo, incluant :
+- Architecture à 5 niveaux (n5)
+- Modes personnalisés spécifiques
+- Modes optimisés pour différents modèles
+- Documentation et guides d'utilisation
+- Tests pour les mécanismes d'escalade et désescalade
+
+### [mcps/](mcps/README.md)
+Serveurs Model Context Protocol (MCP) qui étendent les capacités de Roo :
+- SearXNG pour la recherche web
+- Win-CLI pour les commandes système
+- QuickFiles pour la manipulation de fichiers
+- Jupyter pour les notebooks
+- JinaNavigator pour la conversion web
+- Git et GitHub pour les opérations Git
+- Tests et documentation des MCPs
+
+### [docs/](docs/README.md)
+Documentation complète du projet :
+- Guides d'utilisation
+- Documentation technique
+- Rapports de tests
+- Spécifications d'architecture
+
+### [tests/](tests/)
+Tests et scénarios de test pour différentes parties du projet :
+- Tests des MCPs
+- Tests d'escalade et désescalade
+- Tests d'orchestration
+
+### [archive/](archive/)
+Contenu obsolète ou archivé.
+
+## Installation et utilisation
 
 ### Prérequis
 
 - Roo installé et configuré
 - Accès aux modèles Claude (3 Haiku, 3.5 Sonnet, 3.7 Sonnet, 3.7 Opus) ou Qwen 3
+- Node.js pour les serveurs MCP
+- PowerShell pour les scripts de déploiement
 
 ### Installation
 
@@ -50,18 +110,17 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
    ```
 
 2. Déployez les modes avec le script approprié :
-   ```bash
-   # Pour l'architecture à 5 niveaux avec Claude
-   cd roo-modes/n5/scripts
-   ./deploy-n5-architecture.ps1
-   
-   # Pour l'architecture à 5 niveaux avec Qwen 3
-   # (nécessite une configuration supplémentaire)
+   ```powershell
+   # Pour l'architecture à 5 niveaux
+   cd roo-config/deployment-scripts
+   ./deploy-modes-simple-complex.ps1
    ```
 
-3. Redémarrez Roo pour appliquer les nouveaux modes.
+3. Installez et configurez les serveurs MCP selon vos besoins (voir [Guide d'utilisation des MCPs](docs/guides/guide-utilisation-mcps.md))
 
-## Utilisation
+4. Redémarrez Roo pour appliquer les nouveaux modes.
+
+### Utilisation des modes
 
 Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être sélectionnés comme n'importe quel autre mode.
 
@@ -71,72 +130,6 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 - Pour les tâches complexes, sélectionnez un mode LARGE
 - Pour les tâches très complexes, sélectionnez un mode ORACLE
 - L'Orchestrateur peut également router automatiquement les tâches vers le mode approprié
-
-## Structure du Projet
-
-- `.roomodes` : Configuration des modes personnalisés
-- `roo-code/` : Sous-module Git contenant le code source de Roo
-- `roo-modes/` : Répertoire principal pour les modes personnalisés
-  - `configs/` : Configurations des modes (architecture à 2 niveaux)
-  - `docs/` : Documentation conceptuelle et guides
-  - `examples/` : Exemples de configurations
-  - `scripts/` : Scripts de déploiement
-  - `tests/` : Tests pour les modes personnalisés
-  - `n5/` : Implémentation de l'architecture à 5 niveaux de complexité
-    - `configs/` : Configurations des modes pour chaque niveau
-    - `scripts/` : Scripts de déploiement
-    - `docs/` : Documentation et guides
-    - `tests/` : Tests pour les mécanismes d'escalade et désescalade
-  - `custom/` : Modes personnalisés spécifiques
-  - `optimized/` : Modes optimisés pour différents modèles
-- `roo-config/` : Configurations pour Roo
-  - `modes/` : Configurations de modes standard
-  - `settings/` : Paramètres généraux
-  - `scheduler/` : Extensions et configurations pour Roo Scheduler
-  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
-- `mcps/` : Configuration et documentation pour les MCPs externes
-  - `searxng/` : MCP pour la recherche web
-  - `win-cli/` : MCP pour les commandes Windows
-  - `git/` : MCP pour les opérations Git
-  - `github/` : MCP pour l'API GitHub
-- `docs/` : Documentation générale du projet
-  - Guides d'utilisation
-  - Rapports de tests
-  - Spécifications techniques
-- `scripts/` : Scripts utilitaires pour le projet
-  - Tests de scénarios
-  - Utilitaires de déploiement
-- `tests/` : Tests et scénarios de test
-  - `mcp-structure/` : Tests pour la structure MCP
-  - `mcp-win-cli/` : Tests pour le MCP Win-CLI
-  - `scripts/` : Scripts de test
-- `archive/` : Contenu obsolète ou archivé
-
-## Documentation
-
-Le projet dispose d'une documentation détaillée répartie dans plusieurs fichiers README spécialisés :
-
-- [**roo-modes/n5/tests/README.md**](roo-modes/n5/tests/README.md) : Documentation complète des tests de l'architecture d'orchestration à 5 niveaux, incluant les mécanismes d'escalade et de désescalade, les objectifs des tests, leur structure et fonctionnement, ainsi que des instructions pour exécuter et interpréter les résultats des tests.
-
-- [**roo-modes/scripts/README.md**](roo-modes/scripts/README.md) : Documentation des scripts de gestion des modes Roo, couvrant les scripts de déploiement, le système de verrouillage de famille, et les outils de validation et mise à jour des modes. Inclut des exemples d'utilisation et les bonnes pratiques.
-
-- [**mcps/scripts/README.md**](mcps/scripts/README.md) : Documentation des scripts pour les serveurs MCP, détaillant les scripts de lancement, de test et d'installation pour les différents serveurs MCP (QuickFiles, JinaNavigator, Jupyter). Inclut des exemples d'utilisation et des conseils de dépannage.
-
-- [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
-
-- [**docs/guides/guide-maintenance-configuration-roo.md**](docs/guides/guide-maintenance-configuration-roo.md) : Guide complet de maintenance et mise à jour de la configuration Roo, expliquant les workflows pour mettre à jour les commandes autorisées, ajouter ou modifier des modes personnalisés, mettre à jour les configurations d'API, corriger les problèmes d'encodage et déployer les mises à jour.
-
-Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
-
-## Modes Disponibles
-
-| Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
-|------|-------|------|--------|-------|--------|
-| Code | Modifications minimes | Bugs simples | Développement de fonctionnalités | Refactoring majeur | Conception de systèmes |
-| Debug | Erreurs simples | Bugs isolés | Problèmes modérés | Bugs complexes | Problèmes systémiques |
-| Architect | Suggestions rapides | Conseils simples | Conception de modules | Architecture de systèmes | Conception distribuée |
-| Ask | Réponses courtes | Questions factuelles | Explications techniques | Analyses détaillées | Synthèses complexes |
-| Orchestrator | Tâches unitaires | Délégation simple | Coordination standard | Coordination avancée | Orchestration complexe |
 
 ## Modèles Supportés
 
@@ -154,73 +147,41 @@ Consultez ces fichiers pour obtenir des informations détaillées sur les diffé
 - **LARGE** : Qwen3-32B ou Qwen3-30B-A3B (MoE)
 - **ORACLE** : Qwen3-235B-A22B (MoE)
 
-Pour utiliser les modèles Qwen 3, consultez la documentation dans `roo-config/qwen3-profiles/`.
+Pour utiliser les modèles Qwen 3, consultez la documentation dans [roo-config/qwen3-profiles/](roo-config/qwen3-profiles/README.md).
 
 ## MCPs Externes Disponibles
 
 Le projet intègre plusieurs serveurs MCP (Model Context Protocol) externes pour étendre les capacités de Roo :
 
-- **SearXNG** : Permet d'effectuer des recherches web
-  - Recherche multi-moteurs
-  - Filtrage par date et type de contenu
-  - Extraction de contenu web
+- **SearXNG** : Recherche web multi-moteurs
+- **Win-CLI** : Exécution de commandes système
+- **QuickFiles** : Manipulation rapide de fichiers multiples
+- **Jupyter** : Interaction avec des notebooks Jupyter
+- **JinaNavigator** : Conversion de pages web en Markdown
+- **Git** : Opérations Git
+- **GitHub** : Interaction avec l'API GitHub
+- **Filesystem** : Interaction avec le système de fichiers
 
-- **Win-CLI** : Permet d'exécuter des commandes système
-  - Exécution de commandes PowerShell, CMD et Git Bash
-  - Gestion des connexions SSH
-  - Accès aux fonctionnalités système
+Pour plus d'informations sur l'utilisation des MCPs, consultez le [Guide d'utilisation des MCPs](docs/guides/guide-utilisation-mcps.md) et le [README des MCPs](mcps/README.md).
 
-- **Git** : Permet d'effectuer des opérations Git
-  - Clone, commit, push, pull
-  - Gestion des branches et des tags
-  - Résolution de conflits
+## Documentation
 
-- **GitHub** : Permet d'interagir avec l'API GitHub
-  - Gestion des issues et pull requests
-  - Accès aux informations des dépôts
-  - Gestion des workflows
+Le projet dispose d'une documentation détaillée répartie dans plusieurs fichiers README spécialisés :
 
-Pour plus d'informations sur l'utilisation des MCPs, consultez le répertoire `mcps/` et le document `docs/guide-utilisation-mcps.md`.
+- [**README principal**](README.md) : Vue d'ensemble du projet et de ses composants
+- [**README de roo-config**](roo-config/README.md) : Documentation des outils de configuration Roo
+- [**README de roo-modes**](roo-modes/README.md) : Documentation des modes personnalisés
+- [**README des MCPs**](mcps/README.md) : Documentation des serveurs MCP
+- [**README de la documentation**](docs/README.md) : Index de la documentation complète
+- [**README des tests MCP**](mcps/tests/README.md) : Documentation des tests des serveurs MCP
 
-## Sous-module Roo-Code
+Des guides spécifiques sont également disponibles :
 
-Le dépôt inclut le code source de Roo comme sous-module Git dans le répertoire `roo-code/`. Ce sous-module facilite les références au code interne de Roo et permet d'explorer le fonctionnement interne de l'application.
-
-### Objectif
-
-- Faciliter les investigations sur le fonctionnement interne de Roo
-- Permettre des références précises au code source dans la documentation
-- Assurer la cohérence entre les extensions développées et le code principal de Roo
-
-### Utilisation
-
-Pour explorer le code source de Roo :
-
-```bash
-cd roo-code
-```
-
-Vous pouvez ensuite naviguer dans le code source pour comprendre le fonctionnement interne ou faire des références précises dans votre documentation.
-
-### Mise à jour du sous-module
-
-Pour mettre à jour le sous-module vers la dernière version du dépôt Roo :
-
-```bash
-git submodule update --remote roo-code
-git add roo-code
-git commit -m "Update Roo-Code submodule to latest version"
-```
-
-## Contribution
-
-Les contributions sont les bienvenues ! Voici comment contribuer :
-
-1. Forkez le dépôt
-2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/amazing-feature`)
-3. Committez vos changements (`git commit -m 'Add some amazing feature'`)
-4. Poussez vers la branche (`git push origin feature/amazing-feature`)
-5. Ouvrez une Pull Request
+- [Guide de déploiement des configurations Roo](docs/guides/guide-deploiement-configurations-roo.md)
+- [Guide d'encodage](docs/guides/guide-encodage.md)
+- [Guide d'escalade et désescalade](docs/guides/guide-escalade-desescalade.md)
+- [Guide d'utilisation des MCPs](docs/guides/guide-utilisation-mcps.md)
+- [Guide de maintenance de la configuration Roo](docs/guides/guide-maintenance-configuration-roo.md)
 
 ## Maintenance de la configuration Roo
 
@@ -238,7 +199,17 @@ Pour des instructions détaillées sur ces workflows, consultez le [Guide de mai
 
 ### Note sur l'encodage des fichiers
 
-**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM. Des scripts de diagnostic et de correction sont disponibles dans le dossier `roo-config/diagnostic-scripts/` et `roo-config/encoding-scripts/`.
+**Attention** : Certains fichiers de configuration peuvent présenter des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes, utilisez les scripts de diagnostic et de correction disponibles dans les dossiers `roo-config/diagnostic-scripts/` et `roo-config/encoding-scripts/`.
+
+## Contribution
+
+Les contributions sont les bienvenues ! Voici comment contribuer :
+
+1. Forkez le dépôt
+2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/amazing-feature`)
+3. Committez vos changements (`git commit -m 'Add some amazing feature'`)
+4. Poussez vers la branche (`git push origin feature/amazing-feature`)
+5. Ouvrez une Pull Request
 
 ## Licence
 

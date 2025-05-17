@@ -1,6 +1,16 @@
-﻿# Outils de déploiement et correction d'encodage pour Roo
+﻿# Outils de configuration et déploiement pour Roo
 
-Ce répertoire contient un ensemble d'outils pour déployer les modes Roo (simple et complex) sur Windows et résoudre les problèmes d'encodage courants.
+Ce répertoire contient un ensemble complet d'outils pour configurer, déployer et maintenir les modes Roo, ainsi que pour résoudre les problèmes d'encodage courants sur Windows.
+
+## Rôle dans le projet Roo Extensions
+
+Le composant `roo-config` est un élément central du projet Roo Extensions qui fournit :
+
+1. **Outils de déploiement** : Scripts pour déployer les modes Roo (simples et complexes) sur différentes plateformes
+2. **Outils de correction d'encodage** : Scripts pour résoudre les problèmes d'encodage courants, notamment pour les caractères accentués et les emojis
+3. **Outils de diagnostic** : Scripts pour vérifier l'encodage et la validité des fichiers de configuration
+4. **Modèles de configuration** : Fichiers de configuration de référence pour les modes, les modèles et les serveurs
+5. **Profils pour différents modèles** : Configurations optimisées pour différents modèles de langage, comme Qwen3
 
 ## Problématique
 
@@ -17,9 +27,7 @@ Le déploiement des modes Roo sur Windows peut rencontrer des problèmes d'encod
 - **`docs/`** - Documentation supplémentaire
 - **`modes/`** - Fichiers de modes standards
 - **`qwen3-profiles/`** - Profils pour le modèle Qwen3
-- **`scheduler/`** - Configuration du planificateur
 - **`settings/`** - Paramètres de configuration
-- **`backups/`** - Fichiers de sauvegarde
 
 ### Scripts de déploiement
 
@@ -28,6 +36,7 @@ Le déploiement des modes Roo sur Windows peut rencontrer des problèmes d'encod
 - **`deployment-scripts/deploy-modes-enhanced.ps1`** - Version améliorée du script de déploiement
 - **`deployment-scripts/force-deploy-with-encoding-fix.ps1`** - Script qui force le déploiement avec correction d'encodage
 - **`deployment-scripts/create-clean-modes.ps1`** - Script pour créer des modes propres
+- **`deployment-scripts/deploy-guide-interactif.ps1`** - Guide interactif pour le déploiement des modes
 
 ### Scripts de correction d'encodage
 
@@ -45,10 +54,6 @@ Le déploiement des modes Roo sur Windows peut rencontrer des problèmes d'encod
 - **`diagnostic-scripts/verify-deployed-modes.ps1`** - Vérifie les modes déployés et leur encodage
 - **`diagnostic-scripts/encoding-diagnostic.ps1`** - Diagnostic complet des problèmes d'encodage
 - **`diagnostic-scripts/diagnostic-rapide-encodage.ps1`** - Outil de diagnostic rapide avec correction automatique
-
-### Outils interactifs
-
-- **`deployment-scripts/deploy-guide-interactif.ps1`** - Guide interactif pour le déploiement des modes
 
 ## Guide d'utilisation rapide
 
@@ -90,13 +95,25 @@ Pour un déploiement guidé avec vérification d'encodage:
 4. **Vérifier le déploiement** avec `diagnostic-scripts\verify-deployed-modes.ps1`
 5. **Redémarrer Visual Studio Code** et activer les modes
 
+## Intégration avec les autres composants
+
+### Intégration avec roo-modes
+
+Les outils de déploiement de `roo-config` sont conçus pour déployer les modes personnalisés définis dans le répertoire [roo-modes](../roo-modes/README.md). Ils prennent en charge l'architecture à 5 niveaux (n5) et les autres modes personnalisés.
+
+### Intégration avec les MCPs
+
+Les fichiers de configuration dans `roo-config/settings/` incluent la configuration des serveurs MCP. Pour plus d'informations sur les MCPs, consultez le [README des MCPs](../mcps/README.md).
+
 ## Documentation complète
 
 Pour une documentation complète sur les problèmes d'encodage et leur résolution:
 
 - [Guide d'encodage pour Windows](../docs/guides/guide-encodage-windows.md)
-- [Rapport final de déploiement](../docs/rapports/rapport-final-deploiement-modes-windows.md)
+- [Guide d'encodage général](../docs/guides/guide-encodage.md)
 - [Guide d'import/export](docs/guide-import-export.md)
+- [Guide de déploiement des configurations Roo](../docs/guides/guide-deploiement-configurations-roo.md)
+- [Guide de maintenance de la configuration Roo](../docs/guides/guide-maintenance-configuration-roo.md)
 
 ## Dépannage
 
@@ -107,11 +124,18 @@ Si vous rencontrez des problèmes lors du déploiement:
 3. Forcez le déploiement avec `deployment-scripts\force-deploy-with-encoding-fix.ps1`
 4. Vérifiez le résultat avec `diagnostic-scripts\verify-deployed-modes.ps1`
 
-Si les problèmes persistent, consultez le [rapport final de déploiement](../docs/rapports/rapport-final-deploiement-modes-windows.md) pour des solutions plus avancées.
+Si les problèmes persistent, consultez la documentation complète pour des solutions plus avancées.
 
 ## Contribution
 
 Ces outils sont en constante amélioration. Si vous rencontrez des problèmes non couverts ou si vous avez des suggestions d'amélioration, n'hésitez pas à contribuer ou à signaler les problèmes.
+
+## Ressources supplémentaires
+
+- [README principal du projet](../README.md)
+- [Documentation des modes Roo](../roo-modes/README.md)
+- [Documentation des MCPs](../mcps/README.md)
+- [Documentation générale du projet](../docs/README.md)
 
 ---
 
