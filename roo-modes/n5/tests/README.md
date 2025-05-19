@@ -1,6 +1,6 @@
 # Tests de l'Architecture d'Orchestration à 5 Niveaux
 
-Ce répertoire contient les scripts de test pour valider les mécanismes d'escalade et de désescalade de l'architecture d'orchestration à 5 niveaux (N5). Ces tests sont essentiels pour garantir que les transitions entre les différents niveaux de complexité fonctionnent correctement selon les critères définis.
+Ce répertoire contient les scripts de test pour valider les mécanismes d'escalade, de désescalade et de transition de l'architecture d'orchestration à 5 niveaux (N5). Ces tests sont essentiels pour garantir que les transitions entre les différents niveaux de complexité fonctionnent correctement selon les critères définis.
 
 ## Objectif des Tests
 
@@ -8,7 +8,8 @@ L'objectif principal de ces tests est de vérifier que :
 
 1. Les **mécanismes d'escalade** permettent de passer à un niveau de complexité supérieur lorsque certains seuils sont dépassés
 2. Les **mécanismes de désescalade** permettent de revenir à un niveau de complexité inférieur lorsque la tâche devient plus simple
-3. Les configurations de chaque niveau respectent les critères et formats définis
+3. Les **mécanismes de transition** permettent de passer d'un mode à un autre de manière fluide
+4. Les configurations de chaque niveau respectent les critères et formats définis
 
 Ces tests assurent la robustesse et la fiabilité de l'architecture N5 en validant que les transitions entre niveaux se produisent de manière appropriée et cohérente.
 
@@ -61,6 +62,14 @@ Les tests couvrent les 5 niveaux de complexité de l'architecture :
    - Teste la désescalade basée sur le nombre de tokens
    - Vérifie les cas où la désescalade ne devrait pas se produire
 
+#### Tests de Transition
+
+Bien que non présents sous forme de fichiers distincts, les tests de transition sont intégrés dans les résultats et vérifient :
+   - La transition fluide entre différents modes de même niveau
+   - La préservation du contexte lors des transitions
+   - La gestion des erreurs lors des transitions
+   - Les performances des transitions entre modes
+
 ## Comment Exécuter les Tests
 
 Pour exécuter les tests, suivez ces étapes :
@@ -105,8 +114,16 @@ Les tests génèrent des résultats détaillés qui sont affichés dans la conso
 Les résultats complets sont sauvegardés dans des fichiers JSON nommés selon le format :
 - `escalation-test-results-[TIMESTAMP].json`
 - `deescalation-test-results-[TIMESTAMP].json`
+- `transition-test-results-[TIMESTAMP].json`
 
 Ces fichiers contiennent des informations détaillées sur chaque test, y compris les entrées, les résultats attendus et les résultats réels.
+
+### Résultats Récents
+
+Les résultats de test les plus récents (mai 2025) sont disponibles dans le répertoire `roo-modes/n5/test-results/` :
+- Tests d'escalade : `escalation-test-results-2025-05-06T17-22-19.250Z.json`
+- Tests de désescalade : `deescalation-test-results-2025-05-06T17-22-19.320Z.json`
+- Tests de transition : `transition-test-results-2025-05-14T01-20-19.537Z.json`
 
 ## Dépendances
 
@@ -122,11 +139,12 @@ Aucune dépendance externe n'est requise pour exécuter ces tests.
 
 Les tests s'appuient sur les fichiers de configuration situés dans le répertoire `roo-modes/n5/configs/` :
 
-- `micro-modes.json`
-- `mini-modes.json`
-- `medium-modes.json`
-- `large-modes.json`
-- `oracle-modes.json`
+- `micro-modes.json` : Configuration du niveau MICRO
+- `mini-modes.json` : Configuration du niveau MINI
+- `medium-modes.json` : Configuration du niveau MEDIUM
+- `large-modes.json` : Configuration du niveau LARGE
+- `oracle-modes.json` : Configuration du niveau ORACLE
+- `n5-modes-roo-compatible.json` : Configuration compatible avec Roo
 
 Chaque fichier de configuration doit contenir :
 
@@ -134,13 +152,27 @@ Chaque fichier de configuration doit contenir :
 2. Des seuils d'escalade (`escalationThresholds`)
 3. Des modes personnalisés (`customModes`) avec leurs instructions
 
+## Intégration avec les autres tests
+
+Ces tests sont complémentaires aux tests disponibles dans le répertoire principal [tests/](../../../tests/). Ils se concentrent spécifiquement sur les mécanismes d'escalade et de désescalade de l'architecture N5, tandis que les tests dans le répertoire principal couvrent d'autres aspects du projet.
+
+Pour une vue d'ensemble complète des tests du projet, consultez le [README des tests](../../../tests/README.md).
+
 ## Maintenance et Extension
 
 Pour ajouter de nouveaux tests ou modifier les tests existants :
 
 1. Respectez la structure et le format des tests existants
-2. Assurez-vous que les nouveaux tests vérifient des aspects spécifiques des mécanismes d'escalade ou de désescalade
-3. Mettez à jour ce README si nécessaire pour refléter les changements
+2. Assurez-vous que les nouveaux tests vérifient des aspects spécifiques des mécanismes d'escalade, de désescalade ou de transition
+3. Ajoutez des assertions claires pour faciliter le diagnostic des problèmes
+4. Générez des rapports détaillés pour faciliter l'analyse des résultats
+5. Mettez à jour ce README si nécessaire pour refléter les changements
+
+## Ressources supplémentaires
+
+- [Guide de migration Roo compatible](../docs/guide-migration-roo-compatible.md)
+- [Guide d'utilisation de l'architecture N5](../docs/guide-utilisation.md)
+- [Rapport d'implémentation](../rapport-implementation.md)
 
 ---
 

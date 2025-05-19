@@ -6,7 +6,25 @@ Ce répertoire contient l'ensemble des modes personnalisés pour Roo, organisés
 
 Un mode Roo est une configuration spécifique qui définit le comportement, les capacités et les limitations d'un agent Roo. Chaque mode est conçu pour un type de tâche particulier (code, debug, architect, ask, orchestrator, etc.) et peut être optimisé pour différents modèles de langage et niveaux de complexité.
 
-## Architecture à 5 niveaux (n5)
+## Architectures de modes disponibles
+
+Le projet propose actuellement deux architectures principales pour les modes Roo :
+
+### Architecture à 2 niveaux (Simple/Complexe)
+
+Cette architecture, plus simple et actuellement en production, organise les modes en deux catégories :
+
+1. **Modes Simples** : Pour les tâches courantes et de complexité modérée
+   - Modèle envisagé : Qwen 3 32B
+   - Optimisé pour un équilibre entre performance et coût
+
+2. **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
+   - Modèles : Claude 3.7 Sonnet/Opus et équivalents
+   - Optimisé pour les tâches complexes et les projets de grande envergure
+
+Cette architecture est pleinement fonctionnelle et constitue la solution recommandée pour une utilisation quotidienne.
+
+### Architecture à 5 niveaux (n5)
 
 L'architecture à 5 niveaux (n5) est une approche innovante qui organise les modes Roo en cinq niveaux de complexité, permettant d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats :
 
@@ -14,13 +32,20 @@ L'architecture à 5 niveaux (n5) est une approche innovante qui organise les mod
 2. **MINI** : Pour les tâches simples (Claude 3.5 Sonnet / Qwen3-4B)
 3. **MEDIUM** : Pour les tâches standard (Claude 3.5 Sonnet / Qwen3-14B)
 4. **LARGE** : Pour les tâches complexes (Claude 3.7 Sonnet / Qwen3-32B)
-5. **ORACLE** : Pour les tâches très complexes (Claude 3.7 Opus / Qwen3-235B-A22B)
+5. **ORACLE** : Pour les tâches très complexes (Claude 3.7 Opus ou modèles équivalents de l'état de l'art)
+
+Cette architecture est en phase finale de développement et sera déployée après la validation complète de l'architecture à 2 niveaux. Elle implémente des mécanismes sophistiqués d'escalade et de désescalade qui permettent de passer automatiquement d'un niveau à l'autre en fonction de la complexité de la tâche.
 
 Pour plus de détails sur cette architecture, consultez le [README de l'architecture n5](n5/README.md).
 
 ## Structure du répertoire
 
 ### Répertoires principaux
+
+- **[configs/](configs/)** : Fichiers de configuration généraux pour les modes
+  - `standard-modes.json` : Configuration des modes standards
+  - `standard-modes.json.original` : Configuration originale des modes standards
+  - `vscode-custom-modes.json` : Configuration pour VSCode
 
 - **[n5/](n5/)** : Implémentation de l'architecture à 5 niveaux de complexité
   - `configs/` : Configurations des modes pour chaque niveau
@@ -29,14 +54,10 @@ Pour plus de détails sur cette architecture, consultez le [README de l'architec
   - `test-results/` : Résultats des tests d'escalade et désescalade
 
 - **[custom/](custom/)** : Modes personnalisés spécifiques
-  - `examples/` : Exemples de modes personnalisés
+  - `docs/` : Documentation technique pour les modes personnalisés
 
 - **[optimized/](optimized/)** : Modes optimisés pour différents modèles
   - `docs/` : Documentation sur l'optimisation des modes
-
-- **[configs/](configs/)** : Fichiers de configuration généraux pour les modes
-  - `standard-modes.json.original` : Configuration originale des modes standards
-  - `vscode-custom-modes.json` : Configuration pour VSCode
 
 - **[docs/](docs/)** : Documentation sur les modes
   - `criteres-decision/` : Critères de décision pour la sélection des modes
@@ -53,6 +74,16 @@ Pour plus de détails sur cette architecture, consultez le [README de l'architec
 - **[docs/guide-import-export.md](docs/guide-import-export.md)** : Guide pour l'import et l'export des configurations de modes
 - **[docs/directives-modes-custom.md](docs/directives-modes-custom.md)** : Directives pour la création de modes personnalisés
 
+## État actuel du développement
+
+### Architecture à 2 niveaux (Simple/Complexe)
+
+Cette architecture est actuellement en production et pleinement fonctionnelle. Elle est recommandée pour une utilisation quotidienne.
+
+### Architecture à 5 niveaux (n5)
+
+L'architecture n5 est en phase finale de développement. Les tests d'escalade ont été complétés avec succès, mais certains mécanismes de désescalade nécessitent encore des ajustements, notamment pour les niveaux Mini, Medium et Large. Cette architecture sera déployée après la validation complète de l'architecture à 2 niveaux.
+
 ## Mécanismes d'escalade et désescalade
 
 L'architecture n5 implémente des mécanismes d'escalade et de désescalade qui permettent à Roo de passer automatiquement d'un niveau de complexité à un autre en fonction de la difficulté de la tâche :
@@ -64,7 +95,7 @@ Ces mécanismes sont testés et validés par des scripts de test spécifiques di
 
 ## Types de modes disponibles
 
-L'architecture n5 propose plusieurs types de modes, chacun optimisé pour un type de tâche spécifique :
+Les deux architectures proposent plusieurs types de modes, chacun optimisé pour un type de tâche spécifique :
 
 | Type | Description |
 |------|-------------|
@@ -108,7 +139,6 @@ Ces tests vérifient que les mécanismes d'escalade et de désescalade fonctionn
 
 ## Ressources supplémentaires
 
-- [Guide complet des modes Roo](../docs/guide-complet-modes-roo.md)
-- [Rapport de synthèse des modes Roo](../docs/rapport-synthese-modes-roo.md)
-- [Guide d'escalade et désescalade](../docs/guides/guide-escalade-desescalade.md)
 - [Documentation de la configuration Roo](../roo-config/README.md)
+- [Documentation des MCPs](../mcps/README.md)
+- [Documentation générale du projet](../docs/README.md)

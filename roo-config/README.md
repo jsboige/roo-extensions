@@ -6,94 +6,122 @@ Ce répertoire contient un ensemble complet d'outils pour configurer, déployer 
 
 Le composant `roo-config` est un élément central du projet Roo Extensions qui fournit :
 
-1. **Outils de déploiement** : Scripts pour déployer les modes Roo (simples et complexes) sur différentes plateformes
-2. **Outils de correction d'encodage** : Scripts pour résoudre les problèmes d'encodage courants, notamment pour les caractères accentués et les emojis
+1. **Outils de déploiement** : Scripts pour déployer les modes Roo sur différentes plateformes
+2. **Outils de correction d'encodage** : Scripts pour résoudre les problèmes d'encodage courants
 3. **Outils de diagnostic** : Scripts pour vérifier l'encodage et la validité des fichiers de configuration
 4. **Modèles de configuration** : Fichiers de configuration de référence pour les modes, les modèles et les serveurs
-5. **Profils pour différents modèles** : Configurations optimisées pour différents modèles de langage, comme Qwen3
-
-## Problématique
-
-Le déploiement des modes Roo sur Windows peut rencontrer des problèmes d'encodage, notamment pour les caractères accentués et les emojis. Ces problèmes peuvent rendre les fichiers JSON invalides et empêcher le chargement correct des modes dans Visual Studio Code.
+5. **Workflow de maintenance** : Script interactif pour guider les utilisateurs dans les tâches de maintenance
 
 ## Structure des outils
 
 ### Organisation des dossiers
 
-- **`encoding-scripts/`** - Scripts de correction d'encodage
-- **`deployment-scripts/`** - Scripts de déploiement des modes
-- **`diagnostic-scripts/`** - Scripts de diagnostic et vérification
-- **`config-templates/`** - Modèles de fichiers de configuration
-- **`docs/`** - Documentation supplémentaire
+- **`encoding-scripts/`** - [Scripts de correction d'encodage](encoding-scripts/README.md) pour les caractères accentués et les emojis
+- **`deployment-scripts/`** - [Scripts de déploiement des modes](deployment-scripts/README.md) (simples et complexes)
+- **`diagnostic-scripts/`** - [Scripts de diagnostic et vérification](diagnostic-scripts/README.md) pour l'encodage et la validité des fichiers
+- **`config-templates/`** - [Modèles de fichiers de configuration](config-templates/README.md) pour les modes, modèles et serveurs
+- **`docs/`** - [Documentation supplémentaire](docs/README.md) et guides d'utilisation
+- **`backups/`** - [Fichiers de sauvegarde](backups/README.md) créés automatiquement par les scripts
 - **`modes/`** - Fichiers de modes standards
-- **`qwen3-profiles/`** - Profils pour le modèle Qwen3
-- **`settings/`** - Paramètres de configuration
+- **`qwen3-profiles/`** - [Profils optimisés](qwen3-profiles/README.md) pour le modèle Qwen3
+- **`settings/`** - [Paramètres de configuration](settings/README.md) et scripts de déploiement associés
+- **`scheduler/`** - Guides d'installation et de configuration du planificateur Roo
 
-### Scripts de déploiement
+### Script de workflow interactif
 
-- **`deployment-scripts/simple-deploy.ps1`** - Script simplifié pour déployer les modes avec l'option force
-- **`deployment-scripts/deploy-modes-simple-complex.ps1`** - Script principal de déploiement avec gestion améliorée de l'encodage
-- **`deployment-scripts/deploy-modes-enhanced.ps1`** - Version améliorée du script de déploiement
-- **`deployment-scripts/force-deploy-with-encoding-fix.ps1`** - Script qui force le déploiement avec correction d'encodage
-- **`deployment-scripts/create-clean-modes.ps1`** - Script pour créer des modes propres
-- **`deployment-scripts/deploy-guide-interactif.ps1`** - Guide interactif pour le déploiement des modes
+Le script `maintenance-workflow.ps1` à la racine du répertoire est un outil interactif qui guide l'utilisateur à travers les différentes étapes de maintenance de la configuration Roo. Il propose un menu avec les tâches courantes :
 
-### Scripts de correction d'encodage
+- Mise à jour des commandes autorisées
+- Ajout ou modification de modes personnalisés
+- Mise à jour des configurations d'API
+- Correction des problèmes d'encodage
+- Déploiement des mises à jour
+- Diagnostic et vérification
+- Gestion des sauvegardes
 
-- **`encoding-scripts/fix-encoding-simple.ps1`** - Correction simple des problèmes d'encodage courants
-- **`encoding-scripts/fix-encoding-complete.ps1`** - Correction complète des caractères mal encodés et des emojis
-- **`encoding-scripts/fix-encoding-advanced.ps1`** - Correction avancée avec plus d'options
-- **`encoding-scripts/fix-encoding-direct.ps1`** - Correction directe des caractères problématiques
-- **`encoding-scripts/fix-encoding-regex.ps1`** - Correction utilisant des expressions régulières
-- **`encoding-scripts/fix-encoding-final.ps1`** - Version finale et optimisée de la correction d'encodage
-- **`encoding-scripts/fix-source-encoding.ps1`** - Correction de l'encodage des fichiers source
+Pour l'utiliser, exécutez simplement :
+```powershell
+.\maintenance-workflow.ps1
+```
 
-### Scripts de vérification
+## Principales fonctionnalités
 
-- **`diagnostic-scripts/check-deployed-encoding.ps1`** - Vérifie l'encodage du fichier déployé
-- **`diagnostic-scripts/verify-deployed-modes.ps1`** - Vérifie les modes déployés et leur encodage
-- **`diagnostic-scripts/encoding-diagnostic.ps1`** - Diagnostic complet des problèmes d'encodage
-- **`diagnostic-scripts/diagnostic-rapide-encodage.ps1`** - Outil de diagnostic rapide avec correction automatique
+### Déploiement des modes
 
-## Guide d'utilisation rapide
+Les scripts de déploiement permettent d'installer les modes Roo de différentes manières :
+- Déploiement global (pour toutes les instances de VS Code)
+- Déploiement local (pour un projet spécifique)
+- Déploiement avec correction automatique d'encodage
+- Déploiement interactif guidé
 
-### Déploiement simple
-
-Pour un déploiement rapide des modes simple et complex:
-
+Exemple de déploiement simple :
 ```powershell
 .\deployment-scripts\simple-deploy.ps1
 ```
 
-### Diagnostic et correction d'encodage
+### Correction des problèmes d'encodage
 
-Pour diagnostiquer les problèmes d'encodage dans un fichier:
+Les scripts de correction d'encodage résolvent les problèmes courants avec les caractères accentués et les emojis dans les fichiers JSON :
+- Détection automatique des problèmes d'encodage
+- Correction des séquences de caractères mal encodés
+- Réenregistrement des fichiers en UTF-8 sans BOM
+- Vérification de la validité du JSON après correction
 
+Exemple de correction d'encodage :
+```powershell
+.\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
+```
+
+### Diagnostic et vérification
+
+Les scripts de diagnostic permettent de :
+- Analyser l'encodage des fichiers JSON
+- Détecter les problèmes d'encodage courants
+- Vérifier la validité des fichiers JSON
+- Vérifier le déploiement des modes
+
+Exemple de diagnostic rapide :
 ```powershell
 .\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
 ```
 
-Pour corriger automatiquement les problèmes:
+### Configuration des modèles
 
-```powershell
-.\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json" -Fix
-```
+Les profils pour différents modèles de langage permettent d'optimiser les performances :
+- Profils pour les modèles Qwen3 (0.6B à 235B)
+- Paramètres optimaux pour chaque modèle
+- Intégration avec l'architecture à 5 niveaux (N5)
 
-### Déploiement guidé
+## Guide d'utilisation rapide
 
-Pour un déploiement guidé avec vérification d'encodage:
+### Workflow recommandé
 
-```powershell
-.\deployment-scripts\deploy-guide-interactif.ps1
-```
+1. **Utiliser le script de workflow interactif** pour être guidé à travers les tâches courantes :
+   ```powershell
+   .\maintenance-workflow.ps1
+   ```
 
-## Workflow recommandé
+2. **Vérifier l'encodage** du fichier source :
+   ```powershell
+   .\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
+   ```
 
-1. **Vérifier l'encodage** du fichier source avec `diagnostic-scripts\check-deployed-encoding.ps1`
-2. **Corriger l'encodage** si nécessaire avec `encoding-scripts\fix-encoding-complete.ps1` ou `encoding-scripts\fix-encoding-final.ps1`
-3. **Déployer les modes** avec `deployment-scripts\deploy-modes-simple-complex.ps1` ou `deployment-scripts\simple-deploy.ps1`
-4. **Vérifier le déploiement** avec `diagnostic-scripts\verify-deployed-modes.ps1`
-5. **Redémarrer Visual Studio Code** et activer les modes
+3. **Corriger l'encodage** si nécessaire :
+   ```powershell
+   .\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
+   ```
+
+4. **Déployer les modes** :
+   ```powershell
+   .\deployment-scripts\deploy-modes-simple-complex.ps1
+   ```
+
+5. **Vérifier le déploiement** :
+   ```powershell
+   .\diagnostic-scripts\verify-deployed-modes.ps1
+   ```
+
+6. **Redémarrer Visual Studio Code** et activer les modes
 
 ## Intégration avec les autres composants
 
@@ -107,22 +135,44 @@ Les fichiers de configuration dans `roo-config/settings/` incluent la configurat
 
 ## Documentation complète
 
-Pour une documentation complète sur les problèmes d'encodage et leur résolution:
+Pour une documentation complète sur les différents aspects du projet :
 
-- [Guide d'encodage pour Windows](../docs/guides/guide-encodage-windows.md)
-- [Guide d'encodage général](../docs/guides/guide-encodage.md)
 - [Guide d'import/export](docs/guide-import-export.md)
-- [Guide de déploiement des configurations Roo](../docs/guides/guide-deploiement-configurations-roo.md)
-- [Guide de maintenance de la configuration Roo](../docs/guides/guide-maintenance-configuration-roo.md)
+- [Guide d'installation du planificateur Roo](scheduler/Guide_Installation_Roo_Scheduler.md)
+- [Guide d'édition des configurations du planificateur](scheduler/Guide_Edition_Directe_Configurations_Roo_Scheduler.md)
+- [Documentation des modes Roo](../roo-modes/README.md)
+- [Documentation des MCPs](../mcps/README.md)
+- [Documentation générale du projet](../docs/README.md)
 
 ## Dépannage
 
-Si vous rencontrez des problèmes lors du déploiement:
+Si vous rencontrez des problèmes lors du déploiement :
 
-1. Exécutez `diagnostic-scripts\diagnostic-rapide-encodage.ps1` pour identifier les problèmes
-2. Utilisez `encoding-scripts\fix-encoding-complete.ps1` pour corriger les problèmes d'encodage
-3. Forcez le déploiement avec `deployment-scripts\force-deploy-with-encoding-fix.ps1`
-4. Vérifiez le résultat avec `diagnostic-scripts\verify-deployed-modes.ps1`
+1. Utilisez le script de workflow interactif pour un diagnostic guidé :
+   ```powershell
+   .\maintenance-workflow.ps1
+   ```
+   Puis sélectionnez l'option "Diagnostic et vérification"
+
+2. Exécutez le diagnostic rapide d'encodage :
+   ```powershell
+   .\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
+   ```
+
+3. Corrigez les problèmes d'encodage :
+   ```powershell
+   .\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
+   ```
+
+4. Forcez le déploiement avec correction d'encodage :
+   ```powershell
+   .\deployment-scripts\force-deploy-with-encoding-fix.ps1
+   ```
+
+5. Vérifiez le résultat :
+   ```powershell
+   .\diagnostic-scripts\verify-deployed-modes.ps1
+   ```
 
 Si les problèmes persistent, consultez la documentation complète pour des solutions plus avancées.
 
