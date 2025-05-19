@@ -1,3 +1,3 @@
 @echo off
 echo Démarrage du serveur MCP JinaNavigator...
-node "c:/dev/roo-extensions/mcps/mcp-servers/servers/jinavigator-server/dist/index.js"
+node "d:/Dev/roo-extensions/mcps/mcp-servers/servers/jinavigator-server/dist/index.js"

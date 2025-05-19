@@ -4,7 +4,7 @@
     {
       "name": "searxng",
       "type": "stdio",
-      "command": "cmd /c node C:\\Users\\jsboi\\AppData\\Roaming\\Roo-Code\\MCP\\searxng-server\\dist\\index.js",
+      "command": "cmd /c node C:\\\\Users\\\\jsboi\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\mcp-searxng\\\\dist\\\\index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour effectuer des recherches web via SearXNG"
@@ -20,7 +20,7 @@
     {
       "name": "quickfiles",
       "type": "stdio",
-      "command": "cmd /c node c:/dev/roo-extensions/mcps/mcp-servers/servers/quickfiles-server/build/index.js",
+      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/quickfiles-server/build/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
@@ -28,7 +28,7 @@
     {
       "name": "jupyter",
       "type": "stdio",
-      "command": "cmd /c node c:/dev/roo-extensions/mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js",
+      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js",
       "enabled": true,
       "autoStart": false,
       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
@@ -36,7 +36,7 @@
     {
       "name": "jinavigator",
       "type": "stdio",
-      "command": "cmd /c node c:/dev/roo-extensions/mcps/mcp-servers/servers/jinavigator-server/dist/index.js",
+      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/jinavigator-server/dist/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour convertir des pages web en Markdown"

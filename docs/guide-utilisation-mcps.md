@@ -11,6 +11,7 @@ Ce guide explique comment utiliser efficacement les Model Context Protocol (MCP)
    - [Édition multiple de fichiers](#édition-multiple-de-fichiers)
    - [Suppression de fichiers](#suppression-de-fichiers)
    - [Listage de répertoires](#listage-de-répertoires)
+   - [Extraction de structure Markdown](#extraction-de-structure-markdown)
 4. [MCP jinavigator](#mcp-jinavigator)
    - [Conversion de pages web en Markdown](#conversion-de-pages-web-en-markdown)
    - [Conversion multiple de pages web](#conversion-multiple-de-pages-web)
@@ -190,6 +191,48 @@ Pour lister le contenu de plusieurs répertoires avec des options avancées:
 - Utilisez `file_pattern` pour filtrer les fichiers (ex: `*.js`, `*.{js,ts}`)
 - Utilisez `sort_by` et `sort_order` pour trier les résultats
 - Limitez le nombre de lignes avec `max_lines`
+
+### Extraction de structure Markdown
+
+Pour générer une représentation Markdown de la structure d'un répertoire:
+
+```xml
+<use_mcp_tool>
+<server_name>quickfiles</server_name>
+<tool_name>list_directory_contents</tool_name>
+<arguments>
+{
+  "paths": ["src/projet"],
+  "output_format": "markdown",
+  "recursive": true,
+  "max_depth": 3
+}
+</arguments>
+</use_mcp_tool>
+```
+
+**Optimisations possibles**:
+- Utilisez `recursive` et `max_depth` pour contrôler la profondeur de l'analyse
+- Utilisez `file_pattern` pour filtrer les fichiers inclus dans la structure
+- Combinez avec `include_hidden` pour inclure ou exclure les fichiers cachés
+
+**Exemple de sortie**:
+```markdown
+# Structure du répertoire: src/projet
+
+## Structure
+
+- 📁 **components**
+  - 📄 Button.js
+  - 📄 Input.js
+- 📁 **utils**
+  - 📄 format.js
+  - 📄 validation.js
+- 📄 index.js
+- 📄 README.md
+```
+
+Pour plus de détails sur cette fonctionnalité, consultez la [documentation complète](../mcps/quickfiles/MARKDOWN_EXTRACTION.md).
 
 ## MCP jinavigator
 

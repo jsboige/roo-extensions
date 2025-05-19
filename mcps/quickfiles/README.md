@@ -8,6 +8,7 @@ QuickFiles est un serveur MCP (Model Context Protocol) qui permet la manipulatio
 
 - Lecture de plusieurs fichiers en une seule requête
 - Listage optimisé des contenus de répertoires
+- Extraction de structure de répertoires au format Markdown
 - Suppression de fichiers en lot
 - Édition de plusieurs fichiers en une seule opération
 
@@ -52,6 +53,10 @@ Lit plusieurs fichiers en une seule requête avec numérotation de lignes option
 
 Liste tous les fichiers et répertoires sous un chemin donné, avec la taille des fichiers et le nombre de lignes.
 
+#### Extraction de structure Markdown
+
+L'outil `list_directory_contents` prend en charge l'extraction de structure de répertoires au format Markdown via le paramètre `output_format: 'markdown'`. Cette fonctionnalité permet de générer une représentation visuelle et hiérarchique de la structure de fichiers et dossiers. Pour plus de détails, consultez [MARKDOWN_EXTRACTION.md](./MARKDOWN_EXTRACTION.md).
+
 ### delete_files
 
 Supprime une liste de fichiers en une seule opération.
@@ -70,4 +75,5 @@ Si vous rencontrez des problèmes avec le serveur QuickFiles:
 
 ## Ressources additionnelles
 
-Pour plus d'informations sur l'utilisation des serveurs MCP, consultez le guide d'utilisation général des MCPs dans `docs/guide-utilisation-mcps.md`.
+- [Documentation détaillée sur l'extraction de structure Markdown](./MARKDOWN_EXTRACTION.md)
+- Pour plus d'informations sur l'utilisation des serveurs MCP, consultez le guide d'utilisation général des MCPs dans `docs/guide-utilisation-mcps.md`.

@@ -1,3 +1,3 @@
 @echo off
 echo Démarrage du serveur MCP QuickFiles...
-node "c:/dev/roo-extensions/mcps/mcp-servers/servers/quickfiles-server/build/index.js"
+node "d:/Dev/roo-extensions/mcps/mcp-servers/servers/quickfiles-server/build/index.js"
