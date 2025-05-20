@@ -90,6 +90,15 @@ Un serveur MCP qui permet d'interagir avec des notebooks Jupyter:
 
 [Documentation Jupyter MCP](./mcp-servers/servers/jupyter-mcp-server/README.md)
 
+#### GitHub Projects MCP Server
+Un serveur MCP qui permet d'interagir avec GitHub Projects v2:
+- Gestion des projets (lister, créer, obtenir les détails)
+- Gestion des éléments (ajouter des issues, pull requests ou notes)
+- Mise à jour des champs des éléments (statut, priorité, date, etc.)
+- Accès aux données des projets via des URIs standardisés
+
+[Documentation GitHub Projects](./mcp-servers/servers/github-projects-mcp/README.md)
+
 ### MCPs Externes
 
 #### Docker
