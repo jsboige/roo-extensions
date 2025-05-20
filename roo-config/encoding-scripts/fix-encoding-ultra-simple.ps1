@@ -1,5 +1,5 @@
-# Script de correction d'encodage final pour les fichiers JSON
-# Cette version utilise une approche plus precise pour remplacer les caracteres speciaux
+# Script de correction d'encodage ultra-simplifie pour les fichiers JSON
+# Cette version evite completement d'utiliser des caracteres speciaux dans le code
 
 param (
     [Parameter(Mandatory = $true)]
@@ -52,53 +52,9 @@ try {
     
     Write-Host "Application des corrections d'encodage..." -ForegroundColor Cyan
     
-    # Tableau de correspondance pour les caracteres accentues
-    $accentMap = @{
-        'à' = 'a'; 'á' = 'a'; 'â' = 'a'; 'ã' = 'a'; 'ä' = 'a'; 'å' = 'a';
-        'è' = 'e'; 'é' = 'e'; 'ê' = 'e'; 'ë' = 'e';
-        'ì' = 'i'; 'í' = 'i'; 'î' = 'i'; 'ï' = 'i';
-        'ò' = 'o'; 'ó' = 'o'; 'ô' = 'o'; 'õ' = 'o'; 'ö' = 'o'; 'ø' = 'o';
-        'ù' = 'u'; 'ú' = 'u'; 'û' = 'u'; 'ü' = 'u';
-        'ý' = 'y'; 'ÿ' = 'y';
-        'ñ' = 'n';
-        'ç' = 'c';
-        'À' = 'A'; 'Á' = 'A'; 'Â' = 'A'; 'Ã' = 'A'; 'Ä' = 'A'; 'Å' = 'A';
-        'È' = 'E'; 'É' = 'E'; 'Ê' = 'E'; 'Ë' = 'E';
-        'Ì' = 'I'; 'Í' = 'I'; 'Î' = 'I'; 'Ï' = 'I';
-        'Ò' = 'O'; 'Ó' = 'O'; 'Ô' = 'O'; 'Õ' = 'O'; 'Ö' = 'O'; 'Ø' = 'O';
-        'Ù' = 'U'; 'Ú' = 'U'; 'Û' = 'U'; 'Ü' = 'U';
-        'Ý' = 'Y';
-        'Ñ' = 'N';
-        'Ç' = 'C';
-        'œ' = 'oe'; 'Œ' = 'OE';
-        'æ' = 'ae'; 'Æ' = 'AE';
-        '«' = '"'; '»' = '"';
-        '–' = '-'; '—' = '-';
-        ''' = "'"; ''' = "'";
-        '"' = '"'; '"' = '"';
-        '…' = '...';
-        '€' = 'EUR'; '£' = 'GBP'; '¥' = 'JPY';
-        '©' = '(c)'; '®' = '(r)'; '™' = '(tm)';
-        '°' = 'deg';
-        '±' = '+/-';
-        '×' = 'x';
-        '÷' = '/';
-        '¼' = '1/4'; '½' = '1/2'; '¾' = '3/4';
-        '¿' = '?'; '¡' = '!';
-        'ß' = 'ss';
-        'µ' = 'u'
-    }
-    
-    # Remplacer les emojis par [emoji]
-    $correctedContent = $correctedContent -replace "\p{So}", "[emoji]"
-    
-    # Remplacer les caracteres accentues par leurs equivalents ASCII
-    foreach ($key in $accentMap.Keys) {
-        $correctedContent = $correctedContent.Replace($key, $accentMap[$key])
-    }
-    
-    # Remplacer tous les autres caracteres non-ASCII par un espace
-    $correctedContent = $correctedContent -replace "[^\x00-\x7F]", " "
+    # Remplacer tous les caracteres non-ASCII par des caracteres ASCII simples
+    $correctedContent = $correctedContent -replace "\p{So}", "emoji"  # Remplacer les emojis
+    $correctedContent = $correctedContent -replace "[^\x00-\x7F]", ""  # Supprimer tous les autres caracteres non-ASCII
     
     # Verifier que le JSON est valide
     try {
@@ -107,7 +63,6 @@ try {
     }
     catch {
         Write-Host "Avertissement: Le JSON corrige n'est pas valide. Il pourrait y avoir des problemes d'encodage non resolus." -ForegroundColor Yellow
-        Write-Host $_.Exception.Message -ForegroundColor Yellow
     }
     
     # Ecrire le contenu corrige dans le fichier de sortie
