@@ -1,0 +1,178 @@
+﻿{
+  "configurations": [
+    {
+      "name": "Configuration actuelle",
+      "description": "Configuration actuelle avec Qwen 3 32B pour les modes simples et Claude 3.7 Sonnet pour les modes complexes",
+      "modes": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-32b",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-32b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-32b",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    },
+    {
+      "name": "Configuration Gemini",
+      "description": "Configuration avec Qwen 3 32B pour les modes simples et Gemini 2.5 Pro pour les modes complexes",
+      "modes": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "google/gemini-2.5-pro-exp-03-25",
+        "debug-simple": "qwen/qwen3-32b",
+        "debug-complex": "google/gemini-2.5-pro-exp-03-25",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "google/gemini-2.5-pro-exp-03-25",
+        "ask-simple": "qwen/qwen3-32b",
+        "ask-complex": "google/gemini-2.5-pro-exp-03-25",
+        "orchestrator-simple": "qwen/qwen3-32b",
+        "orchestrator-complex": "google/gemini-2.5-pro-exp-03-25"
+      }
+    },
+    {
+      "name": "Configuration alternative",
+      "description": "Configuration avec Qwen 3 235B-A22B pour les modes simples et Claude 3.7 Sonnet pour les modes complexes",
+      "modes": {
+        "code-simple": "qwen/qwen3-30b-a3b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-30b-a3b",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-30b-a3b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-30b-a3b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-30b-a3b",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    },
+    {
+      "name": "Configuration de secours",
+      "description": "Configuration avec Deepseek R1 pour les modes simples et Claude 3.7 Sonnet pour les modes complexes",
+      "modes": {
+        "code-simple": "deepseek/deepseek-r1",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "deepseek/deepseek-r1",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "deepseek/deepseek-r1",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "deepseek/deepseek-r1",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "deepseek/deepseek-r1",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    }
+  ],
+  "apiConfigs": {
+    "default": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "anthropic/claude-3.7-sonnet",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "usl6gy8xkxg"
+    },
+    "gemini-2.5-pro": {
+      "modelTemperature": null,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "google/gemini-2.5-pro-exp-03-25",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "ywbjgfyg3"
+    },
+    "qwen3-32b": {
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-32b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "rfjyvcdycv"
+    },
+    "qwen3-30b-a3b": {
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-30b-a3b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "uuv5lg7q50p"
+    },
+    "qwen3-235b-a22b": {
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-30b-a3b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "99nwj3do7bq"
+    },
+    "deepseek-r1": {
+      "modelTemperature": null,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "deepseek/deepseek-r1",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "5y6lcq3nzdi"
+    },
+    "claude-3.7-sonnet": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "anthropic/claude-3.7-sonnet",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "gi7et2uwpwo"
+    },
+    "qwen3-14b": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-14b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "n17g6rr1jd"
+    },
+    "qwen3-8b": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-8b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "y1ewb1adlrq"
+    },
+    "qwen3-1.7b": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "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",
+      "openRouterModelId": "qwen/qwen3-1.7b:free",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "yb9a1vhtpne"
+    }
+  },
+  "modeApiConfigs": {
+    "code": "usl6gy8xkxg",
+    "architect": "usl6gy8xkxg",
+    "ask": "usl6gy8xkxg",
+    "debug": "usl6gy8xkxg",
+    "orchestrator": "usl6gy8xkxg",
+    "project-manager": "usl6gy8xkxg",
+    "orchestrator-complex": "usl6gy8xkxg",
+    "debug-simple": "rfjyvcdycv",
+    "architect-simple": "rfjyvcdycv",
+    "code-simple": "rfjyvcdycv",
+    "ask-simple": "rfjyvcdycv",
+    "orchestrator-simple": "rfjyvcdycv",
+    "ask-complex": "usl6gy8xkxg",
+    "architect-complex": "usl6gy8xkxg",
+    "debug-complex": "usl6gy8xkxg",
+    "code-complex": "usl6gy8xkxg"
+  }
+}

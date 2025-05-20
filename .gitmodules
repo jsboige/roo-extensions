@@ -1,6 +1,6 @@
 [submodule "mcps/mcp-servers"]
 	path = mcps/mcp-servers
 	url = https://github.com/jsboige/jsboige-mcp-servers.git
-[submodule "mcps/backup-mcp-servers"]
-	path = mcps/backup-mcp-servers
-	url = https://github.com/jsboige/jsboige-mcp-servers.git
+[submodule "roo-code"]
+	path = roo-code
+	url = https://github.com/RooVetGit/Roo-Code
