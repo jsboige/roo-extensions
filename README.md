@@ -1,10 +1,64 @@
 # Roo Extensions
 
-Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage via un système de profils.
+## Table des matières
 
-## Architecture à 5 Niveaux de Complexité (n5)
+1. [À propos du projet](#à-propos-du-projet)
+2. [Fonctionnalités principales](#fonctionnalités-principales)
+3. [Architectures disponibles](#architectures-disponibles)
+   - [Architecture à 2 niveaux (Simple/Complexe)](#architecture-à-2-niveaux-simplecomplex)
+   - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
+4. [Prérequis](#prérequis)
+5. [Installation](#installation)
+6. [Utilisation](#utilisation)
+7. [Structure du projet](#structure-du-projet)
+8. [Modes disponibles](#modes-disponibles)
+9. [Profils et modèles supportés](#profils-et-modèles-supportés)
+10. [MCPs disponibles](#mcps-disponibles)
+11. [Démo d'initiation à Roo](#démo-dinitiation-à-roo)
+12. [Documentation](#documentation)
+13. [Contribution](#contribution)
+14. [Note sur l'encodage des fichiers](#note-sur-lencodage-des-fichiers)
+15. [Migration vers le système de profils](#migration-vers-le-système-de-profils)
+16. [Licence](#licence)
 
-Le projet implémente une architecture innovante qui organise les profils d'agent Roo en cinq niveaux de complexité :
+## À propos du projet
+
+Roo Extensions est un projet qui étend les capacités de Roo, un assistant de développement intelligent pour VS Code. Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage via un système de profils, ainsi que des serveurs MCP (Model Context Protocol) pour étendre les fonctionnalités de base.
+
+### Qu'est-ce que Roo ?
+
+Roo est une extension VS Code qui fonctionne comme un agent de codage autonome alimenté par l'IA. Elle permet aux utilisateurs de communiquer en langage naturel, de lire et écrire des fichiers, d'exécuter des commandes dans le terminal, d'automatiser des actions de navigateur, et de s'intégrer avec des API/modèles d'IA.
+
+## Fonctionnalités principales
+
+- **Modes personnalisés** : Configurations spécifiques qui définissent le comportement, les capacités et les limitations d'un agent Roo.
+- **Système de profils** : Permet de configurer facilement quels modèles utiliser pour chaque niveau de complexité.
+- **Serveurs MCP** : Étendent les capacités de Roo avec des fonctionnalités supplémentaires.
+- **Outils de configuration** : Scripts pour déployer les modes Roo et résoudre les problèmes d'encodage.
+- **Tests automatisés** : Validation des fonctionnalités et des performances.
+- **Démo d'initiation** : Exemples structurés pour faciliter l'apprentissage de Roo.
+
+## Architectures disponibles
+
+Le projet propose deux architectures principales pour les modes Roo :
+
+### Architecture à 2 niveaux (Simple/Complex)
+
+Cette architecture, plus simple et actuellement en production, organise les modes en deux catégories :
+
+1. **Modes Simples** : Pour les tâches courantes et de complexité modérée
+   - Modèle envisagé : Qwen 3 32B
+   - Optimisé pour un équilibre entre performance et coût
+
+2. **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
+   - Modèles : Claude 3.7 Sonnet/Opus et équivalents
+   - Optimisé pour les tâches complexes et les projets de grande envergure
+
+Cette architecture est pleinement fonctionnelle et constitue la solution recommandée pour une utilisation quotidienne.
+
+### Architecture à 5 niveaux (n5)
+
+L'architecture à 5 niveaux (n5) est une approche innovante qui organise les profils d'agent Roo en cinq niveaux de complexité :
 
 1. **MICRO** : Utilise des modèles légers pour les tâches très simples et rapides
    - Réponses courtes
@@ -35,14 +89,14 @@ Le projet implémente une architecture innovante qui organise les profils d'agen
    - Synthèse de recherche
    - Analyses multi-domaines
 
-Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats. Grâce au système de profils, il est possible de configurer facilement quels modèles utiliser pour chaque niveau de complexité.
+Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats. Elle implémente des mécanismes sophistiqués d'escalade et de désescalade qui permettent de passer automatiquement d'un niveau à l'autre en fonction de la complexité de la tâche.
 
-### Prérequis
+## Prérequis
 
 - Roo installé et configuré
 - Accès aux modèles Claude (3 Haiku, 3.5 Sonnet, 3.7 Sonnet, 3.7 Opus) ou Qwen 3
 
-### Installation
+## Installation
 
 1. Clonez ce dépôt :
    ```bash
@@ -77,7 +131,7 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 - Pour les tâches très complexes, sélectionnez un mode ORACLE
 - L'Orchestrateur peut également router automatiquement les tâches vers le mode approprié
 
-## Structure du Projet
+## Structure du projet
 
 > **Note**: Le dépôt a été récemment réorganisé pour améliorer la maintenabilité et la cohérence de la structure. Cette section reflète la nouvelle organisation du dépôt.
 
@@ -150,25 +204,25 @@ roo-extensions/
 
 Le projet dispose d'une documentation détaillée répartie dans plusieurs fichiers README spécialisés :
 
+- [**roo-modes/README.md**](roo-modes/README.md) : Documentation des modes personnalisés, incluant les architectures disponibles, les types de modes, et les mécanismes d'escalade et de désescalade.
+
 - [**roo-modes/n5/tests/README.md**](roo-modes/n5/tests/README.md) : Documentation complète des tests de l'architecture d'orchestration à 5 niveaux, incluant les mécanismes d'escalade et de désescalade, les objectifs des tests, leur structure et fonctionnement, ainsi que des instructions pour exécuter et interpréter les résultats des tests.
 
 - [**tests/README.md**](tests/README.md) : Documentation des tests du projet, incluant les tests de structure MCP, les tests des serveurs MCP spécifiques, les tests d'encodage, et les tests d'escalade et désescalade.
 
-- [**mcps/external/README.md**](mcps/external/README.md) : Documentation des MCPs externes, incluant les instructions d'installation, de configuration et d'utilisation, ainsi que la résolution des problèmes courants.
+- [**mcps/README.md**](mcps/README.md) : Documentation des serveurs MCP, incluant l'organisation, la configuration et les liens vers la documentation spécifique de chaque serveur.
 
-- [**modules/form-validator/README.md**](modules/form-validator/README.md) : Documentation du module de validation de formulaire, incluant les fonctionnalités, l'installation, l'utilisation et les formats supportés.
+- [**roo-code/README.md**](roo-code/README.md) : Documentation du sous-module roo-code, incluant la structure du projet, les composants principaux, les flux de travail et interactions, et les dépendances et technologies.
 
 - [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
 
 - [**roo-config/README-profile-modes.md**](roo-config/README-profile-modes.md) : Documentation du système de profils pour les modes personnalisés, expliquant comment créer, gérer et déployer des configurations de modes basées sur des profils.
 
-- [**docs/guide-utilisation-profils-modes.md**](docs/guide-utilisation-profils-modes.md) : Guide complet sur l'utilisation des profils dans le système de modes personnalisés, incluant l'architecture, les avantages, des exemples d'utilisation et la migration depuis l'ancienne architecture.
-
 - [**tests/escalation/rapport-tests-escalade.md**](tests/escalation/rapport-tests-escalade.md) : Rapport d'analyse des tests d'escalade, incluant les résultats des tests et les recommandations.
 
 Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
 
-## Modes Disponibles
+## Modes disponibles
 
 | Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
 |------|-------|------|--------|-------|--------|
@@ -178,7 +232,7 @@ Consultez ces fichiers pour obtenir des informations détaillées sur les diffé
 | Ask | Réponses courtes | Questions factuelles | Explications techniques | Analyses détaillées | Synthèses complexes |
 | Orchestrator | Tâches unitaires | Délégation simple | Coordination standard | Coordination avancée | Orchestration complexe |
 
-## Profils et Modèles Supportés
+## Profils et modèles supportés
 
 Le système utilise des profils pour définir quels modèles de langage utiliser pour chaque mode. Voici les profils disponibles par défaut:
 
@@ -203,7 +257,7 @@ Le système utilise des profils pour définir quels modèles de langage utiliser
 
 Pour créer ou modifier des profils, utilisez le script `create-profile.ps1`. Pour plus d'informations, consultez la documentation dans `docs/guide-utilisation-profils-modes.md`.
 
-## MCPs Disponibles
+## MCPs disponibles
 
 Le projet intègre plusieurs serveurs MCP (Model Context Protocol) pour étendre les capacités de Roo :
 
@@ -256,7 +310,7 @@ Ces serveurs MCP sont développés par d'autres équipes et sont disponibles dan
   - Manipulation de répertoires
   - Recherche de fichiers
 
-Pour plus d'informations sur l'utilisation des MCPs, consultez les répertoires `mcps/internal/` et `mcps/external/` ainsi que le document `docs/guide-utilisation-mcps.md`.
+Pour plus d'informations sur l'utilisation des MCPs, consultez les répertoires `mcps/internal/` et `mcps/external/` ainsi que le document `mcps/README.md`.
 
 ## Démo d'initiation à Roo
 
@@ -337,6 +391,8 @@ Les contributions sont les bienvenues ! Voici comment contribuer :
 ## Note sur l'encodage des fichiers
 
 **Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
+
+Pour résoudre les problèmes d'encodage, vous pouvez utiliser les scripts disponibles dans le répertoire `roo-config/encoding-scripts/`. Pour plus d'informations, consultez la [documentation des scripts d'encodage](roo-config/encoding-scripts/README.md).
 
 ## Migration vers le système de profils
 
