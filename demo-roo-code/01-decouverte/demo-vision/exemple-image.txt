@@ -1,0 +1,50 @@
+# Description de l'image d'exemple pour tester les capacités de vision
+
+Ce fichier décrit une image que vous pourriez utiliser pour tester les capacités de vision de Claude. Dans un environnement réel, vous utiliseriez une véritable image plutôt que cette description.
+
+## Image suggérée : "Diagramme d'architecture d'une application web moderne"
+
+L'image idéale à utiliser serait un diagramme d'architecture représentant une application web moderne avec les éléments suivants :
+
+### Contenu du diagramme
+- **Frontend** : Interface utilisateur React avec des composants clairement identifiés
+- **Backend** : API REST ou GraphQL avec Node.js
+- **Base de données** : Combinaison de SQL (PostgreSQL) et NoSQL (MongoDB)
+- **Services cloud** : Conteneurs Docker orchestrés par Kubernetes
+- **Sécurité** : Couche d'authentification avec JWT ou OAuth
+- **Mise en cache** : Redis pour le caching
+- **Équilibrage de charge** : Nginx comme reverse proxy
+- **Monitoring** : Outils de surveillance et d'analyse des performances
+
+### Caractéristiques visuelles
+- Flèches indiquant le flux de données entre les composants
+- Code couleur pour différencier les couches de l'architecture
+- Étiquettes claires pour chaque composant
+- Quelques annotations ou notes explicatives
+- Niveau de détail modéré (ni trop simple, ni trop complexe)
+
+## Comment utiliser cette description
+
+1. Vous pouvez créer ou trouver une image correspondant à cette description
+2. Alternativement, vous pouvez utiliser n'importe quelle image de diagramme d'architecture technique
+3. Téléchargez ou partagez cette image avec Roo
+4. Utilisez les questions suggérées dans le fichier instructions-analyse.md
+
+## Pourquoi ce type d'image ?
+
+Un diagramme d'architecture est idéal pour tester les capacités de vision car il contient :
+- Du texte à interpréter
+- Des relations spatiales à comprendre
+- Une structure hiérarchique à analyser
+- Des concepts techniques à identifier
+- Des patterns de conception à reconnaître
+
+Cette complexité permet de démontrer efficacement comment Claude peut analyser et interpréter des informations visuelles techniques.
+
+---
+
+Note : Si vous n'avez pas accès à une telle image, vous pouvez également utiliser :
+- Une capture d'écran d'un IDE avec du code
+- Un mockup d'interface utilisateur
+- Un graphique de données
+- Une page web avec différents éléments d'interface
