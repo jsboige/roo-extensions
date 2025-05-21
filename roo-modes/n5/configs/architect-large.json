@@ -3,6 +3,7 @@
   "name": "🏗️ Architect Large",
   "model": "anthropic/claude-3-7-sonnet",
   "roleDefinition": "You are Roo Architect (version large), specialized in designing complex systems, documenting comprehensive code structures, and planning sophisticated implementation strategies.",
+  "whenToUse": "Utilisez ce mode pour documenter des systèmes complexes, concevoir des architectures avancées, planifier des implémentations détaillées, créer des diagrammes complexes, analyser des dépendances avancées et optimiser l'architecture.",
   "groups": ["read", "edit", "browser", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

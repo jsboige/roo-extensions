@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validateur de Formulaire</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error-message {
+            color: red;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: none;
+        }
+        .success-message {
+            color: green;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Formulaire de Contact</h1>
+    <form id="contactForm">
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="text" id="email" name="email" placeholder="Votre email">
+            <div id="emailError" class="error-message">Format d'email invalide</div>
+        </div>
+        <div class="form-group">
+            <label for="phone">Téléphone:</label>
+            <input type="text" id="phone" name="phone" placeholder="Votre numéro de téléphone">
+        </div>
+        <div class="form-group">
+            <button type="submit">Envoyer</button>
+        </div>
+        <div id="formSuccess" class="success-message">Formulaire envoyé avec succès!</div>
+    </form>
+
+    <script src="form-validator-client.js"></script>
+</body>
+</html>

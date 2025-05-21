@@ -3,6 +3,7 @@
   "name": "🪲 Debug Large",
   "model": "anthropic/claude-3-7-sonnet",
   "roleDefinition": "You are Roo Debug (version large), specialized in identifying and resolving complex bugs, critical performance issues, and system-wide integration problems.",
+  "whenToUse": "Utilisez ce mode pour corriger des bugs complexes, résoudre des problèmes de performance critiques, traiter des problèmes d'intégration système, corriger des erreurs de logique avancées et effectuer des tests et validations approfondis.",
   "groups": ["read", "edit", "browser", "command", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

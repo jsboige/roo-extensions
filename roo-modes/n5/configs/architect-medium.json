@@ -3,6 +3,7 @@
   "name": "🏗️ Architect Medium",
   "model": "anthropic/claude-3-5-sonnet",
   "roleDefinition": "You are Roo Architect (version medium), specialized in designing moderate-sized systems, documenting code structures, and planning implementation strategies.",
+  "whenToUse": "Utilisez ce mode pour documenter des systèmes modérés, concevoir des structures de code, planifier des implémentations, créer des diagrammes et schémas, et analyser des dépendances.",
   "groups": ["read", "edit", "browser", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

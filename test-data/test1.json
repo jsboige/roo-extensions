@@ -1,0 +1,15 @@
+{
+  "testName": "Escalade Code Simple vers Complex",
+  "fromMode": "code-simple",
+  "toMode": "code-complex",
+  "task": "Implémenter une fonction récursive pour calculer la suite de Fibonacci",
+  "expectedEscalation": true,
+  "expectedEscalationType": "Externe",
+  "actualEscalation": true,
+  "actualEscalationType": "Externe",
+  "escalationTime": "00:01:23",
+  "escalationMessage": "La tâche nécessite une implémentation algorithmique complexe qui dépasse mes capacités actuelles",
+  "success": true,
+  "notes": "L'escalade s'est produite correctement après détection de la complexité algorithmique",
+  "timestamp": "2025-05-15T14:30:45"
+}

@@ -1,6 +1,6 @@
 # Roo Extensions
 
-Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage.
+Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage via un système de profils.
 
 ## Architecture à 5 Niveaux de Complexité (n5)
 
@@ -35,7 +35,7 @@ Le projet implémente une architecture innovante qui organise les profils d'agen
    - Synthèse de recherche
    - Analyses multi-domaines
 
-Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats.
+Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats. Grâce au système de profils, il est possible de configurer facilement quels modèles utiliser pour chaque niveau de complexité.
 
 ### Prérequis
 
@@ -51,12 +51,17 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
 
 2. Déployez les modes avec le script approprié :
    ```bash
-   # Pour l'architecture à 5 niveaux avec Claude
-   cd roo-modes/n5/scripts
-   ./deploy-n5-architecture.ps1
+   # Pour l'architecture à 5 niveaux avec le profil Claude standard
+   cd roo-config
+   ./deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
    
-   # Pour l'architecture à 5 niveaux avec Qwen 3
-   # (nécessite une configuration supplémentaire)
+   # Pour l'architecture à 5 niveaux avec le profil n5
+   cd roo-config
+   ./deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
+   
+   # Pour l'architecture à 5 niveaux avec le profil Qwen 3
+   cd roo-config
+   ./deploy-profile-modes.ps1 -ProfileName "qwen" -DeploymentType global
    ```
 
 3. Redémarrez Roo pour appliquer les nouveaux modes.
@@ -74,7 +79,25 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 
 ## Structure du Projet
 
+Le dépôt a été réorganisé pour une meilleure maintenabilité et une structure plus cohérente :
+
 - `.roomodes` : Configuration des modes personnalisés
+- `configs/` : Configurations pour le projet
+  - `escalation/` : Configurations pour les mécanismes d'escalade
+- `docs/` : Documentation générale du projet
+  - `escalation/` : Documentation sur les mécanismes d'escalade
+- `mcps/` : Configuration et documentation pour les MCPs externes
+  - `mcp-servers/` : Serveurs MCP
+  - `external-mcps/` : Documentation pour les MCPs externes
+- `roo-config/` : Configurations pour Roo
+  - `modes/` : Configurations de modes standard
+  - `settings/` : Paramètres généraux
+  - `scheduler/` : Extensions et configurations pour Roo Scheduler
+  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
+  - `model-configs.json` : Définitions des profils de modèles
+  - `create-profile.ps1` : Script de création de profils
+  - `deploy-profile-modes.ps1` : Script de déploiement basé sur les profils
+  - `deploy-modes-enhanced.ps1` : Script de déploiement amélioré avec support des profils
 - `roo-modes/` : Répertoire principal pour les modes personnalisés
   - `configs/` : Configurations des modes (architecture à 2 niveaux)
   - `docs/` : Documentation conceptuelle et guides
@@ -88,27 +111,14 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
     - `tests/` : Tests pour les mécanismes d'escalade et désescalade
   - `custom/` : Modes personnalisés spécifiques
   - `optimized/` : Modes optimisés pour différents modèles
-- `roo-config/` : Configurations pour Roo
-  - `modes/` : Configurations de modes standard
-  - `settings/` : Paramètres généraux
-  - `scheduler/` : Extensions et configurations pour Roo Scheduler
-  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
-- `mcps/` : Configuration et documentation pour les MCPs externes
-  - `searxng/` : MCP pour la recherche web
-  - `win-cli/` : MCP pour les commandes Windows
-  - `git/` : MCP pour les opérations Git
-  - `github/` : MCP pour l'API GitHub
-- `docs/` : Documentation générale du projet
-  - Guides d'utilisation
-  - Rapports de tests
-  - Spécifications techniques
 - `scripts/` : Scripts utilitaires pour le projet
-  - Tests de scénarios
-  - Utilitaires de déploiement
+  - `escalation/` : Scripts pour les mécanismes d'escalade
+- `templates/` : Modèles pour les rapports et autres documents
+- `test-data/` : Données de test
+- `test-results/` : Résultats des tests
 - `tests/` : Tests et scénarios de test
-  - `mcp-structure/` : Tests pour la structure MCP
-  - `mcp-win-cli/` : Tests pour le MCP Win-CLI
-  - `scripts/` : Scripts de test
+  - `escalation/` : Tests pour les mécanismes d'escalade
+  - `mcp/` : Tests pour les MCPs
 - `archive/` : Contenu obsolète ou archivé
 
 ## Documentation
@@ -123,6 +133,14 @@ Le projet dispose d'une documentation détaillée répartie dans plusieurs fichi
 
 - [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
 
+- [**roo-config/README-profile-modes.md**](roo-config/README-profile-modes.md) : Documentation du système de profils pour les modes personnalisés, expliquant comment créer, gérer et déployer des configurations de modes basées sur des profils.
+
+- [**docs/guide-utilisation-profils-modes.md**](docs/guide-utilisation-profils-modes.md) : Guide complet sur l'utilisation des profils dans le système de modes personnalisés, incluant l'architecture, les avantages, des exemples d'utilisation et la migration depuis l'ancienne architecture.
+
+- [**docs/escalation/continuous-evaluation-guide.md**](docs/escalation/continuous-evaluation-guide.md) : Guide pour l'évaluation continue des performances d'escalade, incluant les métriques à surveiller et les ajustements recommandés.
+
+- [**tests/escalation/rapport-tests-escalade.md**](tests/escalation/rapport-tests-escalade.md) : Rapport d'analyse des tests d'escalade, incluant les résultats des tests et les recommandations.
+
 Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
 
 ## Modes Disponibles
@@ -135,23 +153,30 @@ Consultez ces fichiers pour obtenir des informations détaillées sur les diffé
 | Ask | Réponses courtes | Questions factuelles | Explications techniques | Analyses détaillées | Synthèses complexes |
 | Orchestrator | Tâches unitaires | Délégation simple | Coordination standard | Coordination avancée | Orchestration complexe |
 
-## Modèles Supportés
+## Profils et Modèles Supportés
 
-### Claude (par défaut)
+Le système utilise des profils pour définir quels modèles de langage utiliser pour chaque mode. Voici les profils disponibles par défaut:
+
+### Profil "standard"
+- Modèle par défaut: Claude 3.5 Sonnet
+- Modes complexes: Claude 3.7 Sonnet
+
+### Profil "n5" (architecture à 5 niveaux)
 - **MICRO** : Claude 3 Haiku
 - **MINI** : Claude 3.5 Sonnet
 - **MEDIUM** : Claude 3.5 Sonnet
 - **LARGE** : Claude 3.7 Sonnet
 - **ORACLE** : Claude 3.7 Opus
 
-### Qwen 3 (configuration alternative)
-- **MICRO** : Qwen3-0.6B
-- **MINI** : Qwen3-4B
-- **MEDIUM** : Qwen3-14B
-- **LARGE** : Qwen3-32B ou Qwen3-30B-A3B (MoE)
-- **ORACLE** : Qwen3-235B-A22B (MoE)
+### Profil "qwen" (modèles Qwen 3)
+- Modèle par défaut: Qwen3-32B (local/qwq32b)
+- Modes complexes: Claude 3.7 Sonnet
 
-Pour utiliser les modèles Qwen 3, consultez la documentation dans `roo-config/qwen3-profiles/`.
+### Profil "local" (modèles locaux)
+- Modèle par défaut: Llama 3 70B (local/llama-3-70b)
+- Modes complexes: Claude 3.7 Sonnet
+
+Pour créer ou modifier des profils, utilisez le script `create-profile.ps1`. Pour plus d'informations, consultez la documentation dans `docs/guide-utilisation-profils-modes.md`.
 
 ## MCPs Externes Disponibles
 
@@ -192,6 +217,17 @@ Les contributions sont les bienvenues ! Voici comment contribuer :
 ## Note sur l'encodage des fichiers
 
 **Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
+
+## Migration vers le système de profils
+
+Si vous utilisez encore l'ancienne architecture (association directe des modes aux modèles), vous pouvez migrer vers le nouveau système basé sur les profils en utilisant le script `migrate-to-profiles.ps1` :
+
+```powershell
+# Migrer une configuration existante vers un profil
+.\migrate-to-profiles.ps1 -ConfigFile "roo-modes/configs/standard-modes.json" -OutputProfileName "migré"
+```
+
+Ce script analysera votre configuration existante, extraira les modèles utilisés par chaque mode, créera un nouveau profil avec ces informations et sauvegardera l'ancienne configuration.
 
 ## Licence
 

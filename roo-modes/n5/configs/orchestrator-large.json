@@ -3,6 +3,7 @@
   "name": "🪃 Orchestrator Large",
   "model": "anthropic/claude-3-7-sonnet",
   "roleDefinition": "You are Roo Orchestrator (version large), responsible for analyzing complex requests, breaking down sophisticated tasks, and delegating to appropriate specialized large agents.",
+  "whenToUse": "Utilisez ce mode pour analyser des requêtes complexes, décomposer des tâches sophistiquées en sous-tâches, déléguer à des agents large spécialisés, coordonner des sous-tâches interdépendantes complexes, suivre la progression de manière avancée et gérer des workflows complexes.",
   "groups": [],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

@@ -3,6 +3,7 @@
   "name": "🪲 Debug Medium",
   "model": "anthropic/claude-3-5-sonnet",
   "roleDefinition": "You are Roo Debug (version medium), specialized in identifying and resolving moderate bugs, performance issues, and integration problems.",
+  "whenToUse": "Utilisez ce mode pour corriger des bugs modérés, résoudre des problèmes de performance basiques, traiter des problèmes d'intégration, corriger des erreurs de logique et effectuer des tests et validations.",
   "groups": ["read", "edit", "browser", "command", "mcp"],
   "family": "n5",
   "allowedFamilyTransitions": ["n5"],

@@ -1,5 +1,6 @@
-# Script de déploiement des modes simples/complex pour Roo
-# Ce script permet de déployer rapidement les modes simples et complexes soit globalement, soit localement
+# Script de déploiement des modes simples/complex pour Roo (Solution complète)
+# Ce script préserve la structure complète du JSON, y compris la propriété familyDefinitions
+# et utilise un encodage UTF-8 correct pour les emojis et caractères accentués
 
 param (
     [Parameter(Mandatory = $false)]
@@ -10,7 +11,10 @@ param (
     [switch]$Force,
     
     [Parameter(Mandatory = $false)]
-    [switch]$TestAfterDeploy
+    [switch]$TestAfterDeploy,
+    
+    [Parameter(Mandatory = $false)]
+    [switch]$DebugMode
 )
 
 # Fonction pour afficher des messages colorés
@@ -32,14 +36,16 @@ function Write-ColorOutput {
 # Bannière
 Write-ColorOutput "`n=========================================================" "Cyan"
 Write-ColorOutput "   Déploiement des modes simples/complex pour Roo" "Cyan"
+Write-ColorOutput "   (Solution complète avec préservation de structure)" "Cyan"
 Write-ColorOutput "=========================================================" "Cyan"
 
-# Vérifier que le fichier de configuration existe
+# Déterminer les chemins des fichiers source et destination
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$configFilePath = Join-Path -Path $scriptDir -ChildPath "..\roo-modes\configs\standard-modes.json"
+$projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
+$sourceFilePath = Join-Path -Path $projectRoot -ChildPath "roo-modes\configs\standard-modes.json"
 
-if (-not (Test-Path -Path $configFilePath)) {
-    Write-ColorOutput "Erreur: Le fichier de configuration 'standard-modes.json' n'existe pas." "Red"
+if (-not (Test-Path -Path $sourceFilePath)) {
+    Write-ColorOutput "Erreur: Le fichier source 'standard-modes.json' n'existe pas à l'emplacement: $sourceFilePath" "Red"
     Write-ColorOutput "Assurez-vous que le fichier existe dans le répertoire 'roo-modes/configs/'." "Red"
     exit 1
 }
@@ -63,12 +69,11 @@ if ($DeploymentType -eq "global") {
     }
 } else {
     # Déploiement local (dans le répertoire du projet)
-    # Pour un déploiement local, le projectRoot doit être le répertoire racine du projet
-    $projectRoot = Split-Path -Parent $scriptDir
     $destinationFile = Join-Path -Path $projectRoot -ChildPath ".roomodes"
 }
 
 Write-ColorOutput "`nDéploiement des modes simples/complex en mode $DeploymentType..." "Yellow"
+Write-ColorOutput "Source: $sourceFilePath" "Yellow"
 Write-ColorOutput "Destination: $destinationFile" "Yellow"
 
 # Vérifier si le fichier de destination existe déjà
@@ -135,24 +140,58 @@ function Test-FileEncoding {
     }
 }
 
-# Copier le fichier avec encodage UTF-8 explicite
+# Fonction pour vérifier la présence de la propriété familyDefinitions
+function Test-FamilyDefinitionsProperty {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$JsonContent
+    )
+    
+    return $JsonContent -match '"familyDefinitions"\s*:'
+}
+
+# Créer une sauvegarde du fichier source
+$backupFilePath = "$sourceFilePath.backup"
+if (-not (Test-Path -Path $backupFilePath)) {
+    try {
+        Copy-Item -Path $sourceFilePath -Destination $backupFilePath -Force
+        Write-ColorOutput "Sauvegarde du fichier source créée: $backupFilePath" "Green"
+    } catch {
+        Write-ColorOutput "Avertissement: Impossible de créer une sauvegarde du fichier source." "Yellow"
+        Write-ColorOutput $_.Exception.Message "Yellow"
+    }
+}
+
 try {
     # Vérifier l'encodage du fichier source
-    $sourceEncoding = Test-FileEncoding -Path $configFilePath
+    $sourceEncoding = Test-FileEncoding -Path $sourceFilePath
     Write-ColorOutput "Encodage du fichier source: $sourceEncoding" "Cyan"
     
-    # Lire le contenu avec l'encodage approprié
-    # Lire le contenu du fichier JSON
-    $jsonContent = Get-Content -Path $configFilePath -Raw
+    # Lire le contenu du fichier source directement sans utiliser ConvertFrom-Json
+    $jsonContent = [System.IO.File]::ReadAllText($sourceFilePath)
     
-    # Convertir le JSON en objet PowerShell
-    $jsonObject = ConvertFrom-Json $jsonContent
+    # Supprimer le BOM si présent
+    if ($jsonContent.StartsWith([char]0xFEFF)) {
+        $jsonContent = $jsonContent.Substring(1)
+        Write-ColorOutput "BOM supprimé du contenu JSON" "Yellow"
+    }
     
-    # Convertir l'objet PowerShell en JSON avec encodage UTF-8
-    $jsonString = ConvertTo-Json $jsonObject -Depth 100
+    if ($DebugMode) {
+        Write-ColorOutput "Contenu brut du fichier source (premiers 500 caractères):" "Yellow"
+        Write-ColorOutput $jsonContent.Substring(0, [Math]::Min(500, $jsonContent.Length)) "Yellow"
+    }
     
-    # Écrire le contenu en UTF-8 avec BOM pour une meilleure compatibilité
-    [System.IO.File]::WriteAllText($destinationFile, $jsonString, [System.Text.Encoding]::UTF8)
+    # Vérifier que le JSON contient la propriété familyDefinitions
+    $hasFamilyDefinitions = Test-FamilyDefinitionsProperty -JsonContent $jsonContent
+    if (-not $hasFamilyDefinitions) {
+        Write-ColorOutput "Avertissement: La propriété 'familyDefinitions' n'a pas été trouvée dans le fichier source." "Yellow"
+    } else {
+        Write-ColorOutput "La propriété 'familyDefinitions' a été trouvée dans le fichier source." "Green"
+    }
+    
+    # Écrire le contenu directement dans le fichier de destination avec encodage UTF-8 sans BOM
+    $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
+    [System.IO.File]::WriteAllText($destinationFile, $jsonContent, $utf8NoBomEncoding)
     
     Write-ColorOutput "Déploiement réussi!" "Green"
     
@@ -160,8 +199,23 @@ try {
     $destEncoding = Test-FileEncoding -Path $destinationFile
     Write-ColorOutput "Encodage du fichier de destination: $destEncoding" "Cyan"
     
-    if ($destEncoding -ne "UTF-8 without BOM") {
-        Write-ColorOutput "Avertissement: Le fichier de destination n'est pas en UTF-8 sans BOM." "Yellow"
+    # Vérifier que le fichier de destination contient la propriété familyDefinitions
+    $destContent = [System.IO.File]::ReadAllText($destinationFile, $utf8NoBomEncoding)
+    $destHasFamilyDefinitions = Test-FamilyDefinitionsProperty -JsonContent $destContent
+    
+    if (-not $destHasFamilyDefinitions) {
+        Write-ColorOutput "Erreur: La propriété 'familyDefinitions' n'a pas été préservée dans le fichier de destination." "Red"
+    } else {
+        Write-ColorOutput "La propriété 'familyDefinitions' a été correctement préservée dans le fichier de destination." "Green"
+    }
+    
+    # Vérifier que le JSON de destination est valide
+    try {
+        $null = ConvertFrom-Json $destContent
+        Write-ColorOutput "Validation JSON: Le fichier de destination contient du JSON valide." "Green"
+    } catch {
+        Write-ColorOutput "Avertissement: Le fichier de destination ne contient pas du JSON valide." "Red"
+        Write-ColorOutput $_.Exception.Message "Red"
     }
 } catch {
     Write-ColorOutput "Erreur lors du déploiement:" "Red"

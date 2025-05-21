@@ -1,0 +1,7 @@
+{
+  "jupyterServer": {
+    "baseUrl": "http://localhost:8888",
+    "token": "ed3ee8065eed17e2785aa5513aa61fd94fcffd233a3d38a5",
+    "offline": true
+  }
+}

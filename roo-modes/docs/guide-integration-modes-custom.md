@@ -58,7 +58,6 @@ Les modes personnalisés sont définis dans un fichier JSON avec la structure su
       "family": "simple",
       "allowedFamilyTransitions": ["simple"],
       "name": "🔧 Nom Affiché du Mode",
-      "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "Description concise du rôle du mode",
       "groups": ["read", "edit", "browser", "command", "mcp"],
       "customInstructions": "Instructions système détaillées pour le mode"
@@ -71,9 +70,10 @@ Les modes personnalisés sont définis dans un fichier JSON avec la structure su
 
 - `slug` : Identifiant technique unique du mode (sans espaces ni caractères spéciaux)
 - `name` : Nom affiché dans l'interface utilisateur (peut inclure des émojis)
-- `model` : Modèle d'IA à utiliser (ex: "anthropic/claude-3.5-sonnet", "anthropic/claude-3.7-sonnet")
 - `roleDefinition` : Description concise du rôle et des capacités du mode
 - `customInstructions` : Instructions système détaillées qui définissent le comportement du mode
+
+> **Note**: Depuis la mise en place de l'architecture basée sur les profils, la propriété `model` n'est plus définie directement dans la configuration du mode. Les modèles sont maintenant gérés via des profils dans le fichier `model-configs.json`. Voir la section [Utilisation des profils](#utilisation-des-profils) pour plus de détails.
 
 ### Propriétés optionnelles
 
@@ -135,6 +135,27 @@ Le script `deploy-modes-enhanced.ps1` inclut des fonctionnalités supplémentair
 - Gestion de l'encodage des fichiers (UTF-8 sans BOM)
 - Tests automatiques après déploiement
 - Génération d'instructions pour le déploiement via Git
+- Support des profils pour la gestion des modèles
+
+### Utilisation des profils
+
+Depuis la mise à jour de l'architecture, les modèles de langage sont gérés via des profils plutôt que directement dans la configuration des modes. Cette approche offre plusieurs avantages:
+
+1. **Gestion centralisée**: Les modèles sont définis dans un fichier central (`model-configs.json`)
+2. **Flexibilité**: Possibilité de basculer facilement entre différentes configurations de modèles
+3. **Cohérence**: Garantie que tous les modes utilisent les modèles appropriés
+
+Pour déployer une configuration basée sur un profil:
+
+```powershell
+# Déploiement avec un profil spécifique
+.\deploy-modes-enhanced.ps1 -ProfileName "standard" -DeploymentType global
+
+# Ou avec le script dédié aux profils
+.\deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
+```
+
+Pour plus d'informations sur les profils, consultez le [Guide d'utilisation des profils](../../docs/guide-utilisation-profils-modes.md).
 
 ## Configuration avancée
 
@@ -471,6 +492,9 @@ Ces fichiers contiennent des informations détaillées sur les tests effectués 
 - [Fichiers de configuration des modes](../configs/standard-modes.json)
 - [Script de déploiement de base](../../roo-config/deploy-modes.ps1)
 - [Script de déploiement amélioré](../../roo-config/deploy-modes-enhanced.ps1)
+- [Script de déploiement basé sur les profils](../../roo-config/deploy-profile-modes.ps1)
+- [Script de création de profil](../../roo-config/create-profile.ps1)
+- [Guide d'utilisation des profils](../../docs/guide-utilisation-profils-modes.md)
 - [Guide d'installation des modes personnalisés](implementation/guide-installation-modes-personnalises.md)
 - [Guide de verrouillage des familles de modes](guide-verrouillage-famille-modes.md)
 - [Guide d'import/export](guide-import-export.md)
