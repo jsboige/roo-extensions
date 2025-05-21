@@ -2,6 +2,14 @@
   "version": "1.0.0",
   "servers": [
     {
+      "name": "github-projects",
+      "type": "stdio",
+      "command": "powershell -c \"cd D:\\roo-extensions\\mcps\\mcp-servers\\servers\\github-projects-mcp; .\\run-github-projects.bat\"",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour interagir avec GitHub Projects"
+    },
+    {
       "name": "searxng",
       "type": "stdio",
       "command": "cmd /c node C:\\\\Users\\\\jsboi\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\mcp-searxng\\\\dist\\\\index.js",

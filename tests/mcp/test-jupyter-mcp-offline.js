@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
 
 // Configuration
 const config = {
-  mcpServerPath: path.join(__dirname, '..', 'servers', 'jupyter-mcp-server'),
+  mcpServerPath: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server'),
   mcpServerCommand: 'node',
   mcpServerArgs: ['dist/index.js', '--offline'],
   testDuration: 10000, // Durée du test en millisecondes
@@ -43,7 +43,10 @@ function startProcess(command, args, options = {}) {
       console.log(`[STDOUT] ${output}`);
       
       // Vérifier si une tentative de connexion est détectée
-      if (output.includes('connexion') && output.includes('Jupyter')) {
+      // Exclure les messages indiquant que les connexions sont désactivées
+      if (output.includes('connexion') && output.includes('Jupyter') &&
+          !output.includes('désactivée') && !output.includes('aucune tentative') &&
+          !output.includes('ne sera') && !output.includes('hors ligne')) {
         connectionAttempts++;
       }
     });
