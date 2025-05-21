@@ -1,0 +1,42 @@
+{
+  "security": {
+    "maxCommandLength": 100000,
+    "blockedCommands": [],
+    "blockedArguments": [],
+    "allowedPaths": ["C:\\", "D:\\"],
+    "restrictWorkingDirectory": false,
+    "logCommands": true,
+    "maxHistorySize": 1000,
+    "commandTimeout": 300,
+    "enableInjectionProtection": false
+  },
+  "shells": {
+    "powershell": {
+      "enabled": true,
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-Command"],
+      "blockedOperators": []
+    },
+    "cmd": {
+      "enabled": true,
+      "command": "cmd.exe",
+      "args": ["/c"],
+      "blockedOperators": []
+    },
+    "gitbash": {
+      "enabled": true,
+      "command": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "args": ["-c"],
+      "blockedOperators": []
+    }
+  },
+  "ssh": {
+    "enabled": true,
+    "defaultTimeout": 60,
+    "maxConcurrentSessions": 10,
+    "keepaliveInterval": 10000,
+    "keepaliveCountMax": 3,
+    "readyTimeout": 20000,
+    "connections": {}
+  }
+}
