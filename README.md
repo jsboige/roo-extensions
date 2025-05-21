@@ -258,6 +258,72 @@ Ces serveurs MCP sont développés par d'autres équipes et sont disponibles dan
 
 Pour plus d'informations sur l'utilisation des MCPs, consultez les répertoires `mcps/internal/` et `mcps/external/` ainsi que le document `docs/guide-utilisation-mcps.md`.
 
+## Démo d'initiation à Roo
+
+Le dépôt inclut une démo d'initiation complète à Roo, conçue pour faciliter la découverte et l'apprentissage des fonctionnalités de l'assistant intelligent. Cette démo structurée permet aux utilisateurs de tous niveaux d'explorer progressivement les capacités de Roo.
+
+### Contenu de la démo
+
+La démo est organisée en 5 répertoires thématiques :
+
+1. **01-decouverte** : Introduction aux fonctionnalités de base
+   - Premiers pas avec Roo
+   - Utilisation des capacités de vision
+   - Interaction conversationnelle
+
+2. **02-orchestration-taches** : Gestion de projets et organisation de tâches
+   - Planification de projets
+   - Recherche web
+   - Gestion de fichiers
+
+3. **03-assistant-pro** : Utilisation de Roo dans un contexte professionnel
+   - Analyse de données
+   - Création de présentations
+   - Communication professionnelle
+
+4. **04-creation-contenu** : Création de documents, sites web et contenus multimédias
+   - Création de sites web
+   - Contenu pour réseaux sociaux
+   - Documents et rapports
+
+5. **05-projets-avances** : Cas d'usage avancés et intégrations complexes
+   - Architecture de systèmes
+   - Intégration d'outils
+   - Développement avancé
+
+### Démarrage rapide
+
+1. Préparez les espaces de travail avec le script fourni :
+   ```powershell
+   # Depuis la racine du dépôt
+   .\scripts\demo-scripts\prepare-workspaces.ps1
+   ```
+
+2. Naviguez vers une démo spécifique (ex: `demo-roo-code/01-decouverte/demo-1-conversation/workspace`)
+
+3. Suivez les instructions du README.md de la démo
+
+4. Pour nettoyer les espaces de travail après utilisation :
+   ```powershell
+   # Depuis la racine du dépôt
+   .\scripts\demo-scripts\clean-workspaces.ps1
+   ```
+
+### Parcours recommandés
+
+La démo propose des parcours adaptés à différents profils d'utilisateurs :
+
+- **Pour les débutants** : Découverte progressive des fonctionnalités de base
+- **Pour les professionnels** : Cas d'usage orientés productivité et analyse
+- **Pour les créatifs** : Création de contenu et design
+
+### Documentation détaillée
+
+Pour une documentation complète sur l'utilisation de la démo, consultez :
+
+- [Guide d'introduction à la démo](docs/guides/demo-guide.md) : Présentation détaillée de la structure et des parcours
+- [Guide d'installation complet](docs/guides/installation-complete.md) : Instructions unifiées pour l'installation et la configuration
+
 ## Contribution
 
 Les contributions sont les bienvenues ! Voici comment contribuer :

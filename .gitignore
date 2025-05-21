@@ -91,3 +91,14 @@ scripts/
 
 # Fichiers de sauvegarde spécifiques
 roo-modes-n5/backup/
+
+# Règles spécifiques à la démo Roo
+# Ignorer le contenu des répertoires workspace tout en préservant les README.md
+demo-roo-code/**/workspace/*
+!demo-roo-code/**/workspace/README.md
+!demo-roo-code/**/workspace/.gitkeep
+
+# Fichiers de configuration sensibles de la démo
+demo-roo-code/.env
+demo-roo-code/*.env
+demo-roo-code/.env.*
