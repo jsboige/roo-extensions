@@ -12,15 +12,16 @@
     {
       "name": "win-cli",
       "type": "stdio",
-      "command": "cmd /c npx -y @simonb97/server-win-cli",
+      "command": "cmd /c node c:/dev/roo-extensions/mcps/mcp-servers/node_modules/@simonb97/server-win-cli/build/index.js",
       "enabled": true,
       "autoStart": true,
+      "configPath": "c:/dev/roo-extensions/mcps/mcp-servers/win-cli-config.json",
       "description": "Serveur MCP pour exécuter des commandes CLI sur Windows"
     },
     {
       "name": "quickfiles",
       "type": "stdio",
-      "command": "cmd /c node d:\\jsboige-mcp-servers\\servers\\quickfiles-server\\build\\index.js",
+      "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\mcp-servers\\servers\\quickfiles-server\\build\\index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
@@ -28,15 +29,16 @@
     {
       "name": "jupyter",
       "type": "stdio",
-      "command": "cmd /c node d:\\jsboige-mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
+      "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
       "enabled": true,
       "autoStart": true,
+      "configPath": "c:/dev/roo-extensions/mcps/mcp-servers/jupyter-config.json",
       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
     },
     {
       "name": "jinavigator",
       "type": "stdio",
-      "command": "cmd /c node d:\\jsboige-mcp-servers\\servers\\jinavigator-server\\dist\\index.js",
+      "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\mcp-servers\\servers\\jinavigator-server\\dist\\index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour convertir des pages web en Markdown"

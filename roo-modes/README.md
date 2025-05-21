@@ -51,7 +51,7 @@ Pour plus de détails sur cette architecture, consultez le [README de l'architec
   - `configs/` : Configurations des modes pour chaque niveau
   - `docs/` : Documentation et guides
   - `tests/` : Tests pour les mécanismes d'escalade et désescalade
-  - `test-results/` : Résultats des tests d'escalade et désescalade
+  - Note : Les résultats des tests sont maintenant stockés dans `tests/results/n5/`
 
 - **[custom/](custom/)** : Modes personnalisés spécifiques
   - `docs/` : Documentation technique pour les modes personnalisés

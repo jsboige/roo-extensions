@@ -1,0 +1,3 @@
+Texte MODIFIÉ: première occurrence.
+Cette ligne reste inchangée.
+Texte MODIFIÉ: deuxième occurrence.

@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server: [quickfiles-server, jupyter-mcp-server, jinavigator-server]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+        cache-dependency-path: servers/${{ matrix.server }}/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd servers/${{ matrix.server }}
+        npm ci
+    
+    - name: Build
+      run: |
+        cd servers/${{ matrix.server }}
+        npm run build
+    
+    - name: Run tests
+      run: |
+        cd servers/${{ matrix.server }}
+        npm test
+    
+    - name: Run coverage tests
+      run: |
+        cd servers/${{ matrix.server }}
+        npm run test:coverage
+    
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        directory: servers/${{ matrix.server }}/coverage
+        flags: ${{ matrix.server }}
+        name: ${{ matrix.server }}-coverage
+        fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        server: [quickfiles-server, jupyter-mcp-server, jinavigator-server]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '16'
+        cache: 'npm'
+        cache-dependency-path: servers/${{ matrix.server }}/package-lock.json
+    
+    - name: Install dependencies
+      run: |
+        cd servers/${{ matrix.server }}
+        npm ci
+    
+    - name: Check README.md exists
+      run: |
+        cd servers/${{ matrix.server }}
+        if [ ! -f README.md ]; then
+          echo "README.md is missing for ${{ matrix.server }}"
+          exit 1
+        fi
+    
+    - name: Check Jest config exists
+      run: |
+        cd servers/${{ matrix.server }}
+        if [ ! -f jest.config.js ]; then
+          echo "jest.config.js is missing for ${{ matrix.server }}"
+          exit 1
+        fi
+    
+    - name: Check test files exist
+      run: |
+        cd servers/${{ matrix.server }}
+        if [ ! -d __tests__ ]; then
+          echo "Tests directory is missing for ${{ matrix.server }}"
+          exit 1
+        fi
+        
+        # Check for specific test files
+        if [ ! -f __tests__/error-handling.test.js ]; then
+          echo "error-handling.test.js is missing for ${{ matrix.server }}"
+          exit 1
+        fi
+        
+        if [ ! -f __tests__/performance.test.js ]; then
+          echo "performance.test.js is missing for ${{ matrix.server }}"
+          exit 1
+        fi
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check main README.md
+      run: |
+        if [ ! -f README.md ]; then
+          echo "Main README.md is missing"
+          exit 1
+        fi
+    
+    - name: Check documentation files
+      run: |
+        if [ ! -d docs ]; then
+          echo "Docs directory is missing"
+          exit 1
+        fi
+        
+        if [ ! -f docs/getting-started.md ]; then
+          echo "getting-started.md is missing"
+          exit 1
+        fi
+        
+        if [ ! -f docs/architecture.md ]; then
+          echo "architecture.md is missing"
+          exit 1
+        fi
+        
+        if [ ! -f docs/troubleshooting.md ]; then
+          echo "troubleshooting.md is missing"
+          exit 1
+        fi
+    
+    - name: Check server README files
+      run: |
+        for server in quickfiles-server jupyter-mcp-server jinavigator-server; do
+          if [ ! -f servers/$server/README.md ]; then
+            echo "README.md is missing for $server"
+            exit 1
+          fi
+        done

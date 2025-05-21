@@ -79,47 +79,72 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 
 ## Structure du Projet
 
-Le dépôt a été réorganisé pour une meilleure maintenabilité et une structure plus cohérente :
+> **Note**: Le dépôt a été récemment réorganisé pour améliorer la maintenabilité et la cohérence de la structure. Cette section reflète la nouvelle organisation du dépôt.
 
-- `.roomodes` : Configuration des modes personnalisés
-- `configs/` : Configurations pour le projet
-  - `escalation/` : Configurations pour les mécanismes d'escalade
-- `docs/` : Documentation générale du projet
-  - `escalation/` : Documentation sur les mécanismes d'escalade
-- `mcps/` : Configuration et documentation pour les MCPs externes
-  - `mcp-servers/` : Serveurs MCP
-  - `external-mcps/` : Documentation pour les MCPs externes
-- `roo-config/` : Configurations pour Roo
-  - `modes/` : Configurations de modes standard
-  - `settings/` : Paramètres généraux
-  - `scheduler/` : Extensions et configurations pour Roo Scheduler
-  - `qwen3-profiles/` : Profils optimisés pour les modèles Qwen 3
-  - `model-configs.json` : Définitions des profils de modèles
-  - `create-profile.ps1` : Script de création de profils
-  - `deploy-profile-modes.ps1` : Script de déploiement basé sur les profils
-  - `deploy-modes-enhanced.ps1` : Script de déploiement amélioré avec support des profils
-- `roo-modes/` : Répertoire principal pour les modes personnalisés
-  - `configs/` : Configurations des modes (architecture à 2 niveaux)
-  - `docs/` : Documentation conceptuelle et guides
-  - `examples/` : Exemples de configurations
-  - `scripts/` : Scripts de déploiement
-  - `tests/` : Tests pour les modes personnalisés
-  - `n5/` : Implémentation de l'architecture à 5 niveaux de complexité
-    - `configs/` : Configurations des modes pour chaque niveau
-    - `scripts/` : Scripts de déploiement
-    - `docs/` : Documentation et guides
-    - `tests/` : Tests pour les mécanismes d'escalade et désescalade
-  - `custom/` : Modes personnalisés spécifiques
-  - `optimized/` : Modes optimisés pour différents modèles
-- `scripts/` : Scripts utilitaires pour le projet
-  - `escalation/` : Scripts pour les mécanismes d'escalade
-- `templates/` : Modèles pour les rapports et autres documents
-- `test-data/` : Données de test
-- `test-results/` : Résultats des tests
-- `tests/` : Tests et scénarios de test
-  - `escalation/` : Tests pour les mécanismes d'escalade
-  - `mcp/` : Tests pour les MCPs
-- `archive/` : Contenu obsolète ou archivé
+```
+roo-extensions/
+├── docs/                           # Documentation générale du projet
+│   ├── architecture/               # Documentation sur l'architecture
+│   ├── guides/                     # Guides d'utilisation
+│   ├── rapports/                   # Rapports d'analyse et de synthèse
+│   └── tests/                      # Documentation des tests
+│
+├── modules/                        # Modules autonomes
+│   ├── form-validator/             # Module de validation de formulaire
+│   └── [autres modules futurs]
+│
+├── mcps/                           # Serveurs MCP (Model Context Protocol)
+│   ├── internal/                   # MCPs développés en interne (sous-module jsboige-mcp-servers)
+│   │   ├── quickfiles/             # MCP pour opérations sur fichiers multiples
+│   │   ├── jinavigator/            # MCP pour conversion web vers Markdown
+│   │   └── jupyter/                # MCP pour notebooks Jupyter
+│   ├── external/                   # MCPs externes
+│   │   ├── searxng/                # MCP pour recherche web
+│   │   ├── win-cli/                # MCP pour exécution de commandes Windows
+│   │   ├── filesystem/             # MCP pour opérations sur le système de fichiers
+│   │   ├── git/                    # MCP pour opérations Git
+│   │   └── github/                 # MCP pour API GitHub
+│   ├── monitoring/                 # Système de surveillance des MCPs
+│   └── scripts/                    # Scripts liés aux MCPs
+│
+├── roo-code/                       # Code source principal de Roo
+│   ├── assets/
+│   ├── docs/
+│   └── src/
+│
+├── roo-config/                     # Configuration de Roo
+│   ├── backups/                    # Sauvegardes des configurations
+│   ├── config-templates/           # Modèles de configuration
+│   ├── diagnostic-scripts/         # Scripts de diagnostic
+│   ├── modes/                      # Configurations des modes
+│   ├── qwen3-profiles/             # Profils pour Qwen3
+│   ├── scheduler/                  # Configuration du planificateur
+│   └── settings/                   # Paramètres généraux
+│
+├── roo-modes/                      # Modes personnalisés
+│   ├── docs/                       # Documentation des modes
+│   ├── examples/                   # Exemples de configurations
+│   ├── n5/                         # Architecture à 5 niveaux
+│   │   ├── configs/
+│   │   ├── docs/
+│   │   └── tests/
+│   └── optimized/                  # Modes optimisés
+│
+├── scripts/                        # Scripts utilitaires
+│   ├── deployment/                 # Scripts de déploiement
+│   ├── maintenance/                # Scripts de maintenance
+│   └── migration/                  # Scripts de migration
+│
+├── tests/                          # Tests du projet
+│   ├── data/                       # Données de test
+│   ├── escalation/                 # Tests d'escalade
+│   ├── mcp/                        # Tests des MCPs
+│   ├── results/                    # Résultats des tests
+│   └── scripts/                    # Scripts de test
+│
+└── archive/                        # Contenu archivé
+    └── legacy/                     # Ancien code conservé pour référence
+```
 
 ## Documentation
 
@@ -127,17 +152,17 @@ Le projet dispose d'une documentation détaillée répartie dans plusieurs fichi
 
 - [**roo-modes/n5/tests/README.md**](roo-modes/n5/tests/README.md) : Documentation complète des tests de l'architecture d'orchestration à 5 niveaux, incluant les mécanismes d'escalade et de désescalade, les objectifs des tests, leur structure et fonctionnement, ainsi que des instructions pour exécuter et interpréter les résultats des tests.
 
-- [**roo-modes/scripts/README.md**](roo-modes/scripts/README.md) : Documentation des scripts de gestion des modes Roo, couvrant les scripts de déploiement, le système de verrouillage de famille, et les outils de validation et mise à jour des modes. Inclut des exemples d'utilisation et les bonnes pratiques.
+- [**tests/README.md**](tests/README.md) : Documentation des tests du projet, incluant les tests de structure MCP, les tests des serveurs MCP spécifiques, les tests d'encodage, et les tests d'escalade et désescalade.
 
-- [**mcps/scripts/README.md**](mcps/scripts/README.md) : Documentation des scripts pour les serveurs MCP, détaillant les scripts de lancement, de test et d'installation pour les différents serveurs MCP (QuickFiles, JinaNavigator, Jupyter). Inclut des exemples d'utilisation et des conseils de dépannage.
+- [**mcps/external/README.md**](mcps/external/README.md) : Documentation des MCPs externes, incluant les instructions d'installation, de configuration et d'utilisation, ainsi que la résolution des problèmes courants.
+
+- [**modules/form-validator/README.md**](modules/form-validator/README.md) : Documentation du module de validation de formulaire, incluant les fonctionnalités, l'installation, l'utilisation et les formats supportés.
 
 - [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
 
 - [**roo-config/README-profile-modes.md**](roo-config/README-profile-modes.md) : Documentation du système de profils pour les modes personnalisés, expliquant comment créer, gérer et déployer des configurations de modes basées sur des profils.
 
 - [**docs/guide-utilisation-profils-modes.md**](docs/guide-utilisation-profils-modes.md) : Guide complet sur l'utilisation des profils dans le système de modes personnalisés, incluant l'architecture, les avantages, des exemples d'utilisation et la migration depuis l'ancienne architecture.
-
-- [**docs/escalation/continuous-evaluation-guide.md**](docs/escalation/continuous-evaluation-guide.md) : Guide pour l'évaluation continue des performances d'escalade, incluant les métriques à surveiller et les ajustements recommandés.
 
 - [**tests/escalation/rapport-tests-escalade.md**](tests/escalation/rapport-tests-escalade.md) : Rapport d'analyse des tests d'escalade, incluant les résultats des tests et les recommandations.
 
@@ -178,9 +203,33 @@ Le système utilise des profils pour définir quels modèles de langage utiliser
 
 Pour créer ou modifier des profils, utilisez le script `create-profile.ps1`. Pour plus d'informations, consultez la documentation dans `docs/guide-utilisation-profils-modes.md`.
 
-## MCPs Externes Disponibles
+## MCPs Disponibles
 
-Le projet intègre plusieurs serveurs MCP (Model Context Protocol) externes pour étendre les capacités de Roo :
+Le projet intègre plusieurs serveurs MCP (Model Context Protocol) pour étendre les capacités de Roo :
+
+### MCPs Internes (sous-module jsboige-mcp-servers)
+
+Ces serveurs MCP sont développés en interne dans le cadre de ce projet et sont disponibles dans le répertoire `mcps/internal/` :
+
+- **QuickFiles** : Permet des opérations avancées sur les fichiers
+  - Lecture et écriture de fichiers multiples
+  - Listage de répertoires avec options avancées
+  - Recherche et remplacement dans les fichiers
+  - Extraction de structure Markdown
+
+- **JinaNavigator** : Permet la conversion de pages web en Markdown
+  - Conversion de pages web en Markdown
+  - Extraction de plans hiérarchiques
+  - Accès aux ressources web via URI
+
+- **Jupyter** : Permet l'interaction avec des notebooks Jupyter
+  - Création, lecture et modification de notebooks
+  - Exécution de cellules de code
+  - Gestion des kernels
+
+### MCPs Externes
+
+Ces serveurs MCP sont développés par d'autres équipes et sont disponibles dans le répertoire `mcps/external/` :
 
 - **SearXNG** : Permet d'effectuer des recherches web
   - Recherche multi-moteurs
@@ -202,7 +251,12 @@ Le projet intègre plusieurs serveurs MCP (Model Context Protocol) externes pour
   - Accès aux informations des dépôts
   - Gestion des workflows
 
-Pour plus d'informations sur l'utilisation des MCPs, consultez le répertoire `mcps/` et le document `docs/guide-utilisation-mcps.md`.
+- **Filesystem** : Permet des opérations sur le système de fichiers
+  - Lecture et écriture de fichiers
+  - Manipulation de répertoires
+  - Recherche de fichiers
+
+Pour plus d'informations sur l'utilisation des MCPs, consultez les répertoires `mcps/internal/` et `mcps/external/` ainsi que le document `docs/guide-utilisation-mcps.md`.
 
 ## Contribution
 

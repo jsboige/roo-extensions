@@ -1,0 +1,9 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "localhost"
+  },
+  "api": {
+    "baseUrl": "https://r.jina.ai/"
+  }
+}

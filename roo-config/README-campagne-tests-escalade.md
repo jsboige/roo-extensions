@@ -73,7 +73,7 @@ ou
 Pour générer les sous-tâches de test d'escalade, utilisez le script suivant :
 
 ```powershell
-.\roo-config\test-escalation-scenarios.ps1 -OutputDir "test-results"
+.\roo-config\test-escalation-scenarios.ps1 -OutputDir "tests/results"
 ```
 
 Ce script générera un ensemble de sous-tâches pour chaque scénario de test. Chaque sous-tâche sera sauvegardée dans un fichier Markdown distinct dans le répertoire spécifié.

@@ -477,12 +477,12 @@ Pour tester manuellement les modes personnalisés :
 
 ### Journalisation des résultats de test
 
-Les résultats des tests sont enregistrés dans le répertoire `roo-modes/n5/test-results/` :
+Les résultats des tests sont enregistrés dans le répertoire `tests/results/n5/` :
 
 ```
-roo-modes/n5/test-results/escalation-test-results-[TIMESTAMP].json
-roo-modes/n5/test-results/deescalation-test-results-[TIMESTAMP].json
-roo-modes/n5/test-results/transition-test-results-[TIMESTAMP].json
+tests/results/n5/escalation-test-results-[TIMESTAMP].json
+tests/results/n5/deescalation-test-results-[TIMESTAMP].json
+tests/results/n5/transition-test-results-[TIMESTAMP].json
 ```
 
 Ces fichiers contiennent des informations détaillées sur les tests effectués et leurs résultats, ce qui peut être utile pour diagnostiquer les problèmes.

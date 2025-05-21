@@ -14,6 +14,30 @@ La documentation est structurée de manière à couvrir tous les aspects du proj
 
 ## Structure de la documentation
 
+> **Note**: Le dépôt a été récemment réorganisé pour améliorer la maintenabilité et la cohérence de la structure. Cette section reflète la nouvelle organisation de la documentation.
+
+### Répertoires principaux
+
+- **[architecture/](architecture/)** : Documentation sur l'architecture du projet
+  - Spécification des niveaux de complexité
+  - Architecture d'orchestration à 5 niveaux
+  - Concepts architecturaux
+
+- **[guides/](guides/)** : Guides d'utilisation et tutoriels
+  - Guides d'installation et de configuration
+  - Guides d'utilisation des différentes fonctionnalités
+  - Guides de résolution de problèmes
+
+- **[rapports/](rapports/)** : Rapports d'analyse et de synthèse
+  - Rapports de déploiement
+  - Analyses de performance
+  - Synthèses de fonctionnalités
+
+- **[tests/](tests/)** : Documentation des tests
+  - Rapports de tests d'escalade et désescalade
+  - Rapports de tests MCP
+  - Scénarios de test
+
 ### Guides d'utilisation
 
 Ces documents fournissent des instructions pas à pas pour l'utilisation des différentes fonctionnalités du projet :
@@ -108,7 +132,8 @@ Ces documents décrivent les tests effectués et leurs résultats :
 - [README principal du projet](../README.md) - Vue d'ensemble du projet Roo Extensions
 - [Documentation des modes Roo](../roo-modes/README.md) - Documentation des modes personnalisés
 - [Documentation de la configuration Roo](../roo-config/README.md) - Documentation des outils de configuration
-- [Documentation des MCPs](../mcps/README.md) - Documentation des serveurs MCP
+- [Documentation des MCPs internes](../mcps/internal/README.md) - Documentation des serveurs MCP développés en interne
+- [Documentation des MCPs externes](../mcps/external/README.md) - Documentation des serveurs MCP externes
 - [Documentation des tests](../tests/README.md) - Documentation des tests du projet
 
 ### Guides essentiels

@@ -56,7 +56,7 @@ Ces tests vérifient les mécanismes de transition entre les différents niveaux
 - **Tests de désescalade** : Vérifient que le système revient à un niveau de complexité inférieur lorsque approprié
 - **Tests de transition** : Vérifient les transitions fluides entre les différents modes et niveaux
 
-Ces tests sont disponibles dans le répertoire [roo-modes/n5/tests/](../roo-modes/n5/tests/) et leurs résultats sont stockés dans [roo-modes/n5/test-results/](../roo-modes/n5/test-results/).
+Ces tests sont disponibles dans le répertoire [roo-modes/n5/tests/](../roo-modes/n5/tests/) et leurs résultats sont stockés dans [tests/results/n5/](results/n5/).
 
 ### Tests d'encodage
 
@@ -110,6 +110,8 @@ node test-jupyter.js
 cd ../roo-modes/n5/tests
 node test-escalade.js
 node test-desescalade.js
+
+# Les résultats seront stockés dans tests/results/n5/
 ```
 
 ## Rapports de test
@@ -117,8 +119,8 @@ node test-desescalade.js
 Les tests génèrent des rapports détaillés qui sont stockés dans leurs répertoires respectifs :
 
 - **Tests MCP** : Rapports au format Markdown dans `mcps/tests/reports/`
-- **Tests d'escalade/désescalade** : Rapports au format JSON dans `roo-modes/n5/test-results/`
-- **Tests MCP Win-CLI** : Rapport de synthèse dans `mcp-win-cli/rapport-synthese.md`
+- **Tests d'escalade/désescalade** : Rapports au format JSON dans `tests/results/n5/`
+- **Tests MCP Win-CLI** : Rapport de synthèse dans `tests/mcp-win-cli/rapport-synthese.md`
 
 Ces rapports incluent :
 - Date et heure d'exécution des tests

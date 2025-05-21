@@ -1051,9 +1051,187 @@ node --inspect dist/index.js
 # Surveiller l'utilisation de la mémoire
 node --trace-gc dist/index.js
 ```
+
+### Utilisation des outils de diagnostic du système de surveillance
+
+Le système de surveillance des serveurs MCP fournit plusieurs outils de diagnostic pour identifier et résoudre les problèmes:
+
+#### Vérification de l'état des serveurs
+
+```powershell
+# Vérifier l'état de tous les serveurs MCP
+.\mcps\monitoring\monitor-mcp-servers.ps1 -CheckOnly
+
+# Vérifier l'état d'un serveur spécifique
+.\mcps\monitoring\monitor-mcp-servers.ps1 -CheckOnly -ServerName "win-cli"
+```
+
+#### Analyse des journaux de surveillance
+
+```powershell
+# Afficher les dernières entrées des journaux de surveillance
+Get-Content -Tail 50 .\mcps\monitoring\logs\mcp-monitor-$(Get-Date -Format "yyyy-MM-dd").log
+
+# Rechercher des erreurs dans les journaux
+Select-String -Path .\mcps\monitoring\logs\mcp-monitor-*.log -Pattern "ERROR"
+
+# Analyser les alertes récentes
+Get-Content .\mcps\monitoring\alerts\mcp-alerts-$(Get-Date -Format "yyyy-MM-dd").log
+```
+
+#### Tests de connectivité
+
+```powershell
+# Tester la connectivité à tous les serveurs MCP
+.\mcps\monitoring\test-mcp-connectivity.ps1
+
+# Tester la connectivité à un serveur spécifique
+.\mcps\monitoring\test-mcp-connectivity.ps1 -ServerName "jupyter"
+```
+
+#### Génération de rapports de diagnostic
+
+```powershell
+# Générer un rapport de diagnostic complet
+.\mcps\monitoring\generate-diagnostic-report.ps1
+
+# Générer un rapport pour un serveur spécifique
+.\mcps\monitoring\generate-diagnostic-report.ps1 -ServerName "quickfiles"
+```
+
+#### Interface web de surveillance
+
+Le système de surveillance inclut également une interface web pour visualiser l'état des serveurs MCP:
+
+1. Démarrez l'interface web:
+   ```powershell
+   .\mcps\monitoring\start-monitoring-dashboard.ps1
+   ```
+
+2. Accédez à l'interface dans votre navigateur:
+   ```
+   http://localhost:8080/dashboard
+   ```
+
+L'interface web fournit:
+- Un tableau de bord avec l'état de tous les serveurs
+- Des graphiques de performance
+- Un historique des alertes
+- Des outils de diagnostic interactifs
 <!-- END_SECTION: diagnostic_commands -->
 
 <!-- START_SECTION: specific_guides -->
+## Procédures de récupération en cas de panne
+
+Cette section décrit les procédures à suivre pour récupérer d'une panne d'un ou plusieurs serveurs MCP.
+
+### Récupération automatique
+
+Le système de surveillance peut redémarrer automatiquement les serveurs défaillants:
+
+```powershell
+# Activer la récupération automatique pour tous les serveurs
+.\mcps\monitoring\monitor-mcp-servers.ps1 -RestartServers
+
+# Activer la récupération automatique avec notification par email
+.\mcps\monitoring\monitor-mcp-servers.ps1 -RestartServers -EmailAlert
+```
+
+### Récupération manuelle
+
+Si la récupération automatique échoue ou n'est pas activée, suivez ces étapes pour récupérer manuellement:
+
+#### 1. Diagnostic initial
+
+```powershell
+# Vérifier l'état de tous les serveurs
+.\mcps\monitoring\monitor-mcp-servers.ps1 -CheckOnly
+
+# Générer un rapport de diagnostic
+.\mcps\monitoring\generate-diagnostic-report.ps1
+```
+
+#### 2. Arrêt des serveurs défaillants
+
+```powershell
+# Arrêter un serveur spécifique
+.\mcps\monitoring\stop-mcp-server.ps1 -ServerName "jupyter"
+
+# Arrêter tous les serveurs
+.\mcps\monitoring\stop-all-mcp-servers.ps1
+```
+
+#### 3. Nettoyage des ressources
+
+```powershell
+# Nettoyer les ressources d'un serveur spécifique
+.\mcps\monitoring\cleanup-mcp-server.ps1 -ServerName "quickfiles"
+
+# Nettoyer les fichiers temporaires
+Remove-Item -Path .\mcps\mcp-servers\servers\*\temp\* -Recurse -Force
+```
+
+#### 4. Redémarrage des serveurs
+
+```powershell
+# Redémarrer un serveur spécifique
+.\mcps\monitoring\start-mcp-server.ps1 -ServerName "win-cli"
+
+# Redémarrer tous les serveurs
+.\mcps\monitoring\start-all-mcp-servers.ps1
+```
+
+#### 5. Vérification post-récupération
+
+```powershell
+# Vérifier l'état après redémarrage
+.\mcps\monitoring\monitor-mcp-servers.ps1 -CheckOnly
+
+# Exécuter des tests de validation
+.\mcps\tests\run-validation-tests.ps1
+```
+
+### Récupération après corruption de données
+
+Si les données d'un serveur MCP sont corrompues:
+
+1. Arrêtez le serveur concerné
+2. Sauvegardez les données corrompues pour analyse
+3. Restaurez à partir d'une sauvegarde récente:
+   ```powershell
+   .\mcps\monitoring\restore-mcp-data.ps1 -ServerName "jupyter" -BackupDate "2025-05-15"
+   ```
+4. Si aucune sauvegarde n'est disponible, réinitialisez les données:
+   ```powershell
+   .\mcps\monitoring\reset-mcp-data.ps1 -ServerName "jupyter"
+   ```
+5. Redémarrez le serveur et vérifiez son fonctionnement
+
+### Récupération après mise à jour défaillante
+
+Si une mise à jour d'un serveur MCP échoue:
+
+1. Arrêtez le serveur concerné
+2. Revenez à la version précédente:
+   ```powershell
+   .\mcps\monitoring\rollback-mcp-server.ps1 -ServerName "quickfiles" -Version "previous"
+   ```
+3. Redémarrez le serveur et vérifiez son fonctionnement
+4. Analysez les logs pour comprendre la cause de l'échec
+
+### Récupération après panne système
+
+En cas de panne système complète:
+
+1. Redémarrez le système d'exploitation
+2. Vérifiez l'intégrité du système de fichiers
+3. Démarrez les serveurs MCP dans cet ordre:
+   - Serveurs de base (Filesystem, Win-CLI)
+   - Serveurs de données (QuickFiles, Jupyter)
+   - Serveurs d'API (GitHub, SearXNG)
+4. Vérifiez l'état de tous les serveurs
+5. Exécutez des tests de validation complets
+
 ## Guides de dépannage spécifiques
 
 Cette section fournit des liens vers les guides de dépannage spécifiques à chaque serveur MCP. Consultez ces guides pour des informations plus détaillées sur les problèmes spécifiques à chaque serveur.
@@ -1074,12 +1252,16 @@ Cette section fournit des liens vers les guides de dépannage spécifiques à ch
 | Filesystem | [Guide de dépannage Filesystem](external-mcps/filesystem/TROUBLESHOOTING.md) |
 | Git | [Guide de dépannage Git](external-mcps/git/TROUBLESHOOTING.md) |
 | GitHub | [Guide de dépannage GitHub](external-mcps/github/TROUBLESHOOTING.md) |
+| Win-CLI | [Guide de dépannage Win-CLI](external-mcps/win-cli/TROUBLESHOOTING.md) |
+| Jupyter | [Guide de dépannage Jupyter](external-mcps/jupyter/TROUBLESHOOTING.md) |
 
 ### Ressources supplémentaires
 
 - [Documentation officielle du protocole MCP](https://github.com/modelcontextprotocol/protocol)
 - [Forum de support MCP](https://github.com/modelcontextprotocol/protocol/discussions)
 - [Signaler un problème](https://github.com/modelcontextprotocol/protocol/issues)
+- [Guide d'optimisation des MCPs](./OPTIMIZATIONS.md)
+- [Documentation du système de surveillance](./monitoring/README.md)
 
 Si vous rencontrez un problème qui n'est pas couvert par ce guide ou les guides spécifiques, n'hésitez pas à ouvrir une issue sur le dépôt GitHub correspondant ou à contacter l'équipe de support.
 <!-- END_SECTION: specific_guides -->

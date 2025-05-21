@@ -1,0 +1,2 @@
+Autre texte MODIFIÉ dans un fichier différent.
+Cette ligne reste aussi inchangée.

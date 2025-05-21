@@ -93,7 +93,7 @@ Pour exécuter les tests, suivez ces étapes :
 
 ## Interprétation des Résultats
 
-Les tests génèrent des résultats détaillés qui sont affichés dans la console et sauvegardés dans des fichiers JSON dans le répertoire `roo-modes/n5/test-results/`.
+Les tests génèrent des résultats détaillés qui sont affichés dans la console et sauvegardés dans des fichiers JSON dans le répertoire `tests/results/n5/`.
 
 ### Format des Résultats
 
@@ -120,7 +120,7 @@ Ces fichiers contiennent des informations détaillées sur chaque test, y compri
 
 ### Résultats Récents
 
-Les résultats de test les plus récents (mai 2025) sont disponibles dans le répertoire `roo-modes/n5/test-results/` :
+Les résultats de test les plus récents (mai 2025) sont disponibles dans le répertoire `tests/results/n5/` :
 - Tests d'escalade : `escalation-test-results-2025-05-06T17-22-19.250Z.json`
 - Tests de désescalade : `deescalation-test-results-2025-05-06T17-22-19.320Z.json`
 - Tests de transition : `transition-test-results-2025-05-14T01-20-19.537Z.json`

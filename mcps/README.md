@@ -6,6 +6,16 @@ Ce répertoire contient la documentation, les tests et les ressources liées aux
 
 Le Model Context Protocol (MCP) est un protocole qui permet à Roo de communiquer avec des serveurs externes pour étendre ses capacités. Ces serveurs peuvent fournir des fonctionnalités supplémentaires comme la recherche web, l'exécution de commandes système, la manipulation de fichiers, et bien plus encore.
 
+## Nouveautés et modifications récentes
+
+Plusieurs améliorations importantes ont été apportées à l'infrastructure MCP :
+
+- **Système de surveillance** : Un nouveau système de surveillance a été mis en place pour détecter et résoudre automatiquement les problèmes avec les serveurs MCP.
+- **Serveurs HTTP** : Support amélioré pour les serveurs MCP basés sur HTTP, avec une meilleure gestion des connexions et des timeouts.
+- **Optimisations de performance** : Réduction de la consommation de ressources et amélioration des temps de réponse (voir [OPTIMIZATIONS.md](./OPTIMIZATIONS.md)).
+- **Documentation améliorée** : Guides de dépannage plus détaillés et documentation spécifique pour chaque serveur MCP.
+- **Nouveaux outils de diagnostic** : Outils pour identifier et résoudre rapidement les problèmes courants.
+
 ## Types de serveurs MCP
 
 Dans ce projet, nous distinguons deux types de serveurs MCP :
@@ -17,8 +27,8 @@ Les MCPs internes sont développés dans le sous-module `mcp-servers` de ce dép
 | MCP | Description | État |
 |-----|------------|------|
 | [QuickFiles](./mcp-servers/servers/quickfiles-server/) | Manipulation rapide de fichiers multiples | ✅ Fonctionnel |
-| [JinaNavigator](./mcp-servers/servers/jupyter-mcp-server/) | Conversion de pages web en Markdown | ⚠️ Partiellement fonctionnel |
-| [Jupyter](./mcp-servers/servers/jupyter-mcp-server/) | Interaction avec des notebooks Jupyter | ⚠️ Partiellement fonctionnel |
+| [JinaNavigator](./mcp-servers/servers/jinavigator-server/) | Conversion de pages web en Markdown | ✅ Fonctionnel |
+| [Jupyter](./mcp-servers/servers/jupyter-mcp-server/) | Interaction avec des notebooks Jupyter | ✅ Fonctionnel |
 
 ### MCPs externes
 
@@ -27,7 +37,7 @@ Les MCPs externes sont des serveurs développés par d'autres équipes ou organi
 | MCP | Description | État |
 |-----|------------|------|
 | [SearXNG](./external-mcps/searxng/) | Recherche web multi-moteurs | ✅ Fonctionnel |
-| [Win-CLI](./external-mcps/win-cli/) | Exécution de commandes système Windows | ⚠️ Partiellement fonctionnel |
+| [Win-CLI](./external-mcps/win-cli/) | Exécution de commandes système Windows | ✅ Fonctionnel |
 | [Filesystem](./external-mcps/filesystem/) | Interaction avec le système de fichiers | ✅ Fonctionnel |
 | [Git](./external-mcps/git/) | Opérations Git | ✅ Fonctionnel |
 | [GitHub](./external-mcps/github/) | Interaction avec l'API GitHub | ✅ Fonctionnel |
@@ -41,17 +51,26 @@ mcps/
 ├── README.md                 # Ce document
 ├── INSTALLATION.md           # Guide d'installation global
 ├── TROUBLESHOOTING.md        # Guide de dépannage global
+├── OPTIMIZATIONS.md          # Optimisations et améliorations de performance
 ├── SEARCH.md                 # Guide de recherche dans la documentation
 ├── TEST-RESULTS.md           # Résultats des derniers tests
+├── monitoring/               # Système de surveillance des MCPs
+│   ├── README.md             # Documentation du système de surveillance
+│   ├── monitor-mcp-servers.js # Script JavaScript de surveillance
+│   ├── monitor-mcp-servers.ps1 # Script PowerShell de surveillance
+│   ├── logs/                 # Journaux de surveillance
+│   └── alerts/               # Alertes générées
 ├── mcp-servers/              # MCPs internes
 │   └── servers/
 │       ├── quickfiles-server/
 │       ├── jupyter-mcp-server/
+│       ├── jinavigator-server/
 │       └── ...
 ├── external-mcps/            # MCPs externes
 │   ├── github/
 │   ├── searxng/
 │   ├── win-cli/
+│   ├── jupyter/
 │   └── ...
 └── tests/                    # Scripts de test pour les MCPs
     ├── test-quickfiles.js
@@ -139,6 +158,63 @@ Pour tester les serveurs MCP, consultez le [README des tests](./tests/README.md)
 - Création et déploiement d'images
 - Surveillance des conteneurs
 
+## Système de surveillance des MCPs
+
+Un nouveau système de surveillance a été mis en place pour détecter et résoudre automatiquement les problèmes avec les serveurs MCP. Ce système offre les fonctionnalités suivantes :
+
+### Fonctionnalités principales
+
+- **Surveillance automatique** : Vérification régulière de l'état des serveurs MCP
+- **Détection des problèmes** : Identification des serveurs qui ne répondent pas ou qui ont planté
+- **Redémarrage automatique** : Possibilité de redémarrer automatiquement les serveurs défaillants
+- **Journalisation** : Enregistrement détaillé des événements et des problèmes
+- **Alertes** : Génération d'alertes en cas de problèmes persistants
+
+### Utilisation du système de surveillance
+
+Pour utiliser le système de surveillance, vous pouvez exécuter le script PowerShell :
+
+```powershell
+# Surveillance simple
+.\mcps\monitoring\monitor-mcp-servers.ps1
+
+# Surveillance avec redémarrage automatique
+.\mcps\monitoring\monitor-mcp-servers.ps1 -RestartServers
+
+# Surveillance silencieuse (logs uniquement)
+.\mcps\monitoring\monitor-mcp-servers.ps1 -LogOnly
+```
+
+Pour plus d'informations sur le système de surveillance, consultez la [documentation dédiée](./monitoring/README.md).
+
+## Serveurs HTTP
+
+Les serveurs MCP basés sur HTTP ont été améliorés avec les fonctionnalités suivantes :
+
+- **Gestion améliorée des connexions** : Meilleure gestion des connexions simultanées et des timeouts
+- **Support HTTPS** : Possibilité d'utiliser des connexions sécurisées
+- **Compression** : Support de la compression des données pour réduire la bande passante
+- **Authentification** : Mécanismes d'authentification améliorés
+- **Logging avancé** : Journalisation détaillée des requêtes et des réponses
+
+Pour configurer un serveur MCP HTTP, utilisez le format suivant dans votre fichier de configuration :
+
+```json
+{
+  "server": {
+    "type": "http",
+    "port": 3000,
+    "host": "localhost",
+    "compression": true,
+    "https": {
+      "enabled": false,
+      "key": "path/to/key.pem",
+      "cert": "path/to/cert.pem"
+    }
+  }
+}
+```
+
 ## Intégration avec Roo
 
 Les serveurs MCP sont intégrés à Roo via le protocole MCP. Pour plus d'informations sur l'intégration, consultez le [Guide d'utilisation des MCPs](../docs/guides/guide-utilisation-mcps.md).
@@ -165,3 +241,4 @@ Pour des problèmes généraux, consultez le [Guide de dépannage global](./TROU
 - [Documentation de la structure de configuration Roo](../docs/guides/documentation-structure-configuration-roo.md)
 - [Rapport d'état des MCPs](../docs/rapport-etat-mcps.md)
 - [Documentation officielle du protocole MCP](https://github.com/modelcontextprotocol/protocol)
+- [Guide d'optimisation des MCPs](./OPTIMIZATIONS.md)
