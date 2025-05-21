@@ -1,0 +1,3 @@
+@echo off
+echo Testing file operations (copy_files and move_files)...
+node --experimental-vm-modules node_modules/jest/bin/jest.js __tests__/file-operations.test.js

@@ -1,0 +1,14 @@
+{
+  "urls": [
+    {
+      "url": "https://en.wikipedia.org/wiki/Markdown"
+    },
+    {
+      "url": "https://docs.github.com/en/get-started"
+    },
+    {
+      "url": "https://github.com/jsboige/mcp-servers"
+    }
+  ],
+  "max_depth": 3
+}

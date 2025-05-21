@@ -1,0 +1,47 @@
+{
+  "results": [
+    {
+      "test": "Extraction du plan des titres",
+      "url": "https://docs.github.com/en/get-started",
+      "success": true,
+      "notes": "L'extraction a retourné 17 titres de niveau 3 avec leurs numéros de ligne"
+    },
+    {
+      "test": "Extraction de sections spécifiques",
+      "sections": [
+        {
+          "title": "Start your journey",
+          "start_line": 224,
+          "end_line": 243,
+          "success": true,
+          "content_length": 1019,
+          "notes": "La section contient bien le titre 'Start your journey' et liste les ressources pour démarrer"
+        },
+        {
+          "title": "Git basics",
+          "start_line": 340,
+          "end_line": 367,
+          "success": true,
+          "content_length": 1312,
+          "notes": "La section contient bien le titre 'Git basics' et liste les ressources sur les bases de Git"
+        },
+        {
+          "title": "Using Git",
+          "start_line": 367,
+          "end_line": 392,
+          "success": true,
+          "content_length": 1311,
+          "notes": "La section contient bien le titre 'Using Git' et liste les ressources sur l'utilisation de Git"
+        }
+      ],
+      "success": true
+    },
+    {
+      "test": "Traitement de plusieurs sections en parallèle",
+      "success": true,
+      "notes": "Les trois sections ont été extraites en parallèle avec succès"
+    }
+  ],
+  "success": true,
+  "summary": "La fonctionnalité d'extraction des plans de titres markdown répond bien aux exigences initiales. Elle permet d'extraire le plan hiérarchique des titres d'une page web avec leurs numéros de ligne, puis d'utiliser ces numéros pour extraire des sections spécifiques du contenu."
+}

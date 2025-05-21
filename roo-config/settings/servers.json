@@ -4,7 +4,7 @@
     {
       "name": "github-projects",
       "type": "stdio",
-      "command": "powershell -c \"cd D:\\roo-extensions\\mcps\\mcp-servers\\servers\\github-projects-mcp; .\\run-github-projects.bat\"",
+      "command": "powershell -c \"cd C:\\dev\\roo-extensions\\mcps\\internal\\servers\\github-projects-mcp; .\\run-github-projects.bat\"",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour interagir avec GitHub Projects"
@@ -28,7 +28,7 @@
     {
       "name": "quickfiles",
       "type": "stdio",
-      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/quickfiles-server/build/index.js",
+      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
@@ -36,7 +36,7 @@
     {
       "name": "jupyter",
       "type": "stdio",
-      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js",
+      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js",
       "enabled": true,
       "autoStart": false,
       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
@@ -44,10 +44,26 @@
     {
       "name": "jinavigator",
       "type": "stdio",
-      "command": "cmd /c node d:/Dev/roo-extensions/mcps/mcp-servers/servers/jinavigator-server/dist/index.js",
+      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour convertir des pages web en Markdown"
+    },
+    {
+      "name": "git",
+      "type": "stdio",
+      "command": "cmd /c npx -y @modelcontextprotocol/server-github",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour interagir avec Git"
+    },
+    {
+      "name": "filesystem",
+      "type": "stdio",
+      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem C:\\dev\\2025-Epita-Intelligence-Symbolique",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour accéder au système de fichiers"
     }
   ],
   "settings": {

@@ -1,0 +1,36 @@
+{
+  "name": "quickfiles-server",
+  "version": "1.0.0",
+  "description": "MCP server for file operations",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc -w",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:legacy": "node test-quickfiles.js",
+    "test:simple": "node test-quickfiles-simple.js",
+    "test:all": "npm run test && npm run test:legacy && npm run test:simple"
+  },
+  "keywords": [
+    "mcp",
+    "files",
+    "quickfiles"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "glob": "^10.3.10",
+    "jsboige-mcp-servers": "file:../.."
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.5",
+    "jest": "^29.7.0",
+    "mock-fs": "^5.2.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.8.3"
+  }
+}

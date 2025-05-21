@@ -1,309 +1,179 @@
 # MCP Jupyter pour Roo
 
-<!-- START_SECTION: introduction -->
+Ce répertoire contient les scripts et la documentation pour l'intégration du MCP Jupyter avec Roo, avec un accent particulier sur l'intégration avec VSCode.
+
+## Table des matières
+
+- [MCP Jupyter pour Roo](#mcp-jupyter-pour-roo)
+  - [Table des matières](#table-des-matières)
+  - [Introduction](#introduction)
+    - [Architecture](#architecture)
+  - [Intégration avec VSCode](#intégration-avec-vscode)
+    - [Comment fonctionne l'intégration VSCode](#comment-fonctionne-lintégration-vscode)
+    - [Avantages de l'intégration VSCode](#avantages-de-lintégration-vscode)
+  - [Configurations disponibles](#configurations-disponibles)
+  - [Scripts disponibles](#scripts-disponibles)
+    - [Scripts de démarrage](#scripts-de-démarrage)
+    - [Scripts de configuration](#scripts-de-configuration)
+  - [Tests](#tests)
+    - [Exécution des tests](#exécution-des-tests)
+  - [Problèmes connus et solutions](#problèmes-connus-et-solutions)
+    - [Problème: Aucun kernel VSCode détecté](#problème-aucun-kernel-vscode-détecté)
+    - [Problème: Erreurs de connexion au serveur Jupyter](#problème-erreurs-de-connexion-au-serveur-jupyter)
+    - [Problème: Échec de l'exécution de code](#problème-échec-de-lexécution-de-code)
+  - [Ressources supplémentaires](#ressources-supplémentaires)
+
 ## Introduction
 
-Le MCP Jupyter permet à Roo d'interagir avec des notebooks Jupyter, offrant des fonctionnalités pour la lecture, la modification et l'exécution de notebooks via le protocole Model Context Protocol (MCP). Cette intégration permet à Roo d'analyser, de créer et d'exécuter du code dans divers langages de programmation supportés par Jupyter.
+Le MCP Jupyter est un serveur qui implémente le protocole Model Context Protocol (MCP) pour permettre à Roo d'interagir avec Jupyter Notebook. Il sert d'intermédiaire entre Roo et un serveur Jupyter, traduisant les requêtes MCP en appels API Jupyter et vice versa.
 
-Ce MCP est particulièrement utile pour les utilisateurs qui travaillent avec des notebooks Jupyter pour l'analyse de données, la visualisation, le machine learning, et d'autres tâches de programmation interactive.
-<!-- END_SECTION: introduction -->
+### Architecture
 
-<!-- START_SECTION: features -->
-## Fonctionnalités principales
-
-- **Gestion des notebooks** :
-  - Lecture de notebooks existants
-  - Création de nouveaux notebooks
-  - Modification de notebooks (ajout, suppression, mise à jour de cellules)
-  - Sauvegarde de notebooks
-
-- **Gestion des kernels** :
-  - Démarrage de kernels dans différents langages (Python, R, Julia, etc.)
-  - Arrêt et redémarrage de kernels
-  - Interruption de l'exécution
-  - Listing des kernels disponibles et actifs
-
-- **Exécution de code** :
-  - Exécution de cellules individuelles
-  - Exécution de notebooks complets
-  - Récupération des résultats d'exécution (texte, images, HTML, etc.)
-  - Gestion des erreurs d'exécution
-
-- **Support multi-langages** :
-  - Python
-  - R
-  - Julia
-  - JavaScript (via IJavaScript)
-  - Et tous les autres langages supportés par Jupyter
-<!-- END_SECTION: features -->
-
-<!-- START_SECTION: tools -->
-## Outils disponibles
-
-Le MCP Jupyter expose les outils suivants:
-
-| Outil | Description |
-|-------|-------------|
-| `read_notebook` | Lit un notebook Jupyter à partir d'un fichier |
-| `write_notebook` | Écrit un notebook Jupyter dans un fichier |
-| `create_notebook` | Crée un nouveau notebook vide |
-| `add_cell` | Ajoute une cellule à un notebook |
-| `remove_cell` | Supprime une cellule d'un notebook |
-| `update_cell` | Modifie une cellule d'un notebook |
-| `list_kernels` | Liste les kernels disponibles et actifs |
-| `start_kernel` | Démarre un nouveau kernel |
-| `stop_kernel` | Arrête un kernel actif |
-| `interrupt_kernel` | Interrompt l'exécution d'un kernel |
-| `restart_kernel` | Redémarre un kernel |
-| `execute_cell` | Exécute du code dans un kernel spécifique |
-| `execute_notebook` | Exécute toutes les cellules de code d'un notebook |
-| `execute_notebook_cell` | Exécute une cellule spécifique d'un notebook |
-
-Pour une description détaillée de chaque outil et des exemples d'utilisation, consultez le fichier [USAGE.md](./USAGE.md).
-<!-- END_SECTION: tools -->
-
-<!-- START_SECTION: structure -->
-## Structure de la documentation
-
-- [README.md](./README.md) - Ce fichier d'introduction
-- [INSTALLATION.md](./INSTALLATION.md) - Guide d'installation du MCP Jupyter
-- [CONFIGURATION.md](./CONFIGURATION.md) - Guide de configuration du MCP Jupyter
-- [USAGE.md](./USAGE.md) - Exemples d'utilisation et bonnes pratiques
-- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Résolution des problèmes courants
-<!-- END_SECTION: structure -->
-
-<!-- START_SECTION: quick_start -->
-## Démarrage rapide
-
-1. **Prérequis** :
-   - Node.js (v14 ou supérieur)
-   - Python (v3.6 ou supérieur)
-   - Jupyter Notebook ou JupyterLab
-
-2. **Installation de Jupyter** :
-   ```bash
-   # Créer un environnement virtuel Python
-   python -m venv jupyter-env
-   
-   # Activer l'environnement virtuel
-   # Sur Windows
-   jupyter-env\Scripts\activate
-   # Sur macOS/Linux
-   source jupyter-env/bin/activate
-   
-   # Installer Jupyter
-   pip install jupyter
-   ```
-
-3. **Démarrage du serveur Jupyter** :
-   ```bash
-   # Sur Windows
-   jupyter notebook --no-browser
-   # Sur macOS/Linux
-   jupyter notebook --no-browser
-   ```
-
-4. **Installation du MCP Jupyter** :
-   ```bash
-   # Via NPX (recommandé)
-   npx -y @modelcontextprotocol/server-jupyter
-   
-   # Ou installation globale
-   npm install -g @modelcontextprotocol/server-jupyter
-   ```
-
-5. **Configuration** :
-   Ajoutez la configuration suivante à votre fichier `mcp_settings.json`:
-   ```json
-   {
-     "mcpServers": {
-       "jupyter": {
-         "command": "cmd",
-         "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-jupyter"],
-         "transportType": "stdio",
-         "disabled": false
-       }
-     }
-   }
-   ```
-
-6. **Utilisation** :
-   Redémarrez VS Code et commencez à utiliser les outils Jupyter dans Roo.
-
-Pour des instructions détaillées, consultez les fichiers [INSTALLATION.md](./INSTALLATION.md) et [CONFIGURATION.md](./CONFIGURATION.md).
-<!-- END_SECTION: quick_start -->
-
-<!-- START_SECTION: use_cases -->
-## Cas d'utilisation
-
-Le MCP Jupyter est particulièrement utile pour:
-
-- **Analyse de données** : Exécuter des analyses de données avec pandas, numpy, etc.
-- **Visualisation** : Créer des visualisations avec matplotlib, seaborn, plotly, etc.
-- **Machine Learning** : Développer et tester des modèles ML avec scikit-learn, TensorFlow, PyTorch, etc.
-- **Éducation** : Créer et exécuter des notebooks éducatifs
-- **Documentation interactive** : Créer des documents combinant code, texte et visualisations
-- **Prototypage rapide** : Tester rapidement des idées et des algorithmes
-- **Reporting automatisé** : Générer des rapports basés sur des données
-
-Pour des exemples détaillés, consultez le fichier [USAGE.md](./USAGE.md#cas-dutilisation).
-<!-- END_SECTION: use_cases -->
-
-<!-- START_SECTION: kernel_comparison -->
-## Comparaison des kernels
-
-Le MCP Jupyter prend en charge plusieurs kernels, chacun ayant ses propres avantages:
-
-### Python
-
-Python est recommandé pour:
-- Analyse de données et science des données
-- Machine learning et deep learning
-- Visualisation de données
-- Automatisation et scripting
-
-Exemple:
 ```
-Outil: execute_cell
-Arguments:
-{
-  "kernel_id": "kernel-id-1",
-  "code": "import pandas as pd\nimport matplotlib.pyplot as plt\n\ndf = pd.DataFrame({'x': range(10), 'y': [i**2 for i in range(10)]})\ndf.plot(x='x', y='y')\nplt.show()"
-}
+┌─────────┐     ┌───────────────┐     ┌─────────────────┐
+│   Roo   │◄────┤  MCP Jupyter  │◄────┤ Serveur Jupyter │
+└─────────┘     └───────────────┘     └─────────────────┘
+                       │
+                       ▼
+                ┌─────────────┐
+                │ config.json │
+                └─────────────┘
 ```
 
-### R
+Le MCP Jupyter peut fonctionner dans différents modes:
+- **Mode connecté**: Communique avec un serveur Jupyter existant
+- **Mode hors ligne**: Fonctionne sans serveur Jupyter, avec des fonctionnalités limitées
+- **Mode VSCode**: Utilise les kernels Jupyter intégrés à VSCode
 
-R est recommandé pour:
-- Statistiques avancées
-- Visualisation de données avec ggplot2
-- Analyse biostatistique
-- Économétrie
+## Intégration avec VSCode
 
-Exemple:
-```
-Outil: execute_cell
-Arguments:
-{
-  "kernel_id": "kernel-id-2",
-  "code": "library(ggplot2)\ndf <- data.frame(x = 1:10, y = (1:10)^2)\nggplot(df, aes(x = x, y = y)) + geom_point() + geom_line()"
-}
-```
+L'intégration avec VSCode permet au MCP Jupyter d'utiliser les kernels Jupyter déjà installés et configurés dans VSCode, offrant une expérience plus fluide et évitant la nécessité de configurer manuellement un serveur Jupyter séparé.
 
-### Julia
+### Comment fonctionne l'intégration VSCode
 
-Julia est recommandé pour:
-- Calcul scientifique haute performance
-- Algèbre linéaire
-- Statistiques
-- Machine learning
+1. **Détection des kernels**: Le script d'intégration VSCode détecte automatiquement les kernels Jupyter disponibles dans les extensions VSCode (principalement les extensions Python et Jupyter).
 
-Exemple:
-```
-Outil: execute_cell
-Arguments:
-{
-  "kernel_id": "kernel-id-3",
-  "code": "using Plots\nx = 1:10\ny = x.^2\nplot(x, y, label=\"y = x²\", marker=:circle)"
-}
-```
+2. **Configuration automatique**: Le script configure automatiquement le MCP Jupyter pour utiliser ces kernels, en générant un fichier de configuration approprié.
 
-### JavaScript (via IJavaScript)
+3. **Mode adaptatif**: Si des kernels VSCode sont détectés, le MCP Jupyter démarre en mode connecté. Sinon, il démarre en mode hors ligne pour éviter les erreurs.
 
-JavaScript est recommandé pour:
-- Visualisations web interactives
-- Manipulation du DOM
-- Intégration avec des APIs web
-- Prototypage front-end
+4. **Utilisation transparente**: Une fois configuré, le MCP Jupyter peut être utilisé normalement par Roo, sans que l'utilisateur ait besoin de connaître les détails de l'intégration.
 
-Exemple:
-```
-Outil: execute_cell
-Arguments:
-{
-  "kernel_id": "kernel-id-4",
-  "code": "const data = Array.from({length: 10}, (_, i) => ({x: i, y: i*i}));\nconsole.table(data);"
-}
-```
-<!-- END_SECTION: kernel_comparison -->
+### Avantages de l'intégration VSCode
 
-<!-- START_SECTION: security -->
-## Considérations de sécurité
+- **Configuration simplifiée**: Pas besoin de configurer manuellement un serveur Jupyter
+- **Réutilisation des environnements**: Utilise les environnements Python déjà configurés dans VSCode
+- **Meilleure stabilité**: Évite les problèmes de connexion au démarrage
+- **Expérience utilisateur améliorée**: Intégration transparente avec l'environnement de développement
 
-L'utilisation du MCP Jupyter implique certains risques de sécurité qu'il est important de prendre en compte:
+## Configurations disponibles
 
-- **Exécution de code arbitraire** : Jupyter permet d'exécuter du code arbitraire, ce qui peut être dangereux si utilisé sans précaution
-- **Accès aux ressources système** : Le code exécuté dans Jupyter a accès aux ressources système (fichiers, réseau, etc.)
-- **Exposition de données sensibles** : Les notebooks peuvent contenir des données sensibles
-- **Vulnérabilités des dépendances** : Les packages utilisés dans les notebooks peuvent contenir des vulnérabilités
+Le MCP Jupyter peut être configuré de différentes manières pour s'adapter à différents cas d'utilisation. Pour une documentation détaillée des configurations disponibles, consultez le fichier [configurations-jupyter-mcp.md](./configurations-jupyter-mcp.md).
 
-Pour une utilisation sécurisée:
-- Limitez les permissions du processus Jupyter
-- Utilisez des environnements virtuels isolés
-- Évitez d'exécuter des notebooks provenant de sources non fiables
-- Maintenez à jour Jupyter et ses dépendances
-- Utilisez des tokens d'authentification pour sécuriser l'accès au serveur Jupyter
+Les principales configurations sont:
 
-Pour plus de détails sur la sécurité, consultez le fichier [SECURITY.md](./SECURITY.md).
-<!-- END_SECTION: security -->
+1. **Mode hors ligne** (`offline: true`)
+   - Fonctionne sans serveur Jupyter
+   - Fonctionnalités limitées, mais démarrage stable
 
-<!-- START_SECTION: troubleshooting -->
-## Résolution des problèmes
+2. **Serveur local sur le port 8888**
+   - Configuration standard pour Jupyter Notebook/JupyterLab
+   - Compatible avec les installations par défaut
 
-Si vous rencontrez des problèmes avec le MCP Jupyter:
+3. **Serveur local sur le port 8890**
+   - Évite les conflits avec le port par défaut
+   - Idéal pour les environnements multi-utilisateurs
 
-- **Le serveur ne démarre pas** : Vérifiez l'installation de Node.js, Python et Jupyter
-- **Erreurs de connexion au kernel** : Vérifiez que le serveur Jupyter est en cours d'exécution
-- **Erreurs d'exécution de code** : Vérifiez la syntaxe et les dépendances requises
-- **Problèmes de mémoire** : Limitez la taille des sorties et utilisez des techniques de streaming pour les données volumineuses
-- **Timeouts** : Augmentez les valeurs de timeout pour les opérations longues
+4. **Serveur HTTP dédié sur le port 8891**
+   - Isolation complète du serveur Jupyter
+   - Personnalisation maximale
 
-Pour une résolution plus détaillée des problèmes, consultez le fichier [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
-<!-- END_SECTION: troubleshooting -->
+## Scripts disponibles
 
-<!-- START_SECTION: integration -->
-## Intégration avec Roo
+### Scripts de démarrage
 
-Le MCP Jupyter s'intègre parfaitement avec Roo, permettant des interactions naturelles en langage courant. Voici quelques exemples de demandes que vous pouvez faire à Roo:
+- **[start-jupyter-mcp-vscode.bat](./start-jupyter-mcp-vscode.bat)**: Démarre le MCP Jupyter avec l'intégration VSCode
+  - Détecte automatiquement les kernels VSCode
+  - Configure le MCP Jupyter en conséquence
+  - Démarre en mode hors ligne si aucun kernel n'est trouvé
 
-- "Crée un nouveau notebook Python pour analyser ce dataset"
-- "Exécute cette cellule de code et montre-moi les résultats"
-- "Ajoute une cellule qui génère un graphique de ces données"
-- "Explique ce que fait ce code dans le notebook"
-- "Modifie cette fonction pour améliorer ses performances"
+- **[start-jupyter-mcp-offline.bat](../scripts/mcp-starters/start-jupyter-mcp-offline.bat)**: Démarre le MCP Jupyter en mode hors ligne
+  - Aucune tentative de connexion à un serveur Jupyter
+  - Fonctionnalités limitées, mais démarrage stable
 
-Roo traduira automatiquement ces demandes en appels aux outils appropriés du MCP Jupyter.
-<!-- END_SECTION: integration -->
+### Scripts de configuration
 
-<!-- START_SECTION: monitoring -->
-## Surveillance et diagnostic
+- **[sync-mcp-config.ps1](../scripts/sync-mcp-config.ps1)**: Synchronise la configuration du MCP Jupyter avec d'autres configurations
+  - Utile pour maintenir la cohérence entre différents environnements
 
-Le MCP Jupyter est intégré au système de surveillance des serveurs MCP, ce qui permet de:
+## Tests
 
-- Détecter automatiquement les problèmes avec le serveur Jupyter
-- Redémarrer automatiquement le serveur en cas de panne
-- Collecter des métriques de performance
-- Générer des alertes en cas de problèmes persistants
+Plusieurs scripts de test sont disponibles pour vérifier le bon fonctionnement du MCP Jupyter:
 
-Pour surveiller le serveur MCP Jupyter:
+- **[test-jupyter-vscode-integration.js](../../tests/mcp/test-jupyter-vscode-integration.js)**: Teste l'intégration avec VSCode
+  - Détection des kernels VSCode
+  - Connexion du MCP Jupyter aux kernels VSCode
+  - Exécution de code simple via cette intégration
 
-```powershell
-# Surveillance simple
-.\mcps\monitoring\monitor-mcp-servers.ps1
+- **[test-jupyter-connection.js](../../tests/mcp/test-jupyter-connection.js)**: Teste la connexion au serveur Jupyter
 
-# Surveillance avec redémarrage automatique
-.\mcps\monitoring\monitor-mcp-servers.ps1 -RestartServers
+- **[test-jupyter-mcp-offline.js](../../tests/mcp/test-jupyter-mcp-offline.js)**: Teste le mode hors ligne
+
+- **[test-jupyter-mcp-switch-offline.js](../../tests/mcp/test-jupyter-mcp-switch-offline.js)**: Teste le passage entre les modes connecté et hors ligne
+
+### Exécution des tests
+
+Pour exécuter les tests, utilisez les commandes suivantes:
+
+```bash
+# Test de l'intégration VSCode
+node tests/mcp/test-jupyter-vscode-integration.js
+
+# Test de la connexion au serveur Jupyter
+node tests/mcp/test-jupyter-connection.js
+
+# Test du mode hors ligne
+node tests/mcp/test-jupyter-mcp-offline.js
+
+# Test du passage entre les modes
+node tests/mcp/test-jupyter-mcp-switch-offline.js
 ```
 
-Pour plus d'informations sur le système de surveillance, consultez la [documentation dédiée](../monitoring/README.md).
-<!-- END_SECTION: monitoring -->
+## Problèmes connus et solutions
 
-<!-- START_SECTION: links -->
-## Liens utiles
+### Problème: Aucun kernel VSCode détecté
 
-- [Documentation officielle de Jupyter](https://jupyter.org/documentation)
-- [Documentation de JupyterLab](https://jupyterlab.readthedocs.io/)
-- [Documentation de nbformat](https://nbformat.readthedocs.io/)
-- [Documentation de @jupyterlab/services](https://jupyterlab.github.io/jupyterlab/services/)
-- [Documentation du protocole MCP](https://github.com/modelcontextprotocol/protocol)
-<!-- END_SECTION: links -->
+**Symptômes**: Le script d'intégration VSCode ne trouve aucun kernel.
+
+**Solutions**:
+1. Vérifiez que l'extension Python pour VSCode est installée
+2. Vérifiez que l'extension Jupyter pour VSCode est installée
+3. Créez au moins un environnement Python dans VSCode
+4. Exécutez la commande "Python: Select Interpreter" dans VSCode pour configurer l'interpréteur
+
+### Problème: Erreurs de connexion au serveur Jupyter
+
+**Symptômes**: Le MCP Jupyter ne parvient pas à se connecter au serveur Jupyter.
+
+**Solutions**:
+1. Vérifiez que le serveur Jupyter est en cours d'exécution sur le port configuré
+2. Vérifiez que le token dans la configuration correspond au token du serveur Jupyter
+3. Essayez d'utiliser le mode hors ligne pour isoler les problèmes
+4. Vérifiez les pare-feu ou autres restrictions réseau
+
+### Problème: Échec de l'exécution de code
+
+**Symptômes**: L'exécution de code via le MCP Jupyter échoue.
+
+**Solutions**:
+1. Vérifiez que le kernel est correctement démarré
+2. Vérifiez que les dépendances nécessaires sont installées dans l'environnement Python
+3. Consultez les logs du serveur Jupyter pour plus d'informations
+4. Essayez d'exécuter le même code directement dans Jupyter Notebook pour isoler le problème
+
+## Ressources supplémentaires
+
+- [Documentation principale du MCP Jupyter](../mcp-servers/README-JUPYTER-MCP.md)
+- [Documentation du mode hors ligne](../mcp-servers/docs/jupyter-mcp-offline-mode.md)
+- [Documentation des tests de connexion](../mcp-servers/docs/jupyter-mcp-connection-test.md)
+- [Guide de dépannage](../mcp-servers/docs/jupyter-mcp-troubleshooting.md)
