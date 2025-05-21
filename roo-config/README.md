@@ -1,6 +1,25 @@
 ﻿# Outils de configuration et déploiement pour Roo
 
-Ce répertoire contient un ensemble complet d'outils pour configurer, déployer et maintenir les modes Roo, ainsi que pour résoudre les problèmes d'encodage courants sur Windows.
+## Table des matières
+
+1. [Introduction](#rôle-dans-le-projet-roo-extensions)
+2. [Principales fonctionnalités](#principales-fonctionnalités)
+3. [Structure des outils](#structure-des-outils)
+   - [Organisation des dossiers](#organisation-des-dossiers)
+   - [Script de workflow interactif](#script-de-workflow-interactif)
+4. [Guide d'utilisation rapide](#guide-dutilisation-rapide)
+   - [Workflow recommandé](#workflow-recommandé)
+   - [Cas d'utilisation courants](#cas-dutilisation-courants)
+5. [Déploiement des modes](#déploiement-des-modes)
+6. [Correction des problèmes d'encodage](#correction-des-problèmes-dencodage)
+7. [Diagnostic et vérification](#diagnostic-et-vérification)
+8. [Configuration des modèles](#configuration-des-modèles)
+9. [Système de profils](#système-de-profils)
+10. [Intégration](#intégration-avec-les-autres-composants)
+11. [Dépannage](#dépannage)
+12. [Documentation complète](#documentation-complète)
+13. [Contribution](#contribution)
+14. [Ressources supplémentaires](#ressources-supplémentaires)
 
 ## Rôle dans le projet Roo Extensions
 
@@ -11,38 +30,7 @@ Le composant `roo-config` est un élément central du projet Roo Extensions qui 
 3. **Outils de diagnostic** : Scripts pour vérifier l'encodage et la validité des fichiers de configuration
 4. **Modèles de configuration** : Fichiers de configuration de référence pour les modes, les modèles et les serveurs
 5. **Workflow de maintenance** : Script interactif pour guider les utilisateurs dans les tâches de maintenance
-
-## Structure des outils
-
-### Organisation des dossiers
-
-- **`encoding-scripts/`** - [Scripts de correction d'encodage](encoding-scripts/README.md) pour les caractères accentués et les emojis
-- **`deployment-scripts/`** - [Scripts de déploiement des modes](deployment-scripts/README.md) (simples et complexes)
-- **`diagnostic-scripts/`** - [Scripts de diagnostic et vérification](diagnostic-scripts/README.md) pour l'encodage et la validité des fichiers
-- **`config-templates/`** - [Modèles de fichiers de configuration](config-templates/README.md) pour les modes, modèles et serveurs
-- **`docs/`** - [Documentation supplémentaire](docs/README.md) et guides d'utilisation
-- **`backups/`** - [Fichiers de sauvegarde](backups/README.md) créés automatiquement par les scripts
-- **`modes/`** - Fichiers de modes standards
-- **`qwen3-profiles/`** - [Profils optimisés](qwen3-profiles/README.md) pour le modèle Qwen3
-- **`settings/`** - [Paramètres de configuration](settings/README.md) et scripts de déploiement associés
-- **`scheduler/`** - Guides d'installation et de configuration du planificateur Roo
-
-### Script de workflow interactif
-
-Le script `maintenance-workflow.ps1` à la racine du répertoire est un outil interactif qui guide l'utilisateur à travers les différentes étapes de maintenance de la configuration Roo. Il propose un menu avec les tâches courantes :
-
-- Mise à jour des commandes autorisées
-- Ajout ou modification de modes personnalisés
-- Mise à jour des configurations d'API
-- Correction des problèmes d'encodage
-- Déploiement des mises à jour
-- Diagnostic et vérification
-- Gestion des sauvegardes
-
-Pour l'utiliser, exécutez simplement :
-```powershell
-.\maintenance-workflow.ps1
-```
+6. **Système de profils** : Mécanisme permettant de configurer facilement quels modèles utiliser pour chaque niveau de complexité
 
 ## Principales fonctionnalités
 
@@ -92,6 +80,38 @@ Les profils pour différents modèles de langage permettent d'optimiser les perf
 - Paramètres optimaux pour chaque modèle
 - Intégration avec l'architecture à 5 niveaux (N5)
 
+## Structure des outils
+
+### Organisation des dossiers
+
+- **`encoding-scripts/`** - [Scripts de correction d'encodage](encoding-scripts/README.md) pour les caractères accentués et les emojis
+- **`deployment-scripts/`** - [Scripts de déploiement des modes](deployment-scripts/README.md) (simples et complexes)
+- **`diagnostic-scripts/`** - [Scripts de diagnostic et vérification](diagnostic-scripts/README.md) pour l'encodage et la validité des fichiers
+- **`config-templates/`** - [Modèles de fichiers de configuration](config-templates/README.md) pour les modes, modèles et serveurs
+- **`docs/`** - [Documentation supplémentaire](docs/README.md) et guides d'utilisation
+- **`backups/`** - [Fichiers de sauvegarde](backups/README.md) créés automatiquement par les scripts
+- **`modes/`** - Fichiers de modes standards
+- **`qwen3-profiles/`** - [Profils optimisés](qwen3-profiles/README.md) pour le modèle Qwen3
+- **`settings/`** - [Paramètres de configuration](settings/README.md) et scripts de déploiement associés
+- **`scheduler/`** - Guides d'installation et de configuration du planificateur Roo
+
+### Script de workflow interactif
+
+Le script `maintenance-workflow.ps1` à la racine du répertoire est un outil interactif qui guide l'utilisateur à travers les différentes étapes de maintenance de la configuration Roo. Il propose un menu avec les tâches courantes :
+
+- Mise à jour des commandes autorisées
+- Ajout ou modification de modes personnalisés
+- Mise à jour des configurations d'API
+- Correction des problèmes d'encodage
+- Déploiement des mises à jour
+- Diagnostic et vérification
+- Gestion des sauvegardes
+
+Pour l'utiliser, exécutez simplement :
+```powershell
+.\maintenance-workflow.ps1
+```
+
 ## Guide d'utilisation rapide
 
 ### Workflow recommandé
@@ -123,6 +143,58 @@ Les profils pour différents modèles de langage permettent d'optimiser les perf
 
 6. **Redémarrer Visual Studio Code** et activer les modes
 
+### Cas d'utilisation courants
+
+#### Déploiement de modes avec le système de profils
+
+```powershell
+# Déployer les modes avec le profil standard
+.\deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
+
+# Déployer les modes avec le profil n5
+.\deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
+
+# Déployer les modes avec le profil Qwen3
+.\deploy-profile-modes.ps1 -ProfileName "qwen" -DeploymentType global
+```
+
+#### Création d'un nouveau profil personnalisé
+
+```powershell
+# Créer un nouveau profil basé sur un profil existant
+.\create-profile.ps1 -BasedOn "standard" -NewProfileName "mon-profil" -DefaultModel "anthropic/claude-3.5-sonnet" -ComplexModel "anthropic/claude-3.7-sonnet"
+
+# Déployer le nouveau profil
+.\deploy-profile-modes.ps1 -ProfileName "mon-profil" -DeploymentType global
+```
+
+#### Correction d'encodage pour plusieurs fichiers
+
+```powershell
+# Corriger l'encodage de tous les fichiers JSON dans un répertoire
+.\encoding-scripts\fix-encoding-directory.ps1 -DirectoryPath "chemin\vers\repertoire" -FilePattern "*.json"
+```
+
+#### Sauvegarde et restauration des configurations
+
+```powershell
+# Créer une sauvegarde complète des configurations
+.\backup-configurations.ps1 -BackupName "pre-modification"
+
+# Restaurer une sauvegarde
+.\restore-configuration.ps1 -BackupName "pre-modification"
+```
+
+## Système de profils
+
+Le système de profils est une fonctionnalité clé qui permet de configurer facilement quels modèles de langage utiliser pour chaque mode. Les profils sont définis dans des fichiers JSON qui spécifient :
+
+- Le modèle par défaut à utiliser pour les modes simples
+- Le modèle à utiliser pour les modes complexes
+- Les modèles spécifiques pour chaque niveau de l'architecture n5 (MICRO, MINI, MEDIUM, LARGE, ORACLE)
+
+Pour plus d'informations sur le système de profils, consultez le [README des profils](README-profile-modes.md).
+
 ## Intégration avec les autres composants
 
 ### Intégration avec roo-modes
@@ -132,6 +204,10 @@ Les outils de déploiement de `roo-config` sont conçus pour déployer les modes
 ### Intégration avec les MCPs
 
 Les fichiers de configuration dans `roo-config/settings/` incluent la configuration des serveurs MCP. Pour plus d'informations sur les MCPs, consultez le [README des MCPs](../mcps/README.md).
+
+### Intégration avec le système de tests
+
+Les outils de configuration sont utilisés par les scripts de test pour valider le bon fonctionnement des modes et des mécanismes d'escalade/désescalade. Pour plus d'informations sur les tests, consultez le [README des tests](../tests/README.md).
 
 ## Documentation complète
 
@@ -143,6 +219,7 @@ Pour une documentation complète sur les différents aspects du projet :
 - [Documentation des modes Roo](../roo-modes/README.md)
 - [Documentation des MCPs](../mcps/README.md)
 - [Documentation générale du projet](../docs/README.md)
+- [README des profils](README-profile-modes.md)
 
 ## Dépannage
 
