@@ -44,52 +44,23 @@ Le projet propose deux architectures principales pour les modes Roo :
 
 ### Architecture à 2 niveaux (Simple/Complex)
 
-Cette architecture, plus simple et actuellement en production, organise les modes en deux catégories :
+Cette architecture, actuellement en production, organise les modes en deux catégories distinctes :
 
 1. **Modes Simples** : Pour les tâches courantes et de complexité modérée
    - Modèle envisagé : Qwen 3 32B
    - Optimisé pour un équilibre entre performance et coût
 
 2. **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
-   - Modèles : Claude 3.7 Sonnet/Opus et équivalents
+   - Modèles : Claude 3.7 Sonnet et équivalents
    - Optimisé pour les tâches complexes et les projets de grande envergure
 
-Cette architecture est pleinement fonctionnelle et constitue la solution recommandée pour une utilisation quotidienne.
+Cette architecture est pleinement fonctionnelle et constitue **la solution recommandée pour le déploiement**. Les configurations sont gérées dans le répertoire `roo-modes/optimized` et déployées via les scripts du répertoire `roo-config/settings`.
 
 ### Architecture à 5 niveaux (n5)
 
-L'architecture à 5 niveaux (n5) est une approche innovante qui organise les profils d'agent Roo en cinq niveaux de complexité :
+L'architecture à 5 niveaux (n5) est une approche expérimentale qui organise les profils d'agent Roo en cinq niveaux de complexité : MICRO, MINI, MEDIUM, LARGE et ORACLE. Cette architecture est conçue pour optimiser les coûts d'utilisation en adaptant le modèle utilisé à la complexité de la tâche.
 
-1. **MICRO** : Utilise des modèles légers pour les tâches très simples et rapides
-   - Réponses courtes
-   - Modifications minimes
-   - Tâches très bien définies
-
-2. **MINI** : Utilise des modèles économiques pour les tâches simples
-   - Modifications de code mineures
-   - Bugs simples
-   - Documentation basique
-   - Questions factuelles
-
-3. **MEDIUM** : Utilise des modèles intermédiaires pour les tâches de complexité moyenne
-   - Développement de fonctionnalités
-   - Refactoring modéré
-   - Analyse de code
-   - Explications techniques
-
-4. **LARGE** : Utilise des modèles avancés pour les tâches complexes
-   - Architecture de systèmes
-   - Refactoring majeur
-   - Optimisation de performance
-   - Analyses détaillées
-
-5. **ORACLE** : Utilise les modèles les plus puissants pour les tâches très complexes
-   - Conception de systèmes distribués
-   - Optimisation avancée
-   - Synthèse de recherche
-   - Analyses multi-domaines
-
-Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la qualité des résultats. Elle implémente des mécanismes sophistiqués d'escalade et de désescalade qui permettent de passer automatiquement d'un niveau à l'autre en fonction de la complexité de la tâche.
+Les configurations pour cette architecture sont disponibles dans le répertoire `roo-modes/n5/configs`, mais cette approche reste en phase de test et n'est pas recommandée pour un déploiement en production.
 
 ## Prérequis
 
@@ -105,17 +76,17 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
 
 2. Déployez les modes avec le script approprié :
    ```bash
-   # Pour l'architecture à 5 niveaux avec le profil Claude standard
+   # Pour l'architecture à 2 niveaux (recommandée)
    cd roo-config
    ./deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
    
-   # Pour l'architecture à 5 niveaux avec le profil n5
-   cd roo-config
-   ./deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
-   
-   # Pour l'architecture à 5 niveaux avec le profil Qwen 3
+   # Pour l'architecture à 2 niveaux avec le profil Qwen 3
    cd roo-config
    ./deploy-profile-modes.ps1 -ProfileName "qwen" -DeploymentType global
+   
+   # Pour l'architecture à 5 niveaux (expérimentale, non recommandée)
+   cd roo-config
+   ./deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
    ```
 
 3. Redémarrez Roo pour appliquer les nouveaux modes.
@@ -123,6 +94,15 @@ Cette approche permet d'optimiser les coûts d'utilisation tout en maintenant la
 ## Utilisation
 
 Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être sélectionnés comme n'importe quel autre mode.
+
+### Architecture à 2 niveaux (recommandée)
+
+- Pour les tâches courantes et de complexité modérée, sélectionnez un mode Simple
+- Pour les tâches avancées nécessitant plus de puissance, sélectionnez un mode Complex
+
+### Architecture à 5 niveaux (expérimentale)
+
+Si vous avez déployé l'architecture expérimentale à 5 niveaux :
 
 - Pour les tâches très simples, sélectionnez un mode MICRO
 - Pour les tâches simples, sélectionnez un mode MINI
@@ -224,6 +204,16 @@ Consultez ces fichiers pour obtenir des informations détaillées sur les diffé
 
 ## Modes disponibles
 
+### Architecture à 2 niveaux (recommandée)
+
+L'architecture actuellement déployée comprend deux types de modes :
+- **Modes Simples** : Pour les tâches courantes et de complexité modérée
+- **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
+
+### Architecture à 5 niveaux (expérimentale)
+
+Le tableau ci-dessous présente les capacités théoriques des différents niveaux de l'architecture expérimentale à 5 niveaux :
+
 | Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
 |------|-------|------|--------|-------|--------|
 | Code | Modifications minimes | Bugs simples | Développement de fonctionnalités | Refactoring majeur | Conception de systèmes |
@@ -236,24 +226,17 @@ Consultez ces fichiers pour obtenir des informations détaillées sur les diffé
 
 Le système utilise des profils pour définir quels modèles de langage utiliser pour chaque mode. Voici les profils disponibles par défaut:
 
-### Profil "standard"
-- Modèle par défaut: Claude 3.5 Sonnet
+### Profil "standard" (architecture à 2 niveaux)
+- Modes simples: Qwen 3 32B
 - Modes complexes: Claude 3.7 Sonnet
 
-### Profil "n5" (architecture à 5 niveaux)
-- **MICRO** : Claude 3 Haiku
-- **MINI** : Claude 3.5 Sonnet
-- **MEDIUM** : Claude 3.5 Sonnet
-- **LARGE** : Claude 3.7 Sonnet
-- **ORACLE** : Claude 3.7 Opus
-
-### Profil "qwen" (modèles Qwen 3)
-- Modèle par défaut: Qwen3-32B (local/qwq32b)
-- Modes complexes: Claude 3.7 Sonnet
-
-### Profil "local" (modèles locaux)
-- Modèle par défaut: Llama 3 70B (local/llama-3-70b)
-- Modes complexes: Claude 3.7 Sonnet
+### Profil "n5" (architecture à 5 niveaux - expérimental)
+Les modèles suivants sont envisagés pour cette architecture mais restent à tester :
+- **ORACLE** : Claude Sonnet 3.7, Gemini 2.5 Pro, Chat GPT 4.1
+- **LARGE** : Qwen 3 235B-A22B, Gemini 2.5 Flash, ChatGPT-4o-mini
+- **MEDIUM** : Qwen 32B
+- **SMALL** : Qwen 8B
+- **MICRO** : Qwen 1.5B
 
 Pour créer ou modifier des profils, utilisez le script `create-profile.ps1`. Pour plus d'informations, consultez la documentation dans `docs/guide-utilisation-profils-modes.md`.
 
