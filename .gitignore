@@ -102,3 +102,6 @@ demo-roo-code/**/workspace/*
 demo-roo-code/.env
 demo-roo-code/*.env
 demo-roo-code/.env.*
+
+# Fichier d'environnement spécifique pour le serveur MCP github-projects
+mcps/internal/servers/github-projects-mcp/.env
