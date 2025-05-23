@@ -1,0 +1,184 @@
+2025-05-23 11:08:14 - INFO: Vérification du statut Git avant pull...
+2025-05-23 11:08:14 - ALERTE: Modifications locales détectées. Tentative de stash...
+2025-05-23 11:08:14 - INFO: Stash réussi.
+2025-05-23 11:08:14 - INFO: Exécution de git pull...
+2025-05-23 11:08:14 - INFO: Git pull réussi.
+2025-05-23 11:08:14 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+2025-05-23 11:08:14 - ERREUR: Échec de la synchronisation de roo-config/settings/settings.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\settings\settings.json par lui-m�me.
+2025-05-23 11:36:14 - INFO: Vérification du statut Git avant pull...
+2025-05-23 11:36:14 - ALERTE: Modifications locales détectées. Tentative de stash...
+2025-05-23 11:36:14 - INFO: Stash réussi.
+2025-05-23 11:36:14 - INFO: Exécution de git pull...
+2025-05-23 11:36:14 - INFO: Git pull réussi.
+2025-05-23 11:36:14 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+2025-05-23 11:36:14 - ERREUR: Échec de la synchronisation de roo-config/settings/settings.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\settings\settings.json par lui-m�me.
+2025-05-23 12:09:41 - INFO: Vérification du statut Git avant pull...
+2025-05-23 12:09:41 - ALERTE: Modifications locales détectées. Tentative de stash...
+2025-05-23 12:09:41 - INFO: Stash réussi.
+2025-05-23 12:09:41 - INFO: Exécution de git pull...
+2025-05-23 12:09:41 - INFO: Git pull réussi.
+2025-05-23 12:09:41 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+2025-05-23 12:09:41 - ERREUR: Échec de la synchronisation de roo-config/escalation-test-config.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\escalation-test-config.json par lui-m�me.
+2025-05-23 12:10:06 - INFO: Vérification du statut Git avant pull...
+2025-05-23 12:10:06 - ALERTE: Modifications locales détectées. Tentative de stash...
+2025-05-23 12:10:07 - INFO: Stash réussi.
+2025-05-23 12:10:07 - INFO: Exécution de git pull...
+2025-05-23 12:10:07 - INFO: Git pull réussi.
+2025-05-23 12:10:07 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+2025-05-23 12:10:07 - ERREUR: Échec de la synchronisation de roo-config/escalation-test-config.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\escalation-test-config.json par lui-m�me.
+2025-05-23 12:10:30 - INFO: Étape 1: Préparation et Vérification de l'Environnement Git...
+2025-05-23 12:10:30 - INFO: Vérification du statut Git avant pull...
+2025-05-23 12:10:30 - ALERTE: Modifications locales détectées. Tentative de stash...
+2025-05-23 12:10:30 - INFO: Stash réussi.
+2025-05-23 12:10:30 - INFO: Étape 2: Mise à Jour du Dépôt Local (git pull)...
+2025-05-23 12:10:30 - INFO: Exécution de git pull origin main...
+2025-05-23 12:10:31 - INFO: Git pull réussi.
+2025-05-23 12:10:31 - INFO: Étape 3: Analyse des Nouveautés et Identification des Fichiers à Synchroniser...
+2025-05-23 12:10:31 - INFO: Liste des fichiers cibles potentiels construite.
+2025-05-23 12:10:31 - INFO: Détection des fichiers modifiés par le pull (HEAD vs HEAD@{1})...
+2025-05-23 12:10:31 - INFO: Fichiers modifiés par le pull : 
+2025-05-23 12:10:31 - ALERTE: Aucun fichier spécifiquement modifié par le pull détecté ou diff échoué. Vérification de tous les fichiers cibles pour synchronisation.
+2025-05-23 12:10:31 - INFO: Fichiers identifiés pour synchronisation réelle : roo-config/escalation-test-config.json, roo-config/qwen3-profiles/qwen3-parameters.json, roo-config/settings/modes.json, roo-config/settings/servers.json, roo-config/settings/settings.json, roo-config\analyze-test-results.ps1, roo-config\apply-escalation-test-config.ps1, roo-config\backups\README.md, roo-config\config-templates\README.md, roo-config\create-profile.ps1, roo-config\deployment-scripts\create-clean-modes.ps1, roo-config\deployment-scripts\deploy-guide-interactif.ps1, roo-config\deployment-scripts\deploy-modes.ps1, roo-config\deployment-scripts\deploy-modes-ascii.ps1, roo-config\deployment-scripts\deploy-modes-enhanced.ps1, roo-config\deployment-scripts\deploy-modes-extreme.ps1, roo-config\deployment-scripts\deploy-modes-final.ps1, roo-config\deployment-scripts\deploy-modes-fixed.ps1, roo-config\deployment-scripts\deploy-modes-improved.ps1, roo-config\deployment-scripts\deploy-modes-minimal.ps1, roo-config\deployment-scripts\deploy-modes-simple.ps1, roo-config\deployment-scripts\deploy-modes-simple-complex.ps1, roo-config\deployment-scripts\deploy-modes-solution.ps1, roo-config\deployment-scripts\deploy-modes-ultra-simple.ps1, roo-config\deployment-scripts\force-deploy-with-encoding-fix.ps1, roo-config\deployment-scripts\README.md, roo-config\deployment-scripts\simple-deploy.ps1, roo-config\deploy-profile-modes.ps1, roo-config\diagnostic-scripts\check-deployed-encoding.ps1, roo-config\diagnostic-scripts\diagnostic-rapide-encodage.ps1, roo-config\diagnostic-scripts\encoding-diagnostic.ps1, roo-config\diagnostic-scripts\README.md, roo-config\diagnostic-scripts\verify-deployed-modes.ps1, roo-config\docs\guide-import-export.md, roo-config\docs\README.md, roo-config\docs\solution-modes-simple-complex.md, roo-config\encoding-scripts\fix-encoding.ps1, roo-config\encoding-scripts\fix-encoding-advanced.ps1, roo-config\encoding-scripts\fix-encoding-ascii.ps1, roo-config\encoding-scripts\fix-encoding-complete.ps1, roo-config\encoding-scripts\fix-encoding-direct.ps1, roo-config\encoding-scripts\fix-encoding-extreme.ps1, roo-config\encoding-scripts\fix-encoding-final.ps1, roo-config\encoding-scripts\fix-encoding-improved.ps1, roo-config\encoding-scripts\fix-encoding-minimal.ps1, roo-config\encoding-scripts\fix-encoding-regex.ps1, roo-config\encoding-scripts\fix-encoding-simple.ps1, roo-config\encoding-scripts\fix-encoding-simple-final.ps1, roo-config\encoding-scripts\fix-encoding-ultra-simple.ps1, roo-config\encoding-scripts\fix-source-encoding.ps1, roo-config\encoding-scripts\README.md, roo-config\maintenance-routine.ps1, roo-config\maintenance-workflow.ps1, roo-config\qwen3-profiles\README.md, roo-config\README.md, roo-config\README-campagne-tests-escalade.md, roo-config\README-profile-modes.md, roo-config\REDIRECTION.md, roo-config\scheduler\Guide_Edition_Directe_Configurations_Roo_Scheduler.md, roo-config\scheduler\Guide_Installation_Roo_Scheduler.md, roo-config\settings\deploy-settings.ps1, roo-config\settings\README.md, roo-config\test-escalation-scenarios.ps1, roo-modes/configs/modes.json, roo-modes/configs/new-roomodes.json, roo-modes/configs/standard-modes.json, roo-modes/configs/vscode-custom-modes.json, roo-modes\custom\docs\architecture\architecture-concept.md, roo-modes\custom\docs\criteres-decision\criteres-decision.md, roo-modes\custom\docs\implementation\commits.md, roo-modes\custom\docs\implementation\deploiement.md, roo-modes\custom\docs\implementation\deploiement-autres-machines.md, roo-modes\custom\docs\implementation\notes-pour-reprise.md, roo-modes\custom\docs\implementation\script-deploy-local-endpoints.md, roo-modes\custom\docs\optimisation\guide-installation-optimisations-mcp.md, roo-modes\custom\docs\optimisation\recommandations-prompts.md, roo-modes\custom\docs\optimisation\utilisation-optimisee-mcps.md, roo-modes\custom\docs\structure-technique\README.md, roo-modes\custom\README.md, roo-modes\custom\REDIRECTION.md, roo-modes\docs\architecture\architecture-concept.md, roo-modes\docs\criteres-decision\criteres-decision.md, roo-modes\docs\directives-modes-custom.md, roo-modes\docs\guide-import-export.md, roo-modes\docs\guide-integration-modes-custom.md, roo-modes\docs\guide-verrouillage-famille-modes.md, roo-modes\docs\implementation\commits.md, roo-modes\docs\implementation\deploiement.md, roo-modes\docs\implementation\deploiement-autres-machines.md, roo-modes\docs\implementation\guide-installation-modes-personnalises.md, roo-modes\docs\implementation\notes-pour-reprise.md, roo-modes\docs\implementation\script-deploy-local-endpoints.md, roo-modes\docs\optimisation\recommandations-prompts.md, roo-modes\docs\README-family-lock.md, roo-modes\docs\reference-prompts-natifs.md, roo-modes\n5\CHANGELOG.md, roo-modes\n5\configs\architect-large.json, roo-modes\n5\configs\architect-large-optimized.json, roo-modes\n5\configs\architect-large-optimized-v2.json, roo-modes\n5\configs\architect-large-original.json, roo-modes\n5\configs\architect-medium.json, roo-modes\n5\configs\ask-large.json, roo-modes\n5\configs\ask-medium.json, roo-modes\n5\configs\custom-n5-modes.json, roo-modes\n5\configs\debug-large.json, roo-modes\n5\configs\debug-medium.json, roo-modes\n5\configs\large-modes.json, roo-modes\n5\configs\medium-modes.json, roo-modes\n5\configs\medium-modes-fixed.json, roo-modes\n5\configs\micro-modes.json, roo-modes\n5\configs\mini-modes.json, roo-modes\n5\configs\mini-modes-fixed.json, roo-modes\n5\configs\n5-modes-roo-compatible.json, roo-modes\n5\configs\n5-modes-roo-compatible-local.json, roo-modes\n5\configs\n5-modes-roo-compatible-modified.json, roo-modes\n5\configs\oracle-modes.json, roo-modes\n5\configs\oracle-modes-fixed.json, roo-modes\n5\configs\orchestrator-large.json, roo-modes\n5\configs\orchestrator-medium.json, roo-modes\n5\docs\guide-migration.md, roo-modes\n5\docs\guide-migration-roo-compatible.md, roo-modes\n5\docs\guide-utilisation.md, roo-modes\n5\rapport-final-deploiement.md, roo-modes\n5\rapport-implementation.md, roo-modes\n5\README.md, roo-modes\n5\README-roo-compatible.md, roo-modes\n5\tests\README.md, roo-modes\optimized\ARCHIVE.md, roo-modes\optimized\docs\architecture-concept.md, roo-modes\optimized\docs\criteres-decision.md, roo-modes\optimized\docs\notes-pour-reprise.md, roo-modes\optimized\docs\recommandations-prompts.md, roo-modes\optimized\README.md, roo-modes\optimized\REDIRECTION.md, roo-modes\README.md
+2025-05-23 12:10:31 - INFO: Étape 4: Exécution des Opérations de Synchronisation...
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/escalation-test-config.json
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/qwen3-profiles/qwen3-parameters.json
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/modes.json
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/servers.json
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/settings.json
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\analyze-test-results.ps1
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\apply-escalation-test-config.ps1
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\backups\README.md
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\config-templates\README.md
+2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\create-profile.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\create-clean-modes.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-guide-interactif.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-ascii.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-enhanced.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-extreme.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-final.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-fixed.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-improved.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-minimal.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-simple.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-simple-complex.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-solution.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-ultra-simple.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\force-deploy-with-encoding-fix.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\README.md
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\simple-deploy.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deploy-profile-modes.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\check-deployed-encoding.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\diagnostic-rapide-encodage.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\encoding-diagnostic.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\README.md
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\verify-deployed-modes.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\guide-import-export.md
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\README.md
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\solution-modes-simple-complex.md
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding.ps1
+2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-advanced.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-ascii.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-complete.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-direct.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-extreme.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-final.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-improved.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-minimal.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-regex.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-simple.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-simple-final.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-ultra-simple.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-source-encoding.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\README.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\maintenance-routine.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\maintenance-workflow.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\qwen3-profiles\README.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README-campagne-tests-escalade.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README-profile-modes.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\REDIRECTION.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\scheduler\Guide_Edition_Directe_Configurations_Roo_Scheduler.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\scheduler\Guide_Installation_Roo_Scheduler.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\settings\deploy-settings.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\settings\README.md
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\test-escalation-scenarios.ps1
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/modes.json
+2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/new-roomodes.json
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/standard-modes.json
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/vscode-custom-modes.json
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\architecture\architecture-concept.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\criteres-decision\criteres-decision.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\commits.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\deploiement.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\deploiement-autres-machines.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\notes-pour-reprise.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\script-deploy-local-endpoints.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\guide-installation-optimisations-mcp.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\recommandations-prompts.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\utilisation-optimisee-mcps.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\structure-technique\README.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\README.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\REDIRECTION.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\architecture\architecture-concept.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\criteres-decision\criteres-decision.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\directives-modes-custom.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-import-export.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-integration-modes-custom.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-verrouillage-famille-modes.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\commits.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\deploiement.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\deploiement-autres-machines.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\guide-installation-modes-personnalises.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\notes-pour-reprise.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\script-deploy-local-endpoints.md
+2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\optimisation\recommandations-prompts.md
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\README-family-lock.md
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\reference-prompts-natifs.md
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\CHANGELOG.md
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-optimized.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-optimized-v2.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-original.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-medium.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\ask-large.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\ask-medium.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\custom-n5-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\debug-large.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\debug-medium.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\large-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\medium-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\medium-modes-fixed.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\micro-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\mini-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\mini-modes-fixed.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible-local.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible-modified.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\oracle-modes.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\oracle-modes-fixed.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\orchestrator-large.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\orchestrator-medium.json
+2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-migration.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-migration-roo-compatible.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-utilisation.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\rapport-final-deploiement.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\rapport-implementation.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\README.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\README-roo-compatible.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\tests\README.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\ARCHIVE.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\architecture-concept.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\criteres-decision.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\notes-pour-reprise.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\recommandations-prompts.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\README.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\REDIRECTION.md
+2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\README.md
+2025-05-23 12:10:36 - INFO: Étape 5: Vérification Post-Synchronisation...
+2025-05-23 12:10:36 - INFO: Aucun fichier JSON n'a été synchronisé, pas de vérification JSON nécessaire.
+2025-05-23 12:10:36 - INFO: Vérification de l'existence des fichiers critiques...
+2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-config/settings/settings.json
+2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
