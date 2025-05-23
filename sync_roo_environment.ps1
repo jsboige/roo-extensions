@@ -3,10 +3,11 @@
 $RepoPath = "d:/roo-extensions"
 $LogFile = "d:/roo-extensions/sync_log.txt"
 $ConflictLogDir = "d:/roo-extensions/sync_conflicts"
+$ErrorActionPreference = "Stop" # Stop on errors for better control
 
 # Créer le répertoire de logs de conflits si inexistant
 If (-not (Test-Path $ConflictLogDir)) {
-    New-Item -ItemType Directory -Path $ConflictLogDir | Out-Null
+    New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null
 }
 
 function Log-Message {
@@ -14,42 +15,49 @@ function Log-Message {
         [string]$Message,
         [string]$Type = "INFO" # INFO, ALERTE, ERREUR
     )
-    Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)"
+    $LogEntry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)"
+    Add-Content -Path $LogFile -Value $LogEntry
+    Write-Host $LogEntry # Also output to console for scheduler visibility
 }
 
 Set-Location $RepoPath
 
-# Étape 1: Préparation et Vérification de l'Environnement Git
-Log-Message "Vérification du statut Git avant pull..."
-$GitStatus = git status --porcelain
-if ($GitStatus) {
-    Log-Message "Modifications locales détectées. Tentative de stash..." "ALERTE"
-    Try {
-        git stash push -m "Automated stash before sync pull" -ErrorAction Stop
+# --- Étape 1: Préparation et Vérification de l'Environnement Git ---
+Log-Message "Étape 1: Préparation et Vérification de l'Environnement Git..."
+$StashApplied = $false
+Try {
+    Log-Message "Vérification du statut Git avant pull..."
+    $GitStatus = git status --porcelain
+    if ($GitStatus) {
+        Log-Message "Modifications locales détectées. Tentative de stash..." "ALERTE"
+        git stash push -m "Automated stash before sync pull"
         Log-Message "Stash réussi."
         $StashApplied = $true
-    } Catch {
-        Log-Message "Échec du stash. Annulation de la synchronisation. Message : $($_.Exception.Message)" "ERREUR"
-        Exit 1 # Sortie avec erreur
+    } else {
+        Log-Message "Aucune modification locale détectée avant le pull."
     }
-} else {
-    $StashApplied = $false
+} Catch {
+    Log-Message "Échec lors de la vérification du statut Git ou du stash. Message : $($_.Exception.Message)" "ERREUR"
+    Exit 1 # Sortie avec erreur
 }
 
-# Étape 2: Mise à Jour du Dépôt Local (git pull)
-Log-Message "Exécution de git pull..."
+# --- Étape 2: Mise à Jour du Dépôt Local (git pull) ---
+Log-Message "Étape 2: Mise à Jour du Dépôt Local (git pull)..."
 Try {
-    git pull origin main -ErrorAction Stop
+    Log-Message "Exécution de git pull origin main..."
+    # Capture HEAD avant le pull pour la comparaison ultérieure
+    $HeadBeforePull = git rev-parse HEAD
+    git pull origin main
     Log-Message "Git pull réussi."
 } Catch {
     $ErrorMessage = $_.Exception.Message
     if ($ErrorMessage -like "*merge conflict*") {
         Log-Message "Conflit de fusion détecté. Annulation de la fusion..." "ALERTE"
-        git merge --abort
+        Try { git merge --abort } Catch { Log-Message "Échec de git merge --abort. Message: $($_.Exception.Message)" "ALERTE"}
         $ConflictLogFile = Join-Path $ConflictLogDir "sync_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
         Add-Content -Path $ConflictLogFile -Value "--- Conflit Git détecté lors du pull - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---"
         Add-Content -Path $ConflictLogFile -Value "Dépôt : $RepoPath"
-        Add-Content -Path $ConflictLogFile -Value "Branche : main"
+        Add-Content -Path $ConflictLogFile -Value "Branche : main" # Assumer main, ajuster si nécessaire
         Add-Content -Path $ConflictLogFile -Value "Statut avant abort :"
         (git status) | Out-String | Add-Content -Path $ConflictLogFile
         Add-Content -Path $ConflictLogFile -Value "--- FIN DU CONFLIT ---"
@@ -60,145 +68,192 @@ Try {
     Exit 1 # Sortie avec erreur
 }
 
-# Étape 3 & 4: Analyse des Nouveautés et Exécution des Opérations de Synchronisation
-Log-Message "Analyse des nouveautés et synchronisation des fichiers..."
+# --- Étape 3: Analyse des Nouveautés et Identification des Fichiers à Synchroniser ---
+Log-Message "Étape 3: Analyse des Nouveautés et Identification des Fichiers à Synchroniser..."
 
-$FilesToSync = @(
+# Liste des fichiers et patterns à synchroniser (relatifs à $RepoPath)
+$TargetFilesAndPatterns = @(
     "roo-config/settings/settings.json",
     "roo-config/settings/servers.json",
     "roo-config/settings/modes.json",
     "roo-config/escalation-test-config.json",
     "roo-config/qwen3-profiles/qwen3-parameters.json",
-    "roo-config/maintenance-routine.ps1",
-    "roo-config/maintenance-workflow.ps1",
-    "roo-config/README-campagne-tests-escalade.md",
-    "roo-config/README-profile-modes.md",
-    "roo-config/README.md",
-    "roo-config/REDIRECTION.md",
-    "roo-config/test-escalation-scenarios.ps1",
     "roo-modes/configs/modes.json",
     "roo-modes/configs/new-roomodes.json",
     "roo-modes/configs/standard-modes.json",
     "roo-modes/configs/vscode-custom-modes.json"
 )
 
-# Ajouter dynamiquement les fichiers .json de roo-modes/n5/configs/
-Get-ChildItem -Path (Join-Path $RepoPath "roo-modes/n5/configs/") -Filter *.json | ForEach-Object {
-    $FilesToSync += "roo-modes/n5/configs/$($_.Name)"
+# Ajouter les .ps1 sous roo-config (récursif)
+Get-ChildItem -Path (Join-Path $RepoPath "roo-config") -Filter "*.ps1" -Recurse | ForEach-Object {
+    $TargetFilesAndPatterns += $_.FullName.Substring($RepoPath.Length + 1)
 }
 
-# Ajouter dynamiquement les fichiers .md de roo-config et roo-modes
-Get-ChildItem -Path (Join-Path $RepoPath "roo-config") -Recurse -Filter *.md | ForEach-Object {
-    $FilesToSync += $_.FullName.Substring($RepoPath.Length + 1)
-}
-Get-ChildItem -Path (Join-Path $RepoPath "roo-modes") -Recurse -Filter *.md | ForEach-Object {
-    $FilesToSync += $_.FullName.Substring($RepoPath.Length + 1)
+# Ajouter les .json sous roo-modes/n5/configs/ (récursif)
+Get-ChildItem -Path (Join-Path $RepoPath "roo-modes/n5/configs") -Filter "*.json" -Recurse | ForEach-Object {
+    $TargetFilesAndPatterns += $_.FullName.Substring($RepoPath.Length + 1)
 }
 
-# Dédoublonner la liste
-$FilesToSync = $FilesToSync | Sort-Object -Unique
+# Ajouter les .md sous roo-config/ (récursif)
+Get-ChildItem -Path (Join-Path $RepoPath "roo-config") -Filter "*.md" -Recurse | ForEach-Object {
+    $TargetFilesAndPatterns += $_.FullName.Substring($RepoPath.Length + 1)
+}
 
+# Ajouter les .md sous roo-modes/ (récursif)
+Get-ChildItem -Path (Join-Path $RepoPath "roo-modes") -Filter "*.md" -Recurse | ForEach-Object {
+    $TargetFilesAndPatterns += $_.FullName.Substring($RepoPath.Length + 1)
+}
 
-# Identifier les fichiers réellement modifiés par le pull pour ne copier que ceux-là
-$ChangedFiles = git diff --name-only HEAD@{1} HEAD
-$FilesToActuallyCopy = @()
+# Rendre la liste unique
+$UniqueTargetFiles = $TargetFilesAndPatterns | Sort-Object -Unique
 
-foreach ($FileRelPath in $FilesToSync) {
-    if ($ChangedFiles -contains $FileRelPath) {
-        $FilesToActuallyCopy += $FileRelPath
+Log-Message "Liste des fichiers cibles potentiels construite."
+
+$FilesModifiedByPull = @()
+Try {
+    Log-Message "Détection des fichiers modifiés par le pull (HEAD vs HEAD@{1})..."
+    if ($HeadBeforePull) {
+        $FilesModifiedByPull = git diff --name-only $HeadBeforePull HEAD | ForEach-Object { $_ -replace '/', '\' } # Normaliser les slashes pour Windows
+    } else {
+        Log-Message "Impossible de déterminer HEAD avant le pull, synchronisation de tous les fichiers cibles." "ALERTE"
+        # En cas d'échec de la détection (ex: premier pull), on pourrait choisir de synchroniser tous les $UniqueTargetFiles
+        # Pour l'instant, on continue avec une liste vide, ce qui signifie que seuls les fichiers explicitement listés et existants seront copiés.
+        # Ou, pour être plus sûr, on peut forcer la synchronisation de tous les fichiers cibles.
+        # $FilesModifiedByPull = $UniqueTargetFiles # Décommentez pour synchroniser tous les fichiers cibles si diff échoue
+    }
+    Log-Message "Fichiers modifiés par le pull : $($FilesModifiedByPull -join ', ')"
+} Catch {
+    Log-Message "Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)" "ALERTE"
+    # Continuer, mais la synchronisation pourrait ne pas être précise.
+}
+
+$FilesToActuallySync = @()
+if ($FilesModifiedByPull.Count -gt 0) {
+    foreach ($modifiedFile in $FilesModifiedByPull) {
+        if ($UniqueTargetFiles -contains $modifiedFile) {
+            $FilesToActuallySync += $modifiedFile
+        }
+    }
+} else {
+    # Si git diff n'a rien retourné ou a échoué, on se rabat sur une copie de tous les fichiers cibles existants
+    # Ceci est une mesure de sécurité, mais peut être affiné.
+    Log-Message "Aucun fichier spécifiquement modifié par le pull détecté ou diff échoué. Vérification de tous les fichiers cibles pour synchronisation." "ALERTE"
+    foreach ($targetFile in $UniqueTargetFiles) {
+        if (Test-Path (Join-Path $RepoPath $targetFile)) {
+            $FilesToActuallySync += $targetFile
+        }
     }
 }
+$FilesToActuallySync = $FilesToActuallySync | Sort-Object -Unique
+Log-Message "Fichiers identifiés pour synchronisation réelle : $($FilesToActuallySync -join ', ')"
 
-if ($FilesToActuallyCopy.Count -eq 0) {
-    Log-Message "Aucun fichier de configuration pertinent n'a été modifié par le git pull. Aucune copie nécessaire."
-} else {
-    Log-Message "Fichiers pertinents modifiés par git pull et à synchroniser : $($FilesToActuallyCopy -join ', ')"
+
+# --- Étape 4: Exécution des Opérations de Synchronisation ---
+Log-Message "Étape 4: Exécution des Opérations de Synchronisation..."
+$SyncedJsonFiles = @()
+
+if ($FilesToActuallySync.Count -eq 0) {
+    Log-Message "Aucun fichier à synchroniser cette fois-ci."
 }
 
-foreach ($FileRelPath in $FilesToActuallyCopy) {
+foreach ($FileRelPath in $FilesToActuallySync) {
     $SourceFile = Join-Path $RepoPath $FileRelPath
     $DestinationFile = Join-Path $RepoPath $FileRelPath # Assumer que le dépôt est l'emplacement actif
 
     if (Test-Path $SourceFile) {
         Try {
-            Copy-Item -Path $SourceFile -Destination $DestinationFile -Force -ErrorAction Stop
+            Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
             Log-Message "Synchronisé : $($FileRelPath)"
+            if ($FileRelPath.EndsWith(".json")) {
+                $SyncedJsonFiles += $DestinationFile
+            }
         } Catch {
             Log-Message "Échec de la synchronisation de $($FileRelPath). Message : $($_.Exception.Message)" "ERREUR"
-            # Envisager de ne pas quitter sur une seule erreur de copie pour tenter les autres
+            # Selon la criticité, on pourrait vouloir sortir ici (Exit 1)
         }
     } else {
-        Log-Message "Fichier source non trouvé pour la copie : $SourceFile (listé dans FilesToSync mais non modifié par pull ou inexistant ?)" "ALERTE"
+        Log-Message "Fichier source non trouvé pour la synchronisation (peut avoir été supprimé par le pull) : $($SourceFile)" "ALERTE"
     }
 }
 
-# Étape 5: Vérification Post-Synchronisation
-Log-Message "Vérification post-synchronisation..."
-$JsonFilesToCheck = @()
-# Filtrer pour ne vérifier que les fichiers JSON qui ont été copiés
-foreach ($FileRelPath in $FilesToActuallyCopy) {
-    if ($FileRelPath.EndsWith(".json")) {
-        $JsonFilesToCheck += $FileRelPath
-    }
-}
+# --- Étape 5: Vérification Post-Synchronisation ---
+Log-Message "Étape 5: Vérification Post-Synchronisation..."
 
-if ($JsonFilesToCheck.Count -gt 0) {
-    Log-Message "Vérification des fichiers JSON suivants : $($JsonFilesToCheck -join ', ')"
-    foreach ($JsonFileRelPath in $JsonFilesToCheck) {
-        $FullPath = Join-Path $RepoPath $JsonFileRelPath
-        if (Test-Path $FullPath) {
+# Vérification des fichiers JSON synchronisés
+if ($SyncedJsonFiles.Count -gt 0) {
+    Log-Message "Vérification des fichiers JSON synchronisés..."
+    foreach ($JsonFileFullPath in $SyncedJsonFiles) {
+        if (Test-Path $JsonFileFullPath) {
             Try {
-                Get-Content -Raw $FullPath | ConvertFrom-Json | Out-Null
-                Log-Message "Vérifié (JSON valide) : $($JsonFileRelPath)"
+                Get-Content -Raw $JsonFileFullPath | ConvertFrom-Json | Out-Null
+                Log-Message "Vérifié (JSON valide) : $($JsonFileFullPath.Substring($RepoPath.Length + 1))"
             } Catch {
-                Log-Message "ERREUR: Fichier JSON invalide après synchronisation : $($JsonFileRelPath). Détails : $($_.Exception.Message)" "ERREUR"
-                # Envisager de ne pas quitter sur une seule erreur de validation pour tenter les autres
+                Log-Message "Fichier JSON invalide après synchronisation : $($JsonFileFullPath.Substring($RepoPath.Length + 1)). Détails : $($_.Exception.Message)" "ERREUR"
+                Exit 1 # Fichier JSON critique invalide
             }
         }
     }
 } else {
-    Log-Message "Aucun fichier JSON n'a été copié, pas de vérification JSON post-copie nécessaire."
+    Log-Message "Aucun fichier JSON n'a été synchronisé, pas de vérification JSON nécessaire."
 }
 
-
-# Étape 6: Gestion des Commits de Correction (si nécessaire)
-Log-Message "Vérification des modifications pour commit de correction (logs, etc.)..."
-# Exclure les fichiers du répertoire sync_conflicts des commits automatiques
-git update-index --assume-unchanged (Join-Path $RepoPath "sync_conflicts/*")
-
-$PostSyncStatus = git status --porcelain
-# Filtrer pour ignorer les fichiers dans sync_conflicts
-$ChangesToCommit = $PostSyncStatus | Where-Object { $_ -notlike "sync_conflicts/*" }
-
-if ($ChangesToCommit) {
-    Log-Message "Modifications détectées après synchronisation (hors logs de conflits). Création d'un commit..."
-    git add . # Ajoute tout ce qui est suivi et modifié, sauf si ignoré par .gitignore ou assume-unchanged
-    git commit -m "SYNC: [Automated] Mise à jour des logs et potentiels ajustements post-synchronisation Roo"
-    Log-Message "Commit de correction créé."
-
-    Log-Message "Tentative de push du commit de correction..."
-    Try {
-        git push origin main -ErrorAction Stop
-        Log-Message "Push du commit de correction réussi."
-    } Catch {
-        Log-Message "Échec du push du commit de correction. Message : $($_.Exception.Message)" "ERREUR"
+# Vérification de l'existence des fichiers clés
+$CriticalFiles = @(
+    "roo-config/settings/settings.json",
+    "roo-modes/configs/modes.json"
+    # Ajoutez d'autres fichiers critiques ici si nécessaire
+)
+Log-Message "Vérification de l'existence des fichiers critiques..."
+foreach ($CriticalFileRelPath in $CriticalFiles) {
+    $FullPath = Join-Path $RepoPath $CriticalFileRelPath
+    if (-not (Test-Path $FullPath)) {
+        Log-Message "Fichier critique manquant après synchronisation : $($CriticalFileRelPath)" "ERREUR"
+        Exit 1 # Fichier critique manquant
+    } else {
+        Log-Message "Fichier critique présent : $($CriticalFileRelPath)"
     }
-} else {
-    Log-Message "Aucune modification (hors logs de conflits) à commiter après synchronisation."
 }
-# Réactiver le suivi des fichiers de log de conflits pour les opérations manuelles futures
-git update-index --no-assume-unchanged (Join-Path $RepoPath "sync_conflicts/*")
 
+# --- Étape 6: Gestion des Commits de Correction (si nécessaire) ---
+Log-Message "Étape 6: Gestion des Commits de Correction..."
+Try {
+    $PostSyncStatus = git status --porcelain
+    if ($PostSyncStatus) {
+        Log-Message "Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction..." "ALERTE"
+        git add . # Ajoute tous les changements, y compris les logs. Peut être affiné.
+        git commit -m "SYNC: [Automated] Mise à jour post-synchronisation (logs, etc.)"
+        Log-Message "Commit de correction créé."
 
-# Étape 7: Nettoyage et Rapport Final
+        Log-Message "Tentative de push du commit de correction..."
+        git push origin main
+        Log-Message "Push du commit de correction réussi."
+    } else {
+        Log-Message "Aucune modification à commiter après synchronisation."
+    }
+} Catch {
+    Log-Message "Échec lors de la gestion des commits de correction ou du push. Message : $($_.Exception.Message)" "ERREUR"
+    # Ne pas quitter ici, car la synchronisation des fichiers a été effectuée localement.
+    # Le push peut être retenté manuellement.
+}
+
+# --- Étape 7: Nettoyage et Rapport Final ---
+Log-Message "Étape 7: Nettoyage et Rapport Final..."
 if ($StashApplied) {
     Log-Message "Restauration du stash..."
     Try {
-        git stash pop -ErrorAction Stop
+        git stash pop
         Log-Message "Stash restauré avec succès."
     } Catch {
-        Log-Message "Échec de la restauration du stash. Des conflits peuvent exister. Message : $($_.Exception.Message)" "ALERTE"
+        Log-Message "Échec de la restauration du stash. Des conflits peuvent exister. Message : $($_.Exception.Message). Résolution manuelle requise." "ALERTE"
+        # Documenter les conflits de stash pop si nécessaire dans un fichier de conflit dédié
+        $ConflictLogFile = Join-Path $ConflictLogDir "stash_pop_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        Add-Content -Path $ConflictLogFile -Value "--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---"
+        Add-Content -Path $ConflictLogFile -Value "$($_.Exception.Message)"
+        (git status) | Out-String | Add-Content -Path $ConflictLogFile
+        Add-Content -Path $ConflictLogFile -Value "--- FIN DU CONFLIT STASH POP ---"
+        Log-Message "Détails du conflit de stash pop enregistrés dans $ConflictLogFile" "ALERTE"
     }
 }
 
 Log-Message "Synchronisation de l'environnement Roo terminée."
+Exit 0
