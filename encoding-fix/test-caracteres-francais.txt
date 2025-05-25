@@ -1,0 +1,5 @@
+﻿Test des caracteres francais:
+- Accents: cafe, hotel, naif, cree
+- Cedille: francais, garcon
+- Ligatures: oeuf, coeur
+- Symboles: euro (â‚¬), degre (Â°)
