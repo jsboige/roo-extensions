@@ -1,0 +1,163 @@
+{
+  "system": {
+    "version": "2.0",
+    "name": "Roo Environment Sync System",
+    "description": "Système de synchronisation automatisé pour l'environnement Roo via dépôt Git",
+    "author": "Roo Extensions Team",
+    "created": "2025-01-25",
+    "repository_path": "d:/roo-extensions"
+  },
+  "git": {
+    "main_branch": "main",
+    "remote_name": "origin",
+    "stash_message": "Automated stash before sync pull",
+    "commit_message_sync": "SYNC: [Automated] Synchronisation des paramètres Roo post-pull",
+    "commit_message_fix": "FIX: [Automated] Correction post-synchronisation des fichiers Roo"
+  },
+  "scheduler": {
+    "task_name": "RooEnvironmentSync",
+    "default_interval_minutes": 30,
+    "execution_account": "SYSTEM",
+    "run_level": "Highest",
+    "allow_start_on_batteries": true,
+    "dont_stop_if_going_on_batteries": true,
+    "start_when_available": true,
+    "run_only_if_network_available": true
+  },
+  "logging": {
+    "main_log_file": "sync_log.txt",
+    "conflict_log_directory": "sync_conflicts",
+    "max_log_size_mb": 10,
+    "log_rotation_enabled": true,
+    "console_output_enabled": true,
+    "log_levels": ["INFO", "WARN", "ERROR", "SUCCESS"]
+  },
+  "files_to_sync": {
+    "critical_config_files": [
+      "roo-config/settings/settings.json",
+      "roo-config/settings/servers.json",
+      "roo-config/settings/modes.json",
+      "roo-config/escalation-test-config.json",
+      "roo-config/qwen3-profiles/qwen3-parameters.json"
+    ],
+    "mode_config_files": [
+      "roo-modes/configs/modes.json",
+      "roo-modes/configs/new-roomodes.json",
+      "roo-modes/configs/standard-modes.json",
+      "roo-modes/configs/vscode-custom-modes.json"
+    ],
+    "script_patterns": [
+      {
+        "directory": "roo-config",
+        "pattern": "*.ps1",
+        "recursive": true
+      }
+    ],
+    "json_patterns": [
+      {
+        "directory": "roo-modes/n5/configs",
+        "pattern": "*.json",
+        "recursive": true
+      }
+    ],
+    "documentation_patterns": [
+      {
+        "directory": "roo-config",
+        "pattern": "*.md",
+        "recursive": true
+      },
+      {
+        "directory": "roo-modes",
+        "pattern": "*.md",
+        "recursive": true
+      }
+    ]
+  },
+  "validation": {
+    "json_validation_enabled": true,
+    "critical_files_check_enabled": true,
+    "syntax_validation_enabled": true,
+    "network_connectivity_check": true,
+    "git_repository_health_check": true
+  },
+  "error_handling": {
+    "stop_on_critical_error": true,
+    "retry_attempts": 3,
+    "retry_delay_seconds": 30,
+    "conflict_resolution_strategy": "abort_and_log",
+    "stash_on_local_changes": true,
+    "create_conflict_logs": true
+  },
+  "notifications": {
+    "success_notifications": false,
+    "error_notifications": true,
+    "warning_notifications": true,
+    "email_notifications": {
+      "enabled": false,
+      "smtp_server": "",
+      "smtp_port": 587,
+      "from_address": "",
+      "to_addresses": [],
+      "use_ssl": true
+    }
+  },
+  "performance": {
+    "max_execution_time_minutes": 15,
+    "parallel_operations_enabled": false,
+    "file_size_limit_mb": 50,
+    "memory_usage_limit_mb": 512
+  },
+  "security": {
+    "validate_file_paths": true,
+    "sanitize_log_content": true,
+    "secure_credential_handling": true,
+    "restrict_network_access": false
+  },
+  "maintenance": {
+    "auto_cleanup_old_logs": true,
+    "log_retention_days": 30,
+    "conflict_log_retention_days": 90,
+    "auto_update_scripts": true,
+    "health_check_frequency": "daily"
+  },
+  "testing": {
+    "test_mode_enabled": false,
+    "dry_run_mode": false,
+    "verbose_logging": false,
+    "skip_network_operations": false,
+    "mock_git_operations": false
+  },
+  "paths": {
+    "scripts": {
+      "main_sync_script": "sync_roo_environment.ps1",
+      "scheduler_setup": "roo-config/scheduler/setup-scheduler.ps1",
+      "validation_script": "roo-config/scheduler/validate-sync.ps1",
+      "test_script": "roo-config/scheduler/test-complete-system.ps1",
+      "deployment_script": "roo-config/scheduler/deploy-complete-system.ps1"
+    },
+    "logs": {
+      "main_log": "sync_log.txt",
+      "deployment_log": "deployment_*.log",
+      "test_results": "test_results.log",
+      "conflict_logs": "sync_conflicts/"
+    },
+    "config": {
+      "main_config": "roo-config/scheduler/config.json",
+      "installation_guide": "roo-config/scheduler/README-Installation-Scheduler.md"
+    }
+  },
+  "compatibility": {
+    "minimum_powershell_version": "5.1",
+    "minimum_git_version": "2.0",
+    "supported_windows_versions": ["Windows 10", "Windows 11", "Windows Server 2016+"],
+    "required_permissions": ["Administrator", "Task Scheduler", "File System", "Network Access"]
+  },
+  "features": {
+    "automatic_conflict_detection": true,
+    "intelligent_file_filtering": true,
+    "rollback_on_failure": true,
+    "health_monitoring": true,
+    "performance_metrics": true,
+    "detailed_reporting": true
+  }
+}
