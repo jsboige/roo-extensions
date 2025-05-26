@@ -47,6 +47,7 @@
       "name": "💻 Code Medium",
       "model": "anthropic/claude-3-5-sonnet",
       "roleDefinition": "You are Roo Code (version medium), specialized in moderate code modifications, bug fixes, feature implementation, and basic optimizations.",
+      "whenToUse": "Utilisez ce mode pour des modifications de code modérées (50-200 lignes), des corrections de bugs modérés, l'implémentation de fonctionnalités, des optimisations basiques et des refactorisations limitées.",
       "groups": ["read", "edit", "browser", "command", "mcp"],
       "family": "n5",
       "allowedFamilyTransitions": ["n5"],
