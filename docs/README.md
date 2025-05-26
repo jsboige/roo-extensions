@@ -1,6 +1,31 @@
 # Documentation du Projet Roo Extensions
 
-Ce répertoire contient la documentation complète du projet Roo Extensions, organisée par catégories pour faciliter la navigation et la compréhension du projet dans son ensemble.
+## Table des matières
+
+1. [Introduction](#vue-densemble)
+2. [Structure de la documentation](#structure-de-la-documentation)
+   - [Répertoires principaux](#répertoires-principaux)
+   - [Guides d'utilisation](#guides-dutilisation)
+   - [Documentation technique](#documentation-technique)
+   - [Rapports](#rapports)
+   - [Tests](#tests)
+3. [Organisation par composant](#organisation-par-composant)
+   - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
+   - [Modes Roo](#modes-roo)
+   - [Configuration Roo](#configuration-roo)
+   - [Serveurs MCP](#serveurs-mcp)
+   - [Orchestration](#orchestration)
+4. [Navigation rapide](#navigation-rapide)
+   - [Documentation des composants principaux](#documentation-des-composants-principaux)
+   - [Guides essentiels](#guides-essentiels)
+5. [Comment utiliser cette documentation](#comment-utiliser-cette-documentation)
+   - [Pour les nouveaux utilisateurs](#pour-les-nouveaux-utilisateurs)
+   - [Pour configurer Roo](#pour-configurer-roo)
+   - [Pour maintenir la configuration](#pour-maintenir-la-configuration)
+   - [Pour comprendre l'architecture](#pour-comprendre-larchitecture)
+6. [Contribution à la documentation](#contribution-à-la-documentation)
+7. [Intégration](#intégration)
+8. [Ressources supplémentaires](#ressources-supplémentaires)
 
 ## Vue d'ensemble
 
@@ -132,8 +157,7 @@ Ces documents décrivent les tests effectués et leurs résultats :
 - [README principal du projet](../README.md) - Vue d'ensemble du projet Roo Extensions
 - [Documentation des modes Roo](../roo-modes/README.md) - Documentation des modes personnalisés
 - [Documentation de la configuration Roo](../roo-config/README.md) - Documentation des outils de configuration
-- [Documentation des MCPs internes](../mcps/internal/README.md) - Documentation des serveurs MCP développés en interne
-- [Documentation des MCPs externes](../mcps/external/README.md) - Documentation des serveurs MCP externes
+- [Documentation des MCPs](../mcps/README.md) - Documentation des serveurs MCP
 - [Documentation des tests](../tests/README.md) - Documentation des tests du projet
 
 ### Guides essentiels
@@ -186,8 +210,25 @@ Si vous souhaitez contribuer à la documentation, veuillez suivre ces directives
 3. Testez vos liens et vérifiez la mise en forme
 4. Soumettez une pull request
 
+## Intégration
+
+La documentation s'intègre avec les autres composants du projet de plusieurs façons :
+
+1. **Avec les modes Roo** : La documentation fournit des guides détaillés sur l'utilisation et la configuration des modes personnalisés, ainsi que sur les mécanismes d'escalade et de désescalade.
+
+2. **Avec la configuration Roo** : Des guides complets expliquent comment déployer, configurer et maintenir les configurations Roo, ainsi que comment résoudre les problèmes d'encodage courants.
+
+3. **Avec les serveurs MCP** : La documentation explique comment configurer et utiliser les différents serveurs MCP, ainsi que leurs capacités et limitations.
+
+4. **Avec les tests** : Des rapports détaillés présentent les résultats des tests effectués sur les différentes composantes du projet, permettant de valider leur bon fonctionnement.
+
+5. **Avec le système de profils** : Des guides expliquent comment utiliser le système de profils pour configurer les modes Roo en fonction des modèles de langage disponibles.
+
 ## Ressources supplémentaires
 
-- [Documentation officielle de Roo](https://docs.roo.ai) - Documentation officielle de Roo
-- [GitHub du projet](https://github.com/votre-utilisateur/roo-extensions) - Dépôt GitHub du projet
+- [README principal du projet](../README.md) - Vue d'ensemble du projet Roo Extensions
+- [Documentation des modes Roo](../roo-modes/README.md) - Documentation des modes personnalisés
+- [Documentation de la configuration Roo](../roo-config/README.md) - Documentation des outils de configuration
+- [Documentation des MCPs](../mcps/README.md) - Documentation des serveurs MCP
+- [Documentation des tests](../tests/README.md) - Documentation des tests du projet
 - [Rapport de synthèse global](rapports/rapport-synthese-global.md) - Synthèse globale du projet
