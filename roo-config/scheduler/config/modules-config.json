@@ -1,0 +1,130 @@
+{
+  "modules": {
+    "core": {
+      "taskManager": {
+        "enabled": true,
+        "priority": 1,
+        "autoStart": true,
+        "dependencies": [],
+        "config": {
+          "maxTasks": 50,
+          "taskPersistence": true
+        }
+      },
+      "queueManager": {
+        "enabled": true,
+        "priority": 2,
+        "autoStart": true,
+        "dependencies": ["taskManager"],
+        "config": {
+          "queueType": "priority",
+          "maxSize": 100,
+          "persistence": true
+        }
+      },
+      "executionEngine": {
+        "enabled": true,
+        "priority": 3,
+        "autoStart": true,
+        "dependencies": ["taskManager", "queueManager"],
+        "config": {
+          "workerThreads": 4,
+          "isolatedExecution": true,
+          "resourceLimits": {
+            "memory": "512MB",
+            "cpu": "50%"
+          }
+        }
+      }
+    },
+    "utilities": {
+      "logger": {
+        "enabled": true,
+        "priority": 0,
+        "autoStart": true,
+        "dependencies": [],
+        "config": {
+          "format": "json",
+          "includeTimestamp": true,
+          "includeLevel": true
+        }
+      },
+      "metrics": {
+        "enabled": true,
+        "priority": 1,
+        "autoStart": true,
+        "dependencies": ["logger"],
+        "config": {
+          "collectInterval": 10000,
+          "retentionPeriod": 86400000,
+          "exportFormat": "prometheus"
+        }
+      },
+      "healthCheck": {
+        "enabled": true,
+        "priority": 2,
+        "autoStart": true,
+        "dependencies": ["logger"],
+        "config": {
+          "checkInterval": 30000,
+          "endpoints": [
+            "/health",
+            "/ready",
+            "/metrics"
+          ]
+        }
+      }
+    },
+    "integrations": {
+      "rooModes": {
+        "enabled": true,
+        "priority": 5,
+        "autoStart": false,
+        "dependencies": ["taskManager"],
+        "config": {
+          "modesPath": "../../roo-modes",
+          "autoDiscovery": true,
+          "supportedModes": ["code", "architect", "debug", "orchestrator"]
+        }
+      },
+      "mcpServers": {
+        "enabled": true,
+        "priority": 6,
+        "autoStart": false,
+        "dependencies": ["taskManager"],
+        "config": {
+          "serversPath": "../../mcps",
+          "autoConnect": false,
+          "connectionTimeout": 10000
+        }
+      },
+      "vscodeExtension": {
+        "enabled": false,
+        "priority": 7,
+        "autoStart": false,
+        "dependencies": ["taskManager"],
+        "config": {
+          "extensionId": "rooveterinaryinc.roo-cline",
+          "communicationMethod": "ipc"
+        }
+      }
+    }
+  },
+  "loadOrder": [
+    "utilities.logger",
+    "core.taskManager",
+    "utilities.metrics",
+    "utilities.healthCheck",
+    "core.queueManager",
+    "core.executionEngine",
+    "integrations.rooModes",
+    "integrations.mcpServers",
+    "integrations.vscodeExtension"
+  ],
+  "moduleSettings": {
+    "autoReload": true,
+    "reloadOnConfigChange": true,
+    "gracefulShutdown": true,
+    "shutdownTimeout": 30000
+  }
+}

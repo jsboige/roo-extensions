@@ -1,0 +1,147 @@
+{
+  "environments": {
+    "development": {
+      "name": "Development",
+      "description": "Environnement de développement local",
+      "active": true,
+      "scheduler": {
+        "debug": true,
+        "logLevel": "debug",
+        "maxConcurrentTasks": 2,
+        "taskTimeout": 60000
+      },
+      "storage": {
+        "dataDirectory": "../data/dev",
+        "persistentStorage": false,
+        "backupEnabled": false
+      },
+      "security": {
+        "enableAuthentication": false,
+        "enableAuthorization": false,
+        "rateLimiting": {
+          "enabled": false
+        }
+      },
+      "monitoring": {
+        "enabled": true,
+        "alerting": {
+          "enabled": false
+        }
+      },
+      "modules": {
+        "autoStart": ["logger", "taskManager", "queueManager"],
+        "disabled": ["vscodeExtension"]
+      }
+    },
+    "testing": {
+      "name": "Testing",
+      "description": "Environnement de test et validation",
+      "active": false,
+      "scheduler": {
+        "debug": true,
+        "logLevel": "info",
+        "maxConcurrentTasks": 3,
+        "taskTimeout": 120000
+      },
+      "storage": {
+        "dataDirectory": "../data/test",
+        "persistentStorage": true,
+        "backupEnabled": true,
+        "backupInterval": 1800000
+      },
+      "security": {
+        "enableAuthentication": false,
+        "enableAuthorization": false,
+        "rateLimiting": {
+          "enabled": true,
+          "maxRequests": 50
+        }
+      },
+      "monitoring": {
+        "enabled": true,
+        "alerting": {
+          "enabled": true,
+          "thresholds": {
+            "errorRate": 0.2,
+            "responseTime": 10000
+          }
+        }
+      },
+      "modules": {
+        "autoStart": ["logger", "taskManager", "queueManager", "executionEngine", "metrics"],
+        "disabled": []
+      }
+    },
+    "production": {
+      "name": "Production",
+      "description": "Environnement de production",
+      "active": false,
+      "scheduler": {
+        "debug": false,
+        "logLevel": "warn",
+        "maxConcurrentTasks": 10,
+        "taskTimeout": 300000
+      },
+      "storage": {
+        "dataDirectory": "../data/prod",
+        "persistentStorage": true,
+        "backupEnabled": true,
+        "backupInterval": 3600000,
+        "maxBackups": 10
+      },
+      "security": {
+        "enableAuthentication": true,
+        "enableAuthorization": true,
+        "rateLimiting": {
+          "enabled": true,
+          "maxRequests": 200,
+          "windowMs": 60000
+        }
+      },
+      "monitoring": {
+        "enabled": true,
+        "alerting": {
+          "enabled": true,
+          "thresholds": {
+            "errorRate": 0.05,
+            "responseTime": 3000,
+            "queueSize": 90
+          }
+        }
+      },
+      "modules": {
+        "autoStart": ["logger", "taskManager", "queueManager", "executionEngine", "metrics", "healthCheck"],
+        "disabled": []
+      }
+    }
+  },
+  "environmentSettings": {
+    "defaultEnvironment": "development",
+    "allowEnvironmentSwitch": true,
+    "requireRestart": true,
+    "configValidation": true,
+    "environmentVariables": {
+      "development": {
+        "ROO_SCHEDULER_ENV": "dev",
+        "ROO_SCHEDULER_DEBUG": "true",
+        "ROO_SCHEDULER_LOG_LEVEL": "debug"
+      },
+      "testing": {
+        "ROO_SCHEDULER_ENV": "test",
+        "ROO_SCHEDULER_DEBUG": "true",
+        "ROO_SCHEDULER_LOG_LEVEL": "info"
+      },
+      "production": {
+        "ROO_SCHEDULER_ENV": "prod",
+        "ROO_SCHEDULER_DEBUG": "false",
+        "ROO_SCHEDULER_LOG_LEVEL": "warn"
+      }
+    }
+  },
+  "migration": {
+    "enabled": true,
+    "backupBeforeMigration": true,
+    "validateAfterMigration": true,
+    "rollbackOnFailure": true
+  }
+}

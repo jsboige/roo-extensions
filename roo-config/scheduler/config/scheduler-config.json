@@ -1,0 +1,61 @@
+{
+  "scheduler": {
+    "name": "Roo Scheduler",
+    "version": "1.0.0",
+    "description": "Système de planification et d'orchestration pour les tâches Roo",
+    "enabled": true,
+    "debug": false
+  },
+  "execution": {
+    "maxConcurrentTasks": 5,
+    "taskTimeout": 300000,
+    "retryAttempts": 3,
+    "retryDelay": 5000,
+    "queueSize": 100
+  },
+  "logging": {
+    "level": "info",
+    "logToFile": true,
+    "logDirectory": "../logs",
+    "maxLogFiles": 10,
+    "maxLogSize": "10MB",
+    "logRotation": true
+  },
+  "monitoring": {
+    "enabled": true,
+    "healthCheckInterval": 30000,
+    "metricsCollection": true,
+    "alerting": {
+      "enabled": false,
+      "thresholds": {
+        "errorRate": 0.1,
+        "responseTime": 5000,
+        "queueSize": 80
+      }
+    }
+  },
+  "storage": {
+    "dataDirectory": "../data",
+    "persistentStorage": true,
+    "backupEnabled": true,
+    "backupInterval": 3600000,
+    "maxBackups": 5
+  },
+  "security": {
+    "enableAuthentication": false,
+    "enableAuthorization": false,
+    "allowedOrigins": ["localhost"],
+    "rateLimiting": {
+      "enabled": true,
+      "maxRequests": 100,
+      "windowMs": 60000
+    }
+  },
+  "performance": {
+    "cacheEnabled": true,
+    "cacheSize": 1000,
+    "cacheTTL": 300000,
+    "compressionEnabled": true,
+    "optimizeMemoryUsage": true
+  }
+}
