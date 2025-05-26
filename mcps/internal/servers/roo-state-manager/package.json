@@ -1,0 +1,36 @@
+{
+  "name": "roo-state-manager",
+  "version": "1.0.0",
+  "description": "MCP server for unified Roo state management and conversation persistence",
+  "type": "module",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node build/index.js",
+    "dev": "tsc -w",
+    "test": "jest",
+    "test:coverage": "jest --coverage",
+    "test:detector": "node tests/test-storage-detector.js",
+    "test:all": "npm run test && npm run test:detector"
+  },
+  "keywords": [
+    "mcp",
+    "roo",
+    "state-management",
+    "conversation",
+    "persistence"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest",
+    "glob": "^10.3.10",
+    "jsboige-mcp-servers": "file:../.."
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.8.3"
+  }
+}
