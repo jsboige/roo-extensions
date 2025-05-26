@@ -41,7 +41,7 @@ Write-ColorOutput "=========================================================" "C
 
 # Vérifier que le fichier de configuration existe
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$configFilePath = Join-Path -Path $scriptDir -ChildPath "..\roo-modes\configs\standard-modes.json"
+$configFilePath = Join-Path -Path $scriptDir -ChildPath "..\modes\simple-complex-modes.json"
 
 if (-not (Test-Path -Path $configFilePath)) {
     Write-ColorOutput "Erreur: Le fichier de configuration 'standard-modes.json' n'existe pas." "Red"
@@ -173,30 +173,48 @@ try {
     $sourceEncoding = Test-FileEncoding -Path $configFilePath
     Write-ColorOutput "Encodage du fichier source: $sourceEncoding" "Cyan"
     
-    # Lire le contenu du fichier JSON avec encodage UTF-8
-    $jsonContent = [System.IO.File]::ReadAllText($configFilePath, [System.Text.Encoding]::UTF8)
-    
-    if ($DebugMode) {
-        Write-ColorOutput "Contenu brut du fichier source (premiers 500 caractères):" "Yellow"
-        Write-ColorOutput $jsonContent.Substring(0, [Math]::Min(500, $jsonContent.Length)) "Yellow"
+    # Lire le contenu du fichier JSON en détectant automatiquement l'encodage
+    try {
+        # Lire les octets du fichier
+        $bytes = [System.IO.File]::ReadAllBytes($configFilePath)
+        
+        # Détecter et supprimer le BOM UTF-8 si présent
+        if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+            $bytes = $bytes[3..($bytes.Length-1)]
+        }
+        
+        # Convertir les octets en texte UTF-8
+        $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
+        $jsonContent = $utf8NoBomEncoding.GetString($bytes)
+        
+        if ($DebugMode) {
+            Write-ColorOutput "Contenu brut du fichier source (premiers 500 caractères):" "Yellow"
+            Write-ColorOutput $jsonContent.Substring(0, [Math]::Min(500, $jsonContent.Length)) "Yellow"
+        }
+        
+        # Vérifier que le JSON est valide en utilisant une approche plus robuste
+        try {
+            $jsonObject = ConvertFrom-Json $jsonContent -ErrorAction Stop
+        }
+        catch {
+            Write-ColorOutput "Erreur: Le fichier JSON source n'est pas valide." "Red"
+            Write-ColorOutput "Détail de l'erreur: $($_.Exception.Message)" "Red"
+            Write-ColorOutput "Vérifiez le format du fichier et réessayez." "Red"
+            exit 1
+        }
     }
-    
-    # Vérifier que le JSON est valide
-    if (-not (Test-JsonContent -Json $jsonContent)) {
-        Write-ColorOutput "Erreur: Le fichier JSON source n'est pas valide." "Red"
-        Write-ColorOutput "Vérifiez le format du fichier et réessayez." "Red"
+    catch {
+        Write-ColorOutput "Erreur lors de la lecture du fichier JSON:" "Red"
+        Write-ColorOutput $_.Exception.Message "Red"
         exit 1
     }
-    
-    # Convertir le JSON en objet PowerShell
-    $jsonObject = ConvertFrom-Json $jsonContent
     
     # Convertir l'objet PowerShell en JSON avec encodage UTF-8 et formatage préservé
     $jsonString = ConvertTo-Json $jsonObject -Depth 100 -Compress:$false
     
-    # Écrire le contenu en UTF-8 sans BOM pour une meilleure compatibilité
-    $utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
-    [System.IO.File]::WriteAllText($destinationFile, $jsonString, $utf8NoBomEncoding)
+    # Écrire le contenu en UTF-8 avec BOM pour une meilleure compatibilité avec les caractères spéciaux
+    $utf8WithBomEncoding = New-Object System.Text.UTF8Encoding $true
+    [System.IO.File]::WriteAllText($destinationFile, $jsonString, $utf8WithBomEncoding)
     
     Write-ColorOutput "Déploiement réussi!" "Green"
     
@@ -269,12 +287,12 @@ Write-ColorOutput "3. Tapez 'Roo: Switch Mode' et sélectionnez un des modes sui
 Write-ColorOutput "   - 💻 Code Simple" "White"
 Write-ColorOutput "   - 💻 Code Complex" "White"
 Write-ColorOutput "   - 🪲 Debug Simple" "White"
-Write-ColorOutput "   - 🪲 Debug Complex" "White"
-Write-ColorOutput "   - 🏗️ Architect Simple" "White"
-Write-ColorOutput "   - 🏗️ Architect Complex" "White"
-Write-ColorOutput "   - ❓ Ask Simple" "White"
-Write-ColorOutput "   - ❓ Ask Complex" "White"
-Write-ColorOutput "   - 🪃 Orchestrator Simple" "White"
-Write-ColorOutput "   - 🪃 Orchestrator Complex" "White"
-Write-ColorOutput "   - 👨‍💼 Manager" "White"
+Write-ColorOutput -Message "   - Debug Complex" -ForegroundColor "White"
+Write-ColorOutput -Message "   - Architect Simple" -ForegroundColor "White"
+Write-ColorOutput -Message "   - Architect Complex" -ForegroundColor "White"
+Write-ColorOutput -Message "   - ? Ask Simple" -ForegroundColor "White"
+Write-ColorOutput -Message "   - ? Ask Complex" -ForegroundColor "White"
+Write-ColorOutput -Message "   - Orchestrator Simple" -ForegroundColor "White"
+Write-ColorOutput -Message "   - Orchestrator Complex" -ForegroundColor "White"
+Write-ColorOutput -Message "   - Manager" -ForegroundColor "White"
 Write-ColorOutput "`n" "White"

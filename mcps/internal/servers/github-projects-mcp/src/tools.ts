@@ -1,7 +1,113 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { CallToolRequestSchema, ListToolsRequestSchema, ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import { Octokit } from '@octokit/rest';
+// import { Octokit } from '@octokit/rest'; // Octokit est déjà initialisé via getGitHubClient
 import { getGitHubClient } from './utils/github';
+
+// Interfaces pour les réponses GraphQL (similaires à resources.ts)
+interface GitHubProjectNode {
+  id: string;
+  title: string;
+  number: number;
+  shortDescription?: string;
+  url: string;
+  closed: boolean;
+  createdAt: string;
+  updatedAt: string;
+  items?: {
+    nodes: GitHubProjectItem[];
+  };
+  fields?: {
+    nodes: GitHubProjectField[];
+  };
+}
+
+interface GitHubProjectItemContent {
+  title?: string;
+  number?: number;
+  state?: string;
+  url?: string;
+  body?: string;
+}
+
+interface GitHubProjectItem {
+  id: string;
+  type: string;
+  content?: GitHubProjectItemContent;
+  fieldValues?: {
+    nodes: GitHubProjectFieldValue[];
+  };
+}
+
+interface GitHubProjectFieldValue {
+  text?: string;
+  date?: string;
+  name?: string; // For single select option name
+  field?: {
+    name?: string; // For field name
+  };
+}
+
+interface GitHubProjectFieldOption {
+  id: string;
+  name: string;
+  color?: string;
+}
+
+interface GitHubProjectField {
+  id: string;
+  name: string;
+  options?: GitHubProjectFieldOption[];
+}
+
+interface GraphQLProjectsResponseUser {
+  user: {
+    projectsV2: {
+      nodes: GitHubProjectNode[];
+    };
+  };
+}
+
+interface GraphQLProjectsResponseOrg {
+  organization: {
+    projectsV2: {
+      nodes: GitHubProjectNode[];
+    };
+  };
+}
+
+interface GraphQLOwnerIdResponse {
+  user?: { id: string };
+  organization?: { id: string };
+}
+
+interface GraphQLCreateProjectResponse {
+  createProjectV2: {
+    projectV2: GitHubProjectNode;
+  };
+}
+
+interface GraphQLGetProjectResponse {
+    user?: { projectV2: GitHubProjectNode };
+    organization?: { projectV2: GitHubProjectNode };
+}
+
+interface GraphQLAddProjectItemResponse {
+  addProjectV2ItemById?: { // Pour issues/PRs
+    item: { id: string };
+  };
+  addProjectV2DraftIssue?: { // Pour draft issues
+    projectItem: { id: string };
+  };
+}
+
+interface GraphQLUpdateProjectItemFieldResponse {
+  updateProjectV2ItemFieldValue: {
+    projectV2Item: {
+      id: string;
+    };
+  };
+}
+
 
 // Initialiser le client GitHub
 const octokit = getGitHubClient();
@@ -42,7 +148,6 @@ export function setupTools(server: any) {
     },
     execute: async ({ owner, type = 'user', state = 'open' }) => {
       try {
-        // Utiliser l'API GraphQL pour récupérer les projets (v2)
         const query = `
           query($owner: String!, $type: String!) {
             ${type === 'user' ? 'user' : 'organization'}(login: $owner) {
@@ -65,15 +170,27 @@ export function setupTools(server: any) {
         const response = await octokit.graphql(query, {
           owner,
           type
-        });
+        }) as unknown;
 
-        const projects = type === 'user' 
-          ? response.user.projectsV2.nodes 
-          : response.organization.projectsV2.nodes;
+        let projects: GitHubProjectNode[] = [];
+        if (type === 'user' && response && typeof response === 'object' && 'user' in response) {
+          const userResponse = response as GraphQLProjectsResponseUser;
+          if (userResponse.user?.projectsV2?.nodes) {
+            projects = userResponse.user.projectsV2.nodes;
+          }
+        } else if (type === 'org' && response && typeof response === 'object' && 'organization' in response) {
+          const orgResponse = response as GraphQLProjectsResponseOrg;
+          if (orgResponse.organization?.projectsV2?.nodes) {
+            projects = orgResponse.organization.projectsV2.nodes;
+          }
+        } else {
+            console.warn('[list_projects] Réponse GraphQL inattendue:', response);
+        }
+        
 
         return {
           success: true,
-          projects: projects.map((project: any) => ({
+          projects: projects.map((project: GitHubProjectNode) => ({
             id: project.id,
             title: project.title,
             number: project.number,
@@ -123,8 +240,24 @@ export function setupTools(server: any) {
     },
     execute: async ({ owner, title, description = '', type = 'user' }) => {
       try {
-        // Utiliser l'API GraphQL pour créer un projet (v2)
-        const query = `
+        const ownerQuery = `
+          query($login: String!) {
+            ${type === 'user' ? 'user' : 'organization'}(login: $login) {
+              id
+            }
+          }
+        `;
+
+        const ownerData = await octokit.graphql(ownerQuery, {
+          login: owner
+        }) as unknown as GraphQLOwnerIdResponse;
+
+        const ownerId = type === 'user' ? ownerData.user?.id : ownerData.organization?.id;
+        if (!ownerId) {
+          throw new Error(`Impossible de récupérer l'ID pour ${type} ${owner}`);
+        }
+        
+        const createQuery = `
           mutation($ownerId: ID!, $title: String!, $description: String) {
             createProjectV2(input: {
               ownerId: $ownerId,
@@ -145,30 +278,16 @@ export function setupTools(server: any) {
           }
         `;
 
-        // D'abord, obtenir l'ID du propriétaire
-        const ownerQuery = `
-          query($login: String!) {
-            ${type === 'user' ? 'user' : 'organization'}(login: $login) {
-              id
-            }
-          }
-        `;
-
-        const ownerData = await octokit.graphql(ownerQuery, {
-          login: owner
-        });
-
-        const ownerId = type === 'user' 
-          ? ownerData.user.id 
-          : ownerData.organization.id;
-
-        const response = await octokit.graphql(query, {
+        const response = await octokit.graphql(createQuery, {
           ownerId,
           title,
           description
-        });
+        }) as unknown as GraphQLCreateProjectResponse;
 
-        const project = response.createProjectV2.projectV2;
+        const project = response.createProjectV2?.projectV2;
+        if (!project) {
+            throw new Error('La création du projet a échoué ou la réponse est invalide.');
+        }
 
         return {
           success: true,
@@ -212,10 +331,14 @@ export function setupTools(server: any) {
     },
     execute: async ({ owner, project_number }) => {
       try {
-        // Utiliser l'API GraphQL pour récupérer les détails d'un projet (v2)
+        // Note: La query originale suppose 'user'. Il faudrait déterminer le type d'owner.
+        // Pour cet outil, on va supposer que l'API GitHub peut résoudre le projet via user OU org.
+        // Une approche plus robuste serait de demander le type d'owner en input.
+        // Pour l'instant, on essaie avec 'user', puis 'organization' si ça échoue ou si on a une indication.
+        // Simplifions pour l'instant en gardant la logique de 'user' comme dans le fichier resources.ts
         const query = `
           query($owner: String!, $number: Int!) {
-            user(login: $owner) {
+            user(login: $owner) { # Potentiellement adapter pour organization
               projectV2(number: $number) {
                 id
                 title
@@ -230,68 +353,23 @@ export function setupTools(server: any) {
                     id
                     type
                     content {
-                      ... on Issue {
-                        title
-                        number
-                        state
-                        url
-                      }
-                      ... on PullRequest {
-                        title
-                        number
-                        state
-                        url
-                      }
-                      ... on DraftIssue {
-                        title
-                        body
-                      }
+                      ... on Issue { title number state url }
+                      ... on PullRequest { title number state url }
+                      ... on DraftIssue { title body }
                     }
                     fieldValues(first: 20) {
                       nodes {
-                        ... on ProjectV2ItemFieldTextValue {
-                          text
-                          field {
-                            ... on ProjectV2FieldCommon {
-                              name
-                            }
-                          }
-                        }
-                        ... on ProjectV2ItemFieldDateValue {
-                          date
-                          field {
-                            ... on ProjectV2FieldCommon {
-                              name
-                            }
-                          }
-                        }
-                        ... on ProjectV2ItemFieldSingleSelectValue {
-                          name
-                          field {
-                            ... on ProjectV2FieldCommon {
-                              name
-                            }
-                          }
-                        }
+                        ... on ProjectV2ItemFieldTextValue { text field { ... on ProjectV2FieldCommon { name } } }
+                        ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } }
+                        ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
                       }
                     }
                   }
                 }
                 fields(first: 20) {
                   nodes {
-                    ... on ProjectV2FieldCommon {
-                      id
-                      name
-                    }
-                    ... on ProjectV2SingleSelectField {
-                      id
-                      name
-                      options {
-                        id
-                        name
-                        color
-                      }
-                    }
+                    ... on ProjectV2FieldCommon { id name }
+                    ... on ProjectV2SingleSelectField { id name options { id name color } }
                   }
                 }
               }
@@ -302,10 +380,13 @@ export function setupTools(server: any) {
         const response = await octokit.graphql(query, {
           owner,
           number: project_number
-        });
+        }) as unknown as GraphQLGetProjectResponse;
 
-        const project = response.user.projectV2;
-
+        const project = response.user?.projectV2; // Ou response.organization?.projectV2
+        if (!project) {
+            throw new Error(`Projet non trouvé pour ${owner}/${project_number} ou réponse invalide.`);
+        }
+        
         return {
           success: true,
           project: {
@@ -317,25 +398,15 @@ export function setupTools(server: any) {
             closed: project.closed,
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
-            items: project.items.nodes.map((item: any) => {
-              const itemData: any = {
+            items: project.items?.nodes.map((item: GitHubProjectItem) => {
+              const itemData: Partial<GitHubProjectItem & { fields: any[] }> = {
                 id: item.id,
                 type: item.type
               };
-
-              if (item.content) {
-                itemData.content = {
-                  title: item.content.title,
-                  number: item.content.number,
-                  state: item.content.state,
-                  url: item.content.url,
-                  body: item.content.body
-                };
-              }
-
-              if (item.fieldValues && item.fieldValues.nodes) {
-                itemData.fields = item.fieldValues.nodes.map((fieldValue: any) => {
-                  if (fieldValue.field && fieldValue.field.name) {
+              if (item.content) itemData.content = item.content;
+              if (item.fieldValues?.nodes) {
+                itemData.fields = item.fieldValues.nodes.map((fieldValue: GitHubProjectFieldValue) => {
+                  if (fieldValue.field?.name) {
                     return {
                       name: fieldValue.field.name,
                       value: fieldValue.text || fieldValue.date || fieldValue.name
@@ -344,23 +415,14 @@ export function setupTools(server: any) {
                   return null;
                 }).filter(Boolean);
               }
-
               return itemData;
             }),
-            fields: project.fields.nodes.map((field: any) => {
-              const fieldData: any = {
+            fields: project.fields?.nodes.map((field: GitHubProjectField) => {
+              const fieldData: Partial<GitHubProjectField> = {
                 id: field.id,
                 name: field.name
               };
-
-              if (field.options) {
-                fieldData.options = field.options.map((option: any) => ({
-                  id: option.id,
-                  name: option.name,
-                  color: option.color
-                }));
-              }
-
+              if (field.options) fieldData.options = field.options;
               return fieldData;
             })
           }
@@ -381,28 +443,11 @@ export function setupTools(server: any) {
     inputSchema: {
       type: 'object',
       properties: {
-        project_id: {
-          type: 'string',
-          description: 'ID du projet'
-        },
-        content_id: {
-          type: 'string',
-          description: 'ID de l\'élément à ajouter (issue ou pull request)'
-        },
-        content_type: {
-          type: 'string',
-          enum: ['issue', 'pull_request', 'draft_issue'],
-          description: 'Type de contenu à ajouter',
-          default: 'issue'
-        },
-        draft_title: {
-          type: 'string',
-          description: 'Titre de la note (uniquement pour les notes)'
-        },
-        draft_body: {
-          type: 'string',
-          description: 'Corps de la note (uniquement pour les notes)'
-        }
+        project_id: { type: 'string', description: 'ID du projet' },
+        content_id: { type: 'string', description: 'ID de l\'élément à ajouter (issue ou pull request)' },
+        content_type: { type: 'string', enum: ['issue', 'pull_request', 'draft_issue'], default: 'issue' },
+        draft_title: { type: 'string', description: 'Titre de la note (uniquement pour les notes)' },
+        draft_body: { type: 'string', description: 'Corps de la note (uniquement pour les notes)' }
       },
       required: ['project_id']
     },
@@ -412,54 +457,39 @@ export function setupTools(server: any) {
         let variables: any = { projectId: project_id };
 
         if (content_type === 'draft_issue') {
-          // Ajouter une note au projet
+          if (!draft_title) throw new Error("Le titre est requis pour une draft_issue.");
           query = `
-            mutation($projectId: ID!, $title: String!, $body: String!) {
-              addProjectV2DraftIssue(input: {
-                projectId: $projectId,
-                title: $title,
-                body: $body
-              }) {
-                projectItem {
-                  id
-                }
+            mutation($projectId: ID!, $title: String!, $body: String) {
+              addProjectV2DraftIssue(input: { projectId: $projectId, title: $title, body: $body }) {
+                projectItem { id }
               }
-            }
-          `;
+            }`;
           variables.title = draft_title;
           variables.body = draft_body;
         } else {
-          // Ajouter une issue ou une pull request au projet
+          if (!content_id) throw new Error("content_id est requis pour issue ou pull_request.");
           query = `
             mutation($projectId: ID!, $contentId: ID!) {
-              addProjectV2ItemById(input: {
-                projectId: $projectId,
-                contentId: $contentId
-              }) {
-                item {
-                  id
-                }
+              addProjectV2ItemById(input: { projectId: $projectId, contentId: $contentId }) {
+                item { id }
               }
-            }
-          `;
+            }`;
           variables.contentId = content_id;
         }
 
-        const response = await octokit.graphql(query, variables);
+        const response = await octokit.graphql(query, variables) as unknown as GraphQLAddProjectItemResponse;
 
         const itemId = content_type === 'draft_issue'
-          ? response.addProjectV2DraftIssue.projectItem.id
-          : response.addProjectV2ItemById.item.id;
+          ? response.addProjectV2DraftIssue?.projectItem?.id
+          : response.addProjectV2ItemById?.item?.id;
 
-        return {
-          success: true,
-          item_id: itemId
-        };
+        if (!itemId) {
+            throw new Error("Impossible d'ajouter l'élément ou réponse invalide.");
+        }
+
+        return { success: true, item_id: itemId };
       } catch (error: any) {
-        return {
-          success: false,
-          error: error.message || 'Erreur lors de l\'ajout de l\'élément au projet'
-        };
+        return { success: false, error: error.message || 'Erreur lors de l\'ajout de l\'élément au projet' };
       }
     }
   },
@@ -471,135 +501,68 @@ export function setupTools(server: any) {
     inputSchema: {
       type: 'object',
       properties: {
-        project_id: {
-          type: 'string',
-          description: 'ID du projet'
-        },
-        item_id: {
-          type: 'string',
-          description: 'ID de l\'élément dans le projet'
-        },
-        field_id: {
-          type: 'string',
-          description: 'ID du champ à mettre à jour'
-        },
-        field_type: {
-          type: 'string',
-          enum: ['text', 'date', 'single_select', 'number'],
-          description: 'Type de champ',
-          default: 'text'
-        },
-        value: {
-          type: 'string',
-          description: 'Nouvelle valeur pour le champ'
-        },
-        option_id: {
-          type: 'string',
-          description: 'ID de l\'option pour les champs de type single_select'
-        }
+        project_id: { type: 'string', description: 'ID du projet' },
+        item_id: { type: 'string', description: 'ID de l\'élément dans le projet' },
+        field_id: { type: 'string', description: 'ID du champ à mettre à jour' },
+        field_type: { type: 'string', enum: ['text', 'date', 'single_select', 'number'], default: 'text' },
+        value: { type: 'string', description: 'Nouvelle valeur pour le champ (requis sauf pour single_select avec option_id)' },
+        option_id: { type: 'string', description: 'ID de l\'option pour les champs de type single_select' }
       },
       required: ['project_id', 'item_id', 'field_id', 'field_type']
     },
     execute: async ({ project_id, item_id, field_id, field_type, value, option_id }) => {
       try {
         let query;
-        let variables: any = {
-          projectId: project_id,
-          itemId: item_id,
-          fieldId: field_id
-        };
+        let variables: any = { projectId: project_id, itemId: item_id, fieldId: field_id };
 
         switch (field_type) {
           case 'text':
-            query = `
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $text: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $projectId,
-                  itemId: $itemId,
-                  fieldId: $fieldId,
-                  value: { text: $text }
-                }) {
-                  projectV2Item {
-                    id
-                  }
-                }
-              }
-            `;
+            if (value === undefined) throw new Error("La valeur 'value' est requise pour le type 'text'.");
+            query = `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $text: String!) {
+              updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { text: $text }}) {
+                projectV2Item { id }
+              }}`;
             variables.text = value;
             break;
-
           case 'date':
-            query = `
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $projectId,
-                  itemId: $itemId,
-                  fieldId: $fieldId,
-                  value: { date: $date }
-                }) {
-                  projectV2Item {
-                    id
-                  }
-                }
-              }
-            `;
-            variables.date = value;
+            if (value === undefined) throw new Error("La valeur 'value' est requise pour le type 'date'.");
+            query = `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $date: Date!) {
+              updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { date: $date }}) {
+                projectV2Item { id }
+              }}`;
+            variables.date = value; // Assurez-vous que le format est ISO 8601
             break;
-
           case 'single_select':
-            query = `
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $projectId,
-                  itemId: $itemId,
-                  fieldId: $fieldId,
-                  value: { singleSelectOptionId: $optionId }
-                }) {
-                  projectV2Item {
-                    id
-                  }
-                }
-              }
-            `;
+            if (!option_id) throw new Error("La valeur 'option_id' est requise pour le type 'single_select'.");
+            query = `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { singleSelectOptionId: $optionId }}) {
+                projectV2Item { id }
+              }}`;
             variables.optionId = option_id;
             break;
-
           case 'number':
-            query = `
-              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $number: Float!) {
-                updateProjectV2ItemFieldValue(input: {
-                  projectId: $projectId,
-                  itemId: $itemId,
-                  fieldId: $fieldId,
-                  value: { number: $number }
-                }) {
-                  projectV2Item {
-                    id
-                  }
-                }
-              }
-            `;
-            variables.number = parseFloat(value);
+            if (value === undefined) throw new Error("La valeur 'value' est requise pour le type 'number'.");
+            const numValue = parseFloat(value);
+            if (isNaN(numValue)) throw new Error("La valeur pour 'number' doit être un nombre valide.");
+            query = `mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $number: Float!) {
+              updateProjectV2ItemFieldValue(input: { projectId: $projectId, itemId: $itemId, fieldId: $fieldId, value: { number: $number }}) {
+                projectV2Item { id }
+              }}`;
+            variables.number = numValue;
             break;
-
           default:
-            return {
-              success: false,
-              error: `Type de champ non pris en charge: ${field_type}`
-            };
+            return { success: false, error: `Type de champ non pris en charge: ${field_type}` };
         }
 
-        const response = await octokit.graphql(query, variables);
+        const response = await octokit.graphql(query, variables) as unknown as GraphQLUpdateProjectItemFieldResponse;
+        const updatedItemId = response.updateProjectV2ItemFieldValue?.projectV2Item?.id;
 
-        return {
-          success: true,
-          item_id: response.updateProjectV2ItemFieldValue.projectV2Item.id
-        };
+        if (!updatedItemId) {
+            throw new Error("Impossible de mettre à jour le champ ou réponse invalide.");
+        }
+        return { success: true, item_id: updatedItemId };
       } catch (error: any) {
-        return {
-          success: false,
-          error: error.message || 'Erreur lors de la mise à jour du champ'
-        };
+        return { success: false, error: error.message || 'Erreur lors de la mise à jour du champ' };
       }
     }
   }
@@ -608,199 +571,57 @@ export function setupTools(server: any) {
 
   // Gérer les requêtes d'outils
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    switch (request.params.name) {
-      case 'list_projects':
-        return handleListProjects(request.params.arguments);
-      case 'create_project':
-        return handleCreateProject(request.params.arguments);
-      case 'get_project':
-        return handleGetProject(request.params.arguments);
-      case 'add_item_to_project':
-        return handleAddItemToProject(request.params.arguments);
-      case 'update_project_item_field':
-        return handleUpdateProjectItemField(request.params.arguments);
-      default:
+    const tool = server.tools.find((t: Tool) => t.name === request.params.name);
+    if (!tool || !tool.execute) {
         throw new McpError(
-          ErrorCode.MethodNotFound,
-          `Outil inconnu: ${request.params.name}`
+            ErrorCode.MethodNotFound,
+            `Outil inconnu ou non exécutable: ${request.params.name}`
         );
+    }
+    try {
+        const result = await tool.execute(request.params.arguments);
+        return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+            isError: !result.success
+        };
+    } catch (error: any) {
+        return {
+            content: [{ type: 'text', text: JSON.stringify({ success: false, error: error.message }, null, 2) }],
+            isError: true
+        };
     }
   });
 
-  // Fonctions de gestion des outils
+  // Les fonctions handleXXX ne sont plus nécessaires car la logique est dans execute de chaque outil
+  // et le CallToolRequestSchema handler appelle directement tool.execute.
+  // Si vous souhaitez les conserver pour une raison spécifique, assurez-vous qu'elles sont appelées correctement.
+  // Pour l'instant, je les commente pour éviter la redondance et les erreurs potentielles.
+
+  /*
   async function handleListProjects(args: any) {
-    try {
-      const { owner, type = 'user', state = 'open' } = args;
-      
-      // Utiliser l'API GraphQL pour récupérer les projets (v2)
-      const query = `
-        query($owner: String!, $type: String!) {
-          ${type === 'user' ? 'user' : 'organization'}(login: $owner) {
-            projectsV2(first: 20, states: ${state === 'all' ? '[OPEN, CLOSED]' : state === 'closed' ? '[CLOSED]' : '[OPEN]'}) {
-              nodes {
-                id
-                title
-                number
-                shortDescription
-                url
-                closed
-                createdAt
-                updatedAt
-              }
-            }
-          }
-        }
-      `;
-
-      const response = await octokit.graphql(query, {
-        owner,
-        type
-      });
-
-      const projects = type === 'user'
-        ? response.user.projectsV2.nodes
-        : response.organization.projectsV2.nodes;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: true,
-              projects: projects.map((project: any) => ({
-                id: project.id,
-                title: project.title,
-                number: project.number,
-                description: project.shortDescription,
-                url: project.url,
-                closed: project.closed,
-                createdAt: project.createdAt,
-                updatedAt: project.updatedAt
-              }))
-            }, null, 2)
-          }
-        ]
-      };
-    } catch (error: any) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error.message || 'Erreur lors de la récupération des projets'
-            }, null, 2)
-          }
-        ],
-        isError: true
-      };
-    }
+    // ... (logique déplacée vers l'outil list_projects.execute) ...
   }
 
   async function handleCreateProject(args: any) {
-    // Implémentation similaire à celle de l'outil create_project
-    try {
-      const { owner, title, description = '', type = 'user' } = args;
-      
-      // Code existant...
-      // Utiliser l'API GraphQL pour créer un projet (v2)
-      const query = `
-        mutation($ownerId: ID!, $title: String!, $description: String) {
-          createProjectV2(input: {
-            ownerId: $ownerId,
-            title: $title,
-            description: $description
-          }) {
-            projectV2 {
-              id
-              title
-              number
-              shortDescription
-              url
-              closed
-              createdAt
-              updatedAt
-            }
-          }
-        }
-      `;
-
-      // D'abord, obtenir l'ID du propriétaire
-      const ownerQuery = `
-        query($login: String!) {
-          ${type === 'user' ? 'user' : 'organization'}(login: $login) {
-            id
-          }
-        }
-      `;
-
-      const ownerData = await octokit.graphql(ownerQuery, {
-        login: owner
-      });
-
-      const ownerId = type === 'user'
-        ? ownerData.user.id
-        : ownerData.organization.id;
-
-      const response = await octokit.graphql(query, {
-        ownerId,
-        title,
-        description
-      });
-
-      const project = response.createProjectV2.projectV2;
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: true,
-              project: {
-                id: project.id,
-                title: project.title,
-                number: project.number,
-                description: project.shortDescription,
-                url: project.url,
-                closed: project.closed,
-                createdAt: project.createdAt,
-                updatedAt: project.updatedAt
-              }
-            }, null, 2)
-          }
-        ]
-      };
-    } catch (error: any) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error.message || 'Erreur lors de la création du projet'
-            }, null, 2)
-          }
-        ],
-        isError: true
-      };
-    }
+    // ... (logique déplacée vers l'outil create_project.execute) ...
   }
 
   async function handleGetProject(args: any) {
     // Implémentation similaire à celle de l'outil get_project
     // ...
-    return { content: [{ type: 'text', text: 'Non implémenté' }] };
+    return { content: [{ type: 'text', text: 'Non implémenté via handleGetProject' }] };
   }
 
   async function handleAddItemToProject(args: any) {
     // Implémentation similaire à celle de l'outil add_item_to_project
     // ...
-    return { content: [{ type: 'text', text: 'Non implémenté' }] };
+    return { content: [{ type: 'text', text: 'Non implémenté via handleAddItemToProject' }] };
   }
 
   async function handleUpdateProjectItemField(args: any) {
     // Implémentation similaire à celle de l'outil update_project_item_field
     // ...
-    return { content: [{ type: 'text', text: 'Non implémenté' }] };
+    return { content: [{ type: 'text', text: 'Non implémenté via handleUpdateProjectItemField' }] };
   }
+  */
 }
