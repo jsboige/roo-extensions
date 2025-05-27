@@ -9,3 +9,6 @@
 	path = mcps/internal
 	url = https://github.com/jsboige/jsboige-mcp-servers.git
 	branch = local-integration-internal-mcps
+[submodule "mcps/forked/modelcontextprotocol-servers"]
+	path = mcps/forked/modelcontextprotocol-servers
+	url = https://github.com/jsboige/modelcontextprotocol-servers
