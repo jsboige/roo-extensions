@@ -2,24 +2,49 @@
 
 ## Table des matières
 
-1. [À propos du projet](#à-propos-du-projet)
-2. [Fonctionnalités principales](#fonctionnalités-principales)
-3. [Architectures disponibles](#architectures-disponibles)
-   - [Architecture à 2 niveaux (Simple/Complexe)](#architecture-à-2-niveaux-simplecomplex)
-   - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
-4. [Prérequis](#prérequis)
-5. [Installation](#installation)
-6. [Utilisation](#utilisation)
-7. [Structure du projet](#structure-du-projet)
-8. [Modes disponibles](#modes-disponibles)
-9. [Profils et modèles supportés](#profils-et-modèles-supportés)
-10. [MCPs disponibles](#mcps-disponibles)
-11. [Démo d'initiation à Roo](#démo-dinitiation-à-roo)
-12. [Documentation](#documentation)
-13. [Contribution](#contribution)
-14. [Note sur l'encodage des fichiers](#note-sur-lencodage-des-fichiers)
-15. [Migration vers le système de profils](#migration-vers-le-système-de-profils)
-16. [Licence](#licence)
+- [Roo Extensions](#roo-extensions)
+  - [Table des matières](#table-des-matières)
+  - [À propos du projet](#à-propos-du-projet)
+    - [Qu'est-ce que Roo ?](#quest-ce-que-roo-)
+  - [Fonctionnalités principales](#fonctionnalités-principales)
+  - [Architectures disponibles](#architectures-disponibles)
+    - [Architecture à 2 niveaux (Simple/Complex)](#architecture-à-2-niveaux-simplecomplex)
+    - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
+    - [Orchestration dynamique bidirectionnelle](#orchestration-dynamique-bidirectionnelle)
+  - [Points d'entrée de documentation](#points-dentrée-de-documentation)
+    - [Documentation principale](#documentation-principale)
+    - [Configurations disponibles](#configurations-disponibles)
+    - [Documentation technique avancée](#documentation-technique-avancée)
+    - [Tests et validation](#tests-et-validation)
+  - [Prérequis](#prérequis)
+  - [Installation](#installation)
+  - [Utilisation](#utilisation)
+    - [Architecture à 2 niveaux (recommandée)](#architecture-à-2-niveaux-recommandée)
+    - [Architecture à 5 niveaux (avancée)](#architecture-à-5-niveaux-avancée)
+  - [Structure du projet](#structure-du-projet)
+  - [Documentation](#documentation)
+  - [Modes disponibles](#modes-disponibles)
+    - [Architecture à 2 niveaux (recommandée)](#architecture-à-2-niveaux-recommandée-1)
+    - [Architecture à 5 niveaux (expérimentale)](#architecture-à-5-niveaux-expérimentale)
+  - [Profils et modèles supportés](#profils-et-modèles-supportés)
+    - [Profil "standard" (architecture à 2 niveaux)](#profil-standard-architecture-à-2-niveaux)
+    - [Profil "n5" (architecture à 5 niveaux - expérimental)](#profil-n5-architecture-à-5-niveaux---expérimental)
+  - [MCPs disponibles](#mcps-disponibles)
+    - [MCPs Internes (sous-module jsboige-mcp-servers)](#mcps-internes-sous-module-jsboige-mcp-servers)
+    - [MCPs Externes](#mcps-externes)
+  - [Démo d'initiation à Roo](#démo-dinitiation-à-roo)
+    - [Contenu de la démo](#contenu-de-la-démo)
+    - [Démarrage rapide](#démarrage-rapide)
+    - [Parcours recommandés](#parcours-recommandés)
+    - [Documentation détaillée](#documentation-détaillée)
+  - [Contribution](#contribution)
+  - [Note sur l'encodage des fichiers](#note-sur-lencodage-des-fichiers)
+    - [Problèmes courants d'encodage](#problèmes-courants-dencodage)
+    - [Configuration automatique de l'environnement](#configuration-automatique-de-lenvironnement)
+    - [Correction des problèmes d'encodage](#correction-des-problèmes-dencodage)
+    - [Documentation détaillée](#documentation-détaillée-1)
+  - [Migration vers le système de profils](#migration-vers-le-système-de-profils)
+  - [Licence](#licence)
 
 ## À propos du projet
 
@@ -44,7 +69,7 @@ Le projet propose deux architectures principales pour les modes Roo :
 
 ### Architecture à 2 niveaux (Simple/Complex)
 
-Cette architecture, actuellement en production, organise les modes en deux catégories distinctes :
+Cette architecture organise les modes en deux catégories avec orchestration dynamique bidirectionnelle :
 
 1. **Modes Simples** : Pour les tâches courantes et de complexité modérée
    - Modèle envisagé : Qwen 3 32B
@@ -58,9 +83,41 @@ Cette architecture est pleinement fonctionnelle et constitue **la solution recom
 
 ### Architecture à 5 niveaux (n5)
 
-L'architecture à 5 niveaux (n5) est une approche expérimentale qui organise les profils d'agent Roo en cinq niveaux de complexité : MICRO, MINI, MEDIUM, LARGE et ORACLE. Cette architecture est conçue pour optimiser les coûts d'utilisation en adaptant le modèle utilisé à la complexité de la tâche.
+L'architecture à 5 niveaux (n5) est une approche avancée qui organise les profils d'agent Roo en cinq niveaux de complexité : MICRO, MINI, MEDIUM, LARGE et ORACLE. Cette architecture est conçue pour optimiser les coûts d'utilisation en adaptant le modèle utilisé à la complexité de la tâche.
 
-Les configurations pour cette architecture sont disponibles dans le répertoire `roo-modes/n5/configs`, mais cette approche reste en phase de test et n'est pas recommandée pour un déploiement en production.
+Les configurations pour cette architecture sont disponibles dans le répertoire `roo-modes/n5/configs`. Cette approche est disponible pour les utilisateurs souhaitant optimiser les coûts d'utilisation.
+
+### Orchestration dynamique bidirectionnelle
+
+Les deux architectures implémentent un système d'orchestration dynamique qui permet :
+
+- **Délégation intelligente** : Les modes peuvent créer des sous-tâches et les déléguer à des modes spécialisés
+- **Escalade/désescalade automatique** : Basculement automatique selon la complexité détectée
+- **Finalisation par modes simples** : Les modes simples peuvent orchestrer et finaliser le travail des modes complexes
+- **Gestion optimisée des tokens** : Basculement automatique selon les seuils de conversation
+
+## Points d'entrée de documentation
+
+Le projet dispose de plusieurs points d'entrée de documentation organisés par domaine :
+
+### Documentation principale
+- [`README.md`](README.md) : Vue d'ensemble du projet et guide de démarrage
+- [`roo-modes/README.md`](roo-modes/README.md) : Documentation complète des modes et architectures
+- [`docs/guide-complet-modes-roo.md`](docs/guide-complet-modes-roo.md) : Guide détaillé d'utilisation des modes
+
+### Configurations disponibles
+- [`roo-modes/configs/standard-modes-fixed.json`](roo-modes/configs/standard-modes-fixed.json) : Configuration architecture 2-niveaux
+- [`roo-modes/n5/configs/n5-modes-roo-compatible.json`](roo-modes/n5/configs/n5-modes-roo-compatible.json) : Configuration architecture N5
+- [`roo-config/settings/`](roo-config/settings/) : Scripts de déploiement et configuration
+
+### Documentation technique avancée
+- [`docs/architecture/`](docs/architecture/) : Documentation architecturale détaillée
+- [`roo-modes/docs/`](roo-modes/docs/) : Guides techniques spécialisés
+- [`mcps/README.md`](mcps/README.md) : Documentation des serveurs MCP
+
+### Tests et validation
+- [`tests/README.md`](tests/README.md) : Documentation des tests du projet
+- [`roo-modes/n5/tests/README.md`](roo-modes/n5/tests/README.md) : Tests de l'architecture N5
 
 ## Prérequis
 
@@ -97,12 +154,14 @@ Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être 
 
 ### Architecture à 2 niveaux (recommandée)
 
-- Pour les tâches courantes et de complexité modérée, sélectionnez un mode Simple
-- Pour les tâches avancées nécessitant plus de puissance, sélectionnez un mode Complex
+Les modes s'orchestrent automatiquement selon la complexité détectée :
+- Commencez par un mode simple pour la plupart des tâches
+- Le système escalade automatiquement vers des modes complexes si nécessaire
+- Les modes simples peuvent finaliser et orchestrer le travail des modes complexes
 
-### Architecture à 5 niveaux (expérimentale)
+### Architecture à 5 niveaux (avancée)
 
-Si vous avez déployé l'architecture expérimentale à 5 niveaux :
+Si vous avez déployé l'architecture avancée à 5 niveaux :
 
 - Pour les tâches très simples, sélectionnez un mode MICRO
 - Pour les tâches simples, sélectionnez un mode MINI
@@ -373,9 +432,47 @@ Les contributions sont les bienvenues ! Voici comment contribuer :
 
 ## Note sur l'encodage des fichiers
 
-**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
+L'encodage des caractères est un aspect critique du projet roo-extensions, particulièrement pour les fichiers contenant des caractères accentués et des emojis. Une gestion incorrecte de l'encodage peut entraîner des problèmes comme l'affichage de caractères corrompus, des erreurs de parsing JSON, et d'autres dysfonctionnements.
 
-Pour résoudre les problèmes d'encodage, vous pouvez utiliser les scripts disponibles dans le répertoire `roo-config/encoding-scripts/`. Pour plus d'informations, consultez la [documentation des scripts d'encodage](roo-config/encoding-scripts/README.md).
+### Problèmes courants d'encodage
+
+- Double ou triple encodage UTF-8 (ex: "é" → "Ã©")
+- Incompatibilité d'encodage entre différents systèmes
+- Problèmes liés au BOM (Byte Order Mark)
+- Mélange de styles de fins de ligne (CRLF vs LF)
+
+### Configuration automatique de l'environnement
+
+Pour faciliter la mise en place d'un environnement de développement avec les bonnes pratiques d'encodage, utilisez le script de configuration automatique :
+
+```powershell
+# Depuis la racine du projet
+.\roo-config\encoding-scripts\setup-encoding-workflow.ps1
+```
+
+Ce script configure :
+- Les paramètres d'encodage de PowerShell
+- Les paramètres Git pour l'encodage
+- Les paramètres d'encodage de VSCode
+- Des hooks Git pre-commit pour vérifier l'encodage des fichiers
+
+### Correction des problèmes d'encodage
+
+Si vous rencontrez des problèmes d'encodage avec des fichiers existants (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`), utilisez les scripts de correction :
+
+```powershell
+# Correction standard
+.\roo-config\encoding-scripts\fix-encoding-complete.ps1
+
+# Correction avancée avec options
+.\roo-config\encoding-scripts\fix-encoding-advanced.ps1 -FilePath "chemin\vers\fichier.json" -CreateBackup $true
+```
+
+### Documentation détaillée
+
+Pour une documentation complète sur les problèmes d'encodage, les outils de diagnostic, et les bonnes pratiques, consultez le [Guide complet sur les problèmes d'encodage](docs/GUIDE-ENCODAGE.md).
+
+Le fichier [.gitattributes](.gitattributes) à la racine du projet définit également les règles d'encodage pour différents types de fichiers, assurant une cohérence dans tout le projet.
 
 ## Migration vers le système de profils
 
