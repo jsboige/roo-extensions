@@ -1,3 +1,7 @@
 [submodule "roo-code"]
 	path = roo-code
 	url = https://github.com/RooVetGit/Roo-Code
+[submodule "mcps/external/win-cli/server"]
+	path = mcps/external/win-cli/server
+	url = https://github.com/jsboige/win-cli-mcp-server.git
+	branch = local-integration-wincli
