@@ -61,7 +61,7 @@ mcps/
 │   │       ├── USAGE.md
 │   │       └── TROUBLESHOOTING.md
 │   └── docs/                 # Documentation générale des MCPs internes
-└── external-mcps/            # MCPs externes
+└── external/            # MCPs externes
     ├── README.md             # Présentation des MCPs externes
     ├── docker/
     │   ├── README.md
@@ -176,38 +176,38 @@ Les MCPs externes sont des serveurs MCP tiers intégrés au projet. Ils fourniss
 
 | MCP | Description | Documentation |
 |-----|-------------|---------------|
-| **Docker** | Interaction avec Docker | [Documentation complète](./external-mcps/docker/README.md) |
-| **Filesystem** | Interaction avec le système de fichiers local | [Documentation complète](./external-mcps/filesystem/README.md) |
-| **Git** | Opérations Git courantes | [Documentation complète](./external-mcps/git/README.md) |
-| **GitHub** | Interaction avec l'API GitHub | [Documentation complète](./external-mcps/github/README.md) |
-| **SearXNG** | Recherche web via SearXNG | [Documentation complète](./external-mcps/searxng/README.md) |
-| **Win-CLI** | Exécution de commandes dans le terminal Windows | [Documentation complète](./external-mcps/win-cli/README.md) |
+| **Docker** | Interaction avec Docker | [Documentation complète](./external/docker/README.md) |
+| **Filesystem** | Interaction avec le système de fichiers local | [Documentation complète](./external/filesystem/README.md) |
+| **Git** | Opérations Git courantes | [Documentation complète](./external/git/README.md) |
+| **GitHub** | Interaction avec l'API GitHub | [Documentation complète](./external/github/README.md) |
+| **SearXNG** | Recherche web via SearXNG | [Documentation complète](./external/searxng/README.md) |
+| **Win-CLI** | Exécution de commandes dans le terminal Windows | [Documentation complète](./external/win-cli/README.md) |
 
-Pour plus d'informations sur les MCPs externes, consultez la [documentation des MCPs externes](./external-mcps/README.md).
+Pour plus d'informations sur les MCPs externes, consultez la [documentation des MCPs externes](./external/README.md).
 
 ### Guides d'installation
 
 - [Guide d'installation global](./INSTALLATION.md)
 - [Installation des MCPs internes](./mcp-servers/INSTALLATION.md)
-- [Installation des MCPs externes](./external-mcps/INSTALLATION.md)
+- [Installation des MCPs externes](./external/INSTALLATION.md)
 
 ### Guides de configuration
 
 - [Configuration des MCPs internes](./mcp-servers/CONFIGURATION.md)
-- [Configuration des MCPs externes](./external-mcps/CONFIGURATION.md)
+- [Configuration des MCPs externes](./external/CONFIGURATION.md)
 - [Configuration dans Roo](./CONFIGURATION_ROO.md)
 
 ### Guides d'utilisation
 
 - [Utilisation des MCPs internes](./mcp-servers/USAGE.md)
-- [Utilisation des MCPs externes](./external-mcps/USAGE.md)
+- [Utilisation des MCPs externes](./external/USAGE.md)
 - [Bonnes pratiques](./BEST_PRACTICES.md)
 
 ### Dépannage
 
 - [Guide de dépannage global](./TROUBLESHOOTING.md)
 - [Dépannage des MCPs internes](./mcp-servers/TROUBLESHOOTING.md)
-- [Dépannage des MCPs externes](./external-mcps/TROUBLESHOOTING.md)
+- [Dépannage des MCPs externes](./external/TROUBLESHOOTING.md)
 <!-- END_SECTION: detailed_docs -->
 
 <!-- START_SECTION: resources -->
@@ -264,5 +264,5 @@ Pour savoir comment rechercher efficacement dans cette documentation, consultez 
 - [Dépannage](./TROUBLESHOOTING.md)
 - [Recherche](./SEARCH.md)
 - [MCPs Internes](./mcp-servers/INDEX.md)
-- [MCPs Externes](./external-mcps/README.md)
+- [MCPs Externes](./external/README.md)
 <!-- END_SECTION: navigation -->

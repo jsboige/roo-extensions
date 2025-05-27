@@ -261,7 +261,7 @@ npm install -g @modelcontextprotocol/server-docker
 docker-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation Docker MCP](./external-mcps/docker/README.md).
+Pour plus de détails, consultez la [documentation Docker MCP](./external/docker/README.md).
 
 #### Filesystem
 
@@ -275,7 +275,7 @@ npm install -g @modelcontextprotocol/server-filesystem
 filesystem-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation Filesystem MCP](./external-mcps/filesystem/README.md).
+Pour plus de détails, consultez la [documentation Filesystem MCP](./external/filesystem/README.md).
 
 #### Git
 
@@ -289,7 +289,7 @@ npm install -g @modelcontextprotocol/server-git
 git-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation Git MCP](./external-mcps/git/README.md).
+Pour plus de détails, consultez la [documentation Git MCP](./external/git/README.md).
 
 #### GitHub
 
@@ -303,7 +303,7 @@ npm install -g @modelcontextprotocol/server-github
 github-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation GitHub MCP](./external-mcps/github/README.md).
+Pour plus de détails, consultez la [documentation GitHub MCP](./external/github/README.md).
 
 #### SearXNG
 
@@ -317,7 +317,7 @@ npm install -g mcp-searxng
 searxng-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation SearXNG MCP](./external-mcps/searxng/README.md).
+Pour plus de détails, consultez la [documentation SearXNG MCP](./external/searxng/README.md).
 
 #### Win-CLI
 
@@ -331,7 +331,7 @@ npm install -g @simonb97/server-win-cli
 win-cli-mcp-server --version
 ```
 
-Pour plus de détails, consultez la [documentation Win-CLI MCP](./external-mcps/win-cli/README.md).
+Pour plus de détails, consultez la [documentation Win-CLI MCP](./external/win-cli/README.md).
 <!-- END: SPECIFIC_INSTALLATIONS -->
 
 <!-- START: ROO_CONFIGURATION -->

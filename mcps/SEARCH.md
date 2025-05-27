@@ -34,7 +34,7 @@ mcps/
 ├── SEARCH.md                 # Ce document
 ├── mcp-servers/              # MCPs internes
 │   └── ...
-└── external-mcps/            # MCPs externes
+└── external/            # MCPs externes
     └── ...
 ```
 
@@ -136,7 +136,7 @@ Vous pouvez également utiliser des outils externes pour rechercher dans la docu
 
 ### Exemple 3 : Trouver des exemples d'utilisation de Git MCP
 
-1. **Par structure** : Naviguez vers `mcps/external-mcps/git/USAGE.md`
+1. **Par structure** : Naviguez vers `mcps/external/git/USAGE.md`
 2. **Par tag** : Recherchez `#usage #git`
 3. **Par section** : Recherchez `START_SECTION: examples` dans les fichiers liés à Git
 4. **Par mot-clé** : Recherchez `"git example"` ou `"git usage"` dans toute la documentation

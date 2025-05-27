@@ -1,0 +1,19 @@
+﻿Log de Consolidation des Configurations - Phase 5
+Timestamp: 20250527-023242
+Mode: DRY-RUN
+
+2025-05-27 02:32:43 [INFO] === ANALYSE DES DOUBLONS ===
+2025-05-27 02:32:43 [WARN] DOUBLON IDENTIFIE: new-roomodes.json et vscode-custom-modes.json sont identiques
+2025-05-27 02:32:43 [INFO] new-roomodes.json: 17320 bytes, modifie: 05/14/2025 03:48:53
+2025-05-27 02:32:43 [INFO] vscode-custom-modes.json: 17320 bytes, modifie: 05/14/2025 03:48:53
+2025-05-27 02:32:43 [INFO] Action: Garder c:/dev/roo-extensions/roo-modes/configs/vscode-custom-modes.json, supprimer c:/dev/roo-extensions/roo-modes/configs/new-roomodes.json
+2025-05-27 02:32:43 [INFO] === ANALYSE DES FICHIERS STANDARD-MODES ===
+2025-05-27 02:32:43 [INFO] roo-modes/configs/standard-modes.json: 134310 bytes, modifie: 05/26/2025 15:01:00
+2025-05-27 02:32:43 [INFO] roo-config/modes/standard-modes.json: 121390 bytes, modifie: 05/26/2025 15:01:00
+2025-05-27 02:32:43 [ERROR] Erreur lors de la comparaison de c:/dev/roo-extensions/roo-modes/configs/standard-modes.json et c:/dev/roo-extensions/roo-config/modes/standard-modes.json : Primitive JSON non valide : .
+2025-05-27 02:32:43 [INFO] === TRAITEMENT DU REPERTOIRE ENCODING-FIX ===
+2025-05-27 02:32:43 [INFO] Source: c:/dev/roo-extensions/encoding-fix
+2025-05-27 02:32:43 [INFO] Scripts -> c:/dev/roo-extensions/roo-config/scripts/encoding
+2025-05-27 02:32:43 [INFO] Archive -> c:/dev/roo-extensions/roo-config/archive/encoding-fix
+2025-05-27 02:32:43 [SUCCESS] CONSOLIDATION TERMINEE AVEC SUCCES
+2025-05-27 02:32:44 [INFO] Log detaille: c:/dev/roo-extensions/cleanup-backups/20250527-012300/phase5/consolidation-log-20250527-023242.txt

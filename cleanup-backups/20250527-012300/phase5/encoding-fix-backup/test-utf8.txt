@@ -1,0 +1,5 @@
+﻿# Fichier de test UTF-8
+Ce fichier contient des caractÃ¨res franÃ§ais : Ã Ã©Ã¨Ã¹Ã§
+CaractÃ¨res spÃ©ciaux : â‚¬Â£Â¥Â©Â®â„¢
+Emojis : ðŸš€ðŸ’»ðŸ“
+Date de crÃ©ation : 05/26/2025 15:37:35

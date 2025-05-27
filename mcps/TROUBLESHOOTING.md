@@ -1248,12 +1248,12 @@ Cette section fournit des liens vers les guides de dépannage spécifiques à ch
 
 | Serveur | Guide de dépannage |
 |---------|-------------------|
-| Docker | [Guide de dépannage Docker](external-mcps/docker/TROUBLESHOOTING.md) |
-| Filesystem | [Guide de dépannage Filesystem](external-mcps/filesystem/TROUBLESHOOTING.md) |
-| Git | [Guide de dépannage Git](external-mcps/git/TROUBLESHOOTING.md) |
-| GitHub | [Guide de dépannage GitHub](external-mcps/github/TROUBLESHOOTING.md) |
-| Win-CLI | [Guide de dépannage Win-CLI](external-mcps/win-cli/TROUBLESHOOTING.md) |
-| Jupyter | [Guide de dépannage Jupyter](external-mcps/jupyter/TROUBLESHOOTING.md) |
+| Docker | [Guide de dépannage Docker](external/docker/TROUBLESHOOTING.md) |
+| Filesystem | [Guide de dépannage Filesystem](external/filesystem/TROUBLESHOOTING.md) |
+| Git | [Guide de dépannage Git](external/git/TROUBLESHOOTING.md) |
+| GitHub | [Guide de dépannage GitHub](external/github/TROUBLESHOOTING.md) |
+| Win-CLI | [Guide de dépannage Win-CLI](external/win-cli/TROUBLESHOOTING.md) |
+| Jupyter | [Guide de dépannage Jupyter](internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md) |
 
 ### Ressources supplémentaires
 
@@ -1273,5 +1273,5 @@ Si vous rencontrez un problème qui n'est pas couvert par ce guide ou les guides
 - [Accueil](./README.md)
 - [Guide de recherche](./SEARCH.md)
 - [MCPs Internes](./mcp-servers/INDEX.md)
-- [MCPs Externes](./external-mcps/README.md)
+- [MCPs Externes](./external/README.md)
 <!-- END_SECTION: navigation -->

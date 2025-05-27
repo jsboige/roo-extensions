@@ -42,6 +42,7 @@ Pour une description détaillée de chaque outil et des exemples d'utilisation, 
 
 - [README.md](./README.md) - Ce fichier d'introduction
 - [INSTALLATION.md](./INSTALLATION.md) - Guide d'installation du MCP Docker
+- [BUILD-LOCAL.md](./BUILD-LOCAL.md) - Guide de construction locale de l'image Docker
 - [CONFIGURATION.md](./CONFIGURATION.md) - Guide de configuration du MCP Docker
 - [USAGE.md](./USAGE.md) - Exemples d'utilisation et bonnes pratiques
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Résolution des problèmes courants
