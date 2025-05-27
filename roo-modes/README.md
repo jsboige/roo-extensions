@@ -8,7 +8,7 @@
    - [Architecture à 2 niveaux](#architecture-à-2-niveaux-simplecomplex)
    - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
 4. [Types de modes disponibles](#types-de-modes-disponibles)
-5. [Mécanismes d'escalade et désescalade](#mécanismes-descalade-et-désescalade)
+5. [Orchestration dynamique bidirectionnelle](#orchestration-dynamique-bidirectionnelle)
 6. [Structure](#structure-du-répertoire)
 7. [Installation et utilisation](#installation-et-utilisation)
 8. [Création de modes personnalisés](#création-de-modes-personnalisés)
@@ -66,15 +66,36 @@ Les deux architectures proposent plusieurs types de modes, chacun optimisé pour
 | **Architect** | Modes pour la conception d'architecture, des suggestions rapides à la conception distribuée |
 | **Ask** | Modes pour répondre aux questions, des réponses courtes aux synthèses complexes |
 | **Orchestrator** | Modes pour l'orchestration de tâches, de la délégation simple à l'orchestration complexe |
+| **Manager** | Mode spécialisé dans la décomposition de tâches complexes en sous-tâches orchestrées |
 
-## Mécanismes d'escalade et désescalade
+## Orchestration dynamique bidirectionnelle
 
-L'architecture n5 implémente des mécanismes d'escalade et de désescalade qui permettent à Roo de passer automatiquement d'un niveau de complexité à un autre en fonction de la difficulté de la tâche :
+Les deux architectures implémentent une orchestration dynamique bidirectionnelle qui permet :
 
+### Mécanismes de délégation
+- **Délégation par sous-tâches** : Création de nouvelles tâches spécialisées avec l'outil `new_task`
+- **Basculement de mode** : Changement direct de mode avec l'outil `switch_mode`
+- **Orchestration par modes simples** : Les modes simples peuvent coordonner des workflows complexes
+
+### Mécanismes d'escalade et désescalade
 - **Escalade** : Passage à un niveau supérieur lorsque la tâche est trop complexe pour le niveau actuel
 - **Désescalade** : Passage à un niveau inférieur lorsque la tâche peut être résolue efficacement avec un modèle moins puissant
 
 Ces mécanismes sont testés et validés par des scripts de test spécifiques disponibles dans le répertoire `n5/tests/`.
+
+### Capacités d'orchestration des modes simples
+
+Les modes simples ne sont pas limités aux tâches légères. Ils peuvent :
+
+- **Orchestrer des workflows complexes** : Décomposer des tâches complexes en sous-tâches spécialisées
+- **Finaliser le travail complexe** : Nettoyer, documenter et déployer après développement complexe
+- **Coordonner plusieurs modes** : Gérer des séquences de tâches impliquant différents modes
+- **Optimiser les ressources** : Basculer vers des modes plus puissants uniquement quand nécessaire
+
+#### Exemples d'orchestration par modes simples :
+- `code-simple` : Finalise les développements complexes (tests, commits, déploiement)
+- `architect-simple` : Orchestre la documentation après conception complexe
+- `orchestrator-simple` : Coordonne des workflows multi-modes
 
 ## Structure du répertoire
 
