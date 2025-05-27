@@ -45,7 +45,8 @@ Les répertoires additionnels à la racine de `mcps` ont été réorganisés pou
    - Fichiers de licences tierces déplacés vers `mcps/external/github/server/`
 
 4. **jupyter/**:
-   - Documentation et scripts déplacés vers `mcps/external/jupyter/`
+   - **MISE À JOUR**: Jupyter a été migré vers `mcps/internal/servers/jupyter-mcp-server/` (serveur interne)
+   - L'ancienne documentation externe dans `mcps/external/jupyter/` est obsolète
 
 5. **win-cli/**:
    - Code source déplacé vers `mcps/external/win-cli/server/`
@@ -68,7 +69,7 @@ La structure finale du répertoire `mcps` est maintenant:
   - **filesystem/** - Serveur MCP pour accéder au système de fichiers (documentation et code source)
   - **git/** - Serveur MCP Git (documentation et code source)
   - **github/** - Serveur MCP GitHub (documentation et code source)
-  - **jupyter/** - Serveur MCP pour l'intégration avec Jupyter (documentation et scripts)
+  - **jupyter/** - Serveur MCP pour l'intégration avec Jupyter (OBSOLÈTE - migré vers internal/)
   - **searxng/** - Serveur MCP pour effectuer des recherches web via SearXNG
   - **win-cli/** - Serveur MCP pour exécuter des commandes CLI sur Windows (documentation et code source)
 
