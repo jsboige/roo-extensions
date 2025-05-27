@@ -1,7 +1,0 @@
-Ceci est le fichier de test 1
-Il contient plusieurs lignes
-pour démontrer les fonctionnalités
-du serveur MCP quickfiles
-avec les nouveaux paramètres
-comme max_lines_per_file
-et max_total_lines

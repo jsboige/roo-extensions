@@ -1,8 +1,0 @@
-Liste des tâches:
-1. Première tâche à accomplir
-2. Deuxième tâche importante
-3. Tâche finale à terminer
-
-Notes supplémentaires:
-- Point important à retenir
-- Autre point à considérer

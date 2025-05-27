@@ -1,7 +1,0 @@
-Titre du document
-
-Ceci est le premier paragraphe du document.
-
-Ceci est le deuxième paragraphe avec des informations importantes.
-
-Conclusion du document.
