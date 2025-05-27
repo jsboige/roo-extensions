@@ -1,0 +1,45 @@
+﻿Log de Validation de la Consolidation - Phase 5
+Timestamp: 20250527-023405
+
+2025-05-27 02:34:05 [INFO] DEBUT DE LA VALIDATION DE LA CONSOLIDATION
+2025-05-27 02:34:05 [INFO] === VERIFICATION DES DOUBLONS ===
+2025-05-27 02:34:05 [SUCCESS] Doublon supprime correctement: new-roomodes.json supprime, vscode-custom-modes.json conserve
+2025-05-27 02:34:05 [INFO] === VERIFICATION DES SCRIPTS ENCODING ===
+2025-05-27 02:34:05 [SUCCESS] Script trouve: apply-encoding-fix.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: apply-encoding-fix-simple.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: fix-encoding.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: fix-encoding-simple.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: validate-deployment.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: validate-deployment-simple.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: backup-profile.ps1
+2025-05-27 02:34:05 [SUCCESS] Script trouve: restore-profile.ps1
+2025-05-27 02:34:05 [SUCCESS] Tous les scripts essentiels ont ete deplaces correctement
+2025-05-27 02:34:05 [INFO] === VERIFICATION DE L'ARCHIVAGE DOCUMENTATION ===
+2025-05-27 02:34:05 [SUCCESS] Documentation archivee: 8 fichiers .md trouves
+2025-05-27 02:34:05 [INFO]   - CHANGELOG.md
+2025-05-27 02:34:05 [INFO]   - DEPLOYMENT-GUIDE.md
+2025-05-27 02:34:05 [INFO]   - FINAL-STATUS.md
+2025-05-27 02:34:05 [INFO]   - README-Configuration-VSCode-UTF8.md
+2025-05-27 02:34:05 [INFO]   - README.md
+2025-05-27 02:34:05 [INFO]   - RESUME-CONFIGURATION.md
+2025-05-27 02:34:05 [INFO]   - TEST-DEPLOYMENT-RESULTS.md
+2025-05-27 02:34:06 [INFO]   - VALIDATION-REPORT.md
+2025-05-27 02:34:06 [INFO] === VERIFICATION DES SAUVEGARDES ===
+2025-05-27 02:34:06 [SUCCESS] Sauvegardes des doublons trouvees: 1 fichiers
+2025-05-27 02:34:06 [INFO] === VERIFICATION DE L'ACCESSIBILITE DES CONFIGURATIONS ===
+2025-05-27 02:34:06 [SUCCESS] Repertoire accessible: c:/dev/roo-extensions/roo-config/modes (3 elements)
+2025-05-27 02:34:06 [SUCCESS] Repertoire accessible: c:/dev/roo-extensions/roo-modes/configs (7 elements)
+2025-05-27 02:34:06 [SUCCESS] Repertoire accessible: c:/dev/roo-extensions/roo-config/scripts/encoding (8 elements)
+2025-05-27 02:34:06 [SUCCESS] Repertoire accessible: c:/dev/roo-extensions/roo-config/archive/encoding-fix (8 elements)
+2025-05-27 02:34:06 [SUCCESS] Toutes les configurations consolidees sont accessibles
+2025-05-27 02:34:06 [INFO] === RAPPORT DE VALIDATION ===
+2025-05-27 02:34:06 [INFO] RESULTATS DE LA VALIDATION:
+2025-05-27 02:34:06 [INFO]   - Doublons supprimes: OUI
+2025-05-27 02:34:06 [INFO]   - Scripts encoding deplaces: OUI
+2025-05-27 02:34:06 [INFO]   - Documentation archivee: OUI
+2025-05-27 02:34:06 [INFO]   - Sauvegardes creees: OUI
+2025-05-27 02:34:06 [INFO]   - Configurations accessibles: OUI
+2025-05-27 02:34:06 [INFO]   - Total des problemes: 0
+2025-05-27 02:34:06 [INFO] TAUX DE REUSSITE: 100% (5/5)
+2025-05-27 02:34:06 [SUCCESS] VALIDATION REUSSIE: La consolidation a ete effectuee correctement
+2025-05-27 02:34:06 [INFO] Log detaille: c:/dev/roo-extensions/cleanup-backups/20250527-012300/phase5/validation-log-20250527-023405.txt

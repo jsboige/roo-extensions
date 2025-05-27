@@ -44,7 +44,7 @@ Intégrés depuis des sources externes :
 - **Filesystem** (`external/filesystem/`) - Serveur MCP pour accéder au système de fichiers
 - **Git** (`external/git/`) - Serveur MCP pour les opérations Git
 - **GitHub** (`external/github/`) - Serveur MCP pour interagir avec l'API GitHub
-- **Jupyter** (`external/jupyter/`) - Serveur MCP pour l'intégration avec Jupyter
+- **Jupyter** (`internal/servers/jupyter-mcp-server/`) - Serveur MCP pour l'intégration avec Jupyter (maintenant interne)
 - **SearXNG** (`external/searxng/`) - Serveur MCP pour effectuer des recherches web
 - **Win-CLI** (`external/win-cli/`) - Serveur MCP pour exécuter des commandes CLI sur Windows
 

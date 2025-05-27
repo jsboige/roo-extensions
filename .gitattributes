@@ -1,32 +1,59 @@
+# Configuration d'encodage pour le projet roo-extensions
+# Ce fichier définit les règles d'encodage pour différents types de fichiers
+
 # Définir l'encodage par défaut pour tous les fichiers texte
-* text=auto eol=lf working-tree-encoding=UTF-8
+* text=auto eol=lf encoding=utf-8
 
-# Fichiers texte explicites
-*.md text eol=lf working-tree-encoding=UTF-8
-*.txt text eol=lf working-tree-encoding=UTF-8
-*.json text eol=lf working-tree-encoding=UTF-8
-*.js text eol=lf working-tree-encoding=UTF-8
-*.ts text eol=lf working-tree-encoding=UTF-8
-*.html text eol=lf working-tree-encoding=UTF-8
-*.css text eol=lf working-tree-encoding=UTF-8
-*.ps1 text eol=lf working-tree-encoding=UTF-8
-*.py text eol=lf working-tree-encoding=UTF-8
-*.yml text eol=lf working-tree-encoding=UTF-8
-*.yaml text eol=lf working-tree-encoding=UTF-8
-*.xml text eol=lf working-tree-encoding=UTF-8
-*.sh text eol=lf working-tree-encoding=UTF-8
-*.bat text eol=crlf working-tree-encoding=UTF-8
-*.cmd text eol=crlf working-tree-encoding=UTF-8
-.roomodes text eol=lf working-tree-encoding=UTF-8
+# Fichiers de documentation
+*.md text eol=lf encoding=utf-8
+*.txt text eol=lf encoding=utf-8
+*.html text eol=lf encoding=utf-8
 
-# Fichiers binaires
+# Fichiers de code source
+*.js text eol=lf encoding=utf-8
+*.ts text eol=lf encoding=utf-8
+*.jsx text eol=lf encoding=utf-8
+*.tsx text eol=lf encoding=utf-8
+*.css text eol=lf encoding=utf-8
+*.scss text eol=lf encoding=utf-8
+*.less text eol=lf encoding=utf-8
+
+# Fichiers de configuration
+*.json text eol=lf encoding=utf-8
+*.yml text eol=lf encoding=utf-8
+*.yaml text eol=lf encoding=utf-8
+*.xml text eol=lf encoding=utf-8
+*.toml text eol=lf encoding=utf-8
+*.ini text eol=lf encoding=utf-8
+*.config text eol=lf encoding=utf-8
+
+# Scripts
+*.ps1 text eol=lf encoding=utf-8
+*.sh text eol=lf encoding=utf-8
+*.bat text eol=lf encoding=utf-8
+*.cmd text eol=lf encoding=utf-8
+
+# Fichiers spécifiques au projet
+.roomodes text eol=lf encoding=utf-8
+new-roomodes.json text eol=lf encoding=utf-8
+vscode-custom-modes.json text eol=lf encoding=utf-8
+
+# Fichiers binaires (ne pas traiter comme du texte)
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.gif binary
 *.ico binary
-*.pdf binary
 *.zip binary
-*.7z binary
 *.gz binary
 *.tar binary
+*.pdf binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+
+# Fichiers spécifiques à Git
+.gitattributes text eol=lf encoding=utf-8
+.gitignore text eol=lf encoding=utf-8
+.gitmodules text eol=lf encoding=utf-8
