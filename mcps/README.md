@@ -47,6 +47,7 @@ Intégrés depuis des sources externes :
 - **Jupyter** (`internal/servers/jupyter-mcp-server/`) - Serveur MCP pour l'intégration avec Jupyter (maintenant interne)
 - **SearXNG** (`external/searxng/`) - Serveur MCP pour effectuer des recherches web
 - **Win-CLI** (`external/win-cli/`) - Serveur MCP pour exécuter des commandes CLI sur Windows
+- **MCP FTP Server (ftpglobal)** (`external/mcp-server-ftp/`) - Permet les opérations FTP. [Documentation détaillée](./external/mcp-server-ftp/README.md)
 
 ## Fonctionnalités
 

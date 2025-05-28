@@ -64,8 +64,23 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour accéder au système de fichiers"
+    },
+  {
+    "name": "ftpglobal",
+    "type": "stdio",
+    "command": "cmd /c node d:/roo-extensions/mcps/mcp-server-ftp/build/index.js",
+    "enabled": true,
+    "autoStart": true,
+    "description": "Serveur MCP pour les opérations FTP",
+    "env": {
+      "FTP_HOST": "ftp.cluster028.hosting.ovh.net",
+      "FTP_PORT": "21",
+      "FTP_USER": "ffgolqi",
+      "FTP_PASSWORD": "awPYullrg6UDNNJO5qE",
+      "FTP_SECURE": "false"
     }
-  ],
+  }
+],
   "settings": {
     "autoStartEnabled": true,
     "connectionTimeout": 30000,
