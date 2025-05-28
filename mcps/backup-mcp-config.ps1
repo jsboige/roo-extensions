@@ -83,8 +83,16 @@ function Restore-MCPConfig {
 
 function Show-MCPStatus {
     if (Test-Path $mcpConfigPath) {
+        $config = $null
         try {
             $config = Get-Content $mcpConfigPath | ConvertFrom-Json
+        }
+        catch {
+            Write-Host "❌ ERREUR : Impossible de lire ou parser la configuration MCP ($mcpConfigPath)" -ForegroundColor Red
+            Write-Host $_.Exception.Message -ForegroundColor Red
+        }
+
+        if ($config) {
             Write-Host "`n📊 État des serveurs MCP :" -ForegroundColor Cyan
             
             $config.mcpServers.PSObject.Properties | ForEach-Object {
@@ -103,11 +111,7 @@ function Show-MCPStatus {
                 if ($server.alwaysAllow) {
                     Write-Host "   Tools: $($server.alwaysAllow.Count) autorisés" -ForegroundColor Gray
                 }
-            }
-        }
-        catch {
-            Write-Host "❌ ERREUR : Impossible de lire la configuration MCP" -ForegroundColor Red
-            Write-Host $_.Exception.Message -ForegroundColor Red
+            } # Fin ForEach-Object
         }
     }
     else {
