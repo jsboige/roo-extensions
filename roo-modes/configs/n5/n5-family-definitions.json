@@ -1,0 +1,14 @@
+{
+  "familyDefinitions": {
+    "n5": [
+      "code-micro", "debug-micro", "architect-micro", "ask-micro", "orchestrator-micro",
+      "code-mini", "debug-mini", "architect-mini", "ask-mini", "orchestrator-mini",
+      "code-medium", "debug-medium", "architect-medium", "ask-medium", "orchestrator-medium",
+      "code-large", "debug-large", "architect-large", "ask-large", "orchestrator-large",
+      "code-oracle", "debug-oracle", "architect-oracle", "ask-oracle", "orchestrator-oracle"
+    ]
+  },
+  "allowedFamilyTransitions": {
+    "n5": ["n5"]
+  }
+}

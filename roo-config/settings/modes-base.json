@@ -1,0 +1,230 @@
+{
+    "version": "1.0.0",
+    "modes": [
+        {
+            "slug": "code",
+            "name": "💻 Code",
+            "description": "Mode standard pour le développement de code",
+            "whenToUse": "Utilisez ce mode pour le développement général de code, l'implémentation de fonctionnalités et la résolution de problèmes techniques variés.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.ts$",
+                "\\.js$",
+                "\\.html$",
+                "\\.css$",
+                "\\.py$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "insert_content",
+                "search_and_replace",
+                "list_files",
+                "execute_command",
+                "browser_action"
+            ]
+        },
+        {
+            "slug": "manager",
+            "name": "👨‍💼 Manager",
+            "description": "Mode spécialisé dans la création de sous-tâches orchestrateurs pour des tâches de haut-niveau",
+            "whenToUse": "Utilisez ce mode pour la décomposition de tâches complexes en sous-tâches composites, la gestion efficace des ressources et la planification stratégique des workflows.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.js$",
+                "\\.ts$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "list_files",
+                "ask_followup_question",
+                "execute_command",
+                "new_task"
+            ]
+        },
+        {
+            "slug": "code-n2-simple",
+            "name": "💻 Code Simple",
+            "description": "Mode pour modifications mineures, documentation et fonctionnalités basiques",
+            "whenToUse": "Utilisez ce mode pour des modifications de code mineures (<50 lignes), des corrections de bugs simples, du formatage de code, de la documentation et l'implémentation de fonctionnalités basiques.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.txt$"
+            ],
+            "defaultModel": "anthropic/claude-3.5-sonnet",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "insert_content",
+                "search_and_replace",
+                "list_files"
+            ]
+        },
+        {
+            "slug": "code-n2-complex",
+            "name": "💻 Code Complexe",
+            "description": "Mode pour modifications techniques avancées et architecture",
+            "whenToUse": "Utilisez ce mode pour des refactorisations majeures, la conception d'architecture, l'optimisation de performance, l'implémentation d'algorithmes complexes et l'intégration de systèmes.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.ts$",
+                "\\.js$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "insert_content",
+                "search_and_replace",
+                "list_files",
+                "execute_command"
+            ]
+        },
+        {
+            "slug": "debug-n2-simple",
+            "name": "🪲 Debug Simple",
+            "description": "Mode pour diagnostiquer des problèmes simples",
+            "whenToUse": "Utilisez ce mode pour identifier des erreurs de syntaxe, résoudre des bugs évidents, vérifier des problèmes de configuration simples et diagnostiquer des problèmes isolés.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.txt$"
+            ],
+            "defaultModel": "qwen/qwen3-1.7b:free",
+            "tools": [
+                "read_file",
+                "list_files",
+                "ask_followup_question"
+            ]
+        },
+        {
+            "slug": "debug-n2-complex",
+            "name": "🪲 Debug Complexe",
+            "description": "Mode pour diagnostiquer des problèmes complexes",
+            "whenToUse": "Utilisez ce mode pour diagnostiquer des bugs concurrents, analyser les performances, résoudre des problèmes d'intégration complexes, traiter des bugs difficiles à reproduire et des problèmes au niveau système.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.js$",
+                "\\.ts$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "list_files",
+                "ask_followup_question",
+                "execute_command"
+            ]
+        },
+        {
+            "slug": "architect-n2-simple",
+            "name": "🏗️ Architect Simple",
+            "description": "Mode pour conception architecturale simple",
+            "whenToUse": "Utilisez ce mode pour créer de la documentation technique simple, des diagrammes basiques, planifier des fonctionnalités isolées et apporter des améliorations mineures à l'architecture.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$"
+            ],
+            "defaultModel": "qwen/qwen3-32b",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "list_files"
+            ]
+        },
+        {
+            "slug": "architect-n2-complex",
+            "name": "🏗️ Architect Complexe",
+            "description": "Mode pour conception architecturale complexe",
+            "whenToUse": "Utilisez ce mode pour concevoir des architectures de système, planifier des migrations complexes, optimiser l'architecture et concevoir des systèmes distribués.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "write_to_file",
+                "list_files",
+                "execute_command"
+            ]
+        },
+        {
+            "slug": "ask-n2-simple",
+            "name": "❓ Ask Simple",
+            "description": "Mode pour répondre à des questions simples",
+            "whenToUse": "Utilisez ce mode pour répondre à des questions factuelles, expliquer des concepts basiques, effectuer des recherches d'information simples et produire des résumés concis.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$"
+            ],
+            "defaultModel": "qwen/qwen3-8b",
+            "tools": [
+                "read_file",
+                "list_files"
+            ]
+        },
+        {
+            "slug": "ask-n2-complex",
+            "name": "❓ Ask Complexe",
+            "description": "Mode pour répondre à des questions complexes",
+            "whenToUse": "Utilisez ce mode pour des analyses approfondies, des comparaisons détaillées, des explications de concepts avancés et la synthèse d'informations complexes.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "list_files",
+                "execute_command"
+            ]
+        },
+        {
+            "slug": "orchestrator-n2-simple",
+            "name": "🪃 Orchestrator Simple",
+            "description": "Mode pour tâches simples et coordination",
+            "whenToUse": "Utilisez ce mode pour analyser des demandes initiales, décomposer des tâches simples, déléguer à des agents spécialisés appropriés et coordonner l'exécution de sous-tâches simples.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$"
+            ],
+            "defaultModel": "qwen/qwen3-30b-a3b",
+            "tools": [
+                "read_file",
+                "list_files",
+                "ask_followup_question"
+            ]
+        },
+        {
+            "slug": "orchestrator-n2-complex",
+            "name": "🪃 Orchestrator Complexe",
+            "description": "Mode pour orchestration de tâches complexes",
+            "whenToUse": "Utilisez ce mode pour coordonner des workflows complexes en déléguant des tâches à des modes spécialisés, gérer des dépendances complexes entre sous-tâches et synthétiser les résultats de multiples sous-tâches.",
+            "allowedFilePatterns": [
+                "\\.json$",
+                "\\.md$",
+                "\\.js$"
+            ],
+            "defaultModel": "anthropic/claude-3.7-sonnet",
+            "tools": [
+                "read_file",
+                "list_files",
+                "ask_followup_question",
+                "execute_command"
+            ]
+        }
+    ],
+    "settings": {
+        "autoStartEnabled": true,
+        "tokenBudget": 100000,
+        "defaultMode": "code"
+    }
+}

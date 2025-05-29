@@ -1,0 +1,44 @@
+{
+  "complexityLevel": {
+    "level": 4,
+    "name": "LARGE",
+    "slug": "large",
+    "referenceModel": "anthropic/claude-3-7-sonnet",
+    "contextSize": 120000,
+    "deployment": "cloud",
+    "metrics": {
+      "codeLines": {
+        "min": 200,
+        "max": 500
+      },
+      "conversationSize": {
+        "messages": {
+          "min": 15,
+          "max": 20
+        },
+        "tokens": {
+          "min": 50000,
+          "max": 100000
+        }
+      },
+      "contextSize": "significant",
+      "reflectionTime": "extended"
+    },
+    "escalationThresholds": {
+      "codeComplexity": 400,
+      "conversationSize": 18,
+      "tokenCount": 50000,
+      "contextNeeded": "comprehensive"
+    },
+    "nextLevel": "oracle",
+    "previousLevel": "medium",
+    "family": "n5",
+    "allowedFamilyTransitions": ["n5"],
+    "deescalationMechanism": {
+      "enabled": true,
+      "targetLevel": "previous",
+      "preserveType": true,
+      "allowCrossTypeTransition": false
+    }
+  }
+}
