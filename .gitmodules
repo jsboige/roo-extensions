@@ -12,3 +12,6 @@
 [submodule "mcps/forked/modelcontextprotocol-servers"]
 	path = mcps/forked/modelcontextprotocol-servers
 	url = https://github.com/jsboige/modelcontextprotocol-servers
+[submodule "mcps/external/mcp-server-ftp"]
+	path = mcps/external/mcp-server-ftp
+	url = https://github.com/alxspiker/mcp-server-ftp

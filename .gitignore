@@ -106,3 +106,8 @@ demo-roo-code/.env.*
 
 # Fichier d'environnement spécifique pour le serveur MCP github-projects
 mcps/internal/servers/github-projects-mcp/.env
+
+# Fichiers et répertoires temporaires ou spécifiques à l'utilisateur
+mcps/backups/
+temp_clone_jsboige_servers/
+temp_status_output.txt
