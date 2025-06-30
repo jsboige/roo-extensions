@@ -1,0 +1,46 @@
+{
+  "security": {
+    "maxCommandLength": 2000,
+    "blockedCommands": [],
+    "blockedArguments": [],
+    "allowedPaths": ["C:/", "D:/", "G:/"],
+    "restrictWorkingDirectory": false,
+    "logCommands": true,
+    "maxHistorySize": 1000,
+    "commandTimeout": 600,
+    "enableInjectionProtection": false
+  },
+  "shells": {
+    "powershell": {
+      "enabled": true,
+      "command": "powershell.exe",
+      "args": ["-NoProfile", "-NonInteractive", "-Command"],
+      "blockedOperators": []
+    },
+    "cmd": {
+      "enabled": true,
+      "command": "cmd.exe",
+      "args": ["/c"],
+      "blockedOperators": []
+    },
+    "gitbash": {
+      "enabled": true,
+      "command": "C:\\Program Files\\Git\\bin\\bash.exe",
+      "args": ["-c"],
+      "blockedOperators": []
+    }
+  },
+  "ssh": {
+    "enabled": true,
+    "defaultTimeout": 600,
+    "maxConcurrentSessions": 5,
+    "keepaliveInterval": 10000,
+    "keepaliveCountMax": 3,
+    "readyTimeout": 20000,
+    "connections": {}
+  },
+  "logging": {
+    "level": "info",
+    "file": "win-cli-server.log"
+  }
+}

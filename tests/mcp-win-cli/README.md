@@ -25,7 +25,7 @@ L'objectif de cette batterie de tests est de :
 ## Prérequis
 
 - Node.js (version 16 ou supérieure)
-- MCP Win-CLI installé et configuré
+- MCP Win-CLI installé. La configuration est maintenant gérée par un fichier `win-cli-config.json` dédié.
 - PowerShell (préinstallé sur Windows)
 - CMD (préinstallé sur Windows)
 - Git Bash (optionnel, pour tester les commandes Git Bash)
@@ -76,19 +76,33 @@ Pour exécuter ce test, vous devez utiliser Roo avec le MCP Win-CLI configuré :
 
 ```xml
 <use_mcp_tool>
-<server_name>win-cli</server_name>
-<tool_name>execute_command</tool_name>
-<arguments>
-{
-  "shell": "powershell",
-  "command": "node test-win-cli-mcp.js",
-  "workingDir": "chemin/vers/tests/mcp-win-cli"
-}
-</arguments>
+ <server_name>win-cli</server_name>
+ <tool_name>execute_command</tool_name>
+ <arguments>
+ {
+   "shell": "powershell",
+   "command": "node test-win-cli-mcp.js",
+   "workingDir": "chemin/vers/tests/mcp-win-cli"
+ }
+ </arguments>
 </use_mcp_tool>
 ```
 
 Remplacez `chemin/vers/tests/mcp-win-cli` par le chemin absolu vers le répertoire `tests/mcp-win-cli`.
+
+## Configuration du MCP Win-CLI
+
+La configuration du MCP Win-CLI est gérée par le fichier [`roo-config/settings/win-cli-config.json`](roo-config/settings/win-cli-config.json). Ce fichier permet de définir :
+
+- **Timeout des commandes :** Le timeout par défaut est maintenant de 600 secondes (10 minutes). Ceci est configurable via la clé `commandTimeout` dans la section `security` et `defaultTimeout` dans la section `ssh`.
+- **Configuration débridée :**
+   - `blockedCommands`: Liste vide par défaut, aucune commande n'est bloquée.
+   - `blockedArguments`: Liste vide par défaut, aucun argument n'est bloqué.
+   - `allowedPaths`: Permet l'accès à `C:/`, `D:/`, `G:/`.
+   - `restrictWorkingDirectory`: Mis à `false`, ne restreint pas le répertoire de travail aux `allowedPaths`.
+   - `enableInjectionProtection`: Mis à `false`, autorise les opérateurs de chaînage de commandes comme `&&`, `||`, `;`.
+   - `blockedOperators` pour chaque shell: Liste vide, tous les opérateurs sont autorisés.
+- **Chemin de démarrage :** La commande de démarrage du serveur est configurée dans [`roo-config/settings/servers.json`](roo-config/settings/servers.json) et inclut maintenant l'argument `--config ./roo-config/settings/win-cli-config.json` pour charger cette configuration spécifique.
 
 ## Fonctionnalités testées
 

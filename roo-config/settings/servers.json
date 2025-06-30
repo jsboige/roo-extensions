@@ -20,7 +20,7 @@
     {
       "name": "win-cli",
       "type": "stdio",
-      "command": "cmd /c npx -y @simonb97/server-win-cli",
+      "command": "cmd /c npx -y @simonb97/server-win-cli --config ./roo-config/settings/win-cli-config.json",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour exécuter des commandes CLI sur Windows"
