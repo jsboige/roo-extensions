@@ -6,8 +6,8 @@
     "allowedPaths": ["C:\\", "D:\\"],
     "restrictWorkingDirectory": false,
     "logCommands": true,
-    "maxHistorySize": 1000,
-    "commandTimeout": 300,
+    "maxHistorySize": 3000,
+    "commandTimeout": 500,
     "enableInjectionProtection": false
   },
   "shells": {
@@ -32,7 +32,7 @@
   },
   "ssh": {
     "enabled": true,
-    "defaultTimeout": 60,
+    "defaultTimeout": 500,
     "maxConcurrentSessions": 10,
     "keepaliveInterval": 10000,
     "keepaliveCountMax": 3,

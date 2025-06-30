@@ -768,13 +768,24 @@ $testResults += Invoke-Test -Name "Performance de l'accès à la ressource proje
             return @{
                 Name = "Resource: $Uri"
                 Success = $false
+                Duration = 0
+                Error = $_
+            }
+        } else {
+            return @{
+                Success = $false
+                Error = $_
+            }
+        }
+    }
+}
 # Générer le rapport de test
 $reportPath = "D:\roo-extensions\mcps\tests\github-projects\rapport-test-complet.md"
 New-TestReport -TestResults $testResults -OutputPath $reportPath
 
 # Afficher un résumé des résultats
 $totalTests = $testResults.Count
-$passedTests = ($testResults | Where-Object { $_.Success }).Count
+$passedTests = ($TestResults | Where-Object { $_.Success }).Count
 $failedTests = $totalTests - $passedTests
 $successRate = if ($totalTests -gt 0) { [math]::Round(($passedTests / $totalTests) * 100, 2) } else { 0 }
 
@@ -796,17 +807,6 @@ if ($failedTests -gt 0) {
 } else {
     Write-Log "Tous les tests ont réussi!" -Level "SUCCESS"
     exit 0
-}
-                Duration = 0
-                Error = $_
-            }
-        } else {
-            return @{
-                Success = $false
-                Error = $_
-            }
-        }
-    }
 }
     try {
         $response = Invoke-WebRequest -Uri "http://${ServerHost}:${Port}/api/mcp/status" -Method GET -ErrorAction SilentlyContinue
