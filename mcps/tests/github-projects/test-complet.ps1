@@ -7,8 +7,8 @@ $VerbosePreference = "Continue"
 $startTime = Get-Date
 
 # Définir les variables d'environnement pour les tests
-$env:GITHUB_TEST_OWNER = "votre-nom-utilisateur" # À remplacer par votre nom d'utilisateur GitHub
-$env:GITHUB_TEST_REPO = "votre-repo-test" # À remplacer par un repo de test
+$env:GITHUB_TEST_OWNER = "jsboige"
+$env:GITHUB_TEST_REPO = "roo-mcp-test-repo"
 
 # Fonction pour afficher les messages de log
 function Write-Log {
