@@ -140,5 +140,5 @@ En comparant nos outils actuels avec ceux des concurrents, plusieurs écarts fon
     - [x] Ajouter un outil `delete_project` pour permettre la suppression complète d'un projet.
 - [x] **3. Création de contenu natif :** Ajouter un outil `create_issue` qui crée une nouvelle issue dans un dépôt et peut optionnellement l'ajouter directement à un projet. Cela fluidifiera considérablement le flux de travail.
 - [x] **4. Gestion des champs de projet :** Implémenter une suite d'outils pour le CRUD des champs de projet (ex: `create_project_field`, `update_project_field`, `delete_project_field`) pour permettre la personnalisation des tableaux (ex: ajouter une colonne "Priorité").
-- [ ] **5. Fin du cycle de vie des "Drafts" :** Ajouter un outil `convert_draft_to_issue` pour convertir une note en une véritable issue, une fonctionnalité de base des projets GitHub.
+- [x] **5. Fin du cycle de vie des "Drafts" :** Ajouter un outil `convert_draft_to_issue` pour convertir une note en une véritable issue, une fonctionnalité de base des projets GitHub.
 - [ ] **6. Archivage :** Ajouter des outils pour `archive_project_item` et `unarchive_project_item` afin de nettoyer la vue du projet sans suppression définitive.
