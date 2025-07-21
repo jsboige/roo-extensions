@@ -87,6 +87,14 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour convertir une ressource en markdown"
+    },
+    {
+      "name": "playwright",
+      "type": "stdio",
+      "command": "cmd /c npx -y @playwright/mcp --browser firefox",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour l'automatisation web avec Playwright"
     }
   ],
   "settings": {
