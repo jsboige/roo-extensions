@@ -83,6 +83,46 @@ foreach ($mcpName in $finalConfig.mcpServers.PSObject.Properties.Name) {
         $mcp.args = $newArgs
         Write-Host "  - Chemin résolu pour '$mcpName'."
     }
+    
+    # --- Traitement modulaire des .env locaux ---
+   $mcpDir = Join-Path $ProjectRoot "mcps/internal/servers/$($mcp.args -join ' ' | Select-String -Pattern '(?<=\$\{mcp_paths:)[a-zA-Z0-9_-]+' | %{$_.Matches.Value})"
+   if($mcpPathKey){
+        $mcpDir = Join-Path $ProjectRoot "mcps/internal/servers/$mcpPathKey"
+   }
+   $localEnvFile = Join-Path $mcpDir ".env"
+
+   if (Test-Path $localEnvFile) {
+       Write-Host "  - Fichier .env local trouvé pour '$mcpName'. Fusion des variables."
+       # S'assurer que l'objet 'env' existe
+       if (-not $mcp.PSObject.Properties.name.Contains('env')) {
+           $mcp | Add-Member -MemberType NoteProperty -Name "env" -Value (New-Object -TypeName PSObject)
+       }
+       Get-Content $localEnvFile | ForEach-Object {
+           $key, $value = $_.Split('=', 2)
+           if ($key -and $value) {
+               $trimmedKey = $key.Trim()
+               $trimmedValue = $value.Trim().Trim('"')
+               if ($mcp.env.PSObject.Properties.name.Contains($trimmedKey)) {
+                   $mcp.env.$trimmedKey = $trimmedValue
+               } else {
+                   $mcp.env | Add-Member -MemberType NoteProperty -Name $trimmedKey -Value $trimmedValue
+               }
+           }
+       }
+   }
+
+    # --- Correction spécifique pour github-projects ---
+    if ($mcpName -eq "github-projects") {
+        $mcp.transportType = "http"
+        # Un MCP en mode http n'est pas lancé par Roo, donc on vide command/args
+        if ($mcp.PSObject.Properties.Name.Contains('command')) {
+           $mcp.command = $null
+        }
+        if ($mcp.PSObject.Properties.Name.Contains('args')) {
+           $mcp.args = @()
+        }
+        Write-Host "  - Correction appliquée pour '$mcpName': transportType='http', commande et args purgés." -ForegroundColor Cyan
+    }
 
     # Cas spécial: Filtrer les arguments de lecteur invalides pour 'filesystem'
     if ($mcpName -eq "filesystem") {
