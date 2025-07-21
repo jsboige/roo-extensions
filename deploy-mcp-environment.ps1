@@ -1,140 +1,137 @@
 # =============================================================================
-# Script de déploiement pour l'environnement MCP de référence
+# Script de déploiement pour l'environnement MCP de référence (V2 - Simplifié)
 #
 # Auteur: Roo
-# Date: 18/07/2025
+# Date: 21/07/2025
 #
 # Description:
-# Ce script automatise l'installation des dépendances globales, le build
-# des MCPs internes et le déploiement du fichier de configuration nécessaire
-# pour l'environnement de développement Roo.
+# Version corrigée et simplifiée. Ce script assure la compilation des
+# serveurs TypeScript et génère une configuration mcp_settings.json propre
+# avec des commandes directes, sans wrappers de journalisation.
 # =============================================================================
 
-# Arrête le script à la première erreur
 $ErrorActionPreference = 'Stop'
 
-# --- 1. Vérification initiale ---
-Write-Host "=== Étape 1/6: Vérification de l'environnement ==="
-try {
-    Write-Host "Vérification de l'installation de npm..."
-    $npmVersion = npm --version
-    Write-Host "  [OK] npm est installé (Version: $npmVersion)." -ForegroundColor Green
-} catch {
-    Write-Error "  [ERREUR] npm n'est pas installé ou n'est pas accessible dans le PATH. Veuillez installer Node.js et npm avant de continuer."
-    exit 1
-}
-Write-Host ""
-
-# --- 2. Définition des variables ---
-Write-Host "=== Étape 2/6: Définition des variables de configuration ==="
-$ProjectRoot = "d:/Dev/roo-extensions"
-$ConfigDestination = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+# --- 1. Initialisation ---
+Write-Host "=== Étape 1/4: Initialisation ==="
+$ProjectRoot = $PSScriptRoot
 $ConfigSource = Join-Path $ProjectRoot "mcp_settings.json"
+$ConfigDestinationDir = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+$targetSettingsFile = Join-Path $ConfigDestinationDir "mcp_settings.json"
+
 Write-Host "  - Racine du projet: $ProjectRoot"
-Write-Host "  - Destination de la configuration: $ConfigDestination"
-Write-Host "  - Source de la configuration: $ConfigSource"
+Write-Host "  - Destination de la configuration: $targetSettingsFile"
 Write-Host ""
 
-# --- 3. Installation des MCPs externes globaux ---
-Write-Host "=== Étape 3/6: Installation des MCPs externes globaux ==="
-$globalMcps = @(
-    "@modelcontextprotocol/server-filesystem"
-    # Note: L'ancien "@modelcontextprotocol/server-git" a été retiré car il n'existe pas.
-    # La fonctionnalité Git local est maintenant gérée via le MCP 'git' qui pointe vers un serveur interne ou un autre package.
-)
+# --- 2. Build des MCPs internes ---
+Write-Host "=== Étape 2/4: Installation des dépendances et build des MCPs TypeScript ==="
+$config = Get-Content -Path $ConfigSource -Raw | ConvertFrom-Json
 
-foreach ($mcp in $globalMcps) {
-    Write-Host "Installation de '$mcp'..."
-    npm install -g $mcp
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  [OK] '$mcp' a été installé/mis à jour avec succès." -ForegroundColor Green
-    } else {
-        Write-Error "  [ERREUR] L'installation de '$mcp' a échoué. Code de sortie: $LASTEXITCODE"
-        # On pourrait choisir de quitter le script ici si le MCP est critique
-        # exit 1
-    }
-}
-Write-Host ""
-
-# --- 4. Build des MCPs internes ---
-Write-Host "=== Étape 4/6: Build des MCPs internes ==="
-# Note: Le chemin pour 'roo-state-manager' est supposé être dans 'servers'. A ajuster si nécessaire.
-$internalMcpsPaths = @(
-    "mcps/internal/servers/quickfiles-server",
-    "mcps/internal/servers/jinavigator-server",
-    "mcps/internal/servers/jupyter-mcp-server",
-    "mcps/internal/servers/github-projects-mcp",
-    "mcps/internal/servers/roo-state-manager"
-)
-
-$initialLocation = Get-Location
-
-foreach ($mcpPath in $internalMcpsPaths) {
-    $fullPath = Join-Path $ProjectRoot $mcpPath
-    Write-Host "Traitement de '$mcpPath'..."
-    if (Test-Path $fullPath) {
-        $packageJsonPath = Join-Path $fullPath "package.json"
-        if (Test-Path $packageJsonPath) {
-            try {
-                Set-Location $fullPath
-                Write-Host "  - Fichier package.json trouvé. Lancement de 'npm install' dans $fullPath..."
-                npm install | Out-Null # Redirige la sortie pour ne pas polluer la console
-                Write-Host "  - Lancement de 'npm run build'..."
-                npm run build | Out-Null # Redirige la sortie
-                Write-Host "  [OK] Build de '$mcpPath' terminé avec succès." -ForegroundColor Green
-            } catch {
-                Write-Error "  [ERREUR] Le build de '$mcpPath' a échoué. Veuillez vérifier les logs dans le répertoire."
-            } finally {
-                Set-Location $initialLocation
-            }
-        } else {
-            Write-Host "  [INFO] Pas de package.json dans '$mcpPath', compilation ignorée." -ForegroundColor Yellow
-        }
-    } else {
-        Write-Warning "  [AVERTISSEMENT] Le répertoire '$fullPath' n'existe pas. Le build est ignoré."
-    }
-}
-Write-Host ""
-
-# --- 5. Déploiement du fichier de configuration ---
-Write-Host "=== Étape 5/6: Déploiement du fichier de configuration ==="
-try {
-    if (-not (Test-Path $ConfigDestination)) {
-        Write-Host "Le répertoire de destination n'existe pas. Création de '$ConfigDestination'..."
-        New-Item -ItemType Directory -Force -Path $ConfigDestination | Out-Null
-        Write-Host "  [OK] Répertoire créé." -ForegroundColor Green
-    }
+foreach ($mcpName in $config.mcpServers.PSObject.Properties.Name) {
+    $mcp = $config.mcpServers.$mcpName
     
-    if (Test-Path $ConfigSource) {
-        # Vérification de la variable d'environnement pour le token GitHub
-        if (-not $env:GITHUB_TOKEN) {
-            Write-Error "La variable d'environnement GITHUB_TOKEN n'est pas définie."
-            exit 1
-        }
-
-        Write-Host "Lecture du fichier de configuration source..."
-        $configContent = Get-Content -Path $ConfigSource -Raw
-
-        Write-Host "Substitution du placeholder du token GitHub..."
-        $newConfigContent = $configContent.Replace('${env:GITHUB_TOKEN}', $env:GITHUB_TOKEN)
-
-        $targetSettingsFile = Join-Path $ConfigDestination "mcp_settings.json"
-        Write-Host "Écriture du fichier de configuration mis à jour vers '$targetSettingsFile'..."
-        Set-Content -Path $targetSettingsFile -Value $newConfigContent -Force
+    # On ne traite que les serveurs internes qui ont un placeholder de chemin
+    if ($mcp.args -join ' ' -match '\$\{mcp_paths:([a-zA-Z0-9_-]+)\}') {
+        $mcpPathKey = $matches[1]
+        $mcpFullPath = Join-Path $ProjectRoot "mcps/internal/servers/$mcpPathKey"
         
-        Write-Host "  [OK] Fichier de configuration déployé et mis à jour avec succès." -ForegroundColor Green
-    } else {
-        Write-Warning "  [AVERTISSEMENT] Le fichier source 'mcp_settings.json' n'a pas été trouvé à la racine. L'étape de copie est ignorée."
+        if (Test-Path (Join-Path $mcpFullPath "package.json")) {
+            Write-Host "Traitement du MCP interne: '$mcpName'..."
+            
+            try {
+                Push-Location $mcpFullPath
+                
+                Write-Host "  - Installation des dépendances (npm install)..."
+                npm install | Out-Null
+                
+                if (Test-Path (Join-Path $mcpFullPath "tsconfig.json")) {
+                    Write-Host "  - Compilation TypeScript (npx tsc)..."
+                    npx tsc
+                }
+                
+                Write-Host "  [OK] MCP '$mcpName' traité avec succès." -ForegroundColor Green
+            } catch {
+                Write-Error "  [ERREUR] Le traitement du MCP '$mcpName' a échoué: $($_.Exception.Message)"
+            } finally {
+                Pop-Location
+            }
+        }
     }
-} catch {
-    Write-Error "  [ERREUR] Une erreur critique est survenue lors du déploiement du fichier de configuration."
 }
 Write-Host ""
 
-# --- 6. Finalisation ---
-Write-Host "=== Étape 6/6: Finalisation ==="
+# --- 3. Génération de la configuration finale ---
+Write-Host "=== Étape 3/4: Génération du fichier de configuration final ==="
+
+# Recharger la configuration pour avoir un objet propre
+$finalConfig = Get-Content -Path $ConfigSource -Raw | ConvertFrom-Json
+
+# Itérer et modifier la configuration
+foreach ($mcpName in $finalConfig.mcpServers.PSObject.Properties.Name) {
+    $mcp = $finalConfig.mcpServers.$mcpName
+
+    # Résoudre les placeholders de chemin pour les serveurs internes
+    $argString = $mcp.args -join ' '
+    if ($argString -match '\$\{mcp_paths:([a-zA-Z0-9_-]+)\}') {
+        $mcpPathKey = $matches[1]
+        $mcpFullPath = (Resolve-Path (Join-Path $ProjectRoot "mcps/internal/servers/$mcpPathKey")).Path.Replace('\', '/')
+        
+        $newArgs = @()
+        foreach($arg in $mcp.args) {
+            $newArgs += $arg.Replace('${mcp_paths:' + $mcpPathKey + '}', $mcpFullPath)
+        }
+        $mcp.args = $newArgs
+        Write-Host "  - Chemin résolu pour '$mcpName'."
+    }
+
+    # Cas spécial: Filtrer les arguments de lecteur invalides pour 'filesystem'
+    if ($mcpName -eq "filesystem") {
+        $originalArgs = $mcp.args
+        $validArgs = @()
+        foreach ($arg in $originalArgs) {
+            if ($arg -notmatch '^[a-zA-Z]:$' -or (Test-Path $arg)) {
+                $validArgs += $arg
+            } else {
+                Write-Host "  - Argument de lecteur invalide ignoré pour filesystem: '$arg'" -ForegroundColor Yellow
+            }
+        }
+        $mcp.args = $validArgs
+    }
+}
+Write-Host ""
+
+# --- 4. Écriture du fichier de configuration ---
+Write-Host "=== Étape 4/4: Déploiement du fichier de configuration ==="
+if (-not (Test-Path $ConfigDestinationDir)) {
+    New-Item -ItemType Directory -Force -Path $ConfigDestinationDir | Out-Null
+}
+
+# Convertir l'objet final en JSON et remplacer les variables d'environnement
+$envFile = Join-Path $ProjectRoot ".env"
+$envVars = @{}
+if (Test-Path $envFile) {
+    Get-Content $envFile | ForEach-Object {
+        $key, $value = $_.Split('=', 2)
+        if ($key -and $value) {
+            $envVars[$key.Trim()] = $value.Trim().Trim('"')
+        }
+    }
+}
+
+$jsonOutput = $finalConfig | ConvertTo-Json -Depth 10
+foreach($key in $envVars.Keys) {
+    $placeholder = '${env:' + $key + '}'
+    if ($jsonOutput.Contains($placeholder)) {
+        $jsonOutput = $jsonOutput.Replace($placeholder, $envVars[$key])
+        Write-Host "  - Variable d'environnement '$key' substituée."
+    }
+}
+
+# Écrire le fichier final sans BOM
+$utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($targetSettingsFile, $jsonOutput, $utf8WithoutBom)
+
 Write-Host ""
 Write-Host "---------------------------------------------------------" -ForegroundColor Cyan
-Write-Host "  Environnement MCP déployé avec succès !" -ForegroundColor Cyan
+Write-Host "  Environnement MCP déployé avec succès (version simplifiée)." -ForegroundColor Cyan
 Write-Host "---------------------------------------------------------" -ForegroundColor Cyan
-Write-Host ""

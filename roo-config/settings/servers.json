@@ -60,7 +60,7 @@
     {
       "name": "filesystem",
       "type": "stdio",
-      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem D:\\roo-extensions d:\\roo-extensions D: C: G: d: c: g:",
+      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem D:\\roo-extensions C: G:",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour accéder au système de fichiers"

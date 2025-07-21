@@ -5,7 +5,7 @@
       "args": [
         "/c",
         "node",
-        "d:/Dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js"
+        "${mcp_paths:quickfiles-server}/build/index.js"
       ],
       "alwaysAllow": [
         "edit_multiple_files",
@@ -26,10 +26,10 @@
       "args": [
         "/c",
         "node",
-        "d:/Dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js"
+        "${mcp_paths:jinavigator-server}/dist/index.js"
       ],
       "alwaysAllow": [
-        "convert_web_to_markdown",
+        "convert_web_to_markdown", 
         "multi_convert",
         "extract_markdown_outline"
       ],
@@ -46,8 +46,9 @@
       "command": "cmd",
       "args": [
         "/c",
-        "node",
-        "C:\\Users\\jsboi\\AppData\\Roaming\\npm\\node_modules\\mcp-searxng\\dist\\index.js"
+        "npx",
+        "-y",
+        "mcp-searxng"
       ],
       "transportType": "stdio",
       "disabled": false,
@@ -60,7 +61,7 @@
       "args": [
         "/c",
         "node",
-        "d:/Dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js"
+        "${mcp_paths:jupyter-mcp-server}/dist/index.js"
       ],
       "alwaysAllow": [
         "read_notebook"
@@ -71,34 +72,45 @@
       "config": {
         "jupyterServer": {
           "baseUrl": "http://localhost:8890",
-          "token": "ed3ee8065eed17e2785aa5513aa61fd94fcffd233a3d38a5"
+          "token": "${env:GITHUB_TOKEN}"
         }
       }
     },
+    "roo-state-manager": {
+      "autoApprove": [],
+      "alwaysAllow": [],
+      "command": "cmd",
+      "args": [
+        "/c",
+        "node",
+        "${mcp_paths:roo-state-manager}/build/index.js"
+      ],
+      "transportType": "stdio",
+      "disabled": true,
+      "autoStart": true
+    },
     "win-cli": {
-      "autoApprove": true,
-      "alwaysAllow": true,
+      "autoApprove": [],
+      "alwaysAllow": [],
       "command": "cmd",
       "args": [
         "/c",
         "npx",
         "-y",
-        "@simonb97/server-win-cli",
-        "--config",
-        "{\\\"security\\\": {\\\"blockedCommands\\\": [], \\\"blockedArguments\\\": [], \\\"allowedPaths\\\": [\\\"*\\\"], \\\"restrictWorkingDirectory\\\": false, \\\"commandTimeout\\\": 0}, \\\"shells\\\": {\\\"powershell\\\": {\\\"blockedOperators\\\": []}, \\\"cmd\\\": {\\\"blockedOperators\\\": []}, \\\"gitbash\\\": {\\\"blockedOperators\\\": []}}}"
+        "@simonb97/server-win-cli"
       ],
       "transportType": "stdio",
       "disabled": false
     },
     "github-projects": {
       "autoApprove": [],
-      "alwaysAllow": true,
+      "alwaysAllow": [],
       "transportType": "stdio",
       "command": "cmd",
       "args": [
         "/c",
         "node",
-        "d:/Dev/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
+        "${mcp_paths:github-projects-mcp}/dist/index.js"
       ],
       "disabled": false,
       "autoStart": true,
@@ -109,7 +121,7 @@
     },
     "gitglobal": {
       "autoApprove": [],
-      "alwaysAllow": true,
+      "alwaysAllow": [],
       "transportType": "stdio",
       "command": "cmd",
       "args": [
@@ -126,99 +138,37 @@
       }
     },
     "filesystem": {
-      "name": "filesystem",
-      "command": "npx",
+      "autoApprove": [],
+      "alwaysAllow": [],
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@modelcontextprotocol/server-filesystem",
-        "C:\\\\"
+        "C:",
+        "X:",
+        "G:"
       ],
       "transportType": "stdio",
       "disabled": false,
       "autoStart": true,
-      "autoApprove": true,
-      "alwaysAllow": true,
       "description": "MCP pour l'accès complet au système de fichiers local."
     },
     "git": {
-      "name": "git",
-      "command": "npx",
+      "autoApprove": [],
+      "alwaysAllow": [],
+      "command": "cmd",
       "args": [
+        "/c",
+        "npx",
         "-y",
         "@modelcontextprotocol/server-github"
       ],
       "transportType": "stdio",
       "disabled": false,
       "autoStart": true,
-      "autoApprove": true,
-      "alwaysAllow": true,
       "description": "MCP pour interagir avec Git via l'API GitHub (anciennement configuré avec un package inexistant 'server-git')."
-    },
-    "roo-state-manager": {
-      "name": "roo-state-manager",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "node",
-        "d:/Dev/roo-extensions/mcps/internal/servers/roo-state-manager/build/index.js"
-      ],
-      "transportType": "stdio",
-      "disabled": false,
-      "autoStart": true
-    },
-    "docker": {
-      "name": "docker",
-      "command": "docker",
-      "args": [
-        "run",
-        "-i",
-        "--rm",
-        "-v",
-        "//./pipe/docker_engine://./pipe/docker_engine",
-        "mcp-server:local"
-      ],
-      "transportType": "stdio",
-      "disabled":false,
-      "autoStart": true,
-      "description": "MCP pour interagir avec Docker."
-    },
-    "ftp": {
-      "name": "ftp",
-      "command": "cmd",
-      "args": [
-        "/c",
-        "node",
-        "d:/Dev/roo-extensions/mcps/external/mcp-server-ftp/build/index.js"
-      ],
-      "transportType": "stdio",
-      "disabled": true,
-      "autoStart": false,
-      "description": "MCP pour interagir avec un serveur FTP. A configurer avant activation.",
-      "env": {
-        "FTP_HOST": "your_ftp_host",
-        "FTP_PORT": "21",
-        "FTP_USER": "your_ftp_user",
-        "FTP_PASSWORD": "your_ftp_password",
-        "FTP_SECURE": "false"
-      }
-    },
-    "system-utils": {
-      "command": "cmd",
-      "args": ["/c", "node", "d:/Dev/roo-extensions/mcps/internal/servers/system-utils/build/index.js"],
-      "transportType": "stdio",
-      "disabled": true
-    },
-    "api-connectors": {
-      "command": "cmd",
-      "args": ["/c", "node", "d:/Dev/roo-extensions/mcps/internal/servers/api-connectors/build/index.js"],
-      "transportType": "stdio",
-      "disabled": true
-    },
-    "dev-tools": {
-      "command": "cmd",
-      "args": ["/c", "node", "d:/Dev/roo-extensions/mcps/internal/servers/dev-tools/build/index.js"],
-      "transportType": "stdio",
-      "disabled": true
     }
   }
 }
