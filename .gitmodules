@@ -15,3 +15,6 @@
 [submodule "mcps/external/mcp-server-ftp"]
 	path = mcps/external/mcp-server-ftp
 	url = https://github.com/alxspiker/mcp-server-ftp
+[submodule "mcps/external/markitdown/source"]
+	path = mcps/external/markitdown/source
+	url = https://github.com/microsoft/markitdown.git

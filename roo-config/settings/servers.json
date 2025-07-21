@@ -79,6 +79,14 @@
         "FTP_PASSWORD": "awPYullrg6UDNNJO5qE",
         "FTP_SECURE": "false"
       }
+    },
+    {
+      "name": "markitdown",
+      "type": "stdio",
+      "command": "cmd /c C:\\Users\\jsboi\\AppData\\Local\\Programs\\Python\\Python310\\python.exe -m markitdown_mcp",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour convertir une ressource en markdown"
     }
   ],
   "settings": {

@@ -36,6 +36,17 @@ Write-ColorOutput "`n=========================================================" 
 Write-ColorOutput "   Déploiement de la configuration générale Roo" "Cyan"
 Write-ColorOutput "=========================================================" "Cyan"
 
+# Initialiser et mettre à jour les submodules Git
+Write-ColorOutput "Initialisation et mise à jour des submodules Git..." "Yellow"
+try {
+    git submodule update --init --recursive
+    Write-ColorOutput "Submodules mis à jour avec succès." "Green"
+} catch {
+    Write-ColorOutput "Erreur lors de la mise à jour des submodules:" "Red"
+    Write-ColorOutput $_.Exception.Message "Red"
+    # Il est peut-être préférable de ne pas quitter le script ici,
+    # car la mise à jour des submodules peut ne pas être critique pour tous les déploiements.
+}
 # Vérifier que le fichier de configuration existe
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configFilePath = Join-Path -Path $scriptDir -ChildPath $ConfigFile

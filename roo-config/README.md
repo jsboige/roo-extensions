@@ -2,24 +2,34 @@
 
 ## Table des matières
 
-1. [Introduction](#rôle-dans-le-projet-roo-extensions)
-2. [Principales fonctionnalités](#principales-fonctionnalités)
-3. [Structure des outils](#structure-des-outils)
-   - [Organisation des dossiers](#organisation-des-dossiers)
-   - [Script de workflow interactif](#script-de-workflow-interactif)
-4. [Guide d'utilisation rapide](#guide-dutilisation-rapide)
-   - [Workflow recommandé](#workflow-recommandé)
-   - [Cas d'utilisation courants](#cas-dutilisation-courants)
-5. [Déploiement des modes](#déploiement-des-modes)
-6. [Correction des problèmes d'encodage](#correction-des-problèmes-dencodage)
-7. [Diagnostic et vérification](#diagnostic-et-vérification)
-8. [Configuration des modèles](#configuration-des-modèles)
-9. [Système de profils](#système-de-profils)
-10. [Intégration](#intégration-avec-les-autres-composants)
-11. [Dépannage](#dépannage)
-12. [Documentation complète](#documentation-complète)
-13. [Contribution](#contribution)
-14. [Ressources supplémentaires](#ressources-supplémentaires)
+- [Outils de configuration et déploiement pour Roo](#outils-de-configuration-et-déploiement-pour-roo)
+  - [Table des matières](#table-des-matières)
+  - [Rôle dans le projet Roo Extensions](#rôle-dans-le-projet-roo-extensions)
+  - [Principales fonctionnalités](#principales-fonctionnalités)
+    - [Déploiement des modes](#déploiement-des-modes)
+    - [Correction des problèmes d'encodage](#correction-des-problèmes-dencodage)
+    - [Diagnostic et vérification](#diagnostic-et-vérification)
+    - [Configuration des modèles](#configuration-des-modèles)
+  - [Structure des outils](#structure-des-outils)
+    - [Organisation des dossiers](#organisation-des-dossiers)
+    - [Scripts de déploiement et maintenance](#scripts-de-déploiement-et-maintenance)
+  - [Guide d'utilisation rapide](#guide-dutilisation-rapide)
+    - [Workflow recommandé](#workflow-recommandé)
+    - [Déploiement Manuel (Utilisateurs avancés)](#déploiement-manuel-utilisateurs-avancés)
+    - [Cas d'utilisation courants](#cas-dutilisation-courants)
+      - [Correction d'encodage pour plusieurs fichiers](#correction-dencodage-pour-plusieurs-fichiers)
+      - [Sauvegarde et restauration des configurations](#sauvegarde-et-restauration-des-configurations)
+      - [Correction d'encodage pour plusieurs fichiers](#correction-dencodage-pour-plusieurs-fichiers-1)
+      - [Sauvegarde et restauration des configurations](#sauvegarde-et-restauration-des-configurations-1)
+  - [Système de profils](#système-de-profils)
+  - [Intégration avec les autres composants](#intégration-avec-les-autres-composants)
+    - [Intégration avec roo-modes](#intégration-avec-roo-modes)
+    - [Intégration avec les MCPs](#intégration-avec-les-mcps)
+    - [Intégration avec le système de tests](#intégration-avec-le-système-de-tests)
+  - [Documentation complète](#documentation-complète)
+  - [Dépannage](#dépannage)
+  - [Contribution](#contribution)
+  - [Ressources supplémentaires](#ressources-supplémentaires)
 
 ## Rôle dans le projet Roo Extensions
 
@@ -29,7 +39,7 @@ Le composant `roo-config` est un élément central du projet Roo Extensions qui 
 2. **Outils de correction d'encodage** : Scripts pour résoudre les problèmes d'encodage courants
 3. **Outils de diagnostic** : Scripts pour vérifier l'encodage et la validité des fichiers de configuration
 4. **Modèles de configuration** : Fichiers de configuration de référence pour les modes, les modèles et les serveurs
-5. **Workflow de maintenance** : Script interactif pour guider les utilisateurs dans les tâches de maintenance
+5. **Workflow de maintenance** : Ensemble de scripts pour les tâches de maintenance
 6. **Système de profils** : Mécanisme permettant de configurer facilement quels modèles utiliser pour chaque niveau de complexité
 
 ## Principales fonctionnalités
@@ -95,77 +105,76 @@ Les profils pour différents modèles de langage permettent d'optimiser les perf
 - **`settings/`** - [Paramètres de configuration](settings/README.md) et scripts de déploiement associés
 - **`scheduler/`** - Guides d'installation et de configuration du planificateur Roo
 
-### Script de workflow interactif
+### Scripts de déploiement et maintenance
 
-Le script `maintenance-workflow.ps1` à la racine du répertoire est un outil interactif qui guide l'utilisateur à travers les différentes étapes de maintenance de la configuration Roo. Il propose un menu avec les tâches courantes :
-
-- Mise à jour des commandes autorisées
-- Ajout ou modification de modes personnalisés
-- Mise à jour des configurations d'API
-- Correction des problèmes d'encodage
-- Déploiement des mises à jour
-- Diagnostic et vérification
-- Gestion des sauvegardes
-
-Pour l'utiliser, exécutez simplement :
-```powershell
-.\maintenance-workflow.ps1
-```
+Le répertoire `roo-config` contient un ensemble de scripts spécialisés pour gérer la configuration de Roo. Il n'y a plus de script interactif unique ; à la place, vous utilisez directement les scripts correspondant à vos besoins.
 
 ## Guide d'utilisation rapide
 
 ### Workflow recommandé
 
-1. **Utiliser le script de workflow interactif** pour être guidé à travers les tâches courantes :
-   ```powershell
-   .\maintenance-workflow.ps1
-   ```
+Le déploiement s'effectue en utilisant les scripts dédiés dans l'ordre approprié.
 
-2. **Vérifier l'encodage** du fichier source :
-   ```powershell
-   .\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
-   ```
+1.  **Déployer les paramètres globaux (IMPORTANT) :**
+    Ce script est le point d'entrée principal. Il initialise les submodules Git (essentiel pour les MCPs) et déploie les configurations de base comme `servers.json`.
+    ```powershell
+    # Exécuter depuis le répertoire roo-config
+    .\settings\deploy-settings.ps1
+    ```
 
-3. **Corriger l'encodage** si nécessaire :
-   ```powershell
-   .\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
-   ```
+2.  **Déployer les modes :**
+    Une fois les bases en place, déployez les ensembles de modes dont vous avez besoin.
+    ```powershell
+    # Exemple pour déployer les modes simple et complexe standards
+    .\deployment-scripts\deploy-modes-simple-complex.ps1
+    ```
+3.  **Vérifier le déploiement** :
+    Utilisez les scripts de diagnostic pour vous assurer que tout est en ordre.
+    ```powershell
+    .\diagnostic-scripts\verify-deployed-modes.ps1
+    ```
 
-4. **Déployer les modes** :
-   ```powershell
-   .\deployment-scripts\deploy-modes-simple-complex.ps1
-   ```
+4.  **Redémarrer Visual Studio Code** et activer les modes.
 
-5. **Vérifier le déploiement** :
-   ```powershell
-   .\diagnostic-scripts\verify-deployed-modes.ps1
-   ```
+### Déploiement Manuel (Utilisateurs avancés)
 
-6. **Redémarrer Visual Studio Code** et activer les modes
+Si vous préférez un contrôle manuel, le déploiement s'effectue en deux temps :
+
+1.  **Déployer les paramètres globaux :**
+    ```powershell
+    # Déploie le fichier settings.json principal
+    .\settings\deploy-settings.ps1
+    ```
+
+2.  **Déployer les modes :**
+    ```powershell
+    # Déploie les modes simple et complexe standards
+    .\deployment-scripts\deploy-modes-simple-complex.ps1
+    ```
+3.  **Vérifier le déploiement** :
+    ```powershell
+    .\diagnostic-scripts\verify-deployed-modes.ps1
+    ```
+
+4.  **Redémarrer Visual Studio Code** et activer les modes.
 
 ### Cas d'utilisation courants
 
-#### Déploiement de modes avec le système de profils
+#### Correction d'encodage pour plusieurs fichiers
 
 ```powershell
-# Déployer les modes avec le profil standard
-.\deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
-
-# Déployer les modes avec le profil n5
-.\deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
-
-# Déployer les modes avec le profil Qwen3
-.\deploy-profile-modes.ps1 -ProfileName "qwen" -DeploymentType global
+# Corriger l'encodage de tous les fichiers JSON dans un répertoire
+.\encoding-scripts\fix-encoding-directory.ps1 -DirectoryPath "chemin\vers\repertoire" -FilePattern "*.json"
 ```
 
-#### Création d'un nouveau profil personnalisé
+#### Sauvegarde et restauration des configurations
 
 ```powershell
-# Créer un nouveau profil basé sur un profil existant
-.\create-profile.ps1 -BasedOn "standard" -NewProfileName "mon-profil" -DefaultModel "anthropic/claude-3.5-sonnet" -ComplexModel "anthropic/claude-3.7-sonnet"
+# Créer une sauvegarde complète des configurations
+.\backup-configurations.ps1 -BackupName "pre-modification"
 
-# Déployer le nouveau profil
-.\deploy-profile-modes.ps1 -ProfileName "mon-profil" -DeploymentType global
+# Restaurer une sauvegarde
+.\restore-configuration.ps1 -BackupName "pre-modification"
 ```
 
 #### Correction d'encodage pour plusieurs fichiers
@@ -193,7 +202,7 @@ Le système de profils est une fonctionnalité clé qui permet de configurer fac
 - Le modèle à utiliser pour les modes complexes
 - Les modèles spécifiques pour chaque niveau de l'architecture n5 (MICRO, MINI, MEDIUM, LARGE, ORACLE)
 
-Pour plus d'informations sur le système de profils, consultez le [README des profils](README-profile-modes.md).
+Le système de profils est géré en combinant les modèles de `config-templates/` avec les scripts de déploiement.
 
 ## Intégration avec les autres composants
 
@@ -225,11 +234,10 @@ Pour une documentation complète sur les différents aspects du projet :
 
 Si vous rencontrez des problèmes lors du déploiement :
 
-1. Utilisez le script de workflow interactif pour un diagnostic guidé :
+1. Vérifiez votre déploiement avec les scripts de diagnostic :
    ```powershell
-   .\maintenance-workflow.ps1
+   .\diagnostic-scripts\verify-deployed-modes.ps1
    ```
-   Puis sélectionnez l'option "Diagnostic et vérification"
 
 2. Exécutez le diagnostic rapide d'encodage :
    ```powershell
