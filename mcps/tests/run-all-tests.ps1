@@ -44,7 +44,8 @@ Date: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 $testScripts = @(
     "test-quickfiles.js",
     "test-jinavigator.js",
-    "test-jupyter.js"
+    "test-jupyter.js",
+    "../internal/servers/roo-state-manager/build/tests/suite/index.js"
 )
 
 # Variables pour le résumé
@@ -63,7 +64,11 @@ foreach ($script in $testScripts) {
         try {
             # Exécuter le script avec Node.js
             $startTime = Get-Date
-            node $scriptPath
+            if ($script -like "*roo-state-manager*") {
+                Push-Location ../internal/servers/roo-state-manager; npm test; Pop-Location
+            } else {
+                node $scriptPath
+            }
             $endTime = Get-Date
             $duration = ($endTime - $startTime).TotalSeconds
             
