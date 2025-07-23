@@ -111,3 +111,6 @@ mcps/internal/servers/github-projects-mcp/.env
 mcps/backups/
 temp_clone_jsboige_servers/
 temp_status_output.txt
+
+# Rapports de test MCP
+mcps/tests/reports/
