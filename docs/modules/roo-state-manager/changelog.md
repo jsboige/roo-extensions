@@ -1,5 +1,12 @@
 # Journal des modifications - roo-state-manager
 
+## 2025-07-24
+
+### Refactoring majeur et optimisation des performances
+
+- **Problème :** L'outil `detect_roo_storage` était extrêmement lent, prenant jusqu'à 30 secondes pour s'exécuter, car il chargeait l'intégralité de chaque conversation en mémoire pour en extraire les métadonnées. L'outil `get_storage_stats` souffrait du même problème.
+- **Solution :** Le `roo-state-manager` a été refactoré pour ne lire que les métadonnées nécessaires (`history.json`) plutôt que le contenu complet des conversations. Cette approche réduit considérablement les I/O disque et la consommation de mémoire. La détection se fait désormais en une fraction du temps.
+- **Résultat :** Le temps d'exécution de `detect_roo_storage` est passé de plusieurs dizaines de secondes à quasi-instantané. La commande `get_storage_stats` a également été optimisée et renvoie les statistiques agrégées très rapidement. Le refactoring a été validé avec succès.
 ## 2025-07-23
 
 ### Correction de régression critique
