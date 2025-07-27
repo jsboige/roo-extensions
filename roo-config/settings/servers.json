@@ -95,6 +95,14 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour l'automatisation web avec Playwright"
+    },
+    {
+      "name": "roo-state-manager",
+      "type": "stdio",
+      "command": "cmd /c node ./mcps/internal/servers/roo-state-manager/build/index.js",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo."
     }
   ],
   "settings": {

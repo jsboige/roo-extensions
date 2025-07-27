@@ -5,6 +5,7 @@ Ce document décrit le plan d'implémentation et la stratégie de test pour les 
 **Documents de Conception de Référence :**
 - [Conception de la Recherche Sémantique pour les Tâches](./features/semantic-task-search.md)
 - [Conception de la Navigation Optimisée pour les Tâches](./features/optimized-task-navigation.md)
+- [Conception de la Navigation Arborescente des Tâches](./features/task-tree-navigation.md)
 
 ## 1. Plan d'Implémentation
 
