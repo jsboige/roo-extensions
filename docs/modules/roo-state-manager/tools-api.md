@@ -97,22 +97,112 @@ Fournit une vue arborescente et condensée des conversations pour une analyse ra
 ```
 Conversation Tree (Mode: chain)
 ======================================
-▶️ Task: Analyse initiale du roo-state-manager (ID: initial-analysis-sm-002)
-  Parent: None
-  Messages: 5
+▶️ Task: Refactoring de `roo-storage-detector` (ID: refactor-storagedetector-003)
+  Parent: initial-analysis-sm-002
+  Messages: 2
+  Actions: 1
   [👤 User]:
-    | Bonjour, pouvez-vous analyser l'état actuel du MCP roo-state-manager ?
-    | [...]
-    | J'aimerais une vue d'ensemble.
+    | Peux-tu appliquer ce diff sur `roo-storage-detector.ts` ?
   [🤖 Assistant]:
-    | Bien sûr. Le MCP contient actuellement 3 outils principaux...
-    | [...]
-    | Je peux vous fournir un arbre des tâches si vous le souhaitez.
-  ▶️ Task: Démonstration de l'outil get_task_tree (ID: demo-get-task-tree-001)
-    Parent: initial-analysis-sm-002
-    Messages: 3
-    [👤 User]:
-      | Oui, montrez-moi l'arbre pour la conversation `initial-analysis-sm-002`.
-    [🤖 Assistant]:
-      | Voici l'arbre des tâches demandé.
+    | Bien sûr.
+  [🛠️ apply_diff (success)] { path: src/utils/roo-storage-detector.ts, lines: 25, size: 876b }
+```
+
+## `detect_roo_storage`
+
+Détecte automatiquement les emplacements de stockage Roo et retourne une liste des chemins contenant les répertoires `tasks`.
+
+### Paramètres
+
+Aucun.
+
+### Exemple de retour
+
+```json
+{
+  "locations": [
+    "C:\\Users\\user\\AppData\\Roaming\\Code\\User\\globalStorage\\rooveterinaryinc.roo-cline\\tasks"
+  ]
+}
+```
+
+## `get_storage_stats`
+
+Calcule des statistiques agrégées sur tous les emplacements de stockage détectés, comme le nombre total de conversations et la taille totale.
+
+### Paramètres
+
+Aucun.
+
+### Exemple de retour
+
+```json
+{
+  "stats": {
+    "conversationCount": 3385,
+    "totalSize": 58734291
+  }
+}
+```
+
+## `list_conversations`
+
+Liste les squelettes de toutes les conversations en cache, avec des options de filtrage et de tri.
+
+### Paramètres
+
+- `limit` (number, optionnel): Nombre maximum de conversations à retourner.
+- `sortBy` (string, optionnel): Critère de tri. `'lastActivity'`, `'messageCount'`, `'totalSize'`.
+- `sortOrder` (string, optionnel): Ordre de tri. `'asc'` ou `'desc'`.
+- `hasApiHistory` (boolean, optionnel): Filtrer les conversations qui contiennent ou non un historique d'API.
+- `hasUiMessages` (boolean, optionnel): Filtrer les conversations qui contiennent ou non des messages UI.
+
+### Exemple de retour
+
+```json
+{
+  "conversations": [
+    {
+      "taskId": "task-001",
+      "sequence": [],
+      "metadata": { "title": "Test 1", "messageCount": 10, "lastActivity": "..." }
+    }
+  ]
+}
+```
+
+## `touch_mcp_settings`
+
+Touche le fichier de paramètres `mcp_settings.json` pour forcer VSCode à recharger les MCPs Roo. Utile après une recompilation pour s'assurer que les changements sont pris en compte.
+
+### Paramètres
+
+Aucun.
+
+### Exemple de retour
+
+```json
+{
+  "success": true,
+  "message": "Configuration UTF-8 chargee automatiquement"
+}
+```
+
+## `debug_analyze_conversation`
+
+Outil de débogage pour analyser une seule conversation par son ID et retourner le squelette brut généré, sans passer par le cache.
+
+### Paramètres
+
+- `taskId` (string, requis) : L'ID de la tâche/conversation à analyser.
+
+### Exemple de retour
+
+```json
+{
+  "taskId": "task-001",
+  "parentTaskId": "...",
+  "sequence": [ ... ],
+  "metadata": { ... }
+}
 ```
