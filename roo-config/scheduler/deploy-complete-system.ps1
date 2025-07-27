@@ -40,6 +40,7 @@ function Test-Prerequisites {
     Write-DeployLog "=== VÉRIFICATION DES PRÉREQUIS ==="
     
     $issues = @()
+    $prereqCheckResult = $true # Assume success by default
     
     # Vérifier les droits administrateur
     if (-not (Test-AdminRights)) {
@@ -53,7 +54,7 @@ function Test-Prerequisites {
     
     # Vérifier Git
     Try {
-        git --version | Out-Null
+        $null = git --version
     } Catch {
         $issues += "Git non installé ou non accessible"
     }
@@ -64,25 +65,30 @@ function Test-Prerequisites {
     }
     
     # Vérifier que c'est un dépôt Git
-    $originalLocation = Get-Location
+    $originalLocationGitCheck = Get-Location
     Try {
         Set-Location $RepoPath
-        git rev-parse --git-dir | Out-Null
+        $null = git rev-parse --git-dir
     } Catch {
         $issues += "Le répertoire $RepoPath n'est pas un dépôt Git valide"
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocationGitCheck -and (Test-Path $originalLocationGitCheck)) {
+            Set-Location $originalLocationGitCheck
+        }
     }
     
     # Vérifier la connectivité
+    $originalLocationConnectivityCheck = Get-Location
     Try {
         Set-Location $RepoPath
-        git ls-remote origin | Out-Null
-        Write-DeployLog "✓ Connectivité avec le dépôt distant vérifiée"
+        $null = git ls-remote origin # Assign to $null to suppress output
+        Write-DeployLog "(OK) Connectivité avec le dépôt distant vérifiée"
     } Catch {
         $issues += "Impossible de se connecter au dépôt distant"
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocationConnectivityCheck -and (Test-Path $originalLocationConnectivityCheck)) {
+            Set-Location $originalLocationConnectivityCheck
+        }
     }
     
     if ($issues.Count -gt 0) {
@@ -93,15 +99,16 @@ function Test-Prerequisites {
         
         if (-not $Force) {
             Write-DeployLog "Utilisez -Force pour ignorer ces avertissements" "ERROR"
-            return $false
+            $prereqCheckResult = $false
         } else {
             Write-DeployLog "Poursuite forcée malgré les avertissements" "WARN"
+            # $prereqCheckResult remains true due to Force
         }
     } else {
-        Write-DeployLog "✓ Tous les prérequis sont satisfaits"
+        Write-DeployLog "(OK) Tous les prérequis sont satisfaits"
     }
     
-    return $true
+    return $prereqCheckResult
 }
 
 function Run-Tests {
@@ -119,6 +126,7 @@ function Run-Tests {
         return $true
     }
     
+    $testResult = $false
     Try {
         $originalLocation = Get-Location
         Set-Location $RepoPath
@@ -128,24 +136,27 @@ function Run-Tests {
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
-            Write-DeployLog "✓ Tests préliminaires réussis"
-            return $true
+            Write-DeployLog "(OK) Tests préliminaires réussis"
+            $testResult = $true
         } else {
-            Write-DeployLog "✗ Tests préliminaires échoués (code: $exitCode)" "ERROR"
+            Write-DeployLog "(ERREUR) Tests préliminaires échoués (code: $exitCode)" "ERROR"
             if (-not $Force) {
                 Write-DeployLog "Utilisez -Force pour ignorer les échecs de tests" "ERROR"
-                return $false
+                # $testResult reste $false
             } else {
                 Write-DeployLog "Poursuite forcée malgré les échecs de tests" "WARN"
-                return $true
+                $testResult = $true
             }
         }
     } Catch {
         Write-DeployLog "Erreur lors de l'exécution des tests: $($_.Exception.Message)" "ERROR"
-        return $Force
+        $testResult = $Force # Si $Force est vrai, on considère le test comme "passé" pour forcer la suite
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocation -and (Test-Path $originalLocation)) {
+            Set-Location $originalLocation
+        }
     }
+    return $testResult
 }
 
 function Install-System {
@@ -158,6 +169,7 @@ function Install-System {
         return $false
     }
     
+    $installSuccess = $false
     Try {
         Write-DeployLog "Installation de la tâche planifiée (intervalle: $ScheduleInterval minutes)..."
         
@@ -168,29 +180,30 @@ function Install-System {
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
-            Write-DeployLog "✓ Tâche planifiée installée avec succès"
+            Write-DeployLog "(OK) Tâche planifiée installée avec succès"
             
             # Vérifier l'installation
             $output = & PowerShell.exe -ExecutionPolicy Bypass -File $setupScript -Action status 2>&1
             $statusExitCode = $LASTEXITCODE
             
             if ($statusExitCode -eq 0) {
-                Write-DeployLog "✓ Vérification de l'installation réussie"
-                return $true
+                Write-DeployLog "(OK) Vérification de l'installation réussie"
+                $installSuccess = $true
             } else {
-                Write-DeployLog "⚠ Installation réussie mais vérification échouée" "WARN"
-                return $true
+                Write-DeployLog "(AVERTISSEMENT) Installation réussie mais vérification échouée" "WARN"
+                $installSuccess = $true # On considère que l'installation a réussi même si la vérif échoue pour ce cas
             }
         } else {
-            Write-DeployLog "✗ Échec de l'installation de la tâche planifiée (code: $exitCode)" "ERROR"
-            return $false
+            Write-DeployLog "(ERREUR) Échec de l'installation de la tâche planifiée (code: $exitCode)" "ERROR"
+            # $installSuccess reste $false
         }
     } Catch {
         Write-DeployLog "Erreur lors de l'installation: $($_.Exception.Message)" "ERROR"
-        return $false
+        # $installSuccess reste $false
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocation -and (Test-Path $originalLocation)) { Set-Location $originalLocation }
     }
+    return $installSuccess
 }
 
 function Uninstall-System {
@@ -203,6 +216,7 @@ function Uninstall-System {
         return $false
     }
     
+    $uninstallSuccess = $false
     Try {
         Write-DeployLog "Désinstallation de la tâche planifiée..."
         
@@ -213,18 +227,19 @@ function Uninstall-System {
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
-            Write-DeployLog "✓ Tâche planifiée désinstallée avec succès"
-            return $true
+            Write-DeployLog "(OK) Tâche planifiée désinstallée avec succès"
+            $uninstallSuccess = $true
         } else {
-            Write-DeployLog "✗ Échec de la désinstallation (code: $exitCode)" "ERROR"
-            return $false
+            Write-DeployLog "(ERREUR) Échec de la désinstallation (code: $exitCode)" "ERROR"
+            # $uninstallSuccess reste $false
         }
     } Catch {
         Write-DeployLog "Erreur lors de la désinstallation: $($_.Exception.Message)" "ERROR"
-        return $false
+        # $uninstallSuccess reste $false
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocation -and (Test-Path $originalLocation)) { Set-Location $originalLocation }
     }
+    return $uninstallSuccess
 }
 
 function Verify-Installation {
@@ -237,6 +252,7 @@ function Verify-Installation {
         return $true
     }
     
+    $result = $false
     Try {
         Write-DeployLog "Exécution de la validation complète..."
         
@@ -247,18 +263,19 @@ function Verify-Installation {
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
-            Write-DeployLog "✓ Validation complète réussie"
-            return $true
+            Write-DeployLog "(OK) Validation complète réussie"
+            $result = $true
         } else {
-            Write-DeployLog "⚠ Validation complète avec avertissements (code: $exitCode)" "WARN"
-            return $true
+            Write-DeployLog "(AVERTISSEMENT) Validation complète avec avertissements (code: $exitCode)" "WARN"
+            $result = $true # Considérer les avertissements comme un succès partiel pour la vérification
         }
     } Catch {
         Write-DeployLog "Erreur lors de la validation: $($_.Exception.Message)" "ERROR"
-        return $false
+        # $result reste $false
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocation -and (Test-Path $originalLocation)) { Set-Location $originalLocation }
     }
+    return $result
 }
 
 function Test-SyncExecution {
@@ -271,6 +288,7 @@ function Test-SyncExecution {
         return $false
     }
     
+    $syncTestSuccess = $false
     Try {
         Write-DeployLog "Test d'exécution du script de synchronisation..."
         
@@ -281,18 +299,19 @@ function Test-SyncExecution {
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -eq 0) {
-            Write-DeployLog "✓ Test de synchronisation réussi"
-            return $true
+            Write-DeployLog "(OK) Test de synchronisation réussi"
+            $syncTestSuccess = $true
         } else {
-            Write-DeployLog "✗ Test de synchronisation échoué (code: $exitCode)" "ERROR"
-            return $false
+            Write-DeployLog "(ERREUR) Test de synchronisation échoué (code: $exitCode)" "ERROR"
+            # $syncTestSuccess reste $false
         }
     } Catch {
         Write-DeployLog "Erreur lors du test de synchronisation: $($_.Exception.Message)" "ERROR"
-        return $false
+        # $syncTestSuccess reste $false
     } Finally {
-        Set-Location $originalLocation
+        if ($originalLocation -and (Test-Path $originalLocation)) { Set-Location $originalLocation }
     }
+    return $syncTestSuccess
 }
 
 function Show-PostInstallationInfo {
@@ -340,7 +359,7 @@ function Show-Help {
     Write-Host @"
 === DÉPLOYEUR SYSTÈME DE SYNCHRONISATION ROO ENVIRONMENT ===
 
-Usage: .\deploy-complete-system.ps1 -Action <action> [options]
+Usage: .\deploy-complete-system.ps1 -Action [action] [options]
 
 Actions:
   install     - Installation complète du système (par défaut)
@@ -349,10 +368,10 @@ Actions:
   verify      - Vérification de l'installation existante
 
 Options:
-  -ScheduleInterval <minutes>  - Intervalle de synchronisation (défaut: 30)
+  -ScheduleInterval [minutes]  - Intervalle de synchronisation (défaut: 30)
   -SkipTests                   - Ignorer les tests préliminaires
   -Force                       - Forcer l'installation malgré les avertissements
-  -RepoPath <chemin>          - Chemin du dépôt (défaut: d:\roo-extensions)
+  -RepoPath [chemin]          - Chemin du dépôt (défaut: d:\roo-extensions)
 
 Exemples:
   .\deploy-complete-system.ps1
@@ -391,7 +410,7 @@ switch ($Action.ToLower()) {
         if (Test-Prerequisites) {
             $success = Uninstall-System
             if ($success) {
-                Write-DeployLog "✓ Système désinstallé avec succès"
+                Write-DeployLog "(OK) Système désinstallé avec succès"
             }
         }
     }
@@ -399,7 +418,7 @@ switch ($Action.ToLower()) {
     "reinstall" {
         if (Test-Prerequisites) {
             Write-DeployLog "Désinstallation de l'installation existante..."
-            Uninstall-System | Out-Null  # Ignorer les erreurs de désinstallation
+            $null = Uninstall-System
             
             if (Run-Tests) {
                 if (Install-System) {
@@ -414,32 +433,37 @@ switch ($Action.ToLower()) {
     
     "verify" {
         if (Test-Prerequisites) {
-            $success = Verify-Installation
-            if ($success) {
-                Write-DeployLog "✓ Vérification terminée avec succès"
+            Try {
+                $success = Verify-Installation
+                if ($success) {
+                    Write-DeployLog "(OK) Vérification terminée avec succès"
+                }
+            } Catch {
+                Write-DeployLog "Erreur lors de la phase de vérification: $($_.Exception.Message)" "ERROR"
+                $success = $false # Assurer que success est false en cas d'erreur ici
             }
         }
+        break # Ajout d'un break pour le cas verify
     }
     
     "help" {
         Show-Help
         Exit 0
+        break
     }
-    
     default {
         Write-DeployLog "Action non reconnue: $Action" "ERROR"
         Show-Help
         Exit 1
+        break
     }
 }
 
-$deploymentDuration = "({0:F2}s)" -f ((Get-Date) - $deploymentStartTime).TotalSeconds
+$deploymentDuration = '({0:F2}s)' -f ((Get-Date) - $deploymentStartTime).TotalSeconds
 
 if ($success) {
     Write-DeployLog "=== DÉPLOIEMENT TERMINÉ AVEC SUCCÈS $deploymentDuration ==="
-    Exit 0
 } else {
     Write-DeployLog "=== DÉPLOIEMENT ÉCHOUÉ $deploymentDuration ===" "ERROR"
-    Write-DeployLog "Consultez le log de déploiement pour plus de détails: $DeploymentLog" "ERROR"
-    Exit 1
+    Write-DeployLog ("Consultez le log de déploiement pour plus de détails: " + $DeploymentLog) "ERROR"
 }
