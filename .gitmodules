@@ -21,3 +21,6 @@
 [submodule "mcps/external/playwright/source"]
 	path = mcps/external/playwright/source
 	url = https://github.com/microsoft/playwright-mcp.git
+[submodule "mcps/external/Office-PowerPoint-MCP-Server"]
+	path = mcps/external/Office-PowerPoint-MCP-Server
+	url = https://github.com/jsboige/Office-PowerPoint-MCP-Server.git
