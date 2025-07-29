@@ -111,3 +111,10 @@ mcps/internal/servers/github-projects-mcp/.env
 mcps/backups/
 temp_clone_jsboige_servers/
 temp_status_output.txt
+
+# Fichier pour ignorer les secrets locaux
+.env
+
+# Fichiers de log et rapports générés
+*.log
+*.md.report

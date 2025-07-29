@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://roo-extensions.local/schemas/sync-dashboard.schema.json",
+  "title": "Sync Manager Dashboard Schema",
+  "description": "Schéma de validation pour le fichier d'état sync-dashboard.json.",
+  "type": "object",
+  "properties": {
+    "schemaVersion": {
+      "description": "Version du schéma du tableau de bord.",
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "lastUpdated": {
+      "description": "Horodatage de la dernière mise à jour globale.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "machines": {
+      "description": "État de la synchronisation pour chaque machine.",
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/machineState" }
+    },
+    "aggregatedState": { "$ref": "#/definitions/aggregatedState" },
+    "alerts": {
+      "description": "Liste des alertes importantes.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/alert" }
+    }
+  },
+  "required": ["schemaVersion", "lastUpdated", "machines", "aggregatedState"],
+
+  "definitions": {
+    "machineState": {
+      "type": "object",
+      "properties": {
+        "lastSeen": { "type": "string", "format": "date-time" },
+        "lastSyncDuration": { "type": "string" },
+        "lastSyncStatus": { "type": "string" },
+        "targets": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/targetState" }
+        }
+      },
+      "required": ["lastSeen", "targets"]
+    },
+    "targetState": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "status": { "type": "string" },
+        "lastSyncCommit": { "type": "string" },
+        "localPath": { "type": "string" },
+        "lastSyncAttempt": { "type": "string", "format": "date-time" },
+        "message": { "type": "string" },
+        "roadmapEntryId": { "type": "string" }
+      },
+      "required": ["id", "status"]
+    },
+    "aggregatedState": {
+        "type": "object",
+        "properties": {
+            "status": { "type": "string" },
+            "totalTargets": { "type": "integer" },
+            "synchronizedTargets": { "type": "integer" },
+            "pendingDecisionTargets": { "type": "integer" },
+            "conflictTargets": { "type": "integer" },
+            "errorTargets": { "type": "integer" },
+            "lastSyncMaster": { "type": "string" }
+        }
+    },
+    "alert": {
+      "type": "object",
+      "properties": {
+        "level": { "enum": ["Warning", "Error", "Critical"] },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "source": { "type": "string" },
+        "details": { "type": "object" }
+      },
+      "required": ["level", "message", "timestamp"]
+    }
+  }
+}
