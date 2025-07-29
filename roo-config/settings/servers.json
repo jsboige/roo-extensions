@@ -7,7 +7,10 @@
       "command": "node ./mcps/internal/servers/github-projects-mcp/dist/index.js",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour interagir avec GitHub Projects"
+      "description": "Serveur MCP pour interagir avec GitHub Projects",
+      "env": {
+        "GITHUB_TOKEN": "${process.env.GITHUB_TOKEN}"
+      }
     },
     {
       "name": "searxng",
@@ -73,11 +76,11 @@
       "autoStart": true,
       "description": "Serveur MCP pour les opérations FTP",
       "env": {
-        "FTP_HOST": "ftp.cluster028.hosting.ovh.net",
-        "FTP_PORT": "21",
-        "FTP_USER": "ffgolqi",
-        "FTP_PASSWORD": "awPYullrg6UDNNJO5qE",
-        "FTP_SECURE": "false"
+        "FTP_HOST": "${process.env.FTP_HOST}",
+        "FTP_PORT": "${process.env.FTP_PORT}",
+        "FTP_USER": "${process.env.FTP_USER}",
+        "FTP_PASSWORD": "${process.env.FTP_PASSWORD}",
+        "FTP_SECURE": "${process.env.FTP_SECURE}"
       }
     },
     {
