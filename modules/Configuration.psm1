@@ -1,23 +1,45 @@
 # modules/Configuration.psm1
-function Get-SyncConfiguration {
+
+function Resolve-AppConfiguration {
     [CmdletBinding()]
     param(
-        [string]$Path = 'config/sync-config.json'
+        [string]$ConfigPath = 'config/sync-config.json',
+        [string]$EnvPath = '.env'
     )
 
-    if (-not (Test-Path $Path)) {
-        throw "Le fichier de configuration '$Path' est introuvable."
+    # 1. Charger les variables d'environnement depuis .env
+    if (Test-Path $EnvPath) {
+        Get-Content $EnvPath | ForEach-Object {
+            $key, $value = $_.Split('=', 2)
+            if ($key -and $value) {
+                # Supprimer les guillemets si présents
+                $value = $value.Trim('"')
+                [System.Environment]::SetEnvironmentVariable($key.Trim(), $value.Trim(), 'Process')
+            }
+        }
     }
 
-    $content = Get-Content -Path $Path -Raw
-    $error.Clear()
-    $jsonOutput = $content | ConvertFrom-Json
+    # 2. Lire le fichier de configuration principal
+    if (-not (Test-Path $ConfigPath)) {
+        throw "Le fichier de configuration '$ConfigPath' est introuvable."
+    }
+    $rawContent = Get-Content -Path $ConfigPath -Raw
 
-    if ($error.Count -gt 0) {
-        throw "Erreur lors de la lecture ou de l'analyse du fichier de configuration '$Path'. Assurez-vous qu'il s'agit d'un JSON valide."
+    # 3. Substituer les variables d'environnement manuellement
+    $resolvedContent = $rawContent
+    $envVars = Get-Content $EnvPath | ForEach-Object {
+        $key, $value = $_.Split('=', 2)
+        if ($key -and $value) {
+            $key = $key.Trim()
+            $value = $value.Trim('"')
+            $resolvedContent = $resolvedContent.Replace("\${$key}", $value)
+        }
     }
 
-    return $jsonOutput
+    # 4. Parser le JSON
+    $configObject = $resolvedContent | ConvertFrom-Json -ErrorAction Stop
+    
+    return $configObject
 }
 
-Export-ModuleMember -Function Get-SyncConfiguration
+Export-ModuleMember -Function Resolve-AppConfiguration

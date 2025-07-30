@@ -8,12 +8,15 @@ function Invoke-SyncManager {
     )
 
     Write-Host "Action demandée : $SyncAction"
-    $config = Get-SyncConfiguration
+    $config = Resolve-AppConfiguration
     Write-Host "Configuration chargée pour la version $($config.version)"
     
     switch ($SyncAction) {
         'Status' {
             Invoke-SyncStatusAction -Configuration $config -Parameters $Parameters
+        }
+        'Compare-Config' {
+            Compare-Config -Configuration $config
         }
         default {
             Write-Warning "L'action '$SyncAction' n'est pas encore implémentée."
