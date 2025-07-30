@@ -91,22 +91,41 @@ Fournit une vue arborescente et condensée des conversations pour une analyse ra
     - `'chain'`: Affiche la tâche et toute sa chaîne de tâches parentes.
     - `'cluster'`: Affiche la tâche, son parent direct, et tous les enfants du parent (les "frères et sœurs" de la tâche).
 - `truncate` (number, optionnel, défaut: 5) : Nombre de lignes à conserver au début et à la fin de chaque message pour le condenser. Mettre à `0` pour désactiver la troncature.
+- `truncation_pattern` (object, optionnel) : Un objet pour une troncature asymétrique.
+    - `head` (number) : Nombre de caractères à conserver au début.
+    - `tail` (number) : Nombre de caractères à conserver à la fin.
+ - `preset` (string, optionnel) : Un preset pour appliquer rapidement une configuration commune. Si utilisé, il écrase les valeurs par défaut des autres paramètres. Les paramètres spécifiés explicitement dans la même requête auront toujours la priorité sur le preset.
+    - `'overview'`: `{ view_mode: 'chain', truncate: 1 }` - Idéal pour une vue d'ensemble rapide.
+    - `'cluster_debug'`: `{ view_mode: 'cluster', truncate: 5 }` - Utile pour déboguer les relations entre tâches sœurs.
+    - `'full_audit'`: `{ view_mode: 'chain', truncate: 0 }` - Affiche tout le contenu, sans aucune troncature.
+    - `'content_focus'`: `{ view_mode: 'chain', truncate: 15 }` - Met l'accent sur le contenu tout en gardant une vue concise.
 
 ### Exemple de retour
 
+L'outil retourne d'abord un bloc de statistiques sur l'arbre de conversation analysé, puis l'arbre lui-même.
+
 ```
+Conversation Tree Metrics
+=========================
+- Total Nodes: 15
+- Max Depth: 4
+- Max Width: 5
+- Total Size: 123.45 KB
+
 Conversation Tree (Mode: chain)
 ======================================
 ▶️ Task: Refactoring de `roo-storage-detector` (ID: refactor-storagedetector-003)
   Parent: initial-analysis-sm-002
   Messages: 2
-  Actions: 1
-  [👤 User]:
-    | Peux-tu appliquer ce diff sur `roo-storage-detector.ts` ?
+  [...
+▶️ Task: Rapport final et déploiement 🏁 (ID: final-report-and-deploy-004)
+  Parent: refactor-storagedetector-003
+  Messages: 1
   [🤖 Assistant]:
-    | Bien sûr.
-  [🛠️ apply_diff (success)] { path: src/utils/roo-storage-detector.ts, lines: 25, size: 876b }
+    | Rapport de Mission[...]n est terminée avec succès...
 ```
+
+L'indicateur `🏁` est ajouté au titre de la tâche si un rapport de mission est détecté à la fin de la conversation.
 
 ## `detect_roo_storage`
 
@@ -147,12 +166,12 @@ Aucun.
 
 ## `list_conversations`
 
-Retourne la liste complète des conversations sous forme d'une structure arborescente, représentant les relations parent-enfant entre les tâches.
+Retourne un tableau de toutes les tâches racines (celles sans parent), chacune contenant potentiellement un tableau `children` imbriqué pour former une forêt d'arborescences de conversations.
 
 ### Paramètres
 
-- `limit` (number, optionnel): Nombre maximum de conversations à retourner.
-- `sortBy` (string, optionnel): Critère de tri. `'lastActivity'`, `'messageCount'`, `'totalSize'`.
+- `limit` (number, optionnel): Nombre maximum de conversations racines à retourner.
+- `sortBy` (string, optionnel): Critère de tri pour les tâches racines. Valeurs possibles : `'lastActivity'`, `'messageCount'`, `'totalSize'`.
 - `sortOrder` (string, optionnel): Ordre de tri. `'asc'` ou `'desc'`.
 - `hasApiHistory` (boolean, optionnel): Filtrer les conversations qui contiennent ou non un historique d'API.
 - `hasUiMessages` (boolean, optionnel): Filtrer les conversations qui contiennent ou non des messages UI.
@@ -160,37 +179,35 @@ Retourne la liste complète des conversations sous forme d'une structure arbores
 ### Exemple de retour
 
 ```json
-{
-  "conversations": [
-    {
-      "taskId": "root-task-1",
-      "metadata": { "title": "Tâche Racine 1", "..." },
-      "children": [
-        {
-          "taskId": "child-task-1.1",
-          "metadata": { "title": "Tâche Enfant 1.1", "..." },
-          "children": []
-        },
-        {
-          "taskId": "child-task-1.2",
-          "metadata": { "title": "Tâche Enfant 1.2", "..." },
-          "children": [
-            {
-              "taskId": "grandchild-task-1.2.1",
-              "metadata": { "title": "Petite-Tâche Enfant 1.2.1", "..." },
-              "children": []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "taskId": "root-task-2",
-      "metadata": { "title": "Tâche Racine 2", "..." },
-      "children": []
-    }
-  ]
-}
+[
+  {
+    "taskId": "root-task-1",
+    "metadata": { "title": "Tâche Racine 1", "..." },
+    "children": [
+      {
+        "taskId": "child-task-1.1",
+        "metadata": { "title": "Tâche Enfant 1.1", "..." },
+        "children": []
+      },
+      {
+        "taskId": "child-task-1.2",
+        "metadata": { "title": "Tâche Enfant 1.2", "..." },
+        "children": [
+          {
+            "taskId": "grandchild-task-1.2.1",
+            "metadata": { "title": "Petite-Tâche Enfant 1.2.1", "..." },
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "taskId": "root-task-2",
+    "metadata": { "title": "Tâche Racine 2", "..." },
+    "children": []
+  }
+]
 ```
 
 ## `touch_mcp_settings`
