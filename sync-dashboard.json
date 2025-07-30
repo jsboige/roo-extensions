@@ -1,0 +1,27 @@
+{
+  "$schema": "./config/sync-dashboard.schema.json",
+  "schemaVersion": "1.1.0",
+  "lastUpdated": "2025-07-29T16:00:00Z",
+  "aggregatedState": {
+    "status": "OK",
+    "totalTargets": 2,
+    "synchronizedTargets": 2,
+    "pendingDecisionTargets": 0,
+    "conflictTargets": 0,
+    "errorTargets": 0,
+    "lastSyncMaster": "DEV-MACHINE-01"
+  },
+  "environments": [
+    {
+        "name": "DEV-MACHINE-01",
+        "status": "Synchronized",
+        "lastSync": "29/07/2025 15:30:00"
+    },
+    {
+        "name": "WORK-LAPTOP",
+        "status": "PendingDecision",
+        "lastSync": "29/07/2025 14:00:00"
+    }
+  ],
+  "alerts": []
+}
