@@ -147,7 +147,7 @@ Aucun.
 
 ## `list_conversations`
 
-Liste les squelettes de toutes les conversations en cache, avec des options de filtrage et de tri.
+Retourne la liste complète des conversations sous forme d'une structure arborescente, représentant les relations parent-enfant entre les tâches.
 
 ### Paramètres
 
@@ -163,9 +163,31 @@ Liste les squelettes de toutes les conversations en cache, avec des options de f
 {
   "conversations": [
     {
-      "taskId": "task-001",
-      "sequence": [],
-      "metadata": { "title": "Test 1", "messageCount": 10, "lastActivity": "..." }
+      "taskId": "root-task-1",
+      "metadata": { "title": "Tâche Racine 1", "..." },
+      "children": [
+        {
+          "taskId": "child-task-1.1",
+          "metadata": { "title": "Tâche Enfant 1.1", "..." },
+          "children": []
+        },
+        {
+          "taskId": "child-task-1.2",
+          "metadata": { "title": "Tâche Enfant 1.2", "..." },
+          "children": [
+            {
+              "taskId": "grandchild-task-1.2.1",
+              "metadata": { "title": "Petite-Tâche Enfant 1.2.1", "..." },
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "taskId": "root-task-2",
+      "metadata": { "title": "Tâche Racine 2", "..." },
+      "children": []
     }
   ]
 }
