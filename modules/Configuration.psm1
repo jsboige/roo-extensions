@@ -25,16 +25,8 @@ function Resolve-AppConfiguration {
     }
     $rawContent = Get-Content -Path $ConfigPath -Raw
 
-    # 3. Substituer les variables d'environnement manuellement
-    $resolvedContent = $rawContent
-    $envVars = Get-Content $EnvPath | ForEach-Object {
-        $key, $value = $_.Split('=', 2)
-        if ($key -and $value) {
-            $key = $key.Trim()
-            $value = $value.Trim('"')
-            $resolvedContent = $resolvedContent.Replace("\${$key}", $value)
-        }
-    }
+    # 3. Substituer les variables d'environnement en utilisant la méthode .NET robuste
+    $resolvedContent = [System.Environment]::ExpandEnvironmentVariables($rawContent)
 
     # 4. Parser le JSON
     $configObject = $resolvedContent | ConvertFrom-Json -ErrorAction Stop
