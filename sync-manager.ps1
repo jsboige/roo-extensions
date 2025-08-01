@@ -43,8 +43,12 @@ try {
 
     # Mettre à jour le rapport
     $reportPath = Join-Path $config.sharedStatePath "sync-report.md"
-    $reportHeader = "## 🖥️ Contexte de l'Exécution"
-    $reportContent = @"
+    $startMarker = "<!-- START: RUSH_SYNC_CONTEXT -->"
+    $endMarker = "<!-- END: RUSH_SYNC_CONTEXT -->"
+
+    $newReportBlock = @"
+$startMarker
+## 🖥️ Contexte de l'Exécution
 | Catégorie | Information |
 |---|---|
 | **OS** | $($localContext.computerInfo.OsName) |
@@ -53,17 +57,24 @@ try {
 | **Encodage** | $($localContext.defaultEncoding) |
 
 ### Environnement Roo
-
 #### MCPs Installés
 $($localContext.rooEnvironment.mcps | ForEach-Object { "- $_" })
 
 #### Modes Disponibles
 $($localContext.rooEnvironment.modes | ForEach-Object { "- $_" })
+$endMarker
 "@
-    
-    # Ajoute ou met à jour la section dans le rapport
-    # (Cette logique est simplifiée, une implémentation plus robuste rechercherait et remplacerait la section)
-    Add-Content -Path $reportPath -Value "`n$reportHeader`n$reportContent"
+
+    if (Test-Path $reportPath) {
+        $currentContent = Get-Content -Path $reportPath -Raw
+        $regex = "(?s)$startMarker.*$endMarker"
+        $updatedContent = [regex]::Replace($currentContent, $regex, "").Trim()
+    } else {
+        $updatedContent = ""
+    }
+
+    $finalContent = "$updatedContent`n`n$newReportBlock".Trim()
+    Set-Content -Path $reportPath -Value $finalContent
 
     Invoke-SyncManager -SyncAction $Action -Parameters $PSBoundParameters
 }
