@@ -18,6 +18,12 @@ function Invoke-SyncManager {
         'Compare-Config' {
             Compare-Config -Configuration $config
         }
+        'Initialize-Workspace' {
+            Initialize-Workspace -config $config
+        }
+        'Apply-Decisions' {
+            Apply-Decisions -Configuration $config
+        }
         default {
             Write-Warning "L'action '$SyncAction' n'est pas encore implémentée."
         }

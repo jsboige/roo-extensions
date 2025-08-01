@@ -3,6 +3,6 @@
   "defaultRemote": "origin",
   "autoStash": true,
   "logLevel": "INFO",
-  "sharedStatePath": "${SHARED_STATE_PATH}",
+  "sharedStatePath": "%SHARED_STATE_PATH%",
   "targets": []
 }

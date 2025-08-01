@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('Pull', 'Push', 'Status', 'Resolve', 'Configure', 'Compare-Config')]
+    [ValidateSet('Pull', 'Push', 'Status', 'Resolve', 'Configure', 'Compare-Config', 'Initialize-Workspace', 'Apply-Decisions')]
     [string]$Action,
 
     [string]$Repository,

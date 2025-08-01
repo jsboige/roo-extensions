@@ -3,6 +3,20 @@
   "defaultRemote": "origin",
   "autoStash": true,
   "logLevel": "INFO",
-  "sharedStatePath": "${SHARED_STATE_PATH}",
+  "sharedStatePath": "%SHARED_STATE_PATH%",
+  "syncTargets": [
+    {
+      "name": "Documentation",
+      "localPath": "./docs",
+      "remotePath": "docs",
+      "direction": "two-way"
+    },
+    {
+      "name": "Modules",
+      "localPath": "./modules",
+      "remotePath": "modules",
+      "direction": "two-way"
+    }
+  ],
   "targets": []
 }
