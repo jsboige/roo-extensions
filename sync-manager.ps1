@@ -29,6 +29,11 @@ try {
         $dashboard = [PSCustomObject]@{ machineStates = @() }
     }
     
+    # Assurer la robustesse de l'objet dashboard
+    if ($null -eq $dashboard -or -not $dashboard.PSObject.Properties['machineStates']) {
+        $dashboard = [PSCustomObject]@{ machineStates = @() }
+    }
+
     $machineName = $localContext.computerInfo.CsName
     $machineState = $dashboard.machineStates | Where-Object { $_.machineName -eq $machineName }
     

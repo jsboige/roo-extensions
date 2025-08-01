@@ -18,5 +18,15 @@
       "direction": "two-way"
     }
   ],
+  "syncPaths": [
+    {
+      "type": "directory",
+      "path": "$env:USERPROFILE/Documents/PowerShell/ScriptsToSync",
+      "exclusions": [
+        "*.log",
+        "*.tmp"
+      ]
+    }
+  ],
   "targets": []
 }

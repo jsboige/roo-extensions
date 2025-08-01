@@ -181,7 +181,7 @@ function Initialize-Workspace {
     $filesToCreate = @{
         "sync-config.ref.json" = { Copy-Item -Path 'config/sync-config.json' -Destination (Join-Path $sharedPath "sync-config.ref.json") -Force };
         "sync-roadmap.md"      = { Set-Content -Path (Join-Path $sharedPath "sync-roadmap.md") -Value "# Roadmap de Synchronisation RUSH-SYNC" };
-        "sync-dashboard.json"  = { Set-Content -Path (Join-Path $sharedPath "sync-dashboard.json") -Value '{ "lastSync": null, "status": "uninitialized" }' };
+        "sync-dashboard.json"  = { Set-Content -Path (Join-Path $sharedPath "sync-dashboard.json") -Value '{ "machineStates": [] }' };
         "sync-report.md"       = { Set-Content -Path (Join-Path $sharedPath "sync-report.md") -Value "# Rapport de Synchronisation RUSH-SYNC" };
     }
 
