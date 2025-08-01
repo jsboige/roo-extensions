@@ -30,4 +30,32 @@ function Invoke-SyncManager {
     }
 }
 
-Export-ModuleMember -Function Invoke-SyncManager
+function Get-LocalContext {
+    [CmdletBinding()]
+    param()
+
+    $computerInfo = Get-ComputerInfo | Select-Object -Property OsName, CsName, CsManufacturer, CsModel
+    
+    $rooEnv = @{
+        mcps     = (Get-ChildItem -Path "d:/roo-extensions/mcps" -Directory).Name
+        modes    = (Get-ChildItem -Path "d:/roo-extensions/roo-modes" -Directory).Name
+        profiles = (Get-ChildItem -Path "d:/roo-extensions/profiles" -Directory).Name
+    }
+
+    $psInfo = @{
+        version = $PSVersionTable.PSVersion
+        edition = $PSVersionTable.PSEdition
+    }
+
+    $context = [PSCustomObject]@{
+        timestamp       = (Get-Date).ToUniversalTime().ToString("o")
+        computerInfo    = $computerInfo
+        rooEnvironment  = $rooEnv
+        powershell      = $psInfo
+        defaultEncoding = [System.Text.Encoding]::Default.EncodingName
+    }
+
+    return $context
+}
+
+Export-ModuleMember -Function Invoke-SyncManager, Get-LocalContext
