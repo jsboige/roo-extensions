@@ -76,7 +76,11 @@ $endMarker
     $finalContent = "$updatedContent`n`n$newReportBlock".Trim()
     Set-Content -Path $reportPath -Value $finalContent
 
-    Invoke-SyncManager -SyncAction $Action -Parameters $PSBoundParameters
+    # Remplace l'appel existant à Invoke-SyncManager
+    $params = $PSBoundParameters
+    $params.Add('LocalContext', $localContext)
+
+    Invoke-SyncManager -SyncAction $Action -Parameters $params
 }
 catch {
     # Gestion d'erreur basique pour le moment

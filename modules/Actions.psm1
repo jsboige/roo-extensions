@@ -25,7 +25,8 @@ function Invoke-SyncStatusAction {
 function Compare-Config {
     [CmdletBinding()]
     param(
-        [psobject]$Configuration
+        [psobject]$Configuration,
+        [psobject]$LocalContext
     )
 
     Write-Host "--- Début de l'action Compare-Config ---"
@@ -64,25 +65,34 @@ function Compare-Config {
     $diff = Compare-Object -ReferenceObject ($refObject | ConvertTo-Json -Depth 100) -DifferenceObject ($diffObject | ConvertTo-Json -Depth 100)
 
     if ($diff) {
-        $timestamp = Get-Date -Format 'u'
-        $machineName = $env:COMPUTERNAME
+        # Génération d'un UUID pour la décision
+        $decisionId = [guid]::NewGuid().ToString()
+
+        # Extraction des données contextuelles pertinentes
+        $machineName = $LocalContext.computerInfo.CsName
+        $timestamp = $LocalContext.timestamp
+        $contextSubset = $LocalContext | Select-Object computerInfo, powershell, rooEnvironment | ConvertTo-Json -Depth 5
+
+        # Construction du nouveau bloc de décision
         $diffBlock = @"
 
-### <!-- DECISION_BLOCK_START ID=config-sync-$($timestamp) -->
-**Objet :** Différence de configuration détectée
-**Détecté par :** `$machineName`
-**Date :** `$timestamp`
+### DECISION ID: $decisionId
+- **Status:** PENDING
+- **Machine:** $machineName
+- **Timestamp (UTC):** $timestamp
+- **Source Action:** Compare-Config
+- **Details:** Une différence a été détectée entre la configuration locale et la configuration de référence.
+- **Diff:**
+  `diff
+$($diff | Out-String)
+  `
+- **Contexte d'Exécution:**
+  `json
+$contextSubset
+  `
 
-**Résumé :** Une différence a été détectée entre la configuration locale et la configuration de référence.
-
-**Différences :**
-```diff
-$($diff | ConvertTo-Json -Depth 100)
-```
-
-**Actions Proposées :**
+**Action Proposée :**
 - `[ ]` **Approuver & Fusionner :** Mettre à jour la configuration de référence avec les changements locaux.
-### <!-- DECISION_BLOCK_END -->
 "@
         Add-Content -Path $roadmapPath -Value $diffBlock
         Write-Host "Différence de configuration consignée dans la feuille de route."

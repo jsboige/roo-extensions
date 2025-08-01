@@ -11,23 +11,18 @@ function Invoke-SyncManager {
     $config = Resolve-AppConfiguration
     Write-Host "Configuration chargée pour la version $($config.version)"
     
-    switch ($SyncAction) {
-        'Status' {
-            Invoke-SyncStatusAction -Configuration $config -Parameters $Parameters
-        }
-        'Compare-Config' {
-            Compare-Config -Configuration $config
-        }
-        'Initialize-Workspace' {
-            Initialize-Workspace -config $config
-        }
-        'Apply-Decisions' {
-            Apply-Decisions -Configuration $config
-        }
-        default {
-            Write-Warning "L'action '$SyncAction' n'est pas encore implémentée."
-        }
+    # Prépare les paramètres pour l'action
+    $actionParams = @{
+        Configuration = $config # $config est résolu à l'intérieur
     }
+
+    # Ajoute le contexte s'il est présent
+    if ($Parameters.ContainsKey('LocalContext')) {
+        $actionParams.Add('LocalContext', $Parameters['LocalContext'])
+    }
+    
+    # Appelle dynamiquement l'action (ex: Compare-Config) avec les bons paramètres
+    & $SyncAction @actionParams
 }
 
 function Get-LocalContext {
