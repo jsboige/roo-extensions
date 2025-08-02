@@ -1,5 +1,5 @@
 # modules/Core.psm1
-Import-Module (Join-Path (Split-Path $MyInvocation.MyCommand.Path) 'Actions.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'Actions.psm1') -Force
 
 function Invoke-SyncManager {
     param(
@@ -53,4 +53,15 @@ function Get-LocalContext {
     return $context
 }
 
-Export-ModuleMember -Function Invoke-SyncManager, Get-LocalContext
+function Resolve-AppConfiguration {
+    [CmdletBinding()]
+    param()
+
+    $configPath = Join-Path $PSScriptRoot '..', '..', '.config', 'sync-config.json'
+    if (-not (Test-Path $configPath)) {
+        throw "Le fichier de configuration '$configPath' est introuvable."
+    }
+    return Get-Content -Path $configPath | ConvertFrom-Json
+}
+
+Export-ModuleMember -Function Invoke-SyncManager, Get-LocalContext, Resolve-AppConfiguration

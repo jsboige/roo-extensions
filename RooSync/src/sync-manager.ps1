@@ -11,15 +11,18 @@ param(
     [string]$Strategy
 )
 
-Import-Module "$PSScriptRoot\modules\Dashboard.psm1" -Force
+# Import-Module "$PSScriptRoot\modules\Dashboard.psm1" -Force
 $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 Import-Module "$PSScriptRoot\modules\Core.psm1" -Force
-Import-Module "$PSScriptRoot\modules\Configuration.psm1" -Force
-Import-Module "$PSScriptRoot\modules\Dashboard.psm1" -Force
+# Import-Module "$PSScriptRoot\modules\Configuration.psm1" -Force
 
+if (-not $env:ROO_HOME) {
+    $env:ROO_HOME = 'd:/roo-extensions'
+}
 try {
     $localContext = Get-LocalContext
     $config = Resolve-AppConfiguration
+    $config.sharedStatePath = [System.Environment]::ExpandEnvironmentVariables($config.sharedStatePath)
     
     # Mettre à jour le dashboard
     $dashboardPath = Join-Path $config.sharedStatePath "sync-dashboard.json"

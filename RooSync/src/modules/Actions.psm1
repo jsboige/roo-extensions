@@ -47,7 +47,7 @@ function Compare-Config {
         Set-Content -Path $roadmapPath -Value $roadmapHeader
     }
 
-    $localConfigPath = 'config/sync-config.json'
+    $localConfigPath = Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json'
     $refConfigPath = Join-Path -Path $sharedPath -ChildPath "sync-config.ref.json"
 
     if (-not (Test-Path $refConfigPath)) {
@@ -106,7 +106,8 @@ $contextSubset
 function Apply-Decisions {
     [CmdletBinding()]
     param(
-        [psobject]$Configuration
+        [psobject]$Configuration,
+        [psobject]$LocalContext
     )
 
     Write-Host "--- Début de l'action Apply-Decisions ---"
@@ -132,7 +133,7 @@ function Apply-Decisions {
     if ($match.Success) {
         Write-Host "Décision approuvée trouvée. Application en cours..."
 
-        $localConfigPath = 'config/sync-config.json'
+        $localConfigPath = Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json'
         $refConfigPath = Join-Path -Path $sharedPath -ChildPath "sync-config.ref.json"
 
         try {
@@ -179,7 +180,7 @@ function Initialize-Workspace {
 
     # Fichiers à créer
     $filesToCreate = @{
-        "sync-config.ref.json" = { Copy-Item -Path 'config/sync-config.json' -Destination (Join-Path $sharedPath "sync-config.ref.json") -Force };
+        "sync-config.ref.json" = { Copy-Item -Path (Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json') -Destination (Join-Path $sharedPath "sync-config.ref.json") -Force };
         "sync-roadmap.md"      = { Set-Content -Path (Join-Path $sharedPath "sync-roadmap.md") -Value "# Roadmap de Synchronisation RUSH-SYNC" };
         "sync-dashboard.json"  = { Set-Content -Path (Join-Path $sharedPath "sync-dashboard.json") -Value '{ "machineStates": [] }' };
         "sync-report.md"       = { Set-Content -Path (Join-Path $sharedPath "sync-report.md") -Value "# Rapport de Synchronisation RUSH-SYNC" };
