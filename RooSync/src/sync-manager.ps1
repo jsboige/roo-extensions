@@ -12,20 +12,44 @@ param(
 )
 
 # Import-Module "$PSScriptRoot\modules\Dashboard.psm1" -Force
+# Définition de l'environnement et importations
 $PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 Import-Module "$PSScriptRoot\modules\Core.psm1" -Force
-# Import-Module "$PSScriptRoot\modules\Configuration.psm1" -Force
 
-if (-not $env:ROO_HOME) {
-    $env:ROO_HOME = 'd:/roo-extensions'
-}
 try {
+    # Définir ROO_HOME si non-existant
+    if (-not $env:ROO_HOME) {
+        $env:ROO_HOME = 'd:/roo-extensions'
+    }
+
+    # Configuration
+    $configPath = "$PSScriptRoot/../.config/sync-config.json"
+    if (-not (Test-Path $configPath)) {
+        throw "Le fichier de configuration '$configPath' est introuvable."
+    }
+    $configContent = (Get-Content -Path $configPath -Raw) -replace '\$\{ROO_HOME\}', $env:ROO_HOME
+    $config = $configContent | ConvertFrom-Json
+
+    # Charger la configuration depuis .env si le fichier existe
+    $envFilePath = "$PSScriptRoot/../.env"
+    if (Test-Path $envFilePath) {
+        Get-Content $envFilePath | ForEach-Object {
+            if ($_ -match "^\s*SHARED_STATE_PATH\s*=\s*(.*)") {
+                $config.sharedStatePath = $Matches[1].Trim('"')
+            }
+        }
+    }
+
+    # Contexte local
     $localContext = Get-LocalContext
-    $config = Resolve-AppConfiguration
-    $config.sharedStatePath = [System.Environment]::ExpandEnvironmentVariables($config.sharedStatePath)
     
-    # Mettre à jour le dashboard
-    $dashboardPath = Join-Path $config.sharedStatePath "sync-dashboard.json"
+    # Création du dossier partagé si nécessaire
+    if (-not (Test-Path $config.sharedStatePath -PathType Container)) {
+        New-Item -Path $config.sharedStatePath -ItemType Directory -Force | Out-Null
+    }
+
+    # Dashboard
+    $dashboardPath = "$($config.sharedStatePath)/sync-dashboard.json"
     if (Test-Path $dashboardPath) {
         $dashboard = Get-Content -Path $dashboardPath | ConvertFrom-Json
     } else {
@@ -47,10 +71,11 @@ try {
     
     $machineState | Add-Member -MemberType NoteProperty -Name "lastContext" -Value $localContext -Force
     
-    $dashboard | ConvertTo-Json -Depth 5 | Set-Content -Path $dashboardPath
+    $dashboard | ConvertTo-Json -Depth 5 | Set-Content -Path $dashboardPath -Encoding Utf8
 
     # Mettre à jour le rapport
-    $reportPath = Join-Path $config.sharedStatePath "sync-report.md"
+    # Rapport
+    $reportPath = "$($config.sharedStatePath)/sync-report.md"
     $startMarker = "<!-- START: RUSH_SYNC_CONTEXT -->"
     $endMarker = "<!-- END: RUSH_SYNC_CONTEXT -->"
 
@@ -82,13 +107,13 @@ $endMarker
     }
 
     $finalContent = "$updatedContent`n`n$newReportBlock".Trim()
-    Set-Content -Path $reportPath -Value $finalContent
+    Set-Content -Path $reportPath -Value $finalContent -Encoding Utf8
 
     # Remplace l'appel existant à Invoke-SyncManager
     $params = $PSBoundParameters
     $params.Add('LocalContext', $localContext)
 
-    Invoke-SyncManager -SyncAction $Action -Parameters $params
+    Invoke-SyncManager -SyncAction $Action -Parameters $params -Configuration $config
 }
 catch {
     # Gestion d'erreur basique pour le moment

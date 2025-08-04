@@ -40,15 +40,15 @@ function Compare-Config {
         }
     }
 
-    $roadmapPath = Join-Path -Path $sharedPath -ChildPath "sync-roadmap.md"
+    $roadmapPath = "$sharedPath/sync-roadmap.md"
     if (-not (Test-Path $roadmapPath)) {
         Write-Host "Création de la feuille de route : $roadmapPath"
         $roadmapHeader = "# 🗺️ Feuille de Route de Synchronisation - RUSH-SYNC`n`n**Dernière mise à jour :** $(Get-Date -Format 'u')`n**Statut global :** `0` décision(s) en attente.`n`n---`n`n## 📥 Actions en Attente`n"
-        Set-Content -Path $roadmapPath -Value $roadmapHeader
+        Set-Content -Path $roadmapPath -Value $roadmapHeader -Encoding Utf8
     }
 
-    $localConfigPath = Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json'
-    $refConfigPath = Join-Path -Path $sharedPath -ChildPath "sync-config.ref.json"
+    $localConfigPath = "$PSScriptRoot/../../.config/sync-config.json"
+    $refConfigPath = "$sharedPath/sync-config.ref.json"
 
     if (-not (Test-Path $refConfigPath)) {
         Write-Host "Aucune configuration de référence trouvée. La configuration locale devient la référence : $refConfigPath"
@@ -94,7 +94,7 @@ $contextSubset
 **Action Proposée :**
 - `[ ]` **Approuver & Fusionner :** Mettre à jour la configuration de référence avec les changements locaux.
 "@
-        Add-Content -Path $roadmapPath -Value $diffBlock
+        Add-Content -Path $roadmapPath -Value $diffBlock -Encoding Utf8
         Write-Host "Différence de configuration consignée dans la feuille de route."
     } else {
         Write-Host "Les configurations sont identiques. Aucune action requise."
@@ -113,7 +113,7 @@ function Apply-Decisions {
     Write-Host "--- Début de l'action Apply-Decisions ---"
 
     $sharedPath = [System.Environment]::ExpandEnvironmentVariables($Configuration.sharedStatePath)
-    $roadmapPath = Join-Path -Path $sharedPath -ChildPath "sync-roadmap.md"
+    $roadmapPath = "$sharedPath/sync-roadmap.md"
 
     if (-not (Test-Path $roadmapPath)) {
         Write-Error "La feuille de route 'sync-roadmap.md' est introuvable."
@@ -133,8 +133,8 @@ function Apply-Decisions {
     if ($match.Success) {
         Write-Host "Décision approuvée trouvée. Application en cours..."
 
-        $localConfigPath = Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json'
-        $refConfigPath = Join-Path -Path $sharedPath -ChildPath "sync-config.ref.json"
+        $localConfigPath = "$PSScriptRoot/../../.config/sync-config.json"
+        $refConfigPath = "$sharedPath/sync-config.ref.json"
 
         try {
             Copy-Item -Path $localConfigPath -Destination $refConfigPath -Force -ErrorAction Stop
@@ -143,7 +143,7 @@ function Apply-Decisions {
             $updatedBlock = $match.Groups[1].Value.Replace("DECISION_BLOCK_START", "DECISION_BLOCK_ARCHIVED")
             $newRoadmapContent = $roadmapContent.Replace($match.Groups[1].Value, $updatedBlock)
 
-            Set-Content -Path $roadmapPath -Value $newRoadmapContent -Force
+            Set-Content -Path $roadmapPath -Value $newRoadmapContent -Force -Encoding Utf8
             Write-Host "La feuille de route a été mise à jour et la décision a été archivée."
 
         } catch {
@@ -180,14 +180,14 @@ function Initialize-Workspace {
 
     # Fichiers à créer
     $filesToCreate = @{
-        "sync-config.ref.json" = { Copy-Item -Path (Join-Path $PSScriptRoot '..', '..', 'config', 'sync-config.json') -Destination (Join-Path $sharedPath "sync-config.ref.json") -Force };
-        "sync-roadmap.md"      = { Set-Content -Path (Join-Path $sharedPath "sync-roadmap.md") -Value "# Roadmap de Synchronisation RUSH-SYNC" };
-        "sync-dashboard.json"  = { Set-Content -Path (Join-Path $sharedPath "sync-dashboard.json") -Value '{ "machineStates": [] }' };
-        "sync-report.md"       = { Set-Content -Path (Join-Path $sharedPath "sync-report.md") -Value "# Rapport de Synchronisation RUSH-SYNC" };
+        "sync-config.ref.json" = { Copy-Item -Path "$PSScriptRoot/../../.config/sync-config.json" -Destination "$sharedPath/sync-config.ref.json" -Force };
+        "sync-roadmap.md"      = { Set-Content -Path "$sharedPath/sync-roadmap.md" -Value "# Roadmap de Synchronisation RUSH-SYNC" -Encoding Utf8 };
+        "sync-dashboard.json"  = { Set-Content -Path "$sharedPath/sync-dashboard.json" -Value '{ "machineStates": [] }' -Encoding Utf8 };
+        "sync-report.md"       = { Set-Content -Path "$sharedPath/sync-report.md" -Value "# Rapport de Synchronisation RUSH-SYNC" -Encoding Utf8 };
     }
 
     foreach ($file in $filesToCreate.GetEnumerator()) {
-        $filePath = Join-Path $sharedPath $file.Name
+        $filePath = "$sharedPath/$($file.Name)"
         if (-not (Test-Path $filePath)) {
             Write-Host "Création du fichier manquant : $($file.Name)"
             try {
