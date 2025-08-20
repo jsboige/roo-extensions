@@ -4,8 +4,10 @@
             "slug": "mode-family-validator",
             "name": "Mode Family Validator",
             "description": "Système de validation des transitions entre familles de modes",
+            "roleDefinition": "Internal mode for validation. Not intended for direct use.",
             "version": "1.0.0",
             "enabled": true,
+            "groups": [],
             "familyDefinitions": {
                 "simple": [
                     "code-simple",
