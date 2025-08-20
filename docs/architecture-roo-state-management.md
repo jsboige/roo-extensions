@@ -64,6 +64,17 @@ Chaque répertoire de tâche (`<task_id>`) contient deux catégories de fichiers
 -   **Métadonnées Essentielles (JSON) :** Ce sont les fichiers `api_conversation_history.json`, `ui_messages.json`, et `task_metadata.json`. Ils sont légers et contiennent la logique de la conversation. Ils sont indispensables à la restauration et au fonctionnement de Roo.
 -   **Checkpoints de Contexte :** Ce sont des fichiers (potentiellement volumineux, avec des extensions comme `.json.gz`, `.bin`, etc.) qui représentent des "instantanés" du contexte d'un modèle à un moment donné. Historiquement utilisés pour la reprise rapide de tâches, beaucoup peuvent être obsolètes si la logique de l'extension a changé ou si les tâches sont terminées. C'est l'accumulation de ces checkpoints qui est la cause principale de la taille excessive du répertoire `tasks`.
 
+
+### 2.5. Mécanisme de Checkpointing (Shadow Repository)
+
+En complément des métadonnées, Roo implémente un mécanisme de checkpointing sophistiqué pour assurer l'intégrité et la réversibilité des modifications effectuées par les modes "code". Ce système repose sur l'utilisation de dépôts Git miroirs, aussi appelés "shadow repositories".
+
+-   **Principe :** Pour chaque tâche qui implique des modifications de fichiers, un dépôt Git miroir est créé, isolé du dépôt de travail de l'utilisateur.
+-   **Emplacement :** Ces dépôts sont stockés dans un sous-répertoire spécifique de la tâche : `{globalStorageDir}/tasks/{taskId}/checkpoints/`.
+-   **Fonctionnement :** Avant toute modification d'un fichier par un agent Roo, un "checkpoint" est créé. Ce checkpoint est en réalité un **commit** dans le dépôt miroir, capturant l'état exact du fichier avant l'altération.
+-   **Gestion :** Ce processus est entièrement automatisé et géré par le `ShadowCheckpointService` ([`roo-code/src/services/checkpoints/ShadowCheckpointService.ts`](roo-code/src/services/checkpoints/ShadowCheckpointService.ts)), qui est lui-même orchestré par la classe `Task` ([`roo-code/src/core/task/Task.ts`](roo-code/src/core/task/Task.ts)) lorsqu'une opération sur un fichier est demandée.
+-   **Objectif :** L'objectif principal de ce mécanisme est de fournir un filet de sécurité robuste. Si une opération de modification de fichier échoue ou produit un résultat indésirable, Roo peut utiliser ce dépôt miroir pour effectuer un retour en arrière atomique et sécurisé via une commande `git reset --hard`, restaurant ainsi le fichier à son état d'origine sans aucun risque de corruption.
+
 ## 3. Proposition d'Architecture Cible
 
 L'architecture proposée vise à découpler le stockage des tâches du mécanisme de `globalState` de VS Code, tout en garantissant la portabilité, la performance et la résilience des données.
