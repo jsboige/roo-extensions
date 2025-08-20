@@ -146,4 +146,3 @@ La structure de l'objet qui est stocké dans le tableau `taskHistory` est défin
         workspace: z.string().optional(),
         mode: z.string().optional(),
     })
-    ```
