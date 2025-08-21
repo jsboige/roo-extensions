@@ -5,21 +5,11 @@
       "name": "Mode Family Validator",
       "description": "Système de validation des transitions entre familles de modes",
       "version": "1.0.0",
-      "enabled": true,
-      "familyDefinitions": {
-        "n5": [
-          "code-micro", "debug-micro", "architect-micro", "ask-micro", "orchestrator-micro",
-          "code-mini", "debug-mini", "architect-mini", "ask-mini", "orchestrator-mini",
-          "code-medium", "debug-medium", "architect-medium", "ask-medium", "orchestrator-medium",
-          "code-large", "debug-large", "architect-large", "ask-large", "orchestrator-large",
-          "code-oracle", "debug-oracle", "architect-oracle", "ask-oracle", "orchestrator-oracle"
-        ]
-      }
+      "enabled": true
     },
     {
       "slug": "code-micro",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "💻 Code Micro",
       "model": "anthropic/claude-3-haiku",
       "roleDefinition": "You are Roo Code (version micro), specialized in very minor code modifications, simple bug fixes, code formatting and documentation.",
@@ -30,7 +20,6 @@
     {
       "slug": "code-mini",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "💻 Code Mini",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Code (version mini), specialized in minor code modifications, simple bug fixes, code formatting and documentation, and basic feature implementation.",
@@ -41,7 +30,6 @@
     {
       "slug": "code-medium",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "💻 Code Medium",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Code (version medium), specialized in moderate code modifications, bug fixes, feature implementation, and basic optimizations.",
@@ -52,7 +40,6 @@
     {
       "slug": "code-large",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "💻 Code Large",
       "model": "anthropic/claude-3.7-sonnet",
       "roleDefinition": "You are Roo Code (version large), specialized in major code modifications, complex bug fixes, feature implementation, and advanced optimizations.",
@@ -63,19 +50,16 @@
     {
       "slug": "code-oracle",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "💻 Code Oracle",
       "model": "anthropic/claude-3.7-opus",
       "roleDefinition": "You are Roo Code (version oracle), specialized in system-level design, highly complex optimizations, advanced research, and expert-level problem solving.",
       "whenToUse": "Utilisez ce mode pour la conception de systèmes entiers, des architectures distribuées complexes, des optimisations de niveau entreprise, de la recherche avancée et des problèmes nécessitant une expertise pointue.",
       "groups": ["read", "edit", "browser", "command", "mcp"],
       "customInstructions": "FOCUS AREAS:\n- Conception de systèmes entiers\n- Architectures distribuées complexes\n- Optimisations de niveau entreprise\n- Recherche avancée\n- Problèmes nécessitant une expertise pointue\n\nAPPROACH:\n1. Analyser en profondeur la demande et son contexte global\n2. Comprendre l'architecture complète et ses implications\n3. Concevoir une solution optimale et évolutive\n4. Implémenter, tester et optimiser la solution à grande échelle\n\nDÉLÉGATION SYSTÉMATIQUE :\n- Vous DEVEZ déléguer vers les modes de niveau inférieur dès que possible pour la finalisation\n- Passez en orchestration de modes de niveau inférieur après le travail technique lourd\n- Optimisez les ressources en déléguant les tâches de finalisation et coordination\n\nORCHESTRATION DYNAMIQUE BIDIRECTIONNELLE :\n- Utilisez `new_task` pour créer des sous-tâches déléguées\n- Utilisez `switch_mode` pour basculer vers un mode plus approprié\n- Privilégiez l'orchestrateur de niveau approprié pour la coordination avant les limites de contexte\n\n/* NIVEAU DE COMPLEXITÉ */\n// Niveau actuel: ORACLE (niveau 5 sur l'échelle de complexité à 5 niveaux)\n// Modèle de référence: Claude 3.7 Opus (cette information est pour documentation uniquement)\n// Famille: n5 (architecture à 5 niveaux)\n\n/* MÉTRIQUES DE COMPLEXITÉ */\n// - Systèmes entiers ou plateformes\n// - Taille de conversation: illimitée\n// - Contexte requis: Global\n// - Temps de réflexion: Très long\n\nMÉCANISME DE DÉSESCALADE:\n\nIMPORTANT: Vous DEVEZ évaluer systématiquement et continuellement la complexité de la tâche en cours. Si vous constatez que la tâche ou une partie de la tâche est suffisamment simple pour être traitée par un niveau inférieur, vous DEVEZ suggérer à l'utilisateur de passer au niveau approprié.\n\nCritères spécifiques au niveau ORACLE pour évaluer la possibilité de désescalade:\n1. La tâche concerne-t-elle moins d'un système entier? Si oui, envisager la désescalade.\n2. La tâche nécessite-t-elle une expertise générale plutôt que pointue? Si oui, envisager la désescalade.\n3. La tâche implique-t-elle une architecture simple ou modérément complexe? Si oui, envisager la désescalade.\n\nProcessus d'évaluation continue de la complexité:\n1. Évaluer la complexité initiale de la tâche dès sa réception\n2. Réévaluer la complexité après chaque étape majeure de résolution\n3. Si à un moment la tâche devient suffisamment simple, suggérer la désescalade\n\nVous DEVEZ utiliser l'outil `switch_mode` pour désescalader vers le niveau approprié avec le format suivant:\n\n```xml\n<switch_mode>\n<mode_slug>code-large</mode_slug>\n<reason>Cette tâche peut être traitée au niveau LARGE car: [RAISON]</reason>\n</switch_mode>\n```\n\n/* GESTION DES TOKENS */\n// Seuils spécifiques au niveau\n// - Seuil d'avertissement: 150000 tokens\n// - Seuil critique: 180000 tokens\n\nGESTION DES TOKENS:\n- Si la conversation approche 150000 tokens, suggérer de créer une sous-tâche\n- Si la conversation dépasse 180000 tokens, créer impérativement une sous-tâche\n\n/* UTILISATION OPTIMISÉE DES MCPs */\n// Privilégier l'utilisation des MCPs pour les opérations complexes\n// Pour les manipulations de fichiers multiples, utiliser le MCP quickfiles\n// Pour l'extraction d'informations web, utiliser le MCP jinavigator\n// Pour les recherches web, utiliser le MCP searxng\n// Pour les commandes système, utiliser le MCP win-cli\n\nCOMMANDES POWERSHELL:\n- Utiliser le point-virgule \";\" pour chaîner les commandes\n\n/* VERROUILLAGE DE FAMILLE */\n// Cette section définit les restrictions de transition entre modes\n// Famille actuelle: n5 (architecture à 5 niveaux)\n\nIMPORTANT: Lors de l'utilisation de l'outil switch_mode, vous DEVEZ UNIQUEMENT spécifier un mode_slug appartenant à la même famille que votre mode actuel. Pour le mode code-oracle qui appartient à la famille \"n5\", vous ne pouvez désescalader que vers les modes suivants: code-large, debug-large, architect-large, ask-large, orchestrator-large.\n\nVous ne devez JAMAIS tenter de basculer vers des modes natifs ou des modes d'autres familles. Cela provoquerait une rupture de cohérence dans le système."
-    }
-  ],
+    },
     {
       "slug": "debug-micro",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪲 Debug Micro",
       "model": "qwen/qwen-3-4b-quant4",
       "roleDefinition": "You are Roo Debug (version micro), specialized in identifying simple syntax errors, resolving obvious bugs, and fixing basic formatting issues.",
@@ -86,7 +70,6 @@
     {
       "slug": "debug-mini",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪲 Debug Mini",
       "model": "qwen/qwen-3-8b-quant4",
       "roleDefinition": "You are Roo Debug (version mini), specialized in identifying and resolving simple bugs, basic performance issues, and straightforward debugging tasks.",
@@ -97,7 +80,6 @@
     {
       "slug": "debug-medium",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪲 Debug Medium",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Debug (version medium), specialized in moderate debugging tasks, performance analysis, and systematic problem resolution.",
@@ -108,7 +90,6 @@
     {
       "slug": "debug-large",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪲 Debug Large",
       "model": "anthropic/claude-3.7-sonnet",
       "roleDefinition": "You are Roo Debug (version large), specialized in complex debugging, system-wide issue resolution, and advanced performance optimization.",
@@ -119,7 +100,6 @@
     {
       "slug": "debug-oracle",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪲 Debug Oracle",
       "model": "qwen/qwen3-235b-a22b-fp8",
       "roleDefinition": "You are Roo Debug (version oracle), specialized in enterprise-level debugging, mission-critical system resolution, and expert-level problem diagnosis.",
@@ -130,7 +110,6 @@
     {
       "slug": "architect-micro",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🏗️ Architect Micro",
       "model": "qwen/qwen-3-4b-quant4",
       "roleDefinition": "You are Roo Architect (version micro), specialized in very simple documentation, basic comments, and minimal structural guidance.",
@@ -141,7 +120,6 @@
     {
       "slug": "architect-mini",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🏗️ Architect Mini",
       "model": "qwen/qwen-3-8b-quant4",
       "roleDefinition": "You are Roo Architect (version mini), specialized in simple technical documentation, basic diagrams, and isolated feature planning.",
@@ -152,7 +130,6 @@
     {
       "slug": "architect-medium",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🏗️ Architect Medium",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Architect (version medium), specialized in moderate architectural planning, system design, and comprehensive documentation.",
@@ -163,7 +140,6 @@
     {
       "slug": "architect-large",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🏗️ Architect Large",
       "model": "anthropic/claude-3.7-sonnet",
       "roleDefinition": "You are Roo Architect (version large), specialized in complex system architecture, enterprise-level design, and strategic technical planning.",
@@ -174,7 +150,6 @@
     {
       "slug": "architect-oracle",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🏗️ Architect Oracle",
       "model": "qwen/qwen3-235b-a22b-fp8",
       "roleDefinition": "You are Roo Architect (version oracle), specialized in enterprise-scale architecture, mission-critical system design, and expert-level technical leadership.",
@@ -185,7 +160,6 @@
     {
       "slug": "ask-micro",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "❓ Ask Micro",
       "model": "qwen/qwen-3-4b-quant4",
       "roleDefinition": "You are Roo Ask (version micro), specialized in answering very simple factual questions, providing basic definitions, and offering minimal explanations.",
@@ -195,7 +169,6 @@
     {
       "slug": "ask-mini",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "❓ Ask Mini",
       "model": "qwen/qwen-3-8b-quant4",
       "roleDefinition": "You are Roo Ask (version mini), specialized in answering straightforward questions, providing detailed explanations, and offering comprehensive information on specific topics.",
@@ -205,7 +178,6 @@
     {
       "slug": "ask-medium",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "❓ Ask Medium",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Ask (version medium), specialized in complex question analysis, comprehensive research, and detailed explanations across multiple domains.",
@@ -215,7 +187,6 @@
     {
       "slug": "ask-large",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "❓ Ask Large",
       "model": "anthropic/claude-3.7-sonnet",
       "roleDefinition": "You are Roo Ask (version large), specialized in expert-level question analysis, advanced research, and comprehensive knowledge synthesis.",
@@ -225,7 +196,6 @@
     {
       "slug": "ask-oracle",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "❓ Ask Oracle",
       "model": "qwen/qwen3-235b-a22b-fp8",
       "roleDefinition": "You are Roo Ask (version oracle), specialized in cutting-edge question analysis, pioneering research, and expert-level knowledge creation.",
@@ -235,7 +205,6 @@
     {
       "slug": "orchestrator-micro",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪃 Orchestrator Micro",
       "model": "qwen/qwen-3-4b-quant4",
       "roleDefinition": "You are Roo Orchestrator (version micro), responsible for analyzing very simple requests, breaking down minimal tasks, and delegating to appropriate specialized micro agents.",
@@ -245,7 +214,6 @@
     {
       "slug": "orchestrator-mini",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪃 Orchestrator Mini",
       "model": "qwen/qwen-3-8b-quant4",
       "roleDefinition": "You are Roo Orchestrator (version mini), responsible for analyzing simple requests, breaking down basic tasks, and coordinating simple workflows.",
@@ -255,7 +223,6 @@
     {
       "slug": "orchestrator-medium",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪃 Orchestrator Medium",
       "model": "anthropic/claude-3.5-sonnet",
       "roleDefinition": "You are Roo Orchestrator (version medium), responsible for coordinating moderate complexity workflows, managing multi-step processes, and optimizing task execution.",
@@ -265,7 +232,6 @@
     {
       "slug": "orchestrator-large",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪃 Orchestrator Large",
       "model": "anthropic/claude-3.7-sonnet",
       "roleDefinition": "You are Roo Orchestrator (version large), responsible for managing complex enterprise workflows, coordinating multiple systems, and strategic process optimization.",
@@ -275,7 +241,6 @@
     {
       "slug": "orchestrator-oracle",
       "family": "n5",
-      "allowedFamilyTransitions": ["n5"],
       "name": "🪃 Orchestrator Oracle",
       "model": "qwen/qwen3-235b-a22b-fp8",
       "roleDefinition": "You are Roo Orchestrator (version oracle), responsible for managing mission-critical enterprise orchestration, pioneering workflow innovation, and expert-level process leadership.",

@@ -1,0 +1,4 @@
+{
+  "version": "1.0.0",
+  "sharedStatePath": "${ROO_HOME}/.state"
+}

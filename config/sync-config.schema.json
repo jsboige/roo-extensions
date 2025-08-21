@@ -1,0 +1,115 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://roo-extensions.local/schemas/sync-config.schema.json",
+  "title": "Sync Manager Configuration Schema",
+  "description": "Schéma de validation pour le fichier de configuration sync-config.json du Sync Manager.",
+  "type": "object",
+  "properties": {
+    "syncManagerVersion": {
+      "description": "Version de la spécification du Sync Manager respectée par ce fichier.",
+      "type": "string"
+    },
+    "syncTargets": {
+      "description": "Liste des cibles de synchronisation.",
+      "type": "array",
+      "items": { "$ref": "#/definitions/syncTarget" }
+    },
+    "globalSettings": {
+      "description": "Paramètres globaux applicables à toutes les cibles.",
+      "$ref": "#/definitions/globalSettings"
+    },
+    "machineOverrides": {
+      "description": "Surcharges de configuration spécifiques à une machine.",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/machineOverride"
+      }
+    }
+  },
+  "required": ["syncManagerVersion", "syncTargets"],
+  
+  "definitions": {
+    "syncTarget": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Identifiant unique de la cible." },
+        "enabled": { "type": "boolean", "default": true },
+        "type": {
+          "description": "Type de cible de synchronisation.",
+          "enum": ["directory", "configFile", "git"]
+        },
+        "description": { "type": "string", "description": "Description détaillée de l'objectif de la cible." },
+        "source": { "type": "string", "description": "Chemin ou URL source." },
+        "destination": { "type": "string", "description": "Chemin destination." },
+        "strategy": { "enum": ["source-wins", "destination-wins", "manual"], "default": "manual" },
+        "ignore": { "type": "array", "items": { "type": "string" } },
+        "hooks": { "$ref": "#/definitions/hooks" },
+        "onMismatch": { "$ref": "#/definitions/onMismatchAction" },
+        "branch": { "type": "string", "description": "Pour type=git, la branche à synchroniser." },
+        "authMode": { "enum": ["ssh", "https"], "description": "Pour type=git, la méthode d'authentification." },
+        "sshKeyName": { "type": "string", "description": "Pour authMode=ssh, le nom de la clé SSH à utiliser." }
+      },
+      "required": ["id", "type", "source"]
+    },
+    "globalSettings": {
+      "type": "object",
+      "properties": {
+        "logPath": { "type": "string" },
+        "dashboardPath": {"type": "string" },
+        "roadmapPath": { "type": "string" },
+        "maxConcurrency": { "type": "integer", "minimum": 1, "default": 4 },
+        "defaultShell": { "type": "string", "enum": ["pwsh", "powershell", "cmd", "bash"] }
+      }
+    },
+    "machineOverride": {
+      "type": "object",
+      "properties": {
+        "globalSettings": { "$ref": "#/definitions/globalSettings" },
+        "syncTargets": {
+          "description": "Surcharges spécifiques pour les cibles sur cette machine.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+                "source": { "type": "string" },
+                "destination": { "type": "string" },
+                "enabled": { "type": "boolean" }
+            }
+          }
+        }
+      }
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "prePull": { "type": "string" },
+        "postPull": { "type": "string" },
+        "prePush": { "type": "string" },
+        "postPush": { "type": "string" }
+      }
+    },
+    "onMismatchAction": {
+      "description": "Action à entreprendre lorsqu'une incompatibilité est détectée.",
+      "type": "object",
+      "properties": {
+        "action": {
+          "enum": ["createRoadmapEntry"],
+          "description": "L'action spécifique à exécuter."
+        },
+        "entry": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "template": { "type": "string" },
+            "suggestedActions": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          },
+          "required": ["title", "template"]
+        }
+      },
+      "required": ["action", "entry"]
+    }
+  }
+}

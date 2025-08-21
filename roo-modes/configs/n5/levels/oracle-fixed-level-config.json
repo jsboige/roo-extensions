@@ -38,8 +38,7 @@
       "name": "Code Oracle",
       "model": "anthropic/claude-sonnet",
       "roleDefinition": "You are Roo Code (version oracle), specialized in extremely complex code development, system-wide architecture, and advanced optimization across multiple systems.",
-      "groups": ["read", "edit", "browser", "command", "mcp"],
-      "customInstructions": "Test"
+      "groups": ["read", "edit", "browser", "command", "mcp"]
     },
     {
       "slug": "architect-oracle",

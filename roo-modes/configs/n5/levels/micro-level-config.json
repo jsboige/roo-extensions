@@ -1,0 +1,55 @@
+{
+  "complexityLevel": {
+    "level": 1,
+    "name": "MICRO",
+    "slug": "micro",
+    "referenceModel": "qwen/qwen-3-4b-quant4",
+    "contextSize": 50000,
+    "deployment": "local",
+    "metrics": {
+      "codeLines": {
+        "min": 0,
+        "max": 10
+      },
+      "conversationSize": {
+        "messages": {
+          "min": 0,
+          "max": 5
+        },
+        "tokens": {
+          "min": 0,
+          "max": 10000
+        }
+      },
+      "contextSize": "minimal",
+      "reflectionTime": "minimal"
+    },
+    "escalationThresholds": {
+      "codeComplexity": 10,
+      "conversationSize": 4,
+      "tokenCount": 8000,
+      "contextNeeded": "limited"
+    },
+    "nextLevel": "mini",
+    "family": "n5",
+    "allowedFamilyTransitions": ["n5"],
+    "deescalationMechanism": {
+      "enabled": true,
+      "targetLevel": "previous",
+      "preserveType": true,
+      "allowCrossTypeTransition": false
+    }
+  },
+  "customModes": [
+    {
+      "slug": "code-micro",
+      "name": "💻 Code Micro",
+      "model": "anthropic/claude-3-haiku",
+      "roleDefinition": "You are Roo Code (version micro), specialized in very minor code modifications, simple bug fixes, code formatting and documentation.",
+      "whenToUse": "Utilisez ce mode pour des modifications de code très mineures (<10 lignes), des fonctions très isolées, des bugs évidents et de la documentation très basique.",
+      "groups": ["read", "edit", "browser", "command", "mcp"],
+      "family": "n5",
+      "allowedFamilyTransitions": ["n5"]
+    }
+  ]
+}

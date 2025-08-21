@@ -32,15 +32,5 @@
     },
     "nextLevel": "medium",
     "previousLevel": "micro"
-  },
-  "customModes": [
-    {
-      "slug": "code-mini",
-      "name": "Code Mini",
-      "model": "qwen/qwen-3-8b-quant4",
-      "roleDefinition": "You are Roo Code (version mini), specialized in minor code modifications, simple bug fixes, code formatting and documentation, and basic feature implementation.",
-      "groups": ["read", "edit", "browser", "command", "mcp"],
-      "customInstructions": "Test"
-    }
-  ]
+  }
 }

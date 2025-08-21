@@ -32,15 +32,5 @@
     },
     "nextLevel": "large",
     "previousLevel": "mini"
-  },
-  "customModes": [
-    {
-      "slug": "code-medium",
-      "name": "Code Medium",
-      "model": "qwen/qwen-3-32b-quant4",
-      "roleDefinition": "You are Roo Code (version medium), specialized in code modifications, bug fixes, code formatting and documentation, and feature implementation.",
-      "groups": ["read", "edit", "browser", "command", "mcp"],
-      "customInstructions": "Test"
-    }
-  ]
+  }
 }

@@ -1,0 +1,30 @@
+{
+  "familyDefinitions": {
+    "n2-simple": [
+      "code-n2-simple",
+      "debug-n2-simple",
+      "architect-n2-simple",
+      "ask-n2-simple",
+      "orchestrator-n2-simple"
+    ],
+    "n2-complex": [
+      "code-n2-complex",
+      "debug-n2-complex",
+      "architect-n2-complex",
+      "ask-n2-complex",
+      "orchestrator-n2-complex"
+    ]
+  },
+  "allowedFamilyTransitions": {
+    "code-n2-simple": ["n2-simple"],
+    "code-n2-complex": ["n2-complex"],
+    "debug-n2-simple": ["n2-simple"],
+    "debug-n2-complex": ["n2-complex"],
+    "architect-n2-simple": ["n2-simple"],
+    "architect-n2-complex": ["n2-complex"],
+    "ask-n2-simple": ["n2-simple"],
+    "ask-n2-complex": ["n2-complex"],
+    "orchestrator-n2-simple": ["n2-simple"],
+    "orchestrator-n2-complex": ["n2-complex"]
+  }
+}

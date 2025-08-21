@@ -1,0 +1,119 @@
+# Fichiers système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environnements virtuels
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Fichiers de configuration IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Fichiers de cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Fichiers de cache Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+.pnp/
+.pnp.js
+.npm
+.yarn-integrity
+
+# Fichiers de build
+/build/
+/dist/
+/out/
+
+# Fichiers de logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Fichiers de configuration locaux
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Fichiers temporaires
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Fichiers de sauvegarde
+*~
+*.bak
+*.backup
+
+# Fichiers spécifiques à Roo
+.roo-cache/
+.roo-logs/
+.roo/
+
+# Dossiers spécifiques au projet
+backup/
+scripts/
+
+# Fichiers de configuration déplacés
+# Note: new-roomodes.json et vscode-custom-modes.json ont été déplacés dans roo-modes/configs/
+
+# Fichiers de sauvegarde spécifiques
+roo-modes-n5/backup/
+
+# Règles spécifiques à la démo Roo
+# Ignorer le contenu des répertoires workspace tout en préservant les README.md
+demo-roo-code/**/workspace/*
+!demo-roo-code/**/workspace/README.md
+!demo-roo-code/**/workspace/.gitkeep
+
+# Fichiers de configuration sensibles de la démo
+demo-roo-code/.env
+demo-roo-code/*.env
+demo-roo-code/.env.*
+
+# Fichier d'environnement spécifique pour le serveur MCP github-projects
+mcps/internal/servers/github-projects-mcp/.env
+
+# Fichiers et répertoires temporaires ou spécifiques à l'utilisateur
+mcps/backups/
+temp_status_output.txt
+
+# Fichier pour ignorer les secrets locaux
+.env
+
+# Fichiers de log et rapports générés
+*.log
+*.md.report
