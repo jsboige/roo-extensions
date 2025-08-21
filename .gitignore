@@ -88,7 +88,6 @@ yarn-error.log*
 
 # Dossiers spécifiques au projet
 backup/
-scripts/
 
 # Fichiers de configuration déplacés
 # Note: new-roomodes.json et vscode-custom-modes.json ont été déplacés dans roo-modes/configs/
