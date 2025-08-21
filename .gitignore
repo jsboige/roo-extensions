@@ -3,6 +3,9 @@
 Thumbs.db
 desktop.ini
 
+# État local
+.state/
+
 # Environnements virtuels
 venv/
 env/
