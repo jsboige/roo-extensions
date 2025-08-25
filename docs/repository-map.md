@@ -1,65 +1,89 @@
-# Cartographie du Dépôt (Post-Refactorisation)
+# Cartographie du Dépôt
 
-Ce document cartographie la structure rationalisée du dépôt après le projet de refactorisation des scripts. Il sert de guide pour comprendre le rôle de chaque répertoire d'outillage.
+Ce document cartographie la structure du dépôt et sert de guide de référence pour comprendre le rôle de chaque script et répertoire d'outillage.
 
-## Structure Finale de l'Outillage (`/scripts`)
+## `/scripts` : Répertoire Central de l'Outillage
 
-Le répertoire `/scripts` est l'unique source de vérité pour tous les scripts PowerShell du projet. L'arborescence a été standardisée par fonction.
-
-*   **`/scripts/deployment/`**: Contient l'outil unique pour le déploiement des configurations de Modes.
-    *   `deploy-modes.ps1`
-
-*   **`/scripts/diagnostic/`**: Héberge le script de diagnostic technique pour l'environnement.
-    *   `run-diagnostic.ps1`
-
-*   **`/scripts/encoding/`**: Contient l'outil pour corriger le contenu des fichiers mal encodés.
-    *   `fix-file-encoding.ps1`
-
-*   **`/scripts/maintenance/`**: Regroupe les outils de maintenance de haut niveau.
-    *   `maintenance-workflow.ps1`: Orchestrateur interactif pour guider l'opérateur.
-    *   `Invoke-WorkspaceMaintenance.ps1`: Outil pour le nettoyage et la réorganisation du workspace.
-    *   `Invoke-GitMaintenance.ps1`: Outil pour l'analyse et le nettoyage du dépôt Git.
-    *   `Update-ModeConfiguration.ps1`: Outil pour les mises à jour en masse des configurations de Modes.
-
-*   **`/scripts/setup/`**: Contient le script pour la configuration initiale de l'environnement d'un développeur.
-    *   `setup-encoding-workflow.ps1`
-
-*   **`/scripts/validation/`**: Héberge les scripts de validation métier et fonctionnelle.
-    *   `validate-deployed-modes.ps1`
-    *   `validate-mcp-config.ps1`
-
-*   **Autres**: Les répertoires comme `mcp`, `audit`, `demo-scripts` ont été conservés avec leurs rôles spécialisés.
+Le répertoire `/scripts` est l'unique source de vérité pour tous les scripts PowerShell du projet. L'arborescence a été standardisée par fonction pour clarifier les rôles et faciliter la maintenance.
 
 ---
 
-## Résumé du Plan de Refactorisation Réalisé
+### `/scripts/archive/`
+Contient les scripts de migration à usage unique qui ne sont plus pertinents pour les opérations courantes mais sont conservés pour des raisons historiques.
 
-Un travail de refactoring de l'outillage a été effectué pour simplifier le dépôt, réduire la confusion et faciliter la maintenance future.
+*   `consolidate-configurations.ps1`, `daily-monitoring.ps1`, `maintenance-routine.ps1`, `migrate-to-profiles.ps1`, `sync_roo_environment.ps1`, `update-script-paths.ps1`, `validate-consolidation.ps1`: Scripts liés à des phases de refactorisation passées.
 
-### Problèmes Majeurs Corrigés
+### `/scripts/audit/`
+Héberge les outils d'audit et d'analyse spécifiques à l'écosystème Roo.
 
-1.  **Duplication Massive d'Outils :** Les outils de gestion de l'encodage, de déploiement et de diagnostic qui existaient en multiples exemplaires (`scripts/`, `roo-config/`, `docs/guides/`) ont été supprimés au profit d'une source unique dans `/scripts`.
-2.  **Versions Obsolètes :** Les multiples versions de scripts (`-v2`, `-fixed`, `-simple`) ont été fusionnées en des outils uniques et paramétrables.
-3.  **Scripts de Migration :** Les scripts à usage unique ont été soit supprimés, soit consolidés dans les nouveaux outils de maintenance.
-4.  **Fragmentation de la Logique :** La logique a été regroupée par fonction dans des répertoires dédiés et clairs.
+*   `audit-roo-tasks.ps1`: Analyse le répertoire de stockage des tâches Roo pour identifier et rapporter les "tâches orphelines" (tâches dont le workspace d'origine a été supprimé).
 
-### Actions Menées
+### `/scripts/demo-scripts/`
+Regroupe les scripts utilisés pour préparer et nettoyer les environnements de démonstration.
 
-1.  **Étape 1 : Consolidation des Scripts de Déploiement (`/deployment`)**
-    *   Toute la logique de déploiement a été fusionnée dans `deploy-modes.ps1`.
-    *   Une quinzaine de scripts redondants ont été supprimés.
+*   `clean-workspaces.ps1`: Nettoie les workspaces après une démonstration.
+*   `install-demo.ps1`: Script principal pour installer et configurer un environnement de démo.
+*   `prepare-workspaces.ps1`: Prépare les workspaces avant une démonstration.
 
-2.  **Étape 2 : Rationalisation des Diagnostics (`/diagnostic` et `/validation`)**
-    *   La logique de diagnostic a été séparée en "technique" et "métier".
-    *   Un nouveau répertoire `scripts/validation/` a été créé pour la logique métier.
-    *   Les outils de diagnostic technique ont été fusionnés dans `run-diagnostic.ps1`.
+### `/scripts/deployment/`
+Contient les outils pour le déploiement des configurations des Modes Roo.
 
-3.  **Étape 3 : Clarification des Scripts d'Encodage (`/encoding` et `/setup`)**
-    *   La logique de configuration de l'environnement (profil PowerShell, Git) a été déplacée dans un nouveau répertoire `scripts/setup/` et consolidée dans `setup-encoding-workflow.ps1`.
-    *   Tous les scripts de correction de contenu de fichiers ont été fusionnés dans `scripts/encoding/fix-file-encoding.ps1`.
+*   `deploy-modes.ps1`: **Outil central et unifié** pour le déploiement des configurations de modes. Il peut déployer une configuration standard, générer une configuration depuis un profil, enrichir les modes avec des métadonnées, et cibler un déploiement global ou local.
+*   `create-clean-modes.ps1`: Script de **réinitialisation** qui crée une configuration de modes minimale et propre. Utile pour une première installation ou pour repartir d'un état connu.
+*   `deploy-correction-escalade.ps1`, `deploy-guide-interactif.ps1`, `deploy-orchestration-dynamique.ps1`, `force-deploy-with-encoding-fix.ps1`: Scripts spécialisés pour des scénarios de déploiement spécifiques.
 
-4.  **Étape 4 : Refactorisation de la Maintenance (`/maintenance`)**
-    *   Les dizaines de scripts de nettoyage, d'organisation, d'analyse Git et de mise à jour de configuration ont été fusionnés en trois outils puissants : `Invoke-WorkspaceMaintenance.ps1`, `Invoke-GitMaintenance.ps1`, et `Update-ModeConfiguration.ps1`.
-    *   Le script `maintenance-workflow.ps1` a été promu en tant que point d'entrée interactif pour guider les opérateurs.
+### `/scripts/diagnostic/`
+Fournit des outils pour le diagnostic technique de l'environnement et des fichiers de configuration.
 
-Ce travail de refactoring a permis de réduire le nombre de scripts de manière significative (plus de 50 scripts supprimés ou fusionnés), améliorant ainsi considérablement la lisibilité et la maintenabilité du projet.
+*   `run-diagnostic.ps1`: **Outil de diagnostic technique complet**. Il analyse l'encodage des fichiers, valide la syntaxe JSON, détecte les anomalies de contenu (double encodage), et peut tenter de corriger automatiquement les problèmes.
+*   `diag-mcps-global.ps1`: Script de diagnostic spécialisé pour les configurations globales des MCPs.
+
+### `/scripts/encoding/`
+Regroupe les scripts dédiés à la **correction du contenu** des fichiers affectés par des problèmes d'encodage.
+
+*   `fix-file-encoding.ps1`: **Outil principal** pour réparer le contenu des fichiers corrompus par des problèmes d'encodage (mojibake). Il utilise une table de correspondance exhaustive pour remplacer les caractères erronés. Le script inclut des sécurités comme la création de sauvegardes et un mode de simulation.
+*   Autres scripts (`fix-encoding-*.ps1`): Variantes plus anciennes ou plus spécifiques conservées pour des raisons de compatibilité ou pour des cas très particuliers.
+
+### `/scripts/install/`
+Contient les scripts pour l'installation des dépendances du projet.
+
+*   `install-dependencies.ps1`: Script pour installer toutes les dépendances nécessaires au bon fonctionnement de l'outillage.
+
+### `/scripts/maintenance/`
+Héberge les outils de maintenance de haut niveau pour le workspace et le dépôt Git.
+
+*   `maintenance-workflow.ps1`: **Orchestrateur interactif**. C'est le point d'entrée principal pour la maintenance manuelle. Il présente un menu qui guide l'opérateur et appelle les scripts spécialisés appropriés pour chaque tâche.
+*   `Invoke-GitMaintenance.ps1`: Outil de nettoyage **spécifique à Git**. Il peut générer des rapports d'état, nettoyer les branches locales déjà fusionnées et supprimer les répertoires vides ou inutiles.
+*   `Invoke-WorkspaceMaintenance.ps1`: Outil de maintenance **spécifique au système de fichiers**. Il nettoie les fichiers temporaires, organise les répertoires en déplaçant les fichiers mal placés, et peut générer de la documentation d'architecture.
+*   `Update-ModeConfiguration.ps1`: Outil pour effectuer des mises à jour en masse sur les fichiers de configuration des modes.
+
+### `/scripts/mcp/`
+Contient les scripts pour la gestion des serveurs MCP (Multi-Context Platform).
+
+*   `deploy-environment.ps1`: Déploie l'environnement nécessaire pour les serveurs MCP.
+*   `start-jupyter-server.ps1`, `compile-mcp-servers.ps1`: Scripts pour démarrer et compiler les serveurs.
+*   `utils/Convert-McpSettings.ps1`: Utilitaires pour la conversion des fichiers de configuration MCP.
+
+### `/scripts/monitoring/`
+Scripts dédiés à la surveillance de l'état de l'environnement.
+
+*   `daily-monitoring.ps1`: Exécute une série de vérifications quotidiennes et génère un rapport.
+*   `monitor-mcp-servers.ps1`: Surveille spécifiquement l'état des serveurs MCP.
+
+### `/scripts/setup/`
+Contient les scripts pour la configuration initiale de l'environnement d'un développeur.
+
+*   `setup-encoding-workflow.ps1`: **Script essentiel pour les nouveaux contributeurs**. Configure l'environnement (PowerShell, Git, VSCode) pour prévenir les problèmes d'encodage.
+
+### `/scripts/testing/`
+Héberge les scripts liés à l'exécution des tests.
+
+*   `run-tests.ps1`: Point d'entrée pour lancer la suite de tests du projet.
+*   `unit/deploy-modes.Tests.ps1`: Tests unitaires pour le script de déploiement des modes.
+
+### `/scripts/validation/`
+Fournit des scripts pour la validation **métier et fonctionnelle** des configurations, par opposition au diagnostic technique.
+
+*   `validate-deployed-modes.ps1`: Vérifie que les modes déployés respectent les règles métier (ex: transitions de familles, etc.).
+*   `validate-mcp-config.ps1`: Valide la sémantique et la cohérence des fichiers de configuration MCP.
+*   `validate-deployment.ps1`: Scripts de validation plus généraux.
