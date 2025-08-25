@@ -16,7 +16,7 @@ Contient les scripts de migration à usage unique qui ne sont plus pertinents po
 ### `/scripts/audit/`
 Héberge les outils d'audit et d'analyse spécifiques à l'écosystème Roo.
 
-*   `audit-roo-tasks.ps1`: Analyse le répertoire de stockage des tâches Roo pour identifier et rapporter les "tâches orphelines" (tâches dont le workspace d'origine a été supprimé).
+*   `audit-roo-tasks.ps1`: **Outil d'audit avancé pour les tâches Roo**. Il analyse le répertoire de stockage, identifie les tâches orphelines, valides ou en erreur (JSON manquant/corrompu). Le script est paramétrable, peut exporter des rapports et retourne des objets PowerShell pour une intégration en pipeline.
 
 ### `/scripts/demo-scripts/`
 Regroupe les scripts utilisés pour préparer et nettoyer les environnements de démonstration.

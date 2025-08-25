@@ -1,91 +1,190 @@
 #Requires -Version 5.1
 
-# Correction de l'encodage pour la console PowerShell
-$OutputEncoding = [System.Text.Encoding]::UTF8
+<#
+.SYNOPSIS
+    Analyse le répertoire de stockage des tâches Roo pour identifier et rapporter les tâches orphelines.
+.DESCRIPTION
+    Ce script audite le répertoire où l'extension Roo stocke ses données de tâches.
+    Pour chaque tâche, il vérifie si le workspace d'origine associé existe toujours sur le disque.
 
-# Définir le chemin du répertoire des tâches Roo
-$tasksPath = Join-Path $env:APPDATA 'Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks'
+    Il classifie les tâches en plusieurs catégories :
+    - VALIDE : Le workspace associé a été trouvé.
+    - ORPHELIN : Le workspace associé n'existe plus.
+    - ERREUR_HISTOIRE_MANQUANT : Le fichier 'api_conversation_history.json' est introuvable.
+    - ERREUR_PARSING_JSON : Le contenu JSON est invalide ou la structure est inattendue.
 
-# Initialiser les compteurs pour le résumé
-$counters = @{
-    total = 0
-    valide = 0
-    orphelin = 0
-    ignore = 0
-    manquant = 0
-    erreur = 0
+    Le script retourne un objet PowerShell pour chaque tâche analysée, permettant une intégration facile avec d'autres outils en pipeline.
+.PARAMETER TasksPath
+    Spécifie le chemin vers le répertoire 'tasks' de Roo. S'il n'est pas fourni, le script tente de le détecter automatiquement.
+.PARAMETER ReportPath
+    Si spécifié, exporte les résultats détaillés de l'audit dans un fichier CSV à l'emplacement indiqué.
+.PARAMETER Quiet
+    Si présent, supprime la sortie détaillée en temps réel et n'affiche que le résumé final.
+.EXAMPLE
+    .\audit-roo-tasks.ps1
+    Lance un audit avec détection automatique du chemin et affiche les résultats dans la console.
+.EXAMPLE
+    .\audit-roo-tasks.ps1 -TasksPath "C:\path\to\tasks" -ReportPath "C:\audits\report.csv"
+    Lance un audit sur un chemin spécifique et exporte les résultats dans un fichier CSV.
+.EXAMPLE
+    .\audit-roo-tasks.ps1 | Where-Object { $_.Status -eq 'ORPHELIN' }
+    Retourne uniquement les tâches identifiées comme orphelines.
+.OUTPUTS
+    [PSCustomObject]
+    Un objet pour chaque tâche, contenant TaskId, Status, WorkspacePath et Details.
+#>
+[CmdletBinding()]
+param(
+    [string]$TasksPath,
+    [string]$ReportPath,
+    [switch]$Quiet
+)
+
+function Get-RooTaskStoragePath {
+    $defaultPath = Join-Path $env:APPDATA 'Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks'
+    if (Test-Path -Path $defaultPath -PathType Container) {
+        return $defaultPath
+    }
+    return $null
 }
 
-# Vérifier si le répertoire des tâches existe
-if (-not (Test-Path -Path $tasksPath -PathType Container)) {
-    Write-Error "Le répertoire des tâches Roo n'a pas été trouvé à l'emplacement suivant : $tasksPath"
-    exit 1
-}
+function Test-RooTaskState {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.IO.DirectoryInfo]$TaskDirectory
+    )
 
-Write-Host "Audit des tâches Roo dans le répertoire : $tasksPath"
-Write-Host ("-" * 80)
+    $historyFilePath = Join-Path -Path $TaskDirectory.FullName -ChildPath 'api_conversation_history.json'
+    $taskId = $TaskDirectory.Name
 
-# Parcourir chaque sous-répertoire (chaque <taskId>)
-try {
-    Get-ChildItem -Path $tasksPath -Directory | ForEach-Object {
-        $counters.total++
-        $taskDir = $_
-        $taskId = $taskDir.Name
-        $historyFilePath = Join-Path -Path $taskDir.FullName -ChildPath 'api_conversation_history.json'
+    if (-not (Test-Path -Path $historyFilePath -PathType Leaf)) {
+        return [PSCustomObject]@{
+            TaskId        = $taskId
+            Status        = "ERREUR_HISTOIRE_MANQUANT"
+            WorkspacePath = "[N/A]"
+            Details       = "Le fichier api_conversation_history.json est introuvable."
+        }
+    }
 
-        if (-not (Test-Path -Path $historyFilePath -PathType Leaf)) {
-            $counters.manquant++
-            $counters.ignore++
-            return
+    try {
+        $historyContent = Get-Content -Path $historyFilePath -Raw | ConvertFrom-Json
+        $firstEntry = $historyContent | Select-Object -First 1
+
+        if ($null -eq $firstEntry -or -not $firstEntry.PSObject.Properties.Name -contains 'requestBody' -or [string]::IsNullOrWhiteSpace($firstEntry.requestBody)) {
+            return [PSCustomObject]@{
+                TaskId        = $taskId
+                Status        = "ERREUR_PARSING_JSON"
+                WorkspacePath = "[N/A]"
+                Details       = "La première entrée de l'historique est vide ou 'requestBody' est manquant."
+            }
+        }
+        
+        $initialMessage = $firstEntry.requestBody | ConvertFrom-Json
+        $workspacePath = $initialMessage.workspace
+
+        if ([string]::IsNullOrWhiteSpace($workspacePath)) {
+             return [PSCustomObject]@{
+                TaskId        = $taskId
+                Status        = "ERREUR_PARSING_JSON"
+                WorkspacePath = "[N/A]"
+                Details       = "Le chemin du workspace est vide dans la première requête."
+            }
         }
 
-        try {
-            $historyContent = Get-Content -Path $historyFilePath -Raw -Encoding UTF8 | ConvertFrom-Json
-            
-            $firstEntry = $historyContent | Select-Object -First 1
-
-            if ($null -eq $firstEntry -or [string]::IsNullOrWhiteSpace($firstEntry.requestBody)) {
-                $counters.ignore++
-                return
+        if (Test-Path -Path $workspacePath) {
+            return [PSCustomObject]@{
+                TaskId        = $taskId
+                Status        = "VALIDE"
+                WorkspacePath = $workspacePath
+                Details       = "Le répertoire du workspace existe."
             }
-            
-            $initialMessage = $firstEntry.requestBody | ConvertFrom-Json
-            
-            $originalTaskId = $initialMessage.taskId
-            $workspacePath = $initialMessage.workspace
-
-            $workspaceExists = Test-Path -Path $workspacePath
-            if ($workspaceExists) {
-                $counters.valide++
-                $status = "VALIDE"
-                $statusColor = "Green"
-            } else {
-                $counters.orphelin++
-                $status = "ORPHELIN"
-                $statusColor = "Yellow"
+        } else {
+            return [PSCustomObject]@{
+                TaskId        = $taskId
+                Status        = "ORPHELIN"
+                WorkspacePath = $workspacePath
+                Details       = "Le répertoire du workspace est introuvable."
             }
-
-            $line = "Tâche [$originalTaskId]: "
-            Write-Host -NoNewline $line
-            Write-Host -NoNewline -ForegroundColor $statusColor $status.PadRight(10)
-            Write-Host "- $workspacePath"
         }
-        catch {
-            $counters.erreur++
-            # Décommentez la ligne ci-dessous pour un débogage détaillé des erreurs
-            # Write-Warning "Tâche [$taskId]: Erreur de traitement. Détails : $($_.Exception.Message)"
+    }
+    catch {
+        return [PSCustomObject]@{
+            TaskId        = $taskId
+            Status        = "ERREUR_PARSING_JSON"
+            WorkspacePath = "[N/A]"
+            Details       = "Impossible d'analyser le fichier JSON : $($_.Exception.Message)"
         }
     }
 }
-finally {
-    # Afficher le résumé
+
+# --- Point d'entrée du Script ---
+
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
+if ([string]::IsNullOrWhiteSpace($TasksPath)) {
+    $TasksPath = Get-RooTaskStoragePath
+    if (-not $TasksPath) {
+        Write-Error "Impossible de trouver le répertoire des tâches Roo. Veuillez spécifier le chemin avec le paramètre -TasksPath."
+        exit 1
+    }
+}
+
+if (-not (Test-Path -Path $TasksPath -PathType Container)) {
+    Write-Error "Le répertoire spécifié n'existe pas : $TasksPath"
+    exit 1
+}
+
+if (-not $Quiet) {
+    Write-Host "🔍 Audit des tâches Roo dans le répertoire : $TasksPath"
     Write-Host ("-" * 80)
-    Write-Host "Résumé de l'audit :"
-    Write-Host "  - Tâches totales analysées : $($counters.total)"
-    Write-Host "  - Workspaces VALIDES       : $($counters.valide)"
-    Write-Host "  - Workspaces ORPHELINS     : $($counters.orphelin)"
-    Write-Host "  - Tâches ignorées          : $($counters.ignore) (historique vide, 'requestBody' manquant, etc.)"
-    Write-Host "      dont 'history.json' manquant : $($counters.manquant)"
-    Write-Host "  - Tâches en erreur         : $($counters.erreur)"
+}
+
+$taskDirs = Get-ChildItem -Path $TasksPath -Directory
+$totalTasks = $taskDirs.Count
+$auditResults = @()
+
+$taskDirs | ForEach-Object -Process {
+    $i = [int]$foreach.CurrentIndex + 1
+    if (-not $Quiet) {
+        Write-Progress -Activity "Analyse des tâches Roo" -Status "Analyse de $($_.Name)" -PercentComplete (($i / $totalTasks) * 100)
+    }
+    
+    $result = Test-RooTaskState -TaskDirectory $_
+    
+    if (-not $Quiet) {
+        $statusColor = switch ($result.Status) {
+            "VALIDE"   { "Green" }
+            "ORPHELIN" { "Yellow" }
+            default    { "Red" }
+        }
+        Write-Host -NoNewline "Tâche [$($result.TaskId)]: "
+        Write-Host -NoNewline -ForegroundColor $statusColor $result.Status.PadRight(25)
+        Write-Host "- $($result.WorkspacePath)"
+    }
+    
+    $auditResults += $result
+}
+
+# --- Résumé et Export ---
+
+if ($auditResults.Count -gt 0) {
+    $summary = $auditResults | Group-Object -Property Status | Select-Object @{Name = "Statut"; Expression = { $_.Name } }, Count
+
     Write-Host ("-" * 80)
+    Write-Host "📊 Résumé de l'audit :"
+    $summary | Format-Table -AutoSize | Out-String | Write-Host
+    Write-Host "  - Tâches totales analysées : $totalTasks"
+    Write-Host ("-" * 80)
+
+    if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
+        try {
+            $auditResults | Export-Csv -Path $ReportPath -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+            Write-Host "✅ Rapport d'audit exporté avec succès vers : $ReportPath"
+        }
+        catch {
+            Write-Warning "Impossible d'exporter le rapport vers '$ReportPath'. Erreur : $($_.Exception.Message)"
+        }
+    }
+} else {
+    Write-Host "Aucune tâche trouvée à analyser dans le répertoire '$TasksPath'."
 }
