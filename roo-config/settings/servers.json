@@ -31,7 +31,7 @@
     {
       "name": "quickfiles",
       "type": "stdio",
-      "command": "cmd /c node ./mcps/internal/servers/quickfiles-server/build/index.js",
+      "command": "node ./mcps/internal/servers/quickfiles-server/build/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
