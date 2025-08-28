@@ -119,7 +119,7 @@
         "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
       }
     },
-    "gitglobal": {
+    "github": {
       "autoApprove": [],
       "alwaysAllow": [],
       "transportType": "stdio",
@@ -128,14 +128,13 @@
         "/c",
         "npx",
         "-y",
-        "@modelcontextprotocol/server-github"
+        "@modelcontextprotocol/server-github",
+        "--token",
+        "${env:GITHUB_TOKEN}"
       ],
       "disabled": false,
       "autoStart": true,
-      "description": "Serveur MCP pour interagir avec Git via GitHub API",
-      "env": {
-        "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
-      }
+      "description": "Serveur MCP pour interagir avec l'API GitHub"
     },
     "filesystem": {
       "autoApprove": [],
@@ -163,12 +162,12 @@
         "/c",
         "npx",
         "-y",
-        "@modelcontextprotocol/server-github"
+        "@modelcontextprotocol/server-git"
       ],
       "transportType": "stdio",
       "disabled": false,
       "autoStart": true,
-      "description": "MCP pour interagir avec Git via l'API GitHub (anciennement configuré avec un package inexistant 'server-git')."
+      "description": "MCP pour interagir avec les dépôts Git locaux et distants."
     }
   }
 }
