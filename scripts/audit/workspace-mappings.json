@@ -1,0 +1,40 @@
+{
+  "localMappings": [
+    {
+      "oldPath": "c:/dev/2025-Epita-Intelligence-Symbolique",
+      "newPath": "d:/dev/2025-Epita-Intelligence-Symbolique/"
+    },
+    {
+      "oldPath": "c:/dev/CoursIA",
+      "newPath": "d:/dev/CoursIA/"
+    },
+    {
+      "oldPath": "c:/dev/downward",
+      "newPath": "d:/dev/downward/"
+    },
+    {
+      "oldPath": "c:/dev/roo-extensions",
+      "newPath": "d:/dev/roo-extensions/"
+    }
+  ],
+  "cloudMappings": [
+    {
+      "oldPath": "g:/Mon Drive/MyIA",
+      "newPath": "d:/dev/MyIA-Project/"
+    },
+    {
+      "oldPath": "c:/Users/jsboi/OneDrive/Suzon-Papa/L’Île de la Perle d’Or",
+      "newPath": "d:/dev/PerleOr/"
+    }
+  ],
+  "unconfirmedMappings": [
+    {
+      "oldPath": "c:/dev/jsboige-mcp-servers",
+      "newPath": "[NOUVEAU CHEMIN]"
+    },
+    {
+      "oldPath": "c:/dev/MCPs",
+      "newPath": "[NOUVEAU CHEMIN]"
+    }
+  ]
+}
