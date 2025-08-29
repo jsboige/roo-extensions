@@ -1,33 +1,61 @@
 # Scripts de Déploiement
 
-Ce dossier contient le script PowerShell consolidé pour déployer les configurations des "Modes" MCP.
+Ce dossier contient des scripts PowerShell consolidés pour installer et gérer l'environnement de développement des MCPs (Model Context Protocol).
 
-## Contexte de la Refactorisation
+## install-mcps.ps1
 
-Auparavant, ce dossier contenait de multiples scripts de déploiement avec des fonctionnalités redondantes. Dans le cadre d'une initiative de refactorisation, tous ces scripts ont été fusionnés en un seul outil puissant et paramétrable : `deploy-modes.ps1`.
+C'est le script principal pour automatiser l'installation et la configuration des MCPs internes et externes.
 
-## Script Principal
+### Rôle et Logique
 
-### `deploy-modes.ps1`
+Le script `install-mcps.ps1` a été conçu selon les principes du **SDDD (Semantic Doc Driven Design)** pour être robuste, découvrable et facile à maintenir. Son workflow est le suivant :
 
-C'est le point d'entrée unique pour toutes les opérations de déploiement. Il gère le déploiement des modes depuis les fichiers de configuration source (ex: `roo-modes/configs/*.json`) vers les répertoires cibles de l'application.
+1.  **Initialisation :**
+    *   Vérifie la présence des prérequis indispensables (`git`, `node`).
+    *   Initialise et met à jour les submodules Git (`git submodule update --init --recursive`), ce qui est crucial pour récupérer le code des MCPs internes.
 
-#### Fonctionnalités
+2.  **Découverte :**
+    *   Scanne les répertoires `mcps/internal/servers` et `mcps/external` pour identifier tous les MCPs disponibles.
 
-*   **Déploiement Ciblé :** Peut déployer des fichiers de configuration spécifiques.
-*   **Types de Déploiement :** Supporte différents types de déploiement (probablement `global` pour l'utilisateur et `local` pour un projet).
-*   **Validation Intégrée :** Peut lancer des scripts de validation après le déploiement pour s'assurer de l'intégrité de la configuration.
-*   **Gestion des Sauvegardes :** Crée des sauvegardes avant de surécrire les configurations existantes.
+3.  **Installation :**
+    *   **Pour les MCPs internes** (basés sur Node.js) :
+        *   Exécute `npm install` pour télécharger les dépendances.
+        *   Exécute `npm run build` si un script de build est défini dans le `package.json`.
+    *   **Pour les MCPs externes** :
+        *   Recherche un script `install.ps1` à la racine du MCP et l'exécute s'il est trouvé.
+        *   S'il n'y a pas de script, il informe l'utilisateur qu'une installation manuelle est probablement requise (en se référant au `README.md` du MCP).
 
-#### Utilisation
+4.  **Configuration :**
+    *   Après l'installation réussie d'un MCP interne, le script met automatiquement à jour le fichier `roo-config/settings/servers.json`.
+    *   Il ajoute ou met à jour l'entrée du MCP pour qu'il soit reconnu par l'écosystème Roo, en configurant le chemin de démarrage et les arguments.
+    *   Une sauvegarde de `servers.json` est créée avant toute modification.
 
-L'utilisation de base consiste à exécuter le script. Des paramètres permettent de contrôler son comportement.
+### Paramètres
 
-**Exemple de déploiement standard :**
+Le script accepte les paramètres suivants pour plus de flexibilité :
+
+*   `-McpName [string[]]`
+    *   **Description :** Permet de cibler l'installation d'un ou plusieurs MCPs spécifiques. Si ce paramètre n'est pas utilisé, le script tentera d'installer tous les MCPs qu'il découvre.
+    *   **Exemple :** `-McpName "quickfiles-server", "win-cli"`
+
+*   `-Force [switch]`
+    *   **Description :** Force la réinstallation d'un MCP interne, même si ses dépendances (`node_modules`) sont déjà présentes. Utile pour réparer une installation corrompue ou pour forcer une mise à jour.
+    *   **Exemple :** `-Force`
+
+### Exemples d'Utilisation
+
+Ouvrez un terminal PowerShell à la racine du projet (`d:/dev/roo-extensions`).
+
+**1. Installer tous les MCPs :**
 ```powershell
-.\deploy-modes.ps1 -SourcePath "..\roo-modes\configs\standard-modes.json"
+.\scripts\deployment\install-mcps.ps1
 ```
 
-**Exemple de déploiement avec validation post-déploiement :**
+**2. Installer uniquement des MCPs spécifiques :**
 ```powershell
-.\deploy-modes.ps1 -SourcePath "..\roo-modes\configs\standard-modes.json" -Validate
+.\scripts\deployment\install-mcps.ps1 -McpName "quickfiles-server", "github"
+```
+
+**3. Forcer la réinstallation d'un MCP :**
+```powershell
+.\scripts\deployment\install-mcps.ps1 -McpName "quickfiles-server" -Force
