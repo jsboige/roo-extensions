@@ -1,12 +1,14 @@
 # Script pour corriger complètement l'encodage du fichier standard-modes.json
 # Ce script corrige les caractères mal encodés et les emojis
 
-# Chemin du fichier source
-$sourceFilePath = "$PSScriptRoot\..\roo-modes\configs\standard-modes.json"
+param (
+    [Parameter(Mandatory=$true)]
+    [string]$SourcePath
+)
 
 # Vérifier si le fichier existe
-if (-not (Test-Path -Path $sourceFilePath)) {
-    Write-Host "Erreur: Le fichier $sourceFilePath n'existe pas." -ForegroundColor Red
+if (-not (Test-Path -Path $SourcePath)) {
+    Write-Host "Erreur: Le fichier $SourcePath n'existe pas." -ForegroundColor Red
     exit 1
 }
 
@@ -83,22 +85,22 @@ try {
 
     # Correction pour les emojis
     # Manager emoji (👨‍💼)
-    $correctedContent = $correctedContent -replace "Ã°Å¸â€˜Â¨Ã¢â‚¬ÂÃ°Å¸â€™Â¼", [char]0x1F468 + [char]0x200D + [char]0x1F4BC
+    $correctedContent = $correctedContent -replace "ðŸ‘¨â€‍ðŸ’¼", "👨‍💼"
     
     # Code emoji (💻)
-    $correctedContent = $correctedContent -replace "Ã°Å¸â€™Â»", [char]0x1F4BB
+    $correctedContent = $correctedContent -replace "ðŸ’»", "💻"
     
     # Debug emoji (🪲)
-    $correctedContent = $correctedContent -replace "Ã°Å¸ÂªÂ²", [char]0x1FAB2
+    $correctedContent = $correctedContent -replace "ðŸª²", "🪲"
     
     # Architect emoji (🏗️)
-    $correctedContent = $correctedContent -replace "Ã°Å¸Ââ€"Ã¯Â¸Â", [char]0x1F3D7 + [char]0xFE0F
+    $correctedContent = $correctedContent -replace "ðŸ—ï¸", "🏗️"
     
     # Ask emoji (❓)
-    $correctedContent = $correctedContent -replace "Ã¢Ââ€œ", [char]0x2753
+    $correctedContent = $correctedContent -replace "â“", "❓"
     
     # Orchestrator emoji (🪃)
-    $correctedContent = $correctedContent -replace "Ã°Å¸ÂªÆ'", [char]0x1FA83
+    $correctedContent = $correctedContent -replace "ðŸªƒ", "🪃"
 
     # Vérifier que le JSON est valide
     try {
