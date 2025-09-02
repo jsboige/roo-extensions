@@ -52,6 +52,32 @@ function Test-CommandExists {
     return [bool](Get-Command $command -ErrorAction SilentlyContinue)
 }
 
+function Find-ViablePythonExecutable {
+    $candidates = Get-Command python3, python, py -All -ErrorAction SilentlyContinue
+    foreach ($candidate in $candidates) {
+        $path = $candidate.Source
+        if ($path -like "*\WindowsApps\*") {
+            Write-ColorOutput "Ignorant l'alias du Windows Store: $path" "Gray"
+            continue
+        }
+
+        try {
+            Write-ColorOutput "Test de l'exécutable : $path" "Gray"
+            $process = Start-Process -FilePath $path -ArgumentList "--version" -Wait -NoNewWindow -PassThru -RedirectStandardOutput ".\stdout.txt" -RedirectStandardError ".\stderr.txt"
+            if ($process.ExitCode -eq 0) {
+                Write-ColorOutput "Exécutable viable trouvé : $path" "Green"
+                Remove-Item -Path ".\stdout.txt", ".\stderr.txt" -ErrorAction SilentlyContinue
+                return $path
+            }
+        } catch {
+            Write-ColorOutput "Échec du test pour $path : $($_.Exception.Message)" "Gray"
+        } finally {
+            Remove-Item -Path ".\stdout.txt", ".\stderr.txt" -ErrorAction SilentlyContinue
+        }
+    }
+    return $null
+}
+
 # =============================================================================
 # Initialisation
 # =============================================================================
@@ -86,7 +112,7 @@ Write-ColorOutput "Prérequis validés." "Green"
 Write-ColorOutput "`n[Phase 2/4] Initialisation et mise à jour des submodules Git..." "Yellow"
 try {
     Push-Location -Path $rootDir
-    git submodule update --init --recursive | Out-Null
+    git submodule update --init --recursive -ErrorAction SilentlyContinue | Out-Null
     Pop-Location
     Write-ColorOutput "Submodules mis à jour avec succès." "Green"
 } catch {
@@ -144,7 +170,7 @@ foreach ($mcp in $allMcps) {
         try {
             Write-ColorOutput "Installation des dépendances avec 'npm install'..."
             Push-Location -Path $mcp.Path
-            npm install --silent
+            npm install --include=dev --silent
             
             # Vérifier si un script "build" existe et l'exécuter
             $pkg = Get-Content -Path $packageJsonPath | ConvertFrom-Json
@@ -153,6 +179,17 @@ foreach ($mcp in $allMcps) {
                 npm run build --silent
             }
             
+            # Tâche Spécifique: Créer le .env pour github-projects-mcp
+            if ($mcp.Name -eq "github-projects-mcp") {
+                Write-ColorOutput "Configuration de l'environnement pour github-projects-mcp..."
+                # ATTENTION: Remplacez "VOTRE_TOKEN_GITHUB" par un jeton d'accès personnel (PAT) valide.
+                $token = "VOTRE_TOKEN_GITHUB"
+                $envContent = "GITHUB_ACCOUNTS_JSON='[{\"user\":\"jsboige\",\"token\":\"$($token)\"}]'"
+                $envFilePath = Join-Path -Path $mcp.Path -ChildPath ".env"
+                [System.IO.File]::WriteAllText($envFilePath, $envContent, [System.Text.UTF8Encoding]::new($false))
+                Write-ColorOutput ".env créé avec succès." "Green"
+            }
+
             Pop-Location
             Write-ColorOutput "Installation de $($mcp.Name) terminée avec succès." "Green"
             $installedMcps[$mcp.Name] = $mcp.Path
@@ -185,20 +222,17 @@ foreach ($mcp in $allMcps) {
 # =============================================================================
 # Configuration
 # =============================================================================
-# Phase 3.5: Nettoyage des caches potentiellement corrompus
-Write-ColorOutput "`n[Phase 3.5/4] Nettoyage des caches..." "Yellow"
+# Phase 3.5: Préchauffage du cache pour les paquets npx sensibles
+Write-ColorOutput "`n[Phase 3.5/4] Préchauffage des caches npx..." "Yellow"
 try {
-    Write-ColorOutput "Nettoyage du cache npm/npx..."
-    npm cache clean --force --silent
-    $npxCache = Join-Path -Path ([Environment]::GetFolderPath('LocalApplicationData')) -ChildPath "npm-cache/_npx"
-    if (Test-Path $npxCache) {
-        Remove-Item -Recurse -Force $npxCache
-    }
-    Write-ColorOutput "Caches nettoyés." "Green"
+    Write-ColorOutput "Préchauffage du cache pour @playwright/mcp..."
+    # Exécuter une commande légère force npx à télécharger et installer le paquet proprement.
+    npx -y @playwright/mcp --version | Out-Null
+    Write-ColorOutput "Cache pour @playwright/mcp préchauffé avec succès." "Green"
 } catch {
-    Write-ColorOutput "AVERTISSEMENT: Impossible de nettoyer complètement le cache npx. Cela peut causer des problèmes avec les MCPs externes." "Yellow"
+    Write-ColorOutput "AVERTISSEMENT: Une erreur est survenue lors du préchauffage du cache de Playwright. Le démarrage pourrait échouer." "Yellow"
+    Write-ColorOutput $_.Exception.Message "Yellow"
 }
-
 
 Write-ColorOutput "`n[Phase 4/4] Mise à jour de la configuration des serveurs..." "Yellow"
 
@@ -270,11 +304,7 @@ if ($installedMcps.Count -eq 0) {
                 }
             }
 
-            if ($name -eq "github-projects-mcp") {
-                 $newEntry["env"] = @{
-                    GITHUB_ACCOUNTS_JSON = '[{"owner":"your-github-username","token":"your-github-token"}]'
-                }
-            }
+            # La section 'env' est complètement retirée pour ce MCP lors de la génération
             $finalConfig.mcpServers[$serverKey] = $newEntry
         }
 
@@ -292,7 +322,7 @@ if ($installedMcps.Count -eq 0) {
             autoApprove = @()
             alwaysAllow = @("web_url_read", "searxng_web_search")
         }
-        
+
         $finalConfig.mcpServers['playwright'] = @{
             command = "cmd"
             args = @("/c", "npx", "-y", "@playwright/mcp", "--browser", "firefox")
@@ -303,17 +333,33 @@ if ($installedMcps.Count -eq 0) {
             autoApprove = @()
             alwaysAllow = @("browser_navigate", "browser_click", "browser_take_screenshot", "browser_close", "browser_snapshot", "browser_install")
         }
+
+        # Logique de détection robuste de Python
+        $pythonPath = Find-ViablePythonExecutable
         
-        $finalConfig.mcpServers['markitdown'] = @{
-            command = "cmd"
-            # Utiliser 'py -m' pour une meilleure portabilité sur Windows
-            args = @("/c", "py", "-m", "markitdown_mcp")
-            transportType = "stdio"
-            disabled = $false
-            autoStart = $true
-            description = "MCP pour manipuler des fichiers Markdown."
-            autoApprove = @()
-            alwaysAllow = @("convert_to_markdown")
+        if ($pythonPath) {
+            Write-ColorOutput "Python trouvé : $pythonPath" "Green"
+            $finalConfig.mcpServers['markitdown'] = @{
+                command = $pythonPath
+                args = @("-m", "markitdown_mcp")
+                transportType = "stdio"
+                disabled = $false
+                autoStart = $true
+                description = "MCP pour manipuler des fichiers Markdown."
+                autoApprove = @()
+                alwaysAllow = @("convert_to_markdown")
+            }
+        } else {
+            Write-ColorOutput "AVERTISSEMENT: Aucun exécutable Python (python3, python, py) n'a été trouvé. Le MCP 'markitdown' sera désactivé." "Yellow"
+            # Optionnel: On peut ajouter une entrée désactivée pour informer l'utilisateur
+            $finalConfig.mcpServers['markitdown'] = @{
+                command = "echo"
+                args = @("Python not found, markitdown is disabled.")
+                transportType = "stdio"
+                disabled = $true
+                autoStart = $false
+                description = "MCP pour manipuler des fichiers Markdown (DÉSACTIVÉ - PYTHON INTROUVABLE)."
+            }
         }
 
         $jsonOutput = $finalConfig | ConvertTo-Json -Depth 10
