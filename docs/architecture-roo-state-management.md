@@ -1,8 +1,8 @@
 # Architecture de Gestion de l'État de Roo
 
 **Auteur:** Roo, Architecte Technique
-**Date:** 2025-08-20
-**Statut:** En cours de rédaction
+**Date:** 2025-08-30
+**Statut:** Implémenté
 
 ## 1. Contexte et Problématique
 
@@ -115,8 +115,9 @@ graph TD
 ### 3.3. Cycle de Vie des Données
 
 1.  **Première Activation de l'Extension (ou après mise à jour) :**
-    -   L'extension vérifie si le `globalState` contient un flag `is_migrated_to_globalStorageUri: true`.
-    -   Si non, elle lance le processus de migration (voir Outil de Migration).
+    -   Au démarrage, l'extension vérifie automatiquement la présence d'un ancien répertoire de tâches.
+    -   Si un ancien répertoire est trouvé et que le nouveau (dans `globalStorageUri`) n'existe pas, elle déplace atomiquement le contenu.
+    -   Un flag `is_migrated_to_globalStorageUri: true` est ensuite stocké dans le `globalState` pour empêcher de futures migrations.
 2.  **Activation Normale :**
     -   L'extension récupère l'URI via `context.globalStorageUri`.
     -   Toutes les opérations de lecture/écriture de tâches se font désormais dans ce répertoire.
@@ -176,16 +177,15 @@ Ces outils seront exposés via le MCP `roo-state-manager` et permettront à l'ut
     -   Vérifie l'état du cache du `roo-state-manager` (existence, date de dernière mise à jour).
 -   **Output :** Un rapport JSON enrichi avec un statut global (`OK`, `WARNING`, `ERROR`), des métriques détaillées sur la composition du stockage et l'état du `state.vscdb`.
 
-### 5.2. Outil de Migration (`migrate_roo_state_to_globalstorage`)
+### 5.2. Logique de Migration Automatique
 
--   **Objectif :** Assurer la transition transparente de l'ancien système de stockage vers le nouveau. Cet outil est à usage unique.
--   **Actions :**
-    1.  Détecte l'ancien emplacement de stockage (`%APPDATA%/.../tasks`).
+-   **Objectif :** Assurer la transition transparente de l'ancien système de stockage vers le nouveau, sans aucune action de l'utilisateur.
+-   **Implémentation :** La logique de migration est directement intégrée dans la méthode d'initialisation de l'extension (`ContextProxy.initialize`).
+-   **Actions au démarrage :**
+    1.  Détecte l'ancien emplacement de stockage en se basant sur le chemin relatif par rapport au `globalStorageUri` parent.
     2.  Récupère le nouvel emplacement via `globalStorageUri`.
-    3.  Copie (ou déplace) l'intégralité du répertoire `tasks` de l'ancien vers le nouvel emplacement.
-    4.  Crée un fichier "marqueur" dans l'ancien répertoire pour éviter une re-migration.
-    5.  Met à jour le `globalState` de VSCode avec la clé `is_migrated_to_globalStorageUri: true`.
--   **Pré-requis :** Doit être lancé par l'extension elle-même, qui a accès à la fois à l'ancien et au nouveau chemin.
+    3.  Si l'ancien répertoire existe et le nouveau non, déplace (`fs.rename`) l'intégralité du répertoire `tasks`.
+    4.  Met à jour le `globalState` de VSCode avec la clé `is_migrated_to_globalStorageUri: true` pour garantir que la migration ne s'exécute qu'une seule fois.
 
 ### 5.3. Outil de Restauration (`rebuild_roo_state_from_tasks`)
 

@@ -37,7 +37,9 @@
 param(
     [string]$TasksPath,
     [string]$ReportPath,
-    [switch]$Quiet
+    [switch]$Quiet,
+    [switch]$AsJson,
+    [int]$SampleCount = 0
 )
 
 # --- Fonctions de Support ---
@@ -215,33 +217,43 @@ if (-not (Test-Path -Path $TasksPath -PathType Container)) {
     exit 1
 }
 
-Write-Host "--- Lancement du diagnostic de l'état de Roo ---"
-Write-Host ("-" * 80)
+$dbMetrics = $null
+if (-not $AsJson.IsPresent) {
+    Write-Host "--- Lancement du diagnostic de l'état de Roo ---"
+    Write-Host ("-" * 80)
 
-# 1. Analyse de state.vscdb
-Write-Host "📊 1. Analyse de state.vscdb"
-$dbMetrics = Get-StateVscDbMetrics -DbPath $globalPaths.VscodeDb
-if ($dbMetrics.Error) {
-    Write-Warning $dbMetrics.Error
-} else {
-    Write-Host "  - Module PSSQLite Trouvé: $($dbMetrics.IsModuleInstalled)"
-    Write-Host "  - Connexion à la BDD: $($dbMetrics.CanConnect)"
-    Write-Host "  - Clés Roo trouvées: $($dbMetrics.RooKeysCount)"
-    Write-Host "  - Taille des données Roo: $(Format-Bytes $dbMetrics.RooTotalSize)"
+    # 1. Analyse de state.vscdb
+    Write-Host "📊 1. Analyse de state.vscdb"
+    $dbMetrics = Get-StateVscDbMetrics -DbPath $globalPaths.VscodeDb
+    if ($dbMetrics.Error) {
+        Write-Warning $dbMetrics.Error
+    } else {
+        Write-Host "  - Module PSSQLite Trouvé: $($dbMetrics.IsModuleInstalled)"
+        Write-Host "  - Connexion à la BDD: $($dbMetrics.CanConnect)"
+        Write-Host "  - Clés Roo trouvées: $($dbMetrics.RooKeysCount)"
+        Write-Host "  - Taille des données Roo: $(Format-Bytes $dbMetrics.RooTotalSize)"
+    }
+    Write-Host ("-" * 80)
+
+    # 2. Analyse du répertoire des tâches
+    Write-Host "📂 2. Audit du répertoire des tâches : $TasksPath"
 }
-Write-Host ("-" * 80)
-
-
-# 2. Analyse du répertoire des tâches
-Write-Host "📂 2. Audit du répertoire des tâches : $TasksPath"
-$taskDirs = Get-ChildItem -Path $TasksPath -Directory
+if ($SampleCount -gt 0) {
+    if (-not $AsJson.IsPresent) {
+        Write-Host "Limitation de l'analyse aux $SampleCount tâches les plus récentes."
+    }
+    # Optimisation: Trier et sélectionner sans charger toute la liste en mémoire d'abord.
+    $taskDirs = Get-ChildItem -Path $TasksPath -Directory | Sort-Object -Property CreationTime -Descending | Select-Object -First $SampleCount
+} else {
+    $taskDirs = Get-ChildItem -Path $TasksPath -Directory
+}
 $totalTasks = $taskDirs.Count
 $auditResults = @()
 $sizeMetrics = @{ Total = 0; Json = 0; Checkpoints = 0 }
 
 $taskDirs | ForEach-Object -Process {
     $i = [int]$foreach.CurrentIndex + 1
-    if (-not $Quiet) {
+    if (-not $Quiet -and -not $AsJson.IsPresent) {
         Write-Progress -Activity "Analyse des tâches Roo" -Status "Analyse de $($_.Name)" -PercentComplete (($i / $totalTasks) * 100)
     }
     $result = Test-RooTaskState -TaskDirectory $_ -SizeMetrics ([ref]$sizeMetrics)
@@ -249,23 +261,31 @@ $taskDirs | ForEach-Object -Process {
 }
 
 $summary = $auditResults | Group-Object -Property Status | Select-Object @{Name = "Statut"; Expression = { $_.Name } }, Count
+if (-not $AsJson.IsPresent) {
+    Write-Host "  - Tâches totales analysées : $totalTasks"
+    Write-Host "  - Taille totale du stockage : $(Format-Bytes $sizeMetrics.Total)"
+    Write-Host "    - Taille des métadonnées (JSON) : $(Format-Bytes $sizeMetrics.Json)"
+    Write-Host "    - Taille des checkpoints (autres) : $(Format-Bytes $sizeMetrics.Checkpoints)"
+    Write-Host ""
+    Write-Host "Répartition des statuts :"
+    $summary | Format-Table -AutoSize
+    Write-Host ("-" * 80)
+}
 
-Write-Host "  - Tâches totales analysées : $totalTasks"
-Write-Host "  - Taille totale du stockage : $(Format-Bytes $sizeMetrics.Total)"
-Write-Host "    - Taille des métadonnées (JSON) : $(Format-Bytes $sizeMetrics.Json)"
-Write-Host "    - Taille des checkpoints (autres) : $(Format-Bytes $sizeMetrics.Checkpoints)"
-Write-Host ""
-Write-Host "Répartition des statuts :"
-$summary | Format-Table -AutoSize | Out-String | Write-Host
-Write-Host ("-" * 80)
+$finalReport = [PSCustomObject]@{
+    DbMetrics    = $dbMetrics
+    SizeMetrics  = $sizeMetrics
+    TasksSummary = $summary
+    TasksDetails = $auditResults
+}
 
-if (-not $Quiet) {
-    Write-Host "📋 3. Détail par tâche"
+if (-not $Quiet -and !$AsJson.IsPresent) {
+    Write-Host "3. Detail par tache"
     $auditResults | Format-Table -AutoSize
     Write-Host ("-" * 80)
 }
 
-if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
+if (-not [string]::IsNullOrWhiteSpace($ReportPath) -and !$AsJson.IsPresent) {
     try {
         $auditResults | Export-Csv -Path $ReportPath -NoTypeInformation -Encoding UTF8 -Delimiter ';'
         Write-Host "✅ Rapport d'audit des tâches exporté avec succès vers : $ReportPath"
@@ -274,5 +294,10 @@ if (-not [string]::IsNullOrWhiteSpace($ReportPath)) {
         Write-Warning "Impossible d'exporter le rapport vers '$ReportPath'. Erreur : $($_.Exception.Message)"
     }
 }
+if (-not $AsJson.IsPresent){
+    Write-Host "--- Fin du diagnostic ---"
+}
 
-Write-Host "--- Fin du diagnostic ---"
+if ($AsJson.IsPresent) {
+    $finalReport | ConvertTo-Json -Depth 5 -Compress
+}
