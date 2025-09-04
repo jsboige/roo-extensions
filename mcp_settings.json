@@ -71,8 +71,8 @@
       "disabled": false,
       "config": {
         "jupyterServer": {
-          "baseUrl": "http://localhost:8890",
-          "token": "${env:GITHUB_TOKEN}"
+          "baseUrl": "http://localhost:8888",
+          "token": ""
         }
       }
     },

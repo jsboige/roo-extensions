@@ -41,30 +41,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 Pop-Location
 
-# 3. Start Jupyter Server in the background
-Write-Host "--- Starting Jupyter Lab server ---"
-$jupyterPath = "C:\Users\jsboi\.conda\envs\mcp-jupyter\Scripts\jupyter-lab.exe"
-$jupyterArgs = "--no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.disable_check_xsrf=True"
-$jupyterProcess = Start-Process -FilePath $jupyterPath -ArgumentList $jupyterArgs -PassThru -WindowStyle Minimized
-Write-Host "Jupyter Lab started with PID $($jupyterProcess.Id). Waiting for it to initialize..."
-Start-Sleep -Seconds 10
-
-# 4. Start the MCP process and connect to it
+# 3. Start the MCP process and call the tool
 Write-Host "--- Starting MCP server for direct testing ---"
 $mcpScriptPath = Join-Path $McpPath "dist\index.js"
-$processInfo = New-Object System.Diagnostics.ProcessStartInfo
-$processInfo.FileName = "node"
-$processInfo.Arguments = $mcpScriptPath
-$processInfo.RedirectStandardInput = $true
-$processInfo.RedirectStandardOutput = $true
-$processInfo.RedirectStandardError = $true
-$processInfo.UseShellExecute = $false
-$processInfo.CreateNoWindow = $true
-
-$mcpProcess = New-Object System.Diagnostics.Process
-$mcpProcess.StartInfo = $processInfo
-$mcpScriptPath = Join-Path $McpPath "dist\index.js"
-$jsonRpcRequest = '{\"name\":\"list_kernels\",\"arguments\":{}}'
+$jupyterPath = "C:\Users\jsboi\.conda\envs\mcp-jupyter\Scripts\jupyter-lab.exe"
+$escapedJupyterPath = $jupyterPath -replace '\\', '\\'
+$jsonRpcRequest = ""{\"name\":\"start_jupyter_server\",\"arguments\":{\"envPath\":\"$escapedJupyterPath\"}}""
 $nodeArgs = "$mcpScriptPath --e2e-test-command $jsonRpcRequest"
 
 # Start the process and capture output
