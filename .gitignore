@@ -116,3 +116,8 @@ temp_status_output.txt
 
 # Rapports de test MCP
 mcps/tests/reports/
+
+
+# Fichiers de test et de sauvegarde générés par les scripts
+*.backup_*
+test-caracteres-francais.txt

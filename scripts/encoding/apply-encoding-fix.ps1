@@ -51,10 +51,10 @@ Write-Host "Étape 1: Vérification des prérequis" -ForegroundColor Yellow
 Write-Log "Vérification de PowerShell..." "Cyan"
 
 if ($PSVersionTable.PSVersion.Major -lt 5) {
-    Write-Host "❌ PowerShell 5.0 ou supérieur requis" -ForegroundColor Red
+    Write-Host "[ERREUR] PowerShell 5.0 ou supérieur requis" -ForegroundColor Red
     exit 1
 }
-Write-Host "✅ PowerShell $($PSVersionTable.PSVersion) détecté" -ForegroundColor Green
+Write-Host "[OK] PowerShell $($PSVersionTable.PSVersion) détecté" -ForegroundColor Green
 
 # Étape 2: Création du répertoire de profil si nécessaire
 Write-Host "Étape 2: Préparation du répertoire de profil" -ForegroundColor Yellow
@@ -64,13 +64,13 @@ if (-not (Test-Path $profileDir)) {
     Write-Log "Création du répertoire de profil..." "Yellow"
     try {
         New-Item -Path $profileDir -ItemType Directory -Force | Out-Null
-        Write-Host "✅ Répertoire de profil créé" -ForegroundColor Green
+        Write-Host "[OK] Répertoire de profil créé" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Erreur lors de la création du répertoire: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[ERREUR] Erreur lors de la création du répertoire: $($_.Exception.Message)" -ForegroundColor Red
         exit 1
     }
 } else {
-    Write-Host "✅ Répertoire de profil existant" -ForegroundColor Green
+    Write-Host "[OK] Répertoire de profil existant" -ForegroundColor Green
 }
 
 # Étape 3: Sauvegarde du profil existant
@@ -80,18 +80,18 @@ if ((Test-Path $profilePath) -and (-not $SkipBackup)) {
     Write-Log "Sauvegarde vers: $backupPath" "Cyan"
     try {
         Copy-Item $profilePath $backupPath -Force
-        Write-Host "✅ Sauvegarde créée: $(Split-Path $backupPath -Leaf)" -ForegroundColor Green
+        Write-Host "[OK] Sauvegarde créée: $(Split-Path $backupPath -Leaf)" -ForegroundColor Green
     } catch {
-        Write-Host "❌ Erreur lors de la sauvegarde: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "[ERREUR] Erreur lors de la sauvegarde: $($_.Exception.Message)" -ForegroundColor Red
         if (-not $Force) {
             exit 1
         }
     }
 } else {
     if ($SkipBackup) {
-        Write-Host "⚠️  Sauvegarde ignorée (paramètre -SkipBackup)" -ForegroundColor Yellow
+        Write-Host "[ATTENTION] Sauvegarde ignorée (paramètre -SkipBackup)" -ForegroundColor Yellow
     } else {
-        Write-Host "ℹ️  Aucun profil existant à sauvegarder" -ForegroundColor Cyan
+        Write-Host "[INFO] Aucun profil existant à sauvegarder" -ForegroundColor Cyan
     }
 }
 
@@ -105,7 +105,7 @@ if (Test-Path $profilePath) {
     $existingContent = Get-Content $profilePath -Raw -ErrorAction SilentlyContinue
     if ($existingContent -match "Configuration d'encodage UTF-8") {
         $hasUtf8Config = $true
-        Write-Host "⚠️  Configuration UTF-8 déjà présente" -ForegroundColor Yellow
+        Write-Host "[ATTENTION] Configuration UTF-8 déjà présente" -ForegroundColor Yellow
         
         if (-not $Force) {
             Write-Host "Utilisez -Force pour remplacer la configuration existante" -ForegroundColor Cyan
@@ -150,10 +150,12 @@ try {
     }
     
     $newContent | Out-File -FilePath $profilePath -Encoding UTF8 -Force
-    Write-Host "✅ Configuration UTF-8 appliquée au profil PowerShell" -ForegroundColor Green
+    Write-Host "[OK] Configuration UTF-8 appliquée au profil PowerShell" -ForegroundColor Green
     
-} catch {
-    Write-Host "❌ Erreur lors de l'application de la configuration: $($_.Exception.Message)" -ForegroundColor Red
+}
+catch
+{
+    Write-Host "[ERREUR] Erreur lors de l'application de la configuration: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
 }
 
@@ -185,9 +187,9 @@ $vscodeConfig = @{
 
 try {
     $vscodeConfig | ConvertTo-Json -Depth 10 | Out-File -FilePath $vscodeSettings -Encoding UTF8 -Force
-    Write-Host "✅ Configuration VSCode appliquée" -ForegroundColor Green
+    Write-Host "[OK] Configuration VSCode appliquée" -ForegroundColor Green
 } catch {
-    Write-Host "❌ Erreur lors de la configuration VSCode: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "[ERREUR] Erreur lors de la configuration VSCode: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # Étape 7: Création des fichiers de test
@@ -197,33 +199,33 @@ $testContent = @"
 # Fichier de test UTF-8 - $(Get-Date)
 Caractères français : àéèùç ÀÉÈÙÇ ôîâê
 Caractères spéciaux : €£¥©®™§¶•…«»""''
-Emojis : 🚀💻📁✅❌⚠️
+Emojis : ---
 Phrase : "L'été dernier, j'ai visité un château près de Montréal."
 Mots avec accents : café, hôtel, naïf, coïncidence, être, créé, français
 "@
 
 try {
     $testContent | Out-File -FilePath "test-caracteres-francais.txt" -Encoding UTF8 -Force
-    Write-Host "✅ Fichier de test créé" -ForegroundColor Green
+    Write-Host "[OK] Fichier de test créé" -ForegroundColor Green
 } catch {
-    Write-Host "⚠️  Impossible de créer le fichier de test" -ForegroundColor Yellow
+    Write-Host "[ATTENTION] Impossible de créer le fichier de test" -ForegroundColor Yellow
 }
 
 # Étape 8: Résumé et instructions
 Write-Host ""
 Write-Host "=== Déploiement terminé avec succès ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "📋 Résumé des actions:" -ForegroundColor Cyan
-Write-Host "  ✅ Profil PowerShell configuré: $profilePath" -ForegroundColor White
+Write-Host "[RESUME] Résumé des actions:" -ForegroundColor Cyan
+Write-Host "  [OK] Profil PowerShell configuré: $profilePath" -ForegroundColor White
 if (-not $SkipBackup -and (Test-Path $backupPath)) {
-    Write-Host "  ✅ Sauvegarde créée: $backupPath" -ForegroundColor White
+    Write-Host "  [OK] Sauvegarde créée: $backupPath" -ForegroundColor White
 }
-Write-Host "  ✅ Configuration VSCode appliquée" -ForegroundColor White
-Write-Host "  ✅ Fichier de test créé" -ForegroundColor White
+Write-Host "  [OK] Configuration VSCode appliquée" -ForegroundColor White
+Write-Host "  [OK] Fichier de test créé" -ForegroundColor White
 Write-Host ""
 
-Write-Host "🔄 Prochaines étapes:" -ForegroundColor Yellow
-Write-Host "  1. Redémarrez PowerShell (fermer et rouvrir)" -ForegroundColor White
+Write-Host "[ACTION] Prochaines étapes:" -ForegroundColor Yellow
+Write-Host "  1. Redemarrez PowerShell (fermez et rouvrez)" -ForegroundColor White
 Write-Host "  2. Exécutez: .\validate-deployment.ps1" -ForegroundColor White
 Write-Host "  3. Testez l'affichage des caractères français" -ForegroundColor White
 Write-Host ""
