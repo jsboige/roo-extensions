@@ -59,3 +59,23 @@ La documentation technique de l'API (`docs/modules/roo-state-manager/tools-api.m
 ## 4. Conclusion
 
 Cette mission, bien que débutant comme une simple demande de modification de fonctionnalité, s'est transformée en une session de débogage et de stabilisation critique pour le projet `roo-state-manager`. Les problèmes fondamentaux de stabilité du serveur et d'intégrité des données ont été résolus, et l'environnement de développement est désormais beaucoup plus robuste et prévisible. La fonctionnalité d'affichage hiérarchique est implémentée et fonctionnelle, et le code source est entièrement synchronisé et documenté.
+## 5. Investigations et réparations ultérieures (septembre 2025)
+
+Suite à une nouvelle défaillance du `roo-state-manager`, une enquête plus approfondie a été menée.
+
+### Problème
+
+Le `roo-state-manager` était incapable de récupérer l'historique des conversations récentes, renvoyant des données obsolètes avec des timestamps invalides. La reconstruction du cache via `build_skeleton_cache` ne résolvait pas le problème.
+
+### Diagnostic
+
+L'analyse a révélé une corruption massive des données au niveau du système de fichiers. Environ un tiers des tâches (~973) n'avaient plus de fichier `task_metadata.json`, ce qui rendait impossible la lecture de leurs informations de base (comme la date de dernière activité).
+
+### Réparation
+
+Un script de réparation ad hoc, `repair_tasks.ps1`, a été développé pour résoudre ce problème. Le script parcourt tous les répertoires de tâches et, pour chaque tâche corrompue, il :
+
+1.  Recrée un fichier `task_metadata.json` vide.
+2.  Extrapole les informations manquantes à partir d'autres sources de données disponibles, comme le fichier `ui_messages.json` et les timestamps du système de fichiers.
+
+Après l'exécution du script, toutes les tâches corrompues ont été réparées. Une reconstruction finale du cache a permis de restaurer le fonctionnement normal du `roo-state-manager`.

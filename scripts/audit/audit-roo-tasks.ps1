@@ -10,6 +10,9 @@
 #>
 [CmdletBinding()]
 param(
+    [switch]$AsJson,
+    [int]$Offset = 0,
+    [int]$Limit = 0
 )
 
 function Get-RooTasksPath {
@@ -80,26 +83,59 @@ if (-not $tasksPath) {
     exit 1
 }
 
-$taskDirs = Get-ChildItem -Path $tasksPath -Directory
-$tasksList = [System.Collections.Generic.List[PSObject]]::new()
-
-foreach ($taskDir in $taskDirs) {
-    $workspacePath = Get-TaskWorkspacePath -TaskDirectory $taskDir
-    $status = 'VALIDE'
-    
-    if ($workspacePath -eq "[Workspace non trouvé]" -or -not (Test-Path -Path $workspacePath)) {
-        $status = 'WORKSPACE_ORPHELIN'
-    }
-
-    $taskObject = [PSCustomObject]@{
-        TaskId             = $taskDir.Name
-        InvalidWorkspacePath = if ($status -eq 'WORKSPACE_ORPHELIN') { $workspacePath } else { $null }
-        Status             = $status
-    }
-    $tasksList.Add($taskObject)
+$cacheFile = Join-Path -Path $PSScriptRoot -ChildPath "audit_cache.json"
+$cache = @{}
+if (Test-Path $cacheFile) {
+    try {
+        $cache = Get-Content -Path $cacheFile -Raw | ConvertFrom-Json -AsHashtable
+    } catch {}
 }
 
+$allTaskDirs = Get-ChildItem -Path $tasksPath -Directory
+$tasksToProcess = $allTaskDirs
+
+if ($Limit -gt 0) {
+    $tasksToProcess = $allTaskDirs | Select-Object -Skip $Offset -First $Limit
+}
+
+$tasksList = [System.Collections.Generic.List[PSObject]]::new()
+$newCache = @{ LastScan = (Get-Date).ToUniversalTime().ToString("o") }
+
+foreach ($taskDir in $tasksToProcess) {
+    $taskId = $taskDir.Name
+    $lastWriteTime = $taskDir.LastWriteTimeUtc.ToString("o")
+    
+    if ($cache.Contains($taskId) -and $cache[$taskId].LastWriteTime -eq $lastWriteTime) {
+        $tasksList.Add($cache[$taskId].Report)
+        $newCache[$taskId] = $cache[$taskId]
+    } else {
+        # La fonction Get-TaskWorkspacePath n'est pas adaptée pour un rapport complet,
+        # nous allons simplifier et appeler une fonction de diagnostic plus complète si elle existait.
+        # Pour l'instant, nous gardons la logique simple.
+        $workspacePath = Get-TaskWorkspacePath -TaskDirectory $taskDir
+        $status = 'VALIDE'
+        if ($workspacePath -eq "[Workspace non trouvé]" -or -not (Test-Path -Path $workspacePath)) {
+            $status = 'WORKSPACE_ORPHELIN'
+        }
+        $report = [PSCustomObject]@{
+            TaskId             = $taskDir.Name
+            InvalidWorkspacePath = if ($status -eq 'WORKSPACE_ORPHELIN') { $workspacePath } else { $null }
+            Status             = $status
+        }
+        $tasksList.Add($report)
+        $newCache[$taskId] = @{ LastWriteTime = $lastWriteTime; Report = $report }
+    }
+}
+
+$newCache | ConvertTo-Json -Depth 5 | Set-Content -Path $cacheFile -Encoding UTF8
+
 # Retourne un objet final qui contient la liste des tâches
-return [PSCustomObject]@{
+$finalOutput = [PSCustomObject]@{
     Tasks = $tasksList
+}
+
+if ($AsJson) {
+    return $finalOutput | ConvertTo-Json -Depth 5
+} else {
+    return $finalOutput
 }

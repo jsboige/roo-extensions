@@ -121,3 +121,5 @@ mcps/tests/reports/
 # Fichiers de test et de sauvegarde générés par les scripts
 *.backup_*
 test-caracteres-francais.txt
+
+/scripts/audit/audit_cache.json
