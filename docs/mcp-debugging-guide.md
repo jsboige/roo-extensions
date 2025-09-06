@@ -46,6 +46,50 @@ Cela garantit que même les erreurs les plus précoces sont capturées.
 
 En suivant ce guide, vous devriez être en mesure de diagnostiquer et de résoudre les problèmes de vos serveurs MCP plus efficacement.
 
+## Outils de Diagnostic Intégrés
+
+Pour faciliter davantage le débogage, le MCP `roo-state-manager` a été doté d'outils spécialisés.
+
+### `read_vscode_logs`
+
+Cet outil est votre première ligne de défense pour comprendre ce qui se passe dans l'écosystème Roo. Il scanne automatiquement les répertoires de logs de VS Code et agrège les informations les plus récentes provenant des trois sources les plus critiques :
+
+1.  **Hôte d'extension (`exthost.log`) :** Capture les erreurs du processus principal de l'extension Roo, y compris les logs du `McpHub` concernant le cycle de vie des serveurs.
+2.  **Fenêtre (`renderer.log`) :** Capture les erreurs côté interface utilisateur.
+3.  **Canaux de Sortie (`output_logging/.../Roo-Code.log`) :** Capture les logs spécifiques émis par l'extension dans son canal de sortie dédié.
+
+**Utilisation :**
+```
+<use_mcp_tool>
+  <server_name>roo-state-manager</server_name>
+  <tool_name>read_vscode_logs</tool_name>
+  <arguments>
+    { "lines": 50, "filter": "error|McpHub" }
+  </arguments>
+</use_mcp_tool>
+```
+
+### `rebuild_and_restart_mcp`
+
+Cet outil fiabilise le cycle de développement des MCPs. Il automatise le processus de recompilation et de redémarrage d'un MCP spécifique.
+
+**Fonctionnement :**
+1.  Il lit le fichier `mcp_settings.json` pour trouver la configuration du MCP cible.
+2.  Il déduit le répertoire de travail du MCP (soit via le champ `cwd`, soit à partir du chemin du script dans `args`).
+3.  Il exécute `npm run build` dans ce répertoire.
+4.  Il "touche" le fichier `mcp_settings.json` pour forcer le `McpHub` de Roo à recharger tous les serveurs, garantissant ainsi que la nouvelle version est chargée.
+
+**Utilisation :**
+```
+<use_mcp_tool>
+  <server_name>roo-state-manager</server_name>
+  <tool_name>rebuild_and_restart_mcp</tool_name>
+  <arguments>
+    { "mcp_name": "le-nom-de-votre-mcp" }
+  </arguments>
+</use_mcp_tool>
+```
+
 ### Étude de Cas : Le Crash Silencieux
 
 Un problème particulièrement instructif est survenu avec le serveur `roo-state-manager`, qui refusait de démarrer sans générer la moindre erreur visible dans l'interface de Roo.
@@ -69,4 +113,4 @@ La solution consiste à éliminer l'intermédiaire `cmd.exe` et à laisser Roo l
 "command": "node",
 "args": ["mcps/internal/servers/roo-state-manager/build/index.js"]
 ```
-Avec cette configuration, Roo est directement connecté au `stderr` du processus `node`. Toute erreur de démarrage, même la plus précoce, est maintenant capturée et affichée correctement dans l'interface, permettant un débogage efficace.
+Avec cette configuration, Roo est directement connecté au `stderr` du processus `node`. Toute erreur de démarrage, même la plus précoce, est maintenant capturée et affichée correctement dans l'interface, permettant un débogage efficace.
