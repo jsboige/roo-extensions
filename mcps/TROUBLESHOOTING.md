@@ -33,6 +33,7 @@ Le Model Context Protocol (MCP) permet la communication entre les modèles d'IA 
 - [Problèmes de configuration](#problèmes-de-configuration)
 - [Problèmes d'utilisation](#problèmes-dutilisation)
 - [Problèmes d'intégration avec Roo](#problèmes-dintégration-avec-roo)
+- [Problèmes de Données](#problèmes-de-données)
 - [Problèmes de performance](#problèmes-de-performance)
 - [Problèmes de sécurité](#problèmes-de-sécurité)
 - [Commandes de diagnostic](#commandes-de-diagnostic)
@@ -326,8 +327,38 @@ Error: ENOENT: no such file or directory, open '/path/to/file'
    cd /path/to/server
    npm start
    ```
+
+### Incompatibilité des chemins de fichiers entre OS (Windows)
+
+**Symptôme** : Un serveur MCP (par exemple, `searxng`) démarre mais n'expose aucun outil, ou échoue à s'initialiser correctement uniquement sur Windows. Les logs peuvent être peu explicites.
+
+**Cause Racine** :
+Le code source du MCP peut contenir une logique de comparaison de chemins qui n'est pas compatible avec Windows. Par exemple, une comparaison entre `import.meta.url` (qui utilise des slashes `/` et un préfixe `file:///`) et `process.argv[1]` (qui utilise des backslashes `\` sous Windows) peut échouer. Cela peut empêcher la fonction principale du serveur de s'exécuter.
+
+**Solutions** :
+1.  **Diagnostic** :
+   Si un MCP fonctionne sur Linux/macOS mais pas sur Windows, suspectez un problème de chemin. Ajoutez des logs au point d'entrée du serveur pour inspecter et comparer les variables de chemin (`import.meta.url`, `process.argv[1]`, `__filename`, etc.).
+
+2.  **Correction du Code (si possible)** :
+   La meilleure solution est de corriger le code du MCP pour normaliser les chemins avant de les comparer. Le module `path` de Node.js et la fonction `pathToFileURL` sont utiles pour cela.
+   ```javascript
+   import { pathToFileURL } from 'url';
+
+   // Condition de démarrage robuste
+   if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+     // ... démarrer le serveur
+   }
+   ```
+
+3.  **Contournement par la Configuration** :
+   Parfois, la manière dont le processus est lancé peut contourner le problème. Par exemple, utiliser `npx` peut résoudre les problèmes de chemin que `node` seul ne résout pas.
+   Dans `mcp_settings.json`, préférez une commande comme :
+   ```json
+   "command": "cmd",
+   "args": ["/c", "npx", "-y", "mcp-searxng"]
+   ```
+   plutôt qu'un appel direct à `node` avec le chemin du script.
 <!-- END_SECTION: configuration_issues -->
-   npm run build
 <!-- START_SECTION: usage_issues -->
 ## Problèmes d'utilisation
 
@@ -655,7 +686,76 @@ Error: Tool execution failed: server_name.tool_name
 3. Vérifiez les permissions des fichiers et répertoires auxquels le serveur MCP tente d'accéder.
 
 4. Configurez correctement les chemins autorisés dans le serveur MCP pour inclure les répertoires nécessaires à Roo.
+
+### Le serveur MCP ne se met pas à jour après modification (Hot-Reload)
+
+**Symptôme** : Après avoir modifié le code source d'un MCP interne (ex: `roo-state-manager`), recompilé (`npm run build`), et redémarré les MCPs, les modifications ne sont pas prises en compte. Les nouvelles fonctionnalités ou les correctifs n'apparaissent pas.
+
+**Causes possibles** :
+- **Problème de Cache :** Le gestionnaire de processus (ex: `roo-state-manager`) peut avoir un mécanisme de cache qui n'est pas correctement invalidé.
+- **Mauvaise Gestion de Version :** Le mécanisme de détection de changement peut être défectueux. Par exemple, s'il se base sur un timestamp et que les modifications sont trop rapides, le changement peut ne pas être détecté.
+
+**Solution : Versioning Dynamique**
+La solution la plus robuste est d'implémenter un système de versioning dynamique pour chaque MCP interne.
+
+1.  **Incrémenter la Version :** Après chaque modification significative du code, incrémentez la version dans le fichier `package.json` du MCP concerné (ex: de `1.0.1` à `1.0.2`).
+
+2.  **Importer la Version :** Dans le code du MCP, importez dynamiquement cette version.
+```typescript
+// Exemple dans index.ts
+import { version } from '../package.json';
+
+// Utilisez cette version dans la logique de démarrage ou de découverte
+console.log(`Démarrage du serveur MCP version ${version}`);
+```
+
+3.  **Utiliser la Version dans la Configuration :** Le gestionnaire de MCPs (`roo-state-manager`) doit lire cette version et l'utiliser pour décider s'il doit recharger le serveur. Assurez-vous que la configuration dans `mcp_settings.json` reflète la nouvelle version pour forcer le rechargement.
+```json
+"roo-state-manager": {
+  "enabled": true,
+  "command": "node",
+  "args": ["./dist/index.js"],
+  "version": "1.0.2" // Mettre à jour cette version
+}
+```
+Cette approche garantit que chaque build avec une nouvelle version invalide systématiquement les caches et force le rechargement du code mis à jour.
 <!-- END_SECTION: integration_issues -->
+<!-- START_SECTION: data_issues -->
+## Problèmes de Données
+
+### Erreur `SyntaxError: Unexpected token '﻿'` lors du parsing JSON
+
+**Symptôme** : Un serveur MCP (souvent `roo-state-manager` qui lit de nombreux fichiers d'historique) échoue au démarrage avec une erreur de parsing JSON qui semble pointer vers un caractère invisible au début du fichier.
+
+```
+SyntaxError: Unexpected token '﻿', "﻿[{"role":"... is not valid JSON
+```
+
+**Cause Racine** :
+Cette erreur est presque toujours causée par la présence d'un **BOM (Byte Order Mark) UTF-8** au début d'un fichier JSON. Le BOM est un caractère invisible (`U+FEFF`) que certains éditeurs ou processus (comme la restauration de fichiers sous Windows) peuvent ajouter. Le parseur JSON standard de Node.js ne le gère pas et le considère comme un token invalide.
+
+**Solutions** :
+1.  **Identification des fichiers corrompus** :
+Il est nécessaire de scanner les fichiers potentiellement affectés pour détecter la présence du BOM. Un script est souvent nécessaire pour le faire en masse.
+
+2.  **Nettoyage des fichiers** :
+Les fichiers identifiés doivent être ré-enregistrés sans le BOM. La plupart des éditeurs de code modernes (comme VS Code) permettent de choisir l'encodage "UTF-8" (sans BOM).
+
+3.  **Script de Réparation Automatisé** :
+Pour les cas de corruption massive (par exemple, sur les fichiers `api_conversation_history.json`), un script de réparation est la solution la plus efficace. Un script PowerShell, `scripts/repair/repair-conversation-bom.ps1`, a été développé pour cette tâche.
+```powershell
+# Exécuter en mode diagnostic pour lister les fichiers corrompus
+./scripts/repair/repair-conversation-bom.ps1 -WhatIf
+
+# Exécuter en mode réparation pour nettoyer les fichiers
+./scripts/repair/repair-conversation-bom.ps1
+```
+Consultez la documentation du script pour plus de détails.
+
+4.  **Prévention** :
+- Configurez vos outils et éditeurs pour sauvegarder les fichiers en **UTF-8 sans BOM**.
+- Soyez vigilant lors de la restauration de fichiers ou du transfert entre différents systèmes d'exploitation.
+<!-- END_SECTION: data_issues -->
 <!-- START_SECTION: performance_issues -->
 ## Problèmes de performance
 
