@@ -147,6 +147,7 @@ Cette configuration exécute directement le fichier JavaScript du serveur MCP Se
 Si vous rencontrez des problèmes avec le MCP SearXNG:
 
 - **Le serveur ne démarre pas**: Vérifiez l'installation de Node.js et npm
+- **Erreur "Connection closed" (Windows)**: Problème de régression connu (janvier 2025) lié à la normalisation des chemins Windows - voir la section dédiée dans [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 - **Erreurs de recherche**: Essayez une autre instance SearXNG
 - **Résultats non pertinents**: Affinez votre requête avec des termes plus spécifiques
 - **Problèmes de lecture d'URL**: Certains sites peuvent bloquer les requêtes automatisées

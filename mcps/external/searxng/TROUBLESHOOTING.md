@@ -15,6 +15,36 @@ Ce document fournit des solutions aux problèmes courants rencontrés lors de l'
 
 **Solutions possibles**:
 
+#### Erreur "Connection closed" sur Windows (Régression 2025-01)
+
+**Symptôme spécifique**: Le serveur se ferme immédiatement avec une erreur `McpError: MCP error -32000: Connection closed` dans les logs VSCode Extension Host.
+
+**Cause racine**: Problème de normalisation des chemins Windows entre `import.meta.url` (format URL `file:///C:/...`) et `process.argv[1]` (format Windows natif `C:\...`). Cette différence de format empêchait la condition de démarrage principal du serveur de s'exécuter.
+
+**Solution**:
+- **Diagnostic**: Le serveur démarre mais la fonction `main()` n'est jamais appelée à cause de l'échec de comparaison des chemins
+- **Correction**: Normalisation du chemin de `process.argv[1]` en remplaçant les backslashes par des forward slashes avant comparaison
+- **Code corrigé** (dans `dist/index.js`):
+  ```javascript
+  // Fix Windows path format for proper URL comparison
+  const normalizedPath = process.argv[1].replace(/\\/g, '/');
+  const expectedUrl = `file:///${normalizedPath}`;
+  
+  if (import.meta.url === expectedUrl) {
+      main().catch((error) => {
+          console.error("Failed to start server:", error);
+          process.exit(1);
+      });
+  }
+  ```
+
+**Validation**:
+- Vérifiez que le serveur démarre correctement en ligne de commande avec `node "C:\Users\<username>\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+- Confirmez que les outils MCP sont exposés en testant une recherche simple
+- Vérifiez l'absence d'erreurs "Connection closed" dans les logs VSCode
+
+#### Autres causes possibles
+
 1. **Vérifiez que Node.js est correctement installé**:
    ```bash
    node --version
@@ -381,6 +411,20 @@ Si vous rencontrez des problèmes avec une instance SearXNG spécifique:
 
 <!-- START_SECTION: common_errors -->
 ## Erreurs courantes
+
+### "McpError: MCP error -32000: Connection closed" (Windows)
+
+**Cause**: Problème de normalisation des chemins Windows empêchant le démarrage du serveur principal. Régression identifiée en janvier 2025.
+
+**Diagnostic**:
+- Le serveur se lance mais se ferme immédiatement
+- Aucun outil MCP n'est exposé
+- L'erreur apparaît dans les logs VSCode Extension Host
+
+**Solutions**:
+- Vérifiez que la correction de normalisation des chemins est présente dans `dist/index.js`
+- Testez le démarrage manuel : `node "C:\Users\<username>\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+- Si le problème persiste, utilisez la configuration alternative avec exécution directe Node.js
 
 ### "Cannot connect to SearXNG instance"
 

@@ -253,9 +253,109 @@ Si le serveur Win-CLI ne démarre pas correctement:
 2. Vérifiez les logs pour identifier les erreurs
 3. Assurez-vous que les chemins des shells sont corrects
 
+## Playwright
+
+Playwright MCP permet de contrôler un navigateur (Chromium, Firefox, WebKit) pour automatiser des actions web.
+
+### Installation
+
+Le MCP Playwright est installé via `npx` lors de sa première exécution, mais il est recommandé d'installer le package `@playwright/mcp` pour une meilleure gestion.
+
+```bash
+npm install @playwright/mcp
+```
+
+### Configuration
+
+Voici la configuration recommandée pour le MCP Playwright dans votre fichier `mcp_settings.json`. Cette configuration utilise `npx` pour s'assurer que la dernière version du client MCP de Playwright est toujours utilisée.
+
+```json
+"playwright": {
+  "enabled": true,
+  "command": "npx",
+  "args": [
+    "-y",
+    "@playwright/mcp",
+    "--browser",
+    "chromium"
+  ]
+}
+```
+
+- **`command: "npx"`**: Utilise `npx` pour exécuter le package.
+- **`args`**:
+    - `"-y"`: Accepte automatiquement l'installation du package `@playwright/mcp` si ce n'est pas déjà fait.
+    - `"--browser", "chromium"`: Spécifie le navigateur à utiliser. C'est une étape importante pour éviter les erreurs si plusieurs navigateurs sont installés ou si le navigateur par défaut n'est pas celui attendu.
+
+### Dépannage
+
+**Symptôme**: Le MCP échoue avec une erreur `Request timed out`.
+
+**Cause Racine**: La configuration de démarrage est incorrecte. Une erreur commune est d'essayer de lancer `playwright run-server`, qui est un serveur HTTP, alors que le `roo-state-manager` attend une communication via `stdio`.
+
+**Solution**: Utilisez toujours la commande de démarrage recommandée ci-dessus, qui fait appel au client MCP officiel (`@playwright/mcp`) conçu pour une intégration `stdio`.
+
+## SearXNG
+
+SearXNG MCP fournit une interface de recherche web via une instance SearXNG.
+
+### Installation
+
+Le MCP SearXNG est installé via `npx` lors de sa première exécution.
+
+```bash
+npm install mcp-searxng
+```
+
+### Configuration
+
+Voici la configuration recommandée pour le MCP SearXNG dans votre fichier `mcp_settings.json`.
+
+```json
+"searxng": {
+  "enabled": true,
+  "command": "cmd",
+  "args": [
+    "/c",
+    "npx",
+    "-y",
+    "mcp-searxng"
+  ]
+}
+```
+
+- **`command: "cmd"`** et **`args: ["/c", ...]`**: Cette configuration est spécifiquement conçue pour contourner des problèmes de compatibilité de chemins de fichiers sous Windows. L'utilisation de `cmd /c npx` assure que le processus est lancé dans un environnement qui résout correctement les chemins.
+- **Variable d'environnement `SEARXNG_URL`**: Ce MCP nécessite que la variable d'environnement `SEARXNG_URL` soit définie et pointe vers votre instance SearXNG (par exemple, `https://searxng.example.com`). Assurez-vous que cette variable est accessible par l'environnement qui exécute le MCP.
+
+### Dépannage
+
+**Symptôme**: Le serveur se connecte mais crash avec l'erreur `MCP error -32000: Connection closed`. N'expose aucun outil.
+
+**Cause Racine Identifiée (Jan 2025)**: Incompatibilité Windows dans la condition de démarrage du serveur. Le problème technique précis :
+- `import.meta.url` retourne : `file:///C:/Users/.../index.js`
+- `process.argv[1]` retourne : `C:\Users\...\index.js`
+- La condition `if (import.meta.url === \`file://${process.argv[1]}\`)` ne correspond jamais sur Windows.
+
+**Solutions**:
+
+1. **Solution recommandée**: Utiliser la commande de démarrage `cmd /c npx -y mcp-searxng` comme configuré ci-dessus.
+
+2. **Solution alternative** (si modification du package nécessaire): Corriger la normalisation des chemins dans le fichier source :
+   ```javascript
+   const normalizedPath = process.argv[1].replace(/\\/g, '/');
+   const expectedUrl = `file:///${normalizedPath}`;
+   if (import.meta.url === expectedUrl) { ... }
+   ```
+
+3. **Diagnostic**: Tester directement avec `node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+
+**Variables d'environnement**: Assurez-vous que `SEARXNG_URL` est définie et accessible.
+
+**Problème connexe - Corruption BOM**: Si le fichier `mcp_settings.json` devient invalide après modification, voir [Guide d'urgence MCP](guides/GUIDE-URGENCE-MCP.md).
+
 ## Autres MCPs
 
-Pour les autres MCPs disponibles (SearXNG, Filesystem, GitHub, Docker), consultez leur documentation respective dans le répertoire `mcps/external-mcps/`.
+Pour les autres MCPs disponibles (Filesystem, GitHub, Docker), consultez leur documentation respective dans le répertoire `mcps/external-mcps/`.
 
 ## Conclusion
 

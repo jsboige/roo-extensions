@@ -183,3 +183,98 @@ Lorsque des modifications sont apportées au code source TypeScript du MCP `jupy
 4.  **Tester :** Ré-exécutez l'outil qui posait problème. L'extension devrait maintenant démarrer un nouveau processus MCP frais qui utilisera le code JavaScript fraîchement compilé.
 
 ---
+
+
+## 7. Redémarrage Rapide des MCPs pour l'Itération
+
+**Symptôme :**
+Lors du développement ou du débogage d'un MCP, les modifications apportées au code source (par exemple, dans un fichier `.ts`) ne sont pas prises en compte immédiatement après la recompilation. Le redémarrage de Roo ou la désactivation/réactivation du MCP ne garantit pas toujours un rechargement propre du processus.
+
+**Cause Racine :**
+Roo peut maintenir en cache ou laisser des processus MCP orphelins en cours d'exécution, qui continuent d'utiliser l'ancien code. Pour un cycle de développement rapide (modifier, builder, tester), il est essentiel de forcer un rechargement complet et propre de tous les MCPs.
+
+**Solution : Outils de Rechargement Dédiés**
+Pour accélérer le cycle de débogage, des outils spécifiques ont été intégrés dans les MCPs `roo-state-manager` et `quickfiles` pour forcer un redémarrage propre.
+
+- **`roo-state-manager` -> `touch_mcp_settings` :** Cet outil "touche" le fichier `mcp_settings.json` (modifie sa date de dernière modification). L'extension Roo surveille ce fichier et, lorsqu'elle détecte un changement, elle arrête tous les serveurs MCP en cours et les redémarre en se basant sur la configuration actuelle. C'est la méthode la plus propre et la plus recommandée.
+- **`quickfiles` -> `restart_mcp_servers` :** Cet outil offre une alternative en permettant de redémarrer une liste spécifique de serveurs. Pour un rechargement complet, il peut être utilisé pour redémarrer tous les MCPs actifs.
+
+**Procédure Recommandée pour une Itération Rapide :**
+1.  **Modifiez** le code source de votre MCP.
+2.  **Compilez** vos changements (ex: `npm run build`).
+3.  **Exécutez l'outil `touch_mcp_settings`** depuis le MCP `roo-state-manager` via une interaction avec Roo.
+4.  **Testez** votre modification. Le MCP sera redémarré avec le nouveau code.
+
+---
+
+## 8. `searxng` - Incompatibilité Windows (MCP error -32000: Connection closed)
+
+**Symptôme :**
+Le serveur `searxng` (mcp-searxng) se lance mais crash immédiatement avec l'erreur `MCP error -32000: Connection closed`. Le serveur n'expose aucun outil et les logs VSCode montrent un crash au démarrage.
+
+**Cause Racine :**
+Incompatibilité Windows dans la condition de démarrage du serveur MCP. Le problème vient de la comparaison entre `import.meta.url` et `process.argv[1]` qui utilisent des formats de chemins différents sur Windows :
+- `import.meta.url` retourne : `file:///C:/Users/.../index.js`
+- `process.argv[1]` retourne : `C:\Users\...\index.js`
+
+La condition `if (import.meta.url === \`file://${process.argv[1]}\`)` ne correspond jamais sur Windows, empêchant le serveur de démarrer.
+
+**Solution :**
+Normaliser le chemin Windows pour la comparaison d'URL :
+
+```javascript
+// AVANT - Ne fonctionne pas sur Windows
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main().catch(console.error);
+}
+
+// APRÈS - Compatible Windows/Unix  
+const normalizedPath = process.argv[1].replace(/\\/g, '/');
+const expectedUrl = `file:///${normalizedPath}`;
+if (import.meta.url === expectedUrl) {
+    main().catch(console.error);
+}
+```
+
+**Diagnostic :**
+1. Test direct du serveur : `node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+2. Vérification des logs VSCode avec `roo-state-manager: read_vscode_logs`
+3. Validation fonctionnelle après correction
+
+**Problème Secondaire : Corruption BOM UTF-8**
+Si le fichier `mcp_settings.json` est corrompu par un BOM UTF-8 après modification :
+```powershell
+$bytes = [System.IO.File]::ReadAllBytes($path)
+if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    $bytesWithoutBOM = $bytes[3..($bytes.Length-1)]
+    [System.IO.File]::WriteAllBytes($path, $bytesWithoutBOM)
+}
+```
+
+---
+
+## 8. `roo-state-manager` - Erreur de Connexion Qdrant (`ECONNREFUSED`)
+
+**Symptôme :**
+Le serveur `roo-state-manager` démarre correctement, mais toute tentative d'utiliser une fonctionnalité sémantique (comme `index_task_semantic` ou `search_tasks_semantic`) échoue avec une erreur `TypeError: fetch failed`. L'analyse des logs de l'hôte d'extension (`exthost.log`) révèle la cause sous-jacente : `Error: connect ECONNREFUSED`.
+
+**Cause Racine :**
+Le client Qdrant (`@qdrant/js-client-rest`) est configuré avec une URL HTTPS (ex: `https://qdrant.myia.io`), mais il tente par défaut de se connecter au port standard de l'API REST de Qdrant, qui est le `6333`. Cependant, de nombreuses infrastructures de production placent Qdrant derrière un reverse proxy (comme Nginx) qui n'expose que le port HTTPS standard (`443`). La tentative de connexion sur le port `6333` est alors activement refusée par le serveur, d'où l'erreur `ECONNREFUSED`.
+
+**Solution :**
+Il faut explicitement forcer le client Qdrant à utiliser le port `443` lors de son initialisation.
+
+1.  **Localisez** le fichier de service Qdrant : `mcps/internal/servers/roo-state-manager/src/services/qdrant.ts`.
+2.  **Modifiez** l'objet de configuration du client pour y inclure le port :
+    ```typescript
+    // Dans la fonction getQdrantClient()
+    const qdrantConfig = {
+      url: process.env.QDRANT_URL,
+      apiKey: process.env.QDRANT_API_KEY,
+      port: 443, // <-- Ajoutez cette ligne
+      checkCompatibility: false,
+    };
+    
+    client = new QdrantClient(qdrantConfig);
+    ```
+3.  **Recompilez** le MCP et forcez son redémarrage (par exemple, avec l'outil `rebuild_and_restart_mcp`).
