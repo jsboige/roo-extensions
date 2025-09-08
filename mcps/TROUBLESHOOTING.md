@@ -168,6 +168,26 @@ EACCES: permission denied, access '/usr/local/lib/node_modules'
    source mcp-env/bin/activate  # Sur Linux/macOS
    mcp-env\Scripts\activate     # Sur Windows
    ```
+
+### Problèmes de chemin Python et alias Windows
+
+**Symptôme** : Un MCP basé sur Python (ex: `markitdown`) ne démarre pas car PowerShell sélectionne un "alias d'exécution d'application" (`python.exe` dans `C:\Users\...\AppData\Local\Microsoft\WindowsApps\`) qui renvoie vers le Microsoft Store au lieu d'un véritable interpréteur.
+
+**Cause Racine** : La commande `Get-Command python` ne distingue pas les vrais exécutables des alias du Microsoft Store.
+
+**Solutions** :
+1.  **Détection Fiable (via script)** : Utiliser un script qui teste chaque exécutable `python` trouvé (`Get-Command -All`) avec `--version` pour valider qu'il s'agit d'un interpréteur fonctionnel, en ignorant les chemins contenant `\WindowsApps\`. Le chemin de l'exécutable valide doit être utilisé explicitement dans la configuration du MCP.
+2.  **Environnement Virtuel Dédié** : La meilleure pratique est de créer un environnement virtuel (avec `conda` ou `venv`) et d'installer les dépendances du MCP à l'intérieur. La configuration du MCP doit ensuite pointer directement vers l'exécutable Python de cet environnement, par exemple : `C:/Users/user/.conda/envs/mcp-markitdown/python.exe`.
+
+### Instabilité du cache `npx`
+
+**Symptôme** : Le démarrage d'un MCP via `npx` (ex: `playwright`) échoue de manière intermittente, parfois avec une erreur `ERR_MODULE_NOT_FOUND`, surtout après avoir nettoyé le cache `_npx`.
+
+**Cause Racine** : `npx` peut avoir du mal à réinstaller à la volée des paquets s'il est instable.
+
+**Solutions** :
+1.  **Stratégie de "préchauffage" (via script)** : Avant de démarrer le MCP, exécutez une commande `npx` inoffensive comme `npx -y @playwright/mcp --version`. Cela force `npx` à télécharger et installer proprement le paquet dans le cache s'il est manquant ou invalide. Le MCP peut alors être démarré de manière fiable.
+2.  **Installation Locale** : Pour une robustesse maximale, installez le paquet localement dans le projet (`npm install @playwright/mcp`) et modifiez la configuration du MCP pour qu'elle pointe directement vers le script `cli.js` avec `node`, par exemple : `D:/dev/roo-extensions/node_modules/@playwright/mcp/lib/cli.js`.
 <!-- END_SECTION: installation_issues -->
 
 <!-- START_SECTION: configuration_issues -->
@@ -358,6 +378,17 @@ Le code source du MCP peut contenir une logique de comparaison de chemins qui n'
    "args": ["/c", "npx", "-y", "mcp-searxng"]
    ```
    plutôt qu'un appel direct à `node` avec le chemin du script.
+
+### Problèmes de configuration de tokens d'API
+
+**Symptôme** : Un MCP qui interagit avec une API (ex: `github-projects-mcp`) échoue avec des erreurs de "rate limit" ou d'authentification, même si un token semble être configuré.
+
+**Cause Racine** : Le serveur MCP reçoit la chaîne de caractères littérale de la variable d'environnement (ex: `"${env:GITHUB_TOKEN}"`) au lieu de sa valeur résolue (ex: `"ghp_..."`). Le client API est donc instancié avec un token invalide et effectue des requêtes non authentifiées, qui sont très rapidement limitées.
+
+**Solutions** :
+1.  **Utiliser un fichier `.env`** : La méthode la plus fiable est de définir les tokens dans un fichier `.env` à la racine du serveur MCP. Assurez-vous que le MCP est configuré pour charger ce fichier au démarrage (souvent avec une bibliothèque comme `dotenv`).
+2.  **Vérifier la Résolution des Variables** : Si vous devez utiliser des variables d'environnement globales, assurez-vous que l'environnement d'exécution de Roo les résout correctement avant de démarrer le MCP.
+3.  **Logique de Résolution dans le MCP** : Idéalement, le MCP lui-même devrait inclure une logique pour détecter si un token est une chaîne de substitution non résolue et tenter de la résoudre lui-même en lisant `process.env`.
 <!-- END_SECTION: configuration_issues -->
 <!-- START_SECTION: usage_issues -->
 ## Problèmes d'utilisation
