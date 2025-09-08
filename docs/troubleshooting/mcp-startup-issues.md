@@ -207,6 +207,52 @@ Pour accélérer le cycle de débogage, des outils spécifiques ont été intég
 
 ---
 
+## 8. `searxng` - Incompatibilité Windows (MCP error -32000: Connection closed)
+
+**Symptôme :**
+Le serveur `searxng` (mcp-searxng) se lance mais crash immédiatement avec l'erreur `MCP error -32000: Connection closed`. Le serveur n'expose aucun outil et les logs VSCode montrent un crash au démarrage.
+
+**Cause Racine :**
+Incompatibilité Windows dans la condition de démarrage du serveur MCP. Le problème vient de la comparaison entre `import.meta.url` et `process.argv[1]` qui utilisent des formats de chemins différents sur Windows :
+- `import.meta.url` retourne : `file:///C:/Users/.../index.js`
+- `process.argv[1]` retourne : `C:\Users\...\index.js`
+
+La condition `if (import.meta.url === \`file://${process.argv[1]}\`)` ne correspond jamais sur Windows, empêchant le serveur de démarrer.
+
+**Solution :**
+Normaliser le chemin Windows pour la comparaison d'URL :
+
+```javascript
+// AVANT - Ne fonctionne pas sur Windows
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main().catch(console.error);
+}
+
+// APRÈS - Compatible Windows/Unix  
+const normalizedPath = process.argv[1].replace(/\\/g, '/');
+const expectedUrl = `file:///${normalizedPath}`;
+if (import.meta.url === expectedUrl) {
+    main().catch(console.error);
+}
+```
+
+**Diagnostic :**
+1. Test direct du serveur : `node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+2. Vérification des logs VSCode avec `roo-state-manager: read_vscode_logs`
+3. Validation fonctionnelle après correction
+
+**Problème Secondaire : Corruption BOM UTF-8**
+Si le fichier `mcp_settings.json` est corrompu par un BOM UTF-8 après modification :
+```powershell
+$bytes = [System.IO.File]::ReadAllBytes($path)
+if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    $bytesWithoutBOM = $bytes[3..($bytes.Length-1)]
+    [System.IO.File]::WriteAllBytes($path, $bytesWithoutBOM)
+}
+```
+
+---
+
 ## 8. `roo-state-manager` - Erreur de Connexion Qdrant (`ECONNREFUSED`)
 
 **Symptôme :**

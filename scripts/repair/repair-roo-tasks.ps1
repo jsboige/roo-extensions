@@ -133,8 +133,8 @@ $uniqueInvalidRootPaths = $orphanTasks | ForEach-Object {
         if ($parent -eq $path) { break } # Atteint la racine (par ex. C:\)
         $path = $parent
     }
-    if ($path) { return Split-Path -Path $path -Parent } # Retourne le premier parent qui n'existe PAS
-} | Sort-Object -Unique
+    if ($path) { Split-Path -Path $path -Parent } # Retourne le premier parent qui n'existe PAS
+} | Where-Object { $_ -ne $null -and $_ -ne "" } | Sort-Object -Unique
 
 Write-Host " interactive pour mapper les anciens chemins de base aux nouveaux."
 Write-Host "Laissez la réponse vide pour ignorer la réparation d'un chemin."

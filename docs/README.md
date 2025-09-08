@@ -101,6 +101,7 @@ Ces documents présentent des analyses, des synthèses et des résultats de test
 - [Analyse de performance des applications web](rapports/analyse-performance-app-web.md) - Analyse des performances des applications web
 - [Comparaison MCP Win-CLI et terminal conventionnel](rapports/comparaison-mcp-win-cli-terminal-conventionnel.md) - Comparaison entre le MCP Win-CLI et le terminal conventionnel
 - [Rapport final de déploiement des modes Windows](rapports/rapport-final-deploiement-modes-windows.md) - Résultats du déploiement des modes sur Windows
+- [Correction de régression MCP searxng](debug-reports/searxng-mcp-regression-fix-2025-01.md) - Rapport détaillé de la correction du MCP searxng (janvier 2025)
 - [Rapport de mise à jour de la configuration Roo](rapports/rapport-mise-a-jour-config-roo.md) - Rapport sur les mises à jour de la configuration Roo
 
 ### Tests

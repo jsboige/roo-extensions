@@ -329,11 +329,29 @@ Voici la configuration recommandée pour le MCP SearXNG dans votre fichier `mcp_
 
 ### Dépannage
 
-**Symptôme**: Le serveur se connecte mais n'expose aucun outil, ou échoue silencieusement, particulièrement sous Windows.
+**Symptôme**: Le serveur se connecte mais crash avec l'erreur `MCP error -32000: Connection closed`. N'expose aucun outil.
 
-**Cause Racine**: Le code source du MCP `mcp-searxng` peut contenir une logique de démarrage qui compare des chemins de fichiers de manière incompatible avec Windows (slashes `\` vs backslashes `/`). Cela empêche le serveur de s'initialiser complètement.
+**Cause Racine Identifiée (Jan 2025)**: Incompatibilité Windows dans la condition de démarrage du serveur. Le problème technique précis :
+- `import.meta.url` retourne : `file:///C:/Users/.../index.js`
+- `process.argv[1]` retourne : `C:\Users\...\index.js`
+- La condition `if (import.meta.url === \`file://${process.argv[1]}\`)` ne correspond jamais sur Windows.
 
-**Solution**: Utilisez la commande de démarrage `cmd /c npx -y mcp-searxng` comme indiqué dans la configuration ci-dessus. Cette méthode a prouvé sa robustesse pour contourner le problème de chemin sous-jacent. Si le problème persiste, assurez-vous que la variable d'environnement `SEARXNG_URL` est correctement définie et accessible.
+**Solutions**:
+
+1. **Solution recommandée**: Utiliser la commande de démarrage `cmd /c npx -y mcp-searxng` comme configuré ci-dessus.
+
+2. **Solution alternative** (si modification du package nécessaire): Corriger la normalisation des chemins dans le fichier source :
+   ```javascript
+   const normalizedPath = process.argv[1].replace(/\\/g, '/');
+   const expectedUrl = `file:///${normalizedPath}`;
+   if (import.meta.url === expectedUrl) { ... }
+   ```
+
+3. **Diagnostic**: Tester directement avec `node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
+
+**Variables d'environnement**: Assurez-vous que `SEARXNG_URL` est définie et accessible.
+
+**Problème connexe - Corruption BOM**: Si le fichier `mcp_settings.json` devient invalide après modification, voir [Guide d'urgence MCP](guides/GUIDE-URGENCE-MCP.md).
 
 ## Autres MCPs
 

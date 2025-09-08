@@ -66,6 +66,41 @@ Get-Content "c:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinar
 | `gitglobal` | NPM | ✅ Actif | API GitHub complète |
 | `filesystem` | NPM | ✅ Actif | Accès système de fichiers |
 
+
+## PROBLÈME SEARXNG - MCP ERROR -32000
+
+### Symptômes spécifiques
+- Erreur "MCP error -32000: Connection closed" pour searxng
+- Le serveur se lance mais n'expose aucun outil
+- Logs VSCode montrant un crash au démarrage
+
+### Diagnostic rapide
+```powershell
+# Test direct du serveur
+node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"
+```
+
+### Cause : Incompatibilité Windows
+- Problème de format de chemin dans la condition de démarrage
+- `import.meta.url` vs `process.argv[1]` incompatibles sur Windows
+
+### Réparation
+⚠️ **ATTENTION** : Modifiez directement le fichier npm si nécessaire
+```javascript
+// Dans le fichier index.js du package searxng
+const normalizedPath = process.argv[1].replace(/\\/g, '/');
+const expectedUrl = `file:///${normalizedPath}`;
+if (import.meta.url === expectedUrl) {
+    main().catch(console.error);
+}
+```
+
+### Validation
+```bash
+# Test fonctionnel via Roo
+searxng: searxng_web_search -> doit retourner des résultats
+```
+
 ## PRÉVENTION
 
 ### 1. Sauvegardes automatiques
