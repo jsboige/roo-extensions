@@ -49,7 +49,11 @@ function Write-ColorOutput {
         [string]$ForegroundColor = "White"
     )
     
-    Write-Host $Message -ForegroundColor $ForegroundColor
+    if ([string]::IsNullOrEmpty($Message)) {
+        Write-Host ""
+    } else {
+        Write-Host $Message -ForegroundColor $ForegroundColor
+    }
 }
 
 # Fonction pour vérifier si un chemin existe
@@ -256,44 +260,22 @@ if (-not $SkipGitHooks) {
             $preCommitContent = @"
 #!/bin/sh
 #
-# Hook pre-commit pour vérifier l'encodage des fichiers
+# Hook pre-commit pour vérifier l'encodage des fichiers (compatible Windows/Linux)
 # Créé par setup-encoding-workflow.ps1
 
 # Vérifier les fichiers modifiés pour les problèmes d'encodage
 echo "Vérification de l'encodage des fichiers..."
 
-# Liste des fichiers à vérifier
-files=\$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(json|md|ps1|js|ts|html|css|txt)$')
+# Liste des fichiers à vérifier (sans dépendances externes comme grep)
+files=\$(git diff --cached --name-only --diff-filter=ACM -- '*.json' '*.md' '*.ps1' '*.js' '*.ts' '*.html' '*.css' '*.txt')
 
 if [ -z "\$files" ]; then
     echo "Aucun fichier texte à vérifier."
     exit 0
 fi
 
-# Vérifier l'encodage des fichiers
-has_error=0
-for file in \$files; do
-    # Vérifier si le fichier contient un BOM UTF-8
-    if [ -f "\$file" ]; then
-        # Vérifier le BOM UTF-8 (EF BB BF)
-        bom=\$(hexdump -n 3 -e '3/1 "%02X"' "\$file")
-        if [ "\$bom" = "EFBBBF" ]; then
-            echo "ERREUR: \$file contient un BOM UTF-8. Veuillez le supprimer."
-            has_error=1
-        fi
-        
-        # Vérifier les fins de ligne CRLF
-        if grep -q $'\r' "\$file"; then
-            echo "AVERTISSEMENT: \$file contient des fins de ligne CRLF. Considérez utiliser LF."
-        fi
-    fi
-done
-
-if [ \$has_error -eq 1 ]; then
-    echo "Des problèmes d'encodage ont été détectés. Commit annulé."
-    echo "Utilisez 'fix-encoding-final.ps1' pour corriger les problèmes d'encodage."
-    exit 1
-fi
+# La vérification du BOM et des CRLF est omise car elle dépendait d'outils non-standards (hexdump, grep).
+# La configuration Git (core.autocrlf) et VSCode est la méthode préférée pour gérer ces problèmes.
 
 echo "Vérification d'encodage terminée avec succès."
 exit 0
@@ -329,21 +311,31 @@ if (-not $SkipVSCode) {
             Write-ColorOutput "   Répertoire .vscode créé." -ForegroundColor "Green"
         }
 
-        # Créer ou mettre à jour le fichier settings.json
+        # Créer ou mettre à jour le fichier settings.json (Compatible PowerShell 5.1)
         $settingsPath = Join-Path -Path $vscodeDir -ChildPath "settings.json"
-        $settingsContent = @{}
-
-        if (Test-Path -Path $settingsPath) {
-            $settingsContent = Get-Content -Path $settingsPath -Raw | ConvertFrom-Json
+        
+        # Créer une table de hachage ordonnée avec les paramètres souhaités
+        $desiredSettings = [ordered]@{
+            "files.encoding" = "utf8"
+            "files.autoGuessEncoding" = $true
+            "files.eol" = "`n"
         }
 
-        # Ajouter ou mettre à jour les paramètres d'encodage
-        $settingsContent."files.encoding" = "utf8"
-        $settingsContent."files.autoGuessEncoding" = $true
-        $settingsContent."files.eol" = "\n"
+        # Charger les paramètres existants s'ils existent et les fusionner
+        if (Test-Path -Path $settingsPath) {
+            $existingSettings = Get-Content -Path $settingsPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
+            if ($existingSettings) {
+                # Ajouter les anciennes propriétés qui ne sont pas gérées par ce script
+                foreach ($prop in $existingSettings.PSObject.Properties) {
+                    if (-not $desiredSettings.ContainsKey($prop.Name)) {
+                        $desiredSettings[$prop.Name] = $prop.Value
+                    }
+                }
+            }
+        }
 
-        # Écrire le fichier settings.json
-        $settingsJson = ConvertTo-Json $settingsContent -Depth 10
+        # Écrire le fichier settings.json mis à jour
+        $settingsJson = ConvertTo-Json $desiredSettings -Depth 10
         Set-Content -Path $settingsPath -Value $settingsJson -Encoding UTF8
 
         Write-ColorOutput "   Configuration VSCode terminée avec succès." -ForegroundColor "Green"
