@@ -76,6 +76,19 @@
         }
       }
     },
+   "playwright": {
+     "autoApprove": [],
+     "alwaysAllow": [],
+     "command": "powershell",
+     "args": [
+       "-Command",
+       "npx -y @playwright/mcp --browser firefox"
+     ],
+     "transportType": "stdio",
+     "disabled": false,
+     "autoStart": true,
+     "description": "MCP for browser automation with Playwright."
+   },
     "roo-state-manager": {
       "autoApprove": [],
       "alwaysAllow": [],
