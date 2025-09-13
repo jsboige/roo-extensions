@@ -13,7 +13,7 @@
     Le script supporte pleinement le mode simulation (`-WhatIf`) pour prévisualiser les changements sans
     modifier aucun fichier.
 .PARAMETER TasksPath
-    Spécifie le chemin vers le répertoire 'tasks' de Roo. S'il n'est pas fourni, le script tente de le détecter automatiquement.
+    Spécifie le chemin vers le répertoire 'tasks' de Roo. S'il n'est pas fourni, le script tente de le détecter automatically.
 .PARAMETER AuditReport
     Prend en entrée le résultat d'un audit préalable (généré par `audit-roo-tasks.ps1`) pour éviter de refaire l'analyse.
     Ce paramètre attend une collection d'objets [PSCustomObject].
@@ -133,8 +133,8 @@ $uniqueInvalidRootPaths = $orphanTasks | ForEach-Object {
         if ($parent -eq $path) { break } # Atteint la racine (par ex. C:\)
         $path = $parent
     }
-    if ($path) { Split-Path -Path $path -Parent } # Retourne le premier parent qui n'existe PAS
-} | Where-Object { $_ -ne $null -and $_ -ne "" } | Sort-Object -Unique
+    if ($path) { return Split-Path -Path $path -Parent } # Retourne le premier parent qui n'existe PAS
+} | Where-Object { $_ } | Sort-Object -Unique
 
 Write-Host " interactive pour mapper les anciens chemins de base aux nouveaux."
 Write-Host "Laissez la réponse vide pour ignorer la réparation d'un chemin."
@@ -194,7 +194,7 @@ foreach ($task in $orphanTasks) {
             } elseif ($metadataFile.PSObject.Properties.Name -contains 'workspace') { # Fallback
                 $metadataFile.workspace = $newWorkspacePath
             } else {
-                 Write-Warning "La tâche $($task.TaskId) n'a pas de propriété 'workspace_path' ou 'workspace' dans ses métadonnées."
+                 Write-Warning "La tache $($task.TaskId) n'a pas de propriete 'workspace_path' ou 'workspace' dans ses metadonnees."
                  continue
             }
             

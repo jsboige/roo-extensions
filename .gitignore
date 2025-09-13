@@ -124,5 +124,9 @@ test-caracteres-francais.txt
 
 /scripts/audit/audit_cache.json
 
+# Logs MCP spécifiques
+*-mcp-combined.log
+*-mcp-error.log
+
 # Backups temporaires de récupération de sous-modules
 backup-*/
