@@ -87,22 +87,31 @@ Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](docs/
 
 ## Configuration
 
-Les configurations des serveurs MCP sont définies dans le fichier `roo-config/settings/servers.json`. Voici un exemple de configuration :
+Les configurations des serveurs MCP sont définies dans le fichier global `mcp_settings.json` de Roo. Ce fichier se trouve dans le répertoire de stockage global de Roo et est géré automatiquement par l'extension.
+
+**📖 Pour des informations détaillées sur la configuration MCP, consultez :**
+**[Configuration MCP dans Roo](./docs/configuration-mcp-roo.md)**
+
+Cette documentation explique :
+- L'emplacement exact du fichier `mcp_settings.json`
+- Comment y accéder via le serveur `roo-state-manager`
+- La structure de configuration
+- Les outils disponibles pour la gestion
+
+Voici un exemple de configuration :
 
 ```json
 {
-  "servers": [
-    {
-      "name": "quickfiles",
-      "command": "node c:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js",
-      "autoStart": true
+  "mcpServers": {
+    "quickfiles": {
+      "command": "node",
+      "args": ["d:/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js"]
     },
-    {
-      "name": "jinavigator",
-      "command": "node c:/dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js",
-      "autoStart": true
+    "jinavigator": {
+      "command": "cmd",
+      "args": ["/c", "node D:\\roo-extensions\\mcps\\internal\\servers\\jinavigator-server\\dist\\index.js"]
     }
-  ]
+  }
 }
 ```
 
@@ -267,6 +276,7 @@ Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLES
 - [Documentation des modes Roo](../roo-modes/README.md)
 - [Documentation de la configuration Roo](../roo-config/README.md)
 - [Documentation des tests](../tests/README.md)
+- [Configuration MCP dans Roo](docs/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
 - [INSTALLATION.md](docs/INSTALLATION.md) - Instructions d'installation détaillées
 - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Guide de dépannage
 - [MANUAL_START.md](docs/MANUAL_START.md) - Instructions pour démarrer manuellement les serveurs

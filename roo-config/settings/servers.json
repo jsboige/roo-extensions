@@ -8,9 +8,8 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour interagir avec GitHub Projects",
-      "env": {
-        "GITHUB_TOKEN": "${process.env.GITHUB_TOKEN}"
-      }
+      "workingDirectory": "./mcps/internal/servers/github-projects-mcp",
+      "envFile": ".env"
     },
     {
       "name": "searxng",
@@ -55,10 +54,21 @@
     {
       "name": "git",
       "type": "stdio",
-      "command": "cmd /c npx -y @modelcontextprotocol/server-github",
+      "command": "cmd /c python -m mcp_server_git",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour interagir avec Git"
+    },
+    {
+      "name": "github",
+      "type": "stdio",
+      "command": "cmd /c npx -y @modelcontextprotocol/server-github",
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour interagir avec GitHub",
+      "env": {
+        "GITHUB_TOKEN": "${env:GITHUB_TOKEN}"
+      }
     },
     {
       "name": "filesystem",
