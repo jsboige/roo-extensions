@@ -1363,6 +1363,29 @@ En cas de panne système complète:
 4. Vérifiez l'état de tous les serveurs
 5. Exécutez des tests de validation complets
 
+---
+
+## Patterns de Débogage Appliqués (Synthèse Post-Réparation Janvier 2025)
+
+Suite à une campagne de fiabilisation de plusieurs serveurs MCP, les patterns de diagnostic et de résolution suivants se sont avérés particulièrement efficaces. Pour une analyse complète, [consultez la synthèse SDDD dédiée](./docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md).
+
+### 1. Incohérence Build TypeScript vs. Configuration MCP (`roo-state-manager`)
+- **Symptôme :** Erreur `Cannot find module` au démarrage du MCP, bien que les fichiers compilés existent.
+- **Diagnostic :** La structure des répertoires en sortie (`build/src/`) ne correspondait pas au chemin attendu par le point d'entrée du `tsconfig.json`. Le serveur cherchait `./tools/index.js` au lieu de `../src/tools/index.js`.
+- **Solution Efficace :** Mettre à jour le chemin dans `mcp_settings.json` pour pointer vers le point d'entrée correct (`.../build/src/index.js`). Cette solution est minimalement invasive et évite de modifier la configuration de build potentiellement partagée.
+- **Leçon :** Toujours valider le chemin d'exécution final d'un MCP compilé par rapport à sa configuration de lancement.
+
+### 2. Erreur de Configuration par Variable d'Environnement (`office-powerpoint`)
+- **Symptôme :** Le serveur échoue à l'initialisation avec une erreur indiquant qu'une ressource ou un chemin est introuvable.
+- **Diagnostic :** Le serveur dépendait d'un chemin vers un répertoire de ressources (ex: des templates PowerPoint), qui devait être fourni via une variable d'environnement (`PPT_TEMPLATE_PATH`). Cette variable n'était pas définie dans la configuration du MCP.
+- **Solution Efficace :** Ajouter la variable d'environnement requise directement dans la section `env` de la configuration du serveur dans `mcp_settings.json`.
+- **Leçon :** Pour les MCPs externes ou basés sur Python, vérifier systématiquement s'ils dépendent de variables d'environnement pour leur configuration et s'assurer qu'elles sont correctement injectées.
+
+### 3. Incompatibilité de Protocole ou de Point d'Entrée (`jupyter-papermill-mcp-server`)
+- **Symptôme :** Le serveur démarre sans erreur apparente, mais la communication avec le client Roo échoue, ou les outils ne sont pas exposés correctement.
+- **Diagnostic :** L'historique du projet a montré l'existence de plusieurs points d'entrée (`main.py`, `main_working.py`, `main_fixed.py`), indiquant des tentatives de correction. L'analyse a révélé que le point d'entrée utilisé implémentait une version non standard ou dépréciée du protocole MCP.
+- **Solution Efficace :** Changer le point d'entrée dans l'argument de commande de `mcp_settings.json` pour utiliser le script corrigé (`main_fixed.py`), qui contient l'implémentation conforme du protocole.
+- **Leçon :** Quand un serveur semble "silencieusement" défaillant, vérifier le point d'entrée exact et l'historique des fichiers associés. Une réparation a peut-être déjà été effectuée mais pas appliquée dans la configuration de lancement.
 ## Guides de dépannage spécifiques
 
 Cette section fournit des liens vers les guides de dépannage spécifiques à chaque serveur MCP. Consultez ces guides pour des informations plus détaillées sur les problèmes spécifiques à chaque serveur.

@@ -2,23 +2,26 @@
 
 ## Table des matières
 
-1. [Introduction](#introduction)
-2. [Organisation](#organisation)
-   - [MCPs internes](#mcps-internes)
-   - [MCPs externes](#mcps-externes)
-3. [Fonctionnalités](#fonctionnalités)
-4. [Installation](#installation)
-5. [Configuration](#configuration)
-6. [Utilisation](#utilisation)
-   - [QuickFiles](#quickfiles)
-   - [JinaNavigator](#jinavigator)
-   - [Jupyter](#jupyter)
-   - [SearXNG](#searxng)
-   - [Win-CLI](#win-cli)
-7. [Structure](#structure)
-8. [Intégration](#intégration)
-9. [Dépannage](#dépannage)
-10. [Ressources supplémentaires](#ressources-supplémentaires)
+- [Serveurs MCP (Model Context Protocol)](#serveurs-mcp-model-context-protocol)
+  - [Table des matières](#table-des-matières)
+  - [Introduction](#introduction)
+  - [Organisation](#organisation)
+    - [MCPs internes](#mcps-internes)
+    - [MCPs externes](#mcps-externes)
+  - [Fonctionnalités](#fonctionnalités)
+  - [État Actuel des Serveurs](#état-actuel-des-serveurs)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Utilisation](#utilisation)
+    - [QuickFiles](#quickfiles)
+    - [JinaNavigator](#jinanavigator)
+    - [Jupyter](#jupyter)
+    - [SearXNG](#searxng)
+    - [Win-CLI](#win-cli)
+  - [Structure](#structure)
+  - [Intégration](#intégration)
+  - [Dépannage](#dépannage)
+  - [Ressources supplémentaires](#ressources-supplémentaires)
 
 ## Introduction
 
@@ -60,6 +63,12 @@ Les serveurs MCP offrent un large éventail de fonctionnalités :
 - **Exécution de commandes** - Exécution de commandes système sur Windows
 - **Opérations Git et GitHub** - Interaction avec les dépôts Git et l'API GitHub
 - **Accès au système de fichiers** - Opérations avancées sur le système de fichiers
+## État Actuel des Serveurs
+
+Suite à une campagne de fiabilisation utilisant la méthodologie SDDD, plusieurs serveurs critiques ont été réparés et leur documentation améliorée. Tous les serveurs listés ci-dessous sont actuellement considérés comme stables et opérationnels.
+
+Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](./docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
+
 
 ## Installation
 
