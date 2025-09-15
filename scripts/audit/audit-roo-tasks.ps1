@@ -32,35 +32,7 @@ function Get-TaskWorkspacePath {
         [System.IO.DirectoryInfo]$TaskDirectory
     )
 
-    # Priorité à l'historique
-    $historyFilePath = Join-Path -Path $TaskDirectory.FullName -ChildPath 'api_conversation_history.json'
-    if (Test-Path $historyFilePath) {
-        try {
-            $historyContent = Get-Content -Path $historyFilePath -Raw | ConvertFrom-Json
-            foreach ($entry in $historyContent) {
-                if ($entry.role -eq 'user' -and $entry.content) {
-                    foreach($contentItem in $entry.content) {
-                        if($contentItem.type -eq 'text' -and $contentItem.text -like '*Current Workspace Directory*') {
-                            try {
-                                # Extrait le chemin du workspace de la chaîne de texte
-                                $workspaceLine = $contentItem.text.Split([Environment]::NewLine) | Where-Object { $_ -like '# Current Workspace Directory*' }
-                                if($workspaceLine) {
-                                    $match = [regex]::Match($workspaceLine, '\((.*?)\) Files')
-                                    if ($match.Success) {
-                                        return $match.Groups[1].Value
-                                    }
-                                }
-                            } catch {
-                                # On continue si le parsing échoue
-                            }
-                        }
-                    }
-                }
-            }
-        } catch { $null }
-    }
-
-    # Fallback sur les métadonnées
+    # Priorité aux métadonnées pour l'optimisation
     $metadataPath = Join-Path -Path $TaskDirectory.FullName -ChildPath 'task_metadata.json'
     if (Test-Path -Path $metadataPath) {
         try {
