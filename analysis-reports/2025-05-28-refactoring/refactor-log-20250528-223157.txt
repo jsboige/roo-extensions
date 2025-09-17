@@ -1,0 +1,33 @@
+﻿[2025-05-28 22:31:57] [INFO] === DÃ‰BUT DE LA REFACTORISATION ARCHITECTURALE ===
+[2025-05-28 22:31:58] [INFO] Phase sÃ©lectionnÃ©e: 1
+[2025-05-28 22:31:58] [INFO] Mode: DRY RUN
+[2025-05-28 22:31:59] [INFO] Fichiers Ã  traiter: 6
+[2025-05-28 22:31:59] [INFO] Traitement: sync_roo_environment.ps1
+[2025-05-28 22:31:59] [INFO] RefactorisÃ©: Variable RepoPath vers PSScriptRoot
+[2025-05-28 22:31:59] [INFO] RefactorisÃ©: Variable LogFile vers chemin relatif
+[2025-05-28 22:31:59] [INFO] RefactorisÃ©: Variable ConflictLogDir vers chemin relatif
+[2025-05-28 22:31:59] [INFO] RefactorisÃ©: Commentaire d'en-tÃªte vers chemin relatif
+[2025-05-28 22:31:59] [INFO] [DRY RUN] Aurait refactorisÃ©: sync_roo_environment.ps1
+[2025-05-28 22:31:59] [INFO] Traitement: roo-config/scheduler/config.json
+[2025-05-28 22:31:59] [INFO] RefactorisÃ©: repository_path vers placeholder dynamique
+[2025-05-28 22:31:59] [INFO] [DRY RUN] Aurait refactorisÃ©: roo-config/scheduler/config.json
+[2025-05-28 22:32:00] [INFO] Traitement: roo-config/scheduler/orchestration-engine.ps1
+[2025-05-28 22:32:00] [INFO] RefactorisÃ©: Variable BasePath vers PSScriptRoot
+[2025-05-28 22:32:00] [INFO] [DRY RUN] Aurait refactorisÃ©: roo-config/scheduler/orchestration-engine.ps1
+[2025-05-28 22:32:00] [INFO] Traitement: roo-config/scheduler/self-improvement.ps1
+[2025-05-28 22:32:00] [INFO] RefactorisÃ©: Variable BasePath vers PSScriptRoot
+[2025-05-28 22:32:00] [INFO] [DRY RUN] Aurait refactorisÃ©: roo-config/scheduler/self-improvement.ps1
+[2025-05-28 22:32:00] [INFO] Traitement: roo-config/scheduler/test-daily-orchestration.ps1
+[2025-05-28 22:32:00] [INFO] RefactorisÃ©: Variable BasePath vers PSScriptRoot
+[2025-05-28 22:32:00] [INFO] [DRY RUN] Aurait refactorisÃ©: roo-config/scheduler/test-daily-orchestration.ps1
+[2025-05-28 22:32:00] [INFO] Traitement: roo-config/scheduler/test-orchestration-simple.ps1
+[2025-05-28 22:32:00] [INFO] RefactorisÃ©: Set-Location vers PSScriptRoot
+[2025-05-28 22:32:00] [INFO] [DRY RUN] Aurait refactorisÃ©: roo-config/scheduler/test-orchestration-simple.ps1
+[2025-05-28 22:32:00] [INFO] === RÃ‰SUMÃ‰ DE LA REFACTORISATION ===
+[2025-05-28 22:32:00] [INFO] Phase: 1
+[2025-05-28 22:32:00] [INFO] Fichiers traitÃ©s: 6
+[2025-05-28 22:32:00] [INFO] Fichiers modifiÃ©s: 6
+[2025-05-28 22:32:00] [INFO] Erreurs: 0
+[2025-05-28 22:32:00] [INFO] Rapport sauvegardÃ©: refactor-report-20250528-223157.json
+[2025-05-28 22:32:01] [INFO] Log sauvegardÃ©: refactor-log-20250528-223157.txt
+[2025-05-28 22:32:01] [INFO] === FIN DE LA REFACTORISATION ===
