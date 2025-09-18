@@ -409,20 +409,42 @@ execute_notebook_papermill({
 
 ### Problèmes courants
 
-#### 1. Erreur "Connection closed"
-**Symptômes** : Le serveur se ferme après quelques opérations
-**Causes possibles** :
-- Environnement Conda non activé
-- Dépendances manquantes
-- Conflit avec l'ancien serveur
+#### 1. Erreur "Connection closed" ✅ RÉSOLU
+**✅ PROBLÈME RÉSOLU** (Sept 2025) : Configuration MCP incomplète identifiée et corrigée
 
-**Solutions** :
+**Symptômes** : Le serveur se ferme après quelques opérations (list_kernels, create_notebook → crash sur add_cell_to_notebook)
+
+**🎯 CAUSE RACINE** : Configuration `jupyter-papermill` incomplète dans `mcp_settings.json`
+- Manquait: `command`, `args`, `cwd`, `alwaysAllow`
+- Ne contenait que: `{"env": {"JUPYTER_MCP_LOG_LEVEL": "DEBUG"}}`
+
+**✅ SOLUTION VALIDÉE** : Restaurer configuration complète via `roo-state-manager.manage_mcp_settings`
+```json
+"jupyter-papermill": {
+  "command": "cmd",
+  "args": ["/c", "d:/roo-extensions/mcps/internal/servers/jupyter-papermill-mcp-server/start_jupyter_mcp_portable.bat"],
+  "cwd": "d:/roo-extensions/mcps/internal/servers/jupyter-papermill-mcp-server",
+  "env": {"JUPYTER_MCP_LOG_LEVEL": "DEBUG"},
+  "transportType": "stdio",
+  "enabled": true,
+  "alwaysAllow": [
+    "read_notebook", "write_notebook", "create_notebook", "add_cell_to_notebook",
+    "remove_cell", "update_cell", "list_kernels", "start_kernel", "stop_kernel",
+    "interrupt_kernel", "restart_kernel", "execute_cell", "execute_notebook",
+    "execute_notebook_cell", "execute_notebook_papermill"
+  ]
+}
+```
+
+**Validation** : Tests critiques tous réussis - serveur stable ✅
+
+**Anciennes solutions** (si autres problèmes) :
 ```bash
 # Vérifier environnement
 conda info --envs
 conda activate mcp-jupyter
 
-# Réinstaller si nécessaire  
+# Réinstaller si nécessaire
 pip install -e . --force-reinstall
 ```
 
