@@ -235,6 +235,20 @@ graph TD
     B1 --> E[Serveurs MCP externes]
 ```
 
+### 5.1. Persistance et Affichage de l'Historique des Tâches
+
+Un point crucial de l'architecture est la manière dont l'historique des tâches est géré et affiché dans l'interface utilisateur. Le processus est linéaire et repose principalement sur le `globalState` de VS Code comme source de vérité pour l'UI.
+
+**Flux de Données (`Disque -> GlobalState -> UI`) :**
+
+1.  **Lecture depuis le Disque :** Lorsqu'une tâche est reprise, ses messages sont lus depuis les fichiers `ui_messages.json` et `api_conversation_history.json` dans le répertoire de la tâche.
+2.  **Génération en Mémoire :** Un objet `HistoryItem`, contenant les métadonnées nécessaires à l'affichage (titre, date, etc.), est généré en mémoire à partir des messages lus. Il n'y a **pas** de lecture directe du fichier `task_metadata.json` pour construire la vue de l'historique.
+3.  **Stockage dans `globalState` :** Cet objet `HistoryItem` est ensuite inséré ou mis à jour dans un tableau stocké dans le `globalState` de VS Code, sous la clé `"taskHistory"`.
+4.  **Synchronisation avec l'UI :** L'intégralité du tableau `"taskHistory"` est envoyée à l'interface React (WebView) via `postMessage`.
+5.  **Affichage :** L'interface React reçoit ce tableau et l'utilise pour afficher la liste des tâches.
+
+**Point important :** Toute corruption ou incompatibilité de format dans les fichiers `ui_messages.json` des tâches plus anciennes peut interrompre ce flux à la première étape, empêchant les tâches d'apparaître dans l'UI, même si d'autres fichiers comme `task_metadata.json` sont valides.
+
 ## Intégration avec d'autres modules
 
 ### Intégration avec le gestionnaire de modes
