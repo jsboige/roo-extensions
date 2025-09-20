@@ -99,8 +99,9 @@
         "${mcp_paths:roo-state-manager}/build/index.js"
       ],
       "transportType": "stdio",
-      "disabled": true,
-      "autoStart": true
+      "disabled": false,
+      "autoStart": true,
+      "description": "🛡️ MCP Roo State Manager - Corrections anti-fuite validées (220GB→20-30GB)"
     },
     "win-cli": {
       "autoApprove": [],
