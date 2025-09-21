@@ -1,6 +1,6 @@
 [submodule "roo-code"]
 	path = roo-code
-	url = https://github.com/RooVetGit/Roo-Code
+	url = https://github.com/jsboige/Roo-Code.git
 [submodule "mcps/external/win-cli/server"]
 	path = mcps/external/win-cli/server
 	url = https://github.com/jsboige/win-cli-mcp-server.git
