@@ -44,6 +44,14 @@
       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
     },
     {
+      "name": "jupyter-papermill",
+      "type": "stdio",
+      "command": "cmd /c node ./mcps/internal/servers/jupyter-papermill-mcp-server/dist/index.js",
+      "enabled": true,
+      "autoStart": false,
+      "description": "Serveur MCP pour exécuter des notebooks Jupyter avec Papermill"
+    },
+    {
       "name": "jinavigator",
       "type": "stdio",
       "command": "cmd /c node ./mcps/internal/servers/jinavigator-server/dist/index.js",
@@ -116,6 +124,21 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo."
+    },
+    {
+      "name": "office-powerpoint",
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        "./mcps/external/Office-Power-Point-MCP-Server/ppt_mcp_server.py"
+      ],
+      "enabled": false,
+      "autoStart": false,
+      "description": "Serveur MCP pour la manipulation de présentations PowerPoint",
+      "env": {
+        "PYTHONPATH": "./mcps/external/Office-PowerPoint-MCP-Server",
+        "PPT_TEMPLATE_PATH": "./mcps/external/Office-PowerPoint-MCP-Server/templates"
+      }
     }
   ],
   "settings": {

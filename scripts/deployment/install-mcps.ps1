@@ -77,9 +77,36 @@ function Find-ViablePythonExecutable {
     }
     return $null
 }
+ 
+function Parse-EnvFile {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath
+    )
+ 
+    $envVars = @{}
+    if (Test-Path $FilePath) {
+        Get-Content $FilePath | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -and $line -notlike '#*') {
+                $parts = $line -split '=', 2
+                if ($parts.Length -eq 2) {
+                    $key = $parts[0].Trim()
+                    $value = $parts[1].Trim()
+                    # Supprimer les guillemets optionnels
+                    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                        $value = $value.Substring(1, $value.Length - 2)
+                    }
+                    $envVars[$key] = $value
+                }
+            }
+        }
+    }
+    return $envVars
+}
 
-# =============================================================================
-# Initialisation
+ # =============================================================================
+ # Initialisation
 # =============================================================================
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -184,7 +211,11 @@ foreach ($mcp in $allMcps) {
                 Write-ColorOutput "Configuration de l'environnement pour github-projects-mcp..."
                 # ATTENTION: Remplacez "VOTRE_TOKEN_GITHUB" par un jeton d'accès personnel (PAT) valide.
                 $token = "VOTRE_TOKEN_GITHUB"
-                $envContent = "GITHUB_ACCOUNTS_JSON='[{\"user\":\"jsboige\",\"token\":\"$($token)\"}]'"
+                $accounts = @(
+                    @{ user = "jsboige"; token = $token }
+                )
+                $jsonContent = $accounts | ConvertTo-Json -Compress
+                $envContent = "GITHUB_ACCOUNTS_JSON='$($jsonContent)'"
                 $envFilePath = Join-Path -Path $mcp.Path -ChildPath ".env"
                 [System.IO.File]::WriteAllText($envFilePath, $envContent, [System.Text.UTF8Encoding]::new($false))
                 Write-ColorOutput ".env créé avec succès." "Green"
@@ -213,8 +244,31 @@ foreach ($mcp in $allMcps) {
                 Write-ColorOutput $_.Exception.Message "Red"
                 Pop-Location
             }
-        } else {
-            Write-ColorOutput "Aucun 'install.ps1' trouvé. Veuillez consulter le README.md pour une installation manuelle." "Yellow"
+        }
+        
+        $requirementsPath = Join-Path -Path $mcp.Path -ChildPath "requirements.txt"
+        if (Test-Path $requirementsPath) {
+            Write-ColorOutput "Fichier 'requirements.txt' trouvé. Tentative d'installation des dépendances Python."
+            $pythonPath = Find-ViablePythonExecutable
+            if ($pythonPath) {
+                try {
+                    Write-ColorOutput "Installation des dépendances avec pip pour $($mcp.Name)..."
+                    Push-Location -Path $mcp.Path
+                    & $pythonPath -m pip install -r $requirementsPath
+                    Pop-Location
+                    Write-ColorOutput "Dépendances Python pour $($mcp.Name) installées." "Green"
+                } catch {
+                    Write-ColorOutput "ERREUR lors de l'installation des dépendances Python pour $($mcp.Name)." "Red"
+                    Write-ColorOutput $_.Exception.Message "Red"
+                    Pop-Location
+                }
+            } else {
+                Write-ColorOutput "AVERTISSEMENT: 'requirements.txt' trouvé mais aucun exécutable Python viable n'a été détecté. Installation manuelle requise." "Yellow"
+            }
+        }
+
+        if (-not (Test-Path $installScriptPath) -and -not (Test-Path $requirementsPath)) {
+            Write-ColorOutput "Aucun 'install.ps1' ou 'requirements.txt' trouvé. Veuillez consulter le README.md pour une installation manuelle." "Yellow"
         }
     }
 }
@@ -281,30 +335,55 @@ if ($installedMcps.Count -eq 0) {
                 $serverKey = "github-projects-mcp"
             }
             
-            # La plupart des serveurs Node.js fonctionnent mieux avec 'node' directement.
-            $command = "node"
-            $args = @($mainFilePath)
-            
             Write-ColorOutput "Ajout de l'entrée pour '$serverKey'..."
 
-            $newEntry = @{
-                command = $command
-                args = $args
-                transportType = "stdio"
-                disabled = $false
-                autoStart = $true
-                description = if($pkg.description) { $pkg.description } else { "Serveur MCP pour $name" }
-                autoApprove = @()
-                alwaysAllow = @()
-            }
+            # Logique spécifique pour roo-state-manager
+            if ($serverKey -eq "roo-state-manager") {
+                Write-ColorOutput "Application de la configuration spéciale pour 'roo-state-manager'..."
+                $mcpCwd = $path.Replace("\", "/")
+                $buildPath = (Join-Path -Path $mcpCwd -ChildPath "build/src/index.js")
 
-            if ($name -in @("roo-state-manager", "github-projects-mcp")) {
-                $newEntry["options"] = @{
-                    cwd = $path.Replace("\", "/")
+                $newEntry = @{
+                    command       = "cmd"
+                    args          = @("/c", "node", $buildPath)
+                    cwd           = $mcpCwd
+                    transportType = "stdio"
+                    disabled      = $false
+                    autoStart     = $true
+                    description   = "🛡️ MCP Roo State Manager - Gestionnaire d'état et de conversations."
+                    env           = (Parse-EnvFile (Join-Path -Path $path -ChildPath ".env"))
+                    alwaysAllow   = @(
+                       "minimal_test_tool", "detect_roo_storage", "get_storage_stats", "list_conversations",
+                       "touch_mcp_settings", "build_skeleton_cache", "get_task_tree", "search_tasks_semantic",
+                       "debug_analyze_conversation", "view_conversation_tree", "read_vscode_logs",
+                       "manage_mcp_settings", "index_task_semantic", "reset_qdrant_collection",
+                       "rebuild_and_restart_mcp", "get_mcp_best_practices", "diagnose_conversation_bom",
+                       "repair_conversation_bom", "analyze_vscode_global_state", "repair_vscode_task_history",
+                       "scan_orphan_tasks", "test_workspace_extraction", "rebuild_task_index", "diagnose_sqlite",
+                       "examine_roo_global_state", "repair_task_history", "normalize_workspace_paths",
+                       "export_tasks_xml", "export_conversation_xml", "export_project_xml", "configure_xml_export",
+                       "generate_trace_summary", "generate_cluster_summary", "export_conversation_json",
+                       "export_conversation_csv", "view_task_details", "get_raw_conversation", "get_conversation_synthesis"
+                    )
+                    watchPaths    = @($buildPath)
+                }
+            } else {
+                # Logique générale pour les autres MCPs
+                $newEntry = @{
+                    command       = "node"
+                    args          = @($mainFilePath)
+                    transportType = "stdio"
+                    disabled      = $false
+                    autoStart     = $true
+                    description   = if ($pkg.description) { $pkg.description } else { "Serveur MCP pour $name" }
+                    autoApprove   = @()
+                    alwaysAllow   = @()
+                }
+                if ($name -eq "github-projects-mcp") {
+                   $newEntry["cwd"] = $path.Replace("\", "/")
                 }
             }
 
-            # La section 'env' est complètement retirée pour ce MCP lors de la génération
             $finalConfig.mcpServers[$serverKey] = $newEntry
         }
 

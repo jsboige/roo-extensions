@@ -30,7 +30,8 @@ function Test-JsonFile {
         Get-Content -Path $FilePath -Raw | ConvertFrom-Json | Out-Null
         Write-ColorOutput "  [✓] Le fichier '$relativePAth' est un JSON valide." "Green"
         return $true
-    } catch {
+    }
+    catch {
         Write-ColorOutput "  [✗] Le fichier '$relativePAth' contient un JSON INVALIDE." "Red"
         Write-ColorOutput "      Erreur: $($_.Exception.Message)" "Yellow"
         return $false
