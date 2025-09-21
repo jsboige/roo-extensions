@@ -1,0 +1,8 @@
+d24f6d3 chore(submodule): Update roo-code submodule to latest commit
+ccaa7f4 Merge branch 'main' of https://github.com/jsboige/roo-extensions
+452cdf4 feat(mcps): Fix roo-state-manager deployment and integrate office-powerpoint
+a9c9e07 feat(state-manager): Update submodule with regressions fixes on task tree and stats
+cb99715 fix(scripts): escape quotes in install-mcps for github-projects-mcp
+35c0dfb fix(scripts): repair setup-encoding-workflow for Windows
+1778c4f Merge branch 'main' of https://github.com/jsboige/roo-extensions
+5539381 feat: Add analysis reports for hardcoded paths refactoring
