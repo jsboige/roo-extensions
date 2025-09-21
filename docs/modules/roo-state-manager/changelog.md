@@ -1,5 +1,23 @@
 # Journal des modifications - roo-state-manager
 
+## 2025-09-21
+
+### Corrections de bugs et stabilisation
+
+- **Problème :** L'outil `get_task_tree` ne retournait qu'un nœud racine vide au lieu de l'arborescence complète des tâches.
+- **Cause racine :** Une logique de construction d'arbre sur-complexifiée et défectueuse a été introduite lors d'un refactoring précédent. La méthode `belongsToCluster` assignait incorrectement toutes les conversations à chaque cluster, corrompant la structure de l'arbre.
+- **Correction :** La logique complexe a été remplacée par une fonction `buildTaskTree` simplifiée et robuste qui reconstruit la hiérarchie en deux passes : une pour mapper les nœuds et une pour assigner les enfants à leurs parents.
+- **Résultat :** L'outil `get_task_tree` est de nouveau fonctionnel et retourne l'arborescence complète et correcte.
+
+- **Problème :** Les outils `get_storage_stats` et `list_conversations` retournaient des tailles de conversation (`totalSize`) nulles et des dates de création (`createdAt`) invalides (`1970-01-01`).
+- **Cause racine :**
+    - Le calcul de la taille était incorrect car il se basait sur la taille du répertoire de la tâche au lieu de sommer la taille des fichiers qu'il contient.
+    - Le timestamp de création revenait à une valeur par défaut (`new Date(0)`) lorsque les métadonnées d'une tâche étaient manquantes ou corrompues.
+- **Correction :**
+    - La fonction `getStatsForPath` a été corrigée pour parcourir récursivement les répertoires de tâches et calculer la somme de la taille de tous les fichiers.
+    - La fonction `analyzeConversation` utilise maintenant la date de dernière modification du répertoire de la tâche comme alternative si `createdAt` n'est pas disponible dans les métadonnées.
+- **Résultat :** Les deux outils retournent maintenant des tailles et des timestamps corrects et fiables.
+
 ## 2025-07-24
 
 ### Refactoring majeur et optimisation des performances
