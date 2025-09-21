@@ -139,6 +139,22 @@
         "PYTHONPATH": "./mcps/external/Office-PowerPoint-MCP-Server",
         "PPT_TEMPLATE_PATH": "./mcps/external/Office-PowerPoint-MCP-Server/templates"
       }
+    },
+    {
+      "name": "docker",
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "-v",
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "mcp-server:local"
+      ],
+      "enabled": true,
+      "autoStart": true,
+      "description": "Serveur MCP pour interagir avec Docker"
     }
   ],
   "settings": {
