@@ -55,3 +55,47 @@ Les logs complets des opérations de débogage, de synchronisation et de compila
 
 *   **Verdict Global :**
     *   Les MCPs internes sont globalement stables sur le plan de la connectivité après une mise à jour et une recompilation complètes de l'environnement. Le principal MCP, `roo-state-manager`, reste fonctionnel pour ses cas d'usage critiques (diagnostic, recherche) mais souffre toujours d'anomalies connues qui nécessiteront des corrections ciblées. La campagne de non-régression est un succès, car elle confirme que les derniers changements n'ont pas introduit de nouvelles régressions.
+
+## Annexe : Validation de Non-Régression (21/09)
+
+**Date :** 2025-09-21
+**Contexte :** Suite à la maintenance majeure du dépôt (rapport du 17-21 septembre), validation ciblée des anomalies connues de `roo-state-manager`.
+
+### Plan de Test de Non-Régression
+
+L'objectif était de vérifier le statut des 3 anomalies identifiées le 14/09 et de confirmer la stabilité de la correction de performance.
+
+### Incident Résolu
+
+**Problème critique détecté :** Le serveur MCP `roo-state-manager` était désactivé dans la configuration (`mcp_settings.json`), causant l'indisponibilité complète des outils.
+
+**Résolution :** Réactivation du serveur dans la configuration MCP. Le serveur fonctionne maintenant normalement.
+
+### Résultats des Tests (21/09)
+
+| Outil                   | Résultat Précédent (2025-09-17)                                | Résultat Actuel (2025-09-21)                                     | Statut de Non-Régression |
+| :---------------------- | :------------------------------------------------------------- | :---------------------------------------------------------------- | :------------------------ |
+| `get_storage_stats`     | ⚠️ **Anomalie** (`totalSize: 0`)                                | ⚠️ **Anomalie Confirmée** (`totalSize: 0`, 3868 conversations)    | ✅ **Identique**          |
+| `list_conversations`    | ⚠️ **Anomalie** (Timestamp `1970-01-01`)                        | ⚠️ **Anomalie Confirmée** (Timestamp `1970-01-01T00:00:00.000Z`) | ✅ **Identique**          |
+| `get_task_tree`         | ❌ **Échec Fonctionnel** (Ne retourne pas l'arborescence)      | ❌ **Échec Fonctionnel Confirmé** (Retourne uniquement l'ID)     | ✅ **Identique**          |
+| `diagnose_roo_state`    | ✅ **Succès** (Performance ~4s)                               | ✅ **Succès** (Performance optimale, 3868 tâches WORKSPACE_ORPHELIN) | ✅ **Maintenue**          |
+
+### Temps d'Exécution
+
+- **`diagnose_roo_state`** : ~3-4 secondes (performance optimale confirmée)
+
+### Verdict de Non-Régression
+
+- ✅ **Aucune nouvelle régression détectée**
+- ✅ **Correction de performance maintenue**
+- ⚠️ **Les 3 anomalies fonctionnelles persistent** (statut inchangé depuis le 14/09)
+
+### Recommandation pour l'Orchestrateur
+
+**Statut actuel :** Les anomalies étant confirmées comme persistantes, la prochaine étape est de lancer une **mission de correction (Debug)** pour résoudre les dysfonctionnements suivants :
+
+1. **`get_storage_stats`** : Correction du calcul de `totalSize`
+2. **`list_conversations`** : Correction de la récupération des timestamps
+3. **`get_task_tree`** : Restauration de la fonctionnalité d'arborescence complète
+
+**Priorité :** Les outils critiques (`diagnose_roo_state`, `search_tasks_semantic`) fonctionnent correctement. Les corrections peuvent être planifiées en mission dédiée.
