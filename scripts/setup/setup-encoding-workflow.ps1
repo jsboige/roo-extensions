@@ -122,7 +122,7 @@ function Invoke-ProfileRestore {
 Write-ColorOutput "=========================================================" -ForegroundColor "Cyan"
 Write-ColorOutput "  Configuration de l'environnement d'encodage pour Roo Extensions" -ForegroundColor "Cyan"
 Write-ColorOutput "=========================================================" -ForegroundColor "Cyan"
-Write-ColorOutput ""
+Write-Host ""
 
 # Déterminer le chemin du profil PowerShell
 $profilePath = $PROFILE
@@ -201,7 +201,7 @@ if (-not $skipPowerShell) {
     }
 }
 
-Write-ColorOutput ""
+Write-Host ""
 #endregion
 
 #region Configuration de Git
@@ -236,7 +236,7 @@ try {
     Write-ColorOutput "   Erreur lors de la configuration Git: $_" -ForegroundColor "Red"
 }
 
-Write-ColorOutput ""
+Write-Host ""
 #endregion
 
 #region Configuration des hooks Git
@@ -258,26 +258,57 @@ if (-not $SkipGitHooks) {
             # Créer le hook pre-commit
             $preCommitPath = Join-Path -Path $hooksDir -ChildPath "pre-commit"
             $preCommitContent = @"
-#!/bin/sh
+#!/usr/bin/env pwsh
 #
-# Hook pre-commit pour vérifier l'encodage des fichiers (compatible Windows/Linux)
+# Hook pre-commit PowerShell pour vérifier l'encodage des fichiers
 # Créé par setup-encoding-workflow.ps1
 
+# Obtenir le répertoire racine de Git
+`$gitRoot = git rev-parse --show-toplevel`
+if (`$LASTEXITCODE -ne 0) {
+    Write-Host "Erreur: Impossible de trouver le répertoire racine de Git."
+    exit 1
+}
+
 # Vérifier les fichiers modifiés pour les problèmes d'encodage
-echo "Vérification de l'encodage des fichiers..."
+Write-Host "Vérification de l'encodage des fichiers..."
 
-# Liste des fichiers à vérifier (sans dépendances externes comme grep)
-files=\$(git diff --cached --name-only --diff-filter=ACM -- '*.json' '*.md' '*.ps1' '*.js' '*.ts' '*.html' '*.css' '*.txt')
+# Liste des fichiers à vérifier
+`$files = git diff --cached --name-only --diff-filter=ACM | Select-String -Pattern '\.(json|md|ps1|js|ts|html|css|txt)$' -ErrorAction SilentlyContinue`
 
-if [ -z "\$files" ]; then
-    echo "Aucun fichier texte à vérifier."
+if (-not `$files) {
+    Write-Host "Aucun fichier texte à vérifier."
     exit 0
-fi
+}
 
-# La vérification du BOM et des CRLF est omise car elle dépendait d'outils non-standards (hexdump, grep).
-# La configuration Git (core.autocrlf) et VSCode est la méthode préférée pour gérer ces problèmes.
+# Vérifier l'encodage des fichiers
+`$has_error = 0`
+foreach (`$file in `$files) {
+    `$filePath = Join-Path -Path `$gitRoot -ChildPath `$file.Line
 
-echo "Vérification d'encodage terminée avec succès."
+    # Vérifier si le fichier contient un BOM UTF-8
+    if (Test-Path `$filePath) {
+        `$bytes = [System.IO.File]::ReadAllBytes(`$filePath)
+        if (`$bytes.Length -ge 3 -and `$bytes[0] -eq 0xEF -and `$bytes[1] -eq 0xBB -and `$bytes[2] -eq 0xBF) {
+            Write-Host "ERREUR: `$filePath contient un BOM UTF-8. Veuillez le supprimer."
+            `$has_error = 1
+        }
+        
+        # Vérifier les fins de ligne CRLF
+        `$content = Get-Content -Path `$filePath -Raw -ErrorAction SilentlyContinue`
+        if (`$content -match "\r\n") {
+            Write-Host "AVERTISSEMENT: `$filePath contient des fins de ligne CRLF. Considérez utiliser LF."
+        }
+    }
+}
+
+if (`$has_error -eq 1) {
+    Write-Host "Des problèmes d'encodage ont été détectés. Commit annulé."
+    Write-Host "Utilisez 'fix-encoding-final.ps1' pour corriger les problèmes d'encodage."
+    exit 1
+}
+
+Write-Host "Vérification d'encodage terminée avec succès."
 exit 0
 "@
 
@@ -295,7 +326,7 @@ exit 0
         Write-ColorOutput "   Erreur lors de la configuration des hooks Git: $_" -ForegroundColor "Red"
     }
 
-    Write-ColorOutput ""
+    Write-Host ""
 }
 #endregion
 
@@ -313,29 +344,40 @@ if (-not $SkipVSCode) {
 
         # Créer ou mettre à jour le fichier settings.json (Compatible PowerShell 5.1)
         $settingsPath = Join-Path -Path $vscodeDir -ChildPath "settings.json"
-        
-        # Créer une table de hachage ordonnée avec les paramètres souhaités
-        $desiredSettings = [ordered]@{
-            "files.encoding" = "utf8"
-            "files.autoGuessEncoding" = $true
-            "files.eol" = "`n"
-        }
+        $settingsContent = [ordered]@{}
 
-        # Charger les paramètres existants s'ils existent et les fusionner
         if (Test-Path -Path $settingsPath) {
-            $existingSettings = Get-Content -Path $settingsPath -Raw -ErrorAction SilentlyContinue | ConvertFrom-Json -ErrorAction SilentlyContinue
-            if ($existingSettings) {
-                # Ajouter les anciennes propriétés qui ne sont pas gérées par ce script
-                foreach ($prop in $existingSettings.PSObject.Properties) {
-                    if (-not $desiredSettings.ContainsKey($prop.Name)) {
-                        $desiredSettings[$prop.Name] = $prop.Value
-                    }
+            $content = Get-Content -Path $settingsPath -Raw
+            # Supprimer les commentaires pour éviter les erreurs de parsing JSON
+            $contentWithoutComments = $content -replace '(?s)/\*.*?\*/' -replace '//.*'
+            
+            if (-not [string]::IsNullOrWhiteSpace($contentWithoutComments)) {
+                try {
+                    $settingsContent = $contentWithoutComments | ConvertFrom-Json -ErrorAction Stop
+                } catch {
+                    Write-ColorOutput "   AVERTISSEMENT: Le fichier settings.json contient du JSON invalide (après suppression des commentaires) et sera écrasé." -ForegroundColor "Yellow"
+                    $settingsContent = [ordered]@{}
                 }
             }
         }
 
-        # Écrire le fichier settings.json mis à jour
-        $settingsJson = ConvertTo-Json $desiredSettings -Depth 10
+        # Ajouter ou mettre à jour les paramètres d'encodage
+        $settingsToAdd = @{
+            'files.encoding' = "utf8"
+            'files.autoGuessEncoding' = $true
+            'files.eol' = "`n"
+        }
+
+        foreach ($key in $settingsToAdd.Keys) {
+            if ($settingsContent.PSObject.Properties[$key]) {
+                $settingsContent.$key = $settingsToAdd[$key]
+            } else {
+                Add-Member -InputObject $settingsContent -MemberType NoteProperty -Name $key -Value $settingsToAdd[$key]
+            }
+        }
+
+        # Écrire le fichier settings.json
+        $settingsJson = ConvertTo-Json $settingsContent -Depth 10 -Compress
         Set-Content -Path $settingsPath -Value $settingsJson -Encoding UTF8
 
         Write-ColorOutput "   Configuration VSCode terminée avec succès." -ForegroundColor "Green"
@@ -343,7 +385,7 @@ if (-not $SkipVSCode) {
         Write-ColorOutput "   Erreur lors de la configuration VSCode: $_" -ForegroundColor "Red"
     }
 
-    Write-ColorOutput ""
+    Write-Host ""
 }
 #endregion
 
@@ -384,6 +426,17 @@ try {
                 Write-ColorOutput "     - JSON valide" -ForegroundColor "Green"
             } catch {
                 Write-ColorOutput "     - JSON invalide: $_" -ForegroundColor "Red"
+                
+                # Si c'est package-lock.json, le supprimer
+                if ($file.Name -eq "package-lock.json") {
+                    Write-ColorOutput "     - Le fichier package-lock.json est invalide et sera supprimé." -ForegroundColor "Yellow"
+                    try {
+                        Remove-Item -Path $file.FullName -Force
+                        Write-ColorOutput "     - package-lock.json a été supprimé. Il sera régénéré au prochain 'npm install'." -ForegroundColor "Green"
+                    } catch {
+                        Write-ColorOutput "     - ERREUR lors de la suppression de package-lock.json: $_" -ForegroundColor "Red"
+                    }
+                }
             }
         }
     }
@@ -391,14 +444,14 @@ try {
     Write-ColorOutput "   Erreur lors de la vérification de l'encodage: $_" -ForegroundColor "Red"
 }
 
-Write-ColorOutput ""
+Write-Host ""
 #endregion
 
 #region Résumé
 Write-ColorOutput "=========================================================" -ForegroundColor "Cyan"
 Write-ColorOutput "  Configuration de l'environnement d'encodage terminée" -ForegroundColor "Cyan"
 Write-ColorOutput "=========================================================" -ForegroundColor "Cyan"
-Write-ColorOutput ""
+Write-Host ""
 Write-ColorOutput "Résumé des actions effectuées:" -ForegroundColor "White"
 Write-ColorOutput "1. Configuration des paramètres d'encodage de PowerShell" -ForegroundColor "White"
 Write-ColorOutput "2. Configuration des paramètres Git pour l'encodage" -ForegroundColor "White"
@@ -409,10 +462,10 @@ if (-not $SkipVSCode) {
     Write-ColorOutput "4. Configuration de Visual Studio Code" -ForegroundColor "White"
 }
 Write-ColorOutput "5. Vérification de l'encodage des fichiers existants" -ForegroundColor "White"
-Write-ColorOutput ""
+Write-Host ""
 Write-ColorOutput "Pour corriger les problèmes d'encodage détectés, utilisez:" -ForegroundColor "White"
 Write-ColorOutput ".\roo-config\encoding-scripts\fix-encoding-final.ps1" -ForegroundColor "Yellow"
-Write-ColorOutput ""
+Write-Host ""
 Write-ColorOutput "Pour plus d'informations, consultez:" -ForegroundColor "White"
 Write-ColorOutput "docs\GUIDE-ENCODAGE.md" -ForegroundColor "Yellow"
-Write-ColorOutput ""
+Write-Host ""
