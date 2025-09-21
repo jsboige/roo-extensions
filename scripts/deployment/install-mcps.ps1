@@ -184,7 +184,7 @@ foreach ($mcp in $allMcps) {
                 Write-ColorOutput "Configuration de l'environnement pour github-projects-mcp..."
                 # ATTENTION: Remplacez "VOTRE_TOKEN_GITHUB" par un jeton d'accès personnel (PAT) valide.
                 $token = "VOTRE_TOKEN_GITHUB"
-                $envContent = "GITHUB_ACCOUNTS_JSON='[{\"user\":\"jsboige\",\"token\":\"$($token)\"}]'"
+                $envContent = "GITHUB_ACCOUNTS_JSON='[{`"user`":`"jsboige`",`"token`":`"$($token)`"}]'"
                 $envFilePath = Join-Path -Path $mcp.Path -ChildPath ".env"
                 [System.IO.File]::WriteAllText($envFilePath, $envContent, [System.Text.UTF8Encoding]::new($false))
                 Write-ColorOutput ".env créé avec succès." "Green"
