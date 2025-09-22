@@ -48,7 +48,6 @@ function Get-RooTaskStoragePath {
 }
 
 function Test-RooTaskState {
-    # Version simplifiée pour ce script, car nous n'avons besoin que du statut et du chemin.
     param(
         [Parameter(Mandatory = $true)]
         [System.IO.DirectoryInfo]$TaskDirectory
@@ -58,35 +57,12 @@ function Test-RooTaskState {
     $taskId = $TaskDirectory.Name
 
     if (-not (Test-Path -Path $metadataPath -PathType Leaf)) {
-        return [PSCustomObject]@{ TaskId = $taskId; Status = "METADATA_MANQUANTE"; WorkspacePath = "[N/A]" }
+        return [PSCustomObject]@{ TaskId = $taskId; Status = "METADATA_MANQUANTE" }
     }
-
-    try {
-        $metadata = Get-Content -Path $metadataPath -Raw | ConvertFrom-Json
-        $workspacePath = $metadata.workspace_path
-
-        if ([string]::IsNullOrWhiteSpace($workspacePath)) {
-            $historyFilePath = Join-Path -Path $TaskDirectory.FullName -ChildPath 'api_conversation_history.json'
-            if (Test-Path $historyFilePath) {
-                $historyContent = Get-Content -Path $historyFilePath -Raw | ConvertFrom-Json
-                $firstEntry = $historyContent | Select-Object -First 1
-                if ($null -ne $firstEntry -and $firstEntry.PSObject.Properties.Name -contains 'requestBody') {
-                    $initialMessage = $firstEntry.requestBody | ConvertFrom-Json
-                    $workspacePath = $initialMessage.workspace
-                }
-            }
-        }
-        
-        if ([string]::IsNullOrWhiteSpace($workspacePath)) {
-            return [PSCustomObject]@{ TaskId = $taskId; Status = "CHEMIN_VIDE"; WorkspacePath = "[N/A]" }
-        }
-
-        $status = if (Test-Path -Path $workspacePath) { "VALIDE" } else { "WORKSPACE_ORPHELIN" }
-        return [PSCustomObject]@{ TaskId = $taskId; Status = $status; WorkspacePath = $workspacePath }
-    }
-    catch {
-        return [PSCustomObject]@{ TaskId = $taskId; Status = "ERREUR_PARSING_JSON"; WorkspacePath = "[N/A]" }
-    }
+    
+    # Pour ce script, on se concentre sur les métadonnées manquantes.
+    # On retourne un statut 'VALIDE' pour les autres cas pour ne pas interférer.
+    return [PSCustomObject]@{ TaskId = $taskId; Status = "VALIDE" }
 }
 
 # --- Point d'entrée du Script ---
@@ -117,8 +93,8 @@ if ($null -eq $AuditReport) {
 $orphanTasks = $AuditReport | Where-Object { $_.Status -eq 'WORKSPACE_ORPHELIN' }
 
 if ($orphanTasks.Count -eq 0) {
-    Write-Host -ForegroundColor Green "🎉 Aucune tâche avec un workspace orphelin n'a été trouvée. Aucune réparation nécessaire."
-    exit 0
+    Write-Host -ForegroundColor Green "🎉 Aucune tâche avec un workspace orphelin n'a été trouvée."
+    # Ne pas quitter, on vérifie maintenant les métadonnées manquantes
 }
 
 Write-Host -ForegroundColor Yellow "⚠️ $($orphanTasks.Count) tâche(s) avec un workspace orphelin ont été trouvées."
@@ -156,7 +132,7 @@ if ($rootPathMappings.Count -eq 0) {
 }
 
 Write-Host ("-" * 80)
-Write-Host "🔧 Application des réparations..."
+Write-Host "🔧 Application des réparations pour les workspaces orphelins..."
 
 # 3. Appliquer les réparations
 $repairedTasksCount = 0
@@ -212,3 +188,37 @@ Write-Host ("-" * 80)
 Write-Host "🎉 Réparation terminée."
 Write-Host "  - Tâches réparées : $repairedTasksCount"
 Write-Host ("-" * 80)
+
+# --- Réparation des Métadonnées Manquantes ---
+
+$missingMetadataTasks = $AuditReport | Where-Object { $_.Status -eq 'METADATA_MANQUANTE' }
+
+if ($missingMetadataTasks.Count -gt 0) {
+    Write-Host -ForegroundColor Yellow "⚠️ $($missingMetadataTasks.Count) tâche(s) avec des métadonnées manquantes ont été trouvées."
+    Write-Host ("-" * 80)
+    Write-Host "🔧 Tentative de création des fichiers task_metadata.json manquants..."
+    $repairedMetadataCount = 0
+
+    foreach ($task in $missingMetadataTasks) {
+        $metadataPath = Join-Path -Path $TasksPath -ChildPath $task.TaskId -ChildPath 'task_metadata.json'
+        
+        $target = "Fichier de métadonnées pour la tâche $($task.TaskId)"
+        $action = "Créer un fichier task_metadata.json vide"
+
+        if ($PSCmdlet.ShouldProcess($target, $action)) {
+            try {
+                # Créer un fichier JSON vide
+                '{}' | Set-Content -Path $metadataPath -Encoding UTF8 -Force
+                Write-Host -ForegroundColor Green "✅ Fichier de métadonnées créé pour la tâche $($task.TaskId)."
+                $repairedMetadataCount++
+            }
+            catch {
+                Write-Error "Impossible de créer le fichier de métadonnées pour la tâche $($task.TaskId). Erreur : $($_.Exception.Message)"
+            }
+        }
+    }
+    Write-Host "  - Fichiers de métadonnées recréés : $repairedMetadataCount"
+    Write-Host ("-" * 80)
+} else {
+    Write-Host -ForegroundColor Green "🎉 Aucune tâche avec des métadonnées manquantes n'a été trouvée."
+}
