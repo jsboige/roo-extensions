@@ -1,280 +1,43 @@
-# Troubleshooting des Problèmes de Démarrage des Serveurs MCP
+# Troubleshooting MCP Startup Issues
 
-Ce document a pour but de référencer les erreurs communes rencontrées lors du démarrage des serveurs MCP et de fournir des solutions standardisées, principalement implémentées dans le script de déploiement `scripts/deployment/install-mcps.ps1`.
+This document provides solutions to common issues encountered during the startup of MCP servers.
 
-## 1. `quickfiles` - Erreur `Cannot find module`
+## Issue: `ReferenceError: __dirname is not defined in ES module scope`
 
-**Symptôme :**
-Le serveur `quickfiles` échoue au démarrage avec une erreur du type `Error: Cannot find module '.../build/index.js'`.
+**Context:**
 
-**Cause Racine :**
-Ce problème survient car le serveur, écrit en TypeScript, n'a pas été compilé en JavaScript. Le processus de build, défini par le script `npm run build` dans `package.json`, nécessite des dépendances de développement (`devDependencies`) comme `typescript` pour s'exécuter. Si `npm install` est exécuté en mode production, ces dépendances ne sont pas installées, et la compilation échoue ou n'a pas lieu.
+This error occurs when an MCP server, configured to use ES Modules (ESM), attempts to use the `__dirname` global variable. `__dirname` is a CommonJS feature and is not available by default in ESM.
 
-**Solution :**
-Le script `scripts/deployment/install-mcps.ps1` a été modifié pour forcer l'installation des `devDependencies` pour tous les MCPs internes.
+**Affected MCPs:**
 
-- **Commande d'installation :** `npm install --include=dev` est maintenant utilisé pour garantir que les outils de build sont toujours disponibles.
+*   `github-projects-mcp` (confirmed on 2025-09-24)
+*   Any other MCP server running as an ES Module.
 
-## 2. `github-projects-mcp` - Erreur de chargement du `.env` (ENOENT)
+**Solution:**
 
-**Symptôme :**
-Le serveur `github-projects-mcp` démarre mais affiche des avertissements indiquant qu'un token GitHub est manquant, souvent à cause d'une erreur `ENOENT` (Error NO ENTity) signifiant que le fichier `.env` attendu n'a pas été trouvé.
+The standard solution is to derive the directory path from `import.meta.url`. This requires the `url` and `path` core Node.js modules.
 
-**Cause Racine :**
-Le serveur est conçu pour charger ses secrets (comme les tokens d'API) depuis un fichier `.env` situé à sa racine. Le script d'installation initial n'automatisait pas la création de ce fichier.
+**Implementation Example (`index.ts`):**
 
-**Solution :**
-Une étape a été ajoutée dans `scripts/deployment/install-mcps.ps1` pour créer automatiquement le fichier `.env` lors de l'installation du serveur `github-projects-mcp`.
+```typescript
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-- **Logique d'installation :** Après `npm install`, le script écrit le contenu nécessaire dans `mcps/internal/servers/github-projects-mcp/.env`.
-- **Configuration du `cwd` :** Le script s'assure également que le `cwd` (Current Working Directory) dans `mcp_settings.json` pointe bien vers le répertoire du MCP, permettant au processus `node` de trouver le `.env` au bon endroit.
+// ESM-compatible way to get __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-## 3. `playwright` - Instabilité du cache `npx` et `ERR_MODULE_NOT_FOUND`
-
-**Symptôme :**
-Le démarrage du MCP `playwright` via `npx` échoue de manière intermittente. La suppression manuelle du cache `%LOCALAPPDATA%\npm-cache\_npx` provoque une erreur `ERR_MODULE_NOT_FOUND`, car `npx` ne parvient pas à réinstaller correctement le paquet à la volée.
-
-**Cause Racine :**
-La stratégie précédente consistant à supprimer le cache `_npx` s'est avérée trop agressive et instable. Elle peut corrompre l'état interne de `npm`/`npx`, rendant les installations "à la volée" (`-y`) peu fiables. L'erreur `ERR_MODULE_NOT_FOUND` indique que même si `npx` tente de télécharger le paquet, il n'est pas correctement installé ou référencé au moment de l'exécution.
-
-**Solution Robuste (Stratégie de préchauffage) :**
-La nouvelle approche, implémentée dans `scripts/deployment/install-mcps.ps1`, vise à garantir que le paquet est présent et valide dans le cache *avant* le démarrage du MCP, sans recourir à une suppression destructrice.
-
-- **Abandon du nettoyage de cache :** La suppression du répertoire `_npx` a été complètement retirée du script.
-- **Ajout d'une étape de "préchauffage" :** Juste avant la génération du fichier `mcp_settings.json`, une commande inoffensive est exécutée : `npx -y @playwright/mcp --version`. Cette commande a pour effet de forcer `npx` à vérifier la présence de `@playwright/mcp` dans le cache. S'il est manquant ou invalide, `npx` le télécharge et l'installe proprement. L'exécution se termine après avoir affiché la version, laissant un paquet propre et prêt à l'emploi dans le cache pour le vrai démarrage du MCP.
-- **Commande Simplifiée :** La commande dans `mcp_settings.json` reste `npx -y @playwright/mcp --browser firefox`, s'appuyant sur le cache fraîchement validé.
-
-**Solution Alternative (Lancement Manuel Fiable) :**
-Si `npx` continue d'être instable, une approche plus robuste consiste à installer le paquet localement dans le projet et à le lancer directement avec `node`.
-1.  **Installation locale :** `npm install --prefix . @playwright/mcp playwright`
-2.  **Configuration `mcp_settings.json` :**
-   ```json
-   "playwright": {
-     "command": "node",
-     "args": [
-       "D:/dev/roo-extensions/node_modules/@playwright/mcp/lib/cli.js",
-       "--browser",
-       "firefox"
-     ],
-     // ... autres propriétés
-   }
-   ```
-
-## 4. `markitdown` - Détection de Python piégée par les alias Windows
-
-**Symptôme :**
-Le MCP `markitdown` ne démarre pas, car la commande `Get-Command` de PowerShell sélectionne un "alias d'exécution d'application" (`python.exe` dans `C:\Users\...\AppData\Local\Microsoft\WindowsApps\`) qui n'est pas un véritable exécutable mais un simple renvoi vers le Microsoft Store.
-
-**Cause Racine :**
-La commande `(Get-Command python3, python, py).Source` ne fait pas la distinction entre un véritable interpréteur Python et les alias installés par Windows pour les applications du Store. Ces alias ne peuvent pas être exécutés avec des arguments comme `--version`, provoquant l'échec de la détection ou du démarrage du MCP.
-
-**Solution Robuste (Détection par validation) :**
-Le script `scripts/deployment/install-mcps.ps1` utilise une nouvelle fonction PowerShell, `Find-ViablePythonExecutable`, pour fiabiliser la détection.
-
-- **Recherche Exhaustive :** La fonction utilise `Get-Command python3, python, py -All` pour lister *tous* les candidats possibles, pas seulement le premier.
-- **Filtrage des Alias du Store :** Elle ignore explicitement tout candidat dont le chemin source contient `\WindowsApps\`.
-- **Test d'Exécution :** Pour chaque candidat restant, elle tente d'exécuter `& $candidate.Source --version` dans un bloc `try/catch`. Le premier candidat qui s'exécute sans erreur et renvoie un code de sortie de `0` est considéré comme valide.
-- **Configuration Explicite :** Le chemin absolu de cet exécutable validé est ensuite utilisé pour la configuration de `markitdown` dans `mcp_settings.json`, garantissant que Roo lance un interpréteur Python fonctionnel.
-
-**Solution Alternative (Environnement Conda dédié) :**
-Pour isoler complètement les dépendances et garantir la stabilité, la création d'un environnement Conda dédié est la meilleure approche.
-1.  **Créer et Activer l'Environnement :**
-   ```powershell
-   conda create -n mcp-markitdown python=3.9
-   conda activate mcp-markitdown
-   ```
-2.  **Installer les dépendances :**
-   ```powershell
-   pip install markitdown-mcp
-   ```
-3.  **Configuration `mcp_settings.json` :**
-   Pointez la commande vers l'exécutable Python de l'environnement Conda.
-   ```json
-   "markitdown": {
-     "command": "C:/Users/jsboi/.conda/envs/mcp-markitdown/python.exe",
-     "args": [
-       "-m",
-       "markitdown_mcp"
-     ],
-     // ... autres propriétés
-   }
-   ```
-
-## 5. `roo-state-manager` - Timeout au démarrage
-
-**Symptôme :**
-Le serveur `roo-state-manager` ne parvient pas à démarrer et génère une erreur de `timeout`.
-
-**Cause Racine :**
-Au premier démarrage, le serveur tente de scanner l'ensemble des conversations Roo stockées sur le disque pour construire un "cache de squelettes" en mémoire. Cette opération peut être très longue si le nombre de conversations est élevé, dépassant ainsi le délai de démarrage alloué au MCP.
-
-**Solution :**
-La solution consiste à pré-construire ce cache de manière asynchrone après l'installation, plutôt que de bloquer le démarrage initial.
-
-- **Action Manuelle Recommandée :** Après une nouvelle installation ou une mise à jour majeure, il est recommandé d'exécuter manuellement l'outil `build_skeleton_cache` via Roo. Cette opération peut prendre du temps mais ne devra être effectuée qu'une seule fois. Les démarrages suivants seront quasi-instantanés car le serveur se contentera de charger le cache depuis le disque.
-- **Amélioration du Script :** Le script `install-mcps.ps1` ne force plus de logique complexe pour ce MCP. La responsabilité de la gestion du cache est laissée au serveur lui-même et à l'action de l'utilisateur, ce qui est une approche plus robuste.
-## 6. `jupyter-mcp` - Échecs en cascade (ECONNREFUSED, 403, 404, Cache)
-
-Le dépannage de `jupyter-mcp` est complexe car il implique une chaîne de dépendances : l'extension Roo, le processus MCP (Node.js/TypeScript) et le serveur Jupyter externe (Python).
-
-### 6.1. Erreur `ECONNREFUSED`
-
-**Symptôme :**
-Le MCP démarre mais échoue immédiatement avec une erreur `ECONNREFUSED`, indiquant qu'il ne peut pas se connecter au serveur Jupyter sur `localhost:8888`.
-
-**Cause Racine :**
-Aucun serveur Jupyter n'écoute sur le port `8888`. Cela peut se produire si :
-1.  Aucun serveur Jupyter n'est lancé.
-2.  Un programme de bureau comme `JupyterLab.exe` est utilisé, lequel n'ouvre pas de port réseau.
-3.  Le serveur Jupyter est lancé sur un port différent.
-
-**Solution : Lancement manuel via Conda**
-La solution la plus fiable est de gérer le serveur Jupyter dans un environnement Conda dédié et de le lancer manuellement.
-
-1.  **Créer un environnement Conda :**
-    ```powershell
-    conda create --name mcp-jupyter python=3.9
-    conda activate mcp-jupyter
-    ```
-
-2.  **Installer JupyterLab :**
-    ```powershell
-    pip install jupyterlab
-    ```
-
-3.  **Lancer le serveur Jupyter (sans authentification) :**
-    Créez un terminal PowerShell dédié et exécutez la commande suivante. Laissez ce terminal ouvert en arrière-plan.
-    ```powershell
-    conda activate mcp-jupyter
-    jupyter-lab --no-browser --ServerApp.token='' --ServerApp.password='' --ServerApp.disable_check_xsrf=True
-    ```
-
-### 6.2. Erreur `403 Forbidden`
-
-**Symptôme :**
-Le MCP se connecte, mais toutes les requêtes API échouent avec une erreur `403 Forbidden`.
-
-**Cause Racine :**
-Le serveur Jupyter est configuré par défaut pour exiger une authentification par token pour sécuriser son API. Le MCP peut ne pas fournir le bon token, surtout lors de la détection automatique.
-
-**Solution :**
-La commande de lancement ci-dessus (`--ServerApp.token='' --ServerApp.password=''`) désactive complètement l'authentification, ce qui est acceptable pour un usage en local et résout ce problème.
-
-### 6.3. Erreur `404 Not Found` et problème de rechargement de code
-
-**Symptôme :**
-Après avoir corrigé une URL d'API incorrecte dans le code source TypeScript du MCP, l'erreur `404` persiste. Même après recompilation, le MCP semble toujours utiliser l'ancien code défectueux.
-
-**Cause Racine :**
-L'extension Roo semble avoir un mécanisme de cache très agressif pour les processus MCP. Ni `touch_mcp_settings`, ni la désactivation/réactivation du MCP ne semblent forcer de manière fiable un rechargement du code depuis le disque.
-
-**Solution (Diagnostic et Dépannage en Développement) :**
-Lorsque des modifications sont apportées au code source TypeScript du MCP `jupyter-mcp`, une séquence stricte est nécessaire pour s'assurer qu'elles sont appliquées :
-
-1.  **Appliquer les modifications** au(x) fichier(s) `.ts` dans `mcps/internal/servers/jupyter-mcp-server/src/`.
-2.  **Recompiler le projet** pour mettre à jour le fichier `dist/index.js` :
-    ```powershell
-    npm run build --prefix mcps/internal/servers/jupyter-mcp-server
-    ```
-3.  **Tuer tous les processus MCP orphelins :** C'est l'étape la plus cruciale. Utilisez PowerShell pour trouver et terminer tous les processus `node` qui exécutent le `jupyter-mcp`.
-    ```powershell
-    Get-CimInstance Win32_Process -Filter "CommandLine LIKE '%jupyter-mcp-server%'" | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-    ```
-4.  **Tester :** Ré-exécutez l'outil qui posait problème. L'extension devrait maintenant démarrer un nouveau processus MCP frais qui utilisera le code JavaScript fraîchement compilé.
-
----
-
-
-## 7. Redémarrage Rapide des MCPs pour l'Itération
-
-**Symptôme :**
-Lors du développement ou du débogage d'un MCP, les modifications apportées au code source (par exemple, dans un fichier `.ts`) ne sont pas prises en compte immédiatement après la recompilation. Le redémarrage de Roo ou la désactivation/réactivation du MCP ne garantit pas toujours un rechargement propre du processus.
-
-**Cause Racine :**
-Roo peut maintenir en cache ou laisser des processus MCP orphelins en cours d'exécution, qui continuent d'utiliser l'ancien code. Pour un cycle de développement rapide (modifier, builder, tester), il est essentiel de forcer un rechargement complet et propre de tous les MCPs.
-
-**Solution : Outils de Rechargement Dédiés**
-Pour accélérer le cycle de débogage, des outils spécifiques ont été intégrés dans les MCPs `roo-state-manager` et `quickfiles` pour forcer un redémarrage propre.
-
-- **`roo-state-manager` -> `touch_mcp_settings` :** Cet outil "touche" le fichier `mcp_settings.json` (modifie sa date de dernière modification). L'extension Roo surveille ce fichier et, lorsqu'elle détecte un changement, elle arrête tous les serveurs MCP en cours et les redémarre en se basant sur la configuration actuelle. C'est la méthode la plus propre et la plus recommandée.
-- **`quickfiles` -> `restart_mcp_servers` :** Cet outil offre une alternative en permettant de redémarrer une liste spécifique de serveurs. Pour un rechargement complet, il peut être utilisé pour redémarrer tous les MCPs actifs.
-
-**Procédure Recommandée pour une Itération Rapide :**
-1.  **Modifiez** le code source de votre MCP.
-2.  **Compilez** vos changements (ex: `npm run build`).
-3.  **Exécutez l'outil `touch_mcp_settings`** depuis le MCP `roo-state-manager` via une interaction avec Roo.
-4.  **Testez** votre modification. Le MCP sera redémarré avec le nouveau code.
-
----
-
-## 8. `searxng` - Incompatibilité Windows (MCP error -32000: Connection closed)
-
-**Symptôme :**
-Le serveur `searxng` (mcp-searxng) se lance mais crash immédiatement avec l'erreur `MCP error -32000: Connection closed`. Le serveur n'expose aucun outil et les logs VSCode montrent un crash au démarrage.
-
-**Cause Racine :**
-Incompatibilité Windows dans la condition de démarrage du serveur MCP. Le problème vient de la comparaison entre `import.meta.url` et `process.argv[1]` qui utilisent des formats de chemins différents sur Windows :
-- `import.meta.url` retourne : `file:///C:/Users/.../index.js`
-- `process.argv[1]` retourne : `C:\Users\...\index.js`
-
-La condition `if (import.meta.url === \`file://${process.argv[1]}\`)` ne correspond jamais sur Windows, empêchant le serveur de démarrer.
-
-**Solution :**
-Normaliser le chemin Windows pour la comparaison d'URL :
-
-```javascript
-// AVANT - Ne fonctionne pas sur Windows
-if (import.meta.url === `file://${process.argv[1]}`) {
-    main().catch(console.error);
-}
-
-// APRÈS - Compatible Windows/Unix  
-const normalizedPath = process.argv[1].replace(/\\/g, '/');
-const expectedUrl = `file:///${normalizedPath}`;
-if (import.meta.url === expectedUrl) {
-    main().catch(console.error);
-}
+// Now you can use __dirname as you would in CommonJS
+// For example, to load a .env file from the parent directory:
+import dotenv from 'dotenv';
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 ```
 
-**Diagnostic :**
-1. Test direct du serveur : `node "C:\Users\jsboi\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"`
-2. Vérification des logs VSCode avec `roo-state-manager: read_vscode_logs`
-3. Validation fonctionnelle après correction
+**Resolution Steps:**
 
-**Problème Secondaire : Corruption BOM UTF-8**
-Si le fichier `mcp_settings.json` est corrompu par un BOM UTF-8 après modification :
-```powershell
-$bytes = [System.IO.File]::ReadAllBytes($path)
-if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
-    $bytesWithoutBOM = $bytes[3..($bytes.Length-1)]
-    [System.IO.File]::WriteAllBytes($path, $bytesWithoutBOM)
-}
-```
-
----
-
-## 8. `roo-state-manager` - Erreur de Connexion Qdrant (`ECONNREFUSED`)
-
-**Symptôme :**
-Le serveur `roo-state-manager` démarre correctement, mais toute tentative d'utiliser une fonctionnalité sémantique (comme `index_task_semantic` ou `search_tasks_semantic`) échoue avec une erreur `TypeError: fetch failed`. L'analyse des logs de l'hôte d'extension (`exthost.log`) révèle la cause sous-jacente : `Error: connect ECONNREFUSED`.
-
-**Cause Racine :**
-Le client Qdrant (`@qdrant/js-client-rest`) est configuré avec une URL HTTPS (ex: `https://qdrant.myia.io`), mais il tente par défaut de se connecter au port standard de l'API REST de Qdrant, qui est le `6333`. Cependant, de nombreuses infrastructures de production placent Qdrant derrière un reverse proxy (comme Nginx) qui n'expose que le port HTTPS standard (`443`). La tentative de connexion sur le port `6333` est alors activement refusée par le serveur, d'où l'erreur `ECONNREFUSED`.
-
-**Solution :**
-Il faut explicitement forcer le client Qdrant à utiliser le port `443` lors de son initialisation.
-
-1.  **Localisez** le fichier de service Qdrant : `mcps/internal/servers/roo-state-manager/src/services/qdrant.ts`.
-2.  **Modifiez** l'objet de configuration du client pour y inclure le port :
-    ```typescript
-    // Dans la fonction getQdrantClient()
-    const qdrantConfig = {
-      url: process.env.QDRANT_URL,
-      apiKey: process.env.QDRANT_API_KEY,
-      port: 443, // <-- Ajoutez cette ligne
-      checkCompatibility: false,
-    };
-    
-    client = new QdrantClient(qdrantConfig);
-    ```
-3.  **Recompilez** le MCP et forcez son redémarrage (par exemple, avec l'outil `rebuild_and_restart_mcp`).
+1.  **Identify the problematic file:** Locate the entry point of the MCP server (e.g., `src/index.ts`).
+2.  **Import necessary modules:** Add `import { fileURLToPath } from 'url';` and `import path from 'path';`.
+3.  **Implement the polyfill:** Add the code snippet above to define `__filename` and `__dirname`.
+4.  **Verify path resolutions:** Ensure all uses of `__dirname` (e.g., `path.resolve(__dirname, ...)`) now function correctly.
+5.  **Recompile the MCP:** Run the build command (e.g., `pnpm build`) for the specific MCP.
+6.  **Restart and validate:** Reload the VS Code extension and check the logs to confirm the error has disappeared and the MCP starts successfully.
