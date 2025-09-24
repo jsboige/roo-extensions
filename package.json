@@ -1,6 +1,11 @@
 {
+  "type": "module",
   "devDependencies": {
-    "@types/express": "^5.0.1"
+    "@types/express": "^5.0.1",
+    "@types/jest": "^30.0.0",
+    "jest": "^30.1.3",
+    "ts-jest": "^29.4.4",
+    "typescript": "^5.9.2"
   },
   "scripts": {
     "test": "pwsh -Command \"./mcps/tests/run-all-tests.ps1\""
