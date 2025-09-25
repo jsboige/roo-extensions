@@ -1,0 +1,92 @@
+{
+  "profiles": [
+    {
+      "name": "Configuration actuelle",
+      "description": "Configuration actuelle avec Qwen 3 32B pour les modes simples et Claude 3.7 Sonnet pour les modes complexes",
+      "modeOverrides": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        "debug-simple": "qwen/qwen3-32b",
+        "debug-complex": "anthropic/claude-3.7-sonnet",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "anthropic/claude-3.7-sonnet",
+        "ask-simple": "qwen/qwen3-32b",
+        "ask-complex": "anthropic/claude-3.7-sonnet",
+        "orchestrator-simple": "qwen/qwen3-32b",
+        "orchestrator-complex": "anthropic/claude-3.7-sonnet"
+      }
+    },
+    {
+      "name": "Configuration Gemini",
+      "description": "Configuration avec Qwen 3 32B pour les modes simples et Gemini 2.5 Pro pour les modes complexes",
+      "modeOverrides": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "google/gemini-2.5-pro-exp-03-25",
+        "debug-simple": "qwen/qwen3-32b",
+        "debug-complex": "google/gemini-2.5-pro-exp-03-25",
+        "architect-simple": "qwen/qwen3-32b",
+        "architect-complex": "google/gemini-2.5-pro-exp-03-25",
+        "ask-simple": "qwen/qwen3-32b",
+        "ask-complex": "google/gemini-2.5-pro-exp-03-25",
+        "orchestrator-simple": "qwen/qwen3-32b",
+        "orchestrator-complex": "google/gemini-2.5-pro-exp-03-25"
+      }
+    }
+  ],
+  "apiConfigs": {
+    "default": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
+      "openRouterModelId": "anthropic/claude-3.7-sonnet",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "usl6gy8xkxg"
+    },
+    "gemini-2.5-pro": {
+      "modelTemperature": null,
+      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
+      "openRouterModelId": "google/gemini-2.5-pro-exp-03-25",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "ywbjgfyg3"
+    },
+    "qwen3-32b": {
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
+      "openRouterModelId": "qwen/qwen3-32b",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "rfjyvcdycv"
+    },
+    "claude-3.7-sonnet": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
+      "openRouterModelId": "anthropic/claude-3.7-sonnet",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "gi7et2uwpwo"
+    }
+  },
+  "modeApiConfigs": {
+    "code": "usl6gy8xkxg",
+    "architect": "usl6gy8xkxg",
+    "ask": "usl6gy8xkxg",
+    "debug": "usl6gy8xkxg",
+    "orchestrator": "usl6gy8xkxg",
+    "project-manager": "usl6gy8xkxg",
+    "orchestrator-complex": "usl6gy8xkxg",
+    "debug-simple": "rfjyvcdycv",
+    "architect-simple": "rfjyvcdycv",
+    "code-simple": "rfjyvcdycv",
+    "ask-simple": "rfjyvcdycv",
+    "orchestrator-simple": "rfjyvcdycv",
+    "ask-complex": "usl6gy8xkxg",
+    "architect-complex": "usl6gy8xkxg",
+    "debug-complex": "usl6gy8xkxg",
+    "code-complex": "usl6gy8xkxg"
+  }
+}
