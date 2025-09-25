@@ -46,7 +46,7 @@
     {
       "name": "jupyter-papermill",
       "type": "stdio",
-      "command": "cmd /c node ./mcps/internal/servers/jupyter-papermill-mcp-server/dist/index.js",
+      "command": "cmd /c d:/roo-extensions/mcps/internal/servers/jupyter-papermill-mcp-server/start_jupyter_mcp_portable.bat",
       "enabled": true,
       "autoStart": false,
       "description": "Serveur MCP pour exécuter des notebooks Jupyter avec Papermill"
