@@ -1,5 +1,8 @@
-# Chemin vers le fichier de configuration des MCPs
-$configFile = "d:\Dev\roo-extensions\mcp_settings.json"
+# Déterminer le répertoire racine du projet de manière dynamique
+$projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+
+# Chemin vers le fichier de configuration des MCPs dans AppData, tel que défini par le script d'installation
+$configFile = Join-Path -Path $env:APPDATA -ChildPath "Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
 
 if (-not (Test-Path $configFile)) {
     Write-Error "Le fichier de configuration '$configFile' est introuvable."
@@ -8,53 +11,57 @@ if (-not (Test-Path $configFile)) {
 
 $config = Get-Content $configFile | ConvertFrom-Json
 $jobs = @()
-$mcpNameRegex = '\${mcp_paths:(.*?)}'
+# Regex mis à jour pour capturer le nom du serveur à partir d'un chemin de fichier complet.
+# Il recherche 'mcps/internal/servers/' suivi par le nom du serveur (capturé), et s'arrête au prochain '/'
+$mcpNameRegex = 'mcps[/\\]internal[/\\]servers[/\\]([^/\\]+)'
 
 Write-Host "Lancement du diagnostic des serveurs MCP internes..."
 
-foreach ($server in $config.mcpServers.PSObject.Properties.Value) {
-    foreach ($arg in $server.args) {
-        if ($arg -match $mcpNameRegex) {
-            $mcpName = $matches[1]
-            $mcpPath = "d:\Dev\roo-extensions\mcps\internal\servers\$mcpName"
+foreach ($serverKey in $config.mcpServers.PSObject.Properties.Name) {
+    $server = $config.mcpServers.$serverKey
+    # Concaténer tous les arguments en une seule chaîne pour la recherche
+    $allArgs = $server.args -join ' '
+    
+    if ($allArgs -match $mcpNameRegex) {
+        $mcpName = $matches[1]
+        $mcpPath = Join-Path $projectRoot "mcps\internal\servers\$mcpName"
 
-            if (-not (Test-Path $mcpPath)) {
-                Write-Warning "Répertoire introuvable pour '$mcpName' : $mcpPath"
+        if (-not (Test-Path $mcpPath)) {
+            Write-Warning "Répertoire introuvable pour '$mcpName' : $mcpPath"
+            continue
+        }
+
+        $startCommand = "npx ts-node src/index.ts"
+
+        if (Test-Path (Join-Path $mcpPath "tsconfig.json")) {
+            Write-Host "-> Compilation de '$($mcpName)'..."
+            Push-Location -Path $mcpPath
+            npm run build # Utiliser le script de build pour une compilation correcte
+            Pop-Location
+            $startCommand = "node build/src/index.js" # Pointer vers le bon fichier de sortie
+        }
+
+        $finalJsFile = $startCommand.Split(' ')[-1]
+        if (-not (Test-Path (Join-Path $mcpPath $finalJsFile))) {
+            if (Test-Path (Join-Path $mcpPath "dist/index.js")) {
+                $startCommand = "node dist/index.js"
+            } elseif (Test-Path (Join-Path $mcpPath "src/index.ts")) {
+                $startCommand = "npx ts-node src/index.ts"
+            } else {
+                Write-Warning "Impossible de trouver un script de démarrage valide pour '$mcpName'."
                 continue
             }
-
-            $startCommand = "npx ts-node src/index.ts"
-
-            if (Test-Path (Join-Path $mcpPath "tsconfig.json")) {
-                Write-Host "-> Compilation de '$($mcpName)'..."
-                Push-Location -Path $mcpPath
-                npx tsc
-                Pop-Location
-                $startCommand = "node build/index.js"
-            }
-
-            $finalJsFile = $startCommand.Split(' ')[-1]
-            if (-not (Test-Path (Join-Path $mcpPath $finalJsFile))) {
-                if (Test-Path (Join-Path $mcpPath "dist/index.js")) {
-                    $startCommand = "node dist/index.js"
-                } elseif (Test-Path (Join-Path $mcpPath "src/index.ts")) {
-                    $startCommand = "npx ts-node src/index.ts"
-                } else {
-                    Write-Warning "Impossible de trouver un script de démarrage valide pour '$mcpName'."
-                    continue
-                }
-            }
-            
-            $scriptBlock = {
-                param($path, $command)
-                Set-Location -Path $path
-                Invoke-Expression $command
-            }
-
-            $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $mcpPath, $startCommand -Name $mcpName
-            $jobs += $job
-            Write-Host "-> Job démarré pour '$mcpName' (ID: $($job.Id))"
         }
+        
+        $scriptBlock = {
+            param($path, $command)
+            Set-Location -Path $path
+            Invoke-Expression $command
+        }
+
+        $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $mcpPath, $startCommand -Name $mcpName
+        $jobs += $job
+        Write-Host "-> Job démarré pour '$mcpName' (ID: $($job.Id))"
     }
 }
 
