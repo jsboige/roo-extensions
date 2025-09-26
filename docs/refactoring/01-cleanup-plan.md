@@ -6,9 +6,9 @@ Ce document détaille la première phase de refactorisation du dépôt `roo-exte
 
 L'objectif est de regrouper toute la documentation de haut niveau dans le répertoire `docs`.
 
-- **Déplacer :** [`ARCHITECTURE.md`](./ARCHITECTURE.md:1) -> `docs/architecture/01-main-architecture.md`
-- **Déplacer :** [`GETTING-STARTED.md`](./GETTING-STARTED.md:1) -> `docs/guides/01-getting-started.md`
-- **Déplacer :** [`CHANGELOG.md`](./CHANGELOG.md:1) -> `docs/project/01-changelog.md`
+- [x] **Déplacer :** `ARCHITECTURE.md` -> `docs/architecture/01-main-architecture.md`
+- [x] **Déplacer :** `GETTING-STARTED.md` -> `docs/guides/01-getting-started.md`
+- [x] **Déplacer :** `CHANGELOG.md` -> `docs/project/01-changelog.md`
 - **Déplacer :** [`COMMIT_STRATEGY.md`](./COMMIT_STRATEGY.md:1) -> `docs/guides/02-commit-strategy.md`
 
 ## 2. Nettoyage des Fichiers Obsolètes à la Racine
