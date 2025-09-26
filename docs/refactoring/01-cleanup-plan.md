@@ -15,9 +15,9 @@ L'objectif est de regrouper toute la documentation de haut niveau dans le réper
 
 Suppression des plans et rapports obsolètes ou ponctuels qui n'ont plus leur place à la racine du projet.
 
-- **Supprimer :** [`planning_refactoring_modes.md`](./planning_refactoring_modes.md:1) (obsolète)
-- **Supprimer :** [`rapport-final-mission-sddd-jupyter-papermill-23092025.md`](./rapport-final-mission-sddd-jupyter-papermill-23092025.md:1) (rapport ponctuel)
-- **Supprimer :** [`RAPPORT_VALIDATION_CONSOLIDATION_JUPYTER_PAPERMILL_24092025.md`](./RAPPORT_VALIDATION_CONSOLIDATION_JUPYTER_PAPERMILL_24092025.md:1) (rapport ponctuel)
+- [x] **Supprimer :** `planning_refactoring_modes.md` (obsolète)
+- [x] **Supprimer :** `rapport-final-mission-sddd-jupyter-papermill-23092025.md` (rapport ponctuel)
+- [x] **Supprimer :** `RAPPORT_VALIDATION_CONSOLIDATION_JUPYTER_PAPERMILL_24092025.md` (rapport ponctuel)
 - **Supprimer :** [`RAPPORT_RECUPERATION_REBASE_24092025.md`](./RAPPORT_RECUPERATION_REBASE_24092025.md:1) (rapport ponctuel)
 - **Supprimer :** [`repair-plan.md`](./repair-plan.md:1) (plan ponctuel)
 - **Supprimer :** [`conversation-analysis-reset-qdrant-issue.md`](./conversation-analysis-reset-qdrant-issue.md:1) (analyse ponctuelle)
