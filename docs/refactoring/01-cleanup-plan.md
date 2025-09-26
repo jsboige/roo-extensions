@@ -9,7 +9,7 @@ L'objectif est de regrouper toute la documentation de haut niveau dans le réper
 - [x] **Déplacer :** `ARCHITECTURE.md` -> `docs/architecture/01-main-architecture.md`
 - [x] **Déplacer :** `GETTING-STARTED.md` -> `docs/guides/01-getting-started.md`
 - [x] **Déplacer :** `CHANGELOG.md` -> `docs/project/01-changelog.md`
-- **Déplacer :** [`COMMIT_STRATEGY.md`](./COMMIT_STRATEGY.md:1) -> `docs/guides/02-commit-strategy.md`
+- [x] **Déplacer :** `COMMIT_STRATEGY.md` -> `docs/guides/02-commit-strategy.md`
 
 ## 2. Nettoyage des Fichiers Obsolètes à la Racine
 
