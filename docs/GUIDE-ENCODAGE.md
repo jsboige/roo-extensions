@@ -119,22 +119,24 @@ Le projet inclut plusieurs scripts pour corriger les problèmes d'encodage, chac
 - **`fix-encoding-complete.ps1`** - Correction complète des caractères mal encodés et des emojis
 - **`fix-encoding-final.ps1`** - Version finale et optimisée de la correction d'encodage
 
-**Utilisation recommandée:**
+**Scripts consolidés (v3.0) :**
 ```powershell
-# Correction standard
-.\roo-config\encoding-scripts\fix-encoding-complete.ps1
+# Configuration complète de l'environnement UTF-8
+.\scripts\utf8\setup.ps1
 
-# Correction avancée avec options
-.\roo-config\encoding-scripts\fix-encoding-advanced.ps1 -FilePath "chemin\vers\fichier.json" -CreateBackup $true
+# Diagnostic approfondi des problèmes d'encodage
+.\scripts\utf8\diagnostic.ps1 -Verbose -ExportReport
+
+# Réparation automatique des fichiers
+.\scripts\utf8\repair.ps1 -All -Backup
+
+# Réparations spécifiques
+.\scripts\utf8\repair.ps1 -FixBOM -FixCRLF          # Corrections basiques
+.\scripts\utf8\repair.ps1 -FixEncoding              # Caractères mal encodés
+.\scripts\utf8\repair.ps1 -Path "fichier.json" -All # Fichier spécifique
 ```
 
-#### Scripts spécialisés
-
-- **`fix-encoding-advanced.ps1`** - Correction avancée avec plus d'options et de paramètres
-- **`fix-encoding-direct.ps1`** - Correction directe des caractères problématiques sans conversion intermédiaire
-- **`fix-encoding-regex.ps1`** - Correction utilisant des expressions régulières pour des cas complexes
-- **`fix-encoding.ps1`** - Script générique de correction d'encodage
-- **`fix-source-encoding.ps1`** - Correction de l'encodage des fichiers source
+> **⚠️ Note:** Les anciens scripts dans `roo-config\encoding-scripts\` ont été archivés dans `archive\old-encoding-scripts\` et remplacés par 3 scripts consolidés plus robustes.
 
 ### Fonctionnement des scripts de correction
 

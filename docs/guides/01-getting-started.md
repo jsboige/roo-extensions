@@ -200,8 +200,10 @@ code demo-roo-code\05-projets-avances\workspace
 
 **Solution** :
 ```powershell
-# Utiliser le script de correction d'encodage
-.\encoding-fix\run-encoding-fix.ps1
+# Utiliser les nouveaux scripts consolidés d'encodage UTF-8
+.\scripts\utf8\setup.ps1      # Configuration complète
+.\scripts\utf8\diagnostic.ps1 # Diagnostic des problèmes
+.\scripts\utf8\repair.ps1 -All # Réparation automatique
 ```
 
 #### MCPs non disponibles
