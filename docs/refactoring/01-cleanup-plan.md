@@ -26,9 +26,9 @@ Suppression des plans et rapports obsolètes ou ponctuels qui n'ont plus leur pl
 
 Clarification de la structure interne de `docs` pour séparer les rapports, les guides et la documentation d'architecture.
 
-- **Consolider :** Fusionner `docs/reports` dans `docs/rapports`.
-- **Déplacer :** Tous les rapports de validation (`validation-report-*.md`) de `docs/` vers `docs/rapports/validation/`.
-- **Déplacer :** Tous les rapports de mission (`mission_report_*.md`, `RAPPORT-MISSION-*.md`) de `docs/` vers `docs/rapports/missions/`.
+- [x] **Consolider :** Fusionner `docs/reports` dans `docs/rapports`.
+- [x] **Déplacer :** Tous les rapports de validation (`validation-report-*.md`) de `docs/` vers `docs/rapports/validation/`.
+- [x] **Déplacer :** Tous les rapports de mission (`mission_report_*.md`, `RAPPORT-MISSION-*.md`) de `docs/` vers `docs/rapports/missions/`.
 - **Déplacer :** Les guides spécifiques (`guide-*.md`) vers des sous-dossiers thématiques dans `docs/guides/`.
 
 ## 4. Gestion des Archives
