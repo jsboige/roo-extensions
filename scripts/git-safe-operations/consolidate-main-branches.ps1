@@ -12,7 +12,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$script:LogFile = "scripts/git-safe-operations/consolidation-main-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+$script:RootDir = $PWD.Path
+$script:LogFile = Join-Path $script:RootDir "scripts/git-safe-operations/consolidation-main-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
