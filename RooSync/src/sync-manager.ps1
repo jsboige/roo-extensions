@@ -13,7 +13,6 @@ param(
 
 # Import-Module "$PSScriptRoot\modules\Dashboard.psm1" -Force
 # Définition de l'environnement et importations
-$PSScriptRoot = Split-Path -Parent -Path $MyInvocation.MyCommand.Definition
 Import-Module "$PSScriptRoot\modules\Core.psm1" -Force
 
 try {
