@@ -73,26 +73,52 @@ function Compare-Config {
         $timestamp = $LocalContext.timestamp
         $contextSubset = $LocalContext | Select-Object computerInfo, powershell, rooEnvironment | ConvertTo-Json -Depth 5
 
-        # Construction du nouveau bloc de décision
+        # Amélioration du formatage du diff pour une meilleure lisibilité
+        # Comparaison détaillée des propriétés JSON au lieu d'une comparaison brute
+        $refJson = $refObject | ConvertTo-Json -Depth 100
+        $localJson = $diffObject | ConvertTo-Json -Depth 100
+        
+        $diffFormatted = @()
+        $diffFormatted += "Configuration de référence vs Configuration locale:"
+        $diffFormatted += ""
+        
+        # Afficher le résultat brut de Compare-Object pour diagnostic
+        if ($diff) {
+            $diff | ForEach-Object {
+                $indicator = if ($_.SideIndicator -eq '=>') { "LOCAL" } else { "REF" }
+                $diffFormatted += "[$indicator] $($_.InputObject)"
+            }
+        }
+        
+        $diffString = $diffFormatted -join "`n"
+
+        # Construction du nouveau bloc de décision avec marqueurs HTML requis par Apply-Decisions
+        # BUG FIX: Ajout des marqueurs <!-- DECISION_BLOCK_START --> et <!-- DECISION_BLOCK_END -->
+        # pour permettre à Apply-Decisions de détecter et traiter les décisions approuvées
         $diffBlock = @"
 
+<!-- DECISION_BLOCK_START -->
 ### DECISION ID: $decisionId
 - **Status:** PENDING
 - **Machine:** $machineName
 - **Timestamp (UTC):** $timestamp
 - **Source Action:** Compare-Config
 - **Details:** Une différence a été détectée entre la configuration locale et la configuration de référence.
-- **Diff:**
-  `diff
-$($diff | Out-String)
-  `
-- **Contexte d'Exécution:**
-  `json
-$contextSubset
-  `
 
-**Action Proposée :**
-- `[ ]` **Approuver & Fusionner :** Mettre à jour la configuration de référence avec les changements locaux.
+**Diff:**
+``````diff
+$diffString
+``````
+
+**Contexte Système:**
+``````json
+$contextSubset
+``````
+
+**Actions:**
+- [ ] **Approuver & Fusionner**
+<!-- DECISION_BLOCK_END -->
+
 "@
         Add-Content -Path $roadmapPath -Value $diffBlock -Encoding Utf8
         Write-Host "Différence de configuration consignée dans la feuille de route."
