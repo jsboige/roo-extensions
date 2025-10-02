@@ -1,4 +1,4 @@
-let x = 5;
+const x = 5;
 function test() {
   let y = 10;
   if (true) {
