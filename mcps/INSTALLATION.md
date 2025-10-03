@@ -5,33 +5,39 @@
 <!-- START: TABLE_OF_CONTENTS -->
 ## Sommaire
 
-- [Introduction](#introduction)
-- [Prérequis Système](#prérequis-système)
-  - [Systèmes d'exploitation supportés](#systèmes-dexploitation-supportés)
-  - [Logiciels requis](#logiciels-requis)
-  - [Configuration matérielle recommandée](#configuration-matérielle-recommandée)
-- [Vue d'ensemble du processus d'installation](#vue-densemble-du-processus-dinstallation)
-- [Installation de base commune](#installation-de-base-commune)
-  - [Préparation de l'environnement](#préparation-de-lenvironnement)
-  - [Clonage du dépôt](#clonage-du-dépôt)
-  - [Installation des dépendances principales](#installation-des-dépendances-principales)
-- [Installation des MCPs spécifiques](#installation-des-mcps-spécifiques)
-  - [MCPs Internes](#mcps-internes)
-    - [QuickFiles Server](#quickfiles-server)
-    - [JinaNavigator Server](#jinavigator-server)
-    - [Jupyter MCP Server](#jupyter-mcp-server)
-  - [MCPs Externes](#mcps-externes)
-    - [Docker](#docker)
-    - [Filesystem](#filesystem)
-    - [Git](#git)
-    - [GitHub](#github)
-    - [SearXNG](#searxng)
-    - [Win-CLI](#win-cli)
-- [Configuration dans Roo](#configuration-dans-roo)
-- [Vérification post-installation](#vérification-post-installation)
-  - [Tests de base](#tests-de-base)
-  - [Résolution des problèmes courants](#résolution-des-problèmes-courants)
-- [Ressources supplémentaires](#ressources-supplémentaires)
+- [Guide d'Installation des MCPs (Model Context Protocol)](#guide-dinstallation-des-mcps-model-context-protocol)
+  - [Sommaire](#sommaire)
+  - [Introduction](#introduction)
+  - [Prérequis Système](#prérequis-système)
+    - [Systèmes d'exploitation supportés](#systèmes-dexploitation-supportés)
+    - [Logiciels requis](#logiciels-requis)
+    - [Configuration matérielle recommandée](#configuration-matérielle-recommandée)
+  - [Vue d'ensemble du processus d'installation](#vue-densemble-du-processus-dinstallation)
+  - [Installation de base commune](#installation-de-base-commune)
+    - [Préparation de l'environnement](#préparation-de-lenvironnement)
+      - [Installation de Node.js et npm](#installation-de-nodejs-et-npm)
+      - [Installation de Git](#installation-de-git)
+      - [Installation de Python (si nécessaire)](#installation-de-python-si-nécessaire)
+    - [Clonage du dépôt](#clonage-du-dépôt)
+    - [Installation des dépendances principales](#installation-des-dépendances-principales)
+  - [Installation des MCPs spécifiques](#installation-des-mcps-spécifiques)
+    - [MCPs Internes](#mcps-internes)
+      - [QuickFiles Server](#quickfiles-server)
+      - [JinaNavigator Server](#jinanavigator-server)
+      - [Jupyter MCP Server](#jupyter-mcp-server)
+    - [MCPs Externes](#mcps-externes)
+      - [Docker](#docker)
+      - [Filesystem](#filesystem)
+      - [Git](#git)
+      - [GitHub](#github)
+      - [SearXNG](#searxng)
+      - [Win-CLI](#win-cli)
+      - [Markitdown](#markitdown)
+  - [Configuration dans Roo](#configuration-dans-roo)
+  - [Vérification post-installation](#vérification-post-installation)
+    - [Tests de base](#tests-de-base)
+    - [Résolution des problèmes courants](#résolution-des-problèmes-courants)
+  - [Ressources supplémentaires](#ressources-supplémentaires)
 <!-- END: TABLE_OF_CONTENTS -->
 
 <!-- START: INTRODUCTION -->
@@ -323,6 +329,22 @@ Pour plus de détails, consultez la [documentation SearXNG MCP](./external/searx
 
 Le MCP Win-CLI permet d'exécuter des commandes dans le terminal Windows.
 
+**Installation locale (recommandée)**
+
+```bash
+# Naviguer vers le répertoire du serveur
+cd mcps/external/win-cli/server/
+
+# Installer les dépendances
+npm install
+
+# La compilation est automatique via le script 'prepare'
+# Vérifier la génération du fichier
+Test-Path dist/index.js  # Doit retourner True
+```
+
+**Installation globale (alternative)**
+
 ```bash
 # Installation globale
 npm install -g @simonb97/server-win-cli
@@ -331,7 +353,84 @@ npm install -g @simonb97/server-win-cli
 win-cli-mcp-server --version
 ```
 
+**Configuration dans mcp_settings.json**
+
+```json
+{
+  "win-cli": {
+    "command": "npm",
+    "args": ["start", "--", "--debug"],
+    "cwd": "c:\\dev\\roo-extensions\\mcps\\external\\win-cli\\server",
+    "transportType": "stdio",
+    "autoStart": true,
+    "disabled": false,
+    "description": "MCP for executing CLI commands on Windows"
+  }
+}
+```
+
 Pour plus de détails, consultez la [documentation Win-CLI MCP](./external/win-cli/README.md).
+
+#### Markitdown
+
+Le MCP Markitdown permet de convertir divers formats de documents en Markdown.
+
+**Prérequis**
+- Python ≥3.8 (recommandé : Python 3.13 LTS)
+- pip (gestionnaire de paquets Python)
+
+**Installation de Python (si nécessaire)**
+
+```powershell
+# Via winget (Windows)
+winget install Python.Python.3.13 --silent
+
+# Vérification
+python --version  # Doit afficher Python 3.13.x
+pip --version     # Doit afficher la version pip
+```
+
+**Note** : Après installation de Python, vous devrez peut-être redémarrer le terminal ou VSCode pour que le PATH soit mis à jour.
+
+**Installation de uv**
+
+```powershell
+# Installer uv via pip
+pip install uv
+
+# Vérification
+uv --version   # Doit afficher la version uv
+uvx --version  # Doit afficher la version uvx
+```
+
+**Configuration dans mcp_settings.json**
+
+```json
+{
+  "markitdown": {
+    "command": "uvx",
+    "args": ["markitdown-mcp"],
+    "env": {}
+  }
+}
+```
+
+**Test de fonctionnement**
+
+```powershell
+# Tester le démarrage du serveur MCP
+uvx markitdown-mcp
+# Le serveur démarre et attend des connexions (Ctrl+C pour arrêter)
+```
+
+**Troubleshooting**
+
+Si `uvx` n'est pas reconnu après installation :
+1. Redémarrer le terminal PowerShell
+2. Redémarrer VSCode
+3. Vérifier le PATH système inclut `%LOCALAPPDATA%\Programs\Python\Python313\Scripts`
+
+Pour plus de détails, consultez la [documentation officielle uv](https://docs.astral.sh/uv/).
 <!-- END: SPECIFIC_INSTALLATIONS -->
 
 <!-- START: ROO_CONFIGURATION -->

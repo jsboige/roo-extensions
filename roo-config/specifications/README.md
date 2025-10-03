@@ -27,7 +27,7 @@ Ce répertoire contient les **spécifications architecturales communes consolid�
 
 ```
 roo-config/specifications/
-├── *.md                    # 6 Spécifications architecturales (pérennes)
+├── *.md                    # 8 Spécifications architecturales (pérennes)
 └── reports/                # Rapports de suivi et validation
     ├── README.md
     ├── FEEDBACKS-REVISION-PLAN.md
@@ -148,6 +148,51 @@ Jesse: pourquoi 1.0, je dirais 1
 - orchestrator-simple, orchestrator-complex
 - manager
 - ❌ Pas dans code/debug/ask simples (pas d'orchestration)
+---
+
+### 7. Best Practices Opérationnelles
+
+**Fichier** : [`operational-best-practices.md`](operational-best-practices.md)  
+**Lignes** : 1014  
+**Priorité** : 🔴 CRITIQUE (workflow et traçabilité)  
+**Ajouté** : 2 Octobre 2025 (Mission 2.3)
+
+**Contenu** :
+- **SPEC 1** : Priorité Scripts vs Commandes Complexes
+  - Workflow non-bloquant (évite approbations)
+  - Capacités élargies (Python, Node.js, .NET, etc.)
+  - Documentation et traçabilité automatiques (CRITIQUE)
+- **SPEC 2** : Nomenclature et Organisation Strictes
+  - Arborescence logique par nature/fonction
+  - Horodatage systématique : `YYYY-MM-DD-[description]-[type].[ext]`
+  - Noms précis et descriptifs (jamais génériques)
+  - Pas de fichiers à la racine workspace
+- **Mécanisme évolutif** : Processus ajout rapide nouvelles SPECs (<48h)
+
+**Quand utiliser** :
+- ✅ Création/exécution scripts (privilégier vs commandes)
+- ✅ Création fichiers suivi/rapports (nomenclature stricte)
+- ✅ Organisation projet (structure hiérarchique logique)
+
+**Relation SDDD** :
+- Scripts = Documentation exécutable (Phase 2)
+- Nomenclature = Découvrabilité sémantique (Phase 1)
+- Traçabilité = Grounding conversationnel facilité (Phase 3)
+
+**Intégration modes** :
+```markdown
+## BEST PRACTICES OPÉRATIONNELLES
+Voir : [`operational-best-practices.md`](../specifications/operational-best-practices.md)
+
+### Règles Critiques
+- SPEC 1 : Scripts > Commandes (traçabilité)
+- SPEC 2 : Nomenclature stricte (découvrabilité)
+
+### Exemples
+- Scripts : `scripts/validation/2025-10-02-validate-modes.ps1`
+- Rapports : `reports/missions/2025-10-02-mission-2-3.md`
+```
+
 Jesse: Pas d'accord, tous les modes doivent pouvoir créer des sous-tâches que ce soit pour décomposer des tâches atomisables, ou bien pour escalader en confiant des actions complexes à un mode dédié.
 
 **Intégration modes orchestrateurs** :
@@ -201,6 +246,64 @@ Voir : [`mcp-integrations-priority.md`](../specifications/mcp-integrations-prior
 3. quickfiles (lecture ciblée)
 ```
 Jesse: Il faut qu'on détermine exactemetn ce qu'on fait des MCPs git et surtout win-cli. Ce dernier était sensé remplacer le terminal natif pour les modes code et debug, mais il faut pour cela le débrider quant aux workspaces acceptés. Sinon réautoriser le terminal pour tous les modes non orchestrateur.
+### 8. Mapping LLMs et Modes
+
+**Fichier** : [`llm-modes-mapping.md`](llm-modes-mapping.md)  
+**Lignes** : 1319  
+**Priorité** : 🔴 CRITIQUE (allocation ressources optimale)
+
+**Contenu** :
+- **Taxonomie LLMs** : 4 tiers (Flash, Mini, Standard, SOTA)
+  - Flash : Ultra-rapide, 0.25-0.50 $/MTok, 50k-100k tokens
+  - Mini : Compromis, 0.50-1.00 $/MTok, 100k-200k tokens
+  - Standard : Équilibré, 2.50-5.00 $/MTok, 200k-500k tokens
+  - SOTA : Raisonnement maximal, 3.00-15.00 $/MTok, 200k+ tokens
+- **Mapping Modes → LLMs** : Tableau complet 12 modes (5 familles × 2 niveaux + 2 spéciaux)
+- **Critères Escalade** : 5 seuils quantitatifs
+  - Tokens : 25k (alerte), 40k (recommandation), 50k (obligatoire)
+  - Sous-tâches : >3 → escalade orchestrator-complex
+  - Fichiers : >10 → escalade mode complex
+  - Durée : >15min → checkpoint ou escalade
+  - Complexité raisonnement : Patterns avancés → escalade
+- **Patterns d'Usage** : 5 cas concrets avec LLM recommandé
+- **Configuration** : Templates JSON par provider (Anthropic, OpenAI, Google)
+- **Optimisation Budget** : Stratégies par tier LLM
+- **Monitoring** : 4 métriques critiques + dashboards
+
+**Modèles Recommandés** :
+
+| Tier | Modes | Modèle Principal | Alternatives |
+|------|-------|------------------|--------------|
+| **Flash** | Simples | Claude 3.5 Haiku | GPT-4o-mini, Gemini 2.0 Flash |
+| **SOTA** | Complex | Claude Sonnet 4 | GPT-4o, o1-preview |
+| **SOTA** | Spéciaux | Claude Sonnet 4 | GPT-4o |
+
+**Quand utiliser** :
+- ✅ Configuration initiale projet (choix LLMs)
+- ✅ Optimisation coûts (allocation tier par mode)
+- ✅ Diagnostic escalades fréquentes (seuils mal calibrés)
+- ✅ Planification budget (coût moyen par mode)
+
+**Intégration modes** :
+```markdown
+## MAPPING LLM
+Voir : [`llm-modes-mapping.md`](../specifications/llm-modes-mapping.md)
+
+### Tier Recommandé
+- Mode Simple : Flash/Mini (Claude 3.5 Haiku, GPT-4o-mini)
+- Mode Complex : SOTA (Claude Sonnet 4, GPT-4o)
+
+### Seuils Escalade
+- ⚠️ 25k tokens : Alerte précoce
+- 🔔 40k tokens : Escalade recommandée
+- 🚨 50k tokens : Escalade OBLIGATOIRE
+```
+
+**Références croisées** :
+- [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md) : Critères escalade → Mapping tiers
+- [`context-economy-patterns.md`](context-economy-patterns.md) : Optimisation tokens par tier
+- [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md) : Grounding adaptatif par tier
+
 ---
 
 ### 5. Factorisation Massive
@@ -458,16 +561,90 @@ context-economy.md  factorisation-commons.md
 | Économiser tokens | [`context-economy-patterns.md`](context-economy-patterns.md) | [`mcp-integrations-priority.md`](mcp-integrations-priority.md) |
 | Escalader/Désescalader | [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md) | [`context-economy-patterns.md`](context-economy-patterns.md) |
 | Utiliser MCPs efficacement | [`mcp-integrations-priority.md`](mcp-integrations-priority.md) | [`context-economy-patterns.md`](context-economy-patterns.md) |
+| Créer script/workflow | [`operational-best-practices.md`](operational-best-practices.md) | [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md) |
+| Organiser fichiers/rapports | [`operational-best-practices.md`](operational-best-practices.md) | [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md) |
+| Choisir modèle LLM approprié | [`llm-modes-mapping.md`](llm-modes-mapping.md) | [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md) |
+| Optimiser coûts LLM | [`llm-modes-mapping.md`](llm-modes-mapping.md) | [`context-economy-patterns.md`](context-economy-patterns.md) |
 | Créer nouveau mode | [`factorisation-commons.md`](factorisation-commons.md) | Tous les autres |
+
+#### Grounding Sémantique Multi-Niveaux
+
+- **SDDD Niveau 1-4** : [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+  - Niveau 1 (File) : Recommandation **quickfiles** (Tier 1)
+  - Niveau 3 (Conversational) : MCP **roo-state-manager** (Tier 1)
+  - Niveau 4 (Project) : MCP **github-projects** (Tier 1 - Futur)
+- **Hiérarchisation MCPs** : [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+  - Tier 1 : roo-state-manager, quickfiles, github-projects
+  - Tier 2 : win-cli (FB-06), markitdown
+  - Tier 3 : github (avec précautions)
+
+#### MCPs : Recommandations et Installation
+
+- **Stratégie MCPs** : [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+  - Décision FB-06 : win-cli privilégié
+  - Migration : git MCP → git CLI natif
+  - Roadmap github-projects (Q4 2025 - Q2 2026)
+- **Installation MCPs** : [`../../mcps/INSTALLATION.md`](../../mcps/INSTALLATION.md)
+  - win-cli : Compilation TypeScript
+  - markitdown : Installation uv (Python)
+
+#### Évolution Architecture SDDD
+
+- **Niveau 4 Grounding Projet** : [`sddd-protocol-4-niveaux.md#niveau-4`](sddd-protocol-4-niveaux.md#niveau-4)
+  - Vision : Tâches Roo ↔ Issues GitHub
+  - Roadmap github-projects : Q4 2025 - Q2 2026
+  - Phase 1 : Configuration (Q4 2025)
+  - Phase 2 : Intégration orchestrator (Q1 2026)
+  - Phase 3 : Synchronisation complète (Q2 2026)
 
 ### Par Mot-Clé
 
 - **codebase_search** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
 - **switch_mode** → [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md)
 - **new_task** → [`hierarchie-numerotee-subtasks.md`](hierarchie-numerotee-subtasks.md)
+- **scripts** → [`operational-best-practices.md`](operational-best-practices.md)
+- **nomenclature** → [`operational-best-practices.md`](operational-best-practices.md)
+- **horodatage** → [`operational-best-practices.md`](operational-best-practices.md)
 - **quickfiles** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
 - **checkpoint** → [`context-economy-patterns.md`](context-economy-patterns.md)
 - **templates** → [`factorisation-commons.md`](factorisation-commons.md)
+- **roo-state-manager** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md), [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **github-projects** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md), [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **win-cli** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **markitdown** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **File Grounding** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Semantic Grounding** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Conversational Grounding** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Project Grounding** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Niveau 1** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Niveau 2** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Niveau 3** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **Niveau 4** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **4-niveaux** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
+- **FB-06** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Tier 1** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Tier 2** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Tier 3** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **git MCP** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **git CLI natif** → [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Q4 2025** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md), [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Q1 2026** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md), [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **Q2 2026** → [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md), [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
+- **win-cli compilation** → [`mcps/INSTALLATION.md`](../../mcps/INSTALLATION.md)
+- **markitdown uv** → [`mcps/INSTALLATION.md`](../../mcps/INSTALLATION.md)
+- **Python 3.13.7** → [`mcps/INSTALLATION.md`](../../mcps/INSTALLATION.md)
+- **LLM** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **SOTA** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **Flash** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **Mini** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **tiers LLM** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **escalade tokens** → [`llm-modes-mapping.md`](llm-modes-mapping.md), [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md)
+- **mapping modes** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **budget tokens** → [`llm-modes-mapping.md`](llm-modes-mapping.md), [`context-economy-patterns.md`](context-economy-patterns.md)
+- **Claude Sonnet 4** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **Claude 3.5 Haiku** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **GPT-4o** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
+- **optimisation coûts** → [`llm-modes-mapping.md`](llm-modes-mapping.md)
 
 ---
 

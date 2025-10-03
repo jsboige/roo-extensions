@@ -1,9 +1,23 @@
 # 🔄 Mécaniques d'Escalade - Architecture Révisée v3.0
 
-**Version :** 3.0.0  
-**Date :** 01 Octobre 2025  
-**Statut :** ✅ Spécification consolidée post-feedback utilisateur  
+**Version :** 3.0.0
+**Date :** 01 Octobre 2025
+**Statut :** ✅ Spécification consolidée post-feedback utilisateur
 **Révision majeure** : Clarification définition stricte escalade vs autres mécanismes
+
+### 🔗 Lien avec Mapping LLMs
+
+Les mécanismes d'escalade sont intrinsèquement liés au **mapping LLMs → Modes** :
+
+- **[`llm-modes-mapping.md`](llm-modes-mapping.md)** : Définit les critères quantitatifs d'escalade
+  - Seuils tokens : 25k (alerte), 40k (recommandation), 50k (obligatoire)
+  - Seuils sous-tâches : >3 sous-tâches → escalade
+  - Seuils fichiers : >10 fichiers → escalade
+  - Tiers LLMs : Flash/Mini (Simple) vs SOTA (Complex)
+
+**Synergie** : Les critères d'escalade de ce document déclenchent des transitions vers des LLMs plus puissants (Flash → SOTA), avec des budgets tokens adaptés.
+
+> 💡 **Recommandation** : Lire [`llm-modes-mapping.md`](llm-modes-mapping.md) pour comprendre les implications coût/performance des escalades.
 
 ---
 

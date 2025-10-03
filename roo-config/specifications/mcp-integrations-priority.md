@@ -17,10 +17,80 @@ Les MCPs (Model Context Protocols) étendent les capacités Roo avec :
 5. **Autres MCPs** : Capacités spécialisées (web, jupyter, etc.)
 
 **Priorités d'intégration** :
-- 🥇 **Tier 1** : roo-state-manager + quickfiles (SYSTÉMATIQUE)
-- 🥈 **Tier 2** : win-cli + git (OPÉRATIONS SYSTÈME - win-cli PRIVILÉGIÉ)
-- 🥉 **Tier 3** : github-projects (future phase 2.2+)
-- 🎯 **Tier 4** : jinavigator, searxng, playwright, jupyter (cas spécifiques)
+- 🥇 **Tier 1** : MCPs Critiques (roo-state-manager, quickfiles, github-projects) - CONSERVER & PRIORISER
+- 🥈 **Tier 2** : MCPs Privilégiés (win-cli, markitdown) - CONSERVER & OPTIMISER  
+- 🥉 **Tier 3** : MCPs à Utiliser avec Précaution (github MCP) - Limites connues
+- 🎯 **Tier 4** : Outils Spécialisés (jinavigator, searxng, playwright, jupyter) - Cas spécifiques
+
+---
+## 📊 Hiérarchisation Détaillée des MCPs
+
+Cette section présente la hiérarchisation consolidée des MCPs selon leur criticité et leur rôle dans l'architecture SDDD.
+
+### Tier 1 : MCPs Critiques 🎯
+
+Ces MCPs sont **essentiels** à l'architecture SDDD et doivent être privilégiés dans tous les workflows.
+
+#### roo-state-manager
+- **Rôle** : Niveau 3 SDDD (Grounding Conversationnel)
+- **Critique pour** : Accès contexte historique tâches, décisions architecturales
+- **Statut** : ✅ Opérationnel et critique
+- **Outil principal** : `search_tasks_semantic`
+- **Référence** : [`sddd-protocol-4-niveaux.md#niveau-3`](sddd-protocol-4-niveaux.md#niveau-3)
+
+#### quickfiles
+- **Rôle** : Niveau 1 SDDD (File Grounding) - Fallback prioritaire
+- **Critique pour** : Opérations batch sur fichiers, performance supérieure
+- **Statut** : ✅ Opérationnel (binaire Rust compilé)
+- **Avantages** : Performance batch, robustesse, pas de dépendances runtime Node.js
+- **Référence** : [`sddd-protocol-4-niveaux.md#niveau-1`](sddd-protocol-4-niveaux.md#niveau-1)
+
+#### github-projects
+- **Rôle** : Niveau 4 SDDD (Project Grounding) - **FUTUR**
+- **Critique pour** : Traçabilité tâches, métriques productivité, collaboration
+- **Statut** : ⚠️ Non-opérationnel (problèmes configuration)
+- **Roadmap** : Q4 2025 - Q2 2026 (voir section dédiée ci-dessous)
+- **Référence** : [`sddd-protocol-4-niveaux.md#niveau-4`](sddd-protocol-4-niveaux.md#niveau-4)
+
+---
+
+### Tier 2 : MCPs Privilégiés ⚡
+
+Ces MCPs apportent une **valeur ajoutée significative** et sont recommandés pour des cas d'usage spécifiques.
+
+#### win-cli (Décision FB-06)
+- **Rôle** : Exécution commandes système sécurisée pour modes non-orchestrateur
+- **Privilégié pour** : Sécurité (sandbox), traçabilité (logs structurés), performance
+- **Statut** : ✅ Opérationnel (fork jsboige débridé compilé)
+- **Configuration** : Débridage validé FB-06 (restrictWorkingDirectory: false, tous opérateurs autorisés)
+- **Économie** : ~18k tokens vs execute_command natif
+- **Modes cibles** : code, debug, architect, ask (tous sauf orchestrator)
+- **Référence** : Section FB-06 ci-dessous
+
+> ⚠️ **NOTE IMPORTANTE** : L'énoncé initial Mission 3.2 mentionnait le remplacement 
+> de win-cli par commandes natives. Cette recommandation était basée sur un audit 
+> antérieur à la décision **FB-06 (02 Oct 2025)** qui a VALIDÉ win-cli débridé comme 
+> solution privilégiée. La présente intégration **PRÉSERVE** la décision FB-06 tout en 
+> documentant l'installation réussie (compilation TypeScript effectuée).
+
+#### markitdown
+- **Rôle** : Conversion documents (PDF, DOCX, etc.) vers Markdown
+- **Privilégié pour** : Traitement documents dans workflows documentation
+- **Statut** : ✅ Opérationnel (uv 0.8.22 installé, Python 3.13.7)
+- **Installation** : Documentée dans [`mcps/INSTALLATION.md#markitdown`](../../mcps/INSTALLATION.md#markitdown)
+
+---
+
+### Tier 3 : MCPs à Utiliser avec Précaution ⚠️
+
+Ces MCPs ont des limitations ou redondances avec d'autres outils.
+
+#### github (MCP)
+- **Rôle** : Opérations API GitHub simples
+- **À utiliser pour** : Requêtes API basiques uniquement
+- **À éviter pour** : Workflows complexes (préférer `gh` CLI natif)
+- **Raison** : Redondance avec `gh` CLI plus flexible et puissant
+- **Recommandation** : Conserver pour opérations atomiques simples
 
 ---
 
@@ -1076,6 +1146,179 @@ When you need to run commands:
 ---
 
 ## 📋 Matrice Décision Utilisation MCP
+## Remplacement MCPs Redondants par Outils Natifs 🔄
+
+Cette section documente les MCPs à remplacer par des outils natifs pour améliorer stabilité et performance.
+
+### git (MCP) → git CLI natif
+
+**Décision** : Remplacer le MCP `git` par des commandes `git` CLI natives dans tous les modes.
+
+**Justifications** :
+- ✅ **Stabilité** : CLI git natif plus stable et mature
+- ✅ **Performance** : Pas de couche d'abstraction MCP
+- ✅ **Flexibilité** : Accès complet à toutes les fonctionnalités git
+- ✅ **Élimination dépendance npx** : Pas de problèmes d'installation/démarrage
+
+**Migration** :
+
+| Opération MCP git | Équivalent CLI natif |
+|-------------------|---------------------|
+| `git.status()` | `pwsh -c "git status"` |
+| `git.commit(message)` | `pwsh -c "git commit -m 'message'"` |
+| `git.push()` | `pwsh -c "git push"` |
+| `git.log()` | `pwsh -c "git log --oneline -10"` |
+
+**Timeline Décommissionnement** :
+- Q4 2025 : Documenter migration dans guides modes
+- Q1 2026 : Retirer `git` MCP de configurations par défaut
+- Q2 2026 : Dépréciation complète (avertissements si utilisé)
+
+**Modes Impactés** : Tous modes (orchestrator, code, debug, architect, ask)
+
+**Note** : Le MCP `github` (différent de `git`) est **CONSERVÉ** pour opérations API simples.
+
+---
+
+### ❌ MCPs NON Concernés par Remplacement
+
+Les MCPs suivants sont **EXCLUS** de la stratégie de remplacement :
+
+#### win-cli : PRÉSERVÉ (FB-06)
+- ✅ **Décision FB-06 (02 Oct 2025)** : win-cli débridé = solution privilégiée
+- ✅ **Raison** : Sécurité (sandbox), traçabilité (logs structurés), performance
+- ✅ **Statut** : Opérationnel après compilation TypeScript
+- ⚠️ **Clarification** : Audit initial suggérait remplacement, FB-06 a INVALIDÉ cette recommandation
+
+#### markitdown : PRÉSERVÉ
+- ✅ **Raison** : Pas d'équivalent natif robuste pour conversion multi-formats
+- ✅ **Statut** : Opérationnel après installation uv (Python 3.13.7)
+
+---
+
+## Roadmap Intégration github-projects (Niveau 4 SDDD) 🎯
+
+Le MCP **github-projects** est stratégique pour le futur de l'architecture SDDD, permettant de lier les tâches Roo au projet GitHub.
+
+### Vision
+
+Chaque **tâche complexe** dans Roo sera automatiquement liée à une **issue GitHub** pour :
+- 📊 **Traçabilité** : Historique complet du travail effectué
+- 🔗 **Contexte** : Lien discussions projet ↔ code modifié
+- 📈 **Métriques** : Velocity, cycle time, productivité quantifiable
+- 🤝 **Collaboration** : Contexte partagé entre humains et agents
+
+### État Actuel (Oct 2025)
+
+⚠️ **github-projects MCP : NON-OPÉRATIONNEL**
+
+**Problèmes Identifiés** :
+- Configuration GitHub PAT incorrecte ou scopes manquants
+- Connexion repository échoue au démarrage MCP
+- Outils MCP (`create_issue`, `add_item_to_project`) inaccessibles
+
+**Action Prioritaire** : Mission dédiée résolution configuration (Q4 2025)
+
+### Roadmap 3 Phases (Q4 2025 - Q2 2026)
+
+#### Phase 1 : Configuration et Tests Unitaires (Q4 2025)
+
+**Objectifs** :
+- ✅ Résoudre problèmes configuration github-projects MCP
+- ✅ Valider connexion repository avec GitHub PAT correct
+- ✅ Tests unitaires sur tous les outils MCP disponibles
+- ✅ Documentation setup GitHub PAT (scopes requis : `repo`, `project`)
+
+**Livrables** :
+- Guide configuration PAT GitHub pour github-projects
+- Tests validation connexion automatisés
+- Documentation troubleshooting configuration
+
+**Référence** : [`sddd-protocol-4-niveaux.md#niveau-4`](sddd-protocol-4-niveaux.md#niveau-4)
+
+---
+
+#### Phase 2 : Intégration Modes architect/orchestrator (Q1 2026)
+
+**Objectifs** :
+- 🔧 Intégrer `create_issue` dans mode orchestrator
+- 🔧 Workflow automatique : Tâche complexe détectée → Création issue GitHub
+- 🔧 Intégrer `add_item_to_project` pour association project board
+- 🔧 Documentation patterns d'utilisation dans guides modes
+
+**Workflow Cible** :
+```markdown
+orchestrator (tâche complexe) 
+  → Détection critères (>10k tokens ou >3 sous-tâches)
+  → github-projects.create_issue({title, body, labels})
+  → github-projects.add_item_to_project({issue_id, project_id})
+  → Poursuite tâche avec issue liée
+```
+
+**Livrables** :
+- Intégration `create_issue` dans orchestrator (automatique)
+- Intégration `add_item_to_project` dans orchestrator
+- Documentation patterns dans `roo-modes/orchestrator/README.md`
+- Tests end-to-end workflows
+
+**Critères Déclenchement Création Issue** :
+- Tâche estimée >10k tokens de contexte
+- Orchestration avec >3 sous-tâches
+- Modifications multi-fichiers (>5 fichiers)
+- Décision architecturale majeure
+
+---
+
+#### Phase 3 : Synchronisation État Complète (Q2 2026)
+
+**Objectifs** :
+- 🔧 Intégrer `update_project_item_field` dans tous modes
+- 🔧 Synchronisation automatique : État tâche Roo ↔ Statut issue GitHub
+- 🔧 Workflow : `attempt_completion` → Fermeture automatique issue
+- 🔧 Métriques et rapports d'activité
+
+**Workflow Cible** :
+```markdown
+Mode spécialisé (ex: code)
+  → Travail sur tâche (issue liée)
+  → Changements d'état synchronisés :
+     - "In Progress" quand mode démarre
+     - "In Review" si modifications substantielles
+     - "Done" à attempt_completion
+
+  → Fermeture issue + commentaire synthèse
+```
+
+**Livrables** :
+- Synchronisation état dans tous modes (code, debug, architect, ask)
+- Hook `attempt_completion` → Fermeture issue automatique
+- Dashboard métriques productivité
+- Rapports hebdomadaires automatisés
+
+**Métriques Collectées** :
+- Velocity (issues complétées / semaine)
+- Cycle time (durée moyenne issue)
+- Temps par type de tâche (refactoring, feature, bugfix)
+- Ratio tâches avec/sans issues (compliance)
+
+### Bénéfices Attendus Post-Q2 2026
+
+- 🎯 **Traçabilité** : 100% tâches complexes liées à issues
+- 📊 **Métriques** : Données productivité quantifiables
+- 🤝 **Collaboration** : Contexte partagé équipe
+- 🔍 **Audit** : Historique décisions projet complet
+- 🚀 **Productivité** : Évite duplication (recherche issues existantes)
+
+### Prochaines Actions
+
+1. **Immédiat (Oct 2025)** : Mission dédiée résolution configuration github-projects
+2. **Nov 2025** : Tests unitaires outils MCP validés
+3. **Déc 2025** : Documentation setup PAT finalisée
+4. **Jan 2026** : Début intégration orchestrator
+
+**Référence Complète** : [`sddd-protocol-4-niveaux.md#niveau-4`](sddd-protocol-4-niveaux.md#niveau-4)
+
+---
 
 ### Flowchart Sélection Outil
 

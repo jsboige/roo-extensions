@@ -6,6 +6,20 @@
 **Objectif :** Maximiser efficacité utilisation tokens ET qualité code
 **Révision :** Principe Anti-Angles-Morts + Délégation Prioritaire
 
+### 🔗 Lien avec Mapping LLMs
+
+Les patterns d'économie contexte sont **adaptés par tier LLM** :
+
+- **[`llm-modes-mapping.md`](llm-modes-mapping.md)** : Définit l'optimisation budget par tier
+  - **Modes Simples (Flash/Mini)** : Grounding minimal, délégation prioritaire
+  - **Modes Complex (SOTA)** : Grounding complet 4-niveaux SDDD
+  - **Seuils tokens** : 50k (Simple) vs 100k (Complex)
+  - **Checkpoint 50k** : OBLIGATOIRE modes Complex (prévention dérive)
+
+**Synergie** : Les modes Flash/Mini ont des budgets tokens limités (50k-200k), nécessitant délégation agressive. Les modes SOTA ont des budgets étendus (200k+), permettant grounding exhaustif.
+
+> 💡 **Recommandation** : Lire [`llm-modes-mapping.md`](llm-modes-mapping.md) Section 6 pour stratégies optimisation par tier.
+
 ## 🚨 Changements Majeurs v2.0.0
 
 Cette version introduit un changement **CRITIQUE** de philosophie :

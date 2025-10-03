@@ -1,10 +1,36 @@
 # 📘 Protocole SDDD 4-Niveaux - Semantic Documentation Driven Design
 
-**Version :** 2.0.0 🔴 **RÉVISION MAJEURE FB-05**  
-**Date :** 02 Octobre 2025  
-**Architecture :** 2-Niveaux (Simple/Complex)  
-**Statut :** Spécification consolidée post-feedback grounding conversationnel  
+**Version :** 2.0.0 🔴 **RÉVISION MAJEURE FB-05**
+**Date :** 02 Octobre 2025
+**Architecture :** 2-Niveaux (Simple/Complex)
+**Statut :** Spécification consolidée post-feedback grounding conversationnel
 **Révision :** Clarification checkpoint 50k = grounding conversationnel OBLIGATOIRE
+
+### 🔗 Lien avec Mapping LLMs
+
+Le protocole SDDD est **adapté par tier LLM** selon les capacités et budgets :
+
+- **[`llm-modes-mapping.md`](llm-modes-mapping.md)** : Définit le grounding adaptatif
+  - **Modes Simples (Flash/Mini)** : Niveaux 1-2 (Fichier + Sémantique) prioritaires
+  - **Modes Complex (SOTA)** : Niveaux 1-4 complets (Fichier + Sémantique + Conversationnel + Projet)
+  - **Checkpoint 50k** : OBLIGATOIRE modes SOTA (Niveau 3 Conversationnel)
+  - **Budget tokens** : Flash/Mini (50k-100k) vs SOTA (200k+)
+
+**Synergie** : Les modes Flash/Mini ont des fenêtres contexte limitées, nécessitant un grounding ciblé (Niveaux 1-2). Les modes SOTA bénéficient du protocole complet 4-niveaux pour raisonnement profond.
+
+> 💡 **Recommandation** : Lire [`llm-modes-mapping.md`](llm-modes-mapping.md) Section 6 pour optimisation grounding par tier.
+
+### 🔗 Lien avec Best Practices Opérationnelles
+
+Le protocole SDDD est **renforcé** par les best practices opérationnelles qui facilitent son application :
+
+- **[`operational-best-practices.md`](operational-best-practices.md)** : Règles opérationnelles critiques
+  - SPEC 1 : Scripts vs Commandes → Documentation et traçabilité automatiques
+  - SPEC 2 : Nomenclature Stricte → Découvrabilité sémantique maximale
+
+**Synergie** : La nomenclature stricte (horodatage, noms descriptifs) rend les documents SDDD immédiatement découvrables via recherche sémantique. Les scripts documentent automatiquement les actions, facilitant grounding conversationnel.
+
+> 💡 **Recommandation** : Lire [`operational-best-practices.md`](operational-best-practices.md) en complément de ce protocole.
 
 ---
 
@@ -70,11 +96,11 @@ Le protocole SDDD (Semantic Documentation Driven Design) établit une méthodolo
 └─────────────────────────────────────────────────────────────┘
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
-│ NIVEAU 4 : GROUNDING GITHUB (Documentation externe)        │
-│ • github-projects-mcp : Issues, PR, Projects               │
-│ • Synchronisation avec roadmap et équipe                   │
-│ • Traçabilité complète (future implémentation)             │
-│ Phase : GitHub Projects (Phase 4)                          │
+│ NIVEAU 4 : GROUNDING PROJET (Project Grounding)            │
+│ • github-projects : Issues, PRs, Project Boards            │
+│ • Synchronisation workspace ↔ GitHub Projects              │
+│ • Traçabilité complète + Métriques productivité            │
+│ Phase : GitHub Projects (Roadmap Q4 2025 - Q2 2026)       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -126,6 +152,33 @@ Si `codebase_search` ne retourne pas de résultats pertinents ou pour exploratio
 - Extraction structures markdown automatique
 - Recherche regex multi-fichiers performante
 
+#### 🔧 Recommandation MCP : quickfiles (Tier 1)
+
+Le MCP **quickfiles** est recommandé comme fallback prioritaire pour les opérations de lecture de fichiers en mode batch. Implémenté en Rust, il offre :
+
+- **Performance supérieure** : Traitement batch optimisé vs outils natifs séquentiels
+- **Robustesse** : Binaire compilé, pas de dépendances runtime Node.js
+- **Simplicité** : API minimaliste pour opérations courantes ([`read_multiple_files`](../../mcps/INSTALLATION.md#quickfiles), [`list_directory_contents`](../../mcps/INSTALLATION.md#quickfiles))
+
+**Workflow recommandé** :
+1. **Lecture fichier unique** : Utiliser [`read_file`](../../mcps/INSTALLATION.md#read_file) natif (économie invocation MCP)
+2. **Batch (≥3 fichiers)** : Utiliser [`quickfiles.read_multiple_files`](../../mcps/INSTALLATION.md#quickfiles) (gain performance ~60%)
+3. **Exploration répertoire** : Utiliser [`quickfiles.list_directory_contents`](../../mcps/INSTALLATION.md#quickfiles) (récursivité optimisée)
+
+**Exemple d'usage** :
+```markdown
+# Natif (fichier unique) - Économie contexte
+read_file("src/app.ts")
+
+# quickfiles (batch) - Performance batch
+quickfiles.read_multiple_files({
+  "paths": ["src/app.ts", "src/utils.ts", "src/config.ts"],
+  "max_lines_per_file": 500
+})
+```
+
+**Référence** : [`mcps/INSTALLATION.md#quickfiles`](../../mcps/INSTALLATION.md#quickfiles)
+
 ### 1.3 Grounding Conversationnel Initial
 
 Pour tâches nécessitant contexte historique (reprise de session, analyse décisions passées) :
@@ -151,6 +204,52 @@ Pour tâches nécessitant contexte historique (reprise de session, analyse déci
 - Coordination avec travail mode précédent
 
 **Différence avec Checkpoint 50k** : Le grounding conversationnel initial est **optionnel** (selon besoin contexte historique), alors que le checkpoint 50k est **OBLIGATOIRE** (prévention dérive cognitive).
+
+#### 🎯 MCP Critique : roo-state-manager (Tier 1)
+
+Le MCP **roo-state-manager** est l'outil central du Niveau 3, permettant d'accéder au contexte historique des tâches et conversations précédentes.
+
+**Workflow d'Utilisation** :
+
+1. **Quand invoquer** :
+   - Tâches complexes nécessitant contexte historique
+   - Références à des décisions/implémentations antérieures
+   - Éviter duplication de travail déjà effectué
+   - Comprendre l'évolution d'un projet sur le temps
+
+2. **Outil principal** : [`search_tasks_semantic`](../../analysis-reports/architecture-consolidee-roo-state-manager.md#search_tasks_semantic)
+   - Recherche sémantique dans l'historique des tâches
+   - Trouve contexte pertinent même sans mots-clés exacts
+   - Renvoie extraits avec métadonnées (date, mode, résultat)
+
+3. **Séquence de grounding recommandée** :
+   ```
+   Niveau 1 (File) → Niveau 2 (Semantic) → Niveau 3 (Conversational) → Implémentation
+   ```
+
+**Exemple de workflow** :
+```markdown
+# Scénario : Modifier un système d'authentification existant
+
+1. Niveau 1 : read_file("src/auth/login.ts") - État actuel du code
+2. Niveau 2 : codebase_search("authentication JWT token validation") - Implémentations liées
+3. Niveau 3 : roo-state-manager.search_tasks_semantic("authentication refactoring decisions") - Décisions historiques
+4. Synthèse : Comprendre POURQUOI le système est conçu ainsi avant modification
+```
+
+**Bénéfices** :
+- 🎯 Évite regression (comprendre décisions passées)
+- 🚀 Accélère démarrage (contexte immédiat)
+- 🔒 Cohérence (respecter architecture établie)
+- 💡 Apprentissage (patterns validés disponibles)
+
+**Cas d'usage typiques** :
+- Reprendre tâche après interruption
+- Nouveau mode travaillant sur projet existant
+- Résolution conflits (comprendre origine divergence)
+- Documentation décisions architecturales
+
+**Référence** : [`analysis-reports/architecture-consolidee-roo-state-manager.md`](../../analysis-reports/architecture-consolidee-roo-state-manager.md)
 
 ### 1.4 Exception : Orchestrateurs - Grounding par Délégation
 
@@ -899,37 +998,135 @@ Créer document récapitulatif si tâche complexe :
 
 ---
 
-## 🎯 Phase 4 : GitHub Projects (Future)
+## 🎯 Niveau 4 : Grounding Projet (Project Grounding)
 
-### 4.1 Création Issues/PR Systématique
+**Status** : ⚠️ **EN DÉVELOPPEMENT** - Roadmap Q4 2025 - Q2 2026
 
-**[À IMPLÉMENTER PHASE 2.2+]**
+Le Niveau 4 étend le grounding au-delà du workspace local pour intégrer le contexte du **projet GitHub** (issues, PRs, project boards). Il permet de synchroniser le travail des modes Roo avec la gestion de projet externe.
 
-Pour toute modification significative :
-1. Créer issue GitHub avec description détaillée
-2. Lier PR au projet GitHub correspondant
-3. Documenter dans commit messages
+### Vision
 
-```xml
-<use_mcp_tool>
-<server_name>github-projects-mcp</server_name>
-<tool_name>create_issue</tool_name>
-<arguments>
-{
-  "repositoryName": "owner/repo",
-  "title": "Feature: [Description concise]",
-  "body": "## Contexte\n[...]\n## Solution\n[...]",
-  "projectId": "project_id"
-}
-</arguments>
-</use_mcp_tool>
+Chaque tâche complexe dans Roo doit être **liée à une issue GitHub** pour :
+- 📊 Traçabilité complète du travail effectué
+- 🔗 Lien entre code et discussions projet
+- 📈 Métriques de productivité quantifiables
+- 🤝 Collaboration avec équipe (humains + agents)
+
+### 🔧 MCP Critique : github-projects (Tier 1 - Futur)
+
+Le MCP **github-projects** (actuellement non-opérationnel - problèmes configuration) sera l'outil central du Niveau 4.
+
+**Outils Clés** :
+1. [`create_issue`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Créer issue GitHub depuis tâche Roo
+2. [`add_item_to_project`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Associer issue à project board
+3. [`update_project_item_field`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Synchroniser état (todo → in_progress → done)
+4. [`search_issues`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Retrouver issues liées au contexte actuel
+
+### 📅 Roadmap Intégration
+
+#### Q4 2025 : Configuration et Tests Unitaires
+- ✅ Résoudre problèmes configuration github-projects MCP
+- ✅ Tests unitaires outils MCP
+- ✅ Documentation setup GitHub PAT avec scopes requis
+- ✅ Validation connexion repository
+
+#### Q1 2026 : Intégration Modes architect/orchestrator
+- 🔧 Intégrer `create_issue` dans mode orchestrator
+- 🔧 Workflow automatique : Tâche complexe → Issue GitHub
+- 🔧 Intégrer `add_item_to_project` pour association project board
+- 🔧 Documentation patterns d'utilisation
+
+#### Q2 2026 : Synchronisation État Complète
+- 🔧 Intégrer `update_project_item_field` dans tous modes
+- 🔧 Synchronisation automatique état tâche ↔ issue
+- 🔧 Workflow : `attempt_completion` → Fermeture issue
+- 🔧 Métriques et rapports d'activité
+
+### 🔄 Workflow Futur (Post-Q2 2026)
+
+```markdown
+# Scénario : Tâche complexe de refactoring
+
+1. **Niveau 1-3** : Grounding local/conversationnel (comme actuellement)
+
+2. **Niveau 4 - Création Issue** :
+   ```xml
+   <use_mcp_tool>
+   <server_name>github-projects</server_name>
+   <tool_name>create_issue</tool_name>
+   <arguments>
+   {
+     "repositoryName": "owner/roo-extensions",
+     "title": "Refactor authentication system",
+     "body": "## Contexte\n[synthèse grounding Niv 1-3]\n\n## Objectif\n...",
+     "labels": ["refactoring", "authentication"]
+   }
+   </arguments>
+   </use_mcp_tool>
+   ```
+
+3. **Association Projet** :
+   ```xml
+   <use_mcp_tool>
+   <server_name>github-projects</server_name>
+   <tool_name>add_item_to_project</tool_name>
+   <arguments>
+   {
+     "issue_id": "<créé précédemment>",
+     "project_id": "roo-extensions-roadmap"
+   }
+   </arguments>
+   </use_mcp_tool>
+   ```
+
+4. **Travail Mode Spécialisé** :
+   - Mode code effectue refactoring
+   - État synchronisé : "In Progress"
+
+5. **Completion et Synchronisation** :
+   ```xml
+   <use_mcp_tool>
+   <server_name>github-projects</server_name>
+   <tool_name>update_project_item_field</tool_name>
+   <arguments>
+   {
+     "item_id": "<issue>",
+     "field_id": "Status",
+     "value": "Done"
+   }
+   </arguments>
+   </use_mcp_tool>
+   ```
 ```
 
-### 4.2 Synchronisation Roadmap
+### 📋 Obligation Future (Post-Q2 2026)
 
-- Mise à jour statuts projets GitHub
-- Traçabilité complète modifications
-- Collaboration équipe facilitée
+**Critères déclenchement création issue** :
+- Tâche estimée >10k tokens de contexte
+- Orchestration avec >3 sous-tâches
+- Modifications multi-fichiers (>5 fichiers)
+- Décision architecturale majeure
+
+**Exceptions** :
+- Questions rapides (mode ask)
+- Debug ponctuel
+- Tâches atomiques (<5 min estimé)
+
+### ✨ Bénéfices Attendus
+
+- 🎯 **Traçabilité** : Chaque modification code liée à issue
+- 📊 **Métriques** : Velocity, cycle time, temps par tâche
+- 🤝 **Collaboration** : Contexte partagé humains/agents
+- 🔍 **Audit** : Historique complet décisions projet
+- 🚀 **Productivité** : Pas de duplication travail (recherche issues existantes d'abord)
+
+### ⚠️ État Actuel (Octobre 2025)
+
+**github-projects MCP non-opérationnel** - Problèmes configuration à résoudre
+
+**Prochaine action** : Mission dédiée résolution configuration github-projects (Q4 2025)
+
+**Référence** : [`roo-config/specifications/mcp-integrations-priority.md#github-projects`](mcp-integrations-priority.md#github-projects)
 
 ---
 
