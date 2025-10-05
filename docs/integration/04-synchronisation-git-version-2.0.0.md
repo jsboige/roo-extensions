@@ -194,44 +194,146 @@
 
 ## Commit Documentation d'Architecture
 
-_À compléter après commit des fichiers de Phase 8_
-
 ### Hash du Commit
-[À générer]
+**0c826cc** - `docs(roosync): Phase 8 - Architecture d'intégration MCP roo-state-manager`
 
 ### Fichiers Commités
 1. docs/integration/01-grounding-semantique-roo-state-manager.md (682 lignes)
 2. docs/integration/02-points-integration-roosync.md (540 lignes)
 3. docs/integration/03-architecture-integration-roosync.md (762 lignes)
-4. docs/integration/RAPPORT-MISSION-INTEGRATION-ROOSYNC.md (549 lignes)
+4. docs/integration/04-synchronisation-git-version-2.0.0.md (ce document)
+5. docs/integration/RAPPORT-MISSION-INTEGRATION-ROOSYNC.md (549 lignes)
 
-**Total :** 2,533 lignes de documentation technique
+**Total :** 4,803 insertions (5 fichiers créés)
 
-### Message de Commit
-[À copier après création]
+### Message de Commit (Complet)
+
+```
+docs(roosync): Phase 8 - Architecture d'intégration MCP roo-state-manager
+
+CONTEXTE:
+- Analyse complète de roo-state-manager (32 outils, 7 services)
+- Conception détaillée de l'intégration RooSync
+- 8 nouveaux outils MCP spécifiés (schemas + handlers)
+- Architecture 5 couches documentée
+
+LIVRABLES (2,533 lignes):
+1. Grounding sémantique roo-state-manager (682 lignes)
+   - 4 recherches sémantiques documentées
+   - Architecture actuelle analysée
+   - 5 opportunités d'intégration identifiées
+
+2. Points d'intégration RooSync (540 lignes)
+   - 5 variables .env spécifiées
+   - 8 outils MCP conçus avec schemas complets
+   - 4 flux de données avec diagrammes Mermaid
+   - Checklist d'implémentation (40+ items)
+
+3. Architecture d'intégration (762 lignes)
+   - Architecture 5 couches détaillée
+   - 3 flux de données avec diagrammes séquence
+   - Gestion d'erreurs 4 niveaux
+   - Patterns de conception (Singleton, Strategy, Observer)
+   - Plan de déploiement 5 phases
+
+4. Rapport de mission (549 lignes)
+   - Validation méthodologie SDDD complète
+   - Synthèse stratégique pour orchestrateur
+   - Roadmap d'implémentation détaillée
+
+OUTILS MCP À IMPLÉMENTER:
+- roosync_get_status
+- roosync_compare_config
+- roosync_list_diffs
+- roosync_get_decision
+- roosync_approve_decision
+- roosync_reject_decision
+- roosync_apply_decision
+- roosync_rollback_decision
+
+IMPACT:
+- Vision: roo-state-manager devient Tour de Contrôle Unifiée
+- Principe: Single Entry Point, Multiple Domains
+- Estimation: 21-30 heures d'implémentation
+- Prêt pour Phase 8 Tâches 33-41
+
+Refs: Phase 8, Tâches 30-31
+```
+
+### Vérification Git
+```bash
+git log --oneline -1
+# 0c826cc (HEAD -> main) docs(roosync): Phase 8 - Architecture d'intégration MCP...
+```
 
 ---
 
 ## Mise à Jour de Version v2.0.0
 
-_À compléter après modification des fichiers de version_
-
 ### Fichiers Modifiés
-1. RooSync/.config/sync-config.json
-2. RooSync/README.md
-3. RooSync/CHANGELOG.md (créé/mis à jour)
-4. docs/integration/04-synchronisation-git-version-2.0.0.md (ce fichier)
+
+**1. RooSync/.config/sync-config.json**
+```json
+{
+  "version": "2.0.0",  // ← Changé de "1.0.0"
+  "sharedStatePath": "${ROO_HOME}/.state"
+}
+```
+
+**2. RooSync/CHANGELOG.md** ✨ **CRÉÉ** (387 lignes)
+- Section [2.0.0] complète avec breaking changes
+- Section [1.0.0] documentée (historique Phase 1-7)
+- Guide de migration v1.x → v2.0
+- Liens vers documentation d'intégration
+
+**3. RooSync/README.md** (section v2.0.0 ajoutée)
+- Notice breaking change en haut du fichier
+- Tableau des 8 outils MCP
+- Liens vers documentation et migration
+- Badge de version (si applicable)
+
+**4. docs/integration/04-synchronisation-git-version-2.0.0.md** (ce document)
 
 ### Justification v2.0.0 (Major)
-- **MAJOR (2) :** Breaking changes (accès via MCP obligatoire)
-- **MINOR (0) :** Pas de nouvelles fonctionnalités mineures à ce stade
-- **PATCH (0) :** Version initiale de la v2
 
-### Semantic Versioning Appliqué
-Conformément à https://semver.org/ :
-- Version 2.0.0 indique une incompatibilité avec v1.x
-- Migration requise pour les utilisateurs existants
-- API publique modifiée (PowerShell → MCP)
+**Conformément à Semantic Versioning (https://semver.org/) :**
+
+- **MAJOR version 2** : Changements incompatibles de l'API publique
+  - Méthode d'accès modifiée (PowerShell direct → MCP tools)
+  - Configuration centralisée (local → .env roo-state-manager)
+  - Interface d'intégration différente (stdout parsing → JSON MCP)
+
+- **MINOR version 0** : Aucune fonctionnalité mineure rétrocompatible ajoutée à ce stade
+  - Les 8 outils MCP sont des fonctionnalités majeures (breaking)
+
+- **PATCH version 0** : Version initiale de la branche 2.x
+  - Pas de corrections de bugs encore sur cette branche
+
+### Semantic Versioning - Justification Détaillée
+
+**Pourquoi MAJOR et pas MINOR ?**
+
+Le changement satisfait les critères de MAJOR version selon SemVer :
+
+1. **Breaking Change Clair**
+   - Code existant utilisant scripts PowerShell directs ne fonctionnera pas sans modification
+   - Variables d'environnement requises dans nouveau fichier .env
+   - Format de réponse différent (stdout vs JSON MCP)
+
+2. **Migration Nécessaire**
+   - Tous les utilisateurs doivent mettre à jour leur intégration
+   - Guide de migration fourni dans CHANGELOG
+   - Pas de rétrocompatibilité possible
+
+3. **Nouvelle Architecture Fondamentale**
+   - RooSync devient un domaine de roo-state-manager
+   - Single Entry Point vs accès direct
+   - Patterns de conception différents
+
+**Impact Utilisateurs :**
+- ⚠️ Scripts existants : Doivent migrer vers MCP tools
+- ⚠️ Configuration : Doit être transférée vers .env
+- ⚠️ Intégrations : Doivent utiliser nouvelle interface MCP
 
 ---
 
