@@ -4,6 +4,44 @@
 
 RooSync (anciennement RUSH-SYNC) est un projet autonome conçu pour synchroniser l'environnement Roo en se basant sur des fichiers de configuration sources de vérité. Il est découplé du reste de l'environnement pour assurer sa portabilité.
 
+## 🚀 Version 2.0.0 - Intégration MCP
+
+**Date de Release :** 2025-10-04
+
+### Nouveautés Majeures
+
+RooSync v2.0.0 introduit une **intégration complète avec le serveur MCP roo-state-manager**, transformant RooSync en un domaine fonctionnel à part entière de l'écosystème Roo.
+
+#### 🎯 Breaking Change
+
+**⚠️ ATTENTION :** La v2.0.0 introduit un changement incompatible avec la v1.x
+
+- **Accès recommandé :** Via les 8 outils MCP de roo-state-manager
+- **Accès direct PowerShell :** Toujours possible mais découragé
+
+#### ✨ 8 Nouveaux Outils MCP
+
+| Outil | Description |
+|-------|-------------|
+| `roosync_get_status` | Consultation état synchronisation |
+| `roosync_compare_config` | Comparaison configurations |
+| `roosync_list_diffs` | Liste des divergences |
+| `roosync_get_decision` | Récupération décision |
+| `roosync_approve_decision` | Approbation décision |
+| `roosync_reject_decision` | Rejet décision |
+| `roosync_apply_decision` | Application décision |
+| `roosync_rollback_decision` | Rollback décision |
+
+#### 📚 Documentation
+
+- **Architecture détaillée :** [`docs/integration/03-architecture-integration-roosync.md`](../docs/integration/03-architecture-integration-roosync.md)
+- **CHANGELOG complet :** [`CHANGELOG.md`](./CHANGELOG.md)
+- **Guide système :** [`docs/SYSTEM-OVERVIEW.md`](./docs/SYSTEM-OVERVIEW.md)
+
+#### 🔗 Migration v1.x → v2.0
+
+Consultez le [guide de migration](./CHANGELOG.md#-guide-de-migration-v1x--v20) dans le CHANGELOG.
+
 ---
 
 ## 📋 Table des Matières
