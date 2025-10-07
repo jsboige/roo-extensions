@@ -58,6 +58,16 @@ function Build-StagingDirectory {
         Copy-Item -Path "$($dir.FullName)\*" -Destination $stagingDir -Recurse -Force -ErrorAction Stop
     }
     
+    # Copier webview-ui explicitement
+    $webviewUiBuildPath = Join-Path $projectRoot "src\webview-ui\build"
+    if (Test-Path $webviewUiBuildPath) {
+        $webviewUiTargetPath = Join-Path $stagingDir "webview-ui"
+        Write-Host "  Copie: $webviewUiBuildPath (webview-ui)" -ForegroundColor Gray
+        Copy-Item -Path $webviewUiBuildPath -Destination $webviewUiTargetPath -Recurse -Force -ErrorAction Stop
+    } else {
+        Write-Host "⚠️  Webview-ui build non trouvé à: $webviewUiBuildPath" -ForegroundColor Yellow
+    }
+    
     # Vérifier contenu
     $fileCount = (Get-ChildItem $stagingDir -Recurse -File).Count
     Write-Host "✅ $fileCount fichiers agrégés" -ForegroundColor Green

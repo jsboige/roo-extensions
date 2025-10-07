@@ -322,4 +322,149 @@ Frontend (smartPresetConfigs.ts) ← Duplication ❌
 - Provider par défaut = "native" (pas "smart")
 
 **1 script utilitaire** :
+
+---
+
+## 🚨 PROBLÈME CRITIQUE DE DÉPLOIEMENT RÉSOLU
+
+**Date** : 2025-10-07 22:00 (après premier déploiement)  
+**Problème** : Les corrections UI n'étaient pas visibles après redémarrage VSCode
+
+### 🔍 Diagnostic (Méthodologie SDDD)
+
+#### Phase 1: Grounding Sémantique Initial
+
+**Recherches effectuées** :
+1. `"déploiement webview-ui build robocopy extensions vscode"` 
+   - Découverte: [`webview-ui/turbo.json`](../../webview-ui/turbo.json:5) définit `outputs: ["../src/webview-ui/**"]`
+   - Découverte: [`webview-ui/src/vite-plugins/sourcemapPlugin.ts`](../../webview-ui/src/vite-plugins/sourcemapPlugin.ts:27) confirme le build dans `../src/webview-ui/build`
+
+2. `"context-condensation pr-tracking déploiement UI fixes"`
+   - Accès au document [`021-ui-fixes-summary.md`](021-ui-fixes-summary.md)
+   - Constat: Build + déploiement effectués, MAIS UI non mise à jour
+
+#### Phase 2: Analyse des Scripts
+
+**Script analysé** : [`deploy-standalone.ps1`](../../../roo-code-customization/deploy-standalone.ps1:46-59)
+
+**Problème identifié** (ligne 48) :
+```powershell
+$distDirs = Get-ChildItem -Path $projectRoot -Recurse -Directory -Filter "dist" ...
+```
+
+❌ **Le script ne cherchait QUE les répertoires nommés `dist`**  
+❌ **Le webview-ui se build dans `src/webview-ui/build` (pas `dist`)**  
+❌ **Résultat: webview-ui jamais déployé!**
+
+**Preuve du problème** :
+- Avant correction: **151 fichiers** déployés
+- `Test-Path "...\dist\webview-ui"` = **False**
+- Répertoires copiés:
+  - ✅ `packages/build/dist` (backend)
+  - ✅ `packages/types/dist` (types)
+  - ✅ `src/dist` (backend)
+  - ❌ `src/webview-ui/build` (MANQUANT!)
+
+### ✅ Solution Implémentée
+
+**Fichier modifié** : [`deploy-standalone.ps1`](../../../roo-code-customization/deploy-standalone.ps1:60-69)
+
+**Ajout après la ligne 59** (copie des répertoires `dist`) :
+```powershell
+# Copier webview-ui explicitement
+$webviewUiBuildPath = Join-Path $projectRoot "src\webview-ui\build"
+if (Test-Path $webviewUiBuildPath) {
+    $webviewUiTargetPath = Join-Path $stagingDir "webview-ui"
+    Write-Host "  Copie: $webviewUiBuildPath (webview-ui)" -ForegroundColor Gray
+    Copy-Item -Path $webviewUiBuildPath -Destination $webviewUiTargetPath -Recurse -Force -ErrorAction Stop
+} else {
+    Write-Host "⚠️  Webview-ui build non trouvé à: $webviewUiBuildPath" -ForegroundColor Yellow
+}
+```
+
+### 📊 Résultats de la Correction
+
+**Après redéploiement** :
+- ✅ **783 fichiers** déployés (vs 151 avant)
+- ✅ `Test-Path "...\dist\webview-ui"` = **True**
+- ✅ Message de confirmation: `"Copie: c:\dev\roo-code\src\webview-ui\build (webview-ui)"`
+- ✅ Contenu vérifié:
+  ```
+  dist\webview-ui\
+    ├── assets\       (modifié 07/10/2025 21:46)
+    ├── index.html    (modifié 07/10/2025 21:46)
+    └── sourcemap-manifest.json
+  ```
+
+### 🎯 Validation SDDD
+
+**Checkpoint #1 - Cohérence architecturale** :
+
+Recherche sémantique de validation:
+```
+"webview-ui build déploiement structure fichiers"
+```
+
+Résultats confirmant la solution:
+- ✅ [`webview-ui/turbo.json`](../../webview-ui/turbo.json:5): `"outputs": ["../src/webview-ui/**"]`
+- ✅ [`sourcemapPlugin.ts`](../../webview-ui/src/vite-plugins/sourcemapPlugin.ts:27): `outDir = "../src/webview-ui/build"`
+- ✅ [`package.json`](../../webview-ui/package.json:15): Clean command confirme la structure
+
+**Conclusion** : La solution est architecturalement correcte et alignée avec la structure du projet.
+
+### 🔧 Architecture de Déploiement Corrigée
+
+**Avant** (incorrect) :
+```
+Script deploy-standalone.ps1
+  ↓ Cherche uniquement: **/dist/
+  ↓ Trouve: packages/build/dist, packages/types/dist, src/dist
+  ↓ Copie vers: staging → extension
+  ❌ Webview-UI jamais copié!
+```
+
+**Après** (correct) :
+```
+Script deploy-standalone.ps1
+  ↓ Cherche: **/dist/ + webview-ui/build explicitement
+  ↓ Trouve: 
+     - packages/build/dist
+     - packages/types/dist  
+     - src/dist
+     + src/webview-ui/build ✨ (ajouté)
+  ↓ Copie vers: staging → extension
+  ✅ Webview-UI correctement déployé!
+```
+
+### 📝 Leçons Apprises (Pour Futurs Déploiements)
+
+1. **Vérification Post-Déploiement Obligatoire** :
+   ```powershell
+   Test-Path "$extensionPath\dist\webview-ui"
+   ```
+
+2. **Comptage de Fichiers** :
+   - Backend seul: ~151 fichiers
+   - Backend + Webview-UI: ~783 fichiers
+   - Écart significatif = indicateur de problème
+
+3. **Structure Non-Uniforme** :
+   - Backend: build dans `dist/`
+   - Frontend: build dans `build/`
+   - ⚠️ Nécessite gestion explicite!
+
+4. **SDDD Saving The Day** :
+   - Grounding sémantique = diagnostic rapide
+   - Recherche documentée = solution fiable
+   - Validation sémantique = cohérence assurée
+
+### ⚠️ Action Requise Utilisateur
+
+**IMPORTANT** : Pour que les corrections UI soient visibles:
+1. ✅ Build effectué (`npm run build` dans webview-ui)
+2. ✅ Extension buildée (`pnpm run bundle` dans src)
+3. ✅ Déploiement corrigé et effectué
+4. 🔄 **REDÉMARRER VSCODE** pour charger la nouvelle extension
+
+---
 - Script de build/deploy avec option skip-build
