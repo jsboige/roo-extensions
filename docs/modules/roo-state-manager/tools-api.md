@@ -90,7 +90,20 @@ Fournit une vue arborescente et condensée des conversations pour une analyse ra
     - `'single'`: Affiche uniquement la tâche spécifiée.
     - `'chain'`: Affiche la tâche et toute sa chaîne de tâches parentes.
     - `'cluster'`: Affiche la tâche, son parent direct, et tous les enfants du parent (les "frères et sœurs" de la tâche).
+- `detail_level` (string, optionnel, défaut: 'skeleton') : Niveau de détail d'affichage.
+    - `'skeleton'`: Vue condensée avec métadonnées des outils seulement.
+    - `'summary'`: Vue intermédiaire avec résumés.
+    - `'full'`: Vue complète avec tous les détails.
 - `truncate` (number, optionnel, défaut: 5) : Nombre de lignes à conserver au début et à la fin de chaque message pour le condenser. Mettre à `0` pour désactiver la troncature.
+- `max_output_length` (number, optionnel, défaut: 300000) : Limite maximale en caractères avant troncature globale.
+- `smart_truncation` (boolean, optionnel, défaut: false) : **[NOUVEAU]** Active la troncature intelligente avec algorithme de gradient.
+    - Préserve le contexte global (début) et récent (fin)
+    - Tronque intelligemment le milieu selon un gradient de préservation
+    - Insère des placeholders explicatifs ("--- TRUNCATED ---")
+- `smart_truncation_config` (object, optionnel) : Configuration personnalisée pour la troncature intelligente.
+    - `gradientStrength` (number, défaut: 2.0) : Force du gradient de préservation.
+    - `minPreservationRate` (number, défaut: 0.9) : Taux minimal de préservation pour les tâches importantes.
+    - `maxTruncationRate` (number, défaut: 0.7) : Taux maximal de troncature par tâche.
 - `truncation_pattern` (object, optionnel) : Un objet pour une troncature asymétrique.
    - `head` (number) : Nombre de caractères à conserver au début.
    - `tail` (number) : Nombre de caractères à conserver à la fin.
@@ -99,10 +112,13 @@ Fournit une vue arborescente et condensée des conversations pour une analyse ra
    - `'cluster_debug'`: `{ view_mode: 'cluster', truncate: 5 }` - Utile pour déboguer les relations entre tâches sœurs.
    - `'full_audit'`: `{ view_mode: 'chain', truncate: 0 }` - Affiche tout le contenu, sans aucune troncature.
    - `'content_focus'`: `{ view_mode: 'chain', truncate: 15 }` - Met l'accent sur le contenu tout en gardant une vue concise.
+   - `'smart_overview'`: `{ smart_truncation: true, detail_level: 'skeleton' }` - **[NOUVEAU]** Utilise l'algorithme intelligent pour une vue optimisée.
 
 ### Exemple de retour
 
 L'outil retourne d'abord un bloc de statistiques sur l'arbre de conversation analysé, puis l'arbre lui-même.
+
+#### Exemple standard (`smart_truncation: false`)
 
 ```
 Conversation Tree Metrics
@@ -125,7 +141,54 @@ Conversation Tree (Mode: chain)
    | Rapport de Mission[...]n est terminée avec succès...
 ```
 
-L'indicateur `🏁` est ajouté au titre de la tâche si un rapport de mission est détecté à la fin de la conversation.
+#### Exemple avec troncature intelligente (`smart_truncation: true`)
+
+```
+Conversation Tree (Mode: chain, Detail: skeleton)
+======================================
+⚠️  Sortie estimée: 2709k chars, limite: 300k chars, troncature intelligente activée
+
+▶️ Task: Mission SDDD Restauration Tâches (ID: ac8aa7b4-319c-4925-a139-4f4adca81921)
+  Parent: None
+  Messages: 330
+  [👤 User]: <task>Bonjour, je suis en train de réinstaller...
+  [🤖 Assistant]: ### 1. Previous Conversation: The conversation began with a request to restore...
+  
+  --- TRUNCATED: 45 messages (125.3KB) from middle section ---
+  
+  [🤖 Assistant]: ## Phase 7: Documentation des modifications selon SDDD
+  [👤 User]: Parfait ! Les tests confirment que notre implémentation fonctionne...
+```
+
+**Légende des indicateurs :**
+- `🏁` : Rapport de mission détecté à la fin de la conversation
+- `⚠️` : Troncature intelligente appliquée
+- `--- TRUNCATED ---` : Section tronquée avec statistiques (nombre de messages, taille)
+
+### Configuration Smart Truncation
+
+La troncature intelligente utilise un **algorithme de gradient** pour préserver :
+- **Contexte global** : Messages du début (grounding initial)
+- **Contexte récent** : Messages de fin (état actuel)
+- **Tâches critiques** : Selon leur position dans la chaîne
+
+**Exemple de configuration avancée :**
+```json
+{
+  "smart_truncation": true,
+  "smart_truncation_config": {
+    "gradientStrength": 2.5,
+    "minPreservationRate": 0.95,
+    "maxTruncationRate": 0.6,
+    "contentPriority": {
+      "userMessages": 1.0,
+      "assistantMessages": 0.8,
+      "actions": 0.6,
+      "metadata": 0.4
+    }
+  }
+}
+```
 
 ## `detect_roo_storage`
 
