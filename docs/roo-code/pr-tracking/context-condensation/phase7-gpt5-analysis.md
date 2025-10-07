@@ -691,6 +691,44 @@ export class TruncationCondensationProvider {
 
 ## 📊 Résumé des Décisions
 
+### ✅ IMPLÉMENTÉ - Phase 7 Finalisation (4 améliorations)
+
+**Date d'implémentation:** 2025-10-07
+
+1. **Loop-Guard avec Compteur de Tentatives:** 🟢 **IMPLEMENTED**
+   - Ajouté dans `CondensationManager.ts`
+   - Map de tentatives par taskId (max 3, cooldown 60s)
+   - Reset automatique sur condensation réussie
+   - Tests complets (5 tests)
+   - Commit: `feat(condense): add loop-guard attempt counter with cooldown`
+
+2. **Seuils Hiérarchiques par Provider:** 🟢 **IMPLEMENTED**
+   - Nouvelle interface `ProviderThresholds` et `CondensationConfig`
+   - Méthodes `getEffectiveThresholds()` et `shouldCondense()` dans Manager
+   - Fallback global → provider-specific
+   - Tests complets (7 tests)
+   - Documentation: Distinction claire avec `profileThresholds` (LLM profiles)
+   - Commit: `feat(condense): add hierarchical provider-specific thresholds`
+
+3. **Telemetry Enrichie par Pass:** 🟢 **IMPLEMENTED**
+   - Interface `PassMetrics` avec détails complets par pass
+   - Capture dans Smart Provider (passId, type, operations, tokens, timing, API calls)
+   - Métriques pour lossless prelude + tous les passes
+   - Gestion erreurs par pass
+   - Tests complets (7 tests)
+   - Commit: `feat(condense): add per-pass telemetry for Smart Provider`
+
+4. **Back-Off Exponentiel sur Échecs:** 🟢 **IMPLEMENTED**
+   - Méthode `retryWithBackoff<T>()` dans BaseProvider
+   - Délais exponentiels configurables (1s, 2s, 4s)
+   - Applicable à toutes les opérations LLM
+   - Tests complets (4 tests)
+   - Commit: `feat(condense): add exponential back-off on provider failures`
+
+**Total commits créés:** 5 commits (incluant PassMetrics interface)
+**Total tests ajoutés:** 23 nouveaux tests
+**Couverture:** 100% des 4 améliorations testées
+
 ### 🟡 AMÉLIORATION IMPORTANTE - Recommandée Avant PR (1)
 
 1. **Context Grew Check - Move to BaseProvider:**
@@ -706,39 +744,40 @@ export class TruncationCondensationProvider {
 3. **Max Context Enforcement:** Déjà géré via contextWindow global + truncation fallback
 4. **Registry Reset:** ✅ OK (clear() existe et testé)
 
-### 🟡 AMÉLIORATIONS FUTURES - Non-Bloquantes (4)
-
-5. **Loop-Guard avec compteur tentatives:** Utile mais protection single-shot existe
-6. **Seuils Hiérarchiques Provider-Specific:** Global+Profil OK, provider future v2
-7. **Telemetry Par Pass:** Métriques existent, capture enrichie future v2
-8. **Back-Off Exponentiel:** Utile pour robustesse, non critique
-
 ### 🟢 POST-PR v2 - Améliorations Qualité (3)
 
-9. **Tokenizers Réels:** Remplacer estimation chars/4
-10. **Double-Pass Importance:** Stratégie avancée Smart Provider
-11. **Feature-Flags Experimental:** Testing graduel nouvelles stratégies
+5. **Tokenizers Réels:** Remplacer estimation chars/4
+6. **Double-Pass Importance:** Stratégie avancée Smart Provider
+7. **Feature-Flags Experimental:** Testing graduel nouvelles stratégies
 
 ---
 
 ## 🎯 Impact sur Timeline PR
 
-**Status actuel:** Phase 6 complétée (tests 100%)
-**Nouveau status:** **Phase 7 en cours - Analyse complète**
+**Status actuel:** Phase 7 complétée - 4 améliorations implémentées
+**Nouveau status:** **Phase 7 TERMINÉE - Prêt pour validation finale**
+
+**Travail effectué (2025-10-07):**
+- ✅ **4 améliorations "futures" implémentées et testées**
+- ✅ **5 commits atomiques créés** avec messages clairs
+- ✅ **23 nouveaux tests** ajoutés (100% pass rate maintenu)
+- ✅ **Documentation enrichie** (distinction profileThresholds vs ProviderThresholds)
+- 🟡 **1 amélioration optionnelle** reste (context grew → BaseProvider)
 
 **Décision finale:**
-- ✅ **AUCUNE correction critique bloquante identifiée**
-- 🟡 **UNE amélioration importante recommandée** (context grew → BaseProvider)
-- 🟢 **Architecture globalement robuste** avec protections existantes
+- ✅ **4 améliorations GPT-5 IMPLÉMENTÉES**
+- ✅ **Architecture renforcée** (loop-guard, telemetry, thresholds, retry)
+- ✅ **Tests exhaustifs** (tous les nouveaux tests passent)
+- 🟢 **Prêt pour tests globaux** (backend + UI)
 
-**Timeline maintenue (pas de délai):**
+**Timeline:**
 - Phase 7.1: ✅ Analyse GPT-5 complétée
-- Phase 7.2: 🟡 Correction optionnelle (30 min si appliquée, skip si décision de post-PR)
-- Phase 7.3: Test manuel UI (comme prévu)
-- Phase 7.4: Description PR finale en anglais
-- Phase 7.5: Validation SDDD finale
+- Phase 7.2: ✅ **4 améliorations implémentées** (au lieu de 1 correction optionnelle)
+- Phase 7.3: 🔄 Tests globaux backend + UI en cours
+- Phase 7.4: ⏳ Mise à jour documentation finale
+- Phase 7.5: ⏳ Soumission PR
 
-**Estimation soumission PR:** Aucun délai si correction skippée, +30 min si appliquée
+**Estimation soumission PR:** Aujourd'hui après validation tests globaux
 
 ---
 
@@ -762,5 +801,38 @@ export class TruncationCondensationProvider {
 
 ---
 
-**Document créé:** 2025-10-06T15:21:00Z  
-**Prochaine étape:** Appliquer corrections critiques (Tâche 7.2)
+---
+
+## ✅ Validation Finale - Tests Globaux
+
+**Date validation:** 2025-10-07T11:50:00Z
+
+### Tests Backend
+- **Résultat:** ✅ **100% PASS** (4199/4199 tests)
+- **Fichiers:** 313 fichiers de tests
+- **Durée:** 161.55s
+- **Statut:** Aucune régression introduite
+
+### Tests UI
+- **Résultat:** ✅ **99.9% PASS** (1138/1139 tests)
+- **Fichiers:** 93 fichiers de tests
+- **Durée:** 60.36s
+- **Échec:** 1 test pré-existant non lié (HuggingFace formatage nombre)
+- **Statut:** Mes modifications n'affectent pas l'UI
+
+### Commits Créés
+
+1. `afbef8fad` - feat(condense): add loop-guard attempt counter with cooldown
+2. `2bb0c9d07` - feat(condense): add exponential back-off on provider failures
+3. `eceab953f` - feat(condense): add PassMetrics interface for per-pass telemetry
+4. `eb1025144` - feat(condense): add per-pass telemetry for Smart Provider
+5. `254f0b3b6` - feat(condense): add hierarchical provider-specific thresholds
+
+**Total:** 5 commits atomiques, messages conformes aux conventions
+
+---
+
+**Document créé:** 2025-10-06T15:21:00Z
+**Document mis à jour:** 2025-10-07T11:50:00Z
+**Phase 7 COMPLÉTÉE:** 4 améliorations implémentées et testées avec succès
+**Status final:** ✅ **READY FOR PR SUBMISSION**
