@@ -20,27 +20,40 @@ error: cannot spawn .git/hooks/pre-commit: No such file or directory
 - `.git/hooks/pre-commit` : Script PowerShell avec shebang (non fonctionnel)
 - `.git/hooks/pre-commit.ps1` : Script PowerShell de validation d'encodage (fonctionnel)
 
-## ✅ Solution appliquée
+## ✅ Solution appliquée (Mise à jour 2025-10-07)
 
-### 1. Création d'un wrapper batch
+### 1. Hook Shell Unix (Solution fonctionnelle)
 
-Le fichier `.git/hooks/pre-commit` a été transformé en wrapper batch :
+Le fichier `.git/hooks/pre-commit` a été transformé en script shell compatible Git Bash :
 
-```batch
-@echo off
-REM Hook pre-commit wrapper pour Windows  
-REM Appelle le script PowerShell pour verifier l'encodage des fichiers
+```bash
+#!/bin/bash
+# Hook pre-commit pour Windows - Format Shell
+# Appelle le script PowerShell pour vérifier l'encodage des fichiers
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0pre-commit.ps1"
-exit /b %ERRORLEVEL%
+# Obtenir le répertoire du hook
+HOOK_DIR="$(dirname "$0")"
+
+# Exécuter le script PowerShell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$HOOK_DIR/pre-commit.ps1"
+
+# Retourner le code d'erreur
+exit $?
 ```
 
 ### 2. Corrections techniques appliquées
 
-- **Suppression du BOM UTF-8** : Fichier recréé avec encodage ASCII
-- **Format batch natif** : Compatible avec l'exécuteur de commandes Windows
-- **Préservation du script original** : Sauvegardé dans `pre-commit.ps1`
-- **Gestion correcte des codes de retour** : `%ERRORLEVEL%` transmis à Git
+- **Format shell Unix** : Compatible avec Git Bash sur Windows (solution de contournement réussie)
+- **Shebang bash** : `#!/bin/bash` reconnu par Git for Windows
+- **Préservation du script original** : Script PowerShell `pre-commit.ps1` inchangé
+- **Gestion correcte des codes de retour** : `$?` transmis à Git
+- **Variables shell** : `HOOK_DIR` pour chemin robuste
+
+### 3. Échecs précédents documentés
+
+- **Wrapper batch** : `@echo off` + `powershell.exe` → Échec avec erreur "cannot spawn"
+- **Script réparation initial** : Créait format batch non fonctionnel
+- **Solution finale** : Format shell résout le problème d'exécution Git Bash
 
 ## 🛠️ Utilisation du script de réparation
 
