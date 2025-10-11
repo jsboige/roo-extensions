@@ -1,9 +1,0 @@
-﻿Rapport de validation UTF-8
-Date: 26/05/2025 16:57:18
-
-Tests reussis: 5
-Tests echoues: 0
-
-Status: SUCCES
-
-Test d'affichage: cafe, hotel, naif, cree, francais
