@@ -1,4 +1,4 @@
-# Serveurs MCP (Model Context Protocol)
+﻿# Serveurs MCP (Model Context Protocol)
 
 ## Table des matières
 
@@ -67,7 +67,7 @@ Les serveurs MCP offrent un large éventail de fonctionnalités :
 
 Suite à une campagne de fiabilisation utilisant la méthodologie SDDD, plusieurs serveurs critiques ont été réparés et leur documentation améliorée. Tous les serveurs listés ci-dessous sont actuellement considérés comme stables et opérationnels.
 
-Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](./docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
+Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
 
 
 ## Installation
@@ -83,14 +83,14 @@ cd mcps
 npm install
 ```
 
-Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](docs/INSTALLATION.md).
+Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](./INSTALLATION.md).
 
 ## Configuration
 
 Les configurations des serveurs MCP sont définies dans le fichier global `mcp_settings.json` de Roo. Ce fichier se trouve dans le répertoire de stockage global de Roo et est géré automatiquement par l'extension.
 
 **📖 Pour des informations détaillées sur la configuration MCP, consultez :**
-**[Configuration MCP dans Roo](./docs/configuration-mcp-roo.md)**
+**[Configuration MCP dans Roo](../docs/configuration/configuration-mcp-roo.md)**
 
 Cette documentation explique :
 - L'emplacement exact du fichier `mcp_settings.json`
@@ -268,7 +268,7 @@ Si vous rencontrez des problèmes avec les serveurs MCP :
 3. Assurez-vous que la configuration dans `servers.json` est correcte
 4. Vérifiez les dépendances requises pour chaque serveur
 
-Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLESHOOTING.md](./TROUBLESHOOTING.md).
 
 ## Ressources supplémentaires
 
@@ -276,8 +276,8 @@ Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLES
 - [Documentation des modes Roo](../roo-modes/README.md)
 - [Documentation de la configuration Roo](../roo-config/README.md)
 - [Documentation des tests](../tests/README.md)
-- [Configuration MCP dans Roo](docs/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
-- [INSTALLATION.md](docs/INSTALLATION.md) - Instructions d'installation détaillées
-- [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Guide de dépannage
-- [MANUAL_START.md](docs/MANUAL_START.md) - Instructions pour démarrer manuellement les serveurs
-- [OPTIMIZATIONS.md](docs/OPTIMIZATIONS.md) - Recommandations d'optimisation
+- [Configuration MCP dans Roo](../docs/configuration/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
+- [INSTALLATION.md](./INSTALLATION.md) - Instructions d'installation détaillées
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Guide de dépannage
+- [MANUAL_START.md](./MANUAL_START.md) - Instructions pour démarrer manuellement les serveurs
+- [OPTIMIZATIONS.md](./OPTIMIZATIONS.md) - Recommandations d'optimisation

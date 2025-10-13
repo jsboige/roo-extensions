@@ -1,4 +1,4 @@
-<!-- START: GUIDE_INSTALLATION_MCP -->
+﻿<!-- START: GUIDE_INSTALLATION_MCP -->
 
 # Guide d'Installation des MCPs (Model Context Protocol)
 
@@ -578,8 +578,8 @@ Si vous rencontrez des problèmes lors de l'installation ou de l'utilisation des
    - Vérifiez que le token d'authentification est correct
 
 Pour une aide plus détaillée sur le dépannage, consultez :
-- [Guide de dépannage général](./mcp-servers/docs/troubleshooting.md)
-- [Guide de dépannage du MCP Jupyter](./mcp-servers/docs/jupyter-mcp-troubleshooting.md)
+- [Guide de dépannage général](./internal/docs/troubleshooting.md)
+- [Guide de dépannage du MCP Jupyter](./internal/docs/jupyter-mcp-troubleshooting.md)
 <!-- END: POST_INSTALLATION -->
 
 <!-- START: ADDITIONAL_RESOURCES -->
@@ -588,7 +588,7 @@ Pour une aide plus détaillée sur le dépannage, consultez :
 Pour approfondir vos connaissances sur les MCPs et leur utilisation, voici quelques ressources utiles :
 
 - [Spécification MCP officielle](https://github.com/microsoft/mcp)
-- [Documentation sur l'architecture MCP](./mcp-servers/docs/architecture.md)
+- [Documentation sur l'architecture MCP](./internal/docs/architecture.md)
 - [Guide de contribution](./mcp-servers/CONTRIBUTING.md)
 - [Exemples d'utilisation des MCPs](./mcp-servers/examples/)
 - [Forum de support](https://github.com/votre-organisation/roo-extensions/discussions)
