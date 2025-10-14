@@ -1,0 +1,72 @@
+﻿{
+    "DevMode":  {
+                    "Path":  "C:\\dev\\roo-code\\src",
+                    "HasIndexHtml":  false,
+                    "Version":  "3.28.15"
+                },
+    "LogsAnalysis":  [
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.25.6\\package.json",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.25.6\\package.jsonÂ",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "e:\\\\\\c%3A\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\webview-ui\\build\\assets\\index.map.json,",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "e:\\\\\\c%3A\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\webview-ui\\build\\assets\\index.map.json",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "e:\\\\\\c%3A\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\webview-ui\\build\\assets\\index.sourcemap,",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "e:\\\\\\c%3A\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\webview-ui\\build\\assets\\index.sourcemap",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\core\\assistant-message\\presentAssistantMessage.ts:60:9)",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\core\\task\\Task.ts:1991:9)",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\core\\task\\Task.ts:1693:23)",
+                             "Location":  "VSCode Standard"
+                         },
+                         {
+                             "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16\\core\\task\\Task.ts:1498:3)",
+                             "Location":  "VSCode Standard"
+                         }
+                     ],
+    "ActiveExtension":  {
+                            "Path":  "c:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.25.6\\package.json",
+                            "Source":  "Logs",
+                            "Type":  "Installed"
+                        },
+    "InstalledExtensions":  [
+                                {
+                                    "Version":  "Unknown",
+                                    "Name":  "rooveterinaryinc.roo-cline-3.25.6",
+                                    "LastModified":  "\/Date(1759833389698)\/",
+                                    "Path":  "C:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.25.6",
+                                    "HasIndexHtml":  false,
+                                    "Location":  "VSCode Standard"
+                                },
+                                {
+                                    "Version":  "3.28.16",
+                                    "Name":  "rooveterinaryinc.roo-cline-3.28.16",
+                                    "LastModified":  "\/Date(1760356353401)\/",
+                                    "Path":  "C:\\Users\\jsboi\\.vscode\\extensions\\rooveterinaryinc.roo-cline-3.28.16",
+                                    "HasIndexHtml":  true,
+                                    "Location":  "VSCode Standard"
+                                }
+                            ]
+}
