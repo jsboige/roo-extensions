@@ -1,4 +1,4 @@
-<!-- START_SECTION: metadata -->
+﻿<!-- START_SECTION: metadata -->
 ---
 title: "Documentation des MCPs (Model Context Protocol)"
 description: "Point d'entrée principal pour la documentation des serveurs MCP"
@@ -215,8 +215,8 @@ Pour plus d'informations sur les MCPs externes, consultez la [documentation des 
 
 ### Ressources Internes
 
-- [Architecture MCP](./mcp-servers/docs/architecture.md)
-- [Guide de contribution](./mcp-servers/CONTRIBUTING.md)
+- [Architecture MCP](./internal/docs/architecture.md)
+- [Guide de contribution](./internal/CONTRIBUTING.md)
 - [Tests et validation](./tests/README.md)
 - [Exemples d'utilisation](./mcp-servers/examples/)
 

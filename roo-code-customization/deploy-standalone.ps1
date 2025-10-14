@@ -61,7 +61,7 @@ function Build-StagingDirectory {
     # Copier webview-ui explicitement
     $webviewUiBuildPath = Join-Path $projectRoot "src\webview-ui\build"
     if (Test-Path $webviewUiBuildPath) {
-        $webviewUiTargetPath = Join-Path $stagingDir "webview-ui"
+        $webviewUiTargetPath = Join-Path $stagingDir "webview-ui\build"
         Write-Host "  Copie: $webviewUiBuildPath (webview-ui)" -ForegroundColor Gray
         Copy-Item -Path $webviewUiBuildPath -Destination $webviewUiTargetPath -Recurse -Force -ErrorAction Stop
     } else {

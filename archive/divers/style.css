@@ -1,0 +1,70 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f4f4f4;
+}
+
+header {
+    text-align: center;
+    padding: 20px;
+    color: #333;
+}
+
+form {
+    display: flex;
+    margin-bottom: 15px;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 8px;
+    margin-right: 5px;
+}
+
+button {
+    padding: 8px 12px;
+    background: #007BFF;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.filters {
+    margin: 20px 0;
+    display: flex;
+    justify-content: center;
+}
+
+.filter-button {
+    margin-right: 10px;
+    padding: 5px 10px;
+    background: #e9ecef;
+    border: none;
+    cursor: pointer;
+}
+
+.filter-button.active {
+    background: #007BFF;
+    color: white;
+}
+
+#task-list li {
+    list-style: none;
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+}
+
+#task-list li.completed {
+    text-decoration: line-through;
+    color: #777;
+}
+
+#clear-completed {
+    display: block;
+    margin-top: 20px;
+    width: 100%;
+}
