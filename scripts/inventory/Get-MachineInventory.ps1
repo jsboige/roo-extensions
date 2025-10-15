@@ -16,8 +16,13 @@ param(
     [string]$MachineId = $env:COMPUTERNAME,
     
     [Parameter(Mandatory=$false)]
-    [string]$OutputPath = "roo-config/reports/machine-inventory-$MachineId-$(Get-Date -Format 'yyyyMMdd').json"
+    [string]$OutputPath
 )
+
+# Définir OutputPath avec chemin absolu basé sur $PSScriptRoot si non fourni
+if (-not $OutputPath) {
+    $OutputPath = Join-Path $PSScriptRoot "..\..\outputs\machine-inventory-$(hostname).json"
+}
 
 # Configuration des chemins
 $RooExtensionsPath = "c:\dev\roo-extensions"

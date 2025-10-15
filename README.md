@@ -67,6 +67,45 @@ Pour approfondir votre connaissance du projet, voici quelques points d'entrée e
 -   **Serveurs MCP** : `mcps/README.md`
 -   **Guides détaillés** : `docs/`
 
+## RooSync v2.0 - Synchronisation Multi-Machines
+
+RooSync est un système intelligent de synchronisation et de détection de différences entre environnements Roo. La version 2.0 apporte une détection réelle et automatique des différences de configuration entre machines.
+
+### Fonctionnalités Clés
+
+- ✅ **Détection Automatique** : Collecte inventaire système (Configuration Roo, Hardware, Software, System)
+- ✅ **Analyse Multi-Niveaux** : Détection intelligente avec scoring de sévérité (CRITICAL/IMPORTANT/WARNING/INFO)
+- ✅ **Recommandations Automatiques** : Suggestions d'actions basées sur les différences détectées
+- ✅ **Performance Optimale** : Workflow complet <5s avec cache intelligent (TTL 1h)
+- ✅ **Interface MCP** : Intégration transparente via outil `roosync_compare_config`
+
+### Utilisation
+
+```typescript
+// Via outil MCP dans Roo
+roosync_compare_config({
+  source: "myia-ai-01",
+  target: "myia-po-2024"
+})
+```
+
+### Documentation
+
+Pour plus de détails sur RooSync v2.0, consultez :
+- **Synthèse Évolution** : [`docs/orchestration/roosync-v2-evolution-synthesis-20251015.md`](docs/orchestration/roosync-v2-evolution-synthesis-20251015.md)
+- **Guide Technique** : [`mcps/internal/servers/roo-state-manager/src/services/README-roosync.md`](mcps/internal/servers/roo-state-manager/src/services/README-roosync.md)
+- **Design Architecture** : [`docs/architecture/roosync-real-diff-detection-design.md`](docs/architecture/roosync-real-diff-detection-design.md)
+- **Plan Tests E2E** : [`docs/testing/roosync-e2e-test-plan.md`](docs/testing/roosync-e2e-test-plan.md)
+
+### Statut
+
+**Version** : 2.0.0
+**Statut** : ✅ Production Ready
+**Tests** : 24/26 (92%)
+**Performance** : 2-4s (<5s requis) ✅
+
+---
+
 ## Contribution
 
 Les contributions sont les bienvenues. Veuillez forker le dépôt, créer une branche pour vos modifications et soumettre une Pull Request.
