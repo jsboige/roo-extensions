@@ -1,0 +1,56 @@
+[
+  {
+    "Submodule": "roo-code",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/external/win-cli/server",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/internal",
+    "Status": "HAS_STASHS",
+    "StashCount": 5,
+    "Stashs": [
+      "stash@{0}: On main: WIP: Autres modifications non liées à Phase 3B",
+      "stash@{1}: On main: WIP: quickfiles changes and temp files",
+      "stash@{2}: On feature/phase2: Stash roo-state-manager changes",
+      "stash@{3}: On main: Sauvegarde rebase recovery",
+      "stash@{4}: On main: WIP: jupyter-mcp-server changes unrelated to roo-state-manager mission"
+    ]
+  },
+  {
+    "Submodule": "mcps/forked/modelcontextprotocol-servers",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/external/mcp-server-ftp",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/external/markitdown/source",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/external/playwright/source",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  },
+  {
+    "Submodule": "mcps/external/Office-PowerPoint-MCP-Server",
+    "Status": "CLEAN",
+    "StashCount": 0,
+    "Stashs": []
+  }
+]

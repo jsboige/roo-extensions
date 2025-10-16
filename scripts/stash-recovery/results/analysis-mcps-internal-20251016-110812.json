@@ -1,0 +1,113 @@
+[
+  {
+    "StashIndex": "0",
+    "StashLine": "stash@{0}: On main: WIP: Autres modifications non liées à Phase 3B",
+    "Category": "✅ RÉCUPÉRABLE",
+    "Priority": "HAUTE",
+    "Recommendation": "Contient du code source ou des tests - À examiner en détail",
+    "FilesChanged": [
+      "servers/roo-state-manager/.gitignore",
+      "servers/roo-state-manager/package.json",
+      "servers/roo-state-manager/src/services/TraceSummaryService.ts",
+      "servers/roo-state-manager/src/services/reporting/strategies/NoResultsReportingStrategy.ts"
+    ],
+    "Additions": 89,
+    "Deletions": 138,
+    "HasSourceCode": true,
+    "HasTests": false,
+    "HasDocs": false,
+    "HasConfig": true,
+    "HasNodeModules": false,
+    "HasBuildArtifacts": false,
+    "HasTempFiles": false
+  },
+  {
+    "StashIndex": "1",
+    "StashLine": "stash@{1}: On main: WIP: quickfiles changes and temp files",
+    "Category": "✅ RÉCUPÉRABLE",
+    "Priority": "HAUTE",
+    "Recommendation": "Contient du code source ou des tests - À examiner en détail",
+    "FilesChanged": [
+      "servers/quickfiles-server/src/index.ts"
+    ],
+    "Additions": 117,
+    "Deletions": 2,
+    "HasSourceCode": true,
+    "HasTests": false,
+    "HasDocs": false,
+    "HasConfig": false,
+    "HasNodeModules": false,
+    "HasBuildArtifacts": false,
+    "HasTempFiles": false
+  },
+  {
+    "StashIndex": "2",
+    "StashLine": "stash@{2}: On feature/phase2: Stash roo-state-manager changes",
+    "Category": "✅ RÉCUPÉRABLE",
+    "Priority": "HAUTE",
+    "Recommendation": "Contient du code source ou des tests - À examiner en détail",
+    "FilesChanged": [
+      "servers/roo-state-manager/src/services/TraceSummaryService.ts"
+    ],
+    "Additions": 185,
+    "Deletions": 1,
+    "HasSourceCode": true,
+    "HasTests": false,
+    "HasDocs": false,
+    "HasConfig": false,
+    "HasNodeModules": false,
+    "HasBuildArtifacts": false,
+    "HasTempFiles": false
+  },
+  {
+    "StashIndex": "3",
+    "StashLine": "stash@{3}: On main: Sauvegarde rebase recovery",
+    "Category": "✅ RÉCUPÉRABLE",
+    "Priority": "HAUTE",
+    "Recommendation": "Contient du code source ou des tests - À examiner en détail",
+    "FilesChanged": [
+      "servers/roo-state-manager/package.json",
+      "servers/roo-state-manager/src/services/TraceSummaryService.ts",
+      "servers/roo-state-manager/src/utils/roo-storage-detector.ts",
+      "servers/roo-state-manager/src/utils/task-instruction-index.ts"
+    ],
+    "Additions": 508,
+    "Deletions": 102,
+    "HasSourceCode": true,
+    "HasTests": false,
+    "HasDocs": false,
+    "HasConfig": true,
+    "HasNodeModules": false,
+    "HasBuildArtifacts": false,
+    "HasTempFiles": false
+  },
+  {
+    "StashIndex": "4",
+    "StashLine": "stash@{4}: On main: WIP: jupyter-mcp-server changes unrelated to roo-state-manager mission",
+    "Category": "✅ RÉCUPÉRABLE",
+    "Priority": "HAUTE",
+    "Recommendation": "Contient du code source ou des tests - À examiner en détail",
+    "FilesChanged": [
+      "servers/jupyter-mcp-server/__tests__/error-handling.test.js",
+      "servers/jupyter-mcp-server/__tests__/execution.test.js",
+      "servers/jupyter-mcp-server/__tests__/kernel.test.js",
+      "servers/jupyter-mcp-server/__tests__/notebook.test.js",
+      "servers/jupyter-mcp-server/__tests__/performance.test.js",
+      "servers/jupyter-mcp-server/package.json",
+      "servers/jupyter-mcp-server/src/index.ts",
+      "servers/jupyter-mcp-server/src/tools/execution.ts",
+      "servers/jupyter-mcp-server/src/tools/kernel.ts",
+      "servers/jupyter-mcp-server/src/tools/notebook.ts",
+      "servers/jupyter-mcp-server/src/tools/server.ts"
+    ],
+    "Additions": 127,
+    "Deletions": 91,
+    "HasSourceCode": true,
+    "HasTests": true,
+    "HasDocs": false,
+    "HasConfig": true,
+    "HasNodeModules": false,
+    "HasBuildArtifacts": false,
+    "HasTempFiles": false
+  }
+]
