@@ -6,11 +6,11 @@
 
 ## Résumé Exécutif
 
-Sur les 10 stashs examinés manuellement, **AUCUN ne contient de code critique manquant** nécessitant une récupération urgente. La plupart du contenu est soit :
-- Déjà intégré dans les commits actuels
-- Du code de débogage temporaire
-- De la documentation qui peut être recréée si nécessaire
-- Des modifications mineures non critiques
+Sur les 10 stashs examinés manuellement, **2 éléments importants ont été récupérés** suite à une analyse approfondie :
+1. **Documentation troubleshooting.md** (utilisateurs finaux)
+2. **3 bugs critiques corrigés dans quickfiles search** (fonctionnalité core)
+
+Les 8 autres stashs contiennent du contenu soit déjà intégré, soit obsolète, soit du code de débogage temporaire.
 
 ## Analyse Détaillée par Stash
 
@@ -188,29 +188,62 @@ git stash show -p stash@{0} -- mcps/internal/servers/roo-state-manager/docs/trou
 ## Statistiques Finales
 
 - **Total stashs examinés :** 10
-- **À récupérer immédiatement :** 1 (troubleshooting.md)
-- **À évaluer plus tard :** 3 (quickfiles, JSON parsing, doc externe)
-- **À ignorer :** 6
+- **Récupérés avec succès :** 2 (troubleshooting.md + 3 bugs quickfiles)
+- **À évaluer plus tard :** 2 (JSON parsing TraceSummaryService, doc external-mcps)
+- **Ignorés définitivement :** 6
+- **Stashs nettoyés :** 2 (stash@{0} roo-extensions, stash@{2} mcps/internal)
 
 ## Conclusion
 
-L'examen manuel approfondi des 10 stashs a révélé que **le code actuellement en production est stable et complet**. Les stashs contiennent principalement :
-- Du code déjà intégré ou obsolète
-- Du code de débogage temporaire
-- Des améliorations incrémentielles non critiques
-- De la documentation utile mais non bloquante
+L'examen manuel approfondi des 10 stashs a révélé **2 récupérations importantes** :
 
-**Recommandation finale :** Récupérer uniquement le fichier `troubleshooting.md` et garder les autres stashs en archive pour référence future si des problèmes spécifiques surviennent.
+### ✅ Récupérations Réalisées
 
-## Prochaines Étapes
+1. **troubleshooting.md** (34 lignes) :
+   - Guide de dépannage pour utilisateurs finaux
+   - Documentation des mécanismes de résilience
+   - Commit : 9e4f3d2 dans mcps/internal
 
-1. ✅ Créer un commit pour `troubleshooting.md`
-2. 📋 Archiver ce rapport dans `scripts/stash-recovery/output/`
-3. 🗑️ Décider de la purge ou conservation des stashs restants
-4. 📝 Mettre à jour la documentation de Phase 3B avec ce rapport
+2. **3 bugs critiques quickfiles** (+84/-14 lignes) :
+   - Bug `use_regex` ignoré (recherches littérales cassées)
+   - Bug `searchRegex.lastIndex` (faux négatifs intermittents)
+   - Architecture `searchInFile` améliorée
+   - Commit : 8538dff dans mcps/internal
+
+### 📊 Impact
+
+- **Fonctionnalités améliorées :** Recherche de fichiers (core feature)
+- **Bugs éliminés :** 3 bugs potentiellement critiques
+- **Documentation ajoutée :** Guide utilisateur troubleshooting
+- **Code nettoyé :** 2 stashs supprimés après récupération
+
+**Recommandation finale :** Les 2 stashs restants "À évaluer" peuvent être conservés en archive pour référence future si des problèmes spécifiques surviennent (parsing JSON alternatif, doc external-mcps).
+
+## Prochaines Étapes Complétées
+
+1. ✅ Créer un commit pour `troubleshooting.md` (9e4f3d2)
+2. ✅ Récupérer corrections quickfiles depuis stash@{2} (8538dff)
+3. ✅ Archiver ce rapport dans `scripts/stash-recovery/output/`
+4. ✅ Nettoyer stashs récupérés (2 supprimés)
+5. ✅ Push des commits dans les 2 dépôts
+6. ✅ Mettre à jour le sous-module mcps/internal
+7. ✅ Finaliser la documentation Phase 3B
+
+### Stashs Restants (Conservation Recommandée)
+
+**mcps/internal :**
+- stash@{3} : Parsing JSON alternatif TraceSummaryService (fallback potentiel)
+
+**roo-extensions :**
+- stash@{3} : Documentation external-mcps améliorée (évaluation future)
+
+Les autres stashs (6 au total) sont obsolètes ou contiennent du code de débogage temporaire.
 
 ---
 
-**Rapport généré le :** 2025-10-16T06:36:00Z  
-**Analyste :** Roo Code Mode  
-**Statut :** ANALYSE COMPLÈTE ✅
+**Rapport généré le :** 2025-10-16T06:36:00Z (Mis à jour: 2025-10-16T08:43:00Z)
+**Analyste :** Roo Code Mode
+**Statut :** ✅ RÉCUPÉRATION COMPLÈTE - 2/10 stashs récupérés avec succès
+**Commits créés :**
+- mcps/internal: 9e4f3d2 (troubleshooting.md), 8538dff (quickfiles bugs)
+- roo-extensions: b947947c (rapports), a76474c9 (submodule update)
