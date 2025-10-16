@@ -1,0 +1,265 @@
+diff --git a/servers/github-projects-mcp/tests/GithubProjectsTool.test.ts b/servers/github-projects-mcp/tests/GithubProjectsTool.test.ts
+index 9a15344..dd4860c 100644
+--- a/servers/github-projects-mcp/tests/GithubProjectsTool.test.ts
++++ b/servers/github-projects-mcp/tests/GithubProjectsTool.test.ts
+@@ -143,8 +143,13 @@ describe('GitHub Actions E2E Tests', () => {
+       projectId: testProjectId,
+     });
+     if (!issueResult.success || !issueResult.projectItemId) {
+-      throw new Error(`Failed to create test item: ${title}`);
++      console.error('Failed to create test item:', issueResult);
++      throw new Error(`Failed to create test item: ${title} - ${JSON.stringify(issueResult)}`);
+     }
++    
++    // Attendre un peu pour que l'API GitHub se synchronise
++    await new Promise(resolve => setTimeout(resolve, 2000));
++    
+     return issueResult.projectItemId;
+   };
+ 
+@@ -198,10 +203,16 @@ describe('GitHub Actions E2E Tests', () => {
+ 
+   it('should return "moyenne" complexity for a standard task', async () => {
+     const itemId = await createTestItem('Standard Task', 'This is a standard task with a description of reasonable length that should result in medium complexity.');
++    
++    // Obtenir le numéro du projet de test
++    const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
++    const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER! });
++    const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
++    
+     const result = await analyze_task_complexity(octokit, {
+       owner: TEST_GITHUB_OWNER!,
+       repo: TEST_GITHUB_REPO!,
+-      projectNumber: 0,
++      projectNumber: projectInfo.number,
+       itemId: itemId,
+     });
+     expect(result.success).toBe(true);
+@@ -211,10 +222,16 @@ describe('GitHub Actions E2E Tests', () => {
+   it('should return "élevée" complexity for a long task', async () => {
+     const longBody = 'This is a very long task description. '.repeat(20) + 'It requires a lot of effort and careful planning. The implementation details are complex and involve multiple components interacting with each other. We need to be very careful with this one to avoid introducing regressions in other parts of the system.';
+     const itemId = await createTestItem('Long Task', longBody);
++    
++    // Obtenir le numéro du projet de test
++    const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
++    const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER! });
++    const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
++    
+     const result = await analyze_task_complexity(octokit, {
+       owner: TEST_GITHUB_OWNER!,
+       repo: TEST_GITHUB_REPO!,
+-      projectNumber: 0,
++      projectNumber: projectInfo.number,
+       itemId: itemId,
+     });
+     expect(result.success).toBe(true);
+@@ -224,10 +241,16 @@ describe('GitHub Actions E2E Tests', () => {
+ 
+   it('should return "élevée" complexity for a task with critical keywords', async () => {
+     const itemId = await createTestItem('Critical Bug Task', 'We need to investigate this critical bug immediately. It is causing a major outage.');
++    
++    // Obtenir le numéro du projet de test
++    const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
++    const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER! });
++    const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
++    
+     const result = await analyze_task_complexity(octokit, {
+       owner: TEST_GITHUB_OWNER!,
+       repo: TEST_GITHUB_REPO!,
+-      projectNumber: 0,
++      projectNumber: projectInfo.number,
+       itemId: itemId,
+     });
+     expect(result.success).toBe(true);
+@@ -304,14 +327,13 @@ describe('GitHub Actions E2E Tests', () => {
+             const getProjectTool = tools.find(t => t.name === 'get_project') as any;
+             
+             // On a besoin du numéro du projet principal pour retrouver les champs plus tard
+-            let mainProject = await getProjectTool.execute({ owner: TEST_GITHUB_OWNER!, project_number: 0, project_id: testProjectId });
+-            if (!mainProject.success) {
+-                // Fallback si la recherche par ID n'est pas implémentée ou échoue, trouver via le titre
+-                const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
+-                const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER!});
+-                const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
+-                mainProject = await getProjectTool.execute({ owner: TEST_GITHUB_OWNER!, project_number: projectInfo.number });
++            const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
++            const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER!});
++            const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
++            if (!projectInfo) {
++                throw new Error('Test project not found in project list');
+             }
++            const mainProject = await getProjectTool.execute({ owner: TEST_GITHUB_OWNER!, project_number: projectInfo.number });
+             const testProjectNumber = mainProject.project.number;
+             
+             const initialFieldName = `Test Field - ${Date.now()}`;
+@@ -344,6 +366,170 @@ describe('GitHub Actions E2E Tests', () => {
+             
+         }, 60000);
+     });
++  describe('Project Item Management', () => {
++    it('should add items to project (issue, pull request, draft_issue)', async () => {
++      const addItemTool = tools.find(t => t.name === 'add_item_to_project') as any;
++      
++      // Test 1: Ajouter une issue existante (nous utilisons l'issue de test créée dans beforeAll)
++      const addIssueResult = await addItemTool.execute({ 
++        owner: TEST_GITHUB_OWNER!, 
++        project_id: testProjectId, 
++        content_id: testIssueNodeId, 
++        content_type: 'issue' 
++      });
++      expect(addIssueResult.success).toBe(true);
++      expect(addIssueResult.item_id).toBeDefined();
++      
++      // Test 2: Créer une draft_issue (note) dans le projet
++      const addDraftResult = await addItemTool.execute({ 
++        owner: TEST_GITHUB_OWNER!, 
++        project_id: testProjectId, 
++        content_type: 'draft_issue',
++        draft_title: 'Test Draft Issue',
++        draft_body: 'This is a test draft issue created by the E2E test'
++      });
++      expect(addDraftResult.success).toBe(true);
++      expect(addDraftResult.item_id).toBeDefined();
++      
++      // Note: Test pour pull_request nécessiterait de créer une PR, ce qui est complexe pour un test E2E
++      // Nous nous concentrons sur les cas les plus courants (issue et draft_issue)
++    }, 60000);
++
++    it('should get project items directly', async () => {
++      const getItemsTool = tools.find(t => t.name === 'get_project_items') as any;
++      
++      const result = await getItemsTool.execute({ 
++        owner: TEST_GITHUB_OWNER!, 
++        project_id: testProjectId 
++      });
++      
++      expect(result.success).toBe(true);
++      expect(result.items).toBeDefined();
++      expect(Array.isArray(result.items)).toBe(true);
++      expect(result.items.length).toBeGreaterThan(0);
++      
++      // Vérifier la structure d'un item
++      const firstItem = result.items[0];
++      expect(firstItem.id).toBeDefined();
++      expect(firstItem.type).toBeDefined();
++    }, 60000);
++
++    it('should update project item field (Status)', async () => {
++      const getProjectTool = tools.find(t => t.name === 'get_project') as any;
++      const updateItemFieldTool = tools.find(t => t.name === 'update_project_item_field') as any;
++      const getItemsTool = tools.find(t => t.name === 'get_project_items') as any;
++      const listProjectsTool = tools.find(t => t.name === 'list_projects') as any;
++      
++      // 1. Créer un item de test pour ce test spécifique
++      const testItemId = await createTestItem('Item for Status Update', 'This item will have its status updated');
++      
++      // 2. Obtenir le numéro du projet de test correct
++      const allProjects = await listProjectsTool.execute({ owner: TEST_GITHUB_OWNER! });
++      const projectInfo = allProjects.projects.find((p: any) => p.id === testProjectId);
++      if (!projectInfo) {
++        throw new Error('Test project not found in project list');
++      }
++      
++      // 3. Récupérer les détails du projet pour obtenir l'ID du champ "Status"
++      const projectDetails = await getProjectTool.execute({
++        owner: TEST_GITHUB_OWNER!,
++        project_number: projectInfo.number
++      });
++      
++      expect(projectDetails.success).toBe(true);
++      expect(projectDetails.project.fields).toBeDefined();
++      
++      // 3. Trouver le champ "Status" (champ par défaut des projets GitHub)
++      const statusField = projectDetails.project.fields.nodes.find((field: any) => 
++        field.name === 'Status'
++      );
++      expect(statusField).toBeDefined();
++      expect(statusField.options).toBeDefined();
++      
++      // 4. Récupérer l'ID d'une option de statut (par exemple "Done" ou "Complete")
++      const doneOption = statusField.options.find((option: any) => 
++        option.name === 'Done' || option.name === 'Complete' || option.name === 'Closed'
++      );
++      expect(doneOption).toBeDefined();
++      
++      // 5. Mettre à jour le statut de l'item
++      const updateResult = await updateItemFieldTool.execute({
++        owner: TEST_GITHUB_OWNER!,
++        project_id: testProjectId,
++        item_id: testItemId,
++        field_id: statusField.id,
++        field_type: 'single_select',
++        option_id: doneOption.id
++      });
++      
++      expect(updateResult.success).toBe(true);
++      
++      // 6. Pour ce test, nous vérifions seulement que l'opération de mise à jour a réussi
++      // La vérification de synchronisation immédiate est complexe à cause des inconsistances de l'API GitHub
++      // Le fait que updateResult.success soit true indique que la mise à jour a été acceptée et traitée
++      console.log(`Update operation completed successfully for item ${testItemId} with status option ${doneOption.name}`);
++      
++      // Optionnel: attendre un peu pour laisser l'API se synchroniser, puis faire une vérification simple
++      await new Promise(resolve => setTimeout(resolve, 5000));
++      
++      // Vérification simple: s'assurer que l'item existe toujours dans le projet
++      const finalItemsResult = await getItemsTool.execute({
++        owner: TEST_GITHUB_OWNER!,
++        project_id: testProjectId
++      });
++      expect(finalItemsResult.success).toBe(true);
++      const updatedItemExists = finalItemsResult.items.some((item: any) => item.id === testItemId);
++      expect(updatedItemExists).toBe(true);
++    }, 60000);
++
++    it('should delete project item', async () => {
++      const deleteItemTool = tools.find(t => t.name === 'delete_project_item') as any;
++      const getItemsTool = tools.find(t => t.name === 'get_project_items') as any;
++      
++      // 1. Créer un item spécifiquement pour ce test de suppression
++      const testItemId = await createTestItem('Item to Delete', 'This item will be deleted');
++      
++      // 2. Vérifier que l'item existe avec polling
++      await poll(async () => {
++        const itemsResult = await getItemsTool.execute({
++          owner: TEST_GITHUB_OWNER!,
++          project_id: testProjectId
++        });
++        if (!itemsResult.success) return false;
++        
++        const itemExists = itemsResult.items.some((item: any) => item.id === testItemId);
++        if (itemExists) {
++          console.log(`Item ${testItemId} found in project items`);
++          return true;
++        }
++        console.log(`Item ${testItemId} not yet visible in project items, retrying...`);
++        return false;
++      }, 'Created item was not found in project items', 20000, 2000);
++      
++      // 3. Supprimer l'item
++      const deleteResult = await deleteItemTool.execute({
++        owner: TEST_GITHUB_OWNER!,
++        project_id: testProjectId,
++        item_id: testItemId
++      });
++      
++      expect(deleteResult.success).toBe(true);
++      expect(deleteResult.deleted_item_id).toBe(testItemId);
++      
++      // 4. Vérifier que l'item a bien été supprimé avec une logique de polling améliorée
++      await poll(async () => {
++        const finalItemsResult = await getItemsTool.execute({
++          owner: TEST_GITHUB_OWNER!,
++          project_id: testProjectId
++        });
++        if (!finalItemsResult.success) return false;
++        
++        const itemStillExists = finalItemsResult.items.some((item: any) => item.id === testItemId);
++        return !itemStillExists;
++      }, 'Item was not deleted from project', 30000, 2000); // Timeout augmenté à 30s, intervalle réduit à 2s
++    }, 60000);
++  });
++
+ });
+ 
+ import { checkReadOnlyMode, checkRepoPermissions } from '../src/security';

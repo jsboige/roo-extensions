@@ -1,0 +1,22 @@
+diff --git a/scripts/diagnostic/diag-mcps-global.ps1 b/scripts/diagnostic/diag-mcps-global.ps1
+index 8f7bf30..3e9f317 100644
+--- a/scripts/diagnostic/diag-mcps-global.ps1
++++ b/scripts/diagnostic/diag-mcps-global.ps1
+@@ -1,5 +1,7 @@
+ # Chemin vers le fichier de configuration des MCPs
+-$configFile = "d:\Dev\roo-extensions\mcp_settings.json"
++# Déterminer la racine du projet en supposant que le script est dans ./scripts/diagnostic
++$projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
++$configFile = Join-Path $projectRoot "mcp_settings.json"
+ 
+ if (-not (Test-Path $configFile)) {
+     Write-Error "Le fichier de configuration '$configFile' est introuvable."
+@@ -16,7 +18,7 @@ foreach ($server in $config.mcpServers.PSObject.Properties.Value) {
+     foreach ($arg in $server.args) {
+         if ($arg -match $mcpNameRegex) {
+             $mcpName = $matches[1]
+-            $mcpPath = "d:\Dev\roo-extensions\mcps\internal\servers\$mcpName"
++            $mcpPath = Join-Path $projectRoot "mcps\internal\servers\$mcpName"
+ 
+             if (-not (Test-Path $mcpPath)) {
+                 Write-Warning "Répertoire introuvable pour '$mcpName' : $mcpPath"

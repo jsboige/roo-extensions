@@ -1,0 +1,41 @@
+========================================
+COLLECTE STASHS - 2025-10-16 10:49:33
+========================================
+
+RÉSUMÉ:
+- Total stashs: 19
+- Dépôts avec stashs: 2 / 9
+
+========================================
+DÉPÔT: d:/roo-extensions (principal)
+========================================
+Chemin: .
+Stashs: 15
+
+stash@{2025-09-15 20:17:00 +0200}: WIP on main: 86f4fe4 feat(mcps): Finalisation post-MAJ jupyter-papermill & roo-state-manager
+stash@{2025-05-28 01:47:28 +0200}: On main: Modifications temporaires avant résolution conflits main (incluant non suivis)
+stash@{2025-05-27 01:35:31 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:35:04 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:34:32 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:34:04 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:33:31 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:09:23 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-27 01:03:30 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-26 01:02:26 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-25 15:48:17 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-24 00:05:26 +0200}: On main: Roo temporary stash for branch checkout
+stash@{2025-05-23 12:26:45 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-23 12:26:09 +0200}: On main: Automated stash before sync pull
+stash@{2025-05-23 12:10:06 +0200}: On main: Automated stash before sync pull
+
+========================================
+DÉPÔT: mcps/internal
+========================================
+Chemin: mcps/internal
+Stashs: 4
+
+stash@{2025-09-14 05:15:25 +0200}: WIP on main: 616dced fix: Correction des tests post-merge - remplacement .execute() par .handler()
+stash@{2025-08-21 14:44:24 +0200}: WIP on main: 964c7fb docs: add mission report for quickfiles-server modernization
+stash@{2025-08-21 14:37:34 +0200}: WIP on main: 964c7fb docs: add mission report for quickfiles-server modernization
+stash@{2025-08-21 11:50:53 +0200}: WIP on local-integration-internal-mcps: d0386d0 fix(quickfiles): repair build and functionality after ESM migration
+
