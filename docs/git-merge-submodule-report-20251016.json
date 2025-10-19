@@ -1,0 +1,56 @@
+{
+  "date": "2025-10-16T18:11:00+02:00",
+  "submodule": "mcps/internal",
+  "merge_details": {
+    "strategy": "merge --no-rebase",
+    "conflicts_detected": true,
+    "conflicts_resolved": [
+      {
+        "file": "servers/roo-state-manager/src/tools/registry.ts",
+        "type": "content",
+        "resolution": "Fusion intelligente - intégration get_current_task (local) + 6 outils messagerie RooSync (upstream)",
+        "lines_affected": "487-544"
+      }
+    ],
+    "commits_integrated": 20,
+    "commits_upstream_summary": [
+      "97faf27 - RooSync Messagerie Phase 2",
+      "245dabd - RooSync Messagerie Phase 1",
+      "ccd38b7 - Tests phase 3c synthesis",
+      "9f23b44 - Hierarchical tree formatter",
+      "a36c4c4 - ASCII tree formatter",
+      "a4312fc - Quickfiles bugs fixes",
+      "a313161 - HierarchyReconstructionEngine",
+      "Plus 13 autres commits (tests, docs, fixes)"
+    ],
+    "local_commit_preserved": "b85a9ac",
+    "merge_commit": "3d4db33",
+    "final_commit_get_current_task": "8ed0a32",
+    "build_status": "success",
+    "build_details": {
+      "command": "npm run build",
+      "exit_code": 0,
+      "packages_added": 96,
+      "total_packages": 858,
+      "vulnerabilities": "3 moderate"
+    }
+  },
+  "file_changes": {
+    "auto_merged": 42,
+    "conflicts": 1,
+    "new_files_upstream": 18,
+    "modified_files_upstream": 24
+  },
+  "recommendations": [
+    "✅ Merge réussi avec résolution manuelle intelligente",
+    "✅ Compilation validée - aucune erreur TypeScript",
+    "⚠️ 3 vulnérabilités modérées à adresser (npm audit)",
+    "📌 Prochaine étape: Merge du dépôt principal (après validation utilisateur)",
+    "📌 Ne PAS oublier: git push uniquement après validation complète"
+  ],
+  "sddd_checkpoints": {
+    "grounding_semantique": "Stratégies merge + architecture get_current_task",
+    "grounding_conversationnel": "Historique projet analysé",
+    "documentation_commits": "merge-analysis-20251016.md créé"
+  }
+}

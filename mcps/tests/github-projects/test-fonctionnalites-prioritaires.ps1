@@ -21,7 +21,7 @@ if (-not $serverRunning) {
     $startServer = Read-Host "Voulez-vous démarrer le serveur MCP? (O/N)"
     if ($startServer -eq "O" -or $startServer -eq "o") {
         Write-Host "Démarrage du serveur MCP..." -ForegroundColor Cyan
-        Start-Process -FilePath "powershell" -ArgumentList "-c cd 'D:\roo-extensions\mcps\mcp-servers\servers\github-projects-mcp'; node start-server.js" -NoNewWindow
+        Start-Process -FilePath "powershell" -ArgumentList "-c cd 'D:\roo-extensions\mcps\internal\servers\github-projects-mcp'; node dist/index.js" -NoNewWindow
         
         # Attendre que le serveur démarre
         Write-Host "Attente du démarrage du serveur..." -ForegroundColor Cyan
@@ -34,7 +34,7 @@ if (-not $serverRunning) {
 
 # Exécuter les tests
 Write-Host "Exécution des tests des fonctionnalités prioritaires..." -ForegroundColor Cyan
-node "D:\roo-extensions\mcps\tests\github-projects\test-fonctionnalites-prioritaires.js"
+node "$PSScriptRoot\test-fonctionnalites-prioritaires.js"
 
 # Vérifier le résultat des tests
 if ($LASTEXITCODE -eq 0) {
