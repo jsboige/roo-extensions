@@ -1,0 +1,70 @@
+# Arbre de Tâches - 2025-10-20 21:47:34
+
+**Conversation ID:** ce80ed6d
+**Profondeur max:** 10
+**Inclure siblings:** Oui
+**Racine:** Task ce80ed6d
+
+---
+
+▶️ ce80ed6d - # phase 3d : hierarchy reconstruction - exécution sddd ## 🎯 objectif sddd co... [In Progress]
+        📊 1872 messages | 5345.8 KB
+        🔧 Mode: Unknown
+        📁 Workspace: d:/dev/roo-extensions
+        📅 Created: 2025-10-17T19:15:46.117Z
+        🕐 Last activity: 2025-10-19T20:09:08.925Z
+    ├── 5439d379 - test-branch-a: crée le fichier branch-a.js... [In Progress]
+    │       📊 17 messages | 15.6 KB
+    │       🔧 Mode: Unknown
+    │       📁 Workspace: d:/dev/roo-extensions
+    │       📅 Created: 2025-10-19T15:40:07.402Z
+    │       🕐 Last activity: 2025-10-19T15:40:36.767Z
+    ├── 4715626f - test-branch-a: crée le fichier branch-a.js... [In Progress]
+    │       📊 12 messages | 10.3 KB
+    │       🔧 Mode: Unknown
+    │       📁 Workspace: d:/dev/roo-extensions
+    │       📅 Created: 2025-10-19T15:41:21.394Z
+    │       🕐 Last activity: 2025-10-19T15:41:43.953Z
+    └── 85e70818 - **ta mission est de diagnostiquer et corriger les problèmes de prefix matchin... [In Progress]
+            📊 185 messages | 367.5 KB
+            🔧 Mode: Unknown
+            📁 Workspace: d:/dev/roo-extensions
+            📅 Created: 2025-10-19T20:09:09.582Z
+            🕐 Last activity: 2025-10-19T21:16:25.149Z
+        ├── 00ef9a62 - **urgence : correction du workspace dans l'indexeur de tâches roo-state-manag... [In Progress]
+        │       📊 98 messages | 209.7 KB
+        │       🔧 Mode: Unknown
+        │       📁 Workspace: d:/dev/roo-extensions
+        │       📅 Created: 2025-10-19T20:26:44.191Z
+        │       🕐 Last activity: 2025-10-19T20:33:38.834Z
+        ├── 6c233fde - **checkpoint conversationnel sddd - vérification cohérence historique** **con... [In Progress]
+        │       📊 131 messages | 366.5 KB
+        │       🔧 Mode: Unknown
+        │       📁 Workspace: d:/dev/roo-extensions
+        │       📅 Created: 2025-10-19T20:34:32.528Z
+        │       🕐 Last activity: 2025-10-19T20:44:47.632Z
+        ├── 13bba2d7 - **finalisation mission sddd - validation et documentation complètes** **conte... [In Progress]
+        │       📊 64 messages | 165.2 KB
+        │       🔧 Mode: Unknown
+        │       📁 Workspace: d:/dev/roo-extensions
+        │       📅 Created: 2025-10-19T20:46:00.705Z
+        │       🕐 Last activity: 2025-10-19T20:49:05.865Z
+        ├── 73c7abd1 - **finalisation documentation et synthèse sddd triple grounding** **contexte d... [In Progress]
+        │       📊 53 messages | 116.5 KB
+        │       🔧 Mode: Unknown
+        │       📁 Workspace: d:/dev/roo-extensions
+        │       📅 Created: 2025-10-19T20:50:08.123Z
+        │       🕐 Last activity: 2025-10-19T20:57:27.852Z
+        └── 54226b08 - **urgence : nettoyage et gestion des 81 notifications git** **contexte critiq... [In Progress]
+                📊 274 messages | 191 KB
+                🔧 Mode: Unknown
+                📁 Workspace: d:/dev/roo-extensions
+                📅 Created: 2025-10-19T21:16:26.466Z
+                🕐 Last activity: 2025-10-19T22:14:24.976Z
+
+---
+
+**Statistiques:**
+- Nombre total de tâches: 9
+- Profondeur maximale atteinte: 2
+- Généré le: 2025-10-20T21:47:34.601Z
