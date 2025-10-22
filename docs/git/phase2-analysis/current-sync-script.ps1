@@ -14,18 +14,7 @@ function Log-Message {
         [string]$Message,
         [string]$Type = "INFO" # INFO, ALERTE, ERREUR
     )
-    $LogEntry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)"
-    Add-Content -Path $LogFile -Value $LogEntry
-    Write-Host $LogEntry # Also output to console for scheduler visibility
-# Vérifier si Git est disponible
-Log-Message "Vérification de la disponibilité de la commande git..."
-$GitPath = Get-Command git -ErrorAction SilentlyContinue
-if (-not $GitPath) {
-    Log-Message "ERREUR: La commande 'git' n'a pas été trouvée. Veuillez vous assurer que Git est installé et dans le PATH." "ERREUR"
-    Exit 1
-}
-Log-Message "Commande 'git' trouvée : $($GitPath.Source)"
-
+    Add-Content -Path $LogFile -Value "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)"
 }
 
 Log-Message "Début de la synchronisation de l'environnement Roo."
@@ -54,24 +43,10 @@ if ($GitStatus) {
 Log-Message "Exécution de git pull origin main..."
 Try {
     # Récupérer le HEAD actuel pour comparaison ultérieure
-    $HeadBeforePull = git rev-parse HEAD
-    if (-not $HeadBeforePull -or ($LASTEXITCODE -ne 0)) {
-        Log-Message "Impossible de récupérer le SHA de HEAD avant pull. Annulation." "ERREUR"
-        if ($StashApplied) {
-            Try { git stash pop -ErrorAction SilentlyContinue } Catch {}
-        }
-        Exit 1
-    }
+    $OldHead = git rev-parse HEAD
     git pull origin main -ErrorAction Stop
     Log-Message "Git pull réussi."
-    $HeadAfterPull = git rev-parse HEAD
-    if (-not $HeadAfterPull -or ($LASTEXITCODE -ne 0)) {
-        Log-Message "Impossible de récupérer le SHA de HEAD après pull. Annulation." "ERREUR"
-        if ($StashApplied) {
-            Try { git stash pop -ErrorAction SilentlyContinue } Catch {}
-        }
-        Exit 1
-    }
+    $NewHead = git rev-parse HEAD
 } Catch {
     $ErrorMessage = $_.Exception.Message
     if ($ErrorMessage -like "*merge conflict*") {
@@ -165,7 +140,7 @@ Log-Message "Liste complète des fichiers potentiels à synchroniser (avant filt
 
 # Identifier les fichiers réellement modifiés par le pull
 # La sortie de git diff utilise des slashes. Nos chemins dans FilesToSyncList sont aussi normalisés en slashes.
-$ChangedFilesByPull = git diff --name-only $HeadBeforePull $HeadAfterPull | ForEach-Object { $_ } # Déjà en slashes
+$ChangedFilesByPull = git diff --name-only $OldHead $NewHead | ForEach-Object { $_ } # Déjà en slashes
 Log-Message "Fichiers modifiés par le pull (selon git diff): $($ChangedFilesByPull -join ', ')"
 
 # Filtrer FilesToSyncList pour ne garder que ceux modifiés par le pull
@@ -258,7 +233,7 @@ if ($StashApplied) {
         Log-Message "Stash restauré avec succès."
     } Catch {
         Log-Message "Échec de la restauration du stash. Des conflits peuvent exister. Message : $($_.Exception.Message)" "ALERTE"
-        $StashConflictLogFile = Join-Path $ConflictLogDir "sync_conflicts_stash_pop_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+        $StashConflictLogFile = Join-Path $ConflictLogDir "stash_pop_conflict_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
         Add-Content -Path $StashConflictLogFile -Value "--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---"
         Add-Content -Path $StashConflictLogFile -Value "$($_.Exception.Message)"
         (git status) | Out-String | Add-Content -Path $StashConflictLogFile

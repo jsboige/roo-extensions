@@ -1,0 +1,37 @@
+diff --git a/cleanup-backups/20250527-012300/sync_log.txt b/cleanup-backups/20250527-012300/sync_log.txt
+index 90b6698..215445d 100644
+--- a/cleanup-backups/20250527-012300/sync_log.txt
++++ b/cleanup-backups/20250527-012300/sync_log.txt
+@@ -1324,3 +1324,10 @@
+ 2025-05-27 01:35:38 - INFO: Fichier critique prÃ©sent : roo-modes/configs/modes.json
+ 2025-05-27 01:35:38 - INFO: Ã‰tape 6: Gestion des Commits de Correction...
+ 2025-05-27 01:35:38 - ALERTE: Modifications dÃ©tectÃ©es aprÃ¨s synchronisation (ex: logs). CrÃ©ation d'un commit de correction...
++2025-05-27 01:35:39 - INFO: Commit de correction crÃ©Ã©.
++2025-05-27 01:35:39 - INFO: Tentative de push du commit de correction...
++2025-05-27 01:35:40 - INFO: Push du commit de correction rÃ©ussi.
++2025-05-27 01:35:40 - INFO: Ã‰tape 7: Nettoyage et Rapport Final...
++2025-05-27 01:35:40 - INFO: Restauration du stash...
++2025-05-27 01:35:40 - INFO: Stash restaurÃ© avec succÃ¨s.
++2025-05-27 01:35:40 - INFO: Synchronisation de l'environnement Roo terminÃ©e.
+diff --git a/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1 b/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+index 3a31448..4e307ff 100644
+--- a/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
++++ b/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+@@ -21,7 +21,7 @@ if (-not $serverRunning) {
+     $startServer = Read-Host "Voulez-vous démarrer le serveur MCP? (O/N)"
+     if ($startServer -eq "O" -or $startServer -eq "o") {
+         Write-Host "Démarrage du serveur MCP..." -ForegroundColor Cyan
+-        Start-Process -FilePath "powershell" -ArgumentList "-c cd 'D:\roo-extensions\mcps\mcp-servers\servers\github-projects-mcp'; node start-server.js" -NoNewWindow
++        Start-Process -FilePath "powershell" -ArgumentList "-c cd 'D:\roo-extensions\mcps\internal\servers\github-projects-mcp'; node dist/index.js" -NoNewWindow
+         
+         # Attendre que le serveur démarre
+         Write-Host "Attente du démarrage du serveur..." -ForegroundColor Cyan
+@@ -34,7 +34,7 @@ if (-not $serverRunning) {
+ 
+ # Exécuter les tests
+ Write-Host "Exécution des tests des fonctionnalités prioritaires..." -ForegroundColor Cyan
+-node "D:\roo-extensions\mcps\tests\github-projects\test-fonctionnalites-prioritaires.js"
++node "$PSScriptRoot\test-fonctionnalites-prioritaires.js"
+ 
+ # Vérifier le résultat des tests
+ if ($LASTEXITCODE -eq 0) {

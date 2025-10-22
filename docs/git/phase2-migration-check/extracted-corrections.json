@@ -1,0 +1,434 @@
+[
+  {
+    "StashIndex": 1,
+    "LineIndex": 9,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Création répertoire",
+    "Line": "    New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 17,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "    $LogEntry = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 19,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Amélioration visibilité logs scheduler",
+    "Line": "    Write-Host $LogEntry # Also output to console for scheduler visibility",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 39,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Échec lors de la vérification du statut Git ou du stash. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 48,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Capture état Git",
+    "Line": "    $HeadBeforePull = git rev-parse HEAD",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 125,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)\" \"ALERTE\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 173,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"Fichier invalide après pull : $($FileRelPath). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 193,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "                Log-Message \"Fichier JSON invalide après synchronisation : $($JsonFileFullPath.Substring($RepoPath.Length + 1)). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 212,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Fichier critique manquant après synchronisation : $($CriticalFileRelPath)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 236,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Échec lors de la gestion des commits de correction ou du push. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 251,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"stash_pop_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 1,
+    "LineIndex": 252,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        Add-Content -Path $ConflictLogFile -Value \"--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 9,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Création répertoire",
+    "Line": "    New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 17,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "    $LogEntry = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 19,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Amélioration visibilité logs scheduler",
+    "Line": "    Write-Host $LogEntry # Also output to console for scheduler visibility",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 39,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Échec lors de la vérification du statut Git ou du stash. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 48,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Capture état Git",
+    "Line": "    $HeadBeforePull = git rev-parse HEAD",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 126,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)\" \"ALERTE\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 171,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"Échec de la synchronisation de $($FileRelPath). Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 191,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "                Log-Message \"Fichier JSON invalide après synchronisation : $($JsonFileFullPath.Substring($RepoPath.Length + 1)). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 212,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Fichier critique manquant après synchronisation : $($CriticalFileRelPath)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 236,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Échec lors de la gestion des commits de correction ou du push. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 251,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"stash_pop_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 5,
+    "LineIndex": 252,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        Add-Content -Path $ConflictLogFile -Value \"--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 21,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Vérification disponibilité Git",
+    "Line": "$GitPath = Get-Command git -ErrorAction SilentlyContinue",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 23,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"ERREUR: La commande 'git' n'a pas été trouvée. Veuillez vous assurer que Git est installé et dans le PATH.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 47,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Capture état Git",
+    "Line": "$HeadBeforePull = git rev-parse HEAD",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 49,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Impossible de récupérer le SHA de HEAD avant pull. Annulation.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 78,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"sync_conflicts_pull_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 88,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du git pull. Message d'exception: $($ErrorMessageFromException). Sortie de la commande: $($PullAttemptOutput.Trim()). Annulation de la synchronisation.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 101,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Capture état Git",
+    "Line": "$HeadAfterPull = git rev-parse HEAD",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 103,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Impossible de récupérer le SHA de HEAD après pull. Annulation.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 114,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Erreur lors de la récupération des fichiers modifiés via git diff. Annulation.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 209,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "                    Log-Message \"Échec de la synchronisation de $($FileRelativePath). Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 236,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"ERREUR: Fichier JSON $($JsonFileRelativePath) invalide après synchronisation. Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 249,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"ERREUR: Fichier JSON critique MANQUANT après synchronisation : $($CriticalJsonFileRelPath)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 257,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "    Log-Message \"Au moins un fichier JSON critique est manquant ($($MissingCriticalFiles -join ', ')). Synchronisation considérée comme échouée.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 276,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 292,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Timestamp formaté",
+    "Line": "        $StashConflictLogFile = Join-Path $ConflictLogDir \"sync_conflicts_stash_pop_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 297,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Vérification état Git",
+    "Line": "        (git status --porcelain) | Out-String | Add-Content -Path $StashConflictLogFile # Utiliser --porcelain pour un statut plus concis",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 7,
+    "LineIndex": 300,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Détails du conflit de stash pop enregistrés dans $($StashConflictLogFile). Résolution manuelle requise.\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 8,
+    "LineIndex": 118,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"ERREUR: Fichier JSON invalide après synchronisation : $($JsonFile). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 8,
+    "LineIndex": 132,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du commit. Message : $($CommitOutput)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 8,
+    "LineIndex": 147,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 9,
+    "LineIndex": 253,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"Échec de la synchronisation de $($File). Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 9,
+    "LineIndex": 269,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "            Log-Message \"ERREUR: Fichier JSON invalide après synchronisation : $($JsonFile). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 9,
+    "LineIndex": 283,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du commit. Message : $($CommitOutput)\" \"ERREUR\"",
+    "Priority": 50
+  },
+  {
+    "StashIndex": 9,
+    "LineIndex": 298,
+    "Category": "IMPORTANT",
+    "Type": "code",
+    "Reason": "Log d'erreur structuré",
+    "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+    "Priority": 50
+  }
+]

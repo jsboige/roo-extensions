@@ -1,0 +1,292 @@
+═══════════════════════════════════════════════════════
+  PHASE 2 - CONTENU DES STASHS
+  Date: 2025-10-22 02:59:17
+═══════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{0}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • cleanup-backups/20250527-012300/sync_log.txt
+  • mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+
+  ✓ cleanup-backups/20250527-012300/sync_log.txt
+
+  Aperçu du diff:
+  diff --git a/cleanup-backups/20250527-012300/sync_log.txt b/cleanup-backups/20250527-012300/sync_log.txt
+  index 90b6698..215445d 100644
+  --- a/cleanup-backups/20250527-012300/sync_log.txt
+  +++ b/cleanup-backups/20250527-012300/sync_log.txt
+  @@ -1324,3 +1324,10 @@
+   2025-05-27 01:35:38 - INFO: Fichier critique prÃ©sent : roo-modes/configs/modes.json
+   2025-05-27 01:35:38 - INFO: Ã‰tape 6: Gestion des Commits de Correction...
+   2025-05-27 01:35:38 - ALERTE: Modifications dÃ©tectÃ©es aprÃ¨s synchronisation (ex: logs). CrÃ©ation d'un commit de correction...
+  +2025-05-27 01:35:39 - INFO: Commit de correction crÃ©Ã©.
+  +2025-05-27 01:35:39 - INFO: Tentative de push du commit de correction...
+  +2025-05-27 01:35:40 - INFO: Push du commit de correction rÃ©ussi.
+  +2025-05-27 01:35:40 - INFO: Ã‰tape 7: Nettoyage et Rapport Final...
+  +2025-05-27 01:35:40 - INFO: Restauration du stash...
+  +2025-05-27 01:35:40 - INFO: Stash restaurÃ© avec succÃ¨s.
+  +2025-05-27 01:35:40 - INFO: Synchronisation de l'environnement Roo terminÃ©e.
+  diff --git a/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1 b/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+  index 3a31448..4e307ff 100644
+  --- a/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+  +++ b/mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+  @@ -21,7 +21,7 @@ if (-not $serverRunning) {
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{1}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • sync_log.txt
+  • sync_roo_environment.ps1
+
+  ✓ sync_log.txt
+  ✓ sync_roo_environment.ps1
+
+  Aperçu du diff:
+  diff --git a/sync_log.txt b/sync_log.txt
+  index 5133d22..8fab36e 100644
+  --- a/sync_log.txt
+  +++ b/sync_log.txt
+  @@ -1150,3 +1150,13 @@
+   2025-05-27 01:34:39 - INFO: Fichier critique prÃ©sent : roo-modes/configs/modes.json
+   2025-05-27 01:34:39 - INFO: Ã‰tape 6: Gestion des Commits de Correction...
+   2025-05-27 01:34:40 - ALERTE: Modifications dÃ©tectÃ©es aprÃ¨s synchronisation (ex: logs). CrÃ©ation d'un commit de correction...
+  +2025-05-27 01:34:40 - INFO: Commit de correction crÃ©Ã©.
+  +2025-05-27 01:34:40 - INFO: Tentative de push du commit de correction...
+  +2025-05-27 01:34:41 - INFO: Push du commit de correction rÃ©ussi.
+  +2025-05-27 01:34:41 - INFO: Ã‰tape 7: Nettoyage et Rapport Final...
+  +2025-05-27 01:34:41 - INFO: Restauration du stash...
+  +2025-05-27 01:34:41 - INFO: Stash restaurÃ© avec succÃ¨s.
+  +2025-05-27 01:34:41 - INFO: Synchronisation de l'environnement Roo terminÃ©e.
+  +2025-05-27 01:35:04 - INFO: Ã‰tape 1: PrÃ©paration et VÃ©rification de l'Environnement Git...
+  +2025-05-27 01:35:04 - INFO: VÃ©rification du statut Git avant pull...
+  +2025-05-27 01:35:04 - ALERTE: Modifications locales dÃ©tectÃ©es. Tentative de stash...
+  diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+  index eb95f5b..8a3e587 100644
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{5}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • .gitignore
+  • README.md
+  • demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
+  • docs/guide-configuration-mcps.md
+  • docs/rapport-etat-mcps.md
+  • docs/rapports/rapport-integration-mcp-servers.md
+  • docs/rapports/rapport-synthese-global.md
+  • mcps/INDEX.md
+  • mcps/INSTALLATION.md
+  • mcps/MANUAL_START.md
+  • mcps/README.md
+  • mcps/REORGANISATION-RAPPORT.md
+  • mcps/SEARCH.md
+  • mcps/TROUBLESHOOTING.md
+  • mcps/external/jupyter/README.md
+  • mcps/external/jupyter/configurations-jupyter-mcp.md
+  • mcps/external/jupyter/start-jupyter-mcp-vscode.bat
+  • mcps/external/jupyter/troubleshooting.md
+  • mcps/monitoring/monitor-mcp-servers.js
+  • mcps/tests/test-jupyter.js
+  • roo-config/config-templates/servers.json
+  • roo-config/settings/servers.json
+  • roo-modes/README.md
+  • roo-modes/configs/vscode-custom-modes.json
+  • roo-modes/custom/docs/architecture/architecture-concept.md
+  • roo-modes/custom/docs/criteres-decision/criteres-decision.md
+  • roo-modes/examples/servers.json
+  • roo-modes/optimized/docs/architecture-concept.md
+  • roo-modes/optimized/docs/criteres-decision.md
+  • roo-modes/tests/test-desescalade.js
+  • roo-modes/tests/test-escalade.js
+  • sync_log.txt
+  • sync_roo_environment.ps1
+  • temp-request.json
+  • tests/mcp/test-jupyter-connection-fixed.js
+  • tests/mcp/test-jupyter-mcp-connect-fixed.js
+  • tests/mcp/test-jupyter-mcp-offline.js
+  • tests/mcp/test-jupyter-vscode-integration.js
+
+  ✓ sync_log.txt
+  ✓ sync_roo_environment.ps1
+
+  Aperçu du diff:
+  diff --git a/.gitignore b/.gitignore
+  index 1a4d48c..69199a5 100644
+  --- a/.gitignore
+  +++ b/.gitignore
+  @@ -71,6 +71,9 @@ yarn-error.log*
+   *.temp
+   *.swp
+   *.swo
+  +temp-*.json
+  +sync_log.txt
+  +sync_*.txt
+   
+   # Fichiers de sauvegarde
+   *~
+  @@ -86,6 +89,13 @@ yarn-error.log*
+   backup/
+   scripts/
+   
+  +# Répertoires de test temporaires (à éviter dans la racine)
+  +git-*-test*/
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{7}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • sync_log.txt
+  • sync_roo_environment.ps1
+
+  ✓ sync_log.txt
+  ✓ sync_roo_environment.ps1
+
+  Aperçu du diff:
+  diff --git a/sync_log.txt b/sync_log.txt
+  index 19b18d2..d37cf91 100644
+  --- a/sync_log.txt
+  +++ b/sync_log.txt
+  @@ -182,3 +182,151 @@
+   2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+   2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+   2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
+  +2025-05-23 12:26:45 - INFO: Stash réussi.
+  +2025-05-23 12:26:45 - INFO: Exécution de git pull...
+  +2025-05-23 12:26:46 - INFO: Git pull réussi. L'environnement local est maintenant synchronisé avec le dépôt.
+  +2025-05-23 12:26:46 - INFO: Le 'git pull' a mis à jour les fichiers directement dans le répertoire de travail.
+  +2025-05-23 12:26:46 - INFO: Vérification post-synchronisation (validation JSON)...
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-config/settings/settings.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-config/settings/servers.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-config/settings/modes.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-config/escalation-test-config.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-config/qwen3-profiles/qwen3-parameters.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-modes/configs/modes.json
+  +2025-05-23 12:26:46 - INFO: Vérifié (JSON valide) : roo-modes/configs/new-roomodes.json
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{8}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • sync_log.txt
+  • sync_roo_environment.ps1
+
+  ✓ sync_log.txt
+  ✓ sync_roo_environment.ps1
+
+  Aperçu du diff:
+  diff --git a/sync_log.txt b/sync_log.txt
+  index 19b18d2..83ff12d 100644
+  --- a/sync_log.txt
+  +++ b/sync_log.txt
+  @@ -182,3 +182,10 @@
+   2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+   2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+   2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
+  +2025-05-23 12:26:10 - INFO: Stash réussi.
+  +2025-05-23 12:26:10 - INFO: Exécution de git pull...
+  +2025-05-23 12:26:10 - INFO: Git pull réussi.
+  +2025-05-23 12:26:10 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+  +2025-05-23 12:26:10 - ERREUR: Échec de la synchronisation de roo-config/settings/settings.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\settings\settings.json par lui-m�me.
+  +2025-05-23 12:26:45 - INFO: Vérification du statut Git avant pull...
+  +2025-05-23 12:26:45 - ALERTE: Modifications locales détectées. Tentative de stash...
+  diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+  index eb95f5b..7c290b8 100644
+  --- a/sync_roo_environment.ps1
+  +++ b/sync_roo_environment.ps1
+  @@ -3,11 +3,10 @@
+
+═══════════════════════════════════════════════════════
+  📦 STASH @{9}
+═══════════════════════════════════════════════════════
+
+
+  Fichiers modifiés:
+  • sync_log.txt
+  • sync_roo_environment.ps1
+
+  ✓ sync_log.txt
+  ✓ sync_roo_environment.ps1
+
+  Aperçu du diff:
+  diff --git a/sync_log.txt b/sync_log.txt
+  index 19b18d2..07339a9 100644
+  --- a/sync_log.txt
+  +++ b/sync_log.txt
+  @@ -182,3 +182,19 @@
+   2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+   2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+   2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
+  +2025-05-23 12:10:37 - INFO: Commit de correction créé.
+  +2025-05-23 12:10:37 - INFO: Tentative de push du commit de correction...
+  +2025-05-23 12:10:38 - INFO: Push du commit de correction réussi.
+  +2025-05-23 12:10:38 - INFO: Étape 7: Nettoyage et Rapport Final...
+  +2025-05-23 12:10:38 - INFO: Restauration du stash...
+  +2025-05-23 12:10:38 - INFO: Stash restauré avec succès.
+  +2025-05-23 12:10:38 - INFO: Synchronisation de l'environnement Roo terminée.
+  +2025-05-23 12:25:14 - INFO: Vérification du statut Git avant pull...
+  +2025-05-23 12:25:14 - ALERTE: Modifications locales détectées. Tentative de stash...
+  +2025-05-23 12:25:14 - INFO: Stash réussi.
+  +2025-05-23 12:25:14 - INFO: Exécution de git pull...
+  +2025-05-23 12:25:14 - INFO: Git pull réussi.
+
+═══════════════════════════════════════════════════════
+  RÉSUMÉ
+═══════════════════════════════════════════════════════
+
+  Fichiers uniques touchés: 40
+
+  Liste des fichiers uniques:
+  • cleanup-backups/20250527-012300/sync_log.txt
+  • mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+  • sync_log.txt
+  • sync_roo_environment.ps1
+  • .gitignore
+  • README.md
+  • demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
+  • docs/guide-configuration-mcps.md
+  • docs/rapport-etat-mcps.md
+  • docs/rapports/rapport-integration-mcp-servers.md
+  • docs/rapports/rapport-synthese-global.md
+  • mcps/INDEX.md
+  • mcps/INSTALLATION.md
+  • mcps/MANUAL_START.md
+  • mcps/README.md
+  • mcps/REORGANISATION-RAPPORT.md
+  • mcps/SEARCH.md
+  • mcps/TROUBLESHOOTING.md
+  • mcps/external/jupyter/README.md
+  • mcps/external/jupyter/configurations-jupyter-mcp.md
+  • mcps/external/jupyter/start-jupyter-mcp-vscode.bat
+  • mcps/external/jupyter/troubleshooting.md
+  • mcps/monitoring/monitor-mcp-servers.js
+  • mcps/tests/test-jupyter.js
+  • roo-config/config-templates/servers.json
+  • roo-config/settings/servers.json
+  • roo-modes/README.md
+  • roo-modes/configs/vscode-custom-modes.json
+  • roo-modes/custom/docs/architecture/architecture-concept.md
+  • roo-modes/custom/docs/criteres-decision/criteres-decision.md
+  • roo-modes/examples/servers.json
+  • roo-modes/optimized/docs/architecture-concept.md
+  • roo-modes/optimized/docs/criteres-decision.md
+  • roo-modes/tests/test-desescalade.js
+  • roo-modes/tests/test-escalade.js
+  • temp-request.json
+  • tests/mcp/test-jupyter-connection-fixed.js
+  • tests/mcp/test-jupyter-mcp-connect-fixed.js
+  • tests/mcp/test-jupyter-mcp-offline.js
+  • tests/mcp/test-jupyter-vscode-integration.js
+

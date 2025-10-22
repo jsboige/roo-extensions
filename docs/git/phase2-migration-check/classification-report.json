@@ -1,0 +1,630 @@
+{
+  "GlobalStats": {
+    "Useful": 0,
+    "TotalLines": 794,
+    "DOUBLON": 124,
+    "Obsolete": 0,
+    "Critical": 0,
+    "UTILE": 566,
+    "Important": 48,
+    "CRITIQUE": 56,
+    "Duplicate": 0
+  },
+  "Stashs": [
+    {
+      "Stats": {
+        "Duplicate": 0,
+        "Obsolete": 0,
+        "Critical": 0,
+        "DOUBLON": 36,
+        "UTILE": 108,
+        "CRITIQUE": 3,
+        "Useful": 0,
+        "Important": 12
+      },
+      "TotalUniqueLines": 159,
+      "Index": 1,
+      "Categories": {
+        "Duplicate": [],
+        "Obsolete": [],
+        "Critical": [],
+        "DOUBLON": {
+          "Line": "$StashApplied = $false",
+          "Category": "DOUBLON",
+          "Index": 26,
+          "Reason": "Ligne déjà présente dans version actuelle",
+          "Type": "code",
+          "Priority": 0
+        },
+        "UTILE": {
+          "Line": "    Add-Content -Path $LogFile -Value $LogEntry",
+          "Category": "UTILE",
+          "Index": 18,
+          "Reason": "Variable de log",
+          "Type": "code",
+          "Priority": 25
+        },
+        "CRITIQUE": {
+          "Line": "$ErrorActionPreference = \"Stop\" # Stop on errors for better control",
+          "Category": "CRITIQUE",
+          "Index": 5,
+          "Reason": "Gestion globale des erreurs",
+          "Type": "code",
+          "Priority": 100
+        },
+        "Useful": [],
+        "Important": [
+          {
+            "Line": "    New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null",
+            "Category": "IMPORTANT",
+            "Index": 9,
+            "Reason": "Création répertoire",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    $LogEntry = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)\"",
+            "Category": "IMPORTANT",
+            "Index": 17,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Write-Host $LogEntry # Also output to console for scheduler visibility",
+            "Category": "IMPORTANT",
+            "Index": 19,
+            "Reason": "Amélioration visibilité logs scheduler",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Échec lors de la vérification du statut Git ou du stash. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 39,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    $HeadBeforePull = git rev-parse HEAD",
+            "Category": "IMPORTANT",
+            "Index": 48,
+            "Reason": "Capture état Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)\" \"ALERTE\"",
+            "Category": "IMPORTANT",
+            "Index": 125,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "            Log-Message \"Fichier invalide après pull : $($FileRelPath). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 173,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "                Log-Message \"Fichier JSON invalide après synchronisation : $($JsonFileFullPath.Substring($RepoPath.Length + 1)). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 193,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Fichier critique manquant après synchronisation : $($CriticalFileRelPath)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 212,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Échec lors de la gestion des commits de correction ou du push. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 236,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"stash_pop_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+            "Category": "IMPORTANT",
+            "Index": 251,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Add-Content -Path $ConflictLogFile -Value \"--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---\"",
+            "Category": "IMPORTANT",
+            "Index": 252,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          }
+        ]
+      }
+    },
+    {
+      "Stats": {
+        "Duplicate": 0,
+        "Obsolete": 0,
+        "Critical": 0,
+        "DOUBLON": 37,
+        "UTILE": 108,
+        "CRITIQUE": 4,
+        "Useful": 0,
+        "Important": 12
+      },
+      "TotalUniqueLines": 161,
+      "Index": 5,
+      "Categories": {
+        "Duplicate": [],
+        "Obsolete": [],
+        "Critical": [],
+        "DOUBLON": {
+          "Line": "$StashApplied = $false",
+          "Category": "DOUBLON",
+          "Index": 26,
+          "Reason": "Ligne déjà présente dans version actuelle",
+          "Type": "code",
+          "Priority": 0
+        },
+        "UTILE": {
+          "Line": "    Add-Content -Path $LogFile -Value $LogEntry",
+          "Category": "UTILE",
+          "Index": 18,
+          "Reason": "Variable de log",
+          "Type": "code",
+          "Priority": 25
+        },
+        "CRITIQUE": {
+          "Line": "$ErrorActionPreference = \"Stop\" # Stop on errors for better control",
+          "Category": "CRITIQUE",
+          "Index": 5,
+          "Reason": "Gestion globale des erreurs",
+          "Type": "code",
+          "Priority": 100
+        },
+        "Useful": [],
+        "Important": [
+          {
+            "Line": "    New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null",
+            "Category": "IMPORTANT",
+            "Index": 9,
+            "Reason": "Création répertoire",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    $LogEntry = \"$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)\"",
+            "Category": "IMPORTANT",
+            "Index": 17,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Write-Host $LogEntry # Also output to console for scheduler visibility",
+            "Category": "IMPORTANT",
+            "Index": 19,
+            "Reason": "Amélioration visibilité logs scheduler",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Échec lors de la vérification du statut Git ou du stash. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 39,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    $HeadBeforePull = git rev-parse HEAD",
+            "Category": "IMPORTANT",
+            "Index": 48,
+            "Reason": "Capture état Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)\" \"ALERTE\"",
+            "Category": "IMPORTANT",
+            "Index": 126,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "            Log-Message \"Échec de la synchronisation de $($FileRelPath). Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 171,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "                Log-Message \"Fichier JSON invalide après synchronisation : $($JsonFileFullPath.Substring($RepoPath.Length + 1)). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 191,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Fichier critique manquant après synchronisation : $($CriticalFileRelPath)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 212,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Échec lors de la gestion des commits de correction ou du push. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 236,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"stash_pop_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+            "Category": "IMPORTANT",
+            "Index": 251,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Add-Content -Path $ConflictLogFile -Value \"--- Conflit Git détecté lors du stash pop - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---\"",
+            "Category": "IMPORTANT",
+            "Index": 252,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          }
+        ]
+      }
+    },
+    {
+      "Stats": {
+        "Duplicate": 0,
+        "Obsolete": 0,
+        "Critical": 0,
+        "DOUBLON": 32,
+        "UTILE": 119,
+        "CRITIQUE": 14,
+        "Useful": 0,
+        "Important": 17
+      },
+      "TotalUniqueLines": 182,
+      "Index": 7,
+      "Categories": {
+        "Duplicate": [],
+        "Obsolete": [],
+        "Critical": [],
+        "DOUBLON": {
+          "Line": "        Try { git stash pop -ErrorAction SilentlyContinue } Catch {}",
+          "Category": "DOUBLON",
+          "Index": 53,
+          "Reason": "Ligne déjà présente dans version actuelle",
+          "Type": "control",
+          "Priority": 0
+        },
+        "UTILE": {
+          "Line": "# Vérifier si Git est disponible",
+          "Category": "UTILE",
+          "Index": 19,
+          "Reason": "Commentaire de vérification",
+          "Type": "comment",
+          "Priority": 25
+        },
+        "CRITIQUE": {
+          "Line": "if (-not $GitPath) {",
+          "Category": "CRITIQUE",
+          "Index": 22,
+          "Reason": "Condition négative (validation)",
+          "Type": "control",
+          "Priority": 100
+        },
+        "Useful": [],
+        "Important": [
+          {
+            "Line": "$GitPath = Get-Command git -ErrorAction SilentlyContinue",
+            "Category": "IMPORTANT",
+            "Index": 21,
+            "Reason": "Vérification disponibilité Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"ERREUR: La commande 'git' n'a pas été trouvée. Veuillez vous assurer que Git est installé et dans le PATH.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 23,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "$HeadBeforePull = git rev-parse HEAD",
+            "Category": "IMPORTANT",
+            "Index": 47,
+            "Reason": "Capture état Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Impossible de récupérer le SHA de HEAD avant pull. Annulation.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 49,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        $ConflictLogFile = Join-Path $ConflictLogDir \"sync_conflicts_pull_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+            "Category": "IMPORTANT",
+            "Index": 78,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du git pull. Message d'exception: $($ErrorMessageFromException). Sortie de la commande: $($PullAttemptOutput.Trim()). Annulation de la synchronisation.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 88,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "$HeadAfterPull = git rev-parse HEAD",
+            "Category": "IMPORTANT",
+            "Index": 101,
+            "Reason": "Capture état Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Impossible de récupérer le SHA de HEAD après pull. Annulation.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 103,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Erreur lors de la récupération des fichiers modifiés via git diff. Annulation.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 114,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "                    Log-Message \"Échec de la synchronisation de $($FileRelativePath). Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 209,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "            Log-Message \"ERREUR: Fichier JSON $($JsonFileRelativePath) invalide après synchronisation. Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 236,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"ERREUR: Fichier JSON critique MANQUANT après synchronisation : $($CriticalJsonFileRelPath)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 249,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "    Log-Message \"Au moins un fichier JSON critique est manquant ($($MissingCriticalFiles -join ', ')). Synchronisation considérée comme échouée.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 257,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 276,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        $StashConflictLogFile = Join-Path $ConflictLogDir \"sync_conflicts_stash_pop_$(Get-Date -Format 'yyyyMMdd_HHmmss').log\"",
+            "Category": "IMPORTANT",
+            "Index": 292,
+            "Reason": "Timestamp formaté",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        (git status --porcelain) | Out-String | Add-Content -Path $StashConflictLogFile # Utiliser --porcelain pour un statut plus concis",
+            "Category": "IMPORTANT",
+            "Index": 297,
+            "Reason": "Vérification état Git",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Détails du conflit de stash pop enregistrés dans $($StashConflictLogFile). Résolution manuelle requise.\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 300,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          }
+        ]
+      }
+    },
+    {
+      "Stats": {
+        "Duplicate": 0,
+        "Obsolete": 0,
+        "Critical": 0,
+        "DOUBLON": 4,
+        "UTILE": 49,
+        "CRITIQUE": 17,
+        "Useful": 0,
+        "Important": 3
+      },
+      "TotalUniqueLines": 73,
+      "Index": 8,
+      "Categories": {
+        "Duplicate": [],
+        "Obsolete": [],
+        "Critical": [],
+        "DOUBLON": {
+          "Line": "        Try {",
+          "Category": "DOUBLON",
+          "Index": 114,
+          "Reason": "Ligne déjà présente dans version actuelle",
+          "Type": "control",
+          "Priority": 0
+        },
+        "UTILE": {
+          "Line": "Log-Message \"Exécution de git pull...\"",
+          "Category": "UTILE",
+          "Index": 42,
+          "Reason": "Ligne de code non critique mais potentiellement utile",
+          "Type": "code",
+          "Priority": 10
+        },
+        "CRITIQUE": {
+          "Line": "$GitStatus = (& git status --porcelain 2>&1)",
+          "Category": "CRITIQUE",
+          "Index": 23,
+          "Reason": "Capture stderr pour meilleure gestion erreurs Git",
+          "Type": "code",
+          "Priority": 100
+        },
+        "Useful": [],
+        "Important": [
+          {
+            "Line": "            Log-Message \"ERREUR: Fichier JSON invalide après synchronisation : $($JsonFile). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 118,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du commit. Message : $($CommitOutput)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 132,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 147,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          }
+        ]
+      }
+    },
+    {
+      "Stats": {
+        "Duplicate": 0,
+        "Obsolete": 0,
+        "Critical": 0,
+        "DOUBLON": 15,
+        "UTILE": 182,
+        "CRITIQUE": 18,
+        "Useful": 0,
+        "Important": 4
+      },
+      "TotalUniqueLines": 219,
+      "Index": 9,
+      "Categories": {
+        "Duplicate": [],
+        "Obsolete": [],
+        "Critical": [],
+        "DOUBLON": {
+          "Line": "    \"roo-config/settings/settings.json\",",
+          "Category": "DOUBLON",
+          "Index": 72,
+          "Reason": "Ligne déjà présente dans version actuelle",
+          "Type": "code",
+          "Priority": 0
+        },
+        "UTILE": {
+          "Line": "Log-Message \"Exécution de git pull...\"",
+          "Category": "UTILE",
+          "Index": 42,
+          "Reason": "Ligne de code non critique mais potentiellement utile",
+          "Type": "code",
+          "Priority": 10
+        },
+        "CRITIQUE": {
+          "Line": "$GitStatus = (& git status --porcelain 2>&1)",
+          "Category": "CRITIQUE",
+          "Index": 23,
+          "Reason": "Capture stderr pour meilleure gestion erreurs Git",
+          "Type": "code",
+          "Priority": 100
+        },
+        "Useful": [],
+        "Important": [
+          {
+            "Line": "            Log-Message \"Échec de la synchronisation de $($File). Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 253,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "            Log-Message \"ERREUR: Fichier JSON invalide après synchronisation : $($JsonFile). Détails : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 269,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du commit. Message : $($CommitOutput)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 283,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          },
+          {
+            "Line": "        Log-Message \"Échec du push du commit de correction. Message : $($_.Exception.Message)\" \"ERREUR\"",
+            "Category": "IMPORTANT",
+            "Index": 298,
+            "Reason": "Log d'erreur structuré",
+            "Type": "code",
+            "Priority": 50
+          }
+        ]
+      }
+    }
+  ],
+  "Timestamp": "2025-10-22 03:53:10"
+}

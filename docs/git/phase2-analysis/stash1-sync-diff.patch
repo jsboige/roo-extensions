@@ -1,0 +1,55 @@
+diff --git a/sync_log.txt b/sync_log.txt
+index 5133d22..8fab36e 100644
+--- a/sync_log.txt
++++ b/sync_log.txt
+@@ -1150,3 +1150,13 @@
+ 2025-05-27 01:34:39 - INFO: Fichier critique prÃ©sent : roo-modes/configs/modes.json
+ 2025-05-27 01:34:39 - INFO: Ã‰tape 6: Gestion des Commits de Correction...
+ 2025-05-27 01:34:40 - ALERTE: Modifications dÃ©tectÃ©es aprÃ¨s synchronisation (ex: logs). CrÃ©ation d'un commit de correction...
++2025-05-27 01:34:40 - INFO: Commit de correction crÃ©Ã©.
++2025-05-27 01:34:40 - INFO: Tentative de push du commit de correction...
++2025-05-27 01:34:41 - INFO: Push du commit de correction rÃ©ussi.
++2025-05-27 01:34:41 - INFO: Ã‰tape 7: Nettoyage et Rapport Final...
++2025-05-27 01:34:41 - INFO: Restauration du stash...
++2025-05-27 01:34:41 - INFO: Stash restaurÃ© avec succÃ¨s.
++2025-05-27 01:34:41 - INFO: Synchronisation de l'environnement Roo terminÃ©e.
++2025-05-27 01:35:04 - INFO: Ã‰tape 1: PrÃ©paration et VÃ©rification de l'Environnement Git...
++2025-05-27 01:35:04 - INFO: VÃ©rification du statut Git avant pull...
++2025-05-27 01:35:04 - ALERTE: Modifications locales dÃ©tectÃ©es. Tentative de stash...
+diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+index eb95f5b..8a3e587 100644
+--- a/sync_roo_environment.ps1
++++ b/sync_roo_environment.ps1
+@@ -158,21 +158,24 @@ if ($FilesToActuallySync.Count -eq 0) {
+ 
+ foreach ($FileRelPath in $FilesToActuallySync) {
+     $SourceFile = Join-Path $RepoPath $FileRelPath
+-    $DestinationFile = Join-Path $RepoPath $FileRelPath # Assumer que le dépôt est l'emplacement actif
+-
++    
++    # Vérification que le fichier existe et validation JSON si applicable
+     if (Test-Path $SourceFile) {
+         Try {
+-            Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
+-            Log-Message "Synchronisé : $($FileRelPath)"
++            # Pour les fichiers JSON, effectuer une validation
+             if ($FileRelPath.EndsWith(".json")) {
+-                $SyncedJsonFiles += $DestinationFile
++                Get-Content -Raw $SourceFile | ConvertFrom-Json | Out-Null
++                Log-Message "Validé (JSON valide) : $($FileRelPath)"
++                $SyncedJsonFiles += $SourceFile
++            } else {
++                Log-Message "Vérifié : $($FileRelPath)"
+             }
+         } Catch {
+-            Log-Message "Échec de la synchronisation de $($FileRelPath). Message : $($_.Exception.Message)" "ERREUR"
+-            # Selon la criticité, on pourrait vouloir sortir ici (Exit 1)
++            Log-Message "Fichier invalide après pull : $($FileRelPath). Détails : $($_.Exception.Message)" "ERREUR"
++            Exit 1 # Fichier critique invalide
+         }
+     } else {
+-        Log-Message "Fichier source non trouvé pour la synchronisation (peut avoir été supprimé par le pull) : $($SourceFile)" "ALERTE"
++        Log-Message "Fichier cible non trouvé (peut avoir été supprimé par le pull) : $($SourceFile)" "ALERTE"
+     }
+ }
+ 

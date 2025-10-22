@@ -1,0 +1,37 @@
+[
+  {
+    "DropNumber": 1,
+    "OriginalIndex": 9,
+    "ActualIndex": 9,
+    "Timestamp": "2025-10-22 19:34:22",
+    "Success": true
+  },
+  {
+    "DropNumber": 2,
+    "OriginalIndex": 8,
+    "ActualIndex": 7,
+    "Timestamp": "2025-10-22 19:34:23",
+    "Success": true
+  },
+  {
+    "DropNumber": 3,
+    "OriginalIndex": 7,
+    "ActualIndex": 5,
+    "Timestamp": "2025-10-22 19:34:23",
+    "Success": true
+  },
+  {
+    "DropNumber": 4,
+    "OriginalIndex": 5,
+    "ActualIndex": 2,
+    "Timestamp": "2025-10-22 19:34:23",
+    "Success": true
+  },
+  {
+    "DropNumber": 5,
+    "OriginalIndex": 1,
+    "ActualIndex": -3,
+    "Timestamp": "2025-10-22 19:34:23",
+    "Success": false
+  }
+]
