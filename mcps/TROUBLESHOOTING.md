@@ -1367,7 +1367,7 @@ En cas de panne système complète:
 
 ## Patterns de Débogage Appliqués (Synthèse Post-Réparation Janvier 2025)
 
-Suite à une campagne de fiabilisation de plusieurs serveurs MCP, les patterns de diagnostic et de résolution suivants se sont avérés particulièrement efficaces. Pour une analyse complète, [consultez la synthèse SDDD dédiée](../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md).
+Suite à une campagne de fiabilisation de plusieurs serveurs MCP, les patterns de diagnostic et de résolution suivants se sont avérés particulièrement efficaces. Pour une analyse complète, [consultez la synthèse SDDD dédiée](..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md).
 
 ### 1. Incohérence Build TypeScript vs. Configuration MCP (`roo-state-manager`)
 - **Symptôme :** Erreur `Cannot find module` au démarrage du MCP, bien que les fichiers compilés existent.

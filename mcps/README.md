@@ -67,7 +67,7 @@ Les serveurs MCP offrent un large éventail de fonctionnalités :
 
 Suite à une campagne de fiabilisation utilisant la méthodologie SDDD, plusieurs serveurs critiques ont été réparés et leur documentation améliorée. Tous les serveurs listés ci-dessous sont actuellement considérés comme stables et opérationnels.
 
-Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
+Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
 
 
 ## Installation
