@@ -1,0 +1,29 @@
+═══════════════════════════════════════════════════════
+  PHASE 2 - RAPPORT CHECKSUMS SHA256
+  Date: 2025-10-22 02:58:17
+═══════════════════════════════════════════════════════
+
+📊 CHECKSUMS SHA256:
+
+@{0}            : ERROR
+@{1}            : ERROR
+@{5}            : ERROR
+@{7}            : ERROR
+@{8}            : ERROR
+@{9}            : ERROR
+HEAD            : 5B4D078C48202C3228CE5020FFF819E9C63F0BEB8E1E14500CDA4E4FAF6F1D0C
+
+🔍 ANALYSE DES DOUBLONS:
+
+📊 COMPARAISON AVEC HEAD:
+
+
+═══════════════════════════════════════════════════════
+  RÉSUMÉ ET RECOMMANDATIONS
+═══════════════════════════════════════════════════════
+
+📈 STATISTIQUES:
+  • Stashs analysés: 6
+  • Identiques à HEAD: 0
+  • Différents de HEAD: 0
+

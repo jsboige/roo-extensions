@@ -1,0 +1,198 @@
+diff --git a/encoding-fix/apply-encoding-fix.ps1 b/encoding-fix/apply-encoding-fix.ps1
+index 1ec4d7d..06bb975 100644
+--- a/encoding-fix/apply-encoding-fix.ps1
++++ b/encoding-fix/apply-encoding-fix.ps1
+@@ -160,7 +160,7 @@ try {
+ # Étape 6: Configuration VSCode
+ Write-Host "Étape 6: Configuration VSCode" -ForegroundColor Yellow
+ 
+-$vscodeDir = ".\.vscode"
++$vscodeDir = ".\.\.vscode"
+ $vscodeSettings = "$vscodeDir\settings.json"
+ 
+ # Créer le répertoire .vscode si nécessaire
+@@ -230,7 +230,7 @@ Write-Host ""
+ 
+ Write-Host "Documentation:" -ForegroundColor Cyan
+ Write-Host "  - Consultez DEPLOYMENT-GUIDE.md pour plus d'informations" -ForegroundColor White
+-Write-Host "  - En cas de probleme: .\restore-profile.ps1" -ForegroundColor White
++Write-Host "  - En cas de problème: .\restore-profile.ps1" -ForegroundColor White
+ Write-Host ""
+ 
+ Write-Host "Configuration UTF-8 deployee avec succes!" -ForegroundColor Green
+\ No newline at end of file
+diff --git a/sync_log.txt b/sync_log.txt
+index ab6c1ff..2ebc3fa 100644
+--- a/sync_log.txt
++++ b/sync_log.txt
+@@ -194,3 +194,6 @@
+ 2025-05-26 01:02:30 - INFO: ✓ Validation JSON réussie pour tous les fichiers de configuration
+ 2025-05-26 01:02:30 - INFO: ✓ Système de synchronisation Roo entièrement opérationnel
+ 2025-05-26 01:02:30 - INFO: === FIN DES CORRECTIONS ===
++2025-05-27 01:03:30 - INFO: Étape 1: Préparation et Vérification de l'Environnement Git...
++2025-05-27 01:03:30 - INFO: Vérification du statut Git avant pull...
++2025-05-27 01:03:30 - ALERTE: Modifications locales détectées. Tentative de stash...
+diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+index eb95f5b..17fa7f8 100644
+--- a/sync_roo_environment.ps1
++++ b/sync_roo_environment.ps1
+@@ -110,28 +110,48 @@ $UniqueTargetFiles = $TargetFilesAndPatterns | Sort-Object -Unique
+ Log-Message "Liste des fichiers cibles potentiels construite."
+ 
+ $FilesModifiedByPull = @()
++$GitDiffSucceeded = $false
++
+ Try {
+     Log-Message "Détection des fichiers modifiés par le pull (HEAD vs HEAD@{1})..."
+     if ($HeadBeforePull) {
+-        $FilesModifiedByPull = git diff --name-only $HeadBeforePull HEAD | ForEach-Object { $_ -replace '/', '\' } # Normaliser les slashes pour Windows
++        $GitDiffOutput = git diff --name-only $HeadBeforePull HEAD 2>&1
++        if ($LASTEXITCODE -eq 0) {
++            $FilesModifiedByPull = $GitDiffOutput | ForEach-Object { $_ -replace '/', '\' } # Normaliser les slashes pour Windows
++            $GitDiffSucceeded = $true
++            Log-Message "Git diff réussi. Fichiers modifiés par le pull : $($FilesModifiedByPull -join ', ')"
++        } else {
++            Log-Message "Git diff a échoué (code de sortie: $LASTEXITCODE). Sortie: $($GitDiffOutput -join '; ')" "ALERTE"
++        }
+     } else {
+-        Log-Message "Impossible de déterminer HEAD avant le pull, synchronisation de tous les fichiers cibles." "ALERTE"
+-        # En cas d'échec de la détection (ex: premier pull), on pourrait choisir de synchroniser tous les $UniqueTargetFiles
+-        # Pour l'instant, on continue avec une liste vide, ce qui signifie que seuls les fichiers explicitement listés et existants seront copiés.
+-        # Ou, pour être plus sûr, on peut forcer la synchronisation de tous les fichiers cibles.
+-        # $FilesModifiedByPull = $UniqueTargetFiles # Décommentez pour synchroniser tous les fichiers cibles si diff échoue
++        Log-Message "Impossible de déterminer HEAD avant le pull (premier pull ou erreur)." "ALERTE"
+     }
+-    Log-Message "Fichiers modifiés par le pull : $($FilesModifiedByPull -join ', ')"
+ } Catch {
+-    Log-Message "Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)" "ALERTE"
+-    # Continuer, mais la synchronisation pourrait ne pas être précise.
++    Log-Message "Erreur lors de l'exécution de git diff. Message : $($_.Exception.Message)" "ALERTE"
++}
++
++# Stratégie de fallback si git diff échoue
++if (-not $GitDiffSucceeded) {
++    Log-Message "Activation de la stratégie de fallback : synchronisation de tous les fichiers cibles existants." "ALERTE"
++    # En cas d'échec de git diff, on synchronise tous les fichiers cibles pour assurer la cohérence
++    $FilesModifiedByPull = $UniqueTargetFiles
++    Log-Message "Mode fallback activé : $($FilesModifiedByPull.Count) fichiers cibles seront vérifiés pour synchronisation."
+ }
+ 
+ $FilesToActuallySync = @()
++$MissingTargetFiles = @()
++
+ if ($FilesModifiedByPull.Count -gt 0) {
+     foreach ($modifiedFile in $FilesModifiedByPull) {
+         if ($UniqueTargetFiles -contains $modifiedFile) {
+-            $FilesToActuallySync += $modifiedFile
++            # Vérifier l'existence avant d'ajouter à la liste de synchronisation
++            $FullPath = Join-Path $RepoPath $modifiedFile
++            if (Test-Path $FullPath) {
++                $FilesToActuallySync += $modifiedFile
++            } else {
++                $MissingTargetFiles += $modifiedFile
++                Log-Message "Fichier cible modifié mais manquant : $($modifiedFile)" "ALERTE"
++            }
+         }
+     }
+ } else {
+@@ -139,14 +159,31 @@ if ($FilesModifiedByPull.Count -gt 0) {
+     # Ceci est une mesure de sécurité, mais peut être affiné.
+     Log-Message "Aucun fichier spécifiquement modifié par le pull détecté ou diff échoué. Vérification de tous les fichiers cibles pour synchronisation." "ALERTE"
+     foreach ($targetFile in $UniqueTargetFiles) {
+-        if (Test-Path (Join-Path $RepoPath $targetFile)) {
++        $FullPath = Join-Path $RepoPath $targetFile
++        if (Test-Path $FullPath) {
+             $FilesToActuallySync += $targetFile
++        } else {
++            $MissingTargetFiles += $targetFile
+         }
+     }
+ }
++
+ $FilesToActuallySync = $FilesToActuallySync | Sort-Object -Unique
+ Log-Message "Fichiers identifiés pour synchronisation réelle : $($FilesToActuallySync -join ', ')"
+ 
++# Rapport des fichiers manquants
++if ($MissingTargetFiles.Count -gt 0) {
++    Log-Message "Fichiers cibles manquants (ignorés pour la synchronisation) : $($MissingTargetFiles -join ', ')" "ALERTE"
++    # Vérifier si des fichiers critiques sont manquants
++    $CriticalMissingFiles = $MissingTargetFiles | Where-Object {
++        $_ -in @("roo-config/settings/settings.json", "roo-modes/configs/modes.json")
++    }
++    if ($CriticalMissingFiles.Count -gt 0) {
++        Log-Message "ATTENTION : Fichiers critiques manquants détectés : $($CriticalMissingFiles -join ', ')" "ERREUR"
++        # Ne pas arrêter ici car ils pourraient être créés plus tard, mais alerter
++    }
++}
++
+ 
+ # --- Étape 4: Exécution des Opérations de Synchronisation ---
+ Log-Message "Étape 4: Exécution des Opérations de Synchronisation..."
+@@ -154,25 +191,54 @@ $SyncedJsonFiles = @()
+ 
+ if ($FilesToActuallySync.Count -eq 0) {
+     Log-Message "Aucun fichier à synchroniser cette fois-ci."
++} else {
++    Log-Message "Début de la synchronisation de $($FilesToActuallySync.Count) fichier(s)..."
+ }
+ 
+ foreach ($FileRelPath in $FilesToActuallySync) {
+     $SourceFile = Join-Path $RepoPath $FileRelPath
+-    $DestinationFile = Join-Path $RepoPath $FileRelPath # Assumer que le dépôt est l'emplacement actif
+-
+-    if (Test-Path $SourceFile) {
+-        Try {
+-            Copy-Item -Path $SourceFile -Destination $DestinationFile -Force
+-            Log-Message "Synchronisé : $($FileRelPath)"
+-            if ($FileRelPath.EndsWith(".json")) {
+-                $SyncedJsonFiles += $DestinationFile
++    
++    # Validation d'existence du fichier source avant synchronisation
++    if (-not (Test-Path $SourceFile)) {
++        Log-Message "Fichier source non trouvé pour la synchronisation (peut avoir été supprimé par le pull) : $($SourceFile)" "ALERTE"
++        continue
++    }
++    
++    # Logique de synchronisation corrigée :
++    # Si le dépôt Git est l'emplacement actif (cas actuel), la synchronisation
++    # consiste à valider que les fichiers sont à jour après le git pull
++    Try {
++        # Vérifier que le fichier est accessible et lisible
++        $FileInfo = Get-Item $SourceFile -ErrorAction Stop
++        
++        # Pour les fichiers JSON, effectuer une validation de syntaxe
++        if ($FileRelPath.EndsWith(".json")) {
++            Try {
++                Get-Content -Raw $SourceFile | ConvertFrom-Json | Out-Null
++                Log-Message "Fichier JSON validé et synchronisé : $($FileRelPath)"
++                $SyncedJsonFiles += $SourceFile
++            } Catch {
++                Log-Message "Fichier JSON invalide détecté lors de la synchronisation : $($FileRelPath). Détails : $($_.Exception.Message)" "ERREUR"
++                # Pour les fichiers JSON critiques, on pourrait vouloir sortir
++                if ($FileRelPath -in @("roo-config/settings/settings.json", "roo-modes/configs/modes.json")) {
++                    Log-Message "Fichier JSON critique invalide, arrêt de la synchronisation." "ERREUR"
++                    Exit 1
++                }
+             }
+-        } Catch {
+-            Log-Message "Échec de la synchronisation de $($FileRelPath). Message : $($_.Exception.Message)" "ERREUR"
+-            # Selon la criticité, on pourrait vouloir sortir ici (Exit 1)
++        } else {
++            Log-Message "Fichier validé et synchronisé : $($FileRelPath)"
++        }
++        
++        # Marquer le fichier comme traité avec succès
++        Log-Message "Synchronisation réussie : $($FileRelPath) (Taille: $($FileInfo.Length) octets, Modifié: $($FileInfo.LastWriteTime))"
++        
++    } Catch {
++        Log-Message "Échec de la validation/synchronisation de $($FileRelPath). Message : $($_.Exception.Message)" "ERREUR"
++        # Pour les fichiers critiques, considérer l'arrêt
++        if ($FileRelPath -in @("roo-config/settings/settings.json", "roo-modes/configs/modes.json")) {
++            Log-Message "Fichier critique inaccessible, arrêt de la synchronisation." "ERREUR"
++            Exit 1
+         }
+-    } else {
+-        Log-Message "Fichier source non trouvé pour la synchronisation (peut avoir été supprimé par le pull) : $($SourceFile)" "ALERTE"
+     }
+ }
+ 

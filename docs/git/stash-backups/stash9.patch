@@ -1,0 +1,207 @@
+diff --git a/sync_log.txt b/sync_log.txt
+index 19b18d2..e411c1f 100644
+--- a/sync_log.txt
++++ b/sync_log.txt
+@@ -182,3 +182,9 @@
+ 2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+ 2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+ 2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
++2025-05-25 15:48:16 - INFO: === DÉBUT DE LA SYNCHRONISATION ROO ENVIRONMENT ===
++2025-05-25 15:48:16 - INFO: Version du script: 2.0
++2025-05-25 15:48:16 - INFO: Répertoire de travail: d:/roo-extensions
++2025-05-25 15:48:17 - INFO: Étape 1: Préparation et Vérification de l'Environnement Git...
++2025-05-25 15:48:17 - INFO: Vérification du statut Git avant pull...
++2025-05-25 15:48:17 - ALERTE: Modifications locales détectées. Tentative de stash...
+diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+index eb95f5b..2f1cabf 100644
+--- a/sync_roo_environment.ps1
++++ b/sync_roo_environment.ps1
+@@ -1,10 +1,17 @@
+ # Fichier : d:/roo-extensions/sync_roo_environment.ps1
++# Script de synchronisation automatisé pour l'environnement Roo via dépôt Git
++# Optimisé pour exécution non-interactive via scheduler
++# Version: 2.0 - Conforme aux spécifications révisées
+ 
+ $RepoPath = "d:/roo-extensions"
+ $LogFile = "d:/roo-extensions/sync_log.txt"
+ $ConflictLogDir = "d:/roo-extensions/sync_conflicts"
+ $ErrorActionPreference = "Stop" # Stop on errors for better control
+ 
++# Variables de configuration
++$MainBranch = "main" # Branche principale - ajuster si nécessaire
++$MaxLogSize = 10MB # Taille maximale du fichier de log avant rotation
++
+ # Créer le répertoire de logs de conflits si inexistant
+ If (-not (Test-Path $ConflictLogDir)) {
+     New-Item -ItemType Directory -Path $ConflictLogDir -ErrorAction SilentlyContinue | Out-Null
+@@ -16,12 +23,60 @@ function Log-Message {
+         [string]$Type = "INFO" # INFO, ALERTE, ERREUR
+     )
+     $LogEntry = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') - $($Type): $($Message)"
+-    Add-Content -Path $LogFile -Value $LogEntry
++    
++    # Rotation du log si trop volumineux
++    if ((Test-Path $LogFile) -and (Get-Item $LogFile).Length -gt $MaxLogSize) {
++        $BackupLog = "$($LogFile).$(Get-Date -Format 'yyyyMMdd_HHmmss').bak"
++        Move-Item $LogFile $BackupLog -ErrorAction SilentlyContinue
++    }
++    
++    Add-Content -Path $LogFile -Value $LogEntry -ErrorAction SilentlyContinue
+     Write-Host $LogEntry # Also output to console for scheduler visibility
+ }
+ 
++function Test-GitRepository {
++    # Vérifier que nous sommes dans un dépôt Git valide
++    Try {
++        git rev-parse --git-dir | Out-Null
++        return $true
++    } Catch {
++        return $false
++    }
++}
++
++function Get-CurrentBranch {
++    Try {
++        return (git branch --show-current).Trim()
++    } Catch {
++        return $null
++    }
++}
++
++# Initialisation et vérifications préliminaires
++Log-Message "=== DÉBUT DE LA SYNCHRONISATION ROO ENVIRONMENT ==="
++Log-Message "Version du script: 2.0"
++Log-Message "Répertoire de travail: $RepoPath"
++
+ Set-Location $RepoPath
+ 
++# Vérification que nous sommes dans un dépôt Git valide
++if (-not (Test-GitRepository)) {
++    Log-Message "ERREUR CRITIQUE: Le répertoire $RepoPath n'est pas un dépôt Git valide." "ERREUR"
++    Exit 1
++}
++
++$CurrentBranch = Get-CurrentBranch
++if ($CurrentBranch -ne $MainBranch) {
++    Log-Message "ATTENTION: Branche actuelle '$CurrentBranch' différente de la branche principale '$MainBranch'. Tentative de basculement..." "ALERTE"
++    Try {
++        git checkout $MainBranch
++        Log-Message "Basculement vers la branche '$MainBranch' réussi."
++    } Catch {
++        Log-Message "Échec du basculement vers la branche '$MainBranch'. Message: $($_.Exception.Message)" "ERREUR"
++        Exit 1
++    }
++}
++
+ # --- Étape 1: Préparation et Vérification de l'Environnement Git ---
+ Log-Message "Étape 1: Préparation et Vérification de l'Environnement Git..."
+ $StashApplied = $false
+@@ -44,10 +99,20 @@ Try {
+ # --- Étape 2: Mise à Jour du Dépôt Local (git pull) ---
+ Log-Message "Étape 2: Mise à Jour du Dépôt Local (git pull)..."
+ Try {
+-    Log-Message "Exécution de git pull origin main..."
++    Log-Message "Exécution de git pull origin $MainBranch..."
+     # Capture HEAD avant le pull pour la comparaison ultérieure
+     $HeadBeforePull = git rev-parse HEAD
+-    git pull origin main
++    
++    # Vérifier la connectivité réseau avant le pull
++    Try {
++        git ls-remote origin | Out-Null
++        Log-Message "Connectivité avec le dépôt distant vérifiée."
++    } Catch {
++        Log-Message "Échec de la vérification de connectivité avec le dépôt distant. Message: $($_.Exception.Message)" "ERREUR"
++        Exit 1
++    }
++    
++    git pull origin $MainBranch
+     Log-Message "Git pull réussi."
+ } Catch {
+     $ErrorMessage = $_.Exception.Message
+@@ -57,7 +122,7 @@ Try {
+         $ConflictLogFile = Join-Path $ConflictLogDir "sync_conflicts_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+         Add-Content -Path $ConflictLogFile -Value "--- Conflit Git détecté lors du pull - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ---"
+         Add-Content -Path $ConflictLogFile -Value "Dépôt : $RepoPath"
+-        Add-Content -Path $ConflictLogFile -Value "Branche : main" # Assumer main, ajuster si nécessaire
++        Add-Content -Path $ConflictLogFile -Value "Branche : $MainBranch"
+         Add-Content -Path $ConflictLogFile -Value "Statut avant abort :"
+         (git status) | Out-String | Add-Content -Path $ConflictLogFile
+         Add-Content -Path $ConflictLogFile -Value "--- FIN DU CONFLIT ---"
+@@ -111,39 +176,40 @@ Log-Message "Liste des fichiers cibles potentiels construite."
+ 
+ $FilesModifiedByPull = @()
+ Try {
+-    Log-Message "Détection des fichiers modifiés par le pull (HEAD vs HEAD@{1})..."
++    Log-Message "Détection des fichiers modifiés par le pull (HEAD vs HEAD avant pull)..."
+     if ($HeadBeforePull) {
+         $FilesModifiedByPull = git diff --name-only $HeadBeforePull HEAD | ForEach-Object { $_ -replace '/', '\' } # Normaliser les slashes pour Windows
++        Log-Message "Fichiers potentiellement modifiés par le pull (selon diff) : $($FilesModifiedByPull -join ', ')"
+     } else {
+-        Log-Message "Impossible de déterminer HEAD avant le pull, synchronisation de tous les fichiers cibles." "ALERTE"
+-        # En cas d'échec de la détection (ex: premier pull), on pourrait choisir de synchroniser tous les $UniqueTargetFiles
+-        # Pour l'instant, on continue avec une liste vide, ce qui signifie que seuls les fichiers explicitement listés et existants seront copiés.
+-        # Ou, pour être plus sûr, on peut forcer la synchronisation de tous les fichiers cibles.
+-        # $FilesModifiedByPull = $UniqueTargetFiles # Décommentez pour synchroniser tous les fichiers cibles si diff échoue
++        Log-Message "Impossible de déterminer HEAD avant le pull (ex: premier pull). Tous les fichiers cibles définis seront considérés pour la synchronisation." "ALERTE"
++        $FilesModifiedByPull = $UniqueTargetFiles # Stratégie: considérer tous les fichiers cibles
+     }
+-    Log-Message "Fichiers modifiés par le pull : $($FilesModifiedByPull -join ', ')"
+ } Catch {
+-    Log-Message "Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message)" "ALERTE"
+-    # Continuer, mais la synchronisation pourrait ne pas être précise.
++    Log-Message "Erreur lors de la détection des fichiers modifiés par git diff. Message : $($_.Exception.Message). Tous les fichiers cibles définis seront considérés pour la synchronisation." "ALERTE"
++    $FilesModifiedByPull = $UniqueTargetFiles # Stratégie: considérer tous les fichiers cibles en cas d'erreur de diff
+ }
+ 
+ $FilesToActuallySync = @()
+-if ($FilesModifiedByPull.Count -gt 0) {
+-    foreach ($modifiedFile in $FilesModifiedByPull) {
+-        if ($UniqueTargetFiles -contains $modifiedFile) {
+-            $FilesToActuallySync += $modifiedFile
+-        }
+-    }
+-} else {
+-    # Si git diff n'a rien retourné ou a échoué, on se rabat sur une copie de tous les fichiers cibles existants
+-    # Ceci est une mesure de sécurité, mais peut être affiné.
+-    Log-Message "Aucun fichier spécifiquement modifié par le pull détecté ou diff échoué. Vérification de tous les fichiers cibles pour synchronisation." "ALERTE"
+-    foreach ($targetFile in $UniqueTargetFiles) {
+-        if (Test-Path (Join-Path $RepoPath $targetFile)) {
+-            $FilesToActuallySync += $targetFile
++# Filtrer $FilesModifiedByPull pour ne garder que ceux qui sont dans $UniqueTargetFiles et qui existent réellement
++# Cela couvre le cas où $FilesModifiedByPull a été peuplé par $UniqueTargetFiles
++Log-Message "Filtrage des fichiers à synchroniser réellement..."
++foreach ($fileToConsider in $FilesModifiedByPull) {
++    if ($UniqueTargetFiles -contains $fileToConsider) {
++        $FullPathOfFileToConsider = Join-Path $RepoPath $fileToConsider
++        if (Test-Path $FullPathOfFileToConsider) {
++            $FilesToActuallySync += $fileToConsider
++        } else {
++            Log-Message "Le fichier cible '$($fileToConsider)' listé pour synchronisation n'existe pas dans le dépôt après pull (peut-être supprimé)." "ALERTE"
+         }
+     }
+ }
++
++if ($FilesModifiedByPull.Count -eq 0 -and $HeadBeforePull) {
++    # Ce cas peut arriver si le pull n'a rien modifié ou si le diff n'a rien retourné.
++    # On ne veut pas synchroniser tous les fichiers si le diff est vide et valide.
++    Log-Message "Aucun fichier modifié par le pull détecté par git diff."
++}
++
+ $FilesToActuallySync = $FilesToActuallySync | Sort-Object -Unique
+ Log-Message "Fichiers identifiés pour synchronisation réelle : $($FilesToActuallySync -join ', ')"
+ 
+@@ -221,11 +287,11 @@ Try {
+     if ($PostSyncStatus) {
+         Log-Message "Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction..." "ALERTE"
+         git add . # Ajoute tous les changements, y compris les logs. Peut être affiné.
+-        git commit -m "SYNC: [Automated] Mise à jour post-synchronisation (logs, etc.)"
++        git commit -m "SYNC: [Automated] Synchronisation des paramètres Roo post-pull"
+         Log-Message "Commit de correction créé."
+ 
+         Log-Message "Tentative de push du commit de correction..."
+-        git push origin main
++        git push origin $MainBranch
+         Log-Message "Push du commit de correction réussi."
+     } else {
+         Log-Message "Aucune modification à commiter après synchronisation."

@@ -1,0 +1,271 @@
+Configuration UTF-8 chargée automatiquement
+=== ANALYSE DES STASHS GIT ===
+
+Nombre total de stashs: 14
+
+=== STASH@{0} ===
+Message: stash@{0}: On main: Modifications temporaires avant résolution conflits main (incluant non suivis)
+
+Fichiers modifiés:
+ cleanup-backups/20250527-012300/sync_log.txt                     | 7 +++++++
+ mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1 | 4 ++--
+ 2 files changed, 9 insertions(+), 2 deletions(-)
+
+Liste des fichiers:
+cleanup-backups/20250527-012300/sync_log.txt
+mcps/tests/github-projects/test-fonctionnalites-prioritaires.ps1
+
+----------------------------------------
+
+=== STASH@{1} ===
+Message: stash@{1}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt | 96 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 96 insertions(+)
+
+Liste des fichiers:
+sync_log.txt
+
+----------------------------------------
+
+=== STASH@{2} ===
+Message: stash@{2}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt             | 10 ++++++++++
+ sync_roo_environment.ps1 | 19 +++++++++++--------
+ 2 files changed, 21 insertions(+), 8 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{3} ===
+Message: stash@{3}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt | 96 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 96 insertions(+)
+
+Liste des fichiers:
+sync_log.txt
+
+----------------------------------------
+
+=== STASH@{4} ===
+Message: stash@{4}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt             | 10 ++++++++++
+ sync_roo_environment.ps1 | 19 +++++++++++--------
+ 2 files changed, 21 insertions(+), 8 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{5} ===
+Message: stash@{5}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+Liste des fichiers:
+sync_log.txt
+
+----------------------------------------
+
+=== STASH@{6} ===
+Message: stash@{6}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ roo-modes/configs/standard-modes.json              |  2 +-
+ .../n5/configs/architect-large-optimized-v2.json   | 33 ++--------------------
+ .../n5/configs/architect-large-optimized.json      | 29 +------------------
+ sync_log.txt                                       | 10 +++++++
+ 4 files changed, 15 insertions(+), 59 deletions(-)
+
+Liste des fichiers:
+roo-modes/configs/standard-modes.json
+roo-modes/n5/configs/architect-large-optimized-v2.json
+roo-modes/n5/configs/architect-large-optimized.json
+sync_log.txt
+
+----------------------------------------
+
+=== STASH@{7} ===
+Message: stash@{7}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ encoding-fix/apply-encoding-fix.ps1 |   4 +-
+ sync_log.txt                        |   3 +
+ sync_roo_environment.ps1            | 114 ++++++++++++++++++++++++++++--------
+ 3 files changed, 95 insertions(+), 26 deletions(-)
+
+Liste des fichiers:
+encoding-fix/apply-encoding-fix.ps1
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{8} ===
+Message: stash@{8}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ .gitignore                                         |  10 +
+ README.md                                          | 428 ++++-----------------
+ .../integration-outils/exemples-integration.md     |   2 +-
+ docs/guide-configuration-mcps.md                   |   4 +-
+ docs/rapport-etat-mcps.md                          |   2 +-
+ docs/rapports/rapport-integration-mcp-servers.md   |   2 +-
+ docs/rapports/rapport-synthese-global.md           |   2 +-
+ mcps/INDEX.md                                      |   4 +-
+ mcps/INSTALLATION.md                               |  10 +-
+ mcps/MANUAL_START.md                               |   4 +-
+ mcps/README.md                                     |   1 -
+ mcps/REORGANISATION-RAPPORT.md                     |   2 +-
+ mcps/SEARCH.md                                     |   2 +-
+ mcps/TROUBLESHOOTING.md                            |   4 +-
+ mcps/external/jupyter/README.md                    | 231 -----------
+ .../external/jupyter/configurations-jupyter-mcp.md | 277 -------------
+ mcps/external/jupyter/start-jupyter-mcp-vscode.bat | 190 ---------
+ mcps/external/jupyter/troubleshooting.md           | 335 ----------------
+ mcps/monitoring/monitor-mcp-servers.js             |   2 +-
+ mcps/tests/test-jupyter.js                         |   2 +-
+ roo-config/config-templates/servers.json           |   4 +-
+ roo-config/settings/servers.json                   |  10 +-
+ roo-modes/README.md                                |  55 +--
+ roo-modes/configs/vscode-custom-modes.json         | 110 ++++--
+ .../docs/architecture/architecture-concept.md      | 152 --------
+ .../docs/criteres-decision/criteres-decision.md    | 125 ------
+ roo-modes/examples/servers.json                    |   2 +-
+ roo-modes/optimized/docs/architecture-concept.md   | 152 --------
+ roo-modes/optimized/docs/criteres-decision.md      | 125 ------
+ roo-modes/tests/test-desescalade.js                |  58 ---
+ roo-modes/tests/test-escalade.js                   |  51 ---
+ sync_log.txt                                       | 189 +--------
+ sync_roo_environment.ps1                           |   7 +-
+ temp-request.json                                  |   1 -
+ tests/mcp/test-jupyter-connection-fixed.js         |   2 +-
+ tests/mcp/test-jupyter-mcp-connect-fixed.js        |   6 +-
+ tests/mcp/test-jupyter-mcp-offline.js              |   2 +-
+ tests/mcp/test-jupyter-vscode-integration.js       |   8 +-
+ 38 files changed, 244 insertions(+), 2329 deletions(-)
+
+Liste des fichiers:
+.gitignore
+README.md
+demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
+docs/guide-configuration-mcps.md
+docs/rapport-etat-mcps.md
+docs/rapports/rapport-integration-mcp-servers.md
+docs/rapports/rapport-synthese-global.md
+mcps/INDEX.md
+mcps/INSTALLATION.md
+mcps/MANUAL_START.md
+mcps/README.md
+mcps/REORGANISATION-RAPPORT.md
+mcps/SEARCH.md
+mcps/TROUBLESHOOTING.md
+mcps/external/jupyter/README.md
+mcps/external/jupyter/configurations-jupyter-mcp.md
+mcps/external/jupyter/start-jupyter-mcp-vscode.bat
+mcps/external/jupyter/troubleshooting.md
+mcps/monitoring/monitor-mcp-servers.js
+mcps/tests/test-jupyter.js
+roo-config/config-templates/servers.json
+roo-config/settings/servers.json
+roo-modes/README.md
+roo-modes/configs/vscode-custom-modes.json
+roo-modes/custom/docs/architecture/architecture-concept.md
+roo-modes/custom/docs/criteres-decision/criteres-decision.md
+roo-modes/examples/servers.json
+roo-modes/optimized/docs/architecture-concept.md
+roo-modes/optimized/docs/criteres-decision.md
+roo-modes/tests/test-desescalade.js
+roo-modes/tests/test-escalade.js
+sync_log.txt
+sync_roo_environment.ps1
+temp-request.json
+tests/mcp/test-jupyter-connection-fixed.js
+tests/mcp/test-jupyter-mcp-connect-fixed.js
+tests/mcp/test-jupyter-mcp-offline.js
+tests/mcp/test-jupyter-vscode-integration.js
+
+----------------------------------------
+
+=== STASH@{9} ===
+Message: stash@{9}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt             |   6 +++
+ sync_roo_environment.ps1 | 122 ++++++++++++++++++++++++++++++++++++-----------
+ 2 files changed, 100 insertions(+), 28 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{10} ===
+Message: stash@{10}: On main: Roo temporary stash for branch checkout
+
+Fichiers modifiés:
+ sync_log.txt             | 148 ++++++++++++++++++
+ sync_roo_environment.ps1 | 382 ++++++++++++++++++++++++++---------------------
+ 2 files changed, 362 insertions(+), 168 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{11} ===
+Message: stash@{11}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt             |   7 ++
+ sync_roo_environment.ps1 | 282 ++++++++++++++++-------------------------------
+ 2 files changed, 104 insertions(+), 185 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{12} ===
+Message: stash@{12}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_log.txt             |  16 ++
+ sync_roo_environment.ps1 | 417 +++++++++++++++++++++++++++--------------------
+ 2 files changed, 256 insertions(+), 177 deletions(-)
+
+Liste des fichiers:
+sync_log.txt
+sync_roo_environment.ps1
+
+----------------------------------------
+
+=== STASH@{13} ===
+Message: stash@{13}: On main: Automated stash before sync pull
+
+Fichiers modifiés:
+ sync_roo_environment.ps1 | 278 ++++++++++++++++++-----------------------------
+ 1 file changed, 103 insertions(+), 175 deletions(-)
+
+Liste des fichiers:
+sync_roo_environment.ps1
+
+----------------------------------------
+

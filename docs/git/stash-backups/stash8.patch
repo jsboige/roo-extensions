@@ -1,0 +1,3102 @@
+diff --git a/.gitignore b/.gitignore
+index 1a4d48c..69199a5 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -71,6 +71,9 @@ yarn-error.log*
+ *.temp
+ *.swp
+ *.swo
++temp-*.json
++sync_log.txt
++sync_*.txt
+ 
+ # Fichiers de sauvegarde
+ *~
+@@ -86,6 +89,13 @@ yarn-error.log*
+ backup/
+ scripts/
+ 
++# Répertoires de test temporaires (à éviter dans la racine)
++git-*-test*/
++git-test-*/
++*-test-repo/
++sync_conflicts/
++-p/
++
+ # Fichiers de configuration déplacés
+ # Note: new-roomodes.json et vscode-custom-modes.json ont été déplacés dans roo-modes/configs/
+ 
+diff --git a/README.md b/README.md
+index c0ae5bd..6136f9d 100644
+--- a/README.md
++++ b/README.md
+@@ -1,393 +1,103 @@
+ # Roo Extensions
+ 
+-## Table des matières
++**Assistant de développement intelligent pour VS Code avec modes personnalisés et serveurs MCP**
+ 
+-1. [À propos du projet](#à-propos-du-projet)
+-2. [Fonctionnalités principales](#fonctionnalités-principales)
+-3. [Architectures disponibles](#architectures-disponibles)
+-   - [Architecture à 2 niveaux (Simple/Complexe)](#architecture-à-2-niveaux-simplecomplex)
+-   - [Architecture à 5 niveaux (n5)](#architecture-à-5-niveaux-n5)
+-4. [Prérequis](#prérequis)
+-5. [Installation](#installation)
+-6. [Utilisation](#utilisation)
+-7. [Structure du projet](#structure-du-projet)
+-8. [Modes disponibles](#modes-disponibles)
+-9. [Profils et modèles supportés](#profils-et-modèles-supportés)
+-10. [MCPs disponibles](#mcps-disponibles)
+-11. [Démo d'initiation à Roo](#démo-dinitiation-à-roo)
+-12. [Documentation](#documentation)
+-13. [Contribution](#contribution)
+-14. [Note sur l'encodage des fichiers](#note-sur-lencodage-des-fichiers)
+-15. [Migration vers le système de profils](#migration-vers-le-système-de-profils)
+-16. [Licence](#licence)
++## Qu'est-ce que Roo ?
+ 
+-## À propos du projet
++Roo est un agent de codage autonome alimenté par l'IA qui transforme VS Code en un environnement de développement intelligent. Il permet de :
++- Communiquer en langage naturel pour coder, déboguer et architecturer
++- Lire et écrire des fichiers automatiquement
++- Exécuter des commandes dans le terminal
++- Automatiser des actions de navigateur
++- S'intégrer avec des API et modèles d'IA avancés
+ 
+-Roo Extensions est un projet qui étend les capacités de Roo, un assistant de développement intelligent pour VS Code. Ce dépôt contient des extensions pour Roo, notamment des modes personnalisés optimisés pour différents modèles de langage via un système de profils, ainsi que des serveurs MCP (Model Context Protocol) pour étendre les fonctionnalités de base.
++## Installation rapide
+ 
+-### Qu'est-ce que Roo ?
+-
+-Roo est une extension VS Code qui fonctionne comme un agent de codage autonome alimenté par l'IA. Elle permet aux utilisateurs de communiquer en langage naturel, de lire et écrire des fichiers, d'exécuter des commandes dans le terminal, d'automatiser des actions de navigateur, et de s'intégrer avec des API/modèles d'IA.
+-
+-## Fonctionnalités principales
+-
+-- **Modes personnalisés** : Configurations spécifiques qui définissent le comportement, les capacités et les limitations d'un agent Roo.
+-- **Système de profils** : Permet de configurer facilement quels modèles utiliser pour chaque niveau de complexité.
+-- **Serveurs MCP** : Étendent les capacités de Roo avec des fonctionnalités supplémentaires.
+-- **Outils de configuration** : Scripts pour déployer les modes Roo et résoudre les problèmes d'encodage.
+-- **Tests automatisés** : Validation des fonctionnalités et des performances.
+-- **Démo d'initiation** : Exemples structurés pour faciliter l'apprentissage de Roo.
+-
+-## Architectures disponibles
+-
+-Le projet propose deux architectures principales pour les modes Roo :
+-
+-### Architecture à 2 niveaux (Simple/Complex)
+-
+-Cette architecture, actuellement en production, organise les modes en deux catégories distinctes :
+-
+-1. **Modes Simples** : Pour les tâches courantes et de complexité modérée
+-   - Modèle envisagé : Qwen 3 32B
+-   - Optimisé pour un équilibre entre performance et coût
+-
+-2. **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
+-   - Modèles : Claude 3.7 Sonnet et équivalents
+-   - Optimisé pour les tâches complexes et les projets de grande envergure
+-
+-Cette architecture est pleinement fonctionnelle et constitue **la solution recommandée pour le déploiement**. Les configurations sont gérées dans le répertoire `roo-modes/optimized` et déployées via les scripts du répertoire `roo-config/settings`.
+-
+-### Architecture à 5 niveaux (n5)
+-
+-L'architecture à 5 niveaux (n5) est une approche expérimentale qui organise les profils d'agent Roo en cinq niveaux de complexité : MICRO, MINI, MEDIUM, LARGE et ORACLE. Cette architecture est conçue pour optimiser les coûts d'utilisation en adaptant le modèle utilisé à la complexité de la tâche.
+-
+-Les configurations pour cette architecture sont disponibles dans le répertoire `roo-modes/n5/configs`, mais cette approche reste en phase de test et n'est pas recommandée pour un déploiement en production.
+-
+-## Prérequis
+-
+-- Roo installé et configuré
+-- Accès aux modèles Claude (3 Haiku, 3.5 Sonnet, 3.7 Sonnet, 3.7 Opus) ou Qwen 3
+-
+-## Installation
+-
+-1. Clonez ce dépôt :
+-   ```bash
+-   git clone https://github.com/votre-utilisateur/roo-extensions.git
+-   ```
++### 1. Installer l'extension Roo dans VS Code
++```
++Recherchez "Roo" dans le marketplace VS Code et installez l'extension
++```
+ 
+-2. Déployez les modes avec le script approprié :
+-   ```bash
+-   # Pour l'architecture à 2 niveaux (recommandée)
+-   cd roo-config
+-   ./deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
+-   
+-   # Pour l'architecture à 2 niveaux avec le profil Qwen 3
+-   cd roo-config
+-   ./deploy-profile-modes.ps1 -ProfileName "qwen" -DeploymentType global
+-   
+-   # Pour l'architecture à 5 niveaux (expérimentale, non recommandée)
+-   cd roo-config
+-   ./deploy-profile-modes.ps1 -ProfileName "n5" -DeploymentType global
+-   ```
++### 2. Cloner ce dépôt d'extensions
++```bash
++git clone https://github.com/votre-utilisateur/roo-extensions.git
++cd roo-extensions
++```
+ 
+-3. Redémarrez Roo pour appliquer les nouveaux modes.
++### 3. Déployer les modes personnalisés
++```powershell
++cd roo-config
++.\deploy-profile-modes.ps1 -ProfileName "standard" -DeploymentType global
++```
+ 
+-## Utilisation
++## Premier exemple : Découverte en 15 minutes
+ 
+-Les modes personnalisés apparaîtront dans l'interface de Roo et peuvent être sélectionnés comme n'importe quel autre mode.
++🚀 **Démarrage immédiat** : Explorez Roo avec notre démo d'initiation
+ 
+-### Architecture à 2 niveaux (recommandée)
++```powershell
++# Préparer l'environnement de démo
++.\demo-roo-code\prepare-workspaces.ps1
+ 
+-- Pour les tâches courantes et de complexité modérée, sélectionnez un mode Simple
+-- Pour les tâches avancées nécessitant plus de puissance, sélectionnez un mode Complex
++# Ouvrir la première démo dans VS Code
++code demo-roo-code\01-decouverte\demo-1-conversation\workspace
++```
+ 
+-### Architecture à 5 niveaux (expérimentale)
++Suivez ensuite les instructions dans le README de la démo pour découvrir les capacités de Roo.
+ 
+-Si vous avez déployé l'architecture expérimentale à 5 niveaux :
++## Fonctionnalités principales
+ 
+-- Pour les tâches très simples, sélectionnez un mode MICRO
+-- Pour les tâches simples, sélectionnez un mode MINI
+-- Pour les tâches standard, sélectionnez un mode MEDIUM
+-- Pour les tâches complexes, sélectionnez un mode LARGE
+-- Pour les tâches très complexes, sélectionnez un mode ORACLE
+-- L'Orchestrateur peut également router automatiquement les tâches vers le mode approprié
++- **5 modes spécialisés** : Code, Debug, Architect, Ask, Orchestrator
++- **Architecture adaptative** : Modes simples et complexes selon la tâche
++- **Serveurs MCP intégrés** : QuickFiles, JinaNavigator, Jupyter, GitHub, et plus
++- **Démo progressive** : 5 niveaux d'apprentissage (15min à 45min)
++- **Scripts d'automatisation** : Préparation et nettoyage d'environnements
+ 
+ ## Structure du projet
+ 
+-> **Note**: Le dépôt a été récemment réorganisé pour améliorer la maintenabilité et la cohérence de la structure. Cette section reflète la nouvelle organisation du dépôt.
+-
+ ```
+ roo-extensions/
+-├── docs/                           # Documentation générale du projet
+-│   ├── architecture/               # Documentation sur l'architecture
+-│   ├── guides/                     # Guides d'utilisation
+-│   ├── rapports/                   # Rapports d'analyse et de synthèse
+-│   └── tests/                      # Documentation des tests
+-│
+-├── modules/                        # Modules autonomes
+-│   ├── form-validator/             # Module de validation de formulaire
+-│   └── [autres modules futurs]
+-│
+-├── mcps/                           # Serveurs MCP (Model Context Protocol)
+-│   ├── internal/                   # MCPs développés en interne (sous-module jsboige-mcp-servers)
+-│   │   ├── quickfiles/             # MCP pour opérations sur fichiers multiples
+-│   │   ├── jinavigator/            # MCP pour conversion web vers Markdown
+-│   │   └── jupyter/                # MCP pour notebooks Jupyter
+-│   ├── external/                   # MCPs externes
+-│   │   ├── searxng/                # MCP pour recherche web
+-│   │   ├── win-cli/                # MCP pour exécution de commandes Windows
+-│   │   ├── filesystem/             # MCP pour opérations sur le système de fichiers
+-│   │   ├── git/                    # MCP pour opérations Git
+-│   │   └── github/                 # MCP pour API GitHub
+-│   ├── monitoring/                 # Système de surveillance des MCPs
+-│   └── scripts/                    # Scripts liés aux MCPs
+-│
+-├── roo-code/                       # Code source principal de Roo
+-│   ├── assets/
+-│   ├── docs/
+-│   └── src/
+-│
+-├── roo-config/                     # Configuration de Roo
+-│   ├── backups/                    # Sauvegardes des configurations
+-│   ├── config-templates/           # Modèles de configuration
+-│   ├── diagnostic-scripts/         # Scripts de diagnostic
+-│   ├── modes/                      # Configurations des modes
+-│   ├── qwen3-profiles/             # Profils pour Qwen3
+-│   ├── scheduler/                  # Configuration du planificateur
+-│   └── settings/                   # Paramètres généraux
+-│
+-├── roo-modes/                      # Modes personnalisés
+-│   ├── docs/                       # Documentation des modes
+-│   ├── examples/                   # Exemples de configurations
+-│   ├── n5/                         # Architecture à 5 niveaux
+-│   │   ├── configs/
+-│   │   ├── docs/
+-│   │   └── tests/
+-│   └── optimized/                  # Modes optimisés
+-│
+-├── scripts/                        # Scripts utilitaires
+-│   ├── deployment/                 # Scripts de déploiement
+-│   ├── maintenance/                # Scripts de maintenance
+-│   └── migration/                  # Scripts de migration
+-│
+-├── tests/                          # Tests du projet
+-│   ├── data/                       # Données de test
+-│   ├── escalation/                 # Tests d'escalade
+-│   ├── mcp/                        # Tests des MCPs
+-│   ├── results/                    # Résultats des tests
+-│   └── scripts/                    # Scripts de test
+-│
+-└── archive/                        # Contenu archivé
+-    └── legacy/                     # Ancien code conservé pour référence
++├── demo-roo-code/          # 🎯 Démos d'initiation (COMMENCEZ ICI)
++├── roo-modes/              # Modes personnalisés
++├── mcps/                   # Serveurs MCP
++├── roo-config/             # Configuration et déploiement
++└── docs/                   # Documentation détaillée
+ ```
+ 
+-## Documentation
+-
+-Le projet dispose d'une documentation détaillée répartie dans plusieurs fichiers README spécialisés :
+-
+-- [**roo-modes/README.md**](roo-modes/README.md) : Documentation des modes personnalisés, incluant les architectures disponibles, les types de modes, et les mécanismes d'escalade et de désescalade.
+-
+-- [**roo-modes/n5/tests/README.md**](roo-modes/n5/tests/README.md) : Documentation complète des tests de l'architecture d'orchestration à 5 niveaux, incluant les mécanismes d'escalade et de désescalade, les objectifs des tests, leur structure et fonctionnement, ainsi que des instructions pour exécuter et interpréter les résultats des tests.
+-
+-- [**tests/README.md**](tests/README.md) : Documentation des tests du projet, incluant les tests de structure MCP, les tests des serveurs MCP spécifiques, les tests d'encodage, et les tests d'escalade et désescalade.
+-
+-- [**mcps/README.md**](mcps/README.md) : Documentation des serveurs MCP, incluant l'organisation, la configuration et les liens vers la documentation spécifique de chaque serveur.
+-
+-- [**roo-code/README.md**](roo-code/README.md) : Documentation du sous-module roo-code, incluant la structure du projet, les composants principaux, les flux de travail et interactions, et les dépendances et technologies.
++## Guides détaillés
+ 
+-- [**roo-config/README.md**](roo-config/README.md) : Documentation améliorée de la configuration Roo, centralisant toutes les informations sur les paramètres, modes et fonctionnalités avancées. Inclut des instructions détaillées pour l'utilisation des scripts de déploiement et les bonnes pratiques pour modifier les configurations.
+-
+-- [**roo-config/README-profile-modes.md**](roo-config/README-profile-modes.md) : Documentation du système de profils pour les modes personnalisés, expliquant comment créer, gérer et déployer des configurations de modes basées sur des profils.
+-
+-- [**tests/escalation/rapport-tests-escalade.md**](tests/escalation/rapport-tests-escalade.md) : Rapport d'analyse des tests d'escalade, incluant les résultats des tests et les recommandations.
+-
+-Consultez ces fichiers pour obtenir des informations détaillées sur les différents aspects du projet.
++- **[Guide de démarrage](GETTING-STARTED.md)** - Parcours guidé pour débutants
++- **[Architecture du projet](ARCHITECTURE.md)** - Vue d'ensemble technique
++- **[Documentation complète](docs/)** - Guides spécialisés et rapports
+ 
+ ## Modes disponibles
+ 
+-### Architecture à 2 niveaux (recommandée)
+-
+-L'architecture actuellement déployée comprend deux types de modes :
+-- **Modes Simples** : Pour les tâches courantes et de complexité modérée
+-- **Modes Complexes** : Pour les tâches avancées nécessitant plus de puissance
+-
+-### Architecture à 5 niveaux (expérimentale)
+-
+-Le tableau ci-dessous présente les capacités théoriques des différents niveaux de l'architecture expérimentale à 5 niveaux :
+-
+-| Type | MICRO | MINI | MEDIUM | LARGE | ORACLE |
+-|------|-------|------|--------|-------|--------|
+-| Code | Modifications minimes | Bugs simples | Développement de fonctionnalités | Refactoring majeur | Conception de systèmes |
+-| Debug | Erreurs simples | Bugs isolés | Problèmes modérés | Bugs complexes | Problèmes systémiques |
+-| Architect | Suggestions rapides | Conseils simples | Conception de modules | Architecture de systèmes | Conception distribuée |
+-| Ask | Réponses courtes | Questions factuelles | Explications techniques | Analyses détaillées | Synthèses complexes |
+-| Orchestrator | Tâches unitaires | Délégation simple | Coordination standard | Coordination avancée | Orchestration complexe |
+-
+-## Profils et modèles supportés
+-
+-Le système utilise des profils pour définir quels modèles de langage utiliser pour chaque mode. Voici les profils disponibles par défaut:
+-
+-### Profil "standard" (architecture à 2 niveaux)
+-- Modes simples: Qwen 3 32B
+-- Modes complexes: Claude 3.7 Sonnet
+-
+-### Profil "n5" (architecture à 5 niveaux - expérimental)
+-Les modèles suivants sont envisagés pour cette architecture mais restent à tester :
+-- **ORACLE** : Claude Sonnet 3.7, Gemini 2.5 Pro, Chat GPT 4.1
+-- **LARGE** : Qwen 3 235B-A22B, Gemini 2.5 Flash, ChatGPT-4o-mini
+-- **MEDIUM** : Qwen 32B
+-- **SMALL** : Qwen 8B
+-- **MICRO** : Qwen 1.5B
++| Mode | Usage | Complexité |
++|------|-------|------------|
++| **Ask** | Questions et explications | Simple/Complex |
++| **Code** | Développement et modifications | Simple/Complex |
++| **Debug** | Résolution de problèmes | Simple/Complex |
++| **Architect** | Conception et planification | Simple/Complex |
++| **Orchestrator** | Coordination de tâches | Simple/Complex |
+ 
+-Pour créer ou modifier des profils, utilisez le script `create-profile.ps1`. Pour plus d'informations, consultez la documentation dans `docs/guide-utilisation-profils-modes.md`.
++## Serveurs MCP intégrés
+ 
+-## MCPs disponibles
++- **QuickFiles** : Opérations avancées sur fichiers multiples
++- **JinaNavigator** : Conversion web vers Markdown
++- **Jupyter** : Interaction avec notebooks
++- **GitHub** : Gestion de dépôts et issues
++- **SearXNG** : Recherche web multi-moteurs
++- **Win-CLI** : Exécution de commandes système
+ 
+-Le projet intègre plusieurs serveurs MCP (Model Context Protocol) pour étendre les capacités de Roo :
++## Support et contribution
+ 
+-### MCPs Internes (sous-module jsboige-mcp-servers)
++- **Issues** : Signalez les problèmes sur GitHub
++- **Discussions** : Partagez vos cas d'usage
++- **Pull Requests** : Contribuez aux améliorations
+ 
+-Ces serveurs MCP sont développés en interne dans le cadre de ce projet et sont disponibles dans le répertoire `mcps/internal/` :
+-
+-- **QuickFiles** : Permet des opérations avancées sur les fichiers
+-  - Lecture et écriture de fichiers multiples
+-  - Listage de répertoires avec options avancées
+-  - Recherche et remplacement dans les fichiers
+-  - Extraction de structure Markdown
+-
+-- **JinaNavigator** : Permet la conversion de pages web en Markdown
+-  - Conversion de pages web en Markdown
+-  - Extraction de plans hiérarchiques
+-  - Accès aux ressources web via URI
+-
+-- **Jupyter** : Permet l'interaction avec des notebooks Jupyter
+-  - Création, lecture et modification de notebooks
+-  - Exécution de cellules de code
+-  - Gestion des kernels
+-
+-### MCPs Externes
+-
+-Ces serveurs MCP sont développés par d'autres équipes et sont disponibles dans le répertoire `mcps/external/` :
+-
+-- **SearXNG** : Permet d'effectuer des recherches web
+-  - Recherche multi-moteurs
+-  - Filtrage par date et type de contenu
+-  - Extraction de contenu web
+-
+-- **Win-CLI** : Permet d'exécuter des commandes système
+-  - Exécution de commandes PowerShell, CMD et Git Bash
+-  - Gestion des connexions SSH
+-  - Accès aux fonctionnalités système
+-
+-- **Git** : Permet d'effectuer des opérations Git
+-  - Clone, commit, push, pull
+-  - Gestion des branches et des tags
+-  - Résolution de conflits
+-
+-- **GitHub** : Permet d'interagir avec l'API GitHub
+-  - Gestion des issues et pull requests
+-  - Accès aux informations des dépôts
+-  - Gestion des workflows
+-
+-- **Filesystem** : Permet des opérations sur le système de fichiers
+-  - Lecture et écriture de fichiers
+-  - Manipulation de répertoires
+-  - Recherche de fichiers
+-
+-Pour plus d'informations sur l'utilisation des MCPs, consultez les répertoires `mcps/internal/` et `mcps/external/` ainsi que le document `mcps/README.md`.
+-
+-## Démo d'initiation à Roo
+-
+-Le dépôt inclut une démo d'initiation complète à Roo, conçue pour faciliter la découverte et l'apprentissage des fonctionnalités de l'assistant intelligent. Cette démo structurée permet aux utilisateurs de tous niveaux d'explorer progressivement les capacités de Roo.
+-
+-### Contenu de la démo
+-
+-La démo est organisée en 5 répertoires thématiques :
+-
+-1. **01-decouverte** : Introduction aux fonctionnalités de base
+-   - Premiers pas avec Roo
+-   - Utilisation des capacités de vision
+-   - Interaction conversationnelle
+-
+-2. **02-orchestration-taches** : Gestion de projets et organisation de tâches
+-   - Planification de projets
+-   - Recherche web
+-   - Gestion de fichiers
+-
+-3. **03-assistant-pro** : Utilisation de Roo dans un contexte professionnel
+-   - Analyse de données
+-   - Création de présentations
+-   - Communication professionnelle
+-
+-4. **04-creation-contenu** : Création de documents, sites web et contenus multimédias
+-   - Création de sites web
+-   - Contenu pour réseaux sociaux
+-   - Documents et rapports
+-
+-5. **05-projets-avances** : Cas d'usage avancés et intégrations complexes
+-   - Architecture de systèmes
+-   - Intégration d'outils
+-   - Développement avancé
+-
+-### Démarrage rapide
+-
+-1. Préparez les espaces de travail avec le script fourni :
+-   ```powershell
+-   # Depuis la racine du dépôt
+-   .\scripts\demo-scripts\prepare-workspaces.ps1
+-   ```
+-
+-2. Naviguez vers une démo spécifique (ex: `demo-roo-code/01-decouverte/demo-1-conversation/workspace`)
+-
+-3. Suivez les instructions du README.md de la démo
+-
+-4. Pour nettoyer les espaces de travail après utilisation :
+-   ```powershell
+-   # Depuis la racine du dépôt
+-   .\scripts\demo-scripts\clean-workspaces.ps1
+-   ```
+-
+-### Parcours recommandés
+-
+-La démo propose des parcours adaptés à différents profils d'utilisateurs :
+-
+-- **Pour les débutants** : Découverte progressive des fonctionnalités de base
+-- **Pour les professionnels** : Cas d'usage orientés productivité et analyse
+-- **Pour les créatifs** : Création de contenu et design
+-
+-### Documentation détaillée
+-
+-Pour une documentation complète sur l'utilisation de la démo, consultez :
+-
+-- [Guide d'introduction à la démo](docs/guides/demo-guide.md) : Présentation détaillée de la structure et des parcours
+-- [Guide d'installation complet](docs/guides/installation-complete.md) : Instructions unifiées pour l'installation et la configuration
+-
+-## Contribution
+-
+-Les contributions sont les bienvenues ! Voici comment contribuer :
+-
+-1. Forkez le dépôt
+-2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/amazing-feature`)
+-3. Committez vos changements (`git commit -m 'Add some amazing feature'`)
+-4. Poussez vers la branche (`git push origin feature/amazing-feature`)
+-5. Ouvrez une Pull Request
+-
+-## Note sur l'encodage des fichiers
+-
+-**Attention** : Certains fichiers de configuration (notamment `.roomodes`, `new-roomodes.json` et `vscode-custom-modes.json`) présentent des problèmes d'encodage des caractères spéciaux. Si vous rencontrez des problèmes avec ces fichiers, vous devrez peut-être les recréer manuellement en utilisant un éditeur qui prend en charge l'encodage UTF-8 sans BOM.
+-
+-Pour résoudre les problèmes d'encodage, vous pouvez utiliser les scripts disponibles dans le répertoire `roo-config/encoding-scripts/`. Pour plus d'informations, consultez la [documentation des scripts d'encodage](roo-config/encoding-scripts/README.md).
+-
+-## Migration vers le système de profils
+-
+-Si vous utilisez encore l'ancienne architecture (association directe des modes aux modèles), vous pouvez migrer vers le nouveau système basé sur les profils en utilisant le script `migrate-to-profiles.ps1` :
+-
+-```powershell
+-# Migrer une configuration existante vers un profil
+-.\migrate-to-profiles.ps1 -ConfigFile "roo-modes/configs/standard-modes.json" -OutputProfileName "migré"
+-```
++## Licence
+ 
+-Ce script analysera votre configuration existante, extraira les modèles utilisés par chaque mode, créera un nouveau profil avec ces informations et sauvegardera l'ancienne configuration.
++MIT - Voir [LICENSE](LICENSE) pour les détails.
+ 
+-## Licence
++---
+ 
+-Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+\ No newline at end of file
++**🎯 Prêt à commencer ?** Lancez `.\demo-roo-code\prepare-workspaces.ps1` et explorez la démo d'initiation !
+\ No newline at end of file
+diff --git a/demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md b/demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
+index 96cca76..126b252 100644
+--- a/demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
++++ b/demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md
+@@ -368,7 +368,7 @@ Cet exemple montre comment utiliser Roo pour automatiser l'analyse de données a
+ ```bash
+ # Installation du serveur MCP Jupyter (interne)
+ # Depuis la racine du dépôt principal
+-cd mcps/internal/jupyter-mcp-server
++cd mcps/internal/servers/jupyter-mcp-server
+ node ./dist/index.js
+ ```
+ 
+diff --git a/docs/guide-configuration-mcps.md b/docs/guide-configuration-mcps.md
+index 8a4af01..ba90ae9 100644
+--- a/docs/guide-configuration-mcps.md
++++ b/docs/guide-configuration-mcps.md
+@@ -84,7 +84,7 @@ Jupyter MCP est un serveur qui permet d'interagir avec des notebooks Jupyter.
+ 1. Assurez-vous que Node.js et Jupyter sont installés sur votre système.
+ 2. Naviguez vers le répertoire du serveur Jupyter MCP:
+    ```bash
+-   cd mcps/mcp-servers/servers/jupyter-mcp-server
++   cd mcps/internal/servers/jupyter-mcp-server
+    ```
+ 3. Installez les dépendances:
+    ```bash
+@@ -134,7 +134,7 @@ cd mcps/jupyter
+ 
+ Ou directement:
+ ```bash
+-node mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js
++node mcps/internal/servers/jupyter-mcp-server/dist/index.js
+ ```
+ 
+ ### Fonctionnalités
+diff --git a/docs/rapport-etat-mcps.md b/docs/rapport-etat-mcps.md
+index 13f7aca..86ae554 100644
+--- a/docs/rapport-etat-mcps.md
++++ b/docs/rapport-etat-mcps.md
+@@ -55,7 +55,7 @@
+ ### Jupyter
+ 
+ - **État** : Partiellement fonctionnel
+-- **Version** : Installée depuis `c:/dev/roo-extensions/mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js`
++- **Version** : Installée depuis `c:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js`
+ - **Tests effectués** :
+   - Installation : ✅ Réussi
+   - Démarrage du serveur : ✅ Réussi
+diff --git a/docs/rapports/rapport-integration-mcp-servers.md b/docs/rapports/rapport-integration-mcp-servers.md
+index 5f40efc..98349ed 100644
+--- a/docs/rapports/rapport-integration-mcp-servers.md
++++ b/docs/rapports/rapport-integration-mcp-servers.md
+@@ -246,7 +246,7 @@ git submodule update --init --recursive
+          "args": [
+            "/c",
+            "node",
+-           "c:/dev/roo-extensions/mcps/jsboige-mcp-servers/servers/jupyter-mcp-server/dist/index.js"
++           "c:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js"
+          ],
+          "enabled": true,
+          "autoStart": false,
+diff --git a/docs/rapports/rapport-synthese-global.md b/docs/rapports/rapport-synthese-global.md
+index 91a5771..c9ff137 100644
+--- a/docs/rapports/rapport-synthese-global.md
++++ b/docs/rapports/rapport-synthese-global.md
+@@ -39,7 +39,7 @@ Le serveur Win-CLI n'était pas connecté ou non disponible.
+ 
+ ### 3.1. Correction du serveur Jupyter MCP
+ 
+-- Remplacement du fichier `mcps/mcp-servers/servers/jupyter-mcp-server/src/tools/notebook.ts` par une version corrigée
++- Remplacement du fichier `mcps/internal/servers/jupyter-mcp-server/src/tools/notebook.ts` par une version corrigée
+ - Ajout du champ `content` dans les réponses de chaque handler pour résoudre l'erreur de validation de schéma
+ - Recompilation du serveur Jupyter MCP
+ 
+diff --git a/mcps/INDEX.md b/mcps/INDEX.md
+index c9ef0ef..b8df18f 100644
+--- a/mcps/INDEX.md
++++ b/mcps/INDEX.md
+@@ -118,7 +118,7 @@ Ajoutez les serveurs MCP dans votre fichier `servers.json` de Roo :
+     },
+     {
+       "name": "jupyter",
+-      "command": "cmd /c node D:\\chemin\\vers\\mcps\\mcp-servers\\servers\\jupyter-mcp-server\\build\\index.js",
++      "command": "cmd /c node D:\\chemin\\vers\\mcps\\internal\\servers\\jupyter-mcp-server\\dist\\index.js",
+       "autostart": true
+     }
+   ]
+@@ -166,7 +166,7 @@ Les MCPs internes sont développés et maintenus dans le cadre du projet. Ils so
+ |-----|-------------|---------------|
+ | **QuickFiles** | Manipulation rapide et efficace de fichiers multiples | [Documentation complète](./mcp-servers/servers/quickfiles-server/README.md) |
+ | **JinaNavigator** | Conversion de pages web en Markdown | [Documentation complète](./mcp-servers/servers/jinavigator-server/README.md) |
+-| **Jupyter** | Interaction avec des notebooks Jupyter | [Documentation complète](./mcp-servers/servers/jupyter-mcp-server/README.md) |
++| **Jupyter** | Interaction avec des notebooks Jupyter | [Documentation complète](./internal/servers/jupyter-mcp-server/README.md) |
+ 
+ Pour plus d'informations sur les MCPs internes, consultez l'[index des MCPs internes](./mcp-servers/INDEX.md).
+ 
+diff --git a/mcps/INSTALLATION.md b/mcps/INSTALLATION.md
+index bfb02c9..cd5153c 100644
+--- a/mcps/INSTALLATION.md
++++ b/mcps/INSTALLATION.md
+@@ -234,7 +234,7 @@ Le Jupyter MCP Server permet d'interagir avec des notebooks Jupyter.
+ 
+    ```bash
+    # Accéder au répertoire du serveur
+-   cd mcp-servers/servers/jupyter-mcp-server
++   cd internal/servers/jupyter-mcp-server
+ 
+    # Installer les dépendances spécifiques
+    npm install
+@@ -243,7 +243,7 @@ Le Jupyter MCP Server permet d'interagir avec des notebooks Jupyter.
+    npm run build
+    ```
+ 
+-Pour plus de détails, consultez la [documentation Jupyter MCP](./mcp-servers/servers/jupyter-mcp-server/README.md).
++Pour plus de détails, consultez la [documentation Jupyter MCP](./internal/servers/jupyter-mcp-server/README.md).
+ 
+ ### MCPs Externes
+ 
+@@ -354,7 +354,7 @@ Pour configurer les MCPs dans Roo, vous devez ajouter leur configuration dans le
+     },
+     {
+       "name": "jupyter",
+-      "command": "cmd /c node D:\\chemin\\vers\\mcps\\mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
++      "command": "cmd /c node D:\\chemin\\vers\\mcps\\internal\\servers\\jupyter-mcp-server\\dist\\index.js",
+       "autostart": true
+     },
+     {
+@@ -479,8 +479,8 @@ Si vous rencontrez des problèmes lors de l'installation ou de l'utilisation des
+    - Vérifiez que le token d'authentification est correct
+ 
+ Pour une aide plus détaillée sur le dépannage, consultez :
+-- [Guide de dépannage général](./mcp-servers/docs/troubleshooting.md)
+-- [Guide de dépannage du MCP Jupyter](./mcp-servers/docs/jupyter-mcp-troubleshooting.md)
++- [Guide de dépannage général](./internal/docs/troubleshooting.md)
++- [Guide de dépannage du MCP Jupyter](./internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md)
+ <!-- END: POST_INSTALLATION -->
+ 
+ <!-- START: ADDITIONAL_RESOURCES -->
+diff --git a/mcps/MANUAL_START.md b/mcps/MANUAL_START.md
+index ca4ee40..b8a15a0 100644
+--- a/mcps/MANUAL_START.md
++++ b/mcps/MANUAL_START.md
+@@ -26,13 +26,13 @@ Le serveur Jupyter MCP peut être démarré en mode normal ou en mode hors ligne
+ 
+ **Mode normal:**
+ ```batch
+-cd d:\dev\roo-extensions\mcps\mcp-servers\servers\jupyter-mcp-server
++cd d:\dev\roo-extensions\mcps\internal\servers\jupyter-mcp-server
+ node dist\index.js
+ ```
+ 
+ **Mode hors ligne:**
+ ```batch
+-cd d:\dev\roo-extensions\mcps\mcp-servers\servers\jupyter-mcp-server
++cd d:\dev\roo-extensions\mcps\internal\servers\jupyter-mcp-server
+ node dist\index.js --offline
+ ```
+ 
+diff --git a/mcps/README.md b/mcps/README.md
+index efa7784..dfa1958 100644
+--- a/mcps/README.md
++++ b/mcps/README.md
+@@ -44,7 +44,6 @@ Intégrés depuis des sources externes :
+ - **Filesystem** (`external/filesystem/`) - Serveur MCP pour accéder au système de fichiers
+ - **Git** (`external/git/`) - Serveur MCP pour les opérations Git
+ - **GitHub** (`external/github/`) - Serveur MCP pour interagir avec l'API GitHub
+-- **Jupyter** (`external/jupyter/`) - Serveur MCP pour l'intégration avec Jupyter
+ - **SearXNG** (`external/searxng/`) - Serveur MCP pour effectuer des recherches web
+ - **Win-CLI** (`external/win-cli/`) - Serveur MCP pour exécuter des commandes CLI sur Windows
+ 
+diff --git a/mcps/REORGANISATION-RAPPORT.md b/mcps/REORGANISATION-RAPPORT.md
+index 40794f5..3cbac20 100644
+--- a/mcps/REORGANISATION-RAPPORT.md
++++ b/mcps/REORGANISATION-RAPPORT.md
+@@ -45,7 +45,7 @@ Les répertoires additionnels à la racine de `mcps` ont été réorganisés pou
+    - Fichiers de licences tierces déplacés vers `mcps/external/github/server/`
+ 
+ 4. **jupyter/**:
+-   - Documentation et scripts déplacés vers `mcps/external/jupyter/`
++   - Documentation et scripts consolidés dans `mcps/internal/servers/jupyter-mcp-server/`
+ 
+ 5. **win-cli/**:
+    - Code source déplacé vers `mcps/external/win-cli/server/`
+diff --git a/mcps/SEARCH.md b/mcps/SEARCH.md
+index 71bce9e..41e5c4e 100644
+--- a/mcps/SEARCH.md
++++ b/mcps/SEARCH.md
+@@ -129,7 +129,7 @@ Vous pouvez également utiliser des outils externes pour rechercher dans la docu
+ 
+ ### Exemple 2 : Résoudre un problème avec Jupyter MCP
+ 
+-1. **Par structure** : Naviguez vers `mcps/mcp-servers/servers/jupyter-mcp-server/TROUBLESHOOTING.md`
++1. **Par structure** : Naviguez vers `mcps/internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md`
+ 2. **Par tag** : Recherchez `#troubleshooting #jupyter`
+ 3. **Par section** : Recherchez `START_SECTION: jupyter_issues` dans les fichiers de dépannage
+ 4. **Par mot-clé** : Recherchez `"jupyter error"` ou `"jupyter problem"` dans toute la documentation
+diff --git a/mcps/TROUBLESHOOTING.md b/mcps/TROUBLESHOOTING.md
+index 4e7e21a..d485d7b 100644
+--- a/mcps/TROUBLESHOOTING.md
++++ b/mcps/TROUBLESHOOTING.md
+@@ -1242,7 +1242,7 @@ Cette section fournit des liens vers les guides de dépannage spécifiques à ch
+ |---------|-------------------|
+ | QuickFiles | [Guide de dépannage QuickFiles](mcp-servers/servers/quickfiles-server/TROUBLESHOOTING.md) |
+ | JinaNavigator | [Guide de dépannage JinaNavigator](mcp-servers/servers/jinavigator-server/TROUBLESHOOTING.md) |
+-| Jupyter | [Guide de dépannage Jupyter](mcp-servers/servers/jupyter-mcp-server/TROUBLESHOOTING.md) |
++| Jupyter | [Guide de dépannage Jupyter](internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md) |
+ 
+ ### Serveurs MCP externes
+ 
+@@ -1253,7 +1253,7 @@ Cette section fournit des liens vers les guides de dépannage spécifiques à ch
+ | Git | [Guide de dépannage Git](external-mcps/git/TROUBLESHOOTING.md) |
+ | GitHub | [Guide de dépannage GitHub](external-mcps/github/TROUBLESHOOTING.md) |
+ | Win-CLI | [Guide de dépannage Win-CLI](external-mcps/win-cli/TROUBLESHOOTING.md) |
+-| Jupyter | [Guide de dépannage Jupyter](external-mcps/jupyter/TROUBLESHOOTING.md) |
++| Jupyter | [Guide de dépannage Jupyter](internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md) |
+ 
+ ### Ressources supplémentaires
+ 
+diff --git a/mcps/external/jupyter/README.md b/mcps/external/jupyter/README.md
+deleted file mode 100644
+index 56125c6..0000000
+--- a/mcps/external/jupyter/README.md
++++ /dev/null
+@@ -1,231 +0,0 @@
+-# MCP Jupyter pour Roo
+-
+-Ce répertoire contient les scripts et la documentation pour l'intégration du MCP Jupyter avec Roo, avec un accent particulier sur l'intégration avec VSCode.
+-
+-## Table des matières
+-
+-- [MCP Jupyter pour Roo](#mcp-jupyter-pour-roo)
+-  - [Table des matières](#table-des-matières)
+-  - [Introduction](#introduction)
+-    - [Architecture](#architecture)
+-  - [Intégration avec VSCode](#intégration-avec-vscode)
+-    - [Comment fonctionne l'intégration VSCode](#comment-fonctionne-lintégration-vscode)
+-    - [Avantages de l'intégration VSCode](#avantages-de-lintégration-vscode)
+-    - [Prérequis pour l'intégration VSCode](#prérequis-pour-lintégration-vscode)
+-    - [Configuration de l'intégration VSCode](#configuration-de-lintégration-vscode)
+-  - [Configurations disponibles](#configurations-disponibles)
+-  - [Scripts disponibles](#scripts-disponibles)
+-    - [Scripts de démarrage](#scripts-de-démarrage)
+-    - [Scripts de configuration](#scripts-de-configuration)
+-  - [Tests](#tests)
+-    - [Exécution des tests](#exécution-des-tests)
+-  - [Problèmes connus et solutions](#problèmes-connus-et-solutions)
+-    - [Problème: Aucun kernel VSCode détecté](#problème-aucun-kernel-vscode-détecté)
+-    - [Problème: Erreurs de connexion au serveur Jupyter](#problème-erreurs-de-connexion-au-serveur-jupyter)
+-    - [Problème: Échec de l'exécution de code](#problème-échec-de-lexécution-de-code)
+-    - [Problème: Timeout lors du démarrage du serveur MCP Jupyter](#problème-timeout-lors-du-démarrage-du-serveur-mcp-jupyter)
+-  - [Ressources supplémentaires](#ressources-supplémentaires)
+-
+-## Introduction
+-
+-Le MCP Jupyter est un serveur qui implémente le protocole Model Context Protocol (MCP) pour permettre à Roo d'interagir avec Jupyter Notebook. Il sert d'intermédiaire entre Roo et un serveur Jupyter, traduisant les requêtes MCP en appels API Jupyter et vice versa.
+-
+-### Architecture
+-
+-```
+-┌─────────┐     ┌───────────────┐     ┌─────────────────┐
+-│   Roo   │◄────┤  MCP Jupyter  │◄────┤ Serveur Jupyter │
+-└─────────┘     └───────────────┘     └─────────────────┘
+-                       │
+-                       ▼
+-                ┌─────────────┐
+-                │ config.json │
+-                └─────────────┘
+-```
+-
+-Le MCP Jupyter peut fonctionner dans différents modes:
+-- **Mode connecté**: Communique avec un serveur Jupyter existant
+-- **Mode hors ligne**: Fonctionne sans serveur Jupyter, avec des fonctionnalités limitées
+-- **Mode VSCode**: Utilise les kernels Jupyter intégrés à VSCode
+-
+-## Intégration avec VSCode
+-
+-L'intégration avec VSCode permet au MCP Jupyter d'utiliser les kernels Jupyter déjà installés et configurés dans VSCode, offrant une expérience plus fluide et évitant la nécessité de configurer manuellement un serveur Jupyter séparé.
+-
+-### Comment fonctionne l'intégration VSCode
+-
+-1. **Détection des kernels**: Le script d'intégration VSCode détecte automatiquement les kernels Jupyter disponibles dans les extensions VSCode (principalement les extensions Python et Jupyter).
+-
+-2. **Configuration automatique**: Le script configure automatiquement le MCP Jupyter pour utiliser ces kernels, en générant un fichier de configuration approprié.
+-
+-3. **Mode adaptatif**: Si des kernels VSCode sont détectés, le MCP Jupyter démarre en mode VSCode. Sinon, il démarre en mode hors ligne pour éviter les erreurs.
+-
+-4. **Utilisation transparente**: Une fois configuré, le MCP Jupyter peut être utilisé normalement par Roo, sans que l'utilisateur ait besoin de connaître les détails de l'intégration.
+-
+-### Avantages de l'intégration VSCode
+-
+-- **Configuration simplifiée**: Pas besoin de configurer manuellement un serveur Jupyter
+-- **Réutilisation des environnements**: Utilise les environnements Python déjà configurés dans VSCode
+-- **Meilleure stabilité**: Évite les problèmes de connexion au démarrage
+-- **Expérience utilisateur améliorée**: Intégration transparente avec l'environnement de développement
+-- **Isolation des environnements**: Chaque kernel VSCode est isolé, ce qui évite les conflits entre les différents projets
+-- **Mise à jour automatique**: Les kernels sont automatiquement mis à jour lorsque vous mettez à jour vos extensions VSCode
+-
+-### Prérequis pour l'intégration VSCode
+-
+-Pour utiliser l'intégration VSCode avec le MCP Jupyter, vous devez avoir installé les extensions suivantes dans VSCode:
+-
+-1. **Extension Python pour VSCode**: Cette extension est nécessaire pour la détection des environnements Python.
+-   - Installez-la depuis le marketplace VSCode: [Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
+-
+-2. **Extension Jupyter pour VSCode**: Cette extension fournit les fonctionnalités Jupyter dans VSCode.
+-   - Installez-la depuis le marketplace VSCode: [Jupyter Extension](https://marketplace.visualstudio.com/items?itemName=ms-toolsai.jupyter)
+-
+-3. **Au moins un environnement Python configuré**: Vous devez avoir au moins un environnement Python configuré dans VSCode.
+-   - Utilisez la commande "Python: Select Interpreter" dans VSCode pour configurer un interpréteur Python
+-
+-### Configuration de l'intégration VSCode
+-
+-1. **Démarrage automatique**:
+-   - Utilisez le script `start-jupyter-mcp-vscode.bat` pour démarrer automatiquement le MCP Jupyter avec l'intégration VSCode.
+-   - Ce script détecte les kernels disponibles et configure le MCP Jupyter en conséquence.
+-
+-2. **Configuration manuelle**:
+-   - Si vous préférez configurer manuellement l'intégration, vous pouvez modifier le fichier `config.json` dans le répertoire du MCP Jupyter.
+-   - Ajoutez les kernels VSCode que vous souhaitez utiliser dans la section `kernels` du fichier de configuration.
+-
+-3. **Vérification de l'intégration**:
+-   - Pour vérifier que l'intégration fonctionne correctement, exécutez le script de test `test-jupyter-vscode-integration.js`.
+-   - Ce script teste la détection des kernels, la connexion du MCP Jupyter aux kernels VSCode et l'exécution de code simple.
+-
+-## Configurations disponibles
+-
+-Le MCP Jupyter peut être configuré de différentes manières pour s'adapter à différents cas d'utilisation. Pour une documentation détaillée des configurations disponibles, consultez le fichier [configurations-jupyter-mcp.md](./configurations-jupyter-mcp.md).
+-
+-Les principales configurations sont:
+-
+-1. **Mode hors ligne** (`offline: true`)
+-   - Fonctionne sans serveur Jupyter
+-   - Fonctionnalités limitées, mais démarrage stable
+-
+-2. **Serveur local sur le port 8888**
+-   - Configuration standard pour Jupyter Notebook/JupyterLab
+-   - Compatible avec les installations par défaut
+-
+-3. **Serveur local sur le port 8890**
+-   - Évite les conflits avec le port par défaut
+-   - Idéal pour les environnements multi-utilisateurs
+-
+-4. **Serveur HTTP dédié sur le port 8891**
+-   - Isolation complète du serveur Jupyter
+-   - Personnalisation maximale
+-
+-## Scripts disponibles
+-
+-### Scripts de démarrage
+-
+-- **[start-jupyter-mcp-vscode.bat](./start-jupyter-mcp-vscode.bat)**: Démarre le MCP Jupyter avec l'intégration VSCode
+-  - Détecte automatiquement les kernels VSCode
+-  - Configure le MCP Jupyter en conséquence
+-  - Démarre en mode hors ligne si aucun kernel n'est trouvé
+-
+-- **[start-jupyter-mcp-offline.bat](../scripts/mcp-starters/start-jupyter-mcp-offline.bat)**: Démarre le MCP Jupyter en mode hors ligne
+-  - Aucune tentative de connexion à un serveur Jupyter
+-  - Fonctionnalités limitées, mais démarrage stable
+-
+-### Scripts de configuration
+-
+-- **[sync-mcp-config.ps1](../scripts/sync-mcp-config.ps1)**: Synchronise la configuration du MCP Jupyter avec d'autres configurations
+-  - Utile pour maintenir la cohérence entre différents environnements
+-
+-## Tests
+-
+-Plusieurs scripts de test sont disponibles pour vérifier le bon fonctionnement du MCP Jupyter:
+-
+-- **[test-jupyter-vscode-integration.js](../../tests/mcp/test-jupyter-vscode-integration.js)**: Teste l'intégration avec VSCode
+-  - Détection des kernels VSCode
+-  - Connexion du MCP Jupyter aux kernels VSCode
+-  - Exécution de code simple via cette intégration
+-
+-- **[test-jupyter-connection.js](../../tests/mcp/test-jupyter-connection.js)**: Teste la connexion au serveur Jupyter
+-
+-- **[test-jupyter-mcp-offline.js](../../tests/mcp/test-jupyter-mcp-offline.js)**: Teste le mode hors ligne
+-
+-- **[test-jupyter-mcp-switch-offline.js](../../tests/mcp/test-jupyter-mcp-switch-offline.js)**: Teste le passage entre les modes connecté et hors ligne
+-
+-### Exécution des tests
+-
+-Pour exécuter les tests, utilisez les commandes suivantes:
+-
+-```bash
+-# Test de l'intégration VSCode
+-node tests/mcp/test-jupyter-vscode-integration.js
+-
+-# Test de la connexion au serveur Jupyter
+-node tests/mcp/test-jupyter-connection.js
+-
+-# Test du mode hors ligne
+-node tests/mcp/test-jupyter-mcp-offline.js
+-
+-# Test du passage entre les modes
+-node tests/mcp/test-jupyter-mcp-switch-offline.js
+-```
+-
+-## Problèmes connus et solutions
+-
+-### Problème: Aucun kernel VSCode détecté
+-
+-**Symptômes**: Le script d'intégration VSCode ne trouve aucun kernel.
+-
+-**Solutions**:
+-1. Vérifiez que l'extension Python pour VSCode est installée
+-2. Vérifiez que l'extension Jupyter pour VSCode est installée
+-3. Créez au moins un environnement Python dans VSCode
+-4. Exécutez la commande "Python: Select Interpreter" dans VSCode pour configurer l'interpréteur
+-5. Vérifiez que les chemins d'accès aux extensions VSCode sont corrects dans le script `detect-vscode-kernels.ps1`
+-6. Redémarrez VSCode pour s'assurer que les extensions sont correctement chargées
+-
+-### Problème: Erreurs de connexion au serveur Jupyter
+-
+-**Symptômes**: Le MCP Jupyter ne parvient pas à se connecter au serveur Jupyter.
+-
+-**Solutions**:
+-1. Vérifiez que le serveur Jupyter est en cours d'exécution sur le port configuré
+-2. Vérifiez que le token dans la configuration correspond au token du serveur Jupyter
+-3. Essayez d'utiliser le mode hors ligne pour isoler les problèmes
+-4. Vérifiez les pare-feu ou autres restrictions réseau
+-5. Si vous utilisez l'intégration VSCode, assurez-vous que les extensions VSCode sont correctement installées
+-6. Vérifiez les logs du serveur MCP Jupyter pour plus d'informations sur l'erreur
+-
+-### Problème: Échec de l'exécution de code
+-
+-**Symptômes**: L'exécution de code via le MCP Jupyter échoue.
+-
+-**Solutions**:
+-1. Vérifiez que le kernel est correctement démarré
+-2. Vérifiez que les dépendances nécessaires sont installées dans l'environnement Python
+-3. Consultez les logs du serveur Jupyter pour plus d'informations
+-4. Essayez d'exécuter le même code directement dans Jupyter Notebook pour isoler le problème
+-5. Si vous utilisez l'intégration VSCode, vérifiez que le kernel VSCode fonctionne correctement dans VSCode
+-6. Essayez de redémarrer le serveur MCP Jupyter avec le script `start-jupyter-mcp-vscode.bat`
+-
+-### Problème: Timeout lors du démarrage du serveur MCP Jupyter
+-
+-**Symptômes**: Le script de test ou le démarrage du serveur MCP Jupyter échoue avec un timeout.
+-
+-**Solutions**:
+-1. Augmentez la valeur du timeout dans le script de test ou de démarrage
+-2. Vérifiez que le serveur MCP Jupyter n'est pas déjà en cours d'exécution
+-3. Vérifiez les logs du serveur pour identifier d'éventuelles erreurs
+-4. Essayez de démarrer le serveur en mode hors ligne pour isoler les problèmes
+-5. Vérifiez que les ports utilisés ne sont pas déjà occupés par d'autres applications
+-
+-## Ressources supplémentaires
+-
+-- [Documentation principale du MCP Jupyter](../mcp-servers/README-JUPYTER-MCP.md)
+-- [Documentation du mode hors ligne](../mcp-servers/docs/jupyter-mcp-offline-mode.md)
+-- [Documentation des tests de connexion](../mcp-servers/docs/jupyter-mcp-connection-test.md)
+-- [Guide de dépannage](./troubleshooting.md)
+-- [Documentation des configurations](./configurations-jupyter-mcp.md)
+-- [Documentation de l'API Jupyter](https://jupyter-client.readthedocs.io/en/stable/api/index.html)
+-- [Documentation de l'extension Jupyter pour VSCode](https://code.visualstudio.com/docs/datascience/jupyter-notebooks)
+\ No newline at end of file
+diff --git a/mcps/external/jupyter/configurations-jupyter-mcp.md b/mcps/external/jupyter/configurations-jupyter-mcp.md
+deleted file mode 100644
+index a63a3a5..0000000
+--- a/mcps/external/jupyter/configurations-jupyter-mcp.md
++++ /dev/null
+@@ -1,277 +0,0 @@
+-# Configurations du MCP Jupyter
+-
+-Ce document présente les différentes configurations possibles pour le serveur MCP Jupyter, leurs avantages et inconvénients, ainsi que les instructions pour passer d'une configuration à une autre.
+-
+-## Table des matières
+-
+-- [Table des matières](#table-des-matières)
+-- [1. Configuration en mode hors ligne (offline: true)](#1-configuration-en-mode-hors-ligne-offline-true)
+-- [2. Configuration avec serveur local sur le port 8888](#2-configuration-avec-serveur-local-sur-le-port-8888)
+-- [3. Configuration avec serveur local sur le port 8890](#3-configuration-avec-serveur-local-sur-le-port-8890)
+-- [4. Configuration avec serveur HTTP dédié sur le port 8891](#4-configuration-avec-serveur-http-dédié-sur-le-port-8891)
+-- [5. Configuration en mode VSCode](#5-configuration-en-mode-vscode)
+-- [Comment changer de configuration](#comment-changer-de-configuration)
+-- [Recommandations générales](#recommandations-générales)
+-- [Dépannage](#dépannage)
+-
+-## 1. Configuration en mode hors ligne (offline: true)
+-
+-### Description
+-Le mode hors ligne permet au serveur MCP Jupyter de fonctionner sans connexion à un serveur Jupyter. Dans ce mode, certaines fonctionnalités sont limitées, mais le serveur reste opérationnel et peut être utilisé pour des tâches ne nécessitant pas d'exécution de code.
+-
+-### Configuration
+-```json
+-{
+-  "jupyterServer": {
+-    "baseUrl": "http://localhost:8888",
+-    "token": "votre_token_ici",
+-    "offline": true
+-  }
+-}
+-```
+-
+-### Avantages
+-- Démarrage rapide et sans erreur, même en l'absence d'un serveur Jupyter
+-- Pas de tentative de connexion au démarrage, évitant les erreurs de timeout
+-- Idéal pour les environnements où Jupyter n'est pas installé ou disponible
+-- Permet d'utiliser les fonctionnalités de base comme la création et la modification de notebooks
+-
+-### Inconvénients
+-- Impossible d'exécuter du code dans les notebooks
+-- Fonctionnalités liées aux kernels non disponibles
+-- Pas d'accès aux résultats d'exécution
+-
+-### Cas d'utilisation recommandés
+-- Environnements de développement sans Jupyter
+-- Édition de notebooks sans exécution de code
+-- Situations où la stabilité est prioritaire sur les fonctionnalités complètes
+-
+-## 2. Configuration avec serveur local sur le port 8888
+-
+-### Description
+-Configuration standard utilisant un serveur Jupyter local sur le port par défaut (8888). Cette configuration est idéale pour les utilisateurs qui exécutent Jupyter Notebook ou JupyterLab localement avec les paramètres par défaut.
+-
+-### Configuration
+-```json
+-{
+-  "jupyterServer": {
+-    "baseUrl": "http://localhost:8888",
+-    "token": "votre_token_ici",
+-    "offline": false
+-  }
+-}
+-```
+-
+-### Avantages
+-- Compatible avec l'installation par défaut de Jupyter Notebook/JupyterLab
+-- Configuration simple et standard
+-- Accès à toutes les fonctionnalités du MCP Jupyter
+-- Intégration transparente avec l'environnement Jupyter existant
+-
+-### Inconvénients
+-- Peut entrer en conflit avec d'autres services utilisant le port 8888
+-- Nécessite que Jupyter soit déjà en cours d'exécution sur ce port
+-- Le token doit correspondre exactement à celui du serveur Jupyter
+-
+-### Cas d'utilisation recommandés
+-- Utilisateurs ayant déjà Jupyter installé et configuré par défaut
+-- Environnements de développement individuels
+-- Intégration avec des workflows Jupyter existants
+-
+-## 3. Configuration avec serveur local sur le port 8890
+-
+-### Description
+-Cette configuration utilise un serveur Jupyter local sur un port alternatif (8890), ce qui permet d'éviter les conflits avec d'autres instances de Jupyter ou services utilisant le port par défaut.
+-
+-### Configuration
+-```json
+-{
+-  "jupyterServer": {
+-    "baseUrl": "http://localhost:8890",
+-    "token": "votre_token_ici",
+-    "offline": false
+-  }
+-}
+-```
+-
+-### Avantages
+-- Évite les conflits avec le port par défaut de Jupyter (8888)
+-- Permet d'exécuter plusieurs instances de Jupyter en parallèle
+-- Isolation de l'instance utilisée par le MCP Jupyter
+-- Meilleure sécurité grâce à l'utilisation d'un port non standard
+-
+-### Inconvénients
+-- Nécessite de configurer manuellement Jupyter pour utiliser ce port
+-- Peut nécessiter des ajustements dans les pare-feu ou les configurations réseau
+-- Moins standard, ce qui peut compliquer le dépannage
+-
+-### Cas d'utilisation recommandés
+-- Environnements multi-utilisateurs
+-- Systèmes avec plusieurs instances de Jupyter
+-- Configurations où le port 8888 est déjà utilisé
+-
+-## 4. Configuration avec serveur HTTP dédié sur le port 8891
+-
+-### Description
+-Cette configuration utilise un serveur Jupyter dédié sur le port 8891, généralement configuré spécifiquement pour l'intégration avec le MCP Jupyter. Elle offre la meilleure isolation et personnalisation.
+-
+-### Configuration
+-```json
+-{
+-  "jupyterServer": {
+-    "baseUrl": "http://localhost:8891",
+-    "token": "votre_token_ici",
+-    "offline": false
+-  }
+-}
+-```
+-
+-### Avantages
+-- Isolation complète du serveur Jupyter utilisé par le MCP
+-- Personnalisation maximale des paramètres du serveur
+-- Évite toute interférence avec d'autres instances de Jupyter
+-- Peut être configuré avec des extensions et des kernels spécifiques
+-
+-### Inconvénients
+-- Nécessite plus de ressources système (mémoire, CPU)
+-- Configuration plus complexe
+-- Maintenance de deux instances de Jupyter (standard et MCP)
+-
+-### Cas d'utilisation recommandés
+-- Environnements de production
+-- Intégrations critiques nécessitant une haute disponibilité
+-- Situations où des extensions ou configurations spécifiques sont nécessaires
+-
+-## 5. Configuration en mode VSCode
+-
+-### Description
+-Le mode VSCode est une configuration spéciale qui permet au MCP Jupyter d'utiliser directement les kernels Jupyter intégrés à VSCode. Cette configuration est idéale pour les développeurs qui utilisent déjà VSCode comme environnement de développement principal.
+-
+-### Configuration
+-```json
+-{
+-  "jupyterServer": {
+-    "baseUrl": "http://localhost:8890",
+-    "token": "token_généré_automatiquement",
+-    "offline": true
+-  },
+-  "kernels": {
+-    "python3": {
+-      "displayName": "Python 3 (VSCode)",
+-      "language": "python",
+-      "path": "vscode://ms-python.python"
+-    }
+-  }
+-}
+-```
+-
+-### Avantages
+-- Utilisation directe des kernels VSCode sans serveur Jupyter séparé
+-- Configuration automatique via le script `start-jupyter-mcp-vscode.bat`
+-- Réutilisation des environnements Python déjà configurés dans VSCode
+-- Pas besoin d'installer ou de configurer Jupyter Notebook/JupyterLab
+-- Intégration transparente avec l'environnement de développement VSCode
+-- Meilleure stabilité grâce à l'utilisation des kernels VSCode
+-
+-### Inconvénients
+-- Nécessite l'installation des extensions Python et Jupyter pour VSCode
+-- Certaines fonctionnalités avancées de Jupyter peuvent ne pas être disponibles
+-- Dépendance aux extensions VSCode et à leur configuration
+-
+-### Cas d'utilisation recommandés
+-- Développeurs utilisant VSCode comme IDE principal
+-- Environnements de développement où Jupyter n'est pas installé
+-- Situations où la simplicité de configuration est prioritaire
+-- Projets nécessitant une intégration étroite avec VSCode
+-
+-## Comment changer de configuration
+-
+-### Méthode 1: Modification directe du fichier config.json
+-
+-1. Localisez le fichier de configuration:
+-   ```
+-   mcps/mcp-servers/servers/jupyter-mcp-server/config.json
+-   ```
+-
+-2. Ouvrez-le dans un éditeur de texte et modifiez les paramètres selon vos besoins:
+-   - Changez `baseUrl` pour pointer vers le bon serveur et port
+-   - Modifiez `token` pour correspondre au token de votre serveur Jupyter
+-   - Définissez `offline` à `true` ou `false` selon vos besoins
+-
+-3. Sauvegardez le fichier
+-
+-4. Redémarrez le serveur MCP Jupyter pour appliquer les changements
+-
+-### Méthode 2: Utilisation des scripts de démarrage avec paramètres
+-
+-Vous pouvez utiliser les scripts de démarrage avec différents paramètres:
+-
+-```bash
+-# Mode hors ligne
+-scripts/mcp-starters/start-jupyter-mcp-offline.bat
+-
+-# Mode connecté (port par défaut)
+-node mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js
+-
+-# Mode connecté avec port spécifique (via variable d'environnement)
+-set JUPYTER_SERVER_URL=http://localhost:8890
+-node mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js
+-```
+-
+-### Méthode 3: Utilisation du script d'intégration VSCode
+-
+-Le script d'intégration VSCode (`start-jupyter-mcp-vscode.bat`) détecte automatiquement les kernels disponibles dans VSCode et configure le MCP Jupyter en conséquence:
+-
+-```bash
+-# Démarrage avec détection automatique des kernels VSCode
+-mcps/jupyter/start-jupyter-mcp-vscode.bat
+-```
+-
+-Ce script effectue les opérations suivantes:
+-1. Détecte les extensions Jupyter et Python dans VSCode
+-2. Identifie les kernels disponibles dans ces extensions
+-3. Génère une configuration adaptée pour le MCP Jupyter
+-4. Démarre le MCP Jupyter en mode VSCode avec cette configuration
+-
+-### Changement dynamique de configuration
+-
+-Le serveur MCP Jupyter surveille les modifications du fichier de configuration et peut passer du mode connecté au mode hors ligne (et vice versa) sans nécessiter de redémarrage:
+-
+-1. Modifiez le fichier `config.json` pendant que le serveur est en cours d'exécution
+-2. Le serveur détectera automatiquement les changements et ajustera son comportement
+-3. Vérifiez la console du serveur pour confirmer le changement de mode
+-
+-## Recommandations générales
+-
+-- **Pour le développement**: Utilisez le mode hors ligne ou le port 8890 pour éviter les conflits
+-- **Pour la production**: Utilisez le port 8891 avec un serveur dédié
+-- **Pour l'intégration VSCode**: Utilisez le script `start-jupyter-mcp-vscode.bat`
+-- **Pour les tests**: Utilisez le mode hors ligne pour garantir la stabilité
+-- **Pour les utilisateurs de VSCode**: Privilégiez le mode VSCode pour une meilleure intégration
+-- **Pour les environnements sans Jupyter**: Utilisez le mode VSCode ou le mode hors ligne
+-
+-## Dépannage
+-
+-Si vous rencontrez des problèmes de connexion:
+-
+-1. Vérifiez que le serveur Jupyter est bien en cours d'exécution sur le port configuré
+-2. Assurez-vous que le token est correct
+-3. Essayez le mode hors ligne pour isoler les problèmes
+-4. Consultez les logs du serveur MCP Jupyter pour plus d'informations
+-
+-Pour plus d'informations sur le dépannage, consultez le document [troubleshooting.md](./troubleshooting.md).
+-
+-## Comparaison des modes
+-
+-| Fonctionnalité | Mode hors ligne | Mode connecté (8888/8890) | Mode serveur dédié (8891) | Mode VSCode |
+-|----------------|-----------------|---------------------------|---------------------------|------------|
+-| Exécution de code | ❌ | ✅ | ✅ | ✅ |
+-| Création de notebooks | ✅ | ✅ | ✅ | ✅ |
+-| Édition de notebooks | ✅ | ✅ | ✅ | ✅ |
+-| Visualisations | ❌ | ✅ | ✅ | ✅ |
+-| Widgets interactifs | ❌ | ✅ | ✅ | ✅ (limité) |
+-| Facilité de configuration | ✅✅✅ | ✅✅ | ✅ | ✅✅✅ |
+-| Stabilité | ✅✅✅ | ✅✅ | ✅✅ | ✅✅✅ |
+-| Ressources requises | Minimales | Moyennes | Élevées | Minimales |
+-| Intégration VSCode | ❌ | ❌ | ❌ | ✅✅✅ |
+-| Kernels multiples | ❌ | ✅ | ✅ | ✅ |
+\ No newline at end of file
+diff --git a/mcps/external/jupyter/start-jupyter-mcp-vscode.bat b/mcps/external/jupyter/start-jupyter-mcp-vscode.bat
+deleted file mode 100644
+index d0ca997..0000000
+--- a/mcps/external/jupyter/start-jupyter-mcp-vscode.bat
++++ /dev/null
+@@ -1,190 +0,0 @@
+-@echo off
+-setlocal enabledelayedexpansion
+-
+-echo ===================================================
+-echo Script de démarrage du MCP Jupyter avec kernels VSCode
+-echo ===================================================
+-
+-REM Définition des chemins
+-set "MCP_JUPYTER_DIR=%~dp0..\mcp-servers\servers\jupyter-mcp-server"
+-set "CONFIG_FILE=%MCP_JUPYTER_DIR%\config.json"
+-set "CONFIG_BACKUP=%MCP_JUPYTER_DIR%\config.backup.json"
+-set "TEMP_CONFIG=%TEMP%\jupyter_mcp_config_temp.json"
+-set "VSCODE_EXTENSIONS=%USERPROFILE%\.vscode\extensions"
+-set "VSCODE_INSIDERS_EXTENSIONS=%USERPROFILE%\.vscode-insiders\extensions"
+-
+-echo [INFO] Recherche des kernels Jupyter dans VSCode...
+-
+-REM Vérification si le répertoire du MCP Jupyter existe
+-if not exist "%MCP_JUPYTER_DIR%" (
+-    echo [ERREUR] Le répertoire du MCP Jupyter n'existe pas: %MCP_JUPYTER_DIR%
+-    echo Veuillez vérifier l'installation du MCP Jupyter.
+-    exit /b 1
+-)
+-
+-REM Sauvegarde de la configuration actuelle
+-if exist "%CONFIG_FILE%" (
+-    echo [INFO] Sauvegarde de la configuration actuelle...
+-    copy /Y "%CONFIG_FILE%" "%CONFIG_BACKUP%" > nul
+-    echo [INFO] Configuration sauvegardée dans %CONFIG_BACKUP%
+-)
+-
+-REM Détection des kernels VSCode via PowerShell
+-echo [INFO] Recherche des extensions Jupyter dans VSCode...
+-
+-powershell -Command "& {
+-    # Fonction pour trouver les kernels dans un répertoire d'extensions
+-    function Find-JupyterKernels {
+-        param (
+-            [string]$ExtensionsPath
+-        )
+-        
+-        if (-not (Test-Path $ExtensionsPath)) {
+-            return @()
+-        }
+-        
+-        $jupyterExtensions = Get-ChildItem -Path $ExtensionsPath -Directory | Where-Object { 
+-            $_.Name -like 'ms-toolsai.jupyter*' -or 
+-            $_.Name -like 'ms-python.python*'
+-        }
+-        
+-        $kernelSpecs = @()
+-        
+-        foreach ($ext in $jupyterExtensions) {
+-            Write-Host '[INFO] Extension Jupyter trouvée:' $ext.Name
+-            
+-            # Chercher les fichiers kernel.json dans l'extension
+-            $kernelJsonFiles = Get-ChildItem -Path $ext.FullName -Filter 'kernel.json' -Recurse -ErrorAction SilentlyContinue
+-            
+-            foreach ($kernelJson in $kernelJsonFiles) {
+-                try {
+-                    $kernelData = Get-Content -Path $kernelJson.FullName -Raw | ConvertFrom-Json
+-                    $kernelDir = Split-Path -Parent $kernelJson.FullName
+-                    $kernelName = Split-Path -Leaf (Split-Path -Parent $kernelJson.FullName)
+-                    
+-                    $kernelSpecs += @{
+-                        'name' = $kernelName
+-                        'display_name' = if ($kernelData.display_name) { $kernelData.display_name } else { $kernelName }
+-                        'language' = if ($kernelData.language) { $kernelData.language } else { 'python' }
+-                        'path' = $kernelDir
+-                    }
+-                    
+-                    Write-Host '[INFO] Kernel trouvé:' $kernelName
+-                } catch {
+-                    Write-Host '[AVERTISSEMENT] Erreur lors de la lecture du fichier kernel.json:' $kernelJson.FullName
+-                }
+-            }
+-        }
+-        
+-        return $kernelSpecs
+-    }
+-    
+-    # Rechercher dans les extensions VSCode standard et Insiders
+-    $vsCodeKernels = Find-JupyterKernels -ExtensionsPath '$env:VSCODE_EXTENSIONS'
+-    $vsCodeInsidersKernels = Find-JupyterKernels -ExtensionsPath '$env:VSCODE_INSIDERS_EXTENSIONS'
+-    
+-    # Rechercher également dans les kernels système
+-    $systemKernelPaths = @(
+-        '$env:APPDATA\jupyter\kernels',
+-        '$env:PROGRAMDATA\jupyter\kernels',
+-        '$env:LOCALAPPDATA\Programs\Python\Python*\share\jupyter\kernels'
+-    )
+-    
+-    $systemKernels = @()
+-    foreach ($path in $systemKernelPaths) {
+-        if (Test-Path $path) {
+-            Get-ChildItem -Path $path -Directory | ForEach-Object {
+-                $kernelJsonPath = Join-Path $_.FullName 'kernel.json'
+-                if (Test-Path $kernelJsonPath) {
+-                    try {
+-                        $kernelData = Get-Content -Path $kernelJsonPath -Raw | ConvertFrom-Json
+-                        $systemKernels += @{
+-                            'name' = $_.Name
+-                            'display_name' = if ($kernelData.display_name) { $kernelData.display_name } else { $_.Name }
+-                            'language' = if ($kernelData.language) { $kernelData.language } else { 'python' }
+-                            'path' = $_.FullName
+-                        }
+-                        Write-Host '[INFO] Kernel système trouvé:' $_.Name
+-                    } catch {
+-                        Write-Host '[AVERTISSEMENT] Erreur lors de la lecture du fichier kernel.json:' $kernelJsonPath
+-                    }
+-                }
+-            }
+-        }
+-    }
+-    
+-    # Combiner tous les kernels trouvés
+-    $allKernels = $vsCodeKernels + $vsCodeInsidersKernels + $systemKernels
+-    
+-    # Créer la configuration pour le MCP Jupyter
+-    $config = @{
+-        'jupyterServer' = @{
+-            'baseUrl' = 'http://localhost:8890'
+-            'token' = (New-Guid).ToString().Replace('-', '')
+-            'offline' = $false
+-        }
+-        'kernels' = @{}
+-    }
+-    
+-    # Ajouter les kernels à la configuration
+-    foreach ($kernel in $allKernels) {
+-        $config.kernels[$kernel.name] = @{
+-            'displayName' = $kernel.display_name
+-            'language' = $kernel.language
+-            'path' = $kernel.path
+-        }
+-    }
+-    
+-    # Si aucun kernel n'a été trouvé, passer en mode hors ligne
+-    if ($allKernels.Count -eq 0) {
+-        Write-Host '[AVERTISSEMENT] Aucun kernel Jupyter trouvé. Passage en mode hors ligne.'
+-        $config.jupyterServer.offline = $true
+-    } else {
+-        Write-Host '[INFO]' $allKernels.Count 'kernels trouvés.'
+-    }
+-    
+-    # Écrire la configuration dans un fichier temporaire
+-    $config | ConvertTo-Json -Depth 10 | Set-Content -Path '$env:TEMP\jupyter_mcp_config_temp.json'
+-    
+-    Write-Host '[INFO] Configuration générée avec succès.'
+-}"
+-
+-REM Vérifier si la génération de la configuration a réussi
+-if not exist "%TEMP_CONFIG%" (
+-    echo [ERREUR] Échec de la génération de la configuration.
+-    echo Restauration de la configuration précédente...
+-    if exist "%CONFIG_BACKUP%" (
+-        copy /Y "%CONFIG_BACKUP%" "%CONFIG_FILE%" > nul
+-    )
+-    exit /b 1
+-)
+-
+-REM Copier la configuration temporaire vers le fichier de configuration du MCP Jupyter
+-echo [INFO] Application de la nouvelle configuration...
+-copy /Y "%TEMP_CONFIG%" "%CONFIG_FILE%" > nul
+-
+-REM Déterminer le mode de démarrage
+-powershell -Command "& {
+-    $config = Get-Content -Path '%CONFIG_FILE%' | ConvertFrom-Json
+-    if ($config.jupyterServer.offline) {
+-        Write-Host '[INFO] Démarrage du MCP Jupyter en mode hors ligne...'
+-        exit 1
+-    } else {
+-        Write-Host '[INFO] Démarrage du MCP Jupyter en mode connecté...'
+-        exit 0
+-    }
+-}"
+-
+-REM Démarrer le MCP Jupyter avec la configuration appropriée
+-if %ERRORLEVEL% EQU 1 (
+-    echo [INFO] Mode hors ligne activé.
+-    echo [INFO] Démarrage du serveur MCP Jupyter en mode hors ligne...
+-    node "%MCP_JUPYTER_DIR%\dist\index.js" --offline
+-) else (
+-    echo [INFO] Mode connecté activé.
+-    echo [INFO] Démarrage du serveur MCP Jupyter en mode connecté...
+-    echo [INFO] Port configuré: 8890
+-    node "%MCP_JUPYTER_DIR%\dist\index.js"
+-)
+-
+-endlocal
+\ No newline at end of file
+diff --git a/mcps/external/jupyter/troubleshooting.md b/mcps/external/jupyter/troubleshooting.md
+deleted file mode 100644
+index 4a2c84a..0000000
+--- a/mcps/external/jupyter/troubleshooting.md
++++ /dev/null
+@@ -1,335 +0,0 @@
+-# Guide de dépannage du MCP Jupyter
+-
+-Ce document fournit des solutions aux problèmes courants rencontrés lors de l'utilisation du MCP Jupyter, avec un accent particulier sur l'intégration avec VSCode.
+-
+-## Table des matières
+-
+-- [Guide de dépannage du MCP Jupyter](#guide-de-dépannage-du-mcp-jupyter)
+-  - [Table des matières](#table-des-matières)
+-  - [Problèmes de démarrage](#problèmes-de-démarrage)
+-    - [Le serveur MCP Jupyter ne démarre pas](#le-serveur-mcp-jupyter-ne-démarre-pas)
+-    - [Timeout lors du démarrage](#timeout-lors-du-démarrage)
+-    - [Erreur de port déjà utilisé](#erreur-de-port-déjà-utilisé)
+-  - [Problèmes de connexion](#problèmes-de-connexion)
+-    - [Erreur de connexion au serveur Jupyter](#erreur-de-connexion-au-serveur-jupyter)
+-    - [Erreur d'authentification (token invalide)](#erreur-dauthentification-token-invalide)
+-    - [Erreur "socket hang up"](#erreur-socket-hang-up)
+-  - [Problèmes spécifiques au mode VSCode](#problèmes-spécifiques-au-mode-vscode)
+-    - [Aucun kernel VSCode détecté](#aucun-kernel-vscode-détecté)
+-    - [Extensions VSCode manquantes](#extensions-vscode-manquantes)
+-    - [Erreur lors de l'exécution de code via VSCode](#erreur-lors-de-lexécution-de-code-via-vscode)
+-    - [Problèmes de détection des environnements Python](#problèmes-de-détection-des-environnements-python)
+-  - [Problèmes d'exécution de code](#problèmes-dexécution-de-code)
+-    - [Échec de l'exécution de code](#échec-de-lexécution-de-code)
+-    - [Dépendances manquantes](#dépendances-manquantes)
+-    - [Timeout lors de l'exécution](#timeout-lors-de-lexécution)
+-  - [Problèmes de configuration](#problèmes-de-configuration)
+-    - [Fichier de configuration corrompu](#fichier-de-configuration-corrompu)
+-    - [Erreur lors du chargement de la configuration](#erreur-lors-du-chargement-de-la-configuration)
+-  - [Outils de diagnostic](#outils-de-diagnostic)
+-    - [Scripts de test](#scripts-de-test)
+-    - [Logs du serveur](#logs-du-serveur)
+-    - [Vérification de la configuration](#vérification-de-la-configuration)
+-  - [Procédures de récupération](#procédures-de-récupération)
+-    - [Réinitialisation de la configuration](#réinitialisation-de-la-configuration)
+-    - [Nettoyage des kernels](#nettoyage-des-kernels)
+-    - [Réinstallation du MCP Jupyter](#réinstallation-du-mcp-jupyter)
+-
+-## Problèmes de démarrage
+-
+-### Le serveur MCP Jupyter ne démarre pas
+-
+-**Symptômes**:
+-- Le script de démarrage se termine sans erreur, mais le serveur n'est pas accessible
+-- Message d'erreur indiquant que le serveur n'a pas pu démarrer
+-
+-**Solutions**:
+-1. Vérifiez que Node.js est correctement installé et accessible dans le PATH
+-2. Vérifiez que le répertoire du MCP Jupyter existe et contient tous les fichiers nécessaires
+-3. Vérifiez les logs pour identifier d'éventuelles erreurs
+-4. Essayez de démarrer le serveur en mode hors ligne pour isoler les problèmes
+-5. Vérifiez que vous avez les droits d'accès nécessaires pour exécuter le script
+-
+-### Timeout lors du démarrage
+-
+-**Symptômes**:
+-- Le script de test ou le démarrage du serveur échoue avec un message de timeout
+-- Le serveur prend trop de temps à démarrer
+-
+-**Solutions**:
+-1. Augmentez la valeur du timeout dans le script de test ou de démarrage
+-2. Vérifiez que le serveur Jupyter n'est pas déjà en cours d'exécution
+-3. Vérifiez les logs du serveur pour identifier d'éventuelles erreurs
+-4. Essayez de démarrer le serveur en mode hors ligne pour isoler les problèmes
+-5. Vérifiez que les ports utilisés ne sont pas déjà occupés par d'autres applications
+-
+-### Erreur de port déjà utilisé
+-
+-**Symptômes**:
+-- Message d'erreur indiquant que le port est déjà utilisé
+-- Le serveur ne démarre pas
+-
+-**Solutions**:
+-1. Vérifiez si un autre processus utilise déjà le port configuré
+-   ```powershell
+-   netstat -ano | findstr :<port>
+-   ```
+-2. Arrêtez le processus qui utilise le port ou configurez le MCP Jupyter pour utiliser un autre port
+-3. Redémarrez votre ordinateur pour libérer tous les ports
+-4. Utilisez un port différent dans la configuration du MCP Jupyter
+-
+-## Problèmes de connexion
+-
+-### Erreur de connexion au serveur Jupyter
+-
+-**Symptômes**:
+-- Message d'erreur indiquant que le serveur Jupyter n'est pas accessible
+-- Timeout lors de la tentative de connexion
+-
+-**Solutions**:
+-1. Vérifiez que le serveur Jupyter est bien en cours d'exécution sur le port configuré
+-2. Vérifiez que l'URL du serveur Jupyter est correcte dans la configuration
+-3. Vérifiez que le pare-feu ne bloque pas la connexion
+-4. Essayez d'accéder directement à l'URL du serveur Jupyter dans un navigateur
+-5. Redémarrez le serveur Jupyter et le MCP Jupyter
+-
+-### Erreur d'authentification (token invalide)
+-
+-**Symptômes**:
+-- Message d'erreur indiquant que le token est invalide
+-- Erreur 403 Forbidden lors de la tentative de connexion
+-
+-**Solutions**:
+-1. Vérifiez que le token dans la configuration correspond au token du serveur Jupyter
+-2. Récupérez le token correct à partir des logs du serveur Jupyter
+-3. Mettez à jour la configuration du MCP Jupyter avec le token correct
+-4. Redémarrez le MCP Jupyter pour appliquer les changements
+-
+-### Erreur "socket hang up"
+-
+-**Symptômes**:
+-- Message d'erreur "socket hang up" lors de la tentative de connexion
+-- La connexion est interrompue de manière inattendue
+-
+-**Solutions**:
+-1. Vérifiez que le serveur Jupyter est toujours en cours d'exécution
+-2. Vérifiez que le réseau est stable
+-3. Augmentez les timeouts de connexion dans la configuration
+-4. Redémarrez le serveur Jupyter et le MCP Jupyter
+-5. Essayez d'utiliser le mode hors ligne pour isoler les problèmes
+-
+-## Problèmes spécifiques au mode VSCode
+-
+-### Aucun kernel VSCode détecté
+-
+-**Symptômes**:
+-- Le script d'intégration VSCode ne trouve aucun kernel
+-- Message "Aucun kernel VSCode trouvé" dans les logs
+-
+-**Solutions**:
+-1. Vérifiez que l'extension Python pour VSCode est installée
+-   ```
+-   %USERPROFILE%\.vscode\extensions\ms-python.python*
+-   ```
+-2. Vérifiez que l'extension Jupyter pour VSCode est installée
+-   ```
+-   %USERPROFILE%\.vscode\extensions\ms-toolsai.jupyter*
+-   ```
+-3. Créez au moins un environnement Python dans VSCode
+-4. Exécutez la commande "Python: Select Interpreter" dans VSCode pour configurer l'interpréteur
+-5. Vérifiez que les chemins d'accès aux extensions VSCode sont corrects dans le script `detect-vscode-kernels.ps1`
+-6. Redémarrez VSCode pour s'assurer que les extensions sont correctement chargées
+-
+-### Extensions VSCode manquantes
+-
+-**Symptômes**:
+-- Le script d'intégration VSCode ne trouve pas les extensions nécessaires
+-- Message d'erreur indiquant que les extensions ne sont pas trouvées
+-
+-**Solutions**:
+-1. Installez l'extension Python pour VSCode depuis le marketplace
+-2. Installez l'extension Jupyter pour VSCode depuis le marketplace
+-3. Vérifiez que les extensions sont correctement installées
+-4. Redémarrez VSCode après l'installation des extensions
+-5. Vérifiez les chemins d'accès aux extensions dans le script `detect-vscode-kernels.ps1`
+-
+-### Erreur lors de l'exécution de code via VSCode
+-
+-**Symptômes**:
+-- L'exécution de code via le MCP Jupyter échoue
+-- Message d'erreur lors de l'exécution de code
+-
+-**Solutions**:
+-1. Vérifiez que le kernel VSCode est correctement configuré
+-2. Vérifiez que l'environnement Python sélectionné dans VSCode est fonctionnel
+-3. Essayez d'exécuter le même code directement dans VSCode pour isoler le problème
+-4. Vérifiez que les dépendances nécessaires sont installées dans l'environnement Python
+-5. Redémarrez le serveur MCP Jupyter avec le script `start-jupyter-mcp-vscode.bat`
+-
+-### Problèmes de détection des environnements Python
+-
+-**Symptômes**:
+-- Aucun environnement Python n'est détecté par VSCode
+-- Le kernel Python n'est pas disponible dans le MCP Jupyter
+-
+-**Solutions**:
+-1. Créez un nouvel environnement Python dans VSCode
+-2. Exécutez la commande "Python: Select Interpreter" dans VSCode
+-3. Vérifiez que Python est correctement installé sur votre système
+-4. Vérifiez que les variables d'environnement PATH sont correctement configurées
+-5. Redémarrez VSCode après avoir configuré l'environnement Python
+-
+-## Problèmes d'exécution de code
+-
+-### Échec de l'exécution de code
+-
+-**Symptômes**:
+-- L'exécution de code via le MCP Jupyter échoue
+-- Message d'erreur lors de l'exécution de code
+-
+-**Solutions**:
+-1. Vérifiez que le kernel est correctement démarré
+-2. Vérifiez que les dépendances nécessaires sont installées dans l'environnement Python
+-3. Consultez les logs du serveur Jupyter pour plus d'informations
+-4. Essayez d'exécuter le même code directement dans Jupyter Notebook pour isoler le problème
+-5. Vérifiez que le code est syntaxiquement correct
+-
+-### Dépendances manquantes
+-
+-**Symptômes**:
+-- Message d'erreur indiquant qu'un module Python est introuvable
+-- L'exécution de code échoue avec une erreur d'importation
+-
+-**Solutions**:
+-1. Installez les dépendances manquantes dans l'environnement Python
+-   ```bash
+-   pip install <nom_du_module>
+-   ```
+-2. Vérifiez que l'environnement Python utilisé est le bon
+-3. Vérifiez que les dépendances sont compatibles entre elles
+-4. Redémarrez le kernel après l'installation des dépendances
+-
+-### Timeout lors de l'exécution
+-
+-**Symptômes**:
+-- L'exécution de code prend trop de temps et finit par échouer
+-- Message de timeout lors de l'exécution de code
+-
+-**Solutions**:
+-1. Augmentez la valeur du timeout dans la configuration
+-2. Optimisez le code pour qu'il s'exécute plus rapidement
+-3. Divisez le code en plusieurs cellules plus petites
+-4. Vérifiez que le système a suffisamment de ressources (CPU, mémoire)
+-5. Redémarrez le kernel pour libérer de la mémoire
+-
+-## Problèmes de configuration
+-
+-### Fichier de configuration corrompu
+-
+-**Symptômes**:
+-- Message d'erreur indiquant que le fichier de configuration est corrompu
+-- Le serveur ne démarre pas à cause d'une erreur de configuration
+-
+-**Solutions**:
+-1. Restaurez la configuration à partir d'une sauvegarde
+-2. Créez une nouvelle configuration à partir de zéro
+-3. Vérifiez que le fichier de configuration est un JSON valide
+-4. Utilisez un validateur JSON pour vérifier la syntaxe du fichier
+-
+-### Erreur lors du chargement de la configuration
+-
+-**Symptômes**:
+-- Message d'erreur indiquant que la configuration n'a pas pu être chargée
+-- Le serveur démarre avec la configuration par défaut
+-
+-**Solutions**:
+-1. Vérifiez que le fichier de configuration existe à l'emplacement attendu
+-2. Vérifiez que le fichier de configuration est accessible en lecture
+-3. Vérifiez que le fichier de configuration est un JSON valide
+-4. Redémarrez le serveur après avoir corrigé la configuration
+-
+-## Outils de diagnostic
+-
+-### Scripts de test
+-
+-Le MCP Jupyter inclut plusieurs scripts de test pour vérifier le bon fonctionnement du serveur:
+-
+-1. **Test de l'intégration VSCode**:
+-   ```bash
+-   node tests/mcp/test-jupyter-vscode-integration.js
+-   ```
+-   Ce script teste la détection des kernels VSCode, la connexion du MCP Jupyter aux kernels VSCode et l'exécution de code simple.
+-
+-2. **Test de la connexion au serveur Jupyter**:
+-   ```bash
+-   node tests/mcp/test-jupyter-connection.js
+-   ```
+-   Ce script teste la connexion au serveur Jupyter configuré.
+-
+-3. **Test du mode hors ligne**:
+-   ```bash
+-   node tests/mcp/test-jupyter-mcp-offline.js
+-   ```
+-   Ce script teste le fonctionnement du MCP Jupyter en mode hors ligne.
+-
+-### Logs du serveur
+-
+-Les logs du serveur MCP Jupyter peuvent fournir des informations précieuses pour le dépannage:
+-
+-1. **Logs de démarrage**: Affichés dans la console lors du démarrage du serveur
+-2. **Logs d'exécution**: Affichés dans la console pendant l'exécution du serveur
+-3. **Logs de debug**: Activez le mode debug pour obtenir des logs plus détaillés
+-   ```bash
+-   set DEBUG=jupyter-mcp:*
+-   node mcps/mcp-servers/servers/jupyter-mcp-server/dist/index.js
+-   ```
+-
+-### Vérification de la configuration
+-
+-Vous pouvez vérifier la configuration actuelle du MCP Jupyter:
+-
+-1. **Afficher la configuration**:
+-   ```bash
+-   type mcps/mcp-servers/servers/jupyter-mcp-server/config.json
+-   ```
+-
+-2. **Vérifier la syntaxe JSON**:
+-   ```bash
+-   node -e "console.log(JSON.parse(require('fs').readFileSync('mcps/mcp-servers/servers/jupyter-mcp-server/config.json', 'utf8')))"
+-   ```
+-
+-## Procédures de récupération
+-
+-### Réinitialisation de la configuration
+-
+-Si la configuration est corrompue ou cause des problèmes, vous pouvez la réinitialiser:
+-
+-1. Supprimez le fichier de configuration actuel:
+-   ```bash
+-   del mcps/mcp-servers/servers/jupyter-mcp-server/config.json
+-   ```
+-
+-2. Redémarrez le serveur avec le script d'intégration VSCode pour générer une nouvelle configuration:
+-   ```bash
+-   mcps/jupyter/start-jupyter-mcp-vscode.bat
+-   ```
+-
+-### Nettoyage des kernels
+-
+-Si vous rencontrez des problèmes avec les kernels, vous pouvez les nettoyer:
+-
+-1. Arrêtez tous les kernels en cours d'exécution dans VSCode
+-2. Redémarrez VSCode
+-3. Exécutez la commande "Jupyter: Restart Kernel" dans VSCode
+-4. Redémarrez le serveur MCP Jupyter
+-
+-### Réinstallation du MCP Jupyter
+-
+-En dernier recours, vous pouvez réinstaller le MCP Jupyter:
+-
+-1. Arrêtez le serveur MCP Jupyter
+-2. Sauvegardez votre configuration si nécessaire
+-3. Supprimez le répertoire du MCP Jupyter
+-4. Clonez à nouveau le dépôt
+-5. Installez les dépendances
+-6. Configurez le MCP Jupyter avec le script d'intégration VSCode
+\ No newline at end of file
+diff --git a/mcps/monitoring/monitor-mcp-servers.js b/mcps/monitoring/monitor-mcp-servers.js
+index 3670ec4..feae1da 100644
+--- a/mcps/monitoring/monitor-mcp-servers.js
++++ b/mcps/monitoring/monitor-mcp-servers.js
+@@ -17,7 +17,7 @@ const MCP_SERVERS = [
+     processArgs: 'jupyter-mcp-server/dist/index.js',
+     port: 3005, // Port par défaut, à ajuster si nécessaire
+     endpoint: 'http://localhost:3005/',
+-    startScript: path.join(__dirname, '../mcp-servers/scripts/mcp-starters/start-jupyter-mcp.bat')
++    startScript: path.join(__dirname, '../internal/servers/jupyter-mcp-server/start-jupyter-mcp-vscode.bat')
+   },
+   {
+     name: 'JinaNavigator MCP',
+diff --git a/mcps/tests/test-jupyter.js b/mcps/tests/test-jupyter.js
+index 6cbbce9..0ebd1a2 100644
+--- a/mcps/tests/test-jupyter.js
++++ b/mcps/tests/test-jupyter.js
+@@ -18,7 +18,7 @@ const __filename = fileURLToPath(import.meta.url);
+ const __dirname = path.dirname(__filename);
+ 
+ // Chemin vers le serveur Jupyter MCP
+-const JUPYTER_MCP_DIR = path.join(__dirname, '..', 'mcp-servers', 'servers', 'jupyter-mcp-server');
++const JUPYTER_MCP_DIR = path.join(__dirname, '..', 'internal', 'servers', 'jupyter-mcp-server');
+ // Chemin vers le dossier de test temporaire
+ const TEST_DIR = path.join(__dirname, 'temp-jupyter-test');
+ 
+diff --git a/roo-config/config-templates/servers.json b/roo-config/config-templates/servers.json
+index 4a0143b..7eef56e 100644
+--- a/roo-config/config-templates/servers.json
++++ b/roo-config/config-templates/servers.json
+@@ -29,10 +29,10 @@
+     {
+       "name": "jupyter",
+       "type": "stdio",
+-      "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
++      "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\internal\\servers\\jupyter-mcp-server\\dist\\index.js",
+       "enabled": true,
+       "autoStart": true,
+-      "configPath": "c:/dev/roo-extensions/mcps/mcp-servers/jupyter-config.json",
++      "configPath": "c:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/config.json",
+       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
+     },
+     {
+diff --git a/roo-config/settings/servers.json b/roo-config/settings/servers.json
+index f3bb7b1..5d02e13 100644
+--- a/roo-config/settings/servers.json
++++ b/roo-config/settings/servers.json
+@@ -4,7 +4,7 @@
+     {
+       "name": "github-projects",
+       "type": "stdio",
+-      "command": "powershell -c \"cd C:\\dev\\roo-extensions\\mcps\\internal\\servers\\github-projects-mcp; .\\run-github-projects.bat\"",
++      "command": "powershell -c \"cd .\\mcps\\internal\\servers\\github-projects-mcp; .\\run-github-projects.bat\"",
+       "enabled": true,
+       "autoStart": true,
+       "description": "Serveur MCP pour interagir avec GitHub Projects"
+@@ -28,7 +28,7 @@
+     {
+       "name": "quickfiles",
+       "type": "stdio",
+-      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js",
++      "command": "cmd /c node ./mcps/internal/servers/quickfiles-server/build/index.js",
+       "enabled": true,
+       "autoStart": true,
+       "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
+@@ -36,7 +36,7 @@
+     {
+       "name": "jupyter",
+       "type": "stdio",
+-      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js",
++      "command": "cmd /c node ./mcps/internal/servers/jupyter-mcp-server/dist/index.js",
+       "enabled": true,
+       "autoStart": false,
+       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
+@@ -44,7 +44,7 @@
+     {
+       "name": "jinavigator",
+       "type": "stdio",
+-      "command": "cmd /c node c:/dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js",
++      "command": "cmd /c node ./mcps/internal/servers/jinavigator-server/dist/index.js",
+       "enabled": true,
+       "autoStart": true,
+       "description": "Serveur MCP pour convertir des pages web en Markdown"
+@@ -60,7 +60,7 @@
+     {
+       "name": "filesystem",
+       "type": "stdio",
+-      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem C:\\dev\\2025-Epita-Intelligence-Symbolique",
++      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem d:\\roo-extensions d:\\roo-extensions D: C: G: d: c: g:",
+       "enabled": true,
+       "autoStart": true,
+       "description": "Serveur MCP pour accéder au système de fichiers"
+diff --git a/roo-modes/README.md b/roo-modes/README.md
+index aee55a6..b05f7ea 100644
+--- a/roo-modes/README.md
++++ b/roo-modes/README.md
+@@ -78,32 +78,39 @@ Ces mécanismes sont testés et validés par des scripts de test spécifiques di
+ 
+ ## Structure du répertoire
+ 
++⚠️ **Structure consolidée** - Les doublons ont été éliminés le 26/05/2025. Consultez [`RAPPORT-CONSOLIDATION.md`](RAPPORT-CONSOLIDATION.md) pour les détails.
++
+ ### Répertoires principaux
+ 
+-- **[configs/](configs/)** : Fichiers de configuration généraux pour les modes
+-  - `standard-modes.json` : Configuration des modes standards
+-  - `standard-modes.json.original` : Configuration originale des modes standards
+-  - `vscode-custom-modes.json` : Configuration pour VSCode
++- **[docs/](docs/)** : 📚 **Documentation principale** (source unique de vérité)
++  - `architecture/` : Concepts d'architecture des agents Roo
++  - `criteres-decision/` : Critères de décision pour la sélection des modes
++  - `implementation/` : Guides d'implémentation et de déploiement
++  - `optimisation/` : Guides d'optimisation des performances
+ 
+-- **[n5/](n5/)** : Implémentation de l'architecture à 5 niveaux de complexité
++- **[n5/](n5/)** : 🏗️ **Architecture à 5 niveaux** (implémentation complète)
+   - `configs/` : Configurations des modes pour chaque niveau
+-  - `docs/` : Documentation et guides
+-  - `tests/` : Tests pour les mécanismes d'escalade et désescalade
+-  - Note : Les résultats des tests sont maintenant stockés dans `tests/results/n5/`
++  - `docs/` : Documentation spécifique à l'architecture N5
++  - `tests/` : Tests complets pour les mécanismes d'escalade et désescalade
++  - `scripts/` : Scripts de déploiement et validation
++  - Note : Les résultats des tests sont stockés dans `tests/results/n5/`
+ 
+-- **[custom/](custom/)** : Modes personnalisés spécifiques
+-  - `docs/` : Documentation technique pour les modes personnalisés
++- **[configs/](configs/)** : ⚙️ **Configurations centralisées** (sans doublons)
++  - `standard-modes.json` : Configuration des modes standards
++  - `new-roomodes.json` : Configuration des nouveaux modes Roo
++  - `modes.json` : Configuration de base des modes
+ 
+-- **[optimized/](optimized/)** : Modes optimisés pour différents modèles
+-  - `docs/` : Documentation sur l'optimisation des modes
++- **[custom/](custom/)** : 🔧 **Modes personnalisés et scripts**
++  - `scripts/` : Scripts de déploiement personnalisés
++  - `examples/` : Exemples de configurations
++  - `docs/` : Redirections vers la documentation principale
+ 
+-- **[docs/](docs/)** : Documentation sur les modes
+-  - `criteres-decision/` : Critères de décision pour la sélection des modes
+-  - `implementation/` : Guides d'implémentation et de déploiement
++- **[optimized/](optimized/)** : 📦 **Version archivée** (voir ARCHIVE.md)
++  - `docs/` : Redirections vers la documentation principale
++  - Note : Ce répertoire est maintenant archivé
+ 
+-- **[tests/](tests/)** : Tests pour les modes personnalisés
+-  - `test-escalade.js` : Tests pour le mécanisme d'escalade
+-  - `test-desescalade.js` : Tests pour le mécanisme de désescalade
++- **[scripts/](scripts/)** : 🚀 **Scripts généraux**
++  - Scripts de déploiement et validation des modes
+ 
+ ### Fichiers importants
+ 
+@@ -148,23 +155,27 @@ Le processus général comprend :
+ 
+ ## Tests et validation
+ 
+-Les modes personnalisés sont testés et validés à l'aide de scripts de test spécifiques :
++Les modes personnalisés sont testés et validés à l'aide de scripts de test complets dans l'architecture N5 :
+ 
+-- Tests d'escalade : `tests/test-escalade.js`
+-- Tests de désescalade : `tests/test-desescalade.js`
++- **Tests d'escalade** : `n5/tests/test-escalade.js` (version complète)
++- **Tests de désescalade** : `n5/tests/test-desescalade.js` (version complète)
+ 
+ Ces tests vérifient que les mécanismes d'escalade et de désescalade fonctionnent correctement et que les modes répondent aux critères de qualité définis.
+ 
+ Pour exécuter les tests :
+ 
+ ```powershell
+-cd tests
++cd n5/tests
+ node test-escalade.js
+ node test-desescalade.js
+ ```
+ 
+ Les résultats des tests sont stockés dans le répertoire `tests/results/n5/`.
+ 
++### Consolidation des Tests
++
++Les anciens tests basiques dans `tests/` ont été supprimés car ils étaient redondants avec les versions complètes dans `n5/tests/`. Cette consolidation élimine la duplication et assure une seule source de vérité pour les tests.
++
+ ## État actuel du développement
+ 
+ ### Architecture à 2 niveaux (Simple/Complexe)
+diff --git a/roo-modes/configs/vscode-custom-modes.json b/roo-modes/configs/vscode-custom-modes.json
+index 267878c..6e0477f 100644
+--- a/roo-modes/configs/vscode-custom-modes.json
++++ b/roo-modes/configs/vscode-custom-modes.json
+@@ -1,35 +1,93 @@
+ {
+-  "customModes": [
++  "version": "1.0.0",
++  "description": "Configuration des modes personnalisés pour VSCode Roo",
++  "modes": [
+     {
+-      "slug": "mode-family-validator",
+-      "name": "Mode Family Validator",
+-      "description": "Système de validation des transitions entre familles de modes",
+-      "version": "1.0.0",
+-      "enabled": true,
+-      "familyDefinitions": {
+-        "simple": ["code-simple", "debug-simple", "architect-simple", "ask-simple", "orchestrator-simple"],
+-        "complex": ["code-complex", "debug-complex", "architect-complex", "ask-complex", "orchestrator-complex", "manager"]
++      "slug": "vscode-debug",
++      "name": "🔧 VSCode Debug",
++      "description": "Mode spécialisé pour le débogage dans VSCode",
++      "allowedFilePatterns": [
++        "\\.json$",
++        "\\.md$",
++        "\\.ts$",
++        "\\.js$",
++        "\\.log$"
++      ],
++      "defaultModel": "anthropic/claude-3.7-sonnet",
++      "tools": [
++        "read_file",
++        "write_to_file",
++        "search_files",
++        "list_files",
++        "execute_command"
++      ],
++      "settings": {
++        "maxTokens": 50000,
++        "temperature": 0.1,
++        "debugMode": true
+       }
+     },
+     {
+-      "slug": "manager",
+-      "family": "complex",
+-      "allowedFamilyTransitions": ["complex"],
+-      "name": "👨‍💼 Manager",
+-      "model": "anthropic/claude-3.7-sonnet",
+-      "roleDefinition": "You are Roo Manager, spécialisé dans la création de sous-tâches orchestrateurs pour des tâches de haut-niveau, la décomposition de tâches complexes en sous-tâches composites, et la gestion efficace des ressources.",
+-      "groups": [],
+-      "customInstructions": "FOCUS AREAS:\n- Décomposition de tâches complexes en sous-tâches composites\n- Création de sous-tâches orchestrateurs pour des tâches de haut-niveau\n- Gestion efficace des ressources (tokens, temps, complexité)\n- Planification stratégique des workflows\n\n/* NIVEAU DE COMPLEXITÉ */\n// Cette section définit le niveau de complexité actuel et peut être étendue à l'avenir pour supporter n-niveaux\n// Niveau actuel: COMPLEX (niveau 2 sur l'échelle de complexité)\n// Des niveaux supplémentaires pourraient être ajoutés ici (EXPERT, SPECIALIST, etc.)\n\nVotre rôle est de coordonner des workflows complexes en déléguant des tâches à des modes spécialisés. En tant que manager, vous devez :\n\n1. Analyser les demandes complexes et les décomposer en sous-tâches logiques qui peuvent être déléguées aux modes spécialisés appropriés.\n2. Créer systématiquement des sous-tâches du niveau de complexité minimale nécessaire pour commencer.\n3. Implémenter l'escalade par approfondissement (création de sous-tâches) après :\n   * 50000 tokens avec des commandes lourdes\n   * Ou environ 15 messages de taille moyenne\n4. Passer à un niveau de complexité supérieur uniquement lorsque nécessaire.\n\nPour chaque sous-tâche, utilisez l'outil `new_task` pour déléguer. Choisissez le mode le plus approprié pour l'objectif spécifique de la sous-tâche et fournissez des instructions complètes dans le paramètre `message`. Ces instructions doivent inclure :\n* Tout le contexte nécessaire de la tâche parente ou des sous-tâches précédentes requis pour accomplir le travail.\n* Un périmètre clairement défini, spécifiant exactement ce que la sous-tâche doit accomplir.\n* Une déclaration explicite que la sous-tâche doit *uniquement* effectuer le travail décrit dans ces instructions et ne pas dévier.\n* Une instruction pour que la sous-tâche signale son achèvement en utilisant l'outil `attempt_completion`, fournissant un résumé concis mais complet du résultat dans le paramètre `result`.\n* Une déclaration indiquant que ces instructions spécifiques remplacent toute instruction générale contradictoire que le mode de la sous-tâche pourrait avoir.\n\nMÉCANISME DE DÉSESCALADE:\n\nIMPORTANT: Vous DEVEZ évaluer systématiquement et continuellement la complexité de la tâche en cours. Si vous constatez que la tâche ou une partie de la tâche est suffisamment simple pour être traitée par la version simple de l'agent, vous DEVEZ suggérer à l'utilisateur de passer au mode simple correspondant.\n\nCritères spécifiques au mode Manager pour évaluer la simplicité:\n- La tâche peut être décomposée en moins de 3 sous-tâches indépendantes\n- Les sous-tâches ne présentent pas de dépendances complexes entre elles\n- Le workflow est linéaire et ne nécessite pas de gestion d'états complexes\n- Aucune coordination complexe entre différents systèmes n'est requise\n- La tâche ne nécessite pas de suivi approfondi des résultats intermédiaires\n\nProcessus d'évaluation continue de la complexité:\n1. Évaluez la complexité initiale de la tâche dès sa réception\n2. Réévaluez la complexité après avoir décomposé la tâche en sous-tâches\n3. Si à un moment la tâche devient suffisamment simple, suggérez la désescalade\n\nPour les sous-tâches simples et bien définies, préférez utiliser les versions simples des modes spécialisés pour optimiser le coût et les performances. Une tâche est considérée comme simple si :\n- Elle nécessite des modifications de moins de 50 lignes de code\n- Elle concerne des fonctionnalités isolées\n- Elle suit des patterns standards\n- Elle ne nécessite pas d'optimisations complexes\n\nUtilisez le format suivant pour suggérer une désescalade:\n\"[DÉSESCALADE SUGGÉRÉE] Cette tâche pourrait être traitée par la version simple de l'agent car : [RAISON]\"\n\nIMPORTANT: Si vous êtes utilisé suite à une escalade depuis un mode simple, vous DEVEZ signaler cette origine à la fin de votre réponse avec le format:\n\n\"[ISSU D'ESCALADE] Cette tâche a été traitée par la version complexe de l'agent suite à une escalade depuis la version simple.\"\n\nCette notification est obligatoire et doit apparaître à la fin de votre réponse.\n\nIMPORTANT: Si vous détectez le marqueur \"[SIGNALER_ESCALADE_INTERNE]\" dans le message de l'utilisateur, vous DEVEZ ajouter à la fin de votre réponse:\n\"[ISSU D'ESCALADE INTERNE] Cette tâche a été traitée par la version complexe de l'agent suite à une escalade interne depuis la version simple.\"\n\nGESTION DES TOKENS:\n- Si la conversation dépasse 50 000 tokens, vous DEVEZ diviser la tâche en sous-tâches plus petites et indépendantes\n- Si la conversation dépasse 100 000 tokens, vous DEVEZ créer des sous-tâches supplémentaires pour continuer le travail\n\n/* UTILISATION OPTIMISÉE DES MCPs */\n// Cette section définit comment utiliser efficacement les MCPs disponibles\n// Les MCPs permettent d'effectuer des opérations complexes sans validation humaine\n// Privilégiez TOUJOURS l'utilisation des MCPs par rapport aux commandes nécessitant une validation\n\nUTILISATION DES MCPs:\n- PRIVILÉGIEZ SYSTÉMATIQUEMENT l'utilisation des MCPs par rapport aux outils standards nécessitant une validation humaine\n- Pour les manipulations de fichiers multiples ou volumineux, utilisez le MCP quickfiles:\n  * Exemple: Pour lire plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>read_multiple_files</tool_name>\n    <arguments>\n    {\n      \"paths\": [\"chemin/fichier1.js\", \"chemin/fichier2.js\"],\n      \"show_line_numbers\": true\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n  * Exemple: Pour éditer plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>edit_multiple_files</tool_name>\n    <arguments>\n    {\n      \"files\": [\n        {\n          \"path\": \"chemin/fichier1.js\",\n          \"diffs\": [\n            {\n              \"search\": \"ancien code\",\n              \"replace\": \"nouveau code\"\n            }\n          ]\n        }\n      ]\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour l'extraction d'informations de pages web, utilisez le MCP jinavigator:\n  * Exemple: Pour convertir une page web en Markdown:\n    ```\n    <use_mcp_tool>\n    <server_name>jinavigator</server_name>\n    <tool_name>convert_web_to_markdown</tool_name>\n    <arguments>\n    {\n      \"url\": \"https://example.com\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n  * Exemple: Pour convertir plusieurs pages web en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>jinavigator</server_name>\n    <tool_name>multi_convert</tool_name>\n    <arguments>\n    {\n      \"urls\": [\n        {\"url\": \"https://example1.com\"},\n        {\"url\": \"https://example2.com\"}\n      ]\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour effectuer des recherches web, utilisez le MCP searxng:\n  * Exemple: Pour rechercher des informations sur un sujet:\n    ```\n    <use_mcp_tool>\n    <server_name>searxng</server_name>\n    <tool_name>searxng_web_search</tool_name>\n    <arguments>\n    {\n      \"query\": \"votre recherche ici\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n\nConseils pour économiser les tokens et réduire le nombre de commandes:\n- Regroupez les opérations similaires en une seule commande MCP\n- Utilisez les outils de lecture/écriture multiple plutôt que des opérations individuelles\n- Filtrez les données à la source plutôt que de tout lire puis filtrer\n- Limitez l'affichage des résultats volumineux en utilisant les paramètres de pagination\n\nCOMMANDES POWERSHELL:\n- N'utilisez PAS la syntaxe \"&&\" pour chaîner les commandes (incompatible avec PowerShell)\n- Utilisez plutôt le point-virgule \";\" ou les blocs de commandes avec des variables\n- Exemple: `cd $dir; Get-ChildItem` ou `$dir = \"chemin\"; Set-Location $dir; Get-ChildItem`\n\nWhen conversations grow too large (>10 messages), create new subtasks to continue the work."
++      "slug": "vscode-config",
++      "name": "⚙️ VSCode Config",
++      "description": "Mode pour la gestion des configurations VSCode",
++      "allowedFilePatterns": [
++        "\\.json$",
++        "\\.md$",
++        "\\.txt$"
++      ],
++      "defaultModel": "qwen/qwen3-32b",
++      "tools": [
++        "read_file",
++        "write_to_file",
++        "search_and_replace",
++        "list_files"
++      ],
++      "settings": {
++        "maxTokens": 30000,
++        "temperature": 0.0,
++        "configMode": true
++      }
+     },
+     {
+-      "slug": "code-simple",
+-      "family": "simple",
+-      "allowedFamilyTransitions": ["simple"],
+-      "name": "💻 Code Simple",
+-      "model": "anthropic/claude-3.5-sonnet",
+-      "roleDefinition": "You are Roo Code (version simple), specialized in minor code modifications, simple bug fixes, code formatting and documentation, and basic feature implementation.",
+-      "groups": ["read", "edit", "browser", "command", "mcp"],
+-      "customInstructions": "FOCUS AREAS:\n- Modifications de code < 50 lignes\n- Fonctions isolées\n- Bugs simples\n- Patterns standards\n- Documentation basique\n\nAPPROACH:\n1. Comprendre la demande spécifique\n2. Analyser les fichiers pertinents\n3. Effectuer des modifications ciblées\n4. Tester la solution\n\n/* NIVEAU DE COMPLEXITÉ */\n// Cette section définit le niveau de complexité actuel et peut être étendue à l'avenir pour supporter n-niveaux\n// Niveau actuel: SIMPLE (niveau 1 sur l'échelle de complexité)\n\nMÉCANISME D'ESCALADE:\n\nIMPORTANT: Vous DEVEZ escalader toute tâche qui correspond aux critères suivants:\n- Tâches nécessitant des modifications de plus de 50 lignes de code\n- Tâches impliquant des refactorisations majeures\n- Tâches nécessitant une conception d'architecture\n- Tâches impliquant des optimisations de performance\n- Tâches nécessitant une analyse approfondie\n- Tâches impliquant plusieurs systèmes ou composants interdépendants\n- Tâches nécessitant une compréhension approfondie de l'architecture globale\n\nL'escalade n'est PAS optionnelle pour ces types de tâches et doit être EXTERNE (terminer la tâche). Vous DEVEZ refuser de traiter ces tâches et escalader avec le format exact:\n\"[ESCALADE REQUISE] Cette tâche nécessite la version complexe de l'agent car : [RAISON]\"\n\nAu début de chaque tâche, évaluez sa complexité selon les critères ci-dessus. Si la tâche est évaluée comme complexe, vous DEVEZ l'escalader immédiatement sans demander d'informations supplémentaires et sans tenter de résoudre partiellement la tâche.\n\n/* ESCALADE INTERNE */\n// L'escalade interne est un mécanisme permettant de traiter une tâche complexe sans changer de mode\n// Elle doit être utilisée uniquement dans les cas suivants:\n// 1. La tâche est majoritairement simple mais contient des éléments complexes isolés\n// 2. L'utilisateur a explicitement demandé de ne pas changer de mode\n// 3. La tâche est à la limite entre simple et complexe mais vous êtes confiant de pouvoir la résoudre\n\nIMPORTANT: Si vous déterminez qu'une tâche est trop complexe mais que vous décidez de la traiter quand même (escalade interne), vous DEVEZ signaler cette escalade au début de votre réponse avec le format standardisé:\n\n\"[ESCALADE INTERNE] Cette tâche est traitée en mode avancé car : [RAISON SPÉCIFIQUE]\"\n\nExemples concrets d'escalade interne:\n- \"[ESCALADE INTERNE] Cette tâche est traitée en mode avancé car : elle nécessite l'optimisation d'un algorithme de tri qui dépasse le cadre des modifications simples\"\n- \"[ESCALADE INTERNE] Cette tâche est traitée en mode avancé car : l'implémentation requiert une compréhension approfondie des patterns de conception asynchrones\"\n- \"[ESCALADE INTERNE] Cette tâche est traitée en mode avancé car : la correction du bug nécessite une analyse des interactions entre plusieurs composants\"\n\nCette notification est obligatoire et doit apparaître en premier dans votre réponse, avant tout autre contenu.\n\nIMPORTANT: Lorsque vous effectuez une escalade interne, vous DEVEZ également ajouter à la fin de votre réponse le format suivant pour que le mode complexe puisse signaler l'escalade:\n\"[SIGNALER_ESCALADE_INTERNE]\"\n\n/* MÉCANISME D'ESCALADE PAR APPROFONDISSEMENT */\n// Cette section définit quand créer des sous-tâches pour continuer le travail\n// L'escalade par approfondissement permet de gérer efficacement les ressources\n\nIMPORTANT: Vous DEVEZ implémenter l'escalade par approfondissement (création de sous-tâches) après:\n- 50000 tokens avec des commandes lourdes\n- Ou environ 15 messages de taille moyenne\n\nProcessus d'escalade par approfondissement:\n1. Identifiez le moment où la conversation devient trop volumineuse\n2. Suggérez la création d'une sous-tâche avec le format:\n\"[ESCALADE PAR APPROFONDISSEMENT] Je suggère de créer une sous-tâche pour continuer ce travail car : [RAISON]\"\n3. Proposez une description claire de la sous-tâche à créer\n\nGESTION DES TOKENS:\n- Si la conversation dépasse 50 000 tokens, vous DEVEZ suggérer de passer en mode complexe avec le format:\n\"[LIMITE DE TOKENS] Cette conversation a dépassé 50 000 tokens. Je recommande de passer en mode complexe pour continuer.\"\n- Si la conversation dépasse 100 000 tokens, vous DEVEZ suggérer de passer en mode orchestration avec le format:\n\"[LIMITE DE TOKENS CRITIQUE] Cette conversation a dépassé 100 000 tokens. Je recommande de passer en mode orchestration pour diviser la tâche en sous-tâches.\"\n\n/* UTILISATION OPTIMISÉE DES MCPs */\n// Cette section définit comment utiliser efficacement les MCPs disponibles\n// Les MCPs permettent d'effectuer des opérations complexes sans validation humaine\n// Privilégiez TOUJOURS l'utilisation des MCPs par rapport aux commandes nécessitant une validation\n\nUTILISATION DES MCPs:\n- PRIVILÉGIEZ SYSTÉMATIQUEMENT l'utilisation des MCPs par rapport aux outils standards nécessitant une validation humaine\n- Pour les manipulations de fichiers multiples ou volumineux, utilisez le MCP quickfiles:\n  * Exemple: Pour lire plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>read_multiple_files</tool_name>\n    <arguments>\n    {\n      \"paths\": [\"chemin/fichier1.js\", \"chemin/fichier2.js\"],\n      \"show_line_numbers\": true\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n  * Exemple: Pour éditer plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>edit_multiple_files</tool_name>\n    <arguments>\n    {\n      \"files\": [\n        {\n          \"path\": \"chemin/fichier1.js\",\n          \"diffs\": [\n            {\n              \"search\": \"ancien code\",\n              \"replace\": \"nouveau code\"\n            }\n          ]\n        }\n      ]\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour l'extraction d'informations de pages web, utilisez le MCP jinavigator:\n  * Exemple: Pour convertir une page web en Markdown:\n    ```\n    <use_mcp_tool>\n    <server_name>jinavigator</server_name>\n    <tool_name>convert_web_to_markdown</tool_name>\n    <arguments>\n    {\n      \"url\": \"https://example.com\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour effectuer des recherches web, utilisez le MCP searxng:\n  * Exemple: Pour rechercher des informations sur un sujet:\n    ```\n    <use_mcp_tool>\n    <server_name>searxng</server_name>\n    <tool_name>searxng_web_search</tool_name>\n    <arguments>\n    {\n      \"query\": \"votre recherche ici\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n\nConseils pour économiser les tokens et réduire le nombre de commandes:\n- Regroupez les opérations similaires en une seule commande MCP\n- Utilisez les outils de lecture/écriture multiple plutôt que des opérations individuelles\n- Filtrez les données à la source plutôt que de tout lire puis filtrer\n- Limitez l'affichage des résultats volumineux en utilisant les paramètres de pagination\n\nCOMMANDES POWERSHELL:\n- N'utilisez PAS la syntaxe \"&&\" pour chaîner les commandes (incompatible avec PowerShell)\n- Utilisez plutôt le point-virgule \";\" ou les blocs de commandes avec des variables\n- Exemple: `cd $dir; Get-ChildItem` ou `$dir = \"chemin\"; Set-Location $dir; Get-ChildItem`\n\nWhen conversations grow too large (>10 messages), suggest creating subtasks with the orchestrator mode."
++      "slug": "vscode-extension",
++      "name": "🧩 VSCode Extension",
++      "description": "Mode pour le développement d'extensions VSCode",
++      "allowedFilePatterns": [
++        "\\.json$",
++        "\\.md$",
++        "\\.ts$",
++        "\\.js$",
++        "\\.html$",
++        "\\.css$"
++      ],
++      "defaultModel": "anthropic/claude-3.7-sonnet",
++      "tools": [
++        "read_file",
++        "write_to_file",
++        "insert_content",
++        "search_and_replace",
++        "list_files",
++        "execute_command",
++        "browser_action"
++      ],
++      "settings": {
++        "maxTokens": 75000,
++        "temperature": 0.2,
++        "extensionMode": true
++      }
+     }
+-  ]
++  ],
++  "settings": {
++    "autoStartEnabled": true,
++    "tokenBudget": 100000,
++    "defaultMode": "vscode-config",
++    "syncWithMainConfig": true,
++    "lastUpdated": "2025-05-26T01:01:00Z"
++  },
++  "metadata": {
++    "createdBy": "Roo Sync System",
++    "purpose": "VSCode-specific mode configurations",
++    "compatibilityVersion": "1.0.0"
++  }
+ }
+\ No newline at end of file
+diff --git a/roo-modes/custom/docs/architecture/architecture-concept.md b/roo-modes/custom/docs/architecture/architecture-concept.md
+deleted file mode 100644
+index 93ee6f2..0000000
+--- a/roo-modes/custom/docs/architecture/architecture-concept.md
++++ /dev/null
+@@ -1,152 +0,0 @@
+-# Concept d'Architecture Optimisée des Agents Roo
+-
+-## Schéma Conceptuel
+-
+-```mermaid
+-graph TD
+-    User[Utilisateur] --> Orchestrator[Orchestrateur]
+-    
+-    subgraph "Agents Complexes (Claude Sonnet)"
+-        OrchestratorComplex[Orchestrateur Complexe]
+-        CodeComplex[Code Complexe]
+-        DebugComplex[Debug Complexe]
+-        ArchitectComplex[Architect Complexe]
+-        AskComplex[Ask Complexe]
+-    end
+-    
+-    subgraph "Agents Simples (Modèles moins coûteux)"
+-        OrchestratorSimple[Orchestrateur Simple]
+-        CodeSimple[Code Simple]
+-        DebugSimple[Debug Simple]
+-        ArchitectSimple[Architect Simple]
+-        AskSimple[Ask Simple]
+-    end
+-    
+-    Orchestrator --> TaskAnalyzer[Analyseur de Tâche]
+-    
+-    TaskAnalyzer --> OrchestratorComplex
+-    TaskAnalyzer --> OrchestratorSimple
+-    
+-    OrchestratorComplex --> CodeComplex
+-    OrchestratorComplex --> DebugComplex
+-    OrchestratorComplex --> ArchitectComplex
+-    OrchestratorComplex --> AskComplex
+-    
+-    OrchestratorSimple --> CodeSimple
+-    OrchestratorSimple --> DebugSimple
+-    OrchestratorSimple --> ArchitectSimple
+-    OrchestratorSimple --> AskSimple
+-    
+-    CodeComplex --> TaskAnalyzer
+-    DebugComplex --> TaskAnalyzer
+-    ArchitectComplex --> TaskAnalyzer
+-    AskComplex --> TaskAnalyzer
+-    
+-    CodeSimple --> TaskAnalyzer
+-    DebugSimple --> TaskAnalyzer
+-    ArchitectSimple --> TaskAnalyzer
+-    AskSimple --> TaskAnalyzer
+-```
+-
+-## Composants Clés
+-
+-### 1. Analyseur de Tâche
+-
+-L'Analyseur de Tâche est un nouveau composant central qui évalue la complexité d'une tâche et détermine si elle doit être traitée par un agent simple ou complexe. Il prend en compte :
+-
+-- La complexité linguistique de la demande
+-- Les mots-clés indiquant des tâches complexes
+-- L'historique des interactions précédentes
+-- Le contexte du projet
+-- Les besoins en ressources estimés
+-
+-### 2. Agents Dédoublés
+-
+-Chaque profil d'agent est dédoublé en deux versions :
+-
+-- **Version Complexe** : Utilise Claude Sonnet pour les tâches nécessitant des capacités avancées
+-  - Raisonnement complexe
+-  - Compréhension de code sophistiqué
+-  - Génération de solutions créatives
+-  - Analyse approfondie
+-
+-- **Version Simple** : Utilise des modèles moins coûteux pour les tâches basiques
+-  - Réponses à des questions simples
+-  - Modifications de code mineures
+-  - Tâches répétitives
+-  - Opérations bien définies
+-
+-### 3. Mécanisme de Routage Intelligent
+-
+-Le mécanisme de routage permet de :
+-
+-- Rediriger dynamiquement les tâches vers l'agent approprié
+-- Escalader une tâche d'un agent simple vers un agent complexe si nécessaire
+-- Décomposer les tâches complexes en sous-tâches plus simples
+-- Optimiser l'utilisation des ressources en fonction de la charge de travail
+-
+-## Critères de Décision Préliminaires
+-
+-### Pour l'Agent Code
+-
+-**Tâches simples** (modèle moins coûteux) :
+-- Modifications mineures de code (corrections de bugs simples, renommages)
+-- Génération de code à partir de modèles existants
+-- Formatage et nettoyage de code
+-- Tests unitaires simples
+-
+-**Tâches complexes** (Claude Sonnet) :
+-- Conception d'architectures logicielles
+-- Refactoring majeur
+-- Optimisation de performances
+-- Implémentation d'algorithmes complexes
+-
+-### Pour l'Agent Debug
+-
+-**Tâches simples** :
+-- Erreurs de syntaxe
+-- Bugs évidents
+-- Problèmes de configuration simples
+-- Vérifications de base
+-
+-**Tâches complexes** :
+-- Debugging de problèmes concurrents
+-- Analyse de performance
+-- Problèmes d'intégration complexes
+-- Bugs difficiles à reproduire
+-
+-### Pour l'Agent Architect
+-
+-**Tâches simples** :
+-- Documentation de base
+-- Diagrammes simples
+-- Plans pour des fonctionnalités isolées
+-- Révisions mineures d'architecture
+-
+-**Tâches complexes** :
+-- Conception d'architecture système
+-- Planification de migrations complexes
+-- Optimisation d'architecture
+-- Conception de systèmes distribués
+-
+-### Pour l'Agent Ask
+-
+-**Tâches simples** :
+-- Questions factuelles
+-- Explications de concepts de base
+-- Recherche d'informations simples
+-- Résumés courts
+-
+-**Tâches complexes** :
+-- Analyses approfondies
+-- Comparaisons détaillées
+-- Explications de concepts avancés
+-- Synthèse d'informations complexes
+-
+-## Prochaines Étapes de Conception
+-
+-1. Définir les métriques précises pour évaluer la complexité des tâches
+-2. Concevoir l'interface de l'Analyseur de Tâche
+-3. Développer les prompts optimisés pour chaque version d'agent
+-4. Créer un prototype de mécanisme de routage
+-5. Définir la stratégie de fallback en cas d'échec d'un agent simple
+\ No newline at end of file
+diff --git a/roo-modes/custom/docs/criteres-decision/criteres-decision.md b/roo-modes/custom/docs/criteres-decision/criteres-decision.md
+deleted file mode 100644
+index e270c26..0000000
+--- a/roo-modes/custom/docs/criteres-decision/criteres-decision.md
++++ /dev/null
+@@ -1,125 +0,0 @@
+-# Critères de Décision pour le Routage des Tâches
+-
+-Ce document détaille les critères permettant de déterminer si une tâche doit être traitée par un agent simple (modèle moins coûteux) ou un agent complexe (Claude Sonnet).
+-
+-## Principes Généraux
+-
+-Le routage des tâches repose sur plusieurs facteurs d'évaluation :
+-
+-1. **Complexité linguistique** : Analyse de la structure et du vocabulaire de la demande
+-2. **Complexité technique** : Évaluation de la difficulté technique de la tâche
+-3. **Besoin en contexte** : Quantité de contexte nécessaire pour accomplir la tâche
+-4. **Créativité requise** : Niveau d'innovation ou de créativité nécessaire
+-5. **Criticité** : Importance de la tâche et impact des erreurs potentielles
+-
+-## Métriques d'Évaluation
+-
+-### 1. Complexité Linguistique
+-
+-| Métrique | Seuil pour Agent Simple | Seuil pour Agent Complexe |
+-|----------|-------------------------|---------------------------|
+-| Longueur de la demande | < 100 mots | ≥ 100 mots |
+-| Nombre de questions/requêtes | 1-2 | ≥ 3 |
+-| Présence de termes techniques spécialisés | Faible | Élevée |
+-| Structure syntaxique | Simple | Complexe (conditions multiples, nuances) |
+-
+-### 2. Complexité Technique
+-
+-| Type d'Agent | Tâches pour Agent Simple | Tâches pour Agent Complexe |
+-|--------------|--------------------------|----------------------------|
+-| **Code** | Modifications < 50 lignes, Fonctions isolées, Bugs simples | Refactoring majeur, Conception d'architecture, Optimisation |
+-| **Debug** | Erreurs de syntaxe, Bugs évidents, Problèmes isolés | Bugs concurrents, Problèmes de performance, Bugs système |
+-| **Architect** | Documentation simple, Diagrammes basiques, Améliorations mineures | Conception système, Migration complexe, Optimisation d'architecture |
+-| **Ask** | Questions factuelles, Explications basiques | Analyses approfondies, Comparaisons détaillées, Synthèses |
+-
+-### 3. Besoin en Contexte
+-
+-| Métrique | Seuil pour Agent Simple | Seuil pour Agent Complexe |
+-|----------|-------------------------|---------------------------|
+-| Nombre de fichiers concernés | 1-3 fichiers | > 3 fichiers |
+-| Taille du contexte nécessaire | < 2000 tokens | ≥ 2000 tokens |
+-| Dépendances entre composants | Faibles | Élevées |
+-| Historique des interactions | Court terme | Long terme |
+-
+-### 4. Créativité Requise
+-
+-| Niveau | Description | Type d'Agent |
+-|--------|-------------|--------------|
+-| **Faible** | Solution directe, approche standard | Simple |
+-| **Moyen** | Quelques alternatives à considérer | Simple/Complexe (selon d'autres facteurs) |
+-| **Élevé** | Solutions innovantes, approches non conventionnelles | Complexe |
+-
+-### 5. Criticité
+-
+-| Niveau | Description | Type d'Agent |
+-|--------|-------------|--------------|
+-| **Faible** | Impact limité, facilement réversible | Simple |
+-| **Moyen** | Impact modéré, réversible avec effort | Simple/Complexe (selon d'autres facteurs) |
+-| **Élevé** | Impact majeur, difficile à inverser | Complexe |
+-
+-## Mots-Clés et Indicateurs
+-
+-### Indicateurs de Tâches Simples
+-
+-- "expliquer brièvement"
+-- "corriger cette erreur"
+-- "formater ce code"
+-- "créer un exemple simple"
+-- "vérifier la syntaxe"
+-- "documenter cette fonction"
+-- "résumer ce concept"
+-
+-### Indicateurs de Tâches Complexes
+-
+-- "concevoir une architecture pour"
+-- "optimiser les performances de"
+-- "analyser en profondeur"
+-- "refactorer complètement"
+-- "comparer et contraster"
+-- "proposer une solution innovante"
+-- "résoudre ce problème complexe"
+-
+-## Algorithme de Décision
+-
+-1. **Évaluation initiale** : Analyser la demande selon les métriques ci-dessus
+-2. **Calcul du score de complexité** : Attribuer un score à chaque métrique et calculer un score global
+-3. **Seuil de décision** : Comparer le score global au seuil défini pour chaque type d'agent
+-4. **Facteurs de priorité** : Certains facteurs peuvent avoir plus de poids selon le contexte
+-5. **Décision finale** : Router vers l'agent approprié
+-
+-## Mécanisme d'Escalade
+-
+-Si un agent simple rencontre des difficultés ou détecte que la tâche est plus complexe que prévu, un mécanisme d'escalade permet de transférer la tâche à un agent complexe :
+-
+-1. **Détection de complexité** : L'agent simple évalue sa capacité à accomplir la tâche
+-2. **Signaux d'escalade** : Incertitude élevée, besoin de contexte supplémentaire, solutions multiples
+-3. **Transfert de contexte** : L'agent simple transmet le contexte et son analyse préliminaire
+-4. **Reprise par agent complexe** : L'agent complexe continue avec le contexte enrichi
+-
+-## Exemples Concrets
+-
+-### Exemple 1 : Tâche Simple pour Code
+-
+-**Demande** : "Ajoute une validation pour s'assurer que l'email est au bon format dans le formulaire d'inscription."
+-
+-**Analyse** :
+-- Complexité linguistique : Faible (demande claire et concise)
+-- Complexité technique : Faible (modification isolée, pattern connu)
+-- Besoin en contexte : Faible (1-2 fichiers concernés)
+-- Créativité requise : Faible (solution standard)
+-- Criticité : Moyenne (importante mais facilement réversible)
+-
+-**Décision** : Agent Code Simple
+-
+-### Exemple 2 : Tâche Complexe pour Architect
+-
+-**Demande** : "Conçois une nouvelle architecture pour notre système de paiement qui améliore la scalabilité, réduit la latence et s'intègre avec nos microservices existants tout en facilitant la migration progressive depuis notre système monolithique actuel."
+-
+-**Analyse** :
+-- Complexité linguistique : Élevée (demande longue avec multiples contraintes)
+-- Complexité technique : Élevée (conception d'architecture, intégration, migration)
+-- Besoin en contexte : Élevé (compréhension du système existant et des contraintes)
+-- Créativité requise : Élevée (solution innovante nécessaire)
+-- Criticité : Élevée (impact majeur sur le système)
+-
+-**Décision** : Agent Architect Complexe
+\ No newline at end of file
+diff --git a/roo-modes/examples/servers.json b/roo-modes/examples/servers.json
+index 2acb735..419bfde 100644
+--- a/roo-modes/examples/servers.json
++++ b/roo-modes/examples/servers.json
+@@ -28,7 +28,7 @@
+     {
+       "name": "jupyter",
+       "type": "stdio",
+-      "command": "cmd /c node d:\\jsboige-mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
++      "command": "cmd /c node d:\\roo-extensions\\mcps\\internal\\servers\\jupyter-mcp-server\\dist\\index.js",
+       "enabled": true,
+       "autoStart": true,
+       "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
+diff --git a/roo-modes/optimized/docs/architecture-concept.md b/roo-modes/optimized/docs/architecture-concept.md
+deleted file mode 100644
+index 93ee6f2..0000000
+--- a/roo-modes/optimized/docs/architecture-concept.md
++++ /dev/null
+@@ -1,152 +0,0 @@
+-# Concept d'Architecture Optimisée des Agents Roo
+-
+-## Schéma Conceptuel
+-
+-```mermaid
+-graph TD
+-    User[Utilisateur] --> Orchestrator[Orchestrateur]
+-    
+-    subgraph "Agents Complexes (Claude Sonnet)"
+-        OrchestratorComplex[Orchestrateur Complexe]
+-        CodeComplex[Code Complexe]
+-        DebugComplex[Debug Complexe]
+-        ArchitectComplex[Architect Complexe]
+-        AskComplex[Ask Complexe]
+-    end
+-    
+-    subgraph "Agents Simples (Modèles moins coûteux)"
+-        OrchestratorSimple[Orchestrateur Simple]
+-        CodeSimple[Code Simple]
+-        DebugSimple[Debug Simple]
+-        ArchitectSimple[Architect Simple]
+-        AskSimple[Ask Simple]
+-    end
+-    
+-    Orchestrator --> TaskAnalyzer[Analyseur de Tâche]
+-    
+-    TaskAnalyzer --> OrchestratorComplex
+-    TaskAnalyzer --> OrchestratorSimple
+-    
+-    OrchestratorComplex --> CodeComplex
+-    OrchestratorComplex --> DebugComplex
+-    OrchestratorComplex --> ArchitectComplex
+-    OrchestratorComplex --> AskComplex
+-    
+-    OrchestratorSimple --> CodeSimple
+-    OrchestratorSimple --> DebugSimple
+-    OrchestratorSimple --> ArchitectSimple
+-    OrchestratorSimple --> AskSimple
+-    
+-    CodeComplex --> TaskAnalyzer
+-    DebugComplex --> TaskAnalyzer
+-    ArchitectComplex --> TaskAnalyzer
+-    AskComplex --> TaskAnalyzer
+-    
+-    CodeSimple --> TaskAnalyzer
+-    DebugSimple --> TaskAnalyzer
+-    ArchitectSimple --> TaskAnalyzer
+-    AskSimple --> TaskAnalyzer
+-```
+-
+-## Composants Clés
+-
+-### 1. Analyseur de Tâche
+-
+-L'Analyseur de Tâche est un nouveau composant central qui évalue la complexité d'une tâche et détermine si elle doit être traitée par un agent simple ou complexe. Il prend en compte :
+-
+-- La complexité linguistique de la demande
+-- Les mots-clés indiquant des tâches complexes
+-- L'historique des interactions précédentes
+-- Le contexte du projet
+-- Les besoins en ressources estimés
+-
+-### 2. Agents Dédoublés
+-
+-Chaque profil d'agent est dédoublé en deux versions :
+-
+-- **Version Complexe** : Utilise Claude Sonnet pour les tâches nécessitant des capacités avancées
+-  - Raisonnement complexe
+-  - Compréhension de code sophistiqué
+-  - Génération de solutions créatives
+-  - Analyse approfondie
+-
+-- **Version Simple** : Utilise des modèles moins coûteux pour les tâches basiques
+-  - Réponses à des questions simples
+-  - Modifications de code mineures
+-  - Tâches répétitives
+-  - Opérations bien définies
+-
+-### 3. Mécanisme de Routage Intelligent
+-
+-Le mécanisme de routage permet de :
+-
+-- Rediriger dynamiquement les tâches vers l'agent approprié
+-- Escalader une tâche d'un agent simple vers un agent complexe si nécessaire
+-- Décomposer les tâches complexes en sous-tâches plus simples
+-- Optimiser l'utilisation des ressources en fonction de la charge de travail
+-
+-## Critères de Décision Préliminaires
+-
+-### Pour l'Agent Code
+-
+-**Tâches simples** (modèle moins coûteux) :
+-- Modifications mineures de code (corrections de bugs simples, renommages)
+-- Génération de code à partir de modèles existants
+-- Formatage et nettoyage de code
+-- Tests unitaires simples
+-
+-**Tâches complexes** (Claude Sonnet) :
+-- Conception d'architectures logicielles
+-- Refactoring majeur
+-- Optimisation de performances
+-- Implémentation d'algorithmes complexes
+-
+-### Pour l'Agent Debug
+-
+-**Tâches simples** :
+-- Erreurs de syntaxe
+-- Bugs évidents
+-- Problèmes de configuration simples
+-- Vérifications de base
+-
+-**Tâches complexes** :
+-- Debugging de problèmes concurrents
+-- Analyse de performance
+-- Problèmes d'intégration complexes
+-- Bugs difficiles à reproduire
+-
+-### Pour l'Agent Architect
+-
+-**Tâches simples** :
+-- Documentation de base
+-- Diagrammes simples
+-- Plans pour des fonctionnalités isolées
+-- Révisions mineures d'architecture
+-
+-**Tâches complexes** :
+-- Conception d'architecture système
+-- Planification de migrations complexes
+-- Optimisation d'architecture
+-- Conception de systèmes distribués
+-
+-### Pour l'Agent Ask
+-
+-**Tâches simples** :
+-- Questions factuelles
+-- Explications de concepts de base
+-- Recherche d'informations simples
+-- Résumés courts
+-
+-**Tâches complexes** :
+-- Analyses approfondies
+-- Comparaisons détaillées
+-- Explications de concepts avancés
+-- Synthèse d'informations complexes
+-
+-## Prochaines Étapes de Conception
+-
+-1. Définir les métriques précises pour évaluer la complexité des tâches
+-2. Concevoir l'interface de l'Analyseur de Tâche
+-3. Développer les prompts optimisés pour chaque version d'agent
+-4. Créer un prototype de mécanisme de routage
+-5. Définir la stratégie de fallback en cas d'échec d'un agent simple
+\ No newline at end of file
+diff --git a/roo-modes/optimized/docs/criteres-decision.md b/roo-modes/optimized/docs/criteres-decision.md
+deleted file mode 100644
+index e270c26..0000000
+--- a/roo-modes/optimized/docs/criteres-decision.md
++++ /dev/null
+@@ -1,125 +0,0 @@
+-# Critères de Décision pour le Routage des Tâches
+-
+-Ce document détaille les critères permettant de déterminer si une tâche doit être traitée par un agent simple (modèle moins coûteux) ou un agent complexe (Claude Sonnet).
+-
+-## Principes Généraux
+-
+-Le routage des tâches repose sur plusieurs facteurs d'évaluation :
+-
+-1. **Complexité linguistique** : Analyse de la structure et du vocabulaire de la demande
+-2. **Complexité technique** : Évaluation de la difficulté technique de la tâche
+-3. **Besoin en contexte** : Quantité de contexte nécessaire pour accomplir la tâche
+-4. **Créativité requise** : Niveau d'innovation ou de créativité nécessaire
+-5. **Criticité** : Importance de la tâche et impact des erreurs potentielles
+-
+-## Métriques d'Évaluation
+-
+-### 1. Complexité Linguistique
+-
+-| Métrique | Seuil pour Agent Simple | Seuil pour Agent Complexe |
+-|----------|-------------------------|---------------------------|
+-| Longueur de la demande | < 100 mots | ≥ 100 mots |
+-| Nombre de questions/requêtes | 1-2 | ≥ 3 |
+-| Présence de termes techniques spécialisés | Faible | Élevée |
+-| Structure syntaxique | Simple | Complexe (conditions multiples, nuances) |
+-
+-### 2. Complexité Technique
+-
+-| Type d'Agent | Tâches pour Agent Simple | Tâches pour Agent Complexe |
+-|--------------|--------------------------|----------------------------|
+-| **Code** | Modifications < 50 lignes, Fonctions isolées, Bugs simples | Refactoring majeur, Conception d'architecture, Optimisation |
+-| **Debug** | Erreurs de syntaxe, Bugs évidents, Problèmes isolés | Bugs concurrents, Problèmes de performance, Bugs système |
+-| **Architect** | Documentation simple, Diagrammes basiques, Améliorations mineures | Conception système, Migration complexe, Optimisation d'architecture |
+-| **Ask** | Questions factuelles, Explications basiques | Analyses approfondies, Comparaisons détaillées, Synthèses |
+-
+-### 3. Besoin en Contexte
+-
+-| Métrique | Seuil pour Agent Simple | Seuil pour Agent Complexe |
+-|----------|-------------------------|---------------------------|
+-| Nombre de fichiers concernés | 1-3 fichiers | > 3 fichiers |
+-| Taille du contexte nécessaire | < 2000 tokens | ≥ 2000 tokens |
+-| Dépendances entre composants | Faibles | Élevées |
+-| Historique des interactions | Court terme | Long terme |
+-
+-### 4. Créativité Requise
+-
+-| Niveau | Description | Type d'Agent |
+-|--------|-------------|--------------|
+-| **Faible** | Solution directe, approche standard | Simple |
+-| **Moyen** | Quelques alternatives à considérer | Simple/Complexe (selon d'autres facteurs) |
+-| **Élevé** | Solutions innovantes, approches non conventionnelles | Complexe |
+-
+-### 5. Criticité
+-
+-| Niveau | Description | Type d'Agent |
+-|--------|-------------|--------------|
+-| **Faible** | Impact limité, facilement réversible | Simple |
+-| **Moyen** | Impact modéré, réversible avec effort | Simple/Complexe (selon d'autres facteurs) |
+-| **Élevé** | Impact majeur, difficile à inverser | Complexe |
+-
+-## Mots-Clés et Indicateurs
+-
+-### Indicateurs de Tâches Simples
+-
+-- "expliquer brièvement"
+-- "corriger cette erreur"
+-- "formater ce code"
+-- "créer un exemple simple"
+-- "vérifier la syntaxe"
+-- "documenter cette fonction"
+-- "résumer ce concept"
+-
+-### Indicateurs de Tâches Complexes
+-
+-- "concevoir une architecture pour"
+-- "optimiser les performances de"
+-- "analyser en profondeur"
+-- "refactorer complètement"
+-- "comparer et contraster"
+-- "proposer une solution innovante"
+-- "résoudre ce problème complexe"
+-
+-## Algorithme de Décision
+-
+-1. **Évaluation initiale** : Analyser la demande selon les métriques ci-dessus
+-2. **Calcul du score de complexité** : Attribuer un score à chaque métrique et calculer un score global
+-3. **Seuil de décision** : Comparer le score global au seuil défini pour chaque type d'agent
+-4. **Facteurs de priorité** : Certains facteurs peuvent avoir plus de poids selon le contexte
+-5. **Décision finale** : Router vers l'agent approprié
+-
+-## Mécanisme d'Escalade
+-
+-Si un agent simple rencontre des difficultés ou détecte que la tâche est plus complexe que prévu, un mécanisme d'escalade permet de transférer la tâche à un agent complexe :
+-
+-1. **Détection de complexité** : L'agent simple évalue sa capacité à accomplir la tâche
+-2. **Signaux d'escalade** : Incertitude élevée, besoin de contexte supplémentaire, solutions multiples
+-3. **Transfert de contexte** : L'agent simple transmet le contexte et son analyse préliminaire
+-4. **Reprise par agent complexe** : L'agent complexe continue avec le contexte enrichi
+-
+-## Exemples Concrets
+-
+-### Exemple 1 : Tâche Simple pour Code
+-
+-**Demande** : "Ajoute une validation pour s'assurer que l'email est au bon format dans le formulaire d'inscription."
+-
+-**Analyse** :
+-- Complexité linguistique : Faible (demande claire et concise)
+-- Complexité technique : Faible (modification isolée, pattern connu)
+-- Besoin en contexte : Faible (1-2 fichiers concernés)
+-- Créativité requise : Faible (solution standard)
+-- Criticité : Moyenne (importante mais facilement réversible)
+-
+-**Décision** : Agent Code Simple
+-
+-### Exemple 2 : Tâche Complexe pour Architect
+-
+-**Demande** : "Conçois une nouvelle architecture pour notre système de paiement qui améliore la scalabilité, réduit la latence et s'intègre avec nos microservices existants tout en facilitant la migration progressive depuis notre système monolithique actuel."
+-
+-**Analyse** :
+-- Complexité linguistique : Élevée (demande longue avec multiples contraintes)
+-- Complexité technique : Élevée (conception d'architecture, intégration, migration)
+-- Besoin en contexte : Élevé (compréhension du système existant et des contraintes)
+-- Créativité requise : Élevée (solution innovante nécessaire)
+-- Criticité : Élevée (impact majeur sur le système)
+-
+-**Décision** : Agent Architect Complexe
+\ No newline at end of file
+diff --git a/roo-modes/tests/test-desescalade.js b/roo-modes/tests/test-desescalade.js
+deleted file mode 100644
+index 6d1d3e6..0000000
+--- a/roo-modes/tests/test-desescalade.js
++++ /dev/null
+@@ -1,58 +0,0 @@
+-// Test du mécanisme de désescalade pour les modes personnalisés
+-// Ce script teste le mécanisme de désescalade systématique
+-
+-console.log("=== Test du mécanisme de désescalade ===");
+-
+-// Simulation d'une tâche initialement complexe qui devient simple
+-const simplifiableTask = {
+-  description: "Analyser une architecture complexe puis documenter un composant simple",
+-  initialComplexity: "complex",
+-  finalComplexity: "simple",
+-  initialMode: "code-complex",
+-  finalMode: "code-simple",
+-  shouldDesescalate: true
+-};
+-
+-// Simulation d'une tâche qui reste complexe
+-const persistentlyComplexTask = {
+-  description: "Optimiser les performances d'une application distribuée",
+-  initialComplexity: "complex",
+-  finalComplexity: "complex",
+-  initialMode: "code-complex",
+-  finalMode: "code-complex",
+-  shouldDesescalate: false
+-};
+-
+-// Simulation d'une tâche qui commence simple et reste simple
+-const simpleTask = {
+-  description: "Corriger une erreur de syntaxe dans un fichier CSS",
+-  initialComplexity: "simple",
+-  finalComplexity: "simple",
+-  initialMode: "code-simple",
+-  finalMode: "code-simple",
+-  shouldDesescalate: false
+-};
+-
+-// Fonction de test
+-function testDesescalation(task) {
+-  console.log(`\nTest de la tâche: ${task.description}`);
+-  console.log(`Complexité initiale: ${task.initialComplexity}`);
+-  console.log(`Mode initial: ${task.initialMode}`);
+-  console.log(`Complexité finale: ${task.finalComplexity}`);
+-  console.log(`Mode final attendu: ${task.finalMode}`);
+-  
+-  if (task.shouldDesescalate) {
+-    console.log("Cette tâche devrait déclencher une désescalade");
+-  } else {
+-    console.log("Cette tâche ne devrait pas déclencher de désescalade");
+-  }
+-}
+-
+-// Exécution des tests
+-console.log("\n=== Exécution des tests de désescalade ===");
+-testDesescalation(simplifiableTask);
+-testDesescalation(persistentlyComplexTask);
+-testDesescalation(simpleTask);
+-
+-console.log("\n=== Tests terminés ===");
+-console.log("Pour des tests complets, utilisez ces scénarios avec l'extension Roo dans VS Code");
+\ No newline at end of file
+diff --git a/roo-modes/tests/test-escalade.js b/roo-modes/tests/test-escalade.js
+deleted file mode 100644
+index a0bf9b4..0000000
+--- a/roo-modes/tests/test-escalade.js
++++ /dev/null
+@@ -1,51 +0,0 @@
+-// Test du mécanisme d'escalade pour les modes personnalisés
+-// Ce script teste le mécanisme d'escalade interne et externe
+-
+-console.log("=== Test du mécanisme d'escalade ===");
+-
+-// Simulation d'une tâche simple qui devrait être traitée par un mode simple
+-const simpleTask = {
+-  description: "Corriger une erreur de syntaxe dans un fichier JavaScript",
+-  complexity: "simple",
+-  expectedMode: "code-simple"
+-};
+-
+-// Simulation d'une tâche complexe qui devrait déclencher une escalade
+-const complexTask = {
+-  description: "Refactoriser l'architecture complète d'une application React avec optimisation des performances",
+-  complexity: "complex",
+-  expectedMode: "code-complex",
+-  shouldEscalate: true
+-};
+-
+-// Simulation d'une tâche à la limite qui pourrait déclencher une escalade interne
+-const borderlineTask = {
+-  description: "Implémenter une fonction de tri personnalisée avec quelques optimisations",
+-  complexity: "borderline",
+-  expectedMode: "code-simple",
+-  mightEscalateInternally: true
+-};
+-
+-// Fonction de test
+-function testEscalation(task) {
+-  console.log(`\nTest de la tâche: ${task.description}`);
+-  console.log(`Complexité: ${task.complexity}`);
+-  console.log(`Mode attendu: ${task.expectedMode}`);
+-  
+-  if (task.shouldEscalate) {
+-    console.log("Cette tâche devrait déclencher une escalade externe");
+-  } else if (task.mightEscalateInternally) {
+-    console.log("Cette tâche pourrait déclencher une escalade interne");
+-  } else {
+-    console.log("Cette tâche devrait être traitée sans escalade");
+-  }
+-}
+-
+-// Exécution des tests
+-console.log("\n=== Exécution des tests d'escalade ===");
+-testEscalation(simpleTask);
+-testEscalation(complexTask);
+-testEscalation(borderlineTask);
+-
+-console.log("\n=== Tests terminés ===");
+-console.log("Pour des tests complets, utilisez ces scénarios avec l'extension Roo dans VS Code");
+\ No newline at end of file
+diff --git a/sync_log.txt b/sync_log.txt
+index 19b18d2..1d1c438 100644
+--- a/sync_log.txt
++++ b/sync_log.txt
+@@ -1,184 +1,5 @@
+-2025-05-23 11:08:14 - INFO: Vérification du statut Git avant pull...
+-2025-05-23 11:08:14 - ALERTE: Modifications locales détectées. Tentative de stash...
+-2025-05-23 11:08:14 - INFO: Stash réussi.
+-2025-05-23 11:08:14 - INFO: Exécution de git pull...
+-2025-05-23 11:08:14 - INFO: Git pull réussi.
+-2025-05-23 11:08:14 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+-2025-05-23 11:08:14 - ERREUR: Échec de la synchronisation de roo-config/settings/settings.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\settings\settings.json par lui-m�me.
+-2025-05-23 11:36:14 - INFO: Vérification du statut Git avant pull...
+-2025-05-23 11:36:14 - ALERTE: Modifications locales détectées. Tentative de stash...
+-2025-05-23 11:36:14 - INFO: Stash réussi.
+-2025-05-23 11:36:14 - INFO: Exécution de git pull...
+-2025-05-23 11:36:14 - INFO: Git pull réussi.
+-2025-05-23 11:36:14 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+-2025-05-23 11:36:14 - ERREUR: Échec de la synchronisation de roo-config/settings/settings.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\settings\settings.json par lui-m�me.
+-2025-05-23 12:09:41 - INFO: Vérification du statut Git avant pull...
+-2025-05-23 12:09:41 - ALERTE: Modifications locales détectées. Tentative de stash...
+-2025-05-23 12:09:41 - INFO: Stash réussi.
+-2025-05-23 12:09:41 - INFO: Exécution de git pull...
+-2025-05-23 12:09:41 - INFO: Git pull réussi.
+-2025-05-23 12:09:41 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+-2025-05-23 12:09:41 - ERREUR: Échec de la synchronisation de roo-config/escalation-test-config.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\escalation-test-config.json par lui-m�me.
+-2025-05-23 12:10:06 - INFO: Vérification du statut Git avant pull...
+-2025-05-23 12:10:06 - ALERTE: Modifications locales détectées. Tentative de stash...
+-2025-05-23 12:10:07 - INFO: Stash réussi.
+-2025-05-23 12:10:07 - INFO: Exécution de git pull...
+-2025-05-23 12:10:07 - INFO: Git pull réussi.
+-2025-05-23 12:10:07 - INFO: Analyse des nouveautés et synchronisation des fichiers...
+-2025-05-23 12:10:07 - ERREUR: Échec de la synchronisation de roo-config/escalation-test-config.json. Message : Impossible de remplacer l��l�ment D:\roo-extensions\roo-config\escalation-test-config.json par lui-m�me.
+-2025-05-23 12:10:30 - INFO: Étape 1: Préparation et Vérification de l'Environnement Git...
+-2025-05-23 12:10:30 - INFO: Vérification du statut Git avant pull...
+-2025-05-23 12:10:30 - ALERTE: Modifications locales détectées. Tentative de stash...
+-2025-05-23 12:10:30 - INFO: Stash réussi.
+-2025-05-23 12:10:30 - INFO: Étape 2: Mise à Jour du Dépôt Local (git pull)...
+-2025-05-23 12:10:30 - INFO: Exécution de git pull origin main...
+-2025-05-23 12:10:31 - INFO: Git pull réussi.
+-2025-05-23 12:10:31 - INFO: Étape 3: Analyse des Nouveautés et Identification des Fichiers à Synchroniser...
+-2025-05-23 12:10:31 - INFO: Liste des fichiers cibles potentiels construite.
+-2025-05-23 12:10:31 - INFO: Détection des fichiers modifiés par le pull (HEAD vs HEAD@{1})...
+-2025-05-23 12:10:31 - INFO: Fichiers modifiés par le pull : 
+-2025-05-23 12:10:31 - ALERTE: Aucun fichier spécifiquement modifié par le pull détecté ou diff échoué. Vérification de tous les fichiers cibles pour synchronisation.
+-2025-05-23 12:10:31 - INFO: Fichiers identifiés pour synchronisation réelle : roo-config/escalation-test-config.json, roo-config/qwen3-profiles/qwen3-parameters.json, roo-config/settings/modes.json, roo-config/settings/servers.json, roo-config/settings/settings.json, roo-config\analyze-test-results.ps1, roo-config\apply-escalation-test-config.ps1, roo-config\backups\README.md, roo-config\config-templates\README.md, roo-config\create-profile.ps1, roo-config\deployment-scripts\create-clean-modes.ps1, roo-config\deployment-scripts\deploy-guide-interactif.ps1, roo-config\deployment-scripts\deploy-modes.ps1, roo-config\deployment-scripts\deploy-modes-ascii.ps1, roo-config\deployment-scripts\deploy-modes-enhanced.ps1, roo-config\deployment-scripts\deploy-modes-extreme.ps1, roo-config\deployment-scripts\deploy-modes-final.ps1, roo-config\deployment-scripts\deploy-modes-fixed.ps1, roo-config\deployment-scripts\deploy-modes-improved.ps1, roo-config\deployment-scripts\deploy-modes-minimal.ps1, roo-config\deployment-scripts\deploy-modes-simple.ps1, roo-config\deployment-scripts\deploy-modes-simple-complex.ps1, roo-config\deployment-scripts\deploy-modes-solution.ps1, roo-config\deployment-scripts\deploy-modes-ultra-simple.ps1, roo-config\deployment-scripts\force-deploy-with-encoding-fix.ps1, roo-config\deployment-scripts\README.md, roo-config\deployment-scripts\simple-deploy.ps1, roo-config\deploy-profile-modes.ps1, roo-config\diagnostic-scripts\check-deployed-encoding.ps1, roo-config\diagnostic-scripts\diagnostic-rapide-encodage.ps1, roo-config\diagnostic-scripts\encoding-diagnostic.ps1, roo-config\diagnostic-scripts\README.md, roo-config\diagnostic-scripts\verify-deployed-modes.ps1, roo-config\docs\guide-import-export.md, roo-config\docs\README.md, roo-config\docs\solution-modes-simple-complex.md, roo-config\encoding-scripts\fix-encoding.ps1, roo-config\encoding-scripts\fix-encoding-advanced.ps1, roo-config\encoding-scripts\fix-encoding-ascii.ps1, roo-config\encoding-scripts\fix-encoding-complete.ps1, roo-config\encoding-scripts\fix-encoding-direct.ps1, roo-config\encoding-scripts\fix-encoding-extreme.ps1, roo-config\encoding-scripts\fix-encoding-final.ps1, roo-config\encoding-scripts\fix-encoding-improved.ps1, roo-config\encoding-scripts\fix-encoding-minimal.ps1, roo-config\encoding-scripts\fix-encoding-regex.ps1, roo-config\encoding-scripts\fix-encoding-simple.ps1, roo-config\encoding-scripts\fix-encoding-simple-final.ps1, roo-config\encoding-scripts\fix-encoding-ultra-simple.ps1, roo-config\encoding-scripts\fix-source-encoding.ps1, roo-config\encoding-scripts\README.md, roo-config\maintenance-routine.ps1, roo-config\maintenance-workflow.ps1, roo-config\qwen3-profiles\README.md, roo-config\README.md, roo-config\README-campagne-tests-escalade.md, roo-config\README-profile-modes.md, roo-config\REDIRECTION.md, roo-config\scheduler\Guide_Edition_Directe_Configurations_Roo_Scheduler.md, roo-config\scheduler\Guide_Installation_Roo_Scheduler.md, roo-config\settings\deploy-settings.ps1, roo-config\settings\README.md, roo-config\test-escalation-scenarios.ps1, roo-modes/configs/modes.json, roo-modes/configs/new-roomodes.json, roo-modes/configs/standard-modes.json, roo-modes/configs/vscode-custom-modes.json, roo-modes\custom\docs\architecture\architecture-concept.md, roo-modes\custom\docs\criteres-decision\criteres-decision.md, roo-modes\custom\docs\implementation\commits.md, roo-modes\custom\docs\implementation\deploiement.md, roo-modes\custom\docs\implementation\deploiement-autres-machines.md, roo-modes\custom\docs\implementation\notes-pour-reprise.md, roo-modes\custom\docs\implementation\script-deploy-local-endpoints.md, roo-modes\custom\docs\optimisation\guide-installation-optimisations-mcp.md, roo-modes\custom\docs\optimisation\recommandations-prompts.md, roo-modes\custom\docs\optimisation\utilisation-optimisee-mcps.md, roo-modes\custom\docs\structure-technique\README.md, roo-modes\custom\README.md, roo-modes\custom\REDIRECTION.md, roo-modes\docs\architecture\architecture-concept.md, roo-modes\docs\criteres-decision\criteres-decision.md, roo-modes\docs\directives-modes-custom.md, roo-modes\docs\guide-import-export.md, roo-modes\docs\guide-integration-modes-custom.md, roo-modes\docs\guide-verrouillage-famille-modes.md, roo-modes\docs\implementation\commits.md, roo-modes\docs\implementation\deploiement.md, roo-modes\docs\implementation\deploiement-autres-machines.md, roo-modes\docs\implementation\guide-installation-modes-personnalises.md, roo-modes\docs\implementation\notes-pour-reprise.md, roo-modes\docs\implementation\script-deploy-local-endpoints.md, roo-modes\docs\optimisation\recommandations-prompts.md, roo-modes\docs\README-family-lock.md, roo-modes\docs\reference-prompts-natifs.md, roo-modes\n5\CHANGELOG.md, roo-modes\n5\configs\architect-large.json, roo-modes\n5\configs\architect-large-optimized.json, roo-modes\n5\configs\architect-large-optimized-v2.json, roo-modes\n5\configs\architect-large-original.json, roo-modes\n5\configs\architect-medium.json, roo-modes\n5\configs\ask-large.json, roo-modes\n5\configs\ask-medium.json, roo-modes\n5\configs\custom-n5-modes.json, roo-modes\n5\configs\debug-large.json, roo-modes\n5\configs\debug-medium.json, roo-modes\n5\configs\large-modes.json, roo-modes\n5\configs\medium-modes.json, roo-modes\n5\configs\medium-modes-fixed.json, roo-modes\n5\configs\micro-modes.json, roo-modes\n5\configs\mini-modes.json, roo-modes\n5\configs\mini-modes-fixed.json, roo-modes\n5\configs\n5-modes-roo-compatible.json, roo-modes\n5\configs\n5-modes-roo-compatible-local.json, roo-modes\n5\configs\n5-modes-roo-compatible-modified.json, roo-modes\n5\configs\oracle-modes.json, roo-modes\n5\configs\oracle-modes-fixed.json, roo-modes\n5\configs\orchestrator-large.json, roo-modes\n5\configs\orchestrator-medium.json, roo-modes\n5\docs\guide-migration.md, roo-modes\n5\docs\guide-migration-roo-compatible.md, roo-modes\n5\docs\guide-utilisation.md, roo-modes\n5\rapport-final-deploiement.md, roo-modes\n5\rapport-implementation.md, roo-modes\n5\README.md, roo-modes\n5\README-roo-compatible.md, roo-modes\n5\tests\README.md, roo-modes\optimized\ARCHIVE.md, roo-modes\optimized\docs\architecture-concept.md, roo-modes\optimized\docs\criteres-decision.md, roo-modes\optimized\docs\notes-pour-reprise.md, roo-modes\optimized\docs\recommandations-prompts.md, roo-modes\optimized\README.md, roo-modes\optimized\REDIRECTION.md, roo-modes\README.md
+-2025-05-23 12:10:31 - INFO: Étape 4: Exécution des Opérations de Synchronisation...
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/escalation-test-config.json
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/qwen3-profiles/qwen3-parameters.json
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/modes.json
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/servers.json
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config/settings/settings.json
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\analyze-test-results.ps1
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\apply-escalation-test-config.ps1
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\backups\README.md
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\config-templates\README.md
+-2025-05-23 12:10:31 - INFO: Fichier déjà à jour (hachage identique) : roo-config\create-profile.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\create-clean-modes.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-guide-interactif.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-ascii.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-enhanced.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-extreme.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-final.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-fixed.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-improved.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-minimal.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-simple.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-simple-complex.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-solution.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\deploy-modes-ultra-simple.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\force-deploy-with-encoding-fix.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\README.md
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deployment-scripts\simple-deploy.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\deploy-profile-modes.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\check-deployed-encoding.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\diagnostic-rapide-encodage.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\encoding-diagnostic.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\README.md
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\diagnostic-scripts\verify-deployed-modes.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\guide-import-export.md
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\README.md
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\docs\solution-modes-simple-complex.md
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding.ps1
+-2025-05-23 12:10:32 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-advanced.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-ascii.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-complete.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-direct.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-extreme.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-final.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-improved.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-minimal.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-regex.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-simple.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-simple-final.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-encoding-ultra-simple.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\fix-source-encoding.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\encoding-scripts\README.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\maintenance-routine.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\maintenance-workflow.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\qwen3-profiles\README.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README-campagne-tests-escalade.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\README-profile-modes.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\REDIRECTION.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\scheduler\Guide_Edition_Directe_Configurations_Roo_Scheduler.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\scheduler\Guide_Installation_Roo_Scheduler.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\settings\deploy-settings.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\settings\README.md
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-config\test-escalation-scenarios.ps1
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/modes.json
+-2025-05-23 12:10:33 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/new-roomodes.json
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/standard-modes.json
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes/configs/vscode-custom-modes.json
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\architecture\architecture-concept.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\criteres-decision\criteres-decision.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\commits.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\deploiement.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\deploiement-autres-machines.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\notes-pour-reprise.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\implementation\script-deploy-local-endpoints.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\guide-installation-optimisations-mcp.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\recommandations-prompts.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\optimisation\utilisation-optimisee-mcps.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\docs\structure-technique\README.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\README.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\custom\REDIRECTION.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\architecture\architecture-concept.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\criteres-decision\criteres-decision.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\directives-modes-custom.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-import-export.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-integration-modes-custom.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\guide-verrouillage-famille-modes.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\commits.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\deploiement.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\deploiement-autres-machines.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\guide-installation-modes-personnalises.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\notes-pour-reprise.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\implementation\script-deploy-local-endpoints.md
+-2025-05-23 12:10:34 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\optimisation\recommandations-prompts.md
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\README-family-lock.md
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\docs\reference-prompts-natifs.md
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\CHANGELOG.md
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-optimized.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-optimized-v2.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-large-original.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\architect-medium.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\ask-large.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\ask-medium.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\custom-n5-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\debug-large.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\debug-medium.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\large-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\medium-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\medium-modes-fixed.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\micro-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\mini-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\mini-modes-fixed.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible-local.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\n5-modes-roo-compatible-modified.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\oracle-modes.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\oracle-modes-fixed.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\orchestrator-large.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\configs\orchestrator-medium.json
+-2025-05-23 12:10:35 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-migration.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-migration-roo-compatible.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\docs\guide-utilisation.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\rapport-final-deploiement.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\rapport-implementation.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\README.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\README-roo-compatible.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\n5\tests\README.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\ARCHIVE.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\architecture-concept.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\criteres-decision.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\notes-pour-reprise.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\docs\recommandations-prompts.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\README.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\optimized\REDIRECTION.md
+-2025-05-23 12:10:36 - INFO: Fichier déjà à jour (hachage identique) : roo-modes\README.md
+-2025-05-23 12:10:36 - INFO: Étape 5: Vérification Post-Synchronisation...
+-2025-05-23 12:10:36 - INFO: Aucun fichier JSON n'a été synchronisé, pas de vérification JSON nécessaire.
+-2025-05-23 12:10:36 - INFO: Vérification de l'existence des fichiers critiques...
+-2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-config/settings/settings.json
+-2025-05-23 12:10:36 - INFO: Fichier critique présent : roo-modes/configs/modes.json
+-2025-05-23 12:10:36 - INFO: Étape 6: Gestion des Commits de Correction...
+-2025-05-23 12:10:36 - ALERTE: Modifications détectées après synchronisation (ex: logs). Création d'un commit de correction...
++2025-05-26 01:00:00 - INFO: Initialisation du fichier de log de synchronisation Roo
++2025-05-26 01:00:00 - INFO: Système de synchronisation Roo démarré
++2025-05-26 01:00:00 - INFO: Fichier de log créé automatiquement lors de la correction des problèmes critiques2025-05-26 01:02:26 - INFO: Ã‰tape 1: PrÃ©paration et VÃ©rification de l'Environnement Git...
++2025-05-26 01:02:26 - INFO: VÃ©rification du statut Git avant pull...
++2025-05-26 01:02:26 - ALERTE: Modifications locales dÃ©tectÃ©es. Tentative de stash...
+diff --git a/sync_roo_environment.ps1 b/sync_roo_environment.ps1
+index eb95f5b..eff3b34 100644
+--- a/sync_roo_environment.ps1
++++ b/sync_roo_environment.ps1
+@@ -81,7 +81,8 @@ $TargetFilesAndPatterns = @(
+     "roo-modes/configs/modes.json",
+     "roo-modes/configs/new-roomodes.json",
+     "roo-modes/configs/standard-modes.json",
+-    "roo-modes/configs/vscode-custom-modes.json"
++    "roo-modes/configs/vscode-custom-modes.json",
++    "sync_log.txt"
+ )
+ 
+ # Ajouter les .ps1 sous roo-config (récursif)
+@@ -200,7 +201,9 @@ if ($SyncedJsonFiles.Count -gt 0) {
+ # Vérification de l'existence des fichiers clés
+ $CriticalFiles = @(
+     "roo-config/settings/settings.json",
+-    "roo-modes/configs/modes.json"
++    "roo-modes/configs/modes.json",
++    "roo-modes/configs/vscode-custom-modes.json",
++    "sync_log.txt"
+     # Ajoutez d'autres fichiers critiques ici si nécessaire
+ )
+ Log-Message "Vérification de l'existence des fichiers critiques..."
+diff --git a/temp-request.json b/temp-request.json
+deleted file mode 100644
+index 5a34046..0000000
+--- a/temp-request.json
++++ /dev/null
+@@ -1 +0,0 @@
+-﻿{\ server_name\:\github-projects\,\tool_name\:\list_projects\,\arguments\:{\owner\:\myia-tech\,\owner_type\:\ORGANIZATION\}}
+diff --git a/tests/mcp/test-jupyter-connection-fixed.js b/tests/mcp/test-jupyter-connection-fixed.js
+index 529cd02..7af9226 100644
+--- a/tests/mcp/test-jupyter-connection-fixed.js
++++ b/tests/mcp/test-jupyter-connection-fixed.js
+@@ -42,7 +42,7 @@ function executeCommand(command, args) {
+ async function testJupyterConnection() {
+   try {
+     // Lire la configuration avec le bon chemin
+-    const configPath = path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server', 'config.json');
++    const configPath = path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server', 'config.json');
+     console.log(`Lecture de la configuration depuis: ${configPath}`);
+     
+     const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+diff --git a/tests/mcp/test-jupyter-mcp-connect-fixed.js b/tests/mcp/test-jupyter-mcp-connect-fixed.js
+index 41e84a7..9adf3c4 100644
+--- a/tests/mcp/test-jupyter-mcp-connect-fixed.js
++++ b/tests/mcp/test-jupyter-mcp-connect-fixed.js
+@@ -18,10 +18,10 @@ const __dirname = dirname(__filename);
+ 
+ // Configuration avec les bons chemins
+ const config = {
+-  mcpServerPath: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server'),
++  mcpServerPath: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server'),
+   mcpServerCommand: 'node',
+   mcpServerArgs: ['dist/index.js'],  // Sans l'option --offline car nous voulons tester la connexion
+-  configPath: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server', 'config.json'),
++  configPath: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server', 'config.json'),
+   startupTimeout: 5000, // Temps d'attente pour le démarrage du serveur (5 secondes)
+   connectionTimeout: 10000, // Temps d'attente pour la connexion (10 secondes)
+   defaultJupyterUrl: 'http://localhost:8890',  // Mis à jour pour utiliser le port 8890
+@@ -134,7 +134,7 @@ async function main() {
+   if (!fs.existsSync(mcpServerJsPath)) {
+     console.error(`Le fichier ${mcpServerJsPath} n'existe pas.`);
+     console.error('Veuillez compiler le serveur MCP Jupyter avant de lancer ce test.');
+-    console.error('Exécutez: cd mcps/mcp-servers/servers/jupyter-mcp-server && npm run build');
++    console.error('Exécutez: cd mcps/internal/servers/jupyter-mcp-server && npm run build');
+     process.exit(1);
+   }
+   
+diff --git a/tests/mcp/test-jupyter-mcp-offline.js b/tests/mcp/test-jupyter-mcp-offline.js
+index 4f617aa..29a4212 100644
+--- a/tests/mcp/test-jupyter-mcp-offline.js
++++ b/tests/mcp/test-jupyter-mcp-offline.js
+@@ -16,7 +16,7 @@ const __dirname = dirname(__filename);
+ 
+ // Configuration
+ const config = {
+-  mcpServerPath: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server'),
++  mcpServerPath: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server'),
+   mcpServerCommand: 'node',
+   mcpServerArgs: ['dist/index.js', '--offline'],
+   testDuration: 10000, // Durée du test en millisecondes
+diff --git a/tests/mcp/test-jupyter-vscode-integration.js b/tests/mcp/test-jupyter-vscode-integration.js
+index c70f1fc..b697ca9 100644
+--- a/tests/mcp/test-jupyter-vscode-integration.js
++++ b/tests/mcp/test-jupyter-vscode-integration.js
+@@ -19,10 +19,10 @@ const __dirname = dirname(__filename);
+ 
+ // Configuration
+ const config = {
+-  mcpJupyterDir: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server'),
+-  vscodeIntegrationScript: path.join(__dirname, '..', '..', 'mcps', 'jupyter', 'start-jupyter-mcp-vscode.bat'),
+-  configFile: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server', 'config.json'),
+-  configBackup: path.join(__dirname, '..', '..', 'mcps', 'mcp-servers', 'servers', 'jupyter-mcp-server', 'config.test.backup.json'),
++  mcpJupyterDir: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server'),
++  vscodeIntegrationScript: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server', 'start-jupyter-mcp-vscode.bat'),
++  configFile: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server', 'config.json'),
++  configBackup: path.join(__dirname, '..', '..', 'mcps', 'internal', 'servers', 'jupyter-mcp-server', 'config.test.backup.json'),
+   testTimeout: 60000, // 60 secondes
+   serverStartupTimeout: 15000, // 15 secondes
+   testCode: 'print("Hello from VSCode kernel!")',
