@@ -1,8 +1,0 @@
-{
-  "version": "1.0",
-  "defaultRemote": "origin",
-  "autoStash": true,
-  "logLevel": "INFO",
-  "sharedStatePath": "%SHARED_STATE_PATH%",
-  "targets": []
-}
