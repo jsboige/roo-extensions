@@ -1,5 +1,5 @@
 # ============================================================================
-# SCRIPT DE SYNCHRONISATION FINALE SDDD - PHASE 2
+# SCRIPT DE SYNCHRONISATION FINALE SDDD - PHASE 2 (VERSION CORRIGÉE)
 # Commit et synchronisation complète avec merges manuels méticuleux
 # Score d'accessibilité: 96.5/100
 # ============================================================================
@@ -28,8 +28,8 @@ New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 # Fonction de logging
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $LogEntry = "[$Timestamp] [$Level] $Message"
+    $TimestampLog = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogEntry = "[$TimestampLog] [$Level] $Message"
     Write-Host $LogEntry -ForegroundColor $(switch($Level) {
         "ERROR" { "Red" }
         "WARN" { "Yellow" }
@@ -106,7 +106,7 @@ function Step1-InitialAnalysis {
     
     foreach ($Line in $Submodules) {
         if ($Line.Trim()) {
-            $Parts = $Line -split '\s+'
+            $Parts = $Line -split '\s+', 3
             $Commit = $Parts[0]
             $Path = $Parts[1]
             $Status = if ($Commit.StartsWith("-")) { "Not initialized" }
@@ -185,7 +185,7 @@ feat(phase2-sddd): Complete accessibility improvements - Score 96.5/100
 - Validation continue à chaque étape
 - Synchronisation complète des sous-modules
 
-Generated-by: commit-and-sync-final-sddd.ps1
+Generated-by: commit-and-sync-final-sddd-fixed.ps1
 Timestamp: $Timestamp
 "@
             
@@ -246,7 +246,7 @@ function Step4-SyncSubmodules {
     
     foreach ($Line in $Submodules) {
         if ($Line.Trim()) {
-            $Parts = $Line -split '\s+'
+            $Parts = $Line -split '\s+', 3
             $Path = $Parts[1]
             
             Write-Log "Traitement du sous-module: $Path"
@@ -298,7 +298,8 @@ function Step4-SyncSubmodules {
             } catch {
                 Write-Log "❌ Erreur lors de la synchronisation de $Path : $($_.Exception.Message)" "ERROR"
                 $SubmoduleResult.error = $_.Exception.Message
-                if ((Get-Location).Path -eq $Path) {
+                $CurrentLocation = Get-Location
+                if ($CurrentLocation.Path.EndsWith($Path)) {
                     Pop-Location
                 }
             }
@@ -315,7 +316,7 @@ function Step4-SyncSubmodules {
 Updated submodules:
 $($SyncResults | Where-Object { $_.success } | ForEach-Object { "- $($_.path): $($_.operations -join ', ')" })
 
-Generated-by: commit-and-sync-final-sddd.ps1
+Generated-by: commit-and-sync-final-sddd-fixed.ps1
 Timestamp: $Timestamp"
         Write-Log "✅ Commit des sous-modules créé" "SUCCESS"
     }
@@ -341,7 +342,7 @@ function Step5-PushFinal {
         $Submodules = git submodule status
         foreach ($Line in $Submodules) {
             if ($Line.Trim() -and $Line.StartsWith(" ")) {
-                $Parts = $Line -split '\s+'
+                $Parts = $Line -split '\s+', 3
                 $Path = $Parts[1]
                 
                 Push-Location $Path
@@ -415,7 +416,7 @@ function Generate-FinalReport {
 # RAPPORT DE SYNCHRONISATION FINALE SDDD - PHASE 2
 **Généré le**: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 **Score d'accessibilité**: 96.5/100
-**Script**: commit-and-sync-final-sddd.ps1
+**Script**: commit-and-sync-final-sddd-fixed.ps1
 
 ---
 

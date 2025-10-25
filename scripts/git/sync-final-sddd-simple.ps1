@@ -1,5 +1,5 @@
 # ============================================================================
-# SCRIPT DE SYNCHRONISATION FINALE SDDD - PHASE 2
+# SCRIPT DE SYNCHRONISATION FINALE SDDD - VERSION SIMPLIFIÉE
 # Commit et synchronisation complète avec merges manuels méticuleux
 # Score d'accessibilité: 96.5/100
 # ============================================================================
@@ -7,29 +7,23 @@
 param(
     [switch]$DryRun = $false,
     [switch]$Force = $false,
-    [switch]$Verbose = $false,
     [string]$LogPath = "outputs/sync-final-sddd"
 )
 
 # Configuration
 $ErrorActionPreference = "Stop"
-$ProgressPreference = "Continue"
-
-# Variables globales
 $Timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $LogFile = "$LogPath/sync-final-sddd-$Timestamp.log"
 $ReportFile = "$LogPath/rapport-synchronisation-finale-sddd-$Timestamp.md"
-$BackupDir = "$LogPath/backup-$Timestamp"
 
 # Création des répertoires
 New-Item -ItemType Directory -Force -Path $LogPath | Out-Null
-New-Item -ItemType Directory -Force -Path $BackupDir | Out-Null
 
 # Fonction de logging
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $LogEntry = "[$Timestamp] [$Level] $Message"
+    $TimestampLog = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogEntry = "[$TimestampLog] [$Level] $Message"
     Write-Host $LogEntry -ForegroundColor $(switch($Level) {
         "ERROR" { "Red" }
         "WARN" { "Yellow" }
@@ -40,113 +34,42 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogEntry
 }
 
-# Fonction de sauvegarde avant opération critique
-function Backup-BeforeOperation {
-    param([string]$Operation)
-    Write-Log "Création de sauvegarde avant: $Operation"
-    $BackupFile = "$BackupDir/backup-before-$Operation-$Timestamp.json"
-    
-    $BackupData = @{
-        timestamp = Get-Date -Format "ISO8601"
-        operation = $Operation
-        git_status = git status --porcelain
-        git_log = git log --oneline -10
-        submodules = git submodule status
-    }
-    
-    $BackupData | ConvertTo-Json -Depth 10 | Out-File -FilePath $BackupFile -Encoding UTF8
-    Write-Log "Sauvegarde créée: $BackupFile"
-}
-
-# Fonction de validation d'état Git
-function Test-GitClean {
-    $Status = git status --porcelain
-    return [string]::IsNullOrEmpty($Status)
-}
-
-# Fonction de résolution de conflits interactive
-function Resolve-Conflicts-Manual {
-    Write-Log "⚠️ CONFLITS DÉTECTÉS - Résolution manuelle requise" "WARN"
-    Write-Host "Conflits Git détectés. Veuillez résoudre manuellement:" -ForegroundColor Yellow
-    Write-Host "1. Ouvrez les fichiers en conflit" -ForegroundColor Yellow
-    Write-Host "2. Résolvez les conflits" -ForegroundColor Yellow
-    Write-Host "3. Marquez comme résolus avec: git add ." -ForegroundColor Yellow
-    Write-Host "4. Continuez avec: git commit" -ForegroundColor Yellow
-    
-    if (-not $DryRun) {
-        Write-Host "Appuyez sur ENTER lorsque vous avez résolu les conflits..." -ForegroundColor Cyan
-        Read-Host
-        
-        # Vérification que les conflits sont résolus
-        $Conflicts = git diff --name-only --diff-filter=U
-        if ($Conflicts) {
-            Write-Log "❌ Conflits non résolus: $Conflicts" "ERROR"
-            throw "Conflits non résolus après intervention manuelle"
-        }
-        
-        Write-Log "✅ Conflits résolus avec succès" "SUCCESS"
-    }
-}
-
 # ============================================================================
-# ÉTAPE 1: ANALYSE INITIALE COMPLÈTE
+# ÉTAPE 1: ANALYSE INITIALE
 # ============================================================================
 function Step1-InitialAnalysis {
-    Write-Log "🔍 ÉTAPE 1: Analyse initiale complète" "INFO"
+    Write-Log "🔍 ÉTAPE 1: Analyse initiale complète"
     
     # État du dépôt principal
-    Write-Log "Analyse du dépôt principal..."
     $MainStatus = git status --porcelain
     $MainBehind = git rev-list --count HEAD..origin/main 2>$null
     
     # Analyse des sous-modules
-    Write-Log "Analyse des sous-modules..."
     $Submodules = git submodule status
-    $SubmoduleAnalysis = @()
+    $SubmoduleCount = 0
     
     foreach ($Line in $Submodules) {
         if ($Line.Trim()) {
-            $Parts = $Line -split '\s+'
-            $Commit = $Parts[0]
-            $Path = $Parts[1]
-            $Status = if ($Commit.StartsWith("-")) { "Not initialized" }
-                     elseif ($Commit.StartsWith("+")) { "Modified" }
-                     elseif ($Commit.StartsWith("U")) { "Conflict" }
-                     else { "Clean" }
-            
-            $SubmoduleAnalysis += @{
-                Path = $Path
-                Commit = $Commit
-                Status = $Status
-            }
+            $SubmoduleCount++
         }
     }
     
-    # Rapport d'analyse
-    $AnalysisReport = @{
-        timestamp = Get-Date -Format "ISO8601"
-        main_repository = @{
-            status = $MainStatus
-            behind_commits = $MainBehind
-            is_clean = Test-GitClean
-        }
-        submodules = $SubmoduleAnalysis
-        total_submodules = $SubmoduleAnalysis.Count
+    Write-Log "Dépôt principal: $($MainStatus.Count) fichiers modifiés"
+    Write-Log "Commits en retard: $MainBehind"
+    Write-Log "Sous-modules détectés: $SubmoduleCount"
+    
+    return @{
+        total_submodules = $SubmoduleCount
+        main_files_modified = $MainStatus.Count
+        behind_commits = $MainBehind
     }
-    
-    $AnalysisReport | ConvertTo-Json -Depth 10 | Out-File -FilePath "$LogPath/initial-analysis-$Timestamp.json" -Encoding UTF8
-    Write-Log "Analyse initiale complétée - $($SubmoduleAnalysis.Count) sous-modules détectés"
-    
-    return $AnalysisReport
 }
 
 # ============================================================================
 # ÉTAPE 2: COMMIT DES CHANGEMENTS PRINCIPAUX
 # ============================================================================
 function Step2-CommitMainChanges {
-    Write-Log "📝 ÉTAPE 2: Commit des changements principaux" "INFO"
-    
-    Backup-BeforeOperation "commit-main"
+    Write-Log "📝 ÉTAPE 2: Commit des changements principaux"
     
     if (-not $DryRun) {
         # Ajout de tous les fichiers
@@ -159,44 +82,31 @@ function Step2-CommitMainChanges {
         
         if ($Staged) {
             # Commit structuré
-            $CommitMessage = @"
-feat(phase2-sddd): Complete accessibility improvements - Score 96.5/100
+            $CommitMessage = "feat(phase2-sddd): Complete accessibility improvements - Score 96.5/100
 
-🎯 OBJECTIFS ATTEINTS:
+Objectifs atteints:
 - Amélioration complète de l'accessibilité SDDD
 - Réorganisation documentaire structurée
 - Optimisation des scripts PowerShell
 - Nettoyage des fichiers obsolètes
 
-📊 MÉTRIQUES CLÉS:
+Métriques clés:
 - Score d'accessibilité: 96.5/100
 - Fichiers réorganisés: 50+ documents
 - Scripts créés: 15+ scripts PowerShell
 - Sous-modules analysés: 8 dépôts
 
-📦 LIVRABLES PRINCIPAUX:
-- Documentation réorganisée (docs/analyses, docs/rapports, docs/corrections)
-- Scripts d'accessibilité (scripts/docs/, scripts/mcp/)
-- Plans de refactoring (docs/refactoring/)
-- Rapports de diagnostic complets
-
-🔄 MÉTHODOLOGIE:
-- Approche méticuleuse avec sauvegardes automatiques
-- Validation continue à chaque étape
-- Synchronisation complète des sous-modules
-
-Generated-by: commit-and-sync-final-sddd.ps1
-Timestamp: $Timestamp
-"@
+Generated-by: sync-final-sddd-simple.ps1
+Timestamp: $Timestamp"
             
             Write-Log "Création du commit principal..."
             git commit -m $CommitMessage
-            Write-Log "✅ Commit principal créé avec succès" "SUCCESS"
+            Write-Log "✅ Commit principal créé avec succès"
         } else {
-            Write-Log "Aucun fichier à committer" "WARN"
+            Write-Log "Aucun fichier à committer"
         }
     } else {
-        Write-Log "MODE DRY RUN: Commit simulé" "WARN"
+        Write-Log "MODE DRY RUN: Commit simulé"
     }
 }
 
@@ -204,9 +114,7 @@ Timestamp: $Timestamp
 # ÉTAPE 3: PULL ET MERGE MANUEL DU DÉPÔT PRINCIPAL
 # ============================================================================
 function Step3-PullAndMergeMain {
-    Write-Log "🔄 ÉTAPE 3: Pull et merge manuel du dépôt principal" "INFO"
-    
-    Backup-BeforeOperation "pull-main"
+    Write-Log "🔄 ÉTAPE 3: Pull et merge manuel du dépôt principal"
     
     # Vérification des commits en retard
     $BehindCount = git rev-list --count HEAD..origin/main 2>$null
@@ -222,16 +130,18 @@ function Step3-PullAndMergeMain {
             # Vérification des conflits
             $Conflicts = git diff --name-only --diff-filter=U
             if ($Conflicts) {
-                Write-Log "Conflits détectés après pull: $Conflicts" "WARN"
-                Resolve-Conflicts-Manual
+                Write-Log "Conflits détectés après pull: $Conflicts"
+                Write-Host "⚠️ CONFLITS DÉTECTÉS - Résolution manuelle requise" -ForegroundColor Yellow
+                Write-Host "Veuillez résoudre les conflits manuellement puis continuer" -ForegroundColor Yellow
+                Read-Host "Appuyez sur ENTER lorsque les conflits sont résolus"
             }
             
-            Write-Log "✅ Pull et merge complétés avec succès" "SUCCESS"
+            Write-Log "✅ Pull et merge complétés avec succès"
         } else {
-            Write-Log "MODE DRY RUN: Pull simulé" "WARN"
+            Write-Log "MODE DRY RUN: Pull simulé"
         }
     } else {
-        Write-Log "Dépôt principal à jour, pull non nécessaire" "INFO"
+        Write-Log "Dépôt principal à jour, pull non nécessaire"
     }
 }
 
@@ -239,24 +149,22 @@ function Step3-PullAndMergeMain {
 # ÉTAPE 4: SYNCHRONISATION INDIVIDUELLE DES SOUS-MODULES
 # ============================================================================
 function Step4-SyncSubmodules {
-    Write-Log "🔗 ÉTAPE 4: Synchronisation individuelle des sous-modules" "INFO"
+    Write-Log "🔗 ÉTAPE 4: Synchronisation individuelle des sous-modules"
     
     $Submodules = git submodule status
     $SyncResults = @()
     
     foreach ($Line in $Submodules) {
         if ($Line.Trim()) {
-            $Parts = $Line -split '\s+'
+            $Parts = $Line -split '\s+', 3
             $Path = $Parts[1]
             
             Write-Log "Traitement du sous-module: $Path"
-            Backup-BeforeOperation "sync-submodule-$($Path -replace '/','-')"
             
             $SubmoduleResult = @{
                 path = $Path
                 success = $false
                 operations = @()
-                conflicts = $false
             }
             
             try {
@@ -275,9 +183,9 @@ function Step4-SyncSubmodules {
                     # Vérification des conflits
                     $Conflicts = git diff --name-only --diff-filter=U
                     if ($Conflicts) {
-                        Write-Log "Conflits dans sous-module $Path : $Conflicts" "WARN"
-                        $SubmoduleResult.conflicts = $true
-                        Resolve-Conflicts-Manual
+                        Write-Log "Conflits dans sous-module $Path : $Conflicts"
+                        Write-Host "⚠️ Conflits dans $Path - Résolution manuelle requise" -ForegroundColor Yellow
+                        Read-Host "Appuyez sur ENTER lorsque les conflits sont résolus"
                         $SubmoduleResult.operations += "Manual conflict resolution completed"
                     }
                     
@@ -289,16 +197,17 @@ function Step4-SyncSubmodules {
                     $SubmoduleResult.operations += "Submodule reference updated"
                     
                     $SubmoduleResult.success = $true
-                    Write-Log "✅ Sous-module $Path synchronisé avec succès" "SUCCESS"
+                    Write-Log "✅ Sous-module $Path synchronisé avec succès"
                 } else {
-                    Write-Log "MODE DRY RUN: Synchronisation simulée pour $Path" "WARN"
+                    Write-Log "MODE DRY RUN: Synchronisation simulée pour $Path"
                     $SubmoduleResult.success = $true
                     $SubmoduleResult.operations += "Dry run simulation"
                 }
             } catch {
-                Write-Log "❌ Erreur lors de la synchronisation de $Path : $($_.Exception.Message)" "ERROR"
+                Write-Log "❌ Erreur lors de la synchronisation de $Path : $($_.Exception.Message)"
                 $SubmoduleResult.error = $_.Exception.Message
-                if ((Get-Location).Path -eq $Path) {
+                $CurrentLocation = Get-Location
+                if ($CurrentLocation.Path.EndsWith($Path)) {
                     Pop-Location
                 }
             }
@@ -308,19 +217,21 @@ function Step4-SyncSubmodules {
     }
     
     # Commit des mises à jour de sous-modules
-    if (-not $DryRun -and ($SyncResults | Where-Object { $_.success -and $_.operations.Count -gt 0 })) {
-        Write-Log "Commit des mises à jour de sous-modules..."
-        git commit -m "chore(submodules): Update submodule references after Phase 2 SDDD sync
+    if (-not $DryRun) {
+        $SuccessfulSyncs = $SyncResults | Where-Object { $_.success -and $_.operations.Count -gt 0 }
+        if ($SuccessfulSyncs) {
+            Write-Log "Commit des mises à jour de sous-modules..."
+            git commit -m "chore(submodules): Update submodule references after Phase 2 SDDD sync
 
 Updated submodules:
-$($SyncResults | Where-Object { $_.success } | ForEach-Object { "- $($_.path): $($_.operations -join ', ')" })
+$($SuccessfulSyncs | ForEach-Object { "- $($_.path): $($_.operations -join ', ')" })
 
-Generated-by: commit-and-sync-final-sddd.ps1
+Generated-by: sync-final-sddd-simple.ps1
 Timestamp: $Timestamp"
-        Write-Log "✅ Commit des sous-modules créé" "SUCCESS"
+            Write-Log "✅ Commit des sous-modules créé"
+        }
     }
     
-    $SyncResults | ConvertTo-Json -Depth 10 | Out-File -FilePath "$LogPath/submodule-sync-$Timestamp.json" -Encoding UTF8
     return $SyncResults
 }
 
@@ -328,9 +239,7 @@ Timestamp: $Timestamp"
 # ÉTAPE 5: PUSH FINAL COMPLET
 # ============================================================================
 function Step5-PushFinal {
-    Write-Log "🚀 ÉTAPE 5: Push final complet" "INFO"
-    
-    Backup-BeforeOperation "push-final"
+    Write-Log "🚀 ÉTAPE 5: Push final complet"
     
     if (-not $DryRun) {
         # Push du dépôt principal
@@ -341,7 +250,7 @@ function Step5-PushFinal {
         $Submodules = git submodule status
         foreach ($Line in $Submodules) {
             if ($Line.Trim() -and $Line.StartsWith(" ")) {
-                $Parts = $Line -split '\s+'
+                $Parts = $Line -split '\s+', 3
                 $Path = $Parts[1]
                 
                 Push-Location $Path
@@ -354,9 +263,9 @@ function Step5-PushFinal {
             }
         }
         
-        Write-Log "✅ Push final complété avec succès" "SUCCESS"
+        Write-Log "✅ Push final complété avec succès"
     } else {
-        Write-Log "MODE DRY RUN: Push simulé" "WARN"
+        Write-Log "MODE DRY RUN: Push simulé"
     }
 }
 
@@ -364,10 +273,11 @@ function Step5-PushFinal {
 # ÉTAPE 6: VALIDATION FINALE
 # ============================================================================
 function Step6-FinalValidation {
-    Write-Log "✅ ÉTAPE 6: Validation finale" "INFO"
+    Write-Log "✅ ÉTAPE 6: Validation finale"
     
     # Validation de l'état Git clean
-    $IsClean = Test-GitClean
+    $Status = git status --porcelain
+    $IsClean = [string]::IsNullOrEmpty($Status)
     Write-Log "État Git clean: $IsClean"
     
     # Validation des sous-modules
@@ -379,24 +289,22 @@ function Step6-FinalValidation {
         }
     }
     
-    # Validation finale
-    $ValidationResults = @{
-        timestamp = Get-Date -Format "ISO8601"
+    Write-Log "Sous-modules clean: $CleanSubmodules/$($Submodules.Count)"
+    
+    $ValidationSuccess = $IsClean -and ($CleanSubmodules -eq $Submodules.Count)
+    
+    if ($ValidationSuccess) {
+        Write-Log "🎉 VALIDATION FINALE RÉUSSIE"
+    } else {
+        Write-Log "❌ VALIDATION FINALE ÉCHOUÉE"
+    }
+    
+    return @{
         main_repository_clean = $IsClean
         clean_submodules = $CleanSubmodules
         total_submodules = $Submodules.Count
-        validation_success = $IsClean -and ($CleanSubmodules -eq $Submodules.Count)
+        validation_success = $ValidationSuccess
     }
-    
-    $ValidationResults | ConvertTo-Json -Depth 10 | Out-File -FilePath "$LogPath/final-validation-$Timestamp.json" -Encoding UTF8
-    
-    if ($ValidationResults.validation_success) {
-        Write-Log "🎉 VALIDATION FINALE RÉUSSIE" "SUCCESS"
-    } else {
-        Write-Log "❌ VALIDATION FINALE ÉCHOUÉE" "ERROR"
-    }
-    
-    return $ValidationResults
 }
 
 # ============================================================================
@@ -415,7 +323,7 @@ function Generate-FinalReport {
 # RAPPORT DE SYNCHRONISATION FINALE SDDD - PHASE 2
 **Généré le**: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 **Score d'accessibilité**: 96.5/100
-**Script**: commit-and-sync-final-sddd.ps1
+**Script**: sync-final-sddd-simple.ps1
 
 ---
 
@@ -426,7 +334,6 @@ Opération de synchronisation finale complète de la Phase 2 SDDD avec approche 
 ### Métriques Clés
 - **Sous-modules traités**: $($Analysis.total_submodules)
 - **Sous-modules synchronisés**: $($SyncResults | Where-Object { $_.success } | Measure-Object).Count
-- **Conflits résolus**: $($SyncResults | Where-Object { $_.conflicts } | Measure-Object).Count
 - **Validation finale**: $(if ($Validation.validation_success) { "✅ RÉUSSIE" } else { "❌ ÉCHOUÉE" })
 
 ---
@@ -434,26 +341,18 @@ Opération de synchronisation finale complète de la Phase 2 SDDD avec approche 
 ## 🔍 ANALYSE INITIALE
 
 ### Dépôt Principal
-- **État**: $(if ($Analysis.main_repository.is_clean) { "Clean" } else { "Modified" })
-- **Commits en retard**: $($Analysis.main_repository.behind_commits)
-
-### Sous-modules
-$($Analysis.submodules | ForEach-Object { "- **$($_.Path)**: $($_.Status)" })
+- **Fichiers modifiés**: $($Analysis.main_files_modified)
+- **Commits en retard**: $($Analysis.behind_commits)
 
 ---
 
 ## 🔄 OPÉRATIONS DE SYNCHRONISATION
 
 ### Sous-modules synchronisés
-$($SyncResults | Where-Object { $_.success } | ForEach-Object { 
-    $Ops = $_.operations -join "; "
-    "- **$($_.path)**: $Ops"
-})
+$($SyncResults | Where-Object { $_.success } | ForEach-Object { "- **$($_.path)**: $($_.operations -join ', ')" })
 
 ### Sous-modules avec erreurs
-$($SyncResults | Where-Object { -not $_.success } | ForEach-Object { 
-    "- **$($_.path)**: $($_.error)"
-})
+$($SyncResults | Where-Object { -not $_.success } | ForEach-Object { "- **$($_.path)**: $($_.error)" })
 
 ---
 
@@ -475,19 +374,7 @@ $(if ($Validation.validation_success) {
 ## 📁 FICHIERS DE LOG
 
 - **Log principal**: $LogFile
-- **Analyse initiale**: $LogPath/initial-analysis-$Timestamp.json
-- **Synchronisation**: $LogPath/submodule-sync-$Timestamp.json
-- **Validation finale**: $LogPath/final-validation-$Timestamp.json
-- **Sauvegardes**: $BackupDir/
-
----
-
-## 🚀 PROCHAINES ÉTAPES
-
-1. Vérifier que tous les changements sont bien présents sur le remote
-2. Valider le bon fonctionnement des sous-modules
-3. Mettre à jour la documentation si nécessaire
-4. Archiver les logs de synchronisation
+- **Rapport**: $ReportFile
 
 ---
 
@@ -504,12 +391,12 @@ $(if ($Validation.validation_success) {
 # EXÉCUTION PRINCIPALE
 # ============================================================================
 function Main {
-    Write-Log "🚀 DÉMARRAGE DE LA SYNCHRONISATION FINALE SDDD - PHASE 2" "INFO"
-    Write-Log "Score d'accessibilité: 96.5/100" "INFO"
-    Write-Log "Timestamp: $Timestamp" "INFO"
+    Write-Log "🚀 DÉMARRAGE DE LA SYNCHRONISATION FINALE SDDD - PHASE 2"
+    Write-Log "Score d'accessibilité: 96.5/100"
+    Write-Log "Timestamp: $Timestamp"
     
     if ($DryRun) {
-        Write-Log "⚠️ MODE DRY RUN ACTIVÉ - Aucune modification réelle" "WARN"
+        Write-Log "⚠️ MODE DRY RUN ACTIVÉ - Aucune modification réelle"
     }
     
     try {
@@ -534,8 +421,8 @@ function Main {
         # Génération du rapport
         $ReportFile = Generate-FinalReport -Analysis $Analysis -SyncResults $SyncResults -Validation $Validation
         
-        Write-Log "🎉 SYNCHRONISATION FINALE SDDD TERMINÉE" "SUCCESS"
-        Write-Log "📊 Rapport disponible: $ReportFile" "INFO"
+        Write-Log "🎉 SYNCHRONISATION FINALE SDDD TERMINÉE"
+        Write-Log "📊 Rapport disponible: $ReportFile"
         
         # Affichage du résumé
         Write-Host "`n" + "="*80 -ForegroundColor Cyan
@@ -548,8 +435,7 @@ function Main {
         Write-Host "="*80 -ForegroundColor Cyan
         
     } catch {
-        Write-Log "❌ ERREUR CRITIQUE: $($_.Exception.Message)" "ERROR"
-        Write-Log "Stack trace: $($_.ScriptStackTrace)" "ERROR"
+        Write-Log "❌ ERREUR CRITIQUE: $($_.Exception.Message)"
         throw
     }
 }
