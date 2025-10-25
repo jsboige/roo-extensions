@@ -28,5 +28,14 @@
       ]
     }
   ],
-  "targets": []
+  "targets": [],
+  "machines": [
+    {
+      "id": "local_machine",
+      "name": "Local Machine",
+      "hostname": "myia-po",
+      "os": "windows",
+      "lastSeen": "2025-10-23T12:25:00.000Z"
+    }
+  ]
 }
