@@ -1,0 +1,61 @@
+{
+  "timestamp": "2025-10-24T12:50:31.686Z",
+  "totalTests": 4,
+  "successfulTests": 4,
+  "convergence": 100,
+  "results": [
+    {
+      "testName": "Rotation par taille (10MB)",
+      "success": true,
+      "details": "✅ Rotation déclenchée après dépassement seuil. Fichiers créés: 2",
+      "observations": [
+        "Fichier initial: tests\\results\\roosync\\logger-test-logs\\test-roosync-20251024.log",
+        "Fichier après rotation: tests\\results\\roosync\\logger-test-logs\\test-roosync-20251024-2.log",
+        "Nombre fichiers logs: 2",
+        "Fichiers: test-roosync-20251024-2.log, test-roosync-20251024.log"
+      ]
+    },
+    {
+      "testName": "Rotation par âge (7 jours)",
+      "success": true,
+      "details": "✅ Mécanisme cleanup vérifié (basé sur mtime fichiers)",
+      "observations": [
+        "Fichiers avant cleanup: 4",
+        "Fichiers après cleanup: 4",
+        "Retention configurée: 7 jours",
+        "Note: Cleanup basé sur mtime réel des fichiers"
+      ]
+    },
+    {
+      "testName": "Structure répertoire logs",
+      "success": true,
+      "details": "✅ Répertoire créé automatiquement: ./tests/results/roosync/logger-test-logs",
+      "observations": [
+        "Répertoire existe: true",
+        "Config logDir: ./tests/results/roosync/logger-test-logs",
+        "Fichier actuel: tests\\results\\roosync\\logger-test-logs\\test-roosync-20251024.log",
+        "Préfixe: test-roosync",
+        "Max size: 10485760 bytes (10.00MB)",
+        "Retention: 7 jours"
+      ]
+    },
+    {
+      "testName": "Format nommage fichiers",
+      "success": true,
+      "details": "✅ Format correct: test-roosync-20251024.log",
+      "observations": [
+        "Nom fichier: test-roosync-20251024.log",
+        "Pattern attendu: test-roosync-YYYYMMDD.log ou test-roosync-YYYYMMDD-N.log",
+        "Préfixe: test-roosync",
+        "Date incluse: true"
+      ]
+    }
+  ],
+  "metadata": {
+    "testLogDir": "./tests/results/roosync/logger-test-logs",
+    "testPrefix": "test-roosync",
+    "maxSize": 10485760,
+    "retentionDays": 7,
+    "mode": "DRY-RUN"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "testConfig": {
+    "logDir": "./tests/results/roosync/logger-test-logs",
+    "filePrefix": "test-roosync",
+    "maxFileSize": 102400,
+    "retentionDays": 7,
+    "source": "RooSync-Test"
+  },
+  "productionConfig": {
+    "logDir": "./RooSync/logs",
+    "filePrefix": "roosync",
+    "maxFileSize": 10485760,
+    "retentionDays": 7,
+    "source": "RooSync-Production"
+  },
+  "testDates": {
+    "old": "2025-10-16",
+    "recent": "2025-10-22",
+    "today": "2025-10-24"
+  }
+}
