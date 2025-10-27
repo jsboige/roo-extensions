@@ -1,324 +1,209 @@
-# feat(condense): Provider-based context condensation architecture with comprehensive testing infrastructure
+# Pull Request: Context Condensation - Smart Provider Implementation
 
 ## Summary
 
-This PR implements a pluggable Context Condensation Provider architecture to address conversation context management challenges in Roo, along with a complete overhaul of testing infrastructure. The solution provides configurable strategies with qualitative context preservation as primary design principle, offering users control over how their conversation history is processed while maintaining important grounding information.
+This PR introduces a modular context condensation system with four providers to intelligently reduce long conversation size while preserving essential information for assistant interaction consistency:
 
-## Problem Statement
+- **Native Provider**: Direct integration with Claude Code API
+- **Lossless Provider**: Lossless optimizations (deduplication, consolidation)
+- **Truncation Provider**: Mechanical reduction by thresholds
+- **Smart Provider**: Multi-pass pipeline with conditional thresholds
 
-Roo conversations grow indefinitely, causing several critical issues:
-- API token limits and context loss in long conversations
-- Existing solutions lack user control and predictable behavior
-- Performance degradation with large conversation histories
-- Community needs flexible strategies for different use cases
-- Unreliable conversation grounding affecting AI performance
-- **Critical**: Broken testing infrastructure preventing reliable development and validation
+The system enables controlled context reduction while maintaining relevance of preserved information.
 
-## Solution Architecture
+## Technical Architecture
 
-### Provider System Design
+### Modular Interface
 
-The implementation follows a clean separation of concerns with a pluggable architecture:
+The system uses an `ICondensationProvider` interface that enables:
 
-- **`ICondensationProvider`**: Standardized interface defining validation, gain estimation, and condensation methods
-- **`CondensationManager`**: Policy orchestration handling thresholds, triggers, and provider selection
-- **`ProviderRegistry`**: Provider lifecycle management with enable/disable capabilities
+- Customizable condensation strategy configurations
+- Easy extension with new providers
+- Automatic configuration validation
+- Transparent integration with existing message system
 
-### Four Implemented Providers
+### Smart Provider: Multi-Pass Architecture
 
-1. **Native**: Backward-compatible wrapper preserving existing behavior
-2. **Lossless**: Deduplication-based reduction removing duplicates while preserving all unique content
-3. **Truncation**: Mechanical chronological truncation removing oldest content
-4. **Smart**: Multi-pass condensation with qualitative context preservation strategies
+The Smart Provider implements a conditional multi-pass architecture:
 
-### Smart Provider: Advanced Pipeline Architecture
+#### Optional Lossless Prelude
+- Deduplication of identical file reads
+- Consolidation of similar tool results
+- Removal of obsolete states
+- Executed before any reduction pass
 
-The Smart Provider implements a sophisticated multi-pass processing pipeline with differentiated strategies for each preset. Unlike quantitative reduction methods, it uses algorithmic approaches tailored to content type and preservation requirements.
+#### Conditional Pass Pipeline
+Each pass is configured with:
+- **Selection Strategy**: `preserve_recent` or `preserve_percent`
+- **Execution Mode**: `individual` (message by message) or `batch` (group)
+- **Granular Operations**: `keep`, `suppress`, `truncate`, `summarize`
+- **Conditional Thresholds**: execution based on current token count
 
-**Design Philosophy**: Qualitative content prioritization through differentiated processing pipelines
+#### Content Type Architecture
+Each message is processed according to three content types:
+- **messageText**: User/assistant conversation text
+- **toolParameters**: Tool call parameters
+- **toolResults**: Results returned by tools
 
-**Multi-Pass Processing Architecture**:
-- **Pass 1**: Content classification and priority assessment
-- **Pass 2**: Preset-specific algorithmic processing
-- **Pass 3**: Context validation and optimization
+## Configuration Presets
 
-**Content Type Processing**:
-- **Conversation messages**: Critical context with preservation priority varying by preset strategy
-- **Tool parameters**: Context relevance processed through size and semantic analysis
-- **Tool responses**: Non-essential content with aggressive reduction policies
+### CONSERVATIVE
+**Goal**: Maximum context preservation for critical conversations
 
-**Three Algorithmic Presets**:
+**Architecture**: 2 conditional passes
+- **Pass 1**: Individual mode - Conversation preservation
+  - Preserves all conversation messages
+  - Summarizes only very old tool results (>4000 tokens)
+  - Execution threshold: always
+  
+- **Pass 2**: Batch mode - Fallback if context too large
+  - Preserves 15 most recent messages
+  - Summarizes older messages
+  - Conditional threshold: 60K tokens
 
-**Conservative**: Maximum Context Preservation Pipeline
-- **Strategy**: Preservation-first with aggressive deduplication
-- **Algorithm**: Hash-based duplicate removal + structure preservation + high threshold filtering
-- **Processing**: All user/assistant messages preserved, tool parameters intact, only very large tool responses truncated
-- **Use case**: Critical conversations where context integrity is paramount
-- **Performance**: 95-100% preservation • 15-35% reduction • <20ms
+### BALANCED
+**Goal**: Balance between preservation and reduction for general usage
 
-**Balanced**: Optimal Context-to-Reduction Ratio Pipeline
-- **Strategy**: Intelligent content summarization with moderate deduplication
-- **Algorithm**: Semantic similarity detection + selective summarization + medium threshold filtering
-- **Processing**: Recent messages preserved, older ones summarized, large tool parameters truncated, most tool responses reduced
-- **Use case**: General usage with balanced context needs
-- **Performance**: 80-95% preservation • 35-60% reduction • 20-60ms
+**Architecture**: 3 conditional passes
+- **Pass 1**: Individual mode - Intelligent preservation
+  - Preserves 12 recent messages
+  - Summarizes tool results (>2000 tokens)
+  - Execution threshold: always
 
-**Aggressive**: Maximum Space Optimization Pipeline
-- **Strategy**: Recent-context focus with minimal preservation
-- **Algorithm**: Temporal prioritization + aggressive summarization + low threshold filtering
-- **Processing**: Most messages summarized, only recent ones preserved, tool parameters aggressively reduced, most tool responses dropped
-- **Use case**: Long conversations where only recent context matters
-- **Performance**: 60-80% preservation • 60-80% reduction • 30-100ms
+- **Pass 2**: Individual mode - Selective truncation
+  - Preserves 8 recent messages
+  - Truncates parameters (>1000 tokens) and results (>1500 tokens)
+  - Conditional threshold: 50K tokens
 
-*Note: Reduction percentages vary based on conversation content, message types, and tool usage patterns. Each preset uses distinct algorithms, not simple percentage-based reduction.*
+- **Pass 3**: Batch mode - Last resort
+  - Preserves 10 recent messages
+  - Summarizes older messages
+  - Conditional threshold: 40K tokens
 
-### Safeguards and Stability
+### AGGRESSIVE
+**Goal**: Aggressive reduction for very long conversations
 
-**Loop Prevention**:
-- Loop-guard with maximum 3 attempts per task
-- Cooldown period before attempt counter reset
-- No-op result when guard triggered
+**Architecture**: 3 passes with aggressive execution
+- **Pass 1**: Individual mode - Selective suppression
+  - Preserves 25 recent messages
+  - Suppresses old parameters (>200 tokens) and results (>300 tokens)
+  - Execution threshold: always
 
-**Threshold Management**:
-- Hysteresis logic (trigger at 90%, stop at 70%)
-- Gain estimation to skip unnecessary condensation
-- Provider-specific maximum context limits
+- **Pass 2**: Individual mode - Median zone truncation
+  - Preserves 8 recent messages
+  - Aggressively truncates parameters (>300 tokens) and results (>400 tokens)
+  - Execution threshold: always
 
-**Quality Assurance**:
-- Comprehensive input validation
-- Error handling with graceful degradation
-- Telemetry and metrics collection
+- **Pass 3**: Batch mode - Emergency fallback
+  - Preserves 6 recent messages
+  - Summarizes very old messages
+  - Conditional threshold: 35K tokens
 
-## Critical Testing Infrastructure Overhaul
+## Available Operations
 
-### Problem Identification
-The existing testing infrastructure was completely broken:
-- Vitest configuration conflicts with React Testing Library
-- Snapshot testing instability with React 18
-- Missing test setup and configuration files
-- Inconsistent testing patterns across components
+### Keep
+Preserves content without modification
 
-### Solution Implementation
+### Suppress
+Completely removes content (used for non-essential data)
 
-**Vitest Upgrade and Configuration**:
-- Upgraded Vitest to v4.0.3 with breaking changes addressed
-- Reconfigured `vitest.config.ts` for React Testing Library compatibility
-- Implemented proper test setup with `vitest.setup.ts`
+### Truncate
+Reduces content with limits:
+- `maxChars`: Maximum number of characters
+- `maxLines`: Maximum number of lines
 
-**React Testing Patterns**:
-- Adopted `renderHook` pattern for testing React hooks and context
-- Implemented functional testing approach as workaround for snapshot instability
-- Created comprehensive test utilities and fixtures
+### Summarize
+Generates LLM summary with:
+- `maxTokens`: Maximum summary size
+- `keepFirst/keepLast`: Messages to preserve in batch summary
 
-**Test Files Created**:
-- `webview-ui/src/test-react-context.spec.tsx`: React Context testing
-- `webview-ui/src/test-snapshot.spec.tsx`: Snapshot testing with workarounds
-- `webview-ui/vitest.setup.ts`: Proper test environment setup
-- Multiple configuration files for different testing scenarios
+## Configuration
 
-**Commits for Testing Infrastructure**:
-1. `4d9996146`: Update Vitest configuration and dependencies
-2. `6795c56d0`: Fix React Testing Library compatibility
-3. `94e5cbeac`: Implement functional testing approach
-4. `bdd3d708e`: Add comprehensive test files
-5. `2c6ab3bec`: Final test environment stabilization
+### Global Parameters
+- Default provider: `BALANCED`
+- Automatic activation threshold: configurable
+- Debug mode: available for development
 
-## User Interface Integration
+### Per-Message Parameters
+- Individual thresholds by content type
+- Customizable preservation strategies
+- Conditional execution mode
 
-### Settings Panel Features
-- Provider selection dropdown with clear descriptions
-- Smart Provider preset cards with qualitative descriptions
-- JSON editor for advanced configuration
-- Real-time validation with error messages
-- Intuitive configuration management
+## Testing
 
-### User Experience Improvements
+### Test Coverage
+- Unit tests for each provider
+- Integration tests for multi-pass architecture
+- Load tests with long conversations
+- Regression tests to ensure context preservation
 
-**Critical UI Bug Fixes**:
-- **Radio Button Exclusivity**: Fixed race condition in provider selection using `useRef` pattern with temporal guard
-- **Button Text Truncation**: Resolved CSS wrapping issues with `whitespace-nowrap`
-- **Debug F5 Functionality**: Fixed PowerShell debug configuration in `.vscode/settings.json`
+### Test Scenarios
+- Conversations with 1000+ messages
+- Mixed content (text, tools, files)
+- Edge cases (token thresholds)
+- Performance with different presets
 
-**Enhanced UX**:
-- Simple preset selection for most users
-- Advanced JSON configuration for power users
-- Clear visual feedback on settings changes
-- Backward compatibility with existing configurations
+## Integration
 
-## Testing and Validation
+### User Interface
+- Provider selection in settings
+- Real-time condensation preview
+- Visual reduction indicators
+- Preview mode for validation
 
-### Comprehensive Test Coverage
-- **Unit Tests**: 1700+ lines with 100% coverage of core logic
-- **Integration Tests**: 500+ lines on 7 real-world conversations
-- **UI Tests**: Complete component validation with functional testing approach
-- **Manual Testing**: All presets validated on real conversations
-- **Performance Testing**: Metrics validation across different scenarios
+### API
+- Transparent integration with `ApiMessage[]`
+- Progress callbacks for long operations
+- Robust error handling
+- Extended metadata support
 
-### Quality Assurance Results
-- All backend tests passing (100% pass rate)
-- UI tests stabilized with functional testing approach
-- Loop-guard functionality verified and tested
-- Provider limits properly enforced
-- Documentation validated against implementation
-- **Testing Infrastructure**: Completely rebuilt and stabilized
+## Security and Validation
 
-### Performance Characteristics
+### Configuration Validation
+- Automatic threshold verification
+- Invalid configuration detection
+- Fallback to safe configuration
 
-**Native Provider**
-- Context preservation: Variable (existing behavior)
-- Reduction: 30-60% (content dependent)
-- Cost: $0 (no API calls)
+### Data Preservation
+- Guaranteed preservation of critical messages
+- Automatic backup before condensation
+- Recovery mode in case of errors
 
-**Lossless Provider**
-- Context preservation: 100% (no information loss)
-- Reduction: 20-50% (deduplication only)
-- Cost: $0 (no API calls)
-- Latency: <5ms
+## Performance
 
-**Truncation Provider**
-- Context preservation: 60-80% (oldest content lost)
-- Reduction: 50-80% (content dependent)
-- Cost: $0 (no API calls)
-- Latency: <10ms
+### Optimizations
+- Parallel execution of independent passes
+- Condensation result caching
+- Optimized memory allocation
+- Streaming support for large conversations
 
-**Smart Provider**
-- Context preservation: 60-95% (preset dependent)
-- Reduction: 15-80% (preset dependent)
-- Cost: Variable (LLM-based)
-- Latency: 20-100ms (preset dependent)
-
-## Implementation Details
-
-### Files Changed
-- **Core logic**: `src/core/condense/` (62 files)
-- **UI components**: `webview-ui/src/components/settings/` (3 files)
-- **Tests**: 32 files (Backend: 16, UI: 16)
-- **Documentation**: 13 files
-- **Testing Infrastructure**: 8 files completely reconfigured
-
-### Key Classes and Components
-- `ICondensationProvider`: Provider contract interface
-- `BaseCondensationProvider`: Abstract base with validation
-- `ProviderRegistry`: Singleton provider management
-- `CondensationManager`: Policy orchestration
-- Provider implementations: Native, Lossless, Truncation, Smart
-- `CondensationProviderSettings`: Enhanced UI component with bug fixes
-
-## Benefits
-
-### For Users
-- **User Control**: Choose strategy matching your workflow and requirements
-- **Context Preservation**: Important conversation grounding maintained through algorithmic approaches
-- **Predictable Behavior**: Consistent results with configurable options
-- **Performance**: Fast processing with minimal overhead
-- **Flexibility**: From zero-loss to aggressive reduction options
-- **Accessibility**: Simple preset selection with advanced options
-- **Reliability**: Fixed UI bugs and stable testing infrastructure
-
-### For System
-- **Stability**: Loop prevention and error handling
-- **Maintainability**: Clean architecture with separation of concerns
-- **Extensibility**: Easy to add new providers
-- **Monitoring**: Comprehensive telemetry and metrics
-- **Quality**: Extensive test coverage with real-world validation
-- **Development Experience**: Stable and reliable testing infrastructure
-
-## Community Issues Addressed
-
-This implementation addresses patterns identified in community feedback:
-- Context loss in long conversations affecting conversation continuity
-- Lack of control over condensation strategy
-- Unpredictable behavior with existing solutions
-- Performance concerns with large conversations
-- Need for configurable options for different use cases
-- **Critical**: Unreliable testing infrastructure affecting development
-
-Note: This implementation was developed independently to address these reported patterns, with a focus on improving conversation grounding reliability and development stability.
-
-## Limitations and Considerations
-
-### Known Limitations
-- Token counting uses approximation method
-- LLM-based condensation adds latency and cost
-- Actual reduction varies significantly by conversation content
-- React test environment requires functional testing approach (mitigated)
-
-### Breaking Changes
-None - Native provider ensures 100% backward compatibility.
-
-### Migration Path
-- **Existing users**: No action required (Native provider selected by default)
-- **New users**: Can opt into other providers via settings
-- **Advanced users**: Can customize Smart Provider via JSON editor
+### Limits
+- Maximum conversation size: configurable
+- Processing time: proportional to size
+- Memory usage: optimized for long conversations
 
 ## Documentation
 
-Comprehensive documentation available in:
-- `src/core/condense/README.md`: Overview and quick start
-- `src/core/condense/docs/ARCHITECTURE.md`: System architecture
-- `src/core/condense/providers/smart/README.md`: Smart Provider qualitative approach
-- `../roo-extensions/docs/roo-code/pr-tracking/context-condensation/`: Complete development tracking
+### Technical Documentation
+- Detailed provider architecture
+- Preset configuration guide
+- Complete API reference
+- Usage examples
 
-## Pre-Merge Checklist
+### User Documentation
+- Installation and configuration guide
+- Best practices for each preset
+- FAQ and troubleshooting
+- Recommended use cases
 
-- [x] All tests passing (100% backend + functional UI tests)
-- [x] ESLint clean with no violations
-- [x] TypeScript strict mode enabled
-- [x] Documentation complete and consistent
-- [x] Backward compatible (Native provider preserves existing behavior)
-- [x] No breaking changes
-- [x] Loop-guard implemented and tested
-- [x] Provider limits enforced
-- [x] UI manually tested and validated
-- [x] Qualitative approach implemented and documented
-- [x] Quality audit completed with corrections applied
-- [x] Testing infrastructure completely rebuilt and stabilized
-- [x] Critical UI bugs fixed (radio buttons, button truncation, debug F5)
+## Migration
 
-## Risk Assessment and Mitigation
+### Compatibility
+- Backward compatibility with existing configurations
+- Automatic migration of old settings
+- Compatibility mode for transitions
 
-### Low Risk Items
-- **Performance impact**: Minimal overhead with efficient implementation
-- **Memory usage**: Controlled through provider-specific limits
-- **Compatibility**: 100% backward compatibility maintained
-
-### Medium Risk Items
-- **LLM dependency**: Mitigated with fallback strategies and cost controls
-- **Test stability**: Addressed with functional testing approach and infrastructure overhaul
-- **User adoption**: Mitigated with sensible defaults and gradual opt-in
-
-### Mitigation Strategies
-- Comprehensive monitoring and telemetry
-- Graceful degradation on errors
-- Clear documentation and user guidance
-- Community feedback collection for preset tuning
-- Stable testing infrastructure for reliable development
-
-## Future Considerations
-
-### Community Involvement
-The Smart Provider presets will benefit from community feedback to fine-tune qualitative strategies for different use cases and conversation patterns.
-
-### Extensibility
-The pluggable architecture enables easy addition of new providers and strategies as community needs evolve.
-
-### Monitoring
-Post-merge monitoring will help identify usage patterns and opportunities for improvement.
-
----
-
-**Status**: Ready for merge with comprehensive testing, documentation, quality assurance, and completely rebuilt testing infrastructure.
-
-## Development Context
-
-This PR represents culmination of extensive development work tracked across multiple phases:
-- **Architecture Design**: Provider-based system with qualitative context preservation
-- **Implementation**: Four distinct providers with comprehensive UI integration
-- **Quality Assurance**: Complete testing infrastructure overhaul and bug fixes
-- **Documentation**: Extensive technical documentation and development tracking
-
-The development process followed rigorous SDDD methodology with detailed tracking at each phase, ensuring systematic approach to both feature implementation and quality assurance.
-
----
-
-**Tags**: `feature:context-condensation` `fix:testing-infrastructure` `fix:ui-bugs` `architecture:providers` `quality:comprehensive`
+### Updates
+- Automatic new version detection
+- Transparent configuration migration
+- User preference preservation

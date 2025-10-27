@@ -25,55 +25,52 @@ The implementation follows a clean separation of concerns with a pluggable archi
 
 ### Four Implemented Providers
 
-1. **Native**: Backward-compatible wrapper preserving existing behavior
-2. **Lossless**: Deduplication-based reduction removing duplicates while preserving all unique content
-3. **Truncation**: Mechanical chronological truncation removing oldest content
-4. **Smart**: Multi-pass condensation with qualitative context preservation strategies
+1. **Native**: LLM-based condensation using injected apiHandler for conversation summarization
+2. **Lossless**: Content deduplication removing duplicate files and consolidating structured data
+3. **Truncation**: Priority-based content removal with configurable truncation order
+4. **Smart**: Meta-provider that delegates to other providers based on configuration
 
-### Smart Provider: Qualitative Context Preservation
+### Smart Provider: Meta-Provider Architecture
 
-The Smart Provider uses a fundamentally different approach from quantitative reduction methods. Instead of targeting specific percentages, it prioritizes conversation grounding through differentiated content processing.
+The Smart Provider functions as a meta-provider that delegates condensation tasks to other providers based on configuration. It does not implement its own condensation logic but orchestrates other providers through a delegation pattern.
 
-**Design Philosophy**: Focus on WHAT to preserve rather than HOW MUCH to reduce
+**Design Philosophy**: Provider delegation and configuration-based selection
 
-**Content Type Processing**:
-- **Conversation messages**: Treated as critical context with preservation priority varying by preset
-- **Tool parameters**: Important for understanding context, processed based on size and relevance
-- **Tool responses**: Typically non-essential, aggressively reduced unless containing errors
+**Delegation Pattern**:
+- **Provider Selection**: Chooses target provider based on configuration
+- **Task Delegation**: Uses `delegateToProvider()` method to forward requests
+- **Result Handling**: Returns results from delegated provider without modification
 
-**Three Qualitative Presets**:
+**Configuration-Based Behavior**:
+- Provider selection through configuration object
+- Three built-in presets: conservative, balanced, aggressive
+- Presets provide qualitative strategies for different conversation patterns
+- Custom configuration available for advanced users via JSON editor
 
-**Conservative**: Maximum context preservation
-- Preserves all user/assistant messages
-- Keeps all tool parameters intact
-- Only truncates very large tool responses
-- Use case: Critical conversations where context loss is unacceptable
-- Performance: 95-100% preservation • 20-50% reduction • <20ms
+**Built-in Presets**:
 
-**Balanced**: Context preservation with selective reduction
-- Preserves recent messages, summarizes older ones
-- Truncates large tool parameters
-- Truncates most tool responses
-- Use case: General use with moderate context needs
-- Performance: 80-95% preservation • 40-70% reduction • 20-60ms
+**Conservative Preset** - Maximum Context Preservation:
+- Strategy: Preserve maximum conversation context and grounding
+- Lossless prelude with all optimizations enabled
+- Pass 1: Individual mode preserving all conversation messages, gently summarizing very old tool results only
+- Pass 2: Context-aware fallback maintaining conversation flow
+- Use case: Critical conversations requiring maximum context retention
 
-**Aggressive**: Focus on recent context
-- Summarizes most messages, keeps only recent ones
-- Aggressively reduces tool parameters
-- Drops most tool responses
-- Use case: Long conversations where only recent context matters
-- Performance: 60-80% preservation • 60-85% reduction • 30-100ms
+**Balanced Preset** - Recommended for General Use:
+- Strategy: Balance between preservation and reduction of non-essential content
+- Lossless prelude with smart optimizations
+- Pass 1: Preserve conversation, intelligently summarize old tool results
+- Pass 2: Truncate large tool outputs if still needed
+- Pass 3: Last resort batch summarization of very old messages
+- Use case: General use with optimal balance of context vs reduction
 
-*Note: Actual reduction percentages vary significantly based on conversation content, message types, and tool usage patterns.*
-
-### Multi-Pass Processing Architecture
-
-The Smart Provider uses a configurable multi-pass pipeline:
-- **Pass 1**: Quality-first processing of critical content
-- **Pass 2**: Fallback strategies for remaining content
-- **Pass 3**: Final cleanup and optimization
-
-Each preset defines its own sequence of operations for different content types, ensuring that conversation grounding is maintained according to the selected strategy.
+**Aggressive Preset** - Maximum Reduction:
+- Strategy: Aggressive reduction while preserving essential conversation context
+- Lossless prelude with aggressive optimizations
+- Pass 1: Suppress non-essential tool content from old messages
+- Pass 2: Aggressive truncation of middle zone tool outputs
+- Pass 3: Emergency batch summarization as last resort
+- Use case: Long conversations where maximum reduction is required
 
 ### Safeguards and Stability
 
@@ -96,13 +93,13 @@ Each preset defines its own sequence of operations for different content types, 
 
 ### Settings Panel Features
 - Provider selection dropdown with clear descriptions
-- Smart Provider preset cards with qualitative descriptions
+- Smart Provider configuration with delegation options
 - JSON editor for advanced configuration
 - Real-time validation with error messages
 - Intuitive configuration management
 
 ### User Experience
-- Simple preset selection for most users
+- Simple provider selection for most users
 - Advanced JSON configuration for power users
 - Clear visual feedback on settings changes
 - Backward compatibility with existing configurations
@@ -113,7 +110,7 @@ Each preset defines its own sequence of operations for different content types, 
 - **Unit Tests**: 1700+ lines with 100% coverage of core logic
 - **Integration Tests**: 500+ lines on 7 real-world conversations
 - **UI Tests**: Complete component validation with functional testing approach
-- **Manual Testing**: All presets validated on real conversations
+- **Manual Testing**: All providers validated on real conversations
 - **Performance Testing**: Metrics validation across different scenarios
 
 ### Quality Assurance Results
@@ -123,24 +120,31 @@ Each preset defines its own sequence of operations for different content types, 
 - Provider limits properly enforced
 - Documentation validated against implementation
 
-### Performance Characteristics
+### Provider Implementation Characteristics
 
 **Native Provider**
-- Context preservation: Variable (existing behavior)
-- Reduction: 30-60% (content dependent)
-- Cost: $0 (no API calls)
+- Implementation: LLM-based condensation using injected apiHandler
+- API Usage: Makes API calls through apiHandler.createMessage()
+- Cost: Incurs API costs based on LLM usage
+- Context Strategy: Conversation summarization via LLM
 
 **Lossless Provider**
-- Context preservation: 100% (no information loss)
-- Reduction: 20-50% (deduplication only)
+- Implementation: Content deduplication and structured data consolidation
+- API Usage: No API calls (local processing)
 - Cost: $0 (no API calls)
-- Latency: <5ms
+- Context Strategy: Removes duplicate files, consolidates tool calls and file reads
 
 **Truncation Provider**
-- Context preservation: 60-80% (oldest content lost)
-- Reduction: 50-80% (content dependent)
+- Implementation: Priority-based content removal with configurable order
+- API Usage: No API calls (local processing)
 - Cost: $0 (no API calls)
-- Latency: <10ms
+- Context Strategy: Removes content based on priority (images first, then tool responses, etc.)
+
+**Smart Provider**
+- Implementation: Meta-provider with delegation pattern
+- API Usage: Depends on delegated provider
+- Cost: Depends on delegated provider
+- Context Strategy: Delegates to configured provider
 
 ## Implementation Details
 
@@ -164,8 +168,8 @@ Each preset defines its own sequence of operations for different content types, 
 - **Context Preservation**: Important conversation grounding maintained
 - **Predictable Behavior**: Consistent results with configurable options
 - **Performance**: Fast processing with minimal overhead
-- **Flexibility**: From zero-loss to aggressive reduction options
-- **Accessibility**: Simple preset selection with advanced options
+- **Flexibility**: From zero-loss to configurable reduction options
+- **Accessibility**: Simple provider selection with advanced options
 
 ### For the System
 - **Stability**: Loop prevention and error handling
@@ -206,7 +210,7 @@ None - Native provider ensures 100% backward compatibility.
 Comprehensive documentation available in:
 - `src/core/condense/README.md`: Overview and quick start
 - `src/core/condense/docs/ARCHITECTURE.md`: System architecture
-- `src/core/condense/providers/smart/README.md`: Smart Provider qualitative approach
+- `src/core/condense/providers/smart/README.md`: Smart Provider delegation approach
 
 ## Pre-Merge Checklist
 
@@ -238,7 +242,7 @@ Comprehensive documentation available in:
 - Comprehensive monitoring and telemetry
 - Graceful degradation on errors
 - Clear documentation and user guidance
-- Community feedback collection for preset tuning
+- Community feedback collection for provider configuration tuning
 
 ## Future Considerations
 
