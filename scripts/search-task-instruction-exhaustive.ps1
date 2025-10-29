@@ -129,10 +129,10 @@ $reportContent = @"
 
 ## Paramètres de Recherche
 
-- **Répertoire**: ``$TasksDirectory``
-- **Pattern**: ```
+- **Répertoire**: \`$TasksDirectory\`
+- **Pattern**: \`\`\`
 $SearchPattern
-```
+\`\`\`
 - **Extensions scannées**: $($fileExtensions -join ', ')
 
 ## Résultats
@@ -150,10 +150,10 @@ if ($matchedFiles.Count -gt 0) {
     foreach ($match in $matchedFiles) {
         $reportContent += @"
 
-### Tâche: ``$($match.TaskId)``
+### Tâche: \`$($match.TaskId)\`
 
-- **Fichier**: ``$($match.FileName)``
-- **Chemin relatif**: ``$($match.RelativePath)``
+- **Fichier**: \`$($match.FileName)\`
+- **Chemin relatif**: \`$($match.RelativePath)\`
 - **Taille**: $([math]::Round($match.FileSize / 1KB, 2)) KB
 
 "@
