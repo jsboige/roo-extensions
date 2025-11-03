@@ -14,7 +14,7 @@
     {
       "name": "searxng",
       "type": "stdio",
-      "command": "cmd /c node C:\\\\Users\\\\jsboi\\\\AppData\\\\Roaming\\\\npm\\\\node_modules\\\\mcp-searxng\\\\dist\\\\index.js",
+      "command": "npx -y @modelcontextprotocol/server-searxng",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour effectuer des recherches web via SearXNG"
@@ -46,7 +46,7 @@
     {
       "name": "jupyter-papermill",
       "type": "stdio",
-      "command": "cmd /c d:/roo-extensions/mcps/internal/servers/jupyter-papermill-mcp-server/start_jupyter_mcp_portable.bat",
+      "command": "node ./mcps/internal/servers/jupyter-papermill-mcp-server/start_jupyter_mcp_portable.bat",
       "enabled": true,
       "autoStart": false,
       "description": "Serveur MCP pour exécuter des notebooks Jupyter avec Papermill"
@@ -81,7 +81,7 @@
     {
       "name": "filesystem",
       "type": "stdio",
-      "command": "cmd /c npx -y @modelcontextprotocol/server-filesystem D:\\roo-extensions C: G:",
+      "command": "npx -y @modelcontextprotocol/server-filesystem",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour accéder au système de fichiers"
@@ -89,7 +89,7 @@
     {
       "name": "ftpglobal",
       "type": "stdio",
-      "command": "cmd /c node d:/roo-extensions/mcps/mcp-server-ftp/build/index.js",
+      "command": "node ./mcps/mcp-server-ftp/build/index.js",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour les opérations FTP",
@@ -104,7 +104,7 @@
     {
       "name": "markitdown",
       "type": "stdio",
-      "command": "cmd /c C:\\Users\\jsboi\\AppData\\Local\\Programs\\Python\\Python310\\python.exe -m markitdown_mcp",
+      "command": "python -m markitdown_mcp",
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour convertir une ressource en markdown"
