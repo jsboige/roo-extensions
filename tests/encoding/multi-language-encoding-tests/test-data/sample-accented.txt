@@ -1,0 +1,4 @@
+Test de caractères accentués français:
+é è à ù ç œ æ â ê î ô û
+É È À Ù Ç Œ Ê Î Ô Û
+caractères spéciaux: € « » — … ' " 

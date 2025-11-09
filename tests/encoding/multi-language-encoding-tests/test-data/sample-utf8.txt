@@ -1,0 +1,3 @@
+Ceci est un fichier de test UTF-8 standard.
+Il contient des caractères accentués: é à è ù ç œ æ
+Et des caractères spéciaux: € « » — …
