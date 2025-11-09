@@ -1,0 +1,68 @@
+﻿{
+    "recommendations":  [
+
+                        ],
+    "machineId":  "MYIA-WEB1",
+    "timestamp":  "2025-11-08T12:19:12.650Z",
+    "issues":  [
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_init",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_get_status",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_compare_config",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_list_diffs",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_approve_decision",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_reject_decision",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_apply_decision",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_rollback_decision",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "status":  "UNKNOWN",
+                       "message":  "Test MCP requis",
+                       "tool":  "roosync_get_decision_details",
+                       "type":  "MCP_TOOL_CHECK"
+                   },
+                   {
+                       "path":  "../../Drive/.shortcut-targets-by-id/1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB/.shared-state/sync-roadmap.md",
+                       "type":  "ROADMAP_NOT_FOUND",
+                       "severity":  "CRITICAL"
+                   }
+               ]
+}
