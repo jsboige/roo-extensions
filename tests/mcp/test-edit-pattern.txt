@@ -1,0 +1,9 @@
+function test() {
+    const pattern = "old_value";
+    return pattern;
+}
+
+function another() {
+    const pattern = "another_old";
+    return pattern;
+}
