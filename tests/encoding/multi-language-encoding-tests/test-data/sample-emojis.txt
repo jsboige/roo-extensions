@@ -1,0 +1,75 @@
+Test d'emojis simples et complexes:
+✅ Succès
+❌ Échec
+⚠️ Attention
+ℹ️ Information
+🚀 Fusée
+💻 Ordinateur
+⚙️ Paramètres
+🪲 Debug
+📁 Dossier
+📄 Fichier
+📦 Paquet
+🔍 Recherche
+📊 Statistiques
+📋 Rapport
+🔬 Analyse
+🎯 Cible
+📈 Croissance
+💡 Idée
+💾 Sauvegarde
+🔄 Rotation
+🏗️ Construction
+📝 Documentation
+🔧 Outils
+✨ Étincelles
+🎪 Masque
+🎭 Théâtre
+🎬 Cinéma
+🏆 Trophée
+🔑 Clé
+🚫 Interdit
+📡 Graphique
+🔗 Lien
+📌 Épingle
+📍 Position
+🎨 Design
+🧹 Nettoyage
+🗑️ Suppression
+📥 Boîte
+📤 Entrée
+📦 Colis
+📬 Sortie
+🔐 Sécurité
+🔓 Alarme
+🔔 Silencieux
+🔕 Sonnerie
+📢 Haut-parleur
+🌈 Arc-en-ciel
+🌟 Étoile
+⭐ Étoile 2
+💯 Cent pour cent
+🎉 Célébration
+🎊 Fête
+🌈 Arc-en-ciel 2
+🌈 Nuages
+🌙 Lune
+🌚 Lune croissante
+🌛 Lune pleine
+🌜 Lune décroissante
+🌝 Nouvelle lune
+🌠 Comète
+🪐 Boomerang
+💥 Collision
+💢 Cassé
+💫 Cercle noir
+⚪ Cercle blanc
+⚫ Cercle noir 2
+🔴 Cercle rouge
+🔵 Cercle bleu
+🟢 Cercle vert
+🟡 Cercle jaune
+🟠 Cercle orange
+🟦 Cercle gris
+⬛ Carré noir
+⬜ Carré blanc

@@ -1,0 +1,2 @@
+const regex = /test.*pattern/;
+const value = "test-pattern";
