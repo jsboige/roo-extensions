@@ -59,7 +59,9 @@ function Compare-Config {
     $diffObject = Get-Content $localConfigPath | ConvertFrom-Json
 
     # Résoudre les variables d'environnement avant la comparaison
-    $refObject.sharedStatePath = [System.Environment]::ExpandEnvironmentVariables($refObject.sharedStatePath)
+    # Corriger l'interprétation de la variable sharedStatePath depuis le fichier de référence
+    # Utiliser la même logique que pour la configuration locale (ligne 29 dans sync-manager.ps1)
+    $refObject.sharedStatePath = $refObject.sharedStatePath -replace '\$\{ROO_HOME\}', $env:ROO_HOME -replace '\$\{SHARED_STATE_PATH\}', $env:SHARED_STATE_PATH
     $diffObject.sharedStatePath = [System.Environment]::ExpandEnvironmentVariables($diffObject.sharedStatePath)
 
     $diff = Compare-Object -ReferenceObject ($refObject | ConvertTo-Json -Depth 100) -DifferenceObject ($diffObject | ConvertTo-Json -Depth 100)
