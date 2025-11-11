@@ -53,7 +53,7 @@ Write-Host ""
 
 # 7. Configuration MCP
 Write-Host "7. Configuration MCP:" -ForegroundColor Yellow
-$mcpSettings = "$HOME\.roo\mcp_settings.json"
+$mcpSettings = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
 if (Test-Path $mcpSettings) {
     Write-Host "   mcp_settings.json trouve" -ForegroundColor Green
     $mcpContent = Get-Content $mcpSettings -Raw | ConvertFrom-Json
