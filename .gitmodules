@@ -4,11 +4,11 @@
 [submodule "mcps/external/win-cli/server"]
 	path = mcps/external/win-cli/server
 	url = https://github.com/jsboige/win-cli-mcp-server.git
-	branch = local-integration-wincli
+	branch = main
 [submodule "mcps/internal"]
 	path = mcps/internal
 	url = https://github.com/jsboige/jsboige-mcp-servers.git
-	branch = local-integration-internal-mcps
+	branch = main
 [submodule "mcps/forked/modelcontextprotocol-servers"]
 	path = mcps/forked/modelcontextprotocol-servers
 	url = https://github.com/jsboige/modelcontextprotocol-servers
