@@ -1,4 +1,3 @@
 ﻿@echo off
 echo Démarrage du serveur MCP SearXNG...
-REM Remplacez <username> par votre nom d'utilisateur Windows
-node "C:\Users\MYIA\AppData\Roaming\npm\node_modules\mcp-searxng\dist\index.js"
+node "C:\Users\jsboi\AppData\Roaming\Roo-Code\MCP\searxng-server\dist\index.js"
