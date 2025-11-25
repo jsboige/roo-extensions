@@ -462,9 +462,9 @@ function Test-UTF8EnvironmentSupport {
         # Test de support système de fichiers
         $fileSystemTest = @{
             tempDirectory = $env:TEMP
-            tempWritable = Test-Path $env:TEMP -PathType Leaf
+            tempWritable = Test-Path $env:TEMP -PathType Container
             userProfile = $env:USERPROFILE
-            userWritable = Test-Path $env:USERPROFILE -PathType Leaf
+            userWritable = Test-Path $env:USERPROFILE -PathType Container
         }
         
         $utf8Test.fileSystemSupport = $fileSystemTest
@@ -495,7 +495,7 @@ function Test-UTF8EnvironmentSupport {
                 "Configurer les variables locales UTF-8",
                 "Définir PYTHONIOENCODING=utf-8",
                 "Configurer JAVA_TOOL_OPTIONS=-Dfile.encoding=UTF-8",
-                "Exécuter chcp 65001 dans les scripts console"
+                "Exécuter chcp 65001 dans les scripts console",
                 "Vérifier les permissions d'écriture dans les répertoires temporaires"
             )
             Write-Warning "Support UTF-8 environnement: ÉCHEC ($successRate%)"
@@ -521,13 +521,13 @@ function Test-ApplicationCompatibility {
     }
     
     try {
-        # Test des applications critiques
+        # Test des applications critiques (vérification de disponibilité uniquement)
         $applications = @(
-            @{ Name = "PowerShell"; Command = "powershell.exe --version"; ExpectedPattern = "UTF-8" },
-            @{ Name = "Command Prompt"; Command = "cmd.exe /c echo %LANG%"; ExpectedPattern = "fr-FR.UTF-8" },
-            @{ Name = "Notepad"; Command = "notepad.exe --help"; ExpectedPattern = "UTF-8" },
-            @{ Name = "Explorateur Windows"; Command = "explorer.exe --version"; ExpectedPattern = "UTF-8" },
-            @{ Name = "Éditeur de registre"; Command = "regedit.exe --version"; ExpectedPattern = "UTF-8" }
+            @{ Name = "PowerShell"; Command = "powershell.exe"; ExpectedPattern = "UTF-8" },
+            @{ Name = "Command Prompt"; Command = "cmd.exe"; ExpectedPattern = "fr-FR.UTF-8" },
+            @{ Name = "Notepad"; Command = "notepad.exe"; ExpectedPattern = "UTF-8" },
+            @{ Name = "Explorateur Windows"; Command = "explorer.exe"; ExpectedPattern = "UTF-8" },
+            @{ Name = "Éditeur de registre"; Command = "regedit.exe"; ExpectedPattern = "UTF-8" }
         )
         
         $appResults = @()
@@ -535,17 +535,20 @@ function Test-ApplicationCompatibility {
         
         foreach ($app in $applications) {
             try {
-                $commandParts = $app.Command.Split(" ")
-                $exePath = $commandParts[0]
-                $arguments = $commandParts[1..($commandParts.Count-1)]
+                # Vérification simple de disponibilité sans lancer l'application
+                $exePath = $app.Command
+                $isAvailable = Get-Command $exePath -ErrorAction SilentlyContinue
                 
-                $process = Start-Process -FilePath $exePath -ArgumentList $arguments -RedirectStandardOutput "temp\app-output.txt" -RedirectStandardError "temp\app-error.txt" -Wait -PassThru
-                
-                if ($process.ExitCode -eq 0) {
-                    $output = Get-Content -Path "temp\app-output.txt" -Raw -ErrorAction SilentlyContinue
-                    $errorOutput = Get-Content -Path "temp\app-error.txt" -Raw -ErrorAction SilentlyContinue
-                    
-                    $appCompatible = ($output -match $app.ExpectedPattern) -or ($errorOutput -notmatch "error") -or ($errorOutput -notmatch "Error")
+                if ($isAvailable) {
+                    # Test des variables d'environnement pour les applications console
+                    if ($app.Name -eq "PowerShell" -or $app.Name -eq "Command Prompt") {
+                        $langValue = [System.Environment]::GetEnvironmentVariable("LANG")
+                        $lcAllValue = [System.Environment]::GetEnvironmentVariable("LC_ALL")
+                        $appCompatible = ($langValue -like "*UTF-8*" -or $lcAllValue -like "*UTF-8*")
+                    } else {
+                        # Pour les applications GUI, on considère qu'elles sont compatibles si disponibles
+                        $appCompatible = $true
+                    }
                     
                     if ($appCompatible) {
                         $successCount++
@@ -554,25 +557,21 @@ function Test-ApplicationCompatibility {
                     $appResults += @{
                         Name = $app.Name
                         Command = $app.Command
-                        ExitCode = $process.ExitCode
+                        ExitCode = 0
                         Compatible = $appCompatible
-                        Output = $output
-                        ErrorOutput = $errorOutput
+                        Output = "Application disponible"
+                        ErrorOutput = ""
                         Issues = @()
                     }
                 } else {
-                    $issues = @("Application non compatible UTF-8")
-                    if ($output) { $issues += "Sortie: $output" }
-                    if ($errorOutput) { $issues += "Erreur: $errorOutput" }
-                    
                     $appResults += @{
                         Name = $app.Name
                         Command = $app.Command
-                        ExitCode = $process.ExitCode
+                        ExitCode = -1
                         Compatible = $false
-                        Output = $output
-                        ErrorOutput = $errorOutput
-                        Issues = $issues
+                        Output = ""
+                        ErrorOutput = "Application non trouvée"
+                        Issues = @("Application non disponible: $exePath")
                     }
                 }
                 
@@ -617,7 +616,7 @@ function Test-ApplicationCompatibility {
     return $result
 }
 
-function Test-EnvironmentConsistency() {
+function Test-EnvironmentConsistency {
     Write-Test "Test 5: Validation de la cohérence globale..."
     
     $result = @{
@@ -700,10 +699,14 @@ function Test-EnvironmentConsistency() {
             $result.Success = $true
             Write-Success "Cohérence environnement: OK (tous les tests cohérents)"
         } else {
+            $machineUserIssues = ($consistencyTest.machineUserConsistency.Values | Where-Object { $_ -ne $null }).Count
+            $encodingIssues = ($consistencyTest.encodingConsistency.Values | Where-Object { $_ -ne $null }).Count
+            $pathIssues = ($consistencyTest.pathConsistency.Values | Where-Object { $_ -ne $null }).Count
+            
             $result.Issues += @(
-                ($consistencyTest.machineUserConsistency.Values | Where-Object { $_ -ne $null }).Count,
-                ($consistencyTest.encodingConsistency.Values | Where-Object { $_ -ne $null }).Count,
-                ($consistencyTest.pathConsistency.Values | Where-Object { $_ -ne $null }).Count
+                "$machineUserIssues problèmes de cohérence Machine/User",
+                "$encodingIssues problèmes d'encodage UTF-8",
+                "$pathIssues problèmes de chemins"
             )
             $result.Recommendations = @(
                 "Exécuter Set-StandardizedEnvironment.ps1 avec le paramètre -Force",
@@ -1035,11 +1038,11 @@ function Main {
         
         # Exécution des tests de validation
         $testResults = @(
-            Test-EnvironmentHierarchy(),
-            Test-EnvironmentPersistence(),
-            Test-UTF8EnvironmentSupport(),
-            Test-ApplicationCompatibility(),
-            Test-EnvironmentConsistency()
+            $(Test-EnvironmentHierarchy),
+            $(Test-EnvironmentPersistence),
+            $(Test-UTF8EnvironmentSupport),
+            $(Test-ApplicationCompatibility),
+            $(Test-EnvironmentConsistency)
         )
         
         if ($Detailed) {

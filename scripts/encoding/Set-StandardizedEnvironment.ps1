@@ -55,6 +55,7 @@ $script:ConfigFile = "config\environment-config.json"
 $script:ValidationFile = "results\environment-validation-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
 
 # Variables d'environnement standardisées UTF-8
+# Variables d'environnement standardisées UTF-8
 $script:STANDARD_ENVIRONMENT = @{
     # Variables Machine (HKLM)
     Machine = @{
@@ -80,24 +81,24 @@ $script:STANDARD_ENVIRONMENT = @{
         "ProgramData" = "C:\ProgramData"
         "PUBLIC" = "C:\Users\Public"
         "OS" = "Windows_NT"
-        "NUMBER_OF_PROCESSORS" = (Get-WmiObject -Class Win32_ComputerSystem).NumberOfProcessors
-        "PROCESSOR_ARCHITECTURE" = "AMD64"
-        "PROCESSOR_IDENTIFIER" = (Get-WmiObject -Class Win32_Processor).Name
-        "COMPUTERNAME" = if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "Unknown" }
-        "USERNAME" = if ($env:USERNAME) { $env:USERNAME } else { "Unknown" }
-        "USERDOMAIN" = if ($env:USERDOMAIN) { $env:USERDOMAIN } else { "Unknown" }
-        "USERPROFILE" = if ($env:USERPROFILE) { $env:USERPROFILE } else { "Unknown" }
-        "HOMEDRIVE" = if ($env:HOMEDRIVE) { $env:HOMEDRIVE } else { "Unknown" }
-        "HOMEPATH" = if ($env:HOMEPATH) { $env:HOMEPATH } else { "Unknown" }
-        "APPDATA" = if ($env:APPDATA) { $env:APPDATA } else { "Unknown" }
-        "LOCALAPPDATA" = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "Unknown" }
-        "ProgramW6432" = if ($env:ProgramW6432) { $env:ProgramW6432 } else { "Unknown" }
-        "CommonProgramFiles" = if ($env:CommonProgramFiles) { $env:CommonProgramFiles } else { "Unknown" }
-        "CommonProgramFilesx86" = if ($env:CommonProgramFilesx86) { $env:CommonProgramFilesx86 } else { "Unknown" }
-        "ALLUSERSPROFILE" = if ($env:ALLUSERSPROFILE) { $env:ALLUSERSPROFILE } else { "Unknown" }
-        "LOGONSERVER" = if ($env:LOGONSERVER) { $env:LOGONSERVER } else { "Unknown" }
-        "USERDNSDOMAIN" = if ($env:USERDNSDOMAIN) { $env:USERDNSDOMAIN } else { "Unknown" }
-        "WINDIR" = if ($env:WINDIR) { $env:WINDIR } else { "C:\Windows" }
+        "NUMBER_OF_PROCESSORS" = $(try { (Get-WmiObject -Class Win32_ComputerSystem).NumberOfProcessors } catch { "Unknown" })
+        "PROCESSOR_ARCHITECTURE" = $(try { (Get-WmiObject -Class Win32_ComputerSystem).SystemType } catch { "Unknown" })
+        "PROCESSOR_IDENTIFIER" = $(try { (Get-WmiObject -Class Win32_Processor).Name } catch { "Unknown" })
+        "COMPUTERNAME" = $(if ($env:COMPUTERNAME) { $env:COMPUTERNAME } else { "Unknown" })
+        "USERNAME" = $(if ($env:USERNAME) { $env:USERNAME } else { "Unknown" })
+        "USERDOMAIN" = $(if ($env:USERDOMAIN) { $env:USERDOMAIN } else { "Unknown" })
+        "USERPROFILE" = $(if ($env:USERPROFILE) { $env:USERPROFILE } else { "Unknown" })
+        "HOMEDRIVE" = $(if ($env:HOMEDRIVE) { $env:HOMEDRIVE } else { "Unknown" })
+        "HOMEPATH" = $(if ($env:HOMEPATH) { $env:HOMEPATH } else { "Unknown" })
+        "APPDATA" = $(if ($env:APPDATA) { $env:APPDATA } else { "Unknown" })
+        "LOCALAPPDATA" = $(if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "Unknown" })
+        "ProgramW6432" = $(if ($env:ProgramW6432) { $env:ProgramW6432 } else { "Unknown" })
+        "CommonProgramFiles" = $(if ($env:CommonProgramFiles) { $env:CommonProgramFiles } else { "Unknown" })
+        "CommonProgramFilesx86" = $(if ($env:CommonProgramFilesx86) { $env:CommonProgramFilesx86 } else { "Unknown" })
+        "ALLUSERSPROFILE" = $(if ($env:ALLUSERSPROFILE) { $env:ALLUSERSPROFILE } else { "Unknown" })
+        "LOGONSERVER" = $(if ($env:LOGONSERVER) { $env:LOGONSERVER } else { "Unknown" })
+        "USERDNSDOMAIN" = $(if ($env:USERDNSDOMAIN) { $env:USERDNSDOMAIN } else { "Unknown" })
+        "WINDIR" = $(if ($env:WINDIR) { $env:WINDIR } else { "C:\Windows" })
         "PSModulePath" = @(
             "C:\Program Files\WindowsPowerShell\Modules",
             "C:\Windows\system32\WindowsPowerShell\v1.0\Modules",
@@ -111,33 +112,32 @@ $script:STANDARD_ENVIRONMENT = @{
     # Variables User (HKCU)
     User = @{
         "PATH" = @(
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Microsoft\WindowsApps" } else { "Unknown" },
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Programs\Microsoft VS Code\bin" } else { "Unknown" },
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Programs\Microsoft VS Code Insiders\bin" } else { "Unknown" },
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\npm" } else { "Unknown" },
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\Git\cmd" } else { "Unknown" },
-            if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\GitHub CLI\bin" } else { "Unknown" }
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Microsoft\WindowsApps" } else { "Unknown" }),
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Programs\Microsoft VS Code\bin" } else { "Unknown" }),
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Local\Programs\Microsoft VS Code Insiders\bin" } else { "Unknown" }),
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\npm" } else { "Unknown" }),
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\Git\cmd" } else { "Unknown" }),
+            $(if ($env:USERPROFILE) { $env:USERPROFILE + "\AppData\Roaming\GitHub CLI\bin" } else { "Unknown" })
         ) -join ";"
-        "HOME" = if ($env:USERPROFILE) { $env:USERPROFILE } else { "Unknown" }
-        "USERDOMAIN_ROAMINGPROFILE" = if ($env:USERDOMAIN) { $env:USERDOMAIN } else { "Unknown" }
-        "USERNAME_ROAMINGPROFILE" = if ($env:USERNAME) { $env:USERNAME } else { "Unknown" }
-        "HOMEPATH_ROAMINGPROFILE" = if ($env:HOMEPATH) { $env:HOMEPATH } else { "Unknown" }
-        "APPDATA_ROAMINGPROFILE" = if ($env:APPDATA) { $env:APPDATA } else { "Unknown" }
-        "LOCALAPPDATA_ROAMINGPROFILE" = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "Unknown" }
-        "ONEDRIVE" = if ($env:USERPROFILE) { $env:USERPROFILE + "\OneDrive" } else { "Unknown" }
-        "ONEDRIVECOMMERCIAL" = if ($env:USERPROFILE) { $env:USERPROFILE + "\OneDrive - Commercial" } else { "Unknown" }
-        "GOOGLE_DRIVE" = if ($env:USERPROFILE) { $env:USERPROFILE + "\Google Drive" } else { "Unknown" }
-        "DROPBOX" = if ($env:USERPROFILE) { $env:USERPROFILE + "\Dropbox" } else { "Unknown" }
-        "DOCUMENTS" = try { [System.Environment]::GetFolderPath("MyDocuments") } catch { "Unknown" }
-        "DESKTOP" = try { [System.Environment]::GetFolderPath("Desktop") } catch { "Unknown" }
-        "DOWNLOADS" = if ($env:USERPROFILE) { $env:USERPROFILE + "\Downloads" } else { "Unknown" }
-        "MUSIC" = try { [System.Environment]::GetFolderPath("MyMusic") } catch { "Unknown" }
-        "PICTURES" = try { [System.Environment]::GetFolderPath("MyPictures") } Catch { "Unknown" }
-        "VIDEOS" = try { [System.Environment]::GetFolderPath("MyVideos") } Catch { "Unknown" }
-        "FAVORITES" = try { [System.Environment]::GetFolderPath("Favorites") } Catch { "Unknown" }
-        "RECENT" = try { [System.Environment]::GetFolderPath("Recent") } Catch { "Unknown" }
+        "HOME" = $(if ($env:USERPROFILE) { $env:USERPROFILE } else { "Unknown" })
+        "USERDOMAIN_ROAMINGPROFILE" = $(if ($env:USERDOMAIN) { $env:USERDOMAIN } else { "Unknown" })
+        "USERNAME_ROAMINGPROFILE" = $(if ($env:USERNAME) { $env:USERNAME } else { "Unknown" })
+        "HOMEPATH_ROAMINGPROFILE" = $(if ($env:HOMEPATH) { $env:HOMEPATH } else { "Unknown" })
+        "APPDATA_ROAMINGPROFILE" = $(if ($env:APPDATA) { $env:APPDATA } else { "Unknown" })
+        "LOCALAPPDATA_ROAMINGPROFILE" = $(if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { "Unknown" })
+        "ONEDRIVE" = $(if ($env:USERPROFILE) { $env:USERPROFILE + "\OneDrive" } else { "Unknown" })
+        "ONEDRIVECOMMERCIAL" = $(if ($env:USERPROFILE) { $env:USERPROFILE + "\OneDrive - Commercial" } else { "Unknown" })
+        "GOOGLE_DRIVE" = $(if ($env:USERPROFILE) { $env:USERPROFILE + "\Google Drive" } else { "Unknown" })
+        "DROPBOX" = $(if ($env:USERPROFILE) { $env:USERPROFILE + "\Dropbox" } else { "Unknown" })
+        "DOCUMENTS" = $(try { [System.Environment]::GetFolderPath("MyDocuments") } catch { "Unknown" })
+        "DESKTOP" = $(try { [System.Environment]::GetFolderPath("Desktop") } catch { "Unknown" })
+        "DOWNLOADS" = $(if ($env:USERPROFILE) { $env:USERPROFILE + "\Downloads" } else { "Unknown" })
+        "MUSIC" = $(try { [System.Environment]::GetFolderPath("MyMusic") } catch { "Unknown" })
+        "PICTURES" = $(try { [System.Environment]::GetFolderPath("MyPictures") } catch { "Unknown" })
+        "VIDEOS" = $(try { [System.Environment]::GetFolderPath("MyVideos") } catch { "Unknown" })
+        "FAVORITES" = $(try { [System.Environment]::GetFolderPath("Favorites") } catch { "Unknown" })
+        "RECENT" = $(try { [System.Environment]::GetFolderPath("Recent") } catch { "Unknown" })
     }
-    
     # Variables Processus (session actuelle)
     Process = @{
         "LANG" = "fr-FR.UTF-8"
@@ -409,8 +409,8 @@ function Test-EnvironmentPersistence {
         }
         
         # Simulation de redémarrage (lecture des registres)
-        $registryMachine = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -ErrorAction SilentlyContinue
-        $registryUser = Get-ItemProperty -Path "HKCU\Environment" -ErrorAction SilentlyContinue
+        $registryMachine = try { Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -ErrorAction SilentlyContinue } catch { $null }
+        $registryUser = try { Get-ItemProperty -Path "HKCU\Environment" -ErrorAction SilentlyContinue } catch { $null }
         
         # Vérification de persistance
         foreach ($var in $script:STANDARD_ENVIRONMENT.Machine.GetEnumerator()) {
@@ -528,7 +528,16 @@ function Test-UTF8EnvironmentSupport {
         }
         
         # Test de support console
-        $consoleEncoding = try { chcp } catch { "Unknown" }
+        $consoleEncoding = try {
+            $chcpOutput = chcp 2>&1
+            if ($chcpOutput -match "(\d+)") {
+                [int]$matches[1]
+            } else {
+                "Unknown"
+            }
+        } catch {
+            "Unknown"
+        }
         $utf8Test.consoleSupport = @{
             currentCodePage = $consoleEncoding
             expectedCodePage = 65001
@@ -544,10 +553,11 @@ function Test-UTF8EnvironmentSupport {
         $testFile = Join-Path $env:TEMP "utf8-environment-test.txt"
         $testContent | Out-File -FilePath $testFile -Encoding UTF8 -Force
         
+        $fileContent = Get-Content -Path $testFile -Raw -Encoding UTF8
         $utf8Test.applicationSupport = @{
             fileCreationSuccess = Test-Path $testFile
-            fileContent = Get-Content -Path $testFile -Raw -Encoding UTF8
-            contentMatches = ($testContent -eq $utf8Test.applicationSupport.fileContent)
+            fileContent = $fileContent
+            contentMatches = ($testContent -eq $fileContent)
         }
         
         if (-not $utf8Test.applicationSupport.contentMatches) {
@@ -663,7 +673,7 @@ function Validate-Prerequisites {
     Write-Info "Validation des prérequis..."
     
     $prereqs = @{
-        isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent().IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
+        isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
         isWindows10Plus = [System.Environment]::OSVersion.Version -ge [Version]"10.0.0"
         isPowerShell51Plus = $PSVersionTable.PSVersion.Major -ge 5
         hasRegistryAccess = Test-Path "HKLM:\SYSTEM"
@@ -707,9 +717,9 @@ function Main {
             Write-Info "Mode validation uniquement - aucune modification ne sera appliquée"
             
             $validationResults = @(
-                Test-EnvironmentConsistency,
-                Test-EnvironmentPersistence,
-                Test-UTF8EnvironmentSupport
+                $(Test-EnvironmentConsistency),
+                $(Test-EnvironmentPersistence),
+                $(Test-UTF8EnvironmentSupport)
             )
             
             $successfulTests = ($validationResults | Where-Object { $_.Success }).Count
@@ -753,9 +763,9 @@ function Main {
         # Validation avant modification
         Write-Info "Validation de l'état actuel..."
         $preValidationResults = @(
-            Test-EnvironmentConsistency,
-            Test-EnvironmentPersistence,
-            Test-UTF8EnvironmentSupport
+            $(Test-EnvironmentConsistency),
+            $(Test-EnvironmentPersistence),
+            $(Test-UTF8EnvironmentSupport)
         )
         
         $preSuccessCount = ($preValidationResults | Where-Object { $_.Success }).Count
@@ -794,9 +804,9 @@ function Main {
         Start-Sleep -Seconds 2  # Attendre la prise en compte
         
         $postValidationResults = @(
-            Test-EnvironmentConsistency,
-            Test-EnvironmentPersistence,
-            Test-UTF8EnvironmentSupport
+            $(Test-EnvironmentConsistency),
+            $(Test-EnvironmentPersistence),
+            $(Test-UTF8EnvironmentSupport)
         )
         
         $postSuccessCount = ($postValidationResults | Where-Object { $_.Success }).Count
