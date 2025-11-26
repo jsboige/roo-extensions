@@ -555,16 +555,19 @@ function New-ValidationReport {
 ## 📋 Résultats Détaillés
 
 $($TestResults | ForEach-Object {
-    "### $($_.TestName)
-    - **Statut**: $(if ($_.Success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" })
-    - **Détails**: $($_.Details | ConvertTo-Json -Compress)
-    $(if ($_.Issues.Count -gt 0) {
-        "- **Problèmes**: $($_.Issues -join ', ')"
-    })
-    $(if ($_.Recommendations.Count -gt 0) {
-        "- **Recommandations**: $($_.Recommendations -join ', ')"
-    })
-    ""
+    $status = if ($_.Success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" }
+    $details = $_.Details | ConvertTo-Json -Compress
+    $issues = if ($_.Issues.Count -gt 0) { "- **Problèmes**: $($_.Issues -join ', ')" } else { "" }
+    $recommendations = if ($_.Recommendations.Count -gt 0) { "- **Recommandations**: $($_.Recommendations -join ', ')" } else { "" }
+    
+    @"
+### $($_.TestName)
+- **Statut**: $status
+- **Détails**: $details
+$issues
+$recommendations
+
+"@
 })
 
 ## 🎯 Recommandations Globales
@@ -641,12 +644,12 @@ function Main {
         
         # Exécution des tests de validation
         $testResults = @(
-            Test-SystemCodePages,
-            Test-RegionalSettings,
-            Test-ConsoleEncoding,
-            Test-FileSystemEncoding,
-            Test-PowerShellEncoding,
-            Test-ApplicationCompatibility
+            (Test-SystemCodePages),
+            (Test-RegionalSettings),
+            (Test-ConsoleEncoding),
+            (Test-FileSystemEncoding),
+            (Test-PowerShellEncoding),
+            (Test-ApplicationCompatibility)
         )
         
         if ($Detailed) {

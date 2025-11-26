@@ -16,7 +16,7 @@ Définir une matrice de traçabilité complète pour suivre toutes les correctio
 | SYS-001 | Option UTF-8 Beta | Système | 2025-10-30 | ✅ Actif | Critique | System | Activation option beta UTF-8 worldwide | | Reboot validé | SYS-BACKUP-001 |
 | SYS-002 | Registre CodePage | Système | 2025-10-30 | ✅ Configuré | Critique | System | Standardisation pages de code à 65001 | | Tests OK | SYS-BACKUP-002 |
 | SYS-003 | Variables Machine | Système | 2025-10-30 | ✅ Définies | Critique | System | Configuration hiérarchique environnement | | Persistantes | SYS-BACKUP-003 |
-| ROO-001 | EncodingManager | Roo | 2025-10-30 | 🔄 Déploiement | Critique | Architect | Déploiement composant central d'encodage | | En cours | ROO-BACKUP-001 |
+| ROO-001 | EncodingManager | Roo | 2025-10-30 | ✅ Déployé | Critique | Architect | Déploiement composant central d'encodage | | Tests OK | ROO-BACKUP-001 |
 | ROO-002 | PowerShell Profiles | Roo | 2025-10-30 | ✅ Créés | Critique | Architect | Unification profiles PowerShell 5.1/7+ | | Fonctionnels | ROO-BACKUP-002 |
 | VSC-001 | Terminal UTF-8 | VSCode | 2025-10-30 | ✅ Configuré | Important | Architect | Configuration terminal intégré UTF-8 | | Intégré | VSC-BACKUP-001 |
 | APP-001 | Scripts Safe | Application | 2025-10-30 | ✅ Validés | Important | Architect | Validation scripts encoding-safe | | Déployés | APP-BACKUP-001 |

@@ -663,14 +663,14 @@ $($TestResults | ForEach-Object {
 ## 🔄 Comparaison avec Backup
 
 $(if ($BackupComparison) {
-    "### Fichier de Backup Analysé
-    "- **Chemin**: $($BackupComparison.BackupPath)"
-    "- **Date de Comparaison**: $($BackupComparison.ComparisonDate)"
-    
-    "### Différences Détectées"
-    $($BackupComparison.Differences | ForEach-Object {
-        "- $($_)"
-    })
+    @"
+### Fichier de Backup Analysé
+- **Chemin**: $($BackupComparison.BackupPath)
+- **Date de Comparaison**: $($BackupComparison.ComparisonDate)
+
+### Différences Détectées
+$($BackupComparison.Differences | ForEach-Object { "- $($_)" } | Out-String)
+"@
 } else {
     "### Aucune comparaison de backup effectuée"
 })
@@ -750,12 +750,12 @@ function Main {
         
         # Exécution des tests de validation
         $testResults = @(
-            Test-SystemCodePages,
-            Test-ConsoleSettings,
-            Test-InternationalSettings,
-            Test-RegistryConsistency,
-            Test-RegistryPermissions,
-            Test-ApplicationCompatibility
+            (Test-SystemCodePages),
+            (Test-ConsoleSettings),
+            (Test-InternationalSettings),
+            (Test-RegistryConsistency),
+            (Test-RegistryPermissions),
+            (Test-ApplicationCompatibility)
         )
         
         if ($Detailed) {

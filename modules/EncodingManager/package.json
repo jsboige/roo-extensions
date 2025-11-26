@@ -1,0 +1,16 @@
+{
+  "name": "@roo/encoding-manager",
+  "version": "1.0.0",
+  "description": "Centralized Encoding Manager for Roo Extensions",
+  "main": "dist/core/EncodingManager.js",
+  "types": "dist/core/EncodingManager.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Roo Architect",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^4.9.5"
+  }
+}

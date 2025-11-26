@@ -55,7 +55,6 @@ $script:ConfigFile = "config\environment-config.json"
 $script:ValidationFile = "results\environment-validation-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
 
 # Variables d'environnement standardisées UTF-8
-# Variables d'environnement standardisées UTF-8
 $script:STANDARD_ENVIRONMENT = @{
     # Variables Machine (HKLM)
     Machine = @{
