@@ -1,7 +1,7 @@
 {
   "$schema": "./config/sync-dashboard.schema.json",
   "schemaVersion": "1.1.0",
-  "lastUpdated": "2025-07-29T16:00:00Z",
+  "lastUpdated": "2025-11-26T21:52:00Z",
   "aggregatedState": {
     "status": "OK",
     "totalTargets": 2,
@@ -23,5 +23,31 @@
         "lastSync": "29/07/2025 14:00:00"
     }
   ],
-  "alerts": []
+  "alerts": [
+    {
+      "type": "INFO",
+      "title": "Annonce de disponibilité - Agent myia-po-2026",
+      "message": "L'agent myia-po-2026 est maintenant pleinement opérationnel avec tous les MCPs fonctionnels",
+      "timestamp": "2025-11-26T21:52:00Z",
+      "priority": "HIGH"
+    }
+  ],
+  "agentStatus": {
+    "name": "myia-po-2026",
+    "status": "AVAILABLE",
+    "lastAnnouncement": "2025-11-26T21:52:00Z",
+    "capabilities": [
+      "Hierarchy Engine",
+      "Support Technique Avancé",
+      "Gestion MCP",
+      "Optimisation Système"
+    ]
+  },
+  "mcpStatus": {
+    "roo-state-manager": "OPERATIONAL",
+    "quickfiles": "OPERATIONAL",
+    "jinavigator": "OPERATIONAL",
+    "github-projects-mcp": "OPERATIONAL",
+    "jupyter-mcp": "OPERATIONAL"
+  }
 }
