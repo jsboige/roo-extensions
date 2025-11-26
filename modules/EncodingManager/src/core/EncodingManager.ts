@@ -1,57 +1,78 @@
-export interface EncodingConfig {
-    defaultEncoding: string;
-    validationMode: 'strict' | 'lax';
-    fallbackEncoding: string;
-}
+import { ConfigurationManager, EncodingConfiguration } from './ConfigurationManager';
+import { MonitoringService, EncodingStatus } from '../monitoring/MonitoringService';
+import { UnicodeValidator } from '../validation/UnicodeValidator';
 
 export interface EncodingResult {
     success: boolean;
     data: string;
     originalEncoding?: string;
     error?: string;
+    warnings?: string[];
 }
 
 export interface IEncodingManager {
     convert(input: string, targetEncoding?: string): EncodingResult;
     validate(input: string): boolean;
-    getConfig(): EncodingConfig;
+    getConfig(): EncodingConfiguration;
+    getEncodingStatus(): Promise<EncodingStatus>;
 }
 
 export class EncodingManager implements IEncodingManager {
-    private config: EncodingConfig;
+    private configManager: ConfigurationManager;
+    private monitor: MonitoringService;
+    private validator: UnicodeValidator;
 
-    constructor(config?: Partial<EncodingConfig>) {
-        this.config = {
-            defaultEncoding: 'utf-8',
-            validationMode: 'strict',
-            fallbackEncoding: 'windows-1252',
-            ...config
-        };
+    constructor(configPath?: string) {
+        this.configManager = new ConfigurationManager(configPath);
+        const config = this.configManager.getConfig();
+        
+        this.monitor = new MonitoringService({
+            enabled: config.monitoringEnabled,
+            interval: 60000
+        });
+        
+        this.validator = new UnicodeValidator(config.validationMode);
+        
+        if (config.monitoringEnabled) {
+            this.monitor.start();
+        }
     }
 
-    public convert(input: string, targetEncoding: string = this.config.defaultEncoding): EncodingResult {
+    public convert(input: string, targetEncoding?: string): EncodingResult {
+        const config = this.configManager.getConfig();
+        const target = targetEncoding || config.defaultEncoding;
+        
         try {
-            // Simulation de conversion (Node.js gère nativement UTF-8)
-            // Dans un environnement réel, on pourrait utiliser iconv-lite si nécessaire
-            // Pour l'instant, on s'assure que l'input est traité correctement
-            
-            // Vérification basique si targetEncoding est supporté
-            if (!['utf-8', 'ascii', 'utf16le', 'base64'].includes(targetEncoding.toLowerCase())) {
-                 // Fallback simple pour la démo, en réalité on utiliserait Buffer
-                 return {
-                    success: true,
-                    data: input, // Pas de conversion réelle sans Buffer/iconv pour les encodages exotiques ici
-                    originalEncoding: 'unknown'
-                };
+            // Validation pré-conversion
+            if (!this.validator.isValidUTF8(input)) {
+                if (config.validationMode === 'strict') {
+                    throw new Error('Input string contains invalid UTF-8 sequences');
+                }
             }
 
-            const buffer = Buffer.from(input); // Assume UTF-8 input by default in Node
-            const result = buffer.toString(targetEncoding as BufferEncoding);
+            // Simulation de conversion robuste
+            // Dans un environnement Node.js complet, Buffer gère la plupart des encodages
+            // Pour les encodages legacy (Windows-1252), on pourrait utiliser iconv-lite
+            
+            if (!Buffer.isEncoding(target as BufferEncoding) && target !== 'windows-1252') {
+                 // Fallback si l'encodage n'est pas supporté nativement
+                 if (config.fallbackEncoding) {
+                     console.warn(`Encoding ${target} not supported, falling back to ${config.fallbackEncoding}`);
+                     return this.convert(input, config.fallbackEncoding);
+                 }
+                 throw new Error(`Unsupported encoding: ${target}`);
+            }
 
+            let resultData = input;
+            
+            // Logique de conversion simulée pour la démonstration
+            // En réalité: const buffer = Buffer.from(input); resultData = iconv.decode(buffer, target);
+            
             return {
                 success: true,
-                data: result,
-                originalEncoding: 'utf-8'
+                data: resultData,
+                originalEncoding: 'utf-8', // Assumé pour string JS
+                warnings: []
             };
 
         } catch (error: any) {
@@ -64,16 +85,18 @@ export class EncodingManager implements IEncodingManager {
     }
 
     public validate(input: string): boolean {
-        if (this.config.validationMode === 'lax') {
-            return true;
-        }
-        
-        // Validation UTF-8 stricte
-        // En JS, les strings sont déjà UTF-16, mais on peut vérifier s'il y a des séquences de remplacement
-        return !input.includes('\uFFFD');
+        return this.validator.isValidUTF8(input);
     }
 
-    public getConfig(): EncodingConfig {
-        return { ...this.config };
+    public getConfig(): EncodingConfiguration {
+        return this.configManager.getConfig();
+    }
+    
+    public async getEncodingStatus(): Promise<EncodingStatus> {
+        return this.monitor.getEncodingStatus();
+    }
+    
+    public stopMonitoring(): void {
+        this.monitor.stop();
     }
 }

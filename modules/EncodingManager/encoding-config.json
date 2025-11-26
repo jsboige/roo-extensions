@@ -1,0 +1,7 @@
+{
+  "validationMode": "strict",
+  "monitoringEnabled": true,
+  "fallbackEncoding": "windows-1252",
+  "defaultEncoding": "utf-8",
+  "logLevel": "info"
+}

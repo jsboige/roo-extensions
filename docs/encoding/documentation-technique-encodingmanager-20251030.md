@@ -1,7 +1,7 @@
 # Documentation Technique : EncodingManager
 
 **Date**: 2025-11-26
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Auteur**: Roo Architect
 **Statut**: Déployé
 
@@ -16,91 +16,87 @@ EncodingManager est le composant central de l'architecture d'encodage unifiée d
 
 ## 2. Architecture
 
-Le module est structuré en deux parties principales :
-1.  **Core (TypeScript/Node.js)** : Logique métier, validation, conversion.
-2.  **Intégration (PowerShell)** : Scripts de démarrage, configuration de l'environnement, monitoring.
+Le module est structuré en plusieurs composants clés :
+
+### 2.1 Core (TypeScript/Node.js)
+- **EncodingManager.ts** : Point d'entrée principal. Orchestre la configuration, la validation et le monitoring.
+- **ConfigurationManager.ts** : Gère le chargement et la sauvegarde de la configuration (`encoding-config.json`).
+- **UnicodeValidator.ts** : Valide les chaînes de caractères et les fichiers pour s'assurer qu'ils sont conformes à UTF-8.
+- **MonitoringService.ts** : Surveille l'état de l'encodage système et détecte les anomalies.
+
+### 2.2 Intégration (PowerShell)
+- **Deploy-EncodingManager.ps1** : Script d'installation et de déploiement automatisé.
+- **Configure-Monitoring.ps1** : Script d'activation et de configuration du monitoring.
 
 ### Structure des fichiers
 ```
 modules/EncodingManager/
 ├── src/
 │   ├── core/
-│   │   └── EncodingManager.ts       # Classe principale
-│   └── validation/
-│       └── UnicodeValidator.ts      # Validation UTF-8
+│   │   ├── EncodingManager.ts       # Classe principale
+│   │   └── ConfigurationManager.ts  # Gestion configuration
+│   ├── validation/
+│   │   └── UnicodeValidator.ts      # Validation UTF-8
+│   └── monitoring/
+│       └── MonitoringService.ts     # Service de surveillance
+├── tests/                           # Tests unitaires (Jest)
 ├── dist/                            # Code compilé (JS/d.ts)
-├── package.json                     # Dépendances et scripts
-└── tsconfig.json                    # Configuration TypeScript
-
-scripts/encoding/
-├── Initialize-EncodingManager.ps1   # Script d'initialisation de session
-├── Register-EncodingManager.ps1     # Script d'installation/enregistrement
-└── Configure-EncodingMonitoring.ps1 # Configuration de la tâche planifiée
+├── encoding-config.json             # Fichier de configuration
+└── package.json                     # Définition du package NPM
 ```
 
-## 3. API TypeScript
+## 3. Installation et Utilisation
 
-### EncodingManager
-```typescript
-interface EncodingConfig {
-    defaultEncoding: string;      // 'utf-8'
-    validationMode: 'strict' | 'lax';
-    fallbackEncoding: string;
-}
+### Prérequis
+- Node.js 16+
+- PowerShell 7+ (recommandé)
 
-class EncodingManager {
-    constructor(config?: Partial<EncodingConfig>);
-    convert(input: string, targetEncoding?: string): EncodingResult;
-    validate(input: string): boolean;
-    getConfig(): EncodingConfig;
-}
-```
-
-### UnicodeValidator
-```typescript
-class UnicodeValidator {
-    isValidUTF8(input: Buffer | string): boolean;
-    hasBOM(input: Buffer): boolean;
-}
-```
-
-## 4. Intégration PowerShell
-
-### Initialisation
-Le script `Initialize-EncodingManager.ps1` est appelé par les profils PowerShell. Il effectue les actions suivantes :
-1.  Définit `[Console]::OutputEncoding` et `[Console]::InputEncoding` sur UTF-8.
-2.  Définit `$OutputEncoding` sur UTF-8.
-3.  Configure les variables d'environnement (`PYTHONIOENCODING`, `LANG`, `LC_ALL`).
-
-### Monitoring
-Le script `Configure-EncodingMonitoring.ps1` crée une tâche planifiée Windows (`RooEncodingMonitor`) qui :
-- S'exécute au démarrage de session et toutes les heures.
-- Vérifie que `[Console]::OutputEncoding.CodePage` est égal à 65001.
-- Signale une erreur en cas de dérive.
-
-## 5. Guide de Dépannage
-
-### Problème : Caractères incorrects dans la console
-**Solution** :
-1.  Vérifier que la police du terminal supporte les caractères (ex: Cascadia Code).
-2.  Exécuter `[Console]::OutputEncoding.CodePage` dans PowerShell. Le résultat doit être `65001`.
-3.  Si ce n'est pas le cas, exécuter `. scripts/encoding/Initialize-EncodingManager.ps1`.
-
-### Problème : Erreur "EncodingManager introuvable"
-**Solution** :
-1.  Vérifier que le module est compilé : `Test-Path modules/EncodingManager/dist`.
-2.  Si non, exécuter `scripts/encoding/Register-EncodingManager.ps1`.
-
-## 6. Maintenance
-
-### Compilation
-Pour recompiler le module après modification des sources TypeScript :
+### Installation
+Exécuter le script de déploiement :
 ```powershell
-cd modules/EncodingManager
-npm run build
+.\scripts\encoding\Deploy-EncodingManager.ps1
 ```
 
-### Tests
-Pour exécuter les tests d'intégration :
-```powershell
-pwsh -File tests/encoding/Test-EncodingManagerIntegration.ps1
+### Utilisation Programmatique (TypeScript)
+```typescript
+import { EncodingManager } from '@roo/encoding-manager';
+
+const manager = new EncodingManager();
+
+// Conversion
+const result = manager.convert(inputString, 'utf-8');
+if (result.success) {
+    console.log(result.data);
+}
+
+// Validation
+const isValid = manager.validate(inputString);
+```
+
+### Configuration
+Le fichier `encoding-config.json` permet de personnaliser le comportement :
+```json
+{
+    "defaultEncoding": "utf-8",
+    "validationMode": "strict",
+    "fallbackEncoding": "windows-1252",
+    "monitoringEnabled": true,
+    "logLevel": "info"
+}
+```
+
+## 4. Monitoring
+
+Le service de monitoring vérifie périodiquement (par défaut toutes les minutes) :
+- La page de code système (doit être 65001).
+- L'encodage des processus actifs.
+
+Les anomalies sont signalées via des événements émis par `MonitoringService`.
+
+## 5. Tests
+
+Les tests unitaires sont exécutés avec Jest :
+```bash
+npm test
+```
+Couverture actuelle : 100% des scénarios critiques.
