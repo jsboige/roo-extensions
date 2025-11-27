@@ -43,7 +43,7 @@ Roo Extensions est un **écosystème complet** qui enrichit les fonctionnalités
     ```powershell
     # Déploiement complet (recommandé)
     ./roo-config/settings/deploy-settings.ps1
-    
+
     # Déploiement des modes personnalisés
     ./roo-config/deployment-scripts/deploy-modes-simple-complex.ps1
     ```
@@ -54,7 +54,7 @@ Roo Extensions est un **écosystème complet** qui enrichit les fonctionnalités
     cd mcps/internal
     npm install
     npm run build
-    
+
     # Configuration des MCPs dans Roo
     # (voir mcps/README.md pour détails)
     ```
@@ -290,6 +290,11 @@ use_mcp_tool "roo-state-manager" "roosync_init" {}
 - **Synthèse Complète** : [`docs/roosync/ROOSYNC-COMPLETE-SYNTHESIS-2025-10-26.md`](docs/roosync/ROOSYNC-COMPLETE-SYNTHESIS-2025-10-26.md)
 - **Guide Déploiement** : [`docs/roosync-v2-1-deployment-guide.md`](docs/roosync-v2-1-deployment-guide.md)
 - **Guide Utilisateur** : [`docs/roosync-v2-1-user-guide.md`](docs/roosync-v2-1-user-guide.md)
+
+### 🔣 Gestion de l'Encodage (UTF-8)
+- **Quick Start** : [`docs/encoding/quick-start-encoding.md`](docs/encoding/quick-start-encoding.md)
+- **Guide de Dépannage** : [`docs/encoding/troubleshooting-guide.md`](docs/encoding/troubleshooting-guide.md)
+- **Documentation Technique** : [`docs/encoding/documentation-technique-encodingmanager-20251030.md`](docs/encoding/documentation-technique-encodingmanager-20251030.md)
 
 ---
 

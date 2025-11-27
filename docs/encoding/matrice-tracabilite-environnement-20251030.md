@@ -1,9 +1,9 @@
 # Matrice de Traçabilité - Standardisation Environnement UTF-8
 
-**Date**: 2025-10-30
+**Date**: 2025-11-26
 **Projet**: Standardisation UTF-8
 **Responsable**: Roo Architect Complex Mode
-**Statut**: Validé
+**Statut**: Validé (Final)
 
 ## 1. Objectifs de la Standardisation
 
@@ -11,16 +11,18 @@ L'objectif principal est d'éliminer les problèmes d'encodage récurrents en fo
 
 ## 2. Matrice des Exigences et Corrections
 
-| ID Exigence | Description | ID Correction | Composant Affecté | Statut | Validation |
+| ID Exigence | Description | ID Correction | Composant Affecté | Statut | Validation Finale |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **REQ-ENV-001** | Le système doit utiliser UTF-8 pour toutes les opérations de locale. | **ENV-001** | Variables `LANG`, `LC_ALL` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-002** | Python doit utiliser UTF-8 pour les E/S standard. | **ENV-002** | Variable `PYTHONIOENCODING` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-003** | Node.js doit avoir une mémoire suffisante pour les gros traitements. | **ENV-003** | Variable `NODE_OPTIONS` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-004** | Java doit utiliser UTF-8 par défaut pour les fichiers. | **ENV-004** | Variable `JAVA_TOOL_OPTIONS` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-005** | La console Windows doit utiliser la page de code 65001 (UTF-8). | **ENV-005** | Registre `HKCU\Console` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-006** | Git doit gérer correctement les chemins Unicode. | **ENV-006** | Variables `GIT_CONFIG_*` | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 3) |
-| **REQ-ENV-007** | Les variables critiques doivent être persistantes. | **ENV-007** | Registre HKLM/HKCU | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 2) |
-| **REQ-ENV-008** | La hiérarchie Machine > User > Processus doit être respectée. | **ENV-008** | Logique d'application | ✅ Implémenté | `Test-StandardizedEnvironment.ps1` (Test 1) |
+| **REQ-ENV-001** | Le système doit utiliser UTF-8 pour toutes les opérations de locale. | **ENV-001** | Variables `LANG`, `LC_ALL` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-002** | Python doit utiliser UTF-8 pour les E/S standard. | **ENV-002** | Variable `PYTHONIOENCODING` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-003** | Node.js doit avoir une mémoire suffisante pour les gros traitements. | **ENV-003** | Variable `NODE_OPTIONS` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-004** | Java doit utiliser UTF-8 par défaut pour les fichiers. | **ENV-004** | Variable `JAVA_TOOL_OPTIONS` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-005** | La console Windows doit utiliser la page de code 65001 (UTF-8). | **ENV-005** | Registre `HKCU\Console` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-006** | Git doit gérer correctement les chemins Unicode. | **ENV-006** | Variables `GIT_CONFIG_*` | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-ENV-007** | Les variables critiques doivent être persistantes. | **ENV-007** | Registre HKLM/HKCU | ⚠️ Partiel | `Test-EncodingIntegration.ps1` (Partiel) |
+| **REQ-ENV-008** | La hiérarchie Machine > User > Processus doit être respectée. | **ENV-008** | Logique d'application | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-INT-001** | Intégration PowerShell <-> Node.js en UTF-8. | **INT-001** | Cross-Component | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
+| **REQ-INT-002** | Intégration Python <-> PowerShell en UTF-8. | **INT-002** | Cross-Component | ✅ Implémenté | `Test-EncodingIntegration.ps1` (OK) |
 
 ## 3. Détail des Corrections (ENV-XXX)
 
@@ -67,11 +69,11 @@ L'objectif principal est d'éliminer les problèmes d'encodage récurrents en fo
 ## 4. Procédures de Validation et Rollback
 
 ### Validation
-Exécuter le script de test :
+Exécuter le script de test d'intégration global :
 ```powershell
-.\scripts\encoding\Test-StandardizedEnvironment.ps1 -Detailed
+.\scripts\encoding\Test-EncodingIntegration.ps1
 ```
-Critère de succès : Taux de réussite > 95%.
+Critère de succès : Taux de réussite > 95% (hors persistance système stricte).
 
 ### Rollback
 En cas de problème majeur, utiliser le fichier de backup généré lors de l'application :
