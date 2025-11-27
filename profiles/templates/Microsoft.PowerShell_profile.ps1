@@ -4,13 +4,22 @@
 
 # --- Initialisation de l'Encodage ---
 # Recherche du script d'initialisation dans les chemins standards
-$encodingScriptPath = Join-Path $PSScriptRoot "..\..\scripts\encoding\Initialize-EncodingManager.ps1"
-if (-not (Test-Path $encodingScriptPath)) {
-    # Fallback: Recherche relative au répertoire de travail courant si le profil est déplacé
-    $encodingScriptPath = Resolve-Path "d:\roo-extensions\scripts\encoding\Initialize-EncodingManager.ps1" -ErrorAction SilentlyContinue
+$candidatePaths = @(
+    (Join-Path $PSScriptRoot "..\..\scripts\encoding\Initialize-EncodingManager.ps1"),
+    "d:\roo-extensions\scripts\encoding\Initialize-EncodingManager.ps1",
+    "$env:ROO_EXTENSIONS_ROOT\scripts\encoding\Initialize-EncodingManager.ps1",
+    (Join-Path $HOME "roo-extensions\scripts\encoding\Initialize-EncodingManager.ps1")
+)
+
+$encodingScriptPath = $null
+foreach ($path in $candidatePaths) {
+    if ($path -and (Test-Path $path)) {
+        $encodingScriptPath = $path
+        break
+    }
 }
 
-if ($encodingScriptPath -and (Test-Path $encodingScriptPath)) {
+if ($encodingScriptPath) {
     . $encodingScriptPath
 } else {
     Write-Warning "EncodingManager introuvable. L'encodage UTF-8 peut ne pas être configuré correctement."
@@ -34,7 +43,7 @@ function prompt {
         $symbol = "#"
         Write-Host "[ADMIN] " -NoNewline -ForegroundColor Red
     }
-    
+
     Write-Host "PS " -NoNewline -ForegroundColor Green
     Write-Host ($PWD.Path) -NoNewline -ForegroundColor Cyan
     return "$symbol "
