@@ -54,10 +54,23 @@ Les modifications touchent profondément le moteur de reconstruction hiérarchiq
 
 ## 💾 Sauvegarde (Checkpoint 2)
 
-*En attente du commit...*
+- **Commit Principal** : `945452e799ca9288d902138711b9d690cc3bca23`
+    - Message : `WIP: Save submodule state & SDDD tracking (pre-merge myia-po-2023)`
+- **Commit Sous-module (`mcps/internal`)** : `a4122b8d40f22ea592edc09191f3b89f9f59384b`
+    - Message : `WIP: Fix hierarchy reconstruction & tests (pre-merge myia-po-2023)`
 
 ---
 
 ## ✅ Validation Finale
 
-*En attente de la clôture de tâche...*
+- **État** : Sécurisé.
+- **Prochaine Étape** : Fusion avec `myia-po-2023` (attention aux conflits identifiés).
+- **Grounding Sémantique** : Effectué et documenté.
+
+---
+
+## 🔄 Fusion et Rebase (Phase 2)
+
+### 📅 2025-11-28 - Pull Rebase
+- **Action** : Exécution de `git pull --rebase` sur le dépôt principal et le sous-module.
+- **Objectif** : Intégrer les changements distants (notamment `myia-po-2023`) sur notre travail sauvegardé.
