@@ -168,12 +168,12 @@ Ventilation réussie des corrections du MCP roo-state-manager vers 3 agents spé
 ## 📝 LIVRABLES CRÉÉS
 
 ### 📄 Documents de suivi
-1. **Tableau de suivi** : `docs/rapports/SUIVI-CORRECTIONS-ROOSYNC-2025-11-28.md`
+1. **Tableau de suivi** : `docs/rapports/2025-11-28_002_ROOSYNC-SUIVI-CORRECTIONS-ROOSYNC.md`
    - Tracking temps réel des corrections
    - Timeline et responsabilités
    - Points de vigilance
 
-2. **Rapport d'orchestration** : `docs/rapports/RAPPORT-ORCHESTRATION-ROOSYNC-2025-11-28.md`
+2. **Rapport d'orchestration** : `docs/rapports/2025-11-28_003_ROOSYNC-RAPPORT-ORCHESTRATION-ROOSYNC.md`
    - Synthèse complète de l'opération
    - Métriques et performance
    - Leçons apprises
