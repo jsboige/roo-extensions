@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "timestamp": "2025-11-30T14:21:00Z",
+    "sender": "Roo-Coordinator",
+    "recipient": "myia-web1",
+    "type": "MISSION_ORDER",
+    "priority": "HIGH",
+    "status": "pending"
+  },
+  "content": {
+    "subject": "MISSION WEB - Documentation SDDD & Tests E2E",
+    "body": "Mettre à jour la documentation SDDD pour refléter l'état post-stabilisation. Adapter les tests E2E pour gérer les orphelins.",
+    "tasks": [
+      {
+        "id": "WEB-01",
+        "description": "Mettre à jour documentation SDDD (état post-stabilisation)"
+      },
+      {
+        "id": "WEB-02",
+        "description": "Adapter tests E2E pour gestion des orphelins"
+      }
+    ]
+  }
+}
