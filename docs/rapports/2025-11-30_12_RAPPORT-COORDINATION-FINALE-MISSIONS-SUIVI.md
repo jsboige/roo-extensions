@@ -16,9 +16,9 @@
 - **Durée d'exécution** : 12.61s
 
 ### 🚀 Missions de Suivi Déployées
-- **Messages envoyés** : 2/2 (100%)
-- **Agents actifs** : 2/2 (myia-po-2026, myia-po-2024)
-- **Charge totale** : 136 tests répartis intelligemment
+- **Messages envoyés** : 4/4 (100%)
+- **Agents actifs** : 4/4 (myia-po-2026, myia-po-2024, myia-ai-01, myia-web1)
+- **Charge totale** : 141 tests répartis intelligemment
 - **Délai de résolution** : 96h (4 jours)
 
 ---
@@ -26,71 +26,79 @@
 ## 🤖 DÉTAIL DES MISSIONS ENVOYÉES
 
 ### 1. 🚀 **myia-po-2026** - Mission XML/Hiérarchie/Configuration
-**ID Message :** `msg-20251130T114851-ocpzvh`  
-**Priorité :** ⚠️ HIGH  
-**Statut :** ✅ ENVOYÉ - EN COURS  
-**Date limite :** 4 décembre 2025 12:48 UTC  
+**ID Message :** `msg-20251130T131916-q3u4cx` (Dérogation)
+**Priorité :** 🔥 URGENT
+**Statut :** ✅ ENVOYÉ - EN COURS (Dérogation accordée)
+**Date limite :** 4 décembre 2025 12:48 UTC
 
 #### 📋 Charge de Travail
-- **Total tests** : 78 (57% des échecs)
+- **Total tests** : ~43 (Parsing XML + Hiérarchie)
 - **Compétences** : Expert en XML, hiérarchie, et parsing
 
 #### 🎯 Missions Détaillées
-1. **Correction des problèmes de parsing XML** (47 tests)
-   - `tests/unit/services/xml-parsing.test.ts` (14 tests)
-   - `tests/unit/utils/xml-parsing.test.ts` (13 tests)
-   - Tests d'intégration XML complexes (20 tests)
+1. **Correction des problèmes de parsing XML** (Priorité 1)
+   - **DÉROGATION ACCORDÉE** : Autorisation de modifier `xml-parsing.ts` pour corriger les balises multiples et le BOM.
+   - *Condition* : Tests unitaires obligatoires avant modification.
 
-2. **Correction des problèmes de hiérarchie** (11 tests)
-   - `tests/unit/services/hierarchy-reconstruction-engine.test.ts` (7 tests)
-   - `tests/unit/utils/controlled-hierarchy-reconstruction-fix.test.ts` (4 tests)
-
-3. **Correction des problèmes de configuration** (10 tests)
-   - `tests/unit/tools/manage-mcp-settings.test.ts` (6 tests)
-   - `tests/unit/utils/roosync-parsers.test.ts` (4 tests)
-
-4. **Correction des problèmes de timestamp** (4 tests)
-   - `tests/unit/utils/timestamp-parsing.test.ts` (4 tests)
-
-5. **Tests de validation additionnels** (6 tests)
-   - Tests de synthèse et validation restants
+2. **Correction des problèmes de hiérarchie** (Priorité 2)
+   - **CODE FREEZE STRICT** : Interdiction de modifier `HierarchyReconstructionEngine.ts`.
+   - Corrections via configuration/données uniquement.
 
 #### ⏰ Calendrier Prévisionnel
-- **Phase 1 (0-48h)** : Réduire de 78 à < 25 échecs
-- **Phase 2 (48-72h)** : Atteindre < 10 échecs
-- **Phase 3 (72-96h)** : < 3 échecs et stabilisation
+- **Phase 1 (0-48h)** : Résolution des bugs de parsing XML critiques.
+- **Phase 2 (48-72h)** : Stabilisation hiérarchique hors moteur gelé.
 
 ---
 
-### 2. 🔧 **myia-po-2024** - Mission Mocking/Qdrant
-**ID Message :** `msg-20251130T114921-3s0zt5`  
-**Priorité :** ⚠️ HIGH  
-**Statut :** ✅ ENVOYÉ - EN COURS  
-**Date limite :** 4 décembre 2025 12:49 UTC  
+### 2. 🔧 **myia-po-2024** - Mission Mocking/Infra
+**ID Message :** `msg-20251130T131946-lss64c`
+**Priorité :** 🔥 URGENT (CRITIQUE)
+**Statut :** ✅ ENVOYÉ - EN COURS
+**Date limite :** 4 décembre 2025 12:49 UTC
 
 #### 📋 Charge de Travail
-- **Total tests** : 58 (43% des échecs)
-- **Compétences** : Expert en mocking, Qdrant, et synthèse
-
-#### ✅ Récentes Réussites Reconnaissances
-- **Refactorisation SynthesisOrchestrator** : 24/24 tests réussis
-- **Tests d'intégration** : 18/18 tests réussis
-- **Impact mesuré** : +8.7% d'amélioration globale
+- **Total tests** : ~60 (42% des échecs)
+- **Compétences** : Expert en mocking Vitest et Infrastructure
 
 #### 🎯 Missions Détaillées
-1. **Correction des problèmes de mocking Vitest** (54 tests)
-   - `src/services/__tests__/MessageManager.test.ts` (31 tests)
-   - `tests/unit/services/BaselineService.test.ts` (10 tests)
-   - Mocks de services et utilitaires (13 tests)
-
-2. **Correction des problèmes Qdrant/Vectorisation** (4 tests)
-   - `tests/unit/services/task-indexer-vector-validation.test.ts` (2 tests)
-   - `tests/unit/services/task-indexer.test.ts` (2 tests)
+1. **Réparation des Mocks Vitest** (Priorité Absolue)
+   - Ajouter les exports manquants (`promises`, `rmSync`) au mock `fs`.
+   - Ajouter les exports manquants (`default`, `normalize`) au mock `path`.
+   - *Impact* : Débloquer `MessageManager` et `BaselineService`.
 
 #### ⏰ Calendrier Prévisionnel
-- **Phase 1 (0-48h)** : Réduire de 58 à < 20 échecs
-- **Phase 2 (48-72h)** : Atteindre < 8 échecs
-- **Phase 3 (72-96h)** : < 2 échecs et stabilisation
+- **Phase 1 (0-24h)** : Réparation immédiate des mocks globaux.
+
+---
+
+### 3. 🧠 **myia-ai-01** - Mission Recherche Sémantique
+**ID Message :** `msg-20251130T131958-1v007j`
+**Priorité :** ⚠️ MEDIUM
+**Statut :** ✅ ENVOYÉ - EN COURS
+
+#### 📋 Charge de Travail
+- **Total tests** : ~9 échecs
+- **Compétences** : Qdrant, Recherche Sémantique
+
+#### 🎯 Missions Détaillées
+1. **Diagnostic Qdrant** : Investiguer les résultats vides.
+2. **Correction Filtres** : Valider `conversation_id` et `workspace`.
+3. **Documentation** : Mettre à jour la doc technique.
+
+---
+
+### 4. 🌐 **myia-web1** - Mission Documentation & E2E
+**ID Message :** `msg-20251130T131928-smj92w`
+**Priorité :** ⚠️ HIGH
+**Statut :** ✅ ENVOYÉ - EN COURS
+
+#### 📋 Charge de Travail
+- **Total tests** : ~14 échecs (Intégration/Config)
+- **Compétences** : SDDD, Tests E2E, Documentation
+
+#### 🎯 Missions Détaillées
+1. **Documentation (SDDD)** : Consolider la "Vérité Terrain" du moteur hiérarchique.
+2. **Tests E2E** : Adapter les tests pour tolérer les orphelins.
 
 ---
 
@@ -99,12 +107,16 @@
 ### 🏆 **Performance et Spécialisations**
 | Agent | Charge | Spécialisation | État Actuel | Disponibilité |
 |--------|--------|----------------|--------------|---------------|
-| **myia-po-2026** | 78 tests | XML/Hiérarchie/Config | ✅ Mission active | 🟢 Immédiate |
-| **myia-po-2024** | 58 tests | Mocking/Qdrant/Synthèse | ✅ Mission active | 🟢 Immédiate |
+| **myia-po-2026** | ~43 tests | XML/Hiérarchie | ✅ Dérogation XML | 🟢 Immédiate |
+| **myia-po-2024** | ~60 tests | Mocking/Infra | ✅ Mission Critique | 🟢 Immédiate |
+| **myia-ai-01** | ~9 tests | Sémantique/Qdrant | ✅ Mission Active | 🟢 Immédiate |
+| **myia-web1** | ~14 tests | SDDD/E2E | ✅ Mission Active | 🟢 Immédiate |
 
 ### 🎯 **Expertises Identifiées**
-- **myia-po-2026** : Expert en parsing XML, reconstruction hiérarchique, configuration système
-- **myia-po-2024** : Expert en mocking Vitest, intégration Qdrant, tests E2E
+- **myia-po-2026** : Expert en parsing XML, reconstruction hiérarchique
+- **myia-po-2024** : Expert en mocking Vitest, infrastructure de test
+- **myia-ai-01** : Expert IA, Qdrant, Recherche vectorielle
+- **myia-web1** : Expert Documentation (SDDD), Tests d'intégration
 
 ---
 
@@ -180,10 +192,12 @@
 4. **Préparation des messages** : Instructions techniques détaillées
 
 ### 🚀 **Phase 2 : Déploiement des Missions (✅ COMPLÉTÉE)**
-1. **Envoi message myia-po-2026** : 78 tests XML/Hiérarchie/Configuration
-2. **Envoi message myia-po-2024** : 58 tests Mocking/Qdrant
-3. **Confirmation de réception** : Validation des livraisons
-4. **Documentation du processus** : Création du rapport final
+1. **Envoi message myia-po-2026** : Dérogation XML + Mission Hiérarchie
+2. **Envoi message myia-po-2024** : Mission Critique Mocks Vitest
+3. **Envoi message myia-ai-01** : Mission Recherche Sémantique
+4. **Envoi message myia-web1** : Mission SDDD & E2E
+5. **Confirmation de réception** : Validation des livraisons
+6. **Documentation du processus** : Création du rapport final
 
 ### 📊 **Phase 3 : Suivi Actif (🔄 EN COURS)**
 1. **Monitoring quotidien** : Vérification des progrès
@@ -271,8 +285,10 @@ Avec l'expertise des agents et la coordination établie :
 ## 📞 CONTACT ET COORDINATION
 
 ### 🤖 **Agents en Mission**
-- **myia-po-2026** : `msg-20251130T114851-ocpzvh` (XML/Hiérarchie)
-- **myia-po-2024** : `msg-20251130T114921-3s0zt5` (Mocking/Qdrant)
+- **myia-po-2026** : `msg-20251130T131916-q3u4cx` (XML/Hiérarchie - Dérogation)
+- **myia-po-2024** : `msg-20251130T131946-lss64c` (Mocking/Infra - Critique)
+- **myia-ai-01** : `msg-20251130T131958-1v007j` (Sémantique)
+- **myia-web1** : `msg-20251130T131928-smj92w` (SDDD/E2E)
 
 ### 📋 **Coordination**
 - **Lead/Coordinateur** : myia-po-2023
