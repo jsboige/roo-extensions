@@ -1,4 +1,4 @@
-﻿# Index de Navigation - Documentation Roo Extensions
+# Index de Navigation - Documentation Roo Extensions
 
 **Date de generation** : 2025-10-25 01:58:02  
 **Version** : 2.0 (SDDD Organisee)  

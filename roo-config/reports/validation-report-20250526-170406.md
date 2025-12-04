@@ -1,4 +1,4 @@
-﻿# Rapport de Validation - Configuration RefactorisÃ©e
+# Rapport de Validation - Configuration RefactorisÃ©e
 
 **Date**: 26/05/2025 17:04:06
 **Fichier**: roo-modes/configs/refactored-modes.json

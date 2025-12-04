@@ -1,4 +1,4 @@
-﻿---
+---
 # Rapport de Diagnostic et RÃ©paration mcp_settings.json
 **Date:** 2025-10-18 18:59:03
 **Fichier:** C:\Users\Administrator\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json

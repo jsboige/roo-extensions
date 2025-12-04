@@ -91,13 +91,13 @@ function Write-RepairOutput {
         [string]$Type = "Info",
         [switch]$NoNewline
     )
-    
+
     $color = $Script:Colors[$Type]
     if (-not $color) { $color = $Script:Colors.Default }
-    
+
     $timestamp = Get-Date -Format "HH:mm:ss"
     $prefix = "[$timestamp]"
-    
+
     if ($NoNewline) {
         Write-Host "$prefix $Message" -ForegroundColor $color -NoNewline
     } else {
@@ -110,7 +110,7 @@ function Write-VerboseRepair {
         [string]$Message,
         [string]$Type = "Info"
     )
-    
+
     if ($Verbose) {
         Write-RepairOutput $Message $Type
     }
@@ -120,9 +120,9 @@ function New-BackupFile {
     param(
         [string]$FilePath
     )
-    
+
     if (-not $Backup) { return $null }
-    
+
     try {
         $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
         $backupPath = "$FilePath.backup-$timestamp"
@@ -139,7 +139,7 @@ function New-BackupFile {
 
 function Test-FileHasBOM {
     param([string]$FilePath)
-    
+
     try {
         $bytes = [System.IO.File]::ReadAllBytes($FilePath)
         if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
@@ -162,28 +162,28 @@ function Remove-FileBOM {
         [string]$FilePath,
         [string]$BOMType
     )
-    
+
     try {
         $bytes = [System.IO.File]::ReadAllBytes($FilePath)
         $bytesToRemove = 0
-        
+
         switch ($BOMType) {
             "UTF-8" { $bytesToRemove = 3 }
             "UTF-16 LE" { $bytesToRemove = 2 }
             "UTF-16 BE" { $bytesToRemove = 2 }
         }
-        
+
         if ($bytesToRemove -gt 0 -and $bytes.Length -ge $bytesToRemove) {
             $contentWithoutBOM = $bytes[$bytesToRemove..($bytes.Length - 1)]
-            
+
             if (-not $WhatIf) {
                 [System.IO.File]::WriteAllBytes($FilePath, $contentWithoutBOM)
             }
-            
+
             $Script:RepairStats.BOMsRemoved++
             return $true
         }
-        
+
         return $false
     } catch {
         Write-RepairOutput "Erreur lors de la suppression du BOM dans $FilePath : $_" "Error"
@@ -194,23 +194,23 @@ function Remove-FileBOM {
 
 function Repair-FileCRLF {
     param([string]$FilePath)
-    
+
     try {
         $content = Get-Content -Path $FilePath -Raw -ErrorAction SilentlyContinue
-        
+
         if ($content -match "\r\n") {
             $fixedContent = $content -replace "\r\n", "`n"
-            
+
             if (-not $WhatIf) {
                 # Écrire le contenu sans BOM UTF-8
                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                 [System.IO.File]::WriteAllText($FilePath, $fixedContent, $utf8NoBom)
             }
-            
+
             $Script:RepairStats.CRLFsFixed++
             return $true
         }
-        
+
         return $false
     } catch {
         Write-RepairOutput "Erreur lors de la correction CRLF dans $FilePath : $_" "Error"
@@ -221,16 +221,16 @@ function Repair-FileCRLF {
 
 function Repair-FileEncoding {
     param([string]$FilePath)
-    
+
     try {
         $content = Get-Content -Path $FilePath -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
         $originalContent = $content
-        
+
         # Dictionnaire des corrections d'encodage communes
         $encodingFixes = @{
             # Caractères français mal encodés
             "Ã©" = "é"
-            "Ã¨" = "è" 
+            "Ã¨" = "è"
             "Ãª" = "ê"
             "Ã " = "à"
             "Ã§" = "ç"
@@ -240,40 +240,29 @@ function Repair-FileEncoding {
             "Ã¹" = "ù"
             "Ã»" = "û"
             "Ã¢" = "â"
-            
+
             # Caractères majuscules
             "Ã‰" = "É"
             "Ãˆ" = "È"
             "ÃŠ" = "Ê"
             "Ã€" = "À"
             "Ã‡" = "Ç"
-            "Ã"" = "Ô"
+            # "Ã”" = "Ô" - Commenté pour éviter erreur parsing
             "ÃŽ" = "Î"
             "Ã™" = "Ù"
             "Ã›" = "Û"
             "Ã‚" = "Â"
-            
-            # Autres caractères spéciaux
-            "â€™" = "'"  # Apostrophe typographique
-            "â€œ" = '"'  # Guillemet ouvrant
-            "â€" = '"'   # Guillemet fermant
-            "â€"" = "—"  # Tiret em
-            "â€"" = "–"  # Tiret en
-            "â€¦" = "…"  # Points de suspension
-            "Â°" = "°"   # Degré
-            "Â®" = "®"   # Marque déposée
-            "â„¢" = "™"  # Trademark
         }
-        
+
         $hasChanges = $false
-        
+
         foreach ($wrong in $encodingFixes.Keys) {
             if ($content.Contains($wrong)) {
                 $content = $content.Replace($wrong, $encodingFixes[$wrong])
                 $hasChanges = $true
             }
         }
-        
+
         # Corrections spéciales pour les emojis mal encodés
         $emojiPattern = "ðŸ.*?ðŸ"
         if ($content -match $emojiPattern) {
@@ -281,18 +270,18 @@ function Repair-FileEncoding {
             # car c'est plus complexe
             Write-RepairOutput "[WARNING] Emojis mal encodés détectés dans $FilePath - correction manuelle recommandée" "Warning"
         }
-        
+
         if ($hasChanges) {
             if (-not $WhatIf) {
                 # Écrire le contenu corrigé sans BOM UTF-8
                 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
                 [System.IO.File]::WriteAllText($FilePath, $content, $utf8NoBom)
             }
-            
+
             $Script:RepairStats.EncodingsCorrected++
             return $true
         }
-        
+
         return $false
     } catch {
         Write-RepairOutput "Erreur lors de la correction d'encodage dans $FilePath : $_" "Error"
@@ -303,47 +292,48 @@ function Repair-FileEncoding {
 
 function Repair-SingleFile {
     param([System.IO.FileInfo]$File)
-    
+
     $relativePath = $File.FullName.Replace((Get-Location).Path, "").TrimStart('\', '/')
     $Script:RepairStats.FilesScanned++
-    
+
     Write-VerboseRepair "Analyse de: $relativePath" "Info"
-    
+
     $modifications = @()
     $needsBackup = $false
-    
+
     # Vérifications préliminaires
     $bomInfo = Test-FileHasBOM -FilePath $File.FullName
     $content = Get-Content -Path $File.FullName -Raw -ErrorAction SilentlyContinue
     $hasCRLF = $content -match "\r\n"
-    
+
     # Déterminer les actions nécessaires
     $actions = @()
-    
+
     if (($All -or $FixBOM) -and $bomInfo.HasBOM) {
         $actions += "REMOVE_BOM"
         $modifications += "BOM $($bomInfo.Type)"
     }
-    
+
     if (($All -or $FixCRLF) -and $hasCRLF) {
-        $actions += "FIX_CRLF" 
+        $actions += "FIX_CRLF"
         $modifications += "CRLF→LF"
     }
-    
+
     if (($All -or $FixEncoding)) {
         # Test rapide pour voir s'il y a des caractères mal encodés
-        $hasEncodingIssues = $content -match "(Ã[©¨ª §´®¯¹»â€]|â€[™œ"—–¦])"
+        # Simplifié pour éviter les erreurs de parsing
+        $hasEncodingIssues = $content -match "Ã[©¨ª]"
         if ($hasEncodingIssues) {
             $actions += "FIX_ENCODING"
             $modifications += "Caractères"
         }
     }
-    
+
     if ($actions.Count -eq 0) {
         Write-VerboseRepair "  → Aucune modification nécessaire" "Success"
         return
     }
-    
+
     # Afficher les modifications prévues
     $actionText = $modifications -join ", "
     if ($WhatIf) {
@@ -352,12 +342,12 @@ function Repair-SingleFile {
     } else {
         Write-RepairOutput "RÉPARATION → $relativePath : $actionText" "Info"
     }
-    
+
     # Créer une sauvegarde si nécessaire
     $backupPath = New-BackupFile -FilePath $File.FullName
-    
+
     $fileModified = $false
-    
+
     # Appliquer les réparations
     foreach ($action in $actions) {
         switch ($action) {
@@ -367,14 +357,14 @@ function Repair-SingleFile {
                     $fileModified = $true
                 }
             }
-            
+
             "FIX_CRLF" {
                 if (Repair-FileCRLF -FilePath $File.FullName) {
                     Write-VerboseRepair "  → CRLF convertis en LF" "Success"
                     $fileModified = $true
                 }
             }
-            
+
             "FIX_ENCODING" {
                 if (Repair-FileEncoding -FilePath $File.FullName) {
                     Write-VerboseRepair "  → Caractères mal encodés corrigés" "Success"
@@ -383,7 +373,7 @@ function Repair-SingleFile {
             }
         }
     }
-    
+
     if ($fileModified) {
         $Script:RepairStats.FilesModified++
         Write-VerboseRepair "  ✅ Fichier réparé avec succès" "Success"
@@ -397,18 +387,18 @@ function Get-FilesToProcess {
         [string]$SearchPath,
         [string[]]$Patterns
     )
-    
+
     $allFiles = @()
-    
+
     try {
         foreach ($pattern in $Patterns) {
             $files = Get-ChildItem -Path $SearchPath -Filter $pattern -Recurse -File -ErrorAction SilentlyContinue
             $allFiles += $files
         }
-        
+
         # Supprimer les doublons par chemin complet
         $uniqueFiles = $allFiles | Sort-Object FullName -Unique
-        
+
         return $uniqueFiles
     } catch {
         Write-RepairOutput "Erreur lors de la recherche de fichiers : $_" "Error"
@@ -417,12 +407,12 @@ function Get-FilesToProcess {
 }
 
 # =================================================================================================
-# PROGRAMME PRINCIPAL  
+# PROGRAMME PRINCIPAL
 # =================================================================================================
 
 Write-Host ""
 Write-RepairOutput "[TOOL] RÉPARATION UTF-8 CONSOLIDÉE - ROO EXTENSIONS" "Header"
-Write-RepairOutput "Version 3.0 - Réparation automatique d'encodage" "Header" 
+Write-RepairOutput "Version 3.0 - Réparation automatique d'encodage" "Header"
 Write-RepairOutput "═══════════════════════════════════════════════════" "Header"
 Write-Host ""
 
@@ -438,7 +428,7 @@ if (-not ($All -or $FixBOM -or $FixCRLF -or $FixEncoding)) {
 
 if ($All) {
     $FixBOM = $true
-    $FixCRLF = $true 
+    $FixCRLF = $true
     $FixEncoding = $true
 }
 
@@ -495,7 +485,7 @@ Write-RepairOutput "════════════════════
 
 Write-RepairOutput "✓ Fichiers analysés: $($Script:RepairStats.FilesScanned)" "Info"
 Write-RepairOutput "✓ Fichiers modifiés: $($Script:RepairStats.FilesModified)" "Success"
-Write-RepairOutput "✓ BOMs supprimés: $($Script:RepairStats.BOMsRemoved)" "Success" 
+Write-RepairOutput "✓ BOMs supprimés: $($Script:RepairStats.BOMsRemoved)" "Success"
 Write-RepairOutput "✓ CRLFs corrigés: $($Script:RepairStats.CRLFsFixed)" "Success"
 Write-RepairOutput "✓ Encodages corrigés: $($Script:RepairStats.EncodingsCorrected)" "Success"
 Write-RepairOutput "✓ Sauvegardes créées: $($Script:RepairStats.BackupsCreated)" "Info"
@@ -516,7 +506,7 @@ if ($WhatIf) {
 } else {
     if ($totalIssuesFixed -gt 0) {
         Write-RepairOutput "[TARGET] RÉPARATION RÉUSSIE - $totalIssuesFixed problème(s) corrigé(s)" "Success"
-        
+
         if ($Script:RepairStats.FilesModified -gt 0) {
             Write-RepairOutput "🔄 Redémarrez votre éditeur pour voir les changements" "Info"
         }

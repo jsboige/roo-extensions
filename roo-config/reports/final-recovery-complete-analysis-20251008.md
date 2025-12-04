@@ -1,4 +1,4 @@
-﻿# 🔍 ANALYSE COMPARATIVE - Branche `origin/final-recovery-complete`
+# 🔍 ANALYSE COMPARATIVE - Branche `origin/final-recovery-complete`
 
 **Date d'analyse**: 8 octobre 2025 23:28 (Europe/Paris)  
 **Analyste**: Roo (Mode Code)  

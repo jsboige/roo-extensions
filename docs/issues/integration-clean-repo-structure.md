@@ -1,4 +1,4 @@
-﻿# Issue: Intégration de la branche clean-repo-structure
+# Issue: Intégration de la branche clean-repo-structure
 
 ## Description du problème
 

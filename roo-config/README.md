@@ -1,4 +1,4 @@
-﻿# Outils de configuration et déploiement pour Roo
+# Outils de configuration et déploiement pour Roo
 
 ## Table des matières
 
