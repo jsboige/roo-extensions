@@ -1,0 +1,1 @@
+{"config":{},"inventory":{"cpu":{"cores":8,"model":"test-cpu","threads":8},"disks":[{"device":"C:","free":200000000000,"size":500000000000}],"memory":{"total":16000000000},"os":{"platform":"test-platform"}},"machineId":"test-machine","version":"1.0.0","timestamp":"2025-01-01T00:00:00.000Z","decisions":[],"appliedDecisions":[],"approvedDecisions":[],"pendingDecisions":[]}
