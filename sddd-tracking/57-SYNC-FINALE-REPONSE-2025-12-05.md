@@ -28,9 +28,15 @@
 1.  **Lecture Inbox** :
     - Identification message lancement Phase 2 (`msg-20251205T030342-4m2b9v`).
     - Identification message urgent Cycle 5 (`msg-20251205T021705-kwc1gb`).
+    - Identification message succès v2.1 (`msg-20251205T022156-pxiexi`).
+    - Identification rapport tests (`msg-20251205T010328-n5p7nr`).
+    - Identification validation lancement (`msg-20251205T010057-4eagfa`).
 2.  **Réponse** :
     - Confirmation démarrage Phase 2 envoyée (`msg-20251205T031423-83x2f7`).
-    - Signalement des travaux de stabilisation tests unitaires en cours.
+    - Félicitations succès v2.1 envoyées (`msg-20251205T031540-tj5eht`).
+    - Accusé réception rapport tests (échec mineur noté) (`msg-20251205T031558-irxkwz`).
+    - Accusé réception validation lancement (`msg-20251205T031617-15pv97`).
+    - Message test broadcast marqué comme lu.
 
 ## 3. Prochaines Étapes (Recommandations Orchestrateur)
 1.  **Priorité P0** : Finaliser les réparations de tests unitaires (Cycle 5) demandées dans `msg-20251205T021705-kwc1gb`.
