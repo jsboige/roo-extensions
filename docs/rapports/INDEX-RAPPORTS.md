@@ -8,7 +8,7 @@
 
 ## 📊 STATISTIQUES
 
-- **Total de rapports :** 34
+- **Total de rapports :** 46
 - **Période couverte :** 21 mai 2025 - 28 novembre 2025
 - **Catégories identifiées :** WEB, MCP, DEPLOIEMENT, CONFIG, SYNTHESE, README, MISSION, VALIDATION, GIT, ETAT, ORCHESTRATION, CACHE, ROOSYNC
 
@@ -200,6 +200,14 @@
 
 44. **[59-RAPPORT-LOOP2-CYCLE5-2025-12-05.md](59-RAPPORT-LOOP2-CYCLE5-2025-12-05.md)**
     - Rapport Loop 2 Cycle 5
+    - Catégorie : LOOP
+
+45. **[60-RAPPORT-LOOP3-CYCLE5-2025-12-05.md](60-RAPPORT-LOOP3-CYCLE5-2025-12-05.md)**
+    - Rapport Loop 3 Cycle 5
+    - Catégorie : LOOP
+
+46. **[61-RAPPORT-LOOP4-CYCLE5-2025-12-05.md](61-RAPPORT-LOOP4-CYCLE5-2025-12-05.md)**
+    - Rapport Loop 4 Cycle 5
     - Catégorie : LOOP
 
 ---
