@@ -1,4 +1,4 @@
-﻿# INDEX CENTRALISE DE LA DOCUMENTATION
+# INDEX CENTRALISE DE LA DOCUMENTATION
 **Genere le :** 2025-10-22 10:09:10
 **Script :** cleanup-documentation.ps1
 

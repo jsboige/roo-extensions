@@ -1,0 +1,44 @@
+{
+  "ConflictCount": 0,
+  "Timestamp": "2025-12-05T01:48:45.6103050+01:00",
+  "TotalOperations": 4,
+  "Details": [
+    {
+      "Iteration": 1,
+      "Machine": "myia-ai-01",
+      "Status": "SUCCESS",
+      "Timestamp": "2025-12-05T01:48:44.9059266+01:00",
+      "PSComputerName": "localhost",
+      "RunspaceId": "c8543dbd-ac93-4860-b562-b8707264c125",
+      "PSShowComputerName": false
+    },
+    {
+      "Iteration": 2,
+      "Machine": "myia-ai-01",
+      "Status": "SUCCESS",
+      "Timestamp": "2025-12-05T01:48:45.0756878+01:00",
+      "PSComputerName": "localhost",
+      "RunspaceId": "c8543dbd-ac93-4860-b562-b8707264c125",
+      "PSShowComputerName": false
+    },
+    {
+      "Iteration": 1,
+      "Machine": "myia-po-2024",
+      "Status": "SUCCESS",
+      "Timestamp": "2025-12-05T01:48:44.9997304+01:00",
+      "PSComputerName": "localhost",
+      "RunspaceId": "85d50f5f-e64a-41a6-92f4-be629d392167",
+      "PSShowComputerName": false
+    },
+    {
+      "Iteration": 2,
+      "Machine": "myia-po-2024",
+      "Status": "SUCCESS",
+      "Timestamp": "2025-12-05T01:48:45.3882517+01:00",
+      "PSComputerName": "localhost",
+      "RunspaceId": "85d50f5f-e64a-41a6-92f4-be629d392167",
+      "PSShowComputerName": false
+    }
+  ],
+  "SuccessCount": 4
+}

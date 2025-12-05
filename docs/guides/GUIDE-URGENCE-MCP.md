@@ -1,4 +1,4 @@
-﻿# 🚨 GUIDE D'URGENCE - Panne MCPs dans Roo
+# 🚨 GUIDE D'URGENCE - Panne MCPs dans Roo
 
 ## SYMPTÔMES DE LA PANNE
 - Aucun MCP n'apparaît dans Roo

@@ -1,4 +1,4 @@
-﻿# Script de récupération sélective des ajouts de la branche final-recovery-complete
+# Script de récupération sélective des ajouts de la branche final-recovery-complete
 # Date: 2025-10-08
 # Objectif: Récupérer UNIQUEMENT les fichiers ajoutés (pas les suppressions)
 # SÉCURITÉ: Ne touche PAS aux fichiers existants dans main

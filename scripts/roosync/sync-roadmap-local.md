@@ -1,4 +1,4 @@
-﻿<!-- DECISION_BLOCK_START -->
+<!-- DECISION_BLOCK_START -->
 **ID:** `34d26e8b-fc1c-4c7c-b7c0-df8b5037b4f8`
 **Titre:** Configuration des modes Roo différente entre machines
 **Statut:** approved

@@ -1,4 +1,4 @@
-﻿# RAPPORT D'AUDIT QUICKFILES
+# RAPPORT D'AUDIT QUICKFILES
 
 **Genere le :** 2025-10-22 11:18:52
 **Script :** optimize-quickfiles-simple.ps1

@@ -1,4 +1,4 @@
-﻿# Phase 3B - Analyse du Système de Diff
+# Phase 3B - Analyse du Système de Diff
 
 **Date**: 2025-11-10 00:53:59  
 **Score de conformité**: 66.67%  

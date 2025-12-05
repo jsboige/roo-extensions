@@ -1,4 +1,4 @@
-﻿[00:46:14] [SECTION] --- Recherche de fichiers temporaires (Mode: Safe) ---
+[00:46:14] [SECTION] --- Recherche de fichiers temporaires (Mode: Safe) ---
 [00:46:15] [INFO] Aucun fichier temporaire trouvÃ©.
 [00:46:15] [SECTION] --- Recherche d'anciennes sauvegardes (plus de 7 jours) ---
 [00:46:15] [INFO] Aucune sauvegarde ancienne trouvÃ©e.
