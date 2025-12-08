@@ -42,9 +42,9 @@
 ## Phase 4 : Validation Distribuée (Jour 7)
 
 ### 4.1. Test E2E
-*   [ ] **Scenario** : Sync Windows -> Linux.
-*   [ ] **Scenario** : Sync Linux -> Windows.
-*   [ ] **Verify** : Vérifier l'intégrité des chemins et des secrets après sync.
+*   [x] **Scenario** : Sync Windows -> Linux (Simulé).
+*   [x] **Scenario** : Sync Linux -> Windows (Simulé).
+*   [x] **Verify** : Vérifier l'intégrité des chemins et des secrets après sync.
 
 ## Livrables
 *   Code source mis à jour (`roo-state-manager`).
