@@ -1,67 +1,52 @@
-# Plan d'Action - Cycle 7 : Implémentation Normalisation & Synchronisation
+# Plan d'Action - Cycle 7 : Implémentation Normalisation & Sync
 
 **Date** : 2025-12-08
-**Auteur** : Roo (Architecte)
-**Statut** : Validé
-**Référence** : Cycle 7
+**Objectif** : Rendre la synchronisation RooSync intelligente et sûre.
 
-## Objectif Global
-Rendre le système RooSync v2.1 capable de synchroniser des configurations entre environnements hétérogènes de manière fiable, sécurisée et transparente.
+## Phase 1 : Normalisation Avancée (Jours 1-2)
 
-## Phase 1 : Fondation de la Normalisation (Jours 1-2)
+### 1.1. Amélioration `ConfigNormalizationService`
+*   [ ] **Refactor** : Extraire la logique de détection de chemin dans une classe dédiée `PathNormalizer`.
+*   [ ] **Feature** : Support des variables d'environnement étendues (`%APPDATA%`, `%LOCALAPPDATA%`, `$HOME`, `$XDG_CONFIG_HOME`).
+*   [ ] **Feature** : Normalisation des chemins relatifs complexes (`./`, `../`).
+*   [ ] **Test** : Ajouter des cas de tests pour les chemins mixtes Windows/Linux.
 
-Cette phase se concentre sur la création du service de normalisation et son intégration dans le flux de collecte.
+### 1.2. Gestion des Secrets
+*   [ ] **Feature** : Implémenter `SecretDetector` pour identifier les clés sensibles (regex, entropie).
+*   [ ] **Feature** : Créer un mécanisme de `SecretVault` (interface) pour stocker/récupérer les secrets locaux.
+*   [ ] **Test** : Vérifier qu'aucun secret ne fuite dans la sortie normalisée.
 
-*   **Tâche 1.1 : Création de `NormalizationService`**
-    *   Implémenter la classe `NormalizationService`.
-    *   Implémenter les regex de détection/remplacement de chemins (`%USERPROFILE%`, `%ROO_ROOT%`).
-    *   Implémenter la détection basique de secrets (clés API).
-    *   *Livrable* : `NormalizationService.ts` + Tests unitaires.
+## Phase 2 : Moteur de Diff Granulaire (Jours 3-4)
 
-*   **Tâche 1.2 : Intégration dans `ConfigSharingService` (Collecte)**
-    *   Modifier `collectConfig` pour utiliser `NormalizationService.normalize()`.
-    *   Mettre à jour les tests de collecte pour vérifier que les fichiers produits sont bien normalisés.
-    *   *Livrable* : `ConfigSharingService.ts` mis à jour.
+### 2.1. Service de Diff
+*   [ ] **Create** : `ConfigDiffService.ts`.
+*   [ ] **Algo** : Implémenter la comparaison récursive d'objets JSON.
+*   [ ] **Feature** : Détection des types de changements (Add, Modify, Delete).
+*   [ ] **Feature** : Gestion des tableaux (comparaison par identité vs position).
 
-*   **Tâche 1.3 : Intégration dans `ConfigSharingService` (Application)**
-    *   Modifier `applyConfig` pour utiliser `NormalizationService.denormalize()`.
-    *   Implémenter la logique de reconstruction des chemins absolus.
-    *   *Livrable* : `ConfigSharingService.ts` mis à jour.
+### 2.2. Rapport de Diff
+*   [ ] **Struct** : Définir l'interface `DiffReport`.
+*   [ ] **Feature** : Génération de rapports lisibles (JSON/Markdown).
+*   [ ] **Test** : Valider la détection de changements sur des configs réelles.
 
-## Phase 2 : Moteur de Synchronisation & Diff (Jours 3-4)
+## Phase 3 : Orchestration & Validation (Jours 5-6)
 
-Cette phase vise à rendre le `BaselineService` pleinement opérationnel pour l'application des changements.
+### 3.1. Intégration `ConfigSharingService`
+*   [ ] **Update** : Intégrer `ConfigDiffService` dans le workflow `applyConfig`.
+*   [ ] **Workflow** : Collecte -> Normalisation -> Diff -> (Validation) -> Application.
 
-*   **Tâche 2.1 : Finalisation de `BaselineService`**
-    *   Implémenter `applyConfigChanges` pour de vrai (lecture fichier -> patch -> écriture).
-    *   Gérer les cas de conflits simples (fichier existant vs nouveau).
-    *   *Livrable* : `BaselineService.ts` fonctionnel.
+### 3.2. Outils CLI/MCP
+*   [ ] **Tool** : `roosync_diff` (Preview des changements).
+*   [ ] **Tool** : `roosync_sync` (Application avec validation).
 
-*   **Tâche 2.2 : Amélioration de `GranularDiffDetector`**
-    *   Ajouter des règles sémantiques pour ignorer les changements non pertinents (ex: ordre des clés JSON).
-    *   Optimiser la détection des déplacements dans les tableaux.
-    *   *Livrable* : `GranularDiffDetector.ts` optimisé.
+## Phase 4 : Validation Distribuée (Jour 7)
 
-## Phase 3 : Validation & Déploiement (Jour 5)
+### 4.1. Test E2E
+*   [ ] **Scenario** : Sync Windows -> Linux.
+*   [ ] **Scenario** : Sync Linux -> Windows.
+*   [ ] **Verify** : Vérifier l'intégrité des chemins et des secrets après sync.
 
-*   **Tâche 3.1 : Tests End-to-End (Local)**
-    *   Simuler deux environnements (dossiers différents) sur la même machine.
-    *   Vérifier le cycle complet Collecte -> Sync -> Application.
-
-*   **Tâche 3.2 : Déploiement Pilote**
-    *   Déployer sur l'Orchestrateur.
-    *   Générer la première "Golden Baseline" normalisée.
-    *   Tenter une synchronisation depuis un agent distant (si disponible).
-
-## Risques & Mitigations
-
-| Risque | Impact | Mitigation |
-| :--- | :--- | :--- |
-| **Corruption de chemins** | Critique (Système inutilisable) | Tests unitaires exhaustifs sur les regex. Backup systématique avant application. |
-| **Perte de secrets** | Élevé (Perte de fonctionnalité) | Ne jamais écraser un secret local par un placeholder vide. Logique de merge intelligente. |
-| **Conflits de version** | Moyen | Le système de Baseline impose une source de vérité unique pour simplifier. |
-
-## Prochaines Étapes Immédiates
-
-1.  Valider ce plan.
-2.  Lancer la Tâche 1.1 (Création `NormalizationService`).
+## Livrables
+*   Code source mis à jour (`roo-state-manager`).
+*   Tests unitaires et d'intégration.
+*   Documentation utilisateur mise à jour.
