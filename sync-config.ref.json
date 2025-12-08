@@ -1,1 +1,38 @@
-{"config":{},"inventory":{"cpu":{"cores":8,"model":"test-cpu","threads":8},"disks":[{"device":"C:","free":200000000000,"size":500000000000}],"memory":{"total":16000000000},"os":{"platform":"test-platform"}},"machineId":"test-machine","version":"1.0.0","timestamp":"2025-01-01T00:00:00.000Z","decisions":[],"appliedDecisions":[],"approvedDecisions":[],"pendingDecisions":[]}
+{
+  "version": "2.1.0",
+  "baselineId": "baseline-1",
+  "machineId": "test-machine",
+  "timestamp": "2025-11-04T01:00:00Z",
+  "machines": [
+    {
+      "machineId": "test-machine",
+      "os": "Windows 11",
+      "architecture": "x64",
+      "roo": {
+        "modes": [
+          "code",
+          "ask"
+        ],
+        "mcpServers": [
+          {
+            "name": "test-server",
+            "enabled": true
+          }
+        ]
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 16,
+          "threads": 32
+        },
+        "memory": {
+          "total": 32000000000
+        }
+      },
+      "software": {
+        "node": "18.17.0",
+        "python": "3.11.0"
+      }
+    }
+  ]
+}
