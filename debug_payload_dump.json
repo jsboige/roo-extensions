@@ -1,0 +1,22 @@
+{
+  "payload": {
+    "chunk_id": "352f15af-6d2e-587e-b76a-0dd7de1906aa",
+    "task_id": "046fe4ad-4c31-4301-ab9d-bf5feafa6cef",
+    "parent_task_id": null,
+    "root_task_id": null,
+    "chunk_type": "message_exchange",
+    "sequence_order": 60,
+    "timestamp": "2025-12-08T22:25:14.589Z",
+    "indexed": true,
+    "content": "{\"request\":\"[search_files for 'test_informal_agent\\\\.py|test_utils\\\\.py|test_modal_logic_agent\\\\.py|test_mock_elimination_advanced\\\\.py' in '*.py'] Result:\\n\\nFound 2 results.\\n\\n# tests/validation_sherlock_watson/test_diagnostic.py\\n 38 |     (\\\"Integration Tests\\\", \\\"python -m pytest tests/integration/test_oracle_integration.py --tb=no\\\"),\\n 39 |     (\\\"Logic Tests (sans Tweety)\\\", \\\"python -m pytest tests/agents/core/logic/test_modal_logic_agent.py --tb=no\\\"),\\n 40 | ]\\n----\\n\\n# tests/unit/argumentation_analysis/test_utils_real.py\\n  3 | Tests unitaires RÉELS pour les utilitaires - VERSION AUTHENTIQUE\\n  4 | Remplace test_utils.py qui utilise des mocks\\n  5 | \\\"\\\"\\\"\\n----\\n\\n<environment_details>\\n# VSCode Visible Files\\npytest.ini\\n\\n# VSCode Open Tabs\\n.temp/validation_20250629_14145",
+    "content_summary": "Chunk 1/2: {\"request\":\"[search_files for 'test_informal_agent\\\\.py|test_utils\\\\.py|test_modal_logic_agent\\\\.py|...",
+    "participants": [
+      "user"
+    ],
+    "host_os": "MyIA-AI-01-win32-x64",
+    "chunk_index": 1,
+    "total_chunks": 2,
+    "original_chunk_id": "834c17c3-0ef9-45aa-9af2-862122d8df1f"
+  },
+  "vectorLength": 1536,
+  "pointId": "352f15af-6d2e-587e-b76a-0dd7de
