@@ -33,7 +33,11 @@
       "command": "node ./mcps/internal/servers/quickfiles-server/build/index.js",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
+      "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers",
+      "env": {
+        "QUICKFILES_EXCLUDES": "node_modules,.git,dist,build,coverage,.DS_Store,Thumbs.db",
+        "QUICKFILES_MAX_DEPTH": "5"
+      }
     },
     {
       "name": "jupyter",
@@ -123,7 +127,9 @@
       "command": "cmd /c node ./mcps/internal/servers/roo-state-manager/build/index.js",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo."
+      "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo.",
+      "workingDirectory": "./mcps/internal/servers/roo-state-manager",
+      "envFile": ".env"
     },
     {
       "name": "office-powerpoint",
