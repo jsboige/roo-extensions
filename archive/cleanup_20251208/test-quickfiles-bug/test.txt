@@ -1,6 +1,0 @@
-function oldFunction() {
-  console.log("old function called");
-}
-
-// Appel de oldFunction
-oldFunction();

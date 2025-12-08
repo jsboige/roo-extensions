@@ -1,0 +1,90 @@
+{
+  "baselineId": "baseline-v2.1-unified",
+  "version": "2.1.0-work",
+  "timestamp": "2025-12-08T23:15:00.000Z",
+  "machines": [
+    {
+      "machineId": "myia-ai-01",
+      "description": "Machine Principale (Dev/Architecte)",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 8,
+          "threads": 16
+        },
+        "memory": {
+          "total": 32000000000
+        }
+      },
+      "software": {
+        "node": "v20.10.0",
+        "python": "3.11.0"
+      },
+      "os": "Windows 11",
+      "architecture": "x64"
+    },
+    {
+      "machineId": "myia-po-2023",
+      "description": "Environnement PO 2023",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {},
+      "software": {},
+      "os": "Windows 11",
+      "architecture": "x64"
+    },
+    {
+      "machineId": "myia-po-2024",
+      "description": "Environnement PO 2024",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {},
+      "software": {},
+      "os": "Windows 11",
+      "architecture": "x64"
+    },
+    {
+      "machineId": "myia-po-2025",
+      "description": "Environnement PO 2025",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {},
+      "software": {},
+      "os": "Windows 11",
+      "architecture": "x64"
+    },
+    {
+      "machineId": "myia-po-2026",
+      "description": "Environnement PO 2026",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {},
+      "software": {},
+      "os": "Windows 11",
+      "architecture": "x64"
+    },
+    {
+      "machineId": "myia-web1",
+      "description": "Serveur Web 1",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {},
+      "software": {},
+      "os": "Windows Server 2022",
+      "architecture": "x64"
+    }
+  ]
+}
