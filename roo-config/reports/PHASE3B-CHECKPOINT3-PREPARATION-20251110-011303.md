@@ -1,4 +1,4 @@
-﻿# Plan de Préparation - Checkpoint 3 (Jour 8)
+# Plan de Préparation - Checkpoint 3 (Jour 8)
 
 **ID du Checkpoint:** PHASE3B-CHECKPOINT3  
 **Date de préparation:** 2025-11-10 01:13:03  

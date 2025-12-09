@@ -1,0 +1,32 @@
+{
+  "config": {},
+  "inventory": {
+    "cpu": {
+      "cores": 8,
+      "model": "Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz",
+      "threads": 16
+    },
+    "disks": [
+      {
+        "device": "C:",
+        "free": 200000000000,
+        "size": 500000000000
+      }
+    ],
+    "memory": {
+      "total": 32000000000
+    },
+    "os": {
+      "platform": "win32",
+      "release": "10.0.22631",
+      "type": "Windows_NT"
+    }
+  },
+  "machineId": "myia-po-2023",
+  "version": "1.0.0",
+  "timestamp": "2025-12-05T04:26:00.000Z",
+  "decisions": [],
+  "appliedDecisions": [],
+  "approvedDecisions": [],
+  "pendingDecisions": []
+}

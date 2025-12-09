@@ -1,4 +1,4 @@
-﻿# Rapport du Checkpoint 2 - Phase 3B SDDD
+# Rapport du Checkpoint 2 - Phase 3B SDDD
 
 **ID du Checkpoint:** PHASE3B-CHECKPOINT2  
 **Date:** 2025-11-10 01:09:47  

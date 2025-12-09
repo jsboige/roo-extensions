@@ -1,4 +1,4 @@
-﻿# Phase 3B - Analyse de l'Ã‰tat Actuel du SystÃ¨me de Baseline
+# Phase 3B - Analyse de l'Ã‰tat Actuel du SystÃ¨me de Baseline
 
 **Date** : 2025-11-08 23:04:17  
 **Sous-phase** : 3B (Jours 4-8)  

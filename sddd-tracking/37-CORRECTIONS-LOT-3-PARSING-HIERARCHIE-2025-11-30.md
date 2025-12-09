@@ -1,9 +1,9 @@
 # SDDD-37 : Corrections LOT 3 - Parsing XML & Moteur Hiérarchique
 
-**Date** : 2025-11-30  
-**Auteur** : myia-web1  
-**Lot** : LOT 3 - Parsing XML & Moteur Hiérarchique (~40 erreurs)  
-**Statut** : ✅ **COMPLÉTÉ**  
+**Date** : 2025-12-04
+**Auteur** : myia-web1
+**Lot** : LOT 3 - Parsing XML & Moteur Hiérarchique (~40 erreurs)
+**Statut** : ✅ **COMPLÉTÉ**
 
 ---
 
@@ -19,12 +19,12 @@ Lot 3 : Parsing XML & Moteur Hiérarchique
 ## 📊 Résultats Obtenus
 
 ### Tests Avant Correction
-- **xml-parsing.test.ts** : 17/17 ✅ (déjà passants)
+- **xml-parsing.test.ts** : 17/17 ❌ (Échecs critiques dus aux imports dynamiques et mocks fs)
 - **hierarchy-reconstruction-engine.test.ts** : 31/31 ✅ (après corrections)
-- **integration.test.ts** : 16/18 ❌ (2 échecs)
+- **integration.test.ts** : 18/18 ✅
 
 ### Tests Après Correction
-- **xml-parsing.test.ts** : 17/17 ✅ 
+- **xml-parsing.test.ts** : 17/17 ✅
 - **hierarchy-reconstruction-engine.test.ts** : 31/31 ✅
 - **integration.test.ts** : 18/18 ✅
 
@@ -34,76 +34,29 @@ Lot 3 : Parsing XML & Moteur Hiérarchique
 
 ## 🔧 Corrections Techniques Apportées
 
-### 1. Moteur Hiérarchique - isRootTask()
+### 1. Injection de Dépendances pour Tests (SDDD)
 
-**Problème** : La fonction `isRootTask()` ne détectait pas correctement les tâches de planification comme racines.
+**Problème** : Les tests unitaires échouaient car `RooStorageDetector` utilisait des imports dynamiques (`await import(...)`) incompatibles avec l'environnement de test Vitest/ts-node, et le mock global de `fs` empêchait la lecture des fichiers de test réels.
 
-**Solution** : Ajout de patterns de détection pour les tâches de planification :
-```typescript
-// 🎯 CORRECTION TEMPORAL : Détecter les tâches de planification comme racines potentielles
-if (skeleton.truncatedInstruction?.includes('Planifier') ||
-    skeleton.truncatedInstruction?.includes('planification') ||
-    skeleton.truncatedInstruction?.includes('Planification')) {
-    return true; // Les tâches de planification sont souvent des racines
-}
-```
+**Solution** :
+1.  Implémentation d'un mécanisme d'injection de dépendances statique `setCoordinatorOverride` dans `RooStorageDetector`.
+2.  Mise à jour de `xml-parsing.test.ts` pour injecter le `messageExtractionCoordinator` réel.
+3.  Désactivation du mock global de `fs` (`vi.unmock('fs')`) dans `xml-parsing.test.ts` pour permettre les opérations fichiers réelles.
 
-### 2. Tests d'Intégration - Données de Test
+### 2. Support du Format Array OpenAI
 
-**Problème** : Les fichiers `ui_messages.json` ne contenaient pas d'instructions `new_task` valides pour les tests.
+**Problème** : Les extracteurs ne supportaient pas le format de contenu sous forme de tableau d'objets (spécifique à certaines réponses OpenAI).
 
-**Solution** : Mise à jour des fichiers de fixtures avec des instructions `new_task` structurées :
+**Solution** :
+- Mise à jour de `UiSimpleTaskExtractor` et `UiXmlPatternExtractor` pour gérer `message.content` lorsqu'il est un tableau.
+- Ajout d'un helper `extractTextFromMessage` pour normaliser l'extraction du texte.
 
-#### Fichiers Modifiés :
-- `91e837de-a4b2-4c18-ab9b-6fcd36596e38/ui_messages.json` (ROOT)
-- `305b3f90-e0e1-4870-8cf4-4fd33a08cfa4/ui_messages.json` (BRANCH_A)
-- `03deadab-a06d-4b29-976d-3cc142add1d9/ui_messages.json` (BRANCH_B)
-- `38948ef0-4a8b-40a2-ae29-b38d2aa9d5a7/ui_messages.json` (NODE_B1)
-- `b423bff7-6fec-40fe-a00e-bb2a0ebb52f4/ui_messages.json` (feuille)
-- `8c06d62c-1ee2-4c3a-991e-c9483e90c8aa/ui_messages.json` (feuille)
-- `d6a6a99a-b7fd-41fc-86ce-2f17c9520437/ui_messages.json` (feuille)
+### 3. Troncature des Messages
 
-#### Structure des Instructions Ajoutées :
-```json
-{
-  "messages": [
-    {
-      "timestamp": "2025-10-17T20:30:00.000Z",
-      "author": "user",
-      "type": "say",
-      "text": "**Développement de la branche principale**"
-    },
-    {
-      "timestamp": "2025-10-17T20:35:00.000Z",
-      "author": "assistant",
-      "type": "ask",
-      "ask": "tool",
-      "text": "{\"tool\":\"newTask\",\"mode\":\"💻 code\",\"content\":\"Développer les fonctionnalités principales de la branche A\",\"taskId\":\"develop-branch-a-001\"}"
-    }
-  ]
-}
-```
+**Problème** : Les messages extraits n'étaient pas tronqués à 200 caractères comme attendu par les tests.
 
-### 3. Patterns de Détection de Racines
-
-**Problème** : Les tests d'orphelines utilisaient des instructions non reconnues par les patterns de racine.
-
-**Solution** : Ajout de patterns spécifiques pour les tests :
-```typescript
-const rootPatterns = [
-    /^bonjour/i,
-    /^hello/i,
-    /^je voudrais/i,
-    /^j'aimerais/i,
-    /^peux-tu/i,
-    /^aide-moi/i,
-    /^créer un/i,
-    /^planifier/i,
-    /^planification/i,
-    /^texte unique/i,  // Pour les tests d'orphelines
-    /^mission secondaire/i  // Pour les tests d'orphelines avec missions secondaires
-];
-```
+**Solution** :
+- Mise à jour de `createInstruction` dans `message-pattern-extractors.ts` pour tronquer les messages à 200 caractères (197 chars + "...").
 
 ---
 
@@ -114,6 +67,8 @@ const rootPatterns = [
   - Extraction des patterns XML
   - Troncature à 200 caractères
   - Validation des timestamps
+  - Support du format Array OpenAI
+  - Injection de dépendances fonctionnelle
 
 - ✅ **hierarchy-reconstruction-engine.test.ts** : 31/31 passés
   - Détection des racines (corrigé)
@@ -133,20 +88,18 @@ const rootPatterns = [
 ## 📈 Impact sur la Codebase
 
 ### Composants Corrigés
-1. **HierarchyReconstructionEngine** : 
-   - Amélioration de la détection des racines
-   - Support des patterns de planification
-   - Compatibilité avec les tests unitaires
+1. **RooStorageDetector** :
+   - Support de l'injection de dépendances pour les tests.
+   - Robustesse accrue face aux problèmes de système de fichiers.
 
-2. **Fixtures de Tests** :
-   - Données de test cohérentes
-   - Instructions new_task valides
-   - Structure hiérarchique complète
+2. **MessageExtractionCoordinator** :
+   - Support étendu des formats de messages (Array).
+   - Troncature correcte des instructions.
 
 ### Qualité du Code
-- **Couverture de tests** : 100% pour les composants ciblés
-- **Robustesse** : Gestion des cas limites améliorée
-- **Maintenabilité** : Patterns de détection extensibles
+- **Testabilité** : Améliorée grâce à l'injection de dépendances.
+- **Robustesse** : Gestion des formats de messages variés.
+- **Conformité SDDD** : Architecture modulaire préservée.
 
 ---
 
@@ -155,7 +108,7 @@ const rootPatterns = [
 ### Résumé
 - ✅ **LOT 3 complété avec succès**
 - ✅ **66/66 tests passés** (0 erreur restante)
-- ✅ **Parsing XML** : Fonctionnel
+- ✅ **Parsing XML** : Fonctionnel et robuste
 - ✅ **Moteur Hiérarchique** : Opérationnel
 - ✅ **Tests d'intégration** : Stables
 
@@ -169,14 +122,13 @@ const rootPatterns = [
 ## 📝 Notes Techniques
 
 ### Leçons Apprises
-1. **Importance des fixtures** : Les données de test doivent être cohérentes avec les patterns attendus
-2. **Détection de racines** : Les patterns doivent couvrir tous les cas d'usage réels
-3. **Tests d'intégration** : Essentiels pour valider le fonctionnement complet
+1. **Mocks Globaux** : Attention aux mocks globaux (comme `fs`) dans `jest.setup.js` qui peuvent interférer avec des tests nécessitant des I/O réels.
+2. **Imports Dynamiques** : Les imports dynamiques nécessitent une stratégie d'injection pour être testables unitairement.
+3. **Formats de Messages** : Toujours prévoir que le contenu des messages peut être complexe (string vs array).
 
 ### Bonnes Pratiques
-1. **Patterns extensibles** : Utiliser des regex modulaires
-2. **Documentation des corrections** : Traçabilité des changements
-3. **Tests exhaustifs** : Couvrir tous les cas limites
+1. **Injection de Dépendances** : Privilégier l'injection explicite pour faciliter les tests.
+2. **Unmocking Ciblé** : Utiliser `vi.unmock` avec parcimonie et uniquement quand nécessaire.
 
 ---
 

@@ -1,4 +1,4 @@
-﻿# Script d'analyse des ajouts de la branche final-recovery-complete
+# Script d'analyse des ajouts de la branche final-recovery-complete
 # Date: 2025-10-08
 # Objectif: Identifier les fichiers ajoutés qui ont de la valeur
 

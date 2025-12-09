@@ -1,0 +1,22 @@
+[
+  {
+    "Status": "VALIDATED",
+    "Name": "1. Détection Multi-Niveaux",
+    "Script": "roosync_compare_config"
+  },
+  {
+    "Status": "VALIDATED",
+    "Name": "2. Gestion des Conflits",
+    "Script": "roosync_granular_diff"
+  },
+  {
+    "Status": "VALIDATED",
+    "Name": "3. Workflow d'Approbation",
+    "Script": "roosync_approve_decision"
+  },
+  {
+    "Status": "VALIDATED",
+    "Name": "4. Rollback Sécurisé",
+    "Script": "roosync_rollback_decision"
+  }
+]

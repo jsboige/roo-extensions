@@ -1,1 +1,30 @@
-{"config":{},"inventory":{"cpu":{"cores":8,"model":"test-cpu","threads":8},"disks":[{"device":"C:","free":200000000000,"size":500000000000}],"memory":{"total":16000000000},"os":{"platform":"test-platform"}},"machineId":"test-machine","version":"1.0.0","timestamp":"2025-01-01T00:00:00.000Z","decisions":[],"appliedDecisions":[],"approvedDecisions":[],"pendingDecisions":[]}
+{
+  "baselineId": "baseline-v2.1-initial",
+  "version": "2.1.0",
+  "machineId": "myia-ai-01",
+  "timestamp": "2025-12-08T12:00:00.000Z",
+  "machines": [
+    {
+      "machineId": "myia-ai-01",
+      "roo": {
+        "modes": [],
+        "mcpServers": []
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 8,
+          "threads": 16
+        },
+        "memory": {
+          "total": 32000000000
+        }
+      },
+      "software": {
+        "node": "v20.10.0",
+        "python": "3.11.0"
+      },
+      "os": "Windows 11",
+      "architecture": "x64"
+    }
+  ]
+}

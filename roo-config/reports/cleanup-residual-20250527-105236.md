@@ -1,4 +1,4 @@
-﻿# Rapport de Nettoyage des Fichiers Residuels
+# Rapport de Nettoyage des Fichiers Residuels
 **Date**: 27/05/2025 10:52:37
 **Mode**: DRY-RUN (simulation)
 

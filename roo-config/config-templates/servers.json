@@ -24,7 +24,11 @@
       "command": "cmd /c node c:\\dev\\roo-extensions\\mcps\\mcp-servers\\servers\\quickfiles-server\\build\\index.js",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers"
+      "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers",
+      "env": {
+        "QUICKFILES_EXCLUDES": "node_modules,.git,dist,build,coverage,.DS_Store,Thumbs.db",
+        "QUICKFILES_MAX_DEPTH": "5"
+      }
     },
     {
       "name": "jupyter",

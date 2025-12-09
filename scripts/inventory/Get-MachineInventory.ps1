@@ -14,7 +14,7 @@
 param(
     [Parameter(Mandatory=$false)]
     [string]$MachineId = $env:COMPUTERNAME,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$OutputPath
 )
@@ -83,7 +83,7 @@ try {
                 alwaysAllow = $server.Value.alwaysAllow
             }
             $inventory.inventory.mcpServers += $serverInfo
-            
+
             # FIX LIGNE 82: Remplacement expression inline par structure if/else standard
             if ($serverInfo.enabled) {
                 Write-Host "  OK $($server.Name) [ACTIF]" -ForegroundColor Green
@@ -93,7 +93,7 @@ try {
         }
     } else {
         Write-Host "  Fichier mcp_settings.json non trouve" -ForegroundColor Yellow
-        $inventory.inventory.mcpServers += @{ 
+        $inventory.inventory.mcpServers += @{
             status = "absent"
             path = $McpSettingsPath
         }
@@ -170,7 +170,7 @@ try {
             $scripts = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -Recurse
             $category = $dir.Name
             $inventory.inventory.scripts.categories[$category] = @()
-            
+
             foreach ($script in $scripts) {
                 $scriptInfo = @{
                     name = $script.Name
@@ -182,7 +182,7 @@ try {
                 Write-Host "  OK [$category] $($script.Name)" -ForegroundColor Green
             }
         }
-        
+
         $rootScripts = Get-ChildItem -Path $ScriptsPath -Filter "*.ps1"
         if ($rootScripts.Count -gt 0) {
             $inventory.inventory.scripts.categories["root"] = @()
@@ -312,7 +312,7 @@ try {
     $totalMemory = $memoryInfo.TotalPhysicalMemory
     $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
     $availableMemory = $osInfo.FreePhysicalMemory
-    
+
     $memory = @{
         total = $totalMemory
         available = $availableMemory
@@ -373,7 +373,23 @@ try {
     $os = Get-CimInstance -ClassName Win32_OperatingSystem
     $inventory.inventory.systemInfo.os = "$($os.Caption) $($os.Version)"
     $inventory.inventory.systemInfo.architecture = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "x64" } else { $env:PROCESSOR_ARCHITECTURE }
-    $inventory.inventory.systemInfo.uptime = [math]::Round((Get-Date) - [datetime]::ParseExact($os.LastBootUpTime, "yyyyMMddHHmmss.ffffff+ZZZ", $null))
+
+    # Gestion robuste de LastBootUpTime (CIM retourne DateTime, WMI retourne String)
+    if ($os.LastBootUpTime -is [datetime]) {
+        $lastBoot = $os.LastBootUpTime
+    } else {
+        # Fallback pour format string WMI
+        try {
+            $lastBoot = [Management.ManagementDateTimeConverter]::ToDateTime($os.LastBootUpTime)
+        } catch {
+            # Fallback manuel si le convertisseur échoue
+            $lastBoot = [datetime]::ParseExact($os.LastBootUpTime.Substring(0, 14), "yyyyMMddHHmmss", $null)
+        }
+    }
+
+    $uptime = New-TimeSpan -Start $lastBoot -End (Get-Date)
+    $inventory.inventory.systemInfo.uptime = [math]::Round($uptime.TotalSeconds)
+
     Write-Host "  OK OS: $($os.Caption) $($os.Version)" -ForegroundColor Green
     Write-Host "  OK Architecture: $($inventory.inventory.systemInfo.architecture)" -ForegroundColor Green
 } catch {
