@@ -102,9 +102,11 @@ function Test-Prerequisites {
     Write-Log "Vérification des prérequis..." -Level "INFO"
     
     # Vérifier si le fichier baseline existe
-    $baselinePath = ".shared-state/sync-config.ref.json"
+    $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+    $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
+
     if (-not (Test-Path $baselinePath)) {
-        throw "Aucune baseline trouvée à $baselinePath"
+        throw "Aucune baseline trouvée à $baselinePath (ROOSYNC_SHARED_PATH: $env:ROOSYNC_SHARED_PATH)"
     }
     
     Write-Log "Prérequis validés avec succès" -Level "INFO"
@@ -116,7 +118,8 @@ function Get-BaselineData {
     Write-Log "Récupération des données de baseline..." -Level "INFO"
     
     try {
-        $baselinePath = ".shared-state/sync-config.ref.json"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
         $baselineContent = Get-Content $baselinePath -Raw | ConvertFrom-Json
         
         if ($TargetMachineId -and $baselineContent.machineId -ne $TargetMachineId) {

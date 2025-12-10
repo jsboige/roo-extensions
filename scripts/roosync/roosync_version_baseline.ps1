@@ -121,9 +121,11 @@ function Get-CurrentBaseline {
     Write-Log "Récupération de la baseline actuelle..." -Level "INFO"
     
     try {
-        $baselinePath = ".shared-state/sync-config.ref.json"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
+        
         if (-not (Test-Path $baselinePath)) {
-            throw "Aucune baseline trouvée à $baselinePath"
+            throw "Aucune baseline trouvée à $baselinePath (ROOSYNC_SHARED_PATH: $env:ROOSYNC_SHARED_PATH)"
         }
         
         $baselineContent = Get-Content $baselinePath -Raw
@@ -210,7 +212,8 @@ function Update-Changelog {
     Write-Log "Mise à jour du CHANGELOG-baseline.md..." -Level "INFO"
     
     try {
-        $changelogPath = ".shared-state/CHANGELOG-baseline.md"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $changelogPath = Join-Path $sharedPath "CHANGELOG-baseline.md"
         $changelogContent = ""
         
         # Lire le contenu existant
@@ -273,7 +276,8 @@ function Update-BaselineVersion {
     Write-Log "Mise à jour de la version dans la baseline..." -Level "INFO"
     
     try {
-        $baselinePath = ".shared-state/sync-config.ref.json"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
         $baseline = Get-CurrentBaseline
         
         # Mettre à jour la version
