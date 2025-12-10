@@ -117,9 +117,11 @@ function Get-CurrentBaseline {
     Write-Log "Récupération de la baseline actuelle..." -Level "INFO"
     
     try {
-        $baselinePath = ".shared-state/sync-config.ref.json"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
+        
         if (-not (Test-Path $baselinePath)) {
-            throw "Aucune baseline trouvée à $baselinePath"
+            throw "Aucune baseline trouvée à $baselinePath (ROOSYNC_SHARED_PATH: $env:ROOSYNC_SHARED_PATH)"
         }
         
         $baselineContent = Get-Content $baselinePath -Raw
@@ -227,11 +229,12 @@ function Create-Backup-CurrentBaseline {
     }
     
     try {
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
         $timestamp = Get-Date -Format "yyyy-MM-dd-HH-mm-ss"
-        $backupPath = ".shared-state/.rollback/sync-config.ref.backup.$timestamp.json"
+        $backupDir = Join-Path $sharedPath ".rollback"
+        $backupPath = Join-Path $backupDir "sync-config.ref.backup.$timestamp.json"
         
         # Créer le répertoire de sauvegarde si nécessaire
-        $backupDir = ".shared-state/.rollback"
         if (-not (Test-Path $backupDir)) {
             New-Item -ItemType Directory -Path $backupDir -Force
         }
@@ -266,7 +269,8 @@ function Apply-RestoredBaseline {
     }
     
     try {
-        $baselinePath = ".shared-state/sync-config.ref.json"
+        $sharedPath = if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { ".shared-state" }
+        $baselinePath = Join-Path $sharedPath "sync-config.ref.json"
         
         # Mettre à jour la date de restauration
         $restoredBaseline.lastUpdated = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
