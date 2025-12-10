@@ -1,4 +1,9 @@
 {
   "version": "2.0.0",
-  "sharedStatePath": "${ROO_HOME}/.state"
+  "sharedStatePath": "${ROOSYNC_SHARED_PATH}",
+  "migration": {
+    "source": "myia-po-2023",
+    "date": "2025-12-10",
+    "status": "completed"
+  }
 }
