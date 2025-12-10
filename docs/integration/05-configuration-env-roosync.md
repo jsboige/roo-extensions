@@ -34,7 +34,7 @@
 
 ### 1. ROOSYNC_SHARED_PATH
 - **Type :** string (chemin absolu)
-- **Valeur par défaut :** G:/Mon Drive/Synchronisation/RooSync/.shared-state
+- **Valeur par défaut :** **AUCUNE** (Obligatoire)
 - **Description :** Chemin vers répertoire Google Drive partagé
 - **Validation :** Doit être un chemin absolu existant
 
