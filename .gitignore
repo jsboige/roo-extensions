@@ -80,6 +80,7 @@ yarn-error.log*
 *~
 *.bak
 *.backup
+sync-config.ref.json.backup.*
 
 # Fichiers spécifiques à Roo
 .roo-cache/
