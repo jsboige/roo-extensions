@@ -25,7 +25,7 @@ if (-not $OutputPath) {
 }
 
 # Configuration des chemins
-$RooExtensionsPath = "c:\dev\roo-extensions"
+$RooExtensionsPath = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 $McpSettingsPath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
 $RooConfigPath = "$RooExtensionsPath\roo-config"
 $ScriptsPath = "$RooExtensionsPath\scripts"
@@ -205,199 +205,14 @@ try {
 }
 
 # ===============================
-# 5. Outils installes
+# 5. Outils installes (DESACTIVE POUR EVITER BLOCAGE)
 # ===============================
-Write-Host "`nVerification des outils..." -ForegroundColor Yellow
-
-# FFmpeg
-try {
-    $ffmpegVersion = ffmpeg -version 2>&1 | Select-Object -First 1
-    if ($ffmpegVersion -match "ffmpeg version (.+)") {
-        $inventory.inventory.tools.ffmpeg = @{
-            installed = $true
-            version = $Matches[1]
-            path = (Get-Command ffmpeg).Source
-        }
-        Write-Host "  OK FFmpeg: v$($Matches[1])" -ForegroundColor Green
-    }
-} catch {
-    $inventory.inventory.tools.ffmpeg = @{
-        installed = $false
-        error = "Non installe ou non accessible"
-    }
-    Write-Host "  FFmpeg: Non installe" -ForegroundColor Red
-}
-
-# Git
-try {
-    $gitVersion = git --version 2>&1
-    if ($gitVersion -match "git version (.+)") {
-        $inventory.inventory.tools.git = @{
-            installed = $true
-            version = $Matches[1]
-            path = (Get-Command git).Source
-        }
-        Write-Host "  OK Git: v$($Matches[1])" -ForegroundColor Green
-    }
-} catch {
-    $inventory.inventory.tools.git = @{
-        installed = $false
-    }
-    Write-Host "  Git: Non installe" -ForegroundColor Red
-}
-
-# Node.js
-try {
-    $nodeVersion = node --version 2>&1
-    if ($nodeVersion -match "v(.+)") {
-        $inventory.inventory.tools.node = @{
-            installed = $true
-            version = $Matches[1]
-            path = (Get-Command node).Source
-        }
-        Write-Host "  OK Node.js: v$($Matches[1])" -ForegroundColor Green
-    }
-} catch {
-    $inventory.inventory.tools.node = @{
-        installed = $false
-    }
-    Write-Host "  Node.js: Non installe" -ForegroundColor Red
-}
-
-# Python
-try {
-    $pythonVersion = python --version 2>&1
-    if ($pythonVersion -match "Python (.+)") {
-        $inventory.inventory.tools.python = @{
-            installed = $true
-            version = $Matches[1]
-            path = (Get-Command python).Source
-        }
-        Write-Host "  OK Python: v$($Matches[1])" -ForegroundColor Green
-    }
-} catch {
-    $inventory.inventory.tools.python = @{
-        installed = $false
-    }
-    Write-Host "  Python: Non installe" -ForegroundColor Red
-}
+Write-Host "`nVerification des outils... (SKIP)" -ForegroundColor Yellow
 
 # ===============================
-# 5. Système et Hardware
+# 5. Système et Hardware (DESACTIVE POUR EVITER BLOCAGE)
 # ===============================
-Write-Host "`nCollecte des informations système et matérielles..." -ForegroundColor Yellow
-
-try {
-    # Informations CPU
-    $cpuInfo = Get-CimInstance -ClassName Win32_Processor
-    $cpu = @{
-        name = $cpuInfo.Name
-        cores = $cpuInfo.NumberOfCores
-        threads = $cpuInfo.NumberOfLogicalProcessors
-    }
-    $inventory.inventory.systemInfo.processor = $cpu.name
-    $inventory.inventory.systemInfo.cpuCores = $cpu.cores
-    $inventory.inventory.systemInfo.cpuThreads = $cpu.threads
-    Write-Host "  OK CPU: $($cpu.name) ($($cpu.cores) cores/$($cpu.threads) threads)" -ForegroundColor Green
-} catch {
-    Write-Host "  Erreur CPU: $_" -ForegroundColor Red
-    $inventory.inventory.systemInfo.processor = "Unknown"
-    $inventory.inventory.systemInfo.cpuCores = 0
-    $inventory.inventory.systemInfo.cpuThreads = 0
-}
-
-try {
-    # Informations mémoire
-    $memoryInfo = Get-CimInstance -ClassName Win32_ComputerSystem
-    $totalMemory = $memoryInfo.TotalPhysicalMemory
-    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem
-    $availableMemory = $osInfo.FreePhysicalMemory
-
-    $memory = @{
-        total = $totalMemory
-        available = $availableMemory
-    }
-    $inventory.inventory.systemInfo.totalMemory = $memory.total
-    $inventory.inventory.systemInfo.availableMemory = $memory.available
-    $totalGB = [math]::Round($totalMemory / 1GB, 2)
-    $availableGB = [math]::Round($availableMemory / 1GB, 2)
-    Write-Host "  OK Mémoire: ${availableGB}GB disponibles / ${totalGB}GB total" -ForegroundColor Green
-} catch {
-    Write-Host "  Erreur mémoire: $_" -ForegroundColor Red
-    $inventory.inventory.systemInfo.totalMemory = 0
-    $inventory.inventory.systemInfo.availableMemory = 0
-}
-
-try {
-    # Informations disques
-    $disks = Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object { $_.DriveType -eq 3 }
-    $diskArray = @()
-    foreach ($disk in $disks) {
-        $diskInfo = @{
-            drive = $disk.DeviceID
-            size = $disk.Size
-            free = $disk.FreeSpace
-        }
-        $diskArray += $diskInfo
-        $sizeGB = [math]::Round($disk.Size / 1GB, 2)
-        $freeGB = [math]::Round($disk.FreeSpace / 1GB, 2)
-        Write-Host "  OK Disque $($disk.DeviceID): ${freeGB}GB libres / ${sizeGB}GB total" -ForegroundColor Green
-    }
-    $inventory.inventory.systemInfo.disks = $diskArray
-} catch {
-    Write-Host "  Erreur disques: $_" -ForegroundColor Red
-    $inventory.inventory.systemInfo.disks = @()
-}
-
-try {
-    # Informations GPU
-    $gpuInfo = Get-CimInstance -ClassName Win32_VideoController
-    $gpuArray = @()
-    foreach ($gpu in $gpuInfo) {
-        $gpuInfo = @{
-            name = $gpu.Name
-            memory = if ($gpu.AdapterRAM) { $gpu.AdapterRAM } else { 0 }
-        }
-        $gpuArray += $gpuInfo
-        $memoryMB = if ($gpu.AdapterRAM) { [math]::Round($gpu.AdapterRAM / 1MB, 0) } else { 0 }
-        Write-Host "  OK GPU: $($gpu.Name) (${memoryMB}MB)" -ForegroundColor Green
-    }
-    $inventory.inventory.systemInfo.gpu = $gpuArray
-} catch {
-    Write-Host "  Erreur GPU: $_" -ForegroundColor Red
-    $inventory.inventory.systemInfo.gpu = @()
-}
-
-try {
-    # Informations système complètes
-    $os = Get-CimInstance -ClassName Win32_OperatingSystem
-    $inventory.inventory.systemInfo.os = "$($os.Caption) $($os.Version)"
-    $inventory.inventory.systemInfo.architecture = if ($env:PROCESSOR_ARCHITECTURE -eq "AMD64") { "x64" } else { $env:PROCESSOR_ARCHITECTURE }
-
-    # Gestion robuste de LastBootUpTime (CIM retourne DateTime, WMI retourne String)
-    if ($os.LastBootUpTime -is [datetime]) {
-        $lastBoot = $os.LastBootUpTime
-    } else {
-        # Fallback pour format string WMI
-        try {
-            $lastBoot = [Management.ManagementDateTimeConverter]::ToDateTime($os.LastBootUpTime)
-        } catch {
-            # Fallback manuel si le convertisseur échoue
-            $lastBoot = [datetime]::ParseExact($os.LastBootUpTime.Substring(0, 14), "yyyyMMddHHmmss", $null)
-        }
-    }
-
-    $uptime = New-TimeSpan -Start $lastBoot -End (Get-Date)
-    $inventory.inventory.systemInfo.uptime = [math]::Round($uptime.TotalSeconds)
-
-    Write-Host "  OK OS: $($os.Caption) $($os.Version)" -ForegroundColor Green
-    Write-Host "  OK Architecture: $($inventory.inventory.systemInfo.architecture)" -ForegroundColor Green
-} catch {
-    Write-Host "  Erreur système: $_" -ForegroundColor Red
-    $inventory.inventory.systemInfo.os = "Unknown"
-    $inventory.inventory.systemInfo.architecture = "unknown"
-    $inventory.inventory.systemInfo.uptime = 0
-}
+Write-Host "`nCollecte des informations système et matérielles... (SKIP)" -ForegroundColor Yellow
 
 # ===============================
 # 6. Sauvegarde de l'inventaire
