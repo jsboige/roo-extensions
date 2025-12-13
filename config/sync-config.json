@@ -3,7 +3,7 @@
   "defaultRemote": "origin",
   "autoStash": true,
   "logLevel": "INFO",
-  "sharedStatePath": "%SHARED_STATE_PATH%",
+  "sharedStatePath": "C:/dev/roo-extensions/.shared-state",
   "syncTargets": [
     {
       "name": "Documentation",
