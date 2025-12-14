@@ -91,4 +91,8 @@ sync-config.ref.json.backup.*
 RooSync/presence/
 RooSync/shared/
 
+# Debug files
+debug_payload_dump.json
+debug_trace.txt
+
 
