@@ -13,6 +13,8 @@ param(
     [hashtable]$Options = @{}
 )
 
+Write-Host "DEBUG: Source='$Source' Target='$Target'"
+
 # Configuration
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
@@ -45,10 +47,10 @@ function Get-ScriptDirectory {
     return Split-Path -Parent $PSCommandPath
 }
 
-function ConvertTo-Json {
+function Serialize-Json {
     param([object]$Data)
     try {
-        return $Data | ConvertTo-Json -Depth 20 -Compress
+        return Microsoft.PowerShell.Utility\ConvertTo-Json -InputObject $Data -Depth 20 -Compress
     }
     catch {
         Write-Log "Erreur lors de la conversion JSON: $($_.Exception.Message)" "ERROR"
@@ -74,21 +76,28 @@ function Test-JsonFile {
 }
 
 function Load-JsonData {
-    param([string]$Input, [string]$Description)
+    param([string]$JsonInput, [string]$Description)
     
     Write-Log "Chargement des données $Description..." "INFO"
     
     # Vérifier si c'est un fichier ou du JSON direct
-    if (Test-Path $Input) {
-        if (-not (Test-JsonFile $Input)) {
-            throw "Le fichier $Description n'est pas un JSON valide: $Input"
+    if (Test-Path -Path $JsonInput -PathType Leaf) {
+        Write-Log "Fichier détecté pour $Description : $JsonInput" "INFO"
+        if (-not (Test-JsonFile $JsonInput)) {
+            throw "Le fichier $Description n'est pas un JSON valide: $JsonInput"
         }
-        Write-Log "$Description chargé depuis le fichier: $Input" "SUCCESS"
-        return Get-Content $Input -Raw -Encoding UTF8 | ConvertFrom-Json
+        Write-Log "$Description chargé depuis le fichier: $JsonInput" "SUCCESS"
+        # On valide juste que c'est du JSON valide
+        if (-not (Test-JsonFile $JsonInput)) {
+             throw "Le fichier $Description n'est pas un JSON valide: $JsonInput"
+        }
+        # On retourne un objet spécial pour indiquer que c'est un fichier
+        return @{ _isPath = $true; path = (Resolve-Path $JsonInput).Path }
     }
     else {
+        Write-Log "Fichier non trouvé pour $Description : $JsonInput (Test-Path a retourné false)" "WARN"
         try {
-            $data = $Input | ConvertFrom-Json
+            $data = $JsonInput | ConvertFrom-Json
             Write-Log "$Description chargé depuis la chaîne JSON" "SUCCESS"
             return $data
         }
@@ -120,12 +129,12 @@ function Save-Report {
         
         # Préparer le contenu selon le format
         $content = switch ($Format.ToLower()) {
-            "json" { ConvertTo-Json $Report }
+            "json" { Serialize-Json $Report }
             "csv" { ConvertTo-Csv $Report }
             "html" { ConvertTo-Html $Report }
-            default { 
+            default {
                 Write-Log "Format non supporté: $Format. Utilisation du JSON par défaut." "WARN"
-                ConvertTo-Json $Report 
+                Serialize-Json $Report
             }
         }
         
@@ -146,8 +155,8 @@ function ConvertTo-Csv {
     $csv += "ID,Path,Type,Severity,Category,Description,OldValue,NewValue,ChangePercent,ArrayIndex"
     
     foreach ($diff in $Report.diffs) {
-        $oldValue = if ($diff.oldValue) { "`"$($diff.oldValue | ConvertTo-Json -Compress)`"" } else { "" }
-        $newValue = if ($diff.newValue) { "`"$($diff.newValue | ConvertTo-Json -Compress)`"" } else { "" }
+        $oldValue = if ($diff.oldValue) { "`"$($diff.oldValue | Serialize-Json)`"" } else { "" }
+        $newValue = if ($diff.newValue) { "`"$($diff.newValue | Serialize-Json)`"" } else { "" }
         $changePercent = if ($diff.metadata.changePercent) { $diff.metadata.changePercent } else { "" }
         $arrayIndex = if ($diff.metadata.arrayIndex) { $diff.metadata.arrayIndex } else { "" }
         
@@ -211,8 +220,8 @@ function ConvertTo-Html {
     
     foreach ($diff in $Report.diffs) {
         $severityClass = "diff-$($diff.severity.ToLower())"
-        $oldValue = if ($diff.oldValue) { "<div class='old-value'>Ancien: $($diff.oldValue | ConvertTo-Json -Compress)</div>" } else { "" }
-        $newValue = if ($diff.newValue) { "<div class='new-value'>Nouveau: $($diff.newValue | ConvertTo-Json -Compress)</div>" } else { "" }
+        $oldValue = if ($diff.oldValue) { "<div class='old-value'>Ancien: $($diff.oldValue | Serialize-Json)</div>" } else { "" }
+        $newValue = if ($diff.newValue) { "<div class='new-value'>Nouveau: $($diff.newValue | Serialize-Json)</div>" } else { "" }
         
         $html += @"
     <div class="diff-item $severityClass">
@@ -268,25 +277,36 @@ function Main {
         }
         
         if ($Verbose) {
-            Write-Log "Options de diff: $(ConvertTo-Json $diffOptions)" "INFO"
+            Write-Log "Options de diff: $(Serialize-Json $diffOptions)" "INFO"
         }
-        
         # Créer le script Node.js pour le diff granulaire
         $scriptDir = Get-ScriptDirectory
         $nodeScript = Join-Path $scriptDir "granular-diff-runner.js"
+
+        # Logique pour injecter les données dans JS
+        $sourceInjection = if ($SourceData._isPath) {
+            "const sourceData = JSON.parse(fs.readFileSync('$($SourceData.path.Replace('\', '\\'))', 'utf8'));"
+        } else {
+            "const sourceData = $($SourceData | Serialize-Json);"
+        }
+
+        $targetInjection = if ($TargetData._isPath) {
+            "const targetData = JSON.parse(fs.readFileSync('$($TargetData.path.Replace('\', '\\'))', 'utf8'));"
+        } else {
+            "const targetData = $($TargetData | Serialize-Json);"
+        }
         
         $scriptContent = @"
-const { GranularDiffDetector } = require('./mcps/internal/servers/roo-state-manager/src/services/GranularDiffDetector.js');
+const { GranularDiffDetector } = require('../../mcps/internal/servers/roo-state-manager/build/services/GranularDiffDetector.js');
+const fs = require('fs');
 
 async function runGranularDiff() {
     try {
-        console.log('Début du diff granulaire...');
-        
         // Charger les données
-        const sourceData = $($SourceData | ConvertTo-Json -Compress);
-        const targetData = $($TargetData | ConvertTo-Json -Compress);
-        const options = $($diffOptions | ConvertTo-Json -Compress);
+        $sourceInjection
+        $targetInjection
         
+        const options = $($diffOptions | Serialize-Json);
         // Créer le détecteur
         const detector = new GranularDiffDetector();
         
@@ -317,10 +337,11 @@ runGranularDiff();
         # Exécuter le script Node.js
         Write-Log "Exécution du diff granulaire..." "INFO"
         
-        $nodeResult = node $nodeScript 2>&1
+        # Capture stdout uniquement pour le JSON, stderr ira dans le terminal (ou null)
+        $nodeResult = node $nodeScript
         
         if ($LASTEXITCODE -ne 0) {
-            throw "Erreur lors de l'exécution du diff granulaire: $nodeResult"
+            throw "Erreur lors de l'exécution du diff granulaire (ExitCode: $LASTEXITCODE)"
         }
         
         # Parser le résultat
@@ -370,6 +391,7 @@ runGranularDiff();
         }
         catch {
             Write-Log "Erreur lors du parsing du résultat: $($_.Exception.Message)" "ERROR"
+            Write-Log "Contenu reçu: $nodeResult" "DEBUG"
             throw
         }
     }
@@ -381,6 +403,4 @@ runGranularDiff();
 }
 
 # Point d'entrée principal
-if ($MyInvocation.InvocationName -eq $MyInvocation.MyCommand.Name) {
-    Main
-}
+Main
