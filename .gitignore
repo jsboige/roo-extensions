@@ -87,4 +87,8 @@ sync-config.ref.json.backup.*
 .roo-logs/
 .roo/
 
+# Fichiers de présence RooSync
+RooSync/presence/
+RooSync/shared/
+
 

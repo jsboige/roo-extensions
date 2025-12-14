@@ -143,7 +143,7 @@ try {
         foreach ($spec in $specs) {
             $specInfo = @{
                 name = $spec.Name
-                path = $spec.FullName.Replace($RooExtensionsPath + "\", "")
+                path = $spec.FullName.Replace("$RooExtensionsPath\", "")
                 size = $spec.Length
                 lastModified = $spec.LastWriteTime.ToString("yyyy-MM-dd")
             }
@@ -174,7 +174,7 @@ try {
             foreach ($script in $scripts) {
                 $scriptInfo = @{
                     name = $script.Name
-                    path = $script.FullName.Replace($RooExtensionsPath + "\", "")
+                    path = $script.FullName.Replace("$RooExtensionsPath\", "")
                     category = $category
                 }
                 $inventory.inventory.scripts.categories[$category] += $scriptInfo
@@ -189,7 +189,7 @@ try {
             foreach ($script in $rootScripts) {
                 $scriptInfo = @{
                     name = $script.Name
-                    path = $script.FullName.Replace($RooExtensionsPath + "\", "")
+                    path = $script.FullName.Replace("$RooExtensionsPath\", "")
                     category = "root"
                 }
                 $inventory.inventory.scripts.categories["root"] += $scriptInfo
