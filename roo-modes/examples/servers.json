@@ -28,10 +28,10 @@
     {
       "name": "jupyter",
       "type": "stdio",
-      "command": "cmd /c node d:\\jsboige-mcp-servers\\servers\\jupyter-mcp-server\\dist\\index.js",
+      "command": "cmd /c python -m papermill_mcp.main",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
+      "description": "Serveur MCP Python/Papermill pour opérations Jupyter Notebook"
     },
     {
       "name": "jinavigator",

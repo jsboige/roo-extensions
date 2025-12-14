@@ -128,7 +128,7 @@ function Restart-McpServer {
         # Tuer les processus existants (a adapter selon le serveur)
         # Cette partie est simplifiee et devrait etre adaptee pour chaque serveur
         if ($ServerName -like "*Jupyter*") {
-            Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*jupyter-mcp-server*" } | Stop-Process -Force
+            Get-Process -Name "python" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*papermill_mcp*" } | Stop-Process -Force
         } elseif ($ServerName -like "*JinaNavigator*") {
             Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*jinavigator-server*" } | Stop-Process -Force
         } elseif ($ServerName -like "*QuickFiles*") {

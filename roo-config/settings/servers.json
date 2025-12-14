@@ -42,18 +42,11 @@
     {
       "name": "jupyter",
       "type": "stdio",
-      "command": "cmd /c node ./mcps/internal/servers/jupyter-mcp-server/dist/index.js",
+      "command": "cmd /c python -m papermill_mcp.main",
       "enabled": true,
-      "autoStart": false,
-      "description": "Serveur MCP pour interagir avec des notebooks Jupyter"
-    },
-    {
-      "name": "jupyter-papermill",
-      "type": "stdio",
-      "command": "node ./mcps/internal/servers/jupyter-papermill-mcp-server/start_jupyter_mcp_portable.bat",
-      "enabled": true,
-      "autoStart": false,
-      "description": "Serveur MCP pour exécuter des notebooks Jupyter avec Papermill"
+      "autoStart": true,
+      "description": "Serveur MCP Python/Papermill pour opérations Jupyter Notebook",
+      "workingDirectory": "./mcps/internal/servers/jupyter-papermill-mcp-server"
     },
     {
       "name": "jinavigator",

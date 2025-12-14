@@ -13,11 +13,11 @@ const os = require('os');
 const MCP_SERVERS = [
   {
     name: 'Jupyter MCP',
-    processName: 'node',
-    processArgs: 'jupyter-mcp-server/dist/index.js',
+    processName: 'python',
+    processArgs: 'papermill_mcp.main',
     port: 3005, // Port par défaut, à ajuster si nécessaire
     endpoint: 'http://localhost:3005/',
-    startScript: path.join(__dirname, '../mcp-servers/scripts/mcp-starters/start-jupyter-mcp.bat')
+    startScript: path.join(__dirname, '../internal/servers/jupyter-papermill-mcp-server/scripts/start-jupyter-mcp.bat')
   },
   {
     name: 'JinaNavigator MCP',
