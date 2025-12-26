@@ -273,3 +273,16 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - Workflow autonome cyclique : auto-diagnostic, check synchronisation, exécution décisions
 - 5 rôles techniques distribués : myia-web1 (Config Authority), myia-po-2024 (Environment Guardian), myia-po-2026 (QA Chaos Monkey), myia-po-2023 (Support Watcher), myia-ai-01 (Coord Hub)
 - 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
+
+### 2025-10-22 - RooSync v1→v2 : Rapport d'Analyse de Convergence
+**Fichier original :** `2025-10-22_001_Convergence-V1-V2-Analysis.md`
+
+**Résumé :**
+Ce rapport d'analyse compare les améliorations de RooSync v2.1 (MCP roo-state-manager) avec RooSync v1 (script PowerShell) pour identifier les opportunités de convergence bidirectionnelle. L'analyse couvre 14 commits depuis le 20 octobre 2025 et examine 3 fichiers RooSync v2 modifiés (InventoryCollector.ts, DiffDetector.ts, InventoryCollectorWrapper.ts) ainsi que 6 améliorations critiques de v1. Le score de convergence global est de 67% (4/6 améliorations v1 portées dans v2). Les 3 manques critiques identifiés dans v2 sont la visibilité Scheduler Windows (console.error() non visible), l'absence de vérification Git au démarrage, et le manque de vérifications SHA HEAD robustes. Le rapport identifie également 5 innovations v2 uniques pouvant inspirer v1 : cache TTL intelligent avec multi-sources, safe property access (safeGet()), baseline-driven architecture, InventoryCollectorWrapper (Adapter Pattern), et stratégie .shared-state/ Google Drive Sync. Un plan d'action priorisé en 3 phases est proposé : Phase 1 (CRITIQUE, 5-8h) pour logging compatible Scheduler, vérification Git et vérifications SHA, Phase 2 (MOYENNE, 1-2h) pour cleanup cache en erreur, et Phase 3 (BASSE, 9-12h) pour porter cache TTL et baseline concept dans v1. La roadmap de convergence prévoit un score de 85% à court terme et 95% à moyen terme.
+
+**Points clés :**
+- Score de convergence global de 67% (4/6 améliorations v1 portées dans v2)
+- 3 manques critiques dans v2 : logging Scheduler Windows, vérification Git, vérifications SHA
+- 5 innovations v2 uniques : cache TTL, safeGet(), baseline-driven architecture, Adapter Pattern, Google Drive Sync
+- Plan d'action en 3 phases : Phase 1 CRITIQUE (5-8h), Phase 2 MOYENNE (1-2h), Phase 3 BASSE (9-12h)
+- Roadmap : 85% convergence court terme, 95% moyen terme, architecture unifiée long terme
