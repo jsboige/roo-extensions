@@ -833,3 +833,17 @@ Ce rapport de mission valide la migration du stockage des données RooSync vers 
 - Audit Git : aucun fichier de données untracked/modified, séparation Code/Données effective
 - État final : code source propre (Git), données partagées migrées (Drive), configuration à jour, tests I/O passés
 - Recommandations : surveillance logs synchronisations, backup G:/Mon Drive inclus sauvegardes Google Drive, maintien DATA_STORAGE_POLICY.md
+
+### 2025-12-10 - Plan de Migration vers le Stockage Externe RooSync
+**Fichier original :** `2025-12-10_003_Plan-Migration-Stockage-Externe.md`
+
+**Résumé :**
+Ce plan de migration vise à migrer le stockage des données RooSync du dépôt local vers un dossier partagé externe (Google Drive) et à supprimer toutes les références codées en dur. L'analyse de l'existant a révélé 128 occurrences de chemins codés en dur ou de références à `G:/Mon Drive/...` dans le projet, avec des zones critiques identifiées dans le code source (`server-helpers.ts`, `InventoryCollector.ts`, `ConfigService.ts`), les tests, la documentation et les scripts. La stratégie de refactoring consiste à centraliser la résolution du chemin dans `getSharedStatePath()` en forçant l'utilisation de la variable d'environnement `ROOSYNC_SHARED_PATH` et en supprimant le fallback par défaut. La migration des données se fera via un script PowerShell robuste (`scripts/migrate-roosync-storage.ps1`) qui vérifiera l'existence du dossier source, l'accessibilité du dossier cible, copiera les données avec vérification d'intégrité, et renommera le dossier source en backup.
+
+**Points clés :**
+- Analyse existant : 128 occurrences chemins codés en dur, zones critiques code source/tests/documentation/scripts
+- Stratégie refactoring : centraliser getSharedStatePath(), forcer ROOSYNC_SHARED_PATH, supprimer fallback par défaut
+- Migration données : script scripts/migrate-roosync-storage.ps1, vérification source/cible, copie avec intégrité, backup source
+- Structure cible : identique structure locale (sync-config.json, inventories/, messages/, logs/, .baseline-complete/)
+- Plan validation : tests unitaires (mise à jour chemins), tests intégration (démarrage serveur, écriture inventaires), validation manuelle (outils MCP)
+- Planning exécution : Phase 1 préparation, Phase 2 refactoring code, Phase 3 migration données, Phase 4 validation, Phase 5 nettoyage
