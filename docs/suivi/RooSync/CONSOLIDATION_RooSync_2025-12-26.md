@@ -444,10 +444,76 @@ Rapport d'état opérationnel des MCPs sur l'agent myia-po-2026 avec un statut g
 
 **Points clés :**
 - 5 MCPs opérationnels : roo-state-manager (45+ outils), quickfiles (15+ outils), jinavigator (API Jina), github-projects-mcp (auth validée), jupyter-mcp (Jupyter Lab configuré)
+
+### 2025-12-05 - Rapport Final - Cycle 6 : Configuration Partagée & Baseline (SDDD)
+**Fichier original :** `2025-12-05_007_Rapport-Final-Cycle6.md`
+
+**Résumé :**
+Ce rapport final clôture le Cycle 6 qui a marqué une étape décisive dans l'évolution de RooSync, passant d'une simple synchronisation de fichiers à une gestion de configuration distribuée et intelligente. Les 4 phases du cycle ont été réalisées : Phase 1 Développement MCP (Service ConfigSharingService opérationnel), Phase 2 Validation Locale (collecte et publication validées sur l'Orchestrateur), Phase 3 Déploiement (infrastructure prête mais collecte distante bloquée par problèmes de chemins), et Phase 4 Analyse Diff (spécification théorique de la Normalisation et du Diff validée). L'alignement SDDD confirme la continuité avec la vision initiale et l'adaptabilité face aux réalités du terrain. Les défis identifiés incluent l'hétérogénéité des environnements (chemins absolus, secrets) nécessitant une couche de normalisation avant toute fusion. Les prochaines étapes du Cycle 7 incluent l'implémentation de la Normalisation (filtres pour anonymiser et relativiser les chemins), l'implémentation du Diff Granulaire (algorithme de comparaison JSON profond), la création de la Golden Baseline (première version officielle de la configuration partagée), et l'Application Distribuée (permettre aux agents de s'aligner sur cette Baseline).
+
+**Points clés :**
+- Cycle 6 clôturé : transition synchronisation fichiers → gestion configuration distribuée intelligente
+- 4 phases réalisées : Développement MCP, Validation Locale, Déploiement partiel, Analyse Diff
+- Service ConfigSharingService opérationnel avec collecte et publication validées localement
+- Défis identifiés : hétérogénéité environnements (chemins absolus, secrets) nécessitant normalisation
+- Cycle 7 prévu : implémentation Normalisation, Diff Granulaire, Golden Baseline, Application Distribuée
+
+### 2025-12-05 - Rapport de Synthèse RooSync
+**Fichier original :** `2025-12-05_007_Rapport-Synthese-RooSync.md`
+
+**Résumé :**
+Ce rapport de synthèse documente la vérification de la messagerie RooSync après synchronisation Git et maintenance des MCPs. Trois messages clés ont été reçus de myia-ai-01 : une proposition de lancement Baseline Complete Phase 2 & 3 (tests unitaires stables, scripts de production prêts, action validée), un rapport de stabilisation des tests unitaires roo-state-manager (750/750 tests réussis, corrections majeures sur hierarchy-inference, read-vscode-logs et bom-handling), et une notification de déploiement terminé. Les actions de maintenance MCP incluent la migration de quickfiles-server vers esbuild pour résoudre des problèmes de mémoire, la recompilation de roo-state-manager pour corriger l'erreur de démarrage (module non trouvé), et la recompilation réussie de jupyter-mcp-server et jinavigator-server. Une réponse a été envoyée confirmant la réception des rapports, validant le lancement des Phases 2 et 3 du plan Baseline Complete, et signalant la maintenance effectuée sur les MCPs. Les prochaines étapes consistent à attendre le lancement de la synchronisation par myia-ai-01 et surveiller la réception de nouveaux messages RooSync.
+
+**Points clés :**
+- 3 messages clés reçus de myia-ai-01 : proposition Baseline Complete, rapport tests unitaires (750/750), déploiement terminé
+- Maintenance MCP : quickfiles-server migré vers esbuild, roo-state-manager recompilé, jupyter-mcp et jinavigator recompilés
+- Corrections majeures sur hierarchy-inference, read-vscode-logs et bom-handling dans les tests unitaires
+- Réponse envoyée : validation lancement Phases 2 & 3, confirmation maintenance MCP
+- Prochaines étapes : attendre synchronisation myia-ai-01, surveiller nouveaux messages RooSync
 - Capacités agent myia-po-2026 : Hierarchy Engine, Support Technique Avancé, Expertises Spécialisées
 - Métriques performance : disponibilité 100%, temps réponse <200ms, succès 99.8%, couverture 100%
 - Prochaines étapes : surveillance continue, optimisation flux, documentation avancée, formation, développement nouvelles fonctionnalités
 - Agent disponible immédiatement pour support critique et missions stratégiques
+
+### 2025-12-08 - Spécification Technique - Cycle 7 : Normalisation Avancée & Synchronisation Granulaire
+**Fichier original :** `2025-12-08_001_Spec-Normalisation-Sync-Cycle7.md`
+
+**Résumé :**
+Ce document spécifie l'architecture technique pour la normalisation des configurations et le processus de synchronisation granulaire dans RooSync Cycle 7. L'objectif est de permettre le partage de configurations entre environnements hétérogènes (Windows/Linux, chemins différents) tout en préservant la sécurité (secrets) et la flexibilité (surcharges locales). Le ConfigNormalizationService est étendu avec des règles de normalisation : chemins absolus (détection intelligente des racines connues), séparateurs (standardisation POSIX), secrets (détection par clés et valeurs avec entropie/patterns), et variables environnement (préservation des variables existantes). La stratégie de dénormalisation inclut la résolution des placeholders standards, l'adaptation des séparateurs à l'OS cible, et l'injection des secrets depuis le coffre-fort local. Le workflow de synchronisation granulaire dans ConfigSharingService comprend 5 étapes : Collecte Locale (lecture fichiers bruts, normalisation, génération snapshot), Comparaison Diff (téléchargement Baseline, comparaison JSON profonde, identification ajouts/modifications/suppressions/conflits), Rapport de Diff (génération DiffReport structuré, catégorisation par sévérité), Validation (présentation DiffReport, sélection changements), et Application (backup, dénormalisation, écriture atomique). Les structures de données incluent DiffReport avec timestamp, versions, changes et summary, et ConfigChange avec id, path JSON, type, oldValue, newValue et severity. Le plan d'implémentation en 3 phases couvre la Normalisation Robuste (amélioration ConfigNormalizationService, tests unitaires), le Moteur de Diff (création ConfigDiffService, algorithme Deep Diff), et l'Orchestration & CLI (mise à jour ConfigSharingService, exposition commandes MCP). Les critères de succès incluent l'application d'une config Windows sur Linux sans erreur de chemin, les secrets ne transitant jamais en clair dans la Baseline, et la visibilité exacte des changements avant application.
+
+**Points clés :**
+- Spécification Cycle 7 : normalisation avancée et synchronisation granulaire pour environnements hétérogènes
+- ConfigNormalizationService étendu : chemins absolus, séparateurs POSIX, secrets, variables environnement
+- Workflow synchronisation 5 étapes : Collecte Locale, Comparaison Diff, Rapport, Validation, Application
+- Structures de données : DiffReport (timestamp, versions, changes, summary) et ConfigChange (id, path, type, severity)
+- Plan implémentation 3 phases : Normalisation Robuste, Moteur de Diff, Orchestration & CLI
+
+### 2025-12-08 - Plan d'Action - Cycle 7 : Implémentation Normalisation & Sync
+**Fichier original :** `2025-12-08_002_Plan-Action-Cycle7.md`
+
+**Résumé :**
+Ce plan d'action pour le Cycle 7 définit les étapes pour rendre la synchronisation RooSync intelligente et sûre. La Phase 1 Normalisation Avancée (Jours 1-2) comprend l'amélioration de ConfigNormalizationService avec refactor pour PathNormalizer dédié, support des variables d'environnement étendues (%APPDATA%, %LOCALAPPDATA%, $HOME, $XDG_CONFIG_HOME), normalisation des chemins relatifs complexes (./, ../), et tests pour chemins mixtes Windows/Linux. La gestion des secrets inclut l'implémentation de SecretDetector pour identifier clés sensibles (regex, entropie), création de SecretVault pour stocker/récupérer secrets locaux, et vérification qu'aucun secret ne fuite dans la sortie normalisée. La Phase 2 Moteur de Diff Granulaire (Jours 3-4) comprend la création de ConfigDiffService.ts, l'implémentation de l'algorithme de comparaison récursive d'objets JSON, la détection des types de changements (Add, Modify, Delete), la gestion des tableaux (comparaison par identité vs position), la définition de l'interface DiffReport, la génération de rapports lisibles (JSON/Markdown), et la validation sur des configs réelles. La Phase 3 Orchestration & Validation (Jours 5-6) comprend l'intégration de ConfigDiffService dans le workflow applyConfig de ConfigSharingService, le workflow complet (Collecte -> Normalisation -> Diff -> Validation -> Application), et la création des outils CLI/MCP roosync_diff (preview changements) et roosync_sync (application avec validation). La Phase 4 Validation Distribuée (Jour 7) comprend les tests E2E : sync Windows -> Linux (simulé), sync Linux -> Windows (simulé), et vérification intégrité chemins et secrets après sync. Les livrables incluent le code source mis à jour (roo-state-manager), les tests unitaires et d'intégration, et la documentation utilisateur mise à jour.
+
+**Points clés :**
+- Phase 1 Normalisation Avancée (Jours 1-2) : PathNormalizer, variables env étendues, chemins relatifs complexes, SecretDetector, SecretVault
+- Phase 2 Moteur Diff Granulaire (Jours 3-4) : ConfigDiffService.ts, comparaison récursive JSON, types changements, gestion tableaux, DiffReport
+- Phase 3 Orchestration & Validation (Jours 5-6) : intégration ConfigDiffService, workflow complet, outils roosync_diff et roosync_sync
+- Phase 4 Validation Distribuée (Jour 7) : tests E2E Windows/Linux, vérification intégrité chemins et secrets
+- Livrables : code source roo-state-manager, tests unitaires/intégration, documentation utilisateur
+
+### 2025-12-08 - Rapport de Phase 1 - Cycle 7 : Normalisation Avancée
+**Fichier original :** `2025-12-08_003_Rapport-Phase1-Cycle7.md`
+
+**Résumé :**
+Ce rapport de Phase 1 du Cycle 7 documente la complétion réussie de la normalisation avancée pour la synchronisation multi-OS. Le service ConfigNormalizationService a été considérablement amélioré avec support robuste des chemins Windows (\) et POSIX (/), détection et remplacement automatique de %USERPROFILE% et %ROO_ROOT% via Regex insensibles à la casse sur Windows, préservation des variables d'environnement existantes (%APPDATA%, $HOME) non altérées lors de la normalisation, et masquage automatique des clés sensibles (apiKey, token, password, etc.) avec le pattern {{SECRET:key}}. Une suite de tests complète a été créée dans ConfigNormalizationService.test.ts couvrant la normalisation Windows -> POSIX, Linux -> POSIX, préservation des variables d'environnement, masquage des secrets (et non-double masquage), et dénormalisation vers Windows et Linux. Le service est intégré nativement dans ConfigSharingService, utilisé par l'outil roosync_collect_config, sans modification structurelle nécessaire sur l'outil de collecte lui-même. Les tests automatisés passent avec succès (8 tests dans ConfigNormalizationService.test.ts) et le projet compile sans erreur. Les prochaines étapes pour la Phase 2 se concentreront sur le Moteur de Diff avec création de ConfigDiffService, implémentation de la comparaison profonde (Deep Diff), et génération du DiffReport. La conclusion indique que la brique fondamentale de normalisation est prête, garantissant que les configurations collectées sont portables et sécurisées, ouvrant la voie à une synchronisation fiable entre environnements hétérogènes.
+
+**Points clés :**
+- Phase 1 terminée : ConfigNormalizationService amélioré pour synchronisation multi-OS
+- Améliorations : chemins Windows/POSIX, placeholders intelligents (%USERPROFILE%, %ROO_ROOT%), préservation variables env, masquage secrets
+- Tests unitaires complets : 8 tests couvrant normalisation, préservation, masquage, dénormalisation
+- Intégration native dans ConfigSharingService, utilisé par roosync_collect_config
+- Validation : tests automatisés passants, compilation réussie
+- Prochaines étapes Phase 2 : Moteur de Diff (ConfigDiffService, Deep Diff, DiffReport)
 
 ### 2025-12-08 - Rapport Phase 3 Cycle 7 : Intégration Moteur de Diff
 **Fichier original :** `2025-12-08_005_Rapport-Phase3-Cycle7.md`
@@ -513,16 +579,6 @@ Ce rapport d'implémentation de la Phase 2 du Cycle 6 documente l'intégration e
 - Validation in vivo : serveur MCP charge les outils, communication système de fichiers et Google Drive fonctionnelles
 - Prochaines étapes Phase 3 : test roosync_apply_config, mise à jour guide utilisateur, nettoyage fichiers test
 
-### 2025-12-15 - ROOSYNC AUTONOMOUS PROTOCOL (RAP) - v2.0
-**Fichier original :** `2025-12-15_001_RooSync-Autonomous-Protocol.md`
-**Résumé :** Spécification technique officielle du comportement attendu de chaque agent connecté au réseau RooSync, basée exclusivement sur les capacités natives du MCP roo-state-manager audité. Le protocole définit 4 verbes fondamentaux que tout agent doit maîtriser : OBSERVER (roosync_read_dashboard) pour vérifier la synchronisation, SIGNALER (roosync_get_machine_inventory) pour identifier l'agent, COMMUNIQUER (roosync_send_message) pour signaler problèmes ou finitions, et AGIR (roosync_apply_decision) pour exécuter les changements. L'architecture des capacités MCP comprend le moteur de décision transactionnel (apply-decision.ts) avec atomicité, rollback et traçabilité, le radar de divergence (read-dashboard.ts) pour la détection en temps réel des différences, et le canal de coordination (send_message.ts) avec adressage direct ou broadcast et priorité URGENT. Le workflow autonome cyclique comprend l'étape 1 d'auto-diagnostic (SANTÉ) avec mise à jour de GLOBAL_INVENTORY_STATUS.md, l'étape 2 de check de synchronisation (CONSCIENCE) avec détection de divergence et initiation de séquence de sync, et l'étape 3 d'exécution des décisions (ACTION) avec simulation dryRun avant application. Les rôles techniques distribués incluent myia-web1 (Lead Tech) comme Config Authority avec pouvoir spécial roosync_publish_config pour créer de nouvelles Baselines, myia-po-2024 (Systems) comme Environment Guardian avec surveillance de la dérive OS et maintenance des scripts d'installation, myia-po-2026 (QA) comme Chaos Monkey avec test intensif en dryRun et blocage des décisions échouées, myia-po-2023 (Support) comme The Watcher avec vue globale et analyse des logs d'erreurs, et myia-ai-01 (Coord) comme The Hub avec relais d'informations critiques et synchronisation des sprints. Les procédures standardisées (SOPs) incluent SOP-SYNC-01 pour mise à jour de l'inventaire avec commit heartbeat, SOP-SYNC-02 pour résolution de conflit avec identification du fichier coupable et message à myia-web1, et SOP-SYNC-03 pour déploiement de feature avec collect_config, publish_config, création d'entrée dans sync-roadmap.md et attente d'approbation. La maintenance du protocole précise que toute modification du code MCP doit entraîner une révision de ce protocole, avec myia-web1 comme responsable de la mise à jour.
-**Points clés :**
-- 4 verbes fondamentaux : OBSERVER, SIGNALER, COMMUNIQUER, AGIR pour tout agent RooSync
-- Architecture MCP : moteur de décision transactionnel, radar de divergence, canal de coordination
-- Workflow autonome cyclique : auto-diagnostic, check synchronisation, exécution décisions
-- 5 rôles techniques distribués : myia-web1 (Config Authority), myia-po-2024 (Environment Guardian), myia-po-2026 (QA Chaos Monkey), myia-po-2023 (Support Watcher), myia-ai-01 (Coord Hub)
-- 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
-
 ### 2025-12-08 - Rapport de Mission Phase 3 - Cycle 6 : Déploiement & Collecte Distribuée
 **Fichier original :** `2025-12-05_005_Rapport-Phase3-Cycle6.md`
 
@@ -553,3 +609,13 @@ Ce rapport de mission Phase 4 du Cycle 6 établit les fondations théoriques et 
 - Règles fusion : priorité Baseline, préservation locale EXTRA, mise à jour intelligente
 - Prochaines actions Phase 5 : implémentation Normalisation ConfigSharingService, algorithme Diff Granulaire, création première Baseline
 
+### 2025-12-15 - ROOSYNC AUTONOMOUS PROTOCOL (RAP) - v2.0
+**Fichier original :** `2025-12-15_001_RooSync-Autonomous-Protocol.md`
+**Résumé :** Spécification technique officielle du comportement attendu de chaque agent connecté au réseau RooSync, basée exclusivement sur les capacités natives du MCP roo-state-manager audité. Le protocole définit 4 verbes fondamentaux que tout agent doit maîtriser : OBSERVER (roosync_read_dashboard) pour vérifier la synchronisation, SIGNALER (roosync_get_machine_inventory) pour identifier l'agent, COMMUNIQUER (roosync_send_message) pour signaler problèmes ou finitions, et AGIR (roosync_apply_decision) pour exécuter les changements. L'architecture des capacités MCP comprend le moteur de décision transactionnel (apply-decision.ts) avec atomicité, rollback et traçabilité, le radar de divergence (read-dashboard.ts) pour la détection en temps réel des différences, et le canal de coordination (send_message.ts) avec adressage direct ou broadcast et priorité URGENT. Le workflow autonome cyclique comprend l'étape 1 d'auto-diagnostic (SANTÉ) avec mise à jour de GLOBAL_INVENTORY_STATUS.md, l'étape 2 de check de synchronisation (CONSCIENCE) avec détection de divergence et initiation de séquence de sync, et l'étape 3 d'exécution des décisions (ACTION) avec simulation dryRun avant application. Les rôles techniques distribués incluent myia-web1 (Lead Tech) comme Config Authority avec pouvoir spécial roosync_publish_config pour créer de nouvelles Baselines, myia-po-2024 (Systems) comme Environment Guardian avec surveillance de la dérive OS et maintenance des scripts d'installation, myia-po-2026 (QA) comme Chaos Monkey avec test intensif en dryRun et blocage des décisions échouées, myia-po-2023 (Support) comme The Watcher avec vue globale et analyse des logs d'erreurs, et myia-ai-01 (Coord) comme The Hub avec relais d'informations critiques et synchronisation des sprints. Les procédures standardisées (SOPs) incluent SOP-SYNC-01 pour mise à jour de l'inventaire avec commit heartbeat, SOP-SYNC-02 pour résolution de conflit avec identification du fichier coupable et message à myia-web1, et SOP-SYNC-03 pour déploiement de feature avec collect_config, publish_config, création d'entrée dans sync-roadmap.md et attente d'approbation. La maintenance du protocole précise que toute modification du code MCP doit entraîner une révision de ce protocole, avec myia-web1 comme responsable de la mise à jour.
+**Points clés :**
+- 4 verbes fondamentaux : OBSERVER, SIGNALER, COMMUNIQUER, AGIR pour tout agent RooSync
+- Architecture MCP : moteur de décision transactionnel, radar de divergence, canal de coordination
+- Workflow autonome cyclique : auto-diagnostic, check synchronisation, exécution décisions
+- 5 rôles techniques distribués : myia-web1 (Config Authority), myia-po-2024 (Environment Guardian), myia-po-2026 (QA Chaos Monkey), myia-po-2023 (Support Watcher), myia-ai-01 (Coord Hub)
+- 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
+- 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
