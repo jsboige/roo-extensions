@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 3/35
+**Nombre de documents consolidés :** 4/35
 **Période couverte :** 2025-10-22 à 2025-10-26
 
 ## Documents consolidés (ordre chronologique)
@@ -43,3 +43,16 @@ Cette tâche d'initialisation RooSync sur la machine JSBOI-WS-001 a été exécu
 - Incohérence d'ID machine : 'myia-po-2026' créé vs 'JSBOI-WS-001' configuré
 - Variable ROOSYNC_SHARED_PATH manquante à définir
 - Échec de la première synchronisation nécessitant investigation
+
+### 2025-10-26 - Correction des Anomalies Identifiées - roo-extensions
+**Fichier original :** `05-correction-anomalies-2025-10-26/TASK-TRACKING-2025-10-26.md`
+
+**Résumé :**
+Cette tâche de correction des anomalies critiques et mineures dans l'environnement roo-extensions visait à assurer un écosystème propre, cohérent et portable. L'anomalie critique principale concernait les chemins absolus spécifiques à l'utilisateur dans les fichiers de configuration MCP, rendant l'environnement non-portable. Les corrections ont été appliquées sur deux fichiers : mcp_settings.json (local VS Code) et roo-config/settings/servers.json (dépôt), avec le remplacement de 12 chemins absolus par des chemins relatifs portables et la standardisation des commandes pour utiliser des packages npm quand disponible. Des anomalies mineures ont également été identifiées dans les scripts PowerShell, nécessitant des améliorations de robustesse et de documentation.
+
+**Points clés :**
+- Correction de 12 chemins absolus par des chemins relatifs portables
+- Environnement maintenant entièrement portable et sécurisé
+- Fichiers corrigés : mcp_settings.json et roo-config/settings/servers.json
+- Standardisation des commandes pour utiliser des packages npm
+- Anomalies mineures identifiées dans les scripts PowerShell (setup.ps1, repair-roo-tasks.ps1, maintenance-workflow.ps1)
