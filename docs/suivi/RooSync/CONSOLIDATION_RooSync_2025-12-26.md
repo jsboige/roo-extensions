@@ -673,3 +673,17 @@ Ce rapport de nettoyage structurel Phase 2a documente l'organisation des fichier
 - Racine de projet et sous-module mcps/internal désormais plus propres
 - Fichiers sécurisés dans archives datées permettant restauration facile
 - Phase 2b prévue : consolidation tests et standardisation scripts
+
+### 2025-12-08 - Rapport d'Investigation Phase 2 : RooSync & Git
+**Fichier original :** `2025-12-08_010_Phase2-Investigation.md`
+
+**Résumé :**
+Cette investigation Phase 2 a révélé que les outils RooSync sont bien présents et fonctionnels, contrairement aux soupçons initiaux de désynchronisation Git et absence d'outils. Le problème bloquant était une configuration baseline invalide et manquante dans le répertoire partagé, empêchant l'exécution correcte des outils de comparaison. L'audit Git a confirmé que le dépôt est sur la branche main, légèrement en retard de 3 commits mais sans divergence majeure affectant les outils. L'inventaire des outils a vérifié que tous les fichiers sources TypeScript des outils RooSync sont présents dans mcps/internal/servers/roo-state-manager/src/tools/roosync/. Le problème de configuration baseline a été identifié : le fichier sync-config.ref.json était présent localement mais absent du répertoire partagé ROOSYNC_SHARED_PATH, et après copie, une erreur de configuration baseline invalide a révélé que le fichier local avait une structure obsolète v1.0.0 incompatible avec le BaselineService v2.1. Les actions correctives ont consisté à copier le fichier sync-config.ref.json vers le répertoire partagé et à réécrire le fichier pour respecter le schéma v2.1 avec ajout de baselineId, machines, etc. Les tests ont montré que roosync_get_status fonctionne avec succès détectant 3 machines en statut synced, roosync_compare_config échoue pour myia-po-2023 probablement à cause d'un problème de connectivité ou d'inventaire manquant, mais réussit pour myia-po-2026 avec 14 différences détectées (2 CRITICAL, 2 IMPORTANT). Les recommandations incluent vérifier myia-po-2023 pour comprendre pourquoi son inventaire n'est pas collectable, s'assurer que la baseline corrigée est propagée à tous les agents, et reprendre la Phase 3 avec confiance.
+
+**Points clés :**
+- Investigation révèle outils RooSync présents et fonctionnels (fausse alerte sur désynchronisation Git)
+- Problème bloquant : configuration baseline invalide et manquante dans répertoire partagé
+- Actions correctives : copie baseline vers répertoire partagé, réécriture pour schéma v2.1
+- Test roosync_get_status : succès avec 3 machines détectées en statut synced
+- Test roosync_compare_config : échec myia-po-2023 (inventaire manquant), succès myia-po-2026 (14 différences)
+- Recommandations : vérifier myia-po-2023, propager baseline corrigée, reprendre Phase 3
