@@ -238,6 +238,15 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - Mapping PowerShell → TypeScript corrigé pour utiliser les données réelles
 - DiffDetector.ts mis à jour : paths.rooConfig, paths.mcpSettings, comparaisons MCP/modes
 - Build réussi, fonctionnalités roosync_compare_config/list_diffs débloquées
+### 2025-10-20 - Bug Critique : Architecture machineId RooSync v2
+**Fichier original :** `sync-config-architecture-bug-20251020.md`
+**Résumé :** Bug critique identifié dans 3 outils messaging RooSync (send_message, amend_message, read_inbox) qui lisent le machineId depuis sync-config.json au lieu de process.env.ROOSYNC_MACHINE_ID, causant l'envoi de messages avec un expéditeur incorrect. Le problème est dans la fonction getLocalMachineId(sharedStatePath) qui lit le fichier partagé sync-config.json contenant le machineId de la dernière machine ayant écrit le fichier. La conséquence directe est que quand myia-ai-01 envoie un message, il apparaît comme provenant de myia-po-2024. La solution recommandée (Approche A) consiste à remplacer getLocalMachineId(sharedStatePath) par loadRooSyncConfig().machineId dans les 3 fichiers impactés. Le plan de correction inclut la validation de l'approche, l'implémentation de la correction, la correction optionnelle de sync-config.json, les tests unitaires et E2E, le rebuild et déploiement, et la documentation.
+**Points clés :**
+- Bug critique : 3 outils messaging lisent machineId depuis sync-config.json au lieu de .env
+- Conséquence : messages envoyés avec mauvais expéditeur (myia-ai-01 apparaît comme myia-po-2024)
+- Fichiers impactés : send_message.ts, amend_message.ts, read_inbox.ts
+- Solution recommandée : Approche A - utiliser loadRooSyncConfig().machineId
+- Plan correction : validation, implémentation, tests, rebuild, documentation
 ### 2025-10-21 - Refactorisation DiffDetector - Chaînage Optionnel Systématique
 **Fichier original :** `refactor-diff-detector-safe-access-20251021.md`
 **Résumé :** Refactorisation complète de DiffDetector.ts pour éliminer 57 accès directs non-safe qui causaient des crashes systématiques sur les inventaires partiels. Une fonction utilitaire safeGet() a été créée pour traverser les chemins imbriqués de manière sécurisée avec des valeurs par défaut typées. Les 4 méthodes de comparaison ont été refactorisées : compareRooConfig() (déjà safe), compareHardware() (28 accès sécurisés), compareSoftware() (18 accès sécurisés), compareSystem() (11 accès sécurisés). Le build TypeScript réussit sans erreur. Le pipeline RooSync Phase 2 est complètement débloqué.
