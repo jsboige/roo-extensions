@@ -740,3 +740,16 @@ La Phase 4 de surveillance et validation finale a pour objectif de surveiller l'
 - Échec technique local : `roosync_compare_config` échoue ("Échec collecte inventaire") malgré script fonctionnel en manuel
 - Agents distants inactifs : myia-po-2023 absent depuis 3 jours, myia-po-2026 non détecté
 - Conclusion provisoire : validation finale impossible sans agents distants, système local prêt mais boucle de synchronisation ouverte
+
+### 2025-12-08 - SYNTHÈSE DE SESSION : VALIDATION & STANDARDISATION ROOSYNC
+**Fichier original :** `2025-12-08_015_Synthese-Session.md`
+
+**Résumé :**
+Cette session de validation et standardisation RooSync a permis de diagnostiquer et de traiter les blocages empêchant la synchronisation complète entre les agents `myia-ai-01`, `myia-po-2023` et `myia-po-2026`. Le diagnostic révèle que l'infrastructure est saine mais que les données d'inventaire sont hétérogènes ou manquantes. La Phase 2 d'investigation a confirmé la visibilité des 3 machines via `roosync_get_status`, mais a identifié deux échecs : l'inventaire de `myia-po-2023` est introuvable sur le partage réseau malgré un agent en ligne, et l'inventaire de `myia-po-2026` présente un format incompatible (structure plate vs imbriquée). La Phase 3 de résolution a validé le script local `Get-MachineInventory.ps1` (v2) comme référence et déployé des messages RooSync aux agents distants avec les instructions de mise à jour. La Phase 4 d'attente et validation est suspendue jusqu'à la réception des nouveaux inventaires, l'infrastructure de test étant prête pour la reprise.
+
+**Points clés :**
+- Diagnostic : infrastructure saine mais données inventaire hétérogènes/manquantes
+- Phase 2 : succès visibilité 3 machines, échec myia-po-2023 (inventaire introuvable), échec myia-po-2026 (format incompatible)
+- Phase 3 : script v2 validé comme référence, 2 messages envoyés (msg-20251208T130400-vmxpcy à myia-po-2023, msg-20251208T130422-4dyjis à myia-po-2026)
+- Phase 4 : validation finale suspendue en attente nouveaux inventaires, infrastructure test prête
+- Backlog session suivante : surveillance inbox, validation inventaires, relance comparaison, reprise Phase 3 initiale
