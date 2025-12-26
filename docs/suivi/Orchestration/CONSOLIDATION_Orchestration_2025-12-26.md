@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 31/35
+**Nombre de documents consolidés :** 32/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -456,3 +456,17 @@ Cette mission SDDD d'audit comportemental du roo-state-manager a été menée en
 - Problème critique : moteur de recherche sémantique inactif ou index vide/corrompu (search_tasks_by_content retourne 0 résultat sans erreur explicite)
 - Warning récurrent : "large extension state detected" (~18MB) indiquant surcharge potentielle de l'état global de l'extension
 - Plan d'action suggéré : Priorité 1 (critique) diagnostiquer et réparer l'indexation sémantique, Priorité 2 enrichir le format d'export Markdown, Priorité 3 investiguer la gestion de l'état de l'extension
+
+### 2025-12-05 - Réparation Indexation & Recherche Sémantique
+**Fichier original :** `2025-12-05_026_Reparation-Indexation.md`
+
+**Résumé :**
+Cette mission SDDD a diagnostiqué et réparé le moteur d'indexation sémantique de roo-state-manager qui ne retournait aucun résultat. Le diagnostic a identifié deux erreurs de configuration : le script de test utilisait ts-node qui ne supportait pas correctement les modules ESM (import vs require), et la connexion Qdrant utilisait le port par défaut (6333) au lieu du port HTTPS (443) requis pour l'instance cloud. Des problèmes de performance ont également été identifiés : l'indexation de tâches réelles massives bloquait le processus à cause des rate limits (100 ops/min) et du volume de chunks. Les actions correctives ont inclus la migration ESM avec mise à jour des scripts de test (test-indexing-flow.ts, test-search.ts) pour utiliser la syntaxe ESM et tsx au lieu de ts-node, la correction de la configuration Qdrant avec forçage du port 443 lorsque l'URL commence par https, et la validation par fixture avec création d'une tâche de test légère (tests/fixtures/test-task-123) pour valider la logique sans être bloqué par les limites de débit. La validation a confirmé le succès de l'indexation de la fixture (4 points créés) et la recherche du terme "semantic search" retourne bien les 4 résultats attendus avec des scores de pertinence cohérents (> 0.6).
+
+**Points clés :**
+- Erreurs de configuration identifiées : ts-node ne supportant pas correctement les modules ESM, connexion Qdrant utilisant port 6333 au lieu de 443 pour instance cloud
+- Problèmes de performance : indexation de tâches massives bloquée par rate limits (100 ops/min) et volume de chunks
+- Actions correctives : migration ESM (scripts test-indexing-flow.ts, test-search.ts mis à jour avec syntaxe import, utilisation tsx au lieu de ts-node), correction configuration Qdrant (port 443 forcé pour URLs https), validation par fixture (tâche test légère tests/fixtures/test-task-123)
+- Validation réussie : indexation fixture (4 points créés), recherche "semantic search" retourne 4 résultats avec scores pertinence > 0.6
+- Fichiers modifiés : mcps/internal/servers/roo-state-manager/tests/manual/test-indexing-flow.ts, mcps/internal/servers/roo-state-manager/tests/manual/test-search.ts, mcps/internal/servers/roo-state-manager/src/services/task-indexer.ts (logs améliorés)
+- Conclusion : moteur d'indexation fonctionnel, recherche sémantique opérationnelle, scripts de test manuels robustes pouvant servir de base pour tests d'intégration automatisés
