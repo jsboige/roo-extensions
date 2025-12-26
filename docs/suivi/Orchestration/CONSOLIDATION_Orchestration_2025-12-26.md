@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 4/35
+**Nombre de documents consolidés :** 5/35
 **Période couverte :** 2025-10-22 à 2025-10-26
 
 ## Documents consolidés (ordre chronologique)
@@ -56,3 +56,16 @@ Cette tâche de correction des anomalies critiques et mineures dans l'environnem
 - Fichiers corrigés : mcp_settings.json et roo-config/settings/servers.json
 - Standardisation des commandes pour utiliser des packages npm
 - Anomalies mineures identifiées dans les scripts PowerShell (setup.ps1, repair-roo-tasks.ps1, maintenance-workflow.ps1)
+
+### 2025-10-26 - Finalisation win-cli - Outil Terminal Universel Roo
+**Fichier original :** `05-win-cli-finalisation/TASK-TRACKING-2025-10-26.md`
+
+**Résumé :**
+Cette tâche de finalisation du fork win-cli visait à en faire l'outil terminal universel robuste et complet utilisé par tous les agents Roo. L'analyse a révélé que le projet TypeScript/NPM est correctement structuré, compile avec succès et est correctement intégré comme MCP dans Roo. Cependant, trois problèmes ont été identifiés : un affichage console corrompu (critique), une configuration yargs défectueuse (moyen), et une gestion d'erreurs basique (moyen). Des corrections ont été appliquées avec la création du fichier win-cli-config.json, l'ajout de l'option .strict() à yargs, et la correction de la configuration validatePath pour PowerShell. Les tests de validation montrent que l'exécution de commandes fonctionne correctement, mais l'affichage help et version reste problématique.
+
+**Points clés :**
+- Fork win-cli fonctionnel et prêt pour déploiement comme outil terminal universel
+- Problème critique d'affichage console corrompu (caractères spéciaux, sauts de ligne)
+- Corrections appliquées : win-cli-config.json créé, yargs .strict() ajouté, validatePath corrigé
+- Fonctionnalités opérationnelles : exécution PowerShell/CMD/Git Bash, connexions SSH, historique, validation sécurité
+- Recommandations : implémenter gestion UTF-8 explicite, centraliser gestion erreurs, réviser configuration yargs
