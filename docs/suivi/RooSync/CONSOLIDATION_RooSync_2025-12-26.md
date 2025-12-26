@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 65/79
+**Nombre de documents consolidés :** 66/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -725,3 +725,13 @@ Ce rapport de diagnostic complet analyse en profondeur les couches RooSync et pr
 - Architecture cible v3.0 : unifiée sur MCP roo-state-manager, stockage .shared-state/, config unique
 - Plan nettoyage 5 phases : stockage, configuration, scripts, messages, documentation
 - Métriques succès : 100% consolidation, <5s performance, zero conflit, traçabilité complète
+### 2025-12-14 - Analyse de l'Éparpillement des Scripts et Composants RooSync
+**Fichier original :** `2025-12-14_001_ANALYSE-EPARPILLEMENT-ROOSYNC.md`
+**Résumé :**
+Cette analyse révèle un éparpillement significatif des fonctionnalités RooSync avec 45 scripts PowerShell répartis dans 8 répertoires, montrant une évolution de scripts autonomes vers un système intégré dans le MCP roo-state-manager. L'inventaire identifie 24 scripts obsolètes (principalement dans scripts/git/), 18 scripts orphelins/dupliqués (dont 8 scripts RooSync dupliquant exactement les outils MCP), et 3 scripts à migrer (Get-MachineInventory.ps1, PHASE3A-ANALYSE-RAPIDE.ps1, PHASE3B-TRAITEMENT-DECISIONS.ps1). Le MCP roo-state-manager contient 15+ outils RooSync mais manque certaines fonctionnalités critiques comme l'inventaire machine complet, la gestion du scheduler Windows et le déploiement système complet.
+**Points clés :**
+- 45 scripts analysés : 24 obsolètes, 18 orphelins/dupliqués, 3 à migrer
+- 8 scripts RooSync dupliquent exactement les outils MCP (export/update/restore/version baseline, diff granulaire)
+- 3 scripts à migrer : Get-MachineInventory.ps1, PHASE3A-ANALYSE-RAPIDE.ps1, PHASE3B-TRAITEMENT-DECISIONS.ps1
+- Fonctionnalités manquantes MCP : inventaire machine complet, gestion scheduler Windows, déploiement système complet
+- Recommandations : supprimer scripts obsolètes/dupliqués, migrer scripts utiles, standardiser architecture
