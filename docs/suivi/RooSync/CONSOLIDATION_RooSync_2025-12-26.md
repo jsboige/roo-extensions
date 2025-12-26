@@ -701,3 +701,16 @@ Ce rapport diagnostique l'échec de collecte d'inventaire pour l'agent myia-po-2
 - Recommandation immédiate : ignorer myia-po-2023 temporairement, utiliser target "myia-po-2024" explicitement
 - Recommandation corrective : envoyer message RooSync pour vérification configuration SHARED_STATE_PATH et logs
 - Amélioration système : modifier roosync_compare_config pour gérer gracieusement absence inventaire (warning vs erreur)
+
+### 2025-12-08 - RAPPORT D'EXÉCUTION PHASE 2 : CIBLE MYIA-PO-2026
+**Fichier original :** `2025-12-08_012_Phase2-Execution-2026.md`
+
+**Résumé :**
+La Phase 2 du protocole SDDD pour la synchronisation avec `myia-po-2026` a permis de confirmer la connectivité avec la machine cible tout en identifiant une divergence structurelle majeure dans les formats d'inventaire. Bien que les outils RooSync soient fonctionnels, l'automatisation complète via `roosync_compare_config` a rencontré des obstacles liés à l'environnement local, nécessitant une intervention manuelle pour la collecte et la comparaison. Le script PowerShell `Get-MachineInventory.ps1` a été corrigé pour gérer correctement les types DateTime sur la locale française, générant désormais un JSON valide. Une comparaison granulaire utilisant `roosync_granular_diff` a révélé 8 différences entre les machines, dont 2 IMPORTANTES et 2 WARNINGS, indiquant une incompatibilité de schéma entre les formats d'inventaire imbriqué de `myia-ai-01` et le format plat de `myia-po-2026`.
+
+**Points clés :**
+- Connectivité confirmée avec `myia-po-2026` mais divergence structurelle majeure identifiée dans les formats d'inventaire
+- Script `Get-MachineInventory.ps1` corrigé pour gérer les types DateTime sur locale française
+- 8 différences détectées : 2 IMPORTANTES (machineId, timestamp), 2 WARNINGS (divergences structurelles paths/inventory), 4 INFO
+- `myia-ai-01` utilise format imbriqué v2, `myia-po-2026` utilise format plat v1
+- Recommandations : standardiser le script sur toutes les machines, mettre à jour l'inventaire distant, relancer la comparaison
