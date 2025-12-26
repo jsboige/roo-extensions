@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 30/35
+**Nombre de documents consolidés :** 31/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -443,3 +443,16 @@ Cette mission SDDD visait à inviter explicitement tous les agents (myia-po-2024
 - Vérification inbox : roosync_read_inbox exécuté, aucune réponse immédiate (messages non lus datant début décembre)
 - Documentation et validation : mise à jour suivi, validation via recherche "coordination multi-agents roosync phase 2"
 - Rapport mission : destinataires myia-po-2024, myia-po-2026, myia-web1, myia-po-2023, statut envoi tous messages envoyés avec succès, réponses aucune immédiate, attente connexion agents
+
+### 2025-12-05 - Analyse Comportementale RooStateManager
+**Fichier original :** `2025-12-05_025_Analyse-RooStateManager.md`
+
+**Résumé :**
+Cette mission SDDD d'audit comportemental du roo-state-manager a été menée en attendant la connexion des agents distants pour la Phase 2. L'audit a testé trois outils clés : get_task_tree pour la construction du squelette hiérarchique, search_tasks_by_content pour l'indexation et la recherche sémantique, et export_task_tree_markdown pour l'exportation. Le grounding sémantique a identifié l'architecture hybride du système (extraction intelligente + RadixTree) et les 54 outils disponibles. Les tests fonctionnels ont montré que get_task_tree fonctionne correctement avec une structure JSON valide et des métadonnées complètes sur la tâche 6c58f0a7-107f-4ebb-8e71-e4b10efbf49f, mais que search_tasks_by_content est en échec total (0 résultats pour les recherches "SDDD" et "test"), indiquant un problème silencieux de l'indexation sémantique. L'export Markdown fonctionne mais retourne un contenu très basique sans richesse sémantique. L'analyse des logs via read_vscode_logs a révélé un warning récurrent sur la taille de l'état de l'extension (~18MB) indiquant une surcharge potentielle.
+
+**Points clés :**
+- Outils testés : get_task_tree (✅ succès, structure JSON valide, métadonnées complètes sur tâche 6c58f0a7), search_tasks_by_content (❌ échec, 0 résultats pour "SDDD" et "test"), export_task_tree_markdown (✅ succès partiel, contenu basique sans richesse sémantique)
+- Architecture identifiée : système hybride (extraction intelligente + RadixTree), 54 outils au total, Phase 2 déployée
+- Problème critique : moteur de recherche sémantique inactif ou index vide/corrompu (search_tasks_by_content retourne 0 résultat sans erreur explicite)
+- Warning récurrent : "large extension state detected" (~18MB) indiquant surcharge potentielle de l'état global de l'extension
+- Plan d'action suggéré : Priorité 1 (critique) diagnostiquer et réparer l'indexation sémantique, Priorité 2 enrichir le format d'export Markdown, Priorité 3 investiguer la gestion de l'état de l'extension
