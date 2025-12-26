@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 32/35
+**Nombre de documents consolidés :** 33/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -470,3 +470,19 @@ Cette mission SDDD a diagnostiqué et réparé le moteur d'indexation sémantiqu
 - Validation réussie : indexation fixture (4 points créés), recherche "semantic search" retourne 4 résultats avec scores pertinence > 0.6
 - Fichiers modifiés : mcps/internal/servers/roo-state-manager/tests/manual/test-indexing-flow.ts, mcps/internal/servers/roo-state-manager/tests/manual/test-search.ts, mcps/internal/servers/roo-state-manager/src/services/task-indexer.ts (logs améliorés)
 - Conclusion : moteur d'indexation fonctionnel, recherche sémantique opérationnelle, scripts de test manuels robustes pouvant servir de base pour tests d'intégration automatisés
+
+### 2025-12-05 - Validation Indexation & Config Quickfiles
+**Fichier original :** `2025-12-05_027_Validation-Massive-Config.md`
+
+**Résumé :**
+Cette mission SDDD visait à valider la robustesse de l'indexation sémantique sur un grand volume, mettre à jour la configuration de déploiement (Quickfiles, Qdrant) et synchroniser les dépôts. Les réalisations techniques incluent la réparation et l'automatisation de l'indexation dans roo-state-manager avec réactivation de l'indexation Qdrant qui était désactivée en dur dans background-services.ts, implémentation d'une file d'attente asynchrone (qdrantIndexQueue) pour gérer l'indexation en arrière-plan sans bloquer l'interface, et déclenchement automatique via le tool build_skeleton_cache qui alimente désormais cette file d'attente. Des tests ont été créés avec tests/manual/test-massive-indexing.ts pour simuler une charge et valider le comportement (gestion des rate limits OpenAI, résilience). La configuration Quickfiles a été mise à jour avec support des variables d'environnement QUICKFILES_EXCLUDES et QUICKFILES_MAX_DEPTH, modification du serveur pour accepter ces variables, mise à jour des templates roo-config/settings/servers.json et roo-config/config-templates/servers.json pour inclure ces paramètres (ex: exclusion de .git, node_modules), et création de tests/mcp/test-quickfiles-config.js pour vérifier la prise en compte des exclusions. Les travaux ont été sécurisés via des commits sur le sous-module et le dépôt principal : mcps/internal avec commits feat(roo-state-manager): reactivate background indexing queue linked to cache build et feat(quickfiles): add support for env vars exclusions and max depth, et roo-extensions (Main) avec mise à jour du pointeur de sous-module mcps/internal, commit des configurations roo-config, et ajout des scripts de test et de ce rapport.
+
+**Points clés :**
+- Réparation indexation roo-state-manager : réactivation indexation Qdrant (désactivée en dur dans background-services.ts), file d'attente asynchrone qdrantIndexQueue pour indexation arrière-plan sans blocage interface, déclenchement automatique via build_skeleton_cache (indexation incrémentale)
+- Tests créés : tests/manual/test-massive-indexing.ts pour simuler charge et valider comportement (gestion rate limits OpenAI, résilience)
+- Configuration Quickfiles : support variables d'environnement QUICKFILES_EXCLUDES et QUICKFILES_MAX_DEPTH, modification serveur pour accepter ces variables, mise à jour templates roo-config/settings/servers.json et roo-config/config-templates/servers.json (exclusion .git, node_modules)
+- Validation Quickfiles : tests/mcp/test-quickfiles-config.js créé pour vérifier prise en compte exclusions
+- Commits mcps/internal : feat(roo-state-manager): reactivate background indexing queue linked to cache build, feat(quickfiles): add support for env vars exclusions and max depth
+- Commits roo-extensions (Main) : mise à jour pointeur sous-module mcps/internal, commit configurations roo-config, ajout scripts de test et rapport
+- Notes suite : Quickfiles refactorisation majeure en cours par autre agent (modifications configuration à vérifier compatibilité nouvelle version), indexation système fonctionnel (validation massive montrée gestion correcte délais attente API OpenAI)
+- Fichiers clés : mcps/internal/servers/roo-state-manager/src/services/background-services.ts, mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts, mcps/internal/servers/quickfiles-server/src/index.ts, roo-config/settings/servers.json
