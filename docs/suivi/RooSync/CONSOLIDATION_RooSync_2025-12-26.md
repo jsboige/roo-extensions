@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 85/85 (100% - Tous les documents existants ont été consolidés)
+**Nombre de documents consolidés :** 88/88 (100% - Tous les documents existants ont été consolidés)
 **Note :** 2 documents demandés n'existent pas : 2025-12-15_001_Plan-Cycle2-Reporting.md, 2025-12-15_001_MASTER-PLAN-CYCLE2-AUTONOMIE.md
 **Période couverte :** 2025-10-13 à 2025-12-14
 ## Documents consolidés (ordre chronologique)
@@ -112,6 +112,15 @@
 - roosync_list_diffs retourne données mockées, non connecté aux inventaires réels
 - Services v2.0 compilés mais non fonctionnels : intégration PowerShell ↔ TypeScript incomplète
 - Recommandation : déboguer prioritaire InventoryCollector avant déploiement production
+### 2025-10-16 - Diagnostic Différentiel RooSync - Lacunes Implémentation
+**Fichier original :** `differential-implementation-gaps-20251016.md`
+**Résumé :** Diagnostic révélant un MISMATCH CRITIQUE entre la structure JSON générée par le script PowerShell Get-MachineInventory.ps1 et l'interface TypeScript MachineInventory dans InventoryCollector.ts. Les tests RooSync semblent fonctionner superficiellement mais la fonctionnalité core de détection de différences entre machines ne produit aucun différentiel exploitable. Les données riches collectées par PowerShell (15 serveurs MCP, 10 modes Roo, specs SDDD, ~50 scripts, outils système) sont totalement ignorées par le système de comparaison TypeScript. L'interface MachineInventory cherche des propriétés inexistantes (modesPath, mcpSettings dans rooConfig) au lieu de mapper les données réelles (mcpServers, rooModes, sdddSpecs, scripts). Le plan de correction détaillé en 3 phases (P0: 4-6h, P1: 2-3h, P2: 3-4h) propose d'enrichir l'interface, corriger le mapping et implémenter la comparaison Roo réelle.
+**Points clés :**
+- MISMATCH CRITIQUE : PowerShell collecte 146KB de données, TypeScript ignore tout
+- Interface MachineInventory inadaptée : cherche rooConfig inexistant
+- DiffDetector compareRooConfig() incomplet : TODO Phase 3 jamais implémenté
+- Gravité CRITIQUE : impossible de détecter différences MCP, modes, outils
+- Plan correction 3 phases : enrichir interface (1h), corriger mapping (2h), implémenter comparaison (2-3h)
 ### 2025-10-19 - RooSync - Rapport de Correction du Bug de Création de Décisions
 **Fichier original :** `2025-10-19_037_roosync-decision-bug-fix.md`
 **Résumé :** Rapport de correction d'un bug critique dans la fonction generateDecisionsFromReport du service RooSync qui causait des doublons d'ID et une perte de décisions. Le bug a été découvert lors de la préparation de la synchronisation entre myia-po-2024 et myia-ai-01. Les symptômes incluaient plusieurs décisions créées avec le même UUID, seulement 2 décisions visibles au lieu des 6 attendues, et une incohérence entre le rapport (6 décisions créées) et le fichier (2 décisions). L'impact incluait le blocage du processus de synchronisation, la confusion dans l'arbitrage des décisions et une perte de confiance dans le système. La cause racine a été localisée dans le fichier mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts, fonction generateDecisionsFromReport() (lignes 1022-1100). L'ancienne implémentation lisait le fichier roadmap une seule fois au début de la boucle, puis écrivait plusieurs fois dans la même itération, causant un état partagé, un écrasement des décisions précédentes, des écritures multiples inutiles et des UUID dupliqués. La solution implémentée collecte tous les blocs de décision d'abord dans un tableau, puis écrit une seule fois à la fin. Les améliorations incluent la collecte séquentielle, l'écriture unique, des UUID uniques, une performance améliorée (de ~200ms à ~69ms) et un logging amélioré. La validation a confirmé 6 décisions créées avec succès et des UUID uniques. Les actions complémentaires incluent le nettoyage des décisions en double, la documentation et la mise à jour des commentaires dans le code. Les leçons apprises soulignent l'importance du Single Responsibility, de l'Immutable State, des Atomic Operations, du Defensive Programming et du Test Coverage. Le statut du système RooSync v2.0.0 est maintenant opérationnel.
@@ -211,6 +220,15 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - Plan de corrections en 3 phases : P0 BaselineService, P1 outils MCP, P2 nettoyage
 - Recommandation immédiate : stopper l'utilisation en production
 - Prochaine étape : lancer Phase 1 avec création de BaselineService.ts
+### 2025-10-20 - Vérification Corrections RooSync Differential
+**Fichier original :** `corrections-verification-20251020.md`
+**Résumé :** Vérification post-pull pour identifier si corrections agent distant myia-po-2024 intégrées dans code actuel. Le MISMATCH TOUJOURS PRÉSENT entre la structure JSON générée par le script PowerShell Get-MachineInventory.ps1 et l'interface TypeScript MachineInventory dans InventoryCollector.ts. Le code actuel présente exactement le même problème diagnostiqué le 2025-10-16 : l'interface cherche rawInventory.inventory.rooConfig qui n'existe pas dans la sortie PowerShell. Les données réelles (mcpServers, rooModes, sdddSpecs, scripts) sont ignorées par le mapping TypeScript. Aucun commit n'a modifié InventoryCollector.ts entre le diagnostic et la vérification. L'impact fonctionnel est critique : RooSync Differential Phase 2-5 impossible, outils roosync_compare_config résultats incorrects, outils roosync_list_diffs aucun diff détecté.
+**Points clés :**
+- MISMATCH persiste : interface TypeScript cherche rooConfig inexistant dans sortie PowerShell
+- Données ignorées : mcpServers, rooModes, sdddSpecs, scripts non mappés
+- Aucune correction appliquée malgré pull récent (2025-10-19)
+- Impact fonctionnel : comparaison configurations Roo impossible, résultats incorrects
+- Recommandation : attendre retour agent distant ou appliquer corrections décrites
 ### 2025-10-22 - RooSync v1→v2 : Rapport d'Analyse de Convergence
 **Fichier original :** `2025-10-22_001_Convergence-V1-V2-Analysis.md`
 **Résumé :**
@@ -271,6 +289,15 @@ Rapport de récupération des améliorations logging depuis l'historique Stash p
 - Tests validés : syntaxe PowerShell, dry-run, visibilité logs, backup disponible
 - Commit 5a08972 créé sur branche feature avec 3 fichiers modifiés/créés
 - Recommandation : PRÊT POUR DROP DES 5 STASHS (42 corrections reportées marginales)
+### 2025-10-22 - Implémentation Phase 1 RooSync v2 - 3 Améliorations Critiques
+**Fichier original :** `improvements-v2-phase1-implementation.md`
+**Résumé :** Rapport d'implémentation complète des 3 améliorations critiques identifiées dans l'analyse de convergence RooSync v1→v2. Amélioration 1 : Classe Logger production-ready (292 lignes) avec double output console+fichier, rotation automatique 10MB/7 jours, ISO 8601 timestamps. Refactoring effectué sur InventoryCollector.ts (19 occurrences) et DiffDetector.ts (1 occurrence). Amélioration 2 : Git verification au démarrage (334 lignes git-helpers) avec méthode verifyGitAvailable(). Amélioration 3 : Robustesse SHA HEAD avec rollback (334 lignes git-helpers) avec wrapper execGitCommand() et safePull(). Documentation créée : logger-usage-guide.md (361 lignes), git-requirements.md (414 lignes). Score de convergence v1→v2 amélioré de 67% à 85% (+18%). Build TypeScript valide (0 erreurs). Total 1776 lignes créées/modifiées (code: 1001, doc: 775).
+**Points clés :**
+- 3 améliorations critiques implémentées : Logger production-ready, Git verification, Robustesse SHA HEAD
+- Refactoring services critiques : 20 occurrences console.* remplacées (InventoryCollector, DiffDetector)
+- Score convergence v1→v2 : 67% → 85% (+18%)
+- Documentation exhaustive SDDD : 775 lignes guides pour continuité
+- Build TypeScript valide, 1776 lignes créées/modifiées (code: 1001, doc: 775)
 ### 2025-10-23 - Rapport de Complétion Phase 1 - RooSync SDDD Mission
 **Fichier original :** `2025-10-23_007_Phase1-Completion-Report.md`
 **Résumé :**
