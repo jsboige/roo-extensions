@@ -254,6 +254,19 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - Recommandation immédiate : stopper l'utilisation en production
 - Prochaine étape : lancer Phase 1 avec création de BaselineService.ts
 
+### 2025-10-22 - RooSync v1→v2 : Rapport d'Analyse de Convergence
+**Fichier original :** `2025-10-22_001_Convergence-V1-V2-Analysis.md`
+
+**Résumé :**
+Ce rapport d'analyse compare les améliorations de RooSync v2.1 (MCP roo-state-manager) avec RooSync v1 (script PowerShell) pour identifier les opportunités de convergence bidirectionnelle. L'analyse couvre 14 commits depuis le 20 octobre 2025 et examine 3 fichiers RooSync v2 modifiés (InventoryCollector.ts, DiffDetector.ts, InventoryCollectorWrapper.ts) ainsi que 6 améliorations critiques de v1. Le score de convergence global est de 67% (4/6 améliorations v1 portées dans v2). Les 3 manques critiques identifiés dans v2 sont la visibilité Scheduler Windows (console.error() non visible), l'absence de vérification Git au démarrage, et le manque de vérifications SHA HEAD robustes. Le rapport identifie également 5 innovations v2 uniques pouvant inspirer v1 : cache TTL intelligent avec multi-sources, safe property access (safeGet()), baseline-driven architecture, InventoryCollectorWrapper (Adapter Pattern), et stratégie .shared-state/ Google Drive Sync. Un plan d'action priorisé en 3 phases est proposé : Phase 1 (CRITIQUE, 5-8h) pour logging compatible Scheduler, vérification Git et vérifications SHA, Phase 2 (MOYENNE, 1-2h) pour cleanup cache en erreur, et Phase 3 (BASSE, 9-12h) pour porter cache TTL et baseline concept dans v1. La roadmap de convergence prévoit un score de 85% à court terme et 95% à moyen terme.
+
+**Points clés :**
+- Score de convergence global de 67% (4/6 améliorations v1 portées dans v2)
+- 3 manques critiques dans v2 : logging Scheduler Windows, vérification Git, vérifications SHA
+- 5 innovations v2 uniques : cache TTL, safeGet(), baseline-driven architecture, Adapter Pattern, Google Drive Sync
+- Plan d'action en 3 phases : Phase 1 CRITIQUE (5-8h), Phase 2 MOYENNE (1-2h), Phase 3 BASSE (9-12h)
+- Roadmap : 85% convergence court terme, 95% moyen terme, architecture unifiée long terme
+
 ### 2025-12-08 - Rapport Phase 3 Cycle 7 : Intégration Moteur de Diff
 **Fichier original :** `2025-12-08_005_Rapport-Phase3-Cycle7.md`
 **Résumé :** Rapport de la Phase 3 du Cycle 7 concernant l'intégration du moteur de diff dans RooSync avec un statut de terminé. Les objectifs atteints incluent la sécurisation Git de la Phase 2 avec deux commits : commit sous-module mcps/internal (feat(roo-state-manager): implement ConfigDiffService for Cycle 7 Phase 2, Hash: 2034e2a) et commit principal (chore(cycle7): secure Phase 2 (Diff Engine) and update submodule, Hash: 77fd2c5), tous deux poussés avec succès sur les deux dépôts. L'intégration technique de la Phase 3 a modifié le service ConfigSharingService.ts en ajoutant une nouvelle méthode compareWithBaseline(config: any): Promise<DiffResult> qui intègre les dépendances ConfigDiffService et ConfigNormalizationService. Les types partagés ont été mis à jour dans types/config-sharing.ts avec DiffResult et ConfigChange. Les tests ont été créés dans src/services/__tests__/ConfigSharingService.test.ts avec une couverture vérifiant l'initialisation et l'appel à diffService.compare, résultat : 2/2 tests passants. L'implémentation respecte strictement la spécification docs/rapports/71-SPEC-NORMALISATION-SYNC-CYCLE7-2025-12-08.md avec ConfigSharingService agissant comme orchestrateur déléguant la normalisation à ConfigNormalizationService et la comparaison à ConfigDiffService. La documentation est centralisée dans types/config-sharing.ts et les services sont découplés et testables isolément. Les prochaines étapes pour la Phase 4 (Validation Distribuée) incluent le déploiement de roo-state-manager sur les environnements cibles, l'exécution de roosync_compare_config (qui utilisera la nouvelle logique) sur deux machines différentes, et l'analyse de la pertinence des diffs générés. Le moteur de diff est opérationnel et intégré, la fondation pour la synchronisation intelligente est en place.
@@ -274,15 +287,3 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - 5 rôles techniques distribués : myia-web1 (Config Authority), myia-po-2024 (Environment Guardian), myia-po-2026 (QA Chaos Monkey), myia-po-2023 (Support Watcher), myia-ai-01 (Coord Hub)
 - 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
 
-### 2025-10-22 - RooSync v1→v2 : Rapport d'Analyse de Convergence
-**Fichier original :** `2025-10-22_001_Convergence-V1-V2-Analysis.md`
-
-**Résumé :**
-Ce rapport d'analyse compare les améliorations de RooSync v2.1 (MCP roo-state-manager) avec RooSync v1 (script PowerShell) pour identifier les opportunités de convergence bidirectionnelle. L'analyse couvre 14 commits depuis le 20 octobre 2025 et examine 3 fichiers RooSync v2 modifiés (InventoryCollector.ts, DiffDetector.ts, InventoryCollectorWrapper.ts) ainsi que 6 améliorations critiques de v1. Le score de convergence global est de 67% (4/6 améliorations v1 portées dans v2). Les 3 manques critiques identifiés dans v2 sont la visibilité Scheduler Windows (console.error() non visible), l'absence de vérification Git au démarrage, et le manque de vérifications SHA HEAD robustes. Le rapport identifie également 5 innovations v2 uniques pouvant inspirer v1 : cache TTL intelligent avec multi-sources, safe property access (safeGet()), baseline-driven architecture, InventoryCollectorWrapper (Adapter Pattern), et stratégie .shared-state/ Google Drive Sync. Un plan d'action priorisé en 3 phases est proposé : Phase 1 (CRITIQUE, 5-8h) pour logging compatible Scheduler, vérification Git et vérifications SHA, Phase 2 (MOYENNE, 1-2h) pour cleanup cache en erreur, et Phase 3 (BASSE, 9-12h) pour porter cache TTL et baseline concept dans v1. La roadmap de convergence prévoit un score de 85% à court terme et 95% à moyen terme.
-
-**Points clés :**
-- Score de convergence global de 67% (4/6 améliorations v1 portées dans v2)
-- 3 manques critiques dans v2 : logging Scheduler Windows, vérification Git, vérifications SHA
-- 5 innovations v2 uniques : cache TTL, safeGet(), baseline-driven architecture, Adapter Pattern, Google Drive Sync
-- Plan d'action en 3 phases : Phase 1 CRITIQUE (5-8h), Phase 2 MOYENNE (1-2h), Phase 3 BASSE (9-12h)
-- Roadmap : 85% convergence court terme, 95% moyen terme, architecture unifiée long terme
