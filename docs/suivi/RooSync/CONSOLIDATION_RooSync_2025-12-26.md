@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 82/82 (100% - Tous les documents existants ont été consolidés)
+**Nombre de documents consolidés :** 85/85 (100% - Tous les documents existants ont été consolidés)
 **Note :** 2 documents demandés n'existent pas : 2025-12-15_001_Plan-Cycle2-Reporting.md, 2025-12-15_001_MASTER-PLAN-CYCLE2-AUTONOMIE.md
 **Période couverte :** 2025-10-13 à 2025-12-14
 ## Documents consolidés (ordre chronologique)
@@ -821,3 +821,30 @@ Ce rapport d'analyse archéologique examine l'évolution historique de la config
 - Solution : remplacement prioritaire ${ROO_HOME} → $env:ROO_HOME, ${SHARED_STATE_PATH} → $env:SHARED_STATE_PATH
 - Procédure régénération : nettoyage fichiers corrompus, initialisation workspace, vérification correction
 - Précautions : variables d'environnement requises, sauvegarde préalable, test en environnement isolé
+### 2025-10-24 - Communication Agent Distant
+**Fichier original :** `communication-agent-20251024.md`
+**Résumé :** Rapport de communication avec l'agent distant myia-po-2024 concernant la coordination RooSync Phase 3 et Baseline. L'agent distant a validé l'Option A (Dry-Run Immédiat) le 23 octobre 09:38 et attend confirmation d'inventaire + signal pour procéder. La Phase 3 a été complétée avec succès (4 batteries tests, 14/14 tests PASS, convergence 98.75%, 4,619 lignes documentation). Des questions de coordination baseline ont été posées sur les progrès côté agent, la participation à l'implémentation Baseline Complete et le démarrage immédiat ou attente tests production réels. Une proposition Phase 4 pour tests production réels a été faite (Logger Task Scheduler, Git helpers, Deployment wrappers, Task Scheduler permissions). Le timeout 48h est atteint le 25 octobre 09:38.
+**Points clés :**
+- Agent distant myia-po-2024 a validé Option A dry-run immédiat (23 oct 09:38)
+- Phase 3 complétée : 14/14 tests PASS (100%), convergence 98.75%, production-ready 4/4 fonctionnalités
+- Questions coordination baseline : progrès côté agent, participation Baseline Complete, démarrage immédiat
+- Proposition Phase 4 tests production réels : Logger, Git helpers, Deployment wrappers, Task Scheduler
+- Timeout 48h atteint le 25 octobre 09:38 (~39h écoulées depuis dernier message reçu)
+### 2025-10-26 - Communication Agent Distant - Coordination Baseline + Phase 4
+**Fichier original :** `communication-agent-20251026.md`
+**Résumé :** Rapport de communication avec l'agent distant myia-po-2024 pour la coordination Baseline Complete + Phase 4 SDDD. L'agent a envoyé un message de coordination avec 4 questions sur Baseline v2.1, timeline, tests production et merger scripts. Une réponse détaillée a été envoyée validant Option A (Baseline Complete) avec planning 4 jours (26-29 oct), stratégie de consolidation scripts en v2.1 (1 seul script unifié), et tests production parallèles ET séquentiels. Une analyse comparative des 2 versions de sync_roo_environment.ps1 a été réalisée (Version 1 RooSync/ 270 lignes plus robuste, Version 2 scheduler/ 252 lignes plus documentée). Le plan de consolidation v2.1 utilise Version 1 comme base avec intégrations de Version 2 et améliorations supplémentaires (variables environnement, rotation logs, métriques performance, exit codes standardisés).
+**Points clés :**
+- Option A (Baseline Complete) approuvée avec planning 4 jours (26-29 oct)
+- Stratégie consolidation scripts : 1 seul script unifié v2.1 basé sur Version 1 (plus robuste)
+- Tests production : les deux (parallèles ET séquentiels) avec workflow détaillé
+- Analyse comparative sync_roo_environment.ps1 : Version 1 (270 lignes, robuste) vs Version 2 (252 lignes, documentée)
+- 5 questions de coordination posées : timeline, disponibilité, workflow tests, fréquence messages, review script v2.1
+### 2025-10-24 - Consolidation Tests Unitaires + Nettoyage MCP Phase 3
+**Fichier original :** `consolidation-tests-nettoyage-20251024.md`
+**Résumé :** Rapport de consolidation des tests unitaires et nettoyage MCP roo-state-manager Phase 3 avec statut COMPLÉTÉ. La Phase 1 a refactoré les tests unitaires en éliminant ~150 lignes de code dupliqué et créant 427 lignes de helpers réutilisables (test-logger.ts, test-git.ts, test-deployment.ts). La Phase 2 a nettoyé le MCP roo-state-manager en supprimant 4 fichiers (66 KB) et améliorant .gitignore (+4 patterns). Un incident de sécurité a été résolu : tokens GitHub sensibles détectés dans logs supprimés, commit annulé et refait proprement. Les métriques finales montrent 0 code dupliqué, 427 lignes helpers réutilisables, 14/14 tests PASS, et 3 commits Git (a37dbb7, 53a8986, 3a1b3289).
+**Points clés :**
+- Phase 1 : refactoring tests unitaires, élimination 150 lignes code dupliqué, création 427 lignes helpers réutilisables
+- Phase 2 : nettoyage MCP roo-state-manager, suppression 4 fichiers (66 KB), amélioration .gitignore (+4 patterns)
+- Incident résolu : tokens GitHub sensibles détectés, commit annulé et refait proprement
+- Métriques finales : 0 code dupliqué, 427 lignes helpers, 14/14 tests PASS, 3 commits Git
+- Recommandations : exécution régulière tests, nettoyage mensuel MCP, maintenance pre-commit hooks
