@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 79/79
+**Nombre de documents consolidés :** 61/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 
 ## Documents consolidés (ordre chronologique)
