@@ -753,3 +753,16 @@ Cette session de validation et standardisation RooSync a permis de diagnostiquer
 - Phase 3 : script v2 validé comme référence, 2 messages envoyés (msg-20251208T130400-vmxpcy à myia-po-2023, msg-20251208T130422-4dyjis à myia-po-2026)
 - Phase 4 : validation finale suspendue en attente nouveaux inventaires, infrastructure test prête
 - Backlog session suivante : surveillance inbox, validation inventaires, relance comparaison, reprise Phase 3 initiale
+
+### 2025-12-08 - RAPPORT DE DÉTECTION PHASE 2 : ROOSYNC
+**Fichier original :** `2025-12-08_016_Phase2-Detection.md`
+
+**Résumé :**
+Ce rapport de détection Phase 2 analyse l'état du système RooSync lors de la reprise de la session de tests collaboratifs pour déterminer si la Phase 2 de détection de divergence peut être lancée. L'analyse révèle que seule la machine locale `myia-ai-01` est actuellement visible, aucune autre machine n'étant détectée en ligne. Le test `roosync_get_status` avec reset du cache confirme un statut `synced` avec une seule machine détectée (`myia-ai-01` en ligne, synchronisée, 0 différences, 0 décisions en attente). La vérification de l'inbox via `roosync_read_inbox` montre une boîte vide sans aucun message en attente. L'analyse identifie trois hypothèses pour expliquer l'absence des agents distants : ils sont éteints ou hors ligne, ils ont un problème de connectivité ou de configuration, ou il y a une latence dans la propagation des états via le stockage partagé. La conclusion indique que la comparaison de configuration ne peut pas être effectuée en l'absence de machines cibles disponibles.
+
+**Points clés :**
+- Statut : en attente de pairs, seule machine `myia-ai-01` détectée
+- `roosync_get_status` : statut synced, 1 machine détectée (myia-ai-01 online, 0 diffs, 0 pending decisions)
+- `roosync_read_inbox` : inbox vide, aucun message en attente
+- 3 hypothèses : agents distants éteints/hors ligne, problème connectivité/configuration, latence propagation états
+- Conclusion : impossible de procéder à `roosync_compare_config` sans machine cible disponible
