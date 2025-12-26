@@ -185,6 +185,33 @@
 - Opérations terminées : messagerie, diagnostic technique, préparation synchronisation
 - Métriques : 9 différences détectées, 6 décisions créées, 3 messages échangés, 100% préparation
 
+### 2025-10-20 - RooSync v2.1 - Synthèse Architecture Baseline-Driven
+**Fichier original :** `2025-10-20_055_roosync-v2-baseline-driven-synthesis.md`
+
+**Résumé :**
+Ce document est la synthèse de l'architecture baseline-driven de RooSync v2.1, conçue pour restaurer les principes fondamentaux de RooSync v1 en corrigeant les défauts de v2.0. La mission de conception est accomplie avec un statut de conception terminée.
+
+L'architecture baseline-driven restaurée utilise sync-config.ref.json comme source de vérité unique pour toutes les comparaisons de configuration. Le workflow correct est restauré : Compare-Config → Validation Humaine → Apply-Decisions, remplaçant le modèle machine-à-machine incorrect de v2.0.
+
+Les composants principaux incluent BaselineService (nouveau service central avec méthodes loadBaseline, compareWithBaseline, createSyncDecisions, applyDecision, updateBaseline), RooSyncService refactorisé (intégration de BaselineService, nouvelles méthodes baseline-driven, anciennes méthodes dépréciées), et les outils MCP refactorisés (compare-config.ts modifié pour utiliser la baseline, nouvel outil detect-diffs.ts).
+
+La validation humaine est intégrée via sync-roadmap.md comme interface de validation avec caractéristiques markdown lisible, validation par clic direct, historique complet et suivi de l'état d'application.
+
+Les avantages de la nouvelle architecture incluent la clarté et prévisibilité (source de vérité unique, workflow déterministe), la sécurité et contrôle (validation humaine obligatoire, traçabilité complète), la performance et maintenabilité (comparaisons optimisées, architecture modulaire), et la compatibilité (migration progressive, rétrocompatibilité maintenue).
+
+La stratégie d'implémentation en 4 phases couvre les fondations (2 jours), l'intégration (3 jours), la validation (3 jours) et le déploiement (3 jours). Les tests et validation incluent des tests unitaires (100% couverture), des tests d'intégration (workflow complet, validation humaine, compatibilité) et des tests de performance.
+
+Les métriques de succès techniques montrent une réduction de 60% du temps de comparaison, une amélioration de 95% de la précision des détections, et 100% de couverture de test. Les métriques métier montrent une réduction de 80% du taux d'erreur, 100% de traçabilité et une amélioration de 90% de la satisfaction utilisateur.
+
+Les prochaines étapes incluent la validation utilisateur de l'architecture, l'approbation technique pour début d'implémentation, l'allocation des ressources, l'implémentation de BaselineService, le début des tests unitaires, le déploiement v2.1 en production et la formation des utilisateurs.
+
+**Points clés :**
+- Architecture baseline-driven restaurée : sync-config.ref.json comme source de vérité unique
+- BaselineService : service central avec 5 méthodes principales pour gestion baseline
+- Workflow restauré : Compare-Config → Validation Humaine → Apply-Decisions
+- Validation humaine intégrée : interface sync-roadmap.md avec validation par clic
+- Stratégie 4 phases : fondations (2j), intégration (3j), validation (3j), déploiement (3j)
+
 ### 2025-10-20 - RooSync v2.1 - Architecture Baseline-Driven
 **Fichier original :** `2025-10-20_054_roosync-v2-baseline-driven-architecture-design.md`
 
