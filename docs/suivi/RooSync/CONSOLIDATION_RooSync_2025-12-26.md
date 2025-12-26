@@ -792,3 +792,16 @@ Ce rapport final documente une mission de synchronisation Git et vérification d
 - Messages RooSync : 2 messages non-lus de myia-po-2024 (rapports déjà traités, aucune action requise)
 - Infrastructure : 99.3% stable, sous-modules synchronisés, système prêt pour nouvelles missions
 - Validation SDDD : checkpoints respectés, documentation complète, coordination multi-agents établie
+
+### 2025-12-10 - Rapport de Mission Triple Grounding : Migration Stockage Externe RooSync
+**Fichier original :** `2025-12-10_001_Rapport-Mission-Triple-Grounding-Migration.md`
+
+**Résumé :**
+Ce rapport documente la mission de migration du stockage des données RooSync vers un emplacement externe, réalisée avec succès selon une approche de triple grounding (technique, sémantique et conversationnel). Sur le plan technique, le module `roo-state-manager` a été refactorisé pour utiliser exclusivement la variable d'environnement `ROO_SYNC_PATH`, les données existantes ont été migrées vers `G:/Mon Drive/Synchronisation/RooSync/.shared-state`, et les dossiers `.shared-state` et `exports` ont été supprimés du dépôt et ajoutés au `.gitignore`. Sur le plan sémantique, cette mission a formalisé la règle architecturale critique "Code in Git, Data in Shared Drive" en créant la politique de stockage `DATA_STORAGE_POLICY.md`. Sur le plan conversationnel, l'intervention a résolu les préoccupations de l'utilisateur concernant les "commits en retard" et la "poussière sous le tapis" en traitant la cause racine du problème.
+
+**Points clés :**
+- Grounding technique : refactoring roo-state-manager pour utiliser ROO_SYNC_PATH, migration des données vers stockage externe, nettoyage dépôt + .gitignore
+- Grounding sémantique : formalisation règle "Code in Git, Data in Shared Drive", création DATA_STORAGE_POLICY.md, séparation préoccupations code/données
+- Grounding conversationnel : résolution "commits en retard" (synchronisation Git), résolution "poussière sous le tapis" (traitement cause racine), cohérence configuration/implémentation
+- Artefacts produits : DATA_STORAGE_POLICY.md, PLAN-MIGRATION-STOCKAGE-EXTERNE.md, RAPPORT-VALIDATION-MIGRATION-STOCKAGE.md, scripts/migrate-roosync-storage.ps1
+- Conclusion : architecture stockage robuste et propre, dette technique résorbée, prêt pour phases exploitation Cycle 9
