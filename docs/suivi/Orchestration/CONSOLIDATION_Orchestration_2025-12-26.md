@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 27/35
+**Nombre de documents consolidés :** 28/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -401,3 +401,17 @@ Ce rapport de mission SDDD documente la synchronisation finale de l'environnemen
 - Réponses envoyées : msg-20251205T031423-83x2f7 (confirmation démarrage Phase 2), msg-20251205T031540-tj5eht (félicitations succès v2.1), msg-20251205T031558-irxkwz (accusé réception rapport tests, échec mineur noté), msg-20251205T031617-15pv97 (accusé réception validation lancement)
 - Recommandations orchestrateur : Priorité P0 finaliser réparations tests unitaires Cycle 5 (Mocking FS memfs, bom-handling, timestamp-parsing), Priorité P1 lancer scénario PROD-SCENARIO-01 une fois tests stabilisés
 - Validation sémantique : recherche "état synchronisation git et messages roosync traités" → environnement cohérent et prêt pour la suite
+
+### 2025-12-05 - Réparation Tests Unitaires Cycle 5 (Mocking FS)
+**Fichier original :** `2025-12-05_022_Reparation-Tests-Cycle5.md`
+
+**Résumé :**
+Ce rapport documente la réparation des tests unitaires du Cycle 5 pour roo-state-manager en remplaçant les accès fichiers réels par un mock robuste (mock-fs) pour garantir l'isolation et la fiabilité des tests, suite à une demande urgente P0. Le refactoring de BaselineService.test.ts a résolu le problème où copyFileSync n'était pas intercepté par mock-fs car importé via un import nommé (import { copyFileSync } from 'fs'), en utilisant un mock hybride combinant mock-fs pour la structure du système de fichiers et vi.mock('fs', ...) explicite pour mocker copyFileSync tout en préservant les autres exports via vi.importActual. Le refactoring de read-vscode-logs.test.ts a résolu le problème où le test échouait à trouver les logs mockés, causé par l'utilisation de import * as fs from 'fs/promises' dans le module read-vscode-logs.ts qui n'était pas correctement intercepté par mock-fs dans l'environnement Vitest, en créant un mock explicite de fs/promises pour le rediriger vers fs.promises (correctement patché par mock-fs). Les résultats montrent que tous les tests passent (npm run test:unit:tools) et qu'aucun fichier réel n'est créé sur le disque pendant les tests.
+
+**Points clés :**
+- Refactoring BaselineService.test.ts : problème copyFileSync non intercepté par mock-fs (import nommé), solution mock hybride (mock-fs structure FS + vi.mock('fs', ...) explicite avec vi.importActual)
+- Refactoring read-vscode-logs.test.ts : problème logs mockés non trouvés (import * as fs from 'fs/promises' non intercepté par mock-fs dans Vitest), solution mock explicite fs/promises redirigé vers fs.promises
+- Code solution fs/promises : vi.mock('fs/promises', async () => { const actualFs = await vi.importActual<typeof import('fs')>('fs'); return { ...actualFs.promises, default: actualFs.promises }; });
+- Tests affectés : BaselineService.test.ts, read-vscode-logs.test.ts
+- État final : tous les tests passent (npm run test:unit:tools), isolation complète (aucun fichier réel créé sur disque pendant les tests)
+- Leçon SDDD : avec mock-fs et Vitest, les imports nommés et fs/promises nécessitent un traitement explicite pour être correctement mockés
