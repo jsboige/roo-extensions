@@ -659,3 +659,17 @@ Le Cycle 7 a marqué une avancée majeure dans l'architecture de synchronisation
 - Validation distribuée par simulation réussie avec identification correcte de toutes les variations
 - Métriques qualité : 100% tests unitaires réussis, 7 rapports SDDD, protocole sécurité Git respecté
 - Cycle 8 prévu : déploiement généralisé, monitoring actif, optimisation continue
+
+### 2025-12-08 - Rapport de Nettoyage Structurel - Phase 2a
+**Fichier original :** `2025-12-08_009_Rapport-Nettoyage-Structurel-Phase2A.md`
+
+**Résumé :**
+Ce rapport de nettoyage structurel Phase 2a documente l'organisation des fichiers éparpillés et dossiers temporaires identifiés lors de la phase d'exploration, en utilisant une approche d'archivage plutôt que de suppression définitive. Trois archives ont été créées : archive/cleanup_20251208/ pour les dossiers "bruit" de la racine, reports/archive/ pour les rapports orphelins, et mcps/internal/archive/cleanup_20251208/ pour les dossiers "bruit" du sous-module mcps/internal. Le nettoyage de la racine a déplacé 5 rapports orphelins vers reports/archive/ et 4 dossiers temporaires (demo-roo-code/, encoding-fix/, test-quickfiles-bug/, undefined/) vers archive/cleanup_20251208/. Le nettoyage du sous-module mcps/internal a déplacé 3 dossiers (demo-quickfiles/, test-dirs/, tests/ contenant des tests de démo/obsolètes) vers mcps/internal/archive/cleanup_20251208/. L'état final montre une racine de projet et du sous-module mcps/internal plus propre, avec tous les fichiers déplacés sécurisés dans des dossiers d'archive datés permettant une restauration facile si nécessaire. Les prochaines étapes de la Phase 2b incluent la consolidation des tests en déplaçant les tests utiles de tests/ racine vers une structure pérenne, et la standardisation des scripts en déplaçant scripts/ racine vers mcps/internal/scripts ou inversement selon la logique.
+
+**Points clés :**
+- Nettoyage structurel par archivage (pas de suppression définitive) avec 3 archives créées
+- 5 rapports orphelins déplacés vers reports/archive/ et 4 dossiers temporaires vers archive/cleanup_20251208/
+- 3 dossiers du sous-module mcps/internal déplacés vers mcps/internal/archive/cleanup_20251208/
+- Racine de projet et sous-module mcps/internal désormais plus propres
+- Fichiers sécurisés dans archives datées permettant restauration facile
+- Phase 2b prévue : consolidation tests et standardisation scripts
