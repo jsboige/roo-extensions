@@ -229,6 +229,24 @@ Les recommandations immédiates incluent l'arrêt de l'utilisation des outils MC
 - Aucune correction appliquée malgré pull récent (2025-10-19)
 - Impact fonctionnel : comparaison configurations Roo impossible, résultats incorrects
 - Recommandation : attendre retour agent distant ou appliquer corrections décrites
+### 2025-10-20 - Réparation InventoryCollector - Mapping TypeScript/PowerShell
+**Fichier original :** `repair-inventory-collector-20251020.md`
+**Résumé :** Correction du bug critique dans InventoryCollector.ts qui causait l'échec systématique de roosync_compare_config avec l'erreur "Échec de la comparaison des configurations". Le problème était un mapping incorrect vers des propriétés inexistantes dans le JSON PowerShell (modesPath, mcpSettings dans rooConfig). La solution a consisté à modifier l'interface TypeScript pour mapper les données réelles (mcpServers, rooModes, sdddSpecs, scripts) et à corriger le mapping PowerShell → TypeScript. Le DiffDetector.ts a été mis à jour pour utiliser la nouvelle structure. Le build TypeScript réussit sans erreur.
+**Points clés :**
+- Bug critique corrigé : mapping incorrect vers propriétés inexistantes dans JSON PowerShell
+- Interface TypeScript enrichie : mcpServers, modes, sdddSpecs, scripts, paths
+- Mapping PowerShell → TypeScript corrigé pour utiliser les données réelles
+- DiffDetector.ts mis à jour : paths.rooConfig, paths.mcpSettings, comparaisons MCP/modes
+- Build réussi, fonctionnalités roosync_compare_config/list_diffs débloquées
+### 2025-10-21 - Refactorisation DiffDetector - Chaînage Optionnel Systématique
+**Fichier original :** `refactor-diff-detector-safe-access-20251021.md`
+**Résumé :** Refactorisation complète de DiffDetector.ts pour éliminer 57 accès directs non-safe qui causaient des crashes systématiques sur les inventaires partiels. Une fonction utilitaire safeGet() a été créée pour traverser les chemins imbriqués de manière sécurisée avec des valeurs par défaut typées. Les 4 méthodes de comparaison ont été refactorisées : compareRooConfig() (déjà safe), compareHardware() (28 accès sécurisés), compareSoftware() (18 accès sécurisés), compareSystem() (11 accès sécurisés). Le build TypeScript réussit sans erreur. Le pipeline RooSync Phase 2 est complètement débloqué.
+**Points clés :**
+- 57 accès non-safe → 0 (élimination totale des crashes sur inventaires partiels)
+- Fonction safeGet() créée : traversée sécurisée, valeurs par défaut typées, try-catch
+- 4 méthodes refactorisées : compareRooConfig, compareHardware, compareSoftware, compareSystem
+- Valeurs par défaut cohérentes : nombres→0, strings→'unknown', arrays→[]
+- Build réussi, Phase 2 RooSync débloquée (compare_config, list_diffs fonctionnels)
 ### 2025-10-22 - RooSync v1→v2 : Rapport d'Analyse de Convergence
 **Fichier original :** `2025-10-22_001_Convergence-V1-V2-Analysis.md`
 **Résumé :**
@@ -298,6 +316,15 @@ Rapport de récupération des améliorations logging depuis l'historique Stash p
 - Score convergence v1→v2 : 67% → 85% (+18%)
 - Documentation exhaustive SDDD : 775 lignes guides pour continuité
 - Build TypeScript valide, 1776 lignes créées/modifiées (code: 1001, doc: 775)
+### 2025-10-22 - Résultats Dry-Run Phase 3 RooSync
+**Fichier original :** `phase3-dry-run-results-20251022.md`
+**Résumé :** Dry-run de synchronisation entre myia-po-2024 et myia-ai-01 pour détecter les différences de configuration sans application des changements. L'infrastructure RooSync est opérationnelle avec les améliorations v2 complétées (Logger Production, Git Verification, SHA Robustness, score de convergence 85%). Les inventaires du 18 octobre montrent une configuration identique : 12 modes Roo, 9 MCPs, 10 specs SDDD, hardware comparable, software versions identiques. Le résultat du dry-run est 0 différences détectées, ce qui contredit le message agent du 19 octobre mentionnant 9 différences. Trois hypothèses sont proposées : synchronisation automatique intervenue, inventaires obsolètes, ou bug détection résolu.
+**Points clés :**
+- Infrastructure RooSync opérationnelle avec améliorations v2 (Logger, Git verification, SHA robustness)
+- Inventaires 18 octobre : configuration identique (12 modes, 9 MCPs, 10 specs SDDD)
+- Dry-run : 0 différences détectées (contradiction avec message agent du 19 octobre)
+- Hypothèses : synchronisation automatique, inventaires obsolètes, bug détection résolu
+- Recommandations : validation avec agent, régénération inventaires frais, investigation approfondie
 ### 2025-10-23 - Rapport de Complétion Phase 1 - RooSync SDDD Mission
 **Fichier original :** `2025-10-23_007_Phase1-Completion-Report.md`
 **Résumé :**
