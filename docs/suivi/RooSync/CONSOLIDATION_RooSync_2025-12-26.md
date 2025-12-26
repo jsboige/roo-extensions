@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 67/79
+**Nombre de documents consolidés :** 68/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -745,3 +745,15 @@ Ce rapport d'exécution SDDD initial pour le QA myia-po-2026 documente la recher
 - Tests identifiés : InventoryCollectorWrapper.test.ts, ConfigComparator.test.ts, DifferenceDetector.test.ts
 - Couverture : délégation collecte locale, fallback état partagé, priorisation fichiers -fixed
 - Findings : terminologie abstraite, couverture robuste décision/fallback, fusion JSON non testée isolément
+### 2025-12-14 - Stratégie d'Évolution et de Consolidation RooSync (Cycle 7)
+**Fichier original :** `2025-12-14_002_Stratégie-Evolution-RooSync.md`
+
+**Résumé :**
+Ce document définit la stratégie d'évolution de RooSync Cycle 7 pour transformer le système d'une collection de scripts PowerShell disparates en une solution intégrée TypeScript/MCP robuste et multi-plateforme. L'analyse de l'existant révèle des écarts critiques entre l'implémentation PowerShell Legacy et la nouvelle implémentation MCP, notamment l'absence de capacité d'application de configuration dans ConfigSharingService (P0), l'inexistence du SchedulerManager (P1), et une coordination manuelle requise (P2). L'audit technique confirme un socle de tests solide (161 tests passants) mais une fracture fonctionnelle majeure entre les deux implémentations. Le plan de mise en œuvre en 4 phases couvre le cœur de synchronisation (Settings & Merge avec JsonMerger), la gestion du planificateur (SchedulerManager), l'orchestration et la santé (roosync_check_health), et le nettoyage Legacy. L'architecture technique cible intègre BaselineService, ConfigSharingService, SchedulerManager et HealthCheckService avec des modules core comme JsonMerger, ConfigNormalizationService et ConfigDiffService.
+
+**Points clés :**
+- Vision cible : transformation PowerShell → TypeScript/MCP robuste et multi-plateforme
+- Gap Analysis critique : ConfigSharingService.applyConfig vide (P0), SchedulerManager inexistant (P1)
+- Audit technique : 161 tests passants mais fracture fonctionnelle Legacy vs MCP
+- Plan 4 phases : Cœur Sync (JsonMerger), Scheduler, Orchestration, Nettoyage Legacy
+- Architecture cible : services MCP + modules core (JsonMerger, Normalizer, Diff)
