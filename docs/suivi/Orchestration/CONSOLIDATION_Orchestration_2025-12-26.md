@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 1/35
+**Nombre de documents consolidés :** 2/35
 **Période couverte :** 2025-10-22 à [à déterminer]
 
 ## Documents consolidés (ordre chronologique)
@@ -17,3 +17,16 @@ Ce rapport documente l'initialisation complète et la synchronisation des 8 sous
 - Tous les sous-modules synchronisés avec leurs commits de référence respectifs
 - Exécution sans erreur du script de configuration `deploy-settings.ps1`
 - Dépôt maintenant dans un état cohérent et opérationnel
+
+### 2025-10-22 - Cartographie Complète du Dépôt roo-extensions et Sous-modules
+**Fichier original :** `REPO-MAPPING-2025-10-22-193543.md`
+
+**Résumé :**
+Ce document fournit une cartographie exhaustive du dépôt roo-extensions et de ses 8 sous-modules, structurée selon le protocole SDDD (Grounding, Analyse, Documentation). Il détaille l'architecture générale avec 14 répertoires principaux, la structure détaillée des sous-modules internes et externes, et l'inventaire complet des 14 serveurs MCP (6 internes et 8 externes). Le document identifie les fichiers de configuration principaux, les dépendances système requises, et fournit un workflow d'installation automatisé avec scripts PowerShell. Il met en évidence que 13 MCPs sont prêts pour l'installation immédiate, tandis que le MCP office-powerpoint est désactivé et nécessite une attention particulière.
+
+**Points clés :**
+- Cartographie complète du dépôt avec 8 sous-modules initialisés et opérationnels
+- Inventaire de 14 serveurs MCP : 6 internes (quickfiles, jinavigator, jupyter, jupyter-papermill, github-projects, roo-state-manager) et 8 externes
+- Configuration centralisée dans `roo-config/settings/servers.json` avec scripts de déploiement automatisés
+- 13 MCPs prêts pour l'installation immédiate, 1 désactivé (office-powerpoint)
+- Variables d'environnement à configurer : GITHUB_TOKEN et variables FTP
