@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 64/79
+**Nombre de documents consolidés :** 65/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -715,3 +715,13 @@ Cette analyse complète de la boîte de réception RooSync au 13 décembre 2025 
 - Réalisations : consolidation 425 tests, résolution compatibilité npm/pnpm
 - Actions requises : compatibilité environnements Node.js v20, respect hook pre-commit
 - Aucune anomalie critique détectée, message bien formaté et clair
+### 2025-12-13 - Rapport de Diagnostic RooSync
+**Fichier original :** `2025-12-13_002_ROOSYNC-DIAGNOSTIC.md`
+**Résumé :**
+Ce rapport de diagnostic complet analyse en profondeur les couches RooSync et préconise un nettoyage radical vers une architecture v3.0 unifiée. L'inventaire identifie 4 couches : RooSync v2.1 MCP (actif et opérationnel avec 9+ outils), RooSync PowerShell v2.1 (obsolète et redondant), Configuration Legacy v1.0 (conflit avec couche actuelle), et Scripts Archive v1.0 (dépréciée). Cinq incompatibilités critiques sont identifiées : conflit de stockage partagé (.shared-state/ utilisé par deux systèmes), conflit de configuration (v1.0 vs v2.1), duplication des messages, redondance des scripts, et incohérence de versions. Le plan de nettoyage priorisé en 5 phases recommande la consolidation du stockage, l'unification des configurations, le nettoyage des scripts PowerShell, la migration des messages et la documentation complète.
+**Points clés :**
+- 4 couches identifiées : MCP v2.1 (actif), PowerShell v2.1 (obsolète), Config v1.0 (conflit), Archive v1.0 (dépréciée)
+- 5 incompatibilités critiques : stockage partagé, configuration, messages, scripts, versions
+- Architecture cible v3.0 : unifiée sur MCP roo-state-manager, stockage .shared-state/, config unique
+- Plan nettoyage 5 phases : stockage, configuration, scripts, messages, documentation
+- Métriques succès : 100% consolidation, <5s performance, zero conflit, traçabilité complète
