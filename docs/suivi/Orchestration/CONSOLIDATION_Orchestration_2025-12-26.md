@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 10/35
+**Nombre de documents consolidés :** 11/35
 **Période couverte :** 2025-10-22 à 2025-12-04
 
 ## Documents consolidés (ordre chronologique)
@@ -132,3 +132,16 @@ Ce rapport de transition du Cycle 4 vers le Cycle 5 définit les objectifs du Cy
 - Priorité P0 : refonte stratégie de test (migration vers librairie filesystem in-memory isolée ou injection dépendances)
 - Priorité P1 : optimisation performance (profiling impact extracteurs regex sur gros volumes)
 - Priorité P2 : surveillance et observabilité (tests E2E RooSync multi-machines)
+
+### 2025-12-04 - Spécifications Techniques : Refonte Mocking FS
+**Fichier original :** `2025-12-04_003_Spec-Refonte-Mocking-FS.md`
+
+**Résumé :**
+Ce document technique définit la stratégie de refonte du mocking du système de fichiers pour résoudre l'instabilité des tests unitaires causée par l'utilisation de `vi.mock('fs')` et `vi.mock('fs/promises')` qui interfèrent avec les modules internes de Node.js et les autres librairies. Le problème actuel se manifeste par 16 fichiers de tests en échec aléatoire ou constant, avec des erreurs "module not found" ou "callback is not a function". La solution technique préconisée est une approche hybride : court terme avec `memfs` pour remplacer les mocks existants sans tout réécrire, et long terme avec l'introduction d'une abstraction `FileSystemService` pour les nouveaux développements. Le plan de migration comprend trois phases : POC sur un fichier problématique comme `production-format-extraction.test.ts`, migration massive sur tous les fichiers utilisant `vi.mock('fs')`, et validation complète de la suite de tests.
+
+**Points clés :**
+- Problème critique : 16 fichiers de tests instables ou en échec dû aux interférences globales de `vi.mock('fs')`
+- Solution recommandée : approche hybride avec `memfs` (court terme) et injection de dépendances `FileSystemService` (long terme)
+- Phase 1 POC : cibler `production-format-extraction.test.ts` pour valider le pattern `memfs`
+- Points d'attention : gestion des chemins absolus Windows vs Linux, et modules tiers utilisant `fs` en interne
+- Nettoyage nécessaire : supprimer les mocks globaux de `jest.setup.js` et `vitest.config.ts`
