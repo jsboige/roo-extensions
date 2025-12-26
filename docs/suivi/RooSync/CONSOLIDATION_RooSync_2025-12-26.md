@@ -687,3 +687,17 @@ Cette investigation Phase 2 a révélé que les outils RooSync sont bien présen
 - Test roosync_get_status : succès avec 3 machines détectées en statut synced
 - Test roosync_compare_config : échec myia-po-2023 (inventaire manquant), succès myia-po-2026 (14 différences)
 - Recommandations : vérifier myia-po-2023, propager baseline corrigée, reprendre Phase 3
+
+### 2025-12-08 - Diagnostic Connectivité myia-po-2023
+**Fichier original :** `2025-12-08_011_Diagnostic-Connectivite-2023.md`
+
+**Résumé :**
+Ce rapport diagnostique l'échec de collecte d'inventaire pour l'agent myia-po-2023, où l'outil roosync_compare_config échoue avec l'erreur "Inventaire non collectable". L'investigation confirme que l'agent est présent et online avec un fichier de présence à jour (modifié le 2025-12-08, statut online, version 1.0.0), mais son fichier d'inventaire est manquant dans le partage réseau. Le chemin vérifié dans G:\Mon Drive\Synchronisation\RooSync\.shared-state\inventories montre des inventaires présents pour myia-ai-01 et myia-po-2024, mais aucun fichier correspondant au pattern myia-po-2023*.json. L'analyse des causes racines identifie trois possibilités : échec du script d'inventaire distant Get-MachineInventory.ps1 sur myia-po-2023 pouvant échouer silencieusement ou sans droits d'écriture sur le partage réseau, mauvaise configuration du chemin partagé avec myia-po-2023 utilisant un chemin .shared-state différent ou obsolète, ou version RooSync obsolète (1.0.0) incompatible avec le format d'inventaire ou le protocole v2.x. Les recommandations incluent une action immédiate de contournement en ignorant temporairement myia-po-2023 dans les comparaisons globales et en utilisant roosync_compare_config avec target "myia-po-2024" explicitement, une action corrective en envoyant un message RooSync à myia-po-2023 pour demander une vérification de sa configuration SHARED_STATE_PATH et de ses logs d'erreur, et une amélioration système en modifiant roosync_compare_config pour gérer gracieusement l'absence d'inventaire avec un warning au lieu d'une erreur bloquante.
+
+**Points clés :**
+- Diagnostic : agent myia-po-2023 online mais inventaire manquant dans partage réseau
+- Fichier présence à jour (statut online, version 1.0.0) mais aucun inventaire myia-po-2023*.json
+- 3 causes racines possibles : échec script inventaire distant, mauvaise configuration chemin partagé, version obsolète 1.0.0
+- Recommandation immédiate : ignorer myia-po-2023 temporairement, utiliser target "myia-po-2024" explicitement
+- Recommandation corrective : envoyer message RooSync pour vérification configuration SHARED_STATE_PATH et logs
+- Amélioration système : modifier roosync_compare_config pour gérer gracieusement absence inventaire (warning vs erreur)
