@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 11/35
+**Nombre de documents consolidés :** 12/35
 **Période couverte :** 2025-10-22 à 2025-12-04
 
 ## Documents consolidés (ordre chronologique)
@@ -145,3 +145,16 @@ Ce document technique définit la stratégie de refonte du mocking du système d
 - Phase 1 POC : cibler `production-format-extraction.test.ts` pour valider le pattern `memfs`
 - Points d'attention : gestion des chemins absolus Windows vs Linux, et modules tiers utilisant `fs` en interne
 - Nettoyage nécessaire : supprimer les mocks globaux de `jest.setup.js` et `vitest.config.ts`
+
+### 2025-12-04 - Plan d'Action Cycle 5 : Stabilisation & Ventilation
+**Fichier original :** `2025-12-04_004_Plan-Action-Cycle5.md`
+
+**Résumé :**
+Ce plan d'action définit la stratégie du Cycle 5 dédié à la stabilisation technique critique de roo-state-manager suite à la clôture du Cycle 4 avec 39 échecs de tests sur 761 tests totaux. L'objectif est de rétablir un taux de succès de 100% sur les tests unitaires, d'intégration et E2E. Le contexte de démarrage au 2025-12-05 indique que la synchronisation Git a été effectuée avec succès, les tests de régression affichent 98% de succès, et le statut global est prêt pour ventilation. Le plan définit la ventilation des tâches par agent : myia-web1 (Lead Technique & Core) pour le sauvetage du moteur hiérarchique et des orphelins, myia-ai-01 (Tests Unitaires & Mocks) pour la réparation des fondations, myia-po-2026 (E2E & Configuration) pour la stabilisation des scénarios E2E, et myia-po-2024 (Documentation & Support) pour la documentation SDDD et l'analyse transverse.
+
+**Points clés :**
+- État des lieux Vitest : 761 tests totaux, 39 échecs (5%), points critiques sur Mocks FS, Moteur Hiérarchique, Tests E2E RooSync/Synthesis
+- Agent myia-web1 : réparer hierarchy-real-data.test.ts (0 vs 100 relations attendues), task-tree-integration.test.ts, orphan-robustness.test.ts (25% vs 70% résolution)
+- Agent myia-ai-01 : réparer hierarchy-inference.test.ts (exports manquants mkdtemp, rmdir), read-vscode-logs.test.ts, bom-handling.test.ts, timestamp-parsing.test.ts
+- Agent myia-po-2026 : réparer roosync-workflow.test.ts (erreur myia-po-2023 undefined), synthesis.e2e.test.ts (gpt-5-mini -> gpt-4o-mini, 3.0.0-phase3-error -> 3.0.0-phase3), BaselineService.test.ts
+- Agent myia-po-2024 : mettre à jour le SDDD, suivre les KPIs, fournir support pour l'analyse des logs
