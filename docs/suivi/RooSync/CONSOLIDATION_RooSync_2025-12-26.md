@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 70/79
+**Nombre de documents consolidés :** 71/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -781,3 +781,15 @@ Ce plan de répartition détaillé convertit la stratégie d'évolution techniqu
 - 5 rôles assignés : myia-web1 (Lead Tech), myia-po-2024 (Dev), myia-po-2026 (QA), myia-po-2023 (Support), myia-ai-01 (Coord)
 - 5 Work Packages : WP1 Core (P0), WP2 System (P1), WP3 QA (P1), WP4 Tools (P2), WP5 Coordination
 - Séquence d'exécution planifiée avec Gantt et Definition of Done pour chaque WP
+### 2025-12-14 - Rapport d'Analyse Archéologique de la Configuration
+**Fichier original :** `2025-12-14_rapport-archeologie-configuration.md`
+
+**Résumé :**
+Ce rapport d'analyse archéologique examine l'évolution historique de la configuration RooSync en trois phases : Phase "Scheduler" (Août 2025) avec tentative d'orchestration centralisée et chemins absolus en dur, Phase "RooSync v1" (Octobre 2025) avec introduction de la synchronisation via Google Drive et notion de "Shared State", et Phase "RooSync v2.1" (Actuelle) avec consolidation, variables d'environnement et support multi-machines. L'analyse révèle une dualité entre l'intention d'un système unifié et agnostique du chemin d'installation et la réalité d'une coexistence de scripts modernes et de vestiges pointant vers des chemins absolus obsolètes. La cartographie des incohérences identifie des chemins absolus critiques (D:/roo-extensions utilisé par défaut dans ~40 scripts), des chemins WARN (G:/Mon Drive/ dans sync-config.ref.json), et des scripts redondants/obsolètes dans RooSync/archive/ et roo-config/scheduler/. Les recommandations pour harmonisation incluent le nettoyage immédiat (archiver roo-config/scheduler/, supprimer scripts doublons), la correction des chemins (standardiser ROO_HOME, remplacer massif D:/roo-extensions par ${ROO_HOME}), et la consolidation de la configuration.
+
+**Points clés :**
+- 3 phases historiques identifiées : Scheduler (Août 2025), RooSync v1 (Octobre 2025), RooSync v2.1 (Actuelle)
+- Dualité intention vs réalité : système unifié souhaité mais coexistence scripts modernes/vestiges
+- Incohérences critiques : D:/roo-extensions dans ~40 scripts, G:/Mon Drive/ dans config
+- Scripts redondants : RooSync/archive/ obsolètes, roo-config/scheduler/ non maintenu (Août 2025)
+- Recommandations : archiver code mort, variable-iser chemins hardcodés, centraliser configuration
