@@ -727,3 +727,16 @@ La Phase 3 de la mission SDDD a pour objectif de résoudre les divergences struc
 - 2 messages envoyés : msg-20251208T130400-vmxpcy à myia-po-2023, msg-20251208T130422-4dyjis à myia-po-2026
 - Méthode : propagation du script standardisé via canal de messagerie RooSync
 - En attente : confirmation d'application par les agents distants et validation de la convergence (Phase 4)
+
+### 2025-12-08 - PHASE 4 : SURVEILLANCE & VALIDATION FINALE
+**Fichier original :** `2025-12-08_014_Phase4-Validation-Finale.md`
+
+**Résumé :**
+La Phase 4 de surveillance et validation finale a pour objectif de surveiller l'application des scripts de standardisation par les agents distants et de valider la convergence des inventaires. L'état des lieux à 13:10 UTC révèle une situation bloquée : l'inbox RooSync est vide sans aucune confirmation reçue des agents distants, et l'outil `roosync_compare_config` échoue localement avec une erreur de collecte d'inventaire. Le diagnostic indique que le script `Get-MachineInventory.ps1` fonctionne correctement en exécution manuelle mais que l'outil MCP rencontre probablement un problème de chemin ou de contexte d'exécution. Les agents distants sont inactifs : `myia-po-2023` n'a pas été vu depuis 3 jours et `myia-po-2026` n'est pas détecté dans le système de présence. La validation finale ne peut pas être complétée en l'absence des agents distants, bien que le système local soit prêt avec un inventaire généré.
+
+**Points clés :**
+- Objectif Phase 4 : surveiller application scripts standardisation et valider convergence inventaires
+- Inbox vide : aucune confirmation reçue des agents distants
+- Échec technique local : `roosync_compare_config` échoue ("Échec collecte inventaire") malgré script fonctionnel en manuel
+- Agents distants inactifs : myia-po-2023 absent depuis 3 jours, myia-po-2026 non détecté
+- Conclusion provisoire : validation finale impossible sans agents distants, système local prêt mais boucle de synchronisation ouverte
