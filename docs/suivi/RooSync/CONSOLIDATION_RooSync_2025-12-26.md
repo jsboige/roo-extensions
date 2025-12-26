@@ -536,3 +536,20 @@ Ce rapport de mission Phase 3 du Cycle 6 documente le déploiement des outils de
 - État RooSync : synced, 3 machines connectées, infrastructure opérationnelle
 - Recommandations : correctif urgent ConfigSharingService.ts, validation locale post-correction, suivi myia-po-2024
 
+### 2025-12-08 - Rapport de Mission Phase 4 - Cycle 6 : Analyse Diff & Baseline (SDDD)
+**Fichier original :** `2025-12-05_006_Rapport-Phase4-Cycle6.md`
+
+**Résumé :**
+Ce rapport de mission Phase 4 du Cycle 6 établit les fondations théoriques et techniques pour la synchronisation des configurations Roo (MCP, Modes) entre différentes machines, avec pour objectif de passer d'une gestion ad-hoc à une gestion pilotée par une Baseline partagée et un algorithme de Diff robuste. L'état des lieux révèle que le répertoire de collecte .shared-state/configs/ est vide car le problème de détection des chemins de configuration sur les agents distants empêche l'analyse comparative inter-agents. La décision est d'utiliser la configuration locale de l'Orchestrateur comme "Candidat Baseline" unique pour définir les standards. L'analyse de la configuration locale identifie des points critiques : configuration MCP avec chemins absolus omniprésents (spécifiques à la machine et non partageables), secrets présents en clair ou via variables d'environnement (risque de sécurité majeur), et mélange de serveurs activés/désactivés. La configuration Modes présente une structure avec liste d'objets JSON définissant slug, name, roleDefinition, customInstructions, des instructions longues et complexes, et une portabilité haute sans dépendance système apparente. La définition de la Baseline spécifie une structure de stockage hiérarchique dans .shared-state/baseline/ avec mcp/, modes/ et profiles/, et un fichier manifest.json décrivant le contenu avec version, timestamp, auteur, description et liste des fichiers avec hash SHA256. Les règles de normalisation incluent le remplacement des chemins par des placeholders ({{WORKSPACE_ROOT}}, {{USER_HOME}}, {{NODE_BIN}}, {{PYTHON_BIN}}), le remplacement des secrets par {{SECRET:NOM_DU_SECRET}}, et un format JSON standardisé. L'algorithme de Diff spécifié inclut la normalisation à la volée avant comparaison, la comparaison structurelle JSON Deep Compare avec identification par slug pour Modes et par clé serveur pour MCPs, et la catégorisation des différences (MISSING, EXTRA, MODIFIED, CONFLICT). Les règles de fusion définissent la priorité Baseline en cas de conflit, la préservation locale des configurations EXTRA, et la mise à jour intelligente avec écrasement pour Modes et MCPs mis à jour mais préservation de l'état disabled local. Les prochaines actions pour la Phase 5 incluent l'implémentation de la logique de Normalisation dans ConfigSharingService, l'implémentation de l'algorithme de Diff Granulaire, et la création de la première Baseline à partir de la configuration locale nettoyée.
+
+**Points clés :**
+- Objectif Phase 4 : passer de gestion ad-hoc à gestion pilotée par Baseline partagée et algorithme Diff robuste
+- Collecte distribuée impossible : .shared-state/configs/ vide, utilisation configuration locale comme Candidat Baseline
+- Configuration MCP : chemins absolus non partageables, secrets en clair (risque sécurité), serveurs activés/désactivés
+- Configuration Modes : portabilité haute, instructions longues et complexes, pas de dépendance système apparente
+- Structure Baseline : .shared-state/baseline/ avec mcp/, modes/, profiles/ et manifest.json (version, hash SHA256)
+- Règles normalisation : placeholders chemins, remplacement secrets, JSON standardisé
+- Algorithme Diff : normalisation volée, comparaison structurelle, catégorisation (MISSING, EXTRA, MODIFIED, CONFLICT)
+- Règles fusion : priorité Baseline, préservation locale EXTRA, mise à jour intelligente
+- Prochaines actions Phase 5 : implémentation Normalisation ConfigSharingService, algorithme Diff Granulaire, création première Baseline
+
