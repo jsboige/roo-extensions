@@ -185,6 +185,29 @@
 - Opérations terminées : messagerie, diagnostic technique, préparation synchronisation
 - Métriques : 9 différences détectées, 6 décisions créées, 3 messages échangés, 100% préparation
 
+### 2025-10-20 - RooSync v2.1 - Architecture Baseline-Driven
+**Fichier original :** `2025-10-20_054_roosync-v2-baseline-driven-architecture-design.md`
+
+**Résumé :**
+Ce document présente les spécifications techniques complètes de RooSync v2.1, qui restaure les principes baseline-driven de RooSync v1 en corrigeant les défauts fondamentaux de RooSync v2.0. Les problèmes identifiés dans v2.0 incluent le modèle machine-à-machine (comparaison directe sans baseline), l'absence de source de vérité (sync-config.ref.json non utilisé), et un workflow incorrect sans validation humaine structurée.
+
+La solution v2.1 introduit une architecture baseline-driven avec sync-config.ref.json comme source de vérité unique, un workflow restauré (Compare-Config → Validation → Apply-Decisions), et un service dédié BaselineService pour gérer la baseline et les comparaisons.
+
+Les spécifications techniques détaillent l'interface TypeScript de BaselineService avec les types BaselineConfig, BaselineDifference, BaselineComparisonReport et SyncDecision. La classe BaselineService implémente les méthodes loadBaseline(), compareWithBaseline(), createSyncDecisions(), applyDecision() et updateBaseline(). RooSyncService est refactorisé pour intégrer BaselineService avec de nouvelles méthodes compareMachineWithBaseline(), detectAndCreateDecisions() et applySyncDecision(), tandis que compareRealConfigurations() est dépréciée.
+
+Les outils MCP refactorisés incluent compare-config.ts (modifié pour utiliser la baseline) et le nouvel outil detect-diffs.ts. L'architecture de validation humaine est améliorée avec un format sync-roadmap.md structuré et un service HumanValidationService pour gérer l'approbation et le rejet des décisions.
+
+Le plan de migration en 4 phases couvre la création de BaselineService (2 jours), la refactorisation de RooSyncService et mise à jour des outils MCP (3 jours), les tests d'intégration et documentation (3 jours), et le déploiement progressif avec monitoring (3 jours). La compatibilité ascendante est assurée par un CompatibilityService pour convertir les anciens rapports et migrer les décisions existantes.
+
+Les tests et validation incluent des tests unitaires pour BaselineService et des tests d'intégration pour le workflow baseline-driven complet. Le monitoring et l'observabilité sont assurés par RooSyncMetrics pour les métriques de performance et RooSyncLogger pour le logging structuré.
+
+**Points clés :**
+- Architecture v2.1 baseline-driven : restaure les principes v1 avec sync-config.ref.json comme source de vérité
+- BaselineService : service dédié avec méthodes loadBaseline, compareWithBaseline, createSyncDecisions, applyDecision
+- Outils MCP refactorisés : compare-config modifié, nouvel outil detect-diffs
+- Validation humaine : format sync-roadmap.md amélioré et HumanValidationService
+- Plan de migration 4 phases : création BaselineService, refactorisation, tests, déploiement progressif
+
 ### 2025-10-20 - Analyse SDDD - RooSync v2 vs v1
 **Fichier original :** `2025-10-20_053_roosync-v2-architecture-analysis.md`
 
