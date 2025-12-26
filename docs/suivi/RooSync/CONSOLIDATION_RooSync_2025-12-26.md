@@ -1004,3 +1004,30 @@ Ce rapport d'analyse archéologique examine l'évolution historique de la config
 - Incident résolu : tokens GitHub sensibles détectés, commit annulé et refait proprement
 - Métriques finales : 0 code dupliqué, 427 lignes helpers, 14/14 tests PASS, 3 commits Git
 - Recommandations : exécution régulière tests, nettoyage mensuel MCP, maintenance pre-commit hooks
+### 2025-11-06 - Analyse des Sources de Régression - RooSync v2.1
+**Fichier original :** `reports-sddd/07-analyse-sources-regression-20251106.md`
+**Résumé :** Analyse complète du système RooSync v2.1 identifiant 3 sources principales de régression expliquant les faux positifs et l'incohérence des données. Les problèmes identifiés sont : logique de comparaison récursive défectueuse dans DiffDetector.ts (ne descendait pas dans les objets imbriqués), tests unitaires inadaptés au comportement réel du logger (attendait 2 arguments séparés), et structure de données incohérente entre collecte et comparaison (InventoryCollectorWrapper utilisait des méthodes différentes). Les solutions appliquées incluent l'implémentation récursive correcte de compareNestedObjects(), l'alignement des assertions avec le format réel du logger, et la standardisation des méthodes de conversion. Les métriques d'impact montrent une amélioration de 92% d'échec à 100% de succès pour les tests unitaires, et une restauration de la confiance système de BASSE à ÉLEVÉE.
+**Points clés :**
+- 3 sources de régression identifiées : logique comparaison défectueuse, tests inadaptés, structure données incohérente
+- Correction compareNestedObjects() : implémentation récursive correcte pour objets imbriqués
+- Correction tests unitaires : alignement assertions avec format réel du logger
+- Standardisation structure données : utilisation unique de convertRawToBaselineFormat()
+- Métriques impact : tests unitaires 12/13→13/13 passants, confiance système BASSE→ÉLEVÉE
+### 2025-11-06 - Reconstruction RooSync v2.1 Complète
+**Fichier original :** `reports-sddd/08-reconstruction-complete-20251106.md`
+**Résumé :** Rapport de synthèse SDDD documentant la reconstruction complète de RooSync v2.1 avec succès. La Phase 9 (Documentation et Validation Sémantique) a permis de consolider tous les scripts en une architecture unifiée, documenter complètement le système selon les principes SDDD, valider sémantiquement toute la documentation, et assurer la découvrabilité via recherche sémantique. L'architecture baseline-driven utilise sync-config.ref.json comme source de vérité unique, remplaçant l'approche machine-à-machine par une comparaison machine-à-baseline. Quatre scripts PowerShell unifiés remplacent les anciens scripts fragmentés : roo-tests.ps1 (tests unifiés), roo-deploy.ps1 (déploiement unifié), roo-diagnose.ps1 (diagnostic unifié), roo-cache.ps1 (gestion cache unifiée). Les tests unitaires couvrent tous les services critiques avec 100% de couverture. La validation sémantique confirme une découvrabilité à 100% avec des scores de pertinence élevés (0.65-0.78).
+**Points clés :**
+- Architecture baseline-driven : sync-config.ref.json comme source de vérité unique
+- 4 scripts PowerShell unifiés : roo-tests.ps1, roo-deploy.ps1, roo-diagnose.ps1, roo-cache.ps1
+- Tests unitaires 100% passants : BaselineService, DiffDetector, InventoryCollectorWrapper
+- Documentation SDDD complète : 8 rapports créés et indexés
+- Validation sémantique : 100% découvrabilité avec scores 0.65-0.78
+### 2025-12-04 - Rapport Final de Mission RooSync v2.1 - Phase 10
+**Fichier original :** `reports-sddd/10-rapport-final-mission-20251204.md`
+**Résumé :** Rapport final de mission Phase 10 finalisant l'ensemble du projet RooSync v2.1 avec un rapport SDDD complet documentant tous les accomplissements et validant l'alignement stratégique. Les résultats clés montrent 729 tests détectés avec 704 passants (96.6%), 11 échouants (1.5%) et 14 ignorés (1.9%). Le temps d'exécution est de 13.10s. L'architecture baseline-driven est opérationnelle avec BaselineService, DiffDetector avec scoring de sévérité, InventoryCollectorWrapper normalisé, et workflow complet Compare→Validate→Apply. La documentation SDDD est complète avec 8 rapports créés et indexés, validation sémantique à 100%, découvrabilité garantie et traçabilité complète. Les recommandations incluent l'optimisation des tests (refactorer les 5 tests exclus), le déploiement en production, le monitoring continu, et des évolutions futures (interface web, automatisation synchronisations, extensions configurations).
+**Points clés :**
+- 729 tests détectés : 704 passants (96.6%), 11 échouants (1.5%), 14 ignorés (1.9%)
+- Temps d'exécution : 13.10s (71% plus rapide que version précédente)
+- Architecture baseline-driven opérationnelle : BaselineService, DiffDetector, InventoryCollectorWrapper
+- Documentation SDDD complète : 8 rapports, 100% découvrabilité, traçabilité totale
+- Recommandations : optimisation tests, déploiement production, monitoring continu, évolutions futures
