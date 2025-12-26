@@ -93,6 +93,50 @@ Ce répertoire contient les 4 guides opérationnels pour les fonctionnalités pr
 
 ---
 
+## 📋 Documents Pérennes Conservés
+
+Ce répertoire contient **13 documents pérennes** classés par type :
+
+### Guides Opérationnels (4 documents)
+
+| Document | Description | Sections principales |
+|----------|-------------|---------------------|
+| [`logger-production-guide.md`](logger-production-guide.md:1) | Guide de production pour le logger RooSync avec rotation, dual output et monitoring | Architecture, Configuration, Déploiement, Monitoring, Maintenance, Dépannage |
+| [`git-helpers-guide.md`](git-helpers-guide.md:1) | Guide opérationnel pour les helpers Git sécurisés avec vérification, protection SHA et rollback | Architecture, Configuration, Déploiement, Monitoring, Maintenance, Dépannage |
+| [`deployment-wrappers-guide.md`](deployment-wrappers-guide.md:1) | Guide opérationnel complet pour les wrappers de déploiement avec timeout, dry-run et récupération d'erreurs | Architecture, Configuration, Déploiement, Monitoring, Maintenance, Dépannage |
+| [`task-scheduler-setup.md`](task-scheduler-setup.md:1) | Guide complet pour la configuration du Windows Task Scheduler avec RooSync | Architecture, Configuration, Déploiement, Monitoring, Maintenance, Dépannage |
+
+### Guides d'Utilisation (2 documents)
+
+| Document | Description | Sections principales |
+|----------|-------------|---------------------|
+| [`deployment-helpers-usage-guide.md`](deployment-helpers-usage-guide.md:1) | Guide d'utilisation des wrappers TypeScript pour exécuter des scripts PowerShell de déploiement | Vue d'Ensemble, Quick Start, API Reference, Fonctions Spécifiques, Patterns d'Utilisation |
+| [`logger-usage-guide.md`](logger-usage-guide.md:1) | Guide d'utilisation du logger RooSync avec stratégie de migration depuis console.error | Architecture, Quick Start, Configuration, Format de Log, Rotation des Logs, Stratégie de Migration |
+
+### Documentation Technique (3 documents)
+
+| Document | Description | Sections principales |
+|----------|-------------|---------------------|
+| [`baseline-implementation-plan.md`](baseline-implementation-plan.md:1) | Plan complet d'implémentation pour Baseline Complete v2.1 avec 4 phases de déploiement | Vue d'Ensemble, Architecture Technique, Structure Baseline, Workflow de Synchronisation, Timeline |
+| [`git-requirements.md`](git-requirements.md:1) | Spécifications techniques et mécanismes de sécurité pour Git dans RooSync v2 | Vue d'Ensemble, Architecture, Git Verification, Robust Git Operations, Patterns d'Utilisation |
+| [`ROOSYNC-COMPLETE-SYNTHESIS-2025-10-26.md`](ROOSYNC-COMPLETE-SYNTHESIS-2025-10-26.md:1) | Synthèse complète de RooSync v2.1 avec architecture baseline-driven et workflow de synchronisation | Vue d'Ensemble, Composants Techniques, Workflow de Synchronisation, Configuration, Dépannage |
+
+### Guides Spécialisés (2 documents)
+
+| Document | Description | Sections principales |
+|----------|-------------|---------------------|
+| [`messaging-system-guide.md`](messaging-system-guide.md:1) | Guide complet du système de messagerie RooSync avec 7 outils MCP incluant amend_message | Vue d'Ensemble, Architecture Fichiers, Outils MCP (7 outils), Workflow Complet, Sécurité |
+| [`tests-unitaires-guide.md`](tests-unitaires-guide.md:1) | Guide de référence pour les tests unitaires RooSync en mode dry-run | Architecture Tests, Batteries de Tests (4 tests), Exécution Tests, Rapports de Tests, Best Practices |
+
+### Documentation Principale (2 documents)
+
+| Document | Description | Sections principales |
+|----------|-------------|---------------------|
+| [`README.md`](README.md:1) | Documentation principale des guides de production RooSync | Vue d'ensemble, Guides Disponibles, Architecture d'Intégration, Flux Opérationnel, Métriques |
+| [`ROOSYNC-USER-GUIDE-2025-10-28.md`](ROOSYNC-USER-GUIDE-2025-10-28.md:1) | Guide utilisateur simplifié pour RooSync v2.1 avec instructions d'installation et d'utilisation quotidienne | Démarrage Rapide, Utilisation Quotidienne, Architecture Baseline-Driven, Configuration Avancée |
+
+---
+
 ## 🏗️ Architecture d'Intégration
 
 ### Positionnement dans Baseline Complete
@@ -207,11 +251,17 @@ Chaque guide inclut des métriques et indicateurs de validation :
 ## 🔄 Mises à Jour
 
 ### Version Actuelle
-- **Guides** : v1.0.0 (2025-10-27)
+- **Guides** : v1.1.0 (2025-12-26)
 - **RooSync** : v2.1.0
 - **Baseline** : Complete Phase 3
 
 ### Historique des Modifications
+
+#### v1.1.0 (2025-12-26)
+- ✅ Ajout de la section "Documents Pérennes Conservés" avec tableau complet des 13 documents
+- ✅ Classification des documents par type (Guides Opérationnels, Guides d'Utilisation, Documentation Technique, Guides Spécialisés, Documentation Principale)
+- ✅ Intégration des informations de l'inventaire complet
+- ✅ Mise à jour de la structure du README pour meilleure navigation
 
 #### v1.0.0 (2025-10-27)
 - ✅ Création des 4 guides opérationnels
@@ -241,7 +291,7 @@ Pour contribuer à l'amélioration de ces guides :
 
 ---
 
-**Dernière mise à jour** : 2025-10-27  
-**Version** : 1.0.0  
-**Statut** : Production Ready  
+**Dernière mise à jour** : 2025-12-26
+**Version** : 1.1.0
+**Statut** : Production Ready
 **Auteur** : Roo Code (Code Mode)

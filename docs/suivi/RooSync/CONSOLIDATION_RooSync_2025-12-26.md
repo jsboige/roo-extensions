@@ -1040,3 +1040,30 @@ Ce rapport d'analyse archéologique examine l'évolution historique de la config
 - Architecture baseline-driven opérationnelle : BaselineService, DiffDetector, InventoryCollectorWrapper
 - Documentation SDDD complète : 8 rapports, 100% découvrabilité, traçabilité totale
 - Recommandations : optimisation tests, déploiement production, monitoring continu, évolutions futures
+
+### 2025-12-26 - Tâche 16 : Consolidation du dossier docs/roosync (Séparation Suivi/Pérenne)
+**Résumé :** Finalisation de la consolidation du dossier docs/roosync avec séparation des documents en deux catégories : documents de suivi (à intégrer dans les consolidations) et documents pérennes (à conserver dans docs/roosync). Cette tâche a permis de structurer la documentation RooSync v2.1 en distinguant les rapports temporaires des guides techniques de référence.
+
+**Bilan de la classification :**
+- **Documents de suivi intégrés :** 28 documents (70%)
+  - Rapports d'activité, notes temporaires, logs, documents datés
+  - Documents de test/validation, analyses temporaires
+  - Rapports de mission, rapports de bugfix, rapports de debug
+- **Documents pérennes conservés :** 13 documents (30%)
+  - Guides opérationnels (4) : Logger Production, Git Helpers, Deployment Wrappers, Task Scheduler
+  - Guides d'utilisation (2) : Deployment Helpers, Logger Usage
+  - Documentation technique (3) : Baseline Implementation Plan, Git Requirements, Complete Synthesis
+  - Guides spécialisés (2) : Messaging System, Tests Unitaires
+  - Documentation principale (2) : README, User Guide
+
+**Recommandations pour la création de guides :**
+1. **Option 1 - Consolidation Minimale :** Maintenir les 13 documents actuels avec README.md comme point d'entrée principal
+2. **Option 2 - Consolidation Modérée :** Créer 3 guides consolidés (Opérationnel Unifié, Développeur, Technique)
+3. **Option 3 - Consolidation Maximale :** Créer 1 guide unique complet
+
+**Actions réalisées :**
+- Classification complète des 40 documents du dossier docs/roosync
+- Création de fichiers temporaires d'inventaire (CLASSIFICATION_TEMP.md, INVENTAIRE_COMPLET.md, INVENTAIRE_PERENNE.md)
+- Intégration des informations dans le README.md
+- Suppression des fichiers temporaires après consolidation
+- Commit atomique des modifications
