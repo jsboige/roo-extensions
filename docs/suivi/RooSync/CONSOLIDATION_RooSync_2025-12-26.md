@@ -523,3 +523,16 @@ Ce rapport d'implémentation de la Phase 2 du Cycle 6 documente l'intégration e
 - 5 rôles techniques distribués : myia-web1 (Config Authority), myia-po-2024 (Environment Guardian), myia-po-2026 (QA Chaos Monkey), myia-po-2023 (Support Watcher), myia-ai-01 (Coord Hub)
 - 3 SOPs standardisées : mise à jour inventaire, résolution conflit, déploiement feature
 
+### 2025-12-08 - Rapport de Mission Phase 3 - Cycle 6 : Déploiement & Collecte Distribuée
+**Fichier original :** `2025-12-05_005_Rapport-Phase3-Cycle6.md`
+
+**Résumé :**
+Ce rapport de mission Phase 3 du Cycle 6 documente le déploiement des outils de configuration partagée et l'initiation de la collecte distribuée des configurations auprès des agents. Un message RooSync de priorité HIGH a été envoyé à l'agent principal myia-po-2024 pour déclencher le processus de mise à jour et de collecte (ID msg-20251208T102407-e1ekc2). Une surveillance active du répertoire .shared-state/configs/ a été mise en place avec un test local de collecte qui a révélé un problème critique : succès technique mais 0 fichiers collectés. Le diagnostic identifie que ConfigSharingService utilise des chemins par défaut (process.cwd()/config/mcp_settings.json) qui ne correspondent pas à la structure réelle de l'environnement (%APPDATA%/.../mcp_settings.json), ce qui risque de causer le même problème pour les agents distants. L'état du système RooSync est opérationnel avec statut synced, 3 machines connectées (myia-ai-01, myia-po-2026, myia-po-2023) et dernière synchro le 2025-12-08T10:33:46.025Z. La synthèse SDDD indique que le système distribué est en place mais la logique de collecte nécessite un ajustement pour s'adapter à la diversité des environnements (chemins absolus vs relatifs, emplacement de mcp_settings.json). Les recommandations incluent un correctif urgent pour modifier ConfigSharingService.ts afin de mieux détecter l'emplacement de mcp_settings.json (utiliser InventoryCollector ou des chemins alternatifs), une validation locale après correctif avant d'attendre les retours des agents, et un suivi des réponses de myia-po-2024 comme testeur beta. La Phase 3 est partiellement réussie : le canal de communication et l'infrastructure sont fonctionnels, mais l'outil de collecte nécessite une itération corrective.
+
+**Points clés :**
+- Message RooSync HIGH envoyé à myia-po-2024 pour déclencher mise à jour et collecte (ID msg-20251208T102407-e1ekc2)
+- Problème critique identifié : ConfigSharingService utilise chemins par défaut incorrects (process.cwd() vs %APPDATA%)
+- Test local : succès technique mais 0 fichiers collectés, impact potentiel sur agents distants
+- État RooSync : synced, 3 machines connectées, infrastructure opérationnelle
+- Recommandations : correctif urgent ConfigSharingService.ts, validation locale post-correction, suivi myia-po-2024
+
