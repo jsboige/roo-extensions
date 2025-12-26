@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 69/79
+**Nombre de documents consolidés :** 70/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -769,3 +769,15 @@ Ce journal de migration documente le remplacement réussi des scripts PowerShell
 - IdentityService : validation protections identité, vérification registres, détection conflits
 - 3 problèmes résolus : build TypeScript, chargement MCP, script Legacy défaillant
 - Validation : tests unitaires passants, test manuel réussi via script Node.js autonome
+### 2025-12-14 - Plan de Répartition Détaillé (Master Plan) - RooSync Cycle 7
+**Fichier original :** `2025-12-14_004_Plan-Repartition-Charge.md`
+
+**Résumé :**
+Ce plan de répartition détaillé convertit la stratégie d'évolution technique de RooSync Cycle 7 en un plan d'action distribué visant à consolider RooSync en une infrastructure TypeScript/MCP robuste tout en éliminant la dette technique PowerShell. Le module Scheduler est explicitement exclu du périmètre de migration actuel. Les principes de répartition assignent des rôles spécifiques à chaque agent : myia-web1 (Lead Tech) sur le cœur critique et l'architecture, myia-po-2024 (Dev Senior) sur la migration de la logique système complexe, myia-po-2026 (QA/Test) sur la garantie de non-régression, myia-po-2023 (Dev Support) sur la transformation des scripts d'analyse legacy en outils de diagnostic modernes, et myia-ai-01 (Coordination) sur le liant, Code Review transverse et arbitrage. Cinq Work Packages détaillent les tâches : WP1 Core Configuration Engine (JsonMerger, ConfigSharingService, sécurité), WP2 System Inventory & Environment Migration (InventoryService, IdentityService), WP3 Quality Assurance & Testing Infrastructure (tests unitaires, intégration, E2E), WP4 Diagnostic Tooling & Knowledge Base (outils MCP interactifs, documentation), et WP5 Coordination & Integration (Code Review, gestion conflits, nettoyage Legacy). La séquence d'exécution est planifiée avec un diagramme Gantt et les critères de validation définissent la Definition of Done pour chaque WP.
+
+**Points clés :**
+- Objectif : consolidation TypeScript/MCP robuste, élimination dette technique PowerShell
+- Module Scheduler exclu du périmètre de migration actuel
+- 5 rôles assignés : myia-web1 (Lead Tech), myia-po-2024 (Dev), myia-po-2026 (QA), myia-po-2023 (Support), myia-ai-01 (Coord)
+- 5 Work Packages : WP1 Core (P0), WP2 System (P1), WP3 QA (P1), WP4 Tools (P2), WP5 Coordination
+- Séquence d'exécution planifiée avec Gantt et Definition of Done pour chaque WP
