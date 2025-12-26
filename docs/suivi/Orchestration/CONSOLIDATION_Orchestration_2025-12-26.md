@@ -1,7 +1,7 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 2/35
-**Période couverte :** 2025-10-22 à [à déterminer]
+**Nombre de documents consolidés :** 3/35
+**Période couverte :** 2025-10-22 à 2025-10-26
 
 ## Documents consolidés (ordre chronologique)
 
@@ -30,3 +30,16 @@ Ce document fournit une cartographie exhaustive du dépôt roo-extensions et de 
 - Configuration centralisée dans `roo-config/settings/servers.json` avec scripts de déploiement automatisés
 - 13 MCPs prêts pour l'installation immédiate, 1 désactivé (office-powerpoint)
 - Variables d'environnement à configurer : GITHUB_TOKEN et variables FTP
+
+### 2025-10-26 - Initialisation RooSync sur Machine JSBOI-WS-001
+**Fichier original :** `ROOSYNC-INITIALISATION-TASK-2025-10-26.md`
+
+**Résumé :**
+Cette tâche d'initialisation RooSync sur la machine JSBOI-WS-001 a été exécutée selon le protocole SDDD avec un taux de réussite de 71% (5/7 tâches réussies). L'infrastructure RooSync a été créée avec succès, incluant les fichiers de configuration sync-dashboard.json et sync-config.json, et les variables d'environnement ROOSYNC_MACHINE_ID, ROOSYNC_AUTO_SYNC et ROOSYNC_CONFLICT_STRATEGY ont été configurées. Cependant, trois anomalies critiques ont été identifiées : une incohérence d'identification machine entre l'ID créé par roo-state-manager ('myia-po-2026') et l'ID configuré ('JSBOI-WS-001'), la variable ROOSYNC_SHARED_PATH manquante, et un échec de la première synchronisation avec l'erreur "[RooSync Service] Échec de la comparaison des configurations".
+
+**Points clés :**
+- Infrastructure RooSync créée avec succès sur JSBOI-WS-001
+- Taux de réussite de 71% avec 3 anomalies critiques identifiées
+- Incohérence d'ID machine : 'myia-po-2026' créé vs 'JSBOI-WS-001' configuré
+- Variable ROOSYNC_SHARED_PATH manquante à définir
+- Échec de la première synchronisation nécessitant investigation
