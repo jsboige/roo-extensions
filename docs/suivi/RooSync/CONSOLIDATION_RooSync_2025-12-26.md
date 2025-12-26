@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 79/79 (100% - Tous les documents existants ont été consolidés)
+**Nombre de documents consolidés :** 82/82 (100% - Tous les documents existants ont été consolidés)
 **Note :** 2 documents demandés n'existent pas : 2025-12-15_001_Plan-Cycle2-Reporting.md, 2025-12-15_001_MASTER-PLAN-CYCLE2-AUTONOMIE.md
 **Période couverte :** 2025-10-13 à 2025-12-14
 ## Documents consolidés (ordre chronologique)
@@ -794,3 +794,30 @@ Ce rapport d'analyse archéologique examine l'évolution historique de la config
 - Incohérences critiques : D:/roo-extensions dans ~40 scripts, G:/Mon Drive/ dans config
 - Scripts redondants : RooSync/archive/ obsolètes, roo-config/scheduler/ non maintenu (Août 2025)
 - Recommandations : archiver code mort, variable-iser chemins hardcodés, centraliser configuration
+### 2025-10-21 - Checklist Pré-Phase 3 RooSync
+**Fichier original :** `checklist-pre-phase3.md`
+**Résumé :** Checklist de préparation pour la Phase 3 RooSync avec critères de démarrage, état actuel, actions immédiates requises pour myia-po-2024 et myia-ai-01. La Phase 2 a été complétée avec succès (InventoryCollector réparé, DiffDetector refactorisé, tests locaux validés, 15+ commits synchronisés). Deux blocages critiques empêchent le démarrage de la Phase 3 : l'inventaire myia-po-2024 est invalide (CPU=0, RAM=0) et la communication myia-po-2024 n'est pas confirmée (lecture message non confirmée). Les critères de démarrage incluent des inventaires complets (2 machines), l'outil roosync_compare_config opérationnel, des décisions générées et analysées, et l'accord utilisateur pour approbations. Les actions immédiates pour myia-po-2024 incluent lire le message RooSync Phase 2, corriger le script Get-MachineInventory.ps1, re-générer l'inventaire machine, synchroniser Git et Build MCP, et confirmer prêt pour Phase 3.
+**Points clés :**
+- Phase 2 complétée avec succès : InventoryCollector réparé, DiffDetector refactorisé, tests locaux validés
+- 2 blocages critiques : inventaire myia-po-2024 invalide (CPU=0, RAM=0), communication non confirmée
+- Critères démarrage Phase 3 : inventaires complets, roosync_compare_config opérationnel, décisions générées, accord utilisateur
+- Actions immédiates myia-po-2024 : lire message, corriger script Get-MachineInventory.ps1, re-générer inventaire, sync Git, build MCP
+- Actions immédiates myia-ai-01 : attendre confirmation, valider inventaire myia-po-2024, préparer appel roosync_compare_config
+### 2025-10-23 - Analyse Architecture Baseline RooSync v1 vs v2
+**Fichier original :** `baseline-architecture-analysis-20251023.md`
+**Résumé :** Analyse comparative architecture baseline RooSync v1 vs v2 avec grounding sémantique, exploration fichiers, identification redondances, recommandations rationalisation, proposition baseline v2 architecture, stratégie refactoring Logger. L'analyse a identifié l'architecture RooSync v1 (PowerShell) avec baseline implicite (9 fichiers JSON + patterns dynamiques), inventorié les scripts deployment (9 fichiers ~1,805 lignes, NON redondants), et défini la stratégie Logger refactoring (45 occurrences dans 8 fichiers tools/roosync/). Les recommandations incluent de garder PowerShell (performance/maintenance), proposer baseline v2 Git-versioned avec SHA256 checksums, et résoudre la duplication de sync_roo_environment.ps1 (2 versions actives identifiées). La stratégie de migration Logger est définie en 3 batches atomiques avec ordre prioritaire (init.ts en priorité CRITICAL avec 28 occurrences).
+**Points clés :**
+- Architecture RooSync v1 identifiée : baseline implicite 9 JSON + patterns dynamiques, workflow Git en 7 étapes
+- Scripts deployment inventoriés : 9 fichiers (~1,805 lignes), NON redondants, complémentaires à RooSync
+- 45 occurrences console.* à migrer en 3 batches, init.ts priorité CRITICAL (28 occurrences)
+- Recommandations : garder PowerShell (performance/maintenance), baseline v2 Git-versioned, résoudre duplication sync_roo_environment.ps1
+- Stratégie Phase 2 : Logger Refactoring (85%→95%), Git Helpers Integration, Baseline Architecture Documentation
+### 2025-10-26 - Correction du Bug de Variable Non Interprétée dans RooSync
+**Fichier original :** `bug-variable-interpretation-fix-20251026.md`
+**Résumé :** Investigation et correction du bug critique où la variable %SHARED_STATE_PATH% n'était pas interprétée dans le fichier sync-config.ref.json, provoquant des fichiers de synchronisation corrompus. Les symptômes observés incluaient sync-config.ref.json contenant "sharedStatePath": "%SHARED_STATE_PATH%" au lieu du chemin réel, sync-dashboard.json état "uninitialized", sync-report.md contenu minimal, et sync-roadmap.md fichier binaire (corrompu). La source du bug identifiée est dans RooSync\src\modules\Actions.psm1 ligne 62 où la variable %SHARED_STATE_PATH% n'est pas une variable d'environnement PowerShell valide. La solution appliquée remplace la ligne par une logique de remplacement prioritaire : d'abord remplacer ${ROO_HOME} par $env:ROO_HOME, puis remplacer ${SHARED_STATE_PATH} par $env:SHARED_STATE_PATH. Une procédure de régénération est fournie avec nettoyage des fichiers corrompus, initialisation de l'espace de travail et vérification de la correction.
+**Points clés :**
+- Bug critique : variable %SHARED_STATE_PATH% non interprétée dans sync-config.ref.json
+- Source : Actions.psm1 ligne 62, variable PowerShell invalide (%SHARED_STATE_PATH% vs $env:SHARED_STATE_PATH)
+- Solution : remplacement prioritaire ${ROO_HOME} → $env:ROO_HOME, ${SHARED_STATE_PATH} → $env:SHARED_STATE_PATH
+- Procédure régénération : nettoyage fichiers corrompus, initialisation workspace, vérification correction
+- Précautions : variables d'environnement requises, sauvegarde préalable, test en environnement isolé
