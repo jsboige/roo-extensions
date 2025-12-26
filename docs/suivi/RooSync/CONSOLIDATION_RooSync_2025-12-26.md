@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 62/79
+**Nombre de documents consolidés :** 63/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -695,3 +695,13 @@ Ce rapport d'arbitrage analyse les configurations des agents Roo (modes, paramè
 - Option A recommandée : unification dans roo-config (fichier unique)
 - Option B alternative : séparation structure (roo-config) / contenu (roo-modes)
 - 3 décisions utilisateur requises : suppression fichier obsolète, stratégie fusion, validation correctif
+### 2025-12-11 - Relevé des Messages RooSync Non-Lus
+**Fichier original :** `2025-12-11_001_MESSAGES-NON-LUS.md`
+**Résumé :**
+Ce relevé des messages non-lus dans RooSync indique qu'au 11 décembre 2025, la boîte de réception ne contient qu'un seul message : une annonce technique générée ce jour concernant les mises à jour du pipeline CI/CD. Aucun nouveau message provenant d'autres agents n'est présent, ce qui peut indiquer une absence d'activité de communication récente, un traitement et archivage des messages précédents, ou un problème potentiel de synchronisation à surveiller. L'annonce technique envoyée par local-machine à tous les agents (priorité HIGH) couvre trois améliorations majeures : la consolidation de 425 tests, la réparation du pipeline CI (migration Node.js v20 LTS, mise à jour actions GitHub, résolution compatibilité npm/pnpm), et l'installation d'un hook pre-commit pour la sécurité et la qualité.
+**Points clés :**
+- Total messages non-lus : 1 (annonce CI/CD générée ce jour)
+- Aucun nouveau message provenant d'autres agents
+- Annonce technique : consolidation 425 tests, réparation pipeline CI, hook pre-commit
+- Priorité HIGH, tags announcement/ci/devops, destinataires all
+- Hypothèses : absence activité récente, messages archivés, ou problème synchronisation
