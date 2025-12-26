@@ -375,9 +375,33 @@ Ce rapport d'état complet analyse le système RooSync v2.1 avec un statut globa
 - Tests 100% : 49/49 unitaires, 8/8 E2E, 18/18 BaselineService
 - Problèmes : incohérence état rapporté, configuration asymétrique, détection hardware défaillante, baseline manquante
 - Documentation v2.1 : 5 guides, 9 rapports de comparaison dans .shared-state/reports/
-### 2025-11-02 - Rapport de Correction RooSync v2.1 - Phase 6 SDDD
-**Fichier original :** `2025-11-02_036_roosync-correction-baseline-sddd-phase6.md`
-**Résumé :**
+### 2025-10-23 - Rapport Coordination Agent Distant + Dry-Run Phase 3
+**Fichier original :** `rapport-coordination-agent-phase3-20251023.md`
+**Résumé :** Coordination réussie avec l'agent distant myia-po-2024 après implémentation des 3 améliorations critiques RooSync v2, et exécution complète du dry-run Phase 3. 3 messages échangés : mon update (22 oct), réponse agent (23 oct), mes résultats dry-run (23 oct). Le dry-run a détecté 0 différences alors que 9 étaient attendues selon le message agent du 19 octobre. Les inventaires du 18 octobre montrent une configuration identique (12 modes Roo, 9 MCPs, 10 specs SDDD, hardware comparable, software versions identiques). Trois hypothèses explicatives : synchronisation automatique intervenue (probable), inventaires obsolètes (moins probable), bug détection résolu (possible). Les améliorations v2 implémentées incluent Logger Production (292 lignes), Git Verification (334 lignes git-helpers), SHA Robustness (334 lignes git-helpers). Score de convergence amélioré de 67% à 85% (+18%).
+**Points clés :**
+- Coordination agent distant réussie : 3 messages échangés
+- Dry-run Phase 3 : 0 différences détectées (vs 9 attendues)
+- Inventaires 18 octobre : configuration identique (12 modes, 9 MCPs, 10 specs SDDD)
+- 3 hypothèses : synchronisation automatique, inventaires obsolètes, bug détection résolu
+- Améliorations v2 : Logger, Git verification, SHA robustness, convergence 85%
+### 2025-10-23 - Scripts Migration Status - Phase 2B
+**Fichier original :** `scripts-migration-status-20251023.md`
+**Résumé :** Documentation de l'état des scripts PowerShell suite à la Phase 2B Mission Complete. Script RooSync/sync_roo_environment.ps1 actif (version historique v1, ~245 lignes) avec vérification Git, gestion stash, logging, gestion conflits, SHA HEAD verification. Script scripts/archive/migrations/sync_roo_environment.ps1 archivé correctement. Script scripts/deployment/sync-roosync-config.ps1 N'EXISTE PAS (recherche effectuée). Actions réalisées Phase 2B : Git helpers integration (RooSyncService, InventoryCollector, commit de2aeeb), Deployment helpers TypeScript wrapper (223 lignes, classe DeploymentHelpers, commit d90c08e), Scripts merge SKIP (script n'existe pas). Architecture PowerShell → TypeScript : Scripts PowerShell Deployment → PowerShellExecutor → DeploymentHelpers → Fonctions typées TypeScript. Build TypeScript réussi, convergence 95% → 98% (+3%).
+**Points clés :**
+- Script RooSync/sync_roo_environment.ps1 actif (v1 historique, ~245 lignes)
+- Script scripts/deployment/sync-roosync-config.ps1 N'EXISTE PAS
+- Git helpers intégrés : RooSyncService, InventoryCollector (44 insertions)
+- Deployment helpers créés (223 lignes) : wrapper spécifique au-dessus de PowerShellExecutor
+- Convergence 95% → 98% (+3%), build réussi
+### 2025-10-24 - Phase 3 - Corrections Bugs Tests
+**Fichier original :** `phase3-bugfixes-tests-20251024.md`
+**Résumé :** Corrections de 2 bugs tests uniquement (aucun impact production). Bug 1 : Test 1.3 Windows Path Comparison - échouait sur Windows à cause de comparaison de chemins incompatibles (Windows retourne `\`, constante utilisait `/`). Solution : import de `normalize` depuis `path` pour harmoniser les séparateurs avant comparaison. Bug 2 : Test 3.1 Timeout Flag Detection Cross-Platform - échouait sur Windows à cause de détection timeout insuffisante (Linux/Mac retournent SIGTERM, Windows retourne ETIMEDOUT). Solution : extension logique détection timeout pour supporter Windows (vérifier error.code === 'ETIMEDOUT' et error.message.includes('ETIMEDOUT')). Avant corrections : 12/14 tests PASS = 85.71% convergence affichée vs 98.75% réelle. Après corrections : 14/14 tests PASS = 100% convergence affichée = 98.75% réelle. Alignement convergence affichée/réelle RÉALISÉ.
+**Points clés :**
+- 2 bugs tests corrigés : Windows path comparison, Timeout flag detection cross-platform
+- Bug 1 : import `normalize` depuis `path` pour harmoniser séparateurs chemins
+- Bug 2 : détection timeout multi-platform (SIGTERM Linux/Mac, ETIMEDOUT Windows)
+- Convergence affichée : 85.71% → 100% (+14.29%)
+- Alignement convergence affichée/réelle RÉALISÉ (100% affichée = 98.75% réelle)
 Ce rapport de correction Phase 6 SDDD documente les efforts pour éliminer les faux positifs de différences causés par des données corrompues ("N/A", "Unknown") dans RooSync v2.1. Le problème identifié : 14 différences symétriques (faux positifs) causées par un script PowerShell incomplet (Get-MachineInventory.ps1 ne collectait pas les informations système critiques) et des valeurs par défaut dans DiffDetector ("Unknown"). Les corrections appliquées incluent la modification du script PowerShell Get-MachineInventory.ps1 avec ajout de 80 lignes de code pour la collecte système complète (CPU via Get-CimInstance Win32_Processor, mémoire via Win32_ComputerSystem et Win32_OperatingSystem, disques via Win32_LogicalDisk, GPU via Win32_VideoController, système et architecture via variables système), la génération de nouveaux inventaires valides pour myia-po-2024 et myia-ai-01, et la reconstruction des caches (rebuild complet du MCP roo-state-manager, reconstruction du cache skeleton avec 347 tâches traitées, redémarrage du service MCP). L'état final montre une baseline corrigée avec des données valides pour les deux machines (Intel i9-13900K 16 cœurs/16 threads, 32GB RAM, Windows 10, Node.js 24.6.0, Python 3.13.7). Cependant, un problème de persistance subsiste : le système continue de rapporter 14 différences malgré les corrections, indiquant un cache persistant dans une location non identifiée ou des données anciennes encore utilisées par certains composants.
 **Points clés :**
 - Problème : 14 différences symétriques causées par données "N/A"/"Unknown" dans baseline
