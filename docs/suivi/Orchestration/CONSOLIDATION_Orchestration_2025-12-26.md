@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 25/35
+**Nombre de documents consolidés :** 26/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -374,3 +374,16 @@ Ce rapport de mission SDDD documente la coordination et la stabilisation pré-te
 - Reprise Phase 2 02:18 UTC : roosync_get_status (resetCache=true) exécuté, agent distant NON DÉTECTÉ (seul myia-ai-01 présent), statut synced mais mono-machine
 - Analyse : agent distant n'a pas encore rejoint la session ou n'a pas encore exécuté roosync_init sur même dashboard partagé
 - Prochaines étapes Phase 2 : attendre arrivée agent distant (myia-po-2023 ou autre), attendre instruction scénario myia-po-2023, exécuter premier scénario divergence (modification sync-config.json), tester workflow résolution conflit
+
+### 2025-12-05 - Re-Validation Stricte & Communication RooSync
+**Fichier original :** `2025-12-05_020_Revalidation-Communication.md`
+
+**Résumé :**
+Ce rapport de mission SDDD documente la re-validation stricte de l'état du dépôt et la communication via RooSync pour signaler la disponibilité opérationnelle. La synchronisation Git stricte a été effectuée avec commit des fichiers de tracking SDDD (54 et 55), git pull (Merge strategy 'ort'), correction critique du sous-module mcps/internal via git submodule update --init --recursive, et git push vers origin/main. La validation technique via tests unitaires roo-state-manager a révélé un problème initial avec le test read_vscode_logs ("should handle undefined args gracefully") qui a été corrigé en mettant à jour le mock dans tests/unit/tools/read-vscode-logs.test.ts. Le résultat final montre 720 tests passés, 0 échecs, 14 ignorés en ~12.48s. La communication RooSync a traité 16 messages non-lus (dont un de myia-po-2024 confirmant le succès de la reconstruction v2.1) et envoyé le message msg-20251205T024000-bcqz1c à myia-po-2023 confirmant la disponibilité pour Phase 2.
+
+**Points clés :**
+- Synchronisation Git stricte : commit fichiers tracking SDDD (54 et 55), git pull (Merge 'ort'), correction critique sous-module mcps/internal (git submodule update --init --recursive), git push origin/main
+- Validation tests roo-state-manager : correction test read_vscode_logs (mock mis à jour dans tests/unit/tools/read-vscode-logs.test.ts), résultat final 720 tests passés, 0 échecs, 14 ignorés, durée ~12.48s
+- Communication RooSync : 16 messages non-lus traités (dont myia-po-2024 confirmant reconstruction v2.1), message msg-20251205T024000-bcqz1c envoyé à myia-po-2023
+- Preuves de validation : submodule mcps/internal checked out '34905f7a5c25c8e393805ea83f162e7956eb83d0', tests 63 fichiers passés | 1 skipped (64), 720 tests passés | 14 skipped (734)
+- Prochaines étapes : attente connexion agent distant (myia-po-2023 ou myia-po-2024) pour lancer Tests de Production Coordonnés, surveillance inbox RooSync
