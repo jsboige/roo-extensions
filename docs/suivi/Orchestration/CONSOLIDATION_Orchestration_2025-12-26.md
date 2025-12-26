@@ -1,6 +1,6 @@
 # CONSOLIDATION Orchestration
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 28/35
+**Nombre de documents consolidés :** 29/35
 **Période couverte :** 2025-10-22 à 2025-12-05
 
 ## Documents consolidés (ordre chronologique)
@@ -415,3 +415,17 @@ Ce rapport documente la réparation des tests unitaires du Cycle 5 pour roo-stat
 - Tests affectés : BaselineService.test.ts, read-vscode-logs.test.ts
 - État final : tous les tests passent (npm run test:unit:tools), isolation complète (aucun fichier réel créé sur disque pendant les tests)
 - Leçon SDDD : avec mock-fs et Vitest, les imports nommés et fs/promises nécessitent un traitement explicite pour être correctement mockés
+
+### 2025-12-05 - Finalisation Git & Communication Post-Réparation
+**Fichier original :** `2025-12-05_023_Finalisation-Git-Comms.md`
+
+**Résumé :**
+Cette mission SDDD visait à finaliser la synchronisation Git, valider l'ensemble des tests unitaires et gérer la communication RooSync suite à la réparation des tests P0 du cycle 5 (mocking fs). La synchronisation Git a été effectuée sur le sous-module roo-state-manager avec le commit "fix(tests): repair cycle 5 unit tests with fs mocking" et push synchronisé sur main, puis sur le dépôt principal roo-extensions avec mise à jour du pointeur de sous-module, ajout du tracking SDDD (58), résolution de conflit de sous-module via rebase interactif, et push synchronisé sur main. La validation post-merge a exécuté npm run test:unit:tools (via vitest) avec un résultat de 13 fichiers passés et 93 tests passés, respectant la consigne d'éviter npm test. La communication RooSync a lu le message critique msg-20251205T034253-b1sxfz (Instruction Tests Unitaires) et envoyé le message msg-20251205T035420-9dg8mg pour confirmer la réparation des tests, la synchronisation Git et la prise en compte de la consigne sur npm test. L'état final montre des tests stables (P0 réparés), Git synchronisé (Clean) et communication à jour.
+
+**Points clés :**
+- Synchronisation Git sous-module roo-state-manager : commit "fix(tests): repair cycle 5 unit tests with fs mocking", push synchronisé sur main
+- Synchronisation Git dépôt principal roo-extensions : mise à jour pointeur sous-module, ajout tracking SDDD (58), résolution conflit sous-module via rebase interactif, push synchronisé sur main
+- Validation post-merge : npm run test:unit:tools (via vitest), résultat 13 fichiers passés, 93 tests passés, conformité consigne éviter npm test
+- Communication RooSync : lecture message critique msg-20251205T034253-b1sxfz (Instruction Tests Unitaires), envoi message msg-20251205T035420-9dg8mg (confirmation réparation tests, synchronisation Git, prise en compte consigne npm test)
+- État final : tests stables (P0 réparés), Git synchronisé (Clean), communication à jour
+- Prochaines étapes : attendre instructions orchestrateur pour la suite (probablement déploiement ou tests d'intégration plus larges)
