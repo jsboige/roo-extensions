@@ -714,3 +714,16 @@ La Phase 2 du protocole SDDD pour la synchronisation avec `myia-po-2026` a permi
 - 8 différences détectées : 2 IMPORTANTES (machineId, timestamp), 2 WARNINGS (divergences structurelles paths/inventory), 4 INFO
 - `myia-ai-01` utilise format imbriqué v2, `myia-po-2026` utilise format plat v1
 - Recommandations : standardiser le script sur toutes les machines, mettre à jour l'inventaire distant, relancer la comparaison
+
+### 2025-12-08 - MISSION SDDD : Phase 3 - Résolution & Standardisation Inventaire
+**Fichier original :** `2025-12-08_013_Phase3-Resolution-Inventaire.md`
+
+**Résumé :**
+La Phase 3 de la mission SDDD a pour objectif de résoudre les divergences structurelles d'inventaire identifiées en Phase 2 entre `myia-ai-01` et `myia-po-2026`. Ces divergences sont dues à des formats d'inventaire incompatibles : une structure imbriquée v2 pour `myia-ai-01` et une structure plate v1 pour `myia-po-2026`. Le plan d'action technique consiste à standardiser le script `Get-MachineInventory.ps1` et à le déployer sur les machines distantes via le canal de messagerie RooSync. Deux messages de standardisation ont été envoyés aux agents `myia-po-2023` et `myia-po-2026` avec les instructions de mise à jour. La justification de cette action est la résolution des faux positifs de différences structurelles (imbriqué vs plat) détectés lors de la comparaison d'inventaire.
+
+**Points clés :**
+- Objectif Phase 3 : résoudre divergences structurelles d'inventaire (imbriqué v2 vs plat v1)
+- Script `Get-MachineInventory.ps1` local v2 validé comme version standardisée
+- 2 messages envoyés : msg-20251208T130400-vmxpcy à myia-po-2023, msg-20251208T130422-4dyjis à myia-po-2026
+- Méthode : propagation du script standardisé via canal de messagerie RooSync
+- En attente : confirmation d'application par les agents distants et validation de la convergence (Phase 4)
