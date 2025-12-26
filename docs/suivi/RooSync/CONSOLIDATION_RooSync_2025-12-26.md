@@ -819,3 +819,17 @@ Ce rapport final documente la mission de traitement des 23 messages RooSync et d
 - Stabilité tests : passage de ~152 tests échouants à 99.3% de réussite (+47.3% par rapport à l'initial)
 - Synchronisation Git : 2 commits (a59dd04 sous-module, 2ff2a01 principal), respect protocole Git Safety
 - Validation SDDD : checkpoints respectés, documentation complète, traçabilité actions totale
+
+### 2025-12-10 - Rapport de Mission : Validation Migration Stockage Externe RooSync
+**Fichier original :** `2025-12-10_002_Rapport-Validation-Migration-Stockage.md`
+
+**Résumé :**
+Ce rapport de mission valide la migration du stockage des données RooSync vers un disque externe sécurisé (`G:/Mon Drive/Synchronisation/RooSync/.shared-state`). L'objectif principal était de séparer le code et les données pour ne plus polluer le dépôt Git avec des fichiers volumineux ou sensibles, tout en assurant la persistance des données. La configuration de l'environnement a été mise à jour via le fichier `.env` avec la variable `ROOSYNC_SHARED_PATH`. La validation technique I/O a été effectuée via un script PowerShell (`scripts/test-roosync-io.ps1`) confirmant les tests d'écriture, de lecture et le nettoyage automatique du fichier témoin. L'audit de non-régression Git a confirmé qu'aucun fichier de données n'apparaît comme "untracked" ou "modified" dans le dépôt local, validant la séparation effective Code/Données.
+
+**Points clés :**
+- Objectifs : séparer Code/Données, assurer persistance, valider intégrité technique
+- Configuration : mise à jour .env avec ROOSYNC_SHARED_PATH vers G:/Mon Drive/Synchronisation/RooSync/.shared-state
+- Validation I/O : script scripts/test-roosync-io.ps1, tests écriture/lecture/nettoyage réussis
+- Audit Git : aucun fichier de données untracked/modified, séparation Code/Données effective
+- État final : code source propre (Git), données partagées migrées (Drive), configuration à jour, tests I/O passés
+- Recommandations : surveillance logs synchronisations, backup G:/Mon Drive inclus sauvegardes Google Drive, maintien DATA_STORAGE_POLICY.md
