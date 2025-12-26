@@ -1,6 +1,6 @@
 # CONSOLIDATION RooSync
 **Date de consolidation :** 2025-12-26
-**Nombre de documents consolidés :** 68/79
+**Nombre de documents consolidés :** 69/79
 **Période couverte :** 2025-10-13 à 2025-12-15
 ## Documents consolidés (ordre chronologique)
 ### 2025-10-13 - RAPPORT CRITIQUE : Analyse Différentiel RooSync Multi-Machines
@@ -757,3 +757,15 @@ Ce document définit la stratégie d'évolution de RooSync Cycle 7 pour transfor
 - Audit technique : 161 tests passants mais fracture fonctionnelle Legacy vs MCP
 - Plan 4 phases : Cœur Sync (JsonMerger), Scheduler, Orchestration, Nettoyage Legacy
 - Architecture cible : services MCP + modules core (JsonMerger, Normalizer, Diff)
+### 2025-12-14 - Journal de Migration : Système d'Inventaire (WP2)
+**Fichier original :** `2025-12-14_003_Journal-Migration-Inventaire.md`
+
+**Résumé :**
+Ce journal de migration documente le remplacement réussi des scripts PowerShell Get-MachineInventory.ps1 et validate-roosync-identity-protection.ps1 par une implémentation native TypeScript intégrée au MCP roo-state-manager. Le projet a livré trois composants principaux : InventoryService.ts pour la collecte des serveurs MCP, modes Roo et scripts PowerShell avec typage fort et gestion d'erreurs fine, IdentityService.ts pour la validation des protections contre l'écrasement d'identité et la détection de conflits, et l'outil MCP roosync_get_machine_inventory exposant InventoryService via le protocole MCP. Trois problèmes ont été rencontrés et résolus : un problème de build TypeScript (tsconfig.json avec emitDeclarationOnly incorrect), un problème de chargement dans MCP (environnement ne redémarrait pas le serveur), et un script Legacy défaillant confirmant la nécessité de la migration. La validation a été effectuée via des tests unitaires passants et un test manuel réussi via un script Node.js autonome.
+
+**Points clés :**
+- Remplacement PowerShell → TypeScript : InventoryService.ts et IdentityService.ts créés
+- InventoryService : collecte MCPs, modes Roo, scripts, infos système avec typage fort
+- IdentityService : validation protections identité, vérification registres, détection conflits
+- 3 problèmes résolus : build TypeScript, chargement MCP, script Legacy défaillant
+- Validation : tests unitaires passants, test manuel réussi via script Node.js autonome
