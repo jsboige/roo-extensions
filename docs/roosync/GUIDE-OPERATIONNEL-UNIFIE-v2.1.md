@@ -84,7 +84,10 @@ ROOSYNC_CONFLICT_STRATEGY=manual
 **Étape 4 : Initialiser RooSync**
 ```bash
 # Créer l'infrastructure
-use_mcp_tool "roo-state-manager" "roosync_init" {}
+use_mcp_tool "roo-state-manager" "roosync_init" {
+  "force": false,
+  "createRoadmap": true
+}
 
 # Créer la baseline de référence
 use_mcp_tool "roo-state-manager" "roosync_get_status" {}
@@ -94,7 +97,8 @@ use_mcp_tool "roo-state-manager" "roosync_get_status" {}
 ```bash
 use_mcp_tool "roo-state-manager" "roosync_compare_config" {
   "source": "local_machine",
-  "target": "baseline_reference"
+  "target": "remote_machine",
+  "force_refresh": false
 }
 ```
 
@@ -268,7 +272,8 @@ use_mcp_tool "roo-state-manager" "roosync_get_status" {}
 # Comparer et générer les décisions
 use_mcp_tool "roo-state-manager" "roosync_compare_config" {
   "source": "local_machine",
-  "target": "baseline_reference"
+  "target": "remote_machine",
+  "force_refresh": false
 }
 
 # Lister les différences détectées
@@ -279,18 +284,22 @@ use_mcp_tool "roo-state-manager" "roosync_list_diffs" {}
 ```bash
 # Voir les détails d'une décision
 use_mcp_tool "roo-state-manager" "roosync_get_decision_details" {
-  "decision_id": "uuid-de-la-decision"
+  "decisionId": "uuid-de-la-decision",
+  "includeHistory": true,
+  "includeLogs": true
 }
 
 # Approuver une décision
 use_mcp_tool "roo-state-manager" "roosync_approve_decision" {
-  "decision_id": "uuid-de-la-decision",
+  "decisionId": "uuid-de-la-decision",
   "comment": "Approuvé après vérification"
 }
 
 # Appliquer une décision approuvée
 use_mcp_tool "roo-state-manager" "roosync_apply_decision" {
-  "decision_id": "uuid-de-la-decision"
+  "decisionId": "uuid-de-la-decision",
+  "dryRun": false,
+  "force": false
 }
 ```
 
@@ -298,13 +307,15 @@ use_mcp_tool "roo-state-manager" "roosync_apply_decision" {
 ```bash
 # Collecter la configuration locale (génère un ZIP)
 use_mcp_tool "roo-state-manager" "roosync_collect_config" {
-  "include_secrets": false
+  "targets": ["modes", "mcp"],
+  "dryRun": false
 }
 
 # Publier la configuration vers la baseline
 use_mcp_tool "roo-state-manager" "roosync_publish_config" {
-  "package_path": "path/to/config-package.zip",
-  "version_bump": "patch"
+  "packagePath": "path/to/config-package.zip",
+  "version": "2.2.0",
+  "description": "Description des changements"
 }
 ```
 
@@ -587,7 +598,9 @@ use_mcp_tool "roo-state-manager" "roosync_list_diffs" {}
 
 # Consulter les détails de chaque décision
 use_mcp_tool "roo-state-manager" "roosync_get_decision_details" {
-  "decision_id": "uuid-de-la-decision"
+  "decisionId": "uuid-de-la-decision",
+  "includeHistory": true,
+  "includeLogs": true
 }
 ```
 
@@ -595,17 +608,20 @@ use_mcp_tool "roo-state-manager" "roosync_get_decision_details" {
 ```bash
 # Simuler avant d'appliquer
 use_mcp_tool "roo-state-manager" "roosync_apply_decision" {
-  "decision_id": "uuid-de-la-decision",
-  "dry_run": true
+  "decisionId": "uuid-de-la-decision",
+  "dryRun": true,
+  "force": false
 }
 ```
 
 **3. Garder un historique des décisions** :
 ```bash
-# Lister toutes les décisions récentes
-use_mcp_tool "roo-state-manager" "roosync_list_decisions" {
-  "limit": 20
+# Lister les différences détectées
+use_mcp_tool "roo-state-manager" "roosync_list_diffs" {
+  "filterType": "all"
 }
+
+# Consulter le fichier sync-roadmap.md pour l'historique complet
 ```
 
 **4. Valider après chaque synchronisation** :
@@ -684,8 +700,8 @@ ls -la "$ROOSYNC_SHARED_PATH/logs/"
 // S'assurer d'utiliser le logger (pas console.error)
 import { createLogger } from '../utils/logger';
 
-const logger = createLogger('TaskSchedulerService');
-logger.info('This message will be visible in Task Scheduler');
+const logger = createLogger('RooSyncService');
+logger.info('This message will be visible in logs');
 ```
 
 #### Rotation Excessive
@@ -861,23 +877,22 @@ powershell -ExecutionPolicy Bypass -WhatIf -Command "Write-Host 'This would be e
 # État général du système
 use_mcp_tool "roo-state-manager" "roosync_get_status" {}
 
-# Diagnostic complet de l'inventaire
-use_mcp_tool "roo-state-manager" "diagnose_roo_state" {}
-
-# Validation de la configuration
-use_mcp_tool "roo-state-manager" "get_mcp_best_practices" {
-  "mcp_name": "roo-state-manager"
+# Comparer les configurations
+use_mcp_tool "roo-state-manager" "roosync_compare_config" {
+  "source": "local_machine",
+  "target": "remote_machine"
 }
 
-# Reconstruction du cache
-use_mcp_tool "roo-state-manager" "build_skeleton_cache" {
-  "force_rebuild": false
+# Lister les différences
+use_mcp_tool "roo-state-manager" "roosync_list_diffs" {}
+
+# Obtenir les détails d'une décision
+use_mcp_tool "roo-state-manager" "roosync_get_decision_details" {
+  "decisionId": "uuid-de-la-decision"
 }
 
-# Redémarrage ciblé du MCP
-use_mcp_tool "roo-state-manager" "rebuild_and_restart_mcp" {
-  "mcp_name": "roo-state-manager"
-}
+# Obtenir l'inventaire machine
+use_mcp_tool "roo-state-manager" "roosync_get_machine_inventory" {}
 ```
 
 #### Outils de Diagnostic Avancé

@@ -363,13 +363,20 @@ Le serveur MCP `roo-state-manager` expose **17 outils RooSync** :
 | [`roosync_compare_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts:1) | Détection divergences vs baseline | Phase 3 (Sync) |
 | [`roosync_list_diffs`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts:1) | Liste complète des différences | Phase 3 (Analyse) |
 | [`roosync_approve_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts:1) | Approbation changement | Phase 3 (Validation) |
+| [`roosync_reject_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts:1) | Rejet de changement | Phase 3 (Validation) |
 | [`roosync_apply_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts:1) | Application changement approuvé | Phase 3 (Apply) |
 | [`roosync_rollback_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts:1) | Annulation changement | Gestion erreurs |
 | [`roosync_get_decision_details`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts:1) | Détails complets d'une décision | Analyse |
+| [`roosync_update_baseline`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/update-baseline.ts:1) | Mise à jour baseline | Gestion baseline |
+| [`roosync_version_baseline`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/version-baseline.ts:1) | Versioning baseline | Gestion baseline |
+| [`roosync_restore_baseline`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/restore-baseline.ts:1) | Restauration baseline | Gestion baseline |
+| [`roosync_export_baseline`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/export-baseline.ts:1) | Export baseline | Gestion baseline |
 | [`roosync_collect_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/collect-config.ts:1) | **✨ v2.1** Collecte et normalise la configuration locale | Cycle 7 (Partage) |
 | [`roosync_publish_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/publish-config.ts:1) | **✨ v2.1** Publie un package de configuration | Cycle 7 (Partage) |
+| [`roosync_apply_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-config.ts:1) | **✨ v2.1** Applique une configuration | Cycle 7 (Partage) |
 | [`roosync_send_message`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/send_message.ts:1) | Envoi message inter-agents | Coordination |
 | [`roosync_read_inbox`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/read_inbox.ts:1) | Lecture messages reçus | Coordination |
+| [`roosync_get_machine_inventory`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-machine-inventory.ts:1) | Inventaire machine | Monitoring |
 
 ### 2.5 Services Intégrés
 
@@ -400,20 +407,11 @@ Le `TraceSummaryService` fournit :
 - Export multi-format (XML, JSON, CSV)
 - Intégration LLM pour synthèse
 
-### 2.6 Intégration avec Windows Task Scheduler
-
-RooSync v2.1 s'intègre nativement avec Windows Task Scheduler pour l'automatisation des synchronisations :
-
-- Tâches planifiées avec permissions SYSTEM
-- Chemins de logs configurés et accessibles
-- Monitoring natif Windows avec alertes
-- Procédures de maintenance automatisées
-
-### 2.7 ROOSYNC AUTONOMOUS PROTOCOL (RAP)
+### 2.6 ROOSYNC AUTONOMOUS PROTOCOL (RAP)
 
 **Verbes Fondamentaux** :
 Le protocole définit 4 actions primitives pour tout agent autonome :
-1. **OBSERVER** (`roosync_read_dashboard`) : Vérifier l'état de synchronisation.
+1. **OBSERVER** (`roosync_get_status`) : Vérifier l'état de synchronisation.
 2. **SIGNALER** (`roosync_get_machine_inventory`) : S'identifier et publier son état.
 3. **COMMUNIQUER** (`roosync_send_message`) : Coordonner avec les autres agents.
 4. **AGIR** (`roosync_apply_decision`) : Exécuter les changements validés.

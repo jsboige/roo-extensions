@@ -60,6 +60,138 @@ Les documents suivants ont été intégrés dans les guides unifiés et supprim�
 - **Protocole** : Intégration du *RooSync Autonomous Protocol (RAP)*.
 - **Stockage** : Confirmation de la politique "Code in Git, Data in Shared Drive".
 
+### 2025-12-27 - Tâche 18 : Vérification des Guides RooSync v2.1 contre le Code
+
+**Contexte** : Vérification que le contenu des 3 guides RooSync v2.1 est toujours d'actualité en le comparant directement avec le code source.
+
+#### 📋 Résultats de la Vérification
+
+**Total des incohérences identifiées et corrigées** : 16/16 (✅ Complété)
+
+##### GUIDE-OPERATIONNEL-UNIFIE-v2.1.md (13 corrections)
+
+1. **Correction #1** : `roosync_init` avec paramètres corrects
+   - Lignes 84-91
+   - Avant : `roosync_init {}`
+   - Après : `roosync_init { "force": false, "createRoadmap": true }`
+
+2. **Correction #2** : `roosync_compare_config` avec target correct
+   - Lignes 93-99, 267-276
+   - Avant : `target: "baseline_reference"`
+   - Après : `target: "remote_machine", "force_refresh": false`
+
+3. **Correction #3** : `roosync_get_decision_details` avec decisionId
+   - Lignes 281-283, 589-591
+   - Avant : `decision_id`
+   - Après : `decisionId` (avec includeHistory et includeLogs)
+
+4. **Correction #4** : `roosync_approve_decision` avec decisionId
+   - Lignes 286-289
+   - Avant : `decision_id`
+   - Après : `decisionId`
+
+5. **Correction #5** : `roosync_apply_decision` avec decisionId et dryRun
+   - Lignes 292-294, 597-599
+   - Avant : `decision_id`, `dry_run`
+   - Après : `decisionId`, `dryRun` (avec force)
+
+6. **Correction #6** : `roosync_collect_config` avec paramètres corrects
+   - Lignes 300-302
+   - Avant : `include_secrets: false`
+   - Après : `targets: ["modes", "mcp"], "dryRun": false`
+
+7. **Correction #7** : `roosync_publish_config` avec paramètres corrects
+   - Lignes 305-308
+   - Avant : `package_path`, `version_bump`
+   - Après : `packagePath`, `version`, `description`
+
+8. **Correction #8** : `roosync_list_decisions` remplacé
+   - Lignes 603-609
+   - Avant : `roosync_list_decisions { "limit": 20 }`
+   - Après : Utilisation de `roosync_list_diffs` et consultation de `sync-roadmap.md`
+
+9. **Correction #9** : Outils de diagnostic remplacés
+   - Lignes 858-881
+   - Avant : `diagnose_roo_state`, `get_mcp_best_practices`, `build_skeleton_cache`, `rebuild_and_restart_mcp`
+   - Après : Utilisation des outils existants : `roosync_get_status`, `roosync_compare_config`, `roosync_list_diffs`, `roosync_get_decision_details`, `roosync_get_machine_inventory`
+
+10. **Correction #10** : TaskSchedulerService remplacé
+    - Lignes 682-689
+    - Avant : `TaskSchedulerService`
+    - Après : `RooSyncService`
+
+11. **Correction #11** : Liste des 17 outils MCP RooSync
+    - Lignes 355-373
+    - Avant : Liste incomplète et incorrecte des outils (12 outils seulement)
+    - Après : Liste complète des 17 outils avec leurs rôles et phases de workflow
+
+12. **Correction #12** : ROOSYNC AUTONOMOUS PROTOCOL - Verbe OBSERVER
+    - Lignes 416
+    - Avant : `roosync_read_dashboard`
+    - Après : `roosync_get_status`
+
+13. **Correction #13** : Section 2.6 - Intégration avec Windows Task Scheduler
+    - Lignes 403-410
+    - Avant : Section complète sur l'intégration avec Windows Task Scheduler
+    - Après : Section supprimée car elle ne correspond pas à l'implémentation actuelle
+
+##### GUIDE-DEVELOPPEUR-v2.1.md (0 corrections)
+
+- **Statut** : ✅ Vérifié - Tous les services mentionnés existent avec les méthodes décrites
+- **Services vérifiés** :
+  - ConfigNormalizationService
+  - ConfigDiffService
+  - InventoryService
+  - git-helpers
+  - deployment-helpers
+
+##### GUIDE-TECHNIQUE-v2.1.md (3 corrections)
+
+1. **Correction #1** : Liste des 17 outils MCP RooSync
+   - Lignes 355-373
+   - Avant : Liste incomplète et incorrecte (12 outils seulement)
+   - Après : Liste complète des 17 outils
+
+2. **Correction #2** : ROOSYNC AUTONOMOUS PROTOCOL - Verbe OBSERVER
+   - Lignes 416
+   - Avant : `roosync_read_dashboard`
+   - Après : `roosync_get_status`
+
+3. **Correction #3** : Section 2.6 - Intégration avec Windows Task Scheduler
+   - Lignes 403-410
+   - Avant : Section complète sur l'intégration avec Windows Task Scheduler
+   - Après : Section supprimée car non implémentée
+
+#### 📊 Liste des 17 Outils MCP RooSync (Code Actuel)
+
+D'après `mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts` :
+
+1. `roosync_init`
+2. `roosync_get_status`
+3. `roosync_compare_config`
+4. `roosync_list_diffs`
+5. `roosync_approve_decision`
+6. `roosync_reject_decision`
+7. `roosync_apply_decision`
+8. `roosync_rollback_decision`
+9. `roosync_get_decision_details`
+10. `roosync_update_baseline`
+11. `versionBaseline` (roosync_version_baseline)
+12. `restoreBaseline` (roosync_restore_baseline)
+13. `roosync_export_baseline`
+14. `roosync_collect_config`
+15. `roosync_publish_config`
+16. `roosync_apply_config`
+17. `getMachineInventoryTool` (roosync_get_machine_inventory)
+
+#### 💡 Recommandations
+
+1. **Standardisation des noms de paramètres** : Le code utilise camelCase (`decisionId`, `dryRun`) alors que les guides utilisent snake_case (`decision_id`, `dry_run`). Il faudrait standardiser sur camelCase pour être cohérent avec le code.
+
+2. **Documentation des outils manquants** : Certains outils mentionnés dans les guides n'existent pas dans le code. Il faudrait soit les implémenter, soit les retirer de la documentation.
+
+3. **Mise à jour régulière** : Mettre en place un processus de vérification automatique de la documentation contre le code.
+
 ---
 
 ## 📊 Métriques d'Amélioration (Migration v2.1)
