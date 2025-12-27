@@ -14,6 +14,12 @@
 3. [Installation](#3-installation)
 4. [Configuration](#4-configuration)
 5. [Opérations Courantes](#5-opérations-courantes)
+   - 5.1 [Synchronisation](#51-synchronisation)
+   - 5.2 [Gestion des Baselines](#52-gestion-des-baselines)
+   - 5.3 [Monitoring et Logs](#53-monitoring-et-logs)
+   - 5.4 [Maintenance](#54-maintenance)
+   - 5.5 [Bonnes Pratiques](#55-bonnes-pratiques)
+   - 5.6 [Guide pour les Agents](#56-guide-pour-les-agents)
 6. [Dépannage](#6-dépannage)
 
 ---
@@ -667,6 +673,462 @@ use_mcp_tool "roo-state-manager" "roosync_get_status" {}
 - Vérifier l'espace disque disponible
 - Surveiller la taille des logs
 - Nettoyer les fichiers temporaires
+
+---
+
+### 5.6 Guide pour les Agents
+
+#### Vue d'ensemble
+
+**Objectif** : Fournir aux agents Roo des instructions claires et pratiques pour utiliser les outils RooSync afin de remonter leur configuration locale vers le système de synchronisation.
+
+**Public Cible** : Agents Roo (instances IA) opérant sur différentes machines et devant synchroniser leur configuration.
+
+**Prérequis** :
+- RooSync v2.1+ installé et configuré
+- MCP `roo-state-manager` activé et fonctionnel
+- Variables d'environnement `ROOSYNC_SHARED_PATH` et `ROO_EXTENSIONS_PATH` configurées
+- Accès en lecture/écriture au répertoire partagé RooSync
+
+#### Variables d'Environnement Requises
+
+Avant d'utiliser les outils RooSync, assurez-vous que les variables d'environnement suivantes sont correctement configurées :
+
+| Variable | Requis | Description | Valeur Exemple |
+|----------|---------|-----------|----------------|
+| `ROOSYNC_SHARED_PATH` | Oui | Chemin vers le stockage partagé (Google Drive, réseau local) | `G:/Mon Drive/Synchronisation/RooSync/.shared-state` |
+| `ROO_EXTENSIONS_PATH` | Oui | Chemin vers le répertoire racine des extensions Roo | `D:/roo-extensions` |
+| `ROOSYNC_MACHINE_ID` | Oui | Identifiant unique de la machine | `PC-PRINCIPAL` |
+| `ROOSYNC_LOG_LEVEL` | Non | Niveau de logging | `info` |
+
+**Vérification des variables** :
+```bash
+# Vérifier que les variables sont définies
+echo "ROOSYNC_SHARED_PATH: $env:ROOSYNC_SHARED_PATH"
+echo "ROO_EXTENSIONS_PATH: $env:ROO_EXTENSIONS_PATH"
+echo "ROOSYNC_MACHINE_ID: $env:ROOSYNC_MACHINE_ID"
+```
+
+#### Outils MCP Disponibles pour les Agents
+
+Les agents peuvent utiliser les outils MCP suivants pour interagir avec RooSync :
+
+| Outil | Description | Utilisation Typique |
+|-------|-------------|---------------------|
+| `roosync_collect_config` | Collecte la configuration locale et génère un package ZIP | Remonter la configuration après modifications |
+| `roosync_publish_config` | Publie un package de configuration vers le stockage partagé | Partager la configuration avec d'autres machines |
+| `roosync_get_machine_inventory` | Collecte l'inventaire complet de la machine | Diagnostiquer et documenter la configuration |
+| `roosync_get_status` | Vérifie l'état de synchronisation actuel | Confirmer que la configuration est à jour |
+
+#### Procédure de Remontée de Configuration
+
+##### Étape 1 : Collecter la Configuration Locale
+
+Utilisez l'outil `roosync_collect_config` pour collecter la configuration locale de votre machine :
+
+```bash
+# Collecter la configuration complète (modes, MCPs, profils)
+use_mcp_tool "roo-state-manager" "roosync_collect_config" {
+  "targets": ["modes", "mcp", "profiles"],
+  "dryRun": false
+}
+```
+
+**Paramètres** :
+- `targets` : Liste des cibles à collecter. Options disponibles :
+  - `"modes"` : Fichiers de configuration des modes Roo
+  - `"mcp"` : Configuration des serveurs MCP
+  - `"profiles"` : Profils de configuration personnalisés
+- `dryRun` : Si `true`, simule la collecte sans créer de fichiers (pour tests)
+
+**Résultat attendu** :
+- Un fichier ZIP temporaire est créé dans le répertoire temporaire système
+- Le chemin du fichier ZIP est retourné dans la réponse
+- Le fichier contient tous les fichiers de configuration collectés
+
+**Exemple de réponse** :
+```json
+{
+  "success": true,
+  "packagePath": "C:/Users/MYIA/AppData/Local/Temp/roosync-config-20251227-060000.zip",
+  "collectedFiles": {
+    "modes": 12,
+    "mcp": 8,
+    "profiles": 3
+  },
+  "timestamp": "2025-12-27T06:00:00.000Z"
+}
+```
+
+##### Étape 2 : Publier la Configuration
+
+Une fois la configuration collectée, utilisez `roosync_publish_config` pour la publier vers le stockage partagé :
+
+```bash
+# Publier la configuration avec version et description
+use_mcp_tool "roo-state-manager" "roosync_publish_config" {
+  "packagePath": "C:/Users/MYIA/AppData/Local/Temp/roosync-config-20251227-060000.zip",
+  "version": "2.2.0",
+  "description": "Mise à jour des modes code et architect, ajout du MCP jinavigator"
+}
+```
+
+**Paramètres** :
+- `packagePath` : Chemin complet vers le fichier ZIP généré par `roosync_collect_config`
+- `version` : Numéro de version de la configuration (format sémantique recommandé : X.Y.Z)
+- `description` : Description des changements apportés à la configuration
+
+**Résultat attendu** :
+- Le package est copié vers le répertoire partagé `ROOSYNC_SHARED_PATH/packages/`
+- Les métadonnées sont enregistrées dans `ROOSYNC_SHARED_PATH/metadata/`
+- Un fichier de log est créé pour traçabilité
+
+**Exemple de réponse** :
+```json
+{
+  "success": true,
+  "publishedPath": "G:/Mon Drive/Synchronisation/RooSync/.shared-state/packages/config-package-2.2.0.zip",
+  "metadataPath": "G:/Mon Drive/Synchronisation/RooSync/.shared-state/metadata/config-2.2.0.json",
+  "version": "2.2.0",
+  "timestamp": "2025-12-27T06:00:00.000Z"
+}
+```
+
+##### Étape 3 : Vérifier la Publication
+
+Confirmez que la configuration a été correctement publiée :
+
+```bash
+# Vérifier l'état de synchronisation
+use_mcp_tool "roo-state-manager" "roosync_get_status" {}
+```
+
+**Vérifications à effectuer** :
+- Le package ZIP existe dans le répertoire partagé
+- Les métadonnées sont correctement enregistrées
+- La version est visible dans le statut de synchronisation
+- Aucune erreur n'est rapportée dans les logs
+
+#### Procédure Complète d'Automatisation
+
+Pour automatiser la remontée de configuration, vous pouvez créer une tâche planifiée Windows qui exécute régulièrement la collecte et la publication.
+
+##### Script PowerShell d'Automatisation
+
+Créez le fichier `scripts/roosync-agent-sync.ps1` :
+
+```powershell
+<#
+.SYNOPSIS
+    Script d'automatisation pour la remontée de configuration RooSync par les agents
+.DESCRIPTION
+    Ce script collecte et publie automatiquement la configuration locale vers RooSync
+.NOTES
+    Version: 1.0.0
+    Auteur: Roo Agent
+#>
+
+param(
+    [Parameter()]
+    [string]$Version = "auto",
+
+    [Parameter()]
+    [string]$Description = "Automated sync",
+
+    [Parameter()]
+    [ValidateSet("info", "debug", "warn", "error")]
+    [string]$LogLevel = "info"
+)
+
+# Configuration
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
+# Variables d'environnement requises
+$RequiredVars = @("ROOSYNC_SHARED_PATH", "ROO_EXTENSIONS_PATH", "ROOSYNC_MACHINE_ID")
+$MissingVars = @()
+
+foreach ($Var in $RequiredVars) {
+    if (-not (Test-Path "env:$Var")) {
+        $MissingVars += $Var
+    }
+}
+
+if ($MissingVars.Count -gt 0) {
+    Write-Host "❌ Variables d'environnement manquantes : $($MissingVars -join ', ')" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "=== ROOSYNC AGENT SYNC ===" -ForegroundColor Green
+Write-Host "Machine: $env:ROOSYNC_MACHINE_ID" -ForegroundColor Cyan
+Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+Write-Host ""
+
+# Étape 1 : Collecter la configuration
+Write-Host "Étape 1 : Collecte de la configuration..." -ForegroundColor Yellow
+
+try {
+    # Utiliser l'outil MCP roosync_collect_config
+    # Note: Cette partie doit être adaptée selon votre méthode d'appel des outils MCP
+    $CollectResult = Invoke-RooSyncCollectConfig -Targets @("modes", "mcp", "profiles") -DryRun $false
+
+    if ($CollectResult.success) {
+        Write-Host "✅ Configuration collectée avec succès" -ForegroundColor Green
+        Write-Host "  Package: $($CollectResult.packagePath)" -ForegroundColor Gray
+        Write-Host "  Fichiers: $($CollectResult.collectedFiles.modes) modes, $($CollectResult.collectedFiles.mcp) MCPs, $($CollectResult.collectedFiles.profiles) profils" -ForegroundColor Gray
+    } else {
+        Write-Host "❌ Échec de la collecte de configuration" -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "❌ Erreur lors de la collecte : $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+
+# Étape 2 : Publier la configuration
+Write-Host "Étape 2 : Publication de la configuration..." -ForegroundColor Yellow
+
+try {
+    # Générer version automatique si non spécifiée
+    if ($Version -eq "auto") {
+        $Version = Get-Date -Format "yyyy.MM.dd-HHmm"
+    }
+
+    # Utiliser l'outil MCP roosync_publish_config
+    $PublishResult = Invoke-RooSyncPublishConfig -PackagePath $CollectResult.packagePath -Version $Version -Description $Description
+
+    if ($PublishResult.success) {
+        Write-Host "✅ Configuration publiée avec succès" -ForegroundColor Green
+        Write-Host "  Version: $Version" -ForegroundColor Gray
+        Write-Host "  Path: $($PublishResult.publishedPath)" -ForegroundColor Gray
+    } else {
+        Write-Host "❌ Échec de la publication" -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "❌ Erreur lors de la publication : $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host ""
+
+# Étape 3 : Vérifier la publication
+Write-Host "Étape 3 : Vérification de la publication..." -ForegroundColor Yellow
+
+try {
+    # Utiliser l'outil MCP roosync_get_status
+    $StatusResult = Invoke-RooSyncGetStatus
+
+    if ($StatusResult.success) {
+        Write-Host "✅ Vérification réussie" -ForegroundColor Green
+        Write-Host "  Statut: $($StatusResult.status)" -ForegroundColor Gray
+        Write-Host "  Dernière sync: $($StatusResult.lastSync)" -ForegroundColor Gray
+    } else {
+        Write-Host "⚠️ Impossible de vérifier le statut" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "⚠️ Erreur lors de la vérification : $($_.Exception.Message)" -ForegroundColor Yellow
+}
+
+Write-Host ""
+Write-Host "=== SYNC COMPLETED ===" -ForegroundColor Green
+Write-Host "Version: $Version" -ForegroundColor Cyan
+Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+```
+
+##### Configuration de la Tâche Planifiée
+
+Créez une tâche planifiée Windows pour exécuter ce script automatiquement :
+
+```powershell
+# Créer la tâche planifiée
+$TaskName = "RooSync-Agent-Sync"
+$ScriptPath = "D:/roo-extensions/scripts/roosync-agent-sync.ps1"
+$Trigger = New-ScheduledTaskTrigger -Daily -At 3AM
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$ScriptPath`""
+$Settings = New-ScheduledTaskSettings
+$Settings.StartWhenAvailable = $true
+$Settings.StopIfGoingOnBatteries = $false
+$Settings.WakeToRun = $true
+
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -User "SYSTEM" -Description "RooSync automated agent configuration sync" -Force
+
+Write-Host "✅ Tâche planifiée créée : $TaskName" -ForegroundColor Green
+```
+
+#### Bonnes Pratiques pour les Agents
+
+##### 1. Toujours Vérifier Avant de Publier
+
+Avant de publier une configuration, vérifiez que :
+- Les modifications sont intentionnelles et testées
+- La version est correctement incrémentée
+- La description est claire et explicite
+- Aucun secret ou donnée sensible n'est inclus
+
+##### 2. Utiliser des Versions Sémantiques
+
+Suivez le format de version sémantique (X.Y.Z) :
+- **X** : Version majeure (changements incompatibles)
+- **Y** : Version mineure (nouvelles fonctionnalités, compatibles)
+- **Z** : Version de patch (corrections de bugs)
+
+**Exemples** :
+- `2.2.0` → `2.3.0` : Ajout d'un nouveau mode
+- `2.3.0` → `2.3.1` : Correction d'un bug dans un mode existant
+- `2.3.1` → `3.0.0` : Restructuration majeure des modes
+
+##### 3. Documenter les Changements
+
+Toujours inclure une description claire des changements :
+
+```bash
+# ❌ Mauvais exemple
+use_mcp_tool "roo-state-manager" "roosync_publish_config" {
+  "packagePath": "...",
+  "version": "2.2.0",
+  "description": "update"
+}
+
+# ✅ Bon exemple
+use_mcp_tool "roo-state-manager" "roosync_publish_config" {
+  "packagePath": "...",
+  "version": "2.2.0",
+  "description": "Ajout du mode orchestrator, mise à jour du mode code pour supporter TypeScript 5.3, correction du bug de détection des fichiers .env"
+}
+```
+
+##### 4. Tester Avant de Publier
+
+Avant de publier, testez votre configuration :
+- Vérifiez que les modes fonctionnent correctement
+- Confirmez que les MCPs sont accessibles
+- Testez les scripts personnalisés
+- Validez les chemins et variables d'environnement
+
+##### 5. Surveiller les Logs
+
+Consultez régulièrement les logs RooSync pour détecter les problèmes :
+
+```bash
+# Vérifier les logs récents
+Get-Content "$env:ROOSYNC_SHARED_PATH/logs/roosync-$(Get-Date -Format 'yyyyMMdd').log" -Tail 50
+```
+
+#### Dépannage pour les Agents
+
+##### Problème : Variable d'Environnement Manquante
+
+**Symptôme** : Erreur "Variable d'environnement ROOSYNC_SHARED_PATH non définie"
+
+**Solution** :
+```powershell
+# Définir la variable d'environnement
+[Environment]::SetEnvironmentVariable("ROOSYNC_SHARED_PATH", "G:/Mon Drive/Synchronisation/RooSync/.shared-state", "User")
+
+# Vérifier
+echo $env:ROOSYNC_SHARED_PATH
+```
+
+##### Problème : Échec de la Collecte
+
+**Symptôme** : Erreur lors de l'exécution de `roosync_collect_config`
+
+**Diagnostic** :
+```bash
+# Vérifier les permissions
+Test-Path $env:ROOSYNC_SHARED_PATH
+Test-Path $env:ROO_EXTENSIONS_PATH
+
+# Vérifier l'accès en écriture
+$TestFile = "$env:ROOSYNC_SHARED_PATH/test-write.txt"
+"test" | Out-File $TestFile
+Test-Path $TestFile
+Remove-Item $TestFile
+```
+
+**Solution** :
+- Corriger les permissions sur les répertoires
+- Vérifier que le chemin est correct
+- S'assurer que le MCP roo-state-manager est activé
+
+##### Problème : Échec de la Publication
+
+**Symptôme** : Erreur lors de l'exécution de `roosync_publish_config`
+
+**Diagnostic** :
+```bash
+# Vérifier que le package existe
+Test-Path $PackagePath
+
+# Vérifier l'espace disque
+Get-PSDrive G | Select-Object Used, Free
+```
+
+**Solution** :
+- Vérifier que le package ZIP existe
+- S'assurer qu'il y a assez d'espace disque
+- Vérifier la connexion au stockage partagé
+
+##### Problème : Configuration Non Visible par d'Autres Machines
+
+**Symptôme** : La configuration publiée n'est pas visible par d'autres machines
+
+**Diagnostic** :
+```bash
+# Vérifier que le fichier existe dans le partage
+Get-ChildItem "$env:ROOSYNC_SHARED_PATH/packages/" | Sort-Object LastWriteTime -Descending | Select-Object -First 5
+
+# Vérifier les métadonnées
+Get-Content "$env:ROOSYNC_SHARED_PATH/metadata/config-2.2.0.json"
+```
+
+**Solution** :
+- Vérifier que le stockage partagé est synchronisé
+- Confirmer que les autres machines ont accès au même chemin
+- Vérifier les permissions sur le répertoire partagé
+
+#### Résumé des Outils pour les Agents
+
+| Outil | Quand l'utiliser | Paramètres clés |
+|-------|-----------------|-----------------|
+| `roosync_collect_config` | Après avoir modifié la configuration locale | `targets`, `dryRun` |
+| `roosync_publish_config` | Pour partager la configuration avec d'autres machines | `packagePath`, `version`, `description` |
+| `roosync_get_machine_inventory` | Pour diagnostiquer ou documenter la configuration | `machineId` (optionnel) |
+| `roosync_get_status` | Pour vérifier l'état de synchronisation | `machineFilter` (optionnel), `resetCache` (optionnel) |
+
+#### Exemple de Workflow Complet
+
+Voici un exemple complet de workflow pour un agent qui doit remonter sa configuration :
+
+```bash
+# 1. Vérifier les variables d'environnement
+echo "ROOSYNC_SHARED_PATH: $env:ROOSYNC_SHARED_PATH"
+echo "ROO_EXTENSIONS_PATH: $env:ROO_EXTENSIONS_PATH"
+echo "ROOSYNC_MACHINE_ID: $env:ROOSYNC_MACHINE_ID"
+
+# 2. Collecter la configuration
+use_mcp_tool "roo-state-manager" "roosync_collect_config" {
+  "targets": ["modes", "mcp", "profiles"],
+  "dryRun": false
+}
+# Résultat : packagePath = "C:/Users/MYIA/AppData/Local/Temp/roosync-config-20251227-060000.zip"
+
+# 3. Publier la configuration
+use_mcp_tool "roo-state-manager" "roosync_publish_config" {
+  "packagePath": "C:/Users/MYIA/AppData/Local/Temp/roosync-config-20251227-060000.zip",
+  "version": "2.2.0",
+  "description": "Mise à jour du mode code pour supporter TypeScript 5.3, ajout du MCP jinavigator"
+}
+
+# 4. Vérifier la publication
+use_mcp_tool "roo-state-manager" "roosync_get_status" {}
+
+# 5. Confirmer que tout est OK
+echo "✅ Configuration remontée avec succès"
+```
 
 ---
 
