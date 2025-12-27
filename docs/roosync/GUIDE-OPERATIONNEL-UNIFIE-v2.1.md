@@ -233,6 +233,23 @@ ROOSYNC_CONFLICT_STRATEGY=baseline_wins
 ROOSYNC_CONFLICT_STRATEGY=local_wins
 ```
 
+### 4.4 Gestion des Secrets et Normalisation (Nouveau Cycle 7)
+
+**Normalisation des Chemins** :
+Le service `ConfigNormalizationService` assure la portabilité entre Windows et Linux en normalisant les séparateurs de chemins et en utilisant des placeholders intelligents.
+
+- **Chemins absolus** : Remplacés par `{{WORKSPACE_ROOT}}`, `{{USER_HOME}}`.
+- **Variables d'environnement** : Préservation de `%APPDATA%`, `$HOME`.
+
+**Masquage des Secrets** :
+Les clés sensibles (apiKey, token, password) sont automatiquement détectées et masquées dans les configurations partagées.
+
+- **Format** : `{{SECRET:nom_de_la_cle}}`
+- **Détection** : Regex et entropie pour identifier les secrets.
+- **Vault Local** : Les secrets réels sont stockés uniquement sur la machine locale et réinjectés lors de l'application.
+
+**Recommandation** : Toujours utiliser des variables d'environnement pour les chemins (`ROOSYNC_SHARED_PATH`) et les secrets pour éviter les fuites dans la baseline.
+
 ---
 
 ## 5. Opérations Courantes
@@ -1200,6 +1217,955 @@ echo "=== END DEPLOYMENT SUPPORT INFO ===" >> "$SUPPORT_FILE"
 
 echo "Support file created: $SUPPORT_FILE"
 echo "Please send this file to deployment support team"
+```
+
+---
+
+### 5.6 Windows Task Scheduler
+
+#### Vue d'ensemble
+
+**Objectif** : Fournir un guide opérationnel complet pour la configuration du Windows Task Scheduler avec RooSync, incluant les permissions SYSTEM, les chemins de logs, et la surveillance des tâches.
+
+**Périmètre** : Windows Task Scheduler v2.0+ avec permissions SYSTEM, intégration RooSync, et monitoring des tâches planifiées.
+
+**Prérequis** :
+- Windows 10/11 Pro ou Server 2019+
+- PowerShell 5.1+ avec droits administrateur
+- RooSync v2.1+ installé et configuré
+- Permissions SYSTEM pour exécution des tâches
+- Accès aux chemins de logs et configuration
+
+**Cas d'usage typiques** :
+- Configuration initiale du Task Scheduler pour RooSync
+- Mise en place des permissions SYSTEM
+- Configuration des chemins de logs et accès
+- Planification des tâches de synchronisation
+- Monitoring et dépannage des tâches planifiées
+
+#### Configuration Task Scheduler
+
+**Configuration par Défaut** :
+```json
+{
+  "task_scheduler": {
+    "task_name": "RooSync-Synchronization",
+    "description": "RooSync automated synchronization task",
+    "author": "Roo Code",
+    "version": "2.1.0",
+    "user": "SYSTEM",
+    "execution_policy": {
+      "powershell_execution_policy": "Bypass",
+      "run_with_highest_privileges": true,
+      "start_when_available": true,
+      "stop_if_going_on_batteries": false,
+      "wake_to_run": true
+    },
+    "trigger": {
+      "type": "daily",
+      "time": "02:00",
+      "days_of_week": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      "enabled": true
+    },
+    "settings": {
+      "execution_time_limit": "PT2H",        // 2 heures maximum
+      "restart_on_failure": true,
+      "restart_interval": "PT5M",           // 5 minutes entre tentatives
+      "multiple_instances": false,
+      "delete_task_after": "P30D"           // 30 jours
+    },
+    "actions": {
+      "primary_script": "sync_roo_environment.ps1",
+      "arguments": ["-Mode", "Scheduled", "-LogLevel", "INFO"],
+      "working_directory": "D:/roo-extensions/RooSync",
+      "log_file": "scheduled-sync.log"
+    }
+  }
+}
+```
+
+**Variables d'Environnement** :
+```bash
+# Configuration Task Scheduler RooSync
+ROOSYNC_TASK_NAME="RooSync-Synchronization"
+ROOSYNC_TASK_DESCRIPTION="RooSync automated synchronization task"
+ROOSYNC_TASK_AUTHOR="Roo Code"
+ROOSYNC_TASK_VERSION="2.1.0"
+
+# Configuration utilisateur
+ROOSYNC_TASK_USER="SYSTEM"
+ROOSYNC_TASK_RUN_WITH_HIGHEST_PRIVILEGES=true
+
+# Configuration PowerShell
+ROOSYNC_POWERSHELL_EXECUTION_POLICY="Bypass"
+ROOSYNC_POWERSHELL_START_WHEN_AVAILABLE=true
+ROOSYNC_POWERSHELL_STOP_IF_GOING_ON_BATTERIES=false
+ROOSYNC_POWERSHELL_WAKE_TO_RUN=true
+
+# Configuration trigger
+ROOSYNC_TRIGGER_TYPE="daily"
+ROOSYNC_TRIGGER_TIME="02:00"
+ROOSYNC_TRIGGER_DAYS_OF_WEEK="Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday"
+ROOSYNC_TRIGGER_ENABLED=true
+
+# Configuration settings
+ROOSYNC_EXECUTION_TIME_LIMIT="PT2H"
+ROOSYNC_RESTART_ON_FAILURE=true
+ROOSYNC_RESTART_INTERVAL="PT5M"
+ROOSYNC_MULTIPLE_INSTANCES=false
+ROOSYNC_DELETE_TASK_AFTER="P30D"
+
+# Configuration actions
+ROOSYNC_PRIMARY_SCRIPT="sync_roo_environment.ps1"
+ROOSYNC_SCRIPT_ARGUMENTS="-Mode Scheduled -LogLevel INFO"
+ROOSYNC_WORKING_DIRECTORY="D:/roo-extensions/RooSync"
+ROOSYNC_LOG_FILE="scheduled-sync.log"
+```
+
+#### Déploiement Task Scheduler
+
+**Étape 1 : Préparation Environnement Windows**
+```powershell
+# Vérifier prérequis Windows
+Write-Host "=== WINDOWS ENVIRONMENT PREPARATION ===" -ForegroundColor Green
+
+# Vérifier version Windows
+$WindowsVersion = [System.Environment]::OSVersion.Version
+Write-Host "Windows Version: $($WindowsVersion.Major).$($WindowsVersion.Minor).$($WindowsVersion.Build)" -ForegroundColor Cyan
+
+# Vérifier PowerShell
+$PowerShellVersion = $PSVersionTable.PSVersion
+Write-Host "PowerShell Version: $($PowerShellVersion.Major).$($PowerShellVersion.Minor).$($PowerShellVersion.Revision)" -ForegroundColor Cyan
+
+# Vérifier droits administrateur
+$CurrentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+$Principal = New-Object Security.Principal.WindowsPrincipal($CurrentUser)
+$IsAdmin = $Principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if ($IsAdmin) {
+    Write-Host "✅ Running with administrator privileges" -ForegroundColor Green
+} else {
+    Write-Host "❌ Administrator privileges required" -ForegroundColor Red
+    Write-Host "Please run this script as administrator" -ForegroundColor Yellow
+    exit 1
+}
+
+# Vérifier module Task Scheduler
+try {
+    Import-Module ScheduledTasks -ErrorAction Stop
+    Write-Host "✅ Task Scheduler module available" -ForegroundColor Green
+} catch {
+    Write-Host "❌ Task Scheduler module not available" -ForegroundColor Red
+    Write-Host "Installing Task Scheduler module..." -ForegroundColor Yellow
+
+    # Installation module si nécessaire
+    Install-Module -Name ScheduledTasks -Force -Scope CurrentUser
+    Import-Module ScheduledTasks
+    Write-Host "✅ Task Scheduler module installed" -ForegroundColor Green
+}
+```
+
+**Étape 2 : Configuration Permissions SYSTEM**
+```powershell
+# Configuration permissions SYSTEM pour RooSync
+Write-Host "=== SYSTEM PERMISSIONS CONFIGURATION ===" -ForegroundColor Green
+
+# Vérifier utilisateur SYSTEM
+$SystemUser = "SYSTEM"
+$SystemExists = Get-WmiObject -Class Win32_UserAccount | Where-Object { $_.Name -eq $SystemUser }
+
+if ($SystemExists) {
+    Write-Host "✅ SYSTEM user exists" -ForegroundColor Green
+} else {
+    Write-Host "❌ SYSTEM user not found" -ForegroundColor Red
+    exit 1
+}
+
+# Configurer permissions pour répertoires RooSync
+$RooSyncPaths = @(
+    "D:/roo-extensions/RooSync",
+    "D:/roo-extensions/RooSync/logs",
+    "D:/roo-extensions/RooSync/.config",
+    "D:/roo-extensions/RooSync/scheduled-tasks"
+)
+
+foreach ($Path in $RooSyncPaths) {
+    if (-not (Test-Path $Path)) {
+        Write-Host "Creating directory: $Path" -ForegroundColor Yellow
+        New-Item -Path $Path -ItemType Directory -Force
+    }
+
+    try {
+        # Donner permissions SYSTEM complètes
+        $Acl = Get-Acl $Path
+        $SystemAccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            $SystemUser,
+            "FullControl",
+            "ContainerInherit,ObjectInherit",
+            "None",
+            "Allow"
+        )
+        $Acl.SetAccessRule($SystemAccessRule)
+        Set-Acl $Path $Acl
+
+        Write-Host "✅ SYSTEM permissions configured for: $Path" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Failed to configure SYSTEM permissions for: $Path" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+# Vérifier permissions Task Scheduler
+try {
+    $TaskSchedulerService = Get-Service -Name Schedule
+    if ($TaskSchedulerService.Status -eq "Running") {
+        Write-Host "✅ Task Scheduler service running" -ForegroundColor Green
+    } else {
+        Write-Host "❌ Task Scheduler service not running" -ForegroundColor Red
+        Write-Host "Starting Task Scheduler service..." -ForegroundColor Yellow
+        Start-Service -Name Schedule -Force
+        Write-Host "✅ Task Scheduler service started" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "❌ Failed to check Task Scheduler service" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+}
+```
+
+**Étape 3 : Configuration Chemins Logs**
+```powershell
+# Configuration des chemins de logs pour RooSync
+Write-Host "=== LOG PATHS CONFIGURATION ===" -ForegroundColor Green
+
+# Configuration variables d'environnement
+$env:ROOSYNC_LOG_PATH = "D:/roo-extensions/RooSync/logs"
+$env:ROOSYNC_TASK_LOG_PATH = "D:/roo-extensions/RooSync/logs/scheduled-tasks"
+$env:ROOSYNC_ERROR_LOG_PATH = "D:/roo-extensions/RooSync/logs/errors"
+$env:ROOSYNC_PERFORMANCE_LOG_PATH = "D:/roo-extensions/RooSync/logs/performance"
+
+# Créer structure de répertoires de logs
+$LogDirectories = @(
+    $env:ROOSYNC_LOG_PATH,
+    $env:ROOSYNC_TASK_LOG_PATH,
+    $env:ROOSYNC_ERROR_LOG_PATH,
+    $env:ROOSYNC_PERFORMANCE_LOG_PATH
+)
+
+foreach ($LogDir in $LogDirectories) {
+    if (-not (Test-Path $LogDir)) {
+        Write-Host "Creating log directory: $LogDir" -ForegroundColor Yellow
+        New-Item -Path $LogDir -ItemType Directory -Force
+    }
+
+    # Configurer permissions SYSTEM pour logs
+    try {
+        $Acl = Get-Acl $LogDir
+        $SystemAccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+            "SYSTEM",
+            "FullControl",
+            "ContainerInherit,ObjectInherit",
+            "None",
+            "Allow"
+        )
+        $Acl.SetAccessRule($SystemAccessRule)
+        Set-Acl $LogDir $Acl
+
+        Write-Host "✅ Log directory configured: $LogDir" -ForegroundColor Green
+    } catch {
+        Write-Host "❌ Failed to configure log directory: $LogDir" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+# Configuration rotation des logs
+$LogRetentionDays = 30
+$MaxLogSizeMB = 100
+
+Write-Host "Log retention: $LogRetentionDays days" -ForegroundColor Cyan
+Write-Host "Max log size: $MaxLogSizeMB MB" -ForegroundColor Cyan
+```
+
+**Étape 4 : Création Tâche Planifiée**
+```powershell
+# Création de la tâche RooSync dans Task Scheduler
+Write-Host "=== CREATING ROOSYNC SCHEDULED TASK ===" -ForegroundColor Green
+
+# Configuration de la tâche
+$TaskName = "RooSync-Synchronization"
+$Description = "RooSync automated synchronization task"
+$ScriptPath = "D:/roo-extensions/RooSync/sync_roo_environment.ps1"
+$Arguments = @("-Mode", "Scheduled", "-LogLevel", "INFO", "-LogPath", "D:/roo-extensions/RooSync/logs/scheduled-sync.log")
+$WorkingDirectory = "D:/roo-extensions/RooSync"
+
+# Supprimer tâche existante
+try {
+    $ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($ExistingTask) {
+        Write-Host "Removing existing task: $TaskName" -ForegroundColor Yellow
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+        Write-Host "✅ Existing task removed" -ForegroundColor Green
+    }
+} catch {
+    Write-Host "No existing task found" -ForegroundColor Gray
+}
+
+# Créer action PowerShell
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$ScriptPath`" $($Arguments -join ' ')"
+
+# Créer trigger quotidien à 02:00
+$Trigger = New-ScheduledTaskTrigger -Daily -At 2AM
+
+# Créer settings
+$Settings = New-ScheduledTaskSettings
+$Settings.StartWhenAvailable = $true
+$Settings.StopIfGoingOnBatteries = $false
+$Settings.DisallowStartIfOnBatteries = $false
+$Settings.WakeToRun = $true
+$Settings.ExecutionTimeLimit = "PT2H"  # 2 heures maximum
+$Settings.RestartOnFailure = $true
+$Settings.RestartInterval = "PT5M"  # 5 minutes entre tentatives
+$Settings.AllowStartIfOnBatteries = $true
+$Settings.DontStopIfGoingOnBatteries = $true
+$Settings.MultipleInstances = $false
+
+# Enregistrer la tâche avec utilisateur SYSTEM
+try {
+    Write-Host "Registering scheduled task..." -ForegroundColor Yellow
+    Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -User "SYSTEM" -Description $Description -Force
+
+    Write-Host "✅ Scheduled task created successfully" -ForegroundColor Green
+    Write-Host "Task name: $TaskName" -ForegroundColor Cyan
+    Write-Host "Trigger: Daily at 02:00 AM" -ForegroundColor Cyan
+    Write-Host "User: SYSTEM" -ForegroundColor Cyan
+    Write-Host "Script: $ScriptPath" -ForegroundColor Cyan
+} catch {
+    Write-Host "❌ Failed to create scheduled task" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+
+    # Tentative avec utilisateur courant si SYSTEM échoue
+    try {
+        Write-Host "Attempting with current user..." -ForegroundColor Yellow
+        Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -User $env:USERNAME -Description $Description -Force
+        Write-Host "✅ Task created with current user" -ForegroundColor Green
+        Write-Host "⚠️ WARNING: SYSTEM privileges recommended" -ForegroundColor Yellow
+    } catch {
+        Write-Host "❌ Failed to create task with current user" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+        exit 1
+    }
+}
+
+# Vérifier la tâche créée
+try {
+    $CreatedTask = Get-ScheduledTask -TaskName $TaskName
+    if ($CreatedTask) {
+        Write-Host "✅ Task verification successful" -ForegroundColor Green
+        Write-Host "Task state: $($CreatedTask.State)" -ForegroundColor Cyan
+        Write-Host "Next run time: $($CreatedTask.NextRunTime)" -ForegroundColor Cyan
+    } else {
+        Write-Host "❌ Task verification failed" -ForegroundColor Red
+        exit 1
+    }
+} catch {
+    Write-Host "❌ Failed to verify task" -ForegroundColor Red
+    Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    exit 1
+}
+```
+
+#### Monitoring Task Scheduler
+
+**Dashboard PowerShell** :
+```powershell
+# Dashboard de monitoring des tâches planifiées
+function Show-RooSyncTaskDashboard {
+    param(
+        [Parameter()]
+        [string]$TaskName = "RooSync-Synchronization",
+
+        [Parameter()]
+        [int]$RefreshInterval = 60
+    )
+
+    while ($true) {
+        Clear-Host
+        Write-Host "=== ROOSYNC TASK SCHEDULER DASHBOARD ===" -ForegroundColor Green
+        Write-Host "Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Yellow
+        Write-Host "Task: $TaskName" -ForegroundColor Cyan
+        Write-Host ""
+
+        try {
+            # Statut de la tâche
+            $Task = Get-ScheduledTask -TaskName $TaskName
+            if ($Task) {
+                Write-Host "Task Status:" -ForegroundColor Yellow
+                Write-Host "  State: $($Task.State)" -ForegroundColor $(if ($Task.State -eq "Ready") { "Green" } elseif ($Task.State -eq "Running") { "Yellow" } else { "Red" })
+                Write-Host "  Enabled: $($Task.Enabled)" -ForegroundColor $(if ($Task.Enabled) { "Green" } else { "Red" })
+                Write-Host "  Last Run: $($Task.LastRunTime)" -ForegroundColor Gray
+                Write-Host "  Next Run: $($Task.NextRunTime)" -ForegroundColor Gray
+                Write-Host "  Last Result: $($Task.LastTaskResult)" -ForegroundColor $(if ($Task.LastTaskResult -eq 0) { "Green" } else { "Red" })
+            } else {
+                Write-Host "❌ Task not found" -ForegroundColor Red
+            }
+
+            Write-Host ""
+
+            # Historique récent
+            $TaskHistory = Get-ScheduledTaskInfo -TaskName $TaskName | Sort-Object StartDate -Descending | Select-Object -First 10
+            if ($TaskHistory.Count -gt 0) {
+                Write-Host "Recent History (Last 10 runs):" -ForegroundColor Yellow
+                foreach ($History in $TaskHistory) {
+                    $Result = if ($History.TaskResult -eq 0) { "✅ SUCCESS" } else { "❌ FAILED" }
+                    $Duration = if ($History.RunDuration) { "$([math]::Round($History.RunDuration.TotalMinutes, 2)) min" } else { "N/A" }
+
+                    Write-Host "  $($History.StartDate.ToString('yyyy-MM-dd HH:mm')) : $Result ($Duration)" -ForegroundColor Gray
+                }
+            } else {
+                Write-Host "No task history found" -ForegroundColor Gray
+            }
+
+            Write-Host ""
+
+            # Métriques de performance
+            Write-Host "Performance Summary:" -ForegroundColor Yellow
+            $TotalRuns = $TaskHistory.Count
+            $SuccessfulRuns = ($TaskHistory | Where-Object { $_.TaskResult -eq 0 }).Count
+            $FailedRuns = ($TaskHistory | Where-Object { $_.TaskResult -ne 0 }).Count
+
+            if ($TotalRuns -gt 0) {
+                $SuccessRate = [math]::Round(($SuccessfulRuns / $TotalRuns) * 100, 2)
+                Write-Host "  Total Runs: $TotalRuns" -ForegroundColor Gray
+                Write-Host "  Successful: $SuccessfulRuns" -ForegroundColor Green
+                Write-Host "  Failed: $FailedRuns" -ForegroundColor Red
+                Write-Host "  Success Rate: $SuccessRate%" -ForegroundColor $(if ($SuccessRate -ge 90) { "Green" } elseif ($SuccessRate -ge 70) { "Yellow" } else { "Red" })
+            } else {
+                Write-Host "No performance data available" -ForegroundColor Gray
+            }
+
+        } catch {
+            Write-Host "❌ Failed to load dashboard data" -ForegroundColor Red
+            Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+
+        Write-Host ""
+        Write-Host "Press Ctrl+C to exit. Refreshing in $RefreshInterval seconds..." -ForegroundColor Gray
+
+        try {
+            Start-Sleep -Seconds $RefreshInterval
+        } catch {
+            # Gérer interruption Ctrl+C
+            Write-Host "`nDashboard stopped by user" -ForegroundColor Yellow
+            break
+        }
+    }
+}
+
+# Lancer le dashboard
+Show-RooSyncTaskDashboard -TaskName "RooSync-Synchronization" -RefreshInterval 60
+```
+
+#### Maintenance Task Scheduler
+
+**Maintenance des Tâches Planifiées** :
+```powershell
+# Script de maintenance des tâches planifiées
+function Invoke-RooSyncTaskMaintenance {
+    param(
+        [Parameter()]
+        [string]$TaskName = "RooSync-Synchronization",
+
+        [Parameter()]
+        [switch]$Cleanup = $false,
+
+        [Parameter()]
+        [switch]$Optimize = $false,
+
+        [Parameter()]
+        [switch]$Validate = $false
+    )
+
+    Write-Host "=== ROOSYNC TASK MAINTENANCE ===" -ForegroundColor Green
+    Write-Host "Task: $TaskName" -ForegroundColor Cyan
+    Write-Host "Timestamp: $(Get-Date)" -ForegroundColor Gray
+    Write-Host ""
+
+    try {
+        # Validation de la tâche
+        if ($Validate) {
+            Write-Host "Validating task configuration..." -ForegroundColor Yellow
+            $Task = Get-ScheduledTask -TaskName $TaskName
+            if ($Task) {
+                Write-Host "✅ Task found and valid" -ForegroundColor Green
+                Write-Host "State: $($Task.State)" -ForegroundColor Gray
+                Write-Host "Enabled: $($Task.Enabled)" -ForegroundColor Gray
+            } else {
+                Write-Host "❌ Task not found" -ForegroundColor Red
+            }
+        }
+
+        # Nettoyage des logs
+        if ($Cleanup) {
+            Write-Host "Cleaning up task logs..." -ForegroundColor Yellow
+            $LogPaths = @(
+                "D:/roo-extensions/RooSync/logs/scheduled-tasks",
+                "D:/roo-extensions/RooSync/logs/performance",
+                "D:/roo-extensions/RooSync/logs/errors"
+            )
+
+            $RetentionDays = 30
+            $MaxSizeMB = 100
+
+            foreach ($LogPath in $LogPaths) {
+                if (Test-Path $LogPath) {
+                    Write-Host "Cleaning logs in: $LogPath" -ForegroundColor Gray
+
+                    # Supprimer anciens logs
+                    Get-ChildItem -Path $LogPath -Filter "*.log" -Recurse |
+                        Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetentionDays) } |
+                        Remove-Item -Force -Recurse
+
+                    # Supprimer logs trop volumineux
+                    Get-ChildItem -Path $LogPath -Filter "*.log" -Recurse |
+                        Where-Object { $_.Length -gt ($MaxSizeMB * 1MB) } |
+                        Remove-Item -Force -Recurse
+
+                    Write-Host "✅ Log cleanup completed for: $LogPath" -ForegroundColor Green
+                }
+            }
+
+            Write-Host "✅ Log cleanup completed" -ForegroundColor Green
+        }
+
+        # Maintenance automatique
+        if (-not $Validate -and -not $Optimize -and -not $Cleanup) {
+            Write-Host "Running automatic maintenance..." -ForegroundColor Yellow
+
+            # Validation
+            $Task = Get-ScheduledTask -TaskName $TaskName
+            if ($Task) {
+                Write-Host "✅ Task validation successful" -ForegroundColor Green
+            } else {
+                Write-Host "❌ Task validation failed" -ForegroundColor Red
+            }
+
+            # Nettoyage
+            Write-Host "✅ Automatic maintenance completed" -ForegroundColor Green
+        }
+
+    } catch {
+        Write-Host "❌ Task maintenance failed" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+```
+
+#### Dépannage Task Scheduler
+
+**Problème : Permissions SYSTEM Non Configurées**
+
+**Symptôme** : Erreur "Access denied" lors de l'exécution des tâches
+
+**Diagnostic** :
+```powershell
+# Vérifier permissions SYSTEM
+$SystemUser = "SYSTEM"
+$SystemSid = (New-Object System.Security.Principal.SecurityIdentifier($SystemUser)).Value
+
+$CriticalPaths = @(
+    "D:/roo-extensions/RooSync",
+    "D:/roo-extensions/RooSync/logs",
+    "D:/roo-extensions/RooSync/.config"
+)
+
+foreach ($Path in $CriticalPaths) {
+    if (Test-Path $Path) {
+        $Acl = Get-Acl $Path
+        $SystemAccess = $Acl.Access | Where-Object { $_.IdentityReference -eq $SystemSid }
+
+        if ($SystemAccess) {
+            $HasFullControl = $SystemAccess | Where-Object { $_.FileSystemRights -eq "FullControl" }
+            if ($HasFullControl) {
+                Write-Host "✅ SYSTEM full control: $Path" -ForegroundColor Green
+            } else {
+                Write-Host "❌ SYSTEM limited access: $Path" -ForegroundColor Red
+                Write-Host "Current rights: $($SystemAccess.FileSystemRights)" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "❌ SYSTEM no access: $Path" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "❌ Path not found: $Path" -ForegroundColor Red
+    }
+}
+```
+
+**Solution** :
+```powershell
+# Configuration complète des permissions SYSTEM
+function Set-RooSyncSystemPermissions {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RooSyncPath
+    )
+
+    $SystemUser = "SYSTEM"
+    $SystemSid = (New-Object System.Security.Principal.SecurityIdentifier($SystemUser)).Value
+
+    # Répertoires à configurer
+    $Directories = @(
+        $RooSyncPath,
+        Join-Path $RooSyncPath "logs",
+        Join-Path $RooSyncPath ".config",
+        Join-Path $RooSyncPath "scheduled-tasks"
+    )
+
+    foreach ($Directory in $Directories) {
+        # Créer répertoire si nécessaire
+        if (-not (Test-Path $Directory)) {
+            New-Item -Path $Directory -ItemType Directory -Force
+            Write-Host "Created directory: $Directory" -ForegroundColor Yellow
+        }
+
+        # Configurer permissions SYSTEM complètes
+        try {
+            $Acl = Get-Acl $Directory
+            $SystemAccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                $SystemSid,
+                "FullControl",
+                "ContainerInherit,ObjectInherit",
+                "None",
+                "Allow"
+            )
+            $Acl.SetAccessRule($SystemAccessRule)
+            Set-Acl $Directory $Acl
+
+            Write-Host "✅ SYSTEM permissions configured: $Directory" -ForegroundColor Green
+        } catch {
+            Write-Host "❌ Failed to configure SYSTEM permissions: $Directory" -ForegroundColor Red
+            Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+}
+
+# Utilisation
+Set-RooSyncSystemPermissions -RooSyncPath "D:/roo-extensions/RooSync"
+```
+
+**Problème : Tâche Non Démarrée**
+
+**Symptôme** : La tâche planifiée ne démarre pas automatiquement
+
+**Diagnostic** :
+```powershell
+# Diagnostic complet de tâche non démarrée
+function Diagnose-RooSyncTaskNotStarting {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TaskName = "RooSync-Synchronization"
+    )
+
+    Write-Host "=== DIAGNOSING TASK NOT STARTING ===" -ForegroundColor Green
+    Write-Host "Task: $TaskName" -ForegroundColor Cyan
+    Write-Host "Timestamp: $(Get-Date)" -ForegroundColor Gray
+    Write-Host ""
+
+    try {
+        # Vérifier état de la tâche
+        $Task = Get-ScheduledTask -TaskName $TaskName
+        if (-not $Task) {
+            Write-Host "❌ Task not found" -ForegroundColor Red
+            return
+        }
+
+        Write-Host "Task Status:" -ForegroundColor Yellow
+        Write-Host "  State: $($Task.State)" -ForegroundColor $(if ($Task.State -eq "Ready") { "Green" } elseif ($Task.State -eq "Running") { "Yellow" } else { "Red" })
+        Write-Host "  Enabled: $($Task.Enabled)" -ForegroundColor $(if ($Task.Enabled) { "Green" } else { "Red" })
+        Write-Host "  Last Run: $($Task.LastRunTime)" -ForegroundColor Gray
+        Write-Host "  Next Run: $($Task.NextRunTime)" -ForegroundColor Gray
+        Write-Host "  Last Result: $($Task.LastTaskResult)" -ForegroundColor $(if ($Task.LastTaskResult -eq 0) { "Green" } else { "Red" })
+
+        Write-Host ""
+
+        # Vérifier trigger
+        if ($Task.Triggers) {
+            $Trigger = $Task.Triggers | Select-Object -First 1
+            Write-Host "Trigger Configuration:" -ForegroundColor Yellow
+            Write-Host "  Type: $($Trigger.Type)" -ForegroundColor Gray
+            Write-Host "  Enabled: $($Trigger.Enabled)" -ForegroundColor $(if ($Trigger.Enabled) { "Green" } else { "Red" })
+
+            if ($Trigger.Type -eq "Daily") {
+                Write-Host "  Time: $($Trigger.StartBoundary)" -ForegroundColor Gray
+            } elseif ($Trigger.Type -eq "Weekly") {
+                Write-Host "  Days: $($Trigger.DaysOfWeek)" -ForegroundColor Gray
+                Write-Host "  Time: $($Trigger.StartBoundary)" -ForegroundColor Gray
+            }
+        } else {
+            Write-Host "❌ No trigger configured" -ForegroundColor Red
+        }
+
+        Write-Host ""
+
+        # Vérifier action
+        if ($Task.Actions) {
+            $Action = $Task.Actions | Select-Object -First 1
+            Write-Host "Action Configuration:" -ForegroundColor Yellow
+            Write-Host "  Execute: $($Action.Execute)" -ForegroundColor Gray
+            Write-Host "  Arguments: $($Action.Arguments)" -ForegroundColor Gray
+            Write-Host "  Working Directory: $($Action.WorkingDirectory)" -ForegroundColor Gray
+        } else {
+            Write-Host "❌ No action configured" -ForegroundColor Red
+        }
+
+        Write-Host ""
+
+        # Vérifier service Task Scheduler
+        $TaskSchedulerService = Get-Service -Name Schedule
+        Write-Host "Task Scheduler Service:" -ForegroundColor Yellow
+        Write-Host "  Status: $($TaskSchedulerService.Status)" -ForegroundColor $(if ($TaskSchedulerService.Status -eq "Running") { "Green" } else { "Red" })
+        Write-Host "  Start Type: $($TaskSchedulerService.StartType)" -ForegroundColor Gray
+        Write-Host "  Can Start: $($TaskSchedulerService.CanStart)" -ForegroundColor $(if ($TaskSchedulerService.CanStart) { "Green" } else { "Red" })
+
+    } catch {
+        Write-Host "❌ Diagnosis failed" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+```
+
+**Solution** :
+```powershell
+# Réparation complète de tâche non démarrée
+function Repair-RooSyncTaskNotStarting {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$TaskName = "RooSync-Synchronization"
+    )
+
+    Write-Host "=== REPAIRING TASK NOT STARTING ===" -ForegroundColor Green
+
+    try {
+        # 1. Redémarrer service Task Scheduler
+        Write-Host "Restarting Task Scheduler service..." -ForegroundColor Yellow
+        Restart-Service -Name Schedule -Force
+        Start-Sleep -Seconds 10
+
+        $TaskSchedulerService = Get-Service -Name Schedule
+        if ($TaskSchedulerService.Status -eq "Running") {
+            Write-Host "✅ Task Scheduler service restarted" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Task Scheduler service still not running" -ForegroundColor Red
+            return
+        }
+
+        # 2. Recréer la tâche
+        Write-Host "Recreating scheduled task..." -ForegroundColor Yellow
+        $ScriptPath = "D:/roo-extensions/RooSync/sync_roo_environment.ps1"
+        $Arguments = @("-Mode", "Scheduled", "-LogLevel", "INFO")
+
+        # Supprimer tâche existante
+        try {
+            $ExistingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+            if ($ExistingTask) {
+                Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+                Write-Host "Removed existing task: $TaskName" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "No existing task to remove" -ForegroundColor Gray
+        }
+
+        # Créer nouvelle tâche
+        $Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-ExecutionPolicy Bypass -File `"$ScriptPath`" $($Arguments -join ' ')"
+        $Trigger = New-ScheduledTaskTrigger -Daily -At 2AM
+        $Settings = New-ScheduledTaskSettings
+        $Settings.StartWhenAvailable = $true
+        $Settings.StopIfGoingOnBatteries = $false
+        $Settings.WakeToRun = $true
+        $Settings.ExecutionTimeLimit = "PT2H"
+        $Settings.RestartOnFailure = $true
+        $Settings.RestartInterval = "PT5M"
+
+        Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Settings $Settings -User "SYSTEM" -Description "RooSync automated synchronization task" -Force
+        Write-Host "✅ Task recreated successfully" -ForegroundColor Green
+
+        # 3. Valider la réparation
+        Write-Host "Validating repair..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 5
+
+        $RepairedTask = Get-ScheduledTask -TaskName $TaskName
+        if ($RepairedTask -and $RepairedTask.State -eq "Ready" -and $RepairedTask.Enabled) {
+            Write-Host "✅ Task repair completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Task repair failed" -ForegroundColor Red
+        }
+
+    } catch {
+        Write-Host "❌ Task repair failed" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+```
+
+**Problème : Logs Non Accessibles**
+
+**Symptôme** : Erreur "Log file not accessible" ou "Cannot write to log file"
+
+**Diagnostic** :
+```powershell
+# Diagnostic accès aux logs
+function Test-RooSyncLogAccess {
+    param(
+        [Parameter()]
+        [string]$LogPath = "D:/roo-extensions/RooSync/logs"
+    )
+
+    Write-Host "=== TESTING LOG ACCESS ===" -ForegroundColor Green
+    Write-Host "Log path: $LogPath" -ForegroundColor Cyan
+    Write-Host "Timestamp: $(Get-Date)" -ForegroundColor Gray
+    Write-Host ""
+
+    # Test création répertoire
+    if (-not (Test-Path $LogPath)) {
+        try {
+            New-Item -Path $LogPath -ItemType Directory -Force
+            Write-Host "✅ Log directory created: $LogPath" -ForegroundColor Green
+        } catch {
+            Write-Host "❌ Failed to create log directory: $LogPath" -ForegroundColor Red
+            Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+            return
+        }
+    }
+
+    # Test écriture fichier
+    try {
+        $TestFile = Join-Path $LogPath "access-test-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+        "Log access test - $(Get-Date)" | Out-File -FilePath $TestFile -Encoding UTF8
+
+        if (Test-Path $TestFile) {
+            Write-Host "✅ Write access: SUCCESS" -ForegroundColor Green
+            Remove-Item $TestFile -Force
+        } else {
+            Write-Host "❌ Write access: FAILED" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "❌ Write access test FAILED" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
+    # Test permissions
+    try {
+        $Acl = Get-Acl $LogPath
+        $SystemAccess = $Acl.Access | Where-Object { $_.IdentityReference -eq "SYSTEM" }
+
+        if ($SystemAccess) {
+            $HasWriteAccess = $SystemAccess | Where-Object { $_.FileSystemRights -band "Write" }
+            if ($HasWriteAccess) {
+                Write-Host "✅ SYSTEM write access: CONFIGURED" -ForegroundColor Green
+            } else {
+                Write-Host "❌ SYSTEM write access: NOT CONFIGURED" -ForegroundColor Red
+                Write-Host "Current rights: $($SystemAccess.FileSystemRights)" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "❌ SYSTEM access: NOT CONFIGURED" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "❌ Permissions check FAILED" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+
+    # Test espace disque
+    try {
+        $Drive = Get-WmiObject -Class Win32_LogicalDisk | Where-Object { $_.DeviceID -eq "D:" }
+        if ($Drive) {
+            $FreeSpaceGB = [math]::Round($Drive.FreeSpace / 1GB, 2)
+            $TotalSpaceGB = [math]::Round($Drive.Size / 1GB, 2)
+            $UsedSpaceGB = $TotalSpaceGB - $FreeSpaceGB
+            $UsagePercent = [math]::Round(($UsedSpaceGB / $TotalSpaceGB) * 100, 2)
+
+            Write-Host "Disk Space Analysis:" -ForegroundColor Yellow
+            Write-Host "  Total: $TotalSpaceGB GB" -ForegroundColor Gray
+            Write-Host "  Used: $UsedSpaceGB GB ($UsagePercent%)" -ForegroundColor $(if ($UsagePercent -lt 80) { "Green" } elseif ($UsagePercent -lt 90) { "Yellow" } else { "Red" })
+            Write-Host "  Free: $FreeSpaceGB GB" -ForegroundColor $(if ($FreeSpaceGB -gt 10) { "Green" } elseif ($FreeSpaceGB -gt 5) { "Yellow" } else { "Red" })
+        } else {
+            Write-Host "❌ Drive D: not found" -ForegroundColor Red
+        }
+    } catch {
+        Write-Host "❌ Disk space analysis failed" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+```
+
+**Solution** :
+```powershell
+# Réparation accès aux logs
+function Repair-RooSyncLogAccess {
+    param(
+        [Parameter()]
+        [string]$LogPath = "D:/roo-extensions/RooSync/logs"
+    )
+
+    Write-Host "=== REPAIRING LOG ACCESS ===" -ForegroundColor Green
+
+    try {
+        # 1. Recréer structure de répertoires
+        $LogDirectories = @(
+            $LogPath,
+            Join-Path $LogPath "scheduled-tasks",
+            Join-Path $LogPath "performance",
+            Join-Path $LogPath "errors"
+        )
+
+        foreach ($Directory in $LogDirectories) {
+            # Supprimer et recréer répertoire
+            if (Test-Path $Directory) {
+                Write-Host "Removing corrupted directory: $Directory" -ForegroundColor Yellow
+                Remove-Item $Directory -Recurse -Force
+            }
+
+            New-Item -Path $Directory -ItemType Directory -Force
+            Write-Host "✅ Recreated directory: $Directory" -ForegroundColor Green
+        }
+
+        # 2. Configurer permissions SYSTEM
+        $SystemSid = (New-Object System.Security.Principal.SecurityIdentifier("SYSTEM")).Value
+
+        foreach ($Directory in $LogDirectories) {
+            try {
+                $Acl = Get-Acl $Directory
+                $SystemAccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
+                    $SystemSid,
+                    "FullControl",
+                    "ContainerInherit,ObjectInherit",
+                    "None",
+                    "Allow"
+                )
+                $Acl.SetAccessRule($SystemAccessRule)
+                Set-Acl $Directory $Acl
+
+                Write-Host "✅ SYSTEM permissions configured: $Directory" -ForegroundColor Green
+            } catch {
+                Write-Host "❌ Failed to configure SYSTEM permissions: $Directory" -ForegroundColor Red
+                Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+            }
+        }
+
+        # 3. Tester accès
+        Write-Host "Testing log access..." -ForegroundColor Yellow
+        $TestFile = Join-Path $LogPath "repair-test-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+        "Log access repair test - $(Get-Date)" | Out-File -FilePath $TestFile -Encoding UTF8
+
+        if (Test-Path $TestFile) {
+            Remove-Item $TestFile -Force
+            Write-Host "✅ Log access repair completed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "❌ Log access repair failed" -ForegroundColor Red
+        }
+
+    } catch {
+        Write-Host "❌ Log access repair failed" -ForegroundColor Red
+        Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
 ```
 
 ---
