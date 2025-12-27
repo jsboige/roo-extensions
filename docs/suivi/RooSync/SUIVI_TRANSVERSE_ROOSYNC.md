@@ -14,6 +14,91 @@ Ce document centralise le suivi des évolutions majeures de la documentation Roo
 
 ## 📅 Journal de Bord
 
+### 2025-12-27 - Tâche 19 : Diagnostic et Correction de l'Erreur de Chargement des Outils roo-state-manager
+
+**Contexte** : Le MCP roo-state-manager ne chargeait pas correctement ses outils, bloquant le système de messagerie RooSync et empêchant la communication multi-agents.
+
+#### 🐛 Problème Identifié
+
+**Erreur** : ZodError lors du chargement des outils
+```
+ZodError: [
+  {
+    "code": "invalid_literal",
+    "expected": "object",
+    "received": {},
+    "path": [
+      "tools",
+      50,
+      "inputSchema",
+      "type"
+    ],
+    "message": "Invalid literal value, expected \"object\""
+  }
+]
+```
+
+**Impact** :
+- Système de messagerie RooSync non fonctionnel
+- Impossible d'envoyer des messages aux agents distants (myia-po-2023, myia-po-2024, myia-po-2025, myia-po-2026, myia-web1)
+- Blocage du Cycle 2 de déploiement distribué
+
+#### 🔍 Cause Racine
+
+**Fichier concerné** : `mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts`
+
+**Problème** : L'outil `getMachineInventoryTool` (index 50) utilisait l'interface `UnifiedToolContract` avec un schéma Zod au lieu du format JSON Schema requis par le protocole MCP.
+
+Le schéma Zod ne contenait pas la propriété `type: "object"` au niveau supérieur de `inputSchema`, provoquant l'erreur de validation.
+
+#### ✅ Correction Appliquée
+
+**Modification** : Remplacement de l'objet `getMachineInventoryTool` par une métadonnée d'outil au format JSON Schema conforme.
+
+**Code corrigé** :
+```typescript
+const getMachineInventoryToolMetadata = {
+  name: 'roosync_get_machine_inventory',
+  description: 'Collecte l\'inventaire complet de configuration de la machine courante pour RooSync.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      machineId: {
+        type: 'string',
+        description: 'Identifiant optionnel de la machine (défaut: hostname)'
+      }
+    }
+  }
+};
+
+export const roosyncTools = [
+  // ... autres outils
+  getMachineInventoryToolMetadata,  // ✅ Format JSON Schema conforme
+  // ... autres outils
+];
+```
+
+#### 🧪 Validation
+
+**Test de build** :
+```bash
+cd mcps/internal/servers/roo-state-manager
+npm run build
+```
+
+**Résultat** : ✅ Succès - Aucune erreur de compilation TypeScript
+
+**Documentation technique** : [`docs/roosync/DEBUG_MCP_LOADING_2025-12-27.md`](../../roosync/DEBUG_MCP_LOADING_2025-12-27.md)
+
+#### 💡 Recommandations
+
+1. **Standardisation** : Utiliser systématiquement le format JSON Schema pour `inputSchema` des outils MCP
+2. **Type Safety** : Créer un type TypeScript pour les métadonnées d'outils MCP conformes
+3. **Validation** : Ajouter des tests unitaires pour valider le format des métadonnées d'outils
+4. **Documentation** : Créer un guide de développement d'outils MCP avec des exemples conformes
+
+---
+
 ### 2025-12-27 - Tâche 17 : Création des Guides Unifiés v2.1
 
 **Contexte** : Consolidation de 13 documents pérennes dispersés en une structure unifiée.
