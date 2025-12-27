@@ -14,6 +14,81 @@ Ce document centralise le suivi des évolutions majeures de la documentation Roo
 
 ## 📅 Journal de Bord
 
+### 2025-12-27 - Tâche 21 : Envoi du Message RooSync de Réintégration aux Agents
+
+**Contexte** : Après la consolidation et la vérification de la documentation RooSync (Tâches 15-20), il est temps de réintégrer tous les agents dans la boucle pour le Cycle 2.
+
+#### 📨 Message Envoyé
+
+**ID du message** : `msg-20251227T034544-ou2my1`
+**Expéditeur** : myia-ai-01 (Baseline Master)
+**Destinataires** : all (myia-po-2023, myia-po-2024, myia-po-2025, myia-po-2026, myia-web1)
+**Sujet** : Réintégration Cycle 2 - Mise à jour RooSync v2.1
+**Priorité** : HIGH
+**Timestamp** : 2025-12-27T03:45:44.515Z
+**Tags** : reintegration, cycle2, roosync-v2.1, documentation, urgent
+
+#### 📋 Contenu du Message
+
+Le message contient 5 sections principales :
+
+1. **Section 1 : Contexte et Résumé**
+   - Résumé des travaux de consolidation documentaire (Tâches 15-20)
+   - 3 guides unifiés créés et vérifiés contre le code
+   - 16 corrections apportées aux guides
+   - Correction de l'erreur de chargement des outils roo-state-manager
+   - README mis à jour comme point d'entrée principal
+
+2. **Section 2 : Actions Requises**
+   - Mise à jour du dépôt (`git pull --rebase`, `git submodule update`, `npm run build`)
+   - Appropriation de la documentation (README + 3 guides unifiés selon le rôle)
+   - Intégration au système partagé (`roosync_init`, `roosync_get_status`, `roosync_compare_config`)
+   - Validation des tests
+
+3. **Section 3 : Rapport Attendu**
+   - Confirmation de la mise à jour réussie
+   - Diagnostic sur la qualité de la documentation (clarté, exhaustivité, pertinence)
+   - Diagnostic sur le bon fonctionnement des outils RooSync
+   - Problèmes rencontrés et recommandations d'amélioration
+
+4. **Section 4 : Délai**
+   - Date limite de réponse : 2025-12-29
+
+5. **Section 5 : Support**
+   - Points de contact en cas de problème
+
+#### ✅ Résultat de l'Envoi
+
+**Statut** : ✅ Succès
+**Fichiers créés** :
+- `messages/inbox/msg-20251227T034544-ou2my1.json` (destinataire)
+- `messages/sent/msg-20251227T034544-ou2my1.json` (expéditeur)
+
+#### 📊 Agents Ciblés
+
+| Machine | Rôle | OS | Statut |
+|---------|------|-----|--------|
+| myia-ai-01 | Baseline Master | Windows | 🟢 Expéditeur |
+| myia-po-2023 | Agent | Windows | 🟡 En attente de réponse |
+| myia-po-2024 | Agent | Windows | 🟡 En attente de réponse |
+| myia-po-2025 | Agent | Windows | 🟡 En attente de réponse |
+| myia-po-2026 | Agent | Windows | 🟡 En attente de réponse |
+| myia-web1 | Agent | Windows | 🟡 En attente de réponse |
+
+#### 🎯 Objectifs du Cycle 2
+
+1. Réintégrer tous les agents dans la boucle RooSync
+2. Valider la qualité de la documentation unifiée
+3. Confirmer le bon fonctionnement des outils RooSync
+4. Collecter les retours pour améliorer le système
+5. Préparer le déploiement distribué complet
+
+#### 📝 Suivi des Réponses
+
+Les réponses des agents seront documentées dans ce fichier à mesure qu'elles arrivent.
+
+---
+
 ### 2025-12-27 - Tâche 19 : Diagnostic et Correction de l'Erreur de Chargement des Outils roo-state-manager
 
 **Contexte** : Le MCP roo-state-manager ne chargeait pas correctement ses outils, bloquant le système de messagerie RooSync et empêchant la communication multi-agents.
