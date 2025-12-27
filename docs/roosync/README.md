@@ -1,311 +1,750 @@
-# RooSync v2.1 - Guides Unifiés
+# RooSync v2.1 - Système de Synchronisation Multi-Environnements
 
-**Version** : 2.1.0
-**Date de création** : 2025-12-27
+**Description** : Système de synchronisation et coordination multi-agents pour Roo
+**Version** : 2.1
+**Date de dernière mise à jour** : 2025-12-27
 **Statut** : 🟢 Production Ready
-**Auteur** : Roo Architect Mode
 
 ---
 
-## 🎯 Vue d'ensemble
+## 📋 Table des Matières
 
-Ce répertoire contient les **3 guides unifiés** pour RooSync v2.1, consolidant 13 documents pérennes en une documentation structurée et cohérente.
-
-Les guides sont organisés par audience et objectif :
-- **Guide Opérationnel** : Pour les utilisateurs et opérateurs
-- **Guide Développeur** : Pour les développeurs et contributeurs
-- **Guide Technique** : Pour les architectes et ingénieurs système
+1. [Vue d'Ensemble](#1-vue-densemble)
+2. [Démarrage Rapide](#2-démarrage-rapide)
+3. [Guides par Audience](#3-guides-par-audience)
+4. [Outils MCP RooSync](#4-outils-mcp-roosync)
+5. [Architecture Technique](#5-architecture-technique)
+6. [Historique et Évolutions](#6-historique-et-évolutions)
+7. [Documentation Complémentaire](#7-documentation-complémentaire)
+8. [Support et Contribution](#8-support-et-contribution)
 
 ---
 
-## 📚 Guides Unifiés
+## 1. Vue d'Ensemble
 
-### 1. Guide Opérationnel Unifié v2.1
+### Qu'est-ce que RooSync ?
 
-**Fichier** : [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md:1)
+RooSync est un système de synchronisation et coordination multi-environnements pour Roo, conçu pour gérer la configuration et la coordination entre plusieurs machines et agents. Il permet de maintenir une configuration cohérente à travers différents environnements tout en offrant des mécanismes de validation humaine pour garantir la sécurité des opérations.
 
-**Audience** : Utilisateurs, Opérateurs, Administrateurs système
+### Objectifs Principaux
 
-**Description** : Guide complet pour l'utilisation quotidienne, l'installation, la configuration et le dépannage de RooSync v2.1.
+- **Synchronisation Baseline-Driven** : Utilisation d'une baseline unique (`sync-config.ref.json`) comme source de vérité
+- **Coordination Multi-Agents** : Système de messagerie pour la communication entre agents sur différentes machines
+- **Validation Humaine** : Workflow de validation via `sync-roadmap.md` pour toutes les opérations critiques
+- **Gestion des Configurations** : Normalisation, diff et application des configurations multi-environnements
+- **Sécurité** : Gestion des secrets, rollback automatique, et traçabilité complète
 
-**Contenu principal** :
-- **Introduction** : Vue d'ensemble de RooSync v2.1
-- **Prérequis** : Environnement et dépendances
-- **Installation** : Procédure d'installation en 5 minutes
-- **Configuration** : Variables d'environnement et fichiers de configuration
-- **Opérations courantes** : Utilisation quotidienne et workflows
-- **Dépannage** : Problèmes courants et solutions
+### Architecture de Haut Niveau
 
-**Points clés** :
-- ✅ Installation rapide en 5 minutes
-- ✅ Configuration détaillée avec exemples
-- ✅ Opérations quotidiennes documentées
-- ✅ Dépannage complet avec solutions
-- ✅ Windows Task Scheduler intégré
+```mermaid
+graph TB
+    subgraph "Machines"
+        A[myia-ai-01<br/>Baseline Master]
+        B[myia-po-2023]
+        C[myia-po-2024]
+        D[myia-po-2025]
+        E[myia-po-2026]
+        F[myia-web1]
+    end
 
-**Sections détaillées** :
-- Variables d'environnement (tableau complet)
-- Fichiers de configuration (`sync-config.ref.json`, `mcp_settings.json`)
-- Installation pas à pas
-- Utilisation quotidienne (synchronisation, monitoring)
+    subgraph "RooSync Core"
+        G[BaselineService]
+        H[ConfigSharingService]
+        I[ConfigNormalizationService]
+        J[ConfigDiffService]
+        K[InventoryService]
+        L[MessageManager]
+    end
+
+    subgraph "Storage"
+        M[sync-config.ref.json<br/>Baseline]
+        N[sync-roadmap.md<br/>Validation]
+        O[.shared-state/<br/>Messages]
+    end
+
+    A --> G
+    B --> H
+    C --> I
+    D --> J
+    E --> K
+    F --> L
+
+    G --> M
+    H --> N
+    I --> O
+    J --> M
+    K --> N
+    L --> O
+```
+
+### Machines Supportées
+
+| Machine | Rôle | OS | Statut |
+|---------|------|-----|--------|
+| myia-ai-01 | Baseline Master | Windows | 🟢 Actif |
+| myia-po-2023 | Agent | Windows | 🟢 Actif |
+| myia-po-2024 | Agent | Windows | 🟢 Actif |
+| myia-po-2025 | Agent | Windows | 🟢 Actif |
+| myia-po-2026 | Agent | Windows | 🟢 Actif |
+| myia-web1 | Agent | Windows | 🟢 Actif |
+
+---
+
+## 2. Démarrage Rapide
+
+### Installation
+
+#### Prérequis
+
+- **Node.js** : v18+ (recommandé : v20 LTS)
+- **PowerShell** : 7+ (recommandé : 7.4+)
+- **Git** : 2.40+
+- **VS Code** : avec extension Roo Code
+
+#### Installation en 5 Minutes
+
+```bash
+# 1. Cloner le dépôt Roo
+git clone https://github.com/your-org/roo-extensions.git
+cd roo-extensions
+
+# 2. Installer les dépendances
+npm install
+
+# 3. Construire le MCP roo-state-manager
+cd mcps/internal/servers/roo-state-manager
+npm run build
+cd ../../..
+
+# 4. Initialiser RooSync
+# Via Roo Code MCP :
+roosync_init { "force": false, "createRoadmap": true }
+```
+
+### Configuration Initiale
+
+#### Variables d'Environnement
+
+```bash
+# Variables essentielles
+export ROO_SYNC_BASELINE_PATH="d:/roo-extensions/sync-config.ref.json"
+export ROO_SYNC_ROADMAP_PATH="d:/roo-extensions/sync-roadmap.md"
+export ROO_SYNC_SHARED_STATE_PATH="d:/roo-extensions/.shared-state"
+export ROO_SYNC_MACHINE_ID="myia-ai-01"  # Adapter à votre machine
+```
+
+#### Fichiers de Configuration
+
+**`sync-config.ref.json`** (Baseline de référence) :
+```json
+{
+  "version": "2.1.0",
+  "baseline": {
+    "modes": {
+      "enabled": ["architect", "code", "debug", "ask", "orchestrator", "manager"]
+    },
+    "mcp": {
+      "servers": {
+        "quickfiles": { "enabled": true },
+        "jinavigator": { "enabled": true },
+        "searxng": { "enabled": true },
+        "markitdown": { "enabled": true },
+        "playwright": { "enabled": true },
+        "roo-state-manager": { "enabled": true }
+      }
+    }
+  }
+}
+```
+
+### Première Synchronisation
+
+```bash
+# 1. Comparer la configuration locale avec la baseline
+roosync_compare_config { "source": "local_machine", "target": "baseline_reference", "force_refresh": false }
+
+# 2. Lister les différences
+roosync_list_diffs { "filterType": "all" }
+
+# 3. Consulter le roadmap pour les décisions
+# Ouvrir sync-roadmap.md
+
+# 4. Approuver et appliquer les décisions
+roosync_approve_decision { "decisionId": "DECISION_ID" }
+roosync_apply_decision { "decisionId": "DECISION_ID", "dryRun": false }
+```
+
+### Commandes Essentielles
+
+| Commande | Description | Usage |
+|----------|-------------|-------|
+| `roosync_get_status` | Obtenir l'état de synchronisation | Monitoring quotidien |
+| `roosync_compare_config` | Comparer les configurations | Avant synchronisation |
+| `roosync_list_diffs` | Lister les différences | Audit de configuration |
+| `roosync_collect_config` | Collecter la configuration locale | Publication de config |
+| `roosync_publish_config` | Publier une configuration | Mise à jour baseline |
+| `roosync_apply_config` | Appliquer une configuration | Synchronisation |
+| `roosync_send_message` | Envoyer un message | Communication inter-agents |
+| `roosync_read_inbox` | Lire les messages reçus | Communication inter-agents |
+
+---
+
+## 3. Guides par Audience
+
+### 📘 Pour les Opérateurs
+
+**Guide Opérationnel Unifié v2.1** : [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)
+
+**Contenu** :
+- Installation et configuration
+- Opérations quotidiennes
+- Dépannage et recovery
+- Windows Task Scheduler
 - Architecture Baseline-Driven
-- Configuration avancée
-- Bonnes pratiques
-- Windows Task Scheduler (configuration, monitoring, maintenance, dépannage)
+- Bonnes pratiques opérationnelles
+
+**Public cible** : Utilisateurs, Opérateurs, Administrateurs système
 
 ---
 
-### 2. Guide Développeur v2.1
+### 📗 Pour les Développeurs
 
-**Fichier** : [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md:1)
+**Guide Développeur v2.1** : [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
 
-**Audience** : Développeurs, Contributeurs, Testeurs
+**Contenu** :
+- Architecture technique détaillée
+- API complète (TypeScript, PowerShell)
+- Logger production-ready
+- Tests unitaires et intégration
+- Git Workflow et helpers
+- Bonnes pratiques de développement
 
-**Description** : Guide complet pour le développement, les tests, l'API et les bonnes pratiques de RooSync v2.1.
-
-**Contenu principal** :
-- **Architecture Technique** : Vue d'ensemble et composants
-- **API** : Outils MCP, services TypeScript, scripts PowerShell
-- **Logger** : Architecture, configuration, utilisation, rotation
-- **Tests** : Architecture, batteries de tests, exécution, rapports
-- **Git Workflow** : Git helpers, opérations sécurisées, rollback
-- **Bonnes Pratiques** : Code style, documentation, gestion des erreurs
-
-**Points clés** :
-- ✅ API complète documentée
-- ✅ Logger production-ready
-- ✅ Tests unitaires en mode dry-run
-- ✅ Git helpers sécurisés
-- ✅ Deployment wrappers robustes
-
-**Sections détaillées** :
-- Deployment Helpers (API, patterns, monitoring)
-- Deployment Wrappers (bridge TypeScript→PowerShell, timeout, dry-run)
-- Logger (architecture, configuration, rotation, monitoring)
-- Tests (4 batteries, exécution, rapports, best practices)
-- Git Helpers (opérations sécurisées, rollback, gestion des conflits)
+**Public cible** : Développeurs, Contributeurs, Testeurs
 
 ---
 
-### 3. Guide Technique v2.1
+### 📙 Pour les Architectes
 
-**Fichier** : [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md:1)
+**Guide Technique v2.1** : [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md)
 
-**Audience** : Architectes, Ingénieurs système, Experts techniques
+**Contenu** :
+- Architecture baseline-driven
+- ROOSYNC AUTONOMOUS PROTOCOL (RAP)
+- Système de messagerie
+- Plan d'implémentation
+- Roadmap et évolutions
+- Métriques de convergence
 
-**Description** : Guide complet pour l'architecture technique, le système de messagerie et le plan d'implémentation de RooSync v2.1.
-
-**Contenu principal** :
-- **Vue d'ensemble** : Architecture baseline-driven et workflow de synchronisation
-- **Architecture v2.1** : Composants techniques et intégration
-- **Système de Messagerie** : 7 outils MCP et workflow complet
-- **Plan d'Implémentation** : 4 phases de déploiement
-- **Roadmap** : Évolutions futures et améliorations
-
-**Points clés** :
-- ✅ Architecture baseline-driven complète
-- ✅ Système de messagerie avec 7 outils
-- ✅ Plan d'implémentation en 4 phases
-- ✅ Roadmap détaillée
-- ✅ Métriques de convergence
-
-**Sections détaillées** :
-- Vue d'ensemble (architecture, workflow, composants)
-- Architecture v2.1 (baseline-driven, synchronisation, monitoring)
-- Système de Messagerie (7 outils MCP, workflow, sécurité)
-- Plan d'Implémentation (4 phases, timeline, checkpoints)
-- Roadmap (évolutions, améliorations, métriques)
+**Public cible** : Architectes, Ingénieurs système, Experts techniques
 
 ---
 
-## 📋 Documents Pérennes Consolidés
+## 4. Outils MCP RooSync
 
-Les 13 documents pérennes ont été consolidés dans les 3 guides unifiés :
+RooSync fournit **17 outils MCP** pour la synchronisation et la coordination multi-environnements.
 
-### Guides Opérationnels (4 documents)
-| Document original | Guide unifié | Sections |
-|-------------------|--------------|----------|
-| `logger-production-guide.md` | GUIDE-OPERATIONNEL-UNIFIE-v2.1.md | Monitoring, Dépannage |
-| `git-helpers-guide.md` | GUIDE-DEVELOPPEUR-v2.1.md | Git Workflow |
-| `deployment-wrappers-guide.md` | GUIDE-DEVELOPPEUR-v2.1.md | API - Deployment Wrappers |
-| `task-scheduler-setup.md` | GUIDE-OPERATIONNEL-UNIFIE-v2.1.md | Windows Task Scheduler |
+### Liste des Outils
 
-### Guides d'Utilisation (2 documents)
-| Document original | Guide unifié | Sections |
-|-------------------|--------------|----------|
-| `deployment-helpers-usage-guide.md` | GUIDE-DEVELOPPEUR-v2.1.md | API - Deployment Helpers |
-| `logger-usage-guide.md` | GUIDE-DEVELOPPEUR-v2.1.md | Logger - Utilisation |
+| # | Outil | Description | Phase Workflow |
+|---|-------|-------------|----------------|
+| 1 | `roosync_init` | Initialiser l'infrastructure RooSync | Setup |
+| 2 | `roosync_get_status` | Obtenir l'état de synchronisation | Monitoring |
+| 3 | `roosync_compare_config` | Comparer les configurations | Analyse |
+| 4 | `roosync_list_diffs` | Lister les différences | Analyse |
+| 5 | `roosync_approve_decision` | Approuver une décision de synchronisation | Validation |
+| 6 | `roosync_reject_decision` | Rejeter une décision de synchronisation | Validation |
+| 7 | `roosync_apply_decision` | Appliquer une décision approuvée | Exécution |
+| 8 | `roosync_rollback_decision` | Annuler une décision appliquée | Recovery |
+| 9 | `roosync_get_decision_details` | Obtenir les détails d'une décision | Audit |
+| 10 | `roosync_update_baseline` | Mettre à jour la configuration baseline | Baseline |
+| 11 | `roosync_version_baseline` | Versionner la baseline avec Git | Versioning |
+| 12 | `roosync_restore_baseline` | Restaurer une baseline précédente | Recovery |
+| 13 | `roosync_export_baseline` | Exporter la baseline (JSON, YAML, CSV) | Export |
+| 14 | `roosync_collect_config` | Collecter la configuration locale | Collecte |
+| 15 | `roosync_publish_config` | Publier une configuration partagée | Publication |
+| 16 | `roosync_apply_config` | Appliquer une configuration partagée | Application |
+| 17 | `roosync_get_machine_inventory` | Collecter l'inventaire machine | Inventaire |
 
-### Documentation Technique (3 documents)
-| Document original | Guide unifié | Sections |
-|-------------------|--------------|----------|
-| `baseline-implementation-plan.md` | GUIDE-TECHNIQUE-v2.1.md | Vue d'ensemble, Plan d'Implémentation |
-| `git-requirements.md` | GUIDE-DEVELOPPEUR-v2.1.md | Git Workflow |
-| `ROOSYNC-COMPLETE-SYNTHESIS-2025-10-26.md` | GUIDE-OPERATIONNEL-UNIFIE-v2.1.md | Configuration, Dépannage |
+### Cas d'Usage Typiques
 
-### Guides Spécialisés (2 documents)
-| Document original | Guide unifié | Sections |
-|-------------------|--------------|----------|
-| `messaging-system-guide.md` | GUIDE-TECHNIQUE-v2.1.md | Système de Messagerie |
-| `tests-unitaires-guide.md` | GUIDE-DEVELOPPEUR-v2.1.md | Tests |
+#### Workflow de Synchronisation Basique
 
-### Documentation Principale (1 document)
-| Document original | Guide unifié | Sections |
-|-------------------|--------------|----------|
-| `ROOSYNC-USER-GUIDE-2025-10-28.md` | GUIDE-OPERATIONNEL-UNIFIE-v2.1.md | Installation, Utilisation Quotidienne, Configuration Avancée |
+```mermaid
+sequenceDiagram
+    participant O as Opérateur
+    participant RS as RooSync
+    participant BR as Baseline
+    participant RM as Roadmap
 
----
+    O->>RS: roosync_compare_config()
+    RS->>BR: Lire baseline
+    BR-->>RS: Configuration baseline
+    RS-->>O: Différences détectées
 
-## 🏗️ Architecture des Guides
+    O->>RS: roosync_list_diffs()
+    RS-->>O: Liste des différences
 
-### Positionnement dans RooSync v2.1
+    O->>RM: Consulter sync-roadmap.md
+    RM-->>O: Décisions en attente
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    RooSync v2.1                            │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-        ┌───────────────────┴───────────────────┐
-        │                                       │
-   Guide Opérationnel                    Guide Développeur
-   (Utilisateurs)                        (Développeurs)
-        │                                       │
-        ↓                                       ↓
-   Installation, Configuration              API, Tests, Logger
-   Utilisation Quotidienne                 Git Workflow
-   Dépannage                              Bonnes Pratiques
-        │                                       │
-        └───────────────────┬───────────────────┘
-                            ↓
-                     Guide Technique
-                   (Architectes)
-                            ↓
-              Architecture v2.1
-              Système de Messagerie
-              Plan d'Implémentation
-              Roadmap
+    O->>RS: roosync_approve_decision()
+    RS->>RM: Mettre à jour roadmap
+    RM-->>RS: Décision approuvée
+
+    O->>RS: roosync_apply_decision()
+    RS->>BR: Appliquer configuration
+    BR-->>RS: Configuration appliquée
+    RS-->>O: Succès
 ```
 
-### Flux de Navigation
+#### Workflow de Communication Multi-Agents
 
-**Pour les utilisateurs** :
-1. Commencer par le **Guide Opérationnel** pour l'installation
-2. Consulter les sections "Opérations courantes" pour l'utilisation quotidienne
-3. Utiliser le "Dépannage" en cas de problème
+```mermaid
+sequenceDiagram
+    participant A1 as Agent myia-ai-01
+    participant MM as MessageManager
+    participant SS as Shared State
+    participant A2 as Agent myia-po-2023
 
-**Pour les développeurs** :
-1. Consulter le **Guide Développeur** pour l'API et les tests
-2. Utiliser le **Guide Technique** pour comprendre l'architecture
-3. Référer au **Guide Opérationnel** pour la configuration
+    A1->>MM: roosync_send_message()
+    MM->>SS: Écrire message
+    SS-->>MM: Message stocké
+    MM-->>A1: Message envoyé
 
-**Pour les architectes** :
-1. Commencer par le **Guide Technique** pour l'architecture complète
-2. Consulter le **Guide Développeur** pour les détails d'implémentation
-3. Référer au **Guide Opérationnel** pour les aspects opérationnels
+    A2->>MM: roosync_read_inbox()
+    MM->>SS: Lire messages
+    SS-->>MM: Messages non lus
+    MM-->>A2: Liste des messages
 
----
+    A2->>MM: roosync_get_message()
+    MM->>SS: Lire message spécifique
+    SS-->>MM: Contenu du message
+    MM-->>A2: Message complet
 
-## 📊 Métriques et Validation
+    A2->>MM: roosync_reply_message()
+    MM->>SS: Écrire réponse
+    SS-->>MM: Réponse stockée
+    MM-->>A2: Réponse envoyée
+```
 
-### Indicateurs Clés
+### ROOSYNC AUTONOMOUS PROTOCOL (RAP)
 
-#### Couverture Documentation
-- **Guides unifiés** : 3 guides
-- **Documents consolidés** : 13 documents
-- **Sections totales** : 50+ sections
-- **Lignes de documentation** : 5000+ lignes
+Le protocole RAP définit 4 verbes pour l'autonomie des agents :
 
-#### Qualité Documentation
-- **Structure** : Standardisée et cohérente
-- **Navigation** : Table des matières et liens croisés
-- **Exemples** : Code snippets et commandes
-- **Dépannage** : Solutions pour problèmes courants
-
-### Validation
-
-Les guides ont été validés sur :
-- ✅ **Complétude** : Tous les documents pérennes consolidés
-- ✅ **Cohérence** : Structure uniforme entre les guides
-- ✅ **Navigabilité** : Table des matières et liens croisés
-- ✅ **Utilisabilité** : Exemples et procédures claires
+| Verbe | Outil MCP | Description |
+|-------|-----------|-------------|
+| **OBSERVER** | `roosync_get_status` | Observer l'état du système |
+| **SIGNALER** | `roosync_send_message` | Signaler un événement ou problème |
+| **COMMUNIQUER** | `roosync_read_inbox` / `roosync_reply_message` | Communiquer avec d'autres agents |
+| **AGIR** | `roosync_apply_decision` | Agir sur le système |
 
 ---
 
+## 5. Architecture Technique
 
-## 📞 Support et Dépannage
+### Services Principaux
 
-### Canaux de Support
+RooSync est organisé autour de 6 services principaux :
 
-#### 1. Documentation
-- **Guides unifiés** : Les 3 guides ci-dessus
-- **Guide de migration** : `GUIDES_MIGRATION.md`
+#### 1. BaselineService
 
-#### 2. Outils de Diagnostic
-- **Scripts PowerShell** : Inclus dans le Guide Opérationnel
-- **Outils de monitoring** : Tableaux de bord intégrés
-- **Logs système** : Windows Event Log + logs RooSync
+**Responsabilité** : Gestion de la baseline de configuration
 
-#### 3. Procédures de Recovery
-- **Rollback automatique** : Git helpers et deployment wrappers
-- **Redémarrage services** : Task Scheduler et logger
-- **Reconfiguration** : Scripts de réparation automatique
+**Méthodes principales** :
+- `getBaseline()` : Lire la baseline actuelle
+- `updateBaseline(config)` : Mettre à jour la baseline
+- `versionBaseline(version)` : Versionner la baseline
+- `restoreBaseline(version)` : Restaurer une version
+- `exportBaseline(format)` : Exporter la baseline
+
+**Fichiers** :
+- `sync-config.ref.json` : Baseline de référence
+- `backups/baseline-*.json` : Sauvegardes
+
+#### 2. ConfigSharingService
+
+**Responsabilité** : Partage de configurations entre machines
+
+**Méthodes principales** :
+- `collectConfig(targets)` : Collecter la configuration locale
+- `publishConfig(package, version, description)` : Publier un package
+- `applyConfig(version, targets)` : Appliquer une configuration
+
+**Fichiers** :
+- `.shared-state/packages/` : Packages de configuration
+- `.shared-state/versions/` : Métadonnées de version
+
+#### 3. ConfigNormalizationService
+
+**Responsabilité** : Normalisation des configurations multi-environnements
+
+**Méthodes principales** :
+- `normalizeConfig(config)` : Normaliser une configuration
+- `applyCategoryRules(config)` : Appliquer les règles par catégorie
+- `aggregateConfigs(sources)` : Agréger plusieurs configurations
+
+**Fichiers** :
+- `profiles/` : Profils de normalisation
+- `config/normalization-rules.json` : Règles de normalisation
+
+#### 4. ConfigDiffService
+
+**Responsabilité** : Comparaison et diff de configurations
+
+**Méthodes principales** :
+- `compareConfigs(source, target)` : Comparer deux configurations
+- `generateDiff(source, target)` : Générer un diff
+- `applyDiff(config, diff)` : Appliquer un diff
+
+**Fichiers** :
+- `.shared-state/diffs/` : Diffs stockés
+
+#### 5. InventoryService
+
+**Responsabilité** : Inventaire des machines et configurations
+
+**Méthodes principales** :
+- `getMachineInventory(machineId)` : Obtenir l'inventaire d'une machine
+- `getAllMachines()` : Lister toutes les machines
+- `updateMachineInventory(machineId, inventory)` : Mettre à jour l'inventaire
+
+**Fichiers** :
+- `.shared-state/inventory/` : Inventaires des machines
+- `cache/machine-inventory-*.json` : Cache TTL 1h
+
+#### 6. MessageManager
+
+**Responsabilité** : Système de messagerie inter-agents
+
+**Méthodes principales** :
+- `sendMessage(to, subject, body, priority)` : Envoyer un message
+- `readInbox(status, limit)` : Lire la boîte de réception
+- `getMessage(messageId)` : Obtenir un message
+- `replyMessage(messageId, body)` : Répondre à un message
+- `markMessageRead(messageId)` : Marquer comme lu
+- `archiveMessage(messageId)` : Archiver un message
+
+**Fichiers** :
+- `.shared-state/messages/inbox/` : Messages reçus
+- `.shared-state/messages/sent/` : Messages envoyés
+- `.shared-state/messages/archive/` : Messages archivés
+
+### Système de Messagerie
+
+Le système de messagerie permet la communication entre agents sur différentes machines.
+
+#### Structure d'un Message
+
+```json
+{
+  "id": "msg-20251227-001",
+  "from": "myia-ai-01",
+  "to": "myia-po-2023",
+  "subject": "Synchronisation requise",
+  "body": "La baseline a été mise à jour. Veuillez synchroniser.",
+  "priority": "HIGH",
+  "status": "unread",
+  "timestamp": "2025-12-27T03:00:00Z",
+  "tags": ["sync", "baseline"],
+  "thread_id": "thread-20251227-001"
+}
+```
+
+#### Priorités des Messages
+
+| Priorité | Description | Usage |
+|----------|-------------|-------|
+| LOW | Information non critique | Notifications, logs |
+| MEDIUM | Information importante | Mises à jour, rapports |
+| HIGH | Action requise | Synchronisations, alertes |
+| URGENT | Action immédiate requise | Erreurs critiques, incidents |
+
+### Gestion des Configurations
+
+#### Stratégie Baseline-Driven
+
+RooSync utilise une stratégie **baseline-driven** plutôt que machine-à-machine :
+
+1. **Baseline Unique** : `sync-config.ref.json` est la source de vérité
+2. **Validation Humaine** : Toutes les modifications passent par `sync-roadmap.md`
+3. **Application Contrôlée** : Les décisions sont approuvées avant application
+4. **Rollback Automatique** : Possibilité de revenir à une version précédente
+
+#### Workflow de Synchronisation
+
+```mermaid
+graph LR
+    A[Configuration Locale] --> B[Collecte]
+    B --> C[Normalisation]
+    C --> D[Comparaison Baseline]
+    D --> E{Différences?}
+    E -->|Non| F[✅ Synchro]
+    E -->|Oui| G[Génération Décision]
+    G --> H[Validation Roadmap]
+    H --> I{Approuvée?}
+    I -->|Non| J[❌ Rejet]
+    I -->|Oui| K[Application]
+    K --> L[✅ Synchro]
+```
+
+### Stratégie de Synchronisation
+
+#### Politique de Stockage
+
+- **Code in Git** : Configuration et scripts versionnés
+- **Data in Shared Drive** : Données d'exécution et messages
+- **Baseline in Reference** : `sync-config.ref.json` comme source de vérité
+
+#### Cycle de Synchronisation
+
+1. **Observation** : `roosync_get_status()` pour observer l'état
+2. **Collecte** : `roosync_collect_config()` pour collecter la config locale
+3. **Comparaison** : `roosync_compare_config()` pour comparer avec la baseline
+4. **Validation** : Consultation de `sync-roadmap.md` pour validation humaine
+5. **Application** : `roosync_apply_decision()` pour appliquer les décisions
+6. **Vérification** : `roosync_get_status()` pour vérifier le résultat
 
 ---
 
-## 🚀 Prochaines Étapes
+## 6. Historique et Évolutions
 
-### Améliorations Planifiées
+### Résumé des Cycles de Développement
 
-1. **Documentation Interactive** : Ajouter des exemples interactifs
-2. **Vidéos Tutorielles** : Créer des vidéos pour les procédures clés
-3. **FAQ Étendue** : Ajouter une FAQ basée sur les questions courantes
-4. **Templates** : Fournir des templates de configuration
-5. **Checklists** : Créer des checklists pour les opérations critiques
+#### Cycle 6 : Consolidation de la Documentation
+
+**Période** : 2025-12-27
+
+**Objectifs** :
+- Consolidation de 13 documents pérennes en 3 guides unifiés
+- Standardisation de la structure de documentation
+- Amélioration de la navigabilité
+
+**Résultats** :
+- ✅ Création de 3 guides unifiés (Opérationnel, Développeur, Technique)
+- ✅ Réduction de 77% du nombre de documents (13 → 3)
+- ✅ Élimination des redondances (~20% → ~0%)
+- ✅ Structure cohérente et liens croisés
+
+**Documents créés** :
+- [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)
+- [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
+- [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md)
+
+#### Cycle 7 : Vérification et Corrections
+
+**Période** : 2025-12-27
+
+**Objectifs** :
+- Vérification des guides contre le code source
+- Correction des incohérences identifiées
+- Mise à jour de la documentation
+
+**Résultats** :
+- ✅ 16 incohérences identifiées et corrigées
+- ✅ Mise à jour des paramètres des outils MCP
+- ✅ Correction de la liste des 17 outils
+- ✅ Suppression des sections non implémentées
+
+**Corrections effectuées** :
+- 13 corrections dans le Guide Opérationnel
+- 0 correction dans le Guide Développeur
+- 3 corrections dans le Guide Technique
+
+#### Cycle 8 : Diagnostic et Correction MCP
+
+**Période** : 2025-12-27
+
+**Objectifs** :
+- Diagnostic de l'erreur de chargement des outils roo-state-manager
+- Correction du problème de validation Zod
+- Validation de la correction
+
+**Résultats** :
+- ✅ Identification de la cause racine (format JSON Schema manquant)
+- ✅ Correction de l'outil `getMachineInventoryTool`
+- ✅ Validation du build TypeScript
+- ✅ Rétablissement du système de messagerie
+
+**Documentation** :
+- [`DEBUG_MCP_LOADING_2025-12-27.md`](DEBUG_MCP_LOADING_2025-12-27.md)
+
+### Corrections Récentes (Tâche 18)
+
+**Total des corrections** : 16/16 ✅
+
+#### Guide Opérationnel (13 corrections)
+
+1. `roosync_init` avec paramètres corrects
+2. `roosync_compare_config` avec target correct
+3. `roosync_get_decision_details` avec decisionId
+4. `roosync_approve_decision` avec decisionId
+5. `roosync_apply_decision` avec decisionId et dryRun
+6. `roosync_collect_config` avec paramètres corrects
+7. `roosync_publish_config` avec paramètres corrects
+8. `roosync_list_decisions` remplacé
+9. Outils de diagnostic remplacés
+10. TaskSchedulerService remplacé
+11. Liste des 17 outils MCP RooSync
+12. ROOSYNC AUTONOMOUS PROTOCOL - Verbe OBSERVER
+13. Section Windows Task Scheduler supprimée
+
+#### Guide Technique (3 corrections)
+
+1. Liste des 17 outils MCP RooSync
+2. ROOSYNC AUTONOMOUS PROTOCOL - Verbe OBSERVER
+3. Section Windows Task Scheduler supprimée
+
+### Prochaines Étapes
+
+#### Court Terme
+
+- [ ] Mise à jour du README.md comme point d'entrée (Tâche 20 - En cours)
+- [ ] Validation sémantique de la documentation
+- [ ] Création de diagrammes Mermaid supplémentaires
+
+#### Moyen Terme
+
+- [ ] Intégration avec Windows Task Scheduler
+- [ ] Automatisation des tests de documentation
+- [ ] Création de tutoriels interactifs
+
+#### Long Terme
+
+- [ ] Interface web pour le monitoring
+- [ ] Système d'alertes avancé
+- [ ] Machine Learning pour la prédiction de problèmes
 
 ---
 
-## 📝 Licence et Usage
+## 7. Documentation Complémentaire
 
-### Licence
-Ces guides sont publiés sous licence MIT et font partie du projet RooSync v2.1.
+### Fichiers de Consolidation
 
-### Usage
-1. **Formation** : Utiliser ces guides pour la formation des équipes
-2. **Déploiement** : Suivre les procédures pas à pas
-3. **Dépannage** : Utiliser les outils de diagnostic fournis
-4. **Maintenance** : Appliquer les procédures de maintenance régulières
+| Fichier | Description | Lien |
+|---------|-------------|------|
+| SUIVI_TRANSVERSE_ROOSYNC.md | Suivi transverse des évolutions RooSync | [`docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`](../suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md) |
+| DEBUG_MCP_LOADING_2025-12-27.md | Diagnostic de l'erreur de chargement MCP | [`DEBUG_MCP_LOADING_2025-12-27.md`](DEBUG_MCP_LOADING_2025-12-27.md) |
 
-### Contribution
-Pour contribuer à l'amélioration de ces guides :
-1. Issues : Signaler les problèmes ou suggestions
-2. Documentation : Proposer des améliorations
-3. Tests : Contribuer aux tests de validation
-4. Exemples : Ajouter des cas d'usage réels
+### Rapports de Tests
+
+| Rapport | Description | Lien |
+|---------|-------------|------|
+| test1-logger-report.md | Tests du Logger | [`tests/results/roosync/test1-logger-report.md`](../../tests/results/roosync/test1-logger-report.md) |
+| test2-git-helpers-report.md | Tests des Git Helpers | [`tests/results/roosync/test2-git-helpers-report.md`](../../tests/results/roosync/test2-git-helpers-report.md) |
+| test3-deployment-report.md | Tests de déploiement | [`tests/results/roosync/test3-deployment-report.md`](../../tests/results/roosync/test3-deployment-report.md) |
+| test4-task-scheduler-report.md | Tests du Task Scheduler | [`tests/results/roosync/test4-task-scheduler-report.md`](../../tests/results/roosync/test4-task-scheduler-report.md) |
+| validation-wp1-wp4.md | Validation des Work Packages 1-4 | [`tests/results/roosync/validation-wp1-wp4.md`](../../tests/results/roosync/validation-wp1-wp4.md) |
+
+### Guides de Déploiement
+
+Les guides de déploiement sont intégrés dans les guides unifiés :
+
+- **Installation** : Voir [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Section "Installation"
+- **Configuration** : Voir [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Section "Configuration"
+- **Déploiement** : Voir [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md) - Section "Deployment Helpers"
+
+### Fichiers de Configuration
+
+| Fichier | Description | Emplacement |
+|---------|-------------|-------------|
+| sync-config.ref.json | Baseline de référence | `d:/roo-extensions/sync-config.ref.json` |
+| sync-roadmap.md | Roadmap de validation | `d:/roo-extensions/sync-roadmap.md` |
+| mcp_settings.json | Configuration MCP | `c:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` |
 
 ---
 
-## 📅 Historique
+## 8. Support et Contribution
 
-### v2.0.0 (2025-12-27)
-- ✅ Création des 3 guides unifiés
-- ✅ Consolidation des 13 documents pérennes
-- ✅ Structure standardisée et cohérente
-- ✅ Navigation améliorée avec table des matières
-- ✅ Guide de migration créé
+### Comment Signaler un Problème
 
-### v1.1.0 (2025-12-26)
-- ✅ Ajout de la section "Documents Pérennes Conservés"
-- ✅ Classification des documents par type
-- ✅ Intégration des informations de l'inventaire complet
+Pour signaler un problème ou une anomalie :
 
-### v1.0.0 (2025-10-27)
-- ✅ Création des 4 guides opérationnels
-- ✅ Intégration avec Baseline Complete
-- ✅ Structure standardisée des guides
+1. **Vérifier la documentation** : Consulter les guides unifiés pour voir si le problème est documenté
+2. **Utiliser les outils de diagnostic** :
+   ```bash
+   roosync_get_status
+   roosync_compare_config { "source": "local_machine", "target": "baseline_reference" }
+   roosync_list_diffs
+   ```
+3. **Consulter les logs** :
+   - Logs RooSync : `.shared-state/logs/`
+   - Logs système : Windows Event Log
+4. **Créer un rapport** : Inclure les informations suivantes :
+   - Description du problème
+   - Étapes pour reproduire
+   - Logs et messages d'erreur
+   - Configuration de la machine
+
+### Comment Contribuer
+
+Pour contribuer à RooSync :
+
+1. **Code** :
+   - Forker le dépôt
+   - Créer une branche pour votre contribution
+   - Suivre les bonnes pratiques du [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
+   - Soumettre une Pull Request
+
+2. **Documentation** :
+   - Proposer des améliorations aux guides
+   - Signaler les incohérences
+   - Ajouter des exemples et cas d'usage
+
+3. **Tests** :
+   - Contribuer aux tests unitaires
+   - Signaler les bugs de test
+   - Proposer des scénarios de test
+
+### Contacts
+
+| Rôle | Contact | Responsabilité |
+|------|---------|----------------|
+| Architecte Lead | Roo Architect Mode | Architecture technique, roadmap |
+| Développeur Lead | Roo Code Mode | Développement, API |
+| Opérateur Lead | Roo Orchestrator Mode | Opérations, déploiement |
+| Support | Roo Ask Mode | Documentation, support |
+
+### Ressources
+
+- **Documentation principale** : Ce README et les 3 guides unifiés
+- **Suivi des évolutions** : [`docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`](../suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md)
+- **Code source** : `mcps/internal/servers/roo-state-manager/src/tools/roosync/`
+- **Tests** : `tests/results/roosync/`
+
+---
+
+## 📊 Métriques
+
+### Documentation
+
+| Métrique | Valeur |
+|---------|--------|
+| Guides unifiés | 3 |
+| Documents consolidés | 13 |
+| Sections totales | 50+ |
+| Lignes de documentation | 6500+ |
+| Outils MCP documentés | 17 |
+| Machines supportées | 6 |
+
+### Qualité
+
+| Métrique | Valeur |
+|---------|--------|
+| Structure standardisée | ✅ Oui |
+| Navigation facilitée | ✅ Oui |
+| Liens croisés | ✅ Oui |
+| Exemples de code | ✅ Complet |
+| Dépannage | ✅ Complet |
+
+---
+
+## 📝 Licence
+
+RooSync est publié sous licence MIT et fait partie du projet Roo Extensions.
 
 ---
 
 **Dernière mise à jour** : 2025-12-27
-**Version** : 2.0.0
-**Statut** : Production Ready
+**Version** : 2.1
+**Statut** : 🟢 Production Ready
 **Auteur** : Roo Architect Mode

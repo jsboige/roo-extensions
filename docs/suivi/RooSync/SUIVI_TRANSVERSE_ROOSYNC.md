@@ -99,6 +99,48 @@ npm run build
 
 ---
 
+### 2025-12-27 - Tâche 20 : Mise à jour du README.md comme point d'entrée RooSync
+
+**Contexte** : Transformation du fichier [`README.md`](../../roosync/README.md) en un portail d'entrée complet et structuré pour RooSync v2.1, synthétisant l'information essentielle des guides unifiés et des documents de suivi.
+
+#### 📋 Modifications Apportées
+
+**Structure du README** : Le README a été entièrement refondu pour passer de 312 lignes à 650+ lignes, avec 8 sections principales :
+
+1. **Vue d'Ensemble** : Qu'est-ce que RooSync, objectifs, architecture (diagramme Mermaid), machines supportées
+2. **Démarrage Rapide** : Installation, configuration, première synchronisation, commandes essentielles
+3. **Guides par Audience** : Liens vers les 3 guides unifiés (Opérationnel, Développeur, Technique)
+4. **Outils MCP RooSync** : Liste des 17 outils avec descriptions, cas d'usage (diagrammes Mermaid), ROOSYNC AUTONOMOUS PROTOCOL
+5. **Architecture Technique** : Services principaux (6 services), système de messagerie, gestion des configurations, stratégie de synchronisation
+6. **Historique et Évolutions** : Résumé des cycles 6-8, corrections récentes (Tâche 18 : 16 corrections), prochaines étapes
+7. **Documentation Complémentaire** : Fichiers de consolidation, rapports de tests, guides de déploiement
+8. **Support et Contribution** : Comment signaler un problème, contribuer, contacts
+
+#### 📊 Éléments Ajoutés
+
+- **4 diagrammes Mermaid** : Architecture de haut niveau, workflow de synchronisation, workflow de communication multi-agents, workflow de synchronisation (graph)
+- **10+ tableaux** : Machines supportées, commandes essentielles, outils MCP, RAP, priorités des messages, fichiers de consolidation, rapports de tests, guides de déploiement, fichiers de configuration, contacts, métriques
+- **30+ liens** : Vers les guides unifiés, documents de suivi, rapports de tests, fichiers de configuration
+- **5+ exemples de code** : Installation, configuration, synchronisation
+
+#### ✅ Validation
+
+- **Liens** : Tous les liens internes et externes validés
+- **Cohérence** : Terminologie cohérente avec les guides unifiés, noms des outils MCP conformes au code
+- **Validation sémantique** : Recherche sémantique effectuée avec succès (10 résultats pour "point d'entrée RooSync v2.1")
+
+#### 📈 Métriques
+
+| Métrique | Avant | Après | Évolution |
+|----------|-------|-------|-----------|
+| Lignes | 312 | 650+ | +108% |
+| Sections principales | 7 | 8 | +14% |
+| Diagrammes Mermaid | 1 | 4 | +300% |
+| Tableaux | 3 | 10+ | +233% |
+| Liens internes | ~15 | 30+ | +100% |
+
+---
+
 ### 2025-12-27 - Tâche 17 : Création des Guides Unifiés v2.1
 
 **Contexte** : Consolidation de 13 documents pérennes dispersés en une structure unifiée.
