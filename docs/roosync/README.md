@@ -231,21 +231,6 @@ Les guides ont été validés sur :
 
 ---
 
-## 🔄 Migration depuis les Anciens Guides
-
-### Guide de Migration
-
-Pour plus d'informations sur la migration des anciens guides vers les nouveaux guides unifiés, consultez :
-
-**Fichier** : [`GUIDES_MIGRATION.md`](GUIDES_MIGRATION.md:1)
-
-Ce document explique :
-- La correspondance entre anciens et nouveaux guides
-- Les sections consolidées
-- Les améliorations apportées
-- Les procédures de mise à jour
-
----
 
 ## 📞 Support et Dépannage
 

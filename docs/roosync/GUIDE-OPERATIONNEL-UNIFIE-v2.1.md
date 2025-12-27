@@ -294,6 +294,20 @@ use_mcp_tool "roo-state-manager" "roosync_apply_decision" {
 }
 ```
 
+**Partage de Configuration (Cycle 7)** :
+```bash
+# Collecter la configuration locale (génère un ZIP)
+use_mcp_tool "roo-state-manager" "roosync_collect_config" {
+  "include_secrets": false
+}
+
+# Publier la configuration vers la baseline
+use_mcp_tool "roo-state-manager" "roosync_publish_config" {
+  "package_path": "path/to/config-package.zip",
+  "version_bump": "patch"
+}
+```
+
 #### Architecture Baseline-Driven
 
 **Concept Clé** :

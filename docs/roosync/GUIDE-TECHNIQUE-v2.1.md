@@ -103,6 +103,8 @@ Les 9 outils RooSync v2.0 intégrés dans roo-state-manager :
 | `roosync_compare_config` | **✨ v2.0** Compare configs avec détection réelle |
 | `roosync_list_diffs` | Liste différences détectées |
 | `roosync_get_decision_details` | Détails complets décision |
+| `roosync_collect_config` | **✨ v2.1** Collecte et normalise la configuration locale |
+| `roosync_publish_config` | **✨ v2.1** Publie un package de configuration |
 | `roosync_approve_decision` | Approuve décision sync |
 | `roosync_reject_decision` | Rejette décision avec motif |
 | `roosync_apply_decision` | Applique décision approuvée |
@@ -364,6 +366,8 @@ Le serveur MCP `roo-state-manager` expose **17 outils RooSync** :
 | [`roosync_apply_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts:1) | Application changement approuvé | Phase 3 (Apply) |
 | [`roosync_rollback_decision`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts:1) | Annulation changement | Gestion erreurs |
 | [`roosync_get_decision_details`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts:1) | Détails complets d'une décision | Analyse |
+| [`roosync_collect_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/collect-config.ts:1) | **✨ v2.1** Collecte et normalise la configuration locale | Cycle 7 (Partage) |
+| [`roosync_publish_config`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/publish-config.ts:1) | **✨ v2.1** Publie un package de configuration | Cycle 7 (Partage) |
 | [`roosync_send_message`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/send_message.ts:1) | Envoi message inter-agents | Coordination |
 | [`roosync_read_inbox`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/read_inbox.ts:1) | Lecture messages reçus | Coordination |
 
