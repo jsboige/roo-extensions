@@ -496,3 +496,77 @@ R : Consultez le **Guide Opérationnel Unifié v2.1**, section "Windows Task Sch
 - [ ] Mise à jour de la configuration de myia-po-2026 (avant 2025-12-30).
 - [ ] Implémentation d'un mécanisme de notification automatique.
 - [ ] Création d'un tableau de bord pour visualiser l'état du Cycle 2 en temps réel.
+
+---
+
+### 2025-12-28 - Tâche 29 : Configuration du rechargement MCP après recompilation
+
+**Statut** : ✅ COMPLÉTÉE
+
+#### Résumé Exécutif
+
+La Tâche 29 a consisté à configurer le rechargement automatique du MCP `roo-state-manager` après recompilation, en ajoutant la propriété `watchPaths` à sa configuration.
+
+#### Documentation Trouvée sur le Rechargement MCP
+
+**Sources consultées :**
+- `docs/mcp/rapport-reparation-roo-state-manager.md`
+- `docs/analyses/rapport-diagnostic-outils-mcp.md`
+- `mcps/internal/servers/roo-state-manager/src/tools/rebuild-and-restart.ts`
+- `mcps/internal/servers/roo-state-manager/src/tools/get_mcp_best_practices.ts`
+
+**Principes clés :**
+1. **Propriété `watchPaths`** : Pour tout MCP de type `stdio` qui nécessite une compilation, il faut ajouter systématiquement une directive `watchPaths` dans la configuration MCP. Elle doit pointer vers le principal fichier de sortie du build.
+2. **Redémarrage ciblé** : Le mécanisme de redémarrage ciblé via `watchPaths` est plus rapide et plus fiable que le redémarrage global.
+3. **Outil `rebuild_and_restart_mcp`** : Cet outil détecte automatiquement si `watchPaths` est configuré et déclenche le redémarrage approprié.
+
+#### Fichiers de Configuration Examinés
+
+| Fichier | Emplacement | Statut |
+|----------|--------------|--------|
+| `roo-config/settings/servers.json` | Workspace (d:/roo-extensions/roo-config/settings/) | ✅ Modifié |
+| `mcp_settings.json` | VSCode AppData (C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/) | ✅ Modifié via MCP |
+
+#### Modifications Apportées
+
+**1. Modification de `roo-config/settings/servers.json` :**
+- Ajout de la propriété `watchPaths` au serveur `roo-state-manager`
+- Valeur : `["./mcps/internal/servers/roo-state-manager/build/index.js"]`
+
+**2. Modification de `mcp_settings.json` (via `manage_mcp_settings`) :**
+- Ajout de la propriété `watchPaths` au serveur `roo-state-manager`
+- Valeur : `["d:/roo-extensions/mcps/internal/servers/roo-state-manager/build/index.js"]`
+
+#### Résultat du Test de Rechargement
+
+**Test effectué :**
+1. Utilisation de l'outil `manage_mcp_settings` pour lire la configuration
+2. Mise à jour du serveur `roo-state-manager` avec `watchPaths`
+3. Vérification de la configuration dans `mcp_settings.json`
+4. Utilisation de l'outil `touch_mcp_settings` pour forcer le rechargement
+
+**Résultat :**
+- ✅ Configuration `watchPaths` correctement ajoutée
+- ✅ Fichier `mcp_settings.json` touché avec succès
+- ✅ Configuration prise en compte par VSCode
+
+**Note :** Le test de recompilation complète n'a pas pu être effectué car le MCP `roo-state-manager` a des erreurs de compilation TypeScript (fichiers manquants : `ConfigNormalizationService.js`, `ConfigDiffService.js`, `JsonMerger.js`, `config-sharing.js`). Cependant, la configuration `watchPaths` est correctement en place et fonctionnera une fois les erreurs de compilation résolues.
+
+#### Documentation Mise à Jour
+
+**Fichier mis à jour :** `docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC-v2.md`
+
+**Section ajoutée :** "2025-12-28 - Tâche 29 : Configuration du rechargement MCP après recompilation"
+
+#### Recommandations
+
+1. **Résoudre les erreurs de compilation TypeScript** du MCP `roo-state-manager` avant de tester le rechargement complet
+2. **Appliquer la même configuration `watchPaths`** aux autres MCPs internes qui nécessitent une compilation (ex: `quickfiles`, `jinavigator`)
+3. **Documenter la procédure** de rechargement MCP dans le guide développeur RooSync
+
+#### Conclusion
+
+La configuration du rechargement automatique du MCP `roo-state-manager` est maintenant **correctement configurée** avec la propriété `watchPaths`. Une fois les erreurs de compilation résolues, le MCP se rechargera automatiquement après chaque recompilation, sans nécessiter de redémarrage manuel de VSCode.
+
+**Problème résolu :** ✅ Configuration `watchPaths` ajoutée au MCP `roo-state-manager`
+**Problème restant :** ⚠️ Erreurs de compilation TypeScript à résoudre

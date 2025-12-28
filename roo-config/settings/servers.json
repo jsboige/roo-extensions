@@ -122,7 +122,8 @@
       "autoStart": true,
       "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo.",
       "workingDirectory": "./mcps/internal/servers/roo-state-manager",
-      "envFile": ".env"
+      "envFile": ".env",
+      "watchPaths": ["./mcps/internal/servers/roo-state-manager/build/index.js"]
     },
     {
       "name": "office-powerpoint",
