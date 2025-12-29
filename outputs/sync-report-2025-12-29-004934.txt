@@ -1,0 +1,111 @@
+================================================================================
+RAPPORT DE SYNCHRONISATION DES DÉPÔTS GIT
+================================================================================
+Date: 2025-12-29 00:49:34 UTC+1
+Workspace: c:/dev/roo-extensions
+
+================================================================================
+1. ÉTAT DU DÉPÔT PRINCIPAL
+================================================================================
+
+Branche actuelle: main
+Statut: BEHIND 12 commits par rapport à origin/main
+
+Commits en attente (HEAD..origin/main):
+----------------------------------------
+902587d Update submodule: Fix ConfigSharingService pour RooSync v2.1
+7890f58 Sous-module mcps/internal : merge de roosync-phase5-execution dans main
+a3332d5 Tâche 29 - Ajout des rapports de mission Tâche 28 et Tâche 29
+db1b0e1 Sous-module mcps/internal : retour sur la branche main
+b2bf363 Tâche 29 - Configuration du rechargement MCP après recompilation
+b44c172 fix(roosync): Corrections SDDD pour remontée de configuration
+8c626a6 Tâche 27 - Vérification de l'état actuel du système RooSync et préparation de la suite
+0dbe3df Tâche 26 - Consolidation des rapports temporaires dans le suivi transverse
+4ea9d41 Tâche 25 - Nettoyage final des fichiers de suivi temporaires
+44cf686 docs(roosync): Déplacer rapports diagnostic vers docs/suivi/RooSync et mettre à jour .gitignore
+6022482 fix(roosync): Suppression fichiers incohérents post-archivage RooSync v1
+d825331 docs(roosync): Consolidation documentaire v2 - suppression rapports unitaires et archivage v1
+
+Fichiers non suivis (untracked):
+--------------------------------
+?? archive/roosync-v1-2025-12-27/shared/baselines/
+?? archive/roosync-v1-2025-12-27/shared/inventories/
+
+================================================================================
+2. ÉTAT DES SOUS-MODULES
+================================================================================
+
+Sous-modules actifs:
+--------------------
+  4a2b5f5 mcps/external/Office-PowerPoint-MCP-Server (remotes/origin/HEAD)
+  dde250a mcps/external/markitdown/source (v0.1.4)
+  e57d263 mcps/external/mcp-server-ftp (heads/main)
+  c806df7 mcps/external/playwright/source (v0.0.53-2-gc806df7)
+  a22d518 mcps/external/win-cli/server (remotes/origin/HEAD)
+  6619522 mcps/forked/modelcontextprotocol-servers (typescript-servers-0.6.2-2269-g6619522)
++ 8afcfc9 mcps/internal (remotes/origin/HEAD) [MODIFIÉ - AVANCE]
+  ca2a491 roo-code (v3.18.1-1335-gca2a491ee)
+
+Légende:
+  (sans préfixe) = Synchronisé avec le dépôt principal
+  + = Nouveau commit disponible (sous-module en avance sur le dépôt principal)
+  - = En retard par rapport au dépôt principal
+
+================================================================================
+3. SYNCHRONISATION DU SOUS-MODULE mcps/internal
+================================================================================
+
+Action effectuée: git submodule update --remote mcps/internal
+
+Résultat: SUCCÈS
+  - Ancien commit: 65c44ceae007f956598505c0ea487677bb2de43a
+  - Nouveau commit: 8afcfc9fc4f26fa860ad17d3996ece3b1a22af7f
+
+Derniers commits dans mcps/internal:
+-------------------------------------
+8afcfc9 CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1
+4a8a077 Résolution du conflit de fusion dans ConfigSharingService.ts - Version remote conservée avec améliorations d'inventaire
+9bb8e17 Tâche 28 - Correction de l'incohérence InventoryCollector dans applyConfig()
+65c44ce feat(roosync): Consolidation v2.3 - Fusion et suppression d'outils
+f9e9859 fix(ConfigSharingService): Utiliser les chemins directs du workspace pour collectModes et collectMcpSettings
+
+================================================================================
+4. PROBLÈMES DÉTECTÉS
+================================================================================
+
+⚠️ DIVERGENCE DU DÉPÔT PRINCIPAL:
+   - Le dépôt principal est en retard de 12 commits par rapport à origin/main
+   - Ces commits incluent principalement des mises à jour RooSync et de la documentation
+   - AUCUNE ACTION DE MERGE N'A ÉTÉ EFFECTUÉE (conformément aux consignes)
+
+⚠️ SOUS-MODULE mcps/internal EN AVANCE:
+   - Le sous-module mcps/internal a été mis à jour vers le commit 8afcfc9
+   - Ce commit est en avance par rapport à la référence dans le dépôt principal
+   - Le dépôt principal attend le commit 65c44ce pour mcps/internal
+   - Le commit 8afcfc9 corrige ConfigSharingService pour RooSync v2.1
+
+⚠️ FICHIERS NON SUIVIS:
+   - Deux répertoires dans archive/roosync-v1-2025-12-27/shared/ ne sont pas suivis
+   - Ces fichiers semblent être des artefacts de synchronisation RooSync
+
+================================================================================
+5. RECOMMANDATIONS
+================================================================================
+
+1. Pour synchroniser le dépôt principal:
+   - Vérifier les 12 commits en attente
+   - Effectuer un git merge origin/main après validation
+   - Résoudre les éventuels conflits
+
+2. Pour synchroniser le sous-module mcps/internal:
+   - Le sous-module est maintenant à jour avec la branche distante
+   - Il faudra commiter la nouvelle référence dans le dépôt principal
+   - Commande: git add mcps/internal && git commit -m "Update submodule mcps/internal"
+
+3. Pour les fichiers non suivis:
+   - Vérifier si archive/roosync-v1-2025-12-27/shared/ doit être ajouté au .gitignore
+   - Ou commiter ces fichiers s'ils sont nécessaires
+
+================================================================================
+FIN DU RAPPORT
+================================================================================
