@@ -19,9 +19,19 @@ param(
     [string]$OutputPath
 )
 
-# Définir OutputPath avec chemin absolu basé sur $PSScriptRoot si non fourni
+# Définir OutputPath avec chemin absolu basé sur ROOSYNC_SHARED_PATH si non fourni
+# CORRECTION SDDD : Utiliser ROOSYNC_SHARED_PATH depuis .env pour RooSync
 if (-not $OutputPath) {
-    $OutputPath = Join-Path $PSScriptRoot "..\..\outputs\machine-inventory-$(hostname).json"
+    $sharedStatePath = $env:ROOSYNC_SHARED_PATH
+    if (-not $sharedStatePath) {
+        Write-Error "ERREUR CRITIQUE: ROOSYNC_SHARED_PATH n'est pas définie. Veuillez configurer cette variable d'environnement dans le fichier .env."
+        exit 1
+    }
+    $inventoriesDir = Join-Path $sharedStatePath "inventories"
+    if (-not (Test-Path $inventoriesDir)) {
+        New-Item -ItemType Directory -Path $inventoriesDir -Force | Out-Null
+    }
+    $OutputPath = Join-Path $inventoriesDir "machine-inventory-$MachineId.json"
 }
 
 # Configuration des chemins
@@ -219,19 +229,28 @@ Write-Host "`nCollecte des informations système et matérielles... (SKIP)" -For
 # ===============================
 Write-Host "`nSauvegarde de l'inventaire..." -ForegroundColor Yellow
 
-$outputDir = Split-Path -Parent $OutputPath
-if (-not (Test-Path $outputDir)) {
-    New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+try {
+    $outputDir = Split-Path -Parent $OutputPath
+    if (-not (Test-Path $outputDir)) {
+        Write-Host "  Création du répertoire: $outputDir" -ForegroundColor Gray
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+    }
+
+    Write-Host "  Écriture du fichier: $OutputPath" -ForegroundColor Gray
+    $inventory | ConvertTo-Json -Depth 10 | Set-Content -Path $OutputPath -Encoding UTF8
+
+    Write-Host "`nInventaire sauvegarde: $OutputPath" -ForegroundColor Green
+    Write-Host "`nResume:" -ForegroundColor Cyan
+    Write-Host "  - Serveurs MCP: $($inventory.inventory.mcpServers.Count)" -ForegroundColor White
+    Write-Host "  - Modes Roo: $($inventory.inventory.rooModes.Count)" -ForegroundColor White
+    Write-Host "  - Specifications SDDD: $($inventory.inventory.sdddSpecs.Count)" -ForegroundColor White
+    Write-Host "  - Scripts: $($inventory.inventory.scripts.all.Count)" -ForegroundColor White
+    Write-Host "  - Outils verifies: $($inventory.inventory.tools.Keys.Count)" -ForegroundColor White
+
+    return $OutputPath
+} catch {
+    Write-Host "`nERREUR lors de la sauvegarde: $_" -ForegroundColor Red
+    Write-Host "Chemin cible: $OutputPath" -ForegroundColor Yellow
+    Write-Host "Vérifiez que le chemin est accessible et que vous avez les droits d'écriture." -ForegroundColor Yellow
+    exit 1
 }
-
-$inventory | ConvertTo-Json -Depth 10 | Set-Content -Path $OutputPath -Encoding UTF8
-
-Write-Host "`nInventaire sauvegarde: $OutputPath" -ForegroundColor Green
-Write-Host "`nResume:" -ForegroundColor Cyan
-Write-Host "  - Serveurs MCP: $($inventory.inventory.mcpServers.Count)" -ForegroundColor White
-Write-Host "  - Modes Roo: $($inventory.inventory.rooModes.Count)" -ForegroundColor White
-Write-Host "  - Specifications SDDD: $($inventory.inventory.sdddSpecs.Count)" -ForegroundColor White
-Write-Host "  - Scripts: $($inventory.inventory.scripts.all.Count)" -ForegroundColor White
-Write-Host "  - Outils verifies: $($inventory.inventory.tools.Keys.Count)" -ForegroundColor White
-
-return $OutputPath
