@@ -42,6 +42,12 @@ Cette version v2 du rapport de synthèse intègre les informations pertinentes i
 6. **Message non-lu sur myia-web-01** - msg-20251227T231249-s60v93 en attente de réponse (MAJEUR)
 7. **Fichiers non suivis dans archive/ sur myia-po-2024** - Deux répertoires non suivis (MAJEUR)
 
+### Informations de Documentation Intégrées (3)
+
+1. **Éparpillement documentaire extrême** - 800+ fichiers de documentation répartis dans 50+ répertoires (CRITIQUE)
+2. **Doublons massifs de documentation** - Mêmes sujets documentés dans différents répertoires (CRITIQUE)
+3. **Plan de consolidation sur 10 semaines** - Restructuration hiérarchique, consolidation des doublons, création d'index (MAJEUR)
+
 ### Contradictions Documentées (3)
 
 1. **Contradiction 3: Nombre de vulnérabilités NPM** - myia-ai-01 rapporte 5 pour myia-po-2023, myia-po-2023 rapporte 9
@@ -79,6 +85,9 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 | | **CRITICAL** | Conflit d'identité sur myia-web-01 | myia-web-01 |
 | | **CRITICAL** | Divergence du dépôt principal sur myia-po-2024 | myia-po-2024 |
 | | **CRITICAL** | Sous-module mcps/internal en avance sur myia-po-2024 | myia-po-2024 |
+| | **CRITICAL** | Éparpillement documentaire extrême (800+ fichiers, 50+ répertoires) | myia-web-01 |
+| | **CRITICAL** | Doublons massifs de documentation | myia-web-01 |
+| | **CRITICAL** | Incohérences de la documentation | myia-web-01 |
 | | **HIGH** | Clés API stockées en clair dans .env | myia-ai-01 |
 | | **HIGH** | MCP instable sur myia-po-2026 | myia-po-2026 |
 | | **HIGH** | Fichiers de présence et problèmes de concurrence | Toutes les machines |
@@ -90,6 +99,9 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 | | **MEDIUM** | Git synchronization issues (1-12 commits behind) | Toutes les machines |
 | | **MEDIUM** | Submodule divergences | Toutes les machines |
 | | **MEDIUM** | Identity conflict (myia-web-01 vs myia-web1) | myia-web-01 |
+| | **MEDIUM** | Documentation obsolète | myia-web-01 |
+| | **MEDIUM** | Nomenclature non standardisée | myia-web-01 |
+| | **MEDIUM** | Structure hiérarchique complexe | myia-web-01 |
 
 ### Recommandations Prioritaires
 
@@ -1335,91 +1347,119 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 
 ### Actions à Long Terme (à moyen terme)
 
-1. **Sécuriser les clés API**
+1. **Consolider la documentation (Plan sur 10 semaines)**
+   - **Phase 1: Analyse et planification (Semaine 1)**
+     - Finaliser l'analyse de l'éparpillement
+     - Créer le plan de restructuration détaillé
+     - Obtenir l'approbation du plan
+   - **Phase 2: Restructuration (Semaines 2-4)**
+     - Créer la nouvelle structure hiérarchique
+     - Déplacer les documents selon la nouvelle structure
+     - Standardiser la nomenclature
+   - **Phase 3: Consolidation (Semaines 5-6)**
+     - Identifier et fusionner les doublons
+     - Créer l'index complet
+     - Standardiser les métadonnées
+   - **Phase 4: Archivage (Semaine 7)**
+     - Archiver la documentation obsolète
+     - Nettoyer les fichiers temporaires
+     - Créer l'index des archives
+   - **Phase 5: Outils et processus (Semaines 8-9)**
+     - Mettre en place les outils de documentation
+     - Créer les processus de création et mise à jour
+     - Former l'équipe aux nouveaux processus
+   - **Phase 6: Validation et déploiement (Semaine 10)**
+     - Valider la nouvelle structure
+     - Déployer la documentation
+     - Communiquer les changements
+   - **Délai:** 10 semaines
+   - **Responsable:** myia-po-2024 (Coordinateur Technique)
+
+2. **Sécuriser les clés API**
    - Déplacer les clés API vers un gestionnaire de secrets
    - Utiliser des variables d'environnement sécurisées
    - Implémenter une rotation des clés
    - **Délai:** À moyen terme
    - **Responsable:** Toutes les machines
 
-2. **Implémenter un système de verrouillage pour les fichiers de présence**
+3. **Implémenter un système de verrouillage pour les fichiers de présence**
    - Utiliser des locks fichier ou une base de données
    - Gérer les conflits d'écriture
    - Assurer l'intégrité des données
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-3. **Bloquer le démarrage en cas de conflit d'identité**
+4. **Bloquer le démarrage en cas de conflit d'identité**
    - Valider l'unicité au démarrage
    - Refuser de démarrer si conflit détecté
    - Fournir des instructions claires de résolution
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-4. **Améliorer la gestion du cache**
+5. **Améliorer la gestion du cache**
    - Augmenter le TTL par défaut
    - Implémenter une invalidation plus intelligente
    - Assurer la réinitialisation complète des services
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-5. **Simplifier l'architecture des baselines non-nominatives**
+6. **Simplifier l'architecture des baselines non-nominatives**
    - Documenter clairement le fonctionnement
    - Simplifier le mapping machine → baseline
    - Réduire la complexité du code
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-6. **Améliorer la gestion des erreurs**
+7. **Améliorer la gestion des erreurs**
    - Propager les erreurs de manière explicite
    - Utiliser un système de logging structuré
    - Rendre les validations plus strictes
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-7. **Améliorer le système de rollback**
+8. **Améliorer le système de rollback**
    - Implémenter un système transactionnel
    - Garantir l'intégrité des rollbacks
    - Tester les scénarios de rollback
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-8. **Remplacer la roadmap Markdown par un format structuré**
+9. **Remplacer la roadmap Markdown par un format structuré**
    - Utiliser JSON pour le stockage
    - Générer le Markdown à partir du JSON
    - Assurer l'intégrité des données
    - **Délai:** À moyen terme
    - **Responsable:** myia-ai-01 (Baseline Master)
 
-9. **Rendre les logs plus visibles**
-   - Utiliser un système de logging structuré
-   - Implémenter des niveaux de sévérité
-   - Permettre la configuration du niveau de log
-   - **Délai:** À moyen terme
-   - **Responsable:** myia-ai-01 (Baseline Master)
+10. **Rendre les logs plus visibles**
+    - Utiliser un système de logging structuré
+    - Implémenter des niveaux de sévérité
+    - Permettre la configuration du niveau de log
+    - **Délai:** À moyen terme
+    - **Responsable:** myia-ai-01 (Baseline Master)
 
-10. **Améliorer la documentation**
+11. **Améliorer la documentation**
     - Documenter l'architecture complète
     - Créer des guides de troubleshooting
     - Fournir des exemples d'utilisation
     - **Délai:** À moyen terme
     - **Responsable:** myia-po-2024 (Coordinateur Technique)
 
-11. **Implémenter des tests automatisés**
+12. **Implémenter des tests automatisés**
     - Tests unitaires pour tous les services
     - Tests d'intégration pour les flux complets
     - Tests de charge pour la synchronisation
     - **Délai:** À long terme
     - **Responsable:** Toutes les machines
 
-12. **Implémenter un mécanisme de notification automatique**
+13. **Implémenter un mécanisme de notification automatique**
     - Concevoir le système de notification
     - Implémenter les notifications
     - Valider le fonctionnement
     - **Délai:** À long terme
     - **Responsable:** myia-ai-01 (Baseline Master)
 
-13. **Créer un tableau de bord**
+14. **Créer un tableau de bord**
     - Concevoir l'interface
     - Implémenter le tableau de bord
     - Valider la visualisation
@@ -1580,19 +1620,37 @@ Le système RooSync est fonctionnel mais nécessite des corrections immédiates 
    - **Consolidé le:** 2025-12-31
 
 10. **docs/suivi/RooSync/MESSAGES_PHASE2_ANALYSIS_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
-   - Analyse des 7 messages RooSync de phase 2 (27-28 décembre 2025)
-   - Références aux rapports et commits de chaque agent
-   - Analyse comparative des messages (points communs, divergences)
-   - Problèmes identifiés et recommandations
-   - **Consolidé le:** 2025-12-31
+    - Analyse des 7 messages RooSync de phase 2 (27-28 décembre 2025)
+    - Références aux rapports et commits de chaque agent
+    - Analyse comparative des messages (points communs, divergences)
+    - Problèmes identifiés et recommandations
+    - **Consolidé le:** 2025-12-31
 
-7. **docs/suivi/RooSync/COMPARAISON_RAPPORTS_PHASE2_myia-ai-01_2025-12-31.md**
-   - Analyse comparative des rapports de phase 2
-   - Informations à intégrer, contradictions identifiées
+11. **docs/suivi/RooSync/COMPARAISON_RAPPORTS_PHASE2_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+     - Analyse comparative des rapports de phase 2 des 4 autres agents
+     - Informations à intégrer, contradictions identifiées
+     - Recommandations pour la mise à jour du rapport de synthèse et du plan d'action
+     - **Consolidé le:** 2025-12-31
 
-8. **docs/suivi/RooSync/MESSAGES_PHASE2_ANALYSIS_myia-ai-01_2025-12-31.md**
-   - Analyse des messages RooSync de phase 2
-   - Références aux rapports et commits
+12. **docs/suivi/RooSync/RELLECTURE_COMPLETE_MESSAGES_ROOSYNC_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+      - Rellecture complète des messages RooSync pour identifier tous les messages de phase 2
+      - 13 messages de phase 2 identifiés (27-31 décembre 2025)
+      - 2 messages manqués retrouvés (msg-20251229T224532-dvhzv6, msg-20251229T131115-mrwxra)
+      - 20+ rapports référencés par agent
+      - 10+ commits identifiés
+      - Limitation de l'outil MCP: `roosync_read_inbox` ne retourne que 7 messages sur 247
+      - 6 problèmes critiques identifiés (P1-P6)
+      - 13 recommandations consolidées
+      - **Consolidé le:** 2025-12-31
+
+13. **docs/suivi/RooSync/LECTURE_RAPPORTS_MANQUES_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+      - Synthèse des rapports de myia-po-2024 (4 rapports) et myia-web1 (5 rapports)
+      - Analyse de 2 messages manqués (msg-20251229T131115-mrwxra, msg-20251229T224532-dvhzv6)
+      - Tableaux comparatifs des problèmes, solutions et recommandations
+      - 17 informations à intégrer (8 CRITIQUE, 7 MAJEUR, 2 MINEUR)
+      - 6 contradictions identifiées
+      - Informations uniques: 800+ fichiers de documentation, 50+ répertoires, plan de consolidation sur 10 semaines
+      - **Consolidé le:** 2025-12-31
 
 ### Statistiques Détaillées
 

@@ -1227,6 +1227,108 @@ La charge de travail est équilibrée entre les agents:
 #### Phase 3 (8 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
+
+---
+
+## 9. Sources d'Information
+
+### Fichiers Consolidés
+
+Les fichiers suivants produits par myia-ai-01 ont été consolidés dans ce plan d'action:
+
+1. **docs/suivi/RooSync/SYNC_GIT_DIAGNOSTIC_MYIA-AI-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Diagnostic de synchronisation Git
+   - **Consolidé le:** 2025-12-31
+
+2. **docs/suivi/RooSync/ROOSYNC_MESSAGES_ANALYSIS_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Analyse des 7 messages RooSync
+   - **Consolidé le:** 2025-12-31
+
+3. **docs/suivi/RooSync/COMMITS_ANALYSIS_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Analyse des 20 commits et 13 rapports
+   - **Consolidé le:** 2025-12-31
+
+4. **docs/suivi/RooSync/ROOSYNC_ARCHITECTURE_ANALYSIS_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Analyse complète de l'architecture RooSync
+   - **Consolidé le:** 2025-12-31
+
+5. **docs/suivi/RooSync/DIAGNOSTIC_NOMINATIF_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Diagnostic nominatif pour myia-ai-01
+   - **Consolidé le:** 2025-12-31
+
+6. **docs/suivi/RooSync/PULL_RESULTS_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Résultats du git pull pour récupérer les rapports des autres agents
+   - **Consolidé le:** 2025-12-31
+
+7. **docs/suivi/RooSync/ROOSYNC_MESSAGES_COMPILATION_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Compilation des 7 messages RooSync
+   - **Consolidé le:** 2025-12-31
+
+8. **docs/suivi/RooSync/EXPLORATION_APPROFONDIE_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Exploration approfondie de la documentation, de l'espace sémantique, des commits, du code et des tests
+   - **Consolidé le:** 2025-12-31
+
+9. **docs/suivi/RooSync/RAFINEMENT_SYNTHESE_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Document de raffinement pour le rapport de synthèse multi-agent
+   - **Consolidé le:** 2025-12-31
+
+10. **docs/suivi/RooSync/MESSAGES_PHASE2_ANALYSIS_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+    - Analyse des 7 messages RooSync de phase 2 (27-28 décembre 2025)
+    - **Consolidé le:** 2025-12-31
+
+11. **docs/suivi/RooSync/COMPARAISON_RAPPORTS_PHASE2_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+    - Analyse comparative des rapports de phase 2 des 4 autres agents
+    - Informations à intégrer, contradictions identifiées
+    - Recommandations pour la mise à jour du rapport de synthèse et du plan d'action
+    - **Consolidé le:** 2025-12-31
+
+12. **docs/suivi/RooSync/RELLECTURE_COMPLETE_MESSAGES_ROOSYNC_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+     - Rellecture complète des messages RooSync pour identifier tous les messages de phase 2
+     - 13 messages de phase 2 identifiés (27-31 décembre 2025)
+     - 2 messages manqués retrouvés (msg-20251229T224532-dvhzv6, msg-20251229T131115-mrwxra)
+     - 20+ rapports référencés par agent
+     - 10+ commits identifiés
+     - Limitation de l'outil MCP: `roosync_read_inbox` ne retourne que 7 messages sur 247
+     - 6 problèmes critiques identifiés (P1-P6)
+     - 13 recommandations consolidées
+     - **Consolidé le:** 2025-12-31
+
+13. **docs/suivi/RooSync/LECTURE_RAPPORTS_MANQUES_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+     - Synthèse des rapports de myia-po-2024 (4 rapports) et myia-web1 (5 rapports)
+     - Analyse de 2 messages manqués (msg-20251229T131115-mrwxra, msg-20251229T224532-dvhzv6)
+     - Tableaux comparatifs des problèmes, solutions et recommandations
+     - 17 informations à intégrer (8 CRITIQUE, 7 MAJEUR, 2 MINEUR)
+     - 6 contradictions identifiées
+     - Informations uniques: 800+ fichiers de documentation, 50+ répertoires, plan de consolidation sur 10 semaines
+     - **Consolidé le:** 2025-12-31
+
+---
+
+## 10. Annexes
+
+### 10.1 Glossaire
+
+| Terme | Définition |
+|-------|------------|
+| **Baseline** | Configuration de référence pour une machine |
+| **Baseline Master** | Machine responsable de gérer la baseline nominative |
+| **Baseline Non-Nominative** | Baseline partagée entre plusieurs machines sans attribution nominative |
+| **Checkpoint** | Point de validation pour confirmer qu'une tâche est complétée |
+| **Identity Conflict** | Conflit d'identité entre deux machines |
+| **MCP** | Model Context Protocol - Protocole de communication entre le système et les agents |
+| **RooSync** | Système de synchronisation multi-machines |
+| **Sync-Config** | Fichier de configuration de synchronisation |
+
+### 10.2 Références
+
+- **Documentation RooSync:** `docs/suivi/RooSync/`
+- **Code Source:** `mcps/internal/servers/roo-state-manager/`
+- **Tests:** `tests/results/roosync/`
+- **Configuration:** `roo-config/settings/servers.json`
+
+---
+
+**Fin du Plan d'Action Multi-Agent - RooSync v2.3.0**
 | CP3.1 | Logs plus visibles | myia-ai-01 | Une fois |
 | CP3.2 | Documentation améliorée | myia-po-2024 | Une fois |
 | CP3.3 | Tests automatisés implémentés | myia-web-01 | Une fois |
