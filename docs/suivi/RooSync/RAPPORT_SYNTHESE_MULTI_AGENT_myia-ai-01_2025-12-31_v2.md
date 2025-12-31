@@ -1532,21 +1532,59 @@ Le système RooSync est fonctionnel mais nécessite des corrections immédiates 
    - Chronologie des communications
    - **Consolidé le:** 2025-12-31
 
-3. **docs/suivi/RooSync/COMMITS_ANALYSIS_myia-ai-01_2025-12-28.md**
+3. **docs/suivi/RooSync/COMMITS_ANALYSIS_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
    - Analyse des 20 derniers commits
    - Problèmes récurrents identifiés
+   - **Consolidé le:** 2025-12-31
 
-4. **docs/suivi/RooSync/ROOSYNC_ARCHITECTURE_ANALYSIS_myia-ai-01_2025-12-28.md**
+4. **docs/suivi/RooSync/ROOSYNC_ARCHITECTURE_ANALYSIS_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
    - Architecture complète du système RooSync
    - Liste des 24 outils disponibles
+   - 8 services principaux, 6 types de fichiers de configuration
+   - Problèmes identifiés: CRITICAL (incohérence machineIds), HIGH (sécurité clés API, concurrence), MEDIUM (cache, baselines, conflits), LOW (logs, documentation)
+   - **Consolidé le:** 2025-12-31
 
-5. **docs/suivi/RooSync/DIAGNOSTIC_NOMINATIF_myia-ai-01_2025-12-28.md**
+5. **docs/suivi/RooSync/DIAGNOSTIC_NOMINATIF_myia-ai-01_2025-12-28.md** ✅ CONSOLIDÉ
    - Diagnostic nominatif myia-ai-01
-   - Problèmes identifiés par sévérité
+   - État de synchronisation Git et RooSync
+   - Problèmes identifiés par sévérité (21 problèmes: 2 CRITICAL, 7 HIGH, 10 MEDIUM, 2 LOW)
+   - Recommandations prioritaires
+   - **Consolidé le:** 2025-12-31
 
-6. **docs/suivi/RooSync/ROOSYNC_MESSAGES_COMPILATION_myia-ai-01_2025-12-29.md**
-   - Compilation des messages RooSync
-   - Points communs, divergences, angles morts
+6. **docs/suivi/RooSync/PULL_RESULTS_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Résultats du git pull pour récupérer les rapports des autres agents
+   - 9 commits récupérés, 13 fichiers ajoutés/modifiés, 5600 lignes ajoutées
+   - Aucun conflit détecté
+   - **Consolidé le:** 2025-12-31
+
+7. **docs/suivi/RooSync/ROOSYNC_MESSAGES_COMPILATION_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Compilation des 7 messages RooSync (contenu similaire au fichier 2/15)
+   - Analyse comparative des diagnostics entre agents
+   - Points communs, divergences et angles morts révélés
+   - Solutions proposées et actions requises
+   - **Consolidé le:** 2025-12-31
+
+8. **docs/suivi/RooSync/EXPLORATION_APPROFONDIE_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Exploration approfondie de la documentation (3,492 lignes), de l'espace sémantique, des commits, du code et des tests
+   - Confirmations des diagnostics précédents
+   - Nouvelles découvertes (architecture complète, système de messagerie, baseline non-nominative, registre central)
+   - Angles morts restants identifiés
+   - Recommandations supplémentaires
+   - **Consolidé le:** 2025-12-31
+
+9. **docs/suivi/RooSync/RAFINEMENT_SYNTHESE_myia-ai-01_2025-12-29.md** ✅ CONSOLIDÉ
+   - Document de raffinement du rapport de synthèse multi-agent
+   - Sections ajoutées (2), modifiées (2), nouvelles informations intégrées (23)
+   - Confirmations des diagnostics (13), nouvelles découvertes (10), angles morts identifiés (5)
+   - Recommandations supplémentaires (14)
+   - **Consolidé le:** 2025-12-31
+
+10. **docs/suivi/RooSync/MESSAGES_PHASE2_ANALYSIS_myia-ai-01_2025-12-31.md** ✅ CONSOLIDÉ
+   - Analyse des 7 messages RooSync de phase 2 (27-28 décembre 2025)
+   - Références aux rapports et commits de chaque agent
+   - Analyse comparative des messages (points communs, divergences)
+   - Problèmes identifiés et recommandations
+   - **Consolidé le:** 2025-12-31
 
 7. **docs/suivi/RooSync/COMPARAISON_RAPPORTS_PHASE2_myia-ai-01_2025-12-31.md**
    - Analyse comparative des rapports de phase 2
@@ -1620,12 +1658,32 @@ Le système RooSync est fonctionnel mais nécessite des corrections immédiates 
 
 #### Distribution des Commits par Domaine
 
-| Domaine | Commits | Pourcentage |
+Domaine | Commits | Pourcentage |
 |---------|---------|------------|
 | RooSync | 15 | 75% |
 | Documentation | 10 | 50% |
 | Sous-modules | 5 | 25% |
 | ConfigSharingService | 2 | 10% |
+
+#### Distribution des Commits par Type (30 commits, 27-29 décembre 2025)
+
+Type | Nombre | Pourcentage |
+|------|--------|------------|
+| Documentation | 15 | 50% |
+| Fusion | 6 | 20% |
+| Fonctionnalités | 3 | 10% |
+| Corrections | 3 | 10% |
+| Maintenance | 3 | 10% |
+
+**Problèmes résolus:**
+1. MCP reload issue (Tâche 29) - Résolu avec configuration watchPaths
+2. InventoryCollector inconsistency (Tâche 28) - Résolu
+3. Documentation éparpillée (Tâche 26) - Consolidée dans docs/suivi/RooSync/
+
+**Problèmes récurrents:**
+1. Incohérences machineId - Non résolu
+2. Get-MachineInventory.ps1 échoue - Non résolu
+3. Erreurs de compilation TypeScript - Non résolu
 
 ### Outils RooSync par Catégorie
 

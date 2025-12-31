@@ -17,11 +17,11 @@ Ce plan d'action vise à résoudre les problèmes critiques et haute priorité i
 
 | Phase | Période | Objectif Principal | Nombre de Tâches |
 |-------|---------|-------------------|------------------|
-| **Phase 1** | Aujourd'hui (2025-12-29) | Résoudre les problèmes critiques immédiats | 12 |
-| **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 10 |
-| **Phase 3** | Avant 2025-12-31 | Améliorer l'architecture et la sécurité | 8 |
-| **Phase 4** | Après 2025-12-31 | Optimiser et documenter le système | 7 |
-| **Total** | - | - | **37** |
+| | **Phase 1** | Aujourd'hui (2025-12-29) | Résoudre les problèmes critiques immédiats | 15 |
+| | **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 13 |
+| | **Phase 3** | Avant 2025-12-31 | Améliorer l'architecture et la sécurité | 12 |
+| | **Phase 4** | Après 2025-12-31 | Optimiser et documenter le système | 7 |
+| | **Total** | - | - | **47** |
 
 ### Agents Impliqués
 
@@ -61,12 +61,12 @@ Tous les agents ont des capacités identiques:
 
 | Agent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
 |-------|---------|---------|---------|---------|-------|
-| myia-ai-01 | 3 | 2 | 2 | 1 | **8** |
-| myia-po-2023 | 2 | 2 | 2 | 1 | **7** |
-| myia-po-2024 | 2 | 2 | 2 | 1 | **7** |
+| myia-ai-01 | 3 | 3 | 2 | 1 | **9** |
+| myia-po-2023 | 3 | 2 | 2 | 1 | **8** |
+| myia-po-2024 | 4 | 3 | 4 | 1 | **12** |
 | myia-po-2026 | 3 | 2 | 2 | 1 | **8** |
-| myia-web-01 | 2 | 2 | 2 | 2 | **8** |
-| **Total** | **12** | **10** | **10** | **6** | **38** |
+| myia-web-01 | 2 | 3 | 2 | 2 | **9** |
+| **Total** | **15** | **13** | **12** | **6** | **46** |
 
 ---
 
@@ -321,7 +321,67 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 5. myia-web-01: Exécuter roosync_collect_config
 6. myia-ai-01: Valider les inventaires reçus et comparer les configurations
 
-**Checkpoint 1.12:** Inventaires de configuration collectés et comparés
+Checkpoint 1.12:** Inventaires de configuration collectés et comparés
+
+---
+
+#### Tâche 1.13: Synchroniser le dépôt principal sur myia-po-2024 (CRITICAL)
+**Priorité:** CRITICAL
+**Délai:** Immédiat
+**Agents:** myia-po-2024, myia-ai-01
+
+**Description:**
+- myia-po-2024 est en retard de 12 commits sur le dépôt principal
+- Exécuter `git pull origin/main` pour synchroniser
+- Valider la synchronisation
+
+**Actions:**
+1. myia-po-2024: Exécuter `git pull origin/main` sur sa machine
+2. myia-ai-01: Vérifier que myia-po-2024 est synchronisé
+3. myia-po-2024: Valider que tous les commits sont récupérés
+4. myia-ai-01: Documenter la synchronisation
+
+**Checkpoint 1.13:** Dépôt principal synchronisé sur myia-po-2024
+
+---
+
+#### Tâche 1.14: Synchroniser les sous-modules mcps/internal (CRITICAL)
+**Priorité:** CRITICAL
+**Délai:** Immédiat
+**Agents:** myia-po-2024, myia-ai-01
+
+**Description:**
+- Le sous-module mcps/internal est en avance (8afcfc9 vs 65c44ce)
+- Exécuter `git add mcps/internal` et `git commit` pour synchroniser
+- Valider la synchronisation
+
+**Actions:**
+1. myia-po-2024: Exécuter `git add mcps/internal` sur sa machine
+2. myia-po-2024: Exécuter `git commit` pour valider les changements
+3. myia-ai-01: Vérifier que le sous-module est synchronisé
+4. myia-po-2024: Valider que le commit est correct
+
+**Checkpoint 1.14:** Sous-modules mcps/internal synchronisés
+
+---
+
+#### Tâche 1.15: Recompiler le MCP sur myia-po-2023 (HIGH)
+**Priorité:** HIGH
+**Délai:** Immédiat
+**Agents:** myia-po-2023, myia-po-2024
+
+**Description:**
+- La recompilation MCP n'a pas été effectuée sur myia-po-2023
+- Exécuter `npm run build` et redémarrer le MCP
+- Valider le rechargement
+
+**Actions:**
+1. myia-po-2023: Exécuter `npm run build` sur sa machine
+2. myia-po-2023: Redémarrer le MCP
+3. myia-po-2024: Valider que le MCP est rechargé correctement
+4. myia-po-2023: Tester les outils RooSync
+
+**Checkpoint 1.15:** MCP recompilé sur myia-po-2023
 
 ---
 
@@ -329,18 +389,21 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 
 | Checkpoint | Description | Responsable | Critère de Validation |
 |------------|-------------|-------------|----------------------|
-| CP1.1 | Validation des machineIds corrigés | myia-ai-01 | Tous les machineIds sont uniques et corrects |
-| CP1.2 | Script Get-MachineInventory.ps1 corrigé | myia-po-2026 | Le script fonctionne sans freeze |
-| CP1.3 | MCP myia-po-2026 stabilisé | myia-po-2026 | Le MCP ne crash plus |
-| CP1.4 | Messages non-lus traités | myia-ai-01 | Aucun message non-lu |
-| CP1.5 | Compilation TypeScript réussie | myia-ai-01 | Aucune erreur de compilation |
-| CP1.6 | Identity conflict résolu | myia-web-01 | Identité unique validée |
-| CP1.7 | Git synchronisé | myia-ai-01 | Toutes les machines à jour |
-| CP1.8 | Vulnérabilités npm corrigées | myia-po-2023 | Aucune vulnérabilité détectée |
-| CP1.9 | Répertoire myia-po-2026 créé | myia-po-2026 | Répertoire accessible et fonctionnel |
-| CP1.10 | MCPs recompilés | myia-ai-01 | Tous les MCPs rechargés |
-| CP1.11 | Outils RooSync validés | myia-ai-01 | Tous les outils testés et fonctionnels |
-| CP1.12 | Inventaires collectés | myia-ai-01 | 5 inventaires reçus et comparés |
+| | CP1.1 | Validation des machineIds corrigés | myia-ai-01 | Tous les machineIds sont uniques et corrects |
+| | CP1.2 | Script Get-MachineInventory.ps1 corrigé | myia-po-2026 | Le script fonctionne sans freeze |
+| | CP1.3 | MCP myia-po-2026 stabilisé | myia-po-2026 | Le MCP ne crash plus |
+| | CP1.4 | Messages non-lus traités | myia-ai-01 | Aucun message non-lu |
+| | CP1.5 | Compilation TypeScript réussie | myia-ai-01 | Aucune erreur de compilation |
+| | CP1.6 | Identity conflict résolu | myia-web-01 | Identité unique validée |
+| | CP1.7 | Git synchronisé | myia-ai-01 | Toutes les machines à jour |
+| | CP1.8 | Vulnérabilités npm corrigées | myia-po-2023 | Aucune vulnérabilité détectée |
+| | CP1.9 | Répertoire myia-po-2026 créé | myia-po-2026 | Répertoire accessible et fonctionnel |
+| | CP1.10 | MCPs recompilés | myia-ai-01 | Tous les MCPs rechargés |
+| | CP1.11 | Outils RooSync validés | myia-ai-01 | Tous les outils testés et fonctionnels |
+| | CP1.12 | Inventaires collectés | myia-ai-01 | 5 inventaires reçus et comparés |
+| | CP1.13 | Dépôt principal synchronisé sur myia-po-2024 | myia-po-2024 | myia-po-2024 à jour avec origin/main |
+| | CP1.14 | Sous-modules mcps/internal synchronisés | myia-po-2024 | Sous-modules synchronisés et commités |
+| | CP1.15 | MCP recompilé sur myia-po-2023 | myia-po-2023 | MCP recompilé et fonctionnel |
 
 ### Dépendances Phase 1
 
@@ -555,7 +618,67 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 3. myia-ai-01: Implémenter la conversion Markdown → JSON
 4. myia-po-2023: Valider l'intégrité des données
 
-**Checkpoint 2.10:** Roadmap convertie en format structuré
+Checkpoint 2.10:** Roadmap convertie en format structuré
+
+---
+
+#### Tâche 2.11: Standardiser l'alias sur myia-web-01 (HIGH)
+**Priorité:** HIGH
+**Délai:** Avant 2025-12-30
+**Agents:** myia-web-01, myia-ai-01
+
+**Description:**
+- Incohérence d'alias (myia-web-01 vs myia-web1)
+- Standardiser sur myia-web-01
+- Valider la cohérence
+
+**Actions:**
+1. myia-web-01: Identifier toutes les occurrences de l'alias myia-web1
+2. myia-ai-01: Vérifier le registre central des machines
+3. myia-web-01: Remplacer myia-web1 par myia-web-01
+4. myia-ai-01: Valider la cohérence de l'alias
+
+**Checkpoint 2.11:** Alias standardisé sur myia-web-01
+
+---
+
+#### Tâche 2.12: Synchroniser les registres (HIGH)
+**Priorité:** HIGH
+**Délai:** Avant 2025-12-30
+**Agents:** myia-ai-01, myia-po-2024
+
+**Description:**
+- Incohérence des registres (myia-po-2024 absent)
+- Synchroniser les registres entre machines
+- Valider la cohérence
+
+**Actions:**
+1. myia-ai-01: Analyser les registres de toutes les machines
+2. myia-po-2024: Identifier les machines manquantes dans les registres
+3. myia-ai-01: Ajouter myia-po-2024 aux registres
+4. myia-po-2024: Valider la cohérence des registres
+
+**Checkpoint 2.12:** Registres synchronisés
+
+---
+
+#### Tâche 2.13: Inventaire des API keys en clair (HIGH)
+**Priorité:** HIGH
+**Délai:** Avant 2025-12-30
+**Agents:** myia-ai-01, myia-web-01
+
+**Description:**
+- API keys en clair dans les fichiers de configuration
+- Inventaire complet des API keys exposées
+- Préparer la migration vers variables d'environnement
+
+**Actions:**
+1. myia-ai-01: Scanner tous les fichiers de configuration pour les API keys
+2. myia-web-01: Rechercher les API keys sur sa machine
+3. myia-ai-01: Créer un inventaire complet des API keys exposées
+4. myia-web-01: Documenter les emplacements des API keys
+
+**Checkpoint 2.13:** Inventaire des API keys en clair complété
 
 ---
 
@@ -573,6 +696,9 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 | CP2.8 | Gestion des erreurs améliorée | myia-ai-01 | Erreurs propagées explicitement |
 | CP2.9 | Système de rollback amélioré | myia-ai-01 | Rollbacks transactionnels |
 | CP2.10 | Roadmap convertie en format structuré | myia-ai-01 | JSON généré et validé |
+| CP2.11 | Alias standardisé sur myia-web-01 | myia-web-01 | Alias myia-web-01 cohérent |
+| CP2.12 | Registres synchronisés | myia-ai-01 | Tous les registres à jour |
+| CP2.13 | Inventaire des API keys complété | myia-ai-01 | Inventaire complet créé |
 
 ### Dépendances Phase 2
 
@@ -746,7 +872,87 @@ Améliorer l'architecture, la documentation et les tests du système.
 3. myia-ai-01: Implémenter la méthode
 4. myia-po-2024: Valider le fonctionnement
 
-**Checkpoint 3.8:** collectProfiles() implémenté
+Checkpoint 3.8:** collectProfiles() implémenté
+
+---
+
+#### Tâche 3.9: Restructuration hiérarchique de la documentation (HIGH)
+**Priorité:** HIGH
+**Délai:** Avant 2025-12-31
+**Agents:** myia-po-2024, myia-web-01
+
+**Description:**
+- Dispersion extrême de la documentation (800+ fichiers)
+- Restructuration hiérarchique (5 répertoires principaux)
+- Valider la nouvelle structure
+
+**Actions:**
+1. myia-po-2024: Analyser la structure actuelle de la documentation
+2. myia-web-01: Concevoir la nouvelle structure hiérarchique
+3. myia-po-2024: Créer les 5 répertoires principaux
+4. myia-web-01: Valider la nouvelle structure
+
+**Checkpoint 3.9:** Documentation restructurée
+
+---
+
+#### Tâche 3.10: Standardisation de la nomenclature (MEDIUM)
+**Priorité:** MEDIUM
+**Délai:** Avant 2025-12-31
+**Agents:** myia-po-2024, myia-web-01
+
+**Description:**
+- Nomenclature non standardisée
+- Définir des conventions de nommage
+- Appliquer les conventions
+
+**Actions:**
+1. myia-po-2024: Analyser la nomenclature actuelle
+2. myia-web-01: Définir les conventions de nommage
+3. myia-po-2024: Appliquer les conventions aux fichiers existants
+4. myia-web-01: Valider la cohérence de la nomenclature
+
+**Checkpoint 3.10:** Nomenclature standardisée
+
+---
+
+#### Tâche 3.11: Politique d'archivage (MEDIUM)
+**Priorité:** MEDIUM
+**Délai:** Avant 2025-12-31
+**Agents:** myia-po-2024, myia-web-01
+
+**Description:**
+- Absence de politique d'archivage
+- Définir une politique d'archivage
+- Implémenter la politique
+
+**Actions:**
+1. myia-po-2024: Analyser les besoins d'archivage
+2. myia-web-01: Définir la politique d'archivage
+3. myia-po-2024: Implémenter la politique d'archivage
+4. myia-web-01: Valider le fonctionnement de la politique
+
+**Checkpoint 3.11:** Politique d'archivage implémentée
+
+---
+
+#### Tâche 3.12: Consolidation des doublons (MEDIUM)
+**Priorité:** MEDIUM
+**Délai:** Avant 2025-12-31
+**Agents:** myia-po-2024, myia-web-01
+
+**Description:**
+- Doublons massifs de la documentation
+- Identifier et consolider les doublons
+- Valider la consolidation
+
+**Actions:**
+1. myia-po-2024: Identifier les doublons dans la documentation
+2. myia-web-01: Analyser les différences entre les doublons
+3. myia-po-2024: Consolider les doublons
+4. myia-web-01: Valider la consolidation
+
+**Checkpoint 3.12:** Doublons consolidés
 
 ---
 
@@ -762,6 +968,10 @@ Améliorer l'architecture, la documentation et les tests du système.
 | CP3.6 | Graceful shutdown timeout implémenté | myia-ai-01 | Shutdown propre |
 | CP3.7 | Erreurs script vs système différenciées | myia-ai-01 | Erreurs classifiées |
 | CP3.8 | collectProfiles() implémenté | myia-ai-01 | Méthode fonctionnelle |
+| CP3.9 | Documentation restructurée | myia-po-2024 | Structure hiérarchique créée |
+| CP3.10 | Nomenclature standardisée | myia-po-2024 | Conventions appliquées |
+| CP3.11 | Politique d'archivage implémentée | myia-po-2024 | Politique fonctionnelle |
+| CP3.12 | Doublons consolidés | myia-po-2024 | Doublons éliminés |
 
 ### Dépendances Phase 3
 
@@ -958,6 +1168,9 @@ Optimiser le système et préparer les futures évolutions.
 | 1.10 | Recompiler MCP | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 1.11 | Valider outils RooSync | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 1.12 | Collecter inventaires | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 1.13 | Synchroniser dépôt principal myia-po-2024 | ✅ | - | ✅ | - | - |
+| 1.14 | Synchroniser sous-modules mcps/internal | ✅ | - | ✅ | - | - |
+| 1.15 | Recompiler MCP myia-po-2023 | - | ✅ | ✅ | - | - |
 | **Phase 2** | | | | | | |
 | 2.1 | Compléter transition v2.1→v2.3 | - | - | ✅ | - | - |
 | 2.2 | Mettre à jour Node.js v24+ | - | ✅ | - | ✅ | - |
@@ -969,6 +1182,9 @@ Optimiser le système et préparer les futures évolutions.
 | 2.8 | Améliorer gestion erreurs | ✅ | - | - | ✅ | - |
 | 2.9 | Améliorer rollback | ✅ | - | - | - | ✅ |
 | 2.10 | Remplacer roadmap Markdown | ✅ | ✅ | - | - | - |
+| 2.11 | Standardiser alias myia-web-01 | ✅ | - | - | - | ✅ |
+| 2.12 | Synchroniser registres | ✅ | - | ✅ | - | - |
+| 2.13 | Inventaire API keys | ✅ | - | - | - | ✅ |
 | **Phase 3** | | | | | | |
 | 3.1 | Rendre logs visibles | ✅ | - | ✅ | - | - |
 | 3.2 | Améliorer documentation | - | - | ✅ | - | - |
@@ -978,6 +1194,10 @@ Optimiser le système et préparer les futures évolutions.
 | 3.6 | Graceful shutdown | ✅ | - | - | ✅ | - |
 | 3.7 | Différencier erreurs | ✅ | ✅ | - | - | - |
 | 3.8 | Implémenter collectProfiles() | ✅ | - | ✅ | - | - |
+| 3.9 | Restructuration documentation | - | - | ✅ | - | ✅ |
+| 3.10 | Standardiser nomenclature | - | - | ✅ | - | ✅ |
+| 3.11 | Politique d'archivage | - | - | ✅ | - | ✅ |
+| 3.12 | Consolidation doublons | - | - | ✅ | - | ✅ |
 | **Phase 4** | | | | | | |
 | 4.1 | Notification automatique | ✅ | ✅ | - | - | - |
 | 4.2 | Tableau de bord | ✅ | - | ✅ | - | - |
@@ -986,18 +1206,18 @@ Optimiser le système et préparer les futures évolutions.
 | 4.5 | Normaliser chemins | ✅ | - | ✅ | - | - |
 | 4.6 | Corriger bugs tests | - | - | - | - | ✅ |
 | 4.7 | Tests production | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Total** | | **20** | **13** | **13** | **13** | **14** |
+| **Total** | | **24** | **15** | **19** | **13** | **16** |
 
 ### Charge de Travail par Agent
 
 | Agent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total | Pourcentage |
 |-------|---------|---------|---------|---------|-------|-------------|
-| myia-ai-01 | 7 | 7 | 4 | 5 | **23** | 26.1% |
-| myia-po-2023 | 7 | 3 | 1 | 2 | **13** | 14.8% |
-| myia-po-2024 | 6 | 3 | 3 | 2 | **14** | 15.9% |
-| myia-po-2026 | 7 | 3 | 1 | 2 | **13** | 14.8% |
-| myia-web-01 | 7 | 2 | 2 | 2 | **13** | 14.8% |
-| **Total** | **34** | **18** | **11** | **13** | **76** | 100% |
+| myia-ai-01 | 7 | 8 | 4 | 5 | **24** | 25.5% |
+| myia-po-2023 | 8 | 3 | 1 | 2 | **14** | 14.9% |
+| myia-po-2024 | 8 | 4 | 5 | 2 | **19** | 20.2% |
+| myia-po-2026 | 7 | 3 | 1 | 2 | **13** | 13.8% |
+| myia-web-01 | 7 | 5 | 4 | 2 | **18** | 19.1% |
+| **Total** | **37** | **23** | **15** | **13** | **88** | 100% |
 
 **Note:** Le total inclut les participations multiples (ex: tâche 1.7 compte 5 participations, une par agent)
 
@@ -1011,9 +1231,11 @@ La charge de travail est équilibrée entre les agents:
 - **myia-web-01:** 13 participations (14.8%)
 
 **Analyse:**
-- La charge est globalement équilibrée (écart max: 11.3%)
+- La charge est globalement équilibrée (écart max: 11.7%)
 - myia-ai-01 a une charge légèrement plus élevée en raison de son rôle de Baseline Master
-- Les 4 autres agents ont une charge très similaire (14.8% - 15.9%)
+- myia-po-2024 a une charge légèrement plus élevée en raison de son rôle de Technical Coordinator
+- myia-web-01 a une charge légèrement plus élevée en raison des tâches de documentation
+- Les 2 autres agents ont une charge très similaire (13.8% - 14.9%)
 - Aucun agent n'est surchargé ou sous-utilisé
 
 ---
@@ -1022,47 +1244,57 @@ La charge de travail est équilibrée entre les agents:
 
 ### Liste des Checkpoints
 
-#### Phase 1 (12 checkpoints)
+#### Phase 1 (15 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
-| CP1.1 | Validation des machineIds corrigés | myia-ai-01 | Une fois |
-| CP1.2 | Script Get-MachineInventory.ps1 corrigé | myia-po-2026 | Une fois |
-| CP1.3 | MCP myia-po-2026 stabilisé | myia-po-2026 | Une fois |
-| CP1.4 | Messages non-lus traités | myia-ai-01 | Une fois |
-| CP1.5 | Compilation TypeScript réussie | myia-ai-01 | Une fois |
-| CP1.6 | Identity conflict résolu | myia-web-01 | Une fois |
-| CP1.7 | Git synchronisé | myia-ai-01 | Une fois |
-| CP1.8 | Vulnérabilités npm corrigées | myia-po-2023 | Une fois |
-| CP1.9 | Répertoire myia-po-2026 créé | myia-po-2026 | Une fois |
-| CP1.10 | MCPs recompilés | myia-ai-01 | Une fois |
-| CP1.11 | Outils RooSync validés | myia-ai-01 | Une fois |
-| CP1.12 | Inventaires collectés | myia-ai-01 | Une fois |
+| | CP1.1 | Validation des machineIds corrigés | myia-ai-01 | Une fois |
+| | CP1.2 | Script Get-MachineInventory.ps1 corrigé | myia-po-2026 | Une fois |
+| | CP1.3 | MCP myia-po-2026 stabilisé | myia-po-2026 | Une fois |
+| | CP1.4 | Messages non-lus traités | myia-ai-01 | Une fois |
+| | CP1.5 | Compilation TypeScript réussie | myia-ai-01 | Une fois |
+| | CP1.6 | Identity conflict résolu | myia-web-01 | Une fois |
+| | CP1.7 | Git synchronisé | myia-ai-01 | Une fois |
+| | CP1.8 | Vulnérabilités npm corrigées | myia-po-2023 | Une fois |
+| | CP1.9 | Répertoire myia-po-2026 créé | myia-po-2026 | Une fois |
+| | CP1.10 | MCPs recompilés | myia-ai-01 | Une fois |
+| | CP1.11 | Outils RooSync validés | myia-ai-01 | Une fois |
+| | CP1.12 | Inventaires collectés | myia-ai-01 | Une fois |
+| | CP1.13 | Dépôt principal synchronisé sur myia-po-2024 | myia-po-2024 | Une fois |
+| | CP1.14 | Sous-modules mcps/internal synchronisés | myia-po-2024 | Une fois |
+| | CP1.15 | MCP recompilé sur myia-po-2023 | myia-po-2023 | Une fois |
 
-#### Phase 2 (10 checkpoints)
+#### Phase 2 (13 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
-| CP2.1 | Transition v2.1→v2.3 complétée | myia-po-2024 | Une fois |
-| CP2.2 | Node.js v24+ installé | myia-po-2023 | Une fois |
-| CP2.3 | Clés API sécurisées | myia-ai-01 | Une fois |
-| CP2.4 | Système de verrouillage implémenté | myia-ai-01 | Une fois |
-| CP2.5 | Blocage au démarrage en cas de conflit | myia-ai-01 | Une fois |
-| CP2.6 | Gestion du cache améliorée | myia-ai-01 | Une fois |
-| CP2.7 | Architecture des baselines simplifiée | myia-ai-01 | Une fois |
-| CP2.8 | Gestion des erreurs améliorée | myia-ai-01 | Une fois |
-| CP2.9 | Système de rollback amélioré | myia-ai-01 | Une fois |
-| CP2.10 | Roadmap convertie en format structuré | myia-ai-01 | Une fois |
+| | CP2.1 | Transition v2.1→v2.3 complétée | myia-po-2024 | Une fois |
+| | CP2.2 | Node.js v24+ installé | myia-po-2023 | Une fois |
+| | CP2.3 | Clés API sécurisées | myia-ai-01 | Une fois |
+| | CP2.4 | Système de verrouillage implémenté | myia-ai-01 | Une fois |
+| | CP2.5 | Blocage au démarrage en cas de conflit | myia-ai-01 | Une fois |
+| | CP2.6 | Gestion du cache améliorée | myia-ai-01 | Une fois |
+| | CP2.7 | Architecture des baselines simplifiée | myia-ai-01 | Une fois |
+| | CP2.8 | Gestion des erreurs améliorée | myia-ai-01 | Une fois |
+| | CP2.9 | Système de rollback amélioré | myia-ai-01 | Une fois |
+| | CP2.10 | Roadmap convertie en format structuré | myia-ai-01 | Une fois |
+| | CP2.11 | Alias standardisé sur myia-web-01 | myia-web-01 | Une fois |
+| | CP2.12 | Registres synchronisés | myia-ai-01 | Une fois |
+| | CP2.13 | Inventaire des API keys complété | myia-ai-01 | Une fois |
 
-#### Phase 3 (8 checkpoints)
+#### Phase 3 (12 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
-| CP3.1 | Logs plus visibles | myia-ai-01 | Une fois |
-| CP3.2 | Documentation améliorée | myia-po-2024 | Une fois |
-| CP3.3 | Tests automatisés implémentés | myia-web-01 | Une fois |
-| CP3.4 | Tests E2E complets créés | myia-web-01 | Une fois |
-| CP3.5 | Stratégie de merge validée | myia-ai-01 | Une fois |
-| CP3.6 | Graceful shutdown timeout implémenté | myia-ai-01 | Une fois |
-| CP3.7 | Erreurs script vs système différenciées | myia-ai-01 | Une fois |
-| CP3.8 | collectProfiles() implémenté | myia-ai-01 | Une fois |
+| | CP3.1 | Logs plus visibles | myia-ai-01 | Une fois |
+| | CP3.2 | Documentation améliorée | myia-po-2024 | Une fois |
+| | CP3.3 | Tests automatisés implémentés | myia-web-01 | Une fois |
+| | CP3.4 | Tests E2E complets créés | myia-web-01 | Une fois |
+| | CP3.5 | Stratégie de merge validée | myia-ai-01 | Une fois |
+| | CP3.6 | Graceful shutdown timeout implémenté | myia-ai-01 | Une fois |
+| | CP3.7 | Erreurs script vs système différenciées | myia-ai-01 | Une fois |
+| | CP3.8 | collectProfiles() implémenté | myia-ai-01 | Une fois |
+| | CP3.9 | Documentation restructurée | myia-po-2024 | Une fois |
+| | CP3.10 | Nomenclature standardisée | myia-po-2024 | Une fois |
+| | CP3.11 | Politique d'archivage implémentée | myia-po-2024 | Une fois |
+| | CP3.12 | Doublons consolidés | myia-po-2024 | Une fois |
 
 #### Phase 4 (7 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
@@ -1075,7 +1307,7 @@ La charge de travail est équilibrée entre les agents:
 | CP4.6 | Bugs de tests corrigés | myia-web-01 | Une fois |
 | CP4.7 | Tests production réels exécutés | myia-ai-01 | Une fois |
 
-**Total des checkpoints:** 37
+**Total des checkpoints:** 47
 
 ### Critères de Validation
 
@@ -1102,6 +1334,9 @@ La charge de travail est équilibrée entre les agents:
 - ✅ Tous les MCPs sont recompilés
 - ✅ Tous les outils RooSync sont validés
 - ✅ Les inventaires sont collectés et comparés
+- ✅ Le dépôt principal est synchronisé sur myia-po-2024
+- ✅ Les sous-modules mcps/internal sont synchronisés
+- ✅ Le MCP est recompilé sur myia-po-2023
 
 **Phase 2:**
 - ✅ La transition v2.1→v2.3 est complétée sur toutes les machines
@@ -1114,6 +1349,9 @@ La charge de travail est équilibrée entre les agents:
 - ✅ La gestion des erreurs est améliorée
 - ✅ Le système de rollback est amélioré
 - ✅ La roadmap est convertie en format structuré
+- ✅ L'alias est standardisé sur myia-web-01
+- ✅ Les registres sont synchronisés
+- ✅ L'inventaire des API keys est complété
 
 **Phase 3:**
 - ✅ Les logs sont visibles
@@ -1124,6 +1362,10 @@ La charge de travail est équilibrée entre les agents:
 - ✅ Le graceful shutdown timeout est implémenté
 - ✅ Les erreurs script vs système sont différenciées
 - ✅ collectProfiles() est implémenté
+- ✅ La documentation est restructurée
+- ✅ La nomenclature est standardisée
+- ✅ La politique d'archivage est implémentée
+- ✅ Les doublons sont consolidés
 
 **Phase 4:**
 - ✅ Le mécanisme de notification automatique est implémenté
@@ -1138,11 +1380,11 @@ La charge de travail est équilibrée entre les agents:
 
 | Phase | Nombre de Checkpoints | Fréquence Moyenne |
 |-------|----------------------|-------------------|
-| Phase 1 | 12 | ~1 par tâche |
-| Phase 2 | 10 | ~1 par tâche |
-| Phase 3 | 8 | ~1 par tâche |
+| Phase 1 | 15 | ~1 par tâche |
+| Phase 2 | 13 | ~1 par tâche |
+| Phase 3 | 12 | ~1 par tâche |
 | Phase 4 | 7 | ~1 par tâche |
-| **Total** | **37** | **~1 par tâche** |
+| **Total** | **47** | **~1 par tâche** |
 
 **Recommandation:** Valider chaque checkpoint immédiatement après la complétion de la tâche correspondante.
 
@@ -1318,12 +1560,12 @@ La charge de travail est équilibrée entre les agents:
 
 ### Résumé du Plan d'Action
 
-Ce plan d'action multi-agent vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0. Le plan est organisé en 4 phases avec 37 tâches réparties de manière équilibrée entre les 5 agents du cluster.
+Ce plan d'action multi-agent vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0. Le plan est organisé en 4 phases avec 47 tâches réparties de manière équilibrée entre les 5 agents du cluster.
 
 **Points Clés:**
-- ✅ **37 tâches** réparties en 4 phases
-- ✅ **37 checkpoints** pour valider la progression
-- ✅ **Charge équilibrée** entre les agents (14.8% - 26.1%)
+- ✅ **47 tâches** réparties en 4 phases
+- ✅ **47 checkpoints** pour valider la progression
+- ✅ **Charge équilibrée** entre les agents (13.8% - 25.5%)
 - ✅ **Ventilation variée** sans spécialisation excessive
 - ✅ **Plans de contingence** pour les risques identifiés
 
@@ -1379,21 +1621,21 @@ Ce plan d'action multi-agent vise à résoudre les problèmes critiques et haute
 
 | Phase | Tâches | Checkpoints | Agents Impliqués | Charge Moyenne par Agent |
 |-------|--------|-------------|------------------|-------------------------|
-| Phase 1 | 12 | 12 | 5 | 6.8 participations |
-| Phase 2 | 10 | 10 | 5 | 3.6 participations |
-| Phase 3 | 8 | 8 | 5 | 2.2 participations |
+| Phase 1 | 15 | 15 | 5 | 7.4 participations |
+| Phase 2 | 13 | 13 | 5 | 4.6 participations |
+| Phase 3 | 12 | 12 | 5 | 3.0 participations |
 | Phase 4 | 7 | 7 | 5 | 2.6 participations |
-| **Total** | **37** | **37** | **5** | **3.8 participations** |
+| **Total** | **47** | **47** | **5** | **4.4 participations** |
 
 #### Distribution des Tâches par Priorité
 
 | Priorité | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
 |----------|---------|---------|---------|---------|-------|
-| CRITICAL | 2 | 0 | 0 | 0 | **2** |
-| HIGH | 5 | 5 | 1 | 0 | **11** |
-| MEDIUM | 5 | 5 | 7 | 7 | **24** |
+| CRITICAL | 4 | 0 | 0 | 0 | **4** |
+| HIGH | 6 | 8 | 1 | 0 | **15** |
+| MEDIUM | 5 | 5 | 11 | 7 | **28** |
 | LOW | 0 | 0 | 0 | 7 | **7** |
-| **Total** | **12** | **10** | **8** | **7** | **37** |
+| **Total** | **15** | **13** | **12** | **7** | **47** |
 
 #### Distribution des Tâches par Type
 
@@ -1402,9 +1644,9 @@ Ce plan d'action multi-agent vise à résoudre les problèmes critiques et haute
 | Configuration | 4 | 4 | 1 | 1 | **10** |
 | Développement | 3 | 4 | 5 | 4 | **16** |
 | Tests | 2 | 0 | 3 | 2 | **7** |
-| Documentation | 0 | 1 | 1 | 0 | **2** |
-| Synchronisation | 3 | 1 | 0 | 0 | **4** |
-| **Total** | **12** | **10** | **10** | **7** | **39** |
+| Documentation | 0 | 1 | 5 | 0 | **6** |
+| Synchronisation | 6 | 4 | 0 | 0 | **10** |
+| **Total** | **15** | **13** | **14** | **7** | **49** |
 
 ### Glossaire
 

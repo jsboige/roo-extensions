@@ -24,19 +24,27 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 
 | Sévérité | Problème | Machines concernées |
 |-----------|----------|---------------------|
-| **CRITICAL** | Incohérence des machineIds entre .env et sync-config.json | myia-ai-01, myia-po-2026 |
-| **CRITICAL** | Get-MachineInventory.ps1 script failing (causing environment freezes) | myia-po-2026 (signalé) |
-| **HIGH** | Clés API stockées en clair dans .env | myia-ai-01 |
-| **HIGH** | MCP instable sur myia-po-2026 | myia-po-2026 |
-| **HIGH** | Fichiers de présence et problèmes de concurrence | Toutes les machines |
-| **HIGH** | Conflits d'identité non bloquants | Toutes les machines |
-| **HIGH** | Erreurs de compilation TypeScript | myia-ai-01 |
-| **HIGH** | Inventaires de configuration manquants (1/5 disponible) | Toutes les machines |
-| **HIGH** | Vulnérabilités npm (9 détectées: 4 moderate, 5 high) | myia-po-2023 |
-| **MEDIUM** | Transition RooSync v2.1→v2.3 incomplète | Toutes les machines |
-| **MEDIUM** | Git synchronization issues (1-12 commits behind) | Toutes les machines |
-| **MEDIUM** | Submodule divergences | Toutes les machines |
-| **MEDIUM** | Identity conflict (myia-web-01 vs myia-web1) | myia-web-01 |
+| | **CRITICAL** | Incohérence des machineIds entre .env et sync-config.json | myia-ai-01, myia-po-2026 |
+| | **CRITICAL** | Get-MachineInventory.ps1 script failing (causing environment freezes) | myia-po-2026 (signalé) |
+| | **CRITICAL** | Divergence du dépôt principal (12 commits en retard) | myia-po-2024 |
+| | **CRITICAL** | Sous-module mcps/internal en avance (8afcfc9 vs 65c44ce) | myia-po-2024 |
+| | **CRITICAL** | Conflits d'identité (myia-po-2026 et myia-web-01) | myia-po-2026, myia-web-01 |
+| | **CRITICAL** | API keys en clair | myia-ai-01 |
+| | **CRITICAL** | Dispersion extrême de la documentation (800+ fichiers) | Toutes les machines |
+| | **CRITICAL** | Doublons massifs de la documentation | Toutes les machines |
+| | **HIGH** | MCP instable sur myia-po-2026 | myia-po-2026 |
+| | **HIGH** | Fichiers de présence et problèmes de concurrence | Toutes les machines |
+| | **HIGH** | Conflits d'identité non bloquants | Toutes les machines |
+| | **HIGH** | Erreurs de compilation TypeScript | myia-ai-01 |
+| | **HIGH** | Inventaires de configuration manquants (1/5 disponible) | Toutes les machines |
+| | **HIGH** | Vulnérabilités npm (9 détectées: 4 moderate, 5 high) | myia-po-2023 |
+| | **HIGH** | Incohérence d'alias (myia-web-01 vs myia-web1) | myia-web-01 |
+| | **HIGH** | Incohérence des registres (myia-po-2024 absent) | Toutes les machines |
+| | **HIGH** | Recompilation MCP non effectuée (myia-po-2023) | myia-po-2023 |
+| | **MEDIUM** | Transition RooSync v2.1→v2.3 incomplète | Toutes les machines |
+| | **MEDIUM** | Git synchronization issues (1-12 commits behind) | Toutes les machines |
+| | **MEDIUM** | Submodule divergences | Toutes les machines |
+| | **MEDIUM** | Messages non lus | myia-ai-01, myia-po-2023, myia-web-01 |
 
 ### Recommandations Prioritaires
 
@@ -46,6 +54,13 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 3. **Stabiliser le MCP** sur myia-po-2026
 4. **Lire et répondre aux messages non-lus** (2 sur myia-ai-01, 1 sur myia-po-2023, 1 sur myia-web-01)
 5. **Résoudre les erreurs de compilation TypeScript** dans roo-state-manager
+6. **Synchroniser le dépôt principal sur myia-po-2024** : `git pull origin/main`
+7. **Synchroniser les sous-modules mcps/internal** : `git add mcps/internal` et `git commit`
+8. **Recompiler le MCP sur myia-po-2023** : `npm run build` et redémarrage MCP
+9. **Résoudre les conflits d'identité** (myia-po-2026 et myia-web-01)
+10. **Standardiser l'alias sur myia-web-01**
+11. **Synchroniser les registres** (ajouter myia-po-2024)
+12. **Inventaire des API keys en clair** et migration vers variables d'environnement
 
 **Actions à Court Terme (avant 2025-12-30):**
 1. Synchroniser toutes les machines avec `git pull origin main`
@@ -54,6 +69,11 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 4. Mettre à jour Node.js vers v24+ sur myia-po-2023
 5. Résoudre l'identity conflict sur myia-web-01
 6. Compléter la transition v2.1→v2.3 sur toutes les machines
+7. **Déployer v2.3 sur toutes les machines**
+8. **Restructuration hiérarchique de la documentation** (5 répertoires principaux)
+9. **Standardisation de la nomenclature**
+10. **Politique d'archivage**
+11. **Consolidation des doublons**
 
 **Actions à Long Terme (à moyen terme):**
 1. Sécuriser les clés API avec un gestionnaire de secrets
@@ -802,33 +822,63 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 - Rôle: Technical Coordinator
 - Transition: v2.1→v2.3 incomplète
 - Statut: Transition en cours
+- Machines en ligne: 3 (myia-po-2026, myia-web-01, myia-po-2024)
+- Conflits détectés: 0
+- Décisions en attente: 0
 
 #### Problèmes Identifiés
 
+**Critiques:**
+1. Divergence du dépôt principal (CRITICAL)
+   - 12 commits en retard sur origin/main
+   - Impact: Risque de conflits lors du prochain push
+   - Source: 2025-12-29_myia-po-2024_RAPPORT-DIAGNOSTIC-ROOSYNC.md, LECTURE_RAPPORTS_MANQUES_myia-ai-01_2025-12-31.md
+
+2. Sous-module mcps/internal en avance (CRITICAL)
+   - Commit 8afcfc9 vs 65c44ce attendu
+   - Impact: Incohérence de référence
+   - Source: 2025-12-29_myia-po-2024_RAPPORT-DIAGNOSTIC-ROOSYNC.md, LECTURE_RAPPORTS_MANQUES_myia-ai-01_2025-12-31.md
+
 **Moyenne Priorité:**
-1. Transition v2.1→v2.3 incomplète (MEDIUM)
+3. Transition v2.1→v2.3 incomplète (MEDIUM)
    - La transition vers RooSync v2.3 n'est pas terminée
    - Impact: Incohérences dans les fonctionnalités RooSync entre les machines
    - Source: 2025-12-29_myia-po-2024_RAPPORT-DIAGNOSTIC-ROOSYNC.md
 
-2. mcps/internal submodule ahead (MEDIUM)
+4. mcps/internal submodule ahead (MEDIUM)
    - Le sous-module mcps/internal est en avance sur la branche principale
    - Impact: Incohérences potentielles entre les machines
    - Source: 2025-12-29_myia-po-2024_RAPPORT-DIAGNOSTIC-ROOSYNC.md
 
+5. Fichiers non suivis (MEDIUM)
+   - Fichiers dans archive/roosync-v1-2025-12-27/shared/
+   - Impact: Encombrement inutile
+   - Source: 2025-12-29_myia-po-2024_RAPPORT-DIAGNOSTIC-ROOSYNC.md
+
+6. Message non lu (MEDIUM)
+   - msg-20251228T223016-db7oma en attente
+   - Impact: Retard dans la coordination
+   - Source: outputs/roosync-messages-analysis-2025-12-29-000000.md
+
 #### Recommandations
 
 **Actions Immédiates:**
-1. Synchroniser le dépôt principal: `git pull origin main`
-2. Synchroniser le sous-module mcps/internal: `cd mcps/internal && git pull && cd ..`
+1. Synchroniser le dépôt principal: `git pull origin/main`
+2. Commiter la nouvelle référence du sous-module: `git add mcps/internal` et `git commit`
+3. Compléter l'intégration v2.3 de myia-po-2023: Recompiler le MCP
+4. Traiter les messages non lus: Lire et répondre au message en attente
 
 **Actions à Court Terme:**
 1. Compléter la transition v2.1→v2.3
 2. Mettre à jour les références de sous-modules: `git submodule update --remote mcps/internal`
+3. Nettoyer les fichiers non suivis: Supprimer ou archiver les fichiers temporaires
+4. Valider la synchronisation globale
 
 **Actions à Long Terme:**
 1. Maintenir la synchronisation régulière avec origin/main
 2. Valider la compatibilité des sous-modules
+3. Implémenter un hook pre-push
+4. Mettre en place des notifications automatiques
 
 ---
 
@@ -902,36 +952,91 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 
 **RooSync:**
 - Identity conflict: myia-web-01 vs myia-web1
-- Messages non-lus: 1
+- Messages non-lus: 1 (msg-20251227T231249-s60v93)
 - Tests: 998 passés, 14 skipped (1012 total), couverture 98.6%
 - Statut: Partiellement synchronisé
+- Communication RooSync: 4/10 (Critique)
+- Score global: 7/10
 
 #### Problèmes Identifiés
 
-**Moyenne Priorité:**
-1. Identity conflict (MEDIUM)
-   - Conflit d'identité entre myia-web-01 et myia-web1
-   - Impact: Confusion dans l'identification de la machine
+**Critiques:**
+1. Conflit d'identité (CRITICAL)
+   - myia-web-01 a un statut "conflict" dans le registre des identités
+   - Impact: Risque de confusion, duplication de messages
+   - Source: myia-web-01-DIAGNOSTIC-NOMINATIF-20251229.md, LECTURE_RAPPORTS_MANQUES_myia-ai-01_2025-12-31.md
+
+2. Dispersion extrême de la documentation (CRITICAL)
+   - Documentation répartie dans de multiples emplacements (800+ fichiers, 50+ répertoires)
+   - Impact: Difficulté de localisation
+   - Source: roo-config/reports/ANALYSE_EPARPILLEMENT_DOCUMENTAIRE_2025-12-29.md
+
+3. Doublons massifs de la documentation (CRITICAL)
+   - Mêmes sujets documentés dans différents répertoires
+   - Impact: Confusion sur la version actuelle
+   - Source: roo-config/reports/ANALYSE_EPARPILLEMENT_DOCUMENTAIRE_2025-12-29.md
+
+4. Incohérences de la documentation (CRITICAL)
+   - Versions contradictoires de la même information
+   - Impact: Qualité variable
+   - Source: roo-config/reports/ANALYSE_EPARPILLEMENT_DOCUMENTAIRE_2025-12-29.md
+
+**Haute Priorité:**
+5. Incohérence d'alias (HIGH)
+   - Utilisation de myia-web-01 vs myia-web1
+   - Impact: Problèmes de routage des messages
    - Source: myia-web-01-DIAGNOSTIC-NOMINATIF-20251229.md
 
-2. Message non-lu (MEDIUM)
-   - 1 message non-lu
+6. Incohérence des registres (HIGH)
+   - myia-po-2024 absent du registre des machines
+   - Impact: myia-po-2024 peut ne pas être reconnu comme "online"
+   - Source: myia-web-01-DIAGNOSTIC-NOMINATIF-20251229.md
+
+**Moyenne Priorité:**
+7. Message non-lu (MEDIUM)
+   - msg-20251227T231249-s60v93 en attente de réponse
    - Impact: Retard dans la prise de connaissance des messages
    - Source: myia-web-01-DIAGNOSTIC-NOMINATIF-20251229.md
+
+8. Divergence mcps/internal (MEDIUM)
+   - Le sous-module peut être en divergence
+   - Impact: Risque de conflits
+   - Source: myia-web-01-DIAGNOSTIC-NOMINATIF-20251229.md
+
+9. Documentation obsolète (MEDIUM)
+   - Fichiers archivés mais toujours accessibles
+   - Impact: Encombrement inutile
+   - Source: roo-config/reports/ANALYSE_EPARPILLEMENT_DOCUMENTAIRE_2025-12-29.md
+
+10. Nomenclature non standardisée (MEDIUM)
+    - Patterns de nommage variables
+    - Impact: Difficulté de tri
+    - Source: roo-config/reports/ANALYSE_EPARPILLEMENT_DOCUMENTAIRE_2025-12-29.md
 
 #### Recommandations
 
 **Actions Immédiates:**
-1. Résoudre l'identity conflict (myia-web-01 vs myia-web1)
-2. Lire le message non-lu
+1. Résoudre le conflit d'identité: Vérifier la cohérence des identifiants dans tous les registres
+2. Standardiser l'alias: Utiliser uniquement myia-web-01 dans tous les messages
+3. Traiter les messages non lus: Lire et répondre au message en attente
+4. Synchroniser les registres: Ajouter myia-po-2024 au registre des machines
 
 **Actions à Court Terme:**
 1. Valider la synchronisation des configurations
 2. Maintenir les tests unitaires à 98.6% de couverture
+3. Synchroniser le dépôt Git: `git pull`
+4. Vérifier les sous-modules
+5. Centraliser la documentation
 
 **Actions à Long Terme:**
 1. Maintenir la stabilité des tests unitaires
 2. Valider régulièrement l'identité de la machine
+3. Restructuration hiérarchique de la documentation (5 répertoires principaux)
+4. Standardisation de la nomenclature
+5. Politique d'archivage
+6. Consolidation des doublons
+7. Création d'index complet
+8. Standardisation des métadonnées
 
 ---
 
