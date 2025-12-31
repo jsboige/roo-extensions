@@ -1587,16 +1587,21 @@ Ce plan d'action multi-agent v2.0 vise à résoudre les problèmes critiques et 
    - Rapport de synthèse affiné
    - Source des 27 recommandations consolidées
 
-#### Documents d'Analyse
-1. **docs/suivi/RooSync/ROOSYNC_ARCHITECTURE_ANALYSIS_myia-ai-01_2025-12-28.md**
+#### Documents d'Analyse (Consolidés)
+1. **docs/suivi/RooSync/SYNC_GIT_DIAGNOSTIC_MYIA-AI-01_2025-12-28.md** ✅ CONSOLIDÉ
+   - Diagnostic Git synchronisation
+   - État des sous-modules
+   - **Consolidé le:** 2025-12-31
+
+2. **docs/suivi/RooSync/ROOSYNC_ARCHITECTURE_ANALYSIS_myia-ai-01_2025-12-28.md**
    - Analyse de l'architecture RooSync
    - Source des 24 outils et 8 services
 
-2. **docs/suivi/RooSync/COMMITS_ANALYSIS_myia-ai-01_2025-12-28.md**
+3. **docs/suivi/RooSync/COMMITS_ANALYSIS_myia-ai-01_2025-12-28.md**
    - Analyse des commits
    - Source des problèmes de compilation
 
-3. **docs/suivi/RooSync/ROOSYNC_MESSAGES_COMPILATION_myia-ai-01_2025-12-29.md**
+4. **docs/suivi/RooSync/ROOSYNC_MESSAGES_COMPILATION_myia-ai-01_2025-12-29.md**
    - Compilation des messages RooSync
    - Source des points communs et divergences
 

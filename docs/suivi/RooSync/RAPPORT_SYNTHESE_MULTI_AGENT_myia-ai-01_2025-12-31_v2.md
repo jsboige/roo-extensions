@@ -1521,10 +1521,11 @@ Le système RooSync est fonctionnel mais nécessite des corrections immédiates 
    - Diagnostic myia-web-01
    - Identity conflict, tests unitaires
 
-#### Documents d'Analyse Précédents de myia-ai-01
-1. **docs/suivi/RooSync/SYNC_GIT_DIAGNOSTIC_MYIA-AI-01_2025-12-28.md**
+#### Documents d'Analyse Précédents de myia-ai-01 (Consolidés)
+1. **docs/suivi/RooSync/SYNC_GIT_DIAGNOSTIC_MYIA-AI-01_2025-12-28.md** ✅ CONSOLIDÉ
    - Diagnostic Git synchronisation
    - État des sous-modules
+   - **Consolidé le:** 2025-12-31
 
 2. **docs/suivi/RooSync/ROOSYNC_MESSAGES_ANALYSIS_myia-ai-01_2025-12-28.md**
    - Analyse des 7 derniers messages RooSync
