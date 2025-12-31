@@ -1684,6 +1684,13 @@ Le système RooSync est fonctionnel mais nécessite des corrections immédiates 
 | chore | 3 | 15% |
 | merge | 2 | 10% |
 
+#### Distribution des Commits par Auteur
+
+| Auteur | Nombre | Pourcentage |
+|--------|--------|------------|
+| jsboige | 16 | 80% |
+| Roo Extensions Dev | 4 | 20% |
+
 #### Distribution des Messages par Priorité
 
 | Priorité | Nombre | Pourcentage |
@@ -1742,6 +1749,140 @@ Type | Nombre | Pourcentage |
 1. Incohérences machineId - Non résolu
 2. Get-MachineInventory.ps1 échoue - Non résolu
 3. Erreurs de compilation TypeScript - Non résolu
+
+### Analyse Détaillée des Commits et Rapports (27-29 décembre 2025)
+
+#### Analyse des 20 Commits
+
+**Vue d'ensemble:**
+- Période: 27-29 décembre 2025
+- Auteurs: jsboige (80%), Roo Extensions Dev (20%)
+- Types: docs (50%), feat (15%), fix (10%), chore (15%), merge (10%)
+- Domaines: RooSync (75%), Documentation (50%), Sous-modules (25%), ConfigSharingService (10%)
+
+**Commits par date:**
+- 2025-12-27: 7 commits (35%)
+- 2025-12-28: 12 commits (60%)
+- 2025-12-29: 1 commit (5%)
+
+**Commits par type:**
+- docs: 10 commits (50%) - Documentation RooSync v2.1
+- feat: 3 commits (15%) - Nouvelles fonctionnalités
+- fix: 2 commits (10%) - Corrections de bugs
+- chore: 3 commits (15%) - Maintenance
+- merge: 2 commits (10%) - Fusions de branches
+
+**Commits par domaine:**
+- RooSync: 15 commits (75%) - Système de synchronisation
+- Documentation: 10 commits (50%) - Guides et documentation
+- Sous-modules: 5 commits (25%) - mcps/internal, mcp-server-ftp
+- ConfigSharingService: 2 commits (10%) - Service de partage de configuration
+
+#### Analyse des 13 Rapports
+
+**Vue d'ensemble:**
+- Période: 27-29 décembre 2025
+- Rapports analysés: 13
+- Sources: myia-ai-01, myia-po-2023, myia-po-2024, myia-po-2026, myia-web-01
+
+**Types de rapports:**
+- Diagnostics Git: 3 rapports
+- Diagnostics RooSync: 4 rapports
+- Analyses de messages: 2 rapports
+- Analyses d'architecture: 1 rapport
+- Analyses de commits: 1 rapport
+- Rapports de synthèse: 2 rapports
+
+**Contenu des rapports:**
+- Problèmes identifiés: 27 (6 CRITICAL, 7 HIGH, 12 MEDIUM, 2 LOW)
+- Solutions proposées: 15
+- Recommandations: 20+
+- Contradictions identifiées: 3
+
+#### Évaluation de la Qualité des Corrections
+
+**Corrections de haute qualité:**
+1. **Tâche 29 - Configuration watchPaths**
+   - Problème: MCP ne se recharge pas automatiquement
+   - Solution: Ajout de watchPaths dans la configuration
+   - Résultat: ✅ Résolu
+   - Qualité: 5/5
+
+2. **Tâche 28 - Correction applyConfig()**
+   - Problème: Incohérence avec InventoryCollector
+   - Solution: Suppression de l'utilisation d'InventoryCollector
+   - Résultat: ✅ Résolu
+   - Qualité: 5/5
+
+3. **Tâche 26 - Consolidation documentation**
+   - Problème: Documentation éparpillée
+   - Solution: Consolidation dans docs/suivi/RooSync/
+   - Résultat: ✅ Résolu
+   - Qualité: 5/5
+
+**Corrections partielles:**
+1. **Rechargement MCP**
+   - Problème: Modifications non prises en compte
+   - Solution: watchPaths configuré
+   - Résultat: ⚠️ Partiellement résolu (nécessite validation)
+   - Qualité: 3/5
+
+2. **Inventaires de configuration**
+   - Problème: Seul 1 inventaire sur 5 disponible
+   - Solution: Demande aux agents d'exécuter roosync_collect_config
+   - Résultat: ⚠️ En attente
+   - Qualité: 2/5
+
+**Corrections non résolues:**
+1. **Incohérences machineId**
+   - Problème: machineIds incohérents entre .env et sync-config.json
+   - Solution: Harmoniser les machineIds
+   - Résultat: ❌ Non résolu
+   - Qualité: 0/5
+
+2. **Get-MachineInventory.ps1 échoue**
+   - Problème: Script causant des freezes d'environnement
+   - Solution: Corriger le script
+   - Résultat: ❌ Non résolu
+   - Qualité: 0/5
+
+3. **Erreurs de compilation TypeScript**
+   - Problème: Fichiers manquants dans roo-state-manager
+   - Solution: Créer les fichiers manquants
+   - Résultat: ❌ Non résolu
+   - Qualité: 0/5
+
+#### Domaines Critiques Nécessitant une Attention
+
+**Domaine 1: Configuration RooSync**
+- Problèmes: Incohérences machineId, inventaires manquants
+- Impact: Dashboard incorrect, décisions appliquées à la mauvaise machine
+- Priorité: CRITICAL
+- Action requise: Harmoniser les machineIds, collecter les inventaires
+
+**Domaine 2: Synchronisation Git**
+- Problèmes: Désynchronisation généralisée, sous-modules divergents
+- Impact: Incohérences entre les machines, risque de conflits
+- Priorité: CRITICAL
+- Action requise: Synchroniser toutes les machines, mettre à jour les sous-modules
+
+**Domaine 3: Compilation TypeScript**
+- Problèmes: Fichiers manquants, erreurs de compilation
+- Impact: Empêche la compilation complète du serveur
+- Priorité: HIGH
+- Action requise: Créer les fichiers manquants, corriger les imports
+
+**Domaine 4: Sécurité**
+- Problèmes: Clés API en clair, vulnérabilités npm
+- Impact: Risques de sécurité potentiels
+- Priorité: HIGH
+- Action requise: Sécuriser les clés API, corriger les vulnérabilités
+
+**Domaine 5: Documentation**
+- Problèmes: Éparpillement, doublons, incohérences
+- Impact: Difficulté de localisation, confusion
+- Priorité: MEDIUM
+- Action requise: Consolidation sur 10 semaines
 
 ### Outils RooSync par Catégorie
 
