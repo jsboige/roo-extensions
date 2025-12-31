@@ -4,7 +4,7 @@
 **Auteur:** myia-ai-01
 **Tâche:** Orchestration de diagnostic RooSync - Phase 3
 **Version RooSync:** 2.3.0
-**Version du plan:** 3.0 (Réécriture compacte)
+**Version du plan:** 4.0 (Consolidation myia-po-2024)
 
 ---
 
@@ -15,6 +15,7 @@
 | 1.0 | 2025-12-29 | Version initiale du plan d'action | myia-ai-01 |
 | 2.0 | 2025-12-31 | Mise à jour Phase 2 - Intégration des rapports des autres agents | myia-ai-01 |
 | 3.0 | 2025-12-31 | Réécriture compacte - Élimination des redondances et retrait des faux problèmes | myia-ai-01 |
+| 4.0 | 2025-12-31 | Consolidation myia-po-2024 - Ajout des tâches de migration console.log, documentation, tests et architecture | myia-ai-01 |
 
 ---
 
@@ -29,19 +30,19 @@ Ce plan d'action vise à résoudre les problèmes critiques et haute priorité i
 | Phase | Période | Objectif Principal | Nombre de Tâches |
 |-------|---------|-------------------|------------------|
 | **Phase 1** | Aujourd'hui (2025-12-31) | Résoudre les problèmes critiques immédiats | 13 |
-| **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 12 |
-| **Phase 3** | Avant 2025-12-31 | Améliorer l'architecture et la sécurité | 8 |
-| **Phase 4** | Après 2025-12-31 | Optimiser et documenter le système | 7 |
-| **Total** | - | - | **40** |
+| **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 15 |
+| **Phase 3** | Avant 2025-12-31 | Améliorer l'architecture et la sécurité | 14 |
+| **Phase 4** | Après 2025-12-31 | Optimiser et documenter le système | 12 |
+| **Total** | - | - | **54** |
 
 ### Agents Impliqués
 
 | Agent | Rôle | État Actuel | Charge Prévue |
 |-------|------|-------------|---------------|
-| myia-ai-01 | Baseline Master | Partiellement synchronisé | 8 tâches |
-| myia-po-2023 | Agent | Opérationnel | 7 tâches |
-| myia-po-2024 | Coordinateur Technique | Transition en cours | 8 tâches |
-| myia-po-2026 | Agent | Partiellement synchronisé | 9 tâches |
+| myia-ai-01 | Baseline Master | Partiellement synchronisé | 14 tâches |
+| myia-po-2023 | Agent | Opérationnel | 11 tâches |
+| myia-po-2024 | Coordinateur Technique | Transition en cours | 11 tâches |
+| myia-po-2026 | Agent | Partiellement synchronisé | 10 tâches |
 | myia-web-01 | Testeur | Partiellement synchronisé | 9 tâches |
 
 ---
@@ -72,12 +73,12 @@ Tous les agents ont des capacités identiques:
 
 | Agent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total |
 |-------|---------|---------|---------|---------|-------|
-| myia-ai-01 | 3 | 2 | 2 | 1 | **8** |
-| myia-po-2023 | 2 | 3 | 2 | 0 | **7** |
-| myia-po-2024 | 3 | 3 | 2 | 0 | **8** |
-| myia-po-2026 | 3 | 2 | 2 | 2 | **9** |
-| myia-web-01 | 3 | 2 | 0 | 4 | **9** |
-| **Total** | **14** | **12** | **8** | **7** | **41** |
+| myia-ai-01 | 3 | 4 | 4 | 3 | **14** |
+| myia-po-2023 | 2 | 4 | 2 | 3 | **11** |
+| myia-po-2024 | 3 | 3 | 3 | 2 | **11** |
+| myia-po-2026 | 3 | 2 | 3 | 2 | **10** |
+| myia-web-01 | 3 | 2 | 2 | 2 | **9** |
+| **Total** | **14** | **15** | **14** | **12** | **55** |
 
 ---
 
@@ -154,6 +155,16 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 | 2.10 | Remplacer la roadmap Markdown par un format structuré | MEDIUM | myia-ai-01, myia-po-2023 | Utiliser JSON pour le stockage | CP2.10 |
 | 2.11 | Accélérer le déploiement v2.3 | HIGH | Toutes les machines | Compléter la transition v2.1→v2.3 sur toutes les machines | CP2.11 |
 | 2.12 | Recompiler le MCP sur myia-po-2023 | HIGH | myia-po-2023 | Exécuter npm run build et redémarrer le MCP | CP2.12 |
+| 2.13 | Migrer les console.log dans InventoryCollectorWrapper.ts | MEDIUM | myia-ai-01, myia-po-2026 | Remplacer les console.log par le logger unifié | CP2.13 |
+| 2.14 | Migrer les console.log dans MessageManager.ts | MEDIUM | myia-ai-01, myia-po-2026 | Remplacer les console.log par le logger unifié | CP2.13 |
+| 2.15 | Migrer les console.log dans NonNominativeBaselineService.ts | MEDIUM | myia-ai-01, myia-po-2026 | Remplacer les console.log par le logger unifié | CP2.13 |
+| 2.16 | Créer le guide de migration v2.1 → v2.3 | MEDIUM | myia-ai-01, myia-po-2023 | Documenter les étapes de migration et les changements | CP2.14 |
+| 2.17 | Clarifier les transitions de version (v2.1, v2.2, v2.3) | MEDIUM | myia-po-2023, myia-po-2024 | Documenter clairement les différences entre versions | CP2.14 |
+| 2.18 | Créer un index principal docs/INDEX.md | MEDIUM | myia-po-2023, myia-po-2024 | Créer un index centralisé pour la documentation | CP2.14 |
+| 2.19 | Créer des tests unitaires pour les outils RooSync non testés | MEDIUM | myia-po-2026, myia-web-01 | Ajouter des tests pour les outils sans couverture | CP2.15 |
+| 2.20 | Ajouter des tests E2E pour Compare → Validate → Apply | MEDIUM | myia-po-2026, myia-web-01 | Créer des tests E2E pour le workflow complet | CP2.15 |
+| 2.21 | Tester la synchronisation multi-machines | MEDIUM | myia-po-2026, myia-web-01 | Valider la synchronisation entre plusieurs machines | CP2.15 |
+| 2.22 | Tester la gestion des conflits | MEDIUM | myia-po-2026, myia-web-01 | Valider la résolution des conflits de synchronisation | CP2.15 |
 
 ### Checkpoints Phase 2
 
@@ -171,6 +182,9 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 | CP2.10 | Roadmap convertie en format structuré | myia-ai-01 | JSON généré et validé |
 | CP2.11 | Déploiement v2.3 accéléré | myia-po-2024 | Toutes les machines en v2.3 |
 | CP2.12 | MCP recompilé sur myia-po-2023 | myia-po-2023 | Outils v2.3 disponibles |
+| CP2.13 | Console.log migrés (100%) | myia-ai-01 | Tous les console.log remplacés |
+| CP2.14 | Documentation consolidée | myia-po-2023 | Documentation centralisée |
+| CP2.15 | Tests E2E ajoutés | myia-po-2026 | Tests E2E créés |
 
 ### Dépendances Phase 2
 
@@ -178,6 +192,9 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 - Tâche 2.3 doit être complétée avant Tâche 2.4 (verrouillage)
 - Tâche 2.4 doit être complétée avant Tâche 2.5 (conflits d'identité)
 - Tâche 2.11 doit être complétée avant Tâche 2.12 (recompilation)
+- Tâche 2.13-2.15 doivent être complétées avant CP2.13 (console.log)
+- Tâche 2.16-2.18 doivent être complétées avant CP2.14 (documentation)
+- Tâche 2.19-2.22 doivent être complétées avant CP2.15 (tests E2E)
 
 ---
 
@@ -199,6 +216,13 @@ Améliorer l'architecture, la documentation et les tests du système.
 | 3.6 | Implémenter graceful shutdown timeout | MEDIUM | myia-ai-01, myia-po-2026 | Éviter les kills brutaux | CP3.6 |
 | 3.7 | Différencier erreurs script vs système | MEDIUM | myia-ai-01, myia-po-2023 | Ajouter distinction entre erreurs script et erreurs système | CP3.7 |
 | 3.8 | Implémenter collectProfiles() | MEDIUM | myia-ai-01, myia-po-2024 | Implémenter la méthode dans ConfigSharingService.ts | CP3.8 |
+| 3.9 | Choisir le modèle de baseline unique | MEDIUM | myia-ai-01, myia-po-2024 | Analyser et choisir entre baseline nominative et non-nominative | CP3.9 |
+| 3.10 | Refactoriser l'architecture pour éliminer la duplication | MEDIUM | myia-ai-01, myia-po-2024 | Éliminer la double source de vérité | CP3.9 |
+| 3.11 | Identifier les outils MCP redondants | MEDIUM | myia-ai-01, myia-web-01 | Analyser les 54 outils RooSync pour identifier les doublons | CP3.10 |
+| 3.12 | Fusionner ou supprimer les outils MCP inutiles | MEDIUM | myia-ai-01, myia-web-01 | Réduire le nombre d'outils MCP | CP3.10 |
+| 3.13 | Activer l'auto-sync sur toutes les machines | MEDIUM | myia-po-2024, myia-po-2026 | Activer et valider l'auto-sync | CP3.11 |
+| 3.14 | Implémenter la synchronisation automatique des registres | MEDIUM | myia-po-2024, myia-po-2026 | Automatiser la mise à jour des registres | CP3.11 |
+| 3.15 | Créer des tests de régression pour prévenir les problèmes | MEDIUM | myia-po-2026, myia-web-01 | Tests pour éviter les régressions futures | CP3.11 |
 
 ### Checkpoints Phase 3
 
@@ -212,11 +236,19 @@ Améliorer l'architecture, la documentation et les tests du système.
 | CP3.6 | Graceful shutdown timeout implémenté | myia-ai-01 | Shutdown propre |
 | CP3.7 | Erreurs script vs système différenciées | myia-ai-01 | Erreurs classifiées |
 | CP3.8 | collectProfiles() implémenté | myia-ai-01 | Méthode fonctionnelle |
+| CP3.9 | Double source de vérité résolue | myia-ai-01 | Architecture unifiée |
+| CP3.10 | Outils MCP réduits | myia-ai-01 | Nombre d'outils réduit |
+| CP3.11 | Auto-sync activé | myia-po-2024 | Auto-sync fonctionnel |
+| CP3.12 | Inventaires de configuration collectés | myia-po-2026 | Inventaires disponibles |
+| CP3.13 | Tests de performance ajoutés | myia-po-2026 | Tests créés |
+| CP3.14 | Documentation restructurée | myia-po-2023 | Documentation simplifiée |
 
 ### Dépendances Phase 3
 
 - Tâche 3.3 doit être complétée avant Tâche 3.4 (tests E2E)
 - Tâche 3.5 doit être complétée avant Tâche 3.8 (collectProfiles)
+- Tâche 3.9-3.10 doivent être complétées avant CP3.9 (baseline unique)
+- Tâche 3.11-3.15 doivent être complétées avant CP3.11-CP3.14
 
 ---
 
@@ -237,6 +269,11 @@ Optimiser le système et préparer les futures évolutions.
 | 4.5 | Normaliser les chemins | LOW | myia-ai-01, myia-po-2024 | Utiliser normalize() de path pour normaliser les chemins | CP4.5 |
 | 4.6 | Corriger les bugs de tests | LOW | myia-web-01, myia-po-2026 | Corriger le test 1.3 et le test 3.1 | CP4.6 |
 | 4.7 | Exécuter tests production réels | LOW | Toutes les machines | Valider les fonctionnalités en environnement production réel | CP4.7 |
+| 4.8 | Collecter les inventaires de configuration de tous les agents | LOW | myia-po-2026, myia-po-2024 | Collecter et comparer les configurations | CP4.8 |
+| 4.9 | Implémenter la génération automatique des inventaires | LOW | myia-po-2026, myia-po-2024 | Automatiser la collecte d'inventaires | CP4.8 |
+| 4.10 | Créer des tests de charge | LOW | myia-po-2026, myia-web-01 | Tests de charge pour valider la performance | CP4.9 |
+| 4.11 | Créer des tests de performance | LOW | myia-po-2026, myia-web-01 | Tests de performance pour identifier les goulots | CP4.9 |
+| 4.12 | Identifier les goulots d'étranglement | LOW | myia-po-2026, myia-web-01 | Analyser les résultats des tests de performance | CP4.9 |
 
 ### Checkpoints Phase 4
 
@@ -249,11 +286,18 @@ Optimiser le système et préparer les futures évolutions.
 | CP4.5 | Chemins normalisés | myia-ai-01 | Chemins compatibles Windows/Linux |
 | CP4.6 | Bugs de tests corrigés | myia-web-01 | Tous les tests passent |
 | CP4.7 | Tests production réels exécutés | myia-ai-01 | Tests validés en production |
+| CP4.8 | Inventaires de configuration collectés | myia-po-2026 | Inventaires disponibles |
+| CP4.9 | Tests de performance ajoutés | myia-po-2026 | Tests créés |
+| CP4.10 | Index de documentation créé | myia-po-2023 | Index fonctionnel |
+| CP4.11 | Documentation restructurée | myia-po-2023 | Documentation simplifiée |
+| CP4.12 | Validation auto-sync et verrouillage | myia-web-01 | Validations réussies |
 
 ### Dépendances Phase 4
 
 - Tâche 4.1 doit être complétée avant Tâche 4.2 (tableau de bord)
 - Tâche 4.6 doit être complétée avant Tâche 4.7 (tests production)
+- Tâche 4.8-4.9 doivent être complétées avant CP4.8-CP4.9
+- Tâche 4.10-4.11 doivent être complétées avant CP4.10-CP4.11
 
 ---
 
@@ -290,7 +334,17 @@ Optimiser le système et préparer les futures évolutions.
 | 2.10 | Remplacer roadmap Markdown | ✅ | ✅ | - | - | - |
 | 2.11 | Accélérer déploiement v2.3 | - | - | ✅ | - | - |
 | 2.12 | Recompiler MCP myia-po-2023 | - | ✅ | - | - | - |
-| **Phase 3** | | | | | | |
+| 2.13 | Migrer console.log InventoryCollectorWrapper.ts | ✅ | - | - | ✅ | - |
+| 2.14 | Migrer console.log MessageManager.ts | ✅ | - | - | ✅ | - |
+| 2.15 | Migrer console.log NonNominativeBaselineService.ts | ✅ | - | - | ✅ | - |
+| 2.16 | Créer guide migration v2.1→v2.3 | ✅ | ✅ | - | - | - |
+| 2.17 | Clarifier transitions de version | - | ✅ | ✅ | - | - |
+| 2.18 | Créer index principal docs/INDEX.md | - | ✅ | ✅ | - | - |
+| 2.19 | Créer tests unitaires outils RooSync | - | - | - | ✅ | ✅ |
+| 2.20 | Ajouter tests E2E Compare→Validate→Apply | - | - | - | ✅ | ✅ |
+| 2.21 | Tester synchronisation multi-machines | - | - | - | ✅ | ✅ |
+| 2.22 | Tester gestion des conflits | - | - | - | ✅ | ✅ |
+| **Phase 3** | | | | | |
 | 3.1 | Rendre logs visibles | ✅ | - | ✅ | - | - |
 | 3.2 | Améliorer documentation | - | - | ✅ | - | - |
 | 3.3 | Tests automatisés | - | - | - | - | ✅ |
@@ -299,7 +353,14 @@ Optimiser le système et préparer les futures évolutions.
 | 3.6 | Graceful shutdown | ✅ | - | - | ✅ | - |
 | 3.7 | Différencier erreurs | ✅ | ✅ | - | - | - |
 | 3.8 | Implémenter collectProfiles() | ✅ | - | ✅ | - | - |
-| **Phase 4** | | | | | | |
+| 3.9 | Choisir modèle baseline unique | ✅ | - | ✅ | - | - |
+| 3.10 | Refactoriser architecture duplication | ✅ | - | ✅ | - | - |
+| 3.11 | Identifier outils MCP redondants | ✅ | - | - | - | ✅ |
+| 3.12 | Fusionner/supprimer outils MCP inutiles | ✅ | - | - | - | ✅ |
+| 3.13 | Activer auto-sync | - | - | ✅ | ✅ | - |
+| 3.14 | Implémenter sync automatique registres | - | - | ✅ | ✅ | - |
+| 3.15 | Créer tests de régression | - | - | - | ✅ | ✅ |
+| **Phase 4** | | | | | |
 | 4.1 | Notification automatique | ✅ | ✅ | - | - | - |
 | 4.2 | Tableau de bord | ✅ | - | ✅ | - | - |
 | 4.3 | Améliorer MessageHandler | ✅ | - | - | ✅ | - |
@@ -307,18 +368,23 @@ Optimiser le système et préparer les futures évolutions.
 | 4.5 | Normaliser chemins | ✅ | - | ✅ | - | - |
 | 4.6 | Corriger bugs tests | - | - | - | - | ✅ |
 | 4.7 | Tests production | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Total** | | **20** | **13** | **13** | **13** | **14** |
+| 4.8 | Collecter inventaires configuration | - | - | - | ✅ | - |
+| 4.9 | Implémenter génération automatique inventaires | - | - | ✅ | ✅ | - |
+| 4.10 | Créer tests de charge | - | - | - | ✅ | ✅ |
+| 4.11 | Créer tests de performance | - | - | - | ✅ | ✅ |
+| 4.12 | Identifier goulots d'étranglement | - | - | - | ✅ | ✅ |
+| **Total** | | **23** | **16** | **16** | **16** | **15** |
 
 ### Charge de Travail par Agent
 
 | Agent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total | Pourcentage |
 |-------|---------|---------|---------|---------|-------|-------------|
-| myia-ai-01 | 7 | 7 | 4 | 5 | **23** | 26.1% |
-| myia-po-2023 | 7 | 3 | 1 | 2 | **13** | 14.8% |
-| myia-po-2024 | 6 | 3 | 3 | 2 | **14** | 15.9% |
-| myia-po-2026 | 7 | 3 | 1 | 2 | **13** | 14.8% |
-| myia-web-01 | 7 | 2 | 2 | 2 | **13** | 14.8% |
-| **Total** | **34** | **18** | **11** | **13** | **76** | 100% |
+| myia-ai-01 | 7 | 8 | 6 | 4 | **25** | 25.5% |
+| myia-po-2023 | 7 | 4 | 1 | 4 | **16** | 16.3% |
+| myia-po-2024 | 6 | 4 | 4 | 2 | **16** | 16.3% |
+| myia-po-2026 | 7 | 4 | 3 | 2 | **16** | 16.3% |
+| myia-web-01 | 7 | 2 | 2 | 2 | **13** | 13.3% |
+| **Total** | **34** | **22** | **16** | **14** | **86** | 100% |
 
 **Note:** Le total inclut les participations multiples (ex: tâche 1.6 compte 5 participations, une par agent)
 
@@ -332,9 +398,9 @@ La charge de travail est équilibrée entre les agents:
 - **myia-web-01:** 13 participations (14.8%)
 
 **Analyse:**
-- La charge est globalement équilibrée (écart max: 11.3%)
+- La charge est globalement équilibrée (écart max: 12.2%)
 - myia-ai-01 a une charge légèrement plus élevée en raison de son rôle de Baseline Master
-- Les 4 autres agents ont une charge très similaire (14.8% - 15.9%)
+- Les 4 autres agents ont une charge très similaire (13.3% - 16.3%)
 - Aucun agent n'est surchargé ou sous-utilisé
 
 ---
@@ -376,7 +442,7 @@ La charge de travail est équilibrée entre les agents:
 | CP2.11 | Déploiement v2.3 accéléré | myia-po-2024 | Une fois |
 | CP2.12 | MCP recompilé sur myia-po-2023 | myia-po-2023 | Une fois |
 
-#### Phase 3 (8 checkpoints)
+#### Phase 3 (14 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
 | CP3.1 | Logs plus visibles | myia-ai-01 | Une fois |
@@ -387,8 +453,14 @@ La charge de travail est équilibrée entre les agents:
 | CP3.6 | Graceful shutdown timeout implémenté | myia-ai-01 | Une fois |
 | CP3.7 | Erreurs script vs système différenciées | myia-ai-01 | Une fois |
 | CP3.8 | collectProfiles() implémenté | myia-ai-01 | Une fois |
+| CP3.9 | Double source de vérité résolue | myia-ai-01 | Une fois |
+| CP3.10 | Outils MCP réduits | myia-ai-01 | Une fois |
+| CP3.11 | Auto-sync activé | myia-po-2024 | Une fois |
+| CP3.12 | Inventaires de configuration collectés | myia-po-2026 | Une fois |
+| CP3.13 | Tests de performance ajoutés | myia-po-2026 | Une fois |
+| CP3.14 | Documentation restructurée | myia-po-2023 | Une fois |
 
-#### Phase 4 (7 checkpoints)
+#### Phase 4 (12 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
 | CP4.1 | Mécanisme de notification automatique implémenté | myia-ai-01 | Une fois |
@@ -398,8 +470,13 @@ La charge de travail est équilibrée entre les agents:
 | CP4.5 | Chemins normalisés | myia-ai-01 | Une fois |
 | CP4.6 | Bugs de tests corrigés | myia-web-01 | Une fois |
 | CP4.7 | Tests production réels exécutés | myia-ai-01 | Une fois |
+| CP4.8 | Inventaires de configuration collectés | myia-po-2026 | Une fois |
+| CP4.9 | Tests de performance ajoutés | myia-po-2026 | Une fois |
+| CP4.10 | Index de documentation créé | myia-po-2023 | Une fois |
+| CP4.11 | Documentation restructurée | myia-po-2023 | Une fois |
+| CP4.12 | Validation auto-sync et verrouillage | myia-web-01 | Une fois |
 
-**Total des checkpoints:** 40
+**Total des checkpoints:** 54
 
 ### Critères de Validation
 
@@ -466,10 +543,10 @@ La charge de travail est équilibrée entre les agents:
 | Phase | Nombre de Checkpoints | Fréquence Moyenne |
 |-------|----------------------|-------------------|
 | Phase 1 | 13 | ~1 par tâche |
-| Phase 2 | 12 | ~1 par tâche |
-| Phase 3 | 8 | ~1 par tâche |
-| Phase 4 | 7 | ~1 par tâche |
-| **Total** | **40** | **~1 par tâche** |
+| Phase 2 | 15 | ~1 par tâche |
+| Phase 3 | 14 | ~1 par tâche |
+| Phase 4 | 12 | ~1 par tâche |
+| **Total** | **54** | **~1 par tâche** |
 
 **Recommandation:** Valider chaque checkpoint immédiatement après la complétion de la tâche correspondante.
 
@@ -479,19 +556,21 @@ La charge de travail est équilibrée entre les agents:
 
 ### Résumé du Plan d'Action
 
-Ce plan d'action multi-agent v3.0 vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0, en éliminant les redondances et en retirant les faux problèmes identifiés dans le rapport de synthèse v5.0. Le plan est organisé en 4 phases avec 40 tâches réparties de manière équilibrée entre les 5 agents du cluster.
+Ce plan d'action multi-agent v4.0 vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0, en éliminant les redondances et en retirant les faux problèmes identifiés dans le rapport de synthèse v5.0. Le plan est organisé en 4 phases avec 54 tâches réparties de manière équilibrée entre les 5 agents du cluster.
 
 **Points Clés:**
-- ✅ **40 tâches** réparties en 4 phases (1 tâche retirée - faux problème)
-- ✅ **40 checkpoints** pour valider la progression (1 checkpoint retiré)
-- ✅ **Charge équilibrée** entre les agents (14.8% - 26.1%)
+- ✅ **54 tâches** réparties en 4 phases (14 tâches ajoutées depuis myia-po-2024)
+- ✅ **54 checkpoints** pour valider la progression (14 checkpoints ajoutés)
+- ✅ **Charge équilibrée** entre les agents (16.4% - 25.5%)
 - ✅ **Ventilation variée** sans spécialisation excessive
 - ✅ **Structure compacte** pour une meilleure lisibilité et maintenance
 
-### Nouveautés de la Version 3.0
+### Nouveautés de la Version 4.0
 
-**Tâche retirée (faux problème):**
-- Tâche 1.1: Harmoniser les machineIds (retirée - pas un vrai problème)
+**Tâches ajoutées depuis myia-po-2024:**
+- Phase 2: Tâches 2.13-2.22 (migration console.log, documentation, tests E2E)
+- Phase 3: Tâches 3.9-3.15 (baseline unique, outils MCP, auto-sync)
+- Phase 4: Tâches 4.8-4.12 (inventaires, tests performance, documentation)
 
 **Améliorations structurelles:**
 - Élimination des redondances entre sections
@@ -516,7 +595,7 @@ Ce plan d'action multi-agent v3.0 vise à résoudre les problèmes critiques et 
 4. **Validation:** Valider chaque checkpoint avant de passer à la suite
 5. **Flexibilité:** Être prêt à adapter le plan en fonction des résultats
 
-**Statut du Plan:** 🟢 Prêt pour l'exécution (Version 3.0)
+**Statut du Plan:** 🟢 Prêt pour l'exécution (Version 4.0)
 
 ---
 
