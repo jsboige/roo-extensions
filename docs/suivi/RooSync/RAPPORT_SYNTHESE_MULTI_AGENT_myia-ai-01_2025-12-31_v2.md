@@ -433,6 +433,111 @@ Exécuter `npm audit fix` sur toutes les machines pour corriger les vulnérabili
 | | 11 | Éparpillement documentaire sur myia-web-01 | myia-web-01 | Difficulté de localisation |
 | | 12 | Doublons de documentation sur myia-web-01 | myia-web-01 | Difficulté de maintenance |
 
+### 2.10 Tests et Validation myia-web-01
+
+**Dashboard RooSync:**
+- Dashboard JSON existant et fonctionnel (sync-dashboard.json v2.0.0)
+- Dashboard Markdown user friendly manquant (à générer via outil MCP)
+
+**Tests réintégrés (2025-12-27):**
+- 6 tests E2E réintégrés (synthesis.e2e.test.ts)
+- 4 tests documentés (2 manuels RooSync + 2 non réintégrables)
+- Résultats: 1004 tests passés, 8 skippés, 0 échec
+
+**Problèmes techniques identifiés:**
+- Problème ESM singleton dans task-instruction-index.js (module already linked)
+- Problème de mocking FS dans orphan-robustness.test.ts (taux de résolution artificiellement bas)
+
+### 2.11 Réintégration et Tests Unitaires myia-web-01
+
+**Réintégration RooSync (2025-12-27):**
+- Synchronisation Git réussie (dépôt + sous-modules)
+- Configuration publiée en version 2.2.0
+- Statut: synced (2 machines en ligne)
+
+**Tests unitaires:**
+- 998 tests passés, 14 skipped (couverture 98.6%)
+- Durée: 75.73s
+- Tests notables validés: validation vectorielle, API Gateway, identity protection, InventoryService
+
+### 2.12 Intégration RooSync v2.1 myia-web-01
+
+**Documentation v2.1 consolidée (2025-12-27):**
+- 3 guides unifiés (6,505 lignes)
+- Nettoyage: 45k lignes de fichiers obsolètes supprimées
+
+**MCP roo-state-manager:**
+- Compilation réussie sans erreur
+- 17 outils RooSync exportés
+
+**Configuration locale:**
+- 8 serveurs MCP actifs
+- 12 modes Roo configurés
+- 10 spécifications SDDD
+- 300+ scripts PowerShell organisés
+
+### 2.14 Documentation RooSync
+
+**Statistiques:**
+- ~100 documents RooSync répartis dans plusieurs emplacements
+- Documentation actuelle: v2.3 (décembre 2025)
+- Documentation obsolète: v1.0 (décembre 2025)
+
+**Emplacements principaux:**
+- `docs/roosync/`: Guides principaux (7 fichiers)
+- `docs/suivi/RooSync/`: Suivi (10 fichiers)
+- `docs/deployment/`: Déploiement (5 fichiers)
+- `docs/integration/`: Intégration (20 fichiers)
+- `scripts/roosync/`: Scripts (20+ fichiers)
+- `archive/roosync-v1-2025-12-27/`: Archive v1 (20+ fichiers)
+
+**Problèmes identifiés:**
+- Doublons entre v1 et v2 (CHANGELOG, README, guides techniques)
+- Incohérences de version (v1.0, v2.1, v2.3 coexistent)
+- Dispersion de la documentation sur RooSync
+
+**Documents clés:**
+- `docs/roosync/GUIDE-TECHNIQUE-v2.3.md`
+- `docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`
+- `docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md`
+
+### 2.15 État de Santé RooSync (2025-12-29)
+
+**Score global: 5/10** ⚠️
+
+**Architecture de communication:**
+- Hiérarchie: myia-ai-01 (Baseline Master) → myia-po-2024 (Coordinateur Technique) → Agents (myia-po-2026, myia-po-2023, myia-web1)
+- Cycle: Directive → Planification → Exécution → Rapport → Validation
+- 40 messages échangés (34 lus, 85%)
+
+**Problèmes critiques identifiés:**
+- Désynchronisation généralisée Git (toutes les machines)
+- Conflits d'identité (machineId incohérent entre .env et sync-config.json)
+- 6 messages non-lus en attente
+- Transition v2.1 → v2.3 incomplète
+
+### 2.16 Exploration Approfondie RooSync (myia-web-01)
+
+**Statistiques globales:**
+- Documentation: 800+ fichiers dans 50+ répertoires
+- Espace sémantique: 291 conversations indexées, 7 workspaces
+- Commits: 100 analysés (50 principal + 50 mcps/internal)
+- Code: 10+ services, 16 outils MCP analysés
+- Tests: 1012 tests, 98.6% de couverture (1004 passés, 8 skippés)
+
+**Nouvelles découvertes:**
+- Recherche sémantique non fonctionnelle (redirection vers codebase_search)
+- Workspaces UNKNOWN (114 conversations sans workspace identifié)
+- Dashboard Markdown manquant (priorité HAUTE)
+- TODO non résolu dans ConfigComparator: centraliser la logique d'extraction
+- Comparaison basique dans ConfigComparator (à améliorer pour objets complexes)
+
+**Problèmes de code identifiés:**
+- Incohérence InventoryCollector dans ConfigSharingService (RÉSOLU dans Tâche 28)
+- Dépendances circulaires potentielles entre services
+- Code mort et duplication de code
+- Logging SDDD extensif dans RooSyncService.ts
+
 ---
 
 ## 3. Recommandations Consolidées

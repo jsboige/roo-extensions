@@ -520,6 +520,136 @@ Ce plan d'action multi-agent v3.0 vise à résoudre les problèmes critiques et 
 
 ---
 
+## 10. Risques et Mitigations
+
+### Risques Identifiés
+
+| Risque | Sévérité | Probabilité | Impact |
+|--------|-----------|-------------|--------|
+| **Conflits Git non résolus** | ÉLEVÉE | MOYENNE | Retard dans la synchronisation |
+| **Défaillance du script Get-MachineInventory.ps1** | ÉLEVÉE | FAIBLE | Problèmes d'inventaire |
+| **Perte de données lors de la migration des API keys** | CRITIQUE | FAIBLE | Perte de credentials |
+| **Problèmes de concurrence non résolus** | MOYENNE | MOYENNE | Instabilité du système |
+| **Tests manuels non corrigés** | FAIBLE | ÉLEVÉE | Couverture de tests réduite |
+| **Vulnérabilités NPM non résolues** | MOYENNE | MOYENNE | Risques de sécurité |
+| **Documentation non consolidée** | FAIBLE | ÉLEVÉE | Difficulté de maintenance |
+| **Recherche sémantique non fonctionnelle** | FAIBLE | MOYENNE | Difficulté de recherche |
+| **Auto-sync instable** | MOYENNE | MOYENNE | Problèmes de synchronisation |
+
+### Plans de Mitigation
+
+#### M1: Conflits Git non résolus
+- Créer une branche de secours (myia-ai-01, immédiat)
+- Documenter les conflits (myia-po-2024, immédiat)
+- Implémenter un processus de résolution (myia-po-2024, 1 jour)
+- Tester la résolution (myia-po-2026, 1 jour)
+
+#### M2: Défaillance du script Get-MachineInventory.ps1
+- Créer une sauvegarde du script (myia-po-2026, immédiat)
+- Implémenter des tests unitaires (myia-po-2026, 1 jour)
+- Documenter les corrections (myia-po-2024, 1 jour)
+- Valider sur toutes les machines (myia-web-01, 1 jour)
+
+#### M3: Perte de données lors de la migration des API keys
+- Créer une sauvegarde des API keys (myia-po-2023, immédiat)
+- Implémenter un script de migration sécurisé (myia-po-2023, 1 jour)
+- Tester la migration sur une machine (myia-po-2026, 1 jour)
+- Valider la migration sur toutes les machines (myia-web-01, 1 jour)
+
+#### M4: Problèmes de concurrence non résolus
+- Implémenter un mécanisme de verrouillage (myia-po-2026, 2 jours)
+- Tester le verrouillage (myia-po-2026, 1 jour)
+- Documenter le mécanisme (myia-po-2024, 1 jour)
+- Valider sur toutes les machines (myia-web-01, 1 jour)
+
+#### M5: Tests manuels non corrigés
+- Prioriser les tests critiques (myia-po-2026, immédiat)
+- Implémenter des tests automatisés (myia-po-2026, 1 semaine)
+- Documenter les tests manuels restants (myia-po-2024, 1 jour)
+- Valider les tests automatisés (myia-web-01, 1 jour)
+
+#### M6: Vulnérabilités NPM non résolues
+- Prioriser les vulnérabilités critiques (myia-po-2023, immédiat)
+- Mettre à jour les dépendances (myia-po-2023, 1 semaine)
+- Tester les mises à jour (myia-po-2026, 1 jour)
+- Valider sur toutes les machines (myia-web-01, 1 jour)
+
+#### M7: Documentation non consolidée
+- Créer une structure de documentation (myia-po-2024, 1 jour)
+- Migrer la documentation existante (myia-po-2024, 1 semaine)
+- Documenter la structure (myia-po-2024, 1 jour)
+- Valider la documentation (myia-web-01, 1 jour)
+
+#### M8: Recherche sémantique non fonctionnelle
+- Analyser la configuration Qdrant (myia-po-2026, 1 jour)
+- Corriger l'implémentation (myia-po-2026, 2 jours)
+- Tester la recherche sémantique (myia-po-2026, 1 jour)
+- Valider sur toutes les machines (myia-web-01, 1 jour)
+
+#### M9: Auto-sync instable
+- Implémenter un mécanisme de rollback (myia-ai-01, 1 jour)
+- Tester l'auto-sync en mode test (myia-ai-01, 2 jours)
+- Documenter le mécanisme (myia-po-2024, 1 jour)
+- Valider sur toutes les machines (myia-web-01, 1 jour)
+
+### Alternatives
+
+| Scénario | Alternative | Responsable |
+|----------|-------------|-------------|
+| Conflits Git non résolus | Utiliser Git rebase au lieu de merge | myia-po-2024 |
+| Défaillance du script Get-MachineInventory.ps1 | Utiliser un script alternatif | myia-po-2026 |
+| Perte de données lors de la migration des API keys | Restaurer depuis la sauvegarde | myia-po-2023 |
+| Problèmes de concurrence non résolus | Implémenter un système de files d'attente | myia-po-2026 |
+| Tests manuels non corrigés | Documenter les tests manuels comme connus | myia-po-2024 |
+| Vulnérabilités NPM non résolues | Accepter les vulnérabilités non critiques | myia-po-2023 |
+| Documentation non consolidée | Créer un index de documentation | myia-po-2024 |
+| Recherche sémantique non fonctionnelle | Utiliser la recherche par mots-clés | myia-po-2026 |
+| Auto-sync instable | Désactiver l'auto-sync | myia-ai-01 |
+
+---
+
+## 11. Points de Validation Collective
+
+### Checkpoints de Synchronisation Inter-Machines
+
+#### S1: Fin des actions immédiates (Jour 2)
+- Validation: myia-ai-01
+- Confirmations: myia-po-2024, myia-po-2026, myia-po-2023, myia-web-01
+
+#### S2: Fin des actions court terme (Semaine 2)
+- Validation: myia-ai-01
+- Confirmations: myia-po-2024, myia-po-2026, myia-po-2023, myia-web-01
+
+#### S3: Fin des actions long terme (Semaine 8)
+- Validation: myia-ai-01
+- Confirmations: myia-po-2024, myia-po-2026, myia-po-2023, myia-web-01
+
+### Critères de Validation Collective
+
+#### V1: Actions immédiates (Jour 2)
+- Conflits d'identité résolus
+- Synchronisation Git effectuée
+- Script Get-MachineInventory.ps1 corrigé
+- API keys sécurisées
+- Messages non lus traités
+
+#### V2: Actions court terme (Semaine 2)
+- Transition v2.1 → v2.3 complétée
+- Sous-modules mcps/internal synchronisés
+- MCPs recompilés
+- Problèmes de présence corrigés
+- Dashboard Markdown créé
+
+#### V3: Actions long terme (Semaine 8)
+- Tests manuels corrigés
+- Vulnérabilités NPM résolues
+- Fichiers temporaires nettoyés
+- Documentation consolidée
+- Recherche sémantique améliorée
+- Auto-sync activé
+
+---
+
 ## Glossaire
 
 | Terme | Définition |
