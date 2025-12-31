@@ -203,31 +203,6 @@ Identifier la cause du conflit (myia-web-01 vs myia-web1) et corriger en standar
 
 ---
 
-**3. Divergence du dépôt principal sur myia-po-2024**
-
-**Description détaillée:**
-Le dépôt principal sur myia-po-2024 est en retard de 12 commits par rapport à origin/main.
-
-**Contexte technique:**
-- myia-po-2024 a le rôle de Coordinateur Technique
-- La machine doit être à jour pour coordonner efficacement les autres machines
-- Les 12 commits manquants peuvent contenir des corrections importantes
-
-**Symptômes observés:**
-- Branche main en retard de 12 commits
-- Risque de conflits lors du prochain push
-- Incohérence avec les autres machines
-
-**Impact sur le système:**
-- Risque de conflits lors du prochain push
-- Incohérence avec les autres machines
-- Corrections potentiellement manquantes
-- Difficulté de coordination technique
-
-**Solution recommandée:**
-Exécuter `git pull origin main` pour synchroniser le dépôt principal.
-
----
 
 **4. Sous-module mcps/internal en avance sur myia-po-2024**
 
@@ -243,6 +218,17 @@ Le sous-module mcps/internal sur myia-po-2024 est au commit 8afcfc9 alors que le
 - Sous-module mcps/internal au commit 8afcfc9
 - Dépôt principal attend le commit 65c44ce
 - Incohérence de référence
+
+**Détails des commits concernés:**
+- Commit local (8afcfc9): CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1
+- Commit distant attendu (65c44ce): feat(roosync): Consolidation v2.3 - Fusion et suppression d'outils
+
+**Derniers commits dans mcps/internal:**
+- 8afcfc9 CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1
+- 4a8a077 Résolution du conflit de fusion dans ConfigSharingService.ts - Version remote conservée avec améliorations d'inventaire
+- 9bb8e17 Tâche 28 - Correction de l'incohérence InventoryCollector dans applyConfig()
+- 65c44ce feat(roosync): Consolidation v2.3 - Fusion et suppression d'outils
+- f9e9859 fix(ConfigSharingService): Utiliser les chemins directs du workspace pour collectModes et collectMcpSettings
 
 **Impact sur le système:**
 - Incohérence de référence entre le sous-module et le dépôt principal
@@ -432,6 +418,53 @@ Exécuter `npm audit fix` sur toutes les machines pour corriger les vulnérabili
 | | 10 | Fichiers non suivis sur myia-po-2024 | myia-po-2024 | État du dépôt non propre |
 | | 11 | Éparpillement documentaire sur myia-web-01 | myia-web-01 | Difficulté de localisation |
 | | 12 | Doublons de documentation sur myia-web-01 | myia-web-01 | Difficulté de maintenance |
+| | 13 | Recompilation MCP Non Effectuée (myia-po-2023) | myia-po-2023 | Les outils v2.3 ne sont pas disponibles |
+| | 14 | Commits de Correction Fréquents | Toutes les machines | Instabilité du dépôt, risque de régression |
+
+#### Détails du Problème #13 : Recompilation MCP Non Effectuée (myia-po-2023)
+
+**Description détaillée:**
+myia-po-2023 n'a pas recompilé le MCP roo-state-manager après la synchronisation.
+
+**Contexte technique:**
+- La transition v2.1 → v2.3 nécessite une recompilation du MCP
+- Les outils v2.3 ne sont disponibles qu'après recompilation
+- Le MCP doit être redémarré pour prendre en compte les changements
+
+**Symptômes observés:**
+- Les outils v2.3 ne sont pas disponibles sur myia-po-2023
+- La configuration n'a pas été remontée correctement
+
+**Impact sur le système:**
+- Incohérence entre les machines
+- Outils v2.3 non disponibles sur myia-po-2023
+- Difficulté de coordination
+
+**Solution recommandée:**
+myia-po-2023 doit exécuter `npm run build` et redémarrer le MCP.
+
+#### Détails du Problème #14 : Commits de Correction Fréquents
+
+**Description détaillée:**
+Patterns de développement négatifs identifiés dans l'historique des commits.
+
+**Contexte technique:**
+- Les commits de correction fréquents sont un indicateur d'instabilité
+- Les conflits de fusion récurrents indiquent des problèmes de coordination
+- La suppression de fichiers incohérents indique une mauvaise gestion
+
+**Patterns négatifs identifiés:**
+- Commits de correction fréquents (indicateur d'instabilité)
+- Conflits de fusion récurrents
+- Suppression de fichiers incohérents (indicateur de mauvaise gestion)
+
+**Impact sur le système:**
+- Instabilité du dépôt
+- Risque de régression
+- Difficulté de coordination
+
+**Solution recommandée:**
+Investiguer les causes des commits de correction fréquents et implémenter des préventifs.
 
 ### 2.10 Tests et Validation myia-web-01
 
@@ -982,19 +1015,25 @@ Tester chaque outil RooSync sur chaque machine et documenter les résultats.
 **Description détaillée:**
 Ajouter les fichiers non suivis dans archive/ sur myia-po-2024 au .gitignore ou les commiter.
 
+**Fichiers non suivis identifiés:**
+| Chemin | Type | Action recommandée |
+|--------|------|-------------------|
+| archive/roosync-v1-2025-12-27/shared/baselines/ | Répertoire | Ajouter au .gitignore |
+| archive/roosync-v1-2025-12-27/shared/inventories/ | Répertoire | Ajouter au .gitignore |
+
 **Étapes détaillées de mise en œuvre:**
 1. Sur myia-po-2024, exécuter `git status` pour lister les fichiers non suivis
 2. Analyser les fichiers non suivis:
-   - Déterminer s'ils doivent être suivis ou ignorés
-   - Les fichiers de logs doivent généralement être ignorés
-   - Les fichiers de configuration doivent généralement être suivis
+    - Déterminer s'ils doivent être suivis ou ignorés
+    - Les fichiers de logs doivent généralement être ignorés
+    - Les fichiers de configuration doivent généralement être suivis
 3. Pour les fichiers à ignorer:
-   - Ajouter les patterns au .gitignore
-   - Exécuter `git add .gitignore`
-   - Exécuter `git commit -m "Update .gitignore"`
+    - Ajouter les patterns au .gitignore
+    - Exécuter `git add .gitignore`
+    - Exécuter `git commit -m "Update .gitignore"`
 4. Pour les fichiers à suivre:
-   - Exécuter `git add <fichier>`
-   - Exécuter `git commit -m "Add <fichier>"`
+    - Exécuter `git add <fichier>`
+    - Exécuter `git commit -m "Add <fichier>"`
 
 **Prérequis:**
 - Accès au terminal sur myia-po-2024
@@ -1010,6 +1049,58 @@ Ajouter les fichiers non suivis dans archive/ sur myia-po-2024 au .gitignore ou 
 - `git status` n'affiche plus de fichiers non suivis
 - Le .gitignore est correctement configuré
 - Les fichiers importants sont suivis
+
+#### 8. Investiguer les causes des commits de correction fréquents
+
+**Description détaillée:**
+Analyser les patterns de correction fréquents pour identifier les causes racines et implémenter des préventifs.
+
+**Étapes détaillées de mise en œuvre:**
+1. Analyser l'historique des commits pour identifier les patterns de correction
+2. Identifier les causes racines des commits de correction fréquents
+3. Implémenter des préventifs pour éviter les corrections futures
+4. Documenter les patterns identifiés et les solutions mises en place
+
+**Prérequis:**
+- Accès à l'historique des commits
+- Compréhension des patterns de développement
+- Capacité à implémenter des préventifs
+
+**Risques potentiels:**
+- Difficulté à identifier les causes racines
+- Nécessité de comprendre les patterns de développement
+- Possibilité de problèmes de coordination
+
+**Critères de validation:**
+- Les patterns de correction fréquents sont identifiés
+- Les causes racines sont documentées
+- Les préventifs sont implémentés
+
+#### 8. Investiguer les causes des commits de correction fréquents
+
+**Description détaillée:**
+Analyser les patterns de correction fréquents pour identifier les causes racines et implémenter des préventifs.
+
+**Étapes détaillées de mise en œuvre:**
+1. Analyser l'historique des commits pour identifier les patterns de correction
+2. Identifier les causes racines des commits de correction fréquents
+3. Implémenter des préventifs pour éviter les corrections futures
+4. Documenter les patterns identifiés et les solutions mises en place
+
+**Prérequis:**
+- Accès à l'historique des commits
+- Compréhension des patterns de développement
+- Capacité à implémenter des préventifs
+
+**Risques potentiels:**
+- Difficulté à identifier les causes racines
+- Nécessité de comprendre les patterns de développement
+- Possibilité de problèmes de coordination
+
+**Critères de validation:**
+- Les patterns de correction fréquents sont identifiés
+- Les causes racines sont documentées
+- Les préventifs sont implémentés
 
 ---
 
