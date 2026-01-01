@@ -4,7 +4,7 @@
 **Auteur:** myia-ai-01
 **Tâche:** Orchestration de diagnostic RooSync - Phase 2
 **Version RooSync:** 2.3.0
-**Version du rapport:** 5.0 (Correction des faux problèmes)
+**Version du rapport:** 6.0 (Consolidation RAPPORT-SYNTHESE-ROOSYNC.md)
 
 ---
 
@@ -12,11 +12,12 @@
 
 | Version | Date | Modifications | Auteur |
 |---------|------|---------------|--------|
-| 1.0 | 2025-12-29 | Version initiale du rapport de synthèse | myia-ai-01 |
-| 2.0 | 2025-12-31 | Mise à jour Phase 2 - Intégration des rapports des autres agents | myia-ai-01 |
-| 3.0 | 2025-12-31 | Réécriture compacte - Élimination des redondances | myia-ai-01 |
-| 4.0 | 2025-12-31 | Enrichissement et clarification - Ajout de contexte technique détaillé | myia-ai-01 |
-| 5.0 | 2025-12-31 | Correction des faux problèmes - Retrait des problèmes non pertinents | myia-ai-01 |
+| | 1.0 | 2025-12-29 | Version initiale du rapport de synthèse | myia-ai-01 |
+| | 2.0 | 2025-12-31 | Mise à jour Phase 2 - Intégration des rapports des autres agents | myia-ai-01 |
+| | 3.0 | 2025-12-31 | Réécriture compacte - Élimination des redondances | myia-ai-01 |
+| | 4.0 | 2025-12-31 | Enrichissement et clarification - Ajout de contexte technique détaillé | myia-ai-01 |
+| | 5.0 | 2025-12-31 | Correction des faux problèmes - Retrait des problèmes non pertinents | myia-ai-01 |
+| | 6.0 | 2026-01-01 | Consolidation RAPPORT-SYNTHESE-ROOSYNC.md - Ajout tests unitaires, recommandations détaillées, retrait faux positifs | myia-ai-01 |
 
 ---
 
@@ -143,9 +144,6 @@ myia-po-2026, myia-po-2023, myia-web-01 (Agents)
 | # | Problème | Machines concernées | Impact |
 |---|----------|---------------------|--------|
 | | 1 | Get-MachineInventory.ps1 script failing (causing environment freezes) | myia-po-2026 (signalé), potentiellement toutes | Impossible de collecter les inventaires, freezes d'environnement |
-| | 2 | Conflit d'identité sur myia-web-01 | myia-web-01 | Risque de confusion, duplication de messages |
-| | 3 | Divergence du dépôt principal sur myia-po-2024 | myia-po-2024 | Risque de conflits lors du prochain push, incohérence avec les autres machines |
-| | 4 | Sous-module mcps/internal en avance sur myia-po-2024 | myia-po-2024 | Incohérence de référence, risque de conflits lors du commit |
 
 #### Détails des Problèmes Critiques
 
@@ -176,68 +174,6 @@ Le script PowerShell `Get-MachineInventory.ps1` est utilisé pour collecter l'in
 Identifier la cause des freezes d'environnement et corriger le script. Possibles causes: boucle infinie, appel bloquant, problème de gestion des ressources.
 
 ---
-
-**2. Conflit d'identité sur myia-web-01**
-
-**Description détaillée:**
-La machine myia-web-01 présente un conflit d'identité entre deux identifiants: "myia-web-01" et "myia-web1".
-
-**Contexte technique:**
-- L'`IdentityManager` détecte les conflits d'identité au démarrage
-- Le système utilise le hostname OS pour déterminer l'ID de machine
-- Les conflits d'identité sont détectés mais ne bloquent pas le démarrage du service
-
-**Symptômes observés:**
-- Statut "conflict" dans le registre des identités
-- Utilisation de myia-web-01 vs myia-web1 dans différents fichiers
-- Problèmes de routage des messages
-
-**Impact sur le système:**
-- Risque de confusion dans l'identification de la machine
-- Duplication de messages potentielle
-- Problèmes de routage des messages
-- Difficulté de debugging
-
-**Solution recommandée:**
-Identifier la cause du conflit (myia-web-01 vs myia-web1) et corriger en standardisant sur un identifiant unique.
-
----
-
-
-**4. Sous-module mcps/internal en avance sur myia-po-2024**
-
-**Description détaillée:**
-Le sous-module mcps/internal sur myia-po-2024 est au commit 8afcfc9 alors que le dépôt principal attend 65c44ce.
-
-**Contexte technique:**
-- Les sous-modules Git permettent d'inclure d'autres dépôts dans le dépôt principal
-- mcps/internal contient le code du serveur roo-state-manager
-- Chaque sous-module a sa propre référence de commit dans le dépôt principal
-
-**Symptômes observés:**
-- Sous-module mcps/internal au commit 8afcfc9
-- Dépôt principal attend le commit 65c44ce
-- Incohérence de référence
-
-**Détails des commits concernés:**
-- Commit local (8afcfc9): CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1
-- Commit distant attendu (65c44ce): feat(roosync): Consolidation v2.3 - Fusion et suppression d'outils
-
-**Derniers commits dans mcps/internal:**
-- 8afcfc9 CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1
-- 4a8a077 Résolution du conflit de fusion dans ConfigSharingService.ts - Version remote conservée avec améliorations d'inventaire
-- 9bb8e17 Tâche 28 - Correction de l'incohérence InventoryCollector dans applyConfig()
-- 65c44ce feat(roosync): Consolidation v2.3 - Fusion et suppression d'outils
-- f9e9859 fix(ConfigSharingService): Utiliser les chemins directs du workspace pour collectModes et collectMcpSettings
-
-**Impact sur le système:**
-- Incohérence de référence entre le sous-module et le dépôt principal
-- Risque de conflits lors du commit
-- Code différent sur chaque machine
-- Difficulté de synchronisation
-
-**Solution recommandée:**
-Commiter la nouvelle référence du sous-module mcps/internal (8afcfc9) et push vers le dépôt distant.
 
 ### Problèmes Haute Priorité (HIGH)
 
@@ -481,6 +417,33 @@ Investiguer les causes des commits de correction fréquents et implémenter des 
 - Problème ESM singleton dans task-instruction-index.js (module already linked)
 - Problème de mocking FS dans orphan-robustness.test.ts (taux de résolution artificiellement bas)
 
+### 2.10.1 Tests Unitaires Consolidés (Multi-Agent)
+
+**Statut Global des Tests Unitaires**
+
+**Statut** : ✅ 49 tests unitaires (100% passing)
+
+**Répartition** :
+- 18 tests BaselineService
+- 8 tests E2E
+- 23 autres tests unitaires
+
+**Couverture** : Les tests couvrent les services principaux de RooSync
+
+**Tests E2E RooSync**
+
+**Fichiers identifiés** :
+- [`roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts:1)
+- [`roosync-error-handling.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts:1)
+
+**Observations** : Les tests utilisent des mocks pour contourner les problèmes de `fs` en environnement de test
+
+**Limites des Tests**
+
+1. **Tests E2E avec mocks** : Les tests ne reflètent pas complètement le comportement en production
+2. **Absence de tests de transition v2.1 → v2.3** : La transition architecturale n'est pas testée
+3. **Tests de régression manquants** : Pas de pipeline CI/CD automatisé
+
 ### 2.11 Réintégration et Tests Unitaires myia-web-01
 
 **Réintégration RooSync (2025-12-27):**
@@ -492,6 +455,21 @@ Investiguer les causes des commits de correction fréquents et implémenter des 
 - 998 tests passés, 14 skipped (couverture 98.6%)
 - Durée: 75.73s
 - Tests notables validés: validation vectorielle, API Gateway, identity protection, InventoryService
+
+### 2.13 Tests et Validation myia-po-2026
+
+**Tests unitaires:**
+- 989 tests passés, 8 skipped, 0 échoués (couverture 99.2%)
+- Durée: non spécifiée
+- Statut: Tests stables et fiables
+
+**Documentation consolidée v2.1:**
+- 4 guides unifiés (7,366 lignes totales)
+  - README.md (861 lignes)
+  - GUIDE-OPERATIONNEL-UNIFIE-v2.1.md (2,203 lignes)
+  - GUIDE-DEVELOPPEUR-v2.1.md (2,748 lignes)
+  - GUIDE-TECHNIQUE-v2.1.md (1,554 lignes)
+- Qualité: 5/5 ⭐⭐⭐⭐⭐
 
 ### 2.12 Intégration RooSync v2.1 myia-web-01
 
@@ -1615,7 +1593,181 @@ Concevoir l'interface et implémenter un tableau de bord pour visualiser l'état
 
 ---
 
-## 4. Conclusion
+## 4. Analyse Multi-Agent Structurée
+
+### 4.1 Analyse des Communications Inter-Machines
+
+**Synthèse des Communications (Période : 30/11/2025 - 29/12/2025)**
+
+**Total messages analysés** : 152 messages
+
+**Répartition par priorité** :
+- 🔥 URGENT : 3 messages (2%)
+- ⚠️ HIGH : 28 messages (18%)
+- 📝 MEDIUM : 19 messages (13%)
+- 📋 LOW : 102 messages (67%)
+
+**Répartition par expéditeur** :
+- myia-po-2026 : 12 messages (8%)
+- myia-po-2023 : 15 messages (10%)
+- myia-po-2024 : 8 messages (5%)
+- myia-ai-01 : 8 messages (5%)
+- myia-web1 : 7 messages (5%)
+- Autres : 102 messages (67%)
+
+**Thématiques Principales des Communications**
+
+1. **Coordination & Collaboration** (15 messages) : Phase 2 coordination, répartition des tâches, synchronisation inter-agents
+2. **Développement & Tests** (18 messages) : Tests unitaires roo-state-manager, analyse et correction d'outils
+3. **Rapports & Documentation** (12 messages) : Rapports d'avancement, documentation SDDD, corrections de nomenclature
+4. **Urgences & Corrections** (5 messages) : Corrections critiques, problèmes urgents
+5. **Messages système** (102 messages) : Notifications automatiques, confirmations
+
+**Messages Clés de Coordination**
+
+| ID | Date | De | Sujet | Priorité |
+|----|------|----|-------|----------|
+| msg-20251227T235523-ht2pwr | 27/12/2025 | myia-po-2024 | 📋 Coordination RooSync v2.3 | ⚠️ HIGH |
+| msg-20251227T234502-xd8xio | 27/12/2025 | myia-po-2024 | ✅ Consolidation RooSync v2.3 terminée | ⚠️ HIGH |
+| msg-20251227T060726-ddxxl4 | 27/12/2025 | myia-ai-01 | [URGENT] Directive de réintégration | ⚠️ HIGH |
+| msg-20251229T001213-9sizos | 29/12/2025 | myia-po-2026 | DIAGNOSTIC ROOSYNC - myia-po-2026 | 📝 MEDIUM |
+
+**Thématiques Principales des Communications (Période : 14 déc 2025 - 29 déc 2025)**
+
+1. **Transition RooSync v2.1 → v2.3**
+   - Coordination : myia-po-2024 a orchestré la consolidation v2.3
+   - Instructions : Messages HIGH avec directives techniques pour les agents
+   - Validation : myia-ai-01 a validé les rapports de mission
+
+2. **Corrections et Bug Fixes**
+   - ConfigSharingService : Corrections SDDD pour remontée de configuration
+   - MCP Reloading : Problème de rechargement MCP après recompilation (maintenant résolu)
+   - Inventaire : Correction de l'incohérence InventoryCollector dans applyConfig()
+
+3. **Diagnostics et Rapports**
+   - Rapports nominatifs : Chaque machine a généré son diagnostic
+   - Analyses multidimensionnelles : Architecture, messages, commits, Git
+   - Consolidation : Rapports temporaires consolidés dans docs/suivi/RooSync/
+
+### 4.2 Dualité Architecturale v2.1/v2.3 comme Cause Profonde
+
+**Analyse de la Transition Critique**
+
+Le système RooSync est en **transition critique** entre deux versions architecturales. Cette dualité architecturale est identifiée comme la **cause profonde de l'instabilité** du système.
+
+**Contexte de la Transition**
+
+- **v2.1** : Baseline nominative avec [`BaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/BaselineService.ts:1)
+- **v2.3** : Baseline non-nominative avec [`NonNominativeBaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts:1)
+
+Cette transition est documentée dans [`roosync-consolidation-plan.md`](../planning/roosync-refactor/roosync-consolidation-plan.md) qui identifie explicitement la **dualité architecturale** comme problème central.
+
+**Services en Conflit**
+
+| Service v2.1 | Service v2.3 | Impact |
+|--------------|--------------|--------|
+| [`BaselineService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/BaselineService.ts:1) (769 lignes) | [`NonNominativeBaselineService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts:1) (948 lignes) | Code complexe à maintenir, risque de bugs élevé, confusion API |
+| Baseline nominative (machineId) | Baseline non-nominative (profil) | Incohérence de configuration entre machines |
+
+**Services RooSync Modernes (v2.3)**
+
+Les services suivants ont été introduits pour moderniser l'architecture :
+
+- [`IdentityManager.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/IdentityManager.ts:1) : Gestion des identités de machines
+- [`IdentityService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/IdentityService.ts:1) : Service d'identité
+- [`PresenceManager.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/PresenceManager.ts:1) : Gestion de la présence des machines
+- [`MessageHandler.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/MessageHandler.ts:1) : Gestion des messages inter-agents
+- [`SyncDecisionManager.ts`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/SyncDecisionManager.ts:1) : Gestion des décisions de synchronisation
+
+**Impact de la Dualité Architecturale**
+
+1. **Complexité technique majeure** : Coexistence de deux services de baseline avec des API différentes
+2. **Incohérence de configuration** : Les machines utilisent des versions différentes
+3. **Risque de bugs élevé** : Code difficile à maintenir et à tester
+4. **Confusion API** : Les développeurs ne savent pas quel service utiliser
+5. **Instabilité du système** : Les problèmes de synchronisation sont récurrents
+
+**Historique des Corrections SDDD**
+
+Les commits suivants montrent une **activité de correction intensive** autour de la transition :
+
+- `8afcfc9` : "CORRECTION SDDD: Fix ConfigSharingService pour RooSync v2.1"
+- `4a8a077` : "Résolution du conflit de fusion dans ConfigSharingService.ts"
+- `9bb8e17` : "Tâche 28 - Correction de l'incohérence InventoryCollector"
+
+**Aspects de la Dualité Architecturale**
+
+1. **API Différentes**
+   - v2.1 : 17 outils MCP disponibles
+   - v2.3 : 24 outils MCP disponibles
+   - Incohérence : Les machines en transition n'ont pas accès aux mêmes fonctionnalités
+
+2. **Workflow Baseline-Driven**
+   - v2.1 : Workflow simplifié sans validation humaine obligatoire
+   - v2.3 : Workflow en 3 phases obligatoires (Compare → Human Validation → Apply)
+   - Incohérence : Les machines v2.1 peuvent appliquer des changements sans validation
+
+3. **Services Core**
+   - v2.1 : RooSyncService et ConfigSharingService basiques
+   - v2.3 : Services enrichis avec BaselineManager, SyncDecisionManager, etc.
+   - Incohérence : Les machines v2.1 n'ont pas accès aux services de gestion de baseline
+
+**Impact sur l'Environnement Multi-Agent**
+
+- **Incohérence de fonctionnalités** : Les machines v2.1 ne peuvent pas utiliser les outils v2.3
+- **Risque de conflits** : Les machines v2.1 peuvent appliquer des changements sans validation
+- **Difficulté de coordination** : Les agents ne savent pas quelle version utiliser
+- **Problèmes de synchronisation** : Les configurations v2.1 et v2.3 ne sont pas compatibles
+
+**Recommandation Spécifique**
+
+Accélérer le déploiement v2.3 sur toutes les machines pour éliminer cette dualité architecturale et garantir une cohérence complète de l'environnement multi-agent.
+
+### 4.3 Vue d'Ensemble des Diagnostics de Toutes les Machines
+
+**État Global des Machines**
+
+| Machine | Rôle | Statut Git | Statut RooSync | Problèmes Majeurs |
+|---------|------|------------|----------------|-------------------|
+| myia-ai-01 | Baseline Master | ⚠️ Désynchronisé | ✅ Opérationnel | 21 problèmes identifiés |
+| myia-po-2024 | Coordinateur Technique | ⚠️ 12 commits en retard | ✅ Opérationnel | Sous-module en avance |
+| myia-po-2026 | Agent | ⚠️ 1 commit en retard | ✅ Opérationnel | MCP instable |
+| myia-po-2023 | Agent | ⚠️ À vérifier | ✅ Opérationnel | Recompilation MCP requise |
+| myia-web1 | Agent | ⚠️ À vérifier | ✅ Opérationnel | Réintégration v2.2 |
+
+**Architecture de Communication RooSync**
+
+```
+myia-ai-01 (Baseline Master / Coordinateur Principal)
+    ↓ Définit la baseline et valide
+myia-po-2024 (Coordinateur Technique)
+    ↓ Orchestre et coordonne
+myia-po-2026, myia-po-2023, myia-web1 (Agents)
+    ↓ Exécutent et rapportent
+```
+
+**Indicateurs de Santé**
+
+| Indicateur | Valeur | Statut |
+|------------|--------|--------|
+| Architecture RooSync | Opérationnelle | ✅ |
+| Système de messagerie | Fonctionnel | ✅ |
+| Synchronisation Git | Désynchronisée | 🔴 |
+| Sous-modules | Désynchronisés | 🔴 |
+| Transition v2.1 → v2.3 | Incomplète | ⚠️ |
+| Documentation | Consolidée | ✅ |
+| Tests unitaires | Stables (99.2%) | ✅ |
+
+**Score de Santé Global**
+
+**Score : 5.5/10** ⚠️
+
+- **Points forts** : Architecture baseline-driven opérationnelle, système de messagerie fonctionnel (152 messages analysés), documentation consolidée (3 guides unifiés), tests unitaires complets (49 tests, 100% passing), services RooSync modernes (IdentityManager, IdentityService, PresenceManager, MessageHandler, SyncDecisionManager)
+- **Points faibles** : Dualité architecturale v2.1/v2.3 (cause profonde de l'instabilité), désynchronisation Git généralisée, sous-modules incohérents, rechargement MCP défaillant, inventaires de configuration incomplets (1/5 disponible)
+
+---
+
+## 5. Conclusion
 
 ### Évaluation Globale
 
@@ -1628,13 +1780,16 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 - ✅ **Activité structurée:** Les tâches sont bien organisées et séquentielles
 - ✅ **Documentation de qualité:** Consolidation documentaire réussie avec création de guides unifiés
 - ✅ **Corrections efficaces:** La plupart des problèmes identifiés ont été résolus (rechargement MCP, incohérence InventoryCollector)
-- ✅ **Communication active:** 4 machines actives avec échanges de messages réguliers
-- ✅ **Tests unitaires:** Couverture de 98.6% sur myia-web-01
+- ✅ **Communication active:** 4 machines actives avec échanges de messages réguliers (152 messages analysés)
+- ✅ **Tests unitaires:** Couverture de 98.6% sur myia-web-01, 49 tests unitaires (100% passing)
 - ✅ **Outils de diagnostic WP4:** Opérationnels et validés
 - ✅ **Réintégration RooSync réussie:** Toutes les machines ont effectué avec succès la mise à jour git, la recompilation du MCP et la publication de configuration
+- ✅ **Architecture baseline-driven opérationnelle:** myia-ai-01 comme Baseline Master
+- ✅ **Services RooSync modernes:** IdentityManager, IdentityService, PresenceManager, MessageHandler, SyncDecisionManager
 
 ### Points d'Attention
 
+- 🔴 **Dualité architecturale v2.1/v2.3:** Cause profonde de l'instabilité, complexité technique majeure
 - ⚠️ **Get-MachineInventory.ps1 script failing:** Problème CRITICAL causant des freezes d'environnement
 - ⚠️ **Conflit d'identité sur myia-web-01:** Problème CRITICAL nécessitant une résolution immédiate
 - ⚠️ **Divergence du dépôt principal sur myia-po-2024:** Problème CRITICAL (12 commits en retard)
@@ -1648,26 +1803,36 @@ Le système RooSync v2.3.0 est **partiellement opérationnel** sur les 5 machine
 
 ### Prochaines Étapes Prioritaires
 
-1. Corriger le script Get-MachineInventory.ps1 pour éviter les freezes d'environnement
-2. Stabiliser le MCP sur myia-po-2026
-3. Lire et répondre aux messages non-lus (4 messages sur 3 machines)
-4. Résoudre les erreurs de compilation TypeScript dans roo-state-manager
-5. Résoudre le conflit d'identité sur myia-web-01
-6. Synchroniser le dépôt principal sur myia-po-2024 (12 commits en retard)
-7. Commiter la nouvelle référence du sous-module mcps/internal sur myia-po-2024
+**CRITIQUE (Immédiat):**
+1. Finaliser la migration v2.1 → v2.3 (déprécier BaselineService)
+2. Synchroniser le dépôt principal sur toutes les machines
+3. Commiter la nouvelle référence du sous-module mcps/internal
+4. Corriger le script Get-MachineInventory.ps1 pour éviter les freezes
+5. Stabiliser le MCP sur myia-po-2026
+
+**MAJEURE (Court terme - 1-2 semaines):**
+6. Configurer le rechargement MCP (watchPaths)
+7. Corriger l'incohérence InventoryCollector dans applyConfig()
 8. Collecter les inventaires de configuration de tous les agents
-9. Corriger les vulnérabilités npm sur toutes les machines
-10. Compléter la transition v2.1→v2.3 sur toutes les machines
-11. Valider tous les 17 outils RooSync sur chaque machine
+9. Accélérer le déploiement v2.3 sur toutes les machines
+10. Corriger les vulnérabilités npm sur toutes les machines
+
+**MOYENNE (Moyen terme - 1-2 mois):**
+11. Automatiser les tests de régression (pipeline CI/CD)
+12. Créer un dashboard de monitoring
+13. Améliorer la documentation (tutoriels interactifs, exemples concrets)
+14. Implémenter un mécanisme de notification automatique
+15. Améliorer les tests (transition v2.1→v2.3, réduire les mocks)
 
 ### Recommandation Finale
 
-Le système RooSync est fonctionnel mais nécessite des corrections immédiates pour garantir la stabilité. Les problèmes critiques (Get-MachineInventory.ps1 script failing, conflit d'identité sur myia-web-01, divergence du dépôt principal sur myia-po-2024, sous-module mcps/internal en avance sur myia-po-2024) doivent être résolus en priorité avant de poursuivre les développements. Une fois ces corrections appliquées, le système sera prêt pour une synchronisation complète entre les 5 machines.
+Le système RooSync est fonctionnel mais nécessite des corrections immédiates pour garantir la stabilité. La **dualité architecturale v2.1/v2.3** est identifiée comme la **cause profonde de l'instabilité** du système. Les problèmes critiques (Get-MachineInventory.ps1 script failing, conflit d'identité sur myia-web-01, divergence du dépôt principal sur myia-po-2024, sous-module mcps/internal en avance sur myia-po-2024) doivent être résolus en priorité avant de poursuivre les développements. Une fois ces corrections appliquées, le système sera prêt pour une synchronisation complète entre les 5 machines.
 
 **Note importante:** Les éléments suivants ne sont pas considérés comme des problèmes :
 - **Incohérence des machineIds entre .env et sync-config.json** : Le fichier `.env` est spécifique à chaque machine avec le machineId correctement entré. Les fichiers `sync-config.json` sont des fichiers partagés créés soit sur le dépôt soit dans le répertoire de partage défini dans le .env. Il n'y a pas de problème d'harmonisation.
 - **Clés API stockées en clair dans .env** : C'est le type de fichier où on les stocke normalement. Ce n'est pas un problème de sécurité.
 - **Désynchronisation Git généralisée** : Les machines ont toujours un ou deux commits de retard notamment quand elles soumettent leurs nouveaux rapports, mais normalement elles sont toutes à niveau du code récent. Ce n'est pas un vrai problème.
+- **Sous-module mcps/internal en avance sur myia-po-2024** : Les 2 commits (8afcfc9, 4a8a077) ont été remontés et sont maintenant disponibles sur le dépôt principal.
 
 ---
 
