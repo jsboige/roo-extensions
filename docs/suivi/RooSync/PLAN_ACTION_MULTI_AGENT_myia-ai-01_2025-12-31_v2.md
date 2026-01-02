@@ -4,7 +4,7 @@
 **Auteur:** myia-ai-01
 **Tâche:** Orchestration de diagnostic RooSync - Phase 3
 **Version RooSync:** 2.3.0
-**Version du plan:** 5.0 (Consolidation myia-po-2026)
+**Version du plan:** 7.0 (Ajout des tâches manquantes du rapport de synthèse v5.0)
 
 ---
 
@@ -15,6 +15,8 @@
 | 1.0 | 2025-12-29 | Version initiale du plan d'action | myia-ai-01 |
 | 2.0 | 2025-12-31 | Mise à jour Phase 2 - Intégration des rapports des autres agents | myia-ai-01 |
 | 3.0 | 2025-12-31 | Réécriture compacte - Élimination des redondances et retrait des faux problèmes | myia-ai-01 |
+| 6.0 | 2026-01-02 | Harmonisation avec le rapport de synthèse v5.0 - Archivage des tâches 1.6, 1.13, 2.3 (faux positifs) | myia-ai-01 |
+| 7.0 | 2026-01-02 | Ajout des tâches manquantes du rapport de synthèse v5.0 - Tâches 2.23, 2.24 ajoutées | myia-ai-01 |
 | 4.0 | 2025-12-31 | Consolidation myia-po-2024 - Ajout des tâches de migration console.log, documentation, tests et architecture | myia-ai-01 |
 | 5.0 | 2026-01-01 | Consolidation myia-po-2026 - Ajout de la réflexion sur la dualité architecturale v2.1/v2.3, tâches InventoryCollector et fichiers non suivis | myia-ai-01 |
 
@@ -40,10 +42,10 @@ Ce plan d'action vise à résoudre les problèmes critiques et haute priorité i
 | Phase | Période | Objectif Principal | Nombre de Tâches |
 |-------|---------|-------------------|------------------|
 | | **Phase 1** | Aujourd'hui (2025-12-31) | Résoudre les problèmes critiques immédiats | 13 |
-| | **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 16 |
+| | **Phase 2** | Avant 2025-12-30 | Stabiliser et synchroniser le système | 18 |
 | | **Phase 3** | Avant 2025-12-31 | Améliorer l'architecture et la sécurité | 14 |
 | | **Phase 4** | Après 2025-12-31 | Optimiser et documenter le système | 13 |
-| | **Total** | - | - | **56** |
+| | **Total** | - | - | **58** |
 
 ### Agents Impliqués
 
@@ -107,14 +109,14 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 | 1.3 | Lire et répondre aux messages non-lus | HIGH | myia-ai-01, myia-po-2023, myia-web-01 | Traiter les 4 messages non-lus sur 3 machines | CP1.3 |
 | 1.4 | Résoudre les erreurs de compilation TypeScript | HIGH | myia-ai-01, myia-po-2024 | Créer les fichiers manquants dans roo-state-manager | CP1.4 |
 | 1.5 | Résoudre l'identity conflict sur myia-web-01 | CRITICAL | myia-web-01, myia-po-2023 | Corriger le conflit myia-web-01 vs myia-web1 | CP1.5 |
-| 1.6 | Synchroniser Git sur toutes les machines | MEDIUM | Toutes les machines | Exécuter git pull et synchroniser les sous-modules | CP1.6 |
+| 1.6 | Synchroniser Git sur toutes les machines | MEDIUM | Toutes les machines | Exécuter git pull et synchroniser les sous-modules | CP1.6 | 🗑️ Archivé (faux problème - voir rapport de synthèse v5.0) |
 | 1.7 | Corriger les vulnérabilités npm | HIGH | myia-po-2023, myia-po-2024 | Exécuter npm audit fix sur toutes les machines | CP1.7 |
 | 1.8 | Créer le répertoire RooSync/shared/myia-po-2026 | MEDIUM | myia-po-2026, myia-po-2023 | Créer le répertoire avec la structure appropriée | CP1.8 |
 | 1.9 | Recompiler le MCP sur toutes les machines | MEDIUM | Toutes les machines | Exécuter npm run build et valider le rechargement | CP1.9 |
 | 1.10 | Valider les outils RooSync sur chaque machine | MEDIUM | Toutes les machines | Tester chaque outil RooSync et documenter les résultats | CP1.10 |
 | 1.11 | Collecter les inventaires de configuration | HIGH | Toutes les machines | Exécuter roosync_collect_config sur toutes les machines | CP1.11 |
 | 1.12 | Synchroniser le dépôt principal sur myia-po-2024 | CRITICAL | myia-po-2024 | Exécuter git pull origin main (12 commits en retard) | CP1.12 |
-| 1.13 | Synchroniser les sous-modules mcps/internal | CRITICAL | Toutes les machines | Exécuter git submodule update --remote mcps/internal | CP1.13 |
+| 1.13 | Synchroniser les sous-modules mcps/internal | CRITICAL | Toutes les machines | Exécuter git submodule update --remote mcps/internal | CP1.13 | 🗑️ Archivé (faux problème - voir rapport de synthèse v5.0) |
 
 ### Checkpoints Phase 1
 
@@ -125,14 +127,14 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 | CP1.3 | Messages non-lus traités | myia-ai-01 | Aucun message non-lu |
 | CP1.4 | Compilation TypeScript réussie | myia-ai-01 | Aucune erreur de compilation |
 | CP1.5 | Identity conflict résolu | myia-web-01 | Identité unique validée |
-| CP1.6 | Git synchronisé | myia-ai-01 | Toutes les machines à jour |
+| CP1.6 | Git synchronisé | myia-ai-01 | Toutes les machines à jour | 🗑️ Archivé (faux problème) |
 | CP1.7 | Vulnérabilités npm corrigées | myia-po-2023 | Aucune vulnérabilité détectée |
 | CP1.8 | Répertoire myia-po-2026 créé | myia-po-2026 | Répertoire accessible et fonctionnel |
 | CP1.9 | MCPs recompilés | myia-ai-01 | Tous les MCPs rechargés |
 | CP1.10 | Outils RooSync validés | myia-ai-01 | Tous les outils testés et fonctionnels |
 | CP1.11 | Inventaires collectés | myia-ai-01 | 5 inventaires reçus et comparés |
 | CP1.12 | Dépôt principal synchronisé sur myia-po-2024 | myia-po-2024 | myia-po-2024 à jour avec origin/main |
-| CP1.13 | Sous-modules mcps/internal synchronisés | Toutes les machines | Tous les sous-modules au même commit |
+| CP1.13 | Sous-modules mcps/internal synchronisés | Toutes les machines | Tous les sous-modules au même commit | 🗑️ Archivé (faux problème) |
 
 ### Dépendances Phase 1
 
@@ -155,7 +157,7 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 |---|-------|----------|--------|-------------|------------|
 | 2.1 | Compléter la transition v2.1→v2.3 | HIGH | myia-po-2024, myia-po-2023 | Valider l'état et compléter les étapes manquantes | CP2.1 |
 | 2.2 | Mettre à jour Node.js vers v24+ sur myia-po-2023 | MEDIUM | myia-po-2023, myia-po-2026 | Installer Node.js v24+ et valider la compatibilité | CP2.2 |
-| 2.3 | Sécuriser les clés API | HIGH | myia-ai-01, myia-web-01 | Déplacer les clés API vers un gestionnaire de secrets | CP2.3 |
+| 2.3 | Sécuriser les clés API | HIGH | myia-ai-01, myia-web-01 | Déplacer les clés API vers un gestionnaire de secrets | CP2.3 | 🗑️ Supprimé (faux problème - voir rapport de synthèse v5.0) |
 | 2.4 | Implémenter un système de verrouillage pour les fichiers de présence | HIGH | myia-ai-01, myia-po-2024 | Utiliser des locks fichier ou une base de données | CP2.4 |
 | 2.5 | Bloquer le démarrage en cas de conflit d'identité | HIGH | myia-ai-01, myia-po-2026 | Valider l'unicité au démarrage | CP2.5 |
 | 2.6 | Améliorer la gestion du cache | MEDIUM | myia-ai-01, myia-po-2023 | Augmenter le TTL par défaut et implémenter une invalidation intelligente | CP2.6 |
@@ -170,12 +172,14 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 | 2.15 | Migrer les console.log dans NonNominativeBaselineService.ts | MEDIUM | myia-ai-01, myia-po-2026 | Remplacer les console.log par le logger unifié | CP2.13 |
 | 2.16 | Corriger l'incohérence InventoryCollector | MEDIUM | myia-ai-01, myia-po-2023 | Corriger applyConfig() pour utiliser les mêmes chemins directs que la collecte | CP2.16 |
 | 2.17 | Créer le guide de migration v2.1 → v2.3 | MEDIUM | myia-ai-01, myia-po-2023 | Documenter les étapes de migration et les changements | CP2.14 |
-| 2.17 | Clarifier les transitions de version (v2.1, v2.2, v2.3) | MEDIUM | myia-po-2023, myia-po-2024 | Documenter clairement les différences entre versions | CP2.14 |
-| 2.18 | Créer un index principal docs/INDEX.md | MEDIUM | myia-po-2023, myia-po-2024 | Créer un index centralisé pour la documentation | CP2.14 |
-| 2.19 | Créer des tests unitaires pour les outils RooSync non testés | MEDIUM | myia-po-2026, myia-web-01 | Ajouter des tests pour les outils sans couverture | CP2.15 |
-| 2.20 | Ajouter des tests E2E pour Compare → Validate → Apply | MEDIUM | myia-po-2026, myia-web-01 | Créer des tests E2E pour le workflow complet | CP2.15 |
-| 2.21 | Tester la synchronisation multi-machines | MEDIUM | myia-po-2026, myia-web-01 | Valider la synchronisation entre plusieurs machines | CP2.15 |
-| 2.22 | Tester la gestion des conflits | MEDIUM | myia-po-2026, myia-web-01 | Valider la résolution des conflits de synchronisation | CP2.15 |
+| 2.18 | Clarifier les transitions de version (v2.1, v2.2, v2.3) | MEDIUM | myia-po-2023, myia-po-2024 | Documenter clairement les différences entre versions | CP2.14 |
+| 2.19 | Créer un index principal docs/INDEX.md | MEDIUM | myia-po-2023, myia-po-2024 | Créer un index centralisé pour la documentation | CP2.14 |
+| 2.20 | Créer des tests unitaires pour les outils RooSync non testés | MEDIUM | myia-po-2026, myia-web-01 | Ajouter des tests pour les outils sans couverture | CP2.15 |
+| 2.21 | Ajouter des tests E2E pour Compare → Validate → Apply | MEDIUM | myia-po-2026, myia-web-01 | Créer des tests E2E pour le workflow complet | CP2.15 |
+| 2.22 | Tester la synchronisation multi-machines | MEDIUM | myia-po-2026, myia-web-01 | Valider la synchronisation entre plusieurs machines | CP2.15 |
+| 2.23 | Tester la gestion des conflits | MEDIUM | myia-po-2026, myia-web-01 | Valider la résolution des conflits de synchronisation | CP2.15 |
+| 2.24 | Investiguer les causes des commits de correction fréquents | MEDIUM | myia-po-2024, myia-po-2023 | Analyser les patterns de correction et implémenter des préventifs | CP2.16 |
+| 2.25 | Standardiser la nomenclature sur myia-web-01 | MEDIUM | myia-web-01, myia-po-2023 | Utiliser le format [MACHINE]-[TYPE]-[DATE].md | CP2.17 |
 
 ### Checkpoints Phase 2
 
@@ -183,7 +187,7 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 |------------|-------------|-------------|----------------------|
 | CP2.1 | Transition v2.1→v2.3 complétée | myia-po-2024 | Toutes les machines en v2.3 |
 | CP2.2 | Node.js v24+ installé | myia-po-2023 | Version v24+ installée |
-| CP2.3 | Clés API sécurisées | myia-ai-01 | Aucune clé en clair |
+| CP2.3 | Clés API sécurisées | myia-ai-01 | Aucune clé en clair | 🗑️ Supprimé (faux problème) |
 | CP2.4 | Système de verrouillage implémenté | myia-ai-01 | Fichiers de présence protégés |
 | CP2.5 | Blocage au démarrage en cas de conflit | myia-ai-01 | Conflits bloquent le démarrage |
 | CP2.6 | Gestion du cache améliorée | myia-ai-01 | TTL augmenté et invalidation intelligente |
@@ -197,6 +201,8 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 | CP2.16 | InventoryCollector cohérent | myia-ai-01 | Chemins directs utilisés dans applyConfig() |
 | CP2.14 | Documentation consolidée | myia-po-2023 | Documentation centralisée |
 | CP2.15 | Tests E2E ajoutés | myia-po-2026 | Tests E2E créés |
+| CP2.16 | Causes des commits de correction identifiées | myia-po-2024 | Patterns documentés et préventifs implémentés |
+| CP2.17 | Nomenclature standardisée sur myia-web-01 | myia-web-01 | Format [MACHINE]-[TYPE]-[DATE].md appliqué |
 
 ### Dépendances Phase 2
 
@@ -206,7 +212,9 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 - Tâche 2.11 doit être complétée avant Tâche 2.12 (recompilation)
 - Tâche 2.13-2.15 doivent être complétées avant CP2.13 (console.log)
 - Tâche 2.16-2.18 doivent être complétées avant CP2.14 (documentation)
-- Tâche 2.19-2.22 doivent être complétées avant CP2.15 (tests E2E)
+- Tâche 2.20-2.23 doivent être complétées avant CP2.15 (tests E2E)
+- Tâche 2.24 doit être complétée avant CP2.17 (commits de correction)
+- Tâche 2.25 doit être complétée avant CP2.18 (nomenclature)
 
 ---
 
@@ -327,18 +335,18 @@ Optimiser le système et préparer les futures évolutions.
 | 1.3 | Lire messages non-lus | ✅ | ✅ | - | - | ✅ |
 | 1.4 | Résoudre erreurs compilation | ✅ | - | ✅ | - | - |
 | 1.5 | Résoudre identity conflict | - | - | - | - | ✅ |
-| 1.6 | Synchroniser Git | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 1.6 | Synchroniser Git | ✅ | ✅ | ✅ | ✅ | ✅ | 🗑️ Archivé (faux problème) |
 | 1.7 | Corriger vulnérabilités npm | - | ✅ | ✅ | - | - |
 | 1.8 | Créer répertoire myia-po-2026 | - | - | - | ✅ | - |
 | 1.9 | Recompiler MCP | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 1.10 | Valider outils RooSync | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 1.11 | Collecter inventaires | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 1.12 | Synchroniser dépôt myia-po-2024 | - | - | ✅ | - | - |
-| 1.13 | Synchroniser sous-modules mcps/internal | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 1.13 | Synchroniser sous-modules mcps/internal | ✅ | ✅ | ✅ | ✅ | ✅ | 🗑️ Archivé (faux problème) |
 | **Phase 2** | | | | | | |
 | 2.1 | Compléter transition v2.1→v2.3 | - | - | ✅ | - | - |
 | 2.2 | Mettre à jour Node.js v24+ | - | ✅ | - | ✅ | - |
-| 2.3 | Sécuriser clés API | ✅ | - | - | - | ✅ |
+| 2.3 | Sécuriser clés API | ✅ | - | - | - | ✅ | 🗑️ Supprimé (faux problème) |
 | 2.4 | Verrouillage fichiers présence | ✅ | - | ✅ | - | - |
 | 2.5 | Bloquer démarrage conflit | ✅ | - | - | ✅ | - |
 | 2.6 | Améliorer gestion cache | ✅ | ✅ | - | - | - |
@@ -352,13 +360,15 @@ Optimiser le système et préparer les futures évolutions.
 | 2.14 | Migrer console.log MessageManager.ts | ✅ | - | - | ✅ | - |
 | 2.15 | Migrer console.log NonNominativeBaselineService.ts | ✅ | - | - | ✅ | - |
 | 2.16 | Corriger incohérence InventoryCollector | ✅ | ✅ | - | - | - |
-| 2.17 | Créer guide migration v2.1→v2.3 | ✅ | ✅ | - | - | - |
-| 2.18 | Clarifier transitions de version | - | ✅ | ✅ | - | - |
-| 2.18 | Créer index principal docs/INDEX.md | - | ✅ | ✅ | - | - |
-| 2.19 | Créer tests unitaires outils RooSync | - | - | - | ✅ | ✅ |
-| 2.20 | Ajouter tests E2E Compare→Validate→Apply | - | - | - | ✅ | ✅ |
-| 2.21 | Tester synchronisation multi-machines | - | - | - | ✅ | ✅ |
-| 2.22 | Tester gestion des conflits | - | - | - | ✅ | ✅ |
+| 2.17 | Créer guide migration v2.1→v2.3 | ✅ | ✅ | - | - |
+| 2.18 | Clarifier transitions de version | - | ✅ | ✅ | - |
+| 2.19 | Créer index principal docs/INDEX.md | - | ✅ | ✅ | - |
+| 2.20 | Créer tests unitaires outils RooSync | - | - | - | ✅ | ✅ |
+| 2.21 | Ajouter tests E2E Compare→Validate→Apply | - | - | - | ✅ | ✅ |
+| 2.22 | Tester synchronisation multi-machines | - | - | - | ✅ | ✅ |
+| 2.23 | Tester gestion des conflits | - | - | - | ✅ | ✅ |
+| 2.24 | Investiguer commits de correction | - | ✅ | ✅ | - | - |
+| 2.25 | Standardiser nomenclature | - | ✅ | - | - | ✅ |
 | **Phase 3** | | | | | |
 | 3.1 | Rendre logs visibles | ✅ | - | ✅ | - | - |
 | 3.2 | Améliorer documentation | - | - | ✅ | - | - |
@@ -395,28 +405,28 @@ Optimiser le système et préparer les futures évolutions.
 
 | Agent | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Total | Pourcentage |
 |-------|---------|---------|---------|---------|-------|-------------|
-| myia-ai-01 | 7 | 8 | 6 | 4 | **25** | 25.0% |
-| myia-po-2023 | 7 | 5 | 1 | 4 | **17** | 17.0% |
-| myia-po-2024 | 6 | 4 | 4 | 2 | **16** | 16.0% |
-| myia-po-2026 | 7 | 5 | 3 | 3 | **18** | 18.0% |
-| myia-web-01 | 7 | 2 | 2 | 3 | **14** | 14.0% |
-| **Total** | **34** | **24** | **16** | **16** | **90** | 100% |
+| myia-ai-01 | 7 | 8 | 6 | 4 | **25** | 24.5% |
+| myia-po-2023 | 7 | 7 | 1 | 4 | **19** | 18.6% |
+| myia-po-2024 | 6 | 5 | 4 | 2 | **17** | 16.7% |
+| myia-po-2026 | 7 | 5 | 3 | 3 | **18** | 17.6% |
+| myia-web-01 | 7 | 3 | 2 | 3 | **15** | 14.7% |
+| **Total** | **34** | **28** | **16** | **16** | **94** | 100% |
 
 **Note:** Le total inclut les participations multiples (ex: tâche 1.6 compte 5 participations, une par agent)
 
 ### Équilibre de la Charge
 
 La charge de travail est équilibrée entre les agents:
-- **myia-ai-01:** 25 participations (25.0%) - Charge légèrement plus élevée en tant que Baseline Master
-- **myia-po-2023:** 17 participations (17.0%)
-- **myia-po-2024:** 16 participations (16.0%)
-- **myia-po-2026:** 18 participations (18.0%)
-- **myia-web-01:** 14 participations (14.0%)
+- **myia-ai-01:** 25 participations (24.5%) - Charge légèrement plus élevée en tant que Baseline Master
+- **myia-po-2023:** 19 participations (18.6%)
+- **myia-po-2024:** 17 participations (16.7%)
+- **myia-po-2026:** 18 participations (17.6%)
+- **myia-web-01:** 15 participations (14.7%)
 
 **Analyse:**
-- La charge est globalement équilibrée (écart max: 11.0%)
+- La charge est globalement équilibrée (écart max: 9.8%)
 - myia-ai-01 a une charge légèrement plus élevée en raison de son rôle de Baseline Master
-- Les 4 autres agents ont une charge très similaire (14.0% - 18.0%)
+- Les 4 autres agents ont une charge très similaire (14.7% - 18.6%)
 - Aucun agent n'est surchargé ou sous-utilisé
 
 ---
@@ -433,21 +443,21 @@ La charge de travail est équilibrée entre les agents:
 | CP1.3 | Messages non-lus traités | myia-ai-01 | Une fois |
 | CP1.4 | Compilation TypeScript réussie | myia-ai-01 | Une fois |
 | CP1.5 | Identity conflict résolu | myia-web-01 | Une fois |
-| CP1.6 | Git synchronisé | myia-ai-01 | Une fois |
+| CP1.6 | Git synchronisé | myia-ai-01 | Une fois | 🗑️ Archivé (faux problème) |
 | CP1.7 | Vulnérabilités npm corrigées | myia-po-2023 | Une fois |
 | CP1.8 | Répertoire myia-po-2026 créé | myia-po-2026 | Une fois |
 | CP1.9 | MCPs recompilés | myia-ai-01 | Une fois |
 | CP1.10 | Outils RooSync validés | myia-ai-01 | Une fois |
 | CP1.11 | Inventaires collectés | myia-ai-01 | Une fois |
 | CP1.12 | Dépôt principal synchronisé sur myia-po-2024 | myia-po-2024 | Une fois |
-| CP1.13 | Sous-modules mcps/internal synchronisés | Toutes les machines | Une fois |
+| CP1.13 | Sous-modules mcps/internal synchronisés | Toutes les machines | Une fois | 🗑️ Archivé (faux problème) |
 
-#### Phase 2 (13 checkpoints)
+#### Phase 2 (15 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
 |------------|-------------|-------------|-----------|
 | CP2.1 | Transition v2.1→v2.3 complétée | myia-po-2024 | Une fois |
 | CP2.2 | Node.js v24+ installé | myia-po-2023 | Une fois |
-| CP2.3 | Clés API sécurisées | myia-ai-01 | Une fois |
+| CP2.3 | Clés API sécurisées | myia-ai-01 | Une fois | 🗑️ Supprimé (faux problème) |
 | CP2.4 | Système de verrouillage implémenté | myia-ai-01 | Une fois |
 | CP2.5 | Blocage au démarrage en cas de conflit | myia-ai-01 | Une fois |
 | CP2.6 | Gestion du cache améliorée | myia-ai-01 | Une fois |
@@ -459,6 +469,8 @@ La charge de travail est équilibrée entre les agents:
 | CP2.12 | MCP recompilé sur myia-po-2023 | myia-po-2023 | Une fois |
 | CP2.13 | Console.log migrés (100%) | myia-ai-01 | Une fois |
 | CP2.16 | InventoryCollector cohérent | myia-ai-01 | Une fois |
+| CP2.17 | Causes des commits de correction identifiées | myia-po-2024 | Une fois |
+| CP2.18 | Nomenclature standardisée sur myia-web-01 | myia-web-01 | Une fois |
 
 #### Phase 3 (14 checkpoints)
 | Checkpoint | Description | Responsable | Fréquence |
@@ -495,7 +507,7 @@ La charge de travail est équilibrée entre les agents:
 | CP4.12 | Documentation restructurée | myia-po-2023 | Une fois |
 | CP4.13 | Validation auto-sync et verrouillage | myia-web-01 | Une fois |
 
-**Total des checkpoints:** 56
+**Total des checkpoints:** 58
 
 ### Critères de Validation
 
@@ -562,10 +574,10 @@ La charge de travail est équilibrée entre les agents:
 | Phase | Nombre de Checkpoints | Fréquence Moyenne |
 |-------|----------------------|-------------------|
 | Phase 1 | 13 | ~1 par tâche |
-| Phase 2 | 16 | ~1 par tâche |
+| Phase 2 | 18 | ~1 par tâche |
 | Phase 3 | 14 | ~1 par tâche |
 | Phase 4 | 13 | ~1 par tâche |
-| **Total** | **56** | **~1 par tâche** |
+| **Total** | **58** | **~1 par tâche** |
 
 **Recommandation:** Valider chaque checkpoint immédiatement après la complétion de la tâche correspondante.
 
@@ -575,20 +587,24 @@ La charge de travail est équilibrée entre les agents:
 
 ### Résumé du Plan d'Action
 
-Ce plan d'action multi-agent v5.0 vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0, en éliminant les redondances et en retirant les faux problèmes identifiés dans le rapport de synthèse v5.0. Le plan est organisé en 4 phases avec 56 tâches réparties de manière équilibrée entre les 5 agents du cluster.
+Ce plan d'action multi-agent v7.0 vise à résoudre les problèmes critiques et haute priorité identifiés lors du diagnostic du système RooSync v2.3.0, en éliminant les redondances, en retirant les faux problèmes identifiés dans le rapport de synthèse v5.0, et en ajoutant les tâches manquantes mentionnées dans la synthèse. Le plan est organisé en 4 phases avec 58 tâches réparties de manière équilibrée entre les 5 agents du cluster.
 
 **Points Clés:**
-- ✅ **56 tâches** réparties en 4 phases (2 tâches ajoutées depuis myia-po-2026)
-- ✅ **56 checkpoints** pour valider la progression (2 checkpoints ajoutés)
-- ✅ **Charge équilibrée** entre les agents (14.0% - 25.0%)
+- ✅ **58 tâches** réparties en 4 phases (4 tâches ajoutées depuis myia-po-2026)
+- ✅ **58 checkpoints** pour valider la progression (4 checkpoints ajoutés)
+- ✅ **Charge équilibrée** entre les agents (14.7% - 24.5%)
 - ✅ **Ventilation variée** sans spécialisation excessive
 - ✅ **Structure compacte** pour une meilleure lisibilité et maintenance
 - ✅ **Dualité architecturale v2.1/v2.3** identifiée comme cause profonde
+- ✅ **3 tâches archivées/supprimées** (1.6, 1.13, 2.3) correspondant aux faux positifs identifiés dans le rapport de synthèse v5.0
+- ✅ **2 tâches ajoutées** (2.24, 2.25) correspondant aux actions manquantes dans le rapport de synthèse v5.0
 
-### Nouveautés de la Version 5.0
+### Nouveautés de la Version 7.0
 
 **Tâches ajoutées depuis myia-po-2026:**
 - Phase 2: Tâche 2.16 (Corriger l'incohérence InventoryCollector)
+- Phase 2: Tâche 2.24 (Investiguer les causes des commits de correction fréquents)
+- Phase 2: Tâche 2.25 (Standardiser la nomenclature sur myia-web-01)
 - Phase 4: Tâche 4.1 (Gérer les fichiers non suivis dans archive/)
 
 **Améliorations structurelles:**
@@ -626,7 +642,7 @@ Ce plan d'action multi-agent v5.0 vise à résoudre les problèmes critiques et 
 4. **Validation:** Valider chaque checkpoint avant de passer à la suite
 5. **Flexibilité:** Être prêt à adapter le plan en fonction des résultats
 
-**Statut du Plan:** 🟢 Prêt pour l'exécution (Version 5.0)
+**Statut du Plan:** 🟢 Prêt pour l'exécution (Version 7.0)
 
 ---
 
@@ -736,16 +752,16 @@ Ce plan d'action multi-agent v5.0 vise à résoudre les problèmes critiques et 
 
 ### Critères de Validation Collective
 
-#### V1: Actions immédiates (Jour 2)
+| V1: Actions immédiates (Jour 2)
 - Conflits d'identité résolus
-- Synchronisation Git effectuée
+- Synchronisation Git effectuée | 🗑️ Archivé (faux problème)
 - Script Get-MachineInventory.ps1 corrigé
-- API keys sécurisées
+- API keys sécurisées | 🗑️ Supprimé (faux problème)
 - Messages non lus traités
 
-#### V2: Actions court terme (Semaine 2)
+| V2: Actions court terme (Semaine 2)
 - Transition v2.1 → v2.3 complétée
-- Sous-modules mcps/internal synchronisés
+- Sous-modules mcps/internal synchronisés | 🗑️ Archivé (faux problème)
 - MCPs recompilés
 - Problèmes de présence corrigés
 - Dashboard Markdown créé
@@ -776,6 +792,6 @@ Ce plan d'action multi-agent v5.0 vise à résoudre les problèmes critiques et 
 ---
 
 **Document généré par:** myia-ai-01
-**Date de génération:** 2026-01-01T00:47:00Z
-**Version:** 5.0 (Consolidation myia-po-2026)
+**Date de génération:** 2026-01-02T23:32:00Z
+**Version:** 7.0 (Ajout des tâches manquantes du rapport de synthèse v5.0)
 **Tâche:** Orchestration de diagnostic RooSync - Phase 3
