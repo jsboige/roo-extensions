@@ -130,9 +130,9 @@ myia-po-2026, myia-po-2023, myia-web-01 (Agents)
 | Machine | Rôle | État Git | État RooSync | MCP Stable | Problèmes critiques |
 |---------|------|----------|--------------|------------|-------------------|
 | | | myia-ai-01 | Baseline Master | 1 commit derrière | Partiellement synchronisé | ✅ Stable | - |
-| | | myia-po-2023 | Agent | À jour | 🟢 OK (3/3 online) | ✅ Stable | 5 vulnérabilités npm, Node.js v23.11.0 |
+| | | myia-po-2023 | Agent | À jour | 🟢 OK (3/3 online) | ✅ Stable | 5 vulnérabilités npm, Node.js v23.11.0, 4 MCP désactivés, 0 mode personnalisé |
 | | | myia-po-2024 | Coordinateur Technique | 12 commits derrière | Transition v2.1→v2.3 incomplète | Non mentionné | Transition incomplète, submodule ahead, dépôt en retard |
-| | | myia-po-2026 | Agent | 1 commit derrière | synced (2/2 online) | ⚠️ Instable | MCP instable, répertoire manquant |
+| | | myia-po-2026 | Agent | 1 commit derrière | synced (2/2 online) | ⚠️ Instable | MCP instable, répertoire manquant, inactif depuis 18 jours (2025-12-11) |
 | | | myia-web-01 | Testeur | 20 commits récents | Identity conflict | ✅ Stable | Identity conflict (myia-web-01 vs myia-web1) |
 
 ---
@@ -290,6 +290,24 @@ Créer les fichiers manquants dans roo-state-manager ou corriger les imports.
 
 ---
 
+**7. Incohérences ConfigSharingService.ts**
+
+**Description détaillée:**
+Incohérences dans l'utilisation de machineId dans ConfigSharingService.ts (lignes 49 et 220).
+
+**Contexte technique:**
+- Ligne 49: Utilise `COMPUTERNAME` au lieu de `ROOSYNC_MACHINE_ID`
+- Ligne 220: Utilise `process.env.COMPUTERNAME` au lieu de la variable `machineId` déjà définie
+
+**Impact sur le système:**
+- L'auteur du manifeste peut être incorrect
+- L'inventaire peut être collecté pour la mauvaise machine
+
+**Solution recommandée:**
+Corriger les lignes 49 et 220 pour utiliser `ROOSYNC_MACHINE_ID` et la variable `machineId`.
+
+---
+
 **5. Inventaires de configuration manquants**
 
 **Description détaillée:**
@@ -350,12 +368,15 @@ Exécuter `npm audit fix` sur toutes les machines pour corriger les vulnérabili
 | | 6 | Nomenclature non standardisée | myia-web-01 | Difficulté de tri |
 | | 7 | Structure hiérarchique complexe | myia-web-01 | Difficulté de navigation |
 | | 8 | Répertoire RooSync/shared/myia-po-2026 manquant | myia-po-2026 | Impossible de stocker la configuration partagée |
-| | 9 | Messages non-lus (4 sur 3 machines) | myia-ai-01 (2), myia-po-2023 (1), myia-web-01 (1) | Communication non traitée |
+| | 9 | Messages non-lus (4 sur 3 machines) | myia-ai-01 (2), myia-po-2023 (1: msg-20251229T001213-9sizos de myia-po-2026), myia-web-01 (1) | Communication non traitée |
 | | 10 | Fichiers non suivis sur myia-po-2024 | myia-po-2024 | État du dépôt non propre |
 | | 11 | Éparpillement documentaire sur myia-web-01 | myia-web-01 | Difficulté de localisation |
 | | 12 | Doublons de documentation sur myia-web-01 | myia-web-01 | Difficulté de maintenance |
 | | 13 | Recompilation MCP Non Effectuée (myia-po-2023) | myia-po-2023 | Les outils v2.3 ne sont pas disponibles |
 | | 14 | Commits de Correction Fréquents | Toutes les machines | Instabilité du dépôt, risque de régression |
+| | 15 | Chemins hardcodés dans Get-MachineInventory.ps1 | Toutes les machines | Problème de portabilité entre machines |
+| | 16 | Dépendance à ROOSYNC_SHARED_PATH | Toutes les machines | Script non exécutable sans configuration préalable |
+| | 17 | Dépendance à InventoryCollector avec force refresh | Toutes les machines | Impact potentiel sur les performances |
 
 #### Détails du Problème #13 : Recompilation MCP Non Effectuée (myia-po-2023)
 
@@ -401,6 +422,54 @@ Patterns de développement négatifs identifiés dans l'historique des commits.
 
 **Solution recommandée:**
 Investiguer les causes des commits de correction fréquents et implémenter des préventifs.
+
+#### Détails du Problème #15 : Chemins hardcodés dans Get-MachineInventory.ps1
+
+**Description détaillée:**
+Le chemin vers `mcp_settings.json` est hardcodé et dépend du nom d'utilisateur dans Get-MachineInventory.ps1.
+
+**Contexte technique:**
+- Le script utilise un chemin hardcodé: `C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+- Ce chemin dépend du nom d'utilisateur, ce qui pose des problèmes de portabilité
+
+**Impact sur le système:**
+- Le script peut échouer sur différentes machines
+- Problème de portabilité entre machines
+
+**Solution recommandée:**
+Utiliser des variables d'environnement ou des paramètres de configuration pour rendre le script indépendant du nom d'utilisateur.
+
+#### Détails du Problème #16 : Dépendance à ROOSYNC_SHARED_PATH
+
+**Description détaillée:**
+Le script Get-MachineInventory.ps1 échoue si `ROOSYNC_SHARED_PATH` n'est pas définie.
+
+**Contexte technique:**
+- Le script vérifie la variable d'environnement `ROOSYNC_SHARED_PATH` pour déterminer le chemin de sortie
+- Si la variable n'est pas définie, le script affiche une erreur critique et quitte
+
+**Impact sur le système:**
+- Le script ne peut pas être exécuté sans configuration préalable
+- Nécessite une configuration manuelle avant utilisation
+
+**Solution recommandée:**
+Fournir un chemin par défaut et améliorer le message d'erreur avec des instructions de configuration.
+
+#### Détails du Problème #17 : Dépendance à InventoryCollector avec force refresh
+
+**Description détaillée:**
+Le service ConfigSharingService dépend fortement de `inventoryCollector.collectInventory()` avec force refresh, ce qui peut impacter les performances.
+
+**Contexte technique:**
+- Plusieurs méthodes utilisent `collectInventory(machineId, true)` avec le paramètre `true` pour forcer le rafraîchissement
+- Cette dépendance suggère que l'inventaire peut devenir obsolète et nécessite un rafraîchissement systématique
+
+**Impact sur le système:**
+- Impact potentiel sur les performances
+- Exécution répétitive de la collecte d'inventaire
+
+**Solution recommandée:**
+Implémenter un mécanisme de cache avec invalidation intelligente et réduire la fréquence des rafraîchements forcés.
 
 ### 2.10 Tests et Validation myia-web-01
 
@@ -790,6 +859,78 @@ Commiter la nouvelle référence du sous-module mcps/internal (8afcfc9) sur myia
 - `git status` affiche que mcps/internal est au commit 8afcfc9
 - Le commit est poussé vers le dépôt distant
 - Les autres machines peuvent synchroniser le sous-module
+
+---
+
+#### 8. Corriger les incohérences ConfigSharingService.ts
+
+**Description détaillée:**
+Corriger les incohérences dans l'utilisation de machineId dans ConfigSharingService.ts (lignes 49 et 220).
+
+**Étapes détaillées de mise en œuvre:**
+1. Ouvrir le fichier `mcps/internal/servers/roo-state-manager/src/services/ConfigSharingService.ts`
+2. Corriger la ligne 49:
+   ```typescript
+   // AVANT:
+   author: process.env.COMPUTERNAME || 'unknown',
+   // APRÈS:
+   author: process.env.ROOSYNC_MACHINE_ID || process.env.COMPUTERNAME || 'unknown',
+   ```
+3. Corriger la ligne 220:
+   ```typescript
+   // AVANT:
+   const inventory = await this.inventoryCollector.collectInventory(process.env.COMPUTERNAME || 'localhost', true) as any;
+   // APRÈS:
+   const inventory = await this.inventoryCollector.collectInventory(machineId, true) as any;
+   ```
+4. Recompiler le MCP roo-state-manager
+5. Redémarrer VSCode pour recharger le MCP
+6. Valider les corrections en exécutant `roosync_get_machine_inventory`
+
+**Prérequis:**
+- Accès au code source de ConfigSharingService.ts
+- Compréhension de TypeScript
+- Environnement de développement pour recompiler le MCP
+
+**Risques potentiels:**
+- Risque de casser d'autres fonctionnalités du service
+- Nécessité de tester sur plusieurs machines
+- Possibilité de problèmes de compatibilité
+
+**Critères de validation:**
+- Le code compile sans erreurs
+- L'auteur du manifeste est correct
+- L'inventaire est collecté pour la bonne machine
+- Les tests passent
+
+---
+
+#### 9. Corriger les chemins hardcodés dans Get-MachineInventory.ps1
+
+**Description détaillée:**
+Utiliser des variables d'environnement ou des paramètres de configuration pour rendre le script indépendant du nom d'utilisateur.
+
+**Étapes détaillées de mise en œuvre:**
+1. Ouvrir le fichier `scripts/inventory/Get-MachineInventory.ps1`
+2. Identifier les chemins hardcodés (ex: `C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`)
+3. Remplacer les chemins hardcodés par des variables d'environnement ou des paramètres de configuration
+4. Tester le script sur plusieurs machines pour valider la portabilité
+5. Documenter les variables d'environnement requises
+
+**Prérequis:**
+- Accès au script Get-MachineInventory.ps1
+- Compréhension de PowerShell
+- Environnement de test pour valider les corrections
+
+**Risques potentiels:**
+- Risque de casser d'autres fonctionnalités du script
+- Nécessité de tester sur plusieurs machines
+- Possibilité de problèmes de compatibilité
+
+**Critères de validation:**
+- Le script fonctionne sur plusieurs machines
+- Les chemins sont correctement résolus
+- L'inventaire est correctement collecté
 
 ### Actions à Court Terme (avant 2025-12-30)
 
