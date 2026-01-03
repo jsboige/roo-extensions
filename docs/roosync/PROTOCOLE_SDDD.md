@@ -153,6 +153,8 @@ codebase_search {
 }
 ```
 
+(ou "path": "docs\suivi\RooSync")
+
 ### 3.2 Stratégies de Recherche
 
 - **Par concept** : Rechercher un concept spécifique
@@ -255,6 +257,7 @@ reset_qdrant_collection {
      "path": "docs/roosync"
    }
    ```
+(ou "path": "docs\suivi\RooSync")
 
 2. **Lire les documents pertinents** :
    - Architecture RooSync
