@@ -177,7 +177,7 @@ try {
     if (Test-Path $ScriptsPath) {
         $scriptDirs = Get-ChildItem -Path $ScriptsPath -Directory
         foreach ($dir in $scriptDirs) {
-            $scripts = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -Recurse
+            $scripts = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -Recurse -Depth 3
             $category = $dir.Name
             $inventory.inventory.scripts.categories[$category] = @()
 
@@ -236,8 +236,16 @@ try {
         New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
     }
 
-    Write-Host "  Écriture du fichier: $OutputPath" -ForegroundColor Gray
-    $inventory | ConvertTo-Json -Depth 10 | Set-Content -Path $OutputPath -Encoding UTF8
+    Write-Host "  Sérialisation JSON en cours..." -ForegroundColor Gray
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    
+    # CORRECTION SDDD v1.1: Réduire la profondeur de sérialisation et utiliser -Compress
+    # -Depth 5 est suffisant pour la structure de l'inventaire
+    # -Compress réduit la taille du fichier et accélère l'écriture
+    $inventory | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path $OutputPath -Encoding UTF8
+    
+    $stopwatch.Stop()
+    Write-Host "  Sérialisation terminée en $($stopwatch.ElapsedMilliseconds)ms" -ForegroundColor Green
 
     Write-Host "`nInventaire sauvegarde: $OutputPath" -ForegroundColor Green
     Write-Host "`nResume:" -ForegroundColor Cyan
@@ -249,8 +257,10 @@ try {
 
     return $OutputPath
 } catch {
+    $stopwatch.Stop()
     Write-Host "`nERREUR lors de la sauvegarde: $_" -ForegroundColor Red
     Write-Host "Chemin cible: $OutputPath" -ForegroundColor Yellow
+    Write-Host "Temps écoulé avant erreur: $($stopwatch.ElapsedMilliseconds)ms" -ForegroundColor Yellow
     Write-Host "Vérifiez que le chemin est accessible et que vous avez les droits d'écriture." -ForegroundColor Yellow
     exit 1
 }
