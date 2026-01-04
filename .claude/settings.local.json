@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -ExecutionPolicy Bypass -File:*)",
+      "Bash(powershell:*)",
+      "Bash(claude:*)",
+      "Bash(code:*)",
+      "Bash(Select-String \"claude\")",
+      "Bash(Test-Path:*)"
+    ],
+    "mode": "auto-approve"
+  },
+  "outputStyle": "default"
+}

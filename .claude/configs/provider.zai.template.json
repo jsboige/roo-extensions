@@ -1,0 +1,25 @@
+{
+  "provider": "zai",
+  "model": "sonnet",
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_ZAI_API_KEY_HERE",
+    "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-4.7",
+    "API_TIMEOUT_MS": "3000000"
+  },
+  "description": "z.ai GLM models via Anthropic-compatible API",
+  "modelMapping": {
+    "opus": "GLM-4.7",
+    "sonnet": "GLM-4.7",
+    "haiku": "GLM-4.5-Air"
+  },
+  "notes": [
+    "z.ai provides GLM models through an Anthropic-compatible API",
+    "GLM-4.7 is mapped to both opus and sonnet for best performance",
+    "GLM-4.5-Air is used for haiku (faster, lighter model)",
+    "API timeout increased to 3000s for larger requests",
+    "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation"
+  ]
+}

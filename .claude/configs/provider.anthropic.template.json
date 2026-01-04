@@ -1,0 +1,16 @@
+{
+  "provider": "anthropic",
+  "model": "sonnet",
+  "env": {},
+  "description": "Anthropic's Claude via Pro/Max subscription (browser auth)",
+  "models": {
+    "opus": "claude-opus-4-5",
+    "sonnet": "claude-sonnet-4-5",
+    "haiku": "claude-haiku-4-5"
+  },
+  "notes": [
+    "Uses Claude Pro/Max subscription with browser authentication",
+    "No API key required - authenticated via claude.ai session",
+    "This is the default configuration for Claude Code"
+  ]
+}

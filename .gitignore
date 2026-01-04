@@ -100,4 +100,11 @@ temp/
 debug_payload_dump.json
 debug_trace.txt
 
+# Claude Code Provider Switcher - Real API keys (NEVER commit these!)
+.claude/configs/provider.*.json
+!.claude/configs/provider.*.template.json
+
+# Claude Code settings backups
+.claude/settings.json.backup-*
+
 
