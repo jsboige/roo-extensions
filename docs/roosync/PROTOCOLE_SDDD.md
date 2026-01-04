@@ -1,8 +1,8 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.0.0
+## Version: 2.2.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-02
+## Dernière mise à jour: 2026-01-04
 
 ## Description
 
@@ -14,12 +14,13 @@ Ce document décrit le protocole SDDD (Semantic Documentation Driven Design) uti
 
 1. [Principes Fondamentaux](#1-principes-fondamentaux)
 2. [Utilisation de github-project](#2-utilisation-de-github-project)
-3. [Utilisation de codebase_search](#3-utilisation-de-codebase_search)
-4. [Utilisation de roo-state-manager](#4-utilisation-de-roo-state-manager)
-5. [Procédures de Grounding](#5-procédures-de-grounding)
-6. [Obligations des Orchestrateurs](#6-obligations-des-orchestrateurs)
-7. [Workflow SDDD](#7-workflow-sddd)
-8. [Historique des Modifications](#8-historique-des-modifications)
+3. [Exemples d'Appels MCP GitHub-Projects](#3-exemples-dappels-mcp-github-projects)
+4. [Utilisation de codebase_search](#4-utilisation-de-codebase_search)
+5. [Utilisation de roo-state-manager](#5-utilisation-de-roo-state-manager)
+6. [Procédures de Grounding](#6-procédures-de-grounding)
+7. [Obligations des Orchestrateurs](#7-obligations-des-orchestrateurs)
+8. [Workflow SDDD](#8-workflow-sddd)
+9. [Historique des Modifications](#9-historique-des-modifications)
 
 ---
 
@@ -63,6 +64,7 @@ graph LR
 ### 2.1 Configuration du Projet
 
 **Organisation** :
+- **Owner GitHub** : `jsboige`
 - **Repository** : `roo-extensions`
 - **Project Board** : `RooSync Multi-Agent`
 - **Milestones** : Phases du plan d'action (Phase 1, Phase 2, Phase 3, Phase 4)
@@ -134,9 +136,227 @@ graph LR
 
 ---
 
-## 3. Utilisation de codebase_search
+## 3. Exemples d'Appels MCP GitHub-Projects
 
-### 3.1 Recherche Sémantique
+Cette section fournit des exemples concrets d'utilisation des outils MCP `github-projects-mcp` pour interagir avec le projet GitHub RooSync Multi-Agent.
+
+### 3.1 Lister les Projets
+
+**Outil** : `list_projects`
+
+**Paramètres requis** :
+- `owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
+- `type` : Type de propriétaire (`user` ou `org`, défaut: `user`)
+- `state` : État des projets (`open`, `closed`, `all`, défaut: `open`)
+
+**Exemple d'appel** :
+```bash
+list_projects {
+  "owner": "jsboige",
+  "type": "user",
+  "state": "open"
+}
+```
+
+**Résultat attendu** :
+```json
+{
+  "projects": [
+    {
+      "id": "PVT_kwHOADA1Xc4BLw3w",
+      "title": "RooSync Multi-Agent",
+      "description": "Projet de synchronisation multi-agent pour Roo",
+      "state": "OPEN",
+      "number": 67
+    }
+  ]
+}
+```
+
+### 3.2 Obtenir les Détails d'un Projet
+
+**Outil** : `get_project`
+
+**Paramètres requis** :
+- `owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
+- `project_number` : Numéro du projet (ex: `67`)
+- `type` : Type de propriétaire (`user` ou `org`, défaut: `user`)
+
+**Exemple d'appel** :
+```bash
+get_project {
+  "owner": "jsboige",
+  "project_number": 67,
+  "type": "user"
+}
+```
+
+**Résultat attendu** :
+```json
+{
+  "id": "PVT_kwHOADA1Xc4BLw3w",
+  "title": "RooSync Multi-Agent",
+  "description": "Projet de synchronisation multi-agent pour Roo",
+  "state": "OPEN",
+  "number": 67,
+  "fields": [
+    {
+      "id": "status_field_id",
+      "name": "Status",
+      "dataType": "SINGLE_SELECT"
+    }
+  ]
+}
+```
+
+### 3.3 Obtenir les Items d'un Projet
+
+**Outil** : `get_project_items`
+
+**Paramètres requis** :
+- `owner` : Propriétaire du projet (ex: `jsboige`)
+- `project_id` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
+- `filterOptions` : Critères de filtrage (optionnel, ex: `{ "status": "Done" }`)
+
+**Exemple d'appel** :
+```bash
+get_project_items {
+  "owner": "jsboige",
+  "project_id": "PVT_kwHOADA1Xc4BLw3w",
+  "filterOptions": {
+    "status": "In Progress"
+  }
+}
+```
+
+**Résultat attendu** :
+```json
+{
+  "items": [
+    {
+      "id": "item_id_1",
+      "content": {
+        "title": "Implémenter la synchronisation baseline",
+        "type": "DRAFT_ISSUE"
+      },
+      "fieldValues": [
+        {
+          "fieldId": "status_field_id",
+          "value": "In Progress"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 3.4 Convertir un Draft en Issue
+
+**Outil** : `convert_draft_to_issue`
+
+**Paramètres requis** :
+- `owner` : Propriétaire du projet (ex: `jsboige`)
+- `projectId` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
+- `draftId` : ID du draft à convertir
+
+**Exemple d'appel** :
+```bash
+convert_draft_to_issue {
+  "owner": "jsboige",
+  "projectId": "PVT_kwHOADA1Xc4BLw3w",
+  "draftId": "item_id_1"
+}
+```
+
+**Résultat attendu** :
+```json
+{
+  "issue": {
+    "id": "issue_id_1",
+    "number": 123,
+    "title": "Implémenter la synchronisation baseline",
+    "state": "OPEN",
+    "repository": {
+      "name": "roo-extensions",
+      "owner": {
+        "login": "jsboige"
+      }
+    }
+  }
+}
+```
+
+### 3.5 Mettre à Jour un Champ d'Item
+
+**Outil** : `update_project_item_field`
+
+**Paramètres requis** :
+- `owner` : Propriétaire du projet (ex: `jsboige`)
+- `project_id` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
+- `item_id` : ID de l'item (ex: `item_id_1`)
+- `field_id` : ID du champ à mettre à jour
+- `field_type` : Type de champ (`text`, `date`, `single_select`, `number`)
+- `value` : Nouvelle valeur (ou `option_id` pour `single_select`)
+
+**Exemple d'appel** (mise à jour du statut) :
+```bash
+update_project_item_field {
+  "owner": "jsboige",
+  "project_id": "PVT_kwHOADA1Xc4BLw3w",
+  "item_id": "item_id_1",
+  "field_id": "status_field_id",
+  "field_type": "single_select",
+  "option_id": "done_option_id"
+}
+```
+
+**Résultat attendu** :
+```json
+{
+  "item": {
+    "id": "item_id_1",
+    "fieldValues": [
+      {
+        "fieldId": "status_field_id",
+        "value": "Done"
+      }
+    ]
+  }
+}
+```
+
+### 3.6 Ajouter un Commentaire à une Issue
+
+**Note** : L'ajout de commentaires aux issues se fait via l'API GitHub standard ou via l'outil `create_issue` avec un corps de message détaillé.
+
+**Procédure de journalisation** :
+1. Utiliser l'outil `create_issue` pour créer une nouvelle issue avec un corps de message
+2. Ou utiliser l'API GitHub REST pour ajouter des commentaires à une issue existante
+
+**Exemple de format de journalisation** :
+```markdown
+## Journalisation - [Date]
+
+### Opération effectuée
+- **Action** : Description de l'action
+- **Résultat** : Résultat obtenu
+- **Fichiers modifiés** : Liste des fichiers
+- **Commandes exécutées** : Liste des commandes
+
+### Problèmes rencontrés
+- Description du problème
+- Solution appliquée
+
+### Validation
+- Checkpoint validé : [X]
+- Tests effectués : [X]
+```
+
+---
+
+## 4. Utilisation de codebase_search
+
+### 4.1 Recherche Sémantique
 
 La recherche sémantique utilise des embeddings pour trouver du contenu basé sur le sens plutôt que sur les mots-clés exacts.
 
@@ -155,13 +375,13 @@ codebase_search {
 
 (ou "path": "docs\suivi\RooSync")
 
-### 3.2 Stratégies de Recherche
+### 4.2 Stratégies de Recherche
 
 - **Par concept** : Rechercher un concept spécifique
 - **Par problème** : Rechercher un problème spécifique
 - **Par solution** : Rechercher une solution spécifique
 
-### 3.3 Bonnes Pratiques de Recherche
+### 4.3 Bonnes Pratiques de Recherche
 
 **Avant de commencer une tâche** :
 1. Rechercher la documentation existante sur le sujet
@@ -182,9 +402,9 @@ codebase_search {
 
 ---
 
-## 4. Utilisation de roo-state-manager
+## 5. Utilisation de roo-state-manager
 
-### 4.1 Outils Principaux
+### 5.1 Outils Principaux
 
 Le MCP `roo-state-manager` fournit des outils pour gérer l'état des conversations et des tâches Roo :
 
@@ -195,7 +415,7 @@ Le MCP `roo-state-manager` fournit des outils pour gérer l'état des conversati
 - `export_conversation_json` : Exporter une conversation en JSON
 - `index_task_semantic` : Indexer une tâche pour la recherche sémantique
 
-### 4.2 Gestion des Tâches
+### 5.2 Gestion des Tâches
 
 **Obtenir l'arbre des tâches** :
 ```bash
@@ -226,7 +446,7 @@ generate_trace_summary {
 }
 ```
 
-### 4.3 Gestion de l'Index Sémantique
+### 5.3 Gestion de l'Index Sémantique
 
 **Indexer une tâche** :
 ```bash
@@ -244,9 +464,9 @@ reset_qdrant_collection {
 
 ---
 
-## 5. Procédures de Grounding
+## 6. Procédures de Grounding
 
-### 5.1 Grounding Initial
+### 6.1 Grounding Initial
 
 **Avant de commencer une tâche** :
 
@@ -280,7 +500,7 @@ reset_qdrant_collection {
    - Critères de validation
    - Responsables
 
-### 5.2 Grounding Régulier
+### 6.2 Grounding Régulier
 
 **Pendant une tâche** :
 
@@ -288,7 +508,7 @@ reset_qdrant_collection {
 2. **Mettre à jour la documentation** avec les nouvelles informations
 3. **Valider que la documentation** reste cohérente
 
-### 5.3 Grounding Final
+### 6.3 Grounding Final
 
 **Après une tâche** :
 
@@ -301,9 +521,9 @@ reset_qdrant_collection {
 
 ---
 
-## 6. Obligations des Orchestrateurs
+## 7. Obligations des Orchestrateurs
 
-### 6.1 Instruction des Agents de Sous-Tâche
+### 7.1 Instruction des Agents de Sous-Tâche
 
 **OBLIGATION CRITIQUE** : Les orchestrateurs doivent **instruire explicitement** leurs agents de sous-tâche d'effectuer des recherches sémantiques de grounding en début de tâche et de vérifier que la documentation a bien été mise à jour avant de clôturer.
 
@@ -334,9 +554,9 @@ reset_qdrant_collection {
 
 ---
 
-## 7. Workflow SDDD
+## 8. Workflow SDDD
 
-### 7.1 Workflow Principal
+### 8.1 Workflow Principal
 
 ```mermaid
 graph TB
@@ -356,7 +576,7 @@ graph TB
     M --> N[Tâche Terminée]
 ```
 
-### 7.2 Bonnes Pratiques
+### 8.2 Bonnes Pratiques
 
 **Documentation** :
 - Documenter avant de coder
@@ -385,7 +605,7 @@ graph TB
 
 ---
 
-## 8. Historique des Modifications
+## 9. Historique des Modifications
 
 | Date | Version | Auteur | Description |
 |------|---------|--------|-------------|
@@ -393,10 +613,12 @@ graph TB
 | 2026-01-02 | 1.1.0 | Roo Architect Mode | Révision du protocole SDDD : suppression des rapports périodiques, ajout des obligations de journalisation continue dans GitHub Project, remontage de codebase_search avant roo-state-manager, ajout des obligations des orchestrateurs pour le grounding sémantique |
 | 2026-01-02 | 1.2.0 | Roo Architect Mode | Ajout de la section 2.3 sur l'articulation entre items de projet et issues, ajout de l'obligation critique de créer des issues à partir des drafts dans la section 2.4, clarification du workflow de traçabilité bidirectionnelle entre drafts et issues |
 | 2026-01-02 | 2.0.0 | Roo Architect Mode | Refonte majeure : fusion des sections redondantes (obligations des orchestrateurs, bonnes pratiques de recherche), réduction des exemples de journalisation, simplification des workflows, suppression des répétitions de concepts. Réduction de 764 à ~450 lignes (-41%). |
+| 2026-01-04 | 2.1.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de l'information sur l'owner GitHub (jsboige) dans la section 2.1 Configuration du Projet. |
+| 2026-01-04 | 2.2.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de la section 3 "Exemples d'Appels MCP GitHub-Projects" avec des exemples concrets d'utilisation des outils MCP github-projects-mcp (list_projects, get_project, get_project_items, convert_draft_to_issue, update_project_item_field, add_issue_comment). Mise à jour de la numérotation des sections suivantes. |
 
 ---
 
-**Document généré par:** Roo Architect Mode
-**Date de génération:** 2026-01-02T23:09:00Z
-**Version:** 2.0.0
+**Document généré par:** Roo Orchestrator Mode (myia-ai-01)
+**Date de génération:** 2026-01-04T01:10:00Z
+**Version:** 2.2.0
 **Statut:** 🟢 Production Ready
