@@ -16,9 +16,14 @@ This is a multi-agent system coordinating **Roo Code agents** (technical work) a
 ## 📚 Quick Access (Start Here)
 
 **For ANY Claude Code agent starting work:**
-1. Read [`.claude/INDEX.md`](.claude/INDEX.md) - Complete documentation map
-2. Read [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md) - Agent guide (Bootstrap + SDDD)
-3. Read [`.claude/MCP_ANALYSIS.md`](.claude/MCP_ANALYSIS.md) - MCP capabilities mapping
+
+1. **Run initialization script** (first time on machine):
+   ```powershell
+   .\.claude\scripts\init-claude-code.ps1
+   ```
+2. Read [`.claude/INDEX.md`](.claude/INDEX.md) - Complete documentation map
+3. Read [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md) - Agent guide (Bootstrap + SDDD)
+4. Read [`.claude/MCP_ANALYSIS.md`](.claude/MCP_ANALYSIS.md) - MCP capabilities mapping
 
 **For workspace knowledge:**
 - [`docs/knowledge/WORKSPACE_KNOWLEDGE.md`](docs/knowledge/WORKSPACE_KNOWLEDGE.md) - Full workspace context (6500+ files)
@@ -37,7 +42,7 @@ This repository contains 7 submodules:
 - **`mcps/internal`** - Internal MCP servers (6 servers)
   - Repo: https://github.com/jsboige/jsboige-mcp-servers
   - **Roo Config:** `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
-  - **Claude Code Config:** `.claude/.mcp.json` (see [MCP_SETUP.md](.claude/MCP_SETUP.md))
+  - **Claude Code Config:** `.mcp.json` (generated from `.mcp.json.template` - see [MCP_SETUP.md](.claude/MCP_SETUP.md))
   - **Servers:**
     - `roo-state-manager` - Roo state + conversation history (50+ tools, Qdrant semantic search)
     - `github-projects-mcp` - GitHub Projects API integration

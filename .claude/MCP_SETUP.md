@@ -1,6 +1,6 @@
 # MCP Configuration for Claude Code Agents
 
-**Date:** 2026-01-05
+**Date:** 2026-01-05 (Updated)
 **Purpose:** Configure github-projects-mcp for Claude Code multi-agent coordination
 **Status:** ✅ **VERIFIED WORKING on myia-ai-01**
 
@@ -9,6 +9,26 @@
 ## 🎯 Objective
 
 Enable Claude Code agents on all 5 machines to use GitHub Projects API for task tracking and coordination.
+
+---
+
+## 🚀 Quick Start (New Machine)
+
+**Run the initialization script:**
+
+```powershell
+cd d:\Dev\roo-extensions  # or your workspace path
+.\.claude\scripts\init-claude-code.ps1
+```
+
+This script will:
+1. Create `.mcp.json` from template with correct paths
+2. Create `.claude/local/` directory
+3. Create INTERCOM file for your machine
+4. Verify MCP server build status
+5. Check .env file exists
+
+Then restart Claude Code to activate MCP.
 
 ---
 
@@ -33,7 +53,7 @@ Enable Claude Code agents on all 5 machines to use GitHub Projects API for task 
 
 ### Pending Configuration
 
-These machines need MCP configuration:
+These machines need MCP configuration (run init script):
 - ❌ myia-po-2023
 - ❌ myia-po-2024
 - ❌ myia-po-2026
@@ -49,52 +69,36 @@ These machines need MCP configuration:
 
 ---
 
-## 🔧 Configuration Steps
+## 🔧 Configuration System
 
-### Step 1: Verify MCP Server Build
+### Template-Based Configuration
 
-```powershell
-# Check if the MCP server is built
-Test-Path "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
+**Problem:** `.mcp.json` contains absolute paths that vary per machine (e.g., `d:/Dev/roo-extensions` vs `d:/roo-extensions`).
 
-# If not built, build it:
-cd d:/roo-extensions/mcps/internal/servers/github-projects-mcp
-npm run build
-```
+**Solution:** Template file with placeholder + initialization script.
 
-### Step 2: Copy .mcp.json Configuration
+| File | Purpose | Versioned |
+|------|---------|-----------|
+| `.mcp.json.template` | Template with `{{WORKSPACE_ROOT}}` placeholder | ✅ Yes |
+| `.mcp.json` | Machine-specific config (generated) | ❌ No (gitignored) |
+| `.claude/scripts/init-claude-code.ps1` | Initialization script | ✅ Yes |
+
+### Manual Configuration (if needed)
+
+If you prefer manual setup:
+
+1. Copy template:
+   ```powershell
+   Copy-Item .mcp.json.template .mcp.json
+   ```
+
+2. Replace `{{WORKSPACE_ROOT}}` with your actual path:
+   ```powershell
+   (Get-Content .mcp.json) -replace '\{\{WORKSPACE_ROOT\}\}', 'd:/Dev/roo-extensions' | Set-Content .mcp.json
+   ```
 
 **⚠️ IMPORTANT:** The `.mcp.json` file must be at the **project root**, NOT in `.claude/` directory.
 This is due to a known bug: [GitHub Issue #5037](https://github.com/anthropics/claude-code/issues/5037)
-
-The configuration file is at `.mcp.json` in the workspace root.
-
-**For each machine**, after pulling from git:
-
-1. Verify the file exists:
-   ```powershell
-   Test-Path "d:\roo-extensions\.mcp.json"
-   ```
-
-2. The file should contain:
-   ```json
-   {
-     "mcpServers": {
-       "github-projects-mcp": {
-         "type": "stdio",
-         "command": "node",
-         "args": [
-           "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
-         ],
-         "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/"
-       }
-     }
-   }
-   ```
-
-   **Note:** Using stdio transport (correct for github-projects-mcp)
-   **Note:** GitHub tokens are stored in `mcps/internal/servers/github-projects-mcp/.env` (already exists, gitignored)
-   **Note:** The MCP server automatically loads `.env` from its working directory
 
 ### Step 3: Restart Claude Code
 

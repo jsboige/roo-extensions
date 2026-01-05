@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "github-projects-mcp": {
+      "command": "node",
+      "args": [
+        "{{WORKSPACE_ROOT}}/mcps/internal/servers/github-projects-mcp/dist/index.js"
+      ],
+      "cwd": "{{WORKSPACE_ROOT}}/mcps/internal/servers/github-projects-mcp/",
+      "env": {}
+    }
+  }
+}

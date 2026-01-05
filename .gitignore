@@ -110,4 +110,8 @@ debug_trace.txt
 # Claude Code local inter-agent communication (machine-specific)
 .claude/local/
 
+# Claude Code MCP configuration (machine-specific paths)
+.mcp.json
+!.mcp.json.template
+
 
