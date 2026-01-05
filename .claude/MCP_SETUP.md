@@ -48,23 +48,20 @@ The configuration file is already created at `.claude/.mcp.json` in the workspac
    {
      "mcpServers": {
        "github-projects-mcp": {
+         "type": "stdio",
          "command": "node",
          "args": [
            "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
          ],
-         "transport": "http",
-         "url": "http://127.0.0.1:3002/mcp",
-         "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/",
-         "disabled": false,
-         "envFile": ".env"
+         "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/"
        }
      }
    }
    ```
 
-   **Note:** Port 3002 is used to avoid conflict with Roo (which uses port 3001)
-
-   **Note:** GitHub tokens are stored in `.env` file (already exists in workspace, gitignored)
+   **Note:** Using stdio transport (correct for github-projects-mcp)
+   **Note:** GitHub tokens are stored in `mcps/internal/servers/github-projects-mcp/.env` (already exists, gitignored)
+   **Note:** The MCP server automatically loads `.env` from its working directory
 
 ### Step 3: Restart Claude Code
 
@@ -74,7 +71,7 @@ After the configuration is in place:
 2. **Reopen Claude Code**
 3. **Start a new conversation**
 
-The MCP server should automatically start on `http://127.0.0.1:3002/mcp`
+The MCP server should automatically start in stdio mode
 
 ### Step 4: Verify MCP is Available
 
@@ -126,26 +123,25 @@ Once configured, the following tools should be available:
 
 ### MCP not starting
 
-**Check if port 3002 is available:**
+**Check if MCP process is running:**
 ```powershell
-netstat -ano | findstr :3002
+Get-Process node | Where-Object { $_.Path -like '*github-projects-mcp*' }
 ```
 
-If port is in use, either:
-- Kill the process using it
-- Or change the port in `.mcp.json` (avoid ports 3001 used by Roo)
+**Check .env file:**
+```powershell
+Test-Path "d:\roo-extensions\.env"
+```
 
 ### MCP tools not available
 
-**Verify the server is running:**
+**Verify the configuration:**
 ```powershell
-# Check health endpoint
-curl http://127.0.0.1:3002/health
-```
+# Check .mcp.json exists
+Test-Path "d:\roo-extensions\.claude\.mcp.json"
 
-Expected response:
-```json
-{"status":"ok"}
+# Verify content
+Get-Content "d:\roo-extensions\.claude\.mcp.json"
 ```
 
 ### Permission errors

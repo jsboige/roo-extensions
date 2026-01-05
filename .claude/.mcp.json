@@ -1,15 +1,12 @@
 {
   "mcpServers": {
     "github-projects-mcp": {
+      "type": "stdio",
       "command": "node",
       "args": [
         "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
       ],
-      "transport": "http",
-      "url": "http://127.0.0.1:3002/mcp",
-      "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/",
-      "disabled": false,
-      "envFile": ".env"
+      "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/"
     }
   }
 }
