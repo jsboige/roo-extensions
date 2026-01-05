@@ -1,17 +1,71 @@
-# Claude Code Provider Switcher
+# Roo Extensions - Claude Code Workspace
 
-A multi-level system for easily switching between LLM providers in Claude Code.
+**Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
+**Multi-Agent System:** RooSync v2.3 + Claude Code Coordination
+**Machines:** 5 (myia-ai-01, myia-po-2023, myia-po-2024, myia-po-2026, myia-web-01)
 
-## Overview
+---
 
-This tool allows you to seamlessly switch between different LLM providers:
-- **Anthropic**: Official Claude API (Opus 4.5, Sonnet 4.5, Haiku 4.5)
-- **z.ai**: GLM models (GLM-4.7, GLM-4.5-Air) via max subscription
+## 📚 Quick Start
 
-The system is designed with three deployment levels:
-1. **Workspace** (development/source) - This directory
-2. **Machine-wide** (global installation) - `~/.claude/`
-3. **Multi-machine** (via RooSync) - Synchronized across machines
+### New to this workspace?
+
+1. Read [INDEX.md](INDEX.md) for complete documentation map
+2. Read [QUICKSTART.md](QUICKSTART.md) for quick start guide
+3. See [docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md) for workspace knowledge
+
+### Claude Code Agent?
+
+If you're a Claude Code agent participating in RooSync coordination:
+1. Read [CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md) for Phase 0 grounding and complete guide
+2. Read [MCP_ANALYSIS.md](MCP_ANALYSIS.md) for MCP capabilities and SDDD protocol
+3. Read [docs/roosync/](../docs/roosync/) for RooSync documentation
+
+---
+
+## 🎯 System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ROOSYNC v2.3 SYSTEM                          │
+├─────────────────────────────────────────────────────────────────┤
+│  Agents Roo (Technical)    ↔    Agents Claude Code (Coordination)│
+│  • Scripts, Tests, Build        • Documentation, Analysis      │
+│  • 25 RooSync MCP tools         • Multi-agent coordination      │
+│  • Qdrant semantic search       • GitHub Project integration    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🔄 Provider Switcher
+
+Switch easily between LLM providers in Claude Code.
+
+**Command:** `/switch-provider anthropic` or `/switch-provider zai`
+
+**Documentation:** See [archive/README_PROVIDER_SWITCHER.md](archive/README_PROVIDER_SWITCHER.md)
+
+---
+
+## 📁 Directory Structure `.claude/`
+
+```
+.claude/
+├── README.md                      # This file (entry point)
+├── INDEX.md                       # Documentation map
+├── QUICKSTART.md                  # Quick start guide
+├── CLAUDE_CODE_GUIDE.md           # Complete guide for Claude Code agents
+├── MCP_ANALYSIS.md                # MCP capabilities and technical analysis
+├── commands/                      # Slash commands
+│   └── switch-provider.md         # Provider switcher command
+├── scripts/                       # PowerShell scripts
+│   ├── Switch-Provider.ps1
+│   └── Deploy-ProviderSwitcher.ps1
+└── configs/                       # Config templates
+    ├── provider.anthropic.template.json
+    └── provider.zai.template.json
+```
 
 ## Quick Start
 

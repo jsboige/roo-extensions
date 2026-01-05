@@ -1,0 +1,239 @@
+# Claude Code Workspace - Documentation Index
+
+**Last Updated:** 2026-01-05
+**Workspace:** roo-extensions (RooSync Multi-Agent System)
+
+---
+
+## 📚 Navigation Rapide
+
+### Pour Démarrer
+- **[README.md](README.md)** - Point d'entrée du workspace
+- **[QUICKSTART.md](QUICKSTART.md)** - Guide de démarrage rapide
+
+### Pour les Agents Claude Code
+- **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Guide complet pour les agents (Bootstrap + Phases + Protocole SDDD)
+- **[MCP_ANALYSIS.md](MCP_ANALYSIS.md)** - Analyse détaillée des MCPs (Roo vs Claude Code, portabilité)
+
+### Connaissance du Workspace
+- **[docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Base de connaissance complète (6500+ fichiers documentés)
+
+---
+
+## 🗂️ Documentation RooSync
+
+### Guides Principaux
+- **[docs/roosync/PROTOCOLE_SDDD.md](../docs/roosync/PROTOCOLE_SDDD.md)** - Protocole SDDD v2.2.0 (Semantic Documentation Driven Design)
+- **[docs/roosync/GUIDE-TECHNIQUE-v2.3.md](../docs/roosync/GUIDE-TECHNIQUE-v2.3.md)** - Guide technique RooSync v2.3
+- **[docs/roosync/GESTION_MULTI_AGENT.md](../docs/roosync/GESTION_MULTI_AGENT.md)** - Gestion multi-agent
+
+### Documentation Opérationnelle
+- **[docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md](../docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)** - Guide opérationnel unifié
+- **[docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md](../docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md)** - Guide développeur
+
+---
+
+## 📊 Suivi et Rapports
+
+### Phase 1 - Diagnostic et Stabilisation
+- **[docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md](../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md)** - État actuel Phase 1
+
+### Plans d'Action
+- **[docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - 58 tâches planifiées
+
+### Rapports de Synthèse
+- **[docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - Synthèse multi-agent
+
+---
+
+## 🔧 Outils MCP Disponibles
+
+### RooSync (roo-state-manager) - 25 outils
+
+**Recherche Sémantique:**
+- `search_tasks_by_content` - Recherche sémantique (Qdrant + OpenAI embeddings)
+- `index_task_semantic` - Indexation sémantique
+
+**Historique Conversationnel:**
+- `view_conversation_tree` - Arborescence des tâches
+- `get_conversation_synthesis` - Synthèse LLM
+- `list_conversations` - Lister conversations
+- `export_conversation_xml/json/csv` - Exports
+
+**RooSync v2.3:**
+- `roosync_init` - Initialisation
+- `roosync_get_status` - État synchronisation
+- `roosync_read_dashboard` - Tableau de bord
+- `roosync_send_message` - Envoi message
+- `roosync_read_inbox` - Lecture boîte réception
+- ... (20 autres outils)
+
+### GitHub Project (github-projects-mcp)
+
+**Gestion de Projet:**
+- `list_projects` - Lister projets
+- `get_project_items` - Items du projet
+- `convert_draft_to_issue` - Créer issue
+- `update_project_item_field` - Mettre à jour
+- `add_issue_comment` - Commenter
+
+---
+
+## 🎯 Protocole SDDD Adapté pour Claude Code
+
+### Triple Grounding
+
+#### 1. Grounding Sémantique
+**Outils:** `search_tasks_by_content` (Roo MCP) + Grep/Glob
+- Recherche sémantique via Qdrant
+- Complété par recherche textuelle
+- Lecture des documents pertinents
+
+#### 2. Grounding Conversationnel
+**Outils:** `view_conversation_tree`, `get_conversation_synthesis` (Roo MCP)
+- Arborescence des conversations
+- Synthèse LLM
+- Lecture des rapports récents
+
+#### 3. Grounding Technique
+**Outils:** Read, Grep, Bash, Git
+- Lecture code source
+- Analyse état Git
+- Validation faisabilité
+
+### Traçabilité GitHub
+
+**OBLIGATION CRITIQUE:** Créer une issue GitHub pour toute tâche significative.
+
+**Format:**
+```
+Titre: [CLAUDE-myia-XX-XX] TITRE_DE_LA_TACHE
+Labels: claude-code, phase-X, priority-X
+```
+
+---
+
+## 📋 Structure du Dépôt
+
+### Documentation
+```
+docs/
+├── roosync/                     # Documentation RooSync
+│   ├── PROTOCOLE_SDDD.md
+│   ├── GUIDE-TECHNIQUE-v2.3.md
+│   └── GESTION_MULTI_AGENT.md
+├── suivi/RooSync/               # Suivi multi-agent
+│   ├── PHASE1_DIAGNOSTIC_ET_STABILISATION.md
+│   ├── PLAN_ACTION_MULTI_AGENT_*.md
+│   └── RAPPORT_SYNTHESE_MULTI_AGENT_*.md
+└── ...
+```
+
+### Code Source
+```
+mcps/
+├── internal/                    # MCPs internes
+│   └── servers/
+│       └── roo-state-manager/   # RooSync + outils Roo
+└── external/                    # MCPs externes
+    ├── github-projects-mcp/     # GitHub Project
+    └── playwright/              # Browser automation
+```
+
+---
+
+## 🚀 État Actuel (2026-01-05)
+
+### Problèmes Identifiés
+- 🔴 **Dualité architecturale v2.1/v2.3** - Cause profonde de l'instabilité
+- 🔴 **58 tâches en 4 phases** - Seulement 1 complétée
+- 🔴 **Documentation éparpillée** - 6500+ fichiers à consolider
+- 🔴 **Multi-agent "poussif"** - Coordination inefficace
+
+### Objectifs Claude Code
+1. **Nettoyer le dépôt** - Fusionner doublons, supprimer obsolètes
+2. **Consolider la documentation** - Créer index structurés
+3. **Coordonner les efforts** - Protocole SDDD + GitHub Project
+4. **Assister Roo** - Finaliser outils, tests techniques
+
+---
+
+## 🤝 Contribution Multi-Agent
+
+### Coordination en Cours
+
+**Phase 0: Bootstrap** (Immédiat)
+- Démarrer les agents Claude Code sur les 5 machines
+- Valider l'accès aux MCPs
+
+**Phase 1: Observation** (Jours 1-2)
+- Analyse complète du système RooSync
+- Cartographie de la documentation
+- Diagnostic technique
+
+**Phase 2: Nettoyage** (Jours 3-7)
+- Consolidation documentation
+- Nettoyage dépôt
+- Validation avec agents Roo
+
+**Phase 3: Coordination** (Jours 8-14)
+- Mise en place protocole SDDD
+- Rituels de communication
+- Outils de coordination
+
+**Phase 4: Extension** (Semaines 3-4)
+- Modèle répliquable
+- Documentation déploiement
+- Tests sur workspaces additionnels
+
+### Comment Participer
+
+1. Lire le [archive/BOOTSTRAP_MESSAGE.md](archive/BOOTSTRAP_MESSAGE.md)
+2. Suivre le protocole SDDD adapté
+3. Créer des issues GitHub pour traçabilité
+4. Communiquer via RooSync
+
+---
+
+## 📞 Support et Ressources
+
+### Documentation
+- **RooSync:** `docs/roosync/`
+- **Provider Switcher:** [archive/README_PROVIDER_SWITCHER.md](archive/README_PROVIDER_SWITCHER.md)
+- **Coordination:** [archive/PROPOSAL.md](archive/PROPOSAL.md)
+
+### Issues et Questions
+- **GitHub:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
+- **RooSync:** Via `roosync_send_message`
+
+---
+
+## 📝 Méta-Documentation
+
+### Fichiers .claude/
+
+**Chargés automatiquement au démarrage:**
+- `README.md` - Ce fichier, court et avec liens
+- `INDEX.md` - Cette table des matières
+- `QUICKSTART.md` - Guide rapide
+
+**Documents de référence (archive/):**
+- `WORKSPACE_KNOWLEDGE.md` - Base connaissance complète
+- `BOOTSTRAP_MESSAGE.md` - Message bootstrap détaillé
+- `PROPOSAL.md` - Proposition détaillée
+- `ANALYSE_TECHNIQUE.md` - Analyse technique
+
+**Scripts et configurations:**
+- `commands/` - Slash commands
+- `scripts/` - PowerShell scripts
+- `configs/` - Config templates
+
+---
+
+**Version:** 1.0.0
+**Last Updated:** 2026-01-05
+**Maintainer:** jsboige
+
+---
+
+**Built with Claude Code 🤖**
