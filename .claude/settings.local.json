@@ -6,7 +6,12 @@
       "Bash(claude:*)",
       "Bash(code:*)",
       "Bash(Select-String \"claude\")",
-      "Bash(Test-Path:*)"
+      "Bash(Test-Path:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(test:*)",
+      "Bash(cat:*)",
+      "Bash(node:*)"
     ],
     "mode": "auto-approve"
   },

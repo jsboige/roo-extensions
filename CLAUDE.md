@@ -93,22 +93,33 @@ This repository contains 7 submodules:
 
 **⚠️ IMPORTANT:** MCP configuration status for Claude Code agents:
 
-**✅ CONFIGURED:**
+**✅ VERIFIED & WORKING (myia-ai-01):**
 - `github-projects-mcp` - GitHub Projects API
-  - Configuration: `.claude/.mcp.json`
+  - Configuration: `.mcp.json` (at project root, NOT in `.claude/`)
   - Setup instructions: [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
-  - **Status:** Configuration deployed, needs testing on each machine
+  - **Status:** ✅ Tested and working on myia-ai-01 (2026-01-05)
+  - **Verified tools:** list_projects, get_project, get_project_items
+  - **Project accessible:** "RooSync Multi-Agent Tasks" (60 items, 1 completed)
+  - **Project URL:** https://github.com/users/jsboige/projects/67
 
-**❓ NOT VERIFIED:**
+**❓ NOT TESTED ON OTHER MACHINES:**
+- `github-projects-mcp` - Needs configuration & testing on:
+  - myia-po-2023
+  - myia-po-2024
+  - myia-po-2026
+  - myia-web-01
+
+**❌ NOT CONFIGURED FOR CLAUDE CODE:**
 - `roo-state-manager` - Roo state, conversation history, RooSync tools
   - Only configured for Roo agents
   - May work with Claude Code but needs testing
+  - See [`.claude/MCP_ANALYSIS.md`](.claude/MCP_ANALYSIS.md) for details
 
-**Action Required:**
-1. Read [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md) for github-projects-mcp setup
-2. Test MCP availability after Claude Code restart
-3. Report results in GitHub issue
-4. Use GitHub CLI (`gh`) as fallback if MCP not working
+**Action Required for Other Machines:**
+1. Copy `.mcp.json` configuration (see [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md))
+2. Restart Claude Code completely
+3. Test MCP with: "List the available GitHub projects"
+4. Create bootstrap issue: `[CLAUDE-MACHINE] MCP Test Results`
 
 ---
 
@@ -166,10 +177,16 @@ When you start a new task:
 - **Document reality** - what's verified, not assumptions
 
 **Coordination tasks:**
-- Test which MCPs actually work with Claude Code
-- Document verified capabilities (not assumptions)
-- Create clear task partition plan across all 5 machines
-- Focus on your machine (myia-ai-01) as baseline master coordinator
+- ✅ Test which MCPs actually work with Claude Code (GitHub MCP verified on myia-ai-01)
+- 🔄 Document verified capabilities on all machines
+- 📋 Create clear task partition plan across all 5 machines
+- 🎯 Focus on your machine (myia-ai-01) as baseline master coordinator
+
+**MCP Status (2026-01-05):**
+- ✅ **GitHub Projects MCP** - VERIFIED working on myia-ai-01
+  - 60 tasks visible in "RooSync Multi-Agent Tasks" project
+  - Can list projects, get details, read items
+  - Ready for multi-agent coordination via GitHub
 
 ---
 

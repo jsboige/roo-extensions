@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "github-projects-mcp": {
-      "type": "stdio",
       "command": "node",
       "args": [
         "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
       ],
-      "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/"
+      "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/",
+      "env": {}
     }
   }
 }

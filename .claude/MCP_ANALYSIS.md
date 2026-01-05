@@ -25,7 +25,7 @@
 
 ### Q2: Claude Code peut-il utiliser les MCPs de Roo ?
 
-**✅ OUI** - Sous conditions
+**✅ OUI** - **VERIFIED sur myia-ai-01**
 
 **Explication:**
 Les MCPs sont **par nature portables** car ils suivent le standard Model Context Protocol.
@@ -36,7 +36,15 @@ Les MCPs critiques sont **déjà configurés** pour Roo :
 - `roo-state-manager` - État + historique Roo + RooSync
 - `github-projects-mcp` - GitHub Projects API
 
+**✅ VERIFIED (2026-01-05):**
+- `github-projects-mcp` fonctionne parfaitement sur myia-ai-01
+- Configuration via `.mcp.json` à la racine du projet
+- Outils testés: `list_projects`, `get_project`, `get_project_items`
+- Projet "RooSync Multi-Agent Tasks" accessible (60 items)
+
 **Conclusion:** Si Claude Code a accès à cette configuration, il peut utiliser TOUS les MCPs configurés, y compris `roo-state-manager` et `github-projects-mcp`.
+
+**⚠️ IMPORTANT:** Le fichier `.mcp.json` doit être à la racine du projet, PAS dans `.claude/` (bug Claude Code #5037)
 
 ---
 
@@ -120,23 +128,37 @@ Les MCPs critiques sont **déjà configurés** pour Roo :
 
 ### Situation Actuelle
 
+**✅ VERIFIED (2026-01-05 sur myia-ai-01):**
+
 **MCP disponible:** `github-projects-mcp` dans `mcps/internal/servers/github-projects-mcp/`
 
-**Fonctionnalités:**
-- `list_projects` - Lister les projets GitHub
-- `get_project` - Obtenir détails projet
-- `get_project_items` - Lister items (drafts/issues)
+**Fonctionnalités testées et vérifiées:**
+- ✅ `list_projects` - Lister les projets GitHub
+- ✅ `get_project` - Obtenir détails projet
+- ✅ `get_project_items` - Lister items (drafts/issues)
+
+**Projet accessible:**
+- **Nom:** "RooSync Multi-Agent Tasks"
+- **ID:** PVT_kwHOADA1Xc4BLw3w
+- **URL:** https://github.com/users/jsboige/projects/67
+- **Contenu:** 60 items (1 complété, 59 en cours)
+
+**Fonctionnalités disponibles (non testées):**
 - `convert_draft_to_issue` - Convertir draft en issue
 - `update_project_item_field` - Mettre à jour champ
 - `add_issue_comment` - Ajouter commentaire issue
 
-**Configuration:** Déjà dans `roo-config/settings/servers.json`
+**Configuration:** `.mcp.json` à la racine du projet (bug #5037)
 
-**INTÉGRATION NÉCESSAIRE:** Les agents Claude Code doivent avoir accès à ce MCP pour:
-1. Créer des issues GitHub depuis les drafts
-2. Suivi des tâches multi-agent
-3. Traçabilité des décisions
-4. **Mémoire externe** (car pas d'accès à leur propre historique)
+**INTÉGRATION OPÉRATIONNELLE:** Les agents Claude Code sur myia-ai-01 peuvent:
+1. ✅ Lister les projets GitHub
+2. ✅ Lire les détails des projets
+3. ✅ Accéder à tous les items du projet
+4. 🔄 Utiliser pour le suivi des tâches multi-agent
+5. 🔄 Créer une "mémoire externe" pour les décisions
+
+**⚠️ PENDING sur autres machines:**
+- myia-po-2023, myia-po-2024, myia-po-2026, myia-web-1 besoin de configuration
 
 ---
 
@@ -353,19 +375,29 @@ filesystem_read, filesystem_write
 ### Pour le Déploiement
 
 1. **Vérifier la configuration MCP**
-   - `roo-state-manager` est-il activé pour Claude Code ?
-   - `github-projects-mcp` est-il accessible ?
+   - ✅ `github-projects-mcp` - **VERIFIED** sur myia-ai-01 (2026-01-05)
+   - ❓ `roo-state-manager` - Non testé pour Claude Code
    - Les variables d'environnement sont-elles correctes ?
 
 2. **Tester les outils critiques**
-   - `search_tasks_by_content` fonctionne-t-il ?
-   - `view_conversation_tree` fonctionne-t-il ?
-   - `convert_draft_to_issue` fonctionne-t-il ?
+   - ✅ `list_projects` - **VERIFIED** sur myia-ai-01
+   - ✅ `get_project` - **VERIFIED** sur myia-ai-01
+   - ✅ `get_project_items` - **VERIFIED** sur myia-ai-01
+   - ❓ `convert_draft_to_issue` - À tester
+   - ❓ `update_project_item_field` - À tester
 
 3. **Documenter le workflow**
-   - Comment créer une issue ?
-   - Comment rechercher dans l'historique Roo ?
-   - Comment retrouver ses propres décisions ?
+   - ✅ Comment lister les projets ? - **VERIFIED**
+   - ✅ Comment accéder aux items ? - **VERIFIED**
+   - 🔄 Comment créer une issue ? - À documenter
+   - 🔄 Comment rechercher dans l'historique Roo ? - À tester
+   - 🔄 Comment retrouver ses propres décisions ? - À documenter
+
+4. **Déployer sur les autres machines**
+   - ❌ myia-po-2023 - En attente de configuration
+   - ❌ myia-po-2024 - En attente de configuration
+   - ❌ myia-po-2026 - En attente de configuration
+   - ❌ myia-web-01 - En attente de configuration
 
 ---
 
@@ -396,8 +428,14 @@ filesystem_read, filesystem_write
 
 ---
 
-**Version:** 3.0 (Consolidée)
+**Version:** 3.1 (GitHub MCP VERIFIED)
 **Date:** 2026-01-05
 **Auteur:** Claude Code (myia-ai-01)
+
+**Test Status:**
+- ✅ github-projects-mcp VERIFIED on myia-ai-01
+- ✅ Can access "RooSync Multi-Agent Tasks" project (60 items)
+- ✅ Basic operations working (list, get, read items)
+- 🔄 Other machines need configuration
 
 **Built with Claude Code 🤖**

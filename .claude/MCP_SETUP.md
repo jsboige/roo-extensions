@@ -2,12 +2,42 @@
 
 **Date:** 2026-01-05
 **Purpose:** Configure github-projects-mcp for Claude Code multi-agent coordination
+**Status:** ✅ **VERIFIED WORKING on myia-ai-01**
 
 ---
 
 ## 🎯 Objective
 
 Enable Claude Code agents on all 5 machines to use GitHub Projects API for task tracking and coordination.
+
+---
+
+## ✅ Current Status
+
+### Verified Working (myia-ai-01)
+
+**Machine:** myia-ai-01
+**Date:** 2026-01-05
+**Status:** ✅ **FULLY OPERATIONAL**
+
+**Tested tools:**
+- ✅ `list_projects` - Lists all GitHub projects
+- ✅ `get_project` - Retrieves project details
+- ✅ `get_project_items` - Lists all items (60 items found)
+
+**Accessible project:**
+- **Name:** "RooSync Multi-Agent Tasks"
+- **ID:** PVT_kwHOADA1Xc4BLw3w
+- **URL:** https://github.com/users/jsboige/projects/67
+- **Items:** 60 total (1 completed, 59 in progress)
+
+### Pending Configuration
+
+These machines need MCP configuration:
+- ❌ myia-po-2023
+- ❌ myia-po-2024
+- ❌ myia-po-2026
+- ❌ myia-web-01
 
 ---
 
@@ -34,13 +64,16 @@ npm run build
 
 ### Step 2: Copy .mcp.json Configuration
 
-The configuration file is already created at `.claude/.mcp.json` in the workspace.
+**⚠️ IMPORTANT:** The `.mcp.json` file must be at the **project root**, NOT in `.claude/` directory.
+This is due to a known bug: [GitHub Issue #5037](https://github.com/anthropics/claude-code/issues/5037)
+
+The configuration file is at `.mcp.json` in the workspace root.
 
 **For each machine**, after pulling from git:
 
 1. Verify the file exists:
    ```powershell
-   Test-Path "d:\roo-extensions\.claude\.mcp.json"
+   Test-Path "d:\roo-extensions\.mcp.json"
    ```
 
 2. The file should contain:
@@ -81,7 +114,10 @@ In your first Claude Code conversation, test the MCP:
 Can you list the available GitHub projects?
 ```
 
-If the MCP is working, you should see a list of projects.
+If the MCP is working, you should see:
+- Project: "RooSync Multi-Agent Tasks"
+- ID: PVT_kwHOADA1Xc4BLw3w
+- 60 items (1 completed, 59 in progress)
 
 ---
 
@@ -90,12 +126,12 @@ If the MCP is working, you should see a list of projects.
 Once configured, the following tools should be available:
 
 **Project Management:**
-- `list_projects` - List all GitHub projects
-- `get_project` - Get project details
+- ✅ `list_projects` - List all GitHub projects
+- ✅ `get_project` - Get project details
 - `create_project` - Create a new project
 
 **Item Management:**
-- `get_project_items` - List items in a project
+- ✅ `get_project_items` - List items in a project
 - `add_item_to_project` - Add an item to a project
 - `update_project_item_field` - Update item fields
 - `delete_project_item` - Delete an item
@@ -137,12 +173,15 @@ Test-Path "d:\roo-extensions\.env"
 
 **Verify the configuration:**
 ```powershell
-# Check .mcp.json exists
-Test-Path "d:\roo-extensions\.claude\.mcp.json"
+# Check .mcp.json exists (at project root!)
+Test-Path "d:\roo-extensions\.mcp.json"
 
 # Verify content
-Get-Content "d:\roo-extensions\.claude\.mcp.json"
+Get-Content "d:\roo-extensions\.mcp.json"
 ```
+
+**⚠️ CRITICAL:** Ensure `.mcp.json` is at the **project root**, NOT in `.claude/` directory.
+Claude Code has a known bug where it doesn't read `.claude/.mcp.json` properly.
 
 ### Permission errors
 
@@ -173,12 +212,13 @@ npm run build
 
 Once MCP is verified working on your machine:
 
-1. **Create a test GitHub Project** for Claude Code coordination
-2. **Test basic operations:**
-   - List projects
-   - Create a draft issue
-   - Convert to issue
-3. **Report your results** in GitHub issue: `[CLAUDE-MACHINE] MCP Test Results`
+1. **Test basic operations:**
+   - List projects (should see "RooSync Multi-Agent Tasks")
+   - Get project items (should see 60 items)
+   - Verify you can read item details
+2. **Create bootstrap GitHub issue:** `[CLAUDE-MACHINE] Bootstrap Complete - MCP Configured`
+3. **Self-assign your first task** from the project board
+4. **Report your results** in GitHub issue: `[CLAUDE-MACHINE] MCP Test Results`
 
 ---
 
@@ -190,11 +230,16 @@ Once MCP is verified working on your machine:
 3. Report results in daily GitHub issues
 4. Use the MCP for task tracking once verified
 
-**myia-ai-01** will:
-1. Create dedicated GitHub Project for Claude Code tasks
-2. Set up labels and fields
-3. Document project structure
-4. Coordinate with other agents
+**myia-ai-01 (VERIFIED ✅):**
+- ✅ GitHub Projects MCP working
+- ✅ Can access "RooSync Multi-Agent Tasks" project
+- ✅ Ready to coordinate with other agents
+
+**Other machines (PENDING):**
+- myia-po-2023 - Needs configuration
+- myia-po-2024 - Needs configuration
+- myia-po-2026 - Needs configuration
+- myia-web-01 - Needs configuration
 
 ---
 
