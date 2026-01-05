@@ -18,17 +18,39 @@ Enable Claude Code agents on all 5 machines to use GitHub Projects API for task 
 
 ```powershell
 cd d:\Dev\roo-extensions  # or your workspace path
+
+# Option 1: Project-level only (default)
 .\.claude\scripts\init-claude-code.ps1
+
+# Option 2: Project + Global (recommended)
+.\.claude\scripts\init-claude-code.ps1 -Global
+
+# Option 3: Global only (MCPs available in all projects)
+.\.claude\scripts\init-claude-code.ps1 -Global -SkipProject
+
+# Option 4: Specific MCPs only
+.\.claude\scripts\init-claude-code.ps1 -Global -McpServers github-projects-mcp
 ```
 
 This script will:
-1. Create `.mcp.json` from template with correct paths
-2. Create `.claude/local/` directory
-3. Create INTERCOM file for your machine
-4. Verify MCP server build status
-5. Check .env file exists
+
+1. Create `.mcp.json` from template with correct paths (project-level)
+2. Optionally install MCPs to `~/.claude.json` (global, available in all projects)
+3. Create `.claude/local/` directory
+4. Create INTERCOM file for your machine
+5. Verify MCP server build status
+6. Check .env file exists
 
 Then restart Claude Code to activate MCP.
+
+### Project vs Global Installation
+
+| Scope | File | Available In | Use Case |
+|-------|------|--------------|----------|
+| **Project** | `.mcp.json` | This project only | Project-specific MCPs |
+| **Global** | `~/.claude.json` | All projects | Shared MCPs (recommended for github-projects-mcp) |
+
+**Recommendation:** Use `-Global` for MCPs that should be available everywhere (like `github-projects-mcp`).
 
 ---
 
