@@ -107,4 +107,7 @@ debug_trace.txt
 # Claude Code settings backups
 .claude/settings.json.backup-*
 
+# Claude Code local inter-agent communication (machine-specific)
+.claude/local/
+
 

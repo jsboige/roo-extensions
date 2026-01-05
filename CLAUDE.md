@@ -89,6 +89,45 @@ This repository contains 7 submodules:
 
 ---
 
+## 🔄 Local Communication (INTERCOM)
+
+**What:** Local communication between Claude Code and Roo agents in the same VS Code instance.
+
+**File:** `.claude/local/INTERCOM-{MACHINE_NAME}.md`
+
+**Purpose:**
+- Coordinate tasks between Claude Code and Roo on the same machine
+- Quick, real-time communication (vs. RooSync for inter-machine)
+- Simple file-based protocol (VS Code notifications trigger reads)
+
+**Documentation:** [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
+
+**Example:**
+```
+.claude/local/INTERCOM-myia-ai-01.md  # Communication on myia-ai-01
+```
+
+**Workflow:**
+1. **Starting work:** Check for messages from the other agent
+2. **Sending message:** Open file → Add message → Save (triggers notification)
+3. **File format:** Simple Markdown with timestamped messages
+
+**Quick Start:**
+```markdown
+## [2026-01-05 16:00:00] claude-code → roo [TASK]
+Please run the test suite for module X.
+
+---
+```
+
+**Message Types:** `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
+
+**Distinction:**
+- **INTERCOM** = Same machine, Claude Code ↔ Roo
+- **RooSync** = Different machines, inter-machine coordination
+
+---
+
 ## 🔄 RooSync Coordination
 
 **⚠️ IMPORTANT:** MCP configuration status for Claude Code agents:
