@@ -19,23 +19,23 @@ Enable Claude Code agents on all 5 machines to use GitHub Projects API for task 
 ```powershell
 cd d:\Dev\roo-extensions  # or your workspace path
 
-# Option 1: Project-level only (default)
+# Default: Global installation (recommended)
 .\.claude\scripts\init-claude-code.ps1
 
-# Option 2: Project + Global (recommended)
-.\.claude\scripts\init-claude-code.ps1 -Global
+# Also install to project (rare)
+.\.claude\scripts\init-claude-code.ps1 -Project
 
-# Option 3: Global only (MCPs available in all projects)
-.\.claude\scripts\init-claude-code.ps1 -Global -SkipProject
+# Project only, no global
+.\.claude\scripts\init-claude-code.ps1 -ProjectOnly
 
-# Option 4: Specific MCPs only
-.\.claude\scripts\init-claude-code.ps1 -Global -McpServers github-projects-mcp
+# Specific MCPs only
+.\.claude\scripts\init-claude-code.ps1 -McpServers github-projects-mcp
 ```
 
 This script will:
 
-1. Create `.mcp.json` from template with correct paths (project-level)
-2. Optionally install MCPs to `~/.claude.json` (global, available in all projects)
+1. Install MCPs to `~/.claude.json` (global, available in all projects) - **default**
+2. Optionally create `.mcp.json` for project-level config (with `-Project`)
 3. Create `.claude/local/` directory
 4. Create INTERCOM file for your machine
 5. Verify MCP server build status
@@ -45,12 +45,12 @@ Then restart Claude Code to activate MCP.
 
 ### Project vs Global Installation
 
-| Scope | File | Available In | Use Case |
-|-------|------|--------------|----------|
-| **Project** | `.mcp.json` | This project only | Project-specific MCPs |
-| **Global** | `~/.claude.json` | All projects | Shared MCPs (recommended for github-projects-mcp) |
+| Scope | File | Available In | Default |
+|-------|------|--------------|---------|
+| **Global** | `~/.claude.json` | All projects | ✅ Yes |
+| **Project** | `.mcp.json` | This project only | ❌ Use `-Project` |
 
-**Recommendation:** Use `-Global` for MCPs that should be available everywhere (like `github-projects-mcp`).
+**Default behavior:** Global installation. MCPs like `github-projects-mcp` are available in all your Claude Code projects.
 
 ---
 

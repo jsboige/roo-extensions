@@ -4,9 +4,9 @@
 
 param(
     [string]$WorkspaceRoot = $PWD.Path,
-    [switch]$Global,           # Install MCPs globally (to ~/.claude.json)
-    [switch]$ProjectOnly,      # Only install to project .mcp.json (default if neither specified)
-    [switch]$SkipProject,      # Skip project-level .mcp.json (use with -Global)
+    [switch]$Global,           # Install MCPs globally (to ~/.claude.json) - DEFAULT behavior
+    [switch]$Project,          # Also install to project .mcp.json (use with -Global)
+    [switch]$ProjectOnly,      # Only install to project .mcp.json, skip global
     [string[]]$McpServers      # Specific MCP servers to install globally (default: all)
 )
 
@@ -143,13 +143,17 @@ function Install-McpServersGlobally {
 }
 
 # Determine installation mode
-$installProject = -not $SkipProject
-$installGlobal = $Global
+# Default: Global only (MCPs available everywhere)
+# -Project: Also install to project .mcp.json
+# -ProjectOnly: Only project, no global
 
-if (-not $Global -and -not $ProjectOnly -and -not $SkipProject) {
-    # Default: project only
+if ($ProjectOnly) {
     $installProject = $true
     $installGlobal = $false
+} else {
+    # Default or -Global: install globally
+    $installGlobal = $true
+    $installProject = $Project  # Only if -Project specified
 }
 
 # 1. Initialize .mcp.json from template (project-level)
@@ -160,7 +164,7 @@ if ($installProject) {
     Initialize-FromTemplate -TemplatePath $mcpTemplate -OutputPath $mcpOutput
 } else {
     Write-Host "1. Project MCP Configuration (.mcp.json)" -ForegroundColor White
-    Write-Host "  [SKIP] -SkipProject specified" -ForegroundColor Yellow
+    Write-Host "  [SKIP] Use -Project to also install locally" -ForegroundColor Gray
 }
 
 # 2. Install MCPs globally if requested
@@ -172,7 +176,7 @@ if ($installGlobal) {
 } else {
     Write-Host ""
     Write-Host "2. Global MCP Configuration (~/.claude.json)" -ForegroundColor White
-    Write-Host "  [SKIP] Use -Global to install MCPs globally" -ForegroundColor Gray
+    Write-Host "  [SKIP] -ProjectOnly specified" -ForegroundColor Yellow
 }
 
 # 3. Create local directory for INTERCOM
@@ -241,10 +245,10 @@ Write-Host ""
 Write-Host "=== Initialization Complete ===" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Usage examples:" -ForegroundColor White
-Write-Host "  .\init-claude-code.ps1                    # Project-level only (default)" -ForegroundColor Gray
-Write-Host "  .\init-claude-code.ps1 -Global            # Project + Global installation" -ForegroundColor Gray
-Write-Host "  .\init-claude-code.ps1 -Global -SkipProject  # Global only" -ForegroundColor Gray
-Write-Host "  .\init-claude-code.ps1 -Global -McpServers github-projects-mcp  # Specific MCPs" -ForegroundColor Gray
+Write-Host "  .\init-claude-code.ps1                    # Global only (default, recommended)" -ForegroundColor Gray
+Write-Host "  .\init-claude-code.ps1 -Project           # Global + Project" -ForegroundColor Gray
+Write-Host "  .\init-claude-code.ps1 -ProjectOnly       # Project only (no global)" -ForegroundColor Gray
+Write-Host "  .\init-claude-code.ps1 -McpServers github-projects-mcp  # Specific MCPs only" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor White
 Write-Host "  1. Restart Claude Code to load MCP configuration"
