@@ -1,6 +1,6 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.3.0
+## Version: 2.4.0
 ## Date de création: 2026-01-02
 ## Dernière mise à jour: 2026-01-05
 
@@ -133,6 +133,8 @@ graph LR
 
 **OBLIGATION CRITIQUE** : Chaque agent doit **journaliser TOUTE opération réalisée** dans les issues GitHub correspondantes, de manière **régulière et continue** tout au long de la tâche.
 
+**OBLIGATION CRITIQUE** : Chaque agent doit **vérifier et fermer les issues complétées** après validation, en suivant la procédure décrite dans la section 2.6.
+
 ### 2.5 Communication Inter-Agents
 
 **Fichiers INTERCOM locaux** :
@@ -168,6 +170,36 @@ En attente / En cours / Terminé
 - Documentation immédiate des problèmes rencontrés et leurs solutions
 - Validation des checkpoints avec commentaires dédiés
 - Résumé final des opérations avant de conclure
+
+### 2.6 Vérification et Fermeture des Issues
+
+**OBLIGATION CRITIQUE** : Chaque agent doit **vérifier régulièrement** les issues GitHub qui ont des commentaires et qui auraient dû être fermées, et **fermer les issues complétées** après validation.
+
+**Procédure de vérification régulière** :
+1. Lister les issues ouvertes avec des commentaires dans les projets RooSync (#67 et #70)
+2. Identifier les issues qui semblent complétées (statut "Done" dans le projet, commentaires de validation, etc.)
+3. Vérifier que toutes les actions requises ont été effectuées
+4. Confirmer que l'issue peut être fermée
+
+**Checklist de validation avant fermeture** :
+- [ ] Toutes les actions requises ont été effectuées
+- [ ] Les tests ont été validés (si applicable)
+- [ ] La documentation a été mise à jour
+- [ ] Les changements ont été commités et poussés
+- [ ] Les dépendances ont été résolues
+- [ ] Les commentaires indiquent que la tâche est terminée
+- [ ] Le statut dans le projet GitHub est "Done"
+
+**Procédure de fermeture** :
+1. Ajouter un commentaire final de validation dans l'issue
+2. Mettre à jour le statut de l'item de projet à "Done" (si ce n'est pas déjà fait)
+3. Fermer l'issue en utilisant l'outil `update_issue_state`
+4. Documenter la fermeture dans le journal de l'agent
+
+**Fréquence de vérification** :
+- **Avant de commencer une nouvelle tâche** : Vérifier les issues en cours
+- **Après avoir terminé une tâche** : Vérifier si d'autres issues peuvent être fermées
+- **Régulièrement** : Au moins une fois par jour pour les agents actifs
 
 ---
 
@@ -608,7 +640,9 @@ graph TB
     J --> K[Indexation Tâche]
     K --> L[Génération Résumé]
     L --> M[Validation]
-    M --> N[Tâche Terminée]
+    M --> N[Vérification Issues]
+    N --> O[Fermeture Issues]
+    O --> P[Tâche Terminée]
 ```
 
 ### 8.2 Bonnes Pratiques
@@ -632,12 +666,18 @@ graph TB
 - Partager la documentation entre les agents
 - Valider le travail par les autres agents
 - Documenter les décisions pour référence future
-
 **Traçabilité** :
 - Documenter chaque modification
 - Utiliser des versions
 - Générer des rapports régulièrement
 - Archiver les anciennes versions
+
+**Gestion des Issues** :
+- Vérifier régulièrement les issues ouvertes avec des commentaires
+- Fermer les issues complétées après validation
+- Suivre la checklist de validation avant fermeture
+- Documenter la fermeture des issues
+- Maintenir la cohérence entre statuts de projet et d'issues
 
 ---
 
@@ -652,10 +692,11 @@ graph TB
 | 2026-01-04 | 2.1.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de l'information sur l'owner GitHub (jsboige) dans la section 2.1 Configuration du Projet. |
 | 2026-01-04 | 2.2.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de la section 3 "Exemples d'Appels MCP GitHub-Projects" avec des exemples concrets d'utilisation des outils MCP github-projects-mcp (list_projects, get_project, get_project_items, convert_draft_to_issue, update_project_item_field, add_issue_comment). Mise à jour de la numérotation des sections suivantes. |
 | 2026-01-05 | 2.3.0 | Roo Code Mode (myia-ai-01) | Ajout du projet #70 "RooSync Multi-Agent Coordination" pour les agents Claude Code dans la section 2.1. Ajout de la répartition des responsabilités Roo ↔ Claude Code dans la section 2.2. Ajout de la section 2.5 sur la communication inter-agents avec les fichiers INTERCOM locaux. Mise à jour de la section 8.2 Collaboration pour mentionner les fichiers INTERCOM. |
+| 2026-01-05 | 2.4.0 | Roo Code Mode (myia-ai-01) | Ajout de la section 2.6 sur la vérification et fermeture des issues. Ajout de l'obligation critique de vérifier et fermer les issues complétées dans la section 2.4. Mise à jour du workflow principal (section 8.1) pour inclure l'étape de vérification et fermeture des issues. Ajout d'une sous-section sur la gestion des issues dans les bonnes pratiques (section 8.2). |
 
 ---
 
 **Document généré par:** Roo Code Mode (myia-ai-01)
-**Date de génération:** 2026-01-05T21:38:00Z
-**Version:** 2.3.0
+**Date de génération:** 2026-01-05T23:30:00Z
+**Version:** 2.4.0
 **Statut:** 🟢 Production Ready
