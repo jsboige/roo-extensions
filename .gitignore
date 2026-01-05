@@ -50,6 +50,7 @@ yarn-error.log
 .pnp.js
 .npm
 .yarn-integrity
+package-lock.json
 
 # Fichiers de build
 /build/
