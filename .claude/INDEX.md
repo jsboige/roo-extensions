@@ -48,34 +48,44 @@
 
 ## 🔧 Outils MCP Disponibles
 
-### RooSync (roo-state-manager) - 25 outils
+### MCPs Internes (6 serveurs)
 
-**Recherche Sémantique:**
+**RooSync (roo-state-manager) - 50+ outils:**
 - `search_tasks_by_content` - Recherche sémantique (Qdrant + OpenAI embeddings)
-- `index_task_semantic` - Indexation sémantique
-
-**Historique Conversationnel:**
 - `view_conversation_tree` - Arborescence des tâches
 - `get_conversation_synthesis` - Synthèse LLM
-- `list_conversations` - Lister conversations
-- `export_conversation_xml/json/csv` - Exports
+- `roosync_*` - 25 outils de synchronisation multi-machine
 
-**RooSync v2.3:**
-- `roosync_init` - Initialisation
-- `roosync_get_status` - État synchronisation
-- `roosync_read_dashboard` - Tableau de bord
-- `roosync_send_message` - Envoi message
-- `roosync_read_inbox` - Lecture boîte réception
-- ... (20 autres outils)
-
-### GitHub Project (github-projects-mcp)
-
-**Gestion de Projet:**
+**GitHub Projects (github-projects-mcp):**
 - `list_projects` - Lister projets
 - `get_project_items` - Items du projet
 - `convert_draft_to_issue` - Créer issue
 - `update_project_item_field` - Mettre à jour
-- `add_issue_comment` - Commenter
+
+**Autres MCPs internes:**
+- `jinavigator-server` - Web → Markdown (Jina API)
+- `jupyter-papermill-mcp-server` - Jupyter Papermill
+- `quickfiles-server` - Opérations multi-fichiers
+
+### MCPs Externes (12 serveurs)
+
+**Opérations de base:**
+- `filesystem` - Opérations fichiers (lecture, écriture, édition)
+- `git` - Opérations Git (commit, push, pull, branches)
+- `github` - API GitHub (repos, issues, PRs)
+
+**Services externes:**
+- `searxng` - Recherche web
+- `docker` - Conteneurs Docker
+- `jupyter` - Notebooks Jupyter
+- `markitdown` - Conversion documents
+
+**Sous-modules git:**
+- `win-cli/server` - Windows CLI
+- `mcp-server-ftp` - Serveur FTP
+- `markitdown/source` - Microsoft Markitdown (v0.1.4)
+- `playwright/source` - Automatisation navigateur (v0.0.54)
+- `Office-PowerPoint-MCP-Server` - PowerPoint (Python)
 
 ---
 

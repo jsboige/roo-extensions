@@ -44,18 +44,35 @@ Les MCPs critiques sont **déjà configurés** pour Roo :
 
 ### MCPs Utilisables par Claude Code
 
-| MCP | Description | Localisation | Outils Claude Code | Portabilité |
-|-----|-------------|--------------|-------------------|-------------|
-| **roo-state-manager** | État + historique Roo + RooSync | `mcps/internal/servers/roo-state-manager/` | `search_tasks_by_content`, `view_conversation_tree`, `get_conversation_synthesis`, `roosync_*` (25 outils) | ✅ Interne - Déjà configuré |
-| **github-projects** | GitHub Projects API | `mcps/internal/servers/github-projects-mcp/` | `list_projects`, `get_project_items`, `convert_draft_to_issue`, `update_project_item_field` | ✅ Interne - Déjà configuré |
-| **github** | GitHub API | Issues, repos, PRs | ✅ Externe - Standard MCP |
-| **git** | Git operations | `git_*` | ✅ Externe - Standard MCP |
-| **filesystem** | File system access | Lecture/écriture fichiers | ✅ Externe - Standard MCP |
-| **searxng** | Web search | Recherche web | ✅ Externe - Standard MCP |
-| **win-cli** | Windows CLI | Commandes Windows | ✅ Externe - Standard MCP |
-| **quickfiles** | Multi-file operations | Manipulation fichiers multiples | ✅ Externe - Standard MCP |
+**MCPs Internes (6 serveurs):**
 
-**✅ BONNE NOUVELLE:** Les MCPs critiques sont **internes** et déjà configurés !
+| MCP | Description | Localisation | Outils principaux | Portabilité |
+|-----|-------------|--------------|-------------------|-------------|
+| **roo-state-manager** | État + historique Roo + RooSync | `mcps/internal/servers/roo-state-manager/` | `search_tasks_by_content`, `view_conversation_tree`, `get_conversation_synthesis`, `roosync_*` (50+ outils) | ✅ Interne - Configuré pour Roo |
+| **github-projects-mcp** | GitHub Projects API | `mcps/internal/servers/github-projects-mcp/` | `list_projects`, `get_project_items`, `convert_draft_to_issue`, `update_project_item_field` | ✅ Interne - Configuré pour Roo |
+| **jinavigator-server** | Web → Markdown (Jina API) | `mcps/internal/servers/jinavigator-server/` | Web to Markdown conversion | ✅ Interne - À configurer |
+| **jupyter-papermill-mcp** | Jupyter Papermill | `mcps/internal/servers/jupyter-papermill-mcp-server/` | Notebook execution with parameters | ✅ Interne - À configurer |
+| **quickfiles-server** | Multi-file operations | `mcps/internal/servers/quickfiles-server/` | Batch file operations | ✅ Interne - À configurer |
+| **jupyter-mcp-server** | (legacy - use papermill) | `mcps/internal/servers/jupyter-mcp-server/` | *(should be archived)* | ⚠️ Obsolète |
+
+**MCPs Externes (12 serveurs):**
+
+| MCP | Description | Localisation | Type | Portabilité |
+|-----|-------------|--------------|------|-------------|
+| **filesystem** | File system operations | `mcps/external/filesystem/` | Local | ✅ Standard MCP |
+| **git** | Git operations | `mcps/external/git/` | Local | ✅ Standard MCP |
+| **github** | GitHub API | `mcps/external/github/` | Local | ✅ Standard MCP |
+| **searxng** | Web search | `mcps/external/searxng/` | Local | ✅ Standard MCP |
+| **docker** | Docker containers | `mcps/external/docker/` | Local | ✅ Standard MCP |
+| **jupyter** | Jupyter notebooks | `mcps/external/jupyter/` | Local | ✅ Standard MCP |
+| **markitdown** | Document conversion | `mcps/external/markitdown/` | Local | ✅ Standard MCP |
+| **win-cli/server** | Windows CLI (git submodule) | `mcps/external/win-cli/server/` | Submodule | ✅ Standard MCP |
+| **mcp-server-ftp** | FTP server | `mcps/external/mcp-server-ftp/` | Submodule | ✅ Standard MCP |
+| **markitdown/source** | Microsoft Markitdown | `mcps/external/markitdown/source/` | Submodule | ✅ Standard MCP |
+| **playwright/source** | Browser automation | `mcps/external/playwright/source/` | Submodule | ✅ Standard MCP |
+| **Office-PowerPoint** | PowerPoint (Python) | `mcps/external/Office-PowerPoint-MCP-Server/` | Submodule | ✅ Python MCP |
+
+**✅ BONNE NOUVELLE:** Les MCPs critiques sont **internes** et configurés pour Roo !
 
 ---
 
