@@ -53,7 +53,7 @@ The configuration file is already created at `.claude/.mcp.json` in the workspac
            "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
          ],
          "transport": "http",
-         "url": "http://127.0.0.1:3001/mcp",
+         "url": "http://127.0.0.1:3002/mcp",
          "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/",
          "disabled": false,
          "envFile": ".env"
@@ -61,6 +61,8 @@ The configuration file is already created at `.claude/.mcp.json` in the workspac
      }
    }
    ```
+
+   **Note:** Port 3002 is used to avoid conflict with Roo (which uses port 3001)
 
    **Note:** GitHub tokens are stored in `.env` file (already exists in workspace, gitignored)
 
@@ -72,7 +74,7 @@ After the configuration is in place:
 2. **Reopen Claude Code**
 3. **Start a new conversation**
 
-The MCP server should automatically start on `http://127.0.0.1:3001/mcp`
+The MCP server should automatically start on `http://127.0.0.1:3002/mcp`
 
 ### Step 4: Verify MCP is Available
 
@@ -124,21 +126,21 @@ Once configured, the following tools should be available:
 
 ### MCP not starting
 
-**Check if port 3001 is available:**
+**Check if port 3002 is available:**
 ```powershell
-netstat -ano | findstr :3001
+netstat -ano | findstr :3002
 ```
 
 If port is in use, either:
 - Kill the process using it
-- Or change the port in `.mcp.json`
+- Or change the port in `.mcp.json` (avoid ports 3001 used by Roo)
 
 ### MCP tools not available
 
 **Verify the server is running:**
 ```powershell
 # Check health endpoint
-curl http://127.0.0.1:3001/health
+curl http://127.0.0.1:3002/health
 ```
 
 Expected response:

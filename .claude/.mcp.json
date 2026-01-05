@@ -6,7 +6,7 @@
         "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
       ],
       "transport": "http",
-      "url": "http://127.0.0.1:3001/mcp",
+      "url": "http://127.0.0.1:3002/mcp",
       "cwd": "d:/roo-extensions/mcps/internal/servers/github-projects-mcp/",
       "disabled": false,
       "envFile": ".env"
