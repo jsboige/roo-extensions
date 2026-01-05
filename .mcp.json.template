@@ -7,6 +7,14 @@
       ],
       "cwd": "{{WORKSPACE_ROOT}}/mcps/internal/servers/github-projects-mcp/",
       "env": {}
+    },
+    "roo-state-manager": {
+      "command": "node",
+      "args": [
+        "{{WORKSPACE_ROOT}}/mcps/internal/servers/roo-state-manager/dist/index.js"
+      ],
+      "cwd": "{{WORKSPACE_ROOT}}/mcps/internal/servers/roo-state-manager/",
+      "env": {}
     }
   }
 }
