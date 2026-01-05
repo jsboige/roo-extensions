@@ -1,8 +1,8 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.2.0
+## Version: 2.3.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-04
+## Dernière mise à jour: 2026-01-05
 
 ## Description
 
@@ -66,12 +66,18 @@ graph LR
 **Organisation** :
 - **Owner GitHub** : `jsboige`
 - **Repository** : `roo-extensions`
-- **Project Board** : `RooSync Multi-Agent`
+- **Project Boards** :
+  - **Project #67** : `RooSync Multi-Agent Tasks` (pour les agents Roo)
+  - **Project #70** : `RooSync Multi-Agent Coordination` (pour les agents Claude Code)
 - **Milestones** : Phases du plan d'action (Phase 1, Phase 2, Phase 3, Phase 4)
 
 **Note importante** : Tous les agents commitent avec le même utilisateur GitHub (jsboige/jsboige@gmail.com). L'identification des agents se fait exclusivement par leur machineID dans les descriptions d'issues et les commentaires.
 
 ### 2.2 Création et Suivi des Tâches
+
+**Répartition des responsabilités** :
+- **Agents Roo** : Code technique, tests, builds, scripts → Project #67
+- **Agents Claude Code** : Documentation, coordination, analysis, reporting → Project #70
 
 **Procédure de création** :
 1. Créer une issue dans le repository
@@ -126,6 +132,35 @@ graph LR
 5. Mettre à jour le statut de l'item de projet en parallèle
 
 **OBLIGATION CRITIQUE** : Chaque agent doit **journaliser TOUTE opération réalisée** dans les issues GitHub correspondantes, de manière **régulière et continue** tout au long de la tâche.
+
+### 2.5 Communication Inter-Agents
+
+**Fichiers INTERCOM locaux** :
+- Chaque instance VSCode dispose d'un fichier INTERCOM local dans `.claude/local/INTERCOM-{machineID}.md`
+- Ce fichier permet la communication locale entre Roo et Claude Code dans la même instance VSCode
+- Les agents doivent utiliser ce fichier pour :
+  - Coordonner les tâches entre Roo et Claude Code
+  - Partager des informations contextuelles
+  - Signaler des dépendances ou des blocages
+  - Documenter les décisions conjointes
+
+**Format de communication INTERCOM** :
+```markdown
+## Communication - [Date] - [Agent]
+
+### Objet
+Description de l'objet de la communication
+
+### Contenu
+Contenu détaillé de la communication
+
+### Actions requises
+- [ ] Action 1
+- [ ] Action 2
+
+### Statut
+En attente / En cours / Terminé
+```
 
 **Format de journalisation** :
 - Mise à jour du statut (Backlog → In Progress → Done)
@@ -592,7 +627,8 @@ graph TB
 - Mettre à jour les index
 
 **Collaboration** :
-- Communiquer régulièrement via le système de messagerie
+- Communiquer régulièrement via le système de messagerie RooSync
+- Utiliser les fichiers INTERCOM locaux pour la coordination Roo ↔ Claude Code
 - Partager la documentation entre les agents
 - Valider le travail par les autres agents
 - Documenter les décisions pour référence future
@@ -615,10 +651,11 @@ graph TB
 | 2026-01-02 | 2.0.0 | Roo Architect Mode | Refonte majeure : fusion des sections redondantes (obligations des orchestrateurs, bonnes pratiques de recherche), réduction des exemples de journalisation, simplification des workflows, suppression des répétitions de concepts. Réduction de 764 à ~450 lignes (-41%). |
 | 2026-01-04 | 2.1.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de l'information sur l'owner GitHub (jsboige) dans la section 2.1 Configuration du Projet. |
 | 2026-01-04 | 2.2.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de la section 3 "Exemples d'Appels MCP GitHub-Projects" avec des exemples concrets d'utilisation des outils MCP github-projects-mcp (list_projects, get_project, get_project_items, convert_draft_to_issue, update_project_item_field, add_issue_comment). Mise à jour de la numérotation des sections suivantes. |
+| 2026-01-05 | 2.3.0 | Roo Code Mode (myia-ai-01) | Ajout du projet #70 "RooSync Multi-Agent Coordination" pour les agents Claude Code dans la section 2.1. Ajout de la répartition des responsabilités Roo ↔ Claude Code dans la section 2.2. Ajout de la section 2.5 sur la communication inter-agents avec les fichiers INTERCOM locaux. Mise à jour de la section 8.2 Collaboration pour mentionner les fichiers INTERCOM. |
 
 ---
 
-**Document généré par:** Roo Orchestrator Mode (myia-ai-01)
-**Date de génération:** 2026-01-04T01:10:00Z
-**Version:** 2.2.0
+**Document généré par:** Roo Code Mode (myia-ai-01)
+**Date de génération:** 2026-01-05T21:38:00Z
+**Version:** 2.3.0
 **Statut:** 🟢 Production Ready
