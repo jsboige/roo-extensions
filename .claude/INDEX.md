@@ -25,10 +25,6 @@
 - **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Protocole de communication locale Claude Code ↔ Roo
 - **[local/INTERCOM-myia-ai-01.md](local/INTERCOM-myia-ai-01.md)** - Journal de communication local (myia-ai-01)
 
-### Transition et Reprise de Travail
-- **[RESUME_WORK.md](RESUME_WORK.md)** - Guide de transition pour reprendre le travail (NOUVELLE CONVERSATION)
-- **[START_NEW_CONVERSATION.txt](START_NEW_CONVERSATION.txt)** - Message prêt à copier pour démarrer une nouvelle conversation
-
 ### Connaissance du Workspace
 - **[docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Base de connaissance complète (6500+ fichiers documentés)
 
@@ -49,7 +45,11 @@
 
 ## 📊 Suivi et Rapports
 
-### Phase 1 - Diagnostic et Stabilisation
+### Claude Code - Suivi
+- **[docs/suivi/Claude-Code/RESUME_WORK.md](../docs/suivi/Claude-Code/RESUME_WORK.md)** - Guide de transition pour reprendre le travail
+- **[docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt](../docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt)** - Message à copier pour nouvelle conversation
+
+### RooSync - Phase 1
 - **[docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md](../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md)** - État actuel Phase 1
 
 ### Plans d'Action
