@@ -53,6 +53,46 @@ function Initialize-FromTemplate {
     return $true
 }
 
+# Function to load .env file and return as hashtable
+function Get-EnvVariables {
+    param(
+        [string]$EnvPath
+    )
+
+    $envVars = @{}
+
+    if (-not (Test-Path $EnvPath)) {
+        Write-Host "  [WARN] .env file not found: $EnvPath" -ForegroundColor Yellow
+        return $envVars
+    }
+
+    Write-Host "  [INFO] Loading .env from: $EnvPath" -ForegroundColor Cyan
+
+    # Read .env file and parse KEY=VALUE pairs
+    Get-Content $EnvPath | ForEach-Object {
+        # Skip comments and empty lines
+        if ($_ -match '^\s*#' -or $_ -match '^\s*$') {
+            return
+        }
+
+        # Match KEY=VALUE pattern (ignore export if present)
+        if ($_ -match '^(?:export\s+)?([^=]+)=(.+)$') {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim()
+
+            # Remove quotes if present
+            if ($value -match '^["''](.+)["'']$') {
+                $value = $matches[1]
+            }
+
+            $envVars[$key] = $value
+        }
+    }
+
+    Write-Host "  [OK] Loaded $($envVars.Count) environment variables" -ForegroundColor Green
+    return $envVars
+}
+
 # Function to merge MCP servers into global config
 function Install-McpServersGlobally {
     param(
@@ -110,6 +150,13 @@ function Install-McpServersGlobally {
         $templateServers = $filteredServers
     }
 
+    # Load .env file for roo-state-manager
+    $envVars = @{}
+    if ($templateServers.ContainsKey("roo-state-manager")) {
+        $envPath = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/.env"
+        $envVars = Get-EnvVariables -EnvPath $envPath
+    }
+
     # Merge servers
     $addedCount = 0
     $updatedCount = 0
@@ -121,6 +168,26 @@ function Install-McpServersGlobally {
             $existingJson = $globalConfig["mcpServers"][$serverName] | ConvertTo-Json -Compress
             $newJson = $serverConfig | ConvertTo-Json -Compress
             if ($existingJson -ne $newJson) {
+                # Add/update environment variables for roo-state-manager
+                if ($serverName -eq "roo-state-manager" -and $envVars.Count -gt 0) {
+                    # Build env hashtable
+                    $envHash = @{}
+                    if ($serverConfig.PSObject.Properties.Name.Contains('env')) {
+                        $serverConfig.env.PSObject.Properties | ForEach-Object {
+                            $envHash[$_.Name] = $_.Value
+                        }
+                    }
+                    # Merge environment variables
+                    foreach ($var in $envVars.Keys) {
+                        $envHash[$var] = $envVars[$var]
+                    }
+                    # Replace env with hashtable
+                    if ($serverConfig.PSObject.Properties.Name.Contains('env')) {
+                        $serverConfig.PSObject.Properties.Remove('env')
+                    }
+                    $serverConfig | Add-Member -NotePropertyName 'env' -NotePropertyValue $envHash -Force
+                    Write-Host "    [ENV] Injected $($envVars.Count) environment variables" -ForegroundColor Cyan
+                }
                 $globalConfig["mcpServers"][$serverName] = $serverConfig
                 Write-Host "  [UPDATE] $serverName" -ForegroundColor Cyan
                 $updatedCount++
@@ -128,6 +195,26 @@ function Install-McpServersGlobally {
                 Write-Host "  [SKIP] $serverName (already configured)" -ForegroundColor Yellow
             }
         } else {
+            # Add environment variables for roo-state-manager
+            if ($serverName -eq "roo-state-manager" -and $envVars.Count -gt 0) {
+                # Build env hashtable
+                $envHash = @{}
+                if ($serverConfig.PSObject.Properties.Name.Contains('env')) {
+                    $serverConfig.env.PSObject.Properties | ForEach-Object {
+                        $envHash[$_.Name] = $_.Value
+                    }
+                }
+                # Merge environment variables
+                foreach ($var in $envVars.Keys) {
+                    $envHash[$var] = $envVars[$var]
+                }
+                # Replace env with hashtable
+                if ($serverConfig.PSObject.Properties.Name.Contains('env')) {
+                    $serverConfig.PSObject.Properties.Remove('env')
+                }
+                $serverConfig | Add-Member -NotePropertyName 'env' -NotePropertyValue $envHash -Force
+                Write-Host "    [ENV] Injected $($envVars.Count) environment variables" -ForegroundColor Cyan
+            }
             $globalConfig["mcpServers"][$serverName] = $serverConfig
             Write-Host "  [ADD] $serverName" -ForegroundColor Green
             $addedCount++

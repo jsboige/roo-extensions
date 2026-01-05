@@ -12,7 +12,8 @@
       "Bash(test:*)",
       "Bash(cat:*)",
       "Bash(node:*)",
-      "Bash(git submodule:*)"
+      "Bash(git submodule:*)",
+      "Bash(git push:*)"
     ],
     "mode": "auto-approve"
   },
