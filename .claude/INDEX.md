@@ -15,6 +15,11 @@
 - **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Guide complet pour les agents (Bootstrap + Phases + Protocole SDDD)
 - **[MCP_ANALYSIS.md](MCP_ANALYSIS.md)** - Analyse détaillée des MCPs (Roo vs Claude Code, portabilité)
 
+### Configuration et Déploiement
+- **[MCP_SETUP.md](MCP_SETUP.md)** - Guide d'installation et configuration MCP pour les 5 machines
+- **[MCP_BOOTSTRAP_REPORT.md](MCP_BOOTSTRAP_REPORT.md)** - Rapport d'état du bootstrap MCP (myia-ai-01)
+- **[MULTI_MACHINE_DEPLOYMENT.md](MULTI_MACHINE_DEPLOYMENT.md)** - Guide de déploiement multi-machine RooSync
+
 ### Connaissance du Workspace
 - **[docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Base de connaissance complète (6500+ fichiers documentés)
 
