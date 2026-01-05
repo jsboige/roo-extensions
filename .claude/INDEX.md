@@ -17,8 +17,17 @@
 
 ### Configuration et Déploiement
 - **[MCP_SETUP.md](MCP_SETUP.md)** - Guide d'installation et configuration MCP pour les 5 machines
+- **[ROO_STATE_MANAGER_GUIDE.md](ROO_STATE_MANAGER_GUIDE.md)** - Guide d'utilisation du MCP roo-state-manager
 - **[MCP_BOOTSTRAP_REPORT.md](MCP_BOOTSTRAP_REPORT.md)** - Rapport d'état du bootstrap MCP (myia-ai-01)
 - **[MULTI_MACHINE_DEPLOYMENT.md](MULTI_MACHINE_DEPLOYMENT.md)** - Guide de déploiement multi-machine RooSync
+
+### Communication et Coordination
+- **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Protocole de communication locale Claude Code ↔ Roo
+- **[local/INTERCOM-myia-ai-01.md](local/INTERCOM-myia-ai-01.md)** - Journal de communication local (myia-ai-01)
+
+### Transition et Reprise de Travail
+- **[RESUME_WORK.md](RESUME_WORK.md)** - Guide de transition pour reprendre le travail (NOUVELLE CONVERSATION)
+- **[START_NEW_CONVERSATION.txt](START_NEW_CONVERSATION.txt)** - Message prêt à copier pour démarrer une nouvelle conversation
 
 ### Connaissance du Workspace
 - **[docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Base de connaissance complète (6500+ fichiers documentés)

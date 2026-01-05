@@ -137,33 +137,40 @@ Please run the test suite for module X.
 
 **⚠️ IMPORTANT:** MCP configuration status for Claude Code agents:
 
-**✅ VERIFIED & WORKING (myia-ai-01):**
-- `github-projects-mcp` - GitHub Projects API
-  - Configuration: `.mcp.json` (at project root, NOT in `.claude/`)
+**✅ VERIFIED & WORKING (myia-ai-01 - 2026-01-05):**
+- `github-projects-mcp` - GitHub Projects API (57 tools)
+  - Configuration: `~/.claude.json` (global user config)
   - Setup instructions: [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
   - **Status:** ✅ Tested and working on myia-ai-01 (2026-01-05)
   - **Verified tools:** list_projects, get_project, get_project_items
-  - **Project accessible:** "RooSync Multi-Agent Tasks" (60 items, 1 completed)
+  - **Project accessible:** "RooSync Multi-Agent Tasks" (Project #67, 60 items, 1 completed)
   - **Project URL:** https://github.com/users/jsboige/projects/67
 
+- `roo-state-manager` - RooSync state management + messaging (57 tools)
+  - Configuration: `~/.claude.json` with `.env` injection
+  - **Status:** ✅ Deployed on myia-ai-01 (2026-01-05)
+  - **Commit:** `64412d47` - Fix .env injection in init script
+  - **Environment:** 10 variables injected from `mcps/internal/servers/roo-state-manager/.env`
+  - **Capabilities:**
+    - Read RooSync messages: `get_recent_messages()`
+    - Access conversation history
+    - Qdrant semantic search
+    - Inter-machine coordination
+
 **❓ NOT TESTED ON OTHER MACHINES:**
-- `github-projects-mcp` - Needs configuration & testing on:
+- Both MCPs need deployment on:
   - myia-po-2023
   - myia-po-2024
   - myia-po-2026
   - myia-web-01
 
-**❌ NOT CONFIGURED FOR CLAUDE CODE:**
-- `roo-state-manager` - Roo state, conversation history, RooSync tools
-  - Only configured for Roo agents
-  - May work with Claude Code but needs testing
-  - See [`.claude/MCP_ANALYSIS.md`](.claude/MCP_ANALYSIS.md) for details
-
 **Action Required for Other Machines:**
-1. Copy `.mcp.json` configuration (see [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md))
+1. Run init script: `.\.claude\scripts\init-claude-code.ps1`
 2. Restart Claude Code completely
-3. Test MCP with: "List the available GitHub projects"
+3. Test MCPs with: "List the available GitHub projects" or "Read recent RooSync messages"
 4. Create bootstrap issue: `[CLAUDE-MACHINE] MCP Test Results`
+
+**IMPORTANT:** MCPs are loaded at VS Code startup. Always start a NEW conversation after deployment to access the tools.
 
 ---
 

@@ -1,0 +1,70 @@
+# 🚀 Message pour Nouvelle Conversation - Test MCP + Coordination
+
+**Date:** 2026-01-05 23:30
+**Machine:** myia-ai-01
+
+---
+
+## 📋 Contexte Rapide
+
+Je viens de déployer roo-state-manager MCP sur myia-ai-01. Déploiement terminé et commité (`64412d47`).
+
+**MCPs disponibles:**
+- ✅ github-projects-mcp (57 outils) - GitHub Projects API
+- ✅ roo-state-manager (57 outils) - RooSync messages + historique
+
+---
+
+## 🎯 Ce que je veux que tu fasses
+
+### 1. Tester le MCP roo-state-manager
+
+```
+S'il te plaît:
+- Liste les outils disponibles depuis roo-state-manager
+- Lis les messages RooSync récents avec get_recent_messages()
+- Vérifie s'il y a des messages en attente dans la boîte de réception
+```
+
+### 2. Vérifier les Projets GitHub
+
+```
+- Liste les items du Projet #67 (agents Roo)
+- Liste les items du Projet #70 (agents Claude Code)
+- Identifie les tâches assignées à myia-ai-01
+```
+
+### 3. Lire INTERCOM
+
+```
+Lit le fichier .claude/local/INTERCOM-myia-ai-01.md pour voir les messages de Roo
+```
+
+### 4. Déterminer la prochaine tâche
+
+En fonction de:
+- Issues GitHub en attente
+- Messages INTERCOM
+- Messages RooSync
+
+---
+
+## 📖 Documentation de Référence
+
+- **Contexte complet:** `CLAUDE.md` (mis à jour avec statut MCP)
+- **Guide MCP:** `.claude/ROO_STATE_MANAGER_GUIDE.md`
+- **Transition:** `.claude/RESUME_WORK.md` (résumé détaillé du travail effectué)
+- **Map workspace:** `.claude/INDEX.md`
+
+---
+
+## 🔧 Rappel Technique
+
+**Configuration MCP:** `C:\Users\MYIA\.claude.json`
+**10 variables d'environnement** injectées pour roo-state-manager
+**INTERCOM actif** avec plusieurs échanges loggés
+**Git clean** (commit 64412d47 pushé)
+
+---
+
+Dis-moi ce que tu trouves et on continue la coordination! 🚀
