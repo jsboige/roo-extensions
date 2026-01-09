@@ -1,261 +1,285 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-09
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
 
-## 📚 Navigation Rapide
+## 📚 Quick Navigation
 
-### Pour Démarrer
-- **[README.md](README.md)** - Point d'entrée du workspace
-- **[QUICKSTART.md](QUICKSTART.md)** - Guide de démarrage rapide
+### Start Here
+- **[CLAUDE.md](../CLAUDE.md)** - ⭐ Main guide for Claude Code agents (READ THIS FIRST)
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
 
-### Pour les Agents Claude Code
-- **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Guide complet pour les agents (Bootstrap + Phases + Protocole SDDD)
-- **[MCP_ANALYSIS.md](MCP_ANALYSIS.md)** - Analyse détaillée des MCPs (Roo vs Claude Code, portabilité)
+### For Claude Code Agents
+- **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Complete agent guide (Bootstrap + SDDD Phases)
+- **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Local communication protocol (Claude Code ↔ Roo)
 
-### Configuration et Déploiement
-- **[MCP_SETUP.md](MCP_SETUP.md)** - Guide d'installation et configuration MCP pour les 5 machines
-- **[ROO_STATE_MANAGER_GUIDE.md](ROO_STATE_MANAGER_GUIDE.md)** - Guide d'utilisation du MCP roo-state-manager
-- **[MCP_BOOTSTRAP_REPORT.md](MCP_BOOTSTRAP_REPORT.md)** - Rapport d'état du bootstrap MCP (myia-ai-01)
-- **[MULTI_MACHINE_DEPLOYMENT.md](MULTI_MACHINE_DEPLOYMENT.md)** - Guide de déploiement multi-machine RooSync
+### Configuration & Deployment
+- **[MCP_SETUP.md](MCP_SETUP.md)** - ✅ MCP configuration guide (UPDATED with wrapper solution)
+- **[MULTI_MACHINE_DEPLOYMENT.md](MULTI_MACHINE_DEPLOYMENT.md)** - Multi-machine RooSync deployment
 
-### Communication et Coordination
-- **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Protocole de communication locale Claude Code ↔ Roo
-- **[local/INTERCOM-myia-ai-01.md](local/INTERCOM-myia-ai-01.md)** - Journal de communication local (myia-ai-01)
-
-### Connaissance du Workspace
-- **[docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Base de connaissance complète (6500+ fichiers documentés)
+### Workspace Knowledge
+- **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
 ---
 
-## 🗂️ Documentation RooSync
+## ✅ MCP Status (2026-01-09)
 
-### Guides Principaux
-- **[docs/roosync/PROTOCOLE_SDDD.md](../docs/roosync/PROTOCOLE_SDDD.md)** - Protocole SDDD v2.2.0 (Semantic Documentation Driven Design)
-- **[docs/roosync/GUIDE-TECHNIQUE-v2.3.md](../docs/roosync/GUIDE-TECHNIQUE-v2.3.md)** - Guide technique RooSync v2.3
-- **[docs/roosync/GESTION_MULTI_AGENT.md](../docs/roosync/GESTION_MULTI_AGENT.md)** - Gestion multi-agent
+### VERIFIED & WORKING (myia-ai-01)
 
-### Documentation Opérationnelle
-- **[docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md](../docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)** - Guide opérationnel unifié
-- **[docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md](../docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md)** - Guide développeur
+**github-projects-mcp** (57 tools)
+- Status: ✅ Fully operational
+- Project: "RooSync Multi-Agent Tasks" (#67)
+- URL: https://github.com/users/jsboige/projects/67
+
+**roo-state-manager** (6 RooSync messaging tools)
+- Status: ✅ DEPLOYED & FUNCTIONAL (2026-01-09)
+- Solution: Smart wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+- Filters 57+ tools → 6 RooSync messaging tools
+- Capabilities:
+  - Inter-machine messaging via RooSync
+  - 65 messages in inbox (4 unread)
+
+### PENDING (Other Machines)
+- myia-po-2023
+- myia-po-2024
+- myia-po-2026
+- myia-web-01
+
+**Action Required:** Run `.\.claude\scripts\init-claude-code.ps1`
+
+See [MCP_SETUP.md](MCP_SETUP.md) for details.
 
 ---
 
-## 📊 Suivi et Rapports
+## 🗂️ RooSync Documentation
 
-### Claude Code - Suivi
-- **[docs/suivi/Claude-Code/RESUME_WORK.md](../docs/suivi/Claude-Code/RESUME_WORK.md)** - Guide de transition pour reprendre le travail
-- **[docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt](../docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt)** - Message à copier pour nouvelle conversation
+### Main Guides
+- **[../docs/roosync/PROTOCOLE_SDDD.md](../docs/roosync/PROTOCOLE_SDDD.md)** - SDDD Protocol v2.2.0
+- **[../docs/roosync/GUIDE-TECHNIQUE-v2.3.md](../docs/roosync/GUIDE-TECHNIQUE-v2.3.md)** - RooSync v2.3 Technical Guide
+- **[../docs/roosync/GESTION_MULTI_AGENT.md](../docs/roosync/GESTION_MULTI_AGENT.md)** - Multi-agent management
 
-### RooSync - Phase 1
-- **[docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md](../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md)** - État actuel Phase 1
-
-### Plans d'Action
-- **[docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - 58 tâches planifiées
-
-### Rapports de Synthèse
-- **[docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - Synthèse multi-agent
+### Operational Docs
+- **[../docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md](../docs/roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)** - Unified operational guide
+- **[../docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md](../docs/roosync/GUIDE-DEVELOPPEUR-v2.1.md)** - Developer guide
 
 ---
 
-## 🔧 Outils MCP Disponibles
+## 📊 Tracking & Reports
 
-### MCPs Internes (6 serveurs)
+### Claude Code Tracking
+- **[../docs/suivi/Claude-Code/RESUME_WORK.md](../docs/suivi/Claude-Code/RESUME_WORK.md)** - Transition guide
+- **[../docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt](../docs/suivi/Claude-Code/START_NEW_CONVERSATION.txt)** - Message template
 
-**RooSync (roo-state-manager) - 50+ outils:**
-- `search_tasks_by_content` - Recherche sémantique (Qdrant + OpenAI embeddings)
-- `view_conversation_tree` - Arborescence des tâches
-- `get_conversation_synthesis` - Synthèse LLM
-- `roosync_*` - 25 outils de synchronisation multi-machine
+### RooSync Phase 1
+- **[../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md](../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md)** - Phase 1 status
+
+### Action Plans
+- **[../docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/PLAN_ACTION_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - 58 planned tasks
+
+### Synthesis Reports
+- **[../docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md](../docs/suivi/RooSync/RAPPORT_SYNTHESE_MULTI_AGENT_myia-ai-01_2025-12-31_v2.md)** - Multi-agent synthesis
+
+---
+
+## 🛠️ Available MCP Tools
+
+### Internal MCPs (6 servers)
+
+**RooSync (roo-state-manager) - 6 tools (via wrapper):**
+- `roosync_send_message` - Send message
+- `roosync_read_inbox` - Read inbox
+- `roosync_reply_message` - Reply to message
+- `roosync_get_message` - Get message details
+- `roosync_mark_message_read` - Mark as read
+- `roosync_archive_message` - Archive message
+
+**Note:** The wrapper filters 57+ tools down to these 6 RooSync messaging tools for stability.
 
 **GitHub Projects (github-projects-mcp):**
-- `list_projects` - Lister projets
-- `get_project_items` - Items du projet
-- `convert_draft_to_issue` - Créer issue
-- `update_project_item_field` - Mettre à jour
+- `list_projects` - List projects
+- `get_project_items` - Get project items
+- `create_project` - Create project
+- `update_project_item_field` - Update item
 
-**Autres MCPs internes:**
+**Other Internal MCPs:**
 - `jinavigator-server` - Web → Markdown (Jina API)
 - `jupyter-papermill-mcp-server` - Jupyter Papermill
-- `quickfiles-server` - Opérations multi-fichiers
+- `quickfiles-server` - Multi-file operations
 
-### MCPs Externes (12 serveurs)
+### External MCPs (12 servers)
 
-**Opérations de base:**
-- `filesystem` - Opérations fichiers (lecture, écriture, édition)
-- `git` - Opérations Git (commit, push, pull, branches)
-- `github` - API GitHub (repos, issues, PRs)
+**Basic Operations:**
+- `filesystem` - File operations (read, write, edit)
+- `git` - Git operations (commit, push, pull, branches)
+- `github` - GitHub API (repos, issues, PRs)
 
-**Services externes:**
-- `searxng` - Recherche web
-- `docker` - Conteneurs Docker
-- `jupyter` - Notebooks Jupyter
-- `markitdown` - Conversion documents
+**External Services:**
+- `searxng` - Web search
+- `docker` - Docker containers
+- `jupyter` - Jupyter notebooks
+- `markitdown` - Document conversion
 
-**Sous-modules git:**
+**Git Submodules:**
 - `win-cli/server` - Windows CLI
-- `mcp-server-ftp` - Serveur FTP
+- `mcp-server-ftp` - FTP server
 - `markitdown/source` - Microsoft Markitdown (v0.1.4)
-- `playwright/source` - Automatisation navigateur (v0.0.54)
+- `playwright/source` - Browser automation (v0.0.54)
 - `Office-PowerPoint-MCP-Server` - PowerPoint (Python)
 
 ---
 
-## 🎯 Protocole SDDD Adapté pour Claude Code
+## 🎯 SDDD Protocol for Claude Code
 
 ### Triple Grounding
 
-#### 1. Grounding Sémantique
-**Outils:** `search_tasks_by_content` (Roo MCP) + Grep/Glob
-- Recherche sémantique via Qdrant
-- Complété par recherche textuelle
-- Lecture des documents pertinents
+**1. Semantic Grounding**
+- Tools: `search_tasks_by_content` (Roo MCP) + Grep/Glob
+- Semantic search via Qdrant
+- Textual search complement
+- Read relevant documents
 
-#### 2. Grounding Conversationnel
-**Outils:** `view_conversation_tree`, `get_conversation_synthesis` (Roo MCP)
-- Arborescence des conversations
-- Synthèse LLM
-- Lecture des rapports récents
+**2. Conversational Grounding**
+- Tools: `view_conversation_tree`, `get_conversation_synthesis` (Roo MCP)
+- Conversation tree
+- LLM synthesis
+- Read recent reports
 
-#### 3. Grounding Technique
-**Outils:** Read, Grep, Bash, Git
-- Lecture code source
-- Analyse état Git
-- Validation faisabilité
+**3. Technical Grounding**
+- Tools: Read, Grep, Bash, Git
+- Read source code
+- Git status check
+- Feasibility validation
 
-### Traçabilité GitHub
+### GitHub Traceability
 
-**OBLIGATION CRITIQUE:** Créer une issue GitHub pour toute tâche significative.
+**CRITICAL REQUIREMENT:** Create a GitHub issue for any significant task.
 
 **Format:**
 ```
-Titre: [CLAUDE-myia-XX-XX] TITRE_DE_LA_TACHE
+Title: [CLAUDE-myia-XX-XX] TASK_TITLE
 Labels: claude-code, phase-X, priority-X
 ```
 
 ---
 
-## 📋 Structure du Dépôt
+## 📋 Repository Structure
 
 ### Documentation
 ```
 docs/
-├── roosync/                     # Documentation RooSync
+├── roosync/                     # RooSync documentation
 │   ├── PROTOCOLE_SDDD.md
 │   ├── GUIDE-TECHNIQUE-v2.3.md
 │   └── GESTION_MULTI_AGENT.md
-├── suivi/RooSync/               # Suivi multi-agent
+├── suivi/RooSync/               # Multi-agent tracking
 │   ├── PHASE1_DIAGNOSTIC_ET_STABILISATION.md
 │   ├── PLAN_ACTION_MULTI_AGENT_*.md
 │   └── RAPPORT_SYNTHESE_MULTI_AGENT_*.md
 └── ...
 ```
 
-### Code Source
+### Source Code
 ```
 mcps/
-├── internal/                    # MCPs internes
+├── internal/                    # Internal MCPs
 │   └── servers/
-│       └── roo-state-manager/   # RooSync + outils Roo
-└── external/                    # MCPs externes
-    ├── github-projects-mcp/     # GitHub Project
-    └── playwright/              # Browser automation
+│       ├── roo-state-manager/   # RooSync + Roo tools (with wrapper)
+│       └── github-projects-mcp/ # GitHub Projects
+└── external/                    # External MCPs
+    └── ...
 ```
 
 ---
 
-## 🚀 État Actuel (2026-01-05)
+## 🚀 Current Status (2026-01-09)
 
-### Problèmes Identifiés
-- 🔴 **Dualité architecturale v2.1/v2.3** - Cause profonde de l'instabilité
-- 🔴 **58 tâches en 4 phases** - Seulement 1 complétée
-- 🔴 **Documentation éparpillée** - 6500+ fichiers à consolider
-- 🔴 **Multi-agent "poussif"** - Coordination inefficace
+### Recent Accomplishments
+- ✅ GitHub Projects MCP deployed and verified (myia-ai-01)
+- ✅ RooSync MCP deployed with smart wrapper (myia-ai-01)
+  - Resolved verbose logs issue
+  - Filters 57+ tools → 6 RooSync messaging tools
+  - Inter-machine communication functional
 
-### Objectifs Claude Code
-1. **Nettoyer le dépôt** - Fusionner doublons, supprimer obsolètes
-2. **Consolider la documentation** - Créer index structurés
-3. **Coordonner les efforts** - Protocole SDDD + GitHub Project
-4. **Assister Roo** - Finaliser outils, tests techniques
+### Problems Solved
+- ✅ Claude Code crash on startup with roo-state-manager
+- ✅ Too many stdout logs interfering with MCP protocol
+- Solution: Wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
 
----
-
-## 🤝 Contribution Multi-Agent
-
-### Coordination en Cours
-
-**Phase 0: Bootstrap** (Immédiat)
-- Démarrer les agents Claude Code sur les 5 machines
-- Valider l'accès aux MCPs
-
-**Phase 1: Observation** (Jours 1-2)
-- Analyse complète du système RooSync
-- Cartographie de la documentation
-- Diagnostic technique
-
-**Phase 2: Nettoyage** (Jours 3-7)
-- Consolidation documentation
-- Nettoyage dépôt
-- Validation avec agents Roo
-
-**Phase 3: Coordination** (Jours 8-14)
-- Mise en place protocole SDDD
-- Rituels de communication
-- Outils de coordination
-
-**Phase 4: Extension** (Semaines 3-4)
-- Modèle répliquable
-- Documentation déploiement
-- Tests sur workspaces additionnels
-
-### Comment Participer
-
-1. Lire le [archive/BOOTSTRAP_MESSAGE.md](archive/BOOTSTRAP_MESSAGE.md)
-2. Suivre le protocole SDDD adapté
-3. Créer des issues GitHub pour traçabilité
-4. Communiquer via RooSync
+### Immediate Goals
+- 🔄 Deploy MCPs on 4 other machines
+- 📋 Create clear task distribution plan
+- 🎯 Resume bicéphal coordination Claude Code + Roo
 
 ---
 
-## 📞 Support et Ressources
+## 🤝 Multi-Agent Contribution
+
+### Coordination in Progress
+
+**Phase 0: Bootstrap** (Immediate)
+- Start Claude Code agents on 5 machines
+- Validate MCP access
+
+**Phase 1: Observation** (Days 1-2)
+- Complete RooSync system analysis
+- Documentation mapping
+- Technical diagnostics
+
+**Phase 2: Cleanup** (Days 3-7)
+- Documentation consolidation
+- Repository cleanup
+- Validation with Roo agents
+
+**Phase 3: Coordination** (Days 8-14)
+- SDDD protocol deployment
+- Communication rituals
+- Coordination tools
+
+**Phase 4: Extension** (Weeks 3-4)
+- Replicable model
+- Deployment documentation
+- Testing on additional workspaces
+
+### How to Participate
+
+1. Read [CLAUDE.md](../CLAUDE.md) completely
+2. Follow the adapted SDDD protocol
+3. Create GitHub issues for traceability
+4. Communicate via RooSync
+
+---
+
+## 📞 Support & Resources
 
 ### Documentation
-- **RooSync:** `docs/roosync/`
-- **Provider Switcher:** [archive/README_PROVIDER_SWITCHER.md](archive/README_PROVIDER_SWITCHER.md)
-- **Coordination:** [archive/PROPOSAL.md](archive/PROPOSAL.md)
+- **RooSync:** `../docs/roosync/`
+- **Coordination:** See [CLAUDE.md](../CLAUDE.md)
 
-### Issues et Questions
+### Issues & Questions
 - **GitHub:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 - **RooSync:** Via `roosync_send_message`
 
 ---
 
-## 📝 Méta-Documentation
+## 📝 Meta-Documentation
 
-### Fichiers .claude/
+### .claude/ Files
 
-**Chargés automatiquement au démarrage:**
-- `README.md` - Ce fichier, court et avec liens
-- `INDEX.md` - Cette table des matières
-- `QUICKSTART.md` - Guide rapide
+**Auto-loaded at startup:**
+- `README.md` - Short entry point with links
+- `INDEX.md` - This table of contents
+- `QUICKSTART.md` - Quick start guide
 
-**Documents de référence (archive/):**
-- `WORKSPACE_KNOWLEDGE.md` - Base connaissance complète
-- `BOOTSTRAP_MESSAGE.md` - Message bootstrap détaillé
-- `PROPOSAL.md` - Proposition détaillée
-- `ANALYSE_TECHNIQUE.md` - Analyse technique
-
-**Scripts et configurations:**
-- `commands/` - Slash commands
+**Scripts and configs:**
 - `scripts/` - PowerShell scripts
-- `configs/` - Config templates
+- `local/` - INTERCOM communication logs
 
 ---
 
-**Version:** 1.0.0
-**Last Updated:** 2026-01-05
+**Version:** 2.0.0
+**Last Updated:** 2026-01-09
 **Maintainer:** jsboige
 
 ---

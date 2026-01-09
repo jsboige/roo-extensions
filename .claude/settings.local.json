@@ -13,7 +13,12 @@
       "Bash(cat:*)",
       "Bash(node:*)",
       "Bash(git submodule:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm --version)",
+      "Bash(timeout 5 node:*)",
+      "Bash(timeout:*)",
+      "mcp__roo-state-manager__roosync_read_inbox"
     ],
     "mode": "auto-approve"
   },
