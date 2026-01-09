@@ -107,11 +107,19 @@ If Claude Code crashes on startup:
 3. Test wrapper directly: `node mcp-wrapper.cjs` from roo-state-manager directory
 4. Check for errors in stderr
 
+### myia-po-2024 ✅ OPERATIONAL
+
+**Date:** 2026-01-10
+**Status:** ✅ **FULLY OPERATIONAL**
+
+- ✅ github-projects-mcp (57 tools)
+- ✅ roo-state-manager via wrapper (6 RooSync tools)
+- ✅ INTERCOM configured
+
 ### Pending Configuration
 
 These machines need MCP configuration (run init script):
 - ❌ myia-po-2023
-- ❌ myia-po-2024
 - ❌ myia-po-2026
 - ❌ myia-web-01
 
@@ -212,6 +220,56 @@ Once configured, the following tools should be available:
 - `unarchive_project` - Unarchive a project
 - `archive_project_item` - Archive item
 - `unarchive_project_item` - Unarchive item
+
+---
+
+## ✅ Deployment Checklist
+
+**Use this checklist BEFORE deploying MCPs to avoid configuration errors.**
+
+Based on analysis of past fix commits (Task 2.24), these are the common pitfalls:
+
+### Pre-Deployment Checks
+
+```powershell
+# 1. Verify ports are available (MCP uses 3001-3002)
+netstat -an | findstr ":300"
+
+# 2. Check existing MCP config
+if (Test-Path ~/.claude.json) { Get-Content ~/.claude.json | ConvertFrom-Json | Select-Object -ExpandProperty mcpServers }
+
+# 3. Verify .env file exists for roo-state-manager
+Test-Path "mcps/internal/servers/roo-state-manager/.env"
+
+# 4. Test wrapper directly (should show version without crash)
+node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs
+# Expected: "Roo State Manager Server started - v1.0.14"
+```
+
+### Deployment Steps
+
+- [ ] Run `git pull` to get latest config
+- [ ] Run `.\.claude\scripts\init-claude-code.ps1`
+- [ ] Verify output shows [OK] for each step
+- [ ] **Restart VS Code completely** (not just reload)
+- [ ] Test MCP: "List the available GitHub projects"
+- [ ] Test RooSync: Use `roosync_read_inbox`
+
+### Post-Deployment Verification
+
+- [ ] `github-projects-mcp` shows 57 tools
+- [ ] `roo-state-manager` shows 6 RooSync tools
+- [ ] Can access project #67 (Roo tasks)
+- [ ] Can send/receive RooSync messages
+
+### Common Issues (from Task 2.24 Analysis)
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Port conflict | Another service on 3001/3002 | Change port or stop conflicting service |
+| .env not loaded | Manual config missing env vars | Use init script (auto-injects .env) |
+| Too many tools | Using build/index.js directly | Use mcp-wrapper.cjs instead |
+| Crash on startup | Verbose logs from roo-state-manager | Wrapper filters logs automatically |
 
 ---
 
