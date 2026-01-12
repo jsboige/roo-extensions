@@ -5,7 +5,7 @@
 **Date de dernière mise à jour** : 2026-01-10
 **Statut** : 🟢 Production Ready
 
-> **Note** : Ce document est le point d'entrée principal. Pour les transitions entre versions, voir la section [Versions et Évolutions](#versions-et-évolutions).
+> **Note** : Ce document est le point d'entrée principal. Pour les transitions entre versions, voir la section [Historique et Évolutions](#6-historique-et-évolutions).
 
 ---
 
@@ -83,12 +83,11 @@ graph TB
 
 | Machine | Rôle | OS | Statut |
 |---------|------|-----|--------|
-| myia-ai-01 | Baseline Master | Windows | 🟢 Actif |
+| myia-ai-01 | Coordinateur | Windows | 🟢 Actif |
 | myia-po-2023 | Agent | Windows | 🟢 Actif |
 | myia-po-2024 | Agent | Windows | 🟢 Actif |
-| myia-po-2025 | Agent | Windows | 🟢 Actif |
 | myia-po-2026 | Agent | Windows | 🟢 Actif |
-| myia-web1 | Agent | Windows | 🟢 Actif |
+| myia-web-01 | Agent | Windows | 🟢 Actif |
 
 ---
 
@@ -510,6 +509,18 @@ graph LR
 
 ## 6. Historique et Évolutions
 
+### Versions RooSync
+
+| Version | Date | Description | Changelog |
+|---------|------|-------------|-----------|
+| **v2.3** | 2026-01 | Consolidation API, coordination multi-agent | [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md) |
+| v2.2 | 2025-12 | Publication de configuration (corrections WP4) | - |
+| v2.1 | 2025-12 | Architecture Baseline-Driven | [GUIDE-TECHNIQUE-v2.1.md](GUIDE-TECHNIQUE-v2.1.md) |
+
+**Migration recommandée :** v2.1 → v2.3 (voir [PLAN_MIGRATION_V2.1_V2.3.md](PLAN_MIGRATION_V2.1_V2.3.md))
+
+---
+
 ### Résumé des Cycles de Développement
 
 #### Cycle 6 : Consolidation de la Documentation
@@ -746,7 +757,7 @@ RooSync est publié sous licence MIT et fait partie du projet Roo Extensions.
 
 ---
 
-**Dernière mise à jour** : 2025-12-27
-**Version** : 2.1
+**Dernière mise à jour** : 2026-01-10
+**Version** : 2.3
 **Statut** : 🟢 Production Ready
-**Auteur** : Roo Architect Mode
+**Contributeurs** : Roo Architect Mode, Claude Code (myia-po-2024)
