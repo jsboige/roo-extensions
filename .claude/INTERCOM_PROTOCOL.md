@@ -94,16 +94,43 @@ Can span multiple lines.
 
 ## 🔄 Workflow
 
+### ⚠️ CRITICAL: Message Placement
+
+**Messages MUST be appended at the END of the file, NOT at the beginning.**
+
+The file is a **chronological log** - newest messages go at the bottom.
+
+**Correct:**
+```
+[older messages...]
+---
+
+## [2026-01-12 23:50:00] claude-code → roo [SYNC]
+New message here...
+---
+```
+
+**WRONG - Never do this:**
+```
+## [2026-01-12 23:50:00] claude-code → roo [SYNC]  ← WRONG!
+New message inserted at top...
+---
+
+[older messages below...]  ← Other agent won't see it!
+```
+
+**Why this matters:** Agents read from the end of the file to find new messages. If you insert at the beginning, the other agent will miss your message entirely.
+
 ### For Claude Code Agent
 
 **When starting work:**
 1. Check if `.claude/local/INTERCOM-{MACHINE}.md` exists
-2. Read recent messages from Roo
+2. Read recent messages from Roo (at the END of the file)
 3. Look for `[TASK]` or `[ASK]` messages
 
 **When sending to Roo:**
 1. Open the file in VS Code
-2. Scroll to end
+2. **Go to the END of the file** (after the last `---` separator)
 3. Add new message with proper format
 4. Save and close
    - **This triggers VS Code to notify Roo agent**
@@ -112,12 +139,12 @@ Can span multiple lines.
 
 **When starting work:**
 1. Check if `.claude/local/INTERCOM-{MACHINE}.md` exists
-2. Read recent messages from Claude Code
+2. Read recent messages from Claude Code (at the END of the file)
 3. Look for `[TASK]` or `[ASK]` messages
 
 **When sending to Claude Code:**
 1. Open the file in VS Code
-2. Scroll to end
+2. **Go to the END of the file** (after the last `---` separator)
 3. Add new message with proper format
 4. Save and close
    - **This triggers VS Code to notify Claude Code agent**
@@ -313,5 +340,5 @@ Sure, I'll take care of deployment. Focus on docs.
 
 ---
 
-**Last Updated:** 2026-01-05
+**Last Updated:** 2026-01-12
 **Maintained by:** Claude Code agents on all RooSync machines
