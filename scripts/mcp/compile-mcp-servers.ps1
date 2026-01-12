@@ -2,6 +2,10 @@
 # Auteur: Roo
 # Date: 21/05/2025
 
+# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 # Fonction pour compiler un serveur MCP
 function Compile-MCPServer {
     param (
@@ -25,17 +29,34 @@ function Compile-MCPServer {
     Push-Location $serverPath
     
     try {
-        # Installer les dépendances
+        # CORRECTION SDDD v1.3: Ajout de timeouts sur les opérations npm
+        # Installer les dépendances avec timeout (5 minutes)
         Write-Host "Installation des dépendances pour $serverName..." -ForegroundColor Yellow
-        npm install
+        $installJob = Start-Job -ScriptBlock { npm install }
+        $installJob | Wait-Job -Timeout 300 | Out-Null
+        if ($installJob.State -ne 'Completed') {
+            Write-Host "Erreur: Timeout lors de l'installation des dépendances pour $serverName (5min)." -ForegroundColor Red
+            Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        $installOutput = Receive-Job -Job $installJob
+        Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Erreur lors de l'installation des dépendances pour $serverName." -ForegroundColor Red
             return $false
         }
         
-        # Compiler le serveur
+        # Compiler le serveur avec timeout (5 minutes)
         Write-Host "Compilation de $serverName..." -ForegroundColor Yellow
-        npm run build
+        $buildJob = Start-Job -ScriptBlock { npm run build }
+        $buildJob | Wait-Job -Timeout 300 | Out-Null
+        if ($buildJob.State -ne 'Completed') {
+            Write-Host "Erreur: Timeout lors de la compilation de $serverName (5min)." -ForegroundColor Red
+            Remove-Job -Job $buildJob -Force -ErrorAction SilentlyContinue
+            return $false
+        }
+        $buildOutput = Receive-Job -Job $buildJob
+        Remove-Job -Job $buildJob -Force -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Host "Erreur lors de la compilation de $serverName." -ForegroundColor Red
             return $false

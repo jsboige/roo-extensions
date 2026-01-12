@@ -19,6 +19,10 @@
     Force la réinstallation du MCP 'quickfiles-server'.
 #>
 
+# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
 param (
     [Parameter(Mandatory = $false)]
     [string[]]$McpName,
@@ -197,13 +201,43 @@ foreach ($mcp in $allMcps) {
         try {
             Write-ColorOutput "Installation des dépendances avec 'npm install'..."
             Push-Location -Path $mcp.Path
-            npm install --include=dev --silent
+            # CORRECTION SDDD v1.3: Ajout de timeout sur npm install (5 minutes)
+            $installJob = Start-Job -ScriptBlock { npm install --include=dev --silent }
+            $installJob | Wait-Job -Timeout 300 | Out-Null
+            if ($installJob.State -ne 'Completed') {
+                Write-ColorOutput "Erreur: Timeout lors de l'installation des dépendances pour $($mcp.Name) (5min)." -ForegroundColor Red
+                Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
+                Pop-Location
+                continue
+            }
+            $installOutput = Receive-Job -Job $installJob
+            Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
+            if ($LASTEXITCODE -ne 0) {
+                Write-ColorOutput "Erreur lors de l'installation des dépendances pour $($mcp.Name)." -ForegroundColor Red
+                Pop-Location
+                continue
+            }
             
             # Vérifier si un script "build" existe et l'exécuter
             $pkg = Get-Content -Path $packageJsonPath | ConvertFrom-Json
             if ($pkg.scripts.build) {
                 Write-ColorOutput "Exécution du script 'npm run build'..."
-                npm run build --silent
+                # CORRECTION SDDD v1.3: Ajout de timeout sur npm run build (5 minutes)
+                $buildJob = Start-Job -ScriptBlock { npm run build --silent }
+                $buildJob | Wait-Job -Timeout 300 | Out-Null
+                if ($buildJob.State -ne 'Completed') {
+                    Write-ColorOutput "Erreur: Timeout lors de la compilation de $($mcp.Name) (5min)." -ForegroundColor Red
+                    Remove-Job -Job $buildJob -Force -ErrorAction SilentlyContinue
+                    Pop-Location
+                    continue
+                }
+                $buildOutput = Receive-Job -Job $buildJob
+                Remove-Job -Job $buildJob -Force -ErrorAction SilentlyContinue
+                if ($LASTEXITCODE -ne 0) {
+                    Write-ColorOutput "Erreur lors de la compilation de $($mcp.Name)." -ForegroundColor Red
+                    Pop-Location
+                    continue
+                }
             }
             
             # Tâche Spécifique: Créer le .env pour github-projects-mcp
@@ -280,9 +314,16 @@ foreach ($mcp in $allMcps) {
 Write-ColorOutput "`n[Phase 3.5/4] Préchauffage des caches npx..." "Yellow"
 try {
     Write-ColorOutput "Préchauffage du cache pour @playwright/mcp..."
-    # Exécuter une commande légère force npx à télécharger et installer le paquet proprement.
-    npx -y @playwright/mcp --version | Out-Null
-    Write-ColorOutput "Cache pour @playwright/mcp préchauffé avec succès." "Green"
+    # CORRECTION SDDD v1.3: Ajout de timeout sur npx (2 minutes)
+    $npxJob = Start-Job -ScriptBlock { npx -y @playwright/mcp --version }
+    $npxJob | Wait-Job -Timeout 120 | Out-Null
+    if ($npxJob.State -eq 'Completed') {
+        $npxOutput = Receive-Job -Job $npxJob
+        Write-ColorOutput "Cache pour @playwright/mcp préchauffé avec succès." "Green"
+    } else {
+        Write-ColorOutput "AVERTISSEMENT: Timeout lors du préchauffage du cache de Playwright (2min)." "Yellow"
+    }
+    Remove-Job -Job $npxJob -Force -ErrorAction SilentlyContinue
 } catch {
     Write-ColorOutput "AVERTISSEMENT: Une erreur est survenue lors du préchauffage du cache de Playwright. Le démarrage pourrait échouer." "Yellow"
     Write-ColorOutput $_.Exception.Message "Yellow"

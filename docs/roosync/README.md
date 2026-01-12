@@ -1,9 +1,11 @@
-# RooSync v2.1 - Système de Synchronisation Multi-Environnements
+# RooSync - Système de Synchronisation Multi-Environnements
 
 **Description** : Système de synchronisation et coordination multi-agents pour Roo
-**Version** : 2.1
-**Date de dernière mise à jour** : 2025-12-27
+**Version actuelle** : 2.3 (voir [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md))
+**Date de dernière mise à jour** : 2026-01-10
 **Statut** : 🟢 Production Ready
+
+> **Note** : Ce document est le point d'entrée principal. Pour les transitions entre versions, voir la section [Versions et Évolutions](#versions-et-évolutions).
 
 ---
 

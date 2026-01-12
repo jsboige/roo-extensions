@@ -10,6 +10,8 @@
 # avec des commandes directes, sans wrappers de journalisation.
 # =============================================================================
 
+# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # --- 1. Initialisation ---
@@ -41,12 +43,32 @@ foreach ($mcpName in $config.mcpServers.PSObject.Properties.Name) {
             try {
                 Push-Location $mcpFullPath
                 
+                # CORRECTION SDDD v1.3: Ajout de timeout sur npm install (5 minutes)
                 Write-Host "  - Installation des dépendances (npm install)..."
-                npm install | Out-Null
+                $installJob = Start-Job -ScriptBlock { npm install }
+                $installJob | Wait-Job -Timeout 300 | Out-Null
+                if ($installJob.State -ne 'Completed') {
+                    Write-Error "  [ERREUR] Timeout lors de l'installation des dépendances pour '$mcpName' (5min)."
+                    Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
+                    Pop-Location
+                    continue
+                }
+                $installOutput = Receive-Job -Job $installJob
+                Remove-Job -Job $installJob -Force -ErrorAction SilentlyContinue
                 
                 if (Test-Path (Join-Path $mcpFullPath "tsconfig.json")) {
+                    # CORRECTION SDDD v1.3: Ajout de timeout sur npx tsc (5 minutes)
                     Write-Host "  - Compilation TypeScript (npx tsc)..."
-                    npx tsc
+                    $tscJob = Start-Job -ScriptBlock { npx tsc }
+                    $tscJob | Wait-Job -Timeout 300 | Out-Null
+                    if ($tscJob.State -ne 'Completed') {
+                        Write-Error "  [ERREUR] Timeout lors de la compilation TypeScript pour '$mcpName' (5min)."
+                        Remove-Job -Job $tscJob -Force -ErrorAction SilentlyContinue
+                        Pop-Location
+                        continue
+                    }
+                    $tscOutput = Receive-Job -Job $tscJob
+                    Remove-Job -Job $tscJob -Force -ErrorAction SilentlyContinue
                 }
                 
                 Write-Host "  [OK] MCP '$mcpName' traité avec succès." -ForegroundColor Green

@@ -10,6 +10,9 @@
 .EXAMPLE
     .\Get-MachineInventory.ps1 -MachineId "myia-po-2024"
 #>
+# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 param(
     [Parameter(Mandatory=$false)]
@@ -225,32 +228,46 @@ try {
     }
     Write-Host "  OK PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Green
     
-    # Node version (vérification rapide sans blocage)
+    # Node version (vérification rapide avec timeout)
     try {
-        $nodeVersion = pwsh -c "node --version 2>$null" 2>$null
-        if ($nodeVersion) {
-            $inventory.inventory.tools.node = @{
-                version = $nodeVersion.Trim()
+        $job = Start-Job -ScriptBlock { node --version 2>$null }
+        $job | Wait-Job -Timeout 5 | Out-Null
+        if ($job.State -eq 'Completed') {
+            $nodeVersion = Receive-Job -Job $job
+            if ($nodeVersion) {
+                $inventory.inventory.tools.node = @{
+                    version = $nodeVersion.Trim()
+                }
+                Write-Host "  OK Node $nodeVersion" -ForegroundColor Green
+            } else {
+                Write-Host "  Node non trouvé" -ForegroundColor Yellow
             }
-            Write-Host "  OK Node $nodeVersion" -ForegroundColor Green
         } else {
-            Write-Host "  Node non trouvé" -ForegroundColor Yellow
+            Write-Host "  Node: timeout (5s)" -ForegroundColor Yellow
         }
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     } catch {
         Write-Host "  Node non disponible" -ForegroundColor Yellow
     }
     
-    # Python version (vérification rapide sans blocage)
+    # Python version (vérification rapide avec timeout)
     try {
-        $pythonVersion = pwsh -c "python --version 2>&1" 2>$null
-        if ($pythonVersion) {
-            $inventory.inventory.tools.python = @{
-                version = $pythonVersion.Trim()
+        $job = Start-Job -ScriptBlock { python --version 2>&1 }
+        $job | Wait-Job -Timeout 5 | Out-Null
+        if ($job.State -eq 'Completed') {
+            $pythonVersion = Receive-Job -Job $job
+            if ($pythonVersion) {
+                $inventory.inventory.tools.python = @{
+                    version = $pythonVersion.Trim()
+                }
+                Write-Host "  OK Python $pythonVersion" -ForegroundColor Green
+            } else {
+                Write-Host "  Python non trouvé" -ForegroundColor Yellow
             }
-            Write-Host "  OK Python $pythonVersion" -ForegroundColor Green
         } else {
-            Write-Host "  Python non trouvé" -ForegroundColor Yellow
+            Write-Host "  Python: timeout (5s)" -ForegroundColor Yellow
         }
+        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     } catch {
         Write-Host "  Python non disponible" -ForegroundColor Yellow
     }
