@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-09
+**Dernière mise à jour:** 2026-01-13
 
 ---
 
@@ -262,26 +262,24 @@ Body:
 
 ---
 
-## 🎯 Contexte Actuel (2026-01-09)
+## 🎯 Contexte Actuel (2026-01-13)
 
-### Phase : Coordination Multi-Agent
+### Phase : Coordination Multi-Agent - Contrôle Établi
+
+**Organisation bicéphale confirmée :**
+- ✅ **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation
+- ✅ **Roo (toutes machines)** : Tâches techniques (bugs, features, tests)
 
 **Accomplissements récents :**
-- ✅ GitHub Projects MCP déployé et vérifié (myia-ai-01)
-- ✅ RooSync MCP déployé avec wrapper intelligent (myia-ai-01)
-  - Résolution du problème de logs verbeux
-  - Filtrage de 57+ outils → 6 outils RooSync de messagerie
-  - Communication inter-machine fonctionnelle
+- ✅ GitHub MCP opérationnel (IDs complets maîtrisés)
+- ✅ RooSync MCP fonctionnel (6 outils de messagerie)
+- ✅ T1.2, T2.11, T2.24 complétées (12/95 items = 12.6%)
+- ✅ Git synchronisé sur toutes les machines
 
-**Problèmes résolus :**
-- ✅ Plantage de Claude Code au démarrage avec roo-state-manager
-- ✅ Trop de logs stdout interférant avec le protocole MCP
-- Solution : Wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-
-**Objectifs immédiats :**
-- 🔄 Déployer les MCPs sur les 4 autres machines
-- 📋 Créer un plan de distribution de tâches clair
-- 🎯 Reprendre la coordination bicéphale Claude Code + Roo
+**Prochaines étapes :**
+- 🔧 Roo corrige les bugs #289-291
+- 📋 Claude Code maintient la coordination via GitHub Projects
+- 🚀 Continuer déploiement sur les 4 autres machines
 
 ### Contraintes Critiques
 
@@ -373,7 +371,66 @@ Body:
 
 ---
 
-**Dernière mise à jour :** 2026-01-09
+**Dernière mise à jour :** 2026-01-13
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
 **Built with Claude Code 🤖**
+
+---
+
+## 🔧 GitHub Projects MCP - IDs Critiques
+
+**⚠️ IMPORTANT:** Toujours utiliser l'ID complet du projet, pas le numéro !
+
+### Projets
+
+| Projet | Numéro | ID Complet | Usage |
+|--------|--------|------------|-------|
+| RooSync Multi-Agent Tasks | #67 | `PVT_kwHOADA1Xc4BLw3w` | Tâches techniques Roo |
+| RooSync Multi-Agent Coordination | #70 | `PVT_kwHOADA1Xc4BL7qS` | Coordination Claude |
+
+### Field Status
+
+- **Field ID:** `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
+- **Options:**
+  - `f75ad846` = Todo
+  - `47fc9ee4` = In Progress
+  - `98236657` = Done
+
+### Exemple d'utilisation
+
+```javascript
+// Marquer une tâche Done
+update_project_item_field({
+  owner: "jsboige",
+  project_id: "PVT_kwHOADA1Xc4BLw3w",  // ID complet, PAS "67"
+  item_id: "PVTI_lAHOADA1Xc4BLw3wzgjKFOQ",
+  field_id: "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY",
+  field_type: "single_select",
+  option_id: "98236657"  // Done
+})
+```
+
+### État Projet #67 (2026-01-13)
+
+- **Total:** 95 items
+- **Done:** 12 (12.6%)
+- **Todo:** 82
+- **In Progress:** 1
+
+---
+
+## 📡 RooSync MCP - Configuration
+
+### Outils Disponibles (après wrapper)
+
+- `roosync_send_message` - Envoyer message
+- `roosync_read_inbox` - Lire boîte de réception
+- `roosync_reply_message` - Répondre
+- `roosync_get_message` - Message complet
+- `roosync_mark_message_read` - Marquer comme lu
+- `roosync_archive_message` - Archiver
+
+### Fichier Partagé
+
+**Chemin:** `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
