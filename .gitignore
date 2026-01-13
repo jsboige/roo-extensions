@@ -115,4 +115,6 @@ debug_trace.txt
 .mcp.json
 !.mcp.json.template
 
+# Claude Code temporary working directories
+tmpclaude-*/
 
