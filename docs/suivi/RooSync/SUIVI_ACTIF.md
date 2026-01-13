@@ -7,21 +7,15 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
-### 2026-01-13
+### 2026-01-13 (Suite)
 
-**Gouvernance établie** - 15.8% complété (15/95 tâches)
-- Git: `ea6e947a` Complétion 8 tâches myia-po-2023
-- Git: `50a51e9` T2.7 baseline v3 simplifiée
-- Issues #310, #309 fermées
-- Project #67: T2.19 → Done
+**Roo: 3 bugs corrigés + T2.5 implémenté** - 16.8% complété (16/95)
+- Git: `c897db4` Fix #292 + T2.5 (checkIdentityConflictAtStartup)
+- Git: `c5e79ed` Sync submodule
+- Project #67: T2.5 → Done
+- Bugs #289, #290, #291 corrigés (selon Roo)
 
-**Priorités Roo:** Bugs #289, #290, #291 (voir issues)
-**Roo travaille dans:** `mcps/internal/` (NE PAS INTERFÉRER)
-
-**Wrapper MCP v2.3.1:**
-- Git: `121ee41` (submodule) + `6ee945c` (main)
-- 11 outils autorisés (6 messagerie + 5 lecture seule)
-- ⚠️ **Redémarrage VS Code requis** pour charger nouveaux outils
+**Nettoyage:** 20 fichiers `tmpclaude-*` supprimés
 
 ---
 
@@ -45,20 +39,22 @@
 
 | Bug # | Priorité | Description | Statut |
 |-------|----------|-------------|--------|
-| [#289](https://github.com/jsboige/roo-extensions/issues/289) | HIGH | BOM UTF-8 parsing JSON | Todo |
-| [#290](https://github.com/jsboige/roo-extensions/issues/290) | HIGH | getBaselineServiceConfig | Todo |
-| [#291](https://github.com/jsboige/roo-extensions/issues/291) | MEDIUM | Git tag inexistant | Todo |
+| #289 | HIGH | BOM UTF-8 parsing JSON | ✅ Fixé |
+| #290 | HIGH | getBaselineServiceConfig | ✅ Fixé |
+| #291 | MEDIUM | Git tag inexistant | ✅ Fixé |
+| #292 | LOW | analyze_problems chemins hardcodés | ✅ Fixé |
+| #296 | MEDIUM | Version config non documentée | Todo |
 
 ---
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 15/95 DONE (15.8%)
+**GitHub Project #67:** 16/95 DONE (16.8%)
 
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Bugs critiques | 3 ouverts |
+| Bugs critiques | 1 ouvert (#296) |
 | Machines actives | 5/5 |
 
 ---
