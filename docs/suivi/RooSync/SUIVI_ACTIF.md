@@ -7,15 +7,19 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
-### 2026-01-14 (Suite)
+### 2026-01-14
 
-**myia-po-2023: Documentation + Coordination** - ~32% complété (21/65+)
-- Git: `3f157d8` docs(roosync): Update README.md - T3.2
-- Git: `10fee13` docs(arch): Add WP4 tooling + playwright submodule
-- Bug #289 commité par Roo: `c42a124`
-- Roo démarre T3.3 (Tests automatisés)
-- Claude Code continue T3.2 (Documentation)
-- BUGS_TRACKING.md mis à jour - tous bugs fixés
+**Audit + Tests + Coordination Multi-Agent** - ~32% complété (21/65+)
+- Git: `abdba28` Fix #296 (myia-po-2024)
+- Git: `3f157d8` docs(roosync): Update README.md - T3.2 (myia-po-2023)
+- Git: `10fee13` docs(arch): Add WP4 tooling (myia-po-2023)
+- Git: `c42a124` Bug #289 BOM UTF-8 (Roo/myia-po-2023)
+- **AUDIT_HONNETE.md créé** : RooSync est un framework, PAS un système fonctionnel
+- **17 tests échoués** identifiés (PresenceManager, TaskIndexer, etc.)
+- **Tests E2E désactivés** : `e2e-runner.ts` contient `process.exit(0)`
+- **Nouvelle priorité** : Smoke Test E2E > nouvelles features
+- **RooSync messages** : 2 traités, 2 envoyés (coordination all-agents)
+- Tous les bugs HIGH/MEDIUM maintenant ✅ fixés
 
 ---
 
@@ -26,12 +30,6 @@
 - Git: `c5e79ed` Sync submodule
 - Project #67: T2.5 → Done
 - Bugs #289, #290, #291 corrigés (selon Roo)
-
-### 2026-01-14
-
-**myia-po-2024: Bug #296 corrigé** - 18.9% complété (18/95)
-- Git: `abdba28` Fix #296 - default version in applyConfig
-- Tous les bugs HIGH/MEDIUM maintenant ✅ fixés
 
 ### 2026-01-13 (Fin)
 
