@@ -19,7 +19,8 @@
       "Bash(timeout 5 node:*)",
       "Bash(timeout:*)",
       "mcp__roo-state-manager__roosync_read_inbox",
-      "mcp__roo-state-manager__roosync_get_message"
+      "mcp__roo-state-manager__roosync_get_message",
+      "Bash(gh issue comment:*)"
     ],
     "mode": "auto-approve"
   },

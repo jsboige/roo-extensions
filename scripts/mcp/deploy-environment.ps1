@@ -10,7 +10,10 @@
 # avec des commandes directes, sans wrappers de journalisation.
 # =============================================================================
 
-# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+# Recommandations PowerShell (Tâche 2.24):
+# - Set-StrictMode pour détecter les erreurs de typage
+# - Utilisation de [hashtable] explicite au lieu de PSObject
+# - Ajout de timeouts pour éviter les blocages
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -170,7 +173,8 @@ if (-not (Test-Path $ConfigDestinationDir)) {
 
 # Convertir l'objet final en JSON et remplacer les variables d'environnement
 $envFile = Join-Path $ProjectRoot ".env"
-$envVars = @{}
+# Utilisation de [hashtable] explicite
+[hashtable]$envVars = @{}
 if (Test-Path $envFile) {
     Get-Content $envFile | ForEach-Object {
         $key, $value = $_.Split('=', 2)

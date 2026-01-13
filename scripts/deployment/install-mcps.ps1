@@ -19,7 +19,10 @@
     Force la réinstallation du MCP 'quickfiles-server'.
 #>
 
-# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+# Recommandations PowerShell (Tâche 2.24):
+# - Set-StrictMode pour détecter les erreurs de typage
+# - Utilisation de [hashtable] explicite au lieu de PSObject
+# - Ajout de timeouts pour éviter les blocages
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -87,8 +90,9 @@ function Parse-EnvFile {
         [Parameter(Mandatory = $true)]
         [string]$FilePath
     )
- 
-    $envVars = @{}
+  
+    # Utilisation de [hashtable] explicite
+    [hashtable]$envVars = @{}
     if (Test-Path $FilePath) {
         Get-Content $FilePath | ForEach-Object {
             $line = $_.Trim()
@@ -245,7 +249,8 @@ foreach ($mcp in $allMcps) {
                 Write-ColorOutput "Configuration de l'environnement pour github-projects-mcp..."
                 # ATTENTION: Remplacez "VOTRE_TOKEN_GITHUB" par un jeton d'accès personnel (PAT) valide.
                 $token = "VOTRE_TOKEN_GITHUB"
-                $accounts = @(
+                # Utilisation de [hashtable] explicite
+                [hashtable[]]$accounts = @(
                     @{ user = "jsboige"; token = $token }
                 )
                 $jsonContent = $accounts | ConvertTo-Json -Compress
@@ -348,7 +353,8 @@ if ($installedMcps.Count -eq 0) {
         Write-ColorOutput "Sauvegarde de la configuration créée : $backupFile" "Green"
 
         # On part d'une feuille blanche pour la configuration
-        $finalConfig = @{
+        # Utilisation de [hashtable] explicite
+        [hashtable]$finalConfig = @{
             mcpServers = @{}
         }
         
@@ -384,7 +390,8 @@ if ($installedMcps.Count -eq 0) {
                 $mcpCwd = $path.Replace("\", "/")
                 $buildPath = (Join-Path -Path $mcpCwd -ChildPath "build/src/index.js")
 
-                $newEntry = @{
+                # Utilisation de [hashtable] explicite
+                [hashtable]$newEntry = @{
                     command       = "cmd"
                     args          = @("/c", "node", $buildPath)
                     cwd           = $mcpCwd
@@ -410,7 +417,8 @@ if ($installedMcps.Count -eq 0) {
                 }
             } else {
                 # Logique générale pour les autres MCPs
-                $newEntry = @{
+                # Utilisation de [hashtable] explicite
+                [hashtable]$newEntry = @{
                     command       = "node"
                     args          = @($mainFilePath)
                     transportType = "stdio"
@@ -431,7 +439,8 @@ if ($installedMcps.Count -eq 0) {
         # Ajouter la configuration pour les MCPs externes courants
         Write-ColorOutput "Ajout de la configuration pour les MCPs externes..."
         
-        $finalConfig.mcpServers['searxng'] = @{
+        # Utilisation de [hashtable] explicite
+        [hashtable]$searxngConfig = @{
             command = "cmd"
             args = @("/c", "npx", "-y", "mcp-searxng")
             transportType = "stdio"
@@ -442,8 +451,10 @@ if ($installedMcps.Count -eq 0) {
             autoApprove = @()
             alwaysAllow = @("web_url_read", "searxng_web_search")
         }
+        $finalConfig.mcpServers['searxng'] = $searxngConfig
 
-        $finalConfig.mcpServers['playwright'] = @{
+        # Utilisation de [hashtable] explicite
+        [hashtable]$playwrightConfig = @{
             command = "cmd"
             args = @("/c", "npx", "-y", "@playwright/mcp", "--browser", "firefox")
             transportType = "stdio"
@@ -453,13 +464,15 @@ if ($installedMcps.Count -eq 0) {
             autoApprove = @()
             alwaysAllow = @("browser_navigate", "browser_click", "browser_take_screenshot", "browser_close", "browser_snapshot", "browser_install")
         }
+        $finalConfig.mcpServers['playwright'] = $playwrightConfig
 
         # Logique de détection robuste de Python
         $pythonPath = Find-ViablePythonExecutable
         
         if ($pythonPath) {
             Write-ColorOutput "Python trouvé : $pythonPath" "Green"
-            $finalConfig.mcpServers['markitdown'] = @{
+            # Utilisation de [hashtable] explicite
+            [hashtable]$markitdownConfig = @{
                 command = $pythonPath
                 args = @("-m", "markitdown_mcp")
                 transportType = "stdio"
@@ -469,10 +482,12 @@ if ($installedMcps.Count -eq 0) {
                 autoApprove = @()
                 alwaysAllow = @("convert_to_markdown")
             }
+            $finalConfig.mcpServers['markitdown'] = $markitdownConfig
         } else {
             Write-ColorOutput "AVERTISSEMENT: Aucun exécutable Python (python3, python, py) n'a été trouvé. Le MCP 'markitdown' sera désactivé." "Yellow"
             # Optionnel: On peut ajouter une entrée désactivée pour informer l'utilisateur
-            $finalConfig.mcpServers['markitdown'] = @{
+            # Utilisation de [hashtable] explicite
+            [hashtable]$markitdownDisabledConfig = @{
                 command = "echo"
                 args = @("Python not found, markitdown is disabled.")
                 transportType = "stdio"
@@ -480,6 +495,7 @@ if ($installedMcps.Count -eq 0) {
                 autoStart = $false
                 description = "MCP pour manipuler des fichiers Markdown (DÉSACTIVÉ - PYTHON INTROUVABLE)."
             }
+            $finalConfig.mcpServers['markitdown'] = $markitdownDisabledConfig
         }
 
         $jsonOutput = $finalConfig | ConvertTo-Json -Depth 10

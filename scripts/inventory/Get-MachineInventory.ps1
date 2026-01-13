@@ -10,7 +10,10 @@
 .EXAMPLE
     .\Get-MachineInventory.ps1 -MachineId "myia-po-2024"
 #>
-# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+# Recommandations PowerShell (Tâche 2.24):
+# - Set-StrictMode pour détecter les erreurs de typage
+# - Utilisation de [hashtable] explicite au lieu de PSObject
+# - Ajout de timeouts pour éviter les blocages
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -20,6 +23,7 @@ param(
 
     [Parameter(Mandatory=$false)]
     [string]$OutputPath
+)
 )
 
 # Définir OutputPath avec chemin absolu basé sur ROOSYNC_SHARED_PATH si non fourni

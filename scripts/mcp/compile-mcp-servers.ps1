@@ -2,7 +2,10 @@
 # Auteur: Roo
 # Date: 21/05/2025
 
-# CORRECTION SDDD v1.3: Ajout Set-StrictMode pour la robustesse PowerShell
+# Recommandations PowerShell (Tâche 2.24):
+# - Set-StrictMode pour détecter les erreurs de typage
+# - Utilisation de [hashtable] explicite au lieu de PSObject
+# - Ajout de timeouts pour éviter les blocages
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
@@ -96,15 +99,25 @@ function Test-MCPServer {
         # Démarrer le serveur avec un timeout
         Write-Host "Démarrage de $serverName..." -ForegroundColor Yellow
         
-        # Démarrer le serveur en arrière-plan
+        # Démarrer le serveur en arrière-plan avec timeout
         $job = Start-Job -ScriptBlock {
             param($path)
             Set-Location $path
             npm start
         } -ArgumentList $PWD.Path
         
-        # Attendre 5 secondes
-        Start-Sleep -Seconds 5
+        # Attendre avec timeout explicite (5 secondes)
+        $timeout = 5
+        $completed = Wait-Job -Job $job -Timeout $timeout
+        
+        if (-not $completed) {
+            # Timeout atteint, arrêter le job
+            Stop-Job -Job $job -Force
+            Write-Host "  Timeout atteint ($timeout secondes) pour $serverName" -ForegroundColor Yellow
+            $output = Receive-Job -Job $job -ErrorAction SilentlyContinue
+            Remove-Job -Job $job -Force
+            return $false
+        }
         
         # Arrêter le job
         Stop-Job -Job $job
@@ -150,7 +163,8 @@ function Main {
     foreach ($server in $servers) {
         $success = Compile-MCPServer -serverName $server.Name -outputDir $server.OutputDir
         
-        $results += [PSCustomObject]@{
+        # Utilisation de [hashtable] explicite au lieu de PSCustomObject
+        $results += @{
             Server = $server.Name
             CompilationSuccess = $success
             TestSuccess = $null
