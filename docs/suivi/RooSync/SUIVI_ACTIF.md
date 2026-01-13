@@ -15,6 +15,12 @@
 - Project #67: T2.5 → Done
 - Bugs #289, #290, #291 corrigés (selon Roo)
 
+### 2026-01-14
+
+**myia-po-2024: Bug #296 corrigé** - 18.9% complété (18/95)
+- Git: `abdba28` Fix #296 - default version in applyConfig
+- Tous les bugs HIGH/MEDIUM maintenant ✅ fixés
+
 ### 2026-01-13 (Fin)
 
 **Multi-Agent: 4 bugs corrigés !** - 17.9% complété (17/95)
@@ -49,20 +55,20 @@
 | #290 | HIGH | getBaselineServiceConfig | ✅ Fixé | myia-po-2024 |
 | #291 | MEDIUM | Git tag inexistant | ✅ Fixé | myia-po-2024 |
 | #292 | LOW | analyze_problems chemins hardcodés | ✅ Fixé | Roo |
-| #296 | MEDIUM | Version config non documentée | Todo | - |
+| #296 | MEDIUM | Version config non documentée | ✅ Fixé | myia-po-2024 |
 
 ---
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 17/95 DONE (17.9%)
+**GitHub Project #67:** 18/95 DONE (18.9%)
 
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Bugs critiques | 1 ouvert (#296) |
+| Bugs critiques | 0 ouvert |
 | Machines actives | 5/5 |
-| Bugs corrigés aujourd'hui | 4 |
+| Bugs corrigés total | 5 (#289-292, #296) |
 
 ---
 
