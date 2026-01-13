@@ -1,8 +1,8 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.4.0
+## Version: 2.5.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-05
+## Dernière mise à jour: 2026-01-13
 
 ## Description
 
@@ -667,10 +667,22 @@ graph TB
 - Valider le travail par les autres agents
 - Documenter les décisions pour référence future
 **Traçabilité** :
-- Documenter chaque modification
-- Utiliser des versions
-- Générer des rapports régulièrement
-- Archiver les anciennes versions
+- **Git commits** avec messages conventionnels (voir format ci-dessous)
+- **GitHub Issues** pour suivi des tâches et bugs
+- **GitHub Projects** pour statut de progression
+- Référencer les issues dans les messages de commit
+
+**Format des Commits** :
+```
+type(scope): description
+
+Exemples:
+fix(roosync): Fix #289 - BOM UTF-8 in JSON parsing
+feat(roosync): Add baseline comparison feature
+docs(coord): Update PROTOCOLE_SDDD.md to v2.5.0
+test(roosync): Add E2E tests for sync workflow
+refactor(roosync): Simplify baseline loading logic
+```
 
 **Gestion des Issues** :
 - Vérifier régulièrement les issues ouvertes avec des commentaires
@@ -693,10 +705,11 @@ graph TB
 | 2026-01-04 | 2.2.0 | Roo Orchestrator Mode (myia-ai-01) | Ajout de la section 3 "Exemples d'Appels MCP GitHub-Projects" avec des exemples concrets d'utilisation des outils MCP github-projects-mcp (list_projects, get_project, get_project_items, convert_draft_to_issue, update_project_item_field, add_issue_comment). Mise à jour de la numérotation des sections suivantes. |
 | 2026-01-05 | 2.3.0 | Roo Code Mode (myia-ai-01) | Ajout du projet #70 "RooSync Multi-Agent Coordination" pour les agents Claude Code dans la section 2.1. Ajout de la répartition des responsabilités Roo ↔ Claude Code dans la section 2.2. Ajout de la section 2.5 sur la communication inter-agents avec les fichiers INTERCOM locaux. Mise à jour de la section 8.2 Collaboration pour mentionner les fichiers INTERCOM. |
 | 2026-01-05 | 2.4.0 | Roo Code Mode (myia-ai-01) | Ajout de la section 2.6 sur la vérification et fermeture des issues. Ajout de l'obligation critique de vérifier et fermer les issues complétées dans la section 2.4. Mise à jour du workflow principal (section 8.1) pour inclure l'étape de vérification et fermeture des issues. Ajout d'une sous-section sur la gestion des issues dans les bonnes pratiques (section 8.2). |
+| 2026-01-13 | 2.5.0 | Claude Code (myia-ai-01) | **NOUVEAU PARADIGME Git-first** : Git/GitHub devient la source principale de journalisation. Plus de rapports verbeux - SUIVI_ACTIF.md devient un résumé minimal avec références git/github. Format de commits conventionnelisé. Documentation du dépôt = doc système pérenne qui se consolide. |
 
 ---
 
-**Document généré par:** Roo Code Mode (myia-ai-01)
-**Date de génération:** 2026-01-05T23:30:00Z
-**Version:** 2.4.0
+**Document généré par:** Claude Code (myia-ai-01)
+**Date de génération:** 2026-01-13T01:00:00Z
+**Version:** 2.5.0
 **Statut:** 🟢 Production Ready

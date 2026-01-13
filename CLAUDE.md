@@ -348,10 +348,81 @@ Body:
 
 ### Communication Quotidienne
 
-1. **Chaque agent** poste un rapport quotidien : `[CLAUDE-MACHINE] Daily Report - DATE`
-2. **Vérifier** les nouvelles tâches avec label `claude-code` et `help-wanted`
-3. **Commenter** sur les tâches en cours pour éviter les duplications
-4. **Signaler** les bloquants tôt pour que les autres puissent aider
+1. **Git log** est la source de vérité pour les actions techniques
+2. **GitHub Issues** pour le suivi des tâches et bugs
+3. **RooSync** pour les messages urgents entre machines
+4. **SUIVI_ACTIF.md** contient uniquement un résumé avec références git/github
+
+---
+
+## 📖 Règles de Documentation (NOUVEAU PARADIGME)
+
+### Principes Fondamentaux
+
+**Git/GitHub est la source principale de journalisation.**
+
+| Type | Où | Comment |
+|------|-----|---------|
+| **Actions techniques** | Git commits | Messages clairs avec issue # |
+| **Suivi de tâches** | GitHub Issues | Créer, commenter, fermer |
+| **Progression** | GitHub Projects | Mettre à jour statut |
+| **Coordination** | RooSync messages | Urgent uniquement |
+| **Documentation** | docs/ pérenne | Se consolide, pas éphémère |
+
+### ❌ À NE PLUS CRÉER
+
+- Nouveaux rapports de "synthèse" ou "coordination" quotidiens
+- Rapports de mission redondants avec git log
+- Fichiers de suivi verbeux sans valeur ajoutée
+
+### ✅ À MAINTENIR
+
+| Fichier | Usage | MAJ |
+|---------|-------|-----|
+| `docs/suivi/RooSync/SUIVI_ACTIF.md` | Résumé minimal avec refs git | Quotidien |
+| `docs/suivi/RooSync/BUGS_TRACKING.md` | Bugs et statuts | Quand bugs |
+| `CLAUDE.md` | Ce fichier - Règles principales | Quand règles changent |
+| `docs/roosync/*.md` | Documentation technique pérenne | Quand architecture change |
+
+### Format des Commits
+
+```bash
+# Format conventionnel
+type(scope): description
+
+# Exemples
+fix(roosync): Fix #289 - BOM UTF-8 in JSON parsing
+docs(coord): Update CLAUDE.md with new governance rules
+feat(roosync): Add baseline comparison feature
+test(roosync): Add E2E tests for sync workflow
+
+# Avec co-auteur (si Claude Code)
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+### Quand créer une GitHub Issue
+
+- Nouveau bug identifié
+- Nouvelle fonctionnalité significative
+- Tâche de coordination multi-machine
+- Documentation manquante critique
+
+**Ne PAS créer d'issue pour:**
+- Corrections triviales (directement commit)
+- Mises à jour de documentation mineures
+- Tests simples
+
+### SUIVI_ACTIF.md - Format Minimal
+
+```markdown
+## 2026-01-13
+
+- Bugs #289-291 assignés à Roo (voir #289, #290, #291)
+- T1.2 complétée (commit f3e00f3)
+- Git synchronisé (3bdb1c7e)
+
+[voir git log --oneline -5]
+```
 
 ---
 
