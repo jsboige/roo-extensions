@@ -147,7 +147,9 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 ### CP1.7: Vulnérabilités npm corrigées
 - **Responsable:** myia-po-2023
 - **Critère de Validation:** Aucune vulnérabilité détectée
-- **Statut:** En attente
+- **Statut:** ✅ Partiellement complété (5/6 vulnérabilités corrigées, 0 élevée restante)
+- **Rapport:** [TACHE_1_7_RAPPORT_CORRECTION_VULNERABILITES_NPM.md](./TACHE_1_7_RAPPORT_CORRECTION_VULNERABILITES_NPM.md)
+- **Date de complétion:** 2026-01-05
 
 ### CP1.8: Répertoire myia-po-2026 créé
 - **Responsable:** myia-po-2026

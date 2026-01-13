@@ -507,7 +507,108 @@ graph LR
 
 ---
 
-## 6. Historique et Évolutions
+## 6. Versions et Transitions
+
+### Vue d'Ensemble des Versions
+
+RooSync a évolué à travers plusieurs versions, chacune avec un objectif spécifique :
+
+| Version | Date | Type | Statut | Description |
+|---------|------|------|--------|-------------|
+| **v2.1** | 2025-12-27 | Architecture Baseline-Driven | 🟢 Production Ready | Architecture de base avec BaselineService |
+| **v2.2** | 2025-12-27 | Publication de configuration | 🟢 Production Ready | Publication de configuration avec corrections WP4 |
+| **v2.3** | 2025-12-27 | Consolidation majeure | 🟢 Production Ready | Consolidation de l'API (17 → 12 outils) |
+
+**⚠️ Note importante :** v2.2 n'est PAS une nouvelle version de RooSync. C'est une **publication de configuration** basée sur l'architecture v2.1.
+
+### Transitions Entre Versions
+
+#### v2.1 → v2.2 : Publication de Configuration
+
+**Type:** Publication de configuration (pas de changement d'architecture)
+
+**Changements:**
+- Publication de la configuration myia-po-2023 avec corrections WP4
+- Aucun changement d'architecture ou d'API
+- Basée sur l'architecture v2.1 existante
+
+**Breaking Changes:** ❌ Aucun
+
+**Migration requise:** ❌ Non requise (même architecture v2.1)
+
+#### v2.2 → v2.3 : Consolidation Majeure
+
+**Type:** Consolidation majeure de l'API (Breaking changes)
+
+**Changements:**
+- Consolidation de l'API RooSync (17 → 12 outils)
+- Amélioration de la couverture de tests (+220%)
+- Fusion de 5 outils obsolètes en 2 nouveaux outils consolidés
+
+**Breaking Changes:** ✅ OUI - Breaking changes importants
+
+**Migration requise:** ✅ OUI - Migration requise
+
+**Outils affectés:**
+| Outil v2.1/v2.2 | Remplacement v2.3 | Action requise |
+|------------------|-------------------|----------------|
+| `debug-dashboard` | `roosync_debug_reset` (target='dashboard') | Mettre à jour les appels |
+| `reset-service` | `roosync_debug_reset` (target='service') | Mettre à jour les appels |
+| `read-dashboard` | `roosync_get_status` (includeDetails=true) | Mettre à jour les appels |
+| `version-baseline` | `roosync_manage_baseline` (action='version') | Mettre à jour les appels |
+| `restore-baseline` | `roosync_manage_baseline` (action='restore') | Mettre à jour les appels |
+
+#### v2.1 → v2.3 : Consolidation Directe
+
+**Type:** Consolidation majeure (Breaking changes)
+
+**Note importante:** La transition v2.1 → v2.3 est directe. v2.2 est une étape intermédiaire de publication de configuration qui ne nécessite pas de migration spécifique.
+
+**Changements:**
+- Mêmes changements que v2.2 → v2.3 (consolidation majeure)
+- Migration directe de v2.1 vers v2.3 possible
+
+**Breaking Changes:** ✅ OUI - Breaking changes importants
+
+**Migration requise:** ✅ OUI - Migration requise
+
+### Documentation des Versions
+
+#### Documentation v2.1
+
+| Document | Chemin | Statut |
+|---------|--------|--------|
+| README v2.1 | [`README.md`](README.md) | ✅ Complet |
+| Guide Technique v2.1 | [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md) | ✅ Complet |
+| Guide Opérationnel v2.1 | [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) | ✅ Complet |
+| Guide Développeur v2.1 | [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md) | ✅ Complet |
+
+#### Documentation v2.2
+
+| Document | Chemin | Statut |
+|---------|--------|--------|
+| Changelog v2.2 | [`CHANGELOG-v2.2.md`](CHANGELOG-v2.2.md) | ✅ Complet |
+| Document de Transition | [`TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) | ✅ Complet |
+
+#### Documentation v2.3
+
+| Document | Chemin | Statut |
+|---------|--------|--------|
+| Changelog v2.3 | [`CHANGELOG-v2.3.md`](CHANGELOG-v2.3.md) | ✅ Complet |
+| Guide Technique v2.3 | [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) | ✅ Complet |
+| Plan Migration v2.1→v2.3 | [`PLAN_MIGRATION_V2.1_V2.3.md`](PLAN_MIGRATION_V2.1_V2.3.md) | ✅ Complet |
+
+### Guide de Migration
+
+Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
+
+**📄 Guide de Migration v2.1 → v2.3 :** [`PLAN_MIGRATION_V2.1_V2.3.md`](PLAN_MIGRATION_V2.1_V2.3.md)
+
+**📄 Document de Transition :** [`TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md)
+
+---
+
+## 7. Historique et Évolutions
 
 ### Versions RooSync
 

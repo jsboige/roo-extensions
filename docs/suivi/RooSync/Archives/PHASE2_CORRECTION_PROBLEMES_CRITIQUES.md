@@ -27,11 +27,11 @@ Stabiliser le système et compléter la transition vers RooSync v2.3.
 - **Notes:** Valider l'état et compléter les étapes manquantes
 
 ### Tâche 2.2: Mettre à jour Node.js vers v24+ sur myia-po-2023
-- **Statut:** En attente
+- **Statut:** ✅ Terminée
 - **Responsable:** myia-po-2023, myia-po-2026
 - **Checkpoint:** CP2.2
-- **Dernière mise à jour:** 2026-01-02
-- **Notes:** Installer Node.js v24+ et valider la compatibilité
+- **Dernière mise à jour:** 2026-01-09
+- **Notes:** Node.js v25.2.1 installé et validé. MCPs compatibles. Voir [TACHE_2_2_RAPPORT_MISE_A_JOUR_NODEJS.md](docs/suivi/RooSync/TACHE_2_2_RAPPORT_MISE_A_JOUR_NODEJS.md)
 
 ### Tâche 2.3: Sécuriser les clés API
 - **Statut:** En attente

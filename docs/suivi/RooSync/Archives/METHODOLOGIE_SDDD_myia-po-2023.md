@@ -86,7 +86,7 @@ myia-po-2026, myia-po-2023, myia-web-01 (Agents)
 | Git | À jour | Synchronisé avec origin/main |
 | RooSync | 🟢 OK (3/3 online) | Opérationnel |
 | MCP | ✅ Stable | 4 MCP désactivés, 0 mode personnalisé |
-| Node.js | v23.11.0 | À mettre à jour vers v24+ |
+| Node.js | v25.2.1 | ✅ Mis à jour vers v24+ |
 | Vulnérabilités npm | 5 détectées | 3 moderate, 2 high |
 | Recompilation MCP | Non effectuée | Outils v2.3 non disponibles |
 

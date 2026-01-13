@@ -110,7 +110,7 @@ Résoudre les problèmes critiques qui bloquent le fonctionnement normal du syst
 | 1.4 | Résoudre les erreurs de compilation TypeScript | HIGH | myia-ai-01, myia-po-2024 | Créer les fichiers manquants dans roo-state-manager | CP1.4 |
 | 1.5 | Résoudre l'identity conflict sur myia-web-01 | CRITICAL | myia-web-01, myia-po-2023 | Corriger le conflit myia-web-01 vs myia-web1 | CP1.5 |
 | 1.6 | Synchroniser Git sur toutes les machines | MEDIUM | Toutes les machines | Exécuter git pull et synchroniser les sous-modules | CP1.6 | 🗑️ Archivé (faux problème - voir rapport de synthèse v5.0) |
-| 1.7 | Corriger les vulnérabilités npm | HIGH | myia-po-2023, myia-po-2024 | Exécuter npm audit fix sur toutes les machines | CP1.7 |
+| 1.7 | Corriger les vulnérabilités npm | HIGH | myia-po-2023, myia-po-2024 | Exécuter npm audit fix sur toutes les machines | CP1.7 | ✅ Partiellement complété (5/6 corrigées, 0 élevée restante) |
 | 1.8 | Créer le répertoire RooSync/shared/myia-po-2026 | MEDIUM | myia-po-2026, myia-po-2023 | Créer le répertoire avec la structure appropriée | CP1.8 |
 | 1.9 | Recompiler le MCP sur toutes les machines | MEDIUM | Toutes les machines | Exécuter npm run build et valider le rechargement | CP1.9 |
 | 1.10 | Valider les outils RooSync sur chaque machine | MEDIUM | Toutes les machines | Tester chaque outil RooSync et documenter les résultats | CP1.10 |

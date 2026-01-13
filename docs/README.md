@@ -188,7 +188,7 @@ Les documents sont taggues avec des mots-cles pour faciliter la recherche :
 
 ### Documentation Essentielle
 - [**README.md**](README.md) - Documentation principale
-- [**INDEX.md**](INDEX.md) - Index thematique
+- [**INDEX.md**](INDEX.md) - **Index centralisé de la documentation** (v3.0 - Mis à jour 2026-01-13)
 
 ### Guides Utilisateur
 - [**Guide Deploiement RooSync**](deployment/roosync-v2-1-deployment-guide.md)

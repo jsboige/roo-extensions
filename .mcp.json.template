@@ -11,7 +11,7 @@
     "roo-state-manager": {
       "command": "node",
       "args": [
-        "{{WORKSPACE_ROOT}}/mcps/internal/servers/roo-state-manager/build/index.js"
+        "{{WORKSPACE_ROOT}}/mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"
       ],
       "cwd": "{{WORKSPACE_ROOT}}/mcps/internal/servers/roo-state-manager/",
       "env": {}
