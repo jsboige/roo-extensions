@@ -2,7 +2,7 @@
 
 **Description** : Système de synchronisation et coordination multi-agents pour Roo
 **Version actuelle** : 2.3 (voir [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md))
-**Date de dernière mise à jour** : 2026-01-10
+**Date de dernière mise à jour** : 2026-01-14
 **Statut** : 🟢 Production Ready
 
 > **Note** : Ce document est le point d'entrée principal. Pour les transitions entre versions, voir la section [Historique et Évolutions](#6-historique-et-évolutions).
@@ -44,39 +44,37 @@ graph TB
         A[myia-ai-01<br/>Baseline Master]
         B[myia-po-2023]
         C[myia-po-2024]
-        D[myia-po-2025]
-        E[myia-po-2026]
-        F[myia-web1]
+        D[myia-po-2026]
+        E[myia-web-01]
     end
 
     subgraph "RooSync Core"
-        G[BaselineService]
-        H[ConfigSharingService]
-        I[ConfigNormalizationService]
-        J[ConfigDiffService]
-        K[InventoryService]
-        L[MessageManager]
+        F[BaselineService]
+        G[ConfigSharingService]
+        H[ConfigNormalizationService]
+        I[ConfigDiffService]
+        J[InventoryService]
+        K[MessageManager]
     end
 
     subgraph "Storage"
-        M[sync-config.ref.json<br/>Baseline]
-        N[sync-roadmap.md<br/>Validation]
-        O[.shared-state/<br/>Messages]
+        L[sync-config.ref.json<br/>Baseline]
+        M[sync-roadmap.md<br/>Validation]
+        N[.shared-state/<br/>Messages]
     end
 
-    A --> G
-    B --> H
-    C --> I
-    D --> J
-    E --> K
-    F --> L
+    A --> F
+    B --> G
+    C --> H
+    D --> I
+    E --> J
 
+    F --> L
     G --> M
     H --> N
-    I --> O
+    I --> L
     J --> M
     K --> N
-    L --> O
 ```
 
 ### Machines Supportées
@@ -97,7 +95,7 @@ graph TB
 
 #### Prérequis
 
-- **Node.js** : v18+ (recommandé : v20 LTS)
+- **Node.js** : v20+ (recommandé : v25 LTS)
 - **PowerShell** : 7+ (recommandé : 7.4+)
 - **Git** : 2.40+
 - **VS Code** : avec extension Roo Code
@@ -139,7 +137,7 @@ export ROO_SYNC_MACHINE_ID="myia-ai-01"  # Adapter à votre machine
 **`sync-config.ref.json`** (Baseline de référence) :
 ```json
 {
-  "version": "2.1.0",
+  "version": "2.3.0",
   "baseline": {
     "modes": {
       "enabled": ["architect", "code", "debug", "ask", "orchestrator", "manager"]
