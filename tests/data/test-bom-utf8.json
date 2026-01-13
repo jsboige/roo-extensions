@@ -1,0 +1,11 @@
+﻿{
+  "test": "Fichier JSON avec BOM UTF-8",
+  "description": "Ce fichier contient un BOM UTF-8 (0xEF 0xBB 0xBF) au début",
+  "data": {
+    "machineId": "test-machine",
+    "timestamp": "2026-01-13T23:06:36.209Z",
+    "config": {
+      "test": true
+    }
+  }
+}
