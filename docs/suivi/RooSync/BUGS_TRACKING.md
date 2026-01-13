@@ -110,15 +110,16 @@ Ajout d'une vérification du tag Git avant la restauration avec `git rev-parse -
 L'outil `roosync_apply_config` exige une version de configuration mais ce n'est pas documenté.
 
 **Localisation:**
-- Validation de version dans l'outil apply_config
 
-**Solution proposée:**
-1. Ajouter la documentation sur la version requise
-2. Ou retirer l'exigence de version si non nécessaire
+- `ConfigSharingService.ts` ligne 162-163
 
-**Statut:** 🔄 TODO
-**Assigné à:** myia-po-2023
-**Estimation:** 15 min
+**Solution appliquée:**
+Utiliser "latest" comme valeur par défaut si version non spécifiée, au lieu de lancer une erreur.
+
+**Statut:** ✅ FIXÉ
+**Corrigé par:** Claude Code (myia-po-2024)
+**Date:** 2026-01-14
+**Commit:** `80a5218` (mcps/internal submodule)
 
 ---
 
