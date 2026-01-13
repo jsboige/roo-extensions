@@ -9,12 +9,14 @@
 
 ### 2026-01-13
 
-**Gouvernance établie**
-- Git: `3bdb1c7e` docs(coord): Consolidate documentation
-- Git: `bbf327d0` docs(coord): Add governance report
-- Message RooSync envoyé aux agents (voir `msg-20260112T233809-meprtj`)
+**Gouvernance établie** - 15.8% complété (15/95 tâches)
+- Git: `ea6e947a` Complétion 8 tâches myia-po-2023
+- Git: `50a51e9` T2.7 baseline v3 simplifiée
+- Issues #310, #309 fermées
+- Project #67: T2.19 → Done
 
 **Priorités Roo:** Bugs #289, #290, #291 (voir issues)
+**Roo travaille dans:** `mcps/internal/` (NE PAS INTERFÉRER)
 
 ---
 
@@ -46,7 +48,7 @@
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 12/95 DONE (12.6%)
+**GitHub Project #67:** 15/95 DONE (15.8%)
 
 | Métrique | Valeur |
 |----------|--------|
