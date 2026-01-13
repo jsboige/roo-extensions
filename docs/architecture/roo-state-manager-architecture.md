@@ -271,6 +271,25 @@ mcps/internal/servers/roo-state-manager/
 }
 ```
 
+### 6. Diagnostic et Tooling (WP4 - Cycle 7)
+
+#### `analyze_roosync_problems` - Diagnostic Roadmap
+Remplaçant du script legacy `PHASE3A-ANALYSE-RAPIDE.ps1`.
+```typescript
+{
+  "roadmapPath": "string", // Optionnel
+  "generateReport": boolean // Génération rapport MD
+}
+```
+
+#### `diagnose_env` - Santé de l'environnement
+Checks unifiés : Node, OS, Accès Fichiers.
+```typescript
+{
+  "checkDiskSpace": boolean
+}
+```
+
 ## 🗄️ SCHÉMA DE BASE DE DONNÉES
 
 ```sql
@@ -351,7 +370,12 @@ CREATE TABLE usage_analytics (
 - [ ] Outils MCP de synchronisation
 - [ ] Tests de synchronisation
 
-### Phase 4 : Analytics et Amélioration Continue (Semaine 4)
+### Phase 4 : Diagnostic & Migration Legacy (WP4)
+- [x] Outil `analyze_roosync_problems` (remplace scripts PS)
+- [x] Outil `diagnose_env`
+- [ ] Mise à jour documentation architecture
+
+### Phase 5 : Analytics et Amélioration Continue (Semaine 4)
 - [ ] Moteur d'analyse des conversations
 - [ ] Système de recommandations
 - [ ] Métriques de performance
