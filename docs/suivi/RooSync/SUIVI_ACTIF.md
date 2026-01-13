@@ -18,6 +18,11 @@
 **Priorités Roo:** Bugs #289, #290, #291 (voir issues)
 **Roo travaille dans:** `mcps/internal/` (NE PAS INTERFÉRER)
 
+**Wrapper MCP v2.3.1:**
+- Git: `121ee41` (submodule) + `6ee945c` (main)
+- 11 outils autorisés (6 messagerie + 5 lecture seule)
+- ⚠️ **Redémarrage VS Code requis** pour charger nouveaux outils
+
 ---
 
 ### 2026-01-12
