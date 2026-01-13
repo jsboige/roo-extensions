@@ -54,17 +54,28 @@ const data = JSON.parse(cleanContent);
 L'outil `roosync_export_baseline` échoue avec une erreur interne liée à `getBaselineServiceConfig`.
 
 **Localisation:**
-- BaselineService.ts (export de la fonction)
-- Appel de la fonction dans l'outil RooSync
 
-**Solution proposée:**
-1. Vérifier l'export de `getBaselineServiceConfig`
-2. Ajouter des logs de debug pour tracer l'erreur
-3. Corriger l'export ou l'appel
+- ~~BaselineService.ts (export de la fonction)~~
+- **export-baseline.ts** ligne 68-72: configService passé comme objet vide `{}`
 
-**Statut:** 🔄 TODO
-**Assigné à:** Roo (myia-ai-01)
-**Estimation:** 30 min
+**Cause racine:**
+Le `configService` était passé comme `{} as any` au lieu d'une instance de `ConfigService`, donc la méthode `getBaselineServiceConfig()` n'existait pas.
+
+**Solution appliquée:**
+
+```typescript
+// Avant (BUG):
+const baselineService = new BaselineService({} as any, ...);
+
+// Après (FIX):
+const configService = new ConfigService();
+const baselineService = new BaselineService(configService, ...);
+```
+
+**Statut:** ✅ FIXÉ
+**Corrigé par:** Claude Code (myia-po-2024)
+**Date:** 2026-01-14
+**Commit:** `bef5b1a` (mcps/internal submodule)
 
 ---
 
@@ -78,17 +89,16 @@ L'outil `roosync_export_baseline` échoue avec une erreur interne liée à `getB
 L'outil `roosync_restore_baseline` échoue car le tag Git n'existe pas.
 
 **Localisation:**
-- Fonction de restoration dans BaselineService
-- Gestion des tags Git
 
-**Solution proposée:**
-1. Vérifier si le tag existe avant de tenter la restoration
-2. Créer le tag s'il n'existe pas
-3. Ou documenter que le tag doit exister
+- `manage-baseline.ts` fonction `restoreBaseline`
 
-**Statut:** 🔄 TODO
-**Assigné à:** myia-po-2024
-**Estimation:** 20 min
+**Solution appliquée:**
+Ajout d'une vérification du tag Git avant la restauration avec `git rev-parse --verify` et message d'erreur explicite.
+
+**Statut:** ✅ FIXÉ
+**Corrigé par:** Claude Code (myia-po-2024)
+**Date:** 2026-01-14
+**Commit:** `bef5b1a` (mcps/internal submodule)
 
 ---
 
