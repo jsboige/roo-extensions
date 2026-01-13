@@ -1,11 +1,23 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-13
+**Dernière mise à jour:** 2026-01-14
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-14 (Suite)
+
+**myia-po-2023: Documentation + Coordination** - ~32% complété (21/65+)
+- Git: `3f157d8` docs(roosync): Update README.md - T3.2
+- Git: `10fee13` docs(arch): Add WP4 tooling + playwright submodule
+- Bug #289 commité par Roo: `c42a124`
+- Roo démarre T3.3 (Tests automatisés)
+- Claude Code continue T3.2 (Documentation)
+- BUGS_TRACKING.md mis à jour - tous bugs fixés
+
+---
 
 ### 2026-01-13 (Suite)
 
@@ -61,7 +73,7 @@
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 18/95 DONE (18.9%)
+**GitHub Project #67:** ~21/65+ DONE (~32%)
 
 | Métrique | Valeur |
 |----------|--------|
@@ -69,6 +81,7 @@
 | Bugs critiques | 0 ouvert |
 | Machines actives | 5/5 |
 | Bugs corrigés total | 5 (#289-292, #296) |
+| Tâches en cours | T3.2 (doc), T3.3 (tests) |
 
 ---
 

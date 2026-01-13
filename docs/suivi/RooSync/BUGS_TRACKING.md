@@ -10,10 +10,10 @@
 
 | Priorité | Nombre | Statut |
 |----------|--------|--------|
-| HIGH | 2 | À corriger |
-| MEDIUM | 2 | À corriger |
-| LOW | 3 | À documenter |
-| **Total** | **7** | - |
+| HIGH | 2 | ✅ Tous fixés |
+| MEDIUM | 2 | ✅ Tous fixés |
+| LOW | 1 | ✅ Fixé |
+| **Total** | **5** | ✅ Complet |
 
 ---
 
@@ -40,9 +40,15 @@ const cleanContent = stripBom(content);
 const data = JSON.parse(cleanContent);
 ```
 
-**Statut:** 🔄 TODO
-**Assigné à:** Roo (myia-ai-01)
-**Estimation:** 30 min
+**Statut:** ✅ FIXÉ
+**Corrigé par:** Roo (myia-po-2023)
+**Date:** 2026-01-14
+**Commit:** `c42a124`
+
+**Solution appliquée:**
+- Nouveau module `encoding-helpers.ts` avec `stripBOM()` et fonctions associées
+- Correction de BaselineLoader.ts, NonNominativeBaselineService.ts, ConfigService.ts, InventoryService.ts
+- Documentation: `docs/suivi/RooSync/BUG_289_RAPPORT_CORRECTION_BOM_UTF8.md`
 
 ---
 
@@ -125,30 +131,17 @@ Utiliser "latest" comme valeur par défaut si version non spécifiée, au lieu d
 
 ## 🟢 LOW Priority
 
-### Bug #292: [À définir]
+### Bug #292: analyze_problems chemins hardcodés
 
-**Description:** À documenter
+**Issue GitHub:** [jsboige/roo-extensions#292](https://github.com/jsboige/roo-extensions/issues/292)
 
-**Statut:** 🔄 TODO
-**Assigné à:** TBD
+**Description:**
+L'outil `analyze_problems` avait des chemins hardcodés qui ne fonctionnaient pas sur toutes les machines.
 
----
-
-### Bug #293: [À définir]
-
-**Description:** À documenter
-
-**Statut:** 🔄 TODO
-**Assigné à:** TBD
-
----
-
-### Bug #294: [À définir]
-
-**Description:** À documenter
-
-**Statut:** 🔄 TODO
-**Assigné à:** TBD
+**Statut:** ✅ FIXÉ
+**Corrigé par:** Roo (myia-ai-01)
+**Date:** 2026-01-13
+**Commit:** `c897db4`
 
 ---
 
@@ -156,7 +149,11 @@ Utiliser "latest" comme valeur par défaut si version non spécifiée, au lieu d
 
 | Date | Bug | Action | Auteur |
 |------|-----|--------|--------|
-| - | - | - | - |
+| 2026-01-14 | #289 | Correction BOM UTF-8 parsing JSON | Roo (myia-po-2023) |
+| 2026-01-14 | #290 | Correction getBaselineServiceConfig | Claude Code (myia-po-2024) |
+| 2026-01-14 | #291 | Correction Git tag vérification | Claude Code (myia-po-2024) |
+| 2026-01-14 | #296 | Correction version config default | Claude Code (myia-po-2024) |
+| 2026-01-13 | #292 | Correction chemins hardcodés | Roo (myia-ai-01) |
 
 ---
 
@@ -180,5 +177,5 @@ Pour chaque bug corrigé:
 
 ---
 
-**Dernière mise à jour:** 2026-01-10
-**Maintenu par:** Claude Code (myia-ai-01)
+**Dernière mise à jour:** 2026-01-14
+**Maintenu par:** Claude Code (myia-po-2023)
