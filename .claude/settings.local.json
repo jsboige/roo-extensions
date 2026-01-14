@@ -20,7 +20,9 @@
       "Bash(timeout:*)",
       "mcp__roo-state-manager__roosync_read_inbox",
       "mcp__roo-state-manager__roosync_get_message",
-      "Bash(gh issue comment:*)"
+      "Bash(gh issue comment:*)",
+      "mcp__github-projects-mcp__list_repository_issues",
+      "mcp__github-projects-mcp__get_project"
     ],
     "mode": "auto-approve"
   },
