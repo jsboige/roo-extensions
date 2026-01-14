@@ -7,6 +7,16 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-14 (Fin 2)
+
+**QuickFiles build fixé** - Tests 100% PASS
+- Git: `260183e0` fix(submodule): Update mcps/internal - Fix QuickFiles build script
+- Git submodule: `e54aeb0` fix(quickfiles): Fix build script for test compatibility
+- **QuickFiles Tests** : 344/344 PASS ✅ (était 128/154)
+- **Problème résolu** : Build script crée maintenant bundle + modules individuels
+
+---
+
 ### 2026-01-14 (Fin)
 
 **Coordination + Bug #292 fixé** - 33.8% complété (26/77)
