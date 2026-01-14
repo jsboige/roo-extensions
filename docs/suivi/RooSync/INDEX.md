@@ -41,9 +41,9 @@ Tous les rapports antérieurs à 2026-01-14 sont dans `Archives/`:
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Tâches complétées | 28/77 (36.4%) |
+| Tâches complétées | 29/77 (37.7%) |
 | Bugs critiques | 0 ouverts |
-| Machines actives | 5/5 |
+| Machines actives | 4/5 (myia-po-2026 HS) |
 | Tests RooSync | 1045/1076 PASS (97.1%) |
 
 ---
