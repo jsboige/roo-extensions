@@ -1,21 +1,20 @@
 # Index RooSync - Documentation Consolidée
 
-**Dernière mise à jour:** 2026-01-13
+**Dernière mise à jour:** 2026-01-14
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
-## 📚 Structure (5 fichiers seulement)
+## 📚 Structure (4 fichiers actifs seulement)
 
 ### Fichiers ACTIFS
 
 | Fichier | Usage | MAJ |
 |---------|-------|-----|
-| **INDEX.md** | Ce fichier - Navigation | 2026-01-13 |
+| **INDEX.md** | Ce fichier - Navigation | 2026-01-14 |
 | **SUIVI_ACTIF.md** | Suivi quotidien de l'activité | Quotidien |
-| **BUGS_TRACKING.md** | Bugs connus et leur statut | 2026-01-09 |
-| **REPARTITION_TACHES_MULTI_AGENT.md** | Qui fait quoi | 2026-01-03 |
-| **RAPPORT_GOUVERNANCE_2026-01-13.md** | Dernier rapport de gouvernance | 2026-01-13 |
+| **BUGS_TRACKING.md** | Bugs connus et leur statut | Quand bugs |
+| **AUDIT_HONNETE.md** | État honnête du projet | 2026-01-14 |
 
 ### Documentation Technique (référence)
 
@@ -29,7 +28,11 @@
 
 ## 🗂️ Archives
 
-Tous les rapports antérieurs à 2026-01-13 sont dans `Archives/`.
+Tous les rapports antérieurs à 2026-01-14 sont dans `Archives/`:
+- Rapports de gouvernance
+- Rapports de tâches individuelles
+- Analyses d'architecture
+- Rapports de synthèse
 
 ---
 
@@ -38,19 +41,33 @@ Tous les rapports antérieurs à 2026-01-13 sont dans `Archives/`.
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Tâches complétées | 12/95 (12.6%) |
-| Bugs critiques | 3 ouverts |
+| Tâches complétées | 23/77 (29.9%) |
+| Bugs critiques | 0 ouverts |
 | Machines actives | 5/5 |
+| Tests E2E | 8/10 PASS (mockés) |
 
 ---
 
 ## 🔍 Recherche
 
 - **Bugs** → `BUGS_TRACKING.md`
-- **Tâches** → `REPARTITION_TACHES_MULTI_AGENT.md`
 - **Quotidien** → `SUIVI_ACTIF.md`
+- **Audit** → `AUDIT_HONNETE.md`
 - **Archives** → `Archives/`
+- **Technique** → [`../roosync/GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md)
 
 ---
 
-**Règle:** Les rapports quotidiens sont fusionnés dans `SUIVI_ACTIF.md`. Les rapports de mission sont archivés.
+## 🚦 Prochaines Étapes
+
+1. **Smoke Test Inter-Machines** (BLOCKER - En attente inventaires)
+   - Toutes les machines doivent lancer `roosync_get_machine_inventory`
+   - Puis tester `roosync_compare_config` entre 2 machines
+
+2. **Validation E2E Réelle**
+   - Tests mockés : 8/10 PASS ✅
+   - Tests réels inter-machines : À faire ❌
+
+---
+
+**Règle:** Git log est la source de vérité. Ce fichier contient un index minimal. L'historique complet est dans git log.
