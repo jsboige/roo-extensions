@@ -256,14 +256,16 @@ Suite à la migration des logs par Roo, Claude Code a corrigé les tests unitair
   - Test "baseline sans machines" → attend maintenant une erreur (comportement réel)
 - **Résultat:** 28 tests passent
 
-### Tests Restants (12)
+### Tests Restants (1)
 
 | Catégorie | Fichier | Tests | Cause |
 |-----------|---------|-------|-------|
-| E2E | `synthesis.e2e.test.ts` | 2 | Variables d'environnement manquantes |
-| Integration | `legacy-compatibility.test.ts` | 1 | Configuration complexe requise |
-| Unit | `task-indexer.test.ts` | 5 | Mocking storage requis |
-| Unit | `BaselineService.test.ts` | 4 | Mocking fichiers requis |
+| Integration | `legacy-compatibility.test.ts` | 1 | `rooSyncService.getConfigService is not a function` |
+
+**Corrigés depuis le rapport initial :**
+- `synthesis.e2e.test.ts` (2 tests) : Variable `OPENAI_MODEL_ID` → `OPENAI_CHAT_MODEL_ID`
+- `task-indexer.test.ts` (5 tests) : Roo - `toEqual([])` → `rejects.toThrow()`
+- `BaselineService.test.ts` (4 tests) : Claude Code - Mock `readJSONFileWithoutBOM`
 
 ### Référence Classes d'Erreurs
 
