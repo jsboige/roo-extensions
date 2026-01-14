@@ -24,7 +24,6 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$OutputPath
 )
-)
 
 # Définir OutputPath avec chemin absolu basé sur ROOSYNC_SHARED_PATH si non fourni
 # CORRECTION SDDD : Utiliser ROOSYNC_SHARED_PATH depuis .env pour RooSync
