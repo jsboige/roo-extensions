@@ -7,6 +7,21 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-14 (Fin 5)
+
+**Coordination proactive + Tests améliorés** - Forte progression
+- Git: `a49fef05` chore: Update external submodules
+- Git: `165ebb6a` feat(errors): T2.8 error handling improvements (myia-web1)
+- Git: `08ae8333` test(roosync): Fix 21 failing tests (myia-po-2023)
+- Git: `c1e5c652` fix(roosync): Fix issue #307 (myia-web1)
+- **T2.8 Phase 1** ✅ : 9 classes d'erreur créées (47 codes)
+- **Tests** : 31 → 10 échecs (-68%, myia-po-2023)
+- **Bug #302** ✅ : Résolu par myia-web1
+- **Tests RooSync** : 106/109 fichiers PASS (97.2%)
+- **Message urgent** envoyé pour poursuite T2.8 + inventaires
+
+---
+
 ### 2026-01-14 (Fin 4)
 
 **T3.3 Done + myia-po-2026 HS** - 37.7% complété (29/77)
