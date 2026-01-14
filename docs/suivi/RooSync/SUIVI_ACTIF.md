@@ -45,7 +45,11 @@
 
 ### 2026-01-14
 
-**Coordination + Tests + Bug fix** - 31.2% complété (24/77)
+**Coordination + T2.5 supprimé + Issues fermées** - 32.5% complété (25/77)
+- Git: `97640e3` fix(roosync): Remove identity conflict check (T2.5 supprimé)
+- **T2.5 SUPPRIMÉ** : Fonctionnalité non demandée, bloquait multi-agent
+- **Issues fermées:** #275 (MCP myia-po-2024), #269 (Get-MachineInventory)
+- **Tests:** 1051/1092 passés (95.6%)
 - Git: `65ec92d` fix(indexer): Remove debug code causing DEBUG_PAYLOAD_DUMP error
 - Git: `63b6569a` docs(suivi): Consolidate RooSync documentation
 - Git: `3dece2c9` Merge - Submodule sync
