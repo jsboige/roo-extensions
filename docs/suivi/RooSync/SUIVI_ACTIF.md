@@ -7,6 +7,20 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-14 (Fin 3)
+
+**T2.13-2.15 Done** - Migration logger + tests corrigés
+- Git: `8c7e52b5` refactor(roo-state-manager): T2.13-2.15 - Migration console.log vers Logger Winston
+- Git: `0a204139` fix(roosync): Update submodule - Fix issue #307
+- Git submodule: `27d7d0b` fix(roosync): Fix issue #307 - updateJsonWithLock ENOENT handling
+- **72 logs migrés** : InventoryCollectorWrapper (36), MessageManager (27), NonNominativeBaselineService (9)
+- **Tests RooSync** : 1045/1076 PASS (97.1%, 23 fail, 8 skip)
+- **T2.13-2.15 Done** ✅ : Rapport complet dans `T2_13_15_RAPPORT_MIGRATION_LOGGER.md`
+- **Issue #307** : Fixée (FileLockManager ENOENT handling)
+- **Tests corrigés** : 8 tests unitaires réparés par Claude Code
+
+---
+
 ### 2026-01-14 (Fin 2)
 
 **QuickFiles build fixé** - Tests 100% PASS
@@ -115,7 +129,7 @@
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 26/77 DONE (33.8%)
+**GitHub Project #67:** 28/77 DONE (36.4%)
 
 | Métrique | Valeur |
 |----------|--------|
@@ -123,7 +137,8 @@
 | Bugs critiques | 0 ouvert |
 | Machines actives | 5/5 |
 | Bugs corrigés total | 5 (#289-292, #296) |
-| Progression 24h | +14.9% (18.9% → 33.8%) |
+| Progression 24h | +17.5% (18.9% → 36.4%) |
+| Tests RooSync | 1045/1076 PASS (97.1%) |
 
 ---
 
