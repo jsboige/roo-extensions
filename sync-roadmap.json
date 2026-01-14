@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RooSync & SDDD Roadmap",
+  "description": "Ce document trace l'évolution du projet, les cycles de développement et les objectifs stratégiques.",
+  "version": "2.3",
+  "lastUpdated": "2026-01-14",
+  "cycles": [
+    {
+      "number": 9,
+      "name": "Maintenance & Optimisation",
+      "status": "upcoming",
+      "startDate": "2025-12-09",
+      "endDate": null,
+      "objectives": [
+        {
+          "id": "P1",
+          "title": "Maintenance Évolutive",
+          "priority": 1,
+          "description": "Corrections de bugs et petites améliorations"
+        },
+        {
+          "id": "P2-perf",
+          "title": "Optimisation Performance",
+          "priority": 2,
+          "description": "Réduction de l'empreinte mémoire et CPU"
+        },
+        {
+          "id": "P2-doc",
+          "title": "Documentation",
+          "priority": 2,
+          "description": "Mise à jour continue des guides et références"
+        }
+      ],
+      "achievements": []
+    },
+    {
+      "number": 8,
+      "name": "Déploiement Généralisé",
+      "status": "completed",
+      "startDate": null,
+      "endDate": "2025-12-08",
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Rapport Final",
+          "description": "docs/rapports/81-RAPPORT-FINAL-CYCLE8-2025-12-08.md"
+        },
+        {
+          "title": "Simulation",
+          "description": "Validation distribuée réussie (0 différence)"
+        },
+        {
+          "title": "Baseline",
+          "description": "baseline.json stable et distribuée"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "name": "Normalisation & Sync",
+      "status": "completed",
+      "startDate": null,
+      "endDate": "2025-12-08",
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Normalisation",
+          "description": "ConfigNormalizationService implémenté et testé"
+        },
+        {
+          "title": "Diff Granulaire",
+          "description": "ConfigDiffService opérationnel (clé par clé)"
+        },
+        {
+          "title": "Validation",
+          "description": "Simulation distribuée réussie (Rapport 76)"
+        },
+        {
+          "title": "Documentation",
+          "description": "Couverture SDDD complète (Rapports 71 à 77)"
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "name": "Stabilisation & Tests",
+      "status": "completed",
+      "startDate": null,
+      "endDate": "2025-12-05",
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Tests Unitaires",
+          "description": "100% passants sur roo-state-manager"
+        },
+        {
+          "title": "Mocking FS",
+          "description": "Refonte complète de l'architecture de test"
+        },
+        {
+          "title": "Performance",
+          "description": "Optimisation des temps d'exécution des tests"
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "name": "Consolidation & Performance",
+      "status": "completed",
+      "startDate": null,
+      "endDate": "2025-12-05",
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Refonte Mocking FS",
+          "description": "Élimination des conflits de mocks globaux"
+        },
+        {
+          "title": "Optimisation Performance",
+          "description": "Profiling et optimisation des extracteurs"
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "name": "Stabilisation & Fusion",
+      "status": "completed",
+      "startDate": null,
+      "endDate": "2025-12-04",
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Fusion Intelligente",
+          "description": "Intégration des améliorations de myia-web1 (extracteurs factorisés)"
+        },
+        {
+          "title": "Parsing XML",
+          "description": "Support robuste des formats complexes (Array OpenAI)"
+        },
+        {
+          "title": "RooSync",
+          "description": "Outils d'administration et de messagerie validés"
+        },
+        {
+          "title": "Validation",
+          "description": "Rapport sddd-tracking/46-VALIDATION-FINALE-CYCLE4-2025-12-04.md"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "name": "Infrastructure RooSync",
+      "status": "completed",
+      "startDate": null,
+      "endDate": null,
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Service de synchronisation",
+          "description": "Mise en place du service de synchronisation"
+        },
+        {
+          "title": "Protocole SDDD",
+          "description": "Définition du protocole SDDD"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Refactoring Indexer",
+      "status": "completed",
+      "startDate": null,
+      "endDate": null,
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "Indexation",
+          "description": "Optimisation de l'indexation des tâches"
+        }
+      ]
+    },
+    {
+      "number": 1,
+      "name": "Initialisation",
+      "status": "completed",
+      "startDate": null,
+      "endDate": null,
+      "objectives": [],
+      "achievements": [
+        {
+          "title": "MCPs de base",
+          "description": "Création des MCPs de base"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "source": "sync-roadmap.md",
+    "convertedBy": "Claude Code (myia-po-2023)",
+    "convertedAt": "2026-01-14T19:52:00Z",
+    "task": "T2.10"
+  }
+}

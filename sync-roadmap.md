@@ -2,6 +2,8 @@
 
 Ce document trace l'évolution du projet, les cycles de développement et les objectifs stratégiques.
 
+> **Note:** Une version JSON structurée de cette roadmap est disponible dans [`sync-roadmap.json`](sync-roadmap.json) pour un traitement programmatique.
+
 ---
 
 ## 🔄 Cycle 9 : Maintenance & Optimisation (À VENIR)
