@@ -392,6 +392,50 @@ update_project_item_field {
 }
 ```
 
+#### 3.5.1 IDs de Référence pour Project #67 (RooSync Multi-Agent Tasks)
+
+**IMPORTANT** : Pour les champs `single_select`, utilisez `option_id` (pas `value`).
+
+| Élément | ID |
+|---------|-----|
+| **Project ID** | `PVT_kwHOADA1Xc4BLw3w` |
+| **Status Field ID** | `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` |
+
+**Options du champ Status** :
+
+| Status | option_id |
+|--------|-----------|
+| Todo | `f75ad846` |
+| In Progress | `47fc9ee4` |
+| Done | `98236657` |
+
+**Exemple concret** (marquer une tâche "Done") :
+```bash
+update_project_item_field {
+  "owner": "jsboige",
+  "project_id": "PVT_kwHOADA1Xc4BLw3w",
+  "item_id": "PVTI_lAHOADA1Xc4BLw3wzgjKN5k",
+  "field_id": "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY",
+  "field_type": "single_select",
+  "option_id": "98236657"
+}
+```
+
+#### 3.5.2 IDs de Référence pour Project #70 (RooSync Multi-Agent Coordination)
+
+| Élément | ID |
+|---------|-----|
+| **Project ID** | `PVT_kwHOADA1Xc4BL7qS` |
+| **Status Field ID** | `PVTSSF_lAHOADA1Xc4BL7qSzg7W_SE` |
+
+**Options du champ Status** (mêmes IDs que #67) :
+
+| Status | option_id |
+|--------|-----------|
+| Todo | `f75ad846` |
+| In Progress | `47fc9ee4` |
+| Done | `98236657` |
+
 ### 3.6 Ajouter un Commentaire à une Issue
 
 **Note** : L'ajout de commentaires aux issues se fait via l'API GitHub standard ou via l'outil `create_issue` avec un corps de message détaillé.
