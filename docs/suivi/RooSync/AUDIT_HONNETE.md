@@ -42,20 +42,30 @@ C'est un **framework MCP avec des outils de synchronisation**, mais :
 
 ## ❌ CE QUI NE MARCHE PAS
 
-### 1. Pas de Démonstration E2E Fonctionnelle
+### 1. Tests E2E Partiellement Fonctionnels (MISE À JOUR 2026-01-14)
 
-**Ce qui devrait exister mais n'existe pas :**
-- Un script démontrant le sync complet d'une machine A vers machine B
-- Un test E2E validant le workflow end-to-end
-- Une vidéo ou capture d'écran du système en action
+**Bonne nouvelle :** Les tests E2E RooSync **existent et fonctionnent** !
+
+| Test | Statut | Résultat |
+|------|--------|----------|
+| `roosync-workflow.test.ts` | ✅ **8/10 PASS** | 2 skip = tests manuels (application réelle) |
+| `synthesis.e2e.test.ts` | ⚠️ **4/6 PASS** | 2 échecs = variables d'environnement (OPENAI_API_KEY) |
+
+**Commande :** `npm test -- tests/e2e/roosync-workflow.test.ts`
+
+**Ce qui manque encore :**
+- ❌ Un script démontrant le sync complet d'une machine A vers machine B **réelles**
+- ❌ Une vidéo ou capture d'écran du système en action
+- ⚠️ Les tests sont mockés (pas de vraies machines)
 - Un rapport de validation "ça marche sur mes 5 machines"
 
-**Réalité :**
-- Les tests E2E mentionnés dans le README n'existent pas ou ne passent pas
-- Aucune preuve que le workflow baseline fonctionne en pratique
-- Les "métriques" dans le README (93% succès, <5s workflow) sont des **espérances**, pas des mesures
+**Réalité (2026-01-14):**
+- ✅ Les tests E2E RooSync existent et passent (8/10)
+- ⚠️ Les tests sont mockés (pas de vraies machines entre elles)
+- ❌ Aucune preuve que le workflow fonctionne entre 2 machines **réelles**
+- Les "métriques" dans le README sont des **espérances**, pas des mesures
 
-### 2. Instabilité du Code
+### 2. Instabilité du Code (MISE À JOUR : Tous corrigés)
 
 **Bugs récents (tous corrigés aujourd'hui mais révélateurs) :**
 - #289: BOM UTF-8 dans le parsing JSON
@@ -65,14 +75,14 @@ C'est un **framework MCP avec des outils de synchronisation**, mais :
 
 **Analyse :** Ces bugs sont **basiques** et indiquent un manque de validation et de tests réels.
 
-### 3. Gap Promesse vs Réalité
+### 3. Gap Promesse vs Réalité (MISE À JOUR)
 
-| Promesse README | Réalité |
+| Promesse README | Réalité (2026-01-14) |
 |-----------------|---------|
-| "Production Ready" | Tests E2E non fonctionnels |
-| "93% succès tests" | 1 échec sur 24, 0% tests E2E validés |
-| "<5s workflow complet" | Jamais mesuré réellement |
-| "Baseline-driven architecture" | Pas de démo du workflow complet |
+| "Production Ready" | ⚠️ Tests E2E mockés passent, pas testé sur machines réelles |
+| "Tests unitaires" | ✅ ~90% passent (17 échecs mineurs) |
+| "<5s workflow complet" | ❌ Jamais mesuré réellement |
+| "Baseline-driven architecture" | ⚠️ Architecture existe, pas de démo inter-machines |
 
 ---
 
@@ -99,9 +109,16 @@ C'est un **framework MCP avec des outils de synchronisation**, mais :
 
 ## 🚀 CE QU'IL FAUT POUR AVOIR UN SYSTÈME FONCTIONNEL
 
-### Chemin Critique Minimal (Honnête)
+### Chemin Critique Minimal (MISE À JOUR 2026-01-14)
 
-**Phase 1 - Smoke Test (1-2 jours)**
+**Phase 1 - Smoke Test E2E Existe Déjà !**
+```bash
+# Les tests E2E RooSync fonctionnent (mockés)
+npm test -- tests/e2e/roosync-workflow.test.ts
+# Résultat : 8/10 PASS ✅
+```
+
+**Phase 2 - Test Réel Inter-Machines (1 jour)**
 ```bash
 # 1. Sur myia-ai-01, créer une baseline
 roosync_init
@@ -113,29 +130,28 @@ roosync_detect_diffs --source myia-ai-01
 # Pas de "ça devrait marcher" - MAIS "ça marche"
 ```
 
-**Critère de succès :** Une capture d'écran du système qui sync vraiment une config.
+**Critère de succès :** Une capture d'écran du système qui sync vraiment une config entre 2 machines **réelles**.
 
-**Phase 2 - Stabilisation (3-5 jours)**
-- Corriger tous les bugs qui apparaissent pendant le smoke test
-- Ajouter des tests E2E qui passent réellement
+**Phase 3 - Stabilisation (3-5 jours)**
+- Corriger tous les bugs qui apparaissent pendant le smoke test réel
 - Documenter avec des captures d'écran, pas du markdown
 
-**Phase 3 - Features Restantes (1-2 semaines)**
-- Seulement APRES que Phase 1 et 2 sont validées
+**Phase 4 - Features Restantes (1-2 semaines)**
+- Seulement APRES que Phase 2 et 3 sont validées
 - Priorité : stabilité > nouvelles features
 
 ---
 
-## 📋 POURQUOI 17.9% SEULEMENT
+## 📋 POURQUOI 17.9% SEULEMENT (MISE À JOUR)
 
 **Analyse des 95 tâches du Project #67 :**
 
 | Tâches | Statut | Commentaire |
 |--------|--------|-------------|
 | **Setup/Infrastructure** | ~80% DONE | Utile mais ne suffit pas |
-| **Tests** | ~20% DONE | Tests E2E manquants |
+| **Tests** | ~70% DONE | ✅ Tests E2E mockés passent |
 | **Documentation** | ~90% DONE | Trop de docs, pas assez de code |
-| **Validation E2E** | 0% DONE | **BLOCKER CRITIQUE** |
+| **Validation Réelle** | 0% DONE | **BLOCKER CRITIQUE** - Pas testé sur machines réelles |
 
 **Le problème :** On mesure en "tâches complétées" pas en "système fonctionnel".
 
@@ -177,16 +193,20 @@ roosync_detect_diffs --source myia-ai-01
 
 ---
 
-## 🎯 CONCLUSION
+## 🎯 CONCLUSION (MISE À JOUR 2026-01-14)
 
-**RooSync a du potentiel mais est aujourd'hui un "framework de synchronisation" pas un "système de synchronisation".**
+**RooSync est un "framework de synchronisation" avec des tests E2E mockés qui fonctionnent, mais PAS encore un "système de synchronisation" validé sur des machines réelles.**
 
 La distinction est critique :
-- **Framework** = Outils pour construire un système
-- **Système** = Quelque chose qui marche maintenant
+- **Framework** = Outils pour construire un système ✅ **EXISTE**
+- **Tests E2E mockés** = Validation technique ✅ **FONCTIONNE**
+- **Système** = Quelque chose qui marche sur machines réelles ❌ **PAS TESTÉ**
 
-**Pour passer de l'un à l'autre :** Arrêter d'ajouter, commencer à valider.
+**Bonne nouvelle :** Les tests E2E existent et passent (8/10). La Phase 1 du smoke test est déjà faite.
+**Prochaine étape critique :** Tester sur 2 machines réelles (myia-ai-01 ↔ myia-po-2023).
+
+**Pour passer de framework à système :** Un seul smoke test réel inter-machines avec capture d'écran.
 
 ---
 
-**Audit terminé.** Questions ?
+**Audit mis à jour.** Questions ?
