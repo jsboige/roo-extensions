@@ -1,6 +1,6 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-01-09
+**Last Updated:** 2026-01-14
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
@@ -279,7 +279,7 @@ mcps/
 ---
 
 **Version:** 2.0.0
-**Last Updated:** 2026-01-09
+**Last Updated:** 2026-01-14
 **Maintainer:** jsboige
 
 ---

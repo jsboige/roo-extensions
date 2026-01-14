@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-13
+**Dernière mise à jour:** 2026-01-14
 
 ---
 
@@ -48,7 +48,7 @@ git pull
 - Configuration : `~/.claude.json` (global)
 - **Statut :** ✅ Vérifié et fonctionnel
 - **Outils testés :** list_projects, get_project, get_project_items
-- **Projet :** "RooSync Multi-Agent Tasks" (#67, 60 items)
+- **Projet :** "RooSync Multi-Agent Tasks" (#67, 24/77 DONE = 31.2%)
 - **URL :** https://github.com/users/jsboige/projects/67
 
 **roo-state-manager** (6 outils RooSync de messagerie)

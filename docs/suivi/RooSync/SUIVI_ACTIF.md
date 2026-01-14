@@ -9,8 +9,14 @@
 
 ### 2026-01-14
 
-**Coordination + Tests + Progression significative** - 29.9% complété (23/77)
-- Git: `ec71dc4d` docs(suivi): T3.5 merge strategy validation
+**Coordination + Tests + Bug fix** - 31.2% complété (24/77)
+- Git: `65ec92d` fix(indexer): Remove debug code causing DEBUG_PAYLOAD_DUMP error
+- Git: `63b6569a` docs(suivi): Consolidate RooSync documentation
+- Git: `3dece2c9` Merge - Submodule sync
+- **T3.3 Done** : Smoke Test E2E validé (myia-po-2023: 38/40 PASS = 95%)
+- **Bug fix** : DEBUG_PAYLOAD_DUMP error supprimé
+- **Doc consolidée** : 4 fichiers actifs + 42 archivés
+- **+1.3% progression** (29.9% → 31.2%)
 - Git: `10fee13f` docs(arch): Add WP4 tooling + playwright submodule
 - Git: `3f157d8c` docs(roosync): Update README.md - T3.2
 - Git: `c42a1248` fix(roo-state-manager): Bug #289 - BOM UTF-8
@@ -69,7 +75,7 @@
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 23/77 DONE (29.9%)
+**GitHub Project #67:** 24/77 DONE (31.2%)
 
 | Métrique | Valeur |
 |----------|--------|
@@ -77,7 +83,7 @@
 | Bugs critiques | 0 ouvert |
 | Machines actives | 5/5 |
 | Bugs corrigés total | 5 (#289-292, #296) |
-| Progression 24h | +11% (18.9% → 29.9%) |
+| Progression 24h | +12.3% (18.9% → 31.2%) |
 
 ---
 

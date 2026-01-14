@@ -2,7 +2,7 @@
 
 ## Version: 2.5.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-13
+## Dernière mise à jour: 2026-01-14
 
 ## Description
 
