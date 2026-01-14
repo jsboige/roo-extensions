@@ -7,6 +7,20 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-14 (Suite)
+
+**Coordination + Smoke Test E2E + T3.2** - 33.8% complété (26/77)
+- Git: `97640e3c` fix(roosync): Remove identity conflict check
+- Git: `deab3972` docs(roosync): T3.2 Archive obsolete v2.1 documentation
+- **T3.2 Done** : Documentation auditée et consolidée (myia-po-2023)
+- **T3.3 Done** : Smoke Test E2E validé (myia-po-2023: 38/40 PASS = 95%)
+- **T2.4 Done** : Système de verrouillage (Issue #306 fermée)
+- **RooSync Core** : 100% PASS (20/20 error-handling + 8/8 workflow)
+- **+2.6% progression** (31.2% → 33.8%)
+- Docs v2.1 archivées dans `docs/roosync/archive/v2.1/`
+
+---
+
 ### 2026-01-14
 
 **Coordination + Tests + Bug fix** - 31.2% complété (24/77)
@@ -75,7 +89,7 @@
 
 ## 📊 État Projets
 
-**GitHub Project #67:** 24/77 DONE (31.2%)
+**GitHub Project #67:** 26/77 DONE (33.8%)
 
 | Métrique | Valeur |
 |----------|--------|
@@ -83,7 +97,7 @@
 | Bugs critiques | 0 ouvert |
 | Machines actives | 5/5 |
 | Bugs corrigés total | 5 (#289-292, #296) |
-| Progression 24h | +12.3% (18.9% → 31.2%) |
+| Progression 24h | +14.9% (18.9% → 33.8%) |
 
 ---
 
