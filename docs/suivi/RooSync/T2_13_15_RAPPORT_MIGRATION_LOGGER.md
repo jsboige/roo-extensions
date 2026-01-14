@@ -221,9 +221,9 @@ Suite à la migration des logs par Roo, Claude Code a corrigé les tests unitair
 
 | Métrique | Avant | Après | Amélioration |
 |----------|-------|-------|--------------|
-| Tests échoués | 31 | 12 | -19 (-61%) |
-| Tests réussis | ~1040 | 1056 | +16 |
-| Fichiers corrigés | - | 6 | - |
+| Tests échoués | 31 | **0** | -31 (-100%) |
+| Tests réussis | ~1040 | 1068 | +28 |
+| Fichiers corrigés | - | 8 | - |
 
 ### Fichiers Corrigés
 
@@ -256,16 +256,17 @@ Suite à la migration des logs par Roo, Claude Code a corrigé les tests unitair
   - Test "baseline sans machines" → attend maintenant une erreur (comportement réel)
 - **Résultat:** 28 tests passent
 
-### Tests Restants (1)
+### Tests Restants (0) - TOUS CORRIGÉS
 
-| Catégorie | Fichier | Tests | Cause |
-|-----------|---------|-------|-------|
-| Integration | `legacy-compatibility.test.ts` | 1 | `rooSyncService.getConfigService is not a function` |
+**Tous les 31 tests échoués ont été corrigés !**
 
-**Corrigés depuis le rapport initial :**
+**Corrections finales :**
 - `synthesis.e2e.test.ts` (2 tests) : Variable `OPENAI_MODEL_ID` → `OPENAI_CHAT_MODEL_ID`
 - `task-indexer.test.ts` (5 tests) : Roo - `toEqual([])` → `rejects.toThrow()`
 - `BaselineService.test.ts` (4 tests) : Claude Code - Mock `readJSONFileWithoutBOM`
+- `legacy-compatibility.test.ts` (1 test) : Claude Code - Ajouté mock `getConfigService`
+
+**Résultat final :** 109 fichiers, 1068 tests passent, 8 skipped
 
 ### Référence Classes d'Erreurs
 
