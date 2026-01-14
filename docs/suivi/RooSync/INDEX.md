@@ -26,6 +26,29 @@
 
 ---
 
+## 📝 Convention de Nommage (T2.25)
+
+**Format standard:** `[MACHINE]-[TYPE]-[SUJET]-[DATE].md`
+
+### Exemples
+
+| Format  | Exemple                                    |
+| ------- | ------------------------------------------ |
+| Machine | `MYIA-WEB01`, `MYIA-AI01`, `MYIA-PO2023`   |
+| Type    | `TEST`, `RAPPORT`, `ANALYSE`, `AUDIT`      |
+| Date    | `2026-01-14` (YYYY-MM-DD)                  |
+
+### Fichiers Récents (format standard)
+
+- [`MYIA-WEB01-TEST-BOM_FIX_VALIDATION-2026-01-14.md`](MYIA-WEB01-TEST-BOM_FIX_VALIDATION-2026-01-14.md) - Validation correction BOM #302
+
+### Fichiers Système (non renommés)
+
+- `INDEX.md`, `SUIVI_ACTIF.md`, `BUGS_TRACKING.md` - Fichiers de suivi permanents
+- Fichiers `T[X]_[Y]_*.md` - Rapports de tâches (conservent leur format)
+
+---
+
 ## 🗂️ Archives
 
 Tous les rapports antérieurs à 2026-01-14 sont dans `Archives/`:
