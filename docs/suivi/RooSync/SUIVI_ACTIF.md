@@ -7,6 +7,19 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-14 (Fin 6)
+
+**Tests 100% PASS + T2.16 Done** - Excellente progression
+- Git: `1174162` chore: Update submodule - T2.16 path harmonization complete
+- Git submodule: `1bf7ee1` fix(roosync): T2.16 - Harmonize applyConfig() path handling
+- **Tests** ✅ : **1068 PASS / 0 échecs** (100% - annoncé par myia-po-2023)
+- **T2.16 Done** ✅ : applyConfig() utilise maintenant les chemins d'inventaire de façon cohérente
+- **Issue #314** : Analysée et commentée (bug git cwd)
+- **Inventaire myia-po-2024** : Envoyé au coordinateur
+- **Collaboration multi-agent** : T2.16 fusionnée avec correction parallèle d'un autre agent
+
+---
+
 ### 2026-01-14 (Fin 5)
 
 **Coordination proactive + Tests améliorés** - Forte progression
