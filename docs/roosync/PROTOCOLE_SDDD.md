@@ -1,8 +1,8 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.5.0
+## Version: 2.6.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-14
+## Dernière mise à jour: 2026-01-15
 
 ## Description
 
@@ -663,6 +663,43 @@ reset_qdrant_collection {
 3. Confirmer que la documentation est cohérente et à jour avant de clôturer
 ```
 
+### 7.2 Prévention du Travail en Parallèle (Anti-Duplication)
+
+**OBLIGATION CRITIQUE** : Les orchestrateurs doivent **éviter que plusieurs agents travaillent sur la même tâche simultanément**.
+
+**Risques du travail en parallèle :**
+- Perte de temps et d'effort
+- Conflits de merge dans git
+- Incohérences dans la documentation
+- Frustration des agents
+
+**Procédure de réservation de tâche :**
+1. **Vérifier le statut** dans Project #67 ou #70 avant de commencer
+2. **Commenter explicitement** "Je m'en occupe" sur la tâche GitHub
+3. **Mettre le statut "In Progress"** si possible
+4. **Communiquer via RooSync** aux autres agents si la tâche est complexe
+
+**Exemple de message de réservation :**
+```markdown
+@all Je m'occupe de T3.7 - ErrorCategory implementation.
+Si quelqu'un d'autre travaille déjà dessus, merci de me le faire savoir ASAP.
+```
+
+**En cas de découverte de travail en parallèle :**
+1. **Arrêter immédiatement** le travail en cours
+2. **Communiquer** avec l'autre agent via RooSync
+3. **Fusionner** les travaux ou décider qui continue
+4. **Documenter** l'incident dans SUIVI_ACTIF.md
+
+**Exemple de documentation d'incident :**
+```markdown
+### 2026-01-15 (Après-midi) - Incident T3.7
+
+**Problème:** T3.7 a été réalisé en parallèle par myia-po-2024 et myia-ai-01
+**Résolution:** Fusion des implémentations, tests conservés par myia-po-2024
+**Leçon:** Toujours vérifier et commenter dans Project #67 avant de commencer
+```
+
 ---
 
 ## 8. Workflow SDDD
@@ -750,10 +787,11 @@ refactor(roosync): Simplify baseline loading logic
 | 2026-01-05 | 2.3.0 | Roo Code Mode (myia-ai-01) | Ajout du projet #70 "RooSync Multi-Agent Coordination" pour les agents Claude Code dans la section 2.1. Ajout de la répartition des responsabilités Roo ↔ Claude Code dans la section 2.2. Ajout de la section 2.5 sur la communication inter-agents avec les fichiers INTERCOM locaux. Mise à jour de la section 8.2 Collaboration pour mentionner les fichiers INTERCOM. |
 | 2026-01-05 | 2.4.0 | Roo Code Mode (myia-ai-01) | Ajout de la section 2.6 sur la vérification et fermeture des issues. Ajout de l'obligation critique de vérifier et fermer les issues complétées dans la section 2.4. Mise à jour du workflow principal (section 8.1) pour inclure l'étape de vérification et fermeture des issues. Ajout d'une sous-section sur la gestion des issues dans les bonnes pratiques (section 8.2). |
 | 2026-01-13 | 2.5.0 | Claude Code (myia-ai-01) | **NOUVEAU PARADIGME Git-first** : Git/GitHub devient la source principale de journalisation. Plus de rapports verbeux - SUIVI_ACTIF.md devient un résumé minimal avec références git/github. Format de commits conventionnelisé. Documentation du dépôt = doc système pérenne qui se consolide. |
+| 2026-01-15 | 2.6.0 | Claude Code (myia-ai-01) | **Prévention du travail en parallèle** : Ajout de la section 7.2 sur la prévention du travail en parallèle (anti-duplication) suite à l'incident T3.7. Procédure de réservation de tâche, communication RooSync, et documentation des incidents. |
 
 ---
 
 **Document généré par:** Claude Code (myia-ai-01)
-**Date de génération:** 2026-01-13T01:00:00Z
+**Date de génération:** 2026-01-15T12:45:00Z
 **Version:** 2.5.0
 **Statut:** 🟢 Production Ready
