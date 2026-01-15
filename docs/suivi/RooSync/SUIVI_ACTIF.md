@@ -7,6 +7,19 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-15 (Midi) - T3.7 TERMINÉE + 1129 tests PASS
+
+**T3.7 implémentée par collaboration Roo + Claude Code (myia-po-2024)**
+- Git: `29f21fe` feat(roosync): T3.7 Complete - ErrorCategory implementation
+- Git submodule: `06d0a22` feat(roosync): T3.7 ErrorCategory + T2.8 Phase 6b merges
+- **Tests** ✅ : **110/110 fichiers PASS (100%)** - 1129/1137 tests (8 skip)
+- **T3.7 Done** ✅ : ErrorCategory enum + detectPowerShellErrorType() + 57 tests
+- **T2.8 Phase 6b** ✅ : Migrations erreurs tools/ complétées
+- **Rollback** : Améliorations intégrées (commit a5af7b1)
+- **GitHub Project #67** : ~43% DONE (+2%)
+
+---
+
 ### 2026-01-15 (Matin) - Coordination + T3.7 en cours
 
 **Tour de coordination complet + Analyse erreurs**
