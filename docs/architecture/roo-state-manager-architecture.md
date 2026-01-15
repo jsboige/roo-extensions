@@ -60,7 +60,7 @@ interface ClineMessage {
 graph TB
     subgraph "MCP Roo State Manager"
         RSM[Roo State Manager Server]
-        
+
         subgraph "Core Modules"
             CM[Conversation Manager]
             CFM[Config Manager]
@@ -68,32 +68,32 @@ graph TB
             AM[Analytics Manager]
             BM[Backup Manager]
         end
-        
+
         subgraph "Storage Layer"
             CONV[(Conversations DB)]
             CONFIG[(Configurations)]
             ANALYTICS[(Analytics Data)]
             BACKUP[(Backups)]
         end
-        
+
         subgraph "External Interfaces"
             VSCODE[VSCode Storage]
             GITHUB[GitHub Sync]
             CLOUD[Cloud Storage]
         end
     end
-    
+
     RSM --> CM
     RSM --> CFM
     RSM --> SM
     RSM --> AM
     RSM --> BM
-    
+
     CM --> CONV
     CFM --> CONFIG
     AM --> ANALYTICS
     BM --> BACKUP
-    
+
     SM --> VSCODE
     SM --> GITHUB
     SM --> CLOUD
@@ -373,13 +373,92 @@ CREATE TABLE usage_analytics (
 ### Phase 4 : Diagnostic & Migration Legacy (WP4)
 - [x] Outil `analyze_roosync_problems` (remplace scripts PS)
 - [x] Outil `diagnose_env`
-- [ ] Mise à jour documentation architecture
+- [x] Mise à jour documentation architecture
 
 ### Phase 5 : Analytics et Amélioration Continue (Semaine 4)
 - [ ] Moteur d'analyse des conversations
 - [ ] Système de recommandations
 - [ ] Métriques de performance
 - [ ] Documentation automatique
+
+## 🎯 CHANGEMENTS RÉCENTS (2026-01)
+
+### T3.7 - Classification ErrorCategory (Script vs Système)
+
+**Date** : 2026-01-15
+**Statut** : ✅ Implémenté
+
+**Objectif** : Distinguer les erreurs de script PowerShell des erreurs système pour un meilleur diagnostic.
+
+**Implémentation** :
+
+```typescript
+// Enum ErrorCategory
+export enum ErrorCategory {
+  SCRIPT = 'SCRIPT',           // Bug dans le code PowerShell (syntaxe, logique, variables)
+  SYSTEM = 'SYSTEM',           // Problème système (fichier, réseau, permissions, timeout)
+  UNKNOWN = 'UNKNOWN'          // Impossible à déterminer automatiquement
+}
+
+// Classe StateManagerError avec catégorie
+export class StateManagerError extends Error {
+  public readonly category: ErrorCategory;
+  // ...
+}
+```
+
+**Fonctions de classification** :
+
+1. **`detectPowerShellErrorType()`** : Détection automatique basée sur patterns
+   - Patterns d'erreur script : syntaxe, tokens, variables, logique
+   - Patterns d'erreur système : fichiers, réseau, permissions, timeout
+
+2. **`suggestErrorCategory()`** : Suggestion basée sur le code d'erreur
+   - Mapping des codes d'erreur connus vers les catégories
+   - Utilisation pour les services avec codes d'erreur structurés
+
+**Tests** : 57 tests unitaires couvrant tous les cas de classification
+
+**Bénéfices** :
+- Diagnostic plus précis des erreurs
+- Meilleure traçabilité des problèmes
+- Facilite la résolution des incidents
+- Séparation claire entre bugs de code et problèmes système
+
+### T2.16 - Harmonisation des Chemins applyConfig()
+
+**Date** : 2026-01-14
+**Statut** : ✅ Implémenté
+
+**Objectif** : Harmoniser la gestion des chemins dans `applyConfig()` avec les autres méthodes de `ConfigSharingService`.
+
+**Changements** :
+- Utilisation de `ROOSYNC_MACHINE_ID` au lieu de `COMPUTERNAME`
+- Validation des chemins `paths.rooExtensions` et `paths.mcpSettings`
+- Suppression du fallback `process.cwd()` (incohérent avec les méthodes de collecte)
+- Lancement de `ConfigSharingServiceError` si les chemins requis sont manquants
+
+**Bénéfices** :
+- Comportement cohérent entre toutes les méthodes de `ConfigSharingService`
+- Meilleure gestion des erreurs avec messages explicites
+- Utilisation de l'identifiant de machine configuré
+
+### T2.6 - Augmentation TTL Cache
+
+**Date** : 2026-01-15
+**Statut** : ✅ Implémenté
+
+**Objectif** : Augmenter le TTL du cache de 30 secondes à 5 minutes pour réduire les appels système.
+
+**Changements** :
+- Modification du TTL dans `RooSyncService.ts`
+- Nouveau TTL : 5 minutes (300 secondes)
+- Réduction significative des appels système répétitifs
+
+**Bénéfices** :
+- Performance améliorée (moins d'appels système)
+- Réduction de la charge système
+- Meilleure réactivité pour les opérations répétées
 
 ## 🔒 SÉCURITÉ ET PERMISSIONS
 
