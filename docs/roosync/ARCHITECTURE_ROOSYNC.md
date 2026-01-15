@@ -1,8 +1,8 @@
 # Architecture RooSync v2.3.0
 
-## Version: 1.0.0
+## Version: 1.1.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-02
+## Dernière mise à jour: 2026-01-15
 
 ## Description
 
@@ -84,14 +84,26 @@ graph TB
     M --> P
 ```
 
-### 1.3 Dualité Architecturale v2.1/v2.3
+### 1.3 Architecture Baseline Unifiée (T3.9)
 
-**Note Importante** : RooSync est actuellement en transition entre deux architectures :
+**Décision (2026-01-15)** : Suite à l'analyse T3.9, le modèle **Non-Nominatif v3.0** a été choisi comme baseline unique.
 
-- **v2.1** : Utilise [`BaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/BaselineService.ts:1) (ancienne architecture)
-- **v2.3** : Utilise [`NonNominativeBaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts:1) (nouvelle architecture)
+| Critère         | Non-Nominatif v3.0  | Nominatif v2.1 | Choix    |
+| --------------- | ------------------- | -------------- | -------- |
+| Modularité      | Services distincts  | Monolithique   | **v3.0** |
+| Vie privée      | Anonymisé           | Nominatif      | **v3.0** |
+| Conformité      | RGPD-ready          | À adapter      | **v3.0** |
+| Tests           | 100% couverture     | Partielle      | **v3.0** |
+| Migration       | Progressive         | Breaking       | v2.1     |
+| Backward compat | Non                 | Oui            | v2.1     |
 
-Cette dualité crée une **double source de vérité** qui doit être résolue pour garantir la stabilité du système.
+**Résultat** : v3.0 gagne 4-2
+
+**Service Principal** : [`NonNominativeBaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts:1)
+
+**Note** : L'ancien `BaselineService` (v2.1) est conservé pour backward compatibility mais ne doit plus être utilisé pour de nouveaux développements.
+
+**Référence** : [T3.9 Analyse Baseline Unique](../suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md)
 
 ---
 
@@ -502,13 +514,16 @@ d:/roo-extensions/
 
 ## 8. Historique des Modifications
 
-| Date | Version | Auteur | Description |
-|------|---------|--------|-------------|
-| 2026-01-02 | 1.0.0 | Roo Architect Mode | Création initiale du document d'architecture v2.3.0 |
+| Date       | Version | Auteur           | Description                                                              |
+| ---------- | ------- | ---------------- | ------------------------------------------------------------------------ |
+| 2026-01-02 | 1.0.0   | Roo Architect    | Création initiale du document d'architecture v2.3.0                      |
+| 2026-01-15 | 1.1.0   | Claude Code      | T3.11 - Mise à jour section 1.3 : Architecture Baseline Unifiée (T3.9)   |
 
 ---
 
 **Document généré par:** Roo Architect Mode
+**Dernière mise à jour par:** Claude Code (T3.11)
 **Date de génération:** 2026-01-02T11:37:00Z
-**Version:** 1.0.0
+**Dernière modification:** 2026-01-15
+**Version:** 1.1.0
 **Statut:** 🟢 Production Ready
