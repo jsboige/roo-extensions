@@ -1,11 +1,25 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-14
+**Dernière mise à jour:** 2026-01-15
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-15 (Matin) - Coordination + T3.7 en cours
+
+**Tour de coordination complet + Analyse erreurs**
+- Git: `607f5f96` docs(coord): Add T3.7 analysis - Script vs System errors
+- **Tests** ✅ : **109/109 fichiers PASS (100%)** - 1068/1076 tests (8 skip)
+- **T2.6 Done** ✅ : myia-po-2023 a complété (cache TTL amélioré)
+- **T2.10 Done** ✅ : Roadmap JSON créée
+- **T2.8** : myia-web1 Phases 2-5 complétées (~40 erreurs migrées)
+- **T3.7** : Analyse documentée, marquée In Progress
+- **RooSync** : Messages envoyés aux 3 machines (setup MCP)
+- **GitHub Project #67** : 32/77 DONE (41.6%)
+
+---
 
 ### 2026-01-14 (Fin 8) - Coordination multi-agent active
 
