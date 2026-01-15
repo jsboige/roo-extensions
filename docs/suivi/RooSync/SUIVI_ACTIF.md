@@ -1,11 +1,24 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-15 (Après-midi)
+**Dernière mise à jour:** 2026-01-15 (Fin d'après-midi)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-15 (Fin d'après-midi) - Audit Structurel + Corrections
+
+**Analyse complète dépôts principal + sous-module**
+- Git: `d197ab53` docs(coord): Audit structurel 2026-01-15 + Corrections
+- Git submodule: `79efc6d` chore: Fix corrupted .gitignore line 75
+- **Audit** ✅ : Rapport complet créé (AUDIT_STRUCTUREL_2026-01-15.md)
+- **.gitignore** 🔧 : Ligne 75 corrigée (syntaxe invalide)
+- **Instructions** 📤 : Tâches de nettoyage envoyées à Roo via INTERCOM
+- **Tests** ✅ : **109/109 fichiers PASS (100%)** - 1072/1080 tests (8 skip)
+- **GitHub Project #67** : ~43% DONE
+
+---
 
 ### 2026-01-15 (Après-midi) - Coordination + Consolidation
 
