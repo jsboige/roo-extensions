@@ -262,31 +262,63 @@ enum ErrorCategory {
 }
 ```
 
-### 4.2 Indicateurs Script
+### 4.2 Indicateurs Script (SCRIPT_ERROR_PATTERNS)
 
-Patterns détectés comme erreurs de script (bugs dans le code):
+Patterns détectés comme erreurs de script (bugs dans le code PowerShell):
 
-- `syntax error`
-- `unexpected token`
+- `syntax error`, `invalid syntax`
+- `unexpected token`, `unexpected '{'`, `unexpected '('`
+- `missing '}'`, `missing ')'`, `missing closing`
 - `variable cannot be retrieved`
+- `term is not recognized as a cmdlet`
+- `command not found`
 - `invalid operation`
-- `term not recognized`
-- `missing closing`
 - `cannot convert value`
-- `cannot index into null array`
+- `cannot index into a null array`
+- `null-valued expression`
+- `method invocation is not supported`
+- `property cannot be found on this object`
+- `parameter name is ambiguous`
 
-### 4.3 Indicateurs Système
+### 4.3 Indicateurs Système (SYSTEM_ERROR_PATTERNS)
 
 Patterns détectés comme erreurs système (environnement):
 
-- `cannot find path`
-- `access denied`
-- `timed out`
-- `network path not found`
-- `file not found`
-- `permission denied`
-- `disk full`
-- `connection refused`
+- `cannot find path`, `path not found`
+- `file not found`, `no such file or directory`
+- `access denied`, `permission denied`, `unauthorized access`
+- `timeout`, `timed out`, `operation timed out`
+- `network path not found`, `network unreachable`
+- `connection refused`, `no connection could be made`
+- `disk full`, `not enough disk space`
+- `write error`, `read error`, `i/o error`
+- `device not ready`, `drive not ready`
+- `being used by another process`, `locked`
+
+### 4.4 Mapping Codes → Catégories (suggestErrorCategory)
+
+Certains codes d'erreur ont une catégorie prédéfinie:
+
+**Codes SCRIPT:**
+- `INVENTORY_PARSE_FAILED`
+- `PARSE_FAILED`
+- `INVALID_ARGUMENT`
+- `VALIDATION_FAILED`
+- `IDENTITY_CONFLICT`
+- `BASELINE_INVALID`
+
+**Codes SYSTEM:**
+- `SCRIPT_NOT_FOUND`
+- `SCRIPT_EXECUTION_FAILED`
+- `INVENTORY_SAVE_FAILED`
+- `REMOTE_MACHINE_NOT_FOUND`
+- `SHARED_STATE_NOT_ACCESSIBLE`
+- `FILE_SYSTEM_ERROR`
+- `NETWORK_ERROR`
+- `PERMISSION_DENIED`
+- `TIMEOUT`
+- `NO_JSON_FOUND`
+- `EXECUTION_FAILED`
 
 ---
 
