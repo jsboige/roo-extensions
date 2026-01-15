@@ -1,11 +1,33 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-15 (Soir - T3.12 DONE)
+**Dernière mise à jour:** 2026-01-16 (Matin - Coordination)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-16 (Matin) - T4.8a, T4.12 DONE + Coordination
+
+**Maintenance + Documentation + Glossaire**
+- Git: `253dc3b6` feat(maintenance): Add cleanup-rollbacks.ps1 script (T4.8a)
+- Git: `f029d218` docs(roosync): T4.12 - Validation report for CP4.4
+- Git: `63ed874c` docs(roosync): Add GLOSSAIRE.md - unified RooSync terminology
+- **T4.8a Done** ✅ : Script cleanup-rollbacks.ps1 (PowerShell 5.1 compatible)
+- **T4.12 Done** ✅ : Rapport validation CP4.4 (Documentation multi-agent)
+- **GitHub Project #67** : ~62% DONE (48/77 items)
+
+**Tâches complétées récemment:**
+- T3.10 (Architecture unifiée baseline)
+- T4.10, T4.11, T4.12 (Documentation multi-agent)
+- T2.20 (Tests unitaires RooSync)
+
+**En cours:**
+- T2.8 (Migration erreurs typées) - myia-web1
+- T2.21 (Tests E2E) - myia-po-2026
+- T3.15 (Sync multi-agent) - myia-po-2024
+
+---
 
 ### 2026-01-15 (Soir) - T3.12 DONE + Coordination
 
