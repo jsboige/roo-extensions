@@ -10,7 +10,8 @@
 ### 2026-01-15 (Fin d'après-midi) - Nettoyage + Coordination
 
 **Nettoyage terminé + INTERCOMPACTÉ**
-- Git: (à venir) chore: Clean up temporary files + INTERCOM compaction
+- Git: `0b4ba09a` chore: Cleanup + Coordination
+- Git: `402b3f1` chore(submodule): Clean up temporary files
 - **Nettoyage** ✅ : ~930KB libérés (fichiers temporaires + .bak)
 - **INTERCOM** 📉 : 1353 → 70 lignes (-95%)
 - **T3.14 Done** ✅ : myia-po-2023 a complété l'analyse sync multi-agent
