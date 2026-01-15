@@ -1,11 +1,28 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-15 (Fin de journée)
-**Coordinateur:** Claude Code (myia-ai-01 + myia-po-2023)
+**Dernière mise à jour:** 2026-01-15 (Soir - T3.12 DONE)
+**Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-15 (Soir) - T3.12 DONE + Coordination
+
+**Validation Architecture + Sync Multi-Agent**
+- Git: `0e53b02a` docs(roosync): Add T3.10 plan and final report - Roo's work stash preserved
+- Git submodule: `4ef424d` test(roosync): Add unit tests for config management tools (T2.20)
+- **T3.12 Done** ✅ : myia-po-2024 a validé l'architecture unifiée (commit `6340386`)
+- **T3.8 Done** ✅ : myia-po-2024 a implémenté collectProfiles()
+- **Tests** ✅ : 1206/1208 PASS (99.8%) - 2 échecs mineurs (MessageManager cleanup)
+- **GitHub Project #67** : ~47% DONE (36/77 items)
+
+**Tâches complétées aujourd'hui:**
+- T3.6, T3.7, T3.8, T3.9, T3.12, T3.14, T4.1, T4.4, T4.7
+
+**RooSync:** Message coordination envoyé à all (18:32)
+
+---
 
 ### 2026-01-15 (Fin de journée) - myia-po-2023 Claude Code
 
