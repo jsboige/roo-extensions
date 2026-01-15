@@ -1,11 +1,24 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-15
+**Dernière mise à jour:** 2026-01-15 (Après-midi)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-15 (Après-midi) - Coordination + Consolidation
+
+**Tour de synchronisation + Assignations claires**
+- Git: `c0518fa4` chore: Update submodule - Remove duplicate T3.7 tests
+- **Tests** ✅ : **109/109 fichiers PASS (100%)** - 1072/1080 tests (8 skip)
+- **T3.7 Done** ✅ : ErrorCategory implémenté (tests couverts par myia-po-2024)
+- **myia-po-2026** ✅ : DE RETOUR - Prête pour T2.20-2.23 (Tests E2E)
+- **Coordination** : Message envoyé avec assignations claires à tous les agents
+- **GitHub Project #67** : ~43% DONE
+- **Note** : T3.7 a été fait en parallèle (faille d'orchestration à corriger)
+
+---
 
 ### 2026-01-15 (Midi) - T3.7 TERMINÉE + 1129 tests PASS
 
