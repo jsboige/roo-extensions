@@ -7,6 +7,19 @@
 
 ## 📋 Journal (Résumé minimal avec références git/github)
 
+### 2026-01-15 (Fin d'après-midi) - Nettoyage + Coordination
+
+**Nettoyage terminé + INTERCOMPACTÉ**
+- Git: (à venir) chore: Clean up temporary files + INTERCOM compaction
+- **Nettoyage** ✅ : ~930KB libérés (fichiers temporaires + .bak)
+- **INTERCOM** 📉 : 1353 → 70 lignes (-95%)
+- **T3.14 Done** ✅ : myia-po-2023 a complété l'analyse sync multi-agent
+- **T4.1 Done** ✅ : myia-po-2023 a complété l'analyse déploiement
+- **RooSync** : Message coordination envoyé à all
+- **Tests** ✅ : **109/109 fichiers PASS (100%)**
+
+---
+
 ### 2026-01-15 (Fin d'après-midi) - Audit Structurel + Corrections
 
 **Analyse complète dépôts principal + sous-module**
