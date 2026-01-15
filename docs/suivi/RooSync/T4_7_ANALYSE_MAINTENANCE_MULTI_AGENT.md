@@ -1,119 +1,128 @@
 # T4.7 - Analyse des Besoins de Maintenance Multi-Agent
 
 **Date :** 2026-01-15
-**Auteur :** Claude Code (myia-ai-01)
+**Auteurs :** Claude Code (myia-ai-01 + myia-po-2023) - Document fusionné
 **Statut :** Analyse complétée
 
 ---
 
-## 1. Résumé Exécutif
+## 1. Contexte
 
-Le système RooSync multi-agent (5 machines) nécessite une **maintenance proactive** pour éviter la dérive entropique. Actuellement, la maintenance est **réactive et manuelle**, ce qui crée des risques de:
-
-- **Dérive de configuration** entre machines
-- **Dépendances obsolètes** avec vulnérabilités de sécurité
-- **Tokens expirés** rendant les MCPs inaccessibles
-- **Logs accumulés** consommant l'espace disque
-- **Documentation désynchronisée** par rapport au code
-
-| Aspect | État Actuel | Besoin |
-|--------|-------------|--------|
-| Mises à jour dépendances | Manuel, ad-hoc | Automatisé |
-| Rotation tokens | Manuel, quand expire | Planifié |
-| Nettoyage logs | Manuel, rarement | Automatisé |
-| Sync documentation | Ad-hoc | Intégré au workflow |
-| Health checks | Manuel | Continu |
+Ce document fusionne les analyses de deux agents qui ont travaillé simultanément sur T4.7:
+- **myia-ai-01** : Focus opérations (scripts, scheduling, alertes)
+- **myia-po-2023** : Focus code (services existants, TypeScript)
 
 ---
 
-## 2. Architecture Actuelle
+## 2. Résumé Exécutif
 
-### 2.1 Machines et Leurs Rôles
+Le système RooSync multi-agent (5 machines) est **partiellement automatisé** :
 
-| Machine | Rôle Principal | Responsabilités Maintenance |
-|---------|----------------|------------------------------|
-| **myia-ai-01** | Coordinateur | Git sync, GitHub Projects, Documentation |
-| **myia-po-2023** | Agent flexible | Tâches techniques, analyses |
-| **myia-po-2024** | Agent flexible | Tâches techniques, analyses |
-| **myia-po-2026** | Agent flexible | Tests E2E (souvent HS) |
-| **myia-web1** | Agent flexible | T2.8 erreurs typées |
+| Aspect | Automatisé | Manuel |
+|--------|------------|--------|
+| Cache mémoire | TTL + LRU | - |
+| Services lifecycle | Shutdown hooks | - |
+| Rollback cleanup | - | 46+ dirs orphelins |
+| Messages archive | - | Croissance illimitée |
+| Config backups | - | 8+ fichiers |
+| Logs | - | Sans rotation |
+| Dépendances | - | npm update ad-hoc |
+| Tokens | - | Rotation manuelle |
 
-### 2.2 Points de Maintenance Actuels
-
-| Composant | Maintenance | Fréquence Actuelle | Fréquence Recommandée |
-|-----------|-------------|-------------------|----------------------|
-| `node_modules/` | npm update | Ad-hoc | Mensuelle |
-| `.env` tokens | Rotation | Quand expire | Trimestrielle |
-| Logs (`logs/`) | Nettoyage | Rarement | Hebdomadaire |
-| Git sync | Pull/commit | Quotidienne | Automatique |
-| Tests | npm test | Avant commit | Continu (CI) |
-| Documentation | Update | Ad-hoc | À chaque commit |
+**Risques sans maintenance :**
+- Dérive de configuration entre machines
+- Dépendances obsolètes avec vulnérabilités
+- Tokens expirés rendant les MCPs inaccessibles
+- Logs accumulés consommant l'espace disque
 
 ---
 
-## 3. Catégories de Maintenance
+## 3. Mécanismes Automatisés Existants
 
-### 3.1 Maintenance Préventive
+### 3.1 Gestion du Cache (CacheManager)
 
-**Objectif :** Éviter les incidents avant qu'ils ne surviennent.
+| Paramètre | Valeur | Description |
+|-----------|--------|-------------|
+| TTL | 2 heures | Expiration automatique |
+| Max Size | 100 MB | Éviction LRU |
+| Cleanup Interval | 5 min | Nettoyage périodique |
+| Smart Invalidation | Oui | Basé sur changements config |
+
+### 3.2 Protection Anti-Fuite (CacheAntiLeakManager)
+
+| Paramètre | Valeur | Action |
+|-----------|--------|--------|
+| Traffic Limit | 220 GB | Monitoring |
+| Warning Threshold | 200 GB | Alerte |
+| Cleanup Interval | 5 min | Périodique |
+| Consistency Check | 24h | Validation complète |
+
+### 3.3 Lifecycle Services
+
+```
+Shutdown → CacheManager.cleanup()
+        → LLMService.cleanup()
+        → SynthesisOrchestrator.cleanup()
+        → ServiceRegistry.cleanup()
+```
+
+---
+
+## 4. Catégories de Maintenance
+
+### 4.1 Maintenance Préventive
 
 | Tâche | Description | Fréquence | Automatisable |
 |-------|-------------|-----------|---------------|
-| **Dépendances** | `npm audit` + `npm update` | Mensuelle | ✅ Oui |
-| **Tokens** | Rotation GitHub tokens | Trimestrielle | ⚠️ Partiel |
-| **Health** | Vérifier MCPs accessibles | Quotidienne | ✅ Oui |
-| **Disk** | Vérifier espace disque | Hebdomadaire | ✅ Oui |
-| **Backup** | Sauvegarder configs | Quotidienne | ✅ Oui |
+| **Dépendances** | `npm audit` + `npm update` | Mensuelle | Oui |
+| **Tokens** | Rotation GitHub tokens | Trimestrielle | Partiel |
+| **Health** | Vérifier MCPs accessibles | Quotidienne | Oui |
+| **Disk** | Vérifier espace disque | Hebdomadaire | Oui |
+| **Backup** | Sauvegarder configs | Quotidienne | Oui |
 
-### 3.2 Maintenance Corrective
+### 4.2 Maintenance Corrective
 
-**Objectif :** Réparer les incidents lorsqu'ils surviennent.
+| Incident | Action | Temps | Automatisable |
+|----------|--------|-------|---------------|
+| **MCP down** | Rebuild + restart | 10-30 min | Partiel |
+| **Token expiré** | Nouveau token | 5-10 min | Non |
+| **Build échoué** | Fix + rebuild | 30-120 min | Non |
+| **Git conflict** | Résolution | 10-60 min | Non |
+| **Machine HS** | Reboot manuel | Variable | Non |
 
-| Incident | Action | Temps de Résolution | Automatisable |
-|----------|--------|---------------------|---------------|
-| **MCP down** | Rebuild + restart | 10-30 min | ⚠️ Partiel |
-| **Token expiré** | Nouveau token | 5-10 min | ❌ Manuel |
-| **Build échoué** | Fix + rebuild | 30-120 min | ❌ Manuel |
-| **Git conflict** | Résolution | 10-60 min | ❌ Manuel |
-| **Machine HS** | Reboot manuel | Variable | ❌ Manuel |
-
-### 3.3 Maintenance Évolutive
-
-**Objectif :** Améliorer le système continuellement.
+### 4.3 Maintenance Évolutive
 
 | Évolution | Description | Priorité |
 |-----------|-------------|----------|
 | **Automatisation** | Script déploiement batch | HIGH |
 | **Monitoring** | Health checks continu | HIGH |
 | **CI/CD** | Tests automatisés | MEDIUM |
-| **Documentation** | Auto-génération | LOW |
 
 ---
 
-## 4. Stratégie de Maintenance Proposée
+## 5. Inventaire Maintenance Manuelle
 
-### 4.1 Architecture de Maintenance
+### 5.1 Tâches Requises
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Coordinateur (myia-ai-01)                │
-│  ┌───────────────┐  ┌───────────────┐  ┌──────────────┐   │
-│  │   Scheduler   │  │   Monitor     │  │  Notifier    │   │
-│  │  (cron-like)  │  │  (health)     │  │  (RooSync)    │   │
-│  └───────┬───────┘  └───────┬───────┘  └──────┬───────┘   │
-└──────────┼──────────────────┼──────────────────┼───────────┘
-           │                  │                  │
-           ▼                  ▼                  ▼
-┌─────────────────────────────────────────────────────────────┐
-│                     Tâches Planifiées                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐ │
-│  │ Health Checks   │  │ Dependency Audit│  │ Log Cleanup │ │
-│  │   (quotidien)   │  │   (mensuel)     │  │ (hebdo)     │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────┘ │
-└─────────────────────────────────────────────────────────────┘
-```
+| Tâche | Localisation | Fréquence | Effort |
+|-------|--------------|-----------|--------|
+| Cleanup rollback | `.rollback/` | Mensuel | 10 min |
+| Archive messages | `.shared-state/messages/` | Mensuel | 15 min |
+| Rotation backups | `.shared-state/*.backup` | Mensuel | 5 min |
+| Purge logs | `.shared-state/logs/` | Hebdo | 5 min |
+| Cleanup checkpoints | `~/roo-cline/tasks/*/checkpoints` | Mensuel | 5 min |
 
-### 4.2 Script de Maintenance: `maintain-roosync.ps1`
+### 5.2 Scripts Existants
+
+| Script | Fonction | Mode |
+|--------|----------|------|
+| `cleanup_obsolete_checkpoints.ps1` | Purge checkpoints Roo | DryRun/Force |
+
+---
+
+## 6. Architecture Cible
+
+### 6.1 Script PowerShell: `maintain-roosync.ps1`
 
 ```powershell
 # maintain-roosync.ps1
@@ -134,18 +143,9 @@ function Invoke-HealthCheck {
 
     foreach ($check in $checks) {
         $result = & $check.Test
-        $status = if ($result) { "✅ OK" } else { "❌ FAIL" }
+        $status = if ($result) { "OK" } else { "FAIL" }
         Write-Host "$($check.Name): $status"
     }
-}
-
-function Invoke-DependencyUpdate {
-    Write-Host "=== Dependency Update ===" -ForegroundColor Cyan
-
-    Set-Location mcps/internal/servers/roo-state-manager
-    npm audit --audit-level=high
-    npm update
-    npm run build
 }
 
 function Invoke-LogCleanup {
@@ -158,7 +158,6 @@ function Invoke-LogCleanup {
 
     foreach ($dir in $logDirs) {
         if (Test-Path $dir) {
-            # Supprimer logs de plus de 7 jours
             Get-ChildItem $dir -Recurse -File |
                 Where-Object LastWriteTime -lt (Get-Date).AddDays(-7) |
                 Remove-Item -Force
@@ -169,161 +168,138 @@ function Invoke-LogCleanup {
 # Main
 switch ($Task) {
     "health" { Invoke-HealthCheck }
-    "update" { Invoke-DependencyUpdate }
     "cleanup" { Invoke-LogCleanup }
-    "all" {
-        Invoke-HealthCheck
-        Invoke-LogCleanup
-        # Update nécessite confirmation
-    }
+    "all" { Invoke-HealthCheck; Invoke-LogCleanup }
 }
 ```
 
-### 4.3 Ordonnancement via Task Scheduler
+### 6.2 Service TypeScript: `MaintenanceService.ts`
 
-```powershell
-# Créer tâche planifiée pour health check quotidien
-$action = New-ScheduledTaskAction -Execute "PowerShell.exe" `
-    -Argument "-File D:\Dev\roo-extensions\scripts\maintain-roosync.ps1 -Task health"
+```typescript
+// src/services/MaintenanceService.ts
+export class MaintenanceService {
+  private config: MaintenanceConfig;
 
-$trigger = New-ScheduledTaskTrigger -Daily -At "02:00"
-Register-ScheduledTask -TaskName "RooSync Health Check" `
-    -Action $action -Trigger $trigger
+  async runScheduledMaintenance(): Promise<MaintenanceReport> {
+    const results = await Promise.all([
+      this.cleanupRollbacks(),
+      this.archiveOldMessages(),
+      this.rotateBackups(),
+      this.pruneLogs()
+    ]);
+    return this.generateReport(results);
+  }
+
+  async cleanupRollbacks(olderThanDays = 7): Promise<CleanupResult>;
+  async archiveOldMessages(olderThanDays = 30): Promise<ArchiveResult>;
+  async rotateBackups(keepCount = 5): Promise<RotationResult>;
+  async pruneLogs(keepDays = 7): Promise<PruneResult>;
+}
+```
+
+### 6.3 Configuration
+
+```json
+// .shared-state/.maintenance-config.json
+{
+  "rollback": {
+    "retentionDays": 7,
+    "excludePatterns": ["CRITICAL_*"]
+  },
+  "messages": {
+    "archiveAfterDays": 30,
+    "deleteAfterDays": 90
+  },
+  "backups": {
+    "keepCount": 5
+  },
+  "logs": {
+    "retentionDays": 7,
+    "maxSizeMB": 100
+  }
+}
 ```
 
 ---
 
-## 5. Alertes et Notifications
+## 7. Alertes et Notifications
 
-### 5.1 Critères d'Alerte
+### 7.1 Critères d'Alerte
 
-| Critère | Seuil | Action | Notification |
-|---------|-------|--------|--------------|
-| MCP inaccessible | 1 échec | Retry 3x | RooSync msg |
-| Token expire | < 7 jours | Reminder | RooSync msg |
-| Disk space | < 1GB | Cleanup + alert | RooSync msg |
-| Tests fail | > 0 tests | Bloquer deploy | GitHub issue |
-| Machine HS | > 1h | Reboot manuel | RooSync urgent |
+| Critère | Seuil | Action |
+|---------|-------|--------|
+| MCP inaccessible | 1 échec | Retry 3x + RooSync msg |
+| Token expire | < 7 jours | RooSync reminder |
+| Disk space | < 1GB | Cleanup + alert |
+| Tests fail | > 0 tests | GitHub issue |
 
-### 5.2 Template Message RooSync
+### 7.2 Template Message RooSync
 
 ```markdown
-## 🔔 Alert Maintenance - [MACHINE]
+## Alert Maintenance - [MACHINE]
 
 **Type:** [HEALTH | SECURITY | DISK | BUILD]
 **Sévérité:** [HIGH | MEDIUM | LOW]
-**Timestamp:** [ISO-8601]
 
 **Description:**
 [Description du problème]
 
 **Action Requise:**
 - [ ] [Action 1]
-- [ ] [Action 2]
-
-**Coordinateur:** myia-ai-01
 ```
 
 ---
 
-## 6. Plan d'Implémentation (T4.8)
+## 8. Plan d'Implémentation
 
-### Phase 1: Scripts de Base (1-2 jours)
-
-| Tâche | Description | Effort |
-|-------|-------------|--------|
-| `maintain-roosync.ps1` | Script maintenance complet | 3h |
-| `health-check.ps1` | Vérifications santé | 2h |
-| `cleanup-logs.ps1` | Nettoyage logs | 1h |
-
-### Phase 2: Ordonnancement (1 jour)
+### Phase 1: Scripts de Base (7h)
 
 | Tâche | Description | Effort |
 |-------|-------------|--------|
-| Task Scheduler setup | Tâches planifiées | 2h |
+| T4.8a | Cleanup rollback automatique (>7j) | 2h |
+| T4.8b | Archivage messages (>30j) | 3h |
+| T4.8c | Rotation logs (7 jours) | 2h |
+
+### Phase 2: Ordonnancement (4h)
+
+| Tâche | Description | Effort |
+|-------|-------------|--------|
+| Task Scheduler | Tâches planifiées Windows | 2h |
 | RooSync notifications | Messages alerte | 2h |
 
-### Phase 3: Monitoring continu (2-3 jours)
+### Phase 3: Service TypeScript (6h)
 
 | Tâche | Description | Effort |
 |-------|-------------|--------|
-| Health dashboard | Vue consolidée | 4h |
-| Alert routing | Notifications intelligentes | 2h |
-| Maintenance logs | Historique actions | 2h |
+| MaintenanceService.ts | Orchestrateur | 4h |
+| Tests unitaires | Couverture | 2h |
 
 ---
 
-## 7. Métriques de Maintenance
+## 9. Métriques de Succès
 
-### 7.1 KPIs à Suivre
-
-| KPI | Description | Cible |
-|-----|-------------|-------|
-| **Uptime** | % temps MCPs accessibles | > 99% |
-| **MTTD** | Mean Time To Detect incident | < 5 min |
-| **MTTR** | Mean Time To Repair | < 30 min |
-| **Drift** | Machines désynchronisées | 0 |
-| **Vulnérabilités** | CVEs haute sévérité | 0 |
-
-### 7.2 Rapport Mensuel
-
-```markdown
-# Rapport Mensuel Maintenance - [MOIS]
-
-## Availability
-- Uptime global: XX%
-- Incidents: N
-- MTTR: XX minutes
-
-## Maintenance
-- Dépendances mises à jour: OUI/NON
-- Tokens rotatés: OUI/NON
-- Logs nettoyés: XX MB
-- Disk space: XX GB libre
-
-## Incidents
-| Date | Incident | Résolution | Durée |
-|------|----------|------------|-------|
-| ... | ... | ... | ... |
-```
+| KPI | Cible | Mesure |
+|-----|-------|--------|
+| Uptime MCP | > 99% | Health checks |
+| Rollback dirs | < 10 | `ls .rollback` |
+| Messages inbox | < 100 | JSON count |
+| MTTR | < 30 min | Incident logs |
 
 ---
 
-## 8. Risques et Mitigations
+## 10. Conclusion
 
-| Risque | Impact | Probabilité | Mitigation |
-|--------|--------|-------------|------------|
-| **Maintenance manquée** | Dérive configuration | HIGH | Automatisation |
-| **Token leak** | Accès non-autorisé | MEDIUM | Rotation planifiée |
-| **Script failure** | Maintenance silencieuse | MEDIUM | Logs + alertes |
-| **Overhead maintenance** | Temps perdu | LOW | Automatisation |
+**Recommandations prioritaires :**
 
----
+1. **P0** : Implémenter cleanup rollback (46+ dirs orphelins)
+2. **P0** : Activer rotation logs (espace disque)
+3. **P1** : Health checks quotidiens automatisés
+4. **P2** : MaintenanceService TypeScript complet
 
-## 9. Conclusion
-
-La maintenance RooSync nécessite une **approche structurée et automatisée** pour:
-
-1. **Réduire l'effort manuel** de ~2h/semaine à ~30 minutes
-2. **Détecter les problèmes** avant qu'ils ne deviennent critiques
-3. **Documenter les actions** pour traçabilité
-4. **Assurer la cohérence** entre les 5 machines
-
-**Recommandation prioritaire :** Implémenter Phase 1 (scripts de base) immédiatement, avec un focus sur les health checks quotidiens.
+**Effort total Phase 1 :** ~7h
 
 ---
 
-## 10. Actions Immédiates
-
-| Action | Priorité | Qui |
-|--------|----------|-----|
-| Créer `maintain-roosync.ps1` | HIGH | myia-ai-01 |
-| Configurer Task Scheduler | HIGH | myia-ai-01 |
-| Tester health checks | HIGH | Toutes machines |
-| Documenter procédures | MEDIUM | myia-po-2023 |
-
----
-
-**Rapport généré par Claude Code (myia-ai-01)**
-**Date :** 2026-01-15T13:45:00Z
-**Prochaine étape :** T4.8 - Implémenter la maintenance multi-agent
+**Document fusionné par Claude Code**
+**Contributions :** myia-ai-01 (opérations) + myia-po-2023 (code)
+**Date :** 2026-01-15
