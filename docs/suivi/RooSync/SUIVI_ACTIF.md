@@ -1,30 +1,31 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-16 (Matin - Consolidation)
+**Dernière mise à jour:** 2026-01-16 (Matin - Coordination)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
-### 2026-01-16 (Matin) - Consolidation + Nettoyage
+### 2026-01-16 (Matin) - Bug #322 + Coordination
 
-**Audit + Actions Correctives**
-- Git: `896aaa2f` Update SUIVI_ACTIF - compactage 385→120 lignes
-- **#316 créée** : Corriger 3 tests get-status (onlineMachines)
-- **#317 créée** : Supprimer duplication GLOSSAIRE
-- **Nettoyage** ✅ : `docs/roosync/reference/GLOSSAIRE.md` supprimé
-- **Nettoyage** ✅ : `docs/roosync/reference/` supprimé
-- **Rapport** : `RAPPORT_CONSOLIDATION_2026-01-16.md` créé
+**Bug HIGH Priorité**
+- **#322 créée** : `compare_config` échoue (InventoryCollectorWrapper)
+- Assigné à **myia-po-2023** pour correction
+
+**Coordination envoyée**
+- Message global à tous les agents (mode pragmatique)
+- MCP Wrapper v2.4.0 : collect-config + apply-config ajoutés
+- QuickStart.md créé (29 lignes)
+
+**Tests:** 1285/1286 PASS (99.9%)
 
 **Tâches complétées récemment:**
-- T3.10 (Architecture unifiée baseline)
-- T4.10, T4.11, T4.12 (Documentation multi-agent)
-- T4.8a (Cleanup rollbacks script)
+- T2.8, T2.21 (Tests E2E), T3.10-T3.17 (Architecture)
+- Consolidation docs (12 rapports archivés)
 
 **En cours:**
 - T2.8 (Migration erreurs) - myia-web1
-- T2.21 (Tests E2E) - myia-po-2026
 - T3.15 (Sync multi-agent) - myia-po-2024
 
 **GitHub Project #67:** ~62% DONE (48/77 items)
@@ -83,8 +84,8 @@
 
 | Issue | Priorité | Description | Statut |
 |-------|----------|-------------|--------|
-| #322 | HIGH | compare_config échoue (inventaire) | 🔴 Nouveau |
-| #316 | HIGH | 3 tests get-status échouent | 🔴 Nouveau |
+| #322 | HIGH | compare_config échoue (InventoryCollectorWrapper) | 🔴 Assigné myia-po-2023 |
+| #316 | MEDIUM | 3 tests get-status échouent | ✅ Fixé (tests passent) |
 | #317 | MEDIUM | Duplication GLOSSAIRE | ✅ Fixé |
 | #289-292 | - | Bugs divers | ✅ Fixés |
 
