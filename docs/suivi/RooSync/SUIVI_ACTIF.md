@@ -33,20 +33,17 @@
 
 **Tests:** 1285/1286 PASS (99.9%)
 
-**Tâches complétées:**
-- T2.8, T2.21 (Tests E2E), T3.10-T3.17 (Architecture)
+**Consolidation docs (Claude Code myia-web1):**
 
-**GitHub Project #67:** ~62% DONE (48/77 items)
-
-**Tâches complétées récemment:**
-- T2.8, T2.21 (Tests E2E), T3.10-T3.17 (Architecture)
-- Consolidation docs (12 rapports archivés)
+- 10 rapports obsolètes archivés (commit `12e840d`)
+- GitHub Project: GLOSSAIRE + Archive marqués Done
+- 50/77 items DONE (~65%)
 
 **En cours:**
-- T2.8 (Migration erreurs) - myia-web1
-- T3.15 (Sync multi-agent) - myia-po-2024
 
-**GitHub Project #67:** ~62% DONE (48/77 items)
+- T2.8 (Migration erreurs) - myia-web1 (Roo)
+- T3.15 (Sync multi-agent) - myia-po-2024
+- Bug #322 (compare_config) - myia-po-2023
 
 ---
 
@@ -113,9 +110,9 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | 48/77 DONE (62%) |
-| Tests RooSync | 1205/1208 PASS (99.8%) |
-| Tests échecs | 3 (get-status) |
+| GitHub Project #67 | 50/77 DONE (65%) |
+| Tests RooSync | 1285/1286 PASS (99.9%) |
+| Tests échecs | 1 |
 | Version RooSync | v2.3.0 |
 | Machines actives | 4/5 |
 
