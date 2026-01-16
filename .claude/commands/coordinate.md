@@ -72,12 +72,45 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 - Suivi actif: `docs/suivi/RooSync/SUIVI_ACTIF.md`
 - Config Claude: `CLAUDE.md`
 
-## Règles
+## Règles Critiques
 
+### Communication Multi-Canal
+| Canal | Usage | Fréquence |
+|-------|-------|-----------|
+| **RooSync** | Instructions aux exécutants | Chaque tour de sync |
+| **INTERCOM** | Coordination locale Roo | Chaque action locale |
+| **GitHub #67** | Tâches techniques Roo | Création avec validation |
+| **GitHub #70** | Coordination Claude | Suivi déploiements |
+
+### Validation Utilisateur OBLIGATOIRE
+
+**AVANT de créer une nouvelle tâche GitHub :**
+1. Présenter la tâche proposée à l'utilisateur
+2. Expliquer pourquoi elle est nécessaire
+3. Attendre validation explicite
+4. Seulement ensuite créer l'issue
+
+**Exceptions :** Bugs critiques bloquants (mais informer immédiatement)
+
+### Règles Générales
 - Tour de sync toutes les 2-3 heures ou à chaque nouveau rapport
 - Toujours référencer les issues GitHub dans les communications
 - Ne pas modifier le code technique (domaine Roo)
 - Documenter les décisions dans les commentaires d'issues
+- **INTERCOM** : Mettre à jour à CHAQUE tour de sync
+
+## Priorité Actuelle (2026-01-16)
+
+**🎯 DÉPLOIEMENT ROOSYNC**
+
+Objectif : Configs multi-machines disponibles dans le partage.
+
+1. **Résoudre blocages** : myia-web1 (git pull), erreurs build
+2. **Déployer MCP v2.5.0** : sur toutes les machines (#323, #324, #326)
+3. **Valider workflow** : collect → compare → apply sur 2+ machines
+4. **Tests E2E** : #320, #327, T2.21
+
+**PAS de nouvelles fonctionnalités** - Focus stabilisation et déploiement.
 
 ## Démarrage
 

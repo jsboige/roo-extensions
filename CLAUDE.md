@@ -372,28 +372,37 @@ Body:
 
 ---
 
-## 🎯 Contexte Actuel (2026-01-15)
+## 🎯 Contexte Actuel (2026-01-16)
 
-### Phase : Coordination Multi-Agent - Tests 100% PASS
+### Phase : DÉPLOIEMENT ROOSYNC
+
+**🎯 Priorité #1 : Configs multi-machines disponibles dans le partage**
 
 **Organisation bicéphale confirmée :**
 - ✅ **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation
 - ✅ **Roo (toutes machines)** : Tâches techniques (bugs, features, tests)
 
-**Accomplissements récents :**
-- ✅ **Tests 100% PASS** : 109/109 fichiers, 1068/1076 tests (8 skip)
-- ✅ GitHub MCP opérationnel (IDs complets maîtrisés)
-- ✅ RooSync MCP fonctionnel (6 outils de messagerie)
-- ✅ T2.8 Phase 2+3 : ~25 erreurs migrées par myia-web1
-- ✅ T2.10, T2.13-2.17, T2.24-2.25 complétées
-- ✅ Messages RooSync envoyés aux autres machines (2026-01-15)
+**État actuel :**
+- ✅ **Tests** : 1311/1319 PASS (131 fichiers)
+- ✅ **Project #67** : 67.1% Done (51/76)
+- ✅ **Project #70** : 8/10 Done
+- ✅ MCP v2.5.0 déployé sur myia-ai-01, myia-po-2026
+- 🔧 Déploiement en cours : myia-po-2023 (#323), myia-po-2024 (#324), myia-web1 (#326)
 
-**Tâches en cours :**
-- 🔧 **T2.6** (myia-po-2023) : Améliorer gestion du cache
-- 🔧 **T2.8** (myia-web1) : Continuer migration erreurs typées
-- 🔧 **T2.9** (myia-ai-01 Roo) : Améliorer le rollback
+**Tâches prioritaires :**
+1. 🔴 **Résoudre blocage myia-web1** : git pull requis
+2. 🟠 **Déployer MCP v2.5.0** : #323, #324, #326
+3. 🟡 **Tests E2E** : #320, #327 (après déploiements)
+4. 🟢 **Valider workflow** : collect → compare → apply
 
-**myia-po-2026 :** HS (reboot manuel requis)
+**Machines :**
+| Machine | État | Tâche |
+|---------|------|-------|
+| myia-ai-01 | ✅ | Coordination |
+| myia-po-2023 | ✅ | T2.22 + #323 |
+| myia-po-2024 | ✅ | T3.15 + #324 |
+| myia-po-2026 | ✅ | T3.1 + Monitoring |
+| myia-web1 | 🔴 | FIX git + #326 |
 
 ### Contraintes Critiques
 
@@ -401,6 +410,17 @@ Body:
 - **Utiliser les outils natifs Claude Code** - Read, Grep, Bash, Git
 - **NE PAS inventer de workflows** - tester ce qui fonctionne réellement
 - **Documenter la réalité** - ce qui est vérifié, pas ce qui est supposé
+- **PAS de nouvelles fonctionnalités** - Focus déploiement et stabilisation
+
+### ⚠️ Validation Utilisateur OBLIGATOIRE
+
+**AVANT de créer une nouvelle tâche GitHub (#67 ou #70) :**
+1. Présenter la tâche proposée à l'utilisateur
+2. Expliquer pourquoi elle est nécessaire
+3. Attendre validation explicite
+4. Seulement ensuite créer l'issue
+
+**Exception :** Bugs critiques bloquants (informer immédiatement)
 
 ---
 
