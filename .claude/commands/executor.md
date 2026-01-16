@@ -130,11 +130,18 @@ Contenu du message...
 
 ## RÉFÉRENCES RAPIDES
 
-### GitHub Project #67
+### GitHub Projects
+
+**Project #67 - RooSync Multi-Agent Tasks** (tâches techniques Roo)
 - **ID complet** : `PVT_kwHOADA1Xc4BLw3w`
 - **URL** : https://github.com/users/jsboige/projects/67
 - **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
 - **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
+
+**Project #70 - RooSync Multi-Agent Coordination** (coordination Claude)
+- **ID complet** : `PVT_kwHOADA1Xc4BL7qS`
+- **URL** : https://github.com/users/jsboige/projects/70
+- **Usage** : Suivi coordination inter-machines
 
 ### Fichiers Clés
 | Fichier | Usage |
