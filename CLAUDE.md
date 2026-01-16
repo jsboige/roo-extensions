@@ -116,6 +116,19 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **Usage :** Demander un "tour de sync" ou "faire le point".
 
+### Slash Commands ([.claude/commands/](.claude/commands/))
+
+| Commande | Machine | Description |
+|----------|---------|-------------|
+| `/coordinate` | myia-ai-01 | Lance une session de coordination multi-agent |
+| `/executor` | Autres machines | Lance une session d'exécution pour agents exécutants |
+| `/sync-tour` | Toutes | Tour de synchronisation complet (7 phases) |
+| `/switch-provider` | Toutes | Basculer entre Anthropic et z.ai |
+
+**Usage :**
+- **Coordinateur (myia-ai-01)** : Taper `/coordinate` pour démarrer une session de coordination
+- **Exécutants** : Taper `/executor` pour recevoir les instructions et exécuter les tâches
+
 ### Workflow Recommandé
 
 1. **Début de session** : Demander un "tour de sync" → active le skill
