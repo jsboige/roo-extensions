@@ -1,0 +1,282 @@
+---
+name: sync-tour
+description: Tour de synchronisation complet multi-canal et multi-étapes. Utilise ce skill quand l'utilisateur demande un "tour de sync", veut "faire le point", ou demande l'état de la coordination. Exécute toutes les phases de synchronisation, validation, et planification.
+allowed-tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+  - Edit
+  - Write
+  - mcp__roo-state-manager__roosync_read_inbox
+  - mcp__roo-state-manager__roosync_get_message
+  - mcp__roo-state-manager__roosync_send_message
+  - mcp__roo-state-manager__roosync_reply_message
+  - mcp__roo-state-manager__roosync_mark_message_read
+  - mcp__roo-state-manager__roosync_archive_message
+  - mcp__roo-state-manager__roosync_get_status
+  - mcp__github-projects-mcp__get_project
+  - mcp__github-projects-mcp__get_project_items
+  - mcp__github-projects-mcp__update_project_item_field
+  - mcp__github-projects-mcp__list_repository_issues
+  - mcp__github-projects-mcp__get_repository_issue
+  - mcp__github-projects-mcp__create_issue
+---
+
+# Tour de Synchronisation Complet
+
+Ce skill orchestre un tour de synchronisation complet en **7 phases**.
+
+---
+
+## Phase 1 : Collecte des Messages RooSync
+
+**Agent :** `roosync-coordinator`
+
+### Actions
+1. Lire tous les messages non-lus avec `roosync_read_inbox`
+2. Pour chaque message, récupérer les détails avec `roosync_get_message`
+3. Extraire :
+   - Rapports d'avancement des agents
+   - Demandes et questions
+   - Problèmes et blocages signalés
+   - Tâches complétées annoncées
+
+### Output attendu
+```
+## Phase 1 : Messages RooSync
+
+### Messages reçus : X
+| De | Sujet | Priorité | Résumé |
+|...
+
+### Points clés extraits
+- Accomplissements : [liste]
+- Demandes : [liste]
+- Blocages : [liste]
+```
+
+---
+
+## Phase 2 : Synchronisation Git
+
+**Agent :** `git-sync`
+
+### Actions
+1. `git fetch origin` - récupérer les changements distants
+2. Analyser les commits entrants
+3. `git pull --no-rebase origin main` - merge conservatif
+4. `git submodule update --init --recursive`
+5. Vérifier l'état final
+
+### Output attendu
+```
+## Phase 2 : Git Sync
+
+### Remote
+- Commits entrants : X
+- Auteurs : [liste]
+
+### Merge
+- Status : ✅ Success | ⚠️ Conflits
+- Fichiers modifiés : Y
+
+### État actuel
+- Branch : main @ [hash]
+- Submodule : mcps/internal @ [hash]
+```
+
+---
+
+## Phase 3 : Validation Tests & Build
+
+**Agent :** `test-runner`
+
+### Actions
+1. Lancer le build TypeScript
+2. Si erreurs de build :
+   - Lister les erreurs
+   - Corriger les erreurs simples (imports, typos)
+   - Relancer le build
+3. Lancer les tests unitaires
+4. Reporter les résultats
+
+### Output attendu
+```
+## Phase 3 : Tests & Build
+
+### Build
+- Status : ✅ SUCCESS | ❌ FAILED (X erreurs)
+
+### Tests
+- Total : X | Pass : Y | Skip : Z | Fail : W
+
+### Corrections effectuées
+- [liste si applicable]
+```
+
+---
+
+## Phase 4 : État GitHub Project & Issues
+
+**Agent :** `github-tracker`
+
+### Actions
+1. Récupérer les items du Project #67
+2. Compter par statut (Todo, In Progress, Done)
+3. Lister les issues récentes
+4. Vérifier les commentaires des issues mentionnées dans les messages RooSync
+5. Identifier les incohérences (tâche annoncée "Done" mais pas marquée dans GitHub)
+
+### Output attendu
+```
+## Phase 4 : GitHub Status
+
+### Project #67
+- Total : X items
+- Done : Y (Z%)
+- In Progress : A
+- Todo : B
+
+### Issues récentes
+| # | Titre | Status | Dernière activité |
+|...
+
+### Incohérences détectées
+- [tâche X annoncée Done mais encore Todo dans GitHub]
+```
+
+---
+
+## Phase 5 : Mise à Jour GitHub
+
+**Actions directes (pas de subagent)**
+
+### Actions
+1. Marquer les tâches "Done" qui ont été complétées (basé sur Phase 1 & 4)
+2. Mettre à jour les statuts "In Progress" si nécessaire
+3. Ajouter des commentaires aux issues si pertinent
+4. Créer des issues pour les nouveaux bugs/tâches identifiés
+
+### Output attendu
+```
+## Phase 5 : Mises à jour GitHub
+
+### Changements effectués
+- Item [ID] : Todo → Done (raison)
+- Issue #X : Commentaire ajouté
+- Issue #Y : Créée pour [sujet]
+```
+
+---
+
+## Phase 6 : Planification & Ventilation
+
+**Agent :** `task-planner`
+
+### Actions
+1. Analyser l'avancement global
+2. Pour chaque machine (5 machines x 2 agents = 10 slots) :
+   - Identifier le travail en cours
+   - Proposer la prochaine tâche Roo (technique)
+   - Proposer la prochaine tâche Claude (coordination)
+3. Équilibrer la charge
+4. Identifier les dépendances et blocages
+
+### Output attendu
+```
+## Phase 6 : Planification
+
+### Avancement global
+- Progression : X% (Y/Z Done)
+- Vélocité estimée : A tâches/jour
+
+### Ventilation par machine
+
+| Machine | Status | Tâche Roo | Tâche Claude |
+|---------|--------|-----------|--------------|
+| myia-ai-01 | ✅ | T2.8 (en cours) | Coordination |
+| myia-po-2023 | ✅ | T3.1 (suggérée) | T3.2 (suggérée) |
+| myia-po-2024 | ✅ | ... | ... |
+| myia-po-2026 | 🔴 HS | - | - |
+| myia-web-01 | ✅ | ... | ... |
+
+### Prochaines priorités
+1. [tâche critique]
+2. [tâche importante]
+```
+
+---
+
+## Phase 7 : Réponses RooSync
+
+**Agent :** `roosync-coordinator`
+
+### Actions
+1. Pour chaque machine ayant envoyé un message :
+   - Préparer une réponse personnalisée
+   - Inclure : accusé réception, feedback, prochaine tâche assignée
+   - Référencer les issues/commits pertinents
+2. Envoyer les réponses avec `roosync_reply_message` ou `roosync_send_message`
+3. Marquer les messages traités comme lus
+4. Archiver les messages anciens si nécessaire
+
+### Output attendu
+```
+## Phase 7 : Réponses envoyées
+
+### Messages envoyés : X
+| À | Sujet | Contenu clé |
+|...
+
+### Messages archivés : Y
+```
+
+---
+
+## Rapport Final
+
+À la fin du tour de sync, produire un **rapport consolidé** :
+
+```markdown
+# Tour de Sync - [DATE HEURE]
+
+## Résumé Exécutif
+- Messages traités : X
+- Git : ✅ Synced @ [hash]
+- Tests : Y/Z pass
+- GitHub : A% Done
+- Machines actives : B/5
+
+## Actions effectuées
+1. [liste des actions]
+
+## Décisions prises
+1. [ventilation des tâches]
+
+## Points d'attention
+- [blocages, risques]
+
+## Prochaines étapes
+1. [pour chaque machine active]
+```
+
+---
+
+## Notes d'utilisation
+
+### Fréquence
+- **Début de session** : Tour complet (toutes les phases)
+- **Pendant le travail** : Phases spécifiques à la demande
+- **Fin de session** : Tour complet + commit des changements
+
+### Permissions requises
+Ce skill nécessite de nombreuses permissions car il :
+- Lit et écrit des messages RooSync
+- Fait des pull/merge Git
+- Lance des builds et tests
+- Modifie des fichiers (corrections)
+- Met à jour GitHub Projects et Issues
+
+### Durée estimée
+Un tour complet prend généralement 5-10 minutes selon le volume de messages et l'état des tests.

@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-15
+**Dernière mise à jour:** 2026-01-16
 
 ---
 
@@ -37,6 +37,104 @@ git pull
 1. **Identifier la machine** : `$env:COMPUTERNAME` ou `hostname`
 2. **Lire la documentation** : [`.claude/INDEX.md`](.claude/INDEX.md)
 3. **Configurer les MCPs** : Suivre [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
+
+---
+
+## 🤖 Architecture Agents & Skills (NOUVEAU)
+
+### Principe : Conversations Légères
+
+Pour éviter les conversations qui grossissent indéfiniment, utilise des **subagents** pour déléguer les tâches verboses. La conversation principale reste légère et orchestre.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              CONVERSATION PRINCIPALE (légère)                │
+│  - Orchestration et décisions                                │
+│  - Délègue aux subagents pour les tâches spécialisées       │
+└─────────────────┬───────────────────────────────────────────┘
+                  │
+     ┌────────────┼────────────┬────────────┐
+     ▼            ▼            ▼            ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│ RooSync  │ │  GitHub  │ │ INTERCOM │ │   Code   │
+│Coordinator│ │ Tracker │ │ Handler  │ │ Explorer │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘
+```
+
+### Subagents Disponibles ([.claude/agents/](.claude/agents/))
+
+#### Agents Communs (toutes machines)
+
+| Agent | Description | Modèle | Outils |
+|-------|-------------|--------|--------|
+| `git-sync` | Pull/merge conservatif, submodules | opus | Bash, Read, Grep |
+| `test-runner` | Build TypeScript + tests unitaires | opus | Bash, Read, Edit |
+| `github-tracker` | Suivi GitHub Project #67 | opus | MCP GitHub + Bash |
+| `intercom-handler` | Communication locale Roo | opus | Read (plan mode) |
+| `code-explorer` | Exploration codebase | opus | Read, Grep, Glob |
+
+#### Agents Coordinateur (myia-ai-01 uniquement)
+
+| Agent | Description | Usage |
+|-------|-------------|-------|
+| `roosync-hub` | Hub central : reçoit rapports, envoie instructions | Tour de sync, coordination |
+| `dispatch-manager` | Assignation tâches aux 4 machines × 2 agents | Planification, ventilation |
+| `task-planner` | Analyse avancement, équilibrage charge | Fin de phase, réflexion |
+
+#### Agents Exécutants (autres machines)
+
+| Agent | Description | Usage |
+|-------|-------------|-------|
+| `roosync-reporter` | Envoie rapports au coordinateur, reçoit instructions | Rapport de session |
+| `task-worker` | Prend en charge tâches assignées, suit avancement | Exécution tâches |
+
+**Invocation manuelle :**
+```
+# Sur myia-ai-01 (coordinateur)
+Utilise roosync-hub pour traiter les rapports entrants
+Utilise dispatch-manager pour assigner les tâches
+
+# Sur autres machines (exécutants)
+Utilise roosync-reporter pour envoyer mon rapport
+Utilise task-worker pour prendre ma prochaine tâche
+```
+
+### Skill Disponible ([.claude/skills/](.claude/skills/))
+
+| Skill | Description | Phases |
+|-------|-------------|--------|
+| `sync-tour` | Tour de sync complet en 7 phases | Messages → Git → Tests → GitHub → MAJ → Planning → Réponses |
+
+**Les 7 phases du sync-tour :**
+1. **Collecte** : Messages RooSync non-lus
+2. **Git Sync** : Pull conservatif + submodules
+3. **Validation** : Build + tests unitaires (+ corrections)
+4. **GitHub Status** : Project #67 + issues récentes
+5. **MAJ GitHub** : Marquer Done, commentaires, nouvelles issues
+6. **Planification** : Ventilation 5 machines × 2 agents (Roo + Claude)
+7. **Réponses** : Messages RooSync personnalisés avec références
+
+**Usage :** Demander un "tour de sync" ou "faire le point".
+
+### Slash Commands ([.claude/commands/](.claude/commands/))
+
+| Commande | Machine | Description |
+|----------|---------|-------------|
+| `/coordinate` | myia-ai-01 | Lance une session de coordination multi-agent |
+| `/executor` | Autres machines | Lance une session d'exécution pour agents exécutants |
+| `/sync-tour` | Toutes | Tour de synchronisation complet (7 phases) |
+| `/switch-provider` | Toutes | Basculer entre Anthropic et z.ai |
+
+**Usage :**
+- **Coordinateur (myia-ai-01)** : Taper `/coordinate` pour démarrer une session de coordination
+- **Exécutants** : Taper `/executor` pour recevoir les instructions et exécuter les tâches
+
+### Workflow Recommandé
+
+1. **Début de session** : Demander un "tour de sync" → active le skill
+2. **Pendant le travail** : Les agents s'activent automatiquement selon le contexte
+3. **Tâches spécifiques** : Invoquer explicitement l'agent si besoin
+4. **Fin de session** : Tour de sync + commit si nécessaire
 
 ---
 
@@ -172,6 +270,18 @@ Labels: claude-code, priority-X
 ├── CLAUDE_CODE_GUIDE.md   # Méthodologie SDDD complète
 ├── MCP_SETUP.md           # Guide configuration MCP
 ├── INTERCOM_PROTOCOL.md   # Protocole communication locale
+├── agents/                # 🆕 Subagents spécialisés (7 agents Opus)
+│   ├── roosync-coordinator.md  # Messages RooSync
+│   ├── github-tracker.md       # GitHub Project #67
+│   ├── git-sync.md             # Pull/merge conservatif
+│   ├── test-runner.md          # Build + tests
+│   ├── task-planner.md         # Ventilation 5×2 agents
+│   ├── intercom-handler.md     # Communication locale Roo
+│   └── code-explorer.md        # Exploration codebase
+├── skills/                # 🆕 Skills auto-invoqués
+│   └── sync-tour/SKILL.md
+├── commands/              # Slash commands
+│   └── switch-provider.md
 ├── scripts/               # Scripts d'initialisation
 │   └── init-claude-code.ps1
 └── local/                 # Communication locale
@@ -446,10 +556,10 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-01-13
+**Dernière mise à jour :** 2026-01-16
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
-**Built with Claude Code 🤖**
+**Built with Claude Code (Opus 4.5) 🤖**
 
 ---
 

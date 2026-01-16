@@ -9,6 +9,7 @@ Ce dossier contient les guides pratiques pour les agents RooSync.
 | [ONBOARDING_AGENT.md](ONBOARDING_AGENT.md) | Guide pas-à-pas nouvel agent | Nouveaux agents |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | FAQ et résolution problèmes | Tous agents |
 | [CHECKLISTS.md](CHECKLISTS.md) | Listes vérification opérationnelles | Tous agents |
+| [GLOSSAIRE.md](GLOSSAIRE.md) | Définitions termes RooSync | Tous agents |
 
 ## Ordre de Lecture Recommandé
 
