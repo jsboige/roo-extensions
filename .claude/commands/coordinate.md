@@ -54,11 +54,18 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 
 ## Références Rapides
 
-### GitHub Project #67
-- **ID**: `PVT_kwHOADA1Xc4BLw3w`
-- **URL**: https://github.com/users/jsboige/projects/67
-- **Field Status ID**: `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
-- **Options**: Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
+### GitHub Projects
+
+**Project #67 - RooSync Multi-Agent Tasks** (tâches techniques Roo)
+- **ID complet** : `PVT_kwHOADA1Xc4BLw3w`
+- **URL** : https://github.com/users/jsboige/projects/67
+- **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
+- **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
+
+**Project #70 - RooSync Multi-Agent Coordination** (coordination Claude)
+- **ID complet** : `PVT_kwHOADA1Xc4BL7qS`
+- **URL** : https://github.com/users/jsboige/projects/70
+- **Usage** : Suivi coordination inter-machines
 
 ### Fichiers Clés
 - INTERCOM local: `.claude/local/INTERCOM-myia-ai-01.md`
