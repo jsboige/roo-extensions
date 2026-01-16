@@ -151,7 +151,7 @@
 | Tests RooSync | 1285/1294 PASS (99.3%) |
 | Tests échecs | 1 (EPERM env) |
 | Version RooSync | v2.3.0 |
-| Machines actives | 4/5 |
+| Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
 
 ---
