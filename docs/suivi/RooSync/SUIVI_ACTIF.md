@@ -1,13 +1,30 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-16 (Mardi - Coordination)
+**Dernière mise à jour:** 2026-01-16 (Soir - Build 100% PASS)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
-### 2026-01-16 (Soir) - Wrapper v2.5.0 + Déploiement
+### 2026-01-16 (Soir) - Build Errors Fixed ✅
+
+**Correction des 93 erreurs de build TypeScript**
+- Git: (pending) `RooSyncServiceError` - ajout paramètre `details` optionnel
+- Git: (pending) `get-status.ts` - ajout statuts `'synced' | 'diverged' | 'conflict'`
+- Git: (pending) `BaselineManager` - ajout 4 méthodes NonNominative
+- **Build:** 100% PASS ✅
+
+**GitHub Project #67:**
+- **T2.8 Done** ✅ : Erreurs de compilation corrigées
+- **#325 Done** ✅ : MCP Wrapper v2.5.0 déployé sur myia-po-2026
+
+**Coordination:**
+- 6 messages RooSync traités (myia-web1, myia-po-2023, myia-po-2026, myia-po-2024)
+
+---
+
+### 2026-01-16 (Matin) - Wrapper v2.5.0 + Déploiement
 
 **MCP Wrapper v2.5.0**
 - **AJOUT**: `roosync_publish_config` pour workflow E2E complet

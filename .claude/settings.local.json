@@ -22,7 +22,8 @@
       "mcp__roo-state-manager__roosync_get_message",
       "Bash(gh issue comment:*)",
       "mcp__github-projects-mcp__list_repository_issues",
-      "mcp__github-projects-mcp__get_project"
+      "mcp__github-projects-mcp__get_project",
+      "mcp__github-projects-mcp__get_project_items"
     ],
     "mode": "auto-approve"
   },
