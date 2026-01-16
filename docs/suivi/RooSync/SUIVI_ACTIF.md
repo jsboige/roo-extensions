@@ -1,11 +1,31 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-16 (Soir - Build 100% PASS)
+**Dernière mise à jour:** 2026-01-16 (18h - Architecture Agents & Skills)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-16 (18h) - Architecture Agents & Skills ✅
+
+**Nouvelle Architecture Claude Code déployée**
+- Git: `5255d291` feat(claude-code): Add agents & skills architecture
+- Git: `1a1db2fa` Merge remote
+- Git: `972b38b4` chore: Update mcps/internal with T2.8 fixes
+- **11 sub-agents** créés dans `.claude/agents/`
+- **Skill sync-tour** avec 7 phases dans `.claude/skills/`
+
+**Agents créés:**
+- **Common**: code-explorer, github-tracker, intercom-handler, git-sync, test-runner, roosync-coordinator, task-planner
+- **Coordinator (myia-ai-01)**: roosync-hub, dispatch-manager
+- **Executor (autres)**: roosync-reporter, task-worker
+
+**Tests sub-agents:** ✅ Tous fonctionnels (roosync-hub, github-tracker, git-sync)
+
+**Messages RooSync envoyés** aux 3 machines actives
+
+---
 
 ### 2026-01-16 (Soir) - Build Errors Fixed ✅
 
@@ -127,11 +147,12 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | 50/77 DONE (65%) |
-| Tests RooSync | 1285/1286 PASS (99.9%) |
-| Tests échecs | 1 |
+| GitHub Project #67 | 54/77 DONE (70%) |
+| Tests RooSync | 1285/1294 PASS (99.3%) |
+| Tests échecs | 1 (EPERM env) |
 | Version RooSync | v2.3.0 |
 | Machines actives | 4/5 |
+| Architecture Claude | 11 agents + 1 skill |
 
 ---
 
