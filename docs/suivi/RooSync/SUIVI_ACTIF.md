@@ -1,24 +1,42 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-16 (Matin - Coordination)
+**Dernière mise à jour:** 2026-01-16 (Mardi - Coordination)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
-### 2026-01-16 (Matin) - Bug #322 + Coordination
+### 2026-01-16 (Soir) - Wrapper v2.5.0 + Déploiement
 
-**Bug HIGH Priorité**
-- **#322 créée** : `compare_config` échoue (InventoryCollectorWrapper)
-- Assigné à **myia-po-2023** pour correction
+**MCP Wrapper v2.5.0**
+- **AJOUT**: `roosync_publish_config` pour workflow E2E complet
+- 14 outils autorisés (au lieu de 13)
+- `mcp-wrapper.cjs` mis à jour
+- `QUICKSTART.md` mis à jour avec workflow complet
+- **Nouveau doc**: `.claude/local/ROOSYNC_POUR_CLAUDE_CODE.md` (guide agents)
+
+**Issues GitHub créées**
+- **#323**: Deploy v2.5.0 - myia-po-2023
+- **#324**: Deploy v2.5.0 - myia-po-2024
+- **#325**: Deploy v2.5.0 - myia-po-2026
+- **#326**: Deploy v2.5.0 - myia-web-01
+- **#327**: E2E Test avec publish_config
 
 **Coordination envoyée**
-- Message global à tous les agents (mode pragmatique)
-- MCP Wrapper v2.4.0 : collect-config + apply-config ajoutés
-- QuickStart.md créé (29 lignes)
+- Messages HIGH à tous les agents (4 machines)
+- Instructions: git pull + npm run build + restart VSCode
+
+**Bug #322**
+- Toujours assigné à myia-po-2023
+- `compare_config` échoue avec `InventoryCollectorWrapper`
 
 **Tests:** 1285/1286 PASS (99.9%)
+
+**Tâches complétées:**
+- T2.8, T2.21 (Tests E2E), T3.10-T3.17 (Architecture)
+
+**GitHub Project #67:** ~62% DONE (48/77 items)
 
 **Tâches complétées récemment:**
 - T2.8, T2.21 (Tests E2E), T3.10-T3.17 (Architecture)
