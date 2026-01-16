@@ -1,11 +1,59 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-15 (Soir - T3.12 DONE)
+**Dernière mise à jour:** 2026-01-16 (Nuit - Bug #320 analysé)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal avec références git/github)
+
+### 2026-01-16 (Nuit) - Bug #320 + Build Errors
+
+**Session myia-po-2023 Claude Code + Roo**
+
+**Mode PRAGMATIQUE activé:**
+- STOP: nouvelles features, refactors
+- FOCUS: Tests E2E workflow existant
+
+**Tests E2E:**
+| Outil | Résultat |
+|-------|----------|
+| `roosync_get_machine_inventory` | ✅ SUCCESS |
+| `roosync_get_status` | ✅ SUCCESS |
+| `roosync_compare_config` | ❌ FAIL |
+
+**Bug #320 identifié et corrigé par Roo:**
+- Cause: `InventoryCollectorWrapper` comparait avec `localhost` au lieu de `os.hostname()`
+- Fix: Détection correcte machine locale ajoutée
+
+**BLOCKER: Build échoue (93 erreurs TypeScript)**
+- 60+ erreurs ErrorCategory (signature changée)
+- 7 erreurs BaselineManager (méthodes Non-Nominatif manquantes)
+- Cause probable: T3.10 incomplète
+
+**RooSync:** Message envoyé à myia-ai-01 (HIGH priority)
+
+**En attente:** Instructions pour débloquer le build
+
+---
+
+### 2026-01-15 (Soir) - T4.12 DONE - CP4.4 VALIDE
+
+**Session myia-po-2023 Claude Code**
+- Git: `f029d21` docs(roosync): T4.12 - Validation report for CP4.4
+
+**CP4.4 (Documentation multi-agent) VALIDE:**
+- ONBOARDING_AGENT.md: 330 lignes, 5/5
+- TROUBLESHOOTING.md: 402 lignes, 5/5
+- CHECKLISTS.md: 302 lignes, 5/5
+
+**GitHub #67:** T4.12 → Done
+
+**En cours:**
+- T3.15 (Roo myia-po-2023): Sync multi-agent
+- T2.8 (myia-web1): Migration erreurs
+
+---
 
 ### 2026-01-15 (Soir) - T3.12 DONE + Coordination
 
