@@ -83,6 +83,7 @@
 
 | Issue | Priorité | Description | Statut |
 |-------|----------|-------------|--------|
+| #322 | HIGH | compare_config échoue (inventaire) | 🔴 Nouveau |
 | #316 | HIGH | 3 tests get-status échouent | 🔴 Nouveau |
 | #317 | MEDIUM | Duplication GLOSSAIRE | ✅ Fixé |
 | #289-292 | - | Bugs divers | ✅ Fixés |
