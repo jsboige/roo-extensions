@@ -1,11 +1,29 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-16 (18h - Architecture Agents & Skills)
+**Dernière mise à jour:** 2026-01-18 (16h - Consolidation réseau)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-18 - Consolidation Tests E2E ✅
+
+**Tâches complétées par le réseau :**
+- **T2.20** (myia-web1) : Tests unitaires manquants - 327 tests ajoutés
+- **T2.21** (myia-po-2026) : Tests E2E Compare→Validate→Apply - 6/6 PASS
+- **T2.23** (myia-po-2024 Roo) : Tests gestion conflits - 14 tests, 60/62 PASS
+- **#324** (myia-po-2024 Claude) : Deploy v2.5.0 validé
+
+**Git :** `ccf3623` (SUBMODULE_WORKFLOW.md ajouté)
+**Submodule :** `032d703`
+**Tests :** 1311 PASS / 8 skip
+
+**Protocole affiné :**
+- `[ASSIGN]`, `[ACK]`, `[DONE]`, `[BLOCKED]`
+- Règle : RooSync coordinateur > INTERCOM local
+
+---
 
 ### 2026-01-16 (18h) - Architecture Agents & Skills ✅
 
@@ -147,12 +165,13 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | 54/77 DONE (70%) |
-| Tests RooSync | 1285/1294 PASS (99.3%) |
-| Tests échecs | 1 (EPERM env) |
+| GitHub Project #67 | ~58/77 DONE (~75%) |
+| Tests RooSync | 1311/1319 PASS (99.4%) |
+| Tests échecs | 8 skip (Windows Vitest) |
 | Version RooSync | v2.3.0 |
 | Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
+| Git HEAD | `ccf3623` |
 
 ---
 
