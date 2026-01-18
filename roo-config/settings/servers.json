@@ -117,13 +117,13 @@
     {
       "name": "roo-state-manager",
       "type": "stdio",
-      "command": "cmd /c node ./mcps/internal/servers/roo-state-manager/build/index.js",
+      "command": "cmd /c node ./mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs",
       "enabled": true,
       "autoStart": true,
-      "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo.",
+      "description": "Serveur MCP pour gérer l'état et l'historique des conversations de Roo. MCP Wrapper v2.5.0",
       "workingDirectory": "./mcps/internal/servers/roo-state-manager",
       "envFile": ".env",
-      "watchPaths": ["./mcps/internal/servers/roo-state-manager/build/index.js"]
+      "watchPaths": ["./mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs"]
     },
     {
       "name": "office-powerpoint",
