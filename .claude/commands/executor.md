@@ -17,11 +17,16 @@ Tu es un **agent exécutant** du système RooSync Multi-Agent.
 hostname
 ```
 
-### Étape 2 : Lecture des fichiers essentiels
-**LIS CES FICHIERS OBLIGATOIREMENT :**
-1. `.claude/local/INTERCOM-{MACHINE_NAME}.md` - Messages de Roo local
-2. `CLAUDE.md` - Configuration et règles du projet
-3. `docs/suivi/RooSync/SUIVI_ACTIF.md` - État actuel du projet
+### Étape 2 : Sources de Vérité (par priorité)
+
+**LIS OBLIGATOIREMENT dans cet ordre :**
+
+1. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
+2. **GitHub Project #67** : État global (% Done, tâches In Progress)
+3. **GitHub Issues** : Bugs et tâches ouvertes pour cette machine
+4. **INTERCOM local** : `.claude/local/INTERCOM-{MACHINE_NAME}.md` - Messages récents de Roo (< 24h)
+5. **CLAUDE.md** : Configuration et règles stables du projet
+6. **SUIVI_ACTIF.md** : `docs/suivi/RooSync/SUIVI_ACTIF.md` - Résumé minimal (peut être obsolète)
 
 ### Étape 3 : Synchronisation
 1. **Git pull** : `git fetch origin && git pull origin main`
@@ -31,10 +36,12 @@ hostname
 ### Étape 4 : Afficher le résumé
 Après ces lectures, affiche un résumé :
 - Machine identifiée
-- Messages INTERCOM de Roo (derniers)
-- Messages RooSync non-lus
-- Tâches assignées
-- État des tests
+- **Git log** : Derniers commits (3-5 derniers)
+- **Messages INTERCOM** : Derniers de Roo (si récents < 24h)
+- **Messages RooSync** : Non-lus du coordinateur
+- **GitHub Project #67** : % Done + tâches "In Progress"
+- **Tâches assignées** : Issues ouvertes pour cette machine
+- **État tests** : Résultat dernier run (si disponible)
 
 ---
 
@@ -71,14 +78,22 @@ cd mcps/internal/servers/roo-state-manager
 npm test -- --reporter=dot 2>&1 | tail -20
 ```
 
-**Phase 4 - Mise à jour INTERCOM**
-Mettre à jour `.claude/local/INTERCOM-{MACHINE}.md` avec :
-- Résumé de la synchronisation
-- Instructions pour Roo
-- Tâches assignées
+**Phase 4 - Communication**
+1. **INTERCOM Local** : Mettre à jour `.claude/local/INTERCOM-{MACHINE}.md` avec :
+   - Résumé de la synchronisation
+   - Instructions pour Roo
+   - Tâches assignées
+
+2. **GitHub** : Mettre à jour statut tâches (si complétées)
+   - Marquer items Done dans Project #67
+   - Commenter sur issues pertinentes
 
 **Phase 5 - Rapport au coordinateur**
-Envoyer message RooSync à myia-ai-01 avec statut.
+Envoyer message RooSync à myia-ai-01 avec :
+- Résumé accomplissements (référencer commits git)
+- État tests
+- Prochaines actions prévues
+- Blocages éventuels
 
 ### Gestion INTERCOM
 
@@ -267,8 +282,8 @@ CLAUDE (Toi)                          ROO (Assistant)
 | Fichier | Usage |
 |---------|-------|
 | `.claude/local/INTERCOM-{MACHINE}.md` | Communication locale Roo |
-| `CLAUDE.md` | Configuration projet |
-| `docs/suivi/RooSync/SUIVI_ACTIF.md` | État actuel |
+| `CLAUDE.md` | Configuration + contexte actuel |
+| `git log --oneline -10` | Historique récent (source de vérité) |
 | `.claude/agents/` | Sub-agents disponibles |
 
 ### Outils MCP RooSync

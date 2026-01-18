@@ -118,10 +118,16 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 - **URL** : https://github.com/users/jsboige/projects/70
 - **Usage** : Suivi coordination inter-machines
 
-### Fichiers Clés
-- INTERCOM local: `.claude/local/INTERCOM-myia-ai-01.md`
-- Suivi actif: `docs/suivi/RooSync/SUIVI_ACTIF.md`
-- Config Claude: `CLAUDE.md`
+### Sources de Vérité (par priorité)
+
+**Pour connaître l'état actuel du projet, consulter dans cet ordre :**
+
+1. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
+2. **GitHub Project #67** : Avancement global (% Done, tâches In Progress)
+3. **GitHub Issues** : État des bugs et tâches ouvertes
+4. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo (< 24h)
+5. **CLAUDE.md** : Configuration et règles stables du projet
+6. **SUIVI_ACTIF.md** : `docs/suivi/RooSync/SUIVI_ACTIF.md` - Résumé minimal (peut être obsolète)
 
 ## Règles Critiques
 
@@ -170,36 +176,13 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 - ❌ Rapports < 1 semaine (attendre consolidation)
 - ❌ Rapports avec info unique non consolidée
 
-## Priorité Actuelle (2026-01-18)
+## État Actuel
 
-**🎯 DÉPLOIEMENT ROOSYNC - PHASE FINALE**
+**⚠️ L'état actuel change quotidiennement.**
 
-Objectif : Configs multi-machines disponibles dans le partage GDrive.
+Pour connaître l'état à jour, consulte les **Sources de Vérité** ci-dessus (Git log, GitHub #67, Issues, INTERCOM).
 
-**État actuel :** 90.1% Done (69/77 items Project #67)
-
-**✅ Accomplissements récents :**
-- Bug #322 RÉSOLU (mapping inventaire → collect config)
-- Git merge complété et pushé (main `5de3bcfc`, submodule `d7bcabb`)
-- T3.15c CommitLogService intégré (4449 lignes, +47 tests attendus)
-- executor.md amélioré (workflow multi-itérations)
-- Messages RooSync envoyés à 4 machines (instructions git pull)
-
-**🔄 En attente (24-48h) :**
-1. **git pull sur 4 machines** - myia-web1, myia-po-2023, myia-po-2024, myia-po-2026
-2. **Restart VS Code** - Reload MCPs après git pull
-3. **Validation workflow** - Test collect_config avec fix Bug #322
-4. **Rapports retour** - Chaque machine doit reporter via RooSync
-
-**📋 Prochaines issues à clôturer :**
-- **#320** - Tests E2E (après validation fix Bug #322)
-- **#323** - Deploy MCP myia-po-2023 (après restart VS Code)
-- **#327** - Workflow publish (dépend de #320)
-
-**🔴 Point d'attention :**
-- myia-web1 silencieux 72h+ (3 messages URGENT envoyés)
-
-**PAS de nouvelles fonctionnalités** - Focus déploiement et validation E2E.
+**Règle générale :** FOCUS sur déploiement et stabilisation - PAS de nouvelles fonctionnalités non-critiques.
 
 ## Démarrage
 

@@ -464,57 +464,21 @@ Body:
 
 ---
 
-## 🎯 Contexte Actuel (2026-01-18)
+## 🎯 Contexte Actuel
 
-### Phase : DÉPLOIEMENT ROOSYNC - PHASE FINALE
+**⚠️ IMPORTANT** : L'état actuel du projet change quotidiennement.
 
-**🎯 Priorité #1 : Configs multi-machines disponibles dans le partage GDrive**
+**Pour l'état à jour, consulter dans cet ordre :**
+
+1. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
+2. **GitHub Project #67** : https://github.com/users/jsboige/projects/67 - Avancement global (% Done)
+3. **GitHub Issues** : Issues ouvertes et en cours
+4. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo
+5. **SUIVI_ACTIF.md** : [`docs/suivi/RooSync/SUIVI_ACTIF.md`](docs/suivi/RooSync/SUIVI_ACTIF.md) - Résumé minimal (peut être obsolète)
 
 **Organisation bicéphale confirmée :**
-- ✅ **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation, Coordination
-- ✅ **Roo (toutes machines)** : Tâches techniques (bugs, features, tests, builds)
-
-**État actuel :**
-- ✅ **Tests** : 1311/1319 PASS (99.4%)
-- ✅ **Project #67** : 90.1% Done (69/77 items)
-- ✅ **Project #70** : 10/11 Done (90.9%)
-- ✅ **Git** : Synced main `5de3bcfc`, submodule `d7bcabb`
-- ✅ **Bug #322** : RÉSOLU (mapping inventaire → collect config)
-- ✅ **T3.15c** : CommitLogService intégré (4449 lignes, +47 tests attendus)
-
-**✅ Accomplissements session 2026-01-18 :**
-- Git merge complété (2 conflits résolus : Get-MachineInventory.ps1, mcps/internal)
-- Bug #322 fix déployé (commits 7ce45751, 0bb2faf, 81208c8)
-- executor.md amélioré (workflow multi-itérations, 3+ actions/itération)
-- coordinate.md amélioré (gestion urgences : conflits git, machines silencieuses)
-- sync-tour skill amélioré (Phase 0 INTERCOM ajoutée, résolution conflits auto)
-- 4 messages RooSync envoyés (instructions git pull + test workflow)
-- 2 issues créées : #Deploy (Project #70), #E2E (Project #67)
-
-**🔄 En attente (24-48h) :**
-1. **git pull sur 4 machines** - myia-web1, myia-po-2023, myia-po-2024, myia-po-2026
-2. **Restart VS Code** - Reload MCPs après git pull
-3. **Validation workflow** - Test collect_config avec fix Bug #322
-4. **Rapports retour** - Chaque machine doit reporter via RooSync
-
-**📋 Prochaines issues à clôturer :**
-- **#320** - Tests E2E (après validation fix Bug #322)
-- **#323** - Deploy MCP myia-po-2023 (après restart VS Code)
-- **#327** - Workflow publish (dépend de #320)
-
-**Machines :**
-| Machine | État | Dernière action | Priorité |
-|---------|------|----------------|----------|
-| myia-ai-01 | ✅ Coordinateur | Git synced + messages envoyés | Coordination |
-| myia-web1 | 🔴 Silencieux 72h+ | 3 messages URGENT envoyés | git pull URGENT |
-| myia-po-2023 | 🔄 Attente pull | Message envoyé | Finaliser #323 |
-| myia-po-2024 | 🔄 Attente pull | Message envoyé | Retest Bug #322 |
-| myia-po-2026 | 🔄 Attente pull | Message envoyé | Test #320/#327 |
-
-**Plan finalisation (3 jours) :**
-- **ÉTAPE 1 (24h)** : Git pull + restart VS Code sur 4 machines
-- **ÉTAPE 2 (48h)** : Tests E2E workflow collect → compare → apply
-- **ÉTAPE 3 (72h)** : Project #67 → 100% Done + CHANGELOG v2.3.0
+- **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation, Coordination
+- **Roo (toutes machines)** : Tâches techniques (bugs, features, tests, builds)
 
 ### Contraintes Critiques
 
@@ -533,32 +497,6 @@ Body:
 4. Seulement ensuite créer l'issue
 
 **Exception :** Bugs critiques bloquants (informer immédiatement)
-
-### 📚 Leçons Apprises (Session 2026-01-18)
-
-**Gestion des conflits Git :**
-- ✅ Toujours lire INTERCOM d'abord pour détecter merge en cours
-- ✅ Résoudre conflits directement (pas déléguer) : Read + Edit + git add
-- ✅ Analyser les deux versions (HEAD vs incoming) avant de choisir
-- ✅ Pour submodules : vérifier modifs locales avant de sync
-- ✅ Toujours pusher après résolution pour débloquer autres machines
-
-**Coordination Multi-Machine :**
-- ✅ Envoyer messages RooSync APRÈS push (pas avant)
-- ✅ Inclure références commits dans les messages (facilitateur)
-- ✅ Escalade machines silencieuses : 48h HIGH, 72h URGENT, 96h réassignation
-- ✅ Mettre à jour INTERCOM local après chaque tour de sync
-
-**Productivité Agents :**
-- ✅ Workflow multi-itérations : Investigation → Action → Validation
-- ✅ Objectif 3+ actions majeures par itération minimum
-- ✅ Paralléliser : Claude docs/analyse pendant que Roo code
-- ✅ Ne pas attendre passivement : toujours avoir une action en cours
-
-**Documentation Agents :**
-- ✅ Phase 0 INTERCOM critique : détecter urgences avant tout
-- ✅ Gestion urgences dans coordinate.md évite improvisation
-- ✅ Validation utilisateur pour nouvelles issues évite work inutile
 
 ---
 
