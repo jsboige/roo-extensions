@@ -39,12 +39,62 @@ if ([string]::IsNullOrEmpty($OutputPath)) {
     if (-not (Test-Path $inventoriesDir)) {
         New-Item -ItemType Directory -Path $inventoriesDir -Force | Out-Null
     }
-    $OutputPath = Join-Path $inventoriesDir "machine-inventory-$MachineId.json"
+    # CORRECTION : Le nom du fichier doit commencer par le machineId pour que le wrapper TypeScript le trouve
+    # Format attendu par InventoryCollectorWrapper : {machineId}*.json (ex: myia-po-2026.json)
+    $OutputPath = Join-Path $inventoriesDir "$($MachineId.ToLower()).json"
 }
 
 # Configuration des chemins
-# CORRECTION: Convertir Resolve-Path en chaîne avec .Path pour éviter l'objet PowerShell complet
-$RooExtensionsPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+# CORRECTION: Trouver la racine roo-extensions de manière fiable
+# 1. Utiliser ROOSYNC_ROOT si défini (priorité)
+# 2. Sinon, remonter depuis $PSScriptRoot jusqu'à trouver .git ou CLAUDE.md
+function Find-RooExtensionsRoot {
+    param([string]$StartPath)
+
+    $currentPath = $StartPath
+    $maxDepth = 10  # Limite pour éviter boucle infinie
+    $depth = 0
+
+    while ($depth -lt $maxDepth) {
+        # Vérifier si c'est la racine roo-extensions (présence de CLAUDE.md et .git)
+        $claudeMd = Join-Path $currentPath "CLAUDE.md"
+        $gitDir = Join-Path $currentPath ".git"
+
+        if ((Test-Path $claudeMd) -and (Test-Path $gitDir)) {
+            return $currentPath
+        }
+
+        # Remonter d'un niveau
+        $parentPath = Split-Path -Parent $currentPath
+        if (-not $parentPath -or $parentPath -eq $currentPath) {
+            break  # Atteint la racine du système de fichiers
+        }
+        $currentPath = $parentPath
+        $depth++
+    }
+
+    return $null
+}
+
+# Priorité 1: Variable d'environnement explicite
+if ($env:ROOSYNC_ROOT -and (Test-Path $env:ROOSYNC_ROOT)) {
+    $RooExtensionsPath = $env:ROOSYNC_ROOT
+    Write-Host "  RooExtensionsPath depuis ROOSYNC_ROOT: $RooExtensionsPath" -ForegroundColor Gray
+}
+# Priorité 2: Chercher depuis $PSScriptRoot (scripts/inventory/)
+elseif ($PSScriptRoot) {
+    $foundRoot = Find-RooExtensionsRoot -StartPath $PSScriptRoot
+    if ($foundRoot) {
+        $RooExtensionsPath = $foundRoot
+        Write-Host "  RooExtensionsPath trouve depuis PSScriptRoot: $RooExtensionsPath" -ForegroundColor Gray
+    }
+}
+
+# Priorité 3: Fallback sur le chemin relatif original
+if (-not $RooExtensionsPath) {
+    $RooExtensionsPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+    Write-Host "  RooExtensionsPath fallback relatif: $RooExtensionsPath" -ForegroundColor Yellow
+}
 $McpSettingsPath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
 $RooConfigPath = "$RooExtensionsPath\roo-config"
 $ScriptsPath = "$RooExtensionsPath\scripts"
