@@ -51,6 +51,7 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 4. **Dispatch** : Utilise `dispatch-manager` pour assigner
 5. **Suivi GitHub** : Utilise `github-tracker` pour Project #67
 6. **Communication** : Envoie instructions via RooSync
+7. **Consolidation docs** : Nettoyer rapports obsolètes (si drift détecté)
 
 ## Références Rapides
 
@@ -99,16 +100,42 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 - Documenter les décisions dans les commentaires d'issues
 - **INTERCOM** : Mettre à jour à CHAQUE tour de sync
 
-## Priorité Actuelle (2026-01-16)
+### Consolidation Documentaire
+
+**Quand :** Si drift détecté (trop de rapports épars non consolidés)
+
+**Méthode :**
+1. Vérifier git log pour identifier rapports obsolètes (> 2 mois)
+2. Pour chaque rapport récent :
+   - Vérifier si info consolidée dans docs pérennes (ARCHITECTURE_ROOSYNC.md, GUIDE-TECHNIQUE-v2.3.md)
+   - Si oui : SUPPRIMER le rapport (pas archiver)
+   - Si non : Consolider d'abord, puis supprimer
+3. Mettre à jour SUIVI_ACTIF.md et INDEX.md
+4. Commit avec message clair
+
+**Critères suppression :**
+- ✅ Rapports 2025 (restauration critique dépassée)
+- ✅ Rapports bugs corrigés depuis > 1 mois
+- ✅ Rapports tâches complétées + info dans docs pérennes
+- ❌ Rapports < 1 semaine (attendre consolidation)
+- ❌ Rapports avec info unique non consolidée
+
+## Priorité Actuelle (2026-01-18)
 
 **🎯 DÉPLOIEMENT ROOSYNC**
 
 Objectif : Configs multi-machines disponibles dans le partage.
 
-1. **Résoudre blocages** : myia-web1 (git pull), erreurs build
-2. **Déployer MCP v2.5.0** : sur toutes les machines (#323, #324, #326)
-3. **Valider workflow** : collect → compare → apply sur 2+ machines
-4. **Tests E2E** : #320, #327, T2.21
+**État actuel :** 90.8% Done (69/76 items)
+
+**Prochaines étapes :**
+1. **#323** - Déployer MCP v2.5.0 sur myia-po-2023 (dernière machine)
+2. **#288** - Valider outils RooSync sur chaque machine
+3. **Tests E2E** - Workflow complet (#320, #327, #328)
+
+**En cours :**
+- Roo travaille sur mapping inventaire (corrections locales submodule)
+- T3.15c CommitLogService ✅ implémenté (myia-po-2024)
 
 **PAS de nouvelles fonctionnalités** - Focus stabilisation et déploiement.
 
