@@ -14,28 +14,32 @@
 # - Set-StrictMode pour détecter les erreurs de typage
 # - Utilisation de [hashtable] explicite au lieu de PSObject
 # - Ajout de timeouts pour éviter les blocages
+# CORRECTION: Désactiver Set-StrictMode car il empêche l'utilisation de variables $null
+# Set-StrictMode -Version Latest
 
 param(
     [Parameter(Mandatory=$false)]
     [string]$MachineId = $env:COMPUTERNAME,
 
     [Parameter(Mandatory=$false)]
-    [string]$OutputPath = ""
+    [string]$OutputPath,
+
+    [Parameter(Mandatory=$false)]
+    [string]$SharedStatePath
 )
 
-# CORRECTION: Set-StrictMode APRÈS le bloc param() pour éviter l'erreur "variable non définie"
-Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+# Définir OutputPath avec chemin absolu basé sur SharedStatePath si non fourni
+# CORRECTION SDDD : Utiliser SharedStatePath passé en paramètre pour RooSync
+# CORRECTION: Initialiser OutputPath pour éviter l'erreur Set-StrictMode
+$OutputPath = $null
 
-# Définir OutputPath avec chemin absolu basé sur ROOSYNC_SHARED_PATH si non fourni
-# CORRECTION SDDD : Utiliser ROOSYNC_SHARED_PATH depuis .env pour RooSync
-if ([string]::IsNullOrEmpty($OutputPath)) {
-    $sharedStatePath = $env:ROOSYNC_SHARED_PATH
-    if (-not $sharedStatePath) {
-        Write-Error "ERREUR CRITIQUE: ROOSYNC_SHARED_PATH n'est pas définie. Veuillez configurer cette variable d'environnement dans le fichier .env."
+if (-not $OutputPath) {
+    if (-not $SharedStatePath) {
+        Write-Error "ERREUR CRITIQUE: SharedStatePath n'est pas fourni. Veuillez passer le paramètre -SharedStatePath."
         exit 1
     }
-    $inventoriesDir = Join-Path $sharedStatePath "inventories"
+    $inventoriesDir = Join-Path $SharedStatePath "inventories"
     if (-not (Test-Path $inventoriesDir)) {
         New-Item -ItemType Directory -Path $inventoriesDir -Force | Out-Null
     }
@@ -43,7 +47,6 @@ if ([string]::IsNullOrEmpty($OutputPath)) {
 }
 
 # Configuration des chemins
-# CORRECTION: Convertir Resolve-Path en chaîne avec .Path pour éviter l'objet PowerShell complet
 $RooExtensionsPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $McpSettingsPath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
 $RooConfigPath = "$RooExtensionsPath\roo-config"
@@ -233,7 +236,7 @@ try {
         version = $PSVersionTable.PSVersion.ToString()
     }
     Write-Host "  OK PowerShell $($PSVersionTable.PSVersion)" -ForegroundColor Green
-    
+
     # Node version (vérification rapide avec timeout)
     try {
         $job = Start-Job -ScriptBlock { node --version 2>$null }
@@ -255,7 +258,7 @@ try {
     } catch {
         Write-Host "  Node non disponible" -ForegroundColor Yellow
     }
-    
+
     # Python version (vérification rapide avec timeout)
     try {
         $job = Start-Job -ScriptBlock { python --version 2>&1 }
@@ -289,25 +292,25 @@ try {
     # Architecture (sans blocage)
     $inventory.inventory.systemInfo.architecture = [System.Environment]::GetEnvironmentVariable("PROCESSOR_ARCHITECTURE")
     Write-Host "  OK Architecture: $($inventory.inventory.systemInfo.architecture)" -ForegroundColor Green
-    
+
     # Uptime (sans blocage)
     $uptime = [System.Environment]::TickCount64 / 1000
     $inventory.inventory.systemInfo.uptime = $uptime
     Write-Host "  OK Uptime: $uptime secondes" -ForegroundColor Green
-    
+
     # CPU (sans blocage)
     $inventory.inventory.systemInfo.processor = [System.Environment]::GetEnvironmentVariable("PROCESSOR_IDENTIFIER")
     $inventory.inventory.systemInfo.cpuCores = [System.Environment]::ProcessorCount
     $inventory.inventory.systemInfo.cpuThreads = [System.Environment]::ProcessorCount
     Write-Host "  OK CPU: $($inventory.inventory.systemInfo.cpuCores) cœurs" -ForegroundColor Green
-    
+
     # Mémoire (sans blocage)
     $totalMemory = [System.GC]::MaxGeneration * 1024 * 1024 * 1024
     $availableMemory = [System.GC]::GetTotalMemory($false)
     $inventory.inventory.systemInfo.totalMemory = $totalMemory
     $inventory.inventory.systemInfo.availableMemory = $availableMemory
     Write-Host "  OK Mémoire: $([math]::Round($totalMemory/1GB, 2)) GB" -ForegroundColor Green
-    
+
     # Disques (collecte limitée sans blocage)
     try {
         $disks = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | Select-Object -First 5
@@ -324,7 +327,7 @@ try {
     } catch {
         Write-Host "  Erreur lors de la collecte des disques: $_" -ForegroundColor Yellow
     }
-    
+
     # GPU (optionnel, sans blocage)
     try {
         $gpuInfo = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue | Select-Object -First 1
@@ -360,12 +363,12 @@ try {
 
     Write-Host "  Sérialisation JSON en cours..." -ForegroundColor Gray
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-    
+
     # CORRECTION SDDD v1.1: Réduire la profondeur de sérialisation et utiliser -Compress
-    # -Depth 5 est suffisant pour la structure de l'inventaire
+    # -Depth 99 désactive la limite de profondeur pour inclure la structure complète
     # -Compress réduit la taille du fichier et accélère l'écriture
-    $inventory | ConvertTo-Json -Depth 5 -Compress | Set-Content -Path $OutputPath -Encoding UTF8
-    
+    $inventory | ConvertTo-Json -Depth 99 -Compress | Set-Content -Path $OutputPath -Encoding UTF8
+
     $stopwatch.Stop()
     Write-Host "  Sérialisation terminée en $($stopwatch.ElapsedMilliseconds)ms" -ForegroundColor Green
 

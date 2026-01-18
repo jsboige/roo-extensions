@@ -23,7 +23,12 @@
       "Bash(gh issue comment:*)",
       "mcp__github-projects-mcp__list_repository_issues",
       "mcp__github-projects-mcp__get_project",
-      "mcp__github-projects-mcp__get_project_items"
+      "mcp__github-projects-mcp__get_project_items",
+      "mcp__roo-state-manager__roosync_mark_message_read",
+      "mcp__github-projects-mcp__update_project_item_field",
+      "mcp__roo-state-manager__roosync_send_message",
+      "Skill(sync-tour)",
+      "Skill(sync-tour:*)"
     ],
     "mode": "auto-approve"
   },
