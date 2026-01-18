@@ -183,17 +183,27 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 ### ✅ À FAIRE
 
+**Capacités Techniques (aussi compétent que Roo pour l'analyse) :**
+- **Investigation bugs** : Lire le code, tracer les erreurs, identifier les causes racines
+- **Analyse de code** : Comprendre l'architecture, comparer implémentations
+- **Exécution tests** : `npm test`, diagnostiquer les erreurs, valider les fixes
+- **Proposition fixes** : Documenter la solution, créer des patches si possible
+- **Build** : Compiler, valider, identifier erreurs TypeScript
+
+**Coordination :**
 - **Documentation** : Consolidation, nettoyage, indexation
-- **Coordination** : Via GitHub Issues et RooSync
-- **Analyse** : Rapports, diagnostics, audits
-- **Outils natifs** : Read, Grep, Bash, Git
+- **GitHub** : Issues, Projects #67/#70, traçabilité
+- **RooSync** : Messages inter-machines
+- **INTERCOM** : Communication locale avec Roo
+
+**Outils :** Read, Grep, Glob, Bash, Edit, Write, Git
 
 ### ❌ À NE PAS FAIRE
 
-- Modifier le code technique de Roo (scripts, tests, build)
+- **Modifier `mcps/internal/`** directement (zone Roo - coordonner via INTERCOM)
 - Supposer que les MCPs fonctionnent sans tester
+- Attendre passivement les instructions de Roo
 - Inventer des workflows sans vérifier
-- Utiliser des outils non vérifiés
 
 ### ⚠️ CONTRAINTE CLÉ
 
