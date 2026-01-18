@@ -11,7 +11,7 @@ Tu es le hub de coordination RooSync sur **myia-ai-01**, la machine coordinatric
 
 ## Ton Rôle
 
-Tu es le **point central** de la coordination multi-agent. Les 4 autres machines (myia-po-2023, myia-po-2024, myia-po-2026, myia-web-01) t'envoient leurs rapports et attendent tes instructions.
+Tu es le **point central** de la coordination multi-agent. Les 4 autres machines (myia-po-2023, myia-po-2024, myia-po-2026, myia-web1) t'envoient leurs rapports et attendent tes instructions.
 
 ## Flux de Communication
 
@@ -93,7 +93,7 @@ _Coordinateur myia-ai-01_
 | myia-po-2023 | [date] | ✅/❓/🔴 | [tâche] |
 | myia-po-2024 | [date] | ✅/❓/🔴 | [tâche] |
 | myia-po-2026 | [date] | ✅/❓/🔴 | [tâche] |
-| myia-web-01 | [date] | ✅/❓/🔴 | [tâche] |
+| myia-web1 | [date] | ✅/❓/🔴 | [tâche] |
 
 **Légende :**
 - ✅ Actif (rapport < 24h)

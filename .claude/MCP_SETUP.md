@@ -121,7 +121,7 @@ If Claude Code crashes on startup:
 These machines need MCP configuration (run init script):
 - ❌ myia-po-2023
 - ❌ myia-po-2026
-- ❌ myia-web-01
+- ❌ myia-web1
 
 ---
 
@@ -392,7 +392,7 @@ Once MCP is verified working on your machine:
 - myia-po-2023 - Needs configuration
 - myia-po-2024 - Needs configuration
 - myia-po-2026 - Needs configuration
-- myia-web-01 - Needs configuration
+- myia-web1 - Needs configuration
 
 ---
 

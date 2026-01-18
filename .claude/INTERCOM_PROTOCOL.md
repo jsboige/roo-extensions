@@ -53,7 +53,7 @@ Running in the **same VS Code instance** on the **same machine**.
 ├── INTERCOM-myia-po-2023.md    # Communication on myia-po-2023 (if accessible)
 ├── INTERCOM-myia-po-2024.md    # Communication on myia-po-2024 (if accessible)
 ├── INTERCOM-myia-po-2026.md    # Communication on myia-po-2026 (if accessible)
-└── INTERCOM-myia-web-01.md     # Communication on myia-web-01 (if accessible)
+└── INTERCOM-myia-web1.md     # Communication on myia-web1 (if accessible)
 ```
 
 ### Why Machine-Specific Files?

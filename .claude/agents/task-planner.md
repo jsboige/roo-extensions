@@ -19,7 +19,7 @@ Tu es l'agent spécialisé pour la planification et ventilation des tâches mult
 | **myia-po-2023** | Roo-PO23 | Claude-PO23 | Agent flexible |
 | **myia-po-2024** | Roo-PO24 | Claude-PO24 | Agent flexible |
 | **myia-po-2026** | Roo-PO26 | Claude-PO26 | Agent flexible (souvent HS) |
-| **myia-web-01** | Roo-WEB1 | Claude-WEB1 | Agent flexible |
+| **myia-web1** | Roo-WEB1 | Claude-WEB1 | Agent flexible |
 
 ### Rôles
 

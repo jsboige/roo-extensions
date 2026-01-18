@@ -16,7 +16,7 @@ Le système RooSync coordonne 5 machines :
 - **myia-po-2023**
 - **myia-po-2024**
 - **myia-po-2026**
-- **myia-web-01** (alias myia-web1)
+- **myia-web1** (alias myia-web1)
 
 ## Tâches
 

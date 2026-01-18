@@ -20,7 +20,7 @@ Déployer la configuration MCP Claude Code sur les 5 machines du système RooSyn
 | **myia-po-2023** | Agent (flexible) | ❌ À déployer | ⏸️ En attente |
 | **myia-po-2024** | Agent (flexible) | ❌ À déployer | ⏸️ En attente |
 | **myia-po-2026** | Agent (flexible) | ❌ À déployer | ⏸️ En attente |
-| **myia-web-01** | Agent (flexible) | ❌ À déployer | ⏸️ En attente |
+| **myia-web1** | Agent (flexible) | ❌ À déployer | ⏸️ En attente |
 
 ---
 
@@ -112,7 +112,7 @@ Créer une issue GitHub avec le titre :
 ```markdown
 ## Machine Info
 
-- **Nom:** [myia-po-2023|myia-po-2024|myia-po-2026|myia-web-01]
+- **Nom:** [myia-po-2023|myia-po-2024|myia-po-2026|myia-web1]
 - **Date:** DATE
 - **Status:** ✅|❌
 
@@ -148,7 +148,7 @@ Créer une issue GitHub avec le titre :
 | myia-po-2023 | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | - |
 | myia-po-2024 | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | - |
 | myia-po-2026 | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | - |
-| myia-web-01 | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | - |
+| myia-web1 | ⏸️ | ⏸️ | ⏸️ | ⏸️ | ⏸️ | - |
 
 ---
 

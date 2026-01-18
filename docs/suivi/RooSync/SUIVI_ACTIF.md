@@ -1,13 +1,27 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-18 (16h - Consolidation réseau)
+**Dernière mise à jour:** 2026-01-18 (18h - Session myia-web1)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
-### 2026-01-18 - Consolidation Tests E2E ✅
+### 2026-01-18 (18h) - Session myia-web1 ✅
+
+**Tâches complétées cette session :**
+- **T1.5** (Claude Code) : Identity conflict résolu - 15 fichiers (`334e114`)
+- **T3.1** (Roo) : Logs avec couleurs ANSI - issue #329 (`6883978`)
+- **T2.22** (Roo) : Tests sync multi-machines - 207/207 PASS
+
+**Bug #322 CORRIGÉ** : compare_config fonctionne maintenant
+
+**Git :** `e010ab8` (fix inventory + T2.23 diagnostic)
+**Tests :** 1311 PASS / 8 skip
+
+---
+
+### 2026-01-18 (16h) - Consolidation Tests E2E ✅
 
 **Tâches complétées par le réseau :**
 - **T2.20** (myia-web1) : Tests unitaires manquants - 327 tests ajoutés
@@ -154,8 +168,8 @@
 
 | Issue | Priorité | Description | Statut |
 |-------|----------|-------------|--------|
-| #322 | HIGH | compare_config échoue (InventoryCollectorWrapper) | 🔴 Assigné myia-po-2023 |
-| #316 | MEDIUM | 3 tests get-status échouent | ✅ Fixé (tests passent) |
+| #322 | HIGH | compare_config échoue (InventoryCollectorWrapper) | ✅ Fixé (commit a4b615c) |
+| #316 | MEDIUM | 3 tests get-status échouent | ✅ Fixé |
 | #317 | MEDIUM | Duplication GLOSSAIRE | ✅ Fixé |
 | #289-292 | - | Bugs divers | ✅ Fixés |
 
@@ -165,13 +179,13 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | ~58/77 DONE (~75%) |
+| GitHub Project #67 | ~60/77 DONE (~78%) |
 | Tests RooSync | 1311/1319 PASS (99.4%) |
 | Tests échecs | 8 skip (Windows Vitest) |
 | Version RooSync | v2.3.0 |
 | Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `ccf3623` |
+| Git HEAD | `e010ab8` |
 
 ---
 
