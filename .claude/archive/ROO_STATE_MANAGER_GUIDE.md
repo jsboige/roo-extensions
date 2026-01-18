@@ -37,7 +37,7 @@ As a Claude Code agent, you now have access to:
 
 ## 🚀 Deployment Instructions
 
-### For Each Machine (myia-po-2023, myia-po-2024, myia-po-2026, myia-web-01)
+### For Each Machine (myia-po-2023, myia-po-2024, myia-po-2026, myia-web1)
 
 #### Step 1: Pull Latest Changes
 ```bash

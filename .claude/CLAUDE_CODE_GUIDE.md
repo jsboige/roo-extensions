@@ -28,7 +28,7 @@ Tu es un agent Claude Code participant au système RooSync multi-agent. **Ta mis
 ├── myia-po-2023  → Agent (Windows)
 ├── myia-po-2024  → Coordinateur Technique
 ├── myia-po-2026  → Agent (Windows, MCP instable)
-└── myia-web-01   → Testeur (Windows, conflit identité)
+└── myia-web1   → Testeur (Windows, conflit identité)
 
 5 Agents Roo + 5 Agents Claude Code = Coordination Complète
 ```
@@ -83,7 +83,7 @@ echo $env:COMPUTERNAME
 - myia-po-2023 (Agent)
 - myia-po-2024 (Coordinateur Technique)
 - myia-po-2026 (Agent)
-- myia-web-01 (Testeur)
+- myia-web1 (Testeur)
 
 ### Étape 3: Vérifier les MCPs disponibles
 

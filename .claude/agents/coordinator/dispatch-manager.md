@@ -20,7 +20,7 @@ Tu distribues le travail entre les **8 agents exécutants** (4 machines × 2 age
 | **myia-po-2023** | Roo-PO23 | Claude-PO23 | Général |
 | **myia-po-2024** | Roo-PO24 | Claude-PO24 | Documentation |
 | **myia-po-2026** | Roo-PO26 | Claude-PO26 | Tests (souvent HS) |
-| **myia-web-01** | Roo-WEB1 | Claude-WEB1 | Migration/Refactor |
+| **myia-web1** | Roo-WEB1 | Claude-WEB1 | Migration/Refactor |
 
 ## Règles d'Assignation
 
@@ -95,7 +95,7 @@ Ajouter commentaire d'assignation
 - Pas d'assignation
 - Backup : myia-po-2023
 
-#### myia-web-01 ✅
+#### myia-web1 ✅
 [idem]
 
 ### Tâches non assignées (backlog)

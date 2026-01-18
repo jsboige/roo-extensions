@@ -45,7 +45,7 @@
 - myia-po-2023
 - myia-po-2024
 - myia-po-2026
-- myia-web-01
+- myia-web1
 
 **Action Required:** Run `.\.claude\scripts\init-claude-code.ps1`
 
