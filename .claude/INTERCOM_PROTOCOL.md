@@ -1,8 +1,18 @@
 # Inter-Agent Communication Protocol (INTERCOM)
 
-**Version:** 1.0
-**Date:** 2026-01-05
+**Version:** 1.1
+**Date:** 2026-01-18
 **Purpose:** Local communication between Claude Code and Roo agents in same VS Code instance
+
+---
+
+## ⚠️ RÈGLE CRITIQUE - ORDRE DES MESSAGES
+
+> **CHRONOLOGIQUE : Messages récents EN BAS du fichier !**
+>
+> - Lire les nouveaux messages → regarder la **FIN** du fichier
+> - Ajouter un message → l'ajouter **APRÈS** le dernier `---`
+> - **JAMAIS** insérer au début !
 
 ---
 
