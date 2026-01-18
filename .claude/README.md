@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Multi-Agent System:** RooSync v2.3 + Claude Code Coordination
-**Machines:** 5 (myia-ai-01, myia-po-2023, myia-po-2024, myia-po-2026, myia-web-01)
+**Machines:** 5 (myia-ai-01, myia-po-2023, myia-po-2024, myia-po-2026, myia-web1)
 
 ---
 

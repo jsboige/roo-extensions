@@ -10,7 +10,7 @@
 
 Système multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coordination & documentation) sur 5 machines :
 
-**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2026`, `myia-web-01`
+**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2026`, `myia-web1`
 
 **Architecture :** Coordination bicéphale
 - **Roo Code** → Tâches techniques (scripts, tests, build)
@@ -170,7 +170,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 - myia-po-2023
 - myia-po-2024
 - myia-po-2026
-- myia-web-01
+- myia-web1
 
 **Action requise :**
 1. Lancer : `.\.claude\scripts\init-claude-code.ps1`
@@ -471,7 +471,7 @@ Body:
 | **myia-po-2023** | Agent flexible | ❌ À configurer |
 | **myia-po-2024** | Agent flexible | ❌ À configurer |
 | **myia-po-2026** | Agent flexible | ❌ À configurer |
-| **myia-web-01** | Agent flexible | ❌ À configurer |
+| **myia-web1** | Agent flexible | ❌ À configurer |
 
 **Toutes les machines ont des capacités égales** - pas de spécialisation rigide.
 

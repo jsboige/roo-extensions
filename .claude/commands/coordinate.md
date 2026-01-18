@@ -17,7 +17,7 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 | myia-po-2023 | Technique | Executor |
 | myia-po-2024 | Technique | Executor |
 | myia-po-2026 | Technique | Executor |
-| myia-web-01 | Technique | Executor |
+| myia-web1 | Technique | Executor |
 
 ## Architecture Disponible
 

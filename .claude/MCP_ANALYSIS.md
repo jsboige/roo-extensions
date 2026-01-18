@@ -397,7 +397,7 @@ filesystem_read, filesystem_write
    - ❌ myia-po-2023 - En attente de configuration
    - ❌ myia-po-2024 - En attente de configuration
    - ❌ myia-po-2026 - En attente de configuration
-   - ❌ myia-web-01 - En attente de configuration
+   - ❌ myia-web1 - En attente de configuration
 
 ---
 

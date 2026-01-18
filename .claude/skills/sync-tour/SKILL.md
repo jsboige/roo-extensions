@@ -199,7 +199,7 @@ Ce skill orchestre un tour de synchronisation complet en **7 phases**.
 | myia-po-2023 | ✅ | T3.1 (suggérée) | T3.2 (suggérée) |
 | myia-po-2024 | ✅ | ... | ... |
 | myia-po-2026 | 🔴 HS | - | - |
-| myia-web-01 | ✅ | ... | ... |
+| myia-web1 | ✅ | ... | ... |
 
 ### Prochaines priorités
 1. [tâche critique]
