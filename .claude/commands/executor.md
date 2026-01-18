@@ -95,10 +95,54 @@ Contenu du message...
 
 **Types :** `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `URGENT`, `UPDATE`
 
+### Capacités Techniques (NOUVELLES)
+
+**Tu es aussi compétent que Roo pour l'analyse technique !**
+
+| Capacité | Description | Outils |
+|----------|-------------|--------|
+| **Investigation bugs** | Lire le code, tracer les erreurs | Read, Grep, Glob |
+| **Analyse de code** | Comprendre l'architecture | Read, Grep |
+| **Exécution tests** | Valider, diagnostiquer | Bash npm test |
+| **Proposition fixes** | Identifier causes, proposer solutions | Read, Edit |
+| **Build** | Compiler, valider | Bash npm run build |
+| **Documentation** | Rapports techniques | Edit, Write |
+
+### Workflow Autonome
+
+```
+1. IDENTIFIER un problème (bug, tâche, blocage)
+         ↓
+2. ANALYSER le code source (Read, Grep)
+         ↓
+3. INVESTIGUER (tests, logs, comparaisons)
+         ↓
+4. PROPOSER une solution concrète
+         ↓
+5. IMPLÉMENTER ou DOCUMENTER pour Roo
+         ↓
+6. VALIDER (tests, build)
+         ↓
+7. REPORTER (RooSync, INTERCOM)
+```
+
+### Quand Agir Seul
+
+| Action | Autonome | Coordonner |
+|--------|----------|------------|
+| Lire/analyser code | ✅ | |
+| Investiguer bugs | ✅ | |
+| Exécuter tests | ✅ | |
+| Proposer fixes | ✅ | |
+| Modifier `mcps/internal/` | | ✅ Roo |
+| Décisions architecture | | ✅ Équipe |
+
 ### Tâches Typiques
 
 | Tâche | Description | Comment |
 |-------|-------------|---------|
+| **Investigation** | Analyser bugs, trouver causes | Read, Grep, tests |
+| **Analyse technique** | Comprendre le code | Read, Glob |
 | Documentation | Créer/modifier docs | Edit, Write |
 | Coordination | Sync multi-agent | RooSync + INTERCOM |
 | Déploiement | Build MCP | Bash npm commands |
