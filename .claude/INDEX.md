@@ -1,6 +1,6 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-18
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
@@ -14,6 +14,7 @@
 ### For Claude Code Agents
 - **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Complete agent guide (Bootstrap + SDDD Phases)
 - **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Local communication protocol (Claude Code ↔ Roo)
+- **[../CLAUDE.md § Feedback](../CLAUDE.md#4-processus-de-feedback-et-amélioration-continue)** - Workflow improvement process (collective feedback via RooSync)
 
 ### Configuration & Deployment
 - **[MCP_SETUP.md](MCP_SETUP.md)** - ✅ MCP configuration guide (UPDATED with wrapper solution)
@@ -22,24 +23,51 @@
 ### Workspace Knowledge
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
+### Agents & Skills (NEW - 2026-01-18)
+- **[agents/](agents/)** - 11 specialized subagents (Opus model)
+  - `roosync-hub` / `roosync-reporter` - RooSync coordination
+  - `dispatch-manager` / `task-planner` - Multi-agent planning
+  - `github-tracker` - GitHub Project #67 tracking
+  - `git-sync` - Conservative pull/merge
+  - `test-runner` - Build + unit tests
+  - `intercom-handler` - Local Roo ↔ Claude communication
+  - `code-explorer` - Codebase exploration
+  - `task-worker` - Autonomous task execution
+  - `roosync-coordinator` - Inter-machine messaging
+- **[skills/](skills/)** - Auto-invoked skills
+  - `sync-tour` - 8-phase sync tour (INTERCOM → Messages → Git → Tests → GitHub → Planning → Responses)
+- **[commands/](commands/)** - Slash commands
+  - `/coordinate` - Coordination session (myia-ai-01)
+  - `/executor` - Execution session (other machines)
+  - `/sync-tour` - Full sync tour
+  - `/switch-provider` - Switch LLM provider
+
 ---
 
-## ✅ MCP Status (2026-01-09)
+## ✅ MCP Status (2026-01-18)
 
 ### VERIFIED & WORKING (myia-ai-01)
 
 **github-projects-mcp** (57 tools)
 - Status: ✅ Fully operational
-- Project: "RooSync Multi-Agent Tasks" (#67)
+- Projects:
+  - #67 "RooSync Multi-Agent Tasks" (69/77 items Done = 89.6%)
+  - #70 "RooSync Multi-Agent Coordination" (10/11 Done = 90.9%)
 - URL: https://github.com/users/jsboige/projects/67
 
-**roo-state-manager** (6 RooSync messaging tools)
-- Status: ✅ DEPLOYED & FUNCTIONAL (2026-01-09)
-- Solution: Smart wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-- Filters 57+ tools → 6 RooSync messaging tools
+**roo-state-manager** (17 RooSync tools)
+- Status: ✅ DEPLOYED & FUNCTIONAL
+- Version: wrapper v2.5.0 (2026-01-18)
+- Recent Fix: Bug #322 - Inventory → collect config mapping (commit 7ce45751)
+- Tools include:
+  - 6 messaging tools (send_message, read_inbox, reply_message, etc.)
+  - 5 config tools (collect_config, publish_config, apply_config, etc.)
+  - 3 status tools (get_status, compare_config, list_diffs)
+  - 3 decision tools (get_decision_details, etc.)
 - Capabilities:
   - Inter-machine messaging via RooSync
-  - 65 messages in inbox (4 unread)
+  - Configuration sync across 5 machines
+  - Machine inventory collection
 
 ### PENDING (Other Machines)
 - myia-po-2023
@@ -193,24 +221,28 @@ mcps/
 
 ---
 
-## 🚀 Current Status (2026-01-09)
+## 🚀 Current Status (2026-01-18)
 
 ### Recent Accomplishments
-- ✅ GitHub Projects MCP deployed and verified (myia-ai-01)
-- ✅ RooSync MCP deployed with smart wrapper (myia-ai-01)
-  - Resolved verbose logs issue
-  - Filters 57+ tools → 6 RooSync messaging tools
-  - Inter-machine communication functional
+- ✅ Bug #322 RESOLVED - Inventory → collect config mapping (commit 7ce45751)
+- ✅ Git conflicts resolved - Get-MachineInventory.ps1 + mcps/internal submodule
+- ✅ Tests: 1311/1319 PASS (99.4%)
+- ✅ Project #67: 89.6% Done (69/77 items)
+- ✅ Project #70: 90.9% Done (10/11 items)
+- ✅ Agent architecture deployed - 11 subagents + 1 skill
+- ✅ Improved workflows: coordinate.md, executor.md, sync-tour skill (8 phases)
 
 ### Problems Solved
-- ✅ Claude Code crash on startup with roo-state-manager
-- ✅ Too many stdout logs interfering with MCP protocol
-- Solution: Wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+- ✅ Bug #322 - paths.rooExtensions not available in inventory
+- ✅ Git merge conflicts - HEAD vs incoming branch resolution
+- ✅ Submodule sync issues - mcps/internal at correct commit
+- Solution: Find-RooExtensionsRoot function in Get-MachineInventory.ps1
 
-### Immediate Goals
-- 🔄 Deploy MCPs on 4 other machines
-- 📋 Create clear task distribution plan
-- 🎯 Resume bicéphal coordination Claude Code + Roo
+### Immediate Goals (24-48h)
+- 🔄 Git pull on 4 machines (myia-web1, myia-po-2023, myia-po-2024, myia-po-2026)
+- 🔄 Restart VS Code to reload MCPs after pull
+- 🔄 Validate workflow: collect_config → compare_config → apply_config
+- 🎯 Close remaining issues: #320 (E2E tests), #323 (Deploy myia-po-2023), #327 (Workflow publish)
 
 ---
 
@@ -279,7 +311,7 @@ mcps/
 ---
 
 **Version:** 2.0.0
-**Last Updated:** 2026-01-14
+**Last Updated:** 2026-01-18
 **Maintainer:** jsboige
 
 ---

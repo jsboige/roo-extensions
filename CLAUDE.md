@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-16
+**Dernière mise à jour:** 2026-01-18
 
 ---
 
@@ -103,31 +103,48 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 | Skill | Description | Phases |
 |-------|-------------|--------|
-| `sync-tour` | Tour de sync complet en 7 phases | Messages → Git → Tests → GitHub → MAJ → Planning → Réponses |
+| `sync-tour` | Tour de sync complet en 8 phases | INTERCOM → Messages → Git → Tests → GitHub → MAJ → Planning → Réponses |
 
-**Les 7 phases du sync-tour :**
+**Les 8 phases du sync-tour :**
+0. **INTERCOM Local** : ⚠️ CRITIQUE - Lire messages de Roo EN PREMIER (merge en cours?, modifs locales?)
 1. **Collecte** : Messages RooSync non-lus
-2. **Git Sync** : Pull conservatif + submodules
-3. **Validation** : Build + tests unitaires (+ corrections)
-4. **GitHub Status** : Project #67 + issues récentes
-5. **MAJ GitHub** : Marquer Done, commentaires, nouvelles issues
+2. **Git Sync** : Pull conservatif + résolution conflits automatique + submodules
+3. **Validation** : Build + tests unitaires (+ corrections simples)
+4. **GitHub Status** : Project #67 + issues récentes + incohérences
+5. **MAJ GitHub** : Marquer Done, commentaires (validation utilisateur pour nouvelles issues)
 6. **Planification** : Ventilation 5 machines × 2 agents (Roo + Claude)
-7. **Réponses** : Messages RooSync personnalisés avec références
+7. **Réponses** : Messages RooSync personnalisés + gestion machines silencieuses
 
 **Usage :** Demander un "tour de sync" ou "faire le point".
+
+**⚠️ Améliorations récentes (2026-01-18) :**
+- Phase 0 ajoutée : Toujours lire INTERCOM avant tout (détecter urgences Roo)
+- Phase 2 enrichie : Résolution automatique conflits git (fichiers + submodule)
+- Phase 5 renforcée : Validation utilisateur OBLIGATOIRE avant créer issues
+- Phase 7 améliorée : Escalade machines silencieuses (48h/72h/96h)
 
 ### Slash Commands ([.claude/commands/](.claude/commands/))
 
 | Commande | Machine | Description |
 |----------|---------|-------------|
-| `/coordinate` | myia-ai-01 | Lance une session de coordination multi-agent |
-| `/executor` | Autres machines | Lance une session d'exécution pour agents exécutants |
-| `/sync-tour` | Toutes | Tour de synchronisation complet (7 phases) |
+| `/coordinate` | myia-ai-01 | Lance une session de coordination multi-agent (amélioré 2026-01-18) |
+| `/executor` | Autres machines | Lance une session d'exécution (workflow multi-itérations ajouté) |
+| `/sync-tour` | Toutes | Tour de synchronisation complet (8 phases - Phase 0 ajoutée) |
 | `/switch-provider` | Toutes | Basculer entre Anthropic et z.ai |
 
 **Usage :**
 - **Coordinateur (myia-ai-01)** : Taper `/coordinate` pour démarrer une session de coordination
 - **Exécutants** : Taper `/executor` pour recevoir les instructions et exécuter les tâches
+
+**⚠️ Améliorations coordinate.md (2026-01-18) :**
+- Section "Gestion des Urgences" ajoutée (conflits git, machines silencieuses, tests échouants)
+- Guide d'usage des sub-agents (quand utiliser, quand gérer directement)
+- Workflow démarrage standard en 7 étapes (INTERCOM d'abord, puis sync-tour)
+
+**⚠️ Améliorations executor.md (2026-01-18) :**
+- Workflow multi-itérations (Investigation → Action → Validation)
+- Collaboration Claude ↔ Roo optimisée (2 cerveaux en parallèle)
+- Objectif : 3+ actions majeures par itération minimum
 
 ### Workflow Recommandé
 
@@ -267,6 +284,71 @@ Titre: [CLAUDE-MACHINE] Titre de la tâche
 Labels: claude-code, priority-X
 ```
 
+### 4. Processus de Feedback et Amélioration Continue
+
+**Objectif :** Améliorer les workflows (commands/skills/agents) basé sur l'expérience terrain
+
+**Principe :** Évolution prudente et collective pour éviter le feature creep
+
+**Workflow de proposition :**
+
+1. **Identification** (n'importe quel agent Claude)
+   - Repérer un problème/friction dans le workflow actuel
+   - Documenter l'expérience concrète qui pose problème
+   - Proposer une amélioration spécifique et minimaliste
+
+2. **Consultation collective** (via RooSync)
+   - Envoyer message RooSync à `to: "all"` avec:
+     - Sujet: `[FEEDBACK] Amélioration proposée: <titre court>`
+     - Contexte de l'expérience terrain
+     - Proposition concrète
+     - Risques de feature creep identifiés
+   - Demander avis critique des autres agents (24-48h)
+
+3. **Collecte des retours**
+   - Chaque agent peut répondre avec son opinion
+   - Focus sur: "Est-ce vraiment nécessaire?" et "Risques?"
+   - Les agents servent de garde-fou contre le feature creep
+
+4. **Décision finale** (coordinateur myia-ai-01)
+   - Synthétiser les retours
+   - Décision: APPROUVER / REJETER / MODIFIER
+   - Si approuvé: créer issue GitHub pour traçabilité
+   - Documenter la décision dans le thread RooSync
+
+**Critères d'approbation :**
+- ✅ Résout un problème réel rencontré (pas théorique)
+- ✅ Solution minimale et ciblée
+- ✅ Pas de complexité excessive
+- ✅ Consensus ou majorité des agents
+- ❌ Rejet si: feature creep, complexité, problème théorique
+
+**Exemple de message RooSync :**
+```markdown
+Subject: [FEEDBACK] Amélioration sync-tour: Phase validation GitHub
+Priority: MEDIUM
+Tags: feedback, workflow-improvement
+
+Contexte: Lors de mes 3 derniers sync-tours, j'ai dû manuellement vérifier
+les issues fermées car la Phase 5 ne détectait pas les items marqués Done.
+
+Proposition: Ajouter un check automatique des incohérences
+(item Done sur GitHub mais issue Open).
+
+Risques identifiés:
+- Complexité accrue si on essaie de tout détecter
+- Peut ralentir la Phase 5
+
+Solution minimale: Ajouter 1 seule vérification pour le cas le plus fréquent.
+
+Qu'en pensez-vous? Est-ce vraiment nécessaire?
+```
+
+**Documentation des améliorations :**
+- Issue GitHub avec label `workflow-improvement`
+- MAJ du fichier concerné (.claude/commands/, skills/, agents/)
+- Note dans CLAUDE.md section "Leçons Apprises"
+
 ---
 
 ## 📋 Structure du Dépôt
@@ -382,37 +464,57 @@ Body:
 
 ---
 
-## 🎯 Contexte Actuel (2026-01-16)
+## 🎯 Contexte Actuel (2026-01-18)
 
-### Phase : DÉPLOIEMENT ROOSYNC
+### Phase : DÉPLOIEMENT ROOSYNC - PHASE FINALE
 
-**🎯 Priorité #1 : Configs multi-machines disponibles dans le partage**
+**🎯 Priorité #1 : Configs multi-machines disponibles dans le partage GDrive**
 
 **Organisation bicéphale confirmée :**
-- ✅ **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation
-- ✅ **Roo (toutes machines)** : Tâches techniques (bugs, features, tests)
+- ✅ **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation, Coordination
+- ✅ **Roo (toutes machines)** : Tâches techniques (bugs, features, tests, builds)
 
 **État actuel :**
-- ✅ **Tests** : 1311/1319 PASS (131 fichiers)
-- ✅ **Project #67** : 67.1% Done (51/76)
-- ✅ **Project #70** : 8/10 Done
-- ✅ MCP v2.5.0 déployé sur myia-ai-01, myia-po-2026
-- 🔧 Déploiement en cours : myia-po-2023 (#323), myia-po-2024 (#324), myia-web1 (#326)
+- ✅ **Tests** : 1311/1319 PASS (99.4%)
+- ✅ **Project #67** : 90.1% Done (69/77 items)
+- ✅ **Project #70** : 10/11 Done (90.9%)
+- ✅ **Git** : Synced main `5de3bcfc`, submodule `d7bcabb`
+- ✅ **Bug #322** : RÉSOLU (mapping inventaire → collect config)
+- ✅ **T3.15c** : CommitLogService intégré (4449 lignes, +47 tests attendus)
 
-**Tâches prioritaires :**
-1. 🔴 **Résoudre blocage myia-web1** : git pull requis
-2. 🟠 **Déployer MCP v2.5.0** : #323, #324, #326
-3. 🟡 **Tests E2E** : #320, #327 (après déploiements)
-4. 🟢 **Valider workflow** : collect → compare → apply
+**✅ Accomplissements session 2026-01-18 :**
+- Git merge complété (2 conflits résolus : Get-MachineInventory.ps1, mcps/internal)
+- Bug #322 fix déployé (commits 7ce45751, 0bb2faf, 81208c8)
+- executor.md amélioré (workflow multi-itérations, 3+ actions/itération)
+- coordinate.md amélioré (gestion urgences : conflits git, machines silencieuses)
+- sync-tour skill amélioré (Phase 0 INTERCOM ajoutée, résolution conflits auto)
+- 4 messages RooSync envoyés (instructions git pull + test workflow)
+- 2 issues créées : #Deploy (Project #70), #E2E (Project #67)
+
+**🔄 En attente (24-48h) :**
+1. **git pull sur 4 machines** - myia-web1, myia-po-2023, myia-po-2024, myia-po-2026
+2. **Restart VS Code** - Reload MCPs après git pull
+3. **Validation workflow** - Test collect_config avec fix Bug #322
+4. **Rapports retour** - Chaque machine doit reporter via RooSync
+
+**📋 Prochaines issues à clôturer :**
+- **#320** - Tests E2E (après validation fix Bug #322)
+- **#323** - Deploy MCP myia-po-2023 (après restart VS Code)
+- **#327** - Workflow publish (dépend de #320)
 
 **Machines :**
-| Machine | État | Tâche |
-|---------|------|-------|
-| myia-ai-01 | ✅ | Coordination |
-| myia-po-2023 | ✅ | T2.22 + #323 |
-| myia-po-2024 | ✅ | T3.15 + #324 |
-| myia-po-2026 | ✅ | T3.1 + Monitoring |
-| myia-web1 | 🔴 | FIX git + #326 |
+| Machine | État | Dernière action | Priorité |
+|---------|------|----------------|----------|
+| myia-ai-01 | ✅ Coordinateur | Git synced + messages envoyés | Coordination |
+| myia-web1 | 🔴 Silencieux 72h+ | 3 messages URGENT envoyés | git pull URGENT |
+| myia-po-2023 | 🔄 Attente pull | Message envoyé | Finaliser #323 |
+| myia-po-2024 | 🔄 Attente pull | Message envoyé | Retest Bug #322 |
+| myia-po-2026 | 🔄 Attente pull | Message envoyé | Test #320/#327 |
+
+**Plan finalisation (3 jours) :**
+- **ÉTAPE 1 (24h)** : Git pull + restart VS Code sur 4 machines
+- **ÉTAPE 2 (48h)** : Tests E2E workflow collect → compare → apply
+- **ÉTAPE 3 (72h)** : Project #67 → 100% Done + CHANGELOG v2.3.0
 
 ### Contraintes Critiques
 
@@ -431,6 +533,32 @@ Body:
 4. Seulement ensuite créer l'issue
 
 **Exception :** Bugs critiques bloquants (informer immédiatement)
+
+### 📚 Leçons Apprises (Session 2026-01-18)
+
+**Gestion des conflits Git :**
+- ✅ Toujours lire INTERCOM d'abord pour détecter merge en cours
+- ✅ Résoudre conflits directement (pas déléguer) : Read + Edit + git add
+- ✅ Analyser les deux versions (HEAD vs incoming) avant de choisir
+- ✅ Pour submodules : vérifier modifs locales avant de sync
+- ✅ Toujours pusher après résolution pour débloquer autres machines
+
+**Coordination Multi-Machine :**
+- ✅ Envoyer messages RooSync APRÈS push (pas avant)
+- ✅ Inclure références commits dans les messages (facilitateur)
+- ✅ Escalade machines silencieuses : 48h HIGH, 72h URGENT, 96h réassignation
+- ✅ Mettre à jour INTERCOM local après chaque tour de sync
+
+**Productivité Agents :**
+- ✅ Workflow multi-itérations : Investigation → Action → Validation
+- ✅ Objectif 3+ actions majeures par itération minimum
+- ✅ Paralléliser : Claude docs/analyse pendant que Roo code
+- ✅ Ne pas attendre passivement : toujours avoir une action en cours
+
+**Documentation Agents :**
+- ✅ Phase 0 INTERCOM critique : détecter urgences avant tout
+- ✅ Gestion urgences dans coordinate.md évite improvisation
+- ✅ Validation utilisateur pour nouvelles issues évite work inutile
 
 ---
 
@@ -586,7 +714,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-01-16
+**Dernière mise à jour :** 2026-01-18
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
 **Built with Claude Code (Opus 4.5) 🤖**

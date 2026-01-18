@@ -45,13 +45,63 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 
 ## Workflow de Coordination
 
-1. **Tour de sync initial** : Lance `/sync-tour` pour état des lieux
-2. **Analyse rapports** : Utilise `roosync-hub` pour messages entrants
-3. **Planification** : Utilise `task-planner` pour ventiler le travail
-4. **Dispatch** : Utilise `dispatch-manager` pour assigner
-5. **Suivi GitHub** : Utilise `github-tracker` pour Project #67
-6. **Communication** : Envoie instructions via RooSync
-7. **Consolidation docs** : Nettoyer rapports obsolètes (si drift détecté)
+### Démarrage Standard
+
+1. **Lire INTERCOM local** : Vérifier messages de Roo en premier
+2. **Tour de sync initial** : Lance `/sync-tour` pour état des lieux complet
+3. **Analyse rapports** : Traiter messages RooSync entrants
+4. **Planification** : Ventiler le travail (task-planner ou manuel)
+5. **Dispatch** : Envoyer instructions via RooSync
+6. **Suivi GitHub** : Mettre à jour Projects #67 et #70
+7. **Mise à jour INTERCOM** : Informer Roo des décisions et prochaines étapes
+
+### Gestion des Urgences
+
+**🔴 Conflits Git (merge en cours) :**
+1. Vérifier avec Roo s'il est au milieu d'un merge (`git status`)
+2. Identifier les fichiers en conflit
+3. Pour chaque conflit :
+   - Lire le fichier avec marqueurs `<<<<<<<`, `=======`, `>>>>>>>`
+   - Analyser les deux versions (HEAD vs incoming)
+   - Choisir la version la plus récente/complète ou combiner
+   - Utiliser `Edit` pour résoudre (supprimer marqueurs)
+4. `git add` fichiers résolus
+5. `git commit` (message merge automatique)
+6. Vérifier submodule si applicable
+7. `git push` après validation
+
+**🟠 Machine silencieuse (> 48h) :**
+1. Envoyer message RooSync priorité URGENT
+2. Si pas de réponse après 2-3 messages : signaler à l'utilisateur
+3. Réassigner tâches critiques à machines actives
+
+**🟡 Tests échouant après merge :**
+1. Identifier erreurs (build TS, imports manquants)
+2. Corrections simples : imports, typos (utiliser Edit)
+3. Corrections complexes : déléguer à Roo via INTERCOM
+4. Relancer tests après corrections
+
+### Usage des Sub-agents
+
+**Quand utiliser `roosync-hub` :**
+- Lire et traiter messages RooSync entrants
+- Préparer réponses personnalisées par machine
+- Archiver messages anciens
+
+**Quand utiliser `task-planner` :**
+- Après avoir reçu plusieurs rapports
+- Pour équilibrer charge entre 5 machines
+- Quand besoin d'analyse avancement global
+
+**Quand utiliser `github-tracker` :**
+- Consulter état Project #67
+- Vérifier issues ouvertes/fermées
+- Avant de créer nouvelles issues (éviter doublons)
+
+**⚠️ Ne PAS déléguer aux sub-agents :**
+- Gestion conflits git (faire directement)
+- Validation utilisateur pour nouvelles issues
+- Mise à jour INTERCOM (faire directement)
 
 ## Références Rapides
 
@@ -122,22 +172,34 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 
 ## Priorité Actuelle (2026-01-18)
 
-**🎯 DÉPLOIEMENT ROOSYNC**
+**🎯 DÉPLOIEMENT ROOSYNC - PHASE FINALE**
 
-Objectif : Configs multi-machines disponibles dans le partage.
+Objectif : Configs multi-machines disponibles dans le partage GDrive.
 
-**État actuel :** 90.8% Done (69/76 items)
+**État actuel :** 90.1% Done (69/77 items Project #67)
 
-**Prochaines étapes :**
-1. **#323** - Déployer MCP v2.5.0 sur myia-po-2023 (dernière machine)
-2. **#288** - Valider outils RooSync sur chaque machine
-3. **Tests E2E** - Workflow complet (#320, #327, #328)
+**✅ Accomplissements récents :**
+- Bug #322 RÉSOLU (mapping inventaire → collect config)
+- Git merge complété et pushé (main `5de3bcfc`, submodule `d7bcabb`)
+- T3.15c CommitLogService intégré (4449 lignes, +47 tests attendus)
+- executor.md amélioré (workflow multi-itérations)
+- Messages RooSync envoyés à 4 machines (instructions git pull)
 
-**En cours :**
-- Roo travaille sur mapping inventaire (corrections locales submodule)
-- T3.15c CommitLogService ✅ implémenté (myia-po-2024)
+**🔄 En attente (24-48h) :**
+1. **git pull sur 4 machines** - myia-web1, myia-po-2023, myia-po-2024, myia-po-2026
+2. **Restart VS Code** - Reload MCPs après git pull
+3. **Validation workflow** - Test collect_config avec fix Bug #322
+4. **Rapports retour** - Chaque machine doit reporter via RooSync
 
-**PAS de nouvelles fonctionnalités** - Focus stabilisation et déploiement.
+**📋 Prochaines issues à clôturer :**
+- **#320** - Tests E2E (après validation fix Bug #322)
+- **#323** - Deploy MCP myia-po-2023 (après restart VS Code)
+- **#327** - Workflow publish (dépend de #320)
+
+**🔴 Point d'attention :**
+- myia-web1 silencieux 72h+ (3 messages URGENT envoyés)
+
+**PAS de nouvelles fonctionnalités** - Focus déploiement et validation E2E.
 
 ## Démarrage
 

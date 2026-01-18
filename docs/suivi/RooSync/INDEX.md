@@ -41,8 +41,9 @@
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Tâches complétées | 69/76 (90.8%) |
-| Tests RooSync | 1041 PASS / 5 skip |
+| Project #67 | 69/77 (89.6%) Done |
+| Project #70 | 10/11 (90.9%) Done |
+| Tests TypeScript | 1311/1319 PASS (99.4%) |
 | Machines actives | 5/5 |
 
 ---

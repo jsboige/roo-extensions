@@ -95,47 +95,123 @@ Contenu du message...
 
 **Types :** `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `URGENT`, `UPDATE`
 
-### Capacités Techniques (NOUVELLES)
+### Capacités Techniques Complètes
 
-**Tu es aussi compétent que Roo pour l'analyse technique !**
+**⚡ NOUVEAU : Tu es maintenant AUSSI COMPÉTENT que Roo pour l'exécution technique !**
 
-| Capacité | Description | Outils |
-|----------|-------------|--------|
-| **Investigation bugs** | Lire le code, tracer les erreurs | Read, Grep, Glob |
-| **Analyse de code** | Comprendre l'architecture | Read, Grep |
-| **Exécution tests** | Valider, diagnostiquer | Bash npm test |
-| **Proposition fixes** | Identifier causes, proposer solutions | Read, Edit |
-| **Build** | Compiler, valider | Bash npm run build |
-| **Documentation** | Rapports techniques | Edit, Write |
+| Capacité | Description | Outils | Autonomie |
+|----------|-------------|--------|-----------|
+| **Investigation bugs** | Tracer erreurs, identifier root cause | Read, Grep, Glob, Bash | ✅ Complet |
+| **Analyse architecture** | Comprendre design, dépendances | Read, Grep, Glob | ✅ Complet |
+| **Exécution tests** | Run, diagnostiquer, corriger | Bash npm/npx vitest | ✅ Complet |
+| **Fix simples** | Typos, imports, syntaxe | Edit | ✅ Complet |
+| **Documentation technique** | Rapports, guides, analyses | Edit, Write | ✅ Complet |
+| **Build & Deploy** | Compile, valide, déploie | Bash npm commands | ✅ Complet |
+| **Git operations** | Pull, commit, push, merge | Bash git | ✅ Complet |
+| **Modifications code** | Features simples, refactoring | Edit (coord Roo) | 🔄 Collaboration |
 
-### Workflow Autonome
+### Workflow Multi-Itérations (NOUVEAU)
+
+**Objectif:** Accomplir le MAXIMUM par session en collaborant avec Roo
 
 ```
-1. IDENTIFIER un problème (bug, tâche, blocage)
-         ↓
-2. ANALYSER le code source (Read, Grep)
-         ↓
-3. INVESTIGUER (tests, logs, comparaisons)
-         ↓
-4. PROPOSER une solution concrète
-         ↓
-5. IMPLÉMENTER ou DOCUMENTER pour Roo
-         ↓
-6. VALIDER (tests, build)
-         ↓
-7. REPORTER (RooSync, INTERCOM)
+ITÉRATION 1 - INVESTIGATION (10-15 min)
+├─ Identifier le problème/tâche
+├─ Lire code source complet (Read, Grep)
+├─ Analyser architecture (Glob patterns)
+├─ Exécuter tests pour reproduire
+└─ 📝 INTERCOM → Roo: "J'ai identifié X, proposition: Y"
+
+ITÉRATION 2 - ACTION (15-20 min)
+├─ Implémenter fix simple OU
+├─ Préparer patch pour Roo OU
+├─ Créer tests de validation
+├─ Run tests pour valider
+└─ 📝 INTERCOM → Roo: "Fait X, tests passent, prêt pour review"
+
+ITÉRATION 3 - VALIDATION & NEXT (10-15 min)
+├─ Valider avec Roo via INTERCOM
+├─ Git commit si approuvé
+├─ Mettre à jour GitHub Projects
+├─ Envoyer rapport RooSync au coordinateur
+└─ 📝 Identifier prochaine tâche et démarrer
 ```
 
-### Quand Agir Seul
+### Actions Par Itération (GUIDE)
 
-| Action | Autonome | Coordonner |
-|--------|----------|------------|
-| Lire/analyser code | ✅ | |
-| Investiguer bugs | ✅ | |
-| Exécuter tests | ✅ | |
-| Proposer fixes | ✅ | |
-| Modifier `mcps/internal/` | | ✅ Roo |
-| Décisions architecture | | ✅ Équipe |
+**Chaque itération (30-60 min) doit accomplir au moins 3 actions majeures:**
+
+| Situation | Actions Concrètes (3+) | Collaboration Roo |
+|-----------|------------------------|-------------------|
+| **Bug signalé** | 1. Reproduire (tests)<br>2. Tracer cause (code)<br>3. Proposer fix + patch | Implémenter fix si simple<br>ou transmettre analyse |
+| **Feature demandée** | 1. Analyser besoins<br>2. Design architecture<br>3. Implémenter scaffold | Tests + features simples Roo<br>features complexes |
+| **Tests échouent** | 1. Identifier tests failing<br>2. Corriger causes simples<br>3. Documenter causes complexes | Transmettre liste + priorités |
+| **Déploiement** | 1. Build local<br>2. Fix erreurs build<br>3. Deploy + valider | Support technique live |
+| **Documentation** | 1. Analyser code<br>2. Rédiger docs techniques<br>3. Créer exemples | Review + compléments |
+
+### Collaboration Claude ↔ Roo (OPTIMISÉE)
+
+**Principe:** Une machine = 2 cerveaux travaillant EN PARALLÈLE
+
+```
+CLAUDE (Toi)                          ROO (Assistant)
+     │                                      │
+     ├─ Lis INTERCOM au démarrage ─────────┤
+     │                                      │
+     ├─ Investigation technique             │
+     │  (Read, Grep, tests)                 │
+     │                                      │
+     ├─ Identifie 3-5 actions concrètes     │
+     │                                      │
+     ├─ Actions autonomes:                  │
+     │  • Docs                              │
+     │  • Tests                             │
+     │  • Analyse                           │
+     │  • Fix simples                       │
+     │                                      │
+     ├─ INTERCOM: "Roo, prends X, Y, Z" ───→│
+     │                                      ├─ Exécute X (code)
+     │                                      ├─ Exécute Y (tests)
+     │                                      ├─ Exécute Z (build)
+     │                                      │
+     │  ←────── INTERCOM: "X Done, Y Done" ┤
+     │                                      │
+     ├─ Valide résultats Roo                │
+     ├─ Git commit ensemble                 │
+     ├─ Rapport RooSync                     │
+     └─ Démarrage prochaine tâche ─────────┘
+```
+
+### Maximiser la Productivité
+
+**✅ FAIRE à chaque session:**
+1. **Paralléliser** - Toi docs/analyse pendant que Roo code
+2. **Actions multiples** - 3+ actions concrètes minimum
+3. **Tests systématiques** - Valider après chaque changement
+4. **INTERCOM proactif** - Mettre à jour après chaque étape majeure
+5. **Git fréquent** - Commit petits incréments validés
+6. **Reporter succès** - RooSync après accomplissements
+
+**❌ ÉVITER:**
+- Attendre passivement Roo sans agir
+- Une seule action par itération
+- Analyses sans actions concrètes
+- INTERCOM vide (toujours documenter)
+
+### Quand Agir Seul vs Collaborer
+
+| Action | Claude Seul ✅ | Collaboration 🔄 | Roo Seul |
+|--------|----------------|------------------|----------|
+| Lire/analyser code | ✅ | | |
+| Investiguer bugs | ✅ | | |
+| Exécuter tests | ✅ | | |
+| Fix typos, imports | ✅ | | |
+| Créer/modifier docs | ✅ | | |
+| Proposer architecture | ✅ | | |
+| Features simples | | 🔄 | |
+| Modifier `mcps/internal/` | | 🔄 | ✅ |
+| Features complexes | | | ✅ |
+| Décisions architecture | | 🔄 Équipe | |
 
 ### Tâches Typiques
 
