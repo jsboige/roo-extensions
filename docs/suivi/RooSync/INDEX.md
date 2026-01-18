@@ -1,6 +1,6 @@
 # Index RooSync - Documentation Consolidée
 
-**Dernière mise à jour:** 2026-01-16
+**Dernière mise à jour:** 2026-01-18
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
@@ -11,7 +11,7 @@
 
 | Fichier | Usage | MAJ |
 |---------|-------|-----|
-| **INDEX.md** | Ce fichier - Navigation | 2026-01-16 |
+| **INDEX.md** | Ce fichier - Navigation | 2026-01-18 |
 | **SUIVI_ACTIF.md** | Suivi quotidien de l'activité | Quotidien |
 | **BUGS_TRACKING.md** | Bugs connus et leur statut | Quand bugs |
 
@@ -41,10 +41,9 @@
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Tâches complétées | 50/77 (65%) |
-| Bug critique | #322 (compare_config) |
-| Machines actives | 4/5 (myia-po-2026 HS) |
-| Tests RooSync | 1285/1286 PASS (99.9%) |
+| Tâches complétées | 69/76 (90.8%) |
+| Tests RooSync | 1041 PASS / 5 skip |
+| Machines actives | 5/5 |
 
 ---
 
@@ -53,16 +52,16 @@
 - **Bugs** → `BUGS_TRACKING.md`
 - **Quotidien** → `SUIVI_ACTIF.md`
 - **Guide rapide** → [`QUICKSTART.md`](../roosync/QUICKSTART.md)
-- **Archives** → `Archives/` (60+ rapports)
+- **Archives** → `Archives/` (80+ rapports)
 - **Technique** → [`GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md)
 
 ---
 
 ## Prochaines Étapes
 
-1. **Bug #322** - `compare_config` échoue (assigné myia-po-2023)
-2. **T2.8** - Migration erreurs typées (myia-web1 Roo)
-3. **T3.15** - Sync multi-agent (myia-po-2024)
+1. **#323** - Deploy MCP v2.5.0 sur myia-po-2023
+2. **#288** - Valider outils RooSync sur chaque machine
+3. **E2E** - Tests workflow complet (#320, #327)
 
 ---
 

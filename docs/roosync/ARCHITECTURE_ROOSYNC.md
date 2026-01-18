@@ -237,6 +237,33 @@ graph TB
 
 **Emplacement** : `mcps/internal/servers/roo-state-manager/src/services/roosync/DashboardService.ts`
 
+### 2.9 CommitLogService (T3.15c)
+
+**Responsabilité** : Log ordonné de commits pour cohérence distribuée
+
+**Ajouté** : 2026-01-18 (T3.15c)
+
+**Objectif** : Garantir que toutes les machines appliquent les mêmes opérations dans le même ordre, assurant la cohérence finale.
+
+**Méthodes principales** :
+- `addEntry(type, data)` : Ajouter une entrée au log
+- `getEntries(filter)` : Récupérer les entrées du log
+- `applyCommit(commitId)` : Appliquer un commit avec gestion des dépendances
+- `rollbackCommit(commitId)` : Rollback avec gestion des dépendances inverses
+- `verifyConsistency()` : Vérifier la cohérence du log
+- `cleanup(beforeDate)` : Nettoyer les entrées anciennes
+
+**Fichiers** :
+- `.shared-state/commit-log/*.json` : Entrées du log
+- `.shared-state/commit-log/state.json` : État du commit log
+- `.shared-state/commit-log/locks/` : Verrouillage
+
+**Emplacement** : `mcps/internal/servers/roo-state-manager/src/services/roosync/CommitLogService.ts`
+
+**Tests** : 40+ tests (unitaires + intégration)
+
+**Référence** : [Rapport T3.15c](../suivi/RooSync/Archives/T3.15c_RAPPORT_COMPLETION.md)
+
 ---
 
 ## 3. Outils MCP

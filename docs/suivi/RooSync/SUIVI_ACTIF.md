@@ -1,23 +1,41 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-18 (16h - Consolidation réseau)
+**Dernière mise à jour:** 2026-01-18 (17h15 - Tour de sync)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
-### 2026-01-18 - Consolidation Tests E2E ✅
+### 2026-01-18 (17h) - Tour de Sync + T3.15c ✅
+
+**Rapport reçu (myia-po-2024) :**
+- **T3.15c** : CommitLogService implémenté à 100%
+- 40+ tests créés (unitaires + intégration)
+- Commits: `5fbe72c` (submodule), `1421b415` (main)
+- Documentation complète livrée
+
+**Git sync :** 6 commits récupérés (fast-forward)
+- `1421b415` docs(T3.15c): Met à jour documentation CommitLogService
+- `a4b615c3` chore: Update mcps/internal submodule Bug #322 fix
+
+**Tests :** 1041 PASS / 5 skip (0 fail) ✅
+
+**Coordination :**
+- Réponse envoyée à myia-po-2024 (ACK + prochaine tâche #288)
+- Instructions envoyées à myia-po-2023 (Deploy #323)
+
+**⚠️ Point attention :** Submodule a des modifications locales (travail Roo sur mapping inventaire)
+
+---
+
+### 2026-01-18 (AM) - Consolidation Tests E2E ✅
 
 **Tâches complétées par le réseau :**
 - **T2.20** (myia-web1) : Tests unitaires manquants - 327 tests ajoutés
 - **T2.21** (myia-po-2026) : Tests E2E Compare→Validate→Apply - 6/6 PASS
 - **T2.23** (myia-po-2024 Roo) : Tests gestion conflits - 14 tests, 60/62 PASS
 - **#324** (myia-po-2024 Claude) : Deploy v2.5.0 validé
-
-**Git :** `ccf3623` (SUBMODULE_WORKFLOW.md ajouté)
-**Submodule :** `032d703`
-**Tests :** 1311 PASS / 8 skip
 
 **Protocole affiné :**
 - `[ASSIGN]`, `[ACK]`, `[DONE]`, `[BLOCKED]`
@@ -165,13 +183,13 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | ~58/77 DONE (~75%) |
-| Tests RooSync | 1311/1319 PASS (99.4%) |
-| Tests échecs | 8 skip (Windows Vitest) |
+| GitHub Project #67 | 69/76 DONE (90.8%) |
+| Tests RooSync | 1041 PASS / 5 skip |
 | Version RooSync | v2.3.0 |
 | Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `ccf3623` |
+| Git HEAD | `1421b415` |
+| En cours | Mapping inventaire (Roo) |
 
 ---
 
