@@ -14,20 +14,22 @@
 # - Set-StrictMode pour détecter les erreurs de typage
 # - Utilisation de [hashtable] explicite au lieu de PSObject
 # - Ajout de timeouts pour éviter les blocages
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
 
 param(
     [Parameter(Mandatory=$false)]
     [string]$MachineId = $env:COMPUTERNAME,
 
     [Parameter(Mandatory=$false)]
-    [string]$OutputPath
+    [string]$OutputPath = ""
 )
+
+# CORRECTION: Set-StrictMode APRÈS le bloc param() pour éviter l'erreur "variable non définie"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 # Définir OutputPath avec chemin absolu basé sur ROOSYNC_SHARED_PATH si non fourni
 # CORRECTION SDDD : Utiliser ROOSYNC_SHARED_PATH depuis .env pour RooSync
-if (-not $OutputPath) {
+if ([string]::IsNullOrEmpty($OutputPath)) {
     $sharedStatePath = $env:ROOSYNC_SHARED_PATH
     if (-not $sharedStatePath) {
         Write-Error "ERREUR CRITIQUE: ROOSYNC_SHARED_PATH n'est pas définie. Veuillez configurer cette variable d'environnement dans le fichier .env."
@@ -41,7 +43,8 @@ if (-not $OutputPath) {
 }
 
 # Configuration des chemins
-$RooExtensionsPath = Resolve-Path (Join-Path $PSScriptRoot "..\..")
+# CORRECTION: Convertir Resolve-Path en chaîne avec .Path pour éviter l'objet PowerShell complet
+$RooExtensionsPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $McpSettingsPath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
 $RooConfigPath = "$RooExtensionsPath\roo-config"
 $ScriptsPath = "$RooExtensionsPath\scripts"
