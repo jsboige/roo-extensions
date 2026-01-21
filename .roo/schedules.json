@@ -1,3 +1,55 @@
 {
-  "schedules": []
+  "schedules": [
+    {
+      "id": "daily-orchestration",
+      "name": "Daily Roo Environment Orchestration",
+      "description": "Orchestration quotidienne automatique avec synchronisation Git, tests, et auto-amélioration",
+      "enabled": true,
+      "trigger": {
+        "type": "daily",
+        "time": "06:00",
+        "timezone": "Europe/Paris"
+      },
+      "action": {
+        "type": "script",
+        "path": "roo-config/scheduler/orchestration-engine.ps1",
+        "arguments": [
+          "-ConfigPath", "roo-config/scheduler/daily-orchestration.json",
+          "-LogLevel", "INFO"
+        ]
+      },
+      "retry": {
+        "enabled": true,
+        "max_attempts": 3,
+        "delay_minutes": 15
+      },
+      "notifications": {
+        "on_success": false,
+        "on_failure": true,
+        "on_escalation": true,
+        "methods": ["intercom", "log"]
+      },
+      "escalation": {
+        "enabled": true,
+        "level_3_trigger": "critical_phase_failure",
+        "claude_notification": true,
+        "intercom_path": ".claude/local/INTERCOM-myia-po-2023.md"
+      },
+      "monitoring": {
+        "track_metrics": true,
+        "metrics_path": "roo-config/scheduler/metrics/",
+        "alert_on_anomalies": true
+      }
+    }
+  ],
+  "global_settings": {
+    "max_concurrent_schedules": 1,
+    "log_retention_days": 90,
+    "enable_self_healing": true,
+    "intercom_integration": {
+      "enabled": true,
+      "check_before_execution": true,
+      "report_after_execution": true
+    }
+  }
 }

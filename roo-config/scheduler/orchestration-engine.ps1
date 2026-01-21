@@ -25,6 +25,9 @@ $Global:RooOrchestrationConfig = @{
 Set-Location $Global:RooOrchestrationConfig.BasePath
 $ConfigFullPath = Join-Path $Global:RooOrchestrationConfig.BasePath $ConfigPath
 
+# Import du module d'escalade Claude (Level 3)
+. (Join-Path $Global:RooOrchestrationConfig.BasePath "roo-config/scheduler/claude-escalation.ps1")
+
 # ============================================================================
 # FONCTIONS UTILITAIRES
 # ============================================================================
@@ -725,12 +728,30 @@ function Start-DailyOrchestration {
         else {
             $executionResult.status = "failure"
         }
-        
+
         Write-OrchestrationLog "Orchestration terminée avec le statut: $($executionResult.status)" -Level "INFO"
+
+        # Escalade Level 3 si échec critique
+        if ($executionResult.status -in @("failure", "error")) {
+            Write-OrchestrationLog "Vérification de la nécessité d'escalade Level 3..." -Level "WARN"
+            $escalationTriggered = Invoke-ClaudeEscalation -ExecutionResult $executionResult
+
+            if ($escalationTriggered) {
+                Write-OrchestrationLog "✅ Escalade Level 3 déclenchée - Claude Code invoqué" -Level "WARN"
+            }
+        }
     }
     catch {
         $executionResult.status = "error"
         Write-OrchestrationLog "Erreur critique dans l'orchestration: $($_.Exception.Message)" -Level "CRITICAL"
+
+        # Escalade Level 3 en cas d'erreur critique
+        try {
+            Invoke-ClaudeEscalation -ExecutionResult $executionResult
+        }
+        catch {
+            Write-OrchestrationLog "Impossible de déclencher l'escalade: $($_.Exception.Message)" -Level "ERROR"
+        }
     }
     finally {
         $executionResult.end_time = Get-Date
