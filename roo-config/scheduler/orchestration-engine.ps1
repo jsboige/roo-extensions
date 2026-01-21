@@ -33,7 +33,7 @@ Set-Location $Global:RooOrchestrationConfig.BasePath
 $ConfigFullPath = Join-Path $Global:RooOrchestrationConfig.BasePath $ConfigPath
 
 # Import du module d'escalade Claude (Level 3)
-. (Join-Path $Global:RooOrchestrationConfig.BasePath "roo-config/scheduler/claude-escalation.ps1")
+. (Join-Path $Global:RooOrchestrationConfig.BasePath "roo-config/scheduler/scripts/modules/claude-escalation.ps1")
 
 # ============================================================================
 # FONCTIONS UTILITAIRES

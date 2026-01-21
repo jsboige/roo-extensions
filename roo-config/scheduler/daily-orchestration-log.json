@@ -35,3 +35,201 @@
 {"data":{},"message":"Phases réussies: 5","timestamp":"2025-05-25 15:48:18.601","level":"INFO","phase":"SYSTEM","execution_id":"03f861b2-e36e-410b-a6f6-ad036f3c65a2"}
 {"data":{},"message":"Phases échouées: 0","timestamp":"2025-05-25 15:48:18.606","level":"INFO","phase":"SYSTEM","execution_id":"03f861b2-e36e-410b-a6f6-ad036f3c65a2"}
 {"data":{},"message":"=== FIN DE L\u0027ORCHESTRATION ===","timestamp":"2025-05-25 15:48:18.610","level":"INFO","phase":"SYSTEM","execution_id":"03f861b2-e36e-410b-a6f6-ad036f3c65a2"}
+{"message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","timestamp":"2026-01-22 00:30:55.305","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"Erreur lors du chargement de la configuration: Fichier de configuration non trouvé: d:\\roo-extensions\\roo-config\\scheduler\\daily-orchestration.json","timestamp":"2026-01-22 00:30:55.326","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"ERROR","phase":"SYSTEM"}
+{"message":"Erreur critique dans l'orchestration: Fichier de configuration non trouvé: d:\\roo-extensions\\roo-config\\scheduler\\daily-orchestration.json","timestamp":"2026-01-22 00:30:55.358","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"CRITICAL","phase":"SYSTEM"}
+{"message":"Impossible de déclencher l'escalade: The term 'Invoke-ClaudeEscalation' is not recognized as a name of a cmdlet, function, script file, or executable program.\r\nCheck the spelling of the name, or if a path was included, verify that the path is correct and try again.","timestamp":"2026-01-22 00:30:55.407","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"ERROR","phase":"SYSTEM"}
+{"message":"Métriques sauvegardées","timestamp":"2026-01-22 00:30:55.432","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"DEBUG","phase":"SYSTEM"}
+{"message":"=== RAPPORT FINAL ===","timestamp":"2026-01-22 00:30:55.449","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"Durée totale: 0.26 secondes","timestamp":"2026-01-22 00:30:55.481","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"Phases exécutées: 0","timestamp":"2026-01-22 00:30:55.511","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"Phases réussies: 0","timestamp":"2026-01-22 00:30:55.569","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"Phases échouées: 0","timestamp":"2026-01-22 00:30:55.608","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"message":"=== FIN DE L'ORCHESTRATION ===","timestamp":"2026-01-22 00:30:55.649","data":{},"execution_id":"ed618955-d0e6-4734-92bf-2cd29372cefc","level":"INFO","phase":"SYSTEM"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.395"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Configuration chargée avec succès","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.415"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Initialisation de l'environnement d'orchestration","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.429"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Répertoire créé: roo-config/scheduler/logs","data":{},"level":"DEBUG","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.451"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Répertoire créé: roo-config/scheduler/history","data":{},"level":"DEBUG","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.466"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Préparation de la phase: diagnostic","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:19.487"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Début de la phase: diagnostic","data":{},"level":"INFO","phase":"diagnostic","timestamp":"2026-01-22 00:31:19.510"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: git_health_check","data":{},"level":"DEBUG","phase":"diagnostic","timestamp":"2026-01-22 00:31:19.539"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: network_connectivity","data":{},"level":"DEBUG","phase":"diagnostic","timestamp":"2026-01-22 00:31:19.878"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: critical_files_validation","data":{},"level":"DEBUG","phase":"diagnostic","timestamp":"2026-01-22 00:31:23.917"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phase terminée avec succès: diagnostic","data":{},"level":"INFO","phase":"diagnostic","timestamp":"2026-01-22 00:31:23.982"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Préparation de la phase: synchronization","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:24.034"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Début de la phase: synchronization","data":{},"level":"INFO","phase":"synchronization","timestamp":"2026-01-22 00:31:24.036"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: git_sync","data":{},"level":"DEBUG","phase":"synchronization","timestamp":"2026-01-22 00:31:24.050"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: post_sync_validation","data":{},"level":"DEBUG","phase":"synchronization","timestamp":"2026-01-22 00:31:24.068"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phase terminée avec succès: synchronization","data":{},"level":"INFO","phase":"synchronization","timestamp":"2026-01-22 00:31:24.277"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Préparation de la phase: testing","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:24.281"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Début de la phase: testing","data":{},"level":"INFO","phase":"testing","timestamp":"2026-01-22 00:31:24.301"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: mcp_tests","data":{},"level":"DEBUG","phase":"testing","timestamp":"2026-01-22 00:31:24.324"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: config_validation","data":{},"level":"DEBUG","phase":"testing","timestamp":"2026-01-22 00:31:29.145"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phase terminée avec succès: testing","data":{},"level":"INFO","phase":"testing","timestamp":"2026-01-22 00:31:30.364"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Préparation de la phase: cleanup","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:30.367"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Début de la phase: cleanup","data":{},"level":"INFO","phase":"cleanup","timestamp":"2026-01-22 00:31:30.386"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: log_cleanup","data":{},"level":"DEBUG","phase":"cleanup","timestamp":"2026-01-22 00:31:30.409"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: temp_cleanup","data":{},"level":"DEBUG","phase":"cleanup","timestamp":"2026-01-22 00:31:30.473"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phase terminée avec succès: cleanup","data":{},"level":"INFO","phase":"cleanup","timestamp":"2026-01-22 00:31:37.949"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Préparation de la phase: improvement","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:37.951"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Début de la phase: improvement","data":{},"level":"INFO","phase":"improvement","timestamp":"2026-01-22 00:31:37.973"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: performance_analysis","data":{},"level":"DEBUG","phase":"improvement","timestamp":"2026-01-22 00:31:37.995"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Exécution de la tâche: parameter_optimization","data":{},"level":"DEBUG","phase":"improvement","timestamp":"2026-01-22 00:31:38.041"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phase terminée avec succès: improvement","data":{},"level":"INFO","phase":"improvement","timestamp":"2026-01-22 00:31:38.067"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Orchestration terminée avec le statut: success","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.119"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Métriques sauvegardées","data":{},"level":"DEBUG","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.185"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"=== RAPPORT FINAL ===","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.187"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Durée totale: 18.88 secondes","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.217"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phases exécutées: 5","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.236"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phases réussies: 5","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.258"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"Phases échouées: 0","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.289"}
+{"execution_id":"8c4d80f3-aeaa-4bc9-980e-f4f390871d09","message":"=== FIN DE L'ORCHESTRATION ===","data":{},"level":"INFO","phase":"SYSTEM","timestamp":"2026-01-22 00:31:38.324"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.143","message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.194","message":"Configuration chargée avec succès","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.196","message":"Initialisation de l'environnement d'orchestration","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.236","message":"Préparation de la phase: diagnostic","data":{},"level":"INFO"}
+{"phase":"diagnostic","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.249","message":"Début de la phase: diagnostic","data":{},"level":"INFO"}
+{"phase":"diagnostic","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.276","message":"Exécution de la tâche: git_health_check","data":{},"level":"DEBUG"}
+{"phase":"diagnostic","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:50.532","message":"Exécution de la tâche: network_connectivity","data":{},"level":"DEBUG"}
+{"phase":"diagnostic","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.463","message":"Exécution de la tâche: critical_files_validation","data":{},"level":"DEBUG"}
+{"phase":"diagnostic","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.484","message":"Phase terminée avec succès: diagnostic","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.508","message":"Préparation de la phase: synchronization","data":{},"level":"INFO"}
+{"phase":"synchronization","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.516","message":"Début de la phase: synchronization","data":{},"level":"INFO"}
+{"phase":"synchronization","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.534","message":"Exécution de la tâche: git_sync","data":{},"level":"DEBUG"}
+{"phase":"synchronization","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.561","message":"Exécution de la tâche: post_sync_validation","data":{},"level":"DEBUG"}
+{"phase":"synchronization","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.792","message":"Phase terminée avec succès: synchronization","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.796","message":"Préparation de la phase: testing","data":{},"level":"INFO"}
+{"phase":"testing","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.815","message":"Début de la phase: testing","data":{},"level":"INFO"}
+{"phase":"testing","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:52.837","message":"Exécution de la tâche: mcp_tests","data":{},"level":"DEBUG"}
+{"phase":"testing","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.594","message":"Exécution de la tâche: config_validation","data":{},"level":"DEBUG"}
+{"phase":"testing","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.635","message":"Phase terminée avec succès: testing","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.637","message":"Préparation de la phase: cleanup","data":{},"level":"INFO"}
+{"phase":"cleanup","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.674","message":"Début de la phase: cleanup","data":{},"level":"INFO"}
+{"phase":"cleanup","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.699","message":"Exécution de la tâche: log_cleanup","data":{},"level":"DEBUG"}
+{"phase":"cleanup","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:34:57.745","message":"Exécution de la tâche: temp_cleanup","data":{},"level":"DEBUG"}
+{"phase":"cleanup","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.551","message":"Phase terminée avec succès: cleanup","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.554","message":"Préparation de la phase: improvement","data":{},"level":"INFO"}
+{"phase":"improvement","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.572","message":"Début de la phase: improvement","data":{},"level":"INFO"}
+{"phase":"improvement","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.594","message":"Exécution de la tâche: performance_analysis","data":{},"level":"DEBUG"}
+{"phase":"improvement","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.625","message":"Exécution de la tâche: parameter_optimization","data":{},"level":"DEBUG"}
+{"phase":"improvement","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.634","message":"Phase terminée avec succès: improvement","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.662","message":"Orchestration terminée avec le statut: success","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.694","message":"Métriques sauvegardées","data":{},"level":"DEBUG"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.694","message":"=== RAPPORT FINAL ===","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.717","message":"Durée totale: 15.56 secondes","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.730","message":"Phases exécutées: 5","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.747","message":"Phases réussies: 5","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.765","message":"Phases échouées: 0","data":{},"level":"INFO"}
+{"phase":"SYSTEM","execution_id":"454e1ced-da2d-494a-9194-557e74061f83","timestamp":"2026-01-22 00:35:05.788","message":"=== FIN DE L'ORCHESTRATION ===","data":{},"level":"INFO"}
+{"level":"INFO","message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:46.044","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Configuration chargée avec succès","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:46.067","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Initialisation de l'environnement d'orchestration","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:46.082","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Préparation de la phase: diagnostic","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:46.102","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Début de la phase: diagnostic","data":{},"phase":"diagnostic","timestamp":"2026-01-22 00:35:46.147","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: git_health_check","data":{},"phase":"diagnostic","timestamp":"2026-01-22 00:35:46.170","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: network_connectivity","data":{},"phase":"diagnostic","timestamp":"2026-01-22 00:35:46.435","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: critical_files_validation","data":{},"phase":"diagnostic","timestamp":"2026-01-22 00:35:47.961","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phase terminée avec succès: diagnostic","data":{},"phase":"diagnostic","timestamp":"2026-01-22 00:35:47.980","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Préparation de la phase: synchronization","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:48.001","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Début de la phase: synchronization","data":{},"phase":"synchronization","timestamp":"2026-01-22 00:35:48.016","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: git_sync","data":{},"phase":"synchronization","timestamp":"2026-01-22 00:35:48.052","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: post_sync_validation","data":{},"phase":"synchronization","timestamp":"2026-01-22 00:35:48.075","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phase terminée avec succès: synchronization","data":{},"phase":"synchronization","timestamp":"2026-01-22 00:35:48.293","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Préparation de la phase: testing","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:48.297","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Début de la phase: testing","data":{},"phase":"testing","timestamp":"2026-01-22 00:35:48.315","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: mcp_tests","data":{},"phase":"testing","timestamp":"2026-01-22 00:35:48.336","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: config_validation","data":{},"phase":"testing","timestamp":"2026-01-22 00:35:53.097","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phase terminée avec succès: testing","data":{},"phase":"testing","timestamp":"2026-01-22 00:35:53.128","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Préparation de la phase: cleanup","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:35:53.131","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Début de la phase: cleanup","data":{},"phase":"cleanup","timestamp":"2026-01-22 00:35:53.151","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: log_cleanup","data":{},"phase":"cleanup","timestamp":"2026-01-22 00:35:53.173","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: temp_cleanup","data":{},"phase":"cleanup","timestamp":"2026-01-22 00:35:53.233","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phase terminée avec succès: cleanup","data":{},"phase":"cleanup","timestamp":"2026-01-22 00:36:00.719","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Préparation de la phase: improvement","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.722","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Début de la phase: improvement","data":{},"phase":"improvement","timestamp":"2026-01-22 00:36:00.743","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: performance_analysis","data":{},"phase":"improvement","timestamp":"2026-01-22 00:36:00.776","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Exécution de la tâche: parameter_optimization","data":{},"phase":"improvement","timestamp":"2026-01-22 00:36:00.815","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phase terminée avec succès: improvement","data":{},"phase":"improvement","timestamp":"2026-01-22 00:36:00.828","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Orchestration terminée avec le statut: success","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.860","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"DEBUG","message":"Métriques sauvegardées","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.897","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"=== RAPPORT FINAL ===","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.909","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Durée totale: 14.86 secondes","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.952","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phases exécutées: 5","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:00.980","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phases réussies: 5","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:01.014","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"Phases échouées: 0","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:01.041","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","message":"=== FIN DE L'ORCHESTRATION ===","data":{},"phase":"SYSTEM","timestamp":"2026-01-22 00:36:01.070","execution_id":"f299ce3d-78b7-4669-a254-7a1120f81e10"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.736"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Configuration chargée avec succès","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.753"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Initialisation de l'environnement d'orchestration","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.775"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Préparation de la phase: diagnostic","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.807"}
+{"level":"INFO","data":{},"phase":"diagnostic","message":"Début de la phase: diagnostic","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.873"}
+{"level":"DEBUG","data":{},"phase":"diagnostic","message":"Exécution de la tâche: git_health_check","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:58.905"}
+{"level":"DEBUG","data":{},"phase":"diagnostic","message":"Exécution de la tâche: network_connectivity","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:42:59.306"}
+{"level":"DEBUG","data":{},"phase":"diagnostic","message":"Exécution de la tâche: critical_files_validation","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.230"}
+{"level":"INFO","data":{},"phase":"diagnostic","message":"Phase terminée avec succès: diagnostic","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.248"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Préparation de la phase: synchronization","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.265"}
+{"level":"INFO","data":{},"phase":"synchronization","message":"Début de la phase: synchronization","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.284"}
+{"level":"DEBUG","data":{},"phase":"synchronization","message":"Exécution de la tâche: git_sync","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.320"}
+{"level":"DEBUG","data":{},"phase":"synchronization","message":"Exécution de la tâche: post_sync_validation","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.357"}
+{"level":"INFO","data":{},"phase":"synchronization","message":"Phase terminée avec succès: synchronization","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.578"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Préparation de la phase: testing","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.581"}
+{"level":"INFO","data":{},"phase":"testing","message":"Début de la phase: testing","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.612"}
+{"level":"DEBUG","data":{},"phase":"testing","message":"Exécution de la tâche: mcp_tests","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:01.641"}
+{"level":"DEBUG","data":{},"phase":"testing","message":"Exécution de la tâche: config_validation","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.551"}
+{"level":"INFO","data":{},"phase":"testing","message":"Phase terminée avec succès: testing","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.580"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Préparation de la phase: cleanup","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.582"}
+{"level":"INFO","data":{},"phase":"cleanup","message":"Début de la phase: cleanup","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.601"}
+{"level":"DEBUG","data":{},"phase":"cleanup","message":"Exécution de la tâche: log_cleanup","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.622"}
+{"level":"DEBUG","data":{},"phase":"cleanup","message":"Exécution de la tâche: temp_cleanup","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:06.670"}
+{"level":"INFO","data":{},"phase":"cleanup","message":"Phase terminée avec succès: cleanup","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.405"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Préparation de la phase: improvement","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.407"}
+{"level":"INFO","data":{},"phase":"improvement","message":"Début de la phase: improvement","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.435"}
+{"level":"DEBUG","data":{},"phase":"improvement","message":"Exécution de la tâche: performance_analysis","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.458"}
+{"level":"DEBUG","data":{},"phase":"improvement","message":"Exécution de la tâche: parameter_optimization","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.500"}
+{"level":"INFO","data":{},"phase":"improvement","message":"Phase terminée avec succès: improvement","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.507"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Orchestration terminée avec le statut: success","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.534"}
+{"level":"DEBUG","data":{},"phase":"SYSTEM","message":"Métriques sauvegardées","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.575"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"=== RAPPORT FINAL ===","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.575"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Durée totale: 15.83 secondes","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.601"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Phases exécutées: 5","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.621"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Phases réussies: 5","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.647"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"Phases échouées: 0","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.679"}
+{"level":"INFO","data":{},"phase":"SYSTEM","message":"=== FIN DE L'ORCHESTRATION ===","execution_id":"d27caede-e509-4382-a928-75d083463e49","timestamp":"2026-01-22 00:43:14.715"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.238","message":"=== DÉBUT DE L'ORCHESTRATION QUOTIDIENNE ===","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.258","message":"Configuration chargée avec succès","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.275","message":"Initialisation de l'environnement d'orchestration","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.311","message":"Préparation de la phase: diagnostic","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.316","message":"Début de la phase: diagnostic","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"diagnostic","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.342","message":"Exécution de la tâche: git_health_check","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"diagnostic","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:21.624","message":"Exécution de la tâche: network_connectivity","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"diagnostic","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.269","message":"Exécution de la tâche: critical_files_validation","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"diagnostic","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.286","message":"Phase terminée avec succès: diagnostic","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"diagnostic","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.305","message":"Préparation de la phase: synchronization","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.312","message":"Début de la phase: synchronization","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"synchronization","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.336","message":"Exécution de la tâche: git_sync","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"synchronization","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.371","message":"Exécution de la tâche: post_sync_validation","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"synchronization","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.602","message":"Phase terminée avec succès: synchronization","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"synchronization","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.605","message":"Préparation de la phase: testing","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.629","message":"Début de la phase: testing","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"testing","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:23.676","message":"Exécution de la tâche: mcp_tests","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"testing","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.472","message":"Exécution de la tâche: config_validation","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"testing","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.504","message":"Phase terminée avec succès: testing","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"testing","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.509","message":"Préparation de la phase: cleanup","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.531","message":"Début de la phase: cleanup","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"cleanup","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.557","message":"Exécution de la tâche: log_cleanup","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"cleanup","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:28.600","message":"Exécution de la tâche: temp_cleanup","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"cleanup","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.090","message":"Phase terminée avec succès: cleanup","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"cleanup","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.093","message":"Préparation de la phase: improvement","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.116","message":"Début de la phase: improvement","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"improvement","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.136","message":"Exécution de la tâche: performance_analysis","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"improvement","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.175","message":"Exécution de la tâche: parameter_optimization","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"improvement","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.186","message":"Phase terminée avec succès: improvement","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"improvement","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.203","message":"Orchestration terminée avec le statut: success","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.245","message":"Métriques sauvegardées","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"DEBUG"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.246","message":"=== RAPPORT FINAL ===","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.271","message":"Durée totale: 15 secondes","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.302","message":"Phases exécutées: 5","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.337","message":"Phases réussies: 5","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.376","message":"Phases échouées: 0","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}
+{"data":{},"timestamp":"2026-01-22 00:43:36.398","message":"=== FIN DE L'ORCHESTRATION ===","execution_id":"39e7936b-9f2c-4bbb-bc4c-4c978d368fc0","phase":"SYSTEM","level":"INFO"}

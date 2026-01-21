@@ -13,39 +13,77 @@ RooScheduler est un système d'orchestration automatique pour l'environnement Ro
 ## Architecture
 
 ```
-.roo/schedules.json                      # Configuration des tâches planifiées
+.roo/
+├── schedules.json                       # Configuration machine (généré par deploy)
+└── schedules.template.json              # Template pour toutes machines
+
 roo-config/scheduler/
-├── orchestration-engine.ps1             # Moteur principal
+├── orchestration-engine.ps1             # Point d'entrée principal
 ├── daily-orchestration.json             # Configuration des phases
-├── claude-escalation.ps1                # Module d'escalade Level 3
-├── setup-scheduler.ps1                  # Installation/gestion Task Scheduler
-└── logs/                                # Logs d'exécution
-    ├── diagnostic-{date}.json
-    ├── sync-{date}.json
-    ├── tests-{date}.json
-    ├── cleanup-{date}.json
-    ├── improvement-{date}.json
-    └── escalations-{yyyyMM}.json        # Historique escalades
+├── config.json                          # Configuration système
+├── README.md                            # Cette documentation
+│
+├── scripts/                             # Tous les scripts PowerShell
+│   ├── core/
+│   │   └── scheduler-manager.ps1        # Gestionnaire principal
+│   ├── install/
+│   │   ├── deploy-scheduler.ps1         # Déploiement par machine
+│   │   ├── setup-scheduler.ps1          # Task Scheduler Windows
+│   │   ├── install-scheduler.ps1        # Installation complète
+│   │   └── deploy-complete-system.ps1   # Déploiement système
+│   ├── modules/
+│   │   ├── claude-escalation.ps1        # Escalade Level 3 → Claude
+│   │   └── self-improvement.ps1         # Auto-optimisation
+│   ├── tests/
+│   │   ├── test-daily-orchestration.ps1 # Tests complets
+│   │   ├── test-complete-system.ps1     # Tests système
+│   │   └── test-orchestration-simple.ps1# Tests rapides
+│   └── utils/
+│       ├── update-system.ps1            # Mises à jour
+│       └── validate-sync.ps1            # Validation sync
+│
+├── logs/                                # Logs d'exécution
+├── metrics/                             # Métriques quotidiennes
+└── history/                             # Historique améliorations
 ```
 
 ## Installation
 
-### 1. Installer la tâche Windows Task Scheduler
+### 1. Déployer la configuration (chaque machine)
 
-**Option A : Installation manuelle (recommandée)**
+Après un `git pull`, chaque machine doit exécuter :
+
+```powershell
+cd roo-config/scheduler
+.\scripts\install\deploy-scheduler.ps1 -Action deploy
+```
+
+Cela génère `.roo/schedules.json` à partir du template avec les chemins spécifiques à la machine.
+
+**Autres actions disponibles :**
+
+```powershell
+.\scripts\install\deploy-scheduler.ps1 -Action status   # Vérifier l'état
+.\scripts\install\deploy-scheduler.ps1 -Action test     # Tester l'orchestration (dry-run)
+.\scripts\install\deploy-scheduler.ps1 -Action disable  # Désactiver
+```
+
+### 2. Installer la tâche Windows Task Scheduler (optionnel)
+
+**Option A : Installation via script**
 
 1. Ouvrir PowerShell **en tant qu'Administrateur**
 2. Naviguer vers le répertoire :
    ```powershell
-   cd d:\Dev\roo-extensions\roo-config\scheduler
+   cd roo-config/scheduler
    ```
 3. Exécuter :
    ```powershell
-   .\setup-scheduler.ps1 -Action install
+   .\scripts\install\setup-scheduler.ps1 -Action install
    ```
 4. Vérifier l'installation :
    ```powershell
-   .\setup-scheduler.ps1 -Action status
+   .\scripts\install\setup-scheduler.ps1 -Action status
    ```
 
 **Option B : Installation via Gestionnaire des Tâches Windows**
@@ -97,8 +135,8 @@ cat .roo\schedules.json | ConvertFrom-Json
 
 Puis mettre à jour la tâche Windows :
 ```powershell
-.\setup-scheduler.ps1 -Action uninstall
-.\setup-scheduler.ps1 -Action install -ScheduleInterval 30
+.\scripts\install\setup-scheduler.ps1 -Action uninstall
+.\scripts\install\setup-scheduler.ps1 -Action install -ScheduleInterval 30
 ```
 
 ### Activer/Désactiver l'orchestration
@@ -111,7 +149,7 @@ Disable-ScheduledTask -TaskName "RooEnvironmentSync"
 Enable-ScheduledTask -TaskName "RooEnvironmentSync"
 
 # Désinstaller complètement
-.\setup-scheduler.ps1 -Action uninstall
+.\scripts\install\setup-scheduler.ps1 -Action uninstall
 ```
 
 ## Escalade Level 3 - Claude Code
@@ -213,13 +251,13 @@ Fichiers :
 
 ```powershell
 # Vérifier le statut
-.\setup-scheduler.ps1 -Action status
+.\scripts\install\setup-scheduler.ps1 -Action status
 
 # Consulter les logs Windows
 Get-ScheduledTask -TaskName "RooEnvironmentSync" | Get-ScheduledTaskInfo
 
 # Tester manuellement
-.\setup-scheduler.ps1 -Action test
+.\scripts\install\setup-scheduler.ps1 -Action test
 ```
 
 ### Erreur d'escalade Claude
@@ -247,7 +285,7 @@ cat roo-config\scheduler\logs\sync-$(Get-Date -Format 'yyyy-MM-dd').json
 
 ```powershell
 # Afficher le statut
-.\setup-scheduler.ps1 -Action status
+.\scripts\install\setup-scheduler.ps1 -Action status
 
 # Tester sans exécuter (dry-run)
 .\orchestration-engine.ps1 -DryRun -Verbose
@@ -262,7 +300,7 @@ cat "roo-config/scheduler/metrics/daily-metrics-$(Get-Date -Format 'yyyyMMdd').j
 cat "roo-config/scheduler/logs/escalations-$(Get-Date -Format 'yyyyMM').json" | ConvertFrom-Json
 
 # Désinstaller
-.\setup-scheduler.ps1 -Action uninstall
+.\scripts\install\setup-scheduler.ps1 -Action uninstall
 ```
 
 ## Sécurité

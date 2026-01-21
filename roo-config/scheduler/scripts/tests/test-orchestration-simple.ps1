@@ -28,7 +28,7 @@ $files = @(
     @{ Path = ".roo/schedules.json"; Name = "Fichier de planification" },
     @{ Path = "roo-config/scheduler/daily-orchestration.json"; Name = "Configuration d'orchestration" },
     @{ Path = "roo-config/scheduler/orchestration-engine.ps1"; Name = "Moteur d'orchestration" },
-    @{ Path = "roo-config/scheduler/self-improvement.ps1"; Name = "Script d'auto-amelioration" }
+    @{ Path = "roo-config/scheduler/scripts/modules/self-improvement.ps1"; Name = "Script d'auto-amelioration" }
 )
 
 $filesOk = 0

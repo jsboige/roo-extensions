@@ -304,10 +304,10 @@ function Test-SelfImprovementSystem {
     $improvementTests = @()
     
     # Test de présence du script d'auto-amélioration
-    $improvementTests += Test-FileExists -FilePath "roo-config/scheduler/self-improvement.ps1" -Description "Script d'auto-amélioration"
+    $improvementTests += Test-FileExists -FilePath "roo-config/scheduler/scripts/modules/self-improvement.ps1" -Description "Script d'auto-amélioration"
     
     # Test de syntaxe PowerShell
-    $improvementTests += Test-PowerShellSyntax -FilePath "roo-config/scheduler/self-improvement.ps1" -Description "Syntaxe du script d'auto-amélioration"
+    $improvementTests += Test-PowerShellSyntax -FilePath "roo-config/scheduler/scripts/modules/self-improvement.ps1" -Description "Syntaxe du script d'auto-amélioration"
     
     # Test de création des répertoires nécessaires
     $requiredDirs = @(
