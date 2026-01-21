@@ -8,12 +8,19 @@ param(
     [string]$ConfigPath = "roo-config/scheduler/daily-orchestration.json",
     [switch]$DryRun = $false,
     [switch]$Verbose = $false,
-    [string]$LogLevel = "INFO"
+    [string]$LogLevel = "INFO",
+    [string]$BasePath = ""  # Chemin racine du dépôt (auto-détecté si vide)
 )
+
+# Auto-détection du chemin racine si non spécifié
+if (-not $BasePath) {
+    # Remonter de 2 niveaux depuis roo-config/scheduler/ vers la racine
+    $BasePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path.TrimEnd('\', '/')
+}
 
 # Configuration globale
 $Global:RooOrchestrationConfig = @{
-    BasePath = "d:/Dev/roo-extensions"
+    BasePath = $BasePath
     ExecutionId = [System.Guid]::NewGuid().ToString()
     StartTime = Get-Date
     LogLevel = $LogLevel

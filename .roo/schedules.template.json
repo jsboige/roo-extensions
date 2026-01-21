@@ -33,7 +33,7 @@
         "enabled": true,
         "level_3_trigger": "critical_phase_failure",
         "claude_notification": true,
-        "intercom_path": ".claude/local/INTERCOM-myia-po-2023.md"
+        "intercom_path": ".claude/local/INTERCOM-${MACHINE_NAME}.md"
       },
       "monitoring": {
         "track_metrics": true,
@@ -51,5 +51,6 @@
       "check_before_execution": true,
       "report_after_execution": true
     }
-  }
+  },
+  "_template_note": "Copier ce fichier vers schedules.json et remplacer ${MACHINE_NAME} par le nom de la machine"
 }

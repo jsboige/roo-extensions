@@ -9,12 +9,18 @@ param(
     [string]$ConfigPath = "roo-config/scheduler/daily-orchestration.json",
     [int]$AnalysisWindowDays = 30,
     [switch]$ApplyOptimizations = $true,
-    [switch]$Verbose = $false
+    [switch]$Verbose = $false,
+    [string]$BasePath = ""  # Chemin racine du dépôt (auto-détecté si vide)
 )
+
+# Auto-détection du chemin racine si non spécifié
+if (-not $BasePath) {
+    $BasePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path.TrimEnd('\', '/')
+}
 
 # Configuration globale
 $Global:SelfImprovementConfig = @{
-    BasePath = "d:/roo-extensions"
+    BasePath = $BasePath
     AnalysisId = [System.Guid]::NewGuid().ToString()
     StartTime = Get-Date
     Verbose = $Verbose

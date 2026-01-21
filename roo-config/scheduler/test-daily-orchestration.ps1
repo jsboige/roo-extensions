@@ -10,12 +10,18 @@ param(
     [switch]$TestOrchestrationEngine = $true,
     [switch]$TestSelfImprovement = $true,
     [switch]$GenerateTestData = $false,
-    [switch]$Verbose = $false
+    [switch]$Verbose = $false,
+    [string]$BasePath = ""  # Chemin racine du dépôt (auto-détecté si vide)
 )
+
+# Auto-détection du chemin racine si non spécifié
+if (-not $BasePath) {
+    $BasePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path.TrimEnd('\', '/')
+}
 
 # Configuration globale
 $Global:TestConfig = @{
-    BasePath = "d:/roo-extensions"
+    BasePath = $BasePath
     TestId = [System.Guid]::NewGuid().ToString()
     StartTime = Get-Date
     Verbose = $Verbose

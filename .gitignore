@@ -87,7 +87,10 @@ sync-config.ref.json.backup.*
 # Fichiers spécifiques à Roo
 .roo-cache/
 .roo-logs/
-.roo/
+
+# .roo/ - fichiers machine-specific ignorés, templates trackés
+.roo/schedules.json
+!.roo/schedules.template.json
 
 # Fichiers de présence RooSync
 RooSync/presence/
