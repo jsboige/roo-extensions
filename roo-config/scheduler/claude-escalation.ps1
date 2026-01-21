@@ -359,7 +359,11 @@ Analyse la situation et prends les mesures correctives nécessaires.
 }
 
 # ============================================================================
-# EXPORT DES FONCTIONS
+# FONCTIONS EXPORTÉES (via dot-sourcing)
 # ============================================================================
-
-Export-ModuleMember -Function Invoke-ClaudeEscalation, Test-CriticalPhaseFailure, Format-EscalationMessage, Save-EscalationRecord
+# Ce fichier est chargé via dot-sourcing (.), pas comme module.
+# Les fonctions suivantes sont disponibles après chargement :
+# - Invoke-ClaudeEscalation
+# - Test-CriticalPhaseFailure
+# - Format-EscalationMessage
+# - Save-EscalationRecord

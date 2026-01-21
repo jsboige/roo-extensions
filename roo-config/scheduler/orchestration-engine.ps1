@@ -13,7 +13,7 @@ param(
 
 # Configuration globale
 $Global:RooOrchestrationConfig = @{
-    BasePath = "d:/roo-extensions"
+    BasePath = "d:/Dev/roo-extensions"
     ExecutionId = [System.Guid]::NewGuid().ToString()
     StartTime = Get-Date
     LogLevel = $LogLevel
