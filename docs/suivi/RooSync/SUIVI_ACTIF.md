@@ -49,7 +49,7 @@
 - **Skill sync-tour** avec 7 phases dans `.claude/skills/`
 
 **Agents créés:**
-- **Common**: code-explorer, github-tracker, intercom-handler, git-sync, test-runner, roosync-coordinator, task-planner
+- **Common**: code-explorer, github-tracker, intercom-handler, git-sync, test-runner, task-planner
 - **Coordinator (myia-ai-01)**: roosync-hub, dispatch-manager
 - **Executor (autres)**: roosync-reporter, task-worker
 

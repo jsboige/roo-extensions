@@ -33,7 +33,8 @@
   - `intercom-handler` - Local Roo ↔ Claude communication
   - `code-explorer` - Codebase exploration
   - `task-worker` - Autonomous task execution
-  - `roosync-coordinator` - Inter-machine messaging
+  - `roosync-hub` - Inter-machine messaging (coordinator)
+  - `roosync-reporter` - Inter-machine messaging (executors)
 - **[skills/](skills/)** - Auto-invoked skills
   - `sync-tour` - 8-phase sync tour (INTERCOM → Messages → Git → Tests → GitHub → Planning → Responses)
 - **[commands/](commands/)** - Slash commands

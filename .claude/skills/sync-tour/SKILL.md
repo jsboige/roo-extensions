@@ -62,7 +62,7 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 
 ## Phase 1 : Collecte des Messages RooSync
 
-**Agent :** `roosync-coordinator`
+**Agent :** `roosync-hub` (coordinateur) ou `roosync-reporter` (exécutants)
 
 ### Actions
 1. Lire tous les messages non-lus avec `roosync_read_inbox`
@@ -284,7 +284,7 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 
 ## Phase 7 : Réponses RooSync
 
-**Agent :** `roosync-coordinator` (ou gestion directe)
+**Agent :** `roosync-hub` (coordinateur) ou `roosync-reporter` (exécutants) - ou gestion directe
 
 ### Actions
 

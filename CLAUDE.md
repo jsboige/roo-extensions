@@ -362,8 +362,13 @@ Qu'en pensez-vous? Est-ce vraiment nécessaire?
 ├── CLAUDE_CODE_GUIDE.md   # Méthodologie SDDD complète
 ├── MCP_SETUP.md           # Guide configuration MCP
 ├── INTERCOM_PROTOCOL.md   # Protocole communication locale
-├── agents/                # 🆕 Subagents spécialisés (7 agents Opus)
-│   ├── roosync-coordinator.md  # Messages RooSync
+├── agents/                # 🆕 Subagents spécialisés
+│   ├── coordinator/
+│   │   ├── roosync-hub.md           # Messages RooSync (coordinateur)
+│   │   └── dispatch-manager.md      # Assignment tâches
+│   ├── executor/
+│   │   ├── roosync-reporter.md      # Messages RooSync (exécutants)
+│   │   └── task-worker.md           # Exécution tâches
 │   ├── github-tracker.md       # GitHub Project #67
 │   ├── git-sync.md             # Pull/merge conservatif
 │   ├── test-runner.md          # Build + tests
