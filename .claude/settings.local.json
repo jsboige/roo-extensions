@@ -29,18 +29,12 @@
       "mcp__roo-state-manager__roosync_send_message",
       "Skill(sync-tour)",
       "Skill(sync-tour:*)",
+      "Bash(git pull:*)",
       "mcp__roo-state-manager__roosync_get_machine_inventory",
-      "Bash(findstr:*)",
-      "Bash(cmd /c \"findstr /i \"\"claude mcp\"\" \"\"%APPDATA%\\\\Code\\\\User\\\\settings.json\"\" 2>nul || echo No matches or file not found\")",
-      "Bash(Get-Content \"$env:APPDATA\\\\Code\\\\User\\\\globalStorage\\\\anthropic.claude-code\\\\mcp.json\" -ErrorAction SilentlyContinue)",
-      "Bash(Select-String -Pattern \"claude|mcp\" -Context 2)",
-      "Bash(dir:*)",
-      "Bash(xargs cat:*)",
-      "WebFetch(domain:developercommunity.visualstudio.com)"
+      "mcp__roo-state-manager__roosync_collect_config",
+      "Bash(npx vitest:*)"
     ],
     "mode": "auto-approve"
   },
-  "enableAllProjectMcpServers": false,
-  "enabledMcpjsonServers": [],
   "outputStyle": "default"
 }

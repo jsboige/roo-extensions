@@ -1,0 +1,93 @@
+{
+  "version": "1.0.0",
+  "description": "Critères de sélection entre modes simples et complexes pour SDDD",
+  "lastUpdated": "2026-01-21",
+
+  "levels": {
+    "simple": {
+      "description": "Mode pour tâches directes, sans ambiguïté",
+      "criteria": [
+        "Tâche clairement définie avec un seul objectif",
+        "Pas de dépendances externes complexes",
+        "Modification de 1-3 fichiers maximum",
+        "Pas de décision architecturale requise",
+        "Pattern existant à suivre dans le codebase",
+        "Temps estimé < 30 minutes"
+      ],
+      "examples": [
+        "Corriger un typo dans la documentation",
+        "Ajouter un champ à un fichier JSON existant",
+        "Créer un test unitaire pour une fonction existante",
+        "Mettre à jour une dépendance mineure",
+        "Ajouter un log ou un commentaire"
+      ],
+      "escalation_triggers": [
+        "Découverte d'une dépendance non documentée",
+        "Conflit avec un pattern existant",
+        "Besoin de modifier plus de 3 fichiers",
+        "Question architecturale non résolue"
+      ]
+    },
+
+    "complex": {
+      "description": "Mode pour tâches nécessitant analyse, coordination ou décisions",
+      "criteria": [
+        "Tâche avec multiples sous-objectifs",
+        "Dépendances entre composants",
+        "Modification de 4+ fichiers",
+        "Décision architecturale ou design requise",
+        "Nouveau pattern à établir",
+        "Coordination multi-agent nécessaire",
+        "Impact sur plusieurs machines"
+      ],
+      "examples": [
+        "Implémenter une nouvelle fonctionnalité MCP",
+        "Refactorer un module existant",
+        "Résoudre un bug affectant plusieurs composants",
+        "Créer une nouvelle stratégie de synchronisation",
+        "Modifier le workflow SDDD"
+      ],
+      "de_escalation_triggers": [
+        "Sous-tâche isolée identifiée",
+        "Pattern clair établi après analyse",
+        "Scope réduit à un seul fichier"
+      ]
+    }
+  },
+
+  "escalation_protocol": {
+    "simple_to_complex": {
+      "trigger": "Un des escalation_triggers détecté",
+      "action": "Documenter le trigger, passer en mode complex",
+      "notification": "INTERCOM ou RooSync selon contexte"
+    },
+    "complex_to_simple": {
+      "trigger": "Sous-tâche clairement définie et isolée",
+      "action": "Créer sous-tâche simple, continuer en parallèle",
+      "notification": "Optionnel - log local suffit"
+    }
+  },
+
+  "decision_tree": {
+    "question_1": {
+      "text": "La tâche modifie-t-elle plus de 3 fichiers?",
+      "yes": "complex",
+      "no": "question_2"
+    },
+    "question_2": {
+      "text": "Y a-t-il une décision architecturale à prendre?",
+      "yes": "complex",
+      "no": "question_3"
+    },
+    "question_3": {
+      "text": "La tâche nécessite-t-elle coordination avec d'autres agents?",
+      "yes": "complex",
+      "no": "question_4"
+    },
+    "question_4": {
+      "text": "Existe-t-il un pattern clair à suivre?",
+      "yes": "simple",
+      "no": "complex"
+    }
+  }
+}
