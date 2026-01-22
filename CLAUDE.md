@@ -155,44 +155,67 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 ---
 
-## ✅ État des MCPs (2026-01-09)
+## ✅ État des MCPs (2026-01-22)
+
+### Harmonisation Multi-Machines Complétée
+
+**Harmonisation H2-H7 (issues #331-#336) :**
+- ✅ H2 (#331) - jupyter/jupyter-mcp → N/A (myia-web1 sans Jupyter)
+- ✅ H4 (#333) - github-projects-mcp → Déjà déployé (configuration validée)
+- ✅ H5 (#334) - markitdown MCP → Ajouté à toutes les machines
+- 🔄 H6 (#335) - win-cli unbridled → En cours (myia-web1)
+- ✅ H7 (#336) - jupyter-mcp-old → N/A (pas de legacy config)
 
 ### myia-ai-01 ✅ OPÉRATIONNEL
 
-**github-projects-mcp** (57 outils)
-- Configuration : `~/.claude.json` (global)
-- **Statut :** ✅ Vérifié et fonctionnel
-- **Outils testés :** list_projects, get_project, get_project_items
-- **Projet :** "RooSync Multi-Agent Tasks" (#67, 29/77 DONE = 37.7%)
-- **URL :** https://github.com/users/jsboige/projects/67
+**MCPs Déployés :**
 
-**roo-state-manager** (6 outils RooSync de messagerie)
-- Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-- **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-01-09)
-- **Solution :** Wrapper intelligent qui filtre 57+ outils → 6 outils RooSync
-- **Outils disponibles :**
-  - `roosync_send_message` - Envoyer un message
-  - `roosync_read_inbox` - Lire la boîte de réception
-  - `roosync_reply_message` - Répondre à un message
-  - `roosync_get_message` - Obtenir un message complet
-  - `roosync_mark_message_read` - Marquer comme lu
-  - `roosync_archive_message` - Archiver un message
-- **Capacités :**
-  - Messagerie inter-machine via RooSync
-  - Synchronisation multi-agent
-  - 65 messages dans la boîte de réception (4 non-lus)
+1. **github-projects-mcp** (57 outils)
+   - Configuration : `~/.claude.json` (global)
+   - **Statut :** ✅ Vérifié et fonctionnel
+   - **Outils testés :** list_projects, get_project, get_project_items
+   - **Projet :** "RooSync Multi-Agent Tasks" (#67)
+   - **URL :** https://github.com/users/jsboige/projects/67
 
-### Autres machines ❌ À CONFIGURER
+2. **roo-state-manager** (6 outils RooSync de messagerie)
+   - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-01-09)
+   - **Solution :** Wrapper intelligent qui filtre 57+ outils → 6 outils RooSync
+   - **Outils disponibles :**
+     - `roosync_send_message` - Envoyer un message
+     - `roosync_read_inbox` - Lire la boîte de réception
+     - `roosync_reply_message` - Répondre à un message
+     - `roosync_get_message` - Obtenir un message complet
+     - `roosync_mark_message_read` - Marquer comme lu
+     - `roosync_archive_message` - Archiver un message
+   - **Capacités :**
+     - Messagerie inter-machine via RooSync
+     - Synchronisation multi-agent
+     - 135 messages dans la boîte de réception (1 non-lu)
 
-- myia-po-2023
-- myia-po-2024
-- myia-po-2026
-- myia-web1
+3. **markitdown** (1 outil)
+   - Configuration : `~/.claude.json` (global)
+   - **Statut :** ✅ Ajouté lors de H5 (#334)
+   - **Outil :** `convert_to_markdown` - Convertir fichiers (PDF, DOCX, etc.) en markdown
 
-**Action requise :**
-1. Lancer : `.\.claude\scripts\init-claude-code.ps1`
-2. Redémarrer VS Code complètement
-3. Créer issue GitHub : `[CLAUDE-MACHINE] Bootstrap Complete`
+### myia-web1 ✅ EN COURS D'HARMONISATION
+
+**MCPs Déployés :**
+- ✅ github-projects-mcp (57 outils)
+- ✅ roo-state-manager (6 outils RooSync)
+- ✅ markitdown (1 outil) - Ajouté le 2026-01-21
+- 🔄 win-cli (en cours de déploiement)
+
+**MCPs N/A :**
+- N/A jupyter/jupyter-mcp (machine sans Jupyter)
+- N/A jupyter-mcp-old (pas de legacy config)
+
+### Autres machines (myia-po-2023, myia-po-2024, myia-po-2026)
+
+**Statut :** ✅ Bootstrap complété, harmonisation en cours
+
+**Action :**
+- Harmonisation H2-H7 en cours de déploiement sur toutes les machines
 
 ---
 

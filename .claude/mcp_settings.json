@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "win-cli": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@simonb97/server-win-cli"],
+      "transportType": "stdio",
+      "disabled": false,
+      "alwaysAllow": [
+        "execute_command",
+        "get_command_history",
+        "ssh_execute",
+        "ssh_disconnect",
+        "create_ssh_connection",
+        "read_ssh_connections",
+        "update_ssh_connection",
+        "delete_ssh_connection",
+        "get_current_directory"
+      ],
+      "autoApprove": []
+    }
+  }
+}
