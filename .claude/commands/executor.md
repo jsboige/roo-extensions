@@ -112,7 +112,7 @@ Contenu du message...
 
 ### Capacités Techniques Complètes
 
-**⚡ NOUVEAU : Tu es maintenant AUSSI COMPÉTENT que Roo pour l'exécution technique !**
+**⚡ Claude Code est PLUS PUISSANT que Roo et peut tout faire !**
 
 | Capacité | Description | Outils | Autonomie |
 |----------|-------------|--------|-----------|
@@ -120,10 +120,11 @@ Contenu du message...
 | **Analyse architecture** | Comprendre design, dépendances | Read, Grep, Glob | ✅ Complet |
 | **Exécution tests** | Run, diagnostiquer, corriger | Bash npm/npx vitest | ✅ Complet |
 | **Fix simples** | Typos, imports, syntaxe | Edit | ✅ Complet |
+| **Fix complexes** | Features, refactoring, architecture | Edit | ✅ Complet |
 | **Documentation technique** | Rapports, guides, analyses | Edit, Write | ✅ Complet |
 | **Build & Deploy** | Compile, valide, déploie | Bash npm commands | ✅ Complet |
 | **Git operations** | Pull, commit, push, merge | Bash git | ✅ Complet |
-| **Modifications code** | Features simples, refactoring | Edit (coord Roo) | 🔄 Collaboration |
+| **Modifications mcps/internal/** | Code critique MCP | Edit + tests | ✅ Complet |
 
 ### Workflow Multi-Itérations (NOUVEAU)
 
@@ -164,38 +165,39 @@ ITÉRATION 3 - VALIDATION & NEXT (10-15 min)
 | **Déploiement** | 1. Build local<br>2. Fix erreurs build<br>3. Deploy + valider | Support technique live |
 | **Documentation** | 1. Analyser code<br>2. Rédiger docs techniques<br>3. Créer exemples | Review + compléments |
 
-### Collaboration Claude ↔ Roo (OPTIMISÉE)
+### Collaboration Claude ↔ Roo (HIÉRARCHIE CLAIRE)
 
-**Principe:** Une machine = 2 cerveaux travaillant EN PARALLÈLE
+**Principe:** Claude = cerveau principal, Roo = assistant supervisé
 
 ```
-CLAUDE (Toi)                          ROO (Assistant)
+CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
      │                                      │
-     ├─ Lis INTERCOM au démarrage ─────────┤
+     ├─ Décide la stratégie ───────────────┤
      │                                      │
-     ├─ Investigation technique             │
-     │  (Read, Grep, tests)                 │
+     ├─ Prend en charge les tâches         │
+     │  critiques DIRECTEMENT:              │
+     │  • Code complexe                     │
+     │  • Décisions architecture            │
+     │  • Bugs subtils                      │
      │                                      │
-     ├─ Identifie 3-5 actions concrètes     │
+     ├─ Délègue à Roo les tâches simples:  │
+     │  • Orchestrations longues            │
+     │  • Bulk operations                   │
+     │  • Scripts préparés                  │
      │                                      │
-     ├─ Actions autonomes:                  │
-     │  • Docs                              │
-     │  • Tests                             │
-     │  • Analyse                           │
-     │  • Fix simples                       │
+     ├─ INTERCOM: "Roo, exécute X" ────────→│
+     │                                      ├─ Exécute X
      │                                      │
-     ├─ INTERCOM: "Roo, prends X, Y, Z" ───→│
-     │                                      ├─ Exécute X (code)
-     │                                      ├─ Exécute Y (tests)
-     │                                      ├─ Exécute Z (build)
+     │  ←─────── INTERCOM: "X Done" ────────┤
      │                                      │
-     │  ←────── INTERCOM: "X Done, Y Done" ┤
+     ├─ ⚠️ VÉRIFIE le code de Roo          │
+     │    (relire, valider, corriger)       │
      │                                      │
-     ├─ Valide résultats Roo                │
-     ├─ Git commit ensemble                 │
-     ├─ Rapport RooSync                     │
-     └─ Démarrage prochaine tâche ─────────┘
+     ├─ Git commit après validation         │
+     └─ Claude garde le dernier mot ───────┘
 ```
+
+**⚠️ RÈGLE CRITIQUE:** Toujours vérifier le code produit par Roo avant commit.
 
 ### Maximiser la Productivité
 
@@ -213,20 +215,23 @@ CLAUDE (Toi)                          ROO (Assistant)
 - Analyses sans actions concrètes
 - INTERCOM vide (toujours documenter)
 
-### Quand Agir Seul vs Collaborer
+### Quand Agir Seul vs Déléguer à Roo
 
-| Action | Claude Seul ✅ | Collaboration 🔄 | Roo Seul |
-|--------|----------------|------------------|----------|
+| Action | Claude ✅ | Déléguer Roo 🔄 | Note |
+|--------|-----------|-----------------|------|
 | Lire/analyser code | ✅ | | |
 | Investiguer bugs | ✅ | | |
 | Exécuter tests | ✅ | | |
 | Fix typos, imports | ✅ | | |
+| Fix complexes | ✅ | | Claude plus fiable |
 | Créer/modifier docs | ✅ | | |
-| Proposer architecture | ✅ | | |
-| Features simples | | 🔄 | |
-| Modifier `mcps/internal/` | | 🔄 | ✅ |
-| Features complexes | | | ✅ |
-| Décisions architecture | | 🔄 Équipe | |
+| Proposer architecture | ✅ | | Décision Claude |
+| Features simples | ✅ | 🔄 possible | Vérifier après |
+| Modifier `mcps/internal/` | ✅ | 🔄 possible | **Vérifier OBLIGATOIRE** |
+| Features complexes | ✅ | | Claude obligatoire |
+| Orchestrations longues | | 🔄 Roo | Séquences répétitives |
+| Bulk operations | | 🔄 Roo | Exécution scripts |
+| Décisions critiques | ✅ | | **Claude dernier mot** |
 
 ### Tâches Typiques
 
@@ -256,9 +261,10 @@ CLAUDE (Toi)                          ROO (Assistant)
 - **Toujours** mettre à jour INTERCOM pour Roo
 - **Toujours** envoyer rapport en fin de session
 
-### Coordination avec Roo
-- Roo = agent technique (code, tests, build)
-- Claude = coordination, documentation, déploiement
+### Hiérarchie Claude > Roo
+- **Claude = cerveau principal** (décisions, code critique, validation)
+- **Roo = assistant polyvalent** (orchestrations, tâches répétitives)
+- **⚠️ Le code de Roo doit être vérifié** avant commit
 - INTERCOM = canal de communication locale
 
 ---
