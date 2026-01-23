@@ -1,7 +1,7 @@
 # Feedback Log - Système d'Amélioration Continue Claude Code
 
 **Version:** 1.0.0
-**Date création:** 2026-01-23
+**Date de création:** 2026-01-23
 **Auteur:** Claude Code (myia-po-2023)
 **Objectif:** Logger et tracker les feedbacks d'amélioration des workflows Claude Code
 
@@ -204,18 +204,18 @@ Si item Project = "Done" ET issue GitHub = "Open" ALORS
 
 | Période | Total | Approuvés | Rejetés | Modifiés | Taux approbation |
 |---------|-------|-----------|---------|----------|------------------|
-| 2026-01 | 1 | 1 | 0 | 0 | 100% |
+2026-01 | 1 | 1 | 0 | 0 | 100% |
 | **TOTAL** | **1** | **1** | **0** | **0** | **100%** |
 
 ### Par Machine
 
 | Machine | Feedbacks soumis | Approuvés | Taux |
 |---------|------------------|-----------|------|
-| myia-po-2023 | 1 | 1 | 100% |
-| myia-ai-01 | 0 | 0 | - |
-| myia-po-2024 | 0 | 0 | - |
-| myia-po-2026 | 0 | 0 | - |
-| myia-web1 | 0 | 0 | - |
+myia-po-2023 | 1 | 1 | 100% |
+myia-ai-01 | 0 | 0 | - |
+myia-po-2024 | 0 | 0 | - |
+myia-po-2026 | 0 | 0 | - |
+myia-web1 | 0 | 0 | - |
 
 ### Par Type d'Amélioration
 
