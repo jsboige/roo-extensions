@@ -1733,7 +1733,50 @@ export class StateManagerError extends Error {
 **Fichiers modifiés** :
 - `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (2 insertions, 2 suppressions)
 
+### 7.4 Harmonisation MCPs Multi-Machines Complétée
+
+**Date** : 2026-01-21 à 2026-01-23
+**Statut** : ✅ Complété
+
+**Objectif** : Harmoniser les MCPs sur les 5 machines du cluster.
+
+**Résultats harmonisation (H2-H7) :**
+
+| Issue     | MCP                 | Statut                         |
+|-----------|---------------------|--------------------------------|
+| #331 (H2) | jupyter-mcp         | ✅ N/A (myia-web1 sans Jupyter)|
+| #333 (H4) | github-projects-mcp | ✅ Déjà déployé                |
+| #334 (H5) | markitdown          | ✅ Ajouté sur toutes machines  |
+| #335 (H6) | win-cli unbridled   | 🔄 En cours (myia-web1)        |
+| #336 (H7) | jupyter-mcp-old     | ✅ N/A (pas de legacy)         |
+
+### 7.5 github-projects-mcp: Paramètres limit/summary (#364)
+
+**Date** : 2026-01-23
+**Statut** : ✅ Implémenté
+**Commit** : `51fbb7e`
+
+**Objectif** : Réduire la saturation du contexte Claude lors des appels `get_project_items`.
+
+**Nouveaux paramètres :**
+
+| Paramètre | Type           | Défaut | Description                   |
+|-----------|----------------|--------|-------------------------------|
+| `limit`   | number (1-100) | 100    | Nombre max d'items            |
+| `summary` | boolean        | false  | Mode résumé (~85% réduction)  |
+
+**Impact :**
+
+- Mode complet : ~81K caractères
+- Mode summary : ~15K caractères
+- **Gain : 5.4x moins de données**
+
+**Fichiers modifiés :**
+
+- `mcps/internal/servers/github-projects-mcp/src/tools.ts`
+- `mcps/internal/servers/github-projects-mcp/src/github-actions.ts`
+
 ---
 
-**Version du document** : 1.1
-**Dernière mise à jour** : 2026-01-15
+**Version du document** : 1.2
+**Dernière mise à jour** : 2026-01-23

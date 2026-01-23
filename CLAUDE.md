@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-18
+**Dernière mise à jour:** 2026-01-23
 
 ---
 
@@ -586,11 +586,11 @@ Body:
 
 | Machine | Rôle | Statut MCP |
 |---------|------|------------|
-| **myia-ai-01** | Coordinateur Principal | ✅ GitHub + RooSync |
-| **myia-po-2023** | Agent flexible | ❌ À configurer |
-| **myia-po-2024** | Agent flexible | ❌ À configurer |
-| **myia-po-2026** | Agent flexible | ❌ À configurer |
-| **myia-web1** | Agent flexible | ❌ À configurer |
+| **myia-ai-01** | Coordinateur Principal | ✅ GitHub + RooSync + Jupyter |
+| **myia-po-2023** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
+| **myia-po-2024** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
+| **myia-po-2026** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
+| **myia-web1** | Agent flexible | ✅ GitHub + RooSync (Jupyter N/A) |
 
 **Toutes les machines ont des capacités égales** - pas de spécialisation rigide.
 
@@ -745,12 +745,26 @@ update_project_item_field({
 })
 ```
 
-### État Projet #67 (2026-01-13)
+### Paramètres get_project_items (2026-01-23)
 
-- **Total:** 95 items
-- **Done:** 12 (12.6%)
-- **Todo:** 82
-- **In Progress:** 1
+**Nouveaux paramètres ajoutés (#364) :**
+
+| Paramètre | Type           | Défaut | Description                       |
+|-----------|----------------|--------|-----------------------------------|
+| `limit`   | number (1-100) | 100    | Nombre max d'items retournés      |
+| `summary` | boolean        | false  | Mode résumé (réduit taille ~85%)  |
+
+```javascript
+// Mode résumé pour éviter saturation contexte
+get_project_items({
+  owner: "jsboige",
+  project_id: "PVT_kwHOADA1Xc4BLw3w",
+  limit: 30,
+  summary: true  // Réduit fieldValues de 20 à 3, exclut body
+})
+```
+
+**Impact :** Mode complet ~81K chars → Mode summary ~15K chars (gain 5.4x)
 
 ---
 
