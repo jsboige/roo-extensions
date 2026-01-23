@@ -1,7 +1,78 @@
 {
   "version": "1.1.0",
-  "description": "Critères de sélection entre modes simples et complexes pour SDDD (générique et spécifique GLM)",
-  "lastUpdated": "2026-01-22",
+  "description": "Critères de sélection entre modes simples et complexes pour SDDD, avec mapping vers modèles GLM",
+  "lastUpdated": "2026-01-23",
+
+  "model_mapping": {
+    "roo": {
+      "simple": {
+        "model": "glm-4.7-air",
+        "provider": "z.ai",
+        "parameters": {
+          "size": "4B",
+          "vram_required": "4GB minimum, 8GB recommandé",
+          "speed": "Rapide (2-3x plus rapide que GLM 4.7)",
+          "quality": "Suffisant pour tâches simples et directes"
+        },
+        "cost_profile": {
+          "api_cost": "Faible",
+          "local_hosting": "Possible sur machines avec 4-8GB VRAM",
+          "recommendation": "Utiliser en local si GPU disponible (8GB+)"
+        },
+        "use_cases": [
+          "Documentation simple (ajout, correction)",
+          "Tâches mono-fichier clairement définies",
+          "Tests unitaires pour fonctions existantes",
+          "Communication et reporting"
+        ],
+        "escalation_to_complex": [
+          "Erreur répétée après 2 tentatives",
+          "Modification nécessitant >100 lignes",
+          "Découverte de dépendances non documentées",
+          "Besoin de décision architecturale"
+        ]
+      },
+      "complex": {
+        "model": "glm-4.7",
+        "provider": "z.ai",
+        "parameters": {
+          "size": "7B",
+          "vram_required": "8GB minimum, 16GB recommandé",
+          "speed": "Moyen (baseline)",
+          "quality": "Haute qualité pour tâches complexes"
+        },
+        "cost_profile": {
+          "api_cost": "Moyen",
+          "local_hosting": "Nécessite machines avec 16GB+ VRAM",
+          "recommendation": "Utiliser API par défaut, local si GPU puissant"
+        },
+        "use_cases": [
+          "Nouvelles features multi-fichiers",
+          "Debugging et investigation complexe",
+          "Refactoring architectural",
+          "Coordination multi-agent",
+          "Décisions nécessitant analyse approfondie"
+        ],
+        "de_escalation_to_simple": [
+          "Sous-tâche isolée clairement définie",
+          "Pattern établi applicable",
+          "Scope réduit à tâche simple"
+        ]
+      }
+    },
+    "claude": {
+      "note": "Claude Code utilise toujours Claude Opus 4.5 via API Anthropic",
+      "model": "claude-opus-4.5",
+      "provider": "anthropic",
+      "use_cases": [
+        "Coordination multi-agent (priorité absolue)",
+        "Documentation stratégique",
+        "Décisions architecturales critiques",
+        "Analysis et investigation (aussi compétent que Roo)",
+        "GitHub Projects et RooSync management"
+      ]
+    }
+  },
 
   "levels": {
     "simple": {
@@ -88,99 +159,6 @@
       "text": "Existe-t-il un pattern clair à suivre?",
       "yes": "simple",
       "no": "complex"
-    }
-  },
-
-  "glm_models": {
-    "description": "Critères spécifiques pour routage entre GLM 4.7 Air (simple) et GLM 4.7 (complex)",
-    "provider": "z.ai",
-    "note": "Section ajoutée pour #351 - Spécifications modèles GLM pour Roo Code",
-
-    "glm-4.7-air": {
-      "model_id": "zhipu/glm-4.7-air",
-      "tier": "simple",
-      "temperature": 0.6,
-      "max_context_tokens": 32768,
-      "description": "Modèle léger optimisé pour tâches répétitives et documentation",
-      "estimated_cost_per_1k_tokens": 0.0001,
-
-      "use_cases": [
-        "Documentation (README, commentaires inline, guides)",
-        "Tâches < 50 lignes de code",
-        "Communication (messages RooSync, INTERCOM, rapports)",
-        "Modifications cosmétiques (formatage, renommage variables)",
-        "Corrections typos et erreurs syntaxiques simples",
-        "Tests unitaires basiques (assertions simples)",
-        "Requêtes SQL simples (SELECT, INSERT, UPDATE basiques)"
-      ],
-
-      "escalation_to_glm47": [
-        "Erreur après 2 tentatives consécutives",
-        "Modification dépasse 100 lignes de code",
-        "Tests échouent avec stack trace complexe",
-        "Nécessite compréhension de > 3 fichiers",
-        "Dépendances circulaires ou conflits détectés",
-        "Performance critique requise (< 1s de latence)",
-        "Logique métier complexe (state machine, algorithmes)"
-      ]
-    },
-
-    "glm-4.7": {
-      "model_id": "zhipu/glm-4.7",
-      "tier": "complex",
-      "temperature": 0.7,
-      "max_context_tokens": 128000,
-      "description": "Modèle complet pour architecture, debugging et features",
-      "estimated_cost_per_1k_tokens": 0.001,
-
-      "use_cases": [
-        "Features complètes (nouvelles fonctionnalités end-to-end)",
-        "Debugging multi-fichiers (analyse trace complète, root cause)",
-        "Refactoring architectural (restructuration modules)",
-        "Optimisation performance (algorithmes O(n²) → O(n log n))",
-        "Résolution bugs complexes (race conditions, memory leaks, deadlocks)",
-        "Migrations de données (schema changes, transformations)",
-        "Tests d'intégration E2E complexes (multi-composants)",
-        "Analyse sécurité (vulnérabilités OWASP, audit code)",
-        "Design patterns (Factory, Observer, Strategy, etc.)",
-        "Gestion d'erreurs avancée (retry logic, fallback, circuit breaker)"
-      ],
-
-      "de_escalation_to_glm47air": [
-        "Tâche résolue en < 20 lignes finalement",
-        "Aucune logique complexe détectée après analyse",
-        "Modification purement cosmétique identifiée"
-      ]
-    },
-
-    "routing_examples": {
-      "glm-4.7-air_tasks": [
-        "Ajouter JSDoc à une fonction",
-        "Renommer variable pour clarté (camelCase)",
-        "Corriger faute de frappe dans message erreur",
-        "Formater fichier selon ESLint rules",
-        "Créer README.md basique pour module",
-        "Test unitaire simple: assertEquals(add(2, 3), 5)"
-      ],
-
-      "glm-4.7_tasks": [
-        "Implémenter système d'authentification JWT complet",
-        "Débugger race condition dans worker pool concurrent",
-        "Refactorer monolithe vers architecture microservices",
-        "Optimiser requête SQL 5+ JOINs pour performance",
-        "Corriger vulnérabilité XSS dans formulaire utilisateur",
-        "Migrer DB PostgreSQL v12 → v15 avec transformations"
-      ]
-    },
-
-    "metrics": {
-      "tracked_kpis": {
-        "glm-4.7-air_success_rate": "> 85%",
-        "escalation_rate": "< 15%",
-        "avg_resolution_time_air": "< 5 min",
-        "avg_resolution_time_full": "< 30 min",
-        "cost_reduction_vs_full": "> 60%"
-      }
     }
   }
 }
