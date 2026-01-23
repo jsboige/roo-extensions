@@ -43,11 +43,12 @@ $Dashboard = @"
 function Test-InventoryExists {
     param([string]$MachineId)
 
-    # Essayer les deux formats de nom possibles
+    # Essayer les trois formats de nom possibles
     $InventoryPath1 = "roo-config/shared-state/inventories/$MachineId-inventory.json"
     $InventoryPath2 = "roo-config/shared-state/inventories/machine-inventory-$MachineId.json"
+    $InventoryPath3 = "roo-config/shared-state/inventories/$MachineId.json"
 
-    return (Test-Path $InventoryPath1) -or (Test-Path $InventoryPath2)
+    return (Test-Path $InventoryPath1) -or (Test-Path $InventoryPath2) -or (Test-Path $InventoryPath3)
 }
 
 # Fonction pour extraire les diffs MCP depuis le résultat de compare_config
