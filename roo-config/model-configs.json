@@ -1,6 +1,22 @@
 {
   "profiles": [
     {
+      "name": "Configuration SDDD",
+      "description": "Configuration SDDD avec GLM 4.7 Air pour tâches simples et GLM 4.7 pour tâches complexes (z.ai)",
+      "modeOverrides": {
+        "code-simple": "zhipu/glm-4.7-air",
+        "code-complex": "zhipu/glm-4.7",
+        "debug-simple": "zhipu/glm-4.7-air",
+        "debug-complex": "zhipu/glm-4.7",
+        "architect-simple": "zhipu/glm-4.7-air",
+        "architect-complex": "zhipu/glm-4.7",
+        "ask-simple": "zhipu/glm-4.7-air",
+        "ask-complex": "zhipu/glm-4.7",
+        "orchestrator-simple": "zhipu/glm-4.7-air",
+        "orchestrator-complex": "zhipu/glm-4.7"
+      }
+    },
+    {
       "name": "Configuration actuelle",
       "description": "Configuration actuelle avec Qwen 3 32B pour les modes simples et Claude 3.7 Sonnet pour les modes complexes",
       "modeOverrides": {
@@ -69,6 +85,28 @@
       "openRouterUseMiddleOutTransform": false,
       "apiProvider": "openrouter",
       "id": "gi7et2uwpwo"
+    },
+    "glm-4.7": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.7,
+      "openRouterApiKey": "${env:ZAI_API_KEY}",
+      "openRouterModelId": "zhipu/glm-4.7",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "z.ai",
+      "id": "sddd-complex-glm47",
+      "description": "GLM 4.7 Standard pour tâches SDDD complexes"
+    },
+    "glm-4.7-air": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "openRouterApiKey": "${env:ZAI_API_KEY}",
+      "openRouterModelId": "zhipu/glm-4.7-air",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "z.ai",
+      "id": "sddd-simple-glm47air",
+      "description": "GLM 4.7 Air Mini pour tâches SDDD simples"
     }
   },
   "modeApiConfigs": {
@@ -87,6 +125,8 @@
     "ask-complex": "usl6gy8xkxg",
     "architect-complex": "usl6gy8xkxg",
     "debug-complex": "usl6gy8xkxg",
-    "code-complex": "usl6gy8xkxg"
+    "code-complex": "usl6gy8xkxg",
+    "sddd-simple": "sddd-simple-glm47air",
+    "sddd-complex": "sddd-complex-glm47"
   }
 }

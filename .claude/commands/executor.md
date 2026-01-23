@@ -261,11 +261,12 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 - **Toujours** mettre à jour INTERCOM pour Roo
 - **Toujours** envoyer rapport en fin de session
 
-### Hiérarchie Claude > Roo
-- **Claude = cerveau principal** (décisions, code critique, validation)
-- **Roo = assistant polyvalent** (orchestrations, tâches répétitives)
-- **⚠️ Le code de Roo doit être vérifié** avant commit
-- INTERCOM = canal de communication locale
+### Coordination avec Roo
+- **Claude ET Roo** = agents techniques ÉGAUX (code, tests, build, analyse)
+- Claude peut et DOIT faire du coding directement (Edit, Write)
+- Roo n'est PAS systématiquement assigné aux tâches difficiles
+- **Répartition équitable** : alterner les tâches complexes entre les deux agents
+- INTERCOM = canal de communication locale pour coordonner (pas pour déléguer tout à Roo)
 
 ---
 
