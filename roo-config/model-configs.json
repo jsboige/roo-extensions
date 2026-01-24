@@ -97,16 +97,16 @@
       "id": "sddd-complex-glm47",
       "description": "GLM 4.7 Standard pour tâches SDDD complexes"
     },
-    "glm-4.7-air": {
+    "glm-4.7-flash": {
       "diffEnabled": true,
       "fuzzyMatchThreshold": 1,
       "modelTemperature": 0.6,
       "openRouterApiKey": "${env:ZAI_API_KEY}",
-      "openRouterModelId": "zhipu/glm-4.7-air",
+      "openRouterModelId": "z-ai/glm-4.7-flash",
       "openRouterUseMiddleOutTransform": false,
       "apiProvider": "z.ai",
-      "id": "sddd-simple-glm47air",
-      "description": "GLM 4.7 Air Mini pour tâches SDDD simples"
+      "id": "sddd-simple-glm47flash",
+      "description": "GLM 4.7 Flash pour tâches SDDD simples"
     }
   },
   "modeApiConfigs": {
@@ -126,7 +126,7 @@
     "architect-complex": "usl6gy8xkxg",
     "debug-complex": "usl6gy8xkxg",
     "code-complex": "usl6gy8xkxg",
-    "sddd-simple": "sddd-simple-glm47air",
+    "sddd-simple": "sddd-simple-glm47flash",
     "sddd-complex": "sddd-complex-glm47"
   }
 }
