@@ -46,10 +46,9 @@
 ### 1.3 Validation
 
 - [ ] VS Code redémarré
-- [ ] `/mcp` affiche github-projects-mcp
 - [ ] `/mcp` affiche roo-state-manager
 - [ ] `roosync_read_inbox` fonctionne
-- [ ] `list_projects owner: jsboige` fonctionne
+- [ ] `gh project list --owner jsboige` fonctionne
 
 ### 1.4 Communication
 

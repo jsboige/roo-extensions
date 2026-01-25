@@ -1,8 +1,8 @@
 # RooSync Glossaire
 
-**Version:** 1.0.0
-**Date:** 2026-01-16
-**Auteur:** Claude Code (myia-web1)
+**Version:** 1.1.0
+**Date:** 2026-01-24
+**Auteur:** Claude Code (myia-ai-01)
 
 ---
 
@@ -104,18 +104,22 @@ Processus d'alignement de la configuration d'une machine avec la baseline.
 
 ---
 
-## 2. Termes MCP
+## 2. Termes MCP et CLI
 
 ### MCP (Model Context Protocol)
 Protocole permettant aux modèles d'IA d'interagir avec des outils externes.
 
-### github-projects-mcp
-Serveur MCP pour interagir avec GitHub Projects V2.
+### gh CLI
+Outil en ligne de commande officiel de GitHub pour interagir avec GitHub Projects V2 et les issues.
 
-**Outils principaux:**
-- `list_projects` - Lister les projets
-- `get_project_items` - Obtenir les items
-- `update_project_item_field` - Mettre à jour un champ
+**Commandes principales:**
+- `gh project list` - Lister les projets
+- `gh project item-list` - Obtenir les items
+- `gh project item-edit` - Mettre à jour un champ
+- `gh issue create` - Créer une issue
+- `gh issue close` - Fermer une issue
+
+**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : [`docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`](../../suivi/github-projects-migration/GUIDE_MIGRATION.md)
 
 ### roo-state-manager
 Serveur MCP principal de RooSync.
@@ -260,9 +264,11 @@ Fil de conversation RooSync regroupant les messages liés.
 | Date | Version | Auteur | Description |
 |------|---------|--------|-------------|
 | 2026-01-16 | 1.0.0 | Claude Code (myia-web1) | Création initiale |
+| 2026-01-24 | 1.1.0 | Claude Code (myia-ai-01) | **Migration gh CLI** : Remplacement de la section github-projects-mcp par gh CLI. Ajout de références au guide de migration. |
 
 ---
 
 **Document créé suite à la recommandation T4.12**
 **Objectif:** Unifier les termes utilisés dans le système RooSync
+**Mise à jour T88:** Migration vers gh CLI suite à l'analyse T86/T87
 

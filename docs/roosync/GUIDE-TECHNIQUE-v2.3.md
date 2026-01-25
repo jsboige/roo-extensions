@@ -1745,36 +1745,29 @@ export class StateManagerError extends Error {
 | Issue     | MCP                 | Statut                         |
 |-----------|---------------------|--------------------------------|
 | #331 (H2) | jupyter-mcp         | ✅ N/A (myia-web1 sans Jupyter)|
-| #333 (H4) | github-projects-mcp | ✅ Déjà déployé                |
+| #333 (H4) | github-projects-mcp | ⚠️ Déprécié (voir gh CLI)    |
 | #334 (H5) | markitdown          | ✅ Ajouté sur toutes machines  |
 | #335 (H6) | win-cli unbridled   | 🔄 En cours (myia-web1)        |
 | #336 (H7) | jupyter-mcp-old     | ✅ N/A (pas de legacy)         |
 
-### 7.5 github-projects-mcp: Paramètres limit/summary (#364)
+### 7.5 github-projects-mcp: Dépréciation et Migration gh CLI (#364, T88)
 
-**Date** : 2026-01-23
-**Statut** : ✅ Implémenté
-**Commit** : `51fbb7e`
+**Date** : 2026-01-24
+**Statut** : ⚠️ Déprécié
+**Migration** : Voir [`docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`](../../suivi/github-projects-migration/GUIDE_MIGRATION.md)
 
-**Objectif** : Réduire la saturation du contexte Claude lors des appels `get_project_items`.
+**Historique** :
+- 2026-01-23 : Implémentation des paramètres limit/summary (commit `51fbb7e`)
+- 2026-01-24 : Dépréciation suite à l'analyse T86/T87
 
-**Nouveaux paramètres :**
+**Raison de la dépréciation** :
+- Aucun mode Roo personnalisé n'utilise github-projects-mcp
+- gh CLI offre une meilleure maintenance et performance
+- Documentation officielle GitHub
 
-| Paramètre | Type           | Défaut | Description                   |
-|-----------|----------------|--------|-------------------------------|
-| `limit`   | number (1-100) | 100    | Nombre max d'items            |
-| `summary` | boolean        | false  | Mode résumé (~85% réduction)  |
-
-**Impact :**
-
-- Mode complet : ~81K caractères
-- Mode summary : ~15K caractères
-- **Gain : 5.4x moins de données**
-
-**Fichiers modifiés :**
-
-- `mcps/internal/servers/github-projects-mcp/src/tools.ts`
-- `mcps/internal/servers/github-projects-mcp/src/github-actions.ts`
+**Action requise** :
+- Utiliser `gh project list`, `gh project item-list`, `gh issue create`, etc.
+- Consulter le guide de migration pour les équivalences de commandes
 
 ---
 
