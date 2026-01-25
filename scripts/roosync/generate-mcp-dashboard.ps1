@@ -4,8 +4,17 @@
 
 param(
     [string]$Baseline = "myia-ai-01",
-    [string]$OutputDir = "roo-config/shared-state/dashboards"
+    [string]$OutputDir = $null  # Sera déterminé depuis $env:ROOSYNC_SHARED_PATH
 )
+
+# CORRECTION Bug #368: Utiliser ROOSYNC_SHARED_PATH depuis l'environnement, JAMAIS de chemin local dans le dépôt
+if (-not $OutputDir) {
+    if (-not $env:ROOSYNC_SHARED_PATH) {
+        Write-Error "ROOSYNC_SHARED_PATH non configuré - impossible de générer le dashboard"
+        exit 1
+    }
+    $OutputDir = Join-Path $env:ROOSYNC_SHARED_PATH "dashboards"
+}
 
 # Configuration
 $Machines = @("myia-ai-01", "myia-po-2023", "myia-po-2024", "myia-po-2026", "myia-web1")
@@ -43,10 +52,13 @@ $Dashboard = @"
 function Test-InventoryExists {
     param([string]$MachineId)
 
+    # CORRECTION Bug #368: Utiliser ROOSYNC_SHARED_PATH, pas de chemin local
+    $InventoriesDir = Join-Path $env:ROOSYNC_SHARED_PATH "inventories"
+
     # Essayer les trois formats de nom possibles
-    $InventoryPath1 = "roo-config/shared-state/inventories/$MachineId-inventory.json"
-    $InventoryPath2 = "roo-config/shared-state/inventories/machine-inventory-$MachineId.json"
-    $InventoryPath3 = "roo-config/shared-state/inventories/$MachineId.json"
+    $InventoryPath1 = Join-Path $InventoriesDir "$MachineId-inventory.json"
+    $InventoryPath2 = Join-Path $InventoriesDir "machine-inventory-$MachineId.json"
+    $InventoryPath3 = Join-Path $InventoriesDir "$MachineId.json"
 
     return (Test-Path $InventoryPath1) -or (Test-Path $InventoryPath2) -or (Test-Path $InventoryPath3)
 }

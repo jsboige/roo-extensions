@@ -782,3 +782,21 @@ get_project_items({
 ### Fichier Partagé
 
 **Chemin:** `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
+
+### ⛔ RÈGLE ABSOLUE : État Partagé = GDrive UNIQUEMENT
+
+**L'état partagé RooSync NE DOIT JAMAIS être dans le dépôt Git.**
+
+| ❌ INTERDIT | ✅ CORRECT |
+|-------------|------------|
+| `roo-config/shared-state/` | `$env:ROOSYNC_SHARED_PATH` (GDrive) |
+| `roo-config/inventories/` | `$env:ROOSYNC_SHARED_PATH/inventories/` |
+| `roo-config/dashboards/` | `$env:ROOSYNC_SHARED_PATH/dashboards/` |
+| Tout chemin local dans le dépôt | Chemin Google Drive via .env |
+
+**Si vous voyez des fichiers `shared-state`, `inventories`, ou `dashboards` dans le dépôt Git :**
+1. C'est une **ERREUR** - supprimez-les immédiatement
+2. Corrigez le code qui les a créés
+3. Vérifiez que `ROOSYNC_SHARED_PATH` est bien configuré dans `.env`
+
+**Raison :** L'état partagé doit être synchronisé entre les 5 machines via Google Drive, pas versionné dans Git.
