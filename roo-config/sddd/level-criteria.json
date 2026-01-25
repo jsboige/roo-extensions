@@ -1,7 +1,7 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Critères de sélection entre modes simples et complexes pour SDDD (générique et spécifique GLM)",
-  "lastUpdated": "2026-01-22",
+  "lastUpdated": "2026-01-25",
 
   "levels": {
     "simple": {
@@ -92,17 +92,17 @@
   },
 
   "glm_models": {
-    "description": "Critères spécifiques pour routage entre GLM 4.7 Air (simple) et GLM 4.7 (complex)",
+    "description": "Critères spécifiques pour routage entre GLM 4.7 Flash (simple) et GLM 4.7 (complex)",
     "provider": "z.ai",
     "note": "Section ajoutée pour #351 - Spécifications modèles GLM pour Roo Code",
 
-    "glm-4.7-air": {
-      "model_id": "zhipu/glm-4.7-air",
+    "glm-4.7-flash": {
+      "model_id": "z-ai/glm-4.7-flash",
       "tier": "simple",
       "temperature": 0.6,
-      "max_context_tokens": 32768,
-      "description": "Modèle léger optimisé pour tâches répétitives et documentation",
-      "estimated_cost_per_1k_tokens": 0.0001,
+      "max_context_tokens": 200000,
+      "description": "Modèle rapide optimisé pour tâches simples et documentation",
+      "note": "Même contexte 200K que GLM 4.7, vitesse optimisée",
 
       "use_cases": [
         "Documentation (README, commentaires inline, guides)",
@@ -126,10 +126,10 @@
     },
 
     "glm-4.7": {
-      "model_id": "zhipu/glm-4.7",
+      "model_id": "z-ai/glm-4.7",
       "tier": "complex",
       "temperature": 0.7,
-      "max_context_tokens": 128000,
+      "max_context_tokens": 200000,
       "description": "Modèle complet pour architecture, debugging et features",
       "estimated_cost_per_1k_tokens": 0.001,
 
@@ -146,7 +146,7 @@
         "Gestion d'erreurs avancée (retry logic, fallback, circuit breaker)"
       ],
 
-      "de_escalation_to_glm47air": [
+      "de_escalation_to_glm47flash": [
         "Tâche résolue en < 20 lignes finalement",
         "Aucune logique complexe détectée après analyse",
         "Modification purement cosmétique identifiée"
@@ -154,7 +154,7 @@
     },
 
     "routing_examples": {
-      "glm-4.7-air_tasks": [
+      "glm-4.7-flash_tasks": [
         "Ajouter JSDoc à une fonction",
         "Renommer variable pour clarté (camelCase)",
         "Corriger faute de frappe dans message erreur",
@@ -175,7 +175,7 @@
 
     "metrics": {
       "tracked_kpis": {
-        "glm-4.7-air_success_rate": "> 85%",
+        "glm-4.7-flash_success_rate": "> 85%",
         "escalation_rate": "< 15%",
         "avg_resolution_time_air": "< 5 min",
         "avg_resolution_time_full": "< 30 min",
