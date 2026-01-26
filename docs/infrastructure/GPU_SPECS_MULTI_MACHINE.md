@@ -1,9 +1,9 @@
 # Spécifications GPU - Infrastructure Multi-Machine RooSync
 
-**Version:** 1.0.0
-**Date:** 2026-01-22
-**Auteur:** Claude Code (myia-po-2026) + Roo (collecte)
-**Statut:** 🟡 En cours de collecte
+**Version:** 1.1.0
+**Date:** 2026-01-26
+**Auteur:** Claude Code + Roo (collecte multi-machines)
+**Statut:** 🟢 1/5 machines documentées
 
 ---
 
@@ -56,17 +56,24 @@ Documenter les capacités GPU des 5 machines du système RooSync Multi-Agent pou
 
 ### myia-po-2023
 
-**GPU** :
-🔄 *En attente de collecte*
+> 📋 **Documentation détaillée :** [docs/hardware/gpu-specs-myia-po-2023.md](../hardware/gpu-specs-myia-po-2023.md)
 
-**VRAM** :
-🔄 *En attente*
+**Configuration Multi-GPU :**
 
-**Drivers** :
-🔄 *En attente*
+| GPU | Modèle | VRAM |
+|-----|--------|------|
+| GPU 0 | RTX 3080 Laptop | 16 GB |
+| GPU 1 | RTX 3090 | 24 GB |
+| **Total** | - | **40 GB** |
 
-**Capacités** :
-🔄 *À analyser*
+**CUDA :** 13.1 | **Driver :** 591.74 | **Architecture :** Ampere
+
+**Capacités hébergement local :**
+- ✅ Modèles 7B-13B en toutes quantizations
+- ✅ Modèles 34B en 4-bit
+- ⚠️ Modèles 70B en 4-bit (limite multi-GPU)
+
+**Date collecte :** 2026-01-26
 
 ---
 
@@ -173,5 +180,5 @@ GPU-0ab3345e-f1ef-8f0c-e82a-8cbb3a8ed0f4
 
 ---
 
-**Dernière mise à jour :** 2026-01-22 23:50:00
-**Statut collecte :** 0/5 machines documentées
+**Dernière mise à jour :** 2026-01-26 16:00:00
+**Statut collecte :** 2/5 machines documentées (myia-po-2023 complet, myia-po-2026 partiel)

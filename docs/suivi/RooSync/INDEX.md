@@ -1,6 +1,6 @@
 # Index RooSync - Documentation Consolidée
 
-**Dernière mise à jour:** 2026-01-20
+**Dernière mise à jour:** 2026-01-26
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
@@ -41,9 +41,9 @@
 | Métrique | Valeur |
 |----------|--------|
 | Version RooSync | v2.3.0 |
-| Project #67 | 69/77 (89.6%) Done |
-| Project #70 | 10/11 (90.9%) Done |
-| Tests TypeScript | 1311/1319 PASS (99.4%) |
+| Project #67 | ~91/100 (~91%) Done |
+| Project #70 | ~14/20 (~70%) Done |
+| CI mcps/internal | ✅ 7/7 jobs PASS |
 | Machines actives | 5/5 |
 
 ---
@@ -61,9 +61,9 @@
 
 ## Prochaines Étapes
 
-1. **#323** - Deploy MCP v2.5.0 sur myia-po-2023
-2. **#288** - Valider outils RooSync sur chaque machine
-3. **E2E** - Tests workflow complet (#320, #327)
+1. **T106** - Consolider documentation GPU (Roo, myia-ai-01)
+2. **#369** - CI mcps/internal fixé ✅
+3. **P1** - Migration gh CLI validée (myia-po-2026)
 
 ---
 

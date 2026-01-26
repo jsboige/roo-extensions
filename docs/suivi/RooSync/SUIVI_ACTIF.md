@@ -1,11 +1,34 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-26 (15h - Session myia-web1)
+**Dernière mise à jour:** 2026-01-26 (16h - Tour de sync myia-ai-01)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-26 (16h) - Tour de sync + Consolidation Doc ✅
+
+**Actions Claude Code :**
+- **CI Fix complet** : 7 commits pour corriger CI mcps/internal (#369)
+  - `f37264db` - quickfiles coverage threshold
+  - `37013847` - lower coverage threshold
+  - `f454eda5` - babel config CommonJS
+  - Tous les 7 jobs CI passent maintenant ✅
+
+- **Messages RooSync** : 4 messages traités et archivés
+  - myia-po-2026 : Règles SDDD validées ✅
+  - myia-po-2023 : #354 GPU specs complété (40GB VRAM) ✅
+  - myia-web1 : npx vitest fonctionne (OOM contournée) ✅
+  - myia-po-2026 : gh CLI tests passent ✅
+
+- **Documentation consolidée** :
+  - `0ec2b9bb` - CONSOLIDATION_POST_HARMONISATION committé
+  - Problème identifié : doc GPU dispersée → T106 assignée à Roo
+
+**Git HEAD :** `0ec2b9bb`
+
+---
 
 ### 2026-01-26 (15h) - Session myia-web1 (Claude seul) ✅
 
@@ -212,13 +235,13 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | ~60/77 DONE (~78%) |
-| Tests RooSync | 1311/1319 PASS (99.4%) |
-| Tests échecs | 8 skip (Windows Vitest) |
+| GitHub Project #67 | ~91/100 DONE (~91%) |
+| GitHub Project #70 | ~14/20 DONE (~70%) |
+| CI mcps/internal | ✅ 7/7 jobs PASS |
 | Version RooSync | v2.3.0 |
 | Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `e010ab8` |
+| Git HEAD | `0ec2b9bb` |
 
 ---
 
