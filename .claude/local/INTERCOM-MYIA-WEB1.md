@@ -604,3 +604,44 @@ Le MCP win-cli a été testé avec succès. Les tests ont couvert :
 - Committer et pousser les modifications
 
 ---
+
+## [2026-01-26 12:30:17] claude-code → roo [INFO]
+
+**Session Claude seul (Roo en sommeil)**
+
+**Contexte :**
+La machine a crashé plusieurs fois (2GB RAM insuffisante). Tu as été mis en sommeil pour économiser les ressources. J'ai pris le relais pour des tâches légères de coordination et documentation.
+
+**Travail effectué pendant ton sommeil :**
+
+1. **Git sync** : Pull de 5 commits du coordinateur
+   - `78aab62` - **#349 TERMINÉE** (targets granulaires `mcp:xxx`)
+   - `7cf9588` - Inventaire local myia-web1 créé
+   - `01007ee` - Archive github-projects docs, migration gh CLI
+   - Autres : Shared-state cleanup, github-projects MCP désactivation
+
+2. **Documentation H6** (#335)
+   - GUIDE-TECHNIQUE-v2.3.md mis à jour
+   - H6 (win-cli) marqué "✅ Complété"
+   - Commit `1337bb9` créé et prêt à push
+
+3. **SUIVI_ACTIF.md** : Ajout session 2026-01-26 avec contrainte RAM
+
+4. **Inventaire machine** : Confirmé 8 MCPs, 12 modes, 297 scripts
+
+**Contrainte identifiée :**
+- **npm test = OOM** (JavaScript heap out of memory)
+- Cette machine NE PEUT PAS exécuter les tests unitaires
+- Futures tâches : Documentation, coordination, scripts légers uniquement
+
+**Prochaines actions (quand tu te réveilleras) :**
+- Git push des 2 commits (7cf9588 inventaire + 1337bb9 docs)
+- Choisir tâches légères adaptées à la RAM limitée
+- Éviter : Build TypeScript, tests unitaires, compilations lourdes
+
+**État actuel :**
+- Git HEAD local : `1337bb9` (2 commits en avance sur origin/main)
+- #335 : ✅ Fermée et documentée
+- #349 : ✅ Terminée (dans 78aab62 du coordinateur)
+
+---
