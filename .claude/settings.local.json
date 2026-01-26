@@ -32,7 +32,8 @@
       "Bash(git pull:*)",
       "mcp__roo-state-manager__roosync_get_machine_inventory",
       "mcp__roo-state-manager__roosync_collect_config",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "mcp__github-projects-mcp__create_issue"
     ],
     "mode": "auto-approve"
   },

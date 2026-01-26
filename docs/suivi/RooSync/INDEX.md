@@ -1,6 +1,6 @@
 # Index RooSync - Documentation Consolidée
 
-**Dernière mise à jour:** 2026-01-18
+**Dernière mise à jour:** 2026-01-20
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
@@ -55,6 +55,7 @@
 - **Guide rapide** → [`QUICKSTART.md`](../roosync/QUICKSTART.md)
 - **Archives** → `Archives/` (80+ rapports)
 - **Technique** → [`GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md)
+- **Consolidation Post-Harmonisation** → [`Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md`](Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md)
 
 ---
 

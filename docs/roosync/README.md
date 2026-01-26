@@ -736,6 +736,7 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 |---------|-------------|------|
 | SUIVI_TRANSVERSE_ROOSYNC.md | Suivi transverse des évolutions RooSync | [`docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`](../suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md) |
 | DEBUG_MCP_LOADING_2025-12-27.md | Diagnostic de l'erreur de chargement MCP | [`DEBUG_MCP_LOADING_2025-12-27.md`](DEBUG_MCP_LOADING_2025-12-27.md) |
+| CONSOLIDATION_POST_HARMONISATION_2026-01-20.md | Consolidation documentation post-harmonisation | [`docs/suivi/RooSync/Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md`](../suivi/RooSync/Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md) |
 
 ### Rapports de Tests
 
