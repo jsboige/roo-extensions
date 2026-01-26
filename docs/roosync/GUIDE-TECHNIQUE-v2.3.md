@@ -1747,7 +1747,7 @@ export class StateManagerError extends Error {
 | #331 (H2) | jupyter-mcp         | ✅ N/A (myia-web1 sans Jupyter)|
 | #333 (H4) | github-projects-mcp | ⚠️ Déprécié (voir gh CLI)    |
 | #334 (H5) | markitdown          | ✅ Ajouté sur toutes machines  |
-| #335 (H6) | win-cli unbridled   | 🔄 En cours (myia-web1)        |
+| #335 (H6) | win-cli unbridled   | ✅ Complété (myia-web1)        |
 | #336 (H7) | jupyter-mcp-old     | ✅ N/A (pas de legacy)         |
 
 ### 7.5 github-projects-mcp: Dépréciation et Migration gh CLI (#364, T88)

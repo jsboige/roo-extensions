@@ -63,41 +63,121 @@ function Test-InventoryExists {
     return (Test-Path $InventoryPath1) -or (Test-Path $InventoryPath2) -or (Test-Path $InventoryPath3)
 }
 
-# Fonction pour extraire les diffs MCP depuis le résultat de compare_config
+# Fonction pour lire un inventaire de machine
+function Get-MachineInventory {
+    param([string]$MachineId)
+
+    $InventoriesDir = Join-Path $env:ROOSYNC_SHARED_PATH "inventories"
+
+    # Essayer les trois formats de nom possibles
+    $InventoryPath1 = Join-Path $InventoriesDir "$MachineId-inventory.json"
+    $InventoryPath2 = Join-Path $InventoriesDir "machine-inventory-$MachineId.json"
+    $InventoryPath3 = Join-Path $InventoriesDir "$MachineId.json"
+
+    $inventoryPath = $null
+    if (Test-Path $InventoryPath1) { $inventoryPath = $InventoryPath1 }
+    elseif (Test-Path $InventoryPath2) { $inventoryPath = $InventoryPath2 }
+    elseif (Test-Path $InventoryPath3) { $inventoryPath = $InventoryPath3 }
+
+    if ($inventoryPath) {
+        try {
+            $content = Get-Content $inventoryPath -Raw | ConvertFrom-Json
+            return $content
+        } catch {
+            Write-Host "Erreur lors de la lecture de l'inventaire ${MachineId}: $($_)" -ForegroundColor Red
+            return $null
+        }
+    }
+    return $null
+}
+
+# Fonction pour comparer les configurations MCP entre deux machines
 function Get-McpDiffs {
     param(
         [string]$Source,
-        [string]$Target,
-        [string]$Granularity = "mcp"
+        [string]$Target
     )
 
     try {
-        # Appeler l'outil roosync_compare_config via le MCP
-        $result = mcp--roo___state___manager--roosync_compare_config `
-            -source $Source `
-            -target $Target `
-            -granularity $Granularity `
-            -force_refresh $false
+        # Lire les inventaires
+        $sourceInventory = Get-MachineInventory -MachineId $Source
+        $targetInventory = Get-MachineInventory -MachineId $Target
 
-        if ($result -and $result.diffs) {
-            # Filtrer uniquement les diffs de type MCP
-            $mcpDiffs = $result.diffs | Where-Object { $_.path -like "*mcp*" -or $_.category -eq "MCP" }
+        if (-not $sourceInventory) {
+            return @{
+                Success = $false
+                Error = "Inventaire source introuvable: $Source"
+            }
+        }
 
+        if (-not $targetInventory) {
             return @{
-                Success = $true
-                TotalDiffs = $result.diffs.Count
-                McpDiffs = $mcpDiffs.Count
-                Details = $mcpDiffs
-                RawResult = $result
+                Success = $false
+                Error = "Inventaire cible introuvable: $Target"
             }
-        } else {
-            return @{
-                Success = $true
-                TotalDiffs = 0
-                McpDiffs = 0
-                Details = @()
-                RawResult = $result
+        }
+
+        # Extraire les configurations MCP (tableau d'objets)
+        $sourceMcps = $sourceInventory.inventory.mcpServers
+        $targetMcps = $targetInventory.inventory.mcpServers
+
+        $diffs = @()
+
+        # Créer des dictionnaires par nom de MCP
+        $sourceMcpDict = @{}
+        foreach ($mcp in $sourceMcps) {
+            $sourceMcpDict[$mcp.name] = $mcp
+        }
+
+        $targetMcpDict = @{}
+        foreach ($mcp in $targetMcps) {
+            $targetMcpDict[$mcp.name] = $mcp
+        }
+
+        # Comparer les serveurs MCP
+        $allMcpNames = @($sourceMcpDict.Keys) + @($targetMcpDict.Keys) | Sort-Object -Unique
+
+        foreach ($mcpName in $allMcpNames) {
+            $sourceMcp = $sourceMcpDict[$mcpName]
+            $targetMcp = $targetMcpDict[$mcpName]
+
+            if (-not $sourceMcp) {
+                # MCP présent uniquement dans la cible
+                $diffs += @{
+                    path = "inventory.mcpServers.$mcpName"
+                    type = "added"
+                    severity = "INFO"
+                    description = "MCP '$mcpName' présent uniquement sur $Target"
+                }
+            } elseif (-not $targetMcp) {
+                # MCP présent uniquement dans la source
+                $diffs += @{
+                    path = "inventory.mcpServers.$mcpName"
+                    type = "removed"
+                    severity = "WARNING"
+                    description = "MCP '$mcpName' présent uniquement sur $Source"
+                }
+            } else {
+                # Comparer les propriétés du MCP
+                $sourceValue = $sourceMcp | ConvertTo-Json -Compress
+                $targetValue = $targetMcp | ConvertTo-Json -Compress
+
+                if ($sourceValue -ne $targetValue) {
+                    $diffs += @{
+                        path = "inventory.mcpServers.$mcpName"
+                        type = "modified"
+                        severity = "INFO"
+                        description = "MCP '$mcpName' diffère entre $Source et $Target"
+                    }
+                }
             }
+        }
+
+        return @{
+            Success = $true
+            TotalDiffs = $diffs.Count
+            McpDiffs = $diffs.Count
+            Details = $diffs
         }
     } catch {
         Write-Host "Erreur lors de la comparaison ${Source} vs ${Target}: $_" -ForegroundColor Red
@@ -127,7 +207,7 @@ foreach ($Machine in $Machines) {
         } else {
             # Comparer avec la baseline
             Write-Host "  → Comparaison avec $Baseline..." -ForegroundColor Yellow
-            $diffResult = Get-McpDiffs -Source $Baseline -Target $Machine -Granularity "mcp"
+            $diffResult = Get-McpDiffs -Source $Baseline -Target $Machine
 
             if ($diffResult.Success) {
                 $diffCount = $diffResult.McpDiffs
@@ -140,10 +220,10 @@ foreach ($Machine in $Machines) {
 
                     foreach ($diff in $diffResult.Details) {
                         $severity = $diff.severity ?? "INFO"
-                        $path = $diff.path ?? "N/A"
-                        $type = $diff.type ?? "unknown"
+                        $diffPath = $diff.path ?? "N/A"
+                        $diffType = $diff.type ?? "unknown"
 
-                        $Dashboard += "- **[$severity]** `$path` ($type)`n"
+                        $Dashboard += "- **[$severity]** $($diffPath) ($($diffType))`n"
                     }
                 }
             } else {

@@ -1,11 +1,44 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-18 (18h - Session myia-web1)
+**Dernière mise à jour:** 2026-01-26 (15h - Session myia-web1)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-26 (15h) - Session myia-web1 (Claude seul) ✅
+
+**Contexte machine :**
+- **Contrainte identifiée** : 2GB RAM seulement → OOM sur npm test
+- **Action** : Roo mis en sommeil pour économiser ressources
+- **Mode** : Claude Code prend le relais pour tâches légères (coordination/docs)
+
+**Tâches complétées cette session :**
+- **Git sync** : Pull 5 commits (62de437..01007ee)
+  - `78aab62` - **#349 DONE** : Syntaxe targets granulaires `mcp:xxx` dans `roosync_apply_config`
+  - `7cf9588` - Inventaire local myia-web1 créé
+  - `01007ee` - Archive github-projects docs + migration gh CLI
+  - `a074075` - Remove shared-state from repo (enforce GDrive paths)
+  - `baa558c` - Disable github-projects MCP (migration vers gh CLI)
+
+- **Documentation** : GUIDE-TECHNIQUE-v2.3.md mis à jour (`1337bb9`)
+  - H6 (#335 win-cli) marqué "✅ Complété" (validation Roo confirmée)
+
+**Inventaire myia-web1 :**
+- **Machine** : Windows 10, 2GB RAM, AMD Ryzen 5 3600 (6 cœurs)
+- **MCPs** : 8 serveurs (github-projects, roo-state-manager, markitdown, win-cli, etc.)
+- **Modes Roo** : 12 modes configurés
+- **Scripts** : 297 scripts disponibles
+
+**⚠️ Contrainte critique :**
+- Tests unitaires **impossible** sur cette machine (OOM)
+- Tâches futures : Documentation, coordination, léger scripting uniquement
+
+**Git :** `1337bb9` (docs H6 completed)
+**Tests :** N/A (OOM - machine insuffisante)
+
+---
 
 ### 2026-01-18 (18h) - Session myia-web1 ✅
 
