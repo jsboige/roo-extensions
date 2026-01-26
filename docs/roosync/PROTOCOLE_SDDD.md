@@ -1,20 +1,20 @@
 # Protocole SDDD (Semantic Documentation Driven Design)
 
-## Version: 2.6.0
+## Version: 2.7.0
 ## Date de création: 2026-01-02
-## Dernière mise à jour: 2026-01-15
+## Dernière mise à jour: 2026-01-24
 
 ## Description
 
-Ce document décrit le protocole SDDD (Semantic Documentation Driven Design) utilisé pour la documentation et le développement du système RooSync, incluant l'utilisation de github-project, roo-state-manager et codebase_search.
+Ce document décrit le protocole SDDD (Semantic Documentation Driven Design) utilisé pour la documentation et le développement du système RooSync, incluant l'utilisation de gh CLI, roo-state-manager et codebase_search.
 
 ---
 
 ## Table des Matières
 
 1. [Principes Fondamentaux](#1-principes-fondamentaux)
-2. [Utilisation de github-project](#2-utilisation-de-github-project)
-3. [Exemples d'Appels MCP GitHub-Projects](#3-exemples-dappels-mcp-github-projects)
+2. [Utilisation de gh CLI](#2-utilisation-de-gh-cli)
+3. [Exemples de Commandes gh CLI](#3-exemples-de-commandes-gh-cli)
 4. [Utilisation de codebase_search](#4-utilisation-de-codebase_search)
 5. [Utilisation de roo-state-manager](#5-utilisation-de-roo-state-manager)
 6. [Procédures de Grounding](#6-procédures-de-grounding)
@@ -59,7 +59,26 @@ graph LR
 
 ---
 
-## 2. Utilisation de github-project
+## 2. Utilisation de gh CLI
+
+### 2.1 Installation et Authentification
+
+**Installation** :
+```powershell
+# Via winget
+winget install --id GitHub.cli
+
+# Vérification
+gh --version
+```
+
+**Authentification** :
+```powershell
+gh auth login
+gh auth status
+```
+
+### 2.2 Configuration du Projet
 
 ### 2.1 Configuration du Projet
 
@@ -193,7 +212,7 @@ En attente / En cours / Terminé
 **Procédure de fermeture** :
 1. Ajouter un commentaire final de validation dans l'issue
 2. Mettre à jour le statut de l'item de projet à "Done" (si ce n'est pas déjà fait)
-3. Fermer l'issue en utilisant l'outil `update_issue_state`
+3. Fermer l'issue en utilisant `gh issue close`
 4. Documenter la fermeture dans le journal de l'agent
 
 **Fréquence de vérification** :
@@ -203,246 +222,168 @@ En attente / En cours / Terminé
 
 ---
 
-## 3. Exemples d'Appels MCP GitHub-Projects
+## 3. Exemples de Commandes gh CLI
 
-Cette section fournit des exemples concrets d'utilisation des outils MCP `github-projects-mcp` pour interagir avec le projet GitHub RooSync Multi-Agent.
+Cette section fournit des exemples concrets d'utilisation de **gh CLI** pour interagir avec le projet GitHub RooSync Multi-Agent.
+
+**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : [`docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`](../../suivi/github-projects-migration/GUIDE_MIGRATION.md)
 
 ### 3.1 Lister les Projets
 
-**Outil** : `list_projects`
+**Commande** : `gh project list`
 
 **Paramètres requis** :
-- `owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
-- `type` : Type de propriétaire (`user` ou `org`, défaut: `user`)
-- `state` : État des projets (`open`, `closed`, `all`, défaut: `open`)
+- `--owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
+- `--limit` : Nombre maximum de résultats (optionnel)
 
-**Exemple d'appel** :
+**Exemple** :
 ```bash
-list_projects {
-  "owner": "jsboige",
-  "type": "user",
-  "state": "open"
-}
+gh project list --owner jsboige --limit 10
 ```
 
 **Résultat attendu** :
-```json
-{
-  "projects": [
-    {
-      "id": "PVT_kwHOADA1Xc4BLw3w",
-      "title": "RooSync Multi-Agent",
-      "description": "Projet de synchronisation multi-agent pour Roo",
-      "state": "OPEN",
-      "number": 67
-    }
-  ]
-}
+```
+ID      TITLE                    NUMBER  STATE
+PVT_... RooSync Multi-Agent      67      OPEN
+PVT_... RooSync Coordination    70      OPEN
 ```
 
 ### 3.2 Obtenir les Détails d'un Projet
 
-**Outil** : `get_project`
+**Commande** : `gh project view`
 
 **Paramètres requis** :
-- `owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
-- `project_number` : Numéro du projet (ex: `67`)
-- `type` : Type de propriétaire (`user` ou `org`, défaut: `user`)
+- `--owner` : Nom d'utilisateur ou d'organisation (ex: `jsboige`)
+- `PROJECT_NUMBER` : Numéro du projet (ex: `67`)
 
-**Exemple d'appel** :
+**Exemple** :
 ```bash
-get_project {
-  "owner": "jsboige",
-  "project_number": 67,
-  "type": "user"
-}
+gh project view 67 --owner jsboige
 ```
 
 **Résultat attendu** :
-```json
-{
-  "id": "PVT_kwHOADA1Xc4BLw3w",
-  "title": "RooSync Multi-Agent",
-  "description": "Projet de synchronisation multi-agent pour Roo",
-  "state": "OPEN",
-  "number": 67,
-  "fields": [
-    {
-      "id": "status_field_id",
-      "name": "Status",
-      "dataType": "SINGLE_SELECT"
-    }
-  ]
-}
+```
+Title: RooSync Multi-Agent
+ID: PVT_kwHOADA1Xc4BLw3w
+State: OPEN
+Number: 67
 ```
 
 ### 3.3 Obtenir les Items d'un Projet
 
-**Outil** : `get_project_items`
+**Commande** : `gh project item-list`
 
 **Paramètres requis** :
-- `owner` : Propriétaire du projet (ex: `jsboige`)
-- `project_id` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
-- `filterOptions` : Critères de filtrage (optionnel, ex: `{ "status": "Done" }`)
+- `--owner` : Propriétaire du projet (ex: `jsboige`)
+- `PROJECT_NUMBER` : Numéro du projet (ex: `67`)
+- `--format` : Format de sortie (optionnel, ex: `json`)
 
-**Exemple d'appel** :
+**Exemple** :
 ```bash
-get_project_items {
-  "owner": "jsboige",
-  "project_id": "PVT_kwHOADA1Xc4BLw3w",
-  "filterOptions": {
-    "status": "In Progress"
-  }
-}
+gh project item-list 67 --owner jsboige --format json | jq '.items[] | select(.status == "In Progress")'
 ```
 
-**Résultat attendu** :
-```json
-{
-  "items": [
-    {
-      "id": "item_id_1",
-      "content": {
-        "title": "Implémenter la synchronisation baseline",
-        "type": "DRAFT_ISSUE"
-      },
-      "fieldValues": [
-        {
-          "fieldId": "status_field_id",
-          "value": "In Progress"
-        }
-      ]
-    }
-  ]
-}
-```
+### 3.4 Créer une Issue
 
-### 3.4 Convertir un Draft en Issue
-
-**Outil** : `convert_draft_to_issue`
+**Commande** : `gh issue create`
 
 **Paramètres requis** :
-- `owner` : Propriétaire du projet (ex: `jsboige`)
-- `projectId` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
-- `draftId` : ID du draft à convertir
+- `--title` : Titre de l'issue
+- `--body` : Corps de l'issue
+- `--repo` : Dépôt (ex: `jsboige/roo-extensions`)
+- `--project` : Numéro du projet (optionnel)
 
-**Exemple d'appel** :
+**Exemple** :
 ```bash
-convert_draft_to_issue {
-  "owner": "jsboige",
-  "projectId": "PVT_kwHOADA1Xc4BLw3w",
-  "draftId": "item_id_1"
-}
-```
-
-**Résultat attendu** :
-```json
-{
-  "issue": {
-    "id": "issue_id_1",
-    "number": 123,
-    "title": "Implémenter la synchronisation baseline",
-    "state": "OPEN",
-    "repository": {
-      "name": "roo-extensions",
-      "owner": {
-        "login": "jsboige"
-      }
-    }
-  }
-}
+gh issue create --title "Implémenter la synchronisation baseline" --body "Description de la tâche" --repo jsboige/roo-extensions --project 67
 ```
 
 ### 3.5 Mettre à Jour un Champ d'Item
 
-**Outil** : `update_project_item_field`
+**Commande** : `gh project item-edit`
 
 **Paramètres requis** :
-- `owner` : Propriétaire du projet (ex: `jsboige`)
-- `project_id` : ID du projet (ex: `PVT_kwHOADA1Xc4BLw3w`)
-- `item_id` : ID de l'item (ex: `item_id_1`)
-- `field_id` : ID du champ à mettre à jour
-- `field_type` : Type de champ (`text`, `date`, `single_select`, `number`)
-- `value` : Nouvelle valeur (ou `option_id` pour `single_select`)
+- `--owner` : Propriétaire du projet (ex: `jsboige`)
+- `PROJECT_NUMBER` : Numéro du projet (ex: `67`)
+- `--id` : ID de l'item
+- `--field-id` : ID du champ à mettre à jour
+- `--value` : Nouvelle valeur
 
-**Exemple d'appel** (mise à jour du statut) :
+**Exemple** (mise à jour du statut) :
 ```bash
-update_project_item_field {
-  "owner": "jsboige",
-  "project_id": "PVT_kwHOADA1Xc4BLw3w",
-  "item_id": "item_id_1",
-  "field_id": "status_field_id",
-  "field_type": "single_select",
-  "option_id": "done_option_id"
-}
-```
-
-**Résultat attendu** :
-```json
-{
-  "item": {
-    "id": "item_id_1",
-    "fieldValues": [
-      {
-        "fieldId": "status_field_id",
-        "value": "Done"
-      }
-    ]
-  }
-}
+gh project item-edit 67 --owner jsboige --id PVTI_lAHOADA1Xc4BLw3wzgjKN5k --field-id PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY --value "Done"
 ```
 
 #### 3.5.1 IDs de Référence pour Project #67 (RooSync Multi-Agent Tasks)
 
-**IMPORTANT** : Pour les champs `single_select`, utilisez `option_id` (pas `value`).
-
 | Élément | ID |
 |---------|-----|
-| **Project ID** | `PVT_kwHOADA1Xc4BLw3w` |
+| **Project Number** | `67` |
 | **Status Field ID** | `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` |
 
 **Options du champ Status** :
 
-| Status | option_id |
-|--------|-----------|
-| Todo | `f75ad846` |
-| In Progress | `47fc9ee4` |
-| Done | `98236657` |
+| Status | Valeur |
+|--------|--------|
+| Todo | `Todo` |
+| In Progress | `In Progress` |
+| Done | `Done` |
 
 **Exemple concret** (marquer une tâche "Done") :
 ```bash
-update_project_item_field {
-  "owner": "jsboige",
-  "project_id": "PVT_kwHOADA1Xc4BLw3w",
-  "item_id": "PVTI_lAHOADA1Xc4BLw3wzgjKN5k",
-  "field_id": "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY",
-  "field_type": "single_select",
-  "option_id": "98236657"
-}
+gh project item-edit 67 --owner jsboige --id PVTI_lAHOADA1Xc4BLw3wzgjKN5k --field-id PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY --value "Done"
 ```
 
 #### 3.5.2 IDs de Référence pour Project #70 (RooSync Multi-Agent Coordination)
 
 | Élément | ID |
 |---------|-----|
-| **Project ID** | `PVT_kwHOADA1Xc4BL7qS` |
+| **Project Number** | `70` |
 | **Status Field ID** | `PVTSSF_lAHOADA1Xc4BL7qSzg7W_SE` |
 
-**Options du champ Status** (mêmes IDs que #67) :
+**Options du champ Status** (mêmes valeurs que #67) :
 
-| Status | option_id |
-|--------|-----------|
-| Todo | `f75ad846` |
-| In Progress | `47fc9ee4` |
-| Done | `98236657` |
+| Status | Valeur |
+|--------|--------|
+| Todo | `Todo` |
+| In Progress | `In Progress` |
+| Done | `Done` |
 
-### 3.6 Ajouter un Commentaire à une Issue
+### 3.6 Fermer une Issue
 
-**Note** : L'ajout de commentaires aux issues se fait via l'API GitHub standard ou via l'outil `create_issue` avec un corps de message détaillé.
+**Commande** : `gh issue close`
 
-**Procédure de journalisation** :
-1. Utiliser l'outil `create_issue` pour créer une nouvelle issue avec un corps de message
-2. Ou utiliser l'API GitHub REST pour ajouter des commentaires à une issue existante
+**Paramètres requis** :
+- `ISSUE_NUMBER` : Numéro de l'issue
+- `--repo` : Dépôt (ex: `jsboige/roo-extensions`)
+
+**Exemple** :
+```bash
+gh issue close 123 --repo jsboige/roo-extensions
+```
+
+### 3.7 Ajouter un Commentaire à une Issue
+
+**Commande** : `gh issue comment`
+
+**Paramètres requis** :
+- `ISSUE_NUMBER` : Numéro de l'issue
+- `--body` : Corps du commentaire
+- `--repo` : Dépôt (ex: `jsboige/roo-extensions`)
+
+**Exemple** :
+```bash
+gh issue comment 123 --body "## Journalisation - 2026-01-24
+
+### Opération effectuée
+- **Action** : Implémentation de la fonctionnalité X
+- **Résultat** : Succès
+- **Fichiers modifiés** : src/file1.ts, src/file2.ts
+
+### Validation
+- Tests effectués : ✅
+" --repo jsboige/roo-extensions
+```
 
 **Exemple de format de journalisation** :
 ```markdown
@@ -788,10 +729,11 @@ refactor(roosync): Simplify baseline loading logic
 | 2026-01-05 | 2.4.0 | Roo Code Mode (myia-ai-01) | Ajout de la section 2.6 sur la vérification et fermeture des issues. Ajout de l'obligation critique de vérifier et fermer les issues complétées dans la section 2.4. Mise à jour du workflow principal (section 8.1) pour inclure l'étape de vérification et fermeture des issues. Ajout d'une sous-section sur la gestion des issues dans les bonnes pratiques (section 8.2). |
 | 2026-01-13 | 2.5.0 | Claude Code (myia-ai-01) | **NOUVEAU PARADIGME Git-first** : Git/GitHub devient la source principale de journalisation. Plus de rapports verbeux - SUIVI_ACTIF.md devient un résumé minimal avec références git/github. Format de commits conventionnelisé. Documentation du dépôt = doc système pérenne qui se consolide. |
 | 2026-01-15 | 2.6.0 | Claude Code (myia-ai-01) | **Prévention du travail en parallèle** : Ajout de la section 7.2 sur la prévention du travail en parallèle (anti-duplication) suite à l'incident T3.7. Procédure de réservation de tâche, communication RooSync, et documentation des incidents. |
+| 2026-01-24 | 2.7.0 | Claude Code (myia-ai-01) | **Migration gh CLI** : Remplacement de la section 3 "Exemples d'Appels MCP GitHub-Projects" par "Exemples de Commandes gh CLI". Mise à jour de la section 2 pour inclure l'installation et l'authentification gh CLI. Ajout de références au guide de migration. Suppression des exemples MCP github-projects au profit de gh CLI. |
 
 ---
 
 **Document généré par:** Claude Code (myia-ai-01)
-**Date de génération:** 2026-01-15T12:45:00Z
-**Version:** 2.5.0
+**Date de génération:** 2026-01-24T11:18:00Z
+**Version:** 2.7.0
 **Statut:** 🟢 Production Ready

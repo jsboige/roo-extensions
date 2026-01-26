@@ -104,7 +104,7 @@ ls mcps/internal/servers/roo-state-manager/dist
 Ce script:
 - Détecte le nom de la machine
 - Crée `.mcp.json` dans le profil utilisateur
-- Configure les MCPs github-projects et roo-state-manager
+- Configure le MCP roo-state-manager
 
 ### 3.2 Créer le Fichier .env
 
@@ -140,7 +140,6 @@ Dans Claude Code, exécutez:
 ```
 
 Vous devez voir:
-- `github-projects-mcp` avec 57+ outils
 - `roo-state-manager` avec 6-11 outils RooSync
 
 ### 4.2 Tester la Messagerie RooSync
@@ -193,7 +192,7 @@ Labels: claude-code, onboarding
 Body:
 - Machine: {MACHINE}
 - Date: {DATE}
-- MCPs: github-projects ✅, roo-state-manager ✅
+- MCPs: roo-state-manager ✅
 - Tests: Messagerie ✅, Projects ✅
 ```
 

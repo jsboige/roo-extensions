@@ -5,9 +5,9 @@
       "name": "github-projects",
       "type": "stdio",
       "command": "node ./mcps/internal/servers/github-projects-mcp/dist/index.js",
-      "enabled": true,
-      "autoStart": true,
-      "description": "Serveur MCP pour interagir avec GitHub Projects",
+      "enabled": false,
+      "autoStart": false,
+      "description": "Serveur MCP pour interagir avec GitHub Projects (DÉSACTIVÉ - T89: Aucun mode Roo personnalisé n'utilise ce MCP. Migration vers gh CLI recommandée. Voir docs/suivi/github-projects-migration/GUIDE_MIGRATION.md)",
       "workingDirectory": "./mcps/internal/servers/github-projects-mcp",
       "envFile": ".env"
     },
