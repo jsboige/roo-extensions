@@ -219,9 +219,10 @@ foreach ($Machine in $Machines) {
                     $Dashboard += "`n`n### Détails MCP - $Machine vs $Baseline`n`n"
 
                     foreach ($diff in $diffResult.Details) {
-                        $severity = $diff.severity ?? "INFO"
-                        $diffPath = $diff.path ?? "N/A"
-                        $diffType = $diff.type ?? "unknown"
+                        # PowerShell 5.1 compatible null coalescing
+                        $severity = if ($diff.severity) { $diff.severity } else { "INFO" }
+                        $diffPath = if ($diff.path) { $diff.path } else { "N/A" }
+                        $diffType = if ($diff.type) { $diff.type } else { "unknown" }
 
                         $Dashboard += "- **[$severity]** $($diffPath) ($($diffType))`n"
                     }
