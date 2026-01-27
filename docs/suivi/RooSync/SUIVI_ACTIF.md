@@ -1,11 +1,34 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-26 (16h - Tour de sync myia-ai-01)
+**Dernière mise à jour:** 2026-01-27 (04h - Tour de sync myia-ai-01)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-27 (04h) - Tour de sync + Assignation CONS tasks ✅
+
+**Actions Claude Code :**
+- **Dashboard MCP finalisé** :
+  - Script `generate-mcp-dashboard.ps1` corrigé (PowerShell 5.1)
+  - Commit `911009c4`
+  - 5/5 machines avec inventaire sur GDrive
+
+- **Issues fermées** :
+  - #354 (GPU specs) - myia-po-2023
+  - #338 (Sync granulaire MCPs) - myia-po-2023
+  - #269 marquée Done dans Project #67
+
+- **Tâches CONS assignées via RooSync** :
+  - myia-po-2023 → CONS-1 (Messages)
+  - myia-po-2024 → CONS-2 (Heartbeats)
+  - myia-po-2026 → CONS-4 (Baseline)
+  - myia-web1 → #336 (H7 jupyter-mcp-old)
+
+**Git HEAD :** `911009c4`
+
+---
 
 ### 2026-01-26 (16h) - Tour de sync + Consolidation Doc ✅
 
@@ -235,13 +258,14 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | ~91/100 DONE (~91%) |
+| GitHub Project #67 | 93/100 DONE (93%) |
 | GitHub Project #70 | ~14/20 DONE (~70%) |
 | CI mcps/internal | ✅ 7/7 jobs PASS |
 | Version RooSync | v2.3.0 |
 | Machines actives | 5/5 |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `0ec2b9bb` |
+| Git HEAD | `911009c4` |
+| Dashboard MCP | ✅ GDrive (5/5 machines) |
 
 ---
 
