@@ -18,8 +18,8 @@ if (-not $OutputDir) {
 
 # Configuration
 $Machines = @("myia-ai-01", "myia-po-2023", "myia-po-2024", "myia-po-2026", "myia-web1")
-$Timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
-$OutputFile = Join-Path $OutputDir "mcp-dashboard-$Timestamp.md"
+# Fichier fixe (plus de timestamp) - Issue #xxx Plan "Écuries d'Augias"
+$OutputFile = Join-Path $OutputDir "DASHBOARD.md"
 
 # Créer le répertoire de sortie si nécessaire
 if (-not (Test-Path $OutputDir)) {
@@ -214,17 +214,38 @@ foreach ($Machine in $Machines) {
                 $Dashboard += "`n| $Machine | ✅ Disponible | $diffCount diffs |"
                 Write-Host "  → $diffCount diffs MCP détectés" -ForegroundColor Green
 
-                # Ajouter les détails des diffs
+                # Ajouter les détails des diffs avec actions recommandées
                 if ($diffCount -gt 0) {
-                    $Dashboard += "`n`n### Détails MCP - $Machine vs $Baseline`n`n"
+                    $Dashboard += "`n`n### $Machine - $diffCount diffs vs $Baseline`n`n"
+                    $Dashboard += "| Élément | Type | Recommandation |`n"
+                    $Dashboard += "|---------|------|----------------|`n"
 
+                    $mcpNames = @()
                     foreach ($diff in $diffResult.Details) {
-                        # PowerShell 5.1 compatible null coalescing
-                        $severity = if ($diff.severity) { $diff.severity } else { "INFO" }
-                        $diffPath = if ($diff.path) { $diff.path } else { "N/A" }
+                        # Extraire le nom du MCP depuis le path
+                        $mcpName = if ($diff.path -match 'mcpServers\.(.+)$') { $matches[1] } else { "unknown" }
                         $diffType = if ($diff.type) { $diff.type } else { "unknown" }
 
-                        $Dashboard += "- **[$severity]** $($diffPath) ($($diffType))`n"
+                        $action = switch ($diffType) {
+                            "removed" { "Installer depuis baseline" }
+                            "added" { "À évaluer (absent baseline)" }
+                            "modified" { "Aligner sur baseline" }
+                            default { "À vérifier" }
+                        }
+
+                        $Dashboard += "| ``$mcpName`` | $diffType | $action |`n"
+                        if ($diffType -in @("removed", "modified")) {
+                            $mcpNames += "mcp:$mcpName"
+                        }
+                    }
+
+                    # Ajouter la commande prête à exécuter
+                    if ($mcpNames.Count -gt 0) {
+                        $targets = $mcpNames -join '", "'
+                        $Dashboard += "`n**Commande pour aligner sur baseline:**`n"
+                        $Dashboard += "``````powershell`n"
+                        $Dashboard += "roosync_apply_config({ targets: [""$targets""], machineId: ""$Baseline"" })`n"
+                        $Dashboard += "```````n"
                     }
                 }
             } else {

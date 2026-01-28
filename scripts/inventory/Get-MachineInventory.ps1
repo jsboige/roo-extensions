@@ -206,75 +206,21 @@ try {
 }
 
 # ===============================
-# 3. Specifications SDDD
+# 3. Specifications SDDD - SIMPLIFICATION "Écuries d'Augias"
 # ===============================
-Write-Host "`nCollecte des specifications SDDD..." -ForegroundColor Yellow
-try {
-    $specsPath = "$RooConfigPath\specifications"
-    if (Test-Path $specsPath) {
-        $specs = Get-ChildItem -Path $specsPath -Filter "*.md" | Where-Object { $_.Name -ne "README.md" }
-        foreach ($spec in $specs) {
-            $specInfo = @{
-                name = $spec.Name
-                path = $spec.FullName.Replace("$RooExtensionsPath\", "")
-                size = $spec.Length
-                lastModified = $spec.LastWriteTime.ToString("yyyy-MM-dd")
-            }
-            $inventory.inventory.sdddSpecs += $specInfo
-            Write-Host "  OK $($spec.Name)" -ForegroundColor Green
-        }
-    } else {
-        Write-Host "  Repertoire specifications non trouve" -ForegroundColor Yellow
-        $inventory.inventory.sdddSpecs += @{ status = "absent" }
-    }
-} catch {
-    Write-Host "  Erreur lors de la lecture des specs: $_" -ForegroundColor Red
-    $inventory.inventory.sdddSpecs += @{ status = "error"; error = $_.Exception.Message }
-}
+Write-Host "`nSpecs SDDD: SKIP (simplifie)" -ForegroundColor Gray
+# Les specs ne sont pas utiles pour la comparaison des configurations
+$inventory.inventory.sdddSpecs = @()
 
 # ===============================
-# 4. Scripts disponibles
+# 4. Scripts disponibles - SIMPLIFICATION "Écuries d'Augias"
 # ===============================
-Write-Host "`nInventaire des scripts..." -ForegroundColor Yellow
-try {
-    if (Test-Path $ScriptsPath) {
-        $scriptDirs = Get-ChildItem -Path $ScriptsPath -Directory
-        foreach ($dir in $scriptDirs) {
-            $scripts = Get-ChildItem -Path $dir.FullName -Filter "*.ps1" -Recurse -Depth 3
-            $category = $dir.Name
-            $inventory.inventory.scripts.categories[$category] = @()
-
-            foreach ($script in $scripts) {
-                $scriptInfo = @{
-                    name = $script.Name
-                    path = $script.FullName.Replace("$RooExtensionsPath\", "")
-                    category = $category
-                }
-                $inventory.inventory.scripts.categories[$category] += $scriptInfo
-                $inventory.inventory.scripts.all += $scriptInfo
-                Write-Host "  OK [$category] $($script.Name)" -ForegroundColor Green
-            }
-        }
-
-        $rootScripts = Get-ChildItem -Path $ScriptsPath -Filter "*.ps1"
-        if ($rootScripts.Count -gt 0) {
-            $inventory.inventory.scripts.categories["root"] = @()
-            foreach ($script in $rootScripts) {
-                $scriptInfo = @{
-                    name = $script.Name
-                    path = $script.FullName.Replace("$RooExtensionsPath\", "")
-                    category = "root"
-                }
-                $inventory.inventory.scripts.categories["root"] += $scriptInfo
-                $inventory.inventory.scripts.all += $scriptInfo
-                Write-Host "  OK [root] $($script.Name)" -ForegroundColor Green
-            }
-        }
-    } else {
-        Write-Host "  Repertoire scripts non trouve" -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "  Erreur lors de l'inventaire des scripts: $_" -ForegroundColor Red
+Write-Host "`nScripts: SKIP (simplifie - gain ~70KB)" -ForegroundColor Gray
+# Les scripts ne sont pas utiles pour la comparaison des configurations
+# et gonflent l'inventaire de 70+ KB
+$inventory.inventory.scripts = @{
+    categories = @{}
+    all = @()
 }
 
 # ===============================
@@ -424,12 +370,11 @@ try {
     Write-Host "  Sérialisation terminée en $($stopwatch.ElapsedMilliseconds)ms" -ForegroundColor Green
 
     Write-Host "`nInventaire sauvegarde: $OutputPath" -ForegroundColor Green
-    Write-Host "`nResume:" -ForegroundColor Cyan
+    Write-Host "`nResume (format allege 'Ecuries d'Augias'):" -ForegroundColor Cyan
     Write-Host "  - Serveurs MCP: $($inventory.inventory.mcpServers.Count)" -ForegroundColor White
     Write-Host "  - Modes Roo: $($inventory.inventory.rooModes.Count)" -ForegroundColor White
-    Write-Host "  - Specifications SDDD: $($inventory.inventory.sdddSpecs.Count)" -ForegroundColor White
-    Write-Host "  - Scripts: $($inventory.inventory.scripts.all.Count)" -ForegroundColor White
     Write-Host "  - Outils verifies: $($inventory.inventory.tools.Keys.Count)" -ForegroundColor White
+    Write-Host "  (specs et scripts exclus pour alleger l'inventaire)" -ForegroundColor Gray
 
     return $OutputPath
 } catch {
