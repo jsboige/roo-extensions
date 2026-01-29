@@ -347,7 +347,182 @@ try {
 }
 
 # ===============================
-# 6. Sauvegarde de l'inventaire
+# 7. Windows OS (enrichi)
+# ===============================
+Write-Host "`nCollecte des informations Windows OS..." -ForegroundColor Yellow
+try {
+    $osInfo = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+    if ($osInfo) {
+        $inventory.inventory.systemInfo.windowsOS = @{
+            caption = $osInfo.Caption
+            version = $osInfo.Version
+            buildNumber = $osInfo.BuildNumber
+            servicePackMajorVersion = $osInfo.ServicePackMajorVersion
+            servicePackMinorVersion = $osInfo.ServicePackMinorVersion
+            osArchitecture = $osInfo.OSArchitecture
+            serialNumber = $osInfo.SerialNumber
+            installDate = $osInfo.InstallDate
+            lastBootUpTime = $osInfo.LastBootUpTime
+            windowsDirectory = $osInfo.WindowsDirectory
+            systemDirectory = $osInfo.SystemDirectory
+        }
+        Write-Host "  OK Windows $($osInfo.Caption) Build $($osInfo.BuildNumber)" -ForegroundColor Green
+    } else {
+        Write-Host "  Informations Windows OS non disponibles" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  Erreur lors de la collecte Windows OS: $_" -ForegroundColor Red
+}
+
+# ===============================
+# 8. PowerShell (enrichi)
+# ===============================
+Write-Host "`nCollecte des informations PowerShell..." -ForegroundColor Yellow
+try {
+    $inventory.inventory.systemInfo.powerShell = @{
+        version = $PSVersionTable.PSVersion.ToString()
+        psVersion = $PSVersionTable.PSVersion
+        psRemotingProtocolVersion = $PSVersionTable.PSRemotingProtocolVersion
+        serializationVersion = $PSVersionTable.SerializationVersion
+        wsManStackVersion = $PSVersionTable.WSManStackVersion
+        edition = $PSVersionTable.PSEdition
+        gitCommitId = $PSVersionTable.GitCommitId
+        platform = $PSVersionTable.Platform
+        clrVersion = $PSVersionTable.CLRVersion
+    }
+    Write-Host "  OK PowerShell $($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))" -ForegroundColor Green
+} catch {
+    Write-Host "  Erreur lors de la collecte PowerShell: $_" -ForegroundColor Red
+}
+
+# ===============================
+# 9. Configuration Roo
+# ===============================
+Write-Host "`nCollecte de la configuration Roo..." -ForegroundColor Yellow
+try {
+    $rooConfig = @{}
+
+    # Lire le fichier modes.json
+    $modesPath = "$RooConfigPath\settings\modes.json"
+    if (Test-Path $modesPath) {
+        $modesConfig = Get-Content $modesPath -Raw | ConvertFrom-Json
+        $rooConfig.modes = @{
+            count = $modesConfig.modes.Count
+            defaultMode = $modesConfig.defaultMode
+            modes = $modesConfig.modes | ForEach-Object {
+                @{
+                    slug = $_.slug
+                    name = $_.name
+                    description = $_.description
+                    defaultModel = $_.defaultModel
+                }
+            }
+        }
+        Write-Host "  OK Modes Roo: $($modesConfig.modes.Count) modes" -ForegroundColor Green
+    } else {
+        Write-Host "  Fichier modes.json non trouvé" -ForegroundColor Yellow
+    }
+
+    # Lire le fichier settings.json principal
+    $settingsPath = "$RooConfigPath\settings\settings.json"
+    if (Test-Path $settingsPath) {
+        $settingsConfig = Get-Content $settingsPath -Raw | ConvertFrom-Json
+        $rooConfig.settings = @{
+            defaultModel = $settingsConfig.defaultModel
+            temperature = $settingsConfig.temperature
+            maxTokens = $settingsConfig.maxTokens
+        }
+        Write-Host "  OK Settings Roo" -ForegroundColor Green
+    } else {
+        Write-Host "  Fichier settings.json non trouvé" -ForegroundColor Yellow
+    }
+
+    $inventory.inventory.rooConfig = $rooConfig
+} catch {
+    Write-Host "  Erreur lors de la collecte Roo: $_" -ForegroundColor Red
+    $inventory.inventory.rooConfig = @{ status = "error"; error = $_.Exception.Message }
+}
+
+# ===============================
+# 10. Configuration Claude
+# ===============================
+Write-Host "`nCollecte de la configuration Claude..." -ForegroundColor Yellow
+try {
+    $claudeConfig = @{}
+
+    # Lire le fichier mcp_settings.json pour Claude
+    if (Test-Path $McpSettingsPath) {
+        $mcpSettings = Get-Content $McpSettingsPath -Raw | ConvertFrom-Json
+        $claudeConfig.mcpSettings = @{
+            mcpServersCount = $mcpSettings.mcpServers.PSObject.Properties.Count
+            mcpServers = $mcpSettings.mcpServers.PSObject.Properties | ForEach-Object {
+                @{
+                    name = $_.Name
+                    enabled = -not $_.Value.disabled
+                    autoStart = $_.Value.autoStart
+                }
+            }
+        }
+        Write-Host "  OK MCP Settings: $($claudeConfig.mcpSettings.mcpServersCount) serveurs" -ForegroundColor Green
+    } else {
+        Write-Host "  Fichier mcp_settings.json non trouvé" -ForegroundColor Yellow
+    }
+
+    # Lire le fichier globalStorage de Claude
+    $claudeGlobalStoragePath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline"
+    if (Test-Path $claudeGlobalStoragePath) {
+        $claudeConfig.globalStoragePath = $claudeGlobalStoragePath
+        Write-Host "  OK GlobalStorage Claude: $claudeGlobalStoragePath" -ForegroundColor Green
+    } else {
+        Write-Host "  GlobalStorage Claude non trouvé" -ForegroundColor Yellow
+    }
+
+    $inventory.inventory.claudeConfig = $claudeConfig
+} catch {
+    Write-Host "  Erreur lors de la collecte Claude: $_" -ForegroundColor Red
+    $inventory.inventory.claudeConfig = @{ status = "error"; error = $_.Exception.Message }
+}
+
+# ===============================
+# 11. Variables d'environnement pertinentes
+# ===============================
+Write-Host "`nCollecte des variables d'environnement..." -ForegroundColor Yellow
+try {
+    $relevantEnvVars = @(
+        "PATH",
+        "HOME",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "TEMP",
+        "TMP",
+        "COMPUTERNAME",
+        "USERNAME",
+        "USERDOMAIN",
+        "PROCESSOR_ARCHITECTURE",
+        "NUMBER_OF_PROCESSORS",
+        "ROOSYNC_ROOT",
+        "ROOSYNC_SHARED_PATH",
+        "ROOSYNC_MACHINE_ID"
+    )
+
+    $envVars = @{}
+    foreach ($varName in $relevantEnvVars) {
+        $varValue = [System.Environment]::GetEnvironmentVariable($varName)
+        if ($varValue) {
+            $envVars[$varName] = $varValue
+        }
+    }
+
+    $inventory.inventory.environmentVariables = $envVars
+    Write-Host "  OK Variables d'environnement: $($envVars.Count) collectées" -ForegroundColor Green
+} catch {
+    Write-Host "  Erreur lors de la collecte des variables d'environnement: $_" -ForegroundColor Red
+    $inventory.inventory.environmentVariables = @{ status = "error"; error = $_.Exception.Message }
+}
+
+# ===============================
+# 12. Sauvegarde de l'inventaire
 # ===============================
 Write-Host "`nSauvegarde de l'inventaire..." -ForegroundColor Yellow
 

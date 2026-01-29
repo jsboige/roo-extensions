@@ -178,6 +178,8 @@ function Get-McpDiffs {
             TotalDiffs = $diffs.Count
             McpDiffs = $diffs.Count
             Details = $diffs
+            SourceMcpDict = $sourceMcpDict
+            TargetMcpDict = $targetMcpDict
         }
     } catch {
         Write-Host "Erreur lors de la comparaison ${Source} vs ${Target}: $_" -ForegroundColor Red
@@ -217,8 +219,8 @@ foreach ($Machine in $Machines) {
                 # Ajouter les détails des diffs avec actions recommandées
                 if ($diffCount -gt 0) {
                     $Dashboard += "`n`n### $Machine - $diffCount diffs vs $Baseline`n`n"
-                    $Dashboard += "| Élément | Type | Recommandation |`n"
-                    $Dashboard += "|---------|------|----------------|`n"
+                    $Dashboard += "| Élément | Type | Recommandation | Avant | Après |`n"
+                    $Dashboard += "|---------|------|----------------|-------|-------|`n"
 
                     $mcpNames = @()
                     foreach ($diff in $diffResult.Details) {
@@ -233,7 +235,23 @@ foreach ($Machine in $Machines) {
                             default { "À vérifier" }
                         }
 
-                        $Dashboard += "| ``$mcpName`` | $diffType | $action |`n"
+                        # Pour les éléments modified, extraire les valeurs avant/après
+                        $beforeValue = ""
+                        $afterValue = ""
+                        if ($diffType -eq "modified") {
+                            # Récupérer les configurations des MCPs pour afficher les différences
+                            $sourceMcp = $diffResult.SourceMcpDict[$mcpName]
+                            $targetMcp = $diffResult.TargetMcpDict[$mcpName]
+                            if ($sourceMcp -and $targetMcp) {
+                                $beforeValue = ($sourceMcp | ConvertTo-Json -Compress -Depth 3)
+                                $afterValue = ($targetMcp | ConvertTo-Json -Compress -Depth 3)
+                                # Tronquer si trop long
+                                if ($beforeValue.Length -gt 100) { $beforeValue = $beforeValue.Substring(0, 100) + "..." }
+                                if ($afterValue.Length -gt 100) { $afterValue = $afterValue.Substring(0, 100) + "..." }
+                            }
+                        }
+
+                        $Dashboard += "| ``$mcpName`` | $diffType | $action | ``$beforeValue`` | ``$afterValue`` |`n"
                         if ($diffType -in @("removed", "modified")) {
                             $mcpNames += "mcp:$mcpName"
                         }
