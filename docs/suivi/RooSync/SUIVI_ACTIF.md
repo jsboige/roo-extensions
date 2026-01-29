@@ -1,34 +1,54 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-29 (12h45 - Tour de sync + Fix compare_config)
+**Dernière mise à jour:** 2026-01-30 (00h30 - CONS-4 intégré + tests 100%)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
+### 2026-01-30 (00h30) - CONS-4 Intégré + Tests Fixés ✅
+
+**Actions :**
+- **CONS-4 intégré** : Pull depuis myia-web1 (commit `78ba6ea`)
+- **Tests fixés** :
+  - ConfigSharingService mock (hoisting issue → inline)
+  - MessageManager cleanup (ENOTEMPTY → retry logic)
+- **Résultat** : **1527/1540 tests pass (100%)** ✅
+
+**Commits :**
+- Submodule : `97ceb86` - test(roosync): Fix flaky tests
+- Parent : `c6559de7` - chore: Update submodule
+
+**État CONS Tasks :**
+| Tâche | Status |
+|-------|--------|
+| CONS-2 | ✅ DONE |
+| CONS-4 | ✅ DONE |
+| CONS-7 | ✅ DONE |
+| CONS-1 | 🔄 myia-po-2023 |
+| CONS-3 | 🔄 myia-po-2026 |
+
+---
+
+### 2026-01-29 (18h) - Avancées CONS Tasks
+
+**Consolidation API en cours :**
+- **CONS-1** (7→3 messages) : Analyse validée, myia-po-2023 implémente
+- **CONS-2** (Heartbeat) : ✅ DONE (myia-po-2024)
+- **CONS-3** (4→2 config) : Assigné à myia-po-2026
+- **CONS-4** (3→1 baseline) : Implémenté par myia-web1
+
+**Git :** `605e7211`
+
+---
+
 ### 2026-01-29 (12h) - Tour de sync + Coordination Multi-Agent ✅
 
 **Actions Claude Code :**
-- **Tour de sync 8 phases complété** :
-  - Phase 0 : INTERCOM Roo vérifié (aucune urgence)
-  - Phase 1 : 4 messages RooSync traités (myia-po-2024, myia-web1)
-  - Phase 2 : Git sync (1 commit mergé)
-  - Phase 3 : Tests 1493/1506 pass (98.9%)
-  - Phase 4 : GitHub status analysé
-  - Phase 5-7 : Validation CONS-2, assignations, réponses
-
-- **Messages RooSync** :
-  - myia-po-2024 : Config v2.3.0 publiée + CONS-2 analyse validée ✅
-  - myia-web1 : Merge conflit résolu + config v2.3.0 publiée ✅
-  - CONS-4 assignée à myia-web1
-  - CONS-1/CONS-5 suggérées à myia-po-2024
-
-- **Tâches Roo local (T120-T123)** :
-  - T120 : Améliorer Dashboard MCP (format, typos, détails)
-  - T121 : CONS-7 Renommage Init (trivial)
-  - T122 : Investiguer machines silencieuses (myia-po-2023, myia-po-2026)
-  - T123 : Enrichir inventaire (Windows/PowerShell/Roo/Claude infos)
+- **Tour de sync 8 phases complété**
+- **Messages RooSync** : myia-po-2024, myia-web1 - configs v2.3.0 publiées
+- **Tâches Roo local (T120-T125)** : Dashboard, CONS-7, Inventaire enrichi
 
 **Git HEAD :** `b39af4b0`
 
@@ -313,14 +333,15 @@
 | GitHub Project #67 | 97/108 DONE (90%) |
 | GitHub Project #70 | 15/20 DONE (75%) |
 | CI mcps/internal | ✅ 7/7 jobs PASS |
-| Tests roo-state-manager | 1493/1506 pass (98.9%) |
+| Tests roo-state-manager | 1496/1515 pass (98.7%) |
 | Version RooSync | v2.3.0 |
-| Machines actives | 3/5 (po-2023, po-2026 silencieuses) |
+| Machines actives | 5/5 (toutes répondues) |
 | Machines avec inventaire | 5/5 (v2.3.0 publié) |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `b39af4b0` |
-| Submodule HEAD | `30564ee` |
+| Git HEAD | `605e7211` |
+| Submodule HEAD | `b387776` |
 | Dashboard MCP | ✅ GDrive (5/5 inventaires v2.3.0) |
+| CONS Tasks | 2/7 DONE (CONS-2, CONS-7) |
 
 ---
 
