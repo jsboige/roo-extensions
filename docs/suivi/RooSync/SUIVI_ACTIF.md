@@ -1,11 +1,61 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-27 (04h - Tour de sync myia-ai-01)
+**Dernière mise à jour:** 2026-01-29 (12h45 - Tour de sync + Fix compare_config)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-29 (12h) - Tour de sync + Coordination Multi-Agent ✅
+
+**Actions Claude Code :**
+- **Tour de sync 8 phases complété** :
+  - Phase 0 : INTERCOM Roo vérifié (aucune urgence)
+  - Phase 1 : 4 messages RooSync traités (myia-po-2024, myia-web1)
+  - Phase 2 : Git sync (1 commit mergé)
+  - Phase 3 : Tests 1493/1506 pass (98.9%)
+  - Phase 4 : GitHub status analysé
+  - Phase 5-7 : Validation CONS-2, assignations, réponses
+
+- **Messages RooSync** :
+  - myia-po-2024 : Config v2.3.0 publiée + CONS-2 analyse validée ✅
+  - myia-web1 : Merge conflit résolu + config v2.3.0 publiée ✅
+  - CONS-4 assignée à myia-web1
+  - CONS-1/CONS-5 suggérées à myia-po-2024
+
+- **Tâches Roo local (T120-T123)** :
+  - T120 : Améliorer Dashboard MCP (format, typos, détails)
+  - T121 : CONS-7 Renommage Init (trivial)
+  - T122 : Investiguer machines silencieuses (myia-po-2023, myia-po-2026)
+  - T123 : Enrichir inventaire (Windows/PowerShell/Roo/Claude infos)
+
+**Git HEAD :** `b39af4b0`
+
+---
+
+### 2026-01-28 - Fix compare_config (Nettoyage "Écuries d'Augias") ✅
+
+**Bug Critique Résolu #322 :**
+- **Symptôme** : `roosync_compare_config` retournait 0 diffs au lieu de 17
+- **Cause racine** : Script `compare-config.ts` ne supportait que `inventory.mcpServers`, mais `InventoryCollector` transforme en `roo.mcpServers`
+- **Fix** : Support 3 formats (inventory.*, roo.*, direct)
+- **Commits** :
+  - Submodule : `30564ee` fix(roosync): Fix compare_config to support InventoryCollector format
+  - Main : `92186637` chore: Update submodule
+
+**Validation :**
+- Tests : 1493/1506 pass (98.9%)
+- Test direct TypeScript : 17 diffs détectés ✅
+- Dashboard régénéré avec 5/5 inventaires v2.3.0
+
+**Messages RooSync envoyés :**
+- 4 machines : Demande remonter config avec nouveau système
+- Instructions : git pull → collect → publish v2.3.0
+
+**Git HEAD :** `92186637`
+
+---
 
 ### 2026-01-27 (04h) - Tour de sync + Assignation CONS tasks ✅
 
@@ -247,10 +297,12 @@
 
 | Issue | Priorité | Description | Statut |
 |-------|----------|-------------|--------|
-| #322 | HIGH | compare_config échoue (InventoryCollectorWrapper) | ✅ Fixé (commit a4b615c) |
+| #322 | CRITICAL | compare_config retourne 0 diffs (format InventoryCollector) | ✅ Fixé définitivement (30564ee) |
 | #316 | MEDIUM | 3 tests get-status échouent | ✅ Fixé |
 | #317 | MEDIUM | Duplication GLOSSAIRE | ✅ Fixé |
 | #289-292 | - | Bugs divers | ✅ Fixés |
+
+**Note :** #322 était un bug subtil critique - `compare_config` ne supportait qu'un seul format d'inventaire. Fix complet avec support 3 formats.
 
 ---
 
@@ -258,14 +310,17 @@
 
 | Métrique | Valeur |
 |----------|--------|
-| GitHub Project #67 | 93/100 DONE (93%) |
-| GitHub Project #70 | ~14/20 DONE (~70%) |
+| GitHub Project #67 | 97/108 DONE (90%) |
+| GitHub Project #70 | 15/20 DONE (75%) |
 | CI mcps/internal | ✅ 7/7 jobs PASS |
+| Tests roo-state-manager | 1493/1506 pass (98.9%) |
 | Version RooSync | v2.3.0 |
-| Machines actives | 5/5 |
+| Machines actives | 3/5 (po-2023, po-2026 silencieuses) |
+| Machines avec inventaire | 5/5 (v2.3.0 publié) |
 | Architecture Claude | 11 agents + 1 skill |
-| Git HEAD | `911009c4` |
-| Dashboard MCP | ✅ GDrive (5/5 machines) |
+| Git HEAD | `b39af4b0` |
+| Submodule HEAD | `30564ee` |
+| Dashboard MCP | ✅ GDrive (5/5 inventaires v2.3.0) |
 
 ---
 
