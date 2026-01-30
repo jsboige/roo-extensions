@@ -1,11 +1,34 @@
 # Suivi Actif RooSync
 
-**Dernière mise à jour:** 2026-01-30 (00h30 - CONS-4 intégré + tests 100%)
+**Dernière mise à jour:** 2026-01-30 (09h00 - Coordination CONS validations)
 **Coordinateur:** Claude Code (myia-ai-01)
 
 ---
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
+
+### 2026-01-30 (09h00) - Coordination Tour - Validations CONS ✅
+
+**Actions :**
+- **CONS-1 APPROUVÉ** (7→3 messages) - Analyse de myia-po-2023 validée → Priorité implémentation
+- **CONS-3 APPROUVÉ** (4→2 config) - Analyse de myia-po-2026 validée
+- **CONS-5 APPROUVÉ** (5→2 decisions) - Analyse de myia-po-2024 validée
+- **GitHub #67 mis à jour** : CONS-2, CONS-4, CONS-7 marqués Done
+
+**État CONS Tasks (GitHub #67 : 105/109 = 96.3%):**
+| Tâche | Status | Machine |
+|-------|--------|---------|
+| CONS-1 | ✅ Analyse approuvée → **IMPLEM PRIORITAIRE** | myia-po-2023 |
+| CONS-2 | ✅ DONE (GitHub) | myia-po-2024 |
+| CONS-3 | ✅ Analyse approuvée (attente CONS-1) | myia-po-2026 |
+| CONS-4 | ✅ DONE (GitHub) | myia-web1 |
+| CONS-5 | ✅ Analyse approuvée (attente CONS-1) | myia-po-2024 |
+| CONS-6 | 📋 Libre | - |
+| CONS-7 | ✅ DONE (GitHub) | Roo local |
+
+**Messages RooSync envoyés :** 3 (validations + instructions)
+
+---
 
 ### 2026-01-30 (00h30) - CONS-4 Intégré + Tests Fixés ✅
 
@@ -19,15 +42,6 @@
 **Commits :**
 - Submodule : `97ceb86` - test(roosync): Fix flaky tests
 - Parent : `c6559de7` - chore: Update submodule
-
-**État CONS Tasks :**
-| Tâche | Status |
-|-------|--------|
-| CONS-2 | ✅ DONE |
-| CONS-4 | ✅ DONE |
-| CONS-7 | ✅ DONE |
-| CONS-1 | 🔄 myia-po-2023 |
-| CONS-3 | 🔄 myia-po-2026 |
 
 ---
 
