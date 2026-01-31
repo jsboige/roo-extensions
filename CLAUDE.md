@@ -237,7 +237,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 **Capacités Techniques COMPLÈTES :**
 - **Investigation bugs** : Lire le code, tracer les erreurs, identifier les causes racines
 - **Analyse de code** : Comprendre l'architecture, comparer implémentations
-- **Exécution tests** : `npm test`, diagnostiquer les erreurs, valider les fixes
+- **Exécution tests** : `npx vitest run` (PAS `npm test` qui bloque en mode watch), diagnostiquer les erreurs, valider les fixes
 - **Écriture de code** : Fixes, features, refactoring - TOUT niveau de complexité
 - **Build** : Compiler, valider, identifier erreurs TypeScript
 - **Modification `mcps/internal/`** : Oui, avec tests de validation
