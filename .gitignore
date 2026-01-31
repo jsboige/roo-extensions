@@ -121,4 +121,6 @@ debug_trace.txt
 # Claude Code temporary working directories
 tmpclaude-*/
 
-.claude/local/
+# Claude Code local overrides (machine-specific, never commit)
+CLAUDE.local.md
+*.local.md
