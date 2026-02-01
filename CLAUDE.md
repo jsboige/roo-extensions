@@ -552,6 +552,45 @@ Body:
 
 **Exception :** Bugs critiques bloquants (informer immédiatement)
 
+### 🔍 CHECKLIST DE VALIDATION TECHNIQUE OBLIGATOIRE
+
+⚠️ **NOUVELLE RÈGLE (2026-02-01) - Suite erreurs CONS-3/CONS-4**
+
+Pour **TOUTE** tâche de consolidation, refactoring, ou modification significative :
+
+#### Avant de Commencer
+
+- [ ] **Compter** : Nombre d'outils/fichiers/modules actuels (état AVANT)
+- [ ] **Documenter** : Noter ce décompte dans l'issue GitHub ou documentation
+
+#### Pendant l'Implémentation
+
+- [ ] **Coder** : Implémenter la modification
+- [ ] **Tester** : Build + tous les tests passent (`npx vitest run`)
+- [ ] **Vérifier imports/exports** : Aucun export orphelin, aucun import cassé
+
+#### Après l'Implémentation (CRITIQUE)
+
+- [ ] **Recompter** : Nombre d'outils/fichiers/modules final (état APRÈS)
+- [ ] **Calculer écart** : Écart réel = APRÈS - AVANT
+- [ ] **Comparer** : Écart réel DOIT égaler écart annoncé (ex: 4→2 = -2)
+- [ ] **SI ÉCART INCORRECT** : Identifier ce qui manque (retrait d'anciens fichiers?)
+- [ ] **Retirer deprecated** : Les éléments marqués [DEPRECATED] doivent être RETIRÉS, pas juste commentés
+- [ ] **Mettre à jour array/exports** : Vérifier que roosyncTools, exports, etc. sont corrects
+
+#### Documentation Commit
+
+- [ ] **Commit message** : Inclure décompte avant/après (ex: "CONS-3: Config 4→2 (29→24 outils)")
+- [ ] **Vérifier** : Le nombre dans le commit message correspond à la réalité Git
+
+#### Exemple d'Erreur à Éviter
+
+❌ **MAUVAIS** : Créer `roosync_config` unifié SANS retirer `collect_config`, `publish_config`, `apply_config` de l'array → Résultat 29→30 (+1) au lieu de 29→27 (-2)
+
+✅ **BON** : Créer `roosync_config` unifié ET retirer les 3 anciens de roosyncTools → Résultat 29→27 (-2) ✓
+
+**Cette checklist est OBLIGATOIRE. Tout agent qui ne la suit pas sera rappelé à l'ordre.**
+
 ---
 
 ## 📝 Méthodologie SDDD pour Claude Code
@@ -609,6 +648,49 @@ Body:
 - Reporter les progrès quotidiennement
 - Coordonner via les commentaires
 - Demander de l'aide si bloqué
+
+### Responsabilités du Coordinateur (RENFORCÉ 2026-02-01)
+
+⚠️ **Le coordinateur DOIT fournir des critères de validation mesurables pour chaque tâche.**
+
+Pour toute tâche de consolidation/refactoring assignée, le coordinateur doit spécifier :
+
+**Critères de validation obligatoires :**
+
+1. **État initial** : Nombre d'outils/fichiers/modules AVANT (ex: "29 outils actuellement")
+2. **État cible** : Nombre attendu APRÈS (ex: "24 outils après consolidation")
+3. **Écart attendu** : Réduction/augmentation précise (ex: "-5 outils")
+4. **Tests requis** : Quels tests doivent passer (ex: "npx vitest run → 1648 tests PASS")
+5. **Livrables** : Fichiers modifiés/créés attendus (ex: "config.ts créé, index.ts modifié")
+
+**Exemple d'assignation correcte :**
+
+```markdown
+## Tâche : CONS-3 Phase 1 - Consolidation Config
+
+**État initial :** 29 outils dans roosyncTools
+**État cible :** 24 outils (29 - 3 anciens - 1 nouveau = 25, mais on retire aussi compare → 24)
+**Écart attendu :** -5 outils
+
+**Critères de validation :**
+- [ ] roosync_config créé et testé
+- [ ] collect_config, publish_config, apply_config RETIRÉS de roosyncTools array
+- [ ] Nombre d'outils = 24 (vérifier roosyncTools.length)
+- [ ] npx vitest run → tous les tests passent
+- [ ] Commit message inclut "29→24 outils"
+
+**Livrables :**
+- config.ts (nouveau)
+- config.test.ts (nouveau)
+- index.ts (modifié : exports + roosyncTools array)
+```
+
+**SI le coordinateur ne fournit pas ces critères :**
+
+- L'agent doit demander clarification AVANT de commencer
+- L'agent doit documenter lui-même ces critères et les faire valider
+
+**Cette responsabilité est CRITIQUE pour éviter les erreurs de validation.**
 
 ### Communication Quotidienne
 
