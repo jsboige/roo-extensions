@@ -562,6 +562,11 @@ Pour **TOUTE** tâche de consolidation, refactoring, ou modification significati
 
 - [ ] **Compter** : Nombre d'outils/fichiers/modules actuels (état AVANT)
 - [ ] **Documenter** : Noter ce décompte dans l'issue GitHub ou documentation
+- [ ] **TDD (Recommandé)** : Écrire les tests qui valident l'état final AVANT l'implémentation
+  - Tests qui vérifient le nouveau comportement unifié
+  - Tests qui échouent si les anciens outils sont encore présents
+  - Tests qui valident le décompte final (ex: `expect(roosyncTools.length).toBe(24)`)
+  - → Les tests servent de **spécification exécutable**
 
 #### Pendant l'Implémentation
 
