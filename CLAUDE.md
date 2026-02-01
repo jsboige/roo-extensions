@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-01-23
+**Dernière mise à jour:** 2026-02-01
 
 ---
 
@@ -161,7 +161,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **Harmonisation H2-H7 (issues #331-#336) :**
 - ✅ H2 (#331) - jupyter/jupyter-mcp → N/A (myia-web1 sans Jupyter)
-- ✅ H4 (#333) - github-projects-mcp → Déjà déployé (configuration validée)
+- ✅ H4 (#333) - github-projects-mcp → **DÉPRÉCIÉ**, remplacé par `gh` CLI (#368)
 - ✅ H5 (#334) - markitdown MCP → Ajouté à toutes les machines
 - 🔄 H6 (#335) - win-cli unbridled → En cours (myia-web1)
 - ✅ H7 (#336) - jupyter-mcp-old → N/A (pas de legacy config)
@@ -170,12 +170,13 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **MCPs Déployés :**
 
-1. **github-projects-mcp** (57 outils)
-   - Configuration : `~/.claude.json` (global)
-   - **Statut :** ✅ Vérifié et fonctionnel
-   - **Outils testés :** list_projects, get_project, get_project_items
+1. **GitHub CLI (`gh`)** - Remplace le MCP github-projects
+   - **Statut :** ✅ MIGRATION COMPLÈTE (issue #368)
+   - **Commande :** `gh issue`, `gh pr`, `gh api graphql`
    - **Projet :** "RooSync Multi-Agent Tasks" (#67)
    - **URL :** https://github.com/users/jsboige/projects/67
+   - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
+   - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
 2. **roo-state-manager** (6 outils RooSync de messagerie)
    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
@@ -201,7 +202,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 ### myia-web1 ✅ EN COURS D'HARMONISATION
 
 **MCPs Déployés :**
-- ✅ github-projects-mcp (57 outils)
+- ✅ GitHub CLI (`gh`) - remplace MCP github-projects (#368)
 - ✅ roo-state-manager (6 outils RooSync)
 - ✅ markitdown (1 outil) - Ajouté le 2026-01-21
 - 🔄 win-cli (en cours de déploiement)
@@ -452,7 +453,7 @@ docs/
 mcps/
 ├── internal/servers/
 │   ├── roo-state-manager/               # ✅ DÉPLOYÉ (avec wrapper)
-│   └── github-projects-mcp/             # ✅ DÉPLOYÉ
+│   └── github-projects-mcp/             # ⚠️ DÉPRÉCIÉ - Utiliser gh CLI (#368)
 └── external/                             # MCPs externes (12 serveurs)
 ```
 
@@ -705,16 +706,16 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-01-18
+**Dernière mise à jour :** 2026-02-01
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
 **Built with Claude Code (Opus 4.5) 🤖**
 
 ---
 
-## 🔧 GitHub Projects MCP - IDs Critiques
+## 🔧 GitHub Projects - Accès via gh CLI
 
-**⚠️ IMPORTANT:** Toujours utiliser l'ID complet du projet, pas le numéro !
+**⚠️ MIGRATION #368 :** Le MCP github-projects-mcp est **DÉPRÉCIÉ**. Utiliser `gh` CLI.
 
 ### Projets
 
@@ -723,7 +724,23 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 | RooSync Multi-Agent Tasks | #67 | `PVT_kwHOADA1Xc4BLw3w` | Tâches techniques Roo |
 | RooSync Multi-Agent Coordination | #70 | `PVT_kwHOADA1Xc4BL7qS` | Coordination Claude |
 
-### Field Status
+### Commandes gh CLI
+
+```bash
+# Lister les issues
+gh issue list --repo jsboige/roo-extensions --state open
+
+# Créer une issue
+gh issue create --repo jsboige/roo-extensions --title "Titre" --body "Description"
+
+# Voir un projet (GraphQL)
+gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { title items(first: 100) { totalCount } } } }'
+
+# Voir les items d'un projet avec statut
+gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { items(first: 50) { nodes { fieldValues(first: 10) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } } }'
+```
+
+### Field Status (pour GraphQL avancé)
 
 - **Field ID:** `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
 - **Options:**
@@ -731,40 +748,9 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
   - `47fc9ee4` = In Progress
   - `98236657` = Done
 
-### Exemple d'utilisation
+### Règles
 
-```javascript
-// Marquer une tâche Done
-update_project_item_field({
-  owner: "jsboige",
-  project_id: "PVT_kwHOADA1Xc4BLw3w",  // ID complet, PAS "67"
-  item_id: "PVTI_lAHOADA1Xc4BLw3wzgjKFOQ",
-  field_id: "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY",
-  field_type: "single_select",
-  option_id: "98236657"  // Done
-})
-```
-
-### Paramètres get_project_items (2026-01-23)
-
-**Nouveaux paramètres ajoutés (#364) :**
-
-| Paramètre | Type           | Défaut | Description                       |
-|-----------|----------------|--------|-----------------------------------|
-| `limit`   | number (1-100) | 100    | Nombre max d'items retournés      |
-| `summary` | boolean        | false  | Mode résumé (réduit taille ~85%)  |
-
-```javascript
-// Mode résumé pour éviter saturation contexte
-get_project_items({
-  owner: "jsboige",
-  project_id: "PVT_kwHOADA1Xc4BLw3w",
-  limit: 30,
-  summary: true  // Réduit fieldValues de 20 à 3, exclut body
-})
-```
-
-**Impact :** Mode complet ~81K chars → Mode summary ~15K chars (gain 5.4x)
+Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détails.
 
 ---
 
