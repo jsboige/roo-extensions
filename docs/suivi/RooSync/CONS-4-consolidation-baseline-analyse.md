@@ -436,5 +436,220 @@ await roosync_baseline({
 
 ---
 
-**Document généré automatiquement par Roo Code**  
+## 6. Tests de Régression Fonctionnelle
+
+### 6.1 Analyse du Code Source
+
+**Date**: 2026-02-01
+**Statut**: ✅ ANALYSE TERMINÉE
+
+L'analyse du code source de [`baseline.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/baseline.ts:1) (v2.3.0) confirme que l'outil consolidé est correctement implémenté avec les 4 actions suivantes :
+
+#### 6.1.1 Actions Identifiées
+
+| Action | Handler | Lignes | Description |
+|--------|----------|---------|-------------|
+| `update` | `handleUpdateAction()` | 184-329 | Met à jour la baseline avec une nouvelle machine ou profil |
+| `version` | `handleVersionAction()` | 335-519 | Versionne la baseline avec un tag Git |
+| `restore` | `handleRestoreAction()` | 525-705 | Restaure depuis un tag Git ou une sauvegarde |
+| `export` | `handleExportAction()` | 711-840 | Exporte la baseline vers JSON, YAML ou CSV |
+
+#### 6.1.2 Validation des Handlers
+
+**Action `update`** (handleUpdateAction):
+- ✅ Validation du paramètre `machineId` (requis)
+- ✅ Support des modes `standard` et `profile`
+- ✅ Création automatique de sauvegarde si demandé
+- ✅ Mise à jour du dashboard et du roadmap
+- ✅ Gestion des erreurs avec messages clairs
+
+**Action `version`** (handleVersionAction):
+- ✅ Validation du format de version sémantique (X.Y.Z)
+- ✅ Vérification que le tag n'existe pas déjà
+- ✅ Commit automatique du fichier de baseline
+- ✅ Création du tag Git avec message
+- ✅ Option de pousser les tags vers le dépôt distant
+- ✅ Mise à jour automatique du CHANGELOG-baseline.md
+
+**Action `restore`** (handleRestoreAction):
+- ✅ Validation du paramètre `source` (requis)
+- ✅ Support de deux types de source : tag Git ou fichier de sauvegarde
+- ✅ Création automatique de sauvegarde de l'état actuel
+- ✅ Validation de la baseline restaurée
+- ✅ Messages d'erreur détaillés avec tags disponibles
+
+**Action `export`** (handleExportAction):
+- ✅ Validation du paramètre `format` (requis)
+- ✅ Support des formats JSON, YAML et CSV
+- ✅ Génération automatique du chemin de sortie si non spécifié
+- ✅ Inclusion optionnelle des métadonnées et de l'historique
+- ✅ Création du répertoire de sortie si nécessaire
+
+### 6.2 Tests MCP
+
+**Date**: 2026-02-01
+**Statut**: ⚠️ TESTS NON EXÉCUTABLES
+
+#### 6.2.1 Tentative de Test
+
+Tentative d'exécution de l'action `export` (la plus sûre car non-destructive) :
+
+```bash
+mcp--roo-state-manager--roosync_baseline \
+  action=export \
+  format=json \
+  includeMetadata=true \
+  prettyPrint=true
+```
+
+**Résultat**: ❌ Erreur - Tool not found: roosync_baseline
+
+#### 6.2.2 Analyse du Problème
+
+L'erreur indique que l'outil `roosync_baseline` n'est pas disponible via le MCP, bien que :
+
+1. ✅ Le fichier [`baseline.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/baseline.ts:1) existe et est correctement implémenté
+2. ✅ L'outil est exporté dans [`roosync/index.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts:166) (ligne 166)
+3. ✅ Les métadonnées sont exportées (ligne 169)
+4. ✅ L'outil est inclus dans le tableau `roosyncTools` (ligne 345)
+5. ✅ Le tableau `roosyncTools` est utilisé dans [`registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts:119) (ligne 119)
+
+**Cause probable**: Le serveur MCP doit être redémarré pour que les nouveaux outils soient disponibles.
+
+#### 6.2.3 Recommandation
+
+Pour tester fonctionnellement l'outil `roosync_baseline`, il est nécessaire de :
+
+1. **Redémarrer le serveur MCP** roo-state-manager
+2. **Vérifier que l'outil apparaît** dans la liste des outils disponibles
+3. **Exécuter les tests** dans l'ordre suivant :
+   - `export` (non-destructif, test de lecture)
+   - `version` (crée un tag Git, réversible)
+   - `update` (modifie la baseline, nécessite une sauvegarde)
+   - `restore` (modifie la baseline, nécessite une sauvegarde)
+
+### 6.3 Plan de Tests de Régression
+
+Une fois le serveur MCP redémarré, les tests suivants devraient être exécutés :
+
+#### Test 1: Export (Non-destructif)
+```bash
+# Test export JSON
+mcp--roo-state-manager--roosync_baseline \
+  action=export \
+  format=json \
+  includeMetadata=true \
+  prettyPrint=true
+
+# Test export YAML
+mcp--roo-state-manager--roosync_baseline \
+  action=export \
+  format=yaml \
+  includeMetadata=true
+
+# Test export CSV
+mcp--roo-state-manager--roosync_baseline \
+  action=export \
+  format=csv \
+  includeMetadata=true
+```
+
+**Critères de succès**:
+- ✅ Le fichier est créé dans le répertoire `exports/`
+- ✅ Le format correspond à celui demandé
+- ✅ Les métadonnées sont incluses si demandé
+- ✅ Le fichier contient les données de la baseline actuelle
+
+#### Test 2: Version (Crée un tag Git)
+```bash
+mcp--roo-state-manager--roosync_baseline \
+  action=version \
+  version=2.4.0 \
+  message="Test de versionnement" \
+  pushTags=false \
+  createChangelog=true
+```
+
+**Critères de succès**:
+- ✅ Le tag Git `baseline-v2.4.0` est créé
+- ✅ Le CHANGELOG-baseline.md est mis à jour
+- ✅ La version dans la baseline est mise à jour
+- ✅ Le message de résultat confirme le succès
+
+**Nettoyage**:
+```bash
+git tag -d baseline-v2.4.0
+```
+
+#### Test 3: Update (Modifie la baseline)
+```bash
+mcp--roo-state-manager--roosync_baseline \
+  action=update \
+  machineId=myia-ai-01 \
+  mode=standard \
+  createBackup=true \
+  updateReason="Test de mise à jour"
+```
+
+**Critères de succès**:
+- ✅ La baseline est mise à jour avec la machine spécifiée
+- ✅ Une sauvegarde est créée dans `.rollback/`
+- ✅ Le dashboard est mis à jour
+- ✅ Le roadmap est mis à jour
+- ✅ Le message de résultat contient les détails de l'ancienne et nouvelle baseline
+
+**Nettoyage**:
+```bash
+# Restaurer depuis la sauvegarde créée
+mcp--roo-state-manager--roosync_baseline \
+  action=restore \
+  source=<chemin_sauvegarde>
+```
+
+#### Test 4: Restore (Modifie la baseline)
+```bash
+# D'abord, créer une sauvegarde de l'état actuel
+mcp--roo-state-manager--roosync_baseline \
+  action=export \
+  format=json \
+  outputPath=./baseline-before-restore.json
+
+# Puis restaurer depuis un tag ou une sauvegarde
+mcp--roo-state-manager--roosync_baseline \
+  action=restore \
+  source=baseline-v1.0.0 \
+  createBackup=true
+```
+
+**Critères de succès**:
+- ✅ La baseline est restaurée depuis la source spécifiée
+- ✅ Une sauvegarde de l'état actuel est créée
+- ✅ Le message de résultat contient les détails de la restauration
+- ✅ Les données de la baseline correspondent à celles de la source
+
+**Nettoyage**:
+```bash
+# Restaurer depuis la sauvegarde créée avant le test
+mcp--roo-state-manager--roosync_baseline \
+  action=restore \
+  source=<chemin_sauvegarde_avant_test>
+```
+
+### 6.4 Conclusion des Tests
+
+**Statut actuel**: ⚠️ Tests MCP non exécutables sans redémarrage du serveur
+
+**Recommandations**:
+1. ✅ Le code source de `baseline.ts` est correctement implémenté
+2. ✅ Les 4 actions sont complètes et bien documentées
+3. ✅ Les handlers gèrent correctement les erreurs et les cas limites
+4. ⚠️ Le serveur MCP doit être redémarré pour que l'outil soit disponible
+5. ⚠️ Les tests fonctionnels doivent être exécutés après redémarrage
+
+**Prochaine étape**: Redémarrer le serveur MCP roo-state-manager et exécuter les tests de régression décrits ci-dessus.
+
+---
+
+**Document généré automatiquement par Roo Code**
 **Date de génération**: 2026-01-30T08:31:00Z
+**Dernière mise à jour**: 2026-02-01T21:06:00Z (Tests de régression ajoutés)
