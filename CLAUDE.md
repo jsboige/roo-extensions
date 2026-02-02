@@ -224,14 +224,19 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 ### Hiérarchie Claude ↔ Roo
 
-**Claude Code est le cerveau principal.** Roo est un assistant polyvalent mais moins puissant.
+**⚠️ RÈGLE FONDAMENTALE : Claude Code DIRIGE, Roo ASSISTE.**
+
+**Claude Code est le cerveau principal.** Roo est un assistant polyvalent mais moins puissant et moins fiable.
 
 | Aspect | Claude Code | Roo |
 |--------|-------------|-----|
 | **Intelligence** | Plus puissant (Opus 4.5) | Moins puissant (modèle variable) |
+| **Vitesse** | Rapide | Plus lent |
+| **Fiabilité** | Élevée | Moyenne (erreurs possibles) |
 | **Autonomie** | Décisions critiques | Exécution supervisée |
-| **Code** | Tout, y compris critique | Code simple, vérifié par Claude |
+| **Code** | **Tout, y compris critique** | Code simple, **VALIDÉ par Claude** |
 | **Orchestration** | Coordination globale | Tâches longues/répétitives |
+| **Validation** | Auto-validation + esprit critique | Travail de Roo TOUJOURS revalidé |
 
 ### ✅ Claude Peut Tout Faire
 
@@ -253,23 +258,37 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 ### 🔄 Utiliser Roo Comme Assistant
 
+**Claude prend les tâches complexes et critiques. Roo prend les tâches accessoires.**
+
 **Roo est utile pour :**
-- Orchestrations longues (séquences de commandes)
-- Tâches répétitives (bulk operations)
-- Explorations préliminaires
-- Exécution de scripts préparés par Claude
+- ✅ Lancer des tests (`npx vitest run`)
+- ✅ Vérifier le build (`npm run build`)
+- ✅ Lancer des scripts préparés par Claude
+- ✅ Tâches répétitives (bulk operations simples)
+- ✅ Documentation simple (copier/coller formatage)
 
-**⚠️ MAIS le code de Roo doit être vérifié par Claude :**
-- Relire les modifications avant commit
-- Valider la logique des changements
-- Corriger les erreurs subtiles
+**Claude garde pour lui :**
+- 🎯 Implémentation de code (features, fixes, refactoring)
+- 🎯 Investigation de bugs et analyse de code
+- 🎯 Décisions d'architecture
+- 🎯 Consolidation d'outils (comme CONS-8)
+- 🎯 Résolution de conflits git
+- 🎯 Validation et correction du travail de Roo
 
-### ❌ À NE PAS FAIRE
+**⚠️ VALIDATION OBLIGATOIRE du travail de Roo :**
+- **TOUJOURS** relire les modifications de Roo avant commit
+- **TOUJOURS** valider la logique des changements avec esprit critique
+- **TOUJOURS** corriger les erreurs subtiles (imports, types, logique)
+- **JAMAIS** faire confiance aveuglément au code de Roo
 
-- **Confier les tâches critiques à Roo sans supervision**
-- Supposer que le code de Roo est correct sans le vérifier
-- Attendre passivement les instructions de Roo (c'est l'inverse)
-- Inventer des workflows sans vérifier
+### ❌ À NE PAS FAIRE (CRITIQUE)
+
+- ❌ **Déléguer l'implémentation de code à Roo** - Claude doit coder les features/fixes
+- ❌ **Confier les tâches critiques à Roo sans supervision**
+- ❌ **Se contenter de coordonner** - Claude doit prendre les tâches les plus dures
+- ❌ **Supposer que le code de Roo est correct** - TOUJOURS valider avec esprit critique
+- ❌ **Attendre passivement les instructions de Roo** - C'est l'inverse : Claude dirige
+- ❌ **Faire confiance aveuglément** - Validation critique obligatoire des deux côtés
 
 ### ⚠️ CONTRAINTE CLÉ
 
