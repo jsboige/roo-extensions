@@ -155,11 +155,40 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 ---
 
-## ✅ État des MCPs (2026-01-22)
+## ✅ État des MCPs (2026-02-06)
+
+### ⚠️ VÉRIFICATION CRITIQUE AU DÉMARRAGE
+
+**OBLIGATION :** Au début de CHAQUE session, vérifier que les outils MCP sont disponibles.
+
+**Comment vérifier :**
+
+1. Les outils MCP sont listés automatiquement dans les system-reminders au début de la conversation
+2. Chercher les outils commençant par `roosync_` ou `mcp__`
+3. Si ABSENTS : **RÉGRESSION CRITIQUE** → Réparer immédiatement
+
+**Si les outils sont absents :**
+
+1. **Vérifier la config** : `Read ~/.claude.json` → section `mcpServers`
+2. **Tester le serveur** :
+
+   ```bash
+   cd mcps/internal/servers/roo-state-manager
+   node mcp-wrapper.cjs 2>&1 | head -50
+   ```
+
+3. **Vérifier le wrapper** : Les outils filtrés doivent correspondre à registry.ts
+4. **Redémarrer VS Code** : Les MCPs sont chargés au démarrage uniquement
+5. **Si échec** : Créer issue GitHub haute priorité + alerter coordinateur
+
+**⚠️ RÈGLE :** Si tu détectes l'absence d'outils MCP, tu DOIS le réparer avant toute autre tâche.
+
+---
 
 ### Harmonisation Multi-Machines Complétée
 
 **Harmonisation H2-H7 (issues #331-#336) :**
+
 - ✅ H2 (#331) - jupyter/jupyter-mcp → N/A (myia-web1 sans Jupyter)
 - ✅ H4 (#333) - github-projects-mcp → **DÉPRÉCIÉ**, remplacé par `gh` CLI (#368)
 - ✅ H5 (#334) - markitdown MCP → Ajouté à toutes les machines
@@ -174,25 +203,24 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Statut :** ✅ MIGRATION COMPLÈTE (issue #368)
    - **Commande :** `gh issue`, `gh pr`, `gh api graphql`
    - **Projet :** "RooSync Multi-Agent Tasks" (#67)
-   - **URL :** https://github.com/users/jsboige/projects/67
+   - **URL :** <https://github.com/users/jsboige/projects/67>
    - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (6 outils RooSync de messagerie)
+2. **roo-state-manager** (24 outils RooSync)
    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-01-09)
-   - **Solution :** Wrapper intelligent qui filtre 57+ outils → 6 outils RooSync
-   - **Outils disponibles :**
-     - `roosync_send_message` - Envoyer un message
-     - `roosync_read_inbox` - Lire la boîte de réception
-     - `roosync_reply_message` - Répondre à un message
-     - `roosync_get_message` - Obtenir un message complet
-     - `roosync_mark_message_read` - Marquer comme lu
-     - `roosync_archive_message` - Archiver un message
-   - **Capacités :**
-     - Messagerie inter-machine via RooSync
-     - Synchronisation multi-agent
-     - 135 messages dans la boîte de réception (1 non-lu)
+   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-06)
+   - **Solution :** Wrapper intelligent qui filtre 52+ outils → 24 outils RooSync
+   - **Catégories d'outils (24 total) :**
+     - **Messagerie (6)** : send_message, read_inbox, reply_message, get_message, mark_message_read, archive_message
+     - **Lecture seule (5)** : get_status, list_diffs, compare_config, get_decision_details, refresh_dashboard
+     - **Consolidés (5)** : config, inventory, baseline, machines, init
+     - **Décisions (4)** : approve_decision, reject_decision, apply_decision, rollback_decision
+     - **Monitoring (1)** : heartbeat_status
+     - **Diagnostic (2)** : analyze_roosync_problems, diagnose_env
+     - **Summary (1)** : roosync_summarize (CONS-12: consolidé 4→1, CLEANUP-2 complété)
+   - **Wrapper :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) filtre automatiquement
+   - **MAJ :** 2026-02-06 - CLEANUP-2 retrait 3 legacy summary tools (27→24 outils)
 
 3. **markitdown** (1 outil)
    - Configuration : `~/.claude.json` (global)
@@ -288,7 +316,46 @@ Utilise task-worker pour prendre ma prochaine tâche
 - ❌ **Se contenter de coordonner** - Claude doit prendre les tâches les plus dures
 - ❌ **Supposer que le code de Roo est correct** - TOUJOURS valider avec esprit critique
 - ❌ **Attendre passivement les instructions de Roo** - C'est l'inverse : Claude dirige
+- ❌ **Rester inactif en attente de travail** - JAMAIS en attente passive (voir règle ci-dessous)
 - ❌ **Faire confiance aveuglément** - Validation critique obligatoire des deux côtés
+
+### 🚨 RÈGLE ANTI-ATTENTE PASSIVE (NOUVEAU 2026-02-06)
+
+**SI tu termines une tâche et n'as rien à faire : C'EST UNE ERREUR.**
+
+**Checklist obligatoire après chaque tâche :**
+
+1. ✅ **Analyser les tâches disponibles** : Consulter GitHub Project #67, RooSync messages, INTERCOM
+2. ✅ **Prendre l'initiative** : Choisir une tâche substantielle (investigation, features, consolidation)
+3. ✅ **Si tâche trop petite** : En prendre plusieurs OU demander une plus grosse au coordinateur
+4. ✅ **Aider Roo** : Si Roo travaille sur une grosse tâche, proposer assistance (investigation, validation)
+5. ✅ **Signaler le problème** : Si vraiment rien à faire, envoyer message RooSync au coordinateur
+
+**Signes d'erreur d'équilibrage :**
+
+- Tu termines une tâche en <1h alors que Roo a une tâche de plusieurs heures
+- Tu te retrouves à "attendre des instructions"
+- Tu n'as qu'une petite tâche de cleanup alors que du code complexe est à écrire
+- Roo fait de l'implémentation critique pendant que tu documentes
+
+**Action corrective immédiate :**
+
+1. **Message RooSync** au coordinateur pour signaler le déséquilibre
+2. **Prendre le relais** sur la tâche complexe (investigation, analyse, proposition de solution)
+3. **Mettre à jour CLAUDE.md** si les règles ne sont pas claires
+4. **Valider le travail de Roo** avec esprit critique si déjà en cours
+
+**Exemple d'équilibrage correct :**
+
+- **Claude** : CONS-10 Phase 4 (investigation E2E tests + implémentation) = plusieurs heures
+- **Roo** : CLEANUP-2 (retrait 3 outils) + validation build/tests = <1h
+
+**Exemple d'équilibrage INCORRECT (à corriger) :**
+
+- **Claude** : CLEANUP-2 (retrait 3 outils) = <1h, puis attente ❌
+- **Roo** : CONS-10 Phase 4 (investigation E2E tests) = plusieurs heures
+
+**Responsabilité :** Claude doit prendre le gros du travail technique. Roo est l'assistant.
 
 ### ⚠️ CONTRAINTE CLÉ
 
