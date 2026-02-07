@@ -216,20 +216,20 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (24 outils RooSync)
+2. **roo-state-manager** (18 outils RooSync)
    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-06)
-   - **Solution :** Wrapper intelligent qui filtre 52+ outils → 24 outils RooSync
-   - **Catégories d'outils (24 total) :**
-     - **Messagerie (6)** : send_message, read_inbox, reply_message, get_message, mark_message_read, archive_message
-     - **Lecture seule (5)** : get_status, list_diffs, compare_config, get_decision_details, refresh_dashboard
+   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-07)
+   - **Solution :** Wrapper intelligent qui filtre 52+ outils → 18 outils RooSync
+   - **Catégories d'outils (18 total) :**
+     - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
+     - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
      - **Consolidés (5)** : config, inventory, baseline, machines, init
-     - **Décisions (4)** : approve_decision, reject_decision, apply_decision, rollback_decision
+     - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
      - **Monitoring (1)** : heartbeat_status
      - **Diagnostic (2)** : analyze_roosync_problems, diagnose_env
-     - **Summary (1)** : roosync_summarize (CONS-12: consolidé 4→1, CLEANUP-2 complété)
+     - **Summary (1)** : roosync_summarize (CONS-12: consolidé 4→1)
    - **Wrapper :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) filtre automatiquement
-   - **MAJ :** 2026-02-06 - CLEANUP-2 retrait 3 legacy summary tools (27→24 outils)
+   - **MAJ :** 2026-02-07 - CONS-1 messaging 6→3, CONS-5 decisions 5→2 (24→18 outils)
 
 3. **markitdown** (1 outil)
    - Configuration : `~/.claude.json` (global)
@@ -383,10 +383,14 @@ Utilisez :
 
 **Objectif :** Coordination entre les 5 machines
 
-**Outils MCP :**
-- `roosync_send_message` - Envoyer message
-- `roosync_read_inbox` - Lire boîte de réception
-- `roosync_reply_message` - Répondre
+**Outils MCP (CONS-1) :**
+- `roosync_send` - Envoyer/répondre/amender message (action: send|reply|amend)
+- `roosync_read` - Lire inbox/message (mode: inbox|message)
+- `roosync_manage` - Gérer messages (action: mark_read|archive)
+
+**Legacy (backward compat, non exposés dans wrapper) :**
+- `roosync_send_message`, `roosync_read_inbox`, `roosync_reply_message`
+- `roosync_get_message`, `roosync_mark_message_read`, `roosync_archive_message`
 
 **Fichier :** `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
@@ -583,7 +587,7 @@ $env:COMPUTERNAME
 
 **RooSync :**
 ```bash
-roosync_read_inbox  # Vérifier les messages inter-machines
+roosync_read  # Vérifier les messages inter-machines (mode: inbox)
 ```
 
 **INTERCOM :**
@@ -945,14 +949,24 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 ## 📡 RooSync MCP - Configuration
 
-### Outils Disponibles (après wrapper)
+### Outils Disponibles (18 après wrapper, 2026-02-07)
 
-- `roosync_send_message` - Envoyer message
-- `roosync_read_inbox` - Lire boîte de réception
-- `roosync_reply_message` - Répondre
-- `roosync_get_message` - Message complet
-- `roosync_mark_message_read` - Marquer comme lu
-- `roosync_archive_message` - Archiver
+**Messagerie CONS-1 (3):**
+- `roosync_send` - Envoyer/répondre/amender (action: send|reply|amend)
+- `roosync_read` - Lire inbox/message (mode: inbox|message)
+- `roosync_manage` - Gérer messages (action: mark_read|archive)
+
+**Lecture seule (4):** `roosync_get_status`, `roosync_list_diffs`, `roosync_compare_config`, `roosync_refresh_dashboard`
+
+**Consolidés (5):** `roosync_config`, `roosync_inventory`, `roosync_baseline`, `roosync_machines`, `roosync_init`
+
+**Décisions CONS-5 (2):** `roosync_decision`, `roosync_decision_info`
+
+**Monitoring (1):** `roosync_heartbeat_status`
+
+**Diagnostic (2):** `analyze_roosync_problems`, `diagnose_env`
+
+**Summary (1):** `roosync_summarize`
 
 ### Fichier Partagé
 

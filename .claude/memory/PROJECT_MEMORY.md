@@ -7,8 +7,8 @@ Updated via git commits. Each agent should read this at session start.
 
 ### MCP Tool System
 - **Total tools (registry.ts):** ~55 (non-RooSync + RooSync)
-- **RooSync tools (roosyncTools):** 22 entries in index.ts
-- **Claude wrapper (mcp-wrapper.cjs):** 21 tools exposed
+- **RooSync tools (roosyncTools):** 19 entries in index.ts
+- **Claude wrapper (mcp-wrapper.cjs):** 18 tools exposed
 - **Gap:** roosyncTools has `roosync_heartbeat_service` not in wrapper
 
 ### Key Files

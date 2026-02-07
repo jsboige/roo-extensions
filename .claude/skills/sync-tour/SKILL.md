@@ -15,6 +15,9 @@ allowed-tools:
   - mcp__roo-state-manager__roosync_mark_message_read
   - mcp__roo-state-manager__roosync_archive_message
   - mcp__roo-state-manager__roosync_get_status
+  - mcp__roo-state-manager__roosync_send
+  - mcp__roo-state-manager__roosync_read
+  - mcp__roo-state-manager__roosync_manage
   - mcp__github-projects-mcp__get_project
   - mcp__github-projects-mcp__get_project_items
   - mcp__github-projects-mcp__update_project_item_field
@@ -65,8 +68,8 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 **Agent :** `roosync-hub` (coordinateur) ou `roosync-reporter` (exécutants)
 
 ### Actions
-1. Lire tous les messages non-lus avec `roosync_read_inbox`
-2. Pour chaque message, récupérer les détails avec `roosync_get_message`
+1. Lire tous les messages non-lus avec `roosync_read` (mode: inbox) ou legacy `roosync_read_inbox`
+2. Pour chaque message, récupérer les détails avec `roosync_read` (mode: message) ou legacy `roosync_get_message`
 3. Extraire :
    - Rapports d'avancement des agents
    - Demandes et questions
@@ -296,13 +299,13 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
      - 🎯 Prochaine tâche assignée (claire, avec GitHub #)
      - 🔗 Références : issues, commits, documentation
    - Priorité du message selon urgence
-   - Envoyer avec `roosync_reply_message`
+   - Envoyer avec `roosync_send` (action: reply) ou legacy `roosync_reply_message`
 
 **2. Machines silencieuses (pas de message récent) :**
    - Si dernière activité > 48h : envoyer message priorité HIGH
    - Si dernière activité > 72h : envoyer message priorité URGENT
    - Si dernière activité > 96h : signaler à l'utilisateur + réassigner tâches critiques
-   - Envoyer avec `roosync_send_message`
+   - Envoyer avec `roosync_send` (action: send) ou legacy `roosync_send_message`
 
 **3. Machines actives sans nouvelle tâche :**
    - Envoyer mise à jour sur déploiement en cours
@@ -310,8 +313,8 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
    - Assigner tâches buffer si disponibles
 
 **4. Gestion des messages :**
-   - Marquer tous les messages traités comme lus (`roosync_mark_message_read`)
-   - Archiver les messages > 7 jours si conversation terminée (`roosync_archive_message`)
+   - Marquer tous les messages traités comme lus via `roosync_manage` (action: mark_read) ou legacy `roosync_mark_message_read`
+   - Archiver les messages > 7 jours si conversation terminée via `roosync_manage` (action: archive) ou legacy `roosync_archive_message`
 
 ### Output attendu
 ```
