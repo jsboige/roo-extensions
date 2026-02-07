@@ -524,13 +524,15 @@ Qu'en pensez-vous? Est-ce vraiment nécessaire?
 │   ├── task-planner.md         # Ventilation 5×2 agents
 │   ├── intercom-handler.md     # Communication locale Roo
 │   └── code-explorer.md        # Exploration codebase
-├── skills/                # 🆕 Skills auto-invoqués
+├── memory/                # Mémoire projet partagée (via git)
+│   └── PROJECT_MEMORY.md       # Connaissances partagées multi-machines
+├── skills/                # Skills auto-invoqués
 │   └── sync-tour/SKILL.md
 ├── commands/              # Slash commands
 │   └── switch-provider.md
 ├── scripts/               # Scripts d'initialisation
 │   └── init-claude-code.ps1
-└── local/                 # Communication locale
+└── local/                 # Communication locale (gitignored)
     └── INTERCOM-myia-ai-01.md
 ```
 
