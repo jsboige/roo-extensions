@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-02-01
+**Dernière mise à jour:** 2026-02-07
 
 ---
 
@@ -87,6 +87,15 @@ Pour éviter les conversations qui grossissent indéfiniment, utilise des **suba
 |-------|-------------|-------|
 | `roosync-reporter` | Envoie rapports au coordinateur, reçoit instructions | Rapport de session |
 | `task-worker` | Prend en charge tâches assignées, suit avancement | Exécution tâches |
+
+#### Agents Workers Spécialisés ([.claude/agents/workers/](.claude/agents/workers/))
+
+| Agent | Description | Modèle | Outils |
+|-------|-------------|--------|--------|
+| `code-fixer` | Investigation et correction de bugs | opus | Read, Grep, Glob, Edit, Write, Bash |
+| `consolidation-worker` | Exécution consolidations CONS-X complètes | opus | Read, Grep, Glob, Edit, Write, Bash |
+| `doc-updater` | Mise à jour documentation après changements | sonnet | Read, Grep, Glob, Edit, Write, Bash |
+| `test-investigator` | Investigation tests échoués ou instables | opus | Read, Grep, Glob, Bash, Edit |
 
 **Invocation manuelle :**
 ```
@@ -504,6 +513,11 @@ Qu'en pensez-vous? Est-ce vraiment nécessaire?
 │   ├── executor/
 │   │   ├── roosync-reporter.md      # Messages RooSync (exécutants)
 │   │   └── task-worker.md           # Exécution tâches
+│   ├── workers/
+│   │   ├── code-fixer.md             # Investigation et correction bugs
+│   │   ├── consolidation-worker.md   # Consolidation CONS-X
+│   │   ├── doc-updater.md            # MAJ documentation
+│   │   └── test-investigator.md      # Investigation tests
 │   ├── github-tracker.md       # GitHub Project #67
 │   ├── git-sync.md             # Pull/merge conservatif
 │   ├── test-runner.md          # Build + tests
@@ -879,7 +893,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-02-01
+**Dernière mise à jour :** 2026-02-07
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
 **Built with Claude Code (Opus 4.5) 🤖**
