@@ -6,11 +6,11 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (registry.ts):** 50 (31 inline + 19 roosyncTools)
+- **Total tools (ListTools):** 39 (20 inline + 19 roosyncTools) after CLEANUP-3
 - **RooSync tools (roosyncTools):** 19 entries in index.ts
 - **Claude wrapper (mcp-wrapper.cjs):** 18 tools exposed
 - **Gap:** roosyncTools has `roosync_heartbeat_service` not in wrapper
-- **Deprecated tools kept:** ~10 (backward compat in CallTool, will be removed in CLEANUP-3)
+- **Deprecated tools:** 11 removed from ListTools by CLEANUP-3 (CallTool handlers kept for backward compat)
 - **Tests:** 1829 passed, 0 failed (160 files, 2026-02-07)
 
 ### Key Files
@@ -54,13 +54,14 @@ Updated via git commits. Each agent should read this at session start.
 
 | Metric | Value |
 |--------|-------|
-| Total tools (ListTools) | 50 |
+| Total tools (ListTools) | 39 (after CLEANUP-3) |
 | RooSync tools (roosyncTools) | 19 |
 | Claude wrapper tools | 18 |
+| Deprecated removed from ListTools | 11 (CallTool handlers kept) |
 | Tests passing | 1829 |
 | Test files | 160 |
-| Submodule commit | 4cb1f65 (CONS-5 wiring) |
-| Parent commit | 4b48ccb |
+| Submodule commit | 8607777 (CLEANUP-3) |
+| Parent commit | b94708c |
 
 ### Next Phase: Validation & Cleanup
 - **#400** - Multi-machine validation (tool count check)
