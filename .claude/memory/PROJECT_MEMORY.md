@@ -63,19 +63,22 @@ Updated via git commits. Each agent should read this at session start.
 | Submodule commit | 8607777 (CLEANUP-3) |
 | Parent commit | b94708c |
 
-### Next Phase: Validation & Cleanup
-- **#400** - Multi-machine validation (tool count check)
-- **#409-411** - Manual testing of consolidated tools
-- **#412-413** - Documentation updates (PROJECT_MEMORY, Dashboard)
-- **CLEANUP-3** (future) - Remove deprecated legacy tools from ListTools
+### Validation & Cleanup (myia-po-2023, 2026-02-07)
 
-### VibeSync Issues (long-term)
-- **#401** - Specialized Claude agents
-- **#402** - Multi-level memory management
-- **#403** - Scheduled Claude Code execution
-- **#404** - Git worktrees + PR workflow
-- **#405** - Hierarchical CLAUDE.md
-- **#406** - Port MCP tools to Claude wrapper
+- **#400** - Multi-machine validation - count-tools.ps1 STATUS: OK
+- **#409-411** - Manual testing consolidated tools (411 unit tests done: 30/30)
+- **#412** - PROJECT_MEMORY.md updated
+- **#413** - Dashboard regeneration (pending)
+- **#419** - Automated tool count validation (DONE: count-tools.ps1 + validate-cons.ps1)
+
+### VibeSync Issues (implemented by myia-po-2023)
+
+- **#401** - Specialized Claude agents (done by myia-ai-01)
+- **#402** - Multi-level memory management → **#420 done** (extract + merge scripts)
+- **#403** - Scheduled Claude Code execution → **#416 done** (worker + scheduled sync)
+- **#404** - Git worktrees + PR workflow → **#417 done** (3 scripts + doc)
+- **#405** - Hierarchical CLAUDE.md → **#418 done** (5 templates + generator)
+- **#406** - Port MCP tools to Claude wrapper (pending)
 
 ## Known Bugs / Gotchas
 
@@ -100,6 +103,12 @@ Updated via git commits. Each agent should read this at session start.
 ### INTERCOM is gitignored
 - `.claude/local/` is in .gitignore
 - Don't try to `git add` INTERCOM files
+
+### PowerShell 5.1 Join-Path (2 args only)
+
+- `Join-Path $a "b" "c" "d"` FAILS on PS 5.1 (default Windows)
+- Use string interpolation: `"$RepoRoot/mcps/internal/servers/roo-state-manager"`
+- Always test with `powershell -ExecutionPolicy Bypass -File script.ps1`
 
 ## Decisions & Patterns
 
