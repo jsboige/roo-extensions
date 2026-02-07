@@ -102,44 +102,129 @@ if ($listToolsMatch.Success) {
 }
 
 # ============================================================
-# 2. Coherence ListTools vs CallTool
+# 2. Coherence ListTools vs CallTool (approche hybride)
 # ============================================================
 
 Write-Host "[2/5] Coherence ListTools vs CallTool..." -ForegroundColor Yellow
 
-# Extraire les noms des outils dans ListTools
-$listToolNames = @()
+# 2a. Compter les outils ListTools (meme approche que count-tools.ps1)
+$inlineToolCount = 0
+$hasRoosyncSpread = $false
+$roosyncSpreadCount = 0
+
 if ($listToolsMatch.Success) {
-    $nameMatches = [regex]::Matches($listToolsMatch.Groups[1].Value, "name:\s*['\""]([\w_]+)['\""]\s*[,}]")
-    foreach ($m in $nameMatches) {
-        $listToolNames += $m.Groups[1].Value
+    $toolsArrayContent = $listToolsMatch.Groups[1].Value
+    $lines = $toolsArrayContent -split "`n"
+
+    foreach ($line in $lines) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^//' -or $trimmed -eq '' -or $trimmed -eq ',') { continue }
+
+        if ($trimmed -match '\.\.\.toolExports\.roosyncTools') {
+            $hasRoosyncSpread = $true
+            continue
+        }
+
+        if ($trimmed -match '^\{$' -or $trimmed -match "^\{[^}]" -or $trimmed -match '^toolExports\.') {
+            $inlineToolCount++
+        }
     }
-    # Ajouter les noms des toolExports directs (ex: toolExports.taskBrowseTool qui a name='task_browse')
-    $directMatches = [regex]::Matches($listToolsMatch.Groups[1].Value, "toolExports\.(\w+)(Tool)?\.(?:definition|name)")
-    # Note: on ne peut pas extraire le nom exact sans executer le code
+
+    # Compter roosyncTools entries
+    if ($hasRoosyncSpread) {
+        $roosyncIndexPath = "$mcpRoot/src/tools/roosync/index.ts"
+        if (Test-Path $roosyncIndexPath) {
+            $roosyncContent = Get-Content $roosyncIndexPath -Raw
+            $rsMatch = [regex]::Match($roosyncContent, "export const roosyncTools[\s\S]*?=\s*\[([\s\S]*?)\];")
+            if ($rsMatch.Success) {
+                $entries = $rsMatch.Groups[1].Value -split "`n" | Where-Object {
+                    $_.Trim() -match '^\w' -and $_.Trim() -notmatch '^//' -and $_.Trim() -ne ''
+                }
+                $roosyncSpreadCount = $entries.Count
+            }
+        }
+    }
+
+    $totalListTools = $inlineToolCount + $roosyncSpreadCount
+    $expectedListTools = 39
+
+    Write-Host "  ListTools: $totalListTools outils ($inlineToolCount inline + $roosyncSpreadCount roosync spread)" -ForegroundColor $(if ($totalListTools -eq $expectedListTools) { "Green" } else { "Yellow" })
+    if ($totalListTools -ne $expectedListTools) {
+        $warnings += "ListTools count $totalListTools != expected $expectedListTools"
+    }
 }
 
-# Extraire les case handlers
+# 2b. Extraire les case handlers de CallTool (2 patterns)
 $callToolCases = @()
+# Pattern A: case 'tool_name': (string literal)
 $caseMatches = [regex]::Matches($registryContent, "case\s+'([^']+)':")
 foreach ($m in $caseMatches) {
     $callToolCases += $m.Groups[1].Value
 }
+# Pattern B: case toolExports.xxx.name: (dynamic reference)
+# On resout le nom reel a partir du wrapper ALLOWED_TOOLS qui est la source de verite
+$dynamicCaseMatches = [regex]::Matches($registryContent, "case\s+toolExports\.(\w+)\.name:")
+$dynamicCaseCount = $dynamicCaseMatches.Count
 
-# Verifier que chaque outil ListTools a un CallTool handler
+# Mapper les references dynamiques vers les noms reels d'outils
+$dynamicNameMap = @{
+    'viewConversationTree' = 'view_conversation_tree'
+    'readVscodeLogs' = 'read_vscode_logs'
+    'manageMcpSettings' = 'manage_mcp_settings'
+    'rebuildAndRestart' = 'rebuild_and_restart'
+    'getMcpBestPractices' = 'get_mcp_best_practices'
+    'rebuildTaskIndexFixed' = 'rebuild_task_index_fixed'
+    'exportDataTool' = 'export_data'
+    'exportConfigTool' = 'export_config'
+    'roosyncSummarizeTool' = 'roosync_summarize'
+    'exportConversationJsonTool' = 'export_conversation_json'
+    'exportConversationCsvTool' = 'export_conversation_csv'
+    'exportTasksXmlTool' = 'export_tasks_xml'
+    'exportConversationXmlTool' = 'export_conversation_xml'
+    'exportProjectXmlTool' = 'export_project_xml'
+    'configureXmlExportTool' = 'configure_xml_export'
+    'analyze_roosync_problems' = 'analyze_roosync_problems'
+    'diagnose_env' = 'diagnose_env'
+}
+foreach ($m in $dynamicCaseMatches) {
+    $ref = $m.Groups[1].Value
+    if ($dynamicNameMap.ContainsKey($ref)) {
+        $resolved = $dynamicNameMap[$ref]
+        if ($resolved -notin $callToolCases) { $callToolCases += $resolved }
+    } else {
+        Write-Host "    WARN: Dynamic case non mappe: toolExports.$ref.name" -ForegroundColor Yellow
+    }
+}
+Write-Host "  CallTool: $($callToolCases.Count) handlers ($($caseMatches.Count) literal + $dynamicCaseCount dynamic)" -ForegroundColor Cyan
+
+# 2c. Extraire les ALLOWED_TOOLS du wrapper Claude (noms exacts)
+$wrapperPath = "$mcpRoot/mcp-wrapper.cjs"
+$wrapperTools = @()
+if (Test-Path $wrapperPath) {
+    $wrapperContent = Get-Content $wrapperPath -Raw
+    $wMatches = [regex]::Matches($wrapperContent, "ALLOWED_TOOLS[\s\S]*?new Set\(\[([\s\S]*?)\]\)")
+    if ($wMatches.Count -gt 0) {
+        $setContent = $wMatches[0].Groups[1].Value
+        $toolMatches = [regex]::Matches($setContent, "'([^']+)'")
+        foreach ($m in $toolMatches) { $wrapperTools += $m.Groups[1].Value }
+    }
+}
+Write-Host "  Wrapper Claude: $($wrapperTools.Count) outils" -ForegroundColor Cyan
+
+# 2d. Verifier que TOUS les outils wrapper ont un CallTool handler
 $missingHandlers = @()
-foreach ($tool in $listToolNames) {
+foreach ($tool in $wrapperTools) {
     if ($tool -notin $callToolCases) {
         $missingHandlers += $tool
     }
 }
 
 if ($missingHandlers.Count -gt 0) {
-    Write-Host "  ERREUR: Outils ListTools sans CallTool handler:" -ForegroundColor Red
+    Write-Host "  ERREUR: Outils wrapper sans CallTool handler:" -ForegroundColor Red
     foreach ($t in $missingHandlers) { Write-Host "    - $t" -ForegroundColor Red }
     $errors += "Missing CallTool: $($missingHandlers -join ', ')"
 } else {
-    Write-Host "  OK: Tous les outils ListTools ont un handler" -ForegroundColor Green
+    Write-Host "  OK: Tous les $($wrapperTools.Count) outils wrapper ont un handler CallTool" -ForegroundColor Green
 }
 
 # ============================================================
