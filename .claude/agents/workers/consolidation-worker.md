@@ -147,6 +147,7 @@ Ecart wrapper : D - B = +1 (nouvel outil) - N (anciens retires) = attendu
 | Metadata sans JSON Schema complet | Outil mal documente pour LLM | Copier pattern existant |
 | Retirer fichier source legacy | Import casse dans CallTool legacy | Garder fichiers, retirer de arrays |
 | Tests sans mock getSharedStatePath | Tests echouent en CI | Copier pattern de test existant |
+| Mock `os` sans `tmpdir` | Logger crash "No tmpdir export" | Toujours inclure `tmpdir: vi.fn(() => '/tmp')` dans les mocks `os` |
 
 ## Pattern de Test
 

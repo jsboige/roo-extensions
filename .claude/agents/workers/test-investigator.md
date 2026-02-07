@@ -121,6 +121,19 @@ vi.mock('../../../utils/message-helpers.js', async () => {
 });
 ```
 
+### Mock du module `os` (ATTENTION)
+
+```typescript
+// TOUJOURS inclure tmpdir quand on mock os (le logger en a besoin)
+vi.doMock('os', () => ({
+  hostname: vi.fn().mockReturnValue('test-machine'),
+  tmpdir: vi.fn().mockReturnValue('/tmp')
+}));
+```
+
+**Lecon 2026-02-07 :** Le logger utilise `os.tmpdir()` pour son repertoire de logs.
+Si on mock `os` sans `tmpdir`, on obtient : `No "tmpdir" export is defined on the "os" mock`.
+
 ### Mock du filesystem
 
 ```typescript
@@ -139,6 +152,7 @@ vi.mock('fs');
 | `Expected X, received Y` | Assertion incorrecte ou code modifie | Verifier quelle valeur est correcte |
 | `ENOENT` | Fichier test data manquant | Creer le repertoire/fichier de test |
 | `Cannot read property of undefined` | Mock incomplet ou retour inattendu | Verifier le mock setup |
+| `No "tmpdir" export on "os" mock` | Mock `os` sans `tmpdir` | Ajouter `tmpdir: vi.fn(() => '/tmp')` au mock |
 | `EPERM` / `EACCES` | Permissions fichier (Windows) | Ajouter cleanup dans afterEach |
 
 ## Format de Rapport

@@ -30,7 +30,7 @@ hostname
 
 ### Étape 3 : Synchronisation
 1. **Git pull** : `git fetch origin && git pull origin main`
-2. **Messages RooSync** : `roosync_read_inbox` (messages du coordinateur)
+2. **Messages RooSync** : `roosync_read` (mode: inbox) - messages du coordinateur
 3. **Statut global** : `roosync_get_status`
 
 ### Étape 4 : Afficher le résumé
@@ -75,7 +75,8 @@ git submodule update --init --recursive
 **Phase 3 - Validation**
 ```bash
 cd mcps/internal/servers/roo-state-manager
-npm test -- --reporter=dot 2>&1 | tail -20
+npx vitest run 2>&1 | tail -20
+# IMPORTANT: JAMAIS npm test (bloque en mode watch interactif)
 ```
 
 **Phase 4 - Communication**
@@ -249,6 +250,32 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 
 ## RÈGLES CRITIQUES
 
+### Travail Autonome Proactif (LEÇON 2026-02-07)
+
+**Quand on te dit "travaille en autonomie" :**
+
+1. **Boucle autonome** : Terminer tâche → Identifier la suivante → Commencer immédiatement
+2. **Sources de tâches** (par priorité) :
+   - Messages RooSync du coordinateur (instructions directes)
+   - Issues GitHub ouvertes assignées à cette machine
+   - Bugs ouverts (investigation + fix)
+   - Issues non-assignées mais faisables
+3. **Pattern efficace observé** :
+   - Fermer les issues obsolètes/superseded (ménage)
+   - Fixer les bugs code (investigation → fix → tests → commit)
+   - Mettre à jour la documentation incohérente
+   - Envoyer des rapports réguliers au coordinateur
+4. **Utiliser les subagents** pour les investigations lourdes (task-worker, code-fixer)
+5. **Toujours valider** : `npx tsc --noEmit` + `npx vitest run` après chaque changement
+
+### Après Modification du Code MCP (LEÇON 2026-02-07)
+
+**⚠️ Après tout changement dans `mcps/internal/servers/roo-state-manager/src/` :**
+- Le build produit de nouveaux fichiers JS dans `dist/`
+- Mais **VS Code doit être redémarré** pour que le MCP server charge le nouveau code
+- Les outils MCP ne seront PAS disponibles tant que VS Code n'est pas redémarré
+- Signaler à l'utilisateur : "Redémarrage VS Code nécessaire pour charger les modifications MCP"
+
 ### Mode Pragmatique (ACTIF)
 - **STOP** nouvelles fonctionnalités non-critiques
 - **FOCUS** sur tests et stabilisation
@@ -293,13 +320,20 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 | `git log --oneline -10` | Historique récent (source de vérité) |
 | `.claude/agents/` | Sub-agents disponibles |
 
-### Outils MCP RooSync
-- `roosync_read_inbox` - Lire messages
-- `roosync_send_message` - Envoyer message
-- `roosync_get_message` - Détails d'un message
-- `roosync_archive_message` - Archiver
-- `roosync_get_status` - Statut global
-- `roosync_get_machine_inventory` - Inventaire local
+### Outils MCP RooSync (18 outils, post CONS-1/CONS-5)
+
+**Messagerie CONS-1 (3) :**
+- `roosync_send` (action: send|reply|amend) - Envoyer/répondre/amender
+- `roosync_read` (mode: inbox|message) - Lire inbox ou message
+- `roosync_manage` (action: mark_read|archive) - Gérer messages
+
+**Lecture (4) :** `roosync_get_status`, `roosync_list_diffs`, `roosync_compare_config`, `roosync_refresh_dashboard`
+
+**Consolidés (5) :** `roosync_config`, `roosync_inventory`, `roosync_baseline`, `roosync_machines`, `roosync_init`
+
+**Décisions CONS-5 (2) :** `roosync_decision`, `roosync_decision_info`
+
+**Autres (4) :** `roosync_heartbeat_status`, `analyze_roosync_problems`, `diagnose_env`, `roosync_summarize`
 
 ---
 

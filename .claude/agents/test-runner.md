@@ -15,19 +15,30 @@ Le projet principal est dans `mcps/internal/servers/roo-state-manager/`.
 
 ## Commandes
 
-### Build TypeScript
+### Build TypeScript (check only, sans output)
+
 ```bash
-cd /d/roo-extensions/mcps/internal/servers/roo-state-manager && npm run build 2>&1
+cd mcps/internal/servers/roo-state-manager && npx tsc --noEmit
 ```
 
 ### Tests unitaires
+
 ```bash
-cd /d/roo-extensions/mcps/internal/servers/roo-state-manager && npm test 2>&1
+cd mcps/internal/servers/roo-state-manager && npx vitest run
 ```
 
+**IMPORTANT : JAMAIS `npm test` qui bloque en mode watch interactif !**
+
 ### Tests avec couverture
+
 ```bash
-cd /d/roo-extensions/mcps/internal/servers/roo-state-manager && npm run test:coverage 2>&1
+cd mcps/internal/servers/roo-state-manager && npx vitest run --coverage
+```
+
+### Tests d'un fichier spécifique
+
+```bash
+cd mcps/internal/servers/roo-state-manager && npx vitest run src/tools/roosync/__tests__/config.test.ts
 ```
 
 ## Tâches

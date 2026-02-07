@@ -152,9 +152,11 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 ### Règles Générales
 - Tour de sync toutes les 2-3 heures ou à chaque nouveau rapport
 - Toujours référencer les issues GitHub dans les communications
-- Ne pas modifier le code technique (domaine Roo)
+- Claude Code peut et DOIT fixer du code technique quand nécessaire (bugs, consolidations)
 - Documenter les décisions dans les commentaires d'issues
 - **INTERCOM** : Mettre à jour à CHAQUE tour de sync
+- **Tests** : Toujours `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch)
+- **Après modif MCP** : Signaler à l'utilisateur qu'un redémarrage VS Code est nécessaire
 
 ### Consolidation Documentaire
 
