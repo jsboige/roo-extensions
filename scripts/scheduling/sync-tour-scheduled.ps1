@@ -85,22 +85,39 @@ try {
 }
 Pop-Location
 
-# Phase 2: Check si du travail est necessaire
-Log "[PHASE 2] Check messages..."
+# Phase 2: Check si du travail est necessaire (local, sans appel API)
+Log "[PHASE 2] Check messages (filesystem)..."
 $hasWork = $false
 
-# Verifier s'il y a des messages RooSync non-lus
-# (Ceci necessite que le MCP soit accessible, sinon on skip)
+# Verifier s'il y a des messages RooSync non-lus via le filesystem GDrive
+# (Evite de consommer des credits API pour un simple check)
 try {
-    $inboxCheck = & claude --print -p "Verifie s'il y a des messages RooSync non-lus. Reponds uniquement 'OUI' ou 'NON'." 2>$null
-    if ($inboxCheck -match "OUI") {
-        $hasWork = $true
-        Log "  Messages non-lus detectes."
+    $sharedPath = $env:ROOSYNC_SHARED_PATH
+    if ($sharedPath) {
+        $inboxPath = Join-Path $sharedPath "messages/inbox"
+        if (Test-Path $inboxPath) {
+            $unreadMessages = Get-ChildItem $inboxPath -Filter "*.json" -ErrorAction SilentlyContinue |
+                Where-Object {
+                    $content = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+                    $content -match '"to"\s*:\s*"' + [regex]::Escape($machineName) + '"' -and
+                    $content -match '"status"\s*:\s*"unread"'
+                }
+            if ($unreadMessages.Count -gt 0) {
+                $hasWork = $true
+                Log "  $($unreadMessages.Count) messages non-lus detectes."
+            } else {
+                Log "  Pas de messages non-lus."
+            }
+        } else {
+            Log "  WARN: Dossier inbox introuvable: $inboxPath"
+            $hasWork = $true  # Par precaution
+        }
     } else {
-        Log "  Pas de messages non-lus."
+        Log "  WARN: ROOSYNC_SHARED_PATH non configure. Check skip."
+        $hasWork = $true  # Par precaution
     }
 } catch {
-    Log "  WARN: Impossible de verifier inbox: $_"
+    Log "  WARN: Erreur check inbox: $_"
     $hasWork = $true  # Par precaution, on execute quand meme
 }
 
@@ -146,16 +163,18 @@ if (Test-Path $workerScript) {
     exit 1
 }
 
-# Phase 4: Git push si modifications
-Log "[PHASE 4] Git push si modifications..."
+# Phase 4: Git push si commits non pushes
+Log "[PHASE 4] Git push si commits non pushes..."
 Push-Location $RepoRoot
 try {
-    $status = git status --porcelain 2>$null
-    if ($status) {
-        Log "  Modifications detectees, push..."
+    # Detecter les commits locaux non pushes (pas juste les fichiers modifies)
+    $unpushed = git log origin/main..HEAD --oneline 2>$null
+    if ($unpushed) {
+        $commitCount = ($unpushed -split "`n").Count
+        Log "  $commitCount commit(s) non pushe(s), push..."
         git push origin main 2>&1 | ForEach-Object { Log "  $_" }
     } else {
-        Log "  Pas de modifications a pousser."
+        Log "  Pas de commits a pousser."
     }
 
     # Sauvegarder le dernier commit

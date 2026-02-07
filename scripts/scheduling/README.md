@@ -108,6 +108,23 @@ logs/scheduling/
 
 Rotation automatique : les logs de plus de 7 jours sont supprimes.
 
+## Securite
+
+### --dangerously-skip-permissions
+
+**ATTENTION :** Le flag `-SkipPermissions` (qui passe `--dangerously-skip-permissions` a Claude) desactive **toutes** les confirmations utilisateur. En mode autonome (scheduler), cela signifie que :
+
+- Claude executera des commandes shell sans confirmation
+- Les messages RooSync recus pourraient contenir du **prompt injection** (un message malveillant pourrait faire executer des commandes arbitraires)
+- Les fichiers lus (INTERCOM, issues GitHub) pourraient egalement contenir des instructions malveillantes
+
+**Recommandations :**
+
+- N'utiliser `-SkipPermissions` que sur des machines de confiance
+- S'assurer que les sources de messages (RooSync GDrive, GitHub) sont controlees
+- Verifier les logs apres chaque execution autonome
+- Preferer le mode interactif pour les taches sensibles
+
 ## Troubleshooting
 
 ### Claude non trouve

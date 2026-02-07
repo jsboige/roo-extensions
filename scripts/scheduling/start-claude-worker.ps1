@@ -95,12 +95,24 @@ $claudeArgs = @(
     "--output-format", "text"
 )
 
+# Provider: mapper vers le modele Claude correspondant
+$modelMap = @{
+    'anthropic' = 'claude-opus-4-6'
+    'z-ai'      = 'claude-sonnet-4-5-20250929'
+}
+if ($modelMap.ContainsKey($Provider)) {
+    $claudeArgs += "--model"
+    $claudeArgs += $modelMap[$Provider]
+}
+
 if ($SkipPermissions) {
+    # SECURITE: --dangerously-skip-permissions desactive les confirmations utilisateur.
+    # En mode autonome (scheduler), les messages RooSync pourraient contenir du prompt injection.
+    # N'utiliser que sur des machines de confiance avec des sources de messages controlees.
     $claudeArgs += "--dangerously-skip-permissions"
 }
 
-# Ajouter le prompt
-$claudeArgs += "-p"
+# Ajouter le prompt (--print est suffisant, pas besoin de -p en doublon)
 $claudeArgs += $prompt
 
 $fullCommand = "$claudeCmd $($claudeArgs -join ' ')"
