@@ -6,10 +6,12 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (registry.ts):** ~55 (non-RooSync + RooSync)
+- **Total tools (ListTools):** 39 (20 inline + 19 roosyncTools) after CLEANUP-3
 - **RooSync tools (roosyncTools):** 19 entries in index.ts
 - **Claude wrapper (mcp-wrapper.cjs):** 18 tools exposed
 - **Gap:** roosyncTools has `roosync_heartbeat_service` not in wrapper
+- **Deprecated tools:** 11 removed from ListTools by CLEANUP-3 (CallTool handlers kept for backward compat)
+- **Tests:** 1829 passed, 0 failed (160 files, 2026-02-07)
 
 ### Key Files
 | File | Purpose |
@@ -42,9 +44,38 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-6 | Inventory/Machines | 4 tools | 2 tools | myia-ai-01 | Done |
 | CONS-9 | Tasks | 4 tools | 2 tools | myia-po-2024 | Done |
 | CONS-10 | Export | 6 tools | 2 tools | myia-po-2024 | Done |
-| CONS-11 | Search/Indexing | 4 tools | 2 tools | - | Open (#377) |
+| CONS-11 | Search/Indexing | 4 tools | 2 tools | myia-po-2023 | Done |
 | CONS-12 | Summary | 3 tools | 1 tool | myia-ai-01 | Done |
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
+
+## Current State (2026-02-07)
+
+**All 11 consolidations are DONE.** No more CONS tasks open.
+
+| Metric | Value |
+|--------|-------|
+| Total tools (ListTools) | 39 (after CLEANUP-3) |
+| RooSync tools (roosyncTools) | 19 |
+| Claude wrapper tools | 18 |
+| Deprecated removed from ListTools | 11 (CallTool handlers kept) |
+| Tests passing | 1829 |
+| Test files | 160 |
+| Submodule commit | 8607777 (CLEANUP-3) |
+| Parent commit | b94708c |
+
+### Next Phase: Validation & Cleanup
+- **#400** - Multi-machine validation (tool count check)
+- **#409-411** - Manual testing of consolidated tools
+- **#412-413** - Documentation updates (PROJECT_MEMORY, Dashboard)
+- **CLEANUP-3** (future) - Remove deprecated legacy tools from ListTools
+
+### VibeSync Issues (long-term)
+- **#401** - Specialized Claude agents
+- **#402** - Multi-level memory management
+- **#403** - Scheduled Claude Code execution
+- **#404** - Git worktrees + PR workflow
+- **#405** - Hierarchical CLAUDE.md
+- **#406** - Port MCP tools to Claude wrapper
 
 ## Known Bugs / Gotchas
 
