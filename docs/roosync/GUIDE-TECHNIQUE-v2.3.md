@@ -1771,5 +1771,393 @@ export class StateManagerError extends Error {
 
 ---
 
-**Version du document** : 1.2
-**Dernière mise à jour** : 2026-01-23
+---
+
+## 8. Historique des Consolidations (CONS-1 a CONS-12)
+
+### 8.1 Vue d'ensemble
+
+Le projet de consolidation des outils MCP RooSync a ete mene de janvier a fevrier 2026. L'objectif etait de reduire le nombre d'outils MCP exposes de ~33 outils a ~18 outils, soit une reduction de ~45%, en regroupant les fonctionnalites similaires derriere des interfaces unifiees action-based.
+
+**Pattern de consolidation adopte :** Chaque groupe d'outils partageant des dependances communes est consolide en 1 a 3 outils avec un parametre `action` (ou `type`, `mode`) qui route vers la sous-fonction appropriee.
+
+### 8.2 Tableau recapitulatif
+
+| CONS | Sujet | Avant | Apres | Reduction | Pattern | Statut |
+|------|-------|-------|-------|-----------|---------|--------|
+| **CONS-1** | Messagerie | 7 outils | 3 outils (`roosync_send`, `roosync_read`, `roosync_manage`) | -57% | `action` (send/reply/amend) + `mode` (inbox/message) | DONE |
+| **CONS-2** | Heartbeat | 7 outils | 2 outils | -71% | `action` | DONE |
+| **CONS-3** | Config | 4 outils | 2 outils (`roosync_config` + `roosync_compare_config`) | -50% | `action` (collect/publish/apply) | DONE |
+| **CONS-4** | Baseline | 3 outils | 1 outil (`roosync_baseline`) | -67% | `action` (update/version/restore/export) | DONE |
+| **CONS-5** | Decisions | 5 outils | 2 outils (`roosync_decision` + `roosync_decision_info`) | -60% | `action` (approve/reject/apply/rollback) | DONE |
+| **CONS-6** | Debug/Diagnostic | 4 outils | 2 outils | -50% | `action` | DONE |
+| **CONS-7** | Init/Status | 3 outils | 2 outils | -33% | - | DONE |
+| **CONS-8** | Inventory | 3 outils | 1 outil (`roosync_inventory`) | -67% | `action` | DONE |
+| **CONS-9** | Tasks | 4 outils | 2 outils (`task_browse` + `task_export`) | -50% | `action` (tree/current) | DONE |
+| **CONS-10** | Export | 6 outils | 2 outils (`roosync_export` + `roosync_export_config`) | -67% | `action` + `format` (xml/json/csv) | DONE |
+| **CONS-11** | Machines | 3 outils | 1 outil (`roosync_machines`) | -67% | `action` | DONE |
+| **CONS-12** | Summary | 3 outils | 1 outil (`roosync_summarize`) | -67% | `type` (trace/cluster/synthesis) | DONE |
+
+**Bilan global :** De ~50+ outils MCP a ~39 outils exposes via ListTools, puis filtres a 18 outils RooSync via le wrapper Claude Code (`mcp-wrapper.cjs`).
+
+### 8.3 Lecons apprises des consolidations
+
+1. **Checklist de validation obligatoire :** Compter les outils avant/apres, verifier que l'ecart reel correspond a l'ecart annonce. Erreur CONS-3/CONS-4 : outils anciens non retires du tableau `roosyncTools`, resultant en augmentation au lieu de reduction.
+
+2. **TDD recommande :** Ecrire les tests qui valident le decompte final AVANT l'implementation (ex: `expect(roosyncTools.length).toBe(24)`).
+
+3. **Backward compatibility :** Maintenir les anciens handlers `CallTool` comme wrappers pendant une periode de transition (~72 handlers backward compat dans `registry.ts`).
+
+4. **Pattern action-based :** Le pattern `action` comme cle de dispatch s'est avere le plus efficace et le plus coherent. Validation contextuelle Zod avec `superRefine` pour les parametres requis selon l'action.
+
+5. **Type-based dispatcher (CONS-12) :** Pour les outils de synthese, le parametre `type` au lieu de `action` a ete utilise car il n'y a pas d'action de mutation.
+
+---
+
+## 9. Troubleshooting et Post-Mortems
+
+### 9.1 Bug #322 - compare_config echoue (InventoryCollectorWrapper)
+
+**Date :** Janvier 2026 | **Severite :** HIGH | **Statut :** RESOLU
+
+**Symptome :** `roosync_compare_config` retournait 0 differences entre machines alors que 17 differences existaient reellement.
+
+**Cause racine :** Deux problemes imbriques :
+
+1. **Incoherence de recherche de fichiers d'inventaire :** `InventoryService.loadRemoteInventory()` cherchait `{machineId}.json` (exact) tandis que `InventoryCollector.loadFromSharedState()` cherchait `{machineId}-*.json` (avec timestamp).
+
+2. **Transformation de format invisible :** `InventoryCollector` transformait `inventory.mcpServers` en `roo.mcpServers`, mais `compare-config.ts` ne supportait que le chemin `inventory.*`. Resultat : la fonction cherchait les donnees au mauvais endroit et retournait 0 diffs (faux negatif).
+
+3. **Perte du champ `paths` :** Les methodes `convertRawToBaselineFormat()` et `convertToBaselineFormat()` ne copiaient pas le champ `paths`, necessaire pour `ConfigSharingService`.
+
+**Corrections appliquees :**
+
+- **Commit `5140f48` :** Alignement de la recherche de fichiers (exact d'abord, puis timestamp)
+- **Commit `e85ef6c` :** Preservation du champ `paths` dans toutes les conversions
+- **Commit `90ffb3b` :** Ajout fallback vers `InventoryService`
+- **Commit `30564ee` :** Support 3 formats d'inventaire dans `compare-config.ts`
+
+```typescript
+// Fix definitif : Support 3 formats d'inventaire
+sourceData = (sourceInventory as any).inventory?.mcpServers ||
+             (sourceInventory as any).roo?.mcpServers ||
+             (sourceInventory as any).mcpServers ||
+             {};
+```
+
+**Lecons apprises :**
+
+- Un resultat de "0 differences" peut etre un faux negatif silencieux
+- Quand un service intermediaire transforme des donnees, tous les consommateurs DOIVENT supporter les multiples formats
+- Toujours tester avec des donnees reelles dont on connait les differences attendues
+- Creer un script de test isole pour reproduire le probleme hors du contexte MCP
+
+### 9.2 MCP roo-state-manager ne redemarre pas apres build
+
+**Date :** Juillet 2025 | **Statut :** RESOLU
+
+**Symptome :** Apres `npm run build`, le MCP executait une version obsolete du code.
+
+**Cause racine :** Absence de la directive `watchPaths` dans la configuration du serveur dans `mcp_settings.json`. Sans cette directive, le `McpHub` de VS Code n'avait aucune instruction pour surveiller les changements sur les fichiers compiles.
+
+**Correction :** Ajout de `watchPaths` pointant vers le fichier de sortie de la compilation :
+
+```json
+"watchPaths": ["D:/roo-extensions/mcps/internal/servers/roo-state-manager/build/src/index.js"]
+```
+
+**Recommandations :**
+- Toujours configurer `watchPaths` pour les MCPs de type `stdio` qui necessitent une compilation
+- Configurer `cwd` au premier niveau de la configuration MCP (pas dans un sous-objet `options`)
+- Apres build, VS Code doit etre recharge pour charger les nouveaux outils MCP (les outils sont caches au demarrage)
+
+### 9.3 Cycle de vie des MCPs dans VS Code
+
+Le `McpHub` gere le cycle de vie des serveurs MCP avec deux mecanismes de surveillance :
+
+1. **Surveillance des fichiers de configuration (`mcp_settings.json`)** : Toute modification declenche une relecture complete et un `updateServerConnections` (demarrage/arret de multiples serveurs).
+
+2. **Surveillance de fichiers specifiques (`watchPaths`)** : Uniquement pour les serveurs `stdio`. Un changement declenche `restartConnection` pour ce serveur specifique seulement (hard restart : arret complet puis reconnexion).
+
+**Points importants :**
+- Les serveurs marques `"disabled": true` creent une connexion placeholder sans processus
+- Le redemarrage via `watchPaths` est cible (un seul serveur) tandis que la modification de `mcp_settings.json` peut affecter tous les serveurs
+- Le transport `stdio` lance un processus enfant ; `transport.close()` termine ce processus
+
+---
+
+## 10. Architecture et Design du Sync Manager (Legacy PowerShell)
+
+### 10.1 Vision
+
+Le `sync-manager.ps1` (concu en juillet 2025) est le predecesseur PowerShell de l'architecture MCP TypeScript actuelle. Il implementait une synchronisation bidirectionnelle controlee avec Git comme Source Unique de Verite (SSoT).
+
+**Principes directeurs :**
+- Git comme SSoT pour toutes les operations de synchronisation
+- Synchronisation bidirectionnelle controlee (pull/push avec validation)
+- Gestion assistee des conflits (detection + guidance utilisateur)
+- Operations atomiques (complete ou annulee)
+- Observabilite via journalisation detaillee
+
+### 10.2 Architecture modulaire
+
+```
+sync-manager/
++-- sync-manager.ps1              # Script principal (orchestrateur)
++-- modules/
+|   +-- Core.psm1                 # Logique metier centrale
+|   +-- Configuration.psm1        # Gestion de configuration
+|   +-- GitOperations.psm1        # Operations Git specialisees
+|   +-- StateManager.psm1         # Gestion d'etat distribue
+|   +-- ConflictResolver.psm1     # Resolution de conflits
+|   +-- HookSystem.psm1           # Systeme d'extensions
+|   +-- Logger.psm1               # Logging structure
+|   +-- Utils.psm1                # Utilitaires communs
++-- config/
+|   +-- sync-config.json          # Configuration principale
+|   +-- sync-config.schema.json   # Schema de validation
+|   +-- .env                      # Variables d'environnement
+```
+
+**5 actions principales :** Pull, Push, Status, Resolve, Configure
+
+### 10.3 Configuration (sync-config.json)
+
+Le fichier `sync-config.json` definit les cibles de synchronisation, les parametres globaux et les surcharges par machine. Schema de validation disponible dans `sync-config.schema.json`.
+
+Proprietes cles :
+- `syncTargets` : Liste des cibles (type directory, configFile, git)
+- `globalSettings` : Parametres globaux
+- `machineOverrides` : Surcharges specifiques par machine
+- Strategies de resolution de conflits : `source-wins`, `destination-wins`, `manual`
+
+### 10.4 Dashboard (sync-dashboard.json)
+
+Le `sync-dashboard.json` maintient l'etat de synchronisation de chaque machine. Schema defini dans `sync-dashboard.schema.json`.
+
+Proprietes cles :
+- `machines` : Etat par machine (lastSeen, lastSyncStatus, targets)
+- `aggregatedState` : Vue agregee du parc
+- `alerts` : Alertes importantes
+
+**Note :** Cette architecture PowerShell legacy a ete remplacee par l'architecture MCP TypeScript dans roo-state-manager v2.3+. Les schemas JSON restent la reference pour le format des fichiers partages.
+
+---
+
+## 11. Changelog consolide (v2.1 a v2.3)
+
+### 11.1 Version 2.1 - Architecture Baseline-Driven
+
+**Date :** 2025-12-27 | **Type :** Architecture
+
+- Introduction de l'architecture baseline-driven avec `sync-config.ref.json` comme source de verite
+- 17 outils MCP exportes
+- Service principal : `BaselineService`
+- Workflow : Compare -> Validate -> Apply
+
+### 11.2 Version 2.2 - Publication de Configuration
+
+**Date :** 2025-12-27 | **Type :** Publication de configuration (pas de changement d'API)
+
+- Publication de configuration myia-po-2023 avec corrections WP4
+- Correction du registre MCP (outils WP4 references incorrectement)
+- Ajout de `analyze_roosync_problems` et `diagnose_env` a la liste `alwaysAllow`
+- 3 machines en ligne, 0 differences, 0 decisions en attente
+
+### 11.3 Version 2.3 - Consolidation Majeure
+
+**Date :** 2025-12-27 | **Type :** Consolidation majeure (breaking changes)
+
+**Nouveaux outils (2) :**
+- `roosync_debug_reset` : Debug unifie (target: dashboard/service/all)
+- `roosync_manage_baseline` : Gestion versions (action: version/restore)
+
+**Outil modifie (1) :**
+- `roosync_get_status` : Fusion avec `read-dashboard.ts` (parametre `includeDetails`)
+
+**Outils supprimes (5) :** `debug-dashboard`, `reset-service`, `read-dashboard`, `version-baseline`, `restore-baseline`
+
+**Metriques :**
+- Outils exportes : 17 -> 12 (-29%)
+- Tests unitaires : 5 -> 16 (+220%)
+- Couverture de tests : ~19% -> ~80%
+
+### 11.4 Consolidations post-v2.3 (CONS-1 a CONS-12, janvier-fevrier 2026)
+
+Voir section 8 pour le detail de chaque consolidation.
+
+**Etat final (fevrier 2026) :**
+- ~39 outils dans ListTools
+- 19 outils dans `roosyncTools` array
+- 18 outils filtres par le wrapper Claude Code
+- ~72 handlers backward compat dans CallTool
+- 1829 tests PASS, 0 FAIL
+
+### 11.5 Transitions entre versions
+
+| Transition | Type | Migration requise | Impact |
+|------------|------|-------------------|--------|
+| v2.1 -> v2.2 | Publication config | Non | Aucun |
+| v2.2 -> v2.3 | Consolidation majeure | Oui (breaking changes) | Moyen |
+| v2.1 -> v2.3 | Directe possible | Oui | Moyen |
+
+**Compatibilite des donnees :** Les donnees (baselines, messages, configurations) sont compatibles entre toutes les versions.
+
+---
+
+## 12. Features roo-state-manager
+
+### 12.1 Recherche semantique des taches
+
+Le MCP roo-state-manager supporte la recherche semantique via Qdrant (base de donnees vectorielle). Le service d'indexation scanne les taches, genere des embeddings via l'API OpenAI et les stocke dans Qdrant.
+
+**Outil :** `search_tasks_semantic` - Vectorise la requete utilisateur, interroge Qdrant avec filtres (date, etc.) et formate les resultats.
+
+**Prerequis :** Instance Qdrant (Docker Compose) + cle API OpenAI.
+
+### 12.2 Navigation optimisee des taches
+
+L'architecture separe le chargement des donnees en deux niveaux :
+- `get_task_summary` : Vue resumee avec dialogues legers (rapide)
+- `get_task_details` : Contenu complet d'un artefact specifique (a la demande)
+
+### 12.3 Navigation arborescente
+
+**Outil :** `get_task_tree` (consolide dans `task_browse` avec `action: 'tree'`)
+
+Formats de sortie : `json`, `markdown`, `ascii-tree`, `hierarchical`
+
+### 12.4 Strategie d'indexation granulaire
+
+L'indexation est confiee a un service dedie (`GranularIndexingService`) qui traite les taches de maniere incrementale pour minimiser l'utilisation memoire et le temps de traitement.
+
+---
+
+## 13. Refactoring et stabilisation
+
+### 13.1 Refactoring detect_roo_storage
+
+**Probleme initial :** L'outil `detect_roo_storage` chargeait l'integralite des donnees de toutes les conversations, depassant la limite de contexte du client MCP avec des milliers de conversations.
+
+**Solution :** Separation stricte entre la detection des emplacements et l'analyse du contenu :
+- `detect_roo_storage` : Detection des chemins de stockage uniquement (avec cache)
+- `get_storage_stats` : Statistiques agregees (scan optimise)
+- `scan_conversations_metadata` : Analyse paginee du contenu
+
+### 13.2 Migration Mocha vers Vitest
+
+Les tests ont ete migres de Mocha/Jest vers Vitest pour beneficier de :
+- Support natif TypeScript ESM
+- Configuration simplifiee
+- Performance amelioree
+- Compatibilite avec la structure modulaire du projet
+
+**Commande de test :** `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch)
+
+### 13.3 Plan de test E2E
+
+Les tests E2E pour les serveurs MCP necessitent la simulation de l'environnement VS Code. La variable `ROO_STORAGE_PATH` doit etre definie pour pointer vers les donnees de test.
+
+**Approche retenue :** Script `globalSetup` Jest/Vitest qui cree un repertoire temporaire unique et definit `process.env.ROO_STORAGE_PATH`.
+
+**Difficultes documentees :**
+- Erreur `Not connected` avec le transport stdio en test E2E
+- Complexite du mocking de `fs/promises` en environnement TypeScript ESM
+- Pivot vers tests unitaires avec mocks simplifies
+
+---
+
+## 14. Analyse MCP - Coordination Claude Code / Roo
+
+### 14.1 Portabilite des MCPs
+
+Les MCPs sont par nature portables (standard Model Context Protocol). Claude Code peut utiliser tous les MCPs configures pour Roo, a condition que :
+- Le fichier de configuration soit correctement reference (`~/.claude.json` ou `.mcp.json`)
+- Le wrapper `mcp-wrapper.cjs` filtre les outils exposes (52+ -> 18 outils RooSync)
+- VS Code soit recharge apres chaque build pour charger les nouveaux outils
+
+### 14.2 Wrapper MCP (mcp-wrapper.cjs)
+
+Le wrapper intelligent filtre les outils exposes a Claude Code pour eviter la surcharge cognitive :
+
+**Fichier :** `mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs`
+
+**Categories d'outils filtres (18 total) :**
+- Messagerie CONS-1 (3) : `roosync_send`, `roosync_read`, `roosync_manage`
+- Lecture seule (4) : `get_status`, `list_diffs`, `compare_config`, `refresh_dashboard`
+- Consolides (5) : `config`, `inventory`, `baseline`, `machines`, `init`
+- Decisions CONS-5 (2) : `roosync_decision`, `roosync_decision_info`
+- Monitoring (1) : `heartbeat_status`
+- Diagnostic (2) : `analyze_roosync_problems`, `diagnose_env`
+- Summary (1) : `roosync_summarize`
+
+### 14.3 MCPs disponibles dans l'ecosysteme
+
+**MCPs internes (6) :** roo-state-manager, github-projects-mcp (deprecie), jinavigator-server, jupyter-papermill-mcp, quickfiles-server, jupyter-mcp-server (obsolete)
+
+**MCPs externes (12) :** filesystem, git, github, searxng, docker, jupyter, markitdown, win-cli, mcp-server-ftp, markitdown/source, playwright/source
+
+---
+
+## 15. Exemples et Templates
+
+### 15.1 Exemple de rapport de synchronisation
+
+```markdown
+# Rapport de Synchronisation
+
+**Date :** 2025-07-28 12:25:30
+**Machine :** MAIN-PC
+**Duree :** 0 minutes, 15 secondes
+
+| Statut | Nombre |
+|--------|--------|
+| Synchronisees | 3 |
+| Avertissements | 1 |
+| Erreurs | 1 |
+
+## Cible: projet-alpha
+- Statut : Succes
+- Changements : 2 fichiers pull, 1 fichier push
+- Commit final : a1b2c3d4
+
+## Cible: dotfiles
+- Statut : Avertissement
+- Message : Conflit de fusion sur '.zshrc'. Resoudre manuellement.
+```
+
+### 15.2 Exemple de roadmap de synchronisation
+
+```markdown
+# Feuille de Route de Synchronisation
+
+**Statut global :** 1 decision(s) en attente
+
+## Actions en Attente
+
+### Decision: Synchronisation des Commandes Roo Approuvees
+- **Detecte par :** DEV-MACHINE-01
+- **Resume :** Difference detectee dans les commandes terminal auto-approuvees
+
+**Actions Proposees :**
+- [ ] Approuver et Fusionner
+- [ ] Rejeter et Aligner
+- [ ] Ignorer
+- [ ] Reporter
+
+## Historique des Decisions
+(decisions traitees archivees pour tracabilite)
+```
+
+### 15.3 Template de rapport de comparaison
+
+Le template `comparison-report-template.md` fournit une structure standardisee pour documenter les resultats de tests d'escalade entre configurations (modeles simples vs complexes), avec des tableaux comparatifs et des sections d'analyse.
+
+### 15.4 Template de journal de test
+
+Le template `test-log-template.md` structure les sessions de test avec : informations generales, configuration de l'environnement, resume des tests (tableau), details par scenario, et conclusions.
+
+---
+
+**Version du document** : 2.0
+**Derniere mise a jour** : 2026-02-08
