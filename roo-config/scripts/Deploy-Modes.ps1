@@ -5,15 +5,16 @@
     Deploy simple/complex mode pairs to Roo Code
 
 .DESCRIPTION
-    Deploys the pilot-simple-complex.roomodes file to the workspace root (.roomodes)
+    Deploys the generated simple-complex.roomodes file to the workspace root (.roomodes)
     or to the VS Code global settings. Preserves UTF-8 encoding and validates JSON.
+    Run 'node roo-config/scripts/generate-modes.js' first to regenerate from templates.
 
 .PARAMETER DeploymentType
     'local' = workspace .roomodes (default)
     'global' = VS Code global custom_modes.json
 
 .PARAMETER Source
-    Source .roomodes file. Default: roo-config/modes/pilot-simple-complex.roomodes
+    Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
 
 .PARAMETER DryRun
     Show what would be done without making changes
@@ -49,11 +50,12 @@ if (-not $repoRoot) {
 }
 
 if (-not $Source) {
-    $Source = Join-Path $repoRoot "roo-config\modes\pilot-simple-complex.roomodes"
+    $Source = Join-Path $repoRoot "roo-config\modes\generated\simple-complex.roomodes"
 }
 
 if (-not (Test-Path $Source)) {
     Write-Host "ERROR: Source file not found: $Source" -ForegroundColor Red
+    Write-Host "Run 'node roo-config/scripts/generate-modes.js' first." -ForegroundColor Yellow
     exit 1
 }
 
@@ -71,28 +73,16 @@ try {
     exit 1
 }
 
-# Validate structure
-$hasFamilyValidator = $false
+# Display modes
 $modeNames = @()
 foreach ($mode in $parsed.customModes) {
-    if ($mode.slug -eq "mode-family-validator") {
-        $hasFamilyValidator = $true
-        continue
-    }
     $modeNames += $mode.slug
-    if (-not $mode.model) {
-        Write-Host "WARNING: Mode '$($mode.slug)' has no model specified" -ForegroundColor Yellow
-    }
 }
 
 Write-Host "`nModes to deploy:" -ForegroundColor Cyan
 foreach ($name in $modeNames) {
-    $suffix = if ($name -match '-simple$') { " (cheap model)" } elseif ($name -match '-complex$') { " (powerful model)" } else { "" }
+    $suffix = if ($name -match '-simple$') { " (economique)" } elseif ($name -match '-complex$') { " (puissant)" } else { "" }
     Write-Host "  - $name$suffix" -ForegroundColor White
-}
-
-if ($hasFamilyValidator) {
-    Write-Host "  + mode-family-validator (transition control)" -ForegroundColor Gray
 }
 
 # Determine destination
@@ -141,15 +131,6 @@ try {
     } else {
         Write-Host "`nWARNING: Mode count mismatch (source=$modeCount, deployed=$deployedModeCount)" -ForegroundColor Yellow
     }
-
-    # Check familyDefinitions preserved
-    $validatorMode = $deployedParsed.customModes | Where-Object { $_.slug -eq "mode-family-validator" }
-    if ($validatorMode -and $validatorMode.familyDefinitions) {
-        Write-Host "  familyDefinitions: PRESERVED" -ForegroundColor Green
-    } else {
-        Write-Host "  WARNING: familyDefinitions may be missing" -ForegroundColor Yellow
-    }
-
 } catch {
     Write-Host "`nERROR: Deployed file has invalid JSON!" -ForegroundColor Red
     exit 1
@@ -157,6 +138,5 @@ try {
 
 Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. Reload VS Code (Ctrl+Shift+P > Reload Window)" -ForegroundColor White
-Write-Host "  2. Open mode selector (Ctrl+Shift+P > Roo: Switch Mode)" -ForegroundColor White
-Write-Host "  3. Verify simple/complex modes appear" -ForegroundColor White
-Write-Host "  4. Test escalation: start in code-simple, trigger escalation criteria" -ForegroundColor White
+Write-Host "  2. Open mode selector to verify modes appear" -ForegroundColor White
+Write-Host "  3. Check model routing in roo-config/model-configs.json" -ForegroundColor White
