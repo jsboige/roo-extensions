@@ -1028,7 +1028,31 @@ Développer un **système agentique de vibe coding** multi-machines et multi-wor
 
 ---
 
-**Document généré par**: Claude Sonnet 4.5
+## Context Condensation - Decisions Architecturales (Archive)
+
+**Projet** : Refactoring du systeme de condensation de contexte pour Roo Code (PR #8743)
+**Periode** : Octobre 2025 (planning, implementation, validation, soumission PR)
+**Statut** : Projet termine. 155 fichiers de documentation archives dans `archive/context-condensation-pr-tracking/`.
+
+### Architecture Provider-Based
+
+Le systeme de condensation de contexte a ete concu autour d'un **pattern Strategy** avec 4 providers interchangeables orchestres par un `CondensationProviderManager`. L'interface commune `ICondensationProvider` definit les methodes `condense()`, `estimateCost()`, `estimateReduction()` et `getCapabilities()`. Les 4 providers implementes sont : **Native** (backward-compatible, wrapping du systeme LLM-based existant), **Lossless** (deduplication de lectures fichiers, consolidation de resultats d'outils, zero perte d'information), **Truncation** (reduction mecanique rapide par age, cout zero), et **Smart** (architecture pass-based ultra-configurable avec 3 presets : Conservative, Balanced, Aggressive).
+
+### Decisions Cles et Patterns Reutilisables
+
+L'architecture a suivi une approche incrementale en phases distinctes plutot qu'un PR monolithique, suite a une revue architecturale critique identifiant un risque de sur-engineering. La separation Manager/Provider est stricte : le Manager gere l'orchestration, les profils API, les seuils et les fallbacks, tandis que les Providers gerent l'implementation technique. Le systeme de profils API permet une optimisation des couts de 95% en utilisant des modeles moins chers pour la condensation (ex: GPT-4o-mini au lieu de Claude Sonnet). Le Smart Provider introduit une architecture pass-based ou toute strategie de condensation est exprimable via configuration (3 types de contenu x 4 operations x 2 modes d'execution).
+
+### Patterns Techniques Identifies
+
+Parmi les patterns reutilisables documentes : (1) **Optimistic UI avec Temporal Guard** pour synchroniser frontend/backend sans race conditions (timestamp + ignore backend 500ms), (2) **Loop-guard anti-boucles** avec MAX_ATTEMPTS et cooldown pour les retries, (3) **Registry Reset** pour la stabilite des tests unitaires dans les singletons. Le projet a aussi produit 4 corrections critiques suite a une analyse externe : loop-guard, registry reset, context detection amelioree dans BaseProvider, et telemetrie enrichie.
+
+### Metriques Finales
+
+Le projet a produit 31 commits conventionnels, 95 fichiers modifies (~8300 lignes ajoutees), 155+ tests (110 backend + 45 UI, 100% passing), 0 warnings ESLint, et 18 documents de checkpoint couvrant toutes les phases. La documentation technique totale depasse 8000 lignes. Les fichiers detailles sont consultables dans `archive/context-condensation-pr-tracking/`, avec l'index principal dans `000-documentation-index.md`.
+
+---
+
+**Document genere par**: Claude Sonnet 4.5
 **Pour**: Toutes les conversations futures dans ce workspace
-**Objectif**: Grounding rapide, contexte fiable et vision complète
-**Version**: 2.0 (Complète et équilibrée)
+**Objectif**: Grounding rapide, contexte fiable et vision complete
+**Version**: 2.0 (Complete et equilibree)
