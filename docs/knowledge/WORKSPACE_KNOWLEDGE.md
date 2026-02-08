@@ -1052,7 +1052,239 @@ Le projet a produit 31 commits conventionnels, 95 fichiers modifies (~8300 ligne
 
 ---
 
-**Document genere par**: Claude Sonnet 4.5
+## Lecons Apprises : Taches Orphelines
+
+### Probleme identifie (Septembre 2025)
+
+Sur 3598 taches Roo, 3075 (85.5%) etaient invisibles dans l'UI car leur fichier `task_metadata.json` etait manquant. Ce fichier lie une tache a son workspace et lui donne un titre visible. Sans lui, la tache existe dans `globalState.taskHistory` et dans les fichiers `api_conversation_history` mais n'apparait pas dans l'interface.
+
+### Architecture de persistance Roo Code
+
+Roo utilise une persistance a 2 niveaux :
+1. **Fichiers individuels** par tache dans `globalStorage/tasks/{id}/` : `api_conversation_history.json` (messages API), `ui_messages.json` (messages UI), `task_metadata.json` (titre, workspace, timestamps)
+2. **Index global** dans `globalState.taskHistory` (SQLite via VS Code) : liste ordonnee de toutes les taches avec metadonnees minimales
+
+Le bug : lors de crashes ou interruptions, `globalState` est mis a jour mais `task_metadata.json` n'est pas ecrit, rendant la tache orpheline.
+
+### Tentatives de reparation echouees (5 tentatives, 0 succes)
+
+Cinq approches testees sans succes (34.8 MB d'echanges, 5954 messages) :
+- Script PowerShell de reconstruction, analyse fichiers + regeneration, approche TypeScript directe, reconstruction inversee depuis globalState, approche hybride.
+- **Anti-pattern cle** : "code-first" au lieu de "system-first" -- les agents codaient des solutions avant de comprendre l'architecture de persistance.
+
+### Solutions architecturales retenues
+
+1. **Corrective** : `rebuild_task_index` -- reconstruit l'index en scannant les fichiers tasks existants
+2. **Proactive** : Auto-reparation au demarrage de Roo -- detecte et repare les taches orphelines
+3. **Fallback** : Implementation autonome sans modification du code source Roo
+
+---
+
+## Procedures de Recovery et Post-Mortems
+
+### Disaster Recovery mcps/internal (6 septembre 2025)
+
+Le sous-module `mcps/internal` avait 375 modifications non commitees suite a un `git reset --hard` mal execute. Recovery : sauvegarde temporaire, `git submodule update --init --recursive --force`, reapplication selective. **Lecon** : Toujours sauvegarder l'etat du sous-module avant toute operation git destructive.
+
+### Restauration Git critique (21 septembre 2025)
+
+Plus de 100 commits effaces suite a un `push --force` accidentel sur main. Recovery par cherry-pick de 6 commits critiques, resolution manuelle des conflits sous-modules. **Lecon** : Ne JAMAIS utiliser `push --force` sur main.
+
+### Recovery Git apres second push --force (25 septembre 2025)
+
+Deuxieme incident similaire. Recovery via `git reflog` + `git reset --hard <bon-commit>` + `git push --force-with-lease`.
+
+### Reparation roo-state-manager : build path
+
+Le build generait `build/src/index.js` au lieu de `build/index.js` car `rootDir` dans `tsconfig.json` pointait vers `.` au lieu de `./src`.
+
+### Synthese reparations MCP (janvier 2025)
+
+3 serveurs repares en une session : roo-state-manager (build path + validation env vars), office-powerpoint (chemin Python), jupyter-papermill (migration Node.js vers Python).
+
+### Recovery MCP post-resync (25 septembre 2025)
+
+Apres resync Git, tous les MCP casses (node_modules/builds supprimes). Resolution : `npm install && npm run build` dans chaque serveur, regeneration token GitHub, verification markitdown+ffmpeg.
+
+---
+
+## Troubleshooting : Fixes Documentes
+
+### Fix timeout jupyter-papermill-mcp
+
+Champ `"timeout": 120` invalide dans `mcp_settings.json` (non supporte par MCP stdio). Fix : retirer le champ.
+
+### Fix problemes residuels MCP
+
+Rate limiting 10->100 ops/s, nettoyage 23828 entrees orphelines DB, correction BOM UTF-8 sur `mcp_settings.json`.
+
+### Fix fuite reseau 220GB roo-state-manager
+
+Verifications Qdrant excessives (30s intervalle). Fix Version 2 : cache anti-fuite Map, intervalle coherence 30s->24h, reindexation minimum 4h, background 30s->5min.
+
+### __dirname en module ES
+
+Remplacer `__dirname` par `path.dirname(fileURLToPath(import.meta.url))`.
+
+### Regression SearXNG : import.meta.url sur Windows
+
+`import.meta.url` retourne `file:///C:/...` vs `process.argv[1]` retourne `C:\...`. Fix : normaliser avec `fileURLToPath()`. Verifier aussi absence BOM UTF-8 dans configs.
+
+---
+
+## Getting Started et Installation
+
+### Prerequis
+
+Node.js >= 18.x, Python >= 3.10, Git avec sous-modules, VS Code avec Roo/Claude Code, PowerShell 7+, API keys (Anthropic, OpenAI, Qdrant optionnel, GitHub token).
+
+### Parcours d'apprentissage (5 niveaux)
+
+1. **Decouvrant** : demos `demo-roo-code/01-decouverte/`
+2. **Utilisateur** : modes simple/complex, MCPs de base
+3. **Power User** : personnalisation modes, scripts PowerShell
+4. **Developpeur** : contribution MCPs internes, tests
+5. **Architecte** : architecture RooSync, nouveaux services
+
+### Installation rapide
+
+```bash
+git clone --recursive https://github.com/jsboige/roo-extensions.git
+cd mcps/internal/servers/roo-state-manager && npm install && npm run build
+cp .env.example .env  # Remplir API keys
+cd roo-config/settings && powershell ./deploy-settings.ps1
+```
+
+---
+
+## Conventions Git et Strategie Multi-Profils
+
+### Format de commit conventionnel
+
+`type(scope): description` avec types fix/feat/docs/test/chore/refactor et scopes roosync/mcp/modes/scripts/coord.
+
+### Profils Git multi-machines
+
+Utiliser `includeIf` dans `.gitconfig` pour gerer les identites par machine/repertoire.
+
+---
+
+## Troubleshooting Encodage UTF-8 sur Windows
+
+Windows utilise Windows-1252 par defaut. Les fichiers PowerShell peuvent ajouter un BOM UTF-8 (`EF BB BF`) qui corrompt les parseurs JSON.
+
+- **Diagnostic** : `[System.IO.File]::ReadAllBytes()` pour verifier les 3 premiers octets
+- **Reparation** : `[System.IO.File]::WriteAllText(path, content, [System.Text.UTF8Encoding]::new($false))`
+- **Prevention** : VS Code `"files.encoding": "utf8"`, eviter `Set-Content` en PowerShell
+
+---
+
+## Demos Pedagogiques
+
+5 repertoires thematiques dans `demo-roo-code/` (decouverte, orchestration, assistant pro, creation contenu, projets avances). Chaque demo est autonome avec README, ressources et workspace. Maintenir la compatibilite avec la version courante de Roo lors des mises a jour.
+
+---
+
+## Architecture Globale du Projet
+
+### Couches principales
+
+1. **Extension Roo Code** (`roo-code/`) : sous-module VS Code
+2. **MCPs** (`mcps/`) : 15 serveurs (6 internes + 9 externes/forks)
+3. **Configuration** (`roo-config/`) : modes, parametres, deploiement
+4. **RooSync** : synchronisation multi-machines via Google Drive
+5. **Claude Code** (`.claude/`) : agents, skills, commands
+
+### Architecture des modes
+
+- **2 niveaux** (initial) : simple (modeles legers) vs complex (Claude/GPT)
+- **5 niveaux** (N5, experimental) : mini, light, standard, plus, max
+
+### Strategie de tests
+
+ESM-First : migration CommonJS vers ESM, configuration centralisee vitest/jest, `tsconfig.base.json` partage.
+
+---
+
+## MCO : Maintien en Conditions Operationnelles
+
+### Pannes MCP typiques
+
+Apres inactivite/resync/MAJ OS : `node_modules/` ou `build/` manquants. Resolution : `npm install && npm run build` dans chaque serveur affecte.
+
+### Jupyter mode offline
+
+Sans serveur Jupyter actif, les operations fichier notebook fonctionnent mais les operations kernel sont indisponibles. Verifier `jupyter server list` avant utilisation.
+
+### Degradation gracieuse
+
+Chaque MCP doit demarrer meme si ses dependances externes sont indisponibles, avec erreurs explicites plutot que blocage.
+
+---
+
+## Containerisation et Dev Containers
+
+4 approches evaluees : VS Code Remote Containers, GitHub Codespaces, Gitpod, Self-hosted Docker Compose. Recommandation : image de base `mcr.microsoft.com/devcontainers/typescript-node:18`, Docker volumes pour `node_modules`, WSL2 pour performance I/O sur Windows, inclusion MCPs dans le container avec lifecycle hooks (`postCreateCommand: npm install`).
+
+---
+
+## VS Code : Chemins globalStorage
+
+- **Windows** : `%APPDATA%\Code\User\globalStorage\<publisher>.<extension>/`
+- **macOS** : `~/Library/Application Support/Code/User/globalStorage/<publisher>.<extension>/`
+- **Linux** : `~/.config/Code/User/globalStorage/<publisher>.<extension>/`
+
+Pour Roo Code : `rooveterinaryinc.roo-cline`. Acces programmatique via `context.globalStorageUri`.
+
+---
+
+## Actions RooSync
+
+- **Compare-Config** : Detection ecarts configuration locale vs baseline de reference (modes, MCPs, config globale)
+- **Initialize-Workspace** : Initialisation environnement partage Google Drive (repertoires, baseline, permissions)
+
+---
+
+## Historique Projet
+
+### v3.19.0 (Septembre 2025)
+
+jupyter-papermill refactore Node.js vers Python, roo-state-manager avec 50+ outils MCP et architecture 2 niveaux, RooSync baseline-driven, modes simple/complex deployes sur 5 machines.
+
+---
+
+## Roo Code Extension : Connaissances Techniques
+
+### Composants principaux
+
+ClineProvider (point d'entree webview), Cline (logique conversationnelle), TaskManager (cycle de vie taches), systeme de modes avec permissions differenciees.
+
+### Persistance et affichage
+
+`globalState.taskHistory` comme index, verification `task_metadata.json` par tache, chargement metadonnees, filtrage par workspace. Messages UI deserialises avec JSON.parse + validation Zod, fallback sur valeurs par defaut.
+
+### Hierarchies de taches
+
+Relations parent-enfant supportees en memoire mais NON persistees sur disque -- perdues au redemarrage VS Code.
+
+### Bug race condition message editor
+
+Dans `ChatView.tsx`, si une reponse d'outil arrive pendant la saisie utilisateur, `sendingDisabled` passe a `true` avant le re-rendu UI. Le click Send met le message en file d'attente ET vide l'input via `clearDraft()`. Le hook `useAutosaveDraft` (debounce 300ms) ne protege que partiellement (messages tapes en <300ms perdus).
+
+### Indexation semantique
+
+tree-sitter pour analyse code source, embeddings stockes dans Qdrant, recherche semantique dans l'historique conversationnel multi-workspace.
+
+---
+
+## Troubleshooting MCP : Erreur "Tool names must be unique"
+
+Bug dans Claude Code VS Code dupliquant les outils MCP lors de l'initialisation des sous-agents. Procedure de debug : desactiver tous les MCPs, tester chaque serveur individuellement (jupyter, github, roo), tester par paires, restaurer. Le wrapper `mcp-wrapper.cjs` de roo-state-manager est suspect (filtrage potentiellement incomplet). Toujours redemarrer VS Code completement apres changement de config MCP.
+
+---
+
+**Document genere par**: Claude Sonnet 4.5, enrichi par Claude Opus 4.6
 **Pour**: Toutes les conversations futures dans ce workspace
 **Objectif**: Grounding rapide, contexte fiable et vision complete
-**Version**: 2.0 (Complete et equilibree)
+**Version**: 3.0 (Consolidee -- integration P4 documentation diverse)
+**Derniere mise a jour**: 2026-02-08
