@@ -1,277 +1,521 @@
-# Outils de configuration et déploiement pour Roo
-
-## Table des matières
-
-- [Outils de configuration et déploiement pour Roo](#outils-de-configuration-et-déploiement-pour-roo)
-  - [Table des matières](#table-des-matières)
-  - [Rôle dans le projet Roo Extensions](#rôle-dans-le-projet-roo-extensions)
-  - [Principales fonctionnalités](#principales-fonctionnalités)
-    - [Déploiement des modes](#déploiement-des-modes)
-    - [Correction des problèmes d'encodage](#correction-des-problèmes-dencodage)
-    - [Diagnostic et vérification](#diagnostic-et-vérification)
-    - [Configuration des modèles](#configuration-des-modèles)
-  - [Structure des outils](#structure-des-outils)
-    - [Organisation des dossiers](#organisation-des-dossiers)
-    - [Scripts de déploiement et maintenance](#scripts-de-déploiement-et-maintenance)
-  - [Guide d'utilisation rapide](#guide-dutilisation-rapide)
-    - [Workflow recommandé](#workflow-recommandé)
-    - [Déploiement Manuel (Utilisateurs avancés)](#déploiement-manuel-utilisateurs-avancés)
-    - [Cas d'utilisation courants](#cas-dutilisation-courants)
-      - [Correction d'encodage pour plusieurs fichiers](#correction-dencodage-pour-plusieurs-fichiers)
-      - [Sauvegarde et restauration des configurations](#sauvegarde-et-restauration-des-configurations)
-      - [Correction d'encodage pour plusieurs fichiers](#correction-dencodage-pour-plusieurs-fichiers-1)
-      - [Sauvegarde et restauration des configurations](#sauvegarde-et-restauration-des-configurations-1)
-  - [Système de profils](#système-de-profils)
-  - [Intégration avec les autres composants](#intégration-avec-les-autres-composants)
-    - [Intégration avec roo-modes](#intégration-avec-roo-modes)
-    - [Intégration avec les MCPs](#intégration-avec-les-mcps)
-    - [Intégration avec le système de tests](#intégration-avec-le-système-de-tests)
-  - [Documentation complète](#documentation-complète)
-  - [Dépannage](#dépannage)
-  - [Contribution](#contribution)
-  - [Ressources supplémentaires](#ressources-supplémentaires)
-
-## Rôle dans le projet Roo Extensions
-
-Le composant `roo-config` est un élément central du projet Roo Extensions qui fournit :
-
-1. **Outils de déploiement** : Scripts pour déployer les modes Roo sur différentes plateformes
-2. **Outils de correction d'encodage** : Scripts pour résoudre les problèmes d'encodage courants
-3. **Outils de diagnostic** : Scripts pour vérifier l'encodage et la validité des fichiers de configuration
-4. **Modèles de configuration** : Fichiers de configuration de référence pour les modes, les modèles et les serveurs
-5. **Workflow de maintenance** : Ensemble de scripts pour les tâches de maintenance
-6. **Système de profils** : Mécanisme permettant de configurer facilement quels modèles utiliser pour chaque niveau de complexité
-
-## Principales fonctionnalités
-
-### Déploiement des modes
-
-Les scripts de déploiement permettent d'installer les modes Roo de différentes manières :
-- Déploiement global (pour toutes les instances de VS Code)
-- Déploiement local (pour un projet spécifique)
-- Déploiement avec correction automatique d'encodage
-- Déploiement interactif guidé
-
-Exemple de déploiement simple :
-```powershell
-.\deployment-scripts\simple-deploy.ps1
-```
-
-### Correction des problèmes d'encodage
-
-Les scripts de correction d'encodage résolvent les problèmes courants avec les caractères accentués et les emojis dans les fichiers JSON :
-- Détection automatique des problèmes d'encodage
-- Correction des séquences de caractères mal encodés
-- Réenregistrement des fichiers en UTF-8 sans BOM
-- Vérification de la validité du JSON après correction
-
-Exemple de correction d'encodage :
-```powershell
-.\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
-```
-
-### Diagnostic et vérification
-
-Les scripts de diagnostic permettent de :
-- Analyser l'encodage des fichiers JSON
-- Détecter les problèmes d'encodage courants
-- Vérifier la validité des fichiers JSON
-- Vérifier le déploiement des modes
-
-Exemple de diagnostic rapide :
-```powershell
-.\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
-```
-
-### Configuration des modèles
-
-Les profils pour différents modèles de langage permettent d'optimiser les performances :
-- Profils pour les modèles Qwen3 (0.6B à 235B)
-- Paramètres optimaux pour chaque modèle
-- Intégration avec l'architecture à 5 niveaux (N5)
-
-## Structure des outils
-
-### Organisation des dossiers
-
-- **`encoding-scripts/`** - [Scripts de correction d'encodage](encoding-scripts/README.md) pour les caractères accentués et les emojis
-- **`deployment-scripts/`** - [Scripts de déploiement des modes](deployment-scripts/README.md) (simples et complexes)
-- **`diagnostic-scripts/`** - [Scripts de diagnostic et vérification](diagnostic-scripts/README.md) pour l'encodage et la validité des fichiers
-- **`config-templates/`** - [Modèles de fichiers de configuration](config-templates/README.md) pour les modes, modèles et serveurs
-- **`docs/`** - [Documentation supplémentaire](docs/README.md) et guides d'utilisation
-- **`backups/`** - [Fichiers de sauvegarde](backups/README.md) créés automatiquement par les scripts
-- **`modes/`** - Fichiers de modes standards
-- **`qwen3-profiles/`** - [Profils optimisés](qwen3-profiles/README.md) pour le modèle Qwen3
-- **`settings/`** - [Paramètres de configuration](settings/README.md) et scripts de déploiement associés
-- **`scheduler/`** - Guides d'installation et de configuration du planificateur Roo
-
-### Scripts de déploiement et maintenance
-
-Le répertoire `roo-config` contient un ensemble de scripts spécialisés pour gérer la configuration de Roo. Il n'y a plus de script interactif unique ; à la place, vous utilisez directement les scripts correspondant à vos besoins.
-
-## Guide d'utilisation rapide
-
-### Workflow recommandé
-
-Le déploiement s'effectue en utilisant les scripts dédiés dans l'ordre approprié.
-
-1.  **Déployer les paramètres globaux (IMPORTANT) :**
-    Ce script est le point d'entrée principal. Il initialise les submodules Git (essentiel pour les MCPs) et déploie les configurations de base comme `servers.json`.
-    ```powershell
-    # Exécuter depuis le répertoire roo-config
-    .\settings\deploy-settings.ps1
-    ```
-
-2.  **Déployer les modes :**
-    Une fois les bases en place, déployez les ensembles de modes dont vous avez besoin.
-    ```powershell
-    # Exemple pour déployer les modes simple et complexe standards
-    .\deployment-scripts\deploy-modes-simple-complex.ps1
-    ```
-3.  **Vérifier le déploiement** :
-    Utilisez les scripts de diagnostic pour vous assurer que tout est en ordre.
-    ```powershell
-    .\diagnostic-scripts\verify-deployed-modes.ps1
-    ```
-
-4.  **Redémarrer Visual Studio Code** et activer les modes.
-
-### Déploiement Manuel (Utilisateurs avancés)
-
-Si vous préférez un contrôle manuel, le déploiement s'effectue en deux temps :
-
-1.  **Déployer les paramètres globaux :**
-    ```powershell
-    # Déploie le fichier settings.json principal
-    .\settings\deploy-settings.ps1
-    ```
-
-2.  **Déployer les modes :**
-    ```powershell
-    # Déploie les modes simple et complexe standards
-    .\deployment-scripts\deploy-modes-simple-complex.ps1
-    ```
-3.  **Vérifier le déploiement** :
-    ```powershell
-    .\diagnostic-scripts\verify-deployed-modes.ps1
-    ```
-
-4.  **Redémarrer Visual Studio Code** et activer les modes.
-
-### Cas d'utilisation courants
-
-#### Correction d'encodage pour plusieurs fichiers
-
-```powershell
-# Corriger l'encodage de tous les fichiers JSON dans un répertoire
-.\encoding-scripts\fix-encoding-directory.ps1 -DirectoryPath "chemin\vers\repertoire" -FilePattern "*.json"
-```
-
-#### Sauvegarde et restauration des configurations
-
-```powershell
-# Créer une sauvegarde complète des configurations
-.\backup-configurations.ps1 -BackupName "pre-modification"
-
-# Restaurer une sauvegarde
-.\restore-configuration.ps1 -BackupName "pre-modification"
-```
-
-#### Correction d'encodage pour plusieurs fichiers
-
-```powershell
-# Corriger l'encodage de tous les fichiers JSON dans un répertoire
-.\encoding-scripts\fix-encoding-directory.ps1 -DirectoryPath "chemin\vers\repertoire" -FilePattern "*.json"
-```
-
-#### Sauvegarde et restauration des configurations
-
-```powershell
-# Créer une sauvegarde complète des configurations
-.\backup-configurations.ps1 -BackupName "pre-modification"
-
-# Restaurer une sauvegarde
-.\restore-configuration.ps1 -BackupName "pre-modification"
-```
-
-## Système de profils
-
-Le système de profils est une fonctionnalité clé qui permet de configurer facilement quels modèles de langage utiliser pour chaque mode. Les profils sont définis dans des fichiers JSON qui spécifient :
-
-- Le modèle par défaut à utiliser pour les modes simples
-- Le modèle à utiliser pour les modes complexes
-- Les modèles spécifiques pour chaque niveau de l'architecture n5 (MICRO, MINI, MEDIUM, LARGE, ORACLE)
-
-Le système de profils est géré en combinant les modèles de `config-templates/` avec les scripts de déploiement.
-
-## Intégration avec les autres composants
-
-### Intégration avec roo-modes
-
-Les outils de déploiement de `roo-config` sont conçus pour déployer les modes personnalisés définis dans le répertoire [roo-modes](../roo-modes/README.md). Ils prennent en charge l'architecture à 5 niveaux (n5) et les autres modes personnalisés.
-
-### Intégration avec les MCPs
-
-Les fichiers de configuration dans `roo-config/settings/` incluent la configuration des serveurs MCP. Pour plus d'informations sur les MCPs, consultez le [README des MCPs](../mcps/README.md).
-
-### Intégration avec le système de tests
-
-Les outils de configuration sont utilisés par les scripts de test pour valider le bon fonctionnement des modes et des mécanismes d'escalade/désescalade. Pour plus d'informations sur les tests, consultez le [README des tests](../tests/README.md).
-
-## Documentation complète
-
-Pour une documentation complète sur les différents aspects du projet :
-
-- [Guide d'import/export](docs/guide-import-export.md)
-- [Guide d'installation du planificateur Roo](scheduler/Guide_Installation_Roo_Scheduler.md)
-- [Guide d'édition des configurations du planificateur](scheduler/Guide_Edition_Directe_Configurations_Roo_Scheduler.md)
-- [Documentation des modes Roo](../roo-modes/README.md)
-- [Documentation des MCPs](../mcps/README.md)
-- [Documentation générale du projet](../docs/README.md)
-- [README des profils](README-profile-modes.md)
-
-## Dépannage
-
-Si vous rencontrez des problèmes lors du déploiement :
-
-1. Vérifiez votre déploiement avec les scripts de diagnostic :
-   ```powershell
-   .\diagnostic-scripts\verify-deployed-modes.ps1
-   ```
-
-2. Exécutez le diagnostic rapide d'encodage :
-   ```powershell
-   .\diagnostic-scripts\diagnostic-rapide-encodage.ps1 -FilePath "chemin\vers\fichier.json"
-   ```
-
-3. Corrigez les problèmes d'encodage :
-   ```powershell
-   .\encoding-scripts\fix-encoding-complete.ps1 -FilePath "chemin\vers\fichier.json"
-   ```
-
-4. Forcez le déploiement avec correction d'encodage :
-   ```powershell
-   .\deployment-scripts\force-deploy-with-encoding-fix.ps1
-   ```
-
-5. Vérifiez le résultat :
-   ```powershell
-   .\diagnostic-scripts\verify-deployed-modes.ps1
-   ```
-
-Si les problèmes persistent, consultez la documentation complète pour des solutions plus avancées.
-
-## Contribution
-
-Ces outils sont en constante amélioration. Si vous rencontrez des problèmes non couverts ou si vous avez des suggestions d'amélioration, n'hésitez pas à contribuer ou à signaler les problèmes.
-
-## Ressources supplémentaires
-
-- [README principal du projet](../README.md)
-- [Documentation des modes Roo](../roo-modes/README.md)
-- [Documentation des MCPs](../mcps/README.md)
-- [Documentation générale du projet](../docs/README.md)
+# Configuration et deploiement des modes Roo
+
+Ce repertoire centralise la configuration, le deploiement et la documentation des modes personnalises pour Roo (extension VS Code). Il couvre les architectures de modes (N2 simple/complex, N5 cinq niveaux), les mecanismes d'escalade/desescalade, les profils de modeles, les scripts de deploiement et le systeme de planification.
+
+## Table des matieres
+
+1. [Vue d'ensemble](#1-vue-densemble)
+2. [Architecture des modes](#2-architecture-des-modes)
+3. [Deploiement des modes](#3-deploiement-des-modes)
+4. [Escalade et desescalade](#4-escalade-et-desescalade)
+5. [Configuration des modeles](#5-configuration-des-modeles)
+6. [Verrouillage de famille (family lock)](#6-verrouillage-de-famille-family-lock)
+7. [Import et export de configuration](#7-import-et-export-de-configuration)
+8. [Tests et validation](#8-tests-et-validation)
+9. [Structure des dossiers](#9-structure-des-dossiers)
+10. [Scheduler (planificateur)](#10-scheduler-planificateur)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Bonnes pratiques pour les prompts](#12-bonnes-pratiques-pour-les-prompts)
 
 ---
 
-Développé pour faciliter le déploiement des modes Roo sur Windows et résoudre les problèmes d'encodage courants.
+## 1. Vue d'ensemble
+
+### Role dans le projet Roo Extensions
+
+Le composant `roo-config` fournit :
+
+- **Definitions de modes** : Fichiers JSON decrivant le comportement, les capacites et les instructions systeme de chaque mode Roo.
+- **Scripts de deploiement** : Deploiement global (toutes instances VS Code) ou local (projet specifique).
+- **Correction d'encodage** : Scripts pour resoudre les problemes UTF-8/BOM courants sur Windows.
+- **Profils de modeles** : Association flexible des modeles LLM aux modes via `model-configs.json`.
+- **Diagnostic** : Verification d'encodage, de validite JSON et de deploiement.
+- **Planificateur** : Systeme d'orchestration quotidienne automatisee.
+
+### Qu'est-ce qu'un mode Roo
+
+Un mode Roo est une configuration qui definit le comportement d'un agent : son role (`roleDefinition`), ses instructions systeme (`customInstructions`), les groupes d'outils accessibles (`groups`) et optionnellement le modele LLM a utiliser. Chaque mode est identifie par un `slug` unique (ex: `code-simple`, `architect-complex`, `code-medium`).
+
+---
+
+## 2. Architecture des modes
+
+Le projet propose deux architectures coexistantes pour organiser les modes.
+
+### 2.1 Architecture N2 (Simple/Complex)
+
+Architecture en production. Elle organise chaque type de mode en deux niveaux :
+
+| Famille | Modes | Usage | Modele type |
+|---------|-------|-------|-------------|
+| **Simple** | `code-simple`, `debug-simple`, `architect-simple`, `ask-simple`, `orchestrator-simple` | Taches courantes, modifications < 50 lignes, bugs isoles | Qwen 3 32B, GLM 4.7-Air |
+| **Complex** | `code-complex`, `debug-complex`, `architect-complex`, `ask-complex`, `orchestrator-complex`, `manager` | Refactoring majeur, architecture, optimisation | Claude 3.7 Sonnet, GLM 4.7 |
+
+Les modes simples peuvent orchestrer des workflows complexes via la creation de sous-taches (`new_task`) ou le changement de mode (`switch_mode`).
+
+**Fichier de reference** : `modes/standard-modes.json` (architecture N5 avec 25 modes, incluant les 10 modes N2 comme sous-ensemble).
+
+### 2.2 Architecture N5 (5 niveaux)
+
+Architecture avancee offrant une granularite plus fine. Cinq niveaux de complexite :
+
+| Niveau | Nom | Lignes de code | Tokens | Modele de reference |
+|--------|-----|----------------|--------|---------------------|
+| 1 | **MICRO** | < 10 | < 10 000 | Qwen 3 4B (local) |
+| 2 | **MINI** | 10-50 | 10k-25k | Qwen 3 8B (local) |
+| 3 | **MEDIUM** | 50-200 | 25k-50k | Qwen 3 32B (local) |
+| 4 | **LARGE** | 200-500 | 50k-100k | Qwen 235B (cloud) |
+| 5 | **ORACLE** | > 500 | > 100k | Claude Sonnet (cloud) |
+
+Chaque niveau propose 5 types de modes : `code`, `debug`, `architect`, `ask`, `orchestrator`, soit 25 modes au total.
+
+### 2.3 Correspondance entre architectures
+
+Les deux architectures coexistent. Correspondance approximative :
+
+| N2 | N5 |
+|----|----|
+| Simple | MINI / MEDIUM |
+| Complex | LARGE / ORACLE |
+| (pas d'equivalent) | MICRO |
+
+### 2.4 Types de modes
+
+| Type | Description |
+|------|-------------|
+| **Code** | Developpement, du bug simple a la conception de systemes |
+| **Debug** | Debogage, de l'erreur de syntaxe aux problemes systemiques |
+| **Architect** | Conception d'architecture, des suggestions a la conception distribuee |
+| **Ask** | Reponses aux questions, des reponses courtes aux syntheses |
+| **Orchestrator** | Orchestration de taches, de la delegation simple a la coordination complexe |
+| **Manager** | Decomposition de taches complexes en sous-taches (N2 complex uniquement) |
+
+---
+
+## 3. Deploiement des modes
+
+### 3.1 Workflow recommande
+
+```powershell
+# 1. Deployer les parametres globaux (settings.json, submodules Git)
+.\settings\deploy-settings.ps1
+
+# 2. Deployer les modes
+.\scripts\Deploy-Modes.ps1
+
+# 3. Verifier le deploiement
+.\scripts\deploy.ps1 -Verify   # ou un diagnostic
+```
+
+Apres deploiement, **redemarrer VS Code** pour que les modes prennent effet.
+
+### 3.2 Methodes de deploiement
+
+#### Deploiement global
+
+Installe les modes pour tous les projets de l'utilisateur. Le fichier est copie vers :
+```
+%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\custom_modes.json
+```
+
+#### Deploiement local
+
+Cree un fichier `.roomodes` a la racine du projet en cours. Ce fichier est prioritaire sur la configuration globale.
+
+#### Deploiement via Git
+
+Pour deployer sur plusieurs machines :
+1. Cloner/mettre a jour le depot `roo-extensions`
+2. Executer le script de deploiement sur chaque machine
+3. Le script gere l'encodage UTF-8 et la sauvegarde automatique
+
+### 3.3 Deploiement avec profils
+
+Les modeles sont geres via des profils plutot que directement dans les modes :
+
+```powershell
+# Deploiement avec un profil specifique
+.\deployment-scripts\deploy-modes-simple-complex.ps1
+```
+
+### 3.4 Encodage UTF-8
+
+**Regle critique** : Les fichiers JSON de modes doivent etre en UTF-8 **sans BOM**. L'utilisation de `ConvertFrom-Json`/`ConvertTo-Json` en PowerShell peut alterer la structure et l'encodage. La solution recommandee est de traiter le JSON comme du texte brut :
+
+```powershell
+$utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $false
+[System.IO.File]::WriteAllText($destinationFile, $jsonContent, $utf8NoBomEncoding)
+```
+
+Les scripts de correction d'encodage sont disponibles dans `encoding-scripts/`.
+
+---
+
+## 4. Escalade et desescalade
+
+### 4.1 Principe
+
+Les mecanismes d'escalade et desescalade permettent d'adapter dynamiquement le niveau de complexite :
+- **Escalade** : passage a un niveau superieur quand la tache depasse les capacites du mode actuel
+- **Desescalade** : passage a un niveau inferieur quand la tache est plus simple que prevu
+
+### 4.2 Types d'escalade (par priorite)
+
+#### Escalade par branchement (haute priorite)
+Creation de sous-taches traitees a un niveau superieur, sans quitter le mode actuel.
+```
+[ESCALADE PAR BRANCHEMENT] Creation de sous-tache de niveau LARGE car: [RAISON]
+```
+
+#### Escalade par changement de mode (moyenne priorite)
+Passage complet a un mode de niveau superieur pour toute la tache.
+```
+[ESCALADE NIVEAU ORACLE] Cette tache necessite le niveau ORACLE car: [RAISON]
+```
+```xml
+<switch_mode>
+<mode_slug>code-large</mode_slug>
+<reason>Cette tache necessite le niveau LARGE car: [RAISON]</reason>
+</switch_mode>
+```
+
+#### Escalade par terminaison (basse priorite)
+Arret de la tache actuelle pour reprise a un niveau superieur.
+```
+[ESCALADE PAR TERMINAISON] Cette tache doit etre reprise au niveau LARGE car: [RAISON]
+```
+
+### 4.3 Criteres d'escalade (N2)
+
+Une tache doit etre escaladee si elle correspond a au moins un de ces criteres :
+- Modifications de plus de 50 lignes de code
+- Refactorisations majeures
+- Conception d'architecture
+- Optimisations de performance
+- Analyse approfondie
+- Systemes ou composants interdependants
+
+### 4.4 Desescalade
+
+Format standard :
+```
+[DESESCALADE SUGGEREE] Cette tache pourrait etre traitee par le niveau MINI car: [RAISON]
+```
+
+Criteres : la tache remplit TOUS les criteres suivants :
+- Modifications < 50 lignes
+- Fonctionnalites isolees
+- Patterns standards
+- Pas d'optimisations complexes
+- Pas d'analyse architecturale approfondie
+
+### 4.5 Gestion des tokens
+
+- Depassement de 50 000 tokens en mode simple : recommander le mode complex
+- Depassement de 100 000 tokens : recommander le mode orchestration pour diviser la tache
+
+### 4.6 Escalade interne
+
+Lorsque la tache est a la limite, le mode simple peut traiter en interne :
+```
+[ESCALADE INTERNE] Cette tache est traitee en mode avance car: [RAISON]
+```
+Signaler en fin de reponse : `[SIGNALER_ESCALADE_INTERNE]`
+
+---
+
+## 5. Configuration des modeles
+
+### 5.1 Fichier model-configs.json
+
+Le fichier `model-configs.json` definit des profils qui associent des modeles LLM aux modes. Cela permet de changer de provider sans modifier la definition des modes.
+
+Structure :
+```json
+{
+  "profiles": [
+    {
+      "name": "Configuration actuelle",
+      "description": "Qwen 3 32B (simple) + Claude 3.7 Sonnet (complex)",
+      "modeOverrides": {
+        "code-simple": "qwen/qwen3-32b",
+        "code-complex": "anthropic/claude-3.7-sonnet",
+        ...
+      }
+    }
+  ]
+}
+```
+
+### 5.2 Profils disponibles
+
+| Profil | Simple | Complex |
+|--------|--------|---------|
+| Configuration actuelle | Qwen 3 32B | Claude 3.7 Sonnet |
+| Configuration SDDD | GLM 4.7 Air (z.ai) | GLM 4.7 (z.ai) |
+| Configuration Gemini | Qwen 3 32B | Gemini 2.5 Pro |
+
+### 5.3 Modeles locaux
+
+Pour utiliser des modeles locaux (LLM heberges localement), configurer les endpoints dans `roo.modelConfigs` de VS Code :
+
+```json
+{
+  "id": "local/micro",
+  "displayName": "Local Micro Model",
+  "apiType": "openai",
+  "apiBase": "http://localhost:8001/v1",
+  "apiKey": "sk-your-local-api-key",
+  "contextWindow": 8000,
+  "maxOutputTokens": 2000
+}
+```
+
+Puis associer les modes aux endpoints dans le fichier `.roomodes` ou via un profil.
+
+---
+
+## 6. Verrouillage de famille (family lock)
+
+### 6.1 Problematique
+
+Sans verrouillage, les modes simples/complexes peuvent basculer vers les modes standard de Roo, rompant la coherence du systeme.
+
+### 6.2 Solution
+
+Le systeme de verrouillage repose sur :
+
+1. **mode-family-validator** : un pseudo-mode qui definit les familles et leurs membres
+2. **Metadonnees de famille** : chaque mode porte `family` et `allowedFamilyTransitions`
+3. **Instructions renforcees** : les instructions systeme interdisent les transitions hors famille
+
+```json
+{
+  "slug": "mode-family-validator",
+  "familyDefinitions": {
+    "simple": ["code-simple", "debug-simple", "architect-simple", "ask-simple", "orchestrator-simple"],
+    "complex": ["code-complex", "debug-complex", "architect-complex", "ask-complex", "orchestrator-complex", "manager"]
+  }
+}
+```
+
+```json
+{
+  "slug": "code-simple",
+  "family": "simple",
+  "allowedFamilyTransitions": ["simple"]
+}
+```
+
+### 6.3 Regle de transition
+
+Un mode ne peut transitionner (via `switch_mode`) que vers un mode de la meme famille. Les instructions systeme de chaque mode listent explicitement les modes cibles autorises.
+
+---
+
+## 7. Import et export de configuration
+
+### 7.1 Emplacements des fichiers
+
+| OS | Chemin |
+|----|--------|
+| Windows | `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\` |
+| macOS | `~/Library/Application Support/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/` |
+| Linux | `~/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/` |
+
+Fichier principal : `custom_modes.json`
+
+### 7.2 Export/Import manuel
+
+**Export** : copier `custom_modes.json` vers un emplacement partage (depot Git, Google Drive).
+
+**Import** : copier le fichier vers le repertoire cible, puis redemarrer VS Code.
+
+### 7.3 Synchronisation multi-machines
+
+La methode recommandee est d'utiliser le depot Git `roo-extensions` :
+1. Les definitions de modes sont versionnees dans `roo-config/modes/`
+2. Chaque machine execute le script de deploiement
+3. Les profils de modeles sont adaptes par machine si necessaire
+
+---
+
+## 8. Tests et validation
+
+### 8.1 Tests d'escalade et desescalade
+
+Scripts de test JavaScript dans `tests/` :
+- `test-escalade.js` : valide les seuils et mecanismes d'escalade
+- `test-desescalade.js` : valide les mecanismes de desescalade
+
+Execution :
+```powershell
+node tests/test-escalade.js
+node tests/test-desescalade.js
+```
+
+### 8.2 Ce que les tests verifient
+
+- Presence des mecanismes d'escalade/desescalade dans les instructions personnalisees
+- Coherence des seuils entre niveaux (progressifs)
+- Formats standardises des messages d'escalade
+- Simulation de scenarios (complexite de code, taille de conversation, nombre de tokens)
+
+### 8.3 Resultats
+
+Les resultats sont sauvegardes en JSON dans `tests/results/` :
+- `escalation-test-results-[TIMESTAMP].json`
+- `deescalation-test-results-[TIMESTAMP].json`
+- `transition-test-results-[TIMESTAMP].json`
+
+### 8.4 Test apres deploiement
+
+Verification manuelle recommandee :
+1. Redemarrer VS Code
+2. Ouvrir la palette de commandes (Ctrl+Shift+P)
+3. Taper "Roo: Switch Mode"
+4. Verifier que les modes personnalises apparaissent
+5. Tester un mode simple avec une tache complexe pour valider l'escalade
+
+---
+
+## 9. Structure des dossiers
+
+```
+roo-config/
+|-- README.md                       # Ce fichier
+|-- model-configs.json              # Profils de modeles (association mode->LLM)
+|-- escalation-test-config.json     # Configuration de test d'escalade
+|-- sync-config.ref.json            # Reference de configuration sync
+|
+|-- modes/                          # Definitions des modes
+|   |-- standard-modes.json         # Modes N5 (25 modes, incluant N2)
+|   |-- n2-standard-modes.json      # Modes N2 uniquement (10 modes)
+|   |-- generated-profile-modes.json # Modes generes par profil
+|   +-- pilot-simple-complex.roomodes # Pilote modes simple/complex
+|
+|-- scripts/                        # Scripts de deploiement et maintenance
+|   |-- Deploy-Modes.ps1            # Deploiement des modes
+|   |-- deploy.ps1                  # Deploiement general
+|   |-- verify-remote-access.ps1    # Verification acces distant
+|   |-- update-mcp-optimizations.ps1 # MAJ optimisations MCP
+|   +-- Invoke-ClaudeEscalation.ps1 # Escalade via Claude
+|
+|-- settings/                       # Parametres de configuration VS Code
+|   +-- deploy-settings.ps1         # Deploiement des settings globaux
+|
+|-- encoding-scripts/               # Correction d'encodage UTF-8
+|-- deployment-scripts/             # Scripts de deploiement additionnels
+|-- diagnostic-scripts/             # Diagnostic encodage et validite JSON
+|-- config-templates/               # Modeles de fichiers de configuration
+|-- config-backups/                 # Sauvegardes automatiques
+|-- examples/                       # Exemples de configuration
+|-- tests/                          # Tests d'escalade et desescalade
+|-- scheduler/                      # Planificateur d'orchestration quotidienne
+|-- docs/                           # Documentation interne supplementaire
+|-- guides/                         # Guides d'utilisation
+|-- specifications/                 # Specifications techniques
+|-- sddd/                           # Methodologie SDDD
++-- documentation-archive/          # Archives de documentation
+```
+
+---
+
+## 10. Scheduler (planificateur)
+
+Le sous-repertoire `scheduler/` contient un systeme d'orchestration quotidienne automatisee :
+
+- `config.json` : Configuration du planificateur
+- `daily-orchestration.json` : Definition des taches quotidiennes
+- `daily-orchestration-log.json` : Journal d'execution
+- `orchestration-engine.ps1` : Moteur d'orchestration (script PowerShell)
+
+Le planificateur gere l'execution programmee des taches Roo (synchronisation, deploiement, tests) selon un calendrier configurable.
+
+Pour la documentation detaillee, consulter `scheduler/README.md`.
+
+---
+
+## 11. Troubleshooting
+
+### Les modes ne s'affichent pas dans VS Code
+
+1. **Verifier le JSON** : Le fichier doit etre un JSON valide
+   ```powershell
+   Get-Content "custom_modes.json" | ConvertFrom-Json
+   ```
+2. **Verifier l'encodage** : UTF-8 sans BOM obligatoire
+   ```powershell
+   $bytes = [System.IO.File]::ReadAllBytes("custom_modes.json")
+   if ($bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+       Write-Host "BOM detecte - a corriger"
+   }
+   ```
+3. **Verifier l'emplacement** : Le fichier doit etre dans le bon repertoire (global ou local `.roomodes`)
+4. **Redemarrer VS Code** apres tout deploiement
+
+### Perte de familyDefinitions apres deploiement
+
+Cause : `ConvertFrom-Json`/`ConvertTo-Json` altere la structure. Solution : utiliser la copie en texte brut avec encodage UTF-8 explicite (voir section 3.4).
+
+### Les mecanismes d'escalade ne fonctionnent pas
+
+1. Verifier que `mode-family-validator` est present dans la configuration
+2. Verifier que chaque mode a les proprietes `family` et `allowedFamilyTransitions`
+3. Verifier que les `customInstructions` contiennent les sections d'escalade/desescalade
+4. Redemarrer VS Code
+
+### Problemes de transition entre modes
+
+- Le mode cible doit appartenir a la meme famille que le mode actuel (family lock)
+- Utiliser le format correct pour `switch_mode`
+- Verifier que le mode cible existe dans la configuration deployee
+
+### Conflits de slugs entre modes
+
+Extraire et comparer les slugs :
+```powershell
+$config = Get-Content "custom_modes.json" | ConvertFrom-Json
+$config.customModes | Select-Object slug | Sort-Object slug
+```
+
+### Erreurs de deploiement
+
+- Executer PowerShell avec les droits suffisants
+- Verifier que le repertoire de destination existe
+- Utiliser l'option `-Force` pour ecraser les fichiers existants
+
+---
+
+## 12. Bonnes pratiques pour les prompts
+
+### Principes generaux
+
+1. **Reduction de la verbosite** : Eliminer les redondances, simplifier les instructions
+2. **Structuration efficace** : Hierarchiser du general au specifique, sections clairement delimitees
+3. **Contextualisation intelligente** : Adapter le niveau de detail au modele, charger le contexte a la demande
+4. **Priorite aux MCPs** : Privilegier les MCP (quickfiles, jinavigator, searxng) par rapport aux outils standards necessitant validation humaine
+
+### Gestion des fichiers volumineux
+
+- Ne jamais ouvrir un fichier volumineux dans son integralite
+- Utiliser `start_line`/`end_line` pour lire des sections specifiques
+- Creer des sous-taches dediees pour traiter les fichiers volumineux
+
+### Nettoyage des fichiers intermediaires
+
+A la fin de chaque tache, identifier et supprimer les fichiers temporaires crees. Documenter les fichiers conserves dans le rapport final.
+
+### Commits reguliers
+
+- Commits apres chaque etape logique completee
+- Messages descriptifs : `type(scope): description`
+- Types : `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+
+---
+
+## References
+
+- [README principal du projet](../README.md)
+- [Documentation des MCPs](../mcps/README.md)
+- [Planificateur Roo](scheduler/README.md)
