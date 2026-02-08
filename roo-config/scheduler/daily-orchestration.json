@@ -96,7 +96,7 @@
             "description": "Validation des configurations",
             "configs_to_test": [
               "roo-config/settings/",
-              "roo-modes/configs/",
+              "roo-config/modes/",
               "roo-config/qwen3-profiles/"
             ],
             "validation": "configs_valid"

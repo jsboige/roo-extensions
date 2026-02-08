@@ -41,10 +41,8 @@
       "roo-config/qwen3-profiles/qwen3-parameters.json"
     ],
     "mode_config_files": [
-      "roo-modes/configs/modes.json",
-      "roo-modes/configs/new-roomodes.json",
-      "roo-modes/configs/standard-modes.json",
-      "roo-modes/configs/vscode-custom-modes.json"
+      "roo-config/modes/standard-modes.json",
+      "roo-config/modes/generated-profile-modes.json"
     ],
     "script_patterns": [
       {
@@ -55,7 +53,7 @@
     ],
     "json_patterns": [
       {
-        "directory": "roo-modes/n5/configs",
+        "directory": "roo-config/modes/n5-system/configs",
         "pattern": "*.json",
         "recursive": true
       }

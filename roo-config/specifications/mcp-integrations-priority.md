@@ -871,10 +871,10 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 **Identifier occurrences** :
 ```bash
 # Rechercher instructions execute_command
-grep -r "execute_command" roo-modes/*/instructions.md
+grep -r "execute_command" roo-config/modes/*/instructions.md
 
 # Identifier patterns à migrer
-grep -r "When you need to run commands" roo-modes/*/instructions.md
+grep -r "When you need to run commands" roo-config/modes/*/instructions.md
 ```
 
 #### Étape 2 : Mise à Jour Instructions Modes
@@ -1258,7 +1258,7 @@ orchestrator (tâche complexe)
 **Livrables** :
 - Intégration `create_issue` dans orchestrator (automatique)
 - Intégration `add_item_to_project` dans orchestrator
-- Documentation patterns dans `roo-modes/orchestrator/README.md`
+- Documentation patterns dans `roo-config/README.md`
 - Tests end-to-end workflows
 
 **Critères Déclenchement Création Issue** :

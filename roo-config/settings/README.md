@@ -88,13 +88,13 @@ Le fichier de configuration est déployé dans un emplacement spécifique selon 
 Alors que le répertoire `roo-config/settings` gère les configurations générales de Roo, le répertoire `roo-modes` se concentre sur la définition des modes personnalisés. Les deux sont complémentaires :
 
 - **roo-config/settings** : Configuration globale, paramètres généraux, associations mode-API
-- **roo-modes** : Définition des modes personnalisés, leurs propriétés et comportements
+- **roo-config/modes** : Définition des modes personnalisés, leurs propriétés et comportements
 
 Pour une configuration complète de Roo, vous devrez généralement déployer à la fois :
 1. Une configuration générale (via `roo-config/settings/deploy-settings.ps1`)
-2. Une configuration de modes (via `roo-modes/deploy-modes.ps1`)
+2. Une configuration de modes (voir `roo-config/modes/`)
 
-Pour plus d'informations sur les configurations de modes, consultez la [documentation de roo-modes](../roo-modes/README.md).
+Pour plus d'informations sur les configurations de modes, consultez la [documentation roo-config](../README.md).
 
 ## Sécurité
 

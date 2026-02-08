@@ -63,7 +63,7 @@ Tu es un agent Claude Code participant au système RooSync multi-agent. **Ta mis
 **Dans cet ordre:**
 
 1. **[INDEX.md](INDEX.md)** - Carte complète de la documentation
-2. **[MCP_ANALYSIS.md](MCP_ANALYSIS.md)** - Mapping des outils Roo vs Claude Code
+2. **[MCP_SETUP.md](MCP_SETUP.md)** - Mapping des outils Roo vs Claude Code
 3. **[docs/roosync/PROTOCOLE_SDDD.md](../docs/roosync/PROTOCOLE_SDDD.md)** - Protocole SDDD v2.2.0
 4. **[docs/roosync/GESTION_MULTI_AGENT.md](../docs/roosync/GESTION_MULTI_AGENT.md)** - Gestion multi-agent
 5. **[docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md](../docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md)** - État actuel
@@ -188,7 +188,7 @@ Une fois le grounding complété, crée ta première issue GitHub :
 **Phase:** Phase 0 - Grounding Initial
 
 ### ✅ Grounding Sémantique
-- Documents lus: INDEX.md, MCP_ANALYSIS.md, PROTOCOLE_SDDD.md, GESTION_MULTI_AGENT.md
+- Documents lus: INDEX.md, MCP_SETUP.md, PROTOCOLE_SDDD.md, GESTION_MULTI_AGENT.md
 - Recherche sémantique testée: search_tasks_by_content ✅
 - Recherche textuelle testée: Grep ✅
 
@@ -440,7 +440,7 @@ Get-ChildItem -Path docs/ -Recurse -File | Group-Object Extension
 
 ### Avant de commencer une tâche:
 
-- [ ] J'ai lu INDEX.md et MCP_ANALYSIS.md
+- [ ] J'ai lu INDEX.md et MCP_SETUP.md
 - [ ] J'ai lu les documents pertinents pour ma tâche
 - [ ] J'ai fait une recherche sémantique (search_tasks_by_content)
 - [ ] J'ai complété avec Grep si nécessaire
@@ -481,7 +481,7 @@ Get-ChildItem -Path docs/ -Recurse -File | Group-Object Extension
 
 Valider que ton bootstrap est complet:
 
-- [ ] J'ai lu INDEX.md et MCP_ANALYSIS.md
+- [ ] J'ai lu INDEX.md et MCP_SETUP.md
 - [ ] J'ai créé mon issue GitHub initiale
 - [ ] J'ai compris ma machine ID et mon rôle
 - [ ] J'ai compris les 4 phases du plan
@@ -507,7 +507,7 @@ Valider que ton bootstrap est complet:
 
 **Documentation de référence:**
 - [INDEX.md](INDEX.md) - Carte complète
-- [MCP_ANALYSIS.md](MCP_ANALYSIS.md) - Mapping des outils
+- [MCP_SETUP.md](MCP_SETUP.md) - Mapping des outils
 - [docs/roosync/](../docs/roosync/) - Documentation RooSync
 
 ---

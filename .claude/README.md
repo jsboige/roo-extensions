@@ -11,15 +11,13 @@
 ### New to this workspace?
 
 1. Read [INDEX.md](INDEX.md) for complete documentation map
-2. Read [QUICKSTART.md](QUICKSTART.md) for quick start guide
-3. See [docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md) for workspace knowledge
+2. See [docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md) for workspace knowledge
 
 ### Claude Code Agent?
 
 If you're a Claude Code agent participating in RooSync coordination:
 1. Read [CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md) for Phase 0 grounding and complete guide
-2. Read [MCP_ANALYSIS.md](MCP_ANALYSIS.md) for MCP capabilities and SDDD protocol
-3. Read [docs/roosync/](../docs/roosync/) for RooSync documentation
+2. Read [docs/roosync/](../docs/roosync/) for RooSync documentation
 
 ---
 
@@ -54,17 +52,14 @@ Switch easily between LLM providers in Claude Code.
 .claude/
 ├── README.md                      # This file (entry point)
 ├── INDEX.md                       # Documentation map
-├── QUICKSTART.md                  # Quick start guide
 ├── CLAUDE_CODE_GUIDE.md           # Complete guide for Claude Code agents
-├── MCP_ANALYSIS.md                # MCP capabilities and technical analysis
+├── MCP_SETUP.md                   # MCP configuration guide
+├── INTERCOM_PROTOCOL.md           # Local communication protocol
+├── agents/                        # Specialized subagents
 ├── commands/                      # Slash commands
-│   └── switch-provider.md         # Provider switcher command
+├── skills/                        # Auto-invoked skills
 ├── scripts/                       # PowerShell scripts
-│   ├── Switch-Provider.ps1
-│   └── Deploy-ProviderSwitcher.ps1
 └── configs/                       # Config templates
-    ├── provider.anthropic.template.json
-    └── provider.zai.template.json
 ```
 
 ## Quick Start

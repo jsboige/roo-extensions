@@ -8,8 +8,7 @@
 ## 📚 Quick Navigation
 
 ### Start Here
-- **[CLAUDE.md](../CLAUDE.md)** - ⭐ Main guide for Claude Code agents (READ THIS FIRST)
-- **[QUICKSTART.md](QUICKSTART.md)** - Quick start guide
+- **[CLAUDE.md](../CLAUDE.md)** - Main guide for Claude Code agents (READ THIS FIRST)
 
 ### For Claude Code Agents
 - **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Complete agent guide (Bootstrap + SDDD Phases)
@@ -17,8 +16,7 @@
 - **[../CLAUDE.md § Feedback](../CLAUDE.md#4-processus-de-feedback-et-amélioration-continue)** - Workflow improvement process (collective feedback via RooSync)
 
 ### Configuration & Deployment
-- **[MCP_SETUP.md](MCP_SETUP.md)** - ✅ MCP configuration guide (UPDATED with wrapper solution)
-- **[MULTI_MACHINE_DEPLOYMENT.md](MULTI_MACHINE_DEPLOYMENT.md)** - Multi-machine RooSync deployment
+- **[MCP_SETUP.md](MCP_SETUP.md)** - MCP configuration guide (with wrapper solution)
 
 ### Workspace Knowledge
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
@@ -303,7 +301,6 @@ mcps/
 **Auto-loaded at startup:**
 - `README.md` - Short entry point with links
 - `INDEX.md` - This table of contents
-- `QUICKSTART.md` - Quick start guide
 
 **Scripts and configs:**
 - `scripts/` - PowerShell scripts

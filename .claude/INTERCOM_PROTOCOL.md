@@ -345,7 +345,6 @@ Sure, I'll take care of deployment. Focus on docs.
 ## 📖 Related Documentation
 
 - [CLAUDE.md](../CLAUDE.md) - Workspace context
-- [MULTI_MACHINE_DEPLOYMENT.md](./MULTI_MACHINE_DEPLOYMENT.md) - Multi-machine setup
 - [MCP_SETUP.md](./MCP_SETUP.md) - MCP configuration
 
 ---

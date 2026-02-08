@@ -5,8 +5,7 @@ Objectif: rendre un agent immédiatement productif dans ce monorepo Roo Extensio
 ## Vue d’ensemble de l’architecture
 - Monorepo centré VS Code/Roo avec 4 piliers:
   - `mcps/` (Model Context Protocol): serveurs outils. Sous-arbres clés: `internal/servers` (quickfiles, jupyter, jinavigator, roo-state-manager, github-projects), `external/` (filesystem, git, github, searxng, win-cli), `forked/` (serveurs tiers modifiés).
-  - `roo-modes/`: définitions de modes Roo. Deux architectures: simple/complex (prod) et N5 à 5 niveaux (MICRO→ORACLE) avec mécanismes d’escalade/désescalade; tests dans `roo-modes/n5/tests`.
-  - `roo-config/`: scripts PowerShell de déploiement/diagnostic/encoding et templates de config. Point d’entrée: `roo-config/settings/deploy-settings.ps1` (init submodules + déploie settings globaux Roo).
+  - `roo-config/`: configuration centralisée incluant modes Roo (N2 simple/complex et N5 5 niveaux MICRO→ORACLE), specs, scripts, tests escalade/désescalade. Point d'entrée: `roo-config/README.md`.
   - `profiles/` et `modules/`: profils de modèles (ex. Qwen3) et modules utilitaires.
 - Flux de données: Roo (extension VS Code, sous-dossier `roo-code/`) appelle des MCPs via stdio selon `mcp_settings.json` du stockage global; les modes guident l’orchestration; `roo-state-manager` centralise détection du stockage Roo, gestion des settings et synthèse de conversations.
 
@@ -39,14 +38,14 @@ Objectif: rendre un agent immédiatement productif dans ce monorepo Roo Extensio
 ## Exemples de patterns concrets
 - Ajouter/mettre à jour un MCP interne (ex. roo-state-manager):
   - Builder `mcps/internal/servers/roo-state-manager` puis mettre à jour la clé `version` et relancer via `touch_mcp_settings`.
-- Utiliser QuickFiles pour lecture multi-fichiers: appeler l’outil `read_multiple_files` avec `{ paths: ["roo-modes/README.md", "mcps/README.md"], show_line_numbers: true }`.
+- Utiliser QuickFiles pour lecture multi-fichiers: appeler l'outil `read_multiple_files` avec `{ paths: ["roo-config/README.md", "mcps/README.md"], show_line_numbers: true }`.
 - Activer modes simples/complexes: déployer via `roo-config/deployment-scripts/deploy-modes-simple-complex.ps1`, vérifier avec `roo-config/diagnostic-scripts/verify-deployed-modes.ps1`.
 
 ## Dossiers/fichiers de référence
 - `README.md`, `GETTING-STARTED.md`
 - `mcps/README.md`, `mcps/tests/run-all-tests.ps1`
 - `mcps/internal/servers/roo-state-manager/` (README, package.json, tests/)
-- `roo-modes/README.md`, `roo-modes/n5/tests/`
+- `roo-config/README.md`, `roo-config/modes/n5-system/tests/`
 - `roo-config/settings/deploy-settings.ps1`, `roo-config/encoding-scripts/*`, `roo-config/diagnostic-scripts/*`
 - `COMMIT_STRATEGY.md`
 

@@ -95,11 +95,6 @@ roo-extensions/
 │   ├── encoding-scripts/           # Correction encodage UTF-8
 │   ├── diagnostic-scripts/        # Scripts de diagnostic
 │   └── qwen3-profiles/            # Profils optimisés Qwen3
-├── 📁 roo-modes/                  # Modes personnalisés
-│   ├── configs/                    # Configurations standards
-│   ├── n5/                        # Architecture 5 niveaux
-│   ├── optimized/                  # Modes optimisés
-│   └── docs/                       # Documentation modes
 ├── 📁 RooSync/                     # 🔄 Synchronisation multi-machines
 │   ├── .shared-state/              # État partagé (Google Drive)
 │   ├── baseline/                   # Configurations baseline
@@ -178,7 +173,7 @@ Compare → Validate → Apply
 - **Orchestrator** : Coordination et workflows
 - **Manager** : Décomposition tâches complexes
 
-**Documentation complète :** [`roo-modes/README.md`](roo-modes/README.md)
+**Documentation complète :** [`roo-config/README.md`](roo-config/README.md)
 
 ### 4. 📋 SDDD - Semantic-Documentation-Driven-Design
 
@@ -276,7 +271,7 @@ use_mcp_tool "roo-state-manager" "roosync_init" {}
 ## 📚 Documentation Complète
 
 ### Points d'Entrée Principaux
-- **Modes et Architectures** : [`roo-modes/README.md`](roo-modes/README.md)
+- **Modes et Architectures** : [`roo-config/README.md`](roo-config/README.md)
 - **Configuration et Déploiement** : [`roo-config/README.md`](roo-config/README.md)
 - **Serveurs MCP** : [`mcps/README.md`](mcps/README.md)
 - **Système de Suivi SDDD** : [`sddd-tracking/README.md`](sddd-tracking/README.md)

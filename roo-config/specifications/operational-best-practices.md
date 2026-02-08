@@ -289,11 +289,8 @@ projet/
 **✅ BON EXEMPLE** :
 ```
 roo-extensions/
-├── roo-modes/             # Modes personnalisés
-│   ├── configs/          # Configurations modes
-│   ├── templates/        # Templates instructions
-│   └── docs/             # Documentation modes
-├── roo-config/           # Configuration Roo
+├── roo-config/           # Configuration et Modes Roo
+│   ├── modes/            # Configurations modes (N2, N5)
 │   ├── specifications/   # Spécifications
 │   └── reports/          # Rapports
 └── mcps/                 # Serveurs MCP

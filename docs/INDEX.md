@@ -297,7 +297,7 @@
 ## 🔗 Liens Externes
 
 ### Documentation Roo Modes
-- [`README.md`](../roo-modes/README.md) - Documentation Roo Modes
+- [`README.md`](../roo-config/README.md) - Documentation Modes et Configuration
 
 ### Documentation MCPs
 - [`README.md`](../mcps/README.md) - Documentation MCPs principale
