@@ -540,18 +540,23 @@ Qu'en pensez-vous? Est-ce vraiment nécessaire?
     └── INTERCOM-myia-ai-01.md
 ```
 
-### Documentation Technique
+### Documentation Technique (consolide #435 : 41→11 sous-repertoires)
+
 ```
 docs/
-├── roosync/                              # Protocoles RooSync
-│   ├── PROTOCOLE_SDDD.md                 # Méthodologie SDDD v2.2
-│   ├── GUIDE-TECHNIQUE-v2.3.md           # Guide technique complet
-│   └── GESTION_MULTI_AGENT.md            # Gestion multi-agent
-├── suivi/RooSync/                        # Suivi multi-agent
-│   ├── PHASE1_DIAGNOSTIC_ET_STABILISATION.md
-│   └── RAPPORT_SYNTHESE_MULTI_AGENT_*.md
-└── knowledge/
-    └── WORKSPACE_KNOWLEDGE.md             # Base connaissance (6500+ fichiers)
+├── architecture/     # Architecture, orchestration, analyses, planning
+├── archive/          # Contenu historique/obsolete
+├── deployment/       # Deploiement, infrastructure, hardware
+├── dev/              # Configuration, debugging, encoding, fixes, tests, refactoring
+├── git/              # Historique git, stash, merge reports
+├── guides/           # Guides utilisateur, installation, depannage
+├── knowledge/        # Base de connaissances (WORKSPACE_KNOWLEDGE.md)
+├── mcp/              # Documentation MCP (roo-state-manager, repairs)
+├── roo-code/         # Documentation Roo Code, PRs, ADR
+├── roosync/          # Protocoles RooSync, integration, versions
+├── suivi/            # Suivi projet, coordination, monitoring, rapports
+├── INDEX.md          # Table des matieres v4.0
+└── README.md
 ```
 
 ### Code Source
@@ -601,7 +606,35 @@ roosync_read  # Vérifier les messages inter-machines (mode: inbox)
 # Vérifier les issues récentes avec label "claude-code"
 ```
 
-### 4. Créer une issue de traçabilité
+### 4. Annoncer son travail (anti-conflit)
+
+**OBLIGATOIRE avant de commencer toute tache significative.**
+
+**Pourquoi :** Eviter les conflits git et le travail en double quand plusieurs agents/machines travaillent sur les memes fichiers.
+
+**Comment :**
+
+1. **INTERCOM local** : Ajouter un message dans `.claude/local/INTERCOM-{MACHINE}.md` indiquant :
+   - Les taches prises en charge (numeros d'issues)
+   - Les fichiers/zones impactes
+   - Demande de ne pas modifier ces zones en parallele
+
+2. **RooSync** (si disponible) : Envoyer un message `roosync_send` a `to: "all"` avec :
+   - Sujet : `[WORK] Taches en cours sur {MACHINE}`
+   - Liste des taches et fichiers impactes
+
+3. **GitHub** : Commenter les issues prises en charge pour signaler le travail en cours
+
+**Exemple INTERCOM :**
+
+```markdown
+## [TIMESTAMP] claude-code → roo [INFO]
+### Session active - Taches en cours
+- #435 - Consolidation docs/ (fichiers impactes: docs/*)
+- Merci de ne pas modifier ces zones en parallele.
+```
+
+### 5. Creer une issue de tracabilite
 
 **OBLIGATOIRE pour toute tâche significative.**
 
@@ -615,7 +648,7 @@ Body:
 - Livrables: ...
 ```
 
-### 5. Travailler et documenter
+### 6. Travailler et documenter
 
 - **Attendez-vous** à ce qui est réellement disponible, pas à ce qui devrait l'être
 - **Testez** les MCPs avant de les utiliser

@@ -56,7 +56,7 @@ Documenter les capacités GPU des 5 machines du système RooSync Multi-Agent pou
 
 ### myia-po-2023
 
-> 📋 **Documentation détaillée :** [docs/hardware/gpu-specs-myia-po-2023.md](../hardware/gpu-specs-myia-po-2023.md)
+> 📋 **Documentation détaillée :** [docs/hardware/gpu-specs-myia-po-2023.md](gpu-specs-myia-po-2023.md)
 
 **Configuration Multi-GPU :**
 

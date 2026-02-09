@@ -74,7 +74,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Cartographie de l'architecture TypeScript MCP
 
 **Documents générés** :
-- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](../investigation/roosync-v1-vs-v2-gap-analysis.md) (775 lignes)
+- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) (775 lignes)
   - Analyse comparative complète v1 vs v2
   - Identification gap critique: détection réelle manquante
   - Recommandations d'implémentation
@@ -271,7 +271,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Corriger gap-analysis et créer synthèse finale
 
 **Documents mis à jour** :
-- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](../investigation/roosync-v1-vs-v2-gap-analysis.md)
+- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md)
   - Section mise à jour 2025-10-15
   - Correction affirmations obsolètes
   - Redirection vers nouveaux documents
@@ -422,7 +422,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`roosync-v1-vs-v2-gap-analysis.md`](../investigation/roosync-v1-vs-v2-gap-analysis.md) | 775 | Gap analysis v1 vs v2 (mis à jour) |
+| [`roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) | 775 | Gap analysis v1 vs v2 (mis à jour) |
 | **Total Investigation** | **775** | - |
 
 ### Documents d'Orchestration
@@ -798,7 +798,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 
 | Document | Lignes | Lien |
 |----------|--------|------|
-| Gap Analysis v1 vs v2 (Mis à jour) | 775 | [`roosync-v1-vs-v2-gap-analysis.md`](../investigation/roosync-v1-vs-v2-gap-analysis.md) |
+| Gap Analysis v1 vs v2 (Mis à jour) | 775 | [`roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) |
 
 ### Code Source
 
