@@ -1,6 +1,6 @@
 # Test Strategy - roo-state-manager
 
-**Derniere mise a jour :** 2026-02-08
+**Derniere mise a jour :** 2026-02-09
 **Issue :** #380
 
 ---
@@ -9,11 +9,11 @@
 
 | Metrique | Valeur |
 |----------|--------|
-| Fichiers de test | 164 |
-| Tests passants | 1859 |
+| Fichiers de test | 167 |
+| Tests passants | 1969 |
 | Tests skippes | 13 |
 | Fichiers source (services + tools) | ~179 |
-| Couverture estimee | ~65% |
+| Couverture estimee | ~70% |
 
 ### Commandes
 
@@ -79,11 +79,11 @@ npx tsc --noEmit
 
 | Module | Fichiers | Tests | Couverture | Risque |
 |--------|----------|-------|------------|--------|
-| **Services/Reporting** | 11 | 0 | 0% | CRITIQUE |
+| **Services/Reporting** | 11 | 1 | ~10% | Corrige 2026-02-09 (6 strategies + factory) |
 | **Tools/Diagnostic** | 2 | 2 | 100% | Corrige 2026-02-08 |
-| **Tools/Repair** | 2 | 1 | 50% | Corrige 2026-02-08 |
+| **Tools/Repair** | 2 | 2 | 100% | Corrige 2026-02-08/09 |
 | **Tools/Cache** | 1 | 0 | 0% | CRITIQUE |
-| **Services/Core** | 20 | 5 | 25% | ELEVE |
+| **Services/Core** | 20 | 8 | 40% | Corrige 2026-02-09 (+ServiceRegistry, +AssistantMessageParser) |
 | **Tools/Conversation** | 4 | 1 | 25% | ELEVE |
 | **Tools/Summary** | 4 | 1 | 25% | ELEVE |
 | **Tools/Indexing** | 4 | 1 | 25% | MOYEN |
@@ -96,10 +96,10 @@ npx tsc --noEmit
 
 Services utilises en production sans aucun test :
 
-1. **ServiceRegistry.ts** - Container d'injection de dependances
+1. ~~**ServiceRegistry.ts**~~ - ✅ 31 tests (2026-02-09)
 2. **InventoryCollector.ts** (~600 lignes) - Collecte inventaire via PowerShell
-3. **AssistantMessageParser.ts** (~200 lignes) - Parsing messages avec tool use
-4. **Reporting strategies** (9 fichiers) - Generation de rapports
+3. ~~**AssistantMessageParser.ts**~~ - ✅ 27 tests (2026-02-09)
+4. ~~**Reporting strategies**~~ - ✅ 37 tests (6 strategies + factory, 2026-02-09)
 
 ### Priorite 2 : ELEVE
 
@@ -229,10 +229,10 @@ vi.unmock('os');
 
 ### Moyen terme (prochaines sessions)
 
-- [ ] Ajouter tests pour ServiceRegistry (DI container)
-- [ ] Ajouter tests pour AssistantMessageParser
+- [x] Ajouter tests pour ServiceRegistry (DI container) - 31 tests (2026-02-09)
+- [x] Ajouter tests pour AssistantMessageParser - 27 tests (2026-02-09)
 - [ ] Ajouter tests pour InventoryCollector
-- [ ] Creer un test suite partage pour les 9 reporting strategies
+- [x] Creer un test suite partage pour les 9 reporting strategies - 37 tests (2026-02-09)
 - [ ] Fixer les 5 tests ConfigSharingService (refactoring applyConfig)
 
 ### Long terme
@@ -249,3 +249,4 @@ vi.unmock('os');
 | Date | Tests avant | Tests apres | Delta | Details |
 |------|-------------|-------------|-------|---------|
 | 2026-02-08 | 1829 pass / 15 skip | 1859 pass / 13 skip | +30 / -2 | Fix export-data, +diagnose_env, +analyze_problems, +diagnose-conversation-bom |
+| 2026-02-09 | 1859 pass / 13 skip | 1969 pass / 13 skip | +110 / 0 | +ServiceRegistry(31), +AssistantMessageParser(27), +reporting-strategies(37), +coordinateur(15) |
