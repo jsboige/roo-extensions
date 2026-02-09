@@ -540,22 +540,21 @@ Qu'en pensez-vous? Est-ce vraiment nécessaire?
     └── INTERCOM-myia-ai-01.md
 ```
 
-### Documentation Technique (consolide #435 : 41→11 sous-repertoires)
+### Documentation Technique (consolide #435 + contenu : 10 repertoires actifs)
 
 ```
 docs/
-├── architecture/     # Architecture, orchestration, analyses, planning
-├── archive/          # Contenu historique/obsolete
-├── deployment/       # Deploiement, infrastructure, hardware
-├── dev/              # Configuration, debugging, encoding, fixes, tests, refactoring
-├── git/              # Historique git, stash, merge reports
-├── guides/           # Guides utilisateur, installation, depannage
+├── architecture/     # Architecture systeme, designs, analyses (+archive/)
+├── archive/          # Contenu historique/obsolete (git, guides, deployment v2.1)
+├── deployment/       # Deploiement, hardware (2 docs actifs)
+├── dev/              # Debugging, encoding, fixes, tests, refactoring (+archives locales)
+├── guides/           # Guides utilisateur, installation, depannage MCP unifie
 ├── knowledge/        # Base de connaissances (WORKSPACE_KNOWLEDGE.md)
-├── mcp/              # Documentation MCP (roo-state-manager, repairs)
+├── mcp/              # Documentation MCP roo-state-manager (+archive/)
 ├── roo-code/         # Documentation Roo Code, PRs, ADR
-├── roosync/          # Protocoles RooSync, integration, versions
-├── suivi/            # Suivi projet, coordination, monitoring, rapports
-├── INDEX.md          # Table des matieres v4.0
+├── roosync/          # Protocoles RooSync v2.3, guides agents (+archive/)
+├── suivi/            # Suivi projet actif, monitoring (+archive/)
+├── INDEX.md          # Table des matieres v5.0
 └── README.md
 ```
 
