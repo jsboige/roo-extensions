@@ -99,6 +99,9 @@ Can span multiple lines.
 | `ERROR` | Error report | "MCP server crashed" |
 | `ASK` | Question | "Which branch to use?" |
 | `REPLY` | Answer | "Use main branch" |
+| `SCHEDULED` | Tache planifiee par le scheduler Claude | "Taches prioritaires pour Roo" |
+| `FEEDBACK` | Retour qualite de Claude sur le travail Roo | "Travail valide, tests OK" |
+| `IDLE` | Rien a faire (rapport du scheduler) | "Aucune tache planifiee" |
 
 ---
 
@@ -182,6 +185,14 @@ Run deployment script...
 
 ---
 ```
+
+### Compaction des messages planifies
+
+Les messages de type `[SCHEDULED]`, `[FEEDBACK]`, et `[IDLE]` s'accumulent rapidement.
+Regles specifiques :
+- Garder les 20 derniers messages planifies
+- Archiver le reste dans un resume compact
+- Les messages `[IDLE]` consecutifs peuvent etre compactes en un seul
 
 ### Manual Cleanup
 
@@ -349,5 +360,5 @@ Sure, I'll take care of deployment. Focus on docs.
 
 ---
 
-**Last Updated:** 2026-01-12
+**Last Updated:** 2026-02-09
 **Maintained by:** Claude Code agents on all RooSync machines

@@ -80,6 +80,8 @@ $prompts = @{
     "executor" = "Lance le mode executor. Identifie la machine, lis les messages du coordinateur, execute les taches assignees en autonomie. Commit et push quand c'est pret."
     "tests" = "Lance les tests unitaires et verifie le build. Si des tests echouent, tente de les corriger. Commit les fixes si reussi."
     "cleanup" = "Verifie le git status, nettoie les fichiers temporaires, met a jour la documentation si necessaire."
+    "prepare-intercom" = "Lis les issues GitHub assignees a cette machine et les messages RooSync. Ecris un message [SCHEDULED] dans l'INTERCOM (.claude/local/INTERCOM-{MACHINE}.md) avec les taches prioritaires pour Roo. Sois concis et structure."
+    "analyze-roo" = "Lis l'INTERCOM (.claude/local/INTERCOM-{MACHINE}.md). Trouve le dernier message [DONE] de Roo. Analyse la qualite du travail (tests passes, git status propre, code acceptable). Ecris un message [FEEDBACK] dans l'INTERCOM avec ton evaluation."
 }
 
 $prompt = if ($prompts.ContainsKey($Task)) {
