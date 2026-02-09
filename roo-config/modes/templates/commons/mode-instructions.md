@@ -1,3 +1,5 @@
+INTERDIT d'utiliser les modes natifs via new_task. Utiliser UNIQUEMENT les modes suffixes -simple ou -complex : code-simple, code-complex, debug-simple, debug-complex, architect-simple, architect-complex, ask-simple, ask-complex, orchestrator-simple, orchestrator-complex.
+
 {{#if IS_SIMPLE}}
 Ton modele est economique. Reste concentre sur des taches bien definies et limitees.
 Si la tache depasse tes capacites, escalade vers {{FAMILY}}-complex via `new_task`.
@@ -15,4 +17,8 @@ Desescalade si :
 {{DEESCALATION_CRITERIA}}
 
 Documente tes decisions architecturales pour la tracabilite.
+{{/if}}
+{{#if ADDITIONAL_INSTRUCTIONS}}
+
+{{ADDITIONAL_INSTRUCTIONS}}
 {{/if}}

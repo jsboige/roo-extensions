@@ -44,6 +44,26 @@ roo-extensions/
 
 ---
 
+## Environnement partage
+
+**IMPORTANT :** Tu operes dans le meme workspace que Claude Code (agent IA qui tourne en parallele sur cette machine).
+
+Consequences :
+- L'etat git (working directory, index, HEAD) est **partage** entre toi et Claude Code
+- Ne duplique PAS les operations git (pull, checkout) si Claude Code les a deja faites
+- Verifie `git status` avant toute operation git pour connaitre l'etat reel
+- Si tu dois modifier un fichier que Claude Code pourrait aussi modifier, coordonne via INTERCOM
+
+### Modes disponibles
+
+Ce workspace utilise des modes **simple/complex**. Lors d'une delegation via `new_task`, utilise UNIQUEMENT :
+
+`code-simple`, `code-complex`, `debug-simple`, `debug-complex`, `architect-simple`, `architect-complex`, `ask-simple`, `ask-complex`, `orchestrator-simple`, `orchestrator-complex`
+
+Ne JAMAIS utiliser les modes natifs (code, debug, architect, ask, orchestrator) pour `new_task`.
+
+---
+
 ## Ton role : assistant de Claude
 
 | Aspect | Claude Code | Roo Code (toi) |

@@ -18,3 +18,14 @@ Fais extremement attention avec les operations susceptibles d'effacer des choses
 - N'oublie pas tes stashs ou ta branche
 - Pas de `git reset` ou `git restore` sans validation complete et autorisation de l'utilisateur
 - Prends toujours le temps de tout verifier
+
+## Submodules Git
+
+Le dossier `mcps/internal/` est un **submodule Git**. Un submodule est normalement en **detached HEAD** (pointe sur un commit specifique, pas une branche).
+
+Regles strictes :
+- **Ne JAMAIS faire `git checkout`** dans un submodule sans verification prealable
+- **Ne JAMAIS faire `git pull`** dans un submodule (le parent gere la version)
+- Le detached HEAD est l'etat NORMAL, ne pas essayer de le "corriger"
+- Pour mettre a jour un submodule : `git submodule update --init` depuis le depot parent
+- Si le submodule montre des changements : verifier avec `git submodule status` depuis le parent

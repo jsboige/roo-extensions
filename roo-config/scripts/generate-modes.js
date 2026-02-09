@@ -75,6 +75,7 @@ function main() {
         IS_COMPLEX: level === 'complex',
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
+        ADDITIONAL_INSTRUCTIONS: fam.additionalInstructions || '',
       };
 
       var customInstructions = renderTemplate(template, vars);
