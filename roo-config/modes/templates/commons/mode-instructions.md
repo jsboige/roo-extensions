@@ -18,6 +18,14 @@ Desescalade si :
 
 Documente tes decisions architecturales pour la tracabilite.
 {{/if}}
+{{#if NO_COMMAND}}
+IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).
+Si la tache demandee necessite l'execution de commandes (tests, build, scripts, git), ne demande PAS a l'utilisateur de le faire. Redirige immediatement vers code-simple ou debug-simple via `new_task` en expliquant la tache a effectuer.
+{{/if}}
+{{#if NO_EDIT}}
+IMPORTANT : Tu n'as PAS acces a l'edition de fichiers.
+Si la tache demandee necessite de modifier du code ou des fichiers, redirige immediatement vers code-simple via `new_task` en expliquant les modifications a effectuer.
+{{/if}}
 {{#if ADDITIONAL_INSTRUCTIONS}}
 
 {{ADDITIONAL_INSTRUCTIONS}}

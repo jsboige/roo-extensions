@@ -67,12 +67,19 @@ function main() {
     for (var level of ['simple', 'complex']) {
       var levelDef = fam[level];
 
+      // Detect capability groups (handle both string and array-with-options formats)
+      var groupNames = fam.groups.map(function(g) { return Array.isArray(g) ? g[0] : g; });
+      var hasCommand = groupNames.indexOf('command') >= 0;
+      var hasEdit = groupNames.indexOf('edit') >= 0;
+
       var vars = {
         FAMILY: family,
         LEVEL: level,
         LEVEL_LABEL: capitalize(level),
         IS_SIMPLE: level === 'simple',
         IS_COMPLEX: level === 'complex',
+        NO_COMMAND: !hasCommand,
+        NO_EDIT: !hasEdit,
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
         ADDITIONAL_INSTRUCTIONS: fam.additionalInstructions || '',
