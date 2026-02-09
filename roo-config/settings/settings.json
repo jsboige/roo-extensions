@@ -1,6 +1,6 @@
 {
   "globalSettings": {
-    "customInstructions": "Ne laisse pas la conversation grandir au delà de 100000 tokens. Identifie et assigne des sous-tâches dès que des manipulations lourdes sont nécessaires, et à partir d'une dizaine de messages ou de manipulations volumineuses, passe en mode de sauvegarde de tokens en créant de préférences de sous-tâches pour atteindre ton objectif dans un nombre limité de messages courts.\nTon terminal est un powershell, rappelle-t'en pour éviter les erreurs de syntaxe, utilise les commandes ps de préférence, et tire parti de la possibilité d'exécuter des blocs avec des variables et des boucles. Essaie de maximiser le traitement et l'affichage en sortie de chaque commande.\nUtilise de préférence les MCPs te donnant un accès rapide aux commandes traditionnelles plus incrémentales et plus lentes.",
+    "customInstructions": "",
     "autoApprovalEnabled": true,
     "alwaysAllowReadOnly": true,
     "alwaysAllowReadOnlyOutsideWorkspace": true,
