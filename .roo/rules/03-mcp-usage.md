@@ -17,12 +17,6 @@ Privilegier SYSTEMATIQUEMENT les MCPs sur les outils natifs Roo.
 Shells disponibles : `powershell`, `cmd`, `gitbash`.
 Ne PAS utiliser `&&` en PowerShell, utiliser `;` a la place.
 
-### quickfiles - Operations fichiers batch
-
-- `read_multiple_files` : Lecture batch (>2 fichiers simultanement)
-- `edit_multiple_files` : Modifications coherentes multi-fichiers
-- `list_directory_contents` : Exploration structure arborescente
-
 ### Autres MCPs disponibles
 
 - **roo-state-manager** : Grounding conversationnel, historique taches, RooSync
@@ -34,4 +28,4 @@ Ne PAS utiliser `&&` en PowerShell, utiliser `;` a la place.
 - Regrouper operations similaires en batch MCP
 - Filtrer a la source (pas tout lire puis filtrer en post)
 - Utiliser pagination et extraits cibles
-- Pour fichiers >1000 lignes : TOUJOURS utiliser extraits cibles via quickfiles
+- Pour fichiers >1000 lignes : utiliser extraits cibles (offset/limit avec read_file)
