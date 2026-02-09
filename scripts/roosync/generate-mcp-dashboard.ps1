@@ -16,6 +16,15 @@ if (-not $OutputDir) {
     $OutputDir = Join-Path $env:ROOSYNC_SHARED_PATH "dashboards"
 }
 
+# Fix #413: If ROOSYNC_SHARED_PATH not set but OutputDir is, derive it (strip /dashboards suffix)
+if (-not $env:ROOSYNC_SHARED_PATH -and $OutputDir) {
+    $parentDir = Split-Path $OutputDir -Parent
+    if ($parentDir) {
+        $env:ROOSYNC_SHARED_PATH = $parentDir
+        Write-Host "ROOSYNC_SHARED_PATH dérivé de OutputDir: $parentDir" -ForegroundColor DarkYellow
+    }
+}
+
 # Configuration
 $Machines = @("myia-ai-01", "myia-po-2023", "myia-po-2024", "myia-po-2026", "myia-web1")
 # Fichier fixe (plus de timestamp) - Issue #xxx Plan "Écuries d'Augias"
