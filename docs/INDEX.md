@@ -1,320 +1,271 @@
-# INDEX CENTRALISÉ DE LA DOCUMENTATION
+# INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Dernière mise à jour:** 2026-01-13  
-**Version:** 3.0 (Index Organisé SDDD)  
-**Responsable:** myia-po-2023 (Tâche T2.19 - RooSync v7.0)
-
----
-
-## 📋 Table des Matières
-
-- [Documentation RooSync](#documentation-roosync)
-- [Guides Utilisateur](#guides-utilisateur)
-- [Documentation Technique](#documentation-technique)
-- [Suivi de Projet](#suivi-de-projet)
-- [Documentation MCP](#documentation-mcp)
-- [Documentation Roo Code](#documentation-roo-code)
-- [Rapports et Analyses](#rapports-et-analyses)
-- [Tests et Validation](#tests-et-validation)
-- [Maintenance et Dépannage](#maintenance-et-depannage)
-- [Archives et Historique](#archives-et-historique)
+**Derniere mise a jour:** 2026-02-09
+**Version:** 4.0 (Post-consolidation #435)
 
 ---
 
-## 🔄 Documentation RooSync
+## Structure docs/ (11 repertoires)
+
+```
+docs/
+├── architecture/     # Architecture, orchestration, analyses, planning
+├── archive/          # Contenu historique/obsolete
+├── deployment/       # Deploiement, infrastructure, hardware
+├── dev/              # Configuration, debugging, encoding, fixes, tests, refactoring
+├── git/              # Historique git, stash, merge reports
+├── guides/           # Guides utilisateur, installation, depannage
+├── knowledge/        # Base de connaissances (WORKSPACE_KNOWLEDGE.md)
+├── mcp/              # Documentation MCP (roo-state-manager, repairs, troubleshooting)
+├── roo-code/         # Documentation Roo Code, PRs, ADR
+├── roosync/          # Protocoles RooSync, integration, versions
+├── suivi/            # Suivi projet, coordination, monitoring, rapports, incidents
+├── INDEX.md          # Ce fichier
+└── README.md         # Vue d'ensemble documentation
+```
+
+---
+
+## Documentation RooSync
 
 ### Guides Principaux
-- [`README.md`](roosync/README.md) - Documentation principale RooSync
-- [`GUIDE_UTILISATION_ROOSYNC.md`](roosync/GUIDE_UTILISATION_ROOSYNC.md) - Guide d'utilisation complet
-- [`ARCHITECTURE_ROOSYNC.md`](roosync/ARCHITECTURE_ROOSYNC.md) - Architecture technique
-- [`GESTION_MULTI_AGENT.md`](roosync/GESTION_MULTI_AGENT.md) - Gestion multi-agent
+- [README.md](roosync/README.md) - Documentation principale RooSync
+- [GUIDE_UTILISATION_ROOSYNC.md](roosync/GUIDE_UTILISATION_ROOSYNC.md) - Guide d'utilisation complet
+- [ARCHITECTURE_ROOSYNC.md](roosync/ARCHITECTURE_ROOSYNC.md) - Architecture technique
+- [GESTION_MULTI_AGENT.md](roosync/GESTION_MULTI_AGENT.md) - Gestion multi-agent
 
 ### Guides Techniques
-- [`GUIDE-TECHNIQUE-v2.1.md`](roosync/GUIDE-TECHNIQUE-v2.1.md) - Guide technique v2.1
-- [`GUIDE-TECHNIQUE-v2.3.md`](roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide technique v2.3
-- [`GUIDE-DEVELOPPEUR-v2.1.md`](roosync/GUIDE-DEVELOPPEUR-v2.1.md) - Guide développeur
-- [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Guide opérationnel
+- [GUIDE-TECHNIQUE-v2.3.md](roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide technique v2.3 (actuel)
+- [GUIDE-TECHNIQUE-v2.1.md](roosync/GUIDE-TECHNIQUE-v2.1.md) - Guide technique v2.1 (legacy)
+- [GUIDE-DEVELOPPEUR-v2.1.md](roosync/GUIDE-DEVELOPPEUR-v2.1.md) - Guide developpeur
+- [GUIDE-OPERATIONNEL-UNIFIE-v2.1.md](roosync/GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Guide operationnel
 
 ### Changelogs et Versions
-- [`CHANGELOG-v2.2.md`](roosync/CHANGELOG-v2.2.md) - Changelog v2.2
-- [`CHANGELOG-v2.3.md`](roosync/CHANGELOG-v2.3.md) - Changelog v2.3
-- [`TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](roosync/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) - Transitions de versions
-- [`TRANSITIONS_VERSIONS.md`](roosync/TRANSITIONS_VERSIONS.md) - Documentation des transitions
+- [CHANGELOG-v2.3.md](roosync/CHANGELOG-v2.3.md) - Changelog v2.3
+- [CHANGELOG-v2.2.md](roosync/CHANGELOG-v2.2.md) - Changelog v2.2
+- [TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md](roosync/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) - Transitions de versions
+- [PLAN_MIGRATION_V2.1_V2.3.md](roosync/PLAN_MIGRATION_V2.1_V2.3.md) - Plan de migration
 
-### Migration
-- [`PLAN_MIGRATION_V2.1_V2.3.md`](roosync/PLAN_MIGRATION_V2.1_V2.3.md) - Plan de migration v2.1 → v2.3
+### Integration (deplace depuis docs/integration/)
+- [roosync/integration/](roosync/integration/) - 20+ documents d'integration RooSync
 
-### Méthodologie
-- [`PROTOCOLE_SDDD.md`](roosync/PROTOCOLE_SDDD.md) - Protocole SDDD
-
----
-
-## 📚 Guides Utilisateur
-
-### Démarrage et Installation
-- [`01-getting-started.md`](guides/01-getting-started.md) - Guide de démarrage
-- [`installation-complete.md`](guides/installation-complete.md) - Installation complète
-- [`ENVIRONMENT-SETUP-SYNTHESIS.md`](guides/ENVIRONMENT-SETUP-SYNTHESIS.md) - Configuration d'environnement
-
-### Configuration et Déploiement
-- [`guide-deploiement-configurations-roo.md`](guides/guide-deploiement-configurations-roo.md) - Déploiement des configurations
-- [`guide-maintenance-configuration-roo.md`](guides/guide-maintenance-configuration-roo.md) - Maintenance des configurations
-- [`documentation-structure-configuration-roo.md`](guides/documentation-structure-configuration-roo.md) - Structure de configuration
-
-### Modes et Profils
-- [`guide-complet-modes-roo.md`](guides/guide-complet-modes-roo.md) - Guide complet des modes
-- [`guide-utilisation-profils-modes.md`](guides/guide-utilisation-profils-modes.md) - Utilisation des profils
-- [`README-profile-modes.md`](guides/README-profile-modes.md) - Documentation des profils
-
-### Encodage et Fichiers
-- [`guide-encodage.md`](guides/guide-encodage.md) - Guide d'encodage
-- [`guide-encodage-windows.md`](guides/guide-encodage-windows.md) - Encodage Windows
-- [`RESOLUTION-ENCODAGE-UTF8.md`](guides/RESOLUTION-ENCODAGE-UTF8.md) - Résolution UTF-8
-
-### Dépannage
-- [`TROUBLESHOOTING-GUIDE.md`](guides/TROUBLESHOOTING-GUIDE.md) - Guide de dépannage
-- [`MCPS-COMMON-ISSUES-GUIDE.md`](guides/MCPS-COMMON-ISSUES-GUIDE.md) - Problèmes MCP courants
-- [`GUIDE-URGENCE-MCP.md`](guides/GUIDE-URGENCE-MCP.md) - Guide d'urgence MCP
-
-### Autres Guides
-- [`guide-escalade-desescalade.md`](guides/guide-escalade-desescalade.md) - Escalade et désescalade
-- [`guide-synchronisation-submodules.md`](guides/guide-synchronisation-submodules.md) - Synchronisation des sous-modules
-- [`procedures-maintenance.md`](guides/procedures-maintenance.md) - Procédures de maintenance
-- [`consolidated-task-management-guide.md`](guides/consolidated-task-management-guide.md) - Gestion des tâches
+### Methodologie
+- [PROTOCOLE_SDDD.md](roosync/PROTOCOLE_SDDD.md) - Protocole SDDD
 
 ---
 
-## 🏗️ Documentation Technique
+## Architecture
 
-### Architecture Système
-- [`01-main-architecture.md`](architecture/01-main-architecture.md) - Architecture principale
-- [`architecture-orchestration-5-niveaux.md`](architecture/architecture-orchestration-5-niveaux.md) - Orchestration 5 niveaux
-- [`ARCHITECTURE_GIT.md`](architecture/ARCHITECTURE_GIT.md) - Architecture Git
-- [`repository-map.md`](architecture/repository-map.md) - Carte du dépôt
+### Architecture Systeme
+- [01-main-architecture.md](architecture/01-main-architecture.md) - Architecture principale
+- [architecture-orchestration-5-niveaux.md](architecture/architecture-orchestration-5-niveaux.md) - Orchestration 5 niveaux
+- [ARCHITECTURE_GIT.md](architecture/ARCHITECTURE_GIT.md) - Architecture Git
+- [repository-map.md](architecture/repository-map.md) - Carte du depot
+- [ARCHITECTURE_2_NIVEAUX.md](architecture/ARCHITECTURE_2_NIVEAUX.md) - Architecture 2 niveaux (ex-sddd/)
 
 ### Roo State Manager
-- [`roo-state-manager-architecture.md`](architecture/roo-state-manager-architecture.md) - Architecture Roo State Manager
-- [`roo-state-manager-parsing-refactoring.md`](architecture/roo-state-manager-parsing-refactoring.md) - Refactoring parsing
+- [roo-state-manager-architecture.md](architecture/roo-state-manager-architecture.md) - Architecture
+- [roo-state-manager-parsing-refactoring.md](architecture/roo-state-manager-parsing-refactoring.md) - Refactoring parsing
 
-### RooSync
-- [`roosync-real-diff-detection-design.md`](architecture/roosync-real-diff-detection-design.md) - Détection de différences
-- [`roosync-real-methods-connection-design.md`](architecture/roosync-real-methods-connection-design.md) - Connexion des méthodes
-- [`roosync-temporal-messages-architecture.md`](architecture/roosync-temporal-messages-architecture.md) - Messages temporels
+### RooSync Architecture
+- [roosync-real-diff-detection-design.md](architecture/roosync-real-diff-detection-design.md) - Detection de differences
+- [roosync-temporal-messages-architecture.md](architecture/roosync-temporal-messages-architecture.md) - Messages temporels
+- [roosync-orchestration-synthesis-20251013.md](architecture/roosync-orchestration-synthesis-20251013.md) - Synthese orchestration (ex-orchestration/)
+- [roosync-v2-evolution-synthesis-20251015.md](architecture/roosync-v2-evolution-synthesis-20251015.md) - Evolution v2 (ex-orchestration/)
+
+### Analyses (fusionnees depuis analysis/ + investigations/ + investigation/)
+- [ROO_TASK_FORENSICS_2026-02-08.md](architecture/ROO_TASK_FORENSICS_2026-02-08.md) - Forensics taches
+- [6b-roosync-archaeology.md](architecture/6b-roosync-archaeology.md) - Archeologie RooSync
+- [roosync-v1-vs-v2-gap-analysis.md](architecture/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2
+- [inventaire-outils-mcp-avant-sync.md](architecture/inventaire-outils-mcp-avant-sync.md) - Inventaire outils MCP
+- [task-hierarchy-analysis-20251203.md](architecture/task-hierarchy-analysis-20251203.md) - Analyse hierarchie taches
+- [EXTRACTION-NEW-TASK-TAGS-SPECS.md](architecture/EXTRACTION-NEW-TASK-TAGS-SPECS.md) - Specs extraction tags
+
+### Planning (deplace depuis docs/planning/)
+- [architecture/planning/](architecture/planning/) - Plans de phases et roadmaps
 
 ### Autres
-- [`message-to-skeleton-transformer.md`](architecture/message-to-skeleton-transformer.md) - Transformateur message→squelette
-- [`conversation-discovery-architecture.md`](architecture/conversation-discovery-architecture.md) - Découverte de conversations
-- [`specification-n-niveaux-complexite.md`](architecture/specification-n-niveaux-complexite.md) - Spécification complexité
-- [`DATA_STORAGE_POLICY.md`](architecture/DATA_STORAGE_POLICY.md) - Politique de stockage
+- [DATA_STORAGE_POLICY.md](architecture/DATA_STORAGE_POLICY.md) - Politique de stockage
+- [specification-n-niveaux-complexite.md](architecture/specification-n-niveaux-complexite.md) - Specification complexite
 
 ---
 
-## 📊 Suivi de Projet
+## Guides
+
+### Demarrage et Installation
+- [ENVIRONMENT-SETUP-SYNTHESIS.md](guides/ENVIRONMENT-SETUP-SYNTHESIS.md) - Configuration d'environnement
+- [MCPs-INSTALLATION-GUIDE.md](guides/MCPs-INSTALLATION-GUIDE.md) - Guide d'installation MCPs
+- [mcp-deployment.md](guides/mcp-deployment.md) - Deploiement MCP
+
+### Configuration
+- [guide-utilisation-mcps.md](guides/guide-utilisation-mcps.md) - Utilisation des MCPs
+- [guide-utilisation-mcp-jupyter.md](guides/guide-utilisation-mcp-jupyter.md) - MCP Jupyter
+- [guide-complet-modes-roo.md](guides/guide-complet-modes-roo.md) - Guide complet des modes
+- [guide-utilisation-profils-modes.md](guides/guide-utilisation-profils-modes.md) - Utilisation des profils
+
+### Encodage
+- [guide-encodage.md](guides/guide-encodage.md) - Guide d'encodage
+- [RESOLUTION-ENCODAGE-UTF8.md](guides/RESOLUTION-ENCODAGE-UTF8.md) - Resolution UTF-8
+
+### Depannage
+- [TROUBLESHOOTING-GUIDE.md](guides/TROUBLESHOOTING-GUIDE.md) - Guide de depannage
+- [MCPS-COMMON-ISSUES-GUIDE.md](guides/MCPS-COMMON-ISSUES-GUIDE.md) - Problemes MCP courants
+- [GUIDE-URGENCE-MCP.md](guides/GUIDE-URGENCE-MCP.md) - Guide d'urgence MCP
+
+### Guides Utilisateur (deplace depuis docs/user-guide/)
+- [guides/user-guide/](guides/user-guide/) - QUICK-START, README, TROUBLESHOOTING
+
+### Autres Guides
+- [guide-synchronisation-submodules.md](guides/guide-synchronisation-submodules.md) - Synchronisation des sous-modules
+- [procedures-maintenance.md](guides/procedures-maintenance.md) - Procedures de maintenance
+- [consolidated-task-management-guide.md](guides/consolidated-task-management-guide.md) - Gestion des taches
+- [guide-exploration-prompts-natifs.md](guides/guide-exploration-prompts-natifs.md) - Exploration prompts natifs
+
+---
+
+## Dev (developpement)
+
+### Configuration (ex-configuration/)
+- [dev/configuration/](dev/configuration/) - Configuration MCP, guides, resume
+
+### Debugging (ex-debugging/)
+- [dev/debugging/](dev/debugging/) - Analyse bugs, corruption settings, hierarchie taches
+
+### Encoding (ex-encoding/)
+- [dev/encoding/](dev/encoding/) - 13 documents sur l'encodage UTF-8
+
+### Fixes (ex-fixes/)
+- [dev/fixes/](dev/fixes/) - Corrections et reparations
+- [PHASE3-PERSISTENCE-FIX-20251024.md](dev/fixes/PHASE3-PERSISTENCE-FIX-20251024.md) - Fix persistence Phase 3
+
+### Indexation (ex-indexation/)
+- [dev/indexation/](dev/indexation/) - Reparation detectWorkspaceForTask
+
+### Maintenance (ex-maintenance/)
+- [dev/maintenance/](dev/maintenance/) - Guide hooks git
+
+### Refactoring (ex-refactoring/)
+- [dev/refactoring/](dev/refactoring/) - 15 documents de refactoring (cleanup, accessibilite, reports)
+- [COMPLEXITY-REFACTORING-REPORT.md](dev/refactoring/COMPLEXITY-REFACTORING-REPORT.md) - Rapport refactoring complexite
+
+### Testing (fusionne depuis testing/ + tests/)
+- [dev/testing/](dev/testing/) - 16 documents (plans, strategies, rapports)
+
+### Autres
+- [dev/precommit-hook.md](dev/precommit-hook.md) - Configuration pre-commit hook
+- [dev/WORKTREE-WORKFLOW.md](dev/WORKTREE-WORKFLOW.md) - Workflow worktree
+
+---
+
+## Suivi de Projet
 
 ### RooSync Multi-Agent
-- [`REPARTITION_TACHES_MULTI_AGENT.md`](suivi/RooSync/REPARTITION_TACHES_MULTI_AGENT.md) - Répartition des tâches
-- [`SUIVI_ACTIF.md`](suivi/RooSync/SUIVI_ACTIF.md) - Suivi actif
-- [`BUGS_TRACKING.md`](suivi/RooSync/BUGS_TRACKING.md) - Suivi des bugs
-- [`RAPPORT_GOUVERNANCE_2026-01-13.md`](suivi/RooSync/RAPPORT_GOUVERNANCE_2026-01-13.md) - Rapport de gouvernance
+- [suivi/RooSync/SUIVI_ACTIF.md](suivi/RooSync/SUIVI_ACTIF.md) - Suivi actif
+- [suivi/RooSync/BUGS_TRACKING.md](suivi/RooSync/BUGS_TRACKING.md) - Suivi des bugs
+- [suivi/RooSync/INDEX.md](suivi/RooSync/INDEX.md) - Index RooSync
 
-### Rapports de Tâches
-- [`TACHE_1_7_RAPPORT_CORRECTION_VULNERABILITES_NPM.md`](suivi/RooSync/TACHE_1_7_RAPPORT_CORRECTION_VULNERABILITES_NPM.md) - Correction vulnérabilités npm
-- [`TACHE_1_11_RAPPORT_COLLECTE_INVENTAIRES.md`](suivi/RooSync/TACHE_1_11_RAPPORT_COLLECTE_INVENTAIRES.md) - Collecte d'inventaires
-- [`TACHE_2_12_RAPPORT_RECOMPILATION_MCP.md`](suivi/RooSync/TACHE_2_12_RAPPORT_RECOMPILATION_MCP.md) - Recompilation MCP
-- [`TACHE_2_18_PLANIFICATION_TRANSITIONS_VERSION.md`](suivi/RooSync/TACHE_2_18_PLANIFICATION_TRANSITIONS_VERSION.md) - Planification transitions
-- [`TACHE_2_2_RAPPORT_MISE_A_JOUR_NODEJS.md`](suivi/RooSync/TACHE_2_2_RAPPORT_MISE_A_JOUR_NODEJS.md) - Mise à jour Node.js
+### Coordination (deplace depuis docs/coordination/)
+- [suivi/coordination/](suivi/coordination/) - Messages diagnostics inter-machines
 
-### Phases RooSync
-- [`PHASE1_DIAGNOSTIC_ET_STABILISATION.md`](suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md) - Phase 1
-- [`PHASE2_CORRECTION_PROBLEMES_CRITIQUES.md`](suivi/RooSync/PHASE2_CORRECTION_PROBLEMES_CRITIQUES.md) - Phase 2
+### Reports (deplace depuis docs/reports/)
+- [suivi/reports/](suivi/reports/) - Rapports de missions et analyses
 
-### Méthodologie SDDD
-- [`METHODOLOGIE_SDDD_myia-po-2023.md`](suivi/RooSync/METHODOLOGIE_SDDD_myia-po-2023.md) - Méthodologie SDDD
+### Sessions (deplace depuis docs/sessions/)
+- [suivi/sessions/](suivi/sessions/) - Rapports de sessions
 
-### Autres Suivis
-- [`INDEX.md`](suivi/RooSync/INDEX.md) - Index RooSync
+### Project (deplace depuis docs/project/)
+- [suivi/project/](suivi/project/) - Status projet, changelog, plans
 
----
+### Monitoring (deplace depuis docs/monitoring/)
+- [suivi/monitoring/](suivi/monitoring/) - Systeme de monitoring quotidien
 
-## 🔌 Documentation MCP
+### Issues (deplace depuis docs/issues/)
+- [suivi/issues/](suivi/issues/) - Structure depot propre
 
-### Installation et Configuration
-- [`INSTALLATION.md`](../mcps/INSTALLATION.md) - Guide d'installation
-- [`INDEX.md`](../mcps/INDEX.md) - Index MCP
-- [`README.md`](../mcps/README.md) - Documentation principale
-- [`GUIDE-DEMARRAGE-RAPIDE-MCP.md`](../mcps/GUIDE-DEMARRAGE-RAPIDE-MCP.md) - Démarrage rapide
+### Incidents (deplace depuis docs/incidents/)
+- [suivi/incidents/](suivi/incidents/) - Commits a restaurer
 
-### Guides d'Utilisation
-- [`GUIDE-UTILISATION-MCP.md`](../mcps/GUIDE-UTILISATION-MCP.md) - Guide d'utilisation
-- [`guide-configuration-securisee.md`](../mcps/guide-configuration-securisee.md) - Configuration sécurisée
-- [`MCP-CONFIGURATION-SAFETY-GUIDE.md`](../mcps/MCP-CONFIGURATION-SAFETY-GUIDE.md) - Guide de sécurité
-
-### Dépannage
-- [`TROUBLESHOOTING.md`](../mcps/TROUBLESHOOTING.md) - Guide de dépannage
-- [`mcp-troubleshooting.md`](mcp-troubleshooting.md) - Dépannage MCP
-
-### Scripts et Outils
-- [`gestion-securisee-mcp.ps1`](../mcps/gestion-securisee-mcp.ps1) - Script de gestion sécurisée
-- [`mcp-manager.ps1`](../mcps/mcp-manager.ps1) - Gestionnaire MCP
-
-### Documentation Guides
-- [`MCPs-INSTALLATION-GUIDE.md`](guides/MCPs-INSTALLATION-GUIDE.md) - Guide d'installation MCPs
-- [`guide-utilisation-mcps.md`](guides/guide-utilisation-mcps.md) - Utilisation des MCPs
-- [`guide-utilisation-mcp-jupyter.md`](guides/guide-utilisation-mcp-jupyter.md) - MCP Jupyter
+### Rapport Bug Critique
+- [suivi/RAPPORT-BUG-CRITIQUE-QUICKFILES.md](suivi/RAPPORT-BUG-CRITIQUE-QUICKFILES.md) - Bug critique Quickfiles
 
 ---
 
-## 💻 Documentation Roo Code
+## MCP (consolide depuis mcp/ + mcps/ + mcp-repairs/)
 
-### PR Tracking - Context Condensation
-- [`000-documentation-index.md`](roo-code/pr-tracking/context-condensation/000-documentation-index.md) - Index de documentation
-- [`001-current-system-analysis.md`](roo-code/pr-tracking/context-condensation/001-current-system-analysis.md) - Analyse système
-- [`002-requirements-specification.md`](roo-code/pr-tracking/context-condensation/002-requirements-specification.md) - Spécifications
-- [`003-provider-architecture.md`](roo-code/pr-tracking/context-condensation/003-provider-architecture.md) - Architecture providers
-- [`004-all-providers-and-strategies.md`](roo-code/pr-tracking/context-condensation/004-all-providers-and-strategies.md) - Providers et stratégies
-- [`005-implementation-roadmap.md`](roo-code/pr-tracking/context-condensation/005-implementation-roadmap.md) - Roadmap implémentation
+### Roo State Manager
+- [mcp/roo-state-manager/](mcp/roo-state-manager/) - Documentation dediee
 
-### Architecture Roo Code
-- [`context-condensation-system.md`](roo-code/architecture/context-condensation-system.md) - Système de condensation
-- [`README.md`](roo-code/README.md) - Documentation Roo Code
+### Repairs (ex-mcp-repairs/)
+- [mcp/build-skeleton-cache-logs-reduction-20251020.md](mcp/build-skeleton-cache-logs-reduction-20251020.md)
+- [mcp/jupyter-papermill-fix-20251017.md](mcp/jupyter-papermill-fix-20251017.md)
+- [mcp/roo-state-manager-module-not-found-fix-20251020.md](mcp/roo-state-manager-module-not-found-fix-20251020.md)
+- [mcp/roosync-machineid-os-fix-20251020.md](mcp/roosync-machineid-os-fix-20251020.md)
 
-### ADR (Architecture Decision Records)
-- [`001-registry-pattern-over-plugin-system.md`](roo-code/adr/001-registry-pattern-over-plugin-system.md) - Pattern Registry
-- [`002-singleton-pattern-for-manager-and-registry.md`](roo-code/adr/002-singleton-pattern-for-manager-and-registry.md) - Pattern Singleton
-- [`003-backward-compatibility-strategy.md`](roo-code/adr/003-backward-compatibility-strategy.md) - Stratégie compatibilité
+### Troubleshooting (ex-orphelin docs/)
+- [mcp/mcp-troubleshooting.md](mcp/mcp-troubleshooting.md) - Guide depannage MCP
 
-### Contributing
-- [`add-condensation-provider.md`](roo-code/contributing/add-condensation-provider.md) - Ajouter un provider
+### Quickfiles (ex-mcps/)
+- [mcp/quickfiles-search-fix.md](mcp/quickfiles-search-fix.md) - Fix recherche Quickfiles
 
----
-
-## 📈 Rapports et Analyses
-
-### Analyses
-- [`competitive_analysis.md`](analyses/competitive_analysis.md) - Analyse compétitive
-- [`Jupyter_MCP_Failure_Analysis.md`](analyses/Jupyter_MCP_Failure_Analysis.md) - Analyse échec Jupyter MCP
-
-### Rapports
-- [`README.md`](rapports/README.md) - Index des rapports
-- [`README-AGENTS-EPITA.md`](rapports/README-AGENTS-EPITA.md) - Rapport agents EPITA
-- [`readme-complet-original.md`](rapports/readme-complet-original.md) - README original
-
-### Analyses Techniques
-- [`architecture-consolidee-roo-state-manager.md`](rapports/analyses/architecture-consolidee-roo-state-manager.md) - Architecture Roo State Manager
-- [`audit-inventaire-roo-state-manager-outils.md`](rapports/analyses/audit-inventaire-roo-state-manager-outils.md) - Audit des outils
-
-### Autres
-- [`COMPLEXITY-REFACTORING-REPORT.md`](COMPLEXITY-REFACTORING-REPORT.md) - Rapport refactoring complexité
-- [`task-hierarchy-analysis-20251203.md`](task-hierarchy-analysis-20251203.md) - Analyse hiérarchie des tâches
+### Documentation MCPs (repertoire racine)
+- [../mcps/README.md](../mcps/README.md) - Documentation principale MCPs
+- [../mcps/INSTALLATION.md](../mcps/INSTALLATION.md) - Guide d'installation
+- [../mcps/TROUBLESHOOTING.md](../mcps/TROUBLESHOOTING.md) - Guide de depannage
 
 ---
 
-## 🧪 Tests et Validation
+## Deployment
 
-### Tests et Validation
-- [`README-campagne-tests-escalade.md`](tests/README-campagne-tests-escalade.md) - Campagne tests escalade
+### Deploiement RooSync v2.1 (legacy)
+- [deployment/roosync-v2-1-deployment-guide.md](deployment/roosync-v2-1-deployment-guide.md) - Guide deploiement v2.1
+- [deployment/roosync-v2-1-cheatsheet.md](deployment/roosync-v2-1-cheatsheet.md) - Cheatsheet v2.1
+- [deployment/roosync-v2-1-commands-reference.md](deployment/roosync-v2-1-commands-reference.md) - Reference commandes
+- [deployment/roosync-v2-1-user-guide.md](deployment/roosync-v2-1-user-guide.md) - Guide utilisateur v2.1
+- [deployment/roosync-v2-1-developer-guide.md](deployment/roosync-v2-1-developer-guide.md) - Guide developpeur v2.1
+- [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees
 
-### Testing
-- [`e2e-env-integration-plan.md`](testing/e2e-env-integration-plan.md) - Plan intégration E2E
-- [`roosync-phase3-integration-report.md`](testing/roosync-phase3-integration-report.md) - Rapport intégration Phase 3
-- [`PHASE2-RECOMMANDATIONS-FINALES.md`](testing/PHASE2-RECOMMANDATIONS-FINALES.md) - Recommandations Phase 2
-
-### Rapports de Tests
-- [`phase1-unitaires-20251016-0256-COMPLET.md`](testing/reports/phase1-unitaires-20251016-0256-COMPLET.md) - Tests unitaires Phase 1
-- [`phase2-charge-2025-10-19T16-27.md`](testing/reports/phase2-charge-2025-10-19T16-27.md) - Tests de charge Phase 2
-
----
-
-## 🔧 Maintenance et Dépannage
-
-### Fixes et Corrections
-- [`fix-jupyter-papermill-mcp-timeout-error.md`](fixes/fix-jupyter-papermill-mcp-timeout-error.md) - Correction timeout Jupyter
-- [`fix-mcp-residual-issues-resolution.md`](fixes/fix-mcp-residual-issues-resolution.md) - Résolution problèmes MCP
-- [`git-recovery-report-20250925.md`](fixes/git-recovery-report-20250925.md) - Récupération Git
-- [`REPAIR-ROO-STATE-MANAGER-220GB-LEAK-FIX.md`](fixes/REPAIR-ROO-STATE-MANAGER-220GB-LEAK-FIX.md) - Correction fuite mémoire
-
-### Debugging
-- [`get_task_tree_bug_analysis.md`](debugging/get_task_tree_bug_analysis.md) - Analyse bug task tree
-- [`mcp_settings_corruption_bug.md`](debugging/mcp_settings_corruption_bug.md) - Corruption mcp_settings
-- [`task_hierarchy_complete.md`](debugging/task_hierarchy_complete.md) - Hiérarchie des tâches
-
-### Incidents
-- [`mcp_recovery_20250925.md`](incidents/mcp_recovery_20250925.md) - Récupération MCP 2025-09-25
-
-### Maintenance
-- [`GUIDE_HOOKS_GIT_RESOLUTION.md`](maintenance/GUIDE_HOOKS_GIT_RESOLUTION.md) - Résolution hooks Git
+### Hardware et Infrastructure (fusionnes)
+- [deployment/GPU_SPECS_MULTI_MACHINE.md](deployment/GPU_SPECS_MULTI_MACHINE.md) - Specs GPU multi-machine
+- [deployment/gpu-specs-myia-po-2023.md](deployment/gpu-specs-myia-po-2023.md) - Specs GPU myia-po-2023
 
 ---
 
-## 📦 Archives et Historique
+## Roo Code
 
-### Archives
-- [`refactoring-plan-2025-08-21.md`](archive/refactoring-plan-2025-08-21.md) - Plan refactoring
-- [`stash-0-obsolete.md`](archive/stash-0-obsolete.md) - Stash obsolète
-
-### Archives RooSync
-- Voir [`docs/suivi/RooSync/Archives/`](suivi/RooSync/Archives/) pour les archives RooSync
-
-### Archives Suivi
-- Voir [`docs/suivi/Archives/`](suivi/Archives/) pour les archives de suivi
+- [roo-code/README.md](roo-code/README.md) - Documentation Roo Code
+- [roo-code/pr-tracking/](roo-code/pr-tracking/) - PR tracking (context condensation)
+- [roo-code/architecture/](roo-code/architecture/) - Architecture Roo Code
+- [roo-code/adr/](roo-code/adr/) - Architecture Decision Records
+- [roo-code/contributing/](roo-code/contributing/) - Guides de contribution
 
 ---
 
-## 📚 Documentation Complémentaire
+## Git (historique)
 
-### Integration
-- [`01-grounding-semantique-roo-state-manager.md`](integration/01-grounding-semantique-roo-state-manager.md) - Grounding sémantique
-- [`02-points-integration-roosync.md`](integration/02-points-integration-roosync.md) - Points d'intégration
-- [`03-architecture-integration-roosync.md`](integration/03-architecture-integration-roosync.md) - Architecture intégration
-- [`18-guide-utilisateur-final-roosync.md`](integration/18-guide-utilisateur-final-roosync.md) - Guide utilisateur final
-
-### Orchestration
-- [`roosync-orchestration-synthesis-20251013.md`](orchestration/roosync-orchestration-synthesis-20251013.md) - Synthèse orchestration
-- [`roosync-v2-evolution-synthesis-20251015.md`](orchestration/roosync-v2-evolution-synthesis-20251015.md) - Évolution v2
-
-### Monitoring
-- [`daily-monitoring-system.md`](monitoring/daily-monitoring-system.md) - Système de monitoring
-- [`mcp-debug-logging-system.md`](monitoring/mcp-debug-logging-system.md) - Logging debug MCP
-
-### Design
-- [`01-sync-manager-specification.md`](design/01-sync-manager-specification.md) - Spécification Sync Manager
-- [`02-sync-manager-architecture.md`](design/02-sync-manager-architecture.md) - Architecture Sync Manager
-
-### Refactoring
-- [`01-cleanup-plan.md`](refactoring/01-cleanup-plan.md) - Plan de nettoyage
-- [`02-phase1-completion-report.md`](refactoring/02-phase1-completion-report.md) - Rapport Phase 1
-- [`03-accessibility-plan.md`](refactoring/03-accessibility-plan.md) - Plan accessibilité
-
-### Project
-- [`01-changelog.md`](project/01-changelog.md) - Changelog projet
-- [`project-status.md`](project/project-status.md) - Statut projet
-
-### Planning
-- Voir [`docs/planning/`](planning/) pour les documents de planification
+- [git/](git/) - Rapports de merge, stash backups, analyses de sync
 
 ---
 
-## 🔗 Liens Externes
+## Knowledge
 
-### Documentation Roo Modes
-- [`README.md`](../roo-config/README.md) - Documentation Modes et Configuration
-
-### Documentation MCPs
-- [`README.md`](../mcps/README.md) - Documentation MCPs principale
-
-### Documentation Roo Config
-- Voir [`roo-config/`](../roo-config/) pour la configuration Roo
+- [knowledge/WORKSPACE_KNOWLEDGE.md](knowledge/WORKSPACE_KNOWLEDGE.md) - Base de connaissances (6500+ fichiers)
 
 ---
 
-## 📝 Notes
+## Archive
 
-- Cet index est généré manuellement et maintenu par l'équipe RooSync
-- Pour toute question ou suggestion d'amélioration, contacter myia-po-2023
-- La structure de cet index suit les conventions SDDD (Semantic Documentation Driven Design)
+- [archive/](archive/) - Contenu historique et obsolete
 
 ---
 
-**Index généré par:** myia-po-2023 (Tâche T2.19 - RooSync v7.0)  
-**Date de création:** 2026-01-13  
-**Version:** 3.0
+## Liens Externes
+
+- [../roo-config/README.md](../roo-config/README.md) - Configuration Roo
+- [../mcps/README.md](../mcps/README.md) - Documentation MCPs
+- [../CLAUDE.md](../CLAUDE.md) - Guide agents Claude Code
+
+---
+
+**Consolide par:** myia-po-2025 (Issue #435)
+**Date consolidation:** 2026-02-09
+**Version:** 4.0
