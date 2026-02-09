@@ -1,8 +1,24 @@
 {
   "profiles": [
     {
-      "name": "Configuration SDDD",
-      "description": "Configuration SDDD avec GLM 4.7 Air pour tâches simples et GLM 4.7 pour tâches complexes (z.ai)",
+      "name": "Production SDDD (local-simple + z.ai-complex)",
+      "description": "Configuration de production: modele auto-heberge pour modes simples (economique, ~50 tok/sec) + GLM 4.7 via z.ai pour modes complexes. ATTENTION: max 2-3 modes simples simultanees (capacite KV cache limitee a ~220k tokens).",
+      "modeOverrides": {
+        "code-simple": "local-simple-tgwui",
+        "code-complex": "sddd-complex-glm47",
+        "debug-simple": "local-simple-tgwui",
+        "debug-complex": "sddd-complex-glm47",
+        "architect-simple": "local-simple-tgwui",
+        "architect-complex": "sddd-complex-glm47",
+        "ask-simple": "local-simple-tgwui",
+        "ask-complex": "sddd-complex-glm47",
+        "orchestrator-simple": "local-simple-tgwui",
+        "orchestrator-complex": "sddd-complex-glm47"
+      }
+    },
+    {
+      "name": "Configuration SDDD (z.ai full)",
+      "description": "Configuration SDDD avec GLM 4.7 Flash pour taches simples et GLM 4.7 pour taches complexes (tout z.ai, pas de dependance local)",
       "modeOverrides": {
         "code-simple": "zhipu/glm-4.7-air",
         "code-complex": "zhipu/glm-4.7",
@@ -106,19 +122,30 @@
       "openRouterUseMiddleOutTransform": false,
       "apiProvider": "z.ai",
       "id": "sddd-simple-glm47flash",
-      "description": "GLM 4.7 Flash pour tâches SDDD simples"
+      "description": "GLM 4.7 Flash pour tâches SDDD simples (alternative cloud)"
+    },
+    "local-simple": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "https://api.medium.text-generation-webui.myia.io/v1",
+      "openAiApiKey": "${env:LOCAL_LLM_API_KEY}",
+      "openAiModelId": "glm-4.7-flash",
+      "id": "local-simple-tgwui",
+      "description": "Modele auto-heberge via text-generation-webui pour taches simples. ATTENTION: ~50 tok/sec solo, ~200 tok/sec batch, ~220k KV cache. Max 2-3 sessions simultanees."
     }
   },
   "modeApiConfigs": {
-    "code-simple": "sddd-simple-glm47flash",
+    "code-simple": "local-simple-tgwui",
     "code-complex": "sddd-complex-glm47",
-    "debug-simple": "sddd-simple-glm47flash",
+    "debug-simple": "local-simple-tgwui",
     "debug-complex": "sddd-complex-glm47",
-    "architect-simple": "sddd-simple-glm47flash",
+    "architect-simple": "local-simple-tgwui",
     "architect-complex": "sddd-complex-glm47",
-    "ask-simple": "sddd-simple-glm47flash",
+    "ask-simple": "local-simple-tgwui",
     "ask-complex": "sddd-complex-glm47",
-    "orchestrator-simple": "sddd-simple-glm47flash",
+    "orchestrator-simple": "local-simple-tgwui",
     "orchestrator-complex": "sddd-complex-glm47",
     "code": "sddd-complex-glm47",
     "architect": "sddd-complex-glm47",
