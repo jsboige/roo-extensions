@@ -54,14 +54,24 @@ function Deploy-Scheduler {
         # Remplacer les variables
         $content = $content -replace '\$\{MACHINE_NAME\}', $MachineName
 
-        # Supprimer la note du template
+        # Générer un ID unique basé sur le timestamp
+        $uniqueId = [DateTimeOffset]::Now.ToUnixTimeMilliseconds().ToString()
+        $content = $content -replace 'TEMPLATE_ID', $uniqueId
+
+        # Parser et nettoyer
         $json = $content | ConvertFrom-Json
-        if ($json._template_note) {
-            $json.PSObject.Properties.Remove('_template_note')
+
+        # Supprimer la note du template (elle est dans chaque schedule, pas à la racine)
+        foreach ($schedule in $json.schedules) {
+            if ($schedule.PSObject.Properties['_template_note']) {
+                $schedule.PSObject.Properties.Remove('_template_note')
+            }
         }
 
-        # Sauvegarder
-        $json | ConvertTo-Json -Depth 10 | Set-Content $SchedulesPath -Encoding UTF8
+        # Sauvegarder (UTF8 sans BOM pour compatibilite Roo Scheduler)
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $jsonText = $json | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SchedulesPath, $jsonText, $utf8NoBom)
 
         Write-Log "Fichier créé: $SchedulesPath" "SUCCESS"
         Write-Log "Configuration personnalisée pour: $MachineName" "SUCCESS"
@@ -87,10 +97,12 @@ function Disable-Scheduler {
         $json = Get-Content $SchedulesPath -Raw | ConvertFrom-Json
 
         foreach ($schedule in $json.schedules) {
-            $schedule.enabled = $false
+            $schedule.active = $false
         }
 
-        $json | ConvertTo-Json -Depth 10 | Set-Content $SchedulesPath -Encoding UTF8
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $jsonText = $json | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SchedulesPath, $jsonText, $utf8NoBom)
 
         Write-Log "Scheduler désactivé pour: $MachineName" "SUCCESS"
         return $true
@@ -121,10 +133,10 @@ function Get-SchedulerStatus {
             $json = Get-Content $SchedulesPath -Raw | ConvertFrom-Json
 
             foreach ($schedule in $json.schedules) {
-                $status = if ($schedule.enabled) { "ACTIF" } else { "DÉSACTIVÉ" }
-                $statusColor = if ($schedule.enabled) { "SUCCESS" } else { "WARN" }
+                $status = if ($schedule.active) { "ACTIF" } else { "DÉSACTIVÉ" }
+                $statusColor = if ($schedule.active) { "SUCCESS" } else { "WARN" }
                 Write-Log "  - $($schedule.name): $status" $statusColor
-                Write-Log "    Trigger: $($schedule.trigger.type) @ $($schedule.trigger.time)" "INFO"
+                Write-Log "    Mode: $($schedule.mode), Interval: $($schedule.timeInterval)min" "INFO"
             }
         }
         catch {
@@ -135,42 +147,68 @@ function Get-SchedulerStatus {
         Write-Log "  Exécutez: .\deploy-scheduler.ps1 -Action deploy" "INFO"
     }
 
-    # Vérifier le moteur d'orchestration
-    $enginePath = Join-Path $BasePath "roo-config/scheduler/orchestration-engine.ps1"
-    if (Test-Path $enginePath) {
-        Write-Log "✓ Moteur d'orchestration présent" "SUCCESS"
+    # Vérifier l'extension Roo Scheduler
+    $extensionDir = Join-Path $env:USERPROFILE ".vscode/extensions"
+    $schedulerExt = Get-ChildItem -Path $extensionDir -Filter "kylehoskins.roo-scheduler-*" -Directory -ErrorAction SilentlyContinue
+    if ($schedulerExt) {
+        Write-Log "Roo Scheduler extension: $($schedulerExt.Name)" "SUCCESS"
     } else {
-        Write-Log "✗ Moteur d'orchestration manquant" "ERROR"
+        Write-Log "Roo Scheduler extension non trouvee - installer via VS Code" "WARN"
     }
 }
 
 function Test-Scheduler {
     Write-Log "=== TEST DU ROOSCHEDULE ===" "INFO"
 
-    $enginePath = Join-Path $BasePath "roo-config/scheduler/orchestration-engine.ps1"
-
-    if (-not (Test-Path $enginePath)) {
-        Write-Log "Moteur d'orchestration non trouvé" "ERROR"
+    if (-not (Test-Path $SchedulesPath)) {
+        Write-Log "schedules.json non trouve - deployer d'abord" "ERROR"
         return $false
     }
 
-    Write-Log "Exécution du test DryRun..."
+    Write-Log "Verification de la configuration..."
 
     try {
-        $output = & pwsh -NoProfile -File $enginePath -DryRun 2>&1
-        $exitCode = $LASTEXITCODE
+        $json = Get-Content $SchedulesPath -Raw | ConvertFrom-Json
 
-        # Chercher le résultat
-        $success = $output | Select-String "Phases réussies: 5"
+        $ok = $true
+        foreach ($schedule in $json.schedules) {
+            # Verifier ID unique (pas TEMPLATE_ID)
+            if ($schedule.id -eq "TEMPLATE_ID") {
+                Write-Log "ID non remplace (encore TEMPLATE_ID)" "ERROR"
+                $ok = $false
+            } else {
+                Write-Log "ID: $($schedule.id)" "SUCCESS"
+            }
 
-        if ($success) {
-            Write-Log "✓ Test réussi: 5/5 phases" "SUCCESS"
-            return $true
-        } else {
-            Write-Log "✗ Test échoué" "ERROR"
-            $output | ForEach-Object { Write-Host $_ }
-            return $false
+            # Verifier machine name (pas ${MACHINE_NAME})
+            if ($schedule.taskInstructions -match '\$\{MACHINE_NAME\}' -or $schedule.taskInstructions -match '\{MACHINE\}') {
+                Write-Log "Variables non remplacees dans taskInstructions" "ERROR"
+                $ok = $false
+            } else {
+                Write-Log "taskInstructions: variables remplacees" "SUCCESS"
+            }
+
+            # Verifier active
+            if ($schedule.active) {
+                Write-Log "Schedule actif: $($schedule.name)" "SUCCESS"
+            } else {
+                Write-Log "Schedule inactif: $($schedule.name)" "WARN"
+            }
+
+            # Verifier pas de _template_note
+            if ($schedule.PSObject.Properties['_template_note']) {
+                Write-Log "_template_note presente (devrait etre retiree)" "WARN"
+                $ok = $false
+            }
         }
+
+        if ($ok) {
+            Write-Log "Configuration valide" "SUCCESS"
+        } else {
+            Write-Log "Configuration avec problemes - re-deployer" "WARN"
+        }
+
+        return $ok
     }
     catch {
         Write-Log "Erreur lors du test: $($_.Exception.Message)" "ERROR"

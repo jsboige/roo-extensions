@@ -44,14 +44,14 @@ Write-ColorOutput "   Déploiement des modes personnalisés Roo" "Cyan"
 Write-ColorOutput "=========================================================" "Cyan"
 
 # Vérifier que le fichier .roomodes existe
-$sourceFile = Join-Path -Path $PSScriptRoot -ChildPath "..\..\..\.roomodes"
-$sourceFile = Resolve-Path $sourceFile -ErrorAction SilentlyContinue
-
-if (-not $sourceFile) {
+$sourceFile = Join-Path -Path $PSScriptRoot -ChildPath "..\..\.roomodes"
+if (-not (Test-Path $sourceFile)) {
     Write-ColorOutput "Erreur: Le fichier .roomodes n'a pas été trouvé." "Red"
-    Write-ColorOutput "Assurez-vous d'exécuter ce script depuis le répertoire du projet." "Red"
+    Write-ColorOutput "Chemin recherché: $sourceFile" "Red"
+    Write-ColorOutput "PSScriptRoot: $PSScriptRoot" "Red"
     exit 1
 }
+$sourceFile = Resolve-Path $sourceFile
 
 Write-ColorOutput "`n[1/4] Fichier source trouvé: $sourceFile" "Green"
 
