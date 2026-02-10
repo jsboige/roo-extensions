@@ -216,20 +216,24 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (18 outils RooSync)
+2. **roo-state-manager** (39 outils - tous exposés)
    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-07)
-   - **Solution :** Wrapper intelligent qui filtre 52+ outils → 18 outils RooSync
-   - **Catégories d'outils (18 total) :**
+   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-10)
+   - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
+   - **Catégories d'outils (39 total) :**
      - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
      - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
      - **Consolidés (5)** : config, inventory, baseline, machines, init
      - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
      - **Monitoring (1)** : heartbeat_status
-     - **Diagnostic (2)** : analyze_roosync_problems, diagnose_env
+     - **Diagnostic (4)** : analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
      - **Summary (1)** : roosync_summarize (CONS-12: consolidé 4→1)
-   - **Wrapper :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) filtre automatiquement
-   - **MAJ :** 2026-02-07 - CONS-1 messaging 6→3, CONS-5 decisions 5→2 (24→18 outils)
+     - **Tâches (5)** : task_browse, view_task_details, view_conversation_tree, get_raw_conversation, task_export
+     - **Recherche (2)** : roosync_search, roosync_indexing
+     - **Export (2)** : export_data, export_config
+     - **MCP Management (5)** : storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices, touch_mcp_settings
+   - **Wrapper v4 :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) dédup + log suppression (plus de filtrage)
+   - **MAJ :** 2026-02-10 - Wrapper v4 pass-through (18→39 outils, accès tâches/search/export)
 
 3. **markitdown** (1 outil)
    - Configuration : `~/.claude.json` (global)
@@ -1172,7 +1176,7 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 ## 📡 RooSync MCP - Configuration
 
-### Outils Disponibles (18 après wrapper, 2026-02-07)
+### Outils Disponibles (39 - tous exposés, 2026-02-10)
 
 **Messagerie CONS-1 (3):**
 - `roosync_send` - Envoyer/répondre/amender (action: send|reply|amend)
@@ -1187,9 +1191,22 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 **Monitoring (1):** `roosync_heartbeat_status`
 
-**Diagnostic (2):** `analyze_roosync_problems`, `diagnose_env`
+**Diagnostic (4):** `analyze_roosync_problems`, `diagnose_env`, `minimal_test_tool`, `read_vscode_logs`
 
 **Summary (1):** `roosync_summarize`
+
+**Tâches Roo (5) - NOUVEAU :**
+- `task_browse` - Arborescence tâches, parent/enfant, tâche courante (CONS-9)
+- `view_task_details` - Metadata détaillée (mode, durée, actions)
+- `view_conversation_tree` - Hiérarchie conversation en arbre
+- `get_raw_conversation` - Lire JSON brut d'une conversation
+- `task_export` - Export markdown + debug parsing
+
+**Recherche (2):** `roosync_search` (texte + sémantique), `roosync_indexing` (Qdrant)
+
+**Export (2):** `export_data` (JSON/CSV/XML), `export_config`
+
+**MCP Management (5):** `storage_info`, `maintenance`, `manage_mcp_settings`, `rebuild_and_restart_mcp`, `get_mcp_best_practices`, `touch_mcp_settings`
 
 ### Fichier Partagé
 
