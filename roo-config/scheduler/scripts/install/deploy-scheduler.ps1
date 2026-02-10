@@ -54,6 +54,15 @@ function Deploy-Scheduler {
         # Remplacer les variables
         $content = $content -replace '\$\{MACHINE_NAME\}', $MachineName
 
+        # Choisir le workflow selon le role (coordinateur vs executeur)
+        $workflowFile = if ($MachineName -eq "myia-ai-01") {
+            "scheduler-workflow-coordinator.md"
+        } else {
+            "scheduler-workflow-executor.md"
+        }
+        $content = $content -replace '\$\{WORKFLOW_FILE\}', $workflowFile
+        Write-Log "Workflow: $workflowFile (role: $(if ($MachineName -eq 'myia-ai-01') {'coordinateur'} else {'executeur'}))"
+
         # Générer un ID unique basé sur le timestamp
         $uniqueId = [DateTimeOffset]::Now.ToUnixTimeMilliseconds().ToString()
         $content = $content -replace 'TEMPLATE_ID', $uniqueId
@@ -180,12 +189,12 @@ function Test-Scheduler {
                 Write-Log "ID: $($schedule.id)" "SUCCESS"
             }
 
-            # Verifier machine name (pas ${MACHINE_NAME})
-            if ($schedule.taskInstructions -match '\$\{MACHINE_NAME\}' -or $schedule.taskInstructions -match '\{MACHINE\}') {
-                Write-Log "Variables non remplacees dans taskInstructions" "ERROR"
+            # Verifier que les variables de template sont remplacees
+            if ($schedule.taskInstructions -match '\$\{MACHINE_NAME\}' -or $schedule.taskInstructions -match '\$\{WORKFLOW_FILE\}') {
+                Write-Log "Variables de template non remplacees dans taskInstructions" "ERROR"
                 $ok = $false
             } else {
-                Write-Log "taskInstructions: variables remplacees" "SUCCESS"
+                Write-Log "taskInstructions: variables de template remplacees" "SUCCESS"
             }
 
             # Verifier active

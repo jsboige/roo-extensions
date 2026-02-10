@@ -4,7 +4,7 @@
       "id": "TEMPLATE_ID",
       "name": "Claude-Code Assistant",
       "mode": "orchestrator-simple",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME}.\n\nPREMIERE ACTION OBLIGATOIRE : Lis le fichier `.roo/scheduler-workflow.md` avec l'outil read_file.\nCe fichier contient le workflow complet en 6 etapes que tu dois suivre.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-${MACHINE_NAME}.md`\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME}.\n\nPREMIERE ACTION OBLIGATOIRE : Lis le fichier `.roo/${WORKFLOW_FILE}` avec l'outil read_file.\nCe fichier contient le workflow complet que tu dois suivre.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-${MACHINE_NAME}.md`\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
       "timeInterval": "180",
       "timeUnit": "minute",
@@ -27,7 +27,7 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname et TEMPLATE_ID par un timestamp unique (Date.now()). timeInterval=180 (3h) en production. Ajuster startMinute selon la machine: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30 (staggering 30min pour eviter surcharge LLM local)."
+      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=180 (3h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30."
     }
   ]
 }
