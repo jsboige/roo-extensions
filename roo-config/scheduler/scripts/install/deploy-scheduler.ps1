@@ -68,8 +68,10 @@ function Deploy-Scheduler {
             }
         }
 
-        # Sauvegarder
-        $json | ConvertTo-Json -Depth 10 | Set-Content $SchedulesPath -Encoding UTF8
+        # Sauvegarder (UTF8 sans BOM pour compatibilite Roo Scheduler)
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $jsonText = $json | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SchedulesPath, $jsonText, $utf8NoBom)
 
         Write-Log "Fichier créé: $SchedulesPath" "SUCCESS"
         Write-Log "Configuration personnalisée pour: $MachineName" "SUCCESS"
@@ -98,7 +100,9 @@ function Disable-Scheduler {
             $schedule.active = $false
         }
 
-        $json | ConvertTo-Json -Depth 10 | Set-Content $SchedulesPath -Encoding UTF8
+        $utf8NoBom = New-Object System.Text.UTF8Encoding $false
+        $jsonText = $json | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SchedulesPath, $jsonText, $utf8NoBom)
 
         Write-Log "Scheduler désactivé pour: $MachineName" "SUCCESS"
         return $true
