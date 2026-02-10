@@ -1,0 +1,229 @@
+{
+  "version": "1.0.0",
+  "description": "Configuration des modes Claude Code avec escalade automatique",
+  "modes": [
+    {
+      "id": "sync-simple",
+      "name": "Sync Simple",
+      "model": "claude-haiku-4.5",
+      "description": "Sync-tour basique : vérifications simples, messages RooSync, git pull",
+      "maxTokens": 4096,
+      "temperature": 0.3,
+      "escalation": {
+        "triggerMode": "sync-complex",
+        "conditions": [
+          "Conflits git détectés",
+          "Erreurs de build complexes",
+          "Décisions de coordination nécessaires"
+        ]
+      },
+      "allowedTools": [
+        "Read",
+        "Bash",
+        "Grep",
+        "Glob",
+        "mcp__roo-state-manager__roosync_read",
+        "mcp__roo-state-manager__roosync_send",
+        "mcp__roo-state-manager__roosync_get_status"
+      ],
+      "maxIterations": 10
+    },
+    {
+      "id": "sync-complex",
+      "name": "Sync Complexe",
+      "model": "claude-sonnet-4.5",
+      "description": "Sync-tour complet : résolution conflits git, build/tests, coordination multi-agent",
+      "maxTokens": 8192,
+      "temperature": 0.5,
+      "escalation": null,
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Task",
+        "mcp__roo-state-manager__*"
+      ],
+      "maxIterations": 20
+    },
+    {
+      "id": "code-simple",
+      "name": "Code Simple",
+      "model": "claude-haiku-4.5",
+      "description": "Modifications mineures : <50 lignes, formatage, docs, corrections syntaxe",
+      "maxTokens": 4096,
+      "temperature": 0.3,
+      "escalation": {
+        "triggerMode": "code-complex",
+        "conditions": [
+          "Modification >50 lignes détectée",
+          "Refactoring nécessaire",
+          "Architecture à modifier",
+          "Tests échouent après changement"
+        ]
+      },
+      "allowedTools": [
+        "Read",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob"
+      ],
+      "maxIterations": 5
+    },
+    {
+      "id": "code-complex",
+      "name": "Code Complexe",
+      "model": "claude-sonnet-4.5",
+      "description": "Modifications majeures : refactoring, architecture, features complexes",
+      "maxTokens": 8192,
+      "temperature": 0.5,
+      "escalation": {
+        "triggerMode": "code-critical",
+        "conditions": [
+          "Modifications critiques (>500 lignes)",
+          "Changements architecture système",
+          "Décisions stratégiques requises"
+        ]
+      },
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Task",
+        "EnterPlanMode"
+        ],
+      "maxIterations": 30
+    },
+    {
+      "id": "code-critical",
+      "name": "Code Critique",
+      "model": "claude-opus-4.6",
+      "description": "Modifications critiques : architecture système, décisions stratégiques",
+      "maxTokens": 16384,
+      "temperature": 0.7,
+      "escalation": null,
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Task",
+        "EnterPlanMode",
+        "AskUserQuestion"
+      ],
+      "maxIterations": 50
+    },
+    {
+      "id": "debug-simple",
+      "name": "Debug Simple",
+      "model": "claude-haiku-4.5",
+      "description": "Bugs évidents : erreurs de syntaxe, typos, imports manquants",
+      "maxTokens": 4096,
+      "temperature": 0.3,
+      "escalation": {
+        "triggerMode": "debug-complex",
+        "conditions": [
+          "Bug non reproductible",
+          "Erreur intermittente",
+          "Problème de concurrence suspecté",
+          "Stack trace complexe"
+        ]
+      },
+      "allowedTools": [
+        "Read",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob"
+      ],
+      "maxIterations": 5
+    },
+    {
+      "id": "debug-complex",
+      "name": "Debug Complexe",
+      "model": "claude-sonnet-4.5",
+      "description": "Bugs complexes : concurrence, performance, intégration",
+      "maxTokens": 8192,
+      "temperature": 0.5,
+      "escalation": null,
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Task"
+      ],
+      "maxIterations": 20
+    },
+    {
+      "id": "coordinate-simple",
+      "name": "Coordination Simple",
+      "model": "claude-haiku-4.5",
+      "description": "Coordination basique : envoi messages RooSync, rapports de status",
+      "maxTokens": 4096,
+      "temperature": 0.3,
+      "escalation": {
+        "triggerMode": "coordinate-complex",
+        "conditions": [
+          "Décisions multi-agent nécessaires",
+          "Planification de tâches requise",
+          "Résolution de conflits de priorités"
+        ]
+      },
+      "allowedTools": [
+        "Read",
+        "Bash",
+        "mcp__roo-state-manager__roosync_send",
+        "mcp__roo-state-manager__roosync_read",
+        "mcp__roo-state-manager__roosync_get_status",
+        "mcp__roo-state-manager__roosync_inventory"
+      ],
+      "maxIterations": 5
+    },
+    {
+      "id": "coordinate-complex",
+      "name": "Coordination Complexe",
+      "model": "claude-opus-4.6",
+      "description": "Coordination avancée : planification multi-agent, décisions stratégiques",
+      "maxTokens": 16384,
+      "temperature": 0.7,
+      "escalation": null,
+      "allowedTools": [
+        "Read",
+        "Write",
+        "Bash",
+        "Grep",
+        "Glob",
+        "Task",
+        "mcp__roo-state-manager__*",
+        "AskUserQuestion"
+      ],
+      "maxIterations": 30
+    }
+  ],
+  "escalationRules": {
+    "maxEscalations": 2,
+    "cooldownMinutes": 30,
+    "autoEscalateAfterFailures": 2,
+    "costThreshold": {
+      "dailyTokenLimit": 1000000,
+      "warningAt": 800000
+    }
+  },
+  "costOptimization": {
+    "preferLocalModels": true,
+    "localModelFallback": "glm-4.7-flash",
+    "useHaikuByDefault": true,
+    "escalateOnlyWhenNecessary": true
+  }
+}
