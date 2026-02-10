@@ -432,7 +432,38 @@ Titre: [CLAUDE-MACHINE] Titre de la tâche
 Labels: claude-code, priority-X
 ```
 
-### 4. Processus de Feedback et Amélioration Continue
+### 4. Tâches Planifiées Roo (Scheduler)
+
+**Objectif :** Évaluation et amélioration du scheduler Roo déployé sur toutes les machines
+
+**Chemin des tâches exécutées :** `C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks`
+
+**Fichiers par tâche :**
+
+- `api_conversation_history.json` - Historique complet de la conversation
+- `task_metadata.json` - Métadonnées de la tâche
+- `ui_messages.json` - Messages UI (format condensé)
+
+**Vérification régulière (Issue #447) :**
+
+- Consulter les traces d'exécution après chaque run du scheduler (~3h)
+- Analyser les problèmes de délégation (orchestrateur qui essaie de faire au lieu de déléguer)
+- Mettre à jour les règles/modes si nécessaire
+- Reporter les anomalies dans INTERCOM ou RooSync
+
+**Workflow d'amélioration :**
+
+1. Lire les dernières tâches exécutées
+2. Identifier les patterns d'erreur (ex: demande à l'utilisateur au lieu de `new_task`)
+3. Modifier les sources (`roo-config/modes/modes-config.json`)
+4. Régénérer `.roomodes` avec `node roo-config/scripts/generate-modes.js`
+5. Déployer sur toutes les machines
+
+**Référence :** Voir [deploy-scheduler.ps1](roo-config/scheduler/scripts/install/deploy-scheduler.ps1) pour le déploiement
+
+---
+
+### 5. Processus de Feedback et Amélioration Continue
 
 **Objectif :** Améliorer les workflows (commands/skills/agents) basé sur l'expérience terrain
 
