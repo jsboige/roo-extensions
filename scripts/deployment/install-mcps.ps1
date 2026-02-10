@@ -388,32 +388,33 @@ if ($installedMcps.Count -eq 0) {
             if ($serverKey -eq "roo-state-manager") {
                 Write-ColorOutput "Application de la configuration spéciale pour 'roo-state-manager'..."
                 $mcpCwd = $path.Replace("\", "/")
-                $buildPath = (Join-Path -Path $mcpCwd -ChildPath "build/src/index.js")
+                $wrapperPath = ($mcpCwd + "/mcp-wrapper.cjs")
+                $buildIndexPath = ($mcpCwd + "/build/index.js")
 
                 # Utilisation de [hashtable] explicite
                 [hashtable]$newEntry = @{
-                    command       = "cmd"
-                    args          = @("/c", "node", $buildPath)
+                    command       = "node"
+                    args          = @($wrapperPath)
                     cwd           = $mcpCwd
                     transportType = "stdio"
                     disabled      = $false
                     autoStart     = $true
-                    description   = "🛡️ MCP Roo State Manager - Gestionnaire d'état et de conversations."
-                    env           = (Parse-EnvFile (Join-Path -Path $path -ChildPath ".env"))
+                    description   = "MCP Roo State Manager - Gestionnaire d'etat et de conversations. [RESTART]"
+                    env           = @{}
                     alwaysAllow   = @(
-                       "minimal_test_tool", "detect_roo_storage", "get_storage_stats", "list_conversations",
-                       "touch_mcp_settings", "build_skeleton_cache", "get_task_tree", "search_tasks_semantic",
-                       "debug_analyze_conversation", "view_conversation_tree", "read_vscode_logs",
-                       "manage_mcp_settings", "index_task_semantic", "reset_qdrant_collection",
-                       "rebuild_and_restart_mcp", "get_mcp_best_practices", "diagnose_conversation_bom",
-                       "repair_conversation_bom", "analyze_vscode_global_state", "repair_vscode_task_history",
-                       "scan_orphan_tasks", "test_workspace_extraction", "rebuild_task_index", "diagnose_sqlite",
-                       "examine_roo_global_state", "repair_task_history", "normalize_workspace_paths",
-                       "export_tasks_xml", "export_conversation_xml", "export_project_xml", "configure_xml_export",
-                       "generate_trace_summary", "generate_cluster_summary", "export_conversation_json",
-                       "export_conversation_csv", "view_task_details", "get_raw_conversation", "get_conversation_synthesis"
+                       "manage_mcp_settings",
+                       "roosync_get_status", "roosync_list_diffs", "roosync_compare_config", "roosync_refresh_dashboard",
+                       "roosync_config", "roosync_inventory", "roosync_baseline", "roosync_machines", "roosync_init",
+                       "roosync_send", "roosync_read", "roosync_manage",
+                       "roosync_decision", "roosync_decision_info",
+                       "roosync_heartbeat_status",
+                       "analyze_roosync_problems", "diagnose_env",
+                       "roosync_summarize"
                     )
-                    watchPaths    = @($buildPath)
+                    options       = @{ cwd = ($mcpCwd + "/") }
+                    watchPaths    = @($buildIndexPath)
+                    enabled       = $true
+                    timeout       = 300
                 }
             } else {
                 # Logique générale pour les autres MCPs
@@ -466,37 +467,83 @@ if ($installedMcps.Count -eq 0) {
         }
         $finalConfig.mcpServers['playwright'] = $playwrightConfig
 
+        # win-cli : fork local avec config debridee
+        $winCliDistPath = ($rootDir.Path.Replace("\", "/") + "/mcps/external/win-cli/server/dist/index.js")
+        $winCliConfigPath = ($rootDir.Path.Replace("\", "/") + "/mcps/external/win-cli/unrestricted-config.json")
+        $winCliCwd = ($rootDir.Path.Replace("\", "/") + "/mcps/external/win-cli/server")
+
+        if (Test-Path (Join-Path -Path $rootDir -ChildPath "mcps/external/win-cli/server/dist/index.js")) {
+            Write-ColorOutput "Ajout de win-cli (fork local avec config debridee)..."
+            [hashtable]$winCliConfig = @{
+                command       = "node"
+                args          = @($winCliDistPath, "--config", $winCliConfigPath)
+                cwd           = $winCliCwd
+                transportType = "stdio"
+                disabled      = $false
+                autoStart     = $true
+                description   = "MCP for executing CLI commands on Windows (local fork, unrestricted)"
+                autoApprove   = @()
+                alwaysAllow   = @("execute_command", "get_command_history", "get_current_directory")
+                options       = @{ cwd = ($winCliCwd + "/") }
+            }
+            $finalConfig.mcpServers['win-cli'] = $winCliConfig
+        } else {
+            Write-ColorOutput "AVERTISSEMENT: win-cli fork non build (dist/index.js absent). Lancer 'npm run build' dans mcps/external/win-cli/server/." "Yellow"
+        }
+
         # Logique de détection robuste de Python
         $pythonPath = Find-ViablePythonExecutable
         
         if ($pythonPath) {
-            Write-ColorOutput "Python trouvé : $pythonPath" "Green"
-            # Utilisation de [hashtable] explicite
+            Write-ColorOutput "Python trouve : $pythonPath" "Green"
+            $pythonPathForward = $pythonPath.Replace("\", "/")
             [hashtable]$markitdownConfig = @{
-                command = $pythonPath
-                args = @("-m", "markitdown_mcp")
+                command       = "cmd"
+                args          = @("/c", $pythonPathForward, "-m", "markitdown_mcp")
                 transportType = "stdio"
-                disabled = $false
-                autoStart = $true
-                description = "MCP pour manipuler des fichiers Markdown."
-                autoApprove = @()
-                alwaysAllow = @("convert_to_markdown")
+                disabled      = $false
+                autoStart     = $true
+                description   = "Un MCP pour manipuler des fichiers Markdown."
+                env           = @{}
+                autoApprove   = @()
+                alwaysAllow   = @("convert_to_markdown")
             }
             $finalConfig.mcpServers['markitdown'] = $markitdownConfig
         } else {
-            Write-ColorOutput "AVERTISSEMENT: Aucun exécutable Python (python3, python, py) n'a été trouvé. Le MCP 'markitdown' sera désactivé." "Yellow"
-            # Optionnel: On peut ajouter une entrée désactivée pour informer l'utilisateur
-            # Utilisation de [hashtable] explicite
+            Write-ColorOutput "AVERTISSEMENT: Python introuvable. Le MCP 'markitdown' sera desactive." "Yellow"
             [hashtable]$markitdownDisabledConfig = @{
-                command = "echo"
-                args = @("Python not found, markitdown is disabled.")
+                command       = "cmd"
+                args          = @("/c", "echo", "Python not found, markitdown is disabled.")
                 transportType = "stdio"
-                disabled = $true
-                autoStart = $false
-                description = "MCP pour manipuler des fichiers Markdown (DÉSACTIVÉ - PYTHON INTROUVABLE)."
+                disabled      = $true
+                autoStart     = $true
+                description   = "Un MCP pour manipuler des fichiers Markdown."
+                env           = @{}
+                autoApprove   = @()
+                alwaysAllow   = @("convert_to_markdown")
             }
             $finalConfig.mcpServers['markitdown'] = $markitdownDisabledConfig
         }
+
+        # jupyter : desactive par defaut (necessite conda + environnement mcp-jupyter)
+        $jupyterCwd = ($rootDir.Path.Replace("\", "/") + "/mcps/internal/servers/jupyter-papermill-mcp-server")
+        [hashtable]$jupyterConfig = @{
+            command       = "conda"
+            args          = @("run", "-n", "mcp-jupyter", "--no-capture-output", "python", "-m", "papermill_mcp.main")
+            transportType = "stdio"
+            disabled      = $true
+            autoStart     = $true
+            description   = "Serveur MCP Python/Papermill pour operations Jupyter Notebook (environnement Conda isole mcp-jupyter)"
+            alwaysAllow   = @(
+                "read_notebook", "write_notebook", "create_notebook", "add_cell", "remove_cell", "update_cell",
+                "inspect_notebook", "manage_kernel", "execute_on_kernel", "execute_notebook",
+                "list_notebook_files", "get_notebook_info", "get_kernel_status", "cleanup_all_kernels",
+                "start_jupyter_server", "stop_jupyter_server", "manage_async_job", "list_kernels",
+                "system_info", "start_notebook_async", "execute_notebook_sync", "read_cells"
+            )
+            options       = @{ cwd = $jupyterCwd }
+        }
+        $finalConfig.mcpServers['jupyter'] = $jupyterConfig
 
         $jsonOutput = $finalConfig | ConvertTo-Json -Depth 10
         [System.IO.File]::WriteAllText($serversJsonPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
