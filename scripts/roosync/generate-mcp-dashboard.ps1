@@ -26,7 +26,7 @@ if (-not $env:ROOSYNC_SHARED_PATH -and $OutputDir) {
 }
 
 # Configuration
-$Machines = @("myia-ai-01", "myia-po-2023", "myia-po-2024", "myia-po-2026", "myia-web1")
+$Machines = @("myia-ai-01", "myia-po-2023", "myia-po-2024", "myia-po-2025", "myia-po-2026", "myia-web1")
 # Fichier fixe (plus de timestamp) - Issue #xxx Plan "Écuries d'Augias"
 $OutputFile = Join-Path $OutputDir "DASHBOARD.md"
 
