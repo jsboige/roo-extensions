@@ -15,7 +15,7 @@ param(
 
 # Auto-détection du chemin racine
 if (-not $BasePath) {
-    $BasePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path.TrimEnd('\', '/')
+    $BasePath = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..\")).Path.TrimEnd('\', '/')
 }
 
 $MachineName = $env:COMPUTERNAME.ToLower()
