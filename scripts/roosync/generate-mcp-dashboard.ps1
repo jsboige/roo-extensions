@@ -199,87 +199,89 @@ function Get-McpDiffs {
     }
 }
 
-# Traiter chaque machine
+# Pass 1: Collect results and build summary table
+$MachineResults = @{}
 foreach ($Machine in $Machines) {
     Write-Host "Traitement de $Machine..." -ForegroundColor Cyan
 
     if ($Machine -eq $Baseline) {
-        # Machine baseline
         $Dashboard += "`n| $Machine | ✅ Baseline | - |"
+        $MachineResults[$Machine] = @{ Type = "baseline" }
         Write-Host "  → Baseline (pas de comparaison)" -ForegroundColor Green
     } else {
-        # Vérifier l'inventaire
         $hasInventory = Test-InventoryExists -MachineId $Machine
 
         if (-not $hasInventory) {
-            # Inventaire manquant
             $Dashboard += "`n| $Machine | ❌ Inventaire manquant | Bootstrap requis |"
+            $MachineResults[$Machine] = @{ Type = "missing" }
             Write-Host "  → Inventaire manquant" -ForegroundColor Yellow
         } else {
-            # Comparer avec la baseline
             Write-Host "  → Comparaison avec $Baseline..." -ForegroundColor Yellow
             $diffResult = Get-McpDiffs -Source $Baseline -Target $Machine
 
             if ($diffResult.Success) {
                 $diffCount = $diffResult.McpDiffs
                 $Dashboard += "`n| $Machine | ✅ Disponible | $diffCount diffs |"
+                $MachineResults[$Machine] = @{ Type = "ok"; DiffResult = $diffResult; DiffCount = $diffCount }
                 Write-Host "  → $diffCount diffs MCP détectés" -ForegroundColor Green
-
-                # Ajouter les détails des diffs avec actions recommandées
-                if ($diffCount -gt 0) {
-                    $Dashboard += "`n`n### $Machine - $diffCount diffs vs $Baseline`n`n"
-                    $Dashboard += "| Élément | Type | Recommandation | Avant | Après |`n"
-                    $Dashboard += "|---------|------|----------------|-------|-------|`n"
-
-                    $mcpNames = @()
-                    foreach ($diff in $diffResult.Details) {
-                        # Extraire le nom du MCP depuis le path
-                        $mcpName = if ($diff.path -match 'mcpServers\.(.+)$') { $matches[1] } else { "unknown" }
-                        $diffType = if ($diff.type) { $diff.type } else { "unknown" }
-
-                        $action = switch ($diffType) {
-                            "removed" { "Installer depuis baseline" }
-                            "added" { "À évaluer (absent baseline)" }
-                            "modified" { "Aligner sur baseline" }
-                            default { "À vérifier" }
-                        }
-
-                        # Pour les éléments modified, extraire les valeurs avant/après
-                        $beforeValue = ""
-                        $afterValue = ""
-                        if ($diffType -eq "modified") {
-                            # Récupérer les configurations des MCPs pour afficher les différences
-                            $sourceMcp = $diffResult.SourceMcpDict[$mcpName]
-                            $targetMcp = $diffResult.TargetMcpDict[$mcpName]
-                            if ($sourceMcp -and $targetMcp) {
-                                $beforeValue = ($sourceMcp | ConvertTo-Json -Compress -Depth 3)
-                                $afterValue = ($targetMcp | ConvertTo-Json -Compress -Depth 3)
-                                # Tronquer si trop long
-                                if ($beforeValue.Length -gt 100) { $beforeValue = $beforeValue.Substring(0, 100) + "..." }
-                                if ($afterValue.Length -gt 100) { $afterValue = $afterValue.Substring(0, 100) + "..." }
-                            }
-                        }
-
-                        $Dashboard += "| ``$mcpName`` | $diffType | $action | ``$beforeValue`` | ``$afterValue`` |`n"
-                        if ($diffType -in @("removed", "modified")) {
-                            $mcpNames += "mcp:$mcpName"
-                        }
-                    }
-
-                    # Ajouter la commande prête à exécuter
-                    if ($mcpNames.Count -gt 0) {
-                        $targets = $mcpNames -join '", "'
-                        $Dashboard += "`n**Commande pour aligner sur baseline:**`n"
-                        $Dashboard += "``````powershell`n"
-                        $Dashboard += "roosync_apply_config({ targets: [""$targets""], machineId: ""$Baseline"" })`n"
-                        $Dashboard += "```````n"
-                    }
-                }
             } else {
                 $Dashboard += "`n| $Machine | ⚠️ Erreur comparaison | $($diffResult.Error) |"
+                $MachineResults[$Machine] = @{ Type = "error" }
                 Write-Host "  → Erreur: $($diffResult.Error)" -ForegroundColor Red
             }
         }
+    }
+}
+
+# Pass 2: Add detail sections for machines with diffs
+foreach ($Machine in $Machines) {
+    $result = $MachineResults[$Machine]
+    if ($result.Type -ne "ok" -or $result.DiffCount -eq 0) { continue }
+
+    $diffResult = $result.DiffResult
+    $diffCount = $result.DiffCount
+
+    $Dashboard += "`n`n### $Machine - $diffCount diffs vs $Baseline`n`n"
+    $Dashboard += "| Élément | Type | Recommandation | Avant | Après |`n"
+    $Dashboard += "|---------|------|----------------|-------|-------|`n"
+
+    $mcpNames = @()
+    foreach ($diff in $diffResult.Details) {
+        $mcpName = if ($diff.path -match 'mcpServers\.(.+)$') { $matches[1] } else { "unknown" }
+        $diffType = if ($diff.type) { $diff.type } else { "unknown" }
+
+        $action = switch ($diffType) {
+            "removed" { "Installer depuis baseline" }
+            "added" { "À évaluer (absent baseline)" }
+            "modified" { "Aligner sur baseline" }
+            default { "À vérifier" }
+        }
+
+        $beforeValue = ""
+        $afterValue = ""
+        if ($diffType -eq "modified") {
+            $sourceMcp = $diffResult.SourceMcpDict[$mcpName]
+            $targetMcp = $diffResult.TargetMcpDict[$mcpName]
+            if ($sourceMcp -and $targetMcp) {
+                $beforeValue = ($sourceMcp | ConvertTo-Json -Compress -Depth 3)
+                $afterValue = ($targetMcp | ConvertTo-Json -Compress -Depth 3)
+                if ($beforeValue.Length -gt 100) { $beforeValue = $beforeValue.Substring(0, 100) + "..." }
+                if ($afterValue.Length -gt 100) { $afterValue = $afterValue.Substring(0, 100) + "..." }
+            }
+        }
+
+        $Dashboard += "| ``$mcpName`` | $diffType | $action | ``$beforeValue`` | ``$afterValue`` |`n"
+        if ($diffType -in @("removed", "modified")) {
+            $mcpNames += "mcp:$mcpName"
+        }
+    }
+
+    if ($mcpNames.Count -gt 0) {
+        $targets = $mcpNames -join '", "'
+        $Dashboard += "`n**Commande pour aligner sur baseline:**`n"
+        $Dashboard += "``````powershell`n"
+        $Dashboard += "roosync_apply_config({ targets: [""$targets""], machineId: ""$Baseline"" })`n"
+        $Dashboard += "```````n"
     }
 }
 
