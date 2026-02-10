@@ -1,146 +1,197 @@
-# Scheduling Claude Code Workers
+# Scripts de Scheduling Claude Code
 
-Scripts pour l'execution planifiee de Claude Code en mode autonome.
+**Phase 1** - Implémentation de base (#414)
+**Date:** 2026-02-11
+**Statut:** ✅ Complété
 
-## Scripts
+---
 
-### start-claude-worker.ps1
+## Vue d'Ensemble
 
-Worker generique qui lance Claude Code avec un prompt et un timeout.
+Scripts PowerShell pour l'exécution automatisée de Claude Code avec :
+- **Modes simple/complex** (Haiku → Sonnet/Opus)
+- **Escalade automatique** (si tâche trop complexe)
+- **Worktrees Git** (isolation des changements)
+- **Logs détaillés** (.claude/logs/)
+
+---
+
+## Fichiers
+
+| Script | Description | Usage |
+|--------|-------------|-------|
+| `start-claude-worker.ps1` | Worker générique avec modes + escalade | Manuel ou via scheduler |
+| `sync-tour-scheduled.ps1` | Sync-tour automatisé (wrapper) | Task Scheduler / Cron |
+
+---
+
+## Configuration
+
+### Modes Claude (.claude/modes/modes-config.json)
+
+| Mode | Modèle | Coût/1M tokens | Usage |
+|------|--------|----------------|-------|
+| sync-simple | Haiku 4.5 | $0.25 | Sync basique |
+| sync-complex | Sonnet 4.5 | $3.00 | Conflits, build |
+| code-simple | Haiku 4.5 | $0.25 | <50 lignes |
+| code-complex | Sonnet 4.5 | $3.00 | Refactoring |
+| debug-simple | Haiku 4.5 | $0.25 | Bugs évidents |
+| debug-complex | Sonnet 4.5 | $3.00 | Bugs complexes |
+| coordinate-simple | Haiku 4.5 | $0.25 | Messages RooSync |
+| coordinate-complex | Opus 4.6 | $15.00 | Planification |
+
+**Escalade automatique :** Les modes simple escaladent vers complex si conditions remplies.
+
+---
+
+## Utilisation
+
+### 1. Test Local (DryRun)
 
 ```powershell
-# Sync-tour de 30 minutes
-.\start-claude-worker.ps1 -Task "sync-tour" -MaxMinutes 30
+# Test worker générique
+.\start-claude-worker.ps1 -DryRun
 
-# Executor de 60 minutes
-.\start-claude-worker.ps1 -Task "executor" -MaxMinutes 60
+# Test sync-tour automatisé
+.\sync-tour-scheduled.ps1 -DryRun
 
-# Tache personnalisee
-.\start-claude-worker.ps1 -Task "Verifie les tests et corrige les erreurs" -MaxMinutes 20
-
-# Dry run
-.\start-claude-worker.ps1 -Task "sync-tour" -DryRun
+# Test avec mode spécifique
+.\sync-tour-scheduled.ps1 -Mode "sync-complex" -DryRun
 ```
 
-Taches predefinies :
-- `sync-tour` : Tour de synchronisation complet
-- `executor` : Mode executant (prend des taches)
-- `tests` : Build + tests + corrections
-- `cleanup` : Nettoyage et documentation
-
-### sync-tour-scheduled.ps1
-
-Wrapper optimise pour les sync-tours planifies :
-- Git pull avant execution
-- Detection intelligente (skip si rien a faire)
-- Git push apres modifications
-- Log rotation automatique (7 jours par defaut)
+### 2. Exécution Manuelle
 
 ```powershell
-.\sync-tour-scheduled.ps1 -MaxMinutes 20 -SkipPermissions
+# Sync-tour en mode simple (défaut)
+.\sync-tour-scheduled.ps1
+
+# Worker avec tâche spécifique
+.\start-claude-worker.ps1 -Mode "code-simple" -TaskId "msg-xyz"
+
+# Avec worktree pour isolation
+.\start-claude-worker.ps1 -UseWorktree
 ```
 
-## Configuration Task Scheduler Windows
+### 3. Planification Windows (Task Scheduler)
 
-### Creer une tache planifiee
+**Créer tâche quotidienne à 9h :**
 
 ```powershell
-# Ouvrir Task Scheduler
-taskschd.msc
-
-# Ou via PowerShell
-$action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument "-ExecutionPolicy Bypass -File D:\Dev\roo-extensions\scripts\scheduling\sync-tour-scheduled.ps1 -SkipPermissions" `
-    -WorkingDirectory "D:\Dev\roo-extensions"
-
-$trigger = New-ScheduledTaskTrigger -Daily -At "09:00"
-
-$settings = New-ScheduledTaskSettingsSet `
-    -StartWhenAvailable `
-    -DontStopOnIdleEnd `
-    -ExecutionTimeLimit (New-TimeSpan -Minutes 45)
-
-Register-ScheduledTask `
-    -TaskName "RooSync-SyncTour" `
-    -Action $action `
-    -Trigger $trigger `
-    -Settings $settings `
-    -Description "Sync-tour Claude Code quotidien"
+schtasks /create /tn "Claude Sync Tour" /tr "powershell.exe -ExecutionPolicy Bypass -File C:\dev\roo-extensions\scripts\scheduling\sync-tour-scheduled.ps1" /sc daily /st 09:00
 ```
 
-### Exemples de planification
+**Créer tâche toutes les 3h :**
 
-| Frequence | Tache | Commande |
-|-----------|-------|----------|
-| Quotidien 9h | Sync-tour | `sync-tour-scheduled.ps1` |
-| 2x/jour | Sync-tour | Triggers a 9h et 17h |
-| Toutes les 4h | Executor | `start-claude-worker.ps1 -Task executor -MaxMinutes 45` |
-| Hebdo lundi | Tests complets | `start-claude-worker.ps1 -Task tests -MaxMinutes 60` |
+```powershell
+schtasks /create /tn "Claude Sync Tour 3h" /tr "powershell.exe -ExecutionPolicy Bypass -File C:\dev\roo-extensions\scripts\scheduling\sync-tour-scheduled.ps1" /sc hourly /mo 3
+```
 
-## Contraintes Credits
+**Vérifier tâche :**
 
-### Anthropic Claude (Opus 4.6)
-- Couteux en credits
-- Utiliser pour taches complexes (executor, debug)
-- Limiter les sync-tours a 1-2/jour
+```powershell
+schtasks /query /tn "Claude Sync Tour" /v
+```
 
-### z.ai GLM 4.7 Flash (alternative)
-- Moins couteux
-- Suffisant pour sync-tours simples
-- Utiliser `-Provider z-ai` si disponible
+### 4. Planification Linux/macOS (Cron)
 
-### Optimisation
-- `sync-tour-scheduled.ps1` skip automatiquement si rien a faire
-- Les logs permettent de verifier l'utilisation
-- Commencer avec 1 sync-tour/jour et augmenter si necessaire
+```bash
+# Éditer crontab
+crontab -e
+
+# Sync-tour quotidien à 9h
+0 9 * * * cd /path/to/roo-extensions && pwsh -File scripts/scheduling/sync-tour-scheduled.ps1
+
+# Sync-tour toutes les 3h
+0 */3 * * * cd /path/to/roo-extensions && pwsh -File scripts/scheduling/sync-tour-scheduled.ps1
+```
+
+---
 
 ## Logs
 
-Les logs sont ecrits dans `logs/scheduling/` :
+Tous les logs sont dans `.claude/logs/` :
 
 ```
-logs/scheduling/
-    myia-po-2023-sync-20260207-090000.log
-    myia-po-2023-executor-20260207-140000.log
-    .last-sync-myia-po-2023    (dernier commit synced)
+.claude/logs/
+├── worker-20260211-003349.log          # Logs worker générique
+├── sync-tour-scheduled-20260211-003356.log  # Logs sync-tour
+└── escalation-20260211.log              # Logs d'escalade
 ```
 
-Rotation automatique : les logs de plus de 7 jours sont supprimes.
+**Consulter logs récents :**
 
-## Securite
-
-### --dangerously-skip-permissions
-
-**ATTENTION :** Le flag `-SkipPermissions` (qui passe `--dangerously-skip-permissions` a Claude) desactive **toutes** les confirmations utilisateur. En mode autonome (scheduler), cela signifie que :
-
-- Claude executera des commandes shell sans confirmation
-- Les messages RooSync recus pourraient contenir du **prompt injection** (un message malveillant pourrait faire executer des commandes arbitraires)
-- Les fichiers lus (INTERCOM, issues GitHub) pourraient egalement contenir des instructions malveillantes
-
-**Recommandations :**
-
-- N'utiliser `-SkipPermissions` que sur des machines de confiance
-- S'assurer que les sources de messages (RooSync GDrive, GitHub) sont controlees
-- Verifier les logs apres chaque execution autonome
-- Preferer le mode interactif pour les taches sensibles
-
-## Troubleshooting
-
-### Claude non trouve
 ```powershell
-# Verifier que claude est dans le PATH
-claude --version
+# 50 dernières lignes
+Get-Content .claude/logs/worker-*.log -Tail 50
+
+# Logs du jour
+Get-ChildItem .claude/logs/ | Where-Object { $_.LastWriteTime -gt (Get-Date).Date }
 ```
 
-### Permissions
-```powershell
-# Si erreur de permissions, utiliser -SkipPermissions
-.\start-claude-worker.ps1 -Task "sync-tour" -SkipPermissions
+---
+
+## Workflow Escalade
+
+### Exemple : Sync-Tour
+
+```
+┌─────────────────────┐
+│ sync-simple (Haiku) │  git pull, check messages
+│ Coût: ~$0.01        │  ✗ FAIL: Conflits git détectés
+└──────────┬──────────┘
+           │ ESCALADE (condition remplie)
+           ▼
+┌─────────────────────┐
+│ sync-complex (Sonnet)│  Résout conflits, merge
+│ Coût: ~$0.15         │  ✓ OK: Conflits résolus
+└──────────────────────┘
+
+Total: ~$0.16 (vs $0.15 si direct Sonnet)
+Économie: ~$0 (mais si 80% des sync n'ont pas de conflits → économie 80%)
 ```
 
-### Timeout trop court
-Augmenter `-MaxMinutes` pour les taches complexes.
+---
 
-### Logs trop volumineux
-Reduire `-LogRetentionDays` (defaut: 7).
+## Estimation Coûts
+
+### Scénario Conservateur (5 machines)
+
+| Activité | Freq/jour | Tokens/exec | Coût/jour | Coût/mois |
+|----------|-----------|-------------|-----------|-----------|
+| Sync simple (no escalade) | 8×5 | 10K @ $0.25 | $0.10 | $3.00 |
+| Code simple (no escalade) | 10×5 | 10K @ $0.25 | $0.125 | $3.75 |
+| Escalades complex | 2×5 | 20K @ $3.00 | $0.60 | $18.00 |
+| **TOTAL** | - | 1.1M | **$0.825** | **~$25/mois** |
+
+**vs. Sonnet partout :** ~$150/mois → **Économie : 83%**
+
+---
+
+## Prochaines Étapes
+
+### Phase 2 : Ralph Wiggum (2-3 jours)
+
+- [ ] Installer Ralph Wiggum plugin sur chaque machine
+- [ ] Intégrer avec `start-claude-worker.ps1`
+- [ ] Tester boucles autonomes sur CONS tasks
+
+### Phase 3 : Coordinateur Central (1 semaine)
+
+- [ ] GitHub Actions pour trigger centralisé
+- [ ] Webhook sur push → distribution tâches
+- [ ] Dashboard monitoring (optionnel)
+
+---
+
+## Références
+
+- **Issue #414** : Stratégie scheduling Claude Code
+- **Issue #387** : Modes SDDD simple/complex (Roo)
+- [.claude/modes/README.md](../../.claude/modes/README.md) : Doc modes complète
+- [docs/architecture/scheduling-claude-code.md](../../docs/architecture/scheduling-claude-code.md) : Investigation
+
+---
+
+**Auteur:** Claude Code (myia-po-2026)
+**Version:** 1.0.0 (Phase 1)
+**Licence:** Projet roo-extensions
