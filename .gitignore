@@ -118,6 +118,9 @@ debug_trace.txt
 .mcp.json
 !.mcp.json.template
 
+# Claude Code worktrees (machine-specific, created by Claude Code Desktop)
+.claude/worktrees/
+
 # Claude Code temporary working directories
 tmpclaude-*/
 
