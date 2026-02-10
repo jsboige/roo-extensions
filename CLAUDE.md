@@ -432,34 +432,194 @@ Titre: [CLAUDE-MACHINE] Titre de la tâche
 Labels: claude-code, priority-X
 ```
 
-### 4. Tâches Planifiées Roo (Scheduler)
+### 4. Tâches Planifiées Roo (Scheduler) - DOCUMENTATION COMPLÈTE
 
-**Objectif :** Évaluation et amélioration du scheduler Roo déployé sur toutes les machines
+**Objectif :** Système de planification automatique pour Roo avec exécution périodique de tâches de maintenance
 
-**Chemin des tâches exécutées :** `C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks`
+#### Architecture du Système
+
+**Composants :**
+
+1. **Extension Roo Scheduler** (`kylehoskins.roo-scheduler`)
+   - Extension VS Code qui lit `.roo/schedules.json`
+   - Exécute les tâches selon l'intervalle configuré
+   - Enregistre les traces dans `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks`
+
+2. **Configuration Scheduler**
+   - **Template** : `.roo/schedules.template.json` (source générique)
+   - **Déployé** : `.roo/schedules.json` (personnalisé par machine)
+   - **Format** : Roo Scheduler natif (scheduleType, timeInterval, taskInstructions, etc.)
+
+3. **Modes Roo** (orchestrateurs)
+   - **Source** : `roo-config/modes/modes-config.json` (données structurées)
+   - **Template** : `roo-config/modes/templates/commons/mode-instructions.md` (instructions)
+   - **Généré** : `roo-config/modes/generated/simple-complex.roomodes` (10 modes)
+   - **Déployé** : `.roomodes` (copié à la racine du workspace)
+
+#### Workflow de Génération et Déploiement
+
+##### 1. Modes Roo (10 modes : 5 familles × 2 niveaux)
+
+**Génération automatique :**
+
+```bash
+# Dans roo-extensions/
+node roo-config/scripts/generate-modes.js
+```
+
+**Ce script :**
+- Lit `roo-config/modes/modes-config.json` (5 familles : code, debug, architect, ask, orchestrator)
+- Lit `roo-config/modes/templates/commons/mode-instructions.md` (template avec {{VAR}})
+- Génère `roo-config/modes/generated/simple-complex.roomodes` (10 modes)
+- Applique le template pour chaque famille×niveau avec variables :
+  - `{{FAMILY}}`, `{{LEVEL}}`, `{{ESCALATION_CRITERIA}}`, `{{ADDITIONAL_INSTRUCTIONS}}`, etc.
+  - Conditions `{{#if NO_COMMAND}}`, `{{#if NO_EDIT}}` pour restrictions
+- Taille : ~30 KB, 10 modes JSON
+
+**Déploiement manuel :**
+
+```powershell
+# Copier vers .roomodes
+Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
+```
+
+**⚠️ IMPORTANT :** Les modes NE doivent PAS être modifiés à la main dans `.roomodes`. Toute modification doit être faite dans `modes-config.json` ou le template, puis régénérée.
+
+**Améliorations récentes (commit 07706f0, 2026-02-10) :**
+- Ajout section `additionalInstructions` pour orchestrateurs (lignes 111-132 de modes-config.json)
+- Instructions SDDD : délégation via `new_task`, prompts complets (grounding + tâche + validation + résumé)
+- **Correctif critique** : "NE JAMAIS faire le travail toi-même : TOUJOURS déléguer"
+
+##### 2. Scheduler (Configuration)
+
+**Déploiement automatisé :**
+
+```powershell
+# Dans roo-extensions/
+.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy
+```
+
+**Ce script (`deploy-scheduler.ps1`) :**
+- Lit `.roo/schedules.template.json`
+- Remplace `${MACHINE_NAME}` par `$env:COMPUTERNAME.ToLower()`
+- Remplace `TEMPLATE_ID` par timestamp unique `[DateTimeOffset]::Now.ToUnixTimeMilliseconds()`
+- Supprime `_template_note` de chaque schedule
+- Sauvegarde en UTF-8 **sans BOM** dans `.roo/schedules.json` (fix commit a4c2178)
+- VS Code Roo Scheduler charge automatiquement la nouvelle config
+
+**Corrections récentes (commits 195af59 + a4c2178, 2026-02-10) :**
+- ✅ Fix UTF-8 sans BOM (BOM casse le parsing JSON de Roo Scheduler)
+- ✅ Fix `_template_note` removal (itère maintenant sur schedules, pas root)
+- ✅ Fix `enabled` → `active` (3 occurrences)
+- ✅ Fix vérification extension (remplace obsolete orchestration-engine.ps1)
+
+**Paramètres de production :**
+- **Intervalle** : 180 minutes (3h) entre chaque exécution
+- **Staggering** : startMinute différent par machine (éviter surcharge LLM simultanée)
+  - myia-ai-01: 00, myia-po-2023: 30, myia-po-2024: 00, myia-po-2025: 30, myia-po-2026: 00, myia-web1: 30
+- **Mode** : `orchestrator-simple` (délègue aux modes `-simple` via `new_task`)
+
+**Commandes utiles :**
+
+```powershell
+# Désactiver le scheduler
+.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action disable
+
+# Vérifier le statut
+.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action status
+```
+
+#### Workflow d'une Exécution Scheduler
+
+**Template actuel (après corrections 2026-02-10) :**
+
+1. **Étape 1** : Lire l'INTERCOM local (`.claude/local/INTERCOM-${MACHINE_NAME}.md`)
+   - Chercher messages [SCHEDULED], [TASK], [URGENT] de Claude Code
+
+2. **Étape 2** : Vérifier l'état du workspace
+   - `git status` : changements non commités ?
+   - Si dirty : NE PAS commiter, signaler dans rapport
+
+3. **Étape 3** : Exécuter les tâches
+   - **DÉLÉGUER via `new_task`** aux modes `-simple` ou `-complex`
+   - **NE JAMAIS faire le travail soi-même**
+   - Si complexe : escalader vers `orchestrator-complex`
+
+4. **Étape 4** : Rapporter dans l'INTERCOM LOCAL
+   - **Utiliser `write_file` (ou `edit_file`)** pour écrire dans `.claude/local/INTERCOM-${MACHINE_NAME}.md`
+   - **NE PAS utiliser `roosync_send`** (c'est pour inter-machines, pas local)
+   - Format : `## [{DATE}] roo -> claude-code [DONE]`
+
+5. **Étape 5** : Ne PAS commiter
+   - Claude Code valide le travail lors du prochain tour
+   - Commits sont responsabilité de Claude Code
+
+6. **Étape 6** : Maintenance INTERCOM (si >1000 lignes)
+   - Condenser 600 premières lignes → ~100 lignes (synthèse)
+   - Garder 400 dernières lignes intactes
+   - Résultat : ~500 lignes
+
+#### Traces d'Exécution
+
+**Chemin :** `C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\{TASK_ID}`
 
 **Fichiers par tâche :**
-
-- `api_conversation_history.json` - Historique complet de la conversation
-- `task_metadata.json` - Métadonnées de la tâche
-- `ui_messages.json` - Messages UI (format condensé)
+- `api_conversation_history.json` - Historique complet (requêtes/réponses API)
+- `task_metadata.json` - Métadonnées (createdAt, lastActivity, messageCount, actionCount)
+- `ui_messages.json` - Messages UI condensés (rapide à lire)
 
 **Vérification régulière (Issue #447) :**
+- Consulter traces après chaque run (~3h)
+- Analyser problèmes de délégation (orchestrateur fait au lieu de déléguer)
+- Identifier erreurs (utilisation roosync_send au lieu de write_file, outils inexistants)
+- Reporter anomalies dans INTERCOM ou RooSync
 
-- Consulter les traces d'exécution après chaque run du scheduler (~3h)
-- Analyser les problèmes de délégation (orchestrateur qui essaie de faire au lieu de déléguer)
-- Mettre à jour les règles/modes si nécessaire
-- Reporter les anomalies dans INTERCOM ou RooSync
+#### Workflow d'Amélioration du Système
 
-**Workflow d'amélioration :**
+**1. Identifier le problème**
+   - Lire traces d'exécution (`ui_messages.json` ou `api_conversation_history.json`)
+   - Identifier pattern d'erreur (ex: demande utilisateur au lieu de `new_task`)
 
-1. Lire les dernières tâches exécutées
-2. Identifier les patterns d'erreur (ex: demande à l'utilisateur au lieu de `new_task`)
-3. Modifier les sources (`roo-config/modes/modes-config.json`)
-4. Régénérer `.roomodes` avec `node roo-config/scripts/generate-modes.js`
-5. Déployer sur toutes les machines
+**2. Corriger à la source**
 
-**Référence :** Voir [deploy-scheduler.ps1](roo-config/scheduler/scripts/install/deploy-scheduler.ps1) pour le déploiement
+   **Pour instructions orchestrateur :**
+   - Modifier `roo-config/modes/modes-config.json` (section `additionalInstructions`)
+   - Régénérer : `node roo-config/scripts/generate-modes.js`
+   - Copier : `Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes`
+
+   **Pour workflow scheduler :**
+   - Modifier `.roo/schedules.template.json` (source unique)
+   - Redéployer : `.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy`
+
+**3. Tester localement**
+   - Attendre prochaine exécution du scheduler (vérifier `nextExecutionTime` dans `.roo/schedules.json`)
+   - Ou relancer manuellement via Roo extension
+
+**4. Déployer sur toutes les machines**
+   - Commit + push les changements (`modes-config.json` ou `schedules.template.json`)
+   - Chaque machine pull + redéploie avec scripts
+
+#### Historique des Corrections Importantes
+
+| Date | Commit | Correction |
+|------|--------|-----------|
+| 2026-02-10 | 07706f0 | Ajout instructions SDDD orchestrateurs (délégation `new_task`) |
+| 2026-02-10 | 195af59 | Fix 4 bugs deploy-scheduler.ps1 (_template_note, enabled→active, etc.) |
+| 2026-02-10 | a4c2178 | Fix UTF-8 sans BOM (parsing JSON Roo Scheduler) |
+| 2026-02-10 | **LOCAL** | Fix Étape 4 : utiliser write_file au lieu de roosync_send |
+| 2026-02-09 | 1f6806f | Ajout Étape 6 maintenance INTERCOM (compaction >1000 lignes) |
+| 2026-02-09 | 6933a2f | Réécriture template format Roo Scheduler natif + Étape 6 |
+
+#### Fichiers Sources (Ne Jamais Modifier Manuellement les Cibles)
+
+| Source (à modifier) | Générateur/Déployeur | Cible (généré) |
+|---------------------|----------------------|----------------|
+| `roo-config/modes/modes-config.json` | `roo-config/scripts/generate-modes.js` | `roo-config/modes/generated/simple-complex.roomodes` |
+| `roo-config/modes/templates/commons/mode-instructions.md` | (idem) | (idem) |
+| `roo-config/modes/generated/simple-complex.roomodes` | Copie manuelle | `.roomodes` |
+| `.roo/schedules.template.json` | `roo-config/scheduler/scripts/install/deploy-scheduler.ps1` | `.roo/schedules.json` |
+
+**⚠️ RÈGLE ABSOLUE :** Ne JAMAIS modifier directement `.roomodes` ou `.roo/schedules.json`. Toujours modifier les sources et régénérer.
 
 ---
 
