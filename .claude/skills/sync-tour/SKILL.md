@@ -1,34 +1,20 @@
 ---
 name: sync-tour
 description: Tour de synchronisation complet multi-canal et multi-étapes. Utilise ce skill quand l'utilisateur demande un "tour de sync", veut "faire le point", ou demande l'état de la coordination. Exécute toutes les phases de synchronisation, validation, et planification.
-allowed-tools:
-  - Read
-  - Grep
-  - Glob
-  - Bash
-  - Edit
-  - Write
-  - mcp__roo-state-manager__roosync_read_inbox
-  - mcp__roo-state-manager__roosync_get_message
-  - mcp__roo-state-manager__roosync_send_message
-  - mcp__roo-state-manager__roosync_reply_message
-  - mcp__roo-state-manager__roosync_mark_message_read
-  - mcp__roo-state-manager__roosync_archive_message
-  - mcp__roo-state-manager__roosync_get_status
-  - mcp__roo-state-manager__roosync_send
-  - mcp__roo-state-manager__roosync_read
-  - mcp__roo-state-manager__roosync_manage
-  - mcp__github-projects-mcp__get_project
-  - mcp__github-projects-mcp__get_project_items
-  - mcp__github-projects-mcp__update_project_item_field
-  - mcp__github-projects-mcp__list_repository_issues
-  - mcp__github-projects-mcp__get_repository_issue
-  - mcp__github-projects-mcp__create_issue
 ---
 
 # Tour de Synchronisation Complet
 
 Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 + 7 phases principales).
+
+### Skills utilises
+
+Ce skill s'appuie sur 3 skills reutilisables :
+- **`git-sync`** (Phase 2) : Pull conservatif, submodules, resolution conflits
+- **`validate`** (Phase 3) : Build TypeScript + tests unitaires
+- **`github-status`** (Phase 4) : Etat Project #67 via `gh` CLI
+
+Ces skills peuvent aussi etre invoques independamment en dehors du sync-tour.
 
 ---
 
@@ -94,29 +80,15 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 
 ## Phase 2 : Synchronisation Git
 
-**Agent :** `git-sync` (ou gestion directe si conflits)
+**Skill :** `git-sync` (voir `.claude/skills/git-sync/SKILL.md`)
 
 ### Actions
-1. `git fetch origin` - récupérer les changements distants
-2. Analyser les commits entrants (`git log HEAD..origin/main`)
-3. `git pull --no-rebase origin main` - merge conservatif
-4. **Si conflits détectés :**
-   - Lister fichiers en conflit (`git status`)
-   - Pour chaque fichier :
-     - Lire avec marqueurs `<<<<<<<`, `=======`, `>>>>>>>`
-     - Analyser les deux versions
-     - Résoudre (garder version récente/complète ou combiner)
-     - `Edit` pour supprimer marqueurs et sauvegarder
-   - `git add` fichiers résolus
-   - `git commit` (message merge)
-5. `git submodule update --init --recursive`
-6. **Si submodule en conflit ou divergent :**
-   - Vérifier modifications locales (`cd mcps/internal && git status`)
-   - Si modifs importantes : `git commit -m "wip"`
-   - Sinon : `git checkout -- .` (abandon)
-   - `git pull origin main`
-   - Retour répertoire principal
-7. Vérifier l'état final (`git status`, `git log -1`)
+Suivre le workflow du skill `git-sync` :
+1. Fetch et analyse des commits entrants
+2. Pull conservatif (`--no-rebase`)
+3. Resolution de conflits si necessaire
+4. Submodule update
+5. Verification finale
 
 ### Output attendu
 ```
@@ -146,16 +118,14 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 
 ## Phase 3 : Validation Tests & Build
 
-**Agent :** `test-runner`
+**Skill :** `validate` (voir `.claude/skills/validate/SKILL.md`)
 
 ### Actions
-1. Lancer le build TypeScript
-2. Si erreurs de build :
-   - Lister les erreurs
-   - Corriger les erreurs simples (imports, typos)
-   - Relancer le build
-3. Lancer les tests unitaires
-4. Reporter les résultats
+Suivre le workflow du skill `validate` :
+1. Build TypeScript (check only)
+2. Correction erreurs simples si necessaire
+3. Tests unitaires (`npx vitest run`)
+4. Rapport des resultats
 
 ### Output attendu
 ```
@@ -175,14 +145,13 @@ Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 +
 
 ## Phase 4 : État GitHub Project & Issues
 
-**Agent :** `github-tracker`
+**Skill :** `github-status` (voir `.claude/skills/github-status/SKILL.md`)
 
 ### Actions
-1. Récupérer les items du Project #67
-2. Compter par statut (Todo, In Progress, Done)
-3. Lister les issues récentes
-4. Vérifier les commentaires des issues mentionnées dans les messages RooSync
-5. Identifier les incohérences (tâche annoncée "Done" mais pas marquée dans GitHub)
+Suivre le workflow du skill `github-status` :
+1. Progression globale du Project #67 (via `gh` CLI)
+2. Issues recentes ouvertes
+3. Detection d'incoherences (Done annonce mais pas marque)
 
 ### Output attendu
 ```
