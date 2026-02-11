@@ -428,7 +428,7 @@ Merci de tester le module X.
 
 **Projet :** "RooSync Multi-Agent Tasks"
 - URL : https://github.com/users/jsboige/projects/67
-- 60 items en cours
+- ~141 items (vérifié 2026-02-11, augmente régulièrement)
 
 **Format des issues :**
 ```
@@ -1136,6 +1136,23 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ## 🔧 GitHub Projects - Accès via gh CLI
 
 **⚠️ MIGRATION #368 :** Le MCP github-projects-mcp est **DÉPRÉCIÉ**. Utiliser `gh` CLI.
+
+### Scopes requis
+
+**GitHub CLI doit avoir le scope `project` pour accéder aux Projects :**
+
+```bash
+# Vérifier scopes actuels
+gh auth status
+
+# Ajouter scope project (inclut read+write+admin)
+gh auth refresh --hostname github.com -s project
+```
+
+**Scopes recommandés :**
+
+- `repo`, `read:org`, `workflow`, `gist` (installés par défaut)
+- `project` ✅ **REQUIS** pour lire/modifier les Projects GitHub
 
 ### Projets
 
