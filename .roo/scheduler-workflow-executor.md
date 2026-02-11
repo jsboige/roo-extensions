@@ -7,15 +7,19 @@
 ## ROLE : EXECUTEUR
 
 Tu es un agent executant sur une machine du systeme multi-agent.
-Le coordinateur (myia-ai-01) te distribue des taches via RooSync.
+Claude Code (sur cette machine) te distribue des taches via l'INTERCOM local.
 Tes responsabilites :
-- Executer les taches locales (INTERCOM) et distantes (RooSync)
-- Rapporter ton avancement au coordinateur
-- Signaler les blocages et erreurs
+- Executer les taches demandees par Claude Code via INTERCOM
+- Rapporter les resultats dans l'INTERCOM local
+- Signaler les blocages et erreurs dans l'INTERCOM
+
+**REGLE ABSOLUE : Roo n'utilise JAMAIS RooSync.**
+RooSync est reserve exclusivement a la communication inter-Claude Code.
+Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`).
 
 ---
 
-## WORKFLOW EN 7 ETAPES
+## WORKFLOW EN 5 ETAPES
 
 ### Etape 1 : Lire l'INTERCOM local
 
@@ -28,31 +32,17 @@ Tes responsabilites :
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
-### Etape 2 : Verifier les messages RooSync du coordinateur
-
-Deleguer a `code-simple` via `new_task` :
-
-```
-Utilise l'outil roosync_read avec mode "inbox" et status "unread".
-Rapporte combien de messages non-lus il y a et de qui ils viennent.
-Pour chaque message, donne : expediteur, sujet, priorite.
-Cherche specifiquement les messages de myia-ai-01 (coordinateur) avec tag "dispatch" ou sujet "[TASK]".
-```
-
-- Si taches recues du coordinateur : les ajouter a la liste des taches a executer
-- Priorite : URGENT > HIGH > taches INTERCOM > MEDIUM > LOW
-
-### Etape 3 : Verifier l'etat du workspace
+### Etape 2 : Verifier l'etat du workspace
 
 - Deleguer a code-simple via `new_task` : "Executer `git status` et rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
 - Deleguer a code-simple via `new_task` : "Executer `git pull --rebase` pour mettre a jour le code"
 
-### Etape 4 : Executer les taches par delegation
+### Etape 3 : Executer les taches par delegation
 
 **REGLE ABSOLUE : NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via `new_task`.**
 
-Pour chaque tache trouvee (INTERCOM + RooSync) :
+Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 | Difficulte | Action |
 |-----------|--------|
@@ -68,27 +58,7 @@ Pour chaque tache trouvee (INTERCOM + RooSync) :
 3. Si erreur complexe (logique, architecture) : escalader vers le mode -complex correspondant
 4. Apres 2 echecs sur la meme sous-tache : arreter et rapporter dans le bilan
 
-### Etape 5 : Rapporter au coordinateur via RooSync
-
-Si des taches ont ete executees (ou si blocage), deleguer a `code-simple` via `new_task` :
-
-```
-Utilise l'outil roosync_send avec action "send" pour envoyer un rapport.
-Parametres :
-- to: "myia-ai-01"
-- subject: "[REPORT] Bilan planifie {MACHINE}"
-- body: "Taches executees: ...\nResultats: ...\nErreurs: ...\nBlocages: ..."
-- priority: "MEDIUM"
-- tags: ["scheduled", "report"]
-```
-
-**Quand rapporter au coordinateur :**
-- Toujours apres execution de taches dispatchees par le coordinateur
-- Si blocage sur une tache (erreur, dependance manquante)
-- Si decouverte d'un probleme affectant d'autres machines
-- Si workspace dirty avec des changements non prevus
-
-### Etape 6 : Rapporter dans l'INTERCOM LOCAL
+### Etape 4 : Rapporter dans l'INTERCOM LOCAL
 
 **PROTECTION DU CONTENU** - Pour ecrire dans l'INTERCOM, deleguer a `code-simple` avec ces instructions EXACTES :
 
@@ -100,26 +70,26 @@ Parametres :
    Ne supprime RIEN de l'ancien contenu.
 ```
 
-- NE PAS utiliser `roosync_send` (c'est pour inter-machines, pas local)
+**INTERDIT :**
+- NE PAS utiliser `roosync_send`, `roosync_read`, ou tout outil `roosync_*`
+- RooSync est EXCLUSIVEMENT reserve a Claude Code
 
 **Format du nouveau message :**
 
 ```markdown
 ## [{DATE}] roo -> claude-code [DONE]
 ### Bilan planifie - Executeur
-- Taches locales (INTERCOM) : ...
-- Taches coordinateur (RooSync) : ...
+- Taches locales executees : ...
 - Erreurs : ...
 - Git status : propre/dirty
 - Git pull : OK/erreur
-- Rapport envoye au coordinateur : oui/non
 - Difficulte : SIMPLE/MOYEN/COMPLEXE
 - Escalades effectuees : aucune / vers {mode}
 
 ---
 ```
 
-### Etape 7 : Maintenance INTERCOM (si >1000 lignes)
+### Etape 5 : Maintenance INTERCOM (si >1000 lignes)
 
 Deleguer a `code-simple` :
 
@@ -141,6 +111,7 @@ Si plus de 1000 lignes :
 4. Lire INTERCOM EN PREMIER (urgences possibles)
 5. Deleguer uniquement aux modes `-simple` ou `-complex` (jamais les natifs)
 6. Ne JAMAIS faire `git checkout` ou `git pull` dans le submodule `mcps/internal/`
+7. **NE JAMAIS utiliser les outils RooSync** (roosync_send, roosync_read, etc.)
 
 ---
 
@@ -161,7 +132,7 @@ Deleguer l'ecriture INTERCOM avec le message :
 
 ```markdown
 ## [{DATE}] roo -> claude-code [IDLE]
-Aucune tache planifiee. Aucune tache du coordinateur. Workspace propre. En attente.
+Aucune tache planifiee. Workspace propre. En attente.
 
 ---
 ```
