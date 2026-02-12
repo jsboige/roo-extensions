@@ -127,13 +127,53 @@ Si plus de 1000 lignes :
 
 ---
 
-## SI RIEN A FAIRE
+## SI RIEN DANS L'INTERCOM : CONSULTER GITHUB
 
-Deleguer l'ecriture INTERCOM avec le message :
+**Ne PAS rester inactif. Chercher du travail sur GitHub.**
+
+### Etape 3b : Chercher une tache sur GitHub
+
+Deleguer a `code-simple` via `new_task` :
+
+```
+Executer cette commande et retourner le resultat COMPLET :
+gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,body --jq '.[] | select(.body | test("Roo-Schedulable|roo-schedulable|## Execution-Ready|execution-ready"; "i")) | "\(.number)\t\(.title)"'
+
+Si la commande ne retourne rien, essayer aussi :
+gh issue list --repo jsboige/roo-extensions --state open --label roo-schedulable --limit 5 --json number,title
+```
+
+### Etape 3c : Executer la tache GitHub trouvee
+
+Si une issue schedulable est trouvee :
+
+1. Deleguer a `code-simple` : "Lire le body complet de l'issue avec `gh issue view {NUM} --repo jsboige/roo-extensions`"
+2. Analyser la spec : identifier les fichiers a modifier, le code a ecrire, la validation
+3. Deleguer l'execution :
+   - **Tache simple** (1-2 fichiers, code fourni) : `code-simple`
+   - **Tache moyenne** (3+ fichiers, investigation) : `code-complex`
+   - **Tache complexe** (architecture, refactoring) : escalader `orchestrator-complex`
+4. Apres execution : deleguer a `code-simple` pour commenter l'issue :
+   ```
+   gh issue comment {NUM} --repo jsboige/roo-extensions --body "Executed by Roo scheduler on {MACHINE}. Result: {PASS/FAIL}. Commit: {hash if applicable}."
+   ```
+5. Si la tache est completee, rapporter dans l'INTERCOM
+
+### SI VRAIMENT RIEN A FAIRE
+
+Si ni INTERCOM ni GitHub ne contiennent de tache :
+
+Deleguer a `code-simple` les taches de maintenance :
+1. `npm run build` dans `mcps/internal/servers/roo-state-manager` (verifier que le build passe)
+2. `npx vitest run` (verifier que les tests passent)
+3. Rapporter le resultat dans l'INTERCOM
 
 ```markdown
-## [{DATE}] roo -> claude-code [IDLE]
-Aucune tache planifiee. Workspace propre. En attente.
+## [{DATE}] roo -> claude-code [MAINTENANCE]
+Aucune tache assignee. Maintenance executee :
+- Build : OK/FAIL
+- Tests : X/Y pass
+- Workspace : propre/dirty
 
 ---
 ```
