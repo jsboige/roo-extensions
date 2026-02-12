@@ -18,9 +18,11 @@ configs/
 │       └── test-investigator.md
 ├── skills/                      # Skills generiques (-> ~/.claude/skills/)
 │   ├── validate/SKILL.md
-│   └── git-sync/SKILL.md
+│   ├── git-sync/SKILL.md
+│   └── debrief/SKILL.md
 └── commands/                    # Commands generiques (-> ~/.claude/commands/)
-    └── switch-provider.md
+    ├── switch-provider.md
+    └── debrief.md
 ```
 
 ## Deploiement
