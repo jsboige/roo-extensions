@@ -61,7 +61,8 @@ Updated via git commits. Each agent should read this at session start.
 | GitHub Project #67 | 159 items, ~128 Done (83.7%) |
 | Skills | 4 (validate, git-sync, github-status, sync-tour) |
 | Scheduler | 3h interval, 6 machines staggered |
-| Heartbeat | 3/6 machines (ai-01, po-2024, po-2025) |
+| Heartbeat | 1/6 online (po-2025), 3/6 not registered, 2/6 offline (as of 2026-02-12 11:00) |
+| Machine Registry | 6 machines (case-sensitive duplicate fixed 2026-02-12) |
 | MCP Servers | roo-state-manager (TS) + sk-agent (Python, NEW) |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
@@ -102,8 +103,23 @@ Updated via git commits. Each agent should read this at session start.
 - Both repos push to `origin/main`
 
 ### INTERCOM is gitignored
+
 - `.claude/local/` is in .gitignore
 - Don't try to `git add` INTERCOM files
+
+### JSON BOM (UTF-8 Byte Order Mark)
+
+- Some JSON files on GDrive have UTF-8 BOM (0xFEFF)
+- Node.js `JSON.parse()` fails with "Unexpected token"
+- **Fix**: Strip BOM before parsing: `if (data.charCodeAt(0) === 0xFEFF) data = data.substring(1);`
+- Affected: `.machine-registry.json`, possibly others
+
+### PowerShell ConvertFrom-Json case-insensitive keys
+
+- PowerShell treats JSON keys as case-insensitive
+- `{"MyIA-Web1": {...}, "myia-web1": {...}}` triggers "duplicate keys" error
+- **Fix**: Use text manipulation (regex) or Node.js for case-sensitive JSON
+- Example: `fix-machine-registry-duplicate.js` (Node.js) vs `.ps1` (text regex)
 
 ### PowerShell 5.1 Join-Path (2 args only)
 
@@ -169,7 +185,7 @@ Updated via git commits. Each agent should read this at session start.
 | #453 | Qdrant task indexation | MEDIUM |
 | #458 | E2E validation post-CONS-#443 | HIGH |
 | #459 | Scheduler deployment remaining machines | HIGH |
-| #460 | Dashboard + heartbeat automation | HIGH |
+| #460 | Dashboard + heartbeat automation (1/5 fixed, procedures created) | HIGH |
 | #461 | Worktree integration | MEDIUM |
 | #462 | Autonomy roadmap | MEDIUM |
 | #463 | Cross-workspace template | LOW |
