@@ -42,11 +42,11 @@ Les informations s'accumulent dans des fichiers qui ne sont pas toujours au bon 
 
 ### Phase 1 : Inventaire
 
-Collecter TOUS les fichiers de memoire/regles dans le workspace courant ET les niveaux utilisateur.
+Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niveaux utilisateur, ET tous les autres workspaces de cette machine.
 
 **Actions :**
 
-1. **Claude Code - Workspace :**
+1. **Claude Code - Workspace courant :**
    ```
    Glob: {workspace}/CLAUDE.md
    Glob: {workspace}/.claude/rules/*.md
@@ -54,16 +54,21 @@ Collecter TOUS les fichiers de memoire/regles dans le workspace courant ET les n
    Glob: {workspace}/.claude/agents/**/*.md
    Glob: {workspace}/.claude/skills/*/SKILL.md
    Glob: {workspace}/.claude/commands/*.md
+   Glob: {workspace}/.claude/configs/**/*.md
    ```
 
 2. **Claude Code - User level :**
    ```
    Read: ~/.claude/CLAUDE.md (peut ne pas exister)
+   Read: ~/.claude/settings.json (permissions, MCPs)
+   Glob: ~/.claude/agents/**/*.md (agents globaux deployes)
+   Glob: ~/.claude/skills/*/SKILL.md (skills globaux deployes)
+   Glob: ~/.claude/commands/*.md (commands globaux deployes)
    Glob: ~/.claude/projects/*/memory/MEMORY.md
    Glob: ~/.claude/projects/*/memory/*.md
    ```
 
-3. **Roo Code :**
+3. **Roo Code - Workspace courant :**
    ```
    Glob: {workspace}/.roo/rules/*.md
    Read: {workspace}/.roomodes
@@ -71,11 +76,53 @@ Collecter TOUS les fichiers de memoire/regles dans le workspace courant ET les n
    Read: roo-config/settings/settings.json (si existe)
    ```
 
-4. **Autres workspaces sur cette machine** (optionnel, si demande) :
+4. **Decouverte des autres workspaces (SCAN COMPLET) :**
+
+   **4a. Decoder les slugs de projets Claude :**
+   ```bash
+   # Lister tous les projets connus
+   ls ~/.claude/projects/
+   # Chaque dossier est un slug : d--roo-extensions → D:\roo-extensions
+   # Decodage : remplacer '--' par ':/' (racine) puis '-' par '/' ou '\' (separateur)
    ```
-   # Detecter les workspaces connus via les projets Claude
-   Glob: ~/.claude/projects/*/memory/MEMORY.md
-   # Pour chaque projet trouve, lire son CLAUDE.md et ses rules
+
+   **4b. Pour chaque workspace decouvert, scanner :**
+   ```
+   # Memoire privee de ce workspace (dans ~/.claude/projects/{slug}/)
+   Read: ~/.claude/projects/{slug}/memory/MEMORY.md
+   Glob: ~/.claude/projects/{slug}/memory/*.md
+   Read: ~/.claude/projects/{slug}/settings.json (permissions locales)
+
+   # Fichiers locaux du workspace (dans le dossier workspace lui-meme)
+   Read: {workspace_path}/CLAUDE.md (si existe)
+   Glob: {workspace_path}/.claude/rules/*.md
+   Glob: {workspace_path}/.claude/memory/*.md
+   Glob: {workspace_path}/.claude/agents/**/*.md
+   Glob: {workspace_path}/.claude/skills/*/SKILL.md
+   Glob: {workspace_path}/.claude/commands/*.md
+   Glob: {workspace_path}/.roo/rules/*.md (si Roo present)
+   ```
+
+   **4c. Decoder un slug de projet :**
+
+   Le slug encode le chemin absolu du workspace. Regles de decodage :
+   - Premiere lettre + `--` = lettre de lecteur + `:\` (Windows). Ex: `d--` → `D:\`
+   - `-` simple = separateur de chemin `\`. Ex: `roo-extensions` → `roo-extensions` (pas de sous-dossier)
+   - Quand ambiguite (tiret dans nom vs separateur) : verifier l'existence du chemin
+
+   Exemples courants :
+   | Slug | Chemin |
+   |------|--------|
+   | `d--roo-extensions` | `D:\roo-extensions` |
+   | `d--Open-WebUI-myia-open-webui` | `D:\Open-WebUI\myia-open-webui` |
+   | `d--qdrant` | `D:\qdrant` |
+   | `d--vllm` | `D:\vllm` |
+   | `g--Mon-Drive-Maintenance` | `G:\Mon Drive\Maintenance` |
+
+   **Astuce :** Utiliser `Test-Path` pour valider les chemins ambigus :
+   ```powershell
+   # Tester si le chemin existe
+   Test-Path "D:\Open-WebUI\myia-open-webui"
    ```
 
 **Output :**
@@ -129,6 +176,64 @@ Pour chaque fichier, analyser le contenu et identifier :
 - Etat qui ne correspond plus a la realite (commits, issues fermees)
 - Sections "Current State" avec dates > 7 jours
 - Lessons learned qui sont maintenant dans les rules
+
+**2e. Contenu universel mal place (CRITIQUE) :**
+Pour chaque regle/lecon dans CLAUDE.md project, MEMORY.md, et PROJECT_MEMORY.md, poser la question :
+**"Est-ce que cette regle serait utile dans un AUTRE workspace ?"**
+
+Si oui → elle doit aller dans `~/.claude/CLAUDE.md` (user global) via le template `.claude/configs/user-global-claude.md`.
+
+Categories typiquement universelles :
+- Git workflow (pull strategy, commits, submodules, force push)
+- Tool discipline (Read before Edit, test commands, build verification)
+- Investigation methodology (code > docs, announce work)
+- Safety rules (backup, no secrets, verify before delete)
+- OS/platform gotchas (PowerShell BOM, line endings, paths)
+- Knowledge preservation (consolidation, memory hierarchy)
+- Terminology (definitions de l'utilisateur applicables partout)
+
+**2f. Agents, Skills et Commands cross-workspace (CRITIQUE) :**
+Pour chaque agent, skill et command du workspace :
+**"Est-ce generique (tout projet) ou specifique (ce projet uniquement) ?"**
+
+1. **Inventorier :**
+   ```
+   Glob: {workspace}/.claude/agents/**/*.md
+   Glob: {workspace}/.claude/skills/*/SKILL.md
+   Glob: {workspace}/.claude/commands/*.md
+   ```
+
+2. **Pour chaque element, verifier :**
+   - Contient-il des chemins hardcodes specifiques au projet ? (ex: `mcps/internal/servers/...`)
+   - Contient-il des noms de projets/repos specifiques ? (ex: `roo-extensions`, `jsboige`)
+   - La methodologie est-elle universelle ? (applicable a tout projet)
+
+3. **Classifier :**
+   | Type | Critere | Action |
+   |------|---------|--------|
+   | Generique pur | Aucune reference projet-specifique | → `.claude/configs/{type}s/` (template global) |
+   | Generalisable | Refs specifiques mais methodo universelle | → Creer version generique + override projet |
+   | Projet-specifique | Intrinsequement lie au projet | → Rester au niveau projet |
+
+4. **Pour les autres workspaces (scan systematique, pas optionnel) :**
+   - Decoder les slugs de projets via Phase 1, etape 4c
+   - Pour chaque workspace accessible (Test-Path) :
+     - Lire CLAUDE.md, chercher agents/skills/commands
+     - Lire `.claude/local/` (INTERCOM, notes locales)
+     - Identifier les patterns ou workflows qui meritent un agent/skill generique
+     - Verifier si les templates globaux deployes seraient utiles dans ces workspaces
+
+5. **Deployer les templates generiques :**
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1
+   ```
+
+6. **Requalifier les overrides projet :**
+   Pour chaque element qui a une version generique ET une version projet, ajouter :
+   ```markdown
+   > **Override projet** : Surcharge la version globale `~/.claude/{type}s/{name}/`.
+   > Template generique : `.claude/configs/{type}s/{name}/`
+   ```
 
 **Output :**
 ```
@@ -216,34 +321,125 @@ Apres validation, appliquer les changements :
 
 ---
 
-## Extension multi-workspace (optionnel)
+## Scan multi-workspace complet
 
-Si invoque avec la demande d'analyser d'autres workspaces :
+Le scan multi-workspace est integre dans Phase 1 (etape 4) et Phase 2. Ce scan est **systematique** (pas optionnel) pour une redistribution vraiment globale.
 
-1. **Detecter les projets Claude Code :**
-   ```bash
-   ls ~/.claude/projects/
-   ```
+### Decouverte automatique des workspaces
 
-2. **Pour chaque projet trouve :**
-   - Extraire le chemin workspace du slug (ex: `d--roo-extensions` → `d:\roo-extensions`)
-   - Lire son CLAUDE.md et ses rules
-   - Analyser les doublons cross-workspace
-   - Identifier les regles qui devraient etre au niveau user (`~/.claude/CLAUDE.md`)
+```powershell
+# 1. Lister les projets Claude Code connus
+$projects = Get-ChildItem "$env:USERPROFILE\.claude\projects" -Directory
 
-3. **Proposer les factorisations cross-workspace :**
-   - Regles communes → `~/.claude/CLAUDE.md` (user level)
-   - Regles specifiques → garder au niveau projet
+# 2. Decoder chaque slug en chemin workspace
+foreach ($p in $projects) {
+    $slug = $p.Name
+    # d--roo-extensions → D:\roo-extensions
+    # Premier caractere = lettre lecteur, -- = :\
+    $drive = $slug[0].ToString().ToUpper()
+    $rest = $slug.Substring(3) -replace '-', '\'
+    $path = "${drive}:\$rest"
+    # Valider l'existence
+    if (Test-Path $path) { Write-Host "OK: $path" }
+}
+```
+
+**Note :** Le decodage des slugs peut etre ambigu (tirets dans les noms de dossiers). Toujours valider avec `Test-Path`.
+
+### Ce que le scan collecte pour chaque workspace
+
+| Niveau | Ce qui est scanne | Informations extraites |
+|--------|-------------------|------------------------|
+| **Memoire privee** | `~/.claude/projects/{slug}/memory/*.md` | Lessons learned, etat courant, patterns |
+| **Instructions projet** | `{path}/CLAUDE.md` | Architecture, conventions, regles |
+| **Rules projet** | `{path}/.claude/rules/*.md` | Regles techniques auto-chargees |
+| **Memoire partagee** | `{path}/.claude/memory/*.md` | Connaissances multi-machines |
+| **Agents projet** | `{path}/.claude/agents/**/*.md` | Agents specifiques au projet |
+| **Skills projet** | `{path}/.claude/skills/*/SKILL.md` | Skills specifiques |
+| **Commands projet** | `{path}/.claude/commands/*.md` | Commands specifiques |
+| **Fichiers locaux** | `{path}/.claude/local/*` | INTERCOM, notes locales |
+| **Roo rules** | `{path}/.roo/rules/*.md` | Regles Roo si present |
+| **Roo modes** | `{path}/.roomodes` | Modes configures |
+
+### Analyse cross-workspace
+
+Pour chaque paire de workspaces, identifier :
+
+1. **Doublons de regles** : Meme regle dans CLAUDE.md de 2+ workspaces → factoriser dans `~/.claude/CLAUDE.md`
+2. **Agents/skills reutilisables** : Agent projet-specifique qui serait utile ailleurs → creer template global
+3. **Lessons learned universelles** : Dans MEMORY.md d'un workspace mais applicable partout
+4. **Patterns de configuration** : Memes rules dans plusieurs workspaces → factoriser au niveau user
+5. **XP non capturee** : Workspace sans CLAUDE.md ou sans rules → y a-t-il de l'XP dans MEMORY.md a propager ?
+
+### Rapport multi-workspace
+
+**Output attendu :**
+```markdown
+## Scan Multi-Workspace - {MACHINE_NAME}
+
+### Workspaces detectes : N
+| Workspace | Chemin | CLAUDE.md | Rules | Agents | Skills | MEMORY.md |
+|-----------|--------|-----------|-------|--------|--------|-----------|
+| roo-extensions | D:\roo-extensions | 700L | 3 | 12 | 5 | 180L |
+| Open-WebUI | D:\Open-WebUI\... | - | - | - | - | 20L |
+| qdrant | D:\qdrant | - | - | - | - | 15L |
+| ... | ... | ... | ... | ... | ... | ... |
+
+### XP a redistribuer
+| Source | Contenu | Destination proposee | Raison |
+|--------|---------|---------------------|--------|
+| qdrant/MEMORY.md | "Always check collection exists before insert" | ~/.claude/CLAUDE.md | Regle universelle |
+| Open-WebUI/MEMORY.md | "Docker compose logs -f for debugging" | ~/.claude/CLAUDE.md | Workflow universel |
+
+### Agents/Skills a globaliser
+| Element | Workspace source | Reutilisable? | Action |
+|---------|------------------|---------------|--------|
+| validate | roo-extensions | Oui (deja global) | ✅ Deja deploye |
+| ... | ... | ... | ... |
+```
+
+### Execution multi-machines (via RooSync)
+
+Ce skill est concu pour etre execute sur CHAQUE machine du reseau.
+Chaque agent envoie son rapport via RooSync au coordinateur qui consolide.
+
+**Workflow multi-machines :**
+1. Coordinateur envoie message RooSync `[TASK] Executer redistribute-memory scan complet`
+2. Chaque agent execute le skill localement (Phase 1-2-3)
+3. Chaque agent envoie le rapport multi-workspace via RooSync
+4. Coordinateur consolide les rapports de toutes les machines
+5. Coordinateur propose les factorisations cross-machines (Phase 3 consolidee)
+6. Apres validation utilisateur, deployer les templates globaux (Phase 4)
 
 ---
 
 ## Criteres de placement (reference)
 
 ### Va dans `~/.claude/CLAUDE.md` (user global)
+
+**Critere cle : est-ce utile dans TOUT workspace, pas seulement celui-ci ?**
+
+Exemples de contenu qui DOIT etre ici :
+- Definitions terminologiques (ex: "consolider" = analyser + merger + archiver)
 - Preferences de style (langue, format, emojis)
-- Outils preferes (git workflow, test commands)
-- Conventions personnelles applicables a tous les projets
-- Configuration LLM provider
+- Git best practices (conflict resolution manuelle, conventional commits, never force push)
+- Claude Code tool discipline (Read before Edit, test commands non-bloquants)
+- Methodology investigation (code source > docs, annoncer travail avant)
+- Knowledge preservation (consolider avant fin de session)
+- Safety rules (backup avant destructif, jamais de secrets en git)
+- Windows/PowerShell gotchas (BOM, Join-Path 2 args, CRLF)
+- Submodule workflow (commit interne d'abord)
+
+**Verification a chaque audit :** Relire le CLAUDE.md project et MEMORY.md pour identifier les lecons
+qui sont formulees comme specifiques au projet mais en realite universelles.
+Demander : "Est-ce que cette regle serait utile si je travaillais sur un autre projet ?"
+
+**Propagation inter-machines :**
+- **Source git :** `.claude/configs/user-global-claude.md` dans le repo **roo-extensions**
+- **Deploye vers :** `~/.claude/CLAUDE.md` (local, pas dans git, s'applique a TOUS les workspaces)
+- **Workflow :** Modifier le template dans roo-extensions, commit+push, chaque machine pull et copie
+- **Commande :** `Copy-Item .claude/configs/user-global-claude.md $env:USERPROFILE\.claude\CLAUDE.md`
+- **Verif :** Comparer le deploye vs template : `diff ~/.claude/CLAUDE.md .claude/configs/user-global-claude.md`
 
 ### Va dans `{workspace}/CLAUDE.md` (project)
 - Architecture du projet
@@ -279,15 +475,21 @@ Si invoque avec la demande d'analyser d'autres workspaces :
 ## Notes d'utilisation
 
 ### Invocation
-Demander : "redistribue la memoire" ou "audite les regles" ou "nettoie CLAUDE.md"
+- "redistribue la memoire" ou "audite les regles" ou "nettoie CLAUDE.md" → scan workspace courant
+- "scan global" ou "redistribue tout" → scan complet multi-workspace (Phase 1 etape 4)
+- "rapport multi-workspace" → generer le rapport tabulaire pour envoi au coordinateur
 
 ### Frequence recommandee
 - Apres chaque session longue (>2h)
 - Quand CLAUDE.md depasse 500 lignes
 - Quand MEMORY.md depasse 150 lignes
 - Apres ajout de nouvelles conventions/regles
+- **Sur demande du coordinateur** via RooSync (scan multi-machines)
+- **Apres deploiement global** (verifier que les templates sont bien deployes)
 
 ### Permissions
-- Lecture de tous les fichiers memoire/rules
+- Lecture de tous les fichiers memoire/rules (workspace courant ET autres)
+- Lecture des fichiers locaux `~/.claude/` (agents, skills, commands, CLAUDE.md globaux)
+- Lecture des repertoires locaux des autres workspaces (CLAUDE.md, .claude/, .roo/)
 - Ecriture apres validation utilisateur uniquement
 - Pas de suppression de fichier (seulement edition de contenu)

@@ -1,29 +1,29 @@
 ---
-description: Switch between LLM providers (Anthropic Claude API or z.ai GLM-4.7)
+description: Switch between LLM providers (Anthropic Claude API or z.ai GLM-5)
 argument-hint: anthropic | zai
 allowed-tools: Bash(powershell:*)
 ---
 
 # Switch LLM Provider
 
-Switch the active LLM provider for Claude Code to: **$1**
+Switch the active LLM provider for Claude Code to: **$ARGUMENTS**
 
 ## Available providers
 
-- **anthropic**: Anthropic's official Claude API (Sonnet 4.5, Opus 4.5, Haiku 4.5)
-- **zai**: z.ai GLM models (GLM-4.7, GLM-4.5-Air) via user's max subscription
+- **anthropic**: Anthropic's official Claude API (Sonnet 4.5, Opus 4.6, Haiku 4.5)
+- **zai**: z.ai GLM models (GLM-5, GLM-4.7, GLM-4.5-Air) via user's max subscription
 
 ## Process
 
 Execute this PowerShell command to switch providers:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "C:\Users\MYIA\.claude\scripts\Switch-Provider.ps1" -Provider $1
+powershell -ExecutionPolicy Bypass -File "$HOME/.claude/scripts/Switch-Provider.ps1" -Provider $ARGUMENTS
 ```
 
 This will:
-1. Validate the provider choice ($1)
-2. Load the appropriate configuration from `~/.claude/configs/provider.$1.json`
+1. Validate the provider choice
+2. Load the appropriate configuration from `~/.claude/configs/provider.$ARGUMENTS.json`
 3. Update `~/.claude/settings.json` with the provider-specific environment variables
 4. Verify the configuration was applied successfully
 5. Display confirmation with active model details

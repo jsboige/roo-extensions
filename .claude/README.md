@@ -139,14 +139,17 @@ Once deployed, the `/switch-provider` command is available in **all your workspa
 ```json
 {
   "provider": "zai",
-  "model": "sonnet",
+  "model": "opus",
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "zai-api-key",
     "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5",
     "API_TIMEOUT_MS": "3000000"
   },
   "modelMapping": {
-    "opus": "GLM-4.7",
+    "opus": "GLM-5",
     "sonnet": "GLM-4.7",
     "haiku": "GLM-4.5-Air"
   }
@@ -154,8 +157,9 @@ Once deployed, the `/switch-provider` command is available in **all your workspa
 ```
 
 **Model mapping:**
-- `opus` → GLM-4.7 (best performance)
-- `sonnet` → GLM-4.7 (best performance)
+
+- `opus` → GLM-5 (flagship, best performance, ~Opus 4.6 level)
+- `sonnet` → GLM-4.7 (balanced performance)
 - `haiku` → GLM-4.5-Air (faster, lighter)
 
 ## Deployment Options

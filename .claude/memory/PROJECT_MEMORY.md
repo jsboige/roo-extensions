@@ -6,12 +6,10 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (ListTools):** 39 (20 inline + 19 roosyncTools) after CLEANUP-3
-- **RooSync tools (roosyncTools):** 19 entries in index.ts
-- **Claude wrapper (mcp-wrapper.cjs):** 18 tools exposed
-- **Gap:** roosyncTools has `roosync_heartbeat_service` not in wrapper
-- **Deprecated tools:** 11 removed from ListTools by CLEANUP-3 (CallTool handlers kept for backward compat)
-- **Tests:** 1829 passed, 0 failed (160 files, 2026-02-07)
+- **Total tools (ListTools):** 39
+- **Claude wrapper (mcp-wrapper.cjs):** 39 tools (v4 pass-through, no filtering since 2026-02-10)
+- **Tests:** 3252 passed, 0 failed (201 files, 2026-02-12)
+- **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
 ### Key Files
 | File | Purpose |
@@ -28,9 +26,10 @@ Updated via git commits. Each agent should read this at session start.
 3. Add export to `src/tools/roosync/index.ts`
 4. Add metadata to `roosyncTools` array in index.ts
 5. Add `case 'tool_name':` handler in `src/tools/registry.ts` CallTool switch
-6. Add to `ALLOWED_TOOLS` Set in `mcp-wrapper.cjs` (if for Claude)
-7. Build: `npx tsc --noEmit`
-8. Test: `npx vitest run`
+6. Build: `npm run build` (output in `build/`, NOT `dist/`)
+7. Test: `npx vitest run` (NEVER `npm test`)
+8. Update `alwaysAllow` in Roo mcp_settings.json (use `sync_always_allow` subAction)
+9. Restart VS Code (MCPs load at startup only)
 
 ## Consolidation History (CONS)
 
@@ -141,6 +140,16 @@ Updated via git commits. Each agent should read this at session start.
 - Always `.toLowerCase()` on machineId (commit bd8e5b94)
 - Fixed in: roosync-config.ts, message-helpers.ts, InventoryService.ts
 
+### Agent/skill/command maintenance (2026-02-12)
+- **SDDD** = Semantic Documentation Driven Development (NOT "Semantic-Driven Development Documentation")
+- **Project #70** deleted - ALL references purged from agents/skills/commands
+- **mcp__github-projects-mcp__*** fully deprecated - replaced by `gh` CLI everywhere
+- **Legacy RooSync tool names** cleaned → CONS-1 consolidated names only (roosync_send/read/manage)
+- **Project agent overrides**: Only needed when genuinely project-specific. Global + `rules/` is often sufficient.
+- **Machine count**: Always 6 (ai-01, po-2023, po-2024, po-2025, po-2026, web1). po-2025 was frequently missing.
+- **Deprecation ripple**: When deprecating something, grep ALL `.claude/` files for references. Easy to miss.
+- **Orphaned scripts**: Always grep references before assuming scripts are needed.
+
 ### Scheduler cache bug
 - Roo Scheduler extension caches schedules.json at VS Code startup
 - Deploy config then restart VS Code IMMEDIATELY before next tick
@@ -166,6 +175,7 @@ Updated via git commits. Each agent should read this at session start.
 | #463 | Cross-workspace template | LOW |
 | #464 | Dev Containers + Ralph Wiggum | MEDIUM |
 | #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM |
+| #466 | Deploiement sync_always_allow + update_server_field | MEDIUM |
 
 ### sk-agent MCP Server (NEW - 2026-02-12)
 - **Location**: `mcps/internal/servers/sk-agent/`
@@ -183,5 +193,32 @@ Updated via git commits. Each agent should read this at session start.
 - **sync-tour Phase 8**: Automatic consolidation at end of each sync-tour
 - **Private memory**: `~/.claude/projects/.../memory/MEMORY.md` (per-machine, auto-loaded)
 - **Shared memory**: `.claude/memory/PROJECT_MEMORY.md` (via git, all machines)
+- **Global user**: `~/.claude/CLAUDE.md` (cross-project preferences, local only)
+- **Git template**: `.claude/configs/user-global-claude.md` (propagatable via git)
+- **Propagation**: `Copy-Item .claude/configs/user-global-claude.md $env:USERPROFILE\.claude\CLAUDE.md`
 - **Scripts**: `scripts/memory/extract-shared-memory.ps1` (private->shared), `merge-memory.ps1` (shared->private)
+- **Skill**: `redistribute-memory` - audit and redistribute info across all memory/rules levels
 - **Rule**: ALWAYS consolidate before session ends to preserve experience
+
+### Claude Code Configuration Hierarchy
+| Level | File | Scope | In Git? |
+|-------|------|-------|---------|
+| Global user | `~/.claude/CLAUDE.md` | All projects on this machine | No (deploy from template) |
+| Global settings | `~/.claude/settings.json` | Permissions, model, MCPs | No |
+| Project instructions | `CLAUDE.md` (repo root) | This project | Yes |
+| Project auto-memory | `~/.claude/projects/<hash>/memory/MEMORY.md` | Per-machine private | No |
+| Shared memory | `.claude/memory/PROJECT_MEMORY.md` | All machines | Yes |
+| Rules | `.claude/rules/*.md` | Project-specific rules | Yes |
+
+### Qdrant Semantic Indexation Infrastructure
+- **Qdrant**: `http://localhost:6333` (local on myia-ai-01)
+- **Embeddings**: `https://embeddings.myia.io/v1/embeddings` (Qwen3-4B AWQ)
+- **Collection naming**: `ws-<sha256(workspace).substring(0,16)>`
+- **Payload structure**: `filePath`, `codeChunk`, `startLine`, `endLine`
+- **Workflow**: Scan -> Chunk -> Embed -> Upload -> Watch
+- **Issues**: #452 (workspace search tool), #453 (task re-indexation)
+
+### MCP Safe Update Pattern (NEW - 2026-02-12)
+- **`sync_always_allow`**: Programmatically update `alwaysAllow` array for any MCP server
+- **`update_server_field`**: MERGE individual fields (vs `update_server` which REPLACES entire config)
+- **Issue**: #466 - Per-machine deployment checklist

@@ -263,6 +263,46 @@ Utilise task-worker pour prendre ma prochaine tâche
 **Action :**
 - Harmonisation H2-H7 en cours de déploiement sur toutes les machines
 
+### Fichiers de Configuration Claude Code (IMPORTANT)
+
+**Hiérarchie des fichiers CLAUDE.md (priorité croissante) :**
+
+| Niveau | Fichier | Portée | Synchronisation |
+|--------|---------|--------|-----------------|
+| **Global utilisateur** | `~/.claude/CLAUDE.md` | TOUS les projets de la machine | Inventaire + sync inter-machines |
+| **Projet** | `CLAUDE.md` (racine workspace) | Ce projet uniquement | Git (versionné) |
+| **Auto-mémoire projet** | `~/.claude/projects/<hash>/memory/MEMORY.md` | Ce projet, privé | Local uniquement (pas git) |
+
+- Le CLAUDE.md **global** (`~/.claude/CLAUDE.md`) contient les préférences utilisateur cross-projets (ex: définition de "consolider", conventions générales)
+- Le CLAUDE.md **projet** (`CLAUDE.md` à la racine) contient les instructions spécifiques au workspace
+- Les deux sont chargés automatiquement par Claude Code au début de chaque conversation
+- **OBLIGATION :** Toute préférence utilisateur qui s'applique à TOUS les projets doit aller dans le global, pas dans le projet
+
+**Autres fichiers Claude Code à surveiller :**
+
+| Fichier | Contenu | Synchronisation |
+|---------|---------|-----------------|
+| `~/.claude/settings.json` | Permissions, modèle par défaut, MCPs globaux Claude | Inventaire |
+| `~/.claude/CLAUDE.md` | Instructions globales utilisateur | Inventaire + sync |
+| `<projet>/.claude/rules/*.md` | Règles projet (testing, github-cli, etc.) | Git |
+| `<projet>/.claude/commands/*.md` | Slash commands projet | Git |
+| `<projet>/.claude/skills/*/SKILL.md` | Skills auto-invoqués | Git |
+
+### Fichiers de Configuration Roo (IMPORTANT)
+
+**Settings MCP Roo (auto-approbation des outils) :**
+- **Global :** `C:\Users\MYIA\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+- **Projet :** `.roo\mcp.json` (overrides par projet, actuellement vide)
+- **Priorité :** Projet > Global (les settings projet écrasent les globaux)
+- Chaque MCP a une liste `alwaysAllow` qui doit contenir TOUS les outils nécessaires au scheduler
+- **Outil programmatique :** `roosync_mcp_management(subAction: "sync_always_allow")` pour MAJ automatique
+- **MAJ unitaire sûre :** `roosync_mcp_management(subAction: "update_server_field")` pour modifier un champ sans écraser le reste
+
+**Settings globaux Roo (auto-approbation générale) :**
+- **Template :** `roo-config/settings/settings.json` (source git)
+- **Déployé :** Via `roo-config/settings/deploy-settings.ps1`
+- **Clés critiques :** `autoApprovalEnabled`, `alwaysAllowExecute`, `alwaysAllowMcp`, `alwaysAllowSubtasks`
+
 ---
 
 ## 🤖 Votre Rôle : Agent Claude Code
@@ -571,6 +611,45 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
    - Condenser 600 premières lignes → ~100 lignes (synthèse)
    - Garder 400 dernières lignes intactes
    - Résultat : ~500 lignes
+
+#### Mécanisme d'Escalade Simple → Complex
+
+**Documentation complète :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) (créé 2026-02-12)
+
+Le système Roo dispose d'un mécanisme d'escalade **automatique** et **intelligent** sur 3 couches :
+
+1. **Couche Scheduler** : `orchestrator-simple` évalue la complexité et escalade vers `orchestrator-complex` si nécessaire (6 critères)
+2. **Couche Modes Individuels** : Chaque mode worker (`code`, `debug`, `architect`, `ask`) escalade vers son niveau `-complex` si la tâche dépasse ses capacités (4 critères par mode)
+3. **Couche Orchestrateurs** : Instructions SDDD détaillées pour délégation via `new_task`, gestion des échecs, routage inter-famille
+
+**Principe :** Commencer simple (modèle économique), escalader si nécessaire (modèle puissant).
+
+**Roadmap Autonomie Progressive (#462) :**
+
+| Niveau | Statut | Description |
+|--------|--------|-------------|
+| **Niveau 1 : Roo Simple** | ✅ ACTUEL | Tâches `-simple` uniquement (git status, build, tests, cleanup) |
+| **Niveau 2 : Roo Complex** | 🔄 EN COURS | Tâches `-complex` avec validation Claude (investigation, fixes, refactoring) |
+| **Niveau 3 : Claude INTERCOM** | 📋 PLANIFIÉ | Claude Code lit INTERCOM au démarrage et exécute tâches assignées |
+| **Niveau 4 : Claude Scheduled** | 🔮 FUTUR | Claude Code schedulé automatiquement (dépend de solution Ralph) |
+| **Niveau 5 : Autonomie complète** | 🌟 VISION | Collaboration continue avec worktrees, PRs, monitoring proactif |
+
+**Impact GLM 5 (déployé 2026-02-12) :**
+- Modèle quasiment niveau Opus → Taux de succès `-complex` attendu **80-90%** (vs 50-70% avant)
+- Nouveaux cas d'usage : Investigation bugs complexes, corrections non-triviales, analyse architecturale, synthèse cross-domaine
+- **Niveau 2 prêt** : Scheduler Roo peut maintenant solliciter des tâches corriaces avec confiance
+
+**Métriques de Validation Niveau 2 (cibles) :**
+- Taux de succès `-simple` : >90%
+- Taux de succès `-complex` : >80%
+- Taux d'escalade approprié : 70-85%
+- Taux d'échecs répétés : <5%
+- Rollback automatiques : <10%
+
+**Plan de Test Phase A (Investigation) :**
+Voir [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) pour 5 scénarios de test détaillés.
+
+---
 
 #### Traces d'Exécution
 

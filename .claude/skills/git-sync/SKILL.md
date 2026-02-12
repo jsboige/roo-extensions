@@ -1,6 +1,9 @@
-# Skill : Git Sync
+# Skill : Git Sync - Override roo-extensions
 
-Synchronisation Git intelligente avec merges conservatifs et gestion des submodules.
+> **Override projet** : Surcharge la skill globale `~/.claude/skills/git-sync/SKILL.md`.
+> Template generique : `.claude/configs/skills/git-sync/SKILL.md`
+
+Synchronisation Git pour roo-extensions avec submodule `mcps/internal` et merges conservatifs (multi-machines).
 
 ---
 

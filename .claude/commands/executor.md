@@ -1,6 +1,6 @@
 ---
 description: Lance une session d'exécution multi-agent RooSync (machines autres que myia-ai-01)
-allowed-tools: Read, Grep, Glob, Bash, Edit, Write, mcp__roo-state-manager__*, mcp__github-projects-mcp__*, Task
+allowed-tools: Read, Grep, Glob, Bash, Edit, Write, mcp__roo-state-manager__*, Task
 ---
 
 # Agent Exécutant RooSync
@@ -53,7 +53,7 @@ Après ces lectures, affiche un résumé :
 |-------|-------|-------|
 | **RooSync** | Inter-machines (coordinateur ↔ exécutants) | `roosync_*` MCP |
 | **INTERCOM** | Local (Claude Code ↔ Roo sur même machine) | Fichier `.claude/local/INTERCOM-*.md` |
-| **GitHub** | Traçabilité (issues, project #67) | `mcp__github-projects-mcp__*` |
+| **GitHub** | Traçabilité (issues, project #67) | `gh` CLI |
 | **Git** | Code source | Bash git commands |
 
 ### Tour de Synchronisation Complet
@@ -243,7 +243,7 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 | Documentation | Créer/modifier docs | Edit, Write |
 | Coordination | Sync multi-agent | RooSync + INTERCOM |
 | Déploiement | Build MCP | Bash npm commands |
-| Tests | Valider build | Bash npm test |
+| Tests | Valider build | Bash npx vitest run |
 | Git | Commits, push | Bash git commands |
 
 ---
@@ -318,11 +318,6 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 - **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
 - **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
 
-**Project #70 - RooSync Multi-Agent Coordination** (coordination Claude)
-- **ID complet** : `PVT_kwHOADA1Xc4BL7qS`
-- **URL** : https://github.com/users/jsboige/projects/70
-- **Usage** : Suivi coordination inter-machines
-
 ### Fichiers Clés
 | Fichier | Usage |
 |---------|-------|
@@ -331,7 +326,7 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 | `git log --oneline -10` | Historique récent (source de vérité) |
 | `.claude/agents/` | Sub-agents disponibles |
 
-### Outils MCP RooSync (18 outils, post CONS-1/CONS-5)
+### Outils MCP RooSync (39 outils via wrapper v4)
 
 **Messagerie CONS-1 (3) :**
 - `roosync_send` (action: send|reply|amend) - Envoyer/répondre/amender
@@ -356,6 +351,6 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 2. Lis `.claude/local/INTERCOM-{MACHINE}.md`
 3. Lis `CLAUDE.md` (section État actuel)
 4. `git pull origin main`
-5. `roosync_read_inbox`
+5. `roosync_read` (mode: inbox)
 6. Affiche un résumé de la situation
 7. Propose les prochaines actions à l'utilisateur

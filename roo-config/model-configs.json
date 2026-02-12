@@ -1,35 +1,51 @@
 {
   "profiles": [
     {
-      "name": "Production SDDD (local-simple + z.ai-complex)",
-      "description": "Configuration de production: modele auto-heberge pour modes simples (economique, ~50 tok/sec) + GLM 4.7 via z.ai pour modes complexes. ATTENTION: max 2-3 modes simples simultanees (capacite KV cache limitee a ~220k tokens).",
+      "name": "Production SDDD (GLM-5 full)",
+      "description": "Configuration GLM-5 flagship: modele le plus puissant (~Opus 4.6) via z.ai pour tous les modes complexes",
       "modeOverrides": {
         "code-simple": "local-simple-tgwui",
-        "code-complex": "sddd-complex-glm47",
+        "code-complex": "sddd-complex-glm5",
         "debug-simple": "local-simple-tgwui",
-        "debug-complex": "sddd-complex-glm47",
+        "debug-complex": "sddd-complex-glm5",
         "architect-simple": "local-simple-tgwui",
-        "architect-complex": "sddd-complex-glm47",
+        "architect-complex": "sddd-complex-glm5",
         "ask-simple": "local-simple-tgwui",
-        "ask-complex": "sddd-complex-glm47",
+        "ask-complex": "sddd-complex-glm5",
         "orchestrator-simple": "local-simple-tgwui",
-        "orchestrator-complex": "sddd-complex-glm47"
+        "orchestrator-complex": "sddd-complex-glm5"
+      }
+    },
+    {
+      "name": "Production SDDD (local-simple + z.ai-complex)",
+      "description": "Configuration de production: modele auto-heberge pour modes simples (economique, ~50 tok/sec) + GLM-5 via z.ai pour modes complexes. ATTENTION: max 2-3 modes simples simultanees (capacite KV cache limitee a ~220k tokens).",
+      "modeOverrides": {
+        "code-simple": "local-simple-tgwui",
+        "code-complex": "sddd-complex-glm5",
+        "debug-simple": "local-simple-tgwui",
+        "debug-complex": "sddd-complex-glm5",
+        "architect-simple": "local-simple-tgwui",
+        "architect-complex": "sddd-complex-glm5",
+        "ask-simple": "local-simple-tgwui",
+        "ask-complex": "sddd-complex-glm5",
+        "orchestrator-simple": "local-simple-tgwui",
+        "orchestrator-complex": "sddd-complex-glm5"
       }
     },
     {
       "name": "Configuration SDDD (z.ai full)",
-      "description": "Configuration SDDD avec GLM 4.7 Flash pour taches simples et GLM 4.7 pour taches complexes (tout z.ai, pas de dependance local)",
+      "description": "Configuration SDDD avec GLM 4.7 Flash pour taches simples et GLM-5 pour taches complexes (tout z.ai, pas de dependance local)",
       "modeOverrides": {
         "code-simple": "zhipu/glm-4.7-air",
-        "code-complex": "zhipu/glm-4.7",
+        "code-complex": "sddd-complex-glm5",
         "debug-simple": "zhipu/glm-4.7-air",
-        "debug-complex": "zhipu/glm-4.7",
+        "debug-complex": "sddd-complex-glm5",
         "architect-simple": "zhipu/glm-4.7-air",
-        "architect-complex": "zhipu/glm-4.7",
+        "architect-complex": "sddd-complex-glm5",
         "ask-simple": "zhipu/glm-4.7-air",
-        "ask-complex": "zhipu/glm-4.7",
+        "ask-complex": "sddd-complex-glm5",
         "orchestrator-simple": "zhipu/glm-4.7-air",
-        "orchestrator-complex": "zhipu/glm-4.7"
+        "orchestrator-complex": "sddd-complex-glm5"
       }
     },
     {
@@ -102,6 +118,17 @@
       "apiProvider": "openrouter",
       "id": "gi7et2uwpwo"
     },
+    "glm-5": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.7,
+      "openRouterApiKey": "${env:ZAI_API_KEY}",
+      "openRouterModelId": "zhipu/glm-5",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "z.ai",
+      "id": "sddd-complex-glm5",
+      "description": "GLM-5 Flagship pour tâches SDDD complexes (~Opus 4.6 level)"
+    },
     "glm-4.7": {
       "diffEnabled": true,
       "fuzzyMatchThreshold": 1,
@@ -138,19 +165,19 @@
   },
   "modeApiConfigs": {
     "code-simple": "local-simple-tgwui",
-    "code-complex": "sddd-complex-glm47",
+    "code-complex": "sddd-complex-glm5",
     "debug-simple": "local-simple-tgwui",
-    "debug-complex": "sddd-complex-glm47",
+    "debug-complex": "sddd-complex-glm5",
     "architect-simple": "local-simple-tgwui",
-    "architect-complex": "sddd-complex-glm47",
+    "architect-complex": "sddd-complex-glm5",
     "ask-simple": "local-simple-tgwui",
-    "ask-complex": "sddd-complex-glm47",
+    "ask-complex": "sddd-complex-glm5",
     "orchestrator-simple": "local-simple-tgwui",
-    "orchestrator-complex": "sddd-complex-glm47",
-    "code": "sddd-complex-glm47",
-    "architect": "sddd-complex-glm47",
-    "ask": "sddd-complex-glm47",
-    "debug": "sddd-complex-glm47",
-    "orchestrator": "sddd-complex-glm47"
+    "orchestrator-complex": "sddd-complex-glm5",
+    "code": "sddd-complex-glm5",
+    "architect": "sddd-complex-glm5",
+    "ask": "sddd-complex-glm5",
+    "debug": "sddd-complex-glm5",
+    "orchestrator": "sddd-complex-glm5"
   }
 }

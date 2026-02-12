@@ -19,7 +19,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$MachineId = $env:COMPUTERNAME,
+    [string]$MachineId = $env:COMPUTERNAME.ToLower(),
 
     [Parameter(Mandatory=$false)]
     [string]$OutputPath,
@@ -468,13 +468,69 @@ try {
         Write-Host "  Fichier mcp_settings.json non trouvé" -ForegroundColor Yellow
     }
 
-    # Lire le fichier globalStorage de Claude
+    # Lire le fichier globalStorage de Claude (Roo)
     $claudeGlobalStoragePath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline"
     if (Test-Path $claudeGlobalStoragePath) {
         $claudeConfig.globalStoragePath = $claudeGlobalStoragePath
-        Write-Host "  OK GlobalStorage Claude: $claudeGlobalStoragePath" -ForegroundColor Green
+        Write-Host "  OK GlobalStorage Roo: $claudeGlobalStoragePath" -ForegroundColor Green
     } else {
-        Write-Host "  GlobalStorage Claude non trouvé" -ForegroundColor Yellow
+        Write-Host "  GlobalStorage Roo non trouvé" -ForegroundColor Yellow
+    }
+
+    # Fichiers Claude Code (user-level)
+    $claudeCodeDir = Join-Path $env:USERPROFILE ".claude"
+    $claudeConfig.claudeCode = @{}
+
+    # ~/.claude/CLAUDE.md (instructions globales utilisateur)
+    $globalClaudeMd = Join-Path $claudeCodeDir "CLAUDE.md"
+    if (Test-Path $globalClaudeMd) {
+        $content = Get-Content $globalClaudeMd -Raw
+        $claudeConfig.claudeCode.globalClaudeMd = @{
+            exists = $true
+            path = $globalClaudeMd
+            sizeBytes = (Get-Item $globalClaudeMd).Length
+            lines = ($content -split "`n").Count
+            lastModified = (Get-Item $globalClaudeMd).LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+        }
+        Write-Host "  OK ~/.claude/CLAUDE.md: $($claudeConfig.claudeCode.globalClaudeMd.lines) lignes" -ForegroundColor Green
+    } else {
+        $claudeConfig.claudeCode.globalClaudeMd = @{ exists = $false }
+        Write-Host "  ~/.claude/CLAUDE.md non trouvé" -ForegroundColor Yellow
+    }
+
+    # ~/.claude/settings.json (permissions, modèle, MCPs Claude)
+    $claudeSettingsJson = Join-Path $claudeCodeDir "settings.json"
+    if (Test-Path $claudeSettingsJson) {
+        $settings = Get-Content $claudeSettingsJson -Raw | ConvertFrom-Json
+        $claudeConfig.claudeCode.settingsJson = @{
+            exists = $true
+            path = $claudeSettingsJson
+            defaultMode = $settings.permissions.defaultMode
+            permissionMode = $settings.permissions.mode
+            model = $settings.model
+            mcpServers = if ($settings.mcpServers) { ($settings.mcpServers.PSObject.Properties | ForEach-Object { $_.Name }) } else { @() }
+            allowRulesCount = if ($settings.permissions.allow) { $settings.permissions.allow.Count } else { 0 }
+        }
+        Write-Host "  OK ~/.claude/settings.json: mode=$($settings.permissions.mode), model=$($settings.model)" -ForegroundColor Green
+    } else {
+        $claudeConfig.claudeCode.settingsJson = @{ exists = $false }
+        Write-Host "  ~/.claude/settings.json non trouvé" -ForegroundColor Yellow
+    }
+
+    # Projets Claude Code actifs (liste des slugs avec mémoire)
+    $projectsDir = Join-Path $claudeCodeDir "projects"
+    if (Test-Path $projectsDir) {
+        $projects = Get-ChildItem -Path $projectsDir -Directory | ForEach-Object {
+            $memoryDir = Join-Path $_.FullName "memory"
+            $memoryMd = Join-Path $memoryDir "MEMORY.md"
+            @{
+                slug = $_.Name
+                hasMemory = Test-Path $memoryMd
+                memoryLines = if (Test-Path $memoryMd) { ((Get-Content $memoryMd -Raw) -split "`n").Count } else { 0 }
+            }
+        }
+        $claudeConfig.claudeCode.projects = $projects
+        Write-Host "  OK Projets Claude Code: $($projects.Count) projets" -ForegroundColor Green
     }
 
     $inventory.inventory.claudeConfig = $claudeConfig

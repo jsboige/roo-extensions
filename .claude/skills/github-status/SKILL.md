@@ -106,12 +106,6 @@ EOF
 
 ## Commandes de reference
 
-### Projet #70 (Coordination)
-
-```bash
-gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 70) { title items(first: 100) { totalCount } } } }'
-```
-
 ### Fermer une issue
 
 ```bash

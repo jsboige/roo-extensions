@@ -2,7 +2,7 @@
 
 ## Méthodologie Triple Grounding
 
-La méthodologie **SDDD (Semantic-Driven Development Documentation)** repose sur trois types de grounding :
+La méthodologie **SDDD (Semantic Documentation Driven Development)** repose sur trois types de grounding :
 
 1. **Grounding Sémantique** - Recherche dans la base de connaissances
 2. **Grounding Conversationnel** - Analyse de l'historique des conversations ✨ **CES RÈGLES**
