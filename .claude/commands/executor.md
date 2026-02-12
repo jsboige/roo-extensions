@@ -38,6 +38,89 @@ Issues ouvertes: {Z} | Taches assignees: {liste courte}
 
 ---
 
+## PHASE 1.5 : ANALYSE DES TRACES ROO (audit scheduler)
+
+**OBJECTIF :** Analyser ce que le scheduler Roo a fait depuis la derniere verification, detecter les erreurs, evaluer le taux de succes, et ajuster les instructions si necessaire.
+
+### 1. Identifier les dernieres executions Roo
+
+Utilise les outils MCP `roo-state-manager` :
+
+```
+task_browse(action: "tree", output_format: "ascii-tree", show_metadata: true)
+```
+
+Cherche les taches de mode `orchestrator-simple` (executions scheduler). Selectionne les 3-5 plus recentes depuis la derniere verification.
+
+### 2. Analyser chaque execution
+
+Pour chaque tache scheduler identifiee :
+
+```
+view_conversation_tree(
+  task_id: "{TASK_ID}",
+  detail_level: "summary",
+  smart_truncation: true,
+  max_output_length: 15000
+)
+```
+
+### 3. Detecter les patterns d'erreur
+
+Chercher dans les conversations :
+- `roosync_send` ou `roosync_read` → Roo utilise RooSync (INTERDIT)
+- `quickfiles` ou `edit_multiple_files` → Outil supprime
+- L'orchestrateur fait le travail au lieu de deleguer via `new_task`
+- `Error`, `Failed`, `permission denied` → Erreurs d'execution
+- Tache qui tourne en boucle sans resultat
+- `[ESCALADE-CLAUDE]` → Taches echouees en -complex a reprendre
+
+### 4. Evaluer les metriques
+
+Calculer pour les dernieres executions :
+- **Taux de succes** : taches terminees sans erreur / total
+- **Niveau de complexite** : ratio `-simple` vs `-complex` vs escalades
+- **Erreurs recurrentes** : memes erreurs > 2 fois ?
+
+### 5. Ajuster les instructions Roo via INTERCOM
+
+Selon les resultats, ecrire dans INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`) :
+
+**Si taux succes > 90% et seulement -simple :**
+```markdown
+## [{DATE}] claude-code -> roo [SCHEDULED]
+### Escalade : passer au niveau complex
+Tes dernieres executions sont toutes reussies. Pour la prochaine execution :
+- Essaie au moins 1 tache en mode `code-complex` ou `debug-complex`
+- Si tu trouves une issue GitHub de complexite moyenne, utilise `-complex`
+- Rappel de la chaine : code-simple → code-complex (GLM 5) → orchestrator-complex
+```
+
+**Si erreurs detectees :**
+```markdown
+## [{DATE}] claude-code -> roo [SCHEDULED]
+### Correction : erreurs detectees dans tes traces
+Erreurs trouvees dans les executions recentes :
+- {description de chaque erreur}
+Merci de corriger pour la prochaine execution.
+```
+
+**Si taches `-complex` echouent systematiquement :**
+- Reprendre les taches signalees `[ESCALADE-CLAUDE]` dans ta propre pile de travail (Phase 2)
+- Ajuster le workflow `.roo/scheduler-workflow-*.md` si le probleme est structurel
+
+### 6. Resume de l'audit (pour le log)
+
+```
+Audit traces Roo : X analysees, Y erreurs, Z% succes
+Niveau atteint : {simple seulement | debut complex | majorite complex}
+Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches reprises}
+```
+
+Passer directement a la Phase 2.
+
+---
+
 ## PHASE 2 : SELECTION DE TACHE (automatique)
 
 **Algorithme de selection (par priorite decroissante) :**

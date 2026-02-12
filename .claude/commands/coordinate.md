@@ -56,6 +56,60 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 6. **Suivi GitHub** : Mettre a jour Project #67
 7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
 
+### Analyse des Traces Roo (audit scheduler)
+
+**QUAND :** A chaque tour de sync ou apres un message INTERCOM de Roo avec tag `[DONE]`.
+
+**OBJECTIF :** Verifier ce que le scheduler Roo a fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees en -complex.
+
+**1. Identifier les dernieres executions Roo :**
+
+```
+task_browse(action: "tree", output_format: "ascii-tree", show_metadata: true)
+```
+
+Selectionner les 3-5 dernieres taches `orchestrator-simple` (executions scheduler).
+
+**2. Pour chaque execution, analyser le squelette :**
+
+```
+view_conversation_tree(
+  task_id: "{TASK_ID}",
+  detail_level: "summary",
+  smart_truncation: true,
+  max_output_length: 15000
+)
+```
+
+**3. Patterns d'erreur a chercher :**
+- `roosync_send` / `roosync_read` → Roo utilise RooSync (INTERDIT)
+- `quickfiles` / `edit_multiple_files` → Outil supprime
+- Orchestrateur qui fait le travail au lieu de deleguer via `new_task`
+- `Error`, `Failed`, `permission denied` → Erreurs d'execution
+- Boucles sans resultat
+- `[ESCALADE-CLAUDE]` → Taches echouees en `-complex` a reprendre par Claude
+
+**4. Evaluer et ajuster :**
+
+| Constat | Action |
+|---------|--------|
+| Taux succes > 90%, seulement `-simple` | Ecrire INTERCOM : pousser vers `-complex` |
+| Taux succes 70-90%, mix simple/complex | Bon equilibre, maintenir |
+| Taux succes < 70% | Analyser causes, corriger workflow si structurel |
+| Erreur recurrente (>2 fois) | Corriger le workflow `.roo/scheduler-workflow-*.md` |
+| Taches `[ESCALADE-CLAUDE]` | Les ajouter a la pile de travail Claude |
+
+**5. Chaine d'escalade progressive :**
+```
+code-simple → code-complex (GLM 5) → orchestrator-complex → claude -p (Opus)
+```
+L'objectif long terme est de pousser Roo vers de plus en plus de taches `-complex` (GLM 5 le permet). Claude Opus reprend ce qui echoue.
+
+**6. Si modification de workflow necessaire :**
+- Modifier `.roo/scheduler-workflow-coordinator.md` et/ou `.roo/scheduler-workflow-executor.md`
+- Les modifications prennent effet au prochain `git pull` + execution scheduler
+- Commit avec message `fix(scheduler): description de la correction`
+
 ### Fin de Session / Avant Saturation Contexte
 
 **OBLIGATOIRE avant de terminer ou quand le contexte approche sa limite :**

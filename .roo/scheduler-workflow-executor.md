@@ -32,50 +32,6 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
-### Etape 1b : Auditer les traces des dernieres executions
-
-**OBJECTIF :** Verifier ce que Roo a fait lors des precedentes executions schedulees sur CETTE machine, detecter les erreurs, et progresser en complexite.
-
-Utilise les outils MCP `roo-state-manager` pour analyser les traces :
-
-**1. Identifier les dernieres taches schedulees :**
-```
-Utilise task_browse avec action="tree" pour voir l'arbre des taches recentes.
-Identifie les 2-3 dernieres taches de type "orchestrator-simple" (scheduler).
-```
-
-**2. Pour chaque tache, analyser le squelette :**
-```
-Utilise view_conversation_tree avec le task_id, detail_level="summary",
-smart_truncation=true, max_output_length=10000.
-```
-
-**3. Chercher ces PATTERNS D'ERREUR :**
-- "roosync_send" ou "roosync_read" (INTERDIT)
-- "quickfiles" ou "edit_multiple_files" (OUTIL SUPPRIME)
-- L'orchestrateur fait le travail au lieu de deleguer via `new_task`
-- "Error", "Failed", "permission denied"
-- Tache en boucle sans resultat
-
-**4. Evaluer le taux de succes :**
-- Combien de sous-taches ont reussi vs echoue ?
-- A-t-on deja reussi des taches `-complex` ? Si oui, combien ?
-
-**5. Decision d'escalade progressive :**
-
-| Taux de succes `-simple` | Action |
-|--------------------------|--------|
-| < 70% | Rester en `-simple`, corriger les erreurs |
-| 70-90% | Commencer a deleguer 1 tache sur 3 a `-complex` |
-| > 90% | Deleguer majoritairement a `-complex` |
-
-**6. Ajouter au rapport INTERCOM :**
-```
-- Audit traces : X taches analysees, Y erreurs, Z% succes
-- Niveau atteint : simple / debut complex / majorite complex
-- Recommendation : [rester simple / pousser vers complex]
-```
-
 ### Etape 2 : Verifier l'etat du workspace
 
 - Deleguer a code-simple via `new_task` : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
@@ -128,8 +84,6 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Erreurs : ...
 - Git status : propre/dirty
 - Git pull : OK/erreur
-- Audit traces : X analysees, Y erreurs, Z% succes
-- Niveau atteint : simple / debut complex / majorite complex
 - Escalades effectuees : aucune / vers {mode}
 - Taches echouees en -complex (pour Claude) : #{num} ...
 
@@ -195,7 +149,7 @@ Si une issue schedulable est trouvee :
 
 1. Deleguer a `code-simple` : "Lire le body complet de l'issue avec `gh issue view {NUM} --repo jsboige/roo-extensions`"
 2. Analyser la spec : identifier les fichiers a modifier, le code a ecrire, la validation
-3. Deleguer l'execution en fonction de la complexite ET du taux de succes (Etape 1b) :
+3. Deleguer l'execution en fonction de la complexite ET du taux de succes (communique par Claude Code via INTERCOM) :
 
 | Complexite tache | Si taux succes < 70% | Si taux succes 70-90% | Si taux succes > 90% |
 |------------------|---------------------|----------------------|---------------------|
