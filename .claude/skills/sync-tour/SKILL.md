@@ -336,9 +336,20 @@ Ajouter uniquement les apprentissages **universels** (utiles a toutes les machin
 - Bugs importants resolus et comment
 - Ne PAS ajouter d'etats ephemeres (hash git, nombre de tests)
 
-**3. Evaluer les fichiers de regles (si drift detecte)**
+**3. Mettre a jour ~/.claude/CLAUDE.md (global utilisateur)**
 
-Verifier si CLAUDE.md, `.roo/rules/`, `.claude/rules/` sont a jour :
+Fichier : `~/.claude/CLAUDE.md`
+
+Ce fichier contient les preferences utilisateur **cross-projets** (s'applique a TOUS les workspaces).
+Mettre a jour si une nouvelle preference ou convention a ete decouverte :
+- Nouvelles definitions terminologiques (ex: "consolider" = analyze + merge + archive)
+- Conventions de travail generales (ex: "ne jamais archiver sans verifier la couverture")
+- Preferences de communication ou de style
+- Ne PAS y mettre d'infos specifiques a un projet (ca va dans le CLAUDE.md du workspace)
+
+**4. Evaluer les fichiers de regles (si drift detecte)**
+
+Verifier si CLAUDE.md (workspace), `.roo/rules/`, `.claude/rules/` sont a jour :
 - Nombre de machines correct ?
 - Nouveaux outils documentes ?
 - Regles obsoletes a retirer ?
@@ -355,6 +366,7 @@ Si oui, proposer les modifications (ne pas saturer, rester concis).
 | Decision | "RooSync = Claude only, INTERCOM = local" | Deja dans rules |
 | Etat courant | "Git @ abc123, 3252 tests, 3/6 heartbeat" | MEMORY.md Current State |
 | Convention | "git pull --no-rebase (jamais --rebase)" | PROJECT_MEMORY.md Decisions |
+| Preference user | "consolider = analyser + merger + archiver" | ~/.claude/CLAUDE.md |
 
 ### Ce qu'il ne faut PAS consolider
 
@@ -374,6 +386,10 @@ Si oui, proposer les modifications (ne pas saturer, rester concis).
 
 ### PROJECT_MEMORY.md (partage)
 - Sections ajoutees : [liste si applicable]
+- Pas de changement si rien de nouveau
+
+### ~/.claude/CLAUDE.md (global utilisateur)
+- Preferences ajoutees : [liste si applicable]
 - Pas de changement si rien de nouveau
 
 ### Regles

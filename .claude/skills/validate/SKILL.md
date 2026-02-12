@@ -1,6 +1,9 @@
-# Skill : Validate (Build & Tests)
+# Skill : Validate (Build & Tests) - Override roo-extensions
 
-Valide que le code compile et que les tests passent. Equivalent rapide d'un "CI local".
+> **Override projet** : Surcharge la skill globale `~/.claude/skills/validate/SKILL.md`.
+> Template generique : `.claude/configs/skills/validate/SKILL.md`
+
+Valide que le code compile et que les tests passent pour **roo-state-manager**.
 
 ---
 

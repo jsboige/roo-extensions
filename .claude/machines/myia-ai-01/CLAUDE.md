@@ -24,15 +24,16 @@
 
 ## MCPs Disponibles
 
-- roo-state-manager (18 outils via wrapper)
+- roo-state-manager (39 outils, wrapper v4 pass-through)
 - markitdown (1 outil)
 - GitHub CLI (`gh`)
 
 ## Outils Specifiques
 
 - Agents coordinateur : `roosync-hub`, `dispatch-manager`, `task-planner`
-- Skills : `sync-tour`, `coordinate`
+- Skills : `sync-tour`, `coordinate`, `redistribute-memory`
 - Commandes : `/coordinate`, `/sync-tour`
+- MCP additionnel : sk-agent (Python, proxy LLM locaux)
 
 ## Taches Typiques
 

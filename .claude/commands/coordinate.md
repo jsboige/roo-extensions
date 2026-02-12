@@ -1,6 +1,6 @@
 ---
 description: Lance une session de coordination multi-agent RooSync sur myia-ai-01
-allowed-tools: Read, Grep, Glob, Bash, mcp__roo-state-manager__*, mcp__github-projects-mcp__*, Task
+allowed-tools: Read, Grep, Glob, Bash, mcp__roo-state-manager__*, Task
 ---
 
 # Coordination Multi-Agent RooSync
@@ -9,15 +9,16 @@ Tu es le **coordinateur principal** du système RooSync Multi-Agent sur **myia-a
 
 ## Mission
 
-Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code par machine) pour avancer sur le Project GitHub #67.
+Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code par machine) pour avancer sur le Project GitHub #67.
 
 | Machine | Roo | Claude-Code |
 |---------|-----|-------------|
 | myia-ai-01 | Technique | Coordinateur |
 | myia-po-2023 | Technique | Executor |
 | myia-po-2024 | Technique | Executor |
+| myia-po-2025 | Technique | Executor |
 | myia-po-2026 | Technique | Executor |
-| myia-web1 | Technique | Executor |
+| myia-web1 | Technique | Executor (2GB RAM) |
 
 ## Architecture Disponible
 
@@ -52,8 +53,62 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 3. **Analyse rapports** : Traiter messages RooSync entrants
 4. **Planification** : Ventiler le travail (task-planner ou manuel)
 5. **Dispatch** : Envoyer instructions via RooSync
-6. **Suivi GitHub** : Mettre a jour Projects #67 et #70
+6. **Suivi GitHub** : Mettre a jour Project #67
 7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+
+### Analyse des Traces Roo (audit scheduler)
+
+**QUAND :** A chaque tour de sync ou apres un message INTERCOM de Roo avec tag `[DONE]`.
+
+**OBJECTIF :** Verifier ce que le scheduler Roo a fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees en -complex.
+
+**1. Identifier les dernieres executions Roo :**
+
+```
+task_browse(action: "tree", output_format: "ascii-tree", show_metadata: true)
+```
+
+Selectionner les 3-5 dernieres taches `orchestrator-simple` (executions scheduler).
+
+**2. Pour chaque execution, analyser le squelette :**
+
+```
+view_conversation_tree(
+  task_id: "{TASK_ID}",
+  detail_level: "summary",
+  smart_truncation: true,
+  max_output_length: 15000
+)
+```
+
+**3. Patterns d'erreur a chercher :**
+- `roosync_send` / `roosync_read` → Roo utilise RooSync (INTERDIT)
+- `quickfiles` / `edit_multiple_files` → Outil supprime
+- Orchestrateur qui fait le travail au lieu de deleguer via `new_task`
+- `Error`, `Failed`, `permission denied` → Erreurs d'execution
+- Boucles sans resultat
+- `[ESCALADE-CLAUDE]` → Taches echouees en `-complex` a reprendre par Claude
+
+**4. Evaluer et ajuster :**
+
+| Constat | Action |
+|---------|--------|
+| Taux succes > 90%, seulement `-simple` | Ecrire INTERCOM : pousser vers `-complex` |
+| Taux succes 70-90%, mix simple/complex | Bon equilibre, maintenir |
+| Taux succes < 70% | Analyser causes, corriger workflow si structurel |
+| Erreur recurrente (>2 fois) | Corriger le workflow `.roo/scheduler-workflow-*.md` |
+| Taches `[ESCALADE-CLAUDE]` | Les ajouter a la pile de travail Claude |
+
+**5. Chaine d'escalade progressive :**
+```
+code-simple → code-complex (GLM 5) → orchestrator-complex → claude -p (Opus)
+```
+L'objectif long terme est de pousser Roo vers de plus en plus de taches `-complex` (GLM 5 le permet). Claude Opus reprend ce qui echoue.
+
+**6. Si modification de workflow necessaire :**
+- Modifier `.roo/scheduler-workflow-coordinator.md` et/ou `.roo/scheduler-workflow-executor.md`
+- Les modifications prennent effet au prochain `git pull` + execution scheduler
+- Commit avec message `fix(scheduler): description de la correction`
 
 ### Fin de Session / Avant Saturation Contexte
 
@@ -103,7 +158,7 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 
 **Quand utiliser `task-planner` :**
 - Après avoir reçu plusieurs rapports
-- Pour équilibrer charge entre 5 machines
+- Pour équilibrer charge entre 6 machines
 - Quand besoin d'analyse avancement global
 
 **Quand utiliser `github-tracker` :**
@@ -126,11 +181,6 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 - **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
 - **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
 
-**Project #70 - RooSync Multi-Agent Coordination** (coordination Claude)
-- **ID complet** : `PVT_kwHOADA1Xc4BL7qS`
-- **URL** : https://github.com/users/jsboige/projects/70
-- **Usage** : Suivi coordination inter-machines
-
 ### Sources de Vérité (par priorité)
 
 **Pour connaître l'état actuel du projet, consulter dans cet ordre :**
@@ -149,8 +199,7 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 |-------|-------|-----------|
 | **RooSync** | Instructions aux exécutants | Chaque tour de sync |
 | **INTERCOM** | Coordination locale Roo | Chaque action locale |
-| **GitHub #67** | Tâches techniques Roo | Création avec validation |
-| **GitHub #70** | Coordination Claude | Suivi déploiements |
+| **GitHub #67** | Tâches techniques | Création avec validation |
 
 ### Validation Utilisateur OBLIGATOIRE
 
