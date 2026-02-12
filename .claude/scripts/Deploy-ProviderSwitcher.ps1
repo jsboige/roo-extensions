@@ -49,7 +49,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Paths
-$sourceRoot = "d:\roo-extensions\.claude"
+$sourceRoot = Join-Path $PSScriptRoot ".."
 $targetRoot = Join-Path $env:USERPROFILE ".claude"
 
 function Write-Header {

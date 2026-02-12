@@ -1,5 +1,5 @@
 ---
-description: Switch between LLM providers (Anthropic Claude API or z.ai GLM-4.7)
+description: Switch between LLM providers (Anthropic Claude API or z.ai GLM-5)
 argument-hint: anthropic | zai
 allowed-tools: Bash(powershell:*)
 ---
@@ -11,7 +11,7 @@ Switch the active LLM provider for Claude Code to: **$1**
 ## Available providers
 
 - **anthropic**: Anthropic's official Claude API (Sonnet 4.5, Opus 4.5, Haiku 4.5)
-- **zai**: z.ai GLM models (GLM-4.7, GLM-4.5-Air) via user's max subscription
+- **zai**: z.ai GLM models (GLM-5, GLM-4.7, GLM-4.5-Air) via user's max subscription
 
 ## Process
 

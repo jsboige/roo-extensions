@@ -126,12 +126,35 @@ try {
         }
     }
 
-    # Update env variables (if present)
-    if ($providerConfig.PSObject.Properties.Name -contains 'env') {
-        $envObj = $providerConfig.env
-        if ($envObj.PSObject.Properties.Count -gt 0) {
-            $cleanSettings | Add-Member -MemberType NoteProperty -Name 'env' -Value $envObj
+    # Update env variables - MERGE to preserve existing API keys
+    # Protected keys that should NEVER be overwritten from template
+    $protectedKeys = @('ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY')
+
+    # Start with existing env if present
+    $mergedEnv = @{}
+    if ($userSettings.PSObject.Properties.Name -contains 'env') {
+        foreach ($prop in $userSettings.env.PSObject.Properties) {
+            $mergedEnv[$prop.Name] = $prop.Value
         }
+    }
+
+    # Merge provider env, but skip protected keys that already exist
+    if ($providerConfig.PSObject.Properties.Name -contains 'env') {
+        foreach ($prop in $providerConfig.env.PSObject.Properties) {
+            $keyName = $prop.Name
+            # Skip protected keys if they already exist in user settings
+            if ($protectedKeys -contains $keyName -and $mergedEnv.ContainsKey($keyName)) {
+                Write-Host "   🔐 Preserving existing $keyName" -ForegroundColor Yellow
+                continue
+            }
+            $mergedEnv[$keyName] = $prop.Value
+        }
+    }
+
+    # Add merged env to clean settings
+    if ($mergedEnv.Count -gt 0) {
+        $envObj = [PSCustomObject]$mergedEnv
+        $cleanSettings | Add-Member -MemberType NoteProperty -Name 'env' -Value $envObj
     }
 
     # Update model if specified
