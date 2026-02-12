@@ -58,10 +58,12 @@ This rule was established after a Session 101 incident where 8+ scripts were arc
 
 ## Git Best Practices
 
-### Pull Strategy
-- **Always `git pull --no-rebase`** (merge strategy, never rebase on shared branches)
+### Conflict Resolution (CRITICAL)
+- **NEVER auto-resolve conflicts blindly** - always review each conflict manually
+- **NEVER pick "ours" or "theirs" globally** without understanding what each side contains
 - Before pull: `git fetch origin` to inspect incoming changes
-- If multiple machines push simultaneously: fetch + pull + retry (may need 2-3 cycles)
+- When conflicts arise: read the markers (`<<<<<<<`, `=======`, `>>>>>>>`), understand both sides, decide deliberately
+- The choice between rebase and merge depends on the project (rebase is cleaner for linear history, merge preserves parallel history)
 
 ### Commit Discipline
 - **Conventional commits**: `type(scope): description` (fix, feat, docs, refactor, test, chore)
