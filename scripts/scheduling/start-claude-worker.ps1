@@ -450,24 +450,76 @@ function Invoke-Claude {
         Write-Log "Exécution dans: $WorkingDir"
         Write-Log "Max iterations: $Iterations"
 
-        # Lancer Claude (note: cette ligne ne fonctionnera pas encore car
-        # il faut implémenter l'intégration avec Ralph Wiggum pour les boucles)
-        # $Output = & claude @ClaudeArgs 2>&1
+        # =============================================================================
+        # TODO #3 - Ralph Wiggum Loop (Option B - Internal Loop)
+        # Pattern: Gather context → Take action → Verify → Repeat
+        # =============================================================================
 
-        # Pour l'instant, simuler succès
-        Write-Log "[SIMULATION] Claude s'exécuterait avec mode $ModeId" "INFO"
-        $Output = "Simulation: sync-tour complété avec succès"
+        $CurrentIteration = 0
+        $Continue = $true
+        $CumulativeOutput = @()
+        $NeedsEscalation = $false
+
+        while ($Continue -and $CurrentIteration -lt $Iterations) {
+            $CurrentIteration++
+            Write-Log "Ralph Wiggum - Iteration $CurrentIteration/$Iterations..."
+
+            # TAKE ACTION: Exécuter Claude CLI
+            try {
+                $IterationOutput = & claude @ClaudeArgs 2>&1
+                $CumulativeOutput += $IterationOutput
+            }
+            catch {
+                Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
+                $CumulativeOutput += "ERROR: $_"
+                $Continue = $false
+                break
+            }
+
+            # VERIFY: Analyser output pour décider de continuer
+            $OutputText = $IterationOutput -join "`n"
+
+            # Pattern 1: SUCCÈS (arrêt propre)
+            if ($OutputText -match "(completed successfully|task done|all tests pass|no further action needed)") {
+                Write-Log "✅ Succès détecté - Arrêt boucle Ralph" "INFO"
+                $Continue = $false
+            }
+            # Pattern 2: ESCALADE (complexité détectée)
+            elseif ($OutputText -match "(too complex|escalate|need more powerful model|beyond my capabilities|requires (sonnet|opus))") {
+                Write-Log "⚠️ Escalade détectée - Signalement au caller" "WARN"
+                $NeedsEscalation = $true
+                $Continue = $false
+            }
+            # Pattern 3: CONTINUATION (gather more context)
+            elseif ($OutputText -match "(continuing|next step|gathering more context|still working)") {
+                Write-Log "🔄 Continuation détectée - Prochaine iteration"
+                $Continue = $true
+            }
+            # Pattern 4: ERREUR CRITIQUE (arrêt avec échec)
+            elseif ($OutputText -match "(fatal error|cannot proceed|blocked)") {
+                Write-Log "❌ Erreur critique détectée - Arrêt" "ERROR"
+                $Continue = $false
+            }
+            else {
+                # Par défaut: continuer si pas max iterations, sinon arrêter
+                $Continue = $CurrentIteration -lt $Iterations
+                if (-not $Continue) {
+                    Write-Log "⏸️ Max iterations atteintes - Arrêt" "WARN"
+                }
+            }
+        }
 
         Pop-Location
 
-        Write-Log "Exécution Claude terminée"
-        Write-Log "Output: $Output"
+        Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
+        # GATHER CONTEXT: Retourner résultat avec flag escalade si nécessaire
         return @{
-            success = $true
-            output = $Output
+            success = -not $NeedsEscalation
+            needsEscalation = $NeedsEscalation
+            output = $CumulativeOutput -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
-            iterations = 1  # À implémenter: compter réellement
+            iterations = $CurrentIteration
         }
     }
     catch {
@@ -490,14 +542,23 @@ function Check-Escalation {
         return $null
     }
 
-    # Vérifier conditions d'escalade
-    if (-not $Result.success) {
-        Write-Log "Échec détecté, escalade vers: $($ModeConfig.escalation.triggerMode)" "WARN"
+    # TODO #3 - Ralph Wiggum: Vérifier flag needsEscalation (détecté par boucle)
+    if ($Result.needsEscalation) {
+        Write-Log "🚀 Escalade demandée par Ralph Wiggum vers: $($ModeConfig.escalation.triggerMode)" "WARN"
         return $ModeConfig.escalation.triggerMode
     }
 
-    # TODO: Analyser output pour détecter conditions d'escalade
-    # (conflits git, complexité détectée, etc.)
+    # Vérifier conditions d'escalade (échec)
+    if (-not $Result.success) {
+        Write-Log "❌ Échec détecté, escalade vers: $($ModeConfig.escalation.triggerMode)" "WARN"
+        return $ModeConfig.escalation.triggerMode
+    }
+
+    # TODO #4 - Escalation Detection: Analyser patterns dans output
+    # - Conflits git non résolus
+    # - Build failures répétés
+    # - Tests qui échouent systématiquement
+    # - Patterns spécifiques dans l'output (voir modes-config.json)
 
     return $null
 }
