@@ -46,14 +46,14 @@ function Write-Log {
 function Test-RooSyncWorkflow {
     Write-Log "DÉBUT DU DIAGNOSTIC COMPLET ROOSYNC" "SUCCESS"
     Write-Log "=========================================" "SUCCESS"
-    
+
     $diagnostic = @{
         timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-        machineId = $env:COMPUTERNAME
+        machineId = $env:COMPUTERNAME.ToLower()
         issues = @()
         recommendations = @()
     }
-    
+
     # Test 1 : Vérification des outils MCP RooSync
     Write-Log "Test 1 : Vérification des outils MCP RooSync..." "INFO"
     try {
@@ -62,7 +62,7 @@ function Test-RooSyncWorkflow {
             "roosync_list_diffs", "roosync_approve_decision", "roosync_reject_decision",
             "roosync_apply_decision", "roosync_rollback_decision", "roosync_get_decision_details"
         )
-        
+
         foreach ($tool in $mcpTools) {
             Write-Log "  - Vérification de l'outil : $tool" "INFO"
             # Simulation de test (à remplacer par appel MCP réel)
@@ -81,28 +81,28 @@ function Test-RooSyncWorkflow {
             message = $_.Exception.Message
         }
     }
-    
+
     # Test 2 : Analyse du fichier sync-roadmap.md
     Write-Log "Test 2 : Analyse du fichier sync-roadmap.md..." "INFO"
     $roadmapPath = "../../Drive/.shortcut-targets-by-id/1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB/.shared-state/sync-roadmap.md"
-    
+
     if (Test-Path $roadmapPath) {
         try {
             $roadmapContent = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
-            
+
             # Compter les décisions par statut
             $pendingDecisions = ([regex]::Matches($roadmapContent, '\*\*Statut:\*\* pending')).Count
             $approvedDecisions = ([regex]::Matches($roadmapContent, '\*\*Statut:\*\* approved')).Count
             $totalDecisions = ([regex]::Matches($roadmapContent, '<!-- DECISION_BLOCK_START -->')).Count
-            
+
             Write-Log "  - Décisions pending : $pendingDecisions" "INFO"
             Write-Log "  - Décisions approved : $approvedDecisions" "INFO"
             Write-Log "  - Total décisions : $totalDecisions" "INFO"
-            
+
             # Détecter les décisions en double
             $decisionIds = [regex]::Matches($roadmapContent, '\*\*ID:\*\* `([^`]+)`') | ForEach-Object { $_.Groups[1].Value }
             $duplicateIds = $decisionIds | Group-Object | Where-Object { $_.Count -gt 1 }
-            
+
             if ($duplicateIds) {
                 Write-Log "  - DÉCISIONS EN DOUBLE DÉTECTÉES :" "WARN"
                 foreach ($dup in $duplicateIds) {
@@ -115,7 +115,7 @@ function Test-RooSyncWorkflow {
                     }
                 }
             }
-            
+
             # Détecter les données hardware corrompues
             $corruptedHardware = [regex]::Matches($roadmapContent, '\*\*Valeur Source:\*\* 0')
             if ($corruptedHardware.Count -gt 0) {
@@ -126,7 +126,7 @@ function Test-RooSyncWorkflow {
                     severity = "HIGH"
                 }
             }
-            
+
         } catch {
             Write-Log "ERREUR lors de l'analyse de sync-roadmap.md : $($_.Exception.Message)" "ERROR"
             $diagnostic.issues += @{
@@ -143,14 +143,14 @@ function Test-RooSyncWorkflow {
             severity = "CRITICAL"
         }
     }
-    
+
     # Test 3 : Vérification de la configuration RooSync
     Write-Log "Test 3 : Vérification de la configuration RooSync..." "INFO"
     $configPaths = @(
         "roo-config/roosync-config.json",
         "RooSync/.config/sync-config.json"
     )
-    
+
     foreach ($configPath in $configPaths) {
         if (Test-Path $configPath) {
             try {
@@ -168,7 +168,7 @@ function Test-RooSyncWorkflow {
             Write-Log "  - Configuration manquante : $configPath" "WARN"
         }
     }
-    
+
     # Sauvegarde du diagnostic
     # Créer le répertoire de rapports si nécessaire
     if (!(Test-Path "roo-config/reports")) {
@@ -177,7 +177,7 @@ function Test-RooSyncWorkflow {
     $diagnosticPath = "roo-config/reports/phase3a-diagnostic-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
     $diagnostic | ConvertTo-Json -Depth 10 | Out-File -FilePath $diagnosticPath -Encoding UTF8
     Write-Log "Diagnostic sauvegardé dans : $diagnosticPath" "SUCCESS"
-    
+
     return $diagnostic
 }
 
@@ -187,59 +187,59 @@ function Test-RooSyncWorkflow {
 
 function Repair-DecisionStatusHistory {
     param([bool]$DryRun = $false)
-    
+
     Write-Log "DÉBUT DE LA CORRECTION DU BUG STATUT/HISTORIQUE" "SUCCESS"
     Write-Log "=============================================" "SUCCESS"
-    
+
     $roadmapPath = "../../Drive/.shortcut-targets-by-id/1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB/.shared-state/sync-roadmap.md"
-    
+
     if (!(Test-Path $roadmapPath)) {
         Write-Log "Fichier sync-roadmap.md introuvable" "ERROR"
         return $false
     }
-    
+
     try {
         $content = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
         $originalContent = $content
         $corrections = 0
-        
+
         # Correction 1 : S'assurer que les décisions approved ont les métadonnées complètes
         Write-Log "Correction 1 : Vérification des métadonnées des décisions approved..." "INFO"
-        
+
         $approvedBlocks = [regex]::Matches($content, '(<!-- DECISION_BLOCK_START -->([\s\S]*?)<!-- DECISION_BLOCK_END -->)')
-        
+
         foreach ($match in $approvedBlocks) {
             $block = $match.Groups[1].Value
-            
+
             # Vérifier si le statut est "approved" mais sans métadonnées d'approbation
             if ($block -match '\*\*Statut:\*\* approved' -and $block -notmatch '\*\*Approuvé le:\*\*') {
                 Write-Log "  - Décision approved sans métadonnées détectée" "WARN"
-                
+
                 if (!$DryRun) {
                     # Ajouter les métadonnées manquantes
                     $now = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-                    $machineId = $env:COMPUTERNAME
+                    $machineId = $env:COMPUTERNAME.ToLower()
                     $metadata = "`n**Approuvé le:** $now`n**Approuvé par:** $machineId"
-                    
+
                     $updatedBlock = $block -replace '(<!-- DECISION_BLOCK_END -->)', "$metadata`n`$1"
                     $content = $content.Replace($match.Groups[0].Value, "<!-- DECISION_BLOCK_START -->$updatedBlock")
                     $corrections++
                 }
             }
         }
-        
+
         # Correction 2 : Nettoyage des décisions en double
         Write-Log "Correction 2 : Nettoyage des décisions en double..." "INFO"
-        
+
         $decisionBlocks = [regex]::Matches($content, '(<!-- DECISION_BLOCK_START -->([\s\S]*?)<!-- DECISION_BLOCK_END -->)')
         $seenIds = @{}
         $duplicatesToRemove = @()
-        
+
         foreach ($match in $decisionBlocks) {
             $block = $match.Groups[1].Value
             if ($block -match '\*\*ID:\*\* `([^`]+)`') {
                 $decisionId = $matches[1]
-                
+
                 if ($seenIds.ContainsKey($decisionId)) {
                     Write-Log "  - Décision en double détectée : $decisionId" "WARN"
                     $duplicatesToRemove += $match.Groups[0].Value
@@ -248,21 +248,21 @@ function Repair-DecisionStatusHistory {
                 }
             }
         }
-        
+
         foreach ($duplicate in $duplicatesToRemove) {
             if (!$DryRun) {
                 $content = $content.Replace($duplicate, "")
                 $corrections++
             }
         }
-        
+
         # Sauvegarder les corrections
         if ($corrections -gt 0 -and !$DryRun) {
             # Backup du fichier original
             $backupPath = "$roadmapPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
             Copy-Item -Path $roadmapPath -Destination $backupPath
             Write-Log "Backup créé : $backupPath" "SUCCESS"
-            
+
             # Écrire le contenu corrigé
             $content | Out-File -FilePath $roadmapPath -Encoding UTF8
             Write-Log "Fichier sync-roadmap.md corrigé avec $corrections modifications" "SUCCESS"
@@ -271,9 +271,9 @@ function Repair-DecisionStatusHistory {
         } else {
             Write-Log "Aucune correction nécessaire" "SUCCESS"
         }
-        
+
         return $corrections
-        
+
     } catch {
         Write-Log "ERREUR lors de la correction du fichier : $($_.Exception.Message)" "ERROR"
         return $false
@@ -286,49 +286,49 @@ function Repair-DecisionStatusHistory {
 
 function Clear-CorruptedData {
     param([bool]$DryRun = $false)
-    
+
     Write-Log "DÉBUT DU NETTOYAGE DES DONNÉES CORROMPUES" "SUCCESS"
     Write-Log "=========================================" "SUCCESS"
-    
+
     $roadmapPath = "../../Drive/.shortcut-targets-by-id/1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB/.shared-state/sync-roadmap.md"
-    
+
     if (!(Test-Path $roadmapPath)) {
         Write-Log "Fichier sync-roadmap.md introuvable" "ERROR"
         return $false
     }
-    
+
     try {
         $content = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
         $originalContent = $content
         $corrections = 0
-        
+
         # Nettoyage 1 : Corriger les données hardware avec valeurs à 0
         Write-Log "Nettoyage 1 : Correction des données hardware corrompues..." "INFO"
-        
+
         $hardwareCorrections = @(
             @{ pattern = '\*\*Valeur Source:\*\* 0'; replacement = '**Valeur Source:** [DETECTED]' },
             @{ pattern = '\*\*Valeur Source:\*\* 0\.0 GB'; replacement = '**Valeur Source:** [DETECTED]' },
             @{ pattern = '\*\*Valeur Source:\*\* "Unknown"'; replacement = '**Valeur Source:** [DETECTED]' }
         )
-        
+
         foreach ($correction in $hardwareCorrections) {
             $matches = [regex]::Matches($content, $correction.pattern)
             if ($matches.Count -gt 0) {
                 Write-Log "  - Correction de $($matches.Count) valeurs hardware corrompues" "INFO"
-                
+
                 if (!$DryRun) {
                     $content = $content -replace $correction.pattern, $correction.replacement
                     $corrections += $matches.Count
                 }
             }
         }
-        
+
         # Nettoyage 2 : Réparer les timestamps incohérents
         Write-Log "Nettoyage 2 : Vérification des timestamps..." "INFO"
-        
+
         $timestampPattern = '\*\*Créé:\*\* (\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z)'
         $timestamps = [regex]::Matches($content, $timestampPattern)
-        
+
         foreach ($match in $timestamps) {
             $timestamp = $match.Groups[1].Value
             try {
@@ -350,14 +350,14 @@ function Clear-CorruptedData {
                 }
             }
         }
-        
+
         # Sauvegarder les corrections
         if ($corrections -gt 0 -and !$DryRun) {
             # Backup du fichier original
             $backupPath = "$roadmapPath.cleanup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
             Copy-Item -Path $roadmapPath -Destination $backupPath
             Write-Log "Backup de nettoyage créé : $backupPath" "SUCCESS"
-            
+
             # Écrire le contenu corrigé
             $content | Out-File -FilePath $roadmapPath -Encoding UTF8
             Write-Log "Fichier sync-roadmap.md nettoyé avec $corrections corrections" "SUCCESS"
@@ -366,9 +366,9 @@ function Clear-CorruptedData {
         } else {
             Write-Log "Aucun nettoyage nécessaire" "SUCCESS"
         }
-        
+
         return $corrections
-        
+
     } catch {
         Write-Log "ERREUR lors du nettoyage du fichier : $($_.Exception.Message)" "ERROR"
         return $false
@@ -382,7 +382,7 @@ function Clear-CorruptedData {
 function Test-RooSyncWorkflowValidation {
     Write-Log "DÉBUT DE LA VALIDATION DU WORKFLOW" "SUCCESS"
     Write-Log "=================================" "SUCCESS"
-    
+
     $validationResults = @{
         timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
         tests = @()
@@ -390,25 +390,25 @@ function Test-RooSyncWorkflowValidation {
         score = 0
         maxScore = 100
     }
-    
+
     # Test 1 : Validation de la structure du fichier roadmap
     Write-Log "Test 1 : Validation de la structure sync-roadmap.md..." "INFO"
     $roadmapPath = "../../Drive/.shortcut-targets-by-id/1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB/.shared-state/sync-roadmap.md"
-    
+
     if (Test-Path $roadmapPath) {
         try {
             $content = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
-            
+
             # Vérifier la structure de base
             $hasHeader = $content -match '# RooSync - Roadmap de Synchronisation'
             $hasVersion = $content -match '\*\*Version\*\* :'
             $hasDecisionBlocks = $content -match '<!-- DECISION_BLOCK_START -->'
-            
+
             $structureScore = 0
             if ($hasHeader) { $structureScore += 10 }
             if ($hasVersion) { $structureScore += 10 }
             if ($hasDecisionBlocks) { $structureScore += 10 }
-            
+
             $validationResults.tests += @{
                 name = "Structure Roadmap"
                 status = if ($structureScore -eq 30) { "PASS" } else { "FAIL" }
@@ -420,9 +420,9 @@ function Test-RooSyncWorkflowValidation {
                     hasDecisionBlocks = $hasDecisionBlocks
                 }
             }
-            
+
             Write-Log "  - Structure valide : $structureScore/30" "INFO"
-            
+
         } catch {
             Write-Log "ERREUR lors de la validation de la structure : $($_.Exception.Message)" "ERROR"
             $validationResults.tests += @{
@@ -443,28 +443,28 @@ function Test-RooSyncWorkflowValidation {
             error = "Fichier introuvable"
         }
     }
-    
+
     # Test 2 : Validation des décisions
     Write-Log "Test 2 : Validation des décisions..." "INFO"
     try {
         $decisionCount = 0
         $validDecisions = 0
         $invalidDecisions = 0
-        
+
         if (Test-Path $roadmapPath) {
             $content = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
             $decisionBlocks = [regex]::Matches($content, '(<!-- DECISION_BLOCK_START -->([\s\S]*?)<!-- DECISION_BLOCK_END -->)')
-            
+
             foreach ($match in $decisionBlocks) {
                 $block = $match.Groups[1].Value
                 $decisionCount++
-                
+
                 # Vérifier les champs requis
                 $hasId = $block -match '\*\*ID:\*\*'
                 $hasTitle = $block -match '\*\*Titre:\*\*'
                 $hasStatus = $block -match '\*\*Statut:\*\*'
                 $hasType = $block -match '\*\*Type:\*\*'
-                
+
                 if ($hasId -and $hasTitle -and $hasStatus -and $hasType) {
                     $validDecisions++
                 } else {
@@ -473,9 +473,9 @@ function Test-RooSyncWorkflowValidation {
                 }
             }
         }
-        
+
         $decisionScore = if ($decisionCount -gt 0) { [math]::Round(($validDecisions / $decisionCount) * 40) } else { 0 }
-        
+
         $validationResults.tests += @{
             name = "Validation Décisions"
             status = if ($invalidDecisions -eq 0) { "PASS" } else { "FAIL" }
@@ -487,9 +487,9 @@ function Test-RooSyncWorkflowValidation {
                 invalid = $invalidDecisions
             }
         }
-        
+
         Write-Log "  - Décisions valides : $validDecisions/$decisionCount ($decisionScore/40)" "INFO"
-        
+
     } catch {
         Write-Log "ERREUR lors de la validation des décisions : $($_.Exception.Message)" "ERROR"
         $validationResults.tests += @{
@@ -500,32 +500,32 @@ function Test-RooSyncWorkflowValidation {
             error = $_.Exception.Message
         }
     }
-    
+
     # Test 3 : Validation de la cohérence des statuts
     Write-Log "Test 3 : Validation de la cohérence des statuts..." "INFO"
     try {
         $statusInconsistencies = 0
-        
+
         if (Test-Path $roadmapPath) {
             $content = Get-Content -Path $roadmapPath -Raw -Encoding UTF8
             $decisionBlocks = [regex]::Matches($content, '(<!-- DECISION_BLOCK_START -->([\s\S]*?)<!-- DECISION_BLOCK_END -->)')
-            
+
             foreach ($match in $decisionBlocks) {
                 $block = $match.Groups[1].Value
-                
+
                 # Vérifier les incohérences statut/métadonnées
                 if ($block -match '\*\*Statut:\*\* approved' -and $block -notmatch '\*\*Approuvé le:\*\*') {
                     $statusInconsistencies++
                 }
-                
+
                 if ($block -match '\*\*Statut:\*\* pending' -and $block -match '\*\*Approuvé le:\*\*') {
                     $statusInconsistencies++
                 }
             }
         }
-        
+
         $statusScore = if ($statusInconsistencies -eq 0) { 30 } else { [math]::Max(0, 30 - ($statusInconsistencies * 5)) }
-        
+
         $validationResults.tests += @{
             name = "Cohérence Statuts"
             status = if ($statusInconsistencies -eq 0) { "PASS" } else { "FAIL" }
@@ -535,9 +535,9 @@ function Test-RooSyncWorkflowValidation {
                 inconsistencies = $statusInconsistencies
             }
         }
-        
+
         Write-Log "  - Cohérence des statuts : $statusScore/30 ($statusInconsistencies incohérences)" "INFO"
-        
+
     } catch {
         Write-Log "ERREUR lors de la validation de la cohérence : $($_.Exception.Message)" "ERROR"
         $validationResults.tests += @{
@@ -548,14 +548,14 @@ function Test-RooSyncWorkflowValidation {
             error = $_.Exception.Message
         }
     }
-    
+
     # Calcul du score global
     $validationResults.score = ($validationResults.tests | Measure-Object -Property score -Sum).Sum
     $validationResults.overallStatus = if ($validationResults.score -ge 85) { "PASS" } else { "FAIL" }
-    
+
     Write-Log "Score global de validation : $($validationResults.score)/$($validationResults.maxScore)" "SUCCESS"
     Write-Log "Statut global : $($validationResults.overallStatus)" "SUCCESS"
-    
+
     # Sauvegarde des résultats de validation
     # Créer le répertoire de rapports si nécessaire
     if (!(Test-Path "roo-config/reports")) {
@@ -564,7 +564,7 @@ function Test-RooSyncWorkflowValidation {
     $validationPath = "roo-config/reports/phase3a-validation-$(Get-Date -Format 'yyyyMMdd-HHmmss').json"
     $validationResults | ConvertTo-Json -Depth 10 | Out-File -FilePath $validationPath -Encoding UTF8
     Write-Log "Validation sauvegardée dans : $validationPath" "SUCCESS"
-    
+
     return $validationResults
 }
 
@@ -578,18 +578,18 @@ function New-Checkpoint1Report {
         [int]$CorrectionsApplied,
         [hashtable]$ValidationResults
     )
-    
+
     Write-Log "GÉNÉRATION DU RAPPORT CHECKPOINT 1" "SUCCESS"
     Write-Log "=================================" "SUCCESS"
-    
+
     $reportPath = "docs/reports/PHASE3A-CHECKPOINT1-REPORT-$(Get-Date -Format 'yyyyMMdd-HHmmss').md"
-    
+
     $reportContent = @"
 # Rapport Phase 3A - Checkpoint 1 : Correction Critique
 
-**Date** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  
-**Sous-phase** : 3A  
-**Statut** : COMPLÉTÉE  
+**Date** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+**Sous-phase** : 3A
+**Statut** : COMPLÉTÉE
 **Conformité** : SDDD (Semantic Documentation Driven Design)
 
 ---
@@ -666,23 +666,23 @@ $(if ($CorrectionsApplied -gt 0) { "- $CorrectionsApplied corrections appliquée
 
 ---
 
-**Rapport généré le** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  
-**Auteur** : Roo Code Mode  
+**Rapport généré le** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+**Auteur** : Roo Code Mode
 **Prochaine validation** : Checkpoint 2 (Jour 5)
 
 ---
 
 *Ce rapport suit la méthodologie SDDD (Semantic-Documentation-Driven-Design) et sert de référence pour la Sous-phase 3B.*
 "@
-    
+
     # Créer le répertoire de rapports si nécessaire
     if (!(Test-Path "docs/reports")) {
         New-Item -ItemType Directory -Path "docs/reports" -Force | Out-Null
     }
-    
+
     $reportContent | Out-File -FilePath $reportPath -Encoding UTF8
     Write-Log "Rapport Checkpoint 1 généré : $reportPath" "SUCCESS"
-    
+
     return $reportPath
 }
 
@@ -698,34 +698,34 @@ function Main {
     Write-Log "Mode DryRun : $DryRun" "INFO"
     Write-Log "Fichier de log : $LogPath" "INFO"
     Write-Log ""
-    
+
     try {
         # ÉTAPE 1 : Diagnostic complet
         Write-Log "ÉTAPE 1/5 : DIAGNOSTIC COMPLET DU WORKFLOW ROOSYNC" "SUCCESS"
         $diagnostic = Test-RooSyncWorkflow
         Write-Log ""
-        
+
         # ÉTAPE 2 : Correction du bug statut/historique
         Write-Log "ÉTAPE 2/5 : CORRECTION DU BUG STATUT/HISTORIQUE" "SUCCESS"
         $statusCorrections = Repair-DecisionStatusHistory -DryRun $DryRun
         Write-Log ""
-        
+
         # ÉTAPE 3 : Nettoyage des données corrompues
         Write-Log "ÉTAPE 3/5 : NETTOYAGE DES DONNÉES CORROMPUES" "SUCCESS"
         $cleanupCorrections = Clear-CorruptedData -DryRun $DryRun
         Write-Log ""
-        
+
         # ÉTAPE 4 : Validation du workflow
         Write-Log "ÉTAPE 4/5 : VALIDATION DU WORKFLOW COMPLET" "SUCCESS"
         $validationResults = Test-RooSyncWorkflowValidation
         Write-Log ""
-        
+
         # ÉTAPE 5 : Génération du rapport
         Write-Log "ÉTAPE 5/5 : GÉNÉRATION DU RAPPORT CHECKPOINT 1" "SUCCESS"
         $totalCorrections = $statusCorrections + $cleanupCorrections
         $reportPath = New-Checkpoint1Report -Diagnostic $diagnostic -CorrectionsApplied $totalCorrections -ValidationResults $validationResults
         Write-Log ""
-        
+
         # RÉSUMÉ FINAL
         Write-Log "RÉSUMÉ DE LA PHASE 3A" "SUCCESS"
         Write-Log "===================" "SUCCESS"
@@ -735,7 +735,7 @@ function Main {
         Write-Log "Statut global : $($ValidationResults.overallStatus)" "INFO"
         Write-Log "Rapport généré : $reportPath" "INFO"
         Write-Log ""
-        
+
         if ($ValidationResults.overallStatus -eq "PASS") {
             Write-Log "✅ PHASE 3A TERMINÉE AVEC SUCCÈS - Checkpoint 1 validé" "SUCCESS"
             exit 0
@@ -743,7 +743,7 @@ function Main {
             Write-Log "⚠️ PHASE 3A TERMINÉE AVEC AVERTISSEMENTS - Vérifications supplémentaires requises" "WARN"
             exit 1
         }
-        
+
     } catch {
         Write-Log "ERREUR CRITIQUE lors de l'exécution de la Phase 3A : $($_.Exception.Message)" "ERROR"
         Write-Log "Stack trace : $($_.ScriptStackTrace)" "ERROR"

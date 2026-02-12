@@ -1,6 +1,6 @@
 # scripts/inventory/Get-RealConfigInventory.ps1
 param(
-    [string]$MachineId = $env:COMPUTERNAME
+    [string]$MachineId = $env:COMPUTERNAME.ToLower()
 )
 
 $ErrorActionPreference = "Stop"

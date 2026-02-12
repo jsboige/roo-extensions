@@ -19,7 +19,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$MachineId = $env:COMPUTERNAME,
+    [string]$MachineId = $env:COMPUTERNAME.ToLower(),
 
     [Parameter(Mandatory=$false)]
     [string]$OutputPath,

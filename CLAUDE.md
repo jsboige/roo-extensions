@@ -263,6 +263,19 @@ Utilise task-worker pour prendre ma prochaine tâche
 **Action :**
 - Harmonisation H2-H7 en cours de déploiement sur toutes les machines
 
+### Fichiers de Configuration Roo (IMPORTANT)
+
+**Settings MCP Roo (auto-approbation des outils) :**
+- **Global :** `C:\Users\MYIA\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+- **Projet :** `.roo\mcp.json` (overrides par projet, actuellement vide)
+- **Priorité :** Projet > Global (les settings projet écrasent les globaux)
+- Chaque MCP a une liste `alwaysAllow` qui doit contenir TOUS les outils nécessaires au scheduler
+
+**Settings globaux Roo (auto-approbation générale) :**
+- **Template :** `roo-config/settings/settings.json` (source git)
+- **Déployé :** Via `roo-config/settings/deploy-settings.ps1`
+- **Clés critiques :** `autoApprovalEnabled`, `alwaysAllowExecute`, `alwaysAllowMcp`, `alwaysAllowSubtasks`
+
 ---
 
 ## 🤖 Votre Rôle : Agent Claude Code

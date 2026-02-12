@@ -46,10 +46,10 @@ function Write-Log {
 function Test-BaselineSystemStatus {
     Write-Log "DÉBUT DE L'ANALYSE DU SYSTÈME DE BASELINE" "SUCCESS"
     Write-Log "=============================================" "SUCCESS"
-    
+
     $analysis = @{
         timestamp = Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ"
-        machineId = $env:COMPUTERNAME
+        machineId = $env:COMPUTERNAME.ToLower()
         baselineStatus = @{
             exists = $false
             valid = $false
@@ -60,7 +60,7 @@ function Test-BaselineSystemStatus {
         gaps = @()
         recommendations = @()
     }
-    
+
     # Test 1 : Vérification du fichier baseline
     Write-Log "Test 1 : Vérification du fichier baseline..." "INFO"
     $baselinePaths = @(
@@ -68,14 +68,14 @@ function Test-BaselineSystemStatus {
         "config/sync-config.ref.json",
         "RooSync/baseline/sync-config.ref.json"
     )
-    
+
     $baselineFound = $false
     foreach ($path in $baselinePaths) {
         if (Test-Path $path) {
             Write-Log "  - Baseline trouvée : $path" "SUCCESS"
             $analysis.baselineStatus.exists = $true
             $baselineFound = $true
-            
+
             try {
                 $baselineContent = Get-Content -Path $path -Raw | ConvertFrom-Json
                 $analysis.baselineStatus.version = $baselineContent.version
@@ -90,7 +90,7 @@ function Test-BaselineSystemStatus {
             break
         }
     }
-    
+
     if (!$baselineFound) {
         Write-Log "  - Aucun fichier baseline trouvé" "ERROR"
         $analysis.missingFeatures += @{
@@ -100,7 +100,7 @@ function Test-BaselineSystemStatus {
             recommendation = "Créer le fichier baseline avec roosync_init"
         }
     }
-    
+
     # Test 2 : Vérification des outils MCP baseline
     Write-Log "Test 2 : Vérification des outils MCP baseline..." "INFO"
     $requiredMcpTools = @(
@@ -109,14 +109,14 @@ function Test-BaselineSystemStatus {
         "roosync_reject_decision", "roosync_apply_decision", "roosync_rollback_decision",
         "roosync_get_decision_details", "roosync_update_baseline"
     )
-    
+
     $availableMcpTools = @(
         "roosync_init", "roosync_get_status", "roosync_compare_config",
         "roosync_detect_diffs", "roosync_list_diffs", "roosync_approve_decision",
         "roosync_reject_decision", "roosync_apply_decision", "roosync_rollback_decision",
         "roosync_get_decision_details"
     )
-    
+
     foreach ($tool in $requiredMcpTools) {
         if ($tool -notin $availableMcpTools) {
             Write-Log "  - Outil MCP manquant : $tool" "WARN"
@@ -130,10 +130,10 @@ function Test-BaselineSystemStatus {
             Write-Log "  - Outil MCP disponible : $tool" "SUCCESS"
         }
     }
-    
+
     # Test 3 : Vérification des fonctionnalités de baseline
     Write-Log "Test 3 : Vérification des fonctionnalités de baseline..." "INFO"
-    
+
     $baselineFeatures = @(
         @{ name = "Chargement baseline"; method = "loadBaseline"; status = "IMPLEMENTED" },
         @{ name = "Comparaison baseline"; method = "compareWithBaseline"; status = "IMPLEMENTED" },
@@ -146,7 +146,7 @@ function Test-BaselineSystemStatus {
         @{ name = "Export baseline"; method = "exportBaseline"; status = "MISSING" },
         @{ name = "Import baseline"; method = "importBaseline"; status = "MISSING" }
     )
-    
+
     foreach ($feature in $baselineFeatures) {
         if ($feature.status -eq "MISSING") {
             Write-Log "  - Fonctionnalité manquante : $($feature.name)" "WARN"
@@ -168,7 +168,7 @@ function Test-BaselineSystemStatus {
             Write-Log "  - Fonctionnalité disponible : $($feature.name)" "SUCCESS"
         }
     }
-    
+
     # Test 4 : Vérification des scripts PowerShell
     Write-Log "Test 4 : Vérification des scripts PowerShell..." "INFO"
     $requiredScripts = @(
@@ -178,7 +178,7 @@ function Test-BaselineSystemStatus {
         "scripts/roosync/roosync_export_baseline.ps1",
         "scripts/roosync/roosync_import_baseline.ps1"
     )
-    
+
     foreach ($script in $requiredScripts) {
         if (Test-Path $script) {
             Write-Log "  - Script disponible : $script" "SUCCESS"
@@ -192,10 +192,10 @@ function Test-BaselineSystemStatus {
             }
         }
     }
-    
+
     # Test 5 : Analyse des gaps avec les exigences
     Write-Log "Test 5 : Analyse des gaps avec les exigences..." "INFO"
-    
+
     $exigencesPhase3B = @(
         @{
             exigence = "Gestion baseline 100% fonctionnelle"
@@ -228,7 +228,7 @@ function Test-BaselineSystemStatus {
             severite = "MEDIUM"
         }
     )
-    
+
     foreach ($exigence in $exigencesPhase3B) {
         if ($exigence.statut -ne "COMPLIANT") {
             Write-Log "  - Gap identifié : $($exigence.exigence)" "WARN"
@@ -240,18 +240,18 @@ function Test-BaselineSystemStatus {
             }
         }
     }
-    
+
     # Calcul du score de conformité
     $totalExigences = $exigencesPhase3B.Count
     $exigencesConformes = ($exigencesPhase3B | Where-Object { $_.statut -eq "COMPLIANT" }).Count
     $conformiteScore = [math]::Round(($exigencesConformes / $totalExigences) * 100, 1)
-    
+
     Write-Log "Score de conformité : $conformiteScore% ($exigencesConformes/$totalExigences)" "INFO"
-    
+
     $analysis.conformiteScore = $conformiteScore
     $analysis.totalExigences = $totalExigences
     $analysis.exigencesConformes = $exigencesConformes
-    
+
     return $analysis
 }
 
@@ -261,18 +261,18 @@ function Test-BaselineSystemStatus {
 
 function New-BaselineAnalysisReport {
     param([hashtable]$Analysis)
-    
+
     Write-Log "GÉNÉRATION DU RAPPORT D'ANALYSE BASELINE" "SUCCESS"
     Write-Log "=========================================" "SUCCESS"
-    
+
     $reportPath = "roo-config/reports/PHASE3B-BASELINE-ANALYSIS-$(Get-Date -Format 'yyyyMMdd-HHmmss').md"
-    
+
     $reportContent = @"
 # Phase 3B - Analyse de l'État Actuel du Système de Baseline
 
-**Date** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  
-**Sous-phase** : 3B (Jours 4-8)  
-**Objectif** : Implémentation des fonctionnalités manquantes baseline et diff granulaire  
+**Date** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+**Sous-phase** : 3B (Jours 4-8)
+**Objectif** : Implémentation des fonctionnalités manquantes baseline et diff granulaire
 **Conformité** : SDDD (Semantic Documentation Driven Design)
 
 ---
@@ -432,23 +432,23 @@ $(
 
 ---
 
-**Rapport généré le** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')  
-**Auteur** : Roo Code Mode  
+**Rapport généré le** : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+**Auteur** : Roo Code Mode
 **Prochaine étape** : Implémentation des fonctionnalités manquantes
 
 ---
 
 *Ce rapport suit la méthodologie SDDD (Semantic-Documentation-Driven-Design) et sert de référence pour l'implémentation de la Sous-phase 3B.*
 "@
-    
+
     # Créer le répertoire de rapports si nécessaire
     if (!(Test-Path "roo-config/reports")) {
         New-Item -ItemType Directory -Path "roo-config/reports" -Force | Out-Null
     }
-    
+
     $reportContent | Out-File -FilePath $reportPath -Encoding UTF8
     Write-Log "Rapport d'analyse baseline généré : $reportPath" "SUCCESS"
-    
+
     return $reportPath
 }
 
@@ -464,18 +464,18 @@ function Main {
     Write-Log "Mode DryRun : $DryRun" "INFO"
     Write-Log "Fichier de log : $LogPath" "INFO"
     Write-Log ""
-    
+
     try {
         # ÉTAPE 1 : Analyse de l'état actuel
         Write-Log "ÉTAPE 1/2 : ANALYSE DE L'ÉTAT ACTUEL DU SYSTÈME DE BASELINE" "SUCCESS"
         $analysis = Test-BaselineSystemStatus
         Write-Log ""
-        
+
         # ÉTAPE 2 : Génération du rapport
         Write-Log "ÉTAPE 2/2 : GÉNÉRATION DU RAPPORT D'ANALYSE" "SUCCESS"
         $reportPath = New-BaselineAnalysisReport -Analysis $analysis
         Write-Log ""
-        
+
         # RÉSUMÉ FINAL
         Write-Log "RÉSUMÉ DE L'ANALYSE BASELINE" "SUCCESS"
         Write-Log "=============================" "SUCCESS"
@@ -485,7 +485,7 @@ function Main {
         Write-Log "Baseline disponible : $(if ($analysis.baselineStatus.exists) { 'Oui' } else { 'Non' })" "INFO"
         Write-Log "Rapport généré : $reportPath" "INFO"
         Write-Log ""
-        
+
         if ($analysis.conformiteScore -ge 85) {
             Write-Log "✅ OBJECTIF CHECKPOINT 2 ATTEINT - 85% de conformité" "SUCCESS"
             exit 0
@@ -494,7 +494,7 @@ function Main {
             Write-Log "Écart à combler : $([math]::Max(0, 85 - $analysis.conformiteScore))%" "WARN"
             exit 1
         }
-        
+
     } catch {
         Write-Log "ERREUR CRITIQUE lors de l'analyse baseline : $($_.Exception.Message)" "ERROR"
         Write-Log "Stack trace : $($_.ScriptStackTrace)" "ERROR"
