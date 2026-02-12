@@ -64,7 +64,7 @@ Roo possède un moteur d'indexation sémantique robuste qui génère des collect
   - Exemple : `ws-a3f2d1c5b4e6f7a8` pour un workspace donné
 - **Distance metric** : Cosine
 - **Vector size** : Variable (dépend de l'embedder)
-  - Qwen 3 4B : **1024 dimensions** (estimé)
+  - **Qwen 3 4B AWQ** : **2560 dimensions** ✅ (hébergé sur embeddings.myia.io)
 
 **Payload Structure :**
 ```typescript
@@ -90,7 +90,9 @@ interface Payload {
 **Fichiers :** `src/services/code-index/embedders/`
 
 **Embedders disponibles :**
-- **Qwen 3 4B** (actuel) : `openai-compatible.ts` → Qwen via API compatible
+- **Qwen 3 4B AWQ** (actuel) : `openai-compatible.ts` → Qwen via API compatible
+  - **Endpoint** : `https://embeddings.myia.io/v1/embeddings` (OpenAI-compatible)
+  - **Dimension** : **2560** ✅
 - **OpenAI** : `openai.ts` (déprécié)
 - **Mistral** : `mistral.ts`
 - **Gemini** : `gemini.ts`
@@ -263,7 +265,8 @@ interface Payload {
    - Évaluer qualité des résultats
 
 4. **Benchmark embeddings** :
-   - Dimension exacte Qwen 3 4B
+   - **Endpoint** : `https://embeddings.myia.io/v1/embeddings` ✅
+   - **Dimension** : 2560 (Qwen3-4B-AWQ) ✅
    - Vitesse génération embeddings
    - Qualité recherche vs OpenAI
 
