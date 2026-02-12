@@ -245,3 +245,48 @@ Le protocole **SDDD (Semantic-Driven Development Documentation)** structure les 
 ```
 
 **Regle** : Ne jamais se contenter d'une seule source. Le croisement des 3 groundings evite les erreurs.
+
+---
+
+## Self-Maintenance (Auto-Entretien de la Documentation)
+
+**OBLIGATION apres chaque tache significative :**
+
+1. **Mettre a jour CLAUDE.md** (du projet) si les sections techniques changent
+2. **Mettre a jour MEMORY.md** (auto-memoire) avec l'etat courant et les lecons apprises
+3. **Enregistrer ce qui a ete teste et rejete** (avec les raisons) pour eviter de refaire des experiences echouees
+4. **Verifier la coherence** des deux fichiers avant de terminer une session
+
+Ce pattern vient de l'experience multi-projets : sans auto-entretien, les sessions suivantes perdent du temps a redecouvrir des informations deja connues.
+
+---
+
+## Configuration Globale Deployee
+
+### Agents, Skills et Commands globaux
+
+Des templates generiques sont deployes dans `~/.claude/` pour etre disponibles dans tous les workspaces.
+
+**Source de verite :** `roo-extensions/.claude/configs/` (git-tracked, synchronise entre machines)
+
+**Deploiement :**
+```powershell
+# Depuis le repertoire roo-extensions
+powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1
+```
+
+**Contenu deploye :**
+
+| Type | Nom | Description |
+|------|-----|-------------|
+| Agent | `code-fixer` | Investigation et correction de bugs |
+| Agent | `test-investigator` | Investigation tests qui echouent |
+| Agent | `test-runner` | Build + tests, rapport structure |
+| Agent | `code-explorer` | Exploration read-only du codebase |
+| Agent | `git-sync` | Pull, submodules, resolution conflits |
+| Agent | `doc-updater` | MAJ docs apres changements |
+| Skill | `validate` | CI local : build + tests |
+| Skill | `git-sync` | Synchronisation Git intelligente |
+| Command | `switch-provider` | Basculer entre providers LLM |
+
+**Override projet :** Si un projet a ses propres versions dans `.claude/agents/`, `.claude/skills/`, etc., elles surchargent les globales. C'est le mecanisme standard de Claude Code.

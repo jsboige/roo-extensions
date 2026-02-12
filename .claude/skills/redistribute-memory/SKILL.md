@@ -145,6 +145,47 @@ Categories typiquement universelles :
 - Knowledge preservation (consolidation, memory hierarchy)
 - Terminology (definitions de l'utilisateur applicables partout)
 
+**2f. Agents, Skills et Commands cross-workspace (CRITIQUE) :**
+Pour chaque agent, skill et command du workspace :
+**"Est-ce generique (tout projet) ou specifique (ce projet uniquement) ?"**
+
+1. **Inventorier :**
+   ```
+   Glob: {workspace}/.claude/agents/**/*.md
+   Glob: {workspace}/.claude/skills/*/SKILL.md
+   Glob: {workspace}/.claude/commands/*.md
+   ```
+
+2. **Pour chaque element, verifier :**
+   - Contient-il des chemins hardcodes specifiques au projet ? (ex: `mcps/internal/servers/...`)
+   - Contient-il des noms de projets/repos specifiques ? (ex: `roo-extensions`, `jsboige`)
+   - La methodologie est-elle universelle ? (applicable a tout projet)
+
+3. **Classifier :**
+   | Type | Critere | Action |
+   |------|---------|--------|
+   | Generique pur | Aucune reference projet-specifique | → `.claude/configs/{type}s/` (template global) |
+   | Generalisable | Refs specifiques mais methodo universelle | → Creer version generique + override projet |
+   | Projet-specifique | Intrinsequement lie au projet | → Rester au niveau projet |
+
+4. **Pour les autres workspaces** (si demande) :
+   - Detecter les workspaces via `ls ~/.claude/projects/`
+   - Pour chaque workspace : lire CLAUDE.md, chercher agents/skills/commands
+   - Identifier les patterns ou workflows qui meritent un agent/skill generique
+   - Verifier si les templates globaux deployes seraient utiles dans ces workspaces
+
+5. **Deployer les templates generiques :**
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1
+   ```
+
+6. **Requalifier les overrides projet :**
+   Pour chaque element qui a une version generique ET une version projet, ajouter :
+   ```markdown
+   > **Override projet** : Surcharge la version globale `~/.claude/{type}s/{name}/`.
+   > Template generique : `.claude/configs/{type}s/{name}/`
+   ```
+
 **Output :**
 ```
 ## Analyse
