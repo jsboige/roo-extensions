@@ -263,6 +263,31 @@ Utilise task-worker pour prendre ma prochaine tâche
 **Action :**
 - Harmonisation H2-H7 en cours de déploiement sur toutes les machines
 
+### Fichiers de Configuration Claude Code (IMPORTANT)
+
+**Hiérarchie des fichiers CLAUDE.md (priorité croissante) :**
+
+| Niveau | Fichier | Portée | Synchronisation |
+|--------|---------|--------|-----------------|
+| **Global utilisateur** | `~/.claude/CLAUDE.md` | TOUS les projets de la machine | Inventaire + sync inter-machines |
+| **Projet** | `CLAUDE.md` (racine workspace) | Ce projet uniquement | Git (versionné) |
+| **Auto-mémoire projet** | `~/.claude/projects/<hash>/memory/MEMORY.md` | Ce projet, privé | Local uniquement (pas git) |
+
+- Le CLAUDE.md **global** (`~/.claude/CLAUDE.md`) contient les préférences utilisateur cross-projets (ex: définition de "consolider", conventions générales)
+- Le CLAUDE.md **projet** (`CLAUDE.md` à la racine) contient les instructions spécifiques au workspace
+- Les deux sont chargés automatiquement par Claude Code au début de chaque conversation
+- **OBLIGATION :** Toute préférence utilisateur qui s'applique à TOUS les projets doit aller dans le global, pas dans le projet
+
+**Autres fichiers Claude Code à surveiller :**
+
+| Fichier | Contenu | Synchronisation |
+|---------|---------|-----------------|
+| `~/.claude/settings.json` | Permissions, modèle par défaut, MCPs globaux Claude | Inventaire |
+| `~/.claude/CLAUDE.md` | Instructions globales utilisateur | Inventaire + sync |
+| `<projet>/.claude/rules/*.md` | Règles projet (testing, github-cli, etc.) | Git |
+| `<projet>/.claude/commands/*.md` | Slash commands projet | Git |
+| `<projet>/.claude/skills/*/SKILL.md` | Skills auto-invoqués | Git |
+
 ### Fichiers de Configuration Roo (IMPORTANT)
 
 **Settings MCP Roo (auto-approbation des outils) :**
@@ -270,6 +295,8 @@ Utilise task-worker pour prendre ma prochaine tâche
 - **Projet :** `.roo\mcp.json` (overrides par projet, actuellement vide)
 - **Priorité :** Projet > Global (les settings projet écrasent les globaux)
 - Chaque MCP a une liste `alwaysAllow` qui doit contenir TOUS les outils nécessaires au scheduler
+- **Outil programmatique :** `roosync_mcp_management(subAction: "sync_always_allow")` pour MAJ automatique
+- **MAJ unitaire sûre :** `roosync_mcp_management(subAction: "update_server_field")` pour modifier un champ sans écraser le reste
 
 **Settings globaux Roo (auto-approbation générale) :**
 - **Template :** `roo-config/settings/settings.json` (source git)
