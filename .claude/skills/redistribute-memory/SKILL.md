@@ -130,6 +130,21 @@ Pour chaque fichier, analyser le contenu et identifier :
 - Sections "Current State" avec dates > 7 jours
 - Lessons learned qui sont maintenant dans les rules
 
+**2e. Contenu universel mal place (CRITIQUE) :**
+Pour chaque regle/lecon dans CLAUDE.md project, MEMORY.md, et PROJECT_MEMORY.md, poser la question :
+**"Est-ce que cette regle serait utile dans un AUTRE workspace ?"**
+
+Si oui → elle doit aller dans `~/.claude/CLAUDE.md` (user global) via le template `.claude/configs/user-global-claude.md`.
+
+Categories typiquement universelles :
+- Git workflow (pull strategy, commits, submodules, force push)
+- Tool discipline (Read before Edit, test commands, build verification)
+- Investigation methodology (code > docs, announce work)
+- Safety rules (backup, no secrets, verify before delete)
+- OS/platform gotchas (PowerShell BOM, line endings, paths)
+- Knowledge preservation (consolidation, memory hierarchy)
+- Terminology (definitions de l'utilisateur applicables partout)
+
 **Output :**
 ```
 ## Analyse
@@ -240,16 +255,30 @@ Si invoque avec la demande d'analyser d'autres workspaces :
 ## Criteres de placement (reference)
 
 ### Va dans `~/.claude/CLAUDE.md` (user global)
-- Preferences de style (langue, format, emojis)
-- Outils preferes (git workflow, test commands)
-- Conventions personnelles applicables a tous les projets
+
+**Critere cle : est-ce utile dans TOUT workspace, pas seulement celui-ci ?**
+
+Exemples de contenu qui DOIT etre ici :
 - Definitions terminologiques (ex: "consolider" = analyser + merger + archiver)
+- Preferences de style (langue, format, emojis)
+- Git best practices (pull --no-rebase, conventional commits, never force push)
+- Claude Code tool discipline (Read before Edit, test commands non-bloquants)
+- Methodology investigation (code source > docs, annoncer travail avant)
+- Knowledge preservation (consolider avant fin de session)
+- Safety rules (backup avant destructif, jamais de secrets en git)
+- Windows/PowerShell gotchas (BOM, Join-Path 2 args, CRLF)
+- Submodule workflow (commit interne d'abord)
+
+**Verification a chaque audit :** Relire le CLAUDE.md project et MEMORY.md pour identifier les lecons
+qui sont formulees comme specifiques au projet mais en realite universelles.
+Demander : "Est-ce que cette regle serait utile si je travaillais sur un autre projet ?"
 
 **Propagation inter-machines :**
-- **Source git :** `.claude/configs/user-global-claude.md` (template de reference)
-- **Deploye vers :** `~/.claude/CLAUDE.md` (local, pas dans git)
-- **Workflow :** Modifier le template dans git, chaque machine copie vers `~/.claude/CLAUDE.md`
+- **Source git :** `.claude/configs/user-global-claude.md` dans le repo **roo-extensions**
+- **Deploye vers :** `~/.claude/CLAUDE.md` (local, pas dans git, s'applique a TOUS les workspaces)
+- **Workflow :** Modifier le template dans roo-extensions, commit+push, chaque machine pull et copie
 - **Commande :** `Copy-Item .claude/configs/user-global-claude.md $env:USERPROFILE\.claude\CLAUDE.md`
+- **Verif :** Comparer le deploye vs template : `diff ~/.claude/CLAUDE.md .claude/configs/user-global-claude.md`
 
 ### Va dans `{workspace}/CLAUDE.md` (project)
 - Architecture du projet
