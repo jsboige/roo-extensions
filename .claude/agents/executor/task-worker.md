@@ -1,7 +1,7 @@
 ---
 name: task-worker
 description: Worker technique autonome pour machines exécutantes. Analyse le code, investigue les bugs, propose des fixes, et exécute les tâches. Aussi compétent que Roo pour l'investigation technique.
-tools: Read, Grep, Glob, Bash, Edit, Write, mcp__github-projects-mcp__get_project_items, mcp__github-projects-mcp__list_repository_issues, mcp__github-projects-mcp__get_repository_issue
+tools: Read, Grep, Glob, Bash, Edit, Write
 model: opus
 ---
 
@@ -33,7 +33,7 @@ Grep "pattern" --type ts
 Glob "**/*.ts"
 
 # Exécuter les tests
-cd mcps/internal/servers/roo-state-manager && npm test -- --grep "test-name"
+cd mcps/internal/servers/roo-state-manager && npx vitest run
 ```
 
 ### 2. Analyse de Code
@@ -56,10 +56,10 @@ Quand tu identifies un bug :
 cd mcps/internal/servers/roo-state-manager && npm run build
 
 # Tests unitaires
-npm test
+npx vitest run
 
 # Tests spécifiques
-npm test -- --grep "pattern"
+npx vitest run --testNamePattern="pattern"
 ```
 
 ## Workflow Autonome

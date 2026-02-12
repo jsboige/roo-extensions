@@ -213,7 +213,7 @@ Certains agents definis dans roo-extensions sont utiles dans n'importe quel work
 
 ## SDDD - Investigation Methodology
 
-Le protocole **SDDD (Semantic-Driven Development Documentation)** structure les investigations techniques en 3 types de grounding. Applicable a tout projet.
+Le protocole **SDDD (Semantic Documentation Driven Development)** structure les investigations techniques en 3 types de grounding. Applicable a tout projet.
 
 ### 1. Grounding Technique (toujours disponible)
 - **Outils** : Read, Grep, Glob, Bash
