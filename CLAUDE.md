@@ -117,15 +117,16 @@ Utilise task-worker pour prendre ma prochaine tâche
 | `git-sync` | Pull conservatif + résolution conflits + submodules | Synchronisation Git |
 | `github-status` | État Project #67 via `gh` CLI | Progression et incohérences |
 
-**Les 8 phases du sync-tour :**
-0. **INTERCOM Local** : ⚠️ CRITIQUE - Lire messages de Roo EN PREMIER (merge en cours?, modifs locales?)
+**Les 9 phases du sync-tour :**
+0. **INTERCOM Local** : CRITIQUE - Lire messages de Roo EN PREMIER (merge en cours?, modifs locales?)
 1. **Collecte** : Messages RooSync non-lus
-2. **Git Sync** : Pull conservatif + résolution conflits automatique + submodules
+2. **Git Sync** : Pull conservatif + resolution conflits automatique + submodules
 3. **Validation** : Build + tests unitaires (+ corrections simples)
-4. **GitHub Status** : Project #67 + issues récentes + incohérences
+4. **GitHub Status** : Project #67 + issues recentes + incoherences
 5. **MAJ GitHub** : Marquer Done, commentaires (validation utilisateur pour nouvelles issues)
-6. **Planification** : Ventilation 6 machines × 2 agents (Roo + Claude)
-7. **Réponses** : Messages RooSync personnalisés + gestion machines silencieuses
+6. **Planification** : Ventilation 6 machines x 2 agents (Roo + Claude)
+7. **Reponses** : Messages RooSync personnalises + gestion machines silencieuses
+8. **Consolidation** : Mettre a jour MEMORY.md + PROJECT_MEMORY.md avec jugement (patterns, decisions, etat)
 
 **Usage :** Demander un "tour de sync" ou "faire le point".
 
