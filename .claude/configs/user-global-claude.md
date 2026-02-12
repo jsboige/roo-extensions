@@ -150,3 +150,98 @@ This rule was established after a Session 101 incident where 8+ scripts were arc
 ### Line Endings
 - Git on Windows: ensure `core.autocrlf = true` or use `.gitattributes`
 - Some tools are sensitive to CRLF vs LF (Bash scripts, Docker, etc.)
+
+---
+
+## MCP Tools Available (Global)
+
+These MCPs are deployed on all machines and available in any workspace.
+
+### roo-state-manager (39 tools)
+
+Expose les taches, conversations, et outils de coordination de Roo Code. Utilise-les pour comprendre ce que Roo a fait et pour coordonner.
+
+**Outils essentiels a connaitre :**
+
+| Outil | Usage | Quand l'utiliser |
+|-------|-------|-----------------|
+| `task_browse` | Arbre des taches Roo (hierarchie parent/enfant) | Comprendre ce que Roo fait ou a fait |
+| `view_conversation_tree` | Squelette d'une conversation Roo | Analyser le deroulement d'un travail Roo |
+| `roosync_summarize` | Resume structure d'une conversation | Documenter, rapport, comprendre |
+| `roosync_search` | Recherche dans les taches (texte + semantique) | Trouver une tache passee par sujet |
+| `read_vscode_logs` | Logs VS Code et Roo recents | Debugger un MCP, une extension |
+| `get_mcp_best_practices` | Guide bonnes pratiques MCP | Configurer ou debugger un MCP |
+| `manage_mcp_settings` | Lire/modifier config MCP de Roo | Deploiement, harmonisation |
+
+**Bonnes pratiques :**
+- `task_browse(action: "current")` pour savoir ce que Roo fait en ce moment
+- `view_conversation_tree` avec `smart_truncation: true` pour les longues conversations (evite overflow)
+- `roosync_search(action: "text", search_query: "...")` pour chercher dans l'historique Roo
+- Ne pas utiliser `roosync_summarize` mode `synthesis` (bug connu)
+
+### playwright (browser automation)
+- Automatisation web, screenshots, navigation
+- Utile pour tester des UI, scraper, valider des deployements
+
+### markitdown (document conversion)
+- Convertir PDF, DOCX, XLSX etc. en Markdown
+- Utile pour lire des documents non-texte
+
+---
+
+## Subagents Recommandes (Cross-Workspace)
+
+Certains agents definis dans roo-extensions sont utiles dans n'importe quel workspace. Les recreer (ou copier depuis `roo-extensions/.claude/agents/`) dans les nouveaux projets.
+
+### Agents universels
+
+| Agent | Fichier source | Usage universel |
+|-------|---------------|-----------------|
+| `code-fixer` | `.claude/agents/workers/code-fixer.md` | Investiguer et corriger un bug autonomement |
+| `test-investigator` | `.claude/agents/workers/test-investigator.md` | Analyser des tests qui echouent |
+| `test-runner` | `.claude/agents/test-runner.md` | Lancer build + tests, rapport structure |
+| `code-explorer` | `.claude/agents/code-explorer.md` | Explorer un codebase inconnu |
+| `git-sync` | `.claude/agents/git-sync.md` | Pull conservatif avec resolution conflits |
+| `doc-updater` | `.claude/agents/workers/doc-updater.md` | MAJ docs apres changements |
+
+### Agents specifiques roo-extensions (NE PAS copier)
+- `roosync-hub`, `roosync-reporter`, `dispatch-manager` : coordination multi-machines
+- `intercom-handler`, `intercom-compactor` : communication locale Roo
+- `consolidation-worker` : specifique aux consolidations CONS-X
+
+---
+
+## SDDD - Investigation Methodology
+
+Le protocole **SDDD (Semantic-Driven Development Documentation)** structure les investigations techniques en 3 types de grounding. Applicable a tout projet.
+
+### 1. Grounding Technique (toujours disponible)
+- **Outils** : Read, Grep, Glob, Bash
+- **Methode** : Partir du code source comme verite, explorer systematiquement
+- Lire les fichiers cles, tracer les imports, comprendre l'architecture
+- Les docs peuvent etre obsoletes, le code ne ment pas
+
+### 2. Grounding Conversationnel (si roo-state-manager disponible)
+- **Outils** : `task_browse`, `view_conversation_tree`, `roosync_summarize`
+- **Methode** : Analyser ce que Roo a fait sur le sujet
+  1. `task_browse(action: "tree")` pour voir l'arbre des taches
+  2. `view_conversation_tree(smart_truncation: true)` pour le squelette
+  3. `roosync_summarize(type: "trace")` pour les statistiques
+- Permet de ne pas refaire un travail deja fait par Roo
+
+### 3. Grounding Semantique (si index Qdrant disponible)
+- **Outils** : `roosync_search(action: "semantic")` pour les conversations
+- **Status** : La recherche dans les fichiers du workspace (codebase) n'est pas encore exposee a Claude (#452 - en cours). Utiliser Grep en attendant.
+- **Methode** : Chercher par concept plutot que par mot-cle exact
+- Utile pour retrouver des discussions passees sur un sujet
+
+### Workflow SDDD recommande
+
+```
+1. TECHNIQUE  : Grep/Read le code source (verite)
+2. CONVERSATIONNEL : task_browse + view_conversation_tree (contexte Roo)
+3. SEMANTIQUE : roosync_search si pertinent (historique)
+4. SYNTHESE : Croiser les 3 sources, documenter les conclusions
+```
+
+**Regle** : Ne jamais se contenter d'une seule source. Le croisement des 3 groundings evite les erreurs.

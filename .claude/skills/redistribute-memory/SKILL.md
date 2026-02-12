@@ -261,7 +261,7 @@ Si invoque avec la demande d'analyser d'autres workspaces :
 Exemples de contenu qui DOIT etre ici :
 - Definitions terminologiques (ex: "consolider" = analyser + merger + archiver)
 - Preferences de style (langue, format, emojis)
-- Git best practices (pull --no-rebase, conventional commits, never force push)
+- Git best practices (conflict resolution manuelle, conventional commits, never force push)
 - Claude Code tool discipline (Read before Edit, test commands non-bloquants)
 - Methodology investigation (code source > docs, annoncer travail avant)
 - Knowledge preservation (consolider avant fin de session)
