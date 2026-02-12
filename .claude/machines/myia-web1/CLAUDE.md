@@ -23,7 +23,7 @@
 
 ## MCPs Disponibles
 
-- roo-state-manager (6 outils RooSync)
+- roo-state-manager (39 outils, wrapper v4 pass-through)
 - markitdown (1 outil)
 - GitHub CLI (`gh`)
 
@@ -36,7 +36,7 @@
 ## Particularites
 
 - Pas de Jupyter (N/A)
-- Wrapper avec moins d'outils (6 vs 18 sur autres machines)
+- RAM limitee (2 GB) - adapter la charge
 - Harmonisation H6 (win-cli) en cours
 
 ## Notes

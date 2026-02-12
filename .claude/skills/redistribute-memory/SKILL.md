@@ -243,7 +243,13 @@ Si invoque avec la demande d'analyser d'autres workspaces :
 - Preferences de style (langue, format, emojis)
 - Outils preferes (git workflow, test commands)
 - Conventions personnelles applicables a tous les projets
-- Configuration LLM provider
+- Definitions terminologiques (ex: "consolider" = analyser + merger + archiver)
+
+**Propagation inter-machines :**
+- **Source git :** `.claude/configs/user-global-claude.md` (template de reference)
+- **Deploye vers :** `~/.claude/CLAUDE.md` (local, pas dans git)
+- **Workflow :** Modifier le template dans git, chaque machine copie vers `~/.claude/CLAUDE.md`
+- **Commande :** `Copy-Item .claude/configs/user-global-claude.md $env:USERPROFILE\.claude\CLAUDE.md`
 
 ### Va dans `{workspace}/CLAUDE.md` (project)
 - Architecture du projet
