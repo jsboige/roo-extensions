@@ -330,6 +330,106 @@ function Mark-TaskAsComplete {
 }
 
 # =============================================================================
+# TODO #5 - Wait State Management
+# =============================================================================
+
+function Save-WaitState {
+    <#
+    .SYNOPSIS
+    Sauvegarde l'état d'une tâche en attente pour reprise ultérieure
+
+    .DESCRIPTION
+    Crée un fichier JSON contenant l'état complet de la tâche :
+    - Condition d'attente (waitFor, resumeWhen)
+    - Contexte d'exécution (mode, model, iteration)
+    - Output partiel pour reprise
+    #>
+    param(
+        [string]$TaskId,
+        [hashtable]$WaitState
+    )
+
+    try {
+        # Créer répertoire si inexistant
+        $WaitStatesDir = Join-Path $RepoRoot ".claude\scheduler\wait-states"
+        if (-not (Test-Path $WaitStatesDir)) {
+            New-Item -ItemType Directory -Path $WaitStatesDir -Force | Out-Null
+            Write-Log "Répertoire wait-states créé"
+        }
+
+        # Construire objet d'état complet
+        $StateObject = @{
+            taskId = $TaskId
+            timestamp = (Get-Date).ToUniversalTime().ToString("o")
+            reason = $WaitState.reason
+            waitFor = $WaitState.waitFor
+            resumeWhen = $WaitState.resumeWhen
+            context = @{
+                mode = $WaitState.mode
+                model = $WaitState.model
+                iteration = $WaitState.iteration
+                outputSnippet = $WaitState.context  # Dernières lignes de sortie
+            }
+        }
+
+        # Sauvegarder en JSON UTF-8 sans BOM
+        $StateFile = Join-Path $WaitStatesDir "$TaskId.json"
+        $JsonText = $StateObject | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($StateFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
+
+        Write-Log "✅ Wait state sauvegardé: $StateFile"
+        Write-Log "  → Attend: $($WaitState.waitFor)"
+        Write-Log "  → Reprendra: $($WaitState.resumeWhen)"
+    }
+    catch {
+        Write-Log "Erreur sauvegarde wait state: $_" "ERROR"
+    }
+}
+
+function Test-WaitStateReady {
+    <#
+    .SYNOPSIS
+    Vérifie si une tâche en attente peut reprendre
+
+    .DESCRIPTION
+    Lit le fichier wait state et vérifie si la condition resumeWhen est remplie.
+    Retourne l'état si prêt, $null sinon.
+
+    .OUTPUTS
+    Hashtable avec l'état complet si ready, $null sinon
+    #>
+    param([string]$TaskId)
+
+    $StateFile = Join-Path $RepoRoot ".claude\scheduler\wait-states\$TaskId.json"
+
+    if (-not (Test-Path $StateFile)) {
+        return $null
+    }
+
+    try {
+        $State = Get-Content $StateFile -Raw | ConvertFrom-Json
+
+        Write-Log "Wait state trouvé pour tâche: $TaskId"
+        Write-Log "  → Attend: $($State.waitFor)"
+        Write-Log "  → Reprendra: $($State.resumeWhen)"
+
+        # TODO: Implémenter vérification condition resumeWhen
+        # Pour l'instant, toujours retourner $null (pas de reprise auto)
+        # Dans une version future, vérifier :
+        # - Si c'est une user approval → checker INTERCOM ou GitHub comments
+        # - Si c'est une RooSync response → checker inbox
+        # - Si c'est une GitHub decision → checker issue status
+
+        Write-Log "⏸️ Condition pas encore implémentée - skip pour cette exécution"
+        return $null
+    }
+    catch {
+        Write-Log "Erreur lecture wait state: $_" "WARN"
+        return $null
+    }
+}
+
+# =============================================================================
 # Mode Selection
 # =============================================================================
 
@@ -459,6 +559,7 @@ function Invoke-Claude {
         $Continue = $true
         $CumulativeOutput = @()
         $NeedsEscalation = $false
+        $WaitStateData = $null
 
         while ($Continue -and $CurrentIteration -lt $Iterations) {
             $CurrentIteration++
@@ -521,7 +622,16 @@ function Invoke-Claude {
                         Write-Log "  → Attend: $WaitFor"
                         Write-Log "  → Reprendra: $ResumeWhen"
 
-                        # TODO: Sauvegarder état pour reprise ultérieure
+                        # Préparer état pour sauvegarde (sera sauvegardé par le workflow principal)
+                        $WaitStateData = @{
+                            reason = $Reason
+                            waitFor = $WaitFor
+                            resumeWhen = $ResumeWhen
+                            mode = $ModeId
+                            model = $ModelToUse
+                            iteration = $CurrentIteration
+                            context = ($CumulativeOutput | Select-Object -Last 50) -join "`n"  # Dernières 50 lignes
+                        }
                     }
                     "success" {
                         Write-Log "✅ Agent signale: SUCCESS ($Reason)"
@@ -551,10 +661,11 @@ function Invoke-Claude {
 
         Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
-        # GATHER CONTEXT: Retourner résultat avec flag escalade si nécessaire
+        # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
-            success = -not $NeedsEscalation
+            success = -not $NeedsEscalation -and $null -eq $WaitStateData
             needsEscalation = $NeedsEscalation
+            waitState = $WaitStateData
             output = $CumulativeOutput -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
             iterations = $CurrentIteration
@@ -647,6 +758,18 @@ try {
         $Task = Get-NextTask
     }
 
+    # 1b. Vérifier si tâche en attente peut reprendre (TODO #5)
+    $ResumeState = Test-WaitStateReady -TaskId $Task.id
+    if ($ResumeState) {
+        Write-Log "🔄 Reprise d'une tâche en attente: $($Task.id)" "INFO"
+        Write-Log "  → Mode restauré: $($ResumeState.context.mode)"
+        Write-Log "  → Iteration: $($ResumeState.context.iteration)"
+
+        # TODO: Implémenter logique de reprise avec contexte
+        # Pour l'instant, traiter comme nouvelle tâche
+        Write-Log "⚠️ Reprise automatique pas encore implémentée - traitement comme nouvelle tâche" "WARN"
+    }
+
     # 2. Déterminer mode
     $SelectedMode = Determine-Mode -Task $Task
 
@@ -664,6 +787,16 @@ try {
     # 4. Exécuter Claude avec mode sélectionné
     $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
 
+    # 4b. Vérifier wait state (TODO #5)
+    if ($Result.waitState) {
+        Write-Log "⏸️ Agent en attente - Sauvegarde état pour reprise ultérieure" "INFO"
+        Save-WaitState -TaskId $Task.id -WaitState $Result.waitState
+
+        # Fin anticipée - pas d'escalade ni de completion
+        Write-Log "=== WORKER EN ATTENTE ==="
+        return
+    }
+
     # 5. Vérifier escalade
     $EscalateMode = Check-Escalation -Result $Result -CurrentMode $SelectedMode
 
@@ -671,6 +804,16 @@ try {
         Write-Log "ESCALADE vers mode: $EscalateMode" "WARN"
         $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
         $SelectedMode = $EscalateMode
+
+        # 5b. Vérifier wait state après escalade (TODO #5)
+        if ($Result.waitState) {
+            Write-Log "⏸️ Agent escaladé en attente - Sauvegarde état" "INFO"
+            Save-WaitState -TaskId $Task.id -WaitState $Result.waitState
+
+            # Fin anticipée
+            Write-Log "=== WORKER EN ATTENTE (après escalade) ==="
+            return
+        }
     }
 
     # 6. Reporter résultats
