@@ -571,6 +571,45 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
    - Garder 400 dernières lignes intactes
    - Résultat : ~500 lignes
 
+#### Mécanisme d'Escalade Simple → Complex
+
+**Documentation complète :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) (créé 2026-02-12)
+
+Le système Roo dispose d'un mécanisme d'escalade **automatique** et **intelligent** sur 3 couches :
+
+1. **Couche Scheduler** : `orchestrator-simple` évalue la complexité et escalade vers `orchestrator-complex` si nécessaire (6 critères)
+2. **Couche Modes Individuels** : Chaque mode worker (`code`, `debug`, `architect`, `ask`) escalade vers son niveau `-complex` si la tâche dépasse ses capacités (4 critères par mode)
+3. **Couche Orchestrateurs** : Instructions SDDD détaillées pour délégation via `new_task`, gestion des échecs, routage inter-famille
+
+**Principe :** Commencer simple (modèle économique), escalader si nécessaire (modèle puissant).
+
+**Roadmap Autonomie Progressive (#462) :**
+
+| Niveau | Statut | Description |
+|--------|--------|-------------|
+| **Niveau 1 : Roo Simple** | ✅ ACTUEL | Tâches `-simple` uniquement (git status, build, tests, cleanup) |
+| **Niveau 2 : Roo Complex** | 🔄 EN COURS | Tâches `-complex` avec validation Claude (investigation, fixes, refactoring) |
+| **Niveau 3 : Claude INTERCOM** | 📋 PLANIFIÉ | Claude Code lit INTERCOM au démarrage et exécute tâches assignées |
+| **Niveau 4 : Claude Scheduled** | 🔮 FUTUR | Claude Code schedulé automatiquement (dépend de solution Ralph) |
+| **Niveau 5 : Autonomie complète** | 🌟 VISION | Collaboration continue avec worktrees, PRs, monitoring proactif |
+
+**Impact GLM 5 (déployé 2026-02-12) :**
+- Modèle quasiment niveau Opus → Taux de succès `-complex` attendu **80-90%** (vs 50-70% avant)
+- Nouveaux cas d'usage : Investigation bugs complexes, corrections non-triviales, analyse architecturale, synthèse cross-domaine
+- **Niveau 2 prêt** : Scheduler Roo peut maintenant solliciter des tâches corriaces avec confiance
+
+**Métriques de Validation Niveau 2 (cibles) :**
+- Taux de succès `-simple` : >90%
+- Taux de succès `-complex` : >80%
+- Taux d'escalade approprié : 70-85%
+- Taux d'échecs répétés : <5%
+- Rollback automatiques : <10%
+
+**Plan de Test Phase A (Investigation) :**
+Voir [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) pour 5 scénarios de test détaillés.
+
+---
+
 #### Traces d'Exécution
 
 **Chemin :** `C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\{TASK_ID}`
