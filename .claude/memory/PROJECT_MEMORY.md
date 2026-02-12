@@ -1,6 +1,6 @@
 # Project Memory - roo-extensions
 
-Shared knowledge base for all Claude Code agents across 5 machines.
+Shared knowledge base for all Claude Code agents across 6 machines.
 Updated via git commits. Each agent should read this at session start.
 
 ## Architecture
@@ -48,20 +48,20 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-12 | Summary | 3 tools | 1 tool | myia-ai-01 | Done |
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
 
-## Current State (2026-02-07)
+## Current State (2026-02-12)
 
-**All 11 consolidations are DONE.** No more CONS tasks open.
+**CONS-#443 (finale consolidation 39→18) in progress.** G1+G5 done.
 
 | Metric | Value |
 |--------|-------|
-| Total tools (ListTools) | 39 (after CLEANUP-3) |
+| Total tools (ListTools) | 39 (wrapper v4 pass-through) |
 | RooSync tools (roosyncTools) | 19 |
-| Claude wrapper tools | 18 |
-| Deprecated removed from ListTools | 11 (CallTool handlers kept) |
-| Tests passing | 1829 |
-| Test files | 160 |
-| Submodule commit | 8607777 (CLEANUP-3) |
-| Parent commit | b94708c |
+| Claude wrapper tools | 39 (pass-through, no filtering) |
+| Tests passing | 3252 |
+| Test files | 201 |
+| GitHub Project #67 | 159 items, ~128 Done (83.7%) |
+| Skills | 4 (validate, git-sync, github-status, sync-tour) |
+| Scheduler | 3h interval, 6 machines staggered |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
 
@@ -127,3 +127,39 @@ Updated via git commits. Each agent should read this at session start.
 - Claude Code = primary brain (investigation, coding, decisions)
 - Roo = assistant (tests, builds, repetitive tasks)
 - Always validate Roo's work before committing
+
+### RooSync vs INTERCOM protocol (CRITICAL - 2026-02-11)
+- **RooSync** = EXCLUSIVELY Claude Code inter-machine communication
+- **INTERCOM** = Local Roo <-> Claude Code communication (same machine)
+- **Roo NEVER uses RooSync tools** (roosync_send, roosync_read, etc.)
+- Enforced in workflow files + rules `.roo/rules/03-mcp-usage.md`
+
+### Case-sensitive machineId (FIXED - 2026-02-12)
+- Windows hostname returns mixed case (e.g., `MyIA-Web1`)
+- Always `.toLowerCase()` on machineId (commit bd8e5b94)
+- Fixed in: roosync-config.ts, message-helpers.ts, InventoryService.ts
+
+### Scheduler cache bug
+- Roo Scheduler extension caches schedules.json at VS Code startup
+- Deploy config then restart VS Code IMMEDIATELY before next tick
+- `.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy`
+
+### Embeddings migration (2026-02-11)
+- Qwen3-4B AWQ self-hosted on myia-ai-01 (RTX 4090)
+- Endpoint: `https://embeddings.myia.io/v1`
+- 2560 dims, ~287 req/s, zero cost, +15% quality over OpenAI
+- Risk: previous overrun cost 200EUR - always rate-limit (#453)
+
+## Active Issues (2026-02-12)
+| # | Title | Priority |
+|---|-------|----------|
+| #443 | Consolidation finale 39→18 (G1+G5 done) | HIGH |
+| #452 | MCP outil exploitation index semantique | MEDIUM |
+| #453 | Qdrant task indexation | MEDIUM |
+| #458 | E2E validation post-CONS-#443 | HIGH |
+| #459 | Scheduler deployment remaining machines | HIGH |
+| #460 | Dashboard + heartbeat automation | HIGH |
+| #461 | Worktree integration | MEDIUM |
+| #462 | Autonomy roadmap | MEDIUM |
+| #463 | Cross-workspace template | LOW |
+| #464 | Dev Containers + Ralph Wiggum | MEDIUM |

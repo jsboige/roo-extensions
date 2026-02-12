@@ -36,7 +36,7 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
 
 - Deleguer a code-simple via `new_task` : "Executer `git status` et rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
-- Deleguer a code-simple via `new_task` : "Executer `git pull --rebase` pour mettre a jour le code"
+- Deleguer a code-simple via `new_task` : "Executer `git pull --no-rebase origin main` pour mettre a jour le code (TOUJOURS --no-rebase pour preserver l'historique)"
 
 ### Etape 3 : Executer les taches par delegation
 

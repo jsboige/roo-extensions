@@ -1,16 +1,16 @@
 # Roo Extensions - Guide pour Agents Claude Code
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Système:** RooSync v2.3 Multi-Agent Coordination (5 machines)
-**Dernière mise à jour:** 2026-02-07
+**Système:** RooSync v2.3 Multi-Agent Coordination (6 machines)
+**Dernière mise à jour:** 2026-02-12
 
 ---
 
 ## 🎯 Vue d'ensemble
 
-Système multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coordination & documentation) sur 5 machines :
+Système multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coordination & documentation) sur 6 machines :
 
-**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2026`, `myia-web1`
+**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
 
 **Architecture :** Coordination bicéphale
 - **Roo Code** → Tâches techniques (scripts, tests, build)
@@ -108,11 +108,14 @@ Utilise roosync-reporter pour envoyer mon rapport
 Utilise task-worker pour prendre ma prochaine tâche
 ```
 
-### Skill Disponible ([.claude/skills/](.claude/skills/))
+### Skills Disponibles ([.claude/skills/](.claude/skills/))
 
-| Skill | Description | Phases |
-|-------|-------------|--------|
-| `sync-tour` | Tour de sync complet en 8 phases | INTERCOM → Messages → Git → Tests → GitHub → MAJ → Planning → Réponses |
+| Skill | Description | Usage |
+|-------|-------------|-------|
+| `sync-tour` | Tour de sync complet en 8 phases | "tour de sync", "faire le point" |
+| `validate` | Build TypeScript + tests unitaires | Validation après modifications |
+| `git-sync` | Pull conservatif + résolution conflits + submodules | Synchronisation Git |
+| `github-status` | État Project #67 via `gh` CLI | Progression et incohérences |
 
 **Les 8 phases du sync-tour :**
 0. **INTERCOM Local** : ⚠️ CRITIQUE - Lire messages de Roo EN PREMIER (merge en cours?, modifs locales?)
@@ -121,7 +124,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 3. **Validation** : Build + tests unitaires (+ corrections simples)
 4. **GitHub Status** : Project #67 + issues récentes + incohérences
 5. **MAJ GitHub** : Marquer Done, commentaires (validation utilisateur pour nouvelles issues)
-6. **Planification** : Ventilation 5 machines × 2 agents (Roo + Claude)
+6. **Planification** : Ventilation 6 machines × 2 agents (Roo + Claude)
 7. **Réponses** : Messages RooSync personnalisés + gestion machines silencieuses
 
 **Usage :** Demander un "tour de sync" ou "faire le point".
@@ -383,9 +386,14 @@ Utilisez :
 
 ## 🔄 Canaux de Communication
 
-### 1. RooSync (Inter-Machine)
+### 1. RooSync (Inter-Machine) - CLAUDE CODE UNIQUEMENT
 
-**Objectif :** Coordination entre les 5 machines
+**Objectif :** Coordination entre les 6 machines
+
+**REGLE ABSOLUE (2026-02-11) : Roo n'utilise JAMAIS RooSync.**
+- RooSync = EXCLUSIVEMENT Claude Code inter-machine
+- Roo communique avec Claude via INTERCOM local uniquement
+- Enforcement : workflows + regles `.roo/rules/03-mcp-usage.md` (technique : #454)
 
 **Outils MCP (CONS-1) :**
 - `roosync_send` - Envoyer/répondre/amender message (action: send|reply|amend)
@@ -428,7 +436,7 @@ Merci de tester le module X.
 
 **Projet :** "RooSync Multi-Agent Tasks"
 - URL : https://github.com/users/jsboige/projects/67
-- 60 items en cours
+- ~141 items (vérifié 2026-02-11, augmente régulièrement)
 
 **Format des issues :**
 ```
@@ -613,6 +621,10 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
 | 2026-02-10 | **LOCAL** | Fix Étape 4 : utiliser write_file au lieu de roosync_send |
 | 2026-02-09 | 1f6806f | Ajout Étape 6 maintenance INTERCOM (compaction >1000 lignes) |
 | 2026-02-09 | 6933a2f | Réécriture template format Roo Scheduler natif + Étape 6 |
+| 2026-02-11 | 02965868 | Retrait RooSync des workflows Roo (REGLE ABSOLUE) |
+| 2026-02-11 | b1ab272d | Fix ordre chronologique INTERCOM (ajout A LA FIN) |
+| 2026-02-12 | 10d68dc6 | Creation 4 skills reutilisables (validate, git-sync, github-status) |
+| 2026-02-12 | bd8e5b94 | Fix machineId case-sensitive (toLowerCase dans 3 fichiers, #460) |
 
 #### Fichiers Sources (Ne Jamais Modifier Manuellement les Cibles)
 
@@ -967,8 +979,9 @@ Pour **TOUTE** tâche de consolidation, refactoring, ou modification significati
 | **myia-ai-01** | Coordinateur Principal | ✅ GitHub + RooSync + Jupyter |
 | **myia-po-2023** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
 | **myia-po-2024** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
+| **myia-po-2025** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
 | **myia-po-2026** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
-| **myia-web1** | Agent flexible | ✅ GitHub + RooSync (Jupyter N/A) |
+| **myia-web1** | Agent flexible | ✅ GitHub + RooSync (Jupyter N/A, 2GB RAM) |
 
 **Toutes les machines ont des capacités égales** - pas de spécialisation rigide.
 
@@ -1126,16 +1139,33 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-02-07
+**Dernière mise à jour :** 2026-02-12
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
-**Built with Claude Code (Opus 4.5) 🤖**
+**Built with Claude Code (Opus 4.6) 🤖**
 
 ---
 
 ## 🔧 GitHub Projects - Accès via gh CLI
 
 **⚠️ MIGRATION #368 :** Le MCP github-projects-mcp est **DÉPRÉCIÉ**. Utiliser `gh` CLI.
+
+### Scopes requis
+
+**GitHub CLI doit avoir le scope `project` pour accéder aux Projects :**
+
+```bash
+# Vérifier scopes actuels
+gh auth status
+
+# Ajouter scope project (inclut read+write+admin)
+gh auth refresh --hostname github.com -s project
+```
+
+**Scopes recommandés :**
+
+- `repo`, `read:org`, `workflow`, `gist` (installés par défaut)
+- `project` ✅ **REQUIS** pour lire/modifier les Projects GitHub
 
 ### Projets
 
@@ -1228,4 +1258,4 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 2. Corrigez le code qui les a créés
 3. Vérifiez que `ROOSYNC_SHARED_PATH` est bien configuré dans `.env`
 
-**Raison :** L'état partagé doit être synchronisé entre les 5 machines via Google Drive, pas versionné dans Git.
+**Raison :** L'état partagé doit être synchronisé entre les 6 machines via Google Drive, pas versionné dans Git.
