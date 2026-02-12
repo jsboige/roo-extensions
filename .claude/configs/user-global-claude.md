@@ -3,9 +3,9 @@
 These instructions apply to ALL projects on this machine.
 Deploy to `~/.claude/CLAUDE.md` on each machine.
 
-**Source of truth:** `.claude/configs/user-global-claude.md` (this file, in git)
-**Deployed to:** `~/.claude/CLAUDE.md` (local, not in git)
-**Update workflow:** Edit this file, commit, then each machine copies to `~/.claude/CLAUDE.md`
+**Source of truth:** `.claude/configs/user-global-claude.md` in the **roo-extensions** repository (workspace d'harmonisation inter-machines)
+**Deployed to:** `~/.claude/CLAUDE.md` (local, not in git, applies to ALL workspaces on this machine)
+**Update workflow:** Edit the source in roo-extensions, commit+push, then each machine pulls and copies to `~/.claude/CLAUDE.md`
 
 ---
 
