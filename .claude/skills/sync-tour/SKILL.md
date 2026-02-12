@@ -5,7 +5,7 @@ description: Tour de synchronisation complet multi-canal et multi-étapes. Utili
 
 # Tour de Synchronisation Complet
 
-Ce skill orchestre un tour de synchronisation complet en **8 phases** (Phase 0 + 7 phases principales).
+Ce skill orchestre un tour de synchronisation complet en **9 phases** (Phase 0 + 8 phases principales).
 
 ### Skills utilises
 
@@ -306,30 +306,121 @@ Suivre le workflow du skill `github-status` :
 
 ---
 
+## Phase 8 : Consolidation des Connaissances
+
+**Objectif :** Preserver l'experience acquise pour que la prochaine session demarre avec le contexte a jour.
+
+### Pourquoi cette phase est critique
+
+Les sessions Claude Code ont un contexte limite. Sans consolidation, les apprentissages (patterns, bugs resolus, decisions) sont perdus au redemarrage. Cette phase assure la continuite entre sessions.
+
+### Actions
+
+**1. Mettre a jour MEMORY.md (prive, auto-charge)**
+
+Fichier : `~/.claude/projects/d--roo-extensions/memory/MEMORY.md`
+
+Mettre a jour les sections suivantes :
+- **Current State** : git hash, tests, nombre d'outils, machines actives
+- **Issue Tracker** : nouvelles issues, issues fermees, changements de statut
+- **Lessons Learned** : ajouter tout nouveau pattern ou piege decouvert (1 ligne chacun)
+- Supprimer les infos obsoletes (issues fermees, etats depasses)
+
+**2. Mettre a jour PROJECT_MEMORY.md (partage via git)**
+
+Fichier : `.claude/memory/PROJECT_MEMORY.md`
+
+Ajouter uniquement les apprentissages **universels** (utiles a toutes les machines) :
+- Nouvelles conventions, patterns, decisions architecturales
+- Nouveaux MCPs integres, outils ajoutes
+- Bugs importants resolus et comment
+- Ne PAS ajouter d'etats ephemeres (hash git, nombre de tests)
+
+**3. Evaluer les fichiers de regles (si drift detecte)**
+
+Verifier si CLAUDE.md, `.roo/rules/`, `.claude/rules/` sont a jour :
+- Nombre de machines correct ?
+- Nouveaux outils documentes ?
+- Regles obsoletes a retirer ?
+- Nouvelles conventions a formaliser ?
+
+Si oui, proposer les modifications (ne pas saturer, rester concis).
+
+### Ce qu'il faut consolider (exemples)
+
+| Type | Exemple | Ou |
+|------|---------|-----|
+| Bug resolu | "Case-sensitive machineId: toujours .toLowerCase()" | MEMORY.md Lessons |
+| Nouveau pattern | "sk-agent = Python MCP via FastMCP + Semantic Kernel" | PROJECT_MEMORY.md |
+| Decision | "RooSync = Claude only, INTERCOM = local" | Deja dans rules |
+| Etat courant | "Git @ abc123, 3252 tests, 3/6 heartbeat" | MEMORY.md Current State |
+| Convention | "git pull --no-rebase (jamais --rebase)" | PROJECT_MEMORY.md Decisions |
+
+### Ce qu'il ne faut PAS consolider
+
+- Details de session (messages RooSync traites, conflits git temporaires)
+- Informations deja presentes dans les fichiers
+- Speculations ou hypotheses non verifiees
+
+### Output attendu
+
+```
+## Phase 8 : Consolidation
+
+### MEMORY.md (prive)
+- Current State : mis a jour (git hash, tests, issues)
+- Lessons Learned : +X nouvelles entrees
+- Infos obsoletes retirees : Y
+
+### PROJECT_MEMORY.md (partage)
+- Sections ajoutees : [liste si applicable]
+- Pas de changement si rien de nouveau
+
+### Regles
+- Mises a jour : [fichiers modifies si applicable]
+- Pas de changement si a jour
+```
+
+### Outils de diagnostic (optionnels)
+
+Les scripts suivants peuvent aider a **visualiser les differences** entre memoire privee et partagee, mais la decision de consolidation reste a l'agent :
+```bash
+# Voir ce qui pourrait etre partage (DryRun = lecture seule)
+powershell scripts/memory/extract-shared-memory.ps1 -DryRun
+
+# Voir ce qui pourrait etre importe (DryRun = lecture seule)
+powershell scripts/memory/merge-memory.ps1 -DryRun
+```
+
+**Principe :** La consolidation demande du jugement. Ces scripts presentent l'information, l'agent decide quoi consolider et ou.
+
+---
+
 ## Rapport Final
 
-À la fin du tour de sync, produire un **rapport consolidé** :
+A la fin du tour de sync, produire un **rapport consolide** :
 
 ```markdown
 # Tour de Sync - [DATE HEURE]
 
-## Résumé Exécutif
-- Messages traités : X
-- Git : ✅ Synced @ [hash]
+## Resume Executif
+- Messages traites : X
+- Git : Synced @ [hash]
 - Tests : Y/Z pass
 - GitHub : A% Done
-- Machines actives : B/5
+- Machines actives : B/6
+- Connaissances consolidees : oui/non
 
-## Actions effectuées
+## Actions effectuees
 1. [liste des actions]
 
-## Décisions prises
-1. [ventilation des tâches]
+## Decisions prises
+1. [ventilation des taches]
 
 ## Points d'attention
 - [blocages, risques]
 
-## Prochaines étapes
+## Prochaines etapes
 1. [pour chaque machine active]
 ```
 
@@ -337,18 +428,20 @@ Suivre le workflow du skill `github-status` :
 
 ## Notes d'utilisation
 
-### Fréquence
-- **Début de session** : Tour complet (toutes les phases)
-- **Pendant le travail** : Phases spécifiques à la demande
-- **Fin de session** : Tour complet + commit des changements
+### Frequence
+- **Debut de session** : Tour complet (toutes les phases)
+- **Pendant le travail** : Phases specifiques a la demande
+- **Fin de session** : Tour complet + Phase 8 obligatoire + commit des changements
+- **Avant saturation contexte** : Phase 8 en priorite (sauvegarder l'experience)
 
 ### Permissions requises
-Ce skill nécessite de nombreuses permissions car il :
-- Lit et écrit des messages RooSync
+Ce skill necessite de nombreuses permissions car il :
+- Lit et ecrit des messages RooSync
 - Fait des pull/merge Git
 - Lance des builds et tests
 - Modifie des fichiers (corrections)
-- Met à jour GitHub Projects et Issues
+- Met a jour GitHub Projects et Issues
+- Met a jour les fichiers memoire (Phase 8)
 
-### Durée estimée
-Un tour complet prend généralement 5-10 minutes selon le volume de messages et l'état des tests.
+### Duree estimee
+Un tour complet prend generalement 5-10 minutes selon le volume de messages et l'etat des tests. La Phase 8 ajoute 2-3 minutes.
