@@ -63,9 +63,10 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 ```
 1. Lis le fichier .claude/local/INTERCOM-{MACHINE}.md en ENTIER avec read_file.
 2. Prepare le nouveau message (format ci-dessous).
-3. Reecris le fichier avec write_to_file en mettant le nouveau message AU DEBUT
-   suivi d'une ligne vide puis de TOUT l'ancien contenu INTEGRAL.
+3. Reecris le fichier avec write_to_file en AJOUTANT le nouveau message A LA FIN
+   apres TOUT l'ancien contenu INTEGRAL.
    Ne supprime RIEN de l'ancien contenu.
+   ORDRE CHRONOLOGIQUE : ancien en haut → nouveau en bas.
 ```
 
 **INTERDIT :**
