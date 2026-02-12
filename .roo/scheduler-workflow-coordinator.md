@@ -18,7 +18,7 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
 
 ---
 
-## WORKFLOW EN 6 ETAPES
+## WORKFLOW EN 7 ETAPES
 
 ### Etape 1 : Lire l'INTERCOM local
 
@@ -78,7 +78,7 @@ Type: {WORKTREE_TYPE}
 
 Delegations a effectuer :
 
-- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git status` et rapporter l'etat du workspace"
+- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
 
 ### Etape 3 : Executer les taches locales par delegation
@@ -134,9 +134,11 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 **Execution :**
 - Taches locales executees : ...
+- Modes utilises : code-simple / code-complex / debug-complex
 - Erreurs : ...
 - Git status : propre/dirty
 - Escalades effectuees : aucune / vers {mode}
+- Messages RooSync detectes : N (reveille Claude : oui/non)
 
 ---
 ```
@@ -178,15 +180,82 @@ Si plus de 1000 lignes :
 
 ---
 
-## SI RIEN A FAIRE
+## SI RIEN DANS L'INTERCOM : VERIFIER LES MESSAGES ROOSYNC ET GITHUB
 
-Deleguer l'ecriture INTERCOM avec le message :
+**Le coordinateur ne reste JAMAIS inactif. Il a 3 sources de travail.**
+
+### Etape 3b : Verifier si des messages RooSync attendent Claude Code
+
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
+
+```
+Executer cette commande et retourner le resultat COMPLET :
+ls "G:/Mon Drive/Synchronisation/RooSync/.shared-state/messages/inbox/" | Select-String "msg-" | Measure-Object | Select-Object Count
+
+Puis lister les 5 fichiers les plus recents :
+Get-ChildItem "G:/Mon Drive/Synchronisation/RooSync/.shared-state/messages/inbox/*.json" | Sort-Object LastWriteTime -Descending | Select-Object -First 5 Name,LastWriteTime
+```
+
+Si des messages non-lus existent (fichiers recents < 6h) → **REVEILLER CLAUDE CODE** (Etape 3d).
+
+### Etape 3c : Chercher une tache sur GitHub
+
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
+
+```
+Executer cette commande et retourner le resultat COMPLET :
+gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,body --jq '.[] | select(.body | test("Roo-Schedulable|roo-schedulable|## Execution-Ready|execution-ready"; "i")) | "\(.number)\t\(.title)"'
+
+Si la commande ne retourne rien, essayer aussi :
+gh issue list --repo jsboige/roo-extensions --state open --label roo-schedulable --limit 5 --json number,title
+```
+
+Si une tache schedulable est trouvee :
+- **Tache simple** (tag Roo ou Both) : Deleguer a `code-simple` ou `code-complex`
+- **Tache Claude Code only** : Signaler dans INTERCOM + reveiller Claude (Etape 3d)
+
+### Etape 3d : REVEILLER CLAUDE CODE (Oracle)
+
+**QUAND :** Des messages RooSync non-lus ou des taches Claude Code sont detectes.
+
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
+
+```
+Executer cette commande pour invoquer Claude Code en mode coordinateur :
+claude -p "Tu es reveille par le scheduler Roo sur myia-ai-01. Il y a des messages RooSync non-lus ou des taches en attente. Lance /coordinate pour faire un tour de sync rapide : lis les messages, reponds aux agents, et mets a jour GitHub. Sois concis et autonome." --dangerously-skip-permissions --model opus
+
+Si la commande echoue, signaler dans l'INTERCOM :
+## [{DATE}] roo -> claude-code [WARN]
+### Echec invocation Claude Code
+- Commande : claude -p "..."
+- Erreur : {message d'erreur}
+- Action requise : Lancer /coordinate manuellement
+```
+
+**ATTENTION :** `claude -p` lance Claude en mode non-interactif. Il va :
+1. Lire les messages RooSync
+2. Repondre aux agents
+3. Mettre a jour GitHub si necessaire
+4. Sortir automatiquement
+
+### SI VRAIMENT RIEN A FAIRE
+
+Si ni INTERCOM, ni RooSync, ni GitHub ne contiennent de tache :
+
+Deleguer a `code-simple` **avec contexte worktree** les taches de maintenance :
+1. `git pull --no-rebase origin main` (mettre a jour le code)
+2. `npm run build` dans `mcps/internal/servers/roo-state-manager` (verifier que le build passe)
+3. `npx vitest run` (verifier que les tests passent)
+4. Rapporter le resultat dans l'INTERCOM
 
 ```markdown
-## [{DATE}] roo -> claude-code [IDLE]
-### Coordinateur - Rien a signaler
-- Aucune tache locale planifiee
-- Workspace propre. En attente.
+## [{DATE}] roo -> claude-code [MAINTENANCE]
+Aucune tache assignee. Maintenance executee :
+- Git pull : OK/erreur
+- Build : OK/FAIL
+- Tests : X/Y pass
+- Workspace : propre/dirty
+- Messages RooSync detectes : 0
 
 ---
 ```

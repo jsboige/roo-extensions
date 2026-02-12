@@ -19,7 +19,7 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
 
 ---
 
-## WORKFLOW EN 6 ETAPES
+## WORKFLOW EN 7 ETAPES
 
 ### Etape 1 : Lire l'INTERCOM local
 
@@ -79,9 +79,8 @@ Type: {WORKTREE_TYPE}
 
 Delegations a effectuer :
 
-- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git status` et rapporter l'etat du workspace"
+- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
-- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git pull --no-rebase origin main` pour mettre a jour le code (TOUJOURS --no-rebase pour preserver l'historique)"
 
 ### Etape 3 : Executer les taches par delegation
 
@@ -135,12 +134,13 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Type: {WORKTREE_TYPE}
 
 **Execution :**
-- Taches locales executees : ...
+- Taches executees : ... (source: INTERCOM/GitHub #{num})
+- Modes utilises : code-simple / code-complex / debug-complex
 - Erreurs : ...
 - Git status : propre/dirty
 - Git pull : OK/erreur
-- Difficulte : SIMPLE/MOYEN/COMPLEXE
 - Escalades effectuees : aucune / vers {mode}
+- Taches echouees en -complex (pour Claude) : #{num} ...
 
 ---
 ```
@@ -182,13 +182,67 @@ Si plus de 1000 lignes :
 
 ---
 
-## SI RIEN A FAIRE
+## SI RIEN DANS L'INTERCOM : CONSULTER GITHUB
 
-Deleguer l'ecriture INTERCOM avec le message :
+**Ne PAS rester inactif. Chercher du travail sur GitHub.**
+
+### Etape 3b : Chercher une tache sur GitHub
+
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
+
+```
+Executer cette commande et retourner le resultat COMPLET :
+gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,body --jq '.[] | select(.body | test("Roo-Schedulable|roo-schedulable|## Execution-Ready|execution-ready"; "i")) | "\(.number)\t\(.title)"'
+
+Si la commande ne retourne rien, essayer aussi :
+gh issue list --repo jsboige/roo-extensions --state open --label roo-schedulable --limit 5 --json number,title
+```
+
+### Etape 3c : Executer la tache GitHub trouvee
+
+Si une issue schedulable est trouvee :
+
+1. Deleguer a `code-simple` **avec contexte worktree** : "Lire le body complet de l'issue avec `gh issue view {NUM} --repo jsboige/roo-extensions`"
+2. Analyser la spec : identifier les fichiers a modifier, le code a ecrire, la validation
+3. Deleguer l'execution en fonction de la complexite ET du taux de succes (communique par Claude Code via INTERCOM) **avec contexte worktree** :
+
+| Complexite tache | Si taux succes < 70% | Si taux succes 70-90% | Si taux succes > 90% |
+|------------------|---------------------|----------------------|---------------------|
+| **Simple** (1-2 fichiers) | `code-simple` | `code-simple` | `code-simple` |
+| **Moyenne** (3+ fichiers) | `code-simple` (decoupe) | `code-complex` | `code-complex` |
+| **Complexe** (architecture) | Signaler dans INTERCOM | `code-complex` | escalader `orchestrator-complex` |
+| **Investigation** (bug, analyse) | `debug-simple` | `debug-complex` | `debug-complex` |
+
+**OBJECTIF DE PROGRESSION :** A chaque cycle scheduler, essayer au moins UNE tache d'un niveau superieur a ce qui a ete fait precedemment. Si les taches `-simple` reussissent bien, pousser vers `-complex`.
+
+**CHAINE D'ESCALADE :**
+```
+code-simple → code-complex (GLM 5) → orchestrator-complex → claude -p (Opus)
+```
+Chaque niveau est plus puissant. Si `-complex` echoue, Claude Code (Opus) prendra le relais lors de son prochain tour.
+
+4. Apres execution : deleguer a `code-simple` pour commenter l'issue :
+   ```
+   gh issue comment {NUM} --repo jsboige/roo-extensions --body "Executed by Roo scheduler on {MACHINE}. Result: {PASS/FAIL}. Mode: {simple/complex}. Commit: {hash if applicable}."
+   ```
+5. Si la tache est completee, rapporter dans l'INTERCOM
+6. Si la tache echoue en `-complex` : signaler dans INTERCOM avec tag `[ESCALADE-CLAUDE]` pour que Claude Code la reprenne
+
+### SI VRAIMENT RIEN A FAIRE
+
+Si ni INTERCOM ni GitHub ne contiennent de tache :
+
+Deleguer a `code-simple` **avec contexte worktree** les taches de maintenance :
+1. `npm run build` dans `mcps/internal/servers/roo-state-manager` (verifier que le build passe)
+2. `npx vitest run` (verifier que les tests passent)
+3. Rapporter le resultat dans l'INTERCOM
 
 ```markdown
-## [{DATE}] roo -> claude-code [IDLE]
-Aucune tache planifiee. Workspace propre. En attente.
+## [{DATE}] roo -> claude-code [MAINTENANCE]
+Aucune tache assignee. Maintenance executee :
+- Build : OK/FAIL
+- Tests : X/Y pass
+- Workspace : propre/dirty
 
 ---
 ```
