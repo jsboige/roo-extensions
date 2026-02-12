@@ -476,31 +476,69 @@ function Invoke-Claude {
                 break
             }
 
-            # VERIFY: Analyser output pour décider de continuer
+            # VERIFY: Parser signaux explicites de l'agent
+            # Format attendu:
+            # === AGENT STATUS ===
+            # STATUS: <continue|escalate|wait|success|failure>
+            # REASON: <description>
+            # ESCALATE_TO: <model> (optionnel)
+            # WAIT_FOR: <condition> (optionnel)
+            # ===================
             $OutputText = $IterationOutput -join "`n"
 
-            # Pattern 1: SUCCÈS (arrêt propre)
-            if ($OutputText -match "(completed successfully|task done|all tests pass|no further action needed)") {
-                Write-Log "✅ Succès détecté - Arrêt boucle Ralph" "INFO"
-                $Continue = $false
-            }
-            # Pattern 2: ESCALADE (complexité détectée)
-            elseif ($OutputText -match "(too complex|escalate|need more powerful model|beyond my capabilities|requires (sonnet|opus))") {
-                Write-Log "⚠️ Escalade détectée - Signalement au caller" "WARN"
-                $NeedsEscalation = $true
-                $Continue = $false
-            }
-            # Pattern 3: CONTINUATION (gather more context)
-            elseif ($OutputText -match "(continuing|next step|gathering more context|still working)") {
-                Write-Log "🔄 Continuation détectée - Prochaine iteration"
-                $Continue = $true
-            }
-            # Pattern 4: ERREUR CRITIQUE (arrêt avec échec)
-            elseif ($OutputText -match "(fatal error|cannot proceed|blocked)") {
-                Write-Log "❌ Erreur critique détectée - Arrêt" "ERROR"
-                $Continue = $false
+            # Parser le signal STATUS (si présent)
+            if ($OutputText -match "STATUS:\s*(\w+)") {
+                $Status = $Matches[1].ToLower()
+
+                # Extraire la raison si présente
+                $Reason = if ($OutputText -match "REASON:\s*(.+)") { $Matches[1].Trim() } else { "Non spécifiée" }
+
+                switch ($Status) {
+                    "continue" {
+                        Write-Log "🔄 Agent signale: CONTINUE ($Reason)"
+                        $Continue = $true
+                    }
+                    "escalate" {
+                        Write-Log "🚀 Agent signale: ESCALATE ($Reason)"
+                        $NeedsEscalation = $true
+                        $Continue = $false
+
+                        # Extraire modèle cible si spécifié
+                        if ($OutputText -match "ESCALATE_TO:\s*(\w+)") {
+                            $TargetModel = $Matches[1]
+                            Write-Log "  → Modèle cible suggéré: $TargetModel"
+                            # TODO: Utiliser ce modèle au lieu de celui de la config
+                        }
+                    }
+                    "wait" {
+                        Write-Log "⏸️ Agent signale: WAIT ($Reason)"
+                        $Continue = $false
+
+                        # Extraire condition d'attente
+                        $WaitFor = if ($OutputText -match "WAIT_FOR:\s*(.+)") { $Matches[1].Trim() } else { "Condition non spécifiée" }
+                        $ResumeWhen = if ($OutputText -match "RESUME_WHEN:\s*(.+)") { $Matches[1].Trim() } else { "Non spécifié" }
+
+                        Write-Log "  → Attend: $WaitFor"
+                        Write-Log "  → Reprendra: $ResumeWhen"
+
+                        # TODO: Sauvegarder état pour reprise ultérieure
+                    }
+                    "success" {
+                        Write-Log "✅ Agent signale: SUCCESS ($Reason)"
+                        $Continue = $false
+                    }
+                    "failure" {
+                        Write-Log "❌ Agent signale: FAILURE ($Reason)"
+                        $Continue = $false
+                    }
+                    default {
+                        Write-Log "⚠️ Signal inconnu: $Status" "WARN"
+                        $Continue = $CurrentIteration -lt $Iterations
+                    }
+                }
             }
             else {
+                # Pas de signal explicite détecté
                 # Par défaut: continuer si pas max iterations, sinon arrêter
                 $Continue = $CurrentIteration -lt $Iterations
                 if (-not $Continue) {
@@ -554,11 +592,10 @@ function Check-Escalation {
         return $ModeConfig.escalation.triggerMode
     }
 
-    # TODO #4 - Escalation Detection: Analyser patterns dans output
-    # - Conflits git non résolus
-    # - Build failures répétés
-    # - Tests qui échouent systématiquement
-    # - Patterns spécifiques dans l'output (voir modes-config.json)
+    # TODO #4 - Agent Signaling Protocol: Implémenté (2026-02-12)
+    # L'agent signale explicitement son état via format structuré (voir ESCALATION_MECHANISM.md)
+    # Protocole de signaux remplace le pattern matching prescriptif
+    # Format: === AGENT STATUS === / STATUS: <continue|escalate|wait|success|failure> / REASON: ... / ===
 
     return $null
 }
