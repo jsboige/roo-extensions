@@ -27,6 +27,10 @@
 .PARAMETER MaxIterations
     Nombre maximum d'itérations (override config mode)
 
+.PARAMETER Model
+    Modèle Claude à utiliser (override config mode)
+    Ex: "sonnet", "opus", "haiku"
+
 .EXAMPLE
     .\start-claude-worker.ps1
     # Récupère prochaine tâche inbox + mode auto
@@ -48,6 +52,7 @@ param(
     [string]$TaskId,
     [switch]$UseWorktree = $false,
     [int]$MaxIterations = 0,
+    [string]$Model,
     [switch]$DryRun = $false
 )
 
@@ -93,23 +98,240 @@ function Get-ModeConfig {
 }
 
 function Get-NextTask {
-    Write-Log "Récupération prochaine tâche RooSync..."
+    <#
+    .SYNOPSIS
+    Récupère la prochaine tâche depuis RooSync, GitHub, ou fallback (HYBRIDE)
 
-    # Appel MCP roosync_read pour lire inbox
-    # TODO: Implémenter appel MCP via claude CLI
-    # Pour l'instant, retourne tâche factice
+    .DESCRIPTION
+    Système hybride à 3 priorités :
+    1. RooSync inbox (instructions coordinateur)
+    2. GitHub issues avec label "roo-schedulable" ET champ Agent
+    3. Fallback maintenance (build + tests)
 
-    $Task = @{
-        id = "msg-test-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        subject = "Sync tour quotidien"
-        priority = "MEDIUM"
-        suggestedMode = "sync-simple"
-        prompt = "Effectue un sync-tour complet : git pull, check messages RooSync, valider build/tests, reporter status."
+    .OUTPUTS
+    Hashtable avec: id, subject, priority, prompt, source, [messageFile|issueNumber]
+    #>
+
+    param(
+        [string]$MachineId = $env:COMPUTERNAME.ToLower(),
+        [string]$AgentType = "claude"
+    )
+
+    Write-Log "Récupération prochaine tâche ($AgentType sur $MachineId)..."
+
+    # --- PRIORITÉ 1 : RooSync inbox ---
+    Write-Log "Vérification RooSync inbox..."
+    $RooSyncTask = Get-RooSyncTask -MachineId $MachineId
+    if ($RooSyncTask) {
+        Write-Log "✅ Tâche RooSync: $($RooSyncTask.id)" "INFO"
+        return $RooSyncTask
     }
 
-    Write-Log "Tâche récupérée: $($Task.id) - $($Task.subject)"
-    return $Task
+    # --- PRIORITÉ 2 : GitHub issues ---
+    Write-Log "Vérification GitHub issues..."
+    $GitHubTask = Get-GitHubTask -AgentType $AgentType -MachineId $MachineId
+    if ($GitHubTask) {
+        Write-Log "✅ Tâche GitHub: #$($GitHubTask.issueNumber)" "INFO"
+        # Claim l'issue immédiatement
+        Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+        return $GitHubTask
+    }
+
+    # --- PRIORITÉ 3 : Fallback maintenance ---
+    Write-Log "Aucune tâche RooSync/GitHub → Fallback maintenance"
+    return Get-FallbackTask
 }
+
+# =============================================================================
+# TODO #1 - Helper Functions (RooSync + GitHub + Fallback)
+# =============================================================================
+
+function Get-RooSyncTask {
+    param([string]$MachineId)
+
+    $SharedPath = $env:ROOSYNC_SHARED_PATH
+    if (-not $SharedPath) {
+        Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
+        return $null
+    }
+
+    $InboxPath = Join-Path $SharedPath "messages\inbox"
+    if (-not (Test-Path $InboxPath)) {
+        Write-Log "Inbox RooSync introuvable: $InboxPath" "WARN"
+        return $null
+    }
+
+    # Lire tous les messages JSON
+    $Messages = Get-ChildItem $InboxPath -Filter "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+        try {
+            Get-Content $_.FullName -Raw | ConvertFrom-Json
+        } catch {
+            Write-Log "Erreur lecture $($_.Name): $_" "WARN"
+            $null
+        }
+    } | Where-Object { $_ -ne $null }
+
+    if ($Messages.Count -eq 0) { return $null }
+
+    # Filtrer par machine + unread
+    $MyMessages = $Messages | Where-Object {
+        ($_.to -eq $MachineId -or $_.to -eq "all") -and $_.status -eq "unread"
+    }
+
+    if ($MyMessages.Count -eq 0) { return $null }
+
+    # Trier par priorité
+    $PriorityOrder = @{ "URGENT" = 1; "HIGH" = 2; "MEDIUM" = 3; "LOW" = 4 }
+    $NextMessage = $MyMessages | Sort-Object { $PriorityOrder[$_.priority] } | Select-Object -First 1
+
+    return @{
+        id = $NextMessage.id
+        subject = $NextMessage.subject
+        priority = $NextMessage.priority
+        prompt = $NextMessage.body
+        source = "roosync"
+        messageFile = Join-Path $InboxPath "$($NextMessage.id).json"
+    }
+}
+
+function Get-GitHubTask {
+    param([string]$AgentType, [string]$MachineId)
+
+    # Vérifier gh CLI
+    $GhPath = Get-Command gh -ErrorAction SilentlyContinue
+    if (-not $GhPath) {
+        Write-Log "gh CLI non disponible" "WARN"
+        return $null
+    }
+
+    try {
+        # Lister issues roo-schedulable
+        $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
+            --state open --label roo-schedulable `
+            --limit 10 --json number,title,body,assignees 2>&1
+
+        if ($LASTEXITCODE -ne 0) { return $null }
+
+        $Issues = $IssuesJson | ConvertFrom-Json
+        if ($Issues.Count -eq 0) { return $null }
+
+        # Filtrer par Agent et disponibilité
+        foreach ($Issue in $Issues) {
+            # Skip si déjà assignée
+            if ($Issue.assignees.Count -gt 0) { continue }
+
+            # Vérifier champ Agent (Claude Code, Both, Any)
+            $Body = $Issue.body
+            if ($AgentType -eq "claude" -and -not ($Body -match "(?i)agent:\s*(claude code|claude|both|any)")) {
+                continue
+            }
+
+            # Vérifier locks git
+            if (Test-GitHubIssueLock -IssueNumber $Issue.number) { continue }
+
+            # Disponible !
+            return @{
+                id = "github-$($Issue.number)"
+                subject = $Issue.title
+                priority = "MEDIUM"
+                prompt = $Body
+                source = "github"
+                issueNumber = $Issue.number
+            }
+        }
+
+        return $null
+    } catch {
+        Write-Log "Erreur Get-GitHubTask: $_" "ERROR"
+        return $null
+    }
+}
+
+function Test-GitHubIssueLock {
+    param([int]$IssueNumber)
+
+    try {
+        $CommentsJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
+            --json comments --jq '.comments[-3:]' 2>&1
+
+        if ($LASTEXITCODE -ne 0) { return $false }
+
+        $Comments = $CommentsJson | ConvertFrom-Json
+
+        foreach ($Comment in $Comments) {
+            $Body = $Comment.body
+            $CreatedAt = [DateTime]::Parse($Comment.createdAt)
+            $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
+
+            # LOCK actif si < 5 minutes
+            if (($Body -match "LOCK:" -or $Body -match "Claimed by") -and $Age.TotalMinutes -lt 5) {
+                return $true
+            }
+        }
+
+        return $false
+    } catch {
+        return $false
+    }
+}
+
+function Claim-GitHubIssue {
+    param([int]$IssueNumber, [string]$AgentType, [string]$MachineId)
+
+    try {
+        $Timestamp = Get-Date -Format "o"
+        $Body = "Claimed by $AgentType on $MachineId at $Timestamp"
+        & gh issue comment $IssueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
+        Write-Log "✅ Issue #$IssueNumber claimed"
+    } catch {
+        Write-Log "⚠️ Erreur claim #$IssueNumber" "WARN"
+    }
+}
+
+function Get-FallbackTask {
+    return @{
+        id = "fallback-maintenance"
+        subject = "Maintenance quotidienne (fallback)"
+        priority = "LOW"
+        prompt = "Exécute les tâches de maintenance :`n1. Vérifier build : cd mcps/internal/servers/roo-state-manager && npm run build`n2. Vérifier tests : npx vitest run`n3. Reporter résultats dans INTERCOM local"
+        source = "fallback"
+    }
+}
+
+function Mark-TaskAsComplete {
+    param($Task)
+
+    switch ($Task.source) {
+        "roosync" {
+            if ($Task.messageFile -and (Test-Path $Task.messageFile)) {
+                try {
+                    $Message = Get-Content $Task.messageFile -Raw | ConvertFrom-Json
+                    $Message.status = "read"
+                    $JsonText = $Message | ConvertTo-Json -Depth 10
+                    [System.IO.File]::WriteAllText($Task.messageFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
+                    Write-Log "✅ Message RooSync marqué comme lu"
+                } catch {
+                    Write-Log "Erreur mark as read: $_" "ERROR"
+                }
+            }
+        }
+        "github" {
+            if ($Task.issueNumber) {
+                try {
+                    $Body = "Executed by Claude Code scheduler on $env:COMPUTERNAME at $(Get-Date -Format o)"
+                    & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
+                    Write-Log "✅ Commentaire ajouté sur #$($Task.issueNumber)"
+                } catch {
+                    Write-Log "Erreur comment GitHub: $_" "WARN"
+                }
+            }
+        }
+    }
+}
+
+# =============================================================================
+# Mode Selection
+# =============================================================================
 
 function Determine-Mode {
     param($Task)
@@ -195,15 +417,26 @@ function Invoke-Claude {
     # Déterminer maxIterations
     $Iterations = if ($MaxIter -gt 0) { $MaxIter } else { $ModeConfig.maxIterations }
 
+    # Déterminer modèle à utiliser
+    # Priority: 1. Paramètre $Model (script-level), 2. Config mode, 3. Défaut
+    $ModelToUse = if ($Model) {
+        Write-Log "Override modèle via paramètre: $Model"
+        $Model
+    }
+    elseif ($ModeConfig.model) {
+        $ModeConfig.model
+    }
+    else {
+        "sonnet"  # Défaut si aucun modèle spécifié
+    }
+
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
     $ClaudeArgs = @(
         "--dangerously-skip-permissions",
+        "--model", $ModelToUse,
         "-p", "`"$Prompt`""
     )
-
-    # TODO: Ajouter support model selection (via env var ou config)
-    # Pour l'instant, utilise modèle par défaut
 
     if ($DryRun) {
         Write-Log "[DRY-RUN] Commande qui serait exécutée:" "INFO"
@@ -344,6 +577,9 @@ try {
 
     # 6. Reporter résultats
     Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode
+
+    # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
+    Mark-TaskAsComplete -Task $Task
 
     # 7. Cleanup worktree
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
