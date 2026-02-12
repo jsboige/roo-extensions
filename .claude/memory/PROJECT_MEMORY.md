@@ -58,10 +58,10 @@ Updated via git commits. Each agent should read this at session start.
 | Claude wrapper tools | 39 (pass-through, no filtering) |
 | Tests passing | 3252 |
 | Test files | 201 |
-| GitHub Project #67 | 159 items, ~128 Done (83.7%) |
+| GitHub Project #67 | 161 items, ~99+ Done (~61-62%) |
 | Skills | 4 (validate, git-sync, github-status, sync-tour) |
 | Scheduler | 3h interval, 6 machines staggered |
-| Heartbeat | 3/6 machines (ai-01, po-2024, po-2025) |
+| Heartbeat | 3/4 machines online (ai-01, po-2026, po-2023; offline: po-2025) |
 | MCP Servers | roo-state-manager (TS) + sk-agent (Python, NEW) |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
@@ -167,9 +167,7 @@ Updated via git commits. Each agent should read this at session start.
 | #443 | Consolidation finale 39→18 (G1+G5 done) | HIGH |
 | #452 | MCP outil exploitation index semantique | MEDIUM |
 | #453 | Qdrant task indexation | MEDIUM |
-| #458 | E2E validation post-CONS-#443 | HIGH |
 | #459 | Scheduler deployment remaining machines | HIGH |
-| #460 | Dashboard + heartbeat automation | HIGH |
 | #461 | Worktree integration | MEDIUM |
 | #462 | Autonomy roadmap | MEDIUM |
 | #463 | Cross-workspace template | LOW |
