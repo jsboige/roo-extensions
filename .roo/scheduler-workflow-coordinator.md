@@ -18,7 +18,7 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
 
 ---
 
-## WORKFLOW EN 5 ETAPES
+## WORKFLOW EN 7 ETAPES
 
 ### Etape 1 : Lire l'INTERCOM local
 
@@ -31,9 +31,55 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
+### Etape 1b : Auditer les traces des dernieres executions (NOUVEAU)
+
+**OBJECTIF :** Verifier ce que Roo a fait lors des precedentes executions schedulees, detecter les erreurs, et ajuster les instructions.
+
+Utilise les outils MCP `roo-state-manager` pour analyser les traces :
+
+**1. Identifier les dernieres taches schedulees :**
+```
+Utilise l'outil task_browse avec action="current" pour trouver la tache en cours,
+puis task_browse avec action="tree" pour voir l'arbre des taches recentes.
+Identifie les 3 dernieres taches de type "orchestrator-simple" (mode scheduler).
+```
+
+**2. Pour chaque tache identifiee, analyser le squelette :**
+```
+Utilise view_conversation_tree avec le task_id, detail_level="summary",
+smart_truncation=true, max_output_length=15000.
+Cela donne un resume structure de ce que Roo a fait.
+```
+
+**3. Chercher ces PATTERNS D'ERREUR dans les conversations :**
+- "roosync_send" ou "roosync_read" (INTERDIT - Roo ne doit JAMAIS utiliser RooSync)
+- "quickfiles" ou "edit_multiple_files" (OUTIL SUPPRIME)
+- L'orchestrateur fait le travail au lieu de deleguer via `new_task`
+- "Error", "Failed", "permission denied" (erreurs d'execution)
+- Tache qui tourne en boucle sans resultat
+
+**4. Evaluer le niveau de complexite atteint :**
+- Combien de sous-taches ont ete deleguees a `-simple` vs `-complex` ?
+- Y a-t-il eu des escalades vers `orchestrator-complex` ?
+- Les taches `-complex` ont-elles reussi ?
+
+**5. Retourner dans le resume :**
+- Nombre de taches analysees
+- Erreurs trouvees (avec ID tache + description)
+- Taux de succes (combien ont fini sans erreur)
+- Niveau de complexite atteint (simple seulement / quelques complex / majorite complex)
+- Recommendation : augmenter la difficulte ? corriger un probleme ?
+
+**SI ERREURS DETECTEES :**
+- Rapporter dans l'INTERCOM avec tag `[TRACE-REVIEW]`
+- Si erreur recurrente (>2 fois) : escalader vers `orchestrator-complex` pour investigation
+
+**SI TOUTES LES TACHES SONT SIMPLES ET REUSSIES :**
+- Bon signe → **pousser vers des taches plus complexes** (voir Etape 3c)
+
 ### Etape 2 : Verifier l'etat du workspace
 
-- Deleguer a code-simple via `new_task` : "Executer `git status` et rapporter l'etat du workspace"
+- Deleguer a code-simple via `new_task` : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
 
 ### Etape 3 : Executer les taches locales par delegation
@@ -82,6 +128,9 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Erreurs : ...
 - Git status : propre/dirty
 - Escalades effectuees : aucune / vers {mode}
+- Audit traces : X taches analysees, Y erreurs, Z% succes
+- Niveau atteint : simple / debut complex / majorite complex
+- Messages RooSync detectes : N (reveille Claude : oui/non)
 
 ---
 ```

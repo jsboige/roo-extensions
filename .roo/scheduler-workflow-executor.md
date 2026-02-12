@@ -19,7 +19,7 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
 
 ---
 
-## WORKFLOW EN 5 ETAPES
+## WORKFLOW EN 7 ETAPES
 
 ### Etape 1 : Lire l'INTERCOM local
 
@@ -32,11 +32,54 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
+### Etape 1b : Auditer les traces des dernieres executions
+
+**OBJECTIF :** Verifier ce que Roo a fait lors des precedentes executions schedulees sur CETTE machine, detecter les erreurs, et progresser en complexite.
+
+Utilise les outils MCP `roo-state-manager` pour analyser les traces :
+
+**1. Identifier les dernieres taches schedulees :**
+```
+Utilise task_browse avec action="tree" pour voir l'arbre des taches recentes.
+Identifie les 2-3 dernieres taches de type "orchestrator-simple" (scheduler).
+```
+
+**2. Pour chaque tache, analyser le squelette :**
+```
+Utilise view_conversation_tree avec le task_id, detail_level="summary",
+smart_truncation=true, max_output_length=10000.
+```
+
+**3. Chercher ces PATTERNS D'ERREUR :**
+- "roosync_send" ou "roosync_read" (INTERDIT)
+- "quickfiles" ou "edit_multiple_files" (OUTIL SUPPRIME)
+- L'orchestrateur fait le travail au lieu de deleguer via `new_task`
+- "Error", "Failed", "permission denied"
+- Tache en boucle sans resultat
+
+**4. Evaluer le taux de succes :**
+- Combien de sous-taches ont reussi vs echoue ?
+- A-t-on deja reussi des taches `-complex` ? Si oui, combien ?
+
+**5. Decision d'escalade progressive :**
+
+| Taux de succes `-simple` | Action |
+|--------------------------|--------|
+| < 70% | Rester en `-simple`, corriger les erreurs |
+| 70-90% | Commencer a deleguer 1 tache sur 3 a `-complex` |
+| > 90% | Deleguer majoritairement a `-complex` |
+
+**6. Ajouter au rapport INTERCOM :**
+```
+- Audit traces : X taches analysees, Y erreurs, Z% succes
+- Niveau atteint : simple / debut complex / majorite complex
+- Recommendation : [rester simple / pousser vers complex]
+```
+
 ### Etape 2 : Verifier l'etat du workspace
 
-- Deleguer a code-simple via `new_task` : "Executer `git status` et rapporter l'etat du workspace"
+- Deleguer a code-simple via `new_task` : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
-- Deleguer a code-simple via `new_task` : "Executer `git pull --no-rebase origin main` pour mettre a jour le code (TOUJOURS --no-rebase pour preserver l'historique)"
 
 ### Etape 3 : Executer les taches par delegation
 
@@ -80,12 +123,15 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 ```markdown
 ## [{DATE}] roo -> claude-code [DONE]
 ### Bilan planifie - Executeur
-- Taches locales executees : ...
+- Taches executees : ... (source: INTERCOM/GitHub #{num})
+- Modes utilises : code-simple / code-complex / debug-complex
 - Erreurs : ...
 - Git status : propre/dirty
 - Git pull : OK/erreur
-- Difficulte : SIMPLE/MOYEN/COMPLEXE
+- Audit traces : X analysees, Y erreurs, Z% succes
+- Niveau atteint : simple / debut complex / majorite complex
 - Escalades effectuees : aucune / vers {mode}
+- Taches echouees en -complex (pour Claude) : #{num} ...
 
 ---
 ```
@@ -149,15 +195,29 @@ Si une issue schedulable est trouvee :
 
 1. Deleguer a `code-simple` : "Lire le body complet de l'issue avec `gh issue view {NUM} --repo jsboige/roo-extensions`"
 2. Analyser la spec : identifier les fichiers a modifier, le code a ecrire, la validation
-3. Deleguer l'execution :
-   - **Tache simple** (1-2 fichiers, code fourni) : `code-simple`
-   - **Tache moyenne** (3+ fichiers, investigation) : `code-complex`
-   - **Tache complexe** (architecture, refactoring) : escalader `orchestrator-complex`
+3. Deleguer l'execution en fonction de la complexite ET du taux de succes (Etape 1b) :
+
+| Complexite tache | Si taux succes < 70% | Si taux succes 70-90% | Si taux succes > 90% |
+|------------------|---------------------|----------------------|---------------------|
+| **Simple** (1-2 fichiers) | `code-simple` | `code-simple` | `code-simple` |
+| **Moyenne** (3+ fichiers) | `code-simple` (decoupe) | `code-complex` | `code-complex` |
+| **Complexe** (architecture) | Signaler dans INTERCOM | `code-complex` | escalader `orchestrator-complex` |
+| **Investigation** (bug, analyse) | `debug-simple` | `debug-complex` | `debug-complex` |
+
+**OBJECTIF DE PROGRESSION :** A chaque cycle scheduler, essayer au moins UNE tache d'un niveau superieur a ce qui a ete fait precedemment. Si les taches `-simple` reussissent bien, pousser vers `-complex`.
+
+**CHAINE D'ESCALADE :**
+```
+code-simple → code-complex (GLM 5) → orchestrator-complex → claude -p (Opus)
+```
+Chaque niveau est plus puissant. Si `-complex` echoue, Claude Code (Opus) prendra le relais lors de son prochain tour.
+
 4. Apres execution : deleguer a `code-simple` pour commenter l'issue :
    ```
-   gh issue comment {NUM} --repo jsboige/roo-extensions --body "Executed by Roo scheduler on {MACHINE}. Result: {PASS/FAIL}. Commit: {hash if applicable}."
+   gh issue comment {NUM} --repo jsboige/roo-extensions --body "Executed by Roo scheduler on {MACHINE}. Result: {PASS/FAIL}. Mode: {simple/complex}. Commit: {hash if applicable}."
    ```
 5. Si la tache est completee, rapporter dans l'INTERCOM
+6. Si la tache echoue en `-complex` : signaler dans INTERCOM avec tag `[ESCALADE-CLAUDE]` pour que Claude Code la reprenne
 
 ### SI VRAIMENT RIEN A FAIRE
 
