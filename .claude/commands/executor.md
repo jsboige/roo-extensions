@@ -283,10 +283,21 @@ CLAUDE (Cerveau Principal)              ROO (Assistant Polyvalent)
 - Avant toute action : "Est-ce utile pour le DÉPLOIEMENT ?"
 
 ### Communication
-- **Toujours** lire INTERCOM au démarrage
-- **Toujours** lire messages RooSync au démarrage
-- **Toujours** mettre à jour INTERCOM pour Roo
+- **Toujours** lire INTERCOM au demarrage
+- **Toujours** lire messages RooSync au demarrage
+- **Toujours** mettre a jour INTERCOM pour Roo
 - **Toujours** envoyer rapport en fin de session
+
+### Consolidation des Connaissances (Fin de Session)
+
+**OBLIGATOIRE avant saturation contexte ou fin de session :**
+
+1. **MEMORY.md prive** : Mettre a jour l'etat courant (git hash, tests, decisions prises, patterns decouverts)
+2. **PROJECT_MEMORY.md partage** : Si apprentissages universels (patterns, conventions, bugs resolus)
+3. **Commit + push** si fichiers partages modifies
+4. **Rapport RooSync** au coordinateur avec resume des accomplissements
+
+**Principe :** Utiliser son jugement pour decider quoi consolider. Pas de script automatique - l'agent evalue ce qui est pertinent et durable vs ephemere.
 
 ### Coordination avec Roo
 - **Claude ET Roo** = agents techniques ÉGAUX (code, tests, build, analyse)

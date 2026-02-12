@@ -62,6 +62,8 @@ Updated via git commits. Each agent should read this at session start.
 | GitHub Project #67 | 159 items, ~128 Done (83.7%) |
 | Skills | 4 (validate, git-sync, github-status, sync-tour) |
 | Scheduler | 3h interval, 6 machines staggered |
+| Heartbeat | 3/6 machines (ai-01, po-2024, po-2025) |
+| MCP Servers | roo-state-manager (TS) + sk-agent (Python, NEW) |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
 
@@ -163,3 +165,23 @@ Updated via git commits. Each agent should read this at session start.
 | #462 | Autonomy roadmap | MEDIUM |
 | #463 | Cross-workspace template | LOW |
 | #464 | Dev Containers + Ralph Wiggum | MEDIUM |
+| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM |
+
+### sk-agent MCP Server (NEW - 2026-02-12)
+- **Location**: `mcps/internal/servers/sk-agent/`
+- **Type**: Python (FastMCP + Semantic Kernel), unlike roo-state-manager (TypeScript)
+- **Tools**: `ask(prompt)`, `analyze_image(source, prompt)`, `list_tools()`
+- **Purpose**: Proxy OpenAI-compatible models (vLLM, Open-WebUI) as MCP tools
+- **Models**: GLM 4.7 Flash (agentic, no vision), Qwen 8B VL (vision + tools)
+- **Architecture**: FastMCP stdio -> Semantic Kernel -> OpenAI API -> vLLM
+- **Child MCPs**: SearXNG (web search), Playwright (browser) - configurable via JSON
+- **Use cases**: Vision for Roo simple modes, Oracle (small model queries big model), local LLM proxy
+- **API keys**: Private per-machine, NOT in git. Distribute via RooSync.
+- **Issue**: #465
+
+### Knowledge Consolidation Workflow (NEW - 2026-02-12)
+- **sync-tour Phase 8**: Automatic consolidation at end of each sync-tour
+- **Private memory**: `~/.claude/projects/.../memory/MEMORY.md` (per-machine, auto-loaded)
+- **Shared memory**: `.claude/memory/PROJECT_MEMORY.md` (via git, all machines)
+- **Scripts**: `scripts/memory/extract-shared-memory.ps1` (private->shared), `merge-memory.ps1` (shared->private)
+- **Rule**: ALWAYS consolidate before session ends to preserve experience

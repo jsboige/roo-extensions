@@ -41,19 +41,32 @@ Coordonner les **5 machines** avec leurs **10 agents** (1 Roo + 1 Claude-Code pa
 
 ### Skill
 
-- `/sync-tour` - Tour de synchronisation complet (7 phases)
+- `/sync-tour` - Tour de synchronisation complet (9 phases, dont Phase 8 consolidation)
 
 ## Workflow de Coordination
 
-### Démarrage Standard
+### Demarrage Standard
 
-1. **Lire INTERCOM local** : Vérifier messages de Roo en premier
-2. **Tour de sync initial** : Lance `/sync-tour` pour état des lieux complet
+1. **Lire INTERCOM local** : Verifier messages de Roo en premier
+2. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 3. **Analyse rapports** : Traiter messages RooSync entrants
 4. **Planification** : Ventiler le travail (task-planner ou manuel)
 5. **Dispatch** : Envoyer instructions via RooSync
-6. **Suivi GitHub** : Mettre à jour Projects #67 et #70
-7. **Mise à jour INTERCOM** : Informer Roo des décisions et prochaines étapes
+6. **Suivi GitHub** : Mettre a jour Projects #67 et #70
+7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+
+### Fin de Session / Avant Saturation Contexte
+
+**OBLIGATOIRE avant de terminer ou quand le contexte approche sa limite :**
+
+1. **Consolidation memoire (Phase 8 sync-tour)** : Avec jugement, mettre a jour :
+   - `MEMORY.md` prive : etat courant (git hash, tests, issues) + lessons learned
+   - `PROJECT_MEMORY.md` partage : uniquement apprentissages universels (patterns, decisions, conventions)
+   - Fichiers de regles si drift detecte (CLAUDE.md, .roo/rules/)
+2. **Commit + push** si fichiers partages modifies
+3. **INTERCOM** : Laisser etat courant pour Roo
+
+**Principe :** La consolidation demande du jugement humain/agent. Les scripts `scripts/memory/` sont des aides au diagnostic, pas des automatismes. L'agent decide quoi consolider et ou.
 
 ### Gestion des Urgences
 
