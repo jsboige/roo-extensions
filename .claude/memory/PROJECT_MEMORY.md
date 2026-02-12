@@ -140,6 +140,16 @@ Updated via git commits. Each agent should read this at session start.
 - Always `.toLowerCase()` on machineId (commit bd8e5b94)
 - Fixed in: roosync-config.ts, message-helpers.ts, InventoryService.ts
 
+### Agent/skill/command maintenance (2026-02-12)
+- **SDDD** = Semantic Documentation Driven Development (NOT "Semantic-Driven Development Documentation")
+- **Project #70** deleted - ALL references purged from agents/skills/commands
+- **mcp__github-projects-mcp__*** fully deprecated - replaced by `gh` CLI everywhere
+- **Legacy RooSync tool names** cleaned → CONS-1 consolidated names only (roosync_send/read/manage)
+- **Project agent overrides**: Only needed when genuinely project-specific. Global + `rules/` is often sufficient.
+- **Machine count**: Always 6 (ai-01, po-2023, po-2024, po-2025, po-2026, web1). po-2025 was frequently missing.
+- **Deprecation ripple**: When deprecating something, grep ALL `.claude/` files for references. Easy to miss.
+- **Orphaned scripts**: Always grep references before assuming scripts are needed.
+
 ### Scheduler cache bug
 - Roo Scheduler extension caches schedules.json at VS Code startup
 - Deploy config then restart VS Code IMMEDIATELY before next tick
