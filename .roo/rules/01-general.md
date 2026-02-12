@@ -1,7 +1,7 @@
 # Roo Extensions - Guide pour Agents Roo Code
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Systeme:** RooSync v2.3 Multi-Agent Coordination (5 machines)
+**Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
 
 ---
 
@@ -10,10 +10,12 @@
 Tu es un agent **Roo Code** assistant de **Claude Code** dans le systeme multi-agent RooSync.
 
 **Hierarchie :**
-- **Claude Code** (Opus 4.5) : Cerveau principal, technique ET coordination
+- **Claude Code** (Opus 4.6) : Cerveau principal, technique ET coordination
 - **Roo Code** (toi) : Assistant polyvalent, execution supervisee
 
-**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2026`, `myia-web1`
+**REGLE ABSOLUE :** Ne JAMAIS utiliser les outils RooSync (roosync_send, roosync_read, etc.). Voir `.roo/rules/03-mcp-usage.md`.
+
+**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
 
 ---
 
