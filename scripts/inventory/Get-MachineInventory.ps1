@@ -301,6 +301,75 @@ try {
     $inventory.inventory.systemInfo.cpuThreads = [System.Environment]::ProcessorCount
     Write-Host "  OK CPU: $($inventory.inventory.systemInfo.cpuCores) cœurs" -ForegroundColor Green
 
+    # Git Configuration (NOUVEAU #391)
+    Write-Host "  Git Configuration..." -ForegroundColor Cyan
+    try {
+        $gitVersion = git --version 2>$null
+        if ($gitVersion) {
+            $inventory.inventory.systemInfo.git = @{
+                version = ($gitVersion -split " ")[0..1] -join " ")
+                userName = git config --get user.name 2>$null
+                autoCRLF = git config --get core.autocrlf 2>$null
+            }
+            Write-Host "  OK Git $($inventory.inventory.systemInfo.git.version)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  Git non disponible" -ForegroundColor Yellow
+    }
+
+    # CLI Versions (NOUVEAU #391)
+    Write-Host "  CLI Versions..." -ForegroundColor Cyan
+    # GitHub CLI
+    try {
+        $ghVersion = gh --version 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $inventory.inventory.tools.gh = ($ghVersion -split " ")[0..1] -join " ")
+            Write-Host "  OK gh $ghVersion" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  gh non disponible" -ForegroundColor Yellow
+    }
+    # npm
+    try {
+        $npmVersion = npm --version 2>$null
+        if ($npmVersion) {
+            $inventory.inventory.tools.npm = $npmVersion
+            Write-Host "  OK npm $npmVersion" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  npm non disponible" -ForegroundColor Yellow
+    }
+    # Docker
+    try {
+        $dockerVersion = docker --version 2>$null
+        if ($dockerVersion) {
+            $inventory.inventory.tools.docker = $dockerVersion
+            Write-Host "  OK docker $dockerVersion" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  docker non disponible" -ForegroundColor Yellow
+    }
+    # TypeScript (via npx)
+    try {
+        $tscVersion = npx tsc --version 2>$null
+        if ($tscVersion) {
+            $inventory.inventory.tools.tsc = $tscVersion
+            Write-Host "  OK tsc $tscVersion" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "  tsc non disponible" -ForegroundColor Yellow
+    }
+
+    # PowerShell Profile (NOUVEAU #391)
+    Write-Host "  PowerShell Profile..." -ForegroundColor Cyan
+    $psProfilePath = $PROFILE
+    $psProfileHash = if (Test-Path $PROFILE) { (Get-FileHash -Path $PROFILE -Algorithm SHA256).Hash.Substring(0, 16) } else { "No profile" }
+    $inventory.inventory.systemInfo.psProfile = @{
+        path = $psProfilePath
+        hash = $psProfileHash
+    }
+    Write-Host "  OK Profile: $psProfilePath" -ForegroundColor Green
+
     # Mémoire (sans blocage)
     $totalMemory = [System.GC]::MaxGeneration * 1024 * 1024 * 1024
     $availableMemory = [System.GC]::GetTotalMemory($false)
