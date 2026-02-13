@@ -126,20 +126,56 @@ Passer directement a la Phase 2.
 **Algorithme de selection (par priorite decroissante) :**
 
 1. **Instructions directes RooSync** du coordinateur → Executer immediatement
-2. **Issue GitHub assignee** a cette machine → Prendre la plus prioritaire
-3. **Issue GitHub avec TODO detaille** non assignee → L'auto-assigner et l'executer
-4. **Bug ouvert** reproductible → Investiguer et fixer
-5. **Issue "In Progress"** sans activite recente → Reprendre le travail
-6. **Tache de maintenance** toujours utile :
+2. **Issue GitHub avec Machine={MA_MACHINE}** dans Project #67 → Prendre la plus prioritaire
+3. **Issue GitHub avec Machine=Any** non reclamee → Claim + executer
+4. **Issue GitHub avec TODO detaille** sans Machine assignee → Claim + executer
+5. **Bug ouvert** reproductible → Investiguer et fixer
+6. **Issue "In Progress"** sans activite recente → Reprendre le travail
+7. **Tache de maintenance** toujours utile :
    - Build + tests (validation)
-   - Deploiement global config (#467 si pas fait)
+   - Deploiement global config
    - Heartbeat registration (si pas fait)
    - Nettoyage INTERCOM (si > 500 lignes)
 
-**Auto-assignation :** Quand tu prends une issue, poste un commentaire GitHub :
+### Protocole de Claim GitHub (ANTI DOUBLE-TRAITEMENT)
+
+**AVANT de commencer une tache**, verifier que la Machine et l'Agent ne sont pas deja assignes a une autre machine. Si la tache est libre (Machine vide ou "Any"), la revendiquer :
+
+**Etape 1 : Commentaire GitHub** (visible par tous) :
 ```bash
-gh issue comment {NUM} --repo jsboige/roo-extensions --body "Auto-assigned to {MACHINE} (Claude Code). Working on it now."
+gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by {MACHINE} (Claude Code). Working on it now."
 ```
+
+**Etape 2 : Mettre a jour Project #67** (Machine + Agent + Status) :
+```bash
+# Mettre le statut "In Progress"
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY\", value: { singleSelectOptionId: \"47fc9ee4\" } }) { projectV2Item { id } } }"
+
+# Mettre la Machine
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8\", value: { singleSelectOptionId: \"{MACHINE_OPTION_ID}\" } }) { projectV2Item { id } } }"
+
+# Mettre l'Agent (Claude Code)
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9icmA\", value: { singleSelectOptionId: \"cf1eae0a\" } }) { projectV2Item { id } } }"
+```
+
+**IDs des options Machine :**
+| Machine | Option ID |
+|---------|-----------|
+| myia-ai-01 | `ae516a70` |
+| myia-po-2023 | `2b4454e0` |
+| myia-po-2024 | `91dd0acf` |
+| myia-po-2025 | `4f388455` |
+| myia-po-2026 | `bc8df25a` |
+| myia-web1 | `e3cd0cd0` |
+
+**IDs des options Agent :**
+| Agent | Option ID |
+|-------|-----------|
+| Roo | `102d5164` |
+| Claude Code | `cf1eae0a` |
+| Both | `33d72521` |
+
+**Pour trouver l'ITEM_ID** d'une issue dans le projet, utiliser la requete GraphQL de la section References Rapides.
 
 **Si AUCUNE tache disponible :** Envoie un message RooSync au coordinateur demandant du travail. N'attends PAS passivement.
 
@@ -243,8 +279,16 @@ git push origin main
 ### GitHub Project #67
 - **ID** : `PVT_kwHOADA1Xc4BLw3w`
 - **URL** : https://github.com/users/jsboige/projects/67
-- **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
-- **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
+- **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` (Todo=`f75ad846`, InProgress=`47fc9ee4`, Done=`98236657`)
+- **Field Agent** : `PVTSSF_lAHOADA1Xc4BLw3wzg9icmA` (Roo=`102d5164`, Claude=`cf1eae0a`, Both=`33d72521`)
+- **Field Machine** : `PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8` (ai01=`ae516a70`, po2023=`2b4454e0`, po2024=`91dd0acf`, po2025=`4f388455`, po2026=`bc8df25a`, web1=`e3cd0cd0`, All=`175c5fe1`, Any=`4c242ac6`)
+
+### Trouver l'ITEM_ID d'une issue dans le projet
+```bash
+# Chercher parmi les items du projet (paginer si >100)
+gh api graphql -f query="{ user(login: \"jsboige\") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }"
+# L'ITEM_ID est le champ "id" de l'item dont le content.number correspond
+```
 
 ### Commandes frequentes
 ```bash
