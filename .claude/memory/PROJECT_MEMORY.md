@@ -100,10 +100,17 @@ Updated via git commits. Each agent should read this at session start.
 - Commit in `mcps/internal` first, push
 - Then `git add mcps/internal` in main repo, commit, push
 - Both repos push to `origin/main`
+- **Pointer mismatch fix (2026-02-13)**: If parent points to commit not on remote (e.g., "not our ref c04314c2"), do `cd mcps/internal && git checkout main && git pull` then `git add mcps/internal` to update pointer
 
 ### INTERCOM is gitignored
 - `.claude/local/` is in .gitignore
 - Don't try to `git add` INTERCOM files
+
+### GitHub GraphQL pagination (2026-02-13)
+- API limit: 100 items max per query (NOT 200)
+- Error: "Requesting 200 records on the connection exceeds the `first` limit of 100"
+- Fix: Use `first: 100` in GraphQL queries
+- For >100 items: use cursor pagination with `nextPageCursor`
 
 ### PowerShell 5.1 Join-Path (2 args only)
 
