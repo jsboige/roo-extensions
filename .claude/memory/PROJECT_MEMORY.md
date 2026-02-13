@@ -47,7 +47,7 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-12 | Summary | 3 tools | 1 tool | myia-ai-01 | Done |
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
 
-## Current State (2026-02-12)
+## Current State (2026-02-12 23:52)
 
 **CONS-#443 (finale consolidation 39→18) in progress.** G1+G5 done.
 
@@ -56,13 +56,13 @@ Updated via git commits. Each agent should read this at session start.
 | Total tools (ListTools) | 39 (wrapper v4 pass-through) |
 | RooSync tools (roosyncTools) | 19 |
 | Claude wrapper tools | 39 (pass-through, no filtering) |
-| Tests passing | 3252 |
-| Test files | 201 |
-| GitHub Project #67 | 161 items, ~99+ Done (~61-62%) |
-| Skills | 4 (validate, git-sync, github-status, sync-tour) |
+| Tests passing | 3252/3266 (14 skipped) |
+| Test files | 200/201 (1 skipped) |
+| GitHub Project #67 | 161 items total, ~159 Done (98.8%) |
+| Skills | 5 (validate, git-sync, github-status, sync-tour, debrief) |
 | Scheduler | 3h interval, 6 machines staggered |
-| Heartbeat | 3/4 machines online (ai-01, po-2026, po-2023; offline: po-2025) |
-| MCP Servers | roo-state-manager (TS) + sk-agent (Python, NEW) |
+| Heartbeat | **Auto-start enabled** (6/6 machines, #455 done) |
+| MCP Servers | roo-state-manager (TS) + sk-agent (Python) + markitdown + playwright |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
 

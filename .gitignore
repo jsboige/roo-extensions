@@ -117,6 +117,7 @@ debug_trace.txt
 # Claude Code MCP configuration (machine-specific paths)
 .mcp.json
 !.mcp.json.template
+.claude/config.json
 
 # Claude Code worktrees (machine-specific, created by Claude Code Desktop)
 .claude/worktrees/
