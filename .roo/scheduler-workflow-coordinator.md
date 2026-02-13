@@ -211,6 +211,37 @@ gh issue list --repo jsboige/roo-extensions --state open --label roo-schedulable
 ```
 
 Si une tache schedulable est trouvee :
+
+**3c-bis. CLAIM LA TACHE (ANTI DOUBLE-TRAITEMENT)** - Deleguer a `code-simple` **avec contexte worktree** :
+
+```
+AVANT de commencer le travail, verifier et revendiquer la tache sur GitHub :
+
+Etape A - Commenter l'issue pour signaler la prise en charge :
+gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by myia-ai-01 (Roo coordinator). Working on it now. Mode: {simple/complex}."
+
+Etape B - Mettre a jour les champs du Project #67 via GraphQL :
+
+# Status -> In Progress
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY\", value: { singleSelectOptionId: \"47fc9ee4\" } }) { projectV2Item { id } } }"
+
+# Machine -> myia-ai-01
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8\", value: { singleSelectOptionId: \"ae516a70\" } }) { projectV2Item { id } } }"
+
+# Agent -> Roo
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9icmA\", value: { singleSelectOptionId: \"102d5164\" } }) { projectV2Item { id } } }"
+
+IDs des options Machine :
+  myia-ai-01=ae516a70, myia-po-2023=2b4454e0, myia-po-2024=91dd0acf
+  myia-po-2025=4f388455, myia-po-2026=bc8df25a, myia-web1=e3cd0cd0
+
+Pour trouver ITEM_ID :
+gh api graphql -f query="{ user(login: \"jsboige\") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }" | python -c "import sys,json; items=json.load(sys.stdin)['data']['user']['projectV2']['items']['nodes']; print(next(i['id'] for i in items if i.get('content',{}).get('number')=={NUM}))"
+
+Si les commandes GraphQL echouent, continuer quand meme (le commentaire suffit comme claim minimal).
+```
+
+Ensuite executer :
 - **Tache simple** (tag Roo ou Both) : Deleguer a `code-simple` ou `code-complex`
 - **Tache Claude Code only** : Signaler dans INTERCOM + reveiller Claude (Etape 3d)
 

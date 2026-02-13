@@ -226,7 +226,37 @@ Si une issue schedulable est trouvee :
 
 1. Deleguer a `code-simple` **avec contexte worktree** : "Lire le body complet de l'issue avec `gh issue view {NUM} --repo jsboige/roo-extensions`"
 2. Analyser la spec : identifier les fichiers a modifier, le code a ecrire, la validation
-3. Deleguer l'execution en fonction de la complexite ET du taux de succes (communique par Claude Code via INTERCOM) **avec contexte worktree** :
+3. **CLAIM LA TACHE (ANTI DOUBLE-TRAITEMENT)** - Deleguer a `code-simple` **avec contexte worktree** :
+
+```
+AVANT de commencer le travail, verifier et revendiquer la tache sur GitHub :
+
+Etape A - Commenter l'issue pour signaler la prise en charge :
+gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by {MACHINE} (Roo scheduler). Working on it now. Mode: {simple/complex}."
+
+Etape B - Mettre a jour les champs du Project #67 via GraphQL :
+
+# Status -> In Progress
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY\", value: { singleSelectOptionId: \"47fc9ee4\" } }) { projectV2Item { id } } }"
+
+# Machine -> {MA_MACHINE}
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8\", value: { singleSelectOptionId: \"{MACHINE_OPTION_ID}\" } }) { projectV2Item { id } } }"
+
+# Agent -> Roo
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9icmA\", value: { singleSelectOptionId: \"102d5164\" } }) { projectV2Item { id } } }"
+
+IDs des options Machine :
+  myia-ai-01=ae516a70, myia-po-2023=2b4454e0, myia-po-2024=91dd0acf
+  myia-po-2025=4f388455, myia-po-2026=bc8df25a, myia-web1=e3cd0cd0
+
+Pour trouver ITEM_ID, executer :
+gh api graphql -f query="{ user(login: \"jsboige\") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }" | python -c "import sys,json; items=json.load(sys.stdin)['data']['user']['projectV2']['items']['nodes']; print(next(i['id'] for i in items if i.get('content',{}).get('number')=={NUM}))"
+
+Si le ITEM_ID n'est pas trouve dans les 100 premiers items, paginer avec after cursor.
+Si les commandes GraphQL echouent, continuer quand meme (le commentaire suffit comme claim minimal).
+```
+
+4. Deleguer l'execution en fonction de la complexite ET du taux de succes (communique par Claude Code via INTERCOM) **avec contexte worktree** :
 
 | Complexite tache | Si taux succes < 70% | Si taux succes 70-90% | Si taux succes > 90% |
 |------------------|---------------------|----------------------|---------------------|
