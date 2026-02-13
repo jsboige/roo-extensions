@@ -17,6 +17,8 @@ Desescalade si :
 {{DEESCALATION_CRITERIA}}
 
 Documente tes decisions architecturales pour la tracabilite.
+
+{{COMPLEX_ESCALATION}}
 {{/if}}
 {{#if NO_COMMAND}}
 IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).

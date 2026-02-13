@@ -48,9 +48,10 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
 | CONS-X #457 | Conversation Browser | 3 tools | 1 tool | myia-po-2023 | Done |
 
-## Current State (2026-02-13 02:00)
+## Current State (2026-02-13 02:30)
 
 **CONS-X #457 completed.** conversation_browser consolidates 3→1 tool. G1+G5+CONS-X done.
+**#453 Phase 1 done:** Embedding model/dims/batch/baseURL configurable via env vars.
 
 | Metric | Value |
 |--------|-------|
