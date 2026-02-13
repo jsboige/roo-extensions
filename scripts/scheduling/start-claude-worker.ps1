@@ -413,19 +413,231 @@ function Test-WaitStateReady {
         Write-Log "  → Attend: $($State.waitFor)"
         Write-Log "  → Reprendra: $($State.resumeWhen)"
 
-        # TODO: Implémenter vérification condition resumeWhen
-        # Pour l'instant, toujours retourner $null (pas de reprise auto)
-        # Dans une version future, vérifier :
-        # - Si c'est une user approval → checker INTERCOM ou GitHub comments
-        # - Si c'est une RooSync response → checker inbox
-        # - Si c'est une GitHub decision → checker issue status
+        # Vérifier condition resumeWhen
+        $ResumeCondition = $State.resumeWhen.ToLower() -replace '[_\s]+', '_'
 
-        Write-Log "⏸️ Condition pas encore implémentée - skip pour cette exécution"
+        switch -Regex ($ResumeCondition) {
+            "user_approval|user approval" {
+                Write-Log "  Vérification user approval (INTERCOM + GitHub)..."
+                if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
+                    Write-Log "✅ User approval détectée - reprise autorisée"
+                    return $State
+                }
+            }
+            "roosync_response|roosync response" {
+                Write-Log "  Vérification RooSync response (inbox)..."
+                if (Test-RooSyncResponse -TaskId $TaskId -WaitState $State) {
+                    Write-Log "✅ RooSync response détectée - reprise autorisée"
+                    return $State
+                }
+            }
+            "github_decision|github decision|github_status|github status" {
+                Write-Log "  Vérification GitHub decision (issue status)..."
+                if (Test-GitHubDecision -TaskId $TaskId -WaitState $State) {
+                    Write-Log "✅ GitHub decision détectée - reprise autorisée"
+                    return $State
+                }
+            }
+            "intercom_message|intercom message" {
+                Write-Log "  Vérification INTERCOM message..."
+                if (Test-IntercomMessage -TaskId $TaskId -WaitState $State) {
+                    Write-Log "✅ INTERCOM message détecté - reprise autorisée"
+                    return $State
+                }
+            }
+            default {
+                Write-Log "⚠️ Condition resumeWhen inconnue: $($State.resumeWhen)" "WARN"
+            }
+        }
+
+        Write-Log "⏸️ Condition pas encore remplie - skip pour cette exécution"
         return $null
     }
     catch {
         Write-Log "Erreur lecture wait state: $_" "WARN"
         return $null
+    }
+}
+
+function Test-UserApproval {
+    <#
+    .SYNOPSIS
+    Vérifie si user approval détectée (INTERCOM + GitHub comments)
+    #>
+    param([string]$TaskId, $WaitState)
+
+    $MachineId = $env:COMPUTERNAME.ToLower()
+    $IntercomPath = Join-Path $RepoRoot ".claude\local\INTERCOM-$MachineId.md"
+
+    if (-not (Test-Path $IntercomPath)) { return $false }
+
+    try {
+        $Content = Get-Content $IntercomPath -Raw
+        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+
+        # Chercher messages INTERCOM après le timestamp
+        $ApprovalPatterns = @(
+            '\[APPROVE\]', '\[APPROVED\]', '\[OK\]', '\[GO\]',
+            'approved', 'go ahead', 'proceed', 'continue'
+        )
+
+        foreach ($Pattern in $ApprovalPatterns) {
+            if ($Content -match "(?m)^## \[([^\]]+)\].*$Pattern") {
+                $MessageTimestamp = [DateTime]::Parse($Matches[1])
+                if ($MessageTimestamp -gt $SavedTimestamp) {
+                    return $true
+                }
+            }
+        }
+
+        return $false
+    }
+    catch {
+        Write-Log "Erreur Test-UserApproval: $_" "WARN"
+        return $false
+    }
+}
+
+function Test-RooSyncResponse {
+    <#
+    .SYNOPSIS
+    Vérifie si réponse RooSync détectée dans inbox
+    #>
+    param([string]$TaskId, $WaitState)
+
+    $SharedPath = $env:ROOSYNC_SHARED_PATH
+    if (-not $SharedPath) { return $false }
+
+    $InboxPath = Join-Path $SharedPath "messages\inbox"
+    if (-not (Test-Path $InboxPath)) { return $false }
+
+    try {
+        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+        $MachineId = $env:COMPUTERNAME.ToLower()
+
+        # Lire messages inbox pour cette machine
+        $Messages = Get-ChildItem $InboxPath -Filter "*.json" | ForEach-Object {
+            try { Get-Content $_.FullName -Raw | ConvertFrom-Json } catch { $null }
+        } | Where-Object { $_ -ne $null }
+
+        # Chercher réponses après le timestamp
+        foreach ($Message in $Messages) {
+            if (($Message.to -eq $MachineId -or $Message.to -eq "all") -and
+                $Message.status -eq "unread") {
+                $MessageTimestamp = [DateTime]::Parse($Message.timestamp)
+                if ($MessageTimestamp -gt $SavedTimestamp) {
+                    # Vérifier si le message concerne cette tâche
+                    if ($Message.subject -match $TaskId -or $Message.body -match $TaskId) {
+                        return $true
+                    }
+                }
+            }
+        }
+
+        return $false
+    }
+    catch {
+        Write-Log "Erreur Test-RooSyncResponse: $_" "WARN"
+        return $false
+    }
+}
+
+function Test-GitHubDecision {
+    <#
+    .SYNOPSIS
+    Vérifie si décision GitHub détectée (issue status change)
+    #>
+    param([string]$TaskId, $WaitState)
+
+    # Extraire issue number du TaskId ou du waitFor
+    $IssueNumber = $null
+    if ($TaskId -match '#(\d+)') { $IssueNumber = $Matches[1] }
+    elseif ($WaitState.waitFor -match '#(\d+)') { $IssueNumber = $Matches[1] }
+
+    if (-not $IssueNumber) {
+        Write-Log "  Pas d'issue number trouvée dans TaskId ou waitFor"
+        return $false
+    }
+
+    try {
+        # Vérifier si gh CLI disponible
+        $GhPath = Get-Command gh -ErrorAction SilentlyContinue
+        if (-not $GhPath) {
+            Write-Log "  gh CLI non disponible" "WARN"
+            return $false
+        }
+
+        # Récupérer l'état de l'issue
+        $IssueJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions --json state,comments 2>&1
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "  Erreur gh issue view: $IssueJson" "WARN"
+            return $false
+        }
+
+        $Issue = $IssueJson | ConvertFrom-Json
+        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+
+        # Vérifier si issue fermée après le timestamp
+        if ($Issue.state -eq "CLOSED") {
+            Write-Log "  Issue #$IssueNumber est fermée - reprise autorisée"
+            return $true
+        }
+
+        # Vérifier commentaires récents avec approval
+        $ApprovalPatterns = @('approve', 'go ahead', 'proceed', 'continue', 'done')
+        foreach ($Comment in $Issue.comments) {
+            $CommentTimestamp = [DateTime]::Parse($Comment.createdAt)
+            if ($CommentTimestamp -gt $SavedTimestamp) {
+                foreach ($Pattern in $ApprovalPatterns) {
+                    if ($Comment.body -match $Pattern) {
+                        Write-Log "  Commentaire approval détecté: $($Comment.body.Substring(0, [Math]::Min(50, $Comment.body.Length)))"
+                        return $true
+                    }
+                }
+            }
+        }
+
+        return $false
+    }
+    catch {
+        Write-Log "Erreur Test-GitHubDecision: $_" "WARN"
+        return $false
+    }
+}
+
+function Test-IntercomMessage {
+    <#
+    .SYNOPSIS
+    Vérifie si message INTERCOM détecté
+    #>
+    param([string]$TaskId, $WaitState)
+
+    $MachineId = $env:COMPUTERNAME.ToLower()
+    $IntercomPath = Join-Path $RepoRoot ".claude\local\INTERCOM-$MachineId.md"
+
+    if (-not (Test-Path $IntercomPath)) { return $false }
+
+    try {
+        $Content = Get-Content $IntercomPath -Raw
+        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+
+        # Chercher messages INTERCOM après le timestamp
+        $Pattern = '(?m)^## \[([^\]]+)\].*\[(TASK|INFO|DONE|URGENT)\]'
+        $Matches = [regex]::Matches($Content, $Pattern)
+
+        foreach ($Match in $Matches) {
+            $MessageTimestamp = [DateTime]::Parse($Match.Groups[1].Value)
+            if ($MessageTimestamp -gt $SavedTimestamp) {
+                return $true
+            }
+        }
+
+        return $false
+    }
+    catch {
+        Write-Log "Erreur Test-IntercomMessage: $_" "WARN"
+        return $false
     }
 }
 
@@ -559,6 +771,7 @@ function Invoke-Claude {
         $Continue = $true
         $CumulativeOutput = @()
         $NeedsEscalation = $false
+        $EscalateToModel = $null  # Modèle suggéré par l'agent
         $WaitStateData = $null
 
         while ($Continue -and $CurrentIteration -lt $Iterations) {
@@ -606,9 +819,8 @@ function Invoke-Claude {
 
                         # Extraire modèle cible si spécifié
                         if ($OutputText -match "ESCALATE_TO:\s*(\w+)") {
-                            $TargetModel = $Matches[1]
-                            Write-Log "  → Modèle cible suggéré: $TargetModel"
-                            # TODO: Utiliser ce modèle au lieu de celui de la config
+                            $EscalateToModel = $Matches[1]
+                            Write-Log "  → Modèle cible suggéré: $EscalateToModel"
                         }
                     }
                     "wait" {
@@ -665,6 +877,7 @@ function Invoke-Claude {
         return @{
             success = -not $NeedsEscalation -and $null -eq $WaitStateData
             needsEscalation = $NeedsEscalation
+            escalateToModel = $EscalateToModel
             waitState = $WaitStateData
             output = $CumulativeOutput -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
@@ -733,10 +946,52 @@ $($Result.output)
 Voir: $LogFile
 "@
 
-    # TODO: Envoyer message RooSync au coordinateur
-    # Pour l'instant, juste logger
-    Write-Log "Rapport préparé (envoi RooSync à implémenter)"
     Write-Log $ReportMessage
+
+    # Envoyer message RooSync au coordinateur
+    $SharedPath = $env:ROOSYNC_SHARED_PATH
+    if (-not $SharedPath) {
+        Write-Log "ROOSYNC_SHARED_PATH non défini - skip envoi RooSync" "WARN"
+        return
+    }
+
+    try {
+        $MachineId = $env:COMPUTERNAME.ToLower()
+        $Timestamp = Get-Date -Format "yyyyMMddTHHmmss"
+        $MessageId = "msg-$Timestamp-worker-report"
+
+        $Message = @{
+            id = $MessageId
+            from = $MachineId
+            to = "myia-ai-01"
+            subject = "Worker Report - $($Task.subject)"
+            body = $ReportMessage
+            priority = if ($Result.success) { "LOW" } else { "HIGH" }
+            status = "unread"
+            timestamp = (Get-Date).ToUniversalTime().ToString("o")
+            tags = @("worker-report", "scheduler")
+        }
+
+        $SentPath = Join-Path $SharedPath "messages\sent"
+        $InboxPath = Join-Path $SharedPath "messages\inbox"
+
+        # Créer répertoires si nécessaires
+        if (-not (Test-Path $SentPath)) { New-Item -ItemType Directory -Path $SentPath -Force | Out-Null }
+        if (-not (Test-Path $InboxPath)) { New-Item -ItemType Directory -Path $InboxPath -Force | Out-Null }
+
+        # Sauvegarder en UTF-8 sans BOM
+        $JsonText = $Message | ConvertTo-Json -Depth 10
+        $SentFile = Join-Path $SentPath "$MessageId.json"
+        $InboxFile = Join-Path $InboxPath "$MessageId.json"
+
+        [System.IO.File]::WriteAllText($SentFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
+        [System.IO.File]::WriteAllText($InboxFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
+
+        Write-Log "✅ Message RooSync envoyé: $MessageId"
+    }
+    catch {
+        Write-Log "Erreur envoi RooSync: $_" "ERROR"
+    }
 }
 
 # ============================================================================
@@ -752,8 +1007,41 @@ try {
     # 1. Récupérer tâche
     if ($TaskId) {
         Write-Log "TaskId spécifié: $TaskId"
-        # TODO: Récupérer tâche spécifique via roosync_read
-        $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; suggestedMode = $Mode }
+
+        # Récupérer tâche depuis RooSync inbox
+        $SharedPath = $env:ROOSYNC_SHARED_PATH
+        if ($SharedPath) {
+            $InboxPath = Join-Path $SharedPath "messages\inbox"
+            $MessageFile = Join-Path $InboxPath "$TaskId.json"
+
+            if (Test-Path $MessageFile) {
+                try {
+                    $Message = Get-Content $MessageFile -Raw | ConvertFrom-Json
+                    $Task = @{
+                        id = $Message.id
+                        subject = $Message.subject
+                        priority = $Message.priority
+                        prompt = $Message.body
+                        source = "roosync"
+                        messageFile = $MessageFile
+                        suggestedMode = $Mode
+                    }
+                    Write-Log "✅ Tâche RooSync récupérée: $($Task.id)"
+                }
+                catch {
+                    Write-Log "Erreur lecture tâche $TaskId : $_" "ERROR"
+                    $Task = @{ id = $TaskId; subject = "Tâche spécifiée (erreur lecture)"; suggestedMode = $Mode }
+                }
+            }
+            else {
+                Write-Log "Tâche $TaskId introuvable dans inbox" "WARN"
+                $Task = @{ id = $TaskId; subject = "Tâche spécifiée (introuvable)"; suggestedMode = $Mode }
+            }
+        }
+        else {
+            Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
+            $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; suggestedMode = $Mode }
+        }
     } else {
         $Task = Get-NextTask
     }
@@ -802,8 +1090,19 @@ try {
 
     if ($EscalateMode) {
         Write-Log "ESCALADE vers mode: $EscalateMode" "WARN"
+
+        # Utiliser le modèle suggéré par l'agent si disponible
+        $OriginalModel = $Model
+        if ($Result.escalateToModel) {
+            $Model = $Result.escalateToModel
+            Write-Log "  → Utilisation modèle suggéré: $Model"
+        }
+
         $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
         $SelectedMode = $EscalateMode
+
+        # Restaurer le modèle original
+        $Model = $OriginalModel
 
         # 5b. Vérifier wait state après escalade (TODO #5)
         if ($Result.waitState) {
