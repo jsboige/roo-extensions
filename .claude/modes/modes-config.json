@@ -5,7 +5,7 @@
     {
       "id": "sync-simple",
       "name": "Sync Simple",
-      "model": "claude-haiku-4.5",
+      "model": "haiku",
       "description": "Sync-tour basique : vérifications simples, messages RooSync, git pull",
       "maxTokens": 4096,
       "temperature": 0.3,
@@ -31,7 +31,7 @@
     {
       "id": "sync-complex",
       "name": "Sync Complexe",
-      "model": "claude-sonnet-4.5",
+      "model": "sonnet",
       "description": "Sync-tour complet : résolution conflits git, build/tests, coordination multi-agent",
       "maxTokens": 8192,
       "temperature": 0.5,
@@ -51,7 +51,7 @@
     {
       "id": "code-simple",
       "name": "Code Simple",
-      "model": "claude-haiku-4.5",
+      "model": "haiku",
       "description": "Modifications mineures : <50 lignes, formatage, docs, corrections syntaxe",
       "maxTokens": 4096,
       "temperature": 0.3,
@@ -76,7 +76,7 @@
     {
       "id": "code-complex",
       "name": "Code Complexe",
-      "model": "claude-sonnet-4.5",
+      "model": "sonnet",
       "description": "Modifications majeures : refactoring, architecture, features complexes",
       "maxTokens": 8192,
       "temperature": 0.5,
@@ -103,7 +103,7 @@
     {
       "id": "code-critical",
       "name": "Code Critique",
-      "model": "claude-opus-4.6",
+      "model": "opus",
       "description": "Modifications critiques : architecture système, décisions stratégiques",
       "maxTokens": 16384,
       "temperature": 0.7,
@@ -124,7 +124,7 @@
     {
       "id": "debug-simple",
       "name": "Debug Simple",
-      "model": "claude-haiku-4.5",
+      "model": "haiku",
       "description": "Bugs évidents : erreurs de syntaxe, typos, imports manquants",
       "maxTokens": 4096,
       "temperature": 0.3,
@@ -149,7 +149,7 @@
     {
       "id": "debug-complex",
       "name": "Debug Complexe",
-      "model": "claude-sonnet-4.5",
+      "model": "sonnet",
       "description": "Bugs complexes : concurrence, performance, intégration",
       "maxTokens": 8192,
       "temperature": 0.5,
@@ -168,7 +168,7 @@
     {
       "id": "coordinate-simple",
       "name": "Coordination Simple",
-      "model": "claude-haiku-4.5",
+      "model": "haiku",
       "description": "Coordination basique : envoi messages RooSync, rapports de status",
       "maxTokens": 4096,
       "temperature": 0.3,
@@ -193,7 +193,7 @@
     {
       "id": "coordinate-complex",
       "name": "Coordination Complexe",
-      "model": "claude-opus-4.6",
+      "model": "opus",
       "description": "Coordination avancée : planification multi-agent, décisions stratégiques",
       "maxTokens": 16384,
       "temperature": 0.7,

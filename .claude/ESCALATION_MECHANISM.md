@@ -14,6 +14,158 @@ Le système Roo dispose d'un mécanisme d'escalade **automatique** et **intellig
 
 ---
 
+## Trois Types d'Escalade Distincts
+
+**Feedback utilisateur (2026-02-12) :** Il existe trois mécanismes d'escalade distincts, chacun avec ses propres cas d'usage et priorités.
+
+| Type | Nom | Mécanisme | Contexte | Priorité | Cas d'usage |
+|------|-----|-----------|----------|----------|-------------|
+| **1** | **Descendante (Entrante)** | Délégation à sous-tâches | Contexte **rafraîchi** | **PRIORITAIRE** | Parallélisation, décomposition |
+| **2** | **Sur Place** | Switch modèle en cours | Contexte **préservé** | Secondaire | Complexité émergente |
+| **3** | **Sortante** | Réassignation complète | Constat **échec** | Dernier recours | Mauvais dimensionnement initial |
+
+### 1. Escalade Descendante (Entrante) - PRIORITAIRE
+
+**Principe :** "Je délègue à une ou plusieurs sous-tâches avec un modèle plus gros que le mien"
+
+**Caractéristiques :**
+- Agent Haiku orchestrateur → lance sous-tâche Sonnet
+- Chaque sous-tâche démarre avec un **contexte frais** (pas de bagage du parent)
+- **Parallélisation possible** → augmente la performance globale
+- **À prioriser** car rafraîchit les contextes et évite l'accumulation
+
+**Implémentation Roo :** Via `new_task` avec mode cible (ex: `code-complex`, `debug-complex`)
+
+**Implémentation Claude Code :** Via `claude -p "prompt" --model sonnet` (délégation externe)
+
+**Avantages :**
+- ✅ Contexte rafraîchi pour chaque sous-tâche
+- ✅ Parallélisation native (plusieurs sous-tâches simultanées)
+- ✅ Pas d'accumulation de contexte dans la boucle principale
+- ✅ Permet de décomposer une tâche complexe en tâches simples
+
+**Exemple Roo :**
+```json
+{
+  "tool": "new_task",
+  "mode": "code-complex",
+  "instructions": "Refactorer le module auth.ts : isoler la logique OAuth, ajouter tests unitaires, documenter API"
+}
+```
+
+### 2. Escalade Sur Place
+
+**Principe :** "Je switch de modèle en cours de conversation pour continuer avec le contexte complet déjà accumulé"
+
+**Caractéristiques :**
+- Haiku iteration 1 → analyse et identifie besoin de Sonnet
+- **Switch vers Sonnet** sans relancer depuis zéro
+- Préserve tout le contexte accumulé (messages, tool calls, résultats)
+- Utile quand la complexité émerge **en cours d'exécution**
+
+**Implémentation Roo :** ⚠️ Non explicite dans la configuration actuelle (mécanisme à vérifier)
+
+**Implémentation Claude Code :**
+- **🔍 À VÉRIFIER :** Les slash commands pourraient être invocables par l'agent ([Reddit](https://www.reddit.com/r/ClaudeAI/comments/1noyvmq/claude_code_can_invoke_your_custom_slash_commands/))
+- Si supporté : L'agent pourrait invoquer `/model sonnet` pour switcher en place
+- **Solution workaround actuelle :** Relancer avec nouveau modèle + contexte précédent dans le prompt (simulation)
+
+**Avantages :**
+- ✅ Préserve le contexte complet déjà accumulé
+- ✅ Évite de recommencer l'investigation depuis zéro
+
+**Inconvénients :**
+- ❌ Accumulation de contexte (peut mener à overflow)
+- ❌ Pas de parallélisation possible
+- ❌ Limitation technique (Claude Code ne supporte pas nativement)
+
+**Exemple Claude Code (simulation) :**
+```powershell
+# Iteration 1 avec Haiku
+$Output1 = & claude -p $Prompt --model haiku
+
+# Agent signale : "ESCALATE_TO_SONNET"
+if ($Output1 -match "ESCALATE_TO_SONNET") {
+    # Iteration 2 : Relancer avec Sonnet + contexte iteration 1
+    $EnrichedPrompt = @"
+Contexte précédent (Haiku) :
+$Output1
+
+Continue cette tâche avec un modèle plus puissant.
+"@
+    $Output2 = & claude -p $EnrichedPrompt --model sonnet
+}
+```
+
+### 3. Escalade Sortante - DERNIER RECOURS
+
+**Principe :** "Je termine ma tâche en signalant besoin de réassignation à un modèle plus gros"
+
+**Caractéristiques :**
+- Constat d'un problème : **mauvais dimensionnement initial**, manque de contexte, débordement de scope
+- Agent retourne un flag `needsEscalation: true`
+- La **boucle principale** relance TOUTE la tâche avec un modèle plus gros
+- Nécessite décision avec **plus de recul** que la boucle courante
+
+**Implémentation Roo :** Via `escalationCriteria` dans `modes-config.json`
+
+**Implémentation Claude Code :** Via flag `needsEscalation` dans le retour de `Invoke-Claude`
+
+**Avantages :**
+- ✅ Permet de corriger un mauvais dimensionnement initial
+- ✅ Agent signale explicitement son besoin
+
+**Inconvénients :**
+- ❌ Perte du contexte de la tentative initiale (recommence depuis zéro)
+- ❌ Temps perdu sur la première tentative
+- ❌ Coût additionnel (première tentative + relance)
+
+**Exemple Roo (escalationCriteria) :**
+```json
+{
+  "escalationCriteria": [
+    "La tâche nécessite des décisions architecturales",
+    "Le problème est plus complexe que prévu après investigation",
+    "Les modifications touchent plus de 3 fichiers interconnectés",
+    "Les erreurs persistent après 2 tentatives de correction"
+  ]
+}
+```
+
+**Exemple Claude Code (flag) :**
+```powershell
+# Agent termine avec flag
+return @{
+    success = $false
+    needsEscalation = $true
+    reason = "Modifications touchent 5 fichiers interconnectés, nécessite vision architecturale"
+}
+```
+
+### Prioritisation Recommandée
+
+**Ordre de priorité (feedback utilisateur 2026-02-12) :**
+
+1. **Escalade descendante (entrante)** - TOUJOURS PRIORISER
+   - Rafraîchit contextes
+   - Permet parallélisation
+   - Plus performant globalement
+
+2. **Escalade sur place** - SI IMPOSSIBLE DE DÉLÉGUER
+   - Utile si complexité émerge en cours d'exécution
+   - Préserve contexte accumulé
+   - Mais risque d'accumulation
+
+3. **Escalade sortante** - DERNIER RECOURS UNIQUEMENT
+   - Constat d'un mauvais dimensionnement
+   - Nécessite décision avec plus de recul
+   - Temps et coût perdus sur la première tentative
+
+**Citation utilisateur :**
+> "L'escalade descendante est à prioriser quand elle est possible car elle rafraîchit les contextes, se prête bien à la parallélisation qui est aussi une façon d'augmenter le niveau de performances."
+
+---
+
 ## Architecture des Modes Roo
 
 ### 5 Familles de Modes × 2 Niveaux = 10 Modes
