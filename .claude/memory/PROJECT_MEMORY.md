@@ -46,21 +46,22 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-11 | Search/Indexing | 4 tools | 2 tools | myia-po-2023 | Done |
 | CONS-12 | Summary | 3 tools | 1 tool | myia-ai-01 | Done |
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
+| CONS-X #457 | Conversation Browser | 3 tools | 1 tool | myia-po-2023 | Done |
 
-## Current State (2026-02-12 23:52)
+## Current State (2026-02-13 02:00)
 
-**CONS-#443 (finale consolidation 39→18) in progress.** G1+G5 done.
+**CONS-X #457 completed.** conversation_browser consolidates 3→1 tool. G1+G5+CONS-X done.
 
 | Metric | Value |
 |--------|-------|
-| Total tools (ListTools) | 39 (wrapper v4 pass-through) |
+| Total tools (ListTools) | ~35 (16 inline + 19 roosyncTools) |
 | RooSync tools (roosyncTools) | 19 |
 | Claude wrapper tools | 39 (pass-through, no filtering) |
-| Tests passing | 3252/3266 (14 skipped) |
-| Test files | 200/201 (1 skipped) |
-| GitHub Project #67 | 161 items total, ~159 Done (98.8%) |
+| Tests passing | 3281/3295 (14 skipped) |
+| Test files | 202/203 (1 skipped) |
+| GitHub Project #67 | 161+ items, ~164 Done |
 | Skills | 5 (validate, git-sync, github-status, sync-tour, debrief) |
-| Scheduler | 3h interval, 6 machines staggered |
+| Scheduler | 3h interval, 6 machines staggered, **Step 1b** added (#456) |
 | Heartbeat | **Auto-start enabled** (6/6 config, #455 done) - Runtime: 1/6 online, 3/6 not registered, 2/6 offline (#460) |
 | Machine Registry | 6 machines (case-sensitive duplicate fixed 2026-02-12) |
 | MCP Servers | roo-state-manager (TS) + sk-agent (Python) + markitdown + playwright |
@@ -177,20 +178,24 @@ Updated via git commits. Each agent should read this at session start.
 - 2560 dims, ~287 req/s, zero cost, +15% quality over OpenAI
 - Risk: previous overrun cost 200EUR - always rate-limit (#453)
 
-## Active Issues (2026-02-12)
-| # | Title | Priority |
-|---|-------|----------|
-| #443 | Consolidation finale 39→18 (G1+G5 done) | HIGH |
-| #452 | MCP outil exploitation index semantique | MEDIUM |
-| #453 | Qdrant task indexation | MEDIUM |
-| #459 | Scheduler deployment remaining machines | HIGH |
-| #460 | Dashboard + heartbeat automation (1/5 fixed, procedures created) | HIGH |
-| #461 | Worktree integration | MEDIUM |
-| #462 | Autonomy roadmap | MEDIUM |
-| #463 | Cross-workspace template | LOW |
-| #464 | Dev Containers + Ralph Wiggum | MEDIUM |
-| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM |
-| #466 | Deploiement sync_always_allow + update_server_field | MEDIUM |
+## Active Issues (2026-02-13)
+
+| # | Title | Priority | Status |
+|---|-------|----------|--------|
+| #443 | Consolidation finale 39→18 (G1+G5+CONS-X done) | HIGH | In Progress |
+| #452 | MCP outil exploitation index semantique | MEDIUM | Todo |
+| #453 | Qdrant task indexation | MEDIUM | Todo |
+| #456 | Scheduler feedback loop (Phase 3 Step 1b done) | MEDIUM | In Progress |
+| #458 | E2E validation post-CONS-#443 | HIGH | Todo |
+| #459 | Scheduler deployment remaining machines | HIGH | In Progress |
+| #460 | Dashboard + heartbeat automation (1/5 fixed, procedures created) | HIGH | Todo |
+| #461 | Worktree integration | MEDIUM | Todo |
+| #462 | Autonomy roadmap | MEDIUM | Todo |
+| #463 | Cross-workspace template | LOW | Todo |
+| #464 | Dev Containers + Ralph Wiggum | MEDIUM | Todo |
+| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM | In Progress |
+
+**Closed recently:** #455, #466, #451, #433, #457 (5 issues)
 
 ### sk-agent MCP Server (NEW - 2026-02-12)
 - **Location**: `mcps/internal/servers/sk-agent/`
