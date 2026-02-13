@@ -1,0 +1,16 @@
+{
+  "_comment": "DesktopCommanderMCP config template for roo-extensions. Deployed to ~/.claude-server-commander/config.json",
+  "blockedCommands": [
+    "mkfs", "format", "mount", "umount", "fdisk", "dd", "parted", "diskpart",
+    "sudo", "su", "passwd", "adduser", "useradd", "usermod", "groupadd", "chsh", "visudo",
+    "shutdown", "reboot", "halt", "poweroff", "init",
+    "iptables", "firewall", "netsh", "sfc", "bcdedit",
+    "reg", "net", "sc", "runas", "cipher", "takeown", "icacls",
+    "rm", "del", "rmdir", "regedit"
+  ],
+  "defaultShell": "C:\\Program Files\\Git\\bin\\bash.exe",
+  "allowedDirectories": [],
+  "telemetryEnabled": false,
+  "fileWriteLineLimit": 200,
+  "fileReadLineLimit": 2000
+}
