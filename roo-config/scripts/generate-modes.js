@@ -83,6 +83,7 @@ function main() {
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
         ADDITIONAL_INSTRUCTIONS: fam.additionalInstructions || '',
+        COMPLEX_ESCALATION: config.complexEscalationInstructions || '',
       };
 
       var customInstructions = renderTemplate(template, vars);

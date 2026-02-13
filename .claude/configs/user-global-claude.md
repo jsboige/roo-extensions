@@ -287,6 +287,8 @@ powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalCo
 | Agent | `doc-updater` | MAJ docs apres changements |
 | Skill | `validate` | CI local : build + tests |
 | Skill | `git-sync` | Synchronisation Git intelligente |
+| Skill | `debrief` | Analyse de session + capture connaissances |
 | Command | `switch-provider` | Basculer entre providers LLM |
+| Command | `debrief` | Lancer une analyse de session |
 
 **Override projet :** Si un projet a ses propres versions dans `.claude/agents/`, `.claude/skills/`, etc., elles surchargent les globales. C'est le mecanisme standard de Claude Code.

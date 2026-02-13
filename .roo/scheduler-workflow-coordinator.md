@@ -31,23 +31,70 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
+### Etape 1.5 : Detecter le contexte worktree (#456 Phase A)
+
+**NOUVEAU (#456) - Detection automatique du worktree courant**
+
+Deleguer a `code-simple` via `new_task` avec ces instructions EXACTES :
+
+```
+Detecte le contexte git worktree en executant ces commandes :
+
+1. `git worktree list --porcelain` - Liste tous les worktrees
+2. `git rev-parse --show-toplevel` - Path absolu du worktree courant
+3. `git rev-parse --abbrev-ref HEAD` - Branche courante
+4. `git rev-parse HEAD` - Commit SHA courant (court: 8 chars)
+
+Analyse la sortie et determine :
+- WORKTREE_PATH : path absolu du worktree courant
+- WORKTREE_BRANCH : nom de la branche (ex: "main", "feature/X")
+- WORKTREE_COMMIT : SHA court du commit (8 chars)
+- WORKTREE_TYPE : "main" si c'est le premier worktree liste, sinon "secondary"
+
+Rapporte dans ce format exact :
+WORKTREE_PATH={path}
+WORKTREE_BRANCH={branch}
+WORKTREE_COMMIT={commit}
+WORKTREE_TYPE={type}
+```
+
+**Memorise ces informations pour les utiliser dans TOUTES les prochaines delegations (Etapes 2, 3, 4).**
+
 ### Etape 2 : Verifier l'etat du workspace
 
-- Deleguer a code-simple via `new_task` : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
+**IMPORTANT (#456 Phase B) : Enrichir TOUTES les delegations avec le contexte worktree.**
+
+Format d'instruction `new_task` :
+```
+[WORKTREE CONTEXT]
+Path: {WORKTREE_PATH de l'Etape 1.5}
+Branch: {WORKTREE_BRANCH}
+Commit: {WORKTREE_COMMIT}
+Type: {WORKTREE_TYPE}
+
+[TASK]
+{instructions de la tache...}
+```
+
+Delegations a effectuer :
+
+- Deleguer a code-simple via `new_task` avec contexte worktree : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
 - Si dirty : NE PAS commiter. Signaler dans le rapport.
 
 ### Etape 3 : Executer les taches locales par delegation
 
 **REGLE ABSOLUE : NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via `new_task`.**
 
+**CONTEXTE WORKTREE (#456 Phase B) : Inclure systematiquement le contexte worktree dans CHAQUE delegation.**
+
 Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 | Difficulte | Action |
 |-----------|--------|
-| **SIMPLE** (1 action) | Deleguer a `code-simple` ou `debug-simple` via `new_task` |
-| **MOYEN** (2-4 actions) | Deleguer chaque action separement a `code-simple` |
-| **COMPLEXE** (5+ actions, dependances) | Escalader vers `orchestrator-complex` via `new_task` avec le contexte complet |
-| **URGENT** | Escalader vers `orchestrator-complex` immediatement |
+| **SIMPLE** (1 action) | Deleguer a `code-simple` ou `debug-simple` via `new_task` **avec contexte worktree** |
+| **MOYEN** (2-4 actions) | Deleguer chaque action separement a `code-simple` **avec contexte worktree** |
+| **COMPLEXE** (5+ actions, dependances) | Escalader vers `orchestrator-complex` via `new_task` avec le contexte complet **+ worktree** |
+| **URGENT** | Escalader vers `orchestrator-complex` immediatement **avec contexte worktree** |
 
 **Gestion des echecs :**
 
@@ -58,7 +105,7 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 ### Etape 4 : Rapporter dans l'INTERCOM LOCAL
 
-**PROTECTION DU CONTENU** - Pour ecrire dans l'INTERCOM, deleguer a `code-simple` avec ces instructions EXACTES :
+**PROTECTION DU CONTENU** - Pour ecrire dans l'INTERCOM, deleguer a `code-simple` **avec contexte worktree (#456 Phase B)** et ces instructions EXACTES :
 
 ```
 1. Lis le fichier .claude/local/INTERCOM-{MACHINE}.md en ENTIER avec read_file.
@@ -78,6 +125,14 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 ```markdown
 ## [{DATE}] roo -> claude-code [DONE]
 ### Bilan planifie - Coordinateur
+
+**Contexte Worktree (#456) :**
+- Path: {WORKTREE_PATH}
+- Branch: {WORKTREE_BRANCH}
+- Commit: {WORKTREE_COMMIT}
+- Type: {WORKTREE_TYPE}
+
+**Execution :**
 - Taches locales executees : ...
 - Modes utilises : code-simple / code-complex / debug-complex
 - Erreurs : ...
@@ -90,7 +145,7 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 ### Etape 5 : Maintenance INTERCOM (si >1000 lignes)
 
-Deleguer a `code-simple` :
+Deleguer a `code-simple` **avec contexte worktree (#456 Phase B)** :
 
 ```
 Lis .claude/local/INTERCOM-{MACHINE}.md.
@@ -131,7 +186,7 @@ Si plus de 1000 lignes :
 
 ### Etape 3b : Verifier si des messages RooSync attendent Claude Code
 
-Deleguer a `code-simple` via `new_task` :
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
 
 ```
 Executer cette commande et retourner le resultat COMPLET :
@@ -145,7 +200,7 @@ Si des messages non-lus existent (fichiers recents < 6h) → **REVEILLER CLAUDE 
 
 ### Etape 3c : Chercher une tache sur GitHub
 
-Deleguer a `code-simple` via `new_task` :
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
 
 ```
 Executer cette commande et retourner le resultat COMPLET :
@@ -156,6 +211,37 @@ gh issue list --repo jsboige/roo-extensions --state open --label roo-schedulable
 ```
 
 Si une tache schedulable est trouvee :
+
+**3c-bis. CLAIM LA TACHE (ANTI DOUBLE-TRAITEMENT)** - Deleguer a `code-simple` **avec contexte worktree** :
+
+```
+AVANT de commencer le travail, verifier et revendiquer la tache sur GitHub :
+
+Etape A - Commenter l'issue pour signaler la prise en charge :
+gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by myia-ai-01 (Roo coordinator). Working on it now. Mode: {simple/complex}."
+
+Etape B - Mettre a jour les champs du Project #67 via GraphQL :
+
+# Status -> In Progress
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY\", value: { singleSelectOptionId: \"47fc9ee4\" } }) { projectV2Item { id } } }"
+
+# Machine -> myia-ai-01
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8\", value: { singleSelectOptionId: \"ae516a70\" } }) { projectV2Item { id } } }"
+
+# Agent -> Roo
+gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9icmA\", value: { singleSelectOptionId: \"102d5164\" } }) { projectV2Item { id } } }"
+
+IDs des options Machine :
+  myia-ai-01=ae516a70, myia-po-2023=2b4454e0, myia-po-2024=91dd0acf
+  myia-po-2025=4f388455, myia-po-2026=bc8df25a, myia-web1=e3cd0cd0
+
+Pour trouver ITEM_ID :
+gh api graphql -f query="{ user(login: \"jsboige\") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }" | python -c "import sys,json; items=json.load(sys.stdin)['data']['user']['projectV2']['items']['nodes']; print(next(i['id'] for i in items if i.get('content',{}).get('number')=={NUM}))"
+
+Si les commandes GraphQL echouent, continuer quand meme (le commentaire suffit comme claim minimal).
+```
+
+Ensuite executer :
 - **Tache simple** (tag Roo ou Both) : Deleguer a `code-simple` ou `code-complex`
 - **Tache Claude Code only** : Signaler dans INTERCOM + reveiller Claude (Etape 3d)
 
@@ -163,7 +249,7 @@ Si une tache schedulable est trouvee :
 
 **QUAND :** Des messages RooSync non-lus ou des taches Claude Code sont detectes.
 
-Deleguer a `code-simple` via `new_task` :
+Deleguer a `code-simple` via `new_task` **avec contexte worktree** :
 
 ```
 Executer cette commande pour invoquer Claude Code en mode coordinateur :
@@ -187,7 +273,7 @@ Si la commande echoue, signaler dans l'INTERCOM :
 
 Si ni INTERCOM, ni RooSync, ni GitHub ne contiennent de tache :
 
-Deleguer a `code-simple` les taches de maintenance :
+Deleguer a `code-simple` **avec contexte worktree** les taches de maintenance :
 1. `git pull --no-rebase origin main` (mettre a jour le code)
 2. `npm run build` dans `mcps/internal/servers/roo-state-manager` (verifier que le build passe)
 3. `npx vitest run` (verifier que les tests passent)

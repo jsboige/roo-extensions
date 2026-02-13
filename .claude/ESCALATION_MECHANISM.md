@@ -1,8 +1,8 @@
 # Mécanisme d'Escalade Roo - Documentation Complète
 
-**Date:** 2026-02-12
-**Version:** 1.0
-**Statut:** Documentation de référence pour #462
+**Date:** 2026-02-13
+**Version:** 1.1 (ajout Couche 3 - Claude CLI Escalade, #464 Phase 2.5)
+**Statut:** Documentation de référence pour #462 et #464
 
 ---
 
@@ -292,9 +292,47 @@ Chaque mode worker (code, debug, architect, ask) dispose de ses propres critère
 - **Moins de 5 sous-tâches** séquentielles suffisent
 - **Pas de parallélisation** ni coordination externe
 
-### Couche 3 : Orchestrateurs (SDDD Instructions)
+### Couche 3 : Claude CLI Escalade (NOUVEAU - #464 Phase 2.5)
 
-**Fichier source :** `roo-config/modes/modes-config.json` (lignes 111-132, section `additionalInstructions`)
+**Fichier source :** `roo-config/modes/modes-config.json` (champ `complexEscalationInstructions`)
+
+**Rôle :** Quand un mode `-complex` est toujours bloqué après 2 tentatives, il peut escalader à Claude CLI (`claude -p "..."`) qui utilise le modèle Anthropic (plus puissant que le modèle Roo).
+
+**Architecture d'escalade complète :**
+
+```
+Niveau 1 : Roo mode -simple (modèle économique, ex: Haiku/petit)
+   ↓ si échec ou complexe
+Niveau 2 : Roo mode -complex (modèle puissant, ex: GLM 5/Sonnet)
+   ↓ si 2 échecs ou très complexe (NOUVEAU)
+Niveau 3 : Claude CLI (claude -p "..." --model sonnet/opus)
+   ↓ si échec aussi
+   → Documenter blocage, signaler dans INTERCOM [ESCALADE-CLAUDE]
+```
+
+**Critères d'escalade vers Claude CLI :**
+- 2 échecs consécutifs en mode `-complex`
+- Compréhension architecturale très profonde requise
+- Bug impliquant interactions entre 5+ composants
+- Analyse/synthèse dépassant la capacité du modèle courant
+
+**Contraintes :**
+- Maximum 2 escalades Claude CLI par session scheduler
+- Préférer `--model sonnet` (économique) sauf cas critique
+- Ne PAS boucler : si Claude CLI échoue aussi, arrêter et documenter
+- Modes sans terminal (architect, ask) délèguent à code-simple pour exécuter la commande
+
+**Prérequis :**
+- `claude` CLI installé globalement (`npm install -g @anthropic-ai/claude-code`)
+- Authentification Anthropic configurée (API key ou session)
+- Forfait Anthropic disponible (coûteux - usage parcimonieux)
+
+**Implémenté :** 2026-02-13 (commit TBD)
+**Issue liée :** #464 Phase 2.5
+
+### Couche 4 : Orchestrateurs (SDDD Instructions)
+
+**Fichier source :** `roo-config/modes/modes-config.json` (section `additionalInstructions`)
 
 Les orchestrateurs (simple et complex) disposent d'instructions spécifiques sur la **délégation via `new_task`** :
 
@@ -570,6 +608,6 @@ Scheduler (orchestrator-simple)
 
 ---
 
-**Auteur :** Claude Code (myia-po-2025)
-**Issue liée :** #462
-**Dernière mise à jour :** 2026-02-12
+**Auteur :** Claude Code (myia-po-2025, myia-po-2026)
+**Issues liées :** #462, #464
+**Dernière mise à jour :** 2026-02-13

@@ -46,23 +46,26 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-11 | Search/Indexing | 4 tools | 2 tools | myia-po-2023 | Done |
 | CONS-12 | Summary | 3 tools | 1 tool | myia-ai-01 | Done |
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
+| CONS-X #457 | Conversation Browser | 3 tools | 1 tool | myia-po-2023 | Done |
 
-## Current State (2026-02-12)
+## Current State (2026-02-13 02:30)
 
-**CONS-#443 (finale consolidation 39→18) in progress.** G1+G5 done.
+**CONS-X #457 completed.** conversation_browser consolidates 3→1 tool. G1+G5+CONS-X done.
+**#453 Phase 1 done:** Embedding model/dims/batch/baseURL configurable via env vars.
 
 | Metric | Value |
 |--------|-------|
-| Total tools (ListTools) | 39 (wrapper v4 pass-through) |
+| Total tools (ListTools) | ~35 (16 inline + 19 roosyncTools) |
 | RooSync tools (roosyncTools) | 19 |
 | Claude wrapper tools | 39 (pass-through, no filtering) |
-| Tests passing | 3252 |
-| Test files | 201 |
-| GitHub Project #67 | 159 items, ~128 Done (83.7%) |
-| Skills | 4 (validate, git-sync, github-status, sync-tour) |
-| Scheduler | 3h interval, 6 machines staggered |
-| Heartbeat | 3/6 machines (ai-01, po-2024, po-2025) |
-| MCP Servers | roo-state-manager (TS) + sk-agent (Python, NEW) |
+| Tests passing | 3281/3295 (14 skipped) |
+| Test files | 202/203 (1 skipped) |
+| GitHub Project #67 | 161+ items, ~164 Done |
+| Skills | 5 (validate, git-sync, github-status, sync-tour, debrief) |
+| Scheduler | 3h interval, 6 machines staggered, **Step 1b** added (#456) |
+| Heartbeat | **Auto-start enabled** (6/6 config, #455 done) - Runtime: 1/6 online, 3/6 not registered, 2/6 offline (#460) |
+| Machine Registry | 6 machines (case-sensitive duplicate fixed 2026-02-12) |
+| MCP Servers | roo-state-manager (TS) + sk-agent (Python) + markitdown + playwright |
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
 
@@ -103,6 +106,7 @@ Updated via git commits. Each agent should read this at session start.
 - **Pointer mismatch fix (2026-02-13)**: If parent points to commit not on remote (e.g., "not our ref c04314c2"), do `cd mcps/internal && git checkout main && git pull` then `git add mcps/internal` to update pointer
 
 ### INTERCOM is gitignored
+
 - `.claude/local/` is in .gitignore
 - Don't try to `git add` INTERCOM files
 
@@ -111,6 +115,20 @@ Updated via git commits. Each agent should read this at session start.
 - Error: "Requesting 200 records on the connection exceeds the `first` limit of 100"
 - Fix: Use `first: 100` in GraphQL queries
 - For >100 items: use cursor pagination with `nextPageCursor`
+
+### JSON BOM (UTF-8 Byte Order Mark)
+
+- Some JSON files on GDrive have UTF-8 BOM (0xFEFF)
+- Node.js `JSON.parse()` fails with "Unexpected token"
+- **Fix**: Strip BOM before parsing: `if (data.charCodeAt(0) === 0xFEFF) data = data.substring(1);`
+- Affected: `.machine-registry.json`, possibly others
+
+### PowerShell ConvertFrom-Json case-insensitive keys
+
+- PowerShell treats JSON keys as case-insensitive
+- `{"MyIA-Web1": {...}, "myia-web1": {...}}` triggers "duplicate keys" error
+- **Fix**: Use text manipulation (regex) or Node.js for case-sensitive JSON
+- Example: `fix-machine-registry-duplicate.js` (Node.js) vs `.ps1` (text regex)
 
 ### PowerShell 5.1 Join-Path (2 args only)
 
@@ -168,21 +186,24 @@ Updated via git commits. Each agent should read this at session start.
 - 2560 dims, ~287 req/s, zero cost, +15% quality over OpenAI
 - Risk: previous overrun cost 200EUR - always rate-limit (#453)
 
-## Active Issues (2026-02-12)
-| # | Title | Priority |
-|---|-------|----------|
-| #443 | Consolidation finale 39→18 (G1+G5 done) | HIGH |
-| #452 | MCP outil exploitation index semantique | MEDIUM |
-| #453 | Qdrant task indexation | MEDIUM |
-| #458 | E2E validation post-CONS-#443 | HIGH |
-| #459 | Scheduler deployment remaining machines | HIGH |
-| #460 | Dashboard + heartbeat automation | HIGH |
-| #461 | Worktree integration | MEDIUM |
-| #462 | Autonomy roadmap | MEDIUM |
-| #463 | Cross-workspace template | LOW |
-| #464 | Dev Containers + Ralph Wiggum | MEDIUM |
-| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM |
-| #466 | Deploiement sync_always_allow + update_server_field | MEDIUM |
+## Active Issues (2026-02-13)
+
+| # | Title | Priority | Status |
+|---|-------|----------|--------|
+| #443 | Consolidation finale 39→18 (G1+G5+CONS-X done) | HIGH | In Progress |
+| #452 | MCP outil exploitation index semantique | MEDIUM | Todo |
+| #453 | Qdrant task indexation | MEDIUM | Todo |
+| #456 | Scheduler feedback loop (Phase 3 Step 1b done) | MEDIUM | In Progress |
+| #458 | E2E validation post-CONS-#443 | HIGH | Todo |
+| #459 | Scheduler deployment remaining machines | HIGH | In Progress |
+| #460 | Dashboard + heartbeat automation (1/5 fixed, procedures created) | HIGH | Todo |
+| #461 | Worktree integration | MEDIUM | Todo |
+| #462 | Autonomy roadmap | MEDIUM | Todo |
+| #463 | Cross-workspace template | LOW | Todo |
+| #464 | Dev Containers + Ralph Wiggum | MEDIUM | Todo |
+| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM | In Progress |
+
+**Closed recently:** #455, #466, #451, #433, #457 (5 issues)
 
 ### sk-agent MCP Server (NEW - 2026-02-12)
 - **Location**: `mcps/internal/servers/sk-agent/`
