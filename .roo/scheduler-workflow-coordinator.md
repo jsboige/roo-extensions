@@ -31,6 +31,28 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
+### Etape 1b : Analyser le contexte du dernier run (#456 Phase C)
+
+Avant d'agir, analyser rapidement les messages recents dans l'INTERCOM :
+
+1. **Chercher le dernier message `roo -> claude-code`** :
+   - Si `[DONE]` avec erreurs : noter les erreurs pour eviter de les repeter
+   - Si `[ESCALADE-CLAUDE]` : verifier si Claude a resolu le probleme (message `claude-code -> roo` posterieur)
+   - Si `[MAINTENANCE]` avec echecs build/tests : deleguer `npm run build` AVANT toute tache
+
+2. **Chercher le dernier message `claude-code -> roo`** :
+   - Si `[TASK]` recent : priorite maximale, executer d'abord
+   - Si `[FEEDBACK]` recent : **LIRE ATTENTIVEMENT** et adapter la strategie (voir format ci-dessous)
+   - Si `[INFO]` avec directives : respecter les contraintes (ex: "NE PAS modifier X")
+   - Si aucun message recent de Claude : proceder normalement
+
+3. **Adapter la strategie** :
+   - Si le dernier run a echoue en `-simple` : escalader directement vers `-complex`
+   - Si le dernier run a echoue en `-complex` : signaler dans INTERCOM avec `[ESCALADE-CLAUDE]`
+   - Si les 2 derniers runs etaient `[IDLE]` : chercher plus agressivement sur GitHub
+
+**Temps max pour cette etape : 30 secondes.** Ne pas bloquer sur l'analyse.
+
 ### Etape 1.5 : Detecter le contexte worktree (#456 Phase A)
 
 **NOUVEAU (#456) - Detection automatique du worktree courant**
@@ -140,8 +162,41 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Escalades effectuees : aucune / vers {mode}
 - Messages RooSync detectes : N (reveille Claude : oui/non)
 
+**Metriques Run (#456 Phase C) :**
+- Sous-taches delegues : {N}
+- Reussies : {N} (simple: {N}, complex: {N})
+- Echouees : {N} (simple: {N}, complex: {N})
+- Escalades : {N}
+- Temps total : ~{N} min
+
 ---
 ```
+
+### Format FEEDBACK de Claude Code (#456 Phase C)
+
+Claude Code peut envoyer un message `[FEEDBACK]` dans l'INTERCOM pour ajuster le comportement du scheduler. Ce message est lu par Roo dans l'Etape 1b.
+
+**Format attendu :**
+
+```markdown
+## [{DATE}] claude-code -> roo [FEEDBACK]
+### Metriques et Ajustements Scheduler
+
+**Taux de succes (3 derniers runs) :** {X}%
+**Tendance :** amelioration / stable / degradation
+
+**Ajustements :**
+- Escalade : {AGGRESSIVE/NORMAL/CONSERVATIVE}
+- GitHub search : {ACTIVE/PASSIVE}
+- Maintenance : {ALWAYS/ON_IDLE/NEVER}
+
+**Directives specifiques :**
+- {instructions libres}
+
+---
+```
+
+**Regle de lecture :** Si un message `[FEEDBACK]` existe dans les 5 derniers messages INTERCOM, Roo DOIT l'appliquer. Les ajustements sont cumulatifs (le dernier FEEDBACK remplace le precedent).
 
 ### Etape 5 : Maintenance INTERCOM (si >1000 lignes)
 

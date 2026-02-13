@@ -43,6 +43,7 @@ Avant d'agir, analyser rapidement les messages recents dans l'INTERCOM :
 
 2. **Chercher le dernier message `claude-code -> roo`** :
    - Si `[TASK]` recent : priorite maximale, executer d'abord
+   - Si `[FEEDBACK]` recent : **LIRE ATTENTIVEMENT** et adapter la strategie (voir section "Format FEEDBACK" ci-dessous)
    - Si `[INFO]` avec directives : respecter les contraintes (ex: "NE PAS modifier X")
    - Si aucun message recent de Claude : proceder normalement
 
@@ -164,8 +165,50 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Taches echouees en -complex (pour Claude) : #{num} ...
 - Lecons apprises : ... (patterns d'erreurs identifies, solutions trouvees)
 
+**Metriques Run (#456 Phase C) :**
+- Sous-taches delegues : {N}
+- Reussies : {N} (simple: {N}, complex: {N})
+- Echouees : {N} (simple: {N}, complex: {N})
+- Escalades : {N}
+- Temps total : ~{N} min
+
 ---
 ```
+
+### Format FEEDBACK de Claude Code (#456 Phase C)
+
+Claude Code peut envoyer un message `[FEEDBACK]` dans l'INTERCOM pour ajuster le comportement du scheduler. Ce message est lu par Roo dans l'Etape 1b.
+
+**Format attendu :**
+
+```markdown
+## [{DATE}] claude-code -> roo [FEEDBACK]
+### Metriques et Ajustements Scheduler
+
+**Taux de succes (3 derniers runs) :** {X}%
+**Tendance :** amelioration / stable / degradation
+
+**Ajustements :**
+- Escalade : {AGGRESSIVE/NORMAL/CONSERVATIVE}
+  - AGGRESSIVE = escalader vers -complex des le premier echec
+  - NORMAL = escalader apres 2 echecs (defaut)
+  - CONSERVATIVE = rester en -simple meme apres echecs
+- GitHub search : {ACTIVE/PASSIVE}
+  - ACTIVE = chercher taches meme si INTERCOM a du travail
+  - PASSIVE = ne chercher que si INTERCOM vide (defaut)
+- Maintenance : {ALWAYS/ON_IDLE/NEVER}
+  - ALWAYS = toujours lancer build+tests
+  - ON_IDLE = seulement si rien a faire (defaut)
+  - NEVER = skip maintenance
+
+**Directives specifiques :**
+- {instructions libres, ex: "NE PAS modifier registry.ts cette semaine"}
+- {ou: "Priorite sur #468 - tester DCMCP si possible"}
+
+---
+```
+
+**Regle de lecture :** Si un message `[FEEDBACK]` existe dans les 5 derniers messages INTERCOM, Roo DOIT l'appliquer. Les ajustements sont cumulatifs (le dernier FEEDBACK remplace le precedent).
 
 ### Etape 5 : Maintenance INTERCOM (si >1000 lignes)
 
