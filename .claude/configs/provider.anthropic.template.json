@@ -4,9 +4,9 @@
   "env": {},
   "description": "Anthropic's Claude via Pro/Max subscription (browser auth)",
   "models": {
-    "opus": "claude-opus-4-5",
+    "opus": "claude-opus-4-6",
     "sonnet": "claude-sonnet-4-5",
-    "haiku": "claude-haiku-4-5"
+    "haiku": "claude-haiku-4-5-20251001"
   },
   "notes": [
     "Uses Claude Pro/Max subscription with browser authentication",
