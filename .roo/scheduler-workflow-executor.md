@@ -112,16 +112,10 @@ Delegations a effectuer :
 
 Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
-**REGLE DE MODE PAR DEFAUT (2026-02-13) :**
-- **Toute tache impliquant du CODE** (modification, creation, refactoring, investigation) → **`code-complex`** ou **`debug-complex`**
-- **Seules les taches de MAINTENANCE pure** (git status, build, tests, git pull) → `code-simple`
-- **GLM 5 est disponible** pour les modes -complex. Il est quasi-Opus. **UTILISE-LE.**
-
 | Difficulte | Action |
 |-----------|--------|
-| **MAINTENANCE** (git, build, tests) | Deleguer a `code-simple` via `new_task` **avec contexte worktree** |
-| **CODE SIMPLE** (1-2 fichiers, modification claire) | Deleguer a **`code-complex`** via `new_task` **avec contexte worktree** |
-| **CODE MOYEN** (3+ fichiers, investigation) | Deleguer a **`code-complex`** ou **`debug-complex`** via `new_task` **avec contexte worktree** |
+| **SIMPLE** (1 action) | Deleguer a `code-simple` ou `debug-simple` via `new_task` **avec contexte worktree** |
+| **MOYEN** (2-4 actions) | Deleguer chaque action separement a `code-simple` **avec contexte worktree** |
 | **COMPLEXE** (5+ actions, dependances) | Escalader vers `orchestrator-complex` via `new_task` avec le contexte complet **+ worktree** |
 | **URGENT** | Escalader vers `orchestrator-complex` immediatement **avec contexte worktree** |
 
@@ -305,19 +299,16 @@ Si le ITEM_ID n'est pas trouve dans les 100 premiers items, paginer avec after c
 Si les commandes GraphQL echouent, continuer quand meme (le commentaire suffit comme claim minimal).
 ```
 
-4. Deleguer l'execution **avec contexte worktree** :
+4. Deleguer l'execution en fonction de la complexite ET du taux de succes (communique par Claude Code via INTERCOM) **avec contexte worktree** :
 
-**REGLE (2026-02-13) : GLM 5 est maintenant le modele par defaut pour les taches -complex. Il est quasi-Opus. UTILISE -complex par DEFAUT pour toute tache impliquant du code.**
+| Complexite tache | Si taux succes < 70% | Si taux succes 70-90% | Si taux succes > 90% |
+|------------------|---------------------|----------------------|---------------------|
+| **Simple** (1-2 fichiers) | `code-simple` | `code-simple` | `code-simple` |
+| **Moyenne** (3+ fichiers) | `code-simple` (decoupe) | `code-complex` | `code-complex` |
+| **Complexe** (architecture) | Signaler dans INTERCOM | `code-complex` | escalader `orchestrator-complex` |
+| **Investigation** (bug, analyse) | `debug-simple` | `debug-complex` | `debug-complex` |
 
-| Complexite tache | Mode par defaut | Fallback si echec |
-|------------------|-----------------|-------------------|
-| **Maintenance** (build, tests, git) | `code-simple` | N/A |
-| **Simple** (1-2 fichiers, modification claire) | **`code-complex`** | `code-simple` (decoupe) |
-| **Moyenne** (3+ fichiers, investigation) | **`code-complex`** | escalader `orchestrator-complex` |
-| **Complexe** (architecture, 5+ composants) | **`orchestrator-complex`** | signaler `[ESCALADE-CLAUDE]` |
-| **Investigation** (bug, analyse) | **`debug-complex`** | signaler `[ESCALADE-CLAUDE]` |
-
-**OBJECTIF MINIMUM : 80% des delegations en mode -complex.** Seule la maintenance pure utilise -simple.
+**OBJECTIF DE PROGRESSION :** A chaque cycle scheduler, essayer au moins UNE tache d'un niveau superieur a ce qui a ete fait precedemment. Si les taches `-simple` reussissent bien, pousser vers `-complex`.
 
 **CHAINE D'ESCALADE :**
 ```

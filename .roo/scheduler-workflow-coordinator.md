@@ -109,18 +109,12 @@ Delegations a effectuer :
 
 **CONTEXTE WORKTREE (#456 Phase B) : Inclure systematiquement le contexte worktree dans CHAQUE delegation.**
 
-**REGLE DE MODE PAR DEFAUT (2026-02-13) :**
-- **Toute tache impliquant du CODE** → **`code-complex`** ou **`debug-complex`**
-- **Seule la MAINTENANCE** (git, build, tests) → `code-simple`
-- **GLM 5 est quasi-Opus. UTILISE-LE.**
-
 Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 
 | Difficulte | Action |
 |-----------|--------|
-| **MAINTENANCE** (git, build, tests) | Deleguer a `code-simple` via `new_task` **avec contexte worktree** |
-| **CODE** (toute modification de fichier) | Deleguer a **`code-complex`** via `new_task` **avec contexte worktree** |
-| **INVESTIGATION** (bug, analyse) | Deleguer a **`debug-complex`** via `new_task` **avec contexte worktree** |
+| **SIMPLE** (1 action) | Deleguer a `code-simple` ou `debug-simple` via `new_task` **avec contexte worktree** |
+| **MOYEN** (2-4 actions) | Deleguer chaque action separement a `code-simple` **avec contexte worktree** |
 | **COMPLEXE** (5+ actions, dependances) | Escalader vers `orchestrator-complex` via `new_task` avec le contexte complet **+ worktree** |
 | **URGENT** | Escalader vers `orchestrator-complex` immediatement **avec contexte worktree** |
 
