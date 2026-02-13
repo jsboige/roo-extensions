@@ -32,6 +32,27 @@ Toute communication passe par l'INTERCOM local (`.claude/local/INTERCOM-{MACHINE
   - **MOYEN** : 2-4 actions liees
   - **COMPLEXE** : 5+ actions ou dependances entre elles
 
+### Etape 1b : Analyser le contexte du dernier run (NOUVEAU)
+
+Avant d'agir, analyser rapidement les messages recents dans l'INTERCOM :
+
+1. **Chercher le dernier message `roo -> claude-code`** :
+   - Si `[DONE]` avec erreurs : noter les erreurs pour eviter de les repeter
+   - Si `[ESCALADE-CLAUDE]` : verifier si Claude a resolu le probleme (message `claude-code -> roo` posterieur)
+   - Si `[MAINTENANCE]` avec echecs build/tests : deleguer `npm run build` AVANT toute tache
+
+2. **Chercher le dernier message `claude-code -> roo`** :
+   - Si `[TASK]` recent : priorite maximale, executer d'abord
+   - Si `[INFO]` avec directives : respecter les contraintes (ex: "NE PAS modifier X")
+   - Si aucun message recent de Claude : proceder normalement
+
+3. **Adapter la strategie** :
+   - Si le dernier run a echoue en `-simple` : escalader directement vers `-complex`
+   - Si le dernier run a echoue en `-complex` : signaler dans INTERCOM avec `[ESCALADE-CLAUDE]`
+   - Si les 2 derniers runs etaient `[IDLE]` : chercher plus agressivement sur GitHub
+
+**Temps max pour cette etape : 30 secondes.** Ne pas bloquer sur l'analyse.
+
 ### Etape 2 : Verifier l'etat du workspace
 
 - Deleguer a code-simple via `new_task` : "Executer `git status` et `git pull --no-rebase origin main` puis rapporter l'etat du workspace"
@@ -86,6 +107,7 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 - Git pull : OK/erreur
 - Escalades effectuees : aucune / vers {mode}
 - Taches echouees en -complex (pour Claude) : #{num} ...
+- Lecons apprises : ... (patterns d'erreurs identifies, solutions trouvees)
 
 ---
 ```
