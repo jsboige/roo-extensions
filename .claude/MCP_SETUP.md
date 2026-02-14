@@ -1,8 +1,10 @@
 # MCP Configuration for Claude Code Agents
 
-**Date:** 2026-01-09 (Updated)
-**Purpose:** Configure github-projects-mcp and roo-state-manager for Claude Code multi-agent coordination
-**Status:** ✅ **VERIFIED WORKING on myia-ai-01**
+**Date:** 2026-02-15 (Updated)
+**Purpose:** Configure roo-state-manager MCP for Claude Code multi-agent coordination
+**Status:** ✅ **VERIFIED WORKING on all 6 machines**
+
+> ⚠️ **Note:** github-projects-mcp is **DEPRECATED** (#368). Use `gh` CLI for GitHub operations. See `.claude/rules/github-cli.md`.
 
 ---
 
@@ -28,8 +30,8 @@ cd d:\Dev\roo-extensions  # or your workspace path
 # Project only, no global
 .\.claude\scripts\init-claude-code.ps1 -ProjectOnly
 
-# Specific MCPs only
-.\.claude\scripts\init-claude-code.ps1 -McpServers github-projects-mcp
+# Specific MCPs only (rarely needed)
+.\.claude\scripts\init-claude-code.ps1 -McpServers roo-state-manager
 ```
 
 This script will:
@@ -50,54 +52,52 @@ Then restart Claude Code to activate MCP.
 | **Global** | `~/.claude.json` | All projects | ✅ Yes |
 | **Project** | `.mcp.json` | This project only | ❌ Use `-Project` |
 
-**Default behavior:** Global installation. MCPs like `github-projects-mcp` are available in all your Claude Code projects.
+**Default behavior:** Global installation. MCPs like `roo-state-manager` are available in all your Claude Code projects.
 
 ---
 
-## ✅ Current Status
+## ✅ Current Status (2026-02-15)
 
-### Verified Working (myia-ai-01)
+### All 6 Machines Operational
 
-**Machine:** myia-ai-01
-**Date:** 2026-01-09
-**Status:** ✅ **FULLY OPERATIONAL**
+| Machine | Status | roo-state-manager | Notes |
+|---------|--------|-------------------|-------|
+| myia-ai-01 | ✅ Operational | 39 tools | Coordinator |
+| myia-po-2023 | ✅ Operational | 39 tools | Executor |
+| myia-po-2024 | ✅ Operational | 39 tools | Executor |
+| myia-po-2025 | ✅ Operational | 39 tools | Executor |
+| myia-po-2026 | ✅ Operational | 39 tools | Executor |
+| myia-web1 | ✅ Operational | 39 tools | Executor |
 
-#### github-projects-mcp (57 tools)
-
-**Tested tools:**
-- ✅ `list_projects` - Lists all GitHub projects
-- ✅ `get_project` - Retrieves project details
-- ✅ `get_project_items` - Lists all items (60 items found)
-
-**Accessible project:**
-- **Name:** "RooSync Multi-Agent Tasks"
-- **ID:** PVT_kwHOADA1Xc4BLw3w
-- **URL:** https://github.com/users/jsboige/projects/67
-- **Items:** 60 total (1 completed, 59 in progress)
-
-#### roo-state-manager (6 RooSync messaging tools)
+### roo-state-manager (39 tools)
 
 **Configuration:** `~/.claude.json` with wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
 
-**Status:** ✅ **DEPLOYED & FUNCTIONAL** (2026-01-09)
+**Status:** ✅ **DEPLOYED & FUNCTIONAL** (2026-02-10)
 
-**Solution: Smart Wrapper**
-- Problem: roo-state-manager has 57+ tools and generates verbose logs that crash Claude Code
-- Solution: Wrapper filters to 6 RooSync messaging tools and manages logs
-- File: [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+**Wrapper v4:** Pass-through mode (no filtering, dedup + log suppression)
 
-**Available Tools (after filtering):**
-- ✅ `roosync_send_message` - Send message to another machine
-- ✅ `roosync_read_inbox` - Read RooSync inbox
-- ✅ `roosync_reply_message` - Reply to a message
-- ✅ `roosync_get_message` - Get message details
-- ✅ `roosync_mark_message_read` - Mark as read
-- ✅ `roosync_archive_message` - Archive a message
+**Tool Categories (39 total):**
+- **Messaging (3):** roosync_send, roosync_read, roosync_manage
+- **Read-only (4):** get_status, list_diffs, compare_config, refresh_dashboard
+- **Consolidated (5):** config, inventory, baseline, machines, init
+- **Decisions (2):** roosync_decision, roosync_decision_info
+- **Monitoring (1):** heartbeat_status
+- **Diagnostic (4):** analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
+- **Summary (1):** roosync_summarize
+- **Tasks (5):** task_browse, view_task_details, view_conversation_tree, get_raw_conversation, task_export
+- **Search (2):** roosync_search, roosync_indexing
+- **Export (2):** export_data, export_config
+- **MCP Management (5):** storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices
 
-**Capabilities:**
-- Inter-machine messaging via RooSync
-- 65 messages in inbox (4 unread)
-- Multi-agent coordination
+### GitHub Operations via gh CLI
+
+> ⚠️ **github-projects-mcp is DEPRECATED** (#368). Use `gh` CLI instead.
+
+**Project:** "RooSync Multi-Agent Tasks" (#67)
+- **URL:** https://github.com/users/jsboige/projects/67
+- **Access:** `gh issue`, `gh pr`, `gh api graphql`
+- **See:** `.claude/rules/github-cli.md` for details
 
 **Troubleshooting roo-state-manager:**
 
@@ -106,29 +106,14 @@ If Claude Code crashes on startup:
 2. Look for `mcp-wrapper.cjs` in the args
 3. Test wrapper directly: `node mcp-wrapper.cjs` from roo-state-manager directory
 4. Check for errors in stderr
-
-### myia-po-2024 ✅ OPERATIONAL
-
-**Date:** 2026-01-10
-**Status:** ✅ **FULLY OPERATIONAL**
-
-- ✅ github-projects-mcp (57 tools)
-- ✅ roo-state-manager via wrapper (6 RooSync tools)
-- ✅ INTERCOM configured
-
-### Pending Configuration
-
-These machines need MCP configuration (run init script):
-- ❌ myia-po-2023
-- ❌ myia-po-2026
-- ❌ myia-web1
+5. Ensure build/ exists (run `npx tsc` after git pull)
 
 ---
 
 ## 📋 Prerequisites
 
-1. **GitHub Token** - Already configured in Roo settings
-2. **github-projects-mcp** - Already built and available in `mcps/internal/servers/github-projects-mcp/`
+1. **GitHub Token** - Already configured in Roo settings (for `gh` CLI)
+2. **roo-state-manager** - Built and available in `mcps/internal/servers/roo-state-manager/`
 3. **Node.js** - Required to run the MCP server
 
 ---
@@ -257,9 +242,9 @@ node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs
 
 ### Post-Deployment Verification
 
-- [ ] `github-projects-mcp` shows 57 tools
-- [ ] `roo-state-manager` shows 6 RooSync tools
-- [ ] Can access project #67 (Roo tasks)
+- [ ] `roo-state-manager` shows 39 tools
+- [ ] `gh auth status` shows authenticated
+- [ ] Can access project #67 via `gh api graphql`
 - [ ] Can send/receive RooSync messages
 
 ### Common Issues (from Task 2.24 Analysis)
@@ -279,7 +264,7 @@ node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs
 
 **Check if MCP process is running:**
 ```powershell
-Get-Process node | Where-Object { $_.Path -like '*github-projects-mcp*' }
+Get-Process node | Where-Object { $_.Path -like '*roo-state-manager*' }
 ```
 
 **Check .env file:**
@@ -319,19 +304,26 @@ The `.env` file should contain `GITHUB_ACCOUNTS_JSON` with your GitHub tokens (f
 
 **Rebuild the MCP server:**
 ```powershell
-cd d:/roo-extensions/mcps/internal/servers/github-projects-mcp
+cd d:/roo-extensions/mcps/internal/servers/roo-state-manager
 npm install
-npm run build
+npx tsc
 ```
 
-### roo-state-manager crashes Claude Code
+### roo-state-manager not loading
 
-**Problem:** roo-state-manager generates too many logs and has 57+ tools, causing Claude Code to crash on startup.
+**Problem:** MCP tools not available after git pull.
 
-**Solution:** The wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) solves this by:
-1. Filtering tools from 57+ down to 6 RooSync messaging tools
-2. Managing verbose logs (passes startup logs, filters after initialization)
-3. Keeping only JSON-RPC messages on stdout
+**Solution:** The build/ directory is gitignored. Rebuild after pull:
+```powershell
+cd mcps/internal/servers/roo-state-manager
+npx tsc
+```
+
+**To verify the wrapper is being used:**
+```powershell
+# Check ~/.claude.json contains the wrapper
+Get-Content ~/.claude.json | Select-String "mcp-wrapper.cjs"
+```
 
 **To verify the wrapper is being used:**
 ```powershell
@@ -381,18 +373,12 @@ Once MCP is verified working on your machine:
 1. Configure MCP using these instructions
 2. Test availability
 3. Report results in daily GitHub issues
-4. Use the MCP for task tracking once verified
+4. Use RooSync for inter-machine coordination
 
-**myia-ai-01 (VERIFIED ✅):**
-- ✅ GitHub Projects MCP working
-- ✅ Can access "RooSync Multi-Agent Tasks" project
-- ✅ Ready to coordinate with other agents
-
-**Other machines (PENDING):**
-- myia-po-2023 - Needs configuration
-- myia-po-2024 - Needs configuration
-- myia-po-2026 - Needs configuration
-- myia-web1 - Needs configuration
+**All machines (VERIFIED ✅):**
+- ✅ roo-state-manager working (39 tools)
+- ✅ RooSync messaging functional
+- ✅ gh CLI for GitHub operations
 
 ---
 
@@ -400,9 +386,10 @@ Once MCP is verified working on your machine:
 
 - [Claude Code MCP Complete Guide](https://hrefgo.com/zh/blog/claude-code-mcp-complete-guide)
 - [Claude Code MCP Extension Guide](https://feisky.xyz/posts/2025-06-18-claude-code-mcp/)
-- [GitHub MCP Server Source](d:/roo-extensions/mcps/internal/servers/github-projects-mcp/)
+- [roo-state-manager Source](../mcps/internal/servers/roo-state-manager/)
+- [GitHub CLI Rules](.claude/rules/github-cli.md)
 
 ---
 
-**Last Updated:** 2026-01-09
+**Last Updated:** 2026-02-15
 **For questions:** Create GitHub issue or contact myia-ai-01 coordinator
