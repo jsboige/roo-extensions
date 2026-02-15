@@ -370,12 +370,20 @@ try {
     }
     Write-Host "  OK Profile: $psProfilePath" -ForegroundColor Green
 
-    # Mémoire (sans blocage)
-    $totalMemory = [System.GC]::MaxGeneration * 1024 * 1024 * 1024
-    $availableMemory = [System.GC]::GetTotalMemory($false)
+    # Mémoire (via CIM, fiable et non-bloquant)
+    try {
+        $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+        $totalMemory = if ($cs) { $cs.TotalPhysicalMemory } else { 0 }
+        $availableMemory = if ($os) { $os.FreePhysicalMemory * 1024 } else { 0 }
+    } catch {
+        $totalMemory = 0
+        $availableMemory = 0
+        Write-Host "  Avertissement mémoire: $_" -ForegroundColor Yellow
+    }
     $inventory.inventory.systemInfo.totalMemory = $totalMemory
     $inventory.inventory.systemInfo.availableMemory = $availableMemory
-    Write-Host "  OK Mémoire: $([math]::Round($totalMemory/1GB, 2)) GB" -ForegroundColor Green
+    Write-Host "  OK Mémoire: $([math]::Round($totalMemory/1GB, 2)) GB total, $([math]::Round($availableMemory/1GB, 2)) GB libre" -ForegroundColor Green
 
     # Disques (collecte limitée sans blocage)
     try {
