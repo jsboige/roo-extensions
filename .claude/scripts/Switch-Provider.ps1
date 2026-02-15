@@ -64,22 +64,16 @@ try {
     Write-Host "`n🔄 Claude Code Provider Switcher" -ForegroundColor Cyan
     Write-Host "================================`n" -ForegroundColor Cyan
 
-    # Resolve provider config path (check global first, then workspace)
+    # Resolve provider config path - use global config only
     $globalConfigPath = Join-Path $env:USERPROFILE ".claude\configs\provider.$Provider.json"
-    $workspaceConfigPath = "d:\roo-extensions\.claude\configs\provider.$Provider.json"
 
     $providerConfigPath = $null
     if (Test-Path $globalConfigPath) {
         $providerConfigPath = $globalConfigPath
         Write-Host "📂 Using global config: $globalConfigPath" -ForegroundColor Gray
-    } elseif (Test-Path $workspaceConfigPath) {
-        $providerConfigPath = $workspaceConfigPath
-        Write-Host "📂 Using workspace config: $workspaceConfigPath" -ForegroundColor Gray
     } else {
         Write-Host "❌ Error: Provider configuration not found for '$Provider'" -ForegroundColor Red
-        Write-Host "   Expected locations:" -ForegroundColor Yellow
-        Write-Host "   - $globalConfigPath" -ForegroundColor Yellow
-        Write-Host "   - $workspaceConfigPath" -ForegroundColor Yellow
+        Write-Host "   Expected location: $globalConfigPath" -ForegroundColor Yellow
         Write-Host "`n💡 Tip: Run Deploy-ProviderSwitcher.ps1 first to set up provider configs`n" -ForegroundColor Cyan
         exit 1
     }
@@ -148,6 +142,16 @@ try {
                 continue
             }
             $mergedEnv[$keyName] = $prop.Value
+        }
+    }
+
+    # Remove env keys specified in removeEnv array (for switching providers)
+    if ($providerConfig.PSObject.Properties.Name -contains 'removeEnv') {
+        foreach ($keyToRemove in $providerConfig.removeEnv) {
+            if ($mergedEnv.ContainsKey($keyToRemove)) {
+                Write-Host "   🗑️ Removing $keyToRemove" -ForegroundColor Gray
+                $mergedEnv.Remove($keyToRemove)
+            }
         }
     }
 
