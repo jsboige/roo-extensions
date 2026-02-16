@@ -642,6 +642,114 @@ function Test-IntercomMessage {
 }
 
 # =============================================================================
+# Phase 2 - Wait State Resume Logic (#461)
+# =============================================================================
+
+function Get-PendingWaitStates {
+    <#
+    .SYNOPSIS
+    Scanne les wait states en attente et retourne ceux qui sont prêts à reprendre.
+
+    .DESCRIPTION
+    Parcourt le répertoire wait-states/, vérifie chaque fichier JSON,
+    et teste la condition resumeWhen. Retourne le premier prêt (par ancienneté).
+
+    .OUTPUTS
+    Hashtable avec { taskId, state } si un wait state est prêt, $null sinon.
+    #>
+    $WaitStatesDir = Join-Path $RepoRoot ".claude\scheduler\wait-states"
+
+    if (-not (Test-Path $WaitStatesDir)) { return $null }
+
+    $WaitFiles = Get-ChildItem $WaitStatesDir -Filter "*.json" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime  # Plus ancien en premier
+
+    if ($WaitFiles.Count -eq 0) { return $null }
+
+    Write-Log "Vérification de $($WaitFiles.Count) wait state(s) en attente..."
+
+    foreach ($File in $WaitFiles) {
+        $TaskId = $File.BaseName
+        $State = Test-WaitStateReady -TaskId $TaskId
+
+        if ($State) {
+            Write-Log "✅ Wait state prêt: $TaskId (condition: $($State.resumeWhen))"
+            return @{
+                taskId = $TaskId
+                state = $State
+            }
+        }
+    }
+
+    Write-Log "Aucun wait state prêt à reprendre"
+    return $null
+}
+
+function Remove-WaitState {
+    <#
+    .SYNOPSIS
+    Supprime le fichier wait state après reprise réussie.
+    #>
+    param([string]$TaskId)
+
+    $StateFile = Join-Path $RepoRoot ".claude\scheduler\wait-states\$TaskId.json"
+
+    if (Test-Path $StateFile) {
+        try {
+            Remove-Item $StateFile -Force
+            Write-Log "🗑️ Wait state nettoyé: $TaskId"
+        }
+        catch {
+            Write-Log "Erreur suppression wait state: $_" "WARN"
+        }
+    }
+}
+
+function Build-ResumePrompt {
+    <#
+    .SYNOPSIS
+    Construit un prompt enrichi pour reprendre une tâche en attente.
+
+    .DESCRIPTION
+    Inclut le contexte précédent, la raison de l'attente,
+    et les informations disponibles pour la reprise.
+
+    .OUTPUTS
+    String prompt enrichi pour Claude
+    #>
+    param(
+        $WaitState,
+        [string]$OriginalPrompt = ""
+    )
+
+    $ResumePrompt = @"
+=== REPRISE DE TÂCHE EN ATTENTE ===
+
+Cette tâche a été mise en pause précédemment et reprend maintenant.
+
+**Raison de la pause :** $($WaitState.reason)
+**En attente de :** $($WaitState.waitFor)
+**Condition remplie :** $($WaitState.resumeWhen)
+**Iteration précédente :** $($WaitState.context.iteration)
+**Mode précédent :** $($WaitState.context.mode)
+**Modèle précédent :** $($WaitState.context.model)
+
+**Contexte de l'exécution précédente (dernières lignes) :**
+```
+$($WaitState.context.outputSnippet)
+```
+
+=== INSTRUCTIONS ===
+La condition d'attente est maintenant remplie. Reprends la tâche là où elle a été interrompue.
+$(if ($OriginalPrompt) { "Tâche originale : $OriginalPrompt" })
+
+Continue l'exécution en tenant compte du contexte ci-dessus.
+"@
+
+    return $ResumePrompt
+}
+
+# =============================================================================
 # Mode Selection
 # =============================================================================
 
@@ -1004,62 +1112,113 @@ Write-Log "RepoRoot: $RepoRoot"
 Write-Log "DryRun: $DryRun"
 
 try {
-    # 1. Récupérer tâche
-    if ($TaskId) {
-        Write-Log "TaskId spécifié: $TaskId"
+    # ==========================================================================
+    # Phase 0 : Vérifier wait states en attente (PRIORITÉ MAXIMALE)
+    # Un wait state prêt reprend avant toute nouvelle tâche.
+    # ==========================================================================
 
-        # Récupérer tâche depuis RooSync inbox
-        $SharedPath = $env:ROOSYNC_SHARED_PATH
-        if ($SharedPath) {
-            $InboxPath = Join-Path $SharedPath "messages\inbox"
-            $MessageFile = Join-Path $InboxPath "$TaskId.json"
+    $IsResume = $false
+    $ResumeState = $null
 
-            if (Test-Path $MessageFile) {
-                try {
-                    $Message = Get-Content $MessageFile -Raw | ConvertFrom-Json
-                    $Task = @{
-                        id = $Message.id
-                        subject = $Message.subject
-                        priority = $Message.priority
-                        prompt = $Message.body
-                        source = "roosync"
-                        messageFile = $MessageFile
-                        suggestedMode = $Mode
+    $PendingResume = Get-PendingWaitStates
+    if ($PendingResume -and -not $TaskId) {
+        # Wait state trouvé et aucun TaskId forcé → reprendre la tâche en attente
+        $ResumeState = $PendingResume.state
+        $IsResume = $true
+
+        Write-Log "🔄 REPRISE d'une tâche en attente (priorité sur nouvelles tâches)"
+        Write-Log "  → TaskId: $($PendingResume.taskId)"
+        Write-Log "  → Condition remplie: $($ResumeState.resumeWhen)"
+        Write-Log "  → Mode sauvegardé: $($ResumeState.context.mode)"
+        Write-Log "  → Modèle sauvegardé: $($ResumeState.context.model)"
+
+        # Construire tâche de reprise
+        $Task = @{
+            id = $PendingResume.taskId
+            subject = "REPRISE: $($ResumeState.waitFor)"
+            prompt = Build-ResumePrompt -WaitState $ResumeState
+            source = "wait-state-resume"
+            suggestedMode = $ResumeState.context.mode
+        }
+    }
+
+    # ==========================================================================
+    # Phase 1 : Récupérer tâche (si pas de reprise)
+    # ==========================================================================
+
+    if (-not $IsResume) {
+        if ($TaskId) {
+            Write-Log "TaskId spécifié: $TaskId"
+
+            # Récupérer tâche depuis RooSync inbox
+            $SharedPath = $env:ROOSYNC_SHARED_PATH
+            if ($SharedPath) {
+                $InboxPath = Join-Path $SharedPath "messages\inbox"
+                $MessageFile = Join-Path $InboxPath "$TaskId.json"
+
+                if (Test-Path $MessageFile) {
+                    try {
+                        $Message = Get-Content $MessageFile -Raw | ConvertFrom-Json
+                        $Task = @{
+                            id = $Message.id
+                            subject = $Message.subject
+                            priority = $Message.priority
+                            prompt = $Message.body
+                            source = "roosync"
+                            messageFile = $MessageFile
+                            suggestedMode = $Mode
+                        }
+                        Write-Log "✅ Tâche RooSync récupérée: $($Task.id)"
                     }
-                    Write-Log "✅ Tâche RooSync récupérée: $($Task.id)"
+                    catch {
+                        Write-Log "Erreur lecture tâche $TaskId : $_" "ERROR"
+                        $Task = @{ id = $TaskId; subject = "Tâche spécifiée (erreur lecture)"; suggestedMode = $Mode }
+                    }
                 }
-                catch {
-                    Write-Log "Erreur lecture tâche $TaskId : $_" "ERROR"
-                    $Task = @{ id = $TaskId; subject = "Tâche spécifiée (erreur lecture)"; suggestedMode = $Mode }
+                else {
+                    Write-Log "Tâche $TaskId introuvable dans inbox" "WARN"
+                    $Task = @{ id = $TaskId; subject = "Tâche spécifiée (introuvable)"; suggestedMode = $Mode }
                 }
             }
             else {
-                Write-Log "Tâche $TaskId introuvable dans inbox" "WARN"
-                $Task = @{ id = $TaskId; subject = "Tâche spécifiée (introuvable)"; suggestedMode = $Mode }
+                Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
+                $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; suggestedMode = $Mode }
             }
+
+            # Vérifier si CETTE tâche spécifique a un wait state prêt
+            $ResumeState = Test-WaitStateReady -TaskId $Task.id
+            if ($ResumeState) {
+                Write-Log "🔄 Reprise de tâche spécifiée $TaskId avec contexte sauvegardé" "INFO"
+                Write-Log "  → Mode restauré: $($ResumeState.context.mode)"
+                Write-Log "  → Iteration: $($ResumeState.context.iteration)"
+                $IsResume = $true
+
+                # Enrichir le prompt avec le contexte de reprise
+                $Task.prompt = Build-ResumePrompt -WaitState $ResumeState -OriginalPrompt $Task.prompt
+                $Task.suggestedMode = $ResumeState.context.mode
+            }
+        } else {
+            $Task = Get-NextTask
         }
-        else {
-            Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
-            $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; suggestedMode = $Mode }
+    }
+
+    # ==========================================================================
+    # Phase 2 : Déterminer mode (restauré si reprise, sinon auto-détecté)
+    # ==========================================================================
+
+    $SelectedMode = if ($IsResume -and $ResumeState.context.mode) {
+        Write-Log "Mode restauré depuis wait state: $($ResumeState.context.mode)"
+
+        # Restaurer aussi le modèle si sauvegardé
+        if ($ResumeState.context.model -and -not $Model) {
+            $Model = $ResumeState.context.model
+            Write-Log "Modèle restauré depuis wait state: $Model"
         }
+
+        $ResumeState.context.mode
     } else {
-        $Task = Get-NextTask
+        Determine-Mode -Task $Task
     }
-
-    # 1b. Vérifier si tâche en attente peut reprendre (TODO #5)
-    $ResumeState = Test-WaitStateReady -TaskId $Task.id
-    if ($ResumeState) {
-        Write-Log "🔄 Reprise d'une tâche en attente: $($Task.id)" "INFO"
-        Write-Log "  → Mode restauré: $($ResumeState.context.mode)"
-        Write-Log "  → Iteration: $($ResumeState.context.iteration)"
-
-        # TODO: Implémenter logique de reprise avec contexte
-        # Pour l'instant, traiter comme nouvelle tâche
-        Write-Log "⚠️ Reprise automatique pas encore implémentée - traitement comme nouvelle tâche" "WARN"
-    }
-
-    # 2. Déterminer mode
-    $SelectedMode = Determine-Mode -Task $Task
 
     # 3. Créer worktree (optionnel)
     $WorktreePath = if ($UseWorktree) {
@@ -1117,6 +1276,12 @@ try {
 
     # 6. Reporter résultats
     Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode
+
+    # 6b. Nettoyer wait state si c'était une reprise réussie
+    if ($IsResume -and $Result.success) {
+        Write-Log "🗑️ Nettoyage wait state après reprise réussie"
+        Remove-WaitState -TaskId $Task.id
+    }
 
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
     Mark-TaskAsComplete -Task $Task
