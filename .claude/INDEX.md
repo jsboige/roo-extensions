@@ -1,6 +1,6 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-01-18
+**Last Updated:** 2026-02-16
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
@@ -43,30 +43,38 @@
 
 ---
 
-## ✅ MCP Status (2026-01-18)
+## ✅ MCP Status (2026-02-16)
 
-### VERIFIED & WORKING (myia-ai-01)
+### VERIFIED & WORKING (All Machines)
 
-**github-projects-mcp** (57 tools)
-- Status: ✅ Fully operational
+**GitHub CLI (gh)** - ⚠️ **Replaces github-projects-mcp (#368)**
+- Status: ✅ MIGRATION COMPLETE
 - Projects:
-  - #67 "RooSync Multi-Agent Tasks" (69/77 items Done = 89.6%)
-  - #70 "RooSync Multi-Agent Coordination" (10/11 Done = 90.9%)
-- URL: https://github.com/users/jsboige/projects/67
+  - #67 "RooSync Multi-Agent Tasks" (https://github.com/users/jsboige/projects/67)
+  - #70 "RooSync Multi-Agent Coordination"
+- Commands: `gh issue`, `gh pr`, `gh api graphql`
+- Note: **github-projects-mcp (57 tools) is DEPRECATED** - use native gh CLI
 
-**roo-state-manager** (17 RooSync tools)
-- Status: ✅ DEPLOYED & FUNCTIONAL
-- Version: wrapper v2.5.0 (2026-01-18)
-- Recent Fix: Bug #322 - Inventory → collect config mapping (commit 7ce45751)
-- Tools include:
-  - 6 messaging tools (send_message, read_inbox, reply_message, etc.)
-  - 5 config tools (collect_config, publish_config, apply_config, etc.)
-  - 3 status tools (get_status, compare_config, list_diffs)
-  - 3 decision tools (get_decision_details, etc.)
+**roo-state-manager** (39 tools via wrapper v4)
+- Status: ✅ DEPLOYED & FUNCTIONAL (all machines)
+- Version: wrapper v4 pass-through (2026-02-10)
+- Recent Updates:
+  - Wrapper v4: 18→39 tools exposed (no filtering)
+  - Access to: tasks, search, export, diagnostic tools
+- Tool categories:
+  - 3 messaging (roosync_send, roosync_read, roosync_manage)
+  - 5 config (collect, publish, apply, compare, init)
+  - 5 consolidated (CONS-1 to CONS-13)
+  - 2 decisions (roosync_decision, roosync_decision_info)
+  - 5 tasks (task_browse, view_task_details, view_conversation_tree, etc.)
+  - 2 search (roosync_search, roosync_indexing)
+  - 4 diagnostic (analyze_roosync_problems, diagnose, read_vscode_logs, etc.)
 - Capabilities:
   - Inter-machine messaging via RooSync
-  - Configuration sync across 5 machines
+  - Configuration sync across 6 machines
   - Machine inventory collection
+  - Task/conversation browsing
+  - Semantic search (Qdrant)
 
 ### PENDING (Other Machines)
 - myia-po-2023
@@ -225,11 +233,14 @@ mcps/
 ### Recent Accomplishments
 - ✅ Bug #322 RESOLVED - Inventory → collect config mapping (commit 7ce45751)
 - ✅ Git conflicts resolved - Get-MachineInventory.ps1 + mcps/internal submodule
-- ✅ Tests: 1311/1319 PASS (99.4%)
-- ✅ Project #67: 89.6% Done (69/77 items)
-- ✅ Project #70: 90.9% Done (10/11 items)
-- ✅ Agent architecture deployed - 11 subagents + 1 skill
+- ✅ Tests: 3294/3308 PASS (99.6%) - All machines
+- ✅ Wrapper v4: 39 tools exposed (2026-02-10, #407)
+- ✅ #470 Phase 2 COMPLETE - Consolidation 48→4 docs (-96% lines, 2026-02-15)
+- ✅ #472 COMPLETE - Validation MCP multi-machine (2026-02-15)
+- ✅ #473 Phase 1 COMPLETE - Audit auto-approvals myia-po-2024 (2026-02-16)
+- ✅ Agent architecture deployed - 11 subagents + 4 skills
 - ✅ Improved workflows: coordinate.md, executor.md, sync-tour skill (8 phases)
+- ✅ ESCALATION_MECHANISM.md - Roadmap autonomy 5 levels (2026-02-12)
 
 ### Problems Solved
 - ✅ Bug #322 - paths.rooExtensions not available in inventory
@@ -238,10 +249,10 @@ mcps/
 - Solution: Find-RooExtensionsRoot function in Get-MachineInventory.ps1
 
 ### Immediate Goals (24-48h)
-- 🔄 Git pull on 4 machines (myia-web1, myia-po-2023, myia-po-2024, myia-po-2026)
-- 🔄 Restart VS Code to reload MCPs after pull
-- 🔄 Validate workflow: collect_config → compare_config → apply_config
-- 🎯 Close remaining issues: #320 (E2E tests), #323 (Deploy myia-po-2023), #327 (Workflow publish)
+- 🔄 #479 Phase 3 - Documentation racine (README.md, .claude/INDEX.md, docs/INDEX.md)
+- 🔄 #480 - Validation wrapper 39 outils cross-machine (tests fonctionnels)
+- 🔄 #473 Phase 2 - Normalisation auto-approvals (après audits 6 machines)
+- 🎯 Scheduler Roo: Niveau 2 (complex tasks) activation GLM 5
 
 ---
 

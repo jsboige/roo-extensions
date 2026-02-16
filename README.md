@@ -375,14 +375,31 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 **Version actuelle** : 2.3.0
 **Statut** : ✅ **Production Ready**
 **Dernière mise à jour** : 16 février 2026
+<<<<<<< HEAD
 **GitHub Project** : [147/165 Done (89.1%)](https://github.com/users/jsboige/projects/67)
+=======
+
+### Accomplissements v2.3
+
+- ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
+- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
+- ✅ **Wrapper MCP v4** : 39 outils roo-state-manager exposés (pass-through)
+- ✅ **Tests robustes** : 3294/3308 PASS (99.6%) sur 202 fichiers
+- ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470)
+>>>>>>> ab0f100 (docs(#479): Phase 3 - Update root documentation (factual corrections))
 
 ### Roadmap
 
+<<<<<<< HEAD
 - ✅ **v2.3** : RooSync v2.3 + Scheduler Roo + 39 outils consolidés
 - 🔄 **v2.4** : DesktopCommanderMCP migration + sk-agent déploiement
 - 📋 **v2.5** : Worktrees + PRs workflow multi-agent
 - 🔮 **v3.0** : Intelligence artificielle pour recommandations
+=======
+- **v2.4** : Autonomie Niveau 2 (tasks complex via scheduler)
+- **v2.5** : Interface web RooSync + Dashboard temps réel
+- **v3.0** : Intelligence artificielle pour recommandations + Multi-OS support
+>>>>>>> ab0f100 (docs(#479): Phase 3 - Update root documentation (factual corrections))
 
 ---
 

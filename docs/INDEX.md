@@ -13,6 +13,7 @@ docs/
 ├── archive/          # Contenu historique/obsolete (auto-archive)
 ├── deployment/       # Deploiement, hardware
 ├── dev/              # Debugging, encoding, fixes, tests, refactoring
+├── framework-multi-agent/  # Templates et framework coordination multi-agent
 ├── guides/           # Guides utilisateur, installation, depannage
 ├── knowledge/        # Base de connaissances
 ├── mcp/              # Documentation MCP roo-state-manager
@@ -175,6 +176,12 @@ docs/
 
 - [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees
 - [deployment/GPU_SPECS_MULTI_MACHINE.md](deployment/GPU_SPECS_MULTI_MACHINE.md) - Specs GPU multi-machine
+
+---
+
+## Framework Multi-Agent
+
+- [framework-multi-agent/TEMPLATE_WORKSPACE.md](framework-multi-agent/TEMPLATE_WORKSPACE.md) - Template workspace coordination
 
 ---
 
