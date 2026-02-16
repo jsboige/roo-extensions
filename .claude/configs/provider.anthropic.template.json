@@ -2,6 +2,13 @@
   "provider": "anthropic",
   "model": "sonnet",
   "env": {},
+  "removeEnv": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+  ],
   "description": "Anthropic's Claude via Pro/Max subscription (browser auth)",
   "models": {
     "opus": "claude-opus-4-6",
@@ -11,6 +18,7 @@
   "notes": [
     "Uses Claude Pro/Max subscription with browser authentication",
     "No API key required - authenticated via claude.ai session",
-    "This is the default configuration for Claude Code"
+    "This is the default configuration for Claude Code",
+    "removeEnv cleans up z.ai-specific variables when switching back to Anthropic"
   ]
 }

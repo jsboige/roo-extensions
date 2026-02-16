@@ -121,8 +121,10 @@ try {
     }
 
     # Update env variables - MERGE to preserve existing API keys
-    # Protected keys that should NEVER be overwritten from template
-    $protectedKeys = @('ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY')
+    # Protected keys that should NEVER be overwritten from template placeholders
+    # Note: ANTHROPIC_AUTH_TOKEN is NOT protected - it's a z.ai override token
+    # that must be removed when switching to Anthropic (handled by removeEnv)
+    $protectedKeys = @('ANTHROPIC_API_KEY')
 
     # Start with existing env if present
     $mergedEnv = @{}
