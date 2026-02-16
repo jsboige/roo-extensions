@@ -117,6 +117,8 @@ Niveau atteint : {simple seulement | debut complex | majorite complex}
 Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches reprises}
 ```
 
+**RÈGLE DE DENSIFICATION :** Voir [`.claude/rules/scheduler-densification.md`](.claude/rules/scheduler-densification.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
+
 Passer directement a la Phase 2.
 
 ---

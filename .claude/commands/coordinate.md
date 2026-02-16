@@ -62,6 +62,8 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 **OBJECTIF :** Verifier ce que le scheduler Roo a fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees en -complex.
 
+**RÈGLE DE DENSIFICATION :** Voir [`.claude/rules/scheduler-densification.md`](.claude/rules/scheduler-densification.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
+
 **1. Identifier les dernieres executions Roo :**
 
 ```
