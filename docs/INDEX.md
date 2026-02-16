@@ -197,12 +197,9 @@ docs/
 ## Archive
 
 - [archive/](archive/) - Contenu historique et obsolete
-  - Guides MCP consolides (MCPS-COMMON-ISSUES, GUIDE-URGENCE-MCP, mcp-troubleshooting)
-  - Guides encodage (guide-encodage, RESOLUTION-ENCODAGE-UTF8)
-  - Deploiement v2.1 legacy (5 guides)
-  - GPU specs myia-po-2023 (contenu dans multi-machine)
-  - MCP deployment (couvert par MCP-TROUBLESHOOTING-UNIFIED)
-  - Historique git (merge reports, stash analyses)
+  - GPU specs myia-po-2023
+  - Historique git (merge reports)
+  - Note: Guides MCP, encodage, deployment consolides dans guides/ et dev/encoding/
 
 ---
 

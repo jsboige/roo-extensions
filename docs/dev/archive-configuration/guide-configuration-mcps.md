@@ -351,7 +351,7 @@ Voici la configuration recommandée pour le MCP SearXNG dans votre fichier `mcp_
 
 **Variables d'environnement**: Assurez-vous que `SEARXNG_URL` est définie et accessible.
 
-**Problème connexe - Corruption BOM**: Si le fichier `mcp_settings.json` devient invalide après modification, voir [Guide d'urgence MCP](guides/GUIDE-URGENCE-MCP.md).
+**Problème connexe - Corruption BOM**: Si le fichier `mcp_settings.json` devient invalide après modification, voir [Guide Unifié Dépannage MCP](../../guides/MCP-TROUBLESHOOTING-UNIFIED.md).
 
 ## Autres MCPs
 
