@@ -244,11 +244,11 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Note :** Le MCP github-projects-mcp est **DÉPRÉCIÉ** et remplacé par `gh` CLI
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (36 outils - tous exposés)
+2. **roo-state-manager** (35 outils - tous exposés)
     - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
     - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17)
     - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
-    - **Catégories d'outils (35 Claude Code) :**
+    - **Catégories d'outils (35 total) :**
       - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
       - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
       - **Consolidés (5)** : config, inventory, baseline, machines, init
@@ -282,7 +282,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **MCPs Déployés :**
 - ✅ GitHub CLI (`gh`) - remplace MCP github-projects (#368)
-- ✅ roo-state-manager (6 outils RooSync)
+- ✅ roo-state-manager (35 outils RooSync)
 - ✅ markitdown (1 outil) - Ajouté le 2026-01-21
 - 🔄 win-cli (en cours de déploiement)
 

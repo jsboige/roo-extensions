@@ -9,14 +9,14 @@
 
 ## 🎯 Vue d'Ensemble
 
-Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (36 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
+Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (35 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
 
 ### 🏆 Réalisations Principales
 
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
 - ✅ **18 MCPs fonctionnels** : 7 internes + 11 externes
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
+- ✅ **35 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **GitHub Projects #67** : 147/165 Done (89.1%)
 
@@ -111,7 +111,7 @@ roo-extensions/
 │   ├── framework-multi-agent/     # Templates coordination
 │   └── (8 autres répertoires)
 ├── 📁 mcps/internal/servers/
-│   └── roo-state-manager/         # 36 outils MCP (wrapper v4)
+│   └── roo-state-manager/         # 35 outils MCP (wrapper v4)
 ├── 📁 roo-config/                 # Configuration centralisée
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
 │   ├── scheduler/                 # Orchestration autonome (3h interval)
@@ -124,7 +124,7 @@ roo-extensions/
 
 **5 serveurs MCP déployés sur 6 machines :**
 
-1. **roo-state-manager** (39 outils via wrapper v4)
+1. **roo-state-manager** (35 outils via wrapper v4)
    - Inter-machine messaging (RooSync v2.3)
    - Configuration sync (6 machines)
    - Task/conversation browsing
@@ -167,7 +167,7 @@ roo-extensions/
 - ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
 - ✅ **Inventory automatique** : Détection système complète (6 machines)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **36 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
+- ✅ **35 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
 
 #### Workflow Principal
 ```
@@ -232,7 +232,7 @@ Collect → Publish → Compare → Validate → Apply
 - **Build + Tests** : ~35s (3294 tests)
 
 ### MCPs
-- **roo-state-manager** : 36 outils, <500ms réponse
+- **roo-state-manager** : 35 outils, <500ms réponse
 - **Taux de réussite tests** : 99.6% (3294/3295)
 
 ### RooSync v2.3
@@ -376,7 +376,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **Wrapper MCP v4** : 36 outils roo-state-manager exposés (pass-through)
+- ✅ **Wrapper MCP v4** : 35 outils roo-state-manager exposés (pass-through)
 - ✅ **Tests robustes** : 3294/3308 PASS (99.6%) sur 202 fichiers
 - ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470)
 
