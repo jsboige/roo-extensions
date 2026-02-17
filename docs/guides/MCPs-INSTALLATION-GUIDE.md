@@ -94,7 +94,7 @@ Ces MCPs sont essentiels au fonctionnement de base des agents Roo :
 MCPs internes additionnels pour fonctionnalités avancées :
 
 5. **jupyter-mcp-server** - ❌ **NON FONCTIONNEL** (placeholder)
-6. **github-projects-mcp** - ❌ **NON FONCTIONNEL** (placeholder)
+6. **github-projects-mcp** - ❌ **NON FONCTIONNEL** (placeholder) - ⚠️ **DÉPRÉCIÉ** (#368) - Remplacé par `gh` CLI
 7. **jupyter-papermill-mcp-server** - ⚠️ **PARTIEL** (Python configuré)
 
 #### 🟡 Tier 3 - Externes (Priorité Variable - SUCCÈS PARTIEL)
@@ -300,7 +300,9 @@ Test-Path "dist/index.js"
 npm test
 ```
 
-#### 2.5 github-projects-mcp (Tier 2) - PROCÉDURE CORRIGÉE
+#### 2.5 github-projects-mcp (Tier 2) - ⚠️ **DÉPRÉCIÉ** - PROCÉDURE CORRIGÉE
+
+> **NOTE #368** : Ce MCP est **DÉPRÉCIÉ** et remplacé par `gh` CLI (GitHub CLI). Utilisez `gh issue`, `gh pr`, et `gh api graphql` à la place.
 ```powershell
 # Navigation vers le répertoire
 cd "C:/dev/roo-extensions/mcps/internal/servers/github-projects-mcp"
