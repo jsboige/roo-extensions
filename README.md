@@ -99,105 +99,98 @@ Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
 
 ```
 roo-extensions/
-├── 📁 mcps/                       # 18 MCPs fonctionnels
-│   ├── internal/                   # 7 MCPs internes (submodule)
-│   │   └── servers/
-│   │       ├── roo-state-manager/   # 🎯 39 outils RooSync
-│   │       ├── quickfiles/          # Manipulation fichiers batch
-│   │       ├── jinavigator/         # Navigation web
-│   │       ├── jupyter-mcp-server/  # Intégration Jupyter
-│   │       ├── jupyter-papermill/   # Notebooks Papermill
-│   │       ├── sk-agent/            # 🆕 Proxy LLM multi-modèles
-│   │       └── github-projects-mcp/ # ⚠️ DÉPRÉCIÉ → utiliser gh CLI
-│   └── external/                   # 11 MCPs externes
-│       ├── win-cli/                # Commandes Windows
-│       ├── desktop-commander/      # 🆕 Remplacement win-cli (pilote)
-│       ├── playwright/             # Browser automation
-│       ├── markitdown/             # Conversion documents
-│       └── ... (autres)
+├── 📁 .claude/                    # Configuration Claude Code agents
+│   ├── agents/                    # 11 subagents spécialisés
+│   ├── skills/                    # 4 skills auto-invoqués
+│   ├── commands/                  # Slash commands
+│   └── local/                     # Communication locale (INTERCOM)
+├── 📁 docs/                       # Documentation technique consolidée
+│   ├── roosync/                   # Protocoles RooSync v2.3
+│   ├── architecture/              # Designs et analyses
+│   ├── guides/                    # Guides utilisateur
+│   ├── framework-multi-agent/     # Templates coordination
+│   └── (8 autres répertoires)
+├── 📁 mcps/internal/servers/
+│   └── roo-state-manager/         # 39 outils MCP (wrapper v4)
 ├── 📁 roo-config/                 # Configuration centralisée
-│   ├── settings/                   # Paramètres globaux Roo
-│   ├── modes/                      # 10 modes (5 familles × 2 niveaux)
-│   └── scheduler/                  # Scripts scheduler Roo
-├── 📁 .claude/                     # Configuration Claude Code
-│   ├── agents/                     # Subagents spécialisés
-│   ├── skills/                     # Skills auto-invoqués
-│   ├── commands/                   # Slash commands
-│   ├── rules/                      # Règles projet
-│   └── local/INTERCOM-*.md         # Communication locale Roo
-├── 📁 docs/                        # Documentation technique
-│   ├── architecture/               # Spécifications techniques
-│   ├── guides/                     # Guides d'utilisation
-│   └── roosync/                    # Documentation RooSync v2.3
-├── 📁 scripts/                     # Scripts utilitaires
-├── 📁 tests/                       # 3294 tests automatisés
-└── 📄 CLAUDE.md                    # Guide agent Claude Code
+│   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
+│   ├── scheduler/                 # Orchestration autonome (3h interval)
+│   └── settings/                  # Paramètres globaux
+├── 📁 tests/                      # 3294 tests unitaires (202 fichiers)
+└── 📄 CLAUDE.md                   # Guide principal agents
 ```
 
-### MCPs Internes (7)
+### MCPs Actifs (2026-02-16)
 
-| Serveur | Outils | Statut |
-|---------|--------|--------|
-| roo-state-manager | 39 | ✅ Actif |
-| quickfiles | 4 | ✅ Actif |
-| jinavigator | 3 | ✅ Actif |
-| jupyter-mcp-server | 8 | ✅ Actif |
-| jupyter-papermill | 2 | ✅ Actif |
-| sk-agent | 3 | 🆕 Nouveau |
-| github-projects-mcp | 57 | ⚠️ Déprécié → `gh` CLI |
+**5 serveurs MCP déployés sur 6 machines :**
+
+1. **roo-state-manager** (39 outils via wrapper v4)
+   - Inter-machine messaging (RooSync v2.3)
+   - Configuration sync (6 machines)
+   - Task/conversation browsing
+   - Semantic search (Qdrant indexing)
+
+2. **playwright** (15 outils)
+   - Browser automation
+   - Web testing
+
+3. **searxng** (2 outils)
+   - Web search sémantique
+
+4. **desktop-commander** (26 outils)
+   - Interactive processes
+   - File search + PDF operations
+
+5. **win-cli** (9 outils)
+   - Windows CLI commands
+   - Unrestricted mode configuration
+
+**GitHub CLI (gh)** - ⚠️ **Replaces github-projects-mcp (#368)**
+
+- Native GitHub integration
+- Issues, PRs, Projects via command line
+- 80% feature coverage vs deprecated MCP
+
+**Documentation complète :** [`mcps/README.md`](mcps/README.md)
 
 ---
 
 ## 🎯 Composants Principaux
 
-### 1. 🤖 Serveurs MCP (Model Context Protocol)
+### 1. 🔄 RooSync v2.3 - Coordination Multi-Machines
 
-**18 MCPs (7 internes + 11 externes)** :
-
-#### 🔴 Internes (Tier 1)
-1. **roo-state-manager** : 39 outils RooSync (messagerie, tâches, export, search)
-2. **quickfiles** : Manipulation fichiers batch
-3. **jinavigator** : Navigation web et extraction Markdown
-4. **jupyter-mcp-server** : Intégration notebooks Jupyter
-5. **jupyter-papermill** : Exécution notebooks paramétrés
-6. **sk-agent** : 🆕 Proxy LLM multi-modèles (Claude, GLM, etc.)
-
-#### ⚠️ Déprécié
-- **github-projects-mcp** : → Utiliser `gh` CLI (#368)
-
-#### 🟡 Externes (Tier 3)
-- **win-cli** / **desktop-commander** : Commandes shell
-- **playwright** : Browser automation
-- **markitdown** : Conversion documents (PDF, DOCX, etc.)
-- **git**, **github**, **mcp-server-ftp**, etc.
-
-**Documentation :** [`mcps/README.md`](mcps/README.md)
-
-### 2. 🔄 RooSync v2.3 - Coordination Multi-Agent
-
-**Architecture multi-machines** avec messagerie inter-machines :
+**Architecture :** 6 machines coordonnées (1 coordinateur + 5 exécutants)
 
 #### Fonctionnalités Clés
-- ✅ **6 machines coordonnées** : Roo + Claude Code en parallèle
-- ✅ **Messagerie RooSync** : `roosync_send`, `roosync_read`, `roosync_manage`
-- ✅ **39 outils MCP** : Consolidés via CONS-1 à CONS-13
-- ✅ **INTERCOM local** : Communication Roo ↔ Claude Code
-- ✅ **Baseline sync** : Config harmonisée entre machines
+
+- ✅ **Messagerie inter-machines** : roosync_send, roosync_read, roosync_manage (CONS-1)
+- ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
+- ✅ **Inventory automatique** : Détection système complète (6 machines)
+- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
+- ✅ **39 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
 
 #### Workflow Principal
 ```
-Scheduler (3h) → INTERCOM → Git Sync → Tasks → Rapport
+Collect → Publish → Compare → Validate → Apply
 ```
 
-**Documentation :** [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
+#### Modes Coordination
 
-### 3. 🎭 Modes Roo Personnalisés
+- **Bicéphale** : Roo (technique) + Claude Code (coordination/documentation)
+- **Autonomie** : Niveau 1 (simple tasks) → Niveau 2+ (complex tasks, en cours)
+- **Communication** : RooSync (inter-machines), INTERCOM (locale Roo ↔ Claude)
+
+**Documentation complète :** [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
+
+### 2. 🎭 Modes Roo Personnalisés
 
 #### Architecture à 2 Niveaux
+
 - **Modes Simples** : Tâches courantes (GLM-5 gratuit)
 - **Modes Complexes** : Tâches avancées (GLM-5 + escalade CLI)
 
 #### 5 Familles de Modes
+
 - **Code** : Développement et refactoring
 - **Debug** : Diagnostic et résolution problèmes
 - **Architect** : Conception et architecture
@@ -211,9 +204,10 @@ Scheduler (3h) → INTERCOM → Git Sync → Tasks → Rapport
 
 **Documentation :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md)
 
-### 4. 🤖 Agents et Skills Claude Code
+### 3. 🤖 Agents et Skills Claude Code
 
 #### Subagents Disponibles
+
 - **git-sync** : Pull conservatif + résolution conflits
 - **test-runner** : Build + tests unitaires
 - **code-fixer** : Investigation et correction bugs
@@ -221,6 +215,7 @@ Scheduler (3h) → INTERCOM → Git Sync → Tasks → Rapport
 - **doc-updater** : Mise à jour documentation
 
 #### Skills Auto-Invoqués
+
 - **sync-tour** : Tour de sync complet (8 phases)
 - **validate** : CI local (build + tests)
 - **git-sync** : Synchronisation Git
@@ -375,9 +370,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 **Version actuelle** : 2.3.0
 **Statut** : ✅ **Production Ready**
 **Dernière mise à jour** : 16 février 2026
-<<<<<<< HEAD
 **GitHub Project** : [147/165 Done (89.1%)](https://github.com/users/jsboige/projects/67)
-=======
 
 ### Accomplissements v2.3
 
@@ -386,20 +379,12 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Wrapper MCP v4** : 39 outils roo-state-manager exposés (pass-through)
 - ✅ **Tests robustes** : 3294/3308 PASS (99.6%) sur 202 fichiers
 - ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470)
->>>>>>> ab0f100 (docs(#479): Phase 3 - Update root documentation (factual corrections))
 
 ### Roadmap
 
-<<<<<<< HEAD
-- ✅ **v2.3** : RooSync v2.3 + Scheduler Roo + 39 outils consolidés
-- 🔄 **v2.4** : DesktopCommanderMCP migration + sk-agent déploiement
-- 📋 **v2.5** : Worktrees + PRs workflow multi-agent
-- 🔮 **v3.0** : Intelligence artificielle pour recommandations
-=======
 - **v2.4** : Autonomie Niveau 2 (tasks complex via scheduler)
 - **v2.5** : Interface web RooSync + Dashboard temps réel
 - **v3.0** : Intelligence artificielle pour recommandations + Multi-OS support
->>>>>>> ab0f100 (docs(#479): Phase 3 - Update root documentation (factual corrections))
 
 ---
 
