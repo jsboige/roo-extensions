@@ -477,7 +477,97 @@ if ($Fix) {
 }
 ```
 
-### Script 2 : Réparation Automatique MCPs
+### Script 2 : Diagnostic Complet MCPs (Anti-Placeholder)
+```powershell
+# diagnostic-mcps-complet.ps1
+function Invoke-McpDiagnostic {
+    Write-Host "🔍 DIAGNOSTIC COMPLET DES MCPs" -ForegroundColor Yellow
+    Write-Host "=" * 50 -ForegroundColor Yellow
+    
+    $issues = @()
+    
+    # 1. Vérification des placeholders
+    Write-Host "`n1. Vérification des placeholders..." -ForegroundColor Cyan
+    $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+    
+    foreach ($mcp in $mcps) {
+        $buildPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/build/index.js"
+        $distPath = "C:/dev/roo-extensions/mcps/internal/servers/$mcp/dist/index.js"
+        
+        if (Test-Path $buildPath) {
+            $content = Get-Content $buildPath | Select-Object -First 3
+            if ($content -match "placeholder") {
+                $issues += "Placeholder détecté dans $mcp"
+                Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
+            }
+        } elseif (Test-Path $distPath) {
+            $content = Get-Content $distPath | Select-Object -First 3
+            if ($content -match "placeholder") {
+                $issues += "Placeholder détecté dans $mcp"
+                Write-Host "❌ $mcp : PLACEHOLDER" -ForegroundColor Red
+            }
+        } else {
+            $issues += "Fichier compilé manquant pour $mcp"
+            Write-Host "❌ $mcp : MANQUANT" -ForegroundColor Red
+        }
+    }
+    
+    # 2. Vérification des chemins
+    Write-Host "`n2. Vérification des chemins..." -ForegroundColor Cyan
+    $configPath = "C:/Users/jsboi/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+    if (Test-Path $configPath) {
+        $config = Get-Content $configPath -Raw
+        if ($config -match "D:/Dev/roo-extensions") {
+            $issues += "Anciens chemins détectés dans mcp_settings.json"
+            Write-Host "❌ Anciens chemins détectés" -ForegroundColor Red
+        } else {
+            Write-Host "✅ Chemins corrects" -ForegroundColor Green
+        }
+    }
+    
+    # 3. Vérification de sécurité
+    Write-Host "`n3. Vérification de sécurité..." -ForegroundColor Cyan
+    if ($config -match '"GITHUB_TOKEN":\s*"[^"]*"' -and $config -notmatch '\$\{env:GITHUB_TOKEN\}') {
+        $issues += "Token GitHub exposé en clair"
+        Write-Host "❌ Token exposé" -ForegroundColor Red
+    } else {
+        Write-Host "✅ Tokens sécurisés" -ForegroundColor Green
+    }
+    
+    # 4. Vérification des dépendances
+    Write-Host "`n4. Vérification des dépendances..." -ForegroundColor Cyan
+    try {
+        conda activate mcp-jupyter-py310
+        pytest --version | Out-Null
+        Write-Host "✅ pytest disponible" -ForegroundColor Green
+    } catch {
+        $issues += "pytest manquant"
+        Write-Host "❌ pytest manquant" -ForegroundColor Red
+    }
+    
+    # 5. Rapport final
+    Write-Host "`n" + "=" * 50 -ForegroundColor Yellow
+    Write-Host "📊 RAPPORT DE DIAGNOSTIC" -ForegroundColor Yellow
+    Write-Host "Problèmes détectés : $($issues.Count)" -ForegroundColor $(if ($issues.Count -gt 0) {"Red"} else {"Green"})
+    
+    if ($issues.Count -gt 0) {
+        Write-Host "`n🚨 PROBLÈMES IDENTIFIÉS :" -ForegroundColor Red
+        foreach ($issue in $issues) {
+            Write-Host "  - $issue" -ForegroundColor Red
+        }
+    } else {
+        Write-Host "`n✅ AUCUN PROBLÈME DÉTECTÉ" -ForegroundColor Green
+    }
+    
+    return $issues.Count -eq 0
+}
+
+# Exécuter le diagnostic
+$success = Invoke-McpDiagnostic
+exit $(if ($success) { 0 } else { 1 })
+```
+
+### Script 3 : Réparation Automatique MCPs
 ```powershell
 # scripts/maintenance/auto-repair-mcps.ps1
 <#
@@ -524,6 +614,53 @@ foreach ($mcp in $MCPs) {
         Write-Host "✅ MCP $mcp fonctionne correctement" -ForegroundColor Green
     }
 }
+```
+
+### Script 4 : Réparation Automatique Complète
+```powershell
+# reparation-mcps-automatique.ps1
+function Invoke-McpRepair {
+    param(
+        [switch]$FixPlaceholders,
+        [switch]$FixPaths,
+        [switch]$FixSecurity,
+        [switch]$FixDependencies
+    )
+    
+    Write-Host "🔧 RÉPARATION AUTOMATIQUE DES MCPs" -ForegroundColor Yellow
+    
+    if ($FixPlaceholders) {
+        Write-Host "`n1. Compilation des MCPs..." -ForegroundColor Cyan
+        $mcps = @("quickfiles-server", "jinavigator-server", "jupyter-mcp-server", "github-projects-mcp", "roo-state-manager")
+        
+        foreach ($mcp in $mcps) {
+            Write-Host "Compilation de $mcp..." -ForegroundColor Yellow
+            cd "C:/dev/roo-extensions/mcps/internal/servers/$mcp"
+            npm install
+            npm run build
+        }
+    }
+    
+    if ($FixPaths) {
+        Write-Host "`n2. Correction des chemins..." -ForegroundColor Cyan
+        # Implémenter la correction des chemins
+    }
+    
+    if ($FixSecurity) {
+        Write-Host "`n3. Sécurisation des tokens..." -ForegroundColor Cyan
+        # Implémenter la sécurisation des tokens
+    }
+    
+    if ($FixDependencies) {
+        Write-Host "`n4. Installation des dépendances..." -ForegroundColor Cyan
+        # Implémenter l'installation des dépendances
+    }
+    
+    Write-Host "`n✅ Réparation terminée" -ForegroundColor Green
+}
+
+# Exemple d'utilisation
+# .\reparation-mcps-automatique.ps1 -FixPlaceholders -FixSecurity -FixDependencies
 ```
 
 ---

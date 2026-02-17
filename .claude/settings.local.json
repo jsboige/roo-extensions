@@ -37,7 +37,8 @@
       "mcp__roo-state-manager__roosync_compare_config",
       "Bash(git rm:*)",
       "Bash(gh issue list:*)",
-      "mcp__roo-state-manager__storage_info"
+      "mcp__roo-state-manager__storage_info",
+      "Bash(python:*)"
     ],
     "mode": "auto-approve"
   },
