@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Système:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Dernière mise à jour:** 2026-02-12
+**Dernière mise à jour:** 2026-02-17
 
 ---
 
@@ -241,29 +241,39 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Commande :** `gh issue`, `gh pr`, `gh api graphql`
    - **Projet :** "RooSync Multi-Agent Tasks" (#67)
    - **URL :** <https://github.com/users/jsboige/projects/67>
-   - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
+   - **Note :** Le MCP github-projects-mcp est **DÉPRÉCIÉ** et remplacé par `gh` CLI
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (36 outils - tous exposés)
+2. **roo-state-manager** (35 outils Claude Code / 39 outils Roo wrapper)
     - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-    - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-10)
+    - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17)
     - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
-    - **Catégories d'outils (36 total) :**
+    - **Catégories d'outils (35 Claude Code) :**
       - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
       - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
       - **Consolidés (5)** : config, inventory, baseline, machines, init
       - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
-      - **Monitoring (1)** : heartbeat_status
-      - **Diagnostic (4)** : analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
-      - **Summary (1)** : conversation_browser (CONS-12: consolidé 4→1, task_browse/view_conversation_tree/roosync_summarize → 1)
+      - **Monitoring (3)** : heartbeat, sync_event, mcp_management
+      - **Diagnostic (4)** : analyze_roosync_problems, diagnose, storage_management, read_vscode_logs
+      - **Navigation (2)** : conversation_browser, task_export
       - **Tâches (3)** : view_task_details, get_raw_conversation, task_export
       - **Recherche (2)** : roosync_search, roosync_indexing
       - **Export (2)** : export_data, export_config
       - **MCP Management (5)** : storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices, touch_mcp_settings
     - **Wrapper v4 :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) dédup + log suppression (plus de filtrage)
-    - **MAJ :** 2026-02-10 - Wrapper v4 pass-through (18→36 outils, accès tâches/search/export)
+    - **MAJ :** 2026-02-17 - Validé cross-machine (#480), 35 outils Claude Code testés
 
-3. **markitdown** (1 outil)
+3. **sk-agent** (7 outils + deprecated aliases)
+   - Configuration : `~/.claude.json` avec wrapper PowerShell [run-sk-agent.ps1](mcps/internal/servers/sk-agent/run-sk-agent.ps1)
+   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17, fix #482)
+   - **Outils principaux :** `call_agent`, `list_agents`, `list_conversations`, `run_conversation`, `list_tools`, `end_conversation`, `install_libreoffice`
+   - **Agents disponibles :** 11 (analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator)
+   - **Conversations :** 4 presets (deep-search, deep-think, code-review, research-debate)
+   - **MCP tools chargés :** searxng (2), playwright (22), TextMemoryPlugin (2)
+   - **Tests :** 109 unit + 35 functional
+   - **CRITICAL :** Wrapper stdout DOIT être 100% silencieux (fix #482 - Write-Host cassait le handshake MCP)
+
+4. **markitdown** (1 outil)
    - Configuration : `~/.claude.json` (global)
    - **Statut :** ✅ Ajouté lors de H5 (#334)
    - **Outil :** `convert_to_markdown` - Convertir fichiers (PDF, DOCX, etc.) en markdown
@@ -1198,7 +1208,7 @@ feat(roosync): Add baseline comparison feature
 test(roosync): Add E2E tests for sync workflow
 
 # Avec co-auteur (si Claude Code)
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
 ```
 
 ### Quand créer une GitHub Issue
@@ -1243,7 +1253,7 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 
 ---
 
-**Dernière mise à jour :** 2026-02-12
+**Dernière mise à jour :** 2026-02-17
 **Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
 
 **Built with Claude Code (Opus 4.6) 🤖**
@@ -1310,7 +1320,7 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 ## 📡 RooSync MCP - Configuration
 
-### Outils Disponibles (39 - tous exposés, 2026-02-10)
+### Outils Disponibles (35 Claude Code / 39 Roo wrapper, 2026-02-17)
 
 **Messagerie CONS-1 (3):**
 - `roosync_send` - Envoyer/répondre/amender (action: send|reply|amend)
@@ -1323,24 +1333,19 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 **Décisions CONS-5 (2):** `roosync_decision`, `roosync_decision_info`
 
-**Monitoring (1):** `roosync_heartbeat_status`
+**Monitoring (3):** `roosync_heartbeat`, `roosync_sync_event`, `roosync_mcp_management`
 
-**Diagnostic (4):** `analyze_roosync_problems`, `diagnose_env`, `minimal_test_tool`, `read_vscode_logs`
+**Diagnostic (4):** `analyze_roosync_problems`, `roosync_diagnose`, `roosync_storage_management`, `read_vscode_logs`
 
-**Summary (1):** `roosync_summarize`
+**Navigation (2):** `conversation_browser` (unifié: tree/current/view/summarize), `task_export` (markdown/debug)
 
-**Tâches Roo (5) - NOUVEAU :**
-- `task_browse` - Arborescence tâches, parent/enfant, tâche courante (CONS-9)
-- `view_task_details` - Metadata détaillée (mode, durée, actions)
-- `view_conversation_tree` - Hiérarchie conversation en arbre
-- `get_raw_conversation` - Lire JSON brut d'une conversation
-- `task_export` - Export markdown + debug parsing
+**Tâches (2):** `view_task_details`, `get_raw_conversation`
 
-**Recherche (2):** `roosync_search` (texte + sémantique), `roosync_indexing` (Qdrant)
+**Recherche (2):** `roosync_search` (texte + sémantique), `roosync_indexing` (Qdrant + archive)
 
 **Export (2):** `export_data` (JSON/CSV/XML), `export_config`
 
-**MCP Management (5):** `storage_info`, `maintenance`, `manage_mcp_settings`, `rebuild_and_restart_mcp`, `get_mcp_best_practices`, `touch_mcp_settings`
+**MCP Management (6):** `storage_info`, `maintenance`, `manage_mcp_settings`, `rebuild_and_restart_mcp`, `get_mcp_best_practices`, `touch_mcp_settings`
 
 ### Fichier Partagé
 

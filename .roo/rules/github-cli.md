@@ -6,7 +6,7 @@
 
 ### Pourquoi ?
 
-- Le MCP github-projects (57 outils) est déprécié
+- Le MCP github-projects est déprécié (retiré depuis #368)
 - Le CLI `gh` est plus léger, standard et maintenu
 - Couverture équivalente : 12/15 fonctionnalités (80%)
 

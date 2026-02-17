@@ -53,13 +53,13 @@
   - #67 "RooSync Multi-Agent Tasks" (https://github.com/users/jsboige/projects/67)
   - #70 "RooSync Multi-Agent Coordination"
 - Commands: `gh issue`, `gh pr`, `gh api graphql`
-- Note: **github-projects-mcp (57 tools) is DEPRECATED** - use native gh CLI
+- Note: **github-projects-mcp is DEPRECATED** - use native gh CLI
 
-**roo-state-manager** (39 tools via wrapper v4)
-- Status: ✅ DEPLOYED & FUNCTIONAL (all machines)
-- Version: wrapper v4 pass-through (2026-02-10)
+**roo-state-manager** (35 tools Claude Code / 39 Roo wrapper)
+- Status: ✅ DEPLOYED & FUNCTIONAL (all machines, validated 2026-02-17)
+- Version: wrapper v4 pass-through
 - Recent Updates:
-  - Wrapper v4: 18→39 tools exposed (no filtering)
+  - Cross-machine validation #480 completed
   - Access to: tasks, search, export, diagnostic tools
 - Tool categories:
   - 3 messaging (roosync_send, roosync_read, roosync_manage)
@@ -75,6 +75,13 @@
   - Machine inventory collection
   - Task/conversation browsing
   - Semantic search (Qdrant)
+
+**sk-agent** (7 tools + deprecated aliases)
+- Status: ✅ DEPLOYED (2026-02-17, fix #482)
+- Wrapper: PowerShell `run-sk-agent.ps1` (100% silent stdout)
+- Agents: 11 (analyst, vision-analyst, fast, researcher, synthesizer, critic, etc.)
+- Conversations: 4 presets (deep-search, deep-think, code-review, research-debate)
+- Tools: `call_agent`, `list_agents`, `list_conversations`, `run_conversation`, `list_tools`, `end_conversation`
 
 ### PENDING (Other Machines)
 - myia-po-2023
