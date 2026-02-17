@@ -196,6 +196,30 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **⚠️ RÈGLE :** Si tu détectes l'absence d'outils MCP, tu DOIS le réparer avant toute autre tâche.
 
+### 🚨 PRIORITÉ ABSOLUE : MCP Manquant = Réparer Immédiatement
+
+**RÈGLE (2026-02-17) :** Si un outil MCP attendu est absent, le réparer devient la **priorité absolue**.
+
+**Ne pas chercher de workaround sauf cas extrême.**
+
+**Checklist de réparation :**
+
+1. **Confirmer l'absence** : Vérifier les system-reminders (liste des outils disponibles)
+2. **Identifier la cause** :
+   - Config incorrecte (mauvais chemin, serveur non démarré)
+   - Wrapper obsolète (chemin `build/index.js` vs `mcp-wrapper.cjs`)
+   - alwaysAllow incomplet dans Roo settings
+3. **Réparer** :
+   - Corriger la configuration (`~/.claude.json` ou `mcp_settings.json`)
+   - Mettre à jour le wrapper si nécessaire
+   - Redémarrer VS Code (les MCPs chargent au démarrage uniquement)
+4. **Valider** : Vérifier que les outils sont disponibles après redémarrage
+
+**Cas typiques :**
+- Roo settings utilise `build/index.js` au lieu de `mcp-wrapper.cjs` → Corriger
+- alwaysAllow incomplet (ex: 39 outils mais seulement 36 listés) → Ajouter manquants
+- Wrapper désactivé (`disabled: true`) → Réactiver
+
 ---
 
 ### Harmonisation Multi-Machines Complétée
@@ -220,24 +244,24 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Note :** Le MCP github-projects-mcp (57 outils) est **DÉPRÉCIÉ**
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (39 outils - tous exposés)
-   - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-10)
-   - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
-   - **Catégories d'outils (39 total) :**
-     - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
-     - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
-     - **Consolidés (5)** : config, inventory, baseline, machines, init
-     - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
-     - **Monitoring (1)** : heartbeat_status
-     - **Diagnostic (4)** : analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
-     - **Summary (1)** : roosync_summarize (CONS-12: consolidé 4→1)
-     - **Tâches (5)** : task_browse, view_task_details, view_conversation_tree, get_raw_conversation, task_export
-     - **Recherche (2)** : roosync_search, roosync_indexing
-     - **Export (2)** : export_data, export_config
-     - **MCP Management (5)** : storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices, touch_mcp_settings
-   - **Wrapper v4 :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) dédup + log suppression (plus de filtrage)
-   - **MAJ :** 2026-02-10 - Wrapper v4 pass-through (18→39 outils, accès tâches/search/export)
+2. **roo-state-manager** (36 outils - tous exposés)
+    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+    - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-10)
+    - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
+    - **Catégories d'outils (36 total) :**
+      - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
+      - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
+      - **Consolidés (5)** : config, inventory, baseline, machines, init
+      - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
+      - **Monitoring (1)** : heartbeat_status
+      - **Diagnostic (4)** : analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
+      - **Summary (1)** : conversation_browser (CONS-12: consolidé 4→1, task_browse/view_conversation_tree/roosync_summarize → 1)
+      - **Tâches (3)** : view_task_details, get_raw_conversation, task_export
+      - **Recherche (2)** : roosync_search, roosync_indexing
+      - **Export (2)** : export_data, export_config
+      - **MCP Management (5)** : storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices, touch_mcp_settings
+    - **Wrapper v4 :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) dédup + log suppression (plus de filtrage)
+    - **MAJ :** 2026-02-10 - Wrapper v4 pass-through (18→36 outils, accès tâches/search/export)
 
 3. **markitdown** (1 outil)
    - Configuration : `~/.claude.json` (global)
