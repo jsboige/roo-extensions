@@ -217,7 +217,7 @@ Utilise task-worker pour prendre ma prochaine tâche
 
 **Cas typiques :**
 - Roo settings utilise `build/index.js` au lieu de `mcp-wrapper.cjs` → Corriger
-- alwaysAllow incomplet (ex: 39 outils mais seulement 36 listés) → Ajouter manquants
+- alwaysAllow incomplet (ex: 37 entrées Roo mais seulement 36 dans ListTools) → Vérifier backward-compat aliases
 - Wrapper désactivé (`disabled: true`) → Réactiver
 
 ---
@@ -244,7 +244,7 @@ Utilise task-worker pour prendre ma prochaine tâche
    - **Note :** Le MCP github-projects-mcp est **DÉPRÉCIÉ** et remplacé par `gh` CLI
    - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
 
-2. **roo-state-manager** (35 outils Claude Code / 39 outils Roo wrapper)
+2. **roo-state-manager** (36 outils - tous exposés)
     - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
     - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17)
     - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
@@ -1320,7 +1320,7 @@ Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détai
 
 ## 📡 RooSync MCP - Configuration
 
-### Outils Disponibles (35 Claude Code / 39 Roo wrapper, 2026-02-17)
+### Outils Disponibles (36 - tous exposés, 2026-02-17)
 
 **Messagerie CONS-1 (3):**
 - `roosync_send` - Envoyer/répondre/amender (action: send|reply|amend)

@@ -55,10 +55,11 @@
 - Commands: `gh issue`, `gh pr`, `gh api graphql`
 - Note: **github-projects-mcp is DEPRECATED** - use native gh CLI
 
-**roo-state-manager** (35 tools Claude Code / 39 Roo wrapper)
+**roo-state-manager** (36 tools via wrapper v4)
 - Status: ✅ DEPLOYED & FUNCTIONAL (all machines, validated 2026-02-17)
 - Version: wrapper v4 pass-through
 - Recent Updates:
+  - #457 consolidated 3 tools (39→36 in ListTools)
   - Cross-machine validation #480 completed
   - Access to: tasks, search, export, diagnostic tools
 - Tool categories:
@@ -241,7 +242,7 @@ mcps/
 - ✅ Bug #322 RESOLVED - Inventory → collect config mapping (commit 7ce45751)
 - ✅ Git conflicts resolved - Get-MachineInventory.ps1 + mcps/internal submodule
 - ✅ Tests: 3294/3308 PASS (99.6%) - All machines
-- ✅ Wrapper v4: 39 tools exposed (2026-02-10, #407)
+- ✅ Wrapper v4: 36 tools exposed (2026-02-17, #407+#457)
 - ✅ #470 Phase 2 COMPLETE - Consolidation 48→4 docs (-96% lines, 2026-02-15)
 - ✅ #472 COMPLETE - Validation MCP multi-machine (2026-02-15)
 - ✅ #473 Phase 1 COMPLETE - Audit auto-approvals myia-po-2024 (2026-02-16)
@@ -257,7 +258,7 @@ mcps/
 
 ### Immediate Goals (24-48h)
 - 🔄 #479 Phase 3 - Documentation racine (README.md, .claude/INDEX.md, docs/INDEX.md)
-- 🔄 #480 - Validation wrapper 39 outils cross-machine (tests fonctionnels)
+- 🔄 #480 - Validation wrapper 36 outils cross-machine (tests fonctionnels)
 - 🔄 #473 Phase 2 - Normalisation auto-approvals (après audits 6 machines)
 - 🎯 Scheduler Roo: Niveau 2 (complex tasks) activation GLM 5
 

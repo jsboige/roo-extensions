@@ -6,9 +6,9 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (ListTools):** 39
-- **Claude wrapper (mcp-wrapper.cjs):** 39 tools (v4 pass-through, no filtering since 2026-02-10)
-- **Tests:** 3252 passed, 0 failed (201 files, 2026-02-12)
+- **Total tools (ListTools):** 36 (was 39 before #457 consolidation)
+- **Claude wrapper (mcp-wrapper.cjs):** 36 tools (v4 pass-through, no filtering since 2026-02-10)
+- **Tests:** 3294 passed, 0 failed (202 files, 2026-02-17)
 - **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
 ### Key Files

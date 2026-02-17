@@ -62,14 +62,14 @@ Then restart Claude Code to activate MCP.
 
 | Machine | Status | roo-state-manager | Notes |
 |---------|--------|-------------------|-------|
-| myia-ai-01 | ✅ Operational | 39 tools | Coordinator |
-| myia-po-2023 | ✅ Operational | 39 tools | Executor |
-| myia-po-2024 | ✅ Operational | 39 tools | Executor |
-| myia-po-2025 | ✅ Operational | 39 tools | Executor |
-| myia-po-2026 | ✅ Operational | 39 tools | Executor |
-| myia-web1 | ✅ Operational | 39 tools | Executor |
+| myia-ai-01 | ✅ Operational | 36 tools | Coordinator |
+| myia-po-2023 | ✅ Operational | 36 tools | Executor |
+| myia-po-2024 | ✅ Operational | 36 tools | Executor |
+| myia-po-2025 | ✅ Operational | 36 tools | Executor |
+| myia-po-2026 | ✅ Operational | 36 tools | Executor |
+| myia-web1 | ✅ Operational | 36 tools | Executor |
 
-### roo-state-manager (39 tools)
+### roo-state-manager (36 tools)
 
 **Configuration:** `~/.claude.json` with wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
 
@@ -242,7 +242,7 @@ node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs
 
 ### Post-Deployment Verification
 
-- [ ] `roo-state-manager` shows 39 tools
+- [ ] `roo-state-manager` shows 36 tools
 - [ ] `gh auth status` shows authenticated
 - [ ] Can access project #67 via `gh api graphql`
 - [ ] Can send/receive RooSync messages
@@ -376,7 +376,7 @@ Once MCP is verified working on your machine:
 4. Use RooSync for inter-machine coordination
 
 **All machines (VERIFIED ✅):**
-- ✅ roo-state-manager working (39 tools)
+- ✅ roo-state-manager working (36 tools)
 - ✅ RooSync messaging functional
 - ✅ gh CLI for GitHub operations
 

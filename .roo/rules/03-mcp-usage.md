@@ -19,7 +19,7 @@ Ne PAS utiliser `&&` en PowerShell, utiliser `;` a la place.
 
 ### Autres MCPs disponibles
 
-- **roo-state-manager** : Grounding conversationnel, historique taches (39 outils)
+- **roo-state-manager** : Grounding conversationnel, historique taches (36 outils)
 - **jinavigator** : Extraction contenu web en markdown
 - **searxng** : Recherche web
 

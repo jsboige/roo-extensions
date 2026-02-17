@@ -157,7 +157,7 @@ This rule was established after a Session 101 incident where 8+ scripts were arc
 
 These MCPs are deployed on all machines and available in any workspace.
 
-### roo-state-manager (39 tools)
+### roo-state-manager (36 tools)
 
 Expose les taches, conversations, et outils de coordination de Roo Code. Utilise-les pour comprendre ce que Roo a fait et pour coordonner.
 
