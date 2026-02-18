@@ -317,6 +317,49 @@ git push origin main
 
 ---
 
+## MODE DÉGRADÉ (machines offline)
+
+**Quand activer ce mode :** Si la plupart des machines sont HS (coupure courant, maintenance, etc.), passer en mode dégradé.
+
+### Détection
+- RooSync messages ne sont pas livrés (coordonnateur offline)
+- GitHub Project inaccessible ou lent
+- Pas de réponse des autres agents
+
+### Actions en mode dégradé
+
+1. **Travail local uniquement**
+   - Se concentrer sur les tâches qui ne nécessitent PAS de coordination
+   - Prioriser : documentation, code local, tests, cleanup
+   - Éviter : tâches multi-machines, attente de validations externes
+
+2. **Communication différée**
+   - Continuer à écrire dans INTERCOM (Roo peut lire quand il revient)
+   - Stocker les rapports RooSync localement (brouillon)
+   - Poster les commentaires GitHub (seront lus au retour)
+
+3. **Tâches appropriées en mode dégradé**
+   - Documentation (INDEX.md, README, guides)
+   - Amélioration code local (refactoring, fixes)
+   - Tests unitaires et validation build
+   - Investigation de bugs (sans cross-validation)
+   - Mise à jour MEMORY.md et PROJECT_MEMORY.md
+
+4. **Tâches à reporter**
+   - Déploiement cross-machine
+   - Validation nécessitant d'autres machines
+   - Coordination RooSync active
+   - Tests d'intégration multi-machines
+
+### Reprise mode normal
+Quand les machines reviennent :
+1. Sync-tour complet pour rattraper le retard
+2. Envoyer les rapports accumulés
+3. Vérifier les INTERCOM des autres machines
+4. Reprendre le workflow normal
+
+---
+
 ## REFERENCES RAPIDES
 
 ### GitHub Project #67
