@@ -40,12 +40,31 @@ Claude Sonnet 4.6 est le nouveau modèle de la famille Claude, positionné entre
 ### Fichiers de configuration
 
 **Roo Code :**
-- `roo-config/model-configs.json`
+- `roo-config/model-configs.json` ✅ **MAJ 2026-02-18** : Ajouté configs Sonnet 4.6
 - `roo-config/modes/modes-config.json`
 
 **Claude Code :**
 - `.claude/settings.json` (workspace)
 - `~/.claude/settings.json` (global)
+
+---
+
+## Configurations ajoutées (2026-02-18)
+
+**Nouvelles apiConfigs dans model-configs.json :**
+
+1. **`claude-sonnet-4.6`** (OpenRouter)
+   - Provider: openrouter
+   - Model: `anthropic/claude-sonnet-4.6`
+   - Description: "Claude Sonnet 4.6 - Nouveau modèle 2026-02-18"
+
+2. **`claude-sonnet-4.6-anthropic`** (API directe)
+   - Provider: anthropic
+   - Model: `claude-sonnet-4-20250514`
+   - Description: "Claude Sonnet 4.6 via API Anthropic directe"
+
+**Nouveau profil :**
+- **"Configuration Sonnet 4.6 (NOUVEAU 2026-02-18)"** : local-simple (GLM-4.7-Flash) + Sonnet 4.6 pour les modes complexes
 
 ---
 

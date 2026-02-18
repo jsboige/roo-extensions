@@ -79,6 +79,22 @@
         "orchestrator-simple": "qwen/qwen3-32b",
         "orchestrator-complex": "google/gemini-2.5-pro-exp-03-25"
       }
+    },
+    {
+      "name": "Configuration Sonnet 4.6 (NOUVEAU 2026-02-18)",
+      "description": "Configuration avec GLM-4.7-Flash pour modes simples et Claude Sonnet 4.6 pour modes complexes. Bon compromis vitesse/intelligence.",
+      "modeOverrides": {
+        "code-simple": "local-simple-tgwui",
+        "code-complex": "claude-sonnet-4.6",
+        "debug-simple": "local-simple-tgwui",
+        "debug-complex": "claude-sonnet-4.6",
+        "architect-simple": "local-simple-tgwui",
+        "architect-complex": "claude-sonnet-4.6",
+        "ask-simple": "local-simple-tgwui",
+        "ask-complex": "claude-sonnet-4.6",
+        "orchestrator-simple": "local-simple-tgwui",
+        "orchestrator-complex": "claude-sonnet-4.6"
+      }
     }
   ],
   "apiConfigs": {
@@ -117,6 +133,27 @@
       "openRouterUseMiddleOutTransform": false,
       "apiProvider": "openrouter",
       "id": "gi7et2uwpwo"
+    },
+    "claude-sonnet-4.6": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
+      "openRouterModelId": "anthropic/claude-sonnet-4.6",
+      "openRouterUseMiddleOutTransform": false,
+      "apiProvider": "openrouter",
+      "id": "claude-sonnet-4-6",
+      "description": "Claude Sonnet 4.6 - Nouveau modèle 2026-02-18 (rapide + intelligent, entre Haiku et Opus)"
+    },
+    "claude-sonnet-4.6-anthropic": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": null,
+      "anthropicApiKey": "${env:ANTHROPIC_API_KEY}",
+      "anthropicModelId": "claude-sonnet-4-20250514",
+      "apiProvider": "anthropic",
+      "id": "claude-sonnet-4-6-anthropic",
+      "description": "Claude Sonnet 4.6 via API Anthropic directe (latence optimale)"
     },
     "glm-5": {
       "diffEnabled": true,
