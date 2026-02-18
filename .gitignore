@@ -103,6 +103,12 @@ temp/
 # Debug files
 debug_payload_dump.json
 debug_trace.txt
+test-output.txt
+test-result.txt
+
+# Win-CLI local config and logs (machine-specific)
+mcps/external/win-cli/server/config.json
+mcps/external/win-cli/server/*.txt
 
 # Claude Code Provider Switcher - Real API keys (NEVER commit these!)
 .claude/configs/provider.*.json
