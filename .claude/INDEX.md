@@ -165,11 +165,13 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 - `markitdown` - Document conversion
 
 **Git Submodules:**
-- `win-cli/server` - Windows CLI
 - `mcp-server-ftp` - FTP server
 - `markitdown/source` - Microsoft Markitdown (v0.1.4)
 - `playwright/source` - Browser automation (v0.0.54)
 - `Office-PowerPoint-MCP-Server` - PowerPoint (Python)
+
+**External (npm):**
+- `@wonderwhy-er/desktop-commander` - Desktop Commander MCP (26 tools, remplace win-cli - #468)
 
 ---
 

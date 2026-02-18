@@ -4,24 +4,33 @@
 
 Privilegier SYSTEMATIQUEMENT les MCPs sur les outils natifs Roo.
 
-### win-cli - Commandes systeme (PRIORITAIRE)
+### desktop-commander - Commandes systeme (PRIORITAIRE)
+
+**Note (#468 Phase 3) :** DesktopCommanderMCP remplace win-cli sur toutes les machines.
 
 ```xml
 <use_mcp_tool>
-<server_name>win-cli</server_name>
-<tool_name>execute_command</tool_name>
-<arguments>{"shell": "powershell", "command": "COMMANDE"}</arguments>
+<server_name>desktop-commander</server_name>
+<tool_name>start_process</tool_name>
+<arguments>{"command": "COMMANDE", "shell": "powershell"}</arguments>
 </use_mcp_tool>
 ```
 
-Shells disponibles : `powershell`, `cmd`, `gitbash`.
-Ne PAS utiliser `&&` en PowerShell, utiliser `;` a la place.
+**Shells disponibles :** `powershell`, `cmd`, `gitbash`, `wsl` (configurable via `set_config_value`)
+
+**Differences importantes vs win-cli :**
+
+**Differences importantes vs win-cli :**
+- `start_process` (asynchrone) au lieu de `execute_command`
+- Operateurs shell (`&&`, `|`, `;`) fonctionnent **nativement** - pas de fork necessaire
+- 26 outils vs 9 dans win-cli : operations fichier, recherche, processus
+- Config path : `~/.claude-server-commander/config.json`
 
 ### Autres MCPs disponibles
 
 - **roo-state-manager** : Grounding conversationnel, historique taches (36 outils)
-- **jinavigator** : Extraction contenu web en markdown
-- **searxng** : Recherche web
+- **sk-agent** : Agents LLM multi-modeles (glm-4.6v, glm-5, zwz-8b, glm-4.7-flash)
+- **markitdown** : Conversion documents (PDF, DOCX, etc.) en markdown
 
 ### roo-state-manager - Outils AUTORISES et INTERDITS
 
