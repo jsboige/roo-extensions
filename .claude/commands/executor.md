@@ -189,6 +189,8 @@ Pour chaque tache selectionnee, execute le cycle complet :
 
 ### 3a. Investigation (si necessaire)
 - Lire le code source pertinent (Read, Grep, Glob)
+- **Recherche semantique** : `codebase_search(query: "...", workspace: "d:\\roo-extensions")` pour trouver du code par concept
+- **Historique Roo** : `roosync_search(action: "text", search_query: "...")` pour retrouver des conversations pertinentes
 - Comprendre l'architecture et les contraintes
 - Identifier les fichiers a modifier
 
@@ -318,3 +320,21 @@ roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...
 | `CLAUDE.md` | Configuration projet |
 | `.claude/agents/` | Sub-agents disponibles |
 | `mcps/internal/servers/roo-state-manager/src/` | Code source MCP |
+
+### Outils MCP avances
+| Outil | Usage | Exemple |
+|-------|-------|---------|
+| `codebase_search` | Recherche semantique dans le code | `codebase_search(query: "rate limiting", workspace: "d:\\roo-extensions")` |
+| `roosync_search` | Recherche dans les taches Roo | `roosync_search(action: "text", search_query: "bug fix")` |
+| `roosync_compare_config` | Comparer configs entre machines | `roosync_compare_config(granularity: "mcp")` |
+| `roosync_indexing` | Diagnostiquer l'index Qdrant | `roosync_indexing(action: "diagnose")` |
+
+**IMPORTANT :** Pour `codebase_search`, toujours passer `workspace` explicitement (l'auto-detection est buggee pour Claude Code).
+
+### Configuration EMBEDDING_* requise dans `.env`
+```
+EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_DIMENSIONS=2560
+EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
+EMBEDDING_API_KEY=vllm-placeholder-key-2024
+```

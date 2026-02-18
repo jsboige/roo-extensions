@@ -173,6 +173,33 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 - Validation utilisateur pour nouvelles issues
 - Mise à jour INTERCOM (faire directement)
 
+## Infrastructure Cles
+
+### Configuration EMBEDDING_* (codebase_search)
+
+Pour que `codebase_search` fonctionne, chaque machine doit avoir dans `.env` :
+```
+EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_DIMENSIONS=2560
+EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
+EMBEDDING_API_KEY=vllm-placeholder-key-2024
+```
+
+**Bug connu :** Le parametre `workspace` doit etre passe explicitement (auto-detection pointe vers le repertoire du serveur MCP).
+
+### sk-agent (Python MCP via FastMCP + Semantic Kernel)
+
+**Outils :** `call_agent`, `run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `end_conversation`
+**11 agents :** analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator
+**4 conversations :** deep-search, deep-think, code-review, research-debate
+**4 modeles :** Cloud reasoning (Opus/Sonnet), Cloud vision, Local reasoning (GLM-5), Local vision
+
+### Qdrant
+
+- **Endpoint :** `http://localhost:6333` (local sur myia-ai-01)
+- **Collections :** 20 `ws-*` collections peuplees (1-580K vecteurs, 2560 dims)
+- **roo-extensions :** `ws-3091d0dd` = 212,521 vecteurs
+
 ## Références Rapides
 
 ### GitHub Projects
@@ -182,6 +209,8 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 - **URL** : https://github.com/users/jsboige/projects/67
 - **Field Status** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
 - **Options** : Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657`
+- **Field Machine** : `PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8` (ai01=`ae516a70`, All=`175c5fe1`, Any=`4c242ac6`)
+- **Field Agent** : `PVTSSF_lAHOADA1Xc4BLw3wzg9icmA` (Both=`33d72521`, Claude=`cf1eae0a`, Roo=`102d5164`)
 
 ### Sources de Vérité (par priorité)
 

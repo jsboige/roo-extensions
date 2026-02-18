@@ -412,6 +412,56 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 ---
 
+## Outils MCP Avances Disponibles
+
+### Recherche semantique dans le code (`codebase_search`)
+
+Recherche par **concept** dans le workspace indexe par Qdrant (pas par texte exact).
+
+```
+codebase_search(query: "rate limiting for embeddings", workspace: "d:\\roo-extensions")
+```
+
+**IMPORTANT :** Toujours passer le parametre `workspace` explicitement. L'auto-detection ne fonctionne pas correctement pour Claude Code (pointe vers le repertoire du serveur MCP).
+
+**Prerequis :** Variables `.env` configurees :
+```
+EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_DIMENSIONS=2560
+EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
+EMBEDDING_API_KEY=vllm-placeholder-key-2024
+```
+
+### Recherche semantique dans les taches (`roosync_search`)
+
+```
+roosync_search(action: "semantic", search_query: "codebase search bug fix")
+roosync_search(action: "text", search_query: "codebase_search")
+```
+
+La recherche semantique utilise Qdrant (index des conversations Roo). La recherche textuelle scanne le cache directement.
+
+### Indexation des taches (`roosync_indexing`)
+
+```
+roosync_indexing(action: "diagnose")  # Etat de l'index Qdrant
+roosync_indexing(action: "index", task_id: "...")  # Indexer une tache
+roosync_indexing(action: "rebuild")  # Reconstruire l'index complet
+```
+
+### Comparaison de configuration (`roosync_compare_config`)
+
+Compare les configurations MCP, modes Roo, et profils entre machines :
+
+```
+roosync_compare_config(granularity: "mcp")   # MCPs uniquement
+roosync_compare_config(granularity: "mode")   # Modes Roo
+roosync_compare_config(granularity: "full")   # Comparaison complete
+roosync_compare_config(source: "myia-ai-01", target: "myia-po-2025", filter: "sk-agent")
+```
+
+---
+
 ## Rapport Final
 
 A la fin du tour de sync, produire un **rapport consolide** :
