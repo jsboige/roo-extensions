@@ -51,19 +51,31 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 ---
 
-## Tâches Adaptées (RAM 2GB)
+## Capacités Réelles (au-delà de la RAM)
 
-**À FAIRE :**
-- Documentation
-- Coordination
-- Scripts légers
-- Validation code (read-only)
-- Config management
+**IMPORTANT :** La charge LLM (Opus 4.6) est sur le provider z.ai, PAS local.
 
-**À ÉVITER :**
-- Build TypeScript complet (si possible, déléguer)
-- Tests unitaires complets (seulement validation ciblée)
-- Opérations lourdes (indexation, compilation)
+**✅ JE PEUX FAIRE :**
+- **Investigation code** : Read, Grep, Glob, codebase_search → Pas de consommation RAM locale
+- **Écriture code** : Edit, Write → Pas de consommation RAM locale
+- **Git operations** : add, commit, push → Pas de consommation RAM locale
+- **Tests ciblés** : `npx vitest run --maxWorkers=1` → Fonctionne (99.6% pass)
+- **Implémentation features** : Logique métier, refactoring → Pas de RAM
+- **Bug fixes** : Investigation + correction → Pas de RAM
+- **Architecture** : Analyse, design → CPU LLM, pas RAM locale
+
+**❌ LIMITATIONS :**
+- Tests complets SANS --maxWorkers → OOM (contourné avec --maxWorkers=1)
+- Build TypeScript complet → Parfois OOM (build partiel possible)
+
+**PRÉFÉRENCES DE TÂCHES :**
+1. Investigation + implémentation (code, architecture, bugs)
+2. Features substantielles (pas juste doc/mise à jour)
+3. Analyse architecture (split roo-state-manager, worktrees, etc.)
+
+**À DÉLÉGUER :**
+- Tâches de pure documentation (si machine plus disponible)
+- Reporting répétitif (automatiser si possible)
 
 ---
 
