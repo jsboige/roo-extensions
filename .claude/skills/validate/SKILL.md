@@ -50,6 +50,7 @@ cd mcps/internal/servers/roo-state-manager && npx vitest run --reporter=verbose 
 
 ### Etape 3 : Rapport
 
+**Format texte (par défaut) :**
 Produire un rapport concis :
 
 ```
@@ -70,6 +71,17 @@ Produire un rapport concis :
 |---------|-------|--------|
 | ... | ... | ... |
 ```
+
+**Format JSON (optionnel, pour parsing automatisé) :**
+```bash
+# Si demande ou pour integration CI/CD
+cd mcps/internal/servers/roo-state-manager && npx vitest run --reporter=json > vitest-report.json
+```
+
+Le rapport JSON contient :
+- `testResults` : Tableau de tous les tests avec status
+- `stats` : Total, pass, skip, fail
+- `errors` : Détails des erreurs avec stack traces
 
 ---
 

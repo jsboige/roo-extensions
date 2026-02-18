@@ -114,6 +114,33 @@ Suivre le workflow du skill `git-sync` :
 
 **⚠️ IMPORTANT :** Toujours pusher après résolution conflits pour débloquer les autres machines.
 
+### Gestion des Erreurs et Auto-Rollback (NOUVEAU)
+
+**Si une erreur critique survient pendant le sync :**
+
+| Situation | Action | Commande |
+|-----------|--------|----------|
+| Merge conflict non résoluble | Abandonner le merge | `git merge --abort` |
+| Tests échouent après pull | Identifier le commit coupable | `git bisect start HEAD HEAD~5` |
+| Submodule cassé | Reset propre du submodule | `cd mcps/internal && git reset --hard origin/main` |
+| Workspace dirty bloqué | Stash les changements locaux | `git stash push -m "sync-tour-$(date)"` |
+
+**Point de restauration :**
+```bash
+# En cas de problème majeur, revenir à l'état avant sync
+git reflog expire --expire=now HEAD@{1}  # Marquer le point dangereux
+git reset --hard HEAD@{2}                 # Revenir à l'état stable
+```
+
+**Rapport d'erreur :**
+```
+## Phase 2 : ERREUR CRITIQUE
+- Type : [Merge conflict | Tests fail | Submodule error]
+- Action : [Rollback effectué | Manual intervention required]
+- Commit incriminé : [hash] si identifié
+- Message d'erreur : [details]
+```
+
 ---
 
 ## Phase 3 : Validation Tests & Build

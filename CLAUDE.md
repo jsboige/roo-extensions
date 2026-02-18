@@ -1,1370 +1,302 @@
 # Roo Extensions - Guide pour Agents Claude Code
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Système:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Dernière mise à jour:** 2026-02-17
+**Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
+**Derniere mise a jour:** 2026-02-19
 
 ---
 
-## 🎯 Vue d'ensemble
+## Vue d'ensemble
 
-Système multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coordination & documentation) sur 6 machines :
+Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coordination & documentation) sur 6 machines :
 
 **Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
 
-**Architecture :** Coordination bicéphale
-- **Roo Code** → Tâches techniques (scripts, tests, build)
+**Architecture :** Coordination bicephale
+- **Roo Code** → Taches techniques (scripts, tests, build)
 - **Claude Code** → Documentation, coordination, reporting
 
 ---
 
-## 📚 Démarrage Rapide
+## Demarrage Rapide
 
-### Pour une NOUVELLE conversation sur cette machine :
+### Nouvelle conversation sur cette machine :
 
-```powershell
-# 1. Mettre à jour le dépôt
-git pull
+1. `git pull`
+2. Lire ce fichier (CLAUDE.md)
+3. Verifier les MCP disponibles (system-reminders au debut de conversation)
 
-# 2. Lire ce fichier (CLAUDE.md) complètement
+### Autre machine :
 
-# 3. Vérifier les MCP disponibles
-# Les MCPs sont chargés au démarrage de VS Code
-```
-
-### Pour une AUTRE machine :
-
-1. **Identifier la machine** : `$env:COMPUTERNAME` ou `hostname`
-2. **Lire la documentation** : [`.claude/INDEX.md`](.claude/INDEX.md)
-3. **Configurer les MCPs** : Suivre [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
+1. Identifier la machine : `hostname`
+2. Documentation : [`.claude/INDEX.md`](.claude/INDEX.md)
+3. MCPs : [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
 
 ---
 
-## 🤖 Architecture Agents & Skills (NOUVEAU)
+## Agents, Skills & Commands
 
-### Principe : Conversations Légères
+**Reference complete :** [`.claude/rules/agents-architecture.md`](.claude/rules/agents-architecture.md)
 
-Pour éviter les conversations qui grossissent indéfiniment, utilise des **subagents** pour déléguer les tâches verboses. La conversation principale reste légère et orchestre.
+**Essentiel :**
+- 12 subagents (communs + coordinateur + executants + workers)
+- 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
+- 4 commands (/coordinate, /executor, /switch-provider, /debrief)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│              CONVERSATION PRINCIPALE (légère)                │
-│  - Orchestration et décisions                                │
-│  - Délègue aux subagents pour les tâches spécialisées       │
-└─────────────────┬───────────────────────────────────────────┘
-                  │
-     ┌────────────┼────────────┬────────────┐
-     ▼            ▼            ▼            ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-│ RooSync  │ │  GitHub  │ │ INTERCOM │ │   Code   │
-│Coordinator│ │ Tracker │ │ Handler  │ │ Explorer │
-└──────────┘ └──────────┘ └──────────┘ └──────────┘
-```
-
-### Subagents Disponibles ([.claude/agents/](.claude/agents/))
-
-#### Agents Communs (toutes machines)
-
-| Agent | Description | Modèle | Outils |
-|-------|-------------|--------|--------|
-| `git-sync` | Pull/merge conservatif, submodules | opus | Bash, Read, Grep |
-| `test-runner` | Build TypeScript + tests unitaires | opus | Bash, Read, Edit |
-| `github-tracker` | Suivi GitHub Project #67 | opus | MCP GitHub + Bash |
-| `intercom-handler` | Communication locale Roo | opus | Read (plan mode) |
-| `code-explorer` | Exploration codebase | opus | Read, Grep, Glob |
-
-#### Agents Coordinateur (myia-ai-01 uniquement)
-
-| Agent | Description | Usage |
-|-------|-------------|-------|
-| `roosync-hub` | Hub central : reçoit rapports, envoie instructions | Tour de sync, coordination |
-| `dispatch-manager` | Assignation tâches aux 4 machines × 2 agents | Planification, ventilation |
-| `task-planner` | Analyse avancement, équilibrage charge | Fin de phase, réflexion |
-
-#### Agents Exécutants (autres machines)
-
-| Agent | Description | Usage |
-|-------|-------------|-------|
-| `roosync-reporter` | Envoie rapports au coordinateur, reçoit instructions | Rapport de session |
-| `task-worker` | Prend en charge tâches assignées, suit avancement | Exécution tâches |
-
-#### Agents Workers Spécialisés ([.claude/agents/workers/](.claude/agents/workers/))
-
-| Agent | Description | Modèle | Outils |
-|-------|-------------|--------|--------|
-| `code-fixer` | Investigation et correction de bugs | opus | Read, Grep, Glob, Edit, Write, Bash |
-| `consolidation-worker` | Exécution consolidations CONS-X complètes | opus | Read, Grep, Glob, Edit, Write, Bash |
-| `doc-updater` | Mise à jour documentation après changements | sonnet | Read, Grep, Glob, Edit, Write, Bash |
-| `test-investigator` | Investigation tests échoués ou instables | opus | Read, Grep, Glob, Bash, Edit |
-
-**Invocation manuelle :**
-```
-# Sur myia-ai-01 (coordinateur)
-Utilise roosync-hub pour traiter les rapports entrants
-Utilise dispatch-manager pour assigner les tâches
-
-# Sur autres machines (exécutants)
-Utilise roosync-reporter pour envoyer mon rapport
-Utilise task-worker pour prendre ma prochaine tâche
-```
-
-### Skills Disponibles ([.claude/skills/](.claude/skills/))
-
-| Skill | Description | Usage |
-|-------|-------------|-------|
-| `sync-tour` | Tour de sync complet en 8 phases | "tour de sync", "faire le point" |
-| `validate` | Build TypeScript + tests unitaires | Validation après modifications |
-| `git-sync` | Pull conservatif + résolution conflits + submodules | Synchronisation Git |
-| `github-status` | État Project #67 via `gh` CLI | Progression et incohérences |
-
-**Les 9 phases du sync-tour :**
-0. **INTERCOM Local** : CRITIQUE - Lire messages de Roo EN PREMIER (merge en cours?, modifs locales?)
-1. **Collecte** : Messages RooSync non-lus
-2. **Git Sync** : Pull conservatif + resolution conflits automatique + submodules
-3. **Validation** : Build + tests unitaires (+ corrections simples)
-4. **GitHub Status** : Project #67 + issues recentes + incoherences
-5. **MAJ GitHub** : Marquer Done, commentaires (validation utilisateur pour nouvelles issues)
-6. **Planification** : Ventilation 6 machines x 2 agents (Roo + Claude)
-7. **Reponses** : Messages RooSync personnalises + gestion machines silencieuses
-8. **Consolidation** : Mettre a jour MEMORY.md + PROJECT_MEMORY.md avec jugement (patterns, decisions, etat)
-
-**Usage :** Demander un "tour de sync" ou "faire le point".
-
-**⚠️ Améliorations récentes (2026-01-18) :**
-- Phase 0 ajoutée : Toujours lire INTERCOM avant tout (détecter urgences Roo)
-- Phase 2 enrichie : Résolution automatique conflits git (fichiers + submodule)
-- Phase 5 renforcée : Validation utilisateur OBLIGATOIRE avant créer issues
-- Phase 7 améliorée : Escalade machines silencieuses (48h/72h/96h)
-
-### Slash Commands ([.claude/commands/](.claude/commands/))
-
-| Commande | Machine | Description |
-|----------|---------|-------------|
-| `/coordinate` | myia-ai-01 | Lance une session de coordination multi-agent (amélioré 2026-01-18) |
-| `/executor` | Autres machines | Lance une session d'exécution (workflow multi-itérations ajouté) |
-| `/sync-tour` | Toutes | Tour de synchronisation complet (8 phases - Phase 0 ajoutée) |
-| `/switch-provider` | Toutes | Basculer entre Anthropic et z.ai |
-
-**Usage :**
-- **Coordinateur (myia-ai-01)** : Taper `/coordinate` pour démarrer une session de coordination
-- **Exécutants** : Taper `/executor` pour recevoir les instructions et exécuter les tâches
-
-**⚠️ Améliorations coordinate.md (2026-01-18) :**
-- Section "Gestion des Urgences" ajoutée (conflits git, machines silencieuses, tests échouants)
-- Guide d'usage des sub-agents (quand utiliser, quand gérer directement)
-- Workflow démarrage standard en 7 étapes (INTERCOM d'abord, puis sync-tour)
-
-**⚠️ Améliorations executor.md (2026-01-18) :**
-- Workflow multi-itérations (Investigation → Action → Validation)
-- Collaboration Claude ↔ Roo optimisée (2 cerveaux en parallèle)
-- Objectif : 3+ actions majeures par itération minimum
-
-### Workflow Recommandé
-
-1. **Début de session** : Demander un "tour de sync" → active le skill
-2. **Pendant le travail** : Les agents s'activent automatiquement selon le contexte
-3. **Tâches spécifiques** : Invoquer explicitement l'agent si besoin
-4. **Fin de session** : Tour de sync + commit si nécessaire
+**Workflow :**
+1. Debut de session → "tour de sync" (9 phases)
+2. Pendant → agents s'activent selon contexte
+3. Fin → `/debrief` + commit
 
 ---
 
-## ✅ État des MCPs (2026-02-06)
+## Etat des MCPs
 
-### ⚠️ VÉRIFICATION CRITIQUE AU DÉMARRAGE
+### Verification Critique au Demarrage
 
-**OBLIGATION :** Au début de CHAQUE session, vérifier que les outils MCP sont disponibles.
+**OBLIGATION :** Verifier que les outils MCP sont disponibles (system-reminders).
+Si ABSENTS : **REGRESSION CRITIQUE** → Reparer AVANT toute autre tache.
 
-**Comment vérifier :**
+**Checklist reparation :**
+1. Config : `Read ~/.claude.json` → section `mcpServers`
+2. Test : `cd mcps/internal/servers/roo-state-manager && node mcp-wrapper.cjs 2>&1 | head -50`
+3. Wrapper : Verifier correspondance avec registry.ts
+4. Redemarrer VS Code (MCPs chargent au demarrage uniquement)
 
-1. Les outils MCP sont listés automatiquement dans les system-reminders au début de la conversation
-2. Chercher les outils commençant par `roosync_` ou `mcp__`
-3. Si ABSENTS : **RÉGRESSION CRITIQUE** → Réparer immédiatement
+### MCPs Deployes (myia-ai-01)
 
-**Si les outils sont absents :**
+| MCP | Outils | Statut |
+|-----|--------|--------|
+| **roo-state-manager** | 36 (wrapper v4 pass-through) | Deploye |
+| **sk-agent** | 7 + deprecated aliases | Deploye (fix #482) |
+| **markitdown** | 1 (convert_to_markdown) | Deploye |
+| **win-cli** | 5 (local build 0.2.0) | Deploye |
+| **GitHub CLI** (`gh`) | N/A (CLI natif) | Operationnel |
 
-1. **Vérifier la config** : `Read ~/.claude.json` → section `mcpServers`
-2. **Tester le serveur** :
+### Configuration Claude Code
 
-   ```bash
-   cd mcps/internal/servers/roo-state-manager
-   node mcp-wrapper.cjs 2>&1 | head -50
-   ```
+| Niveau | Fichier | Portee |
+|--------|---------|--------|
+| Global utilisateur | `~/.claude/CLAUDE.md` | Tous les projets |
+| Projet | `CLAUDE.md` (racine) | Ce projet |
+| Auto-memoire | `~/.claude/projects/<hash>/memory/MEMORY.md` | Prive, local |
+| Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |
+| Rules | `.claude/rules/*.md` | Projet, auto-chargees |
 
-3. **Vérifier le wrapper** : Les outils filtrés doivent correspondre à registry.ts
-4. **Redémarrer VS Code** : Les MCPs sont chargés au démarrage uniquement
-5. **Si échec** : Créer issue GitHub haute priorité + alerter coordinateur
+### Configuration Roo
 
-**⚠️ RÈGLE :** Si tu détectes l'absence d'outils MCP, tu DOIS le réparer avant toute autre tâche.
-
-### 🚨 PRIORITÉ ABSOLUE : MCP Manquant = Réparer Immédiatement
-
-**RÈGLE (2026-02-17) :** Si un outil MCP attendu est absent, le réparer devient la **priorité absolue**.
-
-**Ne pas chercher de workaround sauf cas extrême.**
-
-**Checklist de réparation :**
-
-1. **Confirmer l'absence** : Vérifier les system-reminders (liste des outils disponibles)
-2. **Identifier la cause** :
-   - Config incorrecte (mauvais chemin, serveur non démarré)
-   - Wrapper obsolète (chemin `build/index.js` vs `mcp-wrapper.cjs`)
-   - alwaysAllow incomplet dans Roo settings
-3. **Réparer** :
-   - Corriger la configuration (`~/.claude.json` ou `mcp_settings.json`)
-   - Mettre à jour le wrapper si nécessaire
-   - Redémarrer VS Code (les MCPs chargent au démarrage uniquement)
-4. **Valider** : Vérifier que les outils sont disponibles après redémarrage
-
-**Cas typiques :**
-- Roo settings utilise `build/index.js` au lieu de `mcp-wrapper.cjs` → Corriger
-- alwaysAllow incomplet (ex: 37 entrées Roo mais seulement 36 dans ListTools) → Vérifier backward-compat aliases
-- Wrapper désactivé (`disabled: true`) → Réactiver
+- **MCP Settings global :** `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
+- **MCP Settings projet :** `.roo\mcp.json` (overrides)
+- **MAJ alwaysAllow :** `roosync_mcp_management(subAction: "sync_always_allow")`
+- **MAJ unitaire :** `roosync_mcp_management(subAction: "update_server_field")`
+- **Settings generaux :** Template `roo-config/settings/settings.json`, deploy via `deploy-settings.ps1`
 
 ---
 
-### Harmonisation Multi-Machines Complétée
+## Votre Role : Agent Claude Code
 
-**Harmonisation H2-H7 (issues #331-#336) :**
+### Hierarchie Claude <-> Roo
 
-- ✅ H2 (#331) - jupyter/jupyter-mcp → N/A (myia-web1 sans Jupyter)
-- ✅ H4 (#333) - github-projects-mcp → **DÉPRÉCIÉ**, remplacé par `gh` CLI (#368)
-- ✅ H5 (#334) - markitdown MCP → Ajouté à toutes les machines
-- 🔄 H6 (#335) - win-cli unbridled → En cours (myia-web1)
-- ✅ H7 (#336) - jupyter-mcp-old → N/A (pas de legacy config)
-
-### myia-ai-01 ✅ OPÉRATIONNEL
-
-**MCPs Déployés :**
-
-1. **GitHub CLI (`gh`)** - Remplace le MCP github-projects
-   - **Statut :** ✅ MIGRATION COMPLÈTE (issue #368)
-   - **Commande :** `gh issue`, `gh pr`, `gh api graphql`
-   - **Projet :** "RooSync Multi-Agent Tasks" (#67)
-   - **URL :** <https://github.com/users/jsboige/projects/67>
-   - **Note :** Le MCP github-projects-mcp est **DÉPRÉCIÉ** et remplacé par `gh` CLI
-   - **Règle :** Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md`
-
-2. **roo-state-manager** (35 outils - tous exposés)
-    - Configuration : `~/.claude.json` avec wrapper [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
-    - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17)
-    - **Solution :** Wrapper v4 pass-through (dédup + log suppression, sans filtrage)
-    - **Catégories d'outils (35 total) :**
-      - **Messagerie CONS-1 (3)** : roosync_send, roosync_read, roosync_manage
-      - **Lecture seule (4)** : get_status, list_diffs, compare_config, refresh_dashboard
-      - **Consolidés (5)** : config, inventory, baseline, machines, init
-      - **Décisions CONS-5 (2)** : roosync_decision, roosync_decision_info
-      - **Monitoring (3)** : heartbeat, sync_event, mcp_management
-      - **Diagnostic (4)** : analyze_roosync_problems, diagnose, storage_management, read_vscode_logs
-      - **Navigation (2)** : conversation_browser, task_export
-      - **Tâches (3)** : view_task_details, get_raw_conversation, task_export
-      - **Recherche (2)** : roosync_search, roosync_indexing
-      - **Export (2)** : export_data, export_config
-      - **MCP Management (5)** : storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices, touch_mcp_settings
-    - **Wrapper v4 :** [mcp-wrapper.cjs](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) dédup + log suppression (plus de filtrage)
-    - **MAJ :** 2026-02-17 - Validé cross-machine (#480), 35 outils Claude Code testés
-
-3. **sk-agent** (7 outils + deprecated aliases)
-   - Configuration : `~/.claude.json` avec wrapper PowerShell [run-sk-agent.ps1](mcps/internal/servers/sk-agent/run-sk-agent.ps1)
-   - **Statut :** ✅ DÉPLOYÉ ET FONCTIONNEL (2026-02-17, fix #482)
-   - **Outils principaux :** `call_agent`, `list_agents`, `list_conversations`, `run_conversation`, `list_tools`, `end_conversation`, `install_libreoffice`
-   - **Agents disponibles :** 11 (analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator)
-   - **Conversations :** 4 presets (deep-search, deep-think, code-review, research-debate)
-   - **MCP tools chargés :** searxng (2), playwright (22), TextMemoryPlugin (2)
-   - **Tests :** 109 unit + 35 functional
-   - **CRITICAL :** Wrapper stdout DOIT être 100% silencieux (fix #482 - Write-Host cassait le handshake MCP)
-
-4. **markitdown** (1 outil)
-   - Configuration : `~/.claude.json` (global)
-   - **Statut :** ✅ Ajouté lors de H5 (#334)
-   - **Outil :** `convert_to_markdown` - Convertir fichiers (PDF, DOCX, etc.) en markdown
-
-### myia-web1 ✅ EN COURS D'HARMONISATION
-
-**MCPs Déployés :**
-- ✅ GitHub CLI (`gh`) - remplace MCP github-projects (#368)
-- ✅ roo-state-manager (35 outils RooSync)
-- ✅ markitdown (1 outil) - Ajouté le 2026-01-21
-- 🔄 win-cli (en cours de déploiement)
-
-**MCPs N/A :**
-- N/A jupyter/jupyter-mcp (machine sans Jupyter)
-- N/A jupyter-mcp-old (pas de legacy config)
-
-### Autres machines (myia-po-2023, myia-po-2024, myia-po-2026)
-
-**Statut :** ✅ Bootstrap complété, harmonisation en cours
-
-**Action :**
-- Harmonisation H2-H7 en cours de déploiement sur toutes les machines
-
-### Fichiers de Configuration Claude Code (IMPORTANT)
-
-**Hiérarchie des fichiers CLAUDE.md (priorité croissante) :**
-
-| Niveau | Fichier | Portée | Synchronisation |
-|--------|---------|--------|-----------------|
-| **Global utilisateur** | `~/.claude/CLAUDE.md` | TOUS les projets de la machine | Inventaire + sync inter-machines |
-| **Projet** | `CLAUDE.md` (racine workspace) | Ce projet uniquement | Git (versionné) |
-| **Auto-mémoire projet** | `~/.claude/projects/<hash>/memory/MEMORY.md` | Ce projet, privé | Local uniquement (pas git) |
-
-- Le CLAUDE.md **global** (`~/.claude/CLAUDE.md`) contient les préférences utilisateur cross-projets (ex: définition de "consolider", conventions générales)
-- Le CLAUDE.md **projet** (`CLAUDE.md` à la racine) contient les instructions spécifiques au workspace
-- Les deux sont chargés automatiquement par Claude Code au début de chaque conversation
-- **OBLIGATION :** Toute préférence utilisateur qui s'applique à TOUS les projets doit aller dans le global, pas dans le projet
-
-**Autres fichiers Claude Code à surveiller :**
-
-| Fichier | Contenu | Synchronisation |
-|---------|---------|-----------------|
-| `~/.claude/settings.json` | Permissions, modèle par défaut, MCPs globaux Claude | Inventaire |
-| `~/.claude/CLAUDE.md` | Instructions globales utilisateur | Inventaire + sync |
-| `<projet>/.claude/rules/*.md` | Règles projet (testing, github-cli, etc.) | Git |
-| `<projet>/.claude/commands/*.md` | Slash commands projet | Git |
-| `<projet>/.claude/skills/*/SKILL.md` | Skills auto-invoqués | Git |
-
-### Fichiers de Configuration Roo (IMPORTANT)
-
-**Settings MCP Roo (auto-approbation des outils) :**
-- **Global :** `C:\Users\MYIA\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
-- **Projet :** `.roo\mcp.json` (overrides par projet, actuellement vide)
-- **Priorité :** Projet > Global (les settings projet écrasent les globaux)
-- Chaque MCP a une liste `alwaysAllow` qui doit contenir TOUS les outils nécessaires au scheduler
-- **Outil programmatique :** `roosync_mcp_management(subAction: "sync_always_allow")` pour MAJ automatique
-- **MAJ unitaire sûre :** `roosync_mcp_management(subAction: "update_server_field")` pour modifier un champ sans écraser le reste
-
-**Settings globaux Roo (auto-approbation générale) :**
-- **Template :** `roo-config/settings/settings.json` (source git)
-- **Déployé :** Via `roo-config/settings/deploy-settings.ps1`
-- **Clés critiques :** `autoApprovalEnabled`, `alwaysAllowExecute`, `alwaysAllowMcp`, `alwaysAllowSubtasks`
-
----
-
-## 🤖 Votre Rôle : Agent Claude Code
-
-### Hiérarchie Claude ↔ Roo
-
-**⚠️ RÈGLE FONDAMENTALE : Claude Code DIRIGE, Roo ASSISTE.**
-
-**Claude Code est le cerveau principal.** Roo est un assistant polyvalent mais moins puissant et moins fiable.
+**REGLE FONDAMENTALE : Claude Code DIRIGE, Roo ASSISTE.**
 
 | Aspect | Claude Code | Roo |
 |--------|-------------|-----|
-| **Intelligence** | Plus puissant (Opus 4.5) | Moins puissant (modèle variable) |
-| **Vitesse** | Rapide | Plus lent |
-| **Fiabilité** | Élevée | Moyenne (erreurs possibles) |
-| **Autonomie** | Décisions critiques | Exécution supervisée |
-| **Code** | **Tout, y compris critique** | Code simple, **VALIDÉ par Claude** |
-| **Orchestration** | Coordination globale | Tâches longues/répétitives |
-| **Validation** | Auto-validation + esprit critique | Travail de Roo TOUJOURS revalidé |
+| Intelligence | Plus puissant (Opus 4.6) | Moins puissant (variable) |
+| Fiabilite | Elevee | Moyenne |
+| Code | Tout, y compris critique | Simple, VALIDE par Claude |
+| Orchestration | Coordination globale | Taches longues/repetitives |
 
-### ✅ Claude Peut Tout Faire
+### Claude fait :
+- Implementation de code (features, fixes, refactoring)
+- Investigation de bugs et analyse de code
+- Decisions d'architecture
+- Resolution de conflits git
+- Validation et correction du travail de Roo
 
-**Capacités Techniques COMPLÈTES :**
-- **Investigation bugs** : Lire le code, tracer les erreurs, identifier les causes racines
-- **Analyse de code** : Comprendre l'architecture, comparer implémentations
-- **Exécution tests** : `npx vitest run` (PAS `npm test` qui bloque en mode watch), diagnostiquer les erreurs, valider les fixes
-- **Écriture de code** : Fixes, features, refactoring - TOUT niveau de complexité
-- **Build** : Compiler, valider, identifier erreurs TypeScript
-- **Modification `mcps/internal/`** : Oui, avec tests de validation
+### Roo fait (sous supervision) :
+- Tests (`npx vitest run`), build (`npm run build`)
+- Scripts prepares par Claude
+- Taches repetitives, documentation simple
 
-**Coordination :**
-- **Documentation** : Consolidation, nettoyage, indexation
-- **GitHub** : Issues, Projects #67/#70, traçabilité
-- **RooSync** : Messages inter-machines
-- **INTERCOM** : Communication locale avec Roo
+### Regles critiques
 
-**Outils :** Read, Grep, Glob, Bash, Edit, Write, Git
-
-### 🔄 Utiliser Roo Comme Assistant
-
-**Claude prend les tâches complexes et critiques. Roo prend les tâches accessoires.**
-
-**Roo est utile pour :**
-- ✅ Lancer des tests (`npx vitest run`)
-- ✅ Vérifier le build (`npm run build`)
-- ✅ Lancer des scripts préparés par Claude
-- ✅ Tâches répétitives (bulk operations simples)
-- ✅ Documentation simple (copier/coller formatage)
-
-**Claude garde pour lui :**
-- 🎯 Implémentation de code (features, fixes, refactoring)
-- 🎯 Investigation de bugs et analyse de code
-- 🎯 Décisions d'architecture
-- 🎯 Consolidation d'outils (comme CONS-8)
-- 🎯 Résolution de conflits git
-- 🎯 Validation et correction du travail de Roo
-
-**⚠️ VALIDATION OBLIGATOIRE du travail de Roo :**
 - **TOUJOURS** relire les modifications de Roo avant commit
-- **TOUJOURS** valider la logique des changements avec esprit critique
-- **TOUJOURS** corriger les erreurs subtiles (imports, types, logique)
-- **JAMAIS** faire confiance aveuglément au code de Roo
+- **JAMAIS** faire confiance aveuglement au code de Roo
+- **JAMAIS** rester inactif en attente de travail (consulter GitHub #67, RooSync, INTERCOM)
+- **JAMAIS** deleguer l'implementation de code critique a Roo
 
-### ❌ À NE PAS FAIRE (CRITIQUE)
+### Contrainte cle
 
-- ❌ **Déléguer l'implémentation de code à Roo** - Claude doit coder les features/fixes
-- ❌ **Confier les tâches critiques à Roo sans supervision**
-- ❌ **Se contenter de coordonner** - Claude doit prendre les tâches les plus dures
-- ❌ **Supposer que le code de Roo est correct** - TOUJOURS valider avec esprit critique
-- ❌ **Attendre passivement les instructions de Roo** - C'est l'inverse : Claude dirige
-- ❌ **Rester inactif en attente de travail** - JAMAIS en attente passive (voir règle ci-dessous)
-- ❌ **Faire confiance aveuglément** - Validation critique obligatoire des deux côtés
-
-### 🚨 RÈGLE ANTI-ATTENTE PASSIVE (NOUVEAU 2026-02-06)
-
-**SI tu termines une tâche et n'as rien à faire : C'EST UNE ERREUR.**
-
-**Checklist obligatoire après chaque tâche :**
-
-1. ✅ **Analyser les tâches disponibles** : Consulter GitHub Project #67, RooSync messages, INTERCOM
-2. ✅ **Prendre l'initiative** : Choisir une tâche substantielle (investigation, features, consolidation)
-3. ✅ **Si tâche trop petite** : En prendre plusieurs OU demander une plus grosse au coordinateur
-4. ✅ **Aider Roo** : Si Roo travaille sur une grosse tâche, proposer assistance (investigation, validation)
-5. ✅ **Signaler le problème** : Si vraiment rien à faire, envoyer message RooSync au coordinateur
-
-**Signes d'erreur d'équilibrage :**
-
-- Tu termines une tâche en <1h alors que Roo a une tâche de plusieurs heures
-- Tu te retrouves à "attendre des instructions"
-- Tu n'as qu'une petite tâche de cleanup alors que du code complexe est à écrire
-- Roo fait de l'implémentation critique pendant que tu documentes
-
-**Action corrective immédiate :**
-
-1. **Message RooSync** au coordinateur pour signaler le déséquilibre
-2. **Prendre le relais** sur la tâche complexe (investigation, analyse, proposition de solution)
-3. **Mettre à jour CLAUDE.md** si les règles ne sont pas claires
-4. **Valider le travail de Roo** avec esprit critique si déjà en cours
-
-**Exemple d'équilibrage correct :**
-
-- **Claude** : CONS-10 Phase 4 (investigation E2E tests + implémentation) = plusieurs heures
-- **Roo** : CLEANUP-2 (retrait 3 outils) + validation build/tests = <1h
-
-**Exemple d'équilibrage INCORRECT (à corriger) :**
-
-- **Claude** : CLEANUP-2 (retrait 3 outils) = <1h, puis attente ❌
-- **Roo** : CONS-10 Phase 4 (investigation E2E tests) = plusieurs heures
-
-**Responsabilité :** Claude doit prendre le gros du travail technique. Roo est l'assistant.
-
-### ⚠️ CONTRAINTE CLÉ
-
-**Vous n'avez PAS accès à votre historique de conversation.**
-
-Utilisez :
-- **GitHub Issues** comme "mémoire externe"
+Pas d'acces a l'historique de conversation. Utiliser :
+- **GitHub Issues** comme memoire externe
 - **RooSync** pour la coordination inter-machine
-- **INTERCOM** pour la coordination locale (même machine)
+- **INTERCOM** pour la coordination locale
 
 ---
 
-## 🔄 Canaux de Communication
+## Canaux de Communication
 
 ### 1. RooSync (Inter-Machine) - CLAUDE CODE UNIQUEMENT
 
-**Objectif :** Coordination entre les 6 machines
+**REGLE ABSOLUE : Roo n'utilise JAMAIS RooSync.**
 
-**REGLE ABSOLUE (2026-02-11) : Roo n'utilise JAMAIS RooSync.**
-- RooSync = EXCLUSIVEMENT Claude Code inter-machine
-- Roo communique avec Claude via INTERCOM local uniquement
-- Enforcement : workflows + regles `.roo/rules/03-mcp-usage.md` (technique : #454)
-
-**Outils MCP (CONS-1) :**
-- `roosync_send` - Envoyer/répondre/amender message (action: send|reply|amend)
+Outils MCP (CONS-1) :
+- `roosync_send` - Envoyer/repondre/amender (action: send|reply|amend)
 - `roosync_read` - Lire inbox/message (mode: inbox|message)
-- `roosync_manage` - Gérer messages (action: mark_read|archive)
+- `roosync_manage` - Gerer messages (action: mark_read|archive)
 
-**Legacy (backward compat, non exposés dans wrapper) :**
-- `roosync_send_message`, `roosync_read_inbox`, `roosync_reply_message`
-- `roosync_get_message`, `roosync_mark_message_read`, `roosync_archive_message`
+Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
-**Fichier :** `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
+### 2. INTERCOM (Locale Claude Code <-> Roo)
 
-**Documentation :** [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
+Fichier : `.claude/local/INTERCOM-{MACHINE_NAME}.md`
+Documentation : [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
+Types : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
 
-### 2. INTERCOM (Locale Claude Code ↔ Roo)
+### 3. GitHub Issues
 
-**Objectif :** Coordination locale sur la même machine
+Projet : "RooSync Multi-Agent Tasks" (#67)
+URL : https://github.com/users/jsboige/projects/67
+Format : `[CLAUDE-MACHINE] Titre` + labels
 
-**Fichier :** `.claude/local/INTERCOM-{MACHINE_NAME}.md`
+### 4. Scheduler Roo
 
-**Documentation :** [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
+**Reference complete :** [`.claude/rules/scheduler-system.md`](.claude/rules/scheduler-system.md)
 
-**Protocole :**
-1. Vérifier les messages de l'autre agent au démarrage
-2. Envoyer message : Ouvrir fichier → Ajouter message → Sauvegarder
-3. Format : Markdown avec horodatage
+Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 familles x 2 niveaux), escalade automatique.
 
-```markdown
-## [2026-01-09 10:00:00] claude-code → roo [TASK]
-Merci de tester le module X.
+### 5. Feedback
 
----
-```
-
-**Types de messages :** `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
-
-### 3. GitHub Issues (Traçabilité)
-
-**Objectif :** Suivi des tâches multi-agent
-
-**Projet :** "RooSync Multi-Agent Tasks"
-- URL : https://github.com/users/jsboige/projects/67
-- ~141 items (vérifié 2026-02-11, augmente régulièrement)
-
-**Format des issues :**
-```
-Titre: [CLAUDE-MACHINE] Titre de la tâche
-Labels: claude-code, priority-X
-```
-
-### 4. Tâches Planifiées Roo (Scheduler) - DOCUMENTATION COMPLÈTE
-
-**Objectif :** Système de planification automatique pour Roo avec exécution périodique de tâches de maintenance
-
-#### Architecture du Système
-
-**Composants :**
-
-1. **Extension Roo Scheduler** (`kylehoskins.roo-scheduler`)
-   - Extension VS Code qui lit `.roo/schedules.json`
-   - Exécute les tâches selon l'intervalle configuré
-   - Enregistre les traces dans `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks`
-
-2. **Configuration Scheduler**
-   - **Template** : `.roo/schedules.template.json` (source générique)
-   - **Déployé** : `.roo/schedules.json` (personnalisé par machine)
-   - **Format** : Roo Scheduler natif (scheduleType, timeInterval, taskInstructions, etc.)
-
-3. **Modes Roo** (orchestrateurs)
-   - **Source** : `roo-config/modes/modes-config.json` (données structurées)
-   - **Template** : `roo-config/modes/templates/commons/mode-instructions.md` (instructions)
-   - **Généré** : `roo-config/modes/generated/simple-complex.roomodes` (10 modes)
-   - **Déployé** : `.roomodes` (copié à la racine du workspace)
-
-#### Workflow de Génération et Déploiement
-
-##### 1. Modes Roo (10 modes : 5 familles × 2 niveaux)
-
-**Génération automatique :**
-
-```bash
-# Dans roo-extensions/
-node roo-config/scripts/generate-modes.js
-```
-
-**Ce script :**
-- Lit `roo-config/modes/modes-config.json` (5 familles : code, debug, architect, ask, orchestrator)
-- Lit `roo-config/modes/templates/commons/mode-instructions.md` (template avec {{VAR}})
-- Génère `roo-config/modes/generated/simple-complex.roomodes` (10 modes)
-- Applique le template pour chaque famille×niveau avec variables :
-  - `{{FAMILY}}`, `{{LEVEL}}`, `{{ESCALATION_CRITERIA}}`, `{{ADDITIONAL_INSTRUCTIONS}}`, etc.
-  - Conditions `{{#if NO_COMMAND}}`, `{{#if NO_EDIT}}` pour restrictions
-- Taille : ~30 KB, 10 modes JSON
-
-**Déploiement manuel :**
-
-```powershell
-# Copier vers .roomodes
-Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
-```
-
-**⚠️ IMPORTANT :** Les modes NE doivent PAS être modifiés à la main dans `.roomodes`. Toute modification doit être faite dans `modes-config.json` ou le template, puis régénérée.
-
-**Améliorations récentes (commit 07706f0, 2026-02-10) :**
-- Ajout section `additionalInstructions` pour orchestrateurs (lignes 111-132 de modes-config.json)
-- Instructions SDDD : délégation via `new_task`, prompts complets (grounding + tâche + validation + résumé)
-- **Correctif critique** : "NE JAMAIS faire le travail toi-même : TOUJOURS déléguer"
-
-##### 2. Scheduler (Configuration)
-
-**Déploiement automatisé :**
-
-```powershell
-# Dans roo-extensions/
-.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy
-```
-
-**Ce script (`deploy-scheduler.ps1`) :**
-- Lit `.roo/schedules.template.json`
-- Remplace `${MACHINE_NAME}` par `$env:COMPUTERNAME.ToLower()`
-- Remplace `TEMPLATE_ID` par timestamp unique `[DateTimeOffset]::Now.ToUnixTimeMilliseconds()`
-- Supprime `_template_note` de chaque schedule
-- Sauvegarde en UTF-8 **sans BOM** dans `.roo/schedules.json` (fix commit a4c2178)
-- VS Code Roo Scheduler charge automatiquement la nouvelle config
-
-**Corrections récentes (commits 195af59 + a4c2178, 2026-02-10) :**
-- ✅ Fix UTF-8 sans BOM (BOM casse le parsing JSON de Roo Scheduler)
-- ✅ Fix `_template_note` removal (itère maintenant sur schedules, pas root)
-- ✅ Fix `enabled` → `active` (3 occurrences)
-- ✅ Fix vérification extension (remplace obsolete orchestration-engine.ps1)
-
-**Paramètres de production :**
-- **Intervalle** : 180 minutes (3h) entre chaque exécution
-- **Staggering** : startMinute différent par machine (éviter surcharge LLM simultanée)
-  - myia-ai-01: 00, myia-po-2023: 30, myia-po-2024: 00, myia-po-2025: 30, myia-po-2026: 00, myia-web1: 30
-- **Mode** : `orchestrator-simple` (délègue aux modes `-simple` via `new_task`)
-
-**Commandes utiles :**
-
-```powershell
-# Désactiver le scheduler
-.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action disable
-
-# Vérifier le statut
-.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action status
-```
-
-#### Workflow d'une Exécution Scheduler
-
-**Template actuel (après corrections 2026-02-10) :**
-
-1. **Étape 1** : Lire l'INTERCOM local (`.claude/local/INTERCOM-${MACHINE_NAME}.md`)
-   - Chercher messages [SCHEDULED], [TASK], [URGENT] de Claude Code
-
-2. **Étape 2** : Vérifier l'état du workspace
-   - `git status` : changements non commités ?
-   - Si dirty : NE PAS commiter, signaler dans rapport
-
-3. **Étape 3** : Exécuter les tâches
-   - **DÉLÉGUER via `new_task`** aux modes `-simple` ou `-complex`
-   - **NE JAMAIS faire le travail soi-même**
-   - Si complexe : escalader vers `orchestrator-complex`
-
-4. **Étape 4** : Rapporter dans l'INTERCOM LOCAL
-   - **Utiliser `write_file` (ou `edit_file`)** pour écrire dans `.claude/local/INTERCOM-${MACHINE_NAME}.md`
-   - **NE PAS utiliser `roosync_send`** (c'est pour inter-machines, pas local)
-   - Format : `## [{DATE}] roo -> claude-code [DONE]`
-
-5. **Étape 5** : Ne PAS commiter
-   - Claude Code valide le travail lors du prochain tour
-   - Commits sont responsabilité de Claude Code
-
-6. **Étape 6** : Maintenance INTERCOM (si >1000 lignes)
-   - Condenser 600 premières lignes → ~100 lignes (synthèse)
-   - Garder 400 dernières lignes intactes
-   - Résultat : ~500 lignes
-
-#### Mécanisme d'Escalade Simple → Complex
-
-**Documentation complète :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) (créé 2026-02-12)
-
-Le système Roo dispose d'un mécanisme d'escalade **automatique** et **intelligent** sur 3 couches :
-
-1. **Couche Scheduler** : `orchestrator-simple` évalue la complexité et escalade vers `orchestrator-complex` si nécessaire (6 critères)
-2. **Couche Modes Individuels** : Chaque mode worker (`code`, `debug`, `architect`, `ask`) escalade vers son niveau `-complex` si la tâche dépasse ses capacités (4 critères par mode)
-3. **Couche Orchestrateurs** : Instructions SDDD détaillées pour délégation via `new_task`, gestion des échecs, routage inter-famille
-
-**Principe :** Commencer simple (modèle économique), escalader si nécessaire (modèle puissant).
-
-**Roadmap Autonomie Progressive (#462) :**
-
-| Niveau | Statut | Description |
-|--------|--------|-------------|
-| **Niveau 1 : Roo Simple** | ✅ ACTUEL | Tâches `-simple` uniquement (git status, build, tests, cleanup) |
-| **Niveau 2 : Roo Complex** | 🔄 EN COURS | Tâches `-complex` avec validation Claude (investigation, fixes, refactoring) |
-| **Niveau 3 : Claude INTERCOM** | 📋 PLANIFIÉ | Claude Code lit INTERCOM au démarrage et exécute tâches assignées |
-| **Niveau 4 : Claude Scheduled** | 🔮 FUTUR | Claude Code schedulé automatiquement (dépend de solution Ralph) |
-| **Niveau 5 : Autonomie complète** | 🌟 VISION | Collaboration continue avec worktrees, PRs, monitoring proactif |
-
-**Impact GLM 5 (déployé 2026-02-12) :**
-- Modèle quasiment niveau Opus → Taux de succès `-complex` attendu **80-90%** (vs 50-70% avant)
-- Nouveaux cas d'usage : Investigation bugs complexes, corrections non-triviales, analyse architecturale, synthèse cross-domaine
-- **Niveau 2 prêt** : Scheduler Roo peut maintenant solliciter des tâches corriaces avec confiance
-
-**Métriques de Validation Niveau 2 (cibles) :**
-- Taux de succès `-simple` : >90%
-- Taux de succès `-complex` : >80%
-- Taux d'escalade approprié : 70-85%
-- Taux d'échecs répétés : <5%
-- Rollback automatiques : <10%
-
-**Plan de Test Phase A (Investigation) :**
-Voir [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md) pour 5 scénarios de test détaillés.
+**Reference :** [`.claude/rules/feedback-process.md`](.claude/rules/feedback-process.md)
 
 ---
 
-#### Traces d'Exécution
+## Structure du Depot
 
-**Chemin :** `C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\{TASK_ID}`
-
-**Fichiers par tâche :**
-- `api_conversation_history.json` - Historique complet (requêtes/réponses API)
-- `task_metadata.json` - Métadonnées (createdAt, lastActivity, messageCount, actionCount)
-- `ui_messages.json` - Messages UI condensés (rapide à lire)
-
-**Vérification régulière (Issue #447) :**
-- Consulter traces après chaque run (~3h)
-- Analyser problèmes de délégation (orchestrateur fait au lieu de déléguer)
-- Identifier erreurs (utilisation roosync_send au lieu de write_file, outils inexistants)
-- Reporter anomalies dans INTERCOM ou RooSync
-
-#### Workflow d'Amélioration du Système
-
-**1. Identifier le problème**
-   - Lire traces d'exécution (`ui_messages.json` ou `api_conversation_history.json`)
-   - Identifier pattern d'erreur (ex: demande utilisateur au lieu de `new_task`)
-
-**2. Corriger à la source**
-
-   **Pour instructions orchestrateur :**
-   - Modifier `roo-config/modes/modes-config.json` (section `additionalInstructions`)
-   - Régénérer : `node roo-config/scripts/generate-modes.js`
-   - Copier : `Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes`
-
-   **Pour workflow scheduler :**
-   - Modifier `.roo/schedules.template.json` (source unique)
-   - Redéployer : `.\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action deploy`
-
-**3. Tester localement**
-   - Attendre prochaine exécution du scheduler (vérifier `nextExecutionTime` dans `.roo/schedules.json`)
-   - Ou relancer manuellement via Roo extension
-
-**4. Déployer sur toutes les machines**
-   - Commit + push les changements (`modes-config.json` ou `schedules.template.json`)
-   - Chaque machine pull + redéploie avec scripts
-
-#### Historique des Corrections Importantes
-
-| Date | Commit | Correction |
-|------|--------|-----------|
-| 2026-02-10 | 07706f0 | Ajout instructions SDDD orchestrateurs (délégation `new_task`) |
-| 2026-02-10 | 195af59 | Fix 4 bugs deploy-scheduler.ps1 (_template_note, enabled→active, etc.) |
-| 2026-02-10 | a4c2178 | Fix UTF-8 sans BOM (parsing JSON Roo Scheduler) |
-| 2026-02-10 | **LOCAL** | Fix Étape 4 : utiliser write_file au lieu de roosync_send |
-| 2026-02-09 | 1f6806f | Ajout Étape 6 maintenance INTERCOM (compaction >1000 lignes) |
-| 2026-02-09 | 6933a2f | Réécriture template format Roo Scheduler natif + Étape 6 |
-| 2026-02-11 | 02965868 | Retrait RooSync des workflows Roo (REGLE ABSOLUE) |
-| 2026-02-11 | b1ab272d | Fix ordre chronologique INTERCOM (ajout A LA FIN) |
-| 2026-02-12 | 10d68dc6 | Creation 4 skills reutilisables (validate, git-sync, github-status) |
-| 2026-02-12 | bd8e5b94 | Fix machineId case-sensitive (toLowerCase dans 3 fichiers, #460) |
-
-#### Fichiers Sources (Ne Jamais Modifier Manuellement les Cibles)
-
-| Source (à modifier) | Générateur/Déployeur | Cible (généré) |
-|---------------------|----------------------|----------------|
-| `roo-config/modes/modes-config.json` | `roo-config/scripts/generate-modes.js` | `roo-config/modes/generated/simple-complex.roomodes` |
-| `roo-config/modes/templates/commons/mode-instructions.md` | (idem) | (idem) |
-| `roo-config/modes/generated/simple-complex.roomodes` | Copie manuelle | `.roomodes` |
-| `.roo/schedules.template.json` | `roo-config/scheduler/scripts/install/deploy-scheduler.ps1` | `.roo/schedules.json` |
-
-**⚠️ RÈGLE ABSOLUE :** Ne JAMAIS modifier directement `.roomodes` ou `.roo/schedules.json`. Toujours modifier les sources et régénérer.
-
----
-
-### 5. Processus de Feedback et Amélioration Continue
-
-**Objectif :** Améliorer les workflows (commands/skills/agents) basé sur l'expérience terrain
-
-**Principe :** Évolution prudente et collective pour éviter le feature creep
-
-**Workflow de proposition :**
-
-1. **Identification** (n'importe quel agent Claude)
-   - Repérer un problème/friction dans le workflow actuel
-   - Documenter l'expérience concrète qui pose problème
-   - Proposer une amélioration spécifique et minimaliste
-
-2. **Consultation collective** (via RooSync)
-   - Envoyer message RooSync à `to: "all"` avec:
-     - Sujet: `[FEEDBACK] Amélioration proposée: <titre court>`
-     - Contexte de l'expérience terrain
-     - Proposition concrète
-     - Risques de feature creep identifiés
-   - Demander avis critique des autres agents (24-48h)
-
-3. **Collecte des retours**
-   - Chaque agent peut répondre avec son opinion
-   - Focus sur: "Est-ce vraiment nécessaire?" et "Risques?"
-   - Les agents servent de garde-fou contre le feature creep
-
-4. **Décision finale** (coordinateur myia-ai-01)
-   - Synthétiser les retours
-   - Décision: APPROUVER / REJETER / MODIFIER
-   - Si approuvé: créer issue GitHub pour traçabilité
-   - Documenter la décision dans le thread RooSync
-
-**Critères d'approbation :**
-- ✅ Résout un problème réel rencontré (pas théorique)
-- ✅ Solution minimale et ciblée
-- ✅ Pas de complexité excessive
-- ✅ Consensus ou majorité des agents
-- ❌ Rejet si: feature creep, complexité, problème théorique
-
-**Exemple de message RooSync :**
-```markdown
-Subject: [FEEDBACK] Amélioration sync-tour: Phase validation GitHub
-Priority: MEDIUM
-Tags: feedback, workflow-improvement
-
-Contexte: Lors de mes 3 derniers sync-tours, j'ai dû manuellement vérifier
-les issues fermées car la Phase 5 ne détectait pas les items marqués Done.
-
-Proposition: Ajouter un check automatique des incohérences
-(item Done sur GitHub mais issue Open).
-
-Risques identifiés:
-- Complexité accrue si on essaie de tout détecter
-- Peut ralentir la Phase 5
-
-Solution minimale: Ajouter 1 seule vérification pour le cas le plus fréquent.
-
-Qu'en pensez-vous? Est-ce vraiment nécessaire?
-```
-
-**Documentation des améliorations :**
-- Issue GitHub avec label `workflow-improvement`
-- MAJ du fichier concerné (.claude/commands/, skills/, agents/)
-- Note dans CLAUDE.md section "Leçons Apprises"
-
----
-
-## 📋 Structure du Dépôt
-
-### Documentation Principale
 ```
 .claude/
-├── README.md              # Point d'entrée (court)
-├── INDEX.md               # Table des matières détaillée
-├── CLAUDE.md              # Ce fichier
-├── CLAUDE_CODE_GUIDE.md   # Méthodologie SDDD complète
-├── MCP_SETUP.md           # Guide configuration MCP
-├── INTERCOM_PROTOCOL.md   # Protocole communication locale
-├── agents/                # 🆕 Subagents spécialisés
-│   ├── coordinator/
-│   │   ├── roosync-hub.md           # Messages RooSync (coordinateur)
-│   │   └── dispatch-manager.md      # Assignment tâches
-│   ├── executor/
-│   │   ├── roosync-reporter.md      # Messages RooSync (exécutants)
-│   │   └── task-worker.md           # Exécution tâches
-│   ├── workers/
-│   │   ├── code-fixer.md             # Investigation et correction bugs
-│   │   ├── consolidation-worker.md   # Consolidation CONS-X
-│   │   ├── doc-updater.md            # MAJ documentation
-│   │   └── test-investigator.md      # Investigation tests
-│   ├── github-tracker.md       # GitHub Project #67
-│   ├── git-sync.md             # Pull/merge conservatif
-│   ├── test-runner.md          # Build + tests
-│   ├── task-planner.md         # Ventilation 5×2 agents
-│   ├── intercom-handler.md     # Communication locale Roo
-│   └── code-explorer.md        # Exploration codebase
-├── memory/                # Mémoire projet partagée (via git)
-│   └── PROJECT_MEMORY.md       # Connaissances partagées multi-machines
-├── skills/                # Skills auto-invoqués
-│   └── sync-tour/SKILL.md
-├── commands/              # Slash commands
-│   └── switch-provider.md
-├── scripts/               # Scripts d'initialisation
-│   └── init-claude-code.ps1
-└── local/                 # Communication locale (gitignored)
-    └── INTERCOM-myia-ai-01.md
-```
+  rules/              # Regles auto-chargees (testing, github-cli, scheduler, agents, etc.)
+  agents/             # Subagents specialises (coordinator/, executor/, workers/)
+  skills/             # Skills auto-invoques (sync-tour, validate, git-sync, etc.)
+  commands/           # Slash commands (coordinate, executor, switch-provider, debrief)
+  memory/             # Memoire partagee (PROJECT_MEMORY.md)
+  local/              # Communication locale gitignored (INTERCOM)
 
-### Documentation Technique (consolide #435 + contenu : 10 repertoires actifs)
+docs/                 # Documentation technique perenne (10 repertoires actifs)
 
-```
-docs/
-├── architecture/     # Architecture systeme, designs, analyses (+archive/)
-├── archive/          # Contenu historique/obsolete (git, guides, deployment v2.1)
-├── deployment/       # Deploiement, hardware (2 docs actifs)
-├── dev/              # Debugging, encoding, fixes, tests, refactoring (+archives locales)
-├── guides/           # Guides utilisateur, installation, depannage MCP unifie
-├── knowledge/        # Base de connaissances (WORKSPACE_KNOWLEDGE.md)
-├── mcp/              # Documentation MCP roo-state-manager (+archive/)
-├── roo-code/         # Documentation Roo Code, PRs, ADR
-├── roosync/          # Protocoles RooSync v2.3, guides agents (+archive/)
-├── suivi/            # Suivi projet actif, monitoring (+archive/)
-├── INDEX.md          # Table des matieres v5.0
-└── README.md
-```
-
-### Code Source
-```
 mcps/
-├── internal/servers/
-│   ├── roo-state-manager/               # ✅ DÉPLOYÉ (avec wrapper)
-│   └── github-projects-mcp/             # ⚠️ DÉPRÉCIÉ - Utiliser gh CLI (#368)
-└── external/                             # MCPs externes (12 serveurs)
+  internal/servers/   # roo-state-manager (TS) + sk-agent (Python)
+  external/           # MCPs externes (12 serveurs)
 ```
 
 ---
 
-## 🚀 Pour Démarrer une Nouvelle Tâche
+## Pour Demarrer une Nouvelle Tache
 
-### 1. Vérifier l'environnement
-
-```powershell
-# Identifier la machine
-$env:COMPUTERNAME
-
-# Vérifier les MCP disponibles
-# (Les outils MCP sont listés au démarrage de la conversation)
-```
-
-### 2. Lire la documentation
-
-- [`.claude/INDEX.md`](.claude/INDEX.md) - Carte complète
-- [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md) - Configuration MCP
-- [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md) - Méthodologie SDDD
-
-### 3. Vérifier les communications
-
-**RooSync :**
-```bash
-roosync_read  # Vérifier les messages inter-machines (mode: inbox)
-```
-
-**INTERCOM :**
-```bash
-# Ouvrir .claude/local/INTERCOM-{MACHINE}.md
-# Chercher messages récents de Roo
-```
-
-**GitHub :**
-```bash
-# Vérifier les issues récentes avec label "claude-code"
-```
-
-### 4. Annoncer son travail (anti-conflit)
-
-**OBLIGATOIRE avant de commencer toute tache significative.**
-
-**Pourquoi :** Eviter les conflits git et le travail en double quand plusieurs agents/machines travaillent sur les memes fichiers.
-
-**Comment :**
-
-1. **INTERCOM local** : Ajouter un message dans `.claude/local/INTERCOM-{MACHINE}.md` indiquant :
-   - Les taches prises en charge (numeros d'issues)
-   - Les fichiers/zones impactes
-   - Demande de ne pas modifier ces zones en parallele
-
-2. **RooSync** (si disponible) : Envoyer un message `roosync_send` a `to: "all"` avec :
-   - Sujet : `[WORK] Taches en cours sur {MACHINE}`
-   - Liste des taches et fichiers impactes
-
-3. **GitHub** : Commenter les issues prises en charge pour signaler le travail en cours
-
-**Exemple INTERCOM :**
-
-```markdown
-## [TIMESTAMP] claude-code → roo [INFO]
-### Session active - Taches en cours
-- #435 - Consolidation docs/ (fichiers impactes: docs/*)
-- Merci de ne pas modifier ces zones en parallele.
-```
-
-### 5. Creer une issue de tracabilite
-
-**OBLIGATOIRE pour toute tâche significative.**
-
-Format :
-```
-Titre: [CLAUDE-MACHINE] Description de la tâche
-Labels: claude-code, priority-<HIGH|MEDIUM|LOW>
-Body:
-- Contexte: ...
-- Objectifs: ...
-- Livrables: ...
-```
-
-### 6. Travailler et documenter
-
-- **Attendez-vous** à ce qui est réellement disponible, pas à ce qui devrait l'être
-- **Testez** les MCPs avant de les utiliser
-- **Documentez** la réalité, pas les hypothèses
-- **Communiquez** via RooSync, INTERCOM et GitHub
+1. **Verifier MCP** : Outils disponibles dans system-reminders
+2. **Lire doc** : INDEX.md, MCP_SETUP.md, CLAUDE_CODE_GUIDE.md
+3. **Communications** : RooSync inbox + INTERCOM local + GitHub issues
+4. **Annoncer** : INTERCOM local + RooSync `[WORK]` + commentaire GitHub
+5. **Issue GitHub** : Obligatoire pour toute tache significative
+6. **Travailler** : Tester les MCPs, documenter la realite
 
 ---
 
-## 🎯 Contexte Actuel
+## Contexte Actuel
 
-**⚠️ IMPORTANT** : L'état actuel du projet change quotidiennement.
+**L'etat change quotidiennement. Consulter dans cet ordre :**
+1. `git log --oneline -10`
+2. GitHub Project #67
+3. GitHub Issues ouvertes
+4. INTERCOM local
+5. SUIVI_ACTIF.md (peut etre obsolete)
 
-**Pour l'état à jour, consulter dans cet ordre :**
+### Contraintes
 
-1. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
-2. **GitHub Project #67** : https://github.com/users/jsboige/projects/67 - Avancement global (% Done)
-3. **GitHub Issues** : Issues ouvertes et en cours
-4. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo
-5. **SUIVI_ACTIF.md** : [`docs/suivi/RooSync/SUIVI_ACTIF.md`](docs/suivi/RooSync/SUIVI_ACTIF.md) - Résumé minimal (peut être obsolète)
+- NE PAS supposer que les MCPs sont disponibles - tester
+- NE PAS inventer de workflows - tester ce qui marche
+- Documenter la realite, pas les hypotheses
+- Validation utilisateur OBLIGATOIRE avant creer issues GitHub
 
-**Organisation bicéphale confirmée :**
-- **Claude Code (myia-ai-01)** : Git, GitHub Projects, RooSync, Documentation, Coordination
-- **Roo (toutes machines)** : Tâches techniques (bugs, features, tests, builds)
+### Checklist de Validation Technique
 
-### Contraintes Critiques
-
-- **NE PAS supposer que les MCPs sont disponibles** - tester d'abord
-- **Utiliser les outils natifs Claude Code** - Read, Grep, Bash, Git
-- **NE PAS inventer de workflows** - tester ce qui fonctionne réellement
-- **Documenter la réalité** - ce qui est vérifié, pas ce qui est supposé
-- **PAS de nouvelles fonctionnalités** - Focus déploiement et stabilisation
-
-### ⚠️ Validation Utilisateur OBLIGATOIRE
-
-**AVANT de créer une nouvelle tâche GitHub (#67 ou #70) :**
-1. Présenter la tâche proposée à l'utilisateur
-2. Expliquer pourquoi elle est nécessaire
-3. Attendre validation explicite
-4. Seulement ensuite créer l'issue
-
-**Exception :** Bugs critiques bloquants (informer immédiatement)
-
-### 🔍 CHECKLIST DE VALIDATION TECHNIQUE OBLIGATOIRE
-
-⚠️ **NOUVELLE RÈGLE (2026-02-01) - Suite erreurs CONS-3/CONS-4**
-
-Pour **TOUTE** tâche de consolidation, refactoring, ou modification significative :
-
-#### Avant de Commencer
-
-- [ ] **Compter** : Nombre d'outils/fichiers/modules actuels (état AVANT)
-- [ ] **Documenter** : Noter ce décompte dans l'issue GitHub ou documentation
-- [ ] **TDD (Recommandé)** : Écrire les tests qui valident l'état final AVANT l'implémentation
-  - Tests qui vérifient le nouveau comportement unifié
-  - Tests qui échouent si les anciens outils sont encore présents
-  - Tests qui valident le décompte final (ex: `expect(roosyncTools.length).toBe(24)`)
-  - → Les tests servent de **spécification exécutable**
-
-#### Pendant l'Implémentation
-
-- [ ] **Coder** : Implémenter la modification
-- [ ] **Tester** : Build + tous les tests passent (`npx vitest run`)
-- [ ] **Vérifier imports/exports** : Aucun export orphelin, aucun import cassé
-
-#### Après l'Implémentation (CRITIQUE)
-
-- [ ] **Recompter** : Nombre d'outils/fichiers/modules final (état APRÈS)
-- [ ] **Calculer écart** : Écart réel = APRÈS - AVANT
-- [ ] **Comparer** : Écart réel DOIT égaler écart annoncé (ex: 4→2 = -2)
-- [ ] **SI ÉCART INCORRECT** : Identifier ce qui manque (retrait d'anciens fichiers?)
-- [ ] **Retirer deprecated** : Les éléments marqués [DEPRECATED] doivent être RETIRÉS, pas juste commentés
-- [ ] **Mettre à jour array/exports** : Vérifier que roosyncTools, exports, etc. sont corrects
-
-#### Documentation Commit
-
-- [ ] **Commit message** : Inclure décompte avant/après (ex: "CONS-3: Config 4→2 (29→24 outils)")
-- [ ] **Vérifier** : Le nombre dans le commit message correspond à la réalité Git
-
-#### Exemple d'Erreur à Éviter
-
-❌ **MAUVAIS** : Créer `roosync_config` unifié SANS retirer `collect_config`, `publish_config`, `apply_config` de l'array → Résultat 29→30 (+1) au lieu de 29→27 (-2)
-
-✅ **BON** : Créer `roosync_config` unifié ET retirer les 3 anciens de roosyncTools → Résultat 29→27 (-2) ✓
-
-**Cette checklist est OBLIGATOIRE. Tout agent qui ne la suit pas sera rappelé à l'ordre.**
+**Reference complete :** [`.claude/rules/validation-checklist.md`](.claude/rules/validation-checklist.md)
 
 ---
 
-## 📝 Méthodologie SDDD pour Claude Code
+## Coordination Multi-Agent
 
-### Triple Grounding
+### Repartition des Machines
 
-**1. Grounding Sémantique**
-- Outils : `search_tasks_by_content` (Roo MCP) + Grep/Glob
-- Recherche sémantique + recherche textuelle
-- Lecture des documents pertinents
-
-**2. Grounding Conversationnel**
-- Outils : `view_conversation_tree`, `get_conversation_synthesis` (Roo MCP)
-- Arborescence des conversations
-- Synthèse LLM
-
-**3. Grounding Technique**
-- Outils : Read, Grep, Bash, Git
-- Lecture code source
-- Validation faisabilité
-
-### Traçabilité GitHub
-
-**OBLIGATION CRITIQUE :** Créer une issue GitHub pour toute tâche significative.
-
-**Documentation complète :** [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md)
-
----
-
-## 🤝 Coordination Multi-Agent
-
-### Répartition des Machines
-
-| Machine | Rôle | Statut MCP |
-|---------|------|------------|
-| **myia-ai-01** | Coordinateur Principal | ✅ GitHub + RooSync + Jupyter |
-| **myia-po-2023** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
-| **myia-po-2024** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
-| **myia-po-2025** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
-| **myia-po-2026** | Agent flexible | ✅ GitHub + RooSync + Jupyter |
-| **myia-web1** | Agent flexible | ✅ GitHub + RooSync (Jupyter N/A, 2GB RAM) |
-
-**Toutes les machines ont des capacités égales** - pas de spécialisation rigide.
-
-### Responsabilités
-
-**myia-ai-01 (Coordinateur) :**
-- Créer les issues GitHub pour les catégories de tâches
-- Maintenir le suivi global
-- Coordonner la distribution du travail
-- Consolider et intégrer les résultats
-
-**Tous les agents :**
-- Choisir les tâches disponibles dans les issues GitHub
-- S'auto-assigner via les commentaires GitHub
-- Reporter les progrès quotidiennement
-- Coordonner via les commentaires
-- Demander de l'aide si bloqué
-
-### Responsabilités du Coordinateur (RENFORCÉ 2026-02-01)
-
-⚠️ **Le coordinateur DOIT fournir des critères de validation mesurables pour chaque tâche.**
-
-Pour toute tâche de consolidation/refactoring assignée, le coordinateur doit spécifier :
-
-**Critères de validation obligatoires :**
-
-1. **État initial** : Nombre d'outils/fichiers/modules AVANT (ex: "29 outils actuellement")
-2. **État cible** : Nombre attendu APRÈS (ex: "24 outils après consolidation")
-3. **Écart attendu** : Réduction/augmentation précise (ex: "-5 outils")
-4. **Tests requis** : Quels tests doivent passer (ex: "npx vitest run → 1648 tests PASS")
-5. **Livrables** : Fichiers modifiés/créés attendus (ex: "config.ts créé, index.ts modifié")
-
-**Exemple d'assignation correcte :**
-
-```markdown
-## Tâche : CONS-3 Phase 1 - Consolidation Config
-
-**État initial :** 29 outils dans roosyncTools
-**État cible :** 24 outils (29 - 3 anciens - 1 nouveau = 25, mais on retire aussi compare → 24)
-**Écart attendu :** -5 outils
-
-**Critères de validation :**
-- [ ] roosync_config créé et testé
-- [ ] collect_config, publish_config, apply_config RETIRÉS de roosyncTools array
-- [ ] Nombre d'outils = 24 (vérifier roosyncTools.length)
-- [ ] npx vitest run → tous les tests passent
-- [ ] Commit message inclut "29→24 outils"
-
-**Livrables :**
-- config.ts (nouveau)
-- config.test.ts (nouveau)
-- index.ts (modifié : exports + roosyncTools array)
-```
-
-**SI le coordinateur ne fournit pas ces critères :**
-
-- L'agent doit demander clarification AVANT de commencer
-- L'agent doit documenter lui-même ces critères et les faire valider
-
-**Cette responsabilité est CRITIQUE pour éviter les erreurs de validation.**
+| Machine | Role | Statut |
+|---------|------|--------|
+| **myia-ai-01** | Coordinateur Principal | GitHub + RooSync + Jupyter |
+| **myia-po-2023** | Agent flexible | GitHub + RooSync + Jupyter |
+| **myia-po-2024** | Agent flexible | GitHub + RooSync + Jupyter |
+| **myia-po-2025** | Agent flexible | GitHub + RooSync + Jupyter |
+| **myia-po-2026** | Agent flexible | GitHub + RooSync + Jupyter |
+| **myia-web1** | Agent flexible | GitHub + RooSync (2GB RAM) |
 
 ### Communication Quotidienne
 
-1. **Git log** est la source de vérité pour les actions techniques
-2. **GitHub Issues** pour le suivi des tâches et bugs
-3. **RooSync** pour les messages urgents entre machines
-4. **SUIVI_ACTIF.md** contient uniquement un résumé avec références git/github
+1. **Git log** = source de verite technique
+2. **GitHub Issues** = suivi taches et bugs
+3. **RooSync** = messages urgents inter-machines
+4. **SUIVI_ACTIF.md** = resume minimal
 
 ---
 
-## 📖 Règles de Documentation (NOUVEAU PARADIGME)
-
-### Principes Fondamentaux
+## Regles de Documentation
 
 **Git/GitHub est la source principale de journalisation.**
 
-| Type | Où | Comment |
-|------|-----|---------|
-| **Actions techniques** | Git commits | Messages clairs avec issue # |
-| **Suivi de tâches** | GitHub Issues | Créer, commenter, fermer |
-| **Progression** | GitHub Projects | Mettre à jour statut |
-| **Coordination** | RooSync messages | Urgent uniquement |
-| **Documentation** | docs/ pérenne | Se consolide, pas éphémère |
-
-### ❌ À NE PLUS CRÉER
-
-- Nouveaux rapports de "synthèse" ou "coordination" quotidiens
+### A ne plus creer
+- Rapports de synthese/coordination quotidiens
 - Rapports de mission redondants avec git log
-- Fichiers de suivi verbeux sans valeur ajoutée
+- Fichiers de suivi verbeux
 
-### ✅ À MAINTENIR
+### A maintenir
 
-| Fichier | Usage | MAJ |
-|---------|-------|-----|
-| `docs/suivi/RooSync/SUIVI_ACTIF.md` | Résumé minimal avec refs git | Quotidien |
-| `docs/suivi/RooSync/BUGS_TRACKING.md` | Bugs et statuts | Quand bugs |
-| `CLAUDE.md` | Ce fichier - Règles principales | Quand règles changent |
-| `docs/roosync/*.md` | Documentation technique pérenne | Quand architecture change |
+| Fichier | Usage |
+|---------|-------|
+| `docs/suivi/RooSync/SUIVI_ACTIF.md` | Resume minimal |
+| `CLAUDE.md` | Regles principales |
+| `docs/roosync/*.md` | Documentation technique perenne |
 
-### Format des Commits
+### Methodologie SDDD
 
-```bash
-# Format conventionnel
-type(scope): description
+**Reference complete :** [`.claude/rules/sddd-conversational-grounding.md`](.claude/rules/sddd-conversational-grounding.md) et [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md)
 
-# Exemples
-fix(roosync): Fix #289 - BOM UTF-8 in JSON parsing
-docs(coord): Update CLAUDE.md with new governance rules
-feat(roosync): Add baseline comparison feature
-test(roosync): Add E2E tests for sync workflow
-
-# Avec co-auteur (si Claude Code)
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
-```
-
-### Quand créer une GitHub Issue
-
-- Nouveau bug identifié
-- Nouvelle fonctionnalité significative
-- Tâche de coordination multi-machine
-- Documentation manquante critique
-
-**Ne PAS créer d'issue pour:**
-- Corrections triviales (directement commit)
-- Mises à jour de documentation mineures
-- Tests simples
-
-### SUIVI_ACTIF.md - Format Minimal
-
-```markdown
-## 2026-01-13
-
-- Bugs #289-291 assignés à Roo (voir #289, #290, #291)
-- T1.2 complétée (commit f3e00f3)
-- Git synchronisé (3bdb1c7e)
-
-[voir git log --oneline -5]
-```
+Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se contenter d'une seule source.
 
 ---
 
-## 📚 Ressources Supplémentaires
+## GitHub CLI
 
-### Documentation Technique
-- [`docs/knowledge/WORKSPACE_KNOWLEDGE.md`](docs/knowledge/WORKSPACE_KNOWLEDGE.md) - Base connaissance complète
+**Reference complete :** [`.claude/rules/github-cli.md`](.claude/rules/github-cli.md)
+
+Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Project #67 = `PVT_kwHOADA1Xc4BLw3w`.
+
+---
+
+## Ressources
+
+- [`docs/knowledge/WORKSPACE_KNOWLEDGE.md`](docs/knowledge/WORKSPACE_KNOWLEDGE.md) - Base connaissance
 - [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide RooSync
-
-### Scripts et Outils
 - [`.claude/scripts/init-claude-code.ps1`](.claude/scripts/init-claude-code.ps1) - Initialisation MCP
-- [`mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs`](mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs) - Wrapper MCP
-
-### GitHub
-- **Projet :** https://github.com/users/jsboige/projects/67
-- **Issues :** https://github.com/jsboige/roo-extensions/issues
+- **GitHub :** https://github.com/users/jsboige/projects/67
 
 ---
 
-**Dernière mise à jour :** 2026-02-17
-**Pour questions :** Créer une issue GitHub ou contacter myia-ai-01
+## Regles Absolues
 
-**Built with Claude Code (Opus 4.6) 🤖**
-
----
-
-## 🔧 GitHub Projects - Accès via gh CLI
-
-**⚠️ MIGRATION #368 :** Le MCP github-projects-mcp est **DÉPRÉCIÉ**. Utiliser `gh` CLI.
-
-### Scopes requis
-
-**GitHub CLI doit avoir le scope `project` pour accéder aux Projects :**
-
-```bash
-# Vérifier scopes actuels
-gh auth status
-
-# Ajouter scope project (inclut read+write+admin)
-gh auth refresh --hostname github.com -s project
-```
-
-**Scopes recommandés :**
-
-- `repo`, `read:org`, `workflow`, `gist` (installés par défaut)
-- `project` ✅ **REQUIS** pour lire/modifier les Projects GitHub
-
-### Projets
-
-| Projet | Numéro | ID Complet | Usage |
-|--------|--------|------------|-------|
-| RooSync Multi-Agent Tasks | #67 | `PVT_kwHOADA1Xc4BLw3w` | Tâches techniques Roo |
-| RooSync Multi-Agent Coordination | #70 | `PVT_kwHOADA1Xc4BL7qS` | Coordination Claude |
-
-### Commandes gh CLI
-
-```bash
-# Lister les issues
-gh issue list --repo jsboige/roo-extensions --state open
-
-# Créer une issue
-gh issue create --repo jsboige/roo-extensions --title "Titre" --body "Description"
-
-# Voir un projet (GraphQL)
-gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { title items(first: 100) { totalCount } } } }'
-
-# Voir les items d'un projet avec statut
-gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { items(first: 50) { nodes { fieldValues(first: 10) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name } } } } } } } }'
-```
-
-### Field Status (pour GraphQL avancé)
-
-- **Field ID:** `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY`
-- **Options:**
-  - `f75ad846` = Todo
-  - `47fc9ee4` = In Progress
-  - `98236657` = Done
-
-### Règles
-
-Voir `.claude/rules/github-cli.md` et `.roo/rules/github-cli.md` pour les détails.
+1. **Etat partage RooSync = GDrive UNIQUEMENT** (jamais dans le depot Git)
+2. **Roo n'utilise JAMAIS RooSync** (seulement Claude Code inter-machine)
+3. **Ne JAMAIS modifier `.roomodes` ou `.roo/schedules.json` directement** (modifier sources + regenerer)
+4. **Validation checklist OBLIGATOIRE** pour consolidation/refactoring
+5. **Annoncer son travail** avant de commencer (anti-conflit)
 
 ---
 
-## 📡 RooSync MCP - Configuration
-
-### Outils Disponibles (36 - tous exposés, 2026-02-17)
-
-**Messagerie CONS-1 (3):**
-- `roosync_send` - Envoyer/répondre/amender (action: send|reply|amend)
-- `roosync_read` - Lire inbox/message (mode: inbox|message)
-- `roosync_manage` - Gérer messages (action: mark_read|archive)
-
-**Lecture seule (4):** `roosync_get_status`, `roosync_list_diffs`, `roosync_compare_config`, `roosync_refresh_dashboard`
-
-**Consolidés (5):** `roosync_config`, `roosync_inventory`, `roosync_baseline`, `roosync_machines`, `roosync_init`
-
-**Décisions CONS-5 (2):** `roosync_decision`, `roosync_decision_info`
-
-**Monitoring (3):** `roosync_heartbeat`, `roosync_sync_event`, `roosync_mcp_management`
-
-**Diagnostic (4):** `analyze_roosync_problems`, `roosync_diagnose`, `roosync_storage_management`, `read_vscode_logs`
-
-**Navigation (2):** `conversation_browser` (unifié: tree/current/view/summarize), `task_export` (markdown/debug)
-
-**Tâches (2):** `view_task_details`, `get_raw_conversation`
-
-**Recherche (2):** `roosync_search` (texte + sémantique), `roosync_indexing` (Qdrant + archive)
-
-**Export (2):** `export_data` (JSON/CSV/XML), `export_config`
-
-**MCP Management (6):** `storage_info`, `maintenance`, `manage_mcp_settings`, `rebuild_and_restart_mcp`, `get_mcp_best_practices`, `touch_mcp_settings`
-
-### Fichier Partagé
-
-**Chemin:** `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
-
-### ⛔ RÈGLE ABSOLUE : État Partagé = GDrive UNIQUEMENT
-
-**L'état partagé RooSync NE DOIT JAMAIS être dans le dépôt Git.**
-
-| ❌ INTERDIT | ✅ CORRECT |
-|-------------|------------|
-| `roo-config/shared-state/` | `$env:ROOSYNC_SHARED_PATH` (GDrive) |
-| `roo-config/inventories/` | `$env:ROOSYNC_SHARED_PATH/inventories/` |
-| `roo-config/dashboards/` | `$env:ROOSYNC_SHARED_PATH/dashboards/` |
-| Tout chemin local dans le dépôt | Chemin Google Drive via .env |
-
-**Si vous voyez des fichiers `shared-state`, `inventories`, ou `dashboards` dans le dépôt Git :**
-1. C'est une **ERREUR** - supprimez-les immédiatement
-2. Corrigez le code qui les a créés
-3. Vérifiez que `ROOSYNC_SHARED_PATH` est bien configuré dans `.env`
-
-**Raison :** L'état partagé doit être synchronisé entre les 6 machines via Google Drive, pas versionné dans Git.
+**Derniere mise a jour :** 2026-02-19
+**Pour questions :** Creer une issue GitHub ou contacter myia-ai-01

@@ -43,6 +43,23 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 | Taux remplissage cycle | > 70% | Si < 50% : chercher plus de tâches |
 | Escalades appropriées | 70-85% | Si < 50% : trop conservateur, si > 90% : trop agressif |
 
+## ⚠️ Interprétation Nuancée (CRITIQUE)
+
+**100% succès en -simple NE VEUT PAS DIRE qu'il faut escalader plus tôt !**
+
+| Taux succès -simple | Interprétation correcte | Action |
+|---------------------|-------------------------|--------|
+| < 80% | Problème workflow/compétences | Corriger workflow, réessayer |
+| 80-95% | Sweet spot | Maintenir approche actuelle |
+| > 95% | **Tâches trop faciles** | **Confier tâches plus complexes dès le départ** |
+
+**Règle d'or :** Si le taux de succès -simple est très élevé, c'est que la sélection de tâches est trop conservatrice. La solution n'est pas de modifier le seuil d'escalade, mais de **sélectionner des tâches plus ambitieuses** au départ.
+
+### Exemples concrets
+
+❌ **MAUVAIS** : "100% succès -simple → conseiller d'escalader après 1 échec au lieu de 2"
+✅ **BON** : "100% succès -simple → confier des investigations de bugs, du refactoring, des features"
+
 ## Workflow d'Ajustement
 
 1. **Lire les traces Roo** via `task_browse` et `view_conversation_tree`

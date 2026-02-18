@@ -6,7 +6,7 @@
 
 ## Responsabilites
 
-- Coordination des 5 machines via RooSync
+- Coordination des 5 machines executantes via RooSync
 - Assignation et suivi des taches (GitHub Project #67)
 - Review et merge des PRs
 - Maintenance documentation globale (CLAUDE.md racine)
@@ -40,7 +40,7 @@
 1. Tour de synchronisation quotidien
 2. Ventilation des taches entre machines
 3. Review du code produit par les executants
-4. Mise a jour GitHub Projects #67 et #70
+4. Mise a jour GitHub Project #67
 5. Resolution de conflits et decisions
 
 ## Notes

@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-02-09
-**Version:** 5.0 (Post-consolidation contenu)
+**Derniere mise a jour:** 2026-02-18
+**Version:** 5.1 (Ajout scheduler Claude Code)
 
 ---
 
@@ -54,7 +54,8 @@ docs/
 - [repository-map.md](architecture/repository-map.md) - Carte du depot
 - [ARCHITECTURE_2_NIVEAUX.md](architecture/ARCHITECTURE_2_NIVEAUX.md) - Architecture 2 niveaux
 - [DATA_STORAGE_POLICY.md](architecture/DATA_STORAGE_POLICY.md) - Politique de stockage
-- [scheduling-claude-code.md](architecture/scheduling-claude-code.md) - Planification Claude Code
+- [scheduling-claude-code.md](architecture/scheduling-claude-code.md) - Investigation scheduling (fév 2026)
+- [scheduler-claude-code.md](architecture/scheduler-claude-code.md) - **NOUVEAU** Architecture scheduler implémenté (fév 2026)
 
 ### Roo State Manager
 - [roo-state-manager-architecture.md](architecture/roo-state-manager-architecture.md) - Architecture
@@ -220,5 +221,5 @@ docs/
 
 **Consolide par:** myia-po-2025
 **Date consolidation:** 2026-02-09
-**Version:** 5.0 - Consolidation contenu (fusions, archives par sous-repertoire)
+**Derniere MAJ:** 2026-02-18 (v5.1 - scheduler Claude Code)
 **Precedent:** v4.0 (consolidation structure #435)

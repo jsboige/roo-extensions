@@ -1,5 +1,8 @@
 # Skill : Redistribution Memoire & Regles
 
+**Version:** 2.0.0 (2026-02-19)
+**Usage:** `/redistribute-memory` ou "redistribue la memoire", "audite les regles", "nettoie CLAUDE.md"
+
 Ce skill audite et redistribue les connaissances, regles et memoires entre les differents niveaux de configuration de Claude Code et Roo Code.
 
 ---
@@ -8,9 +11,15 @@ Ce skill audite et redistribue les connaissances, regles et memoires entre les d
 
 Les informations s'accumulent dans des fichiers qui ne sont pas toujours au bon niveau. Ce skill :
 1. Inventorie tous les fichiers de memoire/regles/instructions
-2. Analyse le contenu pour identifier les mauvais placements
-3. Propose des deplacements/consolidations
+2. Analyse le contenu pour identifier les mauvais placements, doublons et saturation
+3. Propose des deplacements/consolidations/creations de fichiers
 4. Applique les changements apres validation utilisateur
+
+**Seuils d'alerte :**
+- `CLAUDE.md` (projet) > 500 lignes → EXTRAIRE des sections en rules
+- `MEMORY.md` (auto) > 150 lignes → TRONQUE dans le system prompt, risque perte
+- Rules individuels > 150 lignes → TROP VERBEUX, condenser
+- Doublons entre niveaux → DEDUPLICATION obligatoire
 
 ---
 
@@ -32,9 +41,21 @@ Les informations s'accumulent dans des fichiers qui ne sont pas toujours au bon 
 | Niveau | Fichier | Portee | Versionne |
 |--------|---------|--------|-----------|
 | **Rules** | `{workspace}/.roo/rules/*.md` | Toutes les conversations Roo | Oui (git) |
+| **Rules orchestrator** | `{workspace}/.roo/rules-orchestrator/*.md` | Orchestrateur uniquement | Oui (git) |
 | **Modes** | `{workspace}/.roomodes` (genere) | Modes disponibles | Oui (git) |
 | **Mode config** | `roo-config/modes/modes-config.json` | Source des modes | Oui (git) |
 | **Settings** | `roo-config/settings/settings.json` | Preferences | Oui (git) |
+| **Scheduler workflows** | `{workspace}/.roo/scheduler-workflow-*.md` | Instructions scheduler | Oui (git) |
+
+### Fichiers supplementaires (roo-extensions)
+
+| Niveau | Fichier | Portee | Versionne |
+|--------|---------|--------|-----------|
+| **Machine overrides** | `.claude/machines/{machine}/CLAUDE.md` | Instructions specifiques machine | Oui (git) |
+| **Global configs source** | `.claude/configs/**/*` | Templates deployables vers `~/.claude/` | Oui (git) |
+| **Feedback system** | `.claude/feedback/*.md` | Log des propositions d'amelioration | Oui (git) |
+| **INTERCOM local** | `.claude/local/INTERCOM-*.md` | Communication Roo local (gitignore) | Non |
+| **Guides standalone** | `.claude/ESCALATION_MECHANISM.md`, `bootstrap-checklist.md` | Docs techniques | Oui (git) |
 
 ---
 
@@ -469,6 +490,49 @@ Demander : "Est-ce que cette regle serait utile si je travaillais sur un autre p
 - Restrictions d'outils Roo
 - Protocole INTERCOM cote Roo
 - Validation et securite cote Roo
+
+---
+
+## Diagnostic rapide (NOUVEAU v2.0)
+
+Avant de lancer le workflow complet, un diagnostic rapide identifie les urgences :
+
+```
+1. Compter les lignes de chaque fichier cle :
+   - CLAUDE.md (projet) > 500 ? → ALERTE SATURATION
+   - MEMORY.md (auto) > 150 ? → ALERTE TRUNCATION
+   - PROJECT_MEMORY.md > 300 ? → ALERTE BALLONNEMENT
+
+2. Verifier les doublons evidents :
+   - Meme section dans CLAUDE.md ET dans .claude/rules/ ?
+   - Meme info dans MEMORY.md ET dans PROJECT_MEMORY.md ?
+   - Instructions Roo dans fichiers Claude et vice-versa ?
+
+3. Verifier la fraicheur :
+   - "Current State" avec dates > 7 jours ? → PERIME
+   - Issues fermees encore listees comme actives ? → STALE
+   - Metriques (tests, tools) qui ne correspondent plus ? → DECALE
+```
+
+### Actions correctives typiques pour CLAUDE.md sature
+
+Si CLAUDE.md > 500 lignes, extraire dans cet ordre de priorite :
+
+| Section a extraire | Vers | Raison |
+|--------------------|------|--------|
+| Systeme de scheduler (~300 lignes) | `.claude/rules/scheduler-system.md` | Documentation technique, pas instructions de haut niveau |
+| GitHub Projects / GraphQL (~60 lignes) | Deja dans `.claude/rules/github-cli.md` | DOUBLON : retirer de CLAUDE.md |
+| Checklist validation technique (~80 lignes) | `.claude/rules/validation-checklist.md` | Regle technique |
+| Architecture agents/skills (~150 lignes) | `.claude/rules/agents-architecture.md` | Reference technique, pas instructions |
+| Config MCP detaillee (~100 lignes) | `.claude/MCP_SETUP.md` (existe deja) | Consolidation |
+
+### Actions correctives pour MEMORY.md sature
+
+Si MEMORY.md > 150 lignes :
+1. Deplacer les lessons learned stables vers PROJECT_MEMORY.md
+2. Retirer les etats transitoires perimes (cycles >48h, issues fermees)
+3. Condenser les tableaux machine status en une ligne par machine
+4. Deplacer les details d'issues vers des fichiers topic (memory/issues.md)
 
 ---
 
