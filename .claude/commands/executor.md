@@ -139,6 +139,45 @@ Passer directement a la Phase 2.
    - Heartbeat registration (si pas fait)
    - Nettoyage INTERCOM (si > 500 lignes)
 
+### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
+
+**⚠️ Les IDs GitHub changent. Toujours vérifier les IDs actuels avant de claim.**
+
+**Requête pour récupérer tous les IDs dynamiquement :**
+```bash
+# Récupérer la configuration complète du Project #67
+gh api graphql -f query='
+{
+  user(login: "jsboige") {
+    projectV2(number: 67) {
+      title
+      id
+      fields(first: 20) {
+        nodes {
+          ... on ProjectV2SingleSelectField {
+            id
+            name
+            options {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}' --jq '.data.user.projectV2'
+```
+
+**Cette requête retourne :**
+- **Field IDs** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` (Status), etc.
+- **Option IDs** : `f75ad846` (Todo), `47fc9ee4` (In Progress), etc.
+- **Machine/Agent IDs** : Tous les IDs actuels pour ces champs
+
+**⚠️ Si la requête échoue ou retourne des IDs différents des tables ci-dessous, mettre à jour les tables.**
+
+---
+
 ### Protocole de Claim GitHub (ANTI DOUBLE-TRAITEMENT)
 
 **AVANT de commencer une tache**, verifier que la Machine et l'Agent ne sont pas deja assignes a une autre machine. Si la tache est libre (Machine vide ou "Any"), la revendiquer :
