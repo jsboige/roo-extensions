@@ -35,6 +35,19 @@ cd mcps/internal/servers/roo-state-manager && npx vitest run
 
 **JAMAIS `npm test`** qui bloque en mode watch interactif !
 
+**⚠️ CONTRAINTE RAM 2GB (myia-web1) :**
+
+Sur les machines avec 2GB RAM (comme myia-web1), les tests peuvent échouer avec "JavaScript heap out of memory". Utiliser :
+
+```bash
+cd mcps/internal/servers/roo-state-manager && npx vitest run --maxWorkers=1
+```
+
+Si cela échoue encore, réduire encore :
+```bash
+cd mcps/internal/servers/roo-state-manager && npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
+```
+
 ### Etape 3 : Rapport
 
 Produire un rapport concis :
