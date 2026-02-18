@@ -48,24 +48,40 @@ Updated via git commits. Each agent should read this at session start.
 | CONS-13 | Storage/Repair | 6 tools | 2 tools | myia-po-2024 | Done |
 | CONS-X #457 | Conversation Browser | 3 tools | 1 tool | myia-po-2023 | Done |
 
-## Current State (2026-02-13 02:30)
+## Current State (2026-02-17 23:30)
 
-**CONS-X #457 completed.** conversation_browser consolidates 3→1 tool. G1+G5+CONS-X done.
-**#453 Phase 1 done:** Embedding model/dims/batch/baseURL configurable via env vars.
+**Phase**: MONTÉE EN CHARGE (beyond validation → tool proficiency + exploitation)
+**Cycle 9**: 4 new issues (#484-#487), dense task assignments to ALL 6 machines.
 
 | Metric | Value |
 |--------|-------|
-| Total tools (ListTools) | ~35 (16 inline + 19 roosyncTools) |
-| RooSync tools (roosyncTools) | 19 |
-| Claude wrapper tools | 39 (pass-through, no filtering) |
-| Tests passing | 3281/3295 (14 skipped) |
-| Test files | 202/203 (1 skipped) |
-| GitHub Project #67 | 161+ items, ~164 Done |
-| Skills | 5 (validate, git-sync, github-status, sync-tour, debrief) |
-| Scheduler | 3h interval, 6 machines staggered, **Step 1b** added (#456) |
-| Heartbeat | **Auto-start enabled** (6/6 config, #455 done) - Runtime: 1/6 online, 3/6 not registered, 2/6 offline (#460) |
-| Machine Registry | 6 machines (case-sensitive duplicate fixed 2026-02-12) |
-| MCP Servers | roo-state-manager (TS) + sk-agent (Python) + markitdown + playwright |
+| Total tools (ListTools) | **36** (16 inline + 20 roosyncTools - doc corrected from 39) |
+| Tests passing | 3302/3316 (14 skipped) |
+| GitHub Project #67 | **~178 items, ~161 Done (90%)**, 19 open issues |
+| Qdrant | **20 ws-* collections** all populated (1-580K vectors, 2560 dims) |
+| codebase_search | **FIXED** (#474) - dedicated embedding client + path normalization |
+| sk-agent | v2.0 deployed (11 agents, 4 conversations, #482 fix) |
+| Scheduler Roo | 3h interval, 6 machines, success rate 50-100% |
+| Scheduler Claude | Design phase (#487), po-2025 pioneer |
+
+### Active Issues Cycle 9
+
+| # | Title | Machine | Agent | Status |
+|---|-------|---------|-------|--------|
+| **#484** | Proficiency outils MCP + Indexation | All | Both | In Progress |
+| **#485** | sk-agent exploitation (4 modèles) | Any (po-2024 lead) | Both | Todo |
+| **#486** | Amélioration skills/agents/commands/rules/modes | All | Both | In Progress |
+| **#487** | Scheduler maturation + Claude scheduler | All | Both | In Progress |
+| #474-#480 | Validations cross-machine | All | Both | In Progress |
+| #483 | Agrégation résultats | ai-01 | Claude | In Progress |
+
+### EMBEDDING_* Config (required in .env for codebase_search)
+```
+EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_DIMENSIONS=2560
+EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
+EMBEDDING_API_KEY=vllm-placeholder-key-2024
+```
 
 ### Validation & Cleanup (myia-po-2023, 2026-02-07)
 
@@ -186,36 +202,46 @@ Updated via git commits. Each agent should read this at session start.
 - 2560 dims, ~287 req/s, zero cost, +15% quality over OpenAI
 - Risk: previous overrun cost 200EUR - always rate-limit (#453)
 
-## Active Issues (2026-02-13)
+## Active Issues (2026-02-17 - Cycle 9)
 
-| # | Title | Priority | Status |
-|---|-------|----------|--------|
-| #443 | Consolidation finale 39→18 (G1+G5+CONS-X done) | HIGH | In Progress |
-| #452 | MCP outil exploitation index semantique | MEDIUM | Todo |
-| #453 | Qdrant task indexation | MEDIUM | Todo |
-| #456 | Scheduler feedback loop (Phase 3 Step 1b done) | MEDIUM | In Progress |
-| #458 | E2E validation post-CONS-#443 | HIGH | Todo |
-| #459 | Scheduler deployment remaining machines | HIGH | In Progress |
-| #460 | Dashboard + heartbeat automation (1/5 fixed, procedures created) | HIGH | Todo |
-| #461 | Worktree integration | MEDIUM | Todo |
-| #462 | Autonomy roadmap | MEDIUM | Todo |
-| #463 | Cross-workspace template | LOW | Todo |
-| #464 | Dev Containers + Ralph Wiggum | MEDIUM | Todo |
-| #465 | sk-agent MCP proxy LLM multi-modeles | MEDIUM | In Progress |
+### Montée en charge (NEW)
+| # | Title | Lead | Status |
+|---|-------|------|--------|
+| #484 | Proficiency outils MCP + Indexation | All | In Progress |
+| #485 | sk-agent exploitation (4 modèles) | po-2024 | Todo |
+| #486 | Amélioration skills/agents/commands/rules/modes | All | In Progress |
+| #487 | Scheduler maturation + Claude scheduler | po-2025/po-2026 | In Progress |
 
-**Closed recently:** #455, #466, #451, #433, #457 (5 issues)
+### Validation cross-machine
+| # | Title | Progress |
+|---|-------|----------|
+| #474 | Qdrant/codebase_search | 3/6 (fix deployed) |
+| #475 | sk-agent | 4/6 |
+| #476 | Scheduler escalade | 3/6 |
+| #477 | Archive GDrive | 2/6 |
+| #478 | Win-cli/DCMCP | 3/6 (po-2024 lead) |
+| #480 | Wrapper 36 outils | 3-4/6 |
 
-### sk-agent MCP Server (NEW - 2026-02-12)
+### Other active
+| # | Title | Status |
+|---|-------|--------|
+| #463 | Cross-workspace template | In Progress (web1) |
+| #469 | Doc refresh | In Progress (web1 done) |
+| #481 | Scripts/ cleanup | Ph3 pending (po-2026) |
+| #483 | Agrégation cross-machine | In Progress (ai-01) |
+| #452/#454/#448 | Architecture/RFC | Todo |
+
+### sk-agent MCP Server (v2.0 - 2026-02-17)
 - **Location**: `mcps/internal/servers/sk-agent/`
-- **Type**: Python (FastMCP + Semantic Kernel), unlike roo-state-manager (TypeScript)
-- **Tools**: `ask(prompt)`, `analyze_image(source, prompt)`, `list_tools()`
-- **Purpose**: Proxy OpenAI-compatible models (vLLM, Open-WebUI) as MCP tools
-- **Models**: GLM 4.7 Flash (agentic, no vision), Qwen 8B VL (vision + tools)
-- **Architecture**: FastMCP stdio -> Semantic Kernel -> OpenAI API -> vLLM
-- **Child MCPs**: SearXNG (web search), Playwright (browser) - configurable via JSON
-- **Use cases**: Vision for Roo simple modes, Oracle (small model queries big model), local LLM proxy
-- **API keys**: Private per-machine, NOT in git. Distribute via RooSync.
-- **Issue**: #465
+- **Type**: Python (FastMCP + Semantic Kernel)
+- **Tools v2.0**: `call_agent`, `run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `end_conversation`, `install_libreoffice`
+- **Agents**: 11 (analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator)
+- **Conversations**: 4 (deep-search, deep-think, code-review, research-debate)
+- **4 Models available**: Cloud reasoning (Opus/Sonnet), Cloud vision, Local reasoning (GLM-5), Local vision
+- **Child MCPs**: SearXNG (web search), Playwright (browser), TextMemoryPlugin
+- **Tests**: 109 unit + 35 functional
+- **Fix #482**: Write-Host→[Console]::Error.WriteLine() in wrapper (stdout purity)
+- **Exploitation**: #485 - propose new agents/conversations using all 4 models
 
 ### Knowledge Consolidation Workflow (NEW - 2026-02-12)
 - **sync-tour Phase 8**: Automatic consolidation at end of each sync-tour
