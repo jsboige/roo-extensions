@@ -23,7 +23,7 @@
 
 ## MCPs Disponibles
 
-- roo-state-manager (36 outils, wrapper v4 pass-through)
+- roo-state-manager (35 outils, wrapper v4 pass-through)
 - markitdown (1 outil)
 - playwright (outils browser)
 - GitHub CLI (`gh`)
