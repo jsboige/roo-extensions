@@ -27,5 +27,14 @@
     "GLM-4.5-Air is used for haiku (faster, lighter model)",
     "API timeout increased to 3000s for larger requests",
     "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation"
-  ]
+  ],
+  "warnings": {
+    "contextTruncation": {
+      "detected": "2026-02-19",
+      "source": "https://www.reddit.com/r/ZaiGLM/comments/1r675om/inputcontext_truncated_to_137k_tokens/",
+      "issue": "z.ai silently truncates context to 137k tokens (vs advertised ~200k+)",
+      "impact": "Initial messages get dropped when context fills - can lose system prompts or early conversation",
+      "recommendation": "Keep context under 130k tokens, consolidate knowledge before reaching limit"
+    }
+  }
 }
