@@ -82,6 +82,8 @@ Ces skills peuvent aussi etre invoques independamment en dehors du sync-tour.
 
 **Skill :** `git-sync` (voir `.claude/skills/git-sync/SKILL.md`)
 
+**⚠️ Si Bash échoue silencieusement :** Voir `.claude/rules/bash-fallback.md` → utiliser MCP win-cli en fallback.
+
 ### Actions
 Suivre le workflow du skill `git-sync` :
 1. Fetch et analyse des commits entrants
@@ -146,6 +148,8 @@ git reset --hard HEAD@{2}                 # Revenir à l'état stable
 ## Phase 3 : Validation Tests & Build
 
 **Skill :** `validate` (voir `.claude/skills/validate/SKILL.md`)
+
+**⚠️ Si Bash échoue silencieusement :** Voir `.claude/rules/bash-fallback.md` → utiliser MCP win-cli en fallback.
 
 ### Actions
 Suivre le workflow du skill `validate` :
