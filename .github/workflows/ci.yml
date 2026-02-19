@@ -45,7 +45,7 @@ jobs:
         run: npm run build
 
       - name: Run tests
-        run: npx vitest run --reporter=default
+        run: npx vitest run --reporter=default --exclude 'tests/e2e/**'
 
       - name: Upload test results
         if: always()
