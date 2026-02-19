@@ -2,163 +2,91 @@
 
 **Issue:** #487 Phase 4
 **Date:** 2026-02-19
-**Durée:** 3 semaines (17/02 - 07/03/2026)
 **Machine Pilote:** myia-po-2026
+**Statut:** EN COURS
 
 ---
 
-## Objectifs
+## Timeline Réelle
 
-Valider le scheduler Claude Code en conditions réelles avant déploiement multi-machines.
-
-**Critères de succès:**
-- [ ] 10+ cycles complets sans intervention manuelle
-- [ ] Taux de succès > 80% sur tâches `-simple`
-- [ ] Taux de succès > 60% sur tâches `-complex`
-- [ ] Zéro perte de données (conflits git résolus)
-- [ ] Escalades fonctionnelles (simple → complex → Claude)
+| Phase | Statut | Date |
+|-------|--------|------|
+| Phase 1-3: Audit, Design, Docs | ✅ FAIT | 18/02 |
+| Phase 4: Test Pilote | 🔄 EN COURS | 19-21/02 |
+| Décision GO/NO-GO | ⏳ À FAIRE | 21/02 |
 
 ---
 
-## Semaine 1 : Infrastructure (17-23/02)
+## Ce Qui Reste à Faire (19-21/02)
 
-### Jour 1-2 : Setup Initial
-| Tâche | Responsable | Validation |
-|-------|-------------|------------|
-| Installer Ralph Wiggum | Claude (pilote) | `claude plugin list` |
-| Créer scheduler-config.json | Claude (pilote) | Fichier présent |
-| Créer scheduler-queue.json | Claude (pilote) | Fichier présent |
-| Configurer worktree | Claude (pilote) | `git worktree list` |
+### Jour 1 (19/02 - Aujourd'hui) : Validation Infrastructure
+| Test | Commande | Statut |
+|------|----------|--------|
+| Git sync | `git pull` | ✅ OK |
+| Build | `npm run build` | À tester |
+| Tests | `npx vitest run` | ✅ 3305 PASS |
+| Scheduler actif | Vérifier `.roo/schedules.json` | À vérifier |
 
-### Jour 3-5 : Tests Basiques
-| Test | Commande | Résultat Attendu |
-|------|----------|------------------|
-| Git sync | `git pull` dans worktree | Aucun conflit |
-| Build | `npm run build` | Exit 0 |
-| Tests | `npx vitest run` | >99% pass |
-| Locking | `acquire-lock.ps1` | Lock créé/libéré |
+### Jour 2 (20/02) : Tests Tâches Simples
+Lancer 3 cycles scheduler et observer:
+- `git-sync-simple` → Pull réussi ?
+- `validate-build` → Build OK ?
+- `run-tests` → Tests pass ?
 
-**Checkpointer:** Si tous tests basiques passent → Semaine 2
+**Critère:** 2/3 tâches réussies sans intervention
 
----
-
-## Semaine 2 : Tâches Simples (24/02 - 02/03)
-
-### Configuration
-```json
-{
-  "mode": "simple",
-  "interval": 180,
-  "maxTasks": 5,
-  "taskTypes": ["git-sync", "build", "tests", "cleanup", "docs"]
-}
-```
-
-### Tests Quotidiens
-| Jour | Tâche Assignée | Critère Succès |
-|------|----------------|----------------|
-| Lundi | `git-sync-simple` | Pull réussi, statut propre |
-| Mardi | `validate-build` | Build OK, 0 erreurs |
-| Mercredi | `run-tests` | >99% tests pass |
-| Jeudi | `cleanup-branches` | Branches mergées supprimées |
-| Vendredi | `update-docs` | CLAUDE.md mis à jour |
-
-### Métriques à Collecter
-- Temps d'exécution par tâche
-- Nombre de tentatives avant succès
-- Escalades déclenchées
-- Erreurs rencontrées
-
-**Escalade:** Si < 80% succès → analyser logs, ajuster, réessayer
+### Jour 3 (21/02) : Test Escalade + Décision
+- Lancer 1 tâche qui nécessite escalade (simple → complex)
+- Vérifier que l'escalade fonctionne
+- Décision GO/NO-GO pour déploiement multi-machines
 
 ---
 
-## Semaine 3 : Tâches Complexes (03-07/03)
+## Critères de Succès (Simplifiés)
 
-### Configuration
-```json
-{
-  "mode": "complex",
-  "interval": 180,
-  "maxTasks": 3,
-  "taskTypes": ["investigation", "bugfix", "refactor", "feature"]
-}
-```
-
-### Tests de Monteé en Charge
-| Jour | Tâche Assignée | Complexité | Critère Succès |
-|------|----------------|------------|----------------|
-| Lundi | Investigation bug simple | 1/5 | Cause identifiée |
-| Mardi | Fix bug simple | 2/5 | Tests pass, PR créée |
-| Mercredi | Refactoring mineur | 2/5 | Code propre, tests pass |
-| Jeudi | Feature simple | 3/5 | Implémentée, documentée |
-| Vendredi | Test intégration | 4/5 | Scénario complet OK |
-
-### Validation Finale
-- [ ] Review des métriques (Semaine 1-3)
-- [ ] Analyse des échecs (patterns récurrents?)
-- [ ] Ajustements de la configuration
-- [ ] Rédaction du rapport de pilotage
-- [ ] Décision GO/NO-GO pour déploiement multi-machines
+| Critère | Seuil | Validation |
+|---------|-------|------------|
+| Cycles autonomes | ≥3 | Sans intervention |
+| Taux succès simple | >66% | 2/3 tâches |
+| Pas de perte données | 0 conflit non résolu | Git propre |
+| Escalade fonctionne | Au moins 1 testée | Simple→Complex |
 
 ---
 
 ## Procédures d'Urgence
 
-### Rollback Immédiat
+### Rollback
 ```powershell
-# Désactiver scheduler
 .\roo-config\scheduler\scripts\install\deploy-scheduler.ps1 -Action disable
-
-# Supprimer worktree
-git worktree remove .worktrees/scheduler
-
-# Nettoyer locks
-Remove-Item .claude/scheduler/locks/* -Force
 ```
 
-### Conflit Git Non Résolu
+### Conflit Git
 1. Ne PAS forcer
-2. Laisser le worktree en l'état
-3. Signaler via INTERCOM: `[ERROR] Conflit git non résolu`
-4. Escalader vers Claude Code manuel
-
-### Perte de Connexion API
-1. Scheduler attend automatiquement (retry avec backoff)
-2. Si > 3 échecs consécutifs → pause 1h
-3. Signaler dans INTERCOM: `[WARN] API unreachable`
+2. Signaler INTERCOM: `[ERROR] Conflit git`
+3. Escalader vers Claude manuel
 
 ---
 
-## Rapport de Pilotage
+## Décision GO/NO-GO (21/02)
 
-À compléter à la fin de chaque semaine:
+**GO si:**
+- ✅ 3+ cycles sans intervention
+- ✅ ≥2/3 tâches simples réussies
+- ✅ Zéro conflit non résolu
 
-```markdown
-## Semaine X - Rapport
-
-**Période:** DD/MM - DD/MM
-**Tâches tentées:** X
-**Tâches réussies:** Y (Z%)
-**Escalades:** E
-**Erreurs:** L
-
-### Analyse
-- [Points positifs]
-- [Points à améliorer]
-
-### Actions
-- [Actions pour semaine suivante]
-```
+**NO-GO si:**
+- ❌ Moins de 2 cycles complétés
+- ❌ Taux succès <50%
+- ❌ Perte de données
 
 ---
 
 ## Références
 
-- Guide déploiement: `docs/architecture/scheduler-pilot-deployment-guide.md`
 - Design: `docs/architecture/scheduler-claude-code-design.md`
 - Audit: `docs/architecture/scheduler-audit-myia-po-2026.md`
+- Déploiement: `docs/architecture/scheduler-pilot-deployment-guide.md`
 
 ---
 
-**Next Step:** Confirmer machine pilote (myia-po-2026?) et démarrer Semaine 1.
+**Next Step:** Vérifier état scheduler sur myia-po-2026 + lancer tests.
