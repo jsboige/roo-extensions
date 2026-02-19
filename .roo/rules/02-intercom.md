@@ -16,6 +16,31 @@ Exemples :
 
 ---
 
+## REGLE CRITIQUE : Ordre d'Ecriture
+
+**TOUJOURS ajouter les nouveaux messages A LA FIN du fichier.**
+
+Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en bas.
+
+### Procedure d'ecriture OBLIGATOIRE
+
+1. **Lire** le fichier ENTIER avec `read_file`
+2. **Preparer** le nouveau message
+3. **Reecrire** le fichier COMPLET avec `write_to_file` en ajoutant le message **APRES** tout le contenu existant
+
+### INTERDIT
+
+- **NE JAMAIS** inserer un message au debut du fichier (avant les messages existants)
+- **NE JAMAIS** supprimer ou modifier les messages existants
+- **NE JAMAIS** ecrire UNIQUEMENT le nouveau message (ecrasement du fichier)
+- **NE JAMAIS** utiliser `replace_in_file` pour inserer en haut
+
+### Pourquoi
+
+L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire les messages recents en fin de fichier. Inserer en haut casse cet ordre et rend le fichier illisible.
+
+---
+
 ## Format des Messages
 
 ```markdown
