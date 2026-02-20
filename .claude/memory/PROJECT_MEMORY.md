@@ -88,10 +88,10 @@ Updated via git commits. Each agent should read this at session start.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
 
-## Current State (2026-02-18)
+## Current State (2026-02-20)
 
-**Phase**: MONTEE EN CHARGE (Cycle 9)
-**Tests**: 3305 PASS, 0 FAILED | **Tools**: 36 | **GitHub #67**: ~161/179 Done (90%)
+**Phase**: MONTEE EN CHARGE (Cycle 14)
+**Tests**: 3456 PASS, 0 FAILED | **Tools**: 36 | **GitHub #67**: Progression continue
 
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
@@ -101,14 +101,15 @@ Updated via git commits. Each agent should read this at session start.
 - **Fix #482**: Write-Host polluted stdout. Use `[Console]::Error.WriteLine()` only.
 
 ### EMBEDDING Config (required in .env for codebase_search)
-```
-EMBEDDING_MODEL=qwen3-4b-awq-embedding
-EMBEDDING_DIMENSIONS=2560
-EMBEDDING_API_BASE_URL=https://embeddings.myia.io/v1
-EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9d500e6f1
-QDRANT_URL=https://qdrant.myia.io
-QDRANT_API_KEY=4f89edd5-90f7-4ee0-ac25-9185e9835c44
-```
+**Variables requises dans `mcps/internal/servers/roo-state-manager/.env`:**
+- `EMBEDDING_MODEL` - Modèle d'embedding (ex: qwen3-4b-awq-embedding)
+- `EMBEDDING_DIMENSIONS` - Dimensions des vecteurs (ex: 2560)
+- `EMBEDDING_API_BASE_URL` - URL de l'API d'embedding
+- `EMBEDDING_API_KEY` - Clé API pour l'embedding
+- `QDRANT_URL` - URL du serveur Qdrant
+- `QDRANT_API_KEY` - Clé API Qdrant
+
+> ⚠️ Les valeurs réelles sont dans le fichier `.env` (non versionné). Ne jamais committer de clés API.
 - 20 ws-* Qdrant collections populated (1-580K vectors, 2560 dims)
 - Dedicated `getCodebaseEmbeddingClient()` separate from task-indexer
 
