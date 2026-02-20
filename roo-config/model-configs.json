@@ -65,22 +65,6 @@
       }
     },
     {
-      "name": "Configuration Gemini",
-      "description": "Configuration avec Qwen 3 32B pour les modes simples et Gemini 2.5 Pro pour les modes complexes",
-      "modeOverrides": {
-        "code-simple": "qwen/qwen3-32b",
-        "code-complex": "google/gemini-2.5-pro-exp-03-25",
-        "debug-simple": "qwen/qwen3-32b",
-        "debug-complex": "google/gemini-2.5-pro-exp-03-25",
-        "architect-simple": "qwen/qwen3-32b",
-        "architect-complex": "google/gemini-2.5-pro-exp-03-25",
-        "ask-simple": "qwen/qwen3-32b",
-        "ask-complex": "google/gemini-2.5-pro-exp-03-25",
-        "orchestrator-simple": "qwen/qwen3-32b",
-        "orchestrator-complex": "google/gemini-2.5-pro-exp-03-25"
-      }
-    },
-    {
       "name": "Configuration Sonnet 4.6 (NOUVEAU 2026-02-18)",
       "description": "Configuration avec GLM-4.7-Flash pour modes simples et Claude Sonnet 4.6 pour modes complexes. Bon compromis vitesse/intelligence.",
       "modeOverrides": {
@@ -107,14 +91,6 @@
       "openRouterUseMiddleOutTransform": false,
       "apiProvider": "openrouter",
       "id": "usl6gy8xkxg"
-    },
-    "gemini-2.5-pro": {
-      "modelTemperature": null,
-      "openRouterApiKey": "${env:OPENROUTER_API_KEY}",
-      "openRouterModelId": "google/gemini-2.5-pro-exp-03-25",
-      "openRouterUseMiddleOutTransform": false,
-      "apiProvider": "openrouter",
-      "id": "ywbjgfyg3"
     },
     "qwen3-32b": {
       "modelTemperature": 0.6,
