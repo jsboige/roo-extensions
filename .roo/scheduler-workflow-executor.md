@@ -87,16 +87,19 @@ Apres tout → **Etape 3**
 
 > **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
 
-**Methode principale :** Deleguer a `code-simple` via `new_task` :
+**METHODE PRINCIPALE (directe, sans delegation) :**
+
+> Raison : La delegation via `new_task` peut echouer silencieusement (timeout, erreur subtask). La tracabilite etant prioritaire, l'ecriture directe est plus fiable.
 
 ```
 1. Lis .claude/local/INTERCOM-{MACHINE}.md en ENTIER avec read_file
-2. Ajoute le nouveau message A LA FIN (ne supprime RIEN de l'ancien contenu)
-3. Reecris le fichier COMPLET avec write_to_file
-4. Relis le fichier et confirme que le dernier message est celui qu'on vient d'ajouter
+2. Prepare le nouveau message (voir format ci-dessous)
+3. Ajoute le message A LA FIN du contenu existant (ne supprime RIEN)
+4. Reecris le fichier COMPLET avec write_to_file
+5. CONFIRME : Relis le fichier et verifie que le dernier message est bien le tien
 ```
 
-**FALLBACK :** Si la delegation echoue (subtask error, timeout, pas de confirmation), ecrire INTERCOM directement soi-meme avec read_file + write_to_file. Cette exception a la regle "toujours deleguer" est justifiee car la tracabilite est prioritaire.
+**FALLBACK (si write_to_file non disponible) :** Deleguer a `code-simple` via `new_task` avec les instructions ci-dessus. Cette methode est moins fiable mais preferable a aucune ecriture.
 
 **Format du message :**
 
