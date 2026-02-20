@@ -148,6 +148,10 @@ Apres validation :
 Avant le workflow complet, un diagnostic rapide :
 
 ```
+0. VERIFIER USER GLOBAL (CRITIQUE):
+   - ~/.claude/CLAUDE.md existe ? Si NON → CREER avec template minimal
+   - ~/.claude/CLAUDE.md vide (< 5 lignes) ? → ALERTE: preferences non centralisees
+
 1. Compter les lignes de chaque fichier cle :
    - CLAUDE.md (projet) > 500 ? → ALERTE SATURATION
    - MEMORY.md (auto) > 150 ? → ALERTE TRUNCATION
@@ -155,6 +159,23 @@ Avant le workflow complet, un diagnostic rapide :
 2. Verifier les doublons evidents
 
 3. Verifier la fraicheur (dates > 7 jours = PERIME)
+```
+
+**Template minimal ~/.claude/CLAUDE.md (si manquant):**
+
+```markdown
+# Claude Code - User Global Configuration
+
+Preferences cross-projets pour toutes les sessions Claude Code.
+
+## Git Workflow
+- Toujours pull avant push
+
+## Tool Discipline
+- npx vitest run JAMAIS npm test
+
+## OS Gotchas
+- Ajouter vos specificites OS ici
 ```
 
 ---
