@@ -1,3 +1,8 @@
+---
+name: debrief
+description: Analyse et documente la session courante avec triple grounding SDDD. Utilise ce skill à la fin d'une session de travail, quand l'utilisateur tape /debrief, pour capturer les leçons apprises, consolider la mémoire (MEMORY.md) et préparer la transition vers la session suivante. Phrase déclencheur : "/debrief", "débrief", "fin de session", "documente ce qu'on a fait".
+---
+
 # Skill: Debrief - Analyse et Documentation de Session
 
 **Version:** 2.0.0

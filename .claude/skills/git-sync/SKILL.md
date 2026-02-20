@@ -1,3 +1,8 @@
+---
+name: git-sync
+description: Synchronisation Git pour roo-extensions avec gestion du submodule mcps/internal et résolution manuelle des conflits (multi-machines). Utilise ce skill en début de session, avant de travailler, ou quand un message RooSync signale des commits. Phrase déclencheur : "git sync", "pull", "synchronise", "mets à jour le repo".
+---
+
 # Skill : Git Sync - Override roo-extensions
 
 > **Override projet** : Surcharge la skill globale `~/.claude/skills/git-sync/SKILL.md`.
