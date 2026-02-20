@@ -189,6 +189,47 @@ Expose les taches, conversations, et outils de coordination de Roo Code. Utilise
 
 ---
 
+## Infrastructure Machine (myia-ai-01)
+
+Cette machine heberge de nombreux services accessibles via reverse proxies IIS (`*.myia.io`) et en Docker local. Ces services sont disponibles pour TOUS les workspaces.
+
+### Services exposes via HTTPS (reverse proxies IIS)
+
+| Domaine HTTPS | Port local | Service | Usage |
+|---------------|-----------|---------|-------|
+| `open-webui.myia.io` | 2090 | Open WebUI (tenant myia) | Interface chat LLM |
+| `qdrant.myia.io:443` | 6333 | Qdrant Vector DB | Recherche semantique |
+| `search.myia.io` | 8181 | SearXNG | Recherche web (self-hosted, gratuit) |
+| `tika.myia.io` | 9917 | Apache Tika | Extraction texte PDF/DOCX/etc. |
+| `embeddings.myia.io` | (po-2026) | Embedding API | OpenAI-compatible, modele qwen3-4b-awq |
+| `whisper-webui.myia.io` | (po-2023) | Whisper STT | Transcription audio |
+| `turbo.sd-forge.myia.io` | (po-2023) | SD WebUI Forge | Generation images (Flux) |
+
+**Gotchas :**
+- **Qdrant** : Le client Python ajoute `:6333` auto. Toujours ecrire `https://qdrant.myia.io:443`.
+- **Tika API** : `PUT https://tika.myia.io/tika` avec fichier en body, `Accept: text/plain`. Retourne le texte extrait.
+- **SearXNG API** : `GET https://search.myia.io/search?q=...&format=json`. Retourne `{results: [...]}`.
+
+### Services Docker locaux (pas de reverse proxy)
+
+| Port | Service | GPU |
+|------|---------|-----|
+| 5001 | vLLM mini — ZwZ-8B-AWQ | GPU 2 |
+| 5002 | vLLM medium — GLM-4.7-Flash-AWQ | GPU 0+1 |
+| 8880 | Kokoro TTS (67 voix, fr=ff_siwis) | GPU 2 |
+| 8787 | Whisper STT adapter | CPU |
+| 9099 | Open WebUI Pipelines (4 filtres) | CPU |
+
+### GPU Fleet
+
+| Machine | GPU(s) | VRAM | Role |
+|---------|--------|------|------|
+| myia-ai-01 | 3x RTX 4090 | 72 GB | OWUI, vLLM, Qdrant, Tika, TTS |
+| myia-po-2023 | RTX 3090 + RTX 3080 | 40 GB | Whisper STT, SD Forge |
+| myia-po-2026 | RTX 3080 | 16 GB | Embeddings |
+
+---
+
 ## Subagents Recommandes (Cross-Workspace)
 
 Certains agents definis dans roo-extensions sont utiles dans n'importe quel workspace. Les recreer (ou copier depuis `roo-extensions/.claude/agents/`) dans les nouveaux projets.
