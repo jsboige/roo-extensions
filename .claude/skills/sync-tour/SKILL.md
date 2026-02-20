@@ -18,34 +18,49 @@ Ces skills peuvent aussi etre invoques independamment en dehors du sync-tour.
 
 ---
 
-## Phase 0 : Lecture INTERCOM Local (CRITIQUE)
+## Phase 0 : Contexte Local + Grounding SDDD (CRITIQUE)
 
 **⚠️ TOUJOURS commencer par cette phase avant tout le reste !**
 
+**Methodologie :** Triple grounding SDDD. Voir `.claude/rules/sddd-conversational-grounding.md`.
+
 ### Actions
-1. Lire `.claude/local/INTERCOM-myia-ai-01.md` (derniers messages)
-2. Identifier les messages récents de Roo (< 24h)
+
+**0a. Bookend SDDD (debut de tache) :**
+```
+codebase_search(query: "etat courant synchronisation coordination", workspace: "d:\\roo-extensions")
+conversation_browser(action: "current", workspace: "d:\\roo-extensions")
+```
+But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
+
+**0b. Lecture INTERCOM :**
+1. Lire `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages)
+2. Identifier les messages recents de Roo (< 24h)
 3. Extraire :
-   - Tâches en cours ou terminées par Roo
-   - Demandes à Claude
+   - Taches en cours ou terminees par Roo
+   - Demandes a Claude
    - Modifications locales (submodule, fichiers)
    - Questions ou blocages
 
 ### Output attendu
 ```
-## Phase 0 : INTERCOM Local
+## Phase 0 : Contexte Local + SDDD
 
-### Messages de Roo récents : X
+### Grounding semantique
+- codebase_search : X resultats pertinents
+- Roo tache active : [description] ou [aucune]
+
+### Messages INTERCOM recents : Y
 | Heure | Type | Contenu |
 |...
 
-### Points clés
-- Tâche Roo : [en cours/terminée]
-- Demandes à Claude : [liste]
+### Points cles
+- Tache Roo : [en cours/terminee]
+- Demandes a Claude : [liste]
 - Modifications locales : [fichiers]
 ```
 
-**Si Roo signale un merge en cours ou des modifications locales : gérer AVANT Phase 2 !**
+**Si Roo signale un merge en cours ou des modifications locales : gerer AVANT Phase 2 !**
 
 ---
 
@@ -347,6 +362,12 @@ Les sessions Claude Code ont un contexte limite. Sans consolidation, les apprent
 
 ### Actions
 
+**0. Bookend SDDD (fin de tache) :**
+```
+codebase_search(query: "synchronisation coordination etat machines", workspace: "d:\\roo-extensions")
+```
+Verifier que les modifications de ce tour (doc, rules, code) sont coherentes avec l'existant.
+
 **1. Mettre a jour MEMORY.md (prive, auto-charge)**
 
 Fichier : `~/.claude/projects/d--roo-extensions/memory/MEMORY.md`
@@ -443,52 +464,47 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 ---
 
-## Outils MCP Avances Disponibles
+## Phase 4bis : Vision 360 RooSync (Coordinateur)
 
-### Recherche semantique dans le code (`codebase_search`)
+**Objectif :** Utiliser les outils RooSync au-dela de la messagerie pour une vision globale des machines.
 
-Recherche par **concept** dans le workspace indexe par Qdrant (pas par texte exact).
+### Actions
 
+**4bis-a. Etat des machines :**
 ```
-codebase_search(query: "rate limiting for embeddings", workspace: "d:\\roo-extensions")
-```
-
-**IMPORTANT :** Toujours passer le parametre `workspace` explicitement. L'auto-detection ne fonctionne pas correctement pour Claude Code (pointe vers le repertoire du serveur MCP).
-
-**Prerequis :** Variables `.env` configurees :
-```
-EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
-EMBEDDING_DIMENSIONS=2560
-EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
-EMBEDDING_API_KEY=vllm-placeholder-key-2024
+roosync_heartbeat(action: "status", filter: "all", includeHeartbeats: true)
 ```
 
-### Recherche semantique dans les taches (`roosync_search`)
-
+**4bis-b. Comparaison des configs (si heartbeat montre des machines actives) :**
 ```
-roosync_search(action: "semantic", search_query: "codebase search bug fix")
-roosync_search(action: "text", search_query: "codebase_search")
+roosync_compare_config(granularity: "mcp")
 ```
 
-La recherche semantique utilise Qdrant (index des conversations Roo). La recherche textuelle scanne le cache directement.
-
-### Indexation des taches (`roosync_indexing`)
-
+**4bis-c. Inventaire machine (optionnel, si drift detecte) :**
 ```
-roosync_indexing(action: "diagnose")  # Etat de l'index Qdrant
-roosync_indexing(action: "index", task_id: "...")  # Indexer une tache
-roosync_indexing(action: "rebuild")  # Reconstruire l'index complet
+roosync_inventory(type: "all")
 ```
 
-### Comparaison de configuration (`roosync_compare_config`)
-
-Compare les configurations MCP, modes Roo, et profils entre machines :
-
+### Output attendu
 ```
-roosync_compare_config(granularity: "mcp")   # MCPs uniquement
-roosync_compare_config(granularity: "mode")   # Modes Roo
-roosync_compare_config(granularity: "full")   # Comparaison complete
-roosync_compare_config(source: "myia-ai-01", target: "myia-po-2025", filter: "sk-agent")
+## Phase 4bis : Vision 360 RooSync
+
+### Machines enregistrees : X/6
+| Machine | Heartbeat | Dernier signal | Config sync |
+|...
+
+### Drifts detectes
+- [machine] : MCP [nom] manquant vs baseline
+- [machine] : config divergente sur [aspect]
+
+### Actions requises
+- [machine] doit executer roosync_config(action: "collect") + publish
+```
+
+### Friction
+Si un outil RooSync ne fonctionne pas ou donne des resultats inexploitables, signaler :
+```
+roosync_send(action: "send", to: "all", subject: "[FRICTION] Outil RooSync [nom]", body: "...", tags: ["friction", "roosync"])
 ```
 
 ---

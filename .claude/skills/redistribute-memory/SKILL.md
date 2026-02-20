@@ -166,7 +166,22 @@ Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niv
 | ...
 ```
 
-### Phase 2 : Analyse
+### Phase 2 : Analyse (avec grounding SDDD)
+
+**Methodologie :** Triple grounding SDDD (voir `.claude/rules/sddd-conversational-grounding.md`).
+
+**2-preambule. Grounding semantique (chercher les connaissances non documentees) :**
+```
+codebase_search(query: "lessons learned patterns conventions", workspace: "d:\\roo-extensions")
+roosync_search(action: "semantic", search_query: "lecons apprises decisions architecture")
+```
+But : Trouver des connaissances enfouies dans le code ou les conversations Roo qui n'ont jamais ete formalisees dans les fichiers de memoire/regles.
+
+**2-preambule-b. Grounding conversationnel (traces Roo recentes) :**
+```
+conversation_browser(action: "tree", output_format: "ascii-tree")
+```
+But : Identifier les taches Roo recentes dont les resultats/lecons n'ont pas ete captures.
 
 Pour chaque fichier, analyser le contenu et identifier :
 
@@ -542,6 +557,13 @@ Si MEMORY.md > 150 lignes :
 - "redistribue la memoire" ou "audite les regles" ou "nettoie CLAUDE.md" → scan workspace courant
 - "scan global" ou "redistribue tout" → scan complet multi-workspace (Phase 1 etape 4)
 - "rapport multi-workspace" → generer le rapport tabulaire pour envoi au coordinateur
+
+### Signalement de friction
+Si le scan multi-workspace revele des incoherences recurrentes ou des outils manquants :
+```
+roosync_send(action: "send", to: "all", subject: "[FRICTION] Description", body: "...", tags: ["friction", "memory"])
+```
+Les ameliorations des skills sont decidees collectivement (voir `.claude/rules/sddd-conversational-grounding.md`).
 
 ### Frequence recommandee
 - Apres chaque session longue (>2h)

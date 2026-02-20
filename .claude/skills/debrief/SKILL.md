@@ -1,50 +1,74 @@
 # Skill: Debrief - Analyse et Documentation de Session
 
-**Version:** 1.0.0
-**Créé:** 2026-02-12
+**Version:** 2.0.0
+**Cree:** 2026-02-12
+**MAJ:** 2026-02-21
 **Usage:** `/debrief`
+**Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-conversational-grounding.md`)
 
 ---
 
-## 🎯 Objectif
+## Objectif
 
-Analyser le travail effectué dans la session courante, documenter les leçons apprises, et préparer un résumé structuré pour transition vers une nouvelle session ou vers l'assistant Roo.
+Analyser le travail effectue dans la session courante, documenter les lecons apprises, et preparer un resume structure pour transition vers une nouvelle session ou vers l'assistant Roo.
 
 ---
 
-## 📋 Workflow
+## Workflow
 
-### Phase 1 : Analyse de la Session
+### Phase 1 : Analyse de la Session (Triple Grounding)
 
 **Actions :**
-1. Identifier les tâches principales accomplies
-2. Lister les problèmes rencontrés et résolus
-3. Extraire les outils/commandes utilisés
-4. Mesurer les métriques clés (temps, tests, commits, etc.)
+1. **Grounding conversationnel** : Consulter ce que Roo a fait en parallele
+   ```
+   conversation_browser(action: "current", workspace: "d:\\roo-extensions")
+   ```
+   Si une tache Roo est active, lire son squelette :
+   ```
+   conversation_browser(action: "view", task_id: "{ID}", detail_level: "skeleton", smart_truncation: true)
+   ```
+2. **Grounding semantique** : Verifier si des taches similaires ont ete faites recemment
+   ```
+   roosync_search(action: "semantic", search_query: "sujet principal de la session")
+   ```
+3. Identifier les taches principales accomplies (conversation courante)
+4. Lister les problemes rencontres et resolus
+5. Extraire les outils/commandes utilises
+6. Mesurer les metriques cles (temps, tests, commits, etc.)
 
-**Méthode :**
-- Parcourir l'historique de conversation (messages User + Assistant récents)
-- Identifier les patterns : problèmes → diagnostic → solution
-- Extraire les commandes Bash exécutées
-- Noter les outils MCP utilisés
+**Methode :**
+- Croiser le triple grounding : historique conversation + traces Roo + recherche semantique
+- Identifier les patterns : problemes → diagnostic → solution
+- Extraire les commandes Bash executees
+- Noter les outils MCP utilises
 
-### Phase 2 : Extraction des Leçons
+### Phase 2 : Extraction des Lecons
 
-**Catégories de leçons :**
-- **Problèmes Techniques** : Root causes, solutions, workarounds
-- **Processus** : Workflows efficaces, patterns réutilisables
-- **Outils** : Découvertes, configurations, best practices
+**Grounding semantique (deduplication) :**
+Avant d'ecrire une lecon, verifier qu'elle n'existe pas deja :
+```
+codebase_search(query: "description de la lecon", workspace: "d:\\roo-extensions")
+```
+Si codebase_search retourne un fichier existant avec cette info → ne pas dupliquer.
+
+**Categories de lecons :**
+- **Problemes Techniques** : Root causes, solutions, workarounds
+- **Processus** : Workflows efficaces, patterns reutilisables
+- **Outils** : Decouvertes, configurations, best practices
 - **Coordination** : Communication RooSync, INTERCOM, GitHub
 - **Performance** : Optimisations, gains de temps
+- **Friction** : Problemes avec les outils/skills a signaler au collectif
 
-**Format par leçon :**
+**Format par lecon :**
 ```
-Catégorie: [Technique|Processus|Outils|Coordination|Performance]
-Problème: [Description courte]
-Solution: [Action concrète]
-Impact: [Résultat mesurable]
-Réutilisable: [Oui/Non]
+Categorie: [Technique|Processus|Outils|Coordination|Performance|Friction]
+Probleme: [Description courte]
+Solution: [Action concrete]
+Impact: [Resultat mesurable]
+Reutilisable: [Oui/Non]
 ```
+
+**Si friction detectee** : Envoyer un message au collectif (voir protocole de friction dans `.claude/rules/sddd-conversational-grounding.md`).
 
 ### Phase 3 : Documentation Mémoire
 

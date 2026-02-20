@@ -13,7 +13,9 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ---
 
-## PHASE 1 : COLLECTE RAPIDE (5 min max)
+## PHASE 1 : COLLECTE RAPIDE + GROUNDING SDDD (5 min max)
+
+**Methodologie :** Triple grounding SDDD (voir `.claude/rules/sddd-conversational-grounding.md`).
 
 Execute ces actions automatiquement, en parallele quand possible :
 
@@ -24,17 +26,21 @@ git log --oneline -5
 git fetch origin && git pull origin main
 ```
 
-Puis :
-1. **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages Roo < 24h)
-2. **RooSync** : `roosync_read` (mode: inbox, status: unread) - instructions du coordinateur
-3. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
+Puis (en parallele) :
+1. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
+2. **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages Roo < 24h)
+3. **RooSync** : `roosync_read` (mode: inbox, status: unread) - instructions du coordinateur
+4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
 Affiche un resume CONCIS (10 lignes max) :
 ```
 Machine: {name} | Git: {hash} | Tests: {dernier resultat connu}
+SDDD: codebase_search OK/KO | Roo tache active: {oui/non}
 INTERCOM: {X messages recents} | RooSync: {Y non-lus}
 Issues ouvertes: {Z} | Taches assignees: {liste courte}
 ```
+
+**Si codebase_search echoue** (EMBEDDING_* non configure) : Signaler en friction et continuer sans.
 
 ---
 
@@ -136,7 +142,11 @@ Passer directement a la Phase 2.
 7. **Tache de maintenance** toujours utile :
    - Build + tests (validation)
    - Deploiement global config
-   - Heartbeat registration (si pas fait)
+   - **Config-sync RooSync** (si pas fait) :
+     - `roosync_heartbeat(action: "register", machineId: "{MACHINE}")` → S'enregistrer
+     - `roosync_config(action: "collect")` → Collecter la config locale
+     - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
+     - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline
    - Nettoyage INTERCOM (si > 500 lignes)
 
 ### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
@@ -226,10 +236,10 @@ gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { proje
 
 Pour chaque tache selectionnee, execute le cycle complet :
 
-### 3a. Investigation (si necessaire)
+### 3a. Investigation (Bookend SDDD debut)
+- **Bookend debut** : `codebase_search(query: "concept de la tache", workspace: "d:\\roo-extensions")` → Contexte existant
+- `roosync_search(action: "semantic", search_query: "sujet de la tache")` → Travail passe pertinent
 - Lire le code source pertinent (Read, Grep, Glob)
-- **Recherche semantique** : `codebase_search(query: "...", workspace: "d:\\roo-extensions")` pour trouver du code par concept
-- **Historique Roo** : `roosync_search(action: "text", search_query: "...")` pour retrouver des conversations pertinentes
 - Comprendre l'architecture et les contraintes
 - Identifier les fichiers a modifier
 
@@ -254,12 +264,16 @@ Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 git push origin main
 ```
 
-### 3e. Rapport
+### 3e. Validation SDDD (Bookend fin)
+- **Bookend fin** : `codebase_search(query: "concept implemente", workspace: "d:\\roo-extensions")` → Verifier que le travail est retrouvable
+- Si le bookend fin ne retourne pas les fichiers modifies → la doc/indexation est insuffisante
+
+### 3f. Rapport
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
 - **INTERCOM** : Informer Roo des modifications
-- **RooSync** : Message au coordinateur (resume, pas de pavé)
+- **RooSync** : Message au coordinateur (resume, pas de pave)
 
-### 3f. Tache suivante
+### 3g. Tache suivante
 - **Retour a Phase 2** : Selectionner la prochaine tache
 - **Objectif** : 2-3 taches substantielles par session minimum
 - **Ne PAS s'arreter** apres une seule tache
@@ -314,6 +328,14 @@ git push origin main
 - Mettre a jour MEMORY.md (prive) avec etat courant
 - Mettre a jour PROJECT_MEMORY.md (partage) si apprentissages universels
 - Commit + push si fichiers partages modifies
+
+### Protocole de friction (OBLIGATOIRE)
+Tout probleme avec les outils, skills, ou processus doit etre signale au collectif :
+```
+roosync_send(action: "send", to: "all", subject: "[FRICTION] Description courte", body: "## Probleme\n...\n## Contexte\n...\n## Impact\n...\n## Suggestion\n...", tags: ["friction"])
+```
+Le coordinateur (myia-ai-01) synthetise et decide les ameliorations incrementales.
+Les skills evoluent par friction reelle, pas par anticipation theorique.
 
 ---
 
