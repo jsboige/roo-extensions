@@ -1,24 +1,25 @@
 # 🚀 Roo Extensions - Écosystème Multi-Agent de Développement Intelligent
 
-**Version** : 2.3.0
+**Version** : 2.3.1
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 16 février 2026
+**Dernière mise à jour** : 20 février 2026
 **GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
 
 ---
 
 ## 🎯 Vue d'Ensemble
 
-Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (35 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
+Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (36 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
 
 ### 🏆 Réalisations Principales
 
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
-- ✅ **18 MCPs fonctionnels** : 7 internes + 11 externes
+- ✅ **6 MCPs déployés** : roo-state-manager, playwright, searxng, markitdown, win-cli, sk-agent
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **35 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
+- ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
-- ✅ **GitHub Projects #67** : 147/165 Done (89.1%)
+- ✅ **GitHub Projects #67** : 172/184 Done (93.5%)
+- ✅ **3456 tests unitaires** : 210 fichiers, CI GitHub Actions (Node 18+20)
 
 ---
 
@@ -100,56 +101,41 @@ Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
 ```
 roo-extensions/
 ├── 📁 .claude/                    # Configuration Claude Code agents
-│   ├── agents/                    # 11 subagents spécialisés
-│   ├── skills/                    # 4 skills auto-invoqués
-│   ├── commands/                  # Slash commands
+│   ├── agents/                    # 12 subagents spécialisés
+│   ├── skills/                    # 6 skills auto-invoqués
+│   ├── commands/                  # 4 slash commands
+│   ├── rules/                     # 9 règles auto-chargées
 │   └── local/                     # Communication locale (INTERCOM)
 ├── 📁 docs/                       # Documentation technique consolidée
 │   ├── roosync/                   # Protocoles RooSync v2.3
 │   ├── architecture/              # Designs et analyses
 │   ├── guides/                    # Guides utilisateur
-│   ├── framework-multi-agent/     # Templates coordination
-│   └── (8 autres répertoires)
+│   └── framework-multi-agent/     # Templates coordination
 ├── 📁 mcps/internal/servers/
-│   └── roo-state-manager/         # 35 outils MCP (wrapper v4)
+│   ├── roo-state-manager/         # 36 outils MCP (wrapper v4)
+│   └── sk-agent/                  # 7 outils (Python FastMCP + Semantic Kernel)
 ├── 📁 roo-config/                 # Configuration centralisée
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
 │   ├── scheduler/                 # Orchestration autonome (3h interval)
 │   └── settings/                  # Paramètres globaux
-├── 📁 tests/                      # 3294 tests unitaires (202 fichiers)
+├── 📁 scripts/                    # Utilitaires (sync-roo-alwaysallow.js, etc.)
 └── 📄 CLAUDE.md                   # Guide principal agents
 ```
 
-### MCPs Actifs (2026-02-16)
+### MCPs Actifs (2026-02-20)
 
-**5 serveurs MCP déployés sur 6 machines :**
+**6 serveurs MCP déployés sur 6 machines :**
 
-1. **roo-state-manager** (35 outils via wrapper v4)
-   - Inter-machine messaging (RooSync v2.3)
-   - Configuration sync (6 machines)
-   - Task/conversation browsing
-   - Semantic search (Qdrant indexing)
+| MCP | Outils | Description |
+|-----|--------|-------------|
+| **roo-state-manager** | 36 | Messaging RooSync, config sync, task browsing, semantic search |
+| **sk-agent** | 7 | Agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
+| **playwright** | 20 | Browser automation, screenshots, form filling |
+| **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |
+| **win-cli** | 7+ | Windows CLI, SSH, commandes shell (fork local 0.2.0) |
+| **searxng** | 2 | Recherche web sémantique |
 
-2. **playwright** (15 outils)
-   - Browser automation
-   - Web testing
-
-3. **searxng** (2 outils)
-   - Web search sémantique
-
-4. **desktop-commander** (26 outils)
-   - Interactive processes
-   - File search + PDF operations
-
-5. **win-cli** (9 outils)
-   - Windows CLI commands
-   - Unrestricted mode configuration
-
-**GitHub CLI (gh)** - ⚠️ **Replaces github-projects-mcp (#368)**
-
-- Native GitHub integration
-- Issues, PRs, Projects via command line
-- 80% feature coverage vs deprecated MCP
+**GitHub CLI (gh)** - Remplace github-projects-mcp (#368). Issues, PRs, Projects via command line.
 
 **Documentation complète :** [`mcps/README.md`](mcps/README.md)
 
@@ -206,21 +192,33 @@ Collect → Publish → Compare → Validate → Apply
 
 ### 3. 🤖 Agents et Skills Claude Code
 
-#### Subagents Disponibles
+#### 12 Subagents Disponibles
 
-- **git-sync** : Pull conservatif + résolution conflits
-- **test-runner** : Build + tests unitaires
-- **code-fixer** : Investigation et correction bugs
-- **code-explorer** : Exploration codebase
-- **doc-updater** : Mise à jour documentation
+| Agent | Usage |
+|-------|-------|
+| **git-sync** | Pull conservatif + résolution conflits |
+| **test-runner** | Build + tests unitaires |
+| **code-fixer** | Investigation et correction bugs |
+| **code-explorer** | Exploration codebase |
+| **doc-updater** | Mise à jour documentation |
+| **test-investigator** | Investigation tests échoués/instables |
+| **roosync-hub** | Hub central messages RooSync (coordinateur) |
+| **dispatch-manager** | Assignation tâches aux machines (coordinateur) |
+| **task-planner** | Planification multi-agent (coordinateur) |
+| **roosync-reporter** | Rapports au coordinateur (exécutant) |
+| **task-worker** | Exécution tâches assignées (exécutant) |
+| **consolidation-worker** | Consolidations CONS-X (spécialisé) |
 
-#### Skills Auto-Invoqués
+#### 6 Skills Auto-Invoqués
 
-- **sync-tour** : Tour de sync complet (8 phases)
+- **sync-tour** : Tour de sync complet (9 phases)
 - **validate** : CI local (build + tests)
 - **git-sync** : Synchronisation Git
+- **github-status** : État Project #67
+- **redistribute-memory** : Audit et redistribution mémoire
+- **debrief** : Analyse session + capture leçons
 
-**Documentation :** [`.claude/agents/`](.claude/agents/)
+**Documentation :** [`.claude/agents/`](.claude/agents/) et [`.claude/skills/`](.claude/skills/)
 
 ---
 
@@ -228,17 +226,19 @@ Collect → Publish → Compare → Validate → Apply
 
 ### Infrastructure
 - **6 machines actives** : Coordination 24/7
-- **Scheduler Roo** : Toutes les 3h (staggered)
-- **Build + Tests** : ~35s (3294 tests)
+- **Scheduler Roo** : Toutes les 3h (staggered par machine)
+- **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
+- **Build + Tests** : ~31s (3456 tests, 210 fichiers)
 
 ### MCPs
-- **roo-state-manager** : 35 outils, <500ms réponse
-- **Taux de réussite tests** : 99.6% (3294/3295)
+- **roo-state-manager** : 36 outils, <500ms réponse
+- **sk-agent** : 11 agents IA, 4 conversations, 4 modèles
+- **Taux de réussite tests** : 100% (3456/3456)
 
 ### RooSync v2.3
-- **Messagerie** : <1s latence inter-machines
+- **Messagerie** : <1s latence inter-machines (GDrive partagé)
 - **Baseline sync** : 2-4s par machine
-- **Fiabilité** : >99% succès
+- **Qdrant** : 20 collections, 212K+ vecteurs (2560 dims)
 
 ---
 
@@ -367,24 +367,27 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 🎯 Statut du Projet
 
-**Version actuelle** : 2.3.0
+**Version actuelle** : 2.3.1
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 16 février 2026
-**GitHub Project** : [147/165 Done (89.1%)](https://github.com/users/jsboige/projects/67)
+**Dernière mise à jour** : 20 février 2026
+**GitHub Project** : [172/184 Done (93.5%)](https://github.com/users/jsboige/projects/67)
 
 ### Accomplissements v2.3
 
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
-- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **Wrapper MCP v4** : 35 outils roo-state-manager exposés (pass-through)
-- ✅ **Tests robustes** : 3294/3308 PASS (99.6%) sur 202 fichiers
+- ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
+- ✅ **Wrapper MCP v4** : 36 outils roo-state-manager exposés (pass-through)
+- ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
+- ✅ **Tests robustes** : 3456 PASS sur 210 fichiers
+- ✅ **sk-agent** : 11 agents IA via FastMCP + Semantic Kernel
+- ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
 - ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470)
 
 ### Roadmap
 
-- **v2.4** : Autonomie Niveau 2 (tasks complex via scheduler)
-- **v2.5** : Interface web RooSync + Dashboard temps réel
-- **v3.0** : Intelligence artificielle pour recommandations + Multi-OS support
+- **v2.4** : Autonomie Niveau 2 (tasks complex via scheduler + escalade Claude Code)
+- **v2.5** : Adoption worktrees + PRs pour workflow multi-agent (#448)
+- **v3.0** : Split roo-state-manager en modules indépendants (#454)
 
 ---
 

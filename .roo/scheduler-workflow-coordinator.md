@@ -84,15 +84,20 @@ Si une issue est trouvee : la lire, commenter pour claim, et executer si faisabl
 
 Apres tout → **Etape 3**
 
-### Etape 3 : Rapporter dans INTERCOM
+### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
-Deleguer a `code-simple` avec ces instructions EXACTES :
+> **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
+
+**Methode principale :** Deleguer a `code-simple` via `new_task` :
 
 ```
 1. Lis .claude/local/INTERCOM-myia-ai-01.md en ENTIER avec read_file
 2. Ajoute le nouveau message A LA FIN (ne supprime RIEN de l'ancien contenu)
 3. Reecris le fichier COMPLET avec write_to_file
+4. Relis le fichier et confirme que le dernier message est celui qu'on vient d'ajouter
 ```
+
+**FALLBACK :** Si la delegation echoue (subtask error, timeout, pas de confirmation), ecrire INTERCOM directement soi-meme avec read_file + write_to_file. Cette exception a la regle "toujours deleguer" est justifiee car la tracabilite est prioritaire.
 
 **Format du message :**
 
