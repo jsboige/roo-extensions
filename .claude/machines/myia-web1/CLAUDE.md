@@ -23,7 +23,7 @@
 
 ## MCPs Disponibles
 
-- roo-state-manager (36 outils, wrapper v4 pass-through)
+- roo-state-manager (35 outils, wrapper v4 pass-through)
 - desktop-commander (26 outils, remplace win-cli - #468 Phase 3 DONE)
 - markitdown (1 outil)
 - sk-agent (4 modeles LLM: glm-4.6v, glm-5, zwz-8b, glm-4.7-flash)
