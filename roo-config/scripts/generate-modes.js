@@ -67,10 +67,12 @@ function main() {
     for (var level of ['simple', 'complex']) {
       var levelDef = fam[level];
 
-      // Detect capability groups (handle both string and array-with-options formats)
-      var groupNames = fam.groups.map(function(g) { return Array.isArray(g) ? g[0] : g; });
+      // Detect capability groups (per-level override or family-level fallback)
+      var effectiveGroups = levelDef.groups || fam.groups;
+      var groupNames = effectiveGroups.map(function(g) { return Array.isArray(g) ? g[0] : g; });
       var hasCommand = groupNames.indexOf('command') >= 0;
       var hasEdit = groupNames.indexOf('edit') >= 0;
+      var hasWinCli = levelDef.useWinCli === true && !hasCommand;
 
       var vars = {
         FAMILY: family,
@@ -78,7 +80,9 @@ function main() {
         LEVEL_LABEL: capitalize(level),
         IS_SIMPLE: level === 'simple',
         IS_COMPLEX: level === 'complex',
-        NO_COMMAND: !hasCommand,
+        // NO_COMMAND: only show redirect message for pure-delegate modes (no win-cli)
+        NO_COMMAND: !hasCommand && !hasWinCli,
+        WIN_CLI_FALLBACK: hasWinCli,
         NO_EDIT: !hasEdit,
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
@@ -94,7 +98,7 @@ function main() {
         roleDefinition: levelDef.roleDefinition,
         description: levelDef.description || '',
         whenToUse: levelDef.whenToUse || '',
-        groups: fam.groups,
+        groups: effectiveGroups,
         customInstructions: customInstructions,
       };
 
