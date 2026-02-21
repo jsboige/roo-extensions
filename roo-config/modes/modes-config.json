@@ -6,6 +6,8 @@
       "emoji": "💻",
       "groups": ["read", "edit", "browser", "command", "mcp"],
       "simple": {
+        "groups": ["read", "edit", "browser", "mcp"],
+        "useWinCli": true,
         "roleDefinition": "Tu es Roo en mode code-simple, specialise dans les modifications de code efficaces : corrections rapides, formatage, documentation inline, et implementations basiques. Verifie l'etat reel (git status, fichiers existants) avant d'agir.",
         "description": "Corrections rapides, formatage, documentation, features basiques",
         "whenToUse": "Pour les modifications de code bien definies, corrections simples, formatage, documentation, et features basiques ne necessitant pas de decision architecturale.",
@@ -32,6 +34,8 @@
       "emoji": "🪲",
       "groups": ["read", "edit", "browser", "command", "mcp"],
       "simple": {
+        "groups": ["read", "edit", "browser", "mcp"],
+        "useWinCli": true,
         "roleDefinition": "Tu es Roo en mode debug-simple, specialise dans l'identification d'erreurs de syntaxe, la resolution de bugs evidents, la verification de configurations, et le diagnostic de problemes isoles.",
         "description": "Bugs evidents, erreurs de syntaxe, configuration, diagnostic isole",
         "whenToUse": "Pour les erreurs de syntaxe, bugs evidents, problemes de configuration simples, et diagnostics isoles dans un ou deux fichiers.",

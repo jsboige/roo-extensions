@@ -9,6 +9,26 @@
 3. Communication via INTERCOM uniquement (`.claude/local/INTERCOM-{MACHINE}.md`)
 4. Ne JAMAIS commit ou push
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
+6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
+
+## REGLES WIN-CLI (CRITIQUE)
+
+Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours instruire l'utilisation de win-cli** dans les prompts `new_task` :
+
+```
+# Build/Tests - utiliser win-cli :
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+
+# Git - utiliser gitbash :
+execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+execute_command(shell="gitbash", command="git status")
+
+# GitHub CLI - utiliser powershell :
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels")
+```
+
+**ATTENTION** : Ne PAS piper vers des commandes PowerShell dans le shell "powershell" (Select-Object, ConvertFrom-Json) si possible - privilegier des commandes simples ou plusieurs appels separes.
 
 ---
 
