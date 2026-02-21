@@ -32,7 +32,28 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 
 ---
 
-## WORKFLOW EN 3 ETAPES
+## WORKFLOW EN 4 ETAPES
+
+### Etape 0 : Pre-flight Check (OBLIGATOIRE)
+
+**AVANT TOUT**, verifier que les outils critiques sont disponibles.
+
+Tester win-cli directement (PAS via delegation) :
+
+```
+execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+```
+
+**Decision :**
+- Si `execute_command` repond `PRE-FLIGHT-OK` : continuer vers **Etape 1**
+- Si `execute_command` echoue ou n'est pas disponible : **STOP IMMEDIAT**
+  1. Ecrire dans INTERCOM (via write_to_file directement) :
+     `## [{DATE}] roo -> claude-code [CRITICAL]`
+     `### MCP win-cli non disponible - Scheduler BLOQUE`
+  2. NE PAS continuer le workflow
+  3. Terminer la tache
+
+**Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
 ### Etape 1 : Git pull + Lecture INTERCOM
 

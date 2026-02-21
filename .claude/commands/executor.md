@@ -13,6 +13,22 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ---
 
+## PHASE 0 : STOP & REPAIR (AVANT TOUT)
+
+**Verifier que les outils critiques sont disponibles dans les system-reminders :**
+- `win-cli` (execute_command) → Obligatoire pour toute commande shell
+- `roo-state-manager` (conversation_browser, roosync_*) → Obligatoire pour coordination
+
+**Si un outil critique manque :** STOP IMMEDIAT. Ne pas continuer en mode degrade.
+1. Diagnostiquer : `roosync_mcp_management(action: "manage", subAction: "read")`
+2. Reparer si possible (config incorrecte, fork local manquant)
+3. Si non reparable : envoyer message URGENT au coordinateur via RooSync
+4. Documenter dans INTERCOM [CRITICAL]
+
+**Reference complete :** [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
+
+---
+
 ## PHASE 1 : COLLECTE RAPIDE + GROUNDING SDDD (5 min max)
 
 **Methodologie :** Triple grounding SDDD (voir `.claude/rules/sddd-conversational-grounding.md`).

@@ -24,7 +24,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 
 1. `git pull`
 2. Lire ce fichier (CLAUDE.md)
-3. Verifier les MCP disponibles (system-reminders au debut de conversation)
+3. **CRITIQUE : Verifier les MCP disponibles** (system-reminders au debut de conversation). Si win-cli ou roo-state-manager absent → STOP & REPAIR immediatement (voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md))
 
 ### Autre machine :
 
@@ -52,26 +52,30 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 
 ## Etat des MCPs
 
-### Verification Critique au Demarrage
+### Verification Critique au Demarrage (STOP & REPAIR)
 
-**OBLIGATION :** Verifier que les outils MCP sont disponibles (system-reminders).
-Si ABSENTS : **REGRESSION CRITIQUE** → Reparer AVANT toute autre tache.
+**OBLIGATION :** Verifier que les outils MCP critiques sont disponibles.
+Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travail tant que les outils ne sont pas restaures.
 
-**Checklist reparation :**
-1. Config : `Read ~/.claude.json` → section `mcpServers`
-2. Test : `cd mcps/internal/servers/roo-state-manager && node mcp-wrapper.cjs 2>&1 | head -50`
-3. Wrapper : Verifier correspondance avec registry.ts
-4. Redemarrer VS Code (MCPs chargent au demarrage uniquement)
+**Protocole complet :** [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
 
-### MCPs Deployes (myia-ai-01)
+**MCPs CRITIQUES (scheduler bloque sans eux) :**
+
+| MCP | Outils attendus | Verification |
+|-----|-----------------|-------------|
+| **roo-state-manager** | 36 | `conversation_browser(action: "current")` |
+| **win-cli** | 9 (fork local 0.2.0) | `execute_command(shell="powershell", command="echo OK")` |
+
+**MCPs Standards :**
 
 | MCP | Outils | Statut |
 |-----|--------|--------|
-| **roo-state-manager** | 36 (wrapper v4 pass-through) | Deploye |
 | **sk-agent** | 7 + deprecated aliases | Deploye (fix #482) |
 | **markitdown** | 1 (convert_to_markdown) | Deploye |
-| **win-cli** | 5 (local build 0.2.0) | Deploye |
+| **playwright** | 22 | Deploye |
 | **GitHub CLI** (`gh`) | N/A (CLI natif) | Operationnel |
+
+**MCPs RETIRES (NE DOIVENT PAS etre presents) :** desktop-commander, quickfiles, github-projects-mcp
 
 ### Configuration Claude Code
 
@@ -295,8 +299,10 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 3. **Ne JAMAIS modifier `.roomodes` ou `.roo/schedules.json` directement** (modifier sources + regenerer)
 4. **Validation checklist OBLIGATOIRE** pour consolidation/refactoring
 5. **Annoncer son travail** avant de commencer (anti-conflit)
+6. **STOP & REPAIR si outil critique absent** : Verifier win-cli + roo-state-manager au demarrage. Si absent → arreter, reparer, escalader. Voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
+7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
 
 ---
 
-**Derniere mise a jour :** 2026-02-19
+**Derniere mise a jour :** 2026-02-21
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01

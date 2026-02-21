@@ -48,13 +48,24 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Demarrage Standard
 
+0. **STOP & REPAIR** : Verifier outils critiques (win-cli + roo-state-manager dans system-reminders). Si absent → reparer AVANT toute autre action. Voir `.claude/rules/tool-availability.md`
 1. **Lire INTERCOM local** : Verifier messages de Roo en premier
 2. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 3. **Analyse rapports** : Traiter messages RooSync entrants
 4. **Planification** : Ventiler le travail (task-planner ou manuel)
-5. **Dispatch** : Envoyer instructions via RooSync
+5. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
 6. **Suivi GitHub** : Mettre a jour Project #67
 7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+
+### Claim Obligatoire (anti-duplication)
+
+**AVANT de commencer ou assigner une tache :**
+1. Verifier le champ Machine dans GitHub Project #67 (la tache est-elle deja claimee ?)
+2. Si non claimee : mettre a jour le champ Machine AVANT de commencer
+3. Envoyer un message RooSync `[WORK]` au coordinateur
+4. Si deja claimee par une autre machine : passer a une autre tache
+
+**Ceci s'applique a TOUTES les machines, y compris le coordinateur.**
 
 ### Analyse des Traces Roo (audit scheduler)
 
