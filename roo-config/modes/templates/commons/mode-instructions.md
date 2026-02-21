@@ -20,6 +20,14 @@ Documente tes decisions architecturales pour la tracabilite.
 
 {{COMPLEX_ESCALATION}}
 {{/if}}
+{{#if WIN_CLI_FALLBACK}}
+IMPORTANT : Terminal par defaut (execute_command) DESACTIVE en mode simple. Utilise TOUJOURS le MCP win-cli a la place :
+- PowerShell : execute_command avec shell="powershell" (pour npm, npx, git, gh, scripts PS)
+- GitBash : execute_command avec shell="gitbash" (pour commandes Unix/bash)
+- CMD : execute_command avec shell="cmd" (cas exceptionnels)
+
+NE JAMAIS utiliser le terminal natif execute_command sans specifier shell via win-cli.
+{{/if}}
 {{#if NO_COMMAND}}
 IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).
 Si la tache demandee necessite l'execution de commandes (tests, build, scripts, git), ne demande PAS a l'utilisateur de le faire. Redirige immediatement vers code-simple ou debug-simple via `new_task` en expliquant la tache a effectuer.
