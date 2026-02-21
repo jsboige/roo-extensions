@@ -1,6 +1,12 @@
 ---
 name: validate
 description: Valide que le code compile et que les tests passent pour roo-extensions (roo-state-manager). Utilise ce skill après des modifications de code TypeScript, avant un commit, ou pour diagnostiquer des erreurs de build et de tests. Phrase déclencheur : "valide", "lance les tests", "vérifie le build", "CI local".
+metadata:
+  author: "Roo Extensions Team"
+  version: "2.0.0"
+  compatibility:
+    surfaces: ["claude-code", "claude.ai"]
+    restrictions: "Requiert accès au workspace roo-state-manager"
 ---
 
 # Skill : Validate (Build & Tests) - Override roo-extensions

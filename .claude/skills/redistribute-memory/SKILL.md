@@ -1,6 +1,12 @@
 ---
 name: redistribute-memory
 description: Audite et redistribue les connaissances, règles et mémoires entre les niveaux de configuration Claude Code et Roo Code. Utilise ce skill quand CLAUDE.md est saturé, quand les règles sont mal placées, ou pour nettoyer la configuration. Phrase déclencheur : "/redistribute-memory", "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md".
+metadata:
+  author: "Roo Extensions Team"
+  version: "2.0.0"
+  compatibility:
+    surfaces: ["claude-code", "claude.ai"]
+    restrictions: "Requiert accès aux fichiers de configuration Claude/Roo"
 ---
 
 # Skill : Redistribution Memoire & Regles

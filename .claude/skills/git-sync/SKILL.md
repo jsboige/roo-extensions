@@ -1,6 +1,12 @@
 ---
 name: git-sync
 description: Synchronisation Git pour roo-extensions avec gestion du submodule mcps/internal et résolution manuelle des conflits (multi-machines). Utilise ce skill en début de session, avant de travailler, ou quand un message RooSync signale des commits. Phrase déclencheur : "git sync", "pull", "synchronise", "mets à jour le repo".
+metadata:
+  author: "Roo Extensions Team"
+  version: "2.0.0"
+  compatibility:
+    surfaces: ["claude-code", "claude.ai"]
+    restrictions: "Requiert accès Git + submodule mcps/internal"
 ---
 
 # Skill : Git Sync - Override roo-extensions
