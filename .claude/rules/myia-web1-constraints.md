@@ -42,6 +42,31 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 ---
 
+## MCP win-cli (CRITIQUE depuis modes fix b91a841c)
+
+**Depuis le commit `b91a841c`, win-cli est OBLIGATOIRE.** Les modes `code-simple` et `debug-simple` n'ont plus le groupe `command`. Sans win-cli, le scheduler Roo est totalement bloqué.
+
+**Config correcte (fork local 0.2.0) :**
+```json
+"win-cli": {
+  "command": "node",
+  "args": ["{CHEMIN_ROO_EXTENSIONS}/mcps/external/win-cli/server/dist/index.js"],
+  "transportType": "stdio",
+  "disabled": false,
+  "alwaysAllow": [
+    "create_ssh_connection", "delete_ssh_connection", "execute_command",
+    "get_active_terminal_cwd", "get_command_history", "get_current_directory",
+    "read_ssh_connections", "ssh_disconnect", "ssh_execute", "update_ssh_connection"
+  ]
+}
+```
+
+**NE PAS utiliser** `npx @anthropic/win-cli` (npm 0.2.1 cassé).
+
+**Vérification :** `manage_mcp_settings(action: "read")` → section win-cli doit pointer vers le fork local.
+
+---
+
 ## MCPs Indisponibles
 
 | MCP | Statut | Alternative |
@@ -98,4 +123,4 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 ---
 
-**Dernière mise à jour :** 2026-02-18
+**Dernière mise à jour :** 2026-02-21

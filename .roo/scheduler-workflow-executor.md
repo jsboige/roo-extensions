@@ -48,8 +48,10 @@ Rapporter : etat git + liste des taches trouvees.
 ```
 
 **Decision :**
+- Si git pull a ECHOUE (submodule error, conflict) : aller DIRECTEMENT a **Etape 3** avec rapport d'erreur. Ne PAS executer de taches sur un workspace desynchronise.
 - Si `[URGENT]` : escalader vers `orchestrator-complex`
-- Si `[TASK]` trouve : aller a **Etape 2a**
+- Si `[TASK]` trouve ET date < 24h : aller a **Etape 2a**
+- Si `[TASK]` trouve MAIS date > 24h : IGNORER (tache perimee, noter dans le bilan)
 - Si `[FEEDBACK]` recent de Claude : noter les ajustements
 - Si rien : aller a **Etape 2b**
 
@@ -149,6 +151,9 @@ Apres tout → **Etape 3**
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
 4. **NE JAMAIS utiliser les outils RooSync** (roosync_send, roosync_read, etc.)
 5. Apres 2 echecs sur meme tache : arreter et rapporter
+6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
+7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
+8. **Ignorer les [TASK] de plus de 24h** : les taches perimes sont marquees dans le bilan mais non executees
 
 ---
 
