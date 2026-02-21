@@ -9,6 +9,26 @@
 3. Communication via INTERCOM uniquement (`.claude/local/INTERCOM-myia-ai-01.md`)
 4. Ne JAMAIS commit ou push
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
+6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
+
+## REGLES WIN-CLI (CRITIQUE)
+
+Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours instruire l'utilisation de win-cli** dans les prompts `new_task` :
+
+```
+# Build/Tests - utiliser win-cli :
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+
+# Git - utiliser gitbash :
+execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+execute_command(shell="gitbash", command="git status")
+
+# GitHub CLI - utiliser powershell :
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels")
+```
+
+**ATTENTION** : Ne PAS piper vers des commandes PowerShell complexes (Select-Object, ConvertFrom-Json) si possible - privilegier des commandes simples ou plusieurs appels separes.
 
 ---
 
@@ -19,12 +39,13 @@
 Deleguer a `code-simple` via `new_task` :
 
 ```
-Executer ces commandes et rapporter le resultat :
-1. git pull --no-rebase origin main
-2. git status
-Puis lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md
+Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
+1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+2. execute_command(shell="gitbash", command="git status")
+Puis lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md avec read_file.
 Chercher les messages [TASK], [SCHEDULED], [URGENT] de claude-code -> roo.
 Rapporter : etat git + liste des taches trouvees.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **Decision :**
@@ -57,19 +78,20 @@ Deleguer dans cet ordre a `code-simple` via `new_task` :
 **1. Build + Tests (validation sante workspace)**
 
 ```
-Executer dans le repertoire mcps/internal/servers/roo-state-manager :
-1. npm run build
-2. npx vitest run
+Utilise win-cli MCP pour executer dans le repertoire mcps/internal/servers/roo-state-manager :
+1. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
 Rapporter : build OK/FAIL + nombre tests pass/fail.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **2. Verifier inbox RooSync (detecter messages pour Claude)**
 
 ```
-Executer cette commande PowerShell et rapporter le resultat COMPLET :
-$files = Get-ChildItem "G:/Mon Drive/Synchronisation/RooSync/.shared-state/messages/inbox/*.json" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 5 Name,LastWriteTime
-Write-Output "Nombre total: $($files.Count)"
-$files | Format-Table -AutoSize
+Utilise win-cli MCP pour executer cette commande :
+execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchronisation/RooSync/.shared-state/messages/inbox/*.json' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 5).Name")
+Rapporter : nombre et noms des fichiers recents.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **3. Si messages RooSync recents (< 6h) → signaler dans INTERCOM avec `[WAKE-CLAUDE]`**
@@ -77,7 +99,10 @@ $files | Format-Table -AutoSize
 **4. Chercher une tache sur GitHub (si du temps reste)**
 
 ```
-gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == "roo-schedulable") | "\(.number)\t\(.title)"'
+Utilise win-cli MCP :
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels")
+Filtrer les issues avec label 'roo-schedulable'.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 Si une issue est trouvee : la lire, commenter pour claim, et executer si faisable en `-simple`.
