@@ -1,0 +1,162 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"title": "Reference AlwaysAllow Configuration",
+	"description": "Configuration de reference pour l'auto-approbation des outils MCP sur toutes les machines Roo",
+	"version": "1.0.0",
+	"lastUpdated": "2026-02-21",
+	"mcpServers": {
+		"jinavigator": {
+			"alwaysAllow": [
+				"convert_web_to_markdown",
+				"extract_markdown_outline",
+				"health_check",
+				"multi_convert"
+			]
+		},
+		"searxng": {
+			"alwaysAllow": [
+				"searxng_web_search",
+				"web_url_read"
+			]
+		},
+		"win-cli": {
+			"alwaysAllow": [
+				"create_ssh_connection",
+				"delete_ssh_connection",
+				"execute_command",
+				"get_command_history",
+				"get_current_directory",
+				"read_ssh_connections",
+				"ssh_disconnect",
+				"ssh_execute",
+				"update_ssh_connection"
+			]
+		},
+		"markitdown": {
+			"alwaysAllow": [
+				"convert_to_markdown"
+			]
+		},
+		"playwright": {
+			"alwaysAllow": [
+				"browser_click",
+				"browser_close",
+				"browser_console_messages",
+				"browser_evaluate",
+				"browser_fill_form",
+				"browser_install",
+				"browser_navigate",
+				"browser_network_requests",
+				"browser_press_key",
+				"browser_run_code",
+				"browser_snapshot",
+				"browser_tabs",
+				"browser_take_screenshot",
+				"browser_type",
+				"browser_wait_for"
+			]
+		},
+		"roo-state-manager": {
+			"alwaysAllow": [
+				"analyze_roosync_problems",
+				"codebase_search",
+				"conversation_browser",
+				"export_config",
+				"export_data",
+				"get_mcp_best_practices",
+				"get_raw_conversation",
+				"maintenance",
+				"manage_mcp_settings",
+				"read_vscode_logs",
+				"rebuild_and_restart_mcp",
+				"roosync_baseline",
+				"roosync_compare_config",
+				"roosync_config",
+				"roosync_decision",
+				"roosync_decision_info",
+				"roosync_diagnose",
+				"roosync_get_status",
+				"roosync_heartbeat",
+				"roosync_indexing",
+				"roosync_init",
+				"roosync_inventory",
+				"roosync_list_diffs",
+				"roosync_machines",
+				"roosync_manage",
+				"roosync_mcp_management",
+				"roosync_read",
+				"roosync_refresh_dashboard",
+				"roosync_search",
+				"roosync_send",
+				"roosync_storage_management",
+				"roosync_summarize",
+				"roosync_sync_event",
+				"storage_info",
+				"task_browse",
+				"task_export",
+				"touch_mcp_settings",
+				"view_conversation_tree",
+				"view_task_details",
+				"get_inventory",
+				"get_heartbeat_status",
+				"list_conversations"
+			]
+		},
+		"jupyter": {
+			"alwaysAllow": [
+				"add_cell",
+				"cleanup_all_kernels",
+				"create_notebook",
+				"execute_notebook",
+				"execute_notebook_sync",
+				"execute_on_kernel",
+				"get_kernel_status",
+				"get_notebook_info",
+				"inspect_notebook",
+				"list_kernels",
+				"list_notebook_files",
+				"manage_async_job",
+				"manage_kernel",
+				"read_cells",
+				"read_notebook",
+				"remove_cell",
+				"start_jupyter_server",
+				"start_notebook_async",
+				"stop_jupyter_server",
+				"system_info",
+				"update_cell",
+				"write_notebook"
+			]
+		},
+		"desktop-commander": {
+			"alwaysAllow": [
+				"create_directory",
+				"edit_block",
+				"force_terminate",
+				"get_config",
+				"get_file_info",
+				"get_more_search_results",
+				"get_prompts",
+				"get_recent_tool_calls",
+				"get_usage_stats",
+				"give_feedback_to_desktop_commander",
+				"interact_with_process",
+				"kill_process",
+				"list_directory",
+				"list_processes",
+				"list_searches",
+				"list_sessions",
+				"move_file",
+				"read_file",
+				"read_multiple_files",
+				"read_process_output",
+				"set_config_value",
+				"start_process",
+				"start_search",
+				"stop_search",
+				"write_file",
+				"write_pdf"
+			]
+		}
+	}
+}
