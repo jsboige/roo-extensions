@@ -72,6 +72,34 @@ Les informations s'accumulent dans des fichiers qui ne sont pas toujours au bon 
 
 ## Workflow en 4 phases
 
+### Phase 0 : Vérification Préalable (NOUVEAU)
+
+**CRITIQUE :** Vérifier que le fichier global `~/.claude/CLAUDE.md` existe et est à jour.
+
+**0a. Vérifier l'existence du fichier global :**
+```
+Read: ~/.claude/CLAUDE.md
+```
+
+**Si le fichier n'existe pas ou est vide (< 50 lignes) :**
+```
+1. Lire le template : Read: {workspace}/.claude/configs/user-global-claude.md
+2. Proposer à l'utilisateur : "Le fichier ~/.claude/CLAUDE.md n'existe pas ou est vide. Veux-tu le créer depuis le template ?"
+3. Si oui, copier le template vers ~/.claude/CLAUDE.md
+4. Documenter dans le rapport : "Fichier global créé depuis template (336 lignes)"
+```
+
+**Si le fichier existe mais est obsolète :**
+```
+1. Comparer les dates de modification
+2. Si template > fichier global de plus de 30 jours : proposer mise à jour
+3. Afficher les différences principales (sections nouvelles/retirées)
+```
+
+**Raison :** Sans fichier global correctement déployé, toute redistribution est inefficace. Les règles universelles (Git, safety, tool discipline) doivent être présentes pour que les règles de projet soient correctement hiérarchisées.
+
+---
+
 ### Phase 1 : Inventaire
 
 Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niveaux utilisateur, ET tous les autres workspaces de cette machine.
@@ -91,7 +119,7 @@ Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niv
 
 2. **Claude Code - User level :**
    ```
-   Read: ~/.claude/CLAUDE.md (peut ne pas exister)
+   Read: ~/.claude/CLAUDE.md (doit exister après Phase 0)
    Read: ~/.claude/settings.json (permissions, MCPs)
    Glob: ~/.claude/agents/**/*.md (agents globaux deployes)
    Glob: ~/.claude/skills/*/SKILL.md (skills globaux deployes)
