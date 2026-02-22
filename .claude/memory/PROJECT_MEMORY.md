@@ -8,7 +8,7 @@ Updated via git commits. Each agent should read this at session start.
 ### MCP Tool System
 - **Total tools (ListTools):** 36 (was 39 before #457 consolidation)
 - **Claude wrapper (mcp-wrapper.cjs):** 36 tools (v4 pass-through, no filtering)
-- **Tests:** 3305 passed, 0 failed (2026-02-18)
+- **Tests:** 4129 passed, 12 skipped (2026-02-22)
 - **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
 ### Key Files
@@ -88,10 +88,10 @@ Updated via git commits. Each agent should read this at session start.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
 
-## Current State (2026-02-20)
+## Current State (2026-02-22)
 
-**Phase**: MONTEE EN CHARGE (Cycle 14)
-**Tests**: 3456 PASS, 0 FAILED | **Tools**: 36 | **GitHub #67**: Progression continue
+**Phase**: MONTEE EN CHARGE (Cycle 18)
+**Tests**: 4077 PASS, 12 skipped | **Tools**: 36 | **GitHub #67**: Progression continue
 
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
