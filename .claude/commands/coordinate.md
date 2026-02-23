@@ -262,6 +262,20 @@ EMBEDDING_API_KEY=vllm-placeholder-key-2024
 - **Tests** : Toujours `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch)
 - **Après modif MCP** : Signaler à l'utilisateur qu'un redémarrage VS Code est nécessaire
 
+### Vérification Checklists GitHub (CRITIQUE)
+
+**Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
+
+**AVANT de fermer une issue multi-machine :**
+
+- [ ] Vérifier que le tableau de validation est complété à 100%
+- [ ] Si des cases sont vides (`⬜`) : **NE PAS FERMER L'ISSUE**
+- [ ] Envoyer un message RooSync aux machines concernées pour relancer
+- [ ] Attendre que toutes les cases soient cochées (`✅` ou `❌`)
+- [ ] SEULEMENT alors, fermer l'issue
+
+**RÈGLE ABSOLUE : Ne jamais fermer une issue avec un tableau vide.**
+
 ### Consolidation Documentaire
 
 **Quand :** Si drift détecté (trop de rapports épars non consolidés)
