@@ -192,5 +192,9 @@
     "ask": "sddd-complex-glm5",
     "debug": "sddd-complex-glm5",
     "orchestrator": "sddd-complex-glm5"
+  },
+  "profileThresholds": {
+    "sddd-simple-glm47flash": 80,
+    "sddd-complex-glm5": 80
   }
 }

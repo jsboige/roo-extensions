@@ -100,9 +100,9 @@
       "model_id": "z-ai/glm-4.7-flash",
       "tier": "simple",
       "temperature": 0.6,
-      "max_context_tokens": 200000,
+      "max_context_tokens": 131072,
       "description": "Modèle rapide optimisé pour tâches simples et documentation",
-      "note": "Même contexte 200K que GLM 4.7, vitesse optimisée",
+      "note": "Contexte réel 131K tokens (les 200K annoncés incluent les tokens de sortie)",
 
       "use_cases": [
         "Documentation (README, commentaires inline, guides)",
@@ -129,9 +129,10 @@
       "model_id": "z-ai/glm-4.7",
       "tier": "complex",
       "temperature": 0.7,
-      "max_context_tokens": 200000,
+      "max_context_tokens": 131072,
       "description": "Modèle complet pour architecture, debugging et features",
       "estimated_cost_per_1k_tokens": 0.001,
+      "note": "Contexte réel 131K tokens (les 200K annoncés incluent les tokens de sortie)",
 
       "use_cases": [
         "Features complètes (nouvelles fonctionnalités end-to-end)",
