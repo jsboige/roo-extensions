@@ -284,7 +284,19 @@ git push origin main
 - **Bookend fin** : `codebase_search(query: "concept implemente", workspace: "d:\\roo-extensions")` → Verifier que le travail est retrouvable
 - Si le bookend fin ne retourne pas les fichiers modifies → la doc/indexation est insuffisante
 
-### 3f. Rapport
+### 3f. Rapport + Checklist GitHub (CRITIQUE)
+
+**AVANT de commenter l'issue :**
+
+- [ ] Mettre à jour le tableau de validation dans le corps de l'issue
+- [ ] Remplacer les `⬜` par `✅` (PASS) ou `❌` (FAIL)
+- [ ] Committer la mise à jour avec `gh issue edit`
+- [ ] SEULEMENT ensuite, commenter l'issue avec le résultat
+
+**RÈGLE ABSOLUE : NE JAMAIS commenter sans avoir mis à jour le tableau.**
+
+**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
 - **INTERCOM** : Informer Roo des modifications
 - **RooSync** : Message au coordinateur (resume, pas de pave)
