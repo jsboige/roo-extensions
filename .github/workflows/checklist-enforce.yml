@@ -51,11 +51,12 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              per_page: 5,
-              direction: 'desc'
+              per_page: 100
             });
 
-            const hasForceClose = comments.some(c =>
+            // Check last 10 comments for [FORCE-CLOSE] (API returns ascending order)
+            const recentComments = comments.slice(-10);
+            const hasForceClose = recentComments.some(c =>
               c.body && c.body.includes('[FORCE-CLOSE]')
             );
 
