@@ -32,6 +32,72 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 
 ---
 
+## EXEMPLES CONCRETS DE DÉLÉGATION (OBLIGATOIRE)
+
+**RÈGLE D'OR :** TOUJOURS utiliser `new_task` pour déléguer. JAMAIS exécuter les commandes toi-même.
+
+### ❌ MAUVAIS (à ne JAMAIS faire)
+
+```javascript
+// NE JAMAIS faire ça directement !
+const result = await execute_command(shell="powershell", command="git pull");
+const tests = await execute_command(shell="powershell", command="npx vitest run");
+```
+
+### ✅ BON (à TOUJOURS faire)
+
+```javascript
+// TOUJOURS déléguer via new_task
+const taskId = await new_task({
+  title: "Git pull + status",
+  instructions: `
+Executer ces commandes avec win-cli :
+1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+2. execute_command(shell="gitbash", command="git status")
+Rapporter le resultat.
+  `
+});
+```
+
+### Exemples par type de tâche
+
+**Build + Tests :**
+```javascript
+await new_task({
+  title: "Validation build + tests",
+  instructions: `
+Dans mcps/internal/servers/roo-state-manager :
+1. execute_command(shell="powershell", command="npm run build")
+2. execute_command(shell="powershell", command="npx vitest run")
+Rapporter : build OK/FAIL + X/Y tests.
+  `
+});
+```
+
+**GitHub Issues :**
+```javascript
+await new_task({
+  title: "Chercher tâche GitHub",
+  instructions: `
+1. execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10")
+2. Si issue trouvée : gh issue comment {NUM} --body "Claimed by myia-po-2023"
+3. Executer la tâche selon les instructions dans l'issue
+  `
+});
+```
+
+**Plusieurs tâches indépendantes :**
+```javascript
+// Déléguer CHAQUE tâche séparément
+await new_task({ title: "Batch C tests", instructions: "..." });
+await new_task({ title: "Batch B tests", instructions: "..." });
+await new_task({ title: "Batch A tests", instructions: "..." });
+
+console.log("✅ 3 tâches déléguées aux modes -complex");
+```
+
+---
+
 ## WORKFLOW EN 4 ETAPES
 
 ### Etape 0 : Pre-flight Check (OBLIGATOIRE)
