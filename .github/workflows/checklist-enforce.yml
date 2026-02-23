@@ -1,0 +1,102 @@
+name: Checklist Enforcement
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  check-checklists:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify checklists are complete
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const body = issue.body || '';
+
+            // --- Detect checklist items ---
+
+            // Markdown checkboxes: - [ ] (unchecked) vs - [x] (checked)
+            const uncheckedBoxes = (body.match(/- \[ \]/g) || []).length;
+            const checkedBoxes = (body.match(/- \[x\]/gi) || []).length;
+
+            // Emoji markers in tables: ⬜ (pending) vs ✅ (pass) / ❌ (fail)
+            const uncheckedEmoji = (body.match(/\u2B1C/g) || []).length;
+            const checkedEmoji = (body.match(/[\u2705\u274C]/g) || []).length;
+
+            const totalUnchecked = uncheckedBoxes + uncheckedEmoji;
+            const totalChecked = checkedBoxes + checkedEmoji;
+            const totalItems = totalUnchecked + totalChecked;
+
+            // No checklist in this issue - nothing to enforce
+            if (totalItems === 0) {
+              console.log('No checklist detected in issue body. Allowing close.');
+              return;
+            }
+
+            // All items checked - close is valid
+            if (totalUnchecked === 0) {
+              console.log(`All ${totalItems} checklist items are checked. Allowing close.`);
+              return;
+            }
+
+            // --- Check for FORCE-CLOSE escape hatch ---
+            // If the closing comment (or any recent comment) contains [FORCE-CLOSE], allow it
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 5,
+              direction: 'desc'
+            });
+
+            const hasForceClose = comments.some(c =>
+              c.body && c.body.includes('[FORCE-CLOSE]')
+            );
+
+            if (hasForceClose) {
+              console.log('[FORCE-CLOSE] detected in recent comments. Allowing close despite incomplete checklist.');
+              return;
+            }
+
+            // --- Reopen the issue ---
+
+            console.log(`Incomplete checklist: ${totalUnchecked} unchecked / ${totalItems} total. Reopening.`);
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'open'
+            });
+
+            // Build detail breakdown
+            const details = [];
+            if (uncheckedBoxes > 0) details.push(`${uncheckedBoxes} checkbox(es) \`- [ ]\``);
+            if (uncheckedEmoji > 0) details.push(`${uncheckedEmoji} item(s) \u2B1C`);
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: [
+                '## \u26D4 Checklist incomplete - Issue rouverte automatiquement',
+                '',
+                `Cette issue a \u00E9t\u00E9 ferm\u00E9e avec **${totalUnchecked} item(s) non valid\u00E9(s)** sur ${totalItems} total :`,
+                '',
+                `- ${details.join(', ')}`,
+                `- ${totalChecked} item(s) d\u00E9j\u00E0 valid\u00E9(s) (\u2705 ou \u274C)`,
+                '',
+                '**Action requise :** Mettez \u00E0 jour la checklist dans le corps de l\'issue (`gh issue edit`) avant de fermer.',
+                '',
+                '> Pour forcer la fermeture (cas exceptionnel), ajoutez un commentaire contenant `[FORCE-CLOSE]` avec une justification, puis refermez l\'issue.',
+                '',
+                '---',
+                `*Automatis\u00E9 par [checklist-enforce.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/checklist-enforce.yml) (#516)*`
+              ].join('\n')
+            });
