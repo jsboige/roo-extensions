@@ -236,6 +236,17 @@ EMBEDDING_API_KEY=vllm-placeholder-key-2024
 
 ## Règles Critiques
 
+### Checklists GitHub (OBLIGATOIRE)
+
+**RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
+
+**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+
+1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
+2. **PENDANT** : Cocher chaque case immédiatement après validation
+3. **COMMIT** après chaque case : `git add . && git commit -m "docs(issue): Update checklist #XXX - machine Y case Z" && git push`
+4. **AVANT fermeture** : Vérifier 100% des cases cochées (tableau vide = interdit)
+
 ### Communication Multi-Canal
 | Canal | Usage | Fréquence |
 |-------|-------|-----------|
