@@ -486,7 +486,12 @@ roosync_heartbeat(action: "status", filter: "all", includeHeartbeats: true)
 roosync_compare_config(granularity: "mcp")
 ```
 
-**4bis-c. Inventaire machine (optionnel, si drift detecte) :**
+**4bis-c. Rafraichir le dashboard MCP :**
+```
+roosync_refresh_dashboard(baseline: "myia-ai-01")
+```
+
+**4bis-d. Inventaire machine (optionnel, si drift detecte) :**
 ```
 roosync_inventory(type: "all")
 ```
