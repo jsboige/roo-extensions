@@ -236,6 +236,17 @@ EMBEDDING_API_KEY=vllm-placeholder-key-2024
 
 ## Règles Critiques
 
+### Checklists GitHub (OBLIGATOIRE)
+
+**RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
+
+**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+
+1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
+2. **PENDANT** : Cocher chaque case immédiatement après validation
+3. **COMMIT** après chaque case : `git add . && git commit -m "docs(issue): Update checklist #XXX - machine Y case Z" && git push`
+4. **AVANT fermeture** : Vérifier 100% des cases cochées (tableau vide = interdit)
+
 ### Communication Multi-Canal
 | Canal | Usage | Fréquence |
 |-------|-------|-----------|
@@ -261,6 +272,20 @@ EMBEDDING_API_KEY=vllm-placeholder-key-2024
 - **INTERCOM** : Mettre à jour à CHAQUE tour de sync
 - **Tests** : Toujours `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch)
 - **Après modif MCP** : Signaler à l'utilisateur qu'un redémarrage VS Code est nécessaire
+
+### Vérification Checklists GitHub (CRITIQUE)
+
+**Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
+
+**AVANT de fermer une issue multi-machine :**
+
+- [ ] Vérifier que le tableau de validation est complété à 100%
+- [ ] Si des cases sont vides (`⬜`) : **NE PAS FERMER L'ISSUE**
+- [ ] Envoyer un message RooSync aux machines concernées pour relancer
+- [ ] Attendre que toutes les cases soient cochées (`✅` ou `❌`)
+- [ ] SEULEMENT alors, fermer l'issue
+
+**RÈGLE ABSOLUE : Ne jamais fermer une issue avec un tableau vide.**
 
 ### Consolidation Documentaire
 

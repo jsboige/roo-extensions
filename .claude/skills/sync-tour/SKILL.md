@@ -195,6 +195,45 @@ Suivre le workflow du skill `validate` :
 
 ---
 
+## Phase 3.5 : Mise à jour Checklists GitHub (CRITIQUE)
+
+**Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
+
+### Objectif
+
+S'assurer que les tableaux de validation dans les issues GitHub sont maintenues à jour pour garantir une traçabilité fiable.
+
+### Actions
+
+**Si une issue avec un tableau de validation est en cours :**
+
+1. **Identifier le tableau** dans le corps de l'issue
+2. **Mettre à jour les cases** correspondantes à cette machine :
+   - Remplacer `⬜` par `✅` (PASS) ou `❌` (FAIL)
+3. **Commettre immédiatement** la mise à jour :
+   ```bash
+   gh issue edit {NUM} --body "TABLEAU_MAJ"
+   ```
+4. **Vérifier que toutes les cases** sont cochées avant de fermer l'issue
+
+**RÈGLE ABSOLUE : NE JAMAIS commenter ou fermer une issue avec un tableau vide.**
+
+### Output attendu
+```
+## Phase 3.5 : Checklists GitHub
+
+### Issues avec tableaux de validation
+- Issue #XXX : Tableau mis à jour (X/Y cases cochées)
+- Issue #YYY : Tableau complet (100%) → Prêt pour fermeture
+- Issue #ZZZ : Tableau partiel → En attente d'autres machines
+
+### Actions effectuées
+- Mises à jour : X
+- Commentaires : Y
+```
+
+---
+
 ## Phase 4 : État GitHub Project & Issues
 
 **Skill :** `github-status` (voir `.claude/skills/github-status/SKILL.md`)
@@ -232,10 +271,12 @@ Suivre le workflow du skill `github-status` :
 ### Actions
 
 **1. Marquer tâches "Done"** (basé sur Phase 0 INTERCOM + Phase 1 RooSync)
+   - ⚠️ **VÉRIFIER CHECKLIST** : S'assurer que le tableau est 100% rempli avant de marquer Done
    - Identifier tâches complétées annoncées par les agents
    - Vérifier cohérence avec git log (commits récents)
    - Mettre à jour statut dans Project #67
    - Ajouter commentaire "Complété par [machine/agent]"
+   - **Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
 
 **2. Mettre à jour statuts "In Progress"**
    - Si tâche annoncée démarrée → marquer In Progress
@@ -486,7 +527,12 @@ roosync_heartbeat(action: "status", filter: "all", includeHeartbeats: true)
 roosync_compare_config(granularity: "mcp")
 ```
 
-**4bis-c. Inventaire machine (optionnel, si drift detecte) :**
+**4bis-c. Rafraichir le dashboard MCP :**
+```
+roosync_refresh_dashboard(baseline: "myia-ai-01")
+```
+
+**4bis-d. Inventaire machine (optionnel, si drift detecte) :**
 ```
 roosync_inventory(type: "all")
 ```

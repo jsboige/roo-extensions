@@ -1,6 +1,6 @@
 # Regles SDDD - Protocole de Triple Grounding
 
-**Version:** 2.0.0 (2026-02-21)
+**Version:** 2.1.0 (2026-02-23)
 
 ## Principe
 
@@ -76,6 +76,81 @@ La recherche semantique utilise Qdrant (index des conversations Roo). La recherc
 
 ---
 
+## Protocole Multi-Pass pour codebase_search (RECOMMANDE)
+
+`codebase_search` utilise des embeddings vectoriels sur des chunks de ~1000 caracteres (tree-sitter AST).
+Une seule requete large ne suffit souvent pas a localiser un fichier precis.
+
+**Limitations connues :**
+- Les fichiers sont decoupes en chunks de ~1000 chars (MAX_BLOCK_CHARS, non configurable)
+- Pas de chevauchement entre chunks → les concepts qui traversent plusieurs fonctions sont fragmentes
+- Les requetes en francais performent mal (le code et les embeddings sont en anglais)
+- Scores typiques : 0.60-0.80 pour des resultats pertinents
+
+### Protocole en 4 passes
+
+**Pass 1 - Requete conceptuelle large** (sans directory_prefix)
+
+But : identifier le repertoire/module pertinent. Utiliser des termes generiques en anglais.
+
+```
+codebase_search(query: "message sending inter-machine communication", workspace: "d:\\roo-extensions")
+```
+
+Analyser les `file_path` des resultats pour identifier les prefixes de repertoire communs.
+
+**Pass 2 - Zoom avec directory_prefix** (vocabulaire du code)
+
+But : cibler le module identifie en Pass 1 avec du vocabulaire specifique au code (noms de fonctions, variables, types).
+
+```
+codebase_search(
+  query: "format result success message sent priority timestamp",
+  workspace: "d:\\roo-extensions",
+  directory_prefix: "src/tools/roosync"
+)
+```
+
+**Pass 3 - Grep de confirmation** (verite technique)
+
+But : confirmer et completer avec une recherche exacte.
+
+```
+Grep(pattern: "function handleSendMessage", path: "mcps/internal/servers/roo-state-manager/src")
+```
+
+**Pass 4 - Variante vocabulaire** (si Pass 2 insuffisante)
+
+Reformuler avec des synonymes ou des noms de fonctions/classes decouverts en Pass 1-3.
+
+```
+codebase_search(
+  query: "sendMessage reply amend message manager",
+  workspace: "d:\\roo-extensions",
+  directory_prefix: "src/tools/roosync"
+)
+```
+
+### Quand utiliser chaque combinaison
+
+| Situation | Approche recommandee |
+|-----------|---------------------|
+| Fichier/fonction connus | Grep direct (pas besoin de semantique) |
+| Concept connu, localisation inconnue | Pass 1 → Pass 2 |
+| Exploration d'un domaine | Pass 1 seule (analyser les resultats) |
+| Fichier introuvable apres Pass 2 | Pass 3 (Grep) puis Pass 4 (variante) |
+| Validation post-implementation | Pass 1 avec le concept implemente |
+
+### Conseils pour les requetes
+
+- **Toujours en anglais** : les embeddings sont entraines sur du code anglophone
+- **Vocabulaire du code > langage naturel** : `"heartbeat machine registration alive"` > `"how to register a machine heartbeat"`
+- **Noms concrets** : inclure noms de fonctions, types, variables quand connus
+- **Pas trop long** : 5-10 mots cles, pas des phrases completes
+- **`directory_prefix` divise par ~10 l'espace de recherche** : toujours l'utiliser en Pass 2
+
+---
+
 ## Outils Conversationnels
 
 ### conversation_browser (outil unifie)
@@ -104,12 +179,14 @@ La recherche semantique utilise Qdrant (index des conversations Roo). La recherc
 ## Workflow SDDD Complet
 
 ```
-1. BOOKEND DEBUT : codebase_search(query: "contexte tache") + roosync_search(semantic)
+1. BOOKEND DEBUT : codebase_search multi-pass (Pass 1 large → Pass 2 zoom) + roosync_search(semantic)
 2. CONVERSATIONNEL : conversation_browser(current) → conversation_browser(view, skeleton)
-3. TECHNIQUE : Read/Grep le code source, tests unitaires
+3. TECHNIQUE : Read/Grep le code source (Pass 3 confirmation), tests unitaires
 4. TRAVAIL : Implementer/corriger/documenter
 5. BOOKEND FIN : codebase_search(query: "validation tache") → confirmer indexation
 ```
+
+**Combinaison semantique + technique :** Les Passes 1-2 (codebase_search) identifient les zones pertinentes par concept. La Pass 3 (Grep) confirme et complete avec precision. Ne jamais se fier uniquement a l'un ou l'autre.
 
 ---
 

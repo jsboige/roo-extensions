@@ -284,7 +284,19 @@ git push origin main
 - **Bookend fin** : `codebase_search(query: "concept implemente", workspace: "d:\\roo-extensions")` → Verifier que le travail est retrouvable
 - Si le bookend fin ne retourne pas les fichiers modifies → la doc/indexation est insuffisante
 
-### 3f. Rapport
+### 3f. Rapport + Checklist GitHub (CRITIQUE)
+
+**AVANT de commenter l'issue :**
+
+- [ ] Mettre à jour le tableau de validation dans le corps de l'issue
+- [ ] Remplacer les `⬜` par `✅` (PASS) ou `❌` (FAIL)
+- [ ] Committer la mise à jour avec `gh issue edit`
+- [ ] SEULEMENT ensuite, commenter l'issue avec le résultat
+
+**RÈGLE ABSOLUE : NE JAMAIS commenter sans avoir mis à jour le tableau.**
+
+**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
 - **INTERCOM** : Informer Roo des modifications
 - **RooSync** : Message au coordinateur (resume, pas de pave)
@@ -297,6 +309,17 @@ git push origin main
 ---
 
 ## REGLES CRITIQUES
+
+### Checklists GitHub (OBLIGATOIRE)
+
+**RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
+
+**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+
+1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
+2. **PENDANT** : Cocher chaque case immédiatement après validation
+3. **COMMIT** après chaque case : `git add . && git commit -m "docs(issue): Update checklist #XXX - machine Y case Z" && git push`
+4. **AVANT fermeture** : Vérifier 100% des cases cochées (tableau vide = interdit)
 
 ### Autonomie maximale
 - **NE PAS** demander a l'utilisateur "Que dois-je faire maintenant ?"
