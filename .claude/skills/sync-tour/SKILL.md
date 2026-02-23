@@ -271,10 +271,12 @@ Suivre le workflow du skill `github-status` :
 ### Actions
 
 **1. Marquer tâches "Done"** (basé sur Phase 0 INTERCOM + Phase 1 RooSync)
+   - ⚠️ **VÉRIFIER CHECKLIST** : S'assurer que le tableau est 100% rempli avant de marquer Done
    - Identifier tâches complétées annoncées par les agents
    - Vérifier cohérence avec git log (commits récents)
    - Mettre à jour statut dans Project #67
    - Ajouter commentaire "Complété par [machine/agent]"
+   - **Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
 
 **2. Mettre à jour statuts "In Progress"**
    - Si tâche annoncée démarrée → marquer In Progress
