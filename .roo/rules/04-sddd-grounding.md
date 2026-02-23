@@ -1,10 +1,12 @@
 # Regles SDDD - Grounding Conversationnel (Roo)
 
+**Version:** 2.1.0 (2026-02-23)
+
 ## Triple Grounding
 
 **SDDD (Semantic Documentation Driven Development)** : 3 types de grounding a croiser systematiquement.
 
-1. **Semantique** - `roosync_search(action: "semantic")` + search_files
+1. **Semantique** - `roosync_search(action: "semantic")` + search_files / codebase_search
 2. **Conversationnel** - `conversation_browser` (CES REGLES)
 3. **Technique** - read_file, search_files, execute_command (code = verite)
 
@@ -60,9 +62,44 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 
 ---
 
+## Recherche Semantique Multi-Pass (codebase_search)
+
+Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule requete large est souvent insuffisante.
+
+**Protocole en 4 passes :**
+
+1. **Pass 1 - Requete large** (sans directory_prefix) : identifier le module/repertoire
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>codebase_search</tool_name>
+   <arguments>{"query": "message sending communication", "workspace": "d:\\roo-extensions"}</arguments>
+   </use_mcp_tool>
+   ```
+
+2. **Pass 2 - Zoom** (avec directory_prefix + vocabulaire code) : cibler le fichier
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>codebase_search</tool_name>
+   <arguments>{"query": "format result success priority", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
+   </use_mcp_tool>
+   ```
+
+3. **Pass 3 - Grep confirmation** : verite technique avec search_files exact
+4. **Pass 4 - Variante** : reformuler si Pass 2 insuffisante
+
+**Conseils :**
+- Requetes en anglais (embeddings anglophones)
+- Vocabulaire du code > langage naturel
+- `directory_prefix` divise l'espace de recherche par ~10
+- Scores typiques : 0.60-0.80 pour resultats pertinents
+
+---
+
 ## Workflow SDDD
 
-1. **Semantique** : `roosync_search` + docs existantes
+1. **Semantique** : `roosync_search` + `codebase_search` (multi-pass si besoin) + docs existantes
 2. **Conversationnel** : `conversation_browser(tree)` -> `conversation_browser(view, skeleton)` -> `conversation_browser(summarize, trace)`
 3. **Technique** : read_file, search_files, tests unitaires
 
@@ -77,6 +114,8 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 - Generer des `trace` pour investigations >500 messages
 - Ne PAS utiliser `full` sans smart truncation
 - Ne PAS ignorer les metadonnees (timestamp, workspace, mode)
+- Combiner `codebase_search` (concept) avec `search_files` (exact) pour meilleure couverture
+- Toujours passer `workspace` explicitement a `codebase_search`
 
 ---
 
