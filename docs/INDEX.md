@@ -1,11 +1,11 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-02-18
-**Version:** 5.1 (Ajout scheduler Claude Code)
+**Derniere mise a jour:** 2026-02-24
+**Version:** 5.2 (Ajout directory scheduler/ + tests mis à jour)
 
 ---
 
-## Structure docs/ (10 repertoires)
+## Structure docs/ (11 repertoires)
 
 ```
 docs/
@@ -19,6 +19,7 @@ docs/
 ├── mcp/              # Documentation MCP roo-state-manager
 ├── roo-code/         # Documentation Roo Code, PRs, ADR
 ├── roosync/          # Protocoles RooSync v2.3, guides agents
+├── scheduler/        # Scheduler Roo & Claude Code (NOUVEAU)
 ├── suivi/            # Suivi projet actif, monitoring
 ├── INDEX.md          # Ce fichier
 └── README.md         # Vue d'ensemble
@@ -180,6 +181,12 @@ docs/
 
 ---
 
+## Scheduler (NOUVEAU - 2026-02-24)
+
+- [scheduler/scheduler-pilot-test-plan.md](scheduler/scheduler-pilot-test-plan.md) - Plan de test pilote scheduler
+
+---
+
 ## Framework Multi-Agent
 
 - [framework-multi-agent/TEMPLATE_WORKSPACE.md](framework-multi-agent/TEMPLATE_WORKSPACE.md) - Template workspace coordination
@@ -221,5 +228,5 @@ docs/
 
 **Consolide par:** myia-po-2025
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-02-18 (v5.1 - scheduler Claude Code)
-**Precedent:** v4.0 (consolidation structure #435)
+**Derniere MAJ:** 2026-02-24 (v5.2 - directory scheduler/ + tests mis à jour par myia-po-2023)
+**Precedent:** v5.1 (scheduler Claude Code)

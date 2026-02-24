@@ -2,7 +2,7 @@
 
 **Version** : 2.3.1
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 20 février 2026
+**Dernière mise à jour** : 24 février 2026
 **GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
 
 ---
@@ -19,7 +19,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 - ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **GitHub Projects #67** : 172/184 Done (93.5%)
-- ✅ **3456 tests unitaires** : 210 fichiers, CI GitHub Actions (Node 18+20)
+- ✅ **6811 tests unitaires** : 373 fichiers, CI GitHub Actions (Node 18+20)
 
 ---
 
@@ -110,6 +110,7 @@ roo-extensions/
 │   ├── roosync/                   # Protocoles RooSync v2.3
 │   ├── architecture/              # Designs et analyses
 │   ├── guides/                    # Guides utilisateur
+│   ├── scheduler/                 # Documentation scheduler (NOUVEAU)
 │   └── framework-multi-agent/     # Templates coordination
 ├── 📁 mcps/internal/servers/
 │   ├── roo-state-manager/         # 36 outils MCP (wrapper v4)
@@ -228,12 +229,12 @@ Collect → Publish → Compare → Validate → Apply
 - **6 machines actives** : Coordination 24/7
 - **Scheduler Roo** : Toutes les 3h (staggered par machine)
 - **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
-- **Build + Tests** : ~31s (3456 tests, 210 fichiers)
+- **Build + Tests** : ~56s (6811 tests, 373 fichiers)
 
 ### MCPs
 - **roo-state-manager** : 36 outils, <500ms réponse
 - **sk-agent** : 11 agents IA, 4 conversations, 4 modèles
-- **Taux de réussite tests** : 100% (3456/3456)
+- **Taux de réussite tests** : 100% (6811/6811)
 
 ### RooSync v2.3
 - **Messagerie** : <1s latence inter-machines (GDrive partagé)
@@ -378,10 +379,10 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
 - ✅ **Wrapper MCP v4** : 36 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
-- ✅ **Tests robustes** : 3456 PASS sur 210 fichiers
+- ✅ **Tests robustes** : 6811 PASS sur 373 fichiers
 - ✅ **sk-agent** : 11 agents IA via FastMCP + Semantic Kernel
 - ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
-- ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470)
+- ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470) + docs/scheduler/ (NOUVEAU)
 
 ### Roadmap
 
