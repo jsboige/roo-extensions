@@ -121,17 +121,19 @@ execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
-### Etape 0b : Heartbeat (signaler présence au coordinateur)
+### Etape 0b : Heartbeat (OBLIGATOIRE)
 
-Envoyer un signal de vie au coordinateur via le MCP roo-state-manager :
+Envoyer un signal de vie au coordinateur :
 
 ```
-roosync_heartbeat(action: "register", machineId: "{MACHINE_NAME}")
+roosync_heartbeat(action="beat")
 ```
 
-**Note :** Cette action est directe (PAS de delegation via new_task) car elle utilise le MCP roo-state-manager disponible dans l'orchestrateur.
+**Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
 
-**Ignorer si le MCP n'est pas disponible** - ce n'est pas bloquant pour le workflow.
+**Si échec :** Noter dans le bilan mais continuer (heartbeat non bloquant).
+
+---
 
 ### Etape 1 : Git pull + Lecture INTERCOM
 

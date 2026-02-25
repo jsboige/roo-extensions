@@ -77,6 +77,33 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 - Si `[FEEDBACK]` recent de Claude : noter les ajustements
 - Si rien : aller a **Etape 2b**
 
+### Etape 1b : Check Heartbeats (Coordinateur uniquement)
+
+Vérifier l'état des machines executrices :
+
+```
+roosync_heartbeat(action="status", filter="all", includeHeartbeats=true)
+```
+
+**Analyser les resultats :**
+- **Machines online** : Normales, peuvent recevoir des tâches
+- **Machines offline** : (>6h sans heartbeat) → Envoyer message RooSync URGENT
+- **Machines warning** : (3-6h sans heartbeat) → Noter dans le bilan
+
+**Si machine silencieuse (>6h) :** Ecrire dans INTERCOM avec format `[MACHINE-SILENCIEUSE]` :
+```markdown
+## [{DATE}] roo -> claude-code [WARNING]
+### Machine {MACHINE} silencieuse
+
+Dernier heartbeat : {DATE}
+Durée silence : {X} heures
+Action requise : Vérifier machine
+```
+
+**Si echec heartbeat :** Noter dans le bilan mais continuer (heartbeat non bloquant).
+
+---
+
 ### Etape 2a : Executer les taches INTERCOM
 
 Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
