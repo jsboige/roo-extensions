@@ -29,6 +29,16 @@ Synchronisation Git pour roo-extensions avec submodule `mcps/internal` et merges
 
 ## Workflow
 
+### Phase 0 : Grounding Sémantique (Bookend Début)
+
+**OBLIGATOIRE avant toute synchronisation.**
+
+```
+codebase_search(query: "git sync submodule conflict merge resolution", workspace: "d:\\roo-extensions")
+```
+
+But : Identifier les patterns de résolution de conflits, les workflows git existants, et les fichiers de configuration submodule.
+
 ### Etape 1 : Fetch et analyse
 
 ```bash
@@ -140,3 +150,15 @@ git status
 - En cas de conflit, resoudre proprement (ne jamais `git add` a l'aveugle)
 - Les fichiers de config locaux (.claude/local/*) sont ignores par git
 - NE PAS commiter sans instruction explicite de l'utilisateur
+
+---
+
+## Phase 6 : Validation Sémantique (Bookend Fin)
+
+**OBLIGATOIRE après toute synchronisation réussie.**
+
+```
+codebase_search(query: "git status submodule synced merged resolved", workspace: "d:\\roo-extensions")
+```
+
+But : Confirmer que l'état de synchronisation est cohérent avec l'index. Vérifier que les fichiers modifiés pendant le sync sont visibles dans les résultats.

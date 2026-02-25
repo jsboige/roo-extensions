@@ -43,6 +43,16 @@ Consulte l'etat du GitHub Project #67 et des issues via `gh` CLI.
 
 ## Workflow
 
+### Phase 0 : Grounding Sémantique (Bookend Début)
+
+**OBLIGATOIRE avant toute consultation GitHub.**
+
+```
+codebase_search(query: "github issues project status tracking progress", workspace: "d:\\roo-extensions")
+```
+
+But : Identifier les patterns de suivi GitHub, les issues récentes, et les configurations Project.
+
 ### Etape 1 : Progression globale
 
 ```bash
@@ -131,3 +141,15 @@ gh issue close <numero> --repo jsboige/roo-extensions
 - Ne creer de nouvelles issues qu'apres validation utilisateur
 - Retourner un rapport condense
 - Utiliser les heredocs pour les bodies multilignes (eviter problemes d'echappement)
+
+---
+
+## Phase 6 : Validation Sémantique (Bookend Fin)
+
+**OBLIGATOIRE après consultation GitHub.**
+
+```
+codebase_search(query: "github project issues status done inprogress", workspace: "d:\\roo-extensions")
+```
+
+But : Confirmer que les issues consultées et les statuts mis à jour sont cohérents avec l'index.
