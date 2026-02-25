@@ -121,6 +121,20 @@ execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
+### Etape 0b : Heartbeat (OBLIGATOIRE)
+
+Envoyer un signal de vie au coordinateur :
+
+```
+roosync_heartbeat(action="beat")
+```
+
+**Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
+
+**Si échec :** Noter dans le bilan mais continuer (heartbeat non bloquant).
+
+---
+
 ### Etape 1 : Git pull + Lecture INTERCOM
 
 Deleguer a `code-simple` via `new_task` :
