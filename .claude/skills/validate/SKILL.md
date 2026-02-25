@@ -29,6 +29,16 @@ Valide que le code compile et que les tests passent pour **roo-state-manager**.
 
 ## Workflow
 
+### Phase 0 : Grounding Sémantique (Bookend Début)
+
+**OBLIGATOIRE avant toute validation.**
+
+```
+codebase_search(query: "build tests validation typescript vitest", workspace: "d:\\roo-extensions")
+```
+
+But : Identifier les fichiers de test récents, les configs vitest, et les patterns de test existants.
+
 ### Etape 1 : Build TypeScript (check only)
 
 ```bash
@@ -145,3 +155,15 @@ cd mcps/internal/servers/roo-state-manager && npx vitest run --testNamePattern="
 
 - **3 EmbeddingValidator failures** : Pre-existants, dus a `EMBEDDING_DIMENSIONS=2560` dans `.env`. Non-bloquants.
 - **Tests skipped** : Normaux (14 skipped actuellement), correspondent a des tests conditionnels.
+
+---
+
+## Phase 4 : Validation Sémantique (Bookend Fin)
+
+**OBLIGATOIRE après toute validation réussie.**
+
+```
+codebase_search(query: "test results validation build success", workspace: "d:\\roo-extensions")
+```
+
+But : Confirmer que les fichiers de test et les résultats sont cohérents avec l'index. Si le bookend début avait identifié des fichiers, vérifier qu'ils sont toujours présents dans les résultats.

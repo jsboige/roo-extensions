@@ -27,6 +27,16 @@ Analyser le travail effectue dans la session courante, documenter les lecons app
 
 ## Workflow
 
+### Phase 0 : Grounding Sémantique (Bookend Début)
+
+**OBLIGATOIRE avant toute analyse de session.**
+
+```
+codebase_search(query: "session debrief lessons learned memory documentation", workspace: "d:\\roo-extensions")
+```
+
+But : Identifier les patterns de documentation existants, les MEMORY.md précédents, et les leçons déjà capturées.
+
 ### Phase 1 : Analyse de la Session (Triple Grounding)
 
 **Actions :**
@@ -145,6 +155,18 @@ Reutilisable: [Oui/Non]
 ## 🎯 Next Steps
 [Actions recommandées]
 ```
+
+---
+
+### Phase 6 : Validation Sémantique (Bookend Fin)
+
+**OBLIGATOIRE après documentation.**
+
+```
+codebase_search(query: "memory documentation lessons learned session", workspace: "d:\\roo-extensions")
+```
+
+But : Confirmer que les leçons documentées sont visibles dans l'index. Vérifier que MEMORY.md et PROJECT_MEMORY.md sont indexés.
 
 ---
 
