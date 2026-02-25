@@ -7,7 +7,7 @@
 1. **Roo n'utilise JAMAIS RooSync** (reserve a Claude Code)
 2. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
 3. Communication via INTERCOM uniquement (`.claude/local/INTERCOM-{MACHINE}.md`)
-4. Ne JAMAIS commit ou push
+4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
 
@@ -132,6 +132,29 @@ roosync_heartbeat(action="beat")
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
 
 **Si échec :** Noter dans le bilan mais continuer (heartbeat non bloquant).
+
+### Etape 0c : Config-Sync (optionnel, si > 24h depuis dernier)
+
+> **Note :** Cette étape utilise les outils RooSync (réservés à Roo sur machines exécutantes pour cette tâche spécifique). Voir principe #4 modifié.
+
+Synchroniser la configuration locale avec le coordinateur :
+
+```
+1. roosync_config(action: "collect", targets: ["modes", "mcp"])
+2. roosync_config(action: "publish", version: "auto", description: "Config-sync automatique")
+3. result = roosync_compare_config(granularity: "mcp")
+```
+
+**Décision selon le résultat :**
+- Si `summary.critical > 0` ou `summary.important > 0` :
+  - Envoyer rapport au coordinateur via INTERCOM (message `[CONFIG-DRIFT]`)
+  - Format : "Config drift détecté: X CRITICAL, Y IMPORTANT"
+- Si seulement WARNING/INFO :
+  - Skip silencieusement (pas de rapport nécessaire)
+
+**Fréquence :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
+
+**Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
 
 ---
 
@@ -259,7 +282,7 @@ Apres tout → **Etape 3**
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **NE JAMAIS utiliser les outils RooSync** (roosync_send, roosync_read, etc.)
+4. **NE JAMAIS utiliser les outils RooSync** (roosync_send, roosync_read, etc.) - **EXCEPTION :** roosync_config et roosync_compare_config pour l'Etape 0c
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
