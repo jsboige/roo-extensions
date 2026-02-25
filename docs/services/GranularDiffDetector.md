@@ -111,16 +111,18 @@ Le service initialise automatiquement des règles pour les chemins critiques :
 - **Strategy Pattern**: `arrayDiffMode` permet de choisir entre comparaison par position ou par identité
 - **Rule Engine**: Système de règles personnalisables avec handlers optionnels
 - **Recursive Descent**: Comparaison récursive avec contrôle de profondeur
-- **Builder Pattern**: Construction progressive du rapport avec métriques
+- **Performance Metrics**: Tracking `nodesCompared`, `executionTime`
 
 ---
 
 ## Limitations
 
-1. **Pas de détection de mouvements complexes**: Le type `moved` est défini mais pas entièrement implémenté
-2. **Analyse sémantique limitée**: `semanticAnalysis: true` n'ajoute pas de fonctionnalité actuellement
-3. **Pas de streaming**: Les gros objets sont chargés entièrement en mémoire
-4. **Pas de parallélisation**: La comparaison est séquentielle
+- **MaxDepth=50** par défaut (configurable)
+- **Pas de diff sémantique** par défaut (`semanticAnalysis=false`)
+- **Arrays** comparées par position ou identité (pas par contenu profond)
+- **Whitespace ignoré** par défaut (`ignoreWhitespace=true`)
+- **Pas de streaming**: Les gros objets sont chargés entièrement en mémoire
+- **Pas de parallélisation**: La comparaison est séquentielle
 
 ---
 
@@ -156,16 +158,17 @@ detector.addCustomRule({
 
 // Comparer deux configurations
 const report = await detector.compareGranular(
-  configMachineA,
-  configMachineB,
-  'machine-a',
-  'machine-b',
-  { ignoreWhitespace: true, maxDepth: 30 }
+  { config: { mcp: { server1: { port: 8080 } } } },
+  { config: { mcp: { server1: { port: 9090 } } } },
+  'baseline',
+  'current',
+  { ignoreWhitespace: true, maxDepth: 50 }
 );
 
 // Consulter les résultats
 console.log(`Total différences: ${report.summary.total}`);
 console.log(`Critiques: ${report.summary.bySeverity.CRITICAL}`);
+// { total: 1, byType: { modified: 1 }, bySeverity: { IMPORTANT: 1 } }
 
 // Exporter en HTML
 const html = await detector.exportDiff(report, 'html');
@@ -176,4 +179,4 @@ const html = await detector.exportDiff(report, 'html');
 ## Tests
 
 - **Localisation:** `src/services/__tests__/GranularDiffDetector.test.ts`
-- **Couverture:** Comparaison objets, tableaux, règles personnalisées, export
+- **Couverture:** Comparaison objets, tableaux, règles personnalisées, export (65 tests)

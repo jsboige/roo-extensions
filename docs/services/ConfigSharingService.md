@@ -104,16 +104,17 @@ interface ApplyConfigOptions {
 - **Service Layer Pattern**: Interface `IConfigSharingService` pour l'abstraction
 - **Template Method**: `collectConfig()` délègue à `collectModes()`, `collectMcpSettings()`, etc.
 - **Strategy Pattern**: Filtrage conditionnel selon les targets
-- **Repository Pattern**: Stockage versionné par machineId
+- **Repository Pattern**: Stockage versionné par machineId avec `latest.json`
 
 ---
 
 ## Limitations
 
-1. **Pas de rollback automatique**: En cas d'erreur pendant `applyConfig()`, les fichiers déjà modifiés le restent
-2. **Pas de validation schéma**: Les configs ne sont pas validées contre un schéma JSON
-3. **Pas de compression**: Les fichiers sont stockés en JSON brut
-4. **Concurrency limitée**: Pas de verrouillage pendant l'application
+- **N'applique pas** les configs automatiquement (validation requise)
+- **Dépend de GDrive** : Shared state path doit être accessible
+- **Pas de rollback** automatique si `applyConfig()` échoue partiellement
+- **Historique non nettoyé** : Les versions s'accumulent
+- **Pas de validation schéma**: Les configs ne sont pas validées contre un schéma JSON
 
 ---
 
