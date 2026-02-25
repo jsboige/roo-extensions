@@ -196,19 +196,28 @@ Apres tout → **Etape 3**
 
 > **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
 
-**METHODE PRINCIPALE (directe, sans delegation) :**
+**METHODE SIMPLIFIEE (append direct) :**
 
-> Raison : La delegation via `new_task` peut echouer silencieusement (timeout, erreur subtask). La tracabilite etant prioritaire, l'ecriture directe est plus fiable.
+> Raison : La methode "lire tout + réécrire tout" cause des boucles de condensation. L'append direct est plus fiable.
 
 ```
-1. Lis .claude/local/INTERCOM-{MACHINE}.md en ENTIER avec read_file
-2. Prepare le nouveau message (voir format ci-dessous)
-3. Ajoute le message A LA FIN du contenu existant (ne supprime RIEN)
-4. Reecris le fichier COMPLET avec write_to_file
-5. CONFIRME : Relis le fichier et verifie que le dernier message est bien le tien
+1. Prepare le message (voir format ci-dessous)
+2. Utilise write_to_file en APPEND (ou equivalent)
+3. Si write_to_file ne supporte pas l'append : lis SEULEMENT les 50 dernieres lignes, puis ecris tout
+4. NE PAS relire le fichier plusieurs fois
 ```
 
-**FALLBACK (si write_to_file non disponible) :** Deleguer a `code-simple` via `new_task` avec les instructions ci-dessus. Cette methode est moins fiable mais preferable a aucune ecriture.
+**FORMAT MESSAGE (garder court) :**
+
+```markdown
+## [{DATE}] roo -> claude-code [{DONE|IDLE}]
+- Git: {OK/erreur} | Status: {propre/dirty}
+- Build: {OK/FAIL} | Tests: {X} pass
+- Taches: {N} (source: {INTERCOM/GitHub #num})
+- Erreurs: {aucune ou description courte}
+```
+
+**FALLBACK (si write_to_file non disponible) :** Deleguer a `code-simple` via `new_task` avec instruction "APPEND le message à la fin du fichier INTERCOM".
 
 **Format du message :**
 
@@ -227,7 +236,7 @@ Apres tout → **Etape 3**
 ---
 ```
 
-**Maintenance INTERCOM :** Si le fichier depasse 1000 lignes, condenser les 600 premieres en ~100 lignes de synthese, garder les 400 dernieres intactes.
+**Maintenance INTERCOM :** Si le fichier depasse 500 lignes, condenser les 300 premieres en ~50 lignes de synthese, garder les 200 dernieres intactes. Faire cela SEULEMENT si le temps le permet (pas prioritaire).
 
 ---
 
