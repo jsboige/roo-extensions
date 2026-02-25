@@ -1,0 +1,61 @@
+{
+  "taskId": "test-123",
+  "analysisEngineVersion": "3.0.0-phase3-error",
+  "analysisTimestamp": "2026-02-24T15:07:27.810Z",
+  "llmModelId": "error-fallback",
+  "contextTrace": {
+    "rootTaskId": "test-123",
+    "previousSiblingTaskIds": [],
+    "synthesisType": "atomic"
+  },
+  "objectives": {
+    "llmError": true
+  },
+  "strategy": {
+    "llmError": true
+  },
+  "quality": {
+    "llmError": true
+  },
+  "metrics": {
+    "contextLength": 153,
+    "wasCondensed": false,
+    "llmError": "Échec génération synthèse: No embedding API key configured. Set EMBEDDING_API_KEY (preferred) or OPENAI_API_KEY.",
+    "contextTree": {
+      "currentTask": {
+        "taskId": "test-123",
+        "synthesisType": "atomic",
+        "includedInContext": true
+      },
+      "parentTasks": [],
+      "siblingTasks": [],
+      "childTasks": [],
+      "condensedBatches": [],
+      "debugInfo": {
+        "contextBuilderStatus": "fully_implemented_phase3",
+        "implementedMethods": [
+          "buildNarrativeContext",
+          "enrichContext",
+          "traverseUpwards",
+          "collectSiblingTasks",
+          "buildInitialContext",
+          "collectChildrenSyntheses",
+          "buildContextTrace"
+        ],
+        "missingMethods": [],
+        "explanation": "Erreur LLM mais le NarrativeContextBuilderService a construit correctement le contexte hiérarchique.",
+        "contextTraceData": {
+          "rootTaskId": "test-123",
+          "hasParentContexts": false,
+          "hasSiblingContexts": false,
+          "hasChildContexts": false,
+          "hasCondensedBatches": false
+        }
+      }
+    }
+  },
+  "synthesis": {
+    "initialContextSummary": "# Synthèse de Contexte - test-123\n\n**Titre:** N/A\n\n**Messages:** 10\n\n**Actions:** 5\n\n## Analyse du Contenu\n\nAucun message trouvé dans cette conversation.",
+    "finalTaskSummary": "Erreur LLM lors de la synthèse: Échec génération synthèse: No embedding API key configured. Set EMBEDDING_API_KEY (preferred) or OPENAI_API_KEY."
+  }
+}
