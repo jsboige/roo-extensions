@@ -1,8 +1,8 @@
 # 🚀 Roo Extensions - Écosystème Multi-Agent de Développement Intelligent
 
-**Version** : 2.3.1
+**Version** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 24 février 2026
+**Dernière mise à jour** : 26 février 2026
 **GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
 
 ---
@@ -14,12 +14,13 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 ### 🏆 Réalisations Principales
 
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
-- ✅ **6 MCPs déployés** : roo-state-manager, playwright, searxng, markitdown, win-cli, sk-agent
+- ✅ **6 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent, GitHub CLI
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
 - ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
-- ✅ **GitHub Projects #67** : 172/184 Done (93.5%)
-- ✅ **6811 tests unitaires** : 373 fichiers, CI GitHub Actions (Node 18+20)
+- ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
+- ✅ **GitHub Projects #67** : 204/224 Done (91.1%)
+- ✅ **6867 tests unitaires** : 378 fichiers, CI GitHub Actions (Node 18+20)
 
 ---
 
@@ -93,7 +94,7 @@ Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
 | **myia-po-2023** | Exécutant | GitHub CLI + RooSync |
 | **myia-po-2024** | Exécutant | GitHub CLI + RooSync |
 | **myia-po-2025** | Exécutant | GitHub CLI + RooSync |
-| **myia-po-2026** | Exécutant | GitHub CLI + RooSync + DCMCP (pilote) |
+| **myia-po-2026** | Exécutant | GitHub CLI + RooSync |
 | **myia-web1** | Exécutant | GitHub CLI + RooSync |
 
 ### Structure du Projet
@@ -104,7 +105,7 @@ roo-extensions/
 │   ├── agents/                    # 12 subagents spécialisés
 │   ├── skills/                    # 6 skills auto-invoqués
 │   ├── commands/                  # 4 slash commands
-│   ├── rules/                     # 9 règles auto-chargées
+│   ├── rules/                     # 11 règles auto-chargées
 │   └── local/                     # Communication locale (INTERCOM)
 ├── 📁 docs/                       # Documentation technique consolidée
 │   ├── roosync/                   # Protocoles RooSync v2.3
@@ -119,22 +120,22 @@ roo-extensions/
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
 │   ├── scheduler/                 # Orchestration autonome (3h interval)
 │   └── settings/                  # Paramètres globaux
-├── 📁 scripts/                    # Utilitaires (sync-roo-alwaysallow.js, etc.)
+├── 📁 scripts/
+│   └── scheduling/                # Claude Code worker + Task Scheduler setup
 └── 📄 CLAUDE.md                   # Guide principal agents
 ```
 
-### MCPs Actifs (2026-02-20)
+### MCPs Actifs (2026-02-26)
 
-**6 serveurs MCP déployés sur 6 machines :**
+**5 serveurs MCP + GitHub CLI déployés sur 6 machines :**
 
 | MCP | Outils | Description |
 |-----|--------|-------------|
 | **roo-state-manager** | 36 | Messaging RooSync, config sync, task browsing, semantic search |
-| **sk-agent** | 7 | Agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
-| **playwright** | 20 | Browser automation, screenshots, form filling |
+| **sk-agent** | 7 | 13 agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
+| **playwright** | 22 | Browser automation, screenshots, form filling |
 | **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |
-| **win-cli** | 7+ | Windows CLI, SSH, commandes shell (fork local 0.2.0) |
-| **searxng** | 2 | Recherche web sémantique |
+| **win-cli** | 9 | Windows CLI, SSH, commandes shell (fork local 0.2.0) |
 
 **GitHub CLI (gh)** - Remplace github-projects-mcp (#368). Issues, PRs, Projects via command line.
 
@@ -164,7 +165,7 @@ Collect → Publish → Compare → Validate → Apply
 #### Modes Coordination
 
 - **Bicéphale** : Roo (technique) + Claude Code (coordination/documentation)
-- **Autonomie** : Niveau 1 (simple tasks) → Niveau 2+ (complex tasks, en cours)
+- **Double scheduler** : Roo (3h, modes simple/complex) + Claude Code (3h, Haiku avec escalade)
 - **Communication** : RooSync (inter-machines), INTERCOM (locale Roo ↔ Claude)
 
 **Documentation complète :** [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
@@ -228,13 +229,14 @@ Collect → Publish → Compare → Validate → Apply
 ### Infrastructure
 - **6 machines actives** : Coordination 24/7
 - **Scheduler Roo** : Toutes les 3h (staggered par machine)
+- **Scheduler Claude Code** : Worker Haiku toutes les 3h (ai-01, pilot)
 - **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
-- **Build + Tests** : ~56s (6811 tests, 373 fichiers)
+- **Build + Tests** : ~56s (6867 tests, 378 fichiers)
 
 ### MCPs
 - **roo-state-manager** : 36 outils, <500ms réponse
-- **sk-agent** : 11 agents IA, 4 conversations, 4 modèles
-- **Taux de réussite tests** : 100% (6811/6811)
+- **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
+- **Taux de réussite tests** : 99.7% (6867/6887)
 
 ### RooSync v2.3
 - **Messagerie** : <1s latence inter-machines (GDrive partagé)
@@ -334,6 +336,12 @@ cd mcps/internal && npm install && npm run build
    - Vérifier `.roomodes` existe à la racine
    - Régénérer : `node roo-config/scripts/generate-modes.js`
 
+5. **Scheduler Claude Code**
+
+   - Vérifier le Task Scheduler : `.\scripts\scheduling\setup-scheduler.ps1 -Action list`
+   - Logs : `.claude/logs/worker-*.log`
+   - Tester manuellement : `.\scripts\scheduling\setup-scheduler.ps1 -Action test`
+
 ### Support Technique
 
 - **Documentation** : [`CLAUDE.md`](CLAUDE.md) + [`docs/`](docs/)
@@ -368,27 +376,28 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 🎯 Statut du Projet
 
-**Version actuelle** : 2.3.1
+**Version actuelle** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 20 février 2026
-**GitHub Project** : [172/184 Done (93.5%)](https://github.com/users/jsboige/projects/67)
+**Dernière mise à jour** : 26 février 2026
+**GitHub Project** : [204/224 Done (91.1%)](https://github.com/users/jsboige/projects/67)
 
-### Accomplissements v2.3
+### Accomplissements v2.4
 
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
+- ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
 - ✅ **Wrapper MCP v4** : 36 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
-- ✅ **Tests robustes** : 6811 PASS sur 373 fichiers
-- ✅ **sk-agent** : 11 agents IA via FastMCP + Semantic Kernel
+- ✅ **Tests robustes** : 6867 PASS sur 378 fichiers
+- ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel
 - ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
-- ✅ **Documentation consolidée** : 48→4 docs (-96% lignes, Phase 2 #470) + docs/scheduler/ (NOUVEAU)
+- ✅ **SDDD v2** : Triple grounding (sémantique + conversationnel + technique) avec bookend pattern
+- ✅ **STOP & REPAIR protocol** : Détection automatique et réparation des outils MCP manquants
 
 ### Roadmap
 
-- **v2.4** : Autonomie Niveau 2 (tasks complex via scheduler + escalade Claude Code)
-- **v2.5** : Adoption worktrees + PRs pour workflow multi-agent (#448)
-- **v3.0** : Split roo-state-manager en modules indépendants (#454)
+- **v2.5** : Scheduler Claude Code multi-machine (#534) + config-sync opérationnel (#537)
+- **v3.0** : Autonomie avancée (worktrees, PRs automatiques, tâches complex sans supervision)
 
 ---
 

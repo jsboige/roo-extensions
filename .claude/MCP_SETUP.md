@@ -77,7 +77,7 @@ Then restart Claude Code to activate MCP.
 
 **Wrapper v4:** Pass-through mode (no filtering, dedup + log suppression)
 
-**Tool Categories (39 total):**
+**Tool Categories (36 total, #457 consolidated 39→36):**
 - **Messaging (3):** roosync_send, roosync_read, roosync_manage
 - **Read-only (4):** get_status, list_diffs, compare_config, refresh_dashboard
 - **Consolidated (5):** config, inventory, baseline, machines, init

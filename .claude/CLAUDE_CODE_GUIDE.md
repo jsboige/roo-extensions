@@ -48,11 +48,10 @@ Tu es un agent Claude Code participant au système RooSync multi-agent. **Ta mis
 - `get_conversation_synthesis` - Synthèse LLM
 - `roosync_*` - 25 outils de synchronisation multi-machine
 
-**Via github-projects-mcp (INTERNE - Déjà configuré):**
-- `list_projects` - Lister projets
-- `get_project_items` - Items du projet
-- `convert_draft_to_issue` - Créer issue depuis draft
-- `update_project_item_field` - Mettre à jour statut
+**Via GitHub CLI (gh) - Remplace github-projects-mcp (#368):**
+- `gh issue list/view/create/close` - Gestion issues
+- `gh pr list/view/create` - Pull requests
+- `gh api graphql` - Requêtes Project #67 (statut, machine, agent)
 
 ---
 
@@ -88,8 +87,8 @@ echo $env:COMPUTERNAME
 ### Étape 3: Vérifier les MCPs disponibles
 
 Tu dois avoir accès à ces MCPs (déjà configurés dans `roo-config/settings/servers.json`):
-- ✅ **roo-state-manager** (50+ outils)
-- ✅ **github-projects-mcp** (GitHub Projects API)
+- ✅ **roo-state-manager** (36 outils)
+- ✅ **GitHub CLI (gh)** - Remplace github-projects-mcp (#368)
 
 ---
 
@@ -201,7 +200,7 @@ Une fois le grounding complété, crée ta première issue GitHub :
 ### ✅ Grounding Technique
 - État Git vérifié: [STATUS]
 - Structure dépôt analysée
-- MCPs accessibles: roo-state-manager ✅, github-projects-mcp ✅
+- MCPs accessibles: roo-state-manager ✅, GitHub CLI (gh) ✅
 
 ### État Initial
 - Machine ID: MACHINE_ID

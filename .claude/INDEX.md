@@ -1,6 +1,6 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-26
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
@@ -21,39 +21,36 @@
 ### Workspace Knowledge
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
-### Agents & Skills (NEW - 2026-01-18)
-- **[agents/](agents/)** - 11 specialized subagents (Opus model)
-  - `roosync-hub` / `roosync-reporter` - RooSync coordination
-  - `dispatch-manager` / `task-planner` - Multi-agent planning
-  - `github-tracker` - GitHub Project #67 tracking
+### Agents & Skills
+- **[agents/](agents/)** - 16 specialized subagents
+  - Common: `git-sync`, `test-runner`, `code-explorer`, `github-tracker`, `intercom-handler`
+  - Coordinator: `roosync-hub`, `dispatch-manager`, `task-planner`
+  - Executor: `roosync-reporter`, `task-worker`
+  - Workers: `code-fixer`, `consolidation-worker`, `doc-updater`, `test-investigator`
+- **[skills/](skills/)** - 6 auto-invoked skills
+  - `sync-tour` - 9-phase sync tour
+  - `validate` - CI local (build + tests)
   - `git-sync` - Conservative pull/merge
-  - `test-runner` - Build + unit tests
-  - `intercom-handler` - Local Roo ↔ Claude communication
-  - `code-explorer` - Codebase exploration
-  - `task-worker` - Autonomous task execution
-  - `roosync-hub` - Inter-machine messaging (coordinator)
-  - `roosync-reporter` - Inter-machine messaging (executors)
-- **[skills/](skills/)** - Auto-invoked skills
-  - `sync-tour` - 8-phase sync tour (INTERCOM → Messages → Git → Tests → GitHub → Planning → Responses)
-- **[commands/](commands/)** - Slash commands
+  - `github-status` - Project #67 status
+  - `redistribute-memory` - Memory audit
+  - `debrief` - Session analysis + lessons
+- **[commands/](commands/)** - 4 slash commands
   - `/coordinate` - Coordination session (myia-ai-01)
   - `/executor` - Execution session (other machines)
-  - `/sync-tour` - Full sync tour
   - `/switch-provider` - Switch LLM provider
+  - `/debrief` - Session debrief
 
 ---
 
-## ✅ MCP Status (2026-02-16)
+## ✅ MCP Status (2026-02-26)
 
 ### VERIFIED & WORKING (All Machines)
 
-**GitHub CLI (gh)** - ⚠️ **Replaces github-projects-mcp (#368)**
-- Status: ✅ MIGRATION COMPLETE
-- Projects:
-  - #67 "RooSync Multi-Agent Tasks" (https://github.com/users/jsboige/projects/67)
-  - #70 "RooSync Multi-Agent Coordination"
+**GitHub CLI (gh)** - Replaces deprecated github-projects-mcp (#368)
+- Status: ✅ OPERATIONAL
+- Project: #67 "RooSync Multi-Agent Tasks" (https://github.com/users/jsboige/projects/67)
 - Commands: `gh issue`, `gh pr`, `gh api graphql`
-- Note: **github-projects-mcp is DEPRECATED** - use native gh CLI
+- Requires scope `project`: `gh auth refresh -s project`
 
 **roo-state-manager** (36 tools via wrapper v4)
 - Status: ✅ DEPLOYED & FUNCTIONAL (all machines, validated 2026-02-17)
@@ -77,20 +74,25 @@
   - Task/conversation browsing
   - Semantic search (Qdrant)
 
-**sk-agent** (7 tools + deprecated aliases)
-- Status: ✅ DEPLOYED (2026-02-17, fix #482)
-- Wrapper: PowerShell `run-sk-agent.ps1` (100% silent stdout)
-- Agents: 11 (analyst, vision-analyst, fast, researcher, synthesizer, critic, etc.)
+**sk-agent** (7 tools)
+- Status: ✅ DEPLOYED (stdio MCP, #482 + #522)
+- Agents: 13 (analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator, etc.)
 - Conversations: 4 presets (deep-search, deep-think, code-review, research-debate)
-- Tools: `call_agent`, `list_agents`, `list_conversations`, `run_conversation`, `list_tools`, `end_conversation`
+- Tools: `call_agent`, `list_agents`, `list_conversations`, `run_conversation`, `list_tools`, `end_conversation`, `list_models`
+- Docker container on port 8100 behind `skagents.myia.io`
 
-### PENDING (Other Machines)
-- myia-po-2023
-- myia-po-2024
-- myia-po-2026
-- myia-web1
+**win-cli** (9 tools - fork local 0.2.0)
+- Status: ✅ CRITICAL (required since b91a841c modes fix)
+- Tools: `execute_command`, `get_command_history`, `ssh_execute`, etc.
+- **MUST use local fork** (npm 0.2.1 is broken)
 
-**Action Required:** Run `.\.claude\scripts\init-claude-code.ps1`
+**playwright** (22 tools) - Browser automation
+**markitdown** (1 tool) - Document conversion
+
+### RETIRED MCPs (DO NOT USE)
+- ~~github-projects-mcp~~ → `gh` CLI (#368)
+- ~~desktop-commander~~ → win-cli (#468)
+- ~~quickfiles~~ → Native Read/Write/Edit (CONS-1)
 
 See [MCP_SETUP.md](MCP_SETUP.md) for details.
 
@@ -128,50 +130,27 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 
 ## 🛠️ Available MCP Tools
 
-### Internal MCPs (6 servers)
+### Active MCPs (5 servers + GitHub CLI)
 
-**RooSync (roo-state-manager) - 6 tools (via wrapper):**
-- `roosync_send_message` - Send message
-- `roosync_read_inbox` - Read inbox
-- `roosync_reply_message` - Reply to message
-- `roosync_get_message` - Get message details
-- `roosync_mark_message_read` - Mark as read
-- `roosync_archive_message` - Archive message
+**roo-state-manager** (36 tools via wrapper v4 pass-through):
+- Messaging: `roosync_send`, `roosync_read`, `roosync_manage`
+- Config: `roosync_config`, `roosync_init`, `roosync_baseline`, `roosync_compare_config`
+- Tasks: `conversation_browser`, `view_task_details`, `task_export`
+- Search: `roosync_search`, `codebase_search`, `roosync_indexing`
+- Diagnostic: `roosync_diagnose`, `read_vscode_logs`, `roosync_get_status`
+- MCP: `roosync_mcp_management`, `manage_mcp_settings`, `get_mcp_best_practices`
+- And more (36 total, see ListTools)
 
-**Note:** The wrapper filters 57+ tools down to these 6 RooSync messaging tools for stability.
+**sk-agent** (7 tools):
+- `call_agent`, `run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `list_models`, `end_conversation`
 
-**GitHub Projects (github-projects-mcp):**
-- `list_projects` - List projects
-- `get_project_items` - Get project items
-- `create_project` - Create project
-- `update_project_item_field` - Update item
+**win-cli** (9 tools - fork local 0.2.0):
+- `execute_command`, `get_command_history`, `get_current_directory`, `ssh_execute`, etc.
 
-**Other Internal MCPs:**
-- `jinavigator-server` - Web → Markdown (Jina API)
-- `jupyter-papermill-mcp-server` - Jupyter Papermill
-- `quickfiles-server` - Multi-file operations
+**playwright** (22 tools): Browser automation
+**markitdown** (1 tool): Document conversion
 
-### External MCPs (12 servers)
-
-**Basic Operations:**
-- `filesystem` - File operations (read, write, edit)
-- `git` - Git operations (commit, push, pull, branches)
-- `github` - GitHub API (repos, issues, PRs)
-
-**External Services:**
-- `searxng` - Web search
-- `docker` - Docker containers
-- `jupyter` - Jupyter notebooks
-- `markitdown` - Document conversion
-
-**Git Submodules:**
-- `mcp-server-ftp` - FTP server
-- `markitdown/source` - Microsoft Markitdown (v0.1.4)
-- `playwright/source` - Browser automation (v0.0.54)
-- `Office-PowerPoint-MCP-Server` - PowerPoint (Python)
-
-**External (npm):**
-- `@wonderwhy-er/desktop-commander` - Desktop Commander MCP (26 tools, remplace win-cli - #468)
+**GitHub CLI (gh)**: Native CLI for issues, PRs, Projects (replaces github-projects-mcp)
 
 ---
 
@@ -230,8 +209,8 @@ docs/
 mcps/
 ├── internal/                    # Internal MCPs
 │   └── servers/
-│       ├── roo-state-manager/   # RooSync + Roo tools (with wrapper)
-│       └── github-projects-mcp/ # GitHub Projects
+│       ├── roo-state-manager/   # RooSync + Roo tools (36 tools, wrapper v4)
+│       └── sk-agent/            # AI agents (Python FastMCP + Semantic Kernel)
 └── external/                    # External MCPs
     └── ...
 ```
