@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-02-24
-**Version:** 5.2 (Ajout directory scheduler/ + tests mis à jour)
+**Derniere mise a jour:** 2026-02-26
+**Version:** 5.3 (Scheduler Claude Code operational + links)
 
 ---
 
@@ -176,14 +176,20 @@ docs/
 
 ## Deployment
 
-- [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees
 - [deployment/GPU_SPECS_MULTI_MACHINE.md](deployment/GPU_SPECS_MULTI_MACHINE.md) - Specs GPU multi-machine
 
 ---
 
-## Scheduler (NOUVEAU - 2026-02-24)
+## Scheduler
 
+### Claude Code Scheduler (OPERATIONAL - 2026-02-26)
 - [scheduler/scheduler-pilot-test-plan.md](scheduler/scheduler-pilot-test-plan.md) - Plan de test pilote scheduler
+- [../scripts/scheduling/README.md](../scripts/scheduling/README.md) - Scripts scheduling (worker, setup, tests)
+- [../scripts/scheduling/start-claude-worker.ps1](../scripts/scheduling/start-claude-worker.ps1) - Worker avec escalade + sub-agents
+- [../scripts/scheduling/setup-scheduler.ps1](../scripts/scheduling/setup-scheduler.ps1) - Windows Task Scheduler installer
+
+### Roo Scheduler
+- [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees Roo
 
 ---
 
@@ -228,5 +234,5 @@ docs/
 
 **Consolide par:** myia-po-2025
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-02-24 (v5.2 - directory scheduler/ + tests mis à jour par myia-po-2023)
-**Precedent:** v5.1 (scheduler Claude Code)
+**Derniere MAJ:** 2026-02-26 (v5.3 - Scheduler Claude Code operational + scripts links)
+**Precedent:** v5.2 (directory scheduler/ + tests mis à jour par myia-po-2023)
