@@ -231,15 +231,31 @@ Apres tout → **Etape 3**
 
 
 
-### Etape 2c : Vérification commits locale (si exécuteur)
+### Etape 2c : Auto-review des commits locaux (si exécuteur)
+
+> **Nouveau :** Activation de l'auto-review automatique via sk-agent pour chaque push local.
 
 Optionnel: si le scheduler tourne sur une machine avec des commits locaux:
 
-`
+1. Vérifier les commits locaux:
+```
 execute_command(shell="gitbash", command="git log --oneline -2")
-`
+```
 
-Si nouveau commit local: déléguer à auto-review via code-complex.
+2. Si nouveau commit local, déléguer l'auto-review à `code-complex`:
+```
+execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File \"D:\\Dev\\roo-extensions\\scripts\\review\\auto-review.ps1\"")
+```
+
+**Paramètres optionnels:**
+- `--diff-range "HEAD~1..HEAD"` : Spécifier une plage de diff personnalisée
+- `--author "username"` : Filtrer par auteur
+- `-Verbose` : Mode verbose pour les logs détaillés
+
+**Configuration requise:**
+- sk-agent doit être installé et accessible
+- GitHub CLI doit avoir les droits de commentaires
+- Le script doit avoir l'exécution autorisée (PowerShell ExecutionPolicy)
 
 **Note:** Cette étape est optionnelle et peut être activée par machine selon le besoin.
 
