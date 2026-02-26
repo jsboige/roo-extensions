@@ -125,6 +125,19 @@ directory_prefix: "mcps/internal/servers/roo-state-manager/src/services"  // ✅
 
 ---
 
+## Machine-Specific Collections
+
+| Machine | Collection | Vectors | Audit Status |
+|---------|-----------|---------|-------------|
+| myia-ai-01 | ws-3091d0dd3766da4b | 212K | Audited (3/10 good, 4/10 partial, 3/10 fail) |
+| myia-po-2023 | ws-59e7574de63c6e62 | 221K | Audited (2/10 good, 5/10 partial, 3/10 fail) |
+| myia-po-2024 | ? | ? | Test OK, no full audit |
+| Others | ? | ? | Not audited |
+
+**Consistent findings across machines:** Test files > sources, i18n pollution (0.90+ scores), fixture pollution. The `directory_prefix` parameter is **essential** for reliable results.
+
+---
+
 ## Références
 
 - **Issue:** #530
@@ -133,5 +146,5 @@ directory_prefix: "mcps/internal/servers/roo-state-manager/src/services"  // ✅
 
 ---
 
-**Dernière mise à jour:** 2026-02-25
-**Mainteneur:** myia-po-2023
+**Dernière mise à jour:** 2026-02-26
+**Mainteneurs:** myia-po-2023 (v1.0), myia-ai-01 (v1.1 audit)
