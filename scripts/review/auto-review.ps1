@@ -59,27 +59,44 @@ try {
     $commitMessage = git log --format=%B -n 1 HEAD
     $issueNumber = $null
 
-    # Chercher des patterns comme: "Fix #123", "Close #456", "PR #789"
-    if ($commitMessage -match '(?i)(fix|close|resolve)[\s\-]*#(\d+)') {
-        $issueNumber = $matches[2]
-        Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
-    } elseif ($commitMessage -match '(?i)pr[\s\-]*#(\d+)') {
-        $issueNumber = $matches[2]
-        Write-Host "[AUTO-REVIEW] PR #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
-    } else {
-        # Chercher les récentes issues ouvertes
+    # Chercher des patterns comme: "Fix #123", "Close #456", "PR #789", "Issue #541"
+    $patterns = @(
+        '(?i)(fix|close|resolve)[\s\-]*#(\d+)',
+        '(?i)issue[\s\-]*#(\d+)',
+        '(?i)#[\s]*(\d+)(?:\s|$|\)|,|\.|;)'
+    )
+
+    foreach ($pattern in $patterns) {
+        if ($commitMessage -match $pattern) {
+            $issueNumber = $matches[1]
+            Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
+            break
+        }
+    }
+
+    # Si aucune issue trouvée, chercher parmi les 10 dernières issues ouvertes
+    if (-not $issueNumber) {
         $issues = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 10 --json number,title
         if ($issues) {
             $issues = $issues | ConvertFrom-Json
             $commitShort = $currentHash.Substring(0, 7)
 
             foreach ($issue in $issues) {
-                if ($commitMessage.Contains(" #$($issue.number) ")) {
+                if ($commitMessage.Contains(" #$($issue.number) ") -or $commitMessage.Contains("#$($issue.number)")) {
                     $issueNumber = $issue.number
                     Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée par correspondance" -ForegroundColor Cyan
                     break
                 }
             }
+        }
+    }
+
+    # Si toujours aucune issue, utiliser la plus récente (pour tests)
+    if (-not $issueNumber) {
+        $latestIssue = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 1 --json number --jq '.[0].number'
+        if ($latestIssue) {
+            $issueNumber = $latestIssue
+            Write-Host "[AUTO-REVIEW] Issue #${issueNumber} utilisée (la plus récente)" -ForegroundColor Yellow
         }
     }
 
