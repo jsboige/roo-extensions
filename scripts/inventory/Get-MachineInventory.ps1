@@ -514,6 +514,27 @@ try {
         Write-Host "  Fichier settings.json non trouvé" -ForegroundColor Yellow
     }
 
+    # #498: Lire model-configs.json pour détecter la dérive de profils
+    $modelConfigsPath = "$RooExtensionsPath\roo-config\model-configs.json"
+    if (Test-Path $modelConfigsPath) {
+        $modelConfigs = Get-Content $modelConfigsPath -Raw | ConvertFrom-Json
+        # Calculer un hash du fichier pour détecter les changements
+        $modelConfigsHash = (Get-FileHash -Path $modelConfigsPath -Algorithm SHA256).Hash.Substring(0, 16)
+
+        # Extraire les informations de profil (sans les clés API sensibles)
+        $rooConfig.modelProfile = @{
+            hash = $modelConfigsHash
+            profiles = $modelConfigs.profiles | ForEach-Object { $_.name }
+            apiConfigs = $modelConfigs.apiConfigs.PSObject.Properties.Name
+            modeApiConfigs = $modelConfigs.modeApiConfigs
+            profileThresholds = $modelConfigs.profileThresholds
+            lastModified = (Get-Item $modelConfigsPath).LastWriteTimeUtc.ToString("o")
+        }
+        Write-Host "  OK Model Configs: $($modelConfigs.profiles.Count) profils, hash=$modelConfigsHash" -ForegroundColor Green
+    } else {
+        Write-Host "  Fichier model-configs.json non trouvé" -ForegroundColor Yellow
+    }
+
     $inventory.inventory.rooConfig = $rooConfig
 } catch {
     Write-Host "  Erreur lors de la collecte Roo: $_" -ForegroundColor Red
