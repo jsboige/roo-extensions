@@ -6,8 +6,6 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $RepoOwner = "jsboige"
 $RepoName = "roo-extensions"
-$SkAgentEndpoint = "https://skagents.myia.io/mcp"
-$SkAgentApiKey = "181ecbaa03674f028e4dbb3c7efc8cb6"
 $MaxDiffSize = 10000 # Taille max du diff (en caractères)
 
 Write-Host "[AUTO-REVIEW] Démarrage de la review automatique" -ForegroundColor Green
@@ -52,33 +50,32 @@ try {
 }
 
 # Étape 3: Trouver l'issue/PR associé
-try {
-    Write-Host "[AUTO-REVIEW] Recherche de l'issue/PR associée..."
+Write-Host "[AUTO-REVIEW] Recherche de l'issue/PR associée..."
 
-    # Utiliser les commits messages pour trouver une référence issue/PR
-    $commitMessage = git log --format=%B -n 1 HEAD
-    $issueNumber = $null
+# Utiliser les commits messages pour trouver une référence issue/PR
+$commitMessage = git log --format=%B -n 1 HEAD
+Write-Host "[DEBUG] Commit message: $commitMessage"
+$issueNumber = $null
 
-    # Chercher des patterns comme: "Fix #123", "Close #456", "PR #789", "Issue #541"
-    $patterns = @(
-        '(?i)(fix|close|resolve)[\s\-]*#(\d+)',
-        '(?i)issue[\s\-]*#(\d+)',
-        '(?i)#[\s]*(\d+)(?:\s|$|\)|,|\.|;)'
-    )
-
-    foreach ($pattern in $patterns) {
-        if ($commitMessage -match $pattern) {
-            $issueNumber = $matches[1]
-            Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
-            break
-        }
+# Chercher des patterns comme: "Fix #123", "Close #456", "Issue #541"
+$matchResult = $commitMessage -match '(?i)(fix|close|resolve|issue)[\s\-]*#(\d+)'
+if ($matchResult -and $matches -and $matches[2]) {
+    $issueNumber = $matches[2]
+    Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
+} elseif ($commitMessage -match '#(\d+)') {
+    # Si on trouve un # mais pas avec les patterns précédents, utiliser le premier numéro
+    if ($matches -and $matches[1]) {
+        $issueNumber = $matches[1]
+        Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée (pattern simple)" -ForegroundColor Cyan
     }
+}
 
-    # Si aucune issue trouvée, chercher parmi les 10 dernières issues ouvertes
-    if (-not $issueNumber) {
-        $issues = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 10 --json number,title
-        if ($issues) {
-            $issues = $issues | ConvertFrom-Json
+# Si aucune issue trouvée, chercher parmi les 10 dernières issues ouvertes
+if (-not $issueNumber) {
+    try {
+        $issuesJson = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 10 --json number,title 2>$null
+        if ($issuesJson) {
+            $issues = $issuesJson | ConvertFrom-Json
             $commitShort = $currentHash.Substring(0, 7)
 
             foreach ($issue in $issues) {
@@ -89,25 +86,27 @@ try {
                 }
             }
         }
+    } catch {
+        Write-Host "[AUTO-REVIEW] Erreur lors de la recherche des issues: $_" -ForegroundColor Yellow
     }
+}
 
-    # Si toujours aucune issue, utiliser la plus récente (pour tests)
-    if (-not $issueNumber) {
-        $latestIssue = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 1 --json number --jq '.[0].number'
+# Si toujours aucune issue, utiliser la plus récente (pour tests)
+if (-not $issueNumber) {
+    try {
+        $latestIssue = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 1 --json number --jq '.[0].number' 2>$null
         if ($latestIssue) {
-            $issueNumber = $latestIssue
+            $issueNumber = $latestIssue.Trim('"')
             Write-Host "[AUTO-REVIEW] Issue #${issueNumber} utilisée (la plus récente)" -ForegroundColor Yellow
         }
+    } catch {
+        Write-Host "[AUTO-REVIEW] Impossible d'obtenir la dernière issue: $_" -ForegroundColor Yellow
     }
+}
 
-    if (-not $issueNumber) {
-        Write-Host "[AUTO-REVIEW] Aucune issue/PR trouvée, sortie." -ForegroundColor Yellow
-        exit 0
-    }
-
-} catch {
-    Write-Host "[AUTO-REVIEW] Erreur lors de la recherche de l'issue: $_" -ForegroundColor Red
-    exit 1
+if (-not $issueNumber) {
+    Write-Host "[AUTO-REVIEW] Aucune issue/PR trouvée, sortie." -ForegroundColor Yellow
+    exit 0
 }
 
 # Étape 4: Appeler sk-agent pour la review
