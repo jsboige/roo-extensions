@@ -102,6 +102,27 @@ Action requise : Vérifier machine
 
 **Si echec heartbeat :** Noter dans le bilan mais continuer (heartbeat non bloquant).
 
+### Etape 1c : Config-Sync (Coordinateur - optionnel, si > 24h depuis dernier)
+
+> **Note :** Cette étape utilise les outils RooSync (réservés à Roo sur coordinateur pour cette tâche spécifique).
+
+Synchroniser la configuration du coordinateur avec le partage GDrive :
+
+```
+1. roosync_config(action: "collect", targets: ["modes", "mcp"])
+2. roosync_config(action: "publish", version: "auto", description: "Config-sync coordinateur")
+3. result = roosync_compare_config(granularity: "mcp")
+```
+
+**Analyse des diffs des machines :**
+- Lire les configs publiées par les machines exécutantes
+- Si une machine a des diffs CRITICAL : planifier intervention
+- Rapporter l'état global dans le bilan
+
+**Fréquence :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
+
+**Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
+
 ---
 
 ### Etape 2a : Executer les taches INTERCOM
