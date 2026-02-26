@@ -29,7 +29,9 @@
     ],
     "allowedPaths": [
       "C:\\Users\\jsboi",
-      "C:\\dev\\roo-extensions"
+      "c:\\dev\\roo-extensions",
+      "C:\\dev\\roo-extensions",
+      "C:/dev/roo-extensions"
     ],
     "restrictWorkingDirectory": true,
     "logCommands": true,
