@@ -1,4 +1,4 @@
-# Workflow Scheduler Roo - EXECUTEUR (machines non-coordinateur)
+﻿# Workflow Scheduler Roo - EXECUTEUR (machines non-coordinateur)
 
 > Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
 
@@ -228,6 +228,20 @@ Si une issue est trouvee :
 Si aucune issue : rapporter `[IDLE]` dans INTERCOM.
 
 Apres tout → **Etape 3**
+
+
+
+### Etape 2c : Vérification commits locale (si exécuteur)
+
+Optionnel: si le scheduler tourne sur une machine avec des commits locaux:
+
+`
+execute_command(shell="gitbash", command="git log --oneline -2")
+`
+
+Si nouveau commit local: déléguer à auto-review via code-complex.
+
+**Note:** Cette étape est optionnelle et peut être activée par machine selon le besoin.
 
 ### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
