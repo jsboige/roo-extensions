@@ -53,7 +53,9 @@ param(
     [switch]$UseWorktree = $false,
     [int]$MaxIterations = 0,
     [string]$Model,
-    [switch]$DryRun = $false
+    [string]$Prompt,
+    [switch]$DryRun = $false,
+    [switch]$NoFallback = $false
 )
 
 # Configuration
@@ -69,6 +71,9 @@ if (-not (Test-Path $LogDir)) {
 }
 
 $LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+
+# Propager NoFallback en scope script pour accès depuis Get-NextTask
+$script:NoFallbackMode = $NoFallback
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
@@ -142,7 +147,11 @@ function Get-NextTask {
         return $GitHubTask
     }
 
-    # --- PRIORITÉ 3 : Fallback maintenance ---
+    # --- PRIORITÉ 3 : Fallback maintenance (sauf si -NoFallback) ---
+    if ($script:NoFallbackMode) {
+        Write-Log "Aucune tâche RooSync/GitHub → Mode NoFallback activé, pas de maintenance"
+        return $null
+    }
     Write-Log "Aucune tâche RooSync/GitHub → Fallback maintenance"
     return Get-FallbackTask
 }
@@ -859,10 +868,14 @@ function Invoke-Claude {
 
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
+    # BUG FIX: Ne pas ajouter de guillemets supplémentaires autour du prompt.
+    # PowerShell splatting gère le quoting automatiquement.
+    # Les guillemets manuels causaient des erreurs quand le prompt contenait des
+    # fragments ressemblant à des options CLI (ex: --body dans un texte).
     $ClaudeArgs = @(
         "--dangerously-skip-permissions",
         "--model", $ModelToUse,
-        "-p", "`"$Prompt`""
+        "-p", $Prompt
     )
 
     if ($DryRun) {
@@ -1179,17 +1192,17 @@ try {
                     }
                     catch {
                         Write-Log "Erreur lecture tâche $TaskId : $_" "ERROR"
-                        $Task = @{ id = $TaskId; subject = "Tâche spécifiée (erreur lecture)"; suggestedMode = $Mode }
+                        $Task = @{ id = $TaskId; subject = "Tâche spécifiée (erreur lecture)"; prompt = $Prompt; suggestedMode = $Mode }
                     }
                 }
                 else {
                     Write-Log "Tâche $TaskId introuvable dans inbox" "WARN"
-                    $Task = @{ id = $TaskId; subject = "Tâche spécifiée (introuvable)"; suggestedMode = $Mode }
+                    $Task = @{ id = $TaskId; subject = "Tâche spécifiée (introuvable)"; prompt = $Prompt; suggestedMode = $Mode }
                 }
             }
             else {
                 Write-Log "ROOSYNC_SHARED_PATH non défini" "WARN"
-                $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; suggestedMode = $Mode }
+                $Task = @{ id = $TaskId; subject = "Tâche spécifiée"; prompt = $Prompt; suggestedMode = $Mode }
             }
 
             # Vérifier si CETTE tâche spécifique a un wait state prêt
@@ -1207,6 +1220,16 @@ try {
         } else {
             $Task = Get-NextTask -SkipClaim:$DryRun
         }
+    }
+
+    # ==========================================================================
+    # Phase 1b : Vérifier si tâche trouvée (graceful idle si -NoFallback)
+    # ==========================================================================
+
+    if (-not $Task) {
+        Write-Log "Aucune tâche disponible et aucun wait state prêt"
+        Write-Log "=== WORKER IDLE - Sortie propre ==="
+        exit 0
     }
 
     # ==========================================================================
@@ -1257,11 +1280,19 @@ try {
     if ($EscalateMode) {
         Write-Log "ESCALADE vers mode: $EscalateMode" "WARN"
 
-        # Utiliser le modèle suggéré par l'agent si disponible
+        # Déterminer le modèle pour l'escalade (priorité: agent > mode config > original)
         $OriginalModel = $Model
         if ($Result.escalateToModel) {
             $Model = $Result.escalateToModel
-            Write-Log "  → Utilisation modèle suggéré: $Model"
+            Write-Log "  → Utilisation modèle suggéré par agent: $Model"
+        } else {
+            # BUG FIX: Utiliser le modèle configuré pour le mode escaladé
+            # Sans ça, -Model haiku restait actif même après escalade vers sync-complex (sonnet)
+            $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
+            if ($EscModeConfig -and $EscModeConfig.model) {
+                $Model = $EscModeConfig.model
+                Write-Log "  → Utilisation modèle du mode escaladé ($EscalateMode): $Model"
+            }
         }
 
         $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
