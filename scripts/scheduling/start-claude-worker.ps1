@@ -187,13 +187,21 @@ function Get-RooSyncTask {
 
     if ($Messages.Count -eq 0) { return $null }
 
-    # Filtrer par machine + unread + skip self-sent broadcasts
-    # BUG FIX: On ai-01, the coordinator sends broadcasts to "all" which the worker
-    # then picks up as work. Skip messages from self when sent to "all".
+    # Filtrer par machine + unread + skip non-task messages
+    # BUG FIXES (Cycle 34):
+    # 1. Skip ALL messages from self (not just broadcasts) - prevents self-consumption loop
+    #    on coordinator where worker picks up own reports
+    # 2. Skip worker-report tagged messages (results, not tasks)
+    # 3. Skip completion/info reports ([DONE], [INFO], Worker Report) - not actionable
     $MyMessages = $Messages | Where-Object {
         ($_.to -eq $MachineId -or $_.to -eq "all") -and
         $_.status -eq "unread" -and
-        -not ($_.to -eq "all" -and $_.from -like "$MachineId*")
+        # Skip ALL messages from self (prevents self-consumption on coordinator)
+        -not ($_.from -like "$MachineId*") -and
+        # Skip worker reports (these are results, not tasks)
+        -not ($_.tags -contains "worker-report") -and
+        # Skip completion/info reports (not actionable tasks)
+        -not ($_.subject -match "^\[DONE\]|^\[INFO\]|^Worker Report")
     }
 
     if ($MyMessages.Count -eq 0) { return $null }
