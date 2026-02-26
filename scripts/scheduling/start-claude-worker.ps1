@@ -1264,6 +1264,13 @@ try {
     # 4. Exécuter Claude avec mode sélectionné
     $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
 
+    # DryRun: stop after showing the command (Invoke-Claude already logged it)
+    if ($DryRun) {
+        Write-Log "[DRY-RUN] Skip report, RooSync send, GitHub comment"
+        Write-Log "=== WORKER TERMINÉ (DRY-RUN) ==="
+        exit 0
+    }
+
     # 4b. Vérifier wait state (TODO #5)
     if ($Result.waitState) {
         Write-Log "⏸️ Agent en attente - Sauvegarde état pour reprise ultérieure" "INFO"
