@@ -170,8 +170,8 @@ Format de réponse (Markdown):
         "Content-Type" = "application/json"
     } -Body $body
 
-    if ($response.result -and $result.content) {
-        $reviewResult = $result.content[0].text
+    if ($response.result -and $response.result.content) {
+        $reviewResult = $response.result.content[0].text
         Write-Host "[AUTO-REVIEW] Review reçue de sk-agent" -ForegroundColor Cyan
     } else {
         throw "Réponse invalide de sk-agent"
