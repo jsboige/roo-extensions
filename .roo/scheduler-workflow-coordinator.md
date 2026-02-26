@@ -115,11 +115,22 @@ Synchroniser la configuration du coordinateur avec le partage GDrive :
 ```
 
 **Analyse des diffs des machines :**
+
 - Lire les configs publiées par les machines exécutantes
-- Si une machine a des diffs CRITICAL : planifier intervention
+- Vérifier INTERCOM pour messages `[CONFIG-DRIFT]` des machines exécutantes
+- Si une machine a des diffs CRITICAL : Envoyer directive corrective via RooSync
+- Si `summary.important > 0` : Noter dans le bilan pour suivi
 - Rapporter l'état global dans le bilan
 
-**Fréquence :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
+**Mettre à jour la baseline (si > 7 jours depuis dernière) :**
+
+```
+roosync_baseline(action: "create", description: "Baseline hebdomadaire")
+```
+
+**Fréquence config-sync :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
+
+**Fréquence baseline :** Une fois par 7 jours.
 
 **Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
 
