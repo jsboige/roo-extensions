@@ -1,197 +1,223 @@
-# Scripts de Scheduling Claude Code
+# Claude Code Scheduling
 
-**Phase 1** - Implémentation de base (#414)
-**Date:** 2026-02-11
-**Statut:** ✅ Complété
-
----
-
-## Vue d'Ensemble
-
-Scripts PowerShell pour l'exécution automatisée de Claude Code avec :
-- **Modes simple/complex** (Haiku → Sonnet/Opus)
-- **Escalade automatique** (si tâche trop complexe)
-- **Worktrees Git** (isolation des changements)
-- **Logs détaillés** (.claude/logs/)
+**Version:** 2.0 (Phase 2 - Production)
+**Date:** 2026-02-26
+**Issues:** #414 (Phase 1), #525 (Phase 2)
+**Status:** OPERATIONAL on myia-ai-01
 
 ---
 
-## Fichiers
+## Overview
+
+Automated Claude Code worker that picks up GitHub issues and executes them via Windows Task Scheduler. Features:
+
+- **Auto-detect tasks** from GitHub (`roo-schedulable` label) or RooSync inbox
+- **Escalade Haiku → Sonnet/Opus** via agent signal (STATUS: escalate)
+- **Sub-agent delegation** (Haiku can spawn Sonnet sub-agents)
+- **Wait state** persistence for tasks requiring user approval
+- **Graceful idle** (clean exit when no work, -NoFallback)
+- **DryRun** mode for safe testing
+- **Detailed logs** in `.claude/logs/worker-*.log`
+
+---
+
+## Scripts
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| `start-claude-worker.ps1` | Worker générique avec modes + escalade | Manuel ou via scheduler |
-| `sync-tour-scheduled.ps1` | Sync-tour automatisé (wrapper) | Task Scheduler / Cron |
+| `start-claude-worker.ps1` | Main worker with escalation + sub-agents | Manual or via Task Scheduler |
+| `setup-scheduler.ps1` | Install/remove/list/test Windows Task Scheduler | Setup and management |
+| `sync-tour-scheduled.ps1` | Sync-tour wrapper (legacy Phase 1) | Manual |
+| `test-escalation.ps1` | 33 unit tests (escalation, wait state, idle) | Validation |
+| `test-integration.ps1` | 3 integration tests (live Claude calls) | Validation |
 
 ---
 
-## Configuration
+## Quick Start
 
-### Modes Claude (.claude/modes/modes-config.json)
+### 1. List current Task Scheduler status
 
-| Mode | Modèle | Coût/1M tokens | Usage |
-|------|--------|----------------|-------|
-| sync-simple | Haiku 4.5 | $0.25 | Sync basique |
-| sync-complex | Sonnet 4.5 | $3.00 | Conflits, build |
-| code-simple | Haiku 4.5 | $0.25 | <50 lignes |
-| code-complex | Sonnet 4.5 | $3.00 | Refactoring |
-| debug-simple | Haiku 4.5 | $0.25 | Bugs évidents |
-| debug-complex | Sonnet 4.5 | $3.00 | Bugs complexes |
-| coordinate-simple | Haiku 4.5 | $0.25 | Messages RooSync |
-| coordinate-complex | Opus 4.6 | $15.00 | Planification |
+```powershell
+.\setup-scheduler.ps1 -Action list
+```
 
-**Escalade automatique :** Les modes simple escaladent vers complex si conditions remplies.
+### 2. Test worker (DryRun - no side effects)
+
+```powershell
+.\setup-scheduler.ps1 -Action test
+```
+
+### 3. Install Task Scheduler (production)
+
+```powershell
+# Default: 3h interval, Haiku, 1 iteration, clean exit if no work
+.\setup-scheduler.ps1 -Action install
+
+# Conservative 6h interval
+.\setup-scheduler.ps1 -Action install -IntervalHours 6
+
+# More iterations per run
+.\setup-scheduler.ps1 -Action install -MaxIterations 3
+
+# Preview without installing
+.\setup-scheduler.ps1 -Action install -DryRun
+```
+
+### 4. Remove Task Scheduler
+
+```powershell
+.\setup-scheduler.ps1 -Action remove
+```
 
 ---
 
-## Utilisation
-
-### 1. Test Local (DryRun)
+## Worker Parameters
 
 ```powershell
-# Test worker générique
-.\start-claude-worker.ps1 -DryRun
-
-# Test sync-tour automatisé
-.\sync-tour-scheduled.ps1 -DryRun
-
-# Test avec mode spécifique
-.\sync-tour-scheduled.ps1 -Mode "sync-complex" -DryRun
+.\start-claude-worker.ps1
+    [-Mode <string>]         # Claude mode (sync-simple, code-simple, etc.)
+    [-Model <string>]        # Model override (haiku, sonnet, opus)
+    [-TaskId <string>]       # Specific RooSync task ID
+    [-Prompt <string>]       # Direct prompt injection (for testing)
+    [-MaxIterations <int>]   # Max Ralph Wiggum iterations (default: from mode config)
+    [-NoFallback]            # Clean exit if no work (no maintenance fallback)
+    [-UseWorktree]           # Create git worktree for isolation
+    [-DryRun]                # Show commands without executing
 ```
 
-### 2. Exécution Manuelle
+### Examples
 
 ```powershell
-# Sync-tour en mode simple (défaut)
-.\sync-tour-scheduled.ps1
+# Auto-detect next task (RooSync then GitHub)
+.\start-claude-worker.ps1 -Mode code-simple -Model haiku -MaxIterations 1
 
-# Worker avec tâche spécifique
-.\start-claude-worker.ps1 -Mode "code-simple" -TaskId "msg-xyz"
+# Specific task
+.\start-claude-worker.ps1 -TaskId "msg-xyz" -Mode code-simple
 
-# Avec worktree pour isolation
-.\start-claude-worker.ps1 -UseWorktree
+# Test with direct prompt
+.\start-claude-worker.ps1 -Prompt "Run tests and report" -Mode code-simple -Model haiku
+
+# Scheduled mode (no fallback maintenance)
+.\start-claude-worker.ps1 -Mode code-simple -Model haiku -MaxIterations 1 -NoFallback
 ```
 
-### 3. Planification Windows (Task Scheduler)
+---
 
-**Créer tâche quotidienne à 9h :**
+## Task Detection Pipeline
 
-```powershell
-schtasks /create /tn "Claude Sync Tour" /tr "powershell.exe -ExecutionPolicy Bypass -File C:\dev\roo-extensions\scripts\scheduling\sync-tour-scheduled.ps1" /sc daily /st 09:00
+```
+1. Check RooSync inbox → prioritized messages
+2. Check GitHub issues (label: roo-schedulable) → oldest unclaimed
+3. If -NoFallback → clean exit (WORKER IDLE)
+4. Else → fallback maintenance (build + tests)
 ```
 
-**Créer tâche toutes les 3h :**
+### GitHub Issue Selection
 
-```powershell
-schtasks /create /tn "Claude Sync Tour 3h" /tr "powershell.exe -ExecutionPolicy Bypass -File C:\dev\roo-extensions\scripts\scheduling\sync-tour-scheduled.ps1" /sc hourly /mo 3
+- Issues must have label `roo-schedulable`
+- Issues with `Agent: Roo` (explicitly, without Both/Any) are skipped
+- Already-assigned issues are skipped
+- Issues locked by recent "Claimed by" comment (<5min) are skipped
+- Worker claims the issue before execution
+
+---
+
+## Escalation
+
+The worker uses "Ralph Wiggum" iteration loop. The agent signals its status:
+
+```
+=== AGENT STATUS ===
+STATUS: success|failure|escalate|wait|continue
+REASON: description
+ESCALATE_TO: sonnet|opus  (optional, for escalate)
+WAIT_FOR: description     (optional, for wait)
+RESUME_WHEN: condition    (optional, for wait)
+===================
 ```
 
-**Vérifier tâche :**
+### Escalation Flow
 
-```powershell
-schtasks /query /tn "Claude Sync Tour" /v
+```
+Haiku (code-simple) → Agent signals ESCALATE
+  → Worker switches to code-complex (Sonnet)
+  → Retries same prompt with more powerful model
+  → If escalated model also fails → report failure
 ```
 
-### 4. Planification Linux/macOS (Cron)
+### Wait State
 
-```bash
-# Éditer crontab
-crontab -e
-
-# Sync-tour quotidien à 9h
-0 9 * * * cd /path/to/roo-extensions && pwsh -File scripts/scheduling/sync-tour-scheduled.ps1
-
-# Sync-tour toutes les 3h
-0 */3 * * * cd /path/to/roo-extensions && pwsh -File scripts/scheduling/sync-tour-scheduled.ps1
-```
+Agent signals STATUS: wait → Worker saves state to `.claude/scheduler/wait-states/{taskId}.json` → Next run can check and resume.
 
 ---
 
 ## Logs
 
-Tous les logs sont dans `.claude/logs/` :
-
 ```
 .claude/logs/
-├── worker-20260211-003349.log          # Logs worker générique
-├── sync-tour-scheduled-20260211-003356.log  # Logs sync-tour
-└── escalation-20260211.log              # Logs d'escalade
+├── worker-20260226-032958.log    # Timestamped worker logs
+└── ...
 ```
-
-**Consulter logs récents :**
 
 ```powershell
-# 50 dernières lignes
-Get-Content .claude/logs/worker-*.log -Tail 50
+# Recent logs
+Get-ChildItem .claude/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 5
 
-# Logs du jour
-Get-ChildItem .claude/logs/ | Where-Object { $_.LastWriteTime -gt (Get-Date).Date }
+# Last 50 lines of latest
+Get-Content (Get-ChildItem .claude/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 1).FullName -Tail 50
 ```
 
 ---
 
-## Workflow Escalade
+## Tests
 
-### Exemple : Sync-Tour
+### Unit Tests (33 tests)
 
-```
-┌─────────────────────┐
-│ sync-simple (Haiku) │  git pull, check messages
-│ Coût: ~$0.01        │  ✗ FAIL: Conflits git détectés
-└──────────┬──────────┘
-           │ ESCALADE (condition remplie)
-           ▼
-┌─────────────────────┐
-│ sync-complex (Sonnet)│  Résout conflits, merge
-│ Coût: ~$0.15         │  ✓ OK: Conflits résolus
-└──────────────────────┘
-
-Total: ~$0.16 (vs $0.15 si direct Sonnet)
-Économie: ~$0 (mais si 80% des sync n'ont pas de conflits → économie 80%)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\test-escalation.ps1
 ```
 
----
+Tests: mode config loading, escalation mapping, escalation model bug fix, wait state save/load, NoFallback parameter, escalation code path.
 
-## Estimation Coûts
+### Integration Tests (3 tests, requires Claude API)
 
-### Scénario Conservateur (5 machines)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\test-integration.ps1
+```
 
-| Activité | Freq/jour | Tokens/exec | Coût/jour | Coût/mois |
-|----------|-----------|-------------|-----------|-----------|
-| Sync simple (no escalade) | 8×5 | 10K @ $0.25 | $0.10 | $3.00 |
-| Code simple (no escalade) | 10×5 | 10K @ $0.25 | $0.125 | $3.75 |
-| Escalades complex | 2×5 | 20K @ $3.00 | $0.60 | $18.00 |
-| **TOTAL** | - | 1.1M | **$0.825** | **~$25/mois** |
-
-**vs. Sonnet partout :** ~$150/mois → **Économie : 83%**
+Tests: real escalation (Haiku→Sonnet), sub-agent delegation, wait state signal.
 
 ---
 
-## Prochaines Étapes
+## Current Deployment
 
-### Phase 2 : Ralph Wiggum (2-3 jours)
+| Machine | Task Name | Interval | Model | Status |
+|---------|-----------|----------|-------|--------|
+| myia-ai-01 | Claude-Worker | 3h | Haiku | OPERATIONAL |
+| Others | - | - | - | Planned (#534) |
 
-- [ ] Installer Ralph Wiggum plugin sur chaque machine
-- [ ] Intégrer avec `start-claude-worker.ps1`
-- [ ] Tester boucles autonomes sur CONS tasks
-
-### Phase 3 : Coordinateur Central (1 semaine)
-
-- [ ] GitHub Actions pour trigger centralisé
-- [ ] Webhook sur push → distribution tâches
-- [ ] Dashboard monitoring (optionnel)
+**Configuration:** code-simple, MaxIterations=1, NoFallback, Timeout=15min
 
 ---
 
-## Références
+## Cost Estimation
 
-- **Issue #414** : Stratégie scheduling Claude Code
-- **Issue #387** : Modes SDDD simple/complex (Roo)
-- [.claude/modes/README.md](../../.claude/modes/README.md) : Doc modes complète
-- [docs/architecture/scheduling-claude-code.md](../../docs/architecture/scheduling-claude-code.md) : Investigation
+| Config | Cost/run | Cost/day (8 runs) | Cost/month |
+|--------|----------|-------------------|------------|
+| Haiku MaxIter=1 | ~$0.005 | ~$0.04 | ~$1.20 |
+| Haiku MaxIter=3 | ~$0.015 | ~$0.12 | ~$3.60 |
+| With escalation to Sonnet | ~$0.05 | ~$0.10 | ~$3.00 |
 
 ---
 
-**Auteur:** Claude Code (myia-po-2026)
-**Version:** 1.0.0 (Phase 1)
-**Licence:** Projet roo-extensions
+## References
+
+- **#414** : Phase 1 - Base implementation (po-2026)
+- **#525** : Phase 2 - Capabilities validation + Task Scheduler (ai-01)
+- **#534** : Phase 3 - Multi-machine deployment (planned)
+- [docs/architecture/scheduler-claude-code.md](../../docs/architecture/scheduler-claude-code.md) : Architecture design
+
+---
+
+**Authors:** Claude Code (myia-po-2026 Phase 1, myia-ai-01 Phase 2)
+**Version:** 2.0 (Production)
