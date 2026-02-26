@@ -114,7 +114,8 @@ function Get-NextTask {
 
     param(
         [string]$MachineId = $env:COMPUTERNAME.ToLower(),
-        [string]$AgentType = "claude"
+        [string]$AgentType = "claude",
+        [switch]$SkipClaim = $false
     )
 
     Write-Log "Récupération prochaine tâche ($AgentType sur $MachineId)..."
@@ -132,8 +133,12 @@ function Get-NextTask {
     $GitHubTask = Get-GitHubTask -AgentType $AgentType -MachineId $MachineId
     if ($GitHubTask) {
         Write-Log "✅ Tâche GitHub: #$($GitHubTask.issueNumber)" "INFO"
-        # Claim l'issue immédiatement
-        Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+        # Claim l'issue immédiatement (sauf en DryRun)
+        if (-not $SkipClaim) {
+            Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+        } else {
+            Write-Log "[DRY-RUN] Skip claim issue #$($GitHubTask.issueNumber)" "INFO"
+        }
         return $GitHubTask
     }
 
@@ -220,9 +225,11 @@ function Get-GitHubTask {
             # Skip si déjà assignée
             if ($Issue.assignees.Count -gt 0) { continue }
 
-            # Vérifier champ Agent (Claude Code, Both, Any)
+            # Vérifier champ Agent dans le body (optionnel - le label roo-schedulable suffit)
+            # Si le body contient explicitement "Agent: Roo" (sans Both/Any), skip pour Claude
             $Body = $Issue.body
-            if ($AgentType -eq "claude" -and -not ($Body -match "(?i)agent:\s*(claude code|claude|both|any)")) {
+            if ($AgentType -eq "claude" -and ($Body -match "(?i)agent:\s*roo\s*$")) {
+                Write-Log "  Issue #$($Issue.number) : Agent=Roo uniquement, skip" "DEBUG"
                 continue
             }
 
@@ -1198,7 +1205,7 @@ try {
                 $Task.suggestedMode = $ResumeState.context.mode
             }
         } else {
-            $Task = Get-NextTask
+            $Task = Get-NextTask -SkipClaim:$DryRun
         }
     }
 
