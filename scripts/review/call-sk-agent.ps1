@@ -40,19 +40,35 @@ if ($Verbose) {
     Write-Host $mcpRequest
 }
 
-# Appeler sk-agent via MCP
+# Appeler sk-agent via direct invocation
 try {
-    # Utiliser le MCP sk-agent
-    $result = call_agent(
-        prompt: $Prompt,
-        agent_type: "sk_agent"
-    )
+    # Appeler directement le script sk-agent
+    $skScriptPath = "D:/Dev/roo-extensions/mcps/internal/servers/sk-agent/run-sk-agent.ps1"
 
-    if ($result) {
-        Write-Output $result
+    if (Test-Path $skScriptPath) {
+        # Construire les arguments pour sk-agent
+        $args = @(
+            "-Prompt", $Prompt,
+            "-Participants", ($Participants -join ','),
+            "-ConversationType", $ConversationType,
+            "-Context", $Context
+        )
+
+        if ($Verbose) {
+            $args += "-Verbose"
+        }
+
+        # Exécuter sk-agent
+        $result = & $skScriptPath @args
+
+        if ($result) {
+            Write-Output $result
+        } else {
+            Write-Warning "sk-agent a retourné un résultat vide"
+            exit 1
+        }
     } else {
-        Write-Warning "sk-agent a retourné un résultat vide"
-        exit 1
+        throw "Le script sk-agent n'est pas trouvé à: $skScriptPath"
     }
 } catch {
     Write-Error "Erreur lors de l'appel à sk-agent: $_"
