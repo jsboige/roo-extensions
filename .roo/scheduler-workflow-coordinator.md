@@ -1,4 +1,4 @@
-# Workflow Scheduler Roo - COORDINATEUR (myia-ai-01)
+﻿# Workflow Scheduler Roo - COORDINATEUR (myia-ai-01)
 
 > Lu par orchestrateur-simple. MAJ : modifier ce fichier + `git push`.
 
@@ -135,6 +135,25 @@ roosync_baseline(action: "create", description: "Baseline hebdomadaire")
 **Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
 
 ---
+
+
+
+### Etape 1d : Vérification des nouveaux commits (Auto-Review)
+
+Après le pull git, vérifier s'il y a de nouveaux commits:
+
+`
+execute_command(shell="gitbash", command="git log --oneline -2")
+execute_command(shell="gitbash", command="git rev-parse HEAD~1")
+`
+
+Si HEAD différent de HEAD~1 (nouveau commit local):
+
+1. Appeler le script d'auto-review:
+   execute_command(shell="powershell", command="cd D:/Dev/roo-extensions/scripts/review; .\start-auto-review.ps1")
+2. Si échec: noter dans le bilan mais continuer
+
+**Raison:** Détecter les commits locaux (push manuel ou autre source) et lancer une review automatique.
 
 ### Etape 2a : Executer les taches INTERCOM
 
