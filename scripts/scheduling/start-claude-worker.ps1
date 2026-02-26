@@ -187,9 +187,13 @@ function Get-RooSyncTask {
 
     if ($Messages.Count -eq 0) { return $null }
 
-    # Filtrer par machine + unread
+    # Filtrer par machine + unread + skip self-sent broadcasts
+    # BUG FIX: On ai-01, the coordinator sends broadcasts to "all" which the worker
+    # then picks up as work. Skip messages from self when sent to "all".
     $MyMessages = $Messages | Where-Object {
-        ($_.to -eq $MachineId -or $_.to -eq "all") -and $_.status -eq "unread"
+        ($_.to -eq $MachineId -or $_.to -eq "all") -and
+        $_.status -eq "unread" -and
+        -not ($_.to -eq "all" -and $_.from -like "$MachineId*")
     }
 
     if ($MyMessages.Count -eq 0) { return $null }
@@ -897,7 +901,7 @@ function Invoke-Claude {
 
         $CurrentIteration = 0
         $Continue = $true
-        $CumulativeOutput = @()
+        $IterationOutputs = @()  # Array of iteration output STRINGS (not individual lines)
         $NeedsEscalation = $false
         $EscalateToModel = $null  # Modèle suggéré par l'agent
         $WaitStateData = $null
@@ -909,11 +913,13 @@ function Invoke-Claude {
             # TAKE ACTION: Exécuter Claude CLI
             try {
                 $IterationOutput = & claude @ClaudeArgs 2>&1
-                $CumulativeOutput += $IterationOutput
+                # BUG FIX: Join lines into a single string per iteration,
+                # so "=== Iteration Break ===" only appears BETWEEN iterations, not between lines
+                $IterationOutputs += ($IterationOutput -join "`n")
             }
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
-                $CumulativeOutput += "ERROR: $_"
+                $IterationOutputs += "ERROR: $_"
                 $Continue = $false
                 break
             }
@@ -926,7 +932,7 @@ function Invoke-Claude {
             # ESCALATE_TO: <model> (optionnel)
             # WAIT_FOR: <condition> (optionnel)
             # ===================
-            $OutputText = $IterationOutput -join "`n"
+            $OutputText = $IterationOutputs[-1]  # Last iteration's joined output
 
             # Parser le signal STATUS (si présent)
             if ($OutputText -match "STATUS:\s*(\w+)") {
@@ -970,7 +976,7 @@ function Invoke-Claude {
                             mode = $ModeId
                             model = $ModelToUse
                             iteration = $CurrentIteration
-                            context = ($CumulativeOutput | Select-Object -Last 50) -join "`n"  # Dernières 50 lignes
+                            context = ($IterationOutputs[-1].Split("`n") | Select-Object -Last 50) -join "`n"  # Dernières 50 lignes
                         }
                     }
                     "success" {
@@ -1007,7 +1013,7 @@ function Invoke-Claude {
             needsEscalation = $NeedsEscalation
             escalateToModel = $EscalateToModel
             waitState = $WaitStateData
-            output = $CumulativeOutput -join "`n`n=== Iteration Break ===`n`n"
+            output = $IterationOutputs -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
             iterations = $CurrentIteration
         }
@@ -1057,6 +1063,15 @@ function Report-Results {
 
     Write-Log "Rapport des résultats au coordinateur..."
 
+    # Truncate output to last 80 lines to keep reports readable
+    $OutputLines = $Result.output -split "`n"
+    $TruncatedOutput = if ($OutputLines.Count -gt 80) {
+        $Skipped = $OutputLines.Count - 80
+        "... ($Skipped lines truncated)`n" + ($OutputLines | Select-Object -Last 80) -join "`n"
+    } else {
+        $Result.output
+    }
+
     $ReportMessage = @"
 ## Worker Report - $($env:COMPUTERNAME)
 
@@ -1067,7 +1082,7 @@ function Report-Results {
 
 ### Output
 ``````
-$($Result.output)
+$TruncatedOutput
 ``````
 
 ### Logs
