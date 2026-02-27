@@ -126,3 +126,17 @@ Updated via git commits. Each agent should read this at session start.
 ### MCP Safe Update Pattern
 - **`sync_always_allow`**: Programmatically update `alwaysAllow` array
 - **`update_server_field`**: MERGE fields (vs `update_server` which REPLACES all)
+
+### Config-Sync Pipeline (Operationalized 2026-02-27)
+- **Collect**: `roosync_config(action: "collect", targets: ["modes", "mcp", "roomodes", "model-configs", "rules"])` → 7 files, ~47KB
+- **Publish**: `roosync_config(action: "publish", version: "1.0.0", description: "...")` → GDrive `configs/{machineId}/v{version}/`
+- **Compare**: `roosync_compare_config(granularity: "mcp"|"mode"|"full")` → Diffs with severity (CRITICAL/WARNING/INFO)
+- **Settings extract**: `python scripts/roo-settings/roo-settings-manager.py extract` → 78 keys from state.vscdb
+- **Sprint #543**: Cross-machine harmonization campaign (all 6 machines)
+
+### Strategic Directives (Active)
+| Issue | Title | Scope | Status |
+|-------|-------|-------|--------|
+| #543 | Settings & Config-Sync Harmonization | All machines | Phase 1 extraction |
+| #544 | Automated Quality Pipeline | ai-01 first | Todo |
+| #545 | Roo Complex Mode Graduation | All machines | Phase 1 task assigned |
