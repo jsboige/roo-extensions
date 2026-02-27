@@ -279,33 +279,31 @@ Apres tout → **Etape 3**
 
 
 
-### Etape 2c : Auto-review des commits locaux (si exécuteur)
+### Etape 2c : Auto-review des commits recents (optionnel)
 
-> **Nouveau :** Activation de l'auto-review automatique via sk-agent pour chaque push local.
+> Disponible uniquement sur les machines avec sk-agent ou acces vLLM.
 
-Optionnel: si le scheduler tourne sur une machine avec des commits locaux:
+Apres le pull, verifier s'il y a un nouveau commit a reviewer :
 
-1. Vérifier les commits locaux:
 ```
 execute_command(shell="gitbash", command="git log --oneline -2")
 ```
 
-2. Si nouveau commit local, déléguer l'auto-review à `code-complex`:
+Si nouveau commit detecte, deleguer l'auto-review :
+
 ```
-execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File \"D:\\Dev\\roo-extensions\\scripts\\review\\auto-review.ps1\"")
+execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1")
 ```
 
-**Paramètres optionnels:**
-- `--diff-range "HEAD~1..HEAD"` : Spécifier une plage de diff personnalisée
-- `--author "username"` : Filtrer par auteur
-- `-Verbose` : Mode verbose pour les logs détaillés
+**Parametres optionnels du script `auto-review.ps1` :**
+- `-DiffRange "HEAD~3"` : Reviewer les N derniers commits
+- `-IssueNumber 535` : Forcer le post sur une issue specifique
+- `-Mode vllm` : Utiliser vLLM directement (sans sk-agent HTTP)
+- `-DryRun` : Afficher la review sans poster sur GitHub
 
-**Configuration requise:**
-- sk-agent doit être installé et accessible
-- GitHub CLI doit avoir les droits de commentaires
-- Le script doit avoir l'exécution autorisée (PowerShell ExecutionPolicy)
+**Prerequis :** sk-agent MCP ou vLLM sur port 5002/v1 (Qwen3.5-35B). Fallback automatique HTTP → vLLM.
 
-**Note:** Cette étape est optionnelle et peut être activée par machine selon le besoin.
+**Note :** Cette etape est optionnelle et non bloquante. Si echec, noter dans le bilan et continuer.
 
 ### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 

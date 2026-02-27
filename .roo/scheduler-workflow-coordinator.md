@@ -138,22 +138,25 @@ roosync_baseline(action: "create", description: "Baseline hebdomadaire")
 
 
 
-### Etape 1d : Vérification des nouveaux commits (Auto-Review)
+### Etape 1d : Auto-Review des commits recents (optionnel)
 
-Après le pull git, vérifier s'il y a de nouveaux commits:
+Apres le pull git, verifier s'il y a de nouveaux commits a reviewer :
 
-`
+```
 execute_command(shell="gitbash", command="git log --oneline -2")
-execute_command(shell="gitbash", command="git rev-parse HEAD~1")
-`
+```
 
-Si HEAD différent de HEAD~1 (nouveau commit local):
+Si HEAD a change depuis le dernier tick (nouveau commit) :
 
-1. Appeler le script d'auto-review:
-   execute_command(shell="powershell", command="cd D:/Dev/roo-extensions/scripts/review; .\start-auto-review.ps1")
-2. Si échec: noter dans le bilan mais continuer
+1. Lancer l'auto-review via sk-agent :
+   ```
+   execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1")
+   ```
+2. Le script detecte l'issue associee au commit (via `#NNN` dans le message) et poste la review
+3. Si echec : noter dans le bilan mais continuer (non bloquant)
 
-**Raison:** Détecter les commits locaux (push manuel ou autre source) et lancer une review automatique.
+**Prerequis :** sk-agent MCP ou vLLM sur port 5002. La review utilise le mode vLLM en fallback.
+**Note :** Le script utilise `$PSScriptRoot` pour les chemins relatifs, pas de chemin absolu necessaire.
 
 ### Etape 2a : Executer les taches INTERCOM
 
