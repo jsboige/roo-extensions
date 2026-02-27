@@ -103,6 +103,24 @@ Can span multiple lines.
 | `FEEDBACK` | Retour qualite de Claude sur le travail Roo | "Travail valide, tests OK" |
 | `IDLE` | Rien a faire (rapport du scheduler) | "Aucune tache planifiee" |
 
+### Cross-Workspace Tag (Optionnel)
+
+Pour les tâches cross-workspace, ajouter un tag `[workspace:PATH]` après le type :
+
+```markdown
+## [2026-02-27 10:00:00] claude-code -> roo [TASK] [workspace:C:\Users\MYIA\wsl_volumes\livresagites_wp]
+### Build WordPress
+1. cd vers le workspace spécifié
+2. Vérifier le build
+...
+```
+
+**Règles :**
+- Le workspace DOIT être un chemin absolu valide
+- Si absent ou vide → utiliser le workspace principal (roo-extensions)
+- L'exécuteur doit `cd` vers le workspace AVANT d'exécuter les commandes
+- Le rapport se fait dans l'INTERCOM du workspace PRINCIPAL
+
 ---
 
 ## 🔄 Workflow
