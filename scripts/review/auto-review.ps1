@@ -1,203 +1,198 @@
-# Auto-Review Script - sk-agent + GitHub Comment
-# Lance une review automatique via sk-agent et poste le résultat en commentaire
+# auto-review.ps1 - Automated code review via sk-agent
+#
+# Detects new commits, calls sk-agent for review, posts result to GitHub.
+# Part of issue #535: sk-agent auto-review pipeline.
+#
+# Usage:
+#   .\auto-review.ps1                          # Review HEAD vs HEAD~1
+#   .\auto-review.ps1 -DiffRange "HEAD~3"      # Review last 3 commits
+#   .\auto-review.ps1 -IssueNumber 535         # Force post to specific issue
+#   .\auto-review.ps1 -DryRun                  # Print review without posting
+#   .\auto-review.ps1 -Mode vllm               # Use vLLM directly (skip sk-agent HTTP)
+
+param(
+    [string]$DiffRange = "HEAD~1",
+    [int]$IssueNumber = 0,
+    [string]$RepoOwner = "jsboige",
+    [string]$RepoName = "roo-extensions",
+    [int]$MaxDiffChars = 8000,
+    [ValidateSet("http", "vllm")]
+    [string]$Mode = "http",
+    [switch]$DryRun,
+    [switch]$Verbose
+)
 
 $ErrorActionPreference = "Stop"
+$ScriptDir = $PSScriptRoot
 
-# Configuration
-$RepoOwner = "jsboige"
-$RepoName = "roo-extensions"
-$MaxDiffSize = 10000 # Taille max du diff (en caractères)
+Write-Host "[AUTO-REVIEW] Starting review (range: $DiffRange, mode: $Mode)" -ForegroundColor Green
 
-Write-Host "[AUTO-REVIEW] Démarrage de la review automatique" -ForegroundColor Green
-
-# Étape 1: Vérifier s'il y a de nouveaux commits
+# --- Step 1: Get commit info ---
 try {
-    Write-Host "[AUTO-REVIEW] Vérification des nouveaux commits..."
-    $lastCommitHash = git rev-parse HEAD~1
-    $currentHash = git rev-parse HEAD
+    $currentHash = git rev-parse HEAD 2>$null
+    $parentHash = git rev-parse "$DiffRange" 2>$null
 
-    if ($lastCommitHash -eq $currentHash) {
-        Write-Host "[AUTO-REVIEW] Aucun nouveau commit, sortie." -ForegroundColor Yellow
+    if (-not $currentHash -or -not $parentHash) {
+        Write-Host "[AUTO-REVIEW] Cannot resolve git range, exiting." -ForegroundColor Yellow
         exit 0
     }
 
-    Write-Host "[AUTO-REVIEW] Nouveau commit détecté: $currentHash" -ForegroundColor Cyan
-} catch {
-    Write-Host "[AUTO-REVIEW] Erreur lors de la vérification des commits: $_" -ForegroundColor Red
-    exit 1
-}
-
-# Étape 2: Récupérer le diff
-try {
-    Write-Host "[AUTO-REVIEW] Récupération du diff..."
-    $diff = git diff HEAD~1 HEAD --no-color
-
-    if ([string]::IsNullOrWhiteSpace($diff)) {
-        Write-Host "[AUTO-REVIEW] Diff vide, sortie." -ForegroundColor Yellow
+    if ($currentHash -eq $parentHash) {
+        Write-Host "[AUTO-REVIEW] No new commits, exiting." -ForegroundColor Yellow
         exit 0
     }
 
-    # Limiter la taille du diff
-    if ($diff.Length -gt $MaxDiffSize) {
-        Write-Host "[AUTO-REVIEW] Diff trop long ($($diff.Length) chars), tronquature..." -ForegroundColor Yellow
-        $diff = $diff.Substring(0, $MaxDiffSize) + "`n[... Diff tronqué ...]"
-    }
+    $commitMessage = git log --format="%s" -1 HEAD 2>$null
+    $commitAuthor = git log --format="%an" -1 HEAD 2>$null
+    $shortHash = $currentHash.Substring(0, 7)
 
-    Write-Host "[AUTO-REVIEW] Diff récupéré ($($diff.Length) caractères)" -ForegroundColor Cyan
+    Write-Host "[AUTO-REVIEW] Commit: $shortHash - $commitMessage ($commitAuthor)" -ForegroundColor Cyan
 } catch {
-    Write-Host "[AUTO-REVIEW] Erreur lors de la récupération du diff: $_" -ForegroundColor Red
+    Write-Host "[AUTO-REVIEW] Git error: $_" -ForegroundColor Red
     exit 1
 }
 
-# Étape 3: Trouver l'issue/PR associé
-Write-Host "[AUTO-REVIEW] Recherche de l'issue/PR associée..."
+# --- Step 2: Get diff ---
+try {
+    $diffStat = git diff --stat "$DiffRange" HEAD 2>$null
+    $diffFull = git diff "$DiffRange" HEAD --no-color 2>$null
 
-# Utiliser les commits messages pour trouver une référence issue/PR
-$commitMessage = git log --format=%B -n 1 HEAD
-Write-Host "[DEBUG] Commit message: $commitMessage"
-$issueNumber = $null
-
-# Chercher des patterns comme: "Fix #123", "Close #456", "Issue #541"
-$matchResult = $commitMessage -match '(?i)(fix|close|resolve|issue)[\s\-]*#(\d+)'
-if ($matchResult -and $matches -and $matches[2]) {
-    $issueNumber = $matches[2]
-    Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée dans le commit message" -ForegroundColor Cyan
-} elseif ($commitMessage -match '#(\d+)') {
-    # Si on trouve un # mais pas avec les patterns précédents, utiliser le premier numéro
-    if ($matches -and $matches[1]) {
-        $issueNumber = $matches[1]
-        Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée (pattern simple)" -ForegroundColor Cyan
+    if ([string]::IsNullOrWhiteSpace($diffFull)) {
+        Write-Host "[AUTO-REVIEW] Empty diff, exiting." -ForegroundColor Yellow
+        exit 0
     }
+
+    # Truncate if too large
+    $diffLen = $diffFull.Length
+    if ($diffLen -gt $MaxDiffChars) {
+        Write-Host "[AUTO-REVIEW] Diff truncated: $diffLen -> $MaxDiffChars chars" -ForegroundColor Yellow
+        $diffFull = $diffFull.Substring(0, $MaxDiffChars) + "`n`n[... diff truncated at $MaxDiffChars chars ...]"
+    }
+
+    Write-Host "[AUTO-REVIEW] Diff: $diffLen chars" -ForegroundColor Cyan
+} catch {
+    Write-Host "[AUTO-REVIEW] Diff error: $_" -ForegroundColor Red
+    exit 1
 }
 
-# Si aucune issue trouvée, chercher parmi les 10 dernières issues ouvertes
-if (-not $issueNumber) {
-    try {
-        $issuesJson = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 10 --json number,title 2>$null
-        if ($issuesJson) {
-            $issues = $issuesJson | ConvertFrom-Json
-            $commitShort = $currentHash.Substring(0, 7)
+# --- Step 3: Find associated GitHub issue ---
+if ($IssueNumber -eq 0) {
+    # Try commit message patterns
+    $patterns = @(
+        '(?i)(?:fix|close|resolve)[\s\-]*#(\d+)',
+        '(?i)issue[\s\-]*#(\d+)',
+        '#(\d+)'
+    )
 
-            foreach ($issue in $issues) {
-                if ($commitMessage.Contains(" #$($issue.number) ") -or $commitMessage.Contains("#$($issue.number)")) {
-                    $issueNumber = $issue.number
-                    Write-Host "[AUTO-REVIEW] Issue #${issueNumber} trouvée par correspondance" -ForegroundColor Cyan
-                    break
-                }
-            }
+    foreach ($pattern in $patterns) {
+        if ($commitMessage -match $pattern) {
+            $IssueNumber = [int]$matches[1]
+            Write-Host "[AUTO-REVIEW] Found issue #$IssueNumber in commit message" -ForegroundColor Cyan
+            break
         }
-    } catch {
-        Write-Host "[AUTO-REVIEW] Erreur lors de la recherche des issues: $_" -ForegroundColor Yellow
     }
 }
 
-# Si toujours aucune issue, utiliser la plus récente (pour tests)
-if (-not $issueNumber) {
-    try {
-        $latestIssue = gh issue list --repo "$RepoOwner/$RepoName" --state open --limit 1 --json number --jq '.[0].number' 2>$null
-        if ($latestIssue) {
-            $issueNumber = $latestIssue.Trim('"')
-            Write-Host "[AUTO-REVIEW] Issue #${issueNumber} utilisée (la plus récente)" -ForegroundColor Yellow
-        }
-    } catch {
-        Write-Host "[AUTO-REVIEW] Impossible d'obtenir la dernière issue: $_" -ForegroundColor Yellow
-    }
-}
-
-if (-not $issueNumber) {
-    Write-Host "[AUTO-REVIEW] Aucune issue/PR trouvée, sortie." -ForegroundColor Yellow
+if ($IssueNumber -eq 0) {
+    Write-Host "[AUTO-REVIEW] No issue found, skipping review." -ForegroundColor Yellow
     exit 0
 }
 
-# Étape 4: Appeler sk-agent pour la review
-try {
-    Write-Host "[AUTO-REVIEW] Appel de sk-agent pour la review..."
+# --- Step 4: Call sk-agent for review ---
+$reviewPrompt = @"
+Review this code change concisely. Focus on: correctness, edge cases, security, and actionable improvements.
 
-    # Sk-agent est accessible via MCP, nous allons générer une review statique pour le test
-    # Dans une vraie intégration, ce serait via l'outil MCP sk-agent
+**Commit:** $shortHash - $commitMessage
+**Author:** $commitAuthor
+**Files changed:**
+$diffStat
 
-    $diffPreview = $diff -split "`n" | Select-Object -First 20 -Last 5
-    $diffSummary = if ($diff.Length -gt 100) { $diff.Substring(0, 100) + "..." } else { $diff }
+**Diff:**
+``````diff
+$diffFull
+``````
 
-    $reviewResult = @"
-## Auto-Review par sk-agent
-
-### 📝 Résumé
-Review automatique du commit $currentHash. Modifications dans le script auto-review.ps1 pour corriger les erreurs d'appel à sk-agent.
-
-### 🔍 Analyse détaillée
-#### Sécurité
-✅ Aucun problème de sécurité détecté dans les modifications
-
-#### Performance
-✅ Les modifications sont mineures et n'impactent pas les performances
-
-#### Maintenabilité
-✅ Correction d'un bug important dans le handling de la réponse
-✅ Le code est maintenant plus robuste et suit les bonnes pratiques PowerShell
-
-### 🎯 Synthèse finale
-Points forts:
-- Correction rapide du bug de référence
-- Bonne gestion des erreurs avec fallback
-- Code clair et bien documenté
-
-Recommandations:
-- Considérer d'ajouter des tests unitaires pour l'auto-review
-- Documenter la configuration requise pour sk-agent
-
----
-*Review automatique générée par sk-agent sur la machine ${env:COMPUTERNAME}*
+Give a structured review in markdown with:
+1. Summary (2-3 sentences)
+2. Findings table (severity | category | description)
+3. Final verdict: APPROVE / APPROVE WITH FIXES / REJECT
 "@
 
-    Write-Host "[AUTO-REVIEW] Review générée (mode test)" -ForegroundColor Cyan
+$reviewResult = $null
+
+try {
+    Write-Host "[AUTO-REVIEW] Calling sk-agent (mode: $Mode)..." -ForegroundColor Cyan
+
+    if ($Verbose) {
+        $reviewResult = & "$ScriptDir\call-sk-agent.ps1" -Prompt $reviewPrompt -Agent "critic" -Mode $Mode -ShowDebug
+    } else {
+        $reviewResult = & "$ScriptDir\call-sk-agent.ps1" -Prompt $reviewPrompt -Agent "critic" -Mode $Mode
+    }
+
+    if ([string]::IsNullOrWhiteSpace($reviewResult)) {
+        throw "sk-agent returned empty response"
+    }
+
+    Write-Host "[AUTO-REVIEW] Review received ($($reviewResult.Length) chars)" -ForegroundColor Cyan
 
 } catch {
-    Write-Host "[AUTO-REVIEW] Erreur lors de l'appel à sk-agent: $_" -ForegroundColor Red
-    # Fallback: créer une review simple
+    Write-Host "[AUTO-REVIEW] sk-agent failed: $_. Using fallback review." -ForegroundColor Yellow
+
+    # Fallback: basic review without LLM
+    $fileCount = ($diffStat -split "`n" | Where-Object { $_ -match '\d+ file' }).Count
+    if ($fileCount -eq 0) { $fileCount = "unknown" }
+
     $reviewResult = @"
-## Auto-Review par sk-agent
+## Auto-Review (fallback mode)
 
-### 📝 Résumé
-Review automatique suite au commit $currentHash
+sk-agent was unavailable. Basic commit summary:
 
-### ⚠️ Attention
-Une erreur est survenue lors de l'appel à sk-agent. Review manuelle recommandée.
+- **Commit:** $shortHash
+- **Message:** $commitMessage
+- **Author:** $commitAuthor
+- **Changes:** $fileCount file(s)
 
----
-*Review automatique générée par sk-agent sur la machine ${env:COMPUTERNAME}*
+``````
+$diffStat
+``````
+
+> Manual review recommended. sk-agent error: $_
 "@
 }
 
-# Étape 5: Poster le commentaire
-try {
-    Write-Host "[AUTO-REVIEW] Postage du commentaire sur l'issue #$issueNumber..."
-
-    # Ajouter des métadonnées
-    $reviewWithMetadata = @"
+# --- Step 5: Format and post ---
+$fullComment = @"
 $reviewResult
 
-**Informations techniques:**
-- Machine: ${env:COMPUTERNAME}
-- Commit: $currentHash
-- Timestamp: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-- Script: auto-review.ps1
+---
+<sub>Auto-review by sk-agent ($Mode mode) on $env:COMPUTERNAME | Commit: $shortHash | $(Get-Date -Format "yyyy-MM-dd HH:mm")</sub>
 "@
 
-    # Poster le commentaire
-    $commentResult = gh api repos/$RepoOwner/$RepoName/issues/$issueNumber/comments -f body=$reviewWithMetadata
+if ($DryRun) {
+    Write-Host "`n[AUTO-REVIEW] DRY RUN - Would post to #$IssueNumber`:" -ForegroundColor Yellow
+    Write-Host $fullComment
+    exit 0
+}
 
-    if ($commentResult) {
-        $commentId = $commentResult.id
-        Write-Host "[AUTO-REVIEW] Commentaire posté avec succès (ID: $commentId)" -ForegroundColor Green
-        Write-Host "[AUTO-REVIEW] URL: https://github.com/$RepoOwner/$RepoName/issues/$issueNumber#issuecomment-$commentId" -ForegroundColor Cyan
+try {
+    Write-Host "[AUTO-REVIEW] Posting to issue #$IssueNumber..." -ForegroundColor Cyan
+
+    # Use gh CLI to post (handles auth automatically)
+    $fullComment | gh issue comment $IssueNumber --repo "$RepoOwner/$RepoName" --body-file - 2>&1
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "[AUTO-REVIEW] Posted to #$IssueNumber" -ForegroundColor Green
     } else {
-        throw "Le commentaire n'a pas été posté"
+        throw "gh issue comment failed (exit code $LASTEXITCODE)"
     }
 
 } catch {
-    Write-Host "[AUTO-REVIEW] Erreur lors du post du commentaire: $_" -ForegroundColor Red
+    Write-Host "[AUTO-REVIEW] Post failed: $_" -ForegroundColor Red
+    # Save locally as fallback
+    $outputFile = Join-Path $ScriptDir "last-review.md"
+    $fullComment | Set-Content -Path $outputFile -Encoding UTF8
+    Write-Host "[AUTO-REVIEW] Saved to $outputFile" -ForegroundColor Yellow
     exit 1
 }
 
-Write-Host "[AUTO-REVIEW] Workflow terminé avec succès!" -ForegroundColor Green
+Write-Host "[AUTO-REVIEW] Done." -ForegroundColor Green
