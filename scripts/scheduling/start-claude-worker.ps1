@@ -1206,6 +1206,112 @@ Voir: $LogFile
 }
 
 # ============================================================================
+# Git Sync + Auto-Review (#544 Phase 2)
+# ============================================================================
+
+function Invoke-GitSyncAndReview {
+    <#
+    .SYNOPSIS
+    Pulls latest changes and triggers auto-review if new commits detected.
+
+    .DESCRIPTION
+    Phase 0.5 of the worker pipeline:
+    1. Record current HEAD
+    2. Git pull from origin
+    3. If HEAD changed → trigger auto-review (non-blocking)
+
+    .OUTPUTS
+    Hashtable with: pullSuccess, headChanged, newHead, reviewTriggered
+    #>
+
+    $result = @{
+        pullSuccess = $false
+        headChanged = $false
+        newHead = $null
+        reviewTriggered = $false
+        error = $null
+    }
+
+    try {
+        # Record current HEAD before pull
+        $oldHead = (git -C $RepoRoot rev-parse HEAD 2>&1).Trim()
+        Write-Log "Git HEAD before pull: $($oldHead.Substring(0, 7))"
+
+        # Pull from origin (no-rebase to avoid conflicts)
+        Write-Log "Git pull origin main..."
+        $pullOutput = git -C $RepoRoot pull --no-rebase origin main 2>&1
+        $pullExitCode = $LASTEXITCODE
+
+        if ($pullExitCode -ne 0) {
+            Write-Log "Git pull failed (exit $pullExitCode): $pullOutput" "WARN"
+            $result.error = "Git pull failed: $pullOutput"
+            return $result
+        }
+
+        $result.pullSuccess = $true
+        $newHead = (git -C $RepoRoot rev-parse HEAD 2>&1).Trim()
+        $result.newHead = $newHead
+        Write-Log "Git HEAD after pull: $($newHead.Substring(0, 7))"
+
+        # Check if HEAD changed
+        if ($newHead -ne $oldHead) {
+            $result.headChanged = $true
+            $commitCount = (git -C $RepoRoot rev-list "$oldHead..$newHead" --count 2>&1).Trim()
+            Write-Log "HEAD changed: $commitCount new commit(s) detected" "INFO"
+
+            # Trigger auto-review (non-blocking, best-effort)
+            $reviewScript = Join-Path $RepoRoot "scripts\review\start-auto-review.ps1"
+            if (Test-Path $reviewScript) {
+                Write-Log "Triggering auto-review for new commits..."
+                try {
+                    # Run with -DryRun if worker is in DryRun mode
+                    $reviewArgs = @()
+                    if ($DryRun) { $reviewArgs += "-DryRun" }
+
+                    # Calculate diff range based on commit count
+                    if ([int]$commitCount -gt 1) {
+                        $reviewArgs += "-DiffRange"
+                        $reviewArgs += "HEAD~$commitCount"
+                    }
+
+                    # Execute auto-review (timeout 120s to not block worker)
+                    $reviewJob = Start-Job -ScriptBlock {
+                        param($script, $args)
+                        & powershell -ExecutionPolicy Bypass -File $script @args
+                    } -ArgumentList $reviewScript, $reviewArgs
+
+                    # Wait max 120s, then continue regardless
+                    $reviewCompleted = Wait-Job $reviewJob -Timeout 120
+                    if ($reviewCompleted) {
+                        $reviewOutput = Receive-Job $reviewJob
+                        Write-Log "Auto-review completed: $($reviewOutput | Select-Object -Last 1)" "INFO"
+                        $result.reviewTriggered = $true
+                    } else {
+                        Write-Log "Auto-review still running (timeout 120s), continuing..." "WARN"
+                        Stop-Job $reviewJob -ErrorAction SilentlyContinue
+                        $result.reviewTriggered = $true  # It was triggered, just timed out
+                    }
+                    Remove-Job $reviewJob -Force -ErrorAction SilentlyContinue
+                }
+                catch {
+                    Write-Log "Auto-review failed (non-blocking): $_" "WARN"
+                }
+            } else {
+                Write-Log "Auto-review script not found: $reviewScript" "WARN"
+            }
+        } else {
+            Write-Log "No new commits (HEAD unchanged)"
+        }
+    }
+    catch {
+        Write-Log "Git sync error: $_" "WARN"
+        $result.error = "Git sync error: $_"
+    }
+
+    return $result
+}
+
+# ============================================================================
 # MAIN WORKFLOW
 # ============================================================================
 
@@ -1242,6 +1348,21 @@ try {
             prompt = Build-ResumePrompt -WaitState $ResumeState
             source = "wait-state-resume"
             suggestedMode = $ResumeState.context.mode
+        }
+    }
+
+    # ==========================================================================
+    # Phase 0.5 : Git Sync + Auto-Review (#544)
+    # Pull latest changes and trigger review if new commits detected.
+    # Non-blocking: failures here don't prevent task execution.
+    # ==========================================================================
+
+    if (-not $IsResume) {
+        $GitSyncResult = Invoke-GitSyncAndReview
+        if ($GitSyncResult.pullSuccess) {
+            Write-Log "Git sync OK (head changed: $($GitSyncResult.headChanged), review: $($GitSyncResult.reviewTriggered))"
+        } elseif ($GitSyncResult.error) {
+            Write-Log "Git sync issue: $($GitSyncResult.error)" "WARN"
         }
     }
 
