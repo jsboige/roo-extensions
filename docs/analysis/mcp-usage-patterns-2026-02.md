@@ -30,6 +30,7 @@ Cette analyse examine les patterns d'utilisation des outils MCP (Model Context P
 | **roo-state-manager** | 36 | ✅ Actif | Limité (outils autorisés uniquement) |
 | **win-cli** | 3 | ✅ Actif | Autorisé (shell unique) |
 | **markitdown** | 1 | ✅ Actif | Occasionnel |
+| **playwright** | ? | ✅ Actif | Rare (automatisation web) |
 | **jinavigator** | 4 | ✅ Actif | Rare |
 | **searxng** | 2 | ✅ Actif | Rare |
 
