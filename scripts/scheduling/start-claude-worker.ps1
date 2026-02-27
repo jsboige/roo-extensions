@@ -262,7 +262,7 @@ function Get-GitHubTask {
                 id = "github-$($Issue.number)"
                 subject = $Issue.title
                 priority = "MEDIUM"
-                prompt = $Body
+                prompt = Build-GitHubPrompt -IssueNumber $Issue.number -Title $Issue.title -Body $Body
                 source = "github"
                 issueNumber = $Issue.number
             }
@@ -314,6 +314,66 @@ function Claim-GitHubIssue {
     } catch {
         Write-Log "⚠️ Erreur claim #$IssueNumber" "WARN"
     }
+}
+
+function Build-GitHubPrompt {
+    <#
+    .SYNOPSIS
+    Constructs an actionable prompt from a GitHub issue for autonomous Claude execution.
+
+    .DESCRIPTION
+    Extracts the Execution-Ready Spec section if present, and wraps the issue content
+    with autonomous agent instructions so Claude acts without asking for clarification.
+    #>
+    param(
+        [int]$IssueNumber,
+        [string]$Title,
+        [string]$Body
+    )
+
+    $MachineId = $env:COMPUTERNAME.ToLower()
+
+    # Try to extract Execution-Ready Spec section
+    $Spec = $null
+    if ($Body -match '(?si)## Execution-Ready Spec.*?\n(.*?)(?=\n## |\z)') {
+        $Spec = $Matches[1].Trim()
+    }
+
+    # Build the prompt
+    $PromptParts = @()
+    $PromptParts += "You are an autonomous Claude Code agent on machine $MachineId."
+    $PromptParts += "Execute the following GitHub issue autonomously. Do NOT ask for clarification - make reasonable decisions and proceed."
+    $PromptParts += ""
+    $PromptParts += "## Issue #$IssueNumber : $Title"
+    $PromptParts += ""
+
+    if ($Spec) {
+        $PromptParts += "### Execution-Ready Spec"
+        $PromptParts += $Spec
+        $PromptParts += ""
+        $PromptParts += "### Full Issue Context (for reference)"
+        # Truncate body to avoid excessively long prompts
+        $MaxBodyLen = 3000
+        if ($Body.Length -gt $MaxBodyLen) {
+            $PromptParts += $Body.Substring(0, $MaxBodyLen) + "`n[... body truncated ...]"
+        } else {
+            $PromptParts += $Body
+        }
+    } else {
+        # No execution-ready spec - use the full body but add guidance
+        $PromptParts += "### Issue Description"
+        $MaxBodyLen = 4000
+        if ($Body.Length -gt $MaxBodyLen) {
+            $PromptParts += $Body.Substring(0, $MaxBodyLen) + "`n[... body truncated ...]"
+        } else {
+            $PromptParts += $Body
+        }
+    }
+
+    $PromptParts += ""
+    $PromptParts += "After completing the work, output your results clearly. If you cannot complete the task, explain what blocked you."
+
+    return ($PromptParts -join "`n")
 }
 
 function Get-FallbackTask {

@@ -172,6 +172,70 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 
 Apres execution → **Etape 3**
 
+### Etape 2a-bis : Creer des taches Cross-Workspace pour executants (NOUVEAU)
+
+> **Contexte :** Les executants (myia-po-*, myia-web1) peuvent avoir plusieurs workspaces. Cette etape permet au coordinateur de leur assigner des taches sur d'autres workspaces.
+
+**Quand creer une tache cross-workspace :**
+- Une issue GitHub mentionne un workspace specifique
+- Une tache de maintenance est necessaire sur un autre projet
+- Le coordinateur detecte un besoin sur un workspace secondaire
+
+**Format de tache INTERCOM cross-workspace :**
+
+```markdown
+## [{DATE}] claude-code -> roo [TASK] [workspace:{CHEMIN_ABSOLU}]
+### Titre de la tache
+
+**Workspace cible :** {CHEMIN_ABSOLU}
+**Machine cible :** {myia-po-2023|myia-po-2024|etc.}
+
+Instructions :
+1. Se placer dans le workspace cible
+2. Executer les commandes demandées
+3. Revenir au workspace principal (roo-extensions)
+4. Rapporter dans l'INTERCOM principal
+```
+
+**Exemple concret :**
+
+```markdown
+## [2026-02-27 10:00:00] claude-code -> roo [TASK] [workspace:D:/dev/livresagites_wp]
+### Build WordPress plugin
+
+**Workspace cible :** D:/dev/livresagites_wp
+**Machine cible :** myia-ai-01
+
+Instructions :
+1. cd D:/dev/livresagites_wp
+2. git pull
+3. npm run build
+4. npm test
+5. Rapporter le resultat
+```
+
+**Procedure pour le coordinateur :**
+
+1. **Identifier la machine cible** :
+   - La machine doit avoir le workspace dans son inventaire (#526)
+   - La machine doit etre online (heartbeat recent)
+
+2. **Ecrire la tache dans l'INTERCOM de la machine cible** :
+   - Via RooSync message avec instruction "ecrire dans INTERCOM local"
+   - Ou via delegation si le coordinateur a acces direct
+
+3. **Suivre la reponse** :
+   - L'executant rapportera dans son INTERCOM local
+   - Le coordinateur doit verifier les reponses via heartbeat ou RooSync
+
+**Regles de securite :**
+- TOUJOURS specifier le chemin absolu du workspace
+- TOUJOURS specifier la machine cible
+- TOUJOURS inclure une instruction de retour au workspace principal
+- NE PAS creer de taches cross-workspace pour des workspaces inconnus
+
+Apres creation → **Etape 3**
+
 ### Etape 2b : Taches par defaut (si pas de [TASK])
 
 Deleguer dans cet ordre a `code-simple` via `new_task` :

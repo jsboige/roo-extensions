@@ -168,7 +168,8 @@ Executer ces commandes et rapporter le resultat :
 2. git status
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
 Chercher les messages [TASK], [SCHEDULED], [URGENT] de claude-code -> roo.
-Rapporter : etat git + liste des taches trouvees.
+Pour chaque [TASK], vérifier s'il contient un tag [workspace:PATH].
+Rapporter : etat git + liste des taches trouvees (avec workspace si spécifié).
 ```
 
 **Decision :**
@@ -195,6 +196,53 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 - Erreur complexe : escalader vers `-complex`
 
 **Chaine d'escalade :** `code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via INTERCOM `[ESCALADE-CLAUDE]`)
+
+### Etape 2a-bis : Taches Cross-Workspace (NOUVEAU)
+
+> **Prérequis :** Le workspace cible doit exister et avoir une config Roo minimale (`.roo/mcp.json`)
+
+Si une tache INTERCOM contient le tag `[workspace:PATH]` :
+
+**1. Delegation avec workspace specifique :**
+
+```
+Executer cette tache dans un workspace different :
+- Workspace cible : {PATH from tag}
+- Se placer dans ce workspace AVANT d'executer
+- Apres execution, revenir au workspace principal
+- Rapporter le resultat dans l'INTERCOM du workspace principal
+```
+
+**Exemple de delegation cross-workspace :**
+
+```javascript
+await new_task({
+  title: "Build WordPress workspace",
+  instructions: `
+Tache cross-workspace vers : C:\\Users\\MYIA\\wsl_volumes\\livresagites_wp
+
+1. execute_command(shell="powershell", command="cd C:\\Users\\MYIA\\wsl_volumes\\livresagites_wp; pwd")
+2. execute_command(shell="gitbash", command="git status")
+3. Executer les commandes demandees dans ce workspace
+4. Revenir au workspace principal (roo-extensions)
+
+Rapporter le resultat dans l'INTERCOM principal.
+  `
+});
+```
+
+**2. Validation du workspace cible :**
+
+Avant d'executer, verifier que :
+- Le chemin existe
+- C'est un repertoire Git valide
+- Le fichier `.roo/mcp.json` existe (optionnel pour les taches simples)
+
+**3. Gestion des erreurs :**
+
+- Si workspace inexistant : rapporter erreur dans INTERCOM + marquer tache FAIL
+- Si workspace non Git : noter dans bilan mais continuer avec les commandes possibles
+- Apres execution : TOUJOURS revenir au workspace principal
 
 Apres execution → **Etape 3**
 
