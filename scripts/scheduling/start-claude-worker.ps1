@@ -187,12 +187,12 @@ function Get-RooSyncTask {
 
     if ($Messages.Count -eq 0) { return $null }
 
-    # Filtrer par machine + unread + skip non-task messages
-    # BUG FIXES (Cycle 34):
-    # 1. Skip ALL messages from self (not just broadcasts) - prevents self-consumption loop
-    #    on coordinator where worker picks up own reports
-    # 2. Skip worker-report tagged messages (results, not tasks)
-    # 3. Skip completion/info reports ([DONE], [INFO], Worker Report) - not actionable
+    # Filtrer par machine + unread + WHITELIST subjects actionnables
+    # BUG FIXES:
+    # - Cycle 34: Skip self messages, worker-reports, [DONE]/[INFO]
+    # - Cycle 36: Switch to WHITELIST approach - only accept [TASK] and [URGENT]
+    #   messages as real work. [STATUS], [READY], [DONE], [INFO], Worker Report
+    #   are all non-actionable and were causing stale message re-processing.
     $MyMessages = $Messages | Where-Object {
         ($_.to -eq $MachineId -or $_.to -eq "all") -and
         $_.status -eq "unread" -and
@@ -200,8 +200,8 @@ function Get-RooSyncTask {
         -not ($_.from -like "$MachineId*") -and
         # Skip worker reports (these are results, not tasks)
         -not ($_.tags -contains "worker-report") -and
-        # Skip completion/info reports (not actionable tasks)
-        -not ($_.subject -match "^\[DONE\]|^\[INFO\]|^Worker Report")
+        # WHITELIST: Only accept actionable message types
+        ($_.subject -match "^\[TASK\]|^\[URGENT\]")
     }
 
     if ($MyMessages.Count -eq 0) { return $null }
