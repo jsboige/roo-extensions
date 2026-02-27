@@ -12,6 +12,7 @@ param(
     [int]$IssueNumber = 0,
     [string]$RepoOwner = "jsboige",
     [string]$RepoName = "roo-extensions",
+    [switch]$BuildCheck,
     [switch]$DryRun,
     [switch]$Verbose
 )
@@ -24,8 +25,9 @@ $reviewArgs = @{
     RepoOwner = $RepoOwner
     RepoName = $RepoName
 }
-if ($IssueNumber -gt 0) { $args["IssueNumber"] = $IssueNumber }
-if ($DryRun) { $args["DryRun"] = $true }
-if ($Verbose) { $args["Verbose"] = $true }
+if ($IssueNumber -gt 0) { $reviewArgs["IssueNumber"] = $IssueNumber }
+if ($BuildCheck) { $reviewArgs["BuildCheck"] = $true }
+if ($DryRun) { $reviewArgs["DryRun"] = $true }
+if ($Verbose) { $reviewArgs["Verbose"] = $true }
 
 & "$scriptDir\auto-review.ps1" @reviewArgs

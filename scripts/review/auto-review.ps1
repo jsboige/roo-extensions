@@ -2,6 +2,7 @@
 #
 # Detects new commits, calls sk-agent for review, posts result to GitHub.
 # Part of issue #535: sk-agent auto-review pipeline.
+# Phase 3 (#544): Optional build gate validation before review.
 #
 # Usage:
 #   .\auto-review.ps1                          # Review HEAD vs HEAD~1
@@ -9,6 +10,7 @@
 #   .\auto-review.ps1 -IssueNumber 535         # Force post to specific issue
 #   .\auto-review.ps1 -DryRun                  # Print review without posting
 #   .\auto-review.ps1 -Mode vllm               # Use vLLM directly (skip sk-agent HTTP)
+#   .\auto-review.ps1 -BuildCheck              # Run build+tests before review
 
 param(
     [string]$DiffRange = "HEAD~1",
@@ -18,6 +20,7 @@ param(
     [int]$MaxDiffChars = 8000,
     [ValidateSet("http", "vllm")]
     [string]$Mode = "http",
+    [switch]$BuildCheck,
     [switch]$DryRun,
     [switch]$Verbose
 )
@@ -98,6 +101,51 @@ if ($IssueNumber -eq 0) {
     exit 0
 }
 
+# --- Step 3b: Build gate (#544 Phase 3) ---
+$buildResult = $null
+if ($BuildCheck) {
+    Write-Host "[AUTO-REVIEW] Running build gate..." -ForegroundColor Cyan
+
+    $buildDir = Join-Path $ScriptDir "..\..\mcps\internal\servers\roo-state-manager"
+    $buildDir = Resolve-Path $buildDir -ErrorAction SilentlyContinue
+
+    if ($buildDir) {
+        # Build
+        $buildOutput = & npm run build --prefix $buildDir 2>&1 | Select-Object -Last 10
+        $buildOk = ($LASTEXITCODE -eq 0)
+
+        # Tests (maxWorkers=1 for low-RAM machines)
+        $testOutput = & npx vitest run --maxWorkers=1 --prefix $buildDir 2>&1 | Select-Object -Last 20
+        $testOk = ($LASTEXITCODE -eq 0)
+
+        # Extract test counts from output
+        $testSummary = ($testOutput | Select-String -Pattern "Tests?\s+\d+" | Select-Object -Last 1)
+
+        $buildResult = @{
+            buildOk = $buildOk
+            testOk = $testOk
+            testSummary = if ($testSummary) { $testSummary.Line.Trim() } else { "unknown" }
+        }
+
+        if (-not $buildOk) {
+            Write-Host "[AUTO-REVIEW] BUILD FAILED" -ForegroundColor Red
+
+            # Post build failure immediately to GitHub (don't wait for LLM review)
+            if (-not $DryRun -and $IssueNumber -gt 0) {
+                $buildFailComment = "⚠️ **Build FAILED** on commit ``$shortHash`` ($commitMessage) on $env:COMPUTERNAME`n`n``````$($buildOutput -join "`n")``````"
+                $buildFailComment | gh issue comment $IssueNumber --repo "$RepoOwner/$RepoName" --body-file - 2>&1 | Out-Null
+                Write-Host "[AUTO-REVIEW] Build failure posted to #$IssueNumber" -ForegroundColor Yellow
+            }
+        } elseif (-not $testOk) {
+            Write-Host "[AUTO-REVIEW] TESTS FAILED" -ForegroundColor Red
+        } else {
+            Write-Host "[AUTO-REVIEW] Build gate PASSED ($($buildResult.testSummary))" -ForegroundColor Green
+        }
+    } else {
+        Write-Host "[AUTO-REVIEW] Build dir not found, skipping build gate" -ForegroundColor Yellow
+    }
+}
+
 # --- Step 4: Call sk-agent for review ---
 $reviewPrompt = @"
 Review this code change concisely. Focus on: correctness, edge cases, security, and actionable improvements.
@@ -161,9 +209,25 @@ $diffStat
 }
 
 # --- Step 5: Format and post ---
+$buildSection = ""
+if ($buildResult) {
+    $buildIcon = if ($buildResult.buildOk -and $buildResult.testOk) { "✅" } else { "❌" }
+    $buildStatus = if ($buildResult.buildOk) { "PASS" } else { "FAIL" }
+    $testStatus = if ($buildResult.testOk) { "PASS" } else { "FAIL" }
+    $buildSection = @"
+
+### Build Gate $buildIcon
+| Check | Status |
+|-------|--------|
+| Build | $buildStatus |
+| Tests | $testStatus ($($buildResult.testSummary)) |
+
+"@
+}
+
 $fullComment = @"
 $reviewResult
-
+$buildSection
 ---
 <sub>Auto-review by sk-agent ($Mode mode) on $env:COMPUTERNAME | Commit: $shortHash | $(Get-Date -Format "yyyy-MM-dd HH:mm")</sub>
 "@
