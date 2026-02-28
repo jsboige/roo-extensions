@@ -126,7 +126,7 @@ execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
 Envoyer un signal de vie au coordinateur :
 
 ```
-roosync_heartbeat(action="beat")
+roosync_heartbeat(action="register")
 ```
 
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
