@@ -1,11 +1,11 @@
 # MyIA MCP Infrastructure
 
-Docker infrastructure centralisant les serveurs MCP exposes via HTTP/SSE pour integration avec des LLM providers (Anthropic, OpenAI) et des applications (AI Engine Pro, Open WebUI).
+Container unique exposant tous les serveurs MCP via HTTP/SSE pour integration avec des LLM providers (Anthropic, OpenAI) et des applications (AI Engine Pro, Open WebUI).
 
 ## Architecture
 
 ```
-Internet (Anthropic/OpenAI APIs, AI Engine Pro)
+Internet (Anthropic/OpenAI APIs, AI Engine Pro, Open WebUI)
     |
     | HTTPS + Bearer token
     v
@@ -13,25 +13,19 @@ IIS Reverse Proxy (myia-po-2023)
     mcp-tools.myia.io:443 -> myia-ai-01:9090
     |
     v
-mcp-proxy container (port 9090) --- token auth ---
-    |-- /searxng/     -> npx mcp-searxng (stdio subprocess) -> search.myia.io
-    |-- /future-mcp/  -> (extensible, stdio ou SSE backends)
-
-sk-agent container (port 8100) --- separate token ---
-    |-- Open WebUI (skagents.myia.io, direct access)
-    |-- Claude Code / Roo (stdio, local)
-
-NOTE: sk-agent utilise streamable-http, incompatible avec le mode SSE
-de mcp-proxy (v0.43.2). Routage via mcp-proxy prevu quand le proxy
-supportera les backends per-server type (streamable-http).
+myia-mcp-proxy container (port 9090) --- token auth ---
+    |-- /searxng/    -> npx mcp-searxng (stdio) -> search.myia.io
+    |-- /sk-agent/   -> python sk_agent.py (stdio) -> LLM providers
+    |-- /future-mcp/ -> (extensible)
 ```
 
-## Services
+## Image custom
 
-| Service | Image | Port | Description |
-|---------|-------|------|-------------|
-| mcp-proxy | ghcr.io/tbxark/mcp-proxy | 9090 | Gateway HTTP/SSE pour MCPs stdio et URL |
-| sk-agent | sk-agent:latest (build local) | 8100 | Multi-agent orchestration via Semantic Kernel |
+L'image `myia-mcp-proxy:latest` etend `ghcr.io/tbxark/mcp-proxy:latest` avec :
+- Dependances Python sk-agent (semantic-kernel, openai, mcp, etc.)
+- Code source sk-agent (`/opt/sk-agent/`)
+
+Tous les MCPs tournent comme subprocesses stdio dans le meme container.
 
 ## Setup rapide (myia-ai-01)
 
@@ -43,26 +37,22 @@ cp mcp-proxy/config.template.json mcp-proxy/config.json
 # Editer config.json : remplacer REPLACE_WITH_TOKEN par un vrai token
 python -c "import secrets; print(secrets.token_hex(32))"
 
-# 2. Configurer les variables d'environnement
-cp .env.example .env
-# Editer .env : mettre la cle API sk-agent
-
-# 3. Build et lancer
-docker compose build sk-agent --no-cache
+# 2. Build et lancer
+docker compose build --no-cache
 docker compose up -d
 ```
 
 ## Commandes utiles
 
 ```bash
-# Logs de tous les services
+# Logs
 docker compose logs -f
 
-# Rebuild sk-agent (apres mise a jour du code)
-docker compose build sk-agent --no-cache
-docker compose up -d --force-recreate sk-agent
+# Rebuild (apres MAJ code sk-agent ou requirements)
+docker compose build --no-cache
+docker compose up -d --force-recreate
 
-# Restart mcp-proxy (apres modification de config.json)
+# Restart (apres modification de config.json seulement)
 docker compose restart mcp-proxy
 
 # Status
@@ -85,29 +75,29 @@ Editer `mcp-proxy/config.json` et ajouter une entree dans `mcpServers` :
 ```json
 {
   "mcpServers": {
-    "searxng": { "..." },
-    "nouveau-mcp-stdio": {
+    "nouveau-mcp-node": {
       "command": "npx",
       "args": ["-y", "nom-du-package-mcp"],
       "env": { "VAR": "valeur" }
     },
-    "nouveau-mcp-sse": {
-      "url": "http://host.docker.internal:PORT/sse"
+    "nouveau-mcp-python": {
+      "command": "python",
+      "args": ["/opt/mon-mcp/server.py"],
+      "env": { "CONFIG": "/opt/mon-mcp/config.json" }
     }
   }
 }
 ```
 
-**Note :** Les backends `url` doivent supporter le transport SSE (type global du proxy).
-Les MCPs streamable-http ne sont pas encore supportes comme backends (v0.43.2).
-
-Puis redemarrer : `docker compose restart mcp-proxy`
+Pour les MCPs Python, ajouter les dependances dans le Dockerfile et rebuild.
+Puis redemarrer : `docker compose restart`
 
 ### Endpoints exposes
 
 | MCP Server | SSE Endpoint | Outils |
 |------------|-------------|--------|
 | searxng | `/searxng/sse` | `searxng_web_search`, `web_url_read` |
+| sk-agent | `/sk-agent/sse` | `ask`, `call_agent`, `list_agents`, `analyze_image`, `analyze_video`, `analyze_document`, `list_models`, etc. |
 
 ### Authentification
 
@@ -124,17 +114,17 @@ Alternative (clients sans support headers) : token dans l'URL :
 
 ## Securite
 
-- **Token mcp-proxy** : Protege l'acces externe (AI Engine Pro, LLM providers)
-- **Token sk-agent** : Protege l'acces direct (Open WebUI via `skagents.myia.io`)
-- **Double couche** : HTTPS (IIS) + token proxy + token sk-agent (si acces direct)
-- sk-agent n'est PAS expose directement sur internet via mcp-proxy (trafic interne Docker)
+- **Token unique mcp-proxy** : Protege l'acces a TOUS les MCPs (searxng + sk-agent)
+- **HTTPS** : Chiffrement via reverse proxy IIS
+- sk-agent tourne en subprocess stdio interne, pas expose directement
 
-## Reverse Proxies IIS
+## Reverse Proxy IIS
 
 | Domaine | Port local | Service | Machine IIS | Notes |
 |---------|-----------|---------|-------------|-------|
-| `mcp-tools.myia.io` | 9090 | mcp-proxy (multi-MCP) | myia-po-2023 | SSE: desactiver buffering ARR |
-| `skagents.myia.io` | 8100 | sk-agent (direct) | myia-ai-01 | Acces Open WebUI |
+| `mcp-tools.myia.io` | 9090 | mcp-proxy (tous MCPs) | myia-po-2023 | SSE: desactiver buffering ARR |
+
+**Note :** `skagents.myia.io` (port 8100) n'est plus necessaire. OWUI utilise `mcp-tools.myia.io/sk-agent/sse`.
 
 ### Configuration IIS pour SSE (mcp-tools.myia.io)
 
@@ -161,8 +151,8 @@ Alternative (clients sans support headers) : token dans l'URL :
 
 ## Stack technique
 
-- **mcp-proxy** : [tbxark/mcp-proxy](https://github.com/tbxark/mcp-proxy) (Go)
-- **sk-agent** : Python 3.11 + Semantic Kernel + Node.js 20
-- **Transport** : SSE (Server-Sent Events) pour mcp-proxy, streamable-http pour sk-agent
-- **MCPs integres** : mcp-searxng (Node.js, via npx dans mcp-proxy)
-- **SearXNG** : https://search.myia.io/ (self-hosted)
+- **Proxy** : [tbxark/mcp-proxy](https://github.com/tbxark/mcp-proxy) (Go, base image)
+- **sk-agent** : Python + Semantic Kernel 1.39+ (subprocess stdio)
+- **SearXNG** : mcp-searxng (Node.js, via npx, subprocess stdio)
+- **Transport** : SSE (Server-Sent Events) vers les clients
+- **SearXNG backend** : https://search.myia.io/ (self-hosted)

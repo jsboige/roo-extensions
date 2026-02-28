@@ -18,6 +18,13 @@
       "env": {
         "SEARXNG_URL": "https://search.myia.io/"
       }
+    },
+    "sk-agent": {
+      "command": "python",
+      "args": ["/opt/sk-agent/sk_agent.py"],
+      "env": {
+        "SK_AGENT_CONFIG": "/opt/sk-agent/sk_agent_config.json"
+      }
     }
   }
 }
