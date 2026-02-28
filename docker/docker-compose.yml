@@ -1,0 +1,43 @@
+# MyIA MCP Infrastructure
+# Centralized management of all MCP containers for roo-extensions
+#
+# Services:
+#   mcp-proxy  - HTTP/SSE gateway exposing stdio MCPs (port 9090)
+#   sk-agent   - Multi-agent orchestration via Semantic Kernel (port 8100)
+#
+# Usage:
+#   docker compose up -d                    # Start all services
+#   docker compose build sk-agent --no-cache # Rebuild sk-agent
+#   docker compose logs -f                  # Follow all logs
+
+services:
+  mcp-proxy:
+    image: ghcr.io/tbxark/mcp-proxy:latest
+    container_name: myia-mcp-proxy
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./mcp-proxy/config.json:/config/config.json:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 60s
+    restart: unless-stopped
+
+  sk-agent:
+    build:
+      context: ../mcps/internal/servers/sk-agent
+      dockerfile: Dockerfile
+    image: sk-agent:latest
+    container_name: sk-agent
+    ports:
+      - "8100:8100"
+    environment:
+      - SK_AGENT_API_KEY=${SK_AGENT_API_KEY:-181ecbaa03674f028e4dbb3c7efc8cb6}
+      - SK_AGENT_CONFIG=/app/sk_agent_config.json
+    volumes:
+      - ../mcps/internal/servers/sk-agent/sk_agent_config.json:/app/sk_agent_config.json:ro
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped

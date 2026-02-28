@@ -1,0 +1,23 @@
+{
+  "mcpProxy": {
+    "baseURL": "https://mcp-tools.myia.io",
+    "addr": ":9090",
+    "name": "MyIA MCP Tools",
+    "version": "1.0.0",
+    "type": "sse",
+    "options": {
+      "panicIfInvalid": false,
+      "logEnabled": true,
+      "authTokens": ["REPLACE_WITH_TOKEN"]
+    }
+  },
+  "mcpServers": {
+    "searxng": {
+      "command": "npx",
+      "args": ["-y", "mcp-searxng"],
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      }
+    }
+  }
+}
