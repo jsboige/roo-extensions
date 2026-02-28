@@ -1,0 +1,105 @@
+{
+  "timestamp": "2026-02-28T22:21:01.293Z",
+  "machineId": "myia-po-2023",
+  "validation_type": "configuration_harmonization",
+  "validation_status": "PASSED",
+  "summary": {
+    "mcps_configured": 11,
+    "active_mcps": 6,
+    "disabled_mcps": 5,
+    "corrective_actions_taken": 1,
+    "issues_resolved": 1,
+    "differences_from_baseline": 0
+  },
+  "configuration_state": {
+    "active_mcps": [
+      "searxng",
+      "win-cli",
+      "markitdown",
+      "playwright",
+      "roo-state-manager",
+      "sk-agent"
+    ],
+    "disabled_mcps": [
+      "jinavigator",
+      "github-projects-mcp",
+      "filesystem",
+      "github",
+      "jupyter"
+    ],
+    "deprecated_mcps": [
+      "github-projects-mcp",
+      "filesystem"
+    ],
+    "critical_mcp_health": {
+      "win-cli": "operational",
+      "roo-state-manager": "operational",
+      "sk-agent": "operational",
+      "playwright": "operational",
+      "markitdown": "operational",
+      "searxng": "operational"
+    }
+  },
+  "corrective_actions": [
+    {
+      "id": "win-cli-permission-fix",
+      "issue": "Missing permission 'get_active_terminal_cwd' in win-cli alwaysAllow",
+      "action": "added_permission",
+      "status": "completed",
+      "timestamp": "2026-02-28T22:17:45.000Z"
+    }
+  ],
+  "validation_checks": {
+    "mcp_permissions_consistency": "PASSED",
+    "deprecated_mcp_status": "PASSED",
+    "critical_mcp_availability": "PASSED",
+    "configuration_format": "PASSED",
+    "workspace_state": "CLEAN"
+  },
+  "configuration_files": {
+    "mcp_settings": {
+      "path": "mcp-settings/mcp_settings.json",
+      "status": "valid",
+      "size": 1515,
+      "hash": "335639b87beaaff90aed475a6b81b2336464f333976e73103508125f2b8ed11c"
+    },
+    "roomodes": {
+      "path": "roomodes/.roomodes",
+      "status": "valid",
+      "size": 34014,
+      "hash": "c2802653bb94e95b1e008af6580253dcdfe66af3e69c6a04cafc4c29cf84f69d"
+    },
+    "model_configs": {
+      "path": "model-configs/model-configs.json",
+      "status": "valid",
+      "size": 2551,
+      "hash": "9bfc1972ae3117f10b7d2d1605345fddfe5883a468083543aeb3b525efee7320"
+    },
+    "condensation_settings": {
+      "path": "roo-settings/condensation-settings.json",
+      "status": "valid",
+      "size": 409,
+      "hash": "79286b40aa1c987f39fd53b81e85576cd9c8af05f1ab804c5f079c7229e90c8d"
+    },
+    "rules": {
+      "00-securite.md": "present",
+      "01-sddd-escalade.md": "present",
+      "02-terminal-environnement.md": "present",
+      "03-vigilance-pratiques.md": "present"
+    }
+  },
+  "metadata": {
+    "validation_tool": "roosync_config",
+    "baseline_machine": "myia-po-2023",
+    "comparison_machines": [
+      "myia-ai-01",
+      "myia-po-2024",
+      "myia-po-2025",
+      "myia-po-2026",
+      "myia-web1"
+    ],
+    "git_status": "clean",
+    "branch": "main",
+    "upstream": "synchronized"
+  }
+}
