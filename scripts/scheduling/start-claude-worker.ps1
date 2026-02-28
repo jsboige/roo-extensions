@@ -220,6 +220,125 @@ function Get-RooSyncTask {
     }
 }
 
+function Test-IssueAlreadyProcessed {
+    <#
+    .SYNOPSIS
+    Checks if a GitHub issue was already processed recently by the Claude Worker.
+    Prevents re-processing the same issue every 3h tick.
+    #>
+    param([int]$IssueNumber)
+
+    try {
+        $CommentsJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
+            --json comments --jq '.comments[-5:]' 2>&1
+
+        if ($LASTEXITCODE -ne 0) { return $false }
+
+        $Comments = $CommentsJson | ConvertFrom-Json
+
+        foreach ($Comment in $Comments) {
+            $CreatedAt = [DateTime]::Parse($Comment.createdAt)
+            $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
+
+            # Skip if claimed by claude worker in the last 6 hours
+            if ($Comment.body -match "Claimed by claude" -and $Age.TotalHours -lt 6) {
+                Write-Log "  Issue #$IssueNumber : deja traitee il y a $([Math]::Round($Age.TotalHours, 1))h, skip" "INFO"
+                return $true
+            }
+
+            # Skip if issue has a BLOCKED/Awaiting marker in last 24h
+            if ($Comment.body -match "(?i)(BLOCKED|Awaiting|STATUS: wait)" -and $Age.TotalHours -lt 24) {
+                Write-Log "  Issue #$IssueNumber : bloquee (marker dans commentaire < 24h), skip" "INFO"
+                return $true
+            }
+        }
+
+        return $false
+    } catch {
+        Write-Log "Erreur Test-IssueAlreadyProcessed #$IssueNumber : $_" "WARN"
+        return $false
+    }
+}
+
+function Get-IssueProjectFields {
+    <#
+    .SYNOPSIS
+    Reads Project #67 fields for a specific issue via GraphQL.
+    Returns Model, Execution, Deadline, Machine, Agent, Status.
+    #>
+    param([int]$IssueNumber)
+
+    try {
+        $Query = @"
+{
+  repository(owner: "jsboige", name: "roo-extensions") {
+    issue(number: $IssueNumber) {
+      projectItems(first: 5) {
+        nodes {
+          fieldValues(first: 15) {
+            nodes {
+              ... on ProjectV2ItemFieldSingleSelectValue {
+                name
+                field { ... on ProjectV2SingleSelectField { name } }
+              }
+              ... on ProjectV2ItemFieldDateValue {
+                date
+                field { ... on ProjectV2Field { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+"@
+
+        # Use temp JSON file to pass multiline query (avoids PowerShell argument splitting)
+        $RequestBody = @{ query = $Query } | ConvertTo-Json -Depth 2
+        $TempFile = Join-Path $env:TEMP "gql-project-fields-$IssueNumber.json"
+        [System.IO.File]::WriteAllText($TempFile, $RequestBody, [System.Text.UTF8Encoding]::new($false))
+        $ResultJson = & gh api graphql --input $TempFile 2>&1
+        Remove-Item $TempFile -ErrorAction SilentlyContinue
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "  GraphQL error for #$IssueNumber : $ResultJson" "WARN"
+            return @{}
+        }
+
+        $Result = $ResultJson | ConvertFrom-Json
+        $Fields = @{}
+
+        # Parse project item field values
+        $ProjectItems = $Result.data.repository.issue.projectItems.nodes
+        if ($ProjectItems -and $ProjectItems.Count -gt 0) {
+            foreach ($Item in $ProjectItems) {
+                foreach ($FieldValue in $Item.fieldValues.nodes) {
+                    if ($FieldValue.field -and $FieldValue.field.name) {
+                        $FieldName = $FieldValue.field.name
+                        if ($FieldValue.name) {
+                            # SingleSelect field
+                            $Fields[$FieldName] = $FieldValue.name
+                        }
+                        elseif ($FieldValue.date) {
+                            # Date field
+                            $Fields[$FieldName] = $FieldValue.date
+                        }
+                    }
+                }
+            }
+        }
+
+        if ($Fields.Count -gt 0) {
+            Write-Log "  Project fields #$IssueNumber : $(($Fields.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join ', ')" "INFO"
+        }
+
+        return $Fields
+    } catch {
+        Write-Log "Erreur Get-IssueProjectFields #$IssueNumber : $_" "WARN"
+        return @{}
+    }
+}
+
 function Get-GitHubTask {
     param([string]$AgentType, [string]$MachineId)
 
@@ -257,6 +376,18 @@ function Get-GitHubTask {
             # Vérifier locks git
             if (Test-GitHubIssueLock -IssueNumber $Issue.number) { continue }
 
+            # Skip si déjà traitée récemment (anti-repetition)
+            if (Test-IssueAlreadyProcessed -IssueNumber $Issue.number) { continue }
+
+            # Lire les champs Project #67 (Model, Execution, Deadline, etc.)
+            $ProjectFields = Get-IssueProjectFields -IssueNumber $Issue.number
+
+            # Skip si Execution = interactive (réservé aux sessions manuelles)
+            if ($ProjectFields.Execution -eq "interactive") {
+                Write-Log "  Issue #$($Issue.number) : Execution=interactive, skip pour worker" "INFO"
+                continue
+            }
+
             # Disponible !
             return @{
                 id = "github-$($Issue.number)"
@@ -265,6 +396,7 @@ function Get-GitHubTask {
                 prompt = Build-GitHubPrompt -IssueNumber $Issue.number -Title $Issue.title -Body $Body
                 source = "github"
                 issueNumber = $Issue.number
+                projectFields = $ProjectFields
             }
         }
 
@@ -372,6 +504,38 @@ function Build-GitHubPrompt {
 
     $PromptParts += ""
     $PromptParts += "After completing the work, output your results clearly. If you cannot complete the task, explain what blocked you."
+    $PromptParts += ""
+    $PromptParts += "## Agent Protocol"
+    $PromptParts += "You MUST end your response with one of these structured status blocks:"
+    $PromptParts += ""
+    $PromptParts += "If you completed the work successfully:"
+    $PromptParts += "=== AGENT STATUS ==="
+    $PromptParts += "STATUS: success"
+    $PromptParts += "REASON: [summary of what was done]"
+    $PromptParts += "==================="
+    $PromptParts += ""
+    $PromptParts += "If this task requires a more capable model (e.g. complex architecture, multi-file refactoring):"
+    $PromptParts += "=== AGENT STATUS ==="
+    $PromptParts += "STATUS: escalate"
+    $PromptParts += "REASON: [why you cannot handle this]"
+    $PromptParts += "ESCALATE_TO: sonnet"
+    $PromptParts += "==================="
+    $PromptParts += ""
+    $PromptParts += "If blocked by an external dependency (waiting for another machine, user input, etc.):"
+    $PromptParts += "=== AGENT STATUS ==="
+    $PromptParts += "STATUS: wait"
+    $PromptParts += "REASON: [blocking condition]"
+    $PromptParts += "WAIT_FOR: [what needs to happen]"
+    $PromptParts += "RESUME_WHEN: [github_comment|intercom_message|timeout_hours:N]"
+    $PromptParts += "==================="
+    $PromptParts += ""
+    $PromptParts += "If you need more iterations to complete (partial progress made):"
+    $PromptParts += "=== AGENT STATUS ==="
+    $PromptParts += "STATUS: continue"
+    $PromptParts += "REASON: [what remains to be done]"
+    $PromptParts += "==================="
+    $PromptParts += ""
+    $PromptParts += "For multi-session work: report progress via GitHub issue comment so the next session can continue."
 
     return ($PromptParts -join "`n")
 }
@@ -861,6 +1025,117 @@ function Determine-Mode {
     return "sync-simple"
 }
 
+function Determine-Model {
+    <#
+    .SYNOPSIS
+    Determines which Claude model to use based on Project #67 field, then script param, then default.
+
+    .DESCRIPTION
+    Priority chain:
+    1. Project field "Model" (deterministic, set by coordinator in GitHub Project #67)
+    2. Script parameter -Model (fallback, e.g. from Task Scheduler)
+    3. Default: "sonnet"
+
+    Note: Claude Code does NOT have "modes" like Roo. It uses models (haiku/sonnet/opus)
+    and sub-agents (Agent tool). The mode config model is intentionally NOT in this chain.
+    #>
+    param($Task)
+
+    # Priority 1: Project field "Model" (deterministic, highest priority)
+    if ($Task.projectFields -and $Task.projectFields.Model) {
+        $ProjectModel = $Task.projectFields.Model.ToLower()
+        Write-Log "Modele determine par champ Project: $ProjectModel"
+        return $ProjectModel
+    }
+
+    # Priority 2: Script parameter -Model (fallback)
+    if ($Model) {
+        Write-Log "Modele determine par parametre script: $Model"
+        return $Model
+    }
+
+    # Priority 3: Default
+    Write-Log "Modele par defaut: sonnet"
+    return "sonnet"
+}
+
+function Get-DeadlineUrgency {
+    <#
+    .SYNOPSIS
+    Calculates urgency level from the Deadline Project field.
+
+    .DESCRIPTION
+    Returns urgency level that determines iteration count:
+    - "urgent" (<6h): Max effort, do everything now
+    - "normal" (6-48h): Use configured iterations
+    - "relaxed" (>48h or no deadline): Spread across sessions (1-2 iter)
+    #>
+    param($Task)
+
+    if (-not $Task.projectFields -or -not $Task.projectFields.Deadline) {
+        return "relaxed"
+    }
+
+    try {
+        $DeadlineDate = [DateTime]::Parse($Task.projectFields.Deadline)
+        $TimeLeft = $DeadlineDate - (Get-Date).ToUniversalTime()
+
+        if ($TimeLeft.TotalHours -lt 0) {
+            Write-Log "  Deadline DEPASSEE de $([Math]::Abs([Math]::Round($TimeLeft.TotalHours, 1)))h !" "WARN"
+            return "urgent"
+        }
+        elseif ($TimeLeft.TotalHours -lt 6) {
+            Write-Log "  Deadline dans $([Math]::Round($TimeLeft.TotalHours, 1))h -> URGENT"
+            return "urgent"
+        }
+        elseif ($TimeLeft.TotalHours -lt 48) {
+            Write-Log "  Deadline dans $([Math]::Round($TimeLeft.TotalHours, 1))h -> normal"
+            return "normal"
+        }
+        else {
+            Write-Log "  Deadline dans $([Math]::Round($TimeLeft.TotalHours / 24, 1))j -> relaxed"
+            return "relaxed"
+        }
+    }
+    catch {
+        Write-Log "  Erreur parsing deadline '$($Task.projectFields.Deadline)': $_" "WARN"
+        return "relaxed"
+    }
+}
+
+function Get-AdjustedIterations {
+    <#
+    .SYNOPSIS
+    Adjusts iteration count based on urgency level and mode config.
+
+    .DESCRIPTION
+    - urgent: At least 10 iterations (max effort in this session)
+    - normal: Use mode config maxIterations (or script param)
+    - relaxed: Cap at 2 iterations (spread work across scheduler ticks)
+    #>
+    param(
+        [string]$Urgency,
+        [int]$BaseIterations,
+        [string]$ModeId
+    )
+
+    $ModeConfig = Get-ModeConfig -ModeId $ModeId
+    $ConfigIterations = if ($ModeConfig) { $ModeConfig.maxIterations } else { 5 }
+
+    # Base: use explicit param if set, otherwise mode config
+    $Iterations = if ($BaseIterations -gt 0) { $BaseIterations } else { $ConfigIterations }
+
+    $AdjustedIterations = switch ($Urgency) {
+        "urgent"  { [Math]::Max($Iterations, 10) }   # Max effort
+        "normal"  { $Iterations }                      # As configured
+        "relaxed" { [Math]::Min($Iterations, 2) }     # Spread across sessions
+        default   { $Iterations }
+    }
+
+    Write-Log "Iterations: $AdjustedIterations (urgence=$Urgency, base=$Iterations, config=$ConfigIterations)"
+    return $AdjustedIterations
+}
+
 function Create-Worktree {
     param([string]$TaskId)
 
@@ -926,17 +1201,17 @@ function Invoke-Claude {
     $Iterations = if ($MaxIter -gt 0) { $MaxIter } else { $ModeConfig.maxIterations }
 
     # Déterminer modèle à utiliser
-    # Priority: 1. Paramètre $Model (script-level), 2. Config mode, 3. Défaut
+    # Note: $Model is already set by Determine-Model in main workflow (Project field > param > default)
     $ModelToUse = if ($Model) {
-        Write-Log "Override modèle via paramètre: $Model"
         $Model
     }
     elseif ($ModeConfig.model) {
         $ModeConfig.model
     }
     else {
-        "sonnet"  # Défaut si aucun modèle spécifié
+        "sonnet"
     }
+    Write-Log "Modele final: $ModelToUse"
 
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
@@ -979,11 +1254,17 @@ function Invoke-Claude {
             Write-Log "Ralph Wiggum - Iteration $CurrentIteration/$Iterations..."
 
             # TAKE ACTION: Exécuter Claude CLI
+            # Output is displayed in real-time via Tee-Object AND captured for processing
             try {
-                $IterationOutput = & claude @ClaudeArgs 2>&1
+                $IterationLines = @()
+                & claude @ClaudeArgs 2>&1 | ForEach-Object {
+                    $line = $_
+                    Write-Host $line  # Real-time display in terminal
+                    $IterationLines += $line
+                }
                 # BUG FIX: Join lines into a single string per iteration,
                 # so "=== Iteration Break ===" only appears BETWEEN iterations, not between lines
-                $IterationOutputs += ($IterationOutput -join "`n")
+                $IterationOutputs += ($IterationLines -join "`n")
             }
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
@@ -1454,6 +1735,20 @@ try {
         Determine-Mode -Task $Task
     }
 
+    # ==========================================================================
+    # Phase 2b : Déterminer modèle (Project field > param > default)
+    # ==========================================================================
+
+    $Model = Determine-Model -Task $Task
+    Write-Log "Modele selectionne: $Model"
+
+    # ==========================================================================
+    # Phase 2c : Planifier iterations selon Deadline
+    # ==========================================================================
+
+    $Urgency = Get-DeadlineUrgency -Task $Task
+    $AdjustedIterations = Get-AdjustedIterations -Urgency $Urgency -BaseIterations $MaxIterations -ModeId $SelectedMode
+
     # 3. Créer worktree (optionnel)
     $WorktreePath = if ($UseWorktree) {
         Create-Worktree -TaskId $Task.id
@@ -1466,7 +1761,7 @@ try {
     }
 
     # 4. Exécuter Claude avec mode sélectionné
-    $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
+    $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
 
     # DryRun: stop after showing the command (Invoke-Claude already logged it)
     if ($DryRun) {
@@ -1506,7 +1801,7 @@ try {
             }
         }
 
-        $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $MaxIterations
+        $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
         $SelectedMode = $EscalateMode
 
         # Restaurer le modèle original

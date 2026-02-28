@@ -57,6 +57,34 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 6. **Suivi GitHub** : Mettre a jour Project #67
 7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
 
+### Champs obligatoires pour issues roo-schedulable
+
+Quand tu crees ou dispatches une issue `roo-schedulable`, setter OBLIGATOIREMENT dans Project #67 :
+
+| Champ | Valeurs | Usage |
+|-------|---------|-------|
+| **Machine** | ai01, po2023, po2024, po2025, po2026, web1, All, Any | Existant |
+| **Agent** | Roo, Claude, Both | Existant |
+| **Model** | haiku, sonnet, opus | Determine le modele Claude (NEW) |
+| **Execution** | interactive, scheduled, both | Qui peut la prendre (NEW) |
+| **Deadline** | Date ISO (optionnel) | Planification multi-session (NEW) |
+
+**Regles Model :**
+- `haiku` : Taches simples (docs, inventory, formatting, reporting)
+- `sonnet` : Implementation, refactoring, investigation, multi-fichier
+- `opus` : Architecture, decisions strategiques, coordination critique
+- Si non renseigne : le worker utilise le parametre script (-Model haiku) comme fallback
+
+**Regles Execution :**
+- `interactive` : Seulement Claude lance manuellement (VS Code /coordinate ou /executor)
+- `scheduled` : Seulement le Claude Worker (Task Scheduler, autonome)
+- `both` : Les deux peuvent prendre l'issue (defaut recommande)
+
+**Regles Deadline :**
+- `< 6h` : Urgent → max iterations, tout faire maintenant
+- `6h-48h` : Normal → iterations standard du mode config
+- `> 48h ou vide` : Relaxed → 1-2 iterations par session, etaler sur plusieurs ticks
+
 ### Claim Obligatoire (anti-duplication)
 
 **AVANT de commencer ou assigner une tache :**
