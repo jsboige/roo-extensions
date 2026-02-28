@@ -4,7 +4,7 @@
     "addr": ":9090",
     "name": "MyIA MCP Tools",
     "version": "1.0.0",
-    "type": "sse",
+    "type": "streamable-http",
     "options": {
       "panicIfInvalid": false,
       "logEnabled": true,
