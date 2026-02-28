@@ -1,6 +1,6 @@
 # MyIA MCP Infrastructure
 
-Container unique exposant tous les serveurs MCP via HTTP/SSE pour integration avec des LLM providers (Anthropic, OpenAI) et des applications (AI Engine Pro, Open WebUI).
+Container unique exposant tous les serveurs MCP via Streamable HTTP pour integration avec des LLM providers (Anthropic, OpenAI) et des applications (AI Engine Pro, Open WebUI).
 
 ## Architecture
 
@@ -94,10 +94,12 @@ Puis redemarrer : `docker compose restart`
 
 ### Endpoints exposes
 
-| MCP Server | SSE Endpoint | Outils |
-|------------|-------------|--------|
-| searxng | `/searxng/sse` | `searxng_web_search`, `web_url_read` |
-| sk-agent | `/sk-agent/sse` | `ask`, `call_agent`, `list_agents`, `analyze_image`, `analyze_video`, `analyze_document`, `list_models`, etc. |
+| MCP Server | Endpoint (Streamable HTTP) | Outils |
+|------------|---------------------------|--------|
+| searxng | `POST /searxng/mcp` | `searxng_web_search`, `web_url_read` |
+| sk-agent | `POST /sk-agent/mcp` | `call_agent`, `list_agents`, `run_conversation`, `list_conversations`, etc. |
+
+**Transport :** Streamable HTTP (POST avec JSON-RPC). Compatible MCP SDK v1.26+.
 
 ### Authentification
 
@@ -109,7 +111,7 @@ Authorization: Bearer <token>
 
 Alternative (clients sans support headers) : token dans l'URL :
 ```
-/searxng/<token>/sse
+/searxng/<token>/mcp
 ```
 
 ## Securite
@@ -122,11 +124,11 @@ Alternative (clients sans support headers) : token dans l'URL :
 
 | Domaine | Port local | Service | Machine IIS | Notes |
 |---------|-----------|---------|-------------|-------|
-| `mcp-tools.myia.io` | 9090 | mcp-proxy (tous MCPs) | myia-po-2023 | SSE: desactiver buffering ARR |
+| `mcp-tools.myia.io` | 9090 | mcp-proxy (tous MCPs) | myia-po-2023 | Desactiver buffering ARR |
 
-**Note :** `skagents.myia.io` (port 8100) n'est plus necessaire. OWUI utilise `mcp-tools.myia.io/sk-agent/sse`.
+**Note :** `skagents.myia.io` (port 8100) n'est plus necessaire. OWUI utilise `mcp-tools.myia.io/sk-agent/mcp`.
 
-### Configuration IIS pour SSE (mcp-tools.myia.io)
+### Configuration IIS (mcp-tools.myia.io)
 
 ```xml
 <system.webServer>
@@ -147,12 +149,12 @@ Alternative (clients sans support headers) : token dans l'URL :
 </system.webServer>
 ```
 
-**Important pour SSE :** Desactiver le buffering de reponse dans ARR (IIS Manager > Server Farms > Proxy > Decocher "Enable buffer"). Timeout minimum : 120 secondes.
+**Important :** Desactiver le buffering de reponse dans ARR (IIS Manager > Server Farms > Proxy > Decocher "Enable buffer"). Timeout minimum : 120 secondes.
 
 ## Stack technique
 
 - **Proxy** : [tbxark/mcp-proxy](https://github.com/tbxark/mcp-proxy) (Go, base image)
 - **sk-agent** : Python + Semantic Kernel 1.39+ (subprocess stdio)
 - **SearXNG** : mcp-searxng (Node.js, via npx, subprocess stdio)
-- **Transport** : SSE (Server-Sent Events) vers les clients
+- **Transport** : Streamable HTTP (POST JSON-RPC) vers les clients
 - **SearXNG backend** : https://search.myia.io/ (self-hosted)
