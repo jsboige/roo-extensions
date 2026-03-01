@@ -96,9 +96,14 @@ Updated via git commits. Each agent should read this at session start.
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
 - **Tools**: `call_agent`, `run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `end_conversation`
-- **Agents**: 11 | **Conversations**: 4 | **Tests**: 109 unit + 35 functional
-- **4 Models**: Cloud reasoning (Opus/Sonnet), Cloud vision, Local reasoning (GLM-5), Local vision
+- **Agents**: 16 (core 7 + roles 3 + specialized 3 + audit 3) | **Conversations**: 6 | **Tests**: 109 unit + 35 functional
+- **4 Models**: Qwen3.5 (262K ctx), ZwZ-8B (131K ctx), GLM-4.7-Flash (131K ctx), OWUI (vision)
 - **Fix #482**: Write-Host polluted stdout. Use `[Console]::Error.WriteLine()` only.
+- **Issue #485**: Exploitation complete (Phase 1-3). MVP Strategy: 4-agent core (Intake/Executor/Reviewer/Orchestrator)
+  - Proposed: log-analyzer, architecture-reviewer, intercom-manager
+  - Proposed conversations: scheduler-optimization, mcp-diagnostics
+  - Metric: Mediator Conflict Rate <20%
+  - Expected: 35-45% cost reduction, 2.5x throughput, 40% accuracy improvement
 
 ### EMBEDDING Config (required in .env for codebase_search)
 **Variables requises dans `mcps/internal/servers/roo-state-manager/.env`:**
