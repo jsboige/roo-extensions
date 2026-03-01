@@ -7,6 +7,38 @@
 
 ## 📋 Journal (Résumé minimal - 10 derniers jours)
 
+### 2026-03-01 (06h40) - Issue #543 Phase 1 COMPLETE - Baseline Extraction ✅
+
+**Coordinateur:** Claude Code (myia-ai-01)
+
+**Exécution complète Phase 1 - Extraction baseline sur 6 machines :**
+
+#### Baseline myia-ai-01 (COMPLETE)
+- **Settings extraites** : 78 keys (100 total)
+- **Config collectée** : MCP + modes
+- **Publié sur GDrive** : v1.0.0-2026-03-01T05-37-00-748Z
+- **Timestamp** : 2026-03-01T05:37:00Z
+
+#### Coordination Phase 1 (RooSync)
+Messages d'extraction envoyés à 5 machines :
+- myia-po-2023 (msg-20260301T053708)
+- myia-po-2024 (msg-20260301T053719)
+- myia-po-2025 (msg-20260301T053722)
+- myia-po-2026 (msg-20260301T053725)
+- myia-web1 (msg-20260301T053728)
+
+**Statut :** Attente extraction des 5 autres machines (parallélisable)
+
+**GitHub :** Issue #543 commentée avec progression détaillée
+
+**Prochaines étapes :**
+1. Réception baselines des 5 machines
+2. Phase 2: Drift comparison (roosync_compare_config)
+3. Phase 3: Correction drifts CRITICAL
+4. Phase 4: Official baseline v3.0.0
+
+---
+
 ### 2026-01-30 (09h00) - Coordination Tour - Validations CONS ✅
 
 **Actions :**

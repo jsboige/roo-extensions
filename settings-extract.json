@@ -1,0 +1,616 @@
+{
+  "metadata": {
+    "machine": "MYIA-AI-01",
+    "timestamp": "2026-03-01T06:36:45.137361",
+    "mode": "safe",
+    "keys_count": 78,
+    "total_keys": 100
+  },
+  "settings": {
+    "allowedCommands": [
+      "Get-ChildItem",
+      "cd",
+      "Get-Content",
+      "git status",
+      "python argumentiation",
+      "python",
+      "git",
+      "mkdir",
+      "ls",
+      "npm",
+      "copy",
+      "node",
+      "dir",
+      "type",
+      "pwd",
+      "mv",
+      "Rename-Item",
+      "chkdsk",
+      "sfc",
+      "DISM",
+      "wmic",
+      "code ",
+      "Get-WinEvent",
+      "Invoke-WebRequest",
+      "cat ",
+      "ps",
+      "Test-Path",
+      "echo",
+      "where",
+      "New-Item",
+      "Get-Command",
+      "cmd ",
+      "chmod ",
+      "py",
+      "docker ",
+      "jupyter ",
+      "powershell",
+      "move ",
+      "docker ps |",
+      "bash ",
+      "Get-FileHash",
+      "Compare-Object",
+      "pip",
+      "java ",
+      "docker logs",
+      "Get-Item",
+      "Select-Object",
+      "Measure-Object",
+      "findstr",
+      "Select-String",
+      "npx",
+      "rm",
+      "cp",
+      "taskkill ",
+      "cd ",
+      "docker-compose",
+      "curl ",
+      "head ",
+      "find ",
+      "sort",
+      "Format-List",
+      "Move-Item",
+      "Remove-Item",
+      "cmdkey",
+      "Write-Host",
+      "Format-Table",
+      "Get-Process",
+      "netstat",
+      "icacls",
+      "Get-PSDrive",
+      "grep ",
+      "grep",
+      "dotnet",
+      "start",
+      "fc",
+      "rd",
+      ".\\deploy.ps1",
+      "Get-Location",
+      "nvidia-smi",
+      "coverage ",
+      "invoke-item",
+      "Expand-Archive",
+      "Stop-Process",
+      "Write-Output",
+      "tail ",
+      "php ",
+      "Add-Content ",
+      "xcopy ",
+      "del",
+      "pws",
+      "conda",
+      ".\\scripts\\compile_frontend.ps1",
+      "python scripts/tools/debugging/diagnose_mcp_connection.py --target main",
+      ".myia_vllmscriptspowershelldeploy-qwen3-services.ps1",
+      "robocopy",
+      "./myia_vllm/scripts/powershell/deploy-qwen3-services.ps1",
+      "cmd.exe",
+      "deactivate",
+      "C:Usersjsboianaconda3Scriptsconda.exe",
+      "C:Usersjsboianaconda3envsprojet-ispython.exe",
+      "./myia_vllm/scripts/powershell/Validate-MediumService.ps1",
+      ":USERPROFILE\\anaconda3\\condabin\\conda.bat",
+      "C:Usersjsboianaconda3condabinconda.bat",
+      ".",
+      "Tee-Object",
+      "git ls-files",
+      "xargs",
+      "cut",
+      "ForEach-Object",
+      "wsl",
+      "if",
+      "Invoke-Pester",
+      "git commit",
+      "- Add",
+      "- Update",
+      "- Create",
+      ".activate_project_env.ps1",
+      "wc",
+      "winpty docker",
+      "winpty",
+      "winpty docker exec",
+      "winpty docker exec -it wordpress-wp-cli-1 /bin/bash",
+      "docker exec",
+      "tar",
+      "tar -xvf - -C /tmp/restore",
+      "docker exec wordpress-wp-cli-1",
+      "select",
+      "gci",
+      "cross-env",
+      "pwsh",
+      "pnpm",
+      "ren",
+      "C:/Program Files/nodejs/npm.cmd install",
+      "wp",
+      "mcp-jest",
+      "Get-NetTCPConnection",
+      "tasklist",
+      "npm test",
+      "npm install",
+      "tsc",
+      "pwsh -c \"./validate_restoration.ps1\"",
+      "conda activate",
+      "set",
+      "cd mcps/internal",
+      "ConvertFrom-Json",
+      "docker",
+      "Get-Date -Format 'yyyyMMdd_HHmmss'",
+      "Get-Date",
+      "docker exec livresagits-wordpress_cli-1",
+      "curl",
+      "head",
+      "C:\\Program Files\\Git\\bin\\bash.exe",
+      "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"chmod +x 'scripts/restoration/restore_oneliner_v3.0.sh'\"",
+      "\"C:\\Program Files\\Git\\bin\\bash.exe\" scripts/restoration/restore_oneliner_v3.0.sh \"backups/www-livresagites-fr-20251015-135818-8443tf49pqlz.wpress\"",
+      "-",
+      "Out-Null",
+      "timeout",
+      "{",
+      "Name",
+      "pwsh -c",
+      "$_.Name",
+      "sleep",
+      "log",
+      "restore",
+      "log )",
+      "wget",
+      "head -20",
+      "wget -q -O - http://localhost:8092",
+      "Get-ScheduledTask",
+      "Get-ScheduledTask -TaskName RooEncodingMonitor",
+      "C:Python312python.exe",
+      "C:Python312python.exe -m pip install -e mcps/external/markitdown/source/packages/markitdown-mcp",
+      "Restauration_livresagites_v10/mcp/scripts/orchestration/deploy_mcp_v10.ps1",
+      "docker exec livresagites-wordpress-1",
+      "\"\""
+    ],
+    "customModes": [
+      {
+        "slug": "manager",
+        "name": "👨💼 Manager",
+        "roleDefinition": "You are Roo Manager, spécialisé dans la création de sous-tâches orchestrateurs pour des tâches de haut-niveau, la décomposition de tâches complexes en sous-tâches composites, et la gestion efficace des ressources.",
+        "customInstructions": "FOCUS AREAS:\n- Décomposition de tâches complexes en sous-tâches composites\n- Création de sous-tâches orchestrateurs pour des tâches de haut-niveau\n- Gestion efficace des ressources (tokens, temps, complexité)\n- Planification stratégique des workflows\n\n/* NIVEAU DE COMPLEXITÉ */\n// Cette section définit le niveau de complexité actuel et peut être étendue à l'avenir pour supporter n-niveaux\n// Niveau actuel: COMPLEX (niveau 2 sur l'échelle de complexité)\n// Des niveaux supplémentaires pourraient être ajoutés ici (EXPERT, SPECIALIST, etc.)\n\nVotre rôle est de coordonner des workflows complexes en déléguant des tâches à des modes spécialisés. En tant que manager, vous devez :\n\n1. Analyser les demandes complexes et les décomposer en sous-tâches logiques qui peuvent être déléguées aux modes spécialisés appropriés.\n2. Créer systématiquement des sous-tâches du niveau de complexité minimale nécessaire pour commencer.\n3. Implémenter l'escalade par approfondissement (création de sous-tâches) après :\n   * 50000 tokens avec des commandes lourdes\n   * Ou environ 15 messages de taille moyenne\n4. Passer à un niveau de complexité supérieur uniquement lorsque nécessaire.\n\nPour chaque sous-tâche, utilisez l'outil `new_task` pour déléguer. Choisissez le mode le plus approprié pour l'objectif spécifique de la sous-tâche et fournissez des instructions complètes dans le paramètre `message`. Ces instructions doivent inclure :\n* Tout le contexte nécessaire de la tâche parente ou des sous-tâches précédentes requis pour accomplir le travail.\n* Un périmètre clairement défini, spécifiant exactement ce que la sous-tâche doit accomplir.\n* Une déclaration explicite que la sous-tâche doit *uniquement* effectuer le travail décrit dans ces instructions et ne pas dévier.\n* Une instruction pour que la sous-tâche signale son achèvement en utilisant l'outil `attempt_completion`, fournissant un résumé concis mais complet du résultat dans le paramètre `result`.\n* Une déclaration indiquant que ces instructions spécifiques remplacent toute instruction générale contradictoire que le mode de la sous-tâche pourrait avoir.\n\nMÉCANISME DE DÉSESCALADE:\n\nIMPORTANT: Vous DEVEZ évaluer systématiquement et continuellement la complexité de la tâche en cours. Si vous constatez que la tâche ou une partie de la tâche est suffisamment simple pour être traitée par la version simple de l'agent, vous DEVEZ suggérer à l'utilisateur de passer au mode simple correspondant.\n\nCritères spécifiques au mode Manager pour évaluer la simplicité:\n- La tâche peut être décomposée en moins de 3 sous-tâches indépendantes\n- Les sous-tâches ne présentent pas de dépendances complexes entre elles\n- Le workflow est linéaire et ne nécessite pas de gestion d'états complexes\n- Aucune coordination complexe entre différents systèmes n'est requise\n- La tâche ne nécessite pas de suivi approfondi des résultats intermédiaires\n\nProcessus d'évaluation continue de la complexité:\n1. Évaluez la complexité initiale de la tâche dès sa réception\n2. Réévaluez la complexité après avoir décomposé la tâche en sous-tâches\n3. Si à un moment la tâche devient suffisamment simple, suggérez la désescalade\n\nPour les sous-tâches simples et bien définies, préférez utiliser les versions simples des modes spécialisés pour optimiser le coût et les performances. Une tâche est considérée comme simple si :\n- Elle nécessite des modifications de moins de 50 lignes de code\n- Elle concerne des fonctionnalités isolées\n- Elle suit des patterns standards\n- Elle ne nécessite pas d'optimisations complexes\n\nUtilisez le format suivant pour suggérer une désescalade:\n\"[DÉSESCALADE SUGGÉRÉE] Cette tâche pourrait être traitée par la version simple de l'agent car : [RAISON]\"\n\nIMPORTANT: Si vous êtes utilisé suite à une escalade depuis un mode simple, vous DEVEZ signaler cette origine à la fin de votre réponse avec le format:\n\n\"[ISSU D'ESCALADE] Cette tâche a été traitée par la version complexe de l'agent suite à une escalade depuis la version simple.\"\n\nCette notification est obligatoire et doit apparaître à la fin de votre réponse.\n\nIMPORTANT: Si vous détectez le marqueur \"[SIGNALER_ESCALADE_INTERNE]\" dans le message de l'utilisateur, vous DEVEZ ajouter à la fin de votre réponse:\n\"[ISSU D'ESCALADE INTERNE] Cette tâche a été traitée par la version complexe de l'agent suite à une escalade interne depuis la version simple.\"\n\nGESTION DES TOKENS:\n- Si la conversation dépasse 50 000 tokens, vous DEVEZ diviser la tâche en sous-tâches plus petites et indépendantes\n- Si la conversation dépasse 100 000 tokens, vous DEVEZ créer des sous-tâches supplémentaires pour continuer le travail\n\n/* UTILISATION OPTIMISÉE DES MCPs */\n// Cette section définit comment utiliser efficacement les MCPs disponibles\n// Les MCPs permettent d'effectuer des opérations complexes sans validation humaine\n// Privilégiez TOUJOURS l'utilisation des MCPs par rapport aux commandes nécessitant une validation\n\nUTILISATION DES MCPs:\n- PRIVILÉGIEZ SYSTÉMATIQUEMENT l'utilisation des MCPs par rapport aux outils standards nécessitant une validation humaine\n- Pour les manipulations de fichiers multiples ou volumineux, utilisez le MCP quickfiles:\n  * Exemple: Pour lire plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>read_multiple_files</tool_name>\n    <arguments>\n    {\n      \"paths\": [\"chemin/fichier1.js\", \"chemin/fichier2.js\"],\n      \"show_line_numbers\": true\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n  * Exemple: Pour éditer plusieurs fichiers en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>quickfiles</server_name>\n    <tool_name>edit_multiple_files</tool_name>\n    <arguments>\n    {\n      \"files\": [\n        {\n          \"path\": \"chemin/fichier1.js\",\n          \"diffs\": [\n            {\n              \"search\": \"ancien code\",\n              \"replace\": \"nouveau code\"\n            }\n          ]\n        }\n      ]\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour l'extraction d'informations de pages web, utilisez le MCP jinavigator:\n  * Exemple: Pour convertir une page web en Markdown:\n    ```\n    <use_mcp_tool>\n    <server_name>jinavigator</server_name>\n    <tool_name>convert_web_to_markdown</tool_name>\n    <arguments>\n    {\n      \"url\": \"https://example.com\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n  * Exemple: Pour convertir plusieurs pages web en une seule opération:\n    ```\n    <use_mcp_tool>\n    <server_name>jinavigator</server_name>\n    <tool_name>multi_convert</tool_name>\n    <arguments>\n    {\n      \"urls\": [\n        {\"url\": \"https://example1.com\"},\n        {\"url\": \"https://example2.com\"}\n      ]\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n- Pour effectuer des recherches web, utilisez le MCP searxng:\n  * Exemple: Pour rechercher des informations sur un sujet:\n    ```\n    <use_mcp_tool>\n    <server_name>searxng</server_name>\n    <tool_name>searxng_web_search</tool_name>\n    <arguments>\n    {\n      \"query\": \"votre recherche ici\"\n    }\n    </arguments>\n    </use_mcp_tool>\n    ```\n\nConseils pour économiser les tokens et réduire le nombre de commandes:\n- Regroupez les opérations similaires en une seule commande MCP\n- Utilisez les outils de lecture/écriture multiple plutôt que des opérations individuelles\n- Filtrez les données à la source plutôt que de tout lire puis filtrer\n- Limitez l'affichage des résultats volumineux en utilisant les paramètres de pagination\n\nCOMMANDES POWERSHELL:\n- N'utilisez PAS la syntaxe \"&&\" pour chaîner les commandes (incompatible avec PowerShell)\n- Utilisez plutôt le point-virgule \";\" ou les blocs de commandes avec des variables\n- Exemple: `cd $dir; Get-ChildItem` ou `$dir = \"chemin\"; Set-Location $dir; Get-ChildItem`\n\nWhen conversations grow too large (>10 messages), create new subtasks to continue the work.",
+        "groups": [],
+        "source": "global"
+      }
+    ],
+    "listApiConfigMeta": [
+      {
+        "name": "default",
+        "id": "usl6gy8xkxg",
+        "apiProvider": "openai",
+        "modelId": "glm-5"
+      },
+      {
+        "name": "gemini-2.5-pro",
+        "id": "ywbjgfyg3",
+        "apiProvider": "gemini",
+        "modelId": "gemini-2.5-pro"
+      },
+      {
+        "name": "qwen3-32b",
+        "id": "rfjyvcdycv",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-32b"
+      },
+      {
+        "name": "qwen3-30b-a3b",
+        "id": "uuv5lg7q50p",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-30b-a3b"
+      },
+      {
+        "name": "qwen3-235b-a22b",
+        "id": "99nwj3do7bq",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-235b-a22b"
+      },
+      {
+        "name": "deepseek-r1",
+        "id": "5y6lcq3nzdi",
+        "apiProvider": "openrouter",
+        "modelId": "deepseek-r1"
+      },
+      {
+        "name": "claude-3.7-sonnet",
+        "id": "gi7et2uwpwo",
+        "apiProvider": "openrouter",
+        "modelId": "claude-3.7-sonnet"
+      },
+      {
+        "name": "qwen3-14b",
+        "id": "n17g6rr1jd",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-14b"
+      },
+      {
+        "name": "qwen3-8b",
+        "id": "y1ewb1adlrq",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-8b"
+      },
+      {
+        "name": "qwen3-1.7b",
+        "id": "yb9a1vhtpne",
+        "apiProvider": "openrouter",
+        "modelId": "qwen3-1.7b:free"
+      },
+      {
+        "name": "Gemini 2.5 Flash",
+        "id": "ihikeoelxhh",
+        "apiProvider": "gemini",
+        "modelId": "gemini-2.5-flash-preview-05-20"
+      },
+      {
+        "name": "simple",
+        "id": "e6z8wjuo6d",
+        "apiProvider": "openai",
+        "modelId": "qwen3.5-35b-a3b"
+      },
+      {
+        "name": "Open-router gemini 2.5-pro",
+        "id": "tqjm5wi8gbm",
+        "apiProvider": "openrouter",
+        "modelId": "gemini-2.5-pro"
+      },
+      {
+        "name": "Claude 4 Opus",
+        "id": "83jsk4lz75",
+        "apiProvider": "anthropic",
+        "modelId": "claude-opus-4-1-20250805"
+      },
+      {
+        "name": "Claude 4 Sonnet",
+        "id": "gr72dj9y4tw",
+        "apiProvider": "anthropic",
+        "modelId": "claude-sonnet-4-20250514"
+      },
+      {
+        "name": "Openrouter - Gemini 2.5 Flash",
+        "id": "6c5a5le81sr",
+        "apiProvider": "openrouter",
+        "modelId": "gemini-2.5-flash"
+      },
+      {
+        "name": "Z.ai - Glm 4.6",
+        "id": "kie9a0vfua",
+        "apiProvider": "openai",
+        "modelId": "glm-4.6"
+      },
+      {
+        "name": "Openrouter-Kimi K2 thinking",
+        "id": "s1rci2jr55",
+        "apiProvider": "openrouter",
+        "modelId": "kimi-k2-thinking"
+      },
+      {
+        "name": "z.ai - glm 4.7",
+        "id": "39itcrmw5z7",
+        "apiProvider": "openai",
+        "modelId": "glm-4.7"
+      },
+      {
+        "name": "Gemini 3 Pro",
+        "id": "qd9tdfx9ds",
+        "apiProvider": "gemini",
+        "modelId": "gemini-3-pro-preview"
+      }
+    ],
+    "currentApiConfigName": "simple",
+    "apiProvider": "openai",
+    "telemetrySetting": "enabled",
+    "autoApprovalEnabled": true,
+    "alwaysAllowReadOnly": true,
+    "alwaysAllowReadOnlyOutsideWorkspace": true,
+    "alwaysAllowWrite": true,
+    "alwaysAllowWriteOutsideWorkspace": true,
+    "writeDelayMs": 1000,
+    "alwaysAllowBrowser": true,
+    "alwaysApproveResubmit": true,
+    "requestDelaySeconds": 10,
+    "alwaysAllowMcp": true,
+    "alwaysAllowModeSwitch": true,
+    "alwaysAllowSubtasks": true,
+    "alwaysAllowExecute": true,
+    "browserToolEnabled": false,
+    "browserViewportSize": "1280x800",
+    "screenshotQuality": 75,
+    "enableCheckpoints": false,
+    "soundEnabled": false,
+    "soundVolume": 0.5,
+    "maxOpenTabsContext": 20,
+    "maxWorkspaceFiles": 105,
+    "showRooIgnoredFiles": true,
+    "maxReadFileLine": -1,
+    "terminalOutputLineLimit": 2000,
+    "terminalShellIntegrationTimeout": 18000,
+    "terminalCommandDelay": 0,
+    "terminalPowershellCounter": true,
+    "terminalCompressProgressBar": true,
+    "experiments": {
+      "powerSteering": false,
+      "concurrentFileReads": false,
+      "autoCondenseContext": true,
+      "disableCompletionCommand": false,
+      "multiFileApplyDiff": false,
+      "preventFocusDisruption": false,
+      "assistantMessageParser": false,
+      "imageGeneration": false,
+      "runSlashCommand": false,
+      "multipleNativeToolCalls": false,
+      "customTools": false
+    },
+    "language": "fr",
+    "mcpEnabled": true,
+    "enableMcpServerCreation": false,
+    "mode": "orchestrator-simple",
+    "modelTemperature": 0.1,
+    "customModePrompts": {},
+    "autoCondenseContextPercent": 65,
+    "condensingApiConfigId": "",
+    "customCondensingPrompt": "",
+    "codebaseIndexModels": {
+      "openai": {
+        "text-embedding-3-small": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "text-embedding-3-large": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "text-embedding-ada-002": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        }
+      },
+      "ollama": {
+        "nomic-embed-text": {
+          "dimension": 768,
+          "scoreThreshold": 0.4
+        },
+        "nomic-embed-code": {
+          "dimension": 3584,
+          "scoreThreshold": 0.15,
+          "queryPrefix": "Represent this query for searching relevant code: "
+        },
+        "mxbai-embed-large": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "all-minilm": {
+          "dimension": 384,
+          "scoreThreshold": 0.4
+        }
+      },
+      "openai-compatible": {
+        "text-embedding-3-small": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "text-embedding-3-large": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "text-embedding-ada-002": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "nomic-embed-code": {
+          "dimension": 3584,
+          "scoreThreshold": 0.15,
+          "queryPrefix": "Represent this query for searching relevant code: "
+        }
+      },
+      "gemini": {
+        "gemini-embedding-001": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "text-embedding-004": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        }
+      },
+      "mistral": {
+        "codestral-embed-2505": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        }
+      },
+      "vercel-ai-gateway": {
+        "openai/text-embedding-3-small": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "openai/text-embedding-3-large": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "openai/text-embedding-ada-002": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "cohere/embed-v4.0": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "google/gemini-embedding-001": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "google/text-embedding-005": {
+          "dimension": 768,
+          "scoreThreshold": 0.4
+        },
+        "google/text-multilingual-embedding-002": {
+          "dimension": 768,
+          "scoreThreshold": 0.4
+        },
+        "amazon/titan-embed-text-v2": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "mistral/codestral-embed": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "mistral/mistral-embed": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        }
+      },
+      "bedrock": {
+        "amazon.titan-embed-text-v1": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "amazon.titan-embed-text-v2:0": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "amazon.titan-embed-image-v1": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "amazon.nova-2-multimodal-embeddings-v1:0": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "cohere.embed-english-v3": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "cohere.embed-multilingual-v3": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        }
+      },
+      "openrouter": {
+        "openai/text-embedding-3-small": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "openai/text-embedding-3-large": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "openai/text-embedding-ada-002": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "google/gemini-embedding-001": {
+          "dimension": 3072,
+          "scoreThreshold": 0.4
+        },
+        "mistralai/mistral-embed-2312": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "mistralai/codestral-embed-2505": {
+          "dimension": 1536,
+          "scoreThreshold": 0.4
+        },
+        "qwen/qwen3-embedding-0.6b": {
+          "dimension": 1024,
+          "scoreThreshold": 0.4
+        },
+        "qwen/qwen3-embedding-4b": {
+          "dimension": 2560,
+          "scoreThreshold": 0.4
+        },
+        "qwen/qwen3-embedding-8b": {
+          "dimension": 4096,
+          "scoreThreshold": 0.4
+        }
+      }
+    },
+    "codebaseIndexConfig": {
+      "codebaseIndexEnabled": true,
+      "codebaseIndexQdrantUrl": "https://qdrant.myia.io",
+      "codebaseIndexEmbedderProvider": "openai-compatible",
+      "codebaseIndexEmbedderBaseUrl": "",
+      "codebaseIndexEmbedderModelId": "qwen3-4b-awq-embedding",
+      "codebaseIndexEmbedderModelDimension": 2560,
+      "codebaseIndexOpenAiCompatibleBaseUrl": "https://embeddings.myia.io/v1/embeddings",
+      "codebaseIndexSearchMaxResults": 30,
+      "codebaseIndexSearchMinScore": 0.4,
+      "codebaseIndexBedrockRegion": "",
+      "codebaseIndexBedrockProfile": "",
+      "codebaseIndexOpenRouterSpecificProvider": ""
+    },
+    "autoCondenseContext": true,
+    "maxConcurrentFileReads": 1,
+    "customSupportPrompts": {
+      "CONDENSE": ""
+    },
+    "profileThresholds": {
+      "ywbjgfyg3": 30,
+      "tqjm5wi8gbm": 38,
+      "6c5a5le81sr": 37
+    },
+    "alwaysAllowFollowupQuestions": false,
+    "followupAutoApproveTimeoutMs": 60000,
+    "alwaysAllowUpdateTodoList": true,
+    "consecutiveMistakeLimit": 3,
+    "deniedCommands": [
+      "git restore",
+      "git restore .",
+      "taskkill",
+      "git reset --hard",
+      "git --force",
+      "Stop-Process"
+    ],
+    "todoListEnabled": true,
+    "terminalOutputCharacterLimit": 50000,
+    "includeDiagnosticMessages": true,
+    "maxDiagnosticMessages": 50,
+    "maxImageFileSize": 5,
+    "maxTotalImageSize": 20,
+    "checkpointTimeout": 15,
+    "includeCurrentTime": true,
+    "includeCurrentCost": true,
+    "allowedMaxRequests": null,
+    "allowedMaxCost": null,
+    "maxGitStatusFiles": 0,
+    "diffEnabled": true,
+    "fuzzyMatchThreshold": 0.97,
+    "enterBehavior": "send",
+    "openAiLegacyFormat": false,
+    "enableSubfolderRules": false,
+    "terminalOutputPreviewSize": "medium",
+    "enableReasoningEffort": true,
+    "openAiBaseUrl": "https://api.medium.text-generation-webui.myia.io/v1",
+    "openAiModelId": "qwen3.5-35b-a3b",
+    "openAiCustomModelInfo": {
+      "maxTokens": -1,
+      "contextWindow": 240000,
+      "supportsImages": true,
+      "supportsPromptCache": true,
+      "inputPrice": 0,
+      "outputPrice": 0,
+      "reasoningEffort": "medium"
+    },
+    "openAiHeaders": {}
+  }
+}
