@@ -150,7 +150,7 @@ Si HEAD a change depuis le dernier tick (nouveau commit) :
 
 1. Lancer l'auto-review via sk-agent :
    ```
-   execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1")
+   execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
    ```
 2. Le script detecte l'issue associee au commit (via `#NNN` dans le message) et poste la review
 3. Si echec : noter dans le bilan mais continuer (non bloquant)
