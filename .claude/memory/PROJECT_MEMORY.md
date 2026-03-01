@@ -88,10 +88,36 @@ Updated via git commits. Each agent should read this at session start.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
 
-## Current State (2026-02-22)
+## Current State (2026-03-01)
 
-**Phase**: MONTEE EN CHARGE (Cycle 18)
+**Phase**: HARMONISATION SETTINGS (Issue #543 Active)
 **Tests**: 4077 PASS, 12 skipped | **Tools**: 36 | **GitHub #67**: Progression continue
+
+### Issue #543: Settings Harmonisation Pipeline (In Progress)
+
+**Status**: Phase 1 COMPLETE, Phase 2 Ready, Scenario A VALIDATED
+
+**Completed:**
+- ✅ Phase 1 (myia-ai-01): Settings extracted (78 keys), MCP config collected, baseline v1.0.0 published to GDrive
+- ✅ Scenario A: Drift detection validated (condensation threshold change 65→50 detected in < 1 sec)
+- ✅ Tools working: roo-settings-manager.py extract/inject/diff, roosync_config collect/publish, roosync_compare_config
+
+**In Progress:**
+- 🔄 Phase 1 on other 5 machines (dispatched via RooSync msg-20260301T053131-igf8wg)
+- 🔄 Phase 2 (pending Phase 1 completion): Full cross-machine drift comparison
+
+**Pending:**
+- ⏳ Phase 3: Correct CRITICAL drifts
+- ⏳ Phase 4: Official v3.0.0 baseline
+- ⏳ Scenario B: Round-trip correction (blocked awaiting Phase 1 on 3+ machines)
+- ⏳ Scenario C: Machine reset convergence
+
+**Documentation:**
+- `docs/suivi/issue-543-harmonisation-report.md` - Complete Phase 1-2 tracking
+- `docs/suivi/issue-543-validation-framework.md` - Test framework for all scenarios
+- `docs/suivi/issue-543-scenario-a-report.md` - Scenario A test execution report
+
+**Key Finding:** Harmonisation pipeline works end-to-end. Drift detection is reliable (< 1 second), settings modifications are reversible with automatic backups.
 
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
