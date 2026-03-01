@@ -292,7 +292,7 @@ execute_command(shell="gitbash", command="git log --oneline -2")
 Si nouveau commit detecte, deleguer l'auto-review :
 
 ```
-execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1")
+execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
 ```
 
 **Parametres optionnels du script `auto-review.ps1` :**

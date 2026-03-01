@@ -1545,8 +1545,8 @@ function Invoke-GitSyncAndReview {
             if (Test-Path $reviewScript) {
                 Write-Log "Triggering auto-review for new commits..."
                 try {
-                    # Run with -DryRun if worker is in DryRun mode
-                    $reviewArgs = @()
+                    # Run with -BuildCheck and -DryRun if worker is in DryRun mode
+                    $reviewArgs = @("-BuildCheck")
                     if ($DryRun) { $reviewArgs += "-DryRun" }
 
                     # Calculate diff range based on commit count
@@ -1555,7 +1555,7 @@ function Invoke-GitSyncAndReview {
                         $reviewArgs += "HEAD~$commitCount"
                     }
 
-                    # Execute auto-review (timeout 120s to not block worker)
+                    # Execute auto-review with build gate (timeout 120s to not block worker)
                     $reviewJob = Start-Job -ScriptBlock {
                         param($script, $args)
                         & powershell -ExecutionPolicy Bypass -File $script @args
