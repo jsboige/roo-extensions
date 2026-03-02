@@ -1252,26 +1252,64 @@ function Invoke-Claude {
             $CurrentIteration++
             Write-Log "Ralph Wiggum - Iteration $CurrentIteration/$Iterations..."
 
-            # TAKE ACTION: Exécuter Claude CLI
-            # Output is streamed in real-time to: console (Write-Host), log file, and iteration output file
-            # BUG FIX (Cycle 42): Pipe prompt from file to avoid PowerShell argument splitting
-            # on multiline strings containing option-like fragments (e.g. "-simple").
-            # FIX: Write output to dedicated file per iteration for tailing from outside
+            # TAKE ACTION: Exécuter Claude CLI avec streaming en temps réel
+            # Uses --output-format stream-json --verbose --include-partial-messages to get
+            # real-time token-by-token streaming of text + tool calls in the terminal.
+            # Raw JSON events are logged to per-iteration files for audit/debug.
+            # BUG FIX (Cycle 42): Pipe prompt from file to avoid PowerShell argument splitting.
             $IterationOutputFile = Join-Path $LogDir "worker-iter-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$CurrentIteration.log"
-            Write-Log "Output streaming vers: $IterationOutputFile"
+            Write-Log "Output streaming (stream-json --verbose) vers: $IterationOutputFile"
             try {
-                $IterationLines = @()
-                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - 2>&1 | ForEach-Object {
-                    $line = $_
-                    Write-Host $line  # Real-time display in terminal (if console exists)
-                    Add-Content -Path $LogFile -Value $line  # Stream to main log file
-                    Add-Content -Path $IterationOutputFile -Value $line  # Stream to iteration-specific file
-                    $IterationLines += $line
+                $FinalResultText = ""
+                $CurrentToolName = $null
+                $CurrentToolInput = ""
+                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
+                    $rawLine = $_.ToString()
+                    # Raw JSON events to iteration-specific log (audit/debug)
+                    Add-Content -Path $IterationOutputFile -Value $rawLine
+                    try {
+                        $evt = $rawLine | ConvertFrom-Json -ErrorAction Stop
+                        if ($evt.type -eq "stream_event" -and $evt.event) {
+                            $inner = $evt.event
+                            if ($inner.type -eq "content_block_start" -and $inner.content_block) {
+                                if ($inner.content_block.type -eq "tool_use") {
+                                    $CurrentToolName = $inner.content_block.name
+                                    $CurrentToolInput = ""
+                                    Write-Host ""
+                                    Write-Host "  [Tool: $CurrentToolName] " -NoNewline -ForegroundColor Cyan
+                                }
+                            }
+                            elseif ($inner.type -eq "content_block_delta" -and $inner.delta) {
+                                if ($inner.delta.type -eq "text_delta" -and $inner.delta.text) {
+                                    Write-Host $inner.delta.text -NoNewline
+                                }
+                                elseif ($inner.delta.type -eq "input_json_delta" -and $inner.delta.partial_json) {
+                                    $CurrentToolInput += $inner.delta.partial_json
+                                }
+                            }
+                            elseif ($inner.type -eq "content_block_stop") {
+                                if ($CurrentToolName) {
+                                    # Show truncated tool input for context
+                                    $preview = if ($CurrentToolInput.Length -gt 150) { $CurrentToolInput.Substring(0, 150) + "..." } else { $CurrentToolInput }
+                                    Write-Host $preview -ForegroundColor DarkCyan
+                                    $CurrentToolName = $null
+                                    $CurrentToolInput = ""
+                                }
+                            }
+                        }
+                        elseif ($evt.type -eq "result") {
+                            if ($evt.result) { $FinalResultText = $evt.result }
+                            Write-Host "`n--- Fin session ($($evt.session_id)) ---" -ForegroundColor DarkGray
+                        }
+                        # Skip assistant/user/system messages (content already streamed via deltas)
+                    }
+                    catch {
+                        # Not JSON (stderr, etc.) - display raw
+                        Write-Host $rawLine -ForegroundColor Yellow
+                    }
                 }
-                # BUG FIX: Join lines into a single string per iteration,
-                # so "=== Iteration Break ===" only appears BETWEEN iterations, not between lines
-                $IterationOutputs += ($IterationLines -join "`n")
-                Write-Log "Iteration $CurrentIteration terminée ($($IterationLines.Count) lignes)"
+                $IterationOutputs += $FinalResultText
+                Write-Log "Iteration $CurrentIteration terminée (result: $($FinalResultText.Length) chars)"
             }
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
