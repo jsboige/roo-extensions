@@ -1,0 +1,45 @@
+# Template .env pour modes Roo
+# À déployer sur chaque machine dans le workspace roo-extensions
+# Localisation : D:\roo-extensions\.env (ou équivalent par machine)
+
+# ===================================================================
+# ENDPOINT QWEN 3.5 35B A3B (vLLM local sur myia-ai-01)
+# ===================================================================
+# Utilisé par les modes -simple (code-simple, debug-simple, etc.)
+# Infrastructure : Docker container myia_vllm-medium-qwen35-moe
+# GPU : myia-ai-01 GPU 0+1 (Tensor Parallelism 2)
+# Modèle : cyankiwi/Qwen3.5-35B-A3B-AWQ-4bit
+# Contexte : 262K tokens, vision natif, prefix caching activé
+
+LOCAL_LLM_API_KEY=Y7PSM158SR952HCAARSLQ344RRPJTDI3
+LOCAL_LLM_API_BASE=https://api.medium.text-generation-webui.myia.io/v1
+
+# Alternative endpoint local (si HTTPS unavailable) :
+# LOCAL_LLM_API_BASE=http://myia-ai-01:5002/v1
+
+# ===================================================================
+# ENDPOINT GLM-5 (z.ai cloud)
+# ===================================================================
+# Utilisé par les modes -complex (code-complex, debug-complex, etc.)
+# Provider : z.ai subscription (~Opus 4.6 level)
+# Contexte réel : ~131K tokens (pas 200K)
+
+ZAI_API_KEY=[À REMPLACER PAR VOTRE CLÉ z.ai]
+
+# Obtention de la clé : https://z.ai (subscription payante)
+# Note : Cette clé est partagée entre toutes les machines du coordinateur
+
+# ===================================================================
+# NOTES DE DÉPLOIEMENT
+# ===================================================================
+# 1. Copier ce fichier à la racine du workspace : D:\roo-extensions\.env
+# 2. Remplacer [À REMPLACER PAR VOTRE CLÉ z.ai] par la vraie clé
+# 3. Vérifier que .env est dans .gitignore (OBLIGATOIRE)
+# 4. Recharger VS Code après modification
+
+# Vérification :
+# - Roo Code : Charge depuis process.env
+# - MCP roo-state-manager : Charge depuis mcps/internal/servers/roo-state-manager/.env
+
+# Déploiement automatisé via RooSync :
+# roosync_config(action: "apply", targets: ["settings"], machineId: "myia-ai-01")
