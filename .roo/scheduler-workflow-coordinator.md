@@ -72,6 +72,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 **Decision :**
 - Si git pull a ECHOUE (submodule error, conflict) : aller DIRECTEMENT a **Etape 3** avec rapport d'erreur. Ne PAS executer de taches sur un workspace desynchronise.
 - Si `[URGENT]` : escalader vers `orchestrator-complex`
+- Si `[TASK]` trouve avec tag `[COMPLEX]` ET date < 24h : **escalader vers orchestrator-complex** (démarrage direct en mode complex)
 - Si `[TASK]` trouve ET date < 24h : aller a **Etape 2a**
 - Si `[TASK]` trouve MAIS date > 24h : IGNORER (tache perimee, noter dans le bilan)
 - Si `[FEEDBACK]` recent de Claude : noter les ajustements

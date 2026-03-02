@@ -95,18 +95,26 @@ Quand tu crees ou dispatches une issue `roo-schedulable`, setter OBLIGATOIREMENT
 
 **Ceci s'applique a TOUTES les machines, y compris le coordinateur.**
 
-### Analyse des Traces Roo (audit scheduler)
+### Analyse des Traces Scheduler (audit Roo + Claude Worker)
 
 **QUAND :** A chaque tour de sync ou apres un message INTERCOM de Roo avec tag `[DONE]`.
 
-**OBJECTIF :** Verifier ce que le scheduler Roo a fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees en -complex.
+**OBJECTIF :** Verifier ce que les schedulers (Roo ET Claude Worker) ont fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees.
 
 **RÈGLE DE DENSIFICATION :** Voir [`.claude/rules/scheduler-densification.md`](.claude/rules/scheduler-densification.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
 
-**1. Identifier les dernieres executions Roo :**
+**0. Decouvrir les taches recentes (POINT D'ENTREE) :**
 
 ```
-task_browse(action: "tree", output_format: "ascii-tree", show_metadata: true)
+conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
+```
+
+Identifier les IDs des taches scheduler recentes (Roo `orchestrator-simple` + Claude Worker).
+
+**1. Vue d'ensemble :**
+
+```
+conversation_browser(action: "tree", conversation_id: "{TASK_ID}", output_format: "ascii-tree")
 ```
 
 Selectionner les 3-5 dernieres taches `orchestrator-simple` (executions scheduler).
@@ -114,7 +122,8 @@ Selectionner les 3-5 dernieres taches `orchestrator-simple` (executions schedule
 **2. Pour chaque execution, analyser le squelette :**
 
 ```
-view_conversation_tree(
+conversation_browser(
+  action: "view",
   task_id: "{TASK_ID}",
   detail_level: "summary",
   smart_truncation: true,
@@ -140,13 +149,21 @@ view_conversation_tree(
 | Erreur recurrente (>2 fois) | Corriger le workflow `.roo/scheduler-workflow-*.md` |
 | Taches `[ESCALADE-CLAUDE]` | Les ajouter a la pile de travail Claude |
 
-**5. Chaine d'escalade progressive :**
+**5. Verifier les traces Claude Worker (toutes machines) :**
+
+Pour chaque machine avec un Claude Worker schedule :
+- Verifier les commentaires GitHub recents du Worker sur les issues assignees
+- Identifier les issues traitees, reussies, echouees
+- Si une issue est traitee plusieurs fois → bug anti-repetition
+- Si echec silencieux → verifier les logs `.claude/logs/worker-*.log`
+
+**6. Chaine d'escalade progressive :**
 ```
 code-simple → code-complex (GLM 5) → orchestrator-complex → claude -p (Opus)
 ```
 L'objectif long terme est de pousser Roo vers de plus en plus de taches `-complex` (GLM 5 le permet). Claude Opus reprend ce qui echoue.
 
-**6. Si modification de workflow necessaire :**
+**7. Si modification de workflow necessaire :**
 - Modifier `.roo/scheduler-workflow-coordinator.md` et/ou `.roo/scheduler-workflow-executor.md`
 - Les modifications prennent effet au prochain `git pull` + execution scheduler
 - Commit avec message `fix(scheduler): description de la correction`
