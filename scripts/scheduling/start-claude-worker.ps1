@@ -1253,19 +1253,25 @@ function Invoke-Claude {
             Write-Log "Ralph Wiggum - Iteration $CurrentIteration/$Iterations..."
 
             # TAKE ACTION: Exécuter Claude CLI
-            # Output is displayed in real-time via Tee-Object AND captured for processing
+            # Output is streamed in real-time to: console (Write-Host), log file, and iteration output file
             # BUG FIX (Cycle 42): Pipe prompt from file to avoid PowerShell argument splitting
             # on multiline strings containing option-like fragments (e.g. "-simple").
+            # FIX: Write output to dedicated file per iteration for tailing from outside
+            $IterationOutputFile = Join-Path $LogDir "worker-iter-$(Get-Date -Format 'yyyyMMdd-HHmmss')-$CurrentIteration.log"
+            Write-Log "Output streaming vers: $IterationOutputFile"
             try {
                 $IterationLines = @()
                 Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - 2>&1 | ForEach-Object {
                     $line = $_
-                    Write-Host $line  # Real-time display in terminal
+                    Write-Host $line  # Real-time display in terminal (if console exists)
+                    Add-Content -Path $LogFile -Value $line  # Stream to main log file
+                    Add-Content -Path $IterationOutputFile -Value $line  # Stream to iteration-specific file
                     $IterationLines += $line
                 }
                 # BUG FIX: Join lines into a single string per iteration,
                 # so "=== Iteration Break ===" only appears BETWEEN iterations, not between lines
                 $IterationOutputs += ($IterationLines -join "`n")
+                Write-Log "Iteration $CurrentIteration terminée ($($IterationLines.Count) lignes)"
             }
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
