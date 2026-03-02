@@ -134,3 +134,4 @@ tmpclaude-*/
 # Claude Code local overrides (machine-specific, never commit)
 CLAUDE.local.md
 *.local.md
+scripts/setup/.env
