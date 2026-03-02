@@ -60,26 +60,40 @@ Issues ouvertes: {Z} | Taches assignees: {liste courte}
 
 ---
 
-## PHASE 1.5 : ANALYSE DES TRACES ROO (audit scheduler)
+## PHASE 1.5 : ANALYSE DES TRACES SCHEDULER (audit Roo + Claude)
 
-**OBJECTIF :** Analyser ce que le scheduler Roo a fait depuis la derniere verification, detecter les erreurs, evaluer le taux de succes, et ajuster les instructions si necessaire.
+**OBJECTIF :** Analyser ce que les schedulers (Roo ET Claude Worker) ont fait depuis la derniere verification, detecter les erreurs, evaluer le taux de succes, et ajuster les instructions si necessaire.
 
-### 1. Identifier les dernieres executions Roo
+### 0. Decouvrir les taches recentes (POINT D'ENTREE)
 
-Utilise les outils MCP `roo-state-manager` :
+**TOUJOURS commencer par lister les conversations :**
 
 ```
-task_browse(action: "tree", output_format: "ascii-tree", show_metadata: true)
+conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
 ```
 
-Cherche les taches de mode `orchestrator-simple` (executions scheduler). Selectionne les 3-5 plus recentes depuis la derniere verification.
+Ceci retourne les IDs, timestamps, modes et tailles des taches recentes. Identifier :
+- Les taches `orchestrator-simple` (executions Roo scheduler)
+- Les taches recentes Claude Worker (si applicable)
+- Toute tache anormalement longue ou en erreur
+
+### 1. Vue d'ensemble des executions Roo
+
+Avec un ID de tache identifie en etape 0 :
+
+```
+conversation_browser(action: "tree", conversation_id: "{TASK_ID}", output_format: "ascii-tree")
+```
+
+Selectionner les 3-5 executions scheduler les plus recentes depuis la derniere verification.
 
 ### 2. Analyser chaque execution
 
 Pour chaque tache scheduler identifiee :
 
 ```
-view_conversation_tree(
+conversation_browser(
+  action: "view",
   task_id: "{TASK_ID}",
   detail_level: "summary",
   smart_truncation: true,
@@ -131,10 +145,19 @@ Merci de corriger pour la prochaine execution.
 - Reprendre les taches signalees `[ESCALADE-CLAUDE]` dans ta propre pile de travail (Phase 2)
 - Ajuster le workflow `.roo/scheduler-workflow-*.md` si le probleme est structurel
 
-### 6. Resume de l'audit (pour le log)
+### 6. Verifier les traces Claude Worker (si applicable)
+
+Si la machine a un Claude Worker schedule (`schtasks /Query /TN "Claude-Worker"`), verifier aussi :
+- Les logs dans `.claude/logs/worker-*.log` (derniers fichiers)
+- Les commentaires GitHub recents du Worker sur les issues assignees
+- Les commits recents du Worker (`git log --oneline --author="Claude" -10`)
+
+Signaler toute anomalie : boucle, echec silencieux, issue traitee plusieurs fois.
+
+### 7. Resume de l'audit (pour le log)
 
 ```
-Audit traces Roo : X analysees, Y erreurs, Z% succes
+Audit traces schedulers : Roo={X analysees, Y% succes} | Claude Worker={A traitees, B echecs}
 Niveau atteint : {simple seulement | debut complex | majorite complex}
 Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches reprises}
 ```

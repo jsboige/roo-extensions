@@ -57,8 +57,8 @@ try {
 
 # --- Step 2: Get diff ---
 try {
-    $diffStat = git diff --stat "$DiffRange" HEAD 2>$null
-    $diffFull = git diff "$DiffRange" HEAD --no-color 2>$null
+    $diffStat = (git diff --stat "$DiffRange" HEAD 2>$null) -join "`n"
+    $diffFull = (git diff "$DiffRange" HEAD --no-color 2>$null) -join "`n"
 
     if ([string]::IsNullOrWhiteSpace($diffFull)) {
         Write-Host "[AUTO-REVIEW] Empty diff, exiting." -ForegroundColor Yellow
@@ -69,7 +69,8 @@ try {
     $diffLen = $diffFull.Length
     if ($diffLen -gt $MaxDiffChars) {
         Write-Host "[AUTO-REVIEW] Diff truncated: $diffLen -> $MaxDiffChars chars" -ForegroundColor Yellow
-        $diffFull = $diffFull.Substring(0, $MaxDiffChars) + "`n`n[... diff truncated at $MaxDiffChars chars ...]"
+        $truncateLen = [Math]::Min($diffLen, $MaxDiffChars)
+        $diffFull = $diffFull.Substring(0, $truncateLen) + "`n`n[... diff truncated at $MaxDiffChars chars ...]"
     }
 
     Write-Host "[AUTO-REVIEW] Diff: $diffLen chars" -ForegroundColor Cyan
@@ -80,17 +81,18 @@ try {
 
 # --- Step 3: Find associated GitHub issue ---
 if ($IssueNumber -eq 0) {
-    # Try commit message patterns
+    # Try commit message patterns (order matters: specific to generic)
     $patterns = @(
-        '(?i)(?:fix|close|resolve)[\s\-]*#(\d+)',
-        '(?i)issue[\s\-]*#(\d+)',
-        '#(\d+)'
+        '(?i)(?:fix|close|resolve)[\s\-]*#(\d+)',  # fix #123, close#456
+        '(?i)issue[\s\-]*#(\d+)',                   # issue #123, issue-#456
+        '(?i)issue[\s\-]*(\d+)',                    # issue 123, issue-456 (NEW)
+        '#(\d+)'                                    # #123 (generic fallback)
     )
 
     foreach ($pattern in $patterns) {
         if ($commitMessage -match $pattern) {
             $IssueNumber = [int]$matches[1]
-            Write-Host "[AUTO-REVIEW] Found issue #$IssueNumber in commit message" -ForegroundColor Cyan
+            Write-Host "[AUTO-REVIEW] Found issue #$IssueNumber in commit message (pattern: $pattern)" -ForegroundColor Cyan
             break
         }
     }
@@ -110,21 +112,26 @@ if ($BuildCheck) {
     $buildDir = Resolve-Path $buildDir -ErrorAction SilentlyContinue
 
     if ($buildDir) {
-        # Build
-        $buildOutput = & npm run build --prefix $buildDir 2>&1 | Select-Object -Last 10
-        $buildOk = ($LASTEXITCODE -eq 0)
+        Push-Location $buildDir
+        try {
+            # Build
+            $buildOutput = & npm run build 2>&1 | Select-Object -Last 10
+            $buildOk = ($LASTEXITCODE -eq 0)
 
-        # Tests (maxWorkers=1 for low-RAM machines)
-        $testOutput = & npx vitest run --maxWorkers=1 --prefix $buildDir 2>&1 | Select-Object -Last 20
-        $testOk = ($LASTEXITCODE -eq 0)
+            # Tests (maxWorkers=1 for low-RAM machines)
+            $testOutput = & npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 20
+            $testOk = ($LASTEXITCODE -eq 0)
 
-        # Extract test counts from output
-        $testSummary = ($testOutput | Select-String -Pattern "Tests?\s+\d+" | Select-Object -Last 1)
+            # Extract test counts from output
+            $testSummary = ($testOutput | Select-String -Pattern "Tests?\s+\d+" | Select-Object -Last 1)
 
-        $buildResult = @{
-            buildOk = $buildOk
-            testOk = $testOk
-            testSummary = if ($testSummary) { $testSummary.Line.Trim() } else { "unknown" }
+            $buildResult = @{
+                buildOk = $buildOk
+                testOk = $testOk
+                testSummary = if ($testSummary) { $testSummary.Line.Trim() } else { "unknown" }
+            }
+        } finally {
+            Pop-Location
         }
 
         if (-not $buildOk) {
