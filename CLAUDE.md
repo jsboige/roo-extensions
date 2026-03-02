@@ -89,8 +89,32 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 
 ### Configuration Roo
 
-- **MCP Settings global :** `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`
-- **MCP Settings projet :** `.roo\mcp.json` (overrides)
+**⚠️ CRITIQUE : Les MCPs Roo sont definis dans un fichier GLOBAL, pas dans .roo/mcp.json !**
+
+**Fichier GLOBAL Roo (VERITE) :**
+```
+%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json
+```
+**CECI est le fichier qui contient jupyter-mcp, jinavigator, etc.**
+
+**Fichier PROJET (.roo/mcp.json) :**
+```
+.roo/mcp.json
+```
+Ceci est un fichier de OVERRIDES pour les MCPs du PROJET roo-extensions uniquement.
+
+**NE PAS CONFONDRE :**
+- jupyter-mcp → Verifier dans `mcp_settings.json` (GLOBAL) PAS dans `.roo/mcp.json`
+- jinavigator → Verifier dans `mcp_settings.json` (GLOBAL) PAS dans `.roo/mcp.json`
+
+**MCPs actuels dans mcp_settings.json (myia-web1, 2026-03-02) :**
+- jupyter-mcp (ACTIF, 20 outils)
+- jinavigator (ACTIF, 2 outils)
+- playwright (ACTIF, 22 outils)
+- searxng (ACTIF, 2 outils)
+- win-cli (ACTIF, fork local 0.2.0)
+- roo-state-manager (ACTIF, 36 outils)
+
 - **MAJ alwaysAllow :** `roosync_mcp_management(subAction: "sync_always_allow")`
 - **MAJ unitaire :** `roosync_mcp_management(subAction: "update_server_field")`
 - **Settings generaux :** Template `roo-config/settings/settings.json`, deploy via `deploy-settings.ps1`

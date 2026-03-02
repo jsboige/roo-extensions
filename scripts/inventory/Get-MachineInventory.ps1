@@ -307,7 +307,7 @@ try {
         $gitVersion = git --version 2>$null
         if ($gitVersion) {
             $inventory.inventory.systemInfo.git = @{
-                version = ($gitVersion -split " ")[0..1] -join " ")
+                version = ($gitVersion -split " ")[0..1] -join " "
                 userName = git config --get user.name 2>$null
                 autoCRLF = git config --get core.autocrlf 2>$null
             }
@@ -323,7 +323,7 @@ try {
     try {
         $ghVersion = gh --version 2>$null
         if ($LASTEXITCODE -eq 0) {
-            $inventory.inventory.tools.gh = ($ghVersion -split " ")[0..1] -join " ")
+            $inventory.inventory.tools.gh = ($ghVersion -split " ")[0..1] -join " "
             Write-Host "  OK gh $ghVersion" -ForegroundColor Green
         }
     } catch {
