@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "machine": "MYIA-PO-2025",
+    "timestamp": "2026-03-02T06:18:03.009Z",
+    "mode": "safe",
+    "keys_count": 0,
+    "total_keys": 0
+  },
+  "settings": {
+    "autoCondenseContext": true,
+    "autoCondenseContextPercent": 85,
+    "condensingApiConfigId": "default",
+    "apiProvider": "openai",
+    "currentApiConfigName": "z.ai-provider",
+    "autoApprovalEnabled": true,
+    "customModes": []
+  },
+  "notes": "Phase 1 baseline - myia-po-2025. MCP config published to GDrive. Full settings extraction pending Python script implementation."
+}
