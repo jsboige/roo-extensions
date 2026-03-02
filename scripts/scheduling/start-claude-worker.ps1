@@ -1215,19 +1215,18 @@ function Invoke-Claude {
 
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
-    # BUG FIX: Ne pas ajouter de guillemets supplémentaires autour du prompt.
-    # PowerShell splatting gère le quoting automatiquement.
-    # Les guillemets manuels causaient des erreurs quand le prompt contenait des
-    # fragments ressemblant à des options CLI (ex: --body dans un texte).
-    $ClaudeArgs = @(
-        "--dangerously-skip-permissions",
-        "--model", $ModelToUse,
-        "-p", $Prompt
-    )
+    # BUG FIX (Cycle 42): Prompts containing option-like strings (e.g. "-simple",
+    # "--body") cause PowerShell to split multiline strings and pass fragments
+    # as separate CLI arguments when using -p with splatting.
+    # Fix: Save prompt to temp file, pipe via stdin. Claude Code reads stdin as prompt.
+    $PromptFile = Join-Path $env:TEMP "claude-prompt-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+    [System.IO.File]::WriteAllText($PromptFile, $Prompt, [System.Text.UTF8Encoding]::new($false))
+    Write-Log "Prompt sauvé dans: $PromptFile ($($Prompt.Length) chars)"
 
     if ($DryRun) {
         Write-Log "[DRY-RUN] Commande qui serait exécutée:" "INFO"
-        Write-Log "claude $($ClaudeArgs -join ' ')" "INFO"
+        Write-Log "Get-Content $PromptFile | claude --dangerously-skip-permissions --model $ModelToUse -p -" "INFO"
+        Remove-Item $PromptFile -ErrorAction SilentlyContinue
         return @{ success = $true; dryRun = $true }
     }
 
@@ -1255,9 +1254,11 @@ function Invoke-Claude {
 
             # TAKE ACTION: Exécuter Claude CLI
             # Output is displayed in real-time via Tee-Object AND captured for processing
+            # BUG FIX (Cycle 42): Pipe prompt from file to avoid PowerShell argument splitting
+            # on multiline strings containing option-like fragments (e.g. "-simple").
             try {
                 $IterationLines = @()
-                & claude @ClaudeArgs 2>&1 | ForEach-Object {
+                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - 2>&1 | ForEach-Object {
                     $line = $_
                     Write-Host $line  # Real-time display in terminal
                     $IterationLines += $line
@@ -1353,6 +1354,7 @@ function Invoke-Claude {
         }
 
         Pop-Location
+        Remove-Item $PromptFile -ErrorAction SilentlyContinue
 
         Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
@@ -1369,6 +1371,7 @@ function Invoke-Claude {
     }
     catch {
         Pop-Location
+        Remove-Item $PromptFile -ErrorAction SilentlyContinue
         Write-Log "Erreur exécution Claude: $_" "ERROR"
         return @{ success = $false; error = $_.Exception.Message }
     }
