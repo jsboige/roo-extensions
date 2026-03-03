@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Derniere mise a jour:** 2026-02-19
+**Derniere mise a jour:** 2026-03-03
 
 ---
 
@@ -222,7 +222,7 @@ mcps/
 ## Pour Demarrer une Nouvelle Tache
 
 1. **Verifier MCP** : Outils disponibles dans system-reminders
-2. **Lire doc** : INDEX.md, MCP_SETUP.md, CLAUDE_CODE_GUIDE.md
+2. **Lire doc** : INDEX.md, MCP_SETUP.md, rules/ (auto-chargées)
 3. **Communications** : RooSync inbox + INTERCOM local + GitHub issues
 4. **Annoncer** : INTERCOM local + RooSync `[WORK]` + commentaire GitHub
 5. **Issue GitHub** : Obligatoire pour toute tache significative
@@ -293,7 +293,7 @@ mcps/
 
 ### Methodologie SDDD
 
-**Reference complete :** [`.claude/rules/sddd-conversational-grounding.md`](.claude/rules/sddd-conversational-grounding.md) et [`.claude/CLAUDE_CODE_GUIDE.md`](.claude/CLAUDE_CODE_GUIDE.md)
+**Reference complete :** [`.claude/rules/sddd-conversational-grounding.md`](.claude/rules/sddd-conversational-grounding.md)
 
 Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se contenter d'une seule source.
 

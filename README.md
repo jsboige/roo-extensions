@@ -2,7 +2,7 @@
 
 **Version** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 26 février 2026
+**Dernière mise à jour** : 03 mars 2026
 **GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
 
 ---
@@ -19,7 +19,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 - ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
-- ✅ **GitHub Projects #67** : 204/224 Done (91.1%)
+- ✅ **GitHub Projects #67** : 242 items actifs
 - ✅ **6867 tests unitaires** : 378 fichiers, CI GitHub Actions (Node 18+20)
 
 ---
@@ -105,7 +105,7 @@ roo-extensions/
 │   ├── agents/                    # 12 subagents spécialisés
 │   ├── skills/                    # 6 skills auto-invoqués
 │   ├── commands/                  # 4 slash commands
-│   ├── rules/                     # 11 règles auto-chargées
+│   ├── rules/                     # 14 règles auto-chargées
 │   └── local/                     # Communication locale (INTERCOM)
 ├── 📁 docs/                       # Documentation technique consolidée
 │   ├── roosync/                   # Protocoles RooSync v2.3
@@ -378,8 +378,8 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 **Version actuelle** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 26 février 2026
-**GitHub Project** : [204/224 Done (91.1%)](https://github.com/users/jsboige/projects/67)
+**Dernière mise à jour** : 03 mars 2026
+**GitHub Project** : [242 items actifs](https://github.com/users/jsboige/projects/67)
 
 ### Accomplissements v2.4
 

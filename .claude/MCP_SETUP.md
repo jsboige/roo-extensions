@@ -1,10 +1,23 @@
 # MCP Configuration for Claude Code Agents
 
-**Date:** 2026-02-15 (Updated)
+**Date:** 2026-03-03 (Updated)
 **Purpose:** Configure roo-state-manager MCP for Claude Code multi-agent coordination
 **Status:** ✅ **VERIFIED WORKING on all 6 machines**
 
 > ⚠️ **Note:** github-projects-mcp is **DEPRECATED** (#368). Use `gh` CLI for GitHub operations. See `.claude/rules/github-cli.md`.
+
+---
+
+## ⚠️ CRITICAL: STOP & REPAIR Protocol
+
+**Si les outils MCP critiques (roo-state-manager, win-cli) sont absents des system-reminders au demarrage :**
+
+1. **STOP IMMEDIAT** - Ne pas continuer en mode dégradé
+2. **DIAGNOSTIC** - Vérifier la config MCP (`roosync_mcp_management`)
+3. **RÉPARER** - Corriger config si possible
+4. **ESCALADER** - Envoyer message RooSync URGENT au coordinateur si non réparable
+
+**Protocole complet :** [`.claude/rules/tool-availability.md`](rules/tool-availability.md)
 
 ---
 
@@ -391,5 +404,5 @@ Once MCP is verified working on your machine:
 
 ---
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-03-03
 **For questions:** Create GitHub issue or contact myia-ai-01 coordinator
