@@ -277,6 +277,90 @@ Ce script:
 3. Crée un nouveau profil avec ces informations
 4. Sauvegarde l'ancienne configuration
 
+## Profils standards actuels (mars 2026)
+
+Le système multi-agent utilise deux profils standards définis dans `roo-config/model-configs.json` :
+
+### Profil `simple` - Local économique
+
+| Propriété | Valeur |
+| --------- | ------ |
+| **Modèle** | Qwen 3.5 35B A3B |
+| **Provider** | openai (OpenAI-compatible) |
+| **Endpoint** | `https://api.medium.text-generation-webui.myia.io/v1` |
+| **Température** | 0.6 |
+| **Contexte** | ~32k tokens |
+| **Usage** | Tous les modes `-simple` (code-simple, debug-simple, etc.) |
+| **Coût** | Gratuit (auto-hébergé) |
+| **Performance** | ~50 tok/sec solo, ~200 tok/sec batch |
+
+### Profil `default` - Cloud flagship
+
+| Propriété | Valeur |
+| --------- | ------ |
+| **Modèle** | GLM-5 |
+| **Provider** | openai (OpenAI-compatible via z.ai) |
+| **Endpoint** | `https://api.z.ai/api/anthropic` |
+| **Température** | 0.7 |
+| **Contexte** | ~131k tokens réel (200k annoncé inclut output) |
+| **Usage** | Tous les modes `-complex` et modes sans suffixe |
+| **Coût** | Subscription z.ai |
+| **Performance** | Niveau Opus 4.6 |
+
+### Association modes → profils
+
+```text
+code-simple        → simple    (Qwen 3.5 local)
+code-complex       → default   (GLM-5 cloud)
+debug-simple       → simple
+debug-complex      → default
+architect-simple   → simple
+architect-complex  → default
+ask-simple         → simple
+ask-complex        → default
+orchestrator-simple → simple
+orchestrator-complex → default
+```
+
+### Seuil de condensation
+
+Les deux profils utilisent un seuil de condensation de **80%** (`profileThresholds`).
+Ce seuil est critique pour les modèles GLM dont le contexte réel est ~131k (pas 200k).
+Un seuil < 80% peut provoquer des boucles infinies de condensation (voir issue #502).
+
+## Détection de dérive de profil (RooSync #498)
+
+L'outil `roosync_compare_config` avec `granularity: "settings"` compare les paramètres Roo live (depuis `state.vscdb`) avec la configuration publiée d'une autre machine.
+
+### Utilisation
+
+```text
+roosync_compare_config(granularity: "settings", target: "po-2023")
+```
+
+### Catégories de sévérité
+
+| Catégorie | Sévérité | Clés | Impact |
+| --------- | -------- | ---- | ------ |
+| Model Configuration | **CRITICAL** | `currentApiConfigName`, `apiProvider`, `openAiBaseUrl`, `openAiModelId`, `listApiConfigMeta` | Mauvais modèle utilisé |
+| Model Configuration | IMPORTANT | `profileThresholds` | Condensation incorrecte |
+| Condensation | IMPORTANT | `autoCondenseContext`, `autoCondenseContextPercent`, `condensingApiConfigId` | Boucle condensation |
+| Auto-Approval | IMPORTANT | `autoApprovalEnabled`, `alwaysAllowWrite`, `alwaysAllowBrowser`, `alwaysAllowExecute` | Sécurité dégradée |
+| Auto-Approval | WARNING | `alwaysAllowReadOnly`, `alwaysAllowMcp` | Approbation manuelle requise |
+
+### Cas d'usage
+
+**Problème résolu :** Le scheduler Roo utilisait le profil "Configuration Gemini" au lieu de "Production SDDD", causant des erreurs 404. Ce problème n'a été détecté que manuellement.
+
+**Avec la détection de dérive :** `roosync_compare_config(granularity: "settings")` aurait immédiatement signalé un écart CRITICAL sur `currentApiConfigName` entre la configuration locale et la baseline.
+
+### Pipeline complet
+
+1. **Collecter** : `roosync_config(action: "collect", targets: ["model-configs"])` - capture la config locale
+2. **Publier** : `roosync_config(action: "publish")` - publie vers GDrive
+3. **Comparer** : `roosync_compare_config(granularity: "settings")` - détecte les écarts
+4. **Corriger** : Appliquer le profil correct via l'UI Roo ou `roosync_config(action: "apply_profile")`
+
 ## Dépannage
 
 ### Problème: Le profil n'existe pas
