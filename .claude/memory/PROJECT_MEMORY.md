@@ -8,7 +8,7 @@ Updated via git commits. Each agent should read this at session start.
 ### MCP Tool System
 - **Total tools (ListTools):** 36 (was 39 before #457 consolidation)
 - **Claude wrapper (mcp-wrapper.cjs):** 36 tools (v4 pass-through, no filtering)
-- **Tests:** 4129 passed, 12 skipped (2026-02-22)
+- **Tests:** 6945 passed, 19 skipped, 1 failed (2026-03-03)
 - **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
 ### Key Files
@@ -88,36 +88,48 @@ Updated via git commits. Each agent should read this at session start.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
 
-## Current State (2026-03-01)
+## Current State (2026-03-03)
 
-**Phase**: HARMONISATION SETTINGS (Issue #543 Active)
-**Tests**: 4077 PASS, 12 skipped | **Tools**: 36 | **GitHub #67**: Progression continue
+**Phase**: MAINTENANCE CYCLE 49 (Issue #556 Active)
+**Tests**: 6945 PASS, 19 skipped, 1 failed | **Tools**: 36 | **GitHub #67**: Progression continue
 
-### Issue #543: Settings Harmonisation Pipeline (In Progress)
+### Issue #543: Settings Harmonisation Pipeline (COMPLETE ✅)
 
-**Status**: Phase 1 COMPLETE, Phase 2 Ready, Scenario A VALIDATED
+**Status**: CLOSED - Campaign completed successfully
 
 **Completed:**
-- ✅ Phase 1 (myia-ai-01): Settings extracted (78 keys), MCP config collected, baseline v1.0.0 published to GDrive
-- ✅ Scenario A: Drift detection validated (condensation threshold change 65→50 detected in < 1 sec)
-- ✅ Tools working: roo-settings-manager.py extract/inject/diff, roosync_config collect/publish, roosync_compare_config
-
-**In Progress:**
-- 🔄 Phase 1 on other 5 machines (dispatched via RooSync msg-20260301T053131-igf8wg)
-- 🔄 Phase 2 (pending Phase 1 completion): Full cross-machine drift comparison
-
-**Pending:**
-- ⏳ Phase 3: Correct CRITICAL drifts
-- ⏳ Phase 4: Official v3.0.0 baseline
-- ⏳ Scenario B: Round-trip correction (blocked awaiting Phase 1 on 3+ machines)
-- ⏳ Scenario C: Machine reset convergence
+- ✅ Phase 1 (all 6 machines): Settings extracted, baseline published
+- ✅ Phase 2: Cross-machine drift comparison completed
+- ✅ Phase 3: CRITICAL drifts corrected
+- ✅ Scenarios A, B, C: All validated
+- ✅ Harmonisation pipeline operationalized end-to-end
 
 **Documentation:**
-- `docs/suivi/issue-543-harmonisation-report.md` - Complete Phase 1-2 tracking
-- `docs/suivi/issue-543-validation-framework.md` - Test framework for all scenarios
-- `docs/suivi/issue-543-scenario-a-report.md` - Scenario A test execution report
+- `docs/suivi/issue-543-harmonisation-report.md` - Complete tracking
+- `docs/suivi/issue-543-validation-framework.md` - Test framework
+- `docs/suivi/issue-543-scenario-a-report.md` - Scenario A report
 
-**Key Finding:** Harmonisation pipeline works end-to-end. Drift detection is reliable (< 1 second), settings modifications are reversible with automatic backups.
+### Issue #545: Roo Complex Mode Graduation (CLOSED ✅)
+
+**Status:** Issue closed - Complex mode graduation validated
+
+**Completed:**
+- ✅ Phase 1: Tasks assigned and executed
+- ✅ Phase 2: Escalation observed and validated
+- ✅ Complex modes proven capable of real work
+- ✅ Documentation updated in `.claude/rules/scheduler-densification.md`
+
+**Archived:** `.claude/memory/archive/issue-545-escalation-observation-plan.md`
+
+### Memory Files Archived (Cycle 49)
+- ✅ `.claude/memory/archive/issue-545-escalation-observation-plan.md` (Plan obsolète, issue fermée)
+- ✅ `.claude/memory/archive/SONNET_4.6_RELEASE.md` (Info ponctuelle)
+
+### Active Issues
+| Issue | Title | Scope | Status |
+|-------|-------|-------|--------|
+| #544 | Automated Quality Pipeline | ai-01 first | Todo |
+| #556 | Memory Redistribution & Rules Audit | All machines | In Progress |
 
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
