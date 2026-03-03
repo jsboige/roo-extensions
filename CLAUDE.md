@@ -328,5 +328,5 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
-**Derniere mise a jour :** 2026-02-21
+**Derniere mise a jour :** 2026-03-03
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01
