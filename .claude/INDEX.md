@@ -1,6 +1,6 @@
 # Claude Code Workspace - Documentation Index
 
-**Last Updated:** 2026-02-26
+**Last Updated:** 2026-03-03
 **Workspace:** roo-extensions (RooSync Multi-Agent System)
 
 ---
@@ -11,8 +11,8 @@
 - **[CLAUDE.md](../CLAUDE.md)** - Main guide for Claude Code agents (READ THIS FIRST)
 
 ### For Claude Code Agents
-- **[CLAUDE_CODE_GUIDE.md](CLAUDE_CODE_GUIDE.md)** - Complete agent guide (Bootstrap + SDDD Phases)
 - **[INTERCOM_PROTOCOL.md](INTERCOM_PROTOCOL.md)** - Local communication protocol (Claude Code ↔ Roo)
+- ~~CLAUDE_CODE_GUIDE.md~~ - Archivé 2026-03-03 (#553), remplacé par CLAUDE.md + rules/
 - **[../CLAUDE.md § Feedback](../CLAUDE.md#4-processus-de-feedback-et-amélioration-continue)** - Workflow improvement process (collective feedback via RooSync)
 
 ### Configuration & Deployment
@@ -95,6 +95,27 @@
 - ~~quickfiles~~ → Native Read/Write/Edit (CONS-1)
 
 See [MCP_SETUP.md](MCP_SETUP.md) for details.
+
+---
+
+## 📐 Auto-Loaded Rules (`.claude/rules/`)
+
+| Règle | Description |
+|-------|-------------|
+| [agents-architecture.md](rules/agents-architecture.md) | Architecture 12 subagents, 6 skills, 4 commands |
+| [bash-fallback.md](rules/bash-fallback.md) | Mitigation issue #488 - Bash silencieux |
+| [condensation-thresholds.md](rules/condensation-thresholds.md) | Seuils GLM-5 (80% min) - issue #502 |
+| [feedback-process.md](rules/feedback-process.md) | Workflow amélioration continue |
+| [github-checklists.md](rules/github-checklists.md) | Checklists obligatoires issues |
+| [github-cli.md](rules/github-cli.md) | Migration MCP → gh CLI |
+| [mcp-discoverability.md](rules/mcp-discoverability.md) | Patterns découverte MCP |
+| [myia-web1-constraints.md](rules/myia-web1-constraints.md) | Contraintes RAM 2GB web1 |
+| [scheduler-densification.md](rules/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
+| [scheduler-system.md](rules/scheduler-system.md) | Référence technique scheduler |
+| [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding |
+| [testing.md](rules/testing.md) | Commandes test (`npx vitest run`) |
+| [tool-availability.md](rules/tool-availability.md) | STOP & REPAIR protocole |
+| [validation-checklist.md](rules/validation-checklist.md) | Checklist consolidation/refactoring |
 
 ---
 

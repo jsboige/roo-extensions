@@ -1,5 +1,14 @@
 # Claude Code Guide - RooSync Multi-Agent Coordination
 
+<!--
+================================================================================
+ARCHIVED: 2026-03-03
+Reason: Document obsolète - références 5 machines (6 actuellement), phases datées
+Superseded by: CLAUDE.md (racine) + .claude/rules/ (règles auto-chargées)
+Issue: #553 - Docs Audit Mars 2026
+================================================================================
+-->
+
 **Version:** 2.0 (Consolidée)
 **Date:** 2026-01-05
 **Pour:** Agents Claude Code sur les 5 machines RooSync
