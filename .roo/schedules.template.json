@@ -4,7 +4,7 @@
       "id": "TEMPLATE_ID",
       "name": "Claude-Code Assistant",
       "mode": "orchestrator-simple",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME}.\n\nPREMIERE ACTION OBLIGATOIRE : Lis le fichier `.roo/${WORKFLOW_FILE}` avec l'outil read_file.\nCe fichier contient le workflow complet que tu dois suivre.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-${MACHINE_NAME}.md`\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME}.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/${WORKFLOW_FILE}` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-${MACHINE_NAME}.md` - delegue sa lecture a ask-simple.\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
       "timeInterval": "180",
       "timeUnit": "minute",
