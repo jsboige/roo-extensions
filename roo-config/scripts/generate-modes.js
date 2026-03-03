@@ -4,7 +4,14 @@
  *
  * Reads:  roo-config/modes/modes-config.json (data)
  *         roo-config/modes/templates/commons/mode-instructions.md (template)
+ *         roo-config/model-configs.json (optional, for --profile)
  * Writes: roo-config/modes/generated/simple-complex.roomodes
+ *
+ * Options:
+ *   --output <path>      Output file path (default: simple-complex.roomodes)
+ *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode)
+ *   --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)
+ *   --deploy             Also copy to .roomodes at project root
  */
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +20,7 @@ const ROOT = path.resolve(__dirname, '..', '..');
 const CONFIG_PATH = path.join(ROOT, 'roo-config', 'modes', 'modes-config.json');
 const TEMPLATE_PATH = path.join(ROOT, 'roo-config', 'modes', 'templates', 'commons', 'mode-instructions.md');
 const DEFAULT_OUTPUT = path.join(ROOT, 'roo-config', 'modes', 'generated', 'simple-complex.roomodes');
+const DEFAULT_MODEL_CONFIGS = path.join(ROOT, 'roo-config', 'model-configs.json');
 
 // --- Template Engine ---
 
@@ -47,17 +55,64 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// --- CLI Argument Parsing ---
+
+function parseArgs() {
+  var args = {
+    output: DEFAULT_OUTPUT,
+    profile: null,
+    modelConfigs: DEFAULT_MODEL_CONFIGS,
+    deploy: false
+  };
+
+  for (var i = 2; i < process.argv.length; i++) {
+    if (process.argv[i] === '--output' && i + 1 < process.argv.length) {
+      args.output = process.argv[++i];
+    } else if (process.argv[i] === '--profile' && i + 1 < process.argv.length) {
+      args.profile = process.argv[++i];
+    } else if (process.argv[i] === '--model-configs' && i + 1 < process.argv.length) {
+      args.modelConfigs = process.argv[++i];
+    } else if (process.argv[i] === '--deploy') {
+      args.deploy = true;
+    }
+  }
+
+  return args;
+}
+
 // --- Main ---
 
 function main() {
-  var outputArg = process.argv.indexOf('--output');
-  var outputPath = outputArg >= 0 ? process.argv[outputArg + 1] : DEFAULT_OUTPUT;
+  var args = parseArgs();
 
   // Load config and template
   var config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'));
   var template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
 
-  console.log('Generating modes from config + template...\n');
+  // Load model-configs if profile specified
+  var modeApiConfigs = null;
+  if (args.profile) {
+    console.log('Loading profile: ' + args.profile);
+    try {
+      var modelConfigsData = JSON.parse(fs.readFileSync(args.modelConfigs, 'utf8'));
+      var profile = modelConfigsData.profiles.find(function(p) { return p.name === args.profile; });
+      if (!profile) {
+        console.error('ERROR: Profile "' + args.profile + '" not found in ' + args.modelConfigs);
+        console.error('Available profiles: ' + modelConfigsData.profiles.map(function(p) { return p.name; }).join(', '));
+        process.exit(1);
+      }
+      console.log('Profile found: ' + profile.name);
+      console.log('Description: ' + (profile.description || 'N/A'));
+      // modeApiConfigs comes from profile.modeOverrides
+      modeApiConfigs = profile.modeOverrides || {};
+      console.log('Mode overrides: ' + Object.keys(modeApiConfigs).length + ' modes');
+    } catch (e) {
+      console.error('ERROR: Failed to load model-configs.json: ' + e.message);
+      process.exit(1);
+    }
+  }
+
+  console.log('\nGenerating modes from config + template...\n');
 
   var modes = [];
 
@@ -102,6 +157,14 @@ function main() {
         customInstructions: customInstructions,
       };
 
+      // Add apiConfigId if profile is specified
+      if (modeApiConfigs) {
+        var apiConfigId = modeApiConfigs[mode.slug];
+        if (apiConfigId) {
+          mode.apiConfigId = apiConfigId;
+          console.log('    -> apiConfigId: ' + apiConfigId);
+        }
+      }
       console.log('  ' + mode.slug.padEnd(24) + ' ' + customInstructions.length + ' chars');
       modes.push(mode);
     }
@@ -110,17 +173,27 @@ function main() {
   var output = { customModes: modes };
 
   // Ensure output directory
-  var outputDir = path.dirname(outputPath);
+  var outputDir = path.dirname(args.output);
   if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(outputPath, JSON.stringify(output, null, 2), 'utf8');
+  fs.writeFileSync(args.output, JSON.stringify(output, null, 2), 'utf8');
 
   var totalKB = (Buffer.byteLength(JSON.stringify(output, null, 2), 'utf8') / 1024).toFixed(1);
   console.log('\nGenerated ' + modes.length + ' modes (' + Object.keys(config.families).length + ' families x 2 levels)');
+  if (args.profile) {
+    console.log('With profile: ' + args.profile);
+  }
   console.log('Total size: ' + totalKB + ' KB');
-  console.log('Output: ' + outputPath);
+  console.log('Output: ' + args.output);
+
+  // Deploy to .roomodes if requested
+  if (args.deploy) {
+    var roomodesPath = path.join(ROOT, '.roomodes');
+    fs.copyFileSync(args.output, roomodesPath);
+    console.log('Deployed to: ' + roomodesPath);
+  }
 }
 
 main();
