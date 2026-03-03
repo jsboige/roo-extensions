@@ -270,7 +270,7 @@ mcps/
 1. **Git log** = source de verite technique
 2. **GitHub Issues** = suivi taches et bugs
 3. **RooSync** = messages urgents inter-machines
-4. **SUIVI_ACTIF.md** = resume minimal
+4. **DASHBOARD.md** = dashboard hiérarchique (remplace SUIVI_ACTIF.md depuis #546)
 
 ---
 
