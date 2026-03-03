@@ -37,6 +37,20 @@ npm run test
 npx vitest  # sans "run"
 ```
 
+## Machines à RAM limitée (2GB)
+
+Sur les machines avec 2GB RAM (ex: myia-web1), les tests échouent avec "JavaScript heap out of memory".
+
+```bash
+# TOUJOURS utiliser --maxWorkers=1 sur machines 2GB
+npx vitest run --maxWorkers=1
+
+# Si échec persistant, ajouter --no-coverage
+npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
+```
+
+Taux de succès attendu : 99.6% (quelques tests skipped pour dépendances manquantes).
+
 ## Localisation des tests
 
 Les tests unitaires sont dans :

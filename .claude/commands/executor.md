@@ -40,6 +40,8 @@ Execute ces actions automatiquement, en parallele quand possible :
 hostname
 git log --oneline -5
 git fetch origin && git pull origin main
+# Verifier submodule mcps/internal (evite merge conflicts)
+cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | head -5 && cd ../..
 ```
 
 Puis (en parallele) :

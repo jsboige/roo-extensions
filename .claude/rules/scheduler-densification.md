@@ -42,6 +42,7 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 | Taux succès `-complex` | > 80% | Si < 70% : reprendre tâches échouées |
 | Taux remplissage cycle | > 70% | Si < 50% : chercher plus de tâches |
 | Escalades appropriées | 70-85% | Si < 50% : trop conservateur, si > 90% : trop agressif |
+| Silence scheduler | < 48h | Si > 7 jours : vérifier que VS Code est lancé régulièrement |
 
 ## ⚠️ Interprétation Nuancée (CRITIQUE)
 
