@@ -9,6 +9,19 @@
 
 ---
 
+## ⚠️ CRITICAL: STOP & REPAIR Protocol
+
+**Si les outils MCP critiques (roo-state-manager, win-cli) sont absents des system-reminders au demarrage :**
+
+1. **STOP IMMEDIAT** - Ne pas continuer en mode dégradé
+2. **DIAGNOSTIC** - Vérifier la config MCP (`roosync_mcp_management`)
+3. **RÉPARER** - Corriger config si possible
+4. **ESCALADER** - Envoyer message RooSync URGENT au coordinateur si non réparable
+
+**Protocole complet :** [`.claude/rules/tool-availability.md`](rules/tool-availability.md)
+
+---
+
 ## 🎯 Objective
 
 Enable Claude Code agents on all 6 machines to use GitHub Projects API for task tracking and coordination.
