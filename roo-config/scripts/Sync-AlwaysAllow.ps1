@@ -124,13 +124,15 @@ $changes = @()
 # Synchronize alwaysAllow for each MCP server from reference
 foreach ($serverName in $referenceConfig.mcpServers.PSObject.Properties.Name) {
     $referenceServer = $referenceConfig.mcpServers.$serverName
-    $referenceTools = @($referenceServer.alwaysAllow)
+    $referenceTools = @($referenceServer.alwaysAllow | Where-Object { $_ -ne $null })
 
+    # Skip servers not present in mcp_settings.json (#552)
     if (-not $rooSettings.mcpServers.$serverName) {
-        $rooSettings.mcpServers.$serverName = @{}
+        Write-Host "⏭ $serverName not in mcp_settings.json - skipping (won't create phantom entry)" -ForegroundColor Yellow
+        continue
     }
 
-    $existingTools = @($rooSettings.mcpServers.$serverName.alwaysAllow)
+    $existingTools = @($rooSettings.mcpServers.$serverName.alwaysAllow | Where-Object { $_ -ne $null })
 
     # Compare tool lists
     $missingTools = $referenceTools | Where-Object { $_ -notin $existingTools }
@@ -155,8 +157,10 @@ foreach ($serverName in $referenceConfig.mcpServers.PSObject.Properties.Name) {
                 Write-Host "  Remove ($($extraTools.Count)): $($extraTools -join ', ')"
             }
         } else {
-            # Synchronize alwaysAllow
-            if ($Force -or -not $rooSettings.mcpServers.$serverName.alwaysAllow) {
+            # Synchronize alwaysAllow - skip if reference tools list is empty (#552)
+            if ($referenceTools.Count -eq 0) {
+                Write-Host "⏭ $serverName has empty reference tools list - skipping" -ForegroundColor Yellow
+            } elseif ($Force -or -not $rooSettings.mcpServers.$serverName.alwaysAllow) {
                 $rooSettings.mcpServers.$serverName.alwaysAllow = [array]$referenceTools
                 Write-Host "✓ Updated $serverName : $($existingTools.Count) → $($referenceTools.Count) tools" -ForegroundColor Green
             } else {
@@ -190,6 +194,25 @@ if ($Backup -and (Test-Path $rooMcpSettingsPath)) {
     $backupPath = "$rooMcpSettingsPath.backup.$timestamp"
     Copy-Item $rooMcpSettingsPath $backupPath -Force
     Write-Host "✓ Backup created: $backupPath" -ForegroundColor Green
+}
+
+# Cleanup: Remove empty autoApprove fields from all servers (#552)
+# The autoApprove field is legacy - alwaysAllow is the canonical field.
+# Empty autoApprove arrays cause "Format de paramètres MCP invalide" errors in VS Code.
+$cleanedServers = 0
+foreach ($sName in @($rooSettings.mcpServers.Keys)) {
+    $server = $rooSettings.mcpServers[$sName]
+    if ($server.ContainsKey('autoApprove')) {
+        $autoApproveValue = $server['autoApprove']
+        if ($null -eq $autoApproveValue -or @($autoApproveValue | Where-Object { $_ -ne $null }).Count -eq 0) {
+            $server.Remove('autoApprove')
+            $cleanedServers++
+            Write-Host "  Cleaned empty autoApprove from: $sName" -ForegroundColor DarkYellow
+        }
+    }
+}
+if ($cleanedServers -gt 0) {
+    Write-Host "✓ Removed $cleanedServers empty autoApprove field(s)" -ForegroundColor Green
 }
 
 # Write updated Roo settings
