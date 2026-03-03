@@ -1,16 +1,17 @@
 # MCP Configuration for Claude Code Agents
 
-**Date:** 2026-02-15 (Updated)
+**Date:** 2026-03-03 (Updated)
 **Purpose:** Configure roo-state-manager MCP for Claude Code multi-agent coordination
 **Status:** ✅ **VERIFIED WORKING on all 6 machines**
 
 > ⚠️ **Note:** github-projects-mcp is **DEPRECATED** (#368). Use `gh` CLI for GitHub operations. See `.claude/rules/github-cli.md`.
+> 🛑 **CRITICAL:** If MCPs are unavailable at startup → **STOP & REPAIR** (see [`.claude/rules/tool-availability.md`](rules/tool-availability.md))
 
 ---
 
 ## 🎯 Objective
 
-Enable Claude Code agents on all 5 machines to use GitHub Projects API for task tracking and coordination.
+Enable Claude Code agents on all 6 machines to use GitHub Projects API for task tracking and coordination.
 
 ---
 
@@ -56,7 +57,7 @@ Then restart Claude Code to activate MCP.
 
 ---
 
-## ✅ Current Status (2026-02-15)
+## ✅ Current Status (2026-03-03)
 
 ### All 6 Machines Operational
 
@@ -391,5 +392,5 @@ Once MCP is verified working on your machine:
 
 ---
 
-**Last Updated:** 2026-02-15
+**Last Updated:** 2026-03-03
 **For questions:** Create GitHub issue or contact myia-ai-01 coordinator
