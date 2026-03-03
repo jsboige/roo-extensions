@@ -82,6 +82,7 @@ config/mcp_settings.json
 *~
 *.bak
 *.backup
+*.backup_*
 sync-config.ref.json.backup.*
 
 # Fichiers spécifiques à Roo
