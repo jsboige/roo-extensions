@@ -683,10 +683,10 @@ function Test-WaitStateReady {
                     return $State
                 }
             }
-            "github_decision|github decision|github_status|github status" {
-                Write-Log "  Vérification GitHub decision (issue status)..."
+            "github_decision|github decision|github_status|github status|github_comment|github comment" {
+                Write-Log "  Vérification GitHub decision/comment (issue status)..."
                 if (Test-GitHubDecision -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ GitHub decision détectée - reprise autorisée"
+                    Write-Log "✅ GitHub decision/comment détectée - reprise autorisée"
                     return $State
                 }
             }
@@ -837,7 +837,7 @@ function Test-GitHubDecision {
         }
 
         # Vérifier commentaires récents avec approval
-        $ApprovalPatterns = @('approve', 'go ahead', 'proceed', 'continue', 'done')
+        $ApprovalPatterns = @('approve', 'go ahead', 'proceed', 'continue', 'done', 'confirmed', 'validated', 'tested', 'ok', 'lgtm')
         foreach ($Comment in $Issue.comments) {
             $CommentTimestamp = [DateTime]::Parse($Comment.createdAt)
             if ($CommentTimestamp -gt $SavedTimestamp) {
