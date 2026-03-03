@@ -90,7 +90,7 @@ Updated via git commits. Each agent should read this at session start.
 
 ## Current State (2026-03-03)
 
-**Phase**: MAINTENANCE CYCLE 49 (Issue #556 Active)
+**Phase**: MAINTENANCE CYCLE 50 (Issue #556 Active)
 **Tests**: 6945 PASS, 19 skipped, 1 failed | **Tools**: 36 | **GitHub #67**: Progression continue
 
 ### Issue #543: Settings Harmonisation Pipeline (COMPLETE ✅)
@@ -105,9 +105,8 @@ Updated via git commits. Each agent should read this at session start.
 - ✅ Harmonisation pipeline operationalized end-to-end
 
 **Documentation:**
-- `docs/suivi/issue-543-harmonisation-report.md` - Complete tracking
-- `docs/suivi/issue-543-validation-framework.md` - Test framework
-- `docs/suivi/issue-543-scenario-a-report.md` - Scenario A report
+- `docs/suivi/issue-543-final-report.md` - Consolidated final report
+- Original phase reports archived to `docs/archives/2026-03-03-issue553-phase2/`
 
 ### Issue #545: Roo Complex Mode Graduation (CLOSED ✅)
 
@@ -177,9 +176,11 @@ Updated via git commits. Each agent should read this at session start.
 - **Settings extract**: `python scripts/roo-settings/roo-settings-manager.py extract` → 78 keys from state.vscdb
 - **Sprint #543**: Cross-machine harmonization campaign (all 6 machines)
 
-### Strategic Directives (Active)
+### Strategic Directives
 | Issue | Title | Scope | Status |
 |-------|-------|-------|--------|
-| #543 | Settings & Config-Sync Harmonization | All machines | Phase 1 extraction |
-| #544 | Automated Quality Pipeline | ai-01 first | Todo |
-| #545 | Roo Complex Mode Graduation | All machines | Phase 1 task assigned |
+| #543 | Settings & Config-Sync Harmonization | All machines | **CLOSED** ✅ |
+| #544 | Automated Quality Pipeline | ai-01 first | In Progress (platform bug) |
+| #545 | Roo Complex Mode Graduation | All machines | **CLOSED** ✅ |
+| #555 | GLM-5 Condensation Parameters | All machines | 5/6 verified (web1 pending) |
+| #556 | Memory Redistribution & Rules Audit | All machines | In Progress |
