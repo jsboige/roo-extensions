@@ -110,12 +110,14 @@ function Install-Task {
     Write-Status ""
 
     # Build arguments for start-claude-worker.ps1
+    # -UseWorktree $true enables #461 worktree/PR workflow (default since Phase 1)
     $workerArgs = @(
         "-ExecutionPolicy", "Bypass",
         "-File", "`"$WorkerScript`"",
         "-Mode", $Mode,
         "-Model", $Model,
         "-MaxIterations", $MaxIterations,
+        "-UseWorktree", "`$true",
         "-NoFallback"
     )
     $arguments = $workerArgs -join " "

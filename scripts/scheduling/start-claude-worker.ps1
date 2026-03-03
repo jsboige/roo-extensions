@@ -50,7 +50,7 @@
 param(
     [string]$Mode,
     [string]$TaskId,
-    [switch]$UseWorktree = $false,
+    [bool]$UseWorktree = $true,
     [int]$MaxIterations = 0,
     [string]$Model,
     [string]$Prompt,
@@ -1137,26 +1137,60 @@ function Get-AdjustedIterations {
 }
 
 function Create-Worktree {
-    param([string]$TaskId)
+    param([string]$TaskId, $Task)
 
     if (-not $UseWorktree) {
         Write-Log "Worktree désactivé, travail sur branche principale"
         return $null
     }
 
-    $WorktreeName = "claude-worker-$TaskId"
-    $WorktreePath = Join-Path $RepoRoot ".worktrees\$WorktreeName"
+    # Extract issue number from task subject for cleaner branch names
+    $IssueNum = $null
+    if ($Task -and $Task.subject -match '#(\d+)') { $IssueNum = $Matches[1] }
 
-    Write-Log "Création worktree: $WorktreePath"
+    # Branch naming: wt/{issue}-{machine}-{date} or wt/worker-{machine}-{date}
+    $Machine = $env:COMPUTERNAME.ToLower()
+    $DateStamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $BranchName = if ($IssueNum) {
+        "wt/$IssueNum-$Machine-$DateStamp"
+    } else {
+        "wt/worker-$Machine-$DateStamp"
+    }
+
+    # Use .claude/worktrees/ (already in .gitignore)
+    $WorktreeDir = Join-Path $RepoRoot ".claude\worktrees"
+    if (-not (Test-Path $WorktreeDir)) {
+        New-Item -ItemType Directory -Path $WorktreeDir -Force | Out-Null
+    }
+    $WorktreePath = Join-Path $WorktreeDir $BranchName.Replace("/", "-")
+
+    Write-Log "Création worktree: $WorktreePath (branch: $BranchName)"
 
     try {
-        # Créer worktree
-        git worktree add $WorktreePath -b $WorktreeName 2>&1 | ForEach-Object { Write-Log $_ "GIT" }
+        # Ensure we're on latest main before branching
+        # Note: git sends info messages to stderr; temporarily allow errors
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
 
-        Write-Log "Worktree créé avec succès"
+        git -C $RepoRoot fetch origin main --quiet 2>&1 | Out-Null
+
+        # Créer worktree with new branch from current HEAD
+        $wtOutput = git -C $RepoRoot worktree add $WorktreePath -b $BranchName 2>&1
+        $wtExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevPref
+
+        $wtOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
+        if ($wtExitCode -ne 0) {
+            Write-Log "git worktree add failed (exit $wtExitCode)" "ERROR"
+            return $null
+        }
+
+        Write-Log "Worktree créé avec succès (branch: $BranchName)"
         return $WorktreePath
     }
     catch {
+        $ErrorActionPreference = $prevPref
         Write-Log "Erreur création worktree: $_" "ERROR"
         return $null
     }
@@ -1172,11 +1206,191 @@ function Remove-Worktree {
     Write-Log "Suppression worktree: $WorktreePath"
 
     try {
-        git worktree remove $WorktreePath --force 2>&1 | ForEach-Object { Write-Log $_ "GIT" }
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+        $ErrorActionPreference = $prevPref
+        $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
         Write-Log "Worktree supprimé"
     }
     catch {
+        $ErrorActionPreference = $prevPref
         Write-Log "Erreur suppression worktree: $_" "WARN"
+    }
+}
+
+# ============================================================================
+# Worktree → PR Workflow (#461 Phase 1)
+# ============================================================================
+
+function Test-WorktreeHasChanges {
+    <#
+    .SYNOPSIS
+    Checks if the worktree branch has changes relative to main.
+    Auto-commits any uncommitted changes before checking.
+    #>
+    param([string]$WorktreePath)
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Auto-commit any uncommitted changes left by Claude
+        $Uncommitted = (git status --porcelain 2>&1) | Where-Object { $_ -is [string] }
+        if ($Uncommitted) {
+            Write-Log "Worktree has uncommitted changes, auto-committing..." "INFO"
+            git add -A 2>&1 | Out-Null
+            $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+            git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+        }
+
+        # Check if branch has commits ahead of main
+        $Ahead = (git rev-list main..HEAD --count 2>&1).Trim()
+        $ErrorActionPreference = $prevPref
+        $HasChanges = ([int]$Ahead) -gt 0
+
+        Write-Log "Worktree commits ahead of main: $Ahead"
+        return $HasChanges
+    }
+    catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "Error checking worktree changes: $_" "WARN"
+        return $false
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function Push-WorktreeBranch {
+    <#
+    .SYNOPSIS
+    Pushes the worktree branch to origin.
+    #>
+    param([string]$WorktreePath)
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Get current branch name
+        $BranchName = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
+        Write-Log "Pushing branch: $BranchName"
+
+        $pushOutput = git push -u origin $BranchName 2>&1
+        $pushExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevPref
+
+        $pushOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
+        if ($pushExitCode -ne 0) {
+            Write-Log "Push failed (exit $pushExitCode)" "ERROR"
+            return $false
+        }
+
+        Write-Log "Branch pushed successfully"
+        return $true
+    }
+    catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "Error pushing branch: $_" "ERROR"
+        return $false
+    }
+    finally {
+        Pop-Location
+    }
+}
+
+function New-WorkerPR {
+    <#
+    .SYNOPSIS
+    Creates a GitHub Pull Request from the worktree branch.
+
+    .DESCRIPTION
+    After Claude Worker completes its task in a worktree, this function
+    creates a PR targeting main for review by the coordinator.
+    Part of #461 Phase 1 - worktree/PR protocol.
+
+    .OUTPUTS
+    String - PR URL if created successfully, $null otherwise
+    #>
+    param(
+        $Task,
+        [string]$WorktreePath,
+        $Result,
+        [string]$FinalMode
+    )
+
+    try {
+        Push-Location $WorktreePath
+
+        # Extract issue number from task subject
+        $IssueNum = $null
+        if ($Task.subject -match '#(\d+)') { $IssueNum = $Matches[1] }
+
+        # Count commits for summary
+        $CommitCount = (git rev-list main..HEAD --count 2>&1).Trim()
+        $CommitLog = (git log main..HEAD --oneline 2>&1) -join "`n"
+
+        # PR title (max 70 chars)
+        $CleanSubject = $Task.subject -replace '^\[TASK\]\s*', '' -replace '^\[URGENT\]\s*', ''
+        $Title = "[Worker] $CleanSubject"
+        if ($Title.Length -gt 70) { $Title = $Title.Substring(0, 67) + "..." }
+
+        # PR body
+        $IssueRef = if ($IssueNum) { "`nRelates to #$IssueNum" } else { "" }
+        $StatusText = if ($Result.success) { "Success" } else { "Partial (needs review)" }
+        $Body = @"
+## Summary
+- **Machine:** $($env:COMPUTERNAME)
+- **Task:** $($Task.id)
+- **Mode:** $FinalMode
+- **Status:** $StatusText
+- **Commits:** $CommitCount
+
+### Commits
+``````
+$CommitLog
+``````
+
+## Test plan
+- [ ] Build passes (``npm run build``)
+- [ ] Tests pass (``npx vitest run``)
+- [ ] Code review by coordinator
+$IssueRef
+
+Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
+"@
+
+        # Write body to temp file (avoid PS argument splitting issues)
+        $BodyFile = Join-Path $env:TEMP "pr-body-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+        [System.IO.File]::WriteAllText($BodyFile, $Body, [System.Text.UTF8Encoding]::new($false))
+
+        Write-Log "Creating PR: $Title"
+        $PrOutput = & gh pr create --title $Title --body-file $BodyFile --repo jsboige/roo-extensions --base main 2>&1
+        $PrExitCode = $LASTEXITCODE
+        Remove-Item $BodyFile -ErrorAction SilentlyContinue
+
+        if ($PrExitCode -ne 0) {
+            Write-Log "PR creation failed (exit $PrExitCode): $PrOutput" "ERROR"
+            return $null
+        }
+
+        # Extract PR URL from output
+        $PrUrl = ($PrOutput | Where-Object { $_ -match 'https://github.com' }) | Select-Object -First 1
+        if (-not $PrUrl) { $PrUrl = ($PrOutput -join " ").Trim() }
+
+        Write-Log "PR created: $PrUrl" "INFO"
+        return $PrUrl
+    }
+    catch {
+        Write-Log "Error creating PR: $_" "ERROR"
+        return $null
+    }
+    finally {
+        Pop-Location
     }
 }
 
@@ -1796,9 +2010,9 @@ try {
     $Urgency = Get-DeadlineUrgency -Task $Task
     $AdjustedIterations = Get-AdjustedIterations -Urgency $Urgency -BaseIterations $MaxIterations -ModeId $SelectedMode
 
-    # 3. Créer worktree (optionnel)
+    # 3. Créer worktree (#461 Phase 1 - default ON for scheduled tasks)
     $WorktreePath = if ($UseWorktree) {
-        Create-Worktree -TaskId $Task.id
+        Create-Worktree -TaskId $Task.id -Task $Task
     } else {
         $RepoRoot
     }
@@ -1870,19 +2084,42 @@ try {
 
     # 6b. Nettoyer wait state si c'était une reprise réussie
     if ($IsResume -and $Result.success) {
-        Write-Log "🗑️ Nettoyage wait state après reprise réussie"
+        Write-Log "Nettoyage wait state après reprise réussie"
         Remove-WaitState -TaskId $Task.id
+    }
+
+    # 6c. Worktree → PR workflow (#461 Phase 1)
+    $PrUrl = $null
+    if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
+        $HasChanges = Test-WorktreeHasChanges -WorktreePath $WorktreePath
+
+        if ($HasChanges) {
+            Write-Log "Worktree has changes, creating PR..." "INFO"
+            $PushOk = Push-WorktreeBranch -WorktreePath $WorktreePath
+            if ($PushOk) {
+                $PrUrl = New-WorkerPR -Task $Task -WorktreePath $WorktreePath -Result $Result -FinalMode $SelectedMode
+                if ($PrUrl) {
+                    Write-Log "PR created successfully: $PrUrl" "INFO"
+                } else {
+                    Write-Log "PR creation failed, changes are on remote branch" "WARN"
+                }
+            } else {
+                Write-Log "Branch push failed, changes remain in local worktree only" "WARN"
+            }
+        } else {
+            Write-Log "No changes in worktree, skipping PR creation"
+        }
     }
 
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
     Mark-TaskAsComplete -Task $Task
 
-    # 7. Cleanup worktree
+    # 8. Cleanup worktree (safe to remove after push - branch exists on origin)
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
         Remove-Worktree -WorktreePath $WorktreePath
     }
 
-    Write-Log "=== WORKER TERMINÉ ==="
+    Write-Log "=== WORKER TERMINÉ $(if ($PrUrl) { "(PR: $PrUrl)" }) ==="
 
     if ($Result.success) {
         exit 0
