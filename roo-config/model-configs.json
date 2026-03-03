@@ -67,6 +67,7 @@
     "Profil 'simple': Qwen 3.5 35B A3B sur endpoint medium tgwui",
     "Profil 'default': GLM-5 via z.ai subscription",
     "Contexte GLM-5: ~131k tokens réel (200k annoncé inclut output)",
-    "Seuil condensation recommandé: 80% pour éviter boucle infinie"
+    "Seuil condensation recommandé: 80% pour éviter boucle infinie",
+    "Profil 'Production (Qwen 3.5 local + GLM-5 cloud)' appliqué le 2026-03-03"
   ]
 }
