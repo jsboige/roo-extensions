@@ -72,3 +72,49 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 - Commands : `/coordinate` (myia-ai-01), `/executor` (autres machines)
 - Workflow Roo : `.roo/scheduler-workflow-executor.md`
 - Traces : `task_browse(action: "tree")` + `view_conversation_tree()`
+
+---
+
+## Issue #545 - Graduation vers modes Complex
+
+**Contexte (2026-03-03):** Le scheduler Roo n'a jamais dépassé le niveau `-simple` car les tâches assignées étaient trop simples.
+
+**Objectif :** Prouver que Roo peut compléter des tâches `-complex` avec résultats concrets.
+
+### Tâches de Complexité Moyenne
+
+Pour tester l'escalade, utiliser des tâches INTERCOM avec le tag `[COMPLEX]` :
+
+**Type A - Investigation + rapport :**
+- Recherche sémantique multi-sources
+- Analyse de données multi-fichiers
+- Synthèse de conclusions
+
+**Type B - Modification de code guidée :**
+- Lecture de plusieurs fichiers
+- Modification coordonnée (2-5 fichiers)
+- Validation sans commit
+
+**Type C - Diagnostic cross-système :**
+- Comparaison de workflows/fichiers
+- Identification d'incohérences
+- Rapport structuré
+
+### Déclenchement d'Escalade
+
+| Situation | Action |
+|-----------|--------|
+| `[TASK]` avec tag `[COMPLEX]` | Escalade vers orchestrator-complex (démarrage direct) |
+| Échec 1x en -simple | Réessayer avec instructions corrigées |
+| Échec 2x en -simple | Escalade vers -complex |
+| 3+ actions ou dépendances | Escalade vers orchestrator-complex |
+
+### Métriques de Validation
+
+| Métrique | Méthode | Cible |
+|----------|---------|-------|
+| Escalades observées | Traces Roo ui_messages.json | ≥ 1 |
+| Succès après escalade | INTERCOM + traces | > 80% |
+| Résultats exploitables | Analyse humaine | 3/3 tâches |
+
+**Documentation complète :** `.claude/memory/issue-545-escalation-observation-plan.md`

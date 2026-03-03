@@ -175,7 +175,7 @@ Rapporter : etat git + liste des taches trouvees (avec workspace si spécifié).
 **Decision :**
 - Si git pull a ECHOUE (submodule error, conflict) : aller DIRECTEMENT a **Etape 3** avec rapport d'erreur. Ne PAS executer de taches sur un workspace desynchronise.
 - Si `[URGENT]` : escalader vers `orchestrator-complex`
-- Si `[TASK]` trouve avec tag `[COMPLEX]` ET date < 24h : **escalader vers orchestrator-complex** (démarrage direct en mode complex)
+- Si `[TASK]` trouve avec tag `[COMPLEX]` ET date < 24h : **escalader vers orchestrator-complex** (démarrage direct en mode complex, voir **Etape 2a-complex** ci-dessous)
 - Si `[TASK]` trouve ET date < 24h : aller a **Etape 2a**
 - Si `[TASK]` trouve MAIS date > 24h : IGNORER (tache perimee, noter dans le bilan)
 - Si `[FEEDBACK]` recent de Claude : noter les ajustements
@@ -244,6 +244,44 @@ Avant d'executer, verifier que :
 - Si workspace inexistant : rapporter erreur dans INTERCOM + marquer tache FAIL
 - Si workspace non Git : noter dans bilan mais continuer avec les commandes possibles
 - Apres execution : TOUJOURS revenir au workspace principal
+
+Apres execution → **Etape 3**
+
+### Etape 2a-complex : Tâches [COMPLEX] (démarrage direct en mode complex)
+
+> **Nouveau (2026-03-03) :** Pour les tâches étiquetées `[COMPLEX]`, démarrer directement en mode -complex pour prouver que Roo peut gérer des tâches de complexité moyenne. Voir Issue #545.
+
+**Delegation directe a orchestrator-complex :**
+
+```
+Deleguer cette tâche COMPLEXE a orchestrator-complex via new_task :
+- La tâche nécessite une réflexion supérieure (analyse multi-sources, coordination complexe)
+- NE PAS essayer en -simple (échec attendu)
+- Rapporter le resultat dans l'INTERCOM
+```
+
+**Exemple de delegation COMPLEX :**
+
+```javascript
+await new_task({
+  title: "Tâche COMPLEXE : Analyse patterns MCP",
+  instructions: `
+Cette tâche est étiquetée [COMPLEX] - démarrer directement en mode complex.
+
+1. Utiliser roosync_search pour trouver les tâches Roo récentes
+2. Analyser view_task_details pour 5 tâches
+3. Synthétiser les patterns d'utilisation des outils MCP
+4. Rédiger un rapport dans l'INTERCOM
+
+Ne PAS déléguer à code-simple (échec attendu sur ce type de tâche).
+  `
+});
+```
+
+**Critères de validation des tâches [COMPLEX] :**
+- Résultat visible dans l'INTERCOM
+- Preuve d'utilisation du mode -complex (traces, logs)
+- Qualité supérieure à ce que -simple aurait produit
 
 Apres execution → **Etape 3**
 
