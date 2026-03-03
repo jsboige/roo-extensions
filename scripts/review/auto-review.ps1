@@ -114,6 +114,10 @@ if ($BuildCheck) {
     if ($buildDir) {
         Push-Location $buildDir
         try {
+            # Temporarily allow stderr (npm/vitest write progress to stderr)
+            $prevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+
             # Build
             $buildOutput = & npm run build 2>&1 | Select-Object -Last 10
             $buildOk = ($LASTEXITCODE -eq 0)
@@ -121,6 +125,8 @@ if ($BuildCheck) {
             # Tests (maxWorkers=1 for low-RAM machines)
             $testOutput = & npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 20
             $testOk = ($LASTEXITCODE -eq 0)
+
+            $ErrorActionPreference = $prevPref
 
             # Extract test counts from output
             $testSummary = ($testOutput | Select-String -Pattern "Tests?\s+\d+" | Select-Object -Last 1)
@@ -130,6 +136,9 @@ if ($BuildCheck) {
                 testOk = $testOk
                 testSummary = if ($testSummary) { $testSummary.Line.Trim() } else { "unknown" }
             }
+        } catch {
+            $ErrorActionPreference = $prevPref
+            throw
         } finally {
             Pop-Location
         }

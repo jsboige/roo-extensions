@@ -1816,14 +1816,14 @@ function Invoke-GitSyncAndReview {
                         $reviewArgs += "HEAD~$commitCount"
                     }
 
-                    # Execute auto-review with build gate (timeout 120s to not block worker)
+                    # Execute auto-review with build gate (timeout 300s: build ~30s + tests ~90s + sk-agent ~60s)
                     $reviewJob = Start-Job -ScriptBlock {
                         param($script, $args)
                         & powershell -ExecutionPolicy Bypass -File $script @args
                     } -ArgumentList $reviewScript, $reviewArgs
 
-                    # Wait max 120s, then continue regardless
-                    $reviewCompleted = Wait-Job $reviewJob -Timeout 120
+                    # Wait max 300s, then continue regardless
+                    $reviewCompleted = Wait-Job $reviewJob -Timeout 300
                     if ($reviewCompleted) {
                         $reviewOutput = Receive-Job $reviewJob
                         Write-Log "Auto-review completed: $($reviewOutput | Select-Object -Last 1)" "INFO"
