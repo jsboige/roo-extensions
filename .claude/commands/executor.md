@@ -48,12 +48,21 @@ Puis (en parallele) :
 3. **RooSync** : `roosync_read` (mode: inbox, status: unread) - instructions du coordinateur
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
+**Détection proactive de condensation (INTERCOM) :**
+- Compter les lignes INTERCOM : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
+- **Alerte si > 300 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
+- **Critique si > 500 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
+- **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
+
+**Référence :** [`.claude/rules/condensation-thresholds.md`](.claude/rules/condensation-thresholds.md) (Issue #502)
+
 Affiche un resume CONCIS (10 lignes max) :
 ```
 Machine: {name} | Git: {hash} | Tests: {dernier resultat connu}
 SDDD: codebase_search OK/KO | Roo tache active: {oui/non}
 INTERCOM: {X messages recents} | RooSync: {Y non-lus}
 Issues ouvertes: {Z} | Taches assignees: {liste courte}
+Condensation: {OK | ALERTE X lignes | CRITIQUE >500 lignes}
 ```
 
 **Si codebase_search echoue** (EMBEDDING_* non configure) : Signaler en friction et continuer sans.
