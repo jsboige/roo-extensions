@@ -16,8 +16,8 @@
 
 | Profil | Seuil requis | Raison |
 |--------|-------------|--------|
-| **default** (GLM 5.0) | **80%** | Éviter boucle infinie avec INTERCOM ~15k tokens |
-| **simple** (GLM 4.7 Flash) | **80%** | Même raison |
+| **default** (GLM-5 via z.ai) | **80%** | Éviter boucle infinie avec INTERCOM ~15k tokens |
+| **simple** (Qwen 3.5 35B A3B local) | **80%** | Même raison (contexte ~131k) |
 | Tout profil GLM | **80-85%** | GLM réel = 131k tokens (pas 200k) |
 
 **DANGER :** Seuil ≤ 50% avec INTERCOM > 800 lignes = boucle infinie condensation.

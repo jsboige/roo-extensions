@@ -1,6 +1,6 @@
 # Architecture Agents, Skills & Commands
 
-Extrait de CLAUDE.md le 2026-02-19. Reference des subagents, skills et commandes disponibles.
+Reference des subagents, skills et commandes disponibles. MAJ 2026-03-04 (audit #556).
 
 ---
 
@@ -12,23 +12,30 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 
 ## Subagents ([.claude/agents/](.claude/agents/))
 
-### Agents Communs (toutes machines)
+### Agents Projet (dans `.claude/agents/`)
+
+| Agent | Description | Outils |
+|-------|-------------|--------|
+| `github-tracker` | Suivi GitHub Project #67 | Bash |
+| `intercom-handler` | Communication locale Roo | Read |
+| `intercom-compactor` | Condensation INTERCOM (>500 lignes) | Read, Edit |
+| `sddd-router` | Routage SDDD triple grounding | Read, Grep, Glob |
+| `task-planner` | Analyse avancement, equilibrage charge | Read, Grep, Glob, Bash |
+
+### Agents Globaux (dans `~/.claude/agents/`, deployes depuis `.claude/configs/`)
 
 | Agent | Description | Outils |
 |-------|-------------|--------|
 | `git-sync` | Pull/merge conservatif, submodules | Bash, Read, Grep |
 | `test-runner` | Build TypeScript + tests unitaires | Bash, Read, Edit |
-| `github-tracker` | Suivi GitHub Project #67 | Bash |
-| `intercom-handler` | Communication locale Roo | Read |
 | `code-explorer` | Exploration codebase | Read, Grep, Glob |
 
-### Agents Coordinateur (myia-ai-01)
+### Agents Coordinateur (myia-ai-01, dans `.claude/agents/coordinator/`)
 
 | Agent | Description |
 |-------|-------------|
 | `roosync-hub` | Hub central RooSync : recoit rapports, envoie instructions |
 | `dispatch-manager` | Assignation taches aux 6 machines x 2 agents |
-| `task-planner` | Analyse avancement, equilibrage charge |
 
 ### Agents Executants (autres machines)
 
