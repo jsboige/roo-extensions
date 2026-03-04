@@ -24,16 +24,40 @@ Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en b
 
 ### Procedure d'ecriture OBLIGATOIRE
 
-1. **Lire** le fichier ENTIER avec `read_file`
+**METHODE PREFEREE (replace_in_file - append a la fin) :**
+
+1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
 2. **Preparer** le nouveau message
-3. **Reecrire** le fichier COMPLET avec `write_to_file` en ajoutant le message **APRES** tout le contenu existant
+3. **Utiliser `replace_in_file`** pour ajouter le message APRES le dernier separateur `---`
+
+Exemple :
+```
+replace_in_file(
+  path: ".claude/local/INTERCOM-{MACHINE}.md",
+  diff: "<<<<<<< SEARCH\n[dernier separateur --- du fichier]\n======= REPLACE\n[dernier separateur ---]\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n>>>>>>> REPLACE"
+)
+```
+
+**METHODE ALTERNATIVE (win-cli Add-Content) :**
+
+Si `replace_in_file` echoue, utiliser win-cli :
+```
+execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n'@")
+```
+
+**METHODE DE DERNIER RECOURS (write_to_file) :**
+
+Si les deux methodes ci-dessus echouent :
+1. **Lire** le fichier ENTIER avec `read_file`
+2. **Reecrire** avec `write_to_file` (ancien contenu + nouveau message)
+
+> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5 car le modele n'arrive pas a generer le parametre `content` en entier. Le message d'erreur est : "Roo tried to use write_to_file without value for required parameter 'content'". **Privilegier TOUJOURS `replace_in_file` ou `Add-Content`.**
 
 ### INTERDIT
 
 - **NE JAMAIS** inserer un message au debut du fichier (avant les messages existants)
 - **NE JAMAIS** supprimer ou modifier les messages existants
 - **NE JAMAIS** ecrire UNIQUEMENT le nouveau message (ecrasement du fichier)
-- **NE JAMAIS** utiliser `replace_in_file` pour inserer en haut
 
 ### Pourquoi
 

@@ -20,10 +20,33 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 
 | Action | Usage | Parametres cles |
 |--------|-------|----------------|
+| **`list`** | **POINT D'ENTREE OBLIGATOIRE** - Lister les taches pour obtenir les IDs | `workspace`, `limit`, `contentPattern` |
 | `tree` | Arbre des taches Roo | `conversation_id`, `output_format: "ascii-tree"` |
 | `current` | Tache active | `workspace: "d:\\roo-extensions"` |
 | `view` | Squelette conversation | `task_id`, `smart_truncation: true`, `max_output_length: 15000` |
 | `summarize` | Resume/stats | `summarize_type: "trace"`, `taskId` |
+
+### REGLE CRITIQUE : `list` comme point d'entree
+
+**Sans IDs, tu es aveugle.** TOUJOURS commencer par `list` avant d'utiliser `tree`, `view` ou `summarize`.
+
+```xml
+<!-- PREMIER appel obligatoire : lister les taches recentes -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>conversation_browser</tool_name>
+<arguments>{"action": "list", "workspace": "d:\\roo-extensions", "limit": 20}</arguments>
+</use_mcp_tool>
+
+<!-- Chercher par contenu specifique -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>conversation_browser</tool_name>
+<arguments>{"action": "list", "contentPattern": "write_to_file", "limit": 30}</arguments>
+</use_mcp_tool>
+```
+
+**Anti-pattern :** Aller directement a `view` ou `tree` sans avoir liste. `current` seul est insuffisant (retourne la plus ancienne tache ouverte).
 
 ```xml
 <!-- Arbre des taches -->
@@ -100,8 +123,10 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 ## Workflow SDDD
 
 1. **Semantique** : `roosync_search` + `codebase_search` (multi-pass si besoin) + docs existantes
-2. **Conversationnel** : `conversation_browser(tree)` -> `conversation_browser(view, skeleton)` -> `conversation_browser(summarize, trace)`
+2. **Conversationnel** : `conversation_browser(list)` → obtenir IDs → `conversation_browser(view, skeleton)` → `conversation_browser(summarize, trace)` si besoin
 3. **Technique** : read_file, search_files, tests unitaires
+
+**IMPORTANT :** L'etape 2 COMMENCE par `list`. Sans IDs, les appels suivants sont impossibles.
 
 **Regle :** Ne jamais se contenter d'une seule source.
 
@@ -109,7 +134,8 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 
 ## Bonnes Pratiques
 
-- Commencer par `tree` pour le contexte global
+- **Commencer par `list`** pour obtenir les IDs des taches recentes (OBLIGATOIRE)
+- Utiliser `tree` pour le contexte global une fois les IDs connus
 - Utiliser `skeleton` en premier, `summary` si besoin
 - Generer des `trace` pour investigations >500 messages
 - Ne PAS utiliser `full` sans smart truncation
