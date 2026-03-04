@@ -7,7 +7,7 @@
     "restrictWorkingDirectory": false,
     "logCommands": true,
     "maxHistorySize": 3000,
-    "commandTimeout": 500,
+    "commandTimeout": 180,
     "enableInjectionProtection": false
   },
   "shells": {
