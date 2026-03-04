@@ -2,6 +2,8 @@
 
 Extrait de CLAUDE.md le 2026-02-19. Documentation complete du systeme de planification automatique Roo.
 
+**MISE À JOUR 2026-03-04 (#544):** Auto-review automatique intégrée dans le workflow scheduler (étapes 1d/2c).
+
 ---
 
 ## Architecture du Systeme
