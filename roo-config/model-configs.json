@@ -63,12 +63,13 @@
     "default": 80
   },
   "notes": [
-    "Dernière mise à jour: 2026-02-26",
-    "Profil 'simple': Qwen 3.5 35B A3B sur endpoint medium tgwui",
+    "Dernière mise à jour: 2026-03-04",
+    "Profil 'simple': Qwen 3.5 35B A3B sur endpoint medium tgwui (REMOTE - pas d'inference locale)",
     "Profil 'default': GLM-5 via z.ai subscription",
     "Contexte GLM-5: ~131k tokens réel (200k annoncé inclut output)",
     "Seuil condensation recommandé: 80% pour éviter boucle infinie",
     "Profil 'Production (Qwen 3.5 local + GLM-5 cloud)' appliqué le 2026-03-03",
-    "Profil 'Production (Qwen 3.5 local + GLM-5 cloud)' appliqué le 2026-03-04"
+    "Profil 'Production (Qwen 3.5 local + GLM-5 cloud)' appliqué le 2026-03-04",
+    "Tests scheduler #536 préparés le 2026-03-04: 5 tâches -simple prêtes dans INTERCOM"
   ]
 }
