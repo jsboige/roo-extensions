@@ -591,12 +591,64 @@ A la fin du tour de sync, produire un **rapport consolide** :
 
 ---
 
+## Phase 9 : Mise à jour Dashboard Hiérarchique GDrive
+
+**Objectif :** Mettre à jour le dashboard partagé GDrive avec l'état actuel de la machine.
+
+**Outil :** `roosync_update_dashboard` (Phase 1 #546)
+
+### Actions
+
+**9a. Mettre à jour la section machine :**
+```
+roosync_update_dashboard(
+  section: "machine",
+  machine: "{MACHINE}",
+  workspace: "roo-extensions",
+  content: "{ETAT_ACTUEL_MARKDOWN}",
+  mode: "replace"
+)
+```
+
+Le contenu markdown doit inclure :
+- État : actif/inactif, cycle N
+- Dernière action : [résumé]
+- Git : hash, statut
+- Tests : résultats
+- Notes libres de l'agent
+
+**9b. Mettre à jour les métriques globales (coordinateur uniquement) :**
+```
+roosync_update_dashboard(
+  section: "metrics",
+  content: "{METRIQUES_GITHUB}",
+  mode: "replace"
+)
+```
+
+### Output attendu
+```
+## Phase 9 : Dashboard GDrive
+
+### Mise à jour effectuée
+- Section machine : {MACHINE}/roo-extensions
+- Dashboard path : {ROOSYNC_SHARED_PATH}/DASHBOARD.md
+- Timestamp : {date}
+
+### État rapporté
+- Git : {hash}
+- Tests : {résultats}
+- Messages traités : {X}
+```
+
+---
+
 ## Notes d'utilisation
 
 ### Frequence
 - **Debut de session** : Tour complet (toutes les phases)
 - **Pendant le travail** : Phases specifiques a la demande
-- **Fin de session** : Tour complet + Phase 8 obligatoire + commit des changements
+- **Fin de session** : Tour complet + Phase 8 obligatoire + Phase 9 (dashboard) + commit des changements
 - **Avant saturation contexte** : Phase 8 en priorite (sauvegarder l'experience)
 
 ### Permissions requises
@@ -607,6 +659,7 @@ Ce skill necessite de nombreuses permissions car il :
 - Modifie des fichiers (corrections)
 - Met a jour GitHub Projects et Issues
 - Met a jour les fichiers memoire (Phase 8)
+- Met a jour le dashboard GDrive (Phase 9)
 
 ### Duree estimee
-Un tour complet prend generalement 5-10 minutes selon le volume de messages et l'etat des tests. La Phase 8 ajoute 2-3 minutes.
+Un tour complet prend generalement 5-10 minutes selon le volume de messages et l'etat des tests. La Phase 8 ajoute 2-3 minutes. La Phase 9 ajoute 30 secondes.
