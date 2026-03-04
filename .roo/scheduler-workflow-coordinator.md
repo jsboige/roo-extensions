@@ -139,15 +139,17 @@ roosync_baseline(action: "create", description: "Baseline hebdomadaire")
 
 
 
-### Etape 1d : Auto-Review des commits recents (optionnel)
+### Etape 1d : Auto-Review des commits recents (OBLIGATOIRE si HEAD a change)
 
-Apres le pull git, verifier s'il y a de nouveaux commits a reviewer :
+> **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
+
+Verifier si le pull (Etape 1) a ramene un nouveau commit :
 
 ```
-execute_command(shell="gitbash", command="git log --oneline -2")
+execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
 ```
 
-Si HEAD a change depuis le dernier tick (nouveau commit) :
+Si la commande retourne des commits (HEAD a change), lancer l'auto-review OBLIGATOIREMENT :
 
 1. Lancer l'auto-review via sk-agent :
    ```
@@ -158,6 +160,8 @@ Si HEAD a change depuis le dernier tick (nouveau commit) :
 
 **Prerequis :** sk-agent MCP ou vLLM sur port 5002. La review utilise le mode vLLM en fallback.
 **Note :** Le script utilise `$PSScriptRoot` pour les chemins relatifs, pas de chemin absolu necessaire.
+
+Apres auto-review → continuer vers **Etape 2a** ou **Etape 2b** (selon INTERCOM)
 
 ### Etape 2a : Executer les taches INTERCOM
 
