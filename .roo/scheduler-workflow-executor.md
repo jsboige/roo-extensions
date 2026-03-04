@@ -314,21 +314,20 @@ Si une issue est trouvee :
 
 Si aucune issue : rapporter `[IDLE]` dans INTERCOM.
 
-Apres tout → **Etape 3**
 
 
-
-### Etape 2c : Auto-review des commits recents (optionnel)
+### Etape 2c : Auto-review des commits recents (OBLIGATOIRE si HEAD a change)
 
 > Disponible uniquement sur les machines avec sk-agent ou acces vLLM.
+> **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
 
-Apres le pull, verifier s'il y a un nouveau commit a reviewer :
+Verifier si le pull (Etape 1) a ramene un nouveau commit :
 
 ```
-execute_command(shell="gitbash", command="git log --oneline -2")
+execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
 ```
 
-Si nouveau commit detecte, deleguer l'auto-review :
+Si la commande retourne des commits (HEAD a change), deleguer l'auto-review OBLIGATOIREMENT :
 
 ```
 execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
@@ -343,6 +342,8 @@ execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass 
 **Prerequis :** sk-agent MCP ou vLLM sur port 5002/v1 (Qwen3.5-35B). Fallback automatique HTTP → vLLM.
 
 **Note :** Cette etape est optionnelle et non bloquante. Si echec, noter dans le bilan et continuer.
+
+Apres etapes 2a, 2b, 2c → **Etape 3**
 
 ### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
