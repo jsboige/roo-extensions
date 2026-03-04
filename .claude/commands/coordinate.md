@@ -137,6 +137,13 @@ conversation_browser(
 - Orchestrateur qui fait le travail au lieu de deleguer via `new_task`
 - `Error`, `Failed`, `permission denied` → Erreurs d'execution
 - Boucles sans resultat
+
+**3b. Verification sceptique des rapports entrants (CRITIQUE) :**
+- Pour chaque rapport RooSync/INTERCOM, identifier les affirmations factuelles
+- Croiser avec `git log`, tables d'infrastructure (CLAUDE.md GPU Fleet/Services), MEMORY.md
+- Si affirmation surprenante → verifier (Niveau 1-3) AVANT de dispatcher
+- Ne JAMAIS relayer une affirmation sans qualifier : "VERIFIE par [preuve]" ou "RAPPORTE PAR [source] (non verifie)"
+- **Reference :** [`.claude/rules/skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
 - `[ESCALADE-CLAUDE]` → Taches echouees en `-complex` a reprendre par Claude
 
 **4. Evaluer et ajuster :**

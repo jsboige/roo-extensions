@@ -66,6 +66,12 @@ Ne JAMAIS utiliser les modes natifs (code, debug, architect, ask, orchestrator) 
 
 ---
 
+## Scepticisme Raisonnable
+
+**Ne jamais affirmer un fait sans preuve dans INTERCOM.** Si une affirmation te surprend (GPU, modele, service, blocage), la verifier avant de la rapporter. Voir `.roo/rules/skepticism-protocol.md`.
+
+---
+
 ## Ton role : assistant de Claude
 
 | Aspect | Claude Code | Roo Code (toi) |

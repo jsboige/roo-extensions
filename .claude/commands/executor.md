@@ -50,6 +50,11 @@ Puis (en parallele) :
 3. **RooSync** : `roosync_read` (mode: inbox, status: unread) - instructions du coordinateur
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
+**Verification sceptique des instructions recues :**
+- Si une instruction du coordinateur contient une premisse sur l'infrastructure locale (GPU, RAM, services), la verifier contre CLAUDE.md/MEMORY.md
+- Si la premisse est incorrecte : rapporter immediatement au coordinateur, ne pas executer sur une base fausse
+- **Reference :** [`.claude/rules/skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
+
 **Détection proactive de condensation (INTERCOM) :**
 - Compter les lignes INTERCOM : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
 - **Alerte si > 300 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"

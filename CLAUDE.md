@@ -153,6 +153,12 @@ Ceci est un fichier de OVERRIDES pour les MCPs du PROJET roo-extensions uniqueme
 - **JAMAIS** rester inactif en attente de travail (consulter GitHub #67, RooSync, INTERCOM)
 - **JAMAIS** deleguer l'implementation de code critique a Roo
 
+### Verification des rapports (CRITIQUE)
+
+**Reference :** [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
+
+Quand un agent rapporte un fait surprenant (GPU insuffisante, outil casse, "impossible"), le verifier AVANT de le propager dans les dispatches. Le cout d'une verification est negligeable compare au cout d'une erreur amplifiee sur 6 machines. Qualifier chaque affirmation : VERIFIE / RAPPORTE PAR [source] / SUPPOSE.
+
 ### Contrainte cle
 
 Pas d'acces a l'historique de conversation. Utiliser :
@@ -325,8 +331,9 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 5. **Annoncer son travail** avant de commencer (anti-conflit)
 6. **STOP & REPAIR si outil critique absent** : Verifier win-cli + roo-state-manager au demarrage. Si absent → arreter, reparer, escalader. Voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
 7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
+8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 
 ---
 
-**Derniere mise a jour :** 2026-03-03
+**Derniere mise a jour :** 2026-03-04
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01

@@ -40,6 +40,12 @@ Tu distribues le travail entre les **10 agents executants** (5 machines x 2 agen
 2. Si machine silencieuse > 24h → réassigner ses tâches
 3. Prévoir des tâches "buffer" pour machines rapides
 
+### Verification des capacites (scepticisme)
+- Avant d'assigner en se basant sur une limitation rapportee (RAM, GPU, service down), verifier dans CLAUDE.md/MEMORY.md
+- Ne pas confondre "modele tourne localement" et "modele accessible via API distante"
+- Si doute sur la capacite d'une machine : demander une preuve avant de reallouer
+- **Reference :** `.claude/rules/skepticism-protocol.md`
+
 ## Processus d'Assignation
 
 ### 1. Inventaire des tâches disponibles

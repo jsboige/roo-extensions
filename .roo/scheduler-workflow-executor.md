@@ -10,6 +10,7 @@
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
+7. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
 
 ## REGLES WIN-CLI (CRITIQUE)
 
