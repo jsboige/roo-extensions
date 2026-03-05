@@ -57,8 +57,8 @@ Puis (en parallele) :
 
 **Détection proactive de condensation (INTERCOM) :**
 - Compter les lignes INTERCOM : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
-- **Alerte si > 300 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
-- **Critique si > 500 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
+- **Alerte si > 500 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
+- **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
 - **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
 
 **Référence :** [`.claude/rules/condensation-thresholds.md`](.claude/rules/condensation-thresholds.md) (Issue #502)
@@ -69,7 +69,7 @@ Machine: {name} | Git: {hash} | Tests: {dernier resultat connu}
 SDDD: codebase_search OK/KO | Roo tache active: {oui/non}
 INTERCOM: {X messages recents} | RooSync: {Y non-lus}
 Issues ouvertes: {Z} | Taches assignees: {liste courte}
-Condensation: {OK | ALERTE X lignes | CRITIQUE >500 lignes}
+Condensation: {OK | ALERTE X lignes | CRITIQUE >1000 lignes}
 ```
 
 **Si codebase_search echoue** (EMBEDDING_* non configure) : Signaler en friction et continuer sans.
@@ -202,7 +202,7 @@ Passer directement a la Phase 2.
      - `roosync_config(action: "collect")` → Collecter la config locale
      - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
      - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline
-   - Nettoyage INTERCOM (si > 500 lignes)
+   - Nettoyage INTERCOM (si > 1000 lignes)
 
 ### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
 
