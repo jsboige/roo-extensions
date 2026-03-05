@@ -63,17 +63,22 @@ function Deploy-Scheduler {
         $content = $content -replace '\$\{WORKFLOW_FILE\}', $workflowFile
         Write-Log "Workflow: $workflowFile (role: $(if ($MachineName -eq 'myia-ai-01') {'coordinateur'} else {'executeur'}))"
 
-        # Générer un ID unique basé sur le timestamp
+        # Générer des IDs uniques basés sur le timestamp
         $uniqueId = [DateTimeOffset]::Now.ToUnixTimeMilliseconds().ToString()
+        # Replace TEMPLATE_META_ID first (more specific) to avoid partial match
+        $content = $content -replace 'TEMPLATE_META_ID', ($uniqueId + "1")
         $content = $content -replace 'TEMPLATE_ID', $uniqueId
 
         # Parser et nettoyer
         $json = $content | ConvertFrom-Json
 
-        # Supprimer la note du template (elle est dans chaque schedule, pas à la racine)
+        # Supprimer les notes du template
         foreach ($schedule in $json.schedules) {
             if ($schedule.PSObject.Properties['_template_note']) {
                 $schedule.PSObject.Properties.Remove('_template_note')
+            }
+            if ($schedule.PSObject.Properties['_template_note_meta']) {
+                $schedule.PSObject.Properties.Remove('_template_note_meta')
             }
         }
 
@@ -181,12 +186,12 @@ function Test-Scheduler {
 
         $ok = $true
         foreach ($schedule in $json.schedules) {
-            # Verifier ID unique (pas TEMPLATE_ID)
-            if ($schedule.id -eq "TEMPLATE_ID") {
-                Write-Log "ID non remplace (encore TEMPLATE_ID)" "ERROR"
+            # Verifier ID unique (pas TEMPLATE_ID ou TEMPLATE_META_ID)
+            if ($schedule.id -eq "TEMPLATE_ID" -or $schedule.id -eq "TEMPLATE_META_ID") {
+                Write-Log "ID non remplace (encore $($schedule.id))" "ERROR"
                 $ok = $false
             } else {
-                Write-Log "ID: $($schedule.id)" "SUCCESS"
+                Write-Log "ID: $($schedule.id) ($($schedule.name))" "SUCCESS"
             }
 
             # Verifier que les variables de template sont remplacees

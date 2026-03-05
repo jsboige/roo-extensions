@@ -62,7 +62,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
-$ModesConfigPath = Join-Path $RepoRoot ".claude\modes\modes-config.json"
+$ModesConfigPath = Join-Path $RepoRoot "roo-config\modes\modes-config.json"
 $LogDir = Join-Path $RepoRoot ".claude\logs"
 
 # Créer répertoire logs si nécessaire
@@ -1861,6 +1861,14 @@ Write-Log "=== DÉMARRAGE CLAUDE WORKER ==="
 Write-Log "Machine: $env:COMPUTERNAME"
 Write-Log "RepoRoot: $RepoRoot"
 Write-Log "DryRun: $DryRun"
+
+# Pre-check: modes-config.json exists
+if (-not (Test-Path $ModesConfigPath)) {
+    Write-Log "ABORT: modes-config.json introuvable: $ModesConfigPath" "ERROR"
+    Write-Log "  Chemin attendu: roo-config\modes\modes-config.json" "ERROR"
+    exit 1
+}
+Write-Log "ModesConfig: $ModesConfigPath"
 
 try {
     # ==========================================================================
