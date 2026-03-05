@@ -290,13 +290,19 @@ Apres tout → **Etape 3**
 **Methode principale :** Deleguer a `code-simple` via `new_task` :
 
 ```
-1. Lis .claude/local/INTERCOM-myia-ai-01.md en ENTIER avec read_file
-2. Ajoute le nouveau message A LA FIN (ne supprime RIEN de l'ancien contenu)
-3. Reecris le fichier COMPLET avec write_to_file
-4. Relis le fichier et confirme que le dernier message est celui qu'on vient d'ajouter
+1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-myia-ai-01.md avec read_file
+2. Utilise replace_in_file pour AJOUTER le nouveau message APRES le dernier separateur ---
+3. Confirme que le message est bien en fin de fichier
+
+IMPORTANT : NE PAS utiliser write_to_file sur un fichier de plus de 200 lignes.
+Le modele n'arrive pas a generer le parametre content pour les gros fichiers
+(erreur : "write_to_file without value for required parameter content").
+Utiliser TOUJOURS replace_in_file pour inserer a la fin.
+Si replace_in_file echoue, utiliser win-cli :
+execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-myia-ai-01.md' -Value 'contenu du message'")
 ```
 
-**FALLBACK :** Si la delegation echoue (subtask error, timeout, pas de confirmation), ecrire INTERCOM directement soi-meme avec read_file + write_to_file. Cette exception a la regle "toujours deleguer" est justifiee car la tracabilite est prioritaire.
+**FALLBACK :** Si la delegation echoue (subtask error, timeout, pas de confirmation), ecrire INTERCOM directement via win-cli `Add-Content`. Cette exception a la regle "toujours deleguer" est justifiee car la tracabilite est prioritaire.
 
 **Format du message :**
 

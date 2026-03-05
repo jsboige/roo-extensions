@@ -157,10 +157,30 @@ codebase_search(
 
 | Action | Usage | Parametres cles |
 |--------|-------|----------------|
+| **`list`** | **POINT D'ENTREE OBLIGATOIRE** - Lister les taches recentes pour obtenir les IDs | `workspace`, `limit`, `contentPattern` |
 | `tree` | Arbre des taches Roo | `conversation_id`, `output_format: "ascii-tree"` |
 | `current` | Tache active | `workspace: "d:\\roo-extensions"` |
 | `view` | Squelette conversation | `task_id`, `smart_truncation: true`, `max_output_length: 15000` |
 | `summarize` | Resume/stats | `type: "trace"`, `taskId` |
+
+### REGLE CRITIQUE : `list` comme point d'entree (OBLIGATOIRE)
+
+**Sans IDs, tu es aveugle.** Les taches Roo ont des identifiants uniques. Les actions `tree`, `view`, et `summarize` EXIGENT un `task_id` ou `conversation_id`. Sans appel prealable a `list`, tu n'as aucun moyen fiable d'obtenir ces IDs.
+
+**TOUJOURS commencer par :**
+```
+conversation_browser(action: "list", workspace: "d:\\roo-extensions", limit: 20)
+```
+
+**Pour chercher des taches specifiques :**
+```
+conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
+```
+
+**Anti-pattern a ne JAMAIS reproduire :**
+- Deviner les IDs de taches
+- Utiliser `current` comme seul point d'entree (retourne la plus ancienne tache ouverte, pas la plus recente)
+- Aller directement a `view` ou `tree` sans avoir liste au prealable
 
 **TOUJOURS activer `smart_truncation: true`** pour conversations >10K chars.
 
@@ -180,11 +200,13 @@ codebase_search(
 
 ```
 1. BOOKEND DEBUT : codebase_search multi-pass (Pass 1 large → Pass 2 zoom) + roosync_search(semantic)
-2. CONVERSATIONNEL : conversation_browser(current) → conversation_browser(view, skeleton)
+2. CONVERSATIONNEL : conversation_browser(list) → identifier IDs → conversation_browser(view, skeleton)
 3. TECHNIQUE : Read/Grep le code source (Pass 3 confirmation), tests unitaires
 4. TRAVAIL : Implementer/corriger/documenter
 5. BOOKEND FIN : codebase_search(query: "validation tache") → confirmer indexation
 ```
+
+**IMPORTANT (etape 2) :** `list` est le PREMIER appel obligatoire du grounding conversationnel. Sans lui, les IDs de taches sont inconnus et les appels `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant (retourne la plus ancienne tache ouverte, pas forcement la plus pertinente).
 
 **Combinaison semantique + technique :** Les Passes 1-2 (codebase_search) identifient les zones pertinentes par concept. La Pass 3 (Grep) confirme et complete avec precision. Ne jamais se fier uniquement a l'un ou l'autre.
 
@@ -226,7 +248,8 @@ roosync_send(
 
 ## Bonnes Pratiques
 
-- Commencer par `tree` pour le contexte global conversationnel
+- **Commencer par `list`** pour obtenir les IDs des taches recentes (OBLIGATOIRE)
+- Utiliser `tree` pour le contexte global une fois les IDs connus
 - Utiliser `skeleton` en premier, `summary` si besoin
 - Generer des `trace` pour investigations >500 messages
 - Ne PAS utiliser `full` sans smart truncation

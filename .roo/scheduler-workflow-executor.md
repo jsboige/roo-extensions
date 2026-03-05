@@ -350,15 +350,17 @@ Apres etapes 2a, 2b, 2c → **Etape 3**
 
 > **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
 
-**METHODE SIMPLIFIEE (append direct) :**
+**METHODE PREFEREE (replace_in_file - append a la fin) :**
 
-> Raison : La methode "lire tout + réécrire tout" cause des boucles de condensation. L'append direct est plus fiable.
+> Raison : `write_to_file` echoue sur les gros fichiers (>200 lignes) car le modele ne peut pas generer le parametre `content` en entier. `replace_in_file` n'a besoin que du dernier separateur `---` pour inserer apres.
 
 ```
 1. Prepare le message (voir format ci-dessous)
-2. Utilise write_to_file en APPEND (ou equivalent)
-3. Si write_to_file ne supporte pas l'append : lis SEULEMENT les 50 dernieres lignes, puis ecris tout
-4. NE PAS relire le fichier plusieurs fois
+2. Lis les 20 DERNIERES lignes du fichier INTERCOM avec read_file
+3. Utilise replace_in_file pour ajouter le message APRES le dernier separateur ---
+4. Si replace_in_file echoue : utilise win-cli Add-Content
+   execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value 'message'")
+5. NE PAS utiliser write_to_file sur les gros fichiers (boucle infinie garantie)
 ```
 
 **FORMAT MESSAGE (garder court) :**
@@ -371,7 +373,7 @@ Apres etapes 2a, 2b, 2c → **Etape 3**
 - Erreurs: {aucune ou description courte}
 ```
 
-**FALLBACK (si write_to_file non disponible) :** Deleguer a `code-simple` via `new_task` avec instruction "APPEND le message à la fin du fichier INTERCOM".
+**FALLBACK (si replace_in_file echoue) :** Utiliser win-cli `Add-Content` directement, ou deleguer a `code-simple` via `new_task` avec instruction "utilise replace_in_file pour AJOUTER le message a la fin du fichier INTERCOM (NE PAS utiliser write_to_file)".
 
 **Format du message :**
 
