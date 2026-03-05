@@ -91,15 +91,37 @@ function Get-ModeConfig {
         return $null
     }
 
-    $Config = Get-Content $ModesConfigPath | ConvertFrom-Json
-    $ModeConfig = $Config.modes | Where-Object { $_.id -eq $ModeId }
+    $Config = Get-Content $ModesConfigPath -Raw | ConvertFrom-Json
 
-    if (-not $ModeConfig) {
-        Write-Log "Mode '$ModeId' introuvable dans config" "ERROR"
+    # modes-config.json uses families.{family}.{level} structure (e.g. code-simple -> families.code.simple)
+    $parts = $ModeId -split '-', 2
+    if ($parts.Count -ne 2) {
+        Write-Log "Mode '$ModeId' format invalide (attendu: family-level)" "ERROR"
+        return $null
+    }
+    $family = $parts[0]
+    $level = $parts[1]
+
+    $FamilyConfig = $Config.families.$family
+    if (-not $FamilyConfig) {
+        Write-Log "Famille '$family' introuvable dans config" "ERROR"
         return $null
     }
 
-    return $ModeConfig
+    $LevelConfig = $FamilyConfig.$level
+    if (-not $LevelConfig) {
+        Write-Log "Niveau '$level' introuvable dans famille '$family'" "ERROR"
+        return $null
+    }
+
+    # Return a normalized object with id and family info
+    $result = $LevelConfig | Select-Object *
+    $result | Add-Member -NotePropertyName "id" -NotePropertyValue $ModeId -Force
+    $result | Add-Member -NotePropertyName "family" -NotePropertyValue $family -Force
+    $result | Add-Member -NotePropertyName "level" -NotePropertyValue $level -Force
+    $result | Add-Member -NotePropertyName "emoji" -NotePropertyValue $FamilyConfig.emoji -Force
+
+    return $result
 }
 
 function Get-NextTask {
