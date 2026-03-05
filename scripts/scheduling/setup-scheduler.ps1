@@ -1,54 +1,61 @@
 <#
 .SYNOPSIS
-    Configure Windows Task Scheduler for Claude Code automated worker.
+    Configure Windows Task Scheduler for Claude Code automated tasks.
 
 .DESCRIPTION
-    Creates, lists, or removes a Windows Task Scheduler task that runs
-    start-claude-worker.ps1 periodically. The worker automatically:
-    - Checks RooSync inbox for assigned tasks
-    - Checks GitHub for roo-schedulable issues
-    - Runs Claude Haiku (cheap) with auto-escalation to Sonnet/Opus
-    - Exits cleanly if no work is available (-NoFallback)
+    Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
+    scheduling architecture. Supports 3 task types:
+
+    - worker:      Executor tier (3h, Haiku, all machines)
+    - coordinator: Coordinator tier (8h, Opus, ai-01 only)
+    - meta-audit:  Meta-Analyst tier (24h, Opus, all machines)
 
 .PARAMETER Action
     Action to perform: install, remove, list, test (default: list)
 
+.PARAMETER TaskType
+    Type of scheduled task: worker, coordinator, meta-audit (default: worker)
+
 .PARAMETER IntervalHours
-    Hours between runs (default: 3)
+    Hours between runs (default depends on TaskType: worker=3, coordinator=8, meta-audit=24)
 
 .PARAMETER Mode
-    Claude mode to use (default: code-simple)
+    Claude mode to use (default: code-simple, only for worker)
 
 .PARAMETER Model
-    Claude model override (default: haiku)
+    Claude model override (default depends on TaskType: worker=haiku, others=opus)
 
 .PARAMETER MaxIterations
-    Max iterations per run (default: 1)
+    Max iterations per run (default: 1, only for worker)
 
 .PARAMETER TimeoutMinutes
-    Task Scheduler kill timeout in minutes (default: 15)
+    Task Scheduler kill timeout in minutes (default: worker=15, coordinator=30, meta-audit=30)
 
 .PARAMETER DryRun
     Show what would be done without making changes
 
 .EXAMPLE
-    .\setup-scheduler.ps1                              # List current task
-    .\setup-scheduler.ps1 -Action install              # Install with defaults (3h, Haiku)
-    .\setup-scheduler.ps1 -Action install -DryRun      # Preview install
-    .\setup-scheduler.ps1 -Action install -IntervalHours 6  # Conservative 6h interval
-    .\setup-scheduler.ps1 -Action test                 # Run worker in DryRun mode
-    .\setup-scheduler.ps1 -Action remove               # Remove scheduled task
+    .\setup-scheduler.ps1                                          # List current worker task
+    .\setup-scheduler.ps1 -Action list -TaskType coordinator       # List coordinator task
+    .\setup-scheduler.ps1 -Action install                          # Install worker (3h, Haiku)
+    .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Opus, ai-01 only)
+    .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (24h, Opus)
+    .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
+    .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
 #>
 
 param(
     [ValidateSet('install', 'remove', 'list', 'test')]
     [string]$Action = 'list',
 
-    [int]$IntervalHours = 3,
+    [ValidateSet('worker', 'coordinator', 'meta-audit')]
+    [string]$TaskType = 'worker',
+
+    [int]$IntervalHours = 0,
     [string]$Mode = 'code-simple',
-    [string]$Model = 'haiku',
+    [string]$Model = '',
     [int]$MaxIterations = 1,
-    [int]$TimeoutMinutes = 15,
+    [int]$TimeoutMinutes = 0,
     [switch]$DryRun
 )
 
@@ -58,8 +65,52 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RepoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $machineName = ($env:COMPUTERNAME).ToLower()
-$TaskName = "Claude-Worker"
-$WorkerScript = Join-Path $scriptDir "start-claude-worker.ps1"
+
+# --- Task Type Defaults ---
+$TaskConfigs = @{
+    'worker' = @{
+        TaskName = "Claude-Worker"
+        Script = Join-Path $scriptDir "start-claude-worker.ps1"
+        DefaultInterval = 3
+        DefaultModel = "haiku"
+        DefaultTimeout = 15
+        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, runs Haiku with auto-escalation, exits cleanly if no work."
+        MachineRestriction = $null  # all machines
+    }
+    'coordinator' = @{
+        TaskName = "Claude-Coordinator"
+        Script = Join-Path $scriptDir "start-claude-coordinator.ps1"
+        DefaultInterval = 8
+        DefaultModel = "opus"
+        DefaultTimeout = 30
+        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches and rebalances."
+        MachineRestriction = "myia-ai-01"
+    }
+    'meta-audit' = @{
+        TaskName = "Claude-MetaAudit"
+        Script = Join-Path $scriptDir "start-meta-audit.ps1"
+        DefaultInterval = 24
+        DefaultModel = "opus"
+        DefaultTimeout = 30
+        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements."
+        MachineRestriction = $null  # all machines
+    }
+}
+
+$config = $TaskConfigs[$TaskType]
+$TaskName = $config.TaskName
+$WorkerScript = $config.Script
+
+# Apply defaults if not explicitly set
+if ($IntervalHours -eq 0) { $IntervalHours = $config.DefaultInterval }
+if ($Model -eq '') { $Model = $config.DefaultModel }
+if ($TimeoutMinutes -eq 0) { $TimeoutMinutes = $config.DefaultTimeout }
+
+# Check machine restriction
+if ($config.MachineRestriction -and $machineName -ne $config.MachineRestriction) {
+    Write-Host "[ERROR] Task type '$TaskType' can only run on $($config.MachineRestriction) (current: $machineName)" -ForegroundColor Red
+    exit 1
+}
 
 function Write-Status($msg, $color = 'White') {
     Write-Host $msg -ForegroundColor $color
@@ -67,7 +118,7 @@ function Write-Status($msg, $color = 'White') {
 
 # --- Action: List ---
 function Show-Task {
-    Write-Status "=== Claude Code Scheduled Task ===" Cyan
+    Write-Status "=== Claude Code Scheduled Task ($TaskType) ===" Cyan
     Write-Status "Machine: $machineName"
     Write-Status "RepoRoot: $RepoRoot"
     Write-Status ""
@@ -97,29 +148,45 @@ function Show-Task {
     }
 
     Write-Status ""
-    Write-Status "Use -Action install to create task." DarkGray
+    Write-Status "Use -Action install -TaskType $TaskType to create task." DarkGray
 }
 
 # --- Action: Install ---
 function Install-Task {
-    Write-Status "=== Installing Scheduled Task ===" Cyan
+    Write-Status "=== Installing Scheduled Task ($TaskType) ===" Cyan
     Write-Status "Machine: $machineName"
     Write-Status "Interval: every ${IntervalHours}h"
-    Write-Status "Mode: $Mode | Model: $Model | MaxIterations: $MaxIterations"
+    Write-Status "Model: $Model"
     Write-Status "Timeout: ${TimeoutMinutes}min"
     Write-Status ""
 
-    # Build arguments for start-claude-worker.ps1
-    # -UseWorktree defaults to $true in the script (#461 Phase 1), no need to pass explicitly
-    # Note: PowerShell -File mode can't pass bool values (everything becomes a string)
-    $workerArgs = @(
-        "-ExecutionPolicy", "Bypass",
-        "-File", "`"$WorkerScript`"",
-        "-Mode", $Mode,
-        "-Model", $Model,
-        "-MaxIterations", $MaxIterations,
-        "-NoFallback"
-    )
+    # Build arguments depending on task type
+    switch ($TaskType) {
+        'worker' {
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-File", "`"$WorkerScript`"",
+                "-Mode", $Mode,
+                "-Model", $Model,
+                "-MaxIterations", $MaxIterations,
+                "-NoFallback"
+            )
+        }
+        'coordinator' {
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-File", "`"$WorkerScript`"",
+                "-Model", $Model
+            )
+        }
+        'meta-audit' {
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-File", "`"$WorkerScript`"",
+                "-Model", $Model
+            )
+        }
+    }
     $arguments = $workerArgs -join " "
 
     Write-Status "  Task: $TaskName" Yellow
@@ -163,7 +230,7 @@ function Install-Task {
             -MultipleInstances IgnoreNew
 
         # Register (as current user, no elevated privileges needed)
-        $description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, runs Haiku with auto-escalation, exits cleanly if no work. Interval: ${IntervalHours}h ($machineName)"
+        $description = "$($config.Description) Interval: ${IntervalHours}h ($machineName)"
 
         Register-ScheduledTask `
             -TaskName $TaskName `
@@ -176,8 +243,8 @@ function Install-Task {
         Write-Status "    [OK] Task '$TaskName' created successfully" Green
         Write-Status ""
         Write-Status "  First run in ~5 minutes. Then every ${IntervalHours}h." Cyan
-        Write-Status "  Check logs: .claude/logs/worker-*.log" DarkGray
-        Write-Status "  Remove with: .\setup-scheduler.ps1 -Action remove" DarkGray
+        Write-Status "  Check logs: .claude/logs/" DarkGray
+        Write-Status "  Remove with: .\setup-scheduler.ps1 -Action remove -TaskType $TaskType" DarkGray
     } catch {
         Write-Status "    [FAIL] Error: $_" Red
         Write-Status "    TIP: Run as Administrator if access denied." Yellow
@@ -208,12 +275,26 @@ function Remove-Task {
 
 # --- Action: Test ---
 function Test-Task {
-    Write-Status "=== Testing Worker (DryRun) ===" Cyan
-    Write-Status "  Running: $WorkerScript -Mode $Mode -Model $Model -MaxIterations $MaxIterations -NoFallback -DryRun"
-    Write-Status ""
+    Write-Status "=== Testing $TaskType (DryRun) ===" Cyan
 
-    & powershell -ExecutionPolicy Bypass -File $WorkerScript `
-        -Mode $Mode -Model $Model -MaxIterations $MaxIterations -NoFallback -DryRun
+    switch ($TaskType) {
+        'worker' {
+            Write-Status "  Running: $WorkerScript -Mode $Mode -Model $Model -MaxIterations $MaxIterations -NoFallback -DryRun"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript `
+                -Mode $Mode -Model $Model -MaxIterations $MaxIterations -NoFallback -DryRun
+        }
+        'coordinator' {
+            Write-Status "  Running: $WorkerScript -Model $Model -DryRun"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript -Model $Model -DryRun
+        }
+        'meta-audit' {
+            Write-Status "  Running: $WorkerScript -Model $Model -DryRun"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript -Model $Model -DryRun
+        }
+    }
 }
 
 # --- Main ---

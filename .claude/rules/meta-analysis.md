@@ -1,8 +1,9 @@
 # Meta-Analysis Protocol - 3x2 Scheduler Architecture
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Created:** 2026-03-04
-**Issues:** #551 (Meta-Analyst tier), #540 (Coordinator tier)
+**Updated:** 2026-03-05
+**Issue:** #551 (Meta-Analyst tier)
 
 ---
 
@@ -119,10 +120,10 @@ Dedicated channel for meta-analysis reconciliation. Same format as INTERCOM but 
 ## References
 
 - #551: Meta-Analyst tier (this protocol)
-- #540: Coordinator tier (triage/dispatch)
+- #540: Coordinator tier — see `.claude/rules/scheduled-coordinator.md`
 - `.claude/INTERCOM_PROTOCOL.md`: Operational INTERCOM (separate)
 - `.claude/rules/condensation-thresholds.md`: GLM context limits
 
 ---
 
-**Last updated:** 2026-03-04
+**Last updated:** 2026-03-05
