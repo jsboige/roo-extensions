@@ -7,7 +7,9 @@
     "ANTHROPIC_BASE_URL",
     "ANTHROPIC_DEFAULT_OPUS_MODEL",
     "ANTHROPIC_DEFAULT_SONNET_MODEL",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "API_TIMEOUT_MS",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE"
   ],
   "description": "Anthropic's Claude via Pro/Max subscription (browser auth)",
   "models": {
