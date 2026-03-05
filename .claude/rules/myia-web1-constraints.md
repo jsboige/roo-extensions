@@ -1,7 +1,7 @@
 # Règles MyIA-Web1 - Contraintes Spécifiques
 
 **Machine:** MyIA-Web1
-**RAM:** 2GB (contrainte critique)
+**RAM:** 16GB (vérifié 2026-03-05, ancienne doc erronée)
 **OS:** Windows Server 2019
 **Rôle:** Agent exécutant (pas coordinateur)
 
@@ -9,23 +9,30 @@
 
 ## Contraintes Critiques
 
-### RAM 2GB - JavaScript Heap Out of Memory
+### Gestion Mémoire
 
-**Problème:** Les tests unitaires et build TypeScript échouent avec "FATAL ERROR: JavaScript heap out of memory" sur cette machine.
+**État réel (2026-03-05):** 16GB RAM totale, ~8GB disponibles.
 
-**Solution TOUJOURS appliquer :**
+**Consommation typique:**
+- VS Code (20 processus): ~3.2 GB
+- Claude (2 agents): ~1.2 GB
+- IIS w3wp (2 workers): ~537 MB
+- SQL Server: ~468 MB
+- Node.js (12 processus): ~800 MB
+
+**Solution TOUJOURS appliquer pour tests:**
 
 ```bash
-# Tests (TOUJOURS avec maxWorkers=1)
+# Tests (recommandé avec maxWorkers=1 pour stabilité)
 npx vitest run --maxWorkers=1
 
-# Si échoue encore, ajouter --no-coverage
+# Si échoue, ajouter --no-coverage
 npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
 
 # JAMAIS npm test (bloque en mode watch)
 ```
 
-**Taux de succès attendu :** 3294/3308 PASS (99.6%)
+**Note:** L'ancienne documentation indiquait 2GB - c'était une erreur. La machine a toujours eu 16GB.
 
 ---
 
@@ -83,27 +90,27 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 | MCP | Statut | Alternative |
 |-----|--------|------------|
-| jupyter-mcp | N/A (2GB RAM) | Script externe |
+| jupyter-mcp | disabled (historique) | Script externe |
 | github-projects-mcp | Déprécié | `gh` CLI |
 
 ---
 
-## Capacités Réelles (au-delà de la RAM)
+## Capacités Réelles
 
 **IMPORTANT :** La charge LLM (Opus 4.6) est sur le provider z.ai, PAS local.
 
 **✅ JE PEUX FAIRE :**
-- **Investigation code** : Read, Grep, Glob, codebase_search → Pas de consommation RAM locale
-- **Écriture code** : Edit, Write → Pas de consommation RAM locale
-- **Git operations** : add, commit, push → Pas de consommation RAM locale
+- **Investigation code** : Read, Grep, Glob, codebase_search
+- **Écriture code** : Edit, Write
+- **Git operations** : add, commit, push
 - **Tests ciblés** : `npx vitest run --maxWorkers=1` → Fonctionne (99.6% pass)
-- **Implémentation features** : Logique métier, refactoring → Pas de RAM
-- **Bug fixes** : Investigation + correction → Pas de RAM
-- **Architecture** : Analyse, design → CPU LLM, pas RAM locale
+- **Implémentation features** : Logique métier, refactoring
+- **Bug fixes** : Investigation + correction
+- **Architecture** : Analyse, design
 
-**❌ LIMITATIONS :**
-- Tests complets SANS --maxWorkers → OOM (contourné avec --maxWorkers=1)
-- Build TypeScript complet → Parfois OOM (build partiel possible)
+**⚠️ ATTENTION :**
+- Tests complets SANS --maxWorkers → Peut ralentir VS Code
+- Build TypeScript complet → Peut être long (préférer build incrémental)
 
 **PRÉFÉRENCES DE TÂCHES :**
 1. Investigation + implémentation (code, architecture, bugs)
@@ -135,4 +142,4 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 ---
 
-**Dernière mise à jour :** 2026-02-21
+**Dernière mise à jour :** 2026-03-05 (correction RAM 2GB → 16GB)
