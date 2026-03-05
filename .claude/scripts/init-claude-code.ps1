@@ -306,26 +306,26 @@ Workspace: $WorkspaceRootNormalized
     Write-Host "  [SKIP] $intercomFile already exists" -ForegroundColor Yellow
 }
 
-# 5. Verify MCP server is built
+# 5. Verify MCP server is built (roo-state-manager - github-projects-mcp deprecated #368)
 Write-Host ""
 Write-Host "5. MCP Server Build Status" -ForegroundColor White
-$mcpDistPath = Join-Path $WorkspaceRoot "mcps/internal/servers/github-projects-mcp/dist/index.js"
+$mcpDistPath = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/build/index.js"
 if (Test-Path $mcpDistPath) {
-    Write-Host "  [OK] github-projects-mcp is built" -ForegroundColor Green
+    Write-Host "  [OK] roo-state-manager is built" -ForegroundColor Green
 } else {
-    Write-Host "  [WARN] github-projects-mcp needs to be built" -ForegroundColor Yellow
-    Write-Host "         Run: cd mcps/internal/servers/github-projects-mcp && npm install && npm run build" -ForegroundColor Yellow
+    Write-Host "  [WARN] roo-state-manager needs to be built" -ForegroundColor Yellow
+    Write-Host "         Run: cd mcps/internal/servers/roo-state-manager && npm install && npm run build" -ForegroundColor Yellow
 }
 
 # 6. Verify .env file exists for MCP
 Write-Host ""
 Write-Host "6. MCP Environment File" -ForegroundColor White
-$envPath = Join-Path $WorkspaceRoot "mcps/internal/servers/github-projects-mcp/.env"
+$envPath = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/.env"
 if (Test-Path $envPath) {
     Write-Host "  [OK] .env file exists" -ForegroundColor Green
 } else {
-    Write-Host "  [WARN] .env file missing for github-projects-mcp" -ForegroundColor Yellow
-    Write-Host "         Copy from .env.example and configure GITHUB_ACCOUNTS_JSON" -ForegroundColor Yellow
+    Write-Host "  [WARN] .env file missing for roo-state-manager" -ForegroundColor Yellow
+    Write-Host "         Copy from .env.example and configure ROOSYNC_* variables" -ForegroundColor Yellow
 }
 
 Write-Host ""
@@ -335,10 +335,10 @@ Write-Host "Usage examples:" -ForegroundColor White
 Write-Host "  .\init-claude-code.ps1                    # Global only (default, recommended)" -ForegroundColor Gray
 Write-Host "  .\init-claude-code.ps1 -Project           # Global + Project" -ForegroundColor Gray
 Write-Host "  .\init-claude-code.ps1 -ProjectOnly       # Project only (no global)" -ForegroundColor Gray
-Write-Host "  .\init-claude-code.ps1 -McpServers github-projects-mcp  # Specific MCPs only" -ForegroundColor Gray
+Write-Host "  .\init-claude-code.ps1 -McpServers roo-state-manager  # Specific MCPs only" -ForegroundColor Gray
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor White
 Write-Host "  1. Restart Claude Code to load MCP configuration"
-Write-Host "  2. Test MCP with: 'List the available GitHub projects'"
+Write-Host "  2. Test MCP with: 'List recent Roo tasks'"
 Write-Host "  3. Create bootstrap issue: [CLAUDE-$machineName] Bootstrap Complete"
 Write-Host ""

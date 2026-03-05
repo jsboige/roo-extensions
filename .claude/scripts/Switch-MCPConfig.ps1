@@ -6,15 +6,14 @@
     Ce script permet de tester différentes combinaisons de serveurs MCP pour identifier
     lequel cause l'erreur "Tool names must be unique" dans Claude Code VS Code.
 
+    NOTE: github-projects-mcp a été retiré (déprécié #368, remplacé par gh CLI)
+
 .PARAMETER Config
     Configuration à activer:
     - none: Aucun MCP (test baseline)
     - jupyter: Jupyter seul
-    - github: GitHub Projects seul
     - roo: RooSync seul
-    - jupyter-github: Jupyter + GitHub
     - jupyter-roo: Jupyter + RooSync
-    - github-roo: GitHub + RooSync
     - all: Tous les MCPs (config complète)
     - restore: Restaurer la config sauvegardée
 
@@ -33,7 +32,7 @@
 
 param(
     [Parameter(Mandatory=$true)]
-    [ValidateSet('none', 'jupyter', 'github', 'roo', 'roo-direct', 'jupyter-github', 'jupyter-roo', 'github-roo', 'all', 'restore')]
+    [ValidateSet('none', 'jupyter', 'roo', 'roo-direct', 'jupyter-roo', 'all', 'restore')]
     [string]$Config
 )
 
@@ -55,7 +54,7 @@ if (-not (Test-Path $backupPath)) {
     Copy-Item $claudeJsonPath $backupPath
 }
 
-# Définir les configs MCP
+# Définir les configs MCP (github-projects-mcp retiré - déprécié #368)
 $mcpConfigs = @{
     jupyter = @{
         command = "conda"
@@ -69,14 +68,6 @@ $mcpConfigs = @{
             "papermill_mcp.main"
         )
         cwd = "D:/Dev/roo-extensions/mcps/internal/servers/jupyter-papermill-mcp-server"
-        env = @{}
-    }
-    'github-projects-mcp' = @{
-        command = "node"
-        args = @(
-            "D:/Dev/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js"
-        )
-        cwd = "D:/Dev/roo-extensions/mcps/internal/servers/github-projects-mcp/"
         env = @{}
     }
     'roo-state-manager' = @{
@@ -132,10 +123,6 @@ switch ($Config) {
         Write-Host "✅ Activation: Jupyter seul" -ForegroundColor Green
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'jupyter' -NotePropertyValue $mcpConfigs['jupyter']
     }
-    'github' {
-        Write-Host "✅ Activation: GitHub Projects seul" -ForegroundColor Green
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'github-projects-mcp' -NotePropertyValue $mcpConfigs['github-projects-mcp']
-    }
     'roo' {
         Write-Host "✅ Activation: RooSync seul (avec wrapper)" -ForegroundColor Green
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'roo-state-manager' -NotePropertyValue $mcpConfigs['roo-state-manager']
@@ -144,25 +131,14 @@ switch ($Config) {
         Write-Host "✅ Activation: RooSync SANS wrapper (tous les outils)" -ForegroundColor Yellow
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'roo-state-manager' -NotePropertyValue $mcpConfigs['roo-state-manager-direct']
     }
-    'jupyter-github' {
-        Write-Host "✅ Activation: Jupyter + GitHub" -ForegroundColor Green
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'jupyter' -NotePropertyValue $mcpConfigs['jupyter']
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'github-projects-mcp' -NotePropertyValue $mcpConfigs['github-projects-mcp']
-    }
     'jupyter-roo' {
         Write-Host "✅ Activation: Jupyter + RooSync" -ForegroundColor Green
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'jupyter' -NotePropertyValue $mcpConfigs['jupyter']
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'roo-state-manager' -NotePropertyValue $mcpConfigs['roo-state-manager']
     }
-    'github-roo' {
-        Write-Host "✅ Activation: GitHub + RooSync" -ForegroundColor Green
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'github-projects-mcp' -NotePropertyValue $mcpConfigs['github-projects-mcp']
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'roo-state-manager' -NotePropertyValue $mcpConfigs['roo-state-manager']
-    }
     'all' {
         Write-Host "✅ Activation: Tous les MCPs" -ForegroundColor Green
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'jupyter' -NotePropertyValue $mcpConfigs['jupyter']
-        $claudeConfig.mcpServers | Add-Member -NotePropertyName 'github-projects-mcp' -NotePropertyValue $mcpConfigs['github-projects-mcp']
         $claudeConfig.mcpServers | Add-Member -NotePropertyName 'roo-state-manager' -NotePropertyValue $mcpConfigs['roo-state-manager']
     }
     'restore' {
@@ -198,7 +174,6 @@ Write-Host ""
 Write-Host "💡 Commandes utiles:" -ForegroundColor Cyan
 Write-Host "  .\Switch-MCPConfig.ps1 -Config none        # Tester sans aucun MCP"
 Write-Host "  .\Switch-MCPConfig.ps1 -Config jupyter     # Tester Jupyter seul"
-Write-Host "  .\Switch-MCPConfig.ps1 -Config github      # Tester GitHub seul"
 Write-Host "  .\Switch-MCPConfig.ps1 -Config roo         # Tester RooSync seul"
 Write-Host "  .\Switch-MCPConfig.ps1 -Config all         # Réactiver tous"
 Write-Host "  .\Switch-MCPConfig.ps1 -Config restore     # Restaurer backup"
