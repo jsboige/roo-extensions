@@ -72,6 +72,44 @@ Dedicated channel for meta-analysis reconciliation. Same format as INTERCOM but 
 3. Both agents can comment on the other's findings
 4. Actionable findings become GitHub issues with `needs-approval`
 
+### Cross-Machine Consultation (after local reconciliation)
+
+When both local meta-analysts (Roo + Claude) **agree** on a finding via META-INTERCOM, they MAY consult other machines' agents via RooSync to gather broader perspective before creating an issue.
+
+**Conditions for cross-machine consultation:**
+- Both local agents have written their analysis to META-INTERCOM
+- The finding is **non-trivial** (not just "everything is fine")
+- The finding affects multiple machines or is architectural
+
+**Procedure:**
+1. The Claude meta-analyst sends a RooSync message with tag `[META-CONSULT]`
+   - Subject: `[META-CONSULT] {finding summary}`
+   - Body: The reconciled finding + specific question for other machines
+   - To: `all` or specific machines relevant to the finding
+2. Responses are collected at the next meta-analysis cycle (24h)
+3. If consensus is reached across machines → create issue with `needs-approval`
+4. If disagreement → document in META-INTERCOM, escalate to coordinator
+
+**Guard rail:** Cross-machine consultation is READ-ONLY. Meta-analysts still cannot dispatch, modify files, or close issues on other machines.
+
+### Agentic Deliberation (sk-agent, experimental)
+
+For complex or high-impact findings, meta-analysts MAY trigger an **agentic conversation** via `sk-agent` to get structured multi-perspective deliberation before proposing an action.
+
+**Use cases:**
+- Architectural decisions affecting the scheduling pipeline
+- Conflicting findings between machines
+- Trade-offs requiring structured debate (e.g., tool removal vs retention)
+
+**Procedure:**
+1. Prepare a concise brief with the finding, context, and options
+2. Call `run_conversation(conversation: "deep-think")` or `call_agent(agent: "critic")` with the brief
+3. Capture the deliberation output
+4. Include the deliberation summary in the `needs-approval` issue body
+
+**Status:** Experimental. See issue tracking sk-agent capabilities (code access, git context).
+Requires validation before production use.
+
 ---
 
 ## Decision Chain
