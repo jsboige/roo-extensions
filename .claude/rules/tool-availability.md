@@ -1,8 +1,51 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Cree:** 2026-02-21
-**Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023)
+**Mis à jour:** 2026-03-05
+**Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
+
+---
+
+## ⛔ RÈGLE NON NÉGOCIABLE
+
+**L'ENVIRONNEMENT EST NON NÉGOCIABLE.**
+
+1. **Si un outil critique est absent, TOUT S'ARRÊTE.**
+   - Pas de mode dégradé
+   - Pas de contournement
+   - Pas d'accommodation
+   - **ON RÉPARE D'ABORD, ON TRAVAILLE ENSUITE**
+
+2. **La perte d'un outil critique est un INCIDENT MAJEUR:**
+   - Déclenche le protocole STOP & REPAIR immédiatement
+   - Doit être documenté dans INTERCOM avec tag [CRITICAL]
+   - Doit faire l'objet d'une investigation de root cause
+   - Les tests unitaires doivent être mis à jour si applicable
+
+3. **Aucune tâche ne peut progresser sans les outils critiques.**
+   - Tenter de travailler sans outils critiques = perte de temps
+   - Le coût de réparation est toujours inférieur au coût de travail dégradé
+
+4. **La complaisance est inacceptable.**
+   - "Note: les outils ne sont pas disponibles" = FAIL
+   - Un outil absent = VOYANTS ROUGES + ACTION IMMÉDIATE
+   - Ne JAMAIS normaliser un environnement dégradé
+
+---
+
+## Configuration Claude Code vs Roo (CRITIQUE)
+
+**⚠️ Claude Code et Roo ont des configurations MCP SÉPARÉES.**
+
+| Agent | Fichier de config | Chemin |
+|-------|-------------------|--------|
+| **Roo** | `mcp_settings.json` | `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/` |
+| **Claude Code** | UI VS Code ou `mcp.json` | À configurer via l'extension Claude Code |
+
+**Conséquence**: Un MCP peut être disponible pour Roo mais PAS pour Claude Code (et inversement).
+
+**OBLIGATION**: Quand on ajoute un MCP critique, il DOIT être configuré pour **LES DEUX** agents.
 
 ---
 
@@ -147,7 +190,8 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 | 2026-02-21 | myia-web1 | win-cli absent apres modes fix | Scheduler bloque | Pas de verification cross-machine apres b91a841c |
 | 2026-02-21 | myia-ai-01 | Contexte explose (--coverage) | Scheduler bloque 5h | Output non limite, pas de garde-fou |
 | 2026-02-21 | myia-po-2023 | Boucle condensation infinie | Scheduler bloque | Seuil condensation + INTERCOM sature |
+| 2026-03-05 | myia-po-2026 | roo-state-manager absent (Claude Code) | Session dégradée, pas de RooSync | Config MCP séparée Claude Code vs Roo non documentée |
 
 ---
 
-**Derniere mise a jour :** 2026-02-21
+**Derniere mise a jour :** 2026-03-05
