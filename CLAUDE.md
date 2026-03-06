@@ -170,9 +170,7 @@ Pas d'acces a l'historique de conversation. Utiliser :
 
 ## Canaux de Communication
 
-### 1. RooSync (Inter-Machine) - CLAUDE CODE UNIQUEMENT
-
-**REGLE ABSOLUE : Roo n'utilise JAMAIS RooSync.**
+### 1. RooSync (Inter-Machine)
 
 Outils MCP (CONS-1) :
 - `roosync_send` - Envoyer/repondre/amender (action: send|reply|amend)
@@ -325,7 +323,7 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 ## Regles Absolues
 
 1. **Etat partage RooSync = GDrive UNIQUEMENT** (jamais dans le depot Git)
-2. **Roo n'utilise JAMAIS RooSync** (seulement Claude Code inter-machine)
+2. **INTERCOM pour communication locale** (Roo <-> Claude Code meme machine), **RooSync pour inter-machine** (les deux agents peuvent l'utiliser)
 3. **Ne JAMAIS modifier `.roomodes` ou `.roo/schedules.json` directement** (modifier sources + regenerer)
 4. **Validation checklist OBLIGATOIRE** pour consolidation/refactoring
 5. **Annoncer son travail** avant de commencer (anti-conflit)

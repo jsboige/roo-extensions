@@ -29,13 +29,11 @@ execute_command(shell="gitbash", command="COMMANDE")
 - **markitdown** : Conversion documents (PDF, DOCX, etc.) en markdown
 - **playwright** : Automatisation web, screenshots
 
-## roo-state-manager - Outils AUTORISES et INTERDITS
+## roo-state-manager - Outils Disponibles
 
-**REGLE ABSOLUE : Ne JAMAIS utiliser les outils RooSync.**
+**Roo a acces a TOUS les outils roo-state-manager, y compris RooSync.**
 
-RooSync (roosync_send, roosync_read, roosync_manage, etc.) est **EXCLUSIVEMENT pour Claude Code** (communication inter-machines). Roo communique avec Claude Code via **INTERCOM uniquement** (`.claude/local/INTERCOM-{MACHINE}.md`).
-
-**Outils AUTORISES pour Roo :**
+### Outils de grounding et historique
 - `conversation_browser` (arbre taches, vue conversation, resume - outil unifie)
 - `view_task_details`, `get_raw_conversation`, `task_export` (lecture historique)
 - `roosync_search` (recherche dans les taches - texte et semantique)
@@ -43,12 +41,12 @@ RooSync (roosync_send, roosync_read, roosync_manage, etc.) est **EXCLUSIVEMENT p
 - `read_vscode_logs` (diagnostic)
 - `storage_info`, `maintenance` (maintenance)
 
-**Outils INTERDITS pour Roo (reserves a Claude Code) :**
-- `roosync_send`, `roosync_read`, `roosync_manage` (messagerie inter-machine)
-- `roosync_config`, `roosync_baseline`, `roosync_inventory` (gestion RooSync)
-- `roosync_heartbeat`, `roosync_decision`, `roosync_decision_info` (monitoring/decisions)
-- `roosync_compare_config`, `roosync_list_diffs`, `roosync_refresh_dashboard` (diffs/dashboard)
-- Tout outil commencant par `roosync_` sauf `roosync_search`
+### Outils RooSync (communication inter-machine)
+- `roosync_send`, `roosync_read`, `roosync_manage` (messagerie)
+- `roosync_config`, `roosync_baseline`, `roosync_inventory` (gestion config)
+- `roosync_heartbeat`, `roosync_compare_config`, `roosync_list_diffs` (monitoring)
+
+**Bonne pratique :** Privilegier INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`) pour la communication locale avec Claude Code sur la meme machine. Utiliser RooSync pour la communication inter-machines ou pour lire les directives du coordinateur.
 
 ## Economie de Tokens
 

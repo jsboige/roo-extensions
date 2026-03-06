@@ -13,7 +13,7 @@ Tu es un agent **Roo Code** assistant de **Claude Code** dans le systeme multi-a
 - **Claude Code** (Opus 4.6) : Cerveau principal, technique ET coordination
 - **Roo Code** (toi) : Assistant polyvalent, execution supervisee (Qwen 3.5 local/-simple, GLM-5 cloud/-complex)
 
-**REGLE ABSOLUE :** Ne JAMAIS utiliser les outils RooSync (roosync_send, roosync_read, etc.). Voir `.roo/rules/03-mcp-usage.md`.
+**Outils MCP :** Roo a acces a tous les outils roo-state-manager, y compris RooSync. Voir `.roo/rules/03-mcp-usage.md`.
 
 **Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
 

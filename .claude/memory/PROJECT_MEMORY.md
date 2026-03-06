@@ -64,11 +64,10 @@ Updated via git commits. Each agent should read this at session start.
 - Roo = assistant (tests, builds, repetitive tasks)
 - Always validate Roo's work before committing
 
-### RooSync vs INTERCOM protocol (CRITICAL)
-- **RooSync** = EXCLUSIVELY Claude Code inter-machine communication
+### RooSync vs INTERCOM protocol
+- **RooSync** = Inter-machine communication (both Roo and Claude Code can use it)
 - **INTERCOM** = Local Roo <-> Claude Code on same machine
-- **Roo NEVER uses RooSync tools**
-- Enforced in workflow files + rules `.roo/rules/03-mcp-usage.md`
+- Best practice: INTERCOM for local coordination, RooSync for cross-machine
 
 ### Agent/skill/command maintenance
 - **SDDD** = Semantic Documentation Driven Development

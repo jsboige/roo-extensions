@@ -5,7 +5,7 @@
 
 ## PRINCIPES
 
-1. **Roo n'utilise JAMAIS RooSync** (reserve a Claude Code)
+1. **RooSync** : Disponible pour consultation. INTERCOM pour la communication locale
 2. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
 3. Communication via META-INTERCOM (`.claude/local/META-INTERCOM-{MACHINE}.md`)
 4. Ne JAMAIS commit ou push
@@ -171,7 +171,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 1. Ne JAMAIS modifier de fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes, etc.)
 2. Ne JAMAIS commit ou push
 3. Ne JAMAIS fermer, archiver ou dispatcher des issues GitHub
-4. Ne JAMAIS utiliser les outils RooSync
+4. **RooSync** : Accessible en lecture pour l'analyse croisee. Privilegier META-INTERCOM pour les rapports
 5. Ne JAMAIS creer d'issue SANS label `needs-approval`
 6. **Limiter les outputs** : `Select-Object -Last 50` ou `tail -50`
 7. **Maximum 3 issues par cycle** (anti-spam)
