@@ -86,6 +86,17 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogMessage
 }
 
+function Test-ClaudeCLI {
+    try {
+        $Version = & claude --version 2>&1
+        Write-Log "Claude CLI: $Version"
+        return $true
+    } catch {
+        Write-Log "Claude CLI non disponible: $_" "ERROR"
+        return $false
+    }
+}
+
 function Get-EscalatedModel {
     param([string]$CurrentModel)
     # Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
@@ -1831,6 +1842,12 @@ Write-Log "=== DÉMARRAGE CLAUDE WORKER ==="
 Write-Log "Machine: $env:COMPUTERNAME"
 Write-Log "RepoRoot: $RepoRoot"
 Write-Log "DryRun: $DryRun"
+
+# Pre-flight: verify Claude CLI is available (#571 Bug 3)
+if (-not (Test-ClaudeCLI)) {
+    Write-Log "ABORT: Claude CLI introuvable. Installer via: npm install -g @anthropic-ai/claude-code" "ERROR"
+    exit 1
+}
 
 try {
     # ==========================================================================
