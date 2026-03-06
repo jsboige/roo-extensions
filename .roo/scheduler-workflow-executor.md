@@ -397,28 +397,29 @@ Rapporte :
 
 ```
 [FRICTION-FOUND] dans INTERCOM (par mode simple / Haiku)
-    → Coordinateur (Claude Opus ou Roo orchestrator-complex) lit l'INTERCOM
-    → ETAPE 1 - Verification sceptique par le coordinateur (protocole skepticism)
+    → ETAPE 1 - Escalade vers agent complex (Roo -complex / Claude Sonnet-Opus)
+      L'agent complex VERIFIE la friction avant de rediger l'issue :
+      • Reproduire ou confirmer la friction independamment
       • La friction est-elle reelle ? (verifier avec git, code source, tests)
       • La friction est-elle nouvelle ? (pas deja reportee ou en cours de fix)
-      • La friction est-elle significative ? (pas un faux positif ou un detail)
-    → Si NON confirme : ignorer, noter "friction rejetee" dans INTERCOM
-    → Si confirme : escalade vers agent complex (Roo -complex / Claude Sonnet-Opus)
-    → ETAPE 2 - L'agent complex VERIFIE A SON TOUR avant de rediger l'issue
-      • Reproduire ou confirmer la friction independamment
       • Evaluer la severite reelle (LOW/MEDIUM/HIGH/CRITICAL)
       • Verifier qu'aucune issue existante ne couvre deja ce probleme
       • Si la friction ne se confirme pas : rapporter "faux positif" dans INTERCOM, pas d'issue
-    → ETAPE 3 - Redaction issue GitHub avec label `needs-approval`
-    → Coordinateur trie et dispatche APRES verification
-    → Utilisateur approuve AVANT implementation
+    → ETAPE 2 - Si confirme : redaction issue GitHub par l'agent complex
+      • Label `needs-approval` pour changements de fonctionnalite ou de harnais
+      • Pas de label special pour tests, MAJ doc, ou corrections simples
+    → ETAPE 3 - Coordinateur (Claude Opus) trie et dispatche
+      • Verification supplementaire si necessaire (protocole skepticism)
+      • Assignation machine + agent + priorite
+    → ETAPE 4 - Utilisateur approuve SI NECESSAIRE
+      • OBLIGATOIRE pour : changements de harnais, nouvelles fonctionnalites, modifications architecturales
+      • PAS NECESSAIRE pour : ajout de tests, MAJ documentation, corrections de typos/chemins
 ```
 
-**4 verrous anti-feature-creep :**
-1. Le scheduler simple ne peut que RAPPORTER, pas AGIR
-2. Le coordinateur VERIFIE la friction (scepticisme niveau 1)
-3. L'agent complex RE-VERIFIE independamment avant de rediger l'issue (scepticisme niveau 2)
-4. L'issue a le label `needs-approval` → l'utilisateur valide avant implementation
+**3 verrous anti-feature-creep :**
+1. Le scheduler simple ne peut que RAPPORTER (INTERCOM), pas AGIR ni creer d'issue
+2. L'agent complex VERIFIE la friction avant de creer l'issue (filtre les faux positifs)
+3. Le coordinateur TRIE et l'utilisateur APPROUVE pour les changements significatifs
 
 **Cout d'un faux positif :** Quelques minutes d'agent complex. **Cout d'un vrai positif non remonte :** Des heures de friction repetee sur 6 machines. Le systeme est volontairement biaise vers la detection (mieux vaut un faux positif filtre que manquer un vrai probleme).
 
