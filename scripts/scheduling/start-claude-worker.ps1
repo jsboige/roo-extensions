@@ -62,7 +62,10 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
-$ModesConfigPath = Join-Path $RepoRoot "roo-config\modes\modes-config.json"
+# Worker defaults (decoupled from Roo modes-config.json since 2026-03-06)
+# Model/iterations come from Project #67 fields. Escalation uses Agent Status protocol
+# (haiku -> sonnet -> opus), NOT Roo mode hierarchy (simple -> complex).
+$WorkerDefaultIterations = 5
 $LogDir = Join-Path $RepoRoot ".claude\logs"
 
 # Créer répertoire logs si nécessaire
@@ -83,23 +86,26 @@ function Write-Log {
     Add-Content -Path $LogFile -Value $LogMessage
 }
 
-function Get-ModeConfig {
-    param([string]$ModeId)
-
-    if (-not (Test-Path $ModesConfigPath)) {
-        Write-Log "Configuration modes introuvable: $ModesConfigPath" "ERROR"
-        return $null
+function Test-ClaudeCLI {
+    try {
+        $Version = & claude --version 2>&1
+        Write-Log "Claude CLI: $Version"
+        return $true
+    } catch {
+        Write-Log "Claude CLI non disponible: $_" "ERROR"
+        return $false
     }
+}
 
-    $Config = Get-Content $ModesConfigPath | ConvertFrom-Json
-    $ModeConfig = $Config.modes | Where-Object { $_.id -eq $ModeId }
-
-    if (-not $ModeConfig) {
-        Write-Log "Mode '$ModeId' introuvable dans config" "ERROR"
-        return $null
+function Get-EscalatedModel {
+    param([string]$CurrentModel)
+    # Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+    switch ($CurrentModel) {
+        "haiku"  { return "sonnet" }
+        "sonnet" { return "opus" }
+        "opus"   { return $null }  # Already at max
+        default  { return "sonnet" }
     }
-
-    return $ModeConfig
 }
 
 function Get-NextTask {
@@ -1119,11 +1125,8 @@ function Get-AdjustedIterations {
         [string]$ModeId
     )
 
-    $ModeConfig = Get-ModeConfig -ModeId $ModeId
-    $ConfigIterations = if ($ModeConfig) { $ModeConfig.maxIterations } else { 5 }
-
-    # Base: use explicit param if set, otherwise mode config
-    $Iterations = if ($BaseIterations -gt 0) { $BaseIterations } else { $ConfigIterations }
+    # Iterations: explicit param > worker default
+    $Iterations = if ($BaseIterations -gt 0) { $BaseIterations } else { $WorkerDefaultIterations }
 
     $AdjustedIterations = switch ($Urgency) {
         "urgent"  { [Math]::Max($Iterations, 10) }   # Max effort
@@ -1402,29 +1405,14 @@ function Invoke-Claude {
         [int]$MaxIter
     )
 
-    $ModeConfig = Get-ModeConfig -ModeId $ModeId
-    if (-not $ModeConfig) {
-        Write-Log "Configuration mode '$ModeId' introuvable" "ERROR"
-        return @{ success = $false; error = "Mode config not found" }
-    }
-
-    Write-Log "Lancement Claude en mode: $ModeId (model: $($ModeConfig.model))"
+    Write-Log "Lancement Claude en mode: $ModeId (model: $Model)"
     Write-Log "Prompt: $Prompt"
 
-    # Déterminer maxIterations
-    $Iterations = if ($MaxIter -gt 0) { $MaxIter } else { $ModeConfig.maxIterations }
+    # Iterations: explicit param > worker default
+    $Iterations = if ($MaxIter -gt 0) { $MaxIter } else { $WorkerDefaultIterations }
 
-    # Déterminer modèle à utiliser
-    # Note: $Model is already set by Determine-Model in main workflow (Project field > param > default)
-    $ModelToUse = if ($Model) {
-        $Model
-    }
-    elseif ($ModeConfig.model) {
-        $ModeConfig.model
-    }
-    else {
-        "sonnet"
-    }
+    # Model is already set by Determine-Model in main workflow (Project field > param > default)
+    $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
     # Construire commande Claude CLI
@@ -1638,32 +1626,25 @@ function Invoke-Claude {
 function Check-Escalation {
     param(
         $Result,
-        [string]$CurrentMode
+        [string]$CurrentModel
     )
 
-    $ModeConfig = Get-ModeConfig -ModeId $CurrentMode
-
-    # Pas d'escalade si pas de config ou déjà au max
-    if (-not $ModeConfig -or -not $ModeConfig.escalation) {
-        return $null
+    # Agent Status protocol: agent explicitly signals escalation need
+    # STATUS: escalate / ESCALATE_TO: sonnet|opus
+    if ($Result.escalateToModel) {
+        Write-Log "Escalade demandee par agent vers modele: $($Result.escalateToModel)" "WARN"
+        return $Result.escalateToModel
     }
 
-    # TODO #3 - Ralph Wiggum: Vérifier flag needsEscalation (détecté par boucle)
-    if ($Result.needsEscalation) {
-        Write-Log "🚀 Escalade demandée par Ralph Wiggum vers: $($ModeConfig.escalation.triggerMode)" "WARN"
-        return $ModeConfig.escalation.triggerMode
-    }
-
-    # Vérifier conditions d'escalade (échec)
+    # Auto-escalate on failure: haiku -> sonnet -> opus
     if (-not $Result.success) {
-        Write-Log "❌ Échec détecté, escalade vers: $($ModeConfig.escalation.triggerMode)" "WARN"
-        return $ModeConfig.escalation.triggerMode
+        $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
+        if ($NextModel) {
+            Write-Log "Echec detecte, escalade modele: $CurrentModel -> $NextModel" "WARN"
+            return $NextModel
+        }
+        Write-Log "Echec detecte mais deja au modele max ($CurrentModel)" "WARN"
     }
-
-    # TODO #4 - Agent Signaling Protocol: Implémenté (2026-02-12)
-    # L'agent signale explicitement son état via format structuré (voir ESCALATION_MECHANISM.md)
-    # Protocole de signaux remplace le pattern matching prescriptif
-    # Format: === AGENT STATUS === / STATUS: <continue|escalate|wait|success|failure> / REASON: ... / ===
 
     return $null
 }
@@ -1862,13 +1843,11 @@ Write-Log "Machine: $env:COMPUTERNAME"
 Write-Log "RepoRoot: $RepoRoot"
 Write-Log "DryRun: $DryRun"
 
-# Pre-check: modes-config.json exists
-if (-not (Test-Path $ModesConfigPath)) {
-    Write-Log "ABORT: modes-config.json introuvable: $ModesConfigPath" "ERROR"
-    Write-Log "  Chemin attendu: roo-config\modes\modes-config.json" "ERROR"
+# Pre-flight: verify Claude CLI is available (#571 Bug 3)
+if (-not (Test-ClaudeCLI)) {
+    Write-Log "ABORT: Claude CLI introuvable. Installer via: npm install -g @anthropic-ai/claude-code" "ERROR"
     exit 1
 }
-Write-Log "ModesConfig: $ModesConfigPath"
 
 try {
     # ==========================================================================
@@ -2049,29 +2028,16 @@ try {
         return
     }
 
-    # 5. Vérifier escalade
-    $EscalateMode = Check-Escalation -Result $Result -CurrentMode $SelectedMode
+    # 5. Vérifier escalade (model-based: haiku -> sonnet -> opus)
+    $EscalatedModel = Check-Escalation -Result $Result -CurrentModel $Model
 
-    if ($EscalateMode) {
-        Write-Log "ESCALADE vers mode: $EscalateMode" "WARN"
+    if ($EscalatedModel) {
+        Write-Log "ESCALADE modele: $Model -> $EscalatedModel" "WARN"
 
-        # Déterminer le modèle pour l'escalade (priorité: agent > mode config > original)
         $OriginalModel = $Model
-        if ($Result.escalateToModel) {
-            $Model = $Result.escalateToModel
-            Write-Log "  → Utilisation modèle suggéré par agent: $Model"
-        } else {
-            # BUG FIX: Utiliser le modèle configuré pour le mode escaladé
-            # Sans ça, -Model haiku restait actif même après escalade vers sync-complex (sonnet)
-            $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
-            if ($EscModeConfig -and $EscModeConfig.model) {
-                $Model = $EscModeConfig.model
-                Write-Log "  → Utilisation modèle du mode escaladé ($EscalateMode): $Model"
-            }
-        }
+        $Model = $EscalatedModel
 
-        $Result = Invoke-Claude -ModeId $EscalateMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
-        $SelectedMode = $EscalateMode
+        $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
 
         # Restaurer le modèle original
         $Model = $OriginalModel

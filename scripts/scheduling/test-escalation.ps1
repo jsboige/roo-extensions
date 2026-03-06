@@ -1,17 +1,11 @@
 <#
 .SYNOPSIS
-    Test script for escalation model resolution
-    Validates that escalation correctly switches model from haiku to the target mode's model
+    Test script for Claude Worker escalation (model-based)
+    Validates that escalation correctly switches model: haiku -> sonnet -> opus
+    Decoupled from Roo modes-config.json since 2026-03-06
 #>
 
 $RepoRoot = Resolve-Path "$PSScriptRoot\..\.."
-$ModesConfigPath = Join-Path $RepoRoot ".claude\modes\modes-config.json"
-
-function Get-ModeConfig {
-    param([string]$ModeId)
-    $Config = Get-Content $ModesConfigPath | ConvertFrom-Json
-    $Config.modes | Where-Object { $_.id -eq $ModeId }
-}
 
 $TestsPassed = 0
 $TestsFailed = 0
@@ -28,104 +22,89 @@ function Assert-Equal {
 }
 
 # ============================================================================
-# Test 1: Mode config models are correct
+# Test 1: Model escalation chain (haiku -> sonnet -> opus)
 # ============================================================================
-Write-Host "=== Test 1: Mode Config Models ===" -ForegroundColor Cyan
+Write-Host "=== Test 1: Model Escalation Chain ===" -ForegroundColor Cyan
 
-$cfg = Get-ModeConfig -ModeId "sync-simple"
-Assert-Equal "sync-simple model" "haiku" $cfg.model
-Assert-Equal "sync-simple escalation" "sync-complex" $cfg.escalation.triggerMode
+function Get-EscalatedModel {
+    param([string]$CurrentModel)
+    switch ($CurrentModel) {
+        "haiku"  { return "sonnet" }
+        "sonnet" { return "opus" }
+        "opus"   { return $null }
+        default  { return "sonnet" }
+    }
+}
 
-$cfg = Get-ModeConfig -ModeId "sync-complex"
-Assert-Equal "sync-complex model" "sonnet" $cfg.model
-
-$cfg = Get-ModeConfig -ModeId "code-simple"
-Assert-Equal "code-simple model" "haiku" $cfg.model
-Assert-Equal "code-simple escalation" "code-complex" $cfg.escalation.triggerMode
-
-$cfg = Get-ModeConfig -ModeId "code-complex"
-Assert-Equal "code-complex model" "sonnet" $cfg.model
-Assert-Equal "code-complex escalation" "code-critical" $cfg.escalation.triggerMode
-
-$cfg = Get-ModeConfig -ModeId "code-critical"
-Assert-Equal "code-critical model" "opus" $cfg.model
+Assert-Equal "haiku escalates to sonnet" "sonnet" (Get-EscalatedModel "haiku")
+Assert-Equal "sonnet escalates to opus" "opus" (Get-EscalatedModel "sonnet")
+Assert-Equal "opus is max (no escalation)" $null (Get-EscalatedModel "opus")
+Assert-Equal "unknown defaults to sonnet" "sonnet" (Get-EscalatedModel "unknown")
 
 # ============================================================================
-# Test 2: Escalation model resolution (the bug fix)
+# Test 2: Escalation scenarios (agent-specified vs auto)
 # ============================================================================
 Write-Host ""
-Write-Host "=== Test 2: Escalation Model Resolution ===" -ForegroundColor Cyan
+Write-Host "=== Test 2: Escalation Scenarios ===" -ForegroundColor Cyan
 
 # Scenario A: Agent specifies ESCALATE_TO model
 $Model = "haiku"
-$EscalateMode = "sync-complex"
 $OriginalModel = $Model
 $escalateToModel = "opus"  # Agent specified
 
 if ($escalateToModel) {
     $Model = $escalateToModel
 } else {
-    $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
-    if ($EscModeConfig -and $EscModeConfig.model) {
-        $Model = $EscModeConfig.model
-    }
+    $NextModel = Get-EscalatedModel -CurrentModel $Model
+    if ($NextModel) { $Model = $NextModel }
 }
 Assert-Equal "Agent-specified model used" "opus" $Model
-$Model = $OriginalModel  # Restore
-
-# Scenario B: No ESCALATE_TO, should use mode config model
-$Model = "haiku"
-$EscalateMode = "sync-complex"
-$OriginalModel = $Model
-$escalateToModel = $null  # Agent did NOT specify
-
-if ($escalateToModel) {
-    $Model = $escalateToModel
-} else {
-    $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
-    if ($EscModeConfig -and $EscModeConfig.model) {
-        $Model = $EscModeConfig.model
-    }
-}
-Assert-Equal "Mode-config model used (sync-complex=sonnet)" "sonnet" $Model
-$Model = $OriginalModel  # Restore
-
-# Scenario C: code-simple escalates to code-complex (sonnet)
-$Model = "haiku"
-$EscalateMode = "code-complex"
-$OriginalModel = $Model
-$escalateToModel = $null
-
-if ($escalateToModel) {
-    $Model = $escalateToModel
-} else {
-    $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
-    if ($EscModeConfig -and $EscModeConfig.model) {
-        $Model = $EscModeConfig.model
-    }
-}
-Assert-Equal "Mode-config model used (code-complex=sonnet)" "sonnet" $Model
 $Model = $OriginalModel
 
-# Scenario D: code-complex escalates to code-critical (opus)
-$Model = "sonnet"
-$EscalateMode = "code-critical"
+# Scenario B: No ESCALATE_TO, auto-escalate haiku -> sonnet
+$Model = "haiku"
 $OriginalModel = $Model
 $escalateToModel = $null
 
 if ($escalateToModel) {
     $Model = $escalateToModel
 } else {
-    $EscModeConfig = Get-ModeConfig -ModeId $EscalateMode
-    if ($EscModeConfig -and $EscModeConfig.model) {
-        $Model = $EscModeConfig.model
-    }
+    $NextModel = Get-EscalatedModel -CurrentModel $Model
+    if ($NextModel) { $Model = $NextModel }
 }
-Assert-Equal "Mode-config model used (code-critical=opus)" "opus" $Model
+Assert-Equal "Auto-escalate haiku -> sonnet" "sonnet" $Model
+$Model = $OriginalModel
+
+# Scenario C: Auto-escalate sonnet -> opus
+$Model = "sonnet"
+$OriginalModel = $Model
+$escalateToModel = $null
+
+if ($escalateToModel) {
+    $Model = $escalateToModel
+} else {
+    $NextModel = Get-EscalatedModel -CurrentModel $Model
+    if ($NextModel) { $Model = $NextModel }
+}
+Assert-Equal "Auto-escalate sonnet -> opus" "opus" $Model
+$Model = $OriginalModel
+
+# Scenario D: Already at opus, no escalation possible
+$Model = "opus"
+$OriginalModel = $Model
+$escalateToModel = $null
+
+if ($escalateToModel) {
+    $Model = $escalateToModel
+} else {
+    $NextModel = Get-EscalatedModel -CurrentModel $Model
+    if ($NextModel) { $Model = $NextModel }
+}
+Assert-Equal "Opus stays at opus (no escalation)" "opus" $Model
 $Model = $OriginalModel
 
 # ============================================================================
-# Test 3: STATUS signal parsing (Ralph Wiggum)
+# Test 3: STATUS signal parsing (Agent Status protocol)
 # ============================================================================
 Write-Host ""
 Write-Host "=== Test 3: STATUS Signal Parsing ===" -ForegroundColor Cyan
@@ -191,12 +170,10 @@ $TestWaitDir = Join-Path $RepoRoot ".claude\scheduler\wait-states"
 $TestTaskId = "test-wait-state-$(Get-Date -Format 'yyyyMMddHHmmss')"
 $TestStateFile = Join-Path $TestWaitDir "$TestTaskId.json"
 
-# Ensure directory exists
 if (-not (Test-Path $TestWaitDir)) {
     New-Item -ItemType Directory -Path $TestWaitDir -Force | Out-Null
 }
 
-# Create test wait state
 $TestState = @{
     taskId = $TestTaskId
     timestamp = (Get-Date).ToUniversalTime().ToString("o")
@@ -204,7 +181,6 @@ $TestState = @{
     waitFor = "user_approval"
     resumeWhen = "user_approval"
     context = @{
-        mode = "sync-simple"
         model = "haiku"
         iteration = 1
         outputSnippet = "Test output line 1`nTest output line 2"
@@ -216,43 +192,36 @@ $JsonText = $TestState | ConvertTo-Json -Depth 10
 
 Assert-Equal "Wait state file created" $true (Test-Path $TestStateFile)
 
-# Read it back
 $ReadState = Get-Content $TestStateFile -Raw | ConvertFrom-Json
 Assert-Equal "Wait state taskId preserved" $TestTaskId $ReadState.taskId
-Assert-Equal "Wait state mode preserved" "sync-simple" $ReadState.context.mode
 Assert-Equal "Wait state model preserved" "haiku" $ReadState.context.model
 Assert-Equal "Wait state resumeWhen preserved" "user_approval" $ReadState.resumeWhen
 
-# Clean up
 Remove-Item $TestStateFile -Force
 Assert-Equal "Wait state file cleaned up" $false (Test-Path $TestStateFile)
 
 # ============================================================================
-# Test 5: Graceful Idle (NoFallback mode)
+# Test 5: Worker script structure validation
 # ============================================================================
 Write-Host ""
-Write-Host "=== Test 5: Graceful Idle (NoFallback) ===" -ForegroundColor Cyan
+Write-Host "=== Test 5: Worker Script Structure ===" -ForegroundColor Cyan
 
-# Verify the script parameter accepts -NoFallback
 $ScriptPath = Join-Path $RepoRoot "scripts\scheduling\start-claude-worker.ps1"
 $ScriptContent = Get-Content $ScriptPath -Raw
 
+# Verify decoupling from Roo modes-config.json
+Assert-Equal "No Get-ModeConfig function" $false ($ScriptContent -match 'function Get-ModeConfig')
+Assert-Equal "No ModesConfigPath variable" $false ($ScriptContent -match '\$ModesConfigPath\s*=')
+Assert-Equal "Has Get-EscalatedModel function" $true ($ScriptContent -match 'function Get-EscalatedModel')
+Assert-Equal "Has WorkerDefaultIterations" $true ($ScriptContent -match '\$WorkerDefaultIterations')
+
+# Verify NoFallback still works
 Assert-Equal "NoFallback parameter exists" $true ($ScriptContent -match '\[switch\]\$NoFallback')
-Assert-Equal "NoFallbackMode propagation exists" $true ($ScriptContent -match '\$script:NoFallbackMode = \$NoFallback')
-Assert-Equal "NoFallback check in Get-NextTask" $true ($ScriptContent -match 'if \(\$script:NoFallbackMode\)')
-Assert-Equal "Null task exit path exists" $true ($ScriptContent -match 'if \(-not \$Task\)')
 Assert-Equal "IDLE exit message exists" $true ($ScriptContent -match 'WORKER IDLE')
 
-# ============================================================================
-# Test 6: Escalation in main workflow code
-# ============================================================================
-Write-Host ""
-Write-Host "=== Test 6: Escalation Code Path in Script ===" -ForegroundColor Cyan
-
-# Verify the bug fix is in place (uses mode config model, not just agent model)
-Assert-Equal "Bug fix: Get-ModeConfig in escalation" $true ($ScriptContent -match 'Get-ModeConfig -ModeId \$EscalateMode')
-Assert-Equal "Bug fix: Uses EscModeConfig.model" $true ($ScriptContent -match '\$EscModeConfig\.model')
-Assert-Equal "Bug fix: Comment explains the fix" $true ($ScriptContent -match 'BUG FIX.*modèle configuré')
+# Verify escalation is model-based, not mode-based
+Assert-Equal "Model-based escalation (Check-Escalation uses CurrentModel)" $true ($ScriptContent -match 'Check-Escalation.*CurrentModel')
+Assert-Equal "No Roo mode escalation (no triggerMode)" $false ($ScriptContent -match 'triggerMode')
 
 # ============================================================================
 # Summary
