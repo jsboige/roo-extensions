@@ -24,15 +24,15 @@ Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en b
 
 ### Procedure d'ecriture OBLIGATOIRE
 
-**METHODE PREFEREE (replace_in_file - append a la fin) :**
+**METHODE PREFEREE (apply_diff - append a la fin) :**
 
 1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
 2. **Preparer** le nouveau message
-3. **Utiliser `replace_in_file`** pour ajouter le message APRES le dernier separateur `---`
+3. **Utiliser `apply_diff`** pour ajouter le message APRES le dernier separateur `---`
 
 Exemple :
 ```
-replace_in_file(
+apply_diff(
   path: ".claude/local/INTERCOM-{MACHINE}.md",
   diff: "<<<<<<< SEARCH\n[dernier separateur --- du fichier]\n======= REPLACE\n[dernier separateur ---]\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n>>>>>>> REPLACE"
 )
@@ -40,7 +40,7 @@ replace_in_file(
 
 **METHODE ALTERNATIVE (win-cli Add-Content) :**
 
-Si `replace_in_file` echoue, utiliser win-cli :
+Si `apply_diff` echoue, utiliser win-cli :
 ```
 execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n'@")
 ```
@@ -51,7 +51,7 @@ Si les deux methodes ci-dessus echouent :
 1. **Lire** le fichier ENTIER avec `read_file`
 2. **Reecrire** avec `write_to_file` (ancien contenu + nouveau message)
 
-> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5 car le modele n'arrive pas a generer le parametre `content` en entier. Le message d'erreur est : "Roo tried to use write_to_file without value for required parameter 'content'". **Privilegier TOUJOURS `replace_in_file` ou `Add-Content`.**
+> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5 car le modele n'arrive pas a generer le parametre `content` en entier. Le message d'erreur est : "Roo tried to use write_to_file without value for required parameter 'content'". **Privilegier TOUJOURS `apply_diff` ou `Add-Content`.**
 
 ### INTERDIT
 

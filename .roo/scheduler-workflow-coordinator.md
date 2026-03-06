@@ -309,14 +309,14 @@ Apres exploration → **Etape 3**
 
 ```
 1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-myia-ai-01.md avec read_file
-2. Utilise replace_in_file pour AJOUTER le nouveau message APRES le dernier separateur ---
+2. Utilise apply_diff pour AJOUTER le nouveau message APRES le dernier separateur ---
 3. Confirme que le message est bien en fin de fichier
 
 IMPORTANT : NE PAS utiliser write_to_file sur un fichier de plus de 200 lignes.
 Le modele n'arrive pas a generer le parametre content pour les gros fichiers
 (erreur : "write_to_file without value for required parameter content").
-Utiliser TOUJOURS replace_in_file pour inserer a la fin.
-Si replace_in_file echoue, utiliser win-cli :
+Utiliser TOUJOURS apply_diff pour inserer a la fin.
+Si apply_diff echoue, utiliser win-cli :
 execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-myia-ai-01.md' -Value 'contenu du message'")
 ```
 
