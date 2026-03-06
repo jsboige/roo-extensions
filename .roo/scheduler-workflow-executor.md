@@ -457,15 +457,15 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 
 > **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
 
-**METHODE PREFEREE (replace_in_file - append a la fin) :**
+**METHODE PREFEREE (apply_diff - append a la fin) :**
 
-> Raison : `write_to_file` echoue sur les gros fichiers (>200 lignes) car le modele ne peut pas generer le parametre `content` en entier. `replace_in_file` n'a besoin que du dernier separateur `---` pour inserer apres.
+> Raison : `write_to_file` echoue sur les gros fichiers (>200 lignes) car le modele ne peut pas generer le parametre `content` en entier. `apply_diff` n'a besoin que du dernier separateur `---` pour inserer apres.
 
 ```
 1. Prepare le message (voir format ci-dessous)
 2. Lis les 20 DERNIERES lignes du fichier INTERCOM avec read_file
-3. Utilise replace_in_file pour ajouter le message APRES le dernier separateur ---
-4. Si replace_in_file echoue : utilise win-cli Add-Content
+3. Utilise apply_diff pour ajouter le message APRES le dernier separateur ---
+4. Si apply_diff echoue : utilise win-cli Add-Content
    execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value 'message'")
 5. NE PAS utiliser write_to_file sur les gros fichiers (boucle infinie garantie)
 ```
@@ -480,7 +480,7 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 - Erreurs: {aucune ou description courte}
 ```
 
-**FALLBACK (si replace_in_file echoue) :** Utiliser win-cli `Add-Content` directement, ou deleguer a `code-simple` via `new_task` avec instruction "utilise replace_in_file pour AJOUTER le message a la fin du fichier INTERCOM (NE PAS utiliser write_to_file)".
+**FALLBACK (si apply_diff echoue) :** Utiliser win-cli `Add-Content` directement, ou deleguer a `code-simple` via `new_task` avec instruction "utilise apply_diff pour AJOUTER le message a la fin du fichier INTERCOM (NE PAS utiliser write_to_file)".
 
 **Format du message :**
 
