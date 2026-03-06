@@ -175,6 +175,24 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 - Les modifications prennent effet au prochain `git pull` + execution scheduler
 - Commit avec message `fix(scheduler): description de la correction`
 
+### Surveillance Sante des Environnements (RESPONSABILITE COORDINATEUR)
+
+**Le coordinateur est responsable de s'assurer que TOUTES les machines ont ce qu'il faut pour fonctionner.**
+
+**A chaque tour de sync, verifier :**
+1. **Rapports entrants** : Les executeurs/meta-analystes signalent-ils des problemes d'env ? (.env incomplet, service down, MCP absent)
+2. **Config drift** : Utiliser `roosync_compare_config` ou `roosync_inventory` pour detecter les divergences
+3. **Heartbeat** : `roosync_heartbeat(status)` pour l'etat online/offline des machines
+
+**Actions correctives :**
+- Envoyer un message RooSync cible avec les variables/config manquantes
+- Inclure le bloc complet (pas de reference a "voir broadcast X" — inclure les valeurs)
+- Tracker la resolution : attendre confirmation de la machine
+- Si probleme infra (service down, reverse proxy) : escalader a l'utilisateur
+
+**Integration meta-analystes :**
+Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via META-INTERCOM ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
+
 ### Fin de Session / Avant Saturation Contexte
 
 **OBLIGATOIRE avant de terminer ou quand le contexte approche sa limite :**
@@ -242,10 +260,10 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 
 Pour que `codebase_search` fonctionne, chaque machine doit avoir dans `.env` :
 ```
-EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_MODEL=qwen3-4b-awq-embedding
 EMBEDDING_DIMENSIONS=2560
-EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
-EMBEDDING_API_KEY=vllm-placeholder-key-2024
+EMBEDDING_API_BASE_URL=https://embeddings.myia.io/v1
+EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9d500e6f1
 ```
 
 **Bug connu :** Le parametre `workspace` doit etre passe explicitement (auto-detection pointe vers le repertoire du serveur MCP).

@@ -47,6 +47,31 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 - Compare messaging volume with actual work output (commits, issues closed)
 - Identify overloaded or idle machines
 
+### 4. Environment Health Monitoring (COORDINATOR RESPONSIBILITY)
+
+**The coordinator is responsible for ensuring ALL machines have what they need to function correctly.** This includes configuration, credentials, services, and MCP tools.
+
+**Sources of information:**
+- **Meta-analysts** escalate environment issues found in execution traces (via `[META-CONSULT]` or `needs-approval` issues)
+- **RooSync config-sync pipeline**: `roosync_compare_config`, `roosync_inventory`, `roosync_list_diffs` detect config drift
+- **Executor reports**: Agents report missing tools, broken services, incomplete `.env`
+- **Heartbeat status**: `roosync_heartbeat(status)` shows online/offline machines
+
+**What to monitor:**
+- `.env` completeness on each machine (EMBEDDING_*, QDRANT_*, ROOSYNC_* vars)
+- MCP tool availability (36 tools for roo-state-manager, 9 for win-cli)
+- Infrastructure services (embeddings.myia.io, qdrant.myia.io, search.myia.io)
+- Config drift between machines (`roosync_compare_config`)
+- Heartbeat registration (all 6 machines should be registered)
+
+**How to act:**
+1. When a meta-analyst or executor reports an environment issue, **verify it** (skepticism protocol)
+2. If confirmed, send a targeted RooSync message with the fix (full `.env` block, config patch, etc.)
+3. Track resolution: machine must confirm fix applied
+4. If systemic (affects multiple machines), create a GitHub issue and broadcast
+
+**Guard rail:** The coordinator does NOT fix environments directly on remote machines. It sends instructions and tracks compliance.
+
 ---
 
 ## Coordinator Report Format
@@ -143,4 +168,4 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 
 ---
 
-**Last updated:** 2026-03-05
+**Last updated:** 2026-03-06
