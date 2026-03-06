@@ -1,8 +1,9 @@
 # Règles de Condensation - Contextes GLM
 
-**Version:** 1.0.0
+**Version:** 2.1.0
 **Créé:** 2026-02-21
-**Issue:** #502 - Boucle infinie condensation Roo
+**Mis à jour:** 2026-03-06
+**Issues:** #502 (boucle Roo) + #555 (saturation) → **Solution: 75%**
 
 ---
 
@@ -25,10 +26,28 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 | Modèle | Contexte Réel | Seuil Recommandé | Justification |
 |--------|---------------|------------------|---------------|
-| **GLM-5** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.7** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.5 Air** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
+| **GLM-5** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
+| **GLM-4.7** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
+| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
+| **GLM-4.5 Air** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
+
+---
+
+## Configuration Claude Code (settings.json)
+
+**Chemin :** `c:\Users\{user}\.claude\settings.json`
+
+**Pour z.ai (GLM) :**
+```json
+{
+  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
+}
+```
+
+**Pour Anthropic :**
+- Ne PAS définir cette variable (défaut 75% fonctionne)
+
+**⚠️ NE JAMAIS utiliser 50%** → Boucle de condensation infinie !
 
 ---
 
@@ -38,13 +57,14 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 **Recommandation :**
 ```
-Seuil de déclenchement : 80%
+Seuil de déclenchement : 75%
 ```
 
-**Pourquoi 80% et pas 50% ?**
-- 50% de 200k = 100k (trop bas pour contexte 131k réel)
-- 80% de 200k = 160k (suffisant pour 131k + marge)
-- Si Roo utilise la valeur réelle 131k : 80% = ~105k (parfait)
+**Pourquoi 75% et pas 50% ou 80% ?**
+- 50% de 200k = 100k (trop bas → boucle infinie #502)
+- 70% de 200k = 140k (limite, risque saturation #555)
+- **75% de 200k = 150k** (optimal → marge 33k)
+- 80% de 200k = 160k (trop haut → explosion contexte)
 
 ---
 
@@ -67,7 +87,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 1. Ouvrir les paramètres Roo (icon gear)
 2. Aller dans "Context Management"
 3. Trouver "Auto-condensation"
-4. Régler "Seuil de déclenchement" à **80%**
+4. Régler "Seuil de déclenchement" à **75%**
 5. Sauvegarder
 
 ### 3. Vérifier que la boucle s'arrête
@@ -75,7 +95,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 Après configuration :
 - Exécuter une tâche scheduler
 - Vérifier que l'INTERCOM ne boucle plus
-- Si problème persiste : augmenter à 85%
+- Si problème persiste : augmenter à 80%
 
 ---
 
@@ -87,5 +107,5 @@ Après configuration :
 
 ---
 
-**Dernière mise à jour :** 2026-02-21
+**Dernière mise à jour :** 2026-03-06
 **Mainteneur :** Coordinateur RooSync (myia-ai-01)

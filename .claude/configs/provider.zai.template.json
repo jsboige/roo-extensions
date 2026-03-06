@@ -8,7 +8,7 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5",
     "API_TIMEOUT_MS": "3000000",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "65"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
   },
   "description": "z.ai GLM models via Anthropic-compatible API",
   "modelMapping": {
@@ -28,7 +28,7 @@
     "GLM-4.5-Air is used for haiku (faster, lighter model)",
     "API timeout increased to 3000s for larger requests",
     "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=65 triggers auto-compact at 65% (130k tokens) to avoid GLM-5 context degradation"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75 triggers auto-compact at 75% (150k tokens) - optimal balance between #502 (loop) and #555 (saturation)"
   ],
   "warnings": {
     "contextTruncation": {
@@ -39,7 +39,7 @@
       "recommendation": "Keep context under 130k tokens, consolidate knowledge before reaching limit",
       "mitigation": {
         "applied": "2026-03-05",
-        "solution": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=65 triggers auto-compact at 130k tokens (65% of 200k)",
+        "solution": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75 triggers auto-compact at 150k tokens (75% of 200k)",
         "reference": "https://github.com/anthropics/claude-code/issues/25867"
       }
     }
