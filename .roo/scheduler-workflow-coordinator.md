@@ -281,7 +281,26 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 Si une issue est trouvee : la lire, commenter pour claim, et executer si faisable en `-simple`.
 
-Apres tout → **Etape 3**
+Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
+
+### Etape 2c-idle : Veille Active (si aucune tache trouvee)
+
+> **Meme mecanisme que le workflow executeur.** Voir `.roo/scheduler-workflow-executor.md` Etape 2c-idle pour les regles completes.
+
+**Resume pour le coordinateur :**
+1. **Selection intelligente** : Lire INTERCOM (tags `[PATROL]`, `[FRICTION-FOUND]` < 7j) + `git log --since='7 days ago'` pour eviter les domaines deja couverts
+2. **1 exploration lecture seule** parmi 6 domaines (outil MCP, doc vs realite, couverture tests, coherence config, sante infra, inventaire GitHub)
+3. **Rapport INTERCOM** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme detecte
+4. **Pas de creation d'issue directe** : le coordinateur Claude verifie et escalade
+
+**Domaines supplementaires pour le coordinateur :**
+
+| # | Domaine | Description |
+|---|---------|-------------|
+| 7 | **Messages RooSync non traites** | Verifier s'il y a des messages anciens non lus ou non archives dans l'inbox RooSync |
+| 8 | **Heartbeat cross-machine** | Appeler `roosync_heartbeat(action="status")` et verifier que toutes les machines ont un heartbeat recent |
+
+Apres exploration → **Etape 3**
 
 ### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
