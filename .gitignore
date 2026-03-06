@@ -136,3 +136,5 @@ tmpclaude-*/
 CLAUDE.local.md
 *.local.md
 scripts/setup/.env
+.claude/scheduler/
+nul
