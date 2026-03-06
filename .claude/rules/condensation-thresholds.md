@@ -1,91 +1,115 @@
 # Règles de Condensation - Contextes GLM
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Créé:** 2026-02-21
-**Issue:** #502 - Boucle infinie condensation Roo
+**Mis à jour:** 2026-03-06
+**Issues:** #502 (boucle Roo) + #555 (saturation GLM-5)
 
 ---
 
-## Problème
+## Problèmes Identifiés
 
-Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réalité est **~131k tokens**.
+Deux problèmes **opposés** ont été identifiés :
 
-**Cause :** Les 200k incluent les tokens de sortie. La taille réelle du contexte d'entrée est ~131k.
+| Issue | Problème | Seuil | Effet |
+|-------|----------|-------|-------|
+| **#502** | Boucle infinie condensation Roo | Trop BAS (50%) | Compaction trop fréquente |
+| **#555** | Saturation contexte GLM-5 | Trop HAUT (80%+) | Compaction trop tardive |
 
-### Impact
-
-- Seuil de condensation par défaut : **50%** de 200k = 100k tokens
-- Avec INTERCOM à 800 lignes (~15k tokens) + harnais Roo
-- Le seuil est atteint trop rapidement
-- → **Boucle infinie de condensation**
+**Solution unifiée : 70%** - Compromis optimal entre les deux extrêmes.
 
 ---
 
-## Solution : Seuils Corrigés
+## Contexte Technique
 
-| Modèle | Contexte Réel | Seuil Recommandé | Justification |
-|--------|---------------|------------------|---------------|
-| **GLM-5** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.7** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-| **GLM-4.5 Air** (z.ai) | 131k tokens | **80%** = ~105k | Marge de sécurité 25k |
-
----
-
-## Configuration Roo (via UI)
-
-**Chemin :** Settings → Context Management → Auto-condensation
-
-**Recommandation :**
-```
-Seuil de déclenchement : 80%
-```
-
-**Pourquoi 80% et pas 50% ?**
-- 50% de 200k = 100k (trop bas pour contexte 131k réel)
-- 80% de 200k = 160k (suffisant pour 131k + marge)
-- Si Roo utilise la valeur réelle 131k : 80% = ~105k (parfait)
+Les modèles GLM (Zhipu AI via z.ai) annoncent **200k tokens** mais :
+- **Contexte réel d'entrée :** ~131k tokens (200k inclut output)
+- **Seuil 50% (trop bas)** : Compaction à ~65k → boucle infinie
+- **Seuil 80%+ (trop haut)** : Compaction à ~105k+ → explosion contexte
+- **Seuil 70% (optimal)** : Compaction à ~92k → marge de sécurité 40k
 
 ---
 
-## Actions Requises
+## Seuil Unifié : 70%
 
-### 1. Documenter dans Roo (si possible)
+| Modèle | Contexte Réel | Seuil Recommandé | Tokens au déclenchement |
+|--------|---------------|------------------|-------------------------|
+| **GLM-5** (z.ai) | 131k | **70%** | ~92k |
+| **GLM-4.7** (z.ai) | 131k | **70%** | ~92k |
+| **GLM-4.7 Flash** (auto-hébergé) | 131k | **70%** | ~92k |
+| **GLM-4.5 Air** (z.ai) | 131k | **70%** | ~92k |
 
-Si Roo permet de configurer `contextWindow` par modèle :
+---
+
+## Configuration Claude Code (z.ai provider)
+
+**Fichier :** `~/.claude/settings.json`
+
 ```json
 {
-  "glm-5": { "contextWindow": 131000 },
-  "glm-4.7": { "contextWindow": 131000 },
-  "glm-4.7-flash": { "contextWindow": 131000 },
-  "glm-4.5-air": { "contextWindow": 131000 }
+    "env": {
+        "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+    }
 }
 ```
 
-### 2. Configurer le seuil dans Roo UI
+**⚠️ Redémarrage VS Code OBLIGATOIRE après modification.**
 
-1. Ouvrir les paramètres Roo (icon gear)
-2. Aller dans "Context Management"
-3. Trouver "Auto-condensation"
-4. Régler "Seuil de déclenchement" à **80%**
-5. Sauvegarder
+---
 
-### 3. Vérifier que la boucle s'arrête
+## Configuration Roo
 
-Après configuration :
-- Exécuter une tâche scheduler
-- Vérifier que l'INTERCOM ne boucle plus
-- Si problème persiste : augmenter à 85%
+### Option 1 : Via RooSync (RECOMMANDÉ pour déploiement multi-machines)
+
+**RooSync peut déployer automatiquement le seuil de condensation sur toutes les machines.**
+
+```bash
+# Sur la machine de référence (ai-01), collecter les settings
+roosync_config(action: "collect", targets: ["settings"])
+
+# Publier sur GDrive
+roosync_config(action: "publish", version: "2.3.4", description: "Seuil condensation 70%")
+
+# Sur les autres machines, appliquer
+roosync_config(action: "apply", targets: ["settings"])
+```
+
+**Settings concernés :**
+- `autoCondenseContext` - Activation/désactivation
+- `autoCondenseContextPercent` - **Seuil de déclenchement (70%)**
+- `condensingApiConfigId` - API config pour condensation
+
+**⚠️ Redémarrage VS Code OBLIGATOIRE après application.**
+
+### Option 2 : Via l'UI Roo
+
+**Chemin :** Settings → Context Management → Auto-condensation
+
+**Valeur recommandée :**
+```
+Seuil de déclenchement : 70%
+```
+
+---
+
+## Pourquoi 70% ?
+
+| Seuil | Effet | Problème |
+|-------|-------|----------|
+| 50% | Compaction à ~65k | **Trop tôt** → boucle infinie (#502) |
+| 70% | Compaction à ~92k | **Optimal** → marge 40k |
+| 80% | Compaction à ~105k | **Trop tard** → explosion (#555) |
 
 ---
 
 ## Références
 
-- **Issue #502 :** Boucle infinie condensation Roo
-- **Source communauté :** La taille réelle GLM est ~131k (200k inclut output)
-- **Test manuel :** Seuil 80% validé sur myia-po-2023 (fin de boucle)
+- **Issue #502 :** Boucle infinie condensation Roo (CLOSED)
+- **Issue #555 :** Saturation contexte GLM-5 (CLOSED)
+- **Issue #580 :** META-ANALYSIS - Règles condensation Claude
+- **Source communauté :** Contexte réel GLM ~131k (200k inclut output)
 
 ---
 
-**Dernière mise à jour :** 2026-02-21
+**Dernière mise à jour :** 2026-03-06
 **Mainteneur :** Coordinateur RooSync (myia-ai-01)
