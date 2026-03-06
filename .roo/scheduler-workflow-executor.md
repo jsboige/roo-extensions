@@ -313,11 +313,118 @@ Si une issue est trouvee :
 3. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
 4. Commenter le resultat : `gh issue comment {NUM} --body "Result: {PASS/FAIL}. Mode: {simple/complex}."`
 
-Si aucune issue : rapporter `[IDLE]` dans INTERCOM.
+Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
+### Etape 2c-idle : Veille Active (si aucune tache trouvee)
 
+> **Objectif :** Utiliser le temps idle pour explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
 
-### Etape 2c : Auto-review des commits recents (OBLIGATOIRE si HEAD a change)
+**REGLES STRICTES :**
+- **LECTURE SEULE** : ne JAMAIS modifier un fichier pendant l'exploration
+- **1 seule exploration par session** : choisir UN domaine, l'explorer, rapporter
+- **Pas de commit/push** : l'exploration ne produit que des rapports INTERCOM
+- **Pas de creation d'issue directe** : si friction trouvee → `[FRICTION-FOUND]` dans INTERCOM, le coordinateur decidera
+
+#### Selection intelligente du domaine (OBLIGATOIRE)
+
+**Ne PAS choisir au hasard.** Deleguer a `ask-simple` via `new_task` :
+
+```
+Lis les 30 dernieres lignes de .claude/local/INTERCOM-{MACHINE}.md.
+Identifie les domaines deja explores recemment (tag [PATROL] ou [FRICTION-FOUND] dans les 7 derniers jours).
+Puis execute : execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -20")
+Identifie les fichiers/domaines touches recemment dans les commits.
+
+Rapporte :
+- Domaines DEJA explores (a eviter) : [liste]
+- Domaines touches par git (a eviter) : [liste]
+- Domaine RECOMMANDE pour exploration : [1 choix parmi la liste ci-dessous]
+```
+
+**Domaines d'exploration (rotation, du plus simple au plus utile) :**
+
+| # | Domaine | Description | Delegation |
+|---|---------|-------------|------------|
+| 1 | **Outil MCP peu utilise** | Tester un outil MCP jamais/rarement appele (ex: `roosync_baseline`, `roosync_decision`, `roosync_heartbeat`, `storage_info`, `maintenance`) avec des parametres basiques | `code-simple` |
+| 2 | **Doc vs realite** | Lire un fichier .md (CLAUDE.md, une rule, un guide) et verifier que les chemins, noms d'outils, exemples de commandes qu'il mentionne existent reellement | `ask-simple` |
+| 3 | **Couverture de tests** | Lister les fichiers source dans `src/tools/` et verifier s'ils ont un `__tests__/*.test.ts` correspondant. Rapporter les fichiers sans tests | `ask-simple` |
+| 4 | **Coherence config** | Comparer une config deployee (`.roomodes`, `.roo/schedules.json`, `mcp_settings.json`) avec sa source (`roo-config/modes/`, template, etc.) et rapporter les ecarts | `code-simple` |
+| 5 | **Sante infrastructure** | Tester un endpoint d'infrastructure (embeddings.myia.io, qdrant.myia.io, search.myia.io, tika.myia.io) avec une requete simple et rapporter le statut | `code-simple` |
+| 6 | **Inventaire GitHub** | Lister les issues ouvertes avec `gh issue list` et identifier celles qui sont perimees (pas de commentaire > 14j), ou celles assignees a cette machine mais bloquees | `code-simple` |
+
+**Choix du domaine :** Prendre le premier domaine de la liste qui N'a PAS ete explore dans les 7 derniers jours (selon INTERCOM + git). Si tous ont ete explores, recommencer au #1.
+
+#### Execution de l'exploration
+
+Deleguer au mode indique dans le tableau via `new_task` :
+
+```
+EXPLORATION VEILLE ACTIVE - Domaine #{N}: {titre}
+Tu es en mode LECTURE SEULE. NE MODIFIE AUCUN FICHIER.
+
+{Instructions specifiques au domaine choisi}
+
+Rapporte :
+- Ce que tu as teste/verifie
+- Resultat : OK / FRICTION DETECTEE
+- Si friction : description precise (output exact, fichier concerne, ecart constate)
+- Recommandation courte (1-2 phrases max)
+```
+
+#### Rapport dans INTERCOM
+
+**Si aucune friction :**
+```markdown
+## [{DATE}] roo -> claude-code [PATROL]
+### Veille Active - Domaine #{N}: {titre}
+- Resultat : OK
+- Details : {ce qui a ete verifie}
+```
+
+**Si friction detectee :**
+```markdown
+## [{DATE}] roo -> claude-code [FRICTION-FOUND]
+### Veille Active - Domaine #{N}: {titre}
+- Friction : {description precise}
+- Preuve : {output de commande, chemin de fichier, ecart constate}
+- Severite estimee : {LOW|MEDIUM|HIGH}
+- Recommandation : {action suggeree}
+```
+
+#### Escalade des frictions (GARDE-FOU ANTI-FEATURE-CREEP)
+
+**Le scheduler simple NE CREE JAMAIS d'issue directement.** Le chemin d'escalade est :
+
+```
+[FRICTION-FOUND] dans INTERCOM (par mode simple / Haiku)
+    → Coordinateur (Claude Opus ou Roo orchestrator-complex) lit l'INTERCOM
+    → ETAPE 1 - Verification sceptique par le coordinateur (protocole skepticism)
+      • La friction est-elle reelle ? (verifier avec git, code source, tests)
+      • La friction est-elle nouvelle ? (pas deja reportee ou en cours de fix)
+      • La friction est-elle significative ? (pas un faux positif ou un detail)
+    → Si NON confirme : ignorer, noter "friction rejetee" dans INTERCOM
+    → Si confirme : escalade vers agent complex (Roo -complex / Claude Sonnet-Opus)
+    → ETAPE 2 - L'agent complex VERIFIE A SON TOUR avant de rediger l'issue
+      • Reproduire ou confirmer la friction independamment
+      • Evaluer la severite reelle (LOW/MEDIUM/HIGH/CRITICAL)
+      • Verifier qu'aucune issue existante ne couvre deja ce probleme
+      • Si la friction ne se confirme pas : rapporter "faux positif" dans INTERCOM, pas d'issue
+    → ETAPE 3 - Redaction issue GitHub avec label `needs-approval`
+    → Coordinateur trie et dispatche APRES verification
+    → Utilisateur approuve AVANT implementation
+```
+
+**4 verrous anti-feature-creep :**
+1. Le scheduler simple ne peut que RAPPORTER, pas AGIR
+2. Le coordinateur VERIFIE la friction (scepticisme niveau 1)
+3. L'agent complex RE-VERIFIE independamment avant de rediger l'issue (scepticisme niveau 2)
+4. L'issue a le label `needs-approval` → l'utilisateur valide avant implementation
+
+**Cout d'un faux positif :** Quelques minutes d'agent complex. **Cout d'un vrai positif non remonte :** Des heures de friction repetee sur 6 machines. Le systeme est volontairement biaise vers la detection (mieux vaut un faux positif filtre que manquer un vrai probleme).
+
+Apres exploration → **Etape 2d** (Auto-review)
+
+### Etape 2d : Auto-review des commits recents (OBLIGATOIRE si HEAD a change)
 
 > Disponible uniquement sur les machines avec sk-agent ou acces vLLM.
 > **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
@@ -344,7 +451,7 @@ execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass 
 
 **Note :** Cette etape est optionnelle et non bloquante. Si echec, noter dans le bilan et continuer.
 
-Apres etapes 2a, 2b, 2c → **Etape 3**
+Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 
 ### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
