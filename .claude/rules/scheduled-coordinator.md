@@ -72,6 +72,22 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 
 **Guard rail:** The coordinator does NOT fix environments directly on remote machines. It sends instructions and tracks compliance.
 
+### 5. INTERCOM Local (bidirectional with Roo)
+
+The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/local/INTERCOM-{MACHINE}.md`).
+
+**Read (start of cycle):** Check for recent Roo messages with these tags:
+
+| Tag | Meaning | Coordinator Action |
+|-----|---------|-------------------|
+| `[DONE]` | Roo completed a task | Analyze results, adjust escalation |
+| `[WAKE-CLAUDE]` | Unhandled RooSync messages detected | Process RooSync inbox with priority |
+| `[PATROL]` | Idle patrol exploration completed | Note domain covered, avoid re-exploring |
+| `[FRICTION-FOUND]` | Problem detected during patrol | Verify friction, create issue if confirmed |
+| `[ERROR]` / `[WARN]` | Operational problem | Investigate |
+
+**Write (end of cycle):** Append a `[COORDINATION]` message with cycle summary (traffic, git, actions taken, recommendations for Roo).
+
 ---
 
 ## Coordinator Report Format

@@ -119,6 +119,19 @@ Tu NE MODIFIES AUCUN fichier de harnais.
 
 ## ETAPES
 
+### 0. Lire l'INTERCOM local
+
+Lis le fichier `.claude/local/INTERCOM-$env:COMPUTERNAME.md` (utilise l'outil Read).
+Cherche les messages recents de Roo (< 24h) avec ces tags :
+- `[DONE]` : Roo a termine une tache → analyser le bilan
+- `[WAKE-CLAUDE]` : Roo a detecte des messages RooSync non traites → les traiter en priorite
+- `[PATROL]` : Roo a fait une exploration de veille active → noter le domaine couvert
+- `[FRICTION-FOUND]` : Roo a detecte un probleme → verifier et escalader si confirme
+- `[ERROR]` / `[WARN]` : Problemes operationnels → investiguer
+- `[ASK]` : Roo pose une question → repondre via INTERCOM
+
+Note les messages pertinents pour les integrer a ton analyse.
+
 ### 1. Analyse du trafic RooSync
 
 Lis ta boite de reception RooSync (tous les messages recents) :
@@ -195,6 +208,27 @@ Format :
 ### Actions Taken
 - [Dispatches, rebalances, escalations]
 ``````
+
+### 6. Ecrire dans l'INTERCOM local
+
+OBLIGATOIRE en fin de cycle. Utilise l'outil Edit pour ajouter un message a la fin de `.claude/local/INTERCOM-$env:COMPUTERNAME.md` :
+
+Format :
+``````markdown
+## [$Today HH:MM] claude-code -> roo [COORDINATION]
+### Bilan coordinateur schedule
+
+- Trafic RooSync : {N} messages analyses, {M} machines actives
+- Git : {N} commits depuis ${LookbackHours}h
+- Charge : {equilibree|desequilibree} ({details})
+- Actions prises : {dispatches, rebalances, ou "aucune"}
+- Messages INTERCOM Roo traites : {N} ({tags})
+- Prochaine action recommandee pour Roo : {suggestion}
+
+---
+``````
+
+Si le fichier INTERCOM n'existe pas ou est inaccessible, note-le dans les logs mais ne bloque pas.
 
 ## CONTRAINTES ABSOLUES
 

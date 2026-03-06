@@ -350,7 +350,7 @@ execute_command(shell="powershell", command="Add-Content -Path '.claude/local/IN
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **NE JAMAIS utiliser les outils RooSync** (roosync_send, roosync_read, etc.)
+4. **NE JAMAIS utiliser les outils RooSync de messaging** (roosync_send, roosync_read, roosync_manage). Les outils de monitoring (roosync_heartbeat, roosync_config, roosync_compare_config, roosync_baseline, roosync_inventory) sont AUTORISES pour le coordinateur.
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte glm-4.7-flash)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte

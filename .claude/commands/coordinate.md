@@ -18,7 +18,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 | myia-po-2024 | Technique | Executor |
 | myia-po-2025 | Technique | Executor |
 | myia-po-2026 | Technique | Executor |
-| myia-web1 | Technique | Executor (2GB RAM) |
+| myia-web1 | Technique | Executor |
 
 ## Architecture Disponible
 
@@ -323,6 +323,19 @@ EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9
 | **RooSync** | Instructions aux exécutants | Chaque tour de sync |
 | **INTERCOM** | Coordination locale Roo | Chaque action locale |
 | **GitHub #67** | Tâches techniques | Création avec validation |
+
+### Tags INTERCOM a surveiller (ecrits par Roo scheduler)
+
+| Tag | Signification | Action Claude |
+|-----|---------------|---------------|
+| `[DONE]` | Roo a termine une tache | Analyser le bilan, ajuster escalade |
+| `[MAINTENANCE]` | Cycle de maintenance complete | Noter resultats (build/tests) |
+| `[IDLE]` | Roo n'a rien trouve a faire | Verifier si des taches sont disponibles |
+| `[WAKE-CLAUDE]` | Messages RooSync non traites detectes par Roo | Traiter les messages RooSync en priorite |
+| `[PATROL]` | Exploration de veille active effectuee (domaine X) | Noter le domaine couvert, eviter de re-explorer |
+| `[FRICTION-FOUND]` | Probleme detecte pendant la veille active | Verifier la friction, escalader si confirmee → issue GitHub |
+| `[ERROR]` / `[WARN]` | Probleme operationnel | Investiguer |
+| `[ASK]` | Question de Roo | Repondre via INTERCOM |
 
 ### Validation Utilisateur OBLIGATOIRE
 

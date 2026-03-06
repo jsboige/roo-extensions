@@ -482,6 +482,17 @@ function Build-GitHubPrompt {
     $PromptParts += "You are an autonomous Claude Code agent on machine $MachineId."
     $PromptParts += "Execute the following GitHub issue autonomously. Do NOT ask for clarification - make reasonable decisions and proceed."
     $PromptParts += ""
+    $PromptParts += "## INTERCOM Protocol"
+    $PromptParts += "BEFORE starting work, read the local INTERCOM file `.claude/local/INTERCOM-$MachineId.md` (use Read tool)."
+    $PromptParts += "Check for recent Roo messages (< 24h): [DONE], [WAKE-CLAUDE], [PATROL], [FRICTION-FOUND], [ERROR], [ASK]."
+    $PromptParts += "If [WAKE-CLAUDE] found: prioritize the indicated RooSync messages."
+    $PromptParts += "If [FRICTION-FOUND] found: note the friction for context."
+    $PromptParts += ""
+    $PromptParts += "AFTER completing work, append a message to the INTERCOM file (use Edit tool):"
+    $PromptParts += "Format: ## [DATE TIME] claude-code -> roo [DONE]"
+    $PromptParts += "Include: task executed, result (success/fail), next recommended action for Roo."
+    $PromptParts += "If INTERCOM file does not exist, skip this step (non-blocking)."
+    $PromptParts += ""
     $PromptParts += "## Issue #$IssueNumber : $Title"
     $PromptParts += ""
 
@@ -551,7 +562,7 @@ function Get-FallbackTask {
         id = "fallback-maintenance"
         subject = "Maintenance quotidienne (fallback)"
         priority = "LOW"
-        prompt = "Exécute les tâches de maintenance :`n1. Vérifier build : cd mcps/internal/servers/roo-state-manager && npm run build`n2. Vérifier tests : npx vitest run`n3. Reporter résultats dans INTERCOM local"
+        prompt = "Exécute les tâches de maintenance :`n0. Lire INTERCOM local (.claude/local/INTERCOM-$($env:COMPUTERNAME.ToLower()).md) - chercher messages Roo recents ([DONE], [WAKE-CLAUDE], [FRICTION-FOUND])`n1. Vérifier build : cd mcps/internal/servers/roo-state-manager && npm run build`n2. Vérifier tests : npx vitest run`n3. Reporter résultats dans INTERCOM local (ajouter message [MAINTENANCE] en fin de fichier avec Edit)"
         source = "fallback"
     }
 }

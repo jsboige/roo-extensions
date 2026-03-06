@@ -37,12 +37,12 @@ npm run test
 npx vitest  # sans "run"
 ```
 
-## Machines à RAM limitée (2GB)
+## Machines à ressources limitées
 
-Sur les machines avec 2GB RAM (ex: myia-web1), les tests échouent avec "JavaScript heap out of memory".
+Sur les machines à ressources contraintes (ex: myia-web1), utiliser `--maxWorkers=1` pour stabiliser les tests et réduire la consommation mémoire.
 
 ```bash
-# TOUJOURS utiliser --maxWorkers=1 sur machines 2GB
+# TOUJOURS utiliser --maxWorkers=1 sur machines contraintes
 npx vitest run --maxWorkers=1
 
 # Si échec persistant, ajouter --no-coverage

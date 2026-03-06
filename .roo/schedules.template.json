@@ -27,7 +27,7 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=180 (3h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30."
+      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=180 (3h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30. IMPORTANT: Pour le COORDINATEUR (myia-ai-01), changer mode en orchestrator-complex (heartbeat, config-sync, delegation complex)."
     },
     {
       "id": "TEMPLATE_META_ID",
