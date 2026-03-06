@@ -191,7 +191,8 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 | 2026-02-21 | myia-ai-01 | Contexte explose (--coverage) | Scheduler bloque 5h | Output non limite, pas de garde-fou |
 | 2026-02-21 | myia-po-2023 | Boucle condensation infinie | Scheduler bloque | Seuil condensation + INTERCOM sature |
 | 2026-03-05 | myia-po-2026 | roo-state-manager absent (Claude Code) | Session dégradée, pas de RooSync | Config MCP séparée Claude Code vs Roo non documentée |
+| 2026-03-06 | myia-ai-01 | 31+ outils roosync_* absents (Claude Code) | Issue #569 impossible (0/26 tests exécutables) | Config MCP Claude Code expose seulement 5 outils management, pas les outils opérationnels |
 
 ---
 
-**Derniere mise a jour :** 2026-03-05
+**Derniere mise a jour :** 2026-03-06
