@@ -1,14 +1,17 @@
 # Deploy-ClaudeMcpSettings.ps1
-# Deploys win-cli and roo-state-manager MCPs to Claude Code settings.json
+# Deploys MCP servers to Claude Code ~/.claude.json (user scope)
 #
-# This script configures Claude Code (NOT Roo) with the critical MCP tools:
-# - win-cli: Fork local 0.2.0 for shell commands
-# - roo-state-manager: For RooSync coordination and conversation management
+# IMPORTANT: Claude Code MCP servers go in ~/.claude.json (user scope),
+# NOT in ~/.claude/settings.json (which is for env/permissions/model only).
+# See: https://code.claude.com/docs/en/settings#what-uses-scopes
+#
+# MCPs read their own .env / config files for credentials.
+# This script only sets command/args/cwd — no secrets.
 #
 # Usage:
 #   .\deploy-claude-mcp-settings.ps1 [-MachineId <hostname>] [-WhatIf]
 #
-# Issue: #569 - Claude Code MCP config is separate from Roo config
+# Issue: #569, #597 - Claude Code MCP scopes
 
 param(
     [string]$MachineId = $env:COMPUTERNAME.ToLower(),
@@ -20,9 +23,9 @@ $ErrorActionPreference = "Stop"
 # Paths
 $RepoRoot = (Get-Item "$PSScriptRoot\..\..").FullName
 $WinCliPath = "$RepoRoot\mcps\external\win-cli\server\dist\index.js"
-$WinCliConfigPath = "$RepoRoot\mcps\external\win-cli\config\win_cli_config.json"
 $RooStatePath = "$RepoRoot\mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs"
 $RooStateCwd = "$RepoRoot\mcps\internal\servers\roo-state-manager\"
+$ClaudeJsonPath = "$env:USERPROFILE\.claude.json"
 $SettingsPath = "$env:USERPROFILE\.claude\settings.json"
 
 # Validate paths
@@ -35,85 +38,98 @@ if (-not (Test-Path $RooStatePath)) {
     exit 1
 }
 
-# Read existing settings or create new
-if (Test-Path $SettingsPath) {
-    $Settings = Get-Content $SettingsPath -Raw | ConvertFrom-Json
-} else {
-    $Settings = @{}
-}
+# --- Build MCP servers config (no credentials — MCPs load their own .env) ---
 
-# Ensure mcpServers section exists
-if (-not $Settings.mcpServers) {
-    $Settings.mcpServers = @{}
-}
-
-# Configure win-cli (fork local 0.2.0)
-$WinCliConfig = @{
-    command = "node"
-    args = @($WinCliPath)
-    env = @{
-        WIN_CLI_CONFIG_PATH = $WinCliConfigPath
+$McpServers = @{
+    "win-cli" = @{
+        command = "node"
+        args = @($WinCliPath)
     }
-}
-$Settings.mcpServers.'win-cli' = $WinCliConfig
-
-# Configure roo-state-manager
-$RooStateConfig = @{
-    command = "node"
-    args = @($RooStatePath)
-    cwd = $RooStateCwd
-    env = @{
-        ROO_EXTENSIONS_PATH = $RepoRoot
-        QDRANT_URL = "http://qdrant.myia.io:6333"
-        QDRANT_COLLECTION = "roo-conversations"
-        EMBEDDING_MODEL = "Alibaba-NLP/gte-Qwen2-1.5B-instruct"
-        EMBEDDING_DIMENSIONS = "2560"
-        EMBEDDING_API_BASE_URL = "http://embeddings.myia.io:11436/v1"
-        EMBEDDING_API_KEY = "vllm-placeholder-key-2024"
+    "roo-state-manager" = @{
+        command = "node"
+        args = @($RooStatePath)
+        cwd = $RooStateCwd
+    }
+    "playwright" = @{
+        command = "npx"
+        args = @("-y", "@playwright/mcp")
     }
 }
 
-# MyIA-Web1 uses a different ROOSYNC_SHARED_PATH (Google account diff)
-if ($MachineId -eq "myia-web1") {
-    $RooStateConfig.env.ROOSYNC_SHARED_PATH = "C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state"
+$McpServersJson = $McpServers | ConvertTo-Json -Depth 10
+
+# --- Update ~/.claude.json (user scope - MCP servers only) ---
+
+Write-Host "`n=== Claude Code MCP Deployment ===" -ForegroundColor Cyan
+Write-Host "Machine: $MachineId" -ForegroundColor Cyan
+Write-Host "Target:  $ClaudeJsonPath (user scope)" -ForegroundColor Cyan
+
+if (Test-Path $ClaudeJsonPath) {
+    $ClaudeJsonRaw = [System.IO.File]::ReadAllText($ClaudeJsonPath, [System.Text.UTF8Encoding]::new($false))
+    $ClaudeJson = $ClaudeJsonRaw | ConvertFrom-Json -Depth 100
 } else {
-    $RooStateConfig.env.ROOSYNC_SHARED_PATH = "G:\Mon Drive\Synchronisation\RooSync\.shared-state"
+    Write-Error "~/.claude.json not found. Claude Code must be initialized first (run 'claude' once)."
+    exit 1
 }
 
-$Settings.mcpServers.'roo-state-manager' = $RooStateConfig
+# Replace only the mcpServers key
+$ClaudeJson.mcpServers = $McpServers
 
-# Ensure CLAUDE_AUTOCOMPACT_PCT_OVERRIDE is set correctly (#502)
-if (-not $Settings.env) {
-    $Settings.env = @{}
-}
-if ($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE -ne "75") {
-    $Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "75"
-    Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 75 (was $($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE))" -ForegroundColor Yellow
-}
-
-# Output
-$JsonOutput = $Settings | ConvertTo-Json -Depth 10
+$OutputJson = $ClaudeJson | ConvertTo-Json -Depth 100
 
 if ($WhatIf) {
-    Write-Host "[WHATIF] Would write to: $SettingsPath" -ForegroundColor Cyan
-    Write-Host $JsonOutput
+    Write-Host "`n[WHATIF] Would write mcpServers to: $ClaudeJsonPath" -ForegroundColor Cyan
+    Write-Host "[WHATIF] MCP servers: $($McpServers.Keys -join ', ')" -ForegroundColor Cyan
+    Write-Host "`n[WHATIF] mcpServers content:" -ForegroundColor Cyan
+    Write-Host $McpServersJson
     exit 0
 }
 
-# Backup existing
+# Backup
+$BackupPath = "$ClaudeJsonPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+Copy-Item $ClaudeJsonPath $BackupPath
+Write-Host "[BACKUP] Created: $BackupPath" -ForegroundColor Green
+
+# Write (UTF-8 no BOM)
+[System.IO.File]::WriteAllText($ClaudeJsonPath, $OutputJson, [System.Text.UTF8Encoding]::new($false))
+Write-Host "[SUCCESS] mcpServers deployed to $ClaudeJsonPath" -ForegroundColor Green
+Write-Host "[MCPs] $($McpServers.Keys -join ', ')" -ForegroundColor Green
+
+# --- Ensure settings.json has correct env (separate scope) ---
+
 if (Test-Path $SettingsPath) {
-    $BackupPath = "$SettingsPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-    Copy-Item $SettingsPath $BackupPath
-    Write-Host "[BACKUP] Created: $BackupPath" -ForegroundColor Green
+    $SettingsRaw = [System.IO.File]::ReadAllText($SettingsPath, [System.Text.UTF8Encoding]::new($false))
+    $Settings = $SettingsRaw | ConvertFrom-Json
+
+    $Changed = $false
+
+    # Remove stale mcpServers from settings.json if present (#597)
+    if ($Settings.PSObject.Properties['mcpServers']) {
+        $Settings.PSObject.Properties.Remove('mcpServers')
+        Write-Host "[FIX] Removed stale mcpServers from settings.json (wrong scope)" -ForegroundColor Yellow
+        $Changed = $true
+    }
+
+    # Ensure CLAUDE_AUTOCOMPACT_PCT_OVERRIDE (#502)
+    if (-not $Settings.PSObject.Properties['env']) {
+        $Settings | Add-Member -NotePropertyName 'env' -NotePropertyValue @{}
+    }
+    if ($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE -ne "75") {
+        $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "75" -Force
+        Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 75 in settings.json" -ForegroundColor Yellow
+        $Changed = $true
+    }
+
+    if ($Changed) {
+        $SettingsJson = $Settings | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($SettingsPath, $SettingsJson, [System.Text.UTF8Encoding]::new($false))
+        Write-Host "[SUCCESS] settings.json updated (env only, no MCPs)" -ForegroundColor Green
+    } else {
+        Write-Host "[OK] settings.json already correct" -ForegroundColor Green
+    }
 }
 
-# Write new settings
-[System.IO.File]::WriteAllText($SettingsPath, $JsonOutput, [System.Text.UTF8Encoding]::new($false))
-
-Write-Host "[SUCCESS] Claude Code MCP settings deployed for $MachineId" -ForegroundColor Green
-Write-Host "[PATH] $SettingsPath" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "`nNext steps:" -ForegroundColor Yellow
 Write-Host "  1. Restart VS Code to load MCP servers"
-Write-Host "  2. Verify with: execute_command(shell='powershell', command='echo OK')"
-Write-Host "  3. Verify with: conversation_browser(action='current')"
+Write-Host "  2. Verify with: conversation_browser(action='current')"
+Write-Host "  3. Check #597 checklist on GitHub"
