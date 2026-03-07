@@ -115,12 +115,19 @@ Chaque sub-agent doit retourner un rapport structuré :
 
 ### Workers (`.claude/agents/workers/`)
 
-| Agent | Usage |
-|-------|-------|
-| `code-fixer` | Investigation + correction bugs |
-| `consolidation-worker` | Exécution consolidations CONS-X |
-| `doc-updater` | MAJ documentation |
-| `test-investigator` | Investigation tests échoués |
+| Agent | Usage | Créé |
+|-------|-------|------|
+| `code-fixer` | Investigation + correction bugs | ✅ |
+| `consolidation-worker` | Exécution consolidations CONS-X | ✅ |
+| `doc-updater` | MAJ documentation | ✅ |
+| `test-investigator` | Investigation tests échoués | ✅ |
+| `issue-worker` | Exécuter issue GitHub complète | ✅ |
+| `config-auditor` | Auditer configs MCP/modes | ✅ |
+| `codebase-researcher` | Recherche SDDD multi-pass | ✅ |
+| `script-runner` | Exécuter scripts avec rapport | ✅ |
+| `pr-reviewer` | Review PR avec critique | ✅ |
+| `issue-triager` | Classification issues | ✅ |
+| `sync-checker` | Vérification git/MCP/schtasks | ✅ |
 
 ### Coordinateur (`.claude/agents/coordinator/`)
 
@@ -139,17 +146,11 @@ Chaque sub-agent doit retourner un rapport structuré :
 
 ---
 
-## Agents à Créer (Roadmap #566)
+## État de la Roadmap #566
 
-| Agent proposé | Rôle | Priorité |
-|---------------|------|----------|
-| `issue-worker` | Exécuter issue GitHub complète | HAUTE |
-| `config-auditor` | Auditer configs MCP/modes | HAUTE |
-| `codebase-researcher` | Recherche SDDD multi-pass | MOYENNE |
-| `script-runner` | Exécuter scripts avec rapport | MOYENNE |
-| `pr-reviewer` | Review PR avec critique | BASSE |
-| `issue-triager` | Classification issues | BASSE |
-| `sync-checker` | Vérification git/MCP/schtasks | BASSE |
+**Tous les agents ont été créés.** Voir le tableau des Workers ci-dessus.
+
+**Dernière validation:** 2026-03-07 par myia-po-2023
 
 ---
 
