@@ -47,12 +47,23 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 **PROTECTION DU CONTENU** - Pour ecrire dans l'INTERCOM, deleguer a `code-simple` avec ces instructions EXACTES :
 
 ```
-1. Lis le fichier .claude/local/INTERCOM-{MACHINE}.md en ENTIER avec read_file.
+1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-{MACHINE}.md avec read_file (pour trouver le dernier "---").
 2. Prepare le nouveau message (format ci-dessous).
-3. Reecris le fichier avec write_to_file en mettant le nouveau message AU DEBUT
-   suivi d'une ligne vide puis de TOUT l'ancien contenu INTEGRAL.
-   Ne supprime RIEN de l'ancien contenu.
+3. Utilise apply_diff pour ajouter le message APRES le dernier separateur "---" :
+   - SEARCH: le dernier separateur "---" du fichier
+   - REPLACE: le separateur "---" + ligne vide + nouveau message + ligne vide + "---"
+4. Si apply_diff echoue, utilise win-cli : Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'
+[ligne vide]
+## [DATE] roo -> claude-code [TYPE]
+### Titre
+Contenu...
+
+---
+'@
 ```
+
+**REGLE CRITIQUE :** Toujours ajouter les nouveaux messages A LA FIN du fichier (ordre chronologique).
+Voir `.roo/rules/02-intercom.md` pour le protocole complet.
 
 - NE PAS utiliser `roosync_send` (c'est pour inter-machines, pas local)
 

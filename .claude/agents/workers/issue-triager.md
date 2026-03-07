@@ -2,7 +2,7 @@
 name: issue-triager
 description: Agent pour classifier et prioriser les issues GitHub. Analyse les nouvelles issues, suggère labels et assignation, détecte les doublons. Pour tri autonome du backlog.
 tools: Bash, Read, Grep, Glob
-model: haiku
+model: sonnet
 ---
 
 # Issue Triager - Agent de Classification d'Issues
