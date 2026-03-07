@@ -1,8 +1,8 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-05
+**Mis à jour:** 2026-03-07
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 
 ---
@@ -57,12 +57,21 @@
 
 ## Inventaire des MCPs Attendus
 
-### MCPs CRITIQUES (toutes machines, scheduler bloque sans eux)
+### MCPs CRITIQUES
+
+**Pour Claude Code :**
 
 | MCP | Outils attendus | Verification | Role |
 |-----|-----------------|-------------|------|
-| **win-cli** | 9 (`execute_command`, `get_command_history`, `ssh_execute`, `ssh_disconnect`, `create_ssh_connection`, `read_ssh_connections`, `update_ssh_connection`, `delete_ssh_connection`, `get_current_directory`) | `execute_command(shell="powershell", command="echo OK")` | Toutes commandes shell (OBLIGATOIRE depuis b91a841c) |
 | **roo-state-manager** | 36 (ListTools) | `conversation_browser(action: "current")` | Grounding conversationnel, coordination, monitoring |
+
+**Pour Roo (scheduler bloque sans eux) :**
+
+| MCP | Outils attendus | Verification | Role |
+|-----|-----------------|-------------|------|
+| **win-cli** | 9 (`execute_command`, `get_command_history`, `ssh_execute`, `ssh_disconnect`, `create_ssh_connection`, `read_ssh_connections`, `update_ssh_connection`, `delete_ssh_connection`, `get_current_directory`) | `execute_command(shell="powershell", command="echo OK")` | Toutes commandes shell (OBLIGATOIRE depuis b91a841c - modes n'ont plus le groupe `command`) |
+
+**Note importante :** win-cli est critique pour **Roo uniquement**. Claude Code peut utiliser l'outil `Bash` natif pour les commandes shell.
 
 **Config win-cli correcte (fork local 0.2.0) :**
 ```json
@@ -155,8 +164,8 @@
 **Procedure :**
 1. Lister TOUTES les machines (6)
 2. Pour chaque machine, verifier via RooSync ou directement :
-   - win-cli pointe vers le fork local (PAS npx)
-   - roo-state-manager repond (36 tools)
+   - **Claude Code** : roo-state-manager repond (36 tools)
+   - **Roo** : win-cli pointe vers le fork local (PAS npx)
    - Aucun MCP retire n'est actif
 3. Si divergence detectee : envoyer directive corrective IMMEDIATE (priorite URGENT)
 4. Suivre jusqu'a confirmation de correction
@@ -195,4 +204,4 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Derniere mise a jour :** 2026-03-06
+**Derniere mise a jour :** 2026-03-07
