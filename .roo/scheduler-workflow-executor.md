@@ -6,6 +6,7 @@
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
 2. Communication locale via INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`), RooSync pour l'inter-machine
+3. **NE DEMANDE JAMAIS A L'UTILISATEUR** de copier du contenu ou de faire le travail a ta place. Si tu essaies d'utiliser un outil indisponible (read_file, write_to_file) et que ca echoue, **DELEGUE immediatement** via `new_task` a un mode qui a l'acces (ask-simple, code-simple). Jamais de demande a l'utilisateur.
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
