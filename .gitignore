@@ -138,3 +138,6 @@ CLAUDE.local.md
 scripts/setup/.env
 .claude/scheduler/
 nul
+
+# Roo modes (deployed to global settings, not project)
+.roomodes
