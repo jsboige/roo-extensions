@@ -491,8 +491,7 @@ customModes:
         - Redesign necessaire pendant un debug → deleguer a architect-simple
         - Question d'analyse pendant du code → deleguer a ask-simple
       - Seuls les orchestrateurs font ce routage. Les workers restent dans leur famille.
-    groups:
-      - mcp
+    groups: []
     source: project
   - slug: orchestrator-complex
     name: 🎯 Orchestrator Complex
@@ -635,8 +634,7 @@ customModes:
         - Redesign necessaire pendant un debug → deleguer a architect-simple
         - Question d'analyse pendant du code → deleguer a ask-simple
       - Seuls les orchestrateurs font ce routage. Les workers restent dans leur famille.
-    groups:
-      - mcp
+    groups: []
     source: project
   - slug: project-manager
     name: 🏢 Project Manager
