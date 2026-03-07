@@ -13,6 +13,26 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ---
 
+## Règles de Délégation (OBLIGATOIRE)
+
+**Référence :** [`.claude/rules/delegation.md`](.claude/rules/delegation.md)
+
+**Déléguer aux sub-agents si la tâche :**
+- Ne nécessite pas le contexte accumulé de la conversation
+- Est autonome (entrées claires, sorties définies)
+- Peut être parallélisée avec d'autres tâches
+- Implique une recherche approfondie
+
+**NE PAS déléguer :**
+- Décisions architecturales (contexte requis)
+- Résolution de conflits git
+- Communication utilisateur directe
+- Tâches triviales (< 1 min)
+
+**Parallélisation :** Lancer les agents indépendants en parallèle dans une seule réponse.
+
+---
+
 ## PHASE 0 : STOP & REPAIR (AVANT TOUT)
 
 **Verifier que les outils critiques sont disponibles dans les system-reminders :**

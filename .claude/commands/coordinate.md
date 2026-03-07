@@ -44,6 +44,24 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 - `/sync-tour` - Tour de synchronisation complet (9 phases, dont Phase 8 consolidation)
 
+### Règles de Délégation (OBLIGATOIRE)
+
+**Référence :** [`.claude/rules/delegation.md`](.claude/rules/delegation.md)
+
+**Déléguer aux sub-agents si la tâche :**
+- Ne nécessite pas le contexte accumulé de la conversation
+- Est autonome (entrées claires, sorties définies)
+- Peut être parallélisée avec d'autres tâches
+- Implique une recherche approfondie
+
+**NE PAS déléguer :**
+- Décisions architecturales (contexte requis)
+- Résolution de conflits git
+- Communication utilisateur directe
+- Tâches triviales (< 1 min)
+
+**Parallélisation :** Lancer les agents indépendants en parallèle dans une seule réponse.
+
 ## Workflow de Coordination
 
 ### Demarrage Standard
