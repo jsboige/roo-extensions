@@ -2,15 +2,57 @@
 
 > Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
 
+---
+
+## ⚠️ RÈGLE CRITIQUE - INTERDICTION DE DEMANDER À L'UTILISATEUR
+
+**QUAND tu as besoin de lire ou écrire un fichier : DELEGUE immédiatement via `new_task` à un mode qui a l'accès (ask-simple, code-simple, debug-simple).**
+
+### ❌ JAMAIS FAIRE (bloque le scheduler)
+
+```markdown
+# NE JAMAIS écrire ça :
+"Pourriez-vous copier le contenu du fichier .roo/scheduler-workflow-executor.md ?"
+"Merci de coller le contenu de .claude/local/INTERCOM-myia-po-2024.md ici."
+"Pouvez-vous me transmettre le contenu de ce fichier ?"
+```
+
+**Pourquoi c'est interdit ?** Cela bloque le scheduler en attendant une intervention humaine. L'orchestrateur DOIT être autonome.
+
+### ✅ TOUJOURS FAIRE (délégation immédiate)
+
+```javascript
+// QUAND tu as besoin de lire un fichier, délégue immédiatement :
+await new_task({
+  title: "Lire le fichier de workflow",
+  instructions: `
+Lire le fichier .roo/scheduler-workflow-executor.md avec read_file.
+Retourner un résumé des instructions.
+  `
+});
+
+// QUAND tu as besoin de lire l'INTERCOM, délégue immédiatement :
+await new_task({
+  title: "Lire INTERCOM local",
+  instructions: `
+Lire .claude/local/INTERCOM-myia-po-2024.md avec read_file.
+Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
+  `
+});
+```
+
+**Même si un outil échoue** : NE DEMANDE JAMAIS à l'utilisateur. Délégue à un autre mode qui a l'outil.
+
+---
+
 ## PRINCIPES
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
 2. Communication locale via INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`), RooSync pour l'inter-machine
-3. **NE DEMANDE JAMAIS A L'UTILISATEUR** de copier du contenu ou de faire le travail a ta place. Si tu essaies d'utiliser un outil indisponible (read_file, write_to_file) et que ca echoue, **DELEGUE immediatement** via `new_task` a un mode qui a l'acces (ask-simple, code-simple). Jamais de demande a l'utilisateur.
+3. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
-6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
-7. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
+6. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
 
 ## REGLES WIN-CLI (CRITIQUE)
 
