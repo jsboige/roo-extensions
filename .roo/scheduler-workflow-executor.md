@@ -13,7 +13,7 @@
 
 ## REGLES WIN-CLI (CRITIQUE)
 
-Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours instruire l'utilisation de win-cli** dans les prompts `new_task` :
+Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours inclure ces instructions dans les prompts `new_task`** (exemples a copier dans le message de delegation) :
 
 ```
 # Build/Tests - utiliser win-cli :
@@ -104,18 +104,25 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 
 **AVANT TOUT**, verifier que les outils critiques sont disponibles.
 
-Tester win-cli directement (PAS via delegation) :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
-execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+Pre-flight check : tester win-cli MCP.
+1. execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+2. Rapporter : PRE-FLIGHT-OK ou erreur exacte.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **Decision :**
-- Si `execute_command` repond `PRE-FLIGHT-OK` : continuer vers **Etape 1**
-- Si `execute_command` echoue ou n'est pas disponible : **STOP IMMEDIAT**
-  1. Ecrire dans INTERCOM (via write_to_file directement) :
-     `## [{DATE}] roo -> claude-code [CRITICAL]`
-     `### MCP win-cli non disponible - Scheduler BLOQUE`
+- Si la delegation reussit et rapporte `PRE-FLIGHT-OK` : continuer vers **Etape 1**
+- Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
+  1. Deleguer a `code-simple` pour ecrire dans INTERCOM :
+     ```
+     Ajoute ce message a la fin de .claude/local/INTERCOM-{MACHINE}.md avec apply_diff :
+     ## [{DATE}] roo -> claude-code [CRITICAL]
+     ### MCP win-cli non disponible - Scheduler BLOQUE
+     ---
+     ```
   2. NE PAS continuer le workflow
   3. Terminer la tache
 
@@ -123,10 +130,12 @@ execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
 
 ### Etape 0b : Heartbeat (OBLIGATOIRE)
 
-Envoyer un signal de vie au coordinateur :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
+Envoyer un heartbeat au coordinateur :
 roosync_heartbeat(action="register")
+Rapporter : OK ou erreur.
 ```
 
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
@@ -135,24 +144,23 @@ roosync_heartbeat(action="register")
 
 ### Etape 0c : Config-Sync (optionnel, si > 24h depuis dernier)
 
-> **Note :** Cette étape utilise les outils RooSync (réservés à Roo sur machines exécutantes pour cette tâche spécifique). Voir principe #4 modifié.
-
-Synchroniser la configuration locale avec le coordinateur :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
+Config-sync : synchroniser la configuration locale.
 1. roosync_config(action: "collect", targets: ["modes", "mcp"])
 2. roosync_config(action: "publish", version: "auto", description: "Config-sync automatique")
-3. result = roosync_compare_config(granularity: "mcp")
+3. roosync_compare_config(granularity: "mcp")
+Rapporter : nombre de diffs (critical, important, warning).
 ```
 
-**Décision selon le résultat :**
-- Si `summary.critical > 0` ou `summary.important > 0` :
-  - Envoyer rapport au coordinateur via INTERCOM (message `[CONFIG-DRIFT]`)
-  - Format : "Config drift détecté: X CRITICAL, Y IMPORTANT"
+**Décision selon le résultat rapporté :**
+- Si `critical > 0` ou `important > 0` :
+  - Deleguer l'ecriture dans INTERCOM d'un message `[CONFIG-DRIFT]`
 - Si seulement WARNING/INFO :
-  - Skip silencieusement (pas de rapport nécessaire)
+  - Skip silencieusement
 
-**Fréquence :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
+**Fréquence :** Une fois par 24h maximum.
 
 **Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
 
@@ -429,16 +437,14 @@ Apres exploration → **Etape 2d** (Auto-review)
 > Disponible uniquement sur les machines avec sk-agent ou acces vLLM.
 > **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
 
-Verifier si le pull (Etape 1) a ramene un nouveau commit :
+**DELEGUER** a `code-simple` via `new_task` pour verifier si le pull a ramene un nouveau commit et lancer l'auto-review :
 
 ```
-execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
-```
-
-Si la commande retourne des commits (HEAD a change), deleguer l'auto-review OBLIGATOIREMENT :
-
-```
-execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
+1. execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
+2. Si des commits sont retournes, lancer l'auto-review :
+   execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
+3. Rapporter : nombre de commits, resultat auto-review.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **Parametres optionnels du script `auto-review.ps1` :**
@@ -457,18 +463,21 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 
 > **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
 
-**METHODE PREFEREE (apply_diff - append a la fin) :**
-
-> Raison : `write_to_file` echoue sur les gros fichiers (>200 lignes) car le modele ne peut pas generer le parametre `content` en entier. `apply_diff` n'a besoin que du dernier separateur `---` pour inserer apres.
+**DELEGUER** a `code-simple` via `new_task` avec ces instructions pour le mode delegue :
 
 ```
-1. Prepare le message (voir format ci-dessous)
-2. Lis les 20 DERNIERES lignes du fichier INTERCOM avec read_file
-3. Utilise apply_diff pour ajouter le message APRES le dernier separateur ---
-4. Si apply_diff echoue : utilise win-cli Add-Content
-   execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value 'message'")
-5. NE PAS utiliser write_to_file sur les gros fichiers (boucle infinie garantie)
+Ajouter le bilan scheduler a la fin de .claude/local/INTERCOM-{MACHINE}.md :
+1. Lis les 20 DERNIERES lignes du fichier avec read_file
+2. Utilise apply_diff pour ajouter le message APRES le dernier separateur ---
+3. Si apply_diff echoue : utilise win-cli Add-Content :
+   execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value 'contenu'")
+4. NE PAS utiliser write_to_file (boucle infinie sur gros fichiers)
+
+Message a ajouter :
+[INSERER LE BILAN CI-DESSOUS]
 ```
+
+**RAPPEL :** L'orchestrateur NE PEUT PAS ecrire dans INTERCOM lui-meme (#563). Il DOIT deleguer.
 
 **FORMAT MESSAGE (garder court) :**
 
@@ -480,7 +489,7 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 - Erreurs: {aucune ou description courte}
 ```
 
-**FALLBACK (si apply_diff echoue) :** Utiliser win-cli `Add-Content` directement, ou deleguer a `code-simple` via `new_task` avec instruction "utilise apply_diff pour AJOUTER le message a la fin du fichier INTERCOM (NE PAS utiliser write_to_file)".
+**FALLBACK (si la premiere delegation echoue) :** Deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement.
 
 **Format du message :**
 
@@ -499,7 +508,7 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 ---
 ```
 
-**Maintenance INTERCOM :** Si le fichier depasse 500 lignes, condenser les 300 premieres en ~50 lignes de synthese, garder les 200 dernieres intactes. Faire cela SEULEMENT si le temps le permet (pas prioritaire).
+**Maintenance INTERCOM :** Si le fichier depasse 500 lignes, deleguer a `code-simple` la condensation des 300 premieres en ~50 lignes de synthese (garder les 200 dernieres intactes). Faire cela SEULEMENT si le temps le permet (pas prioritaire).
 
 ---
 
@@ -508,7 +517,7 @@ Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **RooSync** : Utiliser pour lire les directives du coordinateur et rapporter. Privilegier INTERCOM pour la communication locale avec Claude Code
+4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale avec Claude Code
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte

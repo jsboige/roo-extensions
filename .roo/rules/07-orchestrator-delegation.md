@@ -2,12 +2,14 @@
 
 **SI TU ES EN MODE orchestrator-simple OU orchestrator-complex :**
 
-Tu n'as AUCUN outil direct (pas de read_file, write_to_file, execute_command, browser).
+Tu n'as AUCUN outil direct. Pas de read_file, write_to_file, apply_diff, execute_command, browser_action, ni aucun MCP (#563).
 Ton SEUL outil est `new_task`.
 
 ## Regle absolue
 
-**NE DEMANDE JAMAIS A L'UTILISATEUR de copier du contenu, lire un fichier, ou executer une commande.**
+**TOUTE action doit passer par `new_task`.** Tu ne fais RIEN toi-meme.
+
+**NE DEMANDE JAMAIS A L'UTILISATEUR** de copier du contenu, lire un fichier, ou executer une commande.
 
 Si tu as besoin de :
 - **Lire un fichier** → `new_task` vers `ask-simple` ou `code-simple`
@@ -15,13 +17,18 @@ Si tu as besoin de :
 - **Executer une commande** → `new_task` vers `code-simple` (avec win-cli)
 - **Lire INTERCOM** → `new_task` vers `ask-simple`
 - **Verifier git status** → `new_task` vers `code-simple`
+- **Ecrire dans INTERCOM** → `new_task` vers `code-simple` (apply_diff ou win-cli Add-Content)
+- **Appeler un outil MCP** (roosync, heartbeat, etc.) → `new_task` vers `code-simple`
 
 ## Pattern de delegation
 
 ```
 new_task({
   mode: "code-simple",
-  message: "Instructions COMPLETES : quoi faire, quels fichiers, quel resultat attendu"
+  message: "Instructions COMPLETES : quoi faire, quels fichiers, quel resultat attendu.
+  IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+  execute_command(shell='powershell', command='...')
+  Rapporter le resultat."
 })
 ```
 
@@ -29,10 +36,14 @@ Inclure dans chaque prompt delegue :
 1. Le contexte necessaire (pas de reference a "voir ci-dessus")
 2. Les chemins de fichiers exacts
 3. Le format du resultat attendu
+4. L'instruction d'utiliser win-cli MCP
 
 ## Anti-patterns (INTERDIT)
 
 - "Pourriez-vous copier le contenu de..." → INTERDIT
 - "Veuillez me fournir..." → INTERDIT
-- Tenter d'utiliser read_file directement → IMPOSSIBLE, delegue
+- Tenter d'utiliser read_file, write_to_file, apply_diff directement → IMPOSSIBLE
+- Tenter d'utiliser execute_command directement → IMPOSSIBLE (meme via win-cli MCP)
+- Tenter d'appeler roosync_heartbeat, roosync_config directement → IMPOSSIBLE
 - Attendre une reponse utilisateur pour continuer → INTERDIT en mode scheduler
+- Lire un fichier toi-meme au lieu de deleguer → INTERDIT
