@@ -1,0 +1,101 @@
+name: Harness Change
+description: Modifies agent infrastructure (rules, workflows, modes, MCPs, schedulers)
+title: "[HARNESS] "
+labels: ["harness-change", "needs-deployment-checklist"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Important
+        This issue template is for changes to the agent harness (Roo/Claude Code configuration).
+        All harness changes require a deployment checklist for cross-machine tracking.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Describe the harness change and why it's needed
+      placeholder: "Ex: Update scheduler workflow to use apply_diff instead of write_to_file for INTERCOM updates"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: change-type
+    attributes:
+      label: Type de changement
+      description: Select all that apply
+      options:
+        - label: Rules (`.claude/rules/`)
+        - label: Modes (`.roomodes`, `roo-config/modes/`)
+        - label: Workflows (`.roo/scheduler-workflow-*.md`)
+        - label: MCP Configuration (`mcp_settings.json`, `.roo/mcp.json`)
+        - label: Scheduler (`.roo/schedules.json`)
+        - label: Commands/Skills (`.claude/commands/`, `.claude/skills/`)
+        - label: CLAUDE.md / Documentation
+        - label: Other (specify in description)
+
+  - type: textarea
+    id: files-modified
+    attributes:
+      label: Fichiers modifiés
+      description: List files that will be changed
+      placeholder: |
+        - .roo/scheduler-workflow-executor.md
+        - .claude/rules/intercom.md
+    validations:
+      required: true
+
+  - type: textarea
+    id: deployment-checklist
+    attributes:
+      label: Checklist de déploiement
+      description: |
+        **OBLIGATOIRE** pour tout changement touchant plusieurs machines.
+        Cocher après validation sur chaque machine.
+      value: |
+        | Machine | git pull | Redémarrage | Validé | Notes |
+        |---------|----------|-------------|--------|-------|
+        | myia-ai-01 | ⬜ | ⬜ | ⬜ | |
+        | myia-po-2023 | ⬜ | ⬜ | ⬜ | |
+        | myia-po-2024 | ⬜ | ⬜ | ⬜ | |
+        | myia-po-2025 | ⬜ | ⬜ | ⬜ | |
+        | myia-po-2026 | ⬜ | ⬜ | ⬜ | |
+        | myia-web1 | ⬜ | ⬜ | ⬜ | |
+    validations:
+      required: true
+
+  - type: textarea
+    id: deployment-instructions
+    attributes:
+      label: Instructions de déploiement
+      description: Step-by-step deployment instructions
+      placeholder: |
+        1. git pull origin main
+        2. Redémarrer VS Code pour recharger les MCPs
+        3. Valider avec npx vitest run
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: validation-tests
+    attributes:
+      label: Tests de validation
+      options:
+        - label: Build TypeScript passe (`npm run build`)
+        - label: Tests unitaires passent (`npx vitest run`)
+        - label: Test manuel effectué
+
+  - type: input
+    id: references
+    attributes:
+      label: Références
+      description: Related issues or commits
+      placeholder: "Related #123, commit abc123"
+
+  - type: checkboxes
+    id: acknowledgment
+    attributes:
+      label: Confirmation
+      options:
+        - label: Je comprends que cette modification sera déployée sur 6 machines
+          required: true

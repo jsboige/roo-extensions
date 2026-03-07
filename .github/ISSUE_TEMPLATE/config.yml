@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation RooSync
+    url: https://github.com/jsboige/roo-extensions/tree/main/docs/roosync
+    about: Consult the RooSync documentation before opening an issue
+  - name: 💬 Discussion
+    url: https://github.com/jsboige/roo-extensions/discussions
+    about: Ask questions and discuss with the team
