@@ -12,7 +12,7 @@
 
 ## REGLES WIN-CLI (CRITIQUE)
 
-Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours instruire l'utilisation de win-cli** dans les prompts `new_task` :
+Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours inclure ces instructions dans les prompts `new_task`** (exemples a copier dans le message de delegation) :
 
 ```
 # Build/Tests - utiliser win-cli :
@@ -37,18 +37,25 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 
 **AVANT TOUT**, verifier que les outils critiques sont disponibles.
 
-Tester win-cli directement (PAS via delegation) :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
-execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+Pre-flight check : tester win-cli MCP.
+1. execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+2. Rapporter : PRE-FLIGHT-OK ou erreur exacte.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **Decision :**
-- Si `execute_command` repond `PRE-FLIGHT-OK` : continuer vers **Etape 1**
-- Si `execute_command` echoue ou n'est pas disponible : **STOP IMMEDIAT**
-  1. Ecrire dans INTERCOM (via write_to_file directement) :
-     `## [{DATE}] roo -> claude-code [CRITICAL]`
-     `### MCP win-cli non disponible - Scheduler BLOQUE`
+- Si la delegation reussit et rapporte `PRE-FLIGHT-OK` : continuer vers **Etape 1**
+- Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
+  1. Deleguer a `code-simple` pour ecrire dans INTERCOM :
+     ```
+     Ajoute ce message a la fin de .claude/local/INTERCOM-myia-ai-01.md avec apply_diff :
+     ## [{DATE}] roo -> claude-code [CRITICAL]
+     ### MCP win-cli non disponible - Scheduler BLOQUE
+     ---
+     ```
   2. NE PAS continuer le workflow
   3. Terminer la tache
 
@@ -79,60 +86,42 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 ### Etape 1b : Check Heartbeats (Coordinateur uniquement)
 
-Vérifier l'état des machines executrices :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
-roosync_heartbeat(action="status", filter="all", includeHeartbeats=true)
+Verifier l'etat des machines executrices :
+1. roosync_heartbeat(action="status", filter="all", includeHeartbeats=true)
+2. Rapporter : liste des machines online/offline/warning.
+   - online = OK
+   - offline (>6h sans heartbeat) = signaler
+   - warning (3-6h) = noter
 ```
 
-**Analyser les resultats :**
-- **Machines online** : Normales, peuvent recevoir des tâches
-- **Machines offline** : (>6h sans heartbeat) → Envoyer message RooSync URGENT
-- **Machines warning** : (3-6h sans heartbeat) → Noter dans le bilan
-
-**Si machine silencieuse (>6h) :** Ecrire dans INTERCOM avec format `[MACHINE-SILENCIEUSE]` :
-```markdown
-## [{DATE}] roo -> claude-code [WARNING]
-### Machine {MACHINE} silencieuse
-
-Dernier heartbeat : {DATE}
-Durée silence : {X} heures
-Action requise : Vérifier machine
-```
+**Si machine silencieuse (>6h) :** Deleguer a `code-simple` l'ecriture dans INTERCOM d'un message `[WARNING]` avec les details.
 
 **Si echec heartbeat :** Noter dans le bilan mais continuer (heartbeat non bloquant).
 
 ### Etape 1c : Config-Sync (Coordinateur - optionnel, si > 24h depuis dernier)
 
-> **Note :** Cette étape utilise les outils RooSync (réservés à Roo sur coordinateur pour cette tâche spécifique).
-
-Synchroniser la configuration du coordinateur avec le partage GDrive :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
+Config-sync coordinateur : synchroniser et comparer la configuration.
 1. roosync_config(action: "collect", targets: ["modes", "mcp"])
 2. roosync_config(action: "publish", version: "auto", description: "Config-sync coordinateur")
-3. result = roosync_compare_config(granularity: "mcp")
+3. roosync_compare_config(granularity: "mcp")
+4. Si > 7 jours depuis derniere baseline : roosync_baseline(action: "create", description: "Baseline hebdomadaire")
+Rapporter : nombre de diffs par severite (critical, important, warning).
 ```
 
-**Analyse des diffs des machines :**
+**Decision selon le resultat rapporte :**
+- Si diffs CRITICAL : Deleguer l'envoi d'une directive corrective via RooSync
+- Si `important > 0` : Noter dans le bilan pour suivi
+- Verifier INTERCOM pour messages `[CONFIG-DRIFT]` des machines
 
-- Lire les configs publiées par les machines exécutantes
-- Vérifier INTERCOM pour messages `[CONFIG-DRIFT]` des machines exécutantes
-- Si une machine a des diffs CRITICAL : Envoyer directive corrective via RooSync
-- Si `summary.important > 0` : Noter dans le bilan pour suivi
-- Rapporter l'état global dans le bilan
+**Frequence :** Une fois par 24h maximum.
 
-**Mettre à jour la baseline (si > 7 jours depuis dernière) :**
-
-```
-roosync_baseline(action: "create", description: "Baseline hebdomadaire")
-```
-
-**Fréquence config-sync :** Une fois par 24h maximum. Utiliser un fichier marker `.claude/local/.last-config-sync` pour éviter les syncs répétés.
-
-**Fréquence baseline :** Une fois par 7 jours.
-
-**Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
+**Si echec :** Noter dans le bilan mais continuer (config-sync non bloquant).
 
 ---
 
@@ -142,23 +131,20 @@ roosync_baseline(action: "create", description: "Baseline hebdomadaire")
 
 > **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
 
-Verifier si le pull (Etape 1) a ramene un nouveau commit :
+**DELEGUER** a `code-simple` via `new_task` :
 
 ```
-execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
-```
-
-Si la commande retourne des commits (HEAD a change), lancer l'auto-review OBLIGATOIREMENT :
-
-1. Lancer l'auto-review via sk-agent :
-   ```
+Verifier si le pull a ramene un nouveau commit et lancer l'auto-review si oui :
+1. execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
+2. Si des commits sont retournes, lancer l'auto-review :
    execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
-   ```
-2. Le script detecte l'issue associee au commit (via `#NNN` dans le message) et poste la review
-3. Si echec : noter dans le bilan mais continuer (non bloquant)
+3. Rapporter : nombre de commits, resultat auto-review.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+```
 
-**Prerequis :** sk-agent MCP ou vLLM sur port 5002. La review utilise le mode vLLM en fallback.
-**Note :** Le script utilise `$PSScriptRoot` pour les chemins relatifs, pas de chemin absolu necessaire.
+**Si echec :** Noter dans le bilan mais continuer (non bloquant).
+
+**Prerequis :** sk-agent MCP ou vLLM sur port 5002.
 
 Apres auto-review → continuer vers **Etape 2a** ou **Etape 2b** (selon INTERCOM)
 
@@ -296,8 +282,8 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
 | # | Domaine | Description |
 |---|---------|-------------|
-| 7 | **Messages RooSync non traites** | Verifier s'il y a des messages anciens non lus ou non archives dans l'inbox RooSync |
-| 8 | **Heartbeat cross-machine** | Appeler `roosync_heartbeat(action="status")` et verifier que toutes les machines ont un heartbeat recent |
+| 7 | **Messages RooSync non traites** | Deleguer a code-simple : verifier s'il y a des messages anciens non lus ou non archives dans l'inbox RooSync |
+| 8 | **Heartbeat cross-machine** | Deleguer a code-simple : appeler `roosync_heartbeat(action="status")` et rapporter l'etat des machines |
 
 Apres exploration → **Etape 3**
 
@@ -320,7 +306,7 @@ Si apply_diff echoue, utiliser win-cli :
 execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-myia-ai-01.md' -Value 'contenu du message'")
 ```
 
-**FALLBACK :** Si la delegation echoue (subtask error, timeout, pas de confirmation), ecrire INTERCOM directement via win-cli `Add-Content`. Cette exception a la regle "toujours deleguer" est justifiee car la tracabilite est prioritaire.
+**FALLBACK :** Si la premiere delegation echoue, deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement (#563).
 
 **Format du message :**
 
@@ -340,7 +326,7 @@ execute_command(shell="powershell", command="Add-Content -Path '.claude/local/IN
 ---
 ```
 
-**Maintenance INTERCOM :** Si le fichier depasse 1000 lignes, condenser les 600 premieres en ~100 lignes de synthese, garder les 400 dernieres intactes.
+**Maintenance INTERCOM :** Si le fichier depasse 1000 lignes, deleguer a `code-simple` la condensation des 600 premieres en ~100 lignes de synthese (garder les 400 dernieres intactes).
 
 ---
 
@@ -349,7 +335,7 @@ execute_command(shell="powershell", command="Add-Content -Path '.claude/local/IN
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **RooSync** : Tous les outils sont disponibles. Privilegier INTERCOM pour la communication locale
+4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte glm-4.7-flash)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
