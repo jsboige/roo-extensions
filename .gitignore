@@ -3,8 +3,6 @@
 Thumbs.db
 desktop.ini
 
-# État local
-.state/
 
 # Environnements virtuels
 venv/
@@ -15,7 +13,6 @@ ENV/
 
 # Fichiers de configuration IDE
 .idea/
-.vscode/
 *.sublime-project
 *.sublime-workspace
 
@@ -93,12 +90,8 @@ sync-config.ref.json.backup.*
 .roo/schedules.json
 !.roo/schedules.template.json
 
-# Fichiers de présence RooSync
-RooSync/presence/
-RooSync/shared/
 
 # Fichiers temporaires RooSync
-.shared-state/
 temp/
 
 # Debug files
@@ -123,7 +116,7 @@ mcps/external/win-cli/server/*.txt
 
 # Claude Code MCP configuration (machine-specific paths)
 .mcp.json
-!.mcp.json.template
+
 .claude/config.json
 
 # Claude Code worktrees (machine-specific, created by Claude Code Desktop)
@@ -137,7 +130,6 @@ CLAUDE.local.md
 *.local.md
 scripts/setup/.env
 .claude/scheduler/
-nul
 
 # Roo modes (deployed to global settings, not project)
 .roomodes
