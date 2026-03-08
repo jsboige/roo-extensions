@@ -15,7 +15,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ## Règles de Délégation (OBLIGATOIRE)
 
-**Référence :** [`.claude/rules/delegation.md`](.claude/rules/delegation.md)
+**Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
 
 **Déléguer aux sub-agents si la tâche :**
 - Ne nécessite pas le contexte accumulé de la conversation

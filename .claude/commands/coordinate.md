@@ -46,7 +46,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Règles de Délégation (OBLIGATOIRE)
 
-**Référence :** [`.claude/rules/delegation.md`](.claude/rules/delegation.md)
+**Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
 
 **Déléguer aux sub-agents si la tâche :**
 - Ne nécessite pas le contexte accumulé de la conversation

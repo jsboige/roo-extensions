@@ -46,9 +46,9 @@ Mettre à jour le skill `redistribute-memory` sur toutes les machines pour la re
 2. **Extraction CLAUDE.md :**
    - Extraire ~800 lignes de `CLAUDE.md` en rules (voir plan dans SKILL.md)
    - Créer les fichiers rules suivants :
-     - `.claude/rules/scheduler-system.md` (~300L)
+     - `docs/roo-code/SCHEDULER_SYSTEM.md` (~300L)
      - `.claude/rules/validation-checklist.md` (~80L)
-     - `.claude/rules/agents-architecture.md` (~150L)
+     - `docs/roosync/agents-architecture.md` (~150L)
      - `MCP_SETUP.md` (~100L)
    - Retirer la section GitHub Projects (doublon avec .roo/rules)
 
