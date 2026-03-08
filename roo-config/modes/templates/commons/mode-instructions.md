@@ -21,12 +21,13 @@ Documente tes decisions architecturales pour la tracabilite.
 {{COMPLEX_ESCALATION}}
 {{/if}}
 {{#if WIN_CLI_FALLBACK}}
-IMPORTANT : Terminal par defaut (execute_command) DESACTIVE en mode simple. Utilise TOUJOURS le MCP win-cli a la place :
+Pour executer des commandes shell, utilise UNIQUEMENT le MCP win-cli (outil use_mcp_tool, server_name="win-cli", tool_name="execute_command") :
 - PowerShell : execute_command avec shell="powershell" (pour npm, npx, git, gh, scripts PS)
 - GitBash : execute_command avec shell="gitbash" (pour commandes Unix/bash)
 - CMD : execute_command avec shell="cmd" (cas exceptionnels)
 
-NE JAMAIS utiliser le terminal natif execute_command sans specifier shell via win-cli.
+Tu n'as PAS d'outil terminal natif. Toute execution de commande passe par win-cli.
+Si win-cli echoue, ne retente PAS la meme commande. Analyse l'erreur et adapte.
 {{/if}}
 {{#if NO_COMMAND}}
 IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).
