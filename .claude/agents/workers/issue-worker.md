@@ -25,6 +25,8 @@ Cet agent est approprié pour les issues avec :
          |
 1. LIRE l'issue complète (gh issue view)
          |
+1b. ENRICHIR Project #67 : marquer Status=In Progress
+         |
 2. GROUNDING SDDD si pertinent (codebase_search)
          |
 3. IMPLÉMENTER selon les spécifications
@@ -34,6 +36,8 @@ Cet agent est approprié pour les issues avec :
 5. POSTER commentaire avec rapport structuré
          |
 6. METTRE À JOUR checklist si présente
+         |
+7. ENRICHIR Project #67 : marquer Status=Done si terminé
 ```
 
 ## Commandes Clés
@@ -55,6 +59,24 @@ gh issue comment XXX --repo jsboige/roo-extensions --body "..."
 ```bash
 gh issue edit XXX --repo jsboige/roo-extensions --body "..."
 ```
+
+### Enrichir Project #67
+
+```bash
+# Obtenir le node ID de l'issue
+gh api graphql -f query='{ repository(owner: "jsboige", name: "roo-extensions") { issue(number: XXX) { id } } }'
+
+# Ajouter au project (si pas déjà présent)
+gh api graphql -f query='mutation { addProjectV2ItemById(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", contentId: "NODE_ID" }) { item { id } } }'
+
+# Marquer In Progress (Status field)
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "ITEM_ID", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY", value: { singleSelectOptionId: "47fc9ee4" } }) { projectV2Item { id } } }'
+
+# Marquer Done quand terminé
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "ITEM_ID", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY", value: { singleSelectOptionId: "98236657" } }) { projectV2Item { id } } }'
+```
+
+**IMPORTANT** : Si l'issue n'est pas dans le Project, l'ajouter ET remplir les champs Machine/Agent/Model/Execution. Voir `issue-triager.md` pour les critères de classification et tous les Field/Option IDs.
 
 ### Validation technique
 

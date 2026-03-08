@@ -84,6 +84,9 @@ fieldValues(first: 10) {
 | Status | `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` | Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657` |
 | Machine | `PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8` | ai01=`ae516a70`, po2023=`2b4454e0`, po2024=`91dd0acf`, po2025=`4f388455`, po2026=`bc8df25a`, web1=`e3cd0cd0`, All=`175c5fe1`, Any=`4c242ac6` |
 | Agent | `PVTSSF_lAHOADA1Xc4BLw3wzg9icmA` | Roo=`102d5164`, Claude=`cf1eae0a`, Both=`33d72521` |
+| Model | `PVTSSF_lAHOADA1Xc4BLw3wzg-jMsU` | haiku=`2574677f`, sonnet=`e4cc2b49`, opus=`9404892d` |
+| Execution | `PVTSSF_lAHOADA1Xc4BLw3wzg-jMss` | interactive=`7655267d`, scheduled=`27c8f64e`, both=`98b54b15` |
+| Deadline | `PVTF_lAHOADA1Xc4BLw3wzg-jMsw` | (Date type — use `date` value instead of `singleSelectOptionId`) |
 
 ### Pagination (>100 items)
 
