@@ -167,7 +167,7 @@ Cette règle est automatiquement incluse dans :
 
 - Issue #566: Enrichir sub-agents
 - Issue #563: Restriction MCPs orchestrateurs Roo (pendant)
-- `.claude/rules/agents-architecture.md`: Architecture agents
+- `docs/roosync/agents-architecture.md`: Architecture agents
 - `~/.claude/agents/`: Agents globaux
 
 ---

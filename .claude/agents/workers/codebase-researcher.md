@@ -124,5 +124,6 @@ Agent(
 ---
 
 **Références:**
+
 - `.claude/rules/sddd-conversational-grounding.md` - Protocole SDDD complet
-- `.claude/rules/delegation.md` - Règles de délégation
+- `docs/roosync/DELEGATION.md` - Règles de délégation

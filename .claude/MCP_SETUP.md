@@ -4,7 +4,7 @@
 **Purpose:** Configure roo-state-manager MCP for Claude Code multi-agent coordination
 **Status:** ✅ **VERIFIED WORKING on all 6 machines**
 
-> ⚠️ **Note:** github-projects-mcp is **DEPRECATED** (#368). Use `gh` CLI for GitHub operations. See `.claude/rules/github-cli.md`.
+> ⚠️ **Note:** github-projects-mcp is **DEPRECATED** (#368). Use `gh` CLI for GitHub operations. See `docs/roosync/GITHUB_CLI.md`.
 > 🛑 **CRITICAL:** If MCPs are unavailable at startup → **STOP & REPAIR** (see [`.claude/rules/tool-availability.md`](rules/tool-availability.md))
 
 ---
@@ -111,7 +111,7 @@ Then restart Claude Code to activate MCP.
 **Project:** "RooSync Multi-Agent Tasks" (#67)
 - **URL:** https://github.com/users/jsboige/projects/67
 - **Access:** `gh issue`, `gh pr`, `gh api graphql`
-- **See:** `.claude/rules/github-cli.md` for details
+- **See:** `docs/roosync/GITHUB_CLI.md` for details
 
 **Troubleshooting roo-state-manager:**
 
@@ -401,7 +401,7 @@ Once MCP is verified working on your machine:
 - [Claude Code MCP Complete Guide](https://hrefgo.com/zh/blog/claude-code-mcp-complete-guide)
 - [Claude Code MCP Extension Guide](https://feisky.xyz/posts/2025-06-18-claude-code-mcp/)
 - [roo-state-manager Source](../mcps/internal/servers/roo-state-manager/)
-- [GitHub CLI Rules](.claude/rules/github-cli.md)
+- [GitHub CLI Rules](../docs/roosync/GITHUB_CLI.md)
 
 ---
 

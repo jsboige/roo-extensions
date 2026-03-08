@@ -166,6 +166,7 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/delegation.md` - Règles de délégation
-- `.claude/rules/testing.md` - Commandes de test
-- `.claude/rules/github-cli.md` - Commandes gh CLI
+
+- `docs/roosync/DELEGATION.md` - Règles de délégation
+- `docs/roosync/TESTING.md` - Commandes de test
+- `docs/roosync/GITHUB_CLI.md` - Commandes gh CLI

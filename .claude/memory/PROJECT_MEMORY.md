@@ -115,7 +115,7 @@ Updated via git commits. Each agent should read this at session start.
 - ✅ Phase 1: Tasks assigned and executed
 - ✅ Phase 2: Escalation observed and validated
 - ✅ Complex modes proven capable of real work
-- ✅ Documentation updated in `.claude/rules/scheduler-densification.md`
+- ✅ Documentation updated in `docs/roosync/scheduler-densification.md`
 
 **Archived:** `.claude/memory/archive/issue-545-escalation-observation-plan.md`
 

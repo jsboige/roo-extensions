@@ -179,6 +179,7 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/tool-availability.md` - Inventaire MCPs attendus
+
+- `docs/roosync/MCP_AVAILABILITY.md` - Inventaire MCPs attendus
 - `roo-config/mcp/reference-alwaysallow.json` - alwaysAllow de référence
 - `docs/roosync/GUIDE-TECHNIQUE-v2.3.md` - Guide technique RooSync

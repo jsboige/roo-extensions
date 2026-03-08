@@ -258,4 +258,20 @@ roosync_send(
 
 ---
 
+## Référence Croisée - SDDD RooSync
+
+**Ce document** (`.claude/rules/sddd-conversational-grounding.md`) est le **protocole opérationnel Claude Code** pour le triple grounding SDDD. Il couvre les outils spécifiques à Claude Code :
+- `conversation_browser` (outil unifié)
+- `bookend pattern` (début et fin de tâche)
+- `protocole multi-pass` pour `codebase_search`
+
+**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
+- [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
+
+**Les deux documents sont complémentaires** :
+- **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
+- **Ce fichier** : Protocole opérationnel Claude Code (`conversation_browser`, `bookend`, multi-pass)
+
+---
+
 **Reference :** [.claude/CLAUDE_CODE_GUIDE.md](.claude/CLAUDE_CODE_GUIDE.md)

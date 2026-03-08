@@ -574,10 +574,10 @@ Si CLAUDE.md > 500 lignes, extraire dans cet ordre de priorite :
 
 | Section a extraire | Vers | Raison |
 |--------------------|------|--------|
-| Systeme de scheduler (~300 lignes) | `.claude/rules/scheduler-system.md` | Documentation technique, pas instructions de haut niveau |
-| GitHub Projects / GraphQL (~60 lignes) | Deja dans `.claude/rules/github-cli.md` | DOUBLON : retirer de CLAUDE.md |
+| Systeme de scheduler (~300 lignes) | `docs/roo-code/SCHEDULER_SYSTEM.md` | Documentation technique, pas instructions de haut niveau |
+| GitHub Projects / GraphQL (~60 lignes) | Deja dans `docs/guides/GITHUB_CLI.md` | DOUBLON : retirer de CLAUDE.md |
 | Checklist validation technique (~80 lignes) | `.claude/rules/validation-checklist.md` | Regle technique |
-| Architecture agents/skills (~150 lignes) | `.claude/rules/agents-architecture.md` | Reference technique, pas instructions |
+| Architecture agents/skills (~150 lignes) | `docs/roosync/AGENTS_ARCHITECTURE.md` | Reference technique, pas instructions |
 | Config MCP detaillee (~100 lignes) | `.claude/MCP_SETUP.md` (existe deja) | Consolidation |
 
 ### Actions correctives pour MEMORY.md sature

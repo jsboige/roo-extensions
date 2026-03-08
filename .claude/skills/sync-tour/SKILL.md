@@ -103,7 +103,7 @@ But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 
 **Skill :** `git-sync` (voir `.claude/skills/git-sync/SKILL.md`)
 
-**⚠️ Si Bash échoue silencieusement :** Voir `.claude/rules/bash-fallback.md` → utiliser MCP win-cli en fallback.
+**⚠️ Si Bash échoue silencieusement :** Voir `docs/guides/BASH_FALLBACK.md` → utiliser MCP win-cli en fallback.
 
 ### Actions
 Suivre le workflow du skill `git-sync` :
@@ -170,7 +170,7 @@ git reset --hard HEAD@{2}                 # Revenir à l'état stable
 
 **Skill :** `validate` (voir `.claude/skills/validate/SKILL.md`)
 
-**⚠️ Si Bash échoue silencieusement :** Voir `.claude/rules/bash-fallback.md` → utiliser MCP win-cli en fallback.
+**⚠️ Si Bash échoue silencieusement :** Voir `docs/guides/BASH_FALLBACK.md` → utiliser MCP win-cli en fallback.
 
 ### Actions
 Suivre le workflow du skill `validate` :

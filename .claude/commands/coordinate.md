@@ -46,7 +46,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Règles de Délégation (OBLIGATOIRE)
 
-**Référence :** [`.claude/rules/delegation.md`](.claude/rules/delegation.md)
+**Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
 
 **Déléguer aux sub-agents si la tâche :**
 - Ne nécessite pas le contexte accumulé de la conversation
@@ -66,7 +66,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Demarrage Standard
 
-0. **STOP & REPAIR** : Verifier outils critiques (win-cli + roo-state-manager dans system-reminders). Si absent → reparer AVANT toute autre action. Voir `.claude/rules/tool-availability.md`
+0. **STOP & REPAIR** : Verifier outils critiques (win-cli + roo-state-manager dans system-reminders). Si absent → reparer AVANT toute autre action. Voir `docs/roosync/MCP_AVAILABILITY.md`
 1. **Lire INTERCOM local** : Verifier messages de Roo en premier
 2. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 3. **Analyse rapports** : Traiter messages RooSync entrants
@@ -119,7 +119,7 @@ Quand tu crees ou dispatches une issue `roo-schedulable`, setter OBLIGATOIREMENT
 
 **OBJECTIF :** Verifier ce que les schedulers (Roo ET Claude Worker) ont fait depuis la derniere verification, ajuster le niveau d'escalade, et reprendre les taches echouees.
 
-**RÈGLE DE DENSIFICATION :** Voir [`.claude/rules/scheduler-densification.md`](.claude/rules/scheduler-densification.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
+**RÈGLE DE DENSIFICATION :** Voir [`docs/roo-code/SCHEDULER_DENSIFICATION.md`](../../docs/roo-code/SCHEDULER_DENSIFICATION.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
 
 **0. Decouvrir les taches recentes (POINT D'ENTREE) :**
 
@@ -161,7 +161,7 @@ conversation_browser(
 - Croiser avec `git log`, tables d'infrastructure (CLAUDE.md GPU Fleet/Services), MEMORY.md
 - Si affirmation surprenante → verifier (Niveau 1-3) AVANT de dispatcher
 - Ne JAMAIS relayer une affirmation sans qualifier : "VERIFIE par [preuve]" ou "RAPPORTE PAR [source] (non verifie)"
-- **Reference :** [`.claude/rules/skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
+- **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 - `[ESCALADE-CLAUDE]` → Taches echouees en `-complex` a reprendre par Claude
 
 **4. Evaluer et ajuster :**

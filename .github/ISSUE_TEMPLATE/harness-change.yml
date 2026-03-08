@@ -41,7 +41,7 @@ body:
       description: List files that will be changed
       placeholder: |
         - .roo/scheduler-workflow-executor.md
-        - .claude/rules/intercom.md
+        - docs/roosync/INTERCOM_PROTOCOL.md
     validations:
       required: true
 

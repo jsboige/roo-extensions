@@ -172,6 +172,7 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/github-cli.md` - Commandes gh CLI
-- `.claude/rules/pr-review-policy.md` - Politique PR
-- `.claude/rules/validation-checklist.md` - Checklist validation
+
+- `docs/roosync/GITHUB_CLI.md` - Commandes gh CLI
+- `docs/roosync/PR_REVIEW_POLICY.md` - Politique PR
+- `docs/roosync/VALIDATION_CHECKLIST.md` - Checklist validation

@@ -147,27 +147,19 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 
 **AVANT TOUT**, verifier que les outils critiques sont disponibles.
 
-**DELEGUER** a `code-simple` via `new_task` :
+**VERIFIER SOI-MÊME** (pas de delegation) :
 
-```
-Pre-flight check : tester win-cli MCP.
-1. execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
-2. Rapporter : PRE-FLIGHT-OK ou erreur exacte.
-IMPORTANT : utilise win-cli MCP (pas le terminal natif).
-```
+1. Lire un fichier simple pour verifier l accès filesystem : `.claude/local/INTERCOM-{MACHINE}.md`
 
-**Decision :**
-- Si la delegation reussit et rapporte `PRE-FLIGHT-OK` : continuer vers **Etape 1**
-- Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
-  1. Deleguer a `code-simple` pour ecrire dans INTERCOM :
-     ```
-     Ajoute ce message a la fin de .claude/local/INTERCOM-{MACHINE}.md avec apply_diff :
-     ## [{DATE}] roo -> claude-code [CRITICAL]
-     ### MCP win-cli non disponible - Scheduler BLOQUE
-     ---
-     ```
-  2. NE PAS continuer le workflow
-  3. Terminer la tache
+2. Si le fichier existe et est lisible : les outils de base sont OK → continuer
+
+3. Si erreur de lecture → STOP IMMEDIAT
+
+**Si STOP (echec lecture) :**
+- Ecrire dans INTERCOM avec `[CRITICAL]` : Outils filesystem non disponibles
+- Terminer la tache
+
+**Note :** L ancien pre-flight check utilisait execute_command (win-cli MCP) mais aucun mode `-simple` n a acces au groupe `command` depuis b91a841c. Le scheduler Roo ne peut donc pas tester win-cli directement. Si un probleme win-cli survient, il sera detecte lors des tentatives d execution des taches.
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
