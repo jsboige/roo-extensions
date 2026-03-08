@@ -1,0 +1,79 @@
+## Contexte
+
+Le système de scheduling a 3 tiers côté Claude (Worker 3h, Coordinator 8h, MetaAudit 24h) et 1 côté Roo (scheduler extension 3h). Plusieurs bugs ont été corrigés récemment mais la validation cross-machine est incomplète.
+
+## État actuel des schedulers
+
+### Claude schtasks (ai-01 seulement pour l'instant)
+
+| Tâche | Intervalle | Modèle | Statut ai-01 | Autres machines |
+|-------|-----------|--------|-------------|-----------------|
+| Claude-Worker | 3h | haiku | ✅ Actif | po-2025 ✅, po-2023 ✅, reste ⬜ |
+| Claude-Coordinator | 8h | opus | ✅ Actif | N/A (ai-01 only) |
+| Claude-MetaAudit | 24h | opus | ✅ Actif | po-2023 ✅, reste ⬜ |
+
+### Roo scheduler (extension VS Code)
+
+| Machine | Statut | Dernier run connu | Problèmes |
+|---------|--------|-------------------|-----------|
+| ai-01 | ✅ | 2026-03-08 02:00 UTC | Validé Phase 1-3 |
+| po-2023 | ✅ | 2026-03-05 | OK |
+| po-2024 | ❓ | Non vérifié | .roomodes absent (issue trouvée) |
+| po-2025 | ✅ | 2026-03-05 | OK |
+| po-2026 | ❓ | Non vérifié | - |
+| web1 | ✅ FIXÉ | 2026-03-07 11:00 UTC | **OBSOLÈTE globalStorage, déployé schedules.json corrigé** |
+
+## Tests à effectuer par machine
+
+### Phase 1 : Vérification infrastructure (toutes machines)
+
+Chaque machine doit vérifier et reporter :
+
+- [x] **ai-01**: Scheduler Roo actif ✅ | Dernier tick 02:00 UTC ✅ | Prompt = "Delegue a ask-simple" ✅ | schedules.json conforme ✅
+- [x] **po-2023**: Scheduler Roo actif ✅ (orchestrator-simple, lastTick 3h ago) | schedules.json à jour ✅ | VS Code ouvert ✅
+- [ ] **po-2024**: Scheduler Roo actif ? schedules.json à jour ? VS Code ouvert ?
+- [x] **po-2025**: Scheduler Roo actif + Claude-Worker actif ✅
+- [ ] **po-2026**: Scheduler Roo actif ? schedules.json à jour ? VS Code ouvert ?
+- [x] **web1**: Scheduler Roo actif ✅ FIXÉ | schedules.json déployé depuis .roo/ vers globalStorage | VS Code ouvert ✅
+
+**Détail fix web1 :**
+- Problème : globalStorage schedules.json OBSOLÈTE (dernier run 2026-03-02)
+- Solution : Déployé schedules.json depuis .roo/ avec contenu correct (orchestrator-simple, stagger 30min)
+- Validation : Scheduler actif, prochain tick 2026-03-07 14:00 UTC
+
+### Phase 2 : Test de fonctionnement
+
+Créer une tâche [TASK] dans l'INTERCOM et vérifier que le scheduler la traite.
+
+- [x] **ai-01**: Tester avec une tâche [TASK] simple dans INTERCOM ✅
+- [x] **po-2023**: Tester avec une tâche [TASK] simple dans INTERCOM ✅
+- [ ] **po-2024**: Tester que le scheduler ne reste pas IDLE indéfiniment
+- [x] **po-2025**: Vérifier staggering (startMinute=30) ✅
+- [ ] **po-2026**: Tester avec Qwen 3.5 (profil déployé)
+- [x] **web1**: Vérifier stabilité avec --maxWorkers=1 ✅ (fix déployé, prochain tick 14:00 UTC)
+
+### Phase 3 : Validation Claude Worker (machines avec schtask)
+
+- [x] **ai-01**: Vérifier logs 24h ✅ - Claude-Worker RUNNING, Coordinator actif, MetaAudit actif
+- [ ] **po-2025**: Idem
+- [x] **po-2023**: Claude-Worker ✅ DEPLOYÉ (LastRun: 2026-03-08 14:25, NextRun: 2026-03-08 18:25, Result: 0)
+- [x] **po-2023**: Claude-MetaAudit ✅ DEPLOYÉ (LastRun: 2026-03-08 01:22, NextRun: 2026-03-09 01:22, Result: 0)
+- [ ] **po-2024**: Déployer Claude-Worker (setup-scheduler.ps1)
+- [ ] **po-2025**: Déployer Claude-MetaAudit (setup-scheduler.ps1)
+- [ ] **po-2026**: Déployer Claude-Worker + Claude-MetaAudit
+
+### Phase 4 : Test de résilience
+
+- [ ] Que se passe-t-il quand VS Code est fermé ? Le scheduler reprend-il au restart ?
+- [ ] Que se passe-t-il quand le modèle est timeout (z.ai down) ? Retry ou crash ?
+
+---
+
+## Prochaine action
+
+Priorité par ordre :
+1. **po-2024** : Déployer .roomodes manquant (git pull depuis main)
+2. **po-2024/po-2026** : Vérifier infrastructure Roo (Phase 1)
+3. **po-2024** : Déployer Claude-Worker
+4. **Toutes** : Test de résilience (Phase 4)
+
