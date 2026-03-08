@@ -123,7 +123,7 @@ await new_task({
   title: "Chercher tâche GitHub",
   instructions: `
 1. execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10")
-2. Si issue trouvée : gh issue comment {NUM} --body "Claimed by myia-po-2023"
+2. Si issue trouvée : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by myia-po-2023\"")
 3. Executer la tâche selon les instructions dans l'issue
   `
 });
@@ -206,9 +206,9 @@ Rapporter : nombre de diffs (critical, important, warning).
 Deleguer a `code-simple` via `new_task` :
 
 ```
-Executer ces commandes et rapporter le resultat :
-1. git pull --no-rebase origin main
-2. git status
+Executer ces commandes avec win-cli MCP et rapporter le resultat :
+1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+2. execute_command(shell="gitbash", command="git status")
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
 Chercher les messages [TASK], [SCHEDULED], [URGENT] de claude-code -> roo.
 Pour chaque [TASK], vérifier s'il contient un tag [workspace:PATH].
@@ -335,9 +335,9 @@ Deleguer dans cet ordre a `code-simple` via `new_task` :
 **1. Build + Tests (validation sante workspace)**
 
 ```
-Executer dans le repertoire mcps/internal/servers/roo-state-manager :
-1. npm run build
-2. npx vitest run
+Executer dans le repertoire mcps/internal/servers/roo-state-manager avec win-cli :
+1. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
 Rapporter : build OK/FAIL + nombre tests pass/fail.
 ```
 
@@ -346,14 +346,14 @@ Rapporter : build OK/FAIL + nombre tests pass/fail.
 **2. Chercher une tache sur GitHub**
 
 ```
-gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == "roo-schedulable") | "\(.number)\t\(.title)"'
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\(.number)\\t\(.title)\"'")
 ```
 
 Si une issue est trouvee :
-1. Lire le body complet : `gh issue view {NUM} --repo jsboige/roo-extensions`
-2. Commenter pour claim : `gh issue comment {NUM} --body "Claimed by {MACHINE} (Roo scheduler). Mode: simple."`
+1. Lire le body complet : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions")
+2. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by {MACHINE} (Roo scheduler). Mode: simple.\"")
 3. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
-4. Commenter le resultat : `gh issue comment {NUM} --body "Result: {PASS/FAIL}. Mode: {simple/complex}."`
+4. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Result: {PASS/FAIL}. Mode: {simple/complex}.\"")
 
 Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
