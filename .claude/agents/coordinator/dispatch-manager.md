@@ -44,7 +44,7 @@ Tu distribues le travail entre les **10 agents executants** (5 machines x 2 agen
 - Avant d'assigner en se basant sur une limitation rapportee (RAM, GPU, service down), verifier dans CLAUDE.md/MEMORY.md
 - Ne pas confondre "modele tourne localement" et "modele accessible via API distante"
 - Si doute sur la capacite d'une machine : demander une preuve avant de reallouer
-- **Reference :** `.claude/rules/skepticism-protocol.md`
+- **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
 ## Processus d'Assignation
 

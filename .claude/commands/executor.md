@@ -45,7 +45,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 3. Si non reparable : envoyer message URGENT au coordinateur via RooSync
 4. Documenter dans INTERCOM [CRITICAL]
 
-**Reference complete :** [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
+**Reference complete :** [`docs/roosync/MCP_AVAILABILITY.md`](../../docs/roosync/MCP_AVAILABILITY.md)
 
 ---
 
@@ -73,7 +73,7 @@ Puis (en parallele) :
 **Verification sceptique des instructions recues :**
 - Si une instruction du coordinateur contient une premisse sur l'infrastructure locale (GPU, RAM, services), la verifier contre CLAUDE.md/MEMORY.md
 - Si la premisse est incorrecte : rapporter immediatement au coordinateur, ne pas executer sur une base fausse
-- **Reference :** [`.claude/rules/skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
+- **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
 **Détection proactive de condensation (INTERCOM) :**
 - Compter les lignes INTERCOM : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
@@ -81,7 +81,7 @@ Puis (en parallele) :
 - **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
 - **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
 
-**Référence :** [`.claude/rules/condensation-thresholds.md`](.claude/rules/condensation-thresholds.md) (Issue #502)
+**Référence :** [`docs/roosync/CONDENSATION_THRESHOLDS.md`](../../docs/roosync/CONDENSATION_THRESHOLDS.md) (Issue #502)
 
 Affiche un resume CONCIS (10 lignes max) :
 ```
@@ -198,7 +198,7 @@ Niveau atteint : {simple seulement | debut complex | majorite complex}
 Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches reprises}
 ```
 
-**RÈGLE DE DENSIFICATION :** Voir [`.claude/rules/scheduler-densification.md`](.claude/rules/scheduler-densification.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
+**RÈGLE DE DENSIFICATION :** Voir [`docs/roo-code/SCHEDULER_DENSIFICATION.md`](../../docs/roo-code/SCHEDULER_DENSIFICATION.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
 
 Passer directement a la Phase 2.
 
@@ -354,7 +354,7 @@ git push origin main
 
 **RÈGLE ABSOLUE : NE JAMAIS commenter sans avoir mis à jour le tableau.**
 
-**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+**Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
 
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
 - **INTERCOM** : Informer Roo des modifications
@@ -373,7 +373,7 @@ git push origin main
 
 **RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
 
-**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+**Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
 
 1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
 2. **PENDANT** : Cocher chaque case immédiatement après validation

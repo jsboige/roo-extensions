@@ -139,5 +139,6 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/tool-availability.md` - STOP & REPAIR
-- `.claude/rules/scheduler-system.md` - Scheduler Roo
+
+- `docs/roosync/MCP_AVAILABILITY.md` - STOP & REPAIR
+- `docs/roo-code/SCHEDULER_SYSTEM.md` - Scheduler Roo

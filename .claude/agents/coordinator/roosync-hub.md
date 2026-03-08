@@ -44,7 +44,7 @@ Tu es le **point central** de la coordination multi-agent. Les 5 autres machines
 2. Identifier les incohérences
 3. Évaluer l'avancement global
 4. Détecter les machines silencieuses (pas de rapport récent)
-5. **Verification sceptique** : Pour chaque rapport, identifier les affirmations surprenantes (infra, GPU, blocages) et les croiser avec les faits connus (CLAUDE.md GPU Fleet, MEMORY.md). Ne JAMAIS relayer une affirmation non verifiee. Ref: `.claude/rules/skepticism-protocol.md`
+5. **Verification sceptique** : Pour chaque rapport, identifier les affirmations surprenantes (infra, GPU, blocages) et les croiser avec les faits connus (CLAUDE.md GPU Fleet, MEMORY.md). Ne JAMAIS relayer une affirmation non verifiee. Ref: [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
 ### 3. Préparation des instructions
 Pour chaque machine, préparer un message contenant :

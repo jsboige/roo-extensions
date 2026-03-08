@@ -148,5 +148,6 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/testing.md` - Commandes de test
-- `.claude/rules/bash-fallback.md` - Mitigation Bash
+
+- `docs/roosync/TESTING.md` - Commandes de test
+- `docs/roosync/BASH_FALLBACK.md` - Mitigation Bash
