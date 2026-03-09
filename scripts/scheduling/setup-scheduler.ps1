@@ -6,7 +6,7 @@
     Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
     scheduling architecture. Supports 3 task types:
 
-    - worker:      Executor tier (3h, Haiku, all machines)
+    - worker:      Executor tier (3h, Sonnet, all machines)
     - coordinator: Coordinator tier (8h, Opus, ai-01 only)
     - meta-audit:  Meta-Analyst tier (24h, Opus, all machines)
 
@@ -23,7 +23,7 @@
     Claude mode to use (default: code-simple, only for worker)
 
 .PARAMETER Model
-    Claude model override (default depends on TaskType: worker=haiku, others=opus)
+    Claude model override (default depends on TaskType: worker=sonnet, others=opus)
 
 .PARAMETER MaxIterations
     Max iterations per run (default: 1, only for worker)
@@ -37,7 +37,7 @@
 .EXAMPLE
     .\setup-scheduler.ps1                                          # List current worker task
     .\setup-scheduler.ps1 -Action list -TaskType coordinator       # List coordinator task
-    .\setup-scheduler.ps1 -Action install                          # Install worker (3h, Haiku)
+    .\setup-scheduler.ps1 -Action install                          # Install worker (3h, Sonnet)
     .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Opus, ai-01 only)
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (24h, Opus)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
@@ -72,9 +72,9 @@ $TaskConfigs = @{
         TaskName = "Claude-Worker"
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 3
-        DefaultModel = "haiku"
+        DefaultModel = "sonnet"
         DefaultTimeout = 15
-        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, runs Haiku with auto-escalation, exits cleanly if no work."
+        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, runs Sonnet with auto-escalation to Opus, exits cleanly if no work."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
