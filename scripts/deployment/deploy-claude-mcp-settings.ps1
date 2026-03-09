@@ -66,7 +66,7 @@ Write-Host "Target:  $ClaudeJsonPath (user scope)" -ForegroundColor Cyan
 
 if (Test-Path $ClaudeJsonPath) {
     $ClaudeJsonRaw = [System.IO.File]::ReadAllText($ClaudeJsonPath, [System.Text.UTF8Encoding]::new($false))
-    $ClaudeJson = $ClaudeJsonRaw | ConvertFrom-Json -Depth 100
+    $ClaudeJson = $ClaudeJsonRaw | ConvertFrom-Json
 } else {
     Write-Error "~/.claude.json not found. Claude Code must be initialized first (run 'claude' once)."
     exit 1
