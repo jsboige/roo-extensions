@@ -39,6 +39,50 @@
       "openAiModelId": "glm-5",
       "id": "default",
       "description": "GLM-5 Flagship via z.ai subscription (~Opus 4.6 level). Contexte réel ~131k tokens (pas 200k)."
+    },
+    "owui-think": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 1,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "https://open-webui.myia.io/api",
+      "openAiApiKey": "{{SECRET:owuiApiKey}}",
+      "openAiModelId": "Qwen_think",
+      "id": "owui-think",
+      "description": "Qwen 3.5 via OWUI — Thinking General (temp=1.0, pp=1.5, top_p=0.95, top_k=20). Injection presence_penalty pour anti-répétition."
+    },
+    "owui-think-code": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.6,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "https://open-webui.myia.io/api",
+      "openAiApiKey": "{{SECRET:owuiApiKey}}",
+      "openAiModelId": "Qwen_think-code",
+      "id": "owui-think-code",
+      "description": "Qwen 3.5 via OWUI — Thinking Coding (temp=0.6, pp=0.0, top_p=0.95, top_k=20). Précision code, pas de penalty."
+    },
+    "owui-think-reason": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 1,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "https://open-webui.myia.io/api",
+      "openAiApiKey": "{{SECRET:owuiApiKey}}",
+      "openAiModelId": "Qwen_think-reason",
+      "id": "owui-think-reason",
+      "description": "Qwen 3.5 via OWUI — Thinking Reasoning (temp=1.0, pp=2.0, top_p=1.0, top_k=40). Diversité max, raisonnement."
+    },
+    "owui-instruct": {
+      "diffEnabled": true,
+      "fuzzyMatchThreshold": 1,
+      "modelTemperature": 0.7,
+      "apiProvider": "openai",
+      "openAiBaseUrl": "https://open-webui.myia.io/api",
+      "openAiApiKey": "{{SECRET:owuiApiKey}}",
+      "openAiModelId": "Qwen_instruct",
+      "id": "owui-instruct",
+      "description": "Qwen 3.5 via OWUI — Instruct (temp=0.7, pp=1.5, top_p=0.8, top_k=20). Sans thinking, réponses directes."
     }
   },
   "modeApiConfigs": {
