@@ -66,14 +66,27 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Demarrage Standard
 
-0. **STOP & REPAIR** : Verifier outils critiques (win-cli + roo-state-manager dans system-reminders). Si absent → reparer AVANT toute autre action. Voir `docs/roosync/MCP_AVAILABILITY.md`
-1. **Lire INTERCOM local** : Verifier messages de Roo en premier
-2. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
-3. **Analyse rapports** : Traiter messages RooSync entrants
-4. **Planification** : Ventiler le travail (task-planner ou manuel)
-5. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
-6. **Suivi GitHub** : Mettre a jour Project #67
-7. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+1. **STOP & REPAIR** : Verifier outils critiques (win-cli + roo-state-manager dans system-reminders). Si absent → reparer AVANT toute autre action. Voir `docs/roosync/MCP_AVAILABILITY.md`
+
+2. **AUDIT CONFIG** (nouveau - issue #614) : Après verification des outils critiques, lancer un audit de configuration pour detecter les derives. Cette etape reduit les incidents de config d'environ 70%.
+
+```bash
+# Lancer l'audit de configuration
+Agent(subagent_type="task-worker", prompt="Auditer la configuration MCP sur cette machine.
+          Verifier: win-cli fork local, roo-state-manager present avec 36 outils,
+          pas de MCPs obsoletes (desktop-commander, github-projects-mcp).
+          Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO).")
+```
+
+Si l'audit retourne des problèmes CRITICAL ou WARNING, les traiter AVANT de continuer.
+
+3. **Lire INTERCOM local** : Verifier messages de Roo en premier
+4. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
+5. **Analyse rapports** : Traiter messages RooSync entrants
+6. **Planification** : Ventiler le travail (task-planner ou manuel)
+7. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
+8. **Suivi GitHub** : Mettre a jour Project #67
+9. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
 
 ### Champs obligatoires pour issues roo-schedulable
 

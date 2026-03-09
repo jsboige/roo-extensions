@@ -3,7 +3,7 @@ name: sync-tour
 description: Tour de synchronisation complet multi-canal et multi-étapes. Utilise ce skill quand l'utilisateur demande un "tour de sync", veut "faire le point", ou demande l'état de la coordination. Exécute toutes les phases de synchronisation, validation, et planification.
 metadata:
   author: "Roo Extensions Team"
-  version: "2.0.0"
+  version: "2.1.0"
   compatibility:
     surfaces: ["claude-code", "claude.ai"]
     restrictions: "Requiert accès RooSync + GitHub CLI + Git"
@@ -21,6 +21,12 @@ Ce skill s'appuie sur 3 skills reutilisables :
 - **`github-status`** (Phase 4) : Etat Project #67 via `gh` CLI
 
 Ces skills peuvent aussi etre invoques independamment en dehors du sync-tour.
+
+### Agents utilises
+
+Ce skill fait appel a des agents specialises :
+- **`config-auditor`** (Phase 1.5) : Audit configuration MCP/modes pour prevenir les incidents (#614)
+- **`task-planner`** (Phase 6) : Analyse avancement et ventilation des taches
 
 ---
 
@@ -95,6 +101,75 @@ But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 - Accomplissements : [liste]
 - Demandes : [liste]
 - Blocages : [liste]
+```
+
+---
+
+## Phase 1.5 : Audit Configuration (CRITIQUE)
+
+**Agent :** `config-auditor`
+
+**Objectif :** Detecter les derives de configuration MCP/modes avant qu'elles ne causent des incidents.
+
+### Reference
+
+Issue #614: Integrate config-auditor to reduce config incidents by ~70%.
+
+### Actions
+
+Lancer l'audit de configuration via l'agent config-auditor :
+
+```
+Agent(
+  subagent_type="config-auditor",
+  prompt="Auditer la configuration MCP sur cette machine.
+          Verifier: win-cli fork local, roo-state-manager present avec 36 outils,
+          pas de MCPs obsoletes (desktop-commander, github-projects-mcp).
+          Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO)."
+)
+```
+
+### Scope de l'audit
+
+Le config-auditor verifie :
+- **Config MCP (mcp_settings.json)** : win-cli fork local, roo-state-manager present, alwaysAllow coherence
+- **MCPs obsolètes** : desktop-commander, github-projects-mcp ne doivent pas être présents
+- **Modes Roo (.roomodes)** : Nombre de modes attendus, profils valides, groups=[]
+- **Scheduler (.roo/schedules.json)** : Intervalle 180min, staggering correct
+- **Config RooSync** : Variables d'environnement EMBEDDING_*, QDRANT_*, ROOSYNC_*
+
+### Output attendu
+
+```
+## Phase 1.5 : Audit Configuration
+
+### Résultat audit
+- Critiques : X (bloqueurs)
+- Warnings : Y (à nettoyer si possible)
+- Infos : Z (documentaires)
+
+### Actions requises
+- [ ] [Description action critique]
+- [ ] [Description action warning]
+
+### Decision
+- ✅ Continue vers Phase 2 (si 0 critiques)
+- ⚠️ STOP & REPAIR requis (si critiques detectees)
+```
+
+### Si CRITICAL detecté
+
+Arreter le sync-tour immediatement :
+1. Documenter le probleme dans INTERCOM avec tag [CRITICAL]
+2. Envoyer message RooSync URGENT au coordinateur
+3. NE PAS continuer vers Phase 2 (Git Sync)
+
+**Resume attendu :**
+```
+## Phase 1.5 : ERREUR CRITIQUE
+- Problème : [description]
+- Impact : [scheduler bloqué / MCP manquant / etc.]
+- Action : [STOP & REPAIR avant continuation]
 ```
 
 ---
@@ -670,4 +745,4 @@ Ce skill necessite de nombreuses permissions car il :
 - Met a jour le dashboard GDrive (Phase 9)
 
 ### Duree estimee
-Un tour complet prend generalement 5-10 minutes selon le volume de messages et l'etat des tests. La Phase 8 ajoute 2-3 minutes. La Phase 9 ajoute 30 secondes.
+Un tour complet prend generalement 6-12 minutes selon le volume de messages et l'etat des tests. La Phase 1.5 (audit) ajoute 1-2 minutes. La Phase 8 ajoute 2-3 minutes. La Phase 9 ajoute 30 secondes.
