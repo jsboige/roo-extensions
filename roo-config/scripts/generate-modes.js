@@ -12,6 +12,7 @@
  *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode)
  *   --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)
  *   --deploy             Also copy to .roomodes at project root
+ *   --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.
  */
 const fs = require('fs');
 const path = require('path');
@@ -55,6 +56,84 @@ function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+// --- YAML Serializer for customModes (no dependencies) ---
+// Purpose-built for the { customModes: [...] } structure.
+// Critical: empty arrays MUST serialize as "[]", NOT as null/empty.
+
+function yamlEscape(str) {
+  if (str === '') return '""';
+  if (/[:{}\[\],&*?|>!'"%@`#]/.test(str) || /^[\s-]/.test(str) || /\s$/.test(str) ||
+      str === 'true' || str === 'false' || str === 'null' || str === 'yes' || str === 'no' ||
+      /^\d/.test(str)) {
+    return '"' + str.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n') + '"';
+  }
+  return str;
+}
+
+function serializeGroups(groups, indent) {
+  var pad = '  '.repeat(indent);
+  // CRITICAL: empty arrays must be "[]", not null
+  if (!groups || groups.length === 0) return '[]';
+  var lines = [];
+  groups.forEach(function(g) {
+    if (typeof g === 'string') {
+      lines.push(pad + '- ' + g);
+    } else if (Array.isArray(g) && g.length >= 2) {
+      // Tuple like ["edit", { fileRegex: "...", description: "..." }]
+      lines.push(pad + '- - ' + yamlEscape(String(g[0])));
+      if (typeof g[1] === 'object' && g[1] !== null) {
+        var kvs = Object.keys(g[1]).map(function(k) {
+          return k + ': ' + yamlEscape(String(g[1][k]));
+        });
+        lines.push(pad + '  - {' + kvs.join(', ') + '}');
+      }
+    }
+  });
+  return '\n' + lines.join('\n');
+}
+
+function serializeMultilineString(str, indent) {
+  var pad = '  '.repeat(indent);
+  if (str.indexOf('\n') >= 0) {
+    var lines = ['|'];
+    str.split('\n').forEach(function(line) {
+      lines.push(pad + line);
+    });
+    return lines.join('\n');
+  }
+  return yamlEscape(str);
+}
+
+function jsonToYaml(obj) {
+  var lines = ['customModes:'];
+  obj.customModes.forEach(function(mode) {
+    // slug (first key, on same line as dash)
+    lines.push('  - slug: ' + yamlEscape(mode.slug));
+    // name
+    lines.push('    name: ' + yamlEscape(mode.name));
+    // roleDefinition (multiline)
+    lines.push('    roleDefinition: ' + serializeMultilineString(mode.roleDefinition, 3));
+    // optional fields
+    if (mode.description) {
+      lines.push('    description: ' + yamlEscape(mode.description));
+    }
+    if (mode.whenToUse) {
+      lines.push('    whenToUse: ' + yamlEscape(mode.whenToUse));
+    }
+    // customInstructions (multiline)
+    if (mode.customInstructions) {
+      lines.push('    customInstructions: ' + serializeMultilineString(mode.customInstructions, 3));
+    }
+    // groups
+    lines.push('    groups: ' + serializeGroups(mode.groups, 3));
+    // apiConfigId (optional, from --profile)
+    if (mode.apiConfigId) {
+      lines.push('    apiConfigId: ' + yamlEscape(mode.apiConfigId));
+    }
+  });
+  return lines.join('\n') + '\n';
+}
+
 // --- CLI Argument Parsing ---
 
 function parseArgs() {
@@ -62,7 +141,8 @@ function parseArgs() {
     output: DEFAULT_OUTPUT,
     profile: null,
     modelConfigs: DEFAULT_MODEL_CONFIGS,
-    deploy: false
+    deploy: false,
+    format: 'json'
   };
 
   for (var i = 2; i < process.argv.length; i++) {
@@ -74,6 +154,12 @@ function parseArgs() {
       args.modelConfigs = process.argv[++i];
     } else if (process.argv[i] === '--deploy') {
       args.deploy = true;
+    } else if (process.argv[i] === '--format' && i + 1 < process.argv.length) {
+      args.format = process.argv[++i];
+      if (args.format !== 'json' && args.format !== 'yaml') {
+        console.error('ERROR: --format must be "json" or "yaml"');
+        process.exit(1);
+      }
     }
   }
 
@@ -178,10 +264,18 @@ function main() {
     fs.mkdirSync(outputDir, { recursive: true });
   }
 
-  fs.writeFileSync(args.output, JSON.stringify(output, null, 2), 'utf8');
+  var outputContent;
+  if (args.format === 'yaml') {
+    outputContent = jsonToYaml(output);
+  } else {
+    outputContent = JSON.stringify(output, null, 2);
+  }
 
-  var totalKB = (Buffer.byteLength(JSON.stringify(output, null, 2), 'utf8') / 1024).toFixed(1);
+  fs.writeFileSync(args.output, outputContent, 'utf8');
+
+  var totalKB = (Buffer.byteLength(outputContent, 'utf8') / 1024).toFixed(1);
   console.log('\nGenerated ' + modes.length + ' modes (' + Object.keys(config.families).length + ' families x 2 levels)');
+  console.log('Format: ' + args.format.toUpperCase());
   if (args.profile) {
     console.log('With profile: ' + args.profile);
   }

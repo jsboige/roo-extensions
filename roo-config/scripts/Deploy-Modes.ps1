@@ -5,13 +5,15 @@
     Deploy simple/complex mode pairs to Roo Code
 
 .DESCRIPTION
-    Deploys the generated simple-complex.roomodes file to the workspace root (.roomodes)
-    or to the VS Code global settings. Preserves UTF-8 encoding and validates JSON.
+    Deploys the generated modes file to the workspace root (.roomodes)
+    or to the VS Code global settings (custom_modes.yaml for Roo 3.51.1+).
+    For global deployment, regenerates from source using --format yaml to avoid
+    the YAML empty-array bug ([] becomes null in naive JSON-to-YAML conversion).
     Run 'node roo-config/scripts/generate-modes.js' first to regenerate from templates.
 
 .PARAMETER DeploymentType
-    'local' = workspace .roomodes (default)
-    'global' = VS Code global custom_modes.json
+    'local' = workspace .roomodes (default, JSON format)
+    'global' = VS Code global custom_modes.yaml (YAML format, Roo 3.51.1+)
 
 .PARAMETER Source
     Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
@@ -21,11 +23,11 @@
 
 .EXAMPLE
     .\Deploy-Modes.ps1
-    Deploy to local workspace
+    Deploy to local workspace (.roomodes, JSON)
 
 .EXAMPLE
     .\Deploy-Modes.ps1 -DeploymentType global
-    Deploy to VS Code global settings
+    Deploy to VS Code global settings (custom_modes.yaml, YAML)
 
 .EXAMPLE
     .\Deploy-Modes.ps1 -DryRun
@@ -73,6 +75,27 @@ try {
     exit 1
 }
 
+# For global deployment, regenerate as YAML using generate-modes.js --format yaml
+# This avoids the YAML empty-array bug where [] becomes null
+$globalYamlContent = $null
+if ($DeploymentType -eq "global") {
+    Write-Host "`nRegenerating as YAML for global deployment..." -ForegroundColor Cyan
+    $generateScript = Join-Path $repoRoot "roo-config\scripts\generate-modes.js"
+    $tempYamlPath = Join-Path $repoRoot "roo-config\modes\generated\simple-complex.yaml"
+
+    $genArgs = @("$generateScript", "--output", "$tempYamlPath", "--format", "yaml")
+    $genResult = & node @genArgs 2>&1
+
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: YAML generation failed: $genResult" -ForegroundColor Red
+        exit 1
+    }
+
+    Write-Host ($genResult | Out-String) -ForegroundColor Gray
+    $globalYamlContent = [System.IO.File]::ReadAllText($tempYamlPath, $utf8NoBom)
+    Write-Host "YAML generated: $($globalYamlContent.Length) bytes" -ForegroundColor Green
+}
+
 # Display modes
 $modeNames = @()
 foreach ($mode in $parsed.customModes) {
@@ -95,7 +118,7 @@ if ($DeploymentType -eq "local") {
         Write-Host "Creating directory..." -ForegroundColor Gray
         New-Item -ItemType Directory -Path $globalDir -Force | Out-Null
     }
-    $destination = Join-Path $globalDir "custom_modes.json"
+    $destination = Join-Path $globalDir "custom_modes.yaml"
 }
 
 Write-Host "`nDeployment:" -ForegroundColor Cyan
@@ -117,23 +140,45 @@ if (Test-Path $destination) {
 }
 
 # Write file preserving UTF-8 encoding
-[System.IO.File]::WriteAllText($destination, $sourceContent, $utf8NoBom)
+if ($DeploymentType -eq "global" -and $globalYamlContent) {
+    [System.IO.File]::WriteAllText($destination, $globalYamlContent, $utf8NoBom)
+} else {
+    [System.IO.File]::WriteAllText($destination, $sourceContent, $utf8NoBom)
+}
 
 # Verify deployment
 $deployedContent = [System.IO.File]::ReadAllText($destination, $utf8NoBom)
-try {
-    $deployedParsed = $deployedContent | ConvertFrom-Json
-    $deployedModeCount = $deployedParsed.customModes.Count
-
+if ($DeploymentType -eq "global") {
+    # YAML verification: check that groups: [] is preserved (not null)
+    $nullGroupsCount = ([regex]::Matches($deployedContent, 'groups:\s*$', 'Multiline')).Count
+    if ($nullGroupsCount -gt 0) {
+        Write-Host "`nERROR: YAML contains $nullGroupsCount null groups (should be [])!" -ForegroundColor Red
+        Write-Host "This is the YAML empty-array bug. Check generate-modes.js YAML serializer." -ForegroundColor Red
+        exit 1
+    }
+    # Count modes by slug occurrences
+    $deployedModeCount = ([regex]::Matches($deployedContent, '^\s*- slug:', 'Multiline')).Count
     if ($deployedModeCount -eq $modeCount) {
-        Write-Host "`nDEPLOYED SUCCESSFULLY" -ForegroundColor Green
-        Write-Host "  $deployedModeCount modes deployed to $DeploymentType" -ForegroundColor Green
+        Write-Host "`nDEPLOYED SUCCESSFULLY (YAML)" -ForegroundColor Green
+        Write-Host "  $deployedModeCount modes deployed to $DeploymentType (custom_modes.yaml)" -ForegroundColor Green
     } else {
         Write-Host "`nWARNING: Mode count mismatch (source=$modeCount, deployed=$deployedModeCount)" -ForegroundColor Yellow
     }
-} catch {
-    Write-Host "`nERROR: Deployed file has invalid JSON!" -ForegroundColor Red
-    exit 1
+} else {
+    try {
+        $deployedParsed = $deployedContent | ConvertFrom-Json
+        $deployedModeCount = $deployedParsed.customModes.Count
+
+        if ($deployedModeCount -eq $modeCount) {
+            Write-Host "`nDEPLOYED SUCCESSFULLY" -ForegroundColor Green
+            Write-Host "  $deployedModeCount modes deployed to $DeploymentType" -ForegroundColor Green
+        } else {
+            Write-Host "`nWARNING: Mode count mismatch (source=$modeCount, deployed=$deployedModeCount)" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "`nERROR: Deployed file has invalid JSON!" -ForegroundColor Red
+        exit 1
+    }
 }
 
 Write-Host "`nNext steps:" -ForegroundColor Cyan

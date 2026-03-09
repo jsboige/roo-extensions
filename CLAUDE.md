@@ -170,7 +170,17 @@ Pas d'acces a l'historique de conversation. Utiliser :
 
 ## Canaux de Communication
 
-### 1. RooSync (Inter-Machine)
+### REGLE ABSOLUE - NE JAMAIS CONFONDRE
+
+| Canal | Portee | Usage | Outil |
+|-------|--------|-------|-------|
+| **RooSync** | **INTER-MACHINES et INTER-WORKSPACES** | Messages entre machines differentes OU entre workspaces differents sur la meme machine | MCP `roosync_send/read/manage` via roo-state-manager |
+| **INTERCOM** | **INTRA-WORKSPACE UNIQUEMENT** | Communication locale entre Roo et Claude Code dans le MEME workspace sur la MEME machine | Fichier `.claude/local/INTERCOM-{MACHINE}.md` |
+
+**"Verifie tes messages" = verifie RooSync inbox (`roosync_read`), PAS l'INTERCOM.**
+**L'INTERCOM n'est PAS un canal de messagerie inter-machines.**
+
+### 1. RooSync (Inter-Machine / Inter-Workspace)
 
 Outils MCP (CONS-1) :
 - `roosync_send` - Envoyer/repondre/amender (action: send|reply|amend)
@@ -179,11 +189,12 @@ Outils MCP (CONS-1) :
 
 Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
-### 2. INTERCOM (Locale Claude Code <-> Roo)
+### 2. INTERCOM (Locale, MEME machine, MEME workspace)
 
 Fichier : `.claude/local/INTERCOM-{MACHINE_NAME}.md`
 Documentation : [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
 Types : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
+**Portee : Communication entre Roo et Claude Code sur cette machine, dans ce workspace UNIQUEMENT.**
 
 ### 3. GitHub Issues
 
@@ -219,6 +230,34 @@ docs/                 # Documentation technique perenne (10 repertoires actifs)
 mcps/
   internal/servers/   # roo-state-manager (TS) + sk-agent (Python)
   external/           # MCPs externes (12 serveurs)
+
+roo-code/             # Submodule git (DOCUMENTATION ONLY - voir ci-dessous)
+
+roo-config/
+  modes/              # Source des modes Roo (modes-config.json + templates)
+  scripts/            # generate-modes.js, Deploy-Modes.ps1
+  settings/           # Templates settings Roo
+```
+
+### ⚠️ Submodule `roo-code/` = REFERENCE UNIQUEMENT
+
+Le repertoire `roo-code/` est un **submodule git** pointant vers le code source de Roo Code.
+
+**Ce qu'il EST :**
+- Une reference pour lire et comprendre le code source de Roo (schemas Zod, types, logique interne)
+- Synchronise avec upstream via `git fetch upstream && git merge upstream/main`
+
+**Ce qu'il N'EST PAS :**
+- PAS l'environnement d'execution (Roo tourne via l'extension VS Code installee separement)
+- PAS un environnement de build (pas de `npm install`, pas de `node_modules` utilisables)
+- PAS la version de Roo qui tourne sur les machines (celle-ci est dans les extensions VS Code)
+- PAS une source de dependances npm (ne JAMAIS chercher des packages dans `roo-code/node_modules/`)
+
+**Pipeline des modes Roo :**
+```
+roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (JSON, local)
+                                       →  generate-modes.js --format yaml  →  custom_modes.yaml (YAML, global)
+                                       →  Deploy-Modes.ps1 -DeploymentType global  →  %APPDATA%/.../custom_modes.yaml
 ```
 
 ---
