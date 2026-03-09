@@ -208,6 +208,13 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 - Tracker la resolution : attendre confirmation de la machine
 - Si probleme infra (service down, reverse proxy) : escalader a l'utilisateur
 
+**Audit automatique apres modification MCP (sk-agent) :**
+Apres tout `manage_mcp_settings(action: "write")` ou modification manuelle de configs MCP, lancer un audit via sk-agent :
+```
+call_agent(agent: "critic", prompt: "Audit the following MCP config change: [description]. Check for: missing alwaysAllow entries, disabled servers that should be active, naming inconsistencies, and potential drift vs other machines.")
+```
+Cet audit detecte les erreurs de config AVANT qu'elles ne causent des incidents (wipe, drift, oubli).
+
 **Integration meta-analystes :**
 Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via META-INTERCOM ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
 
@@ -354,6 +361,22 @@ EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9
 | `[FRICTION-FOUND]` | Probleme detecte pendant la veille active | Verifier la friction, escalader si confirmee → issue GitHub |
 | `[ERROR]` / `[WARN]` | Probleme operationnel | Investiguer |
 | `[ASK]` | Question de Roo | Repondre via INTERCOM |
+
+### Deliberation Structuree pour Decisions Architecturales (sk-agent)
+
+**Quand :** Issues avec label `harness-change` ou decisions impactant l'architecture (split services, nouveaux MCPs, refactoring majeur).
+
+**Procedure :**
+1. Preparer un brief concis : contexte, options, contraintes
+2. Lancer une deliberation multi-perspective :
+   ```
+   run_conversation(conversation: "deep-think", prompt: "[Brief avec contexte, options, et question precise]")
+   ```
+3. Analyser les perspectives (optimist, devil's-advocate, pragmatist, mediator)
+4. Inclure le resume de la deliberation dans le commentaire d'issue avant decision
+5. Decisions avec `harness-change` restent **bloquees** jusqu'a validation utilisateur
+
+**Ne PAS utiliser pour :** Taches routinieres, bugs simples, documentation.
 
 ### Validation Utilisateur OBLIGATOIRE
 
