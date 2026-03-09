@@ -66,7 +66,7 @@ Write-Host "Target:  $ClaudeJsonPath (user scope)" -ForegroundColor Cyan
 
 if (Test-Path $ClaudeJsonPath) {
     $ClaudeJsonRaw = [System.IO.File]::ReadAllText($ClaudeJsonPath, [System.Text.UTF8Encoding]::new($false))
-    $ClaudeJson = $ClaudeJsonRaw | ConvertFrom-Json -Depth 100
+    $ClaudeJson = $ClaudeJsonRaw | ConvertFrom-Json
 } else {
     Write-Error "~/.claude.json not found. Claude Code must be initialized first (run 'claude' once)."
     exit 1
@@ -75,7 +75,8 @@ if (Test-Path $ClaudeJsonPath) {
 # Replace only the mcpServers key
 $ClaudeJson.mcpServers = $McpServers
 
-$OutputJson = $ClaudeJson | ConvertTo-Json -Depth 100
+# Use -Depth 10 to preserve array structure for args (PowerShell 5.1+)
+$OutputJson = $ClaudeJson | ConvertTo-Json -Depth 10
 
 if ($WhatIf) {
     Write-Host "`n[WHATIF] Would write mcpServers to: $ClaudeJsonPath" -ForegroundColor Cyan
