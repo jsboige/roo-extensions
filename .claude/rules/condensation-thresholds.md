@@ -1,9 +1,9 @@
 # Règles de Condensation - Contextes GLM
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 **Créé:** 2026-02-21
-**Mis à jour:** 2026-03-06
-**Issues:** #502 (boucle Roo) + #555 (saturation) → **Solution: 75%**
+**Mis à jour:** 2026-03-09
+**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) → **Solution: 70%**
 
 ---
 
@@ -26,10 +26,10 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 | Modèle | Contexte Réel | Seuil Recommandé | Justification |
 |--------|---------------|------------------|---------------|
-| **GLM-5** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
-| **GLM-4.7** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
-| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
-| **GLM-4.5 Air** (z.ai) | 131k tokens | **75%** = ~98k | Marge sécurité 33k |
+| **GLM-5** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k (optimal #502+#555) |
+| **GLM-4.7** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
+| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
+| **GLM-4.5 Air** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
 
 ---
 
@@ -40,12 +40,12 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 **Pour z.ai (GLM) :**
 ```json
 {
-  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
+  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
 }
 ```
 
 **Pour Anthropic :**
-- Ne PAS définir cette variable (défaut 75% fonctionne)
+- Ne PAS définir cette variable (défaut fonctionne, dépend du modèle)
 
 **⚠️ NE JAMAIS utiliser 50%** → Boucle de condensation infinie !
 
@@ -57,13 +57,13 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 **Recommandation :**
 ```
-Seuil de déclenchement : 75%
+Seuil de déclenchement : 70%
 ```
 
-**Pourquoi 75% et pas 50% ou 80% ?**
+**Pourquoi 70% et pas 50% ou 80% ?**
 - 50% de 200k = 100k (trop bas → boucle infinie #502)
-- 70% de 200k = 140k (limite, risque saturation #555)
-- **75% de 200k = 150k** (optimal → marge 33k)
+- **70% de 200k = 140k** → **Optimal** (compaction à ~92k, marge 40k)
+- 75% de 200k = 150k (limite, risque saturation #555)
 - 80% de 200k = 160k (trop haut → explosion contexte)
 
 ---
@@ -87,7 +87,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 1. Ouvrir les paramètres Roo (icon gear)
 2. Aller dans "Context Management"
 3. Trouver "Auto-condensation"
-4. Régler "Seuil de déclenchement" à **75%**
+4. Régler "Seuil de déclenchement" à **70%**
 5. Sauvegarder
 
 ### 3. Vérifier que la boucle s'arrête
@@ -107,5 +107,5 @@ Après configuration :
 
 ---
 
-**Dernière mise à jour :** 2026-03-06
+**Dernière mise à jour :** 2026-03-09
 **Mainteneur :** Coordinateur RooSync (myia-ai-01)
