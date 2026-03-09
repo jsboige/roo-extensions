@@ -230,6 +230,9 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 
 | Difficulte | Action |
 |-----------|--------|
+| Tache avec label `enhancement` ou `feature` | **Escalader directement vers `code-complex`** (pas code-simple) |
+| Schema Zod complexe (`refine()`, validation conditionnelle) | **Escalader directement vers `code-complex`** |
+| Modification de >2 fichiers interconnectes | **Escalader vers `code-complex`** |
 | 1 action isolee | `code-simple` via `new_task` |
 | 2-4 actions liees | Deleguer chaque action separement a `code-simple` |
 | 5+ actions ou dependances | Escalader vers `orchestrator-complex` |
@@ -240,6 +243,8 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 - Erreur complexe : escalader vers `-complex`
 
 **Chaine d'escalade :** `code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via INTERCOM `[ESCALADE-CLAUDE]`)
+
+**Justification :** Les taches strategiques (enhancement, feature, schema complexe) necessitent des modeles plus capables pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).
 
 ### Etape 2a-bis : Taches Cross-Workspace (NOUVEAU)
 
@@ -350,10 +355,16 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 ```
 
 Si une issue est trouvee :
-1. Lire le body complet : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions")
-2. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by {MACHINE} (Roo scheduler). Mode: simple.\"")
-3. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
-4. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Result: {PASS/FAIL}. Mode: {simple/complex}.\"")
+1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
+2. **VERIFIER LES LABELS** avant de choisir le mode d'execution :
+   - Si labels contiennent `enhancement` ou `feature` : **DELEGUER A `code-complex`** (pas code-simple)
+   - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
+   - Sinon : utiliser `code-simple` pour taches simples (doc, tests, validation)
+3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
+4. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
+5. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Result: {PASS/FAIL}. Mode: {simple/complex}.\"")
+
+**IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
 Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
@@ -562,8 +573,18 @@ Message a ajouter :
 
 ## CRITERES D'ESCALADE VERS ORCHESTRATOR-COMPLEX
 
+**Escalade OBLIGATOIRE vers code-complex (pas code-simple) pour :**
+
+- Issue GitHub avec label `enhancement` ou `feature`
 - Message `[URGENT]` dans l'INTERCOM
+- Modification de plus de 2 fichiers interconnectes
+- Tout schema Zod avec `refine()` ou validation conditionnelle
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches
+
+**Escalade apres echecs :**
+
 - 2 echecs consecutifs en `-simple`
-- Modification de plus de 3 fichiers interconnectes
+- Erreur complexe necessitant investigation profonde
+
+**Justification :** Les taches d'architecture, de feature, ou de schema complexe necessitent un modele plus capable (GLM-5 au lieu de Qwen 3.5) pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).
