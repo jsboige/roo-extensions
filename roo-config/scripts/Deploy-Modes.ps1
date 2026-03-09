@@ -149,11 +149,24 @@ if ($DeploymentType -eq "global" -and $globalYamlContent) {
 # Verify deployment
 $deployedContent = [System.IO.File]::ReadAllText($destination, $utf8NoBom)
 if ($DeploymentType -eq "global") {
-    # YAML verification: check that groups: [] is preserved (not null)
-    $nullGroupsCount = ([regex]::Matches($deployedContent, 'groups:\s*$', 'Multiline')).Count
+    # YAML verification: check that groups is truly null (not followed by list items)
+    # Valid YAML: "groups: \n      - read" (multi-line list) or "groups: []" (inline empty)
+    # Invalid YAML: "groups: \n  - slug:" (null groups, next line is a new mode)
+    $lines = $deployedContent -split "`n"
+    $nullGroupsCount = 0
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\s+groups:\s*$') {
+            # Check if the next non-empty line is an indented list item (valid) or something else (null)
+            $nextIdx = $i + 1
+            while ($nextIdx -lt $lines.Count -and $lines[$nextIdx] -match '^\s*$') { $nextIdx++ }
+            if ($nextIdx -lt $lines.Count -and $lines[$nextIdx] -notmatch '^\s+- ') {
+                $nullGroupsCount++
+            }
+        }
+    }
     if ($nullGroupsCount -gt 0) {
-        Write-Host "`nERROR: YAML contains $nullGroupsCount null groups (should be [])!" -ForegroundColor Red
-        Write-Host "This is the YAML empty-array bug. Check generate-modes.js YAML serializer." -ForegroundColor Red
+        Write-Host "`nERROR: YAML contains $nullGroupsCount truly null groups!" -ForegroundColor Red
+        Write-Host "Check generate-modes.js YAML serializer." -ForegroundColor Red
         exit 1
     }
     # Count modes by slug occurrences
