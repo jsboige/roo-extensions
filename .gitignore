@@ -133,3 +133,6 @@ scripts/setup/.env
 
 # Roo modes (deployed to global settings, not project)
 .roomodes
+
+# Auto-import settings (contains API keys)
+roo-config/roo-settings-import.json
