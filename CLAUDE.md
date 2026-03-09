@@ -260,6 +260,30 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
                                        →  Deploy-Modes.ps1 -DeploymentType global  →  %APPDATA%/.../custom_modes.yaml
 ```
 
+### Architecture des Modes Roo (CRITIQUE - NE PAS CONFONDRE)
+
+**3 types de modes avec des droits differents :**
+
+| Type | Exemples | Groupes | Terminal | MCPs |
+|------|----------|---------|----------|------|
+| **Orchestrateurs** | `orchestrator-simple`, `orchestrator-complex` | `[]` (aucun) | NON | NON |
+| **Modes -simple** | `code-simple`, `debug-simple`, `ask-simple` | `["read","edit","browser","mcp"]` | **NON** (pas de groupe `command`) | **OUI** (dont win-cli) |
+| **Modes -complex** | `code-complex`, `debug-complex` | `["read","edit","browser","command","mcp"]` | **OUI** (natif) | **OUI** |
+
+**Regles fondamentales :**
+
+1. **Orchestrateurs = delegation pure.** Ils n'ont AUCUN outil. Ils utilisent uniquement `new_task` pour deleguer aux modes de travail. S'ils tentent d'utiliser un outil, c'est un bug de harnais.
+
+2. **Modes -simple = win-cli comme terminal.** Ils n'ont PAS le groupe `command` (terminal natif Roo). Leur unique acces shell est via le MCP win-cli (`execute_command`). C'est un outil MCP (groupe `mcp`), PAS le terminal natif (groupe `command`). **Si une trace montre `"Tool execute_command is not allowed in code-simple mode"`, ca signifie que le modele a tente d'utiliser le terminal natif au lieu de win-cli MCP** — c'est un probleme de confusion du modele, pas un probleme de configuration.
+
+3. **Modes -complex = tout.** Ils ont le terminal natif ET les MCPs.
+
+**Erreur recurrente des agents :** Confondre `execute_command` natif (groupe `command`, bloque en `-simple`) avec `execute_command` via win-cli MCP (groupe `mcp`, autorise en `-simple`). Meme nom d'outil, deux sources differentes.
+
+**Config dans `modes-config.json` :**
+- `"groups": ["read","edit","browser","mcp"]` = mode -simple (pas de `command`)
+- `"useWinCli": true` = flag indiquant que le template doit inclure les instructions win-cli dans customInstructions
+
 ---
 
 ## Pour Demarrer une Nouvelle Tache
