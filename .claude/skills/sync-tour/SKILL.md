@@ -553,6 +553,14 @@ roosync_inventory(type: "all")
 - [machine] doit executer roosync_config(action: "collect") + publish
 ```
 
+**4bis-e. Audit post-modification MCP (si config modifiee ce tour) :**
+
+Si des modifications MCP ont ete effectuees pendant ce tour (via `manage_mcp_settings` ou manuellement), lancer un audit via sk-agent :
+```
+call_agent(agent: "critic", prompt: "Audit MCP config changes: [description]. Check alwaysAllow completeness, disabled servers, naming consistency, drift vs other machines.")
+```
+Inclure le resultat de l'audit dans le rapport de Phase 4bis.
+
 ### Friction
 Si un outil RooSync ne fonctionne pas ou donne des resultats inexploitables, signaler :
 ```

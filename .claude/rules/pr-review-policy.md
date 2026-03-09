@@ -81,6 +81,18 @@ Fixes #XXX, Relates to #YYY
 | Secrets Scan | `detect-secrets` | No secrets detected | PR blocked, secrets removed |
 | Type Checks | `tsc --noEmit` | No type errors | PR blocked, agent fixes |
 
+### sk-agent Code Review (RECOMMENDED)
+
+Before requesting coordinator review, run a structured code review via sk-agent:
+
+```
+run_conversation(conversation: "code-review", prompt: "Review this PR diff for security, performance, maintainability, and correctness:\n\n[git diff output]")
+```
+
+This provides multi-perspective analysis (security, perf, maintainability) before human/coordinator review. Include the review summary in the PR body under a `## sk-agent Review` section.
+
+**When to use:** All PRs with >50 lines of code changes. Skip for doc-only or config-only PRs.
+
 ### Warning Checks (NON-BLOCKING)
 
 | Check | Tool | Threshold | Action |
