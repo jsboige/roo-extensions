@@ -30,10 +30,36 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 | `sync-tour-scheduled.ps1` | Sync-tour wrapper (legacy Phase 1) | Manual |
 | `test-escalation.ps1` | 33 unit tests (escalation, wait state, idle) | Validation |
 | `test-integration.ps1` | 3 integration tests (live Claude calls) | Validation |
+| `setup-copilot-dispatcher.ps1` | Install/remove/list/test Copilot dispatcher scheduled task | Copilot scheduler bridge |
+| `start-copilot-dispatcher.ps1` | Phase B bridge worker (regular cadence + observability) | Copilot transition |
 
 ---
 
 ## Quick Start
+
+### Copilot bridge scheduler (Phase B)
+
+```powershell
+# List
+.\setup-copilot-dispatcher.ps1 -Action list
+
+# Test
+.\setup-copilot-dispatcher.ps1 -Action test
+
+# Install
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3
+
+# Install with explicit budget/escalation profile
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -MaxConsecutiveBlocked 2 -MaxConsecutiveIdle 4
+```
+
+Note: this is a transition dispatcher bridge, not a full headless Copilot executor yet.
+
+Escalation profiles:
+
+- `low` -> escalate to `claude-worker-haiku` on repeated blocked runs.
+- `balanced` (default) -> escalate to `claude-worker-sonnet` on repeated blocked runs.
+- `throughput` -> escalate to `claude-worker-opus` on repeated blocked runs.
 
 ### 1. List current Task Scheduler status
 
