@@ -49,6 +49,7 @@ Define and implement Connector V3 for all three lanes:
 - [ ] Copilot MCP bootstrap script (`scripts/copilot/configure-copilot-mcp.ps1`)
 - [ ] Copilot dispatcher scheduler scripts (`scripts/scheduling/setup-copilot-dispatcher.ps1`, `scripts/scheduling/start-copilot-dispatcher.ps1`)
 - [ ] Escalation calibration table (profiles, thresholds, routing targets)
+- [ ] Monthly premium budget guard (soft/hard caps + effective profile downgrade)
 - [ ] Validation checklist for 6 machines
 - [ ] Rollback strategy
 

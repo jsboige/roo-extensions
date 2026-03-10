@@ -98,6 +98,16 @@ Scheduler should run with explicit budget profiles:
 
 Recommended default for this machine: `balanced`, `MaxConsecutiveBlocked=2`, `MaxConsecutiveIdle=4`.
 
+Monthly budget guard (Copilot Pro premium requests):
+
+- Input usage manually from GitHub dashboard (current sample: 4.5%).
+- Use soft cap 70% and hard cap 90% by default.
+- Behavior:
+	- usage < 70%: keep requested profile
+	- 70% <= usage < 90%: downgrade one level
+	- usage >= 90%: force `low` profile
+- Purpose: keep scheduled lane alive through end-of-month without burning premium budget.
+
 ## 8. Deliverables for V3 Issue
 
 - Connector V3 spec document

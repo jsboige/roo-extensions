@@ -19,6 +19,15 @@
 .PARAMETER BudgetProfile
     Escalation policy profile: low | balanced | throughput.
 
+.PARAMETER PremiumUsagePercent
+    Optional premium usage percentage override (0..100).
+
+.PARAMETER SoftUsageCapPercent
+    Soft cap above which effective profile is downgraded.
+
+.PARAMETER HardUsageCapPercent
+    Hard cap above which profile is forced to low.
+
 .PARAMETER MaxConsecutiveBlocked
     Escalate when blocked status repeats this many times.
 
@@ -37,6 +46,9 @@ param(
     [int]$TimeoutMinutes = 10,
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [double]$PremiumUsagePercent = -1,
+    [double]$SoftUsageCapPercent = 70,
+    [double]$HardUsageCapPercent = 90,
     [int]$MaxConsecutiveBlocked = 2,
     [int]$MaxConsecutiveIdle = 4,
     [switch]$DryRun
@@ -68,7 +80,7 @@ function Install-Task {
     $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
 
-    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle"
+    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle"
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
         -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
         -RepetitionDuration (New-TimeSpan -Days 365)
@@ -104,7 +116,7 @@ function Remove-Task {
 
 function Test-Task {
     Write-Host "Running dispatcher in dry-run mode..." -ForegroundColor Cyan
-    & powershell -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -DryRun
+    & powershell -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -DryRun
 }
 
 switch ($Action) {

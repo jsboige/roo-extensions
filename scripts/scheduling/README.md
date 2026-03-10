@@ -51,6 +51,9 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 
 # Install with explicit budget/escalation profile
 .\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -MaxConsecutiveBlocked 2 -MaxConsecutiveIdle 4
+
+# Install with premium usage guard (example with current usage)
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -PremiumUsagePercent 4.5 -SoftUsageCapPercent 70 -HardUsageCapPercent 90
 ```
 
 Note: this is a transition dispatcher bridge, not a full headless Copilot executor yet.
@@ -60,6 +63,13 @@ Escalation profiles:
 - `low` -> escalate to `claude-worker-haiku` on repeated blocked runs.
 - `balanced` (default) -> escalate to `claude-worker-sonnet` on repeated blocked runs.
 - `throughput` -> escalate to `claude-worker-opus` on repeated blocked runs.
+
+Premium budget guard:
+
+- Use `-PremiumUsagePercent` to inject the monthly premium usage value from Copilot dashboard.
+- Above soft cap (`-SoftUsageCapPercent`, default 70), the effective profile is downgraded.
+- Above hard cap (`-HardUsageCapPercent`, default 90), effective profile is forced to `low`.
+- If not provided, script can read `COPILOT_PREMIUM_USAGE_PERCENT` env var.
 
 ### 1. List current Task Scheduler status
 

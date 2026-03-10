@@ -17,6 +17,9 @@
 param(
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [double]$PremiumUsagePercent = -1,
+    [double]$SoftUsageCapPercent = 70,
+    [double]$HardUsageCapPercent = 90,
     [int]$MaxConsecutiveBlocked = 2,
     [int]$MaxConsecutiveIdle = 4,
     [switch]$DryRun
@@ -31,6 +34,7 @@ $logFile = Join-Path $logDir ("copilot-dispatcher-" + (Get-Date -Format "yyyyMMd
 $stateDir = Join-Path $repoRoot ".claude\scheduler"
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
 $stateFile = Join-Path $stateDir "copilot-dispatcher-state.json"
+$budgetPolicyPath = Join-Path $stateDir "copilot-budget.json"
 
 function Write-Log {
     param([string]$Message)
@@ -72,11 +76,12 @@ function Save-State {
 function Resolve-EscalationTarget {
     param(
         [string]$Status,
-        [hashtable]$State
+        [hashtable]$State,
+        [string]$EffectiveProfile
     )
 
     if ($Status -eq "blocked" -and $State.consecutiveBlocked -ge $MaxConsecutiveBlocked) {
-        switch ($BudgetProfile) {
+        switch ($EffectiveProfile) {
             'low' { return 'claude-worker-haiku' }
             'balanced' { return 'claude-worker-sonnet' }
             'throughput' { return 'claude-worker-opus' }
@@ -90,9 +95,73 @@ function Resolve-EscalationTarget {
     return 'none'
 }
 
+function Get-PremiumUsagePercent {
+    if ($PremiumUsagePercent -ge 0) {
+        return [double]$PremiumUsagePercent
+    }
+
+    if (Test-Path $budgetPolicyPath) {
+        try {
+            $policy = Get-Content -Path $budgetPolicyPath -Raw | ConvertFrom-Json -AsHashtable
+            if ($policy.ContainsKey('premiumUsagePercent')) {
+                return [double]$policy.premiumUsagePercent
+            }
+        } catch {
+            Write-Log "Budget policy unreadable, ignoring: $budgetPolicyPath"
+        }
+    }
+
+    $envValue = $env:COPILOT_PREMIUM_USAGE_PERCENT
+    if ($envValue) {
+        try {
+            return [double]$envValue
+        } catch {
+            Write-Log "Invalid COPILOT_PREMIUM_USAGE_PERCENT value: $envValue"
+        }
+    }
+
+    return -1
+}
+
+function Resolve-EffectiveProfile {
+    param(
+        [string]$RequestedProfile,
+        [double]$UsagePercent
+    )
+
+    if ($UsagePercent -lt 0) {
+        return $RequestedProfile
+    }
+
+    if ($UsagePercent -ge $HardUsageCapPercent) {
+        return 'low'
+    }
+
+    if ($UsagePercent -ge $SoftUsageCapPercent) {
+        switch ($RequestedProfile) {
+            'throughput' { return 'balanced' }
+            default { return 'low' }
+        }
+    }
+
+    return $RequestedProfile
+}
+
 Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
-Write-Log "BudgetProfile=$BudgetProfile BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
+Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
+
+$usagePercent = Get-PremiumUsagePercent
+if ($usagePercent -ge 0) {
+    Write-Log "PremiumUsagePercent=$usagePercent"
+} else {
+    Write-Log "PremiumUsagePercent=unknown (no telemetry configured)"
+}
+
+$effectiveProfile = Resolve-EffectiveProfile -RequestedProfile $BudgetProfile -UsagePercent $usagePercent
+if ($effectiveProfile -ne $BudgetProfile) {
+    Write-Log "Budget guard active: profile downgraded to $effectiveProfile"
+}
 
 $copilotConfig = Join-Path $HOME ".copilot\mcp-config.json"
 $status = "idle"
@@ -112,9 +181,12 @@ if ($status -eq "blocked") {
     $state.consecutiveBlocked = 0
 }
 
-$target = Resolve-EscalationTarget -Status $status -State $state
+$target = Resolve-EscalationTarget -Status $status -State $state -EffectiveProfile $effectiveProfile
 $state.lastStatus = $status
 $state.lastEscalation = $target
+$state.lastRequestedProfile = $BudgetProfile
+$state.lastEffectiveProfile = $effectiveProfile
+$state.lastPremiumUsagePercent = $usagePercent
 
 if ($target -ne 'none') {
     Write-Log "Escalation requested: $target"

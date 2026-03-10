@@ -1,0 +1,6 @@
+{
+  "premiumUsagePercent": 4.5,
+  "notes": "Update this value manually from GitHub Copilot usage dashboard.",
+  "softUsageCapPercent": 70,
+  "hardUsageCapPercent": 90
+}
