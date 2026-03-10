@@ -211,7 +211,7 @@ Executer ces commandes avec win-cli MCP et rapporter le resultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
-Chercher les messages [TASK], [SCHEDULED], [URGENT] de claude-code -> roo.
+Chercher les messages [TASK], [SCHEDULED], [URGENT] (peu importe le format de l'emetteur : "claude-code -> roo", "Claude Code -> Roo", etc.).
 Pour chaque [TASK], vérifier s'il contient un tag [workspace:PATH].
 Rapporter : etat git + liste des taches trouvees (avec workspace si spécifié).
 ```

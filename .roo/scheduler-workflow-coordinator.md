@@ -70,7 +70,7 @@ Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md avec read_file.
-Chercher les messages [TASK], [SCHEDULED], [URGENT] de claude-code -> roo.
+Chercher les messages [TASK], [SCHEDULED], [URGENT] (peu importe le format de l'emetteur : "claude-code -> roo", "Claude Code -> Roo", etc.).
 Rapporter : etat git + liste des taches trouvees.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
