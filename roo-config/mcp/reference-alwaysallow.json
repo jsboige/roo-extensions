@@ -3,7 +3,7 @@
 	"title": "Reference AlwaysAllow Configuration",
 	"description": "Configuration de reference pour l'auto-approbation des outils MCP sur toutes les machines Roo",
 	"version": "1.0.0",
-	"lastUpdated": "2026-02-21",
+	"lastUpdated": "2026-03-10",
 	"mcpServers": {
 		"jinavigator": {
 			"alwaysAllow": [
@@ -82,13 +82,15 @@
 				"roosync_inventory",
 				"roosync_list_diffs",
 				"roosync_machines",
-				"roosync_manage",
+				"roosync_cleanup_messages",
+			"roosync_manage",
 				"roosync_mcp_management",
 				"roosync_read",
 				"roosync_refresh_dashboard",
 				"roosync_search",
 				"roosync_send",
 				"roosync_storage_management",
+			"roosync_update_dashboard",
 				"roosync_summarize",
 				"roosync_sync_event",
 				"storage_info",

@@ -253,14 +253,37 @@ if ($DryRun) {
     exit 0
 }
 
-# Lancer Claude en mode pipe
-Write-Log "Lancement Claude coordinateur..."
+# Lancer Claude en mode pipe avec timeout protection
+$MaxMinutes = 25  # Safety margin below schtask 30-min limit
+Write-Log "Lancement Claude coordinateur (timeout: ${MaxMinutes}min)..."
 $StartTime = Get-Date
 
 try {
     Push-Location $RepoRoot
 
-    $ClaudeOutput = Get-Content $PromptFile -Raw | & claude -p --model $Model --dangerously-skip-permissions 2>&1
+    # Launch Claude as a background job with timeout
+    $ClaudeJob = Start-Job -ScriptBlock {
+        param($promptFile, $model, $repoRoot)
+        Set-Location $repoRoot
+        Get-Content $promptFile -Raw | & claude -p --model $model --dangerously-skip-permissions 2>&1
+    } -ArgumentList $PromptFile, $Model, $RepoRoot
+
+    $Completed = Wait-Job $ClaudeJob -Timeout ($MaxMinutes * 60)
+
+    if ($null -eq $Completed) {
+        # Timeout reached - kill the job and all child processes
+        Write-Log "TIMEOUT: Claude depasse ${MaxMinutes}min, arret force" "WARN"
+        Stop-Job $ClaudeJob -PassThru | Remove-Job -Force
+        # Also kill any orphaned claude processes from this session
+        Get-Process -Name "claude" -ErrorAction SilentlyContinue | Where-Object {
+            $_.StartTime -ge $StartTime
+        } | Stop-Process -Force -ErrorAction SilentlyContinue
+        Write-Log "=== COORDINATOR TIMEOUT ==="
+        exit 2
+    }
+
+    $ClaudeOutput = Receive-Job $ClaudeJob
+    Remove-Job $ClaudeJob -Force -ErrorAction SilentlyContinue
 
     $Duration = (Get-Date) - $StartTime
     Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes"
