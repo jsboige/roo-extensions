@@ -54,6 +54,7 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
 7. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
+8. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
 
 ## REGLES WIN-CLI (CRITIQUE)
 

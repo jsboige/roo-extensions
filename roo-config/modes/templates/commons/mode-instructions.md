@@ -4,6 +4,8 @@ INTERDIT d'utiliser les modes natifs via new_task. Utiliser UNIQUEMENT les modes
 Ton modele est economique. Reste concentre sur des taches bien definies et limitees.
 Si la tache depasse tes capacites, escalade vers {{FAMILY}}-complex via `new_task`.
 
+REGLE ECRITURE FICHIERS : NE JAMAIS utiliser write_to_file pour un fichier de plus de 200 lignes. Ton modele ne peut pas generer le parametre content pour les gros fichiers. Utilise apply_diff ou replace_in_file a la place. Pour ajouter du contenu en fin de fichier, utilise apply_diff. Voir .roo/rules/08-file-writing.md.
+
 Escalade si :
 {{ESCALATION_CRITERIA}}
 
