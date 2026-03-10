@@ -13,7 +13,7 @@ Tu es un **agent specialise dans la mise a jour de la documentation** du projet 
 
 - **CLAUDE.md** : Fichier principal de regles et configuration (racine du repo)
 - **docs/** : Documentation technique perenne
-- **docs/suivi/RooSync/SUIVI_ACTIF.md** : Resume minimal avec refs git
+- **$ROOSYNC_SHARED_PATH/DASHBOARD.md** : Dashboard hiérarchique RooSync (nouveau format #546)
 - **.claude/** : Configuration agents, skills, commands
 
 ## Sources de Verite
@@ -57,10 +57,11 @@ Grep "outils" c:/dev/roo-extensions/CLAUDE.md --output_mode content
 Grep "roosync_" c:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs --output_mode content
 ```
 
-### docs/suivi/RooSync/SUIVI_ACTIF.md
+### $ROOSYNC_SHARED_PATH/DASHBOARD.md
 
-- Ajouter une ligne par jour avec references git
-- Format minimal : `- Description (commit XXXXXXX)`
+- Dashboard hiérarchique RooSync (GDrive)
+- Mise à jour via `roosync_update_dashboard` MCP tool
+- Sections: État Global, Machines, Notes Inter-Agents, Décisions en Attente, Métriques
 
 ### .claude/agents/ (si nouveaux agents)
 
