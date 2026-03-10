@@ -1,4 +1,4 @@
-﻿# Workflow Scheduler Roo - EXECUTEUR (machines non-coordinateur)
+# Workflow Scheduler Roo - EXECUTEUR (machines non-coordinateur)
 
 > Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
 
@@ -53,6 +53,7 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
+7. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
 
 ## REGLES WIN-CLI (CRITIQUE)
 
@@ -170,12 +171,12 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 ```
 Envoyer un heartbeat au coordinateur :
 roosync_heartbeat(action="register")
-Rapporter : OK ou erreur.
+Rapporter : OK ou erreur exacte (message d'erreur complet).
 ```
 
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
 
-**Si échec :** Noter dans le bilan mais continuer (heartbeat non bloquant).
+**Si échec :** Heartbeat non bloquant, mais l'échec DOIT être rapporté fidèlement dans le bilan (Etape 3). Ne JAMAIS écrire "Tout OK" si le heartbeat a échoué. Rapporter le statut exact : "Heartbeat: ECHEC - {message d'erreur}".
 
 ### Etape 0c : Config-Sync (optionnel, si > 24h depuis dernier)
 
@@ -531,9 +532,12 @@ Message a ajouter :
 ## [{DATE}] roo -> claude-code [{DONE|IDLE}]
 - Git: {OK/erreur} | Status: {propre/dirty}
 - Build: {OK/FAIL} | Tests: {X} pass
+- Heartbeat: {OK/ECHEC - raison}
 - Taches: {N} (source: {INTERCOM/GitHub #num})
 - Erreurs: {aucune ou description courte}
 ```
+
+**⚠️ REGLE ANTI-FAUX-POSITIF :** Le bilan DOIT refleter le statut REEL de chaque etape. Si une etape a retourne PARTIEL ou ECHEC, le bilan NE DOIT JAMAIS dire "Tout OK" ou laisser entendre que tout est fonctionnel. Rapporter chaque echec meme mineur. Un faux positif envoye au coordinateur est PIRE qu'un echec honnete.
 
 **FALLBACK (si la premiere delegation echoue) :** Deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement.
 
@@ -544,9 +548,10 @@ Message a ajouter :
 ### Bilan scheduler executeur
 
 **ETAT INFRASTRUCTURE :**
-- Outils critiques (win-cli, roo-state-manager) : {TOUS OK / PARTIEL / ECHEC}
-- Heartbeat : {OK / ECHEC / N/A}
-- Erreurs connexion LLM : {X erreurs} (si > 0)
+- Pre-flight : {OK/FAIL}
+- Heartbeat : {OK/ECHEC - raison exacte}
+- Config-Sync : {OK/SKIP/ECHEC - raison}
+- Erreurs connexion LLM : {0 ou N erreurs avant reponse}
 
 **EXECUTION :**
 - Git pull : OK/erreur
@@ -556,15 +561,17 @@ Message a ajouter :
 - Taches executees : {N} (source: INTERCOM/GitHub #{num})
 - Erreurs : {liste ou "aucune"}
 - Escalades : {aucune ou vers {mode}}
+- Connexion LLM : {OK ou "{N} erreurs connexion avant reponse"}
 
 ---
 ```
 
-**REGLE ANTI-FAUX POSITIF :**
+**REGLE ANTI-FAUX-POSITIF (CRITIQUE) :**
 - JAMAIS écrire "Tout OK" si un outil critique a échoué
 - JAMAIS écrire "Tout OK" si heartbeat a échoué
 - JAMAIS ignorer les erreurs de connexion LLM (compter et rapporter)
-- Si ÉTAT INFRASTRUCTURE != "TOUS OK" : utiliser `[PARTIEL]` ou `[ECHEC]` dans le titre
+- Si ÉTAT INFRASTRUCTURE != "TOUS OK" : utiliser `[PARTIEL]` ou `[ECHEC]` dans le titre du bilan
+- Chaque ligne du bilan DOIT refleter la realite. Un faux positif envoye au coordinateur est PIRE qu'un echec honnete.
 
 **Maintenance INTERCOM :** Si le fichier depasse 500 lignes, deleguer a `code-simple` la condensation des 300 premieres en ~50 lignes de synthese (garder les 200 dernieres intactes). Faire cela SEULEMENT si le temps le permet (pas prioritaire).
 
