@@ -42,7 +42,8 @@ function Write-Section {
 Write-Section "TEST INTÉGRATION MCP - JUPYTER-PAPERMILL"
 
 $testResults = @{}
-$scriptDir = Split-Path -Parent $MyInvocation.ScriptName
+# Utiliser PSScriptRoot si disponible (script direct), sinon fallback vers ScriptName
+$scriptDir = if ($PSScriptRoot) { $PSScriptRoot } else { Split-Path -Parent $MyInvocation.ScriptName }
 $serverPath = Join-Path (Split-Path -Parent (Split-Path -Parent $scriptDir)) "mcps\internal\servers\jupyter-papermill-mcp-server"
 
 Write-ColoredOutput "📍 Serveur: $serverPath" $Blue
