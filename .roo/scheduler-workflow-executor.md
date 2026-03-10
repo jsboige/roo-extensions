@@ -543,6 +543,12 @@ Message a ajouter :
 ## [{DATE}] roo -> claude-code [{DONE|MAINTENANCE|IDLE}]
 ### Bilan scheduler executeur
 
+**ETAT INFRASTRUCTURE :**
+- Outils critiques (win-cli, roo-state-manager) : {TOUS OK / PARTIEL / ECHEC}
+- Heartbeat : {OK / ECHEC / N/A}
+- Erreurs connexion LLM : {X erreurs} (si > 0)
+
+**EXECUTION :**
 - Git pull : OK/erreur
 - Git status : propre/dirty
 - Build : OK/FAIL
@@ -553,6 +559,12 @@ Message a ajouter :
 
 ---
 ```
+
+**REGLE ANTI-FAUX POSITIF :**
+- JAMAIS écrire "Tout OK" si un outil critique a échoué
+- JAMAIS écrire "Tout OK" si heartbeat a échoué
+- JAMAIS ignorer les erreurs de connexion LLM (compter et rapporter)
+- Si ÉTAT INFRASTRUCTURE != "TOUS OK" : utiliser `[PARTIEL]` ou `[ECHEC]` dans le titre
 
 **Maintenance INTERCOM :** Si le fichier depasse 500 lignes, deleguer a `code-simple` la condensation des 300 premieres en ~50 lignes de synthese (garder les 200 dernieres intactes). Faire cela SEULEMENT si le temps le permet (pas prioritaire).
 
