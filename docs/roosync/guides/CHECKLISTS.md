@@ -155,7 +155,7 @@
 - [ ] Notifier tous les agents du rollback
 - [ ] Documenter la cause et la résolution
 - [ ] Créer une issue GitHub si bug identifié
-- [ ] Mettre à jour SUIVI_ACTIF.md
+- [ ] Mettre à jour DASHBOARD.md (via roosync_update_dashboard)
 
 ---
 

@@ -145,7 +145,7 @@ docs/
 ## Suivi de Projet
 
 ### RooSync Multi-Agent (actif)
-- [suivi/RooSync/SUIVI_ACTIF.md](suivi/RooSync/SUIVI_ACTIF.md) - Suivi actif
+- **$ROOSYNC_SHARED_PATH/DASHBOARD.md** - Dashboard hiérarchique (nouveau format #546)
 - [suivi/RooSync/BUGS_TRACKING.md](suivi/RooSync/BUGS_TRACKING.md) - Suivi des bugs
 - [suivi/RooSync/INDEX.md](suivi/RooSync/INDEX.md) - Index RooSync
 

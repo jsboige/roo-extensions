@@ -213,7 +213,7 @@ Body:
 | Fichier | Usage |
 |---------|-------|
 | `.claude/local/INTERCOM-{MACHINE}.md` | Communication locale Claude↔Roo |
-| `docs/suivi/RooSync/SUIVI_ACTIF.md` | Suivi quotidien |
+| `$ROOSYNC_SHARED_PATH/DASHBOARD.md` | Dashboard hiérarchique RooSync |
 
 ---
 

@@ -630,7 +630,7 @@ Si quelqu'un d'autre travaille déjà dessus, merci de me le faire savoir ASAP.
 1. **Arrêter immédiatement** le travail en cours
 2. **Communiquer** avec l'autre agent via RooSync
 3. **Fusionner** les travaux ou décider qui continue
-4. **Documenter** l'incident dans SUIVI_ACTIF.md
+4. **Documenter** l'incident dans $ROOSYNC_SHARED_PATH/DASHBOARD.md (section Notes Inter-Agents)
 
 **Exemple de documentation d'incident :**
 ```markdown

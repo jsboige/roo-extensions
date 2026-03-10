@@ -12,7 +12,7 @@
 | Fichier | Usage | MAJ |
 |---------|-------|-----|
 | **INDEX.md** | Ce fichier - Navigation | 2026-01-18 |
-| **SUIVI_ACTIF.md** | Suivi quotidien de l'activité | Quotidien |
+| **DASHBOARD.md** | Dashboard hiérarchique (GDrive) | Automatique via roosync_update_dashboard |
 | **BUGS_TRACKING.md** | Bugs connus et leur statut | Quand bugs |
 
 ### Documentation Technique
@@ -51,7 +51,7 @@
 ## Recherche Rapide
 
 - **Bugs** → `BUGS_TRACKING.md`
-- **Quotidien** → `SUIVI_ACTIF.md`
+- **Dashboard** → `$ROOSYNC_SHARED_PATH/DASHBOARD.md` (nouveau format hiérarchique)
 - **Guide rapide** → [`QUICKSTART.md`](../roosync/QUICKSTART.md)
 - **Archives** → `Archives/` (80+ rapports)
 - **Technique** → [`GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md)

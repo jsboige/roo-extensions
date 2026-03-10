@@ -340,7 +340,7 @@ EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9
 3. **GitHub Issues** : État des bugs et tâches ouvertes
 4. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo (< 24h)
 5. **CLAUDE.md** : Configuration et règles stables du projet
-6. **SUIVI_ACTIF.md** : `docs/suivi/RooSync/SUIVI_ACTIF.md` - Résumé minimal (peut être obsolète)
+6. **DASHBOARD.md** : `$ROOSYNC_SHARED_PATH/DASHBOARD.md` - Dashboard hiérarchique RooSync (nouveau format #546)
 
 ## Règles Critiques
 
