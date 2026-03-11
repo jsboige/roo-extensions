@@ -44,8 +44,8 @@ jobs:
       - name: Build TypeScript
         run: npm run build
 
-      - name: Run tests
-        run: npx vitest run --reporter=default --exclude 'tests/e2e/**'
+      - name: Run tests (CI config - excludes platform-dependent tests)
+        run: npx vitest run --config vitest.config.ci.ts --reporter=default
 
       - name: Upload test results
         if: always()
