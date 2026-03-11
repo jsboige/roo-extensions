@@ -406,6 +406,8 @@ Rapporte :
 | 4 | **Coherence config** | Comparer une config deployee (`.roomodes`, `.roo/schedules.json`, `mcp_settings.json`) avec sa source (`roo-config/modes/`, template, etc.) et rapporter les ecarts | `code-simple` |
 | 5 | **Sante infrastructure** | Tester un endpoint d'infrastructure (embeddings.myia.io, qdrant.myia.io, search.myia.io, tika.myia.io) avec une requete simple et rapporter le statut | `code-simple` |
 | 6 | **Inventaire GitHub** | Lister les issues ouvertes avec `gh issue list` et identifier celles qui sont perimees (pas de commentaire > 14j), ou celles assignees a cette machine mais bloquees | `code-simple` |
+| 7 | **Rangement depot** | Verifier que les fichiers sont au bon endroit : rapports dans `docs/`, scripts dans `scripts/`, pas de fichiers orphelins a la racine. Lister les fichiers mal places et proposer le deplacement correct | `ask-simple` |
+| 8 | **Consolidation doc** | Chercher les fichiers .md qui couvrent le meme sujet (doublons semantiques). Lire 2-3 fichiers .md dans `docs/` et verifier si leur contenu est deja consolide dans les docs perennes (`CLAUDE.md`, `docs/roosync/*.md`). Rapporter les doublons et les docs obsoletes | `ask-simple` |
 
 **Choix du domaine :** Prendre le premier domaine de la liste qui N'a PAS ete explore dans les 7 derniers jours (selon INTERCOM + git). Si tous ont ete explores, recommencer au #1.
 
@@ -527,52 +529,19 @@ Message a ajouter :
 
 **RAPPEL :** L'orchestrateur NE PEUT PAS ecrire dans INTERCOM lui-meme (#563). Il DOIT deleguer.
 
-**FORMAT MESSAGE (garder court) :**
+**FORMAT MESSAGE (garder COURT — max 8 lignes, pas de verbeux) :**
 
 ```markdown
-## [{DATE}] roo -> claude-code [{DONE|IDLE}]
-- Git: {OK/erreur} | Status: {propre/dirty}
-- Build: {OK/FAIL} | Tests: {X} pass
-- Heartbeat: {OK/ECHEC - raison}
-- Taches: {N} (source: {INTERCOM/GitHub #num})
-- Erreurs: {aucune ou description courte}
-```
-
-**⚠️ REGLE ANTI-FAUX-POSITIF :** Le bilan DOIT refleter le statut REEL de chaque etape. Si une etape a retourne PARTIEL ou ECHEC, le bilan NE DOIT JAMAIS dire "Tout OK" ou laisser entendre que tout est fonctionnel. Rapporter chaque echec meme mineur. Un faux positif envoye au coordinateur est PIRE qu'un echec honnete.
-
-**FALLBACK (si la premiere delegation echoue) :** Deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement.
-
-**Format du message :**
-
-```markdown
-## [{DATE}] roo -> claude-code [{DONE|MAINTENANCE|IDLE}]
-### Bilan scheduler executeur
-
-**ETAT INFRASTRUCTURE :**
-- Pre-flight : {OK/FAIL}
-- Heartbeat : {OK/ECHEC - raison exacte}
-- Config-Sync : {OK/SKIP/ECHEC - raison}
-- Erreurs connexion LLM : {0 ou N erreurs avant reponse}
-
-**EXECUTION :**
-- Git pull : OK/erreur
-- Git status : propre/dirty
-- Build : OK/FAIL
-- Tests : {X} pass / {Y} fail
-- Taches executees : {N} (source: INTERCOM/GitHub #{num})
-- Erreurs : {liste ou "aucune"}
-- Escalades : {aucune ou vers {mode}}
-- Connexion LLM : {OK ou "{N} erreurs connexion avant reponse"}
-
+## [{DATE}] roo -> claude-code [{DONE|IDLE|PARTIEL}]
+- Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f
+- Heartbeat: {OK/ECHEC} | Taches: {N} ({source})
+- Erreurs: {aucune ou description 1 ligne}
 ---
 ```
 
-**REGLE ANTI-FAUX-POSITIF (CRITIQUE) :**
-- JAMAIS écrire "Tout OK" si un outil critique a échoué
-- JAMAIS écrire "Tout OK" si heartbeat a échoué
-- JAMAIS ignorer les erreurs de connexion LLM (compter et rapporter)
-- Si ÉTAT INFRASTRUCTURE != "TOUS OK" : utiliser `[PARTIEL]` ou `[ECHEC]` dans le titre du bilan
-- Chaque ligne du bilan DOIT refleter la realite. Un faux positif envoye au coordinateur est PIRE qu'un echec honnete.
+**⚠️ REGLE ANTI-FAUX-POSITIF :** Le bilan DOIT refleter la realite. Ne JAMAIS dire "Tout OK" si un echec est survenu. Utiliser `[PARTIEL]` si echec partiel. Preferer la concision a l'exhaustivite — les details sont dans les traces, pas dans l'INTERCOM.
+
+**FALLBACK (si la premiere delegation echoue) :** Deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement.
 
 **Maintenance INTERCOM :** Si le fichier depasse 500 lignes, deleguer a `code-simple` la condensation des 300 premieres en ~50 lignes de synthese (garder les 200 dernieres intactes). Faire cela SEULEMENT si le temps le permet (pas prioritaire).
 

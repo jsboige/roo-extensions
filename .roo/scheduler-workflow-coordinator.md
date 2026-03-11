@@ -275,7 +275,7 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
 **Resume pour le coordinateur :**
 1. **Selection intelligente** : Lire INTERCOM (tags `[PATROL]`, `[FRICTION-FOUND]` < 7j) + `git log --since='7 days ago'` pour eviter les domaines deja couverts
-2. **1 exploration lecture seule** parmi 6 domaines (outil MCP, doc vs realite, couverture tests, coherence config, sante infra, inventaire GitHub)
+2. **1 exploration lecture seule** parmi 8 domaines (outil MCP, doc vs realite, couverture tests, coherence config, sante infra, inventaire GitHub, rangement depot, consolidation doc)
 3. **Rapport INTERCOM** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme detecte
 4. **Pas de creation d'issue directe** : le coordinateur Claude verifie et escalade
 
@@ -283,8 +283,10 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
 | # | Domaine | Description |
 |---|---------|-------------|
-| 7 | **Messages RooSync non traites** | Deleguer a code-simple : verifier s'il y a des messages anciens non lus ou non archives dans l'inbox RooSync |
-| 8 | **Heartbeat cross-machine** | Deleguer a code-simple : appeler `roosync_heartbeat(action="status")` et rapporter l'etat des machines |
+| 7 | **Rangement depot** | Deleguer a ask-simple : verifier que les fichiers sont au bon endroit (rapports dans `docs/`, scripts dans `scripts/`, pas de fichiers orphelins a la racine). Lister les fichiers mal places |
+| 8 | **Consolidation doc** | Deleguer a ask-simple : chercher les fichiers .md qui couvrent le meme sujet (doublons semantiques). Verifier si leur contenu est deja dans les docs perennes (`CLAUDE.md`, `docs/roosync/*.md`). Rapporter les doublons |
+| 9 | **Messages RooSync non traites** | Deleguer a code-simple : verifier s'il y a des messages anciens non lus ou non archives dans l'inbox RooSync |
+| 10 | **Heartbeat cross-machine** | Deleguer a code-simple : appeler `roosync_heartbeat(action="status")` et rapporter l'etat des machines |
 
 Apres exploration → **Etape 3**
 
