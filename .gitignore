@@ -93,6 +93,11 @@ sync-config.ref.json.backup.*
 
 # Fichiers temporaires RooSync
 temp/
+tmp/
+nul
+
+# RooSync shared state (GDrive local mount, never commit)
+.shared-state/
 
 # Debug files
 debug_payload_dump.json
@@ -136,3 +141,4 @@ scripts/setup/.env
 
 # Auto-import settings (contains API keys)
 roo-config/roo-settings-import.json
+roo-config/roo-settings-import.json.*
