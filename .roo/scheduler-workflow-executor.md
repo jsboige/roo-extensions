@@ -402,13 +402,16 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
 **Taches de consolidation disponibles (rotation, du plus simple au plus utile) :**
 
-| # | Tache | Description | Commandes / Actions |
-|---|-------|-------------|---------------------|
-| 1 | **Scripts dupliques** | Identifier et supprimer les scripts PowerShell en double (ex: `-quick.ps1` quand version complete existe) | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer doublons |
-| 2 | **Scripts datés** | Archiver les scripts avec dates specifiques dans `scripts/_archive/` (ex: `*-20251022-*.ps1`) | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` |
-| 3 | **Docs obsoletes** | Supprimer les guides v2.1 remplaces par v2.3 (`docs/roosync/archive/v2.1/`) | `Remove-Item docs/roosync/archive/v2.1/ -Recurse` |
-| 4 | **Synthese rapports** | Consolidation des rapports git-history en 1 rapport definitif | Lire + synthese + remplacement |
-| 5 | **Index docs** | Creer `docs/INDEX.md` avec table des matieres de tous les guides | Generer index depuis structure `docs/` |
+| # | Task | Description | Commands / Actions | Status |
+|---|------|-------------|---------------------|--------|
+| 1 | Scripts datés | Archiver les scripts avec dates spécifiques dans `scripts/_archive/` | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` | DONE (Phase 2.1) |
+| 2 | QuickFiles deprecated | Archiver les scripts QuickFiles MCP (déprécié CONS-1) | `scripts/_archive/quickfiles-deprecated/README.md` | DONE (Phase 2.1) |
+| 3 | RooSync Phase 3 | Archiver les scripts one-off PHASE3A/PHASE3B | `scripts/_archive/roosync-phase3/README.md` | DONE (Phase 2.1) |
+| 4 | Scripts dupliqués | Identifier et supprimer les scripts PowerShell en double | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer | TODO |
+| 5 | Docs obsolètes | Archiver guides obsolètes v2.1, doublons `docs/archive/` vs `docs/archives/` | `Move-Item docs/archive/v2.1/* docs/_archive/` | TODO |
+| 6 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
+| 7 | Couverture tests | Identifier les fichiers source sans tests dans `mcps/internal/servers/roo-state-manager/src/` | `Get-ChildItem src/ -Recurse -Filter *.ts` → vérifier `__tests__/` | TODO |
+| 8 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |
 
 **Execution d'une consolidation :**
 
