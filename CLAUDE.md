@@ -210,63 +210,46 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 
 | Label | Description | Quand l'utiliser |
 |-------|-------------|------------------|
-| `bug` | Bug à corriger | Comportement incorrect, erreur, crash |
-| `enhancement` | Nouvelle fonctionnalité | Feature request, amélioration |
-| `documentation` | Documentation à mettre à jour | MAJ docs, README, guides |
-| `refactor` | Refactoring du code | Restructuration, cleanup technique |
-| `cleanup` | Nettoyage code obsolete | Retrait code deprecated, mort |
-| `workflow-improvement` | Amélioration processus | Skills, commands, agents, workflows |
+| `bug` | Something isn't working | Comportement incorrect, erreur, crash |
+| `enhancement` | New feature or request | Feature request, amélioration |
+| `documentation` | Improvements or additions to documentation | MAJ docs, README, guides |
 
 **Labels techniques (optionnels):**
 
-| Label | Description |
-|-------|-------------|
-| `MCP` | Problème ou changement lié aux MCPs |
-| `RooSync` | Problème ou changement lié à RooSync |
-| `CI` | Pipeline CI / tests |
-| `infra` | Infrastructure (servers, services, GPU) |
-| `performance` | Problème de performance |
-| `security` | Problème de sécurité |
-
-**Labels de priorité (un seul par issue):**
-
-| Label | Description | Délai cible |
-|-------|-------------|------------|
-| `priority:critical` | Bloquant, production down | < 4h |
-| `priority:high` | Urgent mais non bloquant | < 24h |
-| `priority:medium` | Normal | < 1 semaine |
-| `priority:low` | Nice to have | Quand possible |
-
-**Labels de machine (un ou plusieurs par issue):**
-
-| Label | Machine concernée |
-|-------|-------------------|
-| `Machine:ai-01` | myia-ai-01 (coordinateur) |
-| `Machine:po-2023` | myia-po-2023 |
-| `Machine:po-2024` | myia-po-2024 |
-| `Machine:po-2025` | myia-po-2025 |
-| `Machine:po-2026` | myia-po-2026 |
-| `Machine:web1` | myia-web1 |
-| `Machine:Any` | N'importe quelle machine |
-| `Machine:All` | Toutes les machines |
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `critical` | Issues critiques bloquantes | rouge (#d73a4a) |
+| `regression` | Regression bugs | rose (#d93f0b) |
+| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) | rose (#d93f0b) |
+| `quality` | Code quality and reliability | violet (#5319e7) |
+| `testing` | Test coverage and infrastructure | bleu (#1d76db) |
+| `test` | Test coverage (alias de testing) | vert (#0E8A16) |
+| `investigation` | Investigation and audit tasks | vert (#0e8a16) |
 
 **Labels d'attribution (un seul par issue):**
 
-| Label | Agent concerné |
-|-------|----------------|
-| `claude-only` | Réservé Claude Code (pas Roo) |
-| `roo-schedulable` | Peut être exécuté par scheduler Roo |
+| Label | Agent concerné | Couleur |
+|-------|----------------|---------|
+| `claude-only` | Réservé Claude Code (opus/sonnet) - NOT for Roo schedulers | bleu (#0366d6) |
+| `roo-schedulable` | Peut être exécuté par scheduler Roo autonomously | vert (#0E8A16) |
+
+**Labels de validation (gérés automatiquement):**
+
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `needs-approval` | Requires user approval before execution | jaune (#fbca04) |
+| `needs-deployment-checklist` | Requires deployment checklist validation before closing | jaune (#FBCA04) |
+| `good first issue` | Good for newcomers | bleu (#7057ff) |
+| `help wanted` | Extra attention is needed | vert (#008672) |
 
 **Labels de statut (gérés automatiquement):**
 
-| Label | Description |
-|-------|-------------|
-| `needs-approval` | Attend validation utilisateur/coordinator |
-| `in-progress` | En cours d'exécution |
-| `blocked` | Bloqué par autre issue |
-| `wontfix` | Ne sera pas corrigé |
-| `duplicate` | Doublon d'une autre issue |
-| `help wanted` | Contribution extérieure bienvenue |
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `wontfix` | This will not be worked on | blanc (#ffffff) |
+| `duplicate` | This issue or pull request already exists | gris (#cfd3d7) |
+| `invalid` | This doesn't seem right | gris (#e4e669) |
+| `question` | Further information is requested | bleu (#d876e3) |
 
 ### 4. Scheduler Roo
 
