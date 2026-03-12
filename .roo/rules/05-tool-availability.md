@@ -43,6 +43,14 @@ A chaque execution scheduler, AVANT de commencer le workflow :
 2. Si echec : ecrire INTERCOM [CRITICAL] et terminer proprement
 3. Si succes : continuer le workflow normal
 
+## Pre-flight en mode Scheduler (CRITIQUE)
+
+**Le pre-flight check est READ-ONLY.** En mode scheduler :
+- NE JAMAIS tenter de modifier la config MCP (mcp_settings.json)
+- NE JAMAIS tenter de redemarrer un serveur MCP
+- NE JAMAIS utiliser ask_followup_question (interdit en scheduler)
+- Si un outil critique est absent : ecrire INTERCOM [CRITICAL], terminer proprement
+
 ## Accommodation INTERDITE
 
 **NE PAS :**
