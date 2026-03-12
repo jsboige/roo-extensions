@@ -51,10 +51,11 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 2. Communication locale via INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`), RooSync pour l'inter-machine
 3. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
-5. Deleguer uniquement aux modes `-simple` ou `-complex`
-6. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
-7. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
-8. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
+5. **Identifiants de modes OBLIGATOIRES** : TOUJOURS utiliser les slugs (identifiants techniques) dans les appels `new_task`, JAMAIS les noms d'affichage avec emojis. Les slugs corrects sont : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`.
+6. Deleguer uniquement aux modes `-simple` ou `-complex`
+7. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
+8. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
+9. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
 
 ## REGLES WIN-CLI (CRITIQUE)
 
@@ -172,9 +173,15 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-Envoyer un heartbeat au coordinateur :
-roosync_heartbeat(action="register")
-Rapporter : OK ou erreur exacte (message d'erreur complet).
+Envoyer un heartbeat au coordinateur pour indiquer que cette machine est active.
+
+IMPORTANT : Format JSON exact pour l'appel MCP roosync_heartbeat :
+roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
+
+Ou pour verifier le statut :
+roosync_heartbeat(action: "status", filter: "online", includeHeartbeats: true)
+
+Rapporter : OK (machine enregistree) ou erreur exacte (message d'erreur complet).
 ```
 
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
@@ -186,11 +193,14 @@ Rapporter : OK ou erreur exacte (message d'erreur complet).
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-Config-sync : synchroniser la configuration locale.
-1. roosync_config(action: "collect", targets: ["modes", "mcp"])
-2. roosync_config(action: "publish", version: "auto", description: "Config-sync automatique")
-3. roosync_compare_config(granularity: "mcp")
-Rapporter : nombre de diffs (critical, important, warning).
+Config-sync : synchroniser la configuration locale avec le coordinateur.
+
+IMPORTANT : Format JSON exact pour les appels MCP roosync_* :
+1. roosync_config(action: "collect", targets: ["modes", "mcp"], dryRun: false)
+2. roosync_config(action: "publish", version: "{VERSION}", description: "Config-sync automatique", targets: ["modes", "mcp"])
+3. roosync_compare_config(granularity: "mcp", source: "{MACHINE_ID}", target: "myia-ai-01")
+
+Rapporter : nombre de diffs par niveau (critical, important, warning).
 ```
 
 **Décision selon le résultat rapporté :**
@@ -372,9 +382,63 @@ Si une issue est trouvee :
 
 Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
-### Etape 2c-idle : Veille Active (si aucune tache trouvee)
+### Etape 2c-idle : Veille Active ou Consolidation (si aucune tache trouvee)
 
-> **Objectif :** Utiliser le temps idle pour explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
+> **Objectif :** Utiliser le temps idle pour : (1) Explorer et tester UNE fonctionnalite du systeme, OU (2) Executer UNE tache de consolidation du depot.
+
+> **Priorite :** Si des taches de consolidation sont en attente (issues avec label `idle-task` ou `consolidation`), les executer en priorite. Sinon, faire une exploration Veille Active.
+
+---
+
+#### Option 1 : Taches de Consolidation (prioritaire si disponibles)
+
+> Voir Issue #656 (Idle Scheduler Improvement) pour la liste complete des taches de consolidation.
+
+**REGLES POUR CONSOLIDATION :**
+- **1 seule consolidation par session** : choisir UN element, le traiter, rapporter
+- **Commit autorise** : les consolidations produisent des changements verifiables
+- **Pas de creation d'issue** : si probleme → `[FRICTION-FOUND]` dans INTERCOM
+- **Tester apres changement** : build + tests si modification du code
+
+**Taches de consolidation disponibles (rotation, du plus simple au plus utile) :**
+
+| # | Tache | Description | Commandes / Actions |
+|---|-------|-------------|---------------------|
+| 1 | **Scripts dupliques** | Identifier et supprimer les scripts PowerShell en double (ex: `-quick.ps1` quand version complete existe) | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer doublons |
+| 2 | **Scripts datés** | Archiver les scripts avec dates specifiques dans `scripts/_archive/` (ex: `*-20251022-*.ps1`) | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` |
+| 3 | **Docs obsoletes** | Supprimer les guides v2.1 remplaces par v2.3 (`docs/roosync/archive/v2.1/`) | `Remove-Item docs/roosync/archive/v2.1/ -Recurse` |
+| 4 | **Synthese rapports** | Consolidation des rapports git-history en 1 rapport definitif | Lire + synthese + remplacement |
+| 5 | **Index docs** | Creer `docs/INDEX.md` avec table des matieres de tous les guides | Generer index depuis structure `docs/` |
+
+**Execution d'une consolidation :**
+
+Deleguer a `code-simple` via `new_task` :
+
+```
+CONSOLIDATION IDLE - Tache #{N}: {titre}
+
+{Instructions specifiques a la consolidation}
+
+Actions autorisees pour cette tache :
+- Lecture de fichiers avec read_file
+- Modification de fichiers (Edit, Write) pour consolidation
+- Commit des changements (git add, commit, push)
+- Build + tests si code modifie
+
+Rapporte :
+- Fichiers touches
+- Changements effectifs
+- Resultat : OK / FRICTION DETECTEE
+- Si friction : description precise
+```
+
+**Si aucune consolidation disponible :** Aller a **Option 2 : Veille Active** (exploration)
+
+---
+
+#### Option 2 : Veille Active (exploration, si pas de consolidation)
+
+> **Objectif :** Explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
 
 **REGLES STRICTES :**
 - **LECTURE SEULE** : ne JAMAIS modifier un fichier pendant l'exploration
