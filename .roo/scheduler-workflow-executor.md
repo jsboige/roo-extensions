@@ -149,6 +149,8 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 
 **AVANT TOUT**, verifier que les outils critiques sont disponibles.
 
+**IMPORTANT : Le pre-flight est READ-ONLY. Si un outil est absent, RAPPORTER dans INTERCOM [CRITICAL] et terminer. NE PAS tenter de reparer la config MCP.**
+
 **VERIFIER SOI-MÊME** (pas de delegation) :
 
 1. Lire un fichier simple pour verifier l accès filesystem : `.claude/local/INTERCOM-{MACHINE}.md`
