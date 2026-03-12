@@ -1,11 +1,62 @@
-# MCP Win-CLI pour Roo
+# MCP Win-CLI - Support Dual-Harnais (Roo + Claude Code)
 
 <!-- START_SECTION: introduction -->
 ## Introduction
 
-Le MCP Win-CLI permet à Roo d'exécuter des commandes dans différents shells Windows (PowerShell, CMD, Git Bash) et de gérer des connexions SSH via le protocole MCP (Model Context Protocol). Il offre une interface complète pour interagir avec le système d'exploitation Windows et les serveurs distants directement depuis l'interface de conversation de Roo.
+Le MCP Win-CLI permet d'exécuter des commandes dans différents shells Windows (PowerShell, CMD, Git Bash) et de gérer des connexions SSH via le protocole MCP (Model Context Protocol). Ce fork est **spécialement configuré pour supporter les deux harnais d'agents** :
 
-Ce MCP est particulièrement utile pour les utilisateurs Windows qui souhaitent que Roo puisse interagir directement avec leur système d'exploitation via différents shells, sans être limité au shell par défaut, et pour gérer des connexions SSH vers des serveurs distants.
+- **Roo** : L'assistant de code technique
+- **Claude Code** : L'assistant de coordination et documentation
+
+Le MCP offre une interface complète pour interagir avec le système d'exploitation Windows et les serveurs distants directement depuis l'interface de conversation.
+
+Ce MCP est particulièrement utile pour les utilisateurs Windows qui souhaitent que leurs agents puissent interagir directement avec leur système d'exploitation via différents shells, sans être limité au shell par défaut, et pour gérer des connexions SSH vers des serveurs distants.
+
+## Support Dual-Harnais
+
+⚠️ **IMPORTANT** : Ce fork utilise un fichier de configuration partagée (`unrestricted-config.json`) avec des opérateurs débloqués (`|`, `;`, `` ` ``, `&`, `&&`, `||`) pour permettre aux agents d'exécuter des commandes complexes (pipes, chaînage, etc.).
+
+### Configuration Roo
+
+Dans `mcp_settings.json` de Roo (`%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/`) :
+
+```json
+{
+  "win-cli": {
+    "command": "node",
+    "args": [
+      "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\server\\dist\\index.js",
+      "--config",
+      "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\unrestricted-config.json"
+    ],
+    "transportType": "stdio",
+    "disabled": false
+  }
+}
+```
+
+### Configuration Claude Code
+
+Dans `~/.claude.json` (ou via l'interface VS Code "Manage MCP Servers") :
+
+```json
+{
+  "mcpServers": {
+    "win-cli": {
+      "command": "node",
+      "args": [
+        "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\server\\dist\\index.js",
+        "--config",
+        "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\unrestricted-config.json"
+      ],
+      "transportType": "stdio",
+      "disabled": false
+    }
+  }
+}
+```
+
+**Note** : Le chemin `C:\\dev\\roo-extensions` doit être adapté selon votre installation.
 <!-- END_SECTION: introduction -->
 
 <!-- START_SECTION: features -->
@@ -67,23 +118,50 @@ Pour une description détaillée de chaque outil et des exemples d'utilisation, 
 <!-- START_SECTION: quick_start -->
 ## Démarrage rapide
 
-1. **Installation**:
+⚠️ **Note** : Ce guide concerne le **fork local** `mcps/external/win-cli` du projet roo-extensions, **PAS** le package NPM `@simonb97/server-win-cli`.
+
+### Prérequis
+
+- Node.js installé sur la machine
+- Le dépôt `roo-extensions` cloné localement
+- Le serveur win-cli buildé : `npm run build` dans `mcps/external/win-cli/server/`
+
+### Installation
+
+1. **Build du serveur** :
    ```bash
-   # Via NPX (recommandé)
-   npx -y @simonb97/server-win-cli
-   
-   # Ou installation globale
-   npm install -g @simonb97/server-win-cli
+   cd C:\dev\roo-extensions\mcps\external\win-cli\server
+   npm install
+   npm run build
    ```
 
-2. **Configuration**:
-   Ajoutez la configuration suivante à votre fichier `mcp_settings.json`:
+2. **Configuration Roo** (`mcp_settings.json`) :
+   ```json
+   {
+     "win-cli": {
+       "command": "node",
+       "args": [
+         "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\server\\dist\\index.js",
+         "--config",
+         "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\unrestricted-config.json"
+       ],
+       "transportType": "stdio",
+       "disabled": false
+     }
+   }
+   ```
+
+3. **Configuration Claude Code** (`~/.claude.json`) :
    ```json
    {
      "mcpServers": {
        "win-cli": {
-         "command": "cmd",
-         "args": ["/c", "npx", "-y", "@simonb97/server-win-cli"],
+         "command": "node",
+         "args": [
+           "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\server\\dist\\index.js",
+           "--config",
+           "C:\\dev\\roo-extensions\\mcps\\external\\win-cli\\unrestricted-config.json"
+         ],
          "transportType": "stdio",
          "disabled": false
        }
@@ -91,10 +169,27 @@ Pour une description détaillée de chaque outil et des exemples d'utilisation, 
    }
    ```
 
-3. **Utilisation**:
-   Redémarrez VS Code et commencez à utiliser les outils de commande dans Roo.
+4. **Utilisation**:
+   - **Roo** : Redémarrez VS Code et utilisez les outils dans Roo
+   - **Claude Code** : Rechargez la fenêtre VS Code (`F1` → "Developer: Reload Window")
 
 Pour des instructions détaillées, consultez les fichiers [INSTALLATION.md](./INSTALLATION.md) et [CONFIGURATION.md](./CONFIGURATION.md).
+
+### Vérification
+
+Testez que le MCP fonctionne dans les deux harnais :
+
+**Roo** : Demandez à Roo d'exécuter une commande avec pipe
+```
+Exécute "Get-Process | Select-Object -First 5" en PowerShell
+```
+
+**Claude Code** : Utilisez l'outil `execute_command` avec pipe
+```
+execute_command(shell="powershell", command="Get-Process | Select-Object -First 5")
+```
+
+Si les deux fonctionnent, le support dual-harnais est correctement configuré.
 <!-- END_SECTION: quick_start -->
 
 <!-- START_SECTION: use_cases -->
@@ -244,9 +339,13 @@ Pour plus d'informations sur le système de surveillance, consultez la [document
 <!-- END_SECTION: troubleshooting -->
 
 <!-- START_SECTION: integration -->
-## Intégration avec Roo
+## Intégration avec Roo et Claude Code
 
-Le MCP Win-CLI s'intègre parfaitement avec Roo, permettant des interactions naturelles en langage courant. Voici quelques exemples de demandes que vous pouvez faire à Roo:
+Le MCP Win-CLI s'intègre parfaitement avec **Roo** et **Claude Code**, permettant des interactions naturelles en langage courant.
+
+### Avec Roo
+
+Exemples de demandes que vous pouvez faire à Roo:
 
 - "Exécute la commande 'Get-Process' en PowerShell"
 - "Liste les fichiers du répertoire C:\Users\Public"
@@ -258,6 +357,17 @@ Le MCP Win-CLI s'intègre parfaitement avec Roo, permettant des interactions nat
 - "Exécute une commande Git pour cloner ce dépôt"
 
 Roo traduira automatiquement ces demandes en appels aux outils appropriés du MCP Win-CLI.
+
+### Avec Claude Code
+
+Claude Code utilise directement les outils MCP via les appels de fonction. Exemples d'utilisation :
+
+- Exécuter une commande simple : `execute_command(shell="powershell", command="Get-Process")`
+- Chaînage avec pipe : `execute_command(shell="powershell", command="Get-Process | Where-Object {$_.CPU -gt 10}")`
+- Commandes multiples : `execute_command(shell="powershell", command="cd C:\\Projects; ls")`
+- Connexions SSH : `create_ssh_connection(...)` puis `ssh_execute(...)`
+
+Claude Code peut également combiner win-cli avec d'autres MCPs (ex: `roo-state-manager`, `playwright`) pour des workflows complexes.
 
 ### Nouvelles fonctionnalités
 
