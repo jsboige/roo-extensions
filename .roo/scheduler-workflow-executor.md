@@ -382,9 +382,63 @@ Si une issue est trouvee :
 
 Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
-### Etape 2c-idle : Veille Active (si aucune tache trouvee)
+### Etape 2c-idle : Veille Active ou Consolidation (si aucune tache trouvee)
 
-> **Objectif :** Utiliser le temps idle pour explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
+> **Objectif :** Utiliser le temps idle pour : (1) Explorer et tester UNE fonctionnalite du systeme, OU (2) Executer UNE tache de consolidation du depot.
+
+> **Priorite :** Si des taches de consolidation sont en attente (issues avec label `idle-task` ou `consolidation`), les executer en priorite. Sinon, faire une exploration Veille Active.
+
+---
+
+#### Option 1 : Taches de Consolidation (prioritaire si disponibles)
+
+> Voir Issue #656 (Idle Scheduler Improvement) pour la liste complete des taches de consolidation.
+
+**REGLES POUR CONSOLIDATION :**
+- **1 seule consolidation par session** : choisir UN element, le traiter, rapporter
+- **Commit autorise** : les consolidations produisent des changements verifiables
+- **Pas de creation d'issue** : si probleme → `[FRICTION-FOUND]` dans INTERCOM
+- **Tester apres changement** : build + tests si modification du code
+
+**Taches de consolidation disponibles (rotation, du plus simple au plus utile) :**
+
+| # | Tache | Description | Commandes / Actions |
+|---|-------|-------------|---------------------|
+| 1 | **Scripts dupliques** | Identifier et supprimer les scripts PowerShell en double (ex: `-quick.ps1` quand version complete existe) | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer doublons |
+| 2 | **Scripts datés** | Archiver les scripts avec dates specifiques dans `scripts/_archive/` (ex: `*-20251022-*.ps1`) | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` |
+| 3 | **Docs obsoletes** | Supprimer les guides v2.1 remplaces par v2.3 (`docs/roosync/archive/v2.1/`) | `Remove-Item docs/roosync/archive/v2.1/ -Recurse` |
+| 4 | **Synthese rapports** | Consolidation des rapports git-history en 1 rapport definitif | Lire + synthese + remplacement |
+| 5 | **Index docs** | Creer `docs/INDEX.md` avec table des matieres de tous les guides | Generer index depuis structure `docs/` |
+
+**Execution d'une consolidation :**
+
+Deleguer a `code-simple` via `new_task` :
+
+```
+CONSOLIDATION IDLE - Tache #{N}: {titre}
+
+{Instructions specifiques a la consolidation}
+
+Actions autorisees pour cette tache :
+- Lecture de fichiers avec read_file
+- Modification de fichiers (Edit, Write) pour consolidation
+- Commit des changements (git add, commit, push)
+- Build + tests si code modifie
+
+Rapporte :
+- Fichiers touches
+- Changements effectifs
+- Resultat : OK / FRICTION DETECTEE
+- Si friction : description precise
+```
+
+**Si aucune consolidation disponible :** Aller a **Option 2 : Veille Active** (exploration)
+
+---
+
+#### Option 2 : Veille Active (exploration, si pas de consolidation)
+
+> **Objectif :** Explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
 
 **REGLES STRICTES :**
 - **LECTURE SEULE** : ne JAMAIS modifier un fichier pendant l'exploration
