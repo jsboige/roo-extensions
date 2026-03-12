@@ -17,11 +17,14 @@
 param(
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [int]$IssueNumber = 0,
     [double]$PremiumUsagePercent = -1,
     [double]$SoftUsageCapPercent = 70,
     [double]$HardUsageCapPercent = 90,
     [int]$MaxConsecutiveBlocked = 2,
     [int]$MaxConsecutiveIdle = 4,
+    [int]$MinEscalationIntervalMinutes = 180,
+    [int]$MaxEscalationsPerDay = 3,
     [switch]$DryRun
 )
 
@@ -50,6 +53,9 @@ function Load-State {
             consecutiveIdle = 0
             lastStatus = "none"
             lastEscalation = "none"
+            lastEscalationAt = ""
+            escalationWindowStart = ""
+            escalationsInWindow = 0
         }
     }
 
@@ -62,6 +68,9 @@ function Load-State {
             consecutiveIdle = 0
             lastStatus = "none"
             lastEscalation = "none"
+            lastEscalationAt = ""
+            escalationWindowStart = ""
+            escalationsInWindow = 0
         }
     }
 }
@@ -93,6 +102,118 @@ function Resolve-EscalationTarget {
     }
 
     return 'none'
+}
+
+function Test-EscalationAllowed {
+    param([hashtable]$State)
+
+    $now = Get-Date
+
+    if (-not $State.ContainsKey('escalationWindowStart') -or [string]::IsNullOrWhiteSpace([string]$State.escalationWindowStart)) {
+        return $true
+    }
+
+    try {
+        $windowStart = [DateTime]::Parse([string]$State.escalationWindowStart)
+        if (($now - $windowStart).TotalHours -ge 24) {
+            return $true
+        }
+    } catch {
+        return $true
+    }
+
+    $count = [int]$State.escalationsInWindow
+    if ($count -ge $MaxEscalationsPerDay) {
+        Write-Log "Escalation guardrail active: MaxEscalationsPerDay reached ($count/$MaxEscalationsPerDay)"
+        return $false
+    }
+
+    if ($State.ContainsKey('lastEscalationAt') -and -not [string]::IsNullOrWhiteSpace([string]$State.lastEscalationAt)) {
+        try {
+            $lastEscalation = [DateTime]::Parse([string]$State.lastEscalationAt)
+            if (($now - $lastEscalation).TotalMinutes -lt $MinEscalationIntervalMinutes) {
+                Write-Log "Escalation guardrail active: cooldown not reached (min $MinEscalationIntervalMinutes min)"
+                return $false
+            }
+        } catch {
+            return $true
+        }
+    }
+
+    return $true
+}
+
+function Register-Escalation {
+    param([hashtable]$State)
+
+    $now = Get-Date
+
+    if (-not $State.ContainsKey('escalationWindowStart') -or [string]::IsNullOrWhiteSpace([string]$State.escalationWindowStart)) {
+        $State.escalationWindowStart = $now.ToString('o')
+        $State.escalationsInWindow = 1
+    } else {
+        try {
+            $windowStart = [DateTime]::Parse([string]$State.escalationWindowStart)
+            if (($now - $windowStart).TotalHours -ge 24) {
+                $State.escalationWindowStart = $now.ToString('o')
+                $State.escalationsInWindow = 1
+            } else {
+                $State.escalationsInWindow = [int]$State.escalationsInWindow + 1
+            }
+        } catch {
+            $State.escalationWindowStart = $now.ToString('o')
+            $State.escalationsInWindow = 1
+        }
+    }
+
+    $State.lastEscalationAt = $now.ToString('o')
+}
+
+function Test-GitHubIssueLock {
+    param([int]$Issue)
+
+    if ($Issue -le 0) { return $false }
+
+    try {
+        $commentsJson = & gh issue view $Issue --repo jsboige/roo-extensions --json comments --jq '.comments[-3:]' 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $commentsJson) { return $false }
+
+        $comments = $commentsJson | ConvertFrom-Json
+        foreach ($comment in $comments) {
+            $body = [string]$comment.body
+            $createdAt = [DateTime]::Parse($comment.createdAt)
+            $age = (Get-Date).ToUniversalTime() - $createdAt.ToUniversalTime()
+            if (($body -match 'LOCK:' -or $body -match 'Claimed by') -and $age.TotalMinutes -lt 5) {
+                return $true
+            }
+        }
+    } catch {
+        return $false
+    }
+
+    return $false
+}
+
+function Write-GitHubIssueComment {
+    param(
+        [int]$Issue,
+        [string]$Body
+    )
+
+    if ($Issue -le 0 -or [string]::IsNullOrWhiteSpace($Body)) {
+        return
+    }
+
+    try {
+        & gh issue comment $Issue --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Log "Posted GitHub comment to issue #$Issue"
+        } else {
+            Write-Log "Unable to post GitHub comment to issue #$Issue"
+        }
+    } catch {
+        Write-Log "Unable to post GitHub comment to issue #$Issue"
+    }
 }
 
 function Get-PremiumUsagePercent {
@@ -150,6 +271,7 @@ function Resolve-EffectiveProfile {
 Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
+Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay"
 
 $usagePercent = Get-PremiumUsagePercent
 if ($usagePercent -ge 0) {
@@ -163,16 +285,32 @@ if ($effectiveProfile -ne $BudgetProfile) {
     Write-Log "Budget guard active: profile downgraded to $effectiveProfile"
 }
 
-$copilotConfig = Join-Path $HOME ".copilot\mcp-config.json"
+$copilotConfigCandidates = @(
+    (Join-Path $env:APPDATA "Code\User\mcp.json"),
+    (Join-Path $HOME ".copilot\mcp-config.json")
+)
+$copilotConfig = $null
+$copilotConfig = $copilotConfigCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 $status = "idle"
-if (Test-Path $copilotConfig) {
+if ($copilotConfig) {
     Write-Log "Found Copilot MCP config: $copilotConfig"
 } else {
-    Write-Log "Copilot MCP config missing: $copilotConfig"
+    Write-Log "Copilot MCP config missing: checked $($copilotConfigCandidates -join ', ')"
     $status = "blocked"
 }
 
 $state = Load-State
+
+if ($IssueNumber -gt 0 -and -not $DryRun) {
+    if (Test-GitHubIssueLock -Issue $IssueNumber) {
+        Write-Log "Lock active on issue #$IssueNumber (recent claim)"
+    } else {
+        $claimTimestamp = Get-Date -Format "o"
+        Write-GitHubIssueComment -Issue $IssueNumber -Body "Claimed by copilot-dispatcher on $($env:COMPUTERNAME.ToLower()) at $claimTimestamp"
+        Write-GitHubIssueComment -Issue $IssueNumber -Body "STATUS: started`nagent: copilot-dispatcher`nmachine: $($env:COMPUTERNAME.ToLower())`nmode: scheduled`nprofile: $effectiveProfile"
+    }
+}
+
 if ($status -eq "blocked") {
     $state.consecutiveBlocked = [int]$state.consecutiveBlocked + 1
     $state.consecutiveIdle = 0
@@ -182,16 +320,39 @@ if ($status -eq "blocked") {
 }
 
 $target = Resolve-EscalationTarget -Status $status -State $state -EffectiveProfile $effectiveProfile
+if ($target -ne 'none' -and -not (Test-EscalationAllowed -State $state)) {
+    Write-Log "Escalation suppressed by guardrails"
+    $target = 'none'
+}
+
 $state.lastStatus = $status
 $state.lastEscalation = $target
 $state.lastRequestedProfile = $BudgetProfile
 $state.lastEffectiveProfile = $effectiveProfile
 $state.lastPremiumUsagePercent = $usagePercent
+if ($IssueNumber -gt 0) {
+    $state.lastIssueNumber = $IssueNumber
+}
 
 if ($target -ne 'none') {
+    Register-Escalation -State $state
     Write-Log "Escalation requested: $target"
+    if ($IssueNumber -gt 0 -and -not $DryRun) {
+        $handoffPayload = @(
+            "STATUS: blocked",
+            "agent: copilot-dispatcher",
+            "machine: $($env:COMPUTERNAME.ToLower())",
+            "resume_when: github_comment|intercom_message|timeout_hours:3",
+            "handoff_target: $target",
+            "handoff_reason: repeated_$status"
+        ) -join "`n"
+        Write-GitHubIssueComment -Issue $IssueNumber -Body $handoffPayload
+    }
 } else {
     Write-Log "No escalation required"
+    if ($IssueNumber -gt 0 -and -not $DryRun) {
+        Write-GitHubIssueComment -Issue $IssueNumber -Body "STATUS: done`nagent: copilot-dispatcher`nresult: $status`nescalation: none"
+    }
 }
 
 Save-State -State $state

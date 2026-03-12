@@ -19,6 +19,9 @@
 .PARAMETER BudgetProfile
     Escalation policy profile: low | balanced | throughput.
 
+.PARAMETER IssueNumber
+    Optional GitHub issue number for claim/status/handoff comments.
+
 .PARAMETER PremiumUsagePercent
     Optional premium usage percentage override (0..100).
 
@@ -34,6 +37,12 @@
 .PARAMETER MaxConsecutiveIdle
     Escalate for cadence review when idle repeats this many times.
 
+.PARAMETER MinEscalationIntervalMinutes
+    Cooldown between two escalation events.
+
+.PARAMETER MaxEscalationsPerDay
+    Max escalation events allowed in a rolling 24h window.
+
 .PARAMETER DryRun
     Preview only.
 #>
@@ -46,11 +55,14 @@ param(
     [int]$TimeoutMinutes = 10,
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [int]$IssueNumber = 0,
     [double]$PremiumUsagePercent = -1,
     [double]$SoftUsageCapPercent = 70,
     [double]$HardUsageCapPercent = 90,
     [int]$MaxConsecutiveBlocked = 2,
     [int]$MaxConsecutiveIdle = 4,
+    [int]$MinEscalationIntervalMinutes = 180,
+    [int]$MaxEscalationsPerDay = 3,
     [switch]$DryRun
 )
 
@@ -80,7 +92,7 @@ function Install-Task {
     $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
 
-    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle"
+    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay"
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
         -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
         -RepetitionDuration (New-TimeSpan -Days 365)
@@ -116,7 +128,7 @@ function Remove-Task {
 
 function Test-Task {
     Write-Host "Running dispatcher in dry-run mode..." -ForegroundColor Cyan
-    & powershell -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -DryRun
+    & powershell -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
 }
 
 switch ($Action) {

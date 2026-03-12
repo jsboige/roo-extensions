@@ -28,12 +28,12 @@
       "--system"
     ],
     "allowedPaths": [
-      "C:\\Users\\jsboi",
-      "c:\\dev\\roo-extensions",
-      "C:\\dev\\roo-extensions",
-      "C:/dev/roo-extensions"
+      "C:\\",
+      "D:\\",
+      "C:/",
+      "D:/"
     ],
-    "restrictWorkingDirectory": true,
+    "restrictWorkingDirectory": false,
     "logCommands": true,
     "maxHistorySize": 2000,
     "commandTimeout": 500,
