@@ -51,10 +51,11 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 2. Communication locale via INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`), RooSync pour l'inter-machine
 3. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
 4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
-5. Deleguer uniquement aux modes `-simple` ou `-complex`
-6. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
-7. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
-8. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
+5. **Identifiants de modes OBLIGATOIRES** : TOUJOURS utiliser les slugs (identifiants techniques) dans les appels `new_task`, JAMAIS les noms d'affichage avec emojis. Les slugs corrects sont : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`.
+6. Deleguer uniquement aux modes `-simple` ou `-complex`
+7. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
+8. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
+9. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
 
 ## REGLES WIN-CLI (CRITIQUE)
 
@@ -172,9 +173,15 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-Envoyer un heartbeat au coordinateur :
-roosync_heartbeat(action="register")
-Rapporter : OK ou erreur exacte (message d'erreur complet).
+Envoyer un heartbeat au coordinateur pour indiquer que cette machine est active.
+
+IMPORTANT : Format JSON exact pour l'appel MCP roosync_heartbeat :
+roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
+
+Ou pour verifier le statut :
+roosync_heartbeat(action: "status", filter: "online", includeHeartbeats: true)
+
+Rapporter : OK (machine enregistree) ou erreur exacte (message d'erreur complet).
 ```
 
 **Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
@@ -186,11 +193,14 @@ Rapporter : OK ou erreur exacte (message d'erreur complet).
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-Config-sync : synchroniser la configuration locale.
-1. roosync_config(action: "collect", targets: ["modes", "mcp"])
-2. roosync_config(action: "publish", version: "auto", description: "Config-sync automatique")
-3. roosync_compare_config(granularity: "mcp")
-Rapporter : nombre de diffs (critical, important, warning).
+Config-sync : synchroniser la configuration locale avec le coordinateur.
+
+IMPORTANT : Format JSON exact pour les appels MCP roosync_* :
+1. roosync_config(action: "collect", targets: ["modes", "mcp"], dryRun: false)
+2. roosync_config(action: "publish", version: "{VERSION}", description: "Config-sync automatique", targets: ["modes", "mcp"])
+3. roosync_compare_config(granularity: "mcp", source: "{MACHINE_ID}", target: "myia-ai-01")
+
+Rapporter : nombre de diffs par niveau (critical, important, warning).
 ```
 
 **Décision selon le résultat rapporté :**
