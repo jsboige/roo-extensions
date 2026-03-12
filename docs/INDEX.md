@@ -1,26 +1,31 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-02-26
-**Version:** 5.3 (Scheduler Claude Code operational + links)
+**Derniere mise a jour:** 2026-03-12
+**Version:** 5.4 (Nouveaux repertoires: analysis, audit, evaluation, services, testing)
 
 ---
 
-## Structure docs/ (11 repertoires)
+## Structure docs/ (16 repertoires)
 
 ```
 docs/
+├── analysis/         # Analyses de patterns (MCP, etc.) - NOUVEAU
 ├── architecture/     # Architecture systeme, designs, analyses
 ├── archive/          # Contenu historique/obsolete (auto-archive)
+├── audit/            # Audits techniques et investigations - NOUVEAU
 ├── deployment/       # Deploiement, hardware
 ├── dev/              # Debugging, encoding, fixes, tests, refactoring
+├── evaluation/       # Evaluations modeles (LLM) - NOUVEAU
 ├── framework-multi-agent/  # Templates et framework coordination multi-agent
 ├── guides/           # Guides utilisateur, installation, depannage
 ├── knowledge/        # Base de connaissances
 ├── mcp/              # Documentation MCP roo-state-manager
 ├── roo-code/         # Documentation Roo Code, PRs, ADR
 ├── roosync/          # Protocoles RooSync v2.3, guides agents
-├── scheduler/        # Scheduler Roo & Claude Code (NOUVEAU)
+├── scheduler/        # Scheduler Roo & Claude Code
+├── services/         # Documentation services techniques - NOUVEAU
 ├── suivi/            # Suivi projet actif, monitoring
+├── testing/          # Rapports tests et audits - NOUVEAU
 ├── INDEX.md          # Ce fichier
 └── README.md         # Vue d'ensemble
 ```
@@ -74,6 +79,26 @@ docs/
 
 ### Archive
 - [architecture/archive/](architecture/archive/) - Syntheses, planning, investigations historiques
+
+---
+
+## Analysis
+
+- [mcp-usage-patterns-2026-02.md](analysis/mcp-usage-patterns-2026-02.md) - Patterns d'utilisation MCP
+
+---
+
+## Audit
+
+- [INVESTIGATION_SUMMARY_572.md](audit/INVESTIGATION_SUMMARY_572.md) - Synthese investigation #572
+- [REMEDIATION_STEPS_572.md](audit/REMEDIATION_STEPS_572.md) - Etapes remediation #572
+- [VSCODE_LOGS_AUDIT_2026-03-06.md](audit/VSCODE_LOGS_AUDIT_2026-03-06.md) - Audit logs VS Code
+
+---
+
+## Evaluation
+
+- [qwen-3.5-35b-a3b-evaluation-536.md](evaluation/qwen-3.5-35b-a3b-evaluation-536.md) - Evaluation modele Qwen 3.5
 
 ---
 
@@ -162,12 +187,14 @@ docs/
 ### Archive
 - [suivi/archive/](suivi/archive/) - Coordination, reports, sessions, incidents historiques
 
----
-
 ## MCP
 
-### Roo State Manager
-- [mcp/roo-state-manager/](mcp/roo-state-manager/) - Documentation dediee (features, audit technique)
+### Documentation
+
+- [mcp/roo-state-manager/README.md](mcp/roo-state-manager/README.md) - Index documentation Roo State Manager
+- [mcp/roo-state-manager/features/](mcp/roo-state-manager/features/) - Recherche sémantique, navigation, indexation
+- [mcp/roo-state-manager/technical-audit/](mcp/roo-state-manager/technical-audit/) - Audits techniques (E2E, Qdrant, Jest)
+- [mcp/roo-state-manager/project-plan.md](mcp/roo-state-manager/project-plan.md) - Plan de projet
 
 ### Archive
 - [mcp/archive/](mcp/archive/) - Fix reports historiques (Oct 2025)
@@ -177,6 +204,27 @@ docs/
 ## Deployment
 
 - [deployment/GPU_SPECS_MULTI_MACHINE.md](deployment/GPU_SPECS_MULTI_MACHINE.md) - Specs GPU multi-machine
+- [deployment/DEPLOY-ALWAYSALLOW.md](deployment/DEPLOY-ALWAYSALLOW.md) - Deploiement alwaysAllow MCP
+- [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees Roo
+- [deployment/scheduler-issues-fixes.md](deployment/scheduler-issues-fixes.md) - Fixes scheduler
+- [deployment/scheduler-modes-deployment-guide.md](deployment/scheduler-modes-deployment-guide.md) - Guide deploiement modes scheduler
+
+---
+
+## Services
+
+- [ConfigSharingService.md](services/ConfigSharingService.md) - Service partage configuration
+- [GranularDiffDetector.md](services/GranularDiffDetector.md) - Detection differences granulaire
+- [HierarchyReconstructionEngine.md](services/HierarchyReconstructionEngine.md) - Reconstruction hierarchie
+- [NarrativeContextBuilderService.md](services/NarrativeContextBuilderService.md) - Construction contexte narratif
+- [sk-agent-deployment.md](services/sk-agent-deployment.md) - Deploiement sk-agent
+
+---
+
+## Testing
+
+- [issue-564-phase1-audit-report.md](testing/issue-564-phase1-audit-report.md) - Rapport audit tests #564
+- [issue-564-phase1-inventory.md](testing/issue-564-phase1-inventory.md) - Inventaire tests #564
 
 ---
 
@@ -219,7 +267,8 @@ docs/
 
 - [archive/](archive/) - Contenu historique et obsolete
   - GPU specs myia-po-2023
-  - Historique git (merge reports)
+  - [archive/git-history/](archive/git-history/) - Operations Git (Oct 2025)
+    - [GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese unique (stashes, merges, reconciliations)
   - Note: Guides MCP, encodage, deployment consolides dans guides/ et dev/encoding/
 
 ---
@@ -232,7 +281,7 @@ docs/
 
 ---
 
-**Consolide par:** myia-po-2025
+**Consolide par:** myia-po-2024
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-02-26 (v5.3 - Scheduler Claude Code operational + scripts links)
-**Precedent:** v5.2 (directory scheduler/ + tests mis à jour par myia-po-2023)
+**Derniere MAJ:** 2026-03-12 (v5.4 - Nouveaux repertoires: analysis, audit, evaluation, services, testing + git-history synthese)
+**Precedent:** v5.3 (Scheduler Claude Code operational + scripts links par myia-po-2023)
