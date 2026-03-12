@@ -162,12 +162,14 @@ docs/
 ### Archive
 - [suivi/archive/](suivi/archive/) - Coordination, reports, sessions, incidents historiques
 
----
-
 ## MCP
 
-### Roo State Manager
-- [mcp/roo-state-manager/](mcp/roo-state-manager/) - Documentation dediee (features, audit technique)
+### Documentation
+
+- [mcp/roo-state-manager/README.md](mcp/roo-state-manager/README.md) - Index documentation Roo State Manager
+- [mcp/roo-state-manager/features/](mcp/roo-state-manager/features/) - Recherche sémantique, navigation, indexation
+- [mcp/roo-state-manager/technical-audit/](mcp/roo-state-manager/technical-audit/) - Audits techniques (E2E, Qdrant, Jest)
+- [mcp/roo-state-manager/project-plan.md](mcp/roo-state-manager/project-plan.md) - Plan de projet
 
 ### Archive
 - [mcp/archive/](mcp/archive/) - Fix reports historiques (Oct 2025)
