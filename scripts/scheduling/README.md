@@ -32,6 +32,7 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 | `test-integration.ps1` | 3 integration tests (live Claude calls) | Validation |
 | `setup-copilot-dispatcher.ps1` | Install/remove/list/test Copilot dispatcher scheduled task | Copilot scheduler bridge |
 | `start-copilot-dispatcher.ps1` | Phase B bridge worker (regular cadence + observability) | Copilot transition |
+| `invoke-copilot-rollout-check.ps1` | Controlled rollout helper (preflight + install + validation + evidence report) | Machine-by-machine rollout |
 
 ---
 
@@ -54,6 +55,15 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 
 # Install with premium usage guard (example with current usage)
 .\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -BudgetProfile balanced -PremiumUsagePercent 4.5 -SoftUsageCapPercent 70 -HardUsageCapPercent 90
+
+# Install with issue hooks + escalation guardrails
+.\setup-copilot-dispatcher.ps1 -Action install -IntervalHours 3 -IssueNumber 622 -MinEscalationIntervalMinutes 180 -MaxEscalationsPerDay 3
+
+# Run full rollout gate on the current machine (recommended)
+.\invoke-copilot-rollout-check.ps1 -IssueNumber 622 -BudgetProfile balanced
+
+# Validation-only pass (no install/refresh)
+.\invoke-copilot-rollout-check.ps1 -IssueNumber 622 -ValidateOnly
 ```
 
 Note: this is a transition dispatcher bridge, not a full headless Copilot executor yet.
@@ -70,6 +80,20 @@ Premium budget guard:
 - Above soft cap (`-SoftUsageCapPercent`, default 70), the effective profile is downgraded.
 - Above hard cap (`-HardUsageCapPercent`, default 90), effective profile is forced to `low`.
 - If not provided, script can read `COPILOT_PREMIUM_USAGE_PERCENT` env var.
+
+Issue protocol hooks:
+
+- Use `-IssueNumber` to post claim/status/handoff comments in the same format family as Claude worker.
+- Dispatcher posts `STATUS: started`, then either `STATUS: done` (idle/healthy bridge) or `STATUS: blocked` with handoff target.
+- Guardrails prevent escalation spam via cooldown (`-MinEscalationIntervalMinutes`) and rolling window cap (`-MaxEscalationsPerDay`).
+
+Rollout helper behavior:
+
+- Checks `gh` identity against expected login (`jsboige` by default).
+- Applies MCP bootstrap (`scripts/copilot/configure-copilot-mcp.ps1`) unless `-SkipBootstrap`.
+- Verifies `roo-state-manager` is present in `%APPDATA%\Code\User\mcp.json`.
+- Installs/refreshes dispatcher, triggers one immediate run, validates `Ready` + `LastTaskResult=0`.
+- Produces evidence report under `.claude/logs/copilot-rollout-check-*.md`.
 
 ### 1. List current Task Scheduler status
 
