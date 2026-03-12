@@ -202,6 +202,72 @@ Projet : "RooSync Multi-Agent Tasks" (#67)
 URL : https://github.com/users/jsboige/projects/67
 Format : `[CLAUDE-MACHINE] Titre` + labels
 
+#### Labels GitHub
+
+Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour voir la liste complète.
+
+**Labels de type (obligatoire pour chaque issue):**
+
+| Label | Description | Quand l'utiliser |
+|-------|-------------|------------------|
+| `bug` | Bug à corriger | Comportement incorrect, erreur, crash |
+| `enhancement` | Nouvelle fonctionnalité | Feature request, amélioration |
+| `documentation` | Documentation à mettre à jour | MAJ docs, README, guides |
+| `refactor` | Refactoring du code | Restructuration, cleanup technique |
+| `cleanup` | Nettoyage code obsolete | Retrait code deprecated, mort |
+| `workflow-improvement` | Amélioration processus | Skills, commands, agents, workflows |
+
+**Labels techniques (optionnels):**
+
+| Label | Description |
+|-------|-------------|
+| `MCP` | Problème ou changement lié aux MCPs |
+| `RooSync` | Problème ou changement lié à RooSync |
+| `CI` | Pipeline CI / tests |
+| `infra` | Infrastructure (servers, services, GPU) |
+| `performance` | Problème de performance |
+| `security` | Problème de sécurité |
+
+**Labels de priorité (un seul par issue):**
+
+| Label | Description | Délai cible |
+|-------|-------------|------------|
+| `priority:critical` | Bloquant, production down | < 4h |
+| `priority:high` | Urgent mais non bloquant | < 24h |
+| `priority:medium` | Normal | < 1 semaine |
+| `priority:low` | Nice to have | Quand possible |
+
+**Labels de machine (un ou plusieurs par issue):**
+
+| Label | Machine concernée |
+|-------|-------------------|
+| `Machine:ai-01` | myia-ai-01 (coordinateur) |
+| `Machine:po-2023` | myia-po-2023 |
+| `Machine:po-2024` | myia-po-2024 |
+| `Machine:po-2025` | myia-po-2025 |
+| `Machine:po-2026` | myia-po-2026 |
+| `Machine:web1` | myia-web1 |
+| `Machine:Any` | N'importe quelle machine |
+| `Machine:All` | Toutes les machines |
+
+**Labels d'attribution (un seul par issue):**
+
+| Label | Agent concerné |
+|-------|----------------|
+| `claude-only` | Réservé Claude Code (pas Roo) |
+| `roo-schedulable` | Peut être exécuté par scheduler Roo |
+
+**Labels de statut (gérés automatiquement):**
+
+| Label | Description |
+|-------|-------------|
+| `needs-approval` | Attend validation utilisateur/coordinator |
+| `in-progress` | En cours d'exécution |
+| `blocked` | Bloqué par autre issue |
+| `wontfix` | Ne sera pas corrigé |
+| `duplicate` | Doublon d'une autre issue |
+| `help wanted` | Contribution extérieure bienvenue |
+
 ### 4. Scheduler Roo
 
 **Reference complete :** [`docs/roo-code/SCHEDULER_SYSTEM.md`](docs/roo-code/SCHEDULER_SYSTEM.md)
