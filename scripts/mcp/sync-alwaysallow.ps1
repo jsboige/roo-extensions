@@ -131,7 +131,9 @@ if ($DryRun) {
         }
 
         # Sauvegarder les changements
-        $settings | ConvertTo-Json -Depth 10 | Set-Content $RooSettingsPath -Encoding UTF8
+        # FIX #664: Utiliser WriteAllText au lieu de Set-Content pour éviter BOM UTF-8
+        $jsonOutput = $settings | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($RooSettingsPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
         Write-Host ""
         Write-Host "Settings mis a jour avec succes!" -ForegroundColor Green
         Write-Host "Redemarrez VS Code pour appliquer les changements." -ForegroundColor Yellow
