@@ -76,9 +76,10 @@ function Write-Log {
     if (!(Test-Path "logs")) {
         New-Item -ItemType Directory -Path "logs" -Force | Out-Null
     }
-    
-    # Écriture dans le fichier de log
-    Add-Content -Path $script:LogFile -Value $logEntry -Encoding UTF8
+
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $logContent = if (Test-Path $script:LogFile) { [System.IO.File]::ReadAllText($script:LogFile) } else { "" }
+    [System.IO.File]::WriteAllText($script:LogFile, "$logContent$logEntry`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Write-Success {
@@ -441,7 +442,8 @@ Restart-Computer -Force
 "@
     
     try {
-        $report | Out-File -FilePath $reportPath -Encoding UTF8 -Force
+        # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+        [System.IO.File]::WriteAllText($reportPath, $report, [System.Text.UTF8Encoding]::new($false))
         Write-Success "Rapport généré: $reportPath"
         return $reportPath
     } catch {

@@ -32,7 +32,9 @@ function Write-Log {
     $logEntry = "[$timestamp] [$Level] $Message"
     Write-Host $logEntry -ForegroundColor $(switch ($Level) { "ERROR" { "Red" } "WARN" { "Yellow" } "SUCCESS" { "Green" } default { "Cyan" } })
     if (!(Test-Path "logs")) { New-Item -ItemType Directory -Path "logs" -Force | Out-Null }
-    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $logContent = if (Test-Path $LogFile) { [System.IO.File]::ReadAllText($LogFile) } else { "" }
+    [System.IO.File]::WriteAllText($LogFile, "$logContent$logEntry`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Get-WindowsTerminalSettingsPath {
@@ -122,7 +124,9 @@ function Update-TerminalSettings {
         }
 
         if ($modified) {
-            $settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $SettingsPath -Encoding UTF8 -Force
+            # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+            $jsonOutput = $settings | ConvertTo-Json -Depth 10
+            [System.IO.File]::WriteAllText($SettingsPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
             Write-Log "Configuration Windows Terminal mise à jour avec succès." "SUCCESS"
             return $true
         } else {

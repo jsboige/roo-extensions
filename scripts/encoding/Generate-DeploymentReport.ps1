@@ -167,7 +167,8 @@ if (-not (Test-Path $reportDir)) {
     New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
 }
 
-$reportContent | Set-Content -Path $reportFullPath -Encoding UTF8
+# BOM-safe write: use .NET method instead of Set-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+[System.IO.File]::WriteAllText($reportFullPath, [string]::Join("`r`n", $reportContent), [System.Text.UTF8Encoding]::new($false))
 Write-Host "Rapport généré : $reportFullPath" -ForegroundColor Cyan
 
 # Retourner le succès global

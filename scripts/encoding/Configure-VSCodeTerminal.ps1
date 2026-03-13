@@ -24,14 +24,22 @@ param(
 # Configuration
 $LogFile = "logs\Configure-VSCodeTerminal-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
-# Fonctions de logging
+# Source BOM-safe file writer helper
+$BOMHelperPath = Join-Path $PSScriptRoot "BOM-SafeFileWriter.ps1"
+if (Test-Path $BOMHelperPath) {
+    . $BOMHelperPath
+}
+
+# Fonctions de logging (fallback if BOMHelper not available)
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logEntry = "[$timestamp] [$Level] $Message"
     Write-Host $logEntry -ForegroundColor $(switch ($Level) { "ERROR" { "Red" } "WARN" { "Yellow" } "SUCCESS" { "Green" } default { "Cyan" } })
     if (!(Test-Path "logs")) { New-Item -ItemType Directory -Path "logs" -Force | Out-Null }
-    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $logContent = if (Test-Path $LogFile) { [System.IO.File]::ReadAllText($LogFile) } else { "" }
+    [System.IO.File]::WriteAllText($LogFile, "$logContent$logEntry`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Get-VSCodeSettingsPath {
@@ -128,7 +136,9 @@ function Update-VSCodeSettings {
         }
 
         if ($modified) {
-            $settings | ConvertTo-Json -Depth 10 | Out-File -FilePath $SettingsPath -Encoding UTF8 -Force
+            # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+            $jsonOutput = $settings | ConvertTo-Json -Depth 10
+            [System.IO.File]::WriteAllText($SettingsPath, $jsonOutput, [System.Text.UTF8Encoding]::new($false))
             Write-Log "Configuration VSCode mise à jour avec succès." "SUCCESS"
             return $true
         } else {

@@ -24,7 +24,9 @@ $Config = @{
 }
 
 # Sauvegarde de la configuration
-$Config | ConvertTo-Json -Depth 2 | Set-Content -Path $ConfigPath -Encoding UTF8
+# BOM-safe write: use .NET method instead of Set-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+$jsonContent = $Config | ConvertTo-Json -Depth 2
+[System.IO.File]::WriteAllText($ConfigPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Configuration sauvegardée dans $ConfigPath" -ForegroundColor Green
 
 # Vérification

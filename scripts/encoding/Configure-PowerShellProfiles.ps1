@@ -29,9 +29,11 @@ function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] [$Level] $Message"
     Write-Host $entry -ForegroundColor $(if ($Level -eq "ERROR") { "Red" } elseif ($Level -eq "WARN") { "Yellow" } else { "Cyan" })
-    
+
     if (-not (Test-Path "logs")) { New-Item -ItemType Directory -Path "logs" -Force | Out-Null }
-    Add-Content -Path $script:LogFile -Value $entry -Encoding UTF8
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $logContent = if (Test-Path $script:LogFile) { [System.IO.File]::ReadAllText($script:LogFile) } else { "" }
+    [System.IO.File]::WriteAllText($script:LogFile, "$logContent$entry`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Backup-Profile {
@@ -85,7 +87,9 @@ function Install-Profile {
             if ($content -notmatch "Initialize-EncodingManager.ps1") {
                 Write-Log "Ajout de l'appel EncodingManager au profil existant..." "INFO"
                 $initScript = "`n# --- Added by Roo Code ---`n. `"$((Resolve-Path 'scripts\encoding\Initialize-EncodingManager.ps1').Path)`"`n"
-                Add-Content -Path $TargetProfilePath -Value $initScript -Encoding UTF8
+                # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+                $existingContent = [System.IO.File]::ReadAllText($TargetProfilePath)
+                [System.IO.File]::WriteAllText($TargetProfilePath, "$existingContent$initScript", [System.Text.UTF8Encoding]::new($false))
                 Write-Log "Profil mis à jour avec EncodingManager." "SUCCESS"
             } else {
                 Write-Log "Le profil contient déjà l'appel à EncodingManager." "INFO"
