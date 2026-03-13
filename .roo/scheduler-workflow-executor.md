@@ -407,11 +407,12 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 | 1 | Scripts datés | Archiver les scripts avec dates spécifiques dans `scripts/_archive/` | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` | DONE (Phase 2.1) |
 | 2 | QuickFiles deprecated | Archiver les scripts QuickFiles MCP (déprécié CONS-1) | `scripts/_archive/quickfiles-deprecated/README.md` | DONE (Phase 2.1) |
 | 3 | RooSync Phase 3 | Archiver les scripts one-off PHASE3A/PHASE3B | `scripts/_archive/roosync-phase3/README.md` | DONE (Phase 2.1) |
-| 4 | Scripts dupliqués | Identifier et supprimer les scripts PowerShell en double | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer | TODO |
-| 5 | Docs obsolètes | Archiver guides obsolètes v2.1, doublons `docs/archive/` vs `docs/archives/` | `Move-Item docs/archive/v2.1/* docs/_archive/` | TODO |
-| 6 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
-| 7 | Couverture tests | Identifier les fichiers source sans tests dans `mcps/internal/servers/roo-state-manager/src/` | `Get-ChildItem src/ -Recurse -Filter *.ts` → vérifier `__tests__/` | TODO |
-| 8 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |
+| 4 | Scripts dupliqués | **6 consolidations identifiées** (roosync, validation, diagnostic) | `.tmp/issue-656-phase-2-2-scripts-report.md` | TODO (Phase 2.2) |
+| 5 | Docs obsolètes | **9 dossiers archive** à unifier, 1 doublon SHA256, README.md obsolète | `.tmp/issue-656-phase-2-3-docs-report.md` | TODO (Phase 2.3) |
+| 6 | Outputs temporaires | **8 rapports** dans outputs/ à archiver vers outputs/_archive/ | `Move-Item outputs/*.md outputs/_archive/` | TODO (Phase 2.1) |
+| 7 | Couverture tests | **9 outils critiques** sans tests (modes-management, diagnose-index, repair BOM, etc.) | `.tmp/issue-656-phase-2-4-tests-report.md` | TODO (Phase 2.4) |
+| 8 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
+| 9 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |
 
 **Execution d'une consolidation :**
 
