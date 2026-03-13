@@ -99,6 +99,29 @@ items(first: 100) { nodes { ... } pageInfo { hasNextPage endCursor } }
 items(first: 100, after: "CURSOR") { ... }
 ```
 
+### Trouver l'ITEM_ID d'une issue dans le projet
+
+Pour mettre à jour les champs Machine/Agent/Status d'une issue, il faut d'abord obtenir son `ITEM_ID` dans le projet :
+
+```bash
+# Chercher parmi les items du projet (paginer si >100)
+gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }'
+# L'ITEM_ID est le champ "id" de l'item dont content.number correspond au numéro de l'issue
+```
+
+### Mettre à jour les champs d'une issue dans le projet
+
+```bash
+# Mettre le statut "In Progress"
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "{ITEM_ID}", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY", value: { singleSelectOptionId: "47fc9ee4" } }) { projectV2Item { id } } }'
+
+# Mettre la Machine (ex: myia-po-2025 = 4f388455)
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "{ITEM_ID}", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8", value: { singleSelectOptionId: "4f388455" } }) { projectV2Item { id } } }'
+
+# Mettre l'Agent (Claude Code = cf1eae0a)
+gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "{ITEM_ID}", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg9icmA", value: { singleSelectOptionId: "cf1eae0a" } }) { projectV2Item { id } } }'
+```
+
 ### À NE PAS utiliser
 
 ```bash

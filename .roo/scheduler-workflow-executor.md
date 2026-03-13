@@ -152,19 +152,21 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 
 **IMPORTANT : Le pre-flight est READ-ONLY. Si un outil est absent, RAPPORTER dans INTERCOM [CRITICAL] et terminer. NE PAS tenter de reparer la config MCP.**
 
-**VERIFIER SOI-MÊME** (pas de delegation) :
+**DELEGUER** a `code-simple` via `new_task` :
 
-1. Lire un fichier simple pour verifier l accès filesystem : `.claude/local/INTERCOM-{MACHINE}.md`
+```text
+Pre-flight check : tester le MCP win-cli.
 
-2. Si le fichier existe et est lisible : les outils de base sont OK → continuer
+1. Executer : execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+2. Rapporter : PRE-FLIGHT-OK si la commande reussit, ou le message d erreur exact si echec.
+```
 
-3. Si erreur de lecture → STOP IMMEDIAT
+**Si STOP (echec win-cli) :**
 
-**Si STOP (echec lecture) :**
-- Ecrire dans INTERCOM avec `[CRITICAL]` : Outils filesystem non disponibles
-- Terminer la tache
+- Ecrire dans INTERCOM avec `[CRITICAL]` : win-cli MCP non disponible. Message d erreur : {erreur exacte}
+- Terminer la tache sans deleguer d autres sous-taches
 
-**Note :** L ancien pre-flight check utilisait execute_command (win-cli MCP) mais aucun mode `-simple` n a acces au groupe `command` depuis b91a841c. Le scheduler Roo ne peut donc pas tester win-cli directement. Si un probleme win-cli survient, il sera detecte lors des tentatives d execution des taches.
+**Raison :** L orchestrateur-simple ne peut pas appeler execute_command directement (pas de groupe `command`), mais peut deleguer a code-simple qui a acces au groupe `mcp` (win-cli). Cette approche est identique au pre-flight du workflow coordinateur.
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
