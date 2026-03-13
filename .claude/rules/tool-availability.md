@@ -1,9 +1,10 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-07
+**Mis à jour:** 2026-03-13
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
+**Cleanup #658:** win-cli supprimé de la config Claude Code (2026-03-13) - Roo uniquement maintenant
 
 ---
 
