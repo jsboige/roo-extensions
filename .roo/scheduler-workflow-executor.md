@@ -251,10 +251,11 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 | 2-4 actions liees | Deleguer chaque action separement a `code-simple` |
 | 5+ actions ou dependances | Escalader vers `orchestrator-complex` |
 
-**Gestion des echecs :**
-- 1er echec : relancer avec instructions corrigees
-- 2e echec sur meme tache : arreter et rapporter
-- Erreur complexe : escalader vers `-complex`
+**Gestion des echecs (ESCALADE AGRESSIVE) :**
+- 1er resultat insatisfaisant (echec, partiel, contenu manquant) : **escalader IMMEDIATEMENT vers `-complex`**
+- Ecrire un `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade : description du probleme, mode, ce qui a echoue
+- Ne PAS relancer en -simple : toute inadequation = escalade + rapport d'incident
+- L'objectif : les incidents alimentent le renforcement du harnais simple
 
 **Chaine d'escalade :** `code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via INTERCOM `[ESCALADE-CLAUDE]`)
 
@@ -380,7 +381,42 @@ Si une issue est trouvee :
 
 **IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
-Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
+Si aucune issue : aller a **Etape 2b-review** (PR Review) puis **Etape 2c-idle**.
+
+### Etape 2b-review : Reviewer les PRs ouvertes (NOUVEAU)
+
+> **Objectif :** Intercepter les regressions en amont. Les PRs ouvertes doivent etre reviewees par les schedulers pour assurer un feedback rapide.
+
+Deleguer a `code-simple` via `new_task` :
+
+```
+Chercher les PRs ouvertes :
+execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,createdAt")
+Rapporter : liste des PRs ouvertes (numero, titre, auteur, date).
+```
+
+**Si une PR ouverte est trouvee :**
+
+Deleguer la review a `code-complex` via `new_task` (JAMAIS code-simple — la review requiert du jugement) :
+
+```
+Reviewer la PR #{NUM} du depot jsboige/roo-extensions :
+
+1. Lire le diff : execute_command(shell="powershell", command="gh pr diff {NUM} --repo jsboige/roo-extensions")
+2. Verifier que le build compile : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+3. Verifier les tests : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+4. Analyser le diff pour :
+   - Qualite du code (patterns, lisibilite, duplication)
+   - Absence de regressions
+   - Coherence avec l'architecture existante
+   - Pas de secrets ou donnees sensibles
+5. Poster un commentaire de review : execute_command(shell="powershell", command="gh pr comment {NUM} --repo jsboige/roo-extensions --body 'Review automatique par {MACHINE}:\n{RESULTAT}'")
+
+NE PAS approuver ni merger. Seul le coordinateur (myia-ai-01 Claude Code) approuve et merge.
+Rapporter : PR #{NUM} reviewee, resultat {PASS/ISSUES}.
+```
+
+**Si aucune PR :** Continuer vers Etape 2c-idle.
 
 ### Etape 2c-idle : Veille Active ou Consolidation (si aucune tache trouvee)
 
@@ -623,7 +659,7 @@ Message a ajouter :
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
 4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale avec Claude Code
-5. Apres 2 echecs sur meme tache : arreter et rapporter
+5. Apres 1 echec ou resultat insatisfaisant en -simple : escalader vers -complex IMMEDIATEMENT + rapporter incident [INCIDENT-SIMPLE]
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
 8. **Ignorer les [TASK] de plus de 24h** : les taches perimes sont marquees dans le bilan mais non executees
@@ -641,9 +677,11 @@ Message a ajouter :
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches
 
-**Escalade apres echecs :**
+**Escalade apres resultat insatisfaisant (REGLE AGRESSIVE) :**
 
-- 2 echecs consecutifs en `-simple`
-- Erreur complexe necessitant investigation profonde
+- **1 seul echec ou resultat partiel en `-simple`** → escalade IMMEDIATE vers `-complex`
+- Ne PAS retenter en `-simple` apres un echec — l'escalade est systematique
+- Ecrire `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade (description, mode, echec)
+- Objectif : les incidents alimentent le renforcement du harnais
 
 **Justification :** Les taches d'architecture, de feature, ou de schema complexe necessitent un modele plus capable (GLM-5 au lieu de Qwen 3.5) pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).
