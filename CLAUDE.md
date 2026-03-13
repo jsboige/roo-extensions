@@ -82,10 +82,23 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 | Niveau | Fichier | Portee |
 |--------|---------|--------|
 | Global utilisateur | `~/.claude/CLAUDE.md` | Tous les projets |
+| **Config MCP** | **`C:\Users\{user}\.claude.json`** | **MCP servers (playwright, win-cli, roo-state-manager, etc.)** |
 | Projet | `CLAUDE.md` (racine) | Ce projet |
 | Auto-memoire | `~/.claude/projects/<hash>/memory/MEMORY.md` | Prive, local |
 | Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |
 | Rules | `.claude/rules/*.md` | Projet, auto-chargees |
+
+**⚠️ CRITIQUE :** Si un MCP est indisponible pour Claude Code, verifier `C:\Users\{user}\.claude.json` section `mcpServers`. Exemple :
+
+```json
+"mcpServers": {
+  "roo-state-manager": {
+    "command": "node",
+    "args": ["D:\\Dev\\roo-extensions\\mcps\\internal\\servers\\roo-state-manager\\mcp-wrapper.cjs"],
+    "cwd": "D:\\Dev\\roo-extensions\\mcps\\internal\\servers\\roo-state-manager\\"
+  }
+}
+```
 
 ### Configuration Roo
 
