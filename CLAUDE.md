@@ -24,7 +24,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 
 1. `git pull`
 2. Lire ce fichier (CLAUDE.md)
-3. **CRITIQUE : Verifier les MCP disponibles** (system-reminders au debut de conversation). Si win-cli ou roo-state-manager absent → STOP & REPAIR immediatement (voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md))
+3. **CRITIQUE : Verifier les MCP disponibles** (system-reminders au debut de conversation). Si roo-state-manager absent → STOP & REPAIR immediatement (voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)). Note: win-cli est pour Roo Scheduler uniquement, pas Claude Code.
 
 ### Autre machine :
 
@@ -59,12 +59,21 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 
 **Protocole complet :** [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
 
-**MCPs CRITIQUES (scheduler bloque sans eux) :**
+**MCPs CRITIQUES :**
 
-| MCP | Outils attendus | Verification |
-|-----|-----------------|-------------|
-| **roo-state-manager** | 36 | `conversation_browser(action: "current")` |
-| **win-cli** | 9 (fork local 0.2.0) | `execute_command(shell="powershell", command="echo OK")` |
+**Pour Claude Code :**
+
+| MCP | Outils attendus | Verification | Note |
+|-----|-----------------|-------------|------|
+| **roo-state-manager** | 36 | `conversation_browser(action: "current")` | Coordination, grounding conversationnel |
+
+**Pour Roo Scheduler (bloque sans eux) :**
+
+| MCP | Outils attendus | Verification | Note |
+|-----|-----------------|-------------|------|
+| **win-cli** | 9 (fork local 0.2.0) | `execute_command(shell="powershell", command="echo OK")` | Terminal shell (modes -simple n'ont plus le groupe `command` depuis b91a841c) |
+
+**Note importante :** win-cli est critique pour **Roo Scheduler uniquement** (depuis cleanup #658, 2026-03-13). Claude Code utilise l'outil `Bash` natif pour les commandes shell.
 
 **MCPs Standards :**
 
