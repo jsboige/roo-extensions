@@ -445,7 +445,7 @@ Rapporter : PR #{NUM} reviewee, resultat {PASS/ISSUES}.
 | 3 | RooSync Phase 3 | Archiver les scripts one-off PHASE3A/PHASE3B | `scripts/_archive/roosync-phase3/README.md` | DONE (Phase 2.1) |
 | 4 | Scripts dupliqués | **6 consolidations identifiées** (roosync, validation, diagnostic) | `.tmp/issue-656-phase-2-2-scripts-report.md` | TODO (Phase 2.2) |
 | 5 | Docs obsolètes | **9 dossiers archive** à unifier, 1 doublon SHA256, README.md obsolète | `.tmp/issue-656-phase-2-3-docs-report.md` | TODO (Phase 2.3) |
-| 6 | Outputs temporaires | **8 rapports** dans outputs/ à archiver vers outputs/_archive/ | `Move-Item outputs/*.md outputs/_archive/` | TODO (Phase 2.1) |
+| 6 | Outputs temporaires | **8 rapports** dans outputs/ à archiver vers outputs/_archive/ | `Move-Item outputs/*.md outputs/_archive/` | DONE (vérifié - dossier vide) |
 | 7 | Couverture tests | **9 outils critiques** sans tests (modes-management, diagnose-index, repair BOM, etc.) | `.tmp/issue-656-phase-2-4-tests-report.md` | TODO (Phase 2.4) |
 | 8 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
 | 9 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |

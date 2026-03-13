@@ -99,6 +99,9 @@ nul
 # RooSync shared state (GDrive local mount, never commit)
 .shared-state/
 
+# RooSync directory (generated state, never commit)
+RooSync/
+
 # Debug files
 debug_payload_dump.json
 debug_trace.txt
