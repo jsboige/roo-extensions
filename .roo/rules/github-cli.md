@@ -10,6 +10,20 @@
 - Le CLI `gh` est plus léger, standard et maintenu
 - Couverture équivalente : 12/15 fonctionnalités (80%)
 
+### Prérequis : Scope `project`
+
+**Le CLI `gh` doit avoir le scope `project` pour accéder aux GitHub Projects :**
+
+```bash
+# Vérifier les scopes actuels
+gh auth status
+
+# Ajouter le scope project si manquant
+gh auth refresh --hostname github.com -s project
+```
+
+Sans ce scope, toutes les requêtes GraphQL sur `projectV2` échoueront avec une erreur 403.
+
 ### Commandes gh CLI
 
 ```bash
@@ -19,13 +33,39 @@ gh issue view 123 --repo jsboige/roo-extensions
 gh issue create --title "Titre" --body "Description"
 gh issue close 123
 
-# Projects (GraphQL)
+# Projects (GraphQL) - ATTENTION au type union pour les champs
 gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { title items(first: 100) { totalCount } } } }'
 
 # Pull Requests
 gh pr list --repo jsboige/roo-extensions
 gh pr view 123
 gh pr create --title "Titre" --body "Description"
+```
+
+### GraphQL : Type Union pour les Champs (IMPORTANT)
+
+Depuis une mise à jour de l'API GitHub, `ProjectV2ItemFieldSingleSelectValue.field` est un **type union**. Il faut utiliser un fragment inline :
+
+```graphql
+# CORRECT (avec fragment inline)
+fieldValues(first: 10) {
+  nodes {
+    ... on ProjectV2ItemFieldSingleSelectValue {
+      name
+      field { ... on ProjectV2SingleSelectField { name } }
+    }
+  }
+}
+
+# INCORRECT (erreur "Selections can't be made directly on unions")
+fieldValues(first: 10) {
+  nodes {
+    ... on ProjectV2ItemFieldSingleSelectValue {
+      name
+      field { name }  # CASSE - field est un union type
+    }
+  }
+}
 ```
 
 ### IDs des Projects GitHub
@@ -44,6 +84,20 @@ gh pr create --title "Titre" --body "Description"
 | Status | `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` | Todo=`f75ad846`, In Progress=`47fc9ee4`, Done=`98236657` |
 | Machine | `PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8` | ai01=`ae516a70`, po2023=`2b4454e0`, po2024=`91dd0acf`, po2025=`4f388455`, po2026=`bc8df25a`, web1=`e3cd0cd0`, All=`175c5fe1`, Any=`4c242ac6` |
 | Agent | `PVTSSF_lAHOADA1Xc4BLw3wzg9icmA` | Roo=`102d5164`, Claude=`cf1eae0a`, Both=`33d72521` |
+| Model | `PVTSSF_lAHOADA1Xc4BLw3wzg-jMsU` | haiku=`2574677f`, sonnet=`e4cc2b49`, opus=`9404892d` |
+| Execution | `PVTSSF_lAHOADA1Xc4BLw3wzg-jMss` | interactive=`7655267d`, scheduled=`27c8f64e`, both=`98b54b15` |
+| Deadline | `PVTF_lAHOADA1Xc4BLw3wzg-jMsw` | (Date type — use `date` value instead of `singleSelectOptionId`) |
+
+### Pagination (>100 items)
+
+L'API GitHub limite à 100 items par requête. Pour les projets avec plus de 100 items :
+
+```graphql
+# Première page
+items(first: 100) { nodes { ... } pageInfo { hasNextPage endCursor } }
+# Pages suivantes
+items(first: 100, after: "CURSOR") { ... }
+```
 
 ### À NE PAS utiliser
 
