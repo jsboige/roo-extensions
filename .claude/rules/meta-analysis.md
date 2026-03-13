@@ -13,7 +13,7 @@ The meta-analysis tier is part of the **3-tier scheduling architecture** (3 type
 
 | Tier | Frequency | Machines | Role |
 |------|-----------|----------|------|
-| **Meta-Analyst** | 24h | ALL | Observe, analyze, PROPOSE |
+| **Meta-Analyst** | 72h | ALL | Observe, analyze, PROPOSE |
 | Coordinator | 6-12h | ai-01 only | Triage, dispatch, track |
 | Executor | 3h | ALL | Execute assigned tasks |
 

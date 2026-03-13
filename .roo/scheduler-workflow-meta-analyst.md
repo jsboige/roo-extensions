@@ -1,7 +1,7 @@
 # Workflow Scheduler Roo - META-ANALYSTE (toutes machines)
 
 > Lu par orchestrateur-complex. MAJ : modifier ce fichier + `git push`.
-> Frequence : 24h. Mode : orchestrator-complex (GLM-5 / Qwen 3.5 complex).
+> Frequence : 72h. Mode : orchestrator-complex (GLM-5 / Qwen 3.5 complex).
 
 ## PRINCIPES
 
@@ -146,6 +146,16 @@ Deleguer a `code-complex` via `new_task` :
 Deleguer a `code-complex` via `new_task` :
 
 ```
+GARDE ANTI-DUPLICATES (OBLIGATOIRE AVANT CREATION) :
+Pour chaque recommandation, CHERCHER d'abord si une issue similaire existe deja :
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search '{MOT-CLE}' --state all --limit 10 --json number,title,state")
+
+Si une issue ouverte ou recemment fermee (<7 jours) couvre le meme sujet :
+- NE PAS creer de doublon
+- Noter dans META-INTERCOM : "Issue existante #{N} couvre deja ce point"
+
+SEULEMENT si aucune issue existante ne couvre le sujet :
+
 Utilise win-cli MCP pour creer des issues GitHub :
 
 Pour chaque recommandation actionnable :
@@ -159,6 +169,7 @@ REGLES :
 - TOUJOURS inclure le contexte de l'analyse (date, machine, findings)
 - NE PAS creer plus de 3 issues par cycle (eviter le spam)
 - NE PAS creer d'issue si la recommandation est purement informationnelle
+- TOUJOURS verifier les issues existantes AVANT de creer (garde anti-duplicates)
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 

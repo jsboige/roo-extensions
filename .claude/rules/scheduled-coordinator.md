@@ -12,7 +12,7 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 
 | Tier | Frequency | Machines | Role |
 |------|-----------|----------|------|
-| Meta-Analyst | 24h | ALL | Observe, analyze, PROPOSE (local) |
+| Meta-Analyst | 72h | ALL | Observe, analyze, PROPOSE (local) |
 | **Coordinator** | 6-12h | **ai-01 only** | Triage, dispatch, track (global) |
 | Executor | 3h | ALL | Execute assigned tasks |
 
