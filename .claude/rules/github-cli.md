@@ -99,6 +99,18 @@ items(first: 100) { nodes { ... } pageInfo { hasNextPage endCursor } }
 items(first: 100, after: "CURSOR") { ... }
 ```
 
+### ⚠️ RÈGLE : Pas de fichiers temporaires pour les requêtes GraphQL (Fix #706)
+
+**Toujours utiliser les requêtes inline :**
+
+```bash
+# CORRECT
+gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { title } } }'
+
+# INTERDIT - pollue le statut git
+echo '...' > query.graphql && gh api graphql -f query=$(cat query.graphql)
+```
+
 ### À NE PAS utiliser
 
 Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
@@ -106,4 +118,5 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 ## Référence
 
 - Issue #368 : Migration gh CLI
+- Issue #706 : Fix fichiers temporaires workspace (2026-03-14)
 - Documentation : https://cli.github.com/manual/
