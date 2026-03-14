@@ -243,10 +243,45 @@ RooSync intègre un système de messagerie asynchrone JSON-based stocké dans le
 
 *   **Inbox/Outbox** : Chaque machine possède ses dossiers de messages.
 *   **Format** : JSON structuré avec métadonnées (expéditeur, destinataire, timestamp, type, payload).
-*   **Outils** :
-    *   `roosync_send_message` : Envoi (point-à-point ou broadcast).
-    *   `roosync_read_inbox` : Lecture des messages en attente.
-    *   `roosync_archive_message` : Archivage après traitement.
+*   **Outils principaux** :
+    *   `roosync_send` : Envoi (point-à-point ou broadcast) avec support des pièces jointes.
+    *   `roosync_read` : Lecture des messages (modes: inbox, message, attachments).
+    *   `roosync_manage` : Gestion des messages (marquer lu, archiver, cleanup).
+    *   `roosync_list_attachments` : Lister les pièces jointes d'un message.
+    *   `roosync_get_attachment` : Télécharger une pièce jointe localement.
+    *   `roosync_delete_attachment` : Supprimer une pièce jointe du stockage.
+
+### 4.1 Pièces Jointes (Attachments)
+
+Le système supporte le transfert de fichiers entre machines via des pièces jointes aux messages RooSync.
+
+*   **Stockage** : `.shared-state/attachments/{UUID}/` avec métadonnées JSON.
+*   **Référence** : Chaque pièce jointe est identifiée par un UUID unique et référencée dans les messages.
+*   **Format de métadonnées** :
+    ```json
+    {
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "originalName": "document.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 245760,
+      "uploaderMachineId": "myia-ai-01",
+      "uploadedAt": "2026-03-14T10:30:00Z",
+      "messageId": "msg-001"
+    }
+    ```
+*   **Utilisation via `roosync_send`** :
+    ```typescript
+    roosync_send({
+      action: "send",
+      to: "myia-po-2024",
+      subject: "Rapport hebdomadaire",
+      body: "Voici le rapport en pièce jointe.",
+      attachments: [
+        { path: "C:/path/to/rapport.pdf" }
+      ]
+    })
+    ```
+*   **Récupération** : Utiliser `roosync_read` avec `mode: "attachments"` pour lister, puis `roosync_get_attachment` avec l'UUID pour télécharger.
 
 ## 5. Plan d'Implémentation et Roadmap
 
