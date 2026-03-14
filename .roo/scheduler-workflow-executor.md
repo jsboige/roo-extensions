@@ -528,6 +528,7 @@ Rapporte :
 | 6 | **Inventaire GitHub** | Lister les issues ouvertes avec `gh issue list` et identifier celles qui sont perimees (pas de commentaire > 14j), ou celles assignees a cette machine mais bloquees | `code-simple` |
 | 7 | **Rangement depot** | Verifier que les fichiers sont au bon endroit : rapports dans `docs/`, scripts dans `scripts/`, pas de fichiers orphelins a la racine. Lister les fichiers mal places et proposer le deplacement correct | `ask-simple` |
 | 8 | **Consolidation doc** | Chercher les fichiers .md qui couvrent le meme sujet (doublons semantiques). Lire 2-3 fichiers .md dans `docs/` et verifier si leur contenu est deja consolide dans les docs perennes (`CLAUDE.md`, `docs/roosync/*.md`). Rapporter les doublons et les docs obsoletes | `ask-simple` |
+| 9 | **Veille harnais agentique** | Observer l'evolution des outils de vibe coding concurrents (Cursor, Windsurf, GitHub Copilot Workspace, Replit Ghostwriter, etc.) : (1) Chercher dans les git commits recents des refs a de nouveaux outils, (2) Lire `.claude/rules/` et `.roo/rules/` pour identifier des regles obsoletes par rapport aux capacites actuelles, (3) Rapporter les patterns emergents qui pourraient etre adoptes | `ask-simple` |
 
 **Choix du domaine :** Prendre le premier domaine de la liste qui N'a PAS ete explore dans les 7 derniers jours (selon INTERCOM + git). Si tous ont ete explores, recommencer au #1.
 
