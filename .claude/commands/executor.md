@@ -381,15 +381,17 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
 
 **Actions**
 
-1. Choisir un dossier au hasard dans le dépôt
-2. Lire les fichiers principaux
-3. Identifier :
+1. Choisir un domaine (rotation préférée) :
 
-   - Code mort ou non utilisé
-   - Opportunités de refactoring
-   - Patterns intéressants à documenter
+   - **Code mort** : Identifier code non utilisé, opportunités refactoring
+   - **Doc vs réalité** : Vérifier que les chemins/outils mentionnés dans les docs existent encore
+   - **Couverture tests** : Identifier fichiers source sans tests correspondants
+   - **Inventaire GitHub** : Issues périmées, PRs sans activité > 14j
+   - **Veille harnais agentique** : Nouveaux outils vibe coding (Cursor, Windsurf, Copilot Workspace), règles Roo/Claude potentiellement obsolètes face aux nouvelles capacités
+   - **Santé infra** : Tester endpoints (embeddings.myia.io, qdrant.myia.io, etc.)
 
-4. Documenter les findings dans INTERCOM avec le tag `[PATROL]`
+2. Lire les fichiers pertinents du domaine choisi
+3. Documenter les findings dans INTERCOM avec le tag `[PATROL]`
 
 **Livrables**
 

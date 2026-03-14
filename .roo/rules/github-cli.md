@@ -122,6 +122,50 @@ gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { proje
 gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "{ITEM_ID}", fieldId: "PVTSSF_lAHOADA1Xc4BLw3wzg9icmA", value: { singleSelectOptionId: "cf1eae0a" } }) { projectV2Item { id } } }'
 ```
 
+### ⚠️ RÈGLE CRITIQUE : Pas de fichiers temporaires dans le workspace (Fix #706)
+
+**INTERDIT : Créer des fichiers temporaires dans le workspace racine pour les requêtes GraphQL.**
+
+Les patterns suivants polluent le statut git et causent des boucles d'erreur :
+
+```bash
+# INTERDIT - crée query.graphql dans le workspace
+write_to_file query.graphql '{ user(login: "jsboige") { ... } }'
+gh api graphql -f query=$(cat query.graphql)
+
+# INTERDIT - crée query.json, query-gh-projects-output.json
+echo '{"query": "..."}' > query.json
+gh api graphql < query.json
+```
+
+**CORRECT : Utiliser les requêtes inline avec une seule apostrophe :**
+
+```bash
+# CORRECT - requête inline sur une ligne
+gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { title } } }'
+
+# CORRECT - requête multi-ligne avec heredoc (win-cli PowerShell)
+$query = @"
+{
+  user(login: "jsboige") {
+    projectV2(number: 67) {
+      items(first: 100) {
+        nodes { id content { ... on Issue { number } } }
+      }
+    }
+  }
+}
+"@
+gh api graphql -f query=$query
+
+# CORRECT - execute_command avec variable PowerShell
+execute_command(shell="powershell", command='$q = "{ user(login: \"jsboige\") { projectV2(number: 67) { title } } }"; gh api graphql -f query=$q')
+```
+
+**Si des fichiers temporaires sont nécessaires absolument :** Utiliser un répertoire dédié hors workspace (ex: `$env:TEMP\roo-gh-queries\`) et nettoyer après usage.
+
+**Règle mémoire :** Toute requête `gh api graphql` doit être auto-suffisante — pas d'état externe, pas de fichiers à nettoyer.
+
 ### À NE PAS utiliser
 
 ```bash
@@ -132,4 +176,5 @@ mcp__github-projects-mcp__*
 ## Référence
 
 - Issue #368 : Migration gh CLI
+- Issue #706 : Bug fichiers temporaires workspace (Fix 2026-03-14)
 - Documentation : https://cli.github.com/manual/

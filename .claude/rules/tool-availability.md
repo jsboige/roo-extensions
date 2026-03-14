@@ -4,7 +4,7 @@
 **Cree:** 2026-02-21
 **Mis à jour:** 2026-03-14
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
-**Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 (2026-03-14) - Roo uniquement maintenant
+**Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 + myia-po-2024 (2026-03-14) - Roo uniquement maintenant
 
 ---
 

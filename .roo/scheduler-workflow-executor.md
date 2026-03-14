@@ -352,6 +352,18 @@ Apres execution → **Etape 3**
 
 ### Etape 2b : Taches par defaut (si pas de [TASK])
 
+> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 2b comprend TOUJOURS 4 sous-étapes séquentielles. **NE JAMAIS aller à Étape 3 après la première sous-étape seulement.** Même si 0 issues et 0 PRs sont trouvées, TOUJOURS exécuter 2c-idle avant Étape 3.
+
+**CHECKLIST SOUS-ÉTAPES OBLIGATOIRES (toutes à exécuter) :**
+
+```
+☐ 2b-1 : Build + Tests (validation santé workspace)
+☐ 2b-2 : GitHub issues (chercher une tâche roo-schedulable)
+☐ 2b-review : PR Review (reviewer les PRs ouvertes)
+☐ 2c-idle : Veille Active ou Consolidation (toujours, même si rien à faire)
+→ SEULEMENT ENSUITE : Étape 3
+```
+
 Deleguer dans cet ordre a `code-simple` via `new_task` :
 
 **1. Build + Tests (validation sante workspace)**
@@ -383,7 +395,7 @@ Si une issue est trouvee :
 
 **IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
-Si aucune issue : aller a **Etape 2b-review** (PR Review) puis **Etape 2c-idle**.
+> ⚠️ **TOUJOURS CONTINUER** vers **Etape 2b-review** puis **Etape 2c-idle**, que des issues soient trouvées ou non. Ne PAS aller à Étape 3.
 
 ### Etape 2b-review : Reviewer les PRs ouvertes (NOUVEAU)
 
@@ -516,6 +528,7 @@ Rapporte :
 | 6 | **Inventaire GitHub** | Lister les issues ouvertes avec `gh issue list` et identifier celles qui sont perimees (pas de commentaire > 14j), ou celles assignees a cette machine mais bloquees | `code-simple` |
 | 7 | **Rangement depot** | Verifier que les fichiers sont au bon endroit : rapports dans `docs/`, scripts dans `scripts/`, pas de fichiers orphelins a la racine. Lister les fichiers mal places et proposer le deplacement correct | `ask-simple` |
 | 8 | **Consolidation doc** | Chercher les fichiers .md qui couvrent le meme sujet (doublons semantiques). Lire 2-3 fichiers .md dans `docs/` et verifier si leur contenu est deja consolide dans les docs perennes (`CLAUDE.md`, `docs/roosync/*.md`). Rapporter les doublons et les docs obsoletes | `ask-simple` |
+| 9 | **Veille harnais agentique** | Observer l'evolution des outils de vibe coding concurrents (Cursor, Windsurf, GitHub Copilot Workspace, Replit Ghostwriter, etc.) : (1) Chercher dans les git commits recents des refs a de nouveaux outils, (2) Lire `.claude/rules/` et `.roo/rules/` pour identifier des regles obsoletes par rapport aux capacites actuelles, (3) Rapporter les patterns emergents qui pourraient etre adoptes | `ask-simple` |
 
 **Choix du domaine :** Prendre le premier domaine de la liste qui N'a PAS ete explore dans les 7 derniers jours (selon INTERCOM + git). Si tous ont ete explores, recommencer au #1.
 
