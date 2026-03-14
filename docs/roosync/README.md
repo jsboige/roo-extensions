@@ -13,7 +13,7 @@
 
 1. [Vue d'Ensemble](#1-vue-densemble)
 2. [Démarrage Rapide](#2-démarrage-rapide)
-3. [Guides par Audience](#3-guides-par-audience)
+3. [Documentation](#3-documentation)
 4. [Outils MCP RooSync](#4-outils-mcp-roosync)
 5. [Architecture Technique](#5-architecture-technique)
 6. [Historique et Évolutions](#6-historique-et-évolutions)
@@ -188,53 +188,22 @@ roosync_apply_decision { "decisionId": "DECISION_ID", "dryRun": false }
 
 ---
 
-## 3. Guides par Audience
+## 3. Documentation
 
-### 📘 Pour les Opérateurs
+### 📘 Guide Technique Unifié v2.3
 
-**Guide Opérationnel Unifié v2.1** : [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)
-
-**Contenu** :
-- Installation et configuration
-- Opérations quotidiennes
-- Dépannage et recovery
-- Windows Task Scheduler
-- Architecture Baseline-Driven
-- Bonnes pratiques opérationnelles
-
-**Public cible** : Utilisateurs, Opérateurs, Administrateurs système
-
----
-
-### 📗 Pour les Développeurs
-
-**Guide Développeur v2.1** : [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
+**GUIDE-TECHNIQUE-v2.3.md** : [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md)
 
 **Contenu** :
 - Architecture technique détaillée
+- Installation et configuration
+- Opérations quotidiennes
 - API complète (TypeScript, PowerShell)
-- Logger production-ready
-- Tests unitaires et intégration
-- Git Workflow et helpers
-- Bonnes pratiques de développement
+- Système de messagerie RooSync
+- Tests et développement
+- Bonnes pratiques opérationnelles
 
-**Public cible** : Développeurs, Contributeurs, Testeurs
-
----
-
-### 📙 Pour les Architectes
-
-**Guide Technique v2.1** : [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md)
-
-**Contenu** :
-- Architecture baseline-driven
-- ROOSYNC AUTONOMOUS PROTOCOL (RAP)
-- Système de messagerie
-- Plan d'implémentation
-- Roadmap et évolutions
-- Métriques de convergence
-
-**Public cible** : Architectes, Ingénieurs système, Experts techniques
+**Public cible** : Utilisateurs, Opérateurs, Développeurs, Architectes
 
 ---
 
@@ -576,17 +545,17 @@ RooSync a évolué à travers plusieurs versions, chacune avec un objectif spéc
 
 | Document | Chemin | Statut |
 |---------|--------|--------|
-| README v2.1 | [`README.md`](README.md) | ✅ Complet |
-| Guide Technique v2.1 | [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md) | ✅ Complet |
-| Guide Opérationnel v2.1 | [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) | ✅ Complet |
-| Guide Développeur v2.1 | [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md) | ✅ Complet |
+| README v2.1 | Historique (remplacé par v2.3) | ❌ Archivé |
+| Guide Technique v2.1 | Remplacé par [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) | ❌ Archivé |
+| Guide Opérationnel v2.1 | Remplacé par v2.3 | ❌ Archivé |
+| Guide Développeur v2.1 | Remplacé par v2.3 | ❌ Archivé |
 
 #### Documentation v2.2
 
 | Document | Chemin | Statut |
 |---------|--------|--------|
-| Changelog v2.2 | [`CHANGELOG-v2.2.md`](CHANGELOG-v2.2.md) | ✅ Complet |
-| Document de Transition | [`TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) | ✅ Complet |
+| Changelog v2.2 | Intégré dans v2.3 | ❌ Archivé |
+| Document de Transition | [`archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) | ✅ Disponible |
 
 #### Documentation v2.3
 
@@ -594,15 +563,15 @@ RooSync a évolué à travers plusieurs versions, chacune avec un objectif spéc
 |---------|--------|--------|
 | Changelog v2.3 | [`CHANGELOG-v2.3.md`](CHANGELOG-v2.3.md) | ✅ Complet |
 | Guide Technique v2.3 | [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) | ✅ Complet |
-| Plan Migration v2.1→v2.3 | [`PLAN_MIGRATION_V2.1_V2.3.md`](PLAN_MIGRATION_V2.1_V2.3.md) | ✅ Complet |
+| Plan Migration v2.1→v2.3 | [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md) | ✅ Disponible |
 
 ### Guide de Migration
 
 Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
-**📄 Guide de Migration v2.1 → v2.3 :** [`PLAN_MIGRATION_V2.1_V2.3.md`](PLAN_MIGRATION_V2.1_V2.3.md)
+**📄 Guide de Migration v2.1 → v2.3 :** [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md)
 
-**📄 Document de Transition :** [`TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md)
+**📄 Document de Transition :** [`archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md)
 
 ---
 
@@ -613,10 +582,10 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 | Version | Date | Description | Changelog |
 |---------|------|-------------|-----------|
 | **v2.3** | 2026-01 | Consolidation API, coordination multi-agent | [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md) |
-| v2.2 | 2025-12 | Publication de configuration (corrections WP4) | - |
-| v2.1 | 2025-12 | Architecture Baseline-Driven | [GUIDE-TECHNIQUE-v2.1.md](GUIDE-TECHNIQUE-v2.1.md) |
+| v2.2 | 2025-12 | Publication de configuration (corrections WP4) | Voir v2.3 |
+| v2.1 | 2025-12 | Architecture Baseline-Driven | Remplacé par v2.3 |
 
-**Migration recommandée :** v2.1 → v2.3 (voir [PLAN_MIGRATION_V2.1_V2.3.md](PLAN_MIGRATION_V2.1_V2.3.md))
+**Migration recommandée :** v2.1 → v2.3 (voir [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md))
 
 ---
 
@@ -637,10 +606,11 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 - ✅ Élimination des redondances (~20% → ~0%)
 - ✅ Structure cohérente et liens croisés
 
-**Documents créés** :
-- [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md)
-- [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
-- [`GUIDE-TECHNIQUE-v2.1.md`](GUIDE-TECHNIQUE-v2.1.md)
+**Documents créés** (archivés, remplacés par v2.3) :
+
+- ~~`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`~~ → Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md)
+- ~~`GUIDE-DEVELOPPEUR-v2.1.md`~~ → Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md)
+- ~~`GUIDE-TECHNIQUE-v2.1.md`~~ → Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md)
 
 #### Cycle 7 : Vérification et Corrections
 
@@ -750,11 +720,11 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
 ### Guides de Déploiement
 
-Les guides de déploiement sont intégrés dans les guides unifiés :
+Les guides de déploiement sont intégrés dans le guide technique unifié v2.3 :
 
-- **Installation** : Voir [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Section "Installation"
-- **Configuration** : Voir [`GUIDE-OPERATIONNEL-UNIFIE-v2.1.md`](GUIDE-OPERATIONNEL-UNIFIE-v2.1.md) - Section "Configuration"
-- **Déploiement** : Voir [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md) - Section "Deployment Helpers"
+- **Installation** : Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) - Section "Installation"
+- **Configuration** : Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) - Section "Configuration"
+- **Déploiement** : Voir [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) - Section "Déploiement"
 
 ### Fichiers de Configuration
 
@@ -795,7 +765,7 @@ Pour contribuer à RooSync :
 1. **Code** :
    - Forker le dépôt
    - Créer une branche pour votre contribution
-   - Suivre les bonnes pratiques du [`GUIDE-DEVELOPPEUR-v2.1.md`](GUIDE-DEVELOPPEUR-v2.1.md)
+   - Suivre les bonnes pratiques du [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md)
    - Soumettre une Pull Request
 
 2. **Documentation** :
