@@ -352,6 +352,18 @@ Apres execution → **Etape 3**
 
 ### Etape 2b : Taches par defaut (si pas de [TASK])
 
+> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 2b comprend TOUJOURS 4 sous-étapes séquentielles. **NE JAMAIS aller à Étape 3 après la première sous-étape seulement.** Même si 0 issues et 0 PRs sont trouvées, TOUJOURS exécuter 2c-idle avant Étape 3.
+
+**CHECKLIST SOUS-ÉTAPES OBLIGATOIRES (toutes à exécuter) :**
+
+```
+☐ 2b-1 : Build + Tests (validation santé workspace)
+☐ 2b-2 : GitHub issues (chercher une tâche roo-schedulable)
+☐ 2b-review : PR Review (reviewer les PRs ouvertes)
+☐ 2c-idle : Veille Active ou Consolidation (toujours, même si rien à faire)
+→ SEULEMENT ENSUITE : Étape 3
+```
+
 Deleguer dans cet ordre a `code-simple` via `new_task` :
 
 **1. Build + Tests (validation sante workspace)**
@@ -383,7 +395,7 @@ Si une issue est trouvee :
 
 **IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
-Si aucune issue : aller a **Etape 2b-review** (PR Review) puis **Etape 2c-idle**.
+> ⚠️ **TOUJOURS CONTINUER** vers **Etape 2b-review** puis **Etape 2c-idle**, que des issues soient trouvées ou non. Ne PAS aller à Étape 3.
 
 ### Etape 2b-review : Reviewer les PRs ouvertes (NOUVEAU)
 
