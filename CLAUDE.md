@@ -36,7 +36,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 
 ## Agents, Skills & Commands
 
-**Reference complete :** [`docs/roosync/agents-architecture.md`](docs/roosync/agents-architecture.md)
+**Reference complete :** [`.claude/rules/agents-architecture.md`](.claude/rules/agents-architecture.md)
 
 **Essentiel :**
 - 12 subagents (communs + coordinateur + executants + workers)
@@ -177,7 +177,7 @@ Ceci est un fichier de OVERRIDES pour les MCPs du PROJET roo-extensions uniqueme
 
 ### Verification des rapports (CRITIQUE)
 
-**Reference :** [`docs/roosync/skepticism-protocol.md`](docs/roosync/skepticism-protocol.md)
+**Reference :** [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 
 Quand un agent rapporte un fait surprenant (GPU insuffisante, outil casse, "impossible"), le verifier AVANT de le propager dans les dispatches. Le cout d'une verification est negligeable compare au cout d'une erreur amplifiee sur 6 machines. Qualifier chaque affirmation : VERIFIE / RAPPORTE PAR [source] / SUPPOSE.
 
@@ -214,7 +214,7 @@ Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 ### 2. INTERCOM (Locale, MEME machine, MEME workspace)
 
 Fichier : `.claude/local/INTERCOM-{MACHINE_NAME}.md`
-Documentation : [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
+Documentation : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
 Types : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
 **Portee : Communication entre Roo et Claude Code sur cette machine, dans ce workspace UNIQUEMENT.**
 
@@ -281,7 +281,7 @@ Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 fa
 
 ### 5. Feedback
 
-**Reference :** [`docs/roosync/feedback-process.md`](docs/roosync/feedback-process.md)
+**Reference :** [`.claude/rules/feedback-process.md`](.claude/rules/feedback-process.md)
 
 ---
 
@@ -439,7 +439,7 @@ Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se conten
 
 ## GitHub CLI
 
-**Reference complete :** [`docs/roosync/GITHUB_CLI.md`](docs/roosync/GITHUB_CLI.md)
+**Reference complete :** [`.claude/rules/github-cli.md`](.claude/rules/github-cli.md)
 
 Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Project #67 = `PVT_kwHOADA1Xc4BLw3w`.
 
@@ -463,7 +463,7 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 5. **Annoncer son travail** avant de commencer (anti-conflit)
 6. **STOP & REPAIR si outil critique absent** : Verifier win-cli + roo-state-manager au demarrage. Si absent → arreter, reparer, escalader. Voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
 7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
-8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`docs/roosync/skepticism-protocol.md`](docs/roosync/skepticism-protocol.md)
+8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 
 ---
 
