@@ -34,124 +34,124 @@ from datetime import datetime
 from pathlib import Path
 
 # Constants
-VSCDB_KEY = 'RooVeterinaryInc.roo-cline'
-VSCDB_RELATIVE_PATH = r'Code\User\globalStorage\state.vscdb'
+VSCDB_KEY = "RooVeterinaryInc.roo-cline"
+VSCDB_RELATIVE_PATH = r"Code\User\globalStorage\state.vscdb"
 
 # Settings that should NEVER be exported/synced (machine-specific or sensitive)
 EXCLUDED_KEYS = {
-    'id',                          # Machine-specific UUID
-    'taskHistory',                 # Large, machine-specific
-    'taskHistoryMigratedToFiles',  # Internal migration flag
-    'mcpHubInstanceId',            # Transient
-    'clerk-auth-state',            # Auth token
-    'lastShownAnnouncementId',     # UI state
-    'hasOpenedModeSelector',       # UI state
-    'dismissedUpsells',            # UI state
-    'organization-settings',       # Account-specific
-    'user-settings',               # Account-specific
+    "id",  # Machine-specific UUID
+    "taskHistory",  # Large, machine-specific
+    "taskHistoryMigratedToFiles",  # Internal migration flag
+    "mcpHubInstanceId",  # Transient
+    "clerk-auth-state",  # Auth token
+    "lastShownAnnouncementId",  # UI state
+    "hasOpenedModeSelector",  # UI state
+    "dismissedUpsells",  # UI state
+    "organization-settings",  # Account-specific
+    "user-settings",  # Account-specific
 }
 
 # Settings safe to sync across machines (condensation, model config, behavior)
 SYNC_SAFE_KEYS = {
     # Condensation (primary goal of #509)
-    'autoCondenseContext',
-    'autoCondenseContextPercent',
-    'condensingApiConfigId',
-    'customCondensingPrompt',
-    'customSupportPrompts',
+    "autoCondenseContext",
+    "autoCondenseContextPercent",
+    "condensingApiConfigId",
+    "customCondensingPrompt",
+    "customSupportPrompts",
     # Model configuration
-    'apiProvider',
-    'openAiBaseUrl',
-    'openAiModelId',
-    'openAiLegacyFormat',
-    'openAiCustomModelInfo',
-    'openAiHeaders',
-    'modelTemperature',
-    'currentApiConfigName',
-    'listApiConfigMeta',
-    'profileThresholds',
+    "apiProvider",
+    "openAiBaseUrl",
+    "openAiModelId",
+    "openAiLegacyFormat",
+    "openAiCustomModelInfo",
+    "openAiHeaders",
+    "modelTemperature",
+    "currentApiConfigName",
+    "listApiConfigMeta",
+    "profileThresholds",
     # Behavior settings
-    'autoApprovalEnabled',
-    'alwaysAllowReadOnly',
-    'alwaysAllowReadOnlyOutsideWorkspace',
-    'alwaysAllowWrite',
-    'alwaysAllowWriteOutsideWorkspace',
-    'alwaysAllowBrowser',
-    'alwaysApproveResubmit',
-    'alwaysAllowMcp',
-    'alwaysAllowModeSwitch',
-    'alwaysAllowSubtasks',
-    'alwaysAllowExecute',
-    'alwaysAllowUpdateTodoList',
-    'alwaysAllowFollowupQuestions',
-    'writeDelayMs',
-    'requestDelaySeconds',
-    'rateLimitSeconds',
-    'allowedCommands',
-    'deniedCommands',
-    'allowedMaxRequests',
-    'allowedMaxCost',
-    'consecutiveMistakeLimit',
-    'followupAutoApproveTimeoutMs',
+    "autoApprovalEnabled",
+    "alwaysAllowReadOnly",
+    "alwaysAllowReadOnlyOutsideWorkspace",
+    "alwaysAllowWrite",
+    "alwaysAllowWriteOutsideWorkspace",
+    "alwaysAllowBrowser",
+    "alwaysApproveResubmit",
+    "alwaysAllowMcp",
+    "alwaysAllowModeSwitch",
+    "alwaysAllowSubtasks",
+    "alwaysAllowExecute",
+    "alwaysAllowUpdateTodoList",
+    "alwaysAllowFollowupQuestions",
+    "writeDelayMs",
+    "requestDelaySeconds",
+    "rateLimitSeconds",
+    "allowedCommands",
+    "deniedCommands",
+    "allowedMaxRequests",
+    "allowedMaxCost",
+    "consecutiveMistakeLimit",
+    "followupAutoApproveTimeoutMs",
     # UI/behavior
-    'browserToolEnabled',
-    'browserViewportSize',
-    'enableCheckpoints',
-    'checkpointTimeout',
-    'enableMcpServerCreation',
-    'enableReasoningEffort',
-    'enableSubfolderRules',
-    'diffEnabled',
-    'language',
-    'mode',
-    'todoListEnabled',
-    'soundEnabled',
-    'soundVolume',
-    'includeCurrentCost',
-    'includeCurrentTime',
-    'includeDiagnosticMessages',
-    'maxDiagnosticMessages',
+    "browserToolEnabled",
+    "browserViewportSize",
+    "enableCheckpoints",
+    "checkpointTimeout",
+    "enableMcpServerCreation",
+    "enableReasoningEffort",
+    "enableSubfolderRules",
+    "diffEnabled",
+    "language",
+    "mode",
+    "todoListEnabled",
+    "soundEnabled",
+    "soundVolume",
+    "includeCurrentCost",
+    "includeCurrentTime",
+    "includeDiagnosticMessages",
+    "maxDiagnosticMessages",
     # Terminal
-    'terminalOutputCharacterLimit',
-    'terminalOutputLineLimit',
-    'terminalOutputPreviewSize',
-    'terminalCompressProgressBar',
-    'terminalPowershellCounter',
-    'terminalCommandDelay',
-    'terminalShellIntegrationTimeout',
+    "terminalOutputCharacterLimit",
+    "terminalOutputLineLimit",
+    "terminalOutputPreviewSize",
+    "terminalCompressProgressBar",
+    "terminalPowershellCounter",
+    "terminalCommandDelay",
+    "terminalShellIntegrationTimeout",
     # Files
-    'maxConcurrentFileReads',
-    'maxReadFileLine',
-    'maxWorkspaceFiles',
-    'maxOpenTabsContext',
-    'maxGitStatusFiles',
-    'maxImageFileSize',
-    'maxTotalImageSize',
-    'fuzzyMatchThreshold',
-    'showRooIgnoredFiles',
+    "maxConcurrentFileReads",
+    "maxReadFileLine",
+    "maxWorkspaceFiles",
+    "maxOpenTabsContext",
+    "maxGitStatusFiles",
+    "maxImageFileSize",
+    "maxTotalImageSize",
+    "fuzzyMatchThreshold",
+    "showRooIgnoredFiles",
     # Custom modes and instructions
-    'customInstructions',
-    'customModes',
-    'customModePrompts',
+    "customInstructions",
+    "customModes",
+    "customModePrompts",
     # Codebase index
-    'codebaseIndexConfig',
-    'codebaseIndexModels',
+    "codebaseIndexConfig",
+    "codebaseIndexModels",
     # MCP
-    'mcpEnabled',
+    "mcpEnabled",
     # Telemetry
-    'telemetrySetting',
+    "telemetrySetting",
     # Enter behavior
-    'enterBehavior',
+    "enterBehavior",
     # Screenshot
-    'screenshotQuality',
+    "screenshotQuality",
     # Experiments
-    'experiments',
+    "experiments",
 }
 
 
 def find_vscdb_path():
     """Find the state.vscdb file path."""
-    appdata = os.environ.get('APPDATA')
+    appdata = os.environ.get("APPDATA")
     if not appdata:
         raise FileNotFoundError("APPDATA environment variable not set")
 
@@ -168,7 +168,7 @@ def read_roo_settings(db_path=None):
         db_path = find_vscdb_path()
 
     # Copy DB to avoid locking issues with VS Code
-    with tempfile.NamedTemporaryFile(suffix='.vscdb', delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(suffix=".vscdb", delete=False) as tmp:
         tmp_path = tmp.name
 
     try:
@@ -184,7 +184,7 @@ def read_roo_settings(db_path=None):
 
         val = row[0]
         if isinstance(val, bytes):
-            val = val.decode('utf-8')
+            val = val.decode("utf-8")
 
         return json.loads(val)
     finally:
@@ -216,12 +216,12 @@ def write_roo_settings(settings, db_path=None, dry_run=False):
     return True
 
 
-def filter_settings(settings, mode='safe'):
+def filter_settings(settings, mode="safe"):
     """Filter settings for export.
     mode='safe': Only include SYNC_SAFE_KEYS
     mode='full': Include everything except EXCLUDED_KEYS
     """
-    if mode == 'full':
+    if mode == "full":
         return {k: v for k, v in settings.items() if k not in EXCLUDED_KEYS}
     else:
         return {k: v for k, v in settings.items() if k in SYNC_SAFE_KEYS}
@@ -231,22 +231,22 @@ def cmd_extract(args):
     """Extract settings to a JSON file."""
     settings = read_roo_settings()
 
-    mode = 'full' if args.full else 'safe'
+    mode = "full" if args.full else "safe"
     filtered = filter_settings(settings, mode=mode)
 
     output = {
-        'metadata': {
-            'machine': os.environ.get('COMPUTERNAME', 'unknown'),
-            'timestamp': datetime.now().isoformat(),
-            'mode': mode,
-            'keys_count': len(filtered),
-            'total_keys': len(settings),
+        "metadata": {
+            "machine": os.environ.get("COMPUTERNAME", "unknown"),
+            "timestamp": datetime.now().isoformat(),
+            "mode": mode,
+            "keys_count": len(filtered),
+            "total_keys": len(settings),
         },
-        'settings': filtered,
+        "settings": filtered,
     }
 
     if args.output:
-        with open(args.output, 'w', encoding='utf-8') as f:
+        with open(args.output, "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
         print(f"Extracted {len(filtered)} settings to {args.output}")
     else:
@@ -255,12 +255,12 @@ def cmd_extract(args):
 
 def cmd_inject(args):
     """Inject settings from a JSON file."""
-    with open(args.input, 'r', encoding='utf-8') as f:
+    with open(args.input, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     # Support both raw dict and wrapped format
-    if 'settings' in data:
-        new_settings = data['settings']
+    if "settings" in data:
+        new_settings = data["settings"]
     else:
         new_settings = data
 
@@ -269,7 +269,7 @@ def cmd_inject(args):
 
     # Filter keys to inject
     if args.keys:
-        allowed_keys = set(args.keys.split(','))
+        allowed_keys = set(args.keys.split(","))
         new_settings = {k: v for k, v in new_settings.items() if k in allowed_keys}
     else:
         # Only inject sync-safe keys by default
@@ -288,7 +288,7 @@ def cmd_inject(args):
 
     print(f"\nChanges to apply ({len(changes)}):")
     for key, old_val, new_val in changes:
-        old_str = str(old_val)[:80] if old_val is not None else '<not set>'
+        old_str = str(old_val)[:80] if old_val is not None else "<not set>"
         new_str = str(new_val)[:80]
         print(f"  {key}: {old_str} -> {new_str}")
 
@@ -354,11 +354,11 @@ def cmd_diff(args):
     """Compare local settings with a reference file."""
     settings = read_roo_settings()
 
-    with open(args.reference, 'r', encoding='utf-8') as f:
+    with open(args.reference, "r", encoding="utf-8") as f:
         ref_data = json.load(f)
 
-    if 'settings' in ref_data:
-        ref_settings = ref_data['settings']
+    if "settings" in ref_data:
+        ref_settings = ref_data["settings"]
     else:
         ref_settings = ref_data
 
@@ -370,11 +370,11 @@ def cmd_diff(args):
 
         if local_val != ref_val:
             if key in settings and key in ref_settings:
-                diffs.append(('modified', key, local_val, ref_val))
+                diffs.append(("modified", key, local_val, ref_val))
             elif key in settings:
-                diffs.append(('local_only', key, local_val, None))
+                diffs.append(("local_only", key, local_val, None))
             else:
-                diffs.append(('ref_only', key, None, ref_val))
+                diffs.append(("ref_only", key, None, ref_val))
 
     if not diffs:
         print("No differences found (sync-safe keys only)")
@@ -382,61 +382,66 @@ def cmd_diff(args):
 
     print(f"Differences ({len(diffs)}):\n")
     for diff_type, key, local_val, ref_val in diffs:
-        if diff_type == 'modified':
+        if diff_type == "modified":
             print(f"  MODIFIED  {key}")
             print(f"    local: {str(local_val)[:100]}")
             print(f"    ref:   {str(ref_val)[:100]}")
-        elif diff_type == 'local_only':
+        elif diff_type == "local_only":
             print(f"  LOCAL     {key}: {str(local_val)[:100]}")
-        elif diff_type == 'ref_only':
+        elif diff_type == "ref_only":
             print(f"  MISSING   {key}: {str(ref_val)[:100]}")
         print()
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description='Roo Settings Manager - Read/Write Roo Code settings from state.vscdb'
+        description="Roo Settings Manager - Read/Write Roo Code settings from state.vscdb"
     )
-    subparsers = parser.add_subparsers(dest='command', required=True)
+    subparsers = parser.add_subparsers(dest="command", required=True)
 
     # extract
-    p_extract = subparsers.add_parser('extract', help='Export settings to JSON')
-    p_extract.add_argument('-o', '--output', help='Output file path')
-    p_extract.add_argument('--full', action='store_true',
-                          help='Export all settings (not just sync-safe)')
+    p_extract = subparsers.add_parser("extract", help="Export settings to JSON")
+    p_extract.add_argument("-o", "--output", help="Output file path")
+    p_extract.add_argument(
+        "--full", action="store_true", help="Export all settings (not just sync-safe)"
+    )
 
     # inject
-    p_inject = subparsers.add_parser('inject', help='Import settings from JSON')
-    p_inject.add_argument('-i', '--input', required=True, help='Input JSON file')
-    p_inject.add_argument('--dry-run', action='store_true', help='Simulate without changes')
-    p_inject.add_argument('--keys', help='Comma-separated list of keys to inject')
+    p_inject = subparsers.add_parser("inject", help="Import settings from JSON")
+    p_inject.add_argument("-i", "--input", required=True, help="Input JSON file")
+    p_inject.add_argument(
+        "--dry-run", action="store_true", help="Simulate without changes"
+    )
+    p_inject.add_argument("--keys", help="Comma-separated list of keys to inject")
 
     # get
-    p_get = subparsers.add_parser('get', help='Get a specific setting')
-    p_get.add_argument('key', help='Setting key name')
+    p_get = subparsers.add_parser("get", help="Get a specific setting")
+    p_get.add_argument("key", help="Setting key name")
 
     # set
-    p_set = subparsers.add_parser('set', help='Set a specific setting')
-    p_set.add_argument('key', help='Setting key name')
-    p_set.add_argument('value', help='New value (JSON-parseable)')
-    p_set.add_argument('--dry-run', action='store_true', help='Simulate without changes')
+    p_set = subparsers.add_parser("set", help="Set a specific setting")
+    p_set.add_argument("key", help="Setting key name")
+    p_set.add_argument("value", help="New value (JSON-parseable)")
+    p_set.add_argument(
+        "--dry-run", action="store_true", help="Simulate without changes"
+    )
 
     # diff
-    p_diff = subparsers.add_parser('diff', help='Compare with reference file')
-    p_diff.add_argument('-r', '--reference', required=True, help='Reference JSON file')
+    p_diff = subparsers.add_parser("diff", help="Compare with reference file")
+    p_diff.add_argument("-r", "--reference", required=True, help="Reference JSON file")
 
     args = parser.parse_args()
 
     try:
-        if args.command == 'extract':
+        if args.command == "extract":
             cmd_extract(args)
-        elif args.command == 'inject':
+        elif args.command == "inject":
             cmd_inject(args)
-        elif args.command == 'get':
+        elif args.command == "get":
             cmd_get(args)
-        elif args.command == 'set':
+        elif args.command == "set":
             cmd_set(args)
-        elif args.command == 'diff':
+        elif args.command == "diff":
             cmd_diff(args)
     except FileNotFoundError as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -446,5 +451,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

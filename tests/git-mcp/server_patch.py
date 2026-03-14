@@ -74,4 +74,6 @@ def git_add(repo: git.Repo, files: list[str]) -> str:
 """
 
 print("Patch identifié pour corriger l'erreur 'Invalid arguments' du serveur MCP Git")
-print("Le problème principal est que 'logger' n'est pas défini dans la portée des fonctions git_add et git_init")
+print(
+    "Le problème principal est que 'logger' n'est pas défini dans la portée des fonctions git_add et git_init"
+)
