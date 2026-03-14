@@ -301,7 +301,7 @@ Pour que `codebase_search` fonctionne, chaque machine doit avoir dans `.env` :
 EMBEDDING_MODEL=qwen3-4b-awq-embedding
 EMBEDDING_DIMENSIONS=2560
 EMBEDDING_API_BASE_URL=https://embeddings.myia.io/v1
-EMBEDDING_API_KEY=365f36ffbff3f43de53299625590381aa48eaf3cf8cc3b6162b59559cb35a9d500e6f1
+EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 ```
 
 **Bug connu :** Le parametre `workspace` doit etre passe explicitement (auto-detection pointe vers le repertoire du serveur MCP).

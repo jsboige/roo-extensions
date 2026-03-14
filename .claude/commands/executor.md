@@ -200,6 +200,238 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
 
 **RÈGLE DE DENSIFICATION :** Voir [`docs/roo-code/SCHEDULER_DENSIFICATION.md`](../../docs/roo-code/SCHEDULER_DENSIFICATION.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
 
+---
+
+## PHASE 1.6 : TÂCHES IDLE DE CONSOLIDATION (Issue #656)
+
+**OBJECTIF :** Utiliser les sessions idle pour accomplir un travail **utile et mesurable** sur le dépôt, au lieu de tâches répétitives à faible valeur ajoutée.
+
+**RÉFÉRENCE :** Issue [#656](https://github.com/jsboige/roo-extensions/issues/656)
+
+### Priorité des tâches idle
+
+**Quand aucune tâche prioritaire n'est disponible** (pas d'instructions RooSync, pas d'issue GitHub assignée), exécuter les tâches de consolidation dans cet ordre :
+
+1. **P0 - Impact immédiat** : Scripts datés, docs obsolètes
+2. **P1 - Gain maintenance** : Scripts dupliqués, consolidations
+3. **P2 - Documentation** : Index docs, synthèse rapports
+4. **Fallback - Veille active** : Exploration sans objectif précis
+
+---
+
+### Tâche #1 : Scripts Dupliqués (P1)
+
+**Objectif** : Identifier et fusionner/supprimer les scripts PowerShell dupliqués.
+
+**Portée**
+
+- Dossier : `scripts/`
+- Pattern : Scripts avec le même nom dans différents sous-dossiers
+
+**Actions**
+
+1. Lister les scripts avec `Get-ChildItem -Recurse scripts/ -Filter *.ps1 | Group-Object Name | Where-Object { $_.Count -gt 1 }`
+2. Pour chaque groupe de dupliqués :
+
+   - Comparer le contenu (Diff ou `Get-FileHash`)
+   - Identique → Supprimer les doublons, garder une seule copie
+   - Similaire → Fusionner les fonctionnalités
+   - Différent → Renommer pour clarifier la distinction
+
+3. Mettre à jour les imports/références si nécessaire
+
+**Livrables**
+
+- Liste des scripts dupliqués traités (nom → action)
+- Scripts supprimés ou fusionnés
+
+**Critère de succès**
+
+- Plus aucun script n'a le même nom dans le dépôt
+
+---
+
+### Tâche #2 : Scripts Datés (P0)
+
+**Objectif** : Archiver les scripts PowerShell avec des dates dans le nom (ex: `fix-2024-03-15.ps1`).
+
+**Portée**
+
+- Dossier : `scripts/`
+- Pattern : Scripts avec des dates dans le nom (regex `\d{4}-\d{2}-\d{2}`)
+
+**Actions**
+
+1. Identifier : `Get-ChildItem -Recurse scripts/ -Filter *.ps1 | Where-Object { $_.Name -match '\d{4}-\d{2}-\d{2}' }`
+2. Créer `scripts/archive/dated/` si inexistant
+3. Déplacer les scripts datés vers `scripts/archive/dated/`
+4. Créer un fichier README dans `scripts/archive/dated/README.md` listant les scripts archivés
+
+**Livrables**
+
+- Dossier `scripts/archive/dated/` peuplé
+- README listant les scripts archivés avec date d'archivage
+
+**Critère de succès**
+
+- Plus aucun script avec une date dans `scripts/` (hors `archive/`)
+
+---
+
+### Tâche #3 : Docs Obsolètes (P0)
+
+**Objectif** : Retirer ou archiver les guides documentation marqués "v2.1" ou obsolètes.
+
+**Portée**
+
+- Dossier : `docs/`, `docs/roosync/`
+- Pattern : Fichiers avec "v2.1", "obsolete", "deprecated" dans le nom ou le contenu
+
+**Actions**
+
+1. Identifier : `Get-ChildItem -Recurse docs/ -Filter *.md | Select-String "v2.1|obsolete|deprecated" -List`
+2. Pour chaque doc identifié :
+
+   - Vérifier si le contenu est encore pertinent
+   - Si obsolète → Déplacer vers `docs/archive/obsolete/`
+   - Si à jour → Retirer les marqueurs "v2.1"/"obsolete"
+
+3. Mettre à jour `docs/INDEX.md` si les chemins ont changé
+
+**Livrables**
+
+- Dossier `docs/archive/obsolete/` peuplé
+- README expliquant pourquoi chaque doc a été archivé
+
+**Critère de succès**
+
+- Plus aucun doc marqué "v2.1" ou "obsolete" dans `docs/` (hors `archive/`)
+
+---
+
+### Tâche #4 : Synthèse Rapports Git-History (P2)
+
+**Objectif** : Consolider les rapports `git-history` multiples en un document synthétisé.
+
+**Portée**
+
+- Dossier : `docs/archive/reports/`, `outputs/`
+- Pattern : Fichiers avec "git-history", "git-log", "commit-history" dans le nom
+
+**Actions**
+
+1. Identifier tous les rapports git-history
+2. Extraire les insights clés de chaque rapport
+3. Créer un document synthétisé `docs/archive/reports/git-history-synthesis.md`
+4. Archiver les rapports originaux dans `docs/archive/reports/git-history-originals/`
+
+**Livrables**
+
+- `docs/archive/reports/git-history-synthesis.md` (nouveau)
+- Dossier `docs/archive/reports/git-history-originals/` avec les originaux
+
+**Critère de succès**
+
+- Un seul document de synthèse couvrant toutes les périodes analysées
+
+---
+
+### Tâche #5 : Index Docs (P2)
+
+**Objectif** : Créer ou mettre à jour `docs/INDEX.md` avec une table des matières complète.
+
+**Portée**
+
+- Dossier : `docs/`
+- Fichiers : Tous les fichiers `.md` dans `docs/`
+
+**Actions**
+
+1. Scanner `docs/` récursivement
+2. Créer une structure hiérarchique :
+
+   ```markdown
+   # docs/ INDEX
+
+   ## Category
+   - [File Title](path/to/file.md) - Brief description
+   ```
+
+3. Pour chaque fichier, extraire :
+
+   - Le titre (premier `#`)
+   - Une brève description (si présente dans le frontmatter ou le premier paragraphe)
+
+4. Organiser par catégories logiques (roosync, roo-code, knowledge, etc.)
+
+**Livrables**
+
+- `docs/INDEX.md` créé ou mis à jour
+
+**Critère de succès**
+
+- Tous les fichiers `docs/**/*.md` sont listés
+- L'index est organisé de manière logique
+
+---
+
+### Fallback : Veille Active (si aucune consolidation disponible)
+
+**Objectif** : Exploration du codebase sans objectif précis, pour découvrir des opportunités d'amélioration.
+
+**Actions**
+
+1. Choisir un dossier au hasard dans le dépôt
+2. Lire les fichiers principaux
+3. Identifier :
+
+   - Code mort ou non utilisé
+   - Opportunités de refactoring
+   - Patterns intéressants à documenter
+
+4. Documenter les findings dans INTERCOM avec le tag `[PATROL]`
+
+**Livrables**
+
+- Rapport INTERCOM avec zone explorée + findings
+
+**Critère de succès**
+
+- Une nouvelle zone du codebase a été explorée
+
+---
+
+### Rapport de Fin de Session Idle
+
+Après avoir exécuté une tâche de consolidation, rapporter :
+
+```markdown
+## [{DATE}] Session Idle Consolidation
+
+**Tâche** : {ID et titre de la tâche}
+**Durée** : {temps estimé}
+**Statut** : {COMPLÉTÉ | PARTIEL | ÉCHOUÉ}
+
+**Actions effectuées** :
+
+- {action 1}
+- {action 2}
+
+**Fichiers modifiés** :
+
+- {fichier 1} : {action}
+- {fichier 2} : {action}
+
+**Livrables** :
+
+- {livrable 1}
+- {livrable 2}
+
+**Prochaine action recommandée** :
+
+- {suite logique ou tâche suivante}
+```
+
 Passer directement a la Phase 2.
 
 ---

@@ -85,6 +85,49 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 
 ---
 
+## Pattern Bookend (OBLIGATOIRE pour toute tache significative)
+
+**`codebase_search` doit etre utilise en DEBUT et en FIN de chaque tache significative.**
+
+### En debut de tache (Contexte)
+
+Avant de commencer, chercher ce qui existe deja :
+
+```xml
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>codebase_search</tool_name>
+<arguments>{"query": "description conceptuelle de la tache", "workspace": "d:\\roo-extensions"}</arguments>
+</use_mcp_tool>
+```
+
+**But :** Eviter de refaire un travail deja fait, comprendre le contexte existant, trouver les fichiers pertinents.
+
+### En fin de tache (Validation)
+
+Apres avoir termine, verifier que le travail est visible :
+
+```xml
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>codebase_search</tool_name>
+<arguments>{"query": "concept implemente/corrige", "workspace": "d:\\roo-extensions"}</arguments>
+</use_mcp_tool>
+```
+
+**But :** Confirmer que le code/la doc est indexe et retrouvable. Si le resultat ne remonte pas, l'indexation n'a pas eu lieu ou la documentation est insuffisante.
+
+### Quand appliquer le bookend
+
+| Type de tache | Bookend obligatoire |
+|---------------|-------------------|
+| Feature/fix dans le code | OUI (debut + fin) |
+| Investigation de bug | OUI (debut seulement) |
+| Mise a jour de doc | OUI (eviter doublons) |
+| Simple commit/push | NON (tache mecanique) |
+
+---
+
 ## Recherche Semantique Multi-Pass (codebase_search)
 
 Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule requete large est souvent insuffisante.

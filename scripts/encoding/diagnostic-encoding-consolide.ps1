@@ -521,7 +521,8 @@ $PSDefaultParameterValues['Add-Content:Encoding'] = 'utf8'
 # Forcer la code page 65001 (UTF-8) pour la console
 chcp 65001 | Out-Null
 "@
-        $profileContent | Out-File $profilePS51 -Encoding UTF8
+        # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+        [System.IO.File]::WriteAllText($profilePS51, $profileContent, [System.Text.UTF8Encoding]::new($false))
         Write-Host "   ✅ Profil PowerShell 5.1 créé" -ForegroundColor Green
         $correctionsAppliquees++
     }
@@ -549,7 +550,8 @@ chcp 65001 | Out-Null
 `$PSDefaultParameterValues['*:Encoding'] = 'utf8'
 "@
             $newContent = $utf8Config + "`n" + $baseContent
-            $newContent | Out-File $profilePS7 -Encoding UTF8
+            # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+            [System.IO.File]::WriteAllText($profilePS7, $newContent, [System.Text.UTF8Encoding]::new($false))
             Write-Host "   ✅ Profil PowerShell 7 mis à jour" -ForegroundColor Green
             $correctionsAppliquees++
         }
@@ -614,7 +616,8 @@ function Generate-FinalReport {
             }
 
             $rapportJson = $rapport | ConvertTo-Json -Depth 10
-            $rapportJson | Out-File $ExportReport -Encoding UTF8
+            # BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+            [System.IO.File]::WriteAllText($ExportReport, $rapportJson, [System.Text.UTF8Encoding]::new($false))
             Write-Host "   ✅ Rapport exporté: $ExportReport" -ForegroundColor Green
         } catch {
             Write-Host "   ❌ Erreur lors de l'export: $($_.Exception.Message)" -ForegroundColor Red

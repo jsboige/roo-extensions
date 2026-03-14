@@ -152,19 +152,21 @@ console.log("✅ 3 tâches déléguées aux modes -complex");
 
 **IMPORTANT : Le pre-flight est READ-ONLY. Si un outil est absent, RAPPORTER dans INTERCOM [CRITICAL] et terminer. NE PAS tenter de reparer la config MCP.**
 
-**VERIFIER SOI-MÊME** (pas de delegation) :
+**DELEGUER** a `code-simple` via `new_task` :
 
-1. Lire un fichier simple pour verifier l accès filesystem : `.claude/local/INTERCOM-{MACHINE}.md`
+```text
+Pre-flight check : tester le MCP win-cli.
 
-2. Si le fichier existe et est lisible : les outils de base sont OK → continuer
+1. Executer : execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+2. Rapporter : PRE-FLIGHT-OK si la commande reussit, ou le message d erreur exact si echec.
+```
 
-3. Si erreur de lecture → STOP IMMEDIAT
+**Si STOP (echec win-cli) :**
 
-**Si STOP (echec lecture) :**
-- Ecrire dans INTERCOM avec `[CRITICAL]` : Outils filesystem non disponibles
-- Terminer la tache
+- Ecrire dans INTERCOM avec `[CRITICAL]` : win-cli MCP non disponible. Message d erreur : {erreur exacte}
+- Terminer la tache sans deleguer d autres sous-taches
 
-**Note :** L ancien pre-flight check utilisait execute_command (win-cli MCP) mais aucun mode `-simple` n a acces au groupe `command` depuis b91a841c. Le scheduler Roo ne peut donc pas tester win-cli directement. Si un probleme win-cli survient, il sera detecte lors des tentatives d execution des taches.
+**Raison :** L orchestrateur-simple ne peut pas appeler execute_command directement (pas de groupe `command`), mais peut deleguer a code-simple qui a acces au groupe `mcp` (win-cli). Cette approche est identique au pre-flight du workflow coordinateur.
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
@@ -251,10 +253,11 @@ Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 | 2-4 actions liees | Deleguer chaque action separement a `code-simple` |
 | 5+ actions ou dependances | Escalader vers `orchestrator-complex` |
 
-**Gestion des echecs :**
-- 1er echec : relancer avec instructions corrigees
-- 2e echec sur meme tache : arreter et rapporter
-- Erreur complexe : escalader vers `-complex`
+**Gestion des echecs (ESCALADE AGRESSIVE) :**
+- 1er resultat insatisfaisant (echec, partiel, contenu manquant) : **escalader IMMEDIATEMENT vers `-complex`**
+- Ecrire un `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade : description du probleme, mode, ce qui a echoue
+- Ne PAS relancer en -simple : toute inadequation = escalade + rapport d'incident
+- L'objectif : les incidents alimentent le renforcement du harnais simple
 
 **Chaine d'escalade :** `code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via INTERCOM `[ESCALADE-CLAUDE]`)
 
@@ -380,7 +383,42 @@ Si une issue est trouvee :
 
 **IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
-Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
+Si aucune issue : aller a **Etape 2b-review** (PR Review) puis **Etape 2c-idle**.
+
+### Etape 2b-review : Reviewer les PRs ouvertes (NOUVEAU)
+
+> **Objectif :** Intercepter les regressions en amont. Les PRs ouvertes doivent etre reviewees par les schedulers pour assurer un feedback rapide.
+
+Deleguer a `code-simple` via `new_task` :
+
+```
+Chercher les PRs ouvertes :
+execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,createdAt")
+Rapporter : liste des PRs ouvertes (numero, titre, auteur, date).
+```
+
+**Si une PR ouverte est trouvee :**
+
+Deleguer la review a `code-complex` via `new_task` (JAMAIS code-simple — la review requiert du jugement) :
+
+```
+Reviewer la PR #{NUM} du depot jsboige/roo-extensions :
+
+1. Lire le diff : execute_command(shell="powershell", command="gh pr diff {NUM} --repo jsboige/roo-extensions")
+2. Verifier que le build compile : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+3. Verifier les tests : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+4. Analyser le diff pour :
+   - Qualite du code (patterns, lisibilite, duplication)
+   - Absence de regressions
+   - Coherence avec l'architecture existante
+   - Pas de secrets ou donnees sensibles
+5. Poster un commentaire de review : execute_command(shell="powershell", command="gh pr comment {NUM} --repo jsboige/roo-extensions --body 'Review automatique par {MACHINE}:\n{RESULTAT}'")
+
+NE PAS approuver ni merger. Seul le coordinateur (myia-ai-01 Claude Code) approuve et merge.
+Rapporter : PR #{NUM} reviewee, resultat {PASS/ISSUES}.
+```
+
+**Si aucune PR :** Continuer vers Etape 2c-idle.
 
 ### Etape 2c-idle : Veille Active ou Consolidation (si aucune tache trouvee)
 
@@ -402,13 +440,17 @@ Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
 
 **Taches de consolidation disponibles (rotation, du plus simple au plus utile) :**
 
-| # | Tache | Description | Commandes / Actions |
-|---|-------|-------------|---------------------|
-| 1 | **Scripts dupliques** | Identifier et supprimer les scripts PowerShell en double (ex: `-quick.ps1` quand version complete existe) | `Get-ChildItem scripts/ -Recurse` → comparer paires → supprimer doublons |
-| 2 | **Scripts datés** | Archiver les scripts avec dates specifiques dans `scripts/_archive/` (ex: `*-20251022-*.ps1`) | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` |
-| 3 | **Docs obsoletes** | Supprimer les guides v2.1 remplaces par v2.3 (`docs/roosync/archive/v2.1/`) | `Remove-Item docs/roosync/archive/v2.1/ -Recurse` |
-| 4 | **Synthese rapports** | Consolidation des rapports git-history en 1 rapport definitif | Lire + synthese + remplacement |
-| 5 | **Index docs** | Creer `docs/INDEX.md` avec table des matieres de tous les guides | Generer index depuis structure `docs/` |
+| # | Task | Description | Commands / Actions | Status |
+|---|------|-------------|---------------------|--------|
+| 1 | Scripts datés | Archiver les scripts avec dates spécifiques dans `scripts/_archive/` | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` | DONE (Phase 2.1) |
+| 2 | QuickFiles deprecated | Archiver les scripts QuickFiles MCP (déprécié CONS-1) | `scripts/_archive/quickfiles-deprecated/README.md` | DONE (Phase 2.1) |
+| 3 | RooSync Phase 3 | Archiver les scripts one-off PHASE3A/PHASE3B | `scripts/_archive/roosync-phase3/README.md` | DONE (Phase 2.1) |
+| 4 | Scripts dupliqués | **6 consolidations identifiées** (roosync, validation, diagnostic) | `.tmp/issue-656-phase-2-2-scripts-report.md` | TODO (Phase 2.2) |
+| 5 | Docs obsolètes | **9 dossiers archive** à unifier, 1 doublon SHA256, README.md obsolète | `.tmp/issue-656-phase-2-3-docs-report.md` | TODO (Phase 2.3) |
+| 6 | Outputs temporaires | **8 rapports** dans outputs/ à archiver vers outputs/_archive/ | `Move-Item outputs/*.md outputs/_archive/` | DONE (vérifié - dossier vide) |
+| 7 | Couverture tests | **9 outils critiques** sans tests (modes-management, diagnose-index, repair BOM, etc.) | `.tmp/issue-656-phase-2-4-tests-report.md` | TODO (Phase 2.4) |
+| 8 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
+| 9 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |
 
 **Execution d'une consolidation :**
 
@@ -619,7 +661,7 @@ Message a ajouter :
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
 4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale avec Claude Code
-5. Apres 2 echecs sur meme tache : arreter et rapporter
+5. Apres 1 echec ou resultat insatisfaisant en -simple : escalader vers -complex IMMEDIATEMENT + rapporter incident [INCIDENT-SIMPLE]
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
 8. **Ignorer les [TASK] de plus de 24h** : les taches perimes sont marquees dans le bilan mais non executees
@@ -637,9 +679,11 @@ Message a ajouter :
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches
 
-**Escalade apres echecs :**
+**Escalade apres resultat insatisfaisant (REGLE AGRESSIVE) :**
 
-- 2 echecs consecutifs en `-simple`
-- Erreur complexe necessitant investigation profonde
+- **1 seul echec ou resultat partiel en `-simple`** → escalade IMMEDIATE vers `-complex`
+- Ne PAS retenter en `-simple` apres un echec — l'escalade est systematique
+- Ecrire `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade (description, mode, echec)
+- Objectif : les incidents alimentent le renforcement du harnais
 
 **Justification :** Les taches d'architecture, de feature, ou de schema complexe necessitent un modele plus capable (GLM-5 au lieu de Qwen 3.5) pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).

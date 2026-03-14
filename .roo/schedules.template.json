@@ -6,7 +6,7 @@
       "mode": "orchestrator-simple",
       "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME}.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/${WORKFLOW_FILE}` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-${MACHINE_NAME}.md` - delegue sa lecture a ask-simple.\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
-      "timeInterval": "180",
+      "timeInterval": "360",
       "timeUnit": "minute",
       "selectedDays": {
         "sun": true,
@@ -27,7 +27,7 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=180 (3h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30. IMPORTANT: Pour le COORDINATEUR (myia-ai-01), changer mode en orchestrator-complex (heartbeat, config-sync, delegation complex)."
+      "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=360 (6h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30. IMPORTANT: Pour le COORDINATEUR (myia-ai-01), changer mode en orchestrator-complex (heartbeat, config-sync, delegation complex)."
     },
     {
       "id": "TEMPLATE_META_ID",
@@ -35,7 +35,7 @@
       "mode": "orchestrator-complex",
       "taskInstructions": "Tu es lance par le planificateur automatique sur la machine ${MACHINE_NAME} en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par ${MACHINE_NAME}.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-${MACHINE_NAME}.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
       "scheduleType": "time",
-      "timeInterval": "1440",
+      "timeInterval": "4320",
       "timeUnit": "minute",
       "selectedDays": {
         "sun": true,
@@ -56,7 +56,7 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "_template_note_meta": "Meme deployment que le scheduler principal. TEMPLATE_META_ID = timestamp unique. timeInterval=1440 (24h). startMinute=15 (decale de 15min pour eviter collision avec l'executor). Mode orchestrator-complex car l'analyse croisee necessite des capacites avancees. Workflow: scheduler-workflow-meta-analyst.md (identique sur toutes les machines)."
+      "_template_note_meta": "Meme deployment que le scheduler principal. TEMPLATE_META_ID = timestamp unique. timeInterval=4320 (72h). startMinute: ai-01=15, po-2023=25, po-2024=35, po-2025=45, po-2026=55, web1=05 (decale par machine pour eviter collision z.ai). Mode orchestrator-complex car l'analyse croisee necessite des capacites avancees. Workflow: scheduler-workflow-meta-analyst.md (identique sur toutes les machines)."
     }
   ]
 }

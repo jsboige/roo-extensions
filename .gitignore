@@ -99,11 +99,22 @@ nul
 # RooSync shared state (GDrive local mount, never commit)
 .shared-state/
 
+# RooSync directory (generated state, never commit)
+RooSync/
+
 # Debug files
 debug_payload_dump.json
 debug_trace.txt
 test-output.txt
 test-result.txt
+test-debug-*.log
+test-debug-*.cjs
+test-debug-*.html
+
+# Coverage reports
+coverage/
+*.lcov
+lcov-report/
 
 # Win-CLI local config and logs (machine-specific)
 mcps/external/win-cli/server/config.json
@@ -142,3 +153,4 @@ scripts/setup/.env
 # Auto-import settings (contains API keys)
 roo-config/roo-settings-import.json
 roo-config/roo-settings-import.json.*
+exports/

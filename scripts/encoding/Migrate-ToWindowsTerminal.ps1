@@ -33,13 +33,17 @@ function Write-Log {
     $logEntry = "[$timestamp] [$Level] $Message"
     Write-Host $logEntry -ForegroundColor $(switch ($Level) { "ERROR" { "Red" } "WARN" { "Yellow" } "SUCCESS" { "Green" } default { "Cyan" } })
     if (!(Test-Path "logs")) { New-Item -ItemType Directory -Path "logs" -Force | Out-Null }
-    Add-Content -Path $LogFile -Value $logEntry -Encoding UTF8
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $logContent = if (Test-Path $LogFile) { [System.IO.File]::ReadAllText($LogFile) } else { "" }
+    [System.IO.File]::WriteAllText($LogFile, "$logContent$logEntry`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 function Write-Report {
     param([string]$Content)
     if (!(Test-Path "reports")) { New-Item -ItemType Directory -Path "reports" -Force | Out-Null }
-    Add-Content -Path $ReportFile -Value $Content -Encoding UTF8
+    # BOM-safe write: use .NET method instead of Add-Content (PowerShell 5.1 adds BOM with -Encoding UTF8)
+    $reportContent = if (Test-Path $ReportFile) { [System.IO.File]::ReadAllText($ReportFile) } else { "" }
+    [System.IO.File]::WriteAllText($ReportFile, "$reportContent$Content`r`n", [System.Text.UTF8Encoding]::new($false))
 }
 
 # Initialisation du rapport

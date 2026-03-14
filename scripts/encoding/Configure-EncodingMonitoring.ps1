@@ -57,7 +57,8 @@ Add-Content -Path '$LogFile' -Value "`[`$Date`] `$Result"
 "@
 
 $WrapperPath = Join-Path $LogDir "run-monitor.ps1"
-$ActionScript | Out-File -FilePath $WrapperPath -Encoding UTF8 -Force
+# BOM-safe write: use .NET method instead of Out-File (PowerShell 5.1 adds BOM with -Encoding UTF8)
+[System.IO.File]::WriteAllText($WrapperPath, $ActionScript, [System.Text.UTF8Encoding]::new($false))
 
 $Action = New-ScheduledTaskAction -Execute $PwshPath -Argument "-NoProfile -WindowStyle Hidden -File `"$WrapperPath`""
 

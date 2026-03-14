@@ -162,7 +162,8 @@ try {
 
 # Écrire la nouvelle configuration dans le fichier
 try {
-    [System.IO.File]::WriteAllText($ConfigPath, $newJsonContent, [System.Text.Encoding]::UTF8)
+    # NOTE: Use UTF8Encoding($false) to avoid BOM (issue #664)
+    [System.IO.File]::WriteAllText($ConfigPath, $newJsonContent, [System.Text.UTF8Encoding]::new($false))
     Write-ColorOutput "Fichier de configuration mis à jour avec succès." -ForegroundColor "Green"
 } catch {
     Write-ColorOutput "Erreur lors de l'écriture du fichier: $_" -ForegroundColor "Red"

@@ -6,9 +6,9 @@
     Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
     scheduling architecture. Supports 3 task types:
 
-    - worker:      Executor tier (3h, Sonnet, all machines)
+    - worker:      Executor tier (6h, Sonnet, all machines)
     - coordinator: Coordinator tier (8h, Opus, ai-01 only)
-    - meta-audit:  Meta-Analyst tier (24h, Opus, all machines)
+    - meta-audit:  Meta-Analyst tier (72h, Opus, all machines)
 
 .PARAMETER Action
     Action to perform: install, remove, list, test (default: list)
@@ -71,10 +71,10 @@ $TaskConfigs = @{
     'worker' = @{
         TaskName = "Claude-Worker"
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
-        DefaultInterval = 3
-        DefaultModel = "sonnet"
+        DefaultInterval = 6
+        DefaultModel = "haiku"
         DefaultTimeout = 15
-        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, runs Sonnet with auto-escalation to Opus, exits cleanly if no work."
+        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, starts with Haiku (cheapest) with auto-escalation to Sonnet then Opus. Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
@@ -89,10 +89,10 @@ $TaskConfigs = @{
     'meta-audit' = @{
         TaskName = "Claude-MetaAudit"
         Script = Join-Path $scriptDir "start-meta-audit.ps1"
-        DefaultInterval = 24
+        DefaultInterval = 72
         DefaultModel = "opus"
         DefaultTimeout = 30
-        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements."
+        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h."
         MachineRestriction = $null  # all machines
     }
 }

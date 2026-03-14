@@ -31,15 +31,18 @@ if (Test-Path $mcpSettingsPath) {
     $config | Add-Member -NotePropertyName "_reconnect_timestamp" -NotePropertyValue (Get-Date -Format "yyyy-MM-ddTHH:mm:ss") -Force
     
     # Sauvegarder la configuration
-    $config | ConvertTo-Json -Depth 10 | Set-Content $mcpSettingsPath
+    # NOTE: Use WriteAllText with UTF8Encoding($false) to avoid BOM (issue #664)
+    $jsonContent = $config | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($mcpSettingsPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "✅ Configuration mise à jour avec timestamp" -ForegroundColor Green
-    
+
     # Attendre un peu
     Start-Sleep -Seconds 2
-    
+
     # Supprimer le timestamp pour nettoyer
     $config.PSObject.Properties.Remove("_reconnect_timestamp")
-    $config | ConvertTo-Json -Depth 10 | Set-Content $mcpSettingsPath
+    $jsonContent = $config | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($mcpSettingsPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
     Write-Host "✅ Configuration nettoyée" -ForegroundColor Green
     
 } else {
