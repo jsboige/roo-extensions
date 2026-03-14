@@ -1,50 +1,57 @@
 # Regles d'Utilisation des MCPs
 
+**Documentation complete des MCPs :** Voir [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md) pour la documentation centralisee de tous les serveurs MCP (installation, configuration, outils disponibles, exemples).
+
 ## Pre-requis : Verification Disponibilite
 
 **AVANT de commencer tout travail, verifier que les MCPs critiques repondent.**
-Voir `.roo/rules/05-tool-availability.md` pour le protocole STOP & REPAIR.
+Voir `.claude/rules/tool-availability.md` pour le protocole STOP & REPAIR.
+
+**MCPs CRITIQUES pour Roo :**
+
+- **roo-state-manager** (37 outils) : Grounding conversationnel, historique taches, RooSync
+- **win-cli** (9 outils) : Shell commands (OBLIGATOIRE depuis modes fix b91a841c)
 
 ## MCP Shell : win-cli (OBLIGATOIRE)
 
 **win-cli est le SEUL MCP shell actif** depuis le retrait de desktop-commander et la suppression du groupe `command` sur les modes `-simple`.
 
-```
+```bash
 execute_command(shell="powershell", command="COMMANDE")
 execute_command(shell="gitbash", command="COMMANDE")
 ```
 
 **Shells disponibles :** `powershell`, `cmd`, `gitbash`
 
-**Config :** Fork local 0.2.0 - `node mcps/external/win-cli/server/dist/index.js`
-**NE JAMAIS utiliser** `npx @anthropic/win-cli` (npm 0.2.1 casse).
+**Config :** Fork local 0.2.0 (PAS npm 0.2.1)
+
+- Voir [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md#win-cli-fork-local) pour la configuration complete
 
 **MCPs Retires (NE PAS utiliser) :**
-- `desktop-commander` (retire, ne plus y faire reference)
-- `quickfiles` (retire, CONS-1)
 
-## Autres MCPs Disponibles
-
-- **roo-state-manager** : Grounding conversationnel, historique taches (36 outils)
-- **markitdown** : Conversion documents (PDF, DOCX, etc.) en markdown
-- **playwright** : Automatisation web, screenshots
+- `desktop-commander` → Remplace par win-cli
+- `quickfiles` → Remplace par outils natifs Read/Write
+- `github-projects-mcp` → Remplace par `gh` CLI natif
 
 ## roo-state-manager - Outils Disponibles
 
-**Roo a acces a TOUS les outils roo-state-manager, y compris RooSync.**
+**Roo a acces a TOUS les outils roo-state-manager (37), y compris RooSync.**
 
-### Outils de grounding et historique
-- `conversation_browser` (arbre taches, vue conversation, resume - outil unifie)
-- `view_task_details`, `get_raw_conversation`, `task_export` (lecture historique)
-- `roosync_search` (recherche dans les taches - texte et semantique)
-- `codebase_search` (recherche semantique dans le code)
-- `read_vscode_logs` (diagnostic)
-- `storage_info`, `maintenance` (maintenance)
+**Categorisation des outils :** Voir [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md#roo-state-manager) pour la liste complete organisee par categorie.
 
 ### Outils RooSync (communication inter-machine)
+
 - `roosync_send`, `roosync_read`, `roosync_manage` (messagerie)
 - `roosync_config`, `roosync_baseline`, `roosync_inventory` (gestion config)
 - `roosync_heartbeat`, `roosync_compare_config`, `roosync_list_diffs` (monitoring)
+- `analyze_roosync_problems` (diagnostic)
+
+### Outils de grounding et recherche
+
+- `conversation_browser` (arbre taches, vue conversation, resume - outil unifie)
+- `codebase_search` (recherche semantique dans le code)
+- `roosync_search` (recherche dans les taches - texte et semantique)
+- `view_task_details`, `get_raw_conversation`, `task_export` (lecture historique)
 
 **Bonne pratique :** Privilegier INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`) pour la communication locale avec Claude Code sur la meme machine. Utiliser RooSync pour la communication inter-machines ou pour lire les directives du coordinateur.
 
