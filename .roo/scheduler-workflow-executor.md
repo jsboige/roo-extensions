@@ -1,46 +1,16 @@
-# Workflow Scheduler Roo - EXECUTEUR (machines non-coordinateur)
+# Executor Workflow - Orchestrator Roo
 
 > Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
 
 ---
 
-## 🚨 RÈGLE OBLIGATOIRE - LIMITATION D'OUTPUT (Issue #707)
-
-**TOUJOURS limiter l'output des commandes shell** pour éviter l'explosion du contexte (GLM : 131k tokens réels).
-
-```bash
-# GIT LOG — TOUJOURS avec head -30 ou équivalent
-execute_command(shell="gitbash", command="git log --oneline -30")
-execute_command(shell="gitbash", command="git log --oneline HEAD@{1}..HEAD | head -30")
-execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -30")
-
-# GIT STATUS — OK sans limite (output court par nature)
-execute_command(shell="gitbash", command="git status --short")
-
-# GIT DIFF — TOUJOURS limiter
-execute_command(shell="gitbash", command="git diff --stat | head -30")
-execute_command(shell="gitbash", command="git diff HEAD --name-only | head -30")
-
-# AUTRES COMMANDES À OUTPUT LONG — TOUJOURS limiter
-execute_command(shell="powershell", command="... | Select-Object -Last 30")
-execute_command(shell="gitbash", command="... | tail -30")
-```
-
-**⛔ INTERDIT :**
-
-- `git log` sans `-N` ou `| head -N` ou `--since`
-- `git diff` complet sans filtre (utiliser `--stat` ou `--name-only`)
-- `--coverage` dans les tests (bloque + explose le contexte)
-
----
-
-## ⚠️ RÈGLE CRITIQUE - INTERDICTION DE DEMANDER À L'UTILISATEUR
+## ⚠️ RÈGLE #1 - INTERDICTION ABSOLUE DE DEMANDER À L'UTILISATEUR
 
 **QUAND tu as besoin de lire ou écrire un fichier : DELEGUE immédiatement via `new_task` à un mode qui a l'accès (ask-simple, code-simple, debug-simple).**
 
 ### ❌ JAMAIS FAIRE (bloque le scheduler)
 
-```markdown
+```
 # NE JAMAIS écrire ça :
 "Pourriez-vous copier le contenu du fichier .roo/scheduler-workflow-executor.md ?"
 "Merci de coller le contenu de .claude/local/INTERCOM-myia-po-2024.md ici."
@@ -75,314 +45,127 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 
 ---
 
-## PRINCIPES
+## 🚨 RÈGLE OBLIGATOIRE - LIMITATION D'OUTPUT (Issue #707)
 
-1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-2. Communication locale via INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`), RooSync pour l'inter-machine
-3. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
-4. Ne JAMAIS commit ou push (sauf config-sync automatique via RooSync - voir Etape 0c)
-5. **Identifiants de modes OBLIGATOIRES** : TOUJOURS utiliser les slugs (identifiants techniques) dans les appels `new_task`, JAMAIS les noms d'affichage avec emojis. Les slugs corrects sont : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`.
-6. Deleguer uniquement aux modes `-simple` ou `-complex`
-7. **Scepticisme raisonnable** : Ne JAMAIS rapporter une limitation ou impossibilite sans preuve concrete (output de commande, message d'erreur exact). Verifier si le probleme est local ou distant. Qualifier : VERIFIE / SUPPOSE / RAPPORTE. Voir `.roo/rules/skepticism-protocol.md`.
-8. **Anti-faux-positif (CRITIQUE)** : Le bilan final DOIT refleter fidelement le statut de CHAQUE etape. Si une etape a echoue ou est partielle, le bilan DOIT le dire explicitement. Ecrire "Tout OK" quand quelque chose a echoue est une violation grave qui induit le coordinateur en erreur et empêche la detection de problemes. Voir Issue #624.
-9. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Le modele Qwen 3.5 ne peut pas generer le parametre `content` pour les gros fichiers (erreur : "without value for required parameter content"). Utiliser `apply_diff` ou `replace_in_file` a la place. **TOUJOURS inclure cette instruction dans les prompts delegues qui impliquent de l'ecriture de fichiers.** Voir `.roo/rules/08-file-writing.md`.
+**TOUJOURS limiter l'output des commandes shell** pour éviter l'explosion du contexte (GLM : 131k tokens réels).
 
-## REGLES WIN-CLI (CRITIQUE)
+```bash
+# GIT LOG — TOUJOURS avec head -30 ou équivalent
+execute_command(shell="gitbash", command="git log --oneline -30")
+execute_command(shell="gitbash", command="git log --oneline HEAD@{1}..HEAD | head -30")
+execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -30")
 
-Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defaut (execute_command supprime). **Toujours inclure ces instructions dans les prompts `new_task`** (exemples a copier dans le message de delegation) :
+# GIT STATUS — OK sans limite (output court par nature)
+execute_command(shell="gitbash", command="git status --short")
 
-```
-# Build/Tests - utiliser win-cli :
-execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
-execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+# GIT DIFF — TOUJOURS limiter
+execute_command(shell="gitbash", command="git diff --stat | head -30")
+execute_command(shell="gitbash", command="git diff HEAD --name-only | head -30")
 
-# Git - utiliser gitbash :
-execute_command(shell="gitbash", command="git pull --no-rebase origin main")
-execute_command(shell="gitbash", command="git status")
-
-# GitHub CLI - utiliser powershell :
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels")
+# AUTRES COMMANDES À OUTPUT LONG — TOUJOURS limiter
+execute_command(shell="powershell", command="... | Select-Object -Last 30")
+execute_command(shell="gitbash", command="... | tail -30")
 ```
 
-**ATTENTION** : Ne PAS piper vers des commandes PowerShell dans le shell "powershell" (Select-Object, ConvertFrom-Json) si possible - privilegier des commandes simples ou plusieurs appels separes.
+**⛔ INTERDIT :**
+
+- `git log` sans `-N` ou `| head -N` ou `--since`
+- `git diff` complet sans filtre (utiliser `--stat` ou `--name-only`)
+- `--coverage` dans les tests (bloque + explose le contexte)
 
 ---
 
-## EXEMPLES CONCRETS DE DÉLÉGATION (OBLIGATOIRE)
+## Workflow Executor
 
-**RÈGLE D'OR :** TOUJOURS utiliser `new_task` pour déléguer. JAMAIS exécuter les commandes toi-même.
-
-### ❌ MAUVAIS (à ne JAMAIS faire)
-
-```javascript
-// NE JAMAIS faire ça directement !
-const result = await execute_command(shell="powershell", command="git pull");
-const tests = await execute_command(shell="powershell", command="npx vitest run");
-```
-
-### ✅ BON (à TOUJOURS faire)
-
-```javascript
-// TOUJOURS déléguer via new_task
-const taskId = await new_task({
-  title: "Git pull + status",
-  instructions: `
-Executer ces commandes avec win-cli :
-1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
-2. execute_command(shell="gitbash", command="git status")
-Rapporter le resultat.
-  `
-});
-```
-
-### Exemples par type de tâche
-
-**Build + Tests :**
-```javascript
-await new_task({
-  title: "Validation build + tests",
-  instructions: `
-Dans mcps/internal/servers/roo-state-manager :
-1. execute_command(shell="powershell", command="npm run build")
-2. execute_command(shell="powershell", command="npx vitest run")
-Rapporter : build OK/FAIL + X/Y tests.
-  `
-});
-```
-
-**GitHub Issues :**
-```javascript
-await new_task({
-  title: "Chercher tâche GitHub",
-  instructions: `
-1. execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10")
-2. Si issue trouvée : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by myia-po-2023\"")
-3. Executer la tâche selon les instructions dans l'issue
-  `
-});
-```
-
-**Plusieurs tâches indépendantes :**
-```javascript
-// Déléguer CHAQUE tâche séparément
-await new_task({ title: "Batch C tests", instructions: "..." });
-await new_task({ title: "Batch B tests", instructions: "..." });
-await new_task({ title: "Batch A tests", instructions: "..." });
-
-console.log("✅ 3 tâches déléguées aux modes -complex");
-```
+**Machine:** {MACHINE} (myia-po-* ou myia-web1)
+**Fréquence:** 3 heures
+**Mode:** orchestrator-simple (délègue tout via new_task)
 
 ---
 
-## WORKFLOW EN 4 ETAPES
+## Rappels Critiques
 
-### Etape 0 : Pre-flight Check (OBLIGATOIRE)
+1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même
+2. **NE JAMAIS demander à l'utilisateur** - C'est RÈGLE #1
+3. **TOUJOURS vérifier les MCP** - Pre-flight check OBLIGATOIRE
+4. **TOUJOURS rapporter dans INTERCOM** - Même si 0 tâches
+5. **win-cli OBLIGATOIRE pour shell** - Les modes `-simple` n'ont PAS le terminal natif
+6. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
+7. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
+8. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
 
-**AVANT TOUT**, verifier que les outils critiques sont disponibles.
+---
 
-**IMPORTANT : Le pre-flight est READ-ONLY. Si un outil est absent, RAPPORTER dans INTERCOM [CRITICAL] et terminer. NE PAS tenter de reparer la config MCP.**
+## Étape 0 : Pre-flight Check + Heartbeat (OBLIGATOIRE)
 
-**DELEGUER** a `code-simple` via `new_task` :
+**AVANT TOUT**, vérifier que les MCP critiques sont disponibles.
 
-```text
+**DÉLEGUER à `code-simple` via `new_task` :**
+
+```
 Pre-flight check : tester le MCP win-cli.
 
 1. Executer : execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
-2. Rapporter : PRE-FLIGHT-OK si la commande reussit, ou le message d erreur exact si echec.
-```
+2. Rapporter : PRE-FLIGHT-OK si la commande réussit, ou le message d'erreur exact si échec.
 
-**Si STOP (echec win-cli) :**
-
-- Ecrire dans INTERCOM avec `[CRITICAL]` : win-cli MCP non disponible. Message d erreur : {erreur exacte}
-- Terminer la tache sans deleguer d autres sous-taches
-
-**Raison :** L orchestrateur-simple ne peut pas appeler execute_command directement (pas de groupe `command`), mais peut deleguer a code-simple qui a acces au groupe `mcp` (win-cli). Cette approche est identique au pre-flight du workflow coordinateur.
-
-**Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
-
-### Etape 0b : Heartbeat (OBLIGATOIRE)
-
-**DELEGUER** a `code-simple` via `new_task` :
-
-```
-Envoyer un heartbeat au coordinateur pour indiquer que cette machine est active.
-
-IMPORTANT : Format JSON exact pour l'appel MCP roosync_heartbeat :
+Puis envoyer heartbeat au coordinateur :
 roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
-
-Ou pour verifier le statut :
-roosync_heartbeat(action: "status", filter: "online", includeHeartbeats: true)
-
-Rapporter : OK (machine enregistree) ou erreur exacte (message d'erreur complet).
 ```
 
-**Raison :** Permettre au coordinateur de savoir que cette machine est active et peut recevoir des tâches.
-
-**Si échec :** Heartbeat non bloquant, mais l'échec DOIT être rapporté fidèlement dans le bilan (Etape 3). Ne JAMAIS écrire "Tout OK" si le heartbeat a échoué. Rapporter le statut exact : "Heartbeat: ECHEC - {message d'erreur}".
-
-### Etape 0c : Config-Sync (optionnel, si > 24h depuis dernier)
-
-**DELEGUER** a `code-simple` via `new_task` :
-
-```
-Config-sync : synchroniser la configuration locale avec le coordinateur.
-
-IMPORTANT : Format JSON exact pour les appels MCP roosync_* :
-1. roosync_config(action: "collect", targets: ["modes", "mcp"], dryRun: false)
-2. roosync_config(action: "publish", version: "{VERSION}", description: "Config-sync automatique", targets: ["modes", "mcp"])
-3. roosync_compare_config(granularity: "mcp", source: "{MACHINE_ID}", target: "myia-ai-01")
-
-Rapporter : nombre de diffs par niveau (critical, important, warning).
-```
-
-**Décision selon le résultat rapporté :**
-- Si `critical > 0` ou `important > 0` :
-  - Deleguer l'ecriture dans INTERCOM d'un message `[CONFIG-DRIFT]`
-- Si seulement WARNING/INFO :
-  - Skip silencieusement
-
-**Fréquence :** Une fois par 24h maximum.
-
-**Si échec :** Noter dans le bilan mais continuer (config-sync non bloquant).
+**Si STOP (échec win-cli) :**
+- Écrire dans INTERCOM avec `[CRITICAL]` : win-cli MCP non disponible
+- Terminer la tâche sans déléguer d'autres sous-tâches
 
 ---
 
-### Etape 1 : Git pull + Lecture INTERCOM
+## Étape 1 : Git Pull + Lecture INTERCOM
 
-Deleguer a `code-simple` via `new_task` :
+**DÉLEGUER à `code-simple` via `new_task` :**
 
 ```
-Executer ces commandes avec win-cli MCP et rapporter le resultat :
+Executer ces commandes avec win-cli MCP et rapporter le résultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
-Chercher les messages [TASK], [SCHEDULED], [URGENT] (peu importe le format de l'emetteur : "claude-code -> roo", "Claude Code -> Roo", etc.).
-Pour chaque [TASK], vérifier s'il contient un tag [workspace:PATH].
-Rapporter : etat git + liste des taches trouvees (avec workspace si spécifié).
+Chercher les messages [TASK], [SCHEDULED], [URGENT].
+Rapporter : état git + liste des tâches trouvées.
 ```
 
-**Decision :**
-- Si git pull a ECHOUE (submodule error, conflict) : aller DIRECTEMENT a **Etape 3** avec rapport d'erreur. Ne PAS executer de taches sur un workspace desynchronise.
-- Si `[URGENT]` : escalader vers `orchestrator-complex`
-- Si `[TASK]` trouve avec tag `[COMPLEX]` ET date < 24h : **escalader vers orchestrator-complex** (démarrage direct en mode complex, voir **Etape 2a-complex** ci-dessous)
-- Si `[TASK]` trouve ET date < 24h : aller a **Etape 2a**
-- Si `[TASK]` trouve MAIS date > 24h : IGNORER (tache perimee, noter dans le bilan)
-- Si `[FEEDBACK]` recent de Claude : noter les ajustements
-- Si rien : aller a **Etape 2b**
+**Décision :**
+- Si git pull a ÉCHOUÉ → aller à **Étape 3** avec rapport d'erreur
+- Si `[URGENT]` → escalader vers `orchestrator-complex`
+- Si `[TASK]` trouvé avec tag `[COMPLEX]` ET date < 24h → **escalader vers orchestrator-complex**
+- Si `[TASK]` trouvé ET date < 24h → aller à **Étape 2a**
+- Si `[TASK]` trouvé MAIS date > 24h → IGNORER
+- Si rien → aller à **Étape 2b**
 
-### Etape 2a : Executer les taches INTERCOM
+---
 
-Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
+## Étape 2a : Exécuter les tâches INTERCOM
 
-| Difficulte | Action |
+Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
+
+| Difficulté | Action |
 |-----------|--------|
-| Tache avec label `enhancement` ou `feature` | **Escalader directement vers `code-complex`** (pas code-simple) |
-| Schema Zod complexe (`refine()`, validation conditionnelle) | **Escalader directement vers `code-complex`** |
-| Modification de >2 fichiers interconnectes | **Escalader vers `code-complex`** |
-| 1 action isolee | `code-simple` via `new_task` |
-| 2-4 actions liees | Deleguer chaque action separement a `code-simple` |
-| 5+ actions ou dependances | Escalader vers `orchestrator-complex` |
+| Tâche avec label `enhancement` ou `feature` | **Escalader vers `code-complex`** |
+| Schéma Zod complexe (`refine()`, validation conditionnelle) | **Escalader vers `code-complex`** |
+| Modification de >2 fichiers interconnectés | **Escalader vers `code-complex`** |
+| 1 action isolée | `code-simple` via `new_task` |
+| 2-4 actions liées | Deleguer chaque action séparément à `code-simple` |
+| 5+ actions ou dépendances | Escalader vers `orchestrator-complex` |
 
-**Gestion des echecs (ESCALADE AGRESSIVE) :**
-- 1er resultat insatisfaisant (echec, partiel, contenu manquant) : **escalader IMMEDIATEMENT vers `-complex`**
-- Ecrire un `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade : description du probleme, mode, ce qui a echoue
-- Ne PAS relancer en -simple : toute inadequation = escalade + rapport d'incident
-- L'objectif : les incidents alimentent le renforcement du harnais simple
+**Gestion des échecs (ESCALADE AGRESSIVE) :**
+- 1er résultat insatisfaisant → **escalader IMMEDIATEMENT vers `-complex`**
+- Écrire `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade
+- Ne PAS relancer en -simple
 
-**Chaine d'escalade :** `code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via INTERCOM `[ESCALADE-CLAUDE]`)
+Après exécution → **Étape 3**
 
-**Justification :** Les taches strategiques (enhancement, feature, schema complexe) necessitent des modeles plus capables pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).
+---
 
-### Etape 2a-bis : Taches Cross-Workspace (NOUVEAU)
+## Étape 2b : Tâches par défaut (si pas de [TASK])
 
-> **Prérequis :** Le workspace cible doit exister et avoir une config Roo minimale (`.roo/mcp.json`)
-
-Si une tache INTERCOM contient le tag `[workspace:PATH]` :
-
-**1. Delegation avec workspace specifique :**
-
-```
-Executer cette tache dans un workspace different :
-- Workspace cible : {PATH from tag}
-- Se placer dans ce workspace AVANT d'executer
-- Apres execution, revenir au workspace principal
-- Rapporter le resultat dans l'INTERCOM du workspace principal
-```
-
-**Exemple de delegation cross-workspace :**
-
-```javascript
-await new_task({
-  title: "Build WordPress workspace",
-  instructions: `
-Tache cross-workspace vers : C:\\Users\\MYIA\\wsl_volumes\\livresagites_wp
-
-1. execute_command(shell="powershell", command="cd C:\\Users\\MYIA\\wsl_volumes\\livresagites_wp; pwd")
-2. execute_command(shell="gitbash", command="git status")
-3. Executer les commandes demandees dans ce workspace
-4. Revenir au workspace principal (roo-extensions)
-
-Rapporter le resultat dans l'INTERCOM principal.
-  `
-});
-```
-
-**2. Validation du workspace cible :**
-
-Avant d'executer, verifier que :
-- Le chemin existe
-- C'est un repertoire Git valide
-- Le fichier `.roo/mcp.json` existe (optionnel pour les taches simples)
-
-**3. Gestion des erreurs :**
-
-- Si workspace inexistant : rapporter erreur dans INTERCOM + marquer tache FAIL
-- Si workspace non Git : noter dans bilan mais continuer avec les commandes possibles
-- Apres execution : TOUJOURS revenir au workspace principal
-
-Apres execution → **Etape 3**
-
-### Etape 2a-complex : Tâches [COMPLEX] (démarrage direct en mode complex)
-
-> **Nouveau (2026-03-03) :** Pour les tâches étiquetées `[COMPLEX]`, démarrer directement en mode -complex pour prouver que Roo peut gérer des tâches de complexité moyenne. Voir Issue #545.
-
-**Delegation directe a orchestrator-complex :**
-
-```
-Deleguer cette tâche COMPLEXE a orchestrator-complex via new_task :
-- La tâche nécessite une réflexion supérieure (analyse multi-sources, coordination complexe)
-- NE PAS essayer en -simple (échec attendu)
-- Rapporter le resultat dans l'INTERCOM
-```
-
-**Exemple de delegation COMPLEX :**
-
-```javascript
-await new_task({
-  title: "Tâche COMPLEXE : Analyse patterns MCP",
-  instructions: `
-Cette tâche est étiquetée [COMPLEX] - démarrer directement en mode complex.
-
-1. Utiliser roosync_search pour trouver les tâches Roo récentes
-2. Analyser view_task_details pour 5 tâches
-3. Synthétiser les patterns d'utilisation des outils MCP
-4. Rédiger un rapport dans l'INTERCOM
-
-Ne PAS déléguer à code-simple (échec attendu sur ce type de tâche).
-  `
-});
-```
-
-**Critères de validation des tâches [COMPLEX] :**
-- Résultat visible dans l'INTERCOM
-- Preuve d'utilisation du mode -complex (traces, logs)
-- Qualité supérieure à ce que -simple aurait produit
-
-Apres execution → **Etape 3**
-
-### Etape 2b : Taches par defaut (si pas de [TASK])
-
-> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 2b comprend TOUJOURS 4 sous-étapes séquentielles. **NE JAMAIS aller à Étape 3 après la première sous-étape seulement.** Même si 0 issues et 0 PRs sont trouvées, TOUJOURS exécuter 2c-idle avant Étape 3.
+> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 2b comprend TOUJOURS 4 sous-étapes séquentielles.
 
 **CHECKLIST SOUS-ÉTAPES OBLIGATOIRES (toutes à exécuter) :**
 
@@ -394,339 +177,128 @@ Apres execution → **Etape 3**
 → SEULEMENT ENSUITE : Étape 3
 ```
 
-Deleguer dans cet ordre a `code-simple` via `new_task` :
-
-**1. Build + Tests (validation sante workspace)**
+### 2b-1 : Build + Tests
 
 ```
-Executer dans le repertoire mcps/internal/servers/roo-state-manager avec win-cli :
-1. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
-2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+Executer dans mcps/internal/servers/roo-state-manager avec win-cli :
+1. execute_command(shell="powershell", command="npm run build")
+2. execute_command(shell="powershell", command="npx vitest run")
 Rapporter : build OK/FAIL + nombre tests pass/fail.
 ```
 
-> **Note MyIA-Web1 :** Toujours utiliser `npx vitest run --maxWorkers=1` (contrainte RAM 2GB).
+> **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1`
 
-**2. Chercher une tache sur GitHub**
-
-```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\(.number)\\t\(.title)\"'")
-```
-
-Si une issue est trouvee :
-1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
-2. **VERIFIER LES LABELS** avant de choisir le mode d'execution :
-   - Si labels contiennent `enhancement` ou `feature` : **DELEGUER A `code-complex`** (pas code-simple)
-   - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
-   - Sinon : utiliser `code-simple` pour taches simples (doc, tests, validation)
-3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Claimed by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
-4. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
-5. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"Result: {PASS/FAIL}. Mode: {simple/complex}.\"")
-
-**IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
-
-> ⚠️ **TOUJOURS CONTINUER** vers **Etape 2b-review** puis **Etape 2c-idle**, que des issues soient trouvées ou non. Ne PAS aller à Étape 3.
-
-### Etape 2b-review : Reviewer les PRs ouvertes (NOUVEAU)
-
-> **Objectif :** Intercepter les regressions en amont. Les PRs ouvertes doivent etre reviewees par les schedulers pour assurer un feedback rapide.
-
-Deleguer a `code-simple` via `new_task` :
+### 2b-2 : GitHub Issues
 
 ```
-Chercher les PRs ouvertes :
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\\(.number)\\t\\(.title)\"'")
+```
+
+Si issue trouvée :
+1. **Vérifier les labels** : si `enhancement` ou `feature` → **DELEGUER À `code-complex`**
+2. Sinon → utiliser `code-simple`
+3. Commenter pour claim et résultat
+
+> ⚠️ **TOUJOURS CONTINUER** vers **Étape 2b-review** puis **Étape 2c-idle**
+
+### 2b-review : Reviewer les PRs ouvertes
+
+```
 execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,createdAt")
-Rapporter : liste des PRs ouvertes (numero, titre, auteur, date).
 ```
 
-**Si une PR ouverte est trouvee :**
+Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
 
-Deleguer la review a `code-complex` via `new_task` (JAMAIS code-simple — la review requiert du jugement) :
+### 2c-idle : Veille Active ou Consolidation
 
-```
-Reviewer la PR #{NUM} du depot jsboige/roo-extensions :
+> **Priorité** : Si des tâches de consolidation sont en attente (label `idle-task`), les exécuter. Sinon, faire une exploration Veille Active.
 
-1. Lire le diff : execute_command(shell="powershell", command="gh pr diff {NUM} --repo jsboige/roo-extensions")
-2. Verifier que le build compile : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
-3. Verifier les tests : execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
-4. Analyser le diff pour :
-   - Qualite du code (patterns, lisibilite, duplication)
-   - Absence de regressions
-   - Coherence avec l'architecture existante
-   - Pas de secrets ou donnees sensibles
-5. Poster un commentaire de review : execute_command(shell="powershell", command="gh pr comment {NUM} --repo jsboige/roo-extensions --body 'Review automatique par {MACHINE}:\n{RESULTAT}'")
+#### Option 1 : Consolidation (prioritaire si disponible)
 
-NE PAS approuver ni merger. Seul le coordinateur (myia-ai-01 Claude Code) approuve et merge.
-Rapporter : PR #{NUM} reviewee, resultat {PASS/ISSUES}.
-```
+Tâches de consolidation disponibles (voir Issue #656) :
 
-**Si aucune PR :** Continuer vers Etape 2c-idle.
+| # | Task | Status |
+|---|------|--------|
+| 1 | Scripts datés | DONE |
+| 2 | QuickFiles deprecated | DONE |
+| 3 | RooSync Phase 3 | DONE |
+| 4 | Scripts dupliqués (6 consolidations) | TODO |
+| 5 | Docs obsolètes (9 dossiers) | TODO |
+| 6 | Outputs temporaires | DONE |
+| 7 | Couverture tests (9 outils sans tests) | TODO |
+| 8 | Synthèse rapports git-history | TODO |
+| 9 | Index docs | TODO (existe déjà) |
 
-### Etape 2c-idle : Veille Active ou Consolidation (si aucune tache trouvee)
+Déléguer UNE consolidation à `code-simple` via `new_task`.
 
-> **Objectif :** Utiliser le temps idle pour : (1) Explorer et tester UNE fonctionnalite du systeme, OU (2) Executer UNE tache de consolidation du depot.
+#### Option 2 : Veille Active (si pas de consolidation)
 
-> **Priorite :** Si des taches de consolidation sont en attente (issues avec label `idle-task` ou `consolidation`), les executer en priorite. Sinon, faire une exploration Veille Active.
+**RÈGLES STRICTES :**
+- **LECTURE SEULE** : ne JAMAIS modifier un fichier
+- **1 seule exploration par session**
+- **Pas de commit/push**
+
+**Domaines d'exploration :**
+
+| # | Domaine | Description |
+|---|---------|-------------|
+| 1 | Outil MCP peu utilisé | Tester un outil MCP rarement appelé |
+| 2 | Doc vs réalité | Vérifier que chemins/outils/commandes existent |
+| 3 | Couverture de tests | Lister fichiers sans tests correspondants |
+| 4 | Cohérence config | Comparer config déployée avec source |
+| 5 | Santé infrastructure | Tester un endpoint d'infrastructure |
+| 6 | Inventaire GitHub | Issues perimées (> 14j sans commentaire) |
+| 7 | Rangement dépôt | Vérifier fichiers bien placés |
+| 8 | Consolidation doc | Chercher doublons sémantiques |
+| 9 | Veille harnais agentique | Observer nouveaux outils vibe coding |
+
+Après exploration → **Étape 3**
 
 ---
 
-#### Option 1 : Taches de Consolidation (prioritaire si disponibles)
+## Étape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
 
-> Voir Issue #656 (Idle Scheduler Improvement) pour la liste complete des taches de consolidation.
+> **CRITIQUE** : L'écriture INTERCOM est la seule trace du passage du scheduler.
 
-**REGLES POUR CONSOLIDATION :**
-- **1 seule consolidation par session** : choisir UN element, le traiter, rapporter
-- **Commit autorise** : les consolidations produisent des changements verifiables
-- **Pas de creation d'issue** : si probleme → `[FRICTION-FOUND]` dans INTERCOM
-- **Tester apres changement** : build + tests si modification du code
-
-**Taches de consolidation disponibles (rotation, du plus simple au plus utile) :**
-
-| # | Task | Description | Commands / Actions | Status |
-|---|------|-------------|---------------------|--------|
-| 1 | Scripts datés | Archiver les scripts avec dates spécifiques dans `scripts/_archive/` | `Move-Item scripts/validation/*-2025*.ps1 scripts/_archive/` | DONE (Phase 2.1) |
-| 2 | QuickFiles deprecated | Archiver les scripts QuickFiles MCP (déprécié CONS-1) | `scripts/_archive/quickfiles-deprecated/README.md` | DONE (Phase 2.1) |
-| 3 | RooSync Phase 3 | Archiver les scripts one-off PHASE3A/PHASE3B | `scripts/_archive/roosync-phase3/README.md` | DONE (Phase 2.1) |
-| 4 | Scripts dupliqués | **6 consolidations identifiées** (roosync, validation, diagnostic) | `.tmp/issue-656-phase-2-2-scripts-report.md` | TODO (Phase 2.2) |
-| 5 | Docs obsolètes | **9 dossiers archive** à unifier, 1 doublon SHA256, README.md obsolète | `.tmp/issue-656-phase-2-3-docs-report.md` | TODO (Phase 2.3) |
-| 6 | Outputs temporaires | **8 rapports** dans outputs/ à archiver vers outputs/_archive/ | `Move-Item outputs/*.md outputs/_archive/` | DONE (vérifié - dossier vide) |
-| 7 | Couverture tests | **9 outils critiques** sans tests (modes-management, diagnose-index, repair BOM, etc.) | `.tmp/issue-656-phase-2-4-tests-report.md` | TODO (Phase 2.4) |
-| 8 | Synthèse rapports | Consolidation des rapports git-history (7 sous-répertoires) | Lire + synthèse + remplacement | TODO |
-| 9 | Index docs | MAJ `docs/INDEX.md` avec table des matières complète | Générer index depuis structure `docs/` | TODO (existe déjà) |
-
-**Execution d'une consolidation :**
-
-Deleguer a `code-simple` via `new_task` :
+**DÉLEGUER à `code-simple` via `new_task` :**
 
 ```
-CONSOLIDATION IDLE - Tache #{N}: {titre}
-
-{Instructions specifiques a la consolidation}
-
-Actions autorisees pour cette tache :
-- Lecture de fichiers avec read_file
-- Modification de fichiers (Edit, Write) pour consolidation
-- Commit des changements (git add, commit, push)
-- Build + tests si code modifie
-
-Rapporte :
-- Fichiers touches
-- Changements effectifs
-- Resultat : OK / FRICTION DETECTEE
-- Si friction : description precise
-```
-
-**Si aucune consolidation disponible :** Aller a **Option 2 : Veille Active** (exploration)
-
----
-
-#### Option 2 : Veille Active (exploration, si pas de consolidation)
-
-> **Objectif :** Explorer et tester UNE fonctionnalite du systeme. Detecter les frictions reelles (outils casses, doc obsolete, tests manquants, config incoherente) et les remonter pour traitement par le coordinateur.
-
-**REGLES STRICTES :**
-- **LECTURE SEULE** : ne JAMAIS modifier un fichier pendant l'exploration
-- **1 seule exploration par session** : choisir UN domaine, l'explorer, rapporter
-- **Pas de commit/push** : l'exploration ne produit que des rapports INTERCOM
-- **Pas de creation d'issue directe** : si friction trouvee → `[FRICTION-FOUND]` dans INTERCOM, le coordinateur decidera
-
-#### Selection intelligente du domaine (OBLIGATOIRE)
-
-**Ne PAS choisir au hasard.** Deleguer a `ask-simple` via `new_task` :
-
-```
-Lis les 30 dernieres lignes de .claude/local/INTERCOM-{MACHINE}.md.
-Identifie les domaines deja explores recemment (tag [PATROL] ou [FRICTION-FOUND] dans les 7 derniers jours).
-Puis execute : execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -20")
-Identifie les fichiers/domaines touches recemment dans les commits.
-
-Rapporte :
-- Domaines DEJA explores (a eviter) : [liste]
-- Domaines touches par git (a eviter) : [liste]
-- Domaine RECOMMANDE pour exploration : [1 choix parmi la liste ci-dessous]
-```
-
-**Domaines d'exploration (rotation, du plus simple au plus utile) :**
-
-| # | Domaine | Description | Delegation |
-|---|---------|-------------|------------|
-| 1 | **Outil MCP peu utilise** | Tester un outil MCP jamais/rarement appele (ex: `roosync_baseline`, `roosync_decision`, `roosync_heartbeat`, `storage_info`, `maintenance`) avec des parametres basiques | `code-simple` |
-| 2 | **Doc vs realite** | Lire un fichier .md (CLAUDE.md, une rule, un guide) et verifier que les chemins, noms d'outils, exemples de commandes qu'il mentionne existent reellement | `ask-simple` |
-| 3 | **Couverture de tests** | Lister les fichiers source dans `src/tools/` et verifier s'ils ont un `__tests__/*.test.ts` correspondant. Rapporter les fichiers sans tests | `ask-simple` |
-| 4 | **Coherence config** | Comparer une config deployee (`.roomodes`, `.roo/schedules.json`, `mcp_settings.json`) avec sa source (`roo-config/modes/`, template, etc.) et rapporter les ecarts | `code-simple` |
-| 5 | **Sante infrastructure** | Tester un endpoint d'infrastructure (embeddings.myia.io, qdrant.myia.io, search.myia.io, tika.myia.io) avec une requete simple et rapporter le statut | `code-simple` |
-| 6 | **Inventaire GitHub** | Lister les issues ouvertes avec `gh issue list` et identifier celles qui sont perimees (pas de commentaire > 14j), ou celles assignees a cette machine mais bloquees | `code-simple` |
-| 7 | **Rangement depot** | Verifier que les fichiers sont au bon endroit : rapports dans `docs/`, scripts dans `scripts/`, pas de fichiers orphelins a la racine. Lister les fichiers mal places et proposer le deplacement correct | `ask-simple` |
-| 8 | **Consolidation doc** | Chercher les fichiers .md qui couvrent le meme sujet (doublons semantiques). Lire 2-3 fichiers .md dans `docs/` et verifier si leur contenu est deja consolide dans les docs perennes (`CLAUDE.md`, `docs/roosync/*.md`). Rapporter les doublons et les docs obsoletes | `ask-simple` |
-| 9 | **Veille harnais agentique** | Observer l'evolution des outils de vibe coding concurrents (Cursor, Windsurf, GitHub Copilot Workspace, Replit Ghostwriter, etc.) : (1) Chercher dans les git commits recents des refs a de nouveaux outils, (2) Lire `.claude/rules/` et `.roo/rules/` pour identifier des regles obsoletes par rapport aux capacites actuelles, (3) Rapporter les patterns emergents qui pourraient etre adoptes | `ask-simple` |
-
-**Choix du domaine :** Prendre le premier domaine de la liste qui N'a PAS ete explore dans les 7 derniers jours (selon INTERCOM + git). Si tous ont ete explores, recommencer au #1.
-
-#### Execution de l'exploration
-
-Deleguer au mode indique dans le tableau via `new_task` :
-
-```
-EXPLORATION VEILLE ACTIVE - Domaine #{N}: {titre}
-Tu es en mode LECTURE SEULE. NE MODIFIE AUCUN FICHIER.
-
-{Instructions specifiques au domaine choisi}
-
-Rapporte :
-- Ce que tu as teste/verifie
-- Resultat : OK / FRICTION DETECTEE
-- Si friction : description precise (output exact, fichier concerne, ecart constate)
-- Recommandation courte (1-2 phrases max)
-```
-
-#### Rapport dans INTERCOM
-
-**Si aucune friction :**
-```markdown
-## [{DATE}] roo -> claude-code [PATROL]
-### Veille Active - Domaine #{N}: {titre}
-- Resultat : OK
-- Details : {ce qui a ete verifie}
-```
-
-**Si friction detectee :**
-```markdown
-## [{DATE}] roo -> claude-code [FRICTION-FOUND]
-### Veille Active - Domaine #{N}: {titre}
-- Friction : {description precise}
-- Preuve : {output de commande, chemin de fichier, ecart constate}
-- Severite estimee : {LOW|MEDIUM|HIGH}
-- Recommandation : {action suggeree}
-```
-
-#### Escalade des frictions (GARDE-FOU ANTI-FEATURE-CREEP)
-
-**Le scheduler simple NE CREE JAMAIS d'issue directement.** Le chemin d'escalade est :
-
-```
-[FRICTION-FOUND] dans INTERCOM (par mode simple / Haiku)
-    → ETAPE 1 - Escalade vers agent complex (Roo -complex / Claude Sonnet-Opus)
-      L'agent complex VERIFIE la friction avant de rediger l'issue :
-      • Reproduire ou confirmer la friction independamment
-      • La friction est-elle reelle ? (verifier avec git, code source, tests)
-      • La friction est-elle nouvelle ? (pas deja reportee ou en cours de fix)
-      • Evaluer la severite reelle (LOW/MEDIUM/HIGH/CRITICAL)
-      • Verifier qu'aucune issue existante ne couvre deja ce probleme
-      • Si la friction ne se confirme pas : rapporter "faux positif" dans INTERCOM, pas d'issue
-    → ETAPE 2 - Si confirme : redaction issue GitHub par l'agent complex
-      • Label `needs-approval` pour changements de fonctionnalite ou de harnais
-      • Pas de label special pour tests, MAJ doc, ou corrections simples
-    → ETAPE 3 - Coordinateur (Claude Opus) trie et dispatche
-      • Verification supplementaire si necessaire (protocole skepticism)
-      • Assignation machine + agent + priorite
-    → ETAPE 4 - Utilisateur approuve SI NECESSAIRE
-      • OBLIGATOIRE pour : changements de harnais, nouvelles fonctionnalites, modifications architecturales
-      • PAS NECESSAIRE pour : ajout de tests, MAJ documentation, corrections de typos/chemins
-```
-
-**3 verrous anti-feature-creep :**
-1. Le scheduler simple ne peut que RAPPORTER (INTERCOM), pas AGIR ni creer d'issue
-2. L'agent complex VERIFIE la friction avant de creer l'issue (filtre les faux positifs)
-3. Le coordinateur TRIE et l'utilisateur APPROUVE pour les changements significatifs
-
-**Cout d'un faux positif :** Quelques minutes d'agent complex. **Cout d'un vrai positif non remonte :** Des heures de friction repetee sur 6 machines. Le systeme est volontairement biaise vers la detection (mieux vaut un faux positif filtre que manquer un vrai probleme).
-
-Apres exploration → **Etape 2d** (Auto-review)
-
-### Etape 2d : Auto-review des commits recents (OBLIGATOIRE si HEAD a change)
-
-> Disponible uniquement sur les machines avec sk-agent ou acces vLLM.
-> **CRITIQUE (#544) :** Cette etape DOIT etre executee apres CHAQUE pull qui ramene un nouveau commit.
-
-**DELEGUER** a `code-simple` via `new_task` pour verifier si le pull a ramene un nouveau commit et lancer l'auto-review :
-
-```
-1. execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline | head -30")
-2. Si des commits sont retournes, lancer l'auto-review :
-   execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
-3. Rapporter : nombre de commits, resultat auto-review.
-IMPORTANT : utilise win-cli MCP (pas le terminal natif).
-```
-
-**Parametres optionnels du script `auto-review.ps1` :**
-- `-DiffRange "HEAD~3"` : Reviewer les N derniers commits
-- `-IssueNumber 535` : Forcer le post sur une issue specifique
-- `-Mode vllm` : Utiliser vLLM directement (sans sk-agent HTTP)
-- `-DryRun` : Afficher la review sans poster sur GitHub
-
-**Prerequis :** sk-agent MCP ou vLLM sur port 5002/v1 (Qwen3.5-35B). Fallback automatique HTTP → vLLM.
-
-**Note :** Cette etape est optionnelle et non bloquante. Si echec, noter dans le bilan et continuer.
-
-Apres etapes 2a, 2b, 2c-idle, 2d → **Etape 3**
-
-### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
-
-> **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
-
-**DELEGUER** a `code-simple` via `new_task` avec ces instructions pour le mode delegue :
-
-```
-Ajouter le bilan scheduler a la fin de .claude/local/INTERCOM-{MACHINE}.md :
+Ajouter le bilan scheduler à la fin de .claude/local/INTERCOM-{MACHINE}.md :
 1. Lis les 20 DERNIERES lignes du fichier avec read_file
-2. Utilise apply_diff pour ajouter le message APRES le dernier separateur ---
-3. Si apply_diff echoue : utilise win-cli Add-Content :
-   execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value 'contenu'")
+2. Utilise apply_diff pour ajouter le message APRES le dernier séparateur ---
+3. Si apply_diff échoue : utilise win-cli Add-Content
 4. NE PAS utiliser write_to_file (boucle infinie sur gros fichiers)
 
-Message a ajouter :
+Message à ajouter :
 [INSERER LE BILAN CI-DESSOUS]
 ```
 
-**RAPPEL :** L'orchestrateur NE PEUT PAS ecrire dans INTERCOM lui-meme (#563). Il DOIT deleguer.
-
-**FORMAT MESSAGE (garder COURT — max 8 lignes, pas de verbeux) :**
+**FORMAT MESSAGE (max 8 lignes) :**
 
 ```markdown
 ## [{DATE}] roo -> claude-code [{DONE|IDLE|PARTIEL}]
 - Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f
-- Heartbeat: {OK/ECHEC} | Taches: {N} ({source})
+- Heartbeat: {OK/ECHEC} | Tâches: {N} ({source})
 - Erreurs: {aucune ou description 1 ligne}
 ---
 ```
 
-**⚠️ REGLE ANTI-FAUX-POSITIF :** Le bilan DOIT refleter la realite. Ne JAMAIS dire "Tout OK" si un echec est survenu. Utiliser `[PARTIEL]` si echec partiel. Preferer la concision a l'exhaustivite — les details sont dans les traces, pas dans l'INTERCOM.
-
-**FALLBACK (si la premiere delegation echoue) :** Deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement.
-
-**Maintenance INTERCOM :** Si le fichier depasse 500 lignes, deleguer a `code-simple` la condensation des 300 premieres en ~50 lignes de synthese (garder les 200 dernieres intactes). Faire cela SEULEMENT si le temps le permet (pas prioritaire).
+**⚠️ REGLE ANTI-FAUX-POSITIF** : Le bilan DOIT refléter la réalité. Ne JAMAIS dire "Tout OK" si un échec est survenu.
 
 ---
 
-## REGLES DE SECURITE
+## Chaîne d'escalade
 
-1. Ne JAMAIS commit sans validation Claude Code
-2. Ne JAMAIS push directement
-3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale avec Claude Code
-5. Apres 1 echec ou resultat insatisfaisant en -simple : escalader vers -complex IMMEDIATEMENT + rapporter incident [INCIDENT-SIMPLE]
-6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte)
-7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
-8. **Ignorer les [TASK] de plus de 24h** : les taches perimes sont marquees dans le bilan mais non executees
+`code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via `[ESCALADE-CLAUDE]`)
 
----
-
-## CRITERES D'ESCALADE VERS ORCHESTRATOR-COMPLEX
-
-**Escalade OBLIGATOIRE vers code-complex (pas code-simple) pour :**
-
+**Escalade OBLIGATOIRE vers `code-complex` pour :**
 - Issue GitHub avec label `enhancement` ou `feature`
 - Message `[URGENT]` dans l'INTERCOM
-- Modification de plus de 2 fichiers interconnectes
-- Tout schema Zod avec `refine()` ou validation conditionnelle
-- Plus de 5 sous-taches a coordonner
-- Dependances entre sous-taches
+- Modification de >2 fichiers interconnectés
+- Schéma Zod complexe (`refine()`, validation conditionnelle)
+- >5 sous-tâches ou dépendances
 
-**Escalade apres resultat insatisfaisant (REGLE AGRESSIVE) :**
-
-- **1 seul echec ou resultat partiel en `-simple`** → escalade IMMEDIATE vers `-complex`
-- Ne PAS retenter en `-simple` apres un echec — l'escalade est systematique
-- Ecrire `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade (description, mode, echec)
-- Objectif : les incidents alimentent le renforcement du harnais
-
-**Justification :** Les taches d'architecture, de feature, ou de schema complexe necessitent un modele plus capable (GLM-5 au lieu de Qwen 3.5) pour eviter la cascade de delegation vers des agents moins capables (voir Issue #605).
+**Escalade après échec (RÈGLE AGRESSIVE) :**
+- **1 seul échec en `-simple`** → escalade IMMEDIATE vers `-complex`
+- Ne PAS retenter en `-simple`
+- Écrire `[INCIDENT-SIMPLE]` dans INTERCOM
