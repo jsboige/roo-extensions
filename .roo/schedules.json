@@ -1,10 +1,10 @@
 {
   "schedules": [
     {
-      "id": "1770843427038",
+      "id": "1770856072262",
       "name": "Claude-Code Assistant",
-      "mode": "orchestrator-simple",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2025.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/scheduler-workflow-executor.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient DANS L'ORDRE :\n1. Etape 0 : Pre-flight Check + Heartbeat\n2. Etape 1 : Git pull + Lecture INTERCOM\n3. Etape 2 : Tâches par défaut - GitHub Issues\n4. CRITIQUE : APRES Etape 2, SI 0 issues assignees -> continuer vers Etape 2b (PR Review) puis Etape 2c (Veille Active/Consolidation)\n5. Etape 3 : Rapport dans INTERCOM (SEULEMENT apres avoir termine toutes les etapes precedentes)\n\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2025.\n\nRAPPELS CRITIQUES :\n- REGLE #1 ABSOLUE : JAMAIS demander a l'utilisateur de copier/fournir du contenu. Toute demande utilisateur BLOQUE le scheduler immediatement. Si tu as besoin d'un fichier -> delegue via new_task.\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-po-2025.md` - delegue sa lecture a ask-simple.\n- NE PAS TERMINER le cycle sans avoir verifie Etape 2b et 2c si 0 issues assignees.",
+      "mode": "orchestrator-complex",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-ai-01.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/scheduler-workflow-coordinator.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-ai-01.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-ai-01.md` - delegue sa lecture a ask-simple.\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
       "timeInterval": "360",
       "timeUnit": "minute",
@@ -19,7 +19,7 @@
       },
       "startDate": "",
       "startHour": "",
-      "startMinute": "30",
+      "startMinute": "00",
       "expirationDate": "",
       "expirationHour": "00",
       "expirationMinute": "00",
@@ -27,16 +27,16 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "nextExecutionTime": "2026-03-15T21:30:00.123Z",
-      "lastExecutionTime": "2026-03-15T15:30:07.123Z",
-      "lastTaskId": "019cf21e-708b-73a5-abc9-ddc0a6644eb5",
-      "lastSkippedTime": "2026-03-15T14:30:00.266Z"
+      "nextExecutionTime": "2026-03-15T23:00:00.751Z",
+      "lastExecutionTime": "2026-03-13T23:00:11.089Z",
+      "lastTaskId": "019ce96d-c4cd-7032-88e7-ec6f7438f303",
+      "lastSkippedTime": "2026-03-15T17:00:00.751Z"
     },
     {
-      "id": "1710843427045",
+      "id": "17708560722621",
       "name": "Meta-Analyste",
       "mode": "orchestrator-complex",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2025 en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2025.\n\nRAPPELS CRITIQUES :\n- REGLE #1 ABSOLUE : JAMAIS demander a l'utilisateur de copier/fournir du contenu. Toute demande utilisateur BLOQUE le scheduler immediatement. Si tu as besoin d'un fichier -> delegue via new_task.\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-myia-po-2025.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-ai-01 en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-ai-01.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-myia-ai-01.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
       "scheduleType": "time",
       "timeInterval": "4320",
       "timeUnit": "minute",
@@ -51,7 +51,7 @@
       },
       "startDate": "",
       "startHour": "",
-      "startMinute": "45",
+      "startMinute": "15",
       "expirationDate": "",
       "expirationHour": "00",
       "expirationMinute": "00",
@@ -59,10 +59,10 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "nextExecutionTime": "2026-03-18T15:45:00.006Z",
-      "lastExecutionTime": "2026-03-14T17:45:04.011Z",
-      "lastTaskId": "019ced73-a107-707f-bae9-78523cebf7f8",
-      "lastSkippedTime": "2026-03-15T15:45:00.006Z"
+      "nextExecutionTime": "2026-03-18T15:15:00.606Z",
+      "lastExecutionTime": "2026-03-15T15:15:48.606Z",
+      "lastTaskId": "019cf211-56ed-72fc-8c2b-25a52c946335",
+      "lastSkippedTime": "2026-03-12T23:15:00.785Z"
     }
   ]
 }
