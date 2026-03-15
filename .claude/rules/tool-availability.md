@@ -1,10 +1,11 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-14
+**Mis à jour:** 2026-03-15
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 **Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 + myia-po-2024 (2026-03-14) - Roo uniquement maintenant
+**Issue #708:** Ajout section dédiée "win-cli - Roo uniquement" pour clarifier que win-cli n'est critique que pour Roo
 
 ---
 
@@ -85,6 +86,20 @@
 ```
 
 **NE JAMAIS utiliser** `npx @anthropic/win-cli` (npm 0.2.1 casse).
+
+### win-cli - Roo uniquement
+
+**win-cli est critique UNIQUEMENT pour Roo Code**, pas pour Claude Code.
+
+**Pourquoi ?** Les modes Roo `-simple` (code-simple, debug-simple, ask-simple) n'ont PAS accès au terminal natif (groupe `command`). Ils utilisent win-cli (groupe `mcp`) comme leur seul accès shell.
+
+**Claude Code** a accès à l'outil `Bash` natif et n'a PAS besoin de win-cli pour les commandes shell.
+
+**Conséquence :**
+- **Roo** : win-cli est OBLIGATOIRE (dans `mcp_settings.json` global)
+- **Claude Code** : win-cli est OPTIONNEL (peut être absent de `~/.claude.json`)
+
+**Référence :** Issue #650 - Dual-harnais support (win-cli configuré pour Roo uniquement)
 
 ### MCPs STANDARDS (disponibles, pas bloquants si absents)
 

@@ -4,6 +4,36 @@
 
 ---
 
+## 🚨 RÈGLE OBLIGATOIRE - LIMITATION D'OUTPUT (Issue #707)
+
+**TOUJOURS limiter l'output des commandes shell** pour éviter l'explosion du contexte (GLM : 131k tokens réels).
+
+```bash
+# GIT LOG — TOUJOURS avec head -30 ou équivalent
+execute_command(shell="gitbash", command="git log --oneline -30")
+execute_command(shell="gitbash", command="git log --oneline HEAD@{1}..HEAD | head -30")
+execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -30")
+
+# GIT STATUS — OK sans limite (output court par nature)
+execute_command(shell="gitbash", command="git status --short")
+
+# GIT DIFF — TOUJOURS limiter
+execute_command(shell="gitbash", command="git diff --stat | head -30")
+execute_command(shell="gitbash", command="git diff HEAD --name-only | head -30")
+
+# AUTRES COMMANDES À OUTPUT LONG — TOUJOURS limiter
+execute_command(shell="powershell", command="... | Select-Object -Last 30")
+execute_command(shell="gitbash", command="... | tail -30")
+```
+
+**⛔ INTERDIT :**
+
+- `git log` sans `-N` ou `| head -N` ou `--since`
+- `git diff` complet sans filtre (utiliser `--stat` ou `--name-only`)
+- `--coverage` dans les tests (bloque + explose le contexte)
+
+---
+
 ## ⚠️ RÈGLE CRITIQUE - INTERDICTION DE DEMANDER À L'UTILISATEUR
 
 **QUAND tu as besoin de lire ou écrire un fichier : DELEGUE immédiatement via `new_task` à un mode qui a l'accès (ask-simple, code-simple, debug-simple).**
@@ -611,7 +641,7 @@ Apres exploration → **Etape 2d** (Auto-review)
 **DELEGUER** a `code-simple` via `new_task` pour verifier si le pull a ramene un nouveau commit et lancer l'auto-review :
 
 ```
-1. execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline")
+1. execute_command(shell="gitbash", command="git log HEAD@{1}..HEAD --oneline | head -30")
 2. Si des commits sont retournes, lancer l'auto-review :
    execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/review/start-auto-review.ps1 -BuildCheck")
 3. Rapporter : nombre de commits, resultat auto-review.
