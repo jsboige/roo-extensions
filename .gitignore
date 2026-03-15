@@ -154,3 +154,4 @@ scripts/setup/.env
 roo-config/roo-settings-import.json
 roo-config/roo-settings-import.json.*
 exports/
+.roo/schedules.json
