@@ -75,6 +75,27 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
 
 ---
 
+## Contrainte Critique : Orchestrateurs = AUCUN Outil Direct (#704)
+
+**RÈGLE ABSOLUE :** Les modes `orchestrator-simple` et `orchestrator-complex` ont `groups: []` — zéro outil direct.
+
+| Mode | groups | Conséquence |
+|------|--------|-------------|
+| `orchestrator-simple` | `[]` | Pas de read_file, write_to_file, execute_command, MCP |
+| `orchestrator-complex` | `[]` | Idem |
+| `code-simple` | `["read","edit","browser","mcp"]` | Accès aux outils mais PAS au terminal natif |
+| `code-complex` | `["read","edit","browser","command","mcp"]` | Tous les outils + terminal |
+
+**Seule action disponible pour les orchestrateurs :** `new_task` (délégation)
+
+**ERREUR COMMUNE :** Confondre l'outil `execute_command` natif Roo (groupe `command`, bloqué en `-simple`) avec `execute_command` via le MCP win-cli (groupe `mcp`, autorisé en `-simple`). Même nom, deux sources différentes.
+
+**Si l'orchestrateur appelle un outil directement** → Bug de harnais. L'orchestrateur doit toujours déléguer.
+
+**Référence :** `.roo/rules/07-orchestrator-delegation.md`, `CLAUDE.md` section "Architecture des Modes Roo"
+
+---
+
 ## Mecanisme d'Escalade
 
 **Documentation complete :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md)
