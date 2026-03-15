@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-12
-**Version:** 5.4 (Nouveaux repertoires: analysis, audit, evaluation, services, testing)
+**Derniere mise a jour:** 2026-03-15
+**Version:** 5.5 (Nouveau section: Fichiers Racine docs/ avec 5 fichiers de référence)
 
 ---
 
@@ -29,6 +29,23 @@ docs/
 ├── INDEX.md          # Ce fichier
 └── README.md         # Vue d'ensemble
 ```
+
+---
+
+## Fichiers Racine (docs/)
+
+Documentation importante à la racine de docs/ (hors sous-dossiers).
+
+### Audits & Analyses
+
+- [coverage-audit-492.md](coverage-audit-492.md) - **Audit de Couverture de Tests** (Issue #492) - Analyse couverture roo-state-manager MCP (25.33% vs 80% objectif)
+- [cross-analysis-harnesses-2026-03-13.md](cross-analysis-harnesses-2026-03-13.md) - **Analyse Croisée des Harnais META-ANALYST** (Roo vs Claude) - 10 incohérences, 12 lacunes identifiées, 5 recommandations priorisées
+- [harness-cross-analysis-report.md](harness-cross-analysis-report.md) - **Rapport d'Analyse Croisée des Harnais** (Roo vs Claude) - Comparaison couverture fichiers Roo/Claude + gaps analysés
+
+### Référence Technique
+
+- [mcp-configuration.md](mcp-configuration.md) - **Configuration MCP par Machine** - Référence complète (Issue #688) : configs séparées Claude Code vs Roo, win-cli fork local 0.2.0, tableau de vérification
+- [scheduler-workflow.md](scheduler-workflow.md) - **Unified Scheduler Workflows** - Référence technique (Issue #689) : 3 types workflows (Executor/Coordinator/Meta-Analyst), modules PowerShell partagés, protocole INTERCOM
 
 ---
 
