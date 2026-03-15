@@ -1,5 +1,9 @@
 # Executor Workflow - Orchestrator Roo
 
+> Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
+
+---
+
 ## ⚠️ RÈGLE #1 - INTERDICTION ABSOLUE DE DEMANDER À L'UTILISATEUR
 
 **QUAND tu as besoin de lire ou écrire un fichier : DELEGUE immédiatement via `new_task` à un mode qui a l'accès (ask-simple, code-simple, debug-simple).**
@@ -38,6 +42,36 @@ Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
 ```
 
 **Même si un outil échoue** : NE DEMANDE JAMAIS à l'utilisateur. Délégue à un autre mode qui a l'outil.
+
+---
+
+## 🚨 RÈGLE OBLIGATOIRE - LIMITATION D'OUTPUT (Issue #707)
+
+**TOUJOURS limiter l'output des commandes shell** pour éviter l'explosion du contexte (GLM : 131k tokens réels).
+
+```bash
+# GIT LOG — TOUJOURS avec head -30 ou équivalent
+execute_command(shell="gitbash", command="git log --oneline -30")
+execute_command(shell="gitbash", command="git log --oneline HEAD@{1}..HEAD | head -30")
+execute_command(shell="gitbash", command="git log --oneline --since='7 days ago' | head -30")
+
+# GIT STATUS — OK sans limite (output court par nature)
+execute_command(shell="gitbash", command="git status --short")
+
+# GIT DIFF — TOUJOURS limiter
+execute_command(shell="gitbash", command="git diff --stat | head -30")
+execute_command(shell="gitbash", command="git diff HEAD --name-only | head -30")
+
+# AUTRES COMMANDES À OUTPUT LONG — TOUJOURS limiter
+execute_command(shell="powershell", command="... | Select-Object -Last 30")
+execute_command(shell="gitbash", command="... | tail -30")
+```
+
+**⛔ INTERDIT :**
+
+- `git log` sans `-N` ou `| head -N` ou `--since`
+- `git diff` complet sans filtre (utiliser `--stat` ou `--name-only`)
+- `--coverage` dans les tests (bloque + explose le contexte)
 
 ---
 
@@ -120,7 +154,7 @@ Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 | 2-4 actions liées | Deleguer chaque action séparément à `code-simple` |
 | 5+ actions ou dépendances | Escalader vers `orchestrator-complex` |
 
-**Gestion des échecs (ESCALADE AGGRESSIVE) :**
+**Gestion des échecs (ESCALADE AGRESSIVE) :**
 - 1er résultat insatisfaisant → **escalader IMMEDIATEMENT vers `-complex`**
 - Écrire `[INCIDENT-SIMPLE]` dans INTERCOM pour CHAQUE escalade
 - Ne PAS relancer en -simple
@@ -157,7 +191,7 @@ Rapporter : build OK/FAIL + nombre tests pass/fail.
 ### 2b-2 : GitHub Issues
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\(.number)\\t\(.title)\"'")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\\(.number)\\t\\(.title)\"'")
 ```
 
 Si issue trouvée :

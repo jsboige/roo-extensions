@@ -231,16 +231,40 @@ Cet audit detecte les erreurs de config AVANT qu'elles ne causent des incidents 
 **Integration meta-analystes :**
 Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via META-INTERCOM ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
 
+### Presentation des Arbitrages (OBLIGATOIRE a chaque session interactive)
+
+**REGLE :** A chaque session de coordination interactive, presenter a l'utilisateur un tableau des arbitrages en cours avec **TOUT le contexte necessaire pour decider sans aller lire les issues**.
+
+**Format obligatoire pour chaque issue `needs-approval` ou decision en attente :**
+
+```markdown
+### #NNN — Titre
+**Créée par :** [agent/machine] le [date]
+**Labels :** [liste]
+**Contexte :** [Résumé de 2-3 phrases expliquant POURQUOI cette issue existe,
+               quel problème elle résout, et quel impact elle a]
+**Ce que ça change concrètement :** [Liste des fichiers/configs modifiés,
+               comportement avant vs après]
+**Risques si approuvé :** [Effets de bord potentiels]
+**Risques si rejeté :** [Ce qui reste cassé/manquant]
+**Recommandation :** APPROUVER / REJETER / DIFFÉRER + justification courte
+```
+
+**Principe :** L'utilisateur ne doit PAS avoir besoin d'ouvrir GitHub pour prendre sa decision. Le coordinateur doit lire le body de chaque issue et en extraire le contexte decisif.
+
+**Pour les issues differees :** Representer systematiquement a la session suivante tant que non tranchees.
+
 ### Fin de Session / Avant Saturation Contexte
 
 **OBLIGATOIRE avant de terminer ou quand le contexte approche sa limite :**
 
-1. **Consolidation memoire (Phase 8 sync-tour)** : Avec jugement, mettre a jour :
+1. **Presentation arbitrages** : Appliquer le format ci-dessus pour toutes les decisions pendantes
+2. **Consolidation memoire (Phase 8 sync-tour)** : Avec jugement, mettre a jour :
    - `MEMORY.md` prive : etat courant (git hash, tests, issues) + lessons learned
    - `PROJECT_MEMORY.md` partage : uniquement apprentissages universels (patterns, decisions, conventions)
    - Fichiers de regles si drift detecte (CLAUDE.md, .roo/rules/)
-2. **Commit + push** si fichiers partages modifies
-3. **INTERCOM** : Laisser etat courant pour Roo
+3. **Commit + push** si fichiers partages modifies
+4. **INTERCOM** : Laisser etat courant pour Roo
 
 **Principe :** La consolidation demande du jugement humain/agent. Les scripts `scripts/memory/` sont des aides au diagnostic, pas des automatismes. L'agent decide quoi consolider et ou.
 
