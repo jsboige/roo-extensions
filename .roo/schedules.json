@@ -1,10 +1,10 @@
 {
   "schedules": [
     {
-      "id": "1770843427039",
+      "id": "1770852600244",
       "name": "Claude-Code Assistant",
       "mode": "orchestrator-simple",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-web1.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/scheduler-workflow-executor.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrateur aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient DANS L'ORDRE :\n1. Etape 0 : Pre-flight Check + Heartbeat\n2. Etape 1 : Git pull + Lecture INTERCOM\n3. Etape 2 : Tâches par défaut - GitHub Issues\n4. CRITIQUE : APRES Etape 2, SI 0 issues assignees -> continuer vers Etape 2b (PR Review) puis Etape 2c (Veille Active/Consolidation)\n5. Etape 3 : Rapport dans INTERCOM (SEULEMENT apres avoir termine toutes les etapes precedentes)\n\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-web1.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-web1.md` - delegue sa lecture a ask-simple.\n- NE PAS TERMINER le cycle sans avoir verifie Etape 2b et 2c si 0 issues assignees.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2026.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/scheduler-workflow-executor.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2026.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-po-2026.md` - delegue sa lecture a ask-simple.\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
       "timeInterval": "360",
       "timeUnit": "minute",
@@ -19,20 +19,24 @@
       },
       "startDate": "",
       "startHour": "",
-      "startMinute": "30",
+      "startMinute": "00",
       "expirationDate": "",
       "expirationHour": "00",
       "expirationMinute": "00",
       "requireActivity": false,
       "active": true,
       "taskInteraction": "skip",
-      "inactivityDelay": "10"
+      "inactivityDelay": "10",
+      "nextExecutionTime": "2026-03-16T01:15:00.631Z",
+      "lastExecutionTime": "2026-03-14T19:15:02.061Z",
+      "lastTaskId": "019cedc5-ff1f-75f8-b4c1-2d74715dd946",
+      "lastSkippedTime": "2026-03-15T19:15:02.631Z"
     },
     {
       "id": "1710843427046",
-      "name": "Meta-Analyst",
+      "name": "Meta-Analyste",
       "mode": "orchestrator-complex",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-web1 en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrateur aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-web1.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-myia-web1.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
+      "taskInstructions": "Tu es le Meta-Analyste sur myia-po-2026.\n\nANALYSE LOCAL :\n1. Lire les traces Roo recentes (%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/)\n2. Lire les sessions Claude recentes (~/.claude/projects/*/)\n3. Analyser les patterns : succes/echec, escalades, utilisation outils\n4. REDIGER un rapport d'analyse dans GDrive : .shared-state/meta-analysis/myia-po-2026/\n\nCROSS-ANALYSIS (harnais):\n- Analyser .claude/rules/ (cote Roo)\n- Analyser .roo/rules/ (cote Claude)\n- Identifier les frictions et incoherences\n\nMETA-INTERCOM :\n- Ecrire l'analyse locale dans .claude/local/META-INTERCOM-myia-po-2026.md\n- Si accord avec l'autre meta-analyst (Roo), consulter autres machines via RooSync\n\nCREATION ISSUES :\n- Si finding operationnel ou bug : GitHub issue avec label needs-approval\n- Si harness change : GitHub issue avec labels needs-approval+harness-change\n- JAMAIS modifier les fichiers de harnais directement\n\nGARDE-FOUS :\n- NE PAS modifier .roo/rules/, .claude/rules/, .claude/commands/, .claude/skills/\n- NE PAS fermer/archiver des issues (coordinator job)\n- TOUJOURS utiliser needs-approval pour les nouvelles issues",
       "scheduleType": "time",
       "timeInterval": "4320",
       "timeUnit": "minute",
@@ -47,14 +51,18 @@
       },
       "startDate": "",
       "startHour": "",
-      "startMinute": "05",
+      "startMinute": "55",
       "expirationDate": "",
       "expirationHour": "00",
       "expirationMinute": "00",
       "requireActivity": false,
       "active": true,
       "taskInteraction": "skip",
-      "inactivityDelay": "10"
+      "inactivityDelay": "10",
+      "nextExecutionTime": "2026-03-18T14:55:00.210Z",
+      "lastExecutionTime": "2026-03-15T14:55:02.210Z",
+      "lastTaskId": "019cf1fe-523d-714c-9261-63a1f0b2f664",
+      "lastSkippedTime": ""
     }
   ]
 }
