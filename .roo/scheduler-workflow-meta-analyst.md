@@ -69,34 +69,90 @@ Deleguer a `code-complex` via `new_task` :
 ```
 Tu es le meta-analyste. Analyse les DEUX harnais (Roo et Claude) pour identifier incoherences et ameliorations.
 
-HARNAIS ROO (lis ces fichiers avec read_file) :
+ETAPE PREALABLE - INVENTAIRE DYNAMIQUE (OBLIGATOIRE) :
+AVANT de lire les fichiers, fais un inventaire complet :
+execute_command(shell="powershell", command="Get-ChildItem '.roo/rules/' -Filter '*.md' | Select-Object Name")
+execute_command(shell="powershell", command="Get-ChildItem '.claude/rules/' -Filter '*.md' | Select-Object Name")
+Lis TOUS les fichiers retournes, pas seulement ceux listes ci-dessous.
+La liste ci-dessous est indicative — le repertoire fait foi.
+
+HARNAIS ROO (lis TOUS les fichiers de .roo/rules/ avec read_file) :
 - .roo/rules/01-general.md
 - .roo/rules/02-intercom.md
 - .roo/rules/03-mcp-usage.md
 - .roo/rules/04-sddd-grounding.md
 - .roo/rules/05-tool-availability.md
+- .roo/rules/06-context-window.md
+- .roo/rules/07-orchestrator-delegation.md
+- .roo/rules/08-file-writing.md
+- .roo/rules/09-github-checklists.md
+- .roo/rules/10-ci-guardrails.md
+- .roo/rules/11-incident-history.md
+- .roo/rules/12-machine-constraints.md
+- .roo/rules/13-test-success-rates.md
+- .roo/rules/14-tdd-recommended.md
+- .roo/rules/15-coordinator-responsibilities.md
+- .roo/rules/16-no-tools-warnings.md
+- .roo/rules/17-friction-protocol.md
+- .roo/rules/github-cli.md
+- .roo/rules/skepticism-protocol.md
+- .roo/rules/testing.md
+- .roo/rules/validation.md
 - .roo/scheduler-workflow-coordinator.md
 - .roo/scheduler-workflow-executor.md
 - .roomodes (structure des modes)
 
-HARNAIS CLAUDE (lis ces fichiers) :
+HARNAIS CLAUDE (lis TOUS les fichiers de .claude/rules/ avec read_file) :
 - CLAUDE.md (racine)
+- .claude/rules/agents-architecture.md
+- .claude/rules/bash-fallback.md
+- .claude/rules/ci-guardrails.md
+- .claude/rules/condensation-thresholds.md
+- .claude/rules/delegation.md
+- .claude/rules/feedback-process.md
+- .claude/rules/github-checklists.md
+- .claude/rules/github-cli.md
+- .claude/rules/intercom-protocol.md
+- .claude/rules/mcp-discoverability.md
 - .claude/rules/meta-analysis.md
-- .claude/rules/testing.md
+- .claude/rules/myia-web1-constraints.md
+- .claude/rules/pr-review-policy.md
+- .claude/rules/roo-schedulable-criteria.md
+- .claude/rules/scheduled-coordinator.md
+- .claude/rules/scheduler-densification.md
 - .claude/rules/scheduler-system.md
+- .claude/rules/sddd-conversational-grounding.md
+- .claude/rules/skepticism-protocol.md
+- .claude/rules/testing.md
 - .claude/rules/tool-availability.md
 - .claude/rules/validation-checklist.md
 
+GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
+AVANT de conclure qu'une regle est ABSENTE d'un harnais :
+1. LIRE le CONTENU de TOUS les fichiers de l'autre harnais
+2. Verifier si le sujet n'est pas couvert sous un NOM DIFFERENT
+   Exemples de mappings existants :
+   - Roo "06-context-window" = Claude "condensation-thresholds"
+   - Roo "07-orchestrator-delegation" = Claude "delegation"
+   - Roo "08-file-writing" ≈ couvert dans Claude "validation-checklist"
+   - Roo "09-github-checklists" = Claude "github-checklists"
+   - Roo "10-ci-guardrails" = Claude "ci-guardrails"
+3. NE JAMAIS creer d'issue pour une lacune sans avoir lu le contenu
+   du fichier potentiellement equivalent
+4. Si un sujet est couvert mais avec un nom different, c'est une
+   INCOHERENCE DE NOMMAGE (INFO), PAS une lacune
+
 ANALYSE :
 1. Identifier les INCOHERENCES entre les deux harnais (regles contradictoires, references cassees)
-2. Identifier les LACUNES (regles presentes dans un harnais mais pas l'autre)
+2. Identifier les LACUNES REELLES (regles presentes dans un harnais mais pas l'autre, APRES verification du contenu)
 3. Identifier les AMELIORATIONS potentielles (patterns qui marchent d'un cote mais pas de l'autre)
 4. Verifier que les guard rails sont coherents (memes contraintes des deux cotes)
 
 Rapporter :
 - Tableau des incoherences trouvees (severity: CRITICAL/WARNING/INFO)
-- Tableau des lacunes
+- Tableau des lacunes VERIFIEES (avec preuve que le sujet n'est couvert nulle part)
 - 3-5 recommandations priorisees
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 ### Etape 3 : Ecrire le rapport dans META-INTERCOM
