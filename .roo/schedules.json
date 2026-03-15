@@ -1,10 +1,10 @@
 {
   "schedules": [
     {
-      "id": "1770843427038",
+      "id": "1770845886639",
       "name": "Claude-Code Assistant",
       "mode": "orchestrator-simple",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2025.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-simple via new_task pour lire le fichier `.roo/scheduler-workflow-executor.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2025.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-po-2025.md` - delegue sa lecture a ask-simple.\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2023.\n\nPREMIERE ACTION OBLIGATOIRE : Lis le fichier `.roo/scheduler-workflow-executor.md` avec l'outil read_file.\nCe fichier contient le workflow complet que tu dois suivre.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2023.\n\nRAPPELS CRITIQUES :\n- NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via new_task.\n- L'INTERCOM local est `.claude/local/INTERCOM-myia-po-2023.md`\n- Les regles de delegation et d'escalade sont dans le fichier workflow.",
       "scheduleType": "time",
       "timeInterval": "360",
       "timeUnit": "minute",
@@ -27,16 +27,16 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "nextExecutionTime": "2026-03-15T21:30:00.123Z",
-      "lastExecutionTime": "2026-03-15T15:30:07.123Z",
-      "lastTaskId": "019cf21e-708b-73a5-abc9-ddc0a6644eb5",
-      "lastSkippedTime": "2026-03-15T14:30:00.266Z"
+      "nextExecutionTime": "2026-03-15T21:30:00.007Z",
+      "lastExecutionTime": "2026-03-14T11:30:14.719Z",
+      "lastTaskId": "019cec1c-7837-75ca-942f-0b452b769964",
+      "lastSkippedTime": "2026-03-15T15:30:00.007Z"
     },
     {
-      "id": "1710843427045",
+      "id": "1770845886640",
       "name": "Meta-Analyste",
       "mode": "orchestrator-complex",
-      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2025 en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2025.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-myia-po-2025.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
+      "taskInstructions": "Tu es lance par le planificateur automatique sur la machine myia-po-2023 en tant que META-ANALYSTE.\n\nPREMIERE ACTION OBLIGATOIRE : Delegue a ask-complex via new_task pour lire le fichier `.roo/scheduler-workflow-meta-analyst.md` et te retourner son contenu dans un resume. ATTENTION: Tu n'as PAS acces a read_file (mode orchestrator aveugle).\n\nUne fois le workflow recu, suis les instructions qu'il contient.\nPartout ou tu vois {MACHINE} dans le workflow, remplace par myia-po-2023.\n\nRAPPELS CRITIQUES :\n- Tu es ORCHESTRATEUR: tu NE fais RIEN toi-meme. TOUJOURS deleguer via new_task.\n- Le META-INTERCOM est `.claude/local/META-INTERCOM-myia-po-2023.md` (PAS l'INTERCOM operationnel).\n- Tu analyses les DEUX harnais (Roo et Claude) sans les modifier.\n- Toute recommandation actionnable = issue GitHub avec label `needs-approval`.",
       "scheduleType": "time",
       "timeInterval": "4320",
       "timeUnit": "minute",
@@ -51,7 +51,7 @@
       },
       "startDate": "",
       "startHour": "",
-      "startMinute": "45",
+      "startMinute": "25",
       "expirationDate": "",
       "expirationHour": "00",
       "expirationMinute": "00",
@@ -59,9 +59,9 @@
       "active": true,
       "taskInteraction": "skip",
       "inactivityDelay": "10",
-      "nextExecutionTime": "2026-03-15T15:45:00.000Z",
-      "lastExecutionTime": "2026-03-14T17:45:04.011Z",
-      "lastTaskId": "019ced73-a107-707f-bae9-78523cebf7f8"
+      "nextExecutionTime": "2026-03-18T15:25:00.947Z",
+      "lastExecutionTime": "2026-03-15T15:25:01.947Z",
+      "lastTaskId": "019cf219-c869-7640-8ef5-910d83d3ac30"
     }
   ]
 }
