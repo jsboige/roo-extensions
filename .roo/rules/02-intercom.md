@@ -181,6 +181,70 @@ Cannot read properties of undefined (reading 'filter')
 
 ---
 
+## META-INTERCOM - Coordination Cross-Machines
+
+### Fichier
+
+```
+.claude/local/META-INTERCOM-{MACHINE}.md
+```
+
+Exemples :
+- `.claude/local/META-INTERCOM-myia-ai-01.md`
+- `.claude/local/META-INTERCOM-myia-po-2023.md`
+
+### Distinction INTERCOM vs META-INTERCOM
+
+| Canal | Portée | Usage |
+|-------|--------|-------|
+| **INTERCOM** | Locale (même machine, même workspace) | Communication Roo ↔ Claude Code opérationnel |
+| **META-INTERCOM** | Cross-machines | Rapports meta-analyst, frictions système, coordination globale |
+
+### Quand écrire dans META-INTERCOM
+
+1. **Rapports meta-analyst** (cycle 72h)
+   - Analyse des traces scheduler (Roo + Claude)
+   - Métriques de succès/échec par mode
+   - Recommandations d'escalade
+
+2. **Frictions système découvertes**
+   - Problèmes d'infrastructure (services down, configs drift)
+   - Patterns d'erreur récurrents
+   - Propositions d'amélioration du harnais
+
+3. **Coordination cross-machines**
+   - Information qui concerne plusieurs machines
+   - Décisions architecturales locales avec impact global
+   - Demandes de consultation d'autres meta-analysts
+
+### Format
+
+Même structure que INTERCOM :
+
+```markdown
+## [YYYY-MM-DD HH:MM:SS] sender → receiver [TYPE]
+
+### Titre optionnel
+
+Contenu du message...
+
+---
+```
+
+**Types courants :** `META-ANALYSIS`, `FRICTION-FOUND`, `CONSULT`, `RECOMMENDATION`
+
+### Qui lit META-INTERCOM
+
+- **Meta-analyst Roo** (cycle 72h)
+- **Meta-analyst Claude** (cycle 72h)
+- **Coordinateur** (myia-ai-01) pour suivi des frictions
+
+### Règle d'écriture
+
+**Même règle que INTERCOM** : TOUJOURS ajouter à la fin du fichier (ordre chronologique).
+
+---
+
 ## Règles de Lecture
 
 ### En Début de Session
