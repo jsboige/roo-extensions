@@ -157,7 +157,7 @@ Contient les scripts pour la configuration initiale de l'environnement d'un dév
 ### `/scripts/testing/`
 Héberge les scripts liés à l'exécution des tests.
 
-*   `run-tests.ps1`: Point d'entrée pour lancer la suite de tests du projet.
+*   `run-pester-tests.ps1`: Point d'entrée pour lancer les tests Pester du projet.
 *   `unit/deploy-modes.Tests.ps1`: Tests unitaires pour le script de déploiement des modes.
 
 ### `/scripts/repair/`

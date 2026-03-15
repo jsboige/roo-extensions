@@ -18,10 +18,12 @@ Les fichiers suivants ont été déplacés vers ce dossier car ils contiennent d
 
 ### Audit
 
-| Fichier | Raison | Date d'archivage |
-|---------|--------|------------------|
-| `INVESTIGATION_SUMMARY_572.md` | Investigation #572 closeée | 2026-03-14 |
-| `VSCODE_LOGS_AUDIT_2026-03-06.md` | Audit logs VSCode (2026-03-06) - marqué deprecated | 2026-03-14 |
+*Note : Les audits ont été déplacés vers `docs/audit/archive/` pour meilleure organisation (2026-03-14).*
+
+| Fichier                    | Destination               | Date de déplacement |
+|----------------------------|---------------------------|---------------------|
+| `INVESTIGATION_SUMMARY_572.md` | `docs/audit/archive/` | 2026-03-14 |
+| `VSCODE_LOGS_AUDIT_2026-03-06.md` | `docs/audit/archive/` | 2026-03-14 |
 
 ### Deployment
 
@@ -66,7 +68,7 @@ Les fichiers suivants contiennent des références à v2.1 mais sont toujours pe
 
 - [ ] Revoir périodiquement si des documents archivés peuvent être supprimés définitivement
 - [ ] Mettre à jour les références croisées dans la documentation active
-- [ ] Consolider les audits dans `docs/audit/archive/`
+- [x] ~~Consolider les audits dans `docs/audit/archive/`~~ **TERMINÉ 2026-03-14**
 
 ---
 
