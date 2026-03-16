@@ -48,7 +48,14 @@ Documente tes decisions architecturales pour la tracabilite.
 
 {{COMPLEX_ESCALATION}}
 {{/if}}
-{{#if WIN_CLI_FALLBACK}}
+{{#if BOTH_TERMINALS}}
+Pour executer des commandes shell, tu as DEUX options :
+- **Terminal natif** (execute_command) : Pour la plupart des commandes shell
+- **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les fonctionnalités SSH (ssh_execute, ssh_disconnect, etc.)
+
+Le MCP win-cli fournit des outils SSH que le terminal natif n'a pas.
+{{/if}}
+{{#if ONLY_WIN_CLI}}
 Pour executer des commandes shell, utilise UNIQUEMENT le MCP win-cli (outil use_mcp_tool, server_name="win-cli", tool_name="execute_command") :
 - PowerShell : execute_command avec shell="powershell" (pour npm, npx, git, gh, scripts PS)
 - GitBash : execute_command avec shell="gitbash" (pour commandes Unix/bash)

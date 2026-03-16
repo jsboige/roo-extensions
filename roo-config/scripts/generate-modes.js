@@ -213,7 +213,16 @@ function main() {
       var groupNames = effectiveGroups.map(function(g) { return Array.isArray(g) ? g[0] : g; });
       var hasCommand = groupNames.indexOf('command') >= 0;
       var hasEdit = groupNames.indexOf('edit') >= 0;
-      var hasWinCli = levelDef.useWinCli === true && !hasCommand;
+      // #725: code and debug families always have win-cli (even with native command group)
+      // This provides SSH tools that native terminal doesn't have
+      var winCliFamilies = ['code', 'debug'];
+      var familyUsesWinCli = winCliFamilies.indexOf(family) >= 0 && levelDef.useWinCli !== false;
+      var hasWinCli = familyUsesWinCli || (levelDef.useWinCli === true && !hasCommand);
+
+      // #725: BOTH_TERMINALS = mode has both native terminal AND win-cli (for SSH tools)
+      var bothTerminals = hasCommand && hasWinCli;
+      // #725: ONLY_WIN_CLI = mode has win-cli ONLY (no native terminal)
+      var onlyWinCli = hasWinCli && !hasCommand;
 
       var vars = {
         FAMILY: family,
@@ -224,6 +233,8 @@ function main() {
         // NO_COMMAND: only show redirect message for pure-delegate modes (no win-cli)
         NO_COMMAND: !hasCommand && !hasWinCli,
         WIN_CLI_FALLBACK: hasWinCli,
+        ONLY_WIN_CLI: onlyWinCli,
+        BOTH_TERMINALS: bothTerminals,
         NO_EDIT: !hasEdit,
         ESCALATION_CRITERIA: levelDef.escalationCriteria || [],
         DEESCALATION_CRITERIA: levelDef.deescalationCriteria || [],
