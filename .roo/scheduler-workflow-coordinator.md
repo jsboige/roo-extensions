@@ -256,18 +256,47 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **3. Si messages RooSync recents (< 6h) → signaler dans INTERCOM avec `[WAKE-CLAUDE]`**
 
-**4. Chercher une tache sur GitHub (si du temps reste)**
+**4. Chercher et dispatcher les issues roo-schedulable (OBLIGATOIRE)**
 
 ```
 Utilise win-cli MCP :
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels")
-Filtrer les issues avec label 'roo-schedulable'.
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 30 --label roo-schedulable --json number,title,labels")
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-Si une issue est trouvee : la lire, commenter pour claim, et executer si faisable en `-simple`.
+**5. Dispatcher les issues non assignees via GitHub comments**
 
-Si aucune issue : aller a **Etape 2c-idle** (Veille Active).
+Pour chaque issue trouvee (max 10) :
+
+a. Verifier si deja dispatchee :
+```
+execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body | select(test(\"\\[DISPATCH\\]\"))] | length'")
+```
+
+b. Si NON dispatchee (resultat = 0), determiner la machine cible via le champ Machine du Project #67 :
+```
+execute_command(shell="powershell", command="gh api graphql -f query='{ repository(owner: \"jsboige\", name: \"roo-extensions\") { issue(number: {NUM}) { projectItems(first: 5) { nodes { fieldValues(first: 10) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } } } } }' --jq '.data.repository.issue.projectItems.nodes[0].fieldValues.nodes[] | select(.field.name==\"Machine\") | .name'")
+```
+
+c. Commenter pour dispatcher (avec la machine trouvee) :
+```
+execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboige/roo-extensions --body '[DISPATCH] {MACHINE_CIBLE}. Priority: normal. Labels: {labels}. Execute this issue per its description.'")
+```
+
+**Regles de dispatch :**
+- Si Machine = une machine specifique (myia-po-2023, etc.) → dispatcher a cette machine
+- Si Machine = `All` → dispatcher avec `[DISPATCH] All` (tout executeur peut claimer)
+- Si Machine = `Any` → dispatcher avec `[DISPATCH] Any` (tout executeur peut claimer)
+- Si Machine non defini → dispatcher avec `[DISPATCH] Any`
+- NE PAS dispatcher les issues avec label `claude-only` (reservees a Claude Code interactif)
+- NE PAS re-dispatcher une issue deja claimee (commentaire `[CLAIMED]` existant)
+
+**6. Executer une issue si faisable (optionnel, si du temps reste)**
+
+Si une issue est dispatchee a `myia-ai-01` ou a `All`/`Any` et non encore claimee :
+la lire, commenter `[CLAIMED] by myia-ai-01`, et executer si faisable en `-simple`.
+
+Si aucune issue a executer : aller a **Etape 2c-idle** (Veille Active).
 
 ### Etape 2c-idle : Veille Active (si aucune tache trouvee)
 
