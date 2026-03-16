@@ -188,16 +188,38 @@ Rapporter : build OK/FAIL + nombre tests pass/fail.
 
 > **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1`
 
-### 2b-2 : GitHub Issues
+### 2b-2 : GitHub Issues (dispatch-aware)
+
+**Etape A — Lister les issues roo-schedulable :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 10 --json number,title,labels --jq '.[] | select(.labels[]?.name == \"roo-schedulable\") | \"\\(.number)\\t\\(.title)\"'")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 30 --label roo-schedulable --json number,title,labels")
 ```
 
-Si issue trouvée :
-1. **Vérifier les labels** : si `enhancement` ou `feature` → **DELEGUER À `code-complex`**
-2. Sinon → utiliser `code-simple`
-3. Commenter pour claim et résultat
+**Etape B — Selectionner une issue (ordre de priorite) :**
+
+Pour les 5 premieres issues de la liste, verifier les derniers commentaires :
+```
+execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body] | join(\"\\n---\\n\")'")
+```
+
+**Priorite de selection :**
+1. **Issue dispatchee a cette machine** : commentaire contenant `[DISPATCH] {MACHINE}` → executer en priorite
+2. **Issue dispatchee a `All` ou `Any`** : commentaire `[DISPATCH] All` ou `[DISPATCH] Any` → disponible
+3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` → claimer et executer
+4. **Issue claimee par une autre machine** : commentaire `[CLAIMED] by {AUTRE_MACHINE}` → PASSER, ne pas executer
+
+Si une issue est trouvee :
+1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
+2. **VERIFIER LES LABELS** avant de choisir le mode d'execution :
+   - Si labels contiennent `enhancement` ou `feature` : **DELEGUER A `code-complex`** (pas code-simple)
+   - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
+   - Sinon : utiliser `code-simple` pour taches simples (doc, tests, validation)
+3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
+4. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
+5. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[RESULT] {MACHINE}: {PASS/FAIL}. Mode: {simple/complex}. Commit: {hash-si-applicable}.\"")
+
+**IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
 > ⚠️ **TOUJOURS CONTINUER** vers **Étape 2b-review** puis **Étape 2c-idle**
 
