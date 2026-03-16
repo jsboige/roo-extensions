@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-15
-**Version:** 5.5 (Nouveau section: Fichiers Racine docs/ avec 5 fichiers de référence)
+**Derniere mise a jour:** 2026-03-16
+**Version:** 5.6 (Ajout synthèse git Q4-Q1 dans archive)
 
 ---
 
@@ -284,8 +284,10 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 - [archive/](archive/) - Contenu historique et obsolete
   - GPU specs myia-po-2023
-  - [archive/git-history/](archive/git-history/) - Operations Git (Oct 2025)
-    - [GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese unique (stashes, merges, reconciliations)
+  - [archive/git-history/](archive/git-history/) - Operations Git
+    - [GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
+    - [GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
+    - [detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles par operation
   - Note: Guides MCP, encodage, deployment consolides dans guides/ et dev/encoding/
 
 ---
@@ -300,5 +302,5 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 **Consolide par:** myia-po-2024
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-03-12 (v5.4 - Nouveaux repertoires: analysis, audit, evaluation, services, testing + git-history synthese)
-**Precedent:** v5.3 (Scheduler Claude Code operational + scripts links par myia-po-2023)
+**Derniere MAJ:** 2026-03-16 (v5.6 - Ajout synthese git Q4-Q1 complete)
+**Precedent:** v5.5 (Fichiers racine docs/ avec 5 fichiers de référence)
