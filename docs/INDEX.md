@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
 **Derniere mise a jour:** 2026-03-17
-**Version:** 5.6 (Ajout synthèse git Q4-Q1 + docs/harness/ + rapports cross-analyse)
+**Version:** 5.7 (Ajout synthèse git Q4-Q1 + docs/harness/ + Fix 11 liens cassés)
 
 ---
 
@@ -81,7 +81,7 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 - [ARCHITECTURE_2_NIVEAUX.md](architecture/ARCHITECTURE_2_NIVEAUX.md) - Architecture 2 niveaux
 - [DATA_STORAGE_POLICY.md](architecture/DATA_STORAGE_POLICY.md) - Politique de stockage
 - [scheduling-claude-code.md](architecture/scheduling-claude-code.md) - Investigation scheduling (fév 2026)
-- [scheduler-claude-code.md](architecture/scheduler-claude-code.md) - **NOUVEAU** Architecture scheduler implémenté (fév 2026)
+- [scheduler-claude-code-design.md](architecture/scheduler-claude-code-design.md) - **NOUVEAU** Architecture scheduler implémenté (fév 2026)
 
 ### Roo State Manager
 - [roo-state-manager-architecture.md](architecture/roo-state-manager-architecture.md) - Architecture
@@ -90,8 +90,7 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 ### RooSync Architecture
 - [roosync-real-diff-detection-design.md](architecture/roosync-real-diff-detection-design.md) - Detection de differences
-- [roosync-temporal-messages-architecture.md](architecture/roosync-temporal-messages-architecture.md) - Messages temporels
-- [roosync-v1-vs-v2-gap-analysis.md](architecture/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2
+- [roosync-v1-vs-v2-gap-analysis.md](archive/obsolete/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2 (archivé)
 
 ### Analyses Recentes
 - [ROO_TASK_FORENSICS_2026-02-08.md](architecture/ROO_TASK_FORENSICS_2026-02-08.md) - Forensics taches
@@ -110,9 +109,7 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 ## Audit
 
-- [INVESTIGATION_SUMMARY_572.md](audit/INVESTIGATION_SUMMARY_572.md) - Synthese investigation #572
 - [REMEDIATION_STEPS_572.md](audit/REMEDIATION_STEPS_572.md) - Etapes remediation #572
-- [VSCODE_LOGS_AUDIT_2026-03-06.md](audit/VSCODE_LOGS_AUDIT_2026-03-06.md) - Audit logs VS Code
 
 ---
 
@@ -126,7 +123,6 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 ### Installation et Configuration
 - [MCPs-INSTALLATION-GUIDE.md](guides/MCPs-INSTALLATION-GUIDE.md) - Guide d'installation MCPs
-- [ENVIRONMENT-SETUP-SYNTHESIS.md](guides/ENVIRONMENT-SETUP-SYNTHESIS.md) - Configuration d'environnement
 - [guide-utilisation-mcps.md](guides/guide-utilisation-mcps.md) - Utilisation des MCPs
 - [guide-utilisation-mcp-jupyter.md](guides/guide-utilisation-mcp-jupyter.md) - MCP Jupyter
 
@@ -170,10 +166,9 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ### Maintenance
 - [dev/maintenance/](dev/maintenance/) - Guide hooks git
 
-### Refactoring (4 docs actifs + archives)
+### Refactoring (3 docs actifs + archives)
 - [dev/refactoring/01-cleanup-plan.md](dev/refactoring/01-cleanup-plan.md) - Plan cleanup
 - [dev/refactoring/02-phase1-completion-report.md](dev/refactoring/02-phase1-completion-report.md) - Rapport phase 1
-- [dev/refactoring/04-mission-final-report.md](dev/refactoring/04-mission-final-report.md) - Rapport final
 - [dev/refactoring/COMPLEXITY-REFACTORING-REPORT.md](dev/refactoring/COMPLEXITY-REFACTORING-REPORT.md) - Rapport complexite
 
 ### Testing (3 docs actifs + archives)
@@ -191,7 +186,6 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 ### RooSync Multi-Agent (actif)
 - **$ROOSYNC_SHARED_PATH/DASHBOARD.md** - Dashboard hiérarchique (nouveau format #546)
-- [suivi/RooSync/BUGS_TRACKING.md](suivi/RooSync/BUGS_TRACKING.md) - Suivi des bugs
 - [suivi/RooSync/INDEX.md](suivi/RooSync/INDEX.md) - Index RooSync
 
 ### Project
@@ -224,7 +218,6 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ## Deployment
 
 - [deployment/GPU_SPECS_MULTI_MACHINE.md](deployment/GPU_SPECS_MULTI_MACHINE.md) - Specs GPU multi-machine
-- [deployment/DEPLOY-ALWAYSALLOW.md](deployment/DEPLOY-ALWAYSALLOW.md) - Deploiement alwaysAllow MCP
 - [deployment/DEPLOY-SCHEDULED-ROO.md](deployment/DEPLOY-SCHEDULED-ROO.md) - Deploiement taches planifiees Roo
 - [deployment/scheduler-issues-fixes.md](deployment/scheduler-issues-fixes.md) - Fixes scheduler
 - [deployment/scheduler-modes-deployment-guide.md](deployment/scheduler-modes-deployment-guide.md) - Guide deploiement modes scheduler
@@ -277,8 +270,6 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 ## Roo Code
 
-- [roo-code/README.md](roo-code/README.md) - Documentation Roo Code
-- [roo-code/pr-tracking/](roo-code/pr-tracking/) - PR tracking (context condensation)
 - [roo-code/architecture/](roo-code/architecture/) - Architecture Roo Code
 - [roo-code/adr/](roo-code/adr/) - Architecture Decision Records
 - [roo-code/contributing/](roo-code/contributing/) - Guides de contribution
