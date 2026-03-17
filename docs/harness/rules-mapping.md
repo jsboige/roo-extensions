@@ -1,6 +1,6 @@
 # Rules Mapping - Roo vs Claude Code Harness
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Created:** 2026-03-16
 **Updated:** 2026-03-17
 **Issue:** #721 - Ventilation correcte des règles entre harnais Roo et Claude
@@ -63,6 +63,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `scheduled-coordinator.md` | Coordinator tier protocol | (Roo equivalent: `15-coordinator-responsibilities.md`) |
 | `scheduler-densification.md` | Scheduler cycle filling | (Roo equivalent in workflow files) |
 | `scheduler-system.md` | Roo scheduler architecture reference | Claude describes it, Roo IS it |
+| `validation-checklist.md` | Mandatory checklist before consolidation/refactoring | Claude-specific enforcement rule |
 
 ---
 
@@ -213,9 +214,9 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 | Category | Count |
 |----------|-------|
 | **Total Roo Rules** | 22 |
-| **Total Claude Rules** | 23 |
+| **Total Claude Rules** | 26 |
 | **Direct Equivalences** | 18 |
-| **Claude-Only Rules** | 8 |
+| **Claude-Only Rules** | 9 |
 | **Roo-Only Rules** | 3 |
 | **Alignment Rate** | 82% |
 
@@ -230,5 +231,5 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 
 ---
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-17
 **Maintainer:** RooSync Multi-Agent System
