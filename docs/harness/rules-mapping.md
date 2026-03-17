@@ -41,7 +41,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `18-meta-analysis.md` | `meta-analysis.md` | ✅ Aligned | Meta-analyst tier protocol |
 | `github-cli.md` | `github-cli.md` | ✅ Identical | GitHub CLI commands and GraphQL |
 | `skepticism-protocol.md` | `skepticism-protocol.md` | ✅ Identical | Anti-propagation of errors |
-| `testing.md` | `testing.md` | ✅ Identical | Test command reference |
+| `testing.md` | `test-success-rates.md` | ✅ Aligned | Test commands + success rates (Claude's `testing.md` merged into `test-success-rates.md`) |
 | `validation.md` | `validation.md` | ✅ Aligned | Validation rules |
 
 ---
@@ -63,7 +63,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `scheduled-coordinator.md` | Coordinator tier protocol | (Roo equivalent: `15-coordinator-responsibilities.md`) |
 | `scheduler-densification.md` | Scheduler cycle filling | (Roo equivalent in workflow files) |
 | `scheduler-system.md` | Roo scheduler architecture reference | Claude describes it, Roo IS it |
-| `validation-checklist.md` | Mandatory checklist before consolidation/refactoring | Claude-specific enforcement rule |
+| ~~`validation-checklist.md`~~ | ~~Merged into `validation.md`~~ | Deleted 2026-03-17 (superseded by `validation.md` #724) |
 
 ---
 
@@ -117,7 +117,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 
 | Aspect | Roo | Claude |
 |--------|-----|--------|
-| **Pre-commit** | Workflow checks | `validation.md` + `validation-checklist.md` |
+| **Pre-commit** | Workflow checks | `validation.md` |
 | **CI validation** | N/A (doesn't push) | `ci-guardrails.md` mandatory |
 | **Test command** | `npx vitest run` | `npx vitest run` (same) |
 
@@ -162,7 +162,7 @@ Roo META-INTERCOM     ←→  Claude META-INTERCOM (same file)
 ### Validation & Testing
 
 ```
-Roo testing.md        ←→  Claude testing.md (identical)
+Roo testing.md        ←→  Claude test-success-rates.md (merged)
 Roo validation-*.md   ←→  Claude validation*.md (identical)
 Roo skepticism-*.md   ←→  Claude skepticism-protocol.md (identical)
 ```
@@ -214,9 +214,9 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 | Category | Count |
 |----------|-------|
 | **Total Roo Rules** | 22 |
-| **Total Claude Rules** | 26 |
+| **Total Claude Rules** | 24 |
 | **Direct Equivalences** | 18 |
-| **Claude-Only Rules** | 9 |
+| **Claude-Only Rules** | 7 |
 | **Roo-Only Rules** | 3 |
 | **Alignment Rate** | 82% |
 
