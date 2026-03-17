@@ -123,9 +123,9 @@ HARNAIS CLAUDE (lis TOUS les fichiers de .claude/rules/ avec read_file) :
 - .claude/rules/scheduler-system.md
 - .claude/rules/sddd-conversational-grounding.md
 - .claude/rules/skepticism-protocol.md
-- .claude/rules/testing.md
+- .claude/rules/test-success-rates.md
 - .claude/rules/tool-availability.md
-- .claude/rules/validation-checklist.md
+- .claude/rules/validation.md
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :
