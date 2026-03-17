@@ -311,7 +311,7 @@ Message à ajouter :
 
 ## Chaîne d'escalade
 
-`code-simple` → `code-complex` → `orchestrator-complex` → Claude Code (via `[ESCALADE-CLAUDE]`)
+`code-simple` → `code-complex` → **Claude Code CLI** (via `[ESCALADE-CLAUDE]`)
 
 **Escalade OBLIGATOIRE vers `code-complex` pour :**
 - Issue GitHub avec label `enhancement` ou `feature`
@@ -324,3 +324,27 @@ Message à ajouter :
 - **1 seul échec en `-simple`** → escalade IMMEDIATE vers `-complex`
 - Ne PAS retenter en `-simple`
 - Écrire `[INCIDENT-SIMPLE]` dans INTERCOM
+- **1 seul échec en `-complex`** → escalade IMMEDIATE vers Claude Code CLI
+- Ne PAS retenter en `-complex`
+- Écrire `[INCIDENT-COMPLEX]` dans INTERCOM
+
+### Escalade vers Claude Code CLI (nouveau)
+
+Quand un mode `-complex` échoue sur une tâche, le scheduler peut demander l'aide de Claude Code via la CLI `claude`. C'est un modèle plus puissant (Opus/Sonnet) capable de résoudre des problèmes architecturaux complexes.
+
+**Déclencheur :** 1 échec en mode `-complex` (quel que soit le type : code-complex, debug-complex)
+
+**Procédure :**
+1. Écrire dans INTERCOM : `[ESCALADE-CLAUDE] Tâche {description}. Échec en {mode}. Erreur: {résumé}.`
+2. Déléguer à `code-complex` pour exécuter la commande CLI :
+```
+execute_command(shell="powershell", command="claude -p 'Résoudre cette tâche: {DESCRIPTION}. Contexte: {ERREUR}. Fichiers concernés: {FICHIERS}. Exécuter le fix et rapporter le résultat.' --max-turns 10 --model sonnet")
+```
+3. Si Claude CLI résout → commenter l'issue GitHub avec `[RESULT] {MACHINE}: PASS (escalade Claude CLI). Commit: {hash}.`
+4. Si Claude CLI échoue aussi → commenter `[RESULT] {MACHINE}: FAIL (escalade Claude CLI). Nécessite intervention manuelle.` et écrire `[ERROR]` dans INTERCOM.
+
+**Garde-fous :**
+- Maximum **2 escalades Claude CLI par session** scheduler (éviter les coûts excessifs)
+- Préférer `--model sonnet` (économique). Utiliser `--model opus` uniquement si sonnet échoue
+- Timeout : `--max-turns 10` pour limiter la durée
+- Documenter CHAQUE escalade dans INTERCOM avec le résultat
