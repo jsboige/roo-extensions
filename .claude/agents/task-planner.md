@@ -39,6 +39,27 @@ Tu es l'agent specialise pour la planification et ventilation des taches multi-a
 2. Identifier : accomplissements, blocages, demandes
 3. Croiser avec le statut GitHub
 
+### 2.5. Vérification anti-duplication (OBLIGATOIRE avant ventilation)
+
+**Avant d'assigner une tâche, vérifier qu'elle n'a pas déjà été faite :**
+
+```
+# Chercher le travail similaire dans l'historique des tâches Roo/Claude
+roosync_search(
+  action: "semantic",
+  search_query: "{titre ou concept de la tâche}",
+  max_results: 5
+)
+```
+
+Si un résultat montre que la tâche (ou quelque chose de très similaire) a déjà été accomplie :
+1. **Ne pas réassigner** — marquer comme "déjà fait"
+2. **Vérifier dans git** : `git log --oneline --grep="{sujet}"` pour confirmer le commit
+3. **Fermer l'issue** si elle est obsolète, ou ajouter un commentaire expliquant la duplication
+4. **Choisir une tâche différente** à la place
+
+**Critère :** Un score sémantique > 0.75 + description concordante = probable duplication.
+
 ### 3. Ventilation équilibrée
 Pour chaque machine active :
 - **1 tâche Roo** (technique)
@@ -49,6 +70,7 @@ Critères de ventilation :
 - Respecter les dépendances
 - Prioriser les tâches bloquantes
 - Éviter les conflits (2 agents sur même fichier)
+- **Éviter les duplications** (vérification anti-duplication étape 2.5)
 
 ### 4. Proposition d'actions
 Pour chaque machine, proposer :

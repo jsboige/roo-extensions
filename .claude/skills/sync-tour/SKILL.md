@@ -176,6 +176,70 @@ Arreter le sync-tour immediatement :
 
 ---
 
+## Phase 1.6 : Détection Frictions (#637)
+
+**Objectif :** Identifier les patterns d'erreurs récurrents dans les traces Roo et Claude via recherche sémantique.
+
+**Quand l'exécuter :** Toujours (prend < 30 secondes). Les résultats alimentent Phase 5 (GitHub updates) et Phase 6 (planification).
+
+### Actions
+
+```
+roosync_search(
+  action: "semantic",
+  search_query: "impossible bloque erreur echec fail permission denied",
+  has_errors: true,
+  start_date: "{72h ago}",
+  max_results: 10
+)
+```
+
+### Analyse des résultats
+
+Pour chaque résultat retourné :
+1. Identifier le `tool_name` (outil fautif)
+2. Identifier le `source` (roo ou claude-code)
+3. Identifier le `model` (modèle spécifique si pertinent)
+4. Compter les occurrences par outil/type
+
+**Seuil d'action :** Pattern ≥ 2 occurrences → candidat friction à signaler
+
+### Requêtes complémentaires (optionnelles si frictions détectées)
+
+```
+# Historique outil spécifique (si un outil ressort souvent)
+roosync_search(action: "semantic", search_query: "erreur {NOM_OUTIL}", tool_name: "{NOM_OUTIL}", max_results: 5)
+
+# Messages utilisateurs uniquement (frustrations directes)
+roosync_search(action: "semantic", search_query: "bloque erreur", role: "user", exclude_tool_results: true, start_date: "{72h ago}", max_results: 5)
+```
+
+### Output attendu
+
+```
+## Phase 1.6 : Frictions Détectées
+
+### Résultats recherche (72h, has_errors=true)
+- X résultats trouvés
+
+### Patterns (≥ 2 occurrences)
+| Outil/Contexte | Occurrences | Source | Exemple |
+|----------------|-------------|--------|---------|
+| write_to_file  | 3           | roo    | "impossible de créer..." |
+| roosync_send   | 2           | both   | "timeout..." |
+
+### Actions recommandées
+- [ ] Créer issue friction pour [outil] si pattern confirmé (Phase 5)
+- [ ] Signaler au coordinateur si systémique (Phase 7)
+
+### Résumé
+- Frictions détectées : X | Patterns à signaler : Y
+```
+
+**Si aucune friction détectée :** Documenter "0 frictions (72h)" et continuer Phase 2.
+
+---
+
 ## Phase 2 : Synchronisation Git
 
 **Skill :** `git-sync` (voir `.claude/skills/git-sync/SKILL.md`)
