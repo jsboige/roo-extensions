@@ -66,6 +66,19 @@ Roo est PLUS LIBRE de critiquer le harnais Claude que le sien propre :
 - Taux d'utilisation machine (commits, messages RooSync)
 - Violations de garde-fous detectees dans les traces
 
+**5. Recherche semantique de frictions (#637)**
+
+Utiliser `roosync_search` avec filtres avances pour detecter les frictions recentes :
+
+```
+# Via win-cli MCP (Roo) :
+roosync_search(action: "semantic", search_query: "impossible bloque erreur fail", has_errors: true, start_date: "{72h ago}", max_results: 10)
+# Filtres utiles : tool_name (outil fautif), model (modele specifique), source ("roo" ou "claude-code")
+```
+
+- Patterns recurrents (≥ 2 occurrences) → candidats issues friction
+- Correlations outil + erreur → root cause probable
+
 ### Ce que Roo produit
 
 - **Docs d'analyse** sur GDrive (structures, horodates)

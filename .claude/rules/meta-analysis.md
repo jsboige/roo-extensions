@@ -51,6 +51,21 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Machine utilization
    - Guard rail violations
 
+5. **Semantic friction search (#637)** — Search for recent user frustrations using advanced filters:
+   ```
+   roosync_search(
+     action: "semantic",
+     search_query: "impossible bloque erreur echec fail permission",
+     has_errors: true,
+     start_date: "{72h ago}",
+     max_results: 10
+   )
+   ```
+   - Look for `has_errors: true` patterns in user messages
+   - Identify recurring tool failures (`tool_name` filter)
+   - Correlate with specific modes or models (`model` filter)
+   - Report patterns with ≥ 2 occurrences as friction candidates
+
 ### What Meta-Analysts Produce
 
 - **Analysis docs** on GDrive (structured, timestamped)
