@@ -113,9 +113,9 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 | [scheduler-densification.md](rules/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
 | [scheduler-system.md](rules/scheduler-system.md) | Référence technique scheduler |
 | [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding |
-| [testing.md](rules/testing.md) | Commandes test (`npx vitest run`) |
+| [test-success-rates.md](rules/test-success-rates.md) | Tests : commandes, taux de succes, machines |
 | [tool-availability.md](rules/tool-availability.md) | STOP & REPAIR protocole |
-| [validation-checklist.md](rules/validation-checklist.md) | Checklist consolidation/refactoring |
+| [validation.md](rules/validation.md) | Checklist validation technique (#724) |
 
 ---
 

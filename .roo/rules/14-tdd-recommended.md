@@ -60,4 +60,4 @@ npx vitest run
 
 ---
 
-**Référence :** [`.claude/rules/testing.md`](../../.claude/rules/testing.md)
+**Référence :** [`.claude/rules/test-success-rates.md`](../../.claude/rules/test-success-rates.md)

@@ -92,4 +92,4 @@ J'ai terminé CONS-X. Peux-tu vérifier que :
 
 - **Issue #724** : Création de cette règle pour Claude
 - **Équivalent Roo** : `.roo/rules/validation.md`
-- **Règle associée** : `.claude/rules/validation-checklist.md` (extrait de CLAUDE.md)
+- **Note** : Remplace l'ancien `validation-checklist.md` (supprime, contenu fusionne ici)

@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Derniere mise a jour:** 2026-03-03
+**Derniere mise a jour:** 2026-03-17
 
 ---
 
@@ -13,8 +13,8 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 **Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
 
 **Architecture :** Coordination bicephale
-- **Roo Code** → Taches techniques (scripts, tests, build)
-- **Claude Code** → Documentation, coordination, reporting
+- **Roo Code** → Taches techniques subalternes (scripts, tests, build, cleanup) + scheduler autonome
+- **Claude Code** → Implementation, coordination, code critique, documentation
 
 ---
 
@@ -39,9 +39,10 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 **Reference complete :** [`.claude/rules/agents-architecture.md`](.claude/rules/agents-architecture.md)
 
 **Essentiel :**
-- 12 subagents (communs + coordinateur + executants + workers)
+- 18 subagents projet (5 communs + 2 coordinateur + 11 workers) + 6 globaux (`~/.claude/agents/`)
 - 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
 - 4 commands (/coordinate, /executor, /switch-provider, /debrief)
+- 24 rules (`.claude/rules/`) — auto-chargees dans chaque conversation
 
 **Workflow :**
 1. Debut de session → "tour de sync" (9 phases)
@@ -387,7 +388,7 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 
 ### Checklist de Validation Technique
 
-**Reference complete :** [`.claude/rules/validation-checklist.md`](.claude/rules/validation-checklist.md)
+**Reference complete :** [`.claude/rules/validation.md`](.claude/rules/validation.md)
 
 ---
 
@@ -463,11 +464,11 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 3. **Ne JAMAIS modifier `.roomodes` ou `.roo/schedules.json` directement** (modifier sources + regenerer)
 4. **Validation checklist OBLIGATOIRE** pour consolidation/refactoring
 5. **Annoncer son travail** avant de commencer (anti-conflit)
-6. **STOP & REPAIR si outil critique absent** : Verifier win-cli + roo-state-manager au demarrage. Si absent → arreter, reparer, escalader. Voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
+6. **STOP & REPAIR si outil critique absent** : Verifier roo-state-manager (Claude Code) ou win-cli (Roo) au demarrage. Si absent → arreter, reparer, escalader. Voir [`.claude/rules/tool-availability.md`](.claude/rules/tool-availability.md)
 7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
 8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 
 ---
 
-**Derniere mise a jour :** 2026-03-04
+**Derniere mise a jour :** 2026-03-17
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01
