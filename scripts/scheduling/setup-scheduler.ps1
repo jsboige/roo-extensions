@@ -66,6 +66,26 @@ $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RepoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $machineName = ($env:COMPUTERNAME).ToLower()
 
+# --- Guard: Detect worktree installation (Issue #731) ---
+# Installing from a worktree hardcodes a temporary path into schtasks.
+# When the worktree is deleted, the scheduled task silently fails.
+if ($scriptDir -match '[/\\]\.claude[/\\]worktrees[/\\]') {
+    Write-Error @"
+ERROR: setup-scheduler.ps1 is being run from inside a worktree:
+  $scriptDir
+
+This will hardcode the worktree path into the scheduled task.
+When the worktree is deleted, the task will silently fail (see issue #731).
+
+SOLUTION: Run this script from the main repository:
+  cd D:\dev\roo-extensions\scripts\scheduling
+  .\setup-scheduler.ps1 -Action install
+
+Aborting.
+"@
+    exit 1
+}
+
 # --- Task Type Defaults ---
 $TaskConfigs = @{
     'worker' = @{
