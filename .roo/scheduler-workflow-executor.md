@@ -83,6 +83,16 @@ execute_command(shell="gitbash", command="... | tail -30")
 
 ---
 
+## Git Author (OBLIGATOIRE avant tout commit)
+
+**Tous les commits doivent utiliser le nom `jsboige`.** Avant tout `git commit`, executer :
+```
+execute_command(shell="gitbash", command="git config user.name 'jsboige' && git config user.email 'jsboige@hotmail.com'")
+```
+Ceci corrige le probleme des commits sous "Roo Extensions Dev" qui polluent l'historique git.
+
+---
+
 ## Rappels Critiques
 
 1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même

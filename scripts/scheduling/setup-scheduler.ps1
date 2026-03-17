@@ -93,7 +93,7 @@ $TaskConfigs = @{
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 6
         DefaultModel = "haiku"
-        DefaultTimeout = 15
+        DefaultTimeout = 30
         Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, starts with Haiku (cheapest) with auto-escalation to Sonnet then Opus. Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }

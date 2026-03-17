@@ -167,7 +167,23 @@ Evaluer :
 - Distribution des statuts (Todo / In Progress / Done)
 - Machines surchargees ou inactives
 
-### 4. Decisions et actions
+### 4. Review et merge des PRs Worker
+
+Verifie s'il y a des PRs [Worker] ouvertes :
+``````
+gh pr list --repo jsboige/roo-extensions --search "[Worker]" --state open --json number,title,createdAt
+``````
+
+Pour chaque PR Worker ouverte :
+- Lire le diff : `gh pr diff {number} --repo jsboige/roo-extensions`
+- Si la PR est petite (< 100 lignes) et le titre indique SUCCESS : merger avec `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch`
+- Si la PR est large ou indique "Partial (needs review)" : ajouter un commentaire de review
+- Si la PR date de plus de 48h sans activite : la fermer (travail obsolete)
+
+### 5. Decisions et dispatch
+
+**REGLE OBLIGATOIRE : Tu DOIS dispatcher au moins 1 tache par cycle si des issues Todo existent dans le Project #67.**
+"Aucun dispatch necessaire" n'est acceptable QUE si le Project #67 a 0 Todo ET 0 issue non-assignee.
 
 Selon l'analyse :
 
@@ -175,7 +191,8 @@ Selon l'analyse :
 |---------|--------|
 | Machine silencieuse >48h (CONFIRME) | Envoyer message RooSync URGENT |
 | Machine surchargee | Rebalancer vers machines inactives |
-| Issues non assignees | Dispatcher aux machines disponibles |
+| Issues Todo non assignees | **OBLIGATOIRE** : Dispatcher aux machines disponibles |
+| Aucune issue Todo | Dispatcher des taches idle (coverage, patrol, validation) |
 | Travail bloque | Escalader ou reassigner |
 
 Pour dispatcher, utilise roosync_send :
@@ -184,7 +201,20 @@ Pour dispatcher, utilise roosync_send :
 - subject: "[TASK] Description"
 - tags: ["coordinator", "dispatch"]
 
-### 5. Produire le rapport coordinateur
+Si aucune issue Todo n'existe, cree des taches de veille :
+- Coverage : "Lance npx vitest run --coverage et identifie les modules < 60%. Ecris 2-3 tests pour le module le plus faible."
+- Patrol : "Explore le codebase, identifie du code mort, des TODO, ou des tests manquants. Rapporte tes trouvailles."
+
+### 5b. Audit config via sk-agent (si disponible)
+
+Si des divergences de configuration ont ete detectees entre machines (via roosync_compare_config ou les rapports) :
+``````
+call_agent(agent: "critic", prompt: "Audit these configuration differences between machines: [details des diffs]. Identify which are intentional (machine-specific) vs accidental (drift). Rate severity: CRITICAL/WARNING/INFO.")
+``````
+Inclure le resultat dans le rapport coordinateur sous une section "Config Audit (sk-agent)".
+Si sk-agent n'est pas disponible, sauter cette etape sans bloquer.
+
+### 6. Produire le rapport coordinateur
 
 Ecrire le rapport dans le fichier GDrive (si accessible) :
 `.shared-state/coordinator/coordinator-report-$Today.md`
@@ -209,7 +239,7 @@ Format :
 - [Dispatches, rebalances, escalations]
 ``````
 
-### 6. Ecrire dans l'INTERCOM local
+### 7. Ecrire dans l'INTERCOM local
 
 OBLIGATOIRE en fin de cycle. Utilise l'outil Edit pour ajouter un message a la fin de `.claude/local/INTERCOM-$env:COMPUTERNAME.md` :
 

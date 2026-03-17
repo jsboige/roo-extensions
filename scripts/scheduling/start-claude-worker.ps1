@@ -1972,8 +1972,44 @@ try {
 
     if (-not $Task) {
         Write-Log "Aucune tâche disponible et aucun wait state prêt"
-        Write-Log "=== WORKER IDLE - Sortie propre ==="
-        exit 0
+
+        # --- Idle mode: coverage/patrol instead of doing nothing (#debrief-P3b) ---
+        Write-Log "Passage en mode IDLE : tache de couverture de code" "INFO"
+        $IdlePrompt = @"
+Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
+
+## Instructions
+
+1. Lance la commande de couverture :
+   cd mcps/internal/servers/roo-state-manager && npx vitest run --coverage 2>&1 | tail -100
+
+2. Identifie les 3 fichiers avec la couverture la plus faible (< 60% de lignes couvertes).
+
+3. Pour le fichier le PLUS faible, ecris 2-3 tests unitaires supplementaires dans le dossier __tests__ correspondant.
+
+4. Relance les tests pour verifier qu'ils passent :
+   npx vitest run
+
+5. Si les tests passent, commit avec le message :
+   test(coverage): Add tests for [module] - idle worker coverage improvement
+
+## Contraintes
+- NE MODIFIE PAS le code source (seulement les fichiers de test)
+- Si la couverture est deja > 80% partout, fais une exploration de veille : cherche des TODO, FIXME, ou du code mort et rapporte tes trouvailles dans un commentaire GitHub sur une issue existante.
+- Maximum 15 minutes de travail.
+
+=== AGENT STATUS ===
+STATUS: success
+REASON: [resume des tests ajoutes ou findings de veille]
+===================
+"@
+        $Task = @{
+            id = "idle-coverage-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+            subject = "[IDLE] Coverage improvement"
+            from = "self"
+            prompt = $IdlePrompt
+        }
     }
 
     # ==========================================================================
@@ -2085,6 +2121,28 @@ try {
                 $PrUrl = New-WorkerPR -Task $Task -WorktreePath $WorktreePath -Result $Result -FinalMode $SelectedMode
                 if ($PrUrl) {
                     Write-Log "PR created successfully: $PrUrl" "INFO"
+
+                    # Auto-merge if agent reported success (Issue #debrief-P1b)
+                    if ($Result.success) {
+                        Write-Log "Agent reported SUCCESS — attempting auto-merge..." "INFO"
+                        try {
+                            Push-Location $WorktreePath
+                            $MergeOutput = & gh pr merge $PrUrl --merge --repo jsboige/roo-extensions --delete-branch 2>&1
+                            $MergeExit = $LASTEXITCODE
+                            Pop-Location
+
+                            if ($MergeExit -eq 0) {
+                                Write-Log "PR auto-merged successfully" "INFO"
+                            } else {
+                                Write-Log "Auto-merge failed (needs manual review): $MergeOutput" "WARN"
+                            }
+                        } catch {
+                            Pop-Location -ErrorAction SilentlyContinue
+                            Write-Log "Auto-merge error: $_" "WARN"
+                        }
+                    } else {
+                        Write-Log "Agent reported non-success — PR left open for coordinator review" "INFO"
+                    }
                 } else {
                     Write-Log "PR creation failed, changes are on remote branch" "WARN"
                 }
