@@ -49,7 +49,7 @@ Copier les fichiers suivants depuis `roo-extensions/` :
 │   ├── git-sync/
 │   └── github-status/
 └── rules/
-    ├── testing.md
+    ├── test-success-rates.md
     └── github-cli.md
 
 .roo/

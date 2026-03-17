@@ -83,8 +83,8 @@ Si un test échoue → appliquer le protocole STOP & REPAIR (`tool-availability.
 
 **Références:**
 - `tool-availability.md` - STOP & REPAIR
-- `validation-checklist.md` - Validation code
-- `testing.md` - Commandes de test
+- `validation.md` - Validation code (remplace validation-checklist.md)
+- `test-success-rates.md` - Commandes de test (remplace testing.md)
 
 ---
 
