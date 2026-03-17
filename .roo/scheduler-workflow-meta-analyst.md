@@ -123,20 +123,28 @@ HARNAIS CLAUDE (lis TOUS les fichiers de .claude/rules/ avec read_file) :
 - .claude/rules/scheduler-system.md
 - .claude/rules/sddd-conversational-grounding.md
 - .claude/rules/skepticism-protocol.md
-- .claude/rules/testing.md
+- .claude/rules/test-success-rates.md
 - .claude/rules/tool-availability.md
-- .claude/rules/validation-checklist.md
+- .claude/rules/validation.md
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :
+0. LIS D'ABORD le fichier de mapping officiel :
+   read_file(path="docs/harness/rules-mapping.md")
+   Ce fichier contient la table d'equivalences verifiee entre .roo/rules/ et .claude/rules/.
+   Un mapping "✅ Aligned" signifie que la regle existe des DEUX cotes (noms differents).
 1. LIRE le CONTENU de TOUS les fichiers de l'autre harnais
 2. Verifier si le sujet n'est pas couvert sous un NOM DIFFERENT
-   Exemples de mappings existants :
-   - Roo "06-context-window" = Claude "condensation-thresholds"
-   - Roo "07-orchestrator-delegation" = Claude "delegation"
-   - Roo "08-file-writing" ≈ couvert dans Claude "validation-checklist"
-   - Roo "09-github-checklists" = Claude "github-checklists"
-   - Roo "10-ci-guardrails" = Claude "ci-guardrails"
+   Mappings officiels (voir docs/harness/rules-mapping.md pour la liste complete) :
+   - Roo "02-intercom.md" = Claude "intercom-protocol.md"
+   - Roo "03-mcp-usage.md" = Claude "mcp-discoverability.md"
+   - Roo "04-sddd-grounding.md" = Claude "sddd-conversational-grounding.md"
+   - Roo "06-context-window.md" = Claude "condensation-thresholds.md"
+   - Roo "09-github-checklists.md" = Claude "github-checklists.md"
+   - Roo "10-ci-guardrails.md" = Claude "ci-guardrails.md"
+   - Roo "15-coordinator-responsibilities.md" = Claude "scheduled-coordinator.md"
+   - Roo "17-friction-protocol.md" = Claude "friction-protocol.md"
+   - Roo "18-meta-analysis.md" = Claude "meta-analysis.md"
 3. NE JAMAIS creer d'issue pour une lacune sans avoir lu le contenu
    du fichier potentiellement equivalent
 4. Si un sujet est couvert mais avec un nom different, c'est une

@@ -1,7 +1,8 @@
 # Rules Mapping - Roo vs Claude Code Harness
 
-**Version:** 1.0.0
+**Version:** 1.2.0
 **Created:** 2026-03-16
+**Updated:** 2026-03-17
 **Issue:** #721 - Ventilation correcte des règles entre harnais Roo et Claude
 
 ---
@@ -16,31 +17,32 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 
 ## Direct Equivalences
 
+**Note:** Verified against actual files in `.roo/rules/` and `.claude/rules/` (2026-03-17).
+
 | Roo Rule | Claude Rule | Status | Notes |
 |----------|-------------|--------|-------|
 | `01-general.md` | (implicit in CLAUDE.md) | ✅ Aligned | General behavior guidelines |
 | `02-intercom.md` | `intercom-protocol.md` | ✅ Aligned | INTERCOM protocol (local communication) |
-| `03-roosync-messaging.md` | (via MCP tools) | ⚠️ Different | Roo uses file-based, Claude uses MCP `roosync_*` |
-| `04-delegation.md` | `delegation.md` | ✅ Aligned | Sub-agent delegation rules |
-| `05-testing.md` | `testing.md` | ✅ Aligned | Test commands (`npx vitest run`) |
-| `06-sddd-protocols.md` | `sddd-conversational-grounding.md` | ✅ Aligned | Triple grounding methodology |
-| `07-orchestrator-delegation.md` | (in CLAUDE.md) | ⚠️ Partial | Claude doesn't have orchestrator modes |
-| `08-context-window.md` | `condensation-thresholds.md` | ✅ Aligned | Context management thresholds |
-| `09-validation-checklist.md` | `validation.md`, `validation-checklist.md` | ✅ Aligned | Mandatory validation checklist |
-| `10-tool-discoverability.md` | `mcp-discoverability.md` | ✅ Aligned | MCP testing protocols |
+| `03-mcp-usage.md` | `mcp-discoverability.md` | ✅ Aligned | MCP usage & discoverability rules |
+| `04-sddd-grounding.md` | `sddd-conversational-grounding.md` | ✅ Aligned (Claude > Roo) | Triple grounding methodology — Claude version (381L) is more complete |
+| `05-tool-availability.md` | `tool-availability.md` | ✅ Aligned (Claude > Roo) | STOP & REPAIR protocol — Claude version more complete |
+| `06-context-window.md` | `condensation-thresholds.md` | ✅ Aligned | GLM 70% threshold guidance |
+| `07-orchestrator-delegation.md` | (in CLAUDE.md sections) | ⚠️ Roo-specific | Claude has no orchestrator modes; delegation described differently |
+| `08-file-writing.md` | N/A | ❌ Roo-only | Specific to Roo/Qwen `write_to_file` >200 lines limitation |
+| `09-github-checklists.md` | `github-checklists.md` | ✅ Aligned | GitHub checklist discipline |
+| `10-ci-guardrails.md` | `ci-guardrails.md` | ✅ Identical | CI validation before push |
 | `11-incident-history.md` | `incident-history.md` | ✅ Aligned | Incident documentation |
-| `12-feedback-process.md` | `feedback-process.md` | ✅ Aligned | Improvement proposal workflow |
-| `13-scheduled-coordinator.md` | `scheduled-coordinator.md` | ✅ Aligned | Coordinator tier protocol |
-| `14-meta-analysis.md` | `meta-analysis.md` | ✅ Aligned | Meta-analyst tier protocol |
-| `15-scheduler-densification.md` | `scheduler-densification.md` | ✅ Aligned | Filling scheduler cycles |
-| `16-scheduler-system.md` | `scheduler-system.md` | ✅ Aligned | Roo scheduler architecture |
+| `12-machine-constraints.md` | `myia-web1-constraints.md` | ⚠️ Partial | Roo documents all machines; Claude only web1 |
+| `13-test-success-rates.md` | `test-success-rates.md` | ✅ Aligned | Expected test success rates by machine (#720) |
+| `14-tdd-recommended.md` | N/A | ❌ Roo-only | TDD-first approach specific to Roo task execution |
+| `15-coordinator-responsibilities.md` | `scheduled-coordinator.md` | ✅ Aligned | Coordinator tier protocol |
+| `16-no-tools-warnings.md` | N/A | ❌ Roo-only | Specific to Roo tool availability warnings in UI |
 | `17-friction-protocol.md` | `friction-protocol.md` | ✅ Aligned | Friction reporting protocol |
-| `18-meta-analysis-actions.md` | (merged into meta-analysis.md) | ⚠️ Consolidated | Actions merged into main doc |
-| `testing.md` | `testing.md` | ✅ Aligned | Identical content |
-| `validation-checklist.md` | `validation-checklist.md` | ✅ Aligned | Identical content |
-| `skepticism-protocol.md` | `skepticism-protocol.md` | ✅ Aligned | Identical content |
-| `github-cli.md` | `github-cli.md` | ✅ Aligned | Identical content |
-| `context-window.md` | `condensation-thresholds.md` | ✅ Aligned | Same GLM threshold guidance |
+| `18-meta-analysis.md` | `meta-analysis.md` | ✅ Aligned | Meta-analyst tier protocol |
+| `github-cli.md` | `github-cli.md` | ✅ Identical | GitHub CLI commands and GraphQL |
+| `skepticism-protocol.md` | `skepticism-protocol.md` | ✅ Identical | Anti-propagation of errors |
+| `testing.md` | `test-success-rates.md` | ✅ Aligned | Test commands + success rates (Claude's `testing.md` merged into `test-success-rates.md`) |
+| `validation.md` | `validation.md` | ✅ Aligned | Validation rules |
 
 ---
 
@@ -51,11 +53,17 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `agents-architecture.md` | Sub-agent definitions | Claude Code has native Agent tool |
 | `bash-fallback.md` | Bash tool failure mitigation | Roo uses win-cli MCP instead |
 | `ci-guardrails.md` | CI validation before push | Roo schedulers don't push to submodule |
-| `github-checklists.md` | GitHub issue checklists | Enhanced tracking for Claude sessions |
-| `myia-web1-constraints.md` | Machine-specific RAM constraints | Claude has different resource profile |
+| `condensation-thresholds.md` | GLM context window thresholds | (Roo equivalent: `06-context-window.md`) |
+| `delegation.md` | Sub-agent delegation rules | Claude-specific (sub-agent API) |
+| `feedback-process.md` | Improvement proposal workflow | Merged into Roo's general workflow |
+| `intercom-protocol.md` | INTERCOM append rules | (Roo equivalent: `02-intercom.md`) |
+| `myia-web1-constraints.md` | Machine-specific RAM constraints | Roo's `12-machine-constraints.md` covers all machines |
 | `pr-review-policy.md` | PR review workflow | Claude handles PRs, Roo delegates |
 | `roo-schedulable-criteria.md` | Label application criteria | Claude assigns tasks to Roo |
-| `tool-availability.md` | STOP & REPAIR protocol | Enhanced for Claude's MCP config separation |
+| `scheduled-coordinator.md` | Coordinator tier protocol | (Roo equivalent: `15-coordinator-responsibilities.md`) |
+| `scheduler-densification.md` | Scheduler cycle filling | (Roo equivalent in workflow files) |
+| `scheduler-system.md` | Roo scheduler architecture reference | Claude describes it, Roo IS it |
+| ~~`validation-checklist.md`~~ | ~~Merged into `validation.md`~~ | Deleted 2026-03-17 (superseded by `validation.md` #724) |
 
 ---
 
@@ -63,9 +71,10 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 
 | Rule | Purpose | Reason |
 |------|---------|--------|
-| `03-roosync-messaging.md` | File-based RooSync messaging | Claude uses MCP tools directly |
 | `07-orchestrator-delegation.md` | Orchestrator mode constraints | Claude doesn't have orchestrator modes |
-| `18-meta-analysis-actions.md` | Meta-analysis action types | Merged into Claude's meta-analysis.md |
+| `08-file-writing.md` | Roo `write_to_file` limitations (>200 lines) | Specific to Roo/Qwen write_to_file behavior |
+| `14-tdd-recommended.md` | TDD-first approach in task execution | Roo-specific task execution recommendation |
+| `16-no-tools-warnings.md` | Tool availability warnings in Roo UI | Roo UI-specific behavior |
 
 ---
 
@@ -108,7 +117,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 
 | Aspect | Roo | Claude |
 |--------|-----|--------|
-| **Pre-commit** | Workflow checks | `validation.md` + `validation-checklist.md` |
+| **Pre-commit** | Workflow checks | `validation.md` |
 | **CI validation** | N/A (doesn't push) | `ci-guardrails.md` mandatory |
 | **Test command** | `npx vitest run` | `npx vitest run` (same) |
 
@@ -153,7 +162,7 @@ Roo META-INTERCOM     ←→  Claude META-INTERCOM (same file)
 ### Validation & Testing
 
 ```
-Roo testing.md        ←→  Claude testing.md (identical)
+Roo testing.md        ←→  Claude test-success-rates.md (merged)
 Roo validation-*.md   ←→  Claude validation*.md (identical)
 Roo skepticism-*.md   ←→  Claude skepticism-protocol.md (identical)
 ```
@@ -205,9 +214,9 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 | Category | Count |
 |----------|-------|
 | **Total Roo Rules** | 22 |
-| **Total Claude Rules** | 23 |
+| **Total Claude Rules** | 24 |
 | **Direct Equivalences** | 18 |
-| **Claude-Only Rules** | 8 |
+| **Claude-Only Rules** | 7 |
 | **Roo-Only Rules** | 3 |
 | **Alignment Rate** | 82% |
 
@@ -222,5 +231,5 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 
 ---
 
-**Last Updated:** 2026-03-16
+**Last Updated:** 2026-03-17
 **Maintainer:** RooSync Multi-Agent System

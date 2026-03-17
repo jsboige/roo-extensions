@@ -30,6 +30,13 @@ Les tests unitaires du projet `roo-extensions` utilisent Vitest. Le taux de succ
 
 **IMPORTANT :** Toujours utiliser `npx vitest run` au lieu de `npm test`
 
+### Pourquoi ?
+
+`npm test` lance Vitest en mode watch interactif, ce qui :
+- Bloque le terminal en attendant des inputs
+- Ne se termine jamais automatiquement
+- Surveille les changements de fichiers
+
 ```bash
 # Tests complets (recommandé)
 cd mcps/internal/servers/roo-state-manager
@@ -41,8 +48,14 @@ npx vitest run --coverage
 # Tests d'un fichier spécifique
 npx vitest run src/tools/roosync/__tests__/manage.test.ts
 
+# Tests avec pattern
+npx vitest run --testNamePattern="mark_read"
+
 # Machines contraintes (web1)
 npx vitest run --maxWorkers=1
+
+# Si échec persistant sur machines contraintes
+npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
 ```
 
 ### Commandes à éviter
@@ -76,8 +89,9 @@ mcps/internal/servers/roo-state-manager/src/**/__tests__/*.test.ts
 
 ## Intégration avec Autres Règles
 
-Cette règle complète les documents suivants :
-- [`.claude/rules/testing.md`](testing.md) — Commandes de test et protocole
+Cette règle consolide les commandes de test et les taux de succès (anciennement dans `testing.md`, fusionné ici).
+
+Documents complémentaires :
 - [`.claude/rules/ci-guardrails.md`](ci-guardrails.md) — Validation CI avant push
 
 ---

@@ -359,12 +359,13 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Pour connaître l'état actuel du projet, consulter dans cet ordre :**
 
-1. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
-2. **GitHub Project #67** : Avancement global (% Done, tâches In Progress)
-3. **GitHub Issues** : État des bugs et tâches ouvertes
-4. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo (< 24h)
-5. **CLAUDE.md** : Configuration et règles stables du projet
-6. **DASHBOARD.md** : `$ROOSYNC_SHARED_PATH/DASHBOARD.md` - Dashboard hiérarchique RooSync (nouveau format #546)
+1. **RooSync inbox (OBLIGATOIRE)** : `roosync_read(mode: "inbox", status: "unread")` — Messages des autres machines. **Ne JAMAIS sauter. Ne JAMAIS déclarer une machine "silencieuse" sans avoir vérifié l'inbox.**
+2. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
+3. **GitHub Project #67** : Avancement global (% Done, tâches In Progress)
+4. **GitHub Issues** : État des bugs et tâches ouvertes
+5. **INTERCOM local** : `.claude/local/INTERCOM-myia-ai-01.md` - Messages récents de Roo (< 24h)
+6. **CLAUDE.md** : Configuration et règles stables du projet
+7. **DASHBOARD.md** : `$ROOSYNC_SHARED_PATH/DASHBOARD.md` - Dashboard hiérarchique RooSync (nouveau format #546)
 
 ## Règles Critiques
 
@@ -472,7 +473,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **⚠️ L'état actuel change quotidiennement.**
 
-Pour connaître l'état à jour, consulte les **Sources de Vérité** ci-dessus (Git log, GitHub #67, Issues, INTERCOM).
+Pour connaître l'état à jour, consulte les **Sources de Vérité** ci-dessus (RooSync inbox, Git log, GitHub #67, Issues, INTERCOM).
 
 **Règle générale :** FOCUS sur déploiement et stabilisation - PAS de nouvelles fonctionnalités non-critiques.
 

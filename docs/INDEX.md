@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-16
-**Version:** 5.6 (Ajout synthèse git Q4-Q1 dans archive)
+**Derniere mise a jour:** 2026-03-17
+**Version:** 5.6 (Ajout synthèse git Q4-Q1 + docs/harness/ + rapports cross-analyse)
 
 ---
 
@@ -18,6 +18,7 @@ docs/
 ├── evaluation/       # Evaluations modeles (LLM) - NOUVEAU
 ├── framework-multi-agent/  # Templates et framework coordination multi-agent
 ├── guides/           # Guides utilisateur, installation, depannage
+├── harness/          # Documentation harnais Roo/Claude (rules-mapping, etc.)
 ├── knowledge/        # Base de connaissances
 ├── mcp/              # Documentation MCP roo-state-manager
 ├── roo-code/         # Documentation Roo Code, PRs, ADR
@@ -39,8 +40,10 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ### Audits & Analyses
 
 - [coverage-audit-492.md](coverage-audit-492.md) - **Audit de Couverture de Tests** (Issue #492) - Analyse couverture roo-state-manager MCP (25.33% vs 80% objectif)
-- [cross-analysis-harnesses-2026-03-13.md](cross-analysis-harnesses-2026-03-13.md) - **Analyse Croisée des Harnais META-ANALYST** (Roo vs Claude) - 10 incohérences, 12 lacunes identifiées, 5 recommandations priorisées
+- [cross-analysis-harnesses-2026-03-13.md](cross-analysis-harnesses-2026-03-13.md) - **Analyse Croisée des Harnais META-ANALYST** (2026-03-13, Roo vs Claude) - 10 incohérences, 12 lacunes identifiées, 5 recommandations priorisées
 - [harness-cross-analysis-report.md](harness-cross-analysis-report.md) - **Rapport d'Analyse Croisée des Harnais** (Roo vs Claude) - Comparaison couverture fichiers Roo/Claude + gaps analysés
+- [harness-cross-analysis-report-2026-03-14.md](harness-cross-analysis-report-2026-03-14.md) - **Rapport d'Analyse Croisée des Harnais** (2026-03-14) - Rapport meta-analyste session 32
+- [harness-cross-analysis-report-2026-03-15.md](harness-cross-analysis-report-2026-03-15.md) - **Rapport d'Analyse Croisée des Harnais** (2026-03-15) - Rapport meta-analyste session 32 (cont-6)
 
 ### Référence Technique
 
@@ -261,6 +264,14 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ## Framework Multi-Agent
 
 - [framework-multi-agent/TEMPLATE_WORKSPACE.md](framework-multi-agent/TEMPLATE_WORKSPACE.md) - Template workspace coordination
+
+---
+
+## Harness (Roo/Claude)
+
+Documentation sur les harnais d'agents (règles, workflows, mappings).
+
+- [harness/rules-mapping.md](harness/rules-mapping.md) - **Mapping Règles Roo ↔ Claude** (Issue #721 v1.1.0) - Table d'équivalence des règles entre les deux harnais, alignements et gaps
 
 ---
 

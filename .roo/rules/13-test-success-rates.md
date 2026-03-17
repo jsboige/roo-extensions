@@ -64,4 +64,4 @@ mcps/internal/servers/roo-state-manager/src/**/__tests__/*.test.ts
 
 ---
 
-**Référence :** [`.claude/rules/testing.md`](../../.claude/rules/testing.md)
+**Référence :** [`.claude/rules/test-success-rates.md`](../../.claude/rules/test-success-rates.md)

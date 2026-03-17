@@ -155,3 +155,22 @@ roo-config/roo-settings-import.json
 roo-config/roo-settings-import.json.*
 exports/
 .roo/schedules.json
+
+# Session artifacts (reports, audits created during agent sessions - never commit to root)
+# These match ONLY at repo root (leading slash). Use archive/ or docs/ for permanent storage.
+/*-REPORT.md
+/*-report.md
+/report-*.md
+/audit-*.md
+/TEST-*.md
+
+# RooSync config collection temp dirs
+.temp/config-collect-*/
+
+# Runtime lock files and socket files at root
+/*.json.lock
+/*.lock
+
+# Backup dirs created by agent sessions
+/backup-*/
+/cleanup-backups/

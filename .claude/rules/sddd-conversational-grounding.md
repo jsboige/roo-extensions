@@ -67,12 +67,73 @@ codebase_search(query: "rate limiting for embeddings", workspace: "d:\\roo-exten
 
 ### roosync_search (recherche dans les taches Roo)
 
+**Actions de base :**
+
 ```
 roosync_search(action: "semantic", search_query: "sujet conceptuel")  # Par concept (Qdrant)
 roosync_search(action: "text", search_query: "mot exact")             # Par texte (cache)
+roosync_search(action: "diagnose")                                     # Diagnostic de l'index
 ```
 
 La recherche semantique utilise Qdrant (index des conversations Roo). La recherche textuelle scanne le cache directement.
+
+**Filtres avances (#636) — disponibles avec `action: "semantic"` :**
+
+```
+# Frictions recentes : messages utilisateurs avec erreurs (ideal meta-analyse)
+roosync_search(
+  action: "semantic",
+  search_query: "probleme erreur echec impossible bloque",
+  has_errors: true,
+  start_date: "YYYY-MM-DD",
+  max_results: 10
+)
+
+# Historique d'un outil specifique
+roosync_search(
+  action: "semantic",
+  search_query: "write_to_file resultat",
+  tool_name: "write_to_file",
+  max_results: 5
+)
+
+# Messages utilisateur uniquement (sans resultats d'outils, plus compact)
+roosync_search(
+  action: "semantic",
+  search_query: "...",
+  role: "user",
+  exclude_tool_results: true
+)
+
+# Filtrer par source (Roo ou Claude Code)
+roosync_search(action: "semantic", search_query: "escalade", source: "roo")
+roosync_search(action: "semantic", search_query: "escalade", source: "claude-code")
+
+# Filtrer par modele et periode temporelle
+roosync_search(
+  action: "semantic",
+  search_query: "...",
+  model: "opus",
+  start_date: "2026-03-01",
+  end_date: "2026-03-17"
+)
+
+# Deep dive dans une conversation specifique
+roosync_search(action: "semantic", search_query: "...", conversation_id: "{TASK_ID}")
+```
+
+**Patterns de requete courants (#637) :**
+
+| Pattern | Parametres cles | Usage |
+|---------|----------------|-------|
+| **Friction recente** | `has_errors:true + start_date:{hier}` | Meta-analyst quotidien |
+| **Historique outil** | `tool_name:"write_to_file"` | Diagnostic boucle recurrente |
+| **Messages purs** | `exclude_tool_results:true + role:user` | Analyse squelette conversation |
+| **Sessions Claude** | `source:"claude-code"` | Recherche dans sessions Claude uniquement |
+| **Sessions Roo** | `source:"roo"` | Recherche dans taches Roo uniquement |
+| **Par modele** | `model:"opus"` | Sessions opus uniquement |
+| **Fenetre temporelle** | `start_date + end_date` | Analyse tendance sur periode |
+| **Dans tache** | `conversation_id:"{ID}"` | Fouiller une tache specifique |
 
 ---
 

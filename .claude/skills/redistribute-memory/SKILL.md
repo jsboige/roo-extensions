@@ -193,7 +193,7 @@ Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niv
 | Fichier | Taille | Lignes | Derniere MAJ |
 |---------|--------|--------|-------------|
 | CLAUDE.md | 25KB | 700 | 2026-02-07 |
-| .claude/rules/testing.md | 1KB | 40 | ... |
+| .claude/rules/test-success-rates.md | 1KB | 40 | ... |
 | ...
 
 ### Roo Code
@@ -237,7 +237,7 @@ Pour chaque fichier, analyser le contenu et identifier :
 | Regles techniques du projet | `.claude/rules/*.md` ou `.roo/rules/*.md` | CLAUDE.md (trop gros) |
 | Etat transitoire (issues, commits) | `MEMORY.md` (auto-memory) | CLAUDE.md |
 | Architecture/conventions stables | `CLAUDE.md` project | MEMORY.md |
-| Instructions de build/test | `.claude/rules/testing.md` | CLAUDE.md |
+| Instructions de build/test | `.claude/rules/test-success-rates.md` | CLAUDE.md |
 | Lessons learned recentes | `MEMORY.md` | CLAUDE.md (sauf si stable) |
 | Conventions partagees multi-machines | `.claude/memory/PROJECT_MEMORY.md` | MEMORY.md local |
 | Info specifique machine | `MEMORY.md` local | PROJECT_MEMORY.md partage |
@@ -317,7 +317,7 @@ Pour chaque agent, skill et command du workspace :
 ### Doublons detectes : X
 | Contenu | Present dans | Action |
 |---------|-------------|--------|
-| "npx vitest run" | CLAUDE.md + rules/testing.md + MEMORY.md | Garder rules/testing.md, retirer des autres |
+| "npx vitest run" | CLAUDE.md + rules/test-success-rates.md + MEMORY.md | Garder rules/test-success-rates.md, retirer des autres |
 
 ### Mauvais placements : Y
 | Contenu | Actuellement dans | Devrait etre dans | Raison |
@@ -523,7 +523,7 @@ Demander : "Est-ce que cette regle serait utile si je travaillais sur un autre p
 - Vue d'ensemble du systeme
 
 ### Va dans `.claude/rules/*.md` (project rules)
-- Regles de test (`testing.md`)
+- Regles de test (`test-success-rates.md`)
 - Regles GitHub CLI (`github-cli.md`)
 - Protocoles techniques (scheduler, RooSync)
 - Conventions de code
@@ -576,7 +576,7 @@ Si CLAUDE.md > 500 lignes, extraire dans cet ordre de priorite :
 |--------------------|------|--------|
 | Systeme de scheduler (~300 lignes) | `docs/roo-code/SCHEDULER_SYSTEM.md` | Documentation technique, pas instructions de haut niveau |
 | GitHub Projects / GraphQL (~60 lignes) | Deja dans `docs/guides/GITHUB_CLI.md` | DOUBLON : retirer de CLAUDE.md |
-| Checklist validation technique (~80 lignes) | `.claude/rules/validation-checklist.md` | Regle technique |
+| Checklist validation technique (~80 lignes) | `.claude/rules/validation.md` | Regle technique |
 | Architecture agents/skills (~150 lignes) | `docs/roosync/AGENTS_ARCHITECTURE.md` | Reference technique, pas instructions |
 | Config MCP detaillee (~100 lignes) | `.claude/MCP_SETUP.md` (existe deja) | Consolidation |
 

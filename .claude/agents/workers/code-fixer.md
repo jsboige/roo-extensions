@@ -77,6 +77,35 @@ codebase_search(query: "concept du bug en anglais", workspace: "CHEMIN_WORKSPACE
 roosync_search(action: "semantic", search_query: "sujet du bug")
 ```
 
+### Enrichissement : Historique des bugs similaires (#637)
+
+Si `roo-state-manager` est disponible, chercher aussi les bugs similaires déjà corrigés dans l'historique :
+
+```text
+# Bug similaire dans l'historique (évite de réinventer la roue)
+roosync_search(
+  action: "semantic",
+  search_query: "{description symptome du bug}",
+  has_errors: true,
+  max_results: 5
+)
+
+# Si un outil spécifique est incriminé
+roosync_search(
+  action: "semantic",
+  search_query: "{outil} erreur correction",
+  tool_name: "{nom_outil}",
+  max_results: 5
+)
+```
+
+Ce que chercher dans les résultats :
+
+- Des corrections déjà appliquées (commit hash mentionné, "fixed by", "resolved")
+- Des patterns d'erreur identiques → utiliser le même fix
+- Des causes racines connues → accélérer le diagnostic
+- Des workarounds temporaires → identifier si un fix permanent est encore nécessaire
+
 **Si les outils semantiques ne sont pas disponibles** (pas d'embeddings, pas de roo-state-manager), passer directement au Step 1. Le grounding SDDD est optionnel mais accelere significativement la localisation du code pertinent.
 
 ### Investigation
