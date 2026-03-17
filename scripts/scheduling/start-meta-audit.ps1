@@ -47,7 +47,21 @@ $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 $LogDir = Join-Path $RepoRoot ".claude\logs"
-$MachineName = $env:COMPUTERNAME.ToLower()
+
+# Fix #726: Load ROOSYNC_MACHINE_ID from .env (primary), with COMPUTERNAME fallback
+$EnvPath = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\.env"
+$MachineName = 'unknown'
+
+if (Test-Path $EnvPath) {
+    $EnvLine = Get-Content $EnvPath | Where-Object { $_ -match '^ROOSYNC_MACHINE_ID=' }
+    if ($EnvLine) {
+        $MachineName = ($EnvLine -split '=', 2)[1].Trim().ToLower()
+    }
+}
+
+if ($MachineName -eq 'unknown' -and $env:COMPUTERNAME) {
+    $MachineName = $env:COMPUTERNAME.ToLower()
+}
 
 # Creer repertoire logs si necessaire
 if (-not (Test-Path $LogDir)) {

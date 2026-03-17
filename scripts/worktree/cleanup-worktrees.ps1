@@ -68,7 +68,9 @@ try {
     Write-Host ""
     Write-Host "## 2. Analyse des branches wt/*..." -ForegroundColor Cyan
 
-    $wtBranches = git branch --list 'wt/*' | ForEach-Object { $_.Trim() }
+    # Fix: git branch affiche un "+" pour les branches check-outées - il faut le retirer
+    # Format: "+ wt/branch-name" ou "  wt/branch-name"
+    $wtBranches = git branch --list 'wt/*' | ForEach-Object { $_.Trim().TrimStart('+').Trim() }
     $orphanBranches = @()
 
     foreach ($branch in $wtBranches) {
@@ -118,7 +120,8 @@ try {
             Write-Host "  [DRY-RUN] Supprimer worktree: $($wt.Name)" -ForegroundColor Yellow
         } else {
             Write-Host "  Supprimer worktree: $($wt.Name)" -ForegroundColor Red
-            git worktree remove $wt.Path
+            # Fix #652: Utiliser --force pour les worktrees avec fichiers modifiés/non-trackés
+            git worktree remove --force $wt.Path 2>$null
         }
         $actions += $action
     }
