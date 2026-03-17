@@ -42,6 +42,9 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Roo analyzes `.claude/rules/`, `CLAUDE.md`, `.claude/commands/`, `.claude/skills/`
    - Claude analyzes `.roo/rules/`, `.roomodes`, `scheduler-workflow-*.md`, `modes-config.json`
    - Each is more free to critique the OTHER harness
+   - **ALWAYS read `docs/harness/rules-mapping.md` first** — it maps equivalences between harnesses.
+     A rule marked "✅ Aligned" exists in BOTH harnesses under different names. Do NOT create issues
+     for "missing" rules that appear in this mapping table.
 
 4. **Operational metrics**:
    - Issues created vs closed
