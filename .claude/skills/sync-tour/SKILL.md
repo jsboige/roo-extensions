@@ -76,7 +76,9 @@ But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 
 ---
 
-## Phase 1 : Collecte des Messages RooSync
+## Phase 1 : Collecte des Messages RooSync (CRITIQUE — NE JAMAIS SAUTER)
+
+> **⚠️ OBLIGATOIRE : Lire l'inbox RooSync AVANT toute analyse git ou GitHub. Ne JAMAIS déclarer une machine "silencieuse" sans avoir vérifié l'inbox. C'est la source principale d'information sur l'activité des autres machines.**
 
 **Agent :** `roosync-hub` (coordinateur) ou `roosync-reporter` (exécutants)
 

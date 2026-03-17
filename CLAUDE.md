@@ -361,7 +361,7 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 
 1. **Verifier MCP** : Outils disponibles dans system-reminders
 2. **Lire doc** : INDEX.md, MCP_SETUP.md, rules/ (auto-chargées)
-3. **Communications** : RooSync inbox + INTERCOM local + GitHub issues
+3. **Communications (OBLIGATOIRE)** : **RooSync inbox en PREMIER** (`roosync_read(mode: "inbox", status: "unread")`) + INTERCOM local + GitHub issues. **Ne JAMAIS declarer une machine "silencieuse" sans avoir verifie l'inbox RooSync.**
 4. **Annoncer** : INTERCOM local + RooSync `[WORK]` + commentaire GitHub
 5. **Issue GitHub** : Obligatoire pour toute tache significative
 6. **Travailler** : Tester les MCPs, documenter la realite
@@ -371,11 +371,12 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 ## Contexte Actuel
 
 **L'etat change quotidiennement. Consulter dans cet ordre :**
-1. `git log --oneline -10`
-2. GitHub Project #67
-3. GitHub Issues ouvertes
-4. INTERCOM local
-5. SUIVI_ACTIF.md (peut etre obsolete)
+1. **RooSync inbox** : `roosync_read(mode: "inbox", status: "unread")` — Messages des autres machines (OBLIGATOIRE, ne jamais sauter)
+2. `git log --oneline -10` — Historique reel des dernieres actions
+3. GitHub Project #67
+4. GitHub Issues ouvertes
+5. INTERCOM local
+6. SUIVI_ACTIF.md (peut etre obsolete)
 
 ### Contraintes
 
@@ -405,10 +406,11 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 
 ### Communication Quotidienne
 
-1. **Git log** = source de verite technique
-2. **GitHub Issues** = suivi taches et bugs
-3. **RooSync** = messages urgents inter-machines
-4. **DASHBOARD.md** = dashboard hiérarchique (remplace SUIVI_ACTIF.md depuis #546)
+1. **RooSync inbox** = messages des autres machines (TOUJOURS verifier en PREMIER — ne jamais declarer une machine inactive sans avoir lu l'inbox)
+2. **Git log** = source de verite technique
+3. **GitHub Issues** = suivi taches et bugs
+4. **INTERCOM local** = communication Roo <-> Claude Code (meme machine)
+5. **DASHBOARD.md** = dashboard hiérarchique (remplace SUIVI_ACTIF.md depuis #546)
 
 ---
 

@@ -65,9 +65,9 @@ cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | he
 ```
 
 Puis (en parallele) :
-1. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
+1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
 2. **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages Roo < 24h)
-3. **RooSync** : `roosync_read` (mode: inbox, status: unread) - instructions du coordinateur
+3. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
 **Verification sceptique des instructions recues :**
