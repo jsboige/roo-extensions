@@ -370,6 +370,28 @@ myia-po-2024 → po24/feature/
 - ❌ Merging PRs without review (except small < 50 lines)
 - ❌ Abandoned worktrees (cleanup after merge)
 
+### 8.4 Critical Pitfall: Scheduler Task Path Hardcoding (Issue #731)
+
+**Incident (2026-03-17):** Claude Worker and MetaAudit tasks were silently failing for 76h after worktree cleanup.
+
+**Root Cause:** `scripts/scheduling/setup-scheduler.ps1` uses `$scriptDir` (the directory containing the script at install time). When run from inside a worktree, the Windows Task Scheduler task is created with the worktree path hardcoded.
+
+**Symptom:** After the worktree is deleted, schtasks continues "running" every 6h but immediately fails (script not found). **No error is logged** because the failure occurs before the script starts.
+
+**⚠️ RULE:** ALWAYS run `setup-scheduler.ps1` from the **main repository** (`D:\dev\roo-extensions\scripts\scheduling\`), NEVER from a worktree copy.
+
+**Prevention:** setup-scheduler.ps1 now detects worktree installation and aborts with an error (commit `7f66ea3e`).
+
+**Verification after worktree cleanup:**
+
+```powershell
+schtasks /Query /TN "Claude-Worker" /FO LIST | findstr "Task To Run"
+# If path contains ".claude/worktrees/" → reinstall from main repo
+.\scripts\scheduling\setup-scheduler.ps1 -Action install -TaskType worker
+```
+
+This applies to ANY script or configuration that uses its own path for registration. **Document the install path explicitly** to catch this class of bugs early.
+
 ---
 
 ## 9. Action Plan for #461

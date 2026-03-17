@@ -572,6 +572,40 @@ $sessions = Get-ChildItem $cclaudePath -Directory | Sort-Object LastWriteTime -D
 .\scripts\scheduling\setup-scheduler.ps1 -Action remove -TaskType worker
 ```
 
+### ⚠️ CRITICAL: Never Install from a Worktree (Issue #731)
+
+**`setup-scheduler.ps1` uses `$scriptDir` to resolve script paths.** If installed from inside a worktree, the schtask will be hardcoded to the worktree's temporary path.
+
+**When the worktree is deleted**, the scheduled task continues to "run" every 6h but **silently fails** (script not found, no log created, no error shown).
+
+**Incident:** 2026-03-14 — Both `Claude-Worker` and `Claude-MetaAudit` tasks were pointing to a deleted worktree path for 76h before detection.
+
+**Rule:** ALWAYS run `setup-scheduler.ps1` from the **main repository**:
+
+```powershell
+# CORRECT: From main repo
+cd D:\dev\roo-extensions\scripts\scheduling
+.\setup-scheduler.ps1 -Action install
+
+# WRONG: From inside a worktree (will fail after worktree cleanup)
+cd D:\dev\roo-extensions\.claude\worktrees\wt-feature-xyz\scripts\scheduling
+.\setup-scheduler.ps1 -Action install  # ❌ DO NOT DO THIS
+```
+
+**After any worktree cleanup**, verify and reinstall tasks from main repo:
+
+```powershell
+# Verify task paths
+schtasks /Query /TN "Claude-Worker" /FO LIST | findstr "Task To Run"
+schtasks /Query /TN "Claude-MetaAudit" /FO LIST | findstr "Task To Run"
+
+# Reinstall if paths contain ".claude/worktrees/"
+.\scripts\scheduling\setup-scheduler.ps1 -Action install -TaskType worker
+.\scripts\scheduling\setup-scheduler.ps1 -Action install -TaskType meta-audit
+```
+
+The script now detects worktree installation and aborts with an error (added in commit `7f66ea3e`).
+
 ### Staggering
 
 **Start times are staggered** to avoid all machines running simultaneously:
