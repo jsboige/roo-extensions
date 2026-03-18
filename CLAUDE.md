@@ -239,40 +239,40 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 
 **Labels techniques (optionnels):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `critical` | Issues critiques bloquantes | rouge (#d73a4a) |
-| `regression` | Regression bugs | rose (#d93f0b) |
-| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) | rose (#d93f0b) |
-| `quality` | Code quality and reliability | violet (#5319e7) |
-| `testing` | Test coverage and infrastructure | bleu (#1d76db) |
-| `test` | Test coverage (alias de testing) | vert (#0E8A16) |
-| `investigation` | Investigation and audit tasks | vert (#0e8a16) |
+| Label | Description |
+|-------|-------------|
+| `critical` | Issues critiques bloquantes |
+| `regression` | Regression bugs |
+| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) |
+| `quality` | Code quality and reliability |
+| `testing` | Test coverage and infrastructure |
+| `test` | Test coverage (alias de testing) |
+| `investigation` | Investigation and audit tasks |
 
 **Labels d'attribution (un seul par issue):**
 
-| Label | Agent concerné | Couleur |
-|-------|----------------|---------|
-| `claude-only` | Réservé Claude Code (opus/sonnet) - NOT for Roo schedulers | bleu (#0366d6) |
-| `roo-schedulable` | Peut être exécuté par scheduler Roo autonomously | vert (#0E8A16) |
+| Label | Agent concerné |
+|-------|----------------|
+| `claude-only` | Réservé Claude Code (opus/sonnet) - NOT for Roo schedulers |
+| `roo-schedulable` | Peut être exécuté par scheduler Roo autonomously |
 
 **Labels de validation (gérés automatiquement):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `needs-approval` | Requires user approval before execution | jaune (#fbca04) |
-| `needs-deployment-checklist` | Requires deployment checklist validation before closing | jaune (#FBCA04) |
-| `good first issue` | Good for newcomers | bleu (#7057ff) |
-| `help wanted` | Extra attention is needed | vert (#008672) |
+| Label | Description |
+|-------|-------------|
+| `needs-approval` | Requires user approval before execution |
+| `needs-deployment-checklist` | Requires deployment checklist validation before closing |
+| `good first issue` | Good for newcomers |
+| `help wanted` | Extra attention is needed |
 
 **Labels de statut (gérés automatiquement):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `wontfix` | This will not be worked on | blanc (#ffffff) |
-| `duplicate` | This issue or pull request already exists | gris (#cfd3d7) |
-| `invalid` | This doesn't seem right | gris (#e4e669) |
-| `question` | Further information is requested | bleu (#d876e3) |
+| Label | Description |
+|-------|-------------|
+| `wontfix` | This will not be worked on |
+| `duplicate` | This issue or pull request already exists |
+| `invalid` | This doesn't seem right |
+| `question` | Further information is requested |
 
 ### 4. Scheduler Roo
 
