@@ -338,37 +338,9 @@ conversation_browser(action: "summarize", detailLevel: "NoTools")
 
 ---
 
-## Protocole de Friction (OBLIGATOIRE)
+## Protocole de Friction SDDD
 
-**Tout agent rencontrant une friction ou un probleme avec les outils SDDD doit le signaler au collectif.**
-
-### Quand signaler
-
-- Un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, etc.)
-- Le bookend debut ne retourne rien d'utile (index pas a jour, embeddings down)
-- Un skill/workflow ne suit pas le protocole SDDD
-- Une doc est introuvable malgre le triple grounding
-
-### Comment signaler
-
-```
-roosync_send(
-  action: "send",
-  to: "all",
-  subject: "[FRICTION] Description courte du probleme",
-  body: "## Probleme\n[Description]\n\n## Contexte\n[Quelle tache, quel outil, quel resultat]\n\n## Impact\n[Ce qui est bloque ou degrade]\n\n## Suggestion\n[Amelioration proposee si applicable]",
-  tags: ["friction", "sddd"]
-)
-```
-
-### Traitement des frictions
-
-1. Le collectif (toutes les machines) recoit le message
-2. Les agents qui ont une experience similaire repondent
-3. Le coordinateur (myia-ai-01) synthetise et decide l'amelioration
-4. Si approuvee : modifier le skill/rule/tool concerne (incremental)
-
-**Principe :** Les skills evoluent par friction reelle, pas par anticipation theorique.
+Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, bookend ne retourne rien d'utile, doc introuvable malgre le triple grounding) → signaler via le protocole standard. Voir `.claude/rules/friction-protocol.md` pour la procedure complete (roosync_send + INTERCOM templates).
 
 ---
 
