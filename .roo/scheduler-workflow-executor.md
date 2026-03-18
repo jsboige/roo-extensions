@@ -137,15 +137,15 @@ Executer ces commandes avec win-cli MCP et rapporter le résultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 Puis lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
-Chercher les messages [TASK], [SCHEDULED], [URGENT].
-Rapporter : état git + liste des tâches trouvées.
+Chercher les messages [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
+Rapporter : état git + liste des tâches/propositions trouvées.
 ```
 
 **Décision :**
 - Si git pull a ÉCHOUÉ → aller à **Étape 3** avec rapport d'erreur
 - Si `[URGENT]` → escalader vers `orchestrator-complex`
-- Si `[TASK]` trouvé avec tag `[COMPLEX]` ET date < 24h → **escalader vers orchestrator-complex**
-- Si `[TASK]` trouvé ET date < 24h → aller à **Étape 2a**
+- Si `[TASK]` ou `[PROPOSAL]` trouvé avec tag `[COMPLEX]` ET date < 24h → **escalader vers orchestrator-complex**
+- Si `[TASK]` ou `[PROPOSAL]` trouvé ET date < 24h → aller à **Étape 2a** (traiter `[PROPOSAL]` comme `[TASK]`)
 - Si `[TASK]` trouvé MAIS date > 24h → IGNORER
 - Si rien → aller à **Étape 2b**
 
