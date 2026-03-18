@@ -109,7 +109,7 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 | [github-checklists.md](rules/github-checklists.md) | Checklists obligatoires issues |
 | [github-cli.md](rules/github-cli.md) | Migration MCP → gh CLI |
 | [mcp-discoverability.md](rules/mcp-discoverability.md) | Patterns découverte MCP |
-| [myia-web1-constraints.md](rules/myia-web1-constraints.md) | Contraintes RAM 2GB web1 |
+| [myia-web1-constraints.md](rules/machine-specific/myia-web1-constraints.md) | Contraintes spécifiques web1 — non auto-chargé (sous-répertoire) |
 | [scheduler-densification.md](rules/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
 | [scheduler-system.md](rules/scheduler-system.md) | Référence technique scheduler |
 | [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding |
