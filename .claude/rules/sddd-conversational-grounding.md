@@ -257,68 +257,32 @@ conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
 
 ## Recommandations conversation_browser(summarize) - CRITIQUE
 
-**⚠️ PROBLÈME CONNU :** L'action `summarize` avec `detailLevel: "NoTools"` génère **explosion de contenu** (309 KB+ pour 23 messages).
+**⚠️ `detailLevel: "NoTools"` = PIÈGE** : masque SEULEMENT les paramètres d'appels d'outils mais **garde TOUS les résultats complets** → explosion 309 KB+ pour 23 messages.
 
-### Cause racine
-
-1. **`NoTools` est mal nommé** : Il masque SEULEMENT les paramètres d'appels d'outils, mais **garde TOUS les résultats d'outils complets**.
-2. **`truncationChars` défaut = 0** : Pas de limite de caractères par défaut.
-
-### Résultat réel
-
-| Paramètres | Contenu | Taille |
-|------------|---------|--------|
-| `NoTools` sans truncation | ❌ EXPLOSION | ~300 KB (309 569 chars pour 23 messages) |
-| `Summary` + `truncationChars: 10000` | ✅ COMPACT | ~3 KB (utilisable) |
-
-### Recommandation STRICTE - Pour résumés compacts
-
-**Toujours utiliser cette combinaison :**
-
+**Toujours utiliser `Summary` + `truncationChars` :**
 ```typescript
 conversation_browser(
   action: "summarize",
-  summarize_type: "trace",      // "trace" pour statistiques
-  detailLevel: "Summary",         // PAS "NoTools" (trompeur)
-  truncationChars: 10000,         // OBLIGATOIRE - limite chars
-  taskId: "..."                   // ou taskIds pour clusters
+  summarize_type: "trace",    // "trace" pour statistiques
+  detailLevel: "Summary",     // PAS "NoTools" (trompeur)
+  truncationChars: 10000,     // OBLIGATOIRE - limite chars
+  taskId: "..."
 )
 ```
 
-### Niveaux `detailLevel` réels
+### Niveaux `detailLevel`
 
 | Niveau | Contenu | Cas d'usage |
 |--------|---------|------------|
-| **`Full`** | Tout inclus | ❌ JAMAIS (explosion, massif) |
-| **`NoTools`** | ❌ Trompeur (masque params, garde résultats) | ❌ À ÉVITER absolument |
-| **`NoResults`** | Messages + params (sans résultats) | ✅ Compact, à tester |
+| **`Full`** | Tout inclus | ❌ JAMAIS (explosion) |
+| **`NoTools`** | ❌ Trompeur (masque params, garde résultats) | ❌ À ÉVITER |
+| **`NoResults`** | Messages + params (sans résultats) | ✅ Compact |
 | **`Messages`** | Messages seulement | ✅ Très compact |
 | **`Summary`** | Vue condensée | ✅ Recommandé |
-| **`UserOnly`** | Messages utilisateur seulement | ✅ Plus compact encore |
+| **`UserOnly`** | Messages utilisateur seulement | ✅ Plus compact |
 
-### Règle d'or
-
-**TOUJOURS définir `truncationChars`** quand `summarize_type != "trace"`.
-
-```typescript
-// BON - Limité à 10000 chars
-conversation_browser(action: "summarize", detailLevel: "Summary", truncationChars: 10000)
-
-// MAUVAIS - Pas de limite, risque explosion
-conversation_browser(action: "summarize", detailLevel: "Summary")
-
-// MAUVAIS - Trompeur, masque seulement params
-conversation_browser(action: "summarize", detailLevel: "NoTools")
-```
-
-### Quand utiliser `trace`
-
-**`summarize_type: "trace"` génère automatiquement des stats lisibles :**
-- Nombre de messages par type (User/Assistant/Tool)
-- Taille compression avant/après
-- Breakdown par catégorie
-
-⇒ Utiliser `trace` pour les rapports métriques, pas pour le contenu détaillé.
+**Règle :** TOUJOURS définir `truncationChars` quand `summarize_type != "trace"`.
+`summarize_type: "trace"` génère stats lisibles (messages par type, taille, breakdown) — utiliser pour rapports métriques.
 
 ---
 
