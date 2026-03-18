@@ -42,7 +42,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 - 18 subagents projet (5 communs + 2 coordinateur + 11 workers) + 6 globaux (`~/.claude/agents/`)
 - 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
 - 4 commands (/coordinate, /executor, /switch-provider, /debrief)
-- 24 rules (`.claude/rules/`) — auto-chargees dans chaque conversation
+- 14 rules auto-chargées + 10 on-demand (`.claude/rules/`) — voir subdirs `reference/`, `coordinator-specific/`, `machine-specific/`
 
 **Workflow :**
 1. Debut de session → "tour de sync" (9 phases)

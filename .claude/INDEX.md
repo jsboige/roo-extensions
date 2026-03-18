@@ -22,7 +22,7 @@
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
 ### Agents & Skills
-- **[agents/](agents/)** - 16 specialized subagents
+- **[agents/](agents/)** - 18 specialized subagents (5 communs + 2 coordinator + 11 workers)
   - Common: `git-sync`, `test-runner`, `code-explorer`, `github-tracker`, `intercom-handler`
   - Coordinator: `roosync-hub`, `dispatch-manager`, `task-planner`
   - Executor: `roosync-reporter`, `task-worker`
