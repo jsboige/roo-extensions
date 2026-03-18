@@ -440,7 +440,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Ne PAS utiliser pour :** PRs doc-only, config-only, ou <50 lignes.
 
-**Reference :** `.claude/rules/pr-review-policy.md` section 2 (sk-agent Code Review)
+**Reference :** `.claude/rules/coordinator-specific/pr-review-policy.md` section 2 (sk-agent Code Review)
 
 ### Validation Utilisateur OBLIGATOIRE
 

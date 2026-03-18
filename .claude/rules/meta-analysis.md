@@ -140,7 +140,7 @@ Requires validation before production use.
 | New issue (bug, friction) | Create with `needs-approval` label | Semi-autonomous |
 | Harness change | Create with `needs-approval` + `harness-change` | **BLOCKED until user approval** |
 
-**Environment issues are a priority escalation path.** Meta-analysts detect these in execution traces (failed tool calls, missing configs, service timeouts) and flag them in META-INTERCOM. The coordinator is responsible for sending corrective instructions to affected machines. See `.claude/rules/scheduled-coordinator.md` section 4.
+**Environment issues are a priority escalation path.** Meta-analysts detect these in execution traces (failed tool calls, missing configs, service timeouts) and flag them in META-INTERCOM. The coordinator is responsible for sending corrective instructions to affected machines. See `.claude/rules/coordinator-specific/scheduled-coordinator.md` section 4.
 
 ---
 
@@ -179,7 +179,7 @@ Requires validation before production use.
 ## References
 
 - #551: Meta-Analyst tier (this protocol)
-- #540: Coordinator tier — see `.claude/rules/scheduled-coordinator.md`
+- #540: Coordinator tier — see `.claude/rules/coordinator-specific/scheduled-coordinator.md`
 - `.claude/INTERCOM_PROTOCOL.md`: Operational INTERCOM (separate)
 - `.claude/rules/condensation-thresholds.md`: GLM context limits
 
