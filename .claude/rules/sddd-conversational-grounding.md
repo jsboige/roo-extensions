@@ -384,45 +384,6 @@ roosync_send(
 
 ---
 
-## Recommandations conversation_browser (CRITIQUE #608)
-
-### Niveaux de detailLevel
-
-| Niveau | Comportement | Quand l'utiliser |
-|--------|-------------|------------------|
-| `Full` | Tout inclus (massif) | ❌ Jamais - explosion de contenu |
-| `NoTools` | Trompeur! Masque SEULEMENT les paramètres, garde tous les résultats | ❌ À PROSCRIRE |
-| `NoResults` | Masque les résultats d'outils | Pour vérifier le flow |
-| `Messages` | Messages seuls | Pour analyse structurelle |
-| `Summary` | Compact et utilisable | ✅ RECOMMANDÉ |
-| `UserOnly` | Plus compact encore | Pour audit rapide |
-
-### ⚠️ Attention: `NoTools` est mal nommé
-
-Le niveau devrait s'appeler `NoToolParams` car il **masque SEULEMENT les paramètres** d'appels d'outils mais **garde TOUS les résultats d'outils complets**.
-
-**Exemple réel (issue #608) :**
-- `NoTools` sans troncature → **309 569 caractères** pour 23 messages
-- `Summary` + `truncationChars: 10000` → **~2 900 caractères**
-
-### Recommandation pour les résumés compacts
-
-```typescript
-action: "summarize"
-summarize_type: "trace"  // ou "cluster"
-detailLevel: "Summary"   // PAS "NoTools" (trompeur)
-truncationChars: 10000   // TOUJOURS définir une limite
-smart_truncation: true   // Activer pour les conversations >10K chars
-```
-
-### À éviter absolument
-
-- `detailLevel: "NoTools"` sans comprendre ce qu'il fait réellement
-- Omettre `truncationChars` pour les conversations >50 messages
-- Utiliser `Full` sans une raison très spécifique
-
----
-
 ## Référence Croisée - SDDD RooSync
 
 **Ce document** (`.claude/rules/sddd-conversational-grounding.md`) est le **protocole opérationnel Claude Code** pour le triple grounding SDDD. Il couvre les outils spécifiques à Claude Code :
