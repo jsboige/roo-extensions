@@ -416,6 +416,32 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Ne PAS utiliser pour :** Taches routinieres, bugs simples, documentation.
 
+### Review de Code via sk-agent (avant merge PR)
+
+**Quand :** Avant d'approuver et merger tout PR avec >50 lignes de code changées.
+
+**Procedure :**
+
+1. Extraire le diff du PR :
+
+   ```bash
+   gh pr diff {PR_NUMBER} --repo jsboige/roo-extensions
+   ```
+
+2. Lancer la review structuree :
+
+   ```
+   run_conversation(conversation: "code-review", prompt: "Review this PR diff for security, performance, maintainability, and correctness:\n\n[git diff output]")
+   ```
+
+3. Inclure le résumé dans un commentaire PR sous `## sk-agent Review`
+4. Si problèmes bloquants → Request changes auprès de l'auteur
+5. Si acceptable → Approuver et merger
+
+**Ne PAS utiliser pour :** PRs doc-only, config-only, ou <50 lignes.
+
+**Reference :** `.claude/rules/pr-review-policy.md` section 2 (sk-agent Code Review)
+
 ### Validation Utilisateur OBLIGATOIRE
 
 **AVANT de créer une nouvelle tâche GitHub :**
