@@ -108,8 +108,11 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 | [feedback-process.md](rules/feedback-process.md) | Workflow amélioration continue |
 | [github-checklists.md](rules/github-checklists.md) | Checklists obligatoires issues |
 | [github-cli.md](rules/github-cli.md) | Migration MCP → gh CLI |
-| [mcp-discoverability.md](rules/mcp-discoverability.md) | Patterns découverte MCP |
+| [mcp-discoverability.md](rules/reference/mcp-discoverability.md) | Patterns découverte MCP — non auto-chargé (sous-répertoire) |
+| [meta-analysis.md](rules/reference/meta-analysis.md) | Protocole meta-analyse 72h — non auto-chargé (sous-répertoire) |
 | [myia-web1-constraints.md](rules/machine-specific/myia-web1-constraints.md) | Contraintes spécifiques web1 — non auto-chargé (sous-répertoire) |
+| [incident-history.md](rules/reference/incident-history.md) | Historique incidents — non auto-chargé (sous-répertoire) |
+| [roo-schedulable-criteria.md](rules/reference/roo-schedulable-criteria.md) | Critères label roo-schedulable — non auto-chargé (sous-répertoire) |
 | [scheduled-coordinator.md](rules/coordinator-specific/scheduled-coordinator.md) | Protocole coordinator myia-ai-01 — non auto-chargé (sous-répertoire) |
 | [pr-review-policy.md](rules/coordinator-specific/pr-review-policy.md) | Politique PR review multi-agent — non auto-chargé (sous-répertoire) |
 | [scheduler-densification.md](rules/reference/scheduler-densification.md) | Sweet spot escalade + #545 graduation — non auto-chargé (sous-répertoire) |
