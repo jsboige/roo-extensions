@@ -103,7 +103,7 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 | Règle | Description |
 |-------|-------------|
 | [agents-architecture.md](rules/agents-architecture.md) | Architecture 12 subagents, 6 skills, 4 commands |
-| [bash-fallback.md](rules/bash-fallback.md) | Mitigation issue #488 - Bash silencieux |
+| [bash-fallback.md](rules/reference/bash-fallback.md) | Mitigation issue #488 - Bash silencieux — non auto-chargé (sous-répertoire) |
 | [condensation-thresholds.md](rules/condensation-thresholds.md) | Seuils GLM-5 (80% min) - issue #502 |
 | [feedback-process.md](rules/feedback-process.md) | Workflow amélioration continue |
 | [github-checklists.md](rules/github-checklists.md) | Checklists obligatoires issues |
@@ -112,8 +112,8 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 | [myia-web1-constraints.md](rules/machine-specific/myia-web1-constraints.md) | Contraintes spécifiques web1 — non auto-chargé (sous-répertoire) |
 | [scheduled-coordinator.md](rules/coordinator-specific/scheduled-coordinator.md) | Protocole coordinator myia-ai-01 — non auto-chargé (sous-répertoire) |
 | [pr-review-policy.md](rules/coordinator-specific/pr-review-policy.md) | Politique PR review multi-agent — non auto-chargé (sous-répertoire) |
-| [scheduler-densification.md](rules/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
-| [scheduler-system.md](rules/scheduler-system.md) | Référence technique scheduler |
+| [scheduler-densification.md](rules/reference/scheduler-densification.md) | Sweet spot escalade + #545 graduation — non auto-chargé (sous-répertoire) |
+| [scheduler-system.md](rules/reference/scheduler-system.md) | Référence technique scheduler — non auto-chargé (sous-répertoire) |
 | [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding |
 | [test-success-rates.md](rules/test-success-rates.md) | Tests : commandes, taux de succes, machines |
 | [tool-availability.md](rules/tool-availability.md) | STOP & REPAIR protocole |
