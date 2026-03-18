@@ -203,6 +203,14 @@ Pas d'acces a l'historique de conversation. Utiliser :
 **"Verifie tes messages" = verifie RooSync inbox (`roosync_read`), PAS l'INTERCOM.**
 **L'INTERCOM n'est PAS un canal de messagerie inter-machines.**
 
+**Les deux agents (Roo ET Claude Code) utilisent RooSync pour communiquer entre machines.** Chaque agent peut envoyer et recevoir des messages RooSync independamment.
+
+**Exceptions (cas particuliers) :**
+
+- Si RooSync est indisponible (GDrive offline) → utiliser GitHub Issues ou INTERCOM local comme fallback temporaire
+- Si l'utilisateur donne une instruction explicite de canal different → suivre l'instruction
+- En dehors de ces exceptions : toujours RooSync pour inter-machine, toujours INTERCOM pour local
+
 ### 1. RooSync (Inter-Machine / Inter-Workspace)
 
 Outils MCP (CONS-1) :
