@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Derniere mise a jour:** 2026-03-17
+**Derniere mise a jour:** 2026-03-19
 
 ---
 
@@ -94,6 +94,8 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 | Global utilisateur | `~/.claude/CLAUDE.md` | Tous les projets |
 | **Config MCP** | **`C:\Users\{user}\.claude.json`** | **MCP servers (playwright, win-cli, roo-state-manager, etc.)** |
 | Projet | `CLAUDE.md` (racine) | Ce projet |
+| **Permissions partagees** | **`.claude/settings.json`** | **Permissions auto-approve, git-tracked (#746)** |
+| Permissions locales | `.claude/settings.local.json` | Overrides machine (gitignored) |
 | Auto-memoire | `~/.claude/projects/<hash>/memory/MEMORY.md` | Prive, local |
 | Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |
 | Rules | `.claude/rules/*.md` | Projet, auto-chargees |
@@ -522,5 +524,5 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 
 ---
 
-**Derniere mise a jour :** 2026-03-18
+**Derniere mise a jour :** 2026-03-19
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01
