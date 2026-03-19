@@ -220,12 +220,21 @@ Outils MCP (CONS-1) :
 
 Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
-### 2. INTERCOM (Locale, MEME machine, MEME workspace)
+### 2. INTERCOM → Dashboards RooSync (Migration #745 en cours)
 
-Fichier : `.claude/local/INTERCOM-{MACHINE_NAME}.md`
+**METHODE PREFEREE (Phase 1) :** `roosync_update_dashboard(section: "intercom", mode: "append", content: "...")`
+- Pas d'approbation fichier (appel MCP direct)
+- Cross-machine via GDrive
+- Auto-condensation automatique
+
+**Fallback fichier local :** `.claude/local/INTERCOM-{MACHINE_NAME}.md`
 Documentation : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
 Types : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
-**Portee : Communication entre Roo et Claude Code sur cette machine, dans ce workspace UNIQUEMENT.**
+
+**3 niveaux de dashboards disponibles :**
+- **Global** : `roosync_update_dashboard(section: "global")` — Vue cluster complète (flotte, services, progression)
+- **Workspace** : `roosync_update_dashboard(section: "intercom")` — Communication Roo ↔ Claude Code (remplace INTERCOM)
+- **Machine** : `roosync_update_dashboard(section: "machine", machine: "{ID}")` — Hardware, MCPs, services par machine
 
 ### 3. GitHub Issues
 

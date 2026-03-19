@@ -24,7 +24,24 @@ Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en b
 
 ### Procedure d'ecriture OBLIGATOIRE
 
-**METHODE PREFEREE (apply_diff - append a la fin) :**
+**METHODE PREFEREE (Dashboard RooSync — Phase 1 migration #745) :**
+
+Utiliser `roosync_update_dashboard` pour TOUTE ecriture INTERCOM. Cette methode est preferee car :
+- Pas d'approbation fichier necessaire (appel MCP)
+- Accessible cross-machine via GDrive
+- Auto-condensation automatique
+
+```
+roosync_update_dashboard(
+  section: "intercom",
+  mode: "append",
+  content: "## [DATE] roo -> claude-code [TYPE]\n### Titre\nContenu...\n---"
+)
+```
+
+**Double-ecriture (Phase 1) :** Ecrire AUSSI dans le fichier local si possible (fallback ci-dessous). Si l'ecriture fichier echoue, le message est deja dans le dashboard — pas de perte.
+
+**METHODE ALTERNATIVE 1 (apply_diff - append a la fin) :**
 
 1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
 2. **Preparer** le nouveau message
