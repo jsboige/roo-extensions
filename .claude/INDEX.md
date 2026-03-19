@@ -22,7 +22,7 @@
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
 ### Agents & Skills
-- **[agents/](agents/)** - 16 specialized subagents
+- **[agents/](agents/)** - 18 specialized subagents (5 communs + 2 coordinator + 11 workers)
   - Common: `git-sync`, `test-runner`, `code-explorer`, `github-tracker`, `intercom-handler`
   - Coordinator: `roosync-hub`, `dispatch-manager`, `task-planner`
   - Executor: `roosync-reporter`, `task-worker`
@@ -100,22 +100,41 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 
 ## 📐 Auto-Loaded Rules (`.claude/rules/`)
 
+Rules in `.claude/rules/` are auto-loaded into every conversation. Reference docs are in `.claude/docs/` (on-demand only).
+
+### Auto-loaded (10 files, ~1450 lines)
+
 | Règle | Description |
 |-------|-------------|
-| [agents-architecture.md](rules/agents-architecture.md) | Architecture 12 subagents, 6 skills, 4 commands |
-| [bash-fallback.md](rules/bash-fallback.md) | Mitigation issue #488 - Bash silencieux |
-| [condensation-thresholds.md](rules/condensation-thresholds.md) | Seuils GLM-5 (80% min) - issue #502 |
-| [feedback-process.md](rules/feedback-process.md) | Workflow amélioration continue |
-| [github-checklists.md](rules/github-checklists.md) | Checklists obligatoires issues |
+| [agents-architecture.md](rules/agents-architecture.md) | Architecture subagents, skills, commands |
+| [ci-guardrails.md](rules/ci-guardrails.md) | Validation CI avant push submodule |
+| [delegation.md](rules/delegation.md) | Règles délégation sub-agents |
 | [github-cli.md](rules/github-cli.md) | Migration MCP → gh CLI |
-| [mcp-discoverability.md](rules/mcp-discoverability.md) | Patterns découverte MCP |
-| [myia-web1-constraints.md](rules/myia-web1-constraints.md) | Contraintes RAM 2GB web1 |
-| [scheduler-densification.md](rules/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
-| [scheduler-system.md](rules/scheduler-system.md) | Référence technique scheduler |
-| [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding |
-| [test-success-rates.md](rules/test-success-rates.md) | Tests : commandes, taux de succes, machines |
+| [intercom-protocol.md](rules/intercom-protocol.md) | Format et procédure INTERCOM local |
+| [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding SDDD |
+| [skepticism-protocol.md](rules/skepticism-protocol.md) | Anti-propagation erreurs entre agents |
+| [test-success-rates.md](rules/test-success-rates.md) | Tests : commandes, taux de succès |
 | [tool-availability.md](rules/tool-availability.md) | STOP & REPAIR protocole |
 | [validation.md](rules/validation.md) | Checklist validation technique (#724) |
+
+### On-demand reference (`.claude/docs/`, 14 files)
+
+| Document | Description |
+|----------|-------------|
+| [condensation-thresholds.md](docs/condensation-thresholds.md) | Seuils GLM (80%) - issue #502 |
+| [feedback-process.md](docs/feedback-process.md) | Workflow amélioration continue |
+| [friction-protocol.md](docs/friction-protocol.md) | Signalement frictions outils/workflows |
+| [github-checklists.md](docs/github-checklists.md) | Checklists obligatoires issues |
+| [bash-fallback.md](docs/reference/bash-fallback.md) | Mitigation #488 - Bash silencieux |
+| [incident-history.md](docs/reference/incident-history.md) | Historique incidents |
+| [mcp-discoverability.md](docs/reference/mcp-discoverability.md) | Patterns découverte MCP |
+| [meta-analysis.md](docs/reference/meta-analysis.md) | Protocole meta-analyse 72h |
+| [roo-schedulable-criteria.md](docs/reference/roo-schedulable-criteria.md) | Critères label roo-schedulable |
+| [scheduler-densification.md](docs/reference/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
+| [scheduler-system.md](docs/reference/scheduler-system.md) | Référence technique scheduler |
+| [myia-web1-constraints.md](docs/machine-specific/myia-web1-constraints.md) | Contraintes spécifiques web1 |
+| [pr-review-policy.md](docs/coordinator-specific/pr-review-policy.md) | Politique PR review multi-agent |
+| [scheduled-coordinator.md](docs/coordinator-specific/scheduled-coordinator.md) | Protocole coordinator myia-ai-01 |
 
 ---
 

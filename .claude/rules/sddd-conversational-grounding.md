@@ -257,68 +257,32 @@ conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
 
 ## Recommandations conversation_browser(summarize) - CRITIQUE
 
-**⚠️ PROBLÈME CONNU :** L'action `summarize` avec `detailLevel: "NoTools"` génère **explosion de contenu** (309 KB+ pour 23 messages).
+**⚠️ `detailLevel: "NoTools"` = PIÈGE** : masque SEULEMENT les paramètres d'appels d'outils mais **garde TOUS les résultats complets** → explosion 309 KB+ pour 23 messages.
 
-### Cause racine
-
-1. **`NoTools` est mal nommé** : Il masque SEULEMENT les paramètres d'appels d'outils, mais **garde TOUS les résultats d'outils complets**.
-2. **`truncationChars` défaut = 0** : Pas de limite de caractères par défaut.
-
-### Résultat réel
-
-| Paramètres | Contenu | Taille |
-|------------|---------|--------|
-| `NoTools` sans truncation | ❌ EXPLOSION | ~300 KB (309 569 chars pour 23 messages) |
-| `Summary` + `truncationChars: 10000` | ✅ COMPACT | ~3 KB (utilisable) |
-
-### Recommandation STRICTE - Pour résumés compacts
-
-**Toujours utiliser cette combinaison :**
-
+**Toujours utiliser `Summary` + `truncationChars` :**
 ```typescript
 conversation_browser(
   action: "summarize",
-  summarize_type: "trace",      // "trace" pour statistiques
-  detailLevel: "Summary",         // PAS "NoTools" (trompeur)
-  truncationChars: 10000,         // OBLIGATOIRE - limite chars
-  taskId: "..."                   // ou taskIds pour clusters
+  summarize_type: "trace",    // "trace" pour statistiques
+  detailLevel: "Summary",     // PAS "NoTools" (trompeur)
+  truncationChars: 10000,     // OBLIGATOIRE - limite chars
+  taskId: "..."
 )
 ```
 
-### Niveaux `detailLevel` réels
+### Niveaux `detailLevel`
 
 | Niveau | Contenu | Cas d'usage |
 |--------|---------|------------|
-| **`Full`** | Tout inclus | ❌ JAMAIS (explosion, massif) |
-| **`NoTools`** | ❌ Trompeur (masque params, garde résultats) | ❌ À ÉVITER absolument |
-| **`NoResults`** | Messages + params (sans résultats) | ✅ Compact, à tester |
+| **`Full`** | Tout inclus | ❌ JAMAIS (explosion) |
+| **`NoTools`** | ❌ Trompeur (masque params, garde résultats) | ❌ À ÉVITER |
+| **`NoResults`** | Messages + params (sans résultats) | ✅ Compact |
 | **`Messages`** | Messages seulement | ✅ Très compact |
 | **`Summary`** | Vue condensée | ✅ Recommandé |
-| **`UserOnly`** | Messages utilisateur seulement | ✅ Plus compact encore |
+| **`UserOnly`** | Messages utilisateur seulement | ✅ Plus compact |
 
-### Règle d'or
-
-**TOUJOURS définir `truncationChars`** quand `summarize_type != "trace"`.
-
-```typescript
-// BON - Limité à 10000 chars
-conversation_browser(action: "summarize", detailLevel: "Summary", truncationChars: 10000)
-
-// MAUVAIS - Pas de limite, risque explosion
-conversation_browser(action: "summarize", detailLevel: "Summary")
-
-// MAUVAIS - Trompeur, masque seulement params
-conversation_browser(action: "summarize", detailLevel: "NoTools")
-```
-
-### Quand utiliser `trace`
-
-**`summarize_type: "trace"` génère automatiquement des stats lisibles :**
-- Nombre de messages par type (User/Assistant/Tool)
-- Taille compression avant/après
-- Breakdown par catégorie
-
-⇒ Utiliser `trace` pour les rapports métriques, pas pour le contenu détaillé.
+**Règle :** TOUJOURS définir `truncationChars` quand `summarize_type != "trace"`.
+`summarize_type: "trace"` génère stats lisibles (messages par type, taille, breakdown) — utiliser pour rapports métriques.
 
 ---
 
@@ -338,37 +302,9 @@ conversation_browser(action: "summarize", detailLevel: "NoTools")
 
 ---
 
-## Protocole de Friction (OBLIGATOIRE)
+## Protocole de Friction SDDD
 
-**Tout agent rencontrant une friction ou un probleme avec les outils SDDD doit le signaler au collectif.**
-
-### Quand signaler
-
-- Un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, etc.)
-- Le bookend debut ne retourne rien d'utile (index pas a jour, embeddings down)
-- Un skill/workflow ne suit pas le protocole SDDD
-- Une doc est introuvable malgre le triple grounding
-
-### Comment signaler
-
-```
-roosync_send(
-  action: "send",
-  to: "all",
-  subject: "[FRICTION] Description courte du probleme",
-  body: "## Probleme\n[Description]\n\n## Contexte\n[Quelle tache, quel outil, quel resultat]\n\n## Impact\n[Ce qui est bloque ou degrade]\n\n## Suggestion\n[Amelioration proposee si applicable]",
-  tags: ["friction", "sddd"]
-)
-```
-
-### Traitement des frictions
-
-1. Le collectif (toutes les machines) recoit le message
-2. Les agents qui ont une experience similaire repondent
-3. Le coordinateur (myia-ai-01) synthetise et decide l'amelioration
-4. Si approuvee : modifier le skill/rule/tool concerne (incremental)
-
-**Principe :** Les skills evoluent par friction reelle, pas par anticipation theorique.
+Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, bookend ne retourne rien d'utile, doc introuvable malgre le triple grounding) → signaler via le protocole standard. Voir `.claude/docs/friction-protocol.md` pour la procedure complete (roosync_send + INTERCOM templates).
 
 ---
 
@@ -381,45 +317,6 @@ roosync_send(
 - Ne PAS utiliser `full` sans smart truncation
 - Ne PAS ignorer les metadonnees (timestamp, workspace, mode)
 - Le bookend FIN est aussi important que le bookend DEBUT
-
----
-
-## Recommandations conversation_browser (CRITIQUE #608)
-
-### Niveaux de detailLevel
-
-| Niveau | Comportement | Quand l'utiliser |
-|--------|-------------|------------------|
-| `Full` | Tout inclus (massif) | ❌ Jamais - explosion de contenu |
-| `NoTools` | Trompeur! Masque SEULEMENT les paramètres, garde tous les résultats | ❌ À PROSCRIRE |
-| `NoResults` | Masque les résultats d'outils | Pour vérifier le flow |
-| `Messages` | Messages seuls | Pour analyse structurelle |
-| `Summary` | Compact et utilisable | ✅ RECOMMANDÉ |
-| `UserOnly` | Plus compact encore | Pour audit rapide |
-
-### ⚠️ Attention: `NoTools` est mal nommé
-
-Le niveau devrait s'appeler `NoToolParams` car il **masque SEULEMENT les paramètres** d'appels d'outils mais **garde TOUS les résultats d'outils complets**.
-
-**Exemple réel (issue #608) :**
-- `NoTools` sans troncature → **309 569 caractères** pour 23 messages
-- `Summary` + `truncationChars: 10000` → **~2 900 caractères**
-
-### Recommandation pour les résumés compacts
-
-```typescript
-action: "summarize"
-summarize_type: "trace"  // ou "cluster"
-detailLevel: "Summary"   // PAS "NoTools" (trompeur)
-truncationChars: 10000   // TOUJOURS définir une limite
-smart_truncation: true   // Activer pour les conversations >10K chars
-```
-
-### À éviter absolument
-
-- `detailLevel: "NoTools"` sans comprendre ce qu'il fait réellement
-- Omettre `truncationChars` pour les conversations >50 messages
-- Utiliser `Full` sans une raison très spécifique
 
 ---
 

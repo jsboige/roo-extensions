@@ -42,7 +42,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 - 18 subagents projet (5 communs + 2 coordinateur + 11 workers) + 6 globaux (`~/.claude/agents/`)
 - 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
 - 4 commands (/coordinate, /executor, /switch-provider, /debrief)
-- 24 rules (`.claude/rules/`) — auto-chargees dans chaque conversation
+- 10 rules auto-chargées (`.claude/rules/`) + 14 docs de référence on-demand (`.claude/docs/`)
 
 **Workflow :**
 1. Debut de session → "tour de sync" (9 phases)
@@ -203,6 +203,14 @@ Pas d'acces a l'historique de conversation. Utiliser :
 **"Verifie tes messages" = verifie RooSync inbox (`roosync_read`), PAS l'INTERCOM.**
 **L'INTERCOM n'est PAS un canal de messagerie inter-machines.**
 
+**Les deux agents (Roo ET Claude Code) utilisent RooSync pour communiquer entre machines.** Chaque agent peut envoyer et recevoir des messages RooSync independamment.
+
+**Exceptions (cas particuliers) :**
+
+- Si RooSync est indisponible (GDrive offline) → utiliser GitHub Issues ou INTERCOM local comme fallback temporaire
+- Si l'utilisateur donne une instruction explicite de canal different → suivre l'instruction
+- En dehors de ces exceptions : toujours RooSync pour inter-machine, toujours INTERCOM pour local
+
 ### 1. RooSync (Inter-Machine / Inter-Workspace)
 
 Outils MCP (CONS-1) :
@@ -239,40 +247,40 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 
 **Labels techniques (optionnels):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `critical` | Issues critiques bloquantes | rouge (#d73a4a) |
-| `regression` | Regression bugs | rose (#d93f0b) |
-| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) | rose (#d93f0b) |
-| `quality` | Code quality and reliability | violet (#5319e7) |
-| `testing` | Test coverage and infrastructure | bleu (#1d76db) |
-| `test` | Test coverage (alias de testing) | vert (#0E8A16) |
-| `investigation` | Investigation and audit tasks | vert (#0e8a16) |
+| Label | Description |
+|-------|-------------|
+| `critical` | Issues critiques bloquantes |
+| `regression` | Regression bugs |
+| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) |
+| `quality` | Code quality and reliability |
+| `testing` | Test coverage and infrastructure |
+| `test` | Test coverage (alias de testing) |
+| `investigation` | Investigation and audit tasks |
 
 **Labels d'attribution (un seul par issue):**
 
-| Label | Agent concerné | Couleur |
-|-------|----------------|---------|
-| `claude-only` | Réservé Claude Code (opus/sonnet) - NOT for Roo schedulers | bleu (#0366d6) |
-| `roo-schedulable` | Peut être exécuté par scheduler Roo autonomously | vert (#0E8A16) |
+| Label | Agent concerné |
+|-------|----------------|
+| `claude-only` | Réservé Claude Code (opus/sonnet) - NOT for Roo schedulers |
+| `roo-schedulable` | Peut être exécuté par scheduler Roo autonomously |
 
 **Labels de validation (gérés automatiquement):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `needs-approval` | Requires user approval before execution | jaune (#fbca04) |
-| `needs-deployment-checklist` | Requires deployment checklist validation before closing | jaune (#FBCA04) |
-| `good first issue` | Good for newcomers | bleu (#7057ff) |
-| `help wanted` | Extra attention is needed | vert (#008672) |
+| Label | Description |
+|-------|-------------|
+| `needs-approval` | Requires user approval before execution |
+| `needs-deployment-checklist` | Requires deployment checklist validation before closing |
+| `good first issue` | Good for newcomers |
+| `help wanted` | Extra attention is needed |
 
 **Labels de statut (gérés automatiquement):**
 
-| Label | Description | Couleur |
-|-------|-------------|---------|
-| `wontfix` | This will not be worked on | blanc (#ffffff) |
-| `duplicate` | This issue or pull request already exists | gris (#cfd3d7) |
-| `invalid` | This doesn't seem right | gris (#e4e669) |
-| `question` | Further information is requested | bleu (#d876e3) |
+| Label | Description |
+|-------|-------------|
+| `wontfix` | This will not be worked on |
+| `duplicate` | This issue or pull request already exists |
+| `invalid` | This doesn't seem right |
+| `question` | Further information is requested |
 
 ### 4. Scheduler Roo
 
@@ -282,7 +290,7 @@ Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 fa
 
 ### 5. Feedback
 
-**Reference :** [`.claude/rules/feedback-process.md`](.claude/rules/feedback-process.md)
+**Reference :** [`.claude/docs/feedback-process.md`](.claude/docs/feedback-process.md)
 
 ---
 
@@ -290,7 +298,8 @@ Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 fa
 
 ```
 .claude/
-  rules/              # Regles auto-chargees (testing, github-cli, scheduler, agents, etc.)
+  rules/              # 10 regles auto-chargees (operationnelles, chaque conversation)
+  docs/               # 14 docs de reference on-demand (lues quand pertinent)
   agents/             # Subagents specialises (coordinator/, executor/, workers/)
   skills/             # Skills auto-invoques (sync-tour, validate, git-sync, etc.)
   commands/           # Slash commands (coordinate, executor, switch-provider, debrief)
@@ -403,7 +412,7 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 | **myia-po-2024** | Agent flexible | GitHub + RooSync + Jupyter |
 | **myia-po-2025** | Agent flexible | GitHub + RooSync + Jupyter |
 | **myia-po-2026** | Agent flexible | GitHub + RooSync + Jupyter |
-| **myia-web1** | Agent flexible | GitHub + RooSync (2GB RAM) |
+| **myia-web1** | Agent flexible | GitHub + RooSync (16GB RAM) |
 
 ### Communication Quotidienne
 
@@ -457,6 +466,40 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
+## Documents de Reference (on-demand)
+
+Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consulter quand le sujet est pertinent.
+
+### Protocoles et Processus
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Condensation GLM** | Seuil **80%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `.claude/docs/condensation-thresholds.md` |
+| **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `.claude/docs/github-checklists.md` |
+| **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `.claude/docs/feedback-process.md`, `.claude/docs/friction-protocol.md` |
+
+### Scheduler & Coordination
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils. Pipeline: modes-config.json → generate-modes.js → .roomodes | `.claude/docs/reference/scheduler-system.md` |
+| **Scheduler densification** | Sweet spot escalade : 2 echecs en -simple → escalader vers -complex | `.claude/docs/reference/scheduler-densification.md` |
+| **Coordinator protocol** | Cycle 6-12h sur ai-01. Analyse RooSync + git + Project #67. | `.claude/docs/coordinator-specific/scheduled-coordinator.md` |
+| **Meta-analysis** | Cycle 72h. Triple grounding. META-INTERCOM separe. Guard rails: lecture seule. | `.claude/docs/reference/meta-analysis.md` |
+
+### Reference Technique
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **PR review policy** | Agents → PR → Review coordinateur → Merge. Jamais push direct sur main. | `.claude/docs/coordinator-specific/pr-review-policy.md` |
+| **Incidents** | Lecons cles : cross-machine check apres config, STOP & REPAIR, CI avant push | `.claude/docs/reference/incident-history.md` |
+| **roo-schedulable** | Seulement taches subalternes (tests, validation, docs, cleanup) | `.claude/docs/reference/roo-schedulable-criteria.md` |
+| **Bash fallback** | Si Bash echoue : outils natifs > MCP win-cli > degradation gracieuse | `.claude/docs/reference/bash-fallback.md` |
+| **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
+| **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
+
+---
+
 ## Regles Absolues
 
 1. **Etat partage RooSync = GDrive UNIQUEMENT** (jamais dans le depot Git)
@@ -470,5 +513,5 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
-**Derniere mise a jour :** 2026-03-17
+**Derniere mise a jour :** 2026-03-18
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01

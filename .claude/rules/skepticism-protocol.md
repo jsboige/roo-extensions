@@ -91,7 +91,7 @@ Pour les verifications de Niveau 1, consulter :
 | Services | Ports, domaines, endpoints | CLAUDE.md section "Services" |
 | Modeles | Endpoints vLLM, modeles disponibles | MEMORY.md, `hosted-models.md` |
 | MCP Config | Outils attendus par machine | `.claude/rules/tool-availability.md` |
-| Contraintes machine | RAM, OS, limitations | `.claude/rules/myia-web1-constraints.md` |
+| Contraintes machine | RAM, OS, limitations | `.claude/docs/machine-specific/myia-web1-constraints.md` |
 
 **Fait critique :**
 - Les modeles LLM (Qwen 3.5, GLM-5, ZwZ-8B) tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs

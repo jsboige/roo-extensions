@@ -83,7 +83,7 @@ Contenu du message...
 |-------|---------|
 | `sender` | `roo`, `claude-code`, `system` |
 | `receiver` | `roo`, `claude-code`, `all` |
-| `TYPE` | `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY` |
+| `TYPE` | `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `SUGGESTION` |
 
 ---
 
@@ -98,10 +98,36 @@ Contenu du message...
 | `ERROR` | Erreur bloquante, besoin d'aide |
 | `ASK` | Poser une question |
 | `REPLY` | Répondre à un ASK |
+| `ACK` | Accuser réception d'un message de Claude |
+| `PROPOSAL` | Claude propose une tâche à Roo — traiter comme `[TASK]` |
+| `SUGGESTION` | Suggestion de Claude, non obligatoire |
 
 ---
 
-## Quand Contacter Claude
+## Règles d'Engagement — Dialogue Bidirectionnel (#657)
+
+### Lecture INTERCOM en début de cycle (Étape 1)
+
+Après avoir lu l'INTERCOM, chercher :
+
+1. **[PROPOSAL] de Claude** → Traiter comme une `[TASK]` prioritaire (si validée par rapport aux critères habituels)
+2. **[ASK] de Claude sans [REPLY]** → Répondre avant de commencer la tâche principale
+
+### Fin de cycle [IDLE]
+
+Si le rapport de fin de cycle est `[IDLE]` (aucune tâche GitHub trouvée) :
+
+**Enrichir le message de fin** avec une suggestion pour Claude :
+
+```markdown
+## [{DATE}] roo -> claude-code [IDLE]
+- Git: OK | Build: OK | Tests: OK
+- Tâches: 0 (aucune issue GitHub assignée)
+- [SUGGESTION] Claude, pendant ton idle : issues sans assignation dans #67 méritent une revue.
+---
+```
+
+### Quand Contacter Claude
 
 ### OBLIGATOIRE
 

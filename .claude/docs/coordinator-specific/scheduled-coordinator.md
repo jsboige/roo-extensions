@@ -179,7 +179,7 @@ The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/
 
 - #540: Coordinator tier (this protocol)
 - #551: Meta-Analyst tier (local analysis, separate protocol)
-- `.claude/rules/meta-analysis.md`: Local meta-analysis protocol
+- `.claude/docs/reference/meta-analysis.md`: Local meta-analysis protocol
 - `.claude/commands/coordinate.md`: Interactive coordination command
 
 ---

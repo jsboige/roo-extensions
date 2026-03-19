@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
 **Derniere mise a jour:** 2026-03-18
-**Version:** 5.8 (Indexation complète Archive - 45 fichiers documentés)
+**Version:** 5.8 (Indexation complète Archive 45 fichiers + ROOSYNC_DASHBOARDS + worktree-best-practices)
 
 ---
 
@@ -68,6 +68,8 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 - [ERROR_CODES_REFERENCE.md](roosync/ERROR_CODES_REFERENCE.md) - Codes d'erreur
 - [SUBMODULE_WORKFLOW.md](roosync/SUBMODULE_WORKFLOW.md) - Workflow submodules
 - [PROTOCOLE_SDDD.md](roosync/PROTOCOLE_SDDD.md) - Protocole SDDD
+- [ROOSYNC_DASHBOARDS.md](roosync/ROOSYNC_DASHBOARDS.md) - **Shared Markdown Dashboards** - Cross-machine collaboration via GDrive (#675)
+- [worktree-best-practices.md](roosync/worktree-best-practices.md) - **Worktree Best Practices** - Infrastructure, decision tree, adoption guide (#627)
 
 ### Archive
 - [roosync/archive/](roosync/archive/) - v2.1 legacy, migration plans, integration historique (20+ docs)

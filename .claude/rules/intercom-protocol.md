@@ -86,7 +86,7 @@ Contenu du message...
 |-------|---------|
 | `sender` | `roo`, `claude-code`, `system` |
 | `receiver` | `roo`, `claude-code`, `all` |
-| `TYPE` | `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY` |
+| `TYPE` | `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `SUGGESTION` |
 
 ---
 
@@ -101,6 +101,58 @@ Contenu du message...
 | `ERROR` | Erreur bloquante, besoin d'aide |
 | `ASK` | Poser une question |
 | `REPLY` | Répondre à un ASK |
+| `ACK` | Accuser réception d'un [DONE] ou [IDLE] de Roo |
+| `PROPOSAL` | Proposer une tâche à Roo (proactif, pas bloquant) |
+| `SUGGESTION` | Suggérer une direction sans s'engager |
+
+---
+
+## Règles d'Engagement — Dialogue Bidirectionnel (#657)
+
+L'INTERCOM est un **canal de conversation**, pas un journal unilatéral. Claude doit réagir aux messages de Roo.
+
+### 1. Début de Session — Répondre à Roo
+
+Quand Claude Code lit l'INTERCOM au début d'une session :
+
+1. **Identifier le dernier message de Roo** (tag `[DONE]`, `[IDLE]`, `[PARTIEL]`)
+2. **Si [DONE] ou [IDLE] sans [ACK] de Claude dans les 2 derniers messages** :
+   - Écrire `[ACK]` pour confirmer réception du rapport de Roo
+   - Si Roo était **IDLE** : ajouter `[PROPOSAL]` avec 1-2 tâches suggérées (issue GitHub, consolidation, investigation)
+3. **Si [ASK] sans [REPLY]** : répondre obligatoirement avant de commencer son propre travail
+
+### 2. Fin de Session — Proposer à Roo
+
+Quand Claude Code termine une session :
+
+- Si la dernière activité connue de Roo était `[IDLE]` : écrire `[PROPOSAL]` avec 1-3 suggestions de tâches
+- Si Roo est actif : écrire `[INFO]` sur ce que Claude a fait (coordination)
+
+### 3. Format des Nouveaux Types
+
+```markdown
+## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [ACK]
+Reçu ton rapport. Build OK, tests passent. Continue.
+---
+
+## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [PROPOSAL]
+### Proposition : Issue #XXX
+Tu es idle. Veux-tu investiguer le bug #XXX ?
+**Description :** Timeout sur la recherche sémantique Qdrant.
+**Complexité estimée :** -simple (lecture + rapport)
+---
+
+## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [SUGGESTION]
+### Pendant que je travaille sur #YYY
+Si tu as un créneau : le nettoyage INTERCOM (>500 lignes) serait utile.
+---
+```
+
+### 4. Règle Anti-Silence
+
+**NE JAMAIS laisser 2 cycles consécutifs de Roo [IDLE] sans [PROPOSAL] de Claude.**
+
+Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sessions → priorité absolue de proposer une tâche.
 
 ---
 

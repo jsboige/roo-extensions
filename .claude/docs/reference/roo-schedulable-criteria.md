@@ -87,7 +87,7 @@ La tâche nécessite-t-elle de créer du code ?
 
 - Issue #605: Cascade de délégation
 - `.claude/rules/delegation.md`: Règles de délégation sub-agents
-- `.claude/rules/scheduler-system.md`: Architecture scheduler Roo
+- `.claude/docs/reference/scheduler-system.md`: Architecture scheduler Roo
 - `.claude/ESCALATION_MECHANISM.md`: Mécanisme d'escalade 3 couches
 
 ---

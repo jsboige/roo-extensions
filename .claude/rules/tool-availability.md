@@ -208,15 +208,7 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-## Historique des Incidents
-
-| Date | Machine | Probleme | Impact | Root Cause |
-|------|---------|----------|--------|------------|
-| 2026-02-21 | myia-web1 | win-cli absent apres modes fix | Scheduler bloque | Pas de verification cross-machine apres b91a841c |
-| 2026-02-21 | myia-ai-01 | Contexte explose (--coverage) | Scheduler bloque 5h | Output non limite, pas de garde-fou |
-| 2026-02-21 | myia-po-2023 | Boucle condensation infinie | Scheduler bloque | Seuil condensation + INTERCOM sature |
-| 2026-03-05 | myia-po-2026 | roo-state-manager absent (Claude Code) | Session dégradée, pas de RooSync | Config MCP séparée Claude Code vs Roo non documentée |
-| 2026-03-06 | myia-ai-01 | 31+ outils roosync_* absents (Claude Code) | Issue #569 impossible (0/26 tests exécutables) | Config MCP Claude Code expose seulement 5 outils management, pas les outils opérationnels |
+**Historique des Incidents :** Voir [`.claude/docs/reference/incident-history.md`](../docs/reference/incident-history.md) (liste complète des incidents et leçons apprises).
 
 ---
 

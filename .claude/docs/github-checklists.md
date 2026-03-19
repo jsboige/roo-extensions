@@ -86,7 +86,7 @@ Cette règle est **automatiquement incluse** dans :
 - **`sync-tour`** (skill) - Phase 7 (coordination)
 - **`task-worker`** (agent) - Étape 7 (reporter)
 
-**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+**Référence :** [`.claude/docs/github-checklists.md`](.claude/docs/github-checklists.md)
 
 ---
 
