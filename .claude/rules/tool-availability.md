@@ -208,7 +208,7 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Historique des Incidents :** Voir [`.claude/rules/reference/incident-history.md`](reference/incident-history.md) (liste complète des incidents et leçons apprises).
+**Historique des Incidents :** Voir [`.claude/docs/reference/incident-history.md`](../docs/reference/incident-history.md) (liste complète des incidents et leçons apprises).
 
 ---
 

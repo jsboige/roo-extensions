@@ -42,7 +42,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 - 18 subagents projet (5 communs + 2 coordinateur + 11 workers) + 6 globaux (`~/.claude/agents/`)
 - 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
 - 4 commands (/coordinate, /executor, /switch-provider, /debrief)
-- 14 rules auto-chargées + 10 on-demand (`.claude/rules/`) — voir subdirs `reference/`, `coordinator-specific/`, `machine-specific/`
+- 10 rules auto-chargées (`.claude/rules/`) + 14 docs de référence on-demand (`.claude/docs/`)
 
 **Workflow :**
 1. Debut de session → "tour de sync" (9 phases)
@@ -290,7 +290,7 @@ Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 fa
 
 ### 5. Feedback
 
-**Reference :** [`.claude/rules/feedback-process.md`](.claude/rules/feedback-process.md)
+**Reference :** [`.claude/docs/feedback-process.md`](.claude/docs/feedback-process.md)
 
 ---
 
@@ -298,7 +298,8 @@ Essentiel : Extension `kylehoskins.roo-scheduler`, intervalle 3h, 10 modes (5 fa
 
 ```
 .claude/
-  rules/              # Regles auto-chargees (testing, github-cli, scheduler, agents, etc.)
+  rules/              # 10 regles auto-chargees (operationnelles, chaque conversation)
+  docs/               # 14 docs de reference on-demand (lues quand pertinent)
   agents/             # Subagents specialises (coordinator/, executor/, workers/)
   skills/             # Skills auto-invoques (sync-tour, validate, git-sync, etc.)
   commands/           # Slash commands (coordinate, executor, switch-provider, debrief)
@@ -411,7 +412,7 @@ roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (J
 | **myia-po-2024** | Agent flexible | GitHub + RooSync + Jupyter |
 | **myia-po-2025** | Agent flexible | GitHub + RooSync + Jupyter |
 | **myia-po-2026** | Agent flexible | GitHub + RooSync + Jupyter |
-| **myia-web1** | Agent flexible | GitHub + RooSync (2GB RAM) |
+| **myia-web1** | Agent flexible | GitHub + RooSync (16GB RAM) |
 
 ### Communication Quotidienne
 
@@ -465,6 +466,40 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
+## Documents de Reference (on-demand)
+
+Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consulter quand le sujet est pertinent.
+
+### Protocoles et Processus
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Condensation GLM** | Seuil **80%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `.claude/docs/condensation-thresholds.md` |
+| **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `.claude/docs/github-checklists.md` |
+| **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `.claude/docs/feedback-process.md`, `.claude/docs/friction-protocol.md` |
+
+### Scheduler & Coordination
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils. Pipeline: modes-config.json → generate-modes.js → .roomodes | `.claude/docs/reference/scheduler-system.md` |
+| **Scheduler densification** | Sweet spot escalade : 2 echecs en -simple → escalader vers -complex | `.claude/docs/reference/scheduler-densification.md` |
+| **Coordinator protocol** | Cycle 6-12h sur ai-01. Analyse RooSync + git + Project #67. | `.claude/docs/coordinator-specific/scheduled-coordinator.md` |
+| **Meta-analysis** | Cycle 72h. Triple grounding. META-INTERCOM separe. Guard rails: lecture seule. | `.claude/docs/reference/meta-analysis.md` |
+
+### Reference Technique
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **PR review policy** | Agents → PR → Review coordinateur → Merge. Jamais push direct sur main. | `.claude/docs/coordinator-specific/pr-review-policy.md` |
+| **Incidents** | Lecons cles : cross-machine check apres config, STOP & REPAIR, CI avant push | `.claude/docs/reference/incident-history.md` |
+| **roo-schedulable** | Seulement taches subalternes (tests, validation, docs, cleanup) | `.claude/docs/reference/roo-schedulable-criteria.md` |
+| **Bash fallback** | Si Bash echoue : outils natifs > MCP win-cli > degradation gracieuse | `.claude/docs/reference/bash-fallback.md` |
+| **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
+| **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
+
+---
+
 ## Regles Absolues
 
 1. **Etat partage RooSync = GDrive UNIQUEMENT** (jamais dans le depot Git)
@@ -478,5 +513,5 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
-**Derniere mise a jour :** 2026-03-17
+**Derniere mise a jour :** 2026-03-18
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01

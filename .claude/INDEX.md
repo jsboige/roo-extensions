@@ -100,32 +100,41 @@ See [MCP_SETUP.md](MCP_SETUP.md) for details.
 
 ## 📐 Auto-Loaded Rules (`.claude/rules/`)
 
-| Règle | Auto-chargé | Description |
-|-------|-------------|-------------|
-| [agents-architecture.md](rules/agents-architecture.md) | ✅ | Architecture subagents, skills, commands |
-| [ci-guardrails.md](rules/ci-guardrails.md) | ✅ | Validation CI avant push submodule |
-| [condensation-thresholds.md](rules/condensation-thresholds.md) | ✅ | Seuils GLM-5 (70% min) - issue #502 |
-| [delegation.md](rules/delegation.md) | ✅ | Règles délégation sub-agents |
-| [feedback-process.md](rules/feedback-process.md) | ✅ | Workflow amélioration continue |
-| [friction-protocol.md](rules/friction-protocol.md) | ✅ | Signalement frictions outils/workflows |
-| [github-checklists.md](rules/github-checklists.md) | ✅ | Checklists obligatoires issues |
-| [github-cli.md](rules/github-cli.md) | ✅ | Migration MCP → gh CLI |
-| [intercom-protocol.md](rules/intercom-protocol.md) | ✅ | Format et procédure INTERCOM local |
-| [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | ✅ | Protocole triple grounding SDDD |
-| [skepticism-protocol.md](rules/skepticism-protocol.md) | ✅ | Anti-propagation erreurs entre agents |
-| [test-success-rates.md](rules/test-success-rates.md) | ✅ | Tests : commandes, taux de succès |
-| [tool-availability.md](rules/tool-availability.md) | ✅ | STOP & REPAIR protocole |
-| [validation.md](rules/validation.md) | ✅ | Checklist validation technique (#724) |
-| [bash-fallback.md](rules/reference/bash-fallback.md) | ❌ `reference/` | Mitigation #488 - Bash silencieux |
-| [incident-history.md](rules/reference/incident-history.md) | ❌ `reference/` | Historique incidents |
-| [mcp-discoverability.md](rules/reference/mcp-discoverability.md) | ❌ `reference/` | Patterns découverte MCP |
-| [meta-analysis.md](rules/reference/meta-analysis.md) | ❌ `reference/` | Protocole meta-analyse 72h |
-| [roo-schedulable-criteria.md](rules/reference/roo-schedulable-criteria.md) | ❌ `reference/` | Critères label roo-schedulable |
-| [scheduler-densification.md](rules/reference/scheduler-densification.md) | ❌ `reference/` | Sweet spot escalade + #545 graduation |
-| [scheduler-system.md](rules/reference/scheduler-system.md) | ❌ `reference/` | Référence technique scheduler |
-| [myia-web1-constraints.md](rules/machine-specific/myia-web1-constraints.md) | ❌ `machine-specific/` | Contraintes spécifiques web1 |
-| [pr-review-policy.md](rules/coordinator-specific/pr-review-policy.md) | ❌ `coordinator-specific/` | Politique PR review multi-agent |
-| [scheduled-coordinator.md](rules/coordinator-specific/scheduled-coordinator.md) | ❌ `coordinator-specific/` | Protocole coordinator myia-ai-01 |
+Rules in `.claude/rules/` are auto-loaded into every conversation. Reference docs are in `.claude/docs/` (on-demand only).
+
+### Auto-loaded (10 files, ~1450 lines)
+
+| Règle | Description |
+|-------|-------------|
+| [agents-architecture.md](rules/agents-architecture.md) | Architecture subagents, skills, commands |
+| [ci-guardrails.md](rules/ci-guardrails.md) | Validation CI avant push submodule |
+| [delegation.md](rules/delegation.md) | Règles délégation sub-agents |
+| [github-cli.md](rules/github-cli.md) | Migration MCP → gh CLI |
+| [intercom-protocol.md](rules/intercom-protocol.md) | Format et procédure INTERCOM local |
+| [sddd-conversational-grounding.md](rules/sddd-conversational-grounding.md) | Protocole triple grounding SDDD |
+| [skepticism-protocol.md](rules/skepticism-protocol.md) | Anti-propagation erreurs entre agents |
+| [test-success-rates.md](rules/test-success-rates.md) | Tests : commandes, taux de succès |
+| [tool-availability.md](rules/tool-availability.md) | STOP & REPAIR protocole |
+| [validation.md](rules/validation.md) | Checklist validation technique (#724) |
+
+### On-demand reference (`.claude/docs/`, 14 files)
+
+| Document | Description |
+|----------|-------------|
+| [condensation-thresholds.md](docs/condensation-thresholds.md) | Seuils GLM (80%) - issue #502 |
+| [feedback-process.md](docs/feedback-process.md) | Workflow amélioration continue |
+| [friction-protocol.md](docs/friction-protocol.md) | Signalement frictions outils/workflows |
+| [github-checklists.md](docs/github-checklists.md) | Checklists obligatoires issues |
+| [bash-fallback.md](docs/reference/bash-fallback.md) | Mitigation #488 - Bash silencieux |
+| [incident-history.md](docs/reference/incident-history.md) | Historique incidents |
+| [mcp-discoverability.md](docs/reference/mcp-discoverability.md) | Patterns découverte MCP |
+| [meta-analysis.md](docs/reference/meta-analysis.md) | Protocole meta-analyse 72h |
+| [roo-schedulable-criteria.md](docs/reference/roo-schedulable-criteria.md) | Critères label roo-schedulable |
+| [scheduler-densification.md](docs/reference/scheduler-densification.md) | Sweet spot escalade + #545 graduation |
+| [scheduler-system.md](docs/reference/scheduler-system.md) | Référence technique scheduler |
+| [myia-web1-constraints.md](docs/machine-specific/myia-web1-constraints.md) | Contraintes spécifiques web1 |
+| [pr-review-policy.md](docs/coordinator-specific/pr-review-policy.md) | Politique PR review multi-agent |
+| [scheduled-coordinator.md](docs/coordinator-specific/scheduled-coordinator.md) | Protocole coordinator myia-ai-01 |
 
 ---
 

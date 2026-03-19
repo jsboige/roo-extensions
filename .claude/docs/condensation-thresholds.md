@@ -1,9 +1,9 @@
 # Règles de Condensation - Contextes GLM
 
-**Version:** 2.2.0
+**Version:** 2.3.0
 **Créé:** 2026-02-21
-**Mis à jour:** 2026-03-09
-**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) → **Solution: 70%**
+**Mis à jour:** 2026-03-18
+**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → **Solution: 80%**
 
 ---
 
@@ -26,10 +26,10 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 | Modèle | Contexte Réel | Seuil Recommandé | Justification |
 |--------|---------------|------------------|---------------|
-| **GLM-5** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k (optimal #502+#555) |
-| **GLM-4.7** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
-| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
-| **GLM-4.5 Air** (z.ai) | 131k tokens | **70%** = ~92k | Marge sécurité 40k |
+| **GLM-5** (z.ai) | 131k tokens | **80%** = ~105k | Marge 26k. 70% causait boucles avec harnais lourd (#736) |
+| **GLM-4.7** (z.ai) | 131k tokens | **80%** = ~105k | Idem |
+| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **80%** = ~105k | Idem |
+| **GLM-4.5 Air** (z.ai) | 131k tokens | **80%** = ~105k | Idem |
 
 ---
 
@@ -40,7 +40,7 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 **Pour z.ai (GLM) :**
 ```json
 {
-  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
 }
 ```
 
@@ -48,6 +48,7 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 - Ne PAS définir cette variable (défaut fonctionne, dépend du modèle)
 
 **⚠️ NE JAMAIS utiliser 50%** → Boucle de condensation infinie !
+**⚠️ 70% insuffisant** avec harnais lourd (~65K tokens) → Boucle sur po-2023 (#736)
 
 ---
 
@@ -57,14 +58,16 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 **Recommandation :**
 ```
-Seuil de déclenchement : 70%
+Seuil de déclenchement : 80%
 ```
 
-**Pourquoi 70% et pas 50% ou 80% ?**
-- 50% de 200k = 100k (trop bas → boucle infinie #502)
-- **70% de 200k = 140k** → **Optimal** (compaction à ~92k, marge 40k)
-- 75% de 200k = 150k (limite, risque saturation #555)
-- 80% de 200k = 160k (trop haut → explosion contexte)
+**Pourquoi 80% ?**
+- 50% de 200k = 100k → Boucle infinie (#502)
+- 70% de 200k = 140k → Boucle avec harnais lourd (#736, po-2023)
+- **80% de 200k = 160k** → **Compaction à ~105k réels, marge 26k**
+- 90% → Trop haut, risque saturation avant compaction
+
+**Note :** Avec la réduction du harnais auto-chargé (24→10 rules, ~65K→~35K tokens), 80% offre un bon compromis entre marge utile et prévention des boucles.
 
 ---
 

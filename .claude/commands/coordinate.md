@@ -373,7 +373,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
 
-**Référence :** [`.claude/rules/github-checklists.md`](.claude/rules/github-checklists.md)
+**Référence :** [`.claude/docs/github-checklists.md`](.claude/docs/github-checklists.md)
 
 1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
 2. **PENDANT** : Cocher chaque case immédiatement après validation
@@ -440,7 +440,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Ne PAS utiliser pour :** PRs doc-only, config-only, ou <50 lignes.
 
-**Reference :** `.claude/rules/coordinator-specific/pr-review-policy.md` section 2 (sk-agent Code Review)
+**Reference :** `.claude/docs/coordinator-specific/pr-review-policy.md` section 2 (sk-agent Code Review)
 
 ### Validation Utilisateur OBLIGATOIRE
 

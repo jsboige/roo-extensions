@@ -30,7 +30,7 @@ Après toute modification de configuration (modes, MCPs, workflows), TOUJOURS v�
 
 Si un outil critique est absent (roo-state-manager, win-cli pour Roo), **ARRÊTER tout travail immédiatement**. Pas de mode dégradé, pas de contournement.
 
-**Référence :** [`.claude/rules/tool-availability.md`](tool-availability.md)
+**Référence :** [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
 
 ### 3. Séparation Config MCP Claude Code vs Roo
 
@@ -44,7 +44,7 @@ Un MCP actif pour l'un n'est pas nécessairement actif pour l'autre.
 
 Toujours exécuter `npx vitest run --config vitest.config.ci.ts` avant tout push dans `mcps/internal`. Un test qui passe en local peut casser le CI.
 
-**Référence :** [`.claude/rules/ci-guardrails.md`](ci-guardrails.md)
+**Référence :** [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
 
 ### 5. Fichiers Machine-Spécifiques
 
@@ -54,7 +54,7 @@ Le fichier `.roo/schedules.json` est machine-spécifique. Ne pas le committer su
 
 Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le seuil **70%** (pas 50%) pour éviter les boucles infinies de condensation.
 
-**Référence :** [`.claude/rules/condensation-thresholds.md`](condensation-thresholds.md)
+**Référence :** [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
 
 ---
 
@@ -71,7 +71,7 @@ Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le 
 
 ## Référence
 
-- Documentation MCP : [`.claude/rules/tool-availability.md`](tool-availability.md)
-- Protocole CI : [`.claude/rules/ci-guardrails.md`](ci-guardrails.md)
-- Condensation GLM : [`.claude/rules/condensation-thresholds.md`](condensation-thresholds.md)
+- Documentation MCP : [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
+- Protocole CI : [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
+- Condensation GLM : [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
 - Équivalent Roo : `.roo/rules/11-incident-history.md`

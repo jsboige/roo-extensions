@@ -198,7 +198,7 @@ This provides multi-perspective analysis (security, perf, maintainability) befor
 
 ## 6. Checklist Integration with #516
 
-All PRs with checklists in body MUST follow [`.claude/rules/github-checklists.md`](github-checklists.md):
+All PRs with checklists in body MUST follow [`.claude/docs/github-checklists.md`](../github-checklists.md):
 
 - [ ] Checklist in PR body reflects actual work items
 - [ ] Coordinator updates checklist as PR progresses (not just at end)
@@ -277,7 +277,7 @@ detect-secrets scan --all-files --only-whitelist
 
 ### For New Agents
 
-1. Read [`.claude/rules/github-checklists.md`](github-checklists.md) (checklist discipline)
+1. Read [`.claude/docs/github-checklists.md`](../github-checklists.md) (checklist discipline)
 2. Read this file (PR review policy)
 3. Review 1 example PR (coordinator shows PR structure)
 4. Create first PR as draft, get feedback before converting to ready
@@ -307,7 +307,7 @@ detect-secrets scan --all-files --only-whitelist
 - Issue #461: Worktree integration
 - Issue #535: Auto-review pipeline
 - Issue #549: CLEANUP-3 regression (motivating incident)
-- Rules: [`.claude/rules/github-checklists.md`](github-checklists.md)
+- Rules: [`.claude/docs/github-checklists.md`](../github-checklists.md)
 - Scripts: `scripts/review/`, `roo-config/worktree/scripts/`
 
 ---

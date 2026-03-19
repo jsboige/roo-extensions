@@ -304,7 +304,7 @@ conversation_browser(
 
 ## Protocole de Friction SDDD
 
-Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, bookend ne retourne rien d'utile, doc introuvable malgre le triple grounding) → signaler via le protocole standard. Voir `.claude/rules/friction-protocol.md` pour la procedure complete (roosync_send + INTERCOM templates).
+Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, bookend ne retourne rien d'utile, doc introuvable malgre le triple grounding) → signaler via le protocole standard. Voir `.claude/docs/friction-protocol.md` pour la procedure complete (roosync_send + INTERCOM templates).
 
 ---
 
