@@ -177,3 +177,6 @@ exports/
 # Backup dirs created by agent sessions
 /backup-*/
 /cleanup-backups/
+
+# sk-agent config with hardcoded API keys (CRITICAL - never commit)
+mcps/internal/servers/sk-agent/sk_agent_config.json
