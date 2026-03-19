@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-17
-**Version:** 5.7 (Ajout synthèse git Q4-Q1 + docs/harness/ + Fix 11 liens cassés)
+**Derniere mise a jour:** 2026-03-18
+**Version:** 5.8 (Indexation complète Archive - 45 fichiers documentés)
 
 ---
 
@@ -284,13 +284,57 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 ## Archive
 
-- [archive/](archive/) - Contenu historique et obsolete
-  - GPU specs myia-po-2023
-  - [archive/git-history/](archive/git-history/) - Operations Git
-    - [GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
-    - [GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
-    - [detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles par operation
-  - Note: Guides MCP, encodage, deployment consolides dans guides/ et dev/encoding/
+### Git History (16 fichiers)
+
+- [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
+- [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
+- [archive/git-history/README.md](archive/git-history/README.md) - Index operations Git
+- [archive/git-history/phase2-analysis/STASH_ANALYSIS.md](archive/git-history/phase2-analysis/STASH_ANALYSIS.md) - Analyse stashes phase 2
+- [archive/git-history/phase2-analysis/WORKTREE_ANALYSIS.md](archive/git-history/phase2-analysis/WORKTREE_ANALYSIS.md) - Analyse worktrees phase 2
+- [archive/git-history/stash-details/STASH-001.md](archive/git-history/stash-details/STASH-001.md) - Stash "fix-encoding"
+- [archive/git-history/stash-details/STASH-002.md](archive/git-history/stash-details/STASH-002.md) - Stash "test-indexing"
+- [archive/git-history/stash-details/STASH-003.md](archive/git-history/stash-details/STASH-003.md) - Stash "worktree-cleanup"
+- [archive/git-history/stash-details/STASH-004.md](archive/git-history/stash-details/STASH-004.md) - Stash "docs-reorg"
+- [archive/git-history/stash-details/STASH-005.md](archive/git-history/stash-details/STASH-005.md) - Stash "test-fix-569"
+- [archive/git-history/stash-details/STASH-006.md](archive/git-history/stash-details/STASH-006.md) - Stash "consolidation-merge"
+- [archive/git-history/stash-details/STASH-007.md](archive/git-history/stash-details/STASH-007.md) - Stash "roosync-fix"
+- [archive/git-history/stash-details/STASH-008.md](archive/git-history/stash-details/STASH-008.md) - Stash "cleanup-088"
+- [archive/git-history/stash-details/STASH-009.md](archive/git-history/stash-details/STASH-009.md) - Stash "pre-sync"
+- [archive/git-history/stash-details/STASH-010.md](archive/git-history/stash-details/STASH-010.md) - Stash "emergency-fix"
+- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles par operation
+
+### Obsolete (7 fichiers)
+
+- [archive/obsolete/roosync-v1-vs-v2-gap-analysis.md](archive/obsolete/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2
+- [archive/obsolete/MCP-TROUBLESHOOTING-ARCHIVE.md](archive/obsolete/MCP-TROUBLESHOOTING-ARCHIVE.md) - Archive depannage MCP
+- [archive/obsolete/mcp-usage-2024-12.md](archive/obsolete/mcp-usage-2024-12.md) - Usage MCP decembre 2024
+- [archive/obsolete/mcp-usage-2025-01.md](archive/obsolete/mcp-usage-2025-01.md) - Usage MCP janvier 2025
+- [archive/obsolete/scheduler-investigation.md](archive/obsolete/scheduler-investigation.md) - Investigation scheduler
+- [archive/obsolete/GUIDE-TECHNIQUE-v2.1.md](archive/obsolete/GUIDE-TECHNIQUE-v2.1.md) - Guide technique v2.1 legacy
+- [archive/obsolete/QUICKSTART-v2.1.md](archive/obsolete/QUICKSTART-v2.1.md) - Quickstart v2.1 legacy
+
+### Reports (19 fichiers)
+
+- [archive/reports/context-condensation-audit-report-issue-633.md](archive/reports/context-condensation-audit-report-issue-633.md) - Audit condensation contexte
+- [archive/reports/session-consolidation-report-2025-10-26.md](archive/reports/session-consolidation-report-2025-10-26.md) - Rapport consolidation session
+- [archive/reports/task-analysis-report-2025-10-27.md](archive/reports/task-analysis-report-2025-10-27.md) - Analyse taches
+- [archive/reports/workspace-inventory-2025-10-28.md](archive/reports/workspace-inventory-2025-10-28.md) - Inventaire workspace
+- [archive/reports/scheduler-audit-2025-10-29.md](archive/reports/scheduler-audit-2025-10-29.md) - Audit scheduler
+- [archive/reports/git-history-synthesis-2025-11-02.md](archive/reports/git-history-synthesis-2025-11-02.md) - Synthese historique Git
+- [archive/reports/roosync-indexing-diagnostics-2025-11-03.md](archive/reports/roosync-indexing-diagnostics-2025-11-03.md) - Diagnostics indexation RooSync
+- [archive/reports/mcp-compatibility-matrix-2025-11-04.md](archive/reports/mcp-compatibility-matrix-2025-11-04.md) - Matrice compatibilite MCP
+- [archive/reports/context-condensation-audit-2025-11-05.md](archive/reports/context-condensation-audit-2025-11-05.md) - Audit condensation contexte
+- [archive/reports/semantic-search-validation-2025-11-06.md](archive/reports/semantic-search-validation-2025-11-06.md) - Validation recherche semantique
+- [archive/reports/roosync-message-flow-analysis-2025-11-07.md](archive/reports/roosync-message-flow-analysis-2025-11-07.md) - Analyse flux messages RooSync
+- [archive/reports/tool-usage-patterns-2025-11-08.md](archive/reports/tool-usage-patterns-2025-11-08.md) - Patterns usage outils
+- [archive/reports/task-completion-report-2025-11-09.md](archive/reports/task-completion-report-2025-11-09.md) - Rapport completion taches
+- [archive/reports/issue-553-phase2-analysis/](archive/reports/issue-553-phase2-analysis/) - Analyse phase 2 issue 553
+  - [README.md](archive/reports/issue-553-phase2-analysis/README.md) - Index analyse phase 2
+  - [CONSOLIDATION-STATUS.md](archive/reports/issue-553-phase2-analysis/CONSOLIDATION-STATUS.md) - Statut consolidation
+  - [FILE-MOVEMENT-LOG.md](archive/reports/issue-553-phase2-analysis/FILE-MOVEMENT-LOG.md) - Log mouvements fichiers
+  - [OLD-STRUCTURE.md](archive/reports/issue-553-phase2-analysis/OLD-STRUCTURE.md) - Ancienne structure
+  - [NEW-STRUCTURE.md](archive/reports/issue-553-phase2-analysis/NEW-STRUCTURE.md) - Nouvelle structure
+  - [BREAKING-CHANGES.md](archive/reports/issue-553-phase2-analysis/BREAKING-CHANGES.md) - Changements cassants
 
 ---
 
@@ -304,5 +348,5 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 **Consolide par:** myia-po-2024
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-03-16 (v5.6 - Ajout synthese git Q4-Q1 complete)
-**Precedent:** v5.5 (Fichiers racine docs/ avec 5 fichiers de référence)
+**Derniere MAJ:** 2026-03-18 (v5.8 - Indexation complete Archive - 45 fichiers documentes)
+**Precedent:** v5.7 (Ajout synthese git Q4-Q1 + docs/harness/ + Fix 11 liens casses)
