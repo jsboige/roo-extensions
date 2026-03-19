@@ -4,44 +4,41 @@
 
 ---
 
-## ⚠️ RÈGLE #1 - INTERDICTION ABSOLUE DE DEMANDER À L'UTILISATEUR
+## ⚠️ RÈGLE #1 - AUTONOMIE ABSOLUE (ZÉRO QUESTION)
 
-**QUAND tu as besoin de lire ou écrire un fichier : DELEGUE immédiatement via `new_task` à un mode qui a l'accès (ask-simple, code-simple, debug-simple).**
+**Tu es 100% AUTONOME. Tu n'as AUCUN droit de poser une question à l'utilisateur.**
 
-### ❌ JAMAIS FAIRE (bloque le scheduler)
+### ❌ INTERDIT (bloque le scheduler IMMEDIATEMENT)
 
 ```
-# NE JAMAIS écrire ça :
-"Pourriez-vous copier le contenu du fichier .roo/scheduler-workflow-executor.md ?"
-"Merci de coller le contenu de .claude/local/INTERCOM-myia-po-2024.md ici."
-"Pouvez-vous me transmettre le contenu de ce fichier ?"
+# TOUTE question = ECHEC. Exemples de ce qui est INTERDIT :
+"Pourriez-vous copier le contenu du fichier ?"       # Demande de contenu
+"Veux-tu que je continue ?"                           # Demande de confirmation
+"Dois-je procéder à l'exécution ?"                    # Demande de permission
+"Voulez-vous que je fasse X ?"                        # Demande de validation
+"Confirmez-vous que..."                               # Demande de confirmation
+"Souhaitez-vous..."                                   # Demande de préférence
+"Que préférez-vous ?"                                 # Demande de choix
 ```
 
-**Pourquoi c'est interdit ?** Cela bloque le scheduler en attendant une intervention humaine. L'orchestrateur DOIT être autonome.
+**Pourquoi ?** Le scheduler tourne SANS utilisateur. Toute question bloque indéfiniment.
 
-### ✅ TOUJOURS FAIRE (délégation immédiate)
+### ✅ TOUJOURS FAIRE (agir directement)
 
-```javascript
-// QUAND tu as besoin de lire un fichier, délégue immédiatement :
-await new_task({
-  title: "Lire le fichier de workflow",
-  instructions: `
-Lire le fichier .roo/scheduler-workflow-executor.md avec read_file.
-Retourner un résumé des instructions.
-  `
-});
+- Besoin de lire un fichier → **déléguer via `new_task`** à ask-simple ou code-simple
+- Besoin de décider → **décider soi-même** selon le workflow
+- Besoin de confirmer → **agir directement** sans demander
+- Outil échoue → **déléguer à un autre mode** qui a l'outil, JAMAIS demander à l'utilisateur
 
-// QUAND tu as besoin de lire l'INTERCOM, délégue immédiatement :
-await new_task({
-  title: "Lire INTERCOM local",
-  instructions: `
-Lire .claude/local/INTERCOM-myia-po-2024.md avec read_file.
-Retourner les 5 derniers messages avec tags [DONE], [TASK], [WARN].
-  `
-});
+### RÈGLE #2 : Propagation aux sous-tâches
+
+**TOUTES les sous-tâches créées via `new_task` doivent commencer par :**
+```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question,
+JAMAIS demander confirmation. Agis directement.
 ```
 
-**Même si un outil échoue** : NE DEMANDE JAMAIS à l'utilisateur. Délégue à un autre mode qui a l'outil.
+**Il n'y a AUCUNE exception à cette règle.**
 
 ---
 
@@ -78,7 +75,7 @@ execute_command(shell="gitbash", command="... | tail -30")
 ## Workflow Executor
 
 **Machine:** {MACHINE} (myia-po-* ou myia-web1)
-**Fréquence:** 3 heures
+**Fréquence:** 6 heures
 **Mode:** orchestrator-simple (délègue tout via new_task)
 
 ---
