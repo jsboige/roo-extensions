@@ -2,7 +2,7 @@
 
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
-**Derniere mise a jour:** 2026-03-17
+**Derniere mise a jour:** 2026-03-19
 
 ---
 
@@ -94,6 +94,8 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 | Global utilisateur | `~/.claude/CLAUDE.md` | Tous les projets |
 | **Config MCP** | **`C:\Users\{user}\.claude.json`** | **MCP servers (playwright, win-cli, roo-state-manager, etc.)** |
 | Projet | `CLAUDE.md` (racine) | Ce projet |
+| **Permissions partagees** | **`.claude/settings.json`** | **Permissions auto-approve, git-tracked (#746)** |
+| Permissions locales | `.claude/settings.local.json` | Overrides machine (gitignored) |
 | Auto-memoire | `~/.claude/projects/<hash>/memory/MEMORY.md` | Prive, local |
 | Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |
 | Rules | `.claude/rules/*.md` | Projet, auto-chargees |
@@ -220,12 +222,21 @@ Outils MCP (CONS-1) :
 
 Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
-### 2. INTERCOM (Locale, MEME machine, MEME workspace)
+### 2. INTERCOM → Dashboards RooSync (Migration #745 en cours)
 
-Fichier : `.claude/local/INTERCOM-{MACHINE_NAME}.md`
+**METHODE PREFEREE (Phase 1) :** `roosync_update_dashboard(section: "intercom", mode: "append", content: "...")`
+- Pas d'approbation fichier (appel MCP direct)
+- Cross-machine via GDrive
+- Auto-condensation automatique
+
+**Fallback fichier local :** `.claude/local/INTERCOM-{MACHINE_NAME}.md`
 Documentation : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
 Types : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
-**Portee : Communication entre Roo et Claude Code sur cette machine, dans ce workspace UNIQUEMENT.**
+
+**3 niveaux de dashboards disponibles :**
+- **Global** : `roosync_update_dashboard(section: "global")` — Vue cluster complète (flotte, services, progression)
+- **Workspace** : `roosync_update_dashboard(section: "intercom")` — Communication Roo ↔ Claude Code (remplace INTERCOM)
+- **Machine** : `roosync_update_dashboard(section: "machine", machine: "{ID}")` — Hardware, MCPs, services par machine
 
 ### 3. GitHub Issues
 
@@ -513,5 +524,5 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 
 ---
 
-**Derniere mise a jour :** 2026-03-18
+**Derniere mise a jour :** 2026-03-19
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01
