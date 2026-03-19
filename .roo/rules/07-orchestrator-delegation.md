@@ -58,3 +58,5 @@ Inclure dans chaque prompt delegue :
 - Tenter d'appeler roosync_heartbeat, roosync_config directement → IMPOSSIBLE
 - Attendre une reponse utilisateur pour continuer → INTERDIT en mode scheduler
 - Lire un fichier toi-meme au lieu de deleguer → INTERDIT
+- Réessayer un outil qui échoue >2 fois → INTERDIT (circuit breaker #737)
+- Utiliser `gh api graphql` en `-simple` via win-cli → ÉVITER (quoting instable, escalader vers `-complex`)

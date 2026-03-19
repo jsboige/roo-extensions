@@ -72,6 +72,39 @@ execute_command(shell="gitbash", command="... | tail -30")
 
 ---
 
+## 🛑 CIRCUIT BREAKER - Anti-Boucle d'Échecs (Issue #737)
+
+**Si un outil échoue 2 fois de suite avec la même erreur → ABANDONNER cette action.**
+
+### Règle
+
+| Échecs consécutifs | Action |
+|--------------------|--------|
+| 1 | Réessayer UNE FOIS avec syntaxe simplifiée |
+| 2 | **STOP** — Abandonner cette sous-tâche, passer à la suivante |
+| 3+ | **INTERDIT** — Ne JAMAIS réessayer plus de 2 fois |
+
+### Cas spécifiques
+
+**`gh api graphql` en mode `-simple` via win-cli :**
+- Les guillemets JSON dans les commandes `gh api graphql` cassent souvent via win-cli
+- **PRÉFÉRER** : `gh issue list`, `gh issue view`, `gh pr list` (commandes simples)
+- **ÉVITER** : `gh api graphql -f query='...'` en `-simple` (quoting instable)
+- Si GraphQL nécessaire → **escalader vers `-complex`** qui a le terminal natif
+
+**Condensation qui échoue :**
+- Si la condensation retourne une erreur (token limit, API error) → **NE PAS réessayer**
+- Terminer la tâche avec `attempt_completion` immédiatement
+- Écrire `[WARN] Condensation failed` dans le rapport INTERCOM
+
+### Pourquoi c'est critique
+
+Sans circuit breaker, un outil qui échoue en boucle ajoute ~1KB d'erreur par tentative.
+Après 60 tentatives = 60KB de contexte gaspillé → déclenche une boucle de condensation →
+la condensation elle-même échoue (>262K tokens) → boucle infinie (#737 RC2+RC3).
+
+---
+
 ## Workflow Executor
 
 **Machine:** {MACHINE} (myia-po-* ou myia-web1)

@@ -13,6 +13,22 @@ Agis directement. Délègue via `new_task`. Décide toi-même.
 
 ---
 
+## 🛑 CIRCUIT BREAKER - Anti-Boucle d'Échecs (Issue #737)
+
+**Si un outil échoue 2 fois de suite avec la même erreur → ABANDONNER cette action.**
+
+| Échecs | Action |
+|--------|--------|
+| 1 | Réessayer UNE FOIS avec syntaxe simplifiée |
+| 2 | **STOP** — Abandonner, passer à la sous-tâche suivante |
+| 3+ | **INTERDIT** — Ne JAMAIS réessayer plus de 2 fois |
+
+**`gh api graphql` en `-simple` via win-cli** : quoting JSON instable. PRÉFÉRER `gh issue list/view` (commandes simples). Si GraphQL nécessaire → escalader vers `-complex`.
+
+**Condensation qui échoue** : NE PAS réessayer. Terminer avec `attempt_completion` immédiatement.
+
+---
+
 ## PRINCIPES
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
