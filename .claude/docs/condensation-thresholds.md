@@ -90,7 +90,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 1. Ouvrir les paramètres Roo (icon gear)
 2. Aller dans "Context Management"
 3. Trouver "Auto-condensation"
-4. Régler "Seuil de déclenchement" à **70%**
+4. Régler "Seuil de déclenchement" à **80%**
 5. Sauvegarder
 
 ### 3. Vérifier que la boucle s'arrête
@@ -98,7 +98,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 Après configuration :
 - Exécuter une tâche scheduler
 - Vérifier que l'INTERCOM ne boucle plus
-- Si problème persiste : augmenter à 80%
+- Si problème persiste : vérifier le harnais auto-chargé (trop lourd ?)
 
 ---
 
@@ -110,5 +110,5 @@ Après configuration :
 
 ---
 
-**Dernière mise à jour :** 2026-03-09
+**Dernière mise à jour :** 2026-03-19
 **Mainteneur :** Coordinateur RooSync (myia-ai-01)
