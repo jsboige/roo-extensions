@@ -2035,6 +2035,20 @@ REASON: [resume des tests ajoutes ou findings de veille]
     # ==========================================================================
 
     $Model = Determine-Model -Task $Task
+
+    # Guard: Minimum model check (#747 - context window overflow prevention)
+    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~114K tokens.
+    # haiku maps to glm-4.5-air on z.ai which has insufficient context for this harness.
+    # Minimum viable model is sonnet (glm-4.7 on z.ai, ~131K context).
+    $MinimumModel = "sonnet"
+    $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
+    $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
+    $MinLevel = $ModelHierarchy[$MinimumModel]
+    if ($ModelLevel -lt $MinLevel) {
+        Write-Log "WARN: Model '$Model' has insufficient context window for harness (~114K tokens). Upgrading to '$MinimumModel'." "WARN"
+        $Model = $MinimumModel
+    }
+
     Write-Log "Modele selectionne: $Model"
 
     # ==========================================================================
