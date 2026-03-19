@@ -1,32 +1,34 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-18
-**Version:** 5.8 (Indexation complète Archive 45 fichiers + ROOSYNC_DASHBOARDS + worktree-best-practices)
+**Derniere mise a jour:** 2026-03-19
+**Version:** 5.9 (Ajout sk-agent/ + mcps/ dans structure, correction comptage 16→18 repertoires)
 
 ---
 
-## Structure docs/ (16 repertoires)
+## Structure docs/ (18 repertoires)
 
 ```
 docs/
-├── analysis/         # Analyses de patterns (MCP, etc.) - NOUVEAU
+├── analysis/         # Analyses de patterns (MCP, etc.)
 ├── architecture/     # Architecture systeme, designs, analyses
 ├── archive/          # Contenu historique/obsolete (auto-archive)
-├── audit/            # Audits techniques et investigations - NOUVEAU
+├── audit/            # Audits techniques et investigations
 ├── deployment/       # Deploiement, hardware
 ├── dev/              # Debugging, encoding, fixes, tests, refactoring
-├── evaluation/       # Evaluations modeles (LLM) - NOUVEAU
+├── evaluation/       # Evaluations modeles (LLM)
 ├── framework-multi-agent/  # Templates et framework coordination multi-agent
 ├── guides/           # Guides utilisateur, installation, depannage
 ├── harness/          # Documentation harnais Roo/Claude (rules-mapping, etc.)
 ├── knowledge/        # Base de connaissances
 ├── mcp/              # Documentation MCP roo-state-manager
+├── mcps/             # Index MCPs (internal + external)
 ├── roo-code/         # Documentation Roo Code, PRs, ADR
 ├── roosync/          # Protocoles RooSync v2.3, guides agents
 ├── scheduler/        # Scheduler Roo & Claude Code
-├── services/         # Documentation services techniques - NOUVEAU
+├── services/         # Documentation services techniques
+├── sk-agent/         # sk-agent: inventaire agents, rapports exploitation
 ├── suivi/            # Suivi projet actif, monitoring
-├── testing/          # Rapports tests et audits - NOUVEAU
+├── testing/          # Rapports tests et audits
 ├── INDEX.md          # Ce fichier
 └── README.md         # Vue d'ensemble
 ```
@@ -233,6 +235,17 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 - [HierarchyReconstructionEngine.md](services/HierarchyReconstructionEngine.md) - Reconstruction hierarchie
 - [NarrativeContextBuilderService.md](services/NarrativeContextBuilderService.md) - Construction contexte narratif
 - [sk-agent-deployment.md](services/sk-agent-deployment.md) - Deploiement sk-agent
+
+---
+
+## sk-agent
+
+- [AGENT_INVENTORY.md](sk-agent/AGENT_INVENTORY.md) - **Inventaire des agents sk-agent** - Agents disponibles, configs, modeles LLM
+- [EXPLOITATION_REPORT_2026-03-01.md](sk-agent/EXPLOITATION_REPORT_2026-03-01.md) - Rapport exploitation (2026-03-01)
+- [EXPLOITATION_REPORT_485.md](sk-agent/EXPLOITATION_REPORT_485.md) - Rapport exploitation #485
+- [EXPLOITATION_REPORT_PHASE1-3.md](sk-agent/EXPLOITATION_REPORT_PHASE1-3.md) - Rapport exploitation Phases 1-3
+- [PHASE_4_IMPLEMENTATION_REPORT.md](sk-agent/PHASE_4_IMPLEMENTATION_REPORT.md) - Rapport implementation Phase 4
+- [agents-configuration-template.yaml](sk-agent/agents-configuration-template.yaml) - Template configuration agents
 
 ---
 
