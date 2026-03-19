@@ -236,7 +236,54 @@ roosync_search(action: "semantic", search_query: "bloque erreur", role: "user", 
 - Frictions détectées : X | Patterns à signaler : Y
 ```
 
-**Si aucune friction détectée :** Documenter "0 frictions (72h)" et continuer Phase 2.
+**Si aucune friction détectée :** Documenter "0 frictions (72h)" et continuer Phase 1.7.
+
+---
+
+## Phase 1.7 : Vérification Notifications Git (#741)
+
+**Objectif :** Détecter les notifications critiques (CI failures, PRs oubliées, stashes orphelins) avant la synchronisation. Prend < 1 minute.
+
+**⚠️ Note CLI :** `gh notification list` n'existe pas. Utiliser `gh api notifications`.
+
+### Actions
+
+```bash
+# Notifications GitHub (filtrer sur le repo courant)
+gh api notifications --jq '.[] | select(.repository.full_name | contains("roo-extensions")) | {title: .subject.title, type: .subject.type, unread: .unread}'
+
+# PRs ouvertes
+gh pr list --repo jsboige/roo-extensions
+
+# Stashes git (parent + submodule)
+git stash list
+cd mcps/internal && git stash list && cd ../..
+
+# Statut workspace
+git status
+```
+
+### Analyse des résultats
+
+- **Notifications critiques** : CI failure récent (< 24h) sur main → investiguer AVANT Phase 2
+- **PRs en attente** : PR ouverte sans reviewer → vérifier si assignée
+- **Stashes orphelins** : stash > 72h → investiguer (code perdu ?)
+- **Workspace sale** : fichiers modifiés non commités → gérer AVANT git sync
+
+### Output attendu
+
+```
+## Phase 1.7 : Notifications Git
+
+| Vérification | Résultat |
+|-------------|---------|
+| Notifications critiques (roo-extensions) | ✅ Aucune / ⚠️ X critique(s) |
+| PRs ouvertes | ✅ Aucune / ℹ️ X PR(s) |
+| Stashes orphelins | ✅ Aucun / ⚠️ X stash(es) |
+| Workspace | ✅ Clean / ⚠️ Fichiers modifiés |
+```
+
+**Si notifications critiques ou workspace sale :** Gérer AVANT Phase 2.
 
 ---
 
