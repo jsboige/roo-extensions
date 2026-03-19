@@ -127,6 +127,9 @@ mcps/external/win-cli/server/*.txt
 # Claude Code settings backups
 .claude/settings.json.backup-*
 
+# Claude Code local settings (machine-specific overrides, never commit)
+.claude/settings.local.json
+
 # Claude Code local inter-agent communication (machine-specific)
 .claude/local/
 

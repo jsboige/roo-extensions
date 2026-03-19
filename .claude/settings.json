@@ -28,7 +28,9 @@
       "Bash(git pull:*)",
       "mcp__roo-state-manager__roosync_get_machine_inventory",
       "mcp__roo-state-manager__roosync_collect_config",
-      "Bash(npx vitest:*)"
+      "Bash(npx vitest:*)",
+      "Edit:.claude/local/*",
+      "Write:.claude/local/*"
     ],
     "mode": "auto-approve"
   },
