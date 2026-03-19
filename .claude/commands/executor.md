@@ -67,6 +67,12 @@ cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | he
 Puis (en parallele) :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
 2. **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages Roo < 24h)
+   - Identifier le dernier message de Roo (tag `[DONE]`, `[IDLE]`, `[PARTIEL]`)
+   - Si `[DONE]` ou `[IDLE]` sans `[ACK]` dans les 2 derniers messages Claude → écrire `[ACK]`
+   - Si Roo était **IDLE** → ajouter `[PROPOSAL]` avec 1-2 tâches suggérées
+   - Si `[ASK]` sans `[REPLY]` → répondre **AVANT** de commencer son propre travail
+   - **Règle Anti-Silence :** Ne JAMAIS laisser 2 cycles consécutifs de Roo `[IDLE]` sans `[PROPOSAL]`
+   - **Référence :** `.claude/rules/intercom-protocol.md` — Section "Dialogue Bidirectionnel (#657)"
 3. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
