@@ -66,7 +66,7 @@ Si ABSENTS : **STOP IMMEDIAT** → Entrer en mode reparation. AUCUN autre travai
 
 | MCP | Outils attendus | Verification | Note |
 |-----|-----------------|-------------|------|
-| **roo-state-manager** | 36 | `conversation_browser(action: "current")` | Coordination, grounding conversationnel |
+| **roo-state-manager** | 34 | `conversation_browser(action: "current")` | Coordination, grounding conversationnel |
 
 **Pour Roo Scheduler (bloque sans eux) :**
 
@@ -138,7 +138,7 @@ Ceci est un fichier de OVERRIDES pour les MCPs du PROJET roo-extensions uniqueme
 - playwright (ACTIF, 22 outils)
 - searxng (ACTIF, 2 outils)
 - win-cli (ACTIF, fork local 0.2.0)
-- roo-state-manager (ACTIF, 36 outils)
+- roo-state-manager (ACTIF, 34 outils)
 
 - **MAJ alwaysAllow :** `roosync_mcp_management(subAction: "sync_always_allow")`
 - **MAJ unitaire :** `roosync_mcp_management(subAction: "update_server_field")`

@@ -58,10 +58,10 @@ Déléguer à un sub-agent si la tâche :
 | Tâche | Agent | Raison |
 |-------|-------|--------|
 | Rechercher les usages d'une fonction | `code-explorer` ou `Agent(subagent_type="Explore")` | Recherche isolée |
-| Implémenter une issue GitHub bien spécifiée | `issue-worker` (à créer) | Tâche autonome |
-| Auditer les configs MCP cross-machine | `config-auditor` (à créer) | Recherche + rapport |
-| Exécuter un script avec gestion d'erreurs | `script-runner` (à créer) | Exécution isolée |
-| Review une PR/diff | `pr-reviewer` (à créer) | Analyse autonome |
+| Implémenter une issue GitHub bien spécifiée | `issue-worker` | Tâche autonome |
+| Auditer les configs MCP cross-machine | `config-auditor` | Recherche + rapport |
+| Exécuter un script avec gestion d'erreurs | `script-runner` | Exécution isolée |
+| Review une PR/diff | `pr-reviewer` | Analyse autonome |
 
 ---
 
@@ -211,7 +211,7 @@ Cette règle est automatiquement incluse dans :
 
 - Issue #566: Enrichir sub-agents
 - Issue #563: Restriction MCPs orchestrateurs Roo (pendant)
-- `docs/roosync/agents-architecture.md`: Architecture agents
+- `.claude/rules/agents-architecture.md`: Architecture agents
 - `~/.claude/agents/`: Agents globaux
 
 ---

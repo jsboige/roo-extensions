@@ -336,4 +336,4 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 
 ---
 
-**Reference :** [.claude/CLAUDE_CODE_GUIDE.md](.claude/CLAUDE_CODE_GUIDE.md)
+**Derniere mise a jour :** 2026-03-20

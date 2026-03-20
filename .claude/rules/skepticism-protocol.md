@@ -20,7 +20,7 @@ Le cout d'une verification est de quelques secondes. Le cout d'une erreur propag
 
 | Categorie | Exemples | Verification |
 |-----------|----------|-------------|
-| **Infrastructure** | "GPU insuffisante", "modele X necessite Y GB", "service Z est down" | Croiser avec tables CLAUDE.md/MEMORY.md (GPU Fleet, Services) |
+| **Infrastructure** | "GPU insuffisante", "modele X necessite Y GB", "service Z est down" | Croiser avec MEMORY.md et `.claude/rules/tool-availability.md` |
 | **Capacite** | "impossible sur cette machine", "pas assez de RAM/VRAM" | Verifier si la tache est locale ou via API distante |
 | **Etat du code** | "tests passent tous", "feature X implementee", "bug Y fixe" | `git log`, `npx vitest run`, lire le code source |
 | **Blocage** | "bloque depuis X heures", "impossible de faire Y" | Verifier traces (conversation_browser), tenter soi-meme |
@@ -87,9 +87,8 @@ Pour les verifications de Niveau 1, consulter :
 
 | Source | Contenu | Fichier |
 |--------|---------|---------|
-| GPU Fleet | GPU par machine (ai-01: 3x4090, etc.) | CLAUDE.md section "GPU Fleet" |
-| Services | Ports, domaines, endpoints | CLAUDE.md section "Services" |
-| Modeles | Endpoints vLLM, modeles disponibles | MEMORY.md, `hosted-models.md` |
+| Infrastructure | GPU/services par machine | MEMORY.md ou `.claude/memory/PROJECT_MEMORY.md` |
+| Modeles | Endpoints vLLM, modeles disponibles | MEMORY.md, `.claude/memory/PROJECT_MEMORY.md` |
 | MCP Config | Outils attendus par machine | `.claude/rules/tool-availability.md` |
 | Contraintes machine | RAM, OS, limitations | `.claude/docs/machine-specific/myia-web1-constraints.md` |
 

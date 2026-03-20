@@ -198,7 +198,7 @@ C:\Drive\.shortcut-targets-by-id\{ID}\.shared-state\meta-analysis\
 
 ## Contraintes Contexte Roo (IMPORTANT)
 
-- **Seuil condensation GLM :** 70% (voir `.roo/rules/06-context-window.md`)
+- **Seuil condensation GLM :** 80% (voir `.roo/rules/06-context-window.md`)
 - **Pas de coverage dans les tests :** Explose le contexte
 - **Limiter output git log/diff :** Toujours `| head -30`
 - **Si contexte sature** → Arreter l'analyse, ecrire les conclusions partielles dans META-INTERCOM
