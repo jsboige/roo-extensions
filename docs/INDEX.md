@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-19
-**Version:** 5.9 (Ajout sk-agent/ + mcps/ dans structure, correction comptage 16→18 repertoires)
+**Derniere mise a jour:** 2026-03-20
+**Version:** 5.11 (Archive 4 harness cross-analysis reports → docs/archive/harness-reports/; ajout git-notification-maintenance.md + sk-agent-phase5-validation-report.md)
 
 ---
 
@@ -42,15 +42,14 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ### Audits & Analyses
 
 - [coverage-audit-492.md](coverage-audit-492.md) - **Audit de Couverture de Tests** (Issue #492) - Analyse couverture roo-state-manager MCP (25.33% vs 80% objectif)
-- [cross-analysis-harnesses-2026-03-13.md](cross-analysis-harnesses-2026-03-13.md) - **Analyse Croisée des Harnais META-ANALYST** (2026-03-13, Roo vs Claude) - 10 incohérences, 12 lacunes identifiées, 5 recommandations priorisées
-- [harness-cross-analysis-report.md](harness-cross-analysis-report.md) - **Rapport d'Analyse Croisée des Harnais** (Roo vs Claude) - Comparaison couverture fichiers Roo/Claude + gaps analysés
-- [harness-cross-analysis-report-2026-03-14.md](harness-cross-analysis-report-2026-03-14.md) - **Rapport d'Analyse Croisée des Harnais** (2026-03-14) - Rapport meta-analyste session 32
-- [harness-cross-analysis-report-2026-03-15.md](harness-cross-analysis-report-2026-03-15.md) - **Rapport d'Analyse Croisée des Harnais** (2026-03-15) - Rapport meta-analyste session 32 (cont-6)
+- [archive/harness-reports/](archive/harness-reports/) - **Rapports d'Analyse Croisée des Harnais** (2026-03-13 à 15) - Archivés 2026-03-20 : 4 rapports meta-analyste (cross-analysis-harnesses-2026-03-13.md, harness-cross-analysis-report*.md)
 
 ### Référence Technique
 
 - [mcp-configuration.md](mcp-configuration.md) - **Configuration MCP par Machine** - Référence complète (Issue #688) : configs séparées Claude Code vs Roo, win-cli fork local 0.2.0, tableau de vérification
 - [scheduler-workflow.md](scheduler-workflow.md) - **Unified Scheduler Workflows** - Référence technique (Issue #689) : 3 types workflows (Executor/Coordinator/Meta-Analyst), modules PowerShell partagés, protocole INTERCOM
+- [git-notification-maintenance.md](git-notification-maintenance.md) - **Git Notification & Maintenance Workflow** (Issue #741) - Workflow Git et notifications pour maintenance cross-machine
+- [sk-agent-phase5-validation-report.md](sk-agent-phase5-validation-report.md) - **sk-agent Phase 5 Validation Report** (myia-ai-01, 2026-03-20, Issue #645) - Rapport validation sk-agent configuration complète
 
 ---
 

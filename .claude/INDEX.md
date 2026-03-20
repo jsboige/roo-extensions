@@ -22,11 +22,13 @@
 - **[../docs/knowledge/WORKSPACE_KNOWLEDGE.md](../docs/knowledge/WORKSPACE_KNOWLEDGE.md)** - Complete workspace context (6500+ files)
 
 ### Agents & Skills
-- **[agents/](agents/)** - 18 specialized subagents (5 communs + 2 coordinator + 11 workers)
-  - Common: `git-sync`, `test-runner`, `code-explorer`, `github-tracker`, `intercom-handler`
-  - Coordinator: `roosync-hub`, `dispatch-manager`, `task-planner`
+
+- **[agents/](agents/)** - 24 specialized subagents (5 communs + 2 coordinator + 2 executor + 11 workers + 4 globaux)
+  - Common: `github-tracker`, `intercom-handler`, `intercom-compactor`, `sddd-router`, `task-planner`
+  - Coordinator (ai-01): `roosync-hub`, `dispatch-manager`
   - Executor: `roosync-reporter`, `task-worker`
-  - Workers: `code-fixer`, `consolidation-worker`, `doc-updater`, `test-investigator`
+  - Workers: `code-fixer`, `codebase-researcher`, `config-auditor`, `consolidation-worker`, `doc-updater`, `issue-triager`, `issue-worker`, `pr-reviewer`, `script-runner`, `sync-checker`, `test-investigator`
+  - Global (`~/.claude/agents/`): `git-sync`, `test-runner`, `code-explorer` + others
 - **[skills/](skills/)** - 6 auto-invoked skills
   - `sync-tour` - 9-phase sync tour
   - `validate` - CI local (build + tests)
