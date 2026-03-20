@@ -792,13 +792,13 @@ A la fin du tour de sync, produire un **rapport consolide** :
 
 **Objectif :** Mettre à jour le dashboard partagé GDrive avec l'état actuel de la machine.
 
-**Outil :** `roosync_update_dashboard` (Phase 1 #546)
+**Outil :** `roosync_dashboard` (Phase 1 #546)
 
 ### Actions
 
 **9a. Mettre à jour la section machine :**
 ```
-roosync_update_dashboard(
+roosync_dashboard(
   section: "machine",
   machine: "{MACHINE}",
   workspace: "roo-extensions",
@@ -816,7 +816,7 @@ Le contenu markdown doit inclure :
 
 **9b. Mettre à jour les métriques globales (coordinateur uniquement) :**
 ```
-roosync_update_dashboard(
+roosync_dashboard(
   section: "metrics",
   content: "{METRIQUES_GITHUB}",
   mode: "replace"

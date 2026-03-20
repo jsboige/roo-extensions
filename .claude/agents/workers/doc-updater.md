@@ -60,7 +60,7 @@ Grep "roosync_" c:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/mc
 ### $ROOSYNC_SHARED_PATH/DASHBOARD.md
 
 - Dashboard hiérarchique RooSync (GDrive)
-- Mise à jour via `roosync_update_dashboard` MCP tool
+- Mise à jour via `roosync_dashboard` MCP tool
 - Sections: État Global, Machines, Notes Inter-Agents, Décisions en Attente, Métriques
 
 ### .claude/agents/ (si nouveaux agents)

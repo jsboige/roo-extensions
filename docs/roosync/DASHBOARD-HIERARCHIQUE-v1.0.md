@@ -53,7 +53,7 @@ GitHub Project, machines online, etc.
 
 ## Outil MCP
 
-### `roosync_update_dashboard`
+### `roosync_dashboard`
 
 Met à jour une section du dashboard hiérarchique.
 
@@ -68,21 +68,21 @@ Met à jour une section du dashboard hiérarchique.
 
 ```javascript
 // Mettre à jour les notes de sa machine
-roosync_update_dashboard({
+roosync_dashboard({
   section: "machine",
   content: "- En cours: #546 Dashboard GDrive\n- ✅ Scheduler réparé",
   machine: "myia-web1"
 })
 
 // Ajouter une note inter-agent
-roosync_update_dashboard({
+roosync_dashboard({
   section: "intercom",
   content: "[2026-03-03] @myia-web1 → @myia-ai-01: Besoin validation #546",
   mode: "append"
 })
 
 // Mettre à jour l'état global (coordinateur)
-roosync_update_dashboard({
+roosync_dashboard({
   section: "global",
   content: "- **Statut:** 🟢 Opérationnel\n- **Priorité:** #546 Dashboard"
 })
@@ -98,7 +98,7 @@ Intégrer dans le skill `sync-tour`:
 
 ```yaml
 Étape 9 - Reporting Dashboard:
-  roosync_update_dashboard({
+  roosync_dashboard({
     section: "machine",
     content: "État: {{status}}\nDernière action: {{action}}\nNotes: {{notes}}",
     mode: "replace"
@@ -137,7 +137,7 @@ La section "Décisions en Attente" du dashboard remplace le fichier séparé `sy
 
 ```bash
 # Depuis n'importe quelle machine avec roo-state-manager actif
-roosync_update_dashboard({
+roosync_dashboard({
   section: "machine",
   content: "- Test: mise à jour dashboard",
   mode: "append"
@@ -167,7 +167,7 @@ cat "$ROOSYNC_SHARED_PATH/DASHBOARD.md"
 
 - Issue #546: https://github.com/jsboige/roo-extensions/issues/546
 - Fichier template: `$ROOSYNC_SHARED_PATH/DASHBOARD.md`
-- Outil MCP: `roosync_update_dashboard`
+- Outil MCP: `roosync_dashboard`
 - Documentation RooSync: `docs/roosync/GUIDE-TECHNIQUE-v2.3.md`
 
 ---
