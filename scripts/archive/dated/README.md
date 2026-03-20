@@ -2,9 +2,9 @@
 
 This directory contains PowerShell scripts with dates in their filenames, archived during the consolidation effort (Issue #656, P0 - Scripts datés).
 
-## Archivé le 2026-03-15
+## Archivé le 2026-03-16
 
-Scripts déplacés depuis `scripts/_archive/messaging-investigation-2025-10-20/` :
+**Scripts de messaging (2025-10-20)** - déplacés depuis `scripts/_archive/messaging-investigation-2025-10-20/` :
 
 | Script | Description originale |
 |--------|----------------------|
@@ -19,7 +19,11 @@ Scripts déplacés depuis `scripts/_archive/messaging-investigation-2025-10-20/`
 | `10-fix-mcp-path-improved.ps1` | Correction améliorée chemin MCP |
 | `11-fix-mcp-path-final.ps1` | Correction finale chemin MCP |
 
-**Note**: Ces scripts font partie d'une investigation sur le système de messaging RooSync datant de 2025-10-20.
+**Scripts superseded** - remplacés par des versions consolidées plus récentes :
+
+| Script | Raison d'archivage |
+|--------|-------------------|
+| `12-legacy-diagnostic-utf8.ps1` | Superseded by `scripts/encoding/diagnostic-encoding-consolide.ps1` v2.0 (2025-11-11) |
 
 ## Critère d'archivage
 
