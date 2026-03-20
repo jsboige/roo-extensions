@@ -6,9 +6,9 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (ListTools):** 36 (was 39 before #457 consolidation)
-- **Claude wrapper (mcp-wrapper.cjs):** 36 tools (v4 pass-through, no filtering)
-- **Tests:** 6946 passed, 19 skipped (2026-03-04)
+- **Total tools (ListTools):** 34 (was 39 before consolidations CONS-1→#675)
+- **Claude wrapper (mcp-wrapper.cjs):** 34 tools (v4 pass-through, no filtering)
+- **Tests:** 7933 passed, 26 skipped (2026-03-20)
 - **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
 ### Key Files
@@ -87,10 +87,10 @@ Updated via git commits. Each agent should read this at session start.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
 
-## Current State (2026-03-04)
+## Current State (2026-03-20)
 
-**Phase**: MAINTENANCE CYCLE 53 (Issue #556 Active)
-**Tests**: 6946 PASS, 19 skipped | **Tools**: 36 | **GitHub #67**: Progression continue
+**Phase**: MAINTENANCE (Issues #556, #473 Active)
+**Tests**: 7933 PASS, 26 skipped | **Tools**: 34 | **GitHub #67**: Progression continue
 
 ### Issue #543: Settings Harmonisation Pipeline (COMPLETE ✅)
 
@@ -126,10 +126,9 @@ Updated via git commits. Each agent should read this at session start.
 ### Active Issues
 | Issue | Title | Scope | Status |
 |-------|-------|-------|--------|
-| #544 | Automated Quality Pipeline | ai-01 first | In Progress (platform bug) |
 | #556 | Memory Redistribution & Rules Audit | All machines | In Progress |
-| #558 | win-cli Timeout Configuration | All machines | In Progress |
-| #537 | RooSync Config-Sync Phase 2 | All machines | Todo |
+| #473 | Auto-approbations alwaysAllow | All machines | In Progress |
+| #679 | Qdrant Indexer Null-Safety | All machines | Fixed (4 crash paths) |
 
 ### sk-agent MCP (v2.0)
 - **Location**: `mcps/internal/servers/sk-agent/`
@@ -181,8 +180,7 @@ Updated via git commits. Each agent should read this at session start.
 | Issue | Title | Scope | Status |
 |-------|-------|-------|--------|
 | #543 | Settings & Config-Sync Harmonization | All machines | **CLOSED** ✅ |
-| #544 | Automated Quality Pipeline | ai-01 first | In Progress (platform bug) |
 | #545 | Roo Complex Mode Graduation | All machines | **CLOSED** ✅ |
 | #555 | GLM-5 Condensation Parameters | All machines | **CLOSED** ✅ |
 | #556 | Memory Redistribution & Rules Audit | All machines | In Progress |
-| #558 | win-cli commandTimeout | All machines | In Progress (deployment) |
+| #679 | Qdrant Indexer Null-Safety | All machines | Fixed (po-2025 verified) |

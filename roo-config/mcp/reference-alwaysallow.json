@@ -58,6 +58,7 @@
 			]
 		},
 		"roo-state-manager": {
+			"_comment": "v1.2.0: Updated to match post-consolidation ListTools (34 tools). Legacy names removed: list_conversations, manage_mcp_settings, rebuild_and_restart_mcp, roosync_summarize, roosync_sync_event, storage_info, task_browse, touch_mcp_settings, view_conversation_tree. Added: roosync_attachments (#674), roosync_dashboard (#675).",
 			"alwaysAllow": [
 				"analyze_roosync_problems",
 				"codebase_search",
@@ -66,14 +67,13 @@
 				"export_data",
 				"get_mcp_best_practices",
 				"get_raw_conversation",
-				"list_conversations",
-				"manage_mcp_settings",
 				"read_vscode_logs",
-				"rebuild_and_restart_mcp",
+				"roosync_attachments",
 				"roosync_baseline",
 				"roosync_cleanup_messages",
 				"roosync_compare_config",
 				"roosync_config",
+				"roosync_dashboard",
 				"roosync_decision",
 				"roosync_decision_info",
 				"roosync_diagnose",
@@ -91,14 +91,8 @@
 				"roosync_search",
 				"roosync_send",
 				"roosync_storage_management",
-				"roosync_summarize",
-				"roosync_sync_event",
 				"roosync_update_dashboard",
-				"storage_info",
-				"task_browse",
 				"task_export",
-				"touch_mcp_settings",
-				"view_conversation_tree",
 				"view_task_details"
 			]
 		},
