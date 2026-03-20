@@ -44,28 +44,33 @@ L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire le
 
 ## Procédure d'écriture OBLIGATOIRE pour Claude Code
 
-### Méthode PREFEREE : Dashboard RooSync (Phase 1 migration #745)
+### Méthode OBLIGATOIRE : Dashboard RooSync (Phase 2 migration #745)
 
-**PRIORITE : Utiliser `roosync_update_dashboard` pour TOUTE écriture INTERCOM.**
+**TOUJOURS utiliser `roosync_dashboard` pour la communication INTERCOM.** Le fichier local est un FALLBACK uniquement.
 
-Cette méthode est préférée car elle ne nécessite **aucune approbation fichier** (c'est un appel MCP).
-
+**Écriture :**
 ```
-roosync_update_dashboard(
-  section: "intercom",
-  mode: "append",
-  content: "## [YYYY-MM-DD HH:MM:SS] claude-code → roo [TYPE]\n### Titre\nContenu...\n---"
+roosync_dashboard(
+  action: "append",
+  type: "workspace+machine",
+  tags: ["{INFO|TASK|DONE|WARN|ERROR|ASK|REPLY}", "claude-interactive"],
+  content: "Contenu du message..."
 )
 ```
 
+**Lecture :**
+```
+roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)
+```
+
 **Avantages :**
-- Pas d'approbation utilisateur (MCP tool, pas écriture fichier)
+- **Pas d'approbation utilisateur** (MCP tool, pas écriture fichier)
 - Accessible cross-machine via GDrive
 - Auto-condensation à 500 messages
+- Tags structurés identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
 - Archives JSON horodatées
-- Recherche par tags et sections
 
-**Double-écriture (Phase 1) :** Pendant la migration, écrire AUSSI dans le fichier INTERCOM local si possible. Si l'approbation est refusée, le message est déjà dans le dashboard — pas de perte.
+**FALLBACK fichier local :** Seulement si le MCP dashboard échoue, utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` via Edit tool.
 
 ### Méthode ALTERNATIVE (Edit tool - append à la fin)
 

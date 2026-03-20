@@ -24,22 +24,32 @@ Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en b
 
 ### Procedure d'ecriture OBLIGATOIRE
 
-**METHODE PREFEREE (Dashboard RooSync — Phase 1 migration #745) :**
+**METHODE OBLIGATOIRE (Dashboard RooSync — Phase 2 migration #745) :**
 
-Utiliser `roosync_update_dashboard` pour TOUTE ecriture INTERCOM. Cette methode est preferee car :
-- Pas d'approbation fichier necessaire (appel MCP)
+Utiliser `roosync_dashboard` pour TOUTE communication INTERCOM. Le fichier local est un FALLBACK uniquement.
+
+**Avantages du dashboard :**
+- Pas d'approbation fichier (appel MCP direct)
 - Accessible cross-machine via GDrive
 - Auto-condensation automatique
+- Tags structurés pour identifier l'auteur
 
+**Écriture :**
 ```
-roosync_update_dashboard(
-  section: "intercom",
-  mode: "append",
-  content: "## [DATE] roo -> claude-code [TYPE]\n### Titre\nContenu...\n---"
+roosync_dashboard(
+  action: "append",
+  type: "workspace+machine",
+  tags: ["{DONE|TASK|INFO|WARN|ERROR}", "{roo-scheduler|roo-meta|claude-interactive|claude-scheduled}"],
+  content: "Contenu du message..."
 )
 ```
 
-**Double-ecriture (Phase 1) :** Ecrire AUSSI dans le fichier local si possible (fallback ci-dessous). Si l'ecriture fichier echoue, le message est deja dans le dashboard — pas de perte.
+**Lecture :**
+```
+roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)
+```
+
+**FALLBACK fichier local (si MCP échoue) :** Écrire dans `.claude/local/INTERCOM-{MACHINE}.md` avec apply_diff.
 
 **METHODE ALTERNATIVE 1 (apply_diff - append a la fin) :**
 

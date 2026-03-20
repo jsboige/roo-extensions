@@ -32,7 +32,7 @@ Agis directement. Délègue via `new_task`. Décide toi-même.
 ## PRINCIPES
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-2. Communication locale via INTERCOM (`.claude/local/INTERCOM-myia-ai-01.md`), RooSync pour l'inter-machine
+2. Communication locale via **dashboard INTERCOM** (`roosync_dashboard(type: "workspace+machine")`). Fallback fichier `.claude/local/INTERCOM-myia-ai-01.md`. RooSync pour l'inter-machine.
 4. Ne JAMAIS commit ou push
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
@@ -77,28 +77,34 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 **Decision :**
 - Si la delegation reussit et rapporte `PRE-FLIGHT-OK` : continuer vers **Etape 1**
 - Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
-  1. Deleguer a `code-simple` pour ecrire dans INTERCOM :
+  1. Deleguer a `code-simple` pour ecrire dans le dashboard INTERCOM :
      ```
-     Ajoute ce message a la fin de .claude/local/INTERCOM-myia-ai-01.md avec apply_diff :
-     ## [{DATE}] roo -> claude-code [CRITICAL]
-     ### MCP win-cli non disponible - Scheduler BLOQUE
-     ---
+     roosync_dashboard(action: "append", type: "workspace+machine", machineId: "myia-ai-01", tags: ["CRITICAL", "roo-scheduler"], content: "MCP win-cli non disponible - Scheduler BLOQUE")
+     Si le dashboard echoue, fallback fichier : ajouter a .claude/local/INTERCOM-myia-ai-01.md avec apply_diff.
      ```
   2. NE PAS continuer le workflow
   3. Terminer la tache
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
-### Etape 1 : Git pull + Lecture INTERCOM
+### Etape 1 : Git pull + Lecture Dashboard INTERCOM
 
 Deleguer a `code-simple` via `new_task` :
 
 ```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
+
 Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
-Puis lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md avec read_file.
-Chercher les messages [TASK], [SCHEDULED], [URGENT] (peu importe le format de l'emetteur : "claude-code -> roo", "Claude Code -> Roo", etc.).
+
+Puis lire le dashboard INTERCOM (METHODE PREFEREE) :
+3. roosync_dashboard(action: "read", type: "workspace+machine", machineId: "myia-ai-01", section: "intercom", intercomLimit: 10)
+
+Si le dashboard echoue, FALLBACK fichier local :
+3b. Lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md avec read_file.
+
+Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
 Rapporter : etat git + liste des taches trouvees.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
@@ -346,46 +352,41 @@ Si aucune issue a executer : aller a **Etape 2c-idle** (Veille Active).
 
 Apres exploration → **Etape 3**
 
-### Etape 3 : Rapporter dans INTERCOM (OBLIGATOIRE)
+### Etape 3 : Rapporter dans Dashboard INTERCOM (OBLIGATOIRE)
 
-> **CRITIQUE :** L'ecriture INTERCOM est la seule trace du passage du scheduler. Sans elle, Claude Code ne sait pas que Roo a tourne. **Ne JAMAIS quitter sans avoir ecrit dans INTERCOM.**
+> **CRITIQUE :** Le rapport est la seule trace du passage du scheduler. **Ne JAMAIS quitter sans avoir ecrit le rapport.**
 
-**Methode principale :** Deleguer a `code-simple` via `new_task` :
+**METHODE PREFEREE — Dashboard MCP (pas d'approbation fichier) :**
+
+Deleguer a `code-simple` via `new_task` :
 
 ```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
+
+Ecrire le bilan scheduler dans le dashboard INTERCOM :
+
+roosync_dashboard(
+  action: "append",
+  type: "workspace+machine",
+  machineId: "myia-ai-01",
+  tags: ["{DONE|MAINTENANCE|IDLE}", "roo-scheduler"],
+  content: "### Bilan scheduler coordinateur\n\n- Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\n- Taches: {N} ({source}) | Erreurs: {aucune ou 1 ligne}\n- RooSync: {N} messages | Wake Claude: {oui/non}"
+)
+
+Si le dashboard MCP echoue, FALLBACK fichier local :
 1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-myia-ai-01.md avec read_file
-2. Utilise apply_diff pour AJOUTER le nouveau message APRES le dernier separateur ---
-3. Confirme que le message est bien en fin de fichier
-
-IMPORTANT : NE PAS utiliser write_to_file sur un fichier de plus de 200 lignes.
-Le modele n'arrive pas a generer le parametre content pour les gros fichiers
-(erreur : "write_to_file without value for required parameter content").
-Utiliser TOUJOURS apply_diff pour inserer a la fin.
-Si apply_diff echoue, utiliser win-cli :
-execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-myia-ai-01.md' -Value 'contenu du message'")
+2. Utilise apply_diff pour AJOUTER le message APRES le dernier separateur ---
+3. Si apply_diff echoue : win-cli Add-Content
+4. NE PAS utiliser write_to_file (boucle infinie sur gros fichiers)
 ```
 
-**FALLBACK :** Si la premiere delegation echoue, deleguer a nouveau a `code-simple` avec instruction explicite d'utiliser win-cli `Add-Content`. L'orchestrateur ne peut JAMAIS ecrire directement (#563).
+**TAGS OBLIGATOIRES pour identifier l'auteur :**
+- `roo-scheduler` = Roo orchestrateur coordinateur
+- `roo-meta` = Roo meta-analyste
+- `claude-scheduled` = Claude Worker schtask
+- `claude-interactive` = Claude Code interactif
 
-**Format du message :**
-
-```markdown
-## [{DATE}] roo -> claude-code [{DONE|MAINTENANCE|IDLE}]
-### Bilan scheduler coordinateur
-
-- Git pull : OK/erreur
-- Git status : propre/dirty
-- Build : OK/FAIL
-- Tests : {X} pass / {Y} fail
-- Taches executees : {N} (source: INTERCOM/GitHub)
-- Erreurs : {liste ou "aucune"}
-- Messages RooSync detectes : {N}
-- Wake Claude : oui/non
-
----
-```
-
-**Maintenance INTERCOM :** Si le fichier depasse 1000 lignes, deleguer a `code-simple` la condensation des 600 premieres en ~100 lignes de synthese (garder les 400 dernieres intactes).
+**Maintenance dashboard :** Le dashboard se condense automatiquement au-dela de 500 messages (`roosync_dashboard(action: "condense")`). Pas besoin de condensation manuelle.
 
 ---
 
@@ -394,7 +395,7 @@ execute_command(shell="powershell", command="Add-Content -Path '.claude/local/IN
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Privilegier INTERCOM pour la communication locale
+4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Dashboard INTERCOM (`roosync_dashboard`) pour la communication locale (PAS le fichier `.claude/local/INTERCOM-*.md`)
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte glm-4.7-flash)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
