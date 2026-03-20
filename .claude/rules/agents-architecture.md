@@ -52,6 +52,13 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 | `consolidation-worker` | Execution consolidations CONS-X |
 | `doc-updater` | MAJ documentation apres changements |
 | `test-investigator` | Investigation tests echoues ou instables |
+| `issue-worker` | Executer issue GitHub complete |
+| `config-auditor` | Auditer configs MCP/modes |
+| `codebase-researcher` | Recherche SDDD multi-pass |
+| `script-runner` | Executer scripts avec rapport |
+| `pr-reviewer` | Review PR avec critique |
+| `issue-triager` | Classification issues |
+| `sync-checker` | Verification git/MCP/schtasks |
 
 ---
 

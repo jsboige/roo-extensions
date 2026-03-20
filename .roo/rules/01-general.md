@@ -122,6 +122,6 @@ Types : `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 
 - **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (voir `02-intercom.md`)
 - **Validation** : `.roo/rules/validation.md`
-- **Tests** : `.roo/rules/testing.md`
+- **Tests** : `.roo/rules/13-test-success-rates.md`
 - **SDDD** : regles globales `~/.roo/rules/01-sddd-escalade.md`
 - **GitHub Project** : https://github.com/users/jsboige/projects/67

@@ -2,7 +2,7 @@
 
 **Version:** 1.5.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-15
+**Mis à jour:** 2026-03-20
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 **Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 + myia-po-2024 (2026-03-14) - Roo uniquement maintenant
 **Issue #708:** Ajout section dédiée "win-cli - Roo uniquement" pour clarifier que win-cli n'est critique que pour Roo
@@ -65,7 +65,7 @@
 
 | MCP | Outils attendus | Verification | Role |
 |-----|-----------------|-------------|------|
-| **roo-state-manager** | 36 (ListTools) | `conversation_browser(action: "current")` | Grounding conversationnel, coordination, monitoring |
+| **roo-state-manager** | 34 (ListTools) | `conversation_browser(action: "current")` | Grounding conversationnel, coordination, monitoring |
 
 **Pour Roo (scheduler bloque sans eux) :**
 
@@ -133,7 +133,7 @@
 
 1. Un MCP CRITIQUE est absent des system-reminders (Claude Code)
 2. Un appel a un outil critique retourne une erreur de type "tool not found" ou "server not available"
-3. Le nombre d'outils ListTools diverge significativement de l'attendu (36 pour roo-state-manager)
+3. Le nombre d'outils ListTools diverge significativement de l'attendu (34 pour roo-state-manager)
 4. Un MCP RETIRE est detecte comme actif (desktop-commander, quickfiles)
 
 ### Procedure (Claude Code)
@@ -180,7 +180,7 @@
 **Procedure :**
 1. Lister TOUTES les machines (6)
 2. Pour chaque machine, verifier via RooSync ou directement :
-   - **Claude Code** : roo-state-manager repond (36 tools)
+   - **Claude Code** : roo-state-manager repond (34 tools)
    - **Roo** : win-cli pointe vers le fork local (PAS npx)
    - Aucun MCP retire n'est actif
 3. Si divergence detectee : envoyer directive corrective IMMEDIATE (priorite URGENT)
@@ -198,7 +198,7 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 | MCP | Outils (count) | Derniere verification |
 |-----|----------------|----------------------|
-| roo-state-manager | 36 | 2026-02-21 |
+| roo-state-manager | 34 | 2026-03-20 |
 | win-cli | 9 | 2026-02-21 |
 | playwright | 22 | 2026-02-21 |
 | markitdown | 1 | 2026-02-21 |
@@ -212,4 +212,4 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Derniere mise a jour :** 2026-03-07
+**Derniere mise a jour :** 2026-03-20

@@ -157,7 +157,7 @@ This rule was established after a Session 101 incident where 8+ scripts were arc
 
 These MCPs are deployed on all machines and available in any workspace.
 
-### roo-state-manager (36 tools)
+### roo-state-manager (34 tools)
 
 Expose les taches, conversations, et outils de coordination de Roo Code. Utilise-les pour comprendre ce que Roo a fait et pour coordonner.
 
@@ -165,19 +165,18 @@ Expose les taches, conversations, et outils de coordination de Roo Code. Utilise
 
 | Outil | Usage | Quand l'utiliser |
 |-------|-------|-----------------|
-| `task_browse` | Arbre des taches Roo (hierarchie parent/enfant) | Comprendre ce que Roo fait ou a fait |
-| `view_conversation_tree` | Squelette d'une conversation Roo | Analyser le deroulement d'un travail Roo |
-| `roosync_summarize` | Resume structure d'une conversation | Documenter, rapport, comprendre |
+| `conversation_browser` | Lister/voir/resumer taches Roo (remplace task_browse+view_conversation_tree+roosync_summarize) | Comprendre ce que Roo fait ou a fait |
 | `roosync_search` | Recherche dans les taches (texte + semantique) | Trouver une tache passee par sujet |
+| `roosync_dashboard` | Dashboards hierarchiques (global/workspace/machine) | INTERCOM, monitoring, coordination |
 | `read_vscode_logs` | Logs VS Code et Roo recents | Debugger un MCP, une extension |
 | `get_mcp_best_practices` | Guide bonnes pratiques MCP | Configurer ou debugger un MCP |
-| `manage_mcp_settings` | Lire/modifier config MCP de Roo | Deploiement, harmonisation |
+| `roosync_mcp_management` | Lire/modifier config MCP de Roo | Deploiement, harmonisation |
 
 **Bonnes pratiques :**
-- `task_browse(action: "current")` pour savoir ce que Roo fait en ce moment
-- `view_conversation_tree` avec `smart_truncation: true` pour les longues conversations (evite overflow)
+- `conversation_browser(action: "list")` pour lister les taches recentes (TOUJOURS commencer par la)
+- `conversation_browser(action: "view", smart_truncation: true)` pour les longues conversations
 - `roosync_search(action: "text", search_query: "...")` pour chercher dans l'historique Roo
-- Ne pas utiliser `roosync_summarize` mode `synthesis` (bug connu)
+- Ne pas utiliser `conversation_browser(action: "summarize", summarize_type: "synthesis")` (bug connu)
 
 ### playwright (browser automation)
 - Automatisation web, screenshots, navigation
@@ -263,25 +262,24 @@ Le protocole **SDDD (Semantic Documentation Driven Development)** structure les 
 - Les docs peuvent etre obsoletes, le code ne ment pas
 
 ### 2. Grounding Conversationnel (si roo-state-manager disponible)
-- **Outils** : `task_browse`, `view_conversation_tree`, `roosync_summarize`
+- **Outils** : `conversation_browser` (outil unifie, remplace task_browse+view_conversation_tree+roosync_summarize)
 - **Methode** : Analyser ce que Roo a fait sur le sujet
-  1. `task_browse(action: "tree")` pour voir l'arbre des taches
-  2. `view_conversation_tree(smart_truncation: true)` pour le squelette
-  3. `roosync_summarize(type: "trace")` pour les statistiques
+  1. `conversation_browser(action: "list")` pour lister les taches recentes (TOUJOURS commencer par la)
+  2. `conversation_browser(action: "view", smart_truncation: true)` pour le squelette
+  3. `conversation_browser(action: "summarize", summarize_type: "trace")` pour les statistiques
 - Permet de ne pas refaire un travail deja fait par Roo
 
 ### 3. Grounding Semantique (si index Qdrant disponible)
-- **Outils** : `roosync_search(action: "semantic")` pour les conversations
-- **Status** : La recherche dans les fichiers du workspace (codebase) n'est pas encore exposee a Claude (#452 - en cours). Utiliser Grep en attendant.
+- **Outils** : `codebase_search` (fichiers workspace) + `roosync_search(action: "semantic")` (conversations)
 - **Methode** : Chercher par concept plutot que par mot-cle exact
-- Utile pour retrouver des discussions passees sur un sujet
+- Utile pour retrouver du code ou des discussions passees sur un sujet
 
 ### Workflow SDDD recommande
 
 ```
 1. TECHNIQUE  : Grep/Read le code source (verite)
-2. CONVERSATIONNEL : task_browse + view_conversation_tree (contexte Roo)
-3. SEMANTIQUE : roosync_search si pertinent (historique)
+2. CONVERSATIONNEL : conversation_browser(action: "list") → view/summarize (contexte Roo)
+3. SEMANTIQUE : codebase_search + roosync_search si pertinent (historique)
 4. SYNTHESE : Croiser les 3 sources, documenter les conclusions
 ```
 
