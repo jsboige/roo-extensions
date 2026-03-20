@@ -25,7 +25,7 @@ Si cet appel echoue ou si `execute_command` n'est pas disponible :
 
 ### roo-state-manager (grounding)
 
-36 outils attendus. Verifie implicitement si `conversation_browser`, `read_file`, `write_to_file` sont accessibles.
+34 outils attendus. Verifie implicitement si `conversation_browser`, `read_file`, `write_to_file` sont accessibles.
 
 ## Outils Retires (NE DOIVENT PAS etre utilises)
 
