@@ -11,7 +11,7 @@
 
 ## ⚠️ CRITICAL: STOP & REPAIR Protocol
 
-**Si les outils MCP critiques (roo-state-manager, win-cli) sont absents des system-reminders au demarrage :**
+**Si les outils MCP critiques (roo-state-manager pour Claude Code, win-cli pour Roo) sont absents au demarrage :**
 
 1. **STOP IMMEDIAT** - Ne pas continuer en mode dégradé
 2. **DIAGNOSTIC** - Vérifier la config MCP (`roosync_mcp_management`)
@@ -70,20 +70,20 @@ Then restart Claude Code to activate MCP.
 
 ---
 
-## ✅ Current Status (2026-03-03)
+## ✅ Current Status (2026-03-20)
 
 ### All 6 Machines Operational
 
 | Machine | Status | roo-state-manager | Notes |
 |---------|--------|-------------------|-------|
-| myia-ai-01 | ✅ Operational | 36 tools | Coordinator |
-| myia-po-2023 | ✅ Operational | 36 tools | Executor |
-| myia-po-2024 | ✅ Operational | 36 tools | Executor |
-| myia-po-2025 | ✅ Operational | 36 tools | Executor |
-| myia-po-2026 | ✅ Operational | 36 tools | Executor |
-| myia-web1 | ✅ Operational | 36 tools | Executor |
+| myia-ai-01 | ✅ Operational | 34 tools | Coordinator |
+| myia-po-2023 | ✅ Operational | 34 tools | Executor |
+| myia-po-2024 | ✅ Operational | 34 tools | Executor |
+| myia-po-2025 | ✅ Operational | 34 tools | Executor |
+| myia-po-2026 | ✅ Operational | 34 tools | Executor |
+| myia-web1 | ✅ Operational | 34 tools | Executor |
 
-### roo-state-manager (36 tools)
+### roo-state-manager (34 tools)
 
 **Configuration:** `~/.claude.json` with wrapper [mcp-wrapper.cjs](../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
 
@@ -91,7 +91,7 @@ Then restart Claude Code to activate MCP.
 
 **Wrapper v4:** Pass-through mode (no filtering, dedup + log suppression)
 
-**Tool Categories (36 total, #457 consolidated 39→36):**
+**Tool Categories (36 total, #457 consolidated 39→34):**
 - **Messaging (3):** roosync_send, roosync_read, roosync_manage
 - **Read-only (4):** get_status, list_diffs, compare_config, refresh_dashboard
 - **Consolidated (5):** config, inventory, baseline, machines, init
@@ -256,7 +256,7 @@ node mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs
 
 ### Post-Deployment Verification
 
-- [ ] `roo-state-manager` shows 36 tools
+- [ ] `roo-state-manager` shows 34 tools
 - [ ] `gh auth status` shows authenticated
 - [ ] Can access project #67 via `gh api graphql`
 - [ ] Can send/receive RooSync messages
@@ -390,7 +390,7 @@ Once MCP is verified working on your machine:
 4. Use RooSync for inter-machine coordination
 
 **All machines (VERIFIED ✅):**
-- ✅ roo-state-manager working (36 tools)
+- ✅ roo-state-manager working (34 tools)
 - ✅ RooSync messaging functional
 - ✅ gh CLI for GitHub operations
 

@@ -54,7 +54,7 @@
 - Commands: `gh issue`, `gh pr`, `gh api graphql`
 - Requires scope `project`: `gh auth refresh -s project`
 
-**roo-state-manager** (36 tools via wrapper v4)
+**roo-state-manager** (34 tools via wrapper v4)
 - Status: ✅ DEPLOYED & FUNCTIONAL (all machines, validated 2026-02-17)
 - Version: wrapper v4 pass-through
 - Recent Updates:
@@ -174,7 +174,7 @@ Rules in `.claude/rules/` are auto-loaded into every conversation. Reference doc
 
 ### Active MCPs (5 servers + GitHub CLI)
 
-**roo-state-manager** (36 tools via wrapper v4 pass-through):
+**roo-state-manager** (34 tools via wrapper v4 pass-through):
 - Messaging: `roosync_send`, `roosync_read`, `roosync_manage`
 - Config: `roosync_config`, `roosync_init`, `roosync_baseline`, `roosync_compare_config`
 - Tasks: `conversation_browser`, `view_task_details`, `task_export`
@@ -251,7 +251,7 @@ docs/
 mcps/
 ├── internal/                    # Internal MCPs
 │   └── servers/
-│       ├── roo-state-manager/   # RooSync + Roo tools (36 tools, wrapper v4)
+│       ├── roo-state-manager/   # RooSync + Roo tools (34 tools, wrapper v4)
 │       └── sk-agent/            # AI agents (Python FastMCP + Semantic Kernel)
 └── external/                    # External MCPs
     └── ...
@@ -265,7 +265,7 @@ mcps/
 - ✅ Bug #322 RESOLVED - Inventory → collect config mapping (commit 7ce45751)
 - ✅ Git conflicts resolved - Get-MachineInventory.ps1 + mcps/internal submodule
 - ✅ Tests: 3294/3308 PASS (99.6%) - All machines
-- ✅ Wrapper v4: 36 tools exposed (2026-02-17, #407+#457)
+- ✅ Wrapper v4: 34 tools exposed (2026-02-17, #407+#457)
 - ✅ #470 Phase 2 COMPLETE - Consolidation 48→4 docs (-96% lines, 2026-02-15)
 - ✅ #472 COMPLETE - Validation MCP multi-machine (2026-02-15)
 - ✅ #473 Phase 1 COMPLETE - Audit auto-approvals myia-po-2024 (2026-02-16)
