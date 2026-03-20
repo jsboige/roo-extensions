@@ -30,7 +30,7 @@ mcps/
 │   ├── win-cli/       # Commandes Windows (fork local)
 │   └── ...
 └── internal/          # Serveurs développés en interne
-    ├── roo-state-manager/  # Gestion état Roo (36 outils)
+    ├── roo-state-manager/  # Gestion état Roo (34 outils)
     ├── sk-agent/           # Multi-agent LLM
     ├── jinavigator-server/ # Web scraping
     ├── jupyter-papermill-mcp-server/

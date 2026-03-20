@@ -19,7 +19,7 @@ Le coordinateur (myia-ai-01) est responsable de la coordination multi-machine et
 **Le coordinateur est responsable de ensuring TOUTES les machines ont ce qu'il faut :**
 
 - `.env` completeness (EMBEDDING_*, QDRANT_*, ROOSYNC_* vars)
-- MCP tool availability (36 tools pour roo-state-manager, 9 pour win-cli)
+- MCP tool availability (34 tools pour roo-state-manager, 9 pour win-cli)
 - Infrastructure services (embeddings.myia.io, qdrant.myia.io, search.myia.io)
 - Config drift entre machines
 - Heartbeat registration (toutes les 6 machines doivent être enregistrées)

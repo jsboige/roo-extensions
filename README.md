@@ -9,14 +9,14 @@
 
 ## 🎯 Vue d'Ensemble
 
-Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (36 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
+Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (34 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
 
 ### 🏆 Réalisations Principales
 
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
 - ✅ **6 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent, GitHub CLI
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **36 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
+- ✅ **34 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
 - ✅ **GitHub Projects #67** : 242 items actifs
@@ -114,7 +114,7 @@ roo-extensions/
 │   ├── scheduler/                 # Documentation scheduler (NOUVEAU)
 │   └── framework-multi-agent/     # Templates coordination
 ├── 📁 mcps/internal/servers/
-│   ├── roo-state-manager/         # 36 outils MCP (wrapper v4)
+│   ├── roo-state-manager/         # 34 outils MCP (wrapper v4)
 │   └── sk-agent/                  # 7 outils (Python FastMCP + Semantic Kernel)
 ├── 📁 roo-config/                 # Configuration centralisée
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
@@ -234,7 +234,7 @@ Collect → Publish → Compare → Validate → Apply
 - **Build + Tests** : ~56s (6867 tests, 378 fichiers)
 
 ### MCPs
-- **roo-state-manager** : 36 outils, <500ms réponse
+- **roo-state-manager** : 34 outils, <500ms réponse
 - **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
 - **Taux de réussite tests** : 99.7% (6867/6887)
 
@@ -386,7 +386,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
-- ✅ **Wrapper MCP v4** : 36 outils roo-state-manager exposés (pass-through)
+- ✅ **Wrapper MCP v4** : 34 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
 - ✅ **Tests robustes** : 6867 PASS sur 378 fichiers
 - ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel

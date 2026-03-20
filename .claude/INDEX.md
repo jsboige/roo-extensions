@@ -281,7 +281,7 @@ mcps/
 
 ### Immediate Goals (24-48h)
 - 🔄 #479 Phase 3 - Documentation racine (README.md, .claude/INDEX.md, docs/INDEX.md)
-- 🔄 #480 - Validation wrapper 36 outils cross-machine (tests fonctionnels)
+- 🔄 #480 - Validation wrapper 34 outils cross-machine (tests fonctionnels)
 - 🔄 #473 Phase 2 - Normalisation auto-approvals (après audits 6 machines)
 - 🎯 Scheduler Roo: Niveau 2 (complex tasks) activation GLM 5
 

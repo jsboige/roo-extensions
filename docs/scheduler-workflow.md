@@ -55,7 +55,7 @@ scripts/scheduler/
 
 **Checks:**
 - **win-cli** (9 tools expected): `execute_command` responder
-- **roo-state-manager** (36 tools expected): `conversation_browser(action: "current")` responder
+- **roo-state-manager** (34 tools expected): `conversation_browser(action: "current")` responder
 
 **Returns:**
 ```powershell

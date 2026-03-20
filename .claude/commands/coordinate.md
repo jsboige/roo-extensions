@@ -73,7 +73,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 ```bash
 # Lancer l'audit de configuration
 Agent(subagent_type="task-worker", prompt="Auditer la configuration MCP sur cette machine.
-          Verifier: win-cli fork local, roo-state-manager present avec 36 outils,
+          Verifier: win-cli fork local, roo-state-manager present avec 34 outils,
           pas de MCPs obsoletes (desktop-commander, github-projects-mcp).
           Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO).")
 ```

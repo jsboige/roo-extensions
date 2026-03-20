@@ -59,7 +59,7 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 
 **What to monitor:**
 - `.env` completeness on each machine (EMBEDDING_*, QDRANT_*, ROOSYNC_* vars)
-- MCP tool availability (36 tools for roo-state-manager, 9 for win-cli)
+- MCP tool availability (34 tools for roo-state-manager, 9 for win-cli)
 - Infrastructure services (embeddings.myia.io, qdrant.myia.io, search.myia.io)
 - Config drift between machines (`roosync_compare_config`)
 - Heartbeat registration (all 6 machines should be registered)

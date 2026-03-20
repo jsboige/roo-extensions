@@ -19,7 +19,7 @@
 - INTERCOM: `.claude/local/INTERCOM-myia-ai-01.md`
 
 **MCPs actifs:**
-- roo-state-manager (36 outils)
+- roo-state-manager (34 outils)
 - win-cli (9 outils)
 - playwright (22 outils)
 - markitdown (1 outil)
