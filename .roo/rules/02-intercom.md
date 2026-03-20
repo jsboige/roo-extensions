@@ -302,15 +302,20 @@ Contenu du message...
 
 ### En Début de Session
 
-1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`
+**METHODE OBLIGATOIRE (Dashboard) :**
+1. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)`
 2. Lire les messages récents (< 24h)
 3. Identifier les `TASK` non complétées
 4. Identifier les `ASK` sans `REPLY`
 
-### Format de Recherche
+**FALLBACK fichier local (si MCP échoue) :**
+1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`
+2. Mêmes étapes 2-4 ci-dessus
+
+### Format de Recherche (fallback fichier)
 
 ```bash
-# Trouver les messages non-résolus
+# Trouver les messages non-résolus (fallback fichier local uniquement)
 grep -E "^\#\# \[.*\] .* → roo \[TASK\]" .claude/local/INTERCOM-*.md
 ```
 

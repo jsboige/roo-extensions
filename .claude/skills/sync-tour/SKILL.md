@@ -45,10 +45,11 @@ conversation_browser(action: "current", workspace: "d:\\roo-extensions")
 ```
 But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 
-**0b. Lecture INTERCOM :**
-1. Lire `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages)
-2. Identifier les messages recents de Roo (< 24h)
-3. Extraire :
+**0b. Lecture INTERCOM (via Dashboard) :**
+1. **METHODE OBLIGATOIRE :** `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)`
+2. **Fallback fichier** (si MCP echoue) : Lire `.claude/local/INTERCOM-{MACHINE}.md`
+3. Identifier les messages recents de Roo (< 24h)
+4. Extraire :
    - Taches en cours ou terminees par Roo
    - Demandes a Claude
    - Modifications locales (submodule, fichiers)
@@ -162,7 +163,7 @@ Le config-auditor verifie :
 ### Si CRITICAL detecté
 
 Arreter le sync-tour immediatement :
-1. Documenter le probleme dans INTERCOM avec tag [CRITICAL]
+1. Documenter le probleme via `roosync_dashboard(action: "append", type: "workspace+machine", tags: ["CRITICAL"])` (fallback: fichier INTERCOM)
 2. Envoyer message RooSync URGENT au coordinateur
 3. NE PAS continuer vers Phase 2 (Git Sync)
 

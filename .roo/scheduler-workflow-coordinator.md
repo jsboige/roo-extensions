@@ -306,10 +306,11 @@ a. Verifier si deja dispatchee :
 execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body | select(test(\"\\[DISPATCH\\]\"))] | length'")
 ```
 
-b. Si NON dispatchee (resultat = 0), determiner la machine cible via le champ Machine du Project #67 :
+b. Si NON dispatchee (resultat = 0), determiner la machine cible via les labels ou le body de l'issue :
 ```
-execute_command(shell="powershell", command="gh api graphql -f query='{ repository(owner: \"jsboige\", name: \"roo-extensions\") { issue(number: {NUM}) { projectItems(first: 5) { nodes { fieldValues(first: 10) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } } } } }' --jq '.data.repository.issue.projectItems.nodes[0].fieldValues.nodes[] | select(.field.name==\"Machine\") | .name'")
+execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json labels,body --jq '{labels: [.labels[].name], body: .body[:300]}'")
 ```
+Note : NE PAS utiliser `gh api graphql` en mode `-simple` (quoting instable, circuit breaker #737). Utiliser les labels/body pour determiner la machine. Si l'info Machine n'est pas dans les labels, dispatcher avec `[DISPATCH] Any`.
 
 c. Commenter pour dispatcher (avec la machine trouvee) :
 ```

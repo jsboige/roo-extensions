@@ -194,12 +194,17 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 
 ## Lecture de l'INTERCOM (Début de Session)
 
-**OBLIGATION :** Au début de chaque session Claude Code, vérifier l'INTERCOM local.
+**OBLIGATION :** Au début de chaque session Claude Code, vérifier l'INTERCOM.
 
-1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
+**METHODE OBLIGATOIRE (Dashboard) :**
+1. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)`
 2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
 3. Identifier les `TASK` non complétées
 4. Identifier les `ASK` sans `REPLY`
+
+**FALLBACK fichier local (si MCP échoue) :**
+1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
+2. Mêmes étapes 2-4 ci-dessus
 
 ### Priorité des messages
 
