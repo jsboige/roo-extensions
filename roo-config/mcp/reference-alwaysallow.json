@@ -2,8 +2,9 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"title": "Reference AlwaysAllow Configuration",
 	"description": "Configuration de reference pour l'auto-approbation des outils MCP sur toutes les machines Roo",
-	"version": "1.1.0",
-	"lastUpdated": "2026-03-12",
+	"version": "1.2.0",
+	"lastUpdated": "2026-03-20",
+	"issue": "#473 - Auto-approbations Roo - Agents schedulés bloqués sur demandes d'approbation",
 	"mcpServers": {
 		"jinavigator": {
 			"alwaysAllow": [
@@ -125,6 +126,23 @@
 				"system_info",
 				"update_cell",
 				"write_notebook"
+			]
+		},
+		"sk-agent": {
+			"alwaysAllow": [
+				"analyze_document",
+				"analyze_image",
+				"analyze_video",
+				"ask",
+				"call_agent",
+				"end_conversation",
+				"install_libreoffice",
+				"list_agents",
+				"list_conversations",
+				"list_models",
+				"list_tools",
+				"run_conversation",
+				"zoom_image"
 			]
 		}
 	}
