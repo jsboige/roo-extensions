@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
 **Derniere mise a jour:** 2026-03-21
-**Version:** 5.12 (Fix 39 broken archive links — matched INDEX to actual files on disk)
+**Version:** 5.13 (Fix 39 broken archive links + add 24 missing docs: 14 roosync, 4 guides, 6 roo-code)
 
 ---
 
@@ -65,12 +65,28 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 ### Guides Agents
 - [roosync/guides/](roosync/guides/) - Checklists, glossaire, onboarding, troubleshooting
 
-### Reference
+### Protocoles et Processus
+- [AGENTS_ARCHITECTURE.md](roosync/AGENTS_ARCHITECTURE.md) - Architecture agents multi-machine
+- [DASHBOARD-HIERARCHIQUE-v1.0.md](roosync/DASHBOARD-HIERARCHIQUE-v1.0.md) - Dashboards hierarchiques (4 types)
+- [DASHBOARD_AUTO_REFRESH.md](roosync/DASHBOARD_AUTO_REFRESH.md) - Auto-refresh dashboards
+- [ESCALATION_MECHANISM.md](roosync/ESCALATION_MECHANISM.md) - Mecanisme d'escalade
+- [FEEDBACK_PROCESS.md](roosync/FEEDBACK_PROCESS.md) - Processus feedback/friction
+- [HEARTBEAT_REGISTRATION_PROCEDURE.md](roosync/HEARTBEAT_REGISTRATION_PROCEDURE.md) - Procedure enregistrement heartbeat
+- [INTERCOM_PROTOCOL.md](roosync/INTERCOM_PROTOCOL.md) - Protocole INTERCOM (local Roo-Claude)
+- [META_ANALYSIS.md](roosync/META_ANALYSIS.md) - Protocole meta-analyse
+- [PR_REVIEW_POLICY.md](roosync/PR_REVIEW_POLICY.md) - Politique review PR
+- [PROTOCOLE_SDDD.md](roosync/PROTOCOLE_SDDD.md) - Protocole SDDD
+- [QUALITY-PIPELINE.md](roosync/QUALITY-PIPELINE.md) - Pipeline qualite
+- [SKEPTICISM_PROTOCOL.md](roosync/SKEPTICISM_PROTOCOL.md) - Protocole scepticisme raisonnable
+
+### Reference Technique
 - [ERROR_CODES_REFERENCE.md](roosync/ERROR_CODES_REFERENCE.md) - Codes d'erreur
 - [SUBMODULE_WORKFLOW.md](roosync/SUBMODULE_WORKFLOW.md) - Workflow submodules
-- [PROTOCOLE_SDDD.md](roosync/PROTOCOLE_SDDD.md) - Protocole SDDD
 - [ROOSYNC_DASHBOARDS.md](roosync/ROOSYNC_DASHBOARDS.md) - **Shared Markdown Dashboards** - Cross-machine collaboration via GDrive (#675)
 - [worktree-best-practices.md](roosync/worktree-best-practices.md) - **Worktree Best Practices** - Infrastructure, decision tree, adoption guide (#627)
+- [MCP_AVAILABILITY.md](roosync/MCP_AVAILABILITY.md) - Disponibilite et inventaire MCPs
+- [BASELINE_GHOST_MCPS.md](roosync/BASELINE_GHOST_MCPS.md) - Baseline et MCPs fantomes
+- [CROSS_WORKSPACE_SETUP.md](roosync/CROSS_WORKSPACE_SETUP.md) - Configuration cross-workspace
 
 ### Archive
 - [roosync/archive/](roosync/archive/) - v2.1 legacy, migration plans, integration historique (20+ docs)
@@ -146,6 +162,10 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 - [consolidated-task-management-guide.md](guides/consolidated-task-management-guide.md) - Gestion des taches
 - [guide-exploration-prompts-natifs.md](guides/guide-exploration-prompts-natifs.md) - Exploration prompts natifs
 - [vscode-extension-debug-powershell-configuration.md](guides/vscode-extension-debug-powershell-configuration.md) - Debug VS Code PowerShell
+- [BASH_FALLBACK.md](guides/BASH_FALLBACK.md) - Guide fallback Bash (si outil natif echoue)
+- [CODEBASE_SEARCH_GUIDE.md](guides/CODEBASE_SEARCH_GUIDE.md) - Guide recherche semantique codebase
+- [GITHUB_CLI.md](guides/GITHUB_CLI.md) - Guide GitHub CLI (gh)
+- [jupyter-papermill-execution.md](guides/jupyter-papermill-execution.md) - Execution Jupyter via Papermill
 
 ---
 
@@ -284,9 +304,20 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 ## Roo Code
 
+### Architecture et Design
 - [roo-code/architecture/](roo-code/architecture/) - Architecture Roo Code
 - [roo-code/adr/](roo-code/adr/) - Architecture Decision Records
 - [roo-code/contributing/](roo-code/contributing/) - Guides de contribution
+- [INDEXING_ARCHITECTURE.md](roo-code/INDEXING_ARCHITECTURE.md) - Architecture indexation taches
+- [PARSING_XML_ASSISTANT_MESSAGES.md](roo-code/PARSING_XML_ASSISTANT_MESSAGES.md) - Parsing messages XML assistant
+
+### Scheduler Roo
+- [SCHEDULER_SYSTEM.md](roo-code/SCHEDULER_SYSTEM.md) - Systeme scheduler (10 modes, 5 familles)
+- [SCHEDULER_DENSIFICATION.md](roo-code/SCHEDULER_DENSIFICATION.md) - Densification scheduler (sweet spot escalade)
+- [SCHEDULED_COORDINATOR.md](roo-code/SCHEDULED_COORDINATOR.md) - Coordinateur schedule
+- [roo-scheduler-analysis.md](roo-code/roo-scheduler-analysis.md) - Analyse scheduler Roo
+- [roo-scheduler-direct-config-guide.md](roo-code/roo-scheduler-direct-config-guide.md) - Guide config directe scheduler
+- [roo-scheduler-installation-guide.md](roo-code/roo-scheduler-installation-guide.md) - Guide installation scheduler
 
 ---
 
