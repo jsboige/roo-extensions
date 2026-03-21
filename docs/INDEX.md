@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-20
-**Version:** 5.11 (Archive 4 harness cross-analysis reports → docs/archive/harness-reports/; ajout git-notification-maintenance.md + sk-agent-phase5-validation-report.md)
+**Derniere mise a jour:** 2026-03-21
+**Version:** 5.12 (Fix 39 broken archive links — matched INDEX to actual files on disk)
 
 ---
 
@@ -298,57 +298,39 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 ## Archive
 
-### Git History (16 fichiers)
+### Harness Reports (4 fichiers)
+
+- [archive/harness-reports/](archive/harness-reports/) - Rapports d'analyse croisee des harnais (2026-03-13 a 15)
+
+### Git History (4 fichiers actifs + sous-repertoires)
 
 - [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
 - [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
-- [archive/git-history/README.md](archive/git-history/README.md) - Index operations Git
-- [archive/git-history/phase2-analysis/STASH_ANALYSIS.md](archive/git-history/phase2-analysis/STASH_ANALYSIS.md) - Analyse stashes phase 2
-- [archive/git-history/phase2-analysis/WORKTREE_ANALYSIS.md](archive/git-history/phase2-analysis/WORKTREE_ANALYSIS.md) - Analyse worktrees phase 2
-- [archive/git-history/stash-details/STASH-001.md](archive/git-history/stash-details/STASH-001.md) - Stash "fix-encoding"
-- [archive/git-history/stash-details/STASH-002.md](archive/git-history/stash-details/STASH-002.md) - Stash "test-indexing"
-- [archive/git-history/stash-details/STASH-003.md](archive/git-history/stash-details/STASH-003.md) - Stash "worktree-cleanup"
-- [archive/git-history/stash-details/STASH-004.md](archive/git-history/stash-details/STASH-004.md) - Stash "docs-reorg"
-- [archive/git-history/stash-details/STASH-005.md](archive/git-history/stash-details/STASH-005.md) - Stash "test-fix-569"
-- [archive/git-history/stash-details/STASH-006.md](archive/git-history/stash-details/STASH-006.md) - Stash "consolidation-merge"
-- [archive/git-history/stash-details/STASH-007.md](archive/git-history/stash-details/STASH-007.md) - Stash "roosync-fix"
-- [archive/git-history/stash-details/STASH-008.md](archive/git-history/stash-details/STASH-008.md) - Stash "cleanup-088"
-- [archive/git-history/stash-details/STASH-009.md](archive/git-history/stash-details/STASH-009.md) - Stash "pre-sync"
-- [archive/git-history/stash-details/STASH-010.md](archive/git-history/stash-details/STASH-010.md) - Stash "emergency-fix"
-- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles par operation
+- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles (reconciliation, merge, stash investigation)
+- [archive/git-history/phase2-analysis/](archive/git-history/phase2-analysis/) - Analyse phase 2 (checksums, patches, sync diffs)
+- [archive/git-history/stash-details/](archive/git-history/stash-details/) - Details stashs (analyses, patches)
 
 ### Obsolete (7 fichiers)
 
 - [archive/obsolete/roosync-v1-vs-v2-gap-analysis.md](archive/obsolete/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2
-- [archive/obsolete/MCP-TROUBLESHOOTING-ARCHIVE.md](archive/obsolete/MCP-TROUBLESHOOTING-ARCHIVE.md) - Archive depannage MCP
-- [archive/obsolete/mcp-usage-2024-12.md](archive/obsolete/mcp-usage-2024-12.md) - Usage MCP decembre 2024
-- [archive/obsolete/mcp-usage-2025-01.md](archive/obsolete/mcp-usage-2025-01.md) - Usage MCP janvier 2025
-- [archive/obsolete/scheduler-investigation.md](archive/obsolete/scheduler-investigation.md) - Investigation scheduler
-- [archive/obsolete/GUIDE-TECHNIQUE-v2.1.md](archive/obsolete/GUIDE-TECHNIQUE-v2.1.md) - Guide technique v2.1 legacy
-- [archive/obsolete/QUICKSTART-v2.1.md](archive/obsolete/QUICKSTART-v2.1.md) - Quickstart v2.1 legacy
+- [archive/obsolete/DEPLOY-ALWAYSALLOW.md](archive/obsolete/DEPLOY-ALWAYSALLOW.md) - Deploiement alwaysAllow (superseded)
+- [archive/obsolete/ENVIRONMENT-SETUP-SYNTHESIS.md](archive/obsolete/ENVIRONMENT-SETUP-SYNTHESIS.md) - Synthese setup environnement
+- [archive/obsolete/003-backward-compatibility-strategy.md](archive/obsolete/003-backward-compatibility-strategy.md) - Strategie compatibilite ascendante
+- [archive/obsolete/roo-state-manager-indexing-checkpoints.md](archive/obsolete/roo-state-manager-indexing-checkpoints.md) - Checkpoints indexation
+- [archive/obsolete/roosync-temporal-messages-architecture.md](archive/obsolete/roosync-temporal-messages-architecture.md) - Architecture messages temporels
+- [archive/obsolete/README.md](archive/obsolete/README.md) - Index fichiers obsoletes
 
-### Reports (19 fichiers)
+### Reports (10 fichiers actifs)
 
-- [archive/reports/context-condensation-audit-report-issue-633.md](archive/reports/context-condensation-audit-report-issue-633.md) - Audit condensation contexte
-- [archive/reports/session-consolidation-report-2025-10-26.md](archive/reports/session-consolidation-report-2025-10-26.md) - Rapport consolidation session
-- [archive/reports/task-analysis-report-2025-10-27.md](archive/reports/task-analysis-report-2025-10-27.md) - Analyse taches
-- [archive/reports/workspace-inventory-2025-10-28.md](archive/reports/workspace-inventory-2025-10-28.md) - Inventaire workspace
-- [archive/reports/scheduler-audit-2025-10-29.md](archive/reports/scheduler-audit-2025-10-29.md) - Audit scheduler
-- [archive/reports/git-history-synthesis-2025-11-02.md](archive/reports/git-history-synthesis-2025-11-02.md) - Synthese historique Git
-- [archive/reports/roosync-indexing-diagnostics-2025-11-03.md](archive/reports/roosync-indexing-diagnostics-2025-11-03.md) - Diagnostics indexation RooSync
-- [archive/reports/mcp-compatibility-matrix-2025-11-04.md](archive/reports/mcp-compatibility-matrix-2025-11-04.md) - Matrice compatibilite MCP
-- [archive/reports/context-condensation-audit-2025-11-05.md](archive/reports/context-condensation-audit-2025-11-05.md) - Audit condensation contexte
-- [archive/reports/semantic-search-validation-2025-11-06.md](archive/reports/semantic-search-validation-2025-11-06.md) - Validation recherche semantique
-- [archive/reports/roosync-message-flow-analysis-2025-11-07.md](archive/reports/roosync-message-flow-analysis-2025-11-07.md) - Analyse flux messages RooSync
-- [archive/reports/tool-usage-patterns-2025-11-08.md](archive/reports/tool-usage-patterns-2025-11-08.md) - Patterns usage outils
-- [archive/reports/task-completion-report-2025-11-09.md](archive/reports/task-completion-report-2025-11-09.md) - Rapport completion taches
-- [archive/reports/issue-553-phase2-analysis/](archive/reports/issue-553-phase2-analysis/) - Analyse phase 2 issue 553
-  - [README.md](archive/reports/issue-553-phase2-analysis/README.md) - Index analyse phase 2
-  - [CONSOLIDATION-STATUS.md](archive/reports/issue-553-phase2-analysis/CONSOLIDATION-STATUS.md) - Statut consolidation
-  - [FILE-MOVEMENT-LOG.md](archive/reports/issue-553-phase2-analysis/FILE-MOVEMENT-LOG.md) - Log mouvements fichiers
-  - [OLD-STRUCTURE.md](archive/reports/issue-553-phase2-analysis/OLD-STRUCTURE.md) - Ancienne structure
-  - [NEW-STRUCTURE.md](archive/reports/issue-553-phase2-analysis/NEW-STRUCTURE.md) - Nouvelle structure
-  - [BREAKING-CHANGES.md](archive/reports/issue-553-phase2-analysis/BREAKING-CHANGES.md) - Changements cassants
+- [archive/reports/diagnostic-systeme-2026-02-02.md](archive/reports/diagnostic-systeme-2026-02-02.md) - Diagnostic systeme
+- [archive/reports/mcp-analysis-report.md](archive/reports/mcp-analysis-report.md) - Rapport analyse MCP
+- [archive/reports/project-67-myia-po-2026-report.md](archive/reports/project-67-myia-po-2026-report.md) - Rapport Project #67 po-2026
+- [archive/reports/scheduler-audit-myia-po-2023.md](archive/reports/scheduler-audit-myia-po-2023.md) - Audit scheduler po-2023
+- [archive/reports/scheduler-audit-myia-po-2026.md](archive/reports/scheduler-audit-myia-po-2026.md) - Audit scheduler po-2026
+- [archive/reports/scheduler-claude-code-design.md](archive/reports/scheduler-claude-code-design.md) - Design scheduler Claude Code
+- [archive/reports/scheduler-workflow-adjustments.md](archive/reports/scheduler-workflow-adjustments.md) - Ajustements workflow scheduler
+- [archive/reports/task-440-exploration-architecture.md](archive/reports/task-440-exploration-architecture.md) - Exploration architecture tache 440
+- [archive/reports/2026-03-03-issue553-phase2/](archive/reports/2026-03-03-issue553-phase2/) - Analyse phase 2 issue 553 (12 fichiers)
 
 ---
 
