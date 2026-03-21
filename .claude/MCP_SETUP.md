@@ -188,37 +188,11 @@ If the MCP is working, you should see:
 
 ---
 
-## 🛠️ Available MCP Tools
+## 🛠️ Available MCP Tools (roo-state-manager)
 
-Once configured, the following tools should be available:
+Once configured, the 34 tools are listed in the "Tool Categories" section above.
 
-**Project Management:**
-- ✅ `list_projects` - List all GitHub projects
-- ✅ `get_project` - Get project details
-- `create_project` - Create a new project
-
-**Item Management:**
-- ✅ `get_project_items` - List items in a project
-- `add_item_to_project` - Add an item to a project
-- `update_project_item_field` - Update item fields
-- `delete_project_item` - Delete an item
-
-**Issue Management:**
-- `convert_draft_to_issue` - Convert draft to GitHub issue
-- `list_repository_issues` - List repository issues
-- `get_repository_issue` - Get issue details
-- `delete_repository_issues` - Delete issues
-
-**Field Management:**
-- `create_project_field` - Create custom field
-- `update_project_field` - Update field definition
-- `delete_project_field` - Delete field
-
-**Archive:**
-- `archive_project` - Archive a project
-- `unarchive_project` - Unarchive a project
-- `archive_project_item` - Archive item
-- `unarchive_project_item` - Unarchive item
+For GitHub operations, use `gh` CLI (not MCP). See [`.claude/rules/github-cli.md`](rules/github-cli.md).
 
 ---
 
@@ -339,12 +313,6 @@ npx tsc
 Get-Content ~/.claude.json | Select-String "mcp-wrapper.cjs"
 ```
 
-**To verify the wrapper is being used:**
-```powershell
-# Check ~/.claude.json contains the wrapper
-Get-Content ~/.claude.json | Select-String "mcp-wrapper.cjs"
-```
-
 **To test the wrapper directly:**
 ```powershell
 cd d:/roo-extensions/mcps/internal/servers/roo-state-manager
@@ -405,5 +373,5 @@ Once MCP is verified working on your machine:
 
 ---
 
-**Last Updated:** 2026-03-03
+**Last Updated:** 2026-03-21
 **For questions:** Create GitHub issue or contact myia-ai-01 coordinator
