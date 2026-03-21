@@ -389,6 +389,16 @@ Si le dashboard MCP echoue, FALLBACK fichier local :
 
 **Maintenance dashboard :** Le dashboard se condense automatiquement au-dela de 500 messages (`roosync_dashboard(action: "condense")`). Pas besoin de condensation manuelle.
 
+### Etape 4 : TERMINER le cycle (OBLIGATOIRE)
+
+> **CRITIQUE :** Apres l'Etape 3, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
+
+```
+attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboard INTERCOM.")
+```
+
+**Si tu oublies cette etape**, la frequence du scheduler passe de 8h a ~24h+ car chaque tick suivant est saute.
+
 ---
 
 ## REGLES DE SECURITE

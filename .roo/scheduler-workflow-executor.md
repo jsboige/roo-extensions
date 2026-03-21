@@ -363,6 +363,16 @@ Si le dashboard MCP échoue (erreur), FALLBACK fichier local :
 
 **⚠️ REGLE ANTI-FAUX-POSITIF** : Le bilan DOIT refléter la réalité. Ne JAMAIS dire "Tout OK" si un échec est survenu.
 
+### Étape 4 : TERMINER le cycle (OBLIGATOIRE)
+
+> **CRITIQUE :** Apres l'Etape 3, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
+
+```
+attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard INTERCOM.")
+```
+
+**Si tu oublies cette etape**, la frequence du scheduler passe de 6h a ~24h+ car chaque tick suivant est saute.
+
 ---
 
 ## Chaîne d'escalade

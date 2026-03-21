@@ -239,6 +239,14 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **Si aucune recommandation actionnable :** sauter cette etape.
 
+### Etape 5 : TERMINER le cycle (OBLIGATOIRE)
+
+> **CRITIQUE :** Apres avoir termine toutes les etapes, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
+
+```
+attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans META-INTERCOM.")
+```
+
 ---
 
 ## REGLES DE SECURITE
