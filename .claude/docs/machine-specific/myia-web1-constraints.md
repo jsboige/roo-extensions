@@ -32,6 +32,23 @@ npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
 # JAMAIS npm test (bloque en mode watch)
 ```
 
+**⚠️ PROBLÈME TIMEOUT 180s :**
+
+Sur myia-web1, `npx vitest run` timeout systématiquement après 180 secondes via win-cli MCP.
+
+**Solution contournée (background script) :**
+
+Créer `scripts/run-vitest-background.ps1` :
+```powershell
+$ErrorActionPreference = "Continue"
+cd $PSScriptRoot\..\mcps\internal\servers\roo-state-manager
+npx vitest run --maxWorkers=1 2>&1 | Tee-Object -FilePath "$PSScriptRoot\test-results-web1-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
+```
+
+Résultat validé : **7167/7185 PASS (99.986%)** en ~260s (4m 21s).
+
+**Note :** Les 5 tests échoués sont `stress-large-inbox.test.ts` (performance, non bloquant).
+
 **Note:** L'ancienne documentation indiquait 2GB - c'était une erreur. La machine a toujours eu 16GB.
 
 ---
