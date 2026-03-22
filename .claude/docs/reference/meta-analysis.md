@@ -1,8 +1,8 @@
 # Meta-Analysis Protocol - 3x2 Scheduler Architecture
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Created:** 2026-03-04
-**Updated:** 2026-03-05
+**Updated:** 2026-03-22
 **Issue:** #551 (Meta-Analyst tier)
 
 ---
@@ -144,6 +144,88 @@ Requires validation before production use.
 
 ---
 
+## Santé Outillage (#761)
+
+**Objectif :** Détecter les outils sous-utilisés, dégradés ou cassés AVANT qu'ils ne soient abandonnés silencieusement.
+
+### Checks obligatoires (chaque cycle meta-analyse)
+
+**1. Outils jamais appelés (>14 jours)**
+
+Croiser les 34 outils déclarés dans `ListTools` avec les traces récentes :
+
+```
+roosync_search(
+  action: "semantic",
+  search_query: "{tool_name} result",
+  start_date: "{14 jours avant}",
+  max_results: 5
+)
+```
+
+Lister les outils sans activité > 14 jours. Distinguer :
+- **Intentionnel** : outil rarement utilisé par design (ex: `roosync_init`)
+- **Suspect** : outil censé être utilisé régulièrement mais absent des traces
+- **Cassé** : outil qui échoue systématiquement (corrélé avec bugs ouverts)
+
+**2. Outils avec bugs ouverts > 14 jours**
+
+```bash
+gh issue list --repo jsboige/roo-extensions --label bug --state open --json number,title,createdAt
+```
+
+Cross-référencer les noms d'outils (`roosync_*`, `conversation_browser`, `codebase_search`, etc.) dans les titres et corps des issues bug. Alerter si un bug d'outil est ouvert > 14 jours.
+
+**3. Workarounds non résolus**
+
+Scanner MEMORY.md et PROJECT_MEMORY.md pour :
+- Entrées contenant "workaround", "bug connu", "contournement", "ne pas utiliser"
+- Si le workaround existe depuis > 14 jours sans issue corrective → créer une issue `needs-approval`
+
+**4. Secrets exposés**
+
+Vérifier :
+- Aucun fichier `.env` commité (`git log --all -- "*.env"`)
+- Aucune clé API dans les issues/commentaires récents
+- `sk_agent_config.json` est bien gitignored
+- Alertes GitHub secret scanning résolues
+
+### Format de rapport
+
+```markdown
+## Santé Outillage (cycle {date})
+
+| Métrique | Valeur | Tendance |
+|----------|--------|----------|
+| Outils actifs (14j) | X/34 | ↑↓→ |
+| Bugs outils ouverts >14j | Y | |
+| Workarounds non fixés | Z | |
+| Secrets exposés | 0/N | |
+
+**Score santé :** A (>90% actifs, 0 bugs critiques) / B (>75%) / C (>50%) / D (<50%)
+
+### Outils inactifs
+- `{outil}` : dernière utilisation {date}, raison probable : {intentionnel|suspect|cassé}
+
+### Bugs outils ouverts
+- #{num} `{outil}` — ouvert depuis {jours}j : {titre}
+
+### Workarounds actifs
+- {description} — depuis {date}, issue corrective : #{num} ou MANQUANTE
+```
+
+### Cycle de vie d'un outil dégradé
+
+```
+Fonctionnel → Bug signalé → Workaround documenté → Outil ignoré → "Dead code" → Supprimé
+                                                     ↑
+                            META-ANALYSTE INTERVIENT ICI (détection avant abandon)
+```
+
+**Référence :** Issue #757 (culture anti-entropie), #761 (cette check)
+
+---
+
 ## Guard Rails (CRITICAL)
 
 ### Meta-analysts MUST NOT:
@@ -185,4 +267,4 @@ Requires validation before production use.
 
 ---
 
-**Last updated:** 2026-03-06
+**Last updated:** 2026-03-22

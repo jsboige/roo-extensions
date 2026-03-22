@@ -152,6 +152,59 @@ new_task({
 
 ---
 
+## Sante Outillage (#761)
+
+Detecter les outils sous-utilises, degrades ou casses AVANT qu'ils ne soient abandonnes silencieusement.
+
+### Checks obligatoires (chaque cycle meta-analyse)
+
+#### 1. Outils jamais appeles (>14 jours)
+
+Croiser les 34 outils declares dans `ListTools` avec les traces recentes via delegation :
+
+```
+new_task({
+  mode: "ask-simple",
+  message: "Utiliser roosync_search(action: 'semantic', search_query: '{outil}', start_date: '{14j avant}') pour verifier l'activite des outils principaux."
+})
+```
+
+Distinguer : intentionnel (usage rare par design) / suspect / casse.
+
+#### 2. Outils avec bugs ouverts > 14 jours
+
+```
+# Via win-cli :
+execute_command(command: "gh issue list --repo jsboige/roo-extensions --label bug --state open --json number,title,createdAt")
+```
+
+Alerter si un bug d'outil est ouvert > 14 jours.
+
+#### 3. Workarounds non resolus
+
+Scanner MEMORY.md et PROJECT_MEMORY.md pour les entrees "workaround", "bug connu", "contournement". Si workaround > 14 jours sans issue corrective → creer issue `needs-approval`.
+
+#### 4. Secrets exposes
+
+Verifier : aucun `.env` commite, aucune cle API dans les issues/commentaires recents, alertes GitHub secret scanning resolues.
+
+### Format de rapport
+
+```markdown
+## Sante Outillage (cycle {date})
+
+| Metrique | Valeur |
+|----------|--------|
+| Outils actifs (14j) | X/34 |
+| Bugs outils ouverts >14j | Y |
+| Workarounds non fixes | Z |
+| Secrets exposes | 0/N |
+
+Score sante : A (>90% actifs) / B (>75%) / C (>50%) / D (<50%)
+```
+
+---
+
 ## Garde-Fous (CRITIQUE)
 
 ### Le meta-analyste Roo NE DOIT PAS :
