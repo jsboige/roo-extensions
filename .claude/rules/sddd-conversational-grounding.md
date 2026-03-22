@@ -253,7 +253,7 @@ conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
 **Modes `summarize` :**
 - `trace` : Stats (compression, breakdown User/Assistant/Tools)
 - `cluster` : Grappes parent-enfant
-- `synthesis` : **BUG CONNU** - ne pas utiliser
+- `synthesis` : **DÉSACTIVÉ** (stubs #767/#768 — retourne des données fausses hardcodées). Retourne une erreur. NE PAS UTILISER.
 
 ## Recommandations conversation_browser(summarize) - CRITIQUE
 
