@@ -253,7 +253,7 @@ conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
 **Modes `summarize` :**
 - `trace` : Stats (compression, breakdown User/Assistant/Tools)
 - `cluster` : Grappes parent-enfant
-- `synthesis` : **DÉSACTIVÉ** (stubs #767/#768 — retourne des données fausses hardcodées). Retourne une erreur. NE PAS UTILISER.
+- `synthesis` : Pipeline LLM (OpenAI gpt-4o-mini) avec enrichissement algorithmique. Nécessite `OPENAI_API_KEY` dans .env. Réimplémenté #767.
 
 ## Recommandations conversation_browser(summarize) - CRITIQUE
 
