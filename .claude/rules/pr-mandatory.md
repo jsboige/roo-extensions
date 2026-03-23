@@ -53,16 +53,33 @@ Les modes `-simple` et `-complex` doivent :
 
 ---
 
+## Repertoires PROTEGES — Suppression INTERDITE sans approbation utilisateur
+
+**Les repertoires suivants contiennent du code strategique en cours de developpement.**
+Un agent ne peut PAS supprimer, "retirer", "nettoyer" ou "consolider" du code dans ces repertoires.
+
+| Repertoire | Raison | Incidents |
+|-----------|--------|-----------|
+| `src/services/synthesis/` | Pipeline LLM synthese (investissement strategique) | 3 suppressions erronees, 3 reverts |
+| `src/services/narrative/` | NarrativeContextBuilder (Phase 3 en attente) | Stubs #775-780 = cibles d'IMPLEMENTATION |
+
+**Les stubs (#775-780) sont des CIBLES D'IMPLEMENTATION, PAS du code mort.**
+Un plan d'agent qui recommande "RETIRER" ces stubs est FAUX. Seul l'utilisateur decide de supprimer un sous-systeme.
+
+---
+
 ## Review Obligatoire — Checklist Anti-Destruction
 
 Avant d'approuver une PR, verifier :
 
 - [ ] **Pas de suppression de code sans justification** : Chaque fichier/fonction supprime a un remplacement PROUVE
+- [ ] **Pas de suppression dans les repertoires PROTEGES** : synthesis/, narrative/ = approbation utilisateur requise
 - [ ] **Tests preserves** : Si du code est supprime, les tests qui le couvraient sont aussi supprimes OU le remplacement est teste
 - [ ] **Pas de nouveaux stubs** : Aucun `return null`, `throw new Error('Not Implemented')`, `// TODO` dans du code expose
 - [ ] **Pas de console.log** dans du code nouveau
 - [ ] **Diff proportionnel** : Une PR de "nettoyage" ne devrait pas supprimer plus de code qu'elle n'en ajoute sans justification
 - [ ] **Build + tests passent** : CI vert obligatoire
+- [ ] **Un plan d'agent n'est PAS une autorisation** : Si un plan recommande "supprimer/retirer", verifier avec l'utilisateur AVANT
 
 ---
 
