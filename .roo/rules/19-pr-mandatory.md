@@ -26,6 +26,16 @@ Le coordinateur ou le Claude Worker creera la PR et la review.
 - `git checkout main && git merge wt/...` — INTERDIT
 - Toute operation qui modifie `main` directement — INTERDIT
 
+## Repertoires PROTEGES — Suppression INTERDITE
+
+**NE JAMAIS supprimer de code dans ces repertoires :**
+
+- `src/services/synthesis/` — Pipeline LLM synthese (3 suppressions erronees, 3 reverts)
+- `src/services/narrative/` — NarrativeContextBuilder (stubs = cibles d'implementation)
+
+**Les stubs #775-780 sont des CIBLES D'IMPLEMENTATION, PAS du code mort.**
+Si un plan recommande "retirer" ces stubs, le plan est FAUX. Escalader au coordinateur.
+
 ## Exception
 
 Fichiers de coordination non-code : INTERCOM, dashboards, MEMORY.md, `.roo/rules/`, `.claude/rules/`.
