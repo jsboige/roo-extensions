@@ -1201,6 +1201,28 @@ function Create-Worktree {
         }
 
         Write-Log "Worktree créé avec succès (branch: $BranchName)"
+
+        # Initialize submodules in the new worktree (#802)
+        Write-Log "Initialisation des submodules dans le worktree..."
+        try {
+            $prevPref2 = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $smOutput = git -C $WorktreePath submodule update --init --recursive 2>&1
+            $smExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $prevPref2
+
+            $smOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
+            if ($smExitCode -eq 0) {
+                Write-Log "Submodules initialisés avec succès"
+            } else {
+                Write-Log "Attention: initialisation submodules code $smExitCode" "WARN"
+            }
+        } catch {
+            $ErrorActionPreference = $prevPref2
+            Write-Log "Erreur initialisation submodules: $_" "WARN"
+        }
+
         return $WorktreePath
     }
     catch {
@@ -2067,6 +2089,16 @@ REASON: [resume des tests ajoutes ou findings de veille]
 
     if (-not $WorktreePath) {
         $WorktreePath = $RepoRoot
+    }
+
+    # 3b. Validate worktree integrity (#802 - submodule must be initialized)
+    if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
+        $submodulePath = Join-Path $WorktreePath "mcps/internal/servers/roo-state-manager"
+        if (-not (Test-Path (Join-Path $submodulePath "package.json"))) {
+            Write-Log "WARN: Submodule not initialized in worktree (mcps/internal missing). Tasks requiring build/test will fail." "WARN"
+        } else {
+            Write-Log "Worktree integrity OK (submodule present)"
+        }
     }
 
     # 4. Exécuter Claude avec mode sélectionné
