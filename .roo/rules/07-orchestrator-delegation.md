@@ -38,6 +38,11 @@ new_task({
 })
 ```
 
+**PARAMETRES OBLIGATOIRES** (#803) :
+- `mode` (string, REQUIS) : mode exact (`code-simple`, `code-complex`, `ask-simple`, `ask-complex`, etc.)
+- `message` (string, REQUIS) : instructions completes de la sous-tache
+- **Si `mode` ou `message` est absent/undefined → echec silencieux du scheduler.**
+
 Inclure dans chaque prompt delegue :
 1. Le contexte necessaire (pas de reference a "voir ci-dessus")
 2. Les chemins de fichiers exacts
