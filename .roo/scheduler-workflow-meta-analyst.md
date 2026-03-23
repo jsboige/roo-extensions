@@ -34,32 +34,63 @@ execute_command(shell="powershell", command="echo META-ANALYST-PREFLIGHT-OK")
 - Si OK : continuer vers **Etape 1**
 - Si echec : **STOP IMMEDIAT**, ecrire dans META-INTERCOM `[CRITICAL] MCP win-cli non disponible`
 
-### Etape 1 : Collecte des traces locales
+### Etape 1 : Collecte et exploration des traces (MCP + PowerShell)
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
-Tu es le meta-analyste. Collecte les traces des schedulers locaux.
+Tu es le meta-analyste. Collecte et explore les traces des schedulers locaux.
+UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches que PowerShell brut.
 
-1. TRACES ROO :
-   Utilise win-cli MCP :
+== PARTIE A : EXPLORATION VIA MCP (PRIORITAIRE) ==
+
+1. LISTER les taches recentes (POINT D'ENTREE OBLIGATOIRE) :
+   conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
+   → Identifier les IDs des 10 dernieres taches scheduler (orchestrator-simple, code-simple, code-complex)
+
+2. ANALYSER les 5 taches les plus recentes :
+   Pour chaque ID obtenu ci-dessus :
+   conversation_browser(action: "view", task_id: "{ID}", detail_level: "summary", smart_truncation: true, max_output_length: 10000)
+   → Chercher : erreurs, boucles, outils echoues, escalades
+
+3. STATS de traces (optionnel si besoin de metriques) :
+   conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
+   → Compression ratio, breakdown User/Assistant/Tools
+
+4. FRICTIONS SEMANTIQUES (CRITIQUE — issue #807) :
+   roosync_search(action: "semantic", search_query: "error fail impossible blocked permission denied", has_errors: true, start_date: "{date 72h ago YYYY-MM-DD}", max_results: 10)
+   → Identifier les patterns de friction recurrents
+
+5. FRICTIONS PAR OUTIL :
+   Pour les outils suspects (ceux qui echouent souvent) :
+   roosync_search(action: "semantic", search_query: "{nom_outil} error", tool_name: "{nom_outil}", max_results: 5)
+   → Exemples d'outils a verifier : write_to_file, execute_command, new_task
+
+6. VUE D'ENSEMBLE DASHBOARDS :
+   roosync_dashboard(action: "read_overview")
+   → Contexte rapide des 4 niveaux de dashboard en 1 appel
+
+== PARTIE B : COMPLEMENTS POWERSHELL (si MCP insuffisant) ==
+
+7. TRACES ROO (fichiers bruts) :
    execute_command(shell="powershell", command="Get-ChildItem '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { $_.Name + ' - ' + $_.LastWriteTime }")
 
-   Pour les 5 plus recentes, lire ui_messages.json :
-   execute_command(shell="powershell", command="Get-Content '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/{TASK_ID}/ui_messages.json' | Select-Object -Last 50")
-
-2. TRACES CLAUDE :
+8. TRACES CLAUDE (fichiers bruts) :
    execute_command(shell="powershell", command="Get-ChildItem '$env:USERPROFILE/.claude/projects' -Directory | ForEach-Object { Get-ChildItem $_.FullName -Filter '*.jsonl' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } | Select-Object Name, Length, LastWriteTime | Select-Object -First 5")
 
-3. METRIQUES :
+9. METRIQUES GITHUB :
    execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state all --limit 20 --json number,state,closedAt,createdAt,title --jq '.[] | [.number, .state, .title] | @tsv'")
 
+== RAPPORT ==
+
 Rapporter :
-- Nombre de taches Roo (success/fail/partial)
-- Modes utilises (simple vs complex)
+- Nombre de taches Roo (success/fail/partial) avec IDs
+- Modes utilises (simple vs complex) et ratio escalade
+- Patterns de friction identifies (avec exemples concrets)
+- Outils problematiques (noms + frequence d'echec)
 - Nombre de sessions Claude recentes
 - Issues crees vs fermees (7 derniers jours)
-IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+IMPORTANT : utilise win-cli MCP pour les commandes PowerShell (pas le terminal natif).
 ```
 
 ### Etape 2 : Analyse croisee des harnais

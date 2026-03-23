@@ -51,7 +51,25 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Machine utilization
    - Guard rail violations
 
-5. **Semantic friction search (#637)** — Search for recent user frustrations using advanced filters:
+5. **Deep trace exploration via MCP (#807)** — Use conversation_browser and roosync_search for rich analysis:
+   ```
+   // Entry point: list recent tasks
+   conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
+
+   // Analyze top 5 tasks
+   conversation_browser(action: "view", task_id: "{ID}", detail_level: "summary", smart_truncation: true)
+
+   // Get stats
+   conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}")
+
+   // Quick overview of all dashboards
+   roosync_dashboard(action: "read_overview")
+   ```
+   - Browse actual conversation content, not just file metadata
+   - Identify error patterns, loops, and escalation triggers
+   - Correlate tool failures with specific tasks and modes
+
+6. **Semantic friction search (#637)** — Search for recent user frustrations using advanced filters:
    ```
    roosync_search(
      action: "semantic",
