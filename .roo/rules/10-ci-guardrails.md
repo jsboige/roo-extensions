@@ -1,7 +1,8 @@
 # Garde-Fous CI - Prevention des Regressions
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Cree:** 2026-03-11
+**Mis a jour:** 2026-03-23
 **Contexte:** Regressions CI repetees (#626, mock removal 2e6b49a, 31 tests casses)
 
 ---
@@ -27,6 +28,7 @@ powershell -ExecutionPolicy Bypass -File scripts\mcp\validate-before-push.ps1 -Q
 ### Commande alternative (bash)
 
 ```bash
+# Validation complete (build + tests CI)
 cd mcps/internal/servers/roo-state-manager
 npm run build && npx vitest run --config vitest.config.ci.ts
 ```
@@ -41,9 +43,9 @@ npm run build && npx vitest run --config vitest.config.ci.ts
 
 ## Deux configs Vitest
 
-| Config                | Usage                   | Tests exclus                  |
-| --------------------- | ----------------------- | ----------------------------- |
-| `vitest.config.ts`    | **Local** (dev)         | Seulement e2e et timeouts     |
+| Config | Usage | Tests exclus |
+|--------|-------|-------------|
+| `vitest.config.ts` | **Local** (dev) | Seulement e2e et timeouts |
 | `vitest.config.ci.ts` | **CI** (GitHub Actions) | + 32 tests platform-dependants |
 
 Le CI utilise `vitest.config.ci.ts` qui exclut les tests qui :
@@ -54,15 +56,20 @@ Le CI utilise `vitest.config.ci.ts` qui exclut les tests qui :
 - Ont des mocks obsoletes apres refactoring (15 fichiers)
 - Ont d'autres dependances plateforme (5 fichiers)
 
+Si tu ajoutes des tests, verifier qu'ils passent avec la config CI :
+```bash
+npx vitest run --config vitest.config.ci.ts tests/unit/ton-nouveau-test.test.ts
+```
+
 ---
 
 ## Incidents Ayant Motive Cette Regle
 
-| Date       | Agent    | Probleme                                                    | Impact                           |
-| ---------- | -------- | ----------------------------------------------------------- | -------------------------------- |
-| 2026-03-10 | po-2024  | Retrait mocks jest.setup.js sans verifier tous les tests    | 31 fichiers casses, CI rouge     |
-| 2026-03-09 | po-2025  | Tests integration ajoutes sans CI validation                | Tests referencent methodes inexistantes |
-| 2026-03-10 | multiple | Submodule pousse avec CI deja rouge                         | Accumulation de regressions      |
+| Date | Agent | Probleme | Impact |
+|------|-------|----------|--------|
+| 2026-03-10 | po-2024 | Retrait mocks jest.setup.js sans verifier tous les tests | 31 fichiers casses, CI rouge |
+| 2026-03-09 | po-2025 | Tests integration ajoutes sans CI validation | Tests referencent methodes inexistantes |
+| 2026-03-10 | multiple | Submodule pousse avec CI deja rouge | Accumulation de regressions |
 
 ---
 
@@ -74,11 +81,23 @@ Le CI utilise `vitest.config.ci.ts` qui exclut les tests qui :
 - Si les tests CI echouent : corriger AVANT de pousser
 - Ne JAMAIS pousser en ignorant les tests ("ca passait en local" n'est pas suffisant)
 
-### Roo (scheduler)
+### Roo — Modes -simple (code-simple, debug-simple, etc.)
 
-- Les modes `-simple` ne poussent PAS dans le submodule
-- Les modes `-complex` doivent valider avant push (via win-cli)
+- **NE PAS pousser** dans le submodule — pas de terminal natif
+- Valider via win-cli : `execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager && npm run build")`
+- Rapporter le resultat dans INTERCOM, laisser Claude ou un mode -complex pousser
+
+### Roo — Modes -complex (code-complex, debug-complex)
+
+- Terminal natif disponible — executer la validation complete avant push
+- `npm run build && npx vitest run --config vitest.config.ci.ts`
+
+### Roo — Orchestrateurs
+
+- NE DOIVENT PAS toucher au submodule directement
+- Deleguer les modifications a un mode de travail (-simple ou -complex)
 
 ---
 
-**Derniere mise a jour:** 2026-03-11
+**Reference complete :** `.claude/rules/ci-guardrails.md`
+**Derniere mise a jour :** 2026-03-23
