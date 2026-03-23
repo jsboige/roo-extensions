@@ -2168,24 +2168,12 @@ REASON: [resume des tests ajoutes ou findings de veille]
                 if ($PrUrl) {
                     Write-Log "PR created successfully: $PrUrl" "INFO"
 
-                    # Auto-merge if agent reported success (Issue #debrief-P1b)
+                    # PR review OBLIGATOIRE — plus d'auto-merge (feedback utilisateur 2026-03-23)
+                    # La moitié du "code mort" détecté était du code fonctionnel détruit par des agents.
+                    # Tout PR doit être reviewé par le coordinateur AVANT merge.
+                    # Ancien comportement: auto-merge si SUCCESS (Issue #debrief-P1b) — DÉSACTIVÉ.
                     if ($Result.success) {
-                        Write-Log "Agent reported SUCCESS — attempting auto-merge..." "INFO"
-                        try {
-                            Push-Location $WorktreePath
-                            $MergeOutput = & gh pr merge $PrUrl --merge --repo jsboige/roo-extensions --delete-branch 2>&1
-                            $MergeExit = $LASTEXITCODE
-                            Pop-Location
-
-                            if ($MergeExit -eq 0) {
-                                Write-Log "PR auto-merged successfully" "INFO"
-                            } else {
-                                Write-Log "Auto-merge failed (needs manual review): $MergeOutput" "WARN"
-                            }
-                        } catch {
-                            Pop-Location -ErrorAction SilentlyContinue
-                            Write-Log "Auto-merge error: $_" "WARN"
-                        }
+                        Write-Log "Agent reported SUCCESS — PR left open for coordinator review (auto-merge disabled)" "INFO"
                     } else {
                         Write-Log "Agent reported non-success — PR left open for coordinator review" "INFO"
                     }
