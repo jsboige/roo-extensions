@@ -384,9 +384,9 @@ ROOSYNC_SHARED_PATH=<shared path>
 **RooSync (25 outils)**: Voir section RooSync ci-dessous
 
 **Conversation**:
-- `list_conversations` - Lister conversations
-- `get_conversation_synthesis` - Synthèse LLM
-- `view_conversation_tree` - Arborescence
+- `conversation_browser(action: "list")` - Lister conversations
+- `conversation_browser(action: "summarize")` - Synthèse LLM
+- `conversation_browser(action: "tree")` - Arborescence
 - `get_raw_conversation` - Données brutes
 
 **Export**:

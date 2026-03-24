@@ -57,7 +57,7 @@ Serveurs développés et maintenus par le projet.
 - `roosync_send`, `roosync_read`, `roosync_manage` - Communication RooSync
 - `roosync_config`, `roosync_compare_config` - Gestion configuration
 - `analyze_roosync_problems` - Diagnostic RooSync
-- `task_browse`, `view_task_details` - Gestion des tâches
+- `conversation_browser`, `view_task_details` - Gestion des tâches
 
 **Installation :**
 ```bash
