@@ -159,7 +159,7 @@ roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
 
 ---
 
-## Étape 1 : Git Pull + Lecture Dashboard INTERCOM
+## Étape 1 : Git Pull + Lecture Dashboards
 
 **DÉLEGUER à `code-simple` via `new_task` :**
 
@@ -170,14 +170,17 @@ Executer ces commandes avec win-cli MCP et rapporter le résultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 
-Puis lire le dashboard INTERCOM (méthode PRÉFÉRÉE) :
-3. roosync_dashboard(action: "read", type: "workspace+machine", machineId: "{MACHINE}", section: "intercom", intercomLimit: 10)
+Puis lire le dashboard WORKSPACE (coordination cross-machine, PRIORITAIRE) :
+3. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
-Si le dashboard échoue, FALLBACK fichier local :
-3b. Lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
+Puis lire le dashboard INTERCOM local (coordination Roo<->Claude locale) :
+4. roosync_dashboard(action: "read", type: "workspace+machine", machineId: "{MACHINE}", section: "intercom", intercomLimit: 10)
 
-Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : état git + liste des tâches/propositions trouvées.
+Si les dashboards échouent, FALLBACK fichier local :
+4b. Lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
+
+Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL] dans les DEUX dashboards.
+Rapporter : état git + contenu dashboard workspace + liste des tâches/propositions trouvées.
 ```
 
 **Décision :**
@@ -330,9 +333,10 @@ Après exploration → **Étape 3**
 
 ---
 
-## Étape 3 : Rapporter dans Dashboard INTERCOM (OBLIGATOIRE)
+## Étape 3 : Rapporter dans Dashboards (OBLIGATOIRE)
 
 > **CRITIQUE** : Le rapport est la seule trace du passage du scheduler.
+> **REGLE #836** : Rapporter sur le dashboard WORKSPACE (cross-machine) ET sur workspace+machine (local).
 
 **MÉTHODE PRÉFÉRÉE — Dashboard MCP (pas d'approbation fichier) :**
 
@@ -341,7 +345,16 @@ Après exploration → **Étape 3**
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
 
-Écrire le bilan scheduler dans le dashboard INTERCOM :
+ETAPE A — Écrire le bilan sur le dashboard WORKSPACE (cross-machine, visible par TOUTES les machines) :
+
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"],
+  content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}"
+)
+
+ETAPE B — Écrire le bilan dans le dashboard INTERCOM local (coordination Roo<->Claude) :
 
 roosync_dashboard(
   action: "append",
@@ -351,7 +364,7 @@ roosync_dashboard(
   content: "Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nHeartbeat: {OK/ECHEC} | Tâches: {N} ({source})\nErreurs: {aucune ou description 1 ligne}"
 )
 
-Si le dashboard MCP échoue (erreur), FALLBACK fichier local :
+Si les dashboards MCP échouent (erreur), FALLBACK fichier local :
 1. Lis les 20 DERNIERES lignes de .claude/local/INTERCOM-{MACHINE}.md avec read_file
 2. Utilise apply_diff pour ajouter le message APRES le dernier séparateur ---
 3. Si apply_diff échoue : utilise win-cli Add-Content

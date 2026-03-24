@@ -194,13 +194,25 @@ Rapporter :
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-### Etape 3 : Ecrire le rapport dans META-INTERCOM
+### Etape 3 : Ecrire le rapport dans META-INTERCOM + Dashboard Workspace
 
 > **CRITIQUE :** L'ecriture META-INTERCOM est la seule trace de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
+> **REGLE #836 :** Poster aussi un resume sur le dashboard WORKSPACE (cross-machine).
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
+ETAPE PREALABLE — Poster un résumé sur le dashboard WORKSPACE (cross-machine) :
+
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["META-ANALYSIS", "roo-meta"],
+  content: "### [{MACHINE}] Bilan meta-analyste\n\n- Taches analysees: {N}, taux succes: {X}%\n- Recommandations: {N} (dont {X} needs-approval)\n- Issues creees: {N}\n- Rapport complet: META-INTERCOM-{MACHINE}.md"
+)
+
+PUIS ecrire le rapport detaille dans META-INTERCOM :
+
 1. Lis .claude/local/META-INTERCOM-{MACHINE}.md en ENTIER avec read_file
    (Si le fichier n'existe pas, copier le template depuis .claude/local/META-INTERCOM_TEMPLATE.md et remplacer {MACHINE_NAME})
 2. Compose le rapport avec ce format :
