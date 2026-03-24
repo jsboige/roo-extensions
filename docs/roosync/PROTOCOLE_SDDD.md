@@ -460,12 +460,12 @@ codebase_search {
 
 Le MCP `roo-state-manager` fournit des outils pour gérer l'état des conversations et des tâches Roo :
 
-- `get_task_tree` : Obtenir l'arbre des tâches
-- `view_conversation_tree` : Voir l'arbre des conversations
-- `search_tasks_by_content` : Rechercher des tâches par contenu sémantique
-- `generate_trace_summary` : Générer un résumé de trace
-- `export_conversation_json` : Exporter une conversation en JSON
-- `index_task_semantic` : Indexer une tâche pour la recherche sémantique
+- `conversation_browser(action: "tree")` : Obtenir l'arbre des tâches
+- `conversation_browser(action: "view")` : Voir le contenu des conversations
+- `roosync_search(action: "semantic")` : Rechercher des tâches par contenu sémantique
+- `conversation_browser(action: "summarize")` : Générer un résumé de trace
+- `task_export` : Exporter une conversation en JSON
+- `roosync_indexing` : Indexer une tâche pour la recherche sémantique
 
 ### 5.2 Gestion des Tâches
 

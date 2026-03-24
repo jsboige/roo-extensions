@@ -98,8 +98,8 @@ Then restart Claude Code to activate MCP.
 - **Decisions (2):** roosync_decision, roosync_decision_info
 - **Monitoring (1):** heartbeat_status
 - **Diagnostic (4):** analyze_roosync_problems, diagnose_env, minimal_test_tool, read_vscode_logs
-- **Summary (1):** roosync_summarize
-- **Tasks (5):** task_browse, view_task_details, view_conversation_tree, get_raw_conversation, task_export
+- **Summary (1):** conversation_browser(action: "summarize")
+- **Tasks (5):** conversation_browser, view_task_details, get_raw_conversation, task_export, etc.
 - **Search (2):** roosync_search, roosync_indexing
 - **Export (2):** export_data, export_config
 - **MCP Management (5):** storage_info, maintenance, manage_mcp_settings, rebuild_and_restart_mcp, get_mcp_best_practices

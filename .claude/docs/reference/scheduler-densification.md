@@ -63,7 +63,7 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 
 ## Workflow d'Ajustement
 
-1. **Lire les traces Roo** via `task_browse` et `view_conversation_tree`
+1. **Lire les traces Roo** via `conversation_browser(action: "list")` et `conversation_browser(action: "tree")`
 2. **Calculer les métriques** sur les 3-5 derniers cycles
 3. **Ajuster via INTERCOM** avec message `[FEEDBACK]`
 4. **Si structural** : modifier `.roo/scheduler-workflow-executor.md`
@@ -72,7 +72,7 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 
 - Commands : `/coordinate` (myia-ai-01), `/executor` (autres machines)
 - Workflow Roo : `.roo/scheduler-workflow-executor.md`
-- Traces : `task_browse(action: "tree")` + `view_conversation_tree()`
+- Traces : `conversation_browser(action: "tree")` + `conversation_browser(action: "view")`
 
 ---
 

@@ -66,7 +66,7 @@
   - 5 config (collect, publish, apply, compare, init)
   - 5 consolidated (CONS-1 to CONS-13)
   - 2 decisions (roosync_decision, roosync_decision_info)
-  - 5 tasks (task_browse, view_task_details, view_conversation_tree, etc.)
+  - 5 tasks (conversation_browser, view_task_details, task_export, etc.)
   - 2 search (roosync_search, roosync_indexing)
   - 4 diagnostic (analyze_roosync_problems, diagnose, read_vscode_logs, etc.)
 - Capabilities:
@@ -201,13 +201,13 @@ Rules in `.claude/rules/` are auto-loaded into every conversation. Reference doc
 ### Triple Grounding
 
 **1. Semantic Grounding**
-- Tools: `search_tasks_by_content` (Roo MCP) + Grep/Glob
+- Tools: `roosync_search(action: "semantic")` (Roo MCP) + Grep/Glob
 - Semantic search via Qdrant
 - Textual search complement
 - Read relevant documents
 
 **2. Conversational Grounding**
-- Tools: `view_conversation_tree`, `get_conversation_synthesis` (Roo MCP)
+- Tools: `conversation_browser(action: "tree/view")`, `conversation_browser(action: "summarize")` (Roo MCP)
 - Conversation tree
 - LLM synthesis
 - Read recent reports
