@@ -42,7 +42,7 @@ roo-extensions/
 `mcps/internal/` est un **submodule Git** pointant vers un depot separe.
 - Code principal : `mcps/internal/servers/roo-state-manager/src/`
 - Build : `cd mcps/internal/servers/roo-state-manager && npm run build`
-- Tests : `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch)
+- Tests : `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch. En scheduler: TOUJOURS tronquer avec `2>&1 | Select-Object -Last 30` #827)
 
 ---
 

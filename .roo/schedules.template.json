@@ -25,7 +25,7 @@
       "expirationMinute": "00",
       "requireActivity": false,
       "active": true,
-      "taskInteraction": "skip",
+      "taskInteraction": "wait",
       "inactivityDelay": "10",
       "_template_note": "Copier vers .roo/schedules.json. Remplacer ${MACHINE_NAME} par le hostname, TEMPLATE_ID par un timestamp unique, et ${WORKFLOW_FILE} par scheduler-workflow-coordinator.md (myia-ai-01) ou scheduler-workflow-executor.md (autres). timeInterval=360 (6h). startMinute: ai-01=00, po-2023=30, po-2024=00, po-2025=30, po-2026=00, web1=30. IMPORTANT: Pour le COORDINATEUR (myia-ai-01), changer mode en orchestrator-complex (heartbeat, config-sync, delegation complex)."
     },
@@ -54,7 +54,7 @@
       "expirationMinute": "00",
       "requireActivity": false,
       "active": true,
-      "taskInteraction": "skip",
+      "taskInteraction": "wait",
       "inactivityDelay": "10",
       "_template_note_meta": "Meme deployment que le scheduler principal. TEMPLATE_META_ID = timestamp unique. timeInterval=4320 (72h). startMinute: ai-01=15, po-2023=25, po-2024=35, po-2025=45, po-2026=55, web1=05 (decale par machine pour eviter collision z.ai). Mode orchestrator-complex car l'analyse croisee necessite des capacites avancees. Workflow: scheduler-workflow-meta-analyst.md (identique sur toutes les machines)."
     }
