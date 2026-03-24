@@ -16,14 +16,14 @@
 | Canal | Type dashboard | Usage | Priorite |
 |-------|---------------|-------|----------|
 | **Dashboard workspace** | `workspace` | **Coordination cross-machine** — rapporter progression, bilans | **#1 PRINCIPAL** |
-| **Dashboard workspace+machine** | `workspace+machine` | Communication locale Roo <-> Claude Code | #2 Local |
+| **Dashboard machine** | `machine` | Hardware, MCPs, services par machine | #2 Infra |
 | **Fichier INTERCOM local** | N/A | **DEPRECATED** — fallback si MCP echoue | #3 Fallback |
 
 ### REGLE CRITIQUE (#836)
 
-**Tout agent DOIT rapporter sur le dashboard `workspace`** (pas seulement `workspace+machine`).
+**Tout agent DOIT rapporter sur le dashboard `workspace`.** Le type `workspace+machine` a ete SUPPRIME.
 
-Le dashboard `workspace` est le hub central visible par TOUTES les machines. Ecrire uniquement sur `workspace+machine` rend les messages invisibles au coordinateur et aux autres machines.
+Le dashboard `workspace` est le hub central visible par TOUTES les machines. Seuls 3 types de dashboards existent : `global`, `machine`, `workspace`.
 
 ### Fichier INTERCOM local (DEPRECATED)
 
@@ -64,14 +64,14 @@ roosync_dashboard(
 )
 ```
 
-### 2. Communication locale via dashboard workspace+machine
+### 2. Communication locale via dashboard workspace
 
-Pour les messages destines uniquement a Roo sur la meme machine :
+Pour les messages locaux (meme machine) ou cross-machine :
 
 ```
 roosync_dashboard(
   action: "append",
-  type: "workspace+machine",
+  type: "workspace",
   tags: ["{INFO|TASK|DONE|WARN|ERROR|ASK|REPLY}", "claude-interactive"],
   content: "Contenu du message..."
 )
@@ -80,17 +80,13 @@ roosync_dashboard(
 ### 3. Lecture
 
 ```
-# Coordination cross-machine (TOUJOURS lire en premier)
 roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
-
-# Messages locaux Roo <-> Claude
-roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)
 ```
 
 ### Avantages du dashboard vs fichier local
 
 - **Pas d'approbation utilisateur** (MCP tool, pas ecriture fichier)
-- **Visible cross-machine** via GDrive (workspace) ou localement (workspace+machine)
+- **Visible cross-machine** via GDrive (workspace dashboard)
 - Auto-condensation a 500 messages
 - Tags structures identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
 - Archives JSON horodatees
@@ -223,12 +219,11 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 
 **OBLIGATION :** Au debut de chaque session Claude Code, lire les dashboards.
 
-**Ordre de lecture :**
-1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)` — **Coordination cross-machine EN PREMIER**
-2. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)` — Messages locaux
-3. Chercher les messages recents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
-4. Identifier les `TASK` non completees
-5. Identifier les `ASK` sans `REPLY`
+**METHODE OBLIGATOIRE (Dashboard) :**
+1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
+2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
+3. Identifier les `TASK` non complétées
+4. Identifier les `ASK` sans `REPLY`
 
 **FALLBACK fichier local (si MCP echoue) :**
 1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
