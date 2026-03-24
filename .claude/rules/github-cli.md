@@ -115,6 +115,42 @@ echo '...' > query.graphql && gh api graphql -f query=$(cat query.graphql)
 
 Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
+## Labels GitHub Disponibles
+
+### Labels Standard GitHub
+
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `bug` | Something isn't working | #d73a4a |
+| `documentation` | Improvements or additions to documentation | #0075ca |
+| `duplicate` | This issue or pull request already exists | #cfd3d7 |
+| `enhancement` | New feature or request | #a2eeef |
+| `good first issue` | Good for newcomers | #7057ff |
+| `help wanted` | Extra attention is needed | #008672 |
+| `invalid` | This doesn't seem right | #e4e669 |
+| `question` | Further information is requested | #d876e3 |
+| `wontfix` | This will not be worked on | #ffffff |
+
+### Labels Projet Roo (Custom)
+
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `claude-only` | Tasks reserved for Claude Code agents (opus/sonnet) - NOT for Roo schedulers | #0366d6 |
+| `critical` | Issues critiques bloquantes | #d73a4a |
+| `friction` | Problème ou friction découverte | #d93f0b |
+| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) | #d93f0b |
+| `harness-inconsistency` | Incohérence entre les harnais Roo et Claude | #fbca04 |
+| `investigation` | Investigation and audit tasks | #0e8a16 |
+| `needs-approval` | Requires user approval before execution | #fbca04 |
+| `needs-deployment-checklist` | Requires deployment checklist validation before closing | #FBCA04 |
+| `quality` | Code quality and reliability | #5319e7 |
+| `regression` | Regression bugs | #d93f0b |
+| `roo-schedulable` | Issue with Execution-Ready spec that Roo scheduler can pick up autonomously | #0E8A16 |
+| `test` | Test coverage (alias de testing) | #0E8A16 |
+| `testing` | Test coverage and infrastructure | #1d76db |
+
+**IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels incorrects (`maintenance`, `scheduler`, `memory`) ne doivent PAS être utilisés.
+
 ## Référence
 
 - Issue #368 : Migration gh CLI
