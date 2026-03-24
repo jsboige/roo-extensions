@@ -38,7 +38,7 @@ Utiliser `roosync_dashboard` pour TOUTE communication INTERCOM. Le fichier local
 ```
 roosync_dashboard(
   action: "append",
-  type: "workspace+machine",
+  type: "workspace",
   tags: ["{DONE|TASK|INFO|WARN|ERROR}", "{roo-scheduler|roo-meta|claude-interactive|claude-scheduled}"],
   content: "Contenu du message..."
 )
@@ -46,7 +46,7 @@ roosync_dashboard(
 
 **Lecture :**
 ```
-roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)
+roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
 ```
 
 **FALLBACK fichier local (si MCP échoue) :** Écrire dans `.claude/local/INTERCOM-{MACHINE}.md` avec apply_diff.
@@ -303,7 +303,7 @@ Contenu du message...
 ### En Début de Session
 
 **METHODE OBLIGATOIRE (Dashboard) :**
-1. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)`
+1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
 2. Lire les messages récents (< 24h)
 3. Identifier les `TASK` non complétées
 4. Identifier les `ASK` sans `REPLY`

@@ -301,6 +301,14 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 | `invalid` | This doesn't seem right |
 | `question` | Further information is requested |
 
+**⚠️ LABELS INEXISTANTS (NE JAMAIS UTILISER) :**
+
+- `maintenance` → N'existe pas (utiliser `documentation` ou `quality`)
+- `scheduler` → N'existe pas (utiliser `roo-schedulable` ou `harness-change`)
+- `memory` → N'existe pas (utiliser `documentation` ou `harness-change`)
+
+**Verifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
+
 ### 4. Scheduler Roo
 
 **Reference complete :** [`docs/roo-code/SCHEDULER_SYSTEM.md`](docs/roo-code/SCHEDULER_SYSTEM.md)
