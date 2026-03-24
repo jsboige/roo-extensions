@@ -1966,9 +1966,10 @@ if ($result) {
    <!-- Consulter state manager pour intentions autres agents -->
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
-   <tool_name>view_conversation_tree</tool_name>
+   <tool_name>conversation_browser</tool_name>
    <arguments>
    {
+     "action": "tree",
      "workspace": "c:/dev/current-project",
      "view_mode": "cluster"
    }

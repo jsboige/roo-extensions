@@ -48,6 +48,13 @@ This rule was established after a Session 101 incident where 8+ scripts were arc
 - Code, commits, and technical docs can be in English
 - User-facing messages and INTERCOM should be in French when relevant
 
+### Workspace Scope (CRITICAL)
+- **Chaque agent reste focalisé sur SON workspace.** Ne pas répondre aux dispatches d'un autre workspace, ne pas travailler sur des issues d'un autre projet.
+- **RooSync `to: "all"`** atteint TOUS les agents de TOUS les workspaces. Ne l'utiliser QUE pour des annonces globales (infra, incidents cross-workspace). Pour la coordination d'un workspace spécifique, cibler `machine:workspace` (ex: `myia-po-2024:roo-extensions`).
+- **Collaboration cross-workspace** : uniquement ponctuelle, bien délimitée, et explicitement demandée par l'utilisateur. Jamais par défaut.
+- **Dashboard workspace** (`roosync_dashboard(type: "workspace")`) est le canal de coordination de VOTRE workspace. Consultez celui de votre workspace, pas celui des autres.
+- Si un dispatch d'un autre workspace vous parvient : **ignorez-le** et renvoyez l'expéditeur vers son propre dashboard workspace.
+
 ### Safety
 - Never delete files without verifying their content is preserved elsewhere
 - Always backup before destructive operations

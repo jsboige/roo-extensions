@@ -893,12 +893,14 @@ codebase_search "git safety guidelines"
 
 ```bash
 # Consulter historique tâches Git via roo-state-manager
-use_mcp_tool roo-state-manager search_tasks_semantic \
-  --query "git operations conflicts" \
+use_mcp_tool roo-state-manager roosync_search \
+  --action "semantic" \
+  --search_query "git operations conflicts" \
   --max_results 10
 
 # Vérifier notes précédentes conflits
-use_mcp_tool roo-state-manager view_conversation_tree \
+use_mcp_tool roo-state-manager conversation_browser \
+  --action "view" \
   --task_id <current_task> \
   --view_mode chain
 
@@ -929,7 +931,8 @@ use_mcp_tool github list_issues \
 
 ```bash
 # Utiliser roo-state-manager pour grounding
-use_mcp_tool roo-state-manager view_conversation_tree \
+use_mcp_tool roo-state-manager conversation_browser \
+  --action "view" \
   --task_id <current_task> \
   --detail_level summary
 
@@ -1984,8 +1987,9 @@ Si UN seul item non validé → Ne PAS attempt_completion
 
 ```bash
 # Via roo-state-manager
-use_mcp_tool roo-state-manager search_tasks_semantic \
-  --query "git conflict error problem" \
+use_mcp_tool roo-state-manager roosync_search \
+  --action "semantic" \
+  --search_query "git conflict error problem" \
   --max_results 50
 
 # Identifier patterns :
