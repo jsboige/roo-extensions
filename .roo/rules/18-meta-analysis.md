@@ -28,28 +28,40 @@ Chaque tier a 2 agents : un scheduler Roo + un scheduler Claude.
 
 **1. Ses propres traces (auto-analyse)**
 
-Traces dans `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\` :
+Metriques a extraire :
 
 - Taux de succes/echec par mode (`*-simple` vs `*-complex`)
 - Patterns d'escalade (combien de fois -simple → -complex)
 - Usages d'outils (win-cli OK ? roosync_* appeles correctement ?)
 - Efficacite de la delegation (new_task bien formate ?)
 
-**Outils Roo pour cette analyse :**
+**Outils MCP roo-state-manager (OBLIGATOIRES — ne JAMAIS lire les fichiers JSON bruts) :**
 
 ```
-# Deleguer la lecture des traces a ask-complex ou code-complex
-new_task({
-  mode: "ask-complex",
-  message: "Lire les 5 dernieres taches Roo dans %APPDATA%\\Code\\User\\globalStorage\\rooveterinaryinc.roo-cline\\tasks\\ et fournir un rapport : mode utilise, succes/echec, erreurs."
-})
+# 1. LISTER les taches recentes (POINT D'ENTREE OBLIGATOIRE)
+conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
+
+# 2. ANALYSER chaque tache (smart_truncation evite l'explosion de contexte)
+conversation_browser(action: "view", task_id: "{ID}", detail_level: "summary", smart_truncation: true, max_output_length: 10000)
+
+# 3. STATS (optionnel, pour metriques compression/breakdown)
+conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
 ```
+
+**INTERDIT :** `Get-ChildItem %APPDATA%\...\tasks\` ou lecture directe de fichiers JSON de taches. Le MCP fournit les memes donnees avec filtrage, truncation, et structure.
 
 **2. Traces Claude (analyse croisee)**
 
-- Sessions Claude : `C:\Users\{USER}\.claude\projects\*\*.jsonl`
-- Logs worker Claude : `.claude/logs/worker-*.log`
+Via MCP roo-state-manager (source: "claude-code" filtre les sessions Claude) :
+
+```
+# Sessions Claude recentes
+roosync_search(action: "semantic", search_query: "session work implementation", source: "claude-code", start_date: "{7j ago}", max_results: 10)
+```
+
+Complements (si MCP insuffisant) :
 - Commits recents Claude : `git log --oneline --author="Claude" -10`
+- Logs worker Claude : `.claude/logs/worker-*.log` (seulement si le worker schedule est actif)
 
 **3. Harnais Claude (analyse croisee)**
 

@@ -35,7 +35,7 @@ Ces MCPs sont **essentiels** à l'architecture SDDD et doivent être privilégi�
 - **Rôle** : Niveau 3 SDDD (Grounding Conversationnel)
 - **Critique pour** : Accès contexte historique tâches, décisions architecturales
 - **Statut** : ✅ Opérationnel et critique
-- **Outil principal** : `search_tasks_semantic`
+- **Outil principal** : `roosync_search` (action: "semantic")
 - **Référence** : [`sddd-protocol-4-niveaux.md#niveau-3`](sddd-protocol-4-niveaux.md#niveau-3)
 
 #### quickfiles
@@ -104,16 +104,17 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 
 ### Outils Principaux
 
-#### 1. view_conversation_tree
+#### 1. conversation_browser (action: "view" / "tree")
 
 **Usage** : Visualiser hiérarchie conversations et sous-tâches
 
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "task_id": "uuid-tache-actuelle",
   "view_mode": "chain",
   "detail_level": "summary"
@@ -158,16 +159,17 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 }
 ```
 
-#### 2. search_tasks_semantic
+#### 2. roosync_search (action: "semantic")
 
 **Usage** : Recherche sémantique dans conversations historiques
 
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>search_tasks_semantic</tool_name>
+<tool_name>roosync_search</tool_name>
 <arguments>
 {
+  "action": "semantic",
   "search_query": "architecture modes factorisation templates",
   "workspace": "c:/dev/roo-extensions",
   "max_results": 10
@@ -220,16 +222,17 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 - ✅ Analyse dépendances entre tâches
 - ✅ Reporting avancement projet
 
-#### 4. list_conversations
+#### 4. conversation_browser (action: "list")
 
 **Usage** : Lister conversations avec filtres
 
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>list_conversations</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "list",
   "workspace": "c:/dev/roo-extensions",
   "sortBy": "lastActivity",
   "limit": 20
@@ -256,7 +259,7 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 ```markdown
 **Séquence obligatoire** :
 1. codebase_search (grounding sémantique code)
-2. roo-state-manager search_tasks_semantic (grounding conversationnel)
+2. roo-state-manager roosync_search (action: "semantic") (grounding conversationnel)
 3. read_file ciblés basés sur résultats
 
 **Bénéfices** :
@@ -269,7 +272,7 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 
 ```markdown
 **Avant décomposition en sous-tâches** :
-1. view_conversation_tree (comprendre structure existante)
+1. conversation_browser (action: "tree") (comprendre structure existante)
 2. Concevoir hiérarchie numérotée cohérente
 3. Créer new_task() avec contexte hérité
 
@@ -283,7 +286,7 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 
 ```markdown
 **Tous les 50k tokens** :
-1. view_conversation_tree (vérifier position hiérarchie)
+1. conversation_browser (action: "view") (vérifier position hiérarchie)
 2. Résumé actions effectuées
 3. Mise à jour todo list si nécessaire
 
@@ -1428,7 +1431,7 @@ Mode spécialisé (ex: code)
 4. Validation résultats
 
 **Orchestration** :
-1. roo-state-manager view_conversation_tree (structure)
+1. roo-state-manager conversation_browser (action: "tree") (structure)
 2. Décomposition hiérarchie numérotée
 3. new_task() avec contexte hérité
 ```
@@ -1451,8 +1454,8 @@ Mode spécialisé (ex: code)
 
 ### MCP Utilisés
 - roo-state-manager : 5 requêtes
-  - view_conversation_tree : 2
-  - search_tasks_semantic : 3
+  - conversation_browser (view/tree) : 2
+  - roosync_search (semantic) : 3
 - quickfiles : 8 requêtes
   - read_multiple_files : 4
   - edit_multiple_files : 2
@@ -1507,7 +1510,7 @@ Mode commence refactoring sans vérifier historique
 ### ✅ Grounding Complet
 ```markdown
 1. codebase_search
-2. roo-state-manager search_tasks_semantic
+2. roo-state-manager roosync_search (action: "semantic")
 3. Analyse résultats combinés
 4. Décision éclairée
 ```

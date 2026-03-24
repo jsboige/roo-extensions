@@ -619,8 +619,8 @@ Durée : 2-4 heures (workflow complet)
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
-   <tool_name>view_conversation_tree</tool_name>
-   <arguments>{"workspace": "c:/dev/project", "view_mode": "chain"}</arguments>
+   <tool_name>conversation_browser</tool_name>
+   <arguments>{"action": "view", "workspace": "c:/dev/project", "view_mode": "chain"}</arguments>
    </use_mcp_tool>
    ```
 2. Analyse dépendances et phases
@@ -892,9 +892,10 @@ Checkpoint 50k : ✅ OBLIGATOIRE (roo-state-manager)
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
-   <tool_name>view_conversation_tree</tool_name>
+   <tool_name>conversation_browser</tool_name>
    <arguments>
    {
+     "action": "view",
      "workspace": "c:/dev/project",
      "view_mode": "chain",
      "detail_level": "summary"
