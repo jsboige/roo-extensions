@@ -90,7 +90,7 @@ npx vitest run --config vitest.config.ci.ts tests/unit/ton-nouveau-test.test.ts
 ### Roo — Modes -complex (code-complex, debug-complex)
 
 - Terminal natif disponible — executer la validation complete avant push
-- `npm run build && npx vitest run --reporter=compact --config vitest.config.ci.ts`
+- `npm run build && npx vitest run --config vitest.config.ci.ts`
 
 ### Roo — Orchestrateurs
 
