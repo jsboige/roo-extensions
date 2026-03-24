@@ -41,7 +41,7 @@ Chaque machine du système RooSync a des contraintes spécifiques (RAM, OS, rôl
 
 2. **Tests TOUJOURS avec --maxWorkers=1**
    ```bash
-   npx vitest run --maxWorkers=1
+   npx vitest run --reporter=compact --maxWorkers=1
    ```
 
 3. **Seuil de condensation : 80% minimum** (pas 50%)

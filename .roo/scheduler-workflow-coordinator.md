@@ -44,7 +44,7 @@ Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defau
 
 ```
 # Build/Tests - utiliser win-cli :
-execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run --reporter=compact 2>&1 | Select-Object -Last 30")
 execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
 
 # Git - utiliser gitbash :
@@ -272,9 +272,10 @@ Deleguer dans cet ordre a `code-simple` via `new_task` :
 ```
 Utilise win-cli MCP pour executer dans le repertoire mcps/internal/servers/roo-state-manager :
 1. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
-2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run 2>&1 | Select-Object -Last 30")
+2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run --reporter=compact 2>&1 | Select-Object -Last 30")
 Rapporter : build OK/FAIL + nombre tests pass/fail.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+INTERDIT : NE JAMAIS utiliser --coverage ou le reporter par defaut (output 600KB = sature le contexte LLM #827).
 INTERDIT : NE JAMAIS utiliser --coverage (output trop volumineux, explose le contexte).
 ```
 
