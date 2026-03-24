@@ -128,7 +128,7 @@ Ceci corrige le probleme des commits sous "Roo Extensions Dev" qui polluent l'hi
 1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même
 2. **NE JAMAIS demander à l'utilisateur** - C'est RÈGLE #1
 3. **TOUJOURS vérifier les MCP** - Pre-flight check OBLIGATOIRE
-4. **TOUJOURS rapporter dans le dashboard INTERCOM** - Via `roosync_dashboard(type: "workspace+machine", action: "append")`. Fallback fichier `.claude/local/INTERCOM-{MACHINE}.md` si MCP échoue.
+4. **TOUJOURS rapporter dans le dashboard INTERCOM** - Via `roosync_dashboard(type: "workspace", action: "append")`. Fallback fichier `.claude/local/INTERCOM-{MACHINE}.md` si MCP échoue.
 5. **win-cli OBLIGATOIRE pour shell** - Les modes `-simple` n'ont PAS le terminal natif
 6. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
 7. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
@@ -153,7 +153,7 @@ roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
 ```
 
 **Si STOP (échec win-cli) :**
-- Écrire dans dashboard INTERCOM : `roosync_dashboard(type: "workspace+machine", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
+- Écrire dans dashboard INTERCOM : `roosync_dashboard(type: "workspace", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
 - Fallback fichier : `.claude/local/INTERCOM-{MACHINE}.md` si dashboard échoue
 - Terminer la tâche sans déléguer d'autres sous-tâches
 
@@ -170,16 +170,13 @@ Executer ces commandes avec win-cli MCP et rapporter le résultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 
-Puis lire le dashboard WORKSPACE (coordination cross-machine, PRIORITAIRE) :
+Puis lire le dashboard WORKSPACE (coordination cross-machine) :
 3. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
-Puis lire le dashboard INTERCOM local (coordination Roo<->Claude locale) :
-4. roosync_dashboard(action: "read", type: "workspace+machine", machineId: "{MACHINE}", section: "intercom", intercomLimit: 10)
+Si le dashboard échoue, FALLBACK fichier local :
+3b. Lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
 
-Si les dashboards échouent, FALLBACK fichier local :
-4b. Lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
-
-Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL] dans les DEUX dashboards.
+Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
 Rapporter : état git + contenu dashboard workspace + liste des tâches/propositions trouvées.
 ```
 
@@ -208,7 +205,7 @@ Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 
 **Gestion des échecs (ESCALADE AGRESSIVE) :**
 - 1er résultat insatisfaisant → **escalader IMMEDIATEMENT vers `-complex`**
-- Écrire `[INCIDENT-SIMPLE]` dans dashboard INTERCOM (`roosync_dashboard(type: "workspace+machine", action: "append", tags: ["INCIDENT-SIMPLE", "roo-scheduler"])`) pour CHAQUE escalade
+- Écrire `[INCIDENT-SIMPLE]` dans dashboard INTERCOM (`roosync_dashboard(type: "workspace", action: "append", tags: ["INCIDENT-SIMPLE", "roo-scheduler"])`) pour CHAQUE escalade
 - Ne PAS relancer en -simple
 
 Après exécution → **Étape 3**
@@ -336,7 +333,7 @@ Après exploration → **Étape 3**
 ## Étape 3 : Rapporter dans Dashboards (OBLIGATOIRE)
 
 > **CRITIQUE** : Le rapport est la seule trace du passage du scheduler.
-> **REGLE #836** : Rapporter sur le dashboard WORKSPACE (cross-machine) ET sur workspace+machine (local).
+> **REGLE #836** : Rapporter sur le dashboard WORKSPACE (cross-machine) ET sur workspace (local).
 
 **MÉTHODE PRÉFÉRÉE — Dashboard MCP (pas d'approbation fichier) :**
 
@@ -345,7 +342,7 @@ Après exploration → **Étape 3**
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
 
-ETAPE A — Écrire le bilan sur le dashboard WORKSPACE (cross-machine, visible par TOUTES les machines) :
+Écrire le bilan sur le dashboard WORKSPACE (cross-machine, visible par TOUTES les machines) :
 
 roosync_dashboard(
   action: "append",
@@ -354,17 +351,7 @@ roosync_dashboard(
   content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}"
 )
 
-ETAPE B — Écrire le bilan dans le dashboard INTERCOM local (coordination Roo<->Claude) :
-
-roosync_dashboard(
-  action: "append",
-  type: "workspace+machine",
-  machineId: "{MACHINE}",
-  tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"],
-  content: "Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nHeartbeat: {OK/ECHEC} | Tâches: {N} ({source})\nErreurs: {aucune ou description 1 ligne}"
-)
-
-Si les dashboards MCP échouent (erreur), FALLBACK fichier local :
+Si le dashboard MCP échoue (erreur), FALLBACK fichier local :
 1. Lis les 20 DERNIERES lignes de .claude/local/INTERCOM-{MACHINE}.md avec read_file
 2. Utilise apply_diff pour ajouter le message APRES le dernier séparateur ---
 3. Si apply_diff échoue : utilise win-cli Add-Content
