@@ -35,6 +35,19 @@ npx vitest run src/tools/roosync/__tests__/manage.test.ts
 npx vitest run --maxWorkers=1
 ```
 
+### Pour les schedulers Roo (CRITIQUE — #827)
+
+**L'output brut de `npx vitest run` fait ~500K caractères (~140K tokens).** Cela sature le contexte GLM (262K tokens) et provoque une boucle de condensation infinie.
+
+**TOUJOURS tronquer la sortie dans les commandes scheduler :**
+```powershell
+# CORRECT - seulement les 30 dernières lignes (résumé)
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run 2>&1 | Select-Object -Last 30")
+
+# INTERDIT - output brut sature le contexte
+execute_command(shell="powershell", command="npx vitest run")
+```
+
 ### Commandes à éviter
 
 ```bash
@@ -42,6 +55,10 @@ npx vitest run --maxWorkers=1
 npm test
 npm run test
 npx vitest  # sans "run"
+
+# NE PAS utiliser dans scheduler Roo - sature le contexte (#827)
+npx vitest run  # sans truncation (500K+ chars)
+npx vitest run --coverage  # encore plus volumineux
 ```
 
 ---

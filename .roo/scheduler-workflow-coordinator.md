@@ -44,8 +44,9 @@ Les modes `code-simple` et `debug-simple` n'ont plus acces au terminal par defau
 
 ```
 # Build/Tests - utiliser win-cli :
-execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run")
 execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run 2>&1 | Select-Object -Last 30")
+# INTERDIT : vitest sans '2>&1 | Select-Object -Last 30' (output brut = 500K+ chars = saturation contexte #827)
 
 # Git - utiliser gitbash :
 execute_command(shell="gitbash", command="git pull --no-rebase origin main")
