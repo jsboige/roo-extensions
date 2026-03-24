@@ -115,6 +115,27 @@ echo '...' > query.graphql && gh api graphql -f query=$(cat query.graphql)
 
 Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
+### Labels GitHub Disponibles (23 labels)
+
+**IMPORTANT : N'utiliser QUE les labels ci-dessous.** Les labels inexistants (`maintenance`, `scheduler`, `memory`, etc.) provoquent des erreurs silencieuses.
+
+**Labels de type (obligatoire, au moins un par issue) :**
+`bug`, `enhancement`, `documentation`
+
+**Labels techniques (optionnels) :**
+`critical`, `regression`, `harness-change`, `quality`, `testing`, `test`, `investigation`, `friction`, `harness-inconsistency`
+
+**Labels d'attribution (un seul par issue) :**
+`claude-only`, `roo-schedulable`
+
+**Labels de validation :**
+`needs-approval`, `needs-deployment-checklist`, `good first issue`, `help wanted`
+
+**Labels de statut :**
+`wontfix`, `duplicate`, `invalid`, `question`
+
+**Verifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
+
 ## Référence
 
 - Issue #368 : Migration gh CLI

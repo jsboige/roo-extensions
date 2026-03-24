@@ -277,6 +277,8 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 | `testing` | Test coverage and infrastructure |
 | `test` | Test coverage (alias de testing) |
 | `investigation` | Investigation and audit tasks |
+| `friction` | Probleme ou friction decouverte par un agent |
+| `harness-inconsistency` | Incoherence entre les harnais Roo et Claude |
 
 **Labels d'attribution (un seul par issue):**
 
