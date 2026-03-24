@@ -134,6 +134,11 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 **Labels de statut :**
 `wontfix`, `duplicate`, `invalid`, `question`
 
+**⚠️ LABELS INEXISTANTS (NE JAMAIS UTILISER) :**
+- `maintenance` → N'existe pas (utiliser `documentation` ou `quality`)
+- `scheduler` → N'existe pas (utiliser `roo-schedulable` ou `harness-change`)
+- `memory` → N'existe pas (utiliser `documentation` ou `harness-change`)
+
 **Verifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
 
 ## Référence
