@@ -231,14 +231,14 @@ Après exécution → **Étape 3**
 ```
 Executer dans mcps/internal/servers/roo-state-manager avec win-cli :
 1. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
-2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run --reporter=compact 2>&1 | Select-Object -Last 30")
+2. execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run 2>&1 | Select-Object -Last 30")
 Rapporter : build OK/FAIL + nombre tests pass/fail.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 INTERDIT : NE JAMAIS utiliser --coverage ou le reporter par defaut (output 600KB = sature le contexte LLM #827).
 INTERDIT : NE JAMAIS lancer vitest sans '2>&1 | Select-Object -Last 30' (output brut = 500K+ chars = saturation contexte).
 ```
 
-> **Note MyIA-Web1** : Toujours utiliser `npx vitest run --reporter=compact --maxWorkers=1 2>&1 | Select-Object -Last 30`
+> **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 30`
 
 ### 2b-2 : GitHub Issues (dispatch-aware)
 

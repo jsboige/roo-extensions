@@ -1,7 +1,8 @@
 # Taux de Succès Tests
 
-**Version :** 1.0.0
+**Version :** 1.1.0
 **Créé :** 2026-03-15
+**MAJ :** 2026-03-24 (#827 — vitest output sature le contexte scheduler)
 **Issue :** #710
 
 ---
@@ -10,9 +11,9 @@
 
 | Machine | Taux attendu | Commande recommandée | Notes |
 |---------|-------------|---------------------|-------|
-| myia-ai-01 | 99.8% | `npx vitest run --reporter=compact` | Machine puissante |
-| myia-po-2023/2024/2025/2026 | 99.6% | `npx vitest run --reporter=compact` | Quelques tests skipped |
-| myia-web1 | 99.6% | `npx vitest run --reporter=compact --maxWorkers=1` | **TOUJOURS --maxWorkers=1** |
+| myia-ai-01 | 99.8% | `npx vitest run` | Machine puissante |
+| myia-po-2023/2024/2025/2026 | 99.6% | `npx vitest run` | Quelques tests skipped |
+| myia-web1 | 99.6% | `npx vitest run --maxWorkers=1` | **TOUJOURS --maxWorkers=1** |
 
 ---
 
@@ -21,26 +22,23 @@
 **IMPORTANT :** Toujours utiliser `npx vitest run` au lieu de `npm test`
 
 ```bash
-# Tests complets (recommandé) — TOUJOURS utiliser --reporter=compact
+# Tests complets (recommandé)
 cd mcps/internal/servers/roo-state-manager
-npx vitest run --reporter=compact
+npx vitest run
 
-# Tests avec couverture (INTERDIT en scheduler — output 600KB sature le contexte)
+# Tests avec couverture (INTERDIT en scheduler — output trop volumineux)
 npx vitest run --coverage
 
 # Tests d'un fichier spécifique
-npx vitest run --reporter=compact src/tools/roosync/__tests__/manage.test.ts
+npx vitest run src/tools/roosync/__tests__/manage.test.ts
 
 # Machines contraintes (web1)
-npx vitest run --reporter=compact --maxWorkers=1
-
-# En scheduler (via win-cli) — OBLIGATOIRE : tronquer la sortie
-# execute_command(shell="powershell", command="npx vitest run --reporter=compact 2>&1 | Select-Object -Last 30")
+npx vitest run --maxWorkers=1
 ```
 
 ### Pour les schedulers Roo (CRITIQUE — #827)
 
-**L'output brut de `npx vitest run` fait ~500K caractères (~140K tokens).** Cela sature le contexte GLM (262K tokens) et provoque une boucle de condensation infinie.
+**L'output brut de `npx vitest run` fait ~600K caractères (~150K tokens).** Cela sature le contexte GLM (262K tokens) et provoque une boucle de condensation infinie.
 
 **TOUJOURS tronquer la sortie dans les commandes scheduler :**
 ```powershell
@@ -51,6 +49,8 @@ execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-
 execute_command(shell="powershell", command="npx vitest run")
 ```
 
+**Note :** `--reporter=compact` N'EXISTE PAS dans vitest 3.x. Ne pas l'utiliser. La troncature via `Select-Object -Last 30` est la seule solution fiable.
+
 ### Commandes à éviter
 
 ```bash
@@ -59,9 +59,10 @@ npm test
 npm run test
 npx vitest  # sans "run"
 
-# NE PAS utiliser en scheduler - output 600KB sature le contexte LLM (#827)
-npx vitest run              # sans --reporter=compact ni truncation
+# NE PAS utiliser en scheduler sans truncation (#827)
+npx vitest run              # sans '2>&1 | Select-Object -Last 30'
 npx vitest run --coverage   # output encore plus volumineux
+npx vitest run --reporter=compact  # N'EXISTE PAS — erreur fatale
 ```
 
 ---
