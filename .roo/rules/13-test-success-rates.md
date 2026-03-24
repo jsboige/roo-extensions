@@ -10,9 +10,9 @@
 
 | Machine | Taux attendu | Commande recommandée | Notes |
 |---------|-------------|---------------------|-------|
-| myia-ai-01 | 99.8% | `npx vitest run` | Machine puissante |
-| myia-po-2023/2024/2025/2026 | 99.6% | `npx vitest run` | Quelques tests skipped |
-| myia-web1 | 99.6% | `npx vitest run --maxWorkers=1` | **TOUJOURS --maxWorkers=1** |
+| myia-ai-01 | 99.8% | `npx vitest run --reporter=compact` | Machine puissante |
+| myia-po-2023/2024/2025/2026 | 99.6% | `npx vitest run --reporter=compact` | Quelques tests skipped |
+| myia-web1 | 99.6% | `npx vitest run --reporter=compact --maxWorkers=1` | **TOUJOURS --maxWorkers=1** |
 
 ---
 
@@ -21,18 +21,21 @@
 **IMPORTANT :** Toujours utiliser `npx vitest run` au lieu de `npm test`
 
 ```bash
-# Tests complets (recommandé)
+# Tests complets (recommandé) — TOUJOURS utiliser --reporter=compact
 cd mcps/internal/servers/roo-state-manager
-npx vitest run
+npx vitest run --reporter=compact
 
-# Tests avec couverture
+# Tests avec couverture (INTERDIT en scheduler — output 600KB sature le contexte)
 npx vitest run --coverage
 
 # Tests d'un fichier spécifique
-npx vitest run src/tools/roosync/__tests__/manage.test.ts
+npx vitest run --reporter=compact src/tools/roosync/__tests__/manage.test.ts
 
 # Machines contraintes (web1)
-npx vitest run --maxWorkers=1
+npx vitest run --reporter=compact --maxWorkers=1
+
+# En scheduler (via win-cli) — OBLIGATOIRE : tronquer la sortie
+# execute_command(shell="powershell", command="npx vitest run --reporter=compact 2>&1 | Select-Object -Last 30")
 ```
 
 ### Pour les schedulers Roo (CRITIQUE — #827)
@@ -56,9 +59,9 @@ npm test
 npm run test
 npx vitest  # sans "run"
 
-# NE PAS utiliser dans scheduler Roo - sature le contexte (#827)
-npx vitest run  # sans truncation (500K+ chars)
-npx vitest run --coverage  # encore plus volumineux
+# NE PAS utiliser en scheduler - output 600KB sature le contexte LLM (#827)
+npx vitest run              # sans --reporter=compact ni truncation
+npx vitest run --coverage   # output encore plus volumineux
 ```
 
 ---
