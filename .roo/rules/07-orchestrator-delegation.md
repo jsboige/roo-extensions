@@ -21,9 +21,9 @@ Si tu as besoin de :
 - **Lire un fichier** → `new_task` vers `ask-simple` ou `code-simple`
 - **Modifier un fichier** → `new_task` vers `code-simple`
 - **Executer une commande** → `new_task` vers `code-simple` (avec win-cli)
-- **Lire INTERCOM** → `new_task` vers `code-simple` (roosync_dashboard action: "read", type: "workspace+machine". Fallback: lire fichier .claude/local/INTERCOM-{MACHINE}.md)
+- **Lire INTERCOM** → `new_task` vers `code-simple` (roosync_dashboard action: "read", type: "workspace". Fallback: lire fichier .claude/local/INTERCOM-{MACHINE}.md)
 - **Verifier git status** → `new_task` vers `code-simple`
-- **Ecrire dans INTERCOM** → `new_task` vers `code-simple` (roosync_dashboard action: "append", type: "workspace+machine". Fallback: apply_diff ou win-cli Add-Content sur fichier)
+- **Ecrire dans INTERCOM** → `new_task` vers `code-simple` (roosync_dashboard action: "append", type: "workspace". Fallback: apply_diff ou win-cli Add-Content sur fichier)
 - **Appeler un outil MCP** (roosync, heartbeat, etc.) → `new_task` vers `code-simple`
 
 ## Pattern de delegation
