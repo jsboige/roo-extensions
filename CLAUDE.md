@@ -222,30 +222,26 @@ Outils MCP (CONS-1) :
 
 Fichier partage : `G:/Mon Drive/Synchronisation/RooSync/.shared-state/`
 
-### 2. Dashboards RooSync (4 niveaux — NE PAS CONFONDRE)
+### 2. Dashboards RooSync (3 niveaux)
 
 Les dashboards sont geres via `roosync_dashboard` (MCP). Stockes sur GDrive, partages cross-machine. **PAS de fichier local improvise.**
 
-**REGLE CRITIQUE : Le dashboard `workspace` est le PRINCIPAL canal de coordination cross-machine pour un workspace donne. C'est la que le coordinateur poste les taches, les executeurs rapportent leur avancement, et tout le monde se synchronise.**
+**REGLE CRITIQUE : Le dashboard `workspace` est le PRINCIPAL canal de coordination. C'est la que le coordinateur poste les taches, les executeurs rapportent leur avancement, et tout le monde se synchronise.**
 
-| Type | Cle | Portee | Usage | Commande |
-|------|-----|--------|-------|----------|
-| **`global`** | (aucune) | Cluster entier | Sommaire global, references vers les autres dashboards | `roosync_dashboard(action: "read", type: "global")` |
-| **`workspace`** | workspace seul | **CROSS-MACHINE** | **DASHBOARD PRINCIPAL** — Coordination entre machines pour ce workspace. Dispatches, progression, alertes. | `roosync_dashboard(action: "read", type: "workspace")` |
-| **`machine`** | machine seul | Par machine | Hardware, MCPs, services, sante de la machine | `roosync_dashboard(action: "read", type: "machine")` |
-| **`workspace+machine`** | workspace+machine | **LOCAL** | Remplace INTERCOM — coordination Roo ↔ Claude Code dans le MEME workspace sur la MEME machine | `roosync_dashboard(action: "read", type: "workspace+machine")` |
+| Type | Portee | Usage | Commande |
+|------|--------|-------|----------|
+| **`global`** | Cluster entier | Sommaire global, references vers les autres dashboards | `roosync_dashboard(action: "read", type: "global")` |
+| **`workspace`** | **CROSS-MACHINE** | **DASHBOARD PRINCIPAL** — Coordination entre machines pour ce workspace. Dispatches, progression, alertes. | `roosync_dashboard(action: "read", type: "workspace")` |
+| **`machine`** | Par machine | Hardware, MCPs, services, sante de la machine | `roosync_dashboard(action: "read", type: "machine")` |
 
 **Actions disponibles :** `read`, `write` (remplace le status), `append` (ajoute un message intercom), `condense`, `list`, `delete`, `read_archive`
 
 **Protocole de session :**
 1. `roosync_dashboard(action: "read", type: "workspace")` — Lire le dashboard PRINCIPAL (taches, dispatches, alertes)
-2. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom")` — Lire ses messages locaux
-3. Prendre une tache, travailler
-4. Rapporter via `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")` — **Sur le workspace, PAS workspace+machine**
-5. Si besoin de coordination locale Roo ↔ Claude : `roosync_dashboard(action: "append", type: "workspace+machine", ...)`
+2. Prendre une tache, travailler
+3. Rapporter via `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")`
 
 **Fallback fichier local (si MCP echoue) :** `.claude/local/INTERCOM-{MACHINE_NAME}.md`
-Documentation : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
 Types de tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`
 
 ### 3. GitHub Issues
