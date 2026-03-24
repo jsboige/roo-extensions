@@ -1,28 +1,35 @@
-# Règles INTERCOM - Communication Locale (Claude Code)
+# Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 1.0.0
-**Créé:** 2026-03-13
-**Issue:** #669 - [META-ANALYSIS] Ajouter règle écriture INTERCOM pour Claude
+**Version:** 2.0.0
+**Cree:** 2026-03-13
+**MAJ:** 2026-03-24
+**Issues:** #669, #745, #835, #836
 
 ---
 
-## Protocole INTERCOM
+## Protocole Dashboard (PRINCIPAL)
 
-INTERCOM est le canal de communication **locale** entre Roo et Claude Code sur la même machine et dans le même workspace.
+**Depuis la migration #745 Phase 2, le canal principal est le dashboard RooSync.**
 
-**⚠️ DISTINCTION CRITIQUE :**
-- **INTERCOM** = Communication locale (même machine, même workspace)
-- **RooSync** = Communication inter-machine et inter-workspace
+### Hierarchie des canaux
 
-### Fichier
+| Canal | Type dashboard | Usage | Priorite |
+|-------|---------------|-------|----------|
+| **Dashboard workspace** | `workspace` | **Coordination cross-machine** — rapporter progression, bilans | **#1 PRINCIPAL** |
+| **Dashboard workspace+machine** | `workspace+machine` | Communication locale Roo <-> Claude Code | #2 Local |
+| **Fichier INTERCOM local** | N/A | **DEPRECATED** — fallback si MCP echoue | #3 Fallback |
 
-```
-.claude/local/INTERCOM-{MACHINE}.md
-```
+### REGLE CRITIQUE (#836)
 
-Exemples :
-- `.claude/local/INTERCOM-myia-ai-01.md`
-- `.claude/local/INTERCOM-myia-po-2026.md`
+**Tout agent DOIT rapporter sur le dashboard `workspace`** (pas seulement `workspace+machine`).
+
+Le dashboard `workspace` est le hub central visible par TOUTES les machines. Ecrire uniquement sur `workspace+machine` rend les messages invisibles au coordinateur et aux autres machines.
+
+### Fichier INTERCOM local (DEPRECATED)
+
+**Les fichiers `.claude/local/INTERCOM-{MACHINE}.md` sont DEPRECATED depuis #745 Phase 2.**
+
+Ils ne doivent etre utilises QUE si le MCP dashboard echoue (GDrive offline, MCP crash).
 
 ---
 
@@ -42,13 +49,25 @@ L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire le
 
 ---
 
-## Procédure d'écriture OBLIGATOIRE pour Claude Code
+## Procedure d'ecriture OBLIGATOIRE pour Claude Code
 
-### Méthode OBLIGATOIRE : Dashboard RooSync (Phase 2 migration #745)
+### 1. Rapporter sur le dashboard WORKSPACE (cross-machine) — OBLIGATOIRE (#836)
 
-**TOUJOURS utiliser `roosync_dashboard` pour la communication INTERCOM.** Le fichier local est un FALLBACK uniquement.
+**Toute action significative DOIT etre rapportee sur le dashboard `workspace`** pour etre visible par toutes les machines.
 
-**Écriture :**
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["{DONE|PROGRESS|BLOCKED|INFO}", "claude-interactive"],
+  content: "Bilan ou progression..."
+)
+```
+
+### 2. Communication locale via dashboard workspace+machine
+
+Pour les messages destines uniquement a Roo sur la meme machine :
+
 ```
 roosync_dashboard(
   action: "append",
@@ -58,19 +77,27 @@ roosync_dashboard(
 )
 ```
 
-**Lecture :**
+### 3. Lecture
+
 ```
+# Coordination cross-machine (TOUJOURS lire en premier)
+roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
+
+# Messages locaux Roo <-> Claude
 roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)
 ```
 
-**Avantages :**
-- **Pas d'approbation utilisateur** (MCP tool, pas écriture fichier)
-- Accessible cross-machine via GDrive
-- Auto-condensation à 500 messages
-- Tags structurés identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
-- Archives JSON horodatées
+### Avantages du dashboard vs fichier local
 
-**FALLBACK fichier local :** Seulement si le MCP dashboard échoue, utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` via Edit tool.
+- **Pas d'approbation utilisateur** (MCP tool, pas ecriture fichier)
+- **Visible cross-machine** via GDrive (workspace) ou localement (workspace+machine)
+- Auto-condensation a 500 messages
+- Tags structures identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
+- Archives JSON horodatees
+
+### FALLBACK fichier local (DEPRECATED)
+
+Seulement si le MCP dashboard echoue (GDrive offline, MCP crash), utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` via Edit tool.
 
 ### Méthode ALTERNATIVE (Edit tool - append à la fin)
 
@@ -192,19 +219,20 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 
 ---
 
-## Lecture de l'INTERCOM (Début de Session)
+## Lecture en Debut de Session
 
-**OBLIGATION :** Au début de chaque session Claude Code, vérifier l'INTERCOM.
+**OBLIGATION :** Au debut de chaque session Claude Code, lire les dashboards.
 
-**METHODE OBLIGATOIRE (Dashboard) :**
-1. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)`
-2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
-3. Identifier les `TASK` non complétées
-4. Identifier les `ASK` sans `REPLY`
+**Ordre de lecture :**
+1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)` — **Coordination cross-machine EN PREMIER**
+2. `roosync_dashboard(action: "read", type: "workspace+machine", section: "intercom", intercomLimit: 10)` — Messages locaux
+3. Chercher les messages recents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
+4. Identifier les `TASK` non completees
+5. Identifier les `ASK` sans `REPLY`
 
-**FALLBACK fichier local (si MCP échoue) :**
+**FALLBACK fichier local (si MCP echoue) :**
 1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
-2. Mêmes étapes 2-4 ci-dessus
+2. Memes etapes 3-5 ci-dessus
 
 ### Priorité des messages
 
