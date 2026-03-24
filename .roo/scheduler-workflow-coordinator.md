@@ -32,7 +32,7 @@ Agis directement. Délègue via `new_task`. Décide toi-même.
 ## PRINCIPES
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-2. Communication locale via **dashboard INTERCOM** (`roosync_dashboard(type: "workspace+machine")`). Fallback fichier `.claude/local/INTERCOM-myia-ai-01.md`. RooSync pour l'inter-machine.
+2. Communication locale via **dashboard INTERCOM** (`roosync_dashboard(type: "workspace")`). Fallback fichier `.claude/local/INTERCOM-myia-ai-01.md`. RooSync pour l'inter-machine.
 4. Ne JAMAIS commit ou push
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
@@ -80,7 +80,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 - Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
   1. Deleguer a `code-simple` pour ecrire dans le dashboard INTERCOM :
      ```
-     roosync_dashboard(action: "append", type: "workspace+machine", machineId: "myia-ai-01", tags: ["CRITICAL", "roo-scheduler"], content: "MCP win-cli non disponible - Scheduler BLOQUE")
+     roosync_dashboard(action: "append", type: "workspace", machineId: "myia-ai-01", tags: ["CRITICAL", "roo-scheduler"], content: "MCP win-cli non disponible - Scheduler BLOQUE")
      Si le dashboard echoue, fallback fichier : ajouter a .claude/local/INTERCOM-myia-ai-01.md avec apply_diff.
      ```
   2. NE PAS continuer le workflow
@@ -88,7 +88,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **Reference :** Voir `.roo/rules/05-tool-availability.md` pour le protocole complet.
 
-### Etape 1 : Git pull + Lecture Dashboard INTERCOM
+### Etape 1 : Git pull + Lecture Dashboards
 
 Deleguer a `code-simple` via `new_task` :
 
@@ -99,14 +99,14 @@ Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 
-Puis lire le dashboard INTERCOM (METHODE PREFEREE) :
-3. roosync_dashboard(action: "read", type: "workspace+machine", machineId: "myia-ai-01", section: "intercom", intercomLimit: 10)
+Puis lire le dashboard WORKSPACE (coordination cross-machine) :
+3. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
 Si le dashboard echoue, FALLBACK fichier local :
 3b. Lire les 5 derniers messages de .claude/local/INTERCOM-myia-ai-01.md avec read_file.
 
 Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : etat git + liste des taches trouvees.
+Rapporter : etat git + contenu dashboard workspace + liste des taches trouvees.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
@@ -354,9 +354,10 @@ Si aucune issue a executer : aller a **Etape 2c-idle** (Veille Active).
 
 Apres exploration → **Etape 3**
 
-### Etape 3 : Rapporter dans Dashboard INTERCOM (OBLIGATOIRE)
+### Etape 3 : Rapporter dans Dashboards (OBLIGATOIRE)
 
 > **CRITIQUE :** Le rapport est la seule trace du passage du scheduler. **Ne JAMAIS quitter sans avoir ecrit le rapport.**
+> **REGLE #836 :** Rapporter sur le dashboard WORKSPACE (cross-machine) ET sur workspace (local).
 
 **METHODE PREFEREE — Dashboard MCP (pas d'approbation fichier) :**
 
@@ -365,14 +366,13 @@ Deleguer a `code-simple` via `new_task` :
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
 
-Ecrire le bilan scheduler dans le dashboard INTERCOM :
+Ecrire le bilan sur le dashboard WORKSPACE (cross-machine, visible par TOUTES les machines) :
 
 roosync_dashboard(
   action: "append",
-  type: "workspace+machine",
-  machineId: "myia-ai-01",
+  type: "workspace",
   tags: ["{DONE|MAINTENANCE|IDLE}", "roo-scheduler"],
-  content: "### Bilan scheduler coordinateur\n\n- Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\n- Taches: {N} ({source}) | Erreurs: {aucune ou 1 ligne}\n- RooSync: {N} messages | Wake Claude: {oui/non}"
+  content: "### [myia-ai-01] Bilan scheduler coordinateur\n\n- Git: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\n- Taches: {N} ({source}) | Erreurs: {aucune ou 1 ligne}\n- RooSync: {N} messages | Wake Claude: {oui/non}"
 )
 
 Si le dashboard MCP echoue, FALLBACK fichier local :

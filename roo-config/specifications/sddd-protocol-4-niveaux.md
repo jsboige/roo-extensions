@@ -88,7 +88,7 @@ Le protocole SDDD (Semantic Documentation Driven Design) établit une méthodolo
                             ↓
 ┌─────────────────────────────────────────────────────────────┐
 │ NIVEAU 3 : GROUNDING CONVERSATIONNEL (Contexte historique) │
-│ • roo-state-manager : view_conversation_tree               │
+│ • roo-state-manager : conversation_browser (action: "view") │
 │ • Compréhension décisions et évolutions projet             │
 │ • Continuité entre sessions et modes                        │
 │ Phase : Documentation Continue (Phase 2) - Checkpoint 50k  │
@@ -186,9 +186,10 @@ Pour tâches nécessitant contexte historique (reprise de session, analyse déci
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "workspace": "c:/dev/project-name",
   "view_mode": "chain",
   "detail_level": "summary"
@@ -217,7 +218,7 @@ Le MCP **roo-state-manager** est l'outil central du Niveau 3, permettant d'accé
    - Éviter duplication de travail déjà effectué
    - Comprendre l'évolution d'un projet sur le temps
 
-2. **Outil principal** : [`search_tasks_semantic`](../../analysis-reports/architecture-consolidee-roo-state-manager.md#search_tasks_semantic)
+2. **Outil principal** : [`roosync_search`](../../analysis-reports/architecture-consolidee-roo-state-manager.md#roosync_search) (action: "semantic")
    - Recherche sémantique dans l'historique des tâches
    - Trouve contexte pertinent même sans mots-clés exacts
    - Renvoie extraits avec métadonnées (date, mode, résultat)
@@ -233,7 +234,7 @@ Le MCP **roo-state-manager** est l'outil central du Niveau 3, permettant d'accé
 
 1. Niveau 1 : read_file("src/auth/login.ts") - État actuel du code
 2. Niveau 2 : codebase_search("authentication JWT token validation") - Implémentations liées
-3. Niveau 3 : roo-state-manager.search_tasks_semantic("authentication refactoring decisions") - Décisions historiques
+3. Niveau 3 : roo-state-manager.roosync_search(action: "semantic", search_query: "authentication refactoring decisions") - Décisions historiques
 4. Synthèse : Comprendre POURQUOI le système est conçu ainsi avant modification
 ```
 
@@ -537,9 +538,10 @@ Le grounding conversationnel est un **mécanisme de validation cohérence** qui 
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "task_id": "current",
   "view_mode": "chain",
   "detail_level": "summary",
@@ -558,9 +560,10 @@ Le grounding conversationnel est un **mécanisme de validation cohérence** qui 
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>search_tasks_semantic</tool_name>
+<tool_name>roosync_search</tool_name>
 <arguments>
 {
+  "action": "semantic",
   "conversation_id": "current",
   "search_query": "décisions architecturales majeures authentification",
   "max_results": 5
@@ -677,9 +680,10 @@ Le checkpoint doit être documenté de manière à faciliter reprises futures :
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "task_id": "current",
   "view_mode": "chain",
   "detail_level": "summary",
@@ -733,9 +737,10 @@ Le checkpoint doit être documenté de manière à faciliter reprises futures :
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "workspace": "c:/dev/microservices-migration",
   "view_mode": "cluster",
   "detail_level": "summary"
@@ -1145,7 +1150,7 @@ Le MCP **github-projects** (actuellement non-opérationnel - problèmes configur
 
 ### Phase 2 : Documentation Continue + Grounding Conversationnel
 - **Checkpoint 50k tokens OBLIGATOIRE** : Grounding conversationnel via roo-state-manager
-  * Consultation historique complet (view_conversation_tree)
+  * Consultation historique complet (conversation_browser, action: "view")
   * Analyse structurée 6-points (objectif, décisions, obstacles, todo, prochaines étapes, recommandation)
   * Action corrective si dérive détectée
   * Documentation checkpoint (todo list ou fichier externe)
@@ -1234,8 +1239,8 @@ BON EXEMPLE : Checkpoint structuré complet
 1. Consultation roo-state-manager (historique)
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
-   <tool_name>view_conversation_tree</tool_name>
-   [...]
+   <tool_name>conversation_browser</tool_name>
+   [... action: "view" ...]
    </use_mcp_tool>
 
 2. Analyse 6-points structurée :

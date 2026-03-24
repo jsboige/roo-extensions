@@ -117,6 +117,8 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
 ## Labels GitHub Disponibles
 
+**IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels incorrects (`maintenance`, `scheduler`, `memory`) ne doivent PAS être utilisés.
+
 ### Labels Standard GitHub
 
 | Label | Description | Couleur |
@@ -149,10 +151,16 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 | `test` | Test coverage (alias de testing) | #0E8A16 |
 | `testing` | Test coverage and infrastructure | #1d76db |
 
-**IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels incorrects (`maintenance`, `scheduler`, `memory`) ne doivent PAS être utilisés.
+**⚠️ LABELS INEXISTANTS (NE JAMAIS UTILISER) :**
+- `maintenance` → N'existe pas (utiliser `documentation` ou `quality`)
+- `scheduler` → N'existe pas (utiliser `roo-schedulable` ou `harness-change`)
+- `memory` → N'existe pas (utiliser `documentation` ou `harness-change`)
+
+**Vérifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
 
 ## Référence
 
 - Issue #368 : Migration gh CLI
 - Issue #706 : Fix fichiers temporaires workspace (2026-03-14)
+- Issue #830 : Documentation labels GitHub (2026-03-24)
 - Documentation : https://cli.github.com/manual/

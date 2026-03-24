@@ -70,16 +70,17 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
    roosync_dashboard(action: "read_overview")
    → Contexte rapide des 4 niveaux de dashboard en 1 appel
 
-== PARTIE B : COMPLEMENTS POWERSHELL (si MCP insuffisant) ==
+== PARTIE B : COMPLEMENTS (seulement si PARTIE A echoue ou incomplete) ==
 
-7. TRACES ROO (fichiers bruts) :
-   execute_command(shell="powershell", command="Get-ChildItem '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { $_.Name + ' - ' + $_.LastWriteTime }")
+⚠️ NE PAS utiliser cette partie si la PARTIE A a fonctionne. Les outils MCP fournissent
+des donnees plus riches (smart_truncation, filtrage, metriques). La lecture de fichiers
+bruts perd ces avantages et consomme plus de contexte.
 
-8. TRACES CLAUDE (fichiers bruts) :
-   execute_command(shell="powershell", command="Get-ChildItem '$env:USERPROFILE/.claude/projects' -Directory | ForEach-Object { Get-ChildItem $_.FullName -Filter '*.jsonl' | Sort-Object LastWriteTime -Descending | Select-Object -First 1 } | Select-Object Name, Length, LastWriteTime | Select-Object -First 5")
-
-9. METRIQUES GITHUB :
+7. METRIQUES GITHUB (complement utile meme si MCP OK) :
    execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state all --limit 20 --json number,state,closedAt,createdAt,title --jq '.[] | [.number, .state, .title] | @tsv'")
+
+8. TRACES BRUTES (FALLBACK UNIQUEMENT — si conversation_browser echoue) :
+   execute_command(shell="powershell", command="Get-ChildItem '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | ForEach-Object { $_.Name + ' - ' + $_.LastWriteTime }")
 
 == RAPPORT ==
 
@@ -194,13 +195,25 @@ Rapporter :
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-### Etape 3 : Ecrire le rapport dans META-INTERCOM
+### Etape 3 : Ecrire le rapport dans META-INTERCOM + Dashboard Workspace
 
 > **CRITIQUE :** L'ecriture META-INTERCOM est la seule trace de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
+> **REGLE #836 :** Poster aussi un resume sur le dashboard WORKSPACE (cross-machine).
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
+ETAPE PREALABLE — Poster un résumé sur le dashboard WORKSPACE (cross-machine) :
+
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["META-ANALYSIS", "roo-meta"],
+  content: "### [{MACHINE}] Bilan meta-analyste\n\n- Taches analysees: {N}, taux succes: {X}%\n- Recommandations: {N} (dont {X} needs-approval)\n- Issues creees: {N}\n- Rapport complet: META-INTERCOM-{MACHINE}.md"
+)
+
+PUIS ecrire le rapport detaille dans META-INTERCOM :
+
 1. Lis .claude/local/META-INTERCOM-{MACHINE}.md en ENTIER avec read_file
    (Si le fichier n'existe pas, copier le template depuis .claude/local/META-INTERCOM_TEMPLATE.md et remplacer {MACHINE_NAME})
 2. Compose le rapport avec ce format :

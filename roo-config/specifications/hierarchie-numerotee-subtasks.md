@@ -941,7 +941,7 @@ Créer template réutilisable pour la famille CODE avec :
 
 ### Correspondance Hiérarchie
 
-Le système de numérotation **correspond exactement** à la structure [`view_conversation_tree`](../../../mcps/internal/servers/roo-state-manager/src/tools/view_conversation_tree.ts) de roo-state-manager :
+Le système de numérotation **correspond exactement** à la structure [`conversation_browser`](../../../mcps/internal/servers/roo-state-manager/src/tools/conversation-browser.tool.ts) (action: "tree") de roo-state-manager :
 
 ```json
 {
@@ -973,9 +973,10 @@ Le système de numérotation **correspond exactement** à la structure [`view_co
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "task_id": "uuid-tache-1",
   "view_mode": "chain",
   "detail_level": "skeleton"
@@ -988,9 +989,10 @@ Le système de numérotation **correspond exactement** à la structure [`view_co
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>search_tasks_semantic</tool_name>
+<tool_name>roosync_search</tool_name>
 <arguments>
 {
+  "action": "semantic",
   "search_query": "sous-tâche 1.3.2 template famille CODE",
   "workspace": "c:/dev/roo-extensions"
 }
@@ -1017,9 +1019,10 @@ Le système de numérotation **correspond exactement** à la structure [`view_co
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>list_conversations</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "list",
   "workspace": "c:/dev/roo-extensions",
   "sortBy": "lastActivity",
   "hasApiHistory": true
@@ -1036,10 +1039,10 @@ Le système de numérotation **correspond exactement** à la structure [`view_co
 1. **Démarrage tâche** : Créer tâche racine (numéro `1`)
 2. **Grounding initial** : 
    - `codebase_search` pour contexte code
-   - `search_tasks_semantic` pour historique conversationnel
+   - `roosync_search` (action: "semantic") pour historique conversationnel
 3. **Planification** : Créer todo list avec numéros (1.1, 1.2, 1.3, ...)
 4. **Création sous-tâches** : `new_task()` avec numéros hiérarchiques
-5. **Checkpoints réguliers** : `view_conversation_tree` pour position
+5. **Checkpoints réguliers** : `conversation_browser` (action: "view") pour position
 6. **Finalisation** : `attempt_completion` avec référence numéros complétés
 ```
 
@@ -1169,13 +1172,14 @@ Le système de numérotation **correspond exactement** à la structure [`view_co
 ```
 
 ### Synchronisation roo-state-manager
-Utiliser `view_conversation_tree` pour navigation hiérarchie :
+Utiliser `conversation_browser` (action: "view") pour navigation hiérarchie :
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>view_conversation_tree</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "view",
   "task_id": "[taskId-actuelle]",
   "view_mode": "chain",
   "detail_level": "summary"
@@ -1216,9 +1220,10 @@ Votre tâche actuelle : **[NUMERO] - [Titre]**
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>search_tasks_semantic</tool_name>
+<tool_name>roosync_search</tool_name>
 <arguments>
 {
+  "action": "semantic",
   "search_query": "sous-tâche 1.2.3",
   "workspace": "c:/dev/roo-extensions"
 }
@@ -1247,9 +1252,10 @@ Votre tâche actuelle : **[NUMERO] - [Titre]**
 ```xml
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
-<tool_name>list_conversations</tool_name>
+<tool_name>conversation_browser</tool_name>
 <arguments>
 {
+  "action": "list",
   "workspace": "c:/dev/roo-extensions",
   "sortBy": "lastActivity"
 }
