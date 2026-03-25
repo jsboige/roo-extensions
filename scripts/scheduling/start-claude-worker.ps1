@@ -356,22 +356,64 @@ function Get-GitHubTask {
     }
 
     try {
-        # Lister issues roo-schedulable
+        # Lister TOUTES les issues ouvertes (pas seulement roo-schedulable)
+        # Le filtrage se fait en aval (labels, dispatch status, claim status, Agent field)
         $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
-            --state open --label roo-schedulable `
-            --limit 10 --json number,title,body,assignees 2>&1
+            --state open `
+            --limit 30 --json number,title,body,labels,assignees 2>&1
 
         if ($LASTEXITCODE -ne 0) { return $null }
 
         $Issues = $IssuesJson | ConvertFrom-Json
         if ($Issues.Count -eq 0) { return $null }
 
-        # Filtrer par Agent et disponibilité
+        # Filtrer par Agent, disponibilité, labels, et dispatch status
         foreach ($Issue in $Issues) {
             # Skip si déjà assignée
             if ($Issue.assignees.Count -gt 0) { continue }
 
-            # Vérifier champ Agent dans le body (optionnel - le label roo-schedulable suffit)
+            # Skip si label needs-approval (attente validation utilisateur)
+            $LabelNames = @($Issue.labels | ForEach-Object { $_.name })
+            if ($LabelNames -contains "needs-approval") {
+                Write-Log "  Issue #$($Issue.number) : needs-approval, skip" "DEBUG"
+                continue
+            }
+
+            # Vérifier dispatch status : priorité aux issues dispatchées à cette machine
+            $IsDispatchedToMe = $false
+            $IsDispatchedToOther = $false
+            try {
+                $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
+                    --json comments --jq '[.comments[-5:][] | .body | select(test("\\[DISPATCH\\]|\\[CLAIMED\\]"))]' 2>&1
+                if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
+                    $DispatchComments = $DispatchJson | ConvertFrom-Json
+                    foreach ($Dc in $DispatchComments) {
+                        if ($Dc -match "\[CLAIMED\]") {
+                            $IsDispatchedToOther = $true  # Already claimed
+                            break
+                        }
+                        if ($Dc -match "\[DISPATCH\]\s*$MachineId") {
+                            $IsDispatchedToMe = $true
+                        }
+                        elseif ($Dc -match "\[DISPATCH\]\s*(All|Any)") {
+                            $IsDispatchedToMe = $true  # Available to any
+                        }
+                        elseif ($Dc -match "\[DISPATCH\]") {
+                            $IsDispatchedToOther = $true  # Dispatched to another machine
+                        }
+                    }
+                }
+            } catch {
+                Write-Log "  Issue #$($Issue.number) : erreur check dispatch: $_" "WARN"
+            }
+
+            # Skip si claimed par une autre machine
+            if ($IsDispatchedToOther -and -not $IsDispatchedToMe) {
+                Write-Log "  Issue #$($Issue.number) : dispatchée/claimée ailleurs, skip" "DEBUG"
+                continue
+            }
+
+            # Vérifier champ Agent dans le body (optionnel)
             # Si le body contient explicitement "Agent: Roo" (sans Both/Any), skip pour Claude
             $Body = $Issue.body
             if ($AgentType -eq "claude" -and ($Body -match "(?i)agent:\s*roo\s*$")) {

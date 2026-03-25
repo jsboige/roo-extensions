@@ -92,9 +92,9 @@ $TaskConfigs = @{
         TaskName = "Claude-Worker"
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 6
-        DefaultModel = "haiku"
+        DefaultModel = "sonnet"
         DefaultTimeout = 30
-        Description = "Claude Code automated worker: picks up roo-schedulable GitHub issues, starts with Haiku (cheapest) with auto-escalation to Sonnet then Opus. Exits cleanly if no work. Runs every 6h."
+        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Sonnet with auto-escalation to Opus. Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
