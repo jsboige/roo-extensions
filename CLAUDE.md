@@ -507,6 +507,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **Condensation GLM** | Seuil **80%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `.claude/docs/condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `.claude/docs/github-checklists.md` |
 | **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `.claude/docs/feedback-process.md`, `.claude/docs/friction-protocol.md` |
+| **Escalade Claude Code** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur). Claude EST deja Opus 4.6 (pas d'escalade CLI/API). | `.claude/docs/escalation-protocol.md` |
 
 ### Scheduler & Coordination
 
