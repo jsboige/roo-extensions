@@ -267,9 +267,10 @@ execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/
 Si une issue est trouvee :
 1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
 2. **VERIFIER LES LABELS** avant de choisir le mode d'execution :
-   - Si labels contiennent `enhancement` ou `feature` : **DELEGUER A `code-complex`** (pas code-simple)
+   - Si labels contiennent `roo-schedulable` : utiliser `code-simple` (taches calibrees pour ca)
+   - **Si PAS de label `roo-schedulable`** : **DELEGUER A `code-complex`** (tache non calibree pour -simple)
+   - Si labels contiennent `enhancement` ou `feature` : **TOUJOURS `code-complex`** meme si roo-schedulable
    - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
-   - Sinon : utiliser `code-simple` pour taches simples (doc, tests, validation)
 3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
 4. **Creer une branche et travailler dessus** (JAMAIS push direct sur main) :
    ```
