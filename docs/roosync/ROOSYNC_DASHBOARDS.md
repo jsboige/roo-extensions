@@ -338,15 +338,61 @@ roosync_dashboard({
 When `intercom.messages.length > 500`:
 
 1. The oldest 400 messages are moved to `archive/{key}-{datetime}.json`
-2. The 100 most recent messages are kept
-3. A system notice is prepended to the kept messages
+2. **LLM-based intelligent summary** is generated from the archived messages (#858)
+3. A summary message is prepended (if LLM succeeds)
+4. A system notice is prepended to the kept messages
+5. The 100 most recent messages are kept
 
+### LLM Summary Feature (#858)
+
+**If configured**, the dashboard will use an LLM to generate a structured summary of the archived messages before archiving them. This preserves key decisions, patterns, and context that would otherwise be lost.
+
+**Configuration required in `.env`:**
+```bash
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.medium.text-generation-webui.myia.io/v1
+OPENAI_CHAT_MODEL_ID=qwen3.5-35b-a3b
+```
+
+**Summary format:**
+```markdown
+---
+**CONDENSATION-SUMMARY** - 2026-03-25T15:00:00Z
+
+## Résumé Thématique
+- Theme 1 : description
+- Theme 2 : description
+
+## Actions Clés
+- Action 1 : [status] description
+- Action 2 : [status] description
+
+## Points d'Attention
+- Point 1
+- Point 2
+
+## Métriques
+- X messages traités
+- Y issues/bugs
+- Z bloquages
+---
+```
+
+**Fallback behavior:** If the LLM is unavailable or times out (30s limit), the condensation falls back to the standard truncation method with a warning indicator.
+
+**Result example:**
 ```
 ---
-**CONDENSATION** - 2026-03-18T10:00:00Z
+**CONDENSATION-SUMMARY** - 2026-03-25T15:00:00Z
+[LLM summary content here]
+---
 
-400 messages archived in `archive/global-2026-03-18T10-00-00.json`
+---
+**CONDENSATION** - 2026-03-25T15:00:00Z
+
+400 messages archived in `archive/global-2026-03-25T15-00-00.json`
 100 messages kept (most recent)
+✅ Résumé LLM généré
 ---
 ```
 
@@ -378,7 +424,7 @@ These are set in the `.env` file of the roo-state-manager server.
 | Location | `.claude/local/INTERCOM-{MACHINE}.md` (local) | `.shared-state/dashboards/` (GDrive shared) |
 | Access | Read-only from other machines | Accessible from all 6 machines |
 | Format | Markdown text file | Structured JSON (Zod validated) |
-| Condensation | Manual (intercom-compactor agent) | Automatic (>500 messages) |
+| Condensation | Manual (intercom-compactor agent) | **Automatic LLM summary** + truncation (>500 messages) |
 | Search | Grep | By type, section, intercomLimit |
 
 ---
