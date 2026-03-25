@@ -220,7 +220,7 @@ Après exécution → **Étape 3**
 
 ```
 ☐ 2b-1 : Build + Tests (validation santé workspace)
-☐ 2b-2 : GitHub issues (chercher une tâche roo-schedulable)
+☐ 2b-2 : GitHub issues (chercher une tâche dispatchée ou disponible)
 ☐ 2b-review : PR Review (reviewer les PRs ouvertes)
 ☐ 2c-idle : Veille Active ou Consolidation (toujours, même si rien à faire)
 → SEULEMENT ENSUITE : Étape 3
@@ -242,11 +242,14 @@ INTERDIT : NE JAMAIS lancer vitest sans '2>&1 | Select-Object -Last 30' (output 
 
 ### 2b-2 : GitHub Issues (dispatch-aware)
 
-**Etape A — Lister les issues roo-schedulable :**
+**Etape A — Lister TOUTES les issues ouvertes (pas seulement roo-schedulable) :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 30 --label roo-schedulable --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
 ```
+
+Note : On liste toutes les issues. Le filtrage se fait en Etape B (labels, dispatch status, claim status).
+IGNORER les issues avec label `needs-approval` (attendent validation utilisateur).
 
 **Etape B — Selectionner une issue (ordre de priorite) :**
 

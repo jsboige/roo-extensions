@@ -290,41 +290,46 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **3. Si messages RooSync recents (< 6h) → signaler dans le dashboard workspace avec `[WAKE-CLAUDE]`**
 
-**4. Chercher et dispatcher les issues roo-schedulable (OBLIGATOIRE)**
+**4. Chercher et dispatcher TOUTES les issues ouvertes (OBLIGATOIRE)**
 
 ```
 Utilise win-cli MCP :
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 30 --label roo-schedulable --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **5. Dispatcher les issues non assignees via GitHub comments**
 
-Pour chaque issue trouvee (max 10) :
+Pour chaque issue trouvee (max 15) :
 
-a. Verifier si deja dispatchee :
+a. **Filtrer** : IGNORER les issues avec label `needs-approval` (attendent validation utilisateur).
+
+b. Verifier si deja dispatchee :
 ```
 execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body | select(test(\"\\[DISPATCH\\]\"))] | length'")
 ```
 
-b. Si NON dispatchee (resultat = 0), determiner la machine cible via les labels ou le body de l'issue :
+c. Si NON dispatchee (resultat = 0), determiner la machine cible via les labels ou le body de l'issue :
 ```
 execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json labels,body --jq '{labels: [.labels[].name], body: .body[:300]}'")
 ```
 Note : NE PAS utiliser `gh api graphql` en mode `-simple` (quoting instable, circuit breaker #737). Utiliser les labels/body pour determiner la machine. Si l'info Machine n'est pas dans les labels, dispatcher avec `[DISPATCH] Any`.
 
-c. Commenter pour dispatcher (avec la machine trouvee) :
+d. Commenter pour dispatcher (avec la machine trouvee) :
 ```
 execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboige/roo-extensions --body '[DISPATCH] {MACHINE_CIBLE}. Priority: normal. Labels: {labels}. Execute this issue per its description.'")
 ```
 
 **Regles de dispatch :**
+- Dispatcher TOUTES les issues ouvertes, pas seulement les `roo-schedulable`
 - Si Machine = une machine specifique (myia-po-2023, etc.) → dispatcher a cette machine
 - Si Machine = `All` → dispatcher avec `[DISPATCH] All` (tout executeur peut claimer)
 - Si Machine = `Any` → dispatcher avec `[DISPATCH] Any` (tout executeur peut claimer)
 - Si Machine non defini → dispatcher avec `[DISPATCH] Any`
-- NE PAS dispatcher les issues avec label `claude-only` (reservees a Claude Code interactif)
+- Issues avec label `claude-only` : dispatcher normalement — elles seront executees par Claude Code interactif sur la machine cible (pas par le scheduler Roo)
+- NE PAS dispatcher les issues avec label `needs-approval` (attendent validation utilisateur)
 - NE PAS re-dispatcher une issue deja claimee (commentaire `[CLAIMED]` existant)
+- Equilibrer la charge : repartir les issues entre les 5 machines executrices (po-2023, po-2024, po-2025, po-2026, web1)
 
 **6. Executer une issue si faisable (optionnel, si du temps reste)**
 
