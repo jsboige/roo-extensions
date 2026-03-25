@@ -95,7 +95,7 @@ execute_command(shell="gitbash", command="... | tail -30")
 **Condensation qui échoue :**
 - Si la condensation retourne une erreur (token limit, API error) → **NE PAS réessayer**
 - Terminer la tâche avec `attempt_completion` immédiatement
-- Écrire `[WARN] Condensation failed` dans le rapport INTERCOM
+- Écrire `[WARN] Condensation failed` dans le rapport dashboard
 
 ### Pourquoi c'est critique
 
@@ -128,7 +128,7 @@ Ceci corrige le probleme des commits sous "Roo Extensions Dev" qui polluent l'hi
 1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même
 2. **NE JAMAIS demander à l'utilisateur** - C'est RÈGLE #1
 3. **TOUJOURS vérifier les MCP** - Pre-flight check OBLIGATOIRE
-4. **TOUJOURS rapporter dans le dashboard INTERCOM** - Via `roosync_dashboard(type: "workspace", action: "append")`. Fallback fichier `.claude/local/INTERCOM-{MACHINE}.md` si MCP échoue.
+4. **TOUJOURS rapporter dans le dashboard workspace** - Via `roosync_dashboard(type: "workspace", action: "append")`. Fallback fichier `.claude/local/INTERCOM-{MACHINE}.md` si MCP échoue.
 5. **win-cli OBLIGATOIRE pour shell** - Les modes `-simple` n'ont PAS le terminal natif
 6. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
 7. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
@@ -153,7 +153,7 @@ roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
 ```
 
 **Si STOP (échec win-cli) :**
-- Écrire dans dashboard INTERCOM : `roosync_dashboard(type: "workspace", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
+- Écrire dans dashboard workspace : `roosync_dashboard(type: "workspace", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
 - Fallback fichier : `.claude/local/INTERCOM-{MACHINE}.md` si dashboard échoue
 - Terminer la tâche sans déléguer d'autres sous-tâches
 
@@ -174,7 +174,7 @@ Puis lire le dashboard WORKSPACE (coordination cross-machine) :
 3. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
 Si le dashboard échoue, FALLBACK fichier local :
-3b. Lire les 5 derniers messages de .claude/local/INTERCOM-{MACHINE}.md
+3b. Lire le dashboard workspace+machine (DEPRECATED) ou le fichier INTERCOM local (DEPRECATED) comme fallback
 
 Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
 Rapporter : état git + contenu dashboard workspace + liste des tâches/propositions trouvées.
@@ -190,7 +190,7 @@ Rapporter : état git + contenu dashboard workspace + liste des tâches/proposit
 
 ---
 
-## Étape 2a : Exécuter les tâches du Dashboard INTERCOM
+## Étape 2a : Exécuter les tâches du Dashboard Workspace
 
 Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 
@@ -205,7 +205,7 @@ Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 
 **Gestion des échecs (ESCALADE AGRESSIVE) :**
 - 1er résultat insatisfaisant → **escalader IMMEDIATEMENT vers `-complex`**
-- Écrire `[INCIDENT-SIMPLE]` dans dashboard INTERCOM (`roosync_dashboard(type: "workspace", action: "append", tags: ["INCIDENT-SIMPLE", "roo-scheduler"])`) pour CHAQUE escalade
+- Écrire `[INCIDENT-SIMPLE]` dans dashboard workspace (`roosync_dashboard(type: "workspace", action: "append", tags: ["INCIDENT-SIMPLE", "roo-scheduler"])`) pour CHAQUE escalade
 - Ne PAS relancer en -simple
 
 Après exécution → **Étape 3**
@@ -351,11 +351,7 @@ roosync_dashboard(
   content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}"
 )
 
-Si le dashboard MCP échoue (erreur), FALLBACK fichier local :
-1. Lis les 20 DERNIERES lignes de .claude/local/INTERCOM-{MACHINE}.md avec read_file
-2. Utilise apply_diff pour ajouter le message APRES le dernier séparateur ---
-3. Si apply_diff échoue : utilise win-cli Add-Content
-4. NE PAS utiliser write_to_file (boucle infinie sur gros fichiers)
+Si le dashboard MCP échoue (erreur), rapporter l'échec via attempt_completion (les fichiers INTERCOM locaux sont DEPRECATED).
 ```
 
 **TAGS OBLIGATOIRES pour identifier l'auteur :**
@@ -371,7 +367,7 @@ Si le dashboard MCP échoue (erreur), FALLBACK fichier local :
 > **CRITIQUE :** Apres l'Etape 3, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
 
 ```
-attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard INTERCOM.")
+attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard workspace.")
 ```
 
 **Si tu oublies cette etape**, la frequence du scheduler passe de 6h a ~24h+ car chaque tick suivant est saute.
@@ -384,7 +380,7 @@ attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard I
 
 **Escalade OBLIGATOIRE vers `code-complex` pour :**
 - Issue GitHub avec label `enhancement` ou `feature`
-- Message `[URGENT]` dans l'INTERCOM
+- Message `[URGENT]` dans le dashboard
 - Modification de >2 fichiers interconnectés
 - Schéma Zod complexe (`refine()`, validation conditionnelle)
 - >5 sous-tâches ou dépendances
@@ -392,10 +388,10 @@ attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard I
 **Escalade après échec (RÈGLE AGRESSIVE) :**
 - **1 seul échec en `-simple`** → escalade IMMEDIATE vers `-complex`
 - Ne PAS retenter en `-simple`
-- Écrire `[INCIDENT-SIMPLE]` dans INTERCOM
+- Écrire `[INCIDENT-SIMPLE]` dans le dashboard workspace
 - **1 seul échec en `-complex`** → escalade IMMEDIATE vers Claude Code CLI
 - Ne PAS retenter en `-complex`
-- Écrire `[INCIDENT-COMPLEX]` dans INTERCOM
+- Écrire `[INCIDENT-COMPLEX]` dans le dashboard workspace
 
 ### Escalade vers Claude Code CLI (nouveau)
 
@@ -404,16 +400,16 @@ Quand un mode `-complex` échoue sur une tâche, le scheduler peut demander l'ai
 **Déclencheur :** 1 échec en mode `-complex` (quel que soit le type : code-complex, debug-complex)
 
 **Procédure :**
-1. Écrire dans INTERCOM : `[ESCALADE-CLAUDE] Tâche {description}. Échec en {mode}. Erreur: {résumé}.`
+1. Écrire dans le dashboard workspace : `[ESCALADE-CLAUDE] Tâche {description}. Échec en {mode}. Erreur: {résumé}.`
 2. Déléguer à `code-complex` pour exécuter la commande CLI :
 ```
 execute_command(shell="powershell", command="claude -p 'Résoudre cette tâche: {DESCRIPTION}. Contexte: {ERREUR}. Fichiers concernés: {FICHIERS}. Exécuter le fix et rapporter le résultat.' --max-turns 10 --model sonnet")
 ```
 3. Si Claude CLI résout → commenter l'issue GitHub avec `[RESULT] {MACHINE}: PASS (escalade Claude CLI). Commit: {hash}.`
-4. Si Claude CLI échoue aussi → commenter `[RESULT] {MACHINE}: FAIL (escalade Claude CLI). Nécessite intervention manuelle.` et écrire `[ERROR]` dans INTERCOM.
+4. Si Claude CLI échoue aussi → commenter `[RESULT] {MACHINE}: FAIL (escalade Claude CLI). Nécessite intervention manuelle.` et écrire `[ERROR]` dans le dashboard workspace.
 
 **Garde-fous :**
 - Maximum **2 escalades Claude CLI par session** scheduler (éviter les coûts excessifs)
 - Préférer `--model sonnet` (économique). Utiliser `--model opus` uniquement si sonnet échoue
 - Timeout : `--max-turns 10` pour limiter la durée
-- Documenter CHAQUE escalade dans INTERCOM avec le résultat
+- Documenter CHAQUE escalade dans le dashboard workspace avec le résultat

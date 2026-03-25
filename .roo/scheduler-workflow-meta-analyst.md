@@ -5,9 +5,9 @@
 
 ## PRINCIPES
 
-1. **RooSync** : Disponible pour consultation. INTERCOM pour la communication locale
+1. **RooSync** : Disponible pour consultation. Dashboard pour la communication locale
 2. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-3. Communication via META-INTERCOM (`.claude/local/META-INTERCOM-{MACHINE}.md`)
+3. Communication via **dashboard `workspace`** (`roosync_dashboard`). Le fichier dashboard workspace est DEPRECATED.
 4. Ne JAMAIS commit ou push
 5. **NE JAMAIS modifier les fichiers de harnais** (rules, workflows, modes, CLAUDE.md, .roomodes)
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell**
@@ -32,7 +32,7 @@ execute_command(shell="powershell", command="echo META-ANALYST-PREFLIGHT-OK")
 
 **Decision :**
 - Si OK : continuer vers **Etape 1**
-- Si echec : **STOP IMMEDIAT**, ecrire dans META-INTERCOM `[CRITICAL] MCP win-cli non disponible`
+- Si echec : **STOP IMMEDIAT**, ecrire sur le dashboard `[CRITICAL] MCP win-cli non disponible` via `roosync_dashboard(action: "append", type: "workspace", tags: ["CRITICAL", "roo-meta"], content: "...")`
 
 ### Etape 1 : Collecte et exploration des traces (MCP + PowerShell)
 
@@ -195,56 +195,33 @@ Rapporter :
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-### Etape 3 : Ecrire le rapport dans META-INTERCOM + Dashboard Workspace
+### Etape 3 : Ecrire le rapport sur les Dashboards
 
-> **CRITIQUE :** L'ecriture META-INTERCOM est la seule trace de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
-> **REGLE #836 :** Poster aussi un resume sur le dashboard WORKSPACE (cross-machine).
+> **CRITIQUE :** L'ecriture dashboard est la seule trace de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
+> **Les fichiers dashboard workspace sont DEPRECATED.** Utiliser exclusivement les dashboards.
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
-ETAPE PREALABLE — Poster un résumé sur le dashboard WORKSPACE (cross-machine) :
+ETAPE 3A — Poster le rapport DETAILLE sur le dashboard workspace (local) :
 
 roosync_dashboard(
   action: "append",
   type: "workspace",
   tags: ["META-ANALYSIS", "roo-meta"],
-  content: "### [{MACHINE}] Bilan meta-analyste\n\n- Taches analysees: {N}, taux succes: {X}%\n- Recommandations: {N} (dont {X} needs-approval)\n- Issues creees: {N}\n- Rapport complet: META-INTERCOM-{MACHINE}.md"
+  content: "## [{DATE}] Analyse Meta-Analyste Roo (cycle {DATE})\n\n**Traces Roo (auto-analyse) :**\n- {N} taches analysees, taux succes {X}%\n- Modes utilises : {liste}\n- Escalades : {N} (patterns identifies)\n\n**Traces Claude (analyse croisee) :**\n- {N} sessions recentes\n- Issues traitees : {liste}\n- Patterns remarques\n\n**Analyse harnais :**\n- Incoherences : {N} (dont {X} CRITICAL)\n- Lacunes : {N}\n- Ameliorations proposees : {N}\n\n**Recommandations :**\n1. {Recommandation 1} -> [action: INFO|needs-approval|harness-change]\n2. {Recommandation 2} -> [action: ...]"
 )
 
-PUIS ecrire le rapport detaille dans META-INTERCOM :
+ETAPE 3B — Poster un RESUME sur le dashboard workspace (cross-machine) :
 
-1. Lis .claude/local/META-INTERCOM-{MACHINE}.md en ENTIER avec read_file
-   (Si le fichier n'existe pas, copier le template depuis .claude/local/META-INTERCOM_TEMPLATE.md et remplacer {MACHINE_NAME})
-2. Compose le rapport avec ce format :
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["META-ANALYSIS", "roo-meta"],
+  content: "### [{MACHINE}] Bilan meta-analyste\n\n- Taches analysees: {N}, taux succes: {X}%\n- Recommandations: {N} (dont {X} needs-approval)\n- Issues creees: {N}\n- Rapport complet: dashboard workspace de {MACHINE}"
+)
 
-## [{DATE}] roo -> claude-code [META]
-### Analyse Meta-Analyste Roo (cycle {DATE})
-
-**Traces Roo (auto-analyse) :**
-- {N} taches analysees, taux succes {X}%
-- Modes utilises : {liste}
-- Escalades : {N} (patterns identifies)
-
-**Traces Claude (analyse croisee) :**
-- {N} sessions recentes
-- Issues traitees : {liste}
-- Patterns remarques
-
-**Analyse harnais :**
-- Incoherences : {N} (dont {X} CRITICAL)
-- Lacunes : {N}
-- Ameliorations proposees : {N}
-
-**Recommandations :**
-1. {Recommandation 1} -> [action: INFO|needs-approval|harness-change]
-2. {Recommandation 2} -> [action: ...]
-
----
-
-3. Ajoute A LA FIN (ne supprime RIEN)
-4. Reecris le fichier COMPLET avec write_to_file
-5. Confirme que le dernier message est correct
+NE PAS ecrire dans le fichier dashboard workspace (DEPRECATED).
 ```
 
 ### Etape 4 : Creer des issues GitHub si recommandations actionnables
@@ -260,7 +237,7 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 
 Si une issue ouverte ou recemment fermee (<7 jours) couvre le meme sujet :
 - NE PAS creer de doublon
-- Noter dans META-INTERCOM : "Issue existante #{N} couvre deja ce point"
+- Noter dans dashboard workspace : "Issue existante #{N} couvre deja ce point"
 
 SEULEMENT si aucune issue existante ne couvre le sujet :
 
@@ -288,7 +265,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 > **CRITIQUE :** Apres avoir termine toutes les etapes, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
 
 ```
-attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans META-INTERCOM.")
+attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dashboard workspace.")
 ```
 
 ---
@@ -298,11 +275,11 @@ attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans META
 1. Ne JAMAIS modifier de fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes, etc.)
 2. Ne JAMAIS commit ou push
 3. Ne JAMAIS fermer, archiver ou dispatcher des issues GitHub
-4. **RooSync** : Accessible en lecture pour l'analyse croisee. Privilegier META-INTERCOM pour les rapports
+4. **RooSync** : Accessible en lecture pour l'analyse croisee. Privilegier dashboard workspace pour les rapports
 5. Ne JAMAIS creer d'issue SANS label `needs-approval`
 6. **Limiter les outputs** : `Select-Object -Last 50` ou `tail -50`
 7. **Maximum 3 issues par cycle** (anti-spam)
-8. Si 2 echecs consecutifs : arreter et rapporter dans META-INTERCOM
+8. Si 2 echecs consecutifs : arreter et rapporter dans dashboard workspace
 
 ---
 

@@ -22,7 +22,7 @@ Chaque tier a 2 agents : un scheduler Roo + un scheduler Claude.
 
 ## Role du Meta-Analyste Roo
 
-**Mission :** Analyser independamment LES DEUX schedulers (Roo + Claude) sur la machine locale, puis reconcilier les conclusions via META-INTERCOM.
+**Mission :** Analyser independamment LES DEUX schedulers (Roo + Claude) sur la machine locale, puis reconcilier les conclusions via dashboard workspace.
 
 ### Ce que Roo analyse
 
@@ -94,26 +94,26 @@ roosync_search(action: "semantic", search_query: "impossible bloque erreur fail"
 ### Ce que Roo produit
 
 - **Docs d'analyse** sur GDrive (structures, horodates)
-- **Entrees META-INTERCOM** (reconciliation)
+- **Entrees dashboard workspace** (reconciliation)
 - **Issues GitHub avec `needs-approval`** (propositions d'amelioration)
 - **Issues GitHub avec `needs-approval` + `harness-change`** (modifications de harnais, BLOQUEES jusqu'a approbation utilisateur)
 
 ---
 
-## Protocole META-INTERCOM
+## Protocole dashboard workspace
 
-**Fichier :** `.claude/local/META-INTERCOM-{MACHINE}.md`
+**Fichier :** `.claude/local/dashboard workspace-{MACHINE}.md`
 
 Canal dedie a la reconciliation meta-analyse. SEPARE de l'INTERCOM operationnel.
 
 ### Workflow
 
-1. Roo ecrit son analyse (auto + croisee) dans META-INTERCOM
+1. Roo ecrit son analyse (auto + croisee) dans dashboard workspace
 2. Claude lit l'analyse de Roo, ecrit la sienne + notes de reconciliation
 3. Les deux agents peuvent commenter les conclusions de l'autre
 4. Les conclusions actionnables deviennent des issues GitHub avec `needs-approval`
 
-### Format d'entree META-INTERCOM
+### Format d'entree dashboard workspace
 
 ```markdown
 ## [YYYY-MM-DD HH:MM:SS] roo -> claude [META-ANALYSIS]
@@ -137,7 +137,7 @@ Canal dedie a la reconciliation meta-analyse. SEPARE de l'INTERCOM operationnel.
 
 ### Consultation Cross-Machine (apres reconciliation locale)
 
-Quand Roo et Claude ont **reconcilie** leurs conclusions via META-INTERCOM et qu'une conclusion est non-triviale, Roo MAY consulter d'autres machines.
+Quand Roo et Claude ont **reconcilie** leurs conclusions via dashboard workspace et qu'une conclusion est non-triviale, Roo MAY consulter d'autres machines.
 
 **Procedure (via delegation) :**
 
@@ -156,9 +156,9 @@ new_task({
 
 | Type de conclusion | Action | Autorite |
 |-------------------|--------|----------|
-| Informatif (stats, taux) | Ajouter a doc analyse + META-INTERCOM | Autonome |
-| Suggestion operationnelle | Ecrire dans META-INTERCOM, coordinateur prend en charge | Autonome |
-| Probleme d'environnement (MCP HS, .env incomplet, service inaccessible) | META-INTERCOM + flag coordinateur | Autonome (coordinateur agit) |
+| Informatif (stats, taux) | Ajouter a doc analyse + dashboard workspace | Autonome |
+| Suggestion operationnelle | Ecrire dans dashboard workspace, coordinateur prend en charge | Autonome |
+| Probleme d'environnement (MCP HS, .env incomplet, service inaccessible) | dashboard workspace + flag coordinateur | Autonome (coordinateur agit) |
 | Nouvelle issue (bug, friction) | Creer avec label `needs-approval` | Semi-autonome |
 | Changement de harnais | Creer avec `needs-approval` + `harness-change` | **BLOQUE jusqu'a approbation utilisateur** |
 
@@ -232,7 +232,7 @@ Score sante : A (>90% actifs) / B (>75%) / C (>50%) / D (<50%)
 - Lire toutes les traces locales (taches Roo, sessions Claude)
 - Lire tous les fichiers des deux harnais
 - Creer des issues avec `needs-approval` (propositions, pas decisions)
-- Ecrire dans META-INTERCOM
+- Ecrire dans dashboard workspace
 - Ecrire des docs d'analyse sur GDrive
 - Commenter des issues existantes avec des conclusions d'analyse
 
@@ -266,7 +266,7 @@ C:\Drive\.shortcut-targets-by-id\{ID}\.shared-state\meta-analysis\
 - **Seuil condensation GLM :** 80% (voir `.roo/rules/06-context-window.md`)
 - **Pas de coverage dans les tests :** Explose le contexte
 - **Limiter output git log/diff :** Toujours `| head -30`
-- **Si contexte sature** → Arreter l'analyse, ecrire les conclusions partielles dans META-INTERCOM
+- **Si contexte sature** → Arreter l'analyse, ecrire les conclusions partielles dans dashboard workspace
 
 ---
 
@@ -279,8 +279,8 @@ Resume du workflow :
 1. **Delegation lecture workflow** → `ask-complex` lit le fichier workflow
 2. **Analyse traces Roo** → `code-complex` lit et resume les traces
 3. **Analyse harnais Claude** → `ask-complex` lit `.claude/rules/`, `CLAUDE.md`
-4. **Ecriture META-INTERCOM** → `code-simple` ecrit les conclusions
-5. **Lecture META-INTERCOM Claude** → `ask-simple` lit la derniere entree Claude
+4. **Ecriture dashboard workspace** → `code-simple` ecrit les conclusions
+5. **Lecture dashboard workspace Claude** → `ask-simple` lit la derniere entree Claude
 6. **Reconciliation** → `code-simple` ajoute notes de reconciliation
 7. **Issues actionnables** → `code-simple` cree les issues avec `needs-approval`
 

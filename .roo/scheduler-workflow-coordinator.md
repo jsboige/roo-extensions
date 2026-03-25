@@ -32,7 +32,7 @@ Agis directement. Délègue via `new_task`. Décide toi-même.
 ## PRINCIPES
 
 1. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-2. Communication locale via **dashboard INTERCOM** (`roosync_dashboard(type: "workspace")`). Fallback fichier `.claude/local/INTERCOM-myia-ai-01.md`. RooSync pour l'inter-machine.
+2. Communication locale via **dashboard workspace** (`roosync_dashboard(type: "workspace")`). Fallback fichier `.claude/local/INTERCOM-myia-ai-01.md`. RooSync pour l'inter-machine.
 4. Ne JAMAIS commit ou push
 5. Deleguer uniquement aux modes `-simple` ou `-complex`
 6. **WIN-CLI OBLIGATOIRE pour les commandes shell** : les modes `-simple` n'ont PAS acces au terminal natif. Utiliser UNIQUEMENT le MCP win-cli dans les prompts delegues.
@@ -78,7 +78,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 **Decision :**
 - Si la delegation reussit et rapporte `PRE-FLIGHT-OK` : continuer vers **Etape 1**
 - Si la delegation echoue ou rapporte une erreur : **STOP IMMEDIAT**
-  1. Deleguer a `code-simple` pour ecrire dans le dashboard INTERCOM :
+  1. Deleguer a `code-simple` pour ecrire dans le dashboard workspace :
      ```
      roosync_dashboard(action: "append", type: "workspace", machineId: "myia-ai-01", tags: ["CRITICAL", "roo-scheduler"], content: "MCP win-cli non disponible - Scheduler BLOQUE")
      Si le dashboard echoue, fallback fichier : ajouter a .claude/local/INTERCOM-myia-ai-01.md avec apply_diff.
@@ -132,7 +132,7 @@ Verifier l'etat des machines executrices :
    - warning (3-6h) = noter
 ```
 
-**Si machine silencieuse (>6h) :** Deleguer a `code-simple` l'ecriture dans INTERCOM d'un message `[WARNING]` avec les details.
+**Si machine silencieuse (>6h) :** Deleguer a `code-simple` l'ecriture dans le dashboard workspace d'un message `[WARNING]` avec les details.
 
 **Si echec heartbeat :** Noter dans le bilan mais continuer (heartbeat non bloquant).
 
@@ -152,7 +152,7 @@ Rapporter : nombre de diffs par severite (critical, important, warning).
 **Decision selon le resultat rapporte :**
 - Si diffs CRITICAL : Deleguer l'envoi d'une directive corrective via RooSync
 - Si `important > 0` : Noter dans le bilan pour suivi
-- Verifier INTERCOM pour messages `[CONFIG-DRIFT]` des machines
+- Verifier le dashboard workspace pour messages `[CONFIG-DRIFT]` des machines
 
 **Frequence :** Une fois par 24h maximum.
 
@@ -181,9 +181,9 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **Prerequis :** sk-agent MCP ou vLLM sur port 5002.
 
-Apres auto-review → continuer vers **Etape 2a** ou **Etape 2b** (selon INTERCOM)
+Apres auto-review → continuer vers **Etape 2a** ou **Etape 2b** (selon dashboard workspace)
 
-### Etape 2a : Executer les taches INTERCOM
+### Etape 2a : Executer les taches du Dashboard Workspace
 
 Pour chaque `[TASK]` trouve, deleguer selon la difficulte :
 
@@ -209,7 +209,7 @@ Apres execution → **Etape 3**
 - Une tache de maintenance est necessaire sur un autre projet
 - Le coordinateur detecte un besoin sur un workspace secondaire
 
-**Format de tache INTERCOM cross-workspace :**
+**Format de tache dashboard cross-workspace :**
 
 ```markdown
 ## [{DATE}] claude-code -> roo [TASK] [workspace:{CHEMIN_ABSOLU}]
@@ -222,7 +222,7 @@ Instructions :
 1. Se placer dans le workspace cible
 2. Executer les commandes demandées
 3. Revenir au workspace principal (roo-extensions)
-4. Rapporter dans l'INTERCOM principal
+4. Rapporter dans le dashboard workspace principal
 ```
 
 **Exemple concret :**
@@ -248,12 +248,12 @@ Instructions :
    - La machine doit avoir le workspace dans son inventaire (#526)
    - La machine doit etre online (heartbeat recent)
 
-2. **Ecrire la tache dans l'INTERCOM de la machine cible** :
-   - Via RooSync message avec instruction "ecrire dans INTERCOM local"
+2. **Ecrire la tache dans le dashboard workspace de la machine cible** :
+   - Via RooSync message avec instruction "ecrire dans le dashboard workspace local"
    - Ou via delegation si le coordinateur a acces direct
 
 3. **Suivre la reponse** :
-   - L'executant rapportera dans son INTERCOM local
+   - L'executant rapportera dans le dashboard workspace
    - Le coordinateur doit verifier les reponses via heartbeat ou RooSync
 
 **Regles de securite :**
@@ -288,7 +288,7 @@ Rapporter : nombre et noms des fichiers recents.
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-**3. Si messages RooSync recents (< 6h) → signaler dans INTERCOM avec `[WAKE-CLAUDE]`**
+**3. Si messages RooSync recents (< 6h) → signaler dans le dashboard workspace avec `[WAKE-CLAUDE]`**
 
 **4. Chercher et dispatcher les issues roo-schedulable (OBLIGATOIRE)**
 
@@ -338,9 +338,9 @@ Si aucune issue a executer : aller a **Etape 2c-idle** (Veille Active).
 > **Meme mecanisme que le workflow executeur.** Voir `.roo/scheduler-workflow-executor.md` Etape 2c-idle pour les regles completes.
 
 **Resume pour le coordinateur :**
-1. **Selection intelligente** : Lire INTERCOM (tags `[PATROL]`, `[FRICTION-FOUND]` < 7j) + `git log --since='7 days ago'` pour eviter les domaines deja couverts
+1. **Selection intelligente** : Lire dashboard workspace (tags `[PATROL]`, `[FRICTION-FOUND]` < 7j) + `git log --since='7 days ago'` pour eviter les domaines deja couverts
 2. **1 exploration lecture seule** parmi 8 domaines (outil MCP, doc vs realite, couverture tests, coherence config, sante infra, inventaire GitHub, rangement depot, consolidation doc)
-3. **Rapport INTERCOM** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme detecte
+3. **Rapport dashboard** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme detecte
 4. **Pas de creation d'issue directe** : le coordinateur Claude verifie et escalade
 
 **Domaines supplementaires pour le coordinateur :**
@@ -376,7 +376,7 @@ roosync_dashboard(
 )
 
 Si le dashboard MCP echoue, FALLBACK fichier local :
-1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-myia-ai-01.md avec read_file
+1. Poste le bilan sur le dashboard workspace via roosync_dashboard(action: "append", type: "workspace", tags: ["{DONE|IDLE}", "roo-scheduler"])
 2. Utilise apply_diff pour AJOUTER le message APRES le dernier separateur ---
 3. Si apply_diff echoue : win-cli Add-Content
 4. NE PAS utiliser write_to_file (boucle infinie sur gros fichiers)
@@ -395,7 +395,7 @@ Si le dashboard MCP echoue, FALLBACK fichier local :
 > **CRITIQUE :** Apres l'Etape 3, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
 
 ```
-attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboard INTERCOM.")
+attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboard workspace.")
 ```
 
 **Si tu oublies cette etape**, la frequence du scheduler passe de 8h a ~24h+ car chaque tick suivant est saute.
@@ -407,7 +407,7 @@ attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboa
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`
-4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Dashboard INTERCOM (`roosync_dashboard`) pour la communication locale (PAS le fichier `.claude/local/INTERCOM-*.md`)
+4. **RooSync** : Deleguer a `code-simple` pour lire/envoyer des messages RooSync. Dashboard workspace (`roosync_dashboard(type: "workspace")`) pour la communication. Les fichiers INTERCOM locaux sont DEPRECATED
 5. Apres 2 echecs sur meme tache : arreter et rapporter
 6. **NE JAMAIS utiliser `--coverage`** dans les commandes de test (output trop volumineux, explose le contexte glm-4.7-flash)
 7. **Limiter les outputs** : toujours piper vers `Select-Object -Last 30` ou `tail -30` pour eviter les debordements de contexte
@@ -417,7 +417,7 @@ attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboa
 
 ## CRITERES D'ESCALADE VERS ORCHESTRATOR-COMPLEX
 
-- Message `[URGENT]` dans l'INTERCOM
+- Message `[URGENT]` dans le dashboard workspace
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches
 - 2 echecs consecutifs en `-simple`
