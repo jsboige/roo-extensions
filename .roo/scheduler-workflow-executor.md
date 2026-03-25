@@ -271,8 +271,18 @@ Si une issue est trouvee :
    - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
    - Sinon : utiliser `code-simple` pour taches simples (doc, tests, validation)
 3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
-4. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
-5. Commenter le resultat : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[RESULT] {MACHINE}: {PASS/FAIL}. Mode: {simple/complex}. Commit: {hash-si-applicable}.\"")
+4. **Creer une branche et travailler dessus** (JAMAIS push direct sur main) :
+   ```
+   execute_command(shell="gitbash", command="git checkout -b wt/{MACHINE}-issue-{NUM}")
+   ```
+5. Executer selon difficulte (simple → `code-simple`, complexe → `code-complex`)
+6. **Commiter, pusher la branche, et creer une PR** :
+   ```
+   execute_command(shell="gitbash", command="git push -u origin wt/{MACHINE}-issue-{NUM}")
+   execute_command(shell="powershell", command="gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE_COURT}' --body '[RESULT] {MACHINE}: PASS. Mode: {simple/complex}.\n\nCloses #{NUM}'")
+   ```
+7. Commenter l'issue avec le lien PR : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[RESULT] {MACHINE}: PR created. Mode: {simple/complex}. Awaiting review.\"")
+8. **Revenir sur main** : execute_command(shell="gitbash", command="git checkout main")
 
 **IMPORTANT :** NE JAMAIS executer une issue avec label `enhancement` ou `feature` en mode `code-simple`. Ces taches necessitent des modeles plus capables (voir Issue #605).
 
@@ -408,7 +418,7 @@ Quand un mode `-complex` échoue sur une tâche, le scheduler peut demander l'ai
 ```
 execute_command(shell="powershell", command="claude -p 'Résoudre cette tâche: {DESCRIPTION}. Contexte: {ERREUR}. Fichiers concernés: {FICHIERS}. Exécuter le fix et rapporter le résultat.' --max-turns 10 --model sonnet")
 ```
-3. Si Claude CLI résout → commenter l'issue GitHub avec `[RESULT] {MACHINE}: PASS (escalade Claude CLI). Commit: {hash}.`
+3. Si Claude CLI résout → pusher la branche et créer une PR, puis commenter l'issue GitHub avec `[RESULT] {MACHINE}: PR created (escalade Claude CLI). Awaiting review.`
 4. Si Claude CLI échoue aussi → commenter `[RESULT] {MACHINE}: FAIL (escalade Claude CLI). Nécessite intervention manuelle.` et écrire `[ERROR]` dans le dashboard workspace.
 
 **Garde-fous :**
