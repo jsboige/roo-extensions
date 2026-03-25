@@ -254,6 +254,8 @@ Format : `[CLAUDE-MACHINE] Titre` + labels
 
 Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour voir la liste complète.
 
+**⚠️ IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels suivants **N'EXISTENT PAS** et ne doivent PAS être utilisés : `maintenance`, `scheduler`, `memory`.
+
 **Labels de type (obligatoire pour chaque issue):**
 
 | Label | Description | Quand l'utiliser |
@@ -269,12 +271,13 @@ Labels disponibles pour catégoriser les issues. Utiliser `gh label list` pour v
 | `critical` | Issues critiques bloquantes |
 | `regression` | Regression bugs |
 | `harness-change` | Modifies agent infrastructure (rules, workflows, modes) |
+| `harness-inconsistency` | Incohérence entre les harnais Roo et Claude |
 | `quality` | Code quality and reliability |
 | `testing` | Test coverage and infrastructure |
 | `test` | Test coverage (alias de testing) |
 | `investigation` | Investigation and audit tasks |
-| `friction` | Probleme ou friction decouverte par un agent |
-| `harness-inconsistency` | Incoherence entre les harnais Roo et Claude |
+| `friction` | Problème ou friction découverte |
+| `harness-inconsistency` | Incohérence entre les harnais Roo et Claude |
 
 **Labels d'attribution (un seul par issue):**
 

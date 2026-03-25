@@ -115,34 +115,52 @@ echo '...' > query.graphql && gh api graphql -f query=$(cat query.graphql)
 
 Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
-### Labels GitHub Disponibles (23 labels)
+## Labels GitHub Disponibles
 
-**IMPORTANT : N'utiliser QUE les labels ci-dessous.** Les labels inexistants (`maintenance`, `scheduler`, `memory`, etc.) provoquent des erreurs silencieuses.
+**IMPORTANT :** Toujours vérifier qu'un label existe avant de l'utiliser. Les labels incorrects (`maintenance`, `scheduler`, `memory`) ne doivent PAS être utilisés.
 
-**Labels de type (obligatoire, au moins un par issue) :**
-`bug`, `enhancement`, `documentation`
+### Labels Standard GitHub
 
-**Labels techniques (optionnels) :**
-`critical`, `regression`, `harness-change`, `quality`, `testing`, `test`, `investigation`, `friction`, `harness-inconsistency`
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `bug` | Something isn't working | #d73a4a |
+| `documentation` | Improvements or additions to documentation | #0075ca |
+| `duplicate` | This issue or pull request already exists | #cfd3d7 |
+| `enhancement` | New feature or request | #a2eeef |
+| `good first issue` | Good for newcomers | #7057ff |
+| `help wanted` | Extra attention is needed | #008672 |
+| `invalid` | This doesn't seem right | #e4e669 |
+| `question` | Further information is requested | #d876e3 |
+| `wontfix` | This will not be worked on | #ffffff |
 
-**Labels d'attribution (un seul par issue) :**
-`claude-only`, `roo-schedulable`
+### Labels Projet Roo (Custom)
 
-**Labels de validation :**
-`needs-approval`, `needs-deployment-checklist`, `good first issue`, `help wanted`
-
-**Labels de statut :**
-`wontfix`, `duplicate`, `invalid`, `question`
+| Label | Description | Couleur |
+|-------|-------------|---------|
+| `claude-only` | Tasks reserved for Claude Code agents (opus/sonnet) - NOT for Roo schedulers | #0366d6 |
+| `critical` | Issues critiques bloquantes | #d73a4a |
+| `friction` | Problème ou friction découverte | #d93f0b |
+| `harness-change` | Modifies agent infrastructure (rules, workflows, modes) | #d93f0b |
+| `harness-inconsistency` | Incohérence entre les harnais Roo et Claude | #fbca04 |
+| `investigation` | Investigation and audit tasks | #0e8a16 |
+| `needs-approval` | Requires user approval before execution | #fbca04 |
+| `needs-deployment-checklist` | Requires deployment checklist validation before closing | #FBCA04 |
+| `quality` | Code quality and reliability | #5319e7 |
+| `regression` | Regression bugs | #d93f0b |
+| `roo-schedulable` | Issue with Execution-Ready spec that Roo scheduler can pick up autonomously | #0E8A16 |
+| `test` | Test coverage (alias de testing) | #0E8A16 |
+| `testing` | Test coverage and infrastructure | #1d76db |
 
 **⚠️ LABELS INEXISTANTS (NE JAMAIS UTILISER) :**
 - `maintenance` → N'existe pas (utiliser `documentation` ou `quality`)
 - `scheduler` → N'existe pas (utiliser `roo-schedulable` ou `harness-change`)
 - `memory` → N'existe pas (utiliser `documentation` ou `harness-change`)
 
-**Verifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
+**Vérifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
 
 ## Référence
 
 - Issue #368 : Migration gh CLI
 - Issue #706 : Fix fichiers temporaires workspace (2026-03-14)
+- Issue #830 : Documentation labels GitHub (2026-03-24)
 - Documentation : https://cli.github.com/manual/
