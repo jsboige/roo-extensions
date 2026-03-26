@@ -384,10 +384,15 @@ function Get-GitHubTask {
             $IsDispatchedToOther = $false
             try {
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
-                    --json comments --jq '[.comments[-5:][] | .body | select(test("\\[DISPATCH\\]|\\[CLAIMED\\]"))]' 2>&1
+                    --json comments --jq '[.comments[-10:][] | .body | select(test("\\[DISPATCH\\]|\\[CLAIMED\\]|\\[RESULT\\]"))]' 2>&1
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
+                        # ANTI-DOUBLON: skip si résultat déjà posté
+                        if ($Dc -match "\[RESULT\]") {
+                            $IsDispatchedToOther = $true  # Already completed
+                            break
+                        }
                         if ($Dc -match "\[CLAIMED\]") {
                             $IsDispatchedToOther = $true  # Already claimed
                             break
