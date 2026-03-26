@@ -1,7 +1,7 @@
 # INDEX CENTRALISE DE LA DOCUMENTATION
 
-**Derniere mise a jour:** 2026-03-21
-**Version:** 5.13 (Fix 39 broken archive links + add 24 missing docs: 14 roosync, 4 guides, 6 roo-code)
+**Derniere mise a jour:** 2026-03-26
+**Version:** 5.14 (Phase 2 consolidation #656: guides v2.1 supprimes, structure git-history verifiee)
 
 ---
 
@@ -89,7 +89,7 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 - [CROSS_WORKSPACE_SETUP.md](roosync/CROSS_WORKSPACE_SETUP.md) - Configuration cross-workspace
 
 ### Archive
-- [roosync/archive/](roosync/archive/) - v2.1 legacy, migration plans, integration historique (20+ docs)
+- [roosync/archive/](roosync/archive/) - Migration plans, integration historique (18+ docs, v2.1 legacy supprimé en 2026-03-26)
 
 ---
 
@@ -333,13 +333,16 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 - [archive/harness-reports/](archive/harness-reports/) - Rapports d'analyse croisee des harnais (2026-03-13 a 15)
 
-### Git History (4 fichiers actifs + sous-repertoires)
+### Git History (52 fichiers organisés en 4 sous-repertoires)
 
 - [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
 - [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
-- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles (reconciliation, merge, stash investigation)
-- [archive/git-history/phase2-analysis/](archive/git-history/phase2-analysis/) - Analyse phase 2 (checksums, patches, sync diffs)
-- [archive/git-history/stash-details/](archive/git-history/stash-details/) - Details stashs (analyses, patches)
+- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles (reconciliation, merge, stash investigation, 13 fichiers)
+- [archive/git-history/phase2-analysis/](archive/git-history/phase2-analysis/) - Analyse phase 2 (checksums, patches, sync diffs, 7 fichiers)
+- [archive/git-history/phase2-migration-check/](archive/git-history/phase2-migration-check/) - Verification migration phase 2 (6 fichiers)
+- [archive/git-history/stash-backups/](archive/git-history/stash-backups/) - Backups stashs (14 fichiers .patch)
+- [archive/git-history/stash-details/](archive/git-history/stash-details/) - Details stashs (analyses, patches, 6 fichiers)
+- [archive/git-history/stash-diffs/](archive/git-history/stash-diffs/) - Diffs stashs (2 fichiers)
 
 ### Obsolete (7 fichiers)
 
@@ -373,7 +376,7 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 
 ---
 
-**Consolide par:** myia-po-2024
+**Consolide par:** myia-po-2023
 **Date consolidation:** 2026-02-09
-**Derniere MAJ:** 2026-03-18 (v5.8 - Indexation complete Archive - 45 fichiers documentes)
-**Precedent:** v5.7 (Ajout synthese git Q4-Q1 + docs/harness/ + Fix 11 liens casses)
+**Derniere MAJ:** 2026-03-26 (v5.14 - Phase 2 consolidation #656: guides v2.1 supprimes, structure git-history verifiee)
+**Precedent:** v5.13 (Fix 39 broken archive links + add 24 missing docs: 14 roosync, 4 guides, 6 roo-code)
