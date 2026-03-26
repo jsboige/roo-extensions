@@ -587,7 +587,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
 | **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `.claude/docs/reference/stub-detection.md` |
-| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/docs/reference/worktree-cleanup-protocol.md` |
+| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/rules/worktree-cleanup.md` (auto-chargé) |
 
 ---
 
@@ -603,6 +603,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 9. **VS Code restart requis** : Apres modification de `.roo/schedules.json` (ou schedules.template.json), demander a l'utilisateur de redemarrer VS Code pour que le Roo scheduler prenne en compte les nouvelles instructions.
 10. **Worktree cleanup** : Utiliser les worktrees git pour les branches temporaires. Nettoyer apres usage. Voir [`.claude/rules/worktree-cleanup.md`](.claude/rules/worktree-cleanup.md)
+11. **🚨 JAMAIS DE CLÉS API DANS GITHUB** : Les clés API, tokens, secrets ne doivent JAMAIS apparaître dans issues, PRs, commentaires, commits. **Si une clé doit être partagée → RooSync message (GDrive privé)**. Voir [`.claude/rules/no-api-keys-in-git.md`](.claude/rules/no-api-keys-in-git.md)
 
 ---
 
