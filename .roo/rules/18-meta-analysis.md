@@ -52,16 +52,26 @@ conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}
 
 **2. Traces Claude (analyse croisee)**
 
-Via MCP roo-state-manager (source: "claude-code" filtre les sessions Claude) :
+**⚠️ LIMITATION CONNUE (issue #874) :** Les sessions Claude ne sont PAS indexées dans Qdrant.
+
+**Conséquence :** `roosync_search(action: "semantic", source: "claude-code")` retourne 0 résultats.
+
+**Workaround actuel :**
+
+Via MCP roo-state-manager (source: "claude-code" - NE FONCTIONNE PAS CAR NON INDEXÉ) :
 
 ```
-# Sessions Claude recentes
+# Sessions Claude recentes - NE RETOURNE RIEN (non indexé)
 roosync_search(action: "semantic", search_query: "session work implementation", source: "claude-code", start_date: "{7j ago}", max_results: 10)
 ```
 
-Complements (si MCP insuffisant) :
+**Alternatives fonctionnelles :**
 - Commits recents Claude : `git log --oneline --author="Claude" -10`
 - Logs worker Claude : `.claude/logs/worker-*.log` (seulement si le worker schedule est actif)
+- Lecture directe worktrees : `ls .claude/worktrees/` pour identifier les sessions récentes
+- INTERCOM local : `.claude/local/INTERCOM-{MACHINE}.md` pour les bilans
+
+**Note :** L'indexation automatique des sessions Claude est planifiée mais pas encore implémentée.
 
 **3. Harnais Claude (analyse croisee)**
 

@@ -68,12 +68,43 @@
     }
   },
   "ssh": {
-    "enabled": false,
+    "enabled": true,
     "defaultTimeout": 500,
     "maxConcurrentSessions": 5,
     "keepaliveInterval": 10000,
     "keepaliveCountMax": 3,
     "readyTimeout": 20000,
-    "connections": {}
+    "connections": {
+      "myia-po-2023": {
+        "host": "myia-po-2023.local",
+        "port": 22,
+        "username": "jsboi",
+        "password": "PLACEHOLDER_PASSWORD"
+      },
+      "myia-po-2024": {
+        "host": "myia-po-2024.local",
+        "port": 22,
+        "username": "jsboi",
+        "password": "PLACEHOLDER_PASSWORD"
+      },
+      "myia-po-2025": {
+        "host": "myia-po-2025.local",
+        "port": 22,
+        "username": "jsboi",
+        "password": "PLACEHOLDER_PASSWORD"
+      },
+      "myia-po-2026": {
+        "host": "myia-po-2026.local",
+        "port": 22,
+        "username": "jsboi",
+        "password": "PLACEHOLDER_PASSWORD"
+      },
+      "myia-web1": {
+        "host": "myia-web1.local",
+        "port": 22,
+        "username": "jsboi",
+        "password": "PLACEHOLDER_PASSWORD"
+      }
+    }
   }
 }
