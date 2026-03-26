@@ -18,7 +18,7 @@ Switch the active LLM provider for Claude Code to: **$ARGUMENTS**
 Execute this PowerShell command to switch providers:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File "$HOME/.claude/scripts/Switch-Provider.ps1" -Provider $ARGUMENTS
+powershell -ExecutionPolicy Bypass -File "scripts/claude/Switch-Provider.ps1" -Provider $ARGUMENTS
 ```
 
 This will:
