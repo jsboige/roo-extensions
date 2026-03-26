@@ -508,6 +508,23 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `.claude/docs/github-checklists.md` |
 | **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `.claude/docs/feedback-process.md`, `.claude/docs/friction-protocol.md` |
 | **Escalade Claude Code** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur). Claude EST deja Opus 4.6 (pas d'escalade CLI/API). | `.claude/docs/escalation-protocol.md` |
+| **Context Window** | Seuil de condensation 80% OBLIGATOIRE pour GLM (z.ai). | `.claude/rules/context-window.md` |
+
+### Quality & CI
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **CI Guardrails** | Validation OBLIGATOIRE avant push du submodule. Build + tests CI doivent passer. | `.claude/rules/ci-guardrails.md` |
+| **PR Mandatory** | Zero push direct sur main. Tout changement passe par worktree → PR → review → merge. | `.claude/rules/pr-mandatory.md` |
+| **No Deletion Without Proof** | Interdiction de supprimer du code sans preuve que la fonctionnalité est preservee. | `.claude/rules/no-deletion-without-proof.md` |
+| **Test Success Rates** | Taux de succes attendu : 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. | `.claude/rules/test-success-rates.md` |
+
+### Coding Standards
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **File Writing Patterns** | Edit pour modifications, Write pour nouveaux fichiers. Jamais ecraser sans lecture prealable. | `.claude/rules/file-writing.md` |
+| **Validation Checklist** | Pour toute consolidation/refactoring : compter avant/apres, verifier ecart. | `.claude/rules/validation.md` |
 
 ### Scheduler & Coordination
 
@@ -528,6 +545,8 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **Bash fallback** | Si Bash echoue : outils natifs > MCP win-cli > degradation gracieuse | `.claude/docs/reference/bash-fallback.md` |
 | **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
+| **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `.claude/docs/reference/stub-detection.md` |
+| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/docs/reference/worktree-cleanup-protocol.md` |
 
 ---
 
@@ -542,8 +561,15 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
 8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 9. **VS Code restart requis** : Apres modification de `.roo/schedules.json` (ou schedules.template.json), demander a l'utilisateur de redemarrer VS Code pour que le Roo scheduler prenne en compte les nouvelles instructions.
+10. **Worktree cleanup** : Utiliser les worktrees git pour les branches temporaires. Nettoyer apres usage. Voir [`.claude/rules/worktree-cleanup.md`](.claude/rules/worktree-cleanup.md)
 
 ---
 
-**Derniere mise a jour :** 2026-03-19
+**Communication locale (fallback) :**
+
+Voir [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md) pour le protocole de communication locale Claude Code ↔ Roo (INTERCOM fichier, deprecated au profit du dashboard RooSync).
+
+---
+
+**Derniere mise a jour :** 2026-03-26
 **Pour questions :** Creer une issue GitHub ou contacter myia-ai-01
