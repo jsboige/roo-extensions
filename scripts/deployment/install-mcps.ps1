@@ -496,7 +496,7 @@ if ($installedMcps.Count -eq 0) {
         
         if ($pythonPath) {
             Write-ColorOutput "Python trouve : $pythonPath" "Green"
-            $pythonPathForward = $pythonPath.Replace("\", "/")
+            $pythonPathForward = '"' + $pythonPath.Replace("\", "/") + '"'
             [hashtable]$markitdownConfig = @{
                 command       = "cmd"
                 args          = @("/c", $pythonPathForward, "-m", "markitdown_mcp")
