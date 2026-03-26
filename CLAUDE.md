@@ -491,7 +491,8 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 - [`docs/knowledge/WORKSPACE_KNOWLEDGE.md`](docs/knowledge/WORKSPACE_KNOWLEDGE.md) - Base connaissance
 - [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide RooSync
-- [`.claude/scripts/init-claude-code.ps1`](.claude/scripts/init-claude-code.ps1) - Initialisation MCP
+- [`scripts/claude/`](scripts/claude/) - Scripts Claude Code (init, provider switch, worktree cleanup)
+- [`scripts/README.md`](scripts/README.md) - Index des scripts du projet
 - **GitHub :** https://github.com/users/jsboige/projects/67
 
 ---
