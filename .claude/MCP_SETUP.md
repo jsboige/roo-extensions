@@ -144,7 +144,7 @@ If Claude Code crashes on startup:
 |------|---------|-----------|
 | `.mcp.json.template` | Template with `{{WORKSPACE_ROOT}}` placeholder | ✅ Yes |
 | `.mcp.json` | Machine-specific config (generated) | ❌ No (gitignored) |
-| `.claude/scripts/init-claude-code.ps1` | Initialization script | ✅ Yes |
+| `scripts/claude/init-claude-code.ps1` | Initialization script | ✅ Yes |
 
 ### Manual Configuration (if needed)
 

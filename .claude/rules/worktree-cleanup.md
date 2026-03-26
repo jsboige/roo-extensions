@@ -17,22 +17,24 @@ Automated cleanup of orphan worktrees and stale branches to:
 
 ## Script
 
-**Location:** `.claude/scripts/worktree-cleanup.ps1`
+**Location:** `scripts/claude/worktree-cleanup.ps1` (consolidated from `.claude/scripts/` per #866)
+
+**Legacy path still works:** `.claude/scripts/worktree-cleanup.ps1`
 
 ### Usage
 
 ```powershell
 # Dry run (see what would be cleaned)
-powershell -ExecutionPolicy Bypass -File .claude/scripts/worktree-cleanup.ps1 -WhatIf
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -WhatIf
 
 # Execute cleanup (with confirmation)
-powershell -ExecutionPolicy Bypass -File .claude/scripts/worktree-cleanup.ps1
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1
 
 # Force cleanup without confirmation
-powershell -ExecutionPolicy Bypass -File .claude/scripts/worktree-cleanup.ps1 -Force
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -Force
 
 # Custom stale threshold (default: 30 days)
-powershell -ExecutionPolicy Bypass -File .claude/scripts/worktree-cleanup.ps1 -StaleDays 14
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -StaleDays 14
 ```
 
 ### Parameters
