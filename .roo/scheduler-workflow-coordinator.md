@@ -313,7 +313,7 @@ c. Si NON dispatchee (resultat = 0), determiner la machine cible via les labels 
 ```
 execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json labels,body --jq '{labels: [.labels[].name], body: .body[:300]}'")
 ```
-Note : NE PAS utiliser `gh api graphql` en mode `-simple` (quoting instable, circuit breaker #737). Utiliser les labels/body pour determiner la machine. Si l'info Machine n'est pas dans les labels, dispatcher avec `[DISPATCH] Any`.
+Note : NE PAS utiliser `gh api graphql` en mode `-simple` (quoting instable, circuit breaker #737). Utiliser les labels/body pour determiner la machine. Si l'info Machine n'est pas dans les labels, **choisir une machine specifique** (round-robin parmi po-2023/2024/2025/2026/web1 en equilibrant la charge).
 
 d. Commenter pour dispatcher (avec la machine trouvee) :
 ```
@@ -323,13 +323,16 @@ execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboi
 **Regles de dispatch :**
 - Dispatcher TOUTES les issues ouvertes, pas seulement les `roo-schedulable`
 - Si Machine = une machine specifique (myia-po-2023, etc.) → dispatcher a cette machine
-- Si Machine = `All` → dispatcher avec `[DISPATCH] All` (tout executeur peut claimer)
-- Si Machine = `Any` → dispatcher avec `[DISPATCH] Any` (tout executeur peut claimer)
-- Si Machine non defini → dispatcher avec `[DISPATCH] Any`
+- Si Machine = `All` → dispatcher avec `[DISPATCH] All` (chaque executeur execute)
+- **⛔ JAMAIS `[DISPATCH] Any`** — toujours cibler UNE machine specifique. Le dispatch `Any` cause des doublons (plusieurs agents prennent la meme issue, produisent des fichiers en double). Choisir une machine en round-robin pour equilibrer la charge.
+- Si Machine non defini → **choisir une machine specifique** (round-robin)
 - Issues avec label `claude-only` : dispatcher normalement — elles seront executees par Claude Code interactif sur la machine cible (pas par le scheduler Roo)
 - NE PAS dispatcher les issues avec label `needs-approval` (attendent validation utilisateur)
-- NE PAS re-dispatcher une issue deja claimee (commentaire `[CLAIMED]` existant)
+- **NE PAS re-dispatcher une issue deja claimee** (commentaire `[CLAIMED]` existant)
+- **NE PAS re-dispatcher une issue deja terminee** (commentaire `[RESULT]` existant)
 - Equilibrer la charge : repartir les issues entre les 5 machines executrices (po-2023, po-2024, po-2025, po-2026, web1)
+
+> ⚠️ **ANTI-DOUBLON** : Avant de dispatcher, verifier les 10 derniers commentaires de l'issue. Si `[CLAIMED]` ou `[RESULT]` present → NE PAS dispatcher.
 
 **6. Executer une issue si faisable (optionnel, si du temps reste)**
 

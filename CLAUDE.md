@@ -587,7 +587,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
 | **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `.claude/docs/reference/stub-detection.md` |
-| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/docs/reference/worktree-cleanup-protocol.md` |
+| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/rules/worktree-cleanup.md` (auto-chargé) |
 
 ---
 

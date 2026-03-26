@@ -260,9 +260,14 @@ execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/
 
 **Priorite de selection :**
 1. **Issue dispatchee a cette machine** : commentaire contenant `[DISPATCH] {MACHINE}` → executer en priorite
-2. **Issue dispatchee a `All` ou `Any`** : commentaire `[DISPATCH] All` ou `[DISPATCH] Any` → disponible
+2. **Issue dispatchee a `All`** : commentaire `[DISPATCH] All` → disponible (attention: verifier claim)
 3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` → claimer et executer
-4. **Issue claimee par une autre machine** : commentaire `[CLAIMED] by {AUTRE_MACHINE}` → PASSER, ne pas executer
+4. **PASSER si :**
+   - Commentaire `[CLAIMED]` par n'importe quel agent (pas seulement autre machine)
+   - Commentaire `[RESULT]` existant (travail deja fait, meme si non ferme)
+   - Issue dispatchee a une machine specifique AUTRE que la tienne
+
+> ⚠️ **ANTI-DOUBLON (CRITIQUE)** : TOUJOURS verifier les 10 derniers commentaires pour `[CLAIMED]` ET `[RESULT]` AVANT de claimer. Si l'un ou l'autre existe → PASSER cette issue. Ne JAMAIS claimer une issue qui a deja un `[RESULT]`.
 
 Si une issue est trouvee :
 1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
