@@ -23,7 +23,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 |----------|-------------|--------|-------|
 | `01-general.md` | (implicit in CLAUDE.md) | ✅ Aligned | General behavior guidelines |
 | `02-intercom.md` | `intercom-protocol.md` | ✅ Aligned | INTERCOM protocol (local communication) |
-| `03-mcp-usage.md` | `mcp-discoverability.md` | ✅ Aligned | MCP usage & discoverability rules |
+| `03-mcp-usage.md` | `.claude/docs/reference/mcp-discoverability.md` | ✅ Aligned | MCP usage & discoverability (on-demand doc, not auto-loaded rule) |
 | `04-sddd-grounding.md` | `sddd-conversational-grounding.md` | ✅ Aligned (Claude > Roo) | Triple grounding methodology — Claude version (381L) is more complete |
 | `05-tool-availability.md` | `tool-availability.md` | ✅ Aligned (Claude > Roo) | STOP & REPAIR protocol — Claude version more complete |
 | `06-context-window.md` | `.claude/docs/condensation-thresholds.md` | ✅ Aligned | GLM 70% threshold guidance (on-demand doc, not auto-loaded rule) |
@@ -51,7 +51,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | Rule | Purpose | Reason |
 |------|---------|--------|
 | `agents-architecture.md` | Sub-agent definitions | Claude Code has native Agent tool |
-| `bash-fallback.md` | Bash tool failure mitigation | Roo uses win-cli MCP instead |
+| `.claude/docs/reference/bash-fallback.md` | Bash tool failure mitigation (on-demand doc) | Roo uses win-cli MCP instead |
 | `ci-guardrails.md` | CI validation before push | Roo schedulers don't push to submodule |
 | `.claude/docs/condensation-thresholds.md` | GLM context window thresholds | (Roo equivalent: `06-context-window.md`, on-demand doc) |
 | `delegation.md` | Sub-agent delegation rules | Claude-specific (sub-agent API) |
