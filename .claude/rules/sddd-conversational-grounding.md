@@ -257,14 +257,17 @@ conversation_browser(action: "list", contentPattern: "write_to_file", limit: 30)
 
 ## Recommandations conversation_browser(summarize) - CRITIQUE
 
-**⚠️ `detailLevel: "NoTools"` = PIÈGE** : masque SEULEMENT les paramètres d'appels d'outils mais **garde TOUS les résultats complets** → explosion 309 KB+ pour 23 messages.
+**✅ FIX #881 APPLIQUÉ :** `detailLevel: "NoTools"` maintenant alias vers `Compact` qui résume les résultats d'outils.
 
-**Toujours utiliser `Summary` + `truncationChars` :**
+**Ancien comportement (pré-fix) :** `NoTools` gardait tous les résultats complets → explosion 309 KB+ pour 23 messages.
+**Nouveau comportement (post-fix) :** `NoTools` → `CompactReportingStrategy` qui résume (nom + statut + taille, pas contenu).
+
+**Utilisation recommandée :**
 ```typescript
 conversation_browser(
   action: "summarize",
   summarize_type: "trace",    // "trace" pour statistiques
-  detailLevel: "Summary",     // PAS "NoTools" (trompeur)
+  detailLevel: "Summary",     // Ou "NoTools" (maintenant = Compact)
   truncationChars: 10000,     // OBLIGATOIRE - limite chars
   taskId: "..."
 )
@@ -275,7 +278,9 @@ conversation_browser(
 | Niveau | Contenu | Cas d'usage |
 |--------|---------|------------|
 | **`Full`** | Tout inclus | ❌ JAMAIS (explosion) |
-| **`NoTools`** | ❌ Trompeur (masque params, garde résultats) | ❌ À ÉVITER |
+| **`NoTools`** | ✅ FIXÉ - Alias vers Compact (résumé outils) | ✅ Maintenant OK |
+| **`Compact`** | Messages + outils résumés (nom + statut) | ✅ Recommandé (#881) |
+| **`NoToolParams`** | Ancien NoTools (params masqués, résultats complets) | ⚠️ Pour debug |
 | **`NoResults`** | Messages + params (sans résultats) | ✅ Compact |
 | **`Messages`** | Messages seulement | ✅ Très compact |
 | **`Summary`** | Vue condensée | ✅ Recommandé |
