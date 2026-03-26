@@ -263,7 +263,7 @@ C:\Drive\.shortcut-targets-by-id\{ID}\.shared-state\meta-analysis\
 
 ## Contraintes Contexte Roo (IMPORTANT)
 
-- **Seuil condensation GLM :** 80% (voir `.roo/rules/06-context-window.md`)
+- **Seuil condensation GLM :** 80% (voir `.roo/rules/12-machine-constraints.md` section "Contraintes communes")
 - **Pas de coverage dans les tests :** Explose le contexte
 - **Limiter output git log/diff :** Toujours `| head -30`
 - **Si contexte sature** → Arreter l'analyse, ecrire les conclusions partielles dans dashboard workspace
@@ -292,7 +292,7 @@ Resume du workflow :
 - Issue #705 : Cette adaptation pour Roo
 - `.claude/rules/meta-analysis.md` : Version Claude (reference)
 - `.roo/scheduler-workflow-meta-analyst.md` : Instructions completes du workflow
-- `.roo/rules/06-context-window.md` : Seuils de condensation GLM
+- `.roo/rules/12-machine-constraints.md` : Seuils de condensation GLM (section "Contraintes communes")
 
 ---
 
