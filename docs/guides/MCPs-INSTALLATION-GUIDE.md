@@ -191,7 +191,7 @@ MCP_SERVERS_ROOT="${ROO_EXTENSIONS_PATH}/mcps"
 MCP_INTERNAL_PATH="${MCP_SERVERS_ROOT}/internal"
 MCP_EXTERNAL_PATH="${MCP_SERVERS_ROOT}/external"
 MCP_LOG_LEVEL="info"
-MCP_TIMEOUT=30000
+MCP_TIMEOUT=300000
 
 # Configuration spécifique aux MCPs
 ROO_STATE_MANAGER_DB="${ROO_EXTENSIONS_PATH}/data/conversations.db"
@@ -466,8 +466,36 @@ engines:
     enabled: true
 ```
 
-#### 2.5 Installation MCPs Internes Restants
-Procédure similaire pour les MCPs internes 5 et 6 selon leur technologie (Node.js, Rust, Python, etc.).
+#### 2.6 sk-agent (Tier 1) - PROCÉDURE CORRIGÉE
+
+```powershell
+# Navigation vers le répertoire
+cd "C:/dev/roo-extensions/mcps/internal/servers/sk-agent"
+
+# Création de l'environnement virtuel Python (OBLIGATOIRE)
+python -m venv venv
+
+# Installation des dépendances (OBLIGATOIRE - requirements.txt)
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# Vérification de l'installation (VALIDATION REQUISE)
+.\venv\Scripts\python.exe -c "import semantic_kernel, mcp; print('OK')"
+# Doit retourner : OK
+
+# Test du wrapper batch
+.\run-sk-agent.bat
+# Doit démarrer sans erreur (attend sur stdin)
+```
+
+**Notes importantes :**
+
+- Le venv est **OBLIGATOIRE** - sans lui, semantic_kernel n'est pas trouvé et le MCP timeout
+- Le wrapper batch `run-sk-agent.bat` vérifie maintenant les dépendances et échoue gracieusement si elles manquent
+- Temps de chargement attendu : ~7 secondes avec venv, timeout sans venv
+- Si les dépendances manquent, le wrapper affiche : `ERROR: sk-agent dependencies not installed!`
+
+#### 2.7 Installation MCPs Internes Restants
+Procédure similaire pour les MCPs internes restants selon leur technologie (Node.js, Rust, Python, etc.).
 
 ### Étape 3 : Installation des MCPs Externes
 

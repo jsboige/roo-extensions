@@ -86,6 +86,7 @@ Updated via git commits. Each agent should read this at session start.
 - **PowerShell 5.1 Join-Path**: Only 2 args. Use string interpolation for deeper paths.
 - **Case-sensitive machineId**: Always `.toLowerCase()` (commit bd8e5b94)
 - **Scheduler cache**: Deploy config then restart VS Code IMMEDIATELY before next tick
+- **MCP_TIMEOUT variable**: Set to `300000` (300s) on all machines for sk-agent (semantic_kernel slow load). Windows: `setx MCP_TIMEOUT "300000"`
 
 ## Current State (2026-03-20)
 
