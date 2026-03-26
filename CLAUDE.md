@@ -496,6 +496,47 @@ Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Proje
 
 ---
 
+## Règles Auto-chargées (`.claude/rules/`)
+
+Les règles ci-dessous sont automatiquement chargées dans chaque conversation. Elles s'appliquent sans action explicite.
+
+### Règles Critiques (sécurité & qualité)
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **Tool Availability** | STOP & REPAIR si MCP critique absent. Non-négociable. | `.claude/rules/tool-availability.md` |
+| **Validation** | Checklist validation consolidation (comptage avant/après). | `.claude/rules/validation.md` |
+| **No Deletion Without Proof** | Jamais supprimer sans preuve de préservation. | `.claude/rules/no-deletion-without-proof.md` |
+| **PR Mandatory** | Zéro push direct sur main. PR obligatoire. | `.claude/rules/pr-mandatory.md` |
+| **CI Guardrails** | Valider build + tests CI avant push submodule. | `.claude/rules/ci-guardrails.md` |
+
+### Règles Opérationnelles
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-conversational-grounding.md` |
+| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. | `.claude/rules/delegation.md` |
+| **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
+| **GitHub CLI** | `gh` CLI au lieu de MCP github-projects. Scope `project` requis. | `.claude/rules/github-cli.md` |
+| **Test Success Rates** | `npx vitest run` (JAMAIS `npm test`). web1: `--maxWorkers=1`. | `.claude/rules/test-success-rates.md` |
+
+### Règles Communication
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **INTERCOM Protocol** | Dashboard workspace = canal principal. Fichier local = DEPRECATED. | `.claude/rules/intercom-protocol.md` |
+| **Skepticism Protocol** | Vérifier les affirmations surprenantes avant de propager. | `.claude/rules/skepticism-protocol.md` |
+
+### Règles Contexte
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **Context Window** | Seuil condensation 80% pour GLM (131K réels). | `.claude/rules/context-window.md` |
+| **Worktree Cleanup** | Script cleanup orphelins + branches stale. | `.claude/rules/worktree-cleanup.md` |
+| **Agents Architecture** | 18 subagents, 6 skills, 4 commands. | `.claude/rules/agents-architecture.md` |
+
+---
+
 ## Documents de Reference (on-demand)
 
 Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consulter quand le sujet est pertinent.
