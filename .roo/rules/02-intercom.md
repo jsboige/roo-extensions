@@ -1,10 +1,50 @@
-# Règles INTERCOM - Communication Locale
+# Règles INTERCOM - Dashboard RooSync (Canal Principal)
 
 ## Protocole INTERCOM
 
-INTERCOM est le canal de communication **locale** entre Roo et Claude Code sur la même machine.
+**Le dashboard RooSync `workspace` est le canal de communication principal** entre Roo et Claude Code sur la même machine.
 
-### Fichier
+Le fichier INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`) est un **FALLBACK** uniquement en cas d'échec du MCP.
+
+### Dashboard RooSync (Méthode OBLIGATOIRE)
+
+```
+roosync_dashboard(
+  action: "read",
+  type: "workspace",
+  section: "intercom"
+)
+```
+
+**Lecture des messages récents :**
+```
+roosync_dashboard(
+  action: "read",
+  type: "workspace",
+  section: "intercom",
+  intercomLimit: 10
+)
+```
+
+**Écriture d'un message :**
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["{DONE|TASK|INFO|WARN|ERROR}", "{roo-scheduler|roo-meta|claude-interactive|claude-scheduled}"],
+  content: "Contenu du message..."
+)
+```
+
+**Avantages du dashboard :**
+- Pas d'approbation fichier (appel MCP direct)
+- Accessible cross-machine via GDrive
+- Auto-condensation automatique
+- Tags structurés pour identifier l'auteur
+
+### Fichier INTERCOM (FALLBACK uniquement)
+
+**Utiliser uniquement si le MCP `roosync_dashboard` échoue.**
 
 ```
 .claude/local/INTERCOM-{MACHINE}.md
@@ -22,36 +62,11 @@ Exemples :
 
 Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en bas.
 
-### Procedure d'ecriture OBLIGATOIRE
+### Procédure d'écriture (Fallback fichier local)
 
-**METHODE OBLIGATOIRE (Dashboard RooSync — Phase 2 migration #745) :**
+**Seulement si le MCP `roosync_dashboard` échoue.**
 
-Utiliser `roosync_dashboard` pour TOUTE communication INTERCOM. Le fichier local est un FALLBACK uniquement.
-
-**Avantages du dashboard :**
-- Pas d'approbation fichier (appel MCP direct)
-- Accessible cross-machine via GDrive
-- Auto-condensation automatique
-- Tags structurés pour identifier l'auteur
-
-**Écriture :**
-```
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["{DONE|TASK|INFO|WARN|ERROR}", "{roo-scheduler|roo-meta|claude-interactive|claude-scheduled}"],
-  content: "Contenu du message..."
-)
-```
-
-**Lecture :**
-```
-roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
-```
-
-**FALLBACK fichier local (si MCP échoue) :** Écrire dans `.claude/local/INTERCOM-{MACHINE}.md` avec apply_diff.
-
-**METHODE ALTERNATIVE 1 (apply_diff - append a la fin) :**
+**METHODE 1 (apply_diff - append a la fin) :**
 
 1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
 2. **Preparer** le nouveau message
@@ -65,20 +80,20 @@ apply_diff(
 )
 ```
 
-**METHODE ALTERNATIVE (win-cli Add-Content) :**
+**METHODE 2 (win-cli Add-Content) :**
 
 Si `apply_diff` echoue, utiliser win-cli :
 ```
 execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n'@")
 ```
 
-**METHODE DE DERNIER RECOURS (write_to_file) :**
+**METHODE 3 (write_to_file - dernier recours) :**
 
 Si les deux methodes ci-dessus echouent :
 1. **Lire** le fichier ENTIER avec `read_file`
 2. **Reecrire** avec `write_to_file` (ancien contenu + nouveau message)
 
-> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5 car le modele n'arrive pas a generer le parametre `content` en entier. Le message d'erreur est : "Roo tried to use write_to_file without value for required parameter 'content'". **Privilegier TOUJOURS `apply_diff` ou `Add-Content`.**
+> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5. **Privilegier TOUJOURS `apply_diff` ou `Add-Content`.**
 
 ### INTERDIT
 
@@ -128,12 +143,16 @@ Contenu du message...
 | `ACK` | Accuser réception d'un message de Claude |
 | `PROPOSAL` | Claude propose une tâche à Roo — traiter comme `[TASK]` |
 | `SUGGESTION` | Suggestion de Claude, non obligatoire |
+| `PATROL` | Patrouille scheduler (health check lecture seule) |
+| `FRICTION-FOUND` | Friction détectée pendant veille active (outil HS, doc introuvable, incohérence) |
+| `COORDINATION` | Message de coordination du coordinateur vers les exécutants |
+| `IDLE` | Fin de cycle scheduler sans tâche GitHub trouvée |
 
 ---
 
 ## Règles d'Engagement — Dialogue Bidirectionnel (#657)
 
-### Lecture INTERCOM en début de cycle (Étape 1)
+### Lecture du dashboard en début de cycle (Étape 1)
 
 Après avoir lu l'INTERCOM, chercher :
 
@@ -253,11 +272,9 @@ Les fichiers existants sont conservés en lecture seule comme archive historique
 
 ---
 
-## Règles de Lecture
-
 ### En Début de Session
 
-**METHODE OBLIGATOIRE (Dashboard) :**
+**METHODE OBLIGATOIRE (Dashboard RooSync) :**
 1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
 2. Lire les messages récents (< 24h)
 3. Identifier les `TASK` non complétées
@@ -265,12 +282,12 @@ Les fichiers existants sont conservés en lecture seule comme archive historique
 
 **FALLBACK fichier local (si MCP échoue) :**
 1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`
-2. Mêmes étapes 2-4 ci-dessus
+2. Mêmes étapes 3-4 ci-dessus
 
-### Format de Recherche (fallback fichier)
+### Format de Recherche (fallback fichier uniquement)
 
 ```bash
-# Trouver les messages non-résolus (fallback fichier local uniquement)
+# Trouver les messages non-résolus dans le fichier local
 grep -E "^\#\# \[.*\] .* → roo \[TASK\]" .claude/local/INTERCOM-*.md
 ```
 
