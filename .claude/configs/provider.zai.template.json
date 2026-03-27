@@ -6,29 +6,32 @@
     "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
     "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
   },
   "description": "z.ai GLM models via Anthropic-compatible API",
   "modelMapping": {
-    "opus": "GLM-5",
+    "opus": "GLM-5.1",
     "sonnet": "GLM-4.7",
     "haiku": "GLM-4.5-Air"
   },
+  "availableModels": ["glm-5.1", "glm-5-turbo", "glm-5", "glm-4.7", "glm-4.6", "glm-4.5-air"],
   "defaultModelDetails": {
-    "name": "GLM-5",
+    "name": "GLM-5.1",
     "family": "opus",
-    "description": "Latest flagship model (2026-02-12), near Opus 4.6 level"
+    "description": "Latest flagship model (2026-03-27), scores 45.3/113 coding benchmark (near Opus 4.6 at 47.9)"
   },
   "notes": [
     "z.ai provides GLM models through an Anthropic-compatible API",
-    "GLM-5 (2026-02-12) is the new flagship model, near Opus 4.6 level",
+    "GLM-5.1 (2026-03-27) is the new flagship, scores 45.3 coding benchmark (near Opus 4.6 at 47.9)",
+    "GLM-5-Turbo available for testing as potential Sonnet replacement (see #909)",
     "GLM-4.7 is mapped to sonnet for balanced performance",
     "GLM-4.5-Air is used for haiku (faster, lighter model)",
     "API timeout increased to 3000s for larger requests",
     "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80 triggers auto-compact at 80% (160k tokens → ~105k réels) - optimal for GLM 131K real context (#736 fix)"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80 triggers auto-compact at 80% (160k tokens → ~105k réels) - optimal for GLM 131K real context (#736 fix)",
+    "Premium models (5.1, 5-turbo, 5) consume 3x quota peak / 2x off-peak. Promo 1x off-peak until end April 2026."
   ],
   "warnings": {
     "contextTruncation": {

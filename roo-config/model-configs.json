@@ -1,8 +1,8 @@
 {
   "profiles": [
     {
-      "name": "Production (Qwen 3.5 local + GLM-5 cloud)",
-      "description": "Configuration de production: Qwen 3.5 35B A3B auto-hébergé pour modes simples (économique) + GLM-5 via z.ai pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = z.ai.",
+      "name": "Production (Qwen 3.5 local + GLM-5.1 cloud)",
+      "description": "Configuration de production: Qwen 3.5 35B A3B auto-hébergé pour modes simples (économique) + GLM-5.1 via z.ai pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = z.ai.",
       "modeOverrides": {
         "code-simple": "simple",
         "code-complex": "default",
@@ -36,9 +36,9 @@
       "apiProvider": "openai",
       "openAiBaseUrl": "https://api.z.ai/api/anthropic",
       "openAiApiKey": "{{SECRET:openAiApiKey}}",
-      "openAiModelId": "glm-5",
+      "openAiModelId": "glm-5.1",
       "id": "default",
-      "description": "GLM-5 Flagship via z.ai subscription (~Opus 4.6 level). Contexte réel ~131k tokens (pas 200k)."
+      "description": "GLM-5.1 Flagship via z.ai subscription (scores 45.3, near Opus 4.6 at 47.9). Contexte réel ~131k tokens (pas 200k)."
     },
     "owui-think": {
       "diffEnabled": true,
