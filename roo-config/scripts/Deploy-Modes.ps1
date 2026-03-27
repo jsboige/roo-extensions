@@ -40,6 +40,8 @@ param(
 
     [string]$Source = "",
 
+    [string]$ApiProfile = "",
+
     [switch]$DryRun
 )
 
@@ -84,6 +86,10 @@ if ($DeploymentType -eq "global") {
     $tempYamlPath = Join-Path $repoRoot "roo-config\modes\generated\simple-complex.yaml"
 
     $genArgs = @("$generateScript", "--output", "$tempYamlPath", "--format", "yaml")
+    if ($ApiProfile) {
+        $genArgs += @("--profile", $ApiProfile)
+        Write-Host "Using API profile: $ApiProfile" -ForegroundColor Cyan
+    }
     $genResult = & node @genArgs 2>&1
 
     if ($LASTEXITCODE -ne 0) {

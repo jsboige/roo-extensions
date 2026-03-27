@@ -113,6 +113,18 @@ la condensation elle-même échoue (>262K tokens) → boucle infinie (#737 RC2+R
 
 ---
 
+## ⛔ RÈGLE SSH - JAMAIS SSH VERS LA MACHINE LOCALE (Issue #903)
+
+**Tu tournes DÉJÀ sur {MACHINE}. Toutes les commandes s'exécutent LOCALEMENT.**
+
+- **JAMAIS** utiliser `ssh_execute` ou `create_ssh_connection` pour {MACHINE}
+- **JAMAIS** interpréter "Machine: {MACHINE}" comme "se connecter en SSH à {MACHINE}"
+- **TOUJOURS** utiliser `execute_command(shell="powershell", command="...")` ou `execute_command(shell="gitbash", command="...")` pour les commandes locales
+
+**Pourquoi ?** Roo tourne sur la machine locale. SSH vers soi-même échoue systématiquement avec `Unknown SSH connection ID` et bloque le scheduler.
+
+---
+
 ## Git Author (OBLIGATOIRE avant tout commit)
 
 **Tous les commits doivent utiliser le nom `jsboige`.** Avant tout `git commit`, executer :
@@ -133,6 +145,7 @@ Ceci corrige le probleme des commits sous "Roo Extensions Dev" qui polluent l'hi
 6. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
 7. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
 8. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
+9. **JAMAIS `ssh_execute` pour la machine locale** — Tu es DÉJÀ sur {MACHINE}. Utilise `execute_command` directement.
 
 ---
 
