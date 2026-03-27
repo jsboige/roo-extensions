@@ -369,7 +369,24 @@ Le repertoire `roo-code/` est un **submodule git** pointant vers le code source 
 roo-config/modes/modes-config.json     →  generate-modes.js  →  .roomodes (JSON, local)
                                        →  generate-modes.js --format yaml  →  custom_modes.yaml (YAML, global)
                                        →  Deploy-Modes.ps1 -DeploymentType global  →  %APPDATA%/.../custom_modes.yaml
+                                       →  Sync-ApiConfigs.ps1 → %APPDATA%/.../cline_custom_instructions.md
 ```
+
+**⚠️ CRITIQUE - Sync API configs après déploiement modes :**
+
+Après chaque déploiement de modes avec un profil (ex: "Production (Qwen 3.5 local + GLM-5.1 cloud)"), les API configs doivent être synchronisées avec les settings Roo VS Code :
+
+```powershell
+# Déploiement complet avec sync API configs
+powershell -ExecutionPolicy Bypass -File roo-config/scripts/Deploy-Modes.ps1 -DeploymentType global -ApiProfile "Production (Qwen 3.5 local + GLM-5.1 cloud)" -SyncApiConfigs
+```
+
+Ou exécuter le sync séparément :
+```powershell
+powershell -ExecutionPolicy Bypass -File roo-config/scripts/Sync-ApiConfigs.ps1
+```
+
+Cela met à jour les définitions API dans `cline_custom_instructions.md` pour correspondre aux `apiConfigs` de `model-configs.json`. Voir issue #914 pour les détails.
 
 ### Architecture des Modes Roo (CRITIQUE - NE PAS CONFONDRE)
 
