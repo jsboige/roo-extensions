@@ -119,16 +119,16 @@ Tu NE MODIFIES AUCUN fichier de harnais.
 
 ## ETAPES
 
-### 0. Lire l'INTERCOM local
+### 0. Lire le Dashboard Workspace
 
-Lis le fichier `.claude/local/INTERCOM-$env:COMPUTERNAME.md` (utilise l'outil Read).
-Cherche les messages recents de Roo (< 24h) avec ces tags :
-- `[DONE]` : Roo a termine une tache → analyser le bilan
+Lis le dashboard RooSync workspace : roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10).
+Cherche les messages recents (< 24h) avec ces tags :
+- `[DONE]` : Un agent a termine une tache → analyser le bilan
 - `[WAKE-CLAUDE]` : Roo a detecte des messages RooSync non traites → les traiter en priorite
 - `[PATROL]` : Roo a fait une exploration de veille active → noter le domaine couvert
 - `[FRICTION-FOUND]` : Roo a detecte un probleme → verifier et escalader si confirme
 - `[ERROR]` / `[WARN]` : Problemes operationnels → investiguer
-- `[ASK]` : Roo pose une question → repondre via INTERCOM
+- `[ASK]` : Un agent pose une question → repondre via dashboard
 
 Note les messages pertinents pour les integrer a ton analyse.
 
@@ -239,35 +239,21 @@ Format :
 - [Dispatches, rebalances, escalations]
 ``````
 
-### 7. Ecrire dans l'INTERCOM local
+### 7. Ecrire dans le Dashboard Workspace
 
-OBLIGATOIRE en fin de cycle. Utilise l'outil Edit pour ajouter un message a la fin de `.claude/local/INTERCOM-$env:COMPUTERNAME.md` :
+OBLIGATOIRE en fin de cycle. Utilise roosync_dashboard pour ajouter un message :
 
 Format :
 ``````markdown
-## [$Today HH:MM] claude-code -> roo [COORDINATION]
-### Bilan coordinateur schedule
-
-- Trafic RooSync : {N} messages analyses, {M} machines actives
-- Git : {N} commits depuis ${LookbackHours}h
-- Charge : {equilibree|desequilibree} ({details})
-- Actions prises : {dispatches, rebalances, ou "aucune"}
-- Messages INTERCOM Roo traites : {N} ({tags})
-- Prochaine action recommandee pour Roo : {suggestion}
-
----
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["INFO", "claude-scheduled"],
+  content: "## [$Today HH:MM] Coordinateur Schedule - Bilan`n`n- Trafic RooSync : {N} messages analyses, {M} machines actives`n- Git : {N} commits depuis ${LookbackHours}h`n- Charge : {equilibree|desequilibree} ({details})`n- Actions prises : {dispatches, rebalances, ou "aucune"}`n- Messages workspace traites : {N} ({tags})`n- Prochaine action recommandee : {suggestion}`n`n## CONTRAINTES ABSOLUES (rappel)`n- NE MODIFIE AUCUN fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes)`n- NE FERME AUCUNE issue sans verification checklist 100%`n- Toute issue creee DOIT avoir le label needs-approval`n- Respecte le protocole de scepticisme : VERIFIE avant de propager`n- Maximum 5 dispatches par cycle`n- Limite tes outputs (pas de dump complet de fichiers)"
+)
 ``````
 
-Si le fichier INTERCOM n'existe pas ou est inaccessible, note-le dans les logs mais ne bloque pas.
-
-## CONTRAINTES ABSOLUES
-
-- NE MODIFIE AUCUN fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes)
-- NE FERME AUCUNE issue sans verification checklist 100%
-- Toute issue creee DOIT avoir le label needs-approval
-- Respecte le protocole de scepticisme : VERIFIE avant de propager
-- Maximum 5 dispatches par cycle
-- Limite tes outputs (pas de dump complet de fichiers)
+Si le dashboard est inaccessible, note-le dans les logs mais ne bloque pas.
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire
