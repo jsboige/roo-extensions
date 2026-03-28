@@ -728,10 +728,45 @@ function Test-WaitStateReady {
         Write-Log "  → Attend: $($State.waitFor)"
         Write-Log "  → Reprendra: $($State.resumeWhen)"
 
+        # --- Stale wait-state auto-cleanup ---
+        # Auto-remove wait states older than 7 days or for CLOSED issues
+        $StaleThresholdDays = 7
+        $WaitAge = (Get-Date) - [datetime]$State.timestamp
+        if ($WaitAge.TotalDays -gt $StaleThresholdDays) {
+            Write-Log "🗑️ Wait state PÉRIMÉ (age: $([math]::Round($WaitAge.TotalDays))j > ${StaleThresholdDays}j) → suppression automatique" "WARN"
+            Remove-WaitState -TaskId $TaskId
+            return $null
+        }
+
+        # Auto-remove wait states for CLOSED GitHub issues
+        if ($TaskId -match "github-(\d+)") {
+            $IssueNum = $Matches[1]
+            try {
+                $IssueState = (& gh issue view $IssueNum --repo jsboige/roo-extensions --json state --jq '.state' 2>$null)
+                if ($IssueState -eq "CLOSED") {
+                    Write-Log "🗑️ Wait state pour issue FERMÉE (#$IssueNum) → suppression automatique" "WARN"
+                    Remove-WaitState -TaskId $TaskId
+                    return $null
+                }
+            } catch {
+                Write-Log "  Impossible de vérifier l'état de l'issue #$IssueNum" "WARN"
+            }
+        }
+
         # Vérifier condition resumeWhen
         $ResumeCondition = $State.resumeWhen.ToLower() -replace '[_\s]+', '_'
 
         switch -Regex ($ResumeCondition) {
+            "timeout_hours:?\s*(\d+)" {
+                $TimeoutHours = [int]$Matches[1]
+                Write-Log "  Vérification timeout ($TimeoutHours heures)..."
+                if ($WaitAge.TotalHours -ge $TimeoutHours) {
+                    Write-Log "✅ Timeout expiré ($([math]::Round($WaitAge.TotalHours))h >= ${TimeoutHours}h) - reprise autorisée"
+                    return $State
+                } else {
+                    Write-Log "  ⏳ Timeout pas encore atteint ($([math]::Round($WaitAge.TotalHours,1))h / ${TimeoutHours}h)"
+                }
+            }
             "user_approval|user approval" {
                 Write-Log "  Vérification user approval (INTERCOM + GitHub)..."
                 if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
