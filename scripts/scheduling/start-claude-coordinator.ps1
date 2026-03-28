@@ -119,16 +119,16 @@ Tu NE MODIFIES AUCUN fichier de harnais.
 
 ## ETAPES
 
-### 0. Lire l'INTERCOM local
+### 0. Lire le Dashboard Workspace
 
-Lis le fichier `.claude/local/INTERCOM-$env:COMPUTERNAME.md` (utilise l'outil Read).
-Cherche les messages recents de Roo (< 24h) avec ces tags :
-- `[DONE]` : Roo a termine une tache → analyser le bilan
+Lis le dashboard RooSync workspace : roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10).
+Cherche les messages recents (< 24h) avec ces tags :
+- `[DONE]` : Un agent a termine une tache → analyser le bilan
 - `[WAKE-CLAUDE]` : Roo a detecte des messages RooSync non traites → les traiter en priorite
 - `[PATROL]` : Roo a fait une exploration de veille active → noter le domaine couvert
 - `[FRICTION-FOUND]` : Roo a detecte un probleme → verifier et escalader si confirme
 - `[ERROR]` / `[WARN]` : Problemes operationnels → investiguer
-- `[ASK]` : Roo pose une question → repondre via INTERCOM
+- `[ASK]` : Un agent pose une question → repondre via dashboard
 
 Note les messages pertinents pour les integrer a ton analyse.
 
@@ -167,18 +167,51 @@ Evaluer :
 - Distribution des statuts (Todo / In Progress / Done)
 - Machines surchargees ou inactives
 
-### 4. Review et merge des PRs Worker
+### 4. Review et merge des PRs ouvertes
 
-Verifie s'il y a des PRs [Worker] ouvertes :
+Verifie TOUTES les PRs ouvertes (Worker, Executor, et manuelles) :
 ``````
-gh pr list --repo jsboige/roo-extensions --search "[Worker]" --state open --json number,title,createdAt
+gh pr list --repo jsboige/roo-extensions --state open --json number,title,createdAt,additions,deletions,author
 ``````
 
-Pour chaque PR Worker ouverte :
-- Lire le diff : `gh pr diff {number} --repo jsboige/roo-extensions`
-- Si la PR est petite (< 100 lignes) et le titre indique SUCCESS : merger avec `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch`
-- Si la PR est large ou indique "Partial (needs review)" : ajouter un commentaire de review
-- Si la PR date de plus de 48h sans activite : la fermer (travail obsolete)
+Pour chaque PR ouverte, effectue une review structuree :
+
+**4a. Lire le diff :**
+``````
+gh pr diff {number} --repo jsboige/roo-extensions
+``````
+
+**4b. Checklist anti-destruction (OBLIGATOIRE) :**
+- Pas de suppression de code sans remplacement PROUVE
+- Pas de suppression dans repertoires PROTEGES (src/services/synthesis/, src/services/narrative/)
+- Pas de nouveaux stubs (return null, throw new Error, // TODO dans du code expose)
+- Pas de console.log dans du code nouveau
+- Build + tests CI doivent passer (verifier le statut CI si disponible)
+
+**4c. Decision :**
+
+| Critere | Action |
+|---------|--------|
+| PR petite (< 100 lignes), diff propre, pas de suppression suspecte | `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch` |
+| PR moyenne (100-500 lignes), diff coherent | Ajouter un commentaire `## Coordinator Review` avec analyse + merger si OK |
+| PR large (> 500 lignes) ou suppression de code | Commentaire de review detaille, ne PAS merger automatiquement |
+| Titre indique "Partial" ou "needs review" | Commentaire de review, attendre corrections |
+| PR date de plus de 72h sans activite | Commenter pour relancer l'auteur, fermer si >1 semaine |
+
+**4d. Format du commentaire de review :**
+``````
+## Coordinator Review (scheduled)
+
+**Taille:** +{additions}/-{deletions} ({files} fichiers)
+**Analyse:**
+- [ ] Pas de suppression sans remplacement
+- [ ] Pas de stubs/console.log
+- [ ] Diff coherent avec le titre
+- [ ] Build/tests OK
+
+**Decision:** APPROVE / REQUEST_CHANGES / COMMENT
+**Details:** [analyse concise]
+``````
 
 ### 5. Decisions et dispatch
 
@@ -239,35 +272,21 @@ Format :
 - [Dispatches, rebalances, escalations]
 ``````
 
-### 7. Ecrire dans l'INTERCOM local
+### 7. Ecrire dans le Dashboard Workspace
 
-OBLIGATOIRE en fin de cycle. Utilise l'outil Edit pour ajouter un message a la fin de `.claude/local/INTERCOM-$env:COMPUTERNAME.md` :
+OBLIGATOIRE en fin de cycle. Utilise roosync_dashboard pour ajouter un message :
 
 Format :
 ``````markdown
-## [$Today HH:MM] claude-code -> roo [COORDINATION]
-### Bilan coordinateur schedule
-
-- Trafic RooSync : {N} messages analyses, {M} machines actives
-- Git : {N} commits depuis ${LookbackHours}h
-- Charge : {equilibree|desequilibree} ({details})
-- Actions prises : {dispatches, rebalances, ou "aucune"}
-- Messages INTERCOM Roo traites : {N} ({tags})
-- Prochaine action recommandee pour Roo : {suggestion}
-
----
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["INFO", "claude-scheduled"],
+  content: "## [$Today HH:MM] Coordinateur Schedule - Bilan`n`n- Trafic RooSync : {N} messages analyses, {M} machines actives`n- Git : {N} commits depuis ${LookbackHours}h`n- Charge : {equilibree|desequilibree} ({details})`n- Actions prises : {dispatches, rebalances, ou "aucune"}`n- Messages workspace traites : {N} ({tags})`n- Prochaine action recommandee : {suggestion}`n`n## CONTRAINTES ABSOLUES (rappel)`n- NE MODIFIE AUCUN fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes)`n- NE FERME AUCUNE issue sans verification checklist 100%`n- Toute issue creee DOIT avoir le label needs-approval`n- Respecte le protocole de scepticisme : VERIFIE avant de propager`n- Maximum 5 dispatches par cycle`n- Limite tes outputs (pas de dump complet de fichiers)"
+)
 ``````
 
-Si le fichier INTERCOM n'existe pas ou est inaccessible, note-le dans les logs mais ne bloque pas.
-
-## CONTRAINTES ABSOLUES
-
-- NE MODIFIE AUCUN fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes)
-- NE FERME AUCUNE issue sans verification checklist 100%
-- Toute issue creee DOIT avoir le label needs-approval
-- Respecte le protocole de scepticisme : VERIFIE avant de propager
-- Maximum 5 dispatches par cycle
-- Limite tes outputs (pas de dump complet de fichiers)
+Si le dashboard est inaccessible, note-le dans les logs mais ne bloque pas.
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire

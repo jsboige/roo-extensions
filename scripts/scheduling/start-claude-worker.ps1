@@ -529,16 +529,15 @@ function Build-GitHubPrompt {
     $PromptParts += "You are an autonomous Claude Code agent on machine $MachineId."
     $PromptParts += "Execute the following GitHub issue autonomously. Do NOT ask for clarification - make reasonable decisions and proceed."
     $PromptParts += ""
-    $PromptParts += "## INTERCOM Protocol"
-    $PromptParts += "BEFORE starting work, read the local INTERCOM file `.claude/local/INTERCOM-$MachineId.md` (use Read tool)."
-    $PromptParts += "Check for recent Roo messages (< 24h): [DONE], [WAKE-CLAUDE], [PATROL], [FRICTION-FOUND], [ERROR], [ASK]."
+    $PromptParts += "## RooSync Dashboard Protocol"
+    $PromptParts += "BEFORE starting work, read the workspace dashboard: roosync_dashboard(action: `"read`", type: `"workspace`", section: `"intercom`", intercomLimit: 10)"
+    $PromptParts += "Check for recent messages with tags: [DONE], [WAKE-CLAUDE], [PATROL], [FRICTION-FOUND], [ERROR], [ASK]."
     $PromptParts += "If [WAKE-CLAUDE] found: prioritize the indicated RooSync messages."
     $PromptParts += "If [FRICTION-FOUND] found: note the friction for context."
     $PromptParts += ""
-    $PromptParts += "AFTER completing work, append a message to the INTERCOM file (use Edit tool):"
-    $PromptParts += "Format: ## [DATE TIME] claude-code -> roo [DONE]"
-    $PromptParts += "Include: task executed, result (success/fail), next recommended action for Roo."
-    $PromptParts += "If INTERCOM file does not exist, skip this step (non-blocking)."
+    $PromptParts += "AFTER completing work, append a message to the dashboard workspace:"
+    $PromptParts += "roosync_dashboard(action: `"append`", type: `"workspace`", tags: [`"[DONE|PROGRESS|BLOCKED]`", `"claude-interactive`"], content: `"Your report...`")"
+    $PromptParts += "Include: task executed, result (success/fail), next recommended action."
     $PromptParts += ""
     $PromptParts += "## Issue #$IssueNumber : $Title"
     $PromptParts += ""
@@ -609,7 +608,7 @@ function Get-FallbackTask {
         id = "fallback-maintenance"
         subject = "Maintenance quotidienne (fallback)"
         priority = "LOW"
-        prompt = "Exécute les tâches de maintenance :`n0. Lire INTERCOM local (.claude/local/INTERCOM-$($env:COMPUTERNAME.ToLower()).md) - chercher messages Roo recents ([DONE], [WAKE-CLAUDE], [FRICTION-FOUND])`n1. Vérifier build : cd mcps/internal/servers/roo-state-manager && npm run build`n2. Vérifier tests : npx vitest run`n3. Reporter résultats dans INTERCOM local (ajouter message [MAINTENANCE] en fin de fichier avec Edit)"
+        prompt = "Exécute les tâches de maintenance :`n0. Lire dashboard workspace: roosync_dashboard(action=`"read`", type=`"workspace`", section=`"intercom`", intercomLimit: 10) - chercher messages Roo recents (tags: [DONE], [WAKE-CLAUDE], [FRICTION-FOUND])`n1. Vérifier build : cd mcps/internal/servers/roo-state-manager && npm run build`n2. Vérifier tests : npx vitest run`n3. Reporter résultats dans dashboard workspace: roosync_dashboard(action=`"append`", type=`"workspace`", tags=[`"DONE`",`"claude-interactive`"], content=`"...`")"
         source = "fallback"
     }
 }
@@ -755,9 +754,9 @@ function Test-WaitStateReady {
                 }
             }
             "intercom_message|intercom message" {
-                Write-Log "  Vérification INTERCOM message..."
-                if (Test-IntercomMessage -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ INTERCOM message détecté - reprise autorisée"
+                Write-Log "  Vérification Dashboard message..."
+                if (Test-DashboardMessage -TaskId $TaskId -WaitState $State) {
+                    Write-Log "✅ Dashboard message détecté - reprise autorisée"
                     return $State
                 }
             }
@@ -778,30 +777,32 @@ function Test-WaitStateReady {
 function Test-UserApproval {
     <#
     .SYNOPSIS
-    Vérifie si user approval détectée (INTERCOM + GitHub comments)
+    Vérifie si user approval détectée (Dashboard workspace + GitHub comments)
     #>
     param([string]$TaskId, $WaitState)
 
-    $MachineId = $env:COMPUTERNAME.ToLower()
-    $IntercomPath = Join-Path $RepoRoot ".claude\local\INTERCOM-$MachineId.md"
-
-    if (-not (Test-Path $IntercomPath)) { return $false }
+    # Note: Cette fonction vérifie les commentaires GitHub pour user approval
+    # Le dashboard workspace est utilisé pour la coordination mais les approvals
+    # se font généralement via GitHub issues/comments
 
     try {
-        $Content = Get-Content $IntercomPath -Raw
-        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+        # Vérifier les commentaires GitHub récents sur l'issue associée
+        $IssueNumber = if ($TaskId -match 'issue-(\d+)') { $Matches[1] } else { $null }
 
-        # Chercher messages INTERCOM après le timestamp
-        $ApprovalPatterns = @(
-            '\[APPROVE\]', '\[APPROVED\]', '\[OK\]', '\[GO\]',
-            'approved', 'go ahead', 'proceed', 'continue'
-        )
+        if ($IssueNumber) {
+            $Comments = & gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq '.comments[].body' 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $ApprovalPatterns = @(
+                    '\[APPROVE\]', '\[APPROVED\]', '\[OK\]', '\[GO\]',
+                    'approved', 'go ahead', 'proceed', 'continue'
+                )
 
-        foreach ($Pattern in $ApprovalPatterns) {
-            if ($Content -match "(?m)^## \[([^\]]+)\].*$Pattern") {
-                $MessageTimestamp = [DateTime]::Parse($Matches[1])
-                if ($MessageTimestamp -gt $SavedTimestamp) {
-                    return $true
+                foreach ($Comment in $Comments) {
+                    foreach ($Pattern in $ApprovalPatterns) {
+                        if ($Comment -match $Pattern) {
+                            return $true
+                        }
+                    }
                 }
             }
         }
@@ -925,36 +926,27 @@ function Test-GitHubDecision {
 function Test-IntercomMessage {
     <#
     .SYNOPSIS
-    Vérifie si message INTERCOM détecté
+    Vérifie si message dashboard workspace détecté (DEPRECATED - use Test-DashboardMessage)
     #>
     param([string]$TaskId, $WaitState)
 
-    $MachineId = $env:COMPUTERNAME.ToLower()
-    $IntercomPath = Join-Path $RepoRoot ".claude\local\INTERCOM-$MachineId.md"
+    # Cette fonction est deprecated - on utilise maintenant le dashboard workspace
+    # Pour compatibilité, on retourne false (pas de reprise basée sur INTERCOM)
+    Write-Log "Test-IntercomMessage est deprecated - utiliser Test-DashboardMessage à la place" "WARN"
+    return $false
+}
 
-    if (-not (Test-Path $IntercomPath)) { return $false }
+function Test-DashboardMessage {
+    <#
+    .SYNOPSIS
+    Vérifie si message dashboard workspace détecté après timestamp
+    #>
+    param([string]$TaskId, $WaitState)
 
-    try {
-        $Content = Get-Content $IntercomPath -Raw
-        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
-
-        # Chercher messages INTERCOM après le timestamp
-        $Pattern = '(?m)^## \[([^\]]+)\].*\[(TASK|INFO|DONE|URGENT)\]'
-        $Matches = [regex]::Matches($Content, $Pattern)
-
-        foreach ($Match in $Matches) {
-            $MessageTimestamp = [DateTime]::Parse($Match.Groups[1].Value)
-            if ($MessageTimestamp -gt $SavedTimestamp) {
-                return $true
-            }
-        }
-
-        return $false
-    }
-    catch {
-        Write-Log "Erreur Test-IntercomMessage: $_" "WARN"
-        return $false
-    }
+    # Note: Pour l'instant, cette fonction retourne false car le dashboard
+    # est principalement utilisé pour les rapports, pas pour les signaux de reprise
+    # Les signaux de reprise se font via GitHub issues/comments ou RooSync inbox
+    return $false
 }
 
 # =============================================================================
@@ -1197,6 +1189,104 @@ function Get-AdjustedIterations {
     return $AdjustedIterations
 }
 
+function Find-ExistingWorktree {
+    <#
+    .SYNOPSIS
+    Cherche un worktree existant du run précédent pour reprise
+
+    .DESCRIPTION
+    Scanne le répertoire .claude/worktrees/ pour trouver des worktrees orphelins
+    du run précédent. Si trouvé, évalue l'état (git status, log) et décide si on peut reprendre.
+
+    .OUTPUTS
+    Hashtable avec { worktreePath, state, branch, hasChanges } si un worktree reprise possible, $null sinon.
+    #>
+    param([string]$TaskId)
+
+    $WorktreeDir = Join-Path $RepoRoot ".claude\worktrees"
+    if (-not (Test-Path $WorktreeDir)) { return $null }
+
+    $Machine = $env:COMPUTERNAME.ToLower()
+
+    # Chercher les worktrees correspondants à cette machine
+    $WorktreePattern = "wt-worker-$Machine-*"
+    if ($TaskId -match 'issue-(\d+)') {
+        $WorktreePattern = "wt-$($Matches[1])-$Machine-*"
+    }
+
+    $CandidateDirs = Get-ChildItem $WorktreeDir -Filter "$WorktreePattern" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+
+    if ($CandidateDirs.Count -eq 0) { return $null }
+
+    Write-Log "Vérification de $($CandidateDirs.Count) worktree(s) existant(s) pour reprise..."
+
+    foreach ($Dir in $CandidateDirs) {
+        $WorktreePath = $Dir.FullName
+
+        # Vérifier que c'est bien un worktree git valide
+        $GitDir = Join-Path $WorktreePath ".git"
+        if (-not (Test-Path $GitDir)) { continue }
+
+        try {
+            # Évaluer l'état du worktree
+            $PrevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+
+            # Récupérer le nom de la branche
+            $Branch = git -C $WorktreePath branch --show-current 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                $ErrorActionPreference = $PrevPref
+                continue
+            }
+            $Branch = $Branch.Trim()
+
+            # Vérifier s'il y a des changements
+            $StatusOutput = git -C $WorktreePath status --porcelain 2>&1
+            $HasChanges = $StatusOutput -and $StatusOutput.Trim().Length -gt 0
+
+            # Récupérer les derniers commits
+            $LogOutput = git -C $WorktreePath log --oneline -3 2>&1
+
+            $ErrorActionPreference = $PrevPref
+
+            # Log les détails
+            Write-Log "Worktree existant trouvé: $WorktreePath"
+            Write-Log "  → Branch: $Branch"
+            Write-Log "  → Changements: $(if ($HasChanges) { 'OUI' } else { 'NON' })"
+            Write-Log "  → Derniers commits:"
+            $LogOutput -split "`n" | ForEach-Object { Write-Log "    $_" "GIT" }
+
+            # Décider: si pas de changements, proposer de supprimer et recréer
+            # Si changements, proposer de reprendre
+            if ($HasChanges) {
+                Write-Log "✅ Worktree avec changements - REPRISE POSSIBLE"
+                return @{
+                    worktreePath = $WorktreePath
+                    state = "resume"
+                    branch = $Branch
+                    hasChanges = $true
+                }
+            } else {
+                Write-Log "ℹ️ Worktree propre (0 changements) - suppression et recréation recommandée"
+                # On pourrait supprimer ici, mais on laisse Create-Worktree le faire
+                return @{
+                    worktreePath = $WorktreePath
+                    state = "clean"
+                    branch = $Branch
+                    hasChanges = $false
+                }
+            }
+        }
+        catch {
+            Write-Log "Erreur vérification worktree ${WorktreePath}: $_" "WARN"
+            continue
+        }
+    }
+
+    return $null
+}
+
 function Create-Worktree {
     param([string]$TaskId, $Task)
 
@@ -1205,6 +1295,31 @@ function Create-Worktree {
         return $null
     }
 
+    # 1. Chercher d'abord un worktree existant du run précédent
+    $ExistingWt = Find-ExistingWorktree -TaskId $TaskId
+
+    if ($ExistingWt) {
+        if ($ExistingWt.state -eq "resume") {
+            # Worktree avec changements - on reprend dedans
+            Write-Log "🔄 REPRISE dans worktree existant: $($ExistingWt.worktreePath)"
+            Write-Log "  → Branch: $($ExistingWt.branch)"
+            Write-Log "  → Les changements existants seront préservés"
+
+            # Ajouter un contexte de continuation au prompt si fourni
+            if ($Task -and $Task.prompt) {
+                $Task.prompt = "[CONTINUATION FROM PREVIOUS SESSION - Resuming in existing worktree with uncommitted changes]`n`n" + $Task.prompt
+            }
+
+            return $ExistingWt.worktreePath
+        } elseif ($ExistingWt.state -eq "clean") {
+            # Worktree propre - supprimer et recréer
+            Write-Log "🧹 Nettoyage worktree propre: $($ExistingWt.worktreePath)"
+            Remove-Worktree -WorktreePath $ExistingWt.worktreePath
+            Write-Log "  → Worktree supprimé, création d'un nouveau..."
+        }
+    }
+
+    # 2. Créer un nouveau worktree
     # Extract issue number from task subject for cleaner branch names
     $IssueNum = $null
     if ($Task -and $Task.subject -match '#(\d+)') { $IssueNum = $Matches[1] }
@@ -2238,9 +2353,17 @@ REASON: [resume des tests ajoutes ou findings de veille]
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
     Mark-TaskAsComplete -Task $Task
 
-    # 8. Cleanup worktree (safe to remove after push - branch exists on origin)
+    # 8. Cleanup worktree SEULEMENT après push+PR confirmés
+    # Si PR créée avec succès, on peut supprimer le worktree (branch existe sur origin)
+    # Sinon, conserver pour reprise ou investigation manuelle
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
-        Remove-Worktree -WorktreePath $WorktreePath
+        if ($PrUrl) {
+            Write-Log "PR créée avec succès, suppression du worktree..."
+            Remove-Worktree -WorktreePath $WorktreePath
+        } else {
+            Write-Log "⚠️ Pas de PR créée - worktree CONSERVÉ pour investigation: $WorktreePath" "WARN"
+            Write-Log "  → Si pas de changements, le worktree sera nettoyé au prochain run" "INFO"
+        }
     }
 
     Write-Log "=== WORKER TERMINÉ $(if ($PrUrl) { "(PR: $PrUrl)" }) ==="
@@ -2255,9 +2378,11 @@ catch {
     Write-Log "ERREUR CRITIQUE: $_" "ERROR"
     Write-Log $_.ScriptStackTrace "ERROR"
 
-    # Cleanup en cas d'erreur
+    # EN CAS D'ERREUR: CONSERVER le worktree pour reprise au prochain run
+    # Le worktree contient tout le travail non commité/pushé qui peut être repris
     if ($UseWorktree -and $WorktreePath -and ($WorktreePath -ne $RepoRoot)) {
-        Remove-Worktree -WorktreePath $WorktreePath
+        Write-Log "⚠️ Worktree CONSERVÉ pour reprise: $WorktreePath" "WARN"
+        Write-Log "  → Le prochain run tentera de reprendre le travail dans ce worktree" "WARN"
     }
 
     exit 1

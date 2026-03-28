@@ -43,7 +43,9 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 1. Diagnostiquer : `roosync_mcp_management(action: "manage", subAction: "read")`
 2. Reparer si possible (config incorrecte, fork local manquant)
 3. Si non reparable : envoyer message URGENT au coordinateur via RooSync
-4. Documenter dans INTERCOM [CRITICAL]
+4. Documenter dans dashboard workspace [CRITICAL] : `roosync_dashboard(action: "append", type: "workspace", tags: ["CRITICAL"], content: "...")`
+
+**FALLBACK :** Si le MCP dashboard echoue (GDrive offline), utiliser `.claude/local/INTERCOM-{MACHINE}.md` comme fichier local de LAST RESORT.
 
 **Reference complete :** [`docs/roosync/MCP_AVAILABILITY.md`](../../docs/roosync/MCP_AVAILABILITY.md)
 
@@ -55,24 +57,25 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 Execute ces actions automatiquement, en parallele quand possible :
 
-```bash
+```bashbash
 # En parallele
 hostname
 git log --oneline -5
 git fetch origin && git pull origin main
 # Verifier submodule mcps/internal (evite merge conflicts)
 cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | head -5 && cd ../..
-```
+```bash
 
 Puis (en parallele) :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
-2. **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (derniers messages Roo < 24h)
-   - Identifier le dernier message de Roo (tag `[DONE]`, `[IDLE]`, `[PARTIEL]`)
-   - Si `[DONE]` ou `[IDLE]` sans `[ACK]` dans les 2 derniers messages Claude → écrire `[ACK]`
+2. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
+   - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)
+   - Si `[DONE]` ou `[IDLE]` sans `[ACK]` dans les 2 derniers messages Claude → écrire `[ACK]` via `roosync_dashboard(action: "append", ...)`
    - Si Roo était **IDLE** → ajouter `[PROPOSAL]` avec 1-2 tâches suggérées
    - Si `[ASK]` sans `[REPLY]` → répondre **AVANT** de commencer son propre travail
    - **Règle Anti-Silence :** Ne JAMAIS laisser 2 cycles consécutifs de Roo `[IDLE]` sans `[PROPOSAL]`
    - **Référence :** `.claude/rules/intercom-protocol.md` — Section "Dialogue Bidirectionnel (#657)"
+   - **FALLBACK :** Si le MCP dashboard echoue (GDrive offline), utiliser `.claude/local/INTERCOM-{MACHINE}.md` comme fichier local de LAST RESORT.
 3. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
 4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
 
@@ -81,22 +84,23 @@ Puis (en parallele) :
 - Si la premisse est incorrecte : rapporter immediatement au coordinateur, ne pas executer sur une base fausse
 - **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
-**Détection proactive de condensation (INTERCOM) :**
-- Compter les lignes INTERCOM : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
-- **Alerte si > 500 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
-- **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
-- **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
+**Détection proactive de condensation (dashboard) :**
+- Le dashboard RooSync s'auto-condense à 500 messages (pas de detection manuelle necessaire)
+- **FALLBACK INTERCOM** : Si utilise le fichier local fallback, compter les lignes : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
+  - **Alerte si > 500 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
+  - **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
+  - **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
 
 **Référence :** [`docs/roosync/CONDENSATION_THRESHOLDS.md`](../../docs/roosync/CONDENSATION_THRESHOLDS.md) (Issue #502)
 
 Affiche un resume CONCIS (10 lignes max) :
-```
+```bash
 Machine: {name} | Git: {hash} | Tests: {dernier resultat connu}
 SDDD: codebase_search OK/KO | Roo tache active: {oui/non}
 INTERCOM: {X messages recents} | RooSync: {Y non-lus}
 Issues ouvertes: {Z} | Taches assignees: {liste courte}
 Condensation: {OK | ALERTE X lignes | CRITIQUE >1000 lignes}
-```
+```bash
 
 **Si codebase_search echoue** (EMBEDDING_* non configure) : Signaler en friction et continuer sans.
 
@@ -110,9 +114,9 @@ Condensation: {OK | ALERTE X lignes | CRITIQUE >1000 lignes}
 
 **TOUJOURS commencer par lister les conversations :**
 
-```
+```bash
 conversation_browser(action: "list", limit: 20, sortBy: "lastActivity", sortOrder: "desc")
-```
+```bash
 
 Ceci retourne les IDs, timestamps, modes et tailles des taches recentes. Identifier :
 - Les taches `orchestrator-simple` (executions Roo scheduler)
@@ -123,9 +127,9 @@ Ceci retourne les IDs, timestamps, modes et tailles des taches recentes. Identif
 
 Avec un ID de tache identifie en etape 0 :
 
-```
+```bash
 conversation_browser(action: "tree", conversation_id: "{TASK_ID}", output_format: "ascii-tree")
-```
+```bash
 
 Selectionner les 3-5 executions scheduler les plus recentes depuis la derniere verification.
 
@@ -133,7 +137,7 @@ Selectionner les 3-5 executions scheduler les plus recentes depuis la derniere v
 
 Pour chaque tache scheduler identifiee :
 
-```
+```bash
 conversation_browser(
   action: "view",
   task_id: "{TASK_ID}",
@@ -141,7 +145,7 @@ conversation_browser(
   smart_truncation: true,
   max_output_length: 15000
 )
-```
+```bash
 
 ### 3. Detecter les patterns d'erreur
 
@@ -160,32 +164,42 @@ Calculer pour les dernieres executions :
 - **Niveau de complexite** : ratio `-simple` vs `-complex` vs escalades
 - **Erreurs recurrentes** : memes erreurs > 2 fois ?
 
-### 5. Ajuster les instructions Roo via INTERCOM
+### 5. Ajuster les instructions Roo via dashboard
 
-Selon les resultats, ecrire dans INTERCOM (`.claude/local/INTERCOM-{MACHINE}.md`) :
+Selon les resultats, envoyer un message au dashboard workspace :
 
 **Si taux succes > 90% et seulement -simple :**
-```markdown
-## [{DATE}] claude-code -> roo [SCHEDULED]
-### Escalade : passer au niveau complex
+```bash
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["SCHEDULED", "claude-interactive"],
+  content: "## Escalade : passer au niveau complex
 Tes dernieres executions sont toutes reussies. Pour la prochaine execution :
 - Essaie au moins 1 tache en mode `code-complex` ou `debug-complex`
 - Si tu trouves une issue GitHub de complexite moyenne, utilise `-complex`
-- Rappel de la chaine : code-simple → code-complex (GLM 5) → orchestrator-complex
-```
+- Rappel de la chaine : code-simple → code-complex (GLM 5) → orchestrator-complex"
+)
+```bash
 
 **Si erreurs detectees :**
-```markdown
-## [{DATE}] claude-code -> roo [SCHEDULED]
-### Correction : erreurs detectees dans tes traces
+```bash
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["SCHEDULED", "WARN", "claude-interactive"],
+  content: "## Correction : erreurs detectees dans tes traces
 Erreurs trouvees dans les executions recentes :
 - {description de chaque erreur}
-Merci de corriger pour la prochaine execution.
-```
+Merci de corriger pour la prochaine execution."
+)
+```bash
 
 **Si taches `-complex` echouent systematiquement :**
 - Reprendre les taches signalees `[ESCALADE-CLAUDE]` dans ta propre pile de travail (Phase 2)
 - Ajuster le workflow `.roo/scheduler-workflow-*.md` si le probleme est structurel
+
+**FALLBACK :** Si le MCP dashboard echoue, utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` avec le format markdown ci-dessus.
 
 ### 6. Verifier les traces Claude Worker (si applicable)
 
@@ -198,11 +212,11 @@ Signaler toute anomalie : boucle, echec silencieux, issue traitee plusieurs fois
 
 ### 7. Resume de l'audit (pour le log)
 
-```
+```bash
 Audit traces schedulers : Roo={X analysees, Y% succes} | Claude Worker={A traitees, B echecs}
 Niveau atteint : {simple seulement | debut complex | majorite complex}
 Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches reprises}
-```
+```bash
 
 **RÈGLE DE DENSIFICATION :** Voir [`docs/roo-code/SCHEDULER_DENSIFICATION.md`](../../docs/roo-code/SCHEDULER_DENSIFICATION.md) pour le sweet spot d'escalade et le format de rapport de fin de cycle.
 
@@ -356,12 +370,12 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
 1. Scanner `docs/` récursivement
 2. Créer une structure hiérarchique :
 
-   ```markdown
+   ```bashmarkdown
    # docs/ INDEX
 
    ## Category
    - [File Title](path/to/file.md) - Brief description
-   ```
+   ```bash
 
 3. Pour chaque fichier, extraire :
 
@@ -397,11 +411,14 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
    - **Santé infra** : Tester endpoints (embeddings.myia.io, qdrant.myia.io, etc.)
 
 2. Lire les fichiers pertinents du domaine choisi
-3. Documenter les findings dans INTERCOM avec le tag `[PATROL]`
+3. Documenter les findings dans le dashboard workspace avec le tag `[PATROL]` :
+   ```bash
+   roosync_dashboard(action: "append", type: "workspace", tags: ["PATROL", "claude-interactive"], content: "...")
+   ```bash
 
 **Livrables**
 
-- Rapport INTERCOM avec zone explorée + findings
+- Rapport dashboard avec zone explorée + findings
 
 **Critère de succès**
 
@@ -413,7 +430,7 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
 
 Après avoir exécuté une tâche de consolidation, rapporter :
 
-```markdown
+```bashmarkdown
 ## [{DATE}] Session Idle Consolidation
 
 **Tâche** : {ID et titre de la tâche}
@@ -438,7 +455,7 @@ Après avoir exécuté une tâche de consolidation, rapporter :
 **Prochaine action recommandée** :
 
 - {suite logique ou tâche suivante}
-```
+```bash
 
 Passer directement a la Phase 2.
 
@@ -462,14 +479,14 @@ Passer directement a la Phase 2.
      - `roosync_config(action: "collect")` → Collecter la config locale
      - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
      - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline
-   - Nettoyage INTERCOM (si > 1000 lignes)
+   - Nettoyage dashboard (si > 500 messages, le dashboard s'auto-condense — pas d'action necessaire)
 
 ### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
 
 **⚠️ Les IDs GitHub changent. Toujours vérifier les IDs actuels avant de claim.**
 
 **Requête pour récupérer tous les IDs dynamiquement :**
-```bash
+```bashbash
 # Récupérer la configuration complète du Project #67
 gh api graphql -f query='
 {
@@ -492,7 +509,7 @@ gh api graphql -f query='
     }
   }
 }' --jq '.data.user.projectV2'
-```
+```bash
 
 **Cette requête retourne :**
 - **Field IDs** : `PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY` (Status), etc.
@@ -508,12 +525,12 @@ gh api graphql -f query='
 **AVANT de commencer une tache**, verifier que la Machine et l'Agent ne sont pas deja assignes a une autre machine. Si la tache est libre (Machine vide ou "Any"), la revendiquer :
 
 **Etape 1 : Commentaire GitHub** (visible par tous) :
-```bash
+```bashbash
 gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by {MACHINE} (Claude Code). Working on it now."
-```
+```bash
 
 **Etape 2 : Mettre a jour Project #67** (Machine + Agent + Status) :
-```bash
+```bashbash
 # Mettre le statut "In Progress"
 gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg7PYHY\", value: { singleSelectOptionId: \"47fc9ee4\" } }) { projectV2Item { id } } }"
 
@@ -522,7 +539,7 @@ gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { proje
 
 # Mettre l'Agent (Claude Code)
 gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(input: { projectId: \"PVT_kwHOADA1Xc4BLw3w\", itemId: \"{ITEM_ID}\", fieldId: \"PVTSSF_lAHOADA1Xc4BLw3wzg9icmA\", value: { singleSelectOptionId: \"cf1eae0a\" } }) { projectV2Item { id } } }"
-```
+```bash
 
 **IDs des options Machine :**
 | Machine | Option ID |
@@ -564,20 +581,20 @@ Pour chaque tache selectionnee, execute le cycle complet :
 - Tester incrementalement
 
 ### 3c. Validation
-```bash
+```bashbash
 cd mcps/internal/servers/roo-state-manager
 npm run build    # Build TypeScript
 npx vitest run   # Tests unitaires (JAMAIS npm test)
-```
+```bash
 
 ### 3d. Commit + Push (si validation OK)
-```bash
+```bashbash
 git add {fichiers_modifies}
 git commit -m "type(scope): description
 
 Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 git push origin main
-```
+```bash
 
 ### 3e. Validation SDDD (Bookend fin)
 - **Bookend fin** : `codebase_search(query: "concept implemente", workspace: "d:\\roo-extensions")` → Verifier que le travail est retrouvable
@@ -597,8 +614,8 @@ git push origin main
 **Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
 
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
-- **INTERCOM** : Informer Roo des modifications
-- **RooSync** : Message au coordinateur (resume, pas de pave)
+- **Dashboard RooSync** : Rapporter la progression : `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")`
+- **RooSync message au coordinateur** : Resume concis (pas de pave)
 
 ### 3g. Tache suivante
 - **Retour a Phase 2** : Selectionner la prochaine tache
@@ -641,7 +658,7 @@ git push origin main
 - Tache qui prend >2h sans progres visible
 
 ### Communication
-- **INTERCOM** : Mettre a jour apres chaque action majeure
+- **Dashboard RooSync** : Rapporter la progression apres chaque action majeure via `roosync_dashboard(action: "append", type: "workspace", ...)`
 - **RooSync** : Rapport concis au coordinateur (accomplissements + commits)
 - **GitHub** : Commenter les issues avec les resultats
 - Messages courts et factuels, pas de pavés
@@ -658,9 +675,9 @@ git push origin main
 
 ### Coordination Roo (meme machine)
 - Claude = cerveau principal, Roo = assistant
-- Deleguer a Roo via INTERCOM pour taches repetitives
+- Deleguer a Roo via dashboard workspace pour taches repetitives
 - Toujours verifier le code de Roo avant commit
-- Ne PAS utiliser roosync_send pour communication locale (utiliser INTERCOM)
+- Ne PAS utiliser roosync_send pour communication locale (utiliser dashboard)
 
 ### Consolidation fin de session
 - Mettre a jour MEMORY.md (prive) avec etat courant
@@ -669,9 +686,9 @@ git push origin main
 
 ### Protocole de friction (OBLIGATOIRE)
 Tout probleme avec les outils, skills, ou processus doit etre signale au collectif :
-```
+```bash
 roosync_send(action: "send", to: "all", subject: "[FRICTION] Description courte", body: "## Probleme\n...\n## Contexte\n...\n## Impact\n...\n## Suggestion\n...", tags: ["friction"])
-```
+```bash
 Le coordinateur (myia-ai-01) synthetise et decide les ameliorations incrementales.
 Les skills evoluent par friction reelle, pas par anticipation theorique.
 
@@ -693,8 +710,8 @@ Les skills evoluent par friction reelle, pas par anticipation theorique.
    - Prioriser : documentation, code local, tests, cleanup
    - Éviter : tâches multi-machines, attente de validations externes
 
-2. **Communication différée**
-   - Continuer à écrire dans INTERCOM (Roo peut lire quand il revient)
+2. **Communication différée (FALLBACK INTERCOM)**
+   - Si le MCP dashboard est indisponible (GDrive offline), utiliser `.claude/local/INTERCOM-{MACHINE}.md`
    - Stocker les rapports RooSync localement (brouillon)
    - Poster les commentaires GitHub (seront lus au retour)
 
@@ -714,8 +731,8 @@ Les skills evoluent par friction reelle, pas par anticipation theorique.
 ### Reprise mode normal
 Quand les machines reviennent :
 1. Sync-tour complet pour rattraper le retard
-2. Envoyer les rapports accumulés
-3. Vérifier les INTERCOM des autres machines
+2. Envoyer les rapports accumulés via dashboard
+3. Vérifier les dashboards workspace des autres machines
 4. Reprendre le workflow normal
 
 ---
@@ -730,14 +747,14 @@ Quand les machines reviennent :
 - **Field Machine** : `PVTSSF_lAHOADA1Xc4BLw3wzg9nHu8` (ai01=`ae516a70`, po2023=`2b4454e0`, po2024=`91dd0acf`, po2025=`4f388455`, po2026=`bc8df25a`, web1=`e3cd0cd0`, All=`175c5fe1`, Any=`4c242ac6`)
 
 ### Trouver l'ITEM_ID d'une issue dans le projet
-```bash
+```bashbash
 # Chercher parmi les items du projet (paginer si >100)
 gh api graphql -f query="{ user(login: \"jsboige\") { projectV2(number: 67) { items(first: 100) { nodes { id content { ... on Issue { number } } } } } } }"
 # L'ITEM_ID est le champ "id" de l'item dont le content.number correspond
-```
+```bash
 
 ### Commandes frequentes
-```bash
+```bashbash
 # Issues
 gh issue list --repo jsboige/roo-extensions --state open --limit 20
 gh issue view {NUM} --repo jsboige/roo-extensions
@@ -753,15 +770,17 @@ git add {files} && git commit -m "type(scope): desc" && git push
 # RooSync
 roosync_read(mode: "inbox", status: "unread")
 roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...")
-```
+```bash
 
 ### Fichiers cles
+
 | Fichier | Usage |
 |---------|-------|
-| `.claude/local/INTERCOM-{MACHINE}.md` | Communication locale Roo |
+| `roosync_dashboard` (MCP) | Coordination cross-machine (CANAL PRINCIPAL) |
 | `CLAUDE.md` | Configuration projet |
 | `.claude/agents/` | Sub-agents disponibles |
 | `mcps/internal/servers/roo-state-manager/src/` | Code source MCP |
+| `.claude/local/INTERCOM-{MACHINE}.md` | Fallback LOCAL (seulement si MCP dashboard echoue) |
 
 ### Outils MCP avances
 | Outil | Usage | Exemple |
@@ -774,9 +793,9 @@ roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...
 **IMPORTANT :** Pour `codebase_search`, toujours passer `workspace` explicitement (l'auto-detection est buggee pour Claude Code).
 
 ### Configuration EMBEDDING_* requise dans `.env`
-```
+```bash
 EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
 EMBEDDING_DIMENSIONS=2560
 EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
 EMBEDDING_API_KEY=vllm-placeholder-key-2024
-```
+```bash
