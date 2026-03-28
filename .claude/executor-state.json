@@ -1,0 +1,21 @@
+{
+  "$schema": "./executor-state.schema.json",
+  "sessionId": null,
+  "startTime": null,
+  "lastActivity": null,
+  "currentPhase": null,
+  "tasksCompleted": [],
+  "tasksInProgress": [],
+  "tasksPending": [],
+  "context": {
+    "gitState": null,
+    "machineId": null,
+    "workspace": null,
+    "notes": null
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "created": null,
+    "modified": null
+  }
+}

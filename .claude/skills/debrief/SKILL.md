@@ -11,9 +11,9 @@ metadata:
 
 # Skill: Debrief - Analyse et Documentation de Session
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Cree:** 2026-02-12
-**MAJ:** 2026-02-21
+**MAJ:** 2026-03-28 (intégration état executor, issue #925)
 **Usage:** `/debrief`
 **Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-conversational-grounding.md`)
 
@@ -110,34 +110,74 @@ Reutilisable: [Oui/Non]
 - Dates et contextes clairs
 - Liens vers issues GitHub si applicable
 
-### Phase 4 : Mise à Jour INTERCOM
+### Phase 4 : Intégration État Executor (NOUVEAU v2.0)
 
-**Contenu :**
+**Vérifier si un état executor existe :**
+```
+Read: .claude/executor-state.json
+```
+
+**Si le fichier existe :**
+
+1. **Analyser l'état final** :
+   - `tasksCompleted` → Tâches terminées dans la session
+   - `tasksInProgress` → Tâches inachevées (critique pour reprise)
+   - `tasksPending` → Tâches identifiées mais non commencées
+
+2. **Générer le rapport de session** basé sur l'état :
+   - Durée de session : `startTime` → `lastActivity`
+   - Phase d'arrêt : `currentPhase`
+   - Productivité : nombre de tâches complétées
+   - Work in progress : tâches à reprendre
+
+3. **Sauvegarder l'état final** avant archivage :
+   - Marquer la session comme "ended"
+   - Ajouter `interruptionReason` si applicable
+   - Conserver dans `.claude/executor-state.archive/`
+
+**Format du rapport avec état executor :**
+
 ```markdown
 ## [TIMESTAMP] claude-code → roo [DEBRIEF]
 
-### Session Recap - [DATE]
+### Session Executor - [DATE]
+
+**Session ID :** {sessionId}
+**Durée :** {X heures}
+**Phase d'arrêt :** {currentPhase}
 
 **Tâches Accomplies :**
-- [Liste avec statuts ✅/⏳]
+- [Liste de tasksCompleted]
 
-**Problèmes Résolus :**
-- [Problème] → [Solution]
+**Tâches Inachevées :**
+- [Liste de tasksInProgress avec statut et notes]
 
 **État Système :**
-- Git: [statut]
-- Build: [statut]
+- Git: {gitState}
+- Build: {statut}
 - Tests: [résultats]
 - MCPs: [statut]
 
 **Actions Requises pour Roo :**
 - [Directives claires pour prochain cycle]
+- [Reprise prioritaire : tâches inachevées]
 
 **Monitoring :**
 - [Éléments à surveiller]
 ```
 
-### Phase 5 : Résumé pour Utilisateur
+**Si `tasksInProgress` non vide** :
+- **Créer une issue GitHub** avec template "[CONTINUATION REQUIRED]"
+- Inclure l'`sessionId` dans le corps de l'issue pour référence
+- Tag : `claude-only`, `enhancement`
+
+### Phase 5 : Mise à Jour INTERCOM (si PAS executor state)
+
+**Si PAS d'état executor (session non-executor ou état absent) :**
+
+Utiliser le format INTERCOM standard (voir Phase 4 originale).
+
+### Phase 6 : Résumé pour Utilisateur
 
 **Format :**
 ```
