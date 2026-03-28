@@ -68,7 +68,7 @@ Ne JAMAIS utiliser les modes natifs (code, debug, architect, ask, orchestrator) 
 
 ## Scepticisme Raisonnable
 
-**Ne jamais affirmer un fait sans preuve dans INTERCOM.** Si une affirmation te surprend (GPU, modele, service, blocage), la verifier avant de la rapporter. Voir `.roo/rules/20-skepticism-protocol.md`.
+**Ne jamais affirmer un fait sans preuve dans INTERCOM.** Si une affirmation te surprend (GPU, modele, service, blocage), la verifier avant de la rapporter. Voir `.roo/rules/21-skepticism-protocol.md`.
 
 ---
 
@@ -121,7 +121,7 @@ Types : `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
 ## Ressources
 
 - **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (voir `02-intercom.md`)
-- **Validation** : `.roo/rules/21-validation.md`
+- **Validation** : `.roo/rules/22-validation.md`
 - **Tests** : `.roo/rules/13-test-success-rates.md`
 - **SDDD** : regles globales `~/.roo/rules/01-sddd-escalade.md`
 - **GitHub Project** : https://github.com/users/jsboige/projects/67

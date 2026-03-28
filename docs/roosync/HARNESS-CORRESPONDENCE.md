@@ -20,12 +20,12 @@ Ces règles ont des correspondances directes entre Roo et Claude :
 |--------------|-----------|-----------------|
 | `file-writing.md` | `08-file-writing.md` | ✅ Stratégies d'écriture fichier (limites Qwen vs Edit/Write) |
 | `sddd-conversational-grounding.md` | `04-sddd-grounding.md` | ✅ Protocole triple grounding + bookend |
-| `no-deletion-without-proof.md` | `22-no-deletion-without-proof.md` | ✅ Règle anti-destruction |
-| `pr-mandatory.md` | `19-pr-mandatory.md` | ✅ Workflow PR obligatoire |
-| `skepticism-protocol.md` | `20-skepticism-protocol.md` | ✅ Vérification avant propagation |
+| `no-deletion-without-proof.md` | `23-no-deletion-without-proof.md` | ✅ Règle anti-destruction |
+| `pr-mandatory.md` | `20-pr-mandatory.md` | ✅ Workflow PR obligatoire |
+| `skepticism-protocol.md` | `21-skepticism-protocol.md` | ✅ Vérification avant propagation |
 | `test-success-rates.md` | `13-test-success-rates.md` | ✅ Taux de succès attendus |
 | `tool-availability.md` | `05-tool-availability.md` | ✅ STOP & REPAIR si MCP absent |
-| `validation.md` | `21-validation.md` | ✅ Checklist validation consolidation |
+| `validation.md` | `22-validation.md` | ✅ Checklist validation consolidation |
 | `ci-guardrails.md` | `10-ci-guardrails.md` | ✅ Validation CI avant push |
 | `github-cli.md` | `19-github-cli.md` | ✅ Utilisation gh CLI |
 | `intercom-protocol.md` | `02-intercom.md` | ✅ Protocole communication locale |

@@ -44,10 +44,10 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `17-friction-protocol.md` | `friction-protocol.md` | docs/ | ✅ Aligned | Friction reporting (on-demand) |
 | `18-meta-analysis.md` | `meta-analysis.md` | docs/reference/ | ✅ Aligned | Meta-analyst tier (on-demand) |
 | `19-github-cli.md` | `github-cli.md` | rules/ | ✅ Identical | GitHub CLI and GraphQL |
-| `19-pr-mandatory.md` | `pr-mandatory.md` | rules/ | ✅ Aligned | PR mandatory workflow |
-| `20-skepticism-protocol.md` | `skepticism-protocol.md` | rules/ | ✅ Aligned v2.0.0 | Anti-propagation (#924) |
-| `21-validation.md` | `validation.md` | rules/ | ✅ Aligned | Validation rules |
-| `22-no-deletion-without-proof.md` | `no-deletion-without-proof.md` | rules/ | ✅ Aligned | Anti-destruction rule |
+| `20-pr-mandatory.md` | `pr-mandatory.md` | rules/ | ✅ Aligned | PR mandatory workflow |
+| `21-skepticism-protocol.md` | `skepticism-protocol.md` | rules/ | ✅ Aligned v2.0.0 | Anti-propagation (#924) |
+| `22-validation.md` | `validation.md` | rules/ | ✅ Aligned | Validation rules |
+| `23-no-deletion-without-proof.md` | `no-deletion-without-proof.md` | rules/ | ✅ Aligned | Anti-destruction rule |
 
 ---
 
