@@ -156,6 +156,7 @@ scripts/setup/.env
 # Auto-import settings (contains API keys)
 roo-config/roo-settings-import.json
 roo-config/roo-settings-import.json.*
+roo-config/generated/
 exports/
 .roo/schedules.json
 
