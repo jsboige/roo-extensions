@@ -114,7 +114,6 @@ HARNAIS ROO (lis TOUS les fichiers de .roo/rules/ avec read_file) :
 - .roo/rules/03-mcp-usage.md
 - .roo/rules/04-sddd-grounding.md
 - .roo/rules/05-tool-availability.md
-- .roo/rules/06-context-window.md
 - .roo/rules/07-orchestrator-delegation.md
 - .roo/rules/08-file-writing.md
 - .roo/rules/09-github-checklists.md
@@ -171,7 +170,6 @@ AVANT de conclure qu'une regle est ABSENTE d'un harnais :
    - Roo "02-intercom.md" = Claude "intercom-protocol.md"
    - Roo "03-mcp-usage.md" = Claude "mcp-discoverability.md"
    - Roo "04-sddd-grounding.md" = Claude "sddd-conversational-grounding.md"
-   - Roo "06-context-window.md" = Claude "condensation-thresholds.md"
    - Roo "09-github-checklists.md" = Claude "github-checklists.md"
    - Roo "10-ci-guardrails.md" = Claude "ci-guardrails.md"
    - Roo "15-coordinator-responsibilities.md" = Claude "scheduled-coordinator.md"
@@ -286,5 +284,5 @@ attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dash
 ## CRITERES D'ESCALADE
 
 Ce workflow demarre DEJA en mode complex. Si un probleme grave est detecte :
-- Ecrire dans INTERCOM operationnel (`[CRITICAL]` ou `[WARN]`)
+- Ecrire dans dashboard workspace via `roosync_dashboard(action: "append", type: "workspace", tags: ["WARN"], content: "...")`
 - NE PAS tenter de corriger soi-meme
