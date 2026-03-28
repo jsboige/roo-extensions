@@ -51,6 +51,117 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 
 ---
 
+## Executor Resume Feature (NOUVEAU - Issue #925)
+
+**Version:** 1.0.0
+**Depuis:** 2026-03-28
+
+### Problème Résolu
+
+Lorsqu'une session executor est interrompue (crash, utilisateur arrête, etc.), il était difficile de reprendre le travail là où il s'était arrêté.
+
+### Solution
+
+**État persistant de l'executor** : Le fichier `.claude/executor-state.current.json` contient :
+- Session ID (UUID v4)
+- Horodatage (début, dernière activité)
+- Phase courante
+- Tâches complétées, en cours, en attente
+- État système (git, build, tests)
+- Notes de session
+
+### Utilisation
+
+**Nouvelle session :**
+```
+/executor
+```
+Comportement normal - aucune différence.
+
+**Reprendre la dernière session :**
+```
+/executor --resume
+```
+Affiche le rapport de reprise et demande confirmation.
+
+**Reprendre une session spécifique :**
+```
+/executor --resume {SESSION_ID}
+```
+(Utile si plusieurs sessions archivées existent)
+
+### Rapport de Reprise
+
+Exemple de rapport affiché lors d'une reprise :
+```
+## Session Executor Restaurée
+
+**Dernière activité :** Il y a 2h (12:30)
+**Phase en cours :** PHASE 2 - Sélection de tâche
+**Git state :** main @ abc1234
+
+### Tâches complétées
+- ✅ #902 — Fix conversation_browser (abc12345)
+- ✅ #905 — Vérification modes (def67890)
+
+### Tâches en cours
+- 🔧 #914 — Gap déploiement (investigation)
+  _Analyse des apiConfigs en cours_
+
+### Tâches en attente
+- 🟡 #898 — Consultation harnais
+  _En attente de validation_
+
+### État Système
+- **Build :** ✅ OK
+- **Tests :** ✅ 3252 passed
+- **RooSync messages lus :** 12
+- **Dashboard updates :** 5
+
+---
+Continuer? [Y/n]
+```
+
+### Sauvegarde Automatique
+
+L'état est sauvegardé automatiquement aux points clés :
+- **Changement de phase** : `updatePhase("PHASE_X")`
+- **Tâche commencée** : `updateTaskInProgress(issue, title, "investigation")`
+- **Tâche complétée** : `completeTaskInProgress(issue, title, commit_hash)`
+- **Build/Tests** : `updateBuildStatus(true)` / `updateTestStatus(passed, failed)`
+- **Dashboard update** : `incrementDashboardUpdates()`
+- **RooSync message lu** : `incrementRooSyncMessages()`
+
+### Intégration avec /debrief
+
+La commande `/debrief` archive automatiquement l'état de la session :
+- Déplace `.claude/executor-state.current.json` vers `.claude/archive/executor-state-{sessionId}-{timestamp}.json`
+- Sauvegarde les leçons apprises avant archivage
+- Génère un rapport de session structuré
+
+### Fichiers
+
+| Fichier | Usage |
+|---------|-------|
+| `.claude/executor-state.json` | Schéma JSON (validation) |
+| `.claude/executor-state.current.json` | État session active |
+| `.claude/archive/executor-state-*.json` | Sessions archivées |
+| `.claude/lib/executor-state.js` | API de gestion d'état |
+
+### API JavaScript
+
+```javascript
+import {
+  loadState, initializeSessionState,
+  updatePhase, addTaskCompleted, updateTaskInProgress, completeTaskInProgress,
+  addPendingTask, updateGitState, updateBuildStatus, updateTestStatus,
+  updateNotes, incrementRooSyncMessages, incrementDashboardUpdates,
+  generateResumeReport, hasResumeState, archiveState
+} from '.claude/lib/executor-state.js';
+```
+
+---
+
 ## Etat des MCPs
 
 ### Verification Critique au Demarrage (STOP & REPAIR)
