@@ -167,18 +167,51 @@ Evaluer :
 - Distribution des statuts (Todo / In Progress / Done)
 - Machines surchargees ou inactives
 
-### 4. Review et merge des PRs Worker
+### 4. Review et merge des PRs ouvertes
 
-Verifie s'il y a des PRs [Worker] ouvertes :
+Verifie TOUTES les PRs ouvertes (Worker, Executor, et manuelles) :
 ``````
-gh pr list --repo jsboige/roo-extensions --search "[Worker]" --state open --json number,title,createdAt
+gh pr list --repo jsboige/roo-extensions --state open --json number,title,createdAt,additions,deletions,author
 ``````
 
-Pour chaque PR Worker ouverte :
-- Lire le diff : `gh pr diff {number} --repo jsboige/roo-extensions`
-- Si la PR est petite (< 100 lignes) et le titre indique SUCCESS : merger avec `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch`
-- Si la PR est large ou indique "Partial (needs review)" : ajouter un commentaire de review
-- Si la PR date de plus de 48h sans activite : la fermer (travail obsolete)
+Pour chaque PR ouverte, effectue une review structuree :
+
+**4a. Lire le diff :**
+``````
+gh pr diff {number} --repo jsboige/roo-extensions
+``````
+
+**4b. Checklist anti-destruction (OBLIGATOIRE) :**
+- Pas de suppression de code sans remplacement PROUVE
+- Pas de suppression dans repertoires PROTEGES (src/services/synthesis/, src/services/narrative/)
+- Pas de nouveaux stubs (return null, throw new Error, // TODO dans du code expose)
+- Pas de console.log dans du code nouveau
+- Build + tests CI doivent passer (verifier le statut CI si disponible)
+
+**4c. Decision :**
+
+| Critere | Action |
+|---------|--------|
+| PR petite (< 100 lignes), diff propre, pas de suppression suspecte | `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch` |
+| PR moyenne (100-500 lignes), diff coherent | Ajouter un commentaire `## Coordinator Review` avec analyse + merger si OK |
+| PR large (> 500 lignes) ou suppression de code | Commentaire de review detaille, ne PAS merger automatiquement |
+| Titre indique "Partial" ou "needs review" | Commentaire de review, attendre corrections |
+| PR date de plus de 72h sans activite | Commenter pour relancer l'auteur, fermer si >1 semaine |
+
+**4d. Format du commentaire de review :**
+``````
+## Coordinator Review (scheduled)
+
+**Taille:** +{additions}/-{deletions} ({files} fichiers)
+**Analyse:**
+- [ ] Pas de suppression sans remplacement
+- [ ] Pas de stubs/console.log
+- [ ] Diff coherent avec le titre
+- [ ] Build/tests OK
+
+**Decision:** APPROVE / REQUEST_CHANGES / COMMENT
+**Details:** [analyse concise]
+``````
 
 ### 5. Decisions et dispatch
 
