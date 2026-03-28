@@ -1,7 +1,8 @@
 # Protocole de Scepticisme Raisonnable - Anti-Propagation d'Erreurs
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Cree:** 2026-03-04
+**Mis a jour:** 2026-03-28
 **Contexte:** Incidents de propagation d'erreurs entre agents (GPU panic po-2026, Session 101 archives, duplicate work)
 
 ---
@@ -111,14 +112,35 @@ Pour les verifications de Niveau 1, consulter :
 
 ---
 
-## Integration
+## Regles pour les Rapports (Dashboard / RooSync)
 
-Ce protocole s'applique a :
-- `/coordinate` : Verifier les rapports AVANT de dispatcher
-- `/executor` : Verifier les premisses des instructions recues
-- `roosync-hub` : Croiser rapports avec git/GitHub
-- `dispatch-manager` : Verifier capacites avant assignation
+### TOUJOURS inclure les preuves
+
+**BON :**
+```
+## [DATE] claude-code → all [DONE]
+Build OK (0 errors). Tests: 7927/7927 PASS.
+Commit: abc123 (feat(tools): Add X)
+Output: [extrait pertinent]
+```
+
+**MAUVAIS :**
+```
+## [DATE] claude-code → all [DONE]
+J'ai fait la tache, tout est OK.
+```
 
 ---
 
-**Derniere mise a jour :** 2026-03-04
+## Integration
+
+Ce protocole s'applique dans tous les contextes Claude Code :
+- **`/coordinate`** : Verifier les rapports AVANT de dispatcher
+- **`/executor`** : Verifier les premisses des instructions recues
+- **Sub-agents** (roosync-hub, dispatch-manager) : Croiser rapports avec git/GitHub
+- **Schedulers** (Worker, Coordinator) : Inclure preuves dans tous les rapports dashboard/RooSync
+- **Meta-analystes** : Croiser rapports avec git/GitHub/traces avant de conclure
+
+---
+
+**Derniere mise a jour :** 2026-03-28
