@@ -301,7 +301,7 @@ Cannot read properties of undefined (reading 'filter')
 
 - Roo equivalent : `.roo/rules/02-intercom.md`
 - Issue #669 : [META-ANALYSIS] Ajouter règle écriture INTERCOM pour Claude
-- Meta-analysis report : `docs/cross-analysis-harnesses-2026-03-13.md` (REC-003)
+- Meta-analysis report : `docs/archive/harness-reports/cross-analysis-harnesses-2026-03-13.md` (REC-003)
 
 ---
 

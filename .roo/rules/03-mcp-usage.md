@@ -9,7 +9,7 @@ Voir `.claude/rules/tool-availability.md` pour le protocole STOP & REPAIR.
 
 **MCPs CRITIQUES pour Roo :**
 
-- **roo-state-manager** (37 outils) : Grounding conversationnel, historique taches, RooSync
+- **roo-state-manager** (34 outils) : Grounding conversationnel, historique taches, RooSync
 - **win-cli** (9 outils) : Shell commands (OBLIGATOIRE depuis modes fix b91a841c)
 
 ## MCP Shell : win-cli (OBLIGATOIRE)
@@ -35,7 +35,7 @@ execute_command(shell="gitbash", command="COMMANDE")
 
 ## roo-state-manager - Outils Disponibles
 
-**Roo a acces a TOUS les outils roo-state-manager (37), y compris RooSync.**
+**Roo a acces a TOUS les outils roo-state-manager (34), y compris RooSync.**
 
 **Categorisation des outils :** Voir [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md#roo-state-manager) pour la liste complete organisee par categorie.
 

@@ -280,7 +280,7 @@ Fonctionnel → Bug signalé → Workaround documenté → Outil ignoré → "De
 
 - #551: Meta-Analyst tier (this protocol)
 - #540: Coordinator tier — see `.claude/docs/coordinator-specific/scheduled-coordinator.md`
-- `.claude/INTERCOM_PROTOCOL.md`: Operational INTERCOM (separate)
+- `.claude/rules/intercom-protocol.md`: Operational INTERCOM protocol
 - `.claude/docs/condensation-thresholds.md`: GLM context limits
 
 ---

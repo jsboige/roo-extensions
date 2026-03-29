@@ -52,7 +52,7 @@ Le fichier `.roo/schedules.json` est machine-spécifique. Ne pas le committer su
 
 ### 6. Seuil de Condensation GLM
 
-Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le seuil **70%** (pas 50%) pour éviter les boucles infinies de condensation.
+Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le seuil **80%** (pas 50% ni 70%) pour éviter les boucles infinies de condensation.
 
 **Référence :** [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
 

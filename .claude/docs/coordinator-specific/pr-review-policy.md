@@ -20,7 +20,7 @@ All agent-generated code commits must pass through a PR review workflow before m
 
 | Agent Type | Creates PR? | Exception |
 |-----------|-------------|-----------|
-| **Scheduler (Roo)** | ✅ YES (for `-complex` tasks) | `-simple` tasks can push to main (read-only/doc) |
+| **Scheduler (Roo)** | ✅ YES (all tasks with code changes) | No exception — PR mandatory per `.claude/rules/pr-mandatory.md` |
 | **Scheduler (Claude)** | ✅ YES (for all tasks) | Research tasks (no code changes) |
 | **Coordinator (ai-01)** | ❌ NO | Coordinator merges PRs, doesn't create them |
 | **Interactive (/executor)** | ✅ YES | User approval required before creating PR |
