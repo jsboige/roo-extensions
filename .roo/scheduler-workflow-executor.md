@@ -172,7 +172,7 @@ roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
 
 ---
 
-## Étape 1 : Git Pull + Lecture Dashboards
+## Étape 1 : Git Pull + Worktree Check + Lecture Dashboards
 
 **DÉLEGUER à `code-simple` via `new_task` :**
 
@@ -183,14 +183,19 @@ Executer ces commandes avec win-cli MCP et rapporter le résultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
 
+Worktree cleanup check (issue #856) :
+3. execute_command(shell="powershell", command="git worktree list --porcelain | Select-String '^worktree ' | Measure-Object | Select-Object -ExpandProperty Count")
+   Si > 2 worktrees : execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -WhatIf")
+   Si des orphelins détectés : execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -Force")
+
 Puis lire le dashboard WORKSPACE (coordination cross-machine) :
-3. roosync_dashboard(action: "read", type: "workspace", section: "all")
+4. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
 Si le dashboard échoue, FALLBACK fichier local :
-3b. Lire le dashboard workspace+machine (DEPRECATED) ou le fichier INTERCOM local (DEPRECATED) comme fallback
+4b. Lire le dashboard workspace+machine (DEPRECATED) ou le fichier INTERCOM local (DEPRECATED) comme fallback
 
 Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : état git + contenu dashboard workspace + liste des tâches/propositions trouvées.
+Rapporter : état git + worktrees count + contenu dashboard workspace + liste des tâches/propositions trouvées.
 ```
 
 **Décision :**
