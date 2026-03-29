@@ -13,7 +13,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ---
 
-## Mode Resume (NOUVEAU v2.0)
+## Mode Resume (v3.0 -- dashboard workspace)
 
 **Le support `/executor --resume` permet de reprendre une session interrompue.**
 
@@ -25,7 +25,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 **SI flag --resume détecté :**
 
-1. **Lire l'état sauvegardé** : `Read: .claude/executor-state.json`
+1. **Lire l'état sauvegardé** : `roosync_dashboard(action: read) -- chercher EXECUTOR-STATE`
 2. **Valider l'état** :
    - Vérifier que `lastActivity` est < 48h
    - Si > 48h, demander confirmation
@@ -86,41 +86,44 @@ Continuer? [Y/n]
 
 ---
 
-## PHASE 0 : INITIALISATION ÉTAT (NOUVEAU v2.0)
+## PHASE 0 : INITIALISATION ÉTAT (v3.0 — dashboard workspace)
 
 ### Pour NOUVELLE SESSION (pas de --resume)
 
-**Créer et initialiser l'état executor :**
+**Créer et initialiser l'état executor via dashboard :**
 
-1. **Générer sessionId unique** : `{timestamp}-{machineId}` ou UUID
+1. **Générer sessionId unique** : `exec-{machineId}-{YYYYMMDD}`
 2. **Capturer l'état git** : `git log --oneline -1` (commit hash actuel)
-3. **Créer le fichier d'état** : `.claude/executor-state.json`
+3. **Poster l'état initial** via `roosync_dashboard(action: "append")` :
 
-```json
-{
-  "sessionId": "{timestamp}-{machineId}",
-  "startTime": "{ISO_TIMESTAMP}",
-  "lastActivity": "{ISO_TIMESTAMP}",
-  "currentPhase": "PHASE_0",
-  "tasksCompleted": [],
-  "tasksInProgress": [],
-  "tasksPending": [],
-  "context": {
-    "gitState": "{commit_hash}",
-    "machineId": "{hostname}",
-    "workspace": "{workspace_path}",
-    "notes": "Session démarrée"
-  },
-  "metadata": {
-    "version": "1.0.0",
-    "created": "{ISO_TIMESTAMP}",
-    "modified": "{ISO_TIMESTAMP}",
-    "sessionType": "interactive"
-  }
-}
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["EXECUTOR-STATE", "{machineId}", "{sessionId}"],
+  content: "## 🔄 Executor State — {machineId}
+
+**Session:** {sessionId}
+**Phase:** PHASE_0
+**Démarrage:** {ISO_TIMESTAMP}
+**Git:** {commit_hash}
+**Machine:** {hostname}
+
+### ✅ Complétées (0)
+*Aucune*
+
+### 🔄 En cours (0)
+*Aucune*
+
+### 📋 En attente
+*En cours de collecte...*
+
+### 📝 Notes
+Session démarrée"
+)
 ```
 
-4. **Sauvegarder l'état** : `Write: .claude/executor-state.json`
+4. **NE PAS créer de fichier `.claude/executor-state.json`** — l'état est dans le dashboard uniquement
 
 ### Pour SESSION RESUME (--resume)
 
@@ -714,25 +717,19 @@ git push origin main
 
 **⚠️ MISE À JOUR ÉTAT EXECUTOR (OBLIGATOIRE) :**
 
-Après chaque action significative (tâche commencée/complétée, commit, PR), mettre à jour `.claude/executor-state.json` :
+Après chaque action significative (tâche commencée/complétée, commit, PR), poster l'état via `roosync_dashboard(action: "append")` avec tag `EXECUTOR-STATE` :
 
-```json
-{
-  "currentPhase": "PHASE_3",
-  "tasksCompleted": ["#902"],
-  "tasksInProgress": [
-    {
-      "issue": "#925",
-      "status": "implementation",
-      "branch": "wt/worker-myia-po-2023-issue-925",
-      "notes": "Création state file + skill executor"
-    }
-  ],
-  "lastActivity": "{ISO_TIMESTAMP}",
-  "context": {
-    "gitState": "{new_commit_hash}"
-  }
-}
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["EXECUTOR-STATE", "{machineId}", "{sessionId}"],
+  content: "## 🔄 Executor State — {machineId}
+**Phase:** PHASE_3 | **Activité:** {ISO_TIMESTAMP} | **Git:** {hash}
+### ✅ Complétées (1) #902
+### 🔄 En cours (1) #925 — implementation
+### 📝 Notes Progression sur issue"
+)
 ```
 
 **Utiliser Write (pas Edit) pour écraser tout le fichier.**
@@ -912,19 +909,19 @@ roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...
 | Fichier | Usage |
 |---------|-------|
 | `roosync_dashboard` (MCP) | Coordination cross-machine (CANAL PRINCIPAL) |
-| `.claude/executor-state.json` | État persistant executor (NOUVEAU v2.0) |
-| `.claude/executor-state.schema.json` | Schéma de validation de l'état |
+| `roosync_dashboard` (workspace) | État persistant executor (v3.0 — dashboard workspace) |
+| `.claude/REMOVED (now in dashboard)` | Schéma de validation de l'état |
 | `CLAUDE.md` | Configuration projet |
 | `.claude/agents/` | Sub-agents disponibles |
-| `.claude/skills/executor/SKILL.md` | Workflow executor avec resume (NOUVEAU v2.0) |
+| `.claude/skills/executor/SKILL.md` | Workflow executor avec resume (v3.0 -- dashboard workspace) |
 | `mcps/internal/servers/roo-state-manager/src/` | Code source MCP |
 | `.claude/local/INTERCOM-{MACHINE}.md` | Fallback LOCAL (seulement si MCP dashboard echoue) |
 
-### Sauvegarde de l'état (NOUVEAU v2.0)
+### Sauvegarde de l'état (v3.0 -- dashboard workspace)
 
 **L'état executor DOIT être sauvegardé automatiquement aux moments suivants :**
 
-1. **Démarrage session** : Création `.claude/executor-state.json`
+1. **Démarrage session** : Poster état initial via `roosync_dashboard(action: "append")`
 2. **Transition de phase** : Mise à jour `currentPhase` + `lastActivity`
 3. **Tâche commencée** : Ajouter à `tasksInProgress`
 4. **Tâche complétée** : Déplacer de `InProgress` à `tasksCompleted`
@@ -933,7 +930,7 @@ roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...
 
 **Format d'écriture :**
 ```
-Write: .claude/executor-state.json
+roosync_dashboard(action: append) with EXECUTOR-STATE
 {
   ...état complet...
 }

@@ -12,7 +12,7 @@ metadata:
 # Skill: Debrief - Analyse et Documentation de Session
 
 **Version:** 2.1.0
-**Cree:** 2026-02-12
+**Cree:** 2026-03-28
 **MAJ:** 2026-03-28 (intégration état executor, issue #925)
 **Usage:** `/debrief`
 **Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-conversational-grounding.md`)
@@ -110,14 +110,14 @@ Reutilisable: [Oui/Non]
 - Dates et contextes clairs
 - Liens vers issues GitHub si applicable
 
-### Phase 4 : Intégration État Executor (NOUVEAU v2.0)
+### Phase 4 : Intégration État Executor (v3.0 -- dashboard workspace)
 
 **Vérifier si un état executor existe :**
 ```
-Read: .claude/executor-state.json
+roosync_dashboard(action: read) -- chercher EXECUTOR-STATE
 ```
 
-**Si le fichier existe :**
+**Si un etat executor est trouve dans le dashboard :**
 
 1. **Analyser l'état final** :
    - `tasksCompleted` → Tâches terminées dans la session
@@ -133,7 +133,7 @@ Read: .claude/executor-state.json
 3. **Sauvegarder l'état final** avant archivage :
    - Marquer la session comme "ended"
    - Ajouter `interruptionReason` si applicable
-   - Conserver dans `.claude/executor-state.archive/`
+   - Conserver dans `.claude/dashboard (ARCHIVED)`
 
 **Format du rapport avec état executor :**
 
@@ -257,4 +257,4 @@ But : Confirmer que les leçons documentées sont visibles dans l'index. Vérifi
 
 ---
 
-**Dernière mise à jour :** 2026-02-12
+**Dernière mise à jour :** 2026-03-28

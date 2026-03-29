@@ -1,34 +1,42 @@
 # Warnings NoTools - conversation_browser
 
-**Version :** 1.0.0
+**Version :** 2.0.0
 **Créé :** 2026-03-15
+**Mis à jour :** 2026-03-28
 **Issue :** #710
+**Fix :** #881 (NoTools → alias Compact)
+**Issue suivi :** #946, #952
 
 ---
 
-## ⚠️ PROBLÈME CONNU
+## BUG ORIGINAL (RESOLVU par #881)
 
-L'action `summarize` avec `detailLevel: "NoTools"` génère **explosion de contenu** (309 KB+ pour 23 messages).
+**AVANT #881 :** `detailLevel: "NoTools"` masquait seulement les paramètres d'appels d'outils mais **gardait TOUS les résultats d'outils complets** → explosion 309 KB+ pour 23 messages.
 
----
+**APRES #881 :** `NoTools` est maintenant un **alias vers `Compact`**, qui résume les résultats d'outils (nom + statut + taille) au lieu d'inclure le contenu complet.
 
-## Cause Racine
-
-1. **`NoTools` est mal nommé** : Il masque SEULEMENT les paramètres d'appels d'outils, mais **garde TOUS les résultats d'outils complets**.
-2. **`truncationChars` défaut = 0** : Pas de limite de caractères par défaut.
+**Source du fix :** `src/services/reporting/DetailLevelStrategyFactory.ts`
 
 ---
 
-## Résultat Réel
+## Niveaux `detailLevel` (8 niveaux)
 
-| Paramètres | Contenu | Taille |
-|------------|---------|--------|
-| `NoTools` sans truncation | ❌ EXPLOSION | ~300 KB (309 569 chars pour 23 messages) |
-| `Summary` + `truncationChars: 10000` | ✅ COMPACT | ~3 KB (utilisable) |
+| Niveau | Contenu | Quand l'utiliser |
+| ------ | ------- | ---------------- |
+| `Full` | Tout inclus | JAMAIS (explosion massive) |
+| `NoToolParams` | Messages + résultats complets (params masqués) | Debug uniquement |
+| **`Compact`** | Messages + outils résumés (nom + statut + taille) | Recommandé (#881) |
+| **`NoTools`** | **Alias vers `Compact`** (depuis #881) | Maintenant sûr |
+| `NoResults` | Messages + params (sans résultats) | Vérifier le flow |
+| `Messages` | Messages seulement | Analyse structurelle |
+| `Summary` | Vue condensée | Recommandé |
+| `UserOnly` | Messages utilisateur seulement | Audit rapide |
+
+**Note :** `NoTools` et `Compact` produisent un résultat identique depuis #881.
 
 ---
 
-## Recommandation STRICTE
+## Recommandation
 
 **Toujours utiliser cette combinaison pour des résumés compacts :**
 
@@ -36,24 +44,11 @@ L'action `summarize` avec `detailLevel: "NoTools"` génère **explosion de conte
 conversation_browser(
   action: "summarize",
   summarize_type: "trace",      // "trace" pour statistiques
-  detailLevel: "Summary",         // PAS "NoTools" (trompeur)
-  truncationChars: 10000,         // OBLIGATOIRE - limite chars
-  taskId: "..."                   // ou taskIds pour clusters
+  detailLevel: "Compact",       // ou "Summary" ou "NoTools" (alias Compact)
+  truncationChars: 10000,       // OBLIGATOIRE - limite chars
+  taskId: "..."                 // ou taskIds pour clusters
 )
 ```
-
----
-
-## Niveaux `detailLevel` Réels
-
-| Niveau | Contenu | Quand l'utiliser |
-|--------|---------|------------------|
-| `Full` | Tout inclus | ❌ JAMAIS (explosion, massif) |
-| `NoTools` | ❌ Trompeur (masque params, garde résultats) | ❌ À PROSCRIRE |
-| `NoResults` | Messages + params (sans résultats) | Pour vérifier le flow |
-| `Messages` | Messages seulement | Pour analyse structurelle |
-| `Summary` | Vue condensée | ✅ RECOMMANDÉ |
-| `UserOnly` | Messages utilisateur seulement | Pour audit rapide |
 
 ---
 
@@ -63,13 +58,16 @@ conversation_browser(
 
 ```typescript
 // BON - Limité à 10000 chars
-conversation_browser(action: "summarize", detailLevel: "Summary", truncationChars: 10000)
+conversation_browser(action: "summarize", detailLevel: "Compact", truncationChars: 10000)
 
-// MAUVAIS - Pas de limite, risque explosion
-conversation_browser(action: "summarize", detailLevel: "Summary")
+// BON - NoTools est maintenant sûr (alias Compact)
+conversation_browser(action: "summarize", detailLevel: "NoTools", truncationChars: 10000)
 
-// MAUVAIS - Trompeur, masque seulement params
-conversation_browser(action: "summarize", detailLevel: "NoTools")
+// MAUVAIS - Pas de limite, risque explosion même avec Compact
+conversation_browser(action: "summarize", detailLevel: "Compact")
+
+// MAUVAIS - JAMAIS Full (massif)
+conversation_browser(action: "summarize", detailLevel: "Full")
 ```
 
 ---
@@ -81,10 +79,10 @@ conversation_browser(action: "summarize", detailLevel: "NoTools")
 - Taille compression avant/après
 - Breakdown par catégorie
 
-⇒ Utiliser `trace` pour les rapports métriques, pas pour le contenu détaillé.
+=> Utiliser `trace` pour les rapports métriques, pas pour le contenu détaillé.
 
 ---
 
 **Référence :** [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) - Section "Recommandations conversation_browser (CRITIQUE #608)"
 
-**Issue :** #608
+**Issues :** #608, #710, #881 (fix), #946, #952
