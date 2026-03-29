@@ -91,5 +91,5 @@ J'ai terminé CONS-X. Peux-tu vérifier que :
 ## Références
 
 - **Issue #724** : Création de cette règle pour Claude
-- **Équivalent Roo** : `.roo/rules/validation.md`
+- **Équivalent Roo** : `.roo/rules/22-validation.md`
 - **Note** : Remplace l'ancien `validation-checklist.md` (supprime, contenu fusionne ici)

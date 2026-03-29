@@ -125,38 +125,51 @@ HARNAIS ROO (lis TOUS les fichiers de .roo/rules/ avec read_file) :
 - .roo/rules/15-coordinator-responsibilities.md
 - .roo/rules/16-no-tools-warnings.md
 - .roo/rules/17-friction-protocol.md
-- .roo/rules/github-cli.md
-- .roo/rules/skepticism-protocol.md
-- .roo/rules/testing.md
-- .roo/rules/validation.md
+- .roo/rules/18-meta-analysis.md
+- .roo/rules/19-github-cli.md
+- .roo/rules/20-pr-mandatory.md
+- .roo/rules/21-skepticism-protocol.md
+- .roo/rules/22-validation.md
+- .roo/rules/23-no-deletion-without-proof.md
 - .roo/scheduler-workflow-coordinator.md
 - .roo/scheduler-workflow-executor.md
 - .roomodes (structure des modes)
 
-HARNAIS CLAUDE (lis TOUS les fichiers de .claude/rules/ avec read_file) :
+HARNAIS CLAUDE — rules/ auto-chargees (lis TOUS avec read_file) :
 - CLAUDE.md (racine)
 - .claude/rules/agents-architecture.md
-- .claude/rules/bash-fallback.md
 - .claude/rules/ci-guardrails.md
-- .claude/rules/condensation-thresholds.md
+- .claude/rules/context-window.md
 - .claude/rules/delegation.md
-- .claude/rules/feedback-process.md
-- .claude/rules/github-checklists.md
+- .claude/rules/file-writing.md
 - .claude/rules/github-cli.md
 - .claude/rules/intercom-protocol.md
-- .claude/rules/mcp-discoverability.md
-- .claude/rules/meta-analysis.md
-- .claude/rules/myia-web1-constraints.md
-- .claude/rules/pr-review-policy.md
-- .claude/rules/roo-schedulable-criteria.md
-- .claude/rules/scheduled-coordinator.md
-- .claude/rules/scheduler-densification.md
-- .claude/rules/scheduler-system.md
+- .claude/rules/no-deletion-without-proof.md
+- .claude/rules/pr-mandatory.md
 - .claude/rules/sddd-conversational-grounding.md
 - .claude/rules/skepticism-protocol.md
 - .claude/rules/test-success-rates.md
 - .claude/rules/tool-availability.md
 - .claude/rules/validation.md
+- .claude/rules/worktree-cleanup.md
+
+HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
+- .claude/docs/condensation-thresholds.md
+- .claude/docs/escalation-protocol.md
+- .claude/docs/feedback-process.md
+- .claude/docs/friction-protocol.md
+- .claude/docs/github-checklists.md
+- .claude/docs/coordinator-specific/pr-review-policy.md
+- .claude/docs/coordinator-specific/scheduled-coordinator.md
+- .claude/docs/machine-specific/myia-web1-constraints.md
+- .claude/docs/reference/bash-fallback.md
+- .claude/docs/reference/incident-history.md
+- .claude/docs/reference/mcp-discoverability.md
+- .claude/docs/reference/meta-analysis.md
+- .claude/docs/reference/roo-schedulable-criteria.md
+- .claude/docs/reference/scheduler-densification.md
+- .claude/docs/reference/scheduler-system.md
+- .claude/docs/reference/stub-detection.md
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :
