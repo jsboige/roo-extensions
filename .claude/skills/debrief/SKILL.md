@@ -177,6 +177,27 @@ Read: .claude/executor-state.json
 
 Utiliser le format INTERCOM standard (voir Phase 4 originale).
 
+### Phase 5b : Worktree Cleanup (Fin de Session)
+
+**En fin de session, nettoyer les worktrees orphelins pour la machine suivante.**
+
+```powershell
+# Check worktree count
+$wtCount = (git worktree list --porcelain 2>$null | Select-String "^worktree ").Count
+Write-Host "Active worktrees: $wtCount"
+
+# If > 2 (main + current), run cleanup
+if ($wtCount -gt 2) {
+    powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -Force
+}
+```
+
+**Inclure dans le rapport de session :**
+- Nombre de worktrees avant/après cleanup
+- Orphelins supprimés (si applicable)
+
+**Pourquoi :** Prévient l'accumulation de worktrees entre sessions (2k+ notifications VS Code observées, issue #856).
+
 ### Phase 6 : Résumé pour Utilisateur
 
 **Format :**
