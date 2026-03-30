@@ -589,7 +589,7 @@ function Build-GitHubPrompt {
     $PromptParts += "STATUS: wait"
     $PromptParts += "REASON: [blocking condition]"
     $PromptParts += "WAIT_FOR: [what needs to happen]"
-    $PromptParts += "RESUME_WHEN: [github_comment|intercom_message|timeout_hours:N]"
+    $PromptParts += "RESUME_WHEN: [github_comment|dashboard_message|timeout_hours:N]"
     $PromptParts += "==================="
     $PromptParts += ""
     $PromptParts += "If you need more iterations to complete (partial progress made):"
@@ -768,7 +768,7 @@ function Test-WaitStateReady {
                 }
             }
             "user_approval|user approval" {
-                Write-Log "  Vérification user approval (INTERCOM + GitHub)..."
+                Write-Log "  Vérification user approval (Dashboard + GitHub)..."
                 if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
                     Write-Log "✅ User approval détectée - reprise autorisée"
                     return $State
@@ -965,8 +965,8 @@ function Test-IntercomMessage {
     #>
     param([string]$TaskId, $WaitState)
 
-    # Cette fonction est deprecated - on utilise maintenant le dashboard workspace
-    # Pour compatibilité, on retourne false (pas de reprise basée sur INTERCOM)
+    # DEPRECATED since #745 Phase 2 — use Test-DashboardMessage instead
+    # Returns false always (INTERCOM file no longer used for resume signals)
     Write-Log "Test-IntercomMessage est deprecated - utiliser Test-DashboardMessage à la place" "WARN"
     return $false
 }
