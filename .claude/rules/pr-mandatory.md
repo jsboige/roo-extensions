@@ -93,6 +93,11 @@ Avant d'approuver une PR, verifier :
 
 ## Enforcement
 
-- **GitHub Branch Protection** : A activer par l'utilisateur (Settings → Branches → main → Require PR)
-- **En attendant** : Les agents DOIVENT creer des PRs. Le coordinateur verifie a chaque tour de sync qu'aucun push direct n'a eu lieu.
-- **Violation** : Un push direct sur main est un incident a documenter dans INTERCOM.
+- **GitHub Branch Protection** : Active (require PR + CI checks). See `scripts/github/setup-branch-protection.ps1` for current config.
+- **Coordinator Review Script** : PRs MUST be reviewed via `scripts/github/pr-review-and-merge.ps1` before merge (Issue #958, Option E)
+- **Review Workflow** :
+  1. CI blocks merge if build-and-test fail (GitHub-enforced)
+  2. sk-agent code review runs for PRs >50 LOC (script-enforced)
+  3. Coordinator approves checklist items (script-enforced)
+  4. Only merges if ALL checks pass (script-enforced)
+- **Violation** : A push direct on main is un incident a documenter dans INTERCOM.

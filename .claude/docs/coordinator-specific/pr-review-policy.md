@@ -102,7 +102,7 @@ This provides multi-perspective analysis (security, perf, maintainability) befor
 **Skip for:** Doc-only, config-only, or harness-only PRs (<50 LOC).
 **Blocking:** If sk-agent identifies critical issues (security, data loss), the PR MUST NOT be merged until resolved.
 
-**Note:** Since all agents use the same GitHub account (`jsboige`), GitHub cannot enforce approval via PR reviews. sk-agent review as PR comment is the enforcement mechanism (Option E, approved 2026-03-28). Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
+**Note:** Since all agents use the same GitHub account (`jsboige`), GitHub cannot enforce approval via PR reviews. sk-agent review as PR comment is the enforcement mechanism (Option E, approved 2026-03-30, Issue #958). The coordinator MUST run `pr-review-and-merge.ps1` before merging any PR. This script enforces the review workflow. Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
 
 ### Warning Checks (NON-BLOCKING)
 
@@ -243,26 +243,76 @@ All PRs with checklists in body MUST follow [`.claude/docs/github-checklists.md`
 
 ---
 
-## 8. Enforcement & Tooling
+## 8. Enforcement & Tooling (Option E - Issue #958)
 
-### Branch Protection (Phase 3)
+### Branch Protection (Current Configuration)
 
-**On `main` branch:**
+**On `main` branch (as of 2026-03-30):**
 
 ```
-- Require pull requests before merging: YES
-- Require 1 approval: YES (Coordinator)
-- Require status checks pass: YES (Build + Tests)
-- Dismiss stale PR approvals: YES
-- Restrict who can push: Only Coordinator (for merges via PR)
+- Require pull requests before merging: YES (enforced)
+- Require approving reviews: NO (0 required - see note below)
+- Require status checks pass: YES (build-and-test)
+- Enforce admins: YES
 - Allow force pushes: NO
+- Allow deletions: NO
 ```
+
+**Why 0 required reviews?** All agents use the same GitHub account (`jsboige`). GitHub prevents self-approval, so requiring reviews would create a deadlock. Instead, we use **Option E: Hybrid CI + sk-agent review**.
+
+### Enforcement Mechanism (Option E)
+
+**Three-layer protection:**
+
+1. **GitHub CI Gate (Automatic)**
+   - `build-and-test` status check must pass
+   - Blocks merge if CI fails
+   - Configured in branch protection
+
+2. **sk-agent Code Review (Coordinator-triggered)**
+   - Run automatically by `pr-review-and-merge.ps1` for PRs >50 LOC
+   - Posted as PR comment (not GitHub approval)
+   - Analyzes: security, performance, maintainability, correctness
+   - Coordinator MUST review findings before merge
+
+3. **Coordinator Manual Review (Required)**
+   - `pr-review-and-merge.ps1` enforces checklist review
+   - Coordinator must approve each item before merge
+   - Script only merges if all checks pass
+   - Audit trail in dashboard and PR comments
+
+### Coordinator Workflow
+
+**To review and merge a PR:**
+
+```powershell
+# Basic review (PR ≤50 LOC, no sk-agent review)
+.\scripts\github\pr-review-and-merge.ps1 -PrNumber 123
+
+# Full review with sk-agent analysis (PR >50 LOC)
+.\scripts\github\pr-review-and-merge.ps1 -PrNumber 456
+
+# Dry run (see what would happen)
+.\scripts\github\pr-review-and-merge.ps1 -PrNumber 789 -DryRun
+
+# Force merge despite skipped checklist items (not recommended)
+.\scripts\github\pr-review-and-merge.ps1 -PrNumber 789 -Force
+```
+
+**The script:**
+1. Fetches PR details and CI status
+2. Blocks if CI failed (unless -Force)
+3. Runs sk-agent code-review for PRs >50 LOC
+4. Posts review as PR comment
+5. Runs through manual review checklist
+6. Only merges if ALL checks pass
+7. Reports to dashboard
 
 ### CLI Validation
 
 Before pushing to PR, agent runs:
 
-```bash
+```powershell
 # Test PR will be mergeable
 gh pr create --title "..." --body "..." --draft
 
@@ -278,9 +328,20 @@ detect-secrets scan --all-files --only-whitelist
 
 ### Automated Enforcement
 
-- **Pre-PR hook:** Block `git push origin main` from non-coordinators
-- **PR review bot:** Auto-apply labels (needs-review, reviewed, approved)
-- **Auto-close:** Stale PRs (no activity >7d) auto-comment with reminder
+- **CI Gate:** GitHub Actions block merge if build-and-test fail
+- **Review Script:** Coordinator MUST use `pr-review-and-merge.ps1`
+- **Dashboard Reporting:** All merges logged to workspace dashboard
+- **Audit Trail:** PR comments + dashboard + git log provide traceability
+
+### Future: Option A (Bot Accounts)
+
+If we implement separate bot accounts (`roo-bot`, `myia-ci`), we can enable native GitHub approvals:
+- Set `required_approving_review_count: 1`
+- Bot accounts create PRs
+- jsboige approves as reviewer
+- sk-agent review as additional check
+
+This requires GitHub Actions app or PAT management. Option E is sufficient for current needs.
 
 ---
 
@@ -318,10 +379,11 @@ detect-secrets scan --all-files --only-whitelist
 - Issue #461: Worktree integration
 - Issue #535: Auto-review pipeline
 - Issue #549: CLEANUP-3 regression (motivating incident)
+- Issue #958: PR review enforcement (Option E implementation)
 - Rules: [`.claude/docs/github-checklists.md`](../github-checklists.md)
-- Scripts: `scripts/review/`, `roo-config/worktree/scripts/`
+- Scripts: `scripts/github/pr-review-and-merge.ps1`, `scripts/github/setup-branch-protection.ps1`
 
 ---
 
-**Last updated:** 2026-03-28
+**Last updated:** 2026-03-30 (Option E enforcement - Issue #958)
 **Maintainer:** Coordinateur RooSync (myia-ai-01)
