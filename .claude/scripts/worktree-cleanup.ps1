@@ -136,7 +136,7 @@ function Get-OrphanWorktreeDirs {
     return $orphans
 }
 
-# Remove orphan worktree directory
+# Remove orphan worktree directory (Windows-safe: handles long paths and locked files)
 function Remove-OrphanWorktreeDir {
     param([string]$Path, [bool]$WhatIf)
 
@@ -145,13 +145,63 @@ function Remove-OrphanWorktreeDir {
         return
     }
 
+    # Strategy 1: Standard Remove-Item
     try {
-        Remove-Item -Path $Path -Recurse -Force
+        Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
         Write-Success "Removed orphan directory: $Path"
+        return
     }
     catch {
-        Write-Err "Failed to remove $Path : $_"
+        Write-Warn "Standard remove failed for $Path : $_"
     }
+
+    # Strategy 2: Long path prefix (Windows MAX_PATH workaround)
+    $longPath = if ($Path -notmatch '^\\\\\?\\') { "\\?\$Path" } else { $Path }
+    try {
+        Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
+        Write-Success "Removed orphan directory (long path): $Path"
+        return
+    }
+    catch {
+        Write-Warn "Long path remove failed: $_"
+    }
+
+    # Strategy 3: cmd.exe rmdir (handles some locked cases better)
+    try {
+        $escapedPath = $Path -replace '"', '\"'
+        $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "rmdir", "/s", "/q", "`"$escapedPath`"" -NoNewWindow -Wait -PassThru
+        if ($proc.ExitCode -eq 0) {
+            Write-Success "Removed orphan directory (cmd.exe): $Path"
+            return
+        }
+        Write-Warn "cmd.exe rmdir exited with code $($proc.ExitCode)"
+    }
+    catch {
+        Write-Warn "cmd.exe rmdir failed: $_"
+    }
+
+    # Strategy 4: robocopy empty mirror (nuclear option for stubborn dirs)
+    try {
+        $emptyDir = Join-Path $env:TEMP "worktree-cleanup-empty-$(Get-Random)"
+        New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
+        $proc = Start-Process -FilePath "robocopy.exe" -ArgumentList $emptyDir, $Path, "/MIR", "/R:0", "/W:0" -NoNewWindow -Wait -PassThru
+        # robocopy returns 0-7 for success, 8+ for errors
+        if ($proc.ExitCode -le 7) {
+            Remove-Item -Path $Path -Force -Recurse -ErrorAction SilentlyContinue
+            Remove-Item -Path $emptyDir -Force -Recurse -ErrorAction SilentlyContinue
+            if (-not (Test-Path $Path)) {
+                Write-Success "Removed orphan directory (robocopy mirror): $Path"
+                return
+            }
+        }
+        Remove-Item -Path $emptyDir -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    catch {
+        Write-Warn "robocopy mirror failed: $_"
+    }
+
+    Write-Err "All removal strategies failed for: $Path"
+    Write-Info "  Manual cleanup: Close VS Code, then: cmd /c 'rmdir /s /q `"$Path`"'"
 }
 
 # Delete stale branch
@@ -254,19 +304,42 @@ function Invoke-WorktreeCleanup {
         }
     }
 
+    # Run git worktree prune to clean stale administrative records
+    if (-not $WhatIf) {
+        Write-Host ""
+        Write-Info "Running git worktree prune..."
+        git worktree prune 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "git worktree prune completed"
+        }
+        else {
+            Write-Warn "git worktree prune returned non-zero exit code"
+        }
+    }
+    else {
+        Write-Info "[WHATIF] Would run: git worktree prune"
+    }
+
     Write-Host ""
     if ($WhatIf) {
         Write-Info "Dry run complete. Run without -WhatIf to apply changes."
     }
     else {
         Write-Success "Cleanup complete: $cleanedOrphans directories, $cleanedBranches branches"
-    }
 
-    # Recommend git gc
-    if (-not $WhatIf -and ($cleanedOrphans -gt 0 -or $cleanedBranches -gt 0)) {
-        Write-Host ""
-        Write-Info "Recommended: Run 'git gc --prune=now' to clean up loose objects"
-        Write-Info "VS Code restart required if worktrees were removed"
+        # Run git gc if cleanup happened
+        if ($cleanedOrphans -gt 0 -or $cleanedBranches -gt 0) {
+            Write-Host ""
+            Write-Info "Running git gc --prune=now..."
+            git gc --prune=now 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "git gc completed"
+            }
+            else {
+                Write-Warn "git gc returned non-zero exit code"
+            }
+            Write-Info "VS Code restart recommended if worktrees were removed"
+        }
     }
 
     return @{
