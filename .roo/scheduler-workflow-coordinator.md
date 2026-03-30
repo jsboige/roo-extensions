@@ -328,11 +328,12 @@ execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboi
 - Si Machine non defini → **choisir une machine specifique** (round-robin)
 - Issues avec label `claude-only` : dispatcher normalement — elles seront executees par Claude Code interactif sur la machine cible (pas par le scheduler Roo)
 - NE PAS dispatcher les issues avec label `needs-approval` (attendent validation utilisateur)
-- **NE PAS re-dispatcher une issue deja claimee** (commentaire `[CLAIMED]` existant)
+- **NE PAS re-dispatcher une issue deja claimee** (champ `assignees` non vide OU commentaire `[CLAIMED]` existant)
 - **NE PAS re-dispatcher une issue deja terminee** (commentaire `[RESULT]` existant)
+- **NE PAS re-dispatcher si une PR ouverte mentionne cette issue** (titre contient `#NUM`)
 - Equilibrer la charge : repartir les issues entre les 5 machines executrices (po-2023, po-2024, po-2025, po-2026, web1)
 
-> ⚠️ **ANTI-DOUBLON** : Avant de dispatcher, verifier les 10 derniers commentaires de l'issue. Si `[CLAIMED]` ou `[RESULT]` present → NE PAS dispatcher.
+> ⚠️ **ANTI-DOUBLON (fix #1005)** : Avant de dispatcher, verifier : (1) champ `assignees` (si non vide → quelqu'un travaille dessus), (2) les 10 derniers commentaires pour `[CLAIMED]` et `[RESULT]`, (3) PRs ouvertes mentionnant cette issue. Si l'un de ces indicateurs est present → NE PAS dispatcher.
 
 **6. Executer une issue si faisable (optionnel, si du temps reste)**
 
