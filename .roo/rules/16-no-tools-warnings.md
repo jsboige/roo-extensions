@@ -1,7 +1,8 @@
 # Warnings NoTools - conversation_browser
 
-**Version :** 1.0.0
+**Version :** 1.1.0
 **Créé :** 2026-03-15
+**MAJ :** 2026-03-30 (#952 — fix #881 appliqué, incohérences corrigées)
 **Issue :** #710
 
 ---
@@ -12,19 +13,20 @@
 
 ---
 
-## Cause Racine
+## Cause Racine (historique, pré-fix #881)
 
-1. **`NoTools` est mal nommé** : Il masque SEULEMENT les paramètres d'appels d'outils, mais **garde TOUS les résultats d'outils complets**.
-2. **`truncationChars` défaut = 0** : Pas de limite de caractères par défaut.
+1. **`NoTools` était mal nommé** : Il masquait SEULEMENT les paramètres d'appels d'outils, mais **gardait TOUS les résultats complets**. Depuis #881, `NoTools` = alias vers `Compact`.
+2. **`truncationChars` défaut = 0** : Pas de limite de caractères par défaut. Toujours le spécifier.
 
 ---
 
-## Résultat Réel
+## Résultat Réel (post-fix #881)
 
 | Paramètres | Contenu | Taille |
 |------------|---------|--------|
-| `NoTools` sans truncation | ❌ EXPLOSION | ~300 KB (309 569 chars pour 23 messages) |
-| `Summary` + `truncationChars: 10000` | ✅ COMPACT | ~3 KB (utilisable) |
+| `NoTools` (post-fix #881) | ✅ Alias vers Compact — résumé outils | ~5-10 KB (utilisable) |
+| `Summary` + `truncationChars: 10000` | ✅ COMPACT | ~3 KB (recommandé) |
+| `NoTools` (pré-fix #881) | ❌ EXPLOSION (historique) | ~300 KB |
 
 ---
 
@@ -36,7 +38,7 @@
 conversation_browser(
   action: "summarize",
   summarize_type: "trace",      // "trace" pour statistiques
-  detailLevel: "Summary",         // PAS "NoTools" (trompeur)
+  detailLevel: "Summary",         // Ou "NoTools" (alias Compact depuis #881)
   truncationChars: 10000,         // OBLIGATOIRE - limite chars
   taskId: "..."                   // ou taskIds pour clusters
 )
@@ -48,12 +50,14 @@ conversation_browser(
 
 | Niveau | Contenu | Quand l'utiliser |
 |--------|---------|------------------|
-| `Full` | Tout inclus | ❌ JAMAIS (explosion, massif) |
+| `Full` | Tout inclus | ❌ JAMAIS (explosion) |
 | `NoTools` | ✅ FIXÉ — Alias vers Compact (résumé outils) | ✅ Maintenant OK (#881) |
-| `NoResults` | Messages + params (sans résultats) | Pour vérifier le flow |
-| `Messages` | Messages seulement | Pour analyse structurelle |
+| `Compact` | Messages + outils résumés (nom + statut) | ✅ Recommandé (#881) |
+| `NoToolParams` | Ancien NoTools (params masqués, résultats complets) | ⚠️ Pour debug uniquement |
+| `NoResults` | Messages + params (sans résultats) | ✅ Compact |
+| `Messages` | Messages seulement | ✅ Très compact |
 | `Summary` | Vue condensée | ✅ RECOMMANDÉ |
-| `UserOnly` | Messages utilisateur seulement | Pour audit rapide |
+| `UserOnly` | Messages utilisateur seulement | ✅ Plus compact |
 
 ---
 
@@ -68,7 +72,7 @@ conversation_browser(action: "summarize", detailLevel: "Summary", truncationChar
 // MAUVAIS - Pas de limite, risque explosion
 conversation_browser(action: "summarize", detailLevel: "Summary")
 
-// MAUVAIS - Trompeur, masque seulement params
+// OK (post-fix #881) - Alias vers Compact, résumé outils
 conversation_browser(action: "summarize", detailLevel: "NoTools")
 ```
 
@@ -87,4 +91,4 @@ conversation_browser(action: "summarize", detailLevel: "NoTools")
 
 **Référence :** [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) - Section "Recommandations conversation_browser (CRITIQUE #608)"
 
-**Issue :** #608
+**Issue :** #608, #881, #952
