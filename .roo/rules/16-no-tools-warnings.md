@@ -6,9 +6,9 @@
 
 ---
 
-## ⚠️ PROBLÈME CONNU
+## ✅ FIX #881 APPLIQUÉ
 
-L'action `summarize` avec `detailLevel: "NoTools"` génère **explosion de contenu** (309 KB+ pour 23 messages).
+`detailLevel: "NoTools"` est maintenant un alias vers `Compact` qui **résume** les résultats d'outils (nom + statut + taille, pas le contenu complet). Le problème d'explosion est résolu.
 
 ---
 
@@ -49,7 +49,7 @@ conversation_browser(
 | Niveau | Contenu | Quand l'utiliser |
 |--------|---------|------------------|
 | `Full` | Tout inclus | ❌ JAMAIS (explosion, massif) |
-| `NoTools` | ❌ Trompeur (masque params, garde résultats) | ❌ À PROSCRIRE |
+| `NoTools` | ✅ FIXÉ — Alias vers Compact (résumé outils) | ✅ Maintenant OK (#881) |
 | `NoResults` | Messages + params (sans résultats) | Pour vérifier le flow |
 | `Messages` | Messages seulement | Pour analyse structurelle |
 | `Summary` | Vue condensée | ✅ RECOMMANDÉ |

@@ -24,7 +24,6 @@ Ce répertoire contient toute la configuration de l'extension **Roo Code** pour 
 │   ├── 03-mcp-usage.md                # Règles MCP
 │   ├── 04-sddd-grounding.md           # Protocole triple grounding SDDD
 │   ├── 05-tool-availability.md        # STOP & REPAIR (outils critiques)
-│   ├── 06-context-window.md           # Gestion fenêtre contexte
 │   ├── 07-orchestrator-delegation.md  # Contraintes orchestrateurs (groups: [])
 │   ├── 08-file-writing.md             # Règles écriture fichiers
 │   ├── 09-github-checklists.md        # Checklists GitHub obligatoires
@@ -36,10 +35,12 @@ Ce répertoire contient toute la configuration de l'extension **Roo Code** pour 
 │   ├── 15-coordinator-responsibilities.md # Rôle coordinateur
 │   ├── 16-no-tools-warnings.md        # Avertissements outils manquants
 │   ├── 17-friction-protocol.md        # Protocole de friction
-│   ├── github-cli.md                  # Règles GitHub CLI
-│   ├── skepticism-protocol.md         # Scepticisme raisonnable
-│   ├── testing.md                     # Commandes de test
-│   └── validation.md                  # Checklist de validation
+│   ├── 18-meta-analysis.md            # Protocole méta-analyse
+│   ├── 19-github-cli.md               # Règles GitHub CLI
+│   ├── 20-pr-mandatory.md             # PR obligatoire
+│   ├── 21-skepticism-protocol.md      # Scepticisme raisonnable
+│   ├── 22-validation.md               # Checklist de validation
+│   └── 23-no-deletion-without-proof.md # Anti-destruction
 └── rules-orchestrator/
     └── rules.md                       # Règles spécifiques aux orchestrateurs
 ```

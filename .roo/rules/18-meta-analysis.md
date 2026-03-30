@@ -300,7 +300,7 @@ Resume du workflow :
 
 - Issue #551 : Architecture Meta-Analyste (origine)
 - Issue #705 : Cette adaptation pour Roo
-- `.claude/rules/meta-analysis.md` : Version Claude (reference)
+- `.claude/docs/reference/meta-analysis.md` : Version Claude (reference)
 - `.roo/scheduler-workflow-meta-analyst.md` : Instructions completes du workflow
 - `.roo/rules/12-machine-constraints.md` : Seuils de condensation GLM (section "Contraintes communes")
 

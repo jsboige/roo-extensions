@@ -30,7 +30,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `03-mcp-usage.md` | `mcp-discoverability.md` | docs/reference/ | ✅ Aligned | MCP usage & discoverability |
 | `04-sddd-grounding.md` | `sddd-conversational-grounding.md` | rules/ | ✅ Aligned (Claude > Roo) | Triple grounding — Claude version more complete |
 | `05-tool-availability.md` | `tool-availability.md` | rules/ | ✅ Aligned (Claude > Roo) | STOP & REPAIR protocol |
-| `06-context-window.md` | `context-window.md` | rules/ | ✅ Aligned | GLM 80% threshold (auto-loaded rule) |
+| ~~`06-context-window.md`~~ | `context-window.md` | rules/ | ⚠️ Roo file DELETED | Content absorbed into `12-machine-constraints.md` (Roo) |
 | `07-orchestrator-delegation.md` | (in CLAUDE.md sections) | — | ⚠️ Roo-specific | Claude has no orchestrator modes |
 | `08-file-writing.md` | `file-writing.md` | rules/ | ⚠️ Different | Roo: write_to_file >200L; Claude: Edit/Write patterns |
 | `09-github-checklists.md` | `github-checklists.md` | docs/ | ✅ Aligned | GitHub checklist discipline (on-demand) |
@@ -59,7 +59,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 |------|---------|--------|
 | `agents-architecture.md` | Sub-agent definitions | Claude Code has native Agent tool |
 | `delegation.md` | Sub-agent delegation rules | Claude-specific (sub-agent API) |
-| `context-window.md` | GLM 80% condensation threshold | Auto-loaded (Roo equivalent: `06-context-window.md`) |
+| `context-window.md` | GLM 80% condensation threshold | Auto-loaded (Roo equivalent absorbed into `12-machine-constraints.md`) |
 | `worktree-cleanup.md` | Git worktree cleanup protocol | Claude uses worktrees for PRs |
 
 ### On-demand docs (`.claude/docs/`)
@@ -226,9 +226,9 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 
 | Category | Count |
 |----------|-------|
-| **Total Roo Rules** | 22 |
+| **Total Roo Rules** | 22 (01-05, 07-23; 06 deleted) |
 | **Total Claude Auto-loaded Rules** | 15 |
-| **Total Claude On-demand Docs** | 17 |
+| **Total Claude On-demand Docs** | 16 |
 | **Direct Equivalences** | 17 |
 | **Claude-Only (rules + docs)** | 14 |
 | **Roo-Only Rules** | 5 |

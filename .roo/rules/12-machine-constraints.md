@@ -46,7 +46,7 @@ Chaque machine du système RooSync a des contraintes spécifiques (RAM, OS, rôl
 
 3. **Seuil de condensation : 80% minimum** (pas 50%)
 
-**Documentation complète :** [`.claude/rules/myia-web1-constraints.md`](../../.claude/rules/myia-web1-constraints.md)
+**Documentation complète :** [`.claude/docs/machine-specific/myia-web1-constraints.md`](../../.claude/docs/machine-specific/myia-web1-constraints.md)
 
 ---
 

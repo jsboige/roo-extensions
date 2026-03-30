@@ -621,7 +621,8 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 9. **VS Code restart requis** : Apres modification de `.roo/schedules.json` (ou schedules.template.json), demander a l'utilisateur de redemarrer VS Code pour que le Roo scheduler prenne en compte les nouvelles instructions.
 10. **Worktree cleanup** : Utiliser les worktrees git pour les branches temporaires. Nettoyer apres usage. Voir [`.claude/rules/worktree-cleanup.md`](.claude/rules/worktree-cleanup.md)
-11. **🚨 JAMAIS DE CLÉS API DANS GITHUB** : Les clés API, tokens, secrets ne doivent JAMAIS apparaître dans issues, PRs, commentaires, commits. **Si une clé doit être partagée → RooSync message (GDrive privé)**. Voir [`.claude/rules/no-api-keys-in-git.md`](.claude/rules/no-api-keys-in-git.md)
+11. **JAMAIS DE CLES API DANS GITHUB** : Les cles API, tokens, secrets ne doivent JAMAIS apparaitre dans issues, PRs, commentaires, commits. **Si une cle doit etre partagee → RooSync message (GDrive prive)**.
+12. **`.claude/` = REPERTOIRE PROTEGE** : Ne JAMAIS creer de fichiers temporaires, scripts jetables, ou artefacts dans `.claude/`. Ce repertoire ne doit contenir QUE les fichiers du harnais (rules, agents, skills, commands, memory, state). Les scripts temporaires vont dans `$env:TEMP` ou `scripts/`.
 
 ---
 
