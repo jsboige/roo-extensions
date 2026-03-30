@@ -1,7 +1,8 @@
 # Taux de Succès Tests - Claude Code
 
-**Version :** 1.0.0
+**Version :** 1.1.0
 **Créé :** 2026-03-16
+**MAJ :** 2026-03-30 (#827 — vitest output sature le contexte scheduler)
 **Issue :** #720
 
 ---
@@ -42,7 +43,7 @@ Les tests unitaires du projet `roo-extensions` utilisent Vitest. Le taux de succ
 cd mcps/internal/servers/roo-state-manager
 npx vitest run
 
-# Tests avec couverture
+# Tests avec couverture (INTERDIT en scheduler — output trop volumineux)
 npx vitest run --coverage
 
 # Tests d'un fichier spécifique
@@ -58,6 +59,21 @@ npx vitest run --maxWorkers=1
 npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
 ```
 
+### Pour les agents schedulés (CRITIQUE — #827)
+
+**L'output brut de `npx vitest run` fait ~600K caractères (~150K tokens).** Cela sature le contexte des agents schedulés et provoque une boucle de condensation infinie.
+
+**TOUJOURS tronquer la sortie dans les commandes scheduler :**
+```bash
+# CORRECT - seulement les 30 dernières lignes (résumé)
+npx vitest run 2>&1 | Select-Object -Last 30
+
+# INTERDIT - output brut sature le contexte
+npx vitest run
+```
+
+**Note :** `--reporter=compact` N'EXISTE PAS dans vitest 3.x. Ne pas l'utiliser. La troncature via `Select-Object -Last 30` est la seule solution fiable.
+
 ### Commandes à éviter
 
 ```bash
@@ -65,6 +81,11 @@ npx vitest run --reporter=verbose --no-coverage --maxWorkers=1
 npm test
 npm run test
 npx vitest  # sans "run"
+
+# NE PAS utiliser en scheduler sans truncation (#827)
+npx vitest run              # sans '2>&1 | Select-Object -Last 30'
+npx vitest run --coverage   # output encore plus volumineux
+npx vitest run --reporter=compact  # N'EXISTE PAS — erreur fatale
 ```
 
 ---
@@ -96,4 +117,4 @@ Documents complémentaires :
 
 ---
 
-**Dernière mise à jour :** 2026-03-16
+**Dernière mise à jour :** 2026-03-30
