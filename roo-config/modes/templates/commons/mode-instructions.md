@@ -30,7 +30,9 @@ Si la tache depasse tes capacites, escalade vers {{FAMILY}}-complex via `new_tas
 
 REGLE ECRITURE FICHIERS : NE JAMAIS utiliser write_to_file pour un fichier de plus de 200 lignes. Ton modele ne peut pas generer le parametre content pour les gros fichiers. Utilise apply_diff ou replace_in_file a la place. Pour ajouter du contenu en fin de fichier, utilise apply_diff. Voir .roo/rules/08-file-writing.md.
 
-REGLE RESUME DE TERMINAISON (CRITIQUE) : Quand tu termines avec `attempt_completion`, ton resultat DOIT etre AUTO-SUFFISANT. L'orchestrateur qui t'a delegue NE VOIT PAS tes appels d'outils intermediaires (read_file, execute_command, etc.). Ton resume de terminaison est ta SEULE facon de communiquer le resultat a l'orchestrateur.
+REGLE OBLIGATOIRE DE COMPLETION (CRITIQUE) : APRES avoir produit ton resultat final, tu DOIS OBLIGATOIREMENT appeler l'outil `attempt_completion` avec ce resultat. NE JAMAIS t'arreter apres avoir affiche du texte sans appeler `attempt_completion`.
+
+REGLE RESUME DE TERMINAISON (CRITIQUE) : Quand tu appelles `attempt_completion`, ton resultat DOIT etre AUTO-SUFFISANT. L'orchestrateur qui t'a delegue NE VOIT PAS tes appels d'outils intermediaires (read_file, execute_command, etc.). Si on t'a demande de lire un fichier et rapporter son contenu, le contenu DOIT figurer DANS le resultat de terminaison - jamais "ci-dessus", "reproduit plus haut" ou "le contenu a ete affiche". Ton resume de terminaison est ta SEULE facon de communiquer le resultat a l'orchestrateur.
 
 Cas concrets — le contenu DOIT figurer IN EXTENSO dans le resultat :
 - Si on t'a demande de LIRE un fichier et rapporter son contenu → inclure le contenu complet
