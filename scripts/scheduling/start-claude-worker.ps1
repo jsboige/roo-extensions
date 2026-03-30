@@ -2027,20 +2027,21 @@ function Invoke-GitSyncAndReview {
                         $reviewArgs += "HEAD~$commitCount"
                     }
 
-                    # Execute auto-review with build gate (timeout 300s: build ~30s + tests ~90s + sk-agent ~60s)
+                    # Execute auto-review with build gate (timeout 600s: build ~30-60s + tests ~90-180s + sk-agent ~60s)
+                    # 600s accommodates web1 (16GB RAM, --maxWorkers=1) where tests take ~180s
                     $reviewJob = Start-Job -ScriptBlock {
                         param($script, $args)
                         & powershell -ExecutionPolicy Bypass -File $script @args
                     } -ArgumentList $reviewScript, $reviewArgs
 
-                    # Wait max 300s, then continue regardless
-                    $reviewCompleted = Wait-Job $reviewJob -Timeout 300
+                    # Wait max 600s, then continue regardless
+                    $reviewCompleted = Wait-Job $reviewJob -Timeout 600
                     if ($reviewCompleted) {
                         $reviewOutput = Receive-Job $reviewJob
                         Write-Log "Auto-review completed: $($reviewOutput | Select-Object -Last 1)" "INFO"
                         $result.reviewTriggered = $true
                     } else {
-                        Write-Log "Auto-review still running (timeout 120s), continuing..." "WARN"
+                        Write-Log "Auto-review still running (timeout 600s), continuing..." "WARN"
                         Stop-Job $reviewJob -ErrorAction SilentlyContinue
                         $result.reviewTriggered = $true  # It was triggered, just timed out
                     }
