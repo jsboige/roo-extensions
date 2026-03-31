@@ -464,6 +464,19 @@ function Test-GitHubIssueLock {
     param([int]$IssueNumber)
 
     try {
+        # Phase 1 - Issue #1005: Check assignee field atomique (prioritaire)
+        $IssueJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
+            --json assignees 2>&1
+
+        if ($LASTEXITCODE -eq 0) {
+            $IssueData = $IssueJson | ConvertFrom-Json
+            # Si l'issue a un assignee, elle est verrouillee
+            if ($IssueData.assignees.Count -gt 0) {
+                return $true
+            }
+        }
+
+        # Fallback Phase 2 - Check commentaires LOCK (compatibilite arriere)
         $CommentsJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
             --json comments --jq '.comments[-3:]' 2>&1
 
@@ -476,8 +489,8 @@ function Test-GitHubIssueLock {
             $CreatedAt = [DateTime]::Parse($Comment.createdAt)
             $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
 
-            # LOCK actif si < 5 minutes
-            if (($Body -match "LOCK:" -or $Body -match "Claimed by") -and $Age.TotalMinutes -lt 5) {
+            # LOCK actif si < 5 minutes (seulement pour compatibilite)
+            if (($Body -match "LOCK:") -and $Age.TotalMinutes -lt 5) {
                 return $true
             }
         }
@@ -492,12 +505,39 @@ function Claim-GitHubIssue {
     param([int]$IssueNumber, [string]$AgentType, [string]$MachineId)
 
     try {
+        # Phase 1: Utiliser GitHub assignee comme verrou atomique (Issue #1005)
+        # Le champ assignee est atomique et evite la race condition TOCTOU
+
+        # 1. Claim par assignee (operation atomique)
+        & gh issue edit $IssueNumber --repo jsboige/roo-extensions --add-assignee jsboige 2>&1 | Out-Null
+
+        # 2. Verifier que l'assignee est bien nous (apres 5s pour propagation)
+        Start-Sleep -Seconds 5
+        $IssueJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions --json assignees 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "⚠️ Erreur lecture assignee #$IssueNumber" "WARN"
+            return $false
+        }
+
+        $IssueData = $IssueJson | ConvertFrom-Json
+        $HasAssignee = $IssueData.assignees.Count -gt 0
+
+        if (-not $HasAssignee) {
+            # Rollback: quelqu'un d'autre a retire l'assignee (race condition perdue)
+            Write-Log "⚠️ Issue #$IssueNumber : assignee retire (race condition perdue)" "WARN"
+            return $false
+        }
+
+        # 3. Ajouter le commentaire de traçabilité [CLAIMED]
         $Timestamp = Get-Date -Format "o"
-        $Body = "Claimed by $AgentType on $MachineId at $Timestamp"
+        $Body = "[CLAIMED] by $AgentType on $MachineId at $Timestamp"
         & gh issue comment $IssueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
-        Write-Log "✅ Issue #$IssueNumber claimed"
+
+        Write-Log "✅ Issue #$IssueNumber claimed (assignee + commentaire)"
+        return $true
     } catch {
-        Write-Log "⚠️ Erreur claim #$IssueNumber" "WARN"
+        Write-Log "⚠️ Erreur claim #$IssueNumber : $_" "WARN"
+        return $false
     }
 }
 

@@ -258,34 +258,43 @@ INTERDIT : NE JAMAIS lancer vitest sans '2>&1 | Select-Object -Last 30' (output 
 
 > **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 30`
 
-### 2b-2 : GitHub Issues (dispatch-aware)
+### 2b-2 : GitHub Issues (dispatch-aware, Issue #1005 assignee lock)
 
-**Etape A — Lister TOUTES les issues ouvertes (pas seulement roo-schedulable) :**
+**Etape A — Lister TOUTES les issues ouvertes (avec assignees) :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels,assignees")
 ```
 
-Note : On liste toutes les issues. Le filtrage se fait en Etape B (labels, dispatch status, claim status).
+Note : On liste toutes les issues. Le filtrage se fait en Etape B (labels, dispatch status, claim status, assignee).
 IGNORER les issues avec label `needs-approval` (attendent validation utilisateur).
 
 **Etape B — Selectionner une issue (ordre de priorite) :**
 
-Pour les 5 premieres issues de la liste, verifier les derniers commentaires :
-```
-execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body] | join(\"\\n---\\n\")'")
-```
+> ⚠️ **ANTI-DOUBLON CRITIQUE (Issue #1005)** : Le verrou assignee est atomique et prioritaire sur les commentaires.
+
+Pour les 5 premieres issues de la liste :
+1. **VERIFIER ASSIGNEE** (check atomique) :
+   ```
+   execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json assignees")
+   ```
+   - Si l'issue a DEJA un assignee → PASSER (verrou actif)
+2. Si PAS d'assignee, verifier les derniers commentaires :
+   ```
+   execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body] | join(\"\\n---\\n\")'")
+   ```
 
 **Priorite de selection :**
 1. **Issue dispatchee a cette machine** : commentaire contenant `[DISPATCH] {MACHINE}` → executer en priorite
 2. **Issue dispatchee a `All`** : commentaire `[DISPATCH] All` → disponible (attention: verifier claim)
-3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` → claimer et executer
+3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` ET pas d'assignee → claimer et executer
 4. **PASSER si :**
-   - Commentaire `[CLAIMED]` par n'importe quel agent (pas seulement autre machine)
+   - **Assignee present** (verrou atomique #1005)
+   - Commentaire `[CLAIMED]` par n'importe quel agent (compatibilite arriere)
    - Commentaire `[RESULT]` existant (travail deja fait, meme si non ferme)
    - Issue dispatchee a une machine specifique AUTRE que la tienne
 
-> ⚠️ **ANTI-DOUBLON (CRITIQUE)** : TOUJOURS verifier les 10 derniers commentaires pour `[CLAIMED]` ET `[RESULT]` AVANT de claimer. Si l'un ou l'autre existe → PASSER cette issue. Ne JAMAIS claimer une issue qui a deja un `[RESULT]`.
+> ⚠️ **ANTI-DOUBLON (CRITIQUE)** : TOUJOURS verifier l'assignee AVANT les commentaires. Si assignee present → PASSER. Ne JAMAIS claimer une issue qui a deja un `[RESULT]`.
 
 Si une issue est trouvee :
 1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
@@ -294,7 +303,13 @@ Si une issue est trouvee :
    - **Si PAS de label `roo-schedulable`** : **DELEGUER A `code-complex`** (tache non calibree pour -simple)
    - Si labels contiennent `enhancement` ou `feature` : **TOUJOURS `code-complex`** meme si roo-schedulable
    - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
-3. Commenter pour claim : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
+3. **Claim avec assignee (verrou atomique #1005)** :
+   ```
+   execute_command(shell="powershell", command="gh issue edit {NUM} --repo jsboige/roo-extensions --add-assignee jsboige")
+   execute_command(shell="powershell", command="Start-Sleep -Seconds 5; gh issue view {NUM} --repo jsboige/roo-extensions --json assignees")
+   ```
+   Verifier que l'assignee est bien `jsboige`. Si un autre agent a aussi claim, celui qui a l'assignee gagne.
+4. Commenter pour traçabilité : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
 4. **Creer une branche et travailler dessus** (JAMAIS push direct sur main) :
    ```
    execute_command(shell="gitbash", command="git checkout -b wt/{MACHINE}-issue-{NUM}")
