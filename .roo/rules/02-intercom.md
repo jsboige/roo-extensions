@@ -42,68 +42,24 @@ roosync_dashboard(
 - Auto-condensation automatique
 - Tags structurés pour identifier l'auteur
 
-### Fichier INTERCOM (FALLBACK uniquement)
+### Fichier INTERCOM (FALLBACK DEPRECATED)
 
-**Utiliser uniquement si le MCP `roosync_dashboard` échoue.**
+**⚠️ DEPRECATED : Privilégier le dashboard RooSync (`roosync_dashboard`).**
 
-```
-.claude/local/INTERCOM-{MACHINE}.md
-```
+Le fichier `.claude/local/INTERCOM-{MACHINE}.md` n'est qu'un fallback si le MCP échoue.
 
-Exemples :
-- `.claude/local/INTERCOM-myia-ai-01.md`
-- `.claude/local/INTERCOM-myia-po-2025.md`
+**Règles essentielles (si usage fallback) :**
+- **TOUJOURS** ajouter à la FIN (ordre chronologique)
+- **JAMAIS** insérer au début, supprimer ou modifier les messages existants
+- Préférer `apply_diff` ou `Add-Content` plutôt que `write_to_file` (échec fréquent sur >500 lignes)
 
----
-
-## REGLE CRITIQUE : Ordre d'Ecriture
-
-**TOUJOURS ajouter les nouveaux messages A LA FIN du fichier.**
-
-Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en bas.
-
-### Procédure d'écriture (Fallback fichier local)
-
-**Seulement si le MCP `roosync_dashboard` échoue.**
-
-**METHODE 1 (apply_diff - append a la fin) :**
-
-1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
-2. **Preparer** le nouveau message
-3. **Utiliser `apply_diff`** pour ajouter le message APRES le dernier separateur `---`
-
-Exemple :
+Exemple rapide (apply_diff) :
 ```
 apply_diff(
   path: ".claude/local/INTERCOM-{MACHINE}.md",
-  diff: "<<<<<<< SEARCH\n[dernier separateur --- du fichier]\n======= REPLACE\n[dernier separateur ---]\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n>>>>>>> REPLACE"
+  diff: "<<<<<<< SEARCH\n[dernier ---]\n======= REPLACE\n[dernier ---]\n\n## [DATE] sender → receiver [TYPE]\nContenu...\n\n---\n>>>>>>> REPLACE"
 )
 ```
-
-**METHODE 2 (win-cli Add-Content) :**
-
-Si `apply_diff` echoue, utiliser win-cli :
-```
-execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n'@")
-```
-
-**METHODE 3 (write_to_file - dernier recours) :**
-
-Si les deux methodes ci-dessus echouent :
-1. **Lire** le fichier ENTIER avec `read_file`
-2. **Reecrire** avec `write_to_file` (ancien contenu + nouveau message)
-
-> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5. **Privilegier TOUJOURS `apply_diff` ou `Add-Content`.**
-
-### INTERDIT
-
-- **NE JAMAIS** inserer un message au debut du fichier (avant les messages existants)
-- **NE JAMAIS** supprimer ou modifier les messages existants
-- **NE JAMAIS** ecrire UNIQUEMENT le nouveau message (ecrasement du fichier)
-
-### Pourquoi
-
-L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire les messages recents en fin de fichier. Inserer en haut casse cet ordre et rend le fichier illisible.
 
 ---
 
