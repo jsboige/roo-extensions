@@ -80,23 +80,16 @@ roosync_dashboard(
 - Auto-condensation automatique
 - Tags structurés pour identifier l'auteur
 
-### Fichier INTERCOM (FALLBACK uniquement)
+### Fichier INTERCOM (FALLBACK DEPRECATED)
 
-**⚠️ DEPRECATED - EMERGENCY FALLBACK ONLY**
+**⚠️ DEPRECATED depuis #745 Phase 2. Utiliser uniquement si le MCP `roosync_dashboard` échoue.**
 
-**Utiliser SEULEMENT si le MCP `roosync_dashboard` est complètement indisponible.**
+**Procédure fallback (si MCP échoue) :**
+1. **Lire** le fichier pour trouver le dernier séparateur `---`
+2. **Ajouter** le nouveau message à la fin (ordre chronologique)
+3. **Préférer** `apply_diff` ou `Add-Content` plutôt que `write_to_file` (échec fréquent sur >500 lignes)
 
-Fichier : `.claude/local/INTERCOM-{MACHINE}.md` (ex: `INTERCOM-myia-ai-01.md`)
-
-**Procédure minimale (si MCP échoue) :**
-1. **Lire** les dernières lignes avec `read_file` pour trouver le dernier `---`
-2. **Append** le nouveau message avec `apply_diff` ou `Add-Content` (win-cli)
-3. **Dernier recours** : `write_to_file` (ancien contenu + nouveau message)
-
-**RÈGLES CRITIQUES :**
-- **Ordre chronologique** : TOUJOURS ajouter à la FIN du fichier (ancien en haut, récent en bas)
-- **NE JAMAIS** insérer au début ou supprimer/modifier les messages existants
-- **NE JAMAIS** écraser le fichier avec seulement le nouveau message
+> **Ordre chronologique critique** : Toujours ajouter à la FIN du fichier. Jamais insérer au début.
 
 ---
 
@@ -274,16 +267,7 @@ Les fichiers existants sont conservés en lecture seule comme archive historique
 4. Identifier les `TASK` non complétées
 5. Identifier les `ASK` sans `REPLY`
 
-**FALLBACK fichier local (si MCP échoue) :**
-1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`
-2. Mêmes étapes 3-4 ci-dessus
-
-### Format de Recherche (fallback fichier uniquement)
-
-```bash
-# Trouver les messages non-résolus dans le fichier local
-grep -E "^\#\# \[.*\] .* → roo \[TASK\]" .claude/local/INTERCOM-*.md
-```
+**FALLBACK fichier local (si MCP échoue) :** Ouvrir `.claude/local/INTERCOM-{MACHINE}.md` et appliquer les mêmes critères.
 
 ---
 
