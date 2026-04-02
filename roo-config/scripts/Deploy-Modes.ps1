@@ -18,6 +18,12 @@
 .PARAMETER Source
     Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
 
+.PARAMETER ApiProfile
+    API profile to apply from model-configs.json (e.g., "Production (Qwen 3.5 local + GLM-5.1 cloud)")
+
+.PARAMETER SyncApiConfigs
+    Sync API configs from model-configs.json to Roo VS Code settings after deployment
+
 .PARAMETER DryRun
     Show what would be done without making changes
 
@@ -28,6 +34,10 @@
 .EXAMPLE
     .\Deploy-Modes.ps1 -DeploymentType global
     Deploy to VS Code global settings (custom_modes.yaml, YAML)
+
+.EXAMPLE
+    .\Deploy-Modes.ps1 -DeploymentType global -ApiProfile "Production (Qwen 3.5 local + GLM-5.1 cloud)" -SyncApiConfigs
+    Deploy modes with profile and sync API configs to Roo settings
 
 .EXAMPLE
     .\Deploy-Modes.ps1 -DryRun
@@ -41,6 +51,8 @@ param(
     [string]$Source = "",
 
     [string]$ApiProfile = "",
+
+    [switch]$SyncApiConfigs,
 
     [switch]$DryRun
 )
@@ -204,3 +216,24 @@ Write-Host "`nNext steps:" -ForegroundColor Cyan
 Write-Host "  1. Reload VS Code (Ctrl+Shift+P > Reload Window)" -ForegroundColor White
 Write-Host "  2. Open mode selector to verify modes appear" -ForegroundColor White
 Write-Host "  3. Check model routing in roo-config/model-configs.json" -ForegroundColor White
+
+# Sync API configs if requested
+if ($SyncApiConfigs) {
+    Write-Host "`n" -NoNewline
+    Write-Host "Syncing API configs..." -ForegroundColor Cyan
+
+    $syncScript = Join-Path $repoRoot "roo-config\scripts\Sync-ApiConfigs.ps1"
+    if (Test-Path $syncScript) {
+        $syncArgs = @($syncScript)
+        if ($DryRun) {
+            $syncArgs += "-DryRun"
+        }
+
+        & @($syncArgs) | Out-Host
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "`nWARNING: API config sync failed (exit code $LASTEXITCODE)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "`nWARNING: Sync-ApiConfigs.ps1 not found at: $syncScript" -ForegroundColor Yellow
+    }
+}

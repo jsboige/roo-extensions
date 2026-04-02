@@ -1,21 +1,22 @@
-# Worktree Cleanup Protocol
-# Description: Automated cleanup of orphan worktrees and stale branches
-# Author: Claude Code (myia-po-2025)
-# Issue: #856
-# Usage: .claude/scripts/worktree-cleanup.ps1 [-WhatIf] [-Force]
+# Auto-Cleanup Protocol - Worktree Garbage Collection
+# Description: Cleanup automatique des worktrees orphelins et branches stales
+# Integre au scheduler executor workflow
+# Issue: #856, #895
+# Usage: .\scripts\worktrees\auto-cleanup.ps1 [-WhatIf] [-StaleDays 30]
 
 [CmdletBinding()]
 param(
     [switch]$WhatIf,
     [switch]$Force,
     [int]$StaleDays = 30,
+    [int]$MaxWorktrees = 2,
     [string]$WorktreePath = ".claude/worktrees"
 )
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 
 # Configuration
-$script:RepoRoot = (git rev-parse --show-toplevel 2>$null)
+$script:RepoRoot = git rev-parse --show-toplevel 2>$null
 if (-not $script:RepoRoot) {
     Write-Error "Not in a git repository"
     exit 1
@@ -28,12 +29,6 @@ function Write-Info { param($msg) Write-Host "[INFO] $msg" -ForegroundColor Cyan
 function Write-Success { param($msg) Write-Host "[OK] $msg" -ForegroundColor Green }
 function Write-Warn { param($msg) Write-Host "[WARN] $msg" -ForegroundColor Yellow }
 function Write-Err { param($msg) Write-Host "[ERROR] $msg" -ForegroundColor Red }
-
-# Check if VS Code is running
-function Test-VSCodeRunning {
-    $processes = Get-Process -Name "Code" -ErrorAction SilentlyContinue
-    return ($processes.Count -gt 0)
-}
 
 # Get all git worktrees
 function Get-GitWorktrees {
@@ -65,9 +60,9 @@ function Get-StaleBranches {
     $staleDate = (Get-Date).AddDays(-$DaysOld)
     $branches = @()
 
-    # Get all branches matching wt/ pattern
+    # Get all branches matching wt/ or feature/ pattern
     $allBranches = git branch -a --format="%(refname:short) %(objectname:short)" 2>$null |
-                   Where-Object { $_ -match "^(wt/|remotes/origin/wt/)" }
+                   Where-Object { $_ -match "^(wt/|feature/|remotes/origin/wt/|remotes/origin/feature/)" }
 
     foreach ($branchLine in $allBranches) {
         $branchName = ($branchLine -split '\s+')[0]
@@ -136,7 +131,7 @@ function Get-OrphanWorktreeDirs {
     return $orphans
 }
 
-# Remove orphan worktree directory (Windows-safe: handles long paths and locked files)
+# Remove orphan worktree directory
 function Remove-OrphanWorktreeDir {
     param([string]$Path, [bool]$WhatIf)
 
@@ -145,63 +140,13 @@ function Remove-OrphanWorktreeDir {
         return
     }
 
-    # Strategy 1: Standard Remove-Item
     try {
-        Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
+        Remove-Item -Path $Path -Recurse -Force
         Write-Success "Removed orphan directory: $Path"
-        return
     }
     catch {
-        Write-Warn "Standard remove failed for $Path : $_"
+        Write-Err "Failed to remove $Path : $_"
     }
-
-    # Strategy 2: Long path prefix (Windows MAX_PATH workaround)
-    $longPath = if ($Path -notmatch '^\\\\\?\\') { "\\?\$Path" } else { $Path }
-    try {
-        Remove-Item -LiteralPath $longPath -Recurse -Force -ErrorAction Stop
-        Write-Success "Removed orphan directory (long path): $Path"
-        return
-    }
-    catch {
-        Write-Warn "Long path remove failed: $_"
-    }
-
-    # Strategy 3: cmd.exe rmdir (handles some locked cases better)
-    try {
-        $escapedPath = $Path -replace '"', '\"'
-        $proc = Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "rmdir", "/s", "/q", "`"$escapedPath`"" -NoNewWindow -Wait -PassThru
-        if ($proc.ExitCode -eq 0) {
-            Write-Success "Removed orphan directory (cmd.exe): $Path"
-            return
-        }
-        Write-Warn "cmd.exe rmdir exited with code $($proc.ExitCode)"
-    }
-    catch {
-        Write-Warn "cmd.exe rmdir failed: $_"
-    }
-
-    # Strategy 4: robocopy empty mirror (nuclear option for stubborn dirs)
-    try {
-        $emptyDir = Join-Path $env:TEMP "worktree-cleanup-empty-$(Get-Random)"
-        New-Item -ItemType Directory -Path $emptyDir -Force | Out-Null
-        $proc = Start-Process -FilePath "robocopy.exe" -ArgumentList $emptyDir, $Path, "/MIR", "/R:0", "/W:0" -NoNewWindow -Wait -PassThru
-        # robocopy returns 0-7 for success, 8+ for errors
-        if ($proc.ExitCode -le 7) {
-            Remove-Item -Path $Path -Force -Recurse -ErrorAction SilentlyContinue
-            Remove-Item -Path $emptyDir -Force -Recurse -ErrorAction SilentlyContinue
-            if (-not (Test-Path $Path)) {
-                Write-Success "Removed orphan directory (robocopy mirror): $Path"
-                return
-            }
-        }
-        Remove-Item -Path $emptyDir -Force -Recurse -ErrorAction SilentlyContinue
-    }
-    catch {
-        Write-Warn "robocopy mirror failed: $_"
-    }
-
-    Write-Err "All removal strategies failed for: $Path"
-    Write-Info "  Manual cleanup: Close VS Code, then: cmd /c 'rmdir /s /q `"$Path`"'"
 }
 
 # Delete stale branch
@@ -227,16 +172,39 @@ function Remove-StaleBranch {
     }
 }
 
+# Run git garbage collection
+function Invoke-GitGarbageCollection {
+    param([bool]$WhatIf)
+
+    if ($WhatIf) {
+        Write-Info "[WHATIF] Would run 'git gc --prune=now'"
+        return
+    }
+
+    try {
+        Write-Info "Running git garbage collection..."
+        git gc --prune=now 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Write-Success "Git garbage collection complete"
+        }
+        else {
+            Write-Warn "Git garbage collection returned non-zero exit code"
+        }
+    }
+    catch {
+        Write-Err "Failed to run git gc : $_"
+    }
+}
+
 # Main execution
-function Invoke-WorktreeCleanup {
+function Invoke-AutoCleanup {
     Write-Host ""
-    Write-Host "=== Worktree Cleanup Report ===" -ForegroundColor White
+    Write-Host "=== Auto-Cleanup Report ===" -ForegroundColor White
     Write-Host "Repository: $script:RepoRoot"
     Write-Host "Date: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+    Write-Host "Stale threshold: $StaleDays days"
+    Write-Host "Max worktrees: $MaxWorktrees"
     Write-Host ""
-
-    $vsCodeRunning = Test-VSCodeRunning
-    Write-Info "VS Code running: $vsCodeRunning"
 
     # Get active worktrees
     $activeWorktrees = Get-GitWorktrees
@@ -249,6 +217,12 @@ function Invoke-WorktreeCleanup {
     # Check for stale branches
     $staleBranches = Get-StaleBranches -DaysOld $StaleDays
     Write-Info "Stale branches (>$StaleDays days): $($staleBranches.Count)"
+
+    # Check if we exceed max worktrees
+    $exceedsMax = ($activeWorktrees.Count -gt $MaxWorktrees)
+    if ($exceedsMax) {
+        Write-Warn "Worktree count ($($activeWorktrees.Count)) exceeds max ($MaxWorktrees)"
+    }
 
     Write-Host ""
 
@@ -271,17 +245,11 @@ function Invoke-WorktreeCleanup {
     }
 
     # Determine if cleanup needed
-    $needsCleanup = ($orphanDirs.Count -gt 0 -or $staleBranches.Count -gt 0)
+    $needsCleanup = ($orphanDirs.Count -gt 0 -or $staleBranches.Count -gt 0 -or $exceedsMax)
 
     if (-not $needsCleanup) {
         Write-Success "No cleanup needed. All worktrees are valid."
-        return @{ Status = "clean"; Orphans = 0; StaleBranches = 0 }
-    }
-
-    # Warning if VS Code is running
-    if ($vsCodeRunning -and -not $WhatIf -and -not $Force) {
-        Write-Warn "VS Code is running. Use -Force to proceed or -WhatIf for dry run."
-        return @{ Status = "aborted"; Reason = "VS Code running" }
+        return @{ Status = "clean"; Orphans = 0; StaleBranches = 0; GarbageCollected = $false }
     }
 
     # Perform cleanup
@@ -304,21 +272,8 @@ function Invoke-WorktreeCleanup {
         }
     }
 
-    # Run git worktree prune to clean stale administrative records
-    if (-not $WhatIf) {
-        Write-Host ""
-        Write-Info "Running git worktree prune..."
-        git worktree prune 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "git worktree prune completed"
-        }
-        else {
-            Write-Warn "git worktree prune returned non-zero exit code"
-        }
-    }
-    else {
-        Write-Info "[WHATIF] Would run: git worktree prune"
-    }
+    # Run garbage collection
+    Invoke-GitGarbageCollection -WhatIf $WhatIf
 
     Write-Host ""
     if ($WhatIf) {
@@ -326,20 +281,6 @@ function Invoke-WorktreeCleanup {
     }
     else {
         Write-Success "Cleanup complete: $cleanedOrphans directories, $cleanedBranches branches"
-
-        # Run git gc if cleanup happened
-        if ($cleanedOrphans -gt 0 -or $cleanedBranches -gt 0) {
-            Write-Host ""
-            Write-Info "Running git gc --prune=now..."
-            git gc --prune=now 2>$null
-            if ($LASTEXITCODE -eq 0) {
-                Write-Success "git gc completed"
-            }
-            else {
-                Write-Warn "git gc returned non-zero exit code"
-            }
-            Write-Info "VS Code restart recommended if worktrees were removed"
-        }
     }
 
     return @{
@@ -347,9 +288,10 @@ function Invoke-WorktreeCleanup {
         Orphans = $cleanedOrphans
         StaleBranches = $cleanedBranches
         WhatIf = $WhatIf
+        GarbageCollected = -not $WhatIf
     }
 }
 
 # Execute
-$result = Invoke-WorktreeCleanup
+$result = Invoke-AutoCleanup
 exit 0

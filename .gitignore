@@ -130,6 +130,9 @@ mcps/external/win-cli/server/*.txt
 # Claude Code local settings (machine-specific overrides, never commit)
 .claude/settings.local.json
 
+# Claude Code executor state (ephemeral session state, machine-specific)
+.claude/executor-state.json
+
 # Claude Code local inter-agent communication (machine-specific)
 .claude/local/
 

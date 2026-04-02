@@ -1,0 +1,137 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Executor State Schema",
+  "description": "Schema for executor session state persistence",
+  "type": "object",
+  "required": ["sessionId", "startTime", "lastActivity", "currentPhase", "tasksCompleted", "tasksInProgress", "tasksPending", "context", "metadata"],
+  "properties": {
+    "sessionId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the executor session"
+    },
+    "startTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when the session started"
+    },
+    "lastActivity": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last activity in the session"
+    },
+    "currentPhase": {
+      "type": "string",
+      "enum": ["PHASE_0", "PHASE_1", "PHASE_1.5", "PHASE_2", "PHASE_3"],
+      "description": "Current executor phase (see executor command documentation)"
+    },
+    "tasksCompleted": {
+      "type": "array",
+      "description": "List of completed task identifiers (GitHub issue numbers, task IDs)",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tasksInProgress": {
+      "type": "array",
+      "description": "List of tasks currently being worked on",
+      "items": {
+        "type": "object",
+        "required": ["issue", "status"],
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "GitHub issue number or task identifier"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["investigation", "implementation", "validation", "blocked"],
+            "description": "Current status of the task"
+          },
+          "branch": {
+            "type": "string",
+            "description": "Git branch name if work has started"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Additional notes about the task"
+          }
+        }
+      }
+    },
+    "tasksPending": {
+      "type": "array",
+      "description": "List of pending tasks to be executed",
+      "items": {
+        "type": "object",
+        "required": ["issue", "priority"],
+        "properties": {
+          "issue": {
+            "type": "string",
+            "description": "GitHub issue number or task identifier"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["low", "medium", "high", "urgent"],
+            "description": "Task priority level"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Why this task is pending"
+          }
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "required": ["gitState", "machineId"],
+      "properties": {
+        "gitState": {
+          "type": "string",
+          "description": "Git commit hash or branch reference"
+        },
+        "machineId": {
+          "type": "string",
+          "description": "Machine identifier (e.g., myia-po-2023)"
+        },
+        "workspace": {
+          "type": "string",
+          "description": "Workspace path or identifier"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Free-form notes about the session context"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["version", "created", "modified"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Schema version"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the state file was created"
+        },
+        "modified": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the state file was last modified"
+        },
+        "sessionType": {
+          "type": "string",
+          "enum": ["interactive", "scheduled"],
+          "description": "Type of executor session"
+        },
+        "interruptionReason": {
+          "type": "string",
+          "description": "Reason for session interruption (if applicable)"
+        }
+      }
+    }
+  }
+}

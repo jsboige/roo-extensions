@@ -146,7 +146,27 @@ function Get-NextTask {
         Write-Log "✅ Tâche GitHub: #$($GitHubTask.issueNumber)" "INFO"
         # Claim l'issue immédiatement (sauf en DryRun)
         if (-not $SkipClaim) {
-            Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+            $ClaimSuccess = Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+            if (-not $ClaimSuccess) {
+                Write-Log "⚠️ Claim échoué pour #$($GitHubTask.issueNumber), un autre agent l'a probablement prise" "WARN"
+                # Retourner null pour passer à la tâche suivante
+                return $null
+            }
+            # Phase 3 - Vérification double avant de commencer le travail
+            # Vérifier que l'issue est toujours ouverte et n'a pas de PR
+            $VerifyIssue = & gh issue view $GitHubTask.issueNumber --repo jsboige/roo-extensions --json state,assignees 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $VerifyData = $VerifyIssue | ConvertFrom-Json
+                if ($VerifyData.state -ne "OPEN") {
+                    Write-Log "⚠️ Issue #$($GitHubTask.issueNumber) fermée entre-temps, abandon" "WARN"
+                    return $null
+                }
+                # Vérifier qu'on est toujours assignee
+                if ($VerifyData.assignees.Count -eq 0) {
+                    Write-Log "⚠️ Assignee retiré pour #$($GitHubTask.issueNumber), un autre agent a pris le relais" "WARN"
+                    return $null
+                }
+            }
         } else {
             Write-Log "[DRY-RUN] Skip claim issue #$($GitHubTask.issueNumber)" "INFO"
         }
@@ -589,7 +609,7 @@ function Build-GitHubPrompt {
     $PromptParts += "STATUS: wait"
     $PromptParts += "REASON: [blocking condition]"
     $PromptParts += "WAIT_FOR: [what needs to happen]"
-    $PromptParts += "RESUME_WHEN: [github_comment|intercom_message|timeout_hours:N]"
+    $PromptParts += "RESUME_WHEN: [github_comment|dashboard_message|timeout_hours:N]"
     $PromptParts += "==================="
     $PromptParts += ""
     $PromptParts += "If you need more iterations to complete (partial progress made):"
@@ -728,12 +748,47 @@ function Test-WaitStateReady {
         Write-Log "  → Attend: $($State.waitFor)"
         Write-Log "  → Reprendra: $($State.resumeWhen)"
 
+        # --- Stale wait-state auto-cleanup ---
+        # Auto-remove wait states older than 7 days or for CLOSED issues
+        $StaleThresholdDays = 7
+        $WaitAge = (Get-Date) - [datetime]$State.timestamp
+        if ($WaitAge.TotalDays -gt $StaleThresholdDays) {
+            Write-Log "🗑️ Wait state PÉRIMÉ (age: $([math]::Round($WaitAge.TotalDays))j > ${StaleThresholdDays}j) → suppression automatique" "WARN"
+            Remove-WaitState -TaskId $TaskId
+            return $null
+        }
+
+        # Auto-remove wait states for CLOSED GitHub issues
+        if ($TaskId -match "github-(\d+)") {
+            $IssueNum = $Matches[1]
+            try {
+                $IssueState = (& gh issue view $IssueNum --repo jsboige/roo-extensions --json state --jq '.state' 2>$null)
+                if ($IssueState -eq "CLOSED") {
+                    Write-Log "🗑️ Wait state pour issue FERMÉE (#$IssueNum) → suppression automatique" "WARN"
+                    Remove-WaitState -TaskId $TaskId
+                    return $null
+                }
+            } catch {
+                Write-Log "  Impossible de vérifier l'état de l'issue #$IssueNum" "WARN"
+            }
+        }
+
         # Vérifier condition resumeWhen
         $ResumeCondition = $State.resumeWhen.ToLower() -replace '[_\s]+', '_'
 
         switch -Regex ($ResumeCondition) {
+            "timeout_hours:?\s*(\d+)" {
+                $TimeoutHours = [int]$Matches[1]
+                Write-Log "  Vérification timeout ($TimeoutHours heures)..."
+                if ($WaitAge.TotalHours -ge $TimeoutHours) {
+                    Write-Log "✅ Timeout expiré ($([math]::Round($WaitAge.TotalHours))h >= ${TimeoutHours}h) - reprise autorisée"
+                    return $State
+                } else {
+                    Write-Log "  ⏳ Timeout pas encore atteint ($([math]::Round($WaitAge.TotalHours,1))h / ${TimeoutHours}h)"
+                }
+            }
             "user_approval|user approval" {
-                Write-Log "  Vérification user approval (INTERCOM + GitHub)..."
+                Write-Log "  Vérification user approval (Dashboard + GitHub)..."
                 if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
                     Write-Log "✅ User approval détectée - reprise autorisée"
                     return $State
@@ -930,8 +985,8 @@ function Test-IntercomMessage {
     #>
     param([string]$TaskId, $WaitState)
 
-    # Cette fonction est deprecated - on utilise maintenant le dashboard workspace
-    # Pour compatibilité, on retourne false (pas de reprise basée sur INTERCOM)
+    # DEPRECATED since #745 Phase 2 — use Test-DashboardMessage instead
+    # Returns false always (INTERCOM file no longer used for resume signals)
     Write-Log "Test-IntercomMessage est deprecated - utiliser Test-DashboardMessage à la place" "WARN"
     return $false
 }
@@ -1992,20 +2047,21 @@ function Invoke-GitSyncAndReview {
                         $reviewArgs += "HEAD~$commitCount"
                     }
 
-                    # Execute auto-review with build gate (timeout 300s: build ~30s + tests ~90s + sk-agent ~60s)
+                    # Execute auto-review with build gate (timeout 600s: build ~30-60s + tests ~90-180s + sk-agent ~60s)
+                    # 600s accommodates web1 (16GB RAM, --maxWorkers=1) where tests take ~180s
                     $reviewJob = Start-Job -ScriptBlock {
                         param($script, $args)
                         & powershell -ExecutionPolicy Bypass -File $script @args
                     } -ArgumentList $reviewScript, $reviewArgs
 
-                    # Wait max 300s, then continue regardless
-                    $reviewCompleted = Wait-Job $reviewJob -Timeout 300
+                    # Wait max 600s, then continue regardless
+                    $reviewCompleted = Wait-Job $reviewJob -Timeout 600
                     if ($reviewCompleted) {
                         $reviewOutput = Receive-Job $reviewJob
                         Write-Log "Auto-review completed: $($reviewOutput | Select-Object -Last 1)" "INFO"
                         $result.reviewTriggered = $true
                     } else {
-                        Write-Log "Auto-review still running (timeout 120s), continuing..." "WARN"
+                        Write-Log "Auto-review still running (timeout 600s), continuing..." "WARN"
                         Stop-Job $reviewJob -ErrorAction SilentlyContinue
                         $result.reviewTriggered = $true  # It was triggered, just timed out
                     }

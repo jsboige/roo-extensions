@@ -185,6 +185,43 @@ Expose les taches, conversations, et outils de coordination de Roo Code. Utilise
 - `roosync_search(action: "text", search_query: "...")` pour chercher dans l'historique Roo
 - Ne pas utiliser `conversation_browser(action: "summarize", summarize_type: "synthesis")` (bug connu)
 
+**⚠️ CRITIQUE : Dashboard file redirect handling (#984)**
+
+Quand vous lisez un dashboard RooSync (`roosync_dashboard(action: "read")`), si le contenu est trop volumineux, le MCP retourne un message du type :
+
+```
+Content too large, written to file: /path/to/file
+```
+
+**Dans ce cas, vous DEVEZ lire le fichier retourné :**
+
+1. **Détecter** que la réponse contient un chemin fichier (pattern "written to file:")
+2. **Lire** ce fichier avec l'outil `Read`
+3. **Traiter** le contenu comme si l'outil l'avait retourné directement
+
+**Exemple de procédure :**
+
+```typescript
+// Étape 1 : Appel dashboard avec intercomLimit pour éviter overflow
+const result = roosync_dashboard(
+  action: "read",
+  type: "workspace",
+  section: "intercom",
+  intercomLimit: 10  // Limite à 10 messages récents
+);
+
+// Étape 2 : Vérifier si le contenu a été redirigé
+if (result.message && result.message.includes("written to file:")) {
+  const filePath = result.message.match(/written to file: (.+)/)[1];
+  const actualContent = Read(filePath);
+  // Traiter actualContent...
+} else {
+  // Traiter result.content directement
+}
+```
+
+**Pourquoi c'est critique :** Sans cette lecture en 2 temps, les messages INTERCOM importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignorés, ce qui rompt la coordination cross-machine.
+
 ### playwright (browser automation)
 - Automatisation web, screenshots, navigation
 - Utile pour tester des UI, scraper, valider des deployements

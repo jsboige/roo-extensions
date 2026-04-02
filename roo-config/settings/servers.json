@@ -2,16 +2,6 @@
   "version": "1.0.0",
   "servers": [
     {
-      "name": "github-projects",
-      "type": "stdio",
-      "command": "node ./mcps/internal/servers/github-projects-mcp/dist/index.js",
-      "enabled": false,
-      "autoStart": false,
-      "description": "Serveur MCP pour interagir avec GitHub Projects (DÉSACTIVÉ - T89: Aucun mode Roo personnalisé n'utilise ce MCP. Migration vers gh CLI recommandée. Voir docs/suivi/github-projects-migration/GUIDE_MIGRATION.md)",
-      "workingDirectory": "./mcps/internal/servers/github-projects-mcp",
-      "envFile": ".env"
-    },
-    {
       "name": "searxng",
       "type": "stdio",
       "command": "npx -y @modelcontextprotocol/server-searxng",
@@ -26,18 +16,6 @@
       "enabled": true,
       "autoStart": true,
       "description": "Serveur MCP pour exécuter des commandes CLI sur Windows"
-    },
-    {
-      "name": "quickfiles",
-      "type": "stdio",
-      "command": "node ./mcps/internal/servers/quickfiles-server/build/index.js",
-      "enabled": true,
-      "autoStart": true,
-      "description": "Serveur MCP pour manipuler rapidement plusieurs fichiers",
-      "env": {
-        "QUICKFILES_EXCLUDES": "node_modules,.git,dist,build,coverage,.DS_Store,Thumbs.db",
-        "QUICKFILES_MAX_DEPTH": "5"
-      }
     },
     {
       "name": "jupyter",

@@ -1,6 +1,6 @@
 # Archive Documentation Obsolète
 
-**Dernière mise à jour :** 2026-03-14
+**Dernière mise à jour :** 2026-03-28
 **Action :** Archivage des docs marqués "obsolete" ou "deprecated"
 
 ---
@@ -49,6 +49,20 @@ Les fichiers suivants ont été déplacés vers ce dossier car ils contiennent d
 |---------|--------|------------------|
 | `003-backward-compatibility-strategy.md` | ADR backward compatibility - marqué deprecated | 2026-03-14 |
 
+### RooSync (ajout 2026-03-28)
+
+| Fichier | Raison | Date d'archivage |
+|---------|--------|------------------|
+| `DASHBOARD-HIERARCHIQUE-v1.0.md` | Dashboard Phase 1 (#546) superseded by `ROOSYNC_DASHBOARDS.md` (#675, 3-type system) | 2026-03-28 |
+
+### Rapports ponctuels (ajout 2026-03-28)
+
+| Fichier | Raison | Date d'archivage |
+|---------|--------|------------------|
+| `coverage-audit-492.md` | Audit couverture tests #492 (2026-02-21), snapshot historique | 2026-03-28 |
+| `sk-agent-phase5-validation-report-po-2026.md` | Rapport validation sk-agent po-2026 (2026-03-20), ponctuel | 2026-03-28 |
+| `sk-agent-phase5-validation-report.md` | Rapport validation sk-agent ai-01 (2026-03-20), ponctuel | 2026-03-28 |
+
 ---
 
 ## Fichiers NON archivés (v2.1 = référence historique)
@@ -66,9 +80,10 @@ Les fichiers suivants contiennent des références à v2.1 mais sont toujours pe
 
 ## Actions futures
 
-- [ ] Revoir périodiquement si des documents archivés peuvent être supprimés définitivement
-- [ ] Mettre à jour les références croisées dans la documentation active
-- [x] ~~Consolider les audits dans `docs/audit/archive/`~~ **TERMINÉ 2026-03-14**
+- [ ] Revoir périodiquement si des documents archivés peuvent etre supprimes definitivement
+- [ ] Mettre a jour les references croisees dans la documentation active
+- [x] ~~Consolider les audits dans `docs/audit/archive/`~~ **TERMINE 2026-03-14**
+- [x] ~~Archiver DASHBOARD-HIERARCHIQUE-v1.0.md et rapports ponctuels~~ **TERMINE 2026-03-28 (issue #656 P0)**
 
 ---
 

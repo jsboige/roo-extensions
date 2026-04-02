@@ -1,11 +1,13 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.5.0
+**Version:** 1.6.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-20
+**Mis à jour:** 2026-03-28
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 **Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 + myia-po-2024 (2026-03-14) - Roo uniquement maintenant
 **Issue #708:** Ajout section dédiée "win-cli - Roo uniquement" pour clarifier que win-cli n'est critique que pour Roo
+**Issue #938:** Synchronisation avec version Roo (v1.6.0)
+**Fichier jumeau :** `.roo/rules/05-tool-availability.md` (Roo) — contenu synchronisé
 
 ---
 
@@ -167,6 +169,37 @@
 
 ---
 
+## Pre-flight Check (AVANT Etape 1)
+
+A chaque execution scheduler, AVANT de commencer le workflow :
+
+1. Verifier que l'outil critique est disponible (Claude Code: `conversation_browser`, Roo: `execute_command`)
+2. Si echec : signaler via dashboard [CRITICAL] et terminer proprement
+3. Si succes : continuer le workflow normal
+
+## Pre-flight en mode Scheduler (CRITIQUE)
+
+**Le pre-flight check est READ-ONLY.** En mode scheduler :
+- NE JAMAIS tenter de modifier la config MCP (mcp_settings.json)
+- NE JAMAIS tenter de redemarrer un serveur MCP
+- NE JAMAIS utiliser ask_followup_question (interdit en scheduler)
+- Si un outil critique est absent : signaler via dashboard [CRITICAL], terminer proprement
+
+## Accommodation INTERDITE
+
+**NE PAS :**
+- Continuer en mode degrade si un outil critique manque
+- Tenter des contournements (utiliser un autre outil a la place)
+- Ignorer les erreurs de type "tool not found"
+- Rapporter "partiellement OK" quand un outil critique est absent
+
+**TOUJOURS :**
+- Signaler immediatement via dashboard [CRITICAL] ou RooSync URGENT
+- Arreter le workflow proprement
+- Attendre le prochain tick ou intervention
+
+---
+
 ## Verification Proactive (Coordinateur)
 
 ### Apres TOUT changement de configuration
@@ -198,7 +231,7 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 | MCP | Outils (count) | Derniere verification |
 |-----|----------------|----------------------|
-| roo-state-manager | 34 | 2026-03-20 |
+| roo-state-manager | 34 | 2026-03-28 |
 | win-cli | 9 | 2026-02-21 |
 | playwright | 22 | 2026-02-21 |
 | markitdown | 1 | 2026-02-21 |
@@ -212,4 +245,4 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Derniere mise a jour :** 2026-03-20
+**Derniere mise a jour :** 2026-03-28

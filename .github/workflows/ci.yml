@@ -9,10 +9,7 @@ on:
       - '.github/workflows/ci.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'mcps/internal'
-      - 'mcps/internal/**'
-      - '.github/workflows/ci.yml'
+    # No paths filter — CI always runs on PRs to enable required status checks
   workflow_dispatch:
 
 jobs:
@@ -21,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20, 22]
 
     defaults:
       run:

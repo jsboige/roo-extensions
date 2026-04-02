@@ -20,7 +20,7 @@ All agent-generated code commits must pass through a PR review workflow before m
 
 | Agent Type | Creates PR? | Exception |
 |-----------|-------------|-----------|
-| **Scheduler (Roo)** | ✅ YES (for `-complex` tasks) | `-simple` tasks can push to main (read-only/doc) |
+| **Scheduler (Roo)** | ✅ YES (all tasks with code changes) | No exception — PR mandatory per `.claude/rules/pr-mandatory.md` |
 | **Scheduler (Claude)** | ✅ YES (for all tasks) | Research tasks (no code changes) |
 | **Coordinator (ai-01)** | ❌ NO | Coordinator merges PRs, doesn't create them |
 | **Interactive (/executor)** | ✅ YES | User approval required before creating PR |
@@ -81,17 +81,28 @@ Fixes #XXX, Relates to #YYY
 | Secrets Scan | `detect-secrets` | No secrets detected | PR blocked, secrets removed |
 | Type Checks | `tsc --noEmit` | No type errors | PR blocked, agent fixes |
 
-### sk-agent Code Review (RECOMMENDED)
+### sk-agent Code Review (MANDATORY for PRs >50 LOC)
 
-Before requesting coordinator review, run a structured code review via sk-agent:
+**REQUIRED** before merging any PR with >50 lines of code changes. The coordinator MUST run a structured code review via sk-agent and post the results as a PR comment.
 
-```
+```bash
+# 1. Get the PR diff
+gh pr diff {PR_NUMBER} --repo jsboige/roo-extensions
+
+# 2. Run sk-agent code review
 run_conversation(conversation: "code-review", prompt: "Review this PR diff for security, performance, maintainability, and correctness:\n\n[git diff output]")
+
+# 3. Post review as PR comment
+gh pr comment {PR_NUMBER} --body "## sk-agent Review\n\n{review summary}"
 ```
 
-This provides multi-perspective analysis (security, perf, maintainability) before human/coordinator review. Include the review summary in the PR body under a `## sk-agent Review` section.
+This provides multi-perspective analysis (security, perf, maintainability) before merge. The review summary MUST be posted as a PR comment under a `## sk-agent Review` section.
 
-**When to use:** All PRs with >50 lines of code changes. Skip for doc-only or config-only PRs.
+**When to use:** All PRs with >50 lines of code changes.
+**Skip for:** Doc-only, config-only, or harness-only PRs (<50 LOC).
+**Blocking:** If sk-agent identifies critical issues (security, data loss), the PR MUST NOT be merged until resolved.
+
+**Note:** Since all agents use the same GitHub account (`jsboige`), GitHub cannot enforce approval via PR reviews. sk-agent review as PR comment is the enforcement mechanism (Option E, approved 2026-03-28). Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
 
 ### Warning Checks (NON-BLOCKING)
 
@@ -312,5 +323,5 @@ detect-secrets scan --all-files --only-whitelist
 
 ---
 
-**Last updated:** 2026-03-05
+**Last updated:** 2026-03-28
 **Maintainer:** Coordinateur RooSync (myia-ai-01)

@@ -229,11 +229,14 @@ function Install-Task {
             Write-Status "    Removed existing task." DarkGray
         }
 
-        # Create trigger: repeat every N hours for 1 year (re-run setup yearly)
+        # Create trigger: repeat every N hours indefinitely (no expiration)
         # Start 5 minutes from now
+        # NOTE: RepetitionDuration must be $null for indefinite repetition (Issue #967)
         $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
-            -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
-            -RepetitionDuration (New-TimeSpan -Days 365)
+            -RepetitionInterval (New-TimeSpan -Hours $IntervalHours)
+        # Explicitly set indefinite duration and disable StopAtDurationEnd
+        $trigger.Repetition.Duration = $null
+        $trigger.Repetition.StopAtDurationEnd = $false
 
         # Create action
         $taskAction = New-ScheduledTaskAction `

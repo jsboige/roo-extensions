@@ -1,9 +1,9 @@
 # Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 2.0.0
+**Version:** 2.1.0
 **Cree:** 2026-03-13
-**MAJ:** 2026-03-24
-**Issues:** #669, #745, #835, #836
+**MAJ:** 2026-03-29
+**Issues:** #669, #745, #835, #836, #984
 
 ---
 
@@ -79,9 +79,47 @@ roosync_dashboard(
 
 ### 3. Lecture
 
+**METHODE OBLIGATOIRE avec paramètre `intercomLimit` :**
+
 ```
 roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
 ```
+
+**⚠️ CRITIQUE : Gestion de la redirection vers fichier (#984)**
+
+Quand le contenu du dashboard est trop volumineux, le MCP retourne un message du type :
+```
+Content too large, written to file: /path/to/file
+```
+
+**Dans ce cas, l'agent DOIT lire le fichier retourné :**
+
+1. **Détecter** que la réponse contient un chemin fichier (pattern "written to file:")
+2. **Lire** ce fichier avec l'outil `Read`
+3. **Traiter** le contenu comme si l'outil l'avait retourné directement
+
+**Exemple de procédure complète :**
+
+```typescript
+// Étape 1 : Appel dashboard avec intercomLimit pour éviter overflow
+const result = roosync_dashboard(
+  action: "read",
+  type: "workspace",
+  section: "intercom",
+  intercomLimit: 10  // Limite à 10 messages récents
+);
+
+// Étape 2 : Vérifier si le contenu a été redirigé
+if (result.message && result.message.includes("written to file:")) {
+  const filePath = result.message.match(/written to file: (.+)/)[1];
+  const actualContent = Read(filePath);
+  // Traiter actualContent...
+} else {
+  // Traiter result.content directement
+}
+```
+
+**Pourquoi c'est critique :** Sans cette lecture en 2 temps, les messages INTERCOM importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignorés, ce qui rompt la coordination cross-machine.
 
 ### Avantages du dashboard vs fichier local
 
@@ -221,9 +259,10 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 
 **METHODE OBLIGATOIRE (Dashboard) :**
 1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
-2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
-3. Identifier les `TASK` non complétées
-4. Identifier les `ASK` sans `REPLY`
+2. **SI redirection vers fichier** (message contient "written to file:") : lire ce fichier avec `Read`
+3. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
+4. Identifier les `TASK` non complétées
+5. Identifier les `ASK` sans `REPLY`
 
 **FALLBACK fichier local (si MCP echoue) :**
 1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
@@ -301,7 +340,7 @@ Cannot read properties of undefined (reading 'filter')
 
 - Roo equivalent : `.roo/rules/02-intercom.md`
 - Issue #669 : [META-ANALYSIS] Ajouter règle écriture INTERCOM pour Claude
-- Meta-analysis report : `docs/cross-analysis-harnesses-2026-03-13.md` (REC-003)
+- Meta-analysis report : `docs/archive/harness-reports/cross-analysis-harnesses-2026-03-13.md` (REC-003)
 
 ---
 

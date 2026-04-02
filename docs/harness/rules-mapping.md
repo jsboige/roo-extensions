@@ -30,7 +30,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `03-mcp-usage.md` | `mcp-discoverability.md` | docs/reference/ | ✅ Aligned | MCP usage & discoverability |
 | `04-sddd-grounding.md` | `sddd-conversational-grounding.md` | rules/ | ✅ Aligned (Claude > Roo) | Triple grounding — Claude version more complete |
 | `05-tool-availability.md` | `tool-availability.md` | rules/ | ✅ Aligned (Claude > Roo) | STOP & REPAIR protocol |
-| `06-context-window.md` | `context-window.md` | rules/ | ✅ Aligned | GLM 80% threshold (auto-loaded rule) |
+| ~~`06-context-window.md`~~ | `context-window.md` | rules/ | ⚠️ Roo file DELETED | Content absorbed into `12-machine-constraints.md` (Roo) |
 | `07-orchestrator-delegation.md` | (in CLAUDE.md sections) | — | ⚠️ Roo-specific | Claude has no orchestrator modes |
 | `08-file-writing.md` | `file-writing.md` | rules/ | ⚠️ Different | Roo: write_to_file >200L; Claude: Edit/Write patterns |
 | `09-github-checklists.md` | `github-checklists.md` | docs/ | ✅ Aligned | GitHub checklist discipline (on-demand) |
@@ -44,10 +44,10 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 | `17-friction-protocol.md` | `friction-protocol.md` | docs/ | ✅ Aligned | Friction reporting (on-demand) |
 | `18-meta-analysis.md` | `meta-analysis.md` | docs/reference/ | ✅ Aligned | Meta-analyst tier (on-demand) |
 | `19-github-cli.md` | `github-cli.md` | rules/ | ✅ Identical | GitHub CLI and GraphQL |
-| `19-pr-mandatory.md` | `pr-mandatory.md` | rules/ | ✅ Aligned | PR mandatory workflow |
-| `20-skepticism-protocol.md` | `skepticism-protocol.md` | rules/ | ✅ Aligned v2.0.0 | Anti-propagation (#924) |
-| `21-validation.md` | `validation.md` | rules/ | ✅ Aligned | Validation rules |
-| `22-no-deletion-without-proof.md` | `no-deletion-without-proof.md` | rules/ | ✅ Aligned | Anti-destruction rule |
+| `20-pr-mandatory.md` | `pr-mandatory.md` | rules/ | ✅ Aligned | PR mandatory workflow |
+| `21-skepticism-protocol.md` | `skepticism-protocol.md` | rules/ | ✅ Aligned v2.0.0 | Anti-propagation (#924) |
+| `22-validation.md` | `validation.md` | rules/ | ✅ Aligned | Validation rules |
+| `23-no-deletion-without-proof.md` | `no-deletion-without-proof.md` | rules/ | ✅ Aligned | Anti-destruction rule |
 
 ---
 
@@ -59,7 +59,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 |------|---------|--------|
 | `agents-architecture.md` | Sub-agent definitions | Claude Code has native Agent tool |
 | `delegation.md` | Sub-agent delegation rules | Claude-specific (sub-agent API) |
-| `context-window.md` | GLM 80% condensation threshold | Auto-loaded (Roo equivalent: `06-context-window.md`) |
+| `context-window.md` | GLM 80% condensation threshold | Auto-loaded (Roo equivalent absorbed into `12-machine-constraints.md`) |
 | `worktree-cleanup.md` | Git worktree cleanup protocol | Claude uses worktrees for PRs |
 
 ### On-demand docs (`.claude/docs/`)
@@ -226,9 +226,9 @@ Roo github-cli.md     ←→  Claude github-cli.md (identical)
 
 | Category | Count |
 |----------|-------|
-| **Total Roo Rules** | 22 |
+| **Total Roo Rules** | 22 (01-05, 07-23; 06 deleted) |
 | **Total Claude Auto-loaded Rules** | 15 |
-| **Total Claude On-demand Docs** | 17 |
+| **Total Claude On-demand Docs** | 16 |
 | **Direct Equivalences** | 17 |
 | **Claude-Only (rules + docs)** | 14 |
 | **Roo-Only Rules** | 5 |
