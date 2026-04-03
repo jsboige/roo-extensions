@@ -13,6 +13,12 @@
     5. Gère les escalades automatiques
     6. Reporte les résultats au coordinateur
 
+    ESCALATION MECHANISM (#1027):
+    - Baseline: Haiku (git pull, simple tasks, maintenance)
+    - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
+    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
+    - Target: Haiku baseline once #1026 reduces harness below 60K tokens
+
 .PARAMETER Mode
     Mode Claude à utiliser (sync-simple, code-simple, etc.)
     Si non spécifié, déterminé automatiquement selon la tâche
@@ -98,8 +104,24 @@ function Test-ClaudeCLI {
 }
 
 function Get-EscalatedModel {
+    <#
+    .SYNOPSIS
+    Escalates model on retry for complex tasks (#1027 escalation mechanism).
+
+    .DESCRIPTION
+    Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+    This is called on retry when the baseline model fails to complete a task.
+
+    ESCALATION CHAIN (#1027):
+    - haiku -> sonnet (code changes, investigations)
+    - sonnet -> opus (architectural decisions, complex refactoring)
+    - opus -> null (already at max)
+
+    NOTE: This is RETRY escalation, not intra-session sub-agent escalation.
+    For sub-agent pattern (escalade within same session), use Task tool with model parameter.
+    #>
     param([string]$CurrentModel)
-    # Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+
     switch ($CurrentModel) {
         "haiku"  { return "sonnet" }
         "sonnet" { return "opus" }
@@ -1197,7 +1219,12 @@ function Determine-Model {
     Priority chain:
     1. Project field "Model" (deterministic, set by coordinator in GitHub Project #67)
     2. Script parameter -Model (fallback, e.g. from Task Scheduler)
-    3. Default: "sonnet"
+    3. Default: "haiku" (#1027 - cost optimization)
+
+    ESCALATION MECHANISM (#1027):
+    - Baseline: Haiku (git pull, simple tasks)
+    - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
+    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
 
     Note: Claude Code does NOT have "modes" like Roo. It uses models (haiku/sonnet/opus)
     and sub-agents (Agent tool). The mode config model is intentionally NOT in this chain.
@@ -1217,9 +1244,9 @@ function Determine-Model {
         return $Model
     }
 
-    # Priority 3: Default
-    Write-Log "Modele par defaut: sonnet"
-    return "sonnet"
+    # Priority 3: Default (Haiku baseline for cost optimization #1027)
+    Write-Log "Modele par defaut: haiku"
+    return "haiku"
 }
 
 function Get-DeadlineUrgency {
@@ -2332,6 +2359,9 @@ REASON: [resume des tests ajoutes ou findings de veille]
     # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~114K tokens.
     # haiku maps to glm-4.5-air on z.ai which has insufficient context for this harness.
     # Minimum viable model is sonnet (glm-4.7 on z.ai, ~131K context).
+    #
+    # NOTE: This guard blocks Haiku baseline until #1026 reduces harness below 60K tokens.
+    # Target: Haiku baseline with Sonnet escalation for complex tasks (#1027).
     $MinimumModel = "sonnet"
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
