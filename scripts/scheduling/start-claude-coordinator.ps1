@@ -13,11 +13,16 @@
     5. Produit un rapport coordinateur sur GDrive
 
     Frequence : 6-12h
-    Model : opus (coordination strategique)
+    Model : Sonnet baseline avec escalation sub-agent Opus pour PR reviews (#1027)
     Machine : myia-ai-01 UNIQUEMENT
 
+    ESCALATION MECHANISM (#1027):
+    - Thread principal sur Sonnet (git pull, dashboard read, dispatch decisions)
+    - PR review etale : deleguer a sub-agent Opus via Task tool si diff complexe
+    - MinimumModel guard non applicable (Sonnet suffisant pour harnais actuel)
+
 .PARAMETER Model
-    Modele Claude a utiliser (defaut: opus)
+    Modele Claude a utiliser (defaut: sonnet)
 
 .PARAMETER LookbackHours
     Fenetre d'analyse en heures (defaut: 48)
@@ -27,11 +32,11 @@
 
 .EXAMPLE
     .\start-claude-coordinator.ps1
-    # Lance la coordination en mode opus
+    # Lance la coordination en mode Sonnet (baseline)
 
 .EXAMPLE
-    .\start-claude-coordinator.ps1 -Model "sonnet" -DryRun
-    # Simulation avec modele sonnet
+    .\start-claude-coordinator.ps1 -Model "opus" -DryRun
+    # Simulation avec modele Opus (escalade manuelle)
 
 .NOTES
     Auteur: Claude Code (myia-ai-01)
@@ -42,7 +47,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Model = "opus",
+    [string]$Model = "sonnet",
     [int]$LookbackHours = 48,
     [switch]$DryRun = $false
 )
@@ -194,9 +199,15 @@ gh pr diff {number} --repo jsboige/roo-extensions
 |---------|--------|
 | PR petite (< 100 lignes), diff propre, pas de suppression suspecte | `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch` |
 | PR moyenne (100-500 lignes), diff coherent | Ajouter un commentaire `## Coordinator Review` avec analyse + merger si OK |
-| PR large (> 500 lignes) ou suppression de code | Commentaire de review detaille, ne PAS merger automatiquement |
+| PR large (> 500 lignes) ou suppression de code | **ESCALADE** : utiliser Task tool avec sub-agent Opus pour review approfondie |
 | Titre indique "Partial" ou "needs review" | Commentaire de review, attendre corrections |
 | PR date de plus de 72h sans activite | Commenter pour relancer l'auteur, fermer si >1 semaine |
+
+**ESCALATION PATTERN (#1027) :**
+Pour PRs complexes (>500 lignes ou suppressions), deleguer la review a un sub-agent Opus :
+```
+Task(tool="code-fixer", prompt="Review PR #{number} avec focus anti-destruction. Diff: [gh pr diff {number}]. Checklist: pas de suppression sans preuve, pas de stubs, pas de console.log. Return ton analyse.", model="opus")
+```
 
 **4d. Format du commentaire de review :**
 ``````

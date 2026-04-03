@@ -11,23 +11,28 @@
     3. Ecrit les findings dans META-INTERCOM
     4. Propose des issues GitHub avec label needs-approval si applicable
 
-    Frequence : 24h
-    Model : opus (analyse complexe, cross-system)
+    Frequence : 72h
+    Model : Sonnet baseline avec escalation sub-agent Opus pour recommandations architecturales (#1027)
     Machines : TOUTES
 
+    ESCALATION MECHANISM (#1027):
+    - Thread principal sur Sonnet (analyse traces, detection incoherences)
+    - Recommandations architecturales complexes : deleguer a sub-agent Opus
+    - MinimumModel guard non applicable (Sonnet suffisant pour harnais actuel)
+
 .PARAMETER Model
-    Modele Claude a utiliser (defaut: opus)
+    Modele Claude a utiliser (defaut: sonnet)
 
 .PARAMETER DryRun
     Mode simulation sans execution reelle
 
 .EXAMPLE
     .\start-meta-audit.ps1
-    # Lance l'audit meta-analyse en mode opus
+    # Lance l'audit meta-analyse en mode Sonnet (baseline)
 
 .EXAMPLE
-    .\start-meta-audit.ps1 -Model "sonnet" -DryRun
-    # Simulation avec modele sonnet
+    .\start-meta-audit.ps1 -Model "opus" -DryRun
+    # Simulation avec modele Opus (escalade manuelle)
 
 .NOTES
     Auteur: Claude Code (myia-ai-01)
@@ -38,7 +43,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$Model = "opus",
+    [string]$Model = "sonnet",
     [switch]$DryRun = $false
 )
 
@@ -183,6 +188,12 @@ Ajouter EN FIN du fichier un rapport avec ce format :
 
 **Recommandations :**
 1. {Rec 1} -> [action: INFO|needs-approval|harness-change]
+
+**ESCALATION PATTERN (#1027) :**
+Pour recommandations architecturales complexes (ex: refactoring majeur, nouveaux patterns), deleguer l'analyse a un sub-agent Opus :
+```
+Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour identifier [probleme]. Return un plan d'action detaille.", model="opus")
+```
 
 ---
 
