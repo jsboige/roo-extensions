@@ -1,6 +1,7 @@
 # Regles SDDD - Protocole de Triple Grounding
 
-**Version:** 2.1.0 (2026-02-23)
+**Version:** 2.2.0 (2026-03-29)
+**Issue:** #984 (Dashboard file redirect handling)
 
 ## Principe
 
@@ -296,12 +297,15 @@ conversation_browser(
 ```
 1. BOOKEND DEBUT : codebase_search multi-pass (Pass 1 large → Pass 2 zoom) + roosync_search(semantic)
 2. CONVERSATIONNEL : conversation_browser(list) → identifier IDs → conversation_browser(view, skeleton)
-3. TECHNIQUE : Read/Grep le code source (Pass 3 confirmation), tests unitaires
-4. TRAVAIL : Implementer/corriger/documenter
-5. BOOKEND FIN : codebase_search(query: "validation tache") → confirmer indexation
+3. DASHBOARD : roosync_dashboard(read, intercomLimit: 10) → SI redirection fichier : Read(fichier)
+4. TECHNIQUE : Read/Grep le code source (Pass 3 confirmation), tests unitaires
+5. TRAVAIL : Implementer/corriger/documenter
+6. BOOKEND FIN : codebase_search(query: "validation tache") → confirmer indexation
 ```
 
 **IMPORTANT (etape 2) :** `list` est le PREMIER appel obligatoire du grounding conversationnel. Sans lui, les IDs de taches sont inconnus et les appels `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant (retourne la plus ancienne tache ouverte, pas forcement la plus pertinente).
+
+**IMPORTANT (etape 3) :** Le dashboard RooSync doit etre lu avec `intercomLimit: 10` pour eviter le overflow. Si le MCP redirige vers un fichier (message "written to file:"), le contenu DOIT etre lu avec l'outil `Read`. Sans cette lecture en 2 temps, les messages importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignores. Voir issue #984.
 
 **Combinaison semantique + technique :** Les Passes 1-2 (codebase_search) identifient les zones pertinentes par concept. La Pass 3 (Grep) confirme et complete avec precision. Ne jamais se fier uniquement a l'un ou l'autre.
 
