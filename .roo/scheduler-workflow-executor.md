@@ -258,58 +258,54 @@ INTERDIT : NE JAMAIS lancer vitest sans '2>&1 | Select-Object -Last 30' (output 
 
 > **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 30`
 
-### 2b-2 : GitHub Issues (dispatch-aware, Issue #1005 assignee lock)
+### 2b-2 : GitHub Issues (dispatch-aware)
 
-**Etape A — Lister TOUTES les issues ouvertes (avec assignees) :**
+**Etape A — Lister TOUTES les issues ouvertes (pas seulement roo-schedulable) :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels,assignees")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
 ```
 
-Note : On liste toutes les issues. Le filtrage se fait en Etape B (labels, dispatch status, claim status, assignee).
+Note : On liste toutes les issues. Le filtrage se fait en Etape B (labels, dispatch status, claim status).
 IGNORER les issues avec label `needs-approval` (attendent validation utilisateur).
 
 **Etape B — Selectionner une issue (ordre de priorite) :**
 
-> ⚠️ **ANTI-DOUBLON CRITIQUE (Issue #1005)** : Le verrou assignee est atomique et prioritaire sur les commentaires.
-
-Pour les 5 premieres issues de la liste :
-1. **VERIFIER ASSIGNEE** (check atomique) :
-   ```
-   execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json assignees")
-   ```
-   - Si l'issue a DEJA un assignee → PASSER (verrou actif)
-2. Si PAS d'assignee, verifier les derniers commentaires :
-   ```
-   execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body] | join(\"\\n---\\n\")'")
-   ```
+Pour les 5 premieres issues de la liste, verifier les derniers commentaires :
+```
+execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json comments --jq '[.comments[-5:][] | .body] | join(\"\\n---\\n\")'")
+```
 
 **Priorite de selection :**
 1. **Issue dispatchee a cette machine** : commentaire contenant `[DISPATCH] {MACHINE}` → executer en priorite
 2. **Issue dispatchee a `All`** : commentaire `[DISPATCH] All` → disponible (attention: verifier claim)
-3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` ET pas d'assignee → claimer et executer
+3. **Issue non dispatchee et non claimee** : aucun commentaire `[DISPATCH]` ni `[CLAIMED]` → claimer et executer
 4. **PASSER si :**
-   - **Assignee present** (verrou atomique #1005)
-   - Commentaire `[CLAIMED]` par n'importe quel agent (compatibilite arriere)
+   - Assignee defini (quelqu'un a déjà locké l'issue avec assignee)
+   - Commentaire `[CLAIMED]` par n'importe quel agent (pas seulement autre machine)
    - Commentaire `[RESULT]` existant (travail deja fait, meme si non ferme)
    - Issue dispatchee a une machine specifique AUTRE que la tienne
 
-> ⚠️ **ANTI-DOUBLON (CRITIQUE)** : TOUJOURS verifier l'assignee AVANT les commentaires. Si assignee present → PASSER. Ne JAMAIS claimer une issue qui a deja un `[RESULT]`.
+> ⚠️ **ANTI-DOUBLON (CRITIQUE - FIX #1005)** : Le mécanisme de claim utilise maintenant le champ `assignee` comme verrou atomique.
+> 1. **Phase 1** : `gh issue edit --add-assignee jsboige` (opération atomique GitHub API)
+> 2. **Phase 2** : Attendre 5 secondes, puis vérifier que l'assignee est toujours présent
+> 3. **Phase 3** : Si vérification OK, poster commentaire `[CLAIMED]` pour traçabilité
+> 4. **Rollback** : Si l'assignee a été retiré pendant le délai, abandonner l'issue
+>
+> TOUJOURS verifier les 10 derniers commentaires pour `[CLAIMED]` ET `[RESULT]` AVANT de claimer. Si l'un ou l'autre existe → PASSER cette issue. Ne JAMAIS claimer une issue qui a deja un `[RESULT]`.
 
 Si une issue est trouvee :
-1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels")
+1. Lire le body complet avec labels : execute_command(shell="powershell", command="gh issue view {NUM} --repo jsboige/roo-extensions --json title,body,labels,assignees")
 2. **VERIFIER LES LABELS** avant de choisir le mode d'execution :
    - Si labels contiennent `roo-schedulable` : utiliser `code-simple` (taches calibrees pour ca)
    - **Si PAS de label `roo-schedulable`** : **DELEGUER A `code-complex`** (tache non calibree pour -simple)
    - Si labels contiennent `enhancement` ou `feature` : **TOUJOURS `code-complex`** meme si roo-schedulable
    - Si labels contiennent `bug` avec complexite inconnue : commencer avec `code-complex`
-3. **Claim avec assignee (verrou atomique #1005)** :
-   ```
-   execute_command(shell="powershell", command="gh issue edit {NUM} --repo jsboige/roo-extensions --add-assignee jsboige")
-   execute_command(shell="powershell", command="Start-Sleep -Seconds 5; gh issue view {NUM} --repo jsboige/roo-extensions --json assignees")
-   ```
-   Verifier que l'assignee est bien `jsboige`. Si un autre agent a aussi claim, celui qui a l'assignee gagne.
-4. Commenter pour traçabilité : execute_command(shell="powershell", command="gh issue comment {NUM} --body \"[CLAIMED] by {MACHINE} (Roo scheduler). Mode: {simple/complex}.\"")
+3. **Claimer avec assignee comme verrou** (fonction `Claim-GitHubIssue` dans start-claude-worker.ps1) :
+   - Ajoute `jsboige` comme assignee (opération atomique)
+   - Attend 5 secondes et vérifie que l'assignee est toujours présent
+   - Poste commentaire `[CLAIMED]` pour traçabilité
+   - Retourne `$false` si le claim a échoué (un autre agent a pris l'issue)
 4. **Creer une branche et travailler dessus** (JAMAIS push direct sur main) :
    ```
    execute_command(shell="gitbash", command="git checkout -b wt/{MACHINE}-issue-{NUM}")
