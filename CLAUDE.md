@@ -490,7 +490,7 @@ Cela met à jour les définitions API dans `cline_custom_instructions.md` pour c
 
 ### Methodologie SDDD
 
-**Reference complete :** [`.claude/rules/sddd-conversational-grounding.md`](.claude/rules/sddd-conversational-grounding.md)
+**Reference complete :** [`.claude/docs/sddd-conversational-grounding.md`](.claude/docs/sddd-conversational-grounding.md)
 
 Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se contenter d'une seule source.
 
@@ -498,7 +498,7 @@ Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se conten
 
 ## GitHub CLI
 
-**Reference complete :** [`.claude/rules/github-cli.md`](.claude/rules/github-cli.md)
+**Reference complete :** [`.claude/docs/github-cli.md`](.claude/docs/github-cli.md)
 
 Essentiel : `gh issue`, `gh pr`, `gh api graphql`. Scope `project` requis. Project #67 = `PVT_kwHOADA1Xc4BLw3w`.
 
@@ -532,11 +532,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 
 | Règle | Description | Fichier |
 |-------|-------------|---------|
-| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-conversational-grounding.md` |
-| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. | `.claude/rules/delegation.md` |
 | **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
-| **GitHub CLI** | `gh` CLI au lieu de MCP github-projects. Scope `project` requis. | `.claude/rules/github-cli.md` |
-| **Test Success Rates** | `npx vitest run` (JAMAIS `npm test`). web1: `--maxWorkers=1`. | `.claude/rules/test-success-rates.md` |
 
 ### Règles Communication
 
@@ -550,7 +546,6 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 | Règle | Description | Fichier |
 |-------|-------------|---------|
 | **Context Window** | Seuil condensation 80% pour GLM (131K réels). | `.claude/rules/context-window.md` |
-| **Worktree Cleanup** | Script cleanup orphelins + branches stale. | `.claude/rules/worktree-cleanup.md` |
 | **Agents Architecture** | 18 subagents, 6 skills, 4 commands. | `.claude/rules/agents-architecture.md` |
 
 ---
@@ -576,7 +571,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **CI Guardrails** | Validation OBLIGATOIRE avant push du submodule. Build + tests CI doivent passer. | `.claude/rules/ci-guardrails.md` |
 | **PR Mandatory** | Zero push direct sur main. Tout changement passe par worktree → PR → review → merge. | `.claude/rules/pr-mandatory.md` |
 | **No Deletion Without Proof** | Interdiction de supprimer du code sans preuve que la fonctionnalité est preservee. | `.claude/rules/no-deletion-without-proof.md` |
-| **Test Success Rates** | Taux de succes attendu : 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. | `.claude/rules/test-success-rates.md` |
+| **Test Success Rates** | Taux de succes attendu : 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. Tronquer output scheduler. | `.claude/docs/test-success-rates.md` |
 
 ### Coding Standards
 
@@ -584,6 +579,10 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 |----------|-------------------|--------|
 | **File Writing Patterns** | Edit pour modifications, Write pour nouveaux fichiers. Jamais ecraser sans lecture prealable. | `.claude/rules/file-writing.md` |
 | **Validation Checklist** | Pour toute consolidation/refactoring : compter avant/apres, verifier ecart. | `.claude/rules/validation.md` |
+| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. Protocole multi-pass. | `.claude/docs/sddd-conversational-grounding.md` |
+| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. Statuts DONE/BLOCKED/NEEDS_CONTEXT. | `.claude/docs/delegation.md` |
+| **GitHub CLI** | `gh` CLI, scope `project` requis. IDs fields Project #67. Ne pas créer de fichiers temporaires GraphQL. | `.claude/docs/github-cli.md` |
+| **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet : create→work→PR→merge→CLEANUP. | `.claude/docs/worktree-cleanup.md` |
 
 ### Scheduler & Coordination
 
@@ -605,7 +604,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 | **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `.claude/docs/reference/mcp-discoverability.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `.claude/docs/machine-specific/myia-web1-constraints.md` |
 | **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `.claude/docs/reference/stub-detection.md` |
-| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/rules/worktree-cleanup.md` (auto-chargé) |
+| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `.claude/docs/worktree-cleanup.md` |
 
 ---
 
@@ -620,7 +619,7 @@ Les documents ci-dessous sont dans `.claude/docs/` (PAS auto-charges). Les consu
 7. **Verification cross-machine OBLIGATOIRE** apres tout changement de config (modes, MCPs, workflows)
 8. **Scepticisme raisonnable** : Ne JAMAIS propager une affirmation non verifiee. Croiser les rapports d'agents avec les faits connus (git log, tables infra, tests). Voir [`.claude/rules/skepticism-protocol.md`](.claude/rules/skepticism-protocol.md)
 9. **VS Code restart requis** : Apres modification de `.roo/schedules.json` (ou schedules.template.json), demander a l'utilisateur de redemarrer VS Code pour que le Roo scheduler prenne en compte les nouvelles instructions.
-10. **Worktree cleanup** : Utiliser les worktrees git pour les branches temporaires. Nettoyer apres usage. Voir [`.claude/rules/worktree-cleanup.md`](.claude/rules/worktree-cleanup.md)
+10. **Worktree cleanup** : Utiliser les worktrees git pour les branches temporaires. Nettoyer apres usage. Voir [`.claude/docs/worktree-cleanup.md`](.claude/docs/worktree-cleanup.md)
 11. **JAMAIS DE CLES API DANS GITHUB** : Les cles API, tokens, secrets ne doivent JAMAIS apparaitre dans issues, PRs, commentaires, commits. **Si une cle doit etre partagee → RooSync message (GDrive prive)**.
 12. **`.claude/` = REPERTOIRE PROTEGE** : Ne JAMAIS creer de fichiers temporaires, scripts jetables, ou artefacts dans `.claude/`. Ce repertoire ne doit contenir QUE les fichiers du harnais (rules, agents, skills, commands, memory, state). Les scripts temporaires vont dans `$env:TEMP` ou `scripts/`.
 
