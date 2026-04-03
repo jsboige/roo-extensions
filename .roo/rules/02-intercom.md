@@ -26,6 +26,44 @@ roosync_dashboard(
 )
 ```
 
+**⚠️ CRITIQUE : Gestion de la redirection vers fichier (#984)**
+
+Quand le contenu du dashboard est trop volumineux, le MCP retourne un message du type :
+```
+Content too large, written to file: /path/to/file
+```
+
+**Dans ce cas, l'agent DOIT lire le fichier retourné :**
+
+1. **Détecter** que la réponse contient un chemin fichier (pattern "written to file:")
+2. **Lire** ce fichier avec `read_file` ou `Read`
+3. **Traiter** le contenu comme si l'outil l'avait retourné directement
+
+**Exemple de procédure complète :**
+
+```python
+# Étape 1 : Appel dashboard avec intercomLimit pour éviter overflow
+result = roosync_dashboard(
+  action="read",
+  type="workspace",
+  section="intercom",
+  intercomLimit=10  # Limite à 10 messages récents
+)
+
+# Étape 2 : Vérifier si le contenu a été redirigé
+if result.get("message") and "written to file:" in result["message"]:
+    # Extraire le chemin du fichier
+    file_path = result["message"].split("written to file: ")[1]
+    # Lire le fichier
+    actual_content = read_file(file_path)
+    # Traiter actual_content...
+else:
+    # Traiter result["content"] directement
+    content = result.get("content", "")
+```
+
+**Pourquoi c'est critique :** Sans cette lecture en 2 temps, les messages INTERCOM importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignorés, ce qui rompt la coordination cross-machine.
+
 **Écriture d'un message :**
 ```
 roosync_dashboard(
@@ -44,66 +82,21 @@ roosync_dashboard(
 
 ### Fichier INTERCOM (FALLBACK uniquement)
 
-**Utiliser uniquement si le MCP `roosync_dashboard` échoue.**
+**⚠️ DEPRECATED - EMERGENCY FALLBACK ONLY**
 
-```
-.claude/local/INTERCOM-{MACHINE}.md
-```
+**Utiliser SEULEMENT si le MCP `roosync_dashboard` est complètement indisponible.**
 
-Exemples :
-- `.claude/local/INTERCOM-myia-ai-01.md`
-- `.claude/local/INTERCOM-myia-po-2025.md`
+Fichier : `.claude/local/INTERCOM-{MACHINE}.md` (ex: `INTERCOM-myia-ai-01.md`)
 
----
+**Procédure minimale (si MCP échoue) :**
+1. **Lire** les dernières lignes avec `read_file` pour trouver le dernier `---`
+2. **Append** le nouveau message avec `apply_diff` ou `Add-Content` (win-cli)
+3. **Dernier recours** : `write_to_file` (ancien contenu + nouveau message)
 
-## REGLE CRITIQUE : Ordre d'Ecriture
-
-**TOUJOURS ajouter les nouveaux messages A LA FIN du fichier.**
-
-Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en bas.
-
-### Procédure d'écriture (Fallback fichier local)
-
-**Seulement si le MCP `roosync_dashboard` échoue.**
-
-**METHODE 1 (apply_diff - append a la fin) :**
-
-1. **Lire** les 20 dernieres lignes du fichier avec `read_file` (pour trouver le dernier `---`)
-2. **Preparer** le nouveau message
-3. **Utiliser `apply_diff`** pour ajouter le message APRES le dernier separateur `---`
-
-Exemple :
-```
-apply_diff(
-  path: ".claude/local/INTERCOM-{MACHINE}.md",
-  diff: "<<<<<<< SEARCH\n[dernier separateur --- du fichier]\n======= REPLACE\n[dernier separateur ---]\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n>>>>>>> REPLACE"
-)
-```
-
-**METHODE 2 (win-cli Add-Content) :**
-
-Si `apply_diff` echoue, utiliser win-cli :
-```
-execute_command(shell="powershell", command="Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'\n\n## [DATE] roo -> claude-code [DONE]\n### Titre\nContenu...\n\n---\n'@")
-```
-
-**METHODE 3 (write_to_file - dernier recours) :**
-
-Si les deux methodes ci-dessus echouent :
-1. **Lire** le fichier ENTIER avec `read_file`
-2. **Reecrire** avec `write_to_file` (ancien contenu + nouveau message)
-
-> **⚠️ ATTENTION :** `write_to_file` sur un fichier de >500 lignes ECHOUE frequemment avec Qwen 3.5. **Privilegier TOUJOURS `apply_diff` ou `Add-Content`.**
-
-### INTERDIT
-
-- **NE JAMAIS** inserer un message au debut du fichier (avant les messages existants)
-- **NE JAMAIS** supprimer ou modifier les messages existants
-- **NE JAMAIS** ecrire UNIQUEMENT le nouveau message (ecrasement du fichier)
-
-### Pourquoi
-
-L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire les messages recents en fin de fichier. Inserer en haut casse cet ordre et rend le fichier illisible.
+**RÈGLES CRITIQUES :**
+- **Ordre chronologique** : TOUJOURS ajouter à la FIN du fichier (ancien en haut, récent en bas)
+- **NE JAMAIS** insérer au début ou supprimer/modifier les messages existants
+- **NE JAMAIS** écraser le fichier avec seulement le nouveau message
 
 ---
 
@@ -276,9 +269,10 @@ Les fichiers existants sont conservés en lecture seule comme archive historique
 
 **METHODE OBLIGATOIRE (Dashboard RooSync) :**
 1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
-2. Lire les messages récents (< 24h)
-3. Identifier les `TASK` non complétées
-4. Identifier les `ASK` sans `REPLY`
+2. **SI redirection vers fichier** (message contient "written to file:") : lire ce fichier avec `read_file`
+3. Lire les messages récents (< 24h)
+4. Identifier les `TASK` non complétées
+5. Identifier les `ASK` sans `REPLY`
 
 **FALLBACK fichier local (si MCP échoue) :**
 1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`

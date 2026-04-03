@@ -328,12 +328,15 @@ execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboi
 - Si Machine non defini → **choisir une machine specifique** (round-robin)
 - Issues avec label `claude-only` : dispatcher normalement — elles seront executees par Claude Code interactif sur la machine cible (pas par le scheduler Roo)
 - NE PAS dispatcher les issues avec label `needs-approval` (attendent validation utilisateur)
-- **NE PAS re-dispatcher une issue deja claimee** (champ `assignees` non vide OU commentaire `[CLAIMED]` existant)
+- **NE PAS re-dispatcher une issue deja claimee** (commentaire `[CLAIMED]` existant OU assignee defini)
 - **NE PAS re-dispatcher une issue deja terminee** (commentaire `[RESULT]` existant)
-- **NE PAS re-dispatcher si une PR ouverte mentionne cette issue** (titre contient `#NUM`)
 - Equilibrer la charge : repartir les issues entre les 5 machines executrices (po-2023, po-2024, po-2025, po-2026, web1)
 
-> ⚠️ **ANTI-DOUBLON (fix #1005)** : Avant de dispatcher, verifier : (1) champ `assignees` (si non vide → quelqu'un travaille dessus), (2) les 10 derniers commentaires pour `[CLAIMED]` et `[RESULT]`, (3) PRs ouvertes mentionnant cette issue. Si l'un de ces indicateurs est present → NE PAS dispatcher.
+> ⚠️ **ANTI-DOUBLON (FIX #1005)** : Le claim utilise maintenant le champ `assignee` comme verrou atomique.
+> - Avant de dispatcher, verifier les 10 derniers commentaires ET le champ `assignee`
+> - Si `[CLAIMED]` OU `[RESULT]` OU `assignees` non vide → NE PAS dispatcher
+> - L'assignee est positionné atomiquement via `gh issue edit --add-assignee jsboige`
+> - Un délai de 5 secondes avec vérification permet d'éviter les race conditions TOCTOU
 
 **6. Executer une issue si faisable (optionnel, si du temps reste)**
 
