@@ -83,7 +83,9 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 - `cluster` : Grappes parent-enfant
 - `synthesis` : Pipeline LLM (OpenAI gpt-4o-mini) avec enrichissement algorithmique. Nécessite `OPENAI_API_KEY` dans .env. Réimplémenté #767.
 
-## Recommandations conversation_browser(summarize) - CRITIQUE
+---
+
+## Recommandations conversation_browser(summarize) - CRITIQUE (#881)
 
 **✅ FIX #881 APPLIQUÉ :** `detailLevel: "NoTools"` maintenant alias vers `Compact` qui résume les résultats d'outils.
 
@@ -95,13 +97,7 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
 <tool_name>conversation_browser</tool_name>
-<arguments>{
-  "action": "summarize",
-  "summarize_type": "trace",
-  "detailLevel": "Summary",
-  "truncationChars": 10000,
-  "taskId": "..."
-}</arguments>
+<arguments>{"action": "summarize", "summarize_type": "trace", "detailLevel": "Summary", "truncationChars": 10000, "taskId": "abc123..."}</arguments>
 </use_mcp_tool>
 ```
 
@@ -123,54 +119,9 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 
 ---
 
-## Outils Semantiques
+## Filtres Avances roosync_search (#636)
 
-### codebase_search (recherche dans le code)
-
-Recherche par **concept** dans le workspace indexe par Qdrant (pas par texte exact).
-
-```xml
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>codebase_search</tool_name>
-<arguments>{"query": "rate limiting for embeddings", "workspace": "d:\\roo-extensions"}</arguments>
-</use_mcp_tool>
-```
-
-**TOUJOURS passer `workspace` explicitement.** L'auto-detection pointe vers le repertoire du serveur MCP.
-
-**Prerequis :** Variables `.env` configurees (EMBEDDING_MODEL, EMBEDDING_API_BASE_URL, etc.)
-
-### roosync_search (recherche dans les taches Roo)
-
-**Actions de base :**
-
-```xml
-<!-- Recherche semantique par concept (Qdrant) -->
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>roosync_search</tool_name>
-<arguments>{"action": "semantic", "search_query": "sujet conceptuel"}</arguments>
-</use_mcp_tool>
-
-<!-- Recherche textuelle exacte (cache) -->
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>roosync_search</tool_name>
-<arguments>{"action": "text", "search_query": "mot exact"}</arguments>
-</use_mcp_tool>
-
-<!-- Diagnostic de l'index -->
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>roosync_search</tool_name>
-<arguments>{"action": "diagnose"}</arguments>
-</use_mcp_tool>
-```
-
-La recherche semantique utilise Qdrant (index des conversations Roo). La recherche textuelle scanne le cache directement.
-
-**Filtres avances (#636) — disponibles avec `action: "semantic"` :**
+**Disponibles avec `action: "semantic"` :**
 
 ```xml
 <!-- Frictions recentes : messages utilisateurs avec erreurs (ideal meta-analyse) -->
@@ -201,12 +152,6 @@ La recherche semantique utilise Qdrant (index des conversations Roo). La recherc
 <arguments>{"action": "semantic", "search_query": "escalade", "source": "roo"}</arguments>
 </use_mcp_tool>
 
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>roosync_search</tool_name>
-<arguments>{"action": "semantic", "search_query": "escalade", "source": "claude-code"}</arguments>
-</use_mcp_tool>
-
 <!-- Filtrer par modele et periode temporelle -->
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
@@ -218,11 +163,11 @@ La recherche semantique utilise Qdrant (index des conversations Roo). La recherc
 <use_mcp_tool>
 <server_name>roo-state-manager</server_name>
 <tool_name>roosync_search</tool_name>
-<arguments>{"action": "semantic", "search_query": "...", "conversation_id": "{TASK_ID}"}</arguments>
+<arguments>{"action": "semantic", "search_query": "...", "conversation_id": "TASK_ID"}</arguments>
 </use_mcp_tool>
 ```
 
-**Patterns de requete courants (#637) :**
+### Patterns de Requete Courants (#637)
 
 | Pattern | Parametres cles | Usage |
 |---------|----------------|-------|
@@ -290,57 +235,57 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 - Les requetes en francais performent mal (le code et les embeddings sont en anglais)
 - Scores typiques : 0.60-0.80 pour des resultats pertinents
 
-**Protocole en 4 passes :**
+### Protocole en 4 passes
 
 1. **Pass 1 - Requete large** (sans directory_prefix) : identifier le module/repertoire
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
    <tool_name>codebase_search</tool_name>
-   <arguments>{"query": "message sending communication", "workspace": "d:\\roo-extensions"}</arguments>
+   <arguments>{"query": "message sending inter-machine communication", "workspace": "d:\\roo-extensions"}</arguments>
    </use_mcp_tool>
    ```
+   **But :** identifier le repertoire/module pertinent. Utiliser des termes generiques en anglais.
+   **Analyse :** Analyser les `file_path` des resultats pour identifier les prefixes de repertoire communs.
 
 2. **Pass 2 - Zoom** (avec directory_prefix + vocabulaire code) : cibler le fichier
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
    <tool_name>codebase_search</tool_name>
-   <arguments>{"query": "format result success priority", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
+   <arguments>{"query": "format result success message sent priority timestamp", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
    </use_mcp_tool>
    ```
+   **But :** cibler le module identifie en Pass 1 avec du vocabulaire specifique au code (noms de fonctions, variables, types).
 
-3. **Pass 3 - Grep confirmation** (verite technique)
+3. **Pass 3 - Grep confirmation** : verite technique avec search_files exact
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>search_files</tool_name>
+   <arguments>{"pattern": "function handleSendMessage", "path": "mcps/internal/servers/roo-state-manager/src"}</arguments>
+   </use_mcp_tool>
+   ```
+   **But :** confirmer et completer avec une recherche exacte.
 
-But : confirmer et completer avec une recherche exacte.
-
-```xml
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>search_files</tool_name>
-<arguments>{"pattern": "function handleSendMessage", "path": "mcps/internal/servers/roo-state-manager/src"}</arguments>
-</use_mcp_tool>
-```
-4. **Pass 4 - Variante vocabulaire** (si Pass 2 insuffisante)
-
-Reformuler avec des synonymes ou des noms de fonctions/classes decouverts en Pass 1-3.
-
-```xml
-<use_mcp_tool>
-<server_name>roo-state-manager</server_name>
-<tool_name>codebase_search</tool_name>
-<arguments>{"query": "sendMessage reply amend message manager", "workspace": "d:\\\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
-</use_mcp_tool>
-```
+4. **Pass 4 - Variante** : reformuler si Pass 2 insuffisante
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>codebase_search</tool_name>
+   <arguments>{"query": "sendMessage reply amend message manager", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
+   </use_mcp_tool>
+   ```
+   **But :** reformuler avec des synonymes ou des noms de fonctions/classes decouverts en Pass 1-3.
 
 ### Quand utiliser chaque combinaison
 
 | Situation | Approche recommandee |
 |-----------|---------------------|
-| Fichier/fonction connus | Grep direct (pas besoin de semantique) |
+| Fichier/fonction connus | search_files direct (pas besoin de semantique) |
 | Concept connu, localisation inconnue | Pass 1 → Pass 2 |
 | Exploration d'un domaine | Pass 1 seule (analyser les resultats) |
-| Fichier introuvable apres Pass 2 | Pass 3 (Grep) puis Pass 4 (variante) |
+| Fichier introuvable apres Pass 2 | Pass 3 (search_files) puis Pass 4 (variante) |
 | Validation post-implementation | Pass 1 avec le concept implemente |
 
 ### Conseils pour les requetes
@@ -353,28 +298,6 @@ Reformuler avec des synonymes ou des noms de fonctions/classes decouverts en Pas
 
 ---
 
-## Protocole de Friction SDDD
-
-Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide, bookend ne retourne rien d'utile, doc introuvable malgre le triple grounding) → signaler via le protocole standard. Voir `.roo/docs/friction-protocol.md` pour la procedure complete (roosync_send + INTERCOM templates).
-
----
-
-## Référence Croisée - SDDD RooSync
-
-**Ce document** (`.roo/rules/04-sddd-grounding.md`) est le **protocole opérationnel Roo** pour le triple grounding SDDD. Il couvre les outils spécifiques à Roo :
-- `conversation_browser` (outil unifié)
-- `bookend pattern` (début et fin de tâche)
-- `protocole multi-pass` pour `codebase_search`
-
-**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
-- [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
-
-**Les deux documents sont complémentaires** :
-- **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
-- **Ce fichier** : Protocole opérationnel Roo (`conversation_browser`, `bookend`, multi-pass)
-
----
-
 ## Workflow SDDD
 
 1. **Semantique** : `roosync_search` + `codebase_search` (multi-pass si besoin) + docs existantes
@@ -382,6 +305,10 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 3. **Technique** : read_file, search_files, tests unitaires
 
 **IMPORTANT :** L'etape 2 COMMENCE par `list`. Sans IDs, les appels suivants sont impossibles.
+
+**IMPORTANT (etape 2) :** `list` est le PREMIER appel obligatoire du grounding conversationnel. Sans lui, les IDs de taches sont inconnus et les appels `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant (retourne la plus ancienne tache ouverte, pas forcement la plus pertinente).
+
+**Combinaison semantique + technique :** Les Passes 1-2 (codebase_search) identifient les zones pertinentes par concept. La Pass 3 (search_files) confirme et complete avec precision. Ne jamais se fier uniquement a l'un ou l'autre.
 
 **Regle :** Ne jamais se contenter d'une seule source.
 
@@ -401,3 +328,26 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 ---
 
 **Reference :** `.roo/README.md`
+
+---
+
+## Reference Croisee - SDDD RooSync
+
+**Ce document** (`.roo/rules/04-sddd-grounding.md`) est le **protocole opérationnel Roo** pour le triple grounding SDDD. Il couvre les outils spécifiques à Roo :
+- `conversation_browser` (outil unifie)
+- `bookend pattern` (début et fin de tâche)
+- `protocole multi-pass` pour `codebase_search`
+- `filtres avances` pour `roosync_search` (#636)
+
+**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
+- [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
+
+**Version Claude Code** : [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) — protocole opérationnel Claude Code avec les memes outils.
+
+**Les deux documents sont complementaires** :
+- **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
+- **Ce fichier** : Protocole opérationnel Roo (`conversation_browser`, `bookend`, multi-pass, filtres avances)
+
+---
+
+**Derniere mise a jour :** 2026-03-30 (enrichissement filtres #636 + recommandations #881)
