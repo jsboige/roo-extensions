@@ -29,8 +29,8 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 ### Autre machine :
 
 1. Identifier la machine : `hostname`
-2. Documentation : [`.claude/INDEX.md`](.claude/INDEX.md)
-3. MCPs : [`.claude/MCP_SETUP.md`](.claude/MCP_SETUP.md)
+2. Documentation : Voir [`.claude/docs/`](.claude/docs/) pour la documentation de référence
+3. MCPs : Voir [`.claude/MCP_SETUP.md`](.claude/_archive-2026-04-01-harness-cleanup/MCP_SETUP.md) (archivé - utiliser scripts/claude/init-claude-code.ps1)
 
 ---
 
@@ -417,7 +417,7 @@ Cela met à jour les définitions API dans `cline_custom_instructions.md` pour c
 ## Pour Demarrer une Nouvelle Tache
 
 1. **Verifier MCP** : Outils disponibles dans system-reminders
-2. **Lire doc** : INDEX.md, MCP_SETUP.md, rules/ (auto-chargées)
+2. **Lire doc** : `.claude/docs/` (référence), `.claude/rules/` (auto-chargées)
 3. **Communications (OBLIGATOIRE)** : **RooSync inbox en PREMIER** (`roosync_read(mode: "inbox", status: "unread")`) + INTERCOM local + GitHub issues. **Ne JAMAIS declarer une machine "silencieuse" sans avoir verifie l'inbox RooSync.**
 4. **Annoncer** : INTERCOM local + RooSync `[WORK]` + commentaire GitHub
 5. **Issue GitHub** : Obligatoire pour toute tache significative

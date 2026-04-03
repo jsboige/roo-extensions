@@ -66,7 +66,32 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
    roosync_search(action: "semantic", search_query: "{nom_outil} error", tool_name: "{nom_outil}", max_results: 5)
    → Exemples d'outils a verifier : write_to_file, execute_command, new_task
 
-6. VUE D'ENSEMBLE DASHBOARDS :
+6. INTERVENTIONS UTILISATEUR (OBLIGATOIRE — issue #981) :
+   ⚠️ CRITIQUE : Roo est 100% schedulé. TOUTE intervention utilisateur = SIGNAL DE DYSFONCTIONNEMENT.
+   roosync_search(action: "semantic", search_query: "non stop change fais plutot arrete reset", role: "user", source: "roo", start_date: "{date 72h ago YYYY-MM-DD}", max_results: 20)
+   → Pour CHAQUE intervention detectee :
+     - Classifier : BLOCAGE | CORRECTION | REDIRECTION | STOP/RESTART
+     - Evaluer : l'intervention a-t-elle sauve la tache ? (SAVE) ou fallait-il balayer ? (SWEEP)
+     - Si pattern recurrent (≥2 fois meme cause) → candidat issue needs-approval
+   → Compter : interventions totales, par type, taux de sauvetage
+
+7. EXPLOSIONS DE CONTEXTE (OBLIGATOIRE — issue #855) :
+   Pour chaque tache analysee en etape 2, verifier :
+   conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
+   → Alertes si : >30 messages, >50K chars, >10 appels au meme outil
+   → Identifier l'outil le plus verbeux (souvent vitest sans troncature, read_file sans limit)
+   → Compter : taches explosees, cause principale, outil le plus verbeux
+
+8. ANALYSE DIFFERENTIELLE -simple vs -complex (OBLIGATOIRE — issue #981) :
+   Croiser les donnees collectees ci-dessus pour comparer :
+   → Nombre de taches par niveau (-simple vs -complex)
+   → Taux de succes par niveau
+   → Taux d'intervention utilisateur par niveau
+   → Taux d'explosion de contexte par niveau
+   → Escalades -simple → -complex : combien, pourquoi, reussies ou echouees
+   → Patterns specifiques -simple : terminal natif au lieu de win-cli, outils indisponibles
+
+9. VUE D'ENSEMBLE DASHBOARDS :
    roosync_dashboard(action: "read_overview")
    → Contexte rapide des 4 niveaux de dashboard en 1 appel
 
@@ -89,6 +114,9 @@ Rapporter :
 - Modes utilises (simple vs complex) et ratio escalade
 - Patterns de friction identifies (avec exemples concrets)
 - Outils problematiques (noms + frequence d'echec)
+- **INTERVENTIONS UTILISATEUR :** nombre, classification (BLOCAGE/CORRECTION/STOP), evaluation SAVE/SWEEP
+- **EXPLOSIONS CONTEXTE :** taches >30 messages, cause principale, outil le plus verbeux
+- **COMPARAISON -simple vs -complex :** taux succes, interventions, explosions par niveau
 - Nombre de sessions Claude recentes
 - Issues crees vs fermees (7 derniers jours)
 IMPORTANT : utilise win-cli MCP pour les commandes PowerShell (pas le terminal natif).
@@ -220,7 +248,7 @@ roosync_dashboard(
   action: "append",
   type: "workspace",
   tags: ["META-ANALYSIS", "roo-meta"],
-  content: "## [{DATE}] Analyse Meta-Analyste Roo (cycle {DATE})\n\n**Traces Roo (auto-analyse) :**\n- {N} taches analysees, taux succes {X}%\n- Modes utilises : {liste}\n- Escalades : {N} (patterns identifies)\n\n**Traces Claude (analyse croisee) :**\n- {N} sessions recentes\n- Issues traitees : {liste}\n- Patterns remarques\n\n**Analyse harnais :**\n- Incoherences : {N} (dont {X} CRITICAL)\n- Lacunes : {N}\n- Ameliorations proposees : {N}\n\n**Recommandations :**\n1. {Recommandation 1} -> [action: INFO|needs-approval|harness-change]\n2. {Recommandation 2} -> [action: ...]"
+  content: "## [{DATE}] Analyse Meta-Analyste Roo (cycle {DATE})\n\n**Traces Roo (auto-analyse) :**\n- {N} taches analysees, taux succes {X}%\n- Modes utilises : {liste}\n- Escalades : {N} (patterns identifies)\n\n**Interventions Utilisateur (#981) :**\n- Total : {N} (BLOCAGE: {X}, CORRECTION: {Y}, STOP: {Z})\n- Taux sauvetage : {W}%\n- Recommandation BALAYER : {N} taches\n\n**Explosions Contexte (#855) :**\n- Taches >30 messages : {N}\n- Cause principale : {cause}\n- Outil le plus verbeux : {outil}\n\n**Performance -simple vs -complex (#981) :**\n- -simple : {N} taches, {X}% succes, {Y} interventions\n- -complex : {N} taches, {X}% succes, {Y} interventions\n- Delta principal : {constat}\n\n**Traces Claude (analyse croisee) :**\n- {N} sessions recentes\n- Issues traitees : {liste}\n- Patterns remarques\n\n**Analyse harnais :**\n- Incoherences : {N} (dont {X} CRITICAL)\n- Lacunes : {N}\n- Ameliorations proposees : {N}\n\n**Recommandations :**\n1. {Recommandation 1} -> [action: INFO|needs-approval|harness-change]\n2. {Recommandation 2} -> [action: ...]"
 )
 
 ETAPE 3B — Poster un RESUME sur le dashboard workspace (cross-machine) :

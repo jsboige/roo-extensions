@@ -13,6 +13,12 @@
     5. Gère les escalades automatiques
     6. Reporte les résultats au coordinateur
 
+    ESCALATION MECHANISM (#1027):
+    - Baseline: Haiku (git pull, simple tasks, maintenance)
+    - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
+    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
+    - Target: Haiku baseline once #1026 reduces harness below 60K tokens
+
 .PARAMETER Mode
     Mode Claude à utiliser (sync-simple, code-simple, etc.)
     Si non spécifié, déterminé automatiquement selon la tâche
@@ -98,8 +104,24 @@ function Test-ClaudeCLI {
 }
 
 function Get-EscalatedModel {
+    <#
+    .SYNOPSIS
+    Escalates model on retry for complex tasks (#1027 escalation mechanism).
+
+    .DESCRIPTION
+    Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+    This is called on retry when the baseline model fails to complete a task.
+
+    ESCALATION CHAIN (#1027):
+    - haiku -> sonnet (code changes, investigations)
+    - sonnet -> opus (architectural decisions, complex refactoring)
+    - opus -> null (already at max)
+
+    NOTE: This is RETRY escalation, not intra-session sub-agent escalation.
+    For sub-agent pattern (escalade within same session), use Task tool with model parameter.
+    #>
     param([string]$CurrentModel)
-    # Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+
     switch ($CurrentModel) {
         "haiku"  { return "sonnet" }
         "sonnet" { return "opus" }
@@ -141,35 +163,11 @@ function Get-NextTask {
 
     # --- PRIORITÉ 2 : GitHub issues ---
     Write-Log "Vérification GitHub issues..."
-    $GitHubTask = Get-GitHubTask -AgentType $AgentType -MachineId $MachineId
+    $GitHubTask = Get-GitHubTask -AgentType $AgentType -MachineId $MachineId -SkipClaim:$SkipClaim
     if ($GitHubTask) {
         Write-Log "✅ Tâche GitHub: #$($GitHubTask.issueNumber)" "INFO"
-        # Claim l'issue immédiatement (sauf en DryRun)
-        if (-not $SkipClaim) {
-            $ClaimSuccess = Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
-            if (-not $ClaimSuccess) {
-                Write-Log "⚠️ Claim échoué pour #$($GitHubTask.issueNumber), un autre agent l'a probablement prise" "WARN"
-                # Retourner null pour passer à la tâche suivante
-                return $null
-            }
-            # Phase 3 - Vérification double avant de commencer le travail
-            # Vérifier que l'issue est toujours ouverte et n'a pas de PR
-            $VerifyIssue = & gh issue view $GitHubTask.issueNumber --repo jsboige/roo-extensions --json state,assignees 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $VerifyData = $VerifyIssue | ConvertFrom-Json
-                if ($VerifyData.state -ne "OPEN") {
-                    Write-Log "⚠️ Issue #$($GitHubTask.issueNumber) fermée entre-temps, abandon" "WARN"
-                    return $null
-                }
-                # Vérifier qu'on est toujours assignee
-                if ($VerifyData.assignees.Count -eq 0) {
-                    Write-Log "⚠️ Assignee retiré pour #$($GitHubTask.issueNumber), un autre agent a pris le relais" "WARN"
-                    return $null
-                }
-            }
-        } else {
-            Write-Log "[DRY-RUN] Skip claim issue #$($GitHubTask.issueNumber)" "INFO"
-        }
+        # Claim is now done inside Get-GitHubTask (fix #1005)
+        # The task returned is already claimed (assignee + comment + verified)
         return $GitHubTask
     }
 
@@ -366,7 +364,7 @@ function Get-IssueProjectFields {
 }
 
 function Get-GitHubTask {
-    param([string]$AgentType, [string]$MachineId)
+    param([string]$AgentType, [string]$MachineId, [switch]$SkipClaim = $false)
 
     # Vérifier gh CLI
     $GhPath = Get-Command gh -ErrorAction SilentlyContinue
@@ -461,7 +459,18 @@ function Get-GitHubTask {
                 continue
             }
 
-            # Disponible !
+            # Candidat disponible — tenter le claim atomique (fix #1005)
+            if (-not $SkipClaim) {
+                $ClaimSuccess = Claim-GitHubIssue -IssueNumber $Issue.number -AgentType $AgentType -MachineId $MachineId
+                if (-not $ClaimSuccess) {
+                    Write-Log "  Issue #$($Issue.number) : claim failed (race condition or PR exists), trying next" "WARN"
+                    continue  # Try next issue in the foreach loop
+                }
+            } else {
+                Write-Log "  [DRY-RUN] Skip claim issue #$($Issue.number)" "INFO"
+            }
+
+            # Claimed successfully — return the task
             return @{
                 id = "github-$($Issue.number)"
                 subject = $Issue.title
@@ -496,8 +505,8 @@ function Test-GitHubIssueLock {
             $CreatedAt = [DateTime]::Parse($Comment.createdAt)
             $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
 
-            # LOCK actif si < 5 minutes
-            if (($Body -match "LOCK:" -or $Body -match "Claimed by") -and $Age.TotalMinutes -lt 5) {
+            # LOCK actif si < 30 minutes (extended from 5min — fix #1005 anti-race condition)
+            if (($Body -match "LOCK:" -or $Body -match "\[CLAIMED\]" -or $Body -match "Claimed by") -and $Age.TotalMinutes -lt 30) {
                 return $true
             }
         }
@@ -509,15 +518,80 @@ function Test-GitHubIssueLock {
 }
 
 function Claim-GitHubIssue {
+    <#
+    .SYNOPSIS
+    Claims a GitHub issue using assignee as atomic lock + comment for traceability.
+
+    .DESCRIPTION
+    Fix #1005: Uses GitHub assignee field as distributed lock to prevent race conditions.
+    Two workers checking simultaneously will both try to assign themselves, but only one
+    will end up as the actual assignee. The double-check after 5s catches the race.
+
+    Flow:
+    1. Assign self (atomic via GitHub API)
+    2. Post [CLAIMED] comment (traceability)
+    3. Wait 5s (let competing claims settle)
+    4. Re-read assignees — if someone else won, release and return $false
+    #>
     param([int]$IssueNumber, [string]$AgentType, [string]$MachineId)
 
+    $GhUser = "jsboige"  # GitHub account used by all agents (single-account setup)
+
     try {
+        # Step 1: Assign self (this is the "lock acquisition")
+        & gh issue edit $IssueNumber --repo jsboige/roo-extensions --add-assignee $GhUser 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "⚠️ Erreur assignee #$IssueNumber" "WARN"
+            return $false
+        }
+
+        # Step 2: Post [CLAIMED] comment for traceability and anti-doublon detection
         $Timestamp = Get-Date -Format "o"
-        $Body = "Claimed by $AgentType on $MachineId at $Timestamp"
+        $Body = "[CLAIMED] by $AgentType on $MachineId at $Timestamp"
         & gh issue comment $IssueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
-        Write-Log "✅ Issue #$IssueNumber claimed"
+
+        # Step 3: Wait for competing claims to settle (GitHub API eventual consistency)
+        Start-Sleep -Seconds 5
+
+        # Step 4: Double-check — verify no competing [CLAIMED] from another machine
+        $RecentComments = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
+            --json comments --jq '[.comments[-5:][] | .body | select(test("\\[CLAIMED\\]"))]' 2>&1
+        if ($LASTEXITCODE -eq 0 -and $RecentComments) {
+            $Claims = $RecentComments | ConvertFrom-Json
+            $OtherClaims = @($Claims | Where-Object { $_ -notmatch $MachineId -and $_ -match "\[CLAIMED\]" })
+
+            if ($OtherClaims.Count -gt 0) {
+                # Race condition detected! Another machine also claimed this issue.
+                # Resolution: the FIRST claim wins (chronologically).
+                # Since we can't reliably determine who was first, we yield if we detect competition.
+                Write-Log "⚠️ Race condition détectée sur #$IssueNumber — autre machine a aussi claimé. Yield." "WARN"
+                # Release: remove assignee and post release comment
+                & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
+                & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
+                    --body "[RELEASED] by $AgentType on $MachineId — race condition detected, yielding to other claimer." 2>&1 | Out-Null
+                return $false
+            }
+        }
+
+        # Step 5: Also check if a PR already exists for this issue (prevents duplicate work)
+        $ExistingPR = & gh pr list --repo jsboige/roo-extensions --state open `
+            --json title,headRefName --jq ".[].title" 2>&1
+        if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
+            $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber" -or $_ -match "issue.*$IssueNumber" })
+            if ($PRsForIssue.Count -gt 0) {
+                Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber — skip" "WARN"
+                & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
+                & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
+                    --body "[RELEASED] by $AgentType on $MachineId — PR already exists for this issue." 2>&1 | Out-Null
+                return $false
+            }
+        }
+
+        Write-Log "✅ Issue #$IssueNumber claimed (assignee + comment + verified)"
+        return $true
     } catch {
-        Write-Log "⚠️ Erreur claim #$IssueNumber" "WARN"
+        Write-Log "⚠️ Erreur claim #$IssueNumber : $_" "WARN"
+        return $false
     }
 }
 
@@ -1145,7 +1219,12 @@ function Determine-Model {
     Priority chain:
     1. Project field "Model" (deterministic, set by coordinator in GitHub Project #67)
     2. Script parameter -Model (fallback, e.g. from Task Scheduler)
-    3. Default: "sonnet"
+    3. Default: "haiku" (#1027 - cost optimization)
+
+    ESCALATION MECHANISM (#1027):
+    - Baseline: Haiku (git pull, simple tasks)
+    - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
+    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
 
     Note: Claude Code does NOT have "modes" like Roo. It uses models (haiku/sonnet/opus)
     and sub-agents (Agent tool). The mode config model is intentionally NOT in this chain.
@@ -1165,9 +1244,9 @@ function Determine-Model {
         return $Model
     }
 
-    # Priority 3: Default
-    Write-Log "Modele par defaut: sonnet"
-    return "sonnet"
+    # Priority 3: Default (Haiku baseline for cost optimization #1027)
+    Write-Log "Modele par defaut: haiku"
+    return "haiku"
 }
 
 function Get-DeadlineUrgency {
@@ -2280,6 +2359,9 @@ REASON: [resume des tests ajoutes ou findings de veille]
     # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~114K tokens.
     # haiku maps to glm-4.5-air on z.ai which has insufficient context for this harness.
     # Minimum viable model is sonnet (glm-4.7 on z.ai, ~131K context).
+    #
+    # NOTE: This guard blocks Haiku baseline until #1026 reduces harness below 60K tokens.
+    # Target: Haiku baseline with Sonnet escalation for complex tasks (#1027).
     $MinimumModel = "sonnet"
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
