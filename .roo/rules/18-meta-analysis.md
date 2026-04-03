@@ -1,8 +1,9 @@
 # Protocole Meta-Analyse - Architecture 3x2 Scheduler (Roo)
 
-**Version:** 1.0.0
+**Version:** 2.0.0
 **Cree:** 2026-03-15
-**Issue:** #705 (adaptation depuis `.claude/rules/meta-analysis.md`)
+**Mis a jour:** 2026-03-30
+**Issues:** #705, #981, #982, #855
 
 ---
 
@@ -227,6 +228,183 @@ Score sante : A (>90% actifs) / B (>75%) / C (>50%) / D (<50%)
 
 ---
 
+## Detection des Interventions Utilisateur (OBLIGATOIRE — #981)
+
+**PRINCIPE :** Roo est 100% schedulé. Toute intervention utilisateur est un SIGNAL DE DYSFONCTIONNEMENT, pas une anomalie. Le meta-analyste DOIT identifier, classifier et rapporter ces interventions.
+
+### Pourquoi c'est critique
+
+Quand un utilisateur intervient dans une tâche Roo schedulée, c'est presque toujours parce que :
+- La tâche est bloquée (boucle, outil cassé, contexte saturé)
+- L'orchestrateur a delegué incorrectement
+- Un mode `-simple` n'a pas les outils nécessaires et escalade mal
+
+**Conséquence :** Chaque intervention = une issue `needs-approval` potentielle pour corriger le problème à la racine.
+
+### Detection automatique (OBLIGATOIRE chaque cycle)
+
+```text
+// Recherche des messages utilisateur dans les tâches Roo
+roosync_search(action: "semantic", search_query: "user intervention correction stop restart", role: "user", start_date: "{72h ago}", max_results: 20)
+
+// Alternative : filtrer par source Roo, role utilisateur
+roosync_search(action: "semantic", search_query: "non non arrete change fais plutot", role: "user", source: "roo", start_date: "{72h ago}", max_results: 15)
+```
+
+### Classification des interventions
+
+| Type | Description | Sévérité | Action |
+|------|-------------|----------|--------|
+| **BLOCAGE** | Tâche en boucle/bloquée, utilisateur débloque | CRITICAL | Issue `needs-approval` pour fix root cause |
+| **CORRECTION** | Utilisateur corrige une erreur de l'agent | HIGH | Issue si pattern récurrent (≥2 fois) |
+| **REDIRECTION** | Utilisateur change la direction de la tâche | MEDIUM | Signaler dans rapport, pas d'issue |
+| **STOP/RESTART** | Utilisateur arrête ou redémarre la tâche | CRITICAL | Issue `needs-approval` — pourquoi la tâche ne s'est pas terminée ? |
+
+### Évaluation de l'utilité de l'intervention
+
+Pour chaque intervention détectée, le meta-analyste DOIT évaluer :
+
+1. **L'intervention était-elle nécessaire ?** (Oui = la tâche était vraiment bloquée)
+2. **L'intervention a-t-elle sauvé la tâche ?** (Oui = tâche terminée après intervention)
+3. **La tâche aurait-elle dû être balayée ?** (Oui = contexte déjà trop saturé, mieux vaut recommencer)
+4. **Recommandation :** `SAUVER` (l'intervention a aidé) ou `BALAYER` (mieux vaut laisser mourir et relancer)
+
+### Rapport
+
+```text
+## Interventions Utilisateur (cycle {date})
+
+| Métrique | Valeur |
+|----------|--------|
+| Interventions détectées | N |
+| dont BLOCAGE | X |
+| dont CORRECTION | Y |
+| dont STOP/RESTART | Z |
+| Taux sauvetage réussi | X% |
+| Recommandation BALAYER | N |
+
+Détail :
+- Tâche {ID} : intervention BLOCAGE → {SAUVER|BALAYER} — raison : {description}
+```
+
+---
+
+## Detection des Explosions de Contexte (OBLIGATOIRE — #855)
+
+**PRINCIPE :** Les tâches dont le contexte explose (>50 messages, >100K chars) sont le principal symptôme de dysfonctionnement. Le meta-analyste DOIT identifier les causes (outils verbeux, boucles, fichiers lus en entier).
+
+### Seuils d'alerte
+
+| Métrique | Seuil WARNING | Seuil CRITICAL |
+|----------|---------------|----------------|
+| Messages par tâche | >30 | >50 |
+| Taille conversation | >50K chars | >100K chars |
+| Appels outils répétés | >10 au même outil | >20 au même outil |
+| Ratio outils/messages | >3.0 | >5.0 |
+
+### Detection automatique (OBLIGATOIRE chaque cycle)
+
+```text
+// Stats de trace pour identifier les tâches volumineuses
+conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
+
+// Chercher les tâches avec beaucoup d'erreurs (indicateur de boucle)
+roosync_search(action: "semantic", search_query: "error retry failed again", has_errors: true, start_date: "{72h ago}", max_results: 10)
+```
+
+### Causes fréquentes d'explosion
+
+| Cause | Outil(s) responsable | Pattern | Fix |
+|-------|---------------------|---------|-----|
+| **Output vitest** | `execute_command` | `npx vitest run` sans `Select-Object -Last 30` | Toujours tronquer |
+| **Lecture fichiers entiers** | `read_file` | Lecture fichiers >1K lignes sans offset/limit | Utiliser offset/limit |
+| **Boucle new_task** | `new_task` | Orchestrateur délègue en boucle sans progresser | Détecter pattern répétitif |
+| **Boucle outils** | `write_to_file`, `replace_in_file` | Corrections successives qui échouent | Détecter >3 essais sur même fichier |
+| **Recherche extensive** | `roosync_search`, `codebase_search` | Trop de requêtes sans résultat | Limiter à 5 requêtes max |
+
+### Rapport
+
+```text
+## Explosions de Contexte (cycle {date})
+
+| Métrique | Valeur |
+|----------|--------|
+| Tâches >30 messages | N |
+| Tâches >100K chars | N |
+| Cause principale | {cause} |
+| Outil le plus verbeux | {outil} |
+
+Top 3 tâches explosées :
+1. {ID} : {N} messages, {K} chars — cause : {cause}
+2. {ID} : ...
+3. {ID} : ...
+```
+
+---
+
+## Analyse Differentielle -simple vs -complex (OBLIGATOIRE — #981)
+
+**PRINCIPE :** Les modes `-simple` (ask-simple, code-simple, debug-simple) sont critiques car ils n'ont PAS de terminal natif. Ils dépendent entièrement de win-cli MCP. Le meta-analyste DOIT comparer les performances des deux niveaux.
+
+### Métriques à collecter
+
+```text
+// Lister les tâches récentes pour identifier les modes
+conversation_browser(action: "list", limit: 30, sortBy: "lastActivity", sortOrder: "desc")
+
+// Pour chaque tâche, vérifier le mode et le statut
+conversation_browser(action: "view", task_id: "{ID}", detail_level: "skeleton", smart_truncation: true, max_output_length: 5000)
+```
+
+### Tableau comparatif obligatoire
+
+| Métrique | -simple | -complex | Écart |
+|----------|---------|----------|-------|
+| Nombre de tâches | N | M | — |
+| Taux de succès | X% | Y% | Δ% |
+| Taux d'escalade | Z% | N/A | — |
+| Interventions utilisateur | A | B | Δ |
+| Explosions contexte | C | D | Δ |
+| Erreurs outil | E | F | Δ |
+
+### Patterns de défaillance -simple spécifiques
+
+- **`execute_command` bloqué** : Mode -simple tente le terminal natif au lieu de win-cli MCP
+- **Outils non disponibles** : Mode -simple n'a pas le groupe `command`
+- **Escalade ratée** : -simple devrait escalader vers -complex après 2 échecs mais ne le fait pas
+- **Contexte saturé** : -simple a un contexte plus petit et sature plus vite
+
+### Classification des échecs
+
+| Pattern | Fréquence | Root cause | Recommandation |
+|---------|-----------|------------|----------------|
+| Terminal natif au lieu de win-cli | ? | Confusion modèle | Issue `needs-approval` |
+| Escalade non déclenchée | ? | Seuil mal configuré | Issue `harness-change` |
+| Boucle sans terminaison | ? | Pas de guard rails | Issue `needs-approval` |
+
+### Rapport
+
+```text
+## Performance -simple vs -complex (cycle {date})
+
+| Métrique | -simple | -complex |
+|----------|---------|----------|
+| Tâches analysées | N | M |
+| Succès | X% | Y% |
+| Échec | X% | Y% |
+| Escalades | N | N/A |
+| Interventions user | N | N |
+
+Constats :
+- {Constat principal}
+- {Constat secondaire}
+
+Recommandations :
+1. {Recommandation} → [action: needs-approval|harness-change|INFO]
+```
+
+---
+
 ## Garde-Fous (CRITIQUE)
 
 ### Le meta-analyste Roo NE DOIT PAS :
@@ -306,4 +484,4 @@ Resume du workflow :
 
 ---
 
-**Derniere mise a jour :** 2026-03-15
+**Derniere mise a jour :** 2026-03-30
