@@ -92,6 +92,26 @@ git log --oneline -3
 git submodule status
 ```
 
+### Etape 5b : Worktree Cleanup Check
+
+**Après chaque pull/sync, vérifier l'accumulation de worktrees orphelins.**
+
+```bash
+# Quick check: count worktrees
+git worktree list --porcelain | grep -c "^worktree"
+```
+
+**Si > 2 worktrees actifs** (en plus du main) :
+```powershell
+# Dry run cleanup
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -WhatIf
+
+# Si des orphelins sont détectés, exécuter le cleanup
+powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -Force
+```
+
+**Pourquoi :** Les sessions Claude Code et les sous-agents créent des worktrees qui ne sont pas toujours nettoyés. Un check après chaque sync prévient l'accumulation (issue #856).
+
 ### Rapport
 
 ```

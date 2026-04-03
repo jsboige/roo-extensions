@@ -39,6 +39,13 @@ La moitie du "code mort" detecte et supprime est en realite du **code fonctionne
 3. **Creer la PR** : `gh pr create --title "type(#issue): description" --body "..."`
 4. **Attendre la review** : Le coordinateur ou l'utilisateur approuve
 5. **Merge** : Squash merge apres approbation
+6. **CLEANUP OBLIGATOIRE** : Supprimer le worktree et la branche locale apres merge/close
+   ```bash
+   # Supprimer le worktree
+   git worktree remove .claude/worktrees/wt-{desc}
+   # Supprimer la branche locale
+   git branch -D wt/{desc}
+   ```
 
 ### Pour Roo Scheduler
 
@@ -91,13 +98,72 @@ Avant d'approuver une PR, verifier :
 
 ---
 
+## Cleanup Post-Merge/Close (CRITIQUE)
+
+**BUG #895 : Le workflow incomplet PERD DU TRAVAIL.**
+
+### Pourquoi c'est critique
+
+Sans cleanup automatique post-merge :
+- Les worktrees s'accumulent (33 branches wt/ orphelines identifiees)
+- Les branches locales ne sont jamais supprimees
+- Le travail valide peut etre perdu si PR fermee sans merge
+- Surcharge git branch et VS Code (2k+ notifications)
+
+### Procedure de cleanup obligatoire
+
+**Apres chaque PR merge ou close :**
+
+```bash
+# 1. Retourner au repo principal
+cd C:\dev\roo-extensions
+
+# 2. Supprimer le worktree
+git worktree remove .claude/worktrees/wt-{desc}
+
+# 3. Supprimer la branche locale
+git branch -D wt/{desc}
+
+# 4. Verifier
+git worktree list
+git branch --list "wt/*"
+```
+
+### Cleanup automatique (Recommande)
+
+**Script de cleanup existe :** `scripts/claude/worktree-cleanup.ps1` (Issue #856)
+
+**Tache planifiee recommande (Windows) :**
+```powershell
+# Creer une tache quotidienne pour nettoyer les worktrees orphelins
+schtasks /Create /TN "Roo-Worktree-Cleanup" /TR "powershell -ExecutionPolicy Bypass -File C:\dev\roo-extensions\scripts\claude\worktree-cleanup.ps1" /SC DAILY /ST 02:00
+```
+
+**Ou execution manuelle periodique :**
+```powershell
+# Dry-run pour voir ce qui serait nettoye
+powershell -ExecutionPolicy Bypass -File scripts\claude\worktree-cleanup.ps1 -WhatIf
+
+# Execution reelle
+powershell -ExecutionPolicy Bypass -File scripts\claude\worktree-cleanup.ps1
+```
+
+### Audit PRs CLOSED (Session 35)
+
+**PRs CLOSED avec travail recuperable identifie :**
+
+| PR | Commits | Lignes | Branche | Statut |
+|----|---------|--------|---------|--------|
+| #870 | 2 | 1576 | wt/worker-myia-po-2025-20260326-042234 | **Recupere** dans #893 |
+| #846 | 11 | 1554 | wt/worker-myia-po-2026-20260324-175849 | A verifier |
+| #592 | 1 | 299 | wt/worker-myia-po-2025-20260307-071553 | A verifier |
+| #585 | 1 | 371 | wt/worker-myia-po-2025-20260306-231457 | A verifier |
+
+---
+
 ## Enforcement
 
-- **GitHub Branch Protection** : Active (require PR + CI checks). See `scripts/github/setup-branch-protection.ps1` for current config.
-- **Coordinator Review Script** : PRs MUST be reviewed via `scripts/github/pr-review-and-merge.ps1` before merge (Issue #958, Option E)
-- **Review Workflow** :
-  1. CI blocks merge if build-and-test fail (GitHub-enforced)
-  2. sk-agent code review runs for PRs >50 LOC (script-enforced)
-  3. Coordinator approves checklist items (script-enforced)
-  4. Only merges if ALL checks pass (script-enforced)
-- **Violation** : A push direct on main is un incident a documenter dans INTERCOM.
+- **GitHub Branch Protection** : A activer par l'utilisateur (Settings → Branches → main → Require PR)
+- **En attendant** : Les agents DOIVENT creer des PRs. Le coordinateur verifie a chaque tour de sync qu'aucun push direct n'a eu lieu.
+- **Cleanup obligatoire** : Apres chaque PR merge/close, le worktree et la branche DOIVENT etre supprimes.
+- **Violation** : Un push direct sur main est un incident a documenter dans INTERCOM.
