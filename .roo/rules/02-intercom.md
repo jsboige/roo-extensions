@@ -26,6 +26,44 @@ roosync_dashboard(
 )
 ```
 
+**⚠️ CRITIQUE : Gestion de la redirection vers fichier (#984)**
+
+Quand le contenu du dashboard est trop volumineux, le MCP retourne un message du type :
+```
+Content too large, written to file: /path/to/file
+```
+
+**Dans ce cas, l'agent DOIT lire le fichier retourné :**
+
+1. **Détecter** que la réponse contient un chemin fichier (pattern "written to file:")
+2. **Lire** ce fichier avec `read_file` ou `Read`
+3. **Traiter** le contenu comme si l'outil l'avait retourné directement
+
+**Exemple de procédure complète :**
+
+```python
+# Étape 1 : Appel dashboard avec intercomLimit pour éviter overflow
+result = roosync_dashboard(
+  action="read",
+  type="workspace",
+  section="intercom",
+  intercomLimit=10  # Limite à 10 messages récents
+)
+
+# Étape 2 : Vérifier si le contenu a été redirigé
+if result.get("message") and "written to file:" in result["message"]:
+    # Extraire le chemin du fichier
+    file_path = result["message"].split("written to file: ")[1]
+    # Lire le fichier
+    actual_content = read_file(file_path)
+    # Traiter actual_content...
+else:
+    # Traiter result["content"] directement
+    content = result.get("content", "")
+```
+
+**Pourquoi c'est critique :** Sans cette lecture en 2 temps, les messages INTERCOM importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignorés, ce qui rompt la coordination cross-machine.
+
 **Écriture d'un message :**
 ```
 roosync_dashboard(
@@ -42,18 +80,23 @@ roosync_dashboard(
 - Auto-condensation automatique
 - Tags structurés pour identifier l'auteur
 
-### Fichier INTERCOM (FALLBACK DEPRECATED)
+### Fichier INTERCOM (FALLBACK uniquement)
 
-**⚠️ DEPRECATED depuis #745 Phase 2. Utiliser uniquement si le MCP `roosync_dashboard` échoue.**
+**⚠️ DEPRECATED - EMERGENCY FALLBACK ONLY**
 
-Le fichier INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`) est un **FALLBACK** uniquement en cas d'échec du MCP.
+**Utiliser SEULEMENT si le MCP `roosync_dashboard` est complètement indisponible.**
 
-**Procédure fallback (si MCP échoue) :**
-1. **Lire** le fichier pour trouver le dernier séparateur `---`
-2. **Ajouter** le nouveau message à la fin (ordre chronologique)
-3. **Préférer** `apply_diff` ou `Add-Content` plutôt que `write_to_file` (échec fréquent sur >500 lignes)
+Fichier : `.claude/local/INTERCOM-{MACHINE}.md` (ex: `INTERCOM-myia-ai-01.md`)
 
-> **Ordre chronologique critique** : Toujours ajouter à la FIN du fichier. Jamais insérer au début.
+**Procédure minimale (si MCP échoue) :**
+1. **Lire** les dernières lignes avec `read_file` pour trouver le dernier `---`
+2. **Append** le nouveau message avec `apply_diff` ou `Add-Content` (win-cli)
+3. **Dernier recours** : `write_to_file` (ancien contenu + nouveau message)
+
+**RÈGLES CRITIQUES :**
+- **Ordre chronologique** : TOUJOURS ajouter à la FIN du fichier (ancien en haut, récent en bas)
+- **NE JAMAIS** insérer au début ou supprimer/modifier les messages existants
+- **NE JAMAIS** écraser le fichier avec seulement le nouveau message
 
 ---
 
@@ -226,9 +269,21 @@ Les fichiers existants sont conservés en lecture seule comme archive historique
 
 **METHODE OBLIGATOIRE (Dashboard RooSync) :**
 1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
-2. Identifier les `TASK` non complétées et `ASK` sans `REPLY`
+2. **SI redirection vers fichier** (message contient "written to file:") : lire ce fichier avec `read_file`
+3. Lire les messages récents (< 24h)
+4. Identifier les `TASK` non complétées
+5. Identifier les `ASK` sans `REPLY`
 
-**FALLBACK fichier local (si MCP échoue) :** Ouvrir `.claude/local/INTERCOM-{MACHINE}.md` et appliquer les mêmes critères.
+**FALLBACK fichier local (si MCP échoue) :**
+1. Ouvrir `.claude/local/INTERCOM-{MACHINE}.md`
+2. Mêmes étapes 3-4 ci-dessus
+
+### Format de Recherche (fallback fichier uniquement)
+
+```bash
+# Trouver les messages non-résolus dans le fichier local
+grep -E "^\#\# \[.*\] .* → roo \[TASK\]" .claude/local/INTERCOM-*.md
+```
 
 ---
 

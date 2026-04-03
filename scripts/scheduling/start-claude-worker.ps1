@@ -168,7 +168,27 @@ function Get-NextTask {
         Write-Log "✅ Tâche GitHub: #$($GitHubTask.issueNumber)" "INFO"
         # Claim l'issue immédiatement (sauf en DryRun)
         if (-not $SkipClaim) {
-            Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+            $ClaimSuccess = Claim-GitHubIssue -IssueNumber $GitHubTask.issueNumber -AgentType $AgentType -MachineId $MachineId
+            if (-not $ClaimSuccess) {
+                Write-Log "⚠️ Claim échoué pour #$($GitHubTask.issueNumber), un autre agent l'a probablement prise" "WARN"
+                # Retourner null pour passer à la tâche suivante
+                return $null
+            }
+            # Phase 3 - Vérification double avant de commencer le travail
+            # Vérifier que l'issue est toujours ouverte et n'a pas de PR
+            $VerifyIssue = & gh issue view $GitHubTask.issueNumber --repo jsboige/roo-extensions --json state,assignees 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $VerifyData = $VerifyIssue | ConvertFrom-Json
+                if ($VerifyData.state -ne "OPEN") {
+                    Write-Log "⚠️ Issue #$($GitHubTask.issueNumber) fermée entre-temps, abandon" "WARN"
+                    return $null
+                }
+                # Vérifier qu'on est toujours assignee
+                if ($VerifyData.assignees.Count -eq 0) {
+                    Write-Log "⚠️ Assignee retiré pour #$($GitHubTask.issueNumber), un autre agent a pris le relais" "WARN"
+                    return $null
+                }
+            }
         } else {
             Write-Log "[DRY-RUN] Skip claim issue #$($GitHubTask.issueNumber)" "INFO"
         }
