@@ -6,9 +6,15 @@
     Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
     scheduling architecture. Supports 3 task types:
 
-    - worker:      Executor tier (6h, Sonnet, all machines)
-    - coordinator: Coordinator tier (8h, Opus, ai-01 only)
-    - meta-audit:  Meta-Analyst tier (72h, Opus, all machines)
+    - worker:      Executor tier (6h, Haiku baseline, all machines)
+    - coordinator: Coordinator tier (8h, Sonnet baseline, ai-01 only)
+    - meta-audit:  Meta-Analyst tier (72h, Sonnet baseline, all machines)
+
+    ESCALATION MECHANISM (#1027):
+    Each scheduler uses a cost-effective baseline model with targeted escalation:
+    - Thread main runs on baseline (Haiku/Sonnet)
+    - Complex phases trigger sub-agent escalation (Sonnet/Opus)
+    - Retry after failure auto-escalates (Get-EscalatedModel in worker script)
 
 .PARAMETER Action
     Action to perform: install, remove, list, test (default: list)
@@ -23,7 +29,8 @@
     Claude mode to use (default: code-simple, only for worker)
 
 .PARAMETER Model
-    Claude model override (default depends on TaskType: worker=sonnet, others=opus)
+    Claude model override (default depends on TaskType: worker=haiku, others=sonnet)
+    See issue #1027 for escalation mechanism details
 
 .PARAMETER MaxIterations
     Max iterations per run (default: 1, only for worker)
@@ -37,9 +44,9 @@
 .EXAMPLE
     .\setup-scheduler.ps1                                          # List current worker task
     .\setup-scheduler.ps1 -Action list -TaskType coordinator       # List coordinator task
-    .\setup-scheduler.ps1 -Action install                          # Install worker (3h, Sonnet)
-    .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Opus, ai-01 only)
-    .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (24h, Opus)
+    .\setup-scheduler.ps1 -Action install                          # Install worker (6h, Haiku baseline)
+    .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Sonnet baseline, ai-01 only)
+    .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
 #>
@@ -92,27 +99,27 @@ $TaskConfigs = @{
         TaskName = "Claude-Worker"
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 6
-        DefaultModel = "sonnet"
+        DefaultModel = "haiku"
         DefaultTimeout = 30
-        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Sonnet with auto-escalation to Opus. Exits cleanly if no work. Runs every 6h."
+        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Haiku with auto-escalation to Sonnet/Opus. Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
         TaskName = "Claude-Coordinator"
         Script = Join-Path $scriptDir "start-claude-coordinator.ps1"
         DefaultInterval = 8
-        DefaultModel = "opus"
+        DefaultModel = "sonnet"
         DefaultTimeout = 30
-        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches and rebalances."
+        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches and rebalances. Runs on Sonnet with sub-agent escalation to Opus for PR reviews."
         MachineRestriction = "myia-ai-01"
     }
     'meta-audit' = @{
         TaskName = "Claude-MetaAudit"
         Script = Join-Path $scriptDir "start-meta-audit.ps1"
         DefaultInterval = 72
-        DefaultModel = "opus"
+        DefaultModel = "sonnet"
         DefaultTimeout = 30
-        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h."
+        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h on Sonnet with sub-agent escalation to Opus for architectural recommendations."
         MachineRestriction = $null  # all machines
     }
 }

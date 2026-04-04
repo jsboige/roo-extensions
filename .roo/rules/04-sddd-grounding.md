@@ -81,7 +81,104 @@ Remplace les anciens `task_browse`, `view_conversation_tree`, `roosync_summarize
 **Modes `summarize` :**
 - `trace` : Stats (compression, breakdown User/Assistant/Tools)
 - `cluster` : Grappes parent-enfant
-- `synthesis` : **BUG CONNU** - ne pas utiliser
+- `synthesis` : Pipeline LLM (OpenAI gpt-4o-mini) avec enrichissement algorithmique. Nécessite `OPENAI_API_KEY` dans .env. Réimplémenté #767.
+
+---
+
+## Recommandations conversation_browser(summarize) - CRITIQUE (#881)
+
+**✅ FIX #881 APPLIQUÉ :** `detailLevel: "NoTools"` maintenant alias vers `Compact` qui résume les résultats d'outils.
+
+**Ancien comportement (pré-fix) :** `NoTools` gardait tous les résultats complets → explosion 309 KB+ pour 23 messages.
+**Nouveau comportement (post-fix) :** `NoTools` → `CompactReportingStrategy` qui résume (nom + statut + taille, pas contenu).
+
+**Utilisation recommandée :**
+```xml
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>conversation_browser</tool_name>
+<arguments>{"action": "summarize", "summarize_type": "trace", "detailLevel": "Summary", "truncationChars": 10000, "taskId": "abc123..."}</arguments>
+</use_mcp_tool>
+```
+
+### Niveaux `detailLevel`
+
+| Niveau | Contenu | Cas d'usage |
+|--------|---------|------------|
+| **`Full`** | Tout inclus | ❌ JAMAIS (explosion) |
+| **`NoTools`** | ✅ FIXÉ - Alias vers Compact (résumé outils) | ✅ Maintenant OK |
+| **`Compact`** | Messages + outils résumés (nom + statut) | ✅ Recommandé (#881) |
+| **`NoToolParams`** | Ancien NoTools (params masqués, résultats complets) | ⚠️ Pour debug |
+| **`NoResults`** | Messages + params (sans résultats) | ✅ Compact |
+| **`Messages`** | Messages seulement | ✅ Très compact |
+| **`Summary`** | Vue condensée | ✅ Recommandé |
+| **`UserOnly`** | Messages utilisateur seulement | ✅ Plus compact |
+
+**Règle :** TOUJOURS définir `truncationChars` quand `summarize_type != "trace"`.
+`summarize_type: "trace"` génère stats lisibles (messages par type, taille, breakdown) — utiliser pour rapports métriques.
+
+---
+
+## Filtres Avances roosync_search (#636)
+
+**Disponibles avec `action: "semantic"` :**
+
+```xml
+<!-- Frictions recentes : messages utilisateurs avec erreurs (ideal meta-analyse) -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "probleme erreur echec impossible bloque", "has_errors": true, "start_date": "YYYY-MM-DD", "max_results": 10}</arguments>
+</use_mcp_tool>
+
+<!-- Historique d'un outil specifique -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "write_to_file resultat", "tool_name": "write_to_file", "max_results": 5}</arguments>
+</use_mcp_tool>
+
+<!-- Messages utilisateur uniquement (sans resultats d'outils, plus compact) -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "...", "role": "user", "exclude_tool_results": true}</arguments>
+</use_mcp_tool>
+
+<!-- Filtrer par source (Roo ou Claude Code) -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "escalade", "source": "roo"}</arguments>
+</use_mcp_tool>
+
+<!-- Filtrer par modele et periode temporelle -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "...", "model": "opus", "start_date": "2026-03-01", "end_date": "2026-03-17"}</arguments>
+</use_mcp_tool>
+
+<!-- Deep dive dans une conversation specifique -->
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_search</tool_name>
+<arguments>{"action": "semantic", "search_query": "...", "conversation_id": "TASK_ID"}</arguments>
+</use_mcp_tool>
+```
+
+### Patterns de Requete Courants (#637)
+
+| Pattern | Parametres cles | Usage |
+|---------|----------------|-------|
+| **Friction recente** | `has_errors:true + start_date:{hier}` | Meta-analyst quotidien |
+| **Historique outil** | `tool_name:"write_to_file"` | Diagnostic boucle recurrente |
+| **Messages purs** | `exclude_tool_results:true + role:user` | Analyse squelette conversation |
+| **Sessions Claude** | `source:"claude-code"` | Recherche dans sessions Claude uniquement |
+| **Sessions Roo** | `source:"roo"` | Recherche dans taches Roo uniquement |
+| **Par modele** | `model:"opus"` | Sessions opus uniquement |
+| **Fenetre temporelle** | `start_date + end_date` | Analyse tendance sur periode |
+| **Dans tache** | `conversation_id:"{ID}"` | Fouiller une tache specifique |
 
 ---
 
@@ -132,34 +229,72 @@ Apres avoir termine, verifier que le travail est visible :
 
 Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule requete large est souvent insuffisante.
 
-**Protocole en 4 passes :**
+**Limitations connues :**
+- Les fichiers sont decoupes en chunks de ~1000 chars (MAX_BLOCK_CHARS, non configurable)
+- Pas de chevauchement entre chunks → les concepts qui traversent plusieurs fonctions sont fragmentes
+- Les requetes en francais performent mal (le code et les embeddings sont en anglais)
+- Scores typiques : 0.60-0.80 pour des resultats pertinents
+
+### Protocole en 4 passes
 
 1. **Pass 1 - Requete large** (sans directory_prefix) : identifier le module/repertoire
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
    <tool_name>codebase_search</tool_name>
-   <arguments>{"query": "message sending communication", "workspace": "d:\\roo-extensions"}</arguments>
+   <arguments>{"query": "message sending inter-machine communication", "workspace": "d:\\roo-extensions"}</arguments>
    </use_mcp_tool>
    ```
+   **But :** identifier le repertoire/module pertinent. Utiliser des termes generiques en anglais.
+   **Analyse :** Analyser les `file_path` des resultats pour identifier les prefixes de repertoire communs.
 
 2. **Pass 2 - Zoom** (avec directory_prefix + vocabulaire code) : cibler le fichier
    ```xml
    <use_mcp_tool>
    <server_name>roo-state-manager</server_name>
    <tool_name>codebase_search</tool_name>
-   <arguments>{"query": "format result success priority", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
+   <arguments>{"query": "format result success message sent priority timestamp", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
    </use_mcp_tool>
    ```
+   **But :** cibler le module identifie en Pass 1 avec du vocabulaire specifique au code (noms de fonctions, variables, types).
 
 3. **Pass 3 - Grep confirmation** : verite technique avec search_files exact
-4. **Pass 4 - Variante** : reformuler si Pass 2 insuffisante
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>search_files</tool_name>
+   <arguments>{"pattern": "function handleSendMessage", "path": "mcps/internal/servers/roo-state-manager/src"}</arguments>
+   </use_mcp_tool>
+   ```
+   **But :** confirmer et completer avec une recherche exacte.
 
-**Conseils :**
-- Requetes en anglais (embeddings anglophones)
-- Vocabulaire du code > langage naturel
-- `directory_prefix` divise l'espace de recherche par ~10
-- Scores typiques : 0.60-0.80 pour resultats pertinents
+4. **Pass 4 - Variante** : reformuler si Pass 2 insuffisante
+   ```xml
+   <use_mcp_tool>
+   <server_name>roo-state-manager</server_name>
+   <tool_name>codebase_search</tool_name>
+   <arguments>{"query": "sendMessage reply amend message manager", "workspace": "d:\\roo-extensions", "directory_prefix": "src/tools/roosync"}</arguments>
+   </use_mcp_tool>
+   ```
+   **But :** reformuler avec des synonymes ou des noms de fonctions/classes decouverts en Pass 1-3.
+
+### Quand utiliser chaque combinaison
+
+| Situation | Approche recommandee |
+|-----------|---------------------|
+| Fichier/fonction connus | search_files direct (pas besoin de semantique) |
+| Concept connu, localisation inconnue | Pass 1 → Pass 2 |
+| Exploration d'un domaine | Pass 1 seule (analyser les resultats) |
+| Fichier introuvable apres Pass 2 | Pass 3 (search_files) puis Pass 4 (variante) |
+| Validation post-implementation | Pass 1 avec le concept implemente |
+
+### Conseils pour les requetes
+
+- **Toujours en anglais** : les embeddings sont entraines sur du code anglophone
+- **Vocabulaire du code > langage naturel** : `"heartbeat machine registration alive"` > `"how to register a machine heartbeat"`
+- **Noms concrets** : inclure noms de fonctions, types, variables quand connus
+- **Pas trop long** : 5-10 mots cles, pas des phrases completes
+- **`directory_prefix` divise par ~10 l'espace de recherche** : toujours l'utiliser en Pass 2
 
 ---
 
@@ -170,6 +305,10 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 3. **Technique** : read_file, search_files, tests unitaires
 
 **IMPORTANT :** L'etape 2 COMMENCE par `list`. Sans IDs, les appels suivants sont impossibles.
+
+**IMPORTANT (etape 2) :** `list` est le PREMIER appel obligatoire du grounding conversationnel. Sans lui, les IDs de taches sont inconnus et les appels `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant (retourne la plus ancienne tache ouverte, pas forcement la plus pertinente).
+
+**Combinaison semantique + technique :** Les Passes 1-2 (codebase_search) identifient les zones pertinentes par concept. La Pass 3 (search_files) confirme et complete avec precision. Ne jamais se fier uniquement a l'un ou l'autre.
 
 **Regle :** Ne jamais se contenter d'une seule source.
 
@@ -189,3 +328,26 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 ---
 
 **Reference :** `.roo/README.md`
+
+---
+
+## Reference Croisee - SDDD RooSync
+
+**Ce document** (`.roo/rules/04-sddd-grounding.md`) est le **protocole opérationnel Roo** pour le triple grounding SDDD. Il couvre les outils spécifiques à Roo :
+- `conversation_browser` (outil unifie)
+- `bookend pattern` (début et fin de tâche)
+- `protocole multi-pass` pour `codebase_search`
+- `filtres avances` pour `roosync_search` (#636)
+
+**Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
+- [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
+
+**Version Claude Code** : [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) — protocole opérationnel Claude Code avec les memes outils.
+
+**Les deux documents sont complementaires** :
+- **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
+- **Ce fichier** : Protocole opérationnel Roo (`conversation_browser`, `bookend`, multi-pass, filtres avances)
+
+---
+
+**Derniere mise a jour :** 2026-03-30 (enrichissement filtres #636 + recommandations #881)

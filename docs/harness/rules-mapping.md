@@ -148,7 +148,7 @@ This document maps the equivalence between Roo (`.roo/rules/`) and Claude Code (
 
 ### Medium Priority
 
-1. **Context Thresholds** - GLM 70% threshold applies to both
+1. **Context Thresholds** - GLM 80% threshold applies to both (see #841)
 2. **Meta-Analysis** - Same 72h cycle, same META-INTERCOM protocol
 3. **Coordinator Protocol** - Same responsibilities on ai-01
 4. **Scheduler Densification** - Same sweet spot for escalation

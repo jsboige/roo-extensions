@@ -1,9 +1,9 @@
 # Meta-Analysis Protocol - 3x2 Scheduler Architecture
 
-**Version:** 1.2.0
+**Version:** 2.0.0
 **Created:** 2026-03-04
-**Updated:** 2026-03-22
-**Issue:** #551 (Meta-Analyst tier)
+**Updated:** 2026-03-30
+**Issues:** #551, #981, #982, #855
 
 ---
 
@@ -244,6 +244,173 @@ Fonctionnel → Bug signalé → Workaround documenté → Outil ignoré → "De
 
 ---
 
+## User Intervention Detection (MANDATORY — #981)
+
+**PRINCIPLE:** Roo is 100% scheduled. Every user intervention in a Roo task is a DYSFUNCTION SIGNAL, not an anomaly. The meta-analyst MUST detect, classify, and report these interventions.
+
+### Why this is critical
+
+When a user intervenes in a scheduled Roo task, it's almost always because:
+- The task is blocked (loop, broken tool, saturated context)
+- The orchestrator delegated incorrectly
+- A `-simple` mode lacks the tools it needs and fails to escalate
+
+**Consequence:** Each intervention = a potential `needs-approval` issue to fix the root cause.
+
+### Automatic Detection (MANDATORY every cycle)
+
+```text
+// Search for user messages in Roo tasks
+roosync_search(action: "semantic", search_query: "user intervention correction stop restart", role: "user", start_date: "{72h ago}", max_results: 20)
+
+// Alternative: Roo source, user role
+roosync_search(action: "semantic", search_query: "non non arrete change fais plutot", role: "user", source: "roo", start_date: "{72h ago}", max_results: 15)
+```
+
+### Intervention Classification
+
+| Type | Description | Severity | Action |
+|------|-------------|----------|--------|
+| **BLOCKAGE** | Task stuck/looping, user unblocks | CRITICAL | Issue `needs-approval` to fix root cause |
+| **CORRECTION** | User corrects an agent error | HIGH | Issue if pattern repeats (≥2 times) |
+| **REDIRECTION** | User changes task direction | MEDIUM | Report in analysis, no issue |
+| **STOP/RESTART** | User stops or restarts the task | CRITICAL | Issue `needs-approval` — why didn't the task finish? |
+
+### Intervention Utility Evaluation
+
+For each detected intervention, the meta-analyst MUST evaluate:
+
+1. **Was the intervention necessary?** (Yes = task was genuinely stuck)
+2. **Did the intervention save the task?** (Yes = task completed after intervention)
+3. **Should the task have been swept?** (Yes = context already too saturated, better to restart)
+4. **Recommendation:** `SAVE` (intervention helped) or `SWEEP` (better to let it die and relaunch)
+
+### Report Format
+
+```markdown
+## User Interventions (cycle {date})
+
+| Metric | Value |
+|--------|-------|
+| Interventions detected | N |
+| BLOCKAGE | X |
+| CORRECTION | Y |
+| STOP/RESTART | Z |
+| Successful rescue rate | X% |
+| SWEEP recommended | N |
+
+Detail:
+- Task {ID}: BLOCKAGE intervention → {SAVE|SWEEP} — reason: {description}
+```
+
+---
+
+## Context Explosion Detection (MANDATORY — #855)
+
+**PRINCIPLE:** Tasks whose context explodes (>50 messages, >100K chars) are the primary symptom of dysfunction. The meta-analyst MUST identify root causes (verbose tools, loops, entire-file reads).
+
+### Alert Thresholds
+
+| Metric | WARNING | CRITICAL |
+|--------|---------|----------|
+| Messages per task | >30 | >50 |
+| Conversation size | >50K chars | >100K chars |
+| Repeated tool calls | >10 to same tool | >20 to same tool |
+| Tool/message ratio | >3.0 | >5.0 |
+
+### Automatic Detection (MANDATORY every cycle)
+
+```text
+// Trace stats to identify bloated tasks
+conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
+
+// Search for tasks with many errors (loop indicator)
+roosync_search(action: "semantic", search_query: "error retry failed again", has_errors: true, start_date: "{72h ago}", max_results: 10)
+```
+
+### Common Explosion Causes
+
+| Cause | Tool(s) | Pattern | Fix |
+|-------|---------|---------|-----|
+| **Vitest output** | `execute_command` | `npx vitest run` without `Select-Object -Last 30` | Always truncate |
+| **Full file reads** | `read_file` | Reading files >1K lines without offset/limit | Use offset/limit |
+| **new_task loops** | `new_task` | Orchestrator delegates in loop without progress | Detect repetitive pattern |
+| **Tool loops** | `write_to_file`, `replace_in_file` | Sequential corrections that fail | Detect >3 attempts on same file |
+| **Extensive search** | `roosync_search`, `codebase_search` | Too many queries without results | Limit to 5 queries max |
+
+### Report Format
+
+```markdown
+## Context Explosions (cycle {date})
+
+| Metric | Value |
+|--------|-------|
+| Tasks >30 messages | N |
+| Tasks >100K chars | N |
+| Primary cause | {cause} |
+| Most verbose tool | {tool} |
+
+Top 3 exploded tasks:
+1. {ID}: {N} messages, {K} chars — cause: {cause}
+```
+
+---
+
+## Simple vs Complex Differential Analysis (MANDATORY — #981)
+
+**PRINCIPLE:** `-simple` modes (ask-simple, code-simple, debug-simple) are critical because they lack native terminal access. They depend entirely on win-cli MCP. The meta-analyst MUST compare performance between levels.
+
+### Metrics to Collect
+
+```text
+// List recent tasks to identify modes
+conversation_browser(action: "list", limit: 30, sortBy: "lastActivity", sortOrder: "desc")
+
+// For each task, check mode and status
+conversation_browser(action: "view", task_id: "{ID}", detail_level: "skeleton", smart_truncation: true, max_output_length: 5000)
+```
+
+### Mandatory Comparison Table
+
+| Metric | -simple | -complex | Delta |
+|--------|---------|----------|-------|
+| Task count | N | M | — |
+| Success rate | X% | Y% | Δ% |
+| Escalation rate | Z% | N/A | — |
+| User interventions | A | B | Δ |
+| Context explosions | C | D | Δ |
+| Tool errors | E | F | Δ |
+
+### -simple Specific Failure Patterns
+
+- **`execute_command` blocked**: -simple mode attempts native terminal instead of win-cli MCP
+- **Tools unavailable**: -simple mode lacks `command` group
+- **Failed escalation**: -simple should escalate to -complex after 2 failures but doesn't
+- **Context saturation**: -simple has smaller context and saturates faster
+
+### Report Format
+
+```markdown
+## -simple vs -complex Performance (cycle {date})
+
+| Metric | -simple | -complex |
+|--------|---------|----------|
+| Tasks analyzed | N | M |
+| Success | X% | Y% |
+| Failure | X% | Y% |
+| Escalations | N | N/A |
+| User interventions | N | N |
+
+Findings:
+- {Main finding}
+- {Secondary finding}
+
+Recommendations:
+1. {Recommendation} → [action: needs-approval|harness-change|INFO]
+```
+
+---
+
 ## Guard Rails (CRITICAL)
 
 ### Meta-analysts MUST NOT:
@@ -285,4 +452,4 @@ Fonctionnel → Bug signalé → Workaround documenté → Outil ignoré → "De
 
 ---
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-03-30
