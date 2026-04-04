@@ -16,8 +16,8 @@
     ESCALATION MECHANISM (#1027):
     - Baseline: Haiku (git pull, simple tasks, maintenance)
     - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
-    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
-    - Target: Haiku baseline once #1026 reduces harness below 60K tokens
+    - MinimumModel guard: Sonnet (kept as minimum until Haiku baseline validated, see #1027)
+    - Harness reduced to ~24K tokens (#1026 done). Haiku baseline now feasible.
 
 .PARAMETER Mode
     Mode Claude à utiliser (sync-simple, code-simple, etc.)
@@ -402,7 +402,7 @@ function Get-GitHubTask {
             $IsDispatchedToOther = $false
             try {
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
-                    --json comments --jq '[.comments[-10:][] | .body | select(test("\\[DISPATCH\\]|\\[CLAIMED\\]|\\[RESULT\\]"))]' 2>&1
+                    --json comments --jq '[.comments[-10:][] | .body | select(contains("[DISPATCH]") or contains("[CLAIMED]") or contains("[RESULT]"))]' 2>&1
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
@@ -555,7 +555,7 @@ function Claim-GitHubIssue {
 
         # Step 4: Double-check — verify no competing [CLAIMED] from another machine
         $RecentComments = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
-            --json comments --jq '[.comments[-5:][] | .body | select(test("\\[CLAIMED\\]"))]' 2>&1
+            --json comments --jq '[.comments[-5:][] | .body | select(contains("[CLAIMED]"))]' 2>&1
         if ($LASTEXITCODE -eq 0 -and $RecentComments) {
             $Claims = $RecentComments | ConvertFrom-Json
             $OtherClaims = @($Claims | Where-Object { $_ -notmatch $MachineId -and $_ -match "\[CLAIMED\]" })
@@ -2356,18 +2356,15 @@ REASON: [resume des tests ajoutes ou findings de veille]
     $Model = Determine-Model -Task $Task
 
     # Guard: Minimum model check (#747 - context window overflow prevention)
-    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~114K tokens.
-    # haiku maps to glm-4.5-air on z.ai which has insufficient context for this harness.
-    # Minimum viable model is sonnet (glm-4.7 on z.ai, ~131K context).
-    #
-    # NOTE: This guard blocks Haiku baseline until #1026 reduces harness below 60K tokens.
-    # Target: Haiku baseline with Sonnet escalation for complex tasks (#1027).
+    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~24K tokens (post #1026 reduction).
+    # haiku (glm-4.5-air on z.ai) has ~131K context — sufficient for reduced harness.
+    # Keep sonnet as minimum for now until Haiku baseline is validated (#1027).
     $MinimumModel = "sonnet"
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
     $MinLevel = $ModelHierarchy[$MinimumModel]
     if ($ModelLevel -lt $MinLevel) {
-        Write-Log "WARN: Model '$Model' has insufficient context window for harness (~114K tokens). Upgrading to '$MinimumModel'." "WARN"
+        Write-Log "WARN: Model '$Model' may have insufficient context window for harness (~24K tokens + MCP schemas). Upgrading to '$MinimumModel'." "WARN"
         $Model = $MinimumModel
     }
 
