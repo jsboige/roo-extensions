@@ -1,9 +1,9 @@
 # SK-Agent Complete Agent Inventory
 
-**Issue:** #645 - Phase 2: Document Complete Agent Inventory
-**Date:** 2026-03-19
-**machine:** myia-po-2026
-**source:** mcps/internal/servers/sk-agent/sk_agent_config.json
+**Issue:** #894 - Enrich sk_agent with OWUI models (thinking/non-thinking) and z.ai models
+**Date:** 2026-04-03
+**Machine:** myia-web1
+**Source:** mcps/internal/servers/sk-agent/sk_agent_config.template.json
 
 ---
 
@@ -11,77 +11,107 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total Agents** | 18 |
-| **Standalone Agents** | 18 |
+| **Total Agents** | 24 |
+| **Standalone Agents** | 24 |
 | **Inline Agents** | 16 (conversation-scoped) |
-| **Conversations** | 9 |
-| **Models** | 8 |
+| **Conversations** | 8 |
+| **Models** | 13 |
 | **MCP Plugins** | 2 |
----
-
-## Agents by Category
-
-### Category 1: Core Utility Agents (4 agents)
-
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| analyst | glm-5 | No | searxng, playwright | Yes | General analyst with web search and memory |
-| vision-analyst | glm-4.6v | Yes | searxng | No | Image and document analysis specialist |
-| vision-local | zwz-8b | Yes | - | No | Fast local fine-grained vision (135 tok/s) |
-| fast | glm-4.7-flash-fast | No | - | No | Quick responses (1-5s), no tools |
-
-### Category 2: Deep Search Agents (3 agents)
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| researcher | glm-5 | No | searxng, playwright | Yes | Investigative researcher with web search |
-| synthesizer | glm-5 | No | - | No | Expert at turning findings into reports |
-| critic | qwen3.5-35b-a3b | Yes | - | No | Rigorous quality reviewer |
-
-### Category 3: Deep Think Agents (4 agents)
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| optimist | glm-5 | No | - | No | Strategic optimist for opportunities |
-| devils-advocate | glm-5 | No | - | No | Relentless contrarian for risk testing |
-| pragmatist | qwen3.5-35b-a3b | Yes | - | No | Implementation-focused realist |
-| mediator | glm-5 | No | - | No | Diplomatic consensus builder |
-
-### Category 4: Operational Agents (3 agents)
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| config-auditor | qwen3.5-35b-a3b | Yes | - | No | MCP and Roo configuration auditor |
-| log-analyzer | qwen3.5-35b-a3b | Yes | - | No | Application logs analyzer |
-| commit-reviewer | glm-5 | No | - | No | Specialized git diff reviewer |
-
-### Category 5: Surveillance Agent (1 agent)
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| guardian-sentinel | qwen3.5-35b-a3b | Yes | - | Yes | Real-time system health surveillance |
-
-### Category 6: OWUI-Backed Agents (3 agents)
-| ID | Model | Vision | Tools | Memory | Description |
-|----|-------|--------|-------|--------|-------------|
-| owui-analyst | owui-expert-analyste | No | searxng | Yes | Expert analyst via OWUI |
-| owui-writer | owui-redacteur-technique | No | - | No | Technical documentation writer |
-| owui-vision | owui-vision-expert | Yes | - | No | Vision analysis expert via OWUI |
 
 ---
 
 ## Models Configuration
 
-| ID | Provider | Context | Vision | Status | Description |
-|----|----------|---------|--------|--------|-------------|
-| glm-5 | z.ai Cloud | 200K | No | Enabled | GLM-5 reasoning via z.ai cloud |
-| glm-4.6v | z.ai Cloud | 128K | Yes | Enabled | GLM-4.6V vision via z.ai cloud |
-| zwz-8b | Local vLLM | 131K | Yes | Disabled | ZwZ-8B AWQ - 135 tok/s |
-| qwen3.5-35b-a3b | Local vLLM | 262K | Yes | Disabled | Qwen3.5 35B MoE AWQ - 86 tok/s |
-| glm-4.7-flash-fast | OWUI | 131K | No | Disabled | GLM-4.7-Flash AWQ via OWUI |
-| owui-expert-analyste | OWUI | 131K | No | Disabled | OWUI custom model |
-| owui-redacteur-technique | OWUI | 131K | No | Disabled | OWUI custom model |
-| owui-vision-expert | OWUI | 131K | Yes | Disabled | OWUI custom model |
+### z.ai Cloud Models (6)
+
+| ID | Model ID | Vision | Thinking | Context | Description |
+|----|----------|--------|----------|---------|-------------|
+| glm-5.1 | glm-5.1 | No | No | 200K | GLM-5.1 reasoning via z.ai cloud (45.3/113 coding, +28% vs GLM-5) |
+| glm-5.1-thinking | glm-5.1 | No | **Yes** | 200K | GLM-5.1 with extended thinking via z.ai cloud |
+| glm-4.6v | glm-4.6v | Yes | No | 128K | GLM-4.6V vision via z.ai cloud |
+| glm-4.6v-thinking | glm-4.6v | Yes | **Yes** | 128K | GLM-4.6V vision with extended thinking via z.ai cloud |
+| glm-4.7-flash-fast | glm-4.7-flash-fast | No | No | 128K | GLM-4.7 Flash Fast — quick responses (1-5s) |
+| glm-4.7-flash-thinking | glm-4.7-flash-fast | No | **Yes** | 128K | GLM-4.7 Flash with extended thinking |
+
+### vLLM Local Models (4)
+
+| ID | Model ID | Vision | Thinking | Context | Description |
+|----|----------|--------|----------|---------|-------------|
+| omnicoder-9b | omnicoder-9b | Yes | No | 32K | OmniCoder 9B local vLLM (port 5001, 135 tok/s) |
+| omnicoder-9b-thinking | omnicoder-9b | Yes | **Yes** | 32K | OmniCoder 9B with extended thinking |
+| qwen3.5-35b-a3b | Qwen3.5-35B-A3B | Yes | No | 32K | Qwen 3.5 35B local vLLM (port 5002) |
+| qwen3.5-35b-a3b-thinking | Qwen3.5-35B-A3B | Yes | **Yes** | 32K | Qwen 3.5 35B with extended thinking |
+
+### OWUI Proxy Models (3)
+
+| ID | Model ID | Vision | Thinking | Context | Description |
+|----|----------|--------|----------|---------|-------------|
+| owui-expert-analyste | expert-analyste | No | No | 131K | OWUI Expert Analyst (requires OWUI API key) |
+| owui-redacteur-technique | redacteur-technique | No | No | 131K | OWUI Technical Writer (requires OWUI API key) |
+| owui-vision-expert | vision-expert | Yes | No | 131K | OWUI Vision Expert (requires OWUI API key) |
+
+---
+
+## Agents by Category
+
+### Category 1: Core Utility Agents (4 + 4 thinking = 8 agents)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| analyst | glm-5.1 | No | No | searxng, playwright | Yes | General analyst with web search and memory |
+| analyst-thinking | glm-5.1-thinking | No | **Yes** | searxng, playwright | Yes | Analyst with extended thinking for complex analysis |
+| vision-analyst | glm-4.6v | Yes | No | searxng | No | Image and document analysis specialist |
+| vision-local | omnicoder-9b | Yes | No | - | No | Fast local fine-grained vision (135 tok/s) |
+| vision-local-thinking | omnicoder-9b-thinking | Yes | **Yes** | - | No | Local vision with extended thinking for detailed analysis |
+| coder | omnicoder-9b | Yes | No | - | No | Code generation and review specialist |
+| coder-thinking | omnicoder-9b-thinking | Yes | **Yes** | - | No | Code specialist with extended thinking for complex tasks |
+| fast | glm-4.7-flash-fast | No | No | - | No | Quick responses (1-5s), no tools |
+| fast-thinking | glm-4.7-flash-thinking | No | **Yes** | - | No | Quick responses with extended thinking |
+
+### Category 2: Deep Search Agents (3 + 1 thinking = 4 agents)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| researcher | glm-5.1 | No | No | searxng, playwright | Yes | Investigative researcher with web search |
+| researcher-thinking | glm-5.1-thinking | No | **Yes** | searxng, playwright | Yes | Researcher with extended thinking for deep investigation |
+| synthesizer | glm-5.1 | No | No | - | No | Expert at turning findings into reports |
+| critic | glm-5.1 | No | No | - | No | Rigorous quality reviewer |
+
+### Category 3: Deep Think Agents (4 agents)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| optimist | glm-5.1 | No | No | - | No | Strategic optimist for opportunities |
+| devils-advocate | glm-5.1 | No | No | - | No | Critical pessimist for risk identification |
+| pragmatist | glm-5.1 | No | No | - | No | Practical realist for feasibility |
+| mediator | glm-5.1 | No | No | - | No | Balanced synthesizer of perspectives |
+
+### Category 4: Operational Agents (3 agents)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| config-auditor | glm-5.1 | No | No | - | No | Configuration drift auditor |
+| log-analyzer | glm-5.1 | No | No | - | No | Log analysis specialist |
+| commit-reviewer | glm-5.1 | No | No | - | No | Git commit review specialist |
+
+### Category 5: Surveillance Agent (1 agent)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| guardian-sentinel | glm-5.1 | No | No | - | No | Continuous system monitoring and alerting |
+
+### Category 6: OWUI-Backed Agents (3 agents)
+
+| ID | Model | Vision | Thinking | Tools | Memory | Description |
+|----|-------|--------|----------|-------|--------|-------------|
+| owui-analyst | owui-expert-analyste | No | No | - | No | OWUI Expert Analyst (requires OWUI API key) |
+| owui-writer | owui-redacteur-technique | No | No | - | No | OWUI Technical Writer (requires OWUI API key) |
+| owui-vision | owui-vision-expert | Yes | No | - | No | OWUI Vision Expert (requires OWUI API key) |
 
 ---
 
 ## Conversations
+
 | ID | Type | Agents | Rounds | Description |
 |----|------|--------|--------|-------------|
 | deep-search | magentic | researcher, synthesizer, critic | 10 | Multi-agent deep research with search, synthesis, critical review |
@@ -89,77 +119,83 @@
 | code-review | group_chat | (4 inline agents) | 6 | Multi-perspective code review with security, performance, maintainability |
 | research-debate | sequential | (4 inline agents) | 4 | Research from opposing viewpoints then synthesize |
 | config-harmonization | sequential | (4 inline agents) | 4 | Config drift deliberation |
-| commit-review | sequential | commit-reviewer, devils-advocate, synthesizer | 3 | Structured git diff review |
+| commit-review | sequential | commit-reviewer, devils-advocate, synthesizer | 3 | Structured code review in a git diff |
 | task-allocation | group_chat | analyst, pragmatist, critic | 4 | Task allocation for GitHub issues |
 | intelligent-task-dispatch | sequential | researcher, pragmatist, critic, synthesizer | 5 | Multi-perspective task analysis |
 
 ---
-## Inline Agents (Conversation-Scoped)
-### code-review Conversation
-| ID | Model | Description |
-|----|-------|-------------|
-| security-reviewer | glm-5 | Security-focused code reviewer |
-| perf-reviewer | qwen3.5-35b-a3b | Performance-focused code reviewer |
-| maintainability-reviewer | qwen3.5-35b-a3b | Maintainability and readability reviewer |
-| code-synthesizer | glm-5 | Synthesizes review findings |
 
-### research-debate Conversation
-| ID | Model | Description |
-|----|-------|-------------|
-| proponent | glm-5 | Argues in favor of the proposition |
-| opponent | glm-5 | Argues against the proposition |
-| fact-checker | qwen3.5-35b-a3b | Verifies claims from both sides |
-| debate-synthesizer | glm-5 | Produces balanced conclusion |
-### config-harmonization Conversation
-| ID | Model | Description |
-|----|-------|-------------|
-| config-detective | qwen3.5-35b-a3b | Identifies and classifies config differences |
-| risk-assessor | glm-5 | Assesses risk of each config difference |
-| resolution-planner | qwen3.5-35b-a3b | Plans concrete resolution steps |
-| harmonization-synthesizer | glm-5 | Produces final harmonization report |
-
----
 ## MCP Plugins
+
 | ID | Command | Description |
 |----|---------|-------------|
 | searxng | npx -y mcp-searxng | Web search via SearXNG |
-| playwright | npx -y @playwright/mcp@latest | Browser automation and web scraping |
+| playwright | npx @anthropic/mcp-playwright | Browser automation and web scraping |
 
 ---
+
 ## Memory Collections
-| Collection | Agent | Purpose |
-|------------|-------|---------|
-| analyst-memory | analyst | General analyst memory |
-| research-memory | researcher | Research findings storage |
-| guardian-sentinel-alerts | guardian-sentinel | Anomaly detection history |
-| owui-analyst-memory | owui-analyst | OWUI analyst memory |
+
+| Agent | Collection | Embeddings | Description |
+|-------|-----------|------------|-------------|
+| analyst | analyst-memory | qwen3-4b-awq-embedding | General analyst memory |
+| researcher | researcher-memory | qwen3-4b-awq-embedding | Research findings memory |
+| analyst-thinking | analyst-thinking-memory | qwen3-4b-awq-embedding | Thinking analyst memory |
+| researcher-thinking | researcher-thinking-memory | qwen3-4b-awq-embedding | Thinking researcher memory |
 
 ---
+
 ## Infrastructure Endpoints
+
 | Service | URL |
 |---------|-----|
-| HTTP endpoint | https://skagents.myia.io/mcp |
-| vLLM mini (zwz-8b) | https://api.mini.text-generation-webui.myia.io/v1 |
-| vLLM medium (qwen3.5) | https://api.medium.text-generation-webui.myia.io/v1 |
+| z.ai Cloud API | https://api.z.ai/api/coding/paas/v4 |
+| vLLM primary (OmniCoder) | http://myia-ai-01:5001/v1 |
+| vLLM secondary (Qwen3.5) | http://myia-ai-01:5002/v1 |
 | OWUI API | https://open-webui.myia.io/openai |
 | Embeddings | https://embeddings.myia.io/v1 |
 | Qdrant | https://qdrant.myia.io:443 |
 | SearXNG | https://search.myia.io |
 
 ---
+
+## Thinking Mode
+
+**New in #894:** Models with `thinking: true` enable extended reasoning via `chat_template_kwargs: {"enable_thinking": true}` in the vLLM/z.ai request. This activates the model's internal chain-of-thought before producing the final response.
+
+| Thinking Model | Base Model | Provider |
+|---------------|------------|----------|
+| glm-5.1-thinking | glm-5.1 | z.ai cloud |
+| glm-4.6v-thinking | glm-4.6v | z.ai cloud |
+| omnicoder-9b-thinking | omnicoder-9b | vLLM local |
+| qwen3.5-35b-a3b-thinking | Qwen3.5-35B-A3B | vLLM local |
+| glm-4.7-flash-thinking | glm-4.7-flash-fast | z.ai cloud |
+
+---
+
 ## Usage Examples
+
 ### Single Agent Call
+```
 call_agent(prompt: "Analyze this architecture", agent: "analyst")
 call_agent(prompt: "Describe this diagram", agent: "vision-analyst", attachment: "/path/to/image.png")
 call_agent(prompt: "Quick question", agent: "fast")
+call_agent(prompt: "Deep analysis needed", agent: "analyst-thinking")
+call_agent(prompt: "Complex code review", agent: "coder-thinking")
+```
 
 ### Multi-Agent Conversation
+```
 run_conversation(prompt: "Research RAG architectures", conversation: "deep-search")
 run_conversation(prompt: "Should we migrate to microservices?", conversation: "deep-think")
 run_conversation(prompt: "Review this PR", conversation: "code-review")
+```
 
 ---
+
 ## References
+
+- Issue #894: Enrich sk_agent with OWUI models (thinking/non-thinking) and z.ai models
 - Issue #645: Phase 2 - Document Complete Agent Inventory
 - Issue #485: sk-agent exploitation and enhancement
 - Issue #566: Enrich sub-agents
@@ -167,5 +203,5 @@ run_conversation(prompt: "Review this PR", conversation: "code-review")
 - Documentation: docs/services/sk-agent-deployment.md
 
 ---
-**Last Updated:** 2026-03-19
-**Author:** Claude Code (myia-po-2026)
+**Last Updated:** 2026-04-03
+**Author:** Roo Code (myia-web1)
