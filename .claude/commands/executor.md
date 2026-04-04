@@ -180,9 +180,9 @@ Puis (en parallele) :
 - **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
 **Détection proactive de condensation (dashboard) :**
-- Le dashboard RooSync s'auto-condense à 500 messages (pas de detection manuelle necessaire)
+- Le dashboard RooSync s'auto-condense à 100 messages (conserve 25 + messages critiques WARN/ERROR/TASK/WAKE-CLAUDE)
 - **FALLBACK INTERCOM** : Si utilise le fichier local fallback, compter les lignes : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
-  - **Alerte si > 500 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
+  - **Alerte si > 100 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
   - **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
   - **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
 
@@ -574,7 +574,7 @@ Passer directement a la Phase 2.
      - `roosync_config(action: "collect")` → Collecter la config locale
      - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
      - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline
-   - Nettoyage dashboard (si > 500 messages, le dashboard s'auto-condense — pas d'action necessaire)
+   - Nettoyage dashboard (si > 100 messages, le dashboard s'auto-condense à 25 — pas d'action necessaire)
 
 ### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
 

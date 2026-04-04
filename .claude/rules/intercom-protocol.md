@@ -125,7 +125,7 @@ if (result.message && result.message.includes("written to file:")) {
 
 - **Pas d'approbation utilisateur** (MCP tool, pas ecriture fichier)
 - **Visible cross-machine** via GDrive (workspace dashboard)
-- Auto-condensation a 500 messages
+- Auto-condensation a 100 messages (conserve 25 + messages critiques WARN/ERROR/TASK/WAKE-CLAUDE)
 - Tags structures identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
 - Archives JSON horodatees
 
