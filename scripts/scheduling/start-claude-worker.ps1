@@ -401,8 +401,11 @@ function Get-GitHubTask {
             $IsDispatchedToMe = $false
             $IsDispatchedToOther = $false
             try {
+                # NOTE: jq expression stored in variable with escaped quotes to avoid PowerShell parsing issues
+                # PowerShell interprets contains() as a command if passed inline — use $jqExpr variable instead
+                $jqExpr = '[.comments[-10:][] | .body | select(contains(\"[DISPATCH]\") or contains(\"[CLAIMED]\") or contains(\"[RESULT]\"))]'
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
-                    --json comments --jq '[.comments[-10:][] | .body | select(contains("[DISPATCH]") or contains("[CLAIMED]") or contains("[RESULT]"))]' 2>&1
+                    --json comments --jq $jqExpr 2>&1
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
@@ -554,8 +557,9 @@ function Claim-GitHubIssue {
         Start-Sleep -Seconds 5
 
         # Step 4: Double-check — verify no competing [CLAIMED] from another machine
+        $jqClaimExpr = '[.comments[-5:][] | .body | select(contains(\"[CLAIMED]\"))]'
         $RecentComments = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
-            --json comments --jq '[.comments[-5:][] | .body | select(contains("[CLAIMED]"))]' 2>&1
+            --json comments --jq $jqClaimExpr 2>&1
         if ($LASTEXITCODE -eq 0 -and $RecentComments) {
             $Claims = $RecentComments | ConvertFrom-Json
             $OtherClaims = @($Claims | Where-Object { $_ -notmatch $MachineId -and $_ -match "\[CLAIMED\]" })
