@@ -42,7 +42,7 @@ Systeme multi-agent coordonnant **Roo Code** (technique) et **Claude Code** (coo
 - 18 subagents projet (5 communs + 2 coordinateur + 11 workers) + 6 globaux (`~/.claude/agents/`)
 - 6 skills (sync-tour, validate, git-sync, github-status, redistribute-memory, debrief)
 - 4 commands (/coordinate, /executor, /switch-provider, /debrief)
-- 10 rules auto-chargées (`.claude/rules/`) + 14 docs de référence on-demand (`.claude/docs/`)
+- 12 rules auto-chargées (`.claude/rules/`) + 14 docs de référence on-demand (`.claude/docs/`)
 
 **Workflow :**
 1. Debut de session → "tour de sync" (9 phases)
@@ -490,7 +490,7 @@ Cela met à jour les définitions API dans `cline_custom_instructions.md` pour c
 
 ### Methodologie SDDD
 
-**Reference complete :** [`.claude/docs/sddd-conversational-grounding.md`](.claude/docs/sddd-conversational-grounding.md)
+**Reference complete :** [`.claude/rules/sddd-grounding.md`](.claude/rules/sddd-grounding.md)
 
 Triple grounding : Semantique + Conversationnel + Technique. Ne jamais se contenter d'une seule source.
 
@@ -532,6 +532,9 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 
 | Règle | Description | Fichier |
 |-------|-------------|---------|
+| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-grounding.md` |
+| **conversation_browser Guide** | Usage conversation_browser + fix #881 (NoTools → Compact). | `.claude/rules/conversation-browser-guide.md` |
+| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. | `.claude/rules/delegation.md` |
 | **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
 
 ### Règles Communication
