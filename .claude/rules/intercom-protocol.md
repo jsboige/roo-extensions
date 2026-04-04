@@ -133,30 +133,6 @@ if (result.message && result.message.includes("written to file:")) {
 
 Seulement si le MCP dashboard echoue (GDrive offline, MCP crash), utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` via Edit tool.
 
-### Méthode ALTERNATIVE (Edit tool - append à la fin)
-
-Claude Code utilise l'outil `Edit` avec `replace_all: false` pour ajouter du contenu à la fin du fichier local.
-
-**Étapes :**
-
-1. **Lire** le fichier pour comprendre sa structure et trouver le dernier séparateur `---`
-2. **Préparer** le nouveau message avec le format standard
-3. **Utiliser `Edit`** avec `old_string` = dernier contenu existant, `new_string` = contenu + nouveau message
-
-**Exemple :**
-
-```typescript
-// Ancien contenu du fichier (extrait)
----  // <-- DERNIER SEPARATEUR
-
-// Nouveau message à ajouter
-## [2026-03-13 14:30:00] claude-code -> roo [DONE]
-### Tâche terminée
-Détails...
-
----
-```
-
 ### Format des Messages
 
 ```markdown
@@ -277,62 +253,6 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 | `[ERROR]` | Investiger le problème | Haute |
 | `[ASK]` | Répondre si possible | Moyenne |
 | `[DONE]` | Analyser les résultats | Normale |
-
----
-
-## Règles de Bonnes Pratiques
-
-1. **Soyez concis** - Les messages doivent être lisibles rapidement
-2. **Structurez** - Utilisez des sections markdown
-3. **Donnez le contexte** - Issue #, commit hash, fichiers concernés
-4. **Proposez des solutions** - Ne pas juste signaler les problèmes
-5. **Horodatage précis** - Toujours inclure la date et heure complète
-
----
-
-## Exemples
-
-### Signaler une tâche terminée
-
-```markdown
-## [2026-03-13 14:30:00] claude-code -> roo [DONE]
-
-### Issue #669 implémentée
-
-**Action :** Ajouté règle INTERCOM écriture dans `.claude/rules/intercom-protocol.md`
-
-**Résultat :**
-- Règle ordre chronologique documentée
-- Format des messages standardisé
-- Procédure d'écriture avec Edit tool
-
-**Commit :** abc1234
-
----
-```
-
-### Signaler un blocage
-
-```markdown
-## [2026-03-13 15:00:00] claude-code -> roo [ASK]
-
-### Blocage sur test roosync_summarize
-
-**Problème :**
-Le test `roosync-summarize.test.ts` échoue avec :
-```
-Cannot read properties of undefined (reading 'filter')
-```
-
-**Tentatives :**
-1. Vérifié les mocks - OK
-2. Ajouté logs - le result.success est false
-3. Tracé l'erreur jusqu'à generate-trace-summary.tool.ts:155
-
-**Question :** Dois-je investiguer plus ou c'est un bug connu ?
-
----
-```
 
 ---
 
