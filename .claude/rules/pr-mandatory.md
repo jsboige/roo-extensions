@@ -19,12 +19,17 @@ Pas d'exception. Ni "petits fix", ni "docs only", ni coordinateur.
 
 ## Workflow PR
 
-1. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
-2. **Travailler :** Commits atomiques, tests passent
-3. **Creer PR :** `gh pr create --title "type(#issue): description"`
-4. **Review :** Coordinateur ou utilisateur approuve
-5. **Merge :** Squash merge
-6. **CLEANUP OBLIGATOIRE :**
+1. **Anti-double-claim :** Verifier qu'aucune PR ouverte ne couvre deja l'issue
+   ```bash
+   gh pr list --state open --search "{issue-number}" --repo jsboige/roo-extensions
+   ```
+   Si PR existe → SKIP l'issue.
+2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
+3. **Travailler :** Commits atomiques, tests passent
+4. **Creer PR :** `gh pr create --title "type(#issue): description"`
+5. **Review :** Coordinateur ou utilisateur approuve
+6. **Merge :** Squash merge
+7. **CLEANUP OBLIGATOIRE :**
    ```bash
    git worktree remove .claude/worktrees/wt-{desc}
    git branch -D wt/{desc}
