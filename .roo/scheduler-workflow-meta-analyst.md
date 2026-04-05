@@ -201,13 +201,10 @@ HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :
-0. LIS D'ABORD le fichier de mapping officiel :
-   read_file(path="docs/harness/rules-mapping.md")
-   Ce fichier contient la table d'equivalences verifiee entre .roo/rules/ et .claude/rules/.
-   Un mapping "✅ Aligned" signifie que la regle existe des DEUX cotes (noms differents).
+0. Verifier si la regle existe des DEUX cotes sous des noms differents.
 1. LIRE le CONTENU de TOUS les fichiers de l'autre harnais
 2. Verifier si le sujet n'est pas couvert sous un NOM DIFFERENT
-   Mappings officiels (voir docs/harness/rules-mapping.md pour la liste complete) :
+   Mappings officiels :
    - Roo "02-intercom.md" = Claude "intercom-protocol.md"
    - Roo "03-mcp-usage.md" = Claude "mcp-discoverability.md"
    - Roo "04-sddd-grounding.md" = Claude "sddd-conversational-grounding.md"
@@ -234,38 +231,37 @@ Rapporter :
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-### Etape 3 : Ecrire le rapport sur les Dashboards
+### Etape 3 : Poster un RESUME COMPACT sur le Dashboard
 
-> **CRITIQUE :** L'ecriture dashboard est la seule trace de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
-> **Les fichiers dashboard workspace sont DEPRECATED.** Utiliser exclusivement les dashboards.
+> **CRITIQUE :** L'ecriture dashboard est la seule trace locale de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
+> **REGLE #1081 :** Dashboard = resume COMPACT (quelques lignes). Le DETAIL va dans les issues GitHub (Etape 4).
+> **Ne JAMAIS poster de rapports detailles (>20 lignes) sur le dashboard.** Ca encombre inutilement.
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
-ETAPE 3A — Poster le rapport DETAILLE sur le dashboard workspace (local) :
+Poster un RESUME COMPACT sur le dashboard workspace :
 
 roosync_dashboard(
   action: "append",
   type: "workspace",
   tags: ["META-ANALYSIS", "roo-meta"],
-  content: "## [{DATE}] Analyse Meta-Analyste Roo (cycle {DATE})\n\n**Traces Roo (auto-analyse) :**\n- {N} taches analysees, taux succes {X}%\n- Modes utilises : {liste}\n- Escalades : {N} (patterns identifies)\n\n**Interventions Utilisateur (#981) :**\n- Total : {N} (BLOCAGE: {X}, CORRECTION: {Y}, STOP: {Z})\n- Taux sauvetage : {W}%\n- Recommandation BALAYER : {N} taches\n\n**Explosions Contexte (#855) :**\n- Taches >30 messages : {N}\n- Cause principale : {cause}\n- Outil le plus verbeux : {outil}\n\n**Performance -simple vs -complex (#981) :**\n- -simple : {N} taches, {X}% succes, {Y} interventions\n- -complex : {N} taches, {X}% succes, {Y} interventions\n- Delta principal : {constat}\n\n**Traces Claude (analyse croisee) :**\n- {N} sessions recentes\n- Issues traitees : {liste}\n- Patterns remarques\n\n**Analyse harnais :**\n- Incoherences : {N} (dont {X} CRITICAL)\n- Lacunes : {N}\n- Ameliorations proposees : {N}\n\n**Recommandations :**\n1. {Recommandation 1} -> [action: INFO|needs-approval|harness-change]\n2. {Recommandation 2} -> [action: ...]"
+  content: "### [{MACHINE}] Meta-analyse (cycle {DATE})\n- Taches: {N} analysees, succes {X}%\n- Interventions user: {N} (dont {X} BLOCAGE)\n- Explosions contexte: {N}\n- Harnais: {N} incoherences\n- Issues creees: #{N1}, #{N2} (details dans les issues)\n- Score sante outillage: {A|B|C|D}"
 )
 
-ETAPE 3B — Poster un RESUME sur le dashboard workspace (cross-machine) :
-
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["META-ANALYSIS", "roo-meta"],
-  content: "### [{MACHINE}] Bilan meta-analyste\n\n- Taches analysees: {N}, taux succes: {X}%\n- Recommandations: {N} (dont {X} needs-approval)\n- Issues creees: {N}\n- Rapport complet: dashboard workspace de {MACHINE}"
-)
-
-NE PAS ecrire dans le fichier dashboard workspace (DEPRECATED).
+REGLES :
+- Maximum 10 lignes dans le dashboard
+- Pas de tableaux detailles, pas de listes d'outils, pas de rapports verbeux
+- Chaque finding actionnable = une issue GitHub (Etape 4) avec le detail complet
+- Le dashboard est un INDEX vers les issues, pas un rapport
 ```
 
-### Etape 4 : Creer des issues GitHub si recommandations actionnables
+### Etape 4 : Creer des issues GitHub avec le DETAIL COMPLET
 
-**UNIQUEMENT si des recommandations de type `needs-approval` ont ete identifiees.**
+> **REGLE #1081 :** Les issues GitHub sont le lieu du DETAIL. Le dashboard (Etape 3) n'est qu'un resume compact.
+> Chaque finding actionnable = 1 issue avec contexte complet, donnees, et recommandation.
+
+**UNIQUEMENT si des recommandations actionnables ont ete identifiees.**
 
 Deleguer a `code-complex` via `new_task` :
 
@@ -280,17 +276,18 @@ Si une issue ouverte ou recemment fermee (<7 jours) couvre le meme sujet :
 
 SEULEMENT si aucune issue existante ne couvre le sujet :
 
-Utilise win-cli MCP pour creer des issues GitHub :
+Utilise win-cli MCP pour creer des issues GitHub.
 
-Pour chaque recommandation actionnable :
-execute_command(shell="powershell", command="gh issue create --repo jsboige/roo-extensions --title '[META-ANALYSIS] {TITRE}' --label 'needs-approval' --body '{DESCRIPTION}'")
+Pour chaque recommandation actionnable, creer une issue DETAILLEE :
+execute_command(shell="powershell", command="gh issue create --repo jsboige/roo-extensions --title '[META-ANALYSIS] {TITRE}' --label 'needs-approval' --body '## Contexte\n\n{Date, machine, cycle meta-analyse}\n\n## Constat\n\n{Description detaillee du finding avec donnees chiffrees}\n{Tableaux, metriques, exemples concrets}\n\n## Impact\n\n{Consequences si non traite}\n\n## Recommandation\n\n{Action proposee avec justification}\n\n## Donnees brutes\n\n{Extraits de traces, stats, exemples}'")
 
-Si la recommandation concerne un changement de harnais :
-execute_command(shell="powershell", command="gh issue create --repo jsboige/roo-extensions --title '[META-ANALYSIS] {TITRE}' --label 'needs-approval,harness-change' --body '{DESCRIPTION}'")
+Si la recommandation concerne un changement de harnais, ajouter le label :
+--label 'needs-approval,harness-change'
 
 REGLES :
 - TOUJOURS inclure le label 'needs-approval'
-- TOUJOURS inclure le contexte de l'analyse (date, machine, findings)
+- Le body de l'issue DOIT contenir TOUT le detail (c'est le lieu du rapport complet)
+- Inclure les donnees chiffrees, tableaux, exemples concrets — PAS juste un titre
 - NE PAS creer plus de 3 issues par cycle (eviter le spam)
 - NE PAS creer d'issue si la recommandation est purement informationnelle
 - TOUJOURS verifier les issues existantes AVANT de creer (garde anti-duplicates)

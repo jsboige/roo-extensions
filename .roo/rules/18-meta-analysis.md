@@ -102,12 +102,13 @@ roosync_search(action: "semantic", search_query: "impossible bloque erreur fail"
 - Patterns recurrents (≥ 2 occurrences) → candidats issues friction
 - Correlations outil + erreur → root cause probable
 
-### Ce que Roo produit
+### Ce que Roo produit (#1081)
 
-- **Docs d'analyse** sur GDrive (structures, horodates)
-- **Entrees dashboard workspace** (reconciliation)
+- **Issues GitHub avec findings DETAILLES** — Chaque finding actionnable = 1 issue avec contexte complet, donnees, metriques et recommandation. Les issues sont le lieu du detail, pas les dashboards.
+- **Resumes COMPACTS sur dashboard** — Max 10 lignes via `roosync_dashboard(type: "workspace")`. Le dashboard = index pointant vers les issues, pas un rapport.
 - **Issues GitHub avec `needs-approval`** (propositions d'amelioration)
 - **Issues GitHub avec `needs-approval` + `harness-change`** (modifications de harnais, BLOQUEES jusqu'a approbation utilisateur)
+- **AUCUN fichier de rapport transient** commite dans git
 
 ---
 
