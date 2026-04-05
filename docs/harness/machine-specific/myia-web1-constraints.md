@@ -99,7 +99,7 @@ C:\Drive\.shortcut-targets-by-id\1jEQqHabwXrIukTEI1vE05gWsJNYNNFVB\.shared-state
 
 **Si < 80% :** Risque de boucle infinie de condensation quand l'INTERCOM grossit.
 
-**Documentation complète :** [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
+**Documentation complète :** [`docs/harness/reference/condensation-thresholds.md`](../reference/condensation-thresholds.md)
 
 ---
 

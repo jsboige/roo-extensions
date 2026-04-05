@@ -15,7 +15,7 @@ metadata:
 **Cree:** 2026-03-28
 **MAJ:** 2026-04-04 (retrait executor-state.json, alignement #745 Phase 2)
 **Usage:** `/executor`
-**Methodologie:** SDDD triple grounding (voir `.claude/docs/sddd-conversational-grounding.md`)
+**Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
 ---
 

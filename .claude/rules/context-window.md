@@ -26,4 +26,4 @@ Contexte reel = ~131k tokens (pas 200K annonces — les 200K incluent les tokens
 
 GLM-5, GLM-4.7, GLM-4.7 Flash, GLM-4.5 Air (tous z.ai) — 131k reels, seuil 80% = ~105k.
 
-**Detail complet :** `.claude/docs/condensation-thresholds.md`
+**Detail complet :** `docs/harness/reference/condensation-thresholds.md`

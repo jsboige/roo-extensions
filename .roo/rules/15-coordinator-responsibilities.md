@@ -90,4 +90,4 @@ Le scheduled coordinateur DOIT lire et écrire l'INTERCOM local.
 
 ---
 
-**Référence :** [`.claude/docs/coordinator-specific/scheduled-coordinator.md`](../../.claude/docs/coordinator-specific/scheduled-coordinator.md)
+**Référence :** [`docs/harness/coordinator-specific/scheduled-coordinator.md`](../../docs/harness/coordinator-specific/scheduled-coordinator.md)

@@ -209,7 +209,7 @@ This provides multi-perspective analysis (security, perf, maintainability) befor
 
 ## 6. Checklist Integration with #516
 
-All PRs with checklists in body MUST follow [`.claude/docs/github-checklists.md`](../github-checklists.md):
+All PRs with checklists in body MUST follow [`docs/harness/reference/github-checklists.md`](../reference/github-checklists.md):
 
 - [ ] Checklist in PR body reflects actual work items
 - [ ] Coordinator updates checklist as PR progresses (not just at end)
@@ -349,7 +349,7 @@ This requires GitHub Actions app or PAT management. Option E is sufficient for c
 
 ### For New Agents
 
-1. Read [`.claude/docs/github-checklists.md`](../github-checklists.md) (checklist discipline)
+1. Read [`docs/harness/reference/github-checklists.md`](../reference/github-checklists.md) (checklist discipline)
 2. Read this file (PR review policy)
 3. Review 1 example PR (coordinator shows PR structure)
 4. Create first PR as draft, get feedback before converting to ready
@@ -380,7 +380,7 @@ This requires GitHub Actions app or PAT management. Option E is sufficient for c
 - Issue #535: Auto-review pipeline
 - Issue #549: CLEANUP-3 regression (motivating incident)
 - Issue #958: PR review enforcement (Option E implementation)
-- Rules: [`.claude/docs/github-checklists.md`](../github-checklists.md)
+- Rules: [`docs/harness/reference/github-checklists.md`](../reference/github-checklists.md)
 - Scripts: `scripts/github/pr-review-and-merge.ps1`, `scripts/github/setup-branch-protection.ps1`
 
 ---
