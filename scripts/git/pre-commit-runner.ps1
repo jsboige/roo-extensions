@@ -64,6 +64,11 @@ try {
         }
         # Other files: just check readability
         else {
+            # Skip directories (submodule pointers appear as staged directories)
+            if (Test-Path $File -PathType Container) {
+                Write-Host " ⏭️ (submodule)" -ForegroundColor DarkGray
+                continue
+            }
             try {
                 $null = Get-Content $File -TotalCount 1 -ErrorAction Stop
                 Write-Host " ✅" -ForegroundColor Green
