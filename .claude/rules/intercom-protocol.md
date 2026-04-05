@@ -79,53 +79,25 @@ roosync_dashboard(
 
 ### 3. Lecture
 
-**METHODE OBLIGATOIRE avec paramètre `intercomLimit` :**
+**METHODE SIMPLE — le dashboard se lit en entier :**
 
 ```
-roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)
+roosync_dashboard(action: "read", type: "workspace")
 ```
 
-**⚠️ CRITIQUE : Gestion de la redirection vers fichier (#984)**
+Le dashboard est auto-condensé à **50 KB** : il reste toujours lisible en un seul appel. Pas besoin de `intercomLimit` en temps normal.
 
-Quand le contenu du dashboard est trop volumineux, le MCP retourne un message du type :
+**`intercomLimit` est un safety net optionnel** — à utiliser uniquement si le dashboard est exceptionnellement gros (ex: condensation LLM indisponible pendant longtemps) :
+
 ```
-Content too large, written to file: /path/to/file
+roosync_dashboard(action: "read", type: "workspace", intercomLimit: 10)
 ```
-
-**Dans ce cas, l'agent DOIT lire le fichier retourné :**
-
-1. **Détecter** que la réponse contient un chemin fichier (pattern "written to file:")
-2. **Lire** ce fichier avec l'outil `Read`
-3. **Traiter** le contenu comme si l'outil l'avait retourné directement
-
-**Exemple de procédure complète :**
-
-```typescript
-// Étape 1 : Appel dashboard avec intercomLimit pour éviter overflow
-const result = roosync_dashboard(
-  action: "read",
-  type: "workspace",
-  section: "intercom",
-  intercomLimit: 10  // Limite à 10 messages récents
-);
-
-// Étape 2 : Vérifier si le contenu a été redirigé
-if (result.message && result.message.includes("written to file:")) {
-  const filePath = result.message.match(/written to file: (.+)/)[1];
-  const actualContent = Read(filePath);
-  // Traiter actualContent...
-} else {
-  // Traiter result.content directement
-}
-```
-
-**Pourquoi c'est critique :** Sans cette lecture en 2 temps, les messages INTERCOM importants (WARN, ERROR, TASK, WAKE-CLAUDE) sont ignorés, ce qui rompt la coordination cross-machine.
 
 ### Avantages du dashboard vs fichier local
 
 - **Pas d'approbation utilisateur** (MCP tool, pas ecriture fichier)
 - **Visible cross-machine** via GDrive (workspace dashboard)
-- Auto-condensation a 500 messages
+- Auto-condensation quand le dashboard dépasse 50 KB (garde les 20 messages les plus récents, intègre le reste dans le statut via LLM)
 - Tags structures identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
 - Archives JSON horodatees
 
@@ -234,9 +206,8 @@ Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sess
 **OBLIGATION :** Au debut de chaque session Claude Code, lire les dashboards.
 
 **METHODE OBLIGATOIRE (Dashboard) :**
-1. `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10)`
-2. **SI redirection vers fichier** (message contient "written to file:") : lire ce fichier avec `Read`
-3. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
+1. `roosync_dashboard(action: "read", type: "workspace")`
+2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
 4. Identifier les `TASK` non complétées
 5. Identifier les `ASK` sans `REPLY`
 
