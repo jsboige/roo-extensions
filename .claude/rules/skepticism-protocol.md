@@ -1,146 +1,41 @@
-# Protocole de Scepticisme Raisonnable - Anti-Propagation d'Erreurs
+# Protocole de Scepticisme Raisonnable
 
-**Version:** 2.0.0
-**Cree:** 2026-03-04
-**Mis a jour:** 2026-03-28
-**Contexte:** Incidents de propagation d'erreurs entre agents (GPU panic po-2026, Session 101 archives, duplicate work)
+**Version:** 3.0.0 (condensed from 2.0.0)
+**MAJ:** 2026-04-05
 
 ---
 
 ## Principe
 
-**Ne JAMAIS propager une affirmation non verifiee.** Si un agent (Roo, Claude, autre machine) fait une affirmation surprenante, la verifier AVANT de la repeter, d'agir dessus, ou de la transmettre a d'autres.
+**Ne JAMAIS propager une affirmation non verifiee.** Verifier AVANT de repeter, agir dessus, ou transmettre.
+Cout d'une verification : secondes. Cout d'une erreur propagee : heures sur 6 machines.
 
-Le cout d'une verification est de quelques secondes. Le cout d'une erreur propagee est de plusieurs heures sur 6 machines.
+## Qualification Obligatoire
 
----
+- **VERIFIE** : J'ai teste/lu/confirme moi-meme
+- **RAPPORTE PAR [source]** : Un autre agent/doc le dit (pas confirme)
+- **SUPPOSE** : Hypothese non verifiee
 
-## Declencheurs de Scepticisme (Smell Test)
+## Declencheurs (Smell Test)
 
-**PAUSE et VERIFIE si une affirmation entrante contient :**
+**PAUSE et VERIFIE si :** "GPU insuffisante", "impossible", "tests passent tous", "bloque depuis X", "critique", "MCP ne marche pas". Si ca contredit ce que tu sais ou te surprend → verifie.
 
-| Categorie | Exemples | Verification |
-|-----------|----------|-------------|
-| **Infrastructure** | "GPU insuffisante", "modele X necessite Y GB", "service Z est down" | Croiser avec MEMORY.md et `.claude/rules/tool-availability.md` |
-| **Capacite** | "impossible sur cette machine", "pas assez de RAM/VRAM" | Verifier si la tache est locale ou via API distante |
-| **Etat du code** | "tests passent tous", "feature X implementee", "bug Y fixe" | `git log`, `npx vitest run`, lire le code source |
-| **Blocage** | "bloque depuis X heures", "impossible de faire Y" | Verifier traces (conversation_browser), tenter soi-meme |
-| **Urgence** | "il faut tout arreter", "probleme critique" | Evaluer la severite reelle avant de propager |
-| **Configuration** | "MCP X ne marche pas", "config Y incorrecte" | Tester l'outil directement, lire la config |
+## Verification (3 niveaux)
 
-**Regle du pouce :** Si l'affirmation contredit ce que tu sais, ou si elle te surprend, c'est un declencheur.
-
----
-
-## Protocole de Verification (3 niveaux)
-
-### Niveau 1 : Verification rapide (10 secondes)
-**Quand :** Affirmation sur un fait verifiable en lecture seule.
-- Consulter CLAUDE.md, MEMORY.md, ou les tables d'infrastructure
-- Exemple : "Qwen 3.5 tourne sur po-2026" → GPU Fleet table → Qwen 3.5 tourne sur ai-01 via vLLM
-
-### Niveau 2 : Verification active (1-2 minutes)
-**Quand :** Affirmation sur un etat qui change (tests, git, services).
-- `git log --oneline -5` pour verifier les commits revendiques
-- `npx vitest run` pour verifier "tests passent"
-- Appel MCP pour verifier "outil X ne marche pas"
-
-### Niveau 3 : Verification croisee (5 minutes)
-**Quand :** Affirmation structurelle ou architecturale.
-- Lire le code source (Read, Grep)
-- Croiser avec traces Roo (conversation_browser)
-- Comparer avec historique GitHub
-
----
+1. **Rapide (10s) :** Consulter MEMORY.md, CLAUDE.md, tables infrastructure
+2. **Active (1-2min) :** `git log`, `npx vitest run`, appel MCP
+3. **Croisee (5min) :** Code source + traces Roo + historique GitHub
 
 ## Regles Anti-Propagation
 
-### Pour le Coordinateur (myia-ai-01)
+- **Coordinateur :** JAMAIS repeter une affirmation dans un dispatch sans verification. Inclure la source.
+- **Executeur :** JAMAIS dire "impossible" sans preuve concrete. Inclure output exact.
+- **Tous :** Preferer "je ne sais pas" a une hypothese presentee comme fait. Ne pas confondre correlation et causalite.
 
-1. **JAMAIS repeter une affirmation d'executeur dans un dispatch** sans l'avoir verifiee
-2. **JAMAIS proposer un workaround** base sur un probleme non confirme
-3. Quand un executeur rapporte un blocage surprenant :
-   - Verifier soi-meme OU repondre : "Verifie : [fait connu] ne contredit-il pas ton affirmation ?"
-4. **Inclure la source** dans les dispatches : "Confirme par git log abc123" ou "Selon po-2026 (NON VERIFIE)"
+## Fait Critique
 
-### Pour les Executeurs
-
-1. **JAMAIS dire "impossible"** sans avoir tente et documente l'echec concret (output exact)
-2. **Inclure les preuves** dans les rapports : commit hash, output de commande, extrait de fichier
-3. Quand une directive recue est basee sur une premisse surprenante :
-   - Verifier la premisse localement avant d'executer
-   - Si la premisse est fausse : rapporter IMMEDIATEMENT au coordinateur
-
-### Pour TOUS les agents
-
-1. **Qualifier les affirmations** :
-   - **VERIFIE** : J'ai teste/lu/confirme moi-meme
-   - **RAPPORTE PAR [source]** : Un autre agent/doc le dit (pas confirme)
-   - **SUPPOSE** : Hypothese non verifiee
-2. **Ne pas confondre correlation et causalite** : "test echoue ET GPU a 100%" ≠ "test echoue A CAUSE du GPU"
-3. **Preferer "je ne sais pas"** a une hypothese non verifiee presentee comme un fait
+Les modeles LLM tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs. La charge compute est sur le provider.
 
 ---
 
-## Faits de Reference (Infrastructure Connue)
-
-Pour les verifications de Niveau 1, consulter :
-
-| Source | Contenu | Fichier |
-|--------|---------|---------|
-| Infrastructure | GPU/services par machine | MEMORY.md ou `.claude/memory/PROJECT_MEMORY.md` |
-| Modeles | Endpoints vLLM, modeles disponibles | MEMORY.md, `.claude/memory/PROJECT_MEMORY.md` |
-| MCP Config | Outils attendus par machine | `.claude/rules/tool-availability.md` |
-| Contraintes machine | RAM, OS, limitations | `.claude/docs/machine-specific/myia-web1-constraints.md` |
-
-**Fait critique :**
-- Les modeles LLM (Qwen 3.5, GLM-5, ZwZ-8B) tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs
-- La charge compute LLM est sur le provider, PAS sur la machine qui fait la requete
-- Les MCPs tournent localement, mais les modeles sont distants
-
----
-
-## Anti-Patterns Documentes
-
-| Anti-Pattern | Incident | Impact | Correction |
-|-------------|----------|--------|------------|
-| Accepter "GPU insuffisante" sans verifier | po-2026 #536 Qwen 3.5 | Fausse panique sur 6 machines | Verifier GPU Fleet + architecture API |
-| Archiver sans verifier le contenu | Session 101, 8 scripts perdus | Pipeline casse | Checklist consolidation obligatoire |
-| Proposer workaround sur fausse premisse | "tester sur po-2023 RTX 3090" | Temps perdu, directives fausses | Verifier la premisse d'abord |
-| Declarer machine "silencieuse" sans verifier | web1 3 fois faux | Taches non assignees | Verifier inbox complet (read+unread, 48h) |
-| Dupliquer le travail sans verifier claim | #553 po-2026+po-2024 memes fichiers | Double travail, conflits | Claim protocol obligatoire |
-
----
-
-## Regles pour les Rapports (Dashboard / RooSync)
-
-### TOUJOURS inclure les preuves
-
-**BON :**
-```
-## [DATE] claude-code → all [DONE]
-Build OK (0 errors). Tests: 7927/7927 PASS.
-Commit: abc123 (feat(tools): Add X)
-Output: [extrait pertinent]
-```
-
-**MAUVAIS :**
-```
-## [DATE] claude-code → all [DONE]
-J'ai fait la tache, tout est OK.
-```
-
----
-
-## Integration
-
-Ce protocole s'applique dans tous les contextes Claude Code :
-- **`/coordinate`** : Verifier les rapports AVANT de dispatcher
-- **`/executor`** : Verifier les premisses des instructions recues
-- **Sub-agents** (roosync-hub, dispatch-manager) : Croiser rapports avec git/GitHub
-- **Schedulers** (Worker, Coordinator) : Inclure preuves dans tous les rapports dashboard/RooSync
-- **Meta-analystes** : Croiser rapports avec git/GitHub/traces avant de conclure
-
----
-
-**Derniere mise a jour :** 2026-03-28
+**Historique versions completes :** Git history avant 2026-04-05
