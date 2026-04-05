@@ -1,0 +1,47 @@
+{
+  "machineId": "test-machine-1",
+  "timestamp": "2026-04-05T19:36:51.941Z",
+  "system": {
+    "hostname": "test-machine-1",
+    "os": "Windows",
+    "architecture": "x64",
+    "uptime": 0
+  },
+  "hardware": {
+    "cpu": {
+      "name": "Unknown CPU",
+      "cores": 8,
+      "threads": 16
+    },
+    "memory": {
+      "total": 16,
+      "available": 16
+    },
+    "disks": [],
+    "gpu": []
+  },
+  "software": {
+    "powershell": "Unknown",
+    "node": "v20.0.0",
+    "python": "3.11.0"
+  },
+  "roo": {
+    "modes": [
+      {
+        "slug": "code-simple",
+        "name": "Code Simple"
+      }
+    ],
+    "mcpServers": [
+      {
+        "name": "win-cli",
+        "enabled": true
+      }
+    ]
+  },
+  "paths": {
+    "rooExtensions": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260405-172150\\.shared-state-test-listdiffs"
+  },
+  "lastUpdated": "2026-04-05T19:36:51.941Z",
+  "version": "3.0.0"
+}

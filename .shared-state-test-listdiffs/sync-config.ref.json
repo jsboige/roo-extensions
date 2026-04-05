@@ -1,0 +1,83 @@
+{
+  "version": "3.0.0",
+  "baselineId": "smoke-test-baseline",
+  "timestamp": "2026-04-05T19:36:51.939Z",
+  "lastUpdated": "2026-04-05T19:36:51.939Z",
+  "machineId": "test-machine-1",
+  "autoSync": true,
+  "conflictStrategy": "baseline_wins",
+  "logLevel": "INFO",
+  "sharedStatePath": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260405-172150\\.shared-state-test-listdiffs",
+  "machines": [
+    {
+      "id": "test-machine-1",
+      "name": "Test Machine 1",
+      "hostname": "test-machine-1",
+      "os": "Windows",
+      "architecture": "x64",
+      "lastSeen": "2026-04-05T19:36:51.939Z",
+      "roo": {
+        "modes": [
+          "code-simple"
+        ],
+        "mcpServers": [
+          {
+            "name": "win-cli",
+            "enabled": true
+          }
+        ],
+        "sdddSpecs": []
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 8,
+          "threads": 16
+        },
+        "memory": {
+          "total": 16
+        }
+      },
+      "software": {
+        "node": "v20.0.0",
+        "python": "3.11.0"
+      }
+    },
+    {
+      "id": "test-machine-2",
+      "name": "Test Machine 2",
+      "hostname": "test-machine-2",
+      "os": "Windows",
+      "architecture": "x64",
+      "lastSeen": "2026-04-05T19:36:51.939Z",
+      "roo": {
+        "modes": [
+          "code-simple"
+        ],
+        "mcpServers": [
+          {
+            "name": "win-cli",
+            "enabled": true
+          }
+        ],
+        "sdddSpecs": []
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 8,
+          "threads": 16
+        },
+        "memory": {
+          "total": 16
+        }
+      },
+      "software": {
+        "node": "v20.0.0",
+        "python": "3.11.0"
+      }
+    }
+  ],
+  "syncTargets": [],
+  "syncPaths": [],
+  "decisions": [],
+  "messages": []
+}
