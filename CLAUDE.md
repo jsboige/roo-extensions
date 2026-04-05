@@ -250,8 +250,8 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 11. JAMAIS de cles API dans GitHub (RooSync pour partage)
 12. `.claude/` = PROTEGE (harnais uniquement, pas de temporaires)
 13. **Dashboard = canal de COMMANDEMENT** : le coordinateur repond a chaque rapport [DONE] avec des instructions claires (qui fait quoi, priorite, deadline). Ne JAMAIS laisser un rapport sans reponse.
-14. **Dashboard = canal de RAPPORT** : tout agent (executor ou coordinateur) rapporte ses actions notables en fin de session sur le dashboard. Inclure : ce qui a ete fait, PRs creees, issues commentees, prochaine action prevue.
-15. **Agents proactifs** : tous les agents sont invites a creer/alimenter des issues, mettre a jour la documentation, ou effectuer des corrections directes si elles ne necessitent pas de planification git prealable. Pour eviter le double-claiming, poster sur le dashboard l'action envisagee AVANT de l'entreprendre.
+14. **Dashboard = canal de RAPPORT** : tout agent (executor ou coordinateur) rapporte ses observations et actions notables en fin de session sur le dashboard. Inclure : ce qui a ete fait, PRs creees, issues commentees, prochaine action prevue.
+15. **Agents proactifs** : tous les agents sont invites a creer/alimenter des issues, mettre a jour la documentation, ou effectuer des corrections directes si elles ne necessitent pas de planification git prealable. Pour eviter le double-claiming, notamment si ces actions réagissent à des des messages sur le Dashboard, poster sur le dashboard l'action envisagee AVANT de l'entreprendre.
 16. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review.
 
 ---
