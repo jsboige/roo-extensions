@@ -182,10 +182,10 @@ HARNAIS CLAUDE — rules/ auto-chargees (lis TOUS avec read_file) :
 - .claude/rules/worktree-cleanup.md
 
 HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
-- docs/harness/condensation-thresholds.md
-- docs/harness/escalation-protocol.md
+- docs/harness/reference/condensation-thresholds.md
+- docs/harness/reference/escalation-protocol.md
 - docs/harness/reference/feedback-process.md
-- docs/harness/friction-protocol.md
+- docs/harness/reference/friction-protocol.md
 - docs/harness/reference/github-checklists.md
 - docs/harness/coordinator-specific/pr-review-policy.md
 - docs/harness/coordinator-specific/scheduled-coordinator.md

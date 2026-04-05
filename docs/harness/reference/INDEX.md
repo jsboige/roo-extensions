@@ -1,6 +1,6 @@
 # Documentation On-Demand — Index
 
-**Chemin :** `.claude/docs/` — Ces documents ne sont PAS auto-charges. Les consulter quand le sujet est pertinent.
+**Chemin :** `docs/harness/reference/` — Ces documents ne sont PAS auto-charges. Les consulter quand le sujet est pertinent.
 
 ## Protocoles et Processus
 
