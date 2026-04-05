@@ -1,94 +1,56 @@
 # Architecture Agents, Skills & Commands
 
-Reference des subagents, skills et commandes disponibles. MAJ 2026-03-04 (audit #556).
+**Version:** 2.0.0 (condensed from audit #556)
+**MAJ:** 2026-04-05
 
----
+## Principe
 
-## Principe : Conversations Legeres
+Deleguer les taches verboses a des subagents. La conversation principale orchestre.
 
-Deleguer les taches verboses a des **subagents**. La conversation principale reste legere et orchestre.
+## Subagents
 
----
+### Projet (`.claude/agents/`)
 
-## Subagents ([.claude/agents/](.claude/agents/))
+`github-tracker`, `intercom-handler`, `intercom-compactor`, `sddd-router`, `task-planner`
 
-### Agents Projet (dans `.claude/agents/`)
+### Globaux (`~/.claude/agents/`)
 
-| Agent | Description | Outils |
-|-------|-------------|--------|
-| `github-tracker` | Suivi GitHub Project #67 | Bash |
-| `intercom-handler` | Communication locale Roo | Read |
-| `intercom-compactor` | Condensation INTERCOM (>500 lignes) | Read, Edit |
-| `sddd-router` | Routage SDDD triple grounding | Read, Grep, Glob |
-| `task-planner` | Analyse avancement, equilibrage charge | Read, Grep, Glob, Bash |
+`git-sync`, `test-runner`, `code-explorer`
 
-### Agents Globaux (dans `~/.claude/agents/`, deployes depuis `.claude/configs/`)
+### Coordinateur (ai-01)
 
-| Agent | Description | Outils |
-|-------|-------------|--------|
-| `git-sync` | Pull/merge conservatif, submodules | Bash, Read, Grep |
-| `test-runner` | Build TypeScript + tests unitaires | Bash, Read, Edit |
-| `code-explorer` | Exploration codebase | Read, Grep, Glob |
+`roosync-hub` (recoit rapports, envoie instructions), `dispatch-manager` (assignation taches)
 
-### Agents Coordinateur (myia-ai-01, dans `.claude/agents/coordinator/`)
+### Executants
 
-| Agent | Description |
+`roosync-reporter`, `task-worker`
+
+### Workers (`.claude/agents/workers/`)
+
+`code-fixer`, `consolidation-worker`, `doc-updater`, `test-investigator`, `issue-worker`, `config-auditor`, `codebase-researcher`, `script-runner`, `pr-reviewer`, `issue-triager`, `sync-checker`
+
+## Skills (`.claude/skills/`)
+
+| Skill | Declencheur |
 |-------|-------------|
-| `roosync-hub` | Hub central RooSync : recoit rapports, envoie instructions |
-| `dispatch-manager` | Assignation taches aux 6 machines x 2 agents |
+| `sync-tour` | "tour de sync", "faire le point" |
+| `validate` | Validation apres modifications |
+| `git-sync` | Synchronisation Git |
+| `github-status` | Progression Project #67 |
+| `redistribute-memory` | "redistribue la memoire" |
+| `debrief` | `/debrief` |
 
-### Agents Executants (autres machines)
+## Commands (`.claude/commands/`)
 
-| Agent | Description |
-|-------|-------------|
-| `roosync-reporter` | Envoie rapports au coordinateur |
-| `task-worker` | Prend en charge taches assignees |
+| Commande | Machine | Usage |
+|----------|---------|-------|
+| `/coordinate` | ai-01 | Coordination multi-agent |
+| `/executor` | Autres | Execution multi-iterations |
+| `/switch-provider` | Toutes | Basculer Anthropic/z.ai |
+| `/debrief` | Toutes | Analyse session |
 
-### Agents Workers Specialises ([.claude/agents/workers/](.claude/agents/workers/))
+## Workflow
 
-| Agent | Description |
-|-------|-------------|
-| `code-fixer` | Investigation et correction de bugs |
-| `consolidation-worker` | Execution consolidations CONS-X |
-| `doc-updater` | MAJ documentation apres changements |
-| `test-investigator` | Investigation tests echoues ou instables |
-| `issue-worker` | Executer issue GitHub complete |
-| `config-auditor` | Auditer configs MCP/modes |
-| `codebase-researcher` | Recherche SDDD multi-pass |
-| `script-runner` | Executer scripts avec rapport |
-| `pr-reviewer` | Review PR avec critique |
-| `issue-triager` | Classification issues |
-| `sync-checker` | Verification git/MCP/schtasks |
-
----
-
-## Skills ([.claude/skills/](.claude/skills/))
-
-| Skill | Description | Declencheur |
-|-------|-------------|-------------|
-| `sync-tour` | Tour de sync complet en 9 phases | "tour de sync", "faire le point" |
-| `validate` | Build TypeScript + tests unitaires | Validation apres modifications |
-| `git-sync` | Pull conservatif + resolution conflits | Synchronisation Git |
-| `github-status` | Etat Project #67 via `gh` CLI | Progression et incoherences |
-| `redistribute-memory` | Audit et redistribution memoire/regles | "redistribue la memoire" |
-| `debrief` | Analyse session + capture lecons | `/debrief` |
-
----
-
-## Commands ([.claude/commands/](.claude/commands/))
-
-| Commande | Machine | Description |
-|----------|---------|-------------|
-| `/coordinate` | myia-ai-01 | Session de coordination multi-agent |
-| `/executor` | Autres | Session d'execution multi-iterations |
-| `/switch-provider` | Toutes | Basculer entre Anthropic et z.ai |
-| `/debrief` | Toutes | Analyse session et capture lecons |
-
----
-
-## Workflow Recommande
-
-1. **Debut** : "tour de sync" → active le skill sync-tour (9 phases)
-2. **Pendant** : Agents s'activent selon le contexte
-3. **Taches specifiques** : Invoquer explicitement l'agent
-4. **Fin** : `/debrief` + commit
+1. **Debut** : "tour de sync" → sync-tour (9 phases)
+2. **Pendant** : Agents s'activent selon contexte
+3. **Fin** : `/debrief` + commit
