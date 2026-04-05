@@ -1,13 +1,15 @@
 # Worktree Cleanup Protocol
-# Description: Automated cleanup of orphan worktrees and stale branches
+# Description: Automated cleanup of orphan worktrees, stale local branches, and dead remote branches
 # Author: Claude Code (myia-po-2025)
-# Issue: #856
-# Usage: .claude/scripts/worktree-cleanup.ps1 [-WhatIf] [-Force]
+# Issue: #856, #1076
+# Usage: worktree-cleanup.ps1 [-WhatIf] [-Force] [-Remote] [-SkipRemote]
 
 [CmdletBinding()]
 param(
     [switch]$WhatIf,
     [switch]$Force,
+    [switch]$Remote,
+    [switch]$SkipRemote,
     [int]$StaleDays = 30,
     [string]$WorktreePath = ".claude/worktrees"
 )
@@ -227,6 +229,113 @@ function Remove-StaleBranch {
     }
 }
 
+# Get remote wt/ branches with their PR status
+function Get-RemoteWtBranches {
+    $branches = @()
+    $remoteBranches = git branch -r --list 'origin/wt/*' 2>$null |
+                      ForEach-Object { $_.Trim() -replace '^origin/', '' }
+
+    foreach ($branch in $remoteBranches) {
+        if (-not $branch) { continue }
+
+        # Check PR status via gh CLI
+        $prInfo = gh pr list --repo jsboige/roo-extensions --head $branch --state all --json number,state --limit 1 2>$null
+        $prState = "NO-PR"
+        $prNumber = ""
+
+        if ($prInfo -and $prInfo -ne "[]") {
+            try {
+                $parsed = $prInfo | ConvertFrom-Json
+                if ($parsed) {
+                    $prState = $parsed[0].state
+                    $prNumber = $parsed[0].number
+                }
+            }
+            catch { }
+        }
+
+        $branches += @{
+            Name = $branch
+            PRState = $prState
+            PRNumber = $prNumber
+        }
+    }
+
+    return $branches
+}
+
+# Delete dead remote branches (MERGED, CLOSED, or NO-PR worker artifacts)
+function Remove-DeadRemoteBranches {
+    param([bool]$WhatIf)
+
+    $deleted = 0
+    $kept = 0
+    $errors = 0
+
+    $branches = Get-RemoteWtBranches
+
+    if ($branches.Count -eq 0) {
+        Write-Success "No remote wt/ branches found"
+        return @{ Deleted = 0; Kept = 0; Errors = 0 }
+    }
+
+    Write-Info "Remote wt/ branches: $($branches.Count)"
+
+    foreach ($branch in $branches) {
+        $shouldDelete = $false
+        $reason = ""
+
+        switch ($branch.PRState) {
+            "OPEN" {
+                $reason = "PR #$($branch.PRNumber) is OPEN"
+                $shouldDelete = $false
+            }
+            "MERGED" {
+                $reason = "PR #$($branch.PRNumber) MERGED"
+                $shouldDelete = $true
+            }
+            "CLOSED" {
+                $reason = "PR #$($branch.PRNumber) CLOSED"
+                $shouldDelete = $true
+            }
+            default {
+                # NO-PR branch — delete if it's a worker artifact (wt/worker-*)
+                if ($branch.Name -match '^worker-') {
+                    $reason = "NO-PR worker artifact"
+                    $shouldDelete = $true
+                }
+                else {
+                    $reason = "NO-PR (manual review)"
+                    $shouldDelete = $false
+                }
+            }
+        }
+
+        if ($shouldDelete) {
+            if ($WhatIf) {
+                Write-Info "[WHATIF] Would delete: origin/$($branch.Name) ($reason)"
+            }
+            else {
+                $result = git push origin --delete $branch.Name 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Success "Deleted: origin/$($branch.Name) ($reason)"
+                    $deleted++
+                }
+                else {
+                    Write-Warn "Failed: origin/$($branch.Name) — $result"
+                    $errors++
+                }
+            }
+        }
+        else {
+            Write-Info "Keeping: origin/$($branch.Name) ($reason)"
+            $kept++
+        }
+    }
+
+    return @{ Deleted = $deleted; Kept = $kept; Errors = $errors }
+}
+
 # Main execution
 function Invoke-WorktreeCleanup {
     Write-Host ""
@@ -342,10 +451,25 @@ function Invoke-WorktreeCleanup {
         }
     }
 
+    # Remote branch cleanup (optional, controlled by -Remote flag)
+    $remoteResult = $null
+    if (-not $SkipRemote) {
+        Write-Host ""
+        Write-Host "--- Remote Branch Cleanup ---" -ForegroundColor Cyan
+        $remoteResult = Remove-DeadRemoteBranches -WhatIf $WhatIf
+
+        if (-not $WhatIf -and $remoteResult.Deleted -gt 0) {
+            Write-Host ""
+            Write-Info "Running git fetch --prune..."
+            git fetch --prune origin 2>$null
+        }
+    }
+
     return @{
         Status = "cleaned"
         Orphans = $cleanedOrphans
         StaleBranches = $cleanedBranches
+        RemoteDeleted = if ($remoteResult) { $remoteResult.Deleted } else { 0 }
         WhatIf = $WhatIf
     }
 }
