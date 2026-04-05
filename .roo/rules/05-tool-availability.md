@@ -1,8 +1,8 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.6.0 (Roo)
+**Version:** 2.0.0 (Roo)
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-22
+**Mis à jour:** 2026-04-05
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 **Cleanup #658:** win-cli supprimé de la config Claude Code sur myia-po-2023 + myia-po-2024 (2026-03-14) - Roo uniquement maintenant
 **Issue #708:** Ajout section dédiée "win-cli - Roo uniquement" pour clarifier que win-cli n'est critique que pour Roo
@@ -140,6 +140,18 @@
 4. WAIT   : NE PAS tenter de contournement. Attendre le prochain tick.
 ```
 
+### Procedure (Claude Code)
+
+```
+1. STOP   : Arreter la tache
+2. LOG    : Dashboard [CRITICAL]
+3. DIAG   : roosync_mcp_management(action: "manage", subAction: "read")
+4. FIX    : roosync_mcp_management(subAction: "update_server_field") ou modifier sources
+5. TEST   : Appeler l'outil pour confirmer
+6. ESCAL  : RooSync URGENT si non reparable
+7. RESUME : Seulement apres confirmation
+```
+
 ---
 
 ## Pre-flight Check (AVANT Etape 1)
@@ -204,11 +216,11 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 | MCP | Outils (count) | Derniere verification |
 |-----|----------------|----------------------|
-| roo-state-manager | 34 | 2026-03-22 |
-| win-cli | 9 | 2026-02-21 |
-| playwright | 22 | 2026-02-21 |
-| markitdown | 1 | 2026-02-21 |
-| jupyter | 22 (DISABLED) | 2026-02-21 |
+| roo-state-manager | 34 | 2026-04-05 |
+| win-cli | 9 | 2026-04-05 |
+| playwright | 22 | 2026-04-05 |
+| markitdown | 1 | 2026-04-05 |
+| jupyter | 22 (DISABLED) | 2026-04-05 |
 
 **Note :** Le fichier `roo-config/mcp/reference-alwaysallow.json` liste les outils pour Roo alwaysAllow. Ce fichier-ci est le contrat de DISPONIBILITE, pas d'approbation.
 
@@ -218,4 +230,4 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Derniere mise a jour :** 2026-03-22
+**Derniere mise a jour :** 2026-04-05
