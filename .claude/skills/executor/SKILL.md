@@ -51,13 +51,15 @@ Executer en parallele quand possible :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")`
 2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
 3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
-4. **Git state** : `git log --oneline -5`
+4. **PRs ouvertes (ANTI-DOUBLE-CLAIM)** : `gh pr list --state open --limit 20 --json number,title,headRefName --repo jsboige/roo-extensions`
+5. **Git state** : `git log --oneline -5`
 
 **Resume concis (10 lignes max) :**
 ```
 Machine: {name} | Git: {hash} | MCPs: {OK/KO}
 RooSync: {Y non-lus} | Dashboard: {X messages recents}
-Issues ouvertes: {Z} | Taches assignees: {liste courte}
+Issues ouvertes: {Z} | PRs ouvertes: {P} ({branches})
+Taches assignees: {liste courte}
 ```
 
 ---
@@ -73,6 +75,18 @@ Issues ouvertes: {Z} | Taches assignees: {liste courte}
 5. Bug ouvert reproductible
 6. Issue "In Progress" sans activite recente
 7. Tache de maintenance (build + tests, config-sync)
+
+**ANTI-DOUBLE-CLAIM (OBLIGATOIRE avant chaque tache) :**
+
+Avant de travailler sur une issue, verifier qu'aucune PR ouverte ne la couvre deja :
+
+```bash
+gh pr list --state open --search "<issue-number>" --repo jsboige/roo-extensions
+```
+
+Si une PR existe deja → **SKIP l'issue** + rapporter `[INFO] Issue #X deja couverte par PR #Y, skip`.
+
+Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-keyword}` existe avec une PR ouverte, ne pas dupliquer.
 
 **Si AUCUNE tache disponible** : Envoyer un message RooSync au coordinateur demandant du travail.
 
