@@ -11,9 +11,9 @@ metadata:
 
 # Skill: Debrief - Analyse et Documentation de Session
 
-**Version:** 2.1.0
+**Version:** 2.2.0
 **Cree:** 2026-02-12
-**MAJ:** 2026-03-28 (intégration état executor, issue #925)
+**MAJ:** 2026-04-04 (retrait executor-state.json, #745 Phase 2 alignment)
 **Usage:** `/debrief`
 **Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-conversational-grounding.md`)
 
@@ -110,74 +110,41 @@ Reutilisable: [Oui/Non]
 - Dates et contextes clairs
 - Liens vers issues GitHub si applicable
 
-### Phase 4 : Intégration État Executor (NOUVEAU v2.0)
+### Phase 4 : Rapport de Session
 
-**Vérifier si un état executor existe :**
-```
-Read: .claude/executor-state.json
-```
-
-**Si le fichier existe :**
-
-1. **Analyser l'état final** :
-   - `tasksCompleted` → Tâches terminées dans la session
-   - `tasksInProgress` → Tâches inachevées (critique pour reprise)
-   - `tasksPending` → Tâches identifiées mais non commencées
-
-2. **Générer le rapport de session** basé sur l'état :
-   - Durée de session : `startTime` → `lastActivity`
-   - Phase d'arrêt : `currentPhase`
-   - Productivité : nombre de tâches complétées
-   - Work in progress : tâches à reprendre
-
-3. **Sauvegarder l'état final** avant archivage :
-   - Marquer la session comme "ended"
-   - Ajouter `interruptionReason` si applicable
-   - Conserver dans `.claude/executor-state.archive/`
-
-**Format du rapport avec état executor :**
+**Générer un rapport de session structuré :**
 
 ```markdown
-## [TIMESTAMP] claude-code → roo [DEBRIEF]
+## [TIMESTAMP] claude-code -> roo [DEBRIEF]
 
 ### Session Executor - [DATE]
 
-**Session ID :** {sessionId}
 **Durée :** {X heures}
-**Phase d'arrêt :** {currentPhase}
 
-**Tâches Accomplies :**
-- [Liste de tasksCompleted]
+**Taches Accomplies :**
+- [Liste concise]
 
-**Tâches Inachevées :**
-- [Liste de tasksInProgress avec statut et notes]
+**Taches Inachevees :**
+- [Liste avec statut et notes]
 
-**État Système :**
-- Git: {gitState}
+**Etat Systeme :**
+- Git: {hash}
 - Build: {statut}
-- Tests: [résultats]
+- Tests: [resultats]
 - MCPs: [statut]
 
 **Actions Requises pour Roo :**
 - [Directives claires pour prochain cycle]
-- [Reprise prioritaire : tâches inachevées]
 
 **Monitoring :**
-- [Éléments à surveiller]
+- [Elements a surveiller]
 ```
 
-**Si `tasksInProgress` non vide** :
-- **Créer une issue GitHub** avec template "[CONTINUATION REQUIRED]"
-- Inclure l'`sessionId` dans le corps de l'issue pour référence
+**Si des taches sont inachevees** :
+- **Creer une issue GitHub** avec template "[CONTINUATION REQUIRED]"
 - Tag : `claude-only`, `enhancement`
 
-### Phase 5 : Mise à Jour INTERCOM (si PAS executor state)
-
-**Si PAS d'état executor (session non-executor ou état absent) :**
-
-Utiliser le format INTERCOM standard (voir Phase 4 originale).
-
-### Phase 5b : Worktree Cleanup (Fin de Session)
+### Phase 5 : Worktree Cleanup (Fin de Session)
 
 **En fin de session, nettoyer les worktrees orphelins pour la machine suivante.**
 
@@ -278,4 +245,4 @@ But : Confirmer que les leçons documentées sont visibles dans l'index. Vérifi
 
 ---
 
-**Dernière mise à jour :** 2026-02-12
+**Derniere mise a jour :** 2026-04-04

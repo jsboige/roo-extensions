@@ -1,5 +1,5 @@
 ---
-description: Lance une session d'exécution multi-agent RooSync (machines autres que myia-ai-01). Supporte le mode --resume pour reprendre une session interrompue.
+description: Lance une session d'execution multi-agent RooSync (machines autres que myia-ai-01).
 allowed-tools: Read, Grep, Glob, Bash, Edit, Write, mcp__roo-state-manager__*, Task
 ---
 
@@ -13,60 +13,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ---
 
-## Mode Resume (NOUVEAU v2.0)
-
-**Le support `/executor --resume` permet de reprendre une session interrompue.**
-
-**Détection automatique du mode :**
-- Si l'invocation contient `--resume` → Mode RESUME
-- Sinon → Mode NEW (comportement normal historique)
-
-### Phase 0 : Mode Resume (NOUVEAU)
-
-**SI flag --resume détecté :**
-
-1. **Lire l'état sauvegardé** : `Read: .claude/executor-state.json`
-2. **Valider l'état** :
-   - Vérifier que `lastActivity` est < 48h
-   - Si > 48h, demander confirmation
-3. **Afficher le rapport de reprise** :
-
-```markdown
-## 🔄 Session Executor Restaurée
-
-**Session ID :** {sessionId}
-**Dernière activité :** Il y a {X}h ({lastActivity})
-**Phase en cours :** {currentPhase}
-**Type de session :** {interactive|scheduled}
-
-### 📍 État Git
-- **Commit :** {gitState}
-- **Machine :** {machineId}
-- **Workspace :** {workspace}
-
-### ✅ Tâches Complétées ({count})
-{Liste des tâches complétées}
-
-### 🔄 Tâches en Cours ({count})
-{Liste des tâches en cours avec statut}
-
-### 📋 Tâches en Attente ({count})
-{Liste des tâches pending}
-
----
-
-Continuer? [Y/n]
-```
-
-4. **Si confirmation (Y)** : Restaurer le contexte et continuer à `{currentPhase}`
-5. **Si refus (n)** : Proposer nouvelle session, archiver l'état
-6. **Si état absent/invalide** : Message d'erreur, proposer nouvelle session
-
-**Référence complète :** `.claude/skills/executor/SKILL.md` (Phase 2)
-
----
-
-## Règles de Délégation (OBLIGATOIRE)
+## Regles de Delegation (OBLIGATOIRE)
 
 **Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
 
@@ -83,48 +30,6 @@ Continuer? [Y/n]
 - Tâches triviales (< 1 min)
 
 **Parallélisation :** Lancer les agents indépendants en parallèle dans une seule réponse.
-
----
-
-## PHASE 0 : INITIALISATION ÉTAT (NOUVEAU v2.0)
-
-### Pour NOUVELLE SESSION (pas de --resume)
-
-**Créer et initialiser l'état executor :**
-
-1. **Générer sessionId unique** : `{timestamp}-{machineId}` ou UUID
-2. **Capturer l'état git** : `git log --oneline -1` (commit hash actuel)
-3. **Créer le fichier d'état** : `.claude/executor-state.json`
-
-```json
-{
-  "sessionId": "{timestamp}-{machineId}",
-  "startTime": "{ISO_TIMESTAMP}",
-  "lastActivity": "{ISO_TIMESTAMP}",
-  "currentPhase": "PHASE_0",
-  "tasksCompleted": [],
-  "tasksInProgress": [],
-  "tasksPending": [],
-  "context": {
-    "gitState": "{commit_hash}",
-    "machineId": "{hostname}",
-    "workspace": "{workspace_path}",
-    "notes": "Session démarrée"
-  },
-  "metadata": {
-    "version": "1.0.0",
-    "created": "{ISO_TIMESTAMP}",
-    "modified": "{ISO_TIMESTAMP}",
-    "sessionType": "interactive"
-  }
-}
-```
-
-4. **Sauvegarder l'état** : `Write: .claude/executor-state.json`
-
-### Pour SESSION RESUME (--resume)
-
-**Voir Phase 0 - Mode Resume ci-dessus.**
 
 ---
 
@@ -712,46 +617,6 @@ git push origin main
 - **Dashboard RooSync** : Rapporter la progression : `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")`
 - **RooSync message au coordinateur** : Resume concis (pas de pave)
 
-**⚠️ MISE À JOUR ÉTAT EXECUTOR (OBLIGATOIRE) :**
-
-Après chaque action significative (tâche commencée/complétée, commit, PR), mettre à jour `.claude/executor-state.json` :
-
-```json
-{
-  "currentPhase": "PHASE_3",
-  "tasksCompleted": ["#902"],
-  "tasksInProgress": [
-    {
-      "issue": "#925",
-      "status": "implementation",
-      "branch": "wt/worker-myia-po-2023-issue-925",
-      "notes": "Création state file + skill executor"
-    }
-  ],
-  "lastActivity": "{ISO_TIMESTAMP}",
-  "context": {
-    "gitState": "{new_commit_hash}"
-  }
-}
-```
-
-**Utiliser Write (pas Edit) pour écraser tout le fichier.**
-
-**AVANT de commenter l'issue :**
-
-- [ ] Mettre à jour le tableau de validation dans le corps de l'issue
-- [ ] Remplacer les `⬜` par `✅` (PASS) ou `❌` (FAIL)
-- [ ] Committer la mise à jour avec `gh issue edit`
-- [ ] SEULEMENT ensuite, commenter l'issue avec le résultat
-
-**RÈGLE ABSOLUE : NE JAMAIS commenter sans avoir mis à jour le tableau.**
-
-**Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
-
-- **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
-- **Dashboard RooSync** : Rapporter la progression : `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")`
-- **RooSync message au coordinateur** : Resume concis (pas de pave)
-
 ### 3g. Tache suivante
 - **Retour a Phase 2** : Selectionner la prochaine tache
 - **Objectif** : 2-3 taches substantielles par session minimum
@@ -912,34 +777,11 @@ roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...
 | Fichier | Usage |
 |---------|-------|
 | `roosync_dashboard` (MCP) | Coordination cross-machine (CANAL PRINCIPAL) |
-| `.claude/executor-state.json` | État persistant executor (NOUVEAU v2.0) |
-| `.claude/executor-state.schema.json` | Schéma de validation de l'état |
 | `CLAUDE.md` | Configuration projet |
 | `.claude/agents/` | Sub-agents disponibles |
-| `.claude/skills/executor/SKILL.md` | Workflow executor avec resume (NOUVEAU v2.0) |
+| `.claude/skills/executor/SKILL.md` | Workflow executor |
 | `mcps/internal/servers/roo-state-manager/src/` | Code source MCP |
-| `.claude/local/INTERCOM-{MACHINE}.md` | Fallback LOCAL (seulement si MCP dashboard echoue) |
-
-### Sauvegarde de l'état (NOUVEAU v2.0)
-
-**L'état executor DOIT être sauvegardé automatiquement aux moments suivants :**
-
-1. **Démarrage session** : Création `.claude/executor-state.json`
-2. **Transition de phase** : Mise à jour `currentPhase` + `lastActivity`
-3. **Tâche commencée** : Ajouter à `tasksInProgress`
-4. **Tâche complétée** : Déplacer de `InProgress` à `tasksCompleted`
-5. **Après commit/PR** : Mise à jour `context.gitState`
-6. **Avant attempt_completion** : Sauvegarde état final
-
-**Format d'écriture :**
-```
-Write: .claude/executor-state.json
-{
-  ...état complet...
-}
-```
-
-⚠️ **TOUJOURS utiliser Write, PAS Edit** pour l'état (réécriture complète pour garantir l'intégrité).
+| `.claude/local/INTERCOM-{MACHINE}.md` | Fallback LOCAL (seulement si MCP dashboard echoue, DEPRECATED) |
 
 ### Outils MCP avances
 | Outil | Usage | Exemple |
