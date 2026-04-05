@@ -229,7 +229,7 @@ call_agent(agent: "critic", prompt: "Audit the following MCP config change: [des
 Cet audit detecte les erreurs de config AVANT qu'elles ne causent des incidents (wipe, drift, oubli).
 
 **Integration meta-analystes :**
-Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via META-INTERCOM ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
+Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via le dashboard workspace ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
 
 ### Presentation des Arbitrages (OBLIGATOIRE a chaque session interactive)
 

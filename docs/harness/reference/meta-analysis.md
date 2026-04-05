@@ -94,18 +94,21 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 
 ---
 
-## META-INTERCOM Protocol
+## META-INTERCOM Protocol — DEPRECATED
 
-**File:** `.claude/local/META-INTERCOM-{MACHINE}.md`
+> **DEPRECATED since #857 (2026-03-29):** The META-INTERCOM file is obsolete.
+> Meta-analysts MUST use the **dashboard workspace** as the primary channel:
+> ```
+> roosync_dashboard(action: "append", type: "workspace", tags: ["META-ANALYSIS"], content: "...")
+> ```
+> The file `.claude/local/META-INTERCOM-{MACHINE}.md` should only be used as **fallback** if the MCP dashboard is unavailable.
 
-Dedicated channel for meta-analysis reconciliation. Same format as INTERCOM but SEPARATE from operational communication.
+**File:** `.claude/local/META-INTERCOM-{MACHINE}.md` (DEPRECATED — fallback only)
 
-**Template:** `.claude/local/META-INTERCOM_TEMPLATE.md`
+### Workflow (migrated to dashboard)
 
-### Workflow
-
-1. Agent A writes its analysis (self + cross) to META-INTERCOM
-2. Agent B reads Agent A's analysis, writes its own + reconciliation notes
+1. Agent A posts its analysis (self + cross) on the dashboard workspace with tag `META-ANALYSIS`
+2. Agent B reads Agent A's analysis via `roosync_dashboard(action: "read", type: "workspace")`, posts its own + reconciliation notes
 3. Both agents can comment on the other's findings
 4. Actionable findings become GitHub issues with `needs-approval`
 
@@ -425,7 +428,7 @@ Recommendations:
 - Read all local traces (Roo tasks, Claude sessions)
 - Read all harness files (both systems)
 - Create issues with `needs-approval` (proposals, not decisions)
-- Write to META-INTERCOM
+- Write to dashboard workspace (META-INTERCOM DEPRECATED — fallback only)
 - Write analysis docs to GDrive
 - Comment on existing issues with analysis findings
 
@@ -453,4 +456,4 @@ Recommendations:
 
 ---
 
-**Last updated:** 2026-03-30
+**Last updated:** 2026-04-05
