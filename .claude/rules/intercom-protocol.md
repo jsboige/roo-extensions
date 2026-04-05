@@ -1,238 +1,69 @@
 # Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 2.1.0
-**Cree:** 2026-03-13
-**MAJ:** 2026-03-29
-**Issues:** #669, #745, #835, #836, #984
+**Version:** 3.0.0 (condensed from 2.1.0)
+**MAJ:** 2026-04-05
 
 ---
 
-## Protocole Dashboard (PRINCIPAL)
+## Canal Principal : Dashboard Workspace
 
-**Depuis la migration #745 Phase 2, le canal principal est le dashboard RooSync.**
+**Tout agent DOIT rapporter sur le dashboard `workspace`.** C'est le hub central visible par TOUTES les machines.
 
-### Hierarchie des canaux
+Seuls 3 types de dashboards existent : `global`, `machine`, `workspace`. Le type `workspace+machine` a ete SUPPRIME.
 
-| Canal | Type dashboard | Usage | Priorite |
-|-------|---------------|-------|----------|
-| **Dashboard workspace** | `workspace` | **Coordination cross-machine** — rapporter progression, bilans | **#1 PRINCIPAL** |
-| **Dashboard machine** | `machine` | Hardware, MCPs, services par machine | #2 Infra |
-| **Fichier INTERCOM local** | N/A | **DEPRECATED** — fallback si MCP echoue | #3 Fallback |
-
-### REGLE CRITIQUE (#836)
-
-**Tout agent DOIT rapporter sur le dashboard `workspace`.** Le type `workspace+machine` a ete SUPPRIME.
-
-Le dashboard `workspace` est le hub central visible par TOUTES les machines. Seuls 3 types de dashboards existent : `global`, `machine`, `workspace`.
-
-### Fichier INTERCOM local (DEPRECATED)
-
-**Les fichiers `.claude/local/INTERCOM-{MACHINE}.md` sont DEPRECATED depuis #745 Phase 2.**
-
-Ils ne doivent etre utilises QUE si le MCP dashboard echoue (GDrive offline, MCP crash).
-
----
-
-## REGLE CRITIQUE : Ordre d'Ecriture
-
-**TOUJOURS ajouter les nouveaux messages A LA FIN du fichier.**
-
-Le fichier INTERCOM est en **ordre chronologique** : ancien en haut, recent en bas.
-
-### Pourquoi c'est critique
-
-L'ordre chronologique est essentiel pour que Claude Code et Roo puissent lire les messages recents en fin de fichier. Inserer en haut casse cet ordre et rend le fichier illisible.
-
-**Risques si la règle n'est pas respectée :**
-- Insertion au début du fichier → Casse l'ordre chronologique
-- Écriture sans lecture préalable → Écrasement du fichier (perte de données)
-
----
-
-## Procedure d'ecriture OBLIGATOIRE pour Claude Code
-
-### 1. Rapporter sur le dashboard WORKSPACE (cross-machine) — OBLIGATOIRE (#836)
-
-**Toute action significative DOIT etre rapportee sur le dashboard `workspace`** pour etre visible par toutes les machines.
+### Ecrire
 
 ```
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["{DONE|PROGRESS|BLOCKED|INFO}", "claude-interactive"],
-  content: "Bilan ou progression..."
-)
+roosync_dashboard(action: "append", type: "workspace", tags: ["{DONE|PROGRESS|BLOCKED|INFO}", "claude-interactive"], content: "...")
 ```
 
-### 2. Communication locale via dashboard workspace
+Tags disponibles : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `SUGGESTION`
 
-Pour les messages locaux (meme machine) ou cross-machine :
-
-```
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["{INFO|TASK|DONE|WARN|ERROR|ASK|REPLY}", "claude-interactive"],
-  content: "Contenu du message..."
-)
-```
-
-### 3. Lecture
-
-**METHODE SIMPLE — le dashboard se lit en entier :**
+### Lire
 
 ```
 roosync_dashboard(action: "read", type: "workspace")
 ```
 
-Le dashboard est auto-condensé à **50 KB** : il reste toujours lisible en un seul appel. Pas besoin de `intercomLimit` en temps normal.
+Auto-condensation a **50 KB** : le dashboard reste toujours lisible en un seul appel. Pas besoin de `intercomLimit`.
 
-**`intercomLimit` est un safety net optionnel** — à utiliser uniquement si le dashboard est exceptionnellement gros (ex: condensation LLM indisponible pendant longtemps) :
+### Fichier INTERCOM local (DEPRECATED)
 
-```
-roosync_dashboard(action: "read", type: "workspace", intercomLimit: 10)
-```
-
-### Avantages du dashboard vs fichier local
-
-- **Pas d'approbation utilisateur** (MCP tool, pas ecriture fichier)
-- **Visible cross-machine** via GDrive (workspace dashboard)
-- Auto-condensation quand le dashboard dépasse 50 KB (garde les 20 messages les plus récents, intègre le reste dans le statut via LLM)
-- Tags structures identifiant l'auteur (`claude-interactive`, `claude-scheduled`, `roo-scheduler`, `roo-meta`)
-- Archives JSON horodatees
-
-### FALLBACK fichier local (DEPRECATED)
-
-Seulement si le MCP dashboard echoue (GDrive offline, MCP crash), utiliser le fichier `.claude/local/INTERCOM-{MACHINE}.md` via Edit tool.
-
-### Format des Messages
-
-```markdown
-## [YYYY-MM-DD HH:MM:SS] sender → receiver [TYPE]
-
-### Titre optionnel
-
-Contenu du message...
-
----
-```
-
-### Champs
-
-| Champ | Valeurs |
-|-------|---------|
-| `sender` | `roo`, `claude-code`, `system` |
-| `receiver` | `roo`, `claude-code`, `all` |
-| `TYPE` | `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `SUGGESTION` |
+`.claude/local/INTERCOM-{MACHINE}.md` — utiliser UNIQUEMENT si le MCP dashboard echoue (GDrive offline).
+Si utilise : **ordre chronologique** (append-only, jamais inserer en haut, jamais ecraser avec Write).
 
 ---
 
-## Types de Messages
+## Dialogue Bidirectionnel (#657)
 
-| Type | Quand l'utiliser |
-|------|------------------|
-| `INFO` | Information générale, update de statut |
-| `TASK` | Demander une tâche à l'autre agent |
-| `DONE` | Signaler qu'une tâche est terminée |
-| `WARN` | Avertissement (non bloquant) |
-| `ERROR` | Erreur bloquante, besoin d'aide |
-| `ASK` | Poser une question |
-| `REPLY` | Répondre à un ASK |
-| `ACK` | Accuser réception d'un [DONE] ou [IDLE] de Roo |
-| `PROPOSAL` | Proposer une tâche à Roo (proactif, pas bloquant) |
-| `SUGGESTION` | Suggérer une direction sans s'engager |
+### Debut de session
 
----
+1. Identifier le dernier message de Roo (`[DONE]`, `[IDLE]`, `[ASK]`)
+2. Si `[DONE]`/`[IDLE]` sans `[ACK]` de Claude → ecrire `[ACK]`
+3. Si Roo idle → `[PROPOSAL]` avec 1-2 taches suggerees
+4. Si `[ASK]` sans `[REPLY]` → repondre AVANT de commencer son travail
 
-## Règles d'Engagement — Dialogue Bidirectionnel (#657)
+### Fin de session
 
-L'INTERCOM est un **canal de conversation**, pas un journal unilatéral. Claude doit réagir aux messages de Roo.
+- Roo idle : `[PROPOSAL]` avec 1-3 suggestions
+- Roo actif : `[INFO]` sur ce que Claude a fait
 
-### 1. Début de Session — Répondre à Roo
+### Anti-Silence
 
-Quand Claude Code lit l'INTERCOM au début d'une session :
-
-1. **Identifier le dernier message de Roo** (tag `[DONE]`, `[IDLE]`, `[PARTIEL]`)
-2. **Si [DONE] ou [IDLE] sans [ACK] de Claude dans les 2 derniers messages** :
-   - Écrire `[ACK]` pour confirmer réception du rapport de Roo
-   - Si Roo était **IDLE** : ajouter `[PROPOSAL]` avec 1-2 tâches suggérées (issue GitHub, consolidation, investigation)
-3. **Si [ASK] sans [REPLY]** : répondre obligatoirement avant de commencer son propre travail
-
-### 2. Fin de Session — Proposer à Roo
-
-Quand Claude Code termine une session :
-
-- Si la dernière activité connue de Roo était `[IDLE]` : écrire `[PROPOSAL]` avec 1-3 suggestions de tâches
-- Si Roo est actif : écrire `[INFO]` sur ce que Claude a fait (coordination)
-
-### 3. Format des Nouveaux Types
-
-```markdown
-## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [ACK]
-Reçu ton rapport. Build OK, tests passent. Continue.
----
-
-## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [PROPOSAL]
-### Proposition : Issue #XXX
-Tu es idle. Veux-tu investiguer le bug #XXX ?
-**Description :** Timeout sur la recherche sémantique Qdrant.
-**Complexité estimée :** -simple (lecture + rapport)
----
-
-## [YYYY-MM-DD HH:MM:SS] claude-code -> roo [SUGGESTION]
-### Pendant que je travaille sur #YYY
-Si tu as un créneau : le nettoyage INTERCOM (>500 lignes) serait utile.
----
-```
-
-### 4. Règle Anti-Silence
-
-**NE JAMAIS laisser 2 cycles consécutifs de Roo [IDLE] sans [PROPOSAL] de Claude.**
-
-Si Roo est idle et Claude n'a pas proposé de travail lors des 2 dernières sessions → priorité absolue de proposer une tâche.
+**NE JAMAIS laisser 2 cycles consecutifs de Roo [IDLE] sans [PROPOSAL].**
 
 ---
 
-## INTERDIT
+## Priorite des messages
 
-- **NE JAMAIS** insérer un message au début du fichier (avant les messages existants)
-- **NE JAMAIS** supprimer ou modifier les messages existants
-- **NE JAMAIS** écrire UNIQUEMENT le nouveau message (écrasement du fichier avec `Write` sans lecture préalable)
-
----
-
-## Lecture en Debut de Session
-
-**OBLIGATION :** Au debut de chaque session Claude Code, lire les dashboards.
-
-**METHODE OBLIGATOIRE (Dashboard) :**
-1. `roosync_dashboard(action: "read", type: "workspace")`
-2. Chercher les messages récents (< 24h) avec les tags : `[DONE]`, `[WAKE-CLAUDE]`, `[PATROL]`, `[FRICTION-FOUND]`, `[ERROR]`, `[WARN]`, `[ASK]`
-4. Identifier les `TASK` non complétées
-5. Identifier les `ASK` sans `REPLY`
-
-**FALLBACK fichier local (si MCP echoue) :**
-1. Lire le fichier `.claude/local/INTERCOM-{MACHINE}.md`
-2. Memes etapes 3-5 ci-dessus
-
-### Priorité des messages
-
-| Tag | Action | Priorité |
+| Tag | Action | Priorite |
 |-----|--------|----------|
-| `[WAKE-CLAUDE]` | Traiter les messages RooSync indiqués | **IMMÉDIATE** |
-| `[FRICTION-FOUND]` | Noter le friction pour contexte | Haute |
-| `[ERROR]` | Investiger le problème | Haute |
-| `[ASK]` | Répondre si possible | Moyenne |
-| `[DONE]` | Analyser les résultats | Normale |
+| `[WAKE-CLAUDE]` | Traiter immediatement | **IMMEDIATE** |
+| `[FRICTION-FOUND]` | Noter pour contexte | Haute |
+| `[ERROR]` | Investiger | Haute |
+| `[ASK]` | Repondre | Moyenne |
+| `[DONE]` | Analyser | Normale |
 
 ---
 
-## Références Croisées
-
-- Roo equivalent : `.roo/rules/02-intercom.md`
-- Issue #669 : [META-ANALYSIS] Ajouter règle écriture INTERCOM pour Claude
-- Meta-analysis report : `docs/archive/harness-reports/cross-analysis-harnesses-2026-03-13.md` (REC-003)
-
----
-
-**Dernière mise à jour :** 2026-03-13
+**Historique versions completes :** Git history avant 2026-04-05
