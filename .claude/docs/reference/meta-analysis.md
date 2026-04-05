@@ -23,7 +23,7 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 
 ## Meta-Analyst Role
 
-**Mission:** Independently analyze BOTH schedulers (Roo + Claude) on the local machine, then reconcile findings via META-INTERCOM.
+**Mission:** Independently analyze BOTH schedulers (Roo + Claude) on the local machine, then reconcile findings via the **dashboard workspace**.
 
 ### What Meta-Analysts Analyze
 
@@ -114,10 +114,10 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 
 ### Cross-Machine Consultation (after local reconciliation)
 
-When both local meta-analysts (Roo + Claude) **agree** on a finding via META-INTERCOM, they MAY consult other machines' agents via RooSync to gather broader perspective before creating an issue.
+When both local meta-analysts (Roo + Claude) **agree** on a finding via the **dashboard workspace**, they MAY consult other machines' agents via RooSync to gather broader perspective before creating an issue.
 
 **Conditions for cross-machine consultation:**
-- Both local agents have written their analysis to META-INTERCOM
+- Both local agents have posted their analysis to the dashboard workspace
 - The finding is **non-trivial** (not just "everything is fine")
 - The finding affects multiple machines or is architectural
 
@@ -128,7 +128,7 @@ When both local meta-analysts (Roo + Claude) **agree** on a finding via META-INT
    - To: `all` or specific machines relevant to the finding
 2. Responses are collected at the next meta-analysis cycle (24h)
 3. If consensus is reached across machines → create issue with `needs-approval`
-4. If disagreement → document in META-INTERCOM, escalate to coordinator
+4. If disagreement → document in dashboard workspace, escalate to coordinator
 
 **Guard rail:** Cross-machine consultation is READ-ONLY. Meta-analysts still cannot dispatch, modify files, or close issues on other machines.
 
@@ -156,13 +156,13 @@ Requires validation before production use.
 
 | Finding type | Action | Authority |
 |-------------|--------|-----------|
-| Informational (stats, rates) | Append to analysis doc + META-INTERCOM | Autonomous |
-| Operational suggestion | Write to META-INTERCOM, coordinator picks up | Autonomous |
-| Environment issue (missing .env, MCP down, service unreachable) | Write to META-INTERCOM + flag for coordinator | Autonomous (coordinator acts) |
+| Informational (stats, rates) | Append to analysis doc + dashboard workspace | Autonomous |
+| Operational suggestion | Post to dashboard workspace, coordinator picks up | Autonomous |
+| Environment issue (missing .env, MCP down, service unreachable) | Post to dashboard workspace + flag for coordinator | Autonomous (coordinator acts) |
 | New issue (bug, friction) | Create with `needs-approval` label | Semi-autonomous |
 | Harness change | Create with `needs-approval` + `harness-change` | **BLOCKED until user approval** |
 
-**Environment issues are a priority escalation path.** Meta-analysts detect these in execution traces (failed tool calls, missing configs, service timeouts) and flag them in META-INTERCOM. The coordinator is responsible for sending corrective instructions to affected machines. See `.claude/docs/coordinator-specific/scheduled-coordinator.md` section 4.
+**Environment issues are a priority escalation path.** Meta-analysts detect these in execution traces (failed tool calls, missing configs, service timeouts) and flag them in the dashboard workspace. The coordinator is responsible for sending corrective instructions to affected machines. See `.claude/docs/coordinator-specific/scheduled-coordinator.md` section 4.
 
 ---
 
@@ -428,7 +428,7 @@ Recommendations:
 - Read all local traces (Roo tasks, Claude sessions)
 - Read all harness files (both systems)
 - Create issues with `needs-approval` (proposals, not decisions)
-- Write to META-INTERCOM (DEPRECATED — use dashboard workspace, except fallback)
+- Write to dashboard workspace (use META-INTERCOM file as fallback only if MCP unavailable)
 - Write analysis docs to GDrive
 - Comment on existing issues with analysis findings
 
