@@ -11,9 +11,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.0.0
+**Version:** 3.1.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-04-04 (retrait executor-state.json, alignement #745 Phase 2)
+**MAJ:** 2026-04-05 (protection anti-double-claim #1096)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `.claude/docs/sddd-conversational-grounding.md`)
 
@@ -51,7 +51,10 @@ Executer en parallele quand possible :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")`
 2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
 3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
-4. **Git state** : `git log --oneline -5`
+4. **PRs ouvertes (CRITIQUE pour anti-double-claim)** : `gh pr list --state open --limit 20 --json number,title,headRefName,body`
+5. **Git state** : `git log --oneline -5`
+
+**IMPORTANT :** La liste des PRs ouvertes est NECESSAIRE pour eviter de travailler sur une issue deja couverte.
 
 **Resume concis (10 lignes max) :**
 ```
@@ -73,6 +76,21 @@ Issues ouvertes: {Z} | Taches assignees: {liste courte}
 5. Bug ouvert reproductible
 6. Issue "In Progress" sans activite recente
 7. Tache de maintenance (build + tests, config-sync)
+
+**VERIFICATION ANTI-DOUBLE-CLAIM (CRITIQUE) :**
+
+Avant de commencer le travail sur une issue, TOUJOURS verifier :
+
+```bash
+gh pr list --state open --search "<issue-number>" --repo jsboige/roo-extensions
+```
+
+Si une PR existe deja pour cette issue :
+- **SKIP** l'issue immediatement
+- Rapporter via dashboard : `[INFO] Issue #X deja couverte par PR #Y - SKIP`
+- Passer a l'issue suivante
+
+**Reference :** Issue #1096 - Protection anti-double-claim
 
 **Si AUCUNE tache disponible** : Envoyer un message RooSync au coordinateur demandant du travail.
 
@@ -152,4 +170,4 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claud
 
 ---
 
-**Derniere mise a jour :** 2026-04-04
+**Derniere mise a jour :** 2026-04-05
