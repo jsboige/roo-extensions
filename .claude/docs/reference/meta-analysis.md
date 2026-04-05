@@ -42,9 +42,9 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Roo analyzes `.claude/rules/`, `CLAUDE.md`, `.claude/commands/`, `.claude/skills/`
    - Claude analyzes `.roo/rules/`, `.roomodes`, `scheduler-workflow-*.md`, `modes-config.json`
    - Each is more free to critique the OTHER harness
-   - **ALWAYS read `docs/harness/rules-mapping.md` first** — it maps equivalences between harnesses.
-     A rule marked "✅ Aligned" exists in BOTH harnesses under different names. Do NOT create issues
-     for "missing" rules that appear in this mapping table.
+   - **Check equivalences between harnesses before reporting "missing" rules.**
+     Many rules exist in BOTH harnesses under different names. Do NOT create issues
+     for "missing" rules without verifying the other harness's full content.
 
 4. **Operational metrics**:
    - Issues created vs closed
@@ -84,12 +84,13 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Correlate with specific modes or models (`model` filter)
    - Report patterns with ≥ 2 occurrences as friction candidates
 
-### What Meta-Analysts Produce
+### What Meta-Analysts Produce (#1081)
 
-- **Analysis docs** on GDrive (structured, timestamped)
-- **META-INTERCOM entries** (reconciliation)
+- **GitHub issues with DETAILED findings** — Each actionable finding = 1 issue with full context, data, metrics, and recommendation. Issues are the place for detail, not dashboards.
+- **Compact dashboard summaries** — Max 10 lines on `roosync_dashboard(type: "workspace")`. Dashboard = index pointing to issues, not a report.
 - **GitHub issues with `needs-approval`** (proposed improvements)
 - **GitHub issues with `needs-approval` + `harness-change`** (proposed harness modifications, BLOCKED until user approval)
+- **NO transient report files** committed to git (no `docs/harness/meta-analysis-report-*.md`)
 
 ---
 

@@ -2360,10 +2360,10 @@ REASON: [resume des tests ajoutes ou findings de veille]
     $Model = Determine-Model -Task $Task
 
     # Guard: Minimum model check (#747 - context window overflow prevention)
-    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~24K tokens (post #1026 reduction).
-    # haiku (glm-4.5-air on z.ai) has ~131K context — sufficient for reduced harness.
-    # Keep sonnet as minimum for now until Haiku baseline is validated (#1027).
-    $MinimumModel = "sonnet"
+    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~6.3K tokens (post #1083 condensation).
+    # haiku (glm-4.5-air on z.ai) has ~131K context — more than sufficient.
+    # Haiku enabled as minimum after harness reduction #1083 (29K→6.3K tokens).
+    $MinimumModel = "haiku"
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
     $MinLevel = $ModelHierarchy[$MinimumModel]

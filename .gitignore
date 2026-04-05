@@ -116,9 +116,12 @@ coverage/
 *.lcov
 lcov-report/
 
-# Win-CLI local config and logs (machine-specific)
+# Win-CLI local config, logs, and temp files (machine-specific)
 mcps/external/win-cli/server/config.json
 mcps/external/win-cli/server/*.txt
+mcps/external/win-cli/server/.claude/
+mcps/external/win-cli/server/test-*.js
+mcps/external/win-cli/server/node_modules/
 
 # Claude Code Provider Switcher - Real API keys (NEVER commit these!)
 .claude/configs/provider.*.json
@@ -184,3 +187,9 @@ mcps/internal/servers/sk-agent/sk_agent_config.json
 # Test and debug output directories
 /outputs/
 /test-outputs/
+
+# Transient agent reports (meta-analysis, patrol) — share via dashboards/issues instead
+docs/harness/meta-analysis-report-*.md
+
+# Archives directory (historical git is sufficient, no need for _archives/)
+_archives/
