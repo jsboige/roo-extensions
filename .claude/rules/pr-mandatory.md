@@ -19,12 +19,13 @@ Pas d'exception. Ni "petits fix", ni "docs only", ni coordinateur.
 
 ## Workflow PR
 
-1. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
-2. **Travailler :** Commits atomiques, tests passent
-3. **Creer PR :** `gh pr create --title "type(#issue): description"`
-4. **Review :** Coordinateur ou utilisateur approuve
-5. **Merge :** Squash merge
-6. **CLEANUP OBLIGATOIRE :**
+1. **Verifier anti-double-claim :** `gh pr list --state open --search "<issue>" --repo jsboige/roo-extensions`. Si PR existe → SKIP
+2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
+3. **Travailler :** Commits atomiques, tests passent
+4. **Creer PR :** `gh pr create --title "type(#issue): description"`
+5. **Review :** Coordinateur ou utilisateur approuve
+6. **Merge :** Squash merge
+7. **CLEANUP OBLIGATOIRE :**
    ```bash
    git worktree remove .claude/worktrees/wt-{desc}
    git branch -D wt/{desc}
@@ -38,6 +39,7 @@ Suppression INTERDITE sans approbation utilisateur :
 
 ## Review Checklist
 
+- [ ] **Anti-double-claim** : Aucune PR ouverte ne couvre deja cette issue (`gh pr list --state open --search "#issue"`)
 - [ ] Pas de suppression sans justification + remplacement PROUVE
 - [ ] Pas de suppression dans repertoires PROTEGES
 - [ ] Tests preserves, pas de nouveaux stubs (`return null`, `TODO`)
