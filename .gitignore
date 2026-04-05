@@ -190,3 +190,7 @@ mcps/internal/servers/sk-agent/sk_agent_config.json
 
 # Transient agent reports (meta-analysis, patrol) — share via dashboards/issues instead
 docs/harness/meta-analysis-report-*.md
+
+# Archive directories (historical content preserved in git history)
+_archive*/
+archive/

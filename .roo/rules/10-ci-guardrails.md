@@ -1,8 +1,8 @@
 # Garde-Fous CI - Prevention des Regressions
 
-**Version:** 2.0.0
+**Version:** 3.0.0
 **Cree:** 2026-03-11
-**Mis a jour:** 2026-03-23
+**Mis a jour:** 2026-04-05
 **Contexte:** Regressions CI repetees (#626, mock removal 2e6b49a, 31 tests casses)
 
 ---
@@ -92,6 +92,16 @@ npx vitest run --config vitest.config.ci.ts tests/unit/ton-nouveau-test.test.ts
 - Terminal natif disponible — executer la validation complete avant push
 - `npm run build && npx vitest run --config vitest.config.ci.ts`
 
+### Scheduler — Troncation Output (#827)
+
+Sortie Vitest peut atteindre ~600K chars. **OBLIGATOIRE :**
+
+```powershell
+npx vitest run 2>&1 | Select-Object -Last 30
+```
+
+`--reporter=compact` N'EXISTE PAS. Seule methode : `Select-Object -Last 30`.
+
 ### Roo — Orchestrateurs
 
 - NE DOIVENT PAS toucher au submodule directement
@@ -100,4 +110,4 @@ npx vitest run --config vitest.config.ci.ts tests/unit/ton-nouveau-test.test.ts
 ---
 
 **Reference complete :** `.claude/rules/ci-guardrails.md`
-**Derniere mise a jour :** 2026-03-23
+**Derniere mise a jour :** 2026-04-05
