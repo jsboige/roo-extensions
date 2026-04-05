@@ -249,6 +249,8 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 10. Worktree cleanup apres PR merge/close
 11. JAMAIS de cles API dans GitHub (RooSync pour partage)
 12. `.claude/` = PROTEGE (harnais uniquement, pas de temporaires)
+13. **Dashboard = canal de COMMANDEMENT** : chaque rapport [DONE] doit etre suivi d'instructions claires (qui fait quoi, priorite, deadline). Ne JAMAIS laisser un rapport sans reponse.
+14. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review.
 
 ---
 
