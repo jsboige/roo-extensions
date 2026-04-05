@@ -76,4 +76,4 @@ conversation_browser(action: "list", contentPattern: "mot-cle", limit: 30)
 
 ---
 
-**Reference complete :** `.claude/docs/sddd-conversational-grounding.md` (344 lignes)
+**Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes)

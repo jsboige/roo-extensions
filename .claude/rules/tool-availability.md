@@ -84,4 +84,4 @@ Ne PAS continuer en mode degrade. Ne PAS contourner. Signaler et arreter.
 
 ---
 
-**Historique incidents :** `.claude/docs/reference/incident-history.md`
+**Historique incidents :** `docs/harness/reference/incident-history.md`

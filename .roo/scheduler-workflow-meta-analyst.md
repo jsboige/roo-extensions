@@ -182,22 +182,22 @@ HARNAIS CLAUDE — rules/ auto-chargees (lis TOUS avec read_file) :
 - .claude/rules/worktree-cleanup.md
 
 HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
-- .claude/docs/condensation-thresholds.md
-- .claude/docs/escalation-protocol.md
-- .claude/docs/feedback-process.md
-- .claude/docs/friction-protocol.md
-- .claude/docs/github-checklists.md
-- .claude/docs/coordinator-specific/pr-review-policy.md
-- .claude/docs/coordinator-specific/scheduled-coordinator.md
-- .claude/docs/machine-specific/myia-web1-constraints.md
-- .claude/docs/reference/bash-fallback.md
-- .claude/docs/reference/incident-history.md
-- .claude/docs/reference/mcp-discoverability.md
-- .claude/docs/reference/meta-analysis.md
-- .claude/docs/reference/roo-schedulable-criteria.md
-- .claude/docs/reference/scheduler-densification.md
-- .claude/docs/reference/scheduler-system.md
-- .claude/docs/reference/stub-detection.md
+- docs/harness/reference/condensation-thresholds.md
+- docs/harness/reference/escalation-protocol.md
+- docs/harness/reference/feedback-process.md
+- docs/harness/reference/friction-protocol.md
+- docs/harness/reference/github-checklists.md
+- docs/harness/coordinator-specific/pr-review-policy.md
+- docs/harness/coordinator-specific/scheduled-coordinator.md
+- docs/harness/machine-specific/myia-web1-constraints.md
+- docs/harness/reference/bash-fallback.md
+- docs/harness/reference/incident-history.md
+- docs/harness/reference/mcp-discoverability.md
+- docs/harness/reference/meta-analysis.md
+- docs/harness/reference/roo-schedulable-criteria.md
+- docs/harness/reference/scheduler-densification.md
+- docs/harness/reference/scheduler-system.md
+- docs/harness/reference/stub-detection.md
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :

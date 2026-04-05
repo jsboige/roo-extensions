@@ -113,5 +113,5 @@ Une amélioration est approuvée si :
 ---
 
 **Références :**
-- [`.claude/docs/feedback-process.md`](../../.claude/docs/feedback-process.md)
+- [`docs/harness/reference/feedback-process.md`](../../docs/harness/reference/feedback-process.md)
 - [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) - Section "Protocole de Friction"

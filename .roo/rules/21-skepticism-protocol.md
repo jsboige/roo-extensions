@@ -111,7 +111,7 @@ Pour les verifications de Niveau 1, consulter :
 | Infrastructure | GPU/services par machine | CLAUDE.md (GPU Fleet) |
 | Modeles | Endpoints vLLM, modeles disponibles | CLAUDE.md (Services myia-ai-01) |
 | MCP Config | Outils attendus par machine | `.claude/rules/tool-availability.md` |
-| Contraintes machine | RAM, OS, limitations | `.claude/docs/machine-specific/myia-web1-constraints.md` |
+| Contraintes machine | RAM, OS, limitations | `docs/harness/machine-specific/myia-web1-constraints.md` |
 
 **Fait critique :**
 - Les modeles LLM (Qwen 3.5, GLM-5, ZwZ-8B) tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs

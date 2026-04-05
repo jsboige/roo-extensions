@@ -81,10 +81,10 @@ Les deux agents (Roo ET Claude) utilisent RooSync pour communiquer entre machine
 
 ```
 .claude/rules/     # 10 regles auto-chargees (operationnelles)
-.claude/docs/      # Docs on-demand (voir INDEX.md)
 .claude/agents/    # Subagents (coordinator/, executor/, workers/)
 .claude/skills/    # Skills auto-invoques
 .claude/commands/  # Slash commands
+docs/harness/      # Docs on-demand (anciennement .claude/docs/)
 mcps/internal/     # roo-state-manager (TS) + sk-agent (Python)
 roo-code/          # Submodule git (REFERENCE SEULEMENT)
 roo-config/        # Modes Roo (modes-config.json + scripts)
@@ -113,7 +113,7 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 **Format issues :** `[CLAUDE-MACHINE] Titre` + labels.
 **Labels :** Verifier avec `gh label list`. **N'EXISTENT PAS :** maintenance, scheduler, memory.
 **Obligatoires :** bug/enhancement/documentation + attribution (claude-only ou roo-schedulable).
-**Detail :** [.claude/docs/github-cli.md](.claude/docs/github-cli.md)
+**Detail :** [docs/harness/reference/github-cli.md](docs/harness/reference/github-cli.md)
 
 ---
 
@@ -124,7 +124,114 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 **Communication :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md)
 **Contexte :** [Context Window](.claude/rules/context-window.md) | [Agents](.claude/rules/agents-architecture.md)
 
-**Index docs on-demand :** [.claude/docs/INDEX.md](.claude/docs/INDEX.md)
+**Index docs on-demand :** [docs/harness/reference/INDEX.md](docs/harness/reference/INDEX.md)
+
+---
+
+## Ressources
+
+- [`docs/knowledge/WORKSPACE_KNOWLEDGE.md`](docs/knowledge/WORKSPACE_KNOWLEDGE.md) - Base connaissance
+- [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md) - Guide RooSync
+- [`scripts/claude/`](scripts/claude/) - Scripts Claude Code (init, provider switch, worktree cleanup)
+- [`scripts/README.md`](scripts/README.md) - Index des scripts du projet
+- **GitHub :** https://github.com/users/jsboige/projects/67
+
+---
+
+## Règles Auto-chargées (`.claude/rules/`)
+
+Les règles ci-dessous sont automatiquement chargées dans chaque conversation. Elles s'appliquent sans action explicite.
+
+### Règles Critiques (sécurité & qualité)
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **Tool Availability** | STOP & REPAIR si MCP critique absent. Non-négociable. | `.claude/rules/tool-availability.md` |
+| **Validation** | Checklist validation consolidation (comptage avant/après). | `.claude/rules/validation.md` |
+| **No Deletion Without Proof** | Jamais supprimer sans preuve de préservation. | `.claude/rules/no-deletion-without-proof.md` |
+| **PR Mandatory** | Zéro push direct sur main. PR obligatoire. | `.claude/rules/pr-mandatory.md` |
+| **CI Guardrails** | Valider build + tests CI avant push submodule. | `.claude/rules/ci-guardrails.md` |
+
+### Règles Opérationnelles
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-grounding.md` |
+| **conversation_browser Guide** | Usage conversation_browser + fix #881 (NoTools → Compact). | `.claude/rules/conversation-browser-guide.md` |
+| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. | `.claude/rules/delegation.md` |
+| **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
+
+### Règles Communication
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **INTERCOM Protocol** | Dashboard workspace = canal principal. Fichier local = DEPRECATED. | `.claude/rules/intercom-protocol.md` |
+| **Skepticism Protocol** | Vérifier les affirmations surprenantes avant de propager. | `.claude/rules/skepticism-protocol.md` |
+
+### Règles Contexte
+
+| Règle | Description | Fichier |
+|-------|-------------|---------|
+| **Context Window** | Seuil condensation 80% pour GLM (131K réels). | `.claude/rules/context-window.md` |
+| **Agents Architecture** | 18 subagents, 6 skills, 4 commands. | `.claude/rules/agents-architecture.md` |
+
+---
+
+## Documents de Reference (on-demand)
+
+Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consulter quand le sujet est pertinent.
+
+### Protocoles et Processus
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Condensation GLM** | Seuil **80%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `docs/harness/reference/condensation-thresholds.md` |
+| **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `docs/harness/reference/github-checklists.md` |
+| **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `docs/harness/reference/feedback-process.md`, `docs/harness/reference/friction-protocol.md` |
+| **Escalade Claude Code** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur). Claude EST deja Opus 4.6 (pas d'escalade CLI/API). | `docs/harness/reference/escalation-protocol.md` |
+| **Context Window** | Seuil de condensation 80% OBLIGATOIRE pour GLM (z.ai). | `.claude/rules/context-window.md` |
+
+### Quality & CI
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **CI Guardrails** | Validation OBLIGATOIRE avant push du submodule. Build + tests CI doivent passer. | `.claude/rules/ci-guardrails.md` |
+| **PR Mandatory** | Zero push direct sur main. Tout changement passe par worktree → PR → review → merge. | `.claude/rules/pr-mandatory.md` |
+| **No Deletion Without Proof** | Interdiction de supprimer du code sans preuve que la fonctionnalité est preservee. | `.claude/rules/no-deletion-without-proof.md` |
+| **Test Success Rates** | Taux de succes attendu : 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. Tronquer output scheduler. | `docs/harness/reference/test-success-rates.md` |
+
+### Coding Standards
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **File Writing Patterns** | Edit pour modifications, Write pour nouveaux fichiers. Jamais ecraser sans lecture prealable. | `.claude/rules/file-writing.md` |
+| **Validation Checklist** | Pour toute consolidation/refactoring : compter avant/apres, verifier ecart. | `.claude/rules/validation.md` |
+| **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. Protocole multi-pass. | `docs/harness/reference/sddd-conversational-grounding.md` |
+| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. Statuts DONE/BLOCKED/NEEDS_CONTEXT. | `docs/harness/reference/delegation.md` |
+| **GitHub CLI** | `gh` CLI, scope `project` requis. IDs fields Project #67. Ne pas créer de fichiers temporaires GraphQL. | `docs/harness/reference/github-cli.md` |
+| **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet : create→work→PR→merge→CLEANUP. | `docs/harness/reference/worktree-cleanup.md` |
+
+### Scheduler & Coordination
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils. Pipeline: modes-config.json → generate-modes.js → .roomodes | `docs/harness/reference/scheduler-system.md` |
+| **Scheduler densification** | Sweet spot escalade : 2 echecs en -simple → escalader vers -complex | `docs/harness/reference/scheduler-densification.md` |
+| **Coordinator protocol** | Cycle 6-12h sur ai-01. Analyse RooSync + git + Project #67. | `docs/harness/coordinator-specific/scheduled-coordinator.md` |
+| **Meta-analysis** | Cycle 72h. Triple grounding. META-INTERCOM separe. Guard rails: lecture seule. | `docs/harness/reference/meta-analysis.md` |
+
+### Reference Technique
+
+| Document | Essentiel a retenir | Chemin |
+|----------|-------------------|--------|
+| **PR review policy** | Agents → PR → Review coordinateur → Merge. Jamais push direct sur main. | `docs/harness/coordinator-specific/pr-review-policy.md` |
+| **Incidents** | Lecons cles : cross-machine check apres config, STOP & REPAIR, CI avant push | `docs/harness/reference/incident-history.md` |
+| **roo-schedulable** | Seulement taches subalternes (tests, validation, docs, cleanup) | `docs/harness/reference/roo-schedulable-criteria.md` |
+| **Bash fallback** | Si Bash echoue : outils natifs > MCP win-cli > degradation gracieuse | `docs/harness/reference/bash-fallback.md` |
+| **MCP discoverability** | Tests decouverte en 3 phases : visibilite, fonctionnalite, integration | `docs/harness/reference/mcp-discoverability.md` |
+| **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `docs/harness/machine-specific/myia-web1-constraints.md` |
+| **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `docs/harness/reference/stub-detection.md` |
+| **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `docs/harness/reference/worktree-cleanup.md` |
 
 ---
 

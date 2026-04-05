@@ -38,7 +38,7 @@ Réduire l'empreinte à **<30K tokens** pour permettre :
 ### Phase 1: Réorganiser les règles (économies: ~10K tokens)
 
 **Actions:**
-1. **Déplacer ces règles vers `.claude/docs/` (on-demand) :**
+1. **Déplacer ces règles vers `docs/harness/` (on-demand) :**
    - `sddd-conversational-grounding.md` (344 lignes, ~3K tokens) - recherche uniquement
    - `delegation.md` (219 lignes, ~2K tokens) - tâches complexes uniquement
    - `github-cli.md` (166 lignes, ~1.5K tokens) - opérations gh uniquement

@@ -54,7 +54,7 @@ Le fichier `.roo/schedules.json` est machine-spécifique. Ne pas le committer su
 
 Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le seuil **80%** (pas 50% ni 70%) pour éviter les boucles infinies de condensation.
 
-**Référence :** [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
+**Référence :** [`docs/harness/reference/condensation-thresholds.md`](./condensation-thresholds.md)
 
 ---
 
@@ -73,5 +73,5 @@ Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le 
 
 - Documentation MCP : [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
 - Protocole CI : [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
-- Condensation GLM : [`.claude/docs/condensation-thresholds.md`](../condensation-thresholds.md)
+- Condensation GLM : [`docs/harness/reference/condensation-thresholds.md`](./condensation-thresholds.md)
 - Équivalent Roo : `.roo/rules/11-incident-history.md`

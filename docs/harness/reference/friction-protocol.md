@@ -117,7 +117,7 @@ Une amélioration est approuvée si :
 
 ## Références
 
-- [`.claude/docs/feedback-process.md`](feedback-process.md) — Processus d'amélioration continue
-- [`.claude/rules/sddd-conversational-grounding.md`](../rules/sddd-conversational-grounding.md) — Section "Protocole de Friction"
-- [`.claude/commands/executor.md`](../commands/executor.md) — Section "Protocole de friction (OBLIGATOIRE)"
+- [`docs/harness/reference/feedback-process.md`](./feedback-process.md) — Processus d'amélioration continue
+- [`.claude/rules/sddd-conversational-grounding.md`](../../../.claude/rules/sddd-conversational-grounding.md) — Section "Protocole de Friction"
+- [`.claude/commands/executor.md`](../../../.claude/commands/executor.md) — Section "Protocole de friction (OBLIGATOIRE)"
 - Équivalent Roo : `.roo/rules/17-friction-protocol.md`

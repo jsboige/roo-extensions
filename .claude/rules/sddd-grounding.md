@@ -1,6 +1,6 @@
 # SDDD - Triple Grounding (Obligatoire)
 
-**Version:** 1.0.0 (condense depuis `.claude/docs/sddd-conversational-grounding.md`)
+**Version:** 1.0.0 (condense depuis `docs/harness/reference/sddd-conversational-grounding.md`)
 **Issue:** #1063
 
 ---
@@ -86,9 +86,9 @@ roosync_search(action: "diagnose")                           # Diagnostic index
 
 ## Si un outil SDDD echoue
 
-Signaler via protocole friction : `.claude/docs/friction-protocol.md`
+Signaler via protocole friction : `docs/harness/reference/friction-protocol.md`
 
 ---
 
-**Reference complete :** `.claude/docs/sddd-conversational-grounding.md` (344 lignes, version detaillee)
+**Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes, version detaillee)
 **Methodologie systeme RooSync :** `docs/roosync/PROTOCOLE_SDDD.md`
