@@ -11,9 +11,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.0.0
+**Version:** 3.1.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-04-04 (retrait executor-state.json, alignement #745 Phase 2)
+**MAJ:** 2026-04-05 (protection anti-double-claim #1096)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `.claude/docs/sddd-conversational-grounding.md`)
 
@@ -51,18 +51,30 @@ Executer en parallele quand possible :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")`
 2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
 3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
-4. **Git state** : `git log --oneline -5`
+4. **PRs ouvertes (anti-double-claim)** : `gh pr list --state open --limit 20 --json number,title,headRefName --repo jsboige/roo-extensions`
+5. **Git state** : `git log --oneline -5`
 
 **Resume concis (10 lignes max) :**
 ```
 Machine: {name} | Git: {hash} | MCPs: {OK/KO}
 RooSync: {Y non-lus} | Dashboard: {X messages recents}
-Issues ouvertes: {Z} | Taches assignees: {liste courte}
+Issues ouvertes: {Z} | PRs actives: {W} | Taches assignees: {liste courte}
 ```
 
 ---
 
 ### Phase 2 : Selection de Tache (automatique)
+
+**Anti-double-claim (OBLIGATOIRE avant chaque issue) :**
+
+AVANT de travailler sur une issue, verifier si une PR existe deja :
+
+```bash
+gh pr list --state open --search "{issue-number}" --repo jsboige/roo-extensions
+```
+
+Si une PR couvre l'issue → **SKIP l'issue** + rapporter `[INFO] Issue #X deja couverte par PR #Y`.
+Cross-check aussi avec les PRs collectees en Phase 1.
 
 **Algorithme par priorite decroissante :**
 
@@ -152,4 +164,4 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claud
 
 ---
 
-**Derniere mise a jour :** 2026-04-04
+**Derniere mise a jour :** 2026-04-05
