@@ -1,62 +1,32 @@
 # File Writing Patterns - Claude Code
 
-**Version:** 1.0.0
-**Created:** 2026-03-24
-**Issue:** #848
-
----
+**Version:** 2.0.0 (condensed from 1.0.0)
+**MAJ:** 2026-04-05
 
 ## Tool Selection
 
-| Situation | Tool | Notes |
-|-----------|------|-------|
-| **Modify existing file** | `Edit` | MUST `Read` first. Preserves indentation. Preferred. |
-| **Create new file** | `Write` | Only for new files or full rewrites. `Read` first if file exists. |
-| **Append content** | `Edit` (match last block, replace with block + new content) | Never use `Write` to append (overwrites). |
-| **Shell-generated output** | `Bash` with redirection | For script-generated files only. |
+| Situation | Tool | Note |
+|-----------|------|------|
+| Modifier fichier existant | `Edit` | `Read` d'abord. Prefere. |
+| Creer nouveau fichier | `Write` | `Read` d'abord si existe. |
+| Ajouter contenu | `Edit` (remplacer dernier bloc par bloc+nouveau) | Jamais `Write` (ecrase). |
 
-### Key Constraints
+## Contraintes
 
-- **`Edit` requires `Read` first** -- the tool will fail otherwise, even for `replace_all`.
-- **`Edit` old_string must be unique** -- provide enough surrounding context. Use `replace_all` only for renames.
-- **`Write` overwrites entirely** -- never use it on an existing file without reading it first and preserving all content.
+- **Edit necessite Read prealable** — echoue sinon, meme pour `replace_all`
+- **Edit old_string doit etre unique** — contexte suffisant. `replace_all` pour renommages
+- **Write ecrase tout** — jamais sur fichier existant sans Read + preservation
 
----
+## Encodage
 
-## Encoding and Platform
+`Edit`/`Write` : UTF-8 no-BOM automatique. Si PowerShell : `[System.IO.File]::WriteAllText()` avec UTF8Encoding(`$false`).
 
-**PowerShell BOM, Join-Path, and line ending gotchas are documented in `~/.claude/CLAUDE.md` (global).** Do not duplicate here. Key point: if you must write files via `Bash` using PowerShell, use `[System.IO.File]::WriteAllText()` with UTF-8 no-BOM.
+## INTERCOM (append-only)
 
-For `Edit` and `Write` tools: encoding is handled automatically (UTF-8 no-BOM). No special action needed.
+1. **Read** le fichier
+2. **Edit** le dernier separateur `---` → remplacer par `---` + nouveau message + `---`
+3. **Jamais** inserer en haut. **Jamais** ecraser avec Write.
 
----
+## Backup
 
-## INTERCOM / Log Files -- Append-Only
-
-INTERCOM files (`.claude/local/INTERCOM-*.md`) are **append-only, chronological**. See `intercom-protocol.md` for the full protocol.
-
-Summary:
-1. **Read** the file first.
-2. **Edit** by matching the last separator `---` and replacing it with the last separator + new message + new separator.
-3. **Never** insert at the top. **Never** overwrite with `Write`.
-
----
-
-## Backup Before Destructive Operations
-
-Before any operation that replaces large sections of a file:
-1. Read the file and verify you understand its structure.
-2. If replacing >50% of the content, consider whether `Write` (full rewrite) is safer than `Edit` (partial match risk).
-3. For critical files (configs, registries), verify with `Bash` after writing: `wc -l`, `head -5`, or a syntax check.
-
----
-
-## References
-
-- Roo equivalent: `.roo/rules/08-file-writing.md` (Qwen 3.5 size limits, `write_to_file` / `replace_in_file`)
-- Global gotchas: `~/.claude/CLAUDE.md` section "Windows / PowerShell Gotchas"
-- INTERCOM protocol: `.claude/rules/intercom-protocol.md`
-
----
-
-**Last updated:** 2026-03-24
+Si remplacement >50% du contenu : considerer `Write` (plus sur que `Edit` partiel). Verifier apres ecriture.

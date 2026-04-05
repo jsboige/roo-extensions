@@ -1,63 +1,29 @@
-# Condensation Context Window - Claude Code
+# Condensation Context Window
 
-**Version:** 1.0.0
-**Created:** 2026-03-24
-**Issue:** #841 (Friction - seuil 80% non documenté)
+**Version:** 2.0.0 (condensed)
+**MAJ:** 2026-04-05
 
----
+## Regle : Seuil 80%
 
-## Règle Critique : Seuil de Condensation 80%
+**Pour modeles GLM (z.ai), seuil OBLIGATOIRE = 80%.**
 
-**Pour les modèles GLM (z.ai provider), le seuil de condensation OBLIGATOIRE est 80%.**
+Contexte reel = ~131k tokens (pas 200K annonces — les 200K incluent les tokens de sortie).
 
-### Pourquoi ?
-
-Les modèles GLM annoncent 200k tokens mais la réalité est **~131k tokens** (les 200k incluent les tokens de sortie).
-
-| Seuil | Problème |
+| Seuil | Resultat |
 |-------|----------|
-| **50%** (défaut) | Boucle infinie de condensation (#502) |
-| **70%** | Boucle avec harnais lourd (#736, po-2023) |
-| **80%** ✅ | Compaction à ~105k réels, marge 26k |
-| **90%** | Trop haut, risque saturation |
+| 50% (defaut) | Boucle infinie (#502) |
+| 70% | Boucle avec harnais lourd (#736) |
+| **80%** | **OK** — compaction ~105k, marge 26k |
+| 90% | Trop haut, risque saturation |
 
----
+## Config
 
-## Configuration
+`~/.claude/settings.json` : `"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"`
 
-### Claude Code (settings.json)
+**JAMAIS 50%.** 70% insuffisant avec harnais lourd.
 
-**Chemin :** `~/.claude/settings.json`
+## Modeles concernes
 
-**Pour z.ai (GLM) :**
-```json
-{
-  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
-}
-```
+GLM-5, GLM-4.7, GLM-4.7 Flash, GLM-4.5 Air (tous z.ai) — 131k reels, seuil 80% = ~105k.
 
-**⚠️ NE JAMAIS utiliser 50%** → Boucle infinie !
-**⚠️ 70% insuffisant** avec harnais lourd → Boucle
-
----
-
-## Modèles GLM - Contexte Réel
-
-| Modèle | Contexte Réel | Seuil 80% |
-|--------|---------------|-----------|
-| GLM-5 (z.ai) | 131k tokens | ~105k |
-| GLM-4.7 (z.ai) | 131k tokens | ~105k |
-| GLM-4.7 Flash | 131k tokens | ~105k |
-| GLM-4.5 Air (z.ai) | 131k tokens | ~105k |
-
----
-
-## Documentation Complète
-
-Pour plus de détails (historique des issues, configuration Roo, tests) :
-- **Voir :** `.claude/docs/condensation-thresholds.md`
-
----
-
-**Dernière mise à jour :** 2026-03-24
-**Mainteneur :** Coordinateur RooSync (myia-ai-01)
+**Detail complet :** `.claude/docs/condensation-thresholds.md`
