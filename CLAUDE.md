@@ -119,7 +119,7 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 ## Rules Auto-chargees
 
-**Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md)
+**Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md) | [Issue Closure](.claude/rules/issue-closure.md)
 **Ops :** [File Writing](.claude/rules/file-writing.md)
 **Communication :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md)
 **Contexte :** [Context Window](.claude/rules/context-window.md) | [Agents](.claude/rules/agents-architecture.md)
@@ -151,6 +151,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 | **No Deletion Without Proof** | Jamais supprimer sans preuve de préservation. | `.claude/rules/no-deletion-without-proof.md` |
 | **PR Mandatory** | Zéro push direct sur main. PR obligatoire. | `.claude/rules/pr-mandatory.md` |
 | **CI Guardrails** | Valider build + tests CI avant push submodule. | `.claude/rules/ci-guardrails.md` |
+| **Issue Closure** | Jamais fermer sans preuve de completion. Wontfix = utilisateur seulement. | `.claude/rules/issue-closure.md` |
 
 ### Règles Opérationnelles
 
@@ -158,7 +159,6 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 |-------|-------------|---------|
 | **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-grounding.md` |
 | **conversation_browser Guide** | Usage conversation_browser + fix #881 (NoTools → Compact). | `.claude/rules/conversation-browser-guide.md` |
-| **Delegation** | Déléguer aux sub-agents si autonome, parallélisable. Contexte isolé. | `.claude/rules/delegation.md` |
 | **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
 
 ### Règles Communication
@@ -218,7 +218,7 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 | **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils. Pipeline: modes-config.json → generate-modes.js → .roomodes | `docs/harness/reference/scheduler-system.md` |
 | **Scheduler densification** | Sweet spot escalade : 2 echecs en -simple → escalader vers -complex | `docs/harness/reference/scheduler-densification.md` |
 | **Coordinator protocol** | Cycle 6-12h sur ai-01. Analyse RooSync + git + Project #67. | `docs/harness/coordinator-specific/scheduled-coordinator.md` |
-| **Meta-analysis** | Cycle 72h. Triple grounding. META-INTERCOM separe. Guard rails: lecture seule. | `docs/harness/reference/meta-analysis.md` |
+| **Meta-analysis** | Cycle 72h. Triple grounding. Dashboard workspace (META-INTERCOM DEPRECATED). Guard rails: lecture seule. | `docs/harness/reference/meta-analysis.md` |
 
 ### Reference Technique
 
@@ -249,6 +249,10 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 10. Worktree cleanup apres PR merge/close
 11. JAMAIS de cles API dans GitHub (RooSync pour partage)
 12. `.claude/` = PROTEGE (harnais uniquement, pas de temporaires)
+13. **Dashboard = canal de COMMANDEMENT** : le coordinateur repond a chaque rapport [DONE] avec des instructions claires (qui fait quoi, priorite, deadline). Ne JAMAIS laisser un rapport sans reponse.
+14. **Dashboard = canal de RAPPORT** : tout agent (executor ou coordinateur) rapporte ses observations et actions notables en fin de session sur le dashboard. Inclure : ce qui a ete fait, PRs creees, issues commentees, prochaine action prevue.
+15. **Agents proactifs** : tous les agents sont invites a creer/alimenter des issues, mettre a jour la documentation, ou effectuer des corrections directes si elles ne necessitent pas de planification git prealable. Pour eviter le double-claiming, notamment si ces actions réagissent à des des messages sur le Dashboard, poster sur le dashboard l'action envisagee AVANT de l'entreprendre.
+16. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review.
 
 ---
 

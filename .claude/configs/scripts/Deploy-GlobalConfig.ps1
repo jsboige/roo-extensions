@@ -18,7 +18,7 @@
     .\Deploy-GlobalConfig.ps1 -DryRun
 #>
 param(
-    [ValidateSet("all", "agents", "skills", "commands", "claude-md")]
+    [ValidateSet("all", "agents", "skills", "commands", "rules", "claude-md")]
     [string]$Target = "all",
     [switch]$DryRun
 )
@@ -105,6 +105,14 @@ if ($Target -in "all", "commands") {
     $cmdsSrc = Join-Path $configsDir "commands"
     $cmdsDst = Join-Path $globalDir "commands"
     $totalFiles += (Deploy-Files -SourceDir $cmdsSrc -TargetDir $cmdsDst -Label "commands")
+}
+
+# Deploy Rules (global rules auto-loaded in ALL workspaces)
+if ($Target -in "all", "rules") {
+    Write-Host "`n--- Rules ---" -ForegroundColor Yellow
+    $rulesSrc = Join-Path $configsDir "rules"
+    $rulesDst = Join-Path $globalDir "rules"
+    $totalFiles += (Deploy-Files -SourceDir $rulesSrc -TargetDir $rulesDst -Label "rules")
 }
 
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan

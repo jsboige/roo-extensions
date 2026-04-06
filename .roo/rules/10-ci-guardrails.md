@@ -92,6 +92,16 @@ npx vitest run --config vitest.config.ci.ts tests/unit/ton-nouveau-test.test.ts
 - Terminal natif disponible — executer la validation complete avant push
 - `npm run build && npx vitest run --config vitest.config.ci.ts`
 
+### Scheduler — Troncation Output (#827)
+
+Sortie Vitest peut atteindre ~600K chars. **OBLIGATOIRE :**
+
+```powershell
+npx vitest run 2>&1 | Select-Object -Last 30
+```
+
+`--reporter=compact` N'EXISTE PAS. Seule methode : `Select-Object -Last 30`.
+
 ### Roo — Orchestrateurs
 
 - NE DOIVENT PAS toucher au submodule directement
