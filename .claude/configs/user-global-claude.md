@@ -134,12 +134,41 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 ## SDDD — Investigation Methodology
 
 **Triple grounding (obligatoire pour travail significatif):**
-1. **Technique** — Code source = verite (Read, Grep, Glob)
-2. **Conversationnel** — `conversation_browser` pour historique Roo
+1. **Technique** — Code source = verite (Read, Grep, Glob, Git)
+2. **Conversationnel** — `conversation_browser` pour historique Roo/Claude
 3. **Semantique** — `codebase_search` + `roosync_search(semantic)` pour recherche par concept
 
 **Regle:** Ne jamais se contenter d'une seule source. Croiser les 3 groundings.
-**Pattern Bookend:** `codebase_search` en DEBUT et FIN de chaque tache significative.
+
+### Pattern Bookend (obligatoire)
+
+`codebase_search` en DEBUT et FIN de chaque tache significative.
+- **Debut :** Eviter de refaire un travail deja fait, comprendre le contexte.
+- **Fin :** Confirmer que le travail est indexe et retrouvable.
+
+### codebase_search — Protocole Multi-Pass
+
+**TOUJOURS passer `workspace` explicitement** (auto-detection pointe vers le serveur MCP, pas votre projet).
+
+| Pass | But | Methode |
+|------|-----|---------|
+| 1 | Identifier le module | Requete conceptuelle large (anglais) |
+| 2 | Zoom dans le module | `directory_prefix` + vocabulaire du code |
+| 3 | Confirmer | Grep exact (noms de fonctions, types) |
+| 4 | Variante | Reformuler avec synonymes si Pass 2 insuffisant |
+
+**Conseils :** Vocabulaire du code > langage naturel. 5-10 mots cles. `directory_prefix` divise l'espace par ~10. **Requetes en francais = mauvais resultats.**
+
+### Session Pattern (tout workspace)
+
+1. **Debut :** `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
+2. **Pendant :** Travailler. Si question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`
+3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — rapporter
+
+### Scepticisme
+
+**Ne JAMAIS propager une affirmation non verifiee.** Qualifier : VERIFIE / RAPPORTE PAR [source] / SUPPOSE.
+Si ca te surprend → verifie avant de repeter ou d'agir dessus.
 
 ---
 
