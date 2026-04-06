@@ -6,9 +6,9 @@
 
 **SDDD (Semantic Documentation Driven Development)** : 3 types de grounding a croiser systematiquement.
 
-1. **Semantique** - `roosync_search(action: "semantic")` + search_files / codebase_search
-2. **Conversationnel** - `conversation_browser` (CES REGLES)
-3. **Technique** - read_file, search_files, execute_command (code = verite)
+1. **Semantique** - `roosync_search(action: "semantic")` + codebase_search (MCP roo-state-manager)
+2. **Conversationnel** - `conversation_browser` (MCP roo-state-manager - CES REGLES)
+3. **Technique** - search_files, read_file, execute_command (outils NATIFS Roo Code - code = verite)
 
 ---
 
@@ -225,7 +225,11 @@ Apres avoir termine, verifier que le travail est visible :
 
 ---
 
-## Recherche Semantique Multi-Pass (codebase_search)
+## Recherche Semantique Multi-Pass (codebase_search - MCP)
+
+**Outils utilises :**
+- `codebase_search` : Outil MCP roo-state-manager (recherche semantique)
+- `search_files` : Outil NATIF Roo Code (recherche exact par pattern/regex)
 
 Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule requete large est souvent insuffisante.
 
@@ -260,13 +264,13 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 
 3. **Pass 3 - Grep confirmation** : verite technique avec search_files exact
    ```xml
-   <use_mcp_tool>
-   <server_name>roo-state-manager</server_name>
-   <tool_name>search_files</tool_name>
-   <arguments>{"pattern": "function handleSendMessage", "path": "mcps/internal/servers/roo-state-manager/src"}</arguments>
-   </use_mcp_tool>
+   <search_files>
+   <path>mcps/internal/servers/roo-state-manager/src</path>
+   <pattern>function handleSendMessage</pattern>
+   </search_files>
    ```
    **But :** confirmer et completer avec une recherche exacte.
+   **Note :** `search_files` est un outil NATIF Roo Code (pas MCP). Disponible dans tous les modes.
 
 4. **Pass 4 - Variante** : reformuler si Pass 2 insuffisante
    ```xml
@@ -300,9 +304,9 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 
 ## Workflow SDDD
 
-1. **Semantique** : `roosync_search` + `codebase_search` (multi-pass si besoin) + docs existantes
-2. **Conversationnel** : `conversation_browser(list)` → obtenir IDs → `conversation_browser(view, skeleton)` → `conversation_browser(summarize, trace)` si besoin
-3. **Technique** : read_file, search_files, tests unitaires
+1. **Semantique** (MCP) : `roosync_search` + `codebase_search` (multi-pass si besoin) + docs existantes
+2. **Conversationnel** (MCP) : `conversation_browser(list)` → obtenir IDs → `conversation_browser(view, skeleton)` → `conversation_browser(summarize, trace)` si besoin
+3. **Technique** (NATIFS) : search_files, read_file, tests unitaires, execute_command (selon mode)
 
 **IMPORTANT :** L'etape 2 COMMENCE par `list`. Sans IDs, les appels suivants sont impossibles.
 
@@ -322,8 +326,9 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 - Generer des `trace` pour investigations >500 messages
 - Ne PAS utiliser `full` sans smart truncation
 - Ne PAS ignorer les metadonnees (timestamp, workspace, mode)
-- Combiner `codebase_search` (concept) avec `search_files` (exact) pour meilleure couverture
-- Toujours passer `workspace` explicitement a `codebase_search`
+- Combiner `codebase_search` (MCP, concept) avec `search_files` (natif, exact) pour meilleure couverture
+- Toujours passer `workspace` explicitement a `codebase_search` (MCP)
+- `search_files`, `read_file` sont des outils NATIFS Roo Code (disponibles dans tous les modes, pas de wrapper MCP)
 
 ---
 
