@@ -55,22 +55,79 @@
 
 ### roo-state-manager (34 tools)
 
-Coordination Roo Code — taches, conversations, dashboards.
+MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboards, et indexation.
+**Config:** `~/.claude.json` section `mcpServers.roo-state-manager`.
+
+#### Dashboard (canal principal de coordination)
+
+3 types de dashboards : `global`, `machine`, `workspace`. Pas d'autre type.
+
+| Action | Usage | Exemple |
+|--------|-------|---------|
+| `read` | Lire un dashboard | `roosync_dashboard(action: "read", type: "workspace")` |
+| `append` | Poster un message intercom | `roosync_dashboard(action: "append", type: "workspace", tags: ["INFO"], content: "...")` |
+| `write` | Remplacer le statut | `roosync_dashboard(action: "write", type: "workspace", content: "...")` |
+| `condense` | Condenser messages anciens | `roosync_dashboard(action: "condense", type: "workspace", keepMessages: 20)` |
+| `list` | Lister tous les dashboards | `roosync_dashboard(action: "list")` |
+| `read_overview` | Vue 3 niveaux en 1 appel | `roosync_dashboard(action: "read_overview")` |
+
+**Debut de session :** `roosync_dashboard(action: "read", type: "workspace")` pour lire les messages recents.
+**Fin de session :** `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "resume...")` pour rapporter.
+**Tags standards :** `INFO`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `TASK`, `BLOCKED`.
+**Auto-condensation :** Declenchee automatiquement a 50KB sur `append`. Condensation manuelle via `condense`.
+
+#### Conversation Browser
+
+**TOUJOURS commencer par `list`** pour obtenir les IDs de taches :
+
+| Action | Usage |
+|--------|-------|
+| `list` | Lister les taches recentes (**OBLIGATOIRE en premier**) |
+| `view` | Voir le contenu d'une tache (avec `task_id`, `smart_truncation: true`) |
+| `tree` | Arbre parent-enfant |
+| `current` | Tache active du workspace |
+| `summarize` | Resume (`summarize_type: "trace"` recommande) |
+
+**Sans `list` d'abord, les autres actions echouent** — pas d'IDs a deviner.
+**Bug connu :** `summarize_type: "synthesis"` peut echouer. Preferer `"trace"`.
+
+#### Recherche
 
 | Outil | Usage |
 |-------|-------|
-| `conversation_browser(action: "list")` | Lister taches (**TOUJOURS commencer par la**) |
-| `conversation_browser(action: "view", smart_truncation: true)` | Voir conversation |
-| `roosync_search(action: "text")` | Chercher dans l'historique |
-| `roosync_dashboard(action: "read", type: "workspace")` | Dashboard coordination |
+| `roosync_search(action: "text", search_query: "...")` | Recherche textuelle dans les taches |
+| `roosync_search(action: "semantic", search_query: "...")` | Recherche par concept (Qdrant) |
+| `codebase_search(query: "...", workspace: "C:/dev/...")` | Recherche dans le code (TOUJOURS passer `workspace`) |
 
-**Bug connu:** `summarize_type: "synthesis"` peut echouer. Preferer `"trace"`.
-**Dashboard redirect (#984):** Si reponse contient "written to file:", lire ce fichier avec `Read`.
+#### RooSync (inter-machines)
+
+| Outil | Usage |
+|-------|-------|
+| `roosync_read(mode: "inbox")` | Lire les messages entrants |
+| `roosync_send(to: "machine-id", content: "...")` | Envoyer un message |
+| `roosync_manage(action: "cleanup")` | Nettoyer les vieux messages |
+| `roosync_get_status()` | Etat de la machine locale |
+
+**Dashboard = canal PRINCIPAL. RooSync messages = fallback ou urgences.**
+
+#### Autres outils utiles
+
+| Outil | Usage |
+|-------|-------|
+| `roosync_mcp_management(action: "manage", subAction: "read")` | Lire config MCP |
+| `read_vscode_logs(filter: "error", lines: 50)` | Diagnostiquer erreurs MCP/VS Code |
+| `export_data(format: "json", taskId: "...")` | Exporter conversations |
+
+#### Bugs connus et precautions
+
+- **Dashboard redirect (#984) :** Si la reponse contient "written to file:", lire ce fichier avec `Read`.
+- **`codebase_search` :** Toujours passer `workspace` explicitement (auto-detection pointe vers le serveur MCP). Requetes en anglais, vocabulaire du code.
+- **Condensation LLM :** Utilise un LLM local (Qwen3.5). Si le LLM est indisponible, la condensation est annulee (pas de perte de donnees).
 
 ### playwright (22 outils) / markitdown (1 outil)
 
-- **playwright:** Automatisation web, screenshots, navigation
-- **markitdown:** PDF/DOCX/XLSX → Markdown
+- **playwright :** Automatisation web, screenshots, navigation
+- **markitdown :** PDF/DOCX/XLSX → Markdown
 
 ---
 
