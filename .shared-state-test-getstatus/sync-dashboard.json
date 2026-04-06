@@ -1,0 +1,12 @@
+{
+  "overallStatus": "synced",
+  "lastUpdate": "2026-03-11T10:00:00Z",
+  "machines": {
+    "test-machine-1": {
+      "status": "online",
+      "lastSync": "2026-03-11T10:00:00Z",
+      "pendingDecisions": 0,
+      "diffsCount": 0
+    }
+  }
+}

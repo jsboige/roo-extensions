@@ -1,0 +1,11 @@
+{
+  "machineId": "test-machine-2",
+  "lastHeartbeat": "2026-04-06T15:37:41.789Z",
+  "status": "online",
+  "missedHeartbeats": 0,
+  "metadata": {
+    "firstSeen": "2026-04-06T15:37:41.789Z",
+    "lastUpdated": "2026-04-06T15:37:41.789Z",
+    "version": "3.1.0"
+  }
+}
