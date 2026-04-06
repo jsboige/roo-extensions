@@ -140,6 +140,18 @@
 4. WAIT   : NE PAS tenter de contournement. Attendre le prochain tick.
 ```
 
+### Procedure (Claude Code)
+
+```
+1. STOP   : Arreter la tache
+2. LOG    : Dashboard [CRITICAL]
+3. DIAG   : roosync_mcp_management(action: "manage", subAction: "read")
+4. FIX    : roosync_mcp_management(subAction: "update_server_field") ou modifier sources
+5. TEST   : Appeler l'outil pour confirmer
+6. ESCAL  : RooSync URGENT si non reparable
+7. RESUME : Seulement apres confirmation
+```
+
 ---
 
 ## Pre-flight Check (AVANT Etape 1)

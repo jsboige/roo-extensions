@@ -6,9 +6,9 @@
 
 **SDDD (Semantic Documentation Driven Development)** : 3 types de grounding a croiser systematiquement.
 
-1. **Semantique** - `roosync_search(action: "semantic")` + search_files / codebase_search
-2. **Conversationnel** - `conversation_browser` (CES REGLES)
-3. **Technique** - read_file, search_files, execute_command (code = verite)
+1. **Semantique** - `roosync_search(action: "semantic")` + codebase_search (MCP roo-state-manager)
+2. **Conversationnel** - `conversation_browser` (MCP roo-state-manager - CES REGLES)
+3. **Technique** - search_files, read_file, execute_command (outils NATIFS Roo Code - code = verite)
 
 ---
 
@@ -225,7 +225,7 @@ Apres avoir termine, verifier que le travail est visible :
 
 ---
 
-## Recherche Semantique Multi-Pass (codebase_search)
+## Recherche Semantique Multi-Pass (codebase_search - MCP)
 
 Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule requete large est souvent insuffisante.
 
