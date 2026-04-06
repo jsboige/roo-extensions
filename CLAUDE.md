@@ -119,7 +119,7 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 ## Rules Auto-chargees
 
-**Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md)
+**Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md) | [Issue Closure](.claude/rules/issue-closure.md)
 **Ops :** [File Writing](.claude/rules/file-writing.md)
 **Communication :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md)
 **Contexte :** [Context Window](.claude/rules/context-window.md) | [Agents](.claude/rules/agents-architecture.md)
@@ -151,6 +151,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 | **No Deletion Without Proof** | Jamais supprimer sans preuve de préservation. | `.claude/rules/no-deletion-without-proof.md` |
 | **PR Mandatory** | Zéro push direct sur main. PR obligatoire. | `.claude/rules/pr-mandatory.md` |
 | **CI Guardrails** | Valider build + tests CI avant push submodule. | `.claude/rules/ci-guardrails.md` |
+| **Issue Closure** | Jamais fermer sans preuve de completion. Wontfix = utilisateur seulement. | `.claude/rules/issue-closure.md` |
 
 ### Règles Opérationnelles
 
