@@ -1,8 +1,8 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 1.0.0
-**Cree:** 2026-03-23
-**Contexte:** Destruction de code fonctionnel par push directs non-reviewes
+**Version:** 2.0.0 (harmonized Claude + Roo, #1053)
+**MAJ:** 2026-04-08
+**Contexte:** Destruction de code fonctionnel par push directs non-reviewes. Harmonise avec .claude/rules/pr-mandatory.md.
 
 ---
 
@@ -50,11 +50,13 @@ La moitie du "code mort" detecte et supprime est en realite du **code fonctionne
 Les modes `-simple` et `-complex` doivent :
 1. Travailler dans leur worktree (deja le cas)
 2. Committer sur la branche worktree
-3. **NE PAS merger dans main**
-4. **NE PAS `git push origin main`**
-5. Rapporter dans le bilan que les changements sont sur la branche worktree
+3. **NE PAS merger dans main** — `git push origin main` INTERDIT
+4. **Creer la PR :**
+   - **-complex** (terminal natif) : `git push -u origin <branch>` + `gh pr create`
+   - **-simple** (pas de terminal) : Committer. Le Claude Worker (`start-claude-worker.ps1`) cree la PR automatiquement.
+5. Rapporter dans le bilan : branche worktree + PR URL (ou "PR pending via Claude Worker")
 
-Le coordinateur ou le Claude Worker creera la PR et la review.
+**Un worktree sans PR >24h sera ferme par le coordinateur.** Ne pas laisser de travail orphelin.
 
 ### Pour le Coordinateur (ai-01)
 
