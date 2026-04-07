@@ -60,7 +60,7 @@ Les deux agents (Roo ET Claude) utilisent RooSync pour communiquer entre machine
 | Global | `~/.claude/CLAUDE.md` | Tous projets |
 | Projet | `CLAUDE.md` (racine) | Ce projet |
 | Local | `CLAUDE.local.md` | Machine (gitignored) |
-| Permissions | `.claude/settings.json` | Auto-approve (git-tracked) |
+| Permissions | `.claude/settings.json` | Auto-approve + env (machine-specific, gitignored) |
 | Rules | `.claude/rules/*.md` | Auto-chargees chaque conversation |
 | Auto-memoire | `~/.claude/projects/<hash>/memory/` | Prive, local |
 | Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |

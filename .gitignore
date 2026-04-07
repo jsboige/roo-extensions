@@ -127,7 +127,8 @@ mcps/external/win-cli/server/node_modules/
 .claude/configs/provider.*.json
 !.claude/configs/provider.*.template.json
 
-# Claude Code settings backups
+# Claude Code settings (machine-specific: provider, permissions, env)
+.claude/settings.json
 .claude/settings.json.backup-*
 
 # Claude Code local settings (machine-specific overrides, never commit)
