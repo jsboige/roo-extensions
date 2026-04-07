@@ -467,7 +467,7 @@ C:\Drive\.shortcut-targets-by-id\{ID}\.shared-state\meta-analysis\
 
 ## Contraintes Contexte Roo (IMPORTANT)
 
-- **Seuil condensation GLM :** 80% (voir `.roo/rules/12-machine-constraints.md` section "Contraintes communes")
+- **Seuil condensation GLM :** 75% (harmonisé #1152, voir `.roo/rules/12-machine-constraints.md`)
 - **Pas de coverage dans les tests :** Explose le contexte
 - **Limiter output git log/diff :** Toujours `| head -30`
 - **Si contexte sature** → Arreter l'analyse, ecrire les conclusions partielles dans dashboard workspace
