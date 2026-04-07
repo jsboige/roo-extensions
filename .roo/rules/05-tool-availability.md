@@ -169,6 +169,7 @@ A chaque execution scheduler, AVANT de commencer le workflow :
 - NE JAMAIS tenter de redemarrer un serveur MCP
 - NE JAMAIS utiliser ask_followup_question (interdit en scheduler)
 - Si un outil critique est absent : ecrire INTERCOM [CRITICAL], terminer proprement
+- **Si MCP critique HS en mode -simple (#1181)** : apres 2 echecs, utiliser `attempt_completion` avec rapport d'echec. JAMAIS `ask_followup_question`.
 
 ## Accommodation INTERDITE
 
