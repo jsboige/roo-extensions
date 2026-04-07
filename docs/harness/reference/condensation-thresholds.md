@@ -1,9 +1,9 @@
 # Règles de Condensation - Contextes GLM
 
-**Version:** 2.3.0
+**Version:** 3.0.0
 **Créé:** 2026-02-21
-**Mis à jour:** 2026-03-18
-**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → **Solution: 80%**
+**Mis à jour:** 2026-04-07
+**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → **Solution: 75%**
 
 ---
 
@@ -26,10 +26,10 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 | Modèle | Contexte Réel | Seuil Recommandé | Justification |
 |--------|---------------|------------------|---------------|
-| **GLM-5** (z.ai) | 131k tokens | **80%** = ~105k | Marge 26k. 70% causait boucles avec harnais lourd (#736) |
-| **GLM-4.7** (z.ai) | 131k tokens | **80%** = ~105k | Idem |
-| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **80%** = ~105k | Idem |
-| **GLM-4.5 Air** (z.ai) | 131k tokens | **80%** = ~105k | Idem |
+| **GLM-5** (z.ai) | 131k tokens | **75%** = ~98k | Marge 33k. Standard unifie Roo+Claude (#1152) |
+| **GLM-4.7** (z.ai) | 131k tokens | **75%** = ~98k | Idem |
+| **GLM-4.7 Flash** (auto-hébergé) | 131k tokens | **75%** = ~98k | Idem |
+| **GLM-4.5 Air** (z.ai) | 131k tokens | **75%** = ~98k | Idem |
 
 ---
 
@@ -40,7 +40,8 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 **Pour z.ai (GLM) :**
 ```json
 {
-  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+  "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
 }
 ```
 
@@ -58,16 +59,17 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 **Recommandation :**
 ```
-Seuil de déclenchement : 80%
+Seuil de déclenchement : 75%
 ```
 
-**Pourquoi 80% ?**
+**Pourquoi 75% ?**
 - 50% de 200k = 100k → Boucle infinie (#502)
 - 70% de 200k = 140k → Boucle avec harnais lourd (#736, po-2023)
-- **80% de 200k = 160k** → **Compaction à ~105k réels, marge 26k**
+- **75% de 200k = 150k** → **Compaction à ~98k réels, marge 33k**
+- 80% de 200k = 160k → OK aussi mais marge plus faible (26k)
 - 90% → Trop haut, risque saturation avant compaction
 
-**Note :** Avec la réduction du harnais auto-chargé (24→10 rules, ~65K→~35K tokens), 80% offre un bon compromis entre marge utile et prévention des boucles.
+**Note :** Standard unifié Roo + Claude (#1152). Le harnais condensé v2.0+ (24→10 rules, ~65K→~35K tokens) rend 75% viable. Seuil validé sur toutes les machines.
 
 ---
 
@@ -90,7 +92,7 @@ Si Roo permet de configurer `contextWindow` par modèle :
 1. Ouvrir les paramètres Roo (icon gear)
 2. Aller dans "Context Management"
 3. Trouver "Auto-condensation"
-4. Régler "Seuil de déclenchement" à **80%**
+4. Régler "Seuil de déclenchement" à **75%**
 5. Sauvegarder
 
 ### 3. Vérifier que la boucle s'arrête
@@ -106,9 +108,9 @@ Après configuration :
 
 - **Issue #502 :** Boucle infinie condensation Roo
 - **Source communauté :** La taille réelle GLM est ~131k (200k inclut output)
-- **Test manuel :** Seuil 80% validé sur myia-po-2023 (fin de boucle)
+- **Test manuel :** Seuil 75% validé sur toutes les machines (standard unifié #1152)
 
 ---
 
-**Dernière mise à jour :** 2026-03-19
+**Dernière mise à jour :** 2026-04-07
 **Mainteneur :** Coordinateur RooSync (myia-ai-01)
