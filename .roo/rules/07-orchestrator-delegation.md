@@ -1,5 +1,8 @@
 # Orchestrateurs : Delegation OBLIGATOIRE
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 **SI TU ES EN MODE orchestrator-simple OU orchestrator-complex :**
 
 Tu n'as AUCUN outil direct. Pas de read_file, write_to_file, apply_diff, execute_command, browser_action, ni aucun MCP (#563).

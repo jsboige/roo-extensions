@@ -1,5 +1,8 @@
 # Checklists GitHub - Roo Code
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 ## Regle
 
 **REGLE ABSOLUE : NE JAMAIS fermer une issue avec un tableau vide ou incomplet.**
