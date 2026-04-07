@@ -44,7 +44,7 @@ Chaque machine du système RooSync a des contraintes spécifiques (RAM, OS, rôl
    npx vitest run --maxWorkers=1
    ```
 
-3. **Seuil de condensation : 80% minimum** (pas 50%)
+3. **Seuil de condensation : 75%** (harmonisé #1152, pas 50%)
 
 **Documentation complète :** [`docs/harness/machine-specific/myia-web1-constraints.md`](../../docs/harness/machine-specific/myia-web1-constraints.md)
 

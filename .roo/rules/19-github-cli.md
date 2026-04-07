@@ -1,5 +1,8 @@
 # Règles GitHub CLI - Roo Code
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 ## Migration MCP github-projects → gh CLI
 
 **IMPORTANT : Le MCP github-projects a été remplacé par le CLI `gh` natif.**

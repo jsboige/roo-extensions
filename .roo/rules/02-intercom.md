@@ -1,5 +1,8 @@
 # INTERCOM - Dashboard RooSync (Canal Principal)
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 **Canal principal :** Dashboard RooSync `workspace`. Fichier local `.claude/local/INTERCOM-{MACHINE}.md` = FALLBACK DEPRECATED (#745).
 
 ---
