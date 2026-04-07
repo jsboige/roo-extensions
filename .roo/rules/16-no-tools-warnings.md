@@ -89,6 +89,6 @@ conversation_browser(action: "summarize", detailLevel: "NoTools")
 
 ---
 
-**Référence :** [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) - Section "Recommandations conversation_browser (CRITIQUE #608)"
+**Référence :** [`.claude/rules/sddd-grounding.md`](../../.claude/rules/sddd-grounding.md) - Section conversation_browser (CRITIQUE #608)
 
 **Issue :** #608, #881, #952

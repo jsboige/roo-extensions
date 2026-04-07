@@ -342,7 +342,7 @@ Les fichiers sont indexes par chunks de ~1000 chars (tree-sitter). Une seule req
 **Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
 - [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
 
-**Version Claude Code** : [`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md) — protocole opérationnel Claude Code avec les memes outils.
+**Version Claude Code** : [`.claude/rules/sddd-grounding.md`](../../.claude/rules/sddd-grounding.md) — protocole opérationnel Claude Code avec les memes outils.
 
 **Les deux documents sont complementaires** :
 - **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)
