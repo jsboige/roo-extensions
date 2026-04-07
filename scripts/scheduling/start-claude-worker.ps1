@@ -1556,6 +1556,69 @@ function Remove-Worktree {
 }
 
 # ============================================================================
+# Graceful Shutdown (#1147 - Worktree cleanup on SIGTERM/SIGINT/timeout)
+# ============================================================================
+
+# Script-level flag to track if shutdown was already triggered
+$script:ShutdownTriggered = $false
+
+function Invoke-GracefulShutdown {
+    <#
+    .SYNOPSIS
+        Performs graceful shutdown: auto-commit, push, and cleanup worktree.
+        Called from trap handler (SIGTERM/SIGINT) or finally block.
+    #>
+    param(
+        [string]$Reason = "Signal"
+    )
+
+    # Prevent double-invocation
+    if ($script:ShutdownTriggered) { return }
+    $script:ShutdownTriggered = $true
+
+    Write-Log "🛑 GRACEFUL SHUTDOWN triggered ($Reason)" "WARN"
+
+    # Only attempt cleanup if we have a worktree that isn't the repo root
+    if (-not $WorktreePath -or $WorktreePath -eq $RepoRoot) {
+        Write-Log "No worktree to clean up (working in repo root)" "INFO"
+        return
+    }
+
+    if (-not (Test-Path $WorktreePath)) {
+        Write-Log "Worktree path no longer exists: $WorktreePath" "WARN"
+        return
+    }
+
+    try {
+        # Step 1: Auto-commit any uncommitted changes
+        Write-Log "Attempting to preserve work in worktree: $WorktreePath" "INFO"
+        $HasChanges = Test-WorktreeHasChanges -WorktreePath $WorktreePath
+
+        if ($HasChanges) {
+            Write-Log "Work has been auto-committed. Attempting push..." "INFO"
+
+            # Step 2: Push to remote
+            $Pushed = Push-WorktreeBranch -WorktreePath $WorktreePath
+            if ($Pushed) {
+                Write-Log "✅ Branch pushed successfully. Work preserved on remote." "INFO"
+                # Step 3: Safe to remove worktree since work is on remote
+                Remove-Worktree -WorktreePath $WorktreePath
+            } else {
+                Write-Log "⚠️ Push failed. CONSERVING worktree for manual recovery: $WorktreePath" "WARN"
+                Write-Log "  → Use Find-ExistingWorktree on next run to resume" "WARN"
+            }
+        } else {
+            Write-Log "No changes to preserve. Cleaning up worktree." "INFO"
+            Remove-Worktree -WorktreePath $WorktreePath
+        }
+    }
+    catch {
+        Write-Log "Graceful shutdown error (non-fatal): $_" "WARN"
+        Write-Log "Worktree may still exist at: $WorktreePath" "WARN"
+    }
+}
+
+# ============================================================================
 # Worktree → PR Workflow (#461 Phase 1)
 # ============================================================================
 
@@ -2183,6 +2246,24 @@ if (-not (Test-ClaudeCLI)) {
     exit 1
 }
 
+# Signal handler registration (#1147)
+# Trap Ctrl+C and process termination to ensure graceful shutdown
+$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+    param($Event)
+    # Only invoke if we have an active worktree and shutdown hasn't been triggered
+    if ($script:ActiveWorktreePath -and -not $script:ShutdownTriggered) {
+        Invoke-GracefulShutdown -Reason "Process exiting (PowerShell.Exiting event)"
+    }
+}.GetNewClosure()
+
+# Also handle Ctrl+C explicitly for interactive runs
+[Console]::add_CancelKeyPress({
+    param($sender, $e)
+    $e.Cancel = $true  # Prevent immediate termination
+    Write-Log "⛔ Ctrl+C intercepted — triggering graceful shutdown..." "WARN"
+    Invoke-GracefulShutdown -Reason "Ctrl+C (CancelKeyPress)"
+})
+
 try {
     # ==========================================================================
     # Phase 0 : Vérifier wait states en attente (PRIORITÉ MAXIMALE)
@@ -2392,6 +2473,9 @@ REASON: [resume des tests ajoutes ou findings de veille]
         $WorktreePath = $RepoRoot
     }
 
+    # 3a. Track active worktree for graceful shutdown (#1147)
+    $script:ActiveWorktreePath = $WorktreePath
+
     # 3b. Validate worktree integrity (#802 - submodule must be initialized)
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
         $submodulePath = Join-Path $WorktreePath "mcps/internal/servers/roo-state-manager"
@@ -2525,4 +2609,10 @@ catch {
     }
 
     exit 1
+}
+finally {
+    # Graceful shutdown safety net (#1147)
+    # Ensures cleanup even if catch block doesn't run (e.g., SIGTERM kill from scheduler)
+    # The catch block conserves the worktree for reprise; finally ensures shutdown runs regardless
+    Invoke-GracefulShutdown -Reason "Finally block (process termination)"
 }
