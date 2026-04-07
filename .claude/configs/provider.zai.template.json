@@ -8,7 +8,8 @@
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
     "API_TIMEOUT_MS": "3000000",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
   },
   "description": "z.ai GLM models via Anthropic-compatible API",
   "modelMapping": {
@@ -30,7 +31,7 @@
     "GLM-4.5-Air is used for haiku (faster, lighter model)",
     "API timeout increased to 3000s for larger requests",
     "Model mappings set via ANTHROPIC_DEFAULT_*_MODEL environment variables per z.ai documentation",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80 triggers auto-compact at 80% (160k tokens → ~105k réels) - optimal for GLM 131K real context (#736 fix)",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75 triggers auto-compact at 75% (150k tokens → ~98k réels) - standard unifié Roo+Claude pour GLM 131K real context (#1152)",
     "Premium models (5.1, 5-turbo, 5) consume 3x quota peak / 2x off-peak. Promo 1x off-peak until end April 2026."
   ],
   "warnings": {
@@ -42,7 +43,7 @@
       "recommendation": "Keep context under 130k tokens, consolidate knowledge before reaching limit",
       "mitigation": {
         "applied": "2026-03-05",
-        "solution": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80 triggers auto-compact at 160k tokens (80% of 200k, ~105k réel). 75% causait encore des boucles avec harnais lourd (#736)",
+        "solution": "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75 triggers auto-compact at 150k tokens (75% of 200k, ~98k réel). Standard unifié Roo+Claude (#1152). Harnais condensé v2.0+ permet 75%.",
         "reference": "https://github.com/anthropics/claude-code/issues/25867"
       }
     }

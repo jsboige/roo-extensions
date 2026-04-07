@@ -172,7 +172,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 
 | Règle | Description | Fichier |
 |-------|-------------|---------|
-| **Context Window** | Seuil condensation 80% pour GLM (131K réels). | `.claude/rules/context-window.md` |
+| **Context Window** | Seuil condensation 75% pour GLM (131K réels). | `.claude/rules/context-window.md` |
 | **Agents Architecture** | 18 subagents, 6 skills, 4 commands. | `.claude/rules/agents-architecture.md` |
 
 ---
@@ -185,11 +185,11 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 
 | Document | Essentiel a retenir | Chemin |
 |----------|-------------------|--------|
-| **Condensation GLM** | Seuil **80%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `docs/harness/reference/condensation-thresholds.md` |
+| **Condensation GLM** | Seuil **75%** pour z.ai (contexte reel 131K, pas 200K). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` | `docs/harness/reference/condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide. Cocher AU FUR ET A MESURE. | `docs/harness/reference/github-checklists.md` |
 | **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all. Evolution prudente. | `docs/harness/reference/feedback-process.md`, `docs/harness/reference/friction-protocol.md` |
 | **Escalade Claude Code** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur). Claude EST deja Opus 4.6 (pas d'escalade CLI/API). | `docs/harness/reference/escalation-protocol.md` |
-| **Context Window** | Seuil de condensation 80% OBLIGATOIRE pour GLM (z.ai). | `.claude/rules/context-window.md` |
+| **Context Window** | Seuil de condensation 75% OBLIGATOIRE pour GLM (z.ai). | `.claude/rules/context-window.md` |
 
 ### Quality & CI
 
