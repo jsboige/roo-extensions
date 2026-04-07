@@ -256,4 +256,4 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 
 ---
 
-**Derniere MAJ :** 2026-04-05
+**Derniere MAJ :** 2026-04-07

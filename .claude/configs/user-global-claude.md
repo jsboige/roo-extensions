@@ -159,11 +159,15 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 
 **Conseils :** Vocabulaire du code > langage naturel. 5-10 mots cles. `directory_prefix` divise l'espace par ~10. **Requetes en francais = mauvais resultats.**
 
-### Session Pattern (tout workspace)
+### Session Pattern (tout workspace) — OBLIGATOIRE
 
 1. **Debut :** `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
 2. **Pendant :** Travailler. Si question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`
-3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — rapporter
+3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — **OBLIGATOIRE, aucune exception**
+
+**Regle :** TOUT agent (interactif ou scheduled) DOIT rapporter son travail sur le dashboard workspace en fin de session. Les rapports de méta-analystes vont sur le dashboard, PAS dans des fichiers du dépôt.
+
+**Ordre OBLIGATOIRE :** Commit + PR AVANT de poster le rapport [DONE] sur le dashboard. Ne jamais annoncer un travail qui n'est pas commité.
 
 ### Scepticisme
 
