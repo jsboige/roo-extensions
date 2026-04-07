@@ -31,7 +31,11 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
-$logDir = Join-Path $repoRoot ".claude\logs"
+$logDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_DISPATCHER_LOG_DIR)) {
+    $env:COPILOT_DISPATCHER_LOG_DIR
+} else {
+    Join-Path $repoRoot "outputs\scheduling\logs"
+}
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 $logFile = Join-Path $logDir ("copilot-dispatcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
 $stateDir = Join-Path $repoRoot ".claude\scheduler"
@@ -194,6 +198,31 @@ function Test-GitHubIssueLock {
     return $false
 }
 
+function Test-RecentIdleOnIssue {
+    param([int]$Issue)
+
+    if ($Issue -le 0) { return $false }
+
+    try {
+        $commentsJson = & gh issue view $Issue --repo jsboige/roo-extensions --json comments --jq '.comments[-10:]' 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $commentsJson) { return $false }
+
+        $comments = $commentsJson | ConvertFrom-Json
+        foreach ($comment in $comments) {
+            $body = [string]$comment.body
+            $createdAt = [DateTime]::Parse($comment.createdAt)
+            $age = (Get-Date).ToUniversalTime() - $createdAt.ToUniversalTime()
+            if ($body -match 'agent: copilot-dispatcher' -and $body -match 'result: idle' -and $age.TotalHours -lt 24) {
+                return $true
+            }
+        }
+    } catch {
+        return $false
+    }
+
+    return $false
+}
+
 function Write-GitHubIssueComment {
     param(
         [int]$Issue,
@@ -301,9 +330,14 @@ if ($copilotConfig) {
 
 $state = Load-State
 
+$skipClaim = $false
 if ($IssueNumber -gt 0 -and -not $DryRun) {
-    if (Test-GitHubIssueLock -Issue $IssueNumber) {
+    if (Test-RecentIdleOnIssue -Issue $IssueNumber) {
+        Write-Log "Skipping claim on issue #$IssueNumber — recent idle by copilot-dispatcher within 24h (spin-loop guard)"
+        $skipClaim = $true
+    } elseif (Test-GitHubIssueLock -Issue $IssueNumber) {
         Write-Log "Lock active on issue #$IssueNumber (recent claim)"
+        $skipClaim = $true
     } else {
         $claimTimestamp = Get-Date -Format "o"
         Write-GitHubIssueComment -Issue $IssueNumber -Body "Claimed by copilot-dispatcher on $($env:COMPUTERNAME.ToLower()) at $claimTimestamp"
@@ -350,7 +384,7 @@ if ($target -ne 'none') {
     }
 } else {
     Write-Log "No escalation required"
-    if ($IssueNumber -gt 0 -and -not $DryRun) {
+    if ($IssueNumber -gt 0 -and -not $DryRun -and -not $skipClaim) {
         Write-GitHubIssueComment -Issue $IssueNumber -Body "STATUS: done`nagent: copilot-dispatcher`nresult: $status`nescalation: none"
     }
 }

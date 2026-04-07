@@ -56,7 +56,11 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
-$LogDir = Join-Path $RepoRoot ".claude\logs"
+$LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_COORDINATOR_LOG_DIR)) {
+    $env:CLAUDE_COORDINATOR_LOG_DIR
+} else {
+    Join-Path $RepoRoot "outputs\scheduling\logs"
+}
 $MachineName = $env:COMPUTERNAME.ToLower()
 
 # Verifier que c'est bien ai-01
@@ -322,7 +326,7 @@ Si le dashboard est inaccessible, note-le dans les logs mais ne bloque pas.
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire
-$PromptFile = Join-Path $RepoRoot ".claude\logs\coordinator-prompt-$Today.txt"
+$PromptFile = Join-Path $LogDir "coordinator-prompt-$Today.txt"
 [System.IO.File]::WriteAllText($PromptFile, $Prompt, [System.Text.UTF8Encoding]::new($false))
 
 Write-Log "Prompt sauvegarde: $PromptFile"

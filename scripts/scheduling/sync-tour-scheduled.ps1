@@ -9,7 +9,7 @@
     1. Lance sync-tour en mode simple (Haiku)
     2. Escalade vers complex si nécessaire
     3. Envoie rapport au coordinateur
-    4. Log dans .claude/logs/
+    4. Log dans outputs/scheduling/logs/ (configurable via env CLAUDE_SYNC_TOUR_LOG_DIR)
 
 .PARAMETER SkipPhases
     Phases à sauter (ex: "4,5,6,7" pour ne faire que sync git + tests)
@@ -52,7 +52,11 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
-$LogDir = Join-Path $RepoRoot ".claude\logs"
+$LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_SYNC_TOUR_LOG_DIR)) {
+    $env:CLAUDE_SYNC_TOUR_LOG_DIR
+} else {
+    Join-Path $RepoRoot "outputs\scheduling\logs"
+}
 
 # Créer répertoire logs si nécessaire
 if (-not (Test-Path $LogDir)) {
