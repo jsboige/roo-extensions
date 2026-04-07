@@ -100,7 +100,7 @@ $TaskConfigs = @{
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 6
         DefaultModel = "haiku"
-        DefaultTimeout = 30
+        DefaultTimeout = 120
         Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Haiku with auto-escalation to Sonnet/Opus. Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
@@ -109,7 +109,7 @@ $TaskConfigs = @{
         Script = Join-Path $scriptDir "start-claude-coordinator.ps1"
         DefaultInterval = 8
         DefaultModel = "sonnet"
-        DefaultTimeout = 30
+        DefaultTimeout = 120
         Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches and rebalances. Runs on Sonnet with sub-agent escalation to Opus for PR reviews."
         MachineRestriction = "myia-ai-01"
     }
@@ -118,7 +118,7 @@ $TaskConfigs = @{
         Script = Join-Path $scriptDir "start-meta-audit.ps1"
         DefaultInterval = 72
         DefaultModel = "sonnet"
-        DefaultTimeout = 30
+        DefaultTimeout = 120
         Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h on Sonnet with sub-agent escalation to Opus for architectural recommendations."
         MachineRestriction = $null  # all machines
     }

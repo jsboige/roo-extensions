@@ -81,6 +81,31 @@ if (-not (Test-Path $LogDir)) {
 
 $LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
+# === Concurrency Guard: skip if another worker is already running ===
+$LockFile = Join-Path $LogDir "worker.lock"
+if (Test-Path $LockFile) {
+    try {
+        $LockContent = Get-Content $LockFile -Raw | ConvertFrom-Json
+        if ($LockContent.pid) {
+            $ExistingProcess = Get-Process -Id $LockContent.pid -ErrorAction SilentlyContinue
+            if ($ExistingProcess) {
+                $StartedAt = $LockContent.startedAt
+                Write-Host "[SKIP] Another worker is already running (PID $($LockContent.pid), started $StartedAt)" -ForegroundColor Yellow
+                exit 0
+            }
+        }
+    } catch {
+        # Stale or corrupt lock file - proceed
+    }
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+}
+$MachineLock = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+@{ pid = $PID; startedAt = (Get-Date -Format "o"); machine = $MachineLock } | ConvertTo-Json | Set-Content $LockFile -Force
+
+# === Watchdog timer: internal timeout to allow graceful exit before schtask kills us ===
+$script:ScriptStartTime = Get-Date
+$script:MaxMinutes = 110  # 2h schtask limit, 110min internal for graceful exit
+
 # Propager NoFallback en scope script pour accès depuis Get-NextTask
 $script:NoFallbackMode = $NoFallback
 
@@ -2266,6 +2291,19 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
 
 try {
     # ==========================================================================
+    # Watchdog check helper — call between phases to trigger graceful exit
+    # ==========================================================================
+    function Test-WatchdogTimeout {
+        $Elapsed = ((Get-Date) - $script:ScriptStartTime).TotalMinutes
+        if ($Elapsed -gt $script:MaxMinutes) {
+            Write-Log "WATCHDOG: Script exceeded $($script:MaxMinutes)min ($([math]::Round($Elapsed,1))min elapsed), triggering graceful shutdown" "WARN"
+            Invoke-GracefulShutdown -Reason "Internal watchdog timeout ($($script:MaxMinutes)min)"
+            return $true
+        }
+        return $false
+    }
+
+    # ==========================================================================
     # Phase 0 : Vérifier wait states en attente (PRIORITÉ MAXIMALE)
     # Un wait state prêt reprend avant toute nouvelle tâche.
     # ==========================================================================
@@ -2309,6 +2347,9 @@ try {
             Write-Log "Git sync issue: $($GitSyncResult.error)" "WARN"
         }
     }
+
+    # Watchdog check before task acquisition
+    if (Test-WatchdogTimeout) { exit 2 }
 
     # ==========================================================================
     # Phase 1 : Récupérer tâche (si pas de reprise)
@@ -2486,6 +2527,9 @@ REASON: [resume des tests ajoutes ou findings de veille]
         }
     }
 
+    # Watchdog check before Claude invocation (most expensive step)
+    if (Test-WatchdogTimeout) { exit 2 }
+
     # 4. Exécuter Claude avec mode sélectionné
     $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
 
@@ -2611,6 +2655,8 @@ catch {
     exit 1
 }
 finally {
+    # Release lock file
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     # Graceful shutdown safety net (#1147)
     # Ensures cleanup even if catch block doesn't run (e.g., SIGTERM kill from scheduler)
     # The catch block conserves the worktree for reprise; finally ensures shutdown runs regardless

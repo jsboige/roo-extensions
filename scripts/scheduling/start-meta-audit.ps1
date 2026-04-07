@@ -75,6 +75,27 @@ if (-not (Test-Path $LogDir)) {
 
 $LogFile = Join-Path $LogDir "meta-audit-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
+# === Concurrency Guard: skip if another meta-audit is already running ===
+$LockFile = Join-Path $LogDir "meta-audit.lock"
+if (Test-Path $LockFile) {
+    try {
+        $LockContent = Get-Content $LockFile -Raw | ConvertFrom-Json
+        if ($LockContent.pid) {
+            $ExistingProcess = Get-Process -Id $LockContent.pid -ErrorAction SilentlyContinue
+            if ($ExistingProcess) {
+                $StartedAt = $LockContent.startedAt
+                Write-Host "[SKIP] Another meta-audit is already running (PID $($LockContent.pid), started $StartedAt)" -ForegroundColor Yellow
+                exit 0
+            }
+        }
+    } catch {
+        # Stale or corrupt lock file - proceed
+    }
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+}
+# Acquire lock
+@{ pid = $PID; startedAt = (Get-Date -Format "o"); machine = $MachineName } | ConvertTo-Json | Set-Content $LockFile -Force
+
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -228,7 +249,7 @@ if ($DryRun) {
 }
 
 # Lancer Claude en mode pipe avec timeout protection
-$MaxMinutes = 25  # Safety margin below schtask 30-min limit
+$MaxMinutes = 110  # Generous internal timeout (2h schtask limit, 110min internal for graceful exit)
 Write-Log "Lancement Claude meta-audit (timeout: ${MaxMinutes}min)..."
 $StartTime = Get-Date
 
@@ -306,6 +327,8 @@ try {
     exit 1
 } finally {
     Pop-Location
+    # Release lock file
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     # Cleanup prompt file (garder les 5 derniers)
     Get-ChildItem (Join-Path $LogDir "meta-audit-prompt-*.txt") -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
