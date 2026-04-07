@@ -1,8 +1,8 @@
 # Condensation Context Window
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Issue:** #1033
-**MAJ:** 2026-04-05
+**MAJ:** 2026-04-07
 
 ---
 
@@ -16,15 +16,23 @@ Contexte reel = ~131k tokens (pas 200K annonces — les 200K incluent les tokens
 |-------|----------|
 | 50% (defaut) | Boucle infinie (#502) |
 | 70% | Boucle avec harnais lourd (#736) |
-| **75%** | **OK** — standard deploye sur toutes les machines |
+| **75%** | **OK** — standard unifie Roo + Claude (#1152), compaction ~98k, marge 33k |
 | 80% | OK alternatif, marge 26k |
 | 90% | Trop haut, risque saturation |
 
 ## Config
 
-`~/.claude/settings.json` : `"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"`
+`~/.claude/settings.json` :
 
-**JAMAIS 50%.** Le seuil par defaut provoque des boucles de condensation infinies.
+```json
+"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
+```
+
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` fixe la fenetre a 200k (evite que Claude Code devinue une valeur incorrecte).
+75% de 200k = 150k tokens = seuil de declenchement de la compaction.
+
+**JAMAIS 50%.** 70% insuffisant avec harnais lourd. 75% = standard unifie (#1152).
 
 ## Modeles concernes
 
