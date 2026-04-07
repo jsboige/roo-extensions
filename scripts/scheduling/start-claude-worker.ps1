@@ -764,11 +764,17 @@ function Mark-TaskAsComplete {
         "github" {
             if ($Task.issueNumber) {
                 try {
-                    # Guard #1213: Only post "Executed by" if there is a real outcome to report
-                    $Outcome = if ($PrUrl) { "PR created: $PrUrl" } elseif ($Success) { "Completed (no code changes needed)" } else { "No actionable result produced" }
-                    $Body = "Executed by Claude Code scheduler on $env:COMPUTERNAME at $(Get-Date -Format o)`n`nOutcome: $Outcome"
+                    # #1213: Post [RESULT] with proof — aligns with Roo protocol
+                    $MachineId = $env:COMPUTERNAME.ToLower()
+                    if ($PrUrl) {
+                        $Body = "[RESULT] $MachineId`: PASS — PR created: $PrUrl"
+                    } elseif ($Success) {
+                        $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
+                    } else {
+                        $Body = "[RESULT] $MachineId`: FAIL — no actionable result produced"
+                    }
                     & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
-                    Write-Log "✅ Commentaire ajouté sur #$($Task.issueNumber) — Outcome: $Outcome"
+                    Write-Log "✅ [RESULT] posté sur #$($Task.issueNumber)"
                 } catch {
                     Write-Log "Erreur comment GitHub: $_" "WARN"
                 }
