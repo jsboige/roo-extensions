@@ -51,7 +51,11 @@ param(
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
-$LogDir = Join-Path $RepoRoot ".claude\logs"
+$LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_META_AUDIT_LOG_DIR)) {
+    $env:CLAUDE_META_AUDIT_LOG_DIR
+} else {
+    Join-Path $RepoRoot "outputs\scheduling\logs"
+}
 
 # Fix #726: Load ROOSYNC_MACHINE_ID from .env (primary), with COMPUTERNAME fallback
 $EnvPath = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\.env"
@@ -237,7 +241,7 @@ UNIQUEMENT si tu identifies des problemes concrets :
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire (evite les problemes de quoting PS)
-$PromptFile = Join-Path $RepoRoot ".claude\logs\meta-audit-prompt-$Today.txt"
+$PromptFile = Join-Path $LogDir "meta-audit-prompt-$Today.txt"
 [System.IO.File]::WriteAllText($PromptFile, $Prompt, [System.Text.UTF8Encoding]::new($false))
 
 Write-Log "Prompt sauvegarde: $PromptFile"
