@@ -29,14 +29,18 @@ Contexte reel = ~131k tokens (pas 200K annonces — les 200K incluent les tokens
 "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
 ```
 
-`CLAUDE_CODE_AUTO_COMPACT_WINDOW` fixe la fenetre a 200k (evite que Claude Code devinue une valeur incorrecte).
-75% de 200k = 150k tokens = seuil de declenchement de la compaction.
+**Deux cles OBLIGATOIRES :**
 
-**JAMAIS 50%.** 70% insuffisant avec harnais lourd. 75% = standard unifie (#1152).
+1. `CLAUDE_CODE_AUTO_COMPACT_WINDOW`: Fixe la fenetre a 200k tokens (evite que Claude Code devine une valeur incorrecte basee sur l'annonce du modele)
+2. `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`: Fixe le seuil de declenchement a 75% de la fenetre
+
+Calcul : 75% de 200k = 150k tokens = seuil de declenchement de la compaction automatique.
+
+**JAMAIS 50%.** 70% insuffisant avec harnais lourd. 75% = standard unifie Roo + Claude (#1152).
 
 ## Modeles concernes
 
-GLM-5, GLM-5.1, GLM-4.7, GLM-4.7 Flash, GLM-4.5 Air (tous z.ai) — 131k reels.
+GLM-5, GLM-5.1, GLM-4.7, GLM-4.7 Flash, GLM-4.5 Air (tous z.ai) — 131k reels, seuil 75% = ~98k tokens (compaction effective).
 
 ## Contexte Scheduler Roo
 
