@@ -53,6 +53,12 @@ JAMAIS demander confirmation. Agis directement.
 
 ### Cas spécifiques
 
+**MCP critique HS en mode `-simple` (#1181) :**
+- Si win-cli MCP échoue 2 fois → **NE PAS utiliser `ask_followup_question`**
+- **Action :** `attempt_completion(result: "ECHEC: MCP win-cli non disponible après 2 tentatives. Rapporté sur dashboard.")`
+- Signaler sur le dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["CRITICAL", "roo-scheduler"], content: "...")`
+- **JAMAIS** `ask_followup_question` en mode scheduler — l'utilisateur n'est pas là
+
 **`gh api graphql` en mode `-simple` via win-cli :**
 - Quoting JSON instable. **PRÉFÉRER** `gh issue list`, `gh issue view`, `gh pr list` (commandes simples)
 - Si GraphQL nécessaire → **escalader vers `-complex`** qui a le terminal natif
