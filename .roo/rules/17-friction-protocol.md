@@ -1,8 +1,9 @@
 # Protocole de Friction
 
-**Version :** 1.0.0
+**Version :** 1.1.0
 **Créé :** 2026-03-15
 **Issue :** #710
+**MAJ :** 2026-04-07
 
 ---
 
@@ -39,28 +40,14 @@ roosync_send(
 )
 ```
 
-### Via INTERCOM (friction locale)
+### Via Dashboard Workspace (friction locale, PRINCIPAL)
 
-```markdown
-## [YYYY-MM-DD HH:MM:SS] agent -> all [FRICTION]
-
-### Problème
-[Description]
-
-### Contexte
-- Tâche : ...
-- Outil : ...
-- Résultat attendu : ...
-- Résultat obtenu : ...
-
-### Impact
-[Ce qui est bloqué]
-
-### Suggestion
-[Proposition d'amélioration]
-
----
 ```
+roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claude-interactive"], content: "## Probleme\n[Description]\n\n## Contexte\n[Quelle tache, quel outil, quel resultat]\n\n## Impact\n[Ce qui est bloque]\n\n## Suggestion\n[Proposition si applicable]")
+```
+
+**Note :** Le dashboard workspace (50 KB auto-condensation) est le canal principal.
+Le fichier INTERCOM local `.claude/local/INTERCOM-*.md` est DEPRECATED (fallback si GDrive offline uniquement).
 
 ### Via GitHub Issue (friction documentée)
 

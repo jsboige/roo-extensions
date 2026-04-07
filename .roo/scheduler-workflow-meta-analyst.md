@@ -2,16 +2,7 @@
 
 > Lu par orchestrateur-complex. MAJ : modifier ce fichier + `git push`.
 > Frequence : 72h. Mode : orchestrator-complex (GLM-5 / Qwen 3.5 complex).
-
-## PRINCIPES
-
-1. **RooSync** : Disponible pour consultation. Dashboard pour la communication locale
-2. **TOUJOURS deleguer via `new_task`** (jamais faire le travail soi-meme)
-3. Communication via **dashboard `workspace`** (`roosync_dashboard`). Le fichier dashboard workspace est DEPRECATED.
-4. Ne JAMAIS commit ou push
-5. **NE JAMAIS modifier les fichiers de harnais** (rules, workflows, modes, CLAUDE.md, .roomodes)
-6. **WIN-CLI OBLIGATOIRE pour les commandes shell**
-7. Toute recommandation actionnable = issue GitHub avec label `needs-approval`
+> **PRÉAMBULE** : Lire `.roo/scheduler-workflow-shared.md` pour les règles communes (autonomie, circuit breaker, output, win-cli, rapport dashboard).
 
 ## ROLE
 
@@ -79,7 +70,7 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
    Pour chaque tache analysee en etape 2, verifier :
    conversation_browser(action: "summarize", summarize_type: "trace", taskId: "{ID}", detailLevel: "Summary", truncationChars: 5000)
    → Alertes si : >30 messages, >50K chars, >10 appels au meme outil
-   → Identifier l'outil le plus verbeux (souvent vitest sans troncature, read_file sans limit)
+   → Identifier l'outil le plus verbeux (souvent vitest sans troncation, read_file sans limit)
    → Compter : taches explosees, cause principale, outil le plus verbeux
 
 8. ANALYSE DIFFERENTIELLE -simple vs -complex (OBLIGATOIRE — issue #981) :
@@ -97,9 +88,7 @@ UTILISE LES OUTILS MCP roo-state-manager EN PRIORITE — ils sont plus riches qu
 
 == PARTIE B : COMPLEMENTS (seulement si PARTIE A echoue ou incomplete) ==
 
-⚠️ NE PAS utiliser cette partie si la PARTIE A a fonctionne. Les outils MCP fournissent
-des donnees plus riches (smart_truncation, filtrage, metriques). La lecture de fichiers
-bruts perd ces avantages et consomme plus de contexte.
+⚠️ NE PAS utiliser cette partie si la PARTIE A a fonctionne.
 
 7. METRIQUES GITHUB (complement utile meme si MCP OK) :
    execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state all --limit 20 --json number,state,closedAt,createdAt,title --jq '.[] | [.number, .state, .title] | @tsv'")
@@ -159,45 +148,19 @@ HARNAIS ROO (lis TOUS les fichiers de .roo/rules/ avec read_file) :
 - .roo/rules/21-skepticism-protocol.md
 - .roo/rules/22-validation.md
 - .roo/rules/23-no-deletion-without-proof.md
+- .roo/scheduler-workflow-shared.md
 - .roo/scheduler-workflow-coordinator.md
 - .roo/scheduler-workflow-executor.md
 - .roomodes (structure des modes)
 
 HARNAIS CLAUDE — rules/ auto-chargees (lis TOUS avec read_file) :
 - CLAUDE.md (racine)
-- .claude/rules/agents-architecture.md
-- .claude/rules/ci-guardrails.md
-- .claude/rules/context-window.md
-- .claude/rules/delegation.md
-- .claude/rules/file-writing.md
-- .claude/rules/github-cli.md
-- .claude/rules/intercom-protocol.md
-- .claude/rules/no-deletion-without-proof.md
-- .claude/rules/pr-mandatory.md
-- .claude/rules/sddd-conversational-grounding.md
-- .claude/rules/skepticism-protocol.md
-- .claude/rules/test-success-rates.md
-- .claude/rules/tool-availability.md
-- .claude/rules/validation.md
-- .claude/rules/worktree-cleanup.md
+- .claude/rules/*.md (tous les fichiers du repertoire)
 
 HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
-- docs/harness/reference/condensation-thresholds.md
-- docs/harness/reference/escalation-protocol.md
-- docs/harness/reference/feedback-process.md
-- docs/harness/reference/friction-protocol.md
-- docs/harness/reference/github-checklists.md
-- docs/harness/coordinator-specific/pr-review-policy.md
-- docs/harness/coordinator-specific/scheduled-coordinator.md
-- docs/harness/machine-specific/myia-web1-constraints.md
-- docs/harness/reference/bash-fallback.md
-- docs/harness/reference/incident-history.md
-- docs/harness/reference/mcp-discoverability.md
-- docs/harness/reference/meta-analysis.md
-- docs/harness/reference/roo-schedulable-criteria.md
-- docs/harness/reference/scheduler-densification.md
-- docs/harness/reference/scheduler-system.md
-- docs/harness/reference/stub-detection.md
+- docs/harness/reference/*.md
+- docs/harness/coordinator-specific/*.md
+- docs/harness/machine-specific/*.md
 
 GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
 AVANT de conclure qu'une regle est ABSENTE d'un harnais :
@@ -235,7 +198,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 > **CRITIQUE :** L'ecriture dashboard est la seule trace locale de l'analyse. **Ne JAMAIS quitter sans avoir ecrit.**
 > **REGLE #1081 :** Dashboard = resume COMPACT (quelques lignes). Le DETAIL va dans les issues GitHub (Etape 4).
-> **Ne JAMAIS poster de rapports detailles (>20 lignes) sur le dashboard.** Ca encombre inutilement.
+> **Ne JAMAIS poster de rapports detailles (>20 lignes) sur le dashboard.**
 
 Deleguer a `code-complex` via `new_task` :
 
@@ -286,11 +249,11 @@ Si la recommandation concerne un changement de harnais, ajouter le label :
 
 REGLES :
 - TOUJOURS inclure le label 'needs-approval'
-- Le body de l'issue DOIT contenir TOUT le detail (c'est le lieu du rapport complet)
-- Inclure les donnees chiffrees, tableaux, exemples concrets — PAS juste un titre
+- Le body de l'issue DOIT contenir TOUT le detail
+- Inclure les donnees chiffrees, tableaux, exemples concrets
 - NE PAS creer plus de 3 issues par cycle (eviter le spam)
 - NE PAS creer d'issue si la recommandation est purement informationnelle
-- TOUJOURS verifier les issues existantes AVANT de creer (garde anti-duplicates)
+- TOUJOURS verifier les issues existantes AVANT de creer
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
@@ -298,7 +261,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 ### Etape 5 : TERMINER le cycle (OBLIGATOIRE)
 
-> **CRITIQUE :** Apres avoir termine toutes les etapes, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
+> **CRITIQUE :** Apres avoir termine toutes les etapes, l'orchestrateur DOIT appeler `attempt_completion` pour marquer la tache comme terminee. Sans cela, le scheduler considere la tache comme "en cours" et SAUTE les prochains ticks.
 
 ```
 attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dashboard workspace.")
@@ -311,11 +274,12 @@ attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dash
 1. Ne JAMAIS modifier de fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes, etc.)
 2. Ne JAMAIS commit ou push
 3. Ne JAMAIS fermer, archiver ou dispatcher des issues GitHub
-4. **RooSync** : Accessible en lecture pour l'analyse croisee. Privilegier dashboard workspace pour les rapports
+4. **RooSync** : Accessible en lecture. Privilegier dashboard workspace pour les rapports
 5. Ne JAMAIS creer d'issue SANS label `needs-approval`
 6. **Limiter les outputs** : `Select-Object -Last 50` ou `tail -50`
 7. **Maximum 3 issues par cycle** (anti-spam)
 8. Si 2 echecs consecutifs : arreter et rapporter dans dashboard workspace
+9. **PAS de fichiers rapport (#1179)** : Ne JAMAIS creer de fichiers dans docs/ ou ailleurs dans le depot. Les rapports vont sur le dashboard ou en issues GitHub, JAMAIS dans des fichiers git-trackes.
 
 ---
 

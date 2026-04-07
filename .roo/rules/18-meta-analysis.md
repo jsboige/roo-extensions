@@ -108,7 +108,22 @@ roosync_search(action: "semantic", search_query: "impossible bloque erreur fail"
 - **Resumes COMPACTS sur dashboard** — Max 10 lignes via `roosync_dashboard(type: "workspace")`. Le dashboard = index pointant vers les issues, pas un rapport.
 - **Issues GitHub avec `needs-approval`** (propositions d'amelioration)
 - **Issues GitHub avec `needs-approval` + `harness-change`** (modifications de harnais, BLOQUEES jusqu'a approbation utilisateur)
-- **AUCUN fichier de rapport transient** commite dans git
+
+### INTERDICTION ABSOLUE — Pas de fichiers rapport (#1179)
+
+> **Les meta-analystes NE DOIVENT PAS creer de fichiers dans le depot pour leurs rapports ou analyses.**
+
+**INTERDIT :**
+
+- Creer des fichiers dans `docs/harness/reference/` pour les rapports d'analyse (ex: `cross-harness-analysis-*.md`)
+- Creer des fichiers d'analyse n'importe où dans l'arbre git
+- Ecrire des rapports qui devraient etre des posts dashboard ou des issues GitHub
+
+**Canaux de sortie OBLIGATOIRES (par ordre de preference) :**
+
+1. **Dashboard workspace** — `roosync_dashboard(action: "append", type: "workspace", tags: ["META-ANALYSIS"])` pour resumes compacts
+2. **Issues GitHub** — `gh issue create` avec label `needs-approval` pour les findings actionnables avec detail complet
+3. **GDrive** — `.shared-state/meta-analysis/` pour les donnees d'analyse persistantes (pas dans git)
 
 ---
 
@@ -485,4 +500,4 @@ Resume du workflow :
 
 ---
 
-**Derniere mise a jour :** 2026-03-30
+**Derniere mise a jour :** 2026-04-07

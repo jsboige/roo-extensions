@@ -85,6 +85,31 @@ if (-not (Test-Path $LogDir)) {
 
 $LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
+# === Concurrency Guard: skip if another worker is already running ===
+$LockFile = Join-Path $LogDir "worker.lock"
+if (Test-Path $LockFile) {
+    try {
+        $LockContent = Get-Content $LockFile -Raw | ConvertFrom-Json
+        if ($LockContent.pid) {
+            $ExistingProcess = Get-Process -Id $LockContent.pid -ErrorAction SilentlyContinue
+            if ($ExistingProcess) {
+                $StartedAt = $LockContent.startedAt
+                Write-Host "[SKIP] Another worker is already running (PID $($LockContent.pid), started $StartedAt)" -ForegroundColor Yellow
+                exit 0
+            }
+        }
+    } catch {
+        # Stale or corrupt lock file - proceed
+    }
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+}
+$MachineLock = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+@{ pid = $PID; startedAt = (Get-Date -Format "o"); machine = $MachineLock } | ConvertTo-Json | Set-Content $LockFile -Force
+
+# === Watchdog timer: internal timeout to allow graceful exit before schtask kills us ===
+$script:ScriptStartTime = Get-Date
+$script:MaxMinutes = 110  # 2h schtask limit, 110min internal for graceful exit
+
 # Propager NoFallback en scope script pour accès depuis Get-NextTask
 $script:NoFallbackMode = $NoFallback
 
@@ -716,7 +741,11 @@ function Get-FallbackTask {
 }
 
 function Mark-TaskAsComplete {
-    param($Task)
+    param(
+        $Task,
+        [string]$PrUrl = $null,
+        [bool]$Success = $false
+    )
 
     switch ($Task.source) {
         "roosync" {
@@ -735,9 +764,11 @@ function Mark-TaskAsComplete {
         "github" {
             if ($Task.issueNumber) {
                 try {
-                    $Body = "Executed by Claude Code scheduler on $env:COMPUTERNAME at $(Get-Date -Format o)"
+                    # Guard #1213: Only post "Executed by" if there is a real outcome to report
+                    $Outcome = if ($PrUrl) { "PR created: $PrUrl" } elseif ($Success) { "Completed (no code changes needed)" } else { "No actionable result produced" }
+                    $Body = "Executed by Claude Code scheduler on $env:COMPUTERNAME at $(Get-Date -Format o)`n`nOutcome: $Outcome"
                     & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
-                    Write-Log "✅ Commentaire ajouté sur #$($Task.issueNumber)"
+                    Write-Log "✅ Commentaire ajouté sur #$($Task.issueNumber) — Outcome: $Outcome"
                 } catch {
                     Write-Log "Erreur comment GitHub: $_" "WARN"
                 }
@@ -1640,12 +1671,35 @@ function Test-WorktreeHasChanges {
         $ErrorActionPreference = "Continue"
 
         # Auto-commit any uncommitted changes left by Claude
+        # Guard #1156: Filter out non-essential files (logs, temp, local) before auto-commit
         $Uncommitted = (git status --porcelain 2>&1) | Where-Object { $_ -is [string] }
         if ($Uncommitted) {
-            Write-Log "Worktree has uncommitted changes, auto-committing..." "INFO"
-            git add -A 2>&1 | Out-Null
-            $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
-            git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+            # Filter: exclude paths that should NOT trigger a PR
+            $NonEssentialPatterns = @(
+                '\.claude/logs/',
+                '\.claude/local/',
+                '\.claude/worktrees/',
+                'outputs/scheduling/',
+                '\.env$',
+                '\.log$'
+            )
+            $EssentialChanges = @($Uncommitted | Where-Object {
+                $line = $_
+                $isNonEssential = $false
+                foreach ($pat in $NonEssentialPatterns) {
+                    if ($line -match $pat) { $isNonEssential = $true; break }
+                }
+                -not $isNonEssential
+            })
+
+            if ($EssentialChanges.Count -gt 0) {
+                Write-Log "Worktree has $($EssentialChanges.Count) essential uncommitted changes, auto-committing..." "INFO"
+                git add -A 2>&1 | Out-Null
+                $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+                git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+            } else {
+                Write-Log "Worktree has only non-essential changes ($($Uncommitted.Count) files: logs/temp/local). Skipping auto-commit (#1156)." "INFO"
+            }
         }
 
         # Check if branch has commits ahead of main
@@ -1728,6 +1782,38 @@ function New-WorkerPR {
 
     try {
         Push-Location $WorktreePath
+
+        # Guard #1156: Verify the diff contains real code changes, not just auto-commits or submodule pointer moves
+        $DiffFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object { $_ -is [string] })
+
+        # Check 1: If the ONLY change is a submodule pointer, skip PR (orphan pointer pattern)
+        $SubmoduleOnly = ($DiffFiles.Count -eq 1 -and $DiffFiles[0] -match '^mcps/')
+        if ($SubmoduleOnly) {
+            # Verify the submodule commit exists on origin/main
+            $SubmodulePath = $DiffFiles[0]
+            $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) | Select-String '\+Subproject commit ([a-f0-9]+)' | ForEach-Object { $_.Matches.Groups[1].Value }
+            if ($NewPointer) {
+                git -C $SubmodulePath log origin/main --oneline -1 $NewPointer 2>&1 | Out-Null
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log "PHANTOM PR BLOCKED (#1156): Submodule pointer $($NewPointer.Substring(0,8)) does not exist on origin/main. Skipping PR creation." "WARN"
+                    return $null
+                }
+            }
+        }
+
+        # Check 2: If all commits are just auto-commits with no real diff, skip PR
+        $CommitMessages = @((git log main..HEAD --format="%s" 2>&1) | Where-Object { $_ -is [string] })
+        $AllAutoCommits = $true
+        foreach ($msg in $CommitMessages) {
+            if ($msg -notmatch 'Auto-commit uncommitted worker changes') {
+                $AllAutoCommits = $false
+                break
+            }
+        }
+        if ($AllAutoCommits -and $DiffFiles.Count -eq 0) {
+            Write-Log "PHANTOM PR BLOCKED (#1156): All commits are auto-commits with no real changes. Skipping PR creation." "WARN"
+            return $null
+        }
 
         # Extract issue number from task subject
         $IssueNum = $null
@@ -2270,6 +2356,19 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
 
 try {
     # ==========================================================================
+    # Watchdog check helper — call between phases to trigger graceful exit
+    # ==========================================================================
+    function Test-WatchdogTimeout {
+        $Elapsed = ((Get-Date) - $script:ScriptStartTime).TotalMinutes
+        if ($Elapsed -gt $script:MaxMinutes) {
+            Write-Log "WATCHDOG: Script exceeded $($script:MaxMinutes)min ($([math]::Round($Elapsed,1))min elapsed), triggering graceful shutdown" "WARN"
+            Invoke-GracefulShutdown -Reason "Internal watchdog timeout ($($script:MaxMinutes)min)"
+            return $true
+        }
+        return $false
+    }
+
+    # ==========================================================================
     # Phase 0 : Vérifier wait states en attente (PRIORITÉ MAXIMALE)
     # Un wait state prêt reprend avant toute nouvelle tâche.
     # ==========================================================================
@@ -2313,6 +2412,9 @@ try {
             Write-Log "Git sync issue: $($GitSyncResult.error)" "WARN"
         }
     }
+
+    # Watchdog check before task acquisition
+    if (Test-WatchdogTimeout) { exit 2 }
 
     # ==========================================================================
     # Phase 1 : Récupérer tâche (si pas de reprise)
@@ -2490,6 +2592,9 @@ REASON: [resume des tests ajoutes ou findings de veille]
         }
     }
 
+    # Watchdog check before Claude invocation (most expensive step)
+    if (Test-WatchdogTimeout) { exit 2 }
+
     # 4. Exécuter Claude avec mode sélectionné
     $Result = Invoke-Claude -ModeId $SelectedMode -Prompt $Task.prompt -WorkingDir $WorktreePath -MaxIter $AdjustedIterations
 
@@ -2578,7 +2683,8 @@ REASON: [resume des tests ajoutes ou findings de veille]
     }
 
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
-    Mark-TaskAsComplete -Task $Task
+    # Pass PR URL and success status for accountability (#1213)
+    Mark-TaskAsComplete -Task $Task -PrUrl $PrUrl -Success $Result.success
 
     # 8. Cleanup worktree SEULEMENT après push+PR confirmés
     # Si PR créée avec succès, on peut supprimer le worktree (branch existe sur origin)
@@ -2615,6 +2721,8 @@ catch {
     exit 1
 }
 finally {
+    # Release lock file
+    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     # Graceful shutdown safety net (#1147)
     # Ensures cleanup even if catch block doesn't run (e.g., SIGTERM kill from scheduler)
     # The catch block conserves the worktree for reprise; finally ensures shutdown runs regardless
