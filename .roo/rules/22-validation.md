@@ -1,5 +1,8 @@
 # Règles de Validation - Roo Code
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 ## CHECKLIST DE VALIDATION TECHNIQUE OBLIGATOIRE
 
 ⚠️ **NOUVELLE RÈGLE (2026-02-01) - Suite erreurs CONS-3/CONS-4**

@@ -1,5 +1,7 @@
 # Roo Extensions - Guide pour Agents Roo Code
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
 **Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
 

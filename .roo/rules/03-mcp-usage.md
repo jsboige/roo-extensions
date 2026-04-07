@@ -1,5 +1,8 @@
 # Regles d'Utilisation des MCPs
 
+**Version:** 1.0.0
+**MAJ:** 2026-04-08
+
 **Documentation complete des MCPs :** Voir [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md) pour la documentation centralisee de tous les serveurs MCP (installation, configuration, outils disponibles, exemples).
 
 ## Pre-requis : Verification Disponibilite
