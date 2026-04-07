@@ -56,6 +56,9 @@ $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_META_AUDIT_LOG_DIR))
 } else {
     Join-Path $RepoRoot "outputs\scheduling\logs"
 }
+
+# Fix #726: Load ROOSYNC_MACHINE_ID from .env (primary), with COMPUTERNAME fallback
+$EnvPath = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\.env"
 $MachineName = 'unknown'
 
 if (Test-Path $EnvPath) {

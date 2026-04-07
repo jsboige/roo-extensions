@@ -57,6 +57,9 @@ $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_SYNC_TOUR_LOG_DIR)) 
 } else {
     Join-Path $RepoRoot "outputs\scheduling\logs"
 }
+
+# Créer répertoire logs si nécessaire
+if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
 }
 
