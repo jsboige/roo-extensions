@@ -90,7 +90,22 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 - **Compact dashboard summaries** — Max 10 lines on `roosync_dashboard(type: "workspace")`. Dashboard = index pointing to issues, not a report.
 - **GitHub issues with `needs-approval`** (proposed improvements)
 - **GitHub issues with `needs-approval` + `harness-change`** (proposed harness modifications, BLOCKED until user approval)
-- **NO transient report files** committed to git (no `docs/harness/meta-analysis-report-*.md`)
+
+### ABSOLUTE PROHIBITION — No Report Files (#1179)
+
+> **Meta-analysts MUST NOT create any files in the repository for their reports or analysis.**
+
+**FORBIDDEN:**
+- Creating files in `docs/harness/reference/` for analysis reports (e.g., `cross-harness-analysis-*.md`)
+- Creating analysis files anywhere in the git-tracked tree
+- Writing report files that should be dashboard posts or GitHub issues instead
+
+**REQUIRED output channels (in order of preference):**
+1. **Dashboard workspace** — `roosync_dashboard(action: "append", type: "workspace", tags: ["META-ANALYSIS"])` for compact summaries
+2. **GitHub issues** — `gh issue create` with `needs-approval` label for actionable findings with full detail
+3. **GDrive** — `.shared-state/meta-analysis/` for persistent analysis data (not git-tracked)
+
+**Why:** Report files in git pollute the repo with temporary data, are never re-read or updated, and create merge conflicts across machines. The dashboard is visible to all machines; GitHub issues are trackable and actionable.
 
 ---
 
@@ -456,4 +471,4 @@ Recommendations:
 
 ---
 
-**Last updated:** 2026-04-05
+**Last updated:** 2026-04-07
