@@ -93,7 +93,8 @@ Rollout helper behavior:
 - Applies MCP bootstrap (`scripts/copilot/configure-copilot-mcp.ps1`) unless `-SkipBootstrap`.
 - Verifies `roo-state-manager` is present in `%APPDATA%\Code\User\mcp.json`.
 - Installs/refreshes dispatcher, triggers one immediate run, validates `Ready` + `LastTaskResult=0`.
-- Produces evidence report under `.claude/logs/copilot-rollout-check-*.md`.
+- Dispatcher runtime logs default to `outputs/scheduling/logs/copilot-dispatcher-*.log` (override via `COPILOT_DISPATCHER_LOG_DIR`).
+- Produces evidence report under `outputs/scheduling/reports/copilot-rollout-check-*.md`.
 
 ### 1. List current Task Scheduler status
 

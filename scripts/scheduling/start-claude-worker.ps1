@@ -72,7 +72,11 @@ $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # Model/iterations come from Project #67 fields. Escalation uses Agent Status protocol
 # (haiku -> sonnet -> opus), NOT Roo mode hierarchy (simple -> complex).
 $WorkerDefaultIterations = 5
-$LogDir = Join-Path $RepoRoot ".claude\logs"
+$LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_WORKER_LOG_DIR)) {
+    $env:CLAUDE_WORKER_LOG_DIR
+} else {
+    Join-Path $RepoRoot "outputs\scheduling\logs"
+}
 
 # Créer répertoire logs si nécessaire
 if (-not (Test-Path $LogDir)) {

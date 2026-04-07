@@ -273,7 +273,7 @@ function Install-Task {
         Write-Status "    [OK] Task '$TaskName' created successfully" Green
         Write-Status ""
         Write-Status "  First run in ~5 minutes. Then every ${IntervalHours}h." Cyan
-        Write-Status "  Check logs: .claude/logs/" DarkGray
+        Write-Status "  Check logs: outputs/scheduling/logs/ (or env CLAUDE_*_LOG_DIR)" DarkGray
         Write-Status "  Remove with: .\setup-scheduler.ps1 -Action remove -TaskType $TaskType" DarkGray
     } catch {
         Write-Status "    [FAIL] Error: $_" Red

@@ -40,8 +40,17 @@ $setupScript = Join-Path $scriptDir 'setup-copilot-dispatcher.ps1'
 $bootstrapScript = Join-Path $repoRoot 'scripts\copilot\configure-copilot-mcp.ps1'
 $taskName = 'Copilot-Dispatcher'
 $mcpConfigPath = Join-Path $env:APPDATA 'Code\User\mcp.json'
-$logDir = Join-Path $repoRoot '.claude\logs'
-if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
+$dispatcherLogDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_DISPATCHER_LOG_DIR)) {
+    $env:COPILOT_DISPATCHER_LOG_DIR
+} else {
+    Join-Path $repoRoot 'outputs\scheduling\logs'
+}
+$reportDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_ROLLOUT_REPORT_DIR)) {
+    $env:COPILOT_ROLLOUT_REPORT_DIR
+} else {
+    Join-Path $repoRoot 'outputs\scheduling\reports'
+}
+if (-not (Test-Path $reportDir)) { New-Item -ItemType Directory -Path $reportDir -Force | Out-Null }
 
 $report = [ordered]@{
     machine = $env:COMPUTERNAME.ToLower()
@@ -276,7 +285,7 @@ try {
 }
 
 try {
-    $latestLog = Get-ChildItem -Path $logDir -Filter 'copilot-dispatcher-*.log' -ErrorAction SilentlyContinue |
+    $latestLog = Get-ChildItem -Path $dispatcherLogDir -Filter 'copilot-dispatcher-*.log' -ErrorAction SilentlyContinue |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
     if ($latestLog) {
@@ -312,7 +321,7 @@ if ($allGreen) {
     Add-Blocker 'Rollout gate failed for this machine.'
 }
 
-$reportFile = Join-Path $logDir ("copilot-rollout-check-" + $report.machine + "-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.md')
+$reportFile = Join-Path $reportDir ("copilot-rollout-check-" + $report.machine + "-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.md')
 $lines = @(
     '# Copilot V3 Rollout Check',
     '',

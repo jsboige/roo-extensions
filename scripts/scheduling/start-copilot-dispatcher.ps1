@@ -31,7 +31,11 @@ param(
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
-$logDir = Join-Path $repoRoot ".claude\logs"
+$logDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_DISPATCHER_LOG_DIR)) {
+    $env:COPILOT_DISPATCHER_LOG_DIR
+} else {
+    Join-Path $repoRoot "outputs\scheduling\logs"
+}
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 $logFile = Join-Path $logDir ("copilot-dispatcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
 $stateDir = Join-Path $repoRoot ".claude\scheduler"
