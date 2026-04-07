@@ -233,6 +233,7 @@ UNIQUEMENT si tu identifies des problemes concrets :
 - NE DISPATCHE AUCUNE tache
 - TOUTE issue creee DOIT avoir le label needs-approval
 - Limite tes outputs (pas de dump complet de fichiers)
+- NE CREER AUCUN fichier rapport dans le depot (docs/, .claude/, etc.) — les rapports vont sur le dashboard ou en issues GitHub (#1179)
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire (evite les problemes de quoting PS)
