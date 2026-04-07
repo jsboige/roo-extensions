@@ -279,6 +279,7 @@ attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dash
 6. **Limiter les outputs** : `Select-Object -Last 50` ou `tail -50`
 7. **Maximum 3 issues par cycle** (anti-spam)
 8. Si 2 echecs consecutifs : arreter et rapporter dans dashboard workspace
+9. **PAS de fichiers rapport (#1179)** : Ne JAMAIS creer de fichiers dans docs/ ou ailleurs dans le depot. Les rapports vont sur le dashboard ou en issues GitHub, JAMAIS dans des fichiers git-trackes.
 
 ---
 
