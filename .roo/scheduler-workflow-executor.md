@@ -165,7 +165,12 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 Si une issue est trouvée :
 1. Lire le body complet : `gh issue view {NUM} --json title,body,labels,assignees`
 2. **Vérifier labels** : `roo-schedulable` → `code-simple`. Sinon → `code-complex`. `enhancement`/`feature` → TOUJOURS `code-complex`.
-3. Claimer avec assignee comme verrou atomique
+3. **Claimer (protocole atomique FIX #1005)** :
+   - Phase 1 : `gh issue edit {NUM} --add-assignee jsboige` (verrou atomique)
+   - Phase 2 : Attendre 5 secondes (anti-race condition)
+   - Phase 3 : Re-vérifier `gh issue view {NUM} --json assignees` — si assignee retiré → abandonner
+   - Phase 4 : Poster commentaire `[CLAIMED] {MACHINE}` pour traçabilité
+   - **Rollback** : Si assignee absent après Phase 2 → quelqu'un d'autre a claimé, passer à l'issue suivante
 4. Créer branche : `git checkout -b wt/{MACHINE}-issue-{NUM}`
 5. Exécuter selon difficulté
 6. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`

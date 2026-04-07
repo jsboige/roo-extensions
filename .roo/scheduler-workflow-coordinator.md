@@ -210,6 +210,7 @@ Si une issue est dispatchee a `myia-ai-01` ou `All` et non claimee : la lire, co
 1. **Selection intelligente** : Dashboard + `git log --since='7 days ago'` pour éviter domaines couverts
 2. **1 exploration lecture seule** parmi 10 domaines (cf executor Etape 2c-idle)
 3. **Rapport dashboard** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme
+4. **Pas de création d'issue directe** : le coordinateur Roo vérifie et escalade vers Claude
 
 **Domaines supplementaires coordinateur :**
 

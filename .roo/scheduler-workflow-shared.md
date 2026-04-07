@@ -160,8 +160,9 @@ attempt_completion(result: "Cycle {role} terminé. Bilan posté dans dashboard w
 
 1. Ne JAMAIS commit sans validation
 2. Ne JAMAIS push directement
-3. **RooSync** : Dashboard workspace (`roosync_dashboard(type: "workspace")`) pour communication. Fichiers INTERCOM locaux = DEPRECATED.
-4. Après 2 échecs sur même tâche : arrêter et rapporter
-5. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
-6. **JAMAIS `--coverage`** dans les tests (output trop volumineux)
-7. **Ignorer les [TASK] de plus de 24h** (coordinator/executor uniquement)
+3. **Ne JAMAIS faire `git checkout` dans le submodule `mcps/internal/`** — corrompt le pointer submodule
+4. **RooSync** : Dashboard workspace (`roosync_dashboard(type: "workspace")`) pour communication. Fichiers INTERCOM locaux = DEPRECATED.
+5. Après 2 échecs sur même tâche : arrêter et rapporter
+6. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
+7. **JAMAIS `--coverage`** dans les tests (output trop volumineux)
+8. **Ignorer les [TASK] de plus de 24h** (coordinator/executor uniquement)
