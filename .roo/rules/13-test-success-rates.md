@@ -85,4 +85,4 @@ mcps/internal/servers/roo-state-manager/src/**/__tests__/*.test.ts
 
 ---
 
-**Référence :** [`.claude/rules/test-success-rates.md`](../../.claude/rules/test-success-rates.md)
+**Référence :** [`docs/harness/reference/test-success-rates.md`](../../docs/harness/reference/test-success-rates.md)
