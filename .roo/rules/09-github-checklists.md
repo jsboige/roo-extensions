@@ -1,49 +1,32 @@
 # Checklists GitHub - Roo Code
 
-**Version:** 1.0.0
+**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/issue-closure.md)
 **MAJ:** 2026-04-08
 
 ## Regle
 
-**REGLE ABSOLUE : NE JAMAIS fermer une issue avec un tableau vide ou incomplet.**
-
-Les tableaux de validation dans les issues GitHub sont la **source de verite** pour l'etat des taches multi-machines.
+**NE JAMAIS fermer une issue avec un tableau vide ou incomplet.**
 
 ## Checklist OBLIGATOIRE
 
-### AVANT de commencer une tache issue GitHub
+### Pendant l'execution
 
-1. **Lire le tableau** dans le corps de l'issue
-2. **Identifier** les cases a cocher pour ta machine
-3. **Comprendre** les criteres de validation
+1. Cocher AU FUR ET A MESURE chaque case validee via `gh issue edit`
+2. Commenter l'avancement
+3. NE JAMAIS attendre la fin pour mettre a jour
 
-### PENDANT l'execution
+### Avant de fermer
 
-1. **Cocher AU FUR ET A MESURE** chaque case validee via `gh issue edit`
-2. **Commenter** l'issue pour documenter l'avancement
-3. **NE JAMAIS attendre la fin** pour tout mettre a jour
+1. Verifier 100% des cases sont cochees
+2. Si cases vides : NE PAS FERMER → relancer les machines concernees
 
-### AVANT de fermer une issue
+## Format
 
-1. **Verifier** que 100% des cases sont cochees
-2. **LIRE** le tableau pour confirmer qu'aucune case n'est vide (`⬜`)
-3. Si des cases sont vides : **NE PAS FERMER** → relancer les machines concernees
+Remplacer `⬜` par `✅` au fur et a mesure.
 
-## Format Tableau
+## Communication
 
-Remplacer `⬜` par `✅` AU FUR ET A MESURE :
+Terminer sa partie → informer Claude via dashboard : `Issue #XXX - Case {machine} cochee. Reste : {cases vides}.`
 
-```markdown
-| Machine | Build | Tests | Validation |
-|---------|-------|-------|------------|
-| myia-ai-01 | ⬜ | ⬜ | ⬜ |
-```
-
-## Communication avec Claude
-
-Si tu termines ta partie d'un tableau, informe Claude via INTERCOM :
-
-```markdown
-## [DATE] roo -> claude-code [DONE]
-Issue #XXX - Case {machine} {colonne} cochee. Reste : {liste cases vides}.
-```
+---
+**Historique versions completes :** Git history avant 2026-04-08

@@ -1,129 +1,45 @@
 # Roo Extensions - Guide pour Agents Roo Code
 
-**Version:** 1.0.0
+**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/)
 **MAJ:** 2026-04-08
-**Repository:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Systeme:** RooSync v2.3 Multi-Agent Coordination (6 machines)
 
----
+## Hierarchie
 
-## Vue d'ensemble
-
-Tu es un agent **Roo Code** assistant de **Claude Code** dans le systeme multi-agent RooSync.
-
-**Hierarchie :**
 - **Claude Code** (Opus 4.6) : Cerveau principal, technique ET coordination
-- **Roo Code** (toi) : Assistant polyvalent, execution supervisee (Qwen 3.5 local/-simple, GLM-5 cloud/-complex)
+- **Roo Code** (toi) : Assistant polyvalent (Qwen 3.5/-simple, GLM-5/-complex)
 
-**Outils MCP :** Roo a acces a tous les outils roo-state-manager, y compris RooSync. Voir `.roo/rules/03-mcp-usage.md`.
+**Machines :** `myia-ai-01`, `myia-po-2023/24/25/26`, `myia-web1`
 
-**Machines :** `myia-ai-01`, `myia-po-2023`, `myia-po-2024`, `myia-po-2025`, `myia-po-2026`, `myia-web1`
+## Structure depot
 
----
-
-## Structure du depot
-
-```
-roo-extensions/
-├── mcps/internal/              # SUBMODULE GIT - MCPs internes
-│   └── servers/
-│       └── roo-state-manager/  # MCP principal (RooSync)
-├── roo-config/                 # Configuration Roo Code
-│   ├── modes/                  # Modes customises (simple/complex)
-│   ├── rules-global/           # Templates regles globales (~/.roo/rules/)
-│   ├── scripts/                # Scripts deploiement + generation
-│   └── settings/               # Settings partages entre machines
-├── docs/                       # Documentation
-├── .roo/rules/                 # Regles Roo specifiques au workspace
-├── .claude/                    # Configuration Claude Code
-└── scripts/                    # Scripts utilitaires
-```
-
-### Submodule mcps/internal
-
-`mcps/internal/` est un **submodule Git** pointant vers un depot separe.
-- Code principal : `mcps/internal/servers/roo-state-manager/src/`
-- Build : `cd mcps/internal/servers/roo-state-manager && npm run build`
-- Tests : `npx vitest run` (JAMAIS `npm test` qui bloque en mode watch. En scheduler: TOUJOURS tronquer avec `2>&1 | Select-Object -Last 30` #827)
-
----
+- `mcps/internal/` — Submodule Git (MCPs internes). Build : `npm run build`. Tests : `npx vitest run`
+- `roo-config/` — Configuration Roo (modes, scripts, settings)
+- `.roo/rules/` — Regles Roo specifiques au workspace
+- `.claude/` — Configuration Claude Code
 
 ## Environnement partage
 
-**IMPORTANT :** Tu operes dans le meme workspace que Claude Code (agent IA qui tourne en parallele sur cette machine).
+Meme workspace que Claude Code. Etat git partage. Coordonner via dashboard si conflit de fichiers.
 
-Consequences :
-- L'etat git (working directory, index, HEAD) est **partage** entre toi et Claude Code
-- Ne duplique PAS les operations git (pull, checkout) si Claude Code les a deja faites
-- Verifie `git status` avant toute operation git pour connaitre l'etat reel
-- Si tu dois modifier un fichier que Claude Code pourrait aussi modifier, coordonne via INTERCOM
+**Modes pour `new_task` :** `code-simple/complex`, `debug-simple/complex`, `architect-simple/complex`, `ask-simple/complex`, `orchestrator-simple/complex`. JAMAIS les modes natifs.
 
-### Modes disponibles
+## Ton role
 
-Ce workspace utilise des modes **simple/complex**. Lors d'une delegation via `new_task`, utilise UNIQUEMENT :
-
-`code-simple`, `code-complex`, `debug-simple`, `debug-complex`, `architect-simple`, `architect-complex`, `ask-simple`, `ask-complex`, `orchestrator-simple`, `orchestrator-complex`
-
-Ne JAMAIS utiliser les modes natifs (code, debug, architect, ask, orchestrator) pour `new_task`.
-
----
-
-## Scepticisme Raisonnable
-
-**Ne jamais affirmer un fait sans preuve dans INTERCOM.** Si une affirmation te surprend (GPU, modele, service, blocage), la verifier avant de la rapporter. Voir `.roo/rules/21-skepticism-protocol.md`.
-
----
-
-## Ton role : assistant de Claude
-
-| Aspect | Claude Code | Roo Code (toi) |
-|--------|-------------|----------------|
-| Intelligence | Plus puissant (Opus 4.6) | Moins puissant (Qwen 3.5/-simple, GLM-5/-complex) |
-| Role | Cerveau principal | Assistant |
-| Code critique | Ecrit et verifie | Ecrit, verifie par Claude |
-| Decisions | Architecturales, critiques | Execution supervisee |
-
-### Ce que tu fais (sous supervision Claude)
-
-- Code simple/moyen, fixes, features simples
-- Tests, debug erreurs, build
-- Scripts, automatisation
-- Investigation bugs, collecte d'infos
-
-### Quand contacter Claude (INTERCOM)
-
-- Avant de creer une GitHub issue
-- Si decision architecturale requise
-- Si bloque > 30 min sur un probleme
-- Quand consolidation terminee (demander verification)
-
----
+- Code simple/moyen, fixes, tests, build, scripts, investigation
+- **Contacter Claude** : avant issue GitHub, decision architecturale, bloque >30 min, fin de consolidation
 
 ## Commits
 
-Format conventionnel :
 ```
 type(scope): description
-
 Co-Authored-By: Roo Code <noreply@roocode.com>
 ```
 
-Types : `feat`, `fix`, `refactor`, `test`, `docs`, `chore`
-
----
-
 ## Workflow
 
-1. **Debut** : `git pull`, lire INTERCOM, identifier tache
-2. **Pendant** : Commits frequents, tests reguliers, message INTERCOM si blocage
-3. **Fin** : Tests passent, validation checklist, commit, INTERCOM type `DONE`, push
+1. **Debut** : `git pull`, lire dashboard, identifier tache
+2. **Pendant** : Commits frequents, tests reguliers, dashboard si blocage
+3. **Fin** : Tests passent, validation checklist, commit, dashboard `[DONE]`, push
 
 ---
-
-## Ressources
-
-- **INTERCOM** : `.claude/local/INTERCOM-{MACHINE}.md` (voir `02-intercom.md`)
-- **Validation** : `.roo/rules/22-validation.md`
-- **Tests** : `.roo/rules/13-test-success-rates.md`
-- **SDDD** : regles globales `~/.roo/rules/01-sddd-escalade.md`
-- **GitHub Project** : https://github.com/users/jsboige/projects/67
+**Historique versions completes :** Git history avant 2026-04-08
