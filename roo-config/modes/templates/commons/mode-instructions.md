@@ -41,6 +41,19 @@ Cas concrets — le contenu DOIT figurer IN EXTENSO dans le resultat :
 
 Anti-patterns INTERDITS : "ci-dessus", "reproduit plus haut", "le contenu a ete affiche", "voici un resume de ce que j'ai ecrit", "j'ai redige le workflow suivant (voir ci-dessus)". NE JAMAIS resumer le contenu demande — renvoyer l'ORIGINAL tel quel dans attempt_completion.
 
+VALIDATION PARAMETRES MCP (CRITIQUE) : Quand tu appelles un outil MCP via use_mcp_tool, les parametres server_name et tool_name DOIVENT etre non vides. JAMAIS appeler use_mcp_tool avec server_name="" ou tool_name="". Si tu ne connais pas le nom exact du serveur ou de l'outil, NE PAS appeler — cherche l'info dans .roo/rules/03-mcp-usage.md d'abord.
+
+CIRCUIT BREAKER (CRITIQUE) : Si un meme appel d'outil echoue 2 fois consecutivement, ARRETE d'essayer. Appelle attempt_completion avec un rapport d'echec complet. Le scheduler escaladera vers -complex si necessaire. NE JAMAIS boucler sur un echec. Apres 2 echecs → attempt_completion avec [STATUS: FAILURE].
+
+FORMAT DE COMPLETION : Ton attempt_completion DOIT contenir AU MINIMUM :
+1. Un statut : SUCCESS, FAILURE, ou PARTIAL
+2. Ce qui a ete fait (actions, fichiers modifies, commandes executees)
+3. Le resultat demande (contenu, analyse, rapport) — IN EXTENSO, pas un resume
+4. Ce qui reste a faire (si FAILURE ou PARTIAL)
+5. Les erreurs rencontrees (si applicable)
+
+Exemple : "[SUCCESS] Tache terminee. Fichiers modifies : X, Y. Resultat : ..." ou "[FAILURE] 2 echecs sur etape Z. Erreur : .... Tentatives : ..."
+
 Escalade si :
 {{ESCALATION_CRITERIA}}
 
