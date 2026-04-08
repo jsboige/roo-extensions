@@ -1663,6 +1663,91 @@ function Invoke-GracefulShutdown {
 # Worktree → PR Workflow (#461 Phase 1)
 # ============================================================================
 
+function Test-SubmoduleCommitOnRemote {
+    <#
+    .SYNOPSIS
+    Returns $true if the given commit is reachable from origin/main in the submodule.
+
+    .DESCRIPTION
+    Guard #1156 v2: Detects phantom submodule pointers — commits that exist in the
+    local submodule clone but have never been pushed to the remote. This is the
+    root cause of phantom PRs: workers mutate the submodule (npm install, tests,
+    etc.), the parent repo sees the pointer move, but the commit is never reachable
+    from origin/main of the submodule.
+
+    Uses `git fetch` + `git merge-base --is-ancestor` for canonical containment check.
+    Previous implementation used `git log origin/main -1 <commit>` which did NOT
+    actually verify the commit was on origin/main — it only checked if git log could
+    display the commit locally, which returns 0 for any reachable commit.
+    #>
+    param(
+        [string]$SubmodulePath,
+        [string]$Commit
+    )
+
+    try {
+        # Fetch latest origin/main to avoid staleness (commits pushed after worker start)
+        git -C $SubmodulePath fetch origin main --quiet 2>&1 | Out-Null
+
+        # Canonical containment check: is $Commit an ancestor of origin/main?
+        git -C $SubmodulePath merge-base --is-ancestor $Commit origin/main 2>&1 | Out-Null
+        return ($LASTEXITCODE -eq 0)
+    }
+    catch {
+        Write-Log "Test-SubmoduleCommitOnRemote error: $_" "WARN"
+        return $false
+    }
+}
+
+function Reset-PhantomSubmodulePointers {
+    <#
+    .SYNOPSIS
+    Detects submodule pointer changes pointing to commits absent from origin/main
+    of the submodule, and reverts them to origin/main.
+
+    .DESCRIPTION
+    Guard #1156 v2: Called BEFORE Test-WorktreeHasChanges auto-commits. Ensures
+    that side-effect submodule pointer moves (from npm install, builds, tests)
+    never leak into auto-commits when the commit hasn't been pushed upstream.
+
+    This is the ROOT fix: prevent phantom pointers from entering git history
+    at all, rather than trying to block them at PR creation time.
+
+    .OUTPUTS
+    Array of submodule paths that were reset (for logging).
+    #>
+    param([string]$WorktreePath)
+
+    $ResetPaths = @()
+    try {
+        # List all submodule entries that are modified in the working tree.
+        # Submodule changes show as 'M' in git status with the submodule path.
+        $SubmoduleChanges = @((git -C $WorktreePath status --porcelain 2>&1) | Where-Object {
+            $_ -is [string] -and $_ -match '^\s*M\s+(mcps/|roo-code)'
+        })
+
+        foreach ($line in $SubmoduleChanges) {
+            if ($line -match '^\s*M\s+(\S+)') {
+                $SubmodulePath = $Matches[1]
+                # Get the new (working tree) HEAD of the submodule
+                $NewHead = (git -C "$WorktreePath/$SubmodulePath" rev-parse HEAD 2>&1).Trim()
+                if ($NewHead -and $NewHead -match '^[a-f0-9]{7,40}$') {
+                    if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath "$WorktreePath/$SubmodulePath" -Commit $NewHead)) {
+                        Write-Log "PHANTOM POINTER DETECTED (#1156 v2): Submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) not on origin/main. Reverting." "WARN"
+                        # Reset submodule to origin/main (discard local commit that was never pushed)
+                        git -C "$WorktreePath/$SubmodulePath" reset --hard origin/main 2>&1 | Out-Null
+                        $ResetPaths += $SubmodulePath
+                    }
+                }
+            }
+        }
+    }
+    catch {
+        Write-Log "Reset-PhantomSubmodulePointers error: $_" "WARN"
+    }
+    return $ResetPaths
+}
+
 function Test-WorktreeHasChanges {
     <#
     .SYNOPSIS
@@ -1675,6 +1760,15 @@ function Test-WorktreeHasChanges {
         Push-Location $WorktreePath
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
+
+        # Guard #1156 v2 (ROOT FIX): Reset phantom submodule pointers BEFORE auto-commit.
+        # This prevents side-effect submodule mutations (npm install, tests, lint) from
+        # being captured in auto-commits when the submodule commit was never pushed.
+        # Addresses the root cause — phantom pointers should never enter git history.
+        $ResetPaths = Reset-PhantomSubmodulePointers -WorktreePath $WorktreePath
+        if ($ResetPaths.Count -gt 0) {
+            Write-Log "Reverted $($ResetPaths.Count) phantom submodule pointer(s) before auto-commit: $($ResetPaths -join ', ')" "INFO"
+        }
 
         # Auto-commit any uncommitted changes left by Claude
         # Guard #1156: Filter out non-essential files (logs, temp, local) before auto-commit
@@ -1792,16 +1886,16 @@ function New-WorkerPR {
         # Guard #1156: Verify the diff contains real code changes, not just auto-commits or submodule pointer moves
         $DiffFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object { $_ -is [string] })
 
-        # Check 1: If the ONLY change is a submodule pointer, skip PR (orphan pointer pattern)
-        $SubmoduleOnly = ($DiffFiles.Count -eq 1 -and $DiffFiles[0] -match '^mcps/')
-        if ($SubmoduleOnly) {
-            # Verify the submodule commit exists on origin/main
-            $SubmodulePath = $DiffFiles[0]
+        # Guard #1156 v2 — Check 1: Block PR if ANY submodule pointer in the diff is phantom.
+        # Previous version only checked when submodule was the ONLY change, allowing
+        # phantom pointers to slip through when combined with other files.
+        $SubmoduleFiles = @($DiffFiles | Where-Object { $_ -match '^(mcps/|roo-code$)' })
+        foreach ($SubmodulePath in $SubmoduleFiles) {
             $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) | Select-String '\+Subproject commit ([a-f0-9]+)' | ForEach-Object { $_.Matches.Groups[1].Value }
             if ($NewPointer) {
-                git -C $SubmodulePath log origin/main --oneline -1 $NewPointer 2>&1 | Out-Null
-                if ($LASTEXITCODE -ne 0) {
-                    Write-Log "PHANTOM PR BLOCKED (#1156): Submodule pointer $($NewPointer.Substring(0,8)) does not exist on origin/main. Skipping PR creation." "WARN"
+                # Use canonical containment check (merge-base --is-ancestor) + fetch
+                if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath $SubmodulePath -Commit $NewPointer)) {
+                    Write-Log "PHANTOM PR BLOCKED (#1156 v2): Submodule '$SubmodulePath' pointer $($NewPointer.Substring(0,8)) not reachable from origin/main. Skipping PR creation." "WARN"
                     return $null
                 }
             }
