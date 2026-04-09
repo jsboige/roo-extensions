@@ -1,0 +1,16 @@
+{
+  "identities": {
+    "test-machine-1": {
+      "machineId": "test-machine-1",
+      "source": "config",
+      "firstSeen": "2026-04-09T06:36:01.306Z",
+      "lastSeen": "2026-04-09T06:36:01.306Z",
+      "status": "valid",
+      "metadata": {
+        "configPath": "environment"
+      }
+    }
+  },
+  "lastUpdated": "2026-04-09T06:36:01.319Z",
+  "version": "1.0.0"
+}

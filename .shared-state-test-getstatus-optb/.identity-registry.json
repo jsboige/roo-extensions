@@ -1,0 +1,16 @@
+{
+  "identities": {
+    "smoke-test-machine": {
+      "machineId": "smoke-test-machine",
+      "source": "config",
+      "firstSeen": "2026-04-09T06:40:48.324Z",
+      "lastSeen": "2026-04-09T06:40:48.324Z",
+      "status": "valid",
+      "metadata": {
+        "configPath": "environment"
+      }
+    }
+  },
+  "lastUpdated": "2026-04-09T06:40:48.355Z",
+  "version": "1.0.0"
+}
