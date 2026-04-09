@@ -32,7 +32,7 @@
     },
     "debug": {
       "emoji": "🪲",
-      "groups": ["read", "edit", "browser", "command", "mcp"],
+      "groups": ["read", "edit", "browser", "mcp"],
       "simple": {
         "groups": ["read", "edit", "browser", "mcp"],
         "useWinCli": true,
