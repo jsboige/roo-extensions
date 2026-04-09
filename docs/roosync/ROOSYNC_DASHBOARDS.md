@@ -103,7 +103,7 @@ roosync_dashboard({
 })
 ```
 
-**Auto-condensation:** When messages exceed 500, the oldest 400 are archived automatically.
+**Auto-condensation:** When the dashboard file exceeds 50KB, old messages are archived automatically (keeping the 10 most recent). LLM-based intelligent summary is generated before archiving (#858).
 
 ### Action: `condense`
 
@@ -337,11 +337,12 @@ roosync_dashboard({
 
 When `intercom.messages.length > 500`:
 
-1. The oldest 400 messages are moved to `archive/{key}-{datetime}.json`
+1. When the dashboard exceeds 50KB, the oldest messages are moved to `archive/{key}-{datetime}.md`
 2. **LLM-based intelligent summary** is generated from the archived messages (#858)
-3. A summary message is prepended (if LLM succeeds)
-4. A system notice is prepended to the kept messages
-5. The 100 most recent messages are kept
+3. **LLM status update** rewrites the dashboard status integrating archived message info
+4. A summary message (`CONDENSATION-SUMMARY`) is prepended (if LLM succeeds)
+5. A system notice (`CONDENSATION`) is prepended with timing and size info
+6. The 10 most recent messages are kept
 
 ### LLM Summary Feature (#858)
 
@@ -378,7 +379,7 @@ OPENAI_CHAT_MODEL_ID=qwen3.5-35b-a3b
 ---
 ```
 
-**Fallback behavior:** If the LLM is unavailable or times out (30s limit), the condensation falls back to the standard truncation method with a warning indicator.
+**Fallback behavior:** If the LLM is unavailable or returns empty, the condensation is **cancelled entirely** (#864). All messages are preserved unchanged. No data is lost.
 
 **Result example:**
 ```
