@@ -109,7 +109,6 @@ Documentation importante à la racine de docs/ (hors sous-dossiers).
 
 ### RooSync Architecture
 - [roosync-real-diff-detection-design.md](architecture/roosync-real-diff-detection-design.md) - Detection de differences
-- [roosync-v1-vs-v2-gap-analysis.md](archive/obsolete/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2 (archivé)
 
 ### Analyses Recentes
 - [ROO_TASK_FORENSICS_2026-02-08.md](architecture/ROO_TASK_FORENSICS_2026-02-08.md) - Forensics taches
@@ -332,27 +331,6 @@ Documentation sur les harnais d'agents (règles, workflows, mappings).
 ### Harness Reports (4 fichiers)
 
 - [archive/harness-reports/](archive/harness-reports/) - Rapports d'analyse croisee des harnais (2026-03-13 a 15)
-
-### Git History (52 fichiers organisés en 4 sous-repertoires)
-
-- [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-10.md) - Synthese Q4 2025 (15 stashs, merges)
-- [archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md](archive/git-history/GIT-OPERATIONS-SYNTHESIS-2025-Q4-Q1.md) - Synthese complete Q4 2025 + Q1 2026 (2094 commits, 40+ conflits)
-- [archive/git-history/detailed-reports/](archive/git-history/detailed-reports/) - Rapports detailles (reconciliation, merge, stash investigation, 13 fichiers)
-- [archive/git-history/phase2-analysis/](archive/git-history/phase2-analysis/) - Analyse phase 2 (checksums, patches, sync diffs, 7 fichiers)
-- [archive/git-history/phase2-migration-check/](archive/git-history/phase2-migration-check/) - Verification migration phase 2 (6 fichiers)
-- [archive/git-history/stash-backups/](archive/git-history/stash-backups/) - Backups stashs (14 fichiers .patch)
-- [archive/git-history/stash-details/](archive/git-history/stash-details/) - Details stashs (analyses, patches, 6 fichiers)
-- [archive/git-history/stash-diffs/](archive/git-history/stash-diffs/) - Diffs stashs (2 fichiers)
-
-### Obsolete (7 fichiers)
-
-- [archive/obsolete/roosync-v1-vs-v2-gap-analysis.md](archive/obsolete/roosync-v1-vs-v2-gap-analysis.md) - Gap analysis v1 vs v2
-- [archive/obsolete/DEPLOY-ALWAYSALLOW.md](archive/obsolete/DEPLOY-ALWAYSALLOW.md) - Deploiement alwaysAllow (superseded)
-- [archive/obsolete/ENVIRONMENT-SETUP-SYNTHESIS.md](archive/obsolete/ENVIRONMENT-SETUP-SYNTHESIS.md) - Synthese setup environnement
-- [archive/obsolete/003-backward-compatibility-strategy.md](archive/obsolete/003-backward-compatibility-strategy.md) - Strategie compatibilite ascendante
-- [archive/obsolete/roo-state-manager-indexing-checkpoints.md](archive/obsolete/roo-state-manager-indexing-checkpoints.md) - Checkpoints indexation
-- [archive/obsolete/roosync-temporal-messages-architecture.md](archive/obsolete/roosync-temporal-messages-architecture.md) - Architecture messages temporels
-- [archive/obsolete/README.md](archive/obsolete/README.md) - Index fichiers obsoletes
 
 ### Reports (10 fichiers actifs)
 
