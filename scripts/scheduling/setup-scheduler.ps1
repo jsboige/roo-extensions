@@ -192,6 +192,7 @@ function Install-Task {
         'worker' {
             $workerArgs = @(
                 "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
                 "-Mode", $Mode,
                 "-Model", $Model,
@@ -202,6 +203,7 @@ function Install-Task {
         'coordinator' {
             $workerArgs = @(
                 "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
                 "-Model", $Model
             )
@@ -209,6 +211,7 @@ function Install-Task {
         'meta-audit' {
             $workerArgs = @(
                 "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
                 "-Model", $Model
             )
