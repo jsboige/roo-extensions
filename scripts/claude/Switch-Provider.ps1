@@ -172,7 +172,13 @@ try {
     $userSettings = $cleanSettings
 
     # Save updated settings
-    $userSettings | ConvertTo-Json -Depth 10 | Set-Content $userSettingsPath -Encoding UTF8
+    # NB: On Windows PowerShell 5.1, `Set-Content -Encoding UTF8` writes UTF-8 WITH BOM,
+    # which corrupts Claude Code's settings.json parser and sticks to the file
+    # (VSCode then preserves the detected BOM on every subsequent save).
+    # Use [System.IO.File]::WriteAllText with UTF8Encoding($false) for BOM-less output
+    # cross-compatible with PS 5.1 and PS 7+.
+    $json = $userSettings | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($userSettingsPath, $json, [System.Text.UTF8Encoding]::new($false))
 
     # ========== FIX #844: VERIFICATION STEP ==========
     Write-Host "`n🔍 Verifying configuration was applied..." -ForegroundColor Yellow
