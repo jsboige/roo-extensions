@@ -1,0 +1,16 @@
+{
+  "identities": {
+    "smoke-test-machine": {
+      "machineId": "smoke-test-machine",
+      "source": "presence",
+      "firstSeen": "2026-04-09T13:17:48.833Z",
+      "lastSeen": "2026-04-09T13:17:48.819Z",
+      "status": "conflict",
+      "metadata": {
+        "presencePath": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260409-112229\\.shared-state-test-getstatus-optb\\presence\\smoke-test-machine.json"
+      }
+    }
+  },
+  "lastUpdated": "2026-04-09T13:17:48.839Z",
+  "version": "1.0.0"
+}

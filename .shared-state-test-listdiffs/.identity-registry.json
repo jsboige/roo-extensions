@@ -1,0 +1,16 @@
+{
+  "identities": {
+    "test-machine-1": {
+      "machineId": "test-machine-1",
+      "source": "presence",
+      "firstSeen": "2026-04-09T13:10:54.277Z",
+      "lastSeen": "2026-04-09T13:10:54.268Z",
+      "status": "conflict",
+      "metadata": {
+        "presencePath": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260409-112229\\.shared-state-test-listdiffs\\presence\\test-machine-1.json"
+      }
+    }
+  },
+  "lastUpdated": "2026-04-09T13:10:54.280Z",
+  "version": "1.0.0"
+}
