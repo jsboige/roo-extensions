@@ -38,13 +38,12 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
    - Error patterns
    - Model escalation frequency
 
-3. **Both harnesses** (cross-analysis):
-   - Roo analyzes `.claude/rules/`, `CLAUDE.md`, `.claude/commands/`, `.claude/skills/`
-   - Claude analyzes `.roo/rules/`, `.roomodes`, `scheduler-workflow-*.md`, `modes-config.json`
-   - Each is more free to critique the OTHER harness
-   - **Check equivalences between harnesses before reporting "missing" rules.**
-     Many rules exist in BOTH harnesses under different names. Do NOT create issues
-     for "missing" rules without verifying the other harness's full content.
+3. **Task outcomes & quality** (primary focus):
+   - Review recent PRs: scope coherence, review quality, linked issue closure
+   - Detect stale work: issues assigned >7d without activity, orphan worktrees, unclaimed dispatches
+   - Assess dispatch follow-through: claimed vs delivered, turnaround time, scope drift
+   - Identify quality problems: premature closures, incomplete work, duplicated effort
+   - **Focus on REAL problems observed in data, NOT theoretical harness differences.**
 
 4. **Operational metrics**:
    - Issues created vs closed
@@ -404,7 +403,7 @@ conversation_browser(action: "view", task_id: "{ID}", detail_level: "skeleton", 
 
 - **`execute_command` blocked**: -simple mode attempts native terminal instead of win-cli MCP
 - **Tools unavailable**: -simple mode lacks `command` group
-- **Failed escalation**: -simple should escalate to -complex after 2 failures but doesn't
+- **Failed escalation**: -simple should escalate to -complex after 1 failure but doesn't (standardized #1233)
 - **Context saturation**: -simple has smaller context and saturates faster
 
 ### Report Format
