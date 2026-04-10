@@ -111,87 +111,65 @@ Rapporter :
 IMPORTANT : utilise win-cli MCP pour les commandes PowerShell (pas le terminal natif).
 ```
 
-### Etape 2 : Analyse croisee des harnais
+### Etape 2 : Analyse qualite des taches et resultats
 
 Deleguer a `code-complex` via `new_task` :
 
 ```
-Tu es le meta-analyste. Analyse les DEUX harnais (Roo et Claude) pour identifier incoherences et ameliorations.
+Tu es le meta-analyste. Analyse la QUALITE DU TRAVAIL REEL effectue par les agents (Roo et Claude) sur les 7 derniers jours.
 
-ETAPE PREALABLE - INVENTAIRE DYNAMIQUE (OBLIGATOIRE) :
-AVANT de lire les fichiers, fais un inventaire complet :
-execute_command(shell="powershell", command="Get-ChildItem '.roo/rules/' -Filter '*.md' | Select-Object Name")
-execute_command(shell="powershell", command="Get-ChildItem '.claude/rules/' -Filter '*.md' | Select-Object Name")
-Lis TOUS les fichiers retournes, pas seulement ceux listes ci-dessous.
-La liste ci-dessous est indicative — le repertoire fait foi.
+FOCUS : le contenu des taches, pas la structure des harnais.
 
-HARNAIS ROO (lis TOUS les fichiers de .roo/rules/ avec read_file) :
-- .roo/rules/01-general.md
-- .roo/rules/02-intercom.md
-- .roo/rules/03-mcp-usage.md
-- .roo/rules/04-sddd-grounding.md
-- .roo/rules/05-tool-availability.md
-- .roo/rules/07-orchestrator-delegation.md
-- .roo/rules/08-file-writing.md
-- .roo/rules/09-github-checklists.md
-- .roo/rules/10-ci-guardrails.md
-- .roo/rules/11-incident-history.md
-- .roo/rules/12-machine-constraints.md
-- .roo/rules/13-test-success-rates.md
-- .roo/rules/14-tdd-recommended.md
-- .roo/rules/15-coordinator-responsibilities.md
-- .roo/rules/16-no-tools-warnings.md
-- .roo/rules/17-friction-protocol.md
-- .roo/rules/18-meta-analysis.md
-- .roo/rules/19-github-cli.md
-- .roo/rules/20-pr-mandatory.md
-- .roo/rules/21-skepticism-protocol.md
-- .roo/rules/22-validation.md
-- .roo/rules/23-no-deletion-without-proof.md
-- .roo/scheduler-workflow-shared.md
-- .roo/scheduler-workflow-coordinator.md
-- .roo/scheduler-workflow-executor.md
-- .roomodes (structure des modes)
+ETAPE 1 — REVUE DES PRs RECENTES (OBLIGATOIRE) :
+execute_command(shell="powershell", command="gh pr list --state all --limit 20 --json number,title,state,mergedAt,author,labels --repo jsboige/roo-extensions 2>&1 | Select-Object -First 60")
+Pour chaque PR merged recemment :
+- Le titre reflete-t-il le travail reel ?
+- Les issues liees sont-elles fermees ?
+- Le scope est-il coherent (pas de drift) ?
+Signaler toute PR merged sans review ou avec scope excessif.
 
-HARNAIS CLAUDE — rules/ auto-chargees (lis TOUS avec read_file) :
-- CLAUDE.md (racine)
-- .claude/rules/*.md (tous les fichiers du repertoire)
+ETAPE 2 — TRAVAIL STALE / ABANDONNE :
+execute_command(shell="powershell", command="gh issue list --state open --label 'in-progress' --json number,title,assignees,updatedAt --repo jsboige/roo-extensions 2>&1 | Select-Object -First 40")
+execute_command(shell="powershell", command="git worktree list 2>&1 | Select-Object -First 20")
+Identifier :
+- Issues assignees sans activite >7 jours
+- Worktrees orphelins (sans PR, sans commit recent)
+- Issues [CLAIMED] sans [RESULT]
 
-HARNAIS CLAUDE — docs/ on-demand (lis si pertinent) :
-- docs/harness/reference/*.md
-- docs/harness/coordinator-specific/*.md
-- docs/harness/machine-specific/*.md
+ETAPE 3 — QUALITE D'EXECUTION DES DISPATCHES :
+Lire le dashboard workspace pour les messages [DISPATCH], [CLAIMED], [RESULT], [DONE] recents.
+Pour chaque dispatch :
+- A-t-il ete pris en charge ? (delai entre dispatch et claim)
+- Le resultat correspond-il a la demande ? (scope, qualite)
+- Y a-t-il des dispatches ignores ou bloques ?
 
-GARDE ANTI-FAUX-POSITIFS (CRITIQUE) :
-AVANT de conclure qu'une regle est ABSENTE d'un harnais :
-0. Verifier si la regle existe des DEUX cotes sous des noms differents.
-1. LIRE le CONTENU de TOUS les fichiers de l'autre harnais
-2. Verifier si le sujet n'est pas couvert sous un NOM DIFFERENT
-   Mappings officiels :
-   - Roo "02-intercom.md" = Claude "intercom-protocol.md"
-   - Roo "03-mcp-usage.md" = Claude "mcp-discoverability.md"
-   - Roo "04-sddd-grounding.md" = Claude "sddd-conversational-grounding.md"
-   - Roo "09-github-checklists.md" = Claude "github-checklists.md"
-   - Roo "10-ci-guardrails.md" = Claude "ci-guardrails.md"
-   - Roo "15-coordinator-responsibilities.md" = Claude "scheduled-coordinator.md"
-   - Roo "17-friction-protocol.md" = Claude "friction-protocol.md"
-   - Roo "18-meta-analysis.md" = Claude "meta-analysis.md"
-3. NE JAMAIS creer d'issue pour une lacune sans avoir lu le contenu
-   du fichier potentiellement equivalent
-4. Si un sujet est couvert mais avec un nom different, c'est une
-   INCOHERENCE DE NOMMAGE (INFO), PAS une lacune
+ETAPE 4 — METRIQUES OPERATIONNELLES :
+execute_command(shell="powershell", command="gh issue list --state open --json number,title,labels,updatedAt --limit 50 --repo jsboige/roo-extensions 2>&1 | Select-Object -First 80")
+execute_command(shell="powershell", command="gh issue list --state closed --limit 20 --json number,title,closedAt,labels --repo jsboige/roo-extensions 2>&1 | Select-Object -First 40")
+Calculer :
+- Ratio issues ouvertes vs fermees (7 derniers jours)
+- Issues >30 jours sans activite (candidates au nettoyage)
+- Labels les plus frequents (identifier les themes dominants)
 
-ANALYSE :
-1. Identifier les INCOHERENCES entre les deux harnais (regles contradictoires, references cassees)
-2. Identifier les LACUNES REELLES (regles presentes dans un harnais mais pas l'autre, APRES verification du contenu)
-3. Identifier les AMELIORATIONS potentielles (patterns qui marchent d'un cote mais pas de l'autre)
-4. Verifier que les guard rails sont coherents (memes contraintes des deux cotes)
+ETAPE 5 — PROBLEMES DE QUALITE A SIGNALER :
+Ne rapporter QUE des problemes REELS observes dans les donnees :
+- PRs merges avec regressions ou travail incomplet
+- Issues fermees prematurement (sans preuve de completion)
+- Dispatches systematiquement ignores par certaines machines
+- Patterns d'echec recurrents (memes erreurs, memes modes)
+- Travail duplique (2 agents sur la meme tache)
+
+NE PAS rapporter :
+- Differences de nommage entre fichiers de regles
+- Suggestions d'harmonisation de harnais
+- Problemes theoriques sans donnees concretes
 
 Rapporter :
-- Tableau des incoherences trouvees (severity: CRITICAL/WARNING/INFO)
-- Tableau des lacunes VERIFIEES (avec preuve que le sujet n'est couvert nulle part)
-- 3-5 recommandations priorisees
-IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+- Tableau des PRs recentes (etat, qualite, issues liees)
+- Liste des travaux stale/abandonnes avec recommandation (relancer, fermer, reassigner)
+- Metriques issues (ratio, age moyen, tendance)
+- 3-5 problemes de qualite CONCRETS avec preuves
+IMPORTANT : utilise win-cli MCP pour les commandes PowerShell (pas le terminal natif).
 ```
 
 ### Etape 3 : Poster un RESUME COMPACT sur le Dashboard
