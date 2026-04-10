@@ -4,18 +4,19 @@
 
 Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à atteindre l'état IDLE (plus rien à faire), tout en trouvant le **sweet spot** d'escalade.
 
-## Sweet Spot d'Escalade
+## Seuil d'Escalade (STANDARDISE #1233)
 
-**Définition :** Escalader vers `-complex` **AVANT** l'échec, pas après.
+**Règle :** 1 échec en `-simple` → escalade **IMMEDIATE** vers `-complex`. Pas de retry en -simple.
+
+**Justification :** Le coût d'une boucle en -simple (temps perdu, contexte saturé) est supérieur au coût d'un -complex prématuré.
 
 | Situation | Action |
 |-----------|--------|
 | Tâche simple réussie | Continuer en `-simple` |
-| Tâche simple échoue 1x | Réessayer avec instructions corrigées |
-| Tâche simple échoue 2x | Escalader vers `-complex` |
+| Tâche simple échoue 1x | **Escalader IMMEDIATEMENT vers `-complex`** |
 | Tâche moyenne (3+ fichiers) | Démarrer directement en `-complex` si taux succès > 80% |
 
-**Anti-pattern :** Laisser une tâche échouer 3-4 fois en `-simple` avant d'escalader.
+**Anti-pattern :** Laisser une tâche échouer 2-4 fois en `-simple` avant d'escalader.
 
 ## Rapport de Fin de Cycle (dans INTERCOM)
 
@@ -58,7 +59,7 @@ Remplir les itérations planifiées du scheduler Roo avec du travail jusqu'à at
 
 ### Exemples concrets
 
-❌ **MAUVAIS** : "100% succès -simple → conseiller d'escalader après 1 échec au lieu de 2"
+❌ **MAUVAIS** : "100% succès -simple → modifier le seuil d'escalade"
 ✅ **BON** : "100% succès -simple → confier des investigations de bugs, du refactoring, des features"
 
 ## Workflow d'Ajustement
@@ -106,8 +107,7 @@ Pour tester l'escalade, utiliser des tâches INTERCOM avec le tag `[COMPLEX]` :
 | Situation | Action |
 |-----------|--------|
 | `[TASK]` avec tag `[COMPLEX]` | Escalade vers orchestrator-complex (démarrage direct) |
-| Échec 1x en -simple | Réessayer avec instructions corrigées |
-| Échec 2x en -simple | Escalade vers -complex |
+| Échec 1x en -simple | **Escalade IMMEDIATE vers -complex** |
 | 3+ actions ou dépendances | Escalade vers orchestrator-complex |
 
 ### Métriques de Validation
