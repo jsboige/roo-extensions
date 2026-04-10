@@ -15,7 +15,7 @@
 
 1. **Traces Roo (auto-analyse)** : Taux succes/echec par mode, escalades, usages outils. Outils MCP OBLIGATOIRES (`conversation_browser`, `roosync_search`).
 2. **Traces Claude (croisee)** : Commits, worktrees, logs worker. **LIMITATION #874** : sessions Claude non indexees dans Qdrant.
-3. **Harnais Claude** : `.claude/rules/`, `CLAUDE.md`, commands, skills, agents.
+3. **Qualite des taches** : PRs recentes (scope, completion), dispatches (suivi, resultats), travail stale/abandonne.
 4. **Metriques operationnelles** : Issues creees/fermees, taux utilisation, violations.
 5. **Frictions semantiques (#637)** : `roosync_search(has_errors: true)` pour patterns recurrents.
 
@@ -60,7 +60,7 @@ Canaux de sortie : 1. Dashboard workspace 2. Issues GitHub 3. GDrive `.shared-st
 
 ## Workflow scheduler
 
-`ask-complex` lit workflow → `code-complex` analyse traces → `ask-complex` analyse harnais Claude → `code-simple` ecrit dashboard → `ask-simple` lit reponse Claude → `code-simple` reconciliation → `code-simple` cree issues.
+`ask-complex` lit workflow → `code-complex` analyse traces → `code-complex` analyse qualite taches/PRs/dispatches → `code-simple` ecrit dashboard → `ask-simple` lit reponse Claude → `code-simple` reconciliation → `code-simple` cree issues.
 
 **Ref complete :** `.roo/scheduler-workflow-meta-analyst.md` | `docs/harness/reference/meta-analysis.md` (Claude)
 
