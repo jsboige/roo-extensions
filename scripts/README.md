@@ -65,28 +65,9 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 - `/worktrees` : Scripts de gestion des worktrees
 - `/benchmarks` : Scripts de benchmark
 - `/claude-md` : Scripts spécifiques Claude MD
-- `/demo-scripts` : Démos et exemples (à archiver)
-- `/transients` : Scripts temporaires (à archiver)
+- `/demo-scripts` : Démos et exemples
+- `/transients` : Scripts temporaires
 
 ---
 
-## Scripts Archivés (_archive/)
-
-Le répertoire `/_archive` contient les scripts obsolètes ou à usage unique, **ne pas utiliser**.
-
-**Sous-répertoires d'archive:**
-
-- `consolidate-docs/` : Scripts consolidation docs (terminé, 4 scripts)
-- `consolidation-phase/` : Scripts de phases #481 (4 scripts)
-- `demo-scripts/` : Scripts de démo obsolètes (3 scripts)
-- `ffmpeg/` : Scripts FFmpeg (obsolète, 6 scripts)
-- `github-projects-mcp/` : Scripts tests MCP GitHub Projects (déprécié, 3 scripts)
-- `transients/` : Scripts temporaires (1 script)
-
-**Date de consolidation :** 2026-02-17 (Issue #481)
-
-⚠️ **Ces scripts ne doivent pas être utilisés.**
-
----
-
-Pour plus de détails sur l'architecture, voir [`docs/repository-map.md`](../docs/repository-map.md) ou [`CONSOLIDATION_PLAN.md`](CONSOLIDATION_PLAN.md).
+Pour plus de détails sur l'architecture, voir [`docs/architecture/repository-map.md`](../docs/architecture/repository-map.md).
