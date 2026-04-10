@@ -403,7 +403,7 @@ conversation_browser(action: "view", task_id: "{ID}", detail_level: "skeleton", 
 
 - **`execute_command` blocked**: -simple mode attempts native terminal instead of win-cli MCP
 - **Tools unavailable**: -simple mode lacks `command` group
-- **Failed escalation**: -simple should escalate to -complex after 2 failures but doesn't
+- **Failed escalation**: -simple should escalate to -complex after 1 failure but doesn't (standardized #1233)
 - **Context saturation**: -simple has smaller context and saturates faster
 
 ### Report Format
