@@ -2,15 +2,25 @@
   "identities": {
     "test-machine-1": {
       "machineId": "test-machine-1",
-      "source": "config",
-      "firstSeen": "2026-04-09T19:25:35.088Z",
-      "lastSeen": "2026-04-09T19:25:35.088Z",
+      "source": "presence",
+      "firstSeen": "2026-04-10T21:32:02.276Z",
+      "lastSeen": "2026-04-10T21:32:02.263Z",
+      "status": "conflict",
+      "metadata": {
+        "presencePath": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260410-232238\\.shared-state-test-listdiffs\\presence\\test-machine-1.json"
+      }
+    },
+    "default-machine": {
+      "machineId": "default-machine",
+      "source": "baseline",
+      "firstSeen": "2026-04-10T21:32:02.223Z",
+      "lastSeen": "2026-04-10T21:32:02.276Z",
       "status": "valid",
       "metadata": {
-        "configPath": "environment"
+        "baselinePath": "D:\\dev\\roo-extensions\\.claude\\worktrees\\wt-worker-myia-po-2025-20260410-232238\\.shared-state-test-listdiffs\\sync-config.ref.json"
       }
     }
   },
-  "lastUpdated": "2026-04-09T19:25:35.104Z",
+  "lastUpdated": "2026-04-10T21:32:02.278Z",
   "version": "1.0.0"
 }

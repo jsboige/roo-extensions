@@ -1,0 +1,12 @@
+{
+  "overallStatus": "diverged",
+  "lastUpdate": "2026-03-11T11:00:00Z",
+  "machines": {
+    "test-machine-1": {
+      "status": "diverged",
+      "lastSync": "2026-03-11T11:00:00Z",
+      "pendingDecisions": 2,
+      "diffsCount": 5
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "version": "2.1.0",
+  "baselineId": "baseline-2026-04-10T21-32-02-223Z",
+  "timestamp": "2026-04-10T21:32:02.223Z",
+  "lastUpdated": "2026-04-10T21:32:02.223Z",
+  "machineId": "default-machine",
+  "autoSync": false,
+  "conflictStrategy": "manual",
+  "logLevel": "info",
+  "sharedStatePath": "G:\\Mon Drive\\Synchronisation\\RooSync\\.shared-state",
+  "machines": [
+    {
+      "id": "default-machine",
+      "name": "default-machine",
+      "hostname": "default-machine",
+      "os": "Unknown",
+      "architecture": "Unknown",
+      "lastSeen": "2026-04-10T21:32:02.223Z",
+      "roo": {
+        "modes": [],
+        "mcpServers": [],
+        "sdddSpecs": []
+      },
+      "hardware": {
+        "cpu": {
+          "cores": 0,
+          "threads": 0
+        },
+        "memory": {
+          "total": 0
+        }
+      },
+      "software": {
+        "node": "Unknown",
+        "python": "Unknown"
+      }
+    }
+  ],
+  "syncTargets": [],
+  "syncPaths": [],
+  "decisions": [],
+  "messages": []
+}
