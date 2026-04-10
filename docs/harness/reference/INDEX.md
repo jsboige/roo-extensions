@@ -26,7 +26,7 @@
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
 | **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils | `reference/scheduler-system.md` |
-| **Scheduler densification** | Sweet spot : 2 echecs en -simple → escalader | `reference/scheduler-densification.md` |
+| **Scheduler densification** | Seuil : 1 echec en -simple → escalade IMMEDIATE vers -complex | `reference/scheduler-densification.md` |
 | **Coordinator protocol** | Cycle 6-12h sur ai-01 | `coordinator-specific/scheduled-coordinator.md` |
 | **Meta-analysis** | Cycle 72h. Triple grounding. Lecture seule | `reference/meta-analysis.md` |
 | **PR review policy** | Agents → PR → Review coordinateur → Merge | `coordinator-specific/pr-review-policy.md` |
