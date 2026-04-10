@@ -35,12 +35,11 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 | **COMPLEXE** (5+ actions, dependances) | Escalader vers `orchestrator-complex` via `new_task` avec le contexte complet |
 | **URGENT** | Escalader vers `orchestrator-complex` immediatement |
 
-**Gestion des echecs :**
+**Gestion des echecs (seuil standardise #1233) :**
 
 1. Si une sous-tache echoue : analyser le resume d'erreur retourne
-2. Si erreur simple (fichier introuvable, syntaxe) : relancer avec instructions corrigees
-3. Si erreur complexe (logique, architecture) : escalader vers le mode -complex correspondant
-4. Apres 2 echecs sur la meme sous-tache : arreter et rapporter dans le bilan
+2. **Escalader IMMEDIATEMENT vers le mode -complex correspondant** (1 echec = escalade immediate)
+3. Apres 1 echec en -complex : arreter et rapporter dans le bilan
 
 ### Etape 4 : Rapporter dans l'INTERCOM LOCAL
 
@@ -118,7 +117,7 @@ Si plus de 1000 lignes :
 - Dependances entre sous-taches (une depend du resultat d'une autre)
 - Parallelisation requise (taches independantes a lancer simultanement)
 - Message `[URGENT]` dans l'INTERCOM
-- 2 echecs consecutifs sur des sous-taches simples
+- 1 echec sur une sous-tache simple (escalade immediate, standardise #1233)
 - Modification de plus de 3 fichiers interconnectes
 
 ---
