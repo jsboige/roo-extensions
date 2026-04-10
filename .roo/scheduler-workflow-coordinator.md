@@ -255,5 +255,5 @@ attempt_completion(result: "Cycle coordinateur termine. Bilan poste dans dashboa
 - Message `[URGENT]` dans le dashboard workspace
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches
-- 2 echecs consecutifs en `-simple`
+- 1 echec en `-simple` (escalade immediate, standardise #1233)
 - Modification de plus de 3 fichiers interconnectes

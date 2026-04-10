@@ -216,7 +216,7 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 | Document | Essentiel a retenir | Chemin |
 |----------|-------------------|--------|
 | **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils. Pipeline: modes-config.json → generate-modes.js → .roomodes | `docs/harness/reference/scheduler-system.md` |
-| **Scheduler densification** | Sweet spot escalade : 2 echecs en -simple → escalader vers -complex | `docs/harness/reference/scheduler-densification.md` |
+| **Scheduler densification** | Seuil escalade : 1 echec en -simple → escalade IMMEDIATE vers -complex (#1233) | `docs/harness/reference/scheduler-densification.md` |
 | **Coordinator protocol** | Cycle 6-12h sur ai-01. Analyse RooSync + git + Project #67. | `docs/harness/coordinator-specific/scheduled-coordinator.md` |
 | **Meta-analysis** | Cycle 72h. Triple grounding. Dashboard workspace (META-INTERCOM DEPRECATED). Guard rails: lecture seule. | `docs/harness/reference/meta-analysis.md` |
 
