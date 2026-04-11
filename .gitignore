@@ -193,3 +193,9 @@ docs/harness/meta-analysis-report-*.md
 
 # Archives directory (historical git is sufficient, no need for _archives/)
 _archives/
+
+# Transient debug/dump files at repo root
+debug-roosync-compare.log
+vitest-output.txt
+mcp_settings_ai01*.json
+project-67.json
