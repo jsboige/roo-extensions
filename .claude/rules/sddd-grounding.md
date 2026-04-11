@@ -1,94 +1,81 @@
-# SDDD - Triple Grounding (Obligatoire)
+# SDDD - Grounding Conversationnel (Roo)
 
-**Version:** 1.0.0 (condense depuis `docs/harness/reference/sddd-conversational-grounding.md`)
-**Issue:** #1063
+**Version:** 3.0.0 (condensed from 2.1.0, aligned with .roo/rules/04-sddd-grounding.md)
+**MAJ:** 2026-04-08
 
----
+## Triple Grounding
 
-## Principe
+**SDDD :** 3 sources à croiser systématiquement :
 
-**SDDD (Semantic Documentation Driven Development) :** Tout travail significatif doit croiser 3 sources :
+1. **Sémantique** — `roosync_search(action: "semantic")` + `codebase_search`
+2. **Conversationnel** — `conversation_browser` (CES RÈGLES)
+3. **Technique** — `search_files`, `read_file`, `execute_command` (code = vérité)
 
-1. **Semantique** — `codebase_search` + `roosync_search(action: "semantic")` : trouver par concept
-2. **Conversationnel** — `conversation_browser` + traces Roo : historique de travail
-3. **Technique** — Read, Grep, Glob, Bash, Git : code source = verite
+**Règle :** Ne jamais se contenter d'une seule source.
 
-**Regle absolue :** Ne jamais se contenter d'une seule source.
+## conversation_browser
 
----
+**POINT D'ENTREE OBLIGATOIRE : `list`** — Sans IDs, `view`/`tree`/`summarize` sont impossibles.
 
-## Pattern Bookend (OBLIGATOIRE)
+| Action | Usage | Paramètres clés |
+| ------ | ----- | --------------- |
+| **`list`** | **OBLIGATOIRE en premier** | `workspace`, `limit`, `contentPattern` |
+| `tree` | Arbre des tâches | `conversation_id`, `output_format: "ascii-tree"` |
+| `view` | Squelette conversation | `task_id`, `smart_truncation: true` |
+| `summarize` | Résumé/stats | `summarize_type: "trace"`, `taskId` |
 
-**`codebase_search` en DEBUT et FIN de chaque tache significative.**
+**Toujours `smart_truncation: true`** pour conversations >10K chars.
 
-**Debut :** Eviter de refaire un travail deja fait, comprendre le contexte.
+## detailLevel (post-fix #881)
 
-**Fin :** Confirmer que le travail est indexe et retrouvable.
+| Niveau | Recommandation |
+| ------ | -------------- |
+| `Summary` | Recommandé |
+| `Compact` / `NoTools` | Recommandé (NoTools = alias Compact depuis #881) |
+| `Messages` / `UserOnly` | Compact |
+| `Full` | **JAMAIS** (explosion) |
 
-| Type de tache | Bookend |
-|---------------|---------|
-| Feature/fix/investigation | OUI (debut + fin) |
-| Mise a jour doc | OUI (debut + fin) |
-| Commit/push, reponse question | NON |
+Toujours définir `truncationChars` quand `summarize_type != "trace"`.
 
----
-
-## codebase_search — Protocole Multi-Pass
-
-**OBLIGATOIRE :** Toujours passer `workspace` explicitement (auto-detection pointe vers le serveur MCP).
-
-**Limitations :** Chunks ~1000 chars, pas de chevauchement, requetes en francais peu performantes.
-
-| Pass | But | Methode |
-|------|-----|---------|
-| 1 | Identifier le module | Requete conceptuelle large (anglais) |
-| 2 | Zoom dans le module | `directory_prefix` + vocabulaire du code |
-| 3 | Confirmer | Grep exact (noms de fonctions, types) |
-| 4 | Variante | Reformuler avec synonymes si Pass 2 insuffisant |
-
-**Conseils :** Vocabulaire du code > langage naturel. 5-10 mots cles, pas des phrases. `directory_prefix` divise l'espace par ~10.
-
----
-
-## roosync_search — Recherche dans les Taches
+## roosync_search — Filtres avancés (#636)
 
 ```
-roosync_search(action: "semantic", search_query: "concept")  # Par concept (Qdrant)
-roosync_search(action: "text", search_query: "texte exact")  # Par texte (cache)
-roosync_search(action: "diagnose")                           # Diagnostic index
+roosync_search(action: "semantic", search_query: "...", has_errors: true, start_date: "...", max_results: 10)
 ```
-
-**Filtres avances (`action: "semantic"`) :**
 
 | Filtre | Usage |
-|--------|-------|
+| ------ | ----- |
 | `has_errors: true` | Messages avec erreurs |
 | `tool_name: "write_to_file"` | Historique d'un outil |
 | `role: "user"`, `exclude_tool_results: true` | Messages utilisateur purs |
 | `source: "roo"` ou `"claude-code"` | Filtrer par agent |
-| `model: "opus"`, `start_date`, `end_date` | Par modele et periode |
+| `model: "opus"`, `start_date`, `end_date` | Par modèle et période |
+
+## Pattern Bookend (OBLIGATOIRE)
+
+**`codebase_search` en DEBUT et FIN de chaque tâche significative.**
+
+- **Début :** Éviter de refaire un travail déjà fait, comprendre le contexte.
+- **Fin :** Confirmer que le travail est indexé et retrouvable.
+
+## codebase_search — Protocole Multi-Pass
+
+**Toujours passer `workspace` explicitement.** Requêtes en anglais, 5-10 mots clés.
+
+| Pass | But |
+| ---- | --- |
+| 1 | Requête large (identifier module) |
+| 2 | `directory_prefix` + vocabulaire code (zoom) |
+| 3 | `search_files` exact (confirmer) |
+| 4 | Reformuler avec synonymes |
+
+## Workflow SDDD
+
+1. **Sémantique** : `codebase_search` (Pass 1→2) + `roosync_search(semantic)`
+2. **Conversationnel** : `conversation_browser(list)` → IDs → `view(skeleton)`
+3. **Technique** : `read_file`, `search_files`
+4. **Travail** : Implémenter/corriger/documenter
+5. **Bookend FIN** : `codebase_search` validation
 
 ---
-
-## Workflow SDDD Complet
-
-```
-1. BOOKEND DEBUT : codebase_search (Pass 1 → Pass 2) + roosync_search(semantic)
-2. CONVERSATIONNEL : conversation_browser(list) → IDs → view(skeleton)
-3. TECHNIQUE : Read/Grep code source (Pass 3)
-4. TRAVAIL : Implementer/corriger/documenter
-5. BOOKEND FIN : codebase_search(query: "validation") → confirmer indexation
-```
-
-**Etape 2 :** `list` est OBLIGATOIRE en premier. Sans IDs, `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant.
-
----
-
-## Si un outil SDDD echoue
-
-Signaler via protocole friction : `docs/harness/reference/friction-protocol.md`
-
----
-
-**Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes, version detaillee)
-**Methodologie systeme RooSync :** `docs/roosync/PROTOCOLE_SDDD.md`
+**Historique versions complètes :** Git history avant 2026-04-08

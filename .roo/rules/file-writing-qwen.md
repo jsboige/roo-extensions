@@ -1,7 +1,7 @@
-# Regle d'ecriture de fichiers - Limitation Qwen 3.5
+# File Writing Patterns - Qwen 3.5 (Roo -simple)
 
-**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/file-writing.md)
-**MAJ:** 2026-04-08
+**Version:** 2.0.0
+**MAJ:** 2026-04-11
 
 ## Regle
 
