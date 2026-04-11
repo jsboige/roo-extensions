@@ -87,11 +87,6 @@ Le répertoire `/scripts` est l'unique source de vérité pour tous les scripts 
 
 ---
 
-### `/scripts/archive/`
-Contient les scripts de migration à usage unique qui ne sont plus pertinents pour les opérations courantes mais sont conservés pour des raisons historiques.
-
-*   `consolidate-configurations.ps1`, `daily-monitoring.ps1`, `maintenance-routine.ps1`, `migrate-to-profiles.ps1`, `sync_roo_environment.ps1`, `update-script-paths.ps1`, `validate-consolidation.ps1`: Scripts liés à des phases de refactorisation passées.
-
 ### `/scripts/audit/`
 Héberge les outils d'audit et d'analyse spécifiques à l'écosystème Roo.
 
