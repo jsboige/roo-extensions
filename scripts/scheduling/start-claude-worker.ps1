@@ -1820,6 +1820,67 @@ function Test-WorktreeHasChanges {
     }
 }
 
+function Test-AllSubmoduleCommitsOnRemote {
+    <#
+    .SYNOPSIS
+    Verifies that all submodule commits in the worktree are on the remote.
+
+    .DESCRIPTION
+    Guard #1295 Phase 1: Pre-push validation for phantom submodule pointers.
+    This is called BEFORE pushing the parent repo to ensure all submodule
+    commits are reachable from origin, preventing CI failures from phantom
+    submodule pointers.
+
+    Returns $true if all submodule commits are on remote, $false otherwise.
+    #>
+    param([string]$WorktreePath)
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        Write-Log "Checking submodule commits are on remote..." "INFO"
+
+        # Get all submodule changes in the current commit vs main
+        $SubmoduleFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object {
+            $_ -is [string] -and ($_ -match '^(mcps/|roo-code$)')
+        })
+
+        if ($SubmoduleFiles.Count -eq 0) {
+            Write-Log "No submodule changes detected" "INFO"
+            return $true
+        }
+
+        foreach ($SubmodulePath in $SubmoduleFiles) {
+            # Get the new submodule pointer (commit hash)
+            $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) |
+                Select-String '\+Subproject commit ([a-f0-9]+)' |
+                ForEach-Object { $_.Matches.Groups[1].Value }
+
+            if ($NewPointer) {
+                # Check if the commit is on origin/main of the submodule
+                if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath $SubmodulePath -Commit $NewPointer)) {
+                    Write-Log "PHANTOM SUBMODULE COMMIT (#1295): Submodule '$SubmodulePath' pointer $($NewPointer.Substring(0,8)) is NOT on origin/main. Push BLOCKED." "ERROR"
+                    Write-Log "ACTION REQUIRED: Push the submodule commit first: cd $SubmodulePath && git push origin HEAD" "ERROR"
+                    return $false
+                }
+                Write-Log "Submodule '$SubmodulePath' commit $($NewPointer.Substring(0,8)) verified on origin/main" "INFO"
+            }
+        }
+
+        return $true
+    }
+    catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "Error checking submodule commits: $_" "WARN"
+        return $false
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 function Push-WorktreeBranch {
     <#
     .SYNOPSIS
@@ -1831,6 +1892,14 @@ function Push-WorktreeBranch {
         Push-Location $WorktreePath
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
+
+        # Guard #1295 Phase 1: Pre-push validation for phantom submodule pointers
+        # Verify all submodule commits are on remote BEFORE pushing parent repo
+        $SubmodulesOk = Test-AllSubmoduleCommitsOnRemote -WorktreePath $WorktreePath
+        if (-not $SubmodulesOk) {
+            Write-Log "Push BLOCKED (#1295): Phantom submodule commit detected. Fix required before push." "ERROR"
+            return $false
+        }
 
         # Get current branch name
         $BranchName = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()

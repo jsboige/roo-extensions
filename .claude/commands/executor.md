@@ -271,34 +271,7 @@ Actions correctives : {aucune | INTERCOM ajuste | workflow modifie | taches repr
 
 ---
 
-### Tâche #2 : Scripts Datés (P0)
-
-**Objectif** : Archiver les scripts PowerShell avec des dates dans le nom (ex: `fix-2024-03-15.ps1`).
-
-**Portée**
-
-- Dossier : `scripts/`
-- Pattern : Scripts avec des dates dans le nom (regex `\d{4}-\d{2}-\d{2}`)
-
-**Actions**
-
-1. Identifier : `Get-ChildItem -Recurse scripts/ -Filter *.ps1 | Where-Object { $_.Name -match '\d{4}-\d{2}-\d{2}' }`
-2. Créer `scripts/archive/dated/` si inexistant
-3. Déplacer les scripts datés vers `scripts/archive/dated/`
-4. Créer un fichier README dans `scripts/archive/dated/README.md` listant les scripts archivés
-
-**Livrables**
-
-- Dossier `scripts/archive/dated/` peuplé
-- README listant les scripts archivés avec date d'archivage
-
-**Critère de succès**
-
-- Plus aucun script avec une date dans `scripts/` (hors `archive/`)
-
----
-
-### Tâche #3 : Docs Obsolètes (P0)
+### Tâche #2 : Docs Obsolètes (P0)
 
 **Objectif** : Retirer ou archiver les guides documentation marqués "v2.1" ou obsolètes.
 

@@ -31,6 +31,32 @@ execute_command(shell="gitbash", command="git config user.name 'jsboige' && git 
 
 ---
 
+## ⚠️ Guardrails Phantom PRs (#1295) - OBLIGATOIRE
+
+**Contexte :** Les phantom PRs sont causées par des pointeurs submodule qui pointent vers des commits non-poussés sur le remote.
+
+**Règles pour TOUTES les opérations Git impliquant des submodules :**
+
+1. **Vérification AVANT push** : TOUJOURS vérifier que les commits submodule sont sur `origin/main` avant de pousser le repo parent
+2. **Ordre des pushs** : Submodule EN PREMIER, repo parent ENSUITE
+3. **En cas de doute** : `git -C mcps/internal log origin/main..HEAD` pour voir les commits non-poussés
+4. **Échec de push submodule** : NE PAS créer la PR parent, signaler l'erreur dans le dashboard
+
+**Commandes de validation (à utiliser avant tout `git push` du parent) :**
+```
+# Vérifier les commits non-poussés du submodule
+execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-manager && git log origin/main..HEAD --oneline")
+
+# Si non-vide → pousser le submodule AVANT le parent
+execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-manager && git push origin HEAD")
+```
+
+**Si le mode -complex doit modifier le submodule :**
+1. Pousser le submodule : `cd mcps/internal && git push origin HEAD`
+2. SEULEMENT ENSUITE pousser le parent et créer la PR
+
+---
+
 ## Rappels Critiques
 
 1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même
@@ -173,9 +199,22 @@ Si une issue est trouvée :
    - **Rollback** : Si assignee absent après Phase 2 → quelqu'un d'autre a claimé, passer à l'issue suivante
 4. Créer branche : `git checkout -b wt/{MACHINE}-issue-{NUM}`
 5. Exécuter selon difficulté
-6. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`
-7. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
-8. Revenir sur main : `git checkout main`
+
+> ⚠️ **GUARDRAIL #1295 - Phantom PRs** : AVANT le push + PR, vérifier et pousser les submodules
+
+6. **Vérifier les commits submodule non-poussés** :
+   ```
+   execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-manager && git log origin/main..HEAD --oneline")
+   ```
+   - Si output VIDE → PAS de changements submodule, continuer à l'étape 7
+   - Si output NON-VIDE → Pousser le submodule AVANT le parent :
+     ```
+     execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-manager && git push origin HEAD")
+     ```
+
+7. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`
+8. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
+9. Revenir sur main : `git checkout main`
 
 ### 2b-review : Reviewer les PRs ouvertes
 
@@ -282,6 +321,13 @@ attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard w
 execute_command(shell="powershell", command="claude -p 'Résoudre: {DESCRIPTION}. Contexte: {ERREUR}. Fichiers: {FICHIERS}.' --max-turns 10 --model sonnet")
 ```
 3. Si succès → push + PR + commenter issue `[RESULT]`
+
+> ⚠️ **IMPORTANT (#1295)** : Si la tâche a modifié le submodule, le mode -complex DOIT pousser le submodule AVANT le parent :
+> ```
+> cd mcps/internal && git push origin HEAD
+> cd ../.. && git push origin wt/{BRANCH}
+> ```
+
 4. Si échec → commenter `[RESULT] {MACHINE}: FAIL (escalade CLI).` + `[ERROR]` dashboard
 
 **Garde-fous :** Max 2 escalades CLI/session. Préférer `sonnet` (économique). Timeout `--max-turns 10`.
