@@ -35,6 +35,11 @@
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question,
 JAMAIS demander confirmation. Agis directement.
+
+IMPORTANT - Contraintes GitHub CLI en mode -simple:
+- JAMAIS utiliser `gh api graphql` (quoting JSON instable en -simple via win-cli)
+- Utiliser UNIQUEMENT: gh issue list, gh issue view, gh pr list, gh pr view
+- Si GraphQL absolument necessaire ? escalader vers -complex ou reporter IMPOSSIBLE
 ```
 
 **Il n'y a AUCUNE exception à cette règle.**
@@ -59,9 +64,12 @@ JAMAIS demander confirmation. Agis directement.
 - Signaler sur le dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["CRITICAL", "roo-scheduler"], content: "...")`
 - **JAMAIS** `ask_followup_question` en mode scheduler — l'utilisateur n'est pas là
 
-**`gh api graphql` en mode `-simple` via win-cli :**
-- Quoting JSON instable. **PRÉFÉRER** `gh issue list`, `gh issue view`, `gh pr list` (commandes simples)
-- Si GraphQL nécessaire → **escalader vers `-complex`** qui a le terminal natif
+**`gh api graphql` en mode `-simple` via win-cli (Issue #1288) :**
+- **INTERDIT EN -SIMPLE** : Quoting JSON instable via win-cli. JAMAIS réessayer (même avec quoting différent).
+- **1 échec graphql** → **STOP immédiatement, escalader vers `-complex`** qui a le terminal natif
+- **Commandes autorisées UNIQUEMENT** : `gh issue list`, `gh issue view`, `gh pr list`, `gh pr view`
+- **Si GraphQL nécessaire** : Escalader ou signaler "GraphQL IMPOSSIBLE en -simple"
+- ⚠️ **Anti-boucle critique** : Ne JAMAIS reessayer la meme commande graphql >1 fois. La 2e tentative = STOP.
 
 **Condensation qui échoue :**
 - Si erreur (token limit, API error) → **NE PAS réessayer**
