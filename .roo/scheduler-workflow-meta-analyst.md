@@ -9,6 +9,34 @@
 Observer, analyser, PROPOSER. Le meta-analyste ne dispatche pas, ne trie pas, ne modifie rien.
 Les propositions sont des issues GitHub `needs-approval` que le coordinateur (#540) ou l'utilisateur traitera.
 
+## GESTION DES SESSIONS (CRITIQUE — issue #1334)
+
+**PROBLEME :** Les sessions meta-analyste peuvent atteindre 150-280 MB sans condensation automatique.
+**SOLUTION :** Archiver les sessions anciennes/larges après chaque cycle.
+
+### En fin de cycle (OBLIGATOIRE)
+
+```
+roosync_indexing(action: "archive", claude_code_sessions: true, max_sessions: 5)
+```
+
+Cela archive les 5 plus anciennes sessions Claude Code vers GDrive (`.shared-state/task-archive/`).
+
+### Seuils d'archivage
+
+| Taille session | Action |
+|----------------|--------|
+| < 50 MB | Conserver |
+| 50-100 MB | Surveiller |
+| > 100 MB | Archiver (URGENT) |
+
+### Verification
+
+```
+conversation_browser(action: "list", source: "claude", limit: 20)
+```
+→ Si une session depasse 100 MB, l'archiver immediatement.
+
 ---
 
 ## WORKFLOW EN 4 ETAPES
