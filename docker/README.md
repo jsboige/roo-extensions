@@ -98,6 +98,7 @@ Puis redemarrer : `docker compose restart`
 |------------|---------------------------|--------|
 | searxng | `POST /searxng/mcp` | `searxng_web_search`, `web_url_read` |
 | sk-agent | `POST /sk-agent/mcp` | `call_agent`, `list_agents`, `run_conversation`, `list_conversations`, etc. |
+| roo-state-manager | `POST /roo-state-manager/mcp` | 34 outils (conversation_browser, codebase_search, roosync_*, etc.) — upstream HTTP vers service host (voir `docs/harness/reference/mcp-proxy-host.md`) |
 
 **Transport :** Streamable HTTP (POST avec JSON-RPC). Compatible MCP SDK v1.26+.
 

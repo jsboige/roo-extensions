@@ -25,6 +25,12 @@
       "env": {
         "SK_AGENT_CONFIG": "/opt/sk-agent/sk_agent_config.json"
       }
+    },
+    "roo-state-manager": {
+      "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
+      "headers": {
+        "Authorization": "Bearer REPLACE_WITH_HOST_PROXY_TOKEN"
+      }
     }
   }
 }
