@@ -40,6 +40,11 @@
 - **Read before Edit** — Edit fails without prior Read. Always.
 - **Test commands:** `npx vitest run` / `npx jest --ci` (never `npm test` — watch mode blocks)
 - **Build + test** after code changes. Never commit broken code.
+- **Large persisted outputs (#1340):** When a tool returns `<persisted-output>` with "Output too large (N MB/KB)", adapt your read strategy based on size:
+  - **< 50KB:** `Read` the full file is acceptable
+  - **50KB - 500KB:** Use `Read` with `offset`/`limit` to read sections
+  - **> 500KB:** Use `Bash` with `head`/`tail`/`grep`/`jq` to extract relevant parts
+  - **Always:** If a preview is shown, analyze it first before deciding if more data is needed. Never blindly `Read` the full persisted file — context explosion kills the task.
 
 ---
 

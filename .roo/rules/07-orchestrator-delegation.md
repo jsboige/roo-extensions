@@ -1,7 +1,7 @@
 # Orchestrateurs : Delegation OBLIGATOIRE
 
-**Version:** 2.0.0 (condensed from 1.0.0)
-**MAJ:** 2026-04-08
+**Version:** 2.1.0 (added context economy #1326)
+**MAJ:** 2026-04-11
 
 ## Regle absolue
 
@@ -23,6 +23,12 @@ new_task({
 
 Inclure dans chaque prompt : contexte, chemins exacts, format resultat, instruction win-cli.
 
+### Economie de delegation (#1326)
+
+**Prompt concis :** Maximum 150 mots par delegation. Pas de contenu de fichier, seulement les chemins.
+**Resultat enfant :** Resumer en 1-2 lignes. Ne JAMAIS re-ecrire le resultat complet de new_task.
+**Max delegations :** 5 par cycle. Apres, arreter et rapporter.
+
 ## Routage
 
 | Besoin | Mode cible |
@@ -39,6 +45,8 @@ Inclure dans chaque prompt : contexte, chemins exacts, format resultat, instruct
 - Utiliser directement read_file, write_to_file, execute_command
 - Reessayer un outil >2 fois (circuit breaker #737)
 - `gh api graphql` en -simple via win-cli (quoting instable → escalader -complex)
+- Re-ecrire le contenu integral d'un resultat enfant (explosion contexte #1326)
+- Deleguer plus de 5 sous-taches dans un seul cycle (#1326)
 
 ---
 **Historique versions completes :** Git history avant 2026-04-08
