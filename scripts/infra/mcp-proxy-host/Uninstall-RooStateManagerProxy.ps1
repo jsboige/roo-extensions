@@ -1,10 +1,10 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Uninstalls the MCP-Proxy-RSM Windows service.
+    Uninstalls the MCP-Proxy-RSM Scheduled Task.
 
-.PARAMETER ServiceName
-    Service name (default: MCP-Proxy-RSM).
+.PARAMETER TaskName
+    Task name (default: MCP-Proxy-RSM).
 
 .PARAMETER RemoveFiles
     Also delete install directory and binary.
@@ -14,25 +14,26 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$ServiceName = "MCP-Proxy-RSM",
+    [string]$TaskName = "MCP-Proxy-RSM",
     [switch]$RemoveFiles,
     [string]$InstallPath = "D:\Tools\mcp-proxy-rsm"
 )
 
 $ErrorActionPreference = "Stop"
 
-$nssm = Get-Command nssm -ErrorAction SilentlyContinue
-if (-not $nssm) { throw "NSSM not found. Install it first or remove the service manually." }
+# Stop any running mcp-proxy process tied to this task
+$task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($task) {
+    Write-Host "Stopping $TaskName..."
+    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Get-Process mcp-proxy -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
-$status = & nssm status $ServiceName 2>$null
-if ($status -match "SERVICE_") {
-    Write-Host "Stopping $ServiceName..."
-    & nssm stop $ServiceName confirm 2>&1 | Out-Null
-    Write-Host "Removing service..."
-    & nssm remove $ServiceName confirm 2>&1 | Out-Null
-    Write-Host "Service removed" -ForegroundColor Green
+    Write-Host "Unregistering scheduled task..."
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Host "Task removed" -ForegroundColor Green
 } else {
-    Write-Host "Service $ServiceName not installed" -ForegroundColor Yellow
+    Write-Host "Scheduled task $TaskName not found" -ForegroundColor Yellow
 }
 
 if ($RemoveFiles -and (Test-Path $InstallPath)) {

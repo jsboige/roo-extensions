@@ -1,14 +1,21 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Installs the host-side mcp-proxy as a Windows service exposing roo-state-manager via Streamable HTTP.
+    Installs the host-side mcp-proxy as a Windows Scheduled Task exposing roo-state-manager via Streamable HTTP.
 
 .DESCRIPTION
     Downloads tbxark/mcp-proxy Windows binary to D:\Tools\mcp-proxy-rsm\, generates a Bearer token
-    if none is provided, writes config.json, and registers the binary as a Windows service via NSSM.
+    if none is provided, writes config.json, and registers the binary as a Scheduled Task that runs
+    in the user's interactive session (LogonType Interactive) at logon.
 
-    After install: the service listens on 127.0.0.1:9091 and exposes /roo-state-manager/mcp.
-    The Docker mcp-proxy container reaches it via host.docker.internal:9091.
+    The Task Scheduler approach is required instead of a Windows Service (NSSM) because:
+    - Google Drive File Stream (G:\) is mounted per user session and is NOT accessible
+      to LocalSystem or services running outside an interactive session.
+    - The roo-state-manager subprocess (node mcp-wrapper.cjs) reads RooSync state from G:\,
+      so it must run as the logged-on user with their GDrive mount.
+
+    After install: the task runs on user logon, the proxy listens on 127.0.0.1:9091 and
+    exposes /roo-state-manager/mcp. Docker mcp-proxy container reaches it via host.docker.internal:9091.
 
 .PARAMETER InstallPath
     Install directory (default: D:\Tools\mcp-proxy-rsm).
@@ -25,12 +32,16 @@
 .PARAMETER RooStateManagerPath
     Path to roo-state-manager mcp-wrapper.cjs (default: D:\roo-extensions\mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs).
 
-.PARAMETER ServiceName
-    Windows service name (default: MCP-Proxy-RSM).
+.PARAMETER TaskName
+    Scheduled task name (default: MCP-Proxy-RSM).
+
+.PARAMETER RunAsUser
+    User to run the task as (default: current interactive user, format DOMAIN\user).
+    This user must own the Google Drive File Stream mount used by roo-state-manager.
 
 .EXAMPLE
     .\Install-RooStateManagerProxy.ps1
-    Installs with defaults and random token.
+    Installs with defaults and random token, runs as the current user at logon.
 
 .EXAMPLE
     .\Install-RooStateManagerProxy.ps1 -Token "existing-token-here" -BindAddress "0.0.0.0"
@@ -43,7 +54,8 @@ param(
     [string]$BindAddress = "127.0.0.1",
     [string]$Token = "",
     [string]$RooStateManagerPath = "D:\roo-extensions\mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs",
-    [string]$ServiceName = "MCP-Proxy-RSM"
+    [string]$TaskName = "MCP-Proxy-RSM",
+    [string]$RunAsUser = "$env:COMPUTERNAME\$env:USERNAME"
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,7 +66,7 @@ function Write-Warn($msg) { Write-Host "    WARN: $msg" -ForegroundColor Yellow 
 
 Write-Step "Checking prerequisites"
 
-# Node.js
+# Node.js (must be in PATH of the user who will run the task)
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) { throw "Node.js not found in PATH. Install Node.js 20+ first." }
 Write-Ok "Node.js: $($node.Source)"
@@ -62,17 +74,6 @@ Write-Ok "Node.js: $($node.Source)"
 # roo-state-manager wrapper
 if (-not (Test-Path $RooStateManagerPath)) { throw "Wrapper not found: $RooStateManagerPath" }
 Write-Ok "roo-state-manager wrapper: $RooStateManagerPath"
-
-# NSSM
-$nssm = Get-Command nssm -ErrorAction SilentlyContinue
-if (-not $nssm) {
-    Write-Warn "NSSM not found - installing via chocolatey"
-    $choco = Get-Command choco -ErrorAction SilentlyContinue
-    if (-not $choco) { throw "Neither NSSM nor Chocolatey found. Install NSSM manually: https://nssm.cc/download" }
-    choco install nssm -y --no-progress
-    $nssm = Get-Command nssm -ErrorAction Stop
-}
-Write-Ok "NSSM: $($nssm.Source)"
 
 Write-Step "Preparing install directory"
 New-Item -ItemType Directory -Force -Path $InstallPath | Out-Null
@@ -130,52 +131,67 @@ $config = @"
 [System.IO.File]::WriteAllText($configPath, $config, [System.Text.UTF8Encoding]::new($false))
 Write-Ok "Config written: $configPath"
 
-Write-Step "Installing Windows service via NSSM"
-$existing = & nssm status $ServiceName 2>$null
-if ($existing -match "SERVICE_") {
-    Write-Warn "Service $ServiceName already exists - stopping and reconfiguring"
-    & nssm stop $ServiceName confirm 2>&1 | Out-Null
-    & nssm remove $ServiceName confirm 2>&1 | Out-Null
-}
+Write-Step "Registering Scheduled Task (interactive user session)"
 
-& nssm install $ServiceName $binary "-config" $configPath
-& nssm set $ServiceName AppDirectory $InstallPath
-& nssm set $ServiceName AppStdout (Join-Path $InstallPath "service.log")
-& nssm set $ServiceName AppStderr (Join-Path $InstallPath "service.err.log")
-& nssm set $ServiceName AppRotateFiles 1
-& nssm set $ServiceName AppRotateBytes 10485760
-& nssm set $ServiceName Start SERVICE_AUTO_START
-& nssm set $ServiceName AppRestartDelay 5000
-& nssm set $ServiceName Description "tbxark/mcp-proxy exposing roo-state-manager via Streamable HTTP on $BindAddress`:$Port"
-Write-Ok "Service configured"
+# Remove existing task if present
+Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-Write-Step "Starting service"
-& nssm start $ServiceName
-Start-Sleep -Seconds 2
-$status = & nssm status $ServiceName
-if ($status -notmatch "SERVICE_RUNNING") { throw "Service failed to start: $status" }
-Write-Ok "Service running"
+$action    = New-ScheduledTaskAction -Execute $binary -Argument "-config `"$configPath`"" -WorkingDirectory $InstallPath
+$trigger   = New-ScheduledTaskTrigger -AtLogOn -User $RunAsUser
+$principal = New-ScheduledTaskPrincipal -UserId $RunAsUser -LogonType Interactive -RunLevel Limited
+$settings  = New-ScheduledTaskSettingsSet `
+    -AllowStartIfOnBatteries `
+    -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) `
+    -RestartInterval (New-TimeSpan -Minutes 1) `
+    -RestartCount 5 `
+    -StartWhenAvailable
+
+Register-ScheduledTask `
+    -TaskName $TaskName `
+    -Action $action `
+    -Trigger $trigger `
+    -Principal $principal `
+    -Settings $settings `
+    -Description "tbxark/mcp-proxy exposing roo-state-manager via Streamable HTTP on ${BindAddress}:${Port}" `
+    -Force | Out-Null
+
+Write-Ok "Task registered - runs as $RunAsUser at logon"
+
+Write-Step "Starting task"
+Start-ScheduledTask -TaskName $TaskName
+Start-Sleep -Seconds 5
+
+$task = Get-ScheduledTask -TaskName $TaskName
+$info = Get-ScheduledTaskInfo -TaskName $TaskName
+Write-Ok "Task state: $($task.State), LastTaskResult: $($info.LastTaskResult)"
+
+$proc = Get-Process mcp-proxy -ErrorAction SilentlyContinue
+if ($proc) { Write-Ok "mcp-proxy process: PID=$($proc.Id)" }
+else { Write-Warn "mcp-proxy process not detected yet - may still be starting" }
 
 Write-Step "Verifying HTTP endpoint"
+Start-Sleep -Seconds 2
 try {
     $headers = @{ "Authorization" = "Bearer $Token"; "Accept" = "application/json, text/event-stream" }
     $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"install-check","version":"1.0"}}}'
-    $resp = Invoke-WebRequest -Uri "http://${BindAddress}:${Port}/roo-state-manager/mcp" -Method POST -Headers $headers -ContentType "application/json" -Body $body -UseBasicParsing -TimeoutSec 10
+    $resp = Invoke-WebRequest -Uri "http://${BindAddress}:${Port}/roo-state-manager/mcp" -Method POST -Headers $headers -ContentType "application/json" -Body $body -UseBasicParsing -TimeoutSec 15
     if ($resp.StatusCode -eq 200) { Write-Ok "Endpoint responded 200 OK" }
     else { Write-Warn "Unexpected status: $($resp.StatusCode)" }
 } catch {
-    Write-Warn "Verification failed: $($_.Exception.Message) - check $InstallPath\service.err.log"
+    Write-Warn "Verification failed: $($_.Exception.Message)"
+    Write-Warn "Task may still be starting. Check: Get-ScheduledTaskInfo -TaskName $TaskName"
 }
 
 Write-Host ""
 Write-Host "=========================================================" -ForegroundColor Green
 Write-Host "  Installation complete" -ForegroundColor Green
 Write-Host "=========================================================" -ForegroundColor Green
-Write-Host "  Service name : $ServiceName"
+Write-Host "  Task name    : $TaskName"
+Write-Host "  Runs as      : $RunAsUser (interactive, at logon)"
 Write-Host "  Endpoint     : http://${BindAddress}:${Port}/roo-state-manager/mcp"
 Write-Host "  Bearer token : $Token"
 Write-Host "  Config       : $configPath"
-Write-Host "  Logs         : $InstallPath\service.log"
 Write-Host ""
 Write-Host "  Save the token securely - it is required in Authorization header:" -ForegroundColor Yellow
 Write-Host "    Authorization: Bearer $Token" -ForegroundColor Yellow
