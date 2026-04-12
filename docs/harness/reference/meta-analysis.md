@@ -108,6 +108,59 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 
 ---
 
+## Session Management (CRITICAL — #1334)
+
+> **Meta-analyst sessions can grow to 150-280 MB without automatic condensation.**
+> **This causes context saturation, memory consumption, and slow operations.**
+
+### Mandatory Session Archiving
+
+**At the END of each meta-analysis cycle:**
+
+```
+roosync_indexing(action: "archive", claude_code_sessions: true, max_sessions: 5)
+```
+
+This archives the 5 oldest Claude Code sessions to GDrive (`.shared-state/task-archive/`).
+
+### Archiving Thresholds
+
+| Session Size | Action |
+|--------------|--------|
+| < 50 MB | Keep |
+| 50-100 MB | Monitor |
+| > 100 MB | Archive immediately (URGENT) |
+
+### Verification
+
+Before starting analysis, check for large sessions:
+
+```
+conversation_browser(action: "list", source: "claude", limit: 20)
+```
+
+If any session exceeds 100 MB, archive it immediately:
+
+```
+roosync_indexing(action: "archive", claude_code_sessions: true, max_sessions: 10)
+```
+
+### Impact
+
+**Without archiving:**
+- Context saturation (GLM threshold 75% = ~98k tokens)
+- Memory consumption (150-280 MB per session)
+- Slow operations (reading large session files)
+- Duplicate work (parallel sessions)
+
+**With archiving:**
+- Sessions stored compressed on GDrive
+- Local storage freed
+- Fast operations
+- Recoverable via `roosync_indexing(action: "archive")`
+
+---
+
 ## META-INTERCOM Protocol — DEPRECATED
 
 > **DEPRECATED since #857 (2026-03-29):** The META-INTERCOM file is obsolete.
