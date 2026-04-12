@@ -105,8 +105,12 @@ RooSync/
 # Debug files
 debug_payload_dump.json
 debug_trace.txt
+debug-roosync-compare.log
 test-output.txt
 test-result.txt
+vitest-output.txt
+project-67.json
+mcp_settings_ai01*.json
 test-debug-*.log
 test-debug-*.cjs
 test-debug-*.html
