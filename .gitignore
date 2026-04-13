@@ -181,6 +181,9 @@ exports/
 /*.json.lock
 /*.lock
 
+# Runtime lock files under .claude/ (scheduler concurrency primitives)
+.claude/*.lock
+
 # Backup dirs created by agent sessions
 /backup-*/
 /cleanup-backups/
