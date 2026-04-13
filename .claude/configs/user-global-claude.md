@@ -166,7 +166,9 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
-1. **Debut :** `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
+1. **Debut :**
+   - `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
+   - **`memory-inject`** — auto-injecter les leçons pertinentes depuis MEMORY.md (pattern Reddit #1369)
 2. **Pendant :** Travailler. Si question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`
 3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — **OBLIGATOIRE, aucune exception**
 
@@ -190,6 +192,8 @@ Si ca te surprend → verifie avant de repeter ou d'agir dessus.
   - `~/.claude/projects/<hash>/memory/MEMORY.md` — Per-machine session learnings
   - `.claude/memory/PROJECT_MEMORY.md` — Cross-machine shared (via git)
   - `.claude/rules/*.md` — Auto-loaded project rules
+
+- **Memory auto-injection (#1377):** Le skill `memory-inject` auto-charge les leçons pertinentes au debut de chaque tache pour prevenir les erreurs recurrentes. Pattern valide par l'analyse Reddit 3-agent (#1369).
 
 **After each significant task:** Update project CLAUDE.md + MEMORY.md. Record rejected approaches.
 
