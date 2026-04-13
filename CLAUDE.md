@@ -232,6 +232,7 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, path GDrive different, fork win-cli local | `docs/harness/machine-specific/myia-web1-constraints.md` |
 | **Stub Detection** | CI gate pour detecter les exports stub (return null, TODO non implementes). | `docs/harness/reference/stub-detection.md` |
 | **Worktree Cleanup** | Protocol de gestion des worktrees git (auto-cleanup + garbage collection). | `docs/harness/reference/worktree-cleanup.md` |
+| **MCP Proxy Architecture** | `mcp-tools.myia.io` = 2 etages : Windows sparfenyuk (PR #187) + container TBXark (PR mcp-go #796). roo-state-manager + searxng + sk_agent, bearer commun. | `docs/harness/reference/mcp-proxy-architecture.md` |
 
 ---
 
