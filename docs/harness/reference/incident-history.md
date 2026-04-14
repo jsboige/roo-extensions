@@ -17,6 +17,7 @@
 | 2026-03-06 | myia-ai-01 | 31+ outils roosync_* absents (Claude Code) | Issue #569 impossible (0/26 tests exécutables) | Config MCP Claude Code expose seulement 5 outils management |
 | 2026-03-10 | myia-po-2024 | Retrait mocks jest.setup.js sans vérifier tests | 31 fichiers cassés, CI rouge | Validation CI non effectuée avant push submodule |
 | 2026-03-13 | myia-po-2025 | schedules.json écrasé par autre machine | Scheduler Roo avec mauvaise config | Fichier machine-spécifique commité sur branche partagée |
+| 2026-04-14 | myia-ai-01 | WSL/Docker cascade kill (issue #1379) | Tous VSCode terminés silencieusement | BITS/Defender trigger → WSL timeout → VSCode TerminateProcess |
 
 ---
 
@@ -66,6 +67,7 @@ Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le 
 | Scheduler idle malgré issues | Cycles sans tâche exécutée | Vérifier labels + Project #67 |
 | Submodule divergent | `git submodule status` montre `+` | Réaligner avant commit parent |
 | CI rouge après push | GitHub Actions failures | Investiguer, ne pas push over |
+| WSL/Docker cascade (myia-ai-01) | Tous VSCode fermés silencieusement | Lancer diagnostic: `scripts/diagnostic/diagnostic-wsl-docker-cascade.ps1` |
 
 ---
 
@@ -74,4 +76,5 @@ Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le 
 - Documentation MCP : [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
 - Protocole CI : [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
 - Condensation GLM : [`docs/harness/reference/condensation-thresholds.md`](./condensation-thresholds.md)
+- WSL/Docker Cascade : [`docs/harness/reference/wsl-docker-cascade-protocol.md`](./wsl-docker-cascade-protocol.md)
 - Équivalent Roo : `.roo/rules/11-incident-history.md`
