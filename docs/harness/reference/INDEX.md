@@ -42,3 +42,4 @@
 | **MCP discoverability** | Tests decouverte en 3 phases | `reference/mcp-discoverability.md` |
 | **Stub Detection** | CI gate pour stub exports | `reference/stub-detection.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `machine-specific/myia-web1-constraints.md` |
+| **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
