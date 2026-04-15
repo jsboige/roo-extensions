@@ -2,7 +2,7 @@
 cd mcps/internal/servers/roo-state-manager
 
 # Lancer les tests avec redirection de sortie
-$npx = Start-Process powershell -ArgumentList "-NoProfile", "-Command", "npx vitest run --maxWorkers=1 --reporter=verbose" -RedirectStandardOutput "C:\tmp\vitest-out.txt" -RedirectStandardError "C:\tmp\vitest-err.txt" -PassThru -Wait
+$npx = Start-Process powershell -ArgumentList "-NoProfile", "-Command", "npx vitest run --maxWorkers=1 --reporter=verbose" -RedirectStandardOutput "C:\tmp\vitest-out.txt" -RedirectStandardError "C:\tmp\vitest-err.txt" -PassThru -Wait -WindowStyle Hidden
 
 # Attendre la fin des tests
 Write-Host "Tests terminés avec le code de sortie: $($npx.ExitCode)"
