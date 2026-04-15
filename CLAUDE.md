@@ -160,6 +160,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 | **SDDD Grounding** | Triple grounding (sémantique + conversationnel + technique). Bookend obligatoire. | `.claude/rules/sddd-grounding.md` |
 | **conversation_browser Guide** | Usage conversation_browser + fix #881 (NoTools → Compact). | `.claude/rules/conversation-browser-guide.md` |
 | **File Writing** | Edit > Write. Read obligatoire avant. Encodage UTF-8 no-BOM. | `.claude/rules/file-writing.md` |
+| **Meta-Analyste** | Workflow 5 étapes pour analyse meta (miroir Roo `.roo/scheduler-workflow-meta-analyst.md`). | `.claude/rules/meta-analyst.md` |
 
 ### Règles Communication
 
