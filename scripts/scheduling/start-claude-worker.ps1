@@ -2207,6 +2207,8 @@ function Invoke-Claude {
                 $FinalResultText = ""
                 $CurrentToolName = $null
                 $CurrentToolInput = ""
+                $ParseErrorCount = 0
+                $ReceivedResultEvent = $false
                 Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
@@ -2242,6 +2244,7 @@ function Invoke-Claude {
                             }
                         }
                         elseif ($evt.type -eq "result") {
+                            $ReceivedResultEvent = $true
                             if ($evt.result) { $FinalResultText = $evt.result }
                             Write-Host "`n--- Fin session ($($evt.session_id)) ---" -ForegroundColor DarkGray
                         }
@@ -2249,6 +2252,7 @@ function Invoke-Claude {
                     }
                     catch {
                         # Not JSON (stderr, etc.) - display raw
+                        $ParseErrorCount++
                         Write-Host $rawLine -ForegroundColor Yellow
                     }
                 }
@@ -2346,15 +2350,24 @@ function Invoke-Claude {
 
         Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
+        # VALIDATE: Stream integrity check (#1433)
+        # If too many parse errors or no valid result event received, the stream is corrupt.
+        $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent -and ($FinalResultText.Length -gt 0)
+        if (-not $StreamValid) {
+            Write-Log "Stream integrity FAILED — ParseErrors: $ParseErrorCount, ResultEvent: $ReceivedResultEvent, ResultLen: $($FinalResultText.Length)" "ERROR"
+        }
+
         # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
-            success = -not $NeedsEscalation -and $null -eq $WaitStateData
+            success = $StreamValid -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
             needsEscalation = $NeedsEscalation
             escalateToModel = $EscalateToModel
             waitState = $WaitStateData
             output = $IterationOutputs -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
             iterations = $CurrentIteration
+            streamValid = $StreamValid
+            parseErrorCount = $ParseErrorCount
         }
     }
     catch {
@@ -2412,6 +2425,7 @@ function Report-Results {
 **Mode utilisé:** $FinalMode
 **Statut:** $(if ($Result.success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" })
 **Itérations:** $($Result.iterations)
+$(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
 
 ### Output
 ``````
