@@ -1,7 +1,7 @@
 # Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 3.0.0 (condensed from 2.1.0)
-**MAJ:** 2026-04-05
+**Version:** 3.1.0 (worktree auto-detection)
+**MAJ:** 2026-04-13
 
 ---
 
@@ -31,6 +31,19 @@ Auto-condensation a **50 KB** : le dashboard reste toujours lisible en un seul a
 
 `.claude/local/INTERCOM-{MACHINE}.md` — utiliser UNIQUEMENT si le MCP dashboard echoue (GDrive offline).
 Si utilise : **ordre chronologique** (append-only, jamais inserer en haut, jamais ecraser avec Write).
+
+---
+
+## Worktrees Git (#1364)
+
+**FIX APPLIQUE :** Les agents lancés depuis un worktree (`.claude/worktrees/wt-*`) postent maintenant automatiquement dans le dashboard du workspace parent, pas dans un dashboard spécifique au worktree.
+
+**Comportement auto :**
+- Détection : Si le cwd contient `.claude/worktrees/`, l'outil remonte automatiquement au workspace parent
+- Contexte préservé : Le champ `author.worktree` contient le nom du worktree (ex: `wt-worker-myia-ai-01-20260413-110726`)
+- Dashboard clé : `workspace-roo-extensions` (parent) au lieu de `workspace-wt-worker-*` (worktree)
+
+**Pas d'action requise** des agents — la détection est automatique. Le paramètre `workspace` explicite reste disponible pour les cas particuliers.
 
 ---
 
