@@ -185,3 +185,24 @@ Updated via git commits. Each agent should read this at session start.
 | #555 | GLM-5 Condensation Parameters | All machines | **CLOSED** ✅ |
 | #556 | Memory Redistribution & Rules Audit | All machines | In Progress |
 | #679 | Qdrant Indexer Null-Safety | All machines | Fixed (po-2025 verified) |
+| #1377 | Memory Auto-Injection (Reddit pattern) | All machines | **CLOSED** ✅ |
+
+### Memory Auto-Injection (#1377) - IMPLEMENTED ✅
+
+**Status:** Feature implémentée, skill `memory-inject` créé
+**Pattern source:** Reddit 3-agent setup analysis (#1369)
+
+**Fonctionnalité:**
+- Auto-injection des leçons MEMORY.md au début de chaque tâche
+- Détection automatique du type de tâche (mcp, test, git, build, etc.)
+- Filtrage par pertinence (scoring basé sur récurrence, impact, fraîcheur)
+- Intégration dans le Session Pattern (étape 1.5)
+
+**Fichiers créés:**
+- `.claude/skills/memory-inject/SKILL.md` - Skill principal
+- `docs/knowledge/MEMORY-AUTO-INJECTION.md` - Documentation
+
+**Impact attendu:**
+- -50% d'erreurs récurrentes (estimation Reddit)
+- < 1 seconde de surcharge par tâche
+- Maintenance mensuelle faible
