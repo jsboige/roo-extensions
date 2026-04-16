@@ -18,6 +18,16 @@
 
 ---
 
+## Fixing Prompts and Rules — No Pendulum
+
+When a line in a prompt/rule causes bad behavior: **delete it first.** Only add a replacement if removal leaves an actual gap the other directives don't cover.
+
+Replacing a line with its opposite (e.g. "viser 50-100 lignes" → "viser 10-14 KB", "ne pas copier-coller" → "préserver l'intégralité") is the pendulum failure — it swings the problem to the other extreme. Equilibrium is reached by subtracting, not by adding a counterweight.
+
+If an automatic mechanism handles the concern elsewhere (auto-condensation, retries, rate limits), don't re-encode its intent in the prompt.
+
+---
+
 ## Conventions
 
 - **Language:** User = French. Code/commits/docs = English OK. INTERCOM = French when relevant.
