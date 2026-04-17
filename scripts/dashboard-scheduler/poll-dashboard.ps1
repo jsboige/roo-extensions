@@ -36,6 +36,12 @@
 .PARAMETER SpawnScript
     Path to spawn-claude.ps1 (only used when -Stub is $false). Defaults to sibling.
 
+.PARAMETER McpConfig
+    Path to MCP config JSON file (must contain roo-state-manager). Defaults to
+    ~/.claude.json. Required because `claude -p` subprocesses do not load user
+    MCP config automatically — without it, Invoke-DashboardRead fails silently
+    with "ERROR: Could not parse message into JSON". See issue #1448.
+
 .EXAMPLE
     .\poll-dashboard.ps1 -Workspace nanoclaw
     Polls workspace-nanoclaw, logs "would spawn" if actionable message found.
@@ -60,7 +66,9 @@ param(
 
     [switch]$Stub = $true,
 
-    [string]$SpawnScript = ""
+    [string]$SpawnScript = "",
+
+    [string]$McpConfig = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -73,6 +81,13 @@ if ([string]::IsNullOrEmpty($LockDir)) {
 }
 if ([string]::IsNullOrEmpty($SpawnScript)) {
     $SpawnScript = Join-Path $scriptDir "spawn-claude.ps1"
+}
+
+# Issue #1448: `claude -p` subprocess does NOT load ~/.claude.json by default,
+# so MCP tools (roo-state-manager) are absent and Invoke-DashboardRead fails with
+# "ERROR: Could not parse message into JSON". Pass --mcp-config explicitly.
+if ([string]::IsNullOrEmpty($McpConfig)) {
+    $McpConfig = Join-Path $HOME ".claude.json"
 }
 
 if (-not (Test-Path $LockDir)) {
