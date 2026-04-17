@@ -1596,6 +1596,75 @@ function Remove-Worktree {
     }
 }
 
+function Remove-RemoteBranch {
+    <#
+    .SYNOPSIS
+    Delete a branch from origin. Used when a pushed branch has no PR created
+    (phantom submodule, all-auto-commits) to prevent orphan branches on remote.
+    Issue #1423.
+    #>
+    param(
+        [string]$BranchName,
+        [string]$Reason = "no PR created"
+    )
+
+    if (-not $BranchName) { return }
+
+    Write-Log "🗑️ Deleting remote branch '$BranchName' ($Reason)" "INFO"
+
+    try {
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $delOutput = git -C $RepoRoot push origin --delete $BranchName 2>&1
+        $delExitCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevPref
+        $delOutput | ForEach-Object { Write-Log "$_" "GIT" }
+        if ($delExitCode -eq 0) {
+            Write-Log "Remote branch '$BranchName' deleted" "INFO"
+        } else {
+            Write-Log "Remote branch delete returned exit $delExitCode (branch may not exist remotely)" "WARN"
+        }
+    }
+    catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "Error deleting remote branch: $_" "WARN"
+    }
+}
+
+function Test-OnlyAutoCommits {
+    <#
+    .SYNOPSIS
+    Returns $true if the worktree branch has commits ahead of main AND all
+    those commits are "Auto-commit uncommitted worker changes" (no real work).
+    Used by Invoke-GracefulShutdown and main workflow to avoid pushing/keeping
+    orphan branches with no reviewable content. Issue #1423.
+    #>
+    param([string]$WorktreePath)
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $CommitMessages = @((git log main..HEAD --format="%s" 2>&1) | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
+        $ErrorActionPreference = $prevPref
+
+        if ($CommitMessages.Count -eq 0) { return $false }
+
+        foreach ($msg in $CommitMessages) {
+            if ($msg -notmatch 'Auto-commit uncommitted worker changes') {
+                return $false
+            }
+        }
+        return $true
+    }
+    catch {
+        return $false
+    }
+    finally {
+        Pop-Location
+    }
+}
+
 # ============================================================================
 # Graceful Shutdown (#1147 - Worktree cleanup on SIGTERM/SIGINT/timeout)
 # ============================================================================
@@ -1636,17 +1705,24 @@ function Invoke-GracefulShutdown {
         $HasChanges = Test-WorktreeHasChanges -WorktreePath $WorktreePath
 
         if ($HasChanges) {
-            Write-Log "Work has been auto-committed. Attempting push..." "INFO"
-
-            # Step 2: Push to remote
-            $Pushed = Push-WorktreeBranch -WorktreePath $WorktreePath
-            if ($Pushed) {
-                Write-Log "✅ Branch pushed successfully. Work preserved on remote." "INFO"
-                # Step 3: Safe to remove worktree since work is on remote
+            # #1423: Skip push if all commits are auto-commits (no reviewable work).
+            # Pushing such branches creates orphan branches without PRs on the remote.
+            if (Test-OnlyAutoCommits -WorktreePath $WorktreePath) {
+                Write-Log "Only auto-commits detected (no real work). Skipping push, cleaning up worktree." "INFO"
                 Remove-Worktree -WorktreePath $WorktreePath
             } else {
-                Write-Log "⚠️ Push failed. CONSERVING worktree for manual recovery: $WorktreePath" "WARN"
-                Write-Log "  → Use Find-ExistingWorktree on next run to resume" "WARN"
+                Write-Log "Work has been auto-committed. Attempting push..." "INFO"
+
+                # Step 2: Push to remote
+                $Pushed = Push-WorktreeBranch -WorktreePath $WorktreePath
+                if ($Pushed) {
+                    Write-Log "✅ Branch pushed successfully. Work preserved on remote." "INFO"
+                    # Step 3: Safe to remove worktree since work is on remote
+                    Remove-Worktree -WorktreePath $WorktreePath
+                } else {
+                    Write-Log "⚠️ Push failed. CONSERVING worktree for manual recovery: $WorktreePath" "WARN"
+                    Write-Log "  → Use Find-ExistingWorktree on next run to resume" "WARN"
+                }
             }
         } else {
             Write-Log "No changes to preserve. Cleaning up worktree." "INFO"
@@ -1952,6 +2028,9 @@ function New-WorkerPR {
     try {
         Push-Location $WorktreePath
 
+        # Current branch name (used for #1423 remote cleanup when guards fire)
+        $CurrentBranch = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
+
         # Guard #1156: Verify the diff contains real code changes, not just auto-commits or submodule pointer moves
         $DiffFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object { $_ -is [string] })
 
@@ -1965,6 +2044,10 @@ function New-WorkerPR {
                 # Use canonical containment check (merge-base --is-ancestor) + fetch
                 if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath $SubmodulePath -Commit $NewPointer)) {
                     Write-Log "PHANTOM PR BLOCKED (#1156 v2): Submodule '$SubmodulePath' pointer $($NewPointer.Substring(0,8)) not reachable from origin/main. Skipping PR creation." "WARN"
+                    # #1423: branch was already pushed — delete remote to avoid orphan
+                    Pop-Location
+                    Remove-RemoteBranch -BranchName $CurrentBranch -Reason "phantom submodule guard (#1156 v2)"
+                    Push-Location $WorktreePath
                     return $null
                 }
             }
@@ -1981,6 +2064,10 @@ function New-WorkerPR {
         }
         if ($AllAutoCommits -and $DiffFiles.Count -eq 0) {
             Write-Log "PHANTOM PR BLOCKED (#1156): All commits are auto-commits with no real changes. Skipping PR creation." "WARN"
+            # #1423: branch was already pushed — delete remote to avoid orphan
+            Pop-Location
+            Remove-RemoteBranch -BranchName $CurrentBranch -Reason "all-auto-commits guard (#1156)"
+            Push-Location $WorktreePath
             return $null
         }
 
@@ -2025,6 +2112,14 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
         # Write body to temp file (avoid PS argument splitting issues)
         $BodyFile = Join-Path $env:TEMP "pr-body-$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
         [System.IO.File]::WriteAllText($BodyFile, $Body, [System.Text.UTF8Encoding]::new($false))
+
+        # #1404: Final guard — verify diff is non-empty right before PR creation
+        $FinalDiff = @((git diff main..HEAD --stat 2>&1) | Where-Object { $_ -is [string] -and $_.Trim() -ne '' })
+        if ($FinalDiff.Count -eq 0) {
+            Write-Log "EMPTY PR BLOCKED (#1404): No actual changes in diff. Skipping PR creation." "WARN"
+            Remove-Item $BodyFile -ErrorAction SilentlyContinue
+            return $null
+        }
 
         Write-Log "Creating PR: $Title"
         $PrOutput = & gh pr create --title $Title --body-file $BodyFile --repo jsboige/roo-extensions --base main 2>&1
@@ -2120,6 +2215,8 @@ function Invoke-Claude {
                 $FinalResultText = ""
                 $CurrentToolName = $null
                 $CurrentToolInput = ""
+                $ParseErrorCount = 0
+                $ReceivedResultEvent = $false
                 Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
@@ -2155,6 +2252,7 @@ function Invoke-Claude {
                             }
                         }
                         elseif ($evt.type -eq "result") {
+                            $ReceivedResultEvent = $true
                             if ($evt.result) { $FinalResultText = $evt.result }
                             Write-Host "`n--- Fin session ($($evt.session_id)) ---" -ForegroundColor DarkGray
                         }
@@ -2162,6 +2260,7 @@ function Invoke-Claude {
                     }
                     catch {
                         # Not JSON (stderr, etc.) - display raw
+                        $ParseErrorCount++
                         Write-Host $rawLine -ForegroundColor Yellow
                     }
                 }
@@ -2259,15 +2358,24 @@ function Invoke-Claude {
 
         Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
+        # VALIDATE: Stream integrity check (#1433)
+        # If too many parse errors or no valid result event received, the stream is corrupt.
+        $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent -and ($FinalResultText.Length -gt 0)
+        if (-not $StreamValid) {
+            Write-Log "Stream integrity FAILED — ParseErrors: $ParseErrorCount, ResultEvent: $ReceivedResultEvent, ResultLen: $($FinalResultText.Length)" "ERROR"
+        }
+
         # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
-            success = -not $NeedsEscalation -and $null -eq $WaitStateData
+            success = $StreamValid -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
             needsEscalation = $NeedsEscalation
             escalateToModel = $EscalateToModel
             waitState = $WaitStateData
             output = $IterationOutputs -join "`n`n=== Iteration Break ===`n`n"
             mode = $ModeId
             iterations = $CurrentIteration
+            streamValid = $StreamValid
+            parseErrorCount = $ParseErrorCount
         }
     }
     catch {
@@ -2325,6 +2433,7 @@ function Report-Results {
 **Mode utilisé:** $FinalMode
 **Statut:** $(if ($Result.success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" })
 **Itérations:** $($Result.iterations)
+$(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
 
 ### Output
 ``````
@@ -2857,10 +2966,16 @@ REASON: [resume des tests ajoutes ou findings de veille]
 
     # 8. Cleanup worktree SEULEMENT après push+PR confirmés
     # Si PR créée avec succès, on peut supprimer le worktree (branch existe sur origin)
-    # Sinon, conserver pour reprise ou investigation manuelle
+    # Sinon, conserver pour reprise ou investigation manuelle — SAUF si guards #1156/#1423
+    # ont déjà détecté qu'il n'y a pas de travail reviewable (dans ce cas, remote déjà nettoyé).
     if ($UseWorktree -and $WorktreePath -ne $RepoRoot) {
         if ($PrUrl) {
             Write-Log "PR créée avec succès, suppression du worktree..."
+            Remove-Worktree -WorktreePath $WorktreePath
+        } elseif (Test-OnlyAutoCommits -WorktreePath $WorktreePath) {
+            # #1423: PR null + only auto-commits → guard fired, remote branch already deleted,
+            # no reviewable work. Safe to remove worktree.
+            Write-Log "Pas de PR créée (auto-commits seulement, remote déjà nettoyé #1423). Suppression worktree." "INFO"
             Remove-Worktree -WorktreePath $WorktreePath
         } else {
             Write-Log "⚠️ Pas de PR créée - worktree CONSERVÉ pour investigation: $WorktreePath" "WARN"
