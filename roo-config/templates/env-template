@@ -3,13 +3,13 @@
 # Localisation : D:\roo-extensions\.env (ou équivalent par machine)
 
 # ===================================================================
-# ENDPOINT QWEN 3.5 35B A3B (vLLM local sur myia-ai-01)
+# ENDPOINT QWEN 3.6 35B A3B (vLLM local sur myia-ai-01)
 # ===================================================================
 # Utilisé par les modes -simple (code-simple, debug-simple, etc.)
-# Infrastructure : Docker container myia_vllm-medium-qwen35-moe
+# Infrastructure : Docker container myia_vllm-medium-qwen36-moe
 # GPU : myia-ai-01 GPU 0+1 (Tensor Parallelism 2)
-# Modèle : cyankiwi/Qwen3.5-35B-A3B-AWQ-4bit
-# Contexte : 262K tokens, vision natif, prefix caching activé
+# Modèle : cyankiwi/Qwen3.6-35B-A3B-AWQ-4bit
+# Contexte : 262K tokens, vision natif, prefix caching activé, preserve_thinking
 
 LOCAL_LLM_API_KEY=<A REMPLACER PAR VOTRE CLÉ API LOCALE>
 LOCAL_LLM_API_BASE=https://api.medium.text-generation-webui.myia.io/v1
