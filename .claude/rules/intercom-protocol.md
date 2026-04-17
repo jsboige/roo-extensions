@@ -1,7 +1,7 @@
 # Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 3.1.0 (worktree auto-detection)
-**MAJ:** 2026-04-13
+**Version:** 3.2.0 (mentions v3)
+**MAJ:** 2026-04-17
 
 ---
 
@@ -31,6 +31,56 @@ Auto-condensation a **50 KB** : le dashboard reste toujours lisible en un seul a
 
 `.claude/local/INTERCOM-{MACHINE}.md` — utiliser UNIQUEMENT si le MCP dashboard echoue (GDrive offline).
 Si utilise : **ordre chronologique** (append-only, jamais inserer en haut, jamais ecraser avec Write).
+
+---
+
+## Mentions structurees et Cross-Post (v3, #1363)
+
+Deux champs orthogonaux sur `append` :
+
+- **`mentions[]`** — notifier des utilisateurs. Chaque entree respecte XOR : `userId` OU `messageId` (jamais les deux, jamais aucun des deux).
+- **`crossPost[]`** — repliquer le meme message dans d'autres dashboards, SANS notification. Erreur par cible isolee.
+
+### mentions[]
+
+```
+roosync_dashboard(
+  action: "append", type: "workspace",
+  content: "Review requested",
+  mentions: [
+    { userId: { machineId: "po-2023", workspace: "roo-extensions" } },
+    { userId: { machineId: "po-2024", workspace: "roo-extensions" }, note: "review please" }
+  ]
+)
+```
+
+Reference par `messageId` (format v3 `machineId:workspace:ic-ts-rand`) :
+
+```
+mentions: [{ messageId: "myia-ai-01:roo-extensions:ic-2026-04-17T0809-3lmh" }]
+```
+
+Dedup par `machineId` (plusieurs mentions vers la meme machine = une notification RooSync). Dispatch fire-and-forget (n'echoue pas l'append si RooSync indisponible).
+
+### crossPost[]
+
+```
+roosync_dashboard(
+  action: "append", type: "workspace",
+  content: "Infra-wide announcement",
+  crossPost: [
+    { type: "global" },
+    { type: "machine", machineId: "po-2023" }
+  ],
+  createIfNotExists: true
+)
+```
+
+Self-skip : une cible pointant vers le dashboard source ne duplique pas. Target manquant + `createIfNotExists: false` = entree `{ key, ok: false, error }` dans `result.crossPost`.
+
+### messageId v3
+
+Format : `${machineId}:${workspace}:ic-${ts}-${rand}`. Le split parse sur les **deux premiers** `:` (le 3e segment peut contenir des `-` et `:`).
 
 ---
 
