@@ -24,7 +24,9 @@
     Claude model to use (default: opus).
 
 .PARAMETER TimeoutMinutes
-    Hard kill timeout in minutes (default: 10).
+    Hard kill timeout in minutes (default: 45).
+    Opus 4.7 needs room for thinking + tool calls + detailed reply. 10 min was too tight
+    (observed: nanoclaw review reply cut off mid-response).
 
 .PARAMETER LockDir
     Directory for per-workspace lock files. Defaults to repo-root/.claude/locks.
@@ -37,7 +39,8 @@
     - Exit code is Claude's exit code. claude -p sometimes returns non-zero
       even on success (auto-compact). Caller should not treat non-zero as
       failure without checking for a [REPLY]/[ACK] on the dashboard.
-    - Output is truncated if >100KB to avoid log saturation (#1423 lesson).
+    - Output is truncated symmetrically if >1MB (threshold raised from 100KB in #1430
+      review to avoid asymmetric 10x loss — previous behavior kept only ~10KB out of 100KB).
 
     Related: issue #1430, lessons from start-claude-worker.ps1 and #1423.
 #>
@@ -51,7 +54,7 @@ param(
 
     [string]$Model = "opus",
 
-    [int]$TimeoutMinutes = 10,
+    [int]$TimeoutMinutes = 45,
 
     [string]$LockDir = ""
 )
@@ -145,20 +148,26 @@ Commence.
     if (Test-Path $outputFile) { $stdoutSize = (Get-Item $outputFile).Length }
     if (Test-Path $errorFile) { $stderrSize = (Get-Item $errorFile).Length }
 
+    # Truncation: >1MB keep last 1000 lines (~50KB). Threshold raised from 100KB/200 lines
+    # per nanoclaw #1430 review — previous asymmetric ratio (kept 10KB out of 100KB) was arbitrary
+    # and lost 90% of stream-json output where parse errors live.
+    $TruncateThresholdBytes = 1048576  # 1 MB
+    $TruncateTailLines = 1000
+
     $truncatedStdout = ""
     $truncatedStderr = ""
     if ($stdoutSize -gt 0) {
-        if ($stdoutSize -gt 102400) {
-            $truncatedStdout = "...[truncated, $stdoutSize bytes total, last 10KB]...`n"
-            $truncatedStdout += Get-Content -Path $outputFile -Tail 200 -Raw
+        if ($stdoutSize -gt $TruncateThresholdBytes) {
+            $truncatedStdout = "...[truncated, $stdoutSize bytes total, last $TruncateTailLines lines]...`n"
+            $truncatedStdout += Get-Content -Path $outputFile -Tail $TruncateTailLines -Raw
         } else {
             $truncatedStdout = Get-Content -Path $outputFile -Raw
         }
     }
     if ($stderrSize -gt 0) {
-        if ($stderrSize -gt 102400) {
-            $truncatedStderr = "...[truncated, $stderrSize bytes total, last 10KB]...`n"
-            $truncatedStderr += Get-Content -Path $errorFile -Tail 200 -Raw
+        if ($stderrSize -gt $TruncateThresholdBytes) {
+            $truncatedStderr = "...[truncated, $stderrSize bytes total, last $TruncateTailLines lines]...`n"
+            $truncatedStderr += Get-Content -Path $errorFile -Tail $TruncateTailLines -Raw
         } else {
             $truncatedStderr = Get-Content -Path $errorFile -Raw
         }
