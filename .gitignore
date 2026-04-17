@@ -98,6 +98,11 @@ nul
 
 # RooSync shared state (GDrive local mount, never commit)
 .shared-state/
+.shared-state-test-*
+
+# Parasite directories (#1461)
+.playwright-mcp/
+.cache/
 
 # RooSync directory (generated state, never commit)
 RooSync/
