@@ -94,6 +94,17 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  Branche poussee."
 
+# 3.5. Guard #1404: Verifier que le diff contient des changements reels
+Write-Host "[3.5/4] Verification changements reels..." -ForegroundColor Yellow
+$diffStat = git diff origin/main..$currentBranch --stat 2>&1
+if ($LASTEXITCODE -ne 0 -or $diffStat.Trim() -eq "") {
+    Write-Warning "Aucun changement de fichier detecte dans le diff."
+    Write-Warning "PR vide bloquee (issue #1404)."
+    exit 0
+}
+Write-Host "  Changements detectes:"
+$diffStat | ForEach-Object { Write-Host "    $_" }
+
 # 4. Creer la PR
 Write-Host "[4/4] Creation PR..." -ForegroundColor Yellow
 
