@@ -17,7 +17,7 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 - **Wait state** persistence for tasks requiring user approval
 - **Graceful idle** (clean exit when no work, -NoFallback)
 - **DryRun** mode for safe testing
-- **Detailed logs** in `.claude/logs/worker-*.log`
+- **Detailed logs** in `outputs/scheduling/logs/worker-*.log`
 
 ---
 
@@ -215,17 +215,17 @@ Agent signals STATUS: wait → Worker saves state to `.claude/scheduler/wait-sta
 ## Logs
 
 ```
-.claude/logs/
+outputs/scheduling/logs/
 ├── worker-20260226-032958.log    # Timestamped worker logs
 └── ...
 ```
 
 ```powershell
 # Recent logs
-Get-ChildItem .claude/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 5
+Get-ChildItem outputs/scheduling/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 5
 
 # Last 50 lines of latest
-Get-Content (Get-ChildItem .claude/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 1).FullName -Tail 50
+Get-Content (Get-ChildItem outputs/scheduling/logs/worker-*.log | Sort LastWriteTime -Desc | Select -First 1).FullName -Tail 50
 ```
 
 ---
