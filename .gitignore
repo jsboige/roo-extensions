@@ -221,3 +221,11 @@ docs/harness/meta-analysis-report-*.md
 
 # Archives directory (historical git is sufficient, no need for _archives/)
 _archives/
+
+# Worker auto-commit transient files (#1425 prevention)
+/coverage-analyzer.js
+/analyze-coverage*.js
+/analyze-v8-coverage.js
+/debug-coverage.js
+/test-outputs-md/
+/conversation-summary*.md
