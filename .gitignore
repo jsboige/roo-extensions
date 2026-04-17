@@ -109,8 +109,10 @@ debug-roosync-compare.log
 test-output.txt
 test-result.txt
 vitest-output.txt
+vitest-err.txt
+vitest-result.txt
 project-67.json
-mcp_settings_ai01*.json
+mcp_settings_*.json
 test-debug-*.log
 test-debug-*.cjs
 test-debug-*.html

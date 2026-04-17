@@ -6,9 +6,10 @@
     Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
     scheduling architecture. Supports 3 task types:
 
-    - worker:      Executor tier (6h, Haiku baseline, all machines)
-    - coordinator: Coordinator tier (8h, Sonnet baseline, ai-01 only)
-    - meta-audit:  Meta-Analyst tier (72h, Sonnet baseline, all machines)
+    - worker:            Executor tier (6h, Haiku baseline, all machines)
+    - coordinator:       Coordinator tier (8h, Sonnet baseline, ai-01 only)
+    - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
+    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, ai-01 only)
 
     ESCALATION MECHANISM (#1027):
     Each scheduler uses a cost-effective baseline model with targeted escalation:
@@ -20,7 +21,10 @@
     Action to perform: install, remove, list, test (default: list)
 
 .PARAMETER TaskType
-    Type of scheduled task: worker, coordinator, meta-audit (default: worker)
+    Type of scheduled task: worker, coordinator, meta-audit, dashboard-watcher (default: worker)
+
+.PARAMETER Workspace
+    Workspace key to watch (required for TaskType=dashboard-watcher). Example: "nanoclaw".
 
 .PARAMETER IntervalHours
     Hours between runs (default depends on TaskType: worker=3, coordinator=8, meta-audit=24)
@@ -49,20 +53,22 @@
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw watcher (ai-01)
 #>
 
 param(
     [ValidateSet('install', 'remove', 'list', 'test')]
     [string]$Action = 'list',
 
-    [ValidateSet('worker', 'coordinator', 'meta-audit')]
+    [ValidateSet('worker', 'coordinator', 'meta-audit', 'dashboard-watcher')]
     [string]$TaskType = 'worker',
 
-    [int]$IntervalHours = 0,
+    [double]$IntervalHours = 0,
     [string]$Mode = 'code-simple',
     [string]$Model = '',
     [int]$MaxIterations = 1,
     [int]$TimeoutMinutes = 0,
+    [string]$Workspace = '',
     [switch]$DryRun
 )
 
@@ -122,11 +128,29 @@ $TaskConfigs = @{
         Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h on Sonnet with sub-agent escalation to Opus for architectural recommendations."
         MachineRestriction = $null  # all machines
     }
+    'dashboard-watcher' = @{
+        TaskName = "Claude-DashboardWatcher-{Workspace}"
+        Script = Join-Path $RepoRoot "scripts/dashboard-scheduler/poll-dashboard.ps1"
+        DefaultInterval = 1  # 1h polls
+        DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
+        DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
+        Description = "Claude Code dashboard watcher: polls workspace dashboard, filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Phase 1 runs in -Stub mode (0 token cost). Issue #1430."
+        MachineRestriction = "myia-ai-01"
+    }
 }
 
 $config = $TaskConfigs[$TaskType]
 $TaskName = $config.TaskName
 $WorkerScript = $config.Script
+
+# Dashboard-watcher requires -Workspace; expand placeholder in TaskName
+if ($TaskType -eq 'dashboard-watcher') {
+    if ([string]::IsNullOrEmpty($Workspace)) {
+        Write-Host "[ERROR] TaskType 'dashboard-watcher' requires -Workspace parameter (e.g. -Workspace nanoclaw)" -ForegroundColor Red
+        exit 1
+    }
+    $TaskName = $TaskName.Replace('{Workspace}', $Workspace)
+}
 
 # Apply defaults if not explicitly set
 if ($IntervalHours -eq 0) { $IntervalHours = $config.DefaultInterval }
@@ -214,6 +238,17 @@ function Install-Task {
                 "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
                 "-Model", $Model
+            )
+        }
+        'dashboard-watcher' {
+            # Phase 1: stub mode (no claude -p spawn). Flip to live by editing
+            # poll-dashboard.ps1 default or passing -Stub:$false.
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-File", "`"$WorkerScript`"",
+                "-Workspace", $Workspace,
+                "-AllowedTags", "`"ASK,TASK,BLOCKED`""
             )
         }
     }
@@ -326,6 +361,12 @@ function Test-Task {
             Write-Status "  Running: $WorkerScript -Model $Model -DryRun"
             Write-Status ""
             & powershell -ExecutionPolicy Bypass -File $WorkerScript -Model $Model -DryRun
+        }
+        'dashboard-watcher' {
+            Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript `
+                -Workspace $Workspace -AllowedTags "ASK,TASK,BLOCKED"
         }
     }
 }

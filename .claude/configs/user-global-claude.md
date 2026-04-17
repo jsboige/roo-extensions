@@ -18,6 +18,16 @@
 
 ---
 
+## Fixing Prompts and Rules — No Pendulum
+
+When a line in a prompt/rule causes bad behavior: **delete it first.** Only add a replacement if removal leaves an actual gap the other directives don't cover.
+
+Replacing a line with its opposite (e.g. "viser 50-100 lignes" → "viser 10-14 KB", "ne pas copier-coller" → "préserver l'intégralité") is the pendulum failure — it swings the problem to the other extreme. Equilibrium is reached by subtracting, not by adding a counterweight.
+
+If an automatic mechanism handles the concern elsewhere (auto-condensation, retries, rate limits), don't re-encode its intent in the prompt.
+
+---
+
 ## Conventions
 
 - **Language:** User = French. Code/commits/docs = English OK. INTERCOM = French when relevant.
@@ -166,7 +176,9 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
-1. **Debut :** `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
+1. **Debut :**
+   - `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
+   - **`memory-inject`** — auto-injecter les leçons pertinentes depuis MEMORY.md (pattern Reddit #1369)
 2. **Pendant :** Travailler. Si question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`
 3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — **OBLIGATOIRE, aucune exception**
 
@@ -190,6 +202,8 @@ Si ca te surprend → verifie avant de repeter ou d'agir dessus.
   - `~/.claude/projects/<hash>/memory/MEMORY.md` — Per-machine session learnings
   - `.claude/memory/PROJECT_MEMORY.md` — Cross-machine shared (via git)
   - `.claude/rules/*.md` — Auto-loaded project rules
+
+- **Memory auto-injection (#1377):** Le skill `memory-inject` auto-charge les leçons pertinentes au debut de chaque tache pour prevenir les erreurs recurrentes. Pattern valide par l'analyse Reddit 3-agent (#1369).
 
 **After each significant task:** Update project CLAUDE.md + MEMORY.md. Record rejected approaches.
 
