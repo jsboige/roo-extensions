@@ -140,7 +140,19 @@ mcps/external/win-cli/server/node_modules/
 # Claude Code settings backups
 .claude/settings.json.backup-*
 
-# Claude Code local settings (machine-specific overrides, never commit)
+# Claude Code settings
+#
+# .claude/settings.json — INTERDIT, PAS gitignoré volontairement.
+#   Ce fichier écrase silencieusement ~/.claude/settings.json (machine-level)
+#   et a cassé 2 semaines de tuning condensation en 2026-04-07.
+#   S'il réapparaît sur une machine, `git status` doit le crier pour qu'on le
+#   détruise immédiatement. Le harnais cross-workspace (fenêtre, seuil,
+#   provider tuning, perms auto-approve partagées) vit UNIQUEMENT dans
+#   ~/.claude/settings.json (machine-specific, selon provider).
+#
+# .claude/settings.local.json — toléré (gitignoré).
+#   UNIQUEMENT pour des permissions locales ponctuelles. JAMAIS d'env vars ni
+#   de tuning provider (ça doit rester dans ~/.claude/settings.json).
 .claude/settings.local.json
 
 # Claude Code local inter-agent communication (machine-specific)
