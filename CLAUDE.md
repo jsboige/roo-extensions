@@ -60,10 +60,18 @@ Les deux agents (Roo ET Claude) utilisent RooSync pour communiquer entre machine
 | Global | `~/.claude/CLAUDE.md` | Tous projets |
 | Projet | `CLAUDE.md` (racine) | Ce projet |
 | Local | `CLAUDE.local.md` | Machine (gitignored) |
-| Permissions | `.claude/settings.json` | Auto-approve (git-tracked) |
+| Harness (per-machine) | `~/.claude/settings.json` | Provider tuning + permissions (JAMAIS dans le repo) |
 | Rules | `.claude/rules/*.md` | Auto-chargees chaque conversation |
 | Auto-memoire | `~/.claude/projects/<hash>/memory/` | Prive, local |
 | Memoire partagee | `.claude/memory/PROJECT_MEMORY.md` | Via git |
+
+**Harness par machine :** Chaque machine définit ses paramètres Claude Code (fenêtre de contexte, seuil de condensation, permissions auto-approve) dans `~/.claude/settings.json`. Ce fichier est **machine-specific** et dépend du provider :
+- **ai-01 (Anthropic Opus)** : `CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=20`
+- **Autres machines (z.ai GLM)** : `CLAUDE_CODE_AUTO_COMPACT_WINDOW=200000`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75`
+
+**`.claude/settings.json` (niveau projet) : INTERDIT.** Ce fichier écrase silencieusement le machine-level et a cassé 2 semaines de tuning condensation (2026-04-07). Il n'est **pas gitignoré** volontairement : s'il réapparaît, `git status` doit le crier pour qu'on le détruise immédiatement.
+
+**`.claude/settings.local.json` : toléré** (gitignoré) UNIQUEMENT pour des permissions locales ponctuelles. JAMAIS d'env vars ni de tuning provider — ça doit rester dans `~/.claude/settings.json`.
 
 ---
 
