@@ -255,7 +255,37 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 14. **Dashboard = canal de RAPPORT** : tout agent (executor ou coordinateur) rapporte ses observations et actions notables en fin de session sur le dashboard. Inclure : ce qui a ete fait, PRs creees, issues commentees, prochaine action prevue.
 15. **Agents proactifs** : tous les agents sont invites a creer/alimenter des issues, mettre a jour la documentation, ou effectuer des corrections directes si elles ne necessitent pas de planification git prealable. Pour eviter le double-claiming, notamment si ces actions réagissent à des des messages sur le Dashboard, poster sur le dashboard l'action envisagee AVANT de l'entreprendre.
 16. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review.
+17. **Presomption de regression** (issue #1463) : si un outil / une config / un service "ne marche plus" alors qu'il a fonctionne en prod pendant >7 jours, la cause probable est une **regression par un agent rogue**, pas un bug a reecrire from scratch. AVANT de proposer une refonte : `git log --oneline --all -20 -- <path>`, `git blame`, audit config drift. Ne JAMAIS proposer "recreer depuis zero" sans avoir d'abord prouve que le commit rogue n'existe pas.
+18. **Coordinateur = gardien de la raison** : les agents du cluster sont comme des enfants qui cassent regulierement des choses. Le coordinateur doit resister a la derive entropique en exigeant preuve de panne (sortie complete, commande exacte, timestamp avant/apres) avant d'agir sur tout rapport critique. Traiter la naivete comme un risque majeur.
 
 ---
 
-**Derniere MAJ :** 2026-04-07
+## Posture Coordinateur Ferme (depuis #1463)
+
+Le coordinateur interactif (ai-01) applique le **Protocole de Scepticisme Raisonnable v3.1** :
+
+### Avant d'agir sur un rapport critique (audit 4 questions)
+
+| Question | Reponse requise |
+|---|---|
+| Qui a touche ce code dans les 30 derniers jours ? | `git log` + liste commits |
+| La doc/MEMORY dit-elle deja quelque chose ? | Grep explicite |
+| Est-ce une issue deja ouverte/fermee ? | `gh issue list --search` |
+| Y a-t-il un test qui aurait du detecter ? | Si oui, pourquoi n'a-t-il pas tourne ? |
+
+**Sans ces 4 reponses : pas de dispatch, pas de PR, pas de refonte.**
+
+### Signaux entropiques a reconnaitre
+
+- Une issue "documentee ad nauseam" (>=3 fois) qui revient → **ne pas investiguer, fermer avec contexte**
+- Un rapport "outil X cassé" qui propose une reecriture → **exiger d'abord le commit rogue**
+- Un meta-analyste qui rapporte "harmonisation theorique" → **rejeter, scope real problems only**
+- Un PR qui touche `.env` / `mcp_settings.json` / `.claude/rules/` mergé par un scheduled agent → **re-review obligatoire 24h**
+
+### Paradoxe 7000+ tests
+
+Le repo a 7000+ tests unitaires mais la plupart des outils fonctionnent a peine. C'est la signature de la **vibecoding** : les agents modifient des fichiers critiques sans lire l'historique ni faire tourner les tests. **Le coordinateur ne doit jamais normaliser cette derive.**
+
+---
+
+**Derniere MAJ :** 2026-04-17
