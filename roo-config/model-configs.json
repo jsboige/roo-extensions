@@ -25,9 +25,9 @@
       "apiProvider": "openai",
       "openAiBaseUrl": "https://api.medium.text-generation-webui.myia.io/v1",
       "openAiApiKey": "{{SECRET:openAiApiKey}}",
-      "openAiModelId": "qwen3.5-35b-a3b",
+      "openAiModelId": "qwen3.6-35b-a3b",
       "id": "simple",
-      "description": "Qwen 3.5 35B A3B auto-hébergé via text-generation-webui (endpoint medium). ~50 tok/sec solo, ~200 tok/sec batch. Max 2-3 sessions simultanées (KV cache ~220k)."
+      "description": "Qwen 3.6 35B A3B auto-hébergé via text-generation-webui (endpoint medium). 262K ctx, vision+thinking+preserve_thinking. Benchmarks: SWE-bench 73.4%, Terminal-Bench 51.5%, NL2Repo 29.4%, QwenWebBench 1397."
     },
     "default": {
       "diffEnabled": true,
