@@ -97,10 +97,14 @@ tmp/
 nul
 
 # RooSync shared state (GDrive local mount, never commit)
-.shared-state/
+.shared-state*
+!.shared-state/.gitkeep
 
 # RooSync directory (generated state, never commit)
 RooSync/
+
+# Playwright MCP data (browser profile, should use temp dir)
+.playwright-mcp/
 
 # Debug files
 debug_payload_dump.json
