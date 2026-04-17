@@ -172,7 +172,7 @@ If regression is detected after rollout on a machine:
 1. Disable Copilot scheduled lane:
    - `scripts/scheduling/setup-copilot-dispatcher.ps1 -Action remove`
 2. Keep Roo and Claude schedulers unchanged (no cross-lane rollback).
-3. Preserve logs under `.claude/logs/copilot-dispatcher-*.log` for forensic review.
+3. Preserve logs under `outputs/scheduling/logs/copilot-dispatcher-*.log` for forensic review.
 4. Post rollback evidence and blocker summary on issue #622.
 5. Resume with interactive-only Copilot lane until fix is validated.
 
