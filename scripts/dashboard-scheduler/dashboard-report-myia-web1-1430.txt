@@ -1,0 +1,7 @@
+### [myia-web1] Dashboard-watcher scheduler #1430
+- Phase 1 COMPLETED: poll-dashboard.ps1 + spawn-claude.ps1 + setup-scheduler.ps1 implémentés
+- Tests validation: stub fonctionne, gating opérationnel, logs OK
+- Prêt pour déploiement sur ai-01 et validation 48h
+- Prochain étape: installer task sur myia-ai-01 avec setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw
+
+Tags: DONE, claude-interactive
