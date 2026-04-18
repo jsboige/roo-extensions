@@ -87,27 +87,39 @@ if ($pr.additions -gt 50 -or $pr.deletions -gt 50) {
 
     if ($skAgentAvailable) {
         # Run sk-agent code review via MCP
+        # INTEGRATION TRACING TEMPLATE (issue #1471) - focuses on context flow, not just diff correctness
+        $filesTouched = $pr.files | ForEach-Object { $_.path } | Out-String
         $reviewPrompt = @"
-Review this GitHub PR diff for:
-1. **Security issues** (injection, XSS, auth bypass, secrets)
-2. **Data loss risks** (destructive operations, missing migrations)
-3. **Performance problems** (N+1 queries, memory leaks, inefficient algorithms)
-4. **Maintainability** (code duplication, missing error handling, unclear logic)
-5. **Correctness** (logic bugs, edge cases, type safety)
+Review this PR with a focus on INTEGRATION, not just diff correctness.
 
-PR Title: $($pr.title)
-PR Author: $($pr.author.login)
-
-Diff output:
+DIFF:
 ```
 $(Get-Content $diffFile -Raw)
 ```
 
-Provide a structured review:
-- **Critical Issues** (must fix before merge)
-- **Warnings** (should fix)
-- **Suggestions** (nice to have)
-- **Overall Assessment** (approve/request changes/reject)
+FILES TOUCHED:
+$filesTouched
+
+CONTEXT TRACING (required):
+For each new field, API, or modified behavior in this PR:
+1. Where does a value enter the system? (tool input, request body, env var)
+2. Where is it validated? (schema, Zod, manual checks)
+3. What code CONSUMES it downstream?
+4. Where does it have side effects? (network call, DB write, message dispatch)
+5. At each step: is required context (workspace, machineId, auth, traceId) preserved?
+
+Use the codebase to trace these. If the PR adds/modifies a schema field,
+grep for consumers. If it changes a function signature, find callers.
+
+CRITICAL PATTERNS TO HUNT:
+- Silent failures: `.catch(() {})`, fire-and-forget without logging
+- Context loss: passing `machineId` alone where `{`machineId`, workspace}` is needed
+- Defaults papering over bugs: `|| undefined`, `?? ''`, `|| []` when missing input should error
+- E2E test gap: does any test exercise the full flow from input to effect?
+- Dual-definition: check if the same schema/type is duplicated elsewhere (tool-definitions vs handler source)
+
+VERDICT: APPROVE / REQUEST_CHANGES / COMMENT.
+Be specific about bugs NOT in the diff but exposed/obscured by it.
 "@
 
         $reviewResult = mcp-call-tool tool="run_conversation" arguments="{\"prompt\": \"$($reviewPrompt -replace '`n', '\\n' -replace '"', '\"')\", \"conversation\": \"code-review\"}" 2>$null
