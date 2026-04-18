@@ -97,10 +97,14 @@ tmp/
 nul
 
 # RooSync shared state (GDrive local mount, never commit)
-.shared-state/
+.shared-state*
+!.shared-state/.gitkeep
 
 # RooSync directory (generated state, never commit)
 RooSync/
+
+# Playwright MCP data (browser profile, should use temp dir)
+.playwright-mcp/
 
 # Debug files
 debug_payload_dump.json
@@ -217,3 +221,11 @@ docs/harness/meta-analysis-report-*.md
 
 # Archives directory (historical git is sufficient, no need for _archives/)
 _archives/
+
+# Worker auto-commit transient files (#1425 prevention)
+/coverage-analyzer.js
+/analyze-coverage*.js
+/analyze-v8-coverage.js
+/debug-coverage.js
+/test-outputs-md/
+/conversation-summary*.md
