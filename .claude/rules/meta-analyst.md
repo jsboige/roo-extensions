@@ -1,9 +1,9 @@
 # Meta-Analyste — Claude Code
 
-**Version:** 1.0.0
-**Issue:** #1375
+**Version:** 1.1.0
+**Issue:** #1375 (cree), #1455 (durcissement hard-reject)
 **Miroir de :** `.roo/scheduler-workflow-meta-analyst.md` (Roo scheduler, 297 lignes)
-**MAJ:** 2026-04-15
+**MAJ:** 2026-04-18
 
 ---
 
@@ -111,6 +111,38 @@ Utiliser `Bash` avec `gh` (pas de win-cli pour Claude) :
 - **Qualite dispatches** : lire dashboard workspace pour `[DISPATCH]`, `[CLAIMED]`, `[RESULT]`, `[DONE]`.
 
 **Ne rapporter QUE des problemes REELS** observes dans les donnees. Pas de suggestions theoriques d'harmonisation.
+
+### HARD REJECT — Rapports INTERDITS (rejet immediat a la creation d'issue)
+
+Ces sujets sont **interdits** meme si l'analyse les detecte. Incidents historiques : #1455 (asymetrie INTERCOM v3.0.0/v3.2.0, 2026-04-17, rejete par utilisateur), rappels repetes ("qu'as-tu fait pour que ca cesse ?"). Ces rapports encombrent le coordinateur sans aucun gain fonctionnel.
+
+| Categorie | Exemple | Pourquoi interdit |
+|-----------|---------|-------------------|
+| Asymetrie de version doc | `.roo/rules/X v3.0.0` vs `.claude/rules/X v3.2.0` | Les deux agents ont des cycles d'evolution differents. L'asymetrie n'est PAS un bug. |
+| "Harmoniser", "synchroniser", "aligner" | "Synchroniser SDDD vers v3.0.0" sans incident | Harmonisation theorique = entropie coordinateur. |
+| Refactoring architectural sans incident | "Extraire un service", "centraliser un helper" | Si ca n'a pas casse, ne pas le reecrire. |
+| Naming convention drift | `field to vs target`, `machineId vs machine_id` | Pure cosmetique. |
+| Doublons apparents sans incident | "Fonction X definie dans Y et Z" | Peut etre volontaire (isolation, perf #1145). |
+| Metrique sans seuil depasse | "Taux de succes 92%" sans constat de regression | Juste un chiffre. |
+
+### Test de validation AVANT creation d'issue (OBLIGATOIRE)
+
+Avant de creer toute issue `[META-ANALYSIS]`, repondre aux 3 questions :
+
+1. **Y a-t-il un incident concret avec timestamp et trace ?** (ex : "task #N echouee 2026-04-XX", "agent Y bloque 5h")
+2. **Le probleme est-il REPRODUIT par les donnees ?** (pas juste "pourrait theoriquement", mais "s'est produit N fois entre date1 et date2")
+3. **Si je ne cree PAS cette issue, qu'est-ce qui casse ?** Si la reponse est "rien, c'est juste moins propre" → **NE PAS CREER.**
+
+Si une des 3 reponses est floue : `[META-ANALYSIS]` est de trop. Ecrire le constat dans le dashboard compact (Etape 3), ne pas creer d'issue.
+
+### Exemples de rapports LEGITIMES (a garder)
+
+- "Task #N a boucle 10x sur win-cli blocked operators entre HHMM et HH'MM'" (avec traces)
+- "MCP roo-state-manager crash sur po-2024 le DATE, erreur X, 3 recurrences cette semaine"
+- "Explosion contexte detectee sur tache #M (>50K chars en 1 tour)"
+- "7 sessions Claude >100 MB non archivees depuis 72h"
+
+Ces exemples ont tous : **timestamp**, **reproduction**, **impact concret**.
 
 ### Etape 3 : Resume COMPACT sur dashboard
 
