@@ -31,6 +31,11 @@
 .PARAMETER LockDir
     Directory for per-workspace lock files. Defaults to repo-root/.claude/locks.
 
+.PARAMETER McpConfig
+    Path to the MCP config JSON. Defaults to $env:USERPROFILE/.claude.json.
+    Required so the spawned claude -p subprocess can reach roo-state-manager
+    (see #1448: MCP is NOT inherited by subprocess — must be passed explicitly).
+
 .EXAMPLE
     .\spawn-claude.ps1 -Workspace nanoclaw -Since "2026-04-17T00:00:00Z"
 
@@ -56,7 +61,9 @@ param(
 
     [int]$TimeoutMinutes = 45,
 
-    [string]$LockDir = ""
+    [string]$LockDir = "",
+
+    [string]$McpConfig = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -70,6 +77,14 @@ if ([string]::IsNullOrEmpty($LockDir)) {
 
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
+}
+
+if ([string]::IsNullOrEmpty($McpConfig)) {
+    $McpConfig = Join-Path $env:USERPROFILE ".claude.json"
+}
+if (-not (Test-Path $McpConfig)) {
+    Write-Host "[$(Get-Date -Format o)] [ERROR] MCP config not found: $McpConfig"
+    exit 11
 }
 
 $lockFile = Join-Path $LockDir "spawn-$Workspace.lock"
@@ -119,13 +134,16 @@ Commence.
 
     # ========== SPAWN ==========
 
-    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min) for workspace=$Workspace since=$Since"
+    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min, mcp-config=$McpConfig) for workspace=$Workspace since=$Since"
 
     $outputFile = [System.IO.Path]::GetTempFileName()
     $errorFile = [System.IO.Path]::GetTempFileName()
 
+    # #1448: --mcp-config is MANDATORY for subprocess — MCP servers are not
+    # inherited from the parent Claude Code session. Without it, the spawned
+    # claude -p has zero access to roo-state-manager (cannot read dashboard).
     $proc = Start-Process -FilePath "claude" `
-        -ArgumentList @("-p", "--model", $Model, $prompt) `
+        -ArgumentList @("-p", "--model", $Model, "--mcp-config", $McpConfig, $prompt) `
         -NoNewWindow `
         -RedirectStandardOutput $outputFile `
         -RedirectStandardError $errorFile `
