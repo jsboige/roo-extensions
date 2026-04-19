@@ -89,7 +89,7 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 **Debut de session :** `roosync_dashboard(action: "read", type: "workspace")` pour lire les messages recents.
 **Fin de session :** `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "resume...")` pour rapporter.
 **Tags standards :** `INFO`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `TASK`, `BLOCKED`.
-**Auto-condensation :** Declenchee automatiquement a 50KB sur `append`. Condensation manuelle via `condense`.
+**Auto-condensation :** Préemptive à **92% d'utilisation** (≈46 KB) avant `append`, filet de sécurité à 50 KB après. Condensation manuelle via `condense`.
 
 #### Conversation Browser
 
