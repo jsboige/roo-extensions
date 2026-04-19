@@ -65,9 +65,46 @@ jobs:
               return;
             }
 
+            // --- Check reopen counter (#1487) ---
+            const BOT_SIGNATURE = 'Automatis\u00E9 par [checklist-enforce.yml]';
+            const MAX_REOPENS = 3;
+            const previousReopens = comments.filter(c =>
+              c.body && c.body.includes(BOT_SIGNATURE) && c.body.includes('Checklist incomplete')
+            ).length;
+
+            // Build detail breakdown
+            const details = [];
+            if (uncheckedBoxes > 0) details.push(`${uncheckedBoxes} checkbox(es) \`- [ ]\``);
+            if (uncheckedEmoji > 0) details.push(`${uncheckedEmoji} item(s) \u2B1C`);
+
+            if (previousReopens >= MAX_REOPENS) {
+              // Stop the loop — warn instead of reopening (#1487)
+              console.log(`Max reopens (${MAX_REOPENS}) reached. Leaving closed with warning.`);
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body: [
+                  `## \u26A0\uFE0F Checklist still incomplete (${previousReopens} reopen cycles)`,
+                  '',
+                  `Cette issue a \u00E9t\u00E9 ferm\u00E9e **${previousReopens} fois** avec des items non valid\u00E9s :`,
+                  '',
+                  `- ${details.join(', ')}`,
+                  `- ${totalChecked} item(s) d\u00E9j\u00e0 valid\u00e9(s)`,
+                  '',
+                  `**Boucle stopp\u00e9e apr\u00e8s ${MAX_REOPENS} r\u00e9ouvertures.** L'issue reste ferm\u00e9e.`,
+                  'Si c\'est une erreur, mettez \u00e0 jour la checklist et rouvrez manuellement.',
+                  '',
+                  '---',
+                  `*Automatis\u00E9 par [checklist-enforce.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/checklist-enforce.yml) (#516, #1487)*`
+                ].join('\n')
+              });
+              return;
+            }
+
             // --- Reopen the issue ---
 
-            console.log(`Incomplete checklist: ${totalUnchecked} unchecked / ${totalItems} total. Reopening.`);
+            console.log(`Incomplete checklist: ${totalUnchecked} unchecked / ${totalItems} total. Reopening (${previousReopens + 1}/${MAX_REOPENS}).`);
 
             await github.rest.issues.update({
               owner: context.repo.owner,
@@ -76,17 +113,12 @@ jobs:
               state: 'open'
             });
 
-            // Build detail breakdown
-            const details = [];
-            if (uncheckedBoxes > 0) details.push(`${uncheckedBoxes} checkbox(es) \`- [ ]\``);
-            if (uncheckedEmoji > 0) details.push(`${uncheckedEmoji} item(s) \u2B1C`);
-
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
               body: [
-                '## \u26D4 Checklist incomplete - Issue rouverte automatiquement',
+                `## \u26D4 Checklist incomplete - Issue rouverte automatiquement (${previousReopens + 1}/${MAX_REOPENS})`,
                 '',
                 `Cette issue a \u00E9t\u00E9 ferm\u00E9e avec **${totalUnchecked} item(s) non valid\u00E9(s)** sur ${totalItems} total :`,
                 '',
@@ -95,9 +127,10 @@ jobs:
                 '',
                 '**Action requise :** Mettez \u00E0 jour la checklist dans le corps de l\'issue (`gh issue edit`) avant de fermer.',
                 '',
+                `> \u26A0\uFE0F Apr\u00e8s ${MAX_REOPENS} r\u00e9ouvertures, la boucle s'arr\u00eate automatiquement (#1487).`,
                 '> Pour forcer la fermeture (cas exceptionnel), ajoutez un commentaire contenant `[FORCE-CLOSE]` avec une justification, puis refermez l\'issue.',
                 '',
                 '---',
-                `*Automatis\u00E9 par [checklist-enforce.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/checklist-enforce.yml) (#516)*`
+                `*Automatis\u00E9 par [checklist-enforce.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/checklist-enforce.yml) (#516, #1487)*`
               ].join('\n')
             });
