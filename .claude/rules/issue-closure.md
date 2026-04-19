@@ -1,8 +1,9 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 1.0.0
-**MAJ:** 2026-04-06
+**Version:** 1.1.0
+**MAJ:** 2026-04-17
 **Origine:** Incident fermeture prematuree de 3 issues (#829, #850, #855) par un agent
+**Update:** Incident batch-close web1 (#737, #760) — commentaire generique detecte (#1428)
 
 ---
 
@@ -41,6 +42,12 @@ Un commentaire `[CLAIMED]` ou `Executed by...` ne prouve PAS que le travail est 
 
 Le triage en batch est autorise pour LISTER les candidats a la fermeture. La fermeture elle-meme doit etre **individuelle et justifiee**.
 
+### JAMAIS utiliser un commentaire generique pour fermer
+
+Chaque commentaire de fermeture doit **refleter le contenu** de l'issue concernee. Un commentaire comme "dépassé par améliorations récentes" appliqué a plusieurs issues sans rapport est un signal de batch-close sans lecture individuelle (incident #1428).
+
+**Test :** Si le meme commentaire peut etre copie-colle sur 3+ issues sans modification, c'est un batch-close.
+
 ## Raisons de fermeture legitimes
 
 | Raison | Preuve requise |
@@ -57,4 +64,6 @@ Le triage en batch est autorise pour LISTER les candidats a la fermeture. La fer
 
 ---
 
-**Historique :** Cree apres incident 2026-04-06 ou un agent a ferme 3 issues (#829, #850, #855) avec "not planned" pour contourner le bot checklist, masquant du travail non termine.
+**Historique :**
+- 2026-04-06 : Cree apres incident fermeture prematuree de 3 issues (#829, #850, #855)
+- 2026-04-17 : Ajout anti-pattern commentaire generique (incident #1428, batch-close web1 #737/#760)
