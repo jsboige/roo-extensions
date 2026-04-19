@@ -31,6 +31,11 @@
 .PARAMETER LockDir
     Directory for per-workspace lock files. Defaults to repo-root/.claude/locks.
 
+.PARAMETER McpConfig
+    Path to the MCP config JSON. Defaults to $env:USERPROFILE/.claude.json.
+    Required so the spawned claude -p subprocess can reach roo-state-manager
+    (see #1448: MCP is NOT inherited by subprocess — must be passed explicitly).
+
 .EXAMPLE
     .\spawn-claude.ps1 -Workspace nanoclaw -Since "2026-04-17T00:00:00Z"
 
@@ -49,14 +54,15 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Workspace,
 
-    [Parameter(Mandatory=$true)]
-    [string]$Since,
+    [string]$Since = "",
 
     [string]$Model = "opus",
 
     [int]$TimeoutMinutes = 45,
 
-    [string]$LockDir = ""
+    [string]$LockDir = "",
+
+    [string]$McpConfig = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -70,6 +76,14 @@ if ([string]::IsNullOrEmpty($LockDir)) {
 
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
+}
+
+if ([string]::IsNullOrEmpty($McpConfig)) {
+    $McpConfig = Join-Path $env:USERPROFILE ".claude.json"
+}
+if (-not (Test-Path $McpConfig)) {
+    Write-Host "[$(Get-Date -Format o)] [ERROR] MCP config not found: $McpConfig"
+    exit 11
 }
 
 $lockFile = Join-Path $LockDir "spawn-$Workspace.lock"
@@ -119,17 +133,55 @@ Commence.
 
     # ========== SPAWN ==========
 
-    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min) for workspace=$Workspace since=$Since"
+    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min, mcp-config=$McpConfig) for workspace=$Workspace since=$Since"
 
     $outputFile = [System.IO.Path]::GetTempFileName()
     $errorFile = [System.IO.Path]::GetTempFileName()
 
-    $proc = Start-Process -FilePath "claude" `
-        -ArgumentList @("-p", "--model", $Model, $prompt) `
-        -NoNewWindow `
-        -RedirectStandardOutput $outputFile `
-        -RedirectStandardError $errorFile `
-        -PassThru
+    # `claude` on Windows is a .cmd shim, not a .exe — Start-Process can't
+    # launch it directly. Resolve to the npm wrapper or VS Code native binary,
+    # falling back to claude.cmd in PATH.
+    $claudeExe = $null
+    $candidates = @(
+        (Get-ChildItem -Path "$env:USERPROFILE/.vscode/extensions/anthropic.claude-code-*-win32-x64/resources/native-binary/claude.exe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1),
+        (Get-Command claude.cmd -ErrorAction SilentlyContinue | Select-Object -First 1)
+    )
+    foreach ($c in $candidates) {
+        if ($c -and $c.Path) { $claudeExe = $c.Path; break }
+        if ($c -and $c.Source) { $claudeExe = $c.Source; break }
+        if ($c -and $c.FullName) { $claudeExe = $c.FullName; break }
+    }
+    if (-not $claudeExe) {
+        Write-Log "ERROR" "Cannot find claude executable (looked for VS Code native binary and claude.cmd in PATH)"
+        return 11
+    }
+    Write-Log "INFO" "Using claude executable: $claudeExe"
+
+    # Pass prompt via stdin (matches start-claude-worker.ps1 pattern from #1448).
+    # Using `claude -p -` reads prompt from stdin which avoids cmd.exe arg quoting.
+    $promptFile = [System.IO.Path]::GetTempFileName()
+    [System.IO.File]::WriteAllText($promptFile, $prompt, [System.Text.UTF8Encoding]::new($false))
+
+    $argList = @("-p", "-", "--dangerously-skip-permissions", "--model", $Model, "--output-format", "stream-json", "--verbose", "--include-partial-messages")
+    if (-not [string]::IsNullOrEmpty($McpConfig) -and (Test-Path $McpConfig)) {
+        $argList += @("--mcp-config", $McpConfig)
+    }
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $claudeExe
+    foreach ($a in $argList) { $psi.ArgumentList.Add($a) }
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $proc.StandardInput.Write([System.IO.File]::ReadAllText($promptFile))
+    $proc.StandardInput.Close()
+
+    $stdoutTask = $proc.StandardOutput.ReadToEndAsync()
+    $stderrTask = $proc.StandardError.ReadToEndAsync()
 
     $timedOut = -not $proc.WaitForExit($TimeoutMinutes * 60 * 1000)
 
@@ -142,6 +194,14 @@ Commence.
     }
 
     # ========== CAPTURE OUTPUT ==========
+
+    # Drain async readers + persist to the temp files for the existing
+    # truncation/logging code below.
+    $stdoutText = $stdoutTask.Result
+    $stderrText = $stderrTask.Result
+    [System.IO.File]::WriteAllText($outputFile, $stdoutText, [System.Text.UTF8Encoding]::new($false))
+    [System.IO.File]::WriteAllText($errorFile, $stderrText, [System.Text.UTF8Encoding]::new($false))
+    Remove-Item -Path $promptFile -Force -ErrorAction SilentlyContinue
 
     $stdoutSize = 0
     $stderrSize = 0

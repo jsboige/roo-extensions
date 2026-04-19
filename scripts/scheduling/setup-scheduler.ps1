@@ -9,7 +9,11 @@
     - worker:            Executor tier (6h, Haiku baseline, all machines)
     - coordinator:       Coordinator tier (8h, Sonnet baseline, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
-    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, ai-01 only)
+    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, ai-01 only).
+                         Default mode: multi-workspace — 1 task sweeps ALL workspace
+                         dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
+                         Use -Workspace to pin to a single workspace (legacy).
+                         Use -Workspaces "a,b" to restrict to an explicit list.
 
     ESCALATION MECHANISM (#1027):
     Each scheduler uses a cost-effective baseline model with targeted escalation:
@@ -24,7 +28,13 @@
     Type of scheduled task: worker, coordinator, meta-audit, dashboard-watcher (default: worker)
 
 .PARAMETER Workspace
-    Workspace key to watch (required for TaskType=dashboard-watcher). Example: "nanoclaw".
+    Single workspace key to watch (dashboard-watcher, legacy single-ws mode). Example: "nanoclaw".
+    When provided, TaskName is suffixed with -{Workspace}.
+
+.PARAMETER Workspaces
+    Comma-separated list of workspace keys (dashboard-watcher, explicit multi-ws mode).
+    Example: "nanoclaw,roo-extensions". When empty and -Workspace also empty, the watcher
+    auto-discovers every workspace under $ROOSYNC_SHARED_PATH/dashboards/workspace-*.md.
 
 .PARAMETER IntervalHours
     Hours between runs (default depends on TaskType: worker=3, coordinator=8, meta-audit=24)
@@ -53,7 +63,9 @@
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
-    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw watcher (ai-01)
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw-only watcher (legacy)
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher                      # Install unified watcher, auto-discovers every workspace (ai-01)
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspaces "nanoclaw,roo-extensions"  # Explicit multi-ws list
 #>
 
 param(
@@ -69,6 +81,7 @@ param(
     [int]$MaxIterations = 1,
     [int]$TimeoutMinutes = 0,
     [string]$Workspace = '',
+    [string]$Workspaces = '',
     [switch]$DryRun
 )
 
@@ -129,12 +142,12 @@ $TaskConfigs = @{
         MachineRestriction = $null  # all machines
     }
     'dashboard-watcher' = @{
-        TaskName = "Claude-DashboardWatcher-{Workspace}"
+        TaskName = "Claude-DashboardWatcher"  # Suffix -{Workspace} added only in legacy single-ws mode
         Script = Join-Path $RepoRoot "scripts/dashboard-scheduler/poll-dashboard.ps1"
         DefaultInterval = 1  # 1h polls
         DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
         DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
-        Description = "Claude Code dashboard watcher: polls workspace dashboard, filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Phase 1 runs in -Stub mode (0 token cost). Issue #1430."
+        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 1 runs in -Stub mode (0 token cost)."
         MachineRestriction = "myia-ai-01"
     }
 }
@@ -143,13 +156,18 @@ $config = $TaskConfigs[$TaskType]
 $TaskName = $config.TaskName
 $WorkerScript = $config.Script
 
-# Dashboard-watcher requires -Workspace; expand placeholder in TaskName
+# Dashboard-watcher mode selection (#1430 multi-ws):
+# - Legacy single-ws  : -Workspace nanoclaw        → TaskName "Claude-DashboardWatcher-nanoclaw"
+# - Explicit multi-ws : -Workspaces "a,b"          → TaskName "Claude-DashboardWatcher"
+# - Auto-discovery    : (neither param set)        → TaskName "Claude-DashboardWatcher"
 if ($TaskType -eq 'dashboard-watcher') {
-    if ([string]::IsNullOrEmpty($Workspace)) {
-        Write-Host "[ERROR] TaskType 'dashboard-watcher' requires -Workspace parameter (e.g. -Workspace nanoclaw)" -ForegroundColor Red
-        exit 1
+    if (-not [string]::IsNullOrEmpty($Workspace)) {
+        if (-not [string]::IsNullOrEmpty($Workspaces)) {
+            Write-Host "[ERROR] Pass either -Workspace (single) OR -Workspaces (multi), not both." -ForegroundColor Red
+            exit 1
+        }
+        $TaskName = "$TaskName-$Workspace"
     }
-    $TaskName = $TaskName.Replace('{Workspace}', $Workspace)
 }
 
 # Apply defaults if not explicitly set
@@ -247,9 +265,14 @@ function Install-Task {
                 "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
-                "-Workspace", $Workspace,
                 "-AllowedTags", "`"ASK,TASK,BLOCKED`""
             )
+            if (-not [string]::IsNullOrEmpty($Workspace)) {
+                $workerArgs += @("-Workspace", $Workspace)
+            } elseif (-not [string]::IsNullOrEmpty($Workspaces)) {
+                $workerArgs += @("-Workspaces", "`"$Workspaces`"")
+            }
+            # Otherwise: poll-dashboard.ps1 auto-discovers from $ROOSYNC_SHARED_PATH/dashboards
         }
     }
     $arguments = $workerArgs -join " "
@@ -363,10 +386,18 @@ function Test-Task {
             & powershell -ExecutionPolicy Bypass -File $WorkerScript -Model $Model -DryRun
         }
         'dashboard-watcher' {
-            Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+            $testArgs = @("-AllowedTags", "ASK,TASK,BLOCKED")
+            if (-not [string]::IsNullOrEmpty($Workspace)) {
+                $testArgs += @("-Workspace", $Workspace)
+                Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+            } elseif (-not [string]::IsNullOrEmpty($Workspaces)) {
+                $testArgs += @("-Workspaces", $Workspaces)
+                Write-Status "  Running: $WorkerScript -Workspaces '$Workspaces' -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+            } else {
+                Write-Status "  Running: $WorkerScript -AllowedTags 'ASK,TASK,BLOCKED' (auto-discover, stub mode default)"
+            }
             Write-Status ""
-            & powershell -ExecutionPolicy Bypass -File $WorkerScript `
-                -Workspace $Workspace -AllowedTags "ASK,TASK,BLOCKED"
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript @testArgs
         }
     }
 }
