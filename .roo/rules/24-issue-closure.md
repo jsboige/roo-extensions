@@ -2,6 +2,8 @@
 
 **Version:** 2.1.0 (synced with .claude/rules/issue-closure.md v1.1.0)
 **MAJ:** 2026-04-19
+**Origine:** Incident fermeture prematuree de 3 issues (#829, #850, #855) par un agent
+**Update:** Incident batch-close web1 (#737, #760) — commentaire generique detecte (#1428)
 
 ## Regle
 
@@ -28,12 +30,27 @@ Chaque commentaire de fermeture doit **refleter le contenu** de l'issue concerne
 
 **Test :** Si le meme commentaire peut etre copie-colle sur 3+ issues sans modification, c'est un batch-close.
 
+## Raisons de fermeture legitimes
+
+| Raison | Preuve requise |
+| ------ | --------------- |
+| **Resolved** | PR merge + criteres remplis |
+| **Duplicate** | Autre issue OUVERTE + meme scope exact |
+| **Won't fix** | Decision UTILISATEUR explicite (pas agent) |
+| **Not planned** | Decision UTILISATEUR explicite (pas agent) |
+| **Obsolete** | La fonctionnalite/bug n'existe plus (verifiable) |
+
 ## Si le bot rouvre une issue
 
 C'est normal — la checklist n'est pas complete. Options :
+
 1. Completer le travail
 2. Mettre a jour la checklist (retirer items hors scope avec justification)
 3. Laisser ouverte
 
 ---
-**Historique versions completes :** Git history avant 2026-04-08
+
+**Historique :**
+
+- 2026-04-06 : Cree apres incident fermeture prematuree de 3 issues (#829, #850, #855)
+- 2026-04-19 : Ajout anti-pattern commentaire generique + raisons legitimes (#1428, alignement #1512)
