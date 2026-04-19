@@ -9,7 +9,7 @@
     - worker:            Executor tier (6h, Haiku baseline, all machines)
     - coordinator:       Coordinator tier (8h, Sonnet baseline, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
-    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, ai-01 only).
+    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
                          dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
                          Use -Workspace to pin to a single workspace (legacy).
