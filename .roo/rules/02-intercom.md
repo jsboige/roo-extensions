@@ -1,7 +1,7 @@
 # INTERCOM - Dashboard RooSync (Canal Principal)
 
-**Version:** 3.0.0 (synchronized with .claude/rules/intercom-protocol.md)
-**MAJ:** 2026-04-10
+**Version:** 3.2.0 (synced with .claude/rules/intercom-protocol.md)
+**MAJ:** 2026-04-19
 
 ## Canal principal : Dashboard workspace
 
@@ -13,9 +13,35 @@ roosync_dashboard(action: "read", type: "workspace")
 roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-scheduler"], content: "Message...")
 ```
 
-**Auto-condensation a 50 KB** : le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
+**Auto-condensation préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
 **FALLBACK** (si MCP echoue) : `.claude/local/INTERCOM-{MACHINE}.md` — append-only, jamais inserer en haut.
+
+## Mentions et Cross-Post (v3, #1363)
+
+Deux champs sur `append` :
+
+- **`mentions[]`** — notifier des utilisateurs. Chaque entree : `userId` OU `messageId` (XOR).
+- **`crossPost[]`** — repliquer le message dans d'autres dashboards, SANS notification.
+
+```javascript
+// Notifier des machines
+roosync_dashboard(action: "append", type: "workspace", content: "...",
+  mentions: [
+    { userId: { machineId: "po-2023", workspace: "roo-extensions" } },
+    { messageId: "myia-ai-01:roo-extensions:ic-2026-04-17T0809-3lmh" }
+  ])
+
+// Cross-poster vers global et machine
+roosync_dashboard(action: "append", type: "workspace", content: "...",
+  crossPost: [{ type: "global" }, { type: "machine", machineId: "po-2023" }])
+```
+
+Dedup par `machineId`. Dispatch fire-and-forget. Format messageId v3 : `${machineId}:${workspace}:ic-${ts}-${rand}`.
+
+## Worktrees Git (#1364)
+
+Les agents en worktree (`.claude/worktrees/wt-*`) postent automatiquement dans le dashboard parent. Detection automatique, pas d'action requise.
 
 ## Types de messages
 
