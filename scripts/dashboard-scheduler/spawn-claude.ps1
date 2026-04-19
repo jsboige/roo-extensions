@@ -162,7 +162,10 @@ Commence.
     $promptFile = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($promptFile, $prompt, [System.Text.UTF8Encoding]::new($false))
 
-    $argList = @("-p", "-", "--dangerously-skip-permissions", "--model", $Model, "--output-format", "stream-json", "--verbose", "--include-partial-messages")
+    $argList = @("-p", "-", "--dangerously-skip-permissions", "--model", $Model, "--output-format", "stream-json", "--verbose")
+    if ($env:DASHBOARD_WATCHER_DEBUG_SPAWN -eq "1") {
+        $argList += "--include-partial-messages"
+    }
     if (-not [string]::IsNullOrEmpty($McpConfig) -and (Test-Path $McpConfig)) {
         $argList += @("--mcp-config", $McpConfig)
     }
