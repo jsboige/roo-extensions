@@ -1,7 +1,7 @@
 # INTERCOM - Dashboard RooSync (Canal Principal)
 
-**Version:** 3.0.0 (synchronized with .claude/rules/intercom-protocol.md)
-**MAJ:** 2026-04-10
+**Version:** 3.1.0 (condensation threshold 85%, synchronized with .claude/rules/intercom-protocol.md v3.3.0)
+**MAJ:** 2026-04-19
 
 ## Canal principal : Dashboard workspace
 
@@ -13,7 +13,7 @@ roosync_dashboard(action: "read", type: "workspace")
 roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-scheduler"], content: "Message...")
 ```
 
-**Auto-condensation a 50 KB** : le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
+**Auto-condensation a 85% d'utilisation** (seuil preemptif, declenchee lors de chaque append) : le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
 **FALLBACK** (si MCP echoue) : `.claude/local/INTERCOM-{MACHINE}.md` — append-only, jamais inserer en haut.
 

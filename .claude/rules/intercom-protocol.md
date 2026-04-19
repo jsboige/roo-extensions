@@ -1,7 +1,7 @@
 # Regles Communication Locale et Dashboard (Claude Code)
 
-**Version:** 3.2.0 (mentions v3)
-**MAJ:** 2026-04-17
+**Version:** 3.3.0 (condensation threshold 85%)
+**MAJ:** 2026-04-19
 
 ---
 
@@ -25,7 +25,7 @@ Tags disponibles : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK
 roosync_dashboard(action: "read", type: "workspace")
 ```
 
-Auto-condensation a **50 KB** : le dashboard reste toujours lisible en un seul appel. Pas besoin de `intercomLimit`.
+Auto-condensation a **85% d'utilisation** (seuil preemptif, declenchee lors de chaque append) : le dashboard reste toujours lisible en un seul appel. Pas besoin de `intercomLimit`.
 
 ### Fichier INTERCOM local (DEPRECATED)
 

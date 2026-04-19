@@ -1851,13 +1851,27 @@ function Test-WorktreeHasChanges {
         $Uncommitted = (git status --porcelain 2>&1) | Where-Object { $_ -is [string] }
         if ($Uncommitted) {
             # Filter: exclude paths that should NOT trigger a PR
+            # Guard #1156: logs, temp, local
+            # Guard #1526: parasite files from worker sessions
             $NonEssentialPatterns = @(
                 '\.claude/logs/',
                 '\.claude/local/',
                 '\.claude/worktrees/',
                 'outputs/scheduling/',
                 '\.env$',
-                '\.log$'
+                '\.log$',
+                '^[\?\s][^\s]+[\s]+C$',                           # Empty single-char file "C" (parasite)
+                '^[\?\s][^\s]+[\s]+D$',                           # Empty single-char file "D" (parasite)
+                '\.shared-state-test-',                            # Test artifact directories
+                'git-archaeology-.*\.md$',                         # Misplaced archaeology docs (root)
+                'debug_.*\.js$',                                   # Debug scripts left by workers
+                'debug_.*\.ps1$',                                  # Debug scripts left by workers
+                'demo-test\.ps1$',                                 # Demo test scripts
+                'simple-test\.ps1$',                               # Simple test scripts
+                'test-match\.ps1$',                                # Test match scripts
+                'final-test\.ps1$',                                # Final test scripts
+                'regex-test\.txt$',                                # Regex test artifacts
+                'mcps/external/win-cli/config/win_cli_config\.json' # Config only coordinator should change
             )
             $EssentialChanges = @($Uncommitted | Where-Object {
                 $line = $_
@@ -1865,12 +1879,29 @@ function Test-WorktreeHasChanges {
                 foreach ($pat in $NonEssentialPatterns) {
                     if ($line -match $pat) { $isNonEssential = $true; break }
                 }
+                # Guard #1526: reject files <5 bytes (parasite single-char files like "C", "D")
+                if (-not $isNonEssential) {
+                    $filePath = $line -replace '^[^\s]+\s+', ''
+                    if ($filePath -and (Test-Path $filePath -PathType Leaf)) {
+                        $fsize = (Get-Item $filePath).Length
+                        if ($fsize -lt 5) { $isNonEssential = $true }
+                    }
+                }
                 -not $isNonEssential
             })
 
             if ($EssentialChanges.Count -gt 0) {
                 Write-Log "Worktree has $($EssentialChanges.Count) essential uncommitted changes, auto-committing..." "INFO"
-                git add -A 2>&1 | Out-Null
+                # Guard #1526: selective add instead of -A to avoid staging parasite files
+                # that slipped through the pattern filter (e.g., tiny <5 byte files)
+                foreach ($change in $EssentialChanges) {
+                    $filePath = $change -replace '^[^\s]+\s+', ''
+                    if ($filePath) {
+                        git add $filePath 2>&1 | Out-Null
+                    }
+                }
+                # Also stage any tracked modifications that git add -A would catch
+                git add -u 2>&1 | Out-Null
                 $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
                 git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
             } else {
