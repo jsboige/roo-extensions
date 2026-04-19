@@ -92,7 +92,7 @@ param(
     [ValidateSet('install', 'remove', 'list', 'test')]
     [string]$Action = 'list',
 
-    [ValidateSet('worker', 'coordinator', 'meta-audit', 'dashboard-watcher')]
+    [ValidateSet('worker', 'coordinator', 'meta-audit', 'dashboard-watcher', 'health-check')]
     [string]$TaskType = 'worker',
 
     [double]$IntervalHours = 0,
@@ -169,6 +169,15 @@ $TaskConfigs = @{
         DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
         DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
         Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 2 live mode (spawns Opus on actionable). Use -Stub to opt into Phase 1 stub mode."
+        MachineRestriction = $null  # all machines
+    }
+    'health-check' = @{
+        TaskName = "Claude-HealthCheck"
+        Script = Join-Path $RepoRoot "scripts/monitoring/check-embeddings.ps1"
+        DefaultInterval = 0.5  # 30 minutes
+        DefaultModel = "haiku"  # only used if claude -p is spawned for alert
+        DefaultTimeout = 5
+        Description = "Claude Code health check (#1499): monitors embeddings endpoint (embeddings.myia.io/v1), posts [CRITICAL] on workspace dashboard if down. Runs every 30 min."
         MachineRestriction = $null  # all machines
     }
 }
@@ -302,6 +311,13 @@ function Install-Task {
             }
             # Otherwise: poll-dashboard.ps1 auto-discovers from $ROOSYNC_SHARED_PATH/dashboards
         }
+        'health-check' {
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-File", "`"$WorkerScript`""
+            )
+        }
     }
     $arguments = $workerArgs -join " "
 
@@ -428,6 +444,11 @@ function Test-Task {
             }
             Write-Status ""
             & powershell -ExecutionPolicy Bypass -File $WorkerScript @testArgs
+        }
+        'health-check' {
+            Write-Status "  Running: $WorkerScript -DryRun"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript -DryRun
         }
     }
 }
