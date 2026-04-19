@@ -201,6 +201,7 @@ exports/
 
 # Runtime lock files under .claude/ (scheduler concurrency primitives)
 .claude/*.lock
+.claude/locks/
 
 # Backup dirs created by agent sessions
 /backup-*/
