@@ -25,7 +25,7 @@ Tags disponibles : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK
 roosync_dashboard(action: "read", type: "workspace")
 ```
 
-Auto-condensation a **50 KB** : le dashboard reste toujours lisible en un seul appel. Pas besoin de `intercomLimit`.
+Auto-condensation **préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
 ### Fichier INTERCOM local (DEPRECATED)
 
