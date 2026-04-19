@@ -1,13 +1,18 @@
 <#
 .SYNOPSIS
-    Dashboard watcher: gate that decides whether to spawn Claude Code in response
-    to actionable messages on a RooSync workspace dashboard.
+    Multi-workspace dashboard watcher: gate that decides whether to spawn
+    Claude Code in response to actionable messages on RooSync workspace
+    dashboards.
 
 .DESCRIPTION
-    Cheap polling script (0 token cost). Reads workspace dashboard via
-    roo-state-manager MCP, compares new message timestamps against a locally
-    stored "last ACK" marker, filters by allowed tags and optionally authors,
-    and spawns Claude Code only when an actionable message is found.
+    Cheap polling script (0 token cost per watched workspace). For each
+    workspace in -Workspaces (or auto-discovered), reads its dashboard via
+    roo-state-manager MCP, compares new message timestamps against a
+    per-workspace "last ACK" marker, filters by allowed tags and optionally
+    authors, and spawns Claude Code only when an actionable message is found.
+
+    One task per machine, not one task per workspace. A single invocation
+    sweeps every workspace this machine cares about.
 
     Phase 1 (current): stub mode — prints "would spawn" but does NOT invoke
     claude -p. Used to validate gating logic without consuming Opus tokens.
@@ -15,8 +20,18 @@
     Phase 2 (after 48h stub validation): wire spawn-claude.ps1 to actually
     invoke claude -p with the Opus 4.7 model.
 
+.PARAMETER Workspaces
+    Comma-separated list of workspace keys to poll (e.g., "nanoclaw,roo-extensions").
+    If empty, auto-discovers from ROOSYNC_SHARED_PATH/dashboards/workspace-*.md,
+    intersected with -AllowedWorkspaces if provided.
+
 .PARAMETER Workspace
-    Workspace key to poll (e.g., "nanoclaw", "roo-extensions"). Required.
+    DEPRECATED single-workspace param. Kept for backward compat with the v1
+    scheduler entry. If set and -Workspaces is empty, its value is used.
+
+.PARAMETER AllowedWorkspaces
+    When auto-discovering, restrict to these workspaces (comma-separated). Empty
+    = all discovered. Ignored when -Workspaces is set explicitly.
 
 .PARAMETER AllowedTags
     Comma-separated tags that should trigger a spawn. Defaults to "ASK,TASK,BLOCKED".
@@ -28,6 +43,7 @@
 
 .PARAMETER LockDir
     Directory for last-ACK marker files. Defaults to repo-root/.claude/locks.
+    One lock file per workspace: watcher-{workspace}.lastack.
 
 .PARAMETER Stub
     Phase 1 flag (default: true in this version). When set, prints the decision
@@ -43,20 +59,28 @@
     with "ERROR: Could not parse message into JSON". See issue #1448.
 
 .EXAMPLE
-    .\poll-dashboard.ps1 -Workspace nanoclaw
-    Polls workspace-nanoclaw, logs "would spawn" if actionable message found.
+    .\poll-dashboard.ps1 -Workspaces "nanoclaw,roo-extensions"
+    Polls both dashboards, logs "would spawn" per workspace if actionable.
 
 .EXAMPLE
-    .\poll-dashboard.ps1 -Workspace nanoclaw -AllowedTags "ASK,TASK" -AllowedAuthors "myia-ai-01"
-    Only spawn on ASK/TASK from myia-ai-01.
+    .\poll-dashboard.ps1
+    Auto-discovers every workspace dashboard on this machine and polls each.
+
+.EXAMPLE
+    .\poll-dashboard.ps1 -Workspaces nanoclaw -AllowedTags "ASK,TASK" -AllowedAuthors "myia-ai-01"
+    Only spawn on ASK/TASK from myia-ai-01 on the nanoclaw workspace.
 
 .NOTES
-    Related: issue #1430, PROPOSAL nanoclaw 2026-04-16, lessons from #1423.
+    Related: issue #1430 (multi-workspace architecture per user 2026-04-19),
+    PROPOSAL nanoclaw 2026-04-16, lessons from #1423.
 #>
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$Workspace,
+    [string]$Workspaces = "",
+
+    [string]$Workspace = "",
+
+    [string]$AllowedWorkspaces = "",
 
     [string]$AllowedTags = "ASK,TASK,BLOCKED",
 
@@ -94,7 +118,6 @@ if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
 }
 
-$lockFile = Join-Path $LockDir "watcher-$Workspace.lastack"
 $tagList = $AllowedTags -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
 $authorList = @()
 if (-not [string]::IsNullOrEmpty($AllowedAuthors)) {
@@ -106,14 +129,20 @@ function Write-Log($level, $msg) {
     Write-Host "[$ts] [$level] $msg"
 }
 
-function Get-LastAckTimestamp {
+function Get-LockFile($ws) {
+    return Join-Path $LockDir "watcher-$ws.lastack"
+}
+
+function Get-LastAckTimestamp($ws) {
+    $lockFile = Get-LockFile $ws
     if (Test-Path $lockFile) {
         return (Get-Content $lockFile -Raw).Trim()
     }
     return ""
 }
 
-function Set-LastAckTimestamp($timestamp) {
+function Set-LastAckTimestamp($ws, $timestamp) {
+    $lockFile = Get-LockFile $ws
     [System.IO.File]::WriteAllText(
         $lockFile,
         $timestamp,
@@ -121,111 +150,95 @@ function Set-LastAckTimestamp($timestamp) {
     )
 }
 
-function Invoke-DashboardRead {
-    # FIX #1448: Read dashboard file directly instead of using claude -p subprocess.
-    # The claude -p subprocess doesn't have access to MCP servers, so we read
-    # the markdown dashboard file directly and parse it.
+function Resolve-Workspaces {
+    # Priority: explicit -Workspaces > legacy -Workspace > auto-discover
+    if (-not [string]::IsNullOrEmpty($Workspaces)) {
+        return $Workspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+    }
+    if (-not [string]::IsNullOrEmpty($Workspace)) {
+        return @($Workspace)
+    }
 
-    # Get ROOSYNC_SHARED_PATH from environment or .env file
+    # Auto-discover from $ROOSYNC_SHARED_PATH/dashboards/workspace-*.md
+    $sharedPath = $env:ROOSYNC_SHARED_PATH
+    if ([string]::IsNullOrEmpty($sharedPath) -or -not (Test-Path $sharedPath)) {
+        Write-Log "WARN" "Cannot auto-discover: ROOSYNC_SHARED_PATH unset or missing. Provide -Workspaces."
+        return @()
+    }
+    $dashboardDir = Join-Path $sharedPath "dashboards"
+    if (-not (Test-Path $dashboardDir)) {
+        Write-Log "WARN" "Auto-discover: dashboards dir not found at $dashboardDir"
+        return @()
+    }
+
+    $discovered = Get-ChildItem -Path $dashboardDir -Filter "workspace-*.md" -File |
+                  ForEach-Object { $_.BaseName -replace '^workspace-', '' }
+
+    # Apply -AllowedWorkspaces filter if provided
+    if (-not [string]::IsNullOrEmpty($AllowedWorkspaces)) {
+        $allowed = $AllowedWorkspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+        $discovered = $discovered | Where-Object { $allowed -contains $_ }
+    }
+    return @($discovered)
+}
+
+function Invoke-DashboardRead($ws) {
+    # Read the dashboard markdown directly from GDrive. Parses the intercom
+    # section into the same JSON shape that Test-ActionableMessage expects.
+    # Bypasses claude -p (whose MCP loading is unreliable across env contexts:
+    # CLAUDECODE=1 inherited from a parent Claude Code session disables MCP).
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     if ([string]::IsNullOrEmpty($sharedPath)) {
-        # Fallback: read from .env file in roo-state-manager (handle worktree paths)
-        # Try worktree path first
-        $envFile = Join-Path $RepoRoot "mcps/internal/servers/roo-state-manager/.env"
-        if (-not (Test-Path $envFile)) {
-            # We're in a worktree, navigate to parent repo
-            # Worktree structure: repo/.claude/worktrees/wt-NAME/
-            # Parent repo is 3 levels up from repo root (not from .claude)
-            $parentRepoRoot = Split-Path (Split-Path (Split-Path $RepoRoot -Parent) -Parent) -Parent
-            $envFile = Join-Path $parentRepoRoot "mcps/internal/servers/roo-state-manager/.env"
-        }
-        if (Test-Path $envFile) {
-            $envContent = Get-Content $envFile -Raw | Select-String "ROOSYNC_SHARED_PATH=([^`r`n]+)"
-            if ($envContent.Matches.Count -gt 0) {
-                $sharedPath = $envContent.Matches[0].Groups[1].Value
-            }
-        }
+        throw "ROOSYNC_SHARED_PATH env var not set"
     }
-
-    if ([string]::IsNullOrEmpty($sharedPath)) {
-        throw "ROOSYNC_SHARED_PATH not found in environment or .env file"
-    }
-
-    # Build dashboard file path
-    $dashboardFile = Join-Path $sharedPath "dashboards/workspace-$Workspace.md"
-
+    $dashboardFile = Join-Path $sharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) {
-        # Dashboard doesn't exist — return empty result (not an error)
-        return '{"success":false,"action":"read","key":"workspace-' + $Workspace + '","type":"workspace","message":"Dashboard introuvable"}'
+        throw "Dashboard file not found: $dashboardFile"
     }
 
-    # Read and parse the dashboard markdown file
-    $content = Get-Content $dashboardFile -Raw -Encoding UTF8
+    $raw = Get-Content -Path $dashboardFile -Raw -Encoding UTF8
 
-    # Extract intercom section (between ## Intercom and end of file)
-    $intercomMatch = [regex]::Match($content, '## Intercom[\s\S]*?\n\n([\s\S]+)$')
+    # Find the intercom section: starts at "## Intercom (" and ends at end of file.
+    $intercomMatch = [regex]::Match($raw, '(?ms)^## Intercom \(\d+ messages\)\s*\n(.+)$')
     if (-not $intercomMatch.Success) {
-        throw "Failed to parse dashboard: intercom section not found"
+        # No intercom section = no messages.
+        $payload = @{ data = @{ intercom = @{ messages = @() } } }
+        return ($payload | ConvertTo-Json -Depth 10 -Compress)
     }
+    $intercomBody = $intercomMatch.Groups[1].Value
 
-    $intercomText = $intercomMatch.Groups[1].Value
+    # Each message starts with: ### [TIMESTAMP] machineId|workspace
+    # then an optional "[msg: id]" line, then blank line, then content.
+    # Content may contain ## headers, --- separators, etc.; ends at the next
+    # "### [" header or end of file.
+    $msgPattern = '(?ms)^### \[(?<ts>[^\]]+)\] (?<machine>[^|]+)\|(?<workspace>[^\r\n]+)\r?\n(?:\[msg:[^\r\n]*\]\r?\n)?\r?\n(?<body>.*?)(?=\r?\n^### \[|\z)'
+    $msgMatches = [regex]::Matches($intercomBody, $msgPattern)
 
-    # Parse messages (format: ### [timestamp] machineId|workspace\n\ncontent)
     $messages = @()
-    $messageBlocks = [regex]::Split($intercomText, '(?=^### \[)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
-
-    foreach ($block in $messageBlocks) {
-        $block = $block.Trim()
-        if ([string]::IsNullOrEmpty($block) -or $block -eq '*Aucun message.*') {
-            continue
-        }
-
-        # Parse message header: ### [timestamp] machineId|workspace
-        $headerMatch = [regex]::Match($block, '^### \[([^\]]+)\]\s+([^|]+)\|([^\s]+)')
-        if (-not $headerMatch.Success) {
-            continue
-        }
-
-        $timestamp = $headerMatch.Groups[1].Value
-        $machineId = $headerMatch.Groups[2].Value.Trim()
-        $workspaceId = $headerMatch.Groups[3].Value.Trim()
-
-        # Extract content (after header and newlines)
-        $contentStart = $headerMatch.Index + $headerMatch.Length
-        $messageContent = $block.Substring($contentStart).Trim()
-
-        # Remove trailing --- separator if present
-        $messageContent = $messageContent -replace '\n---\s*$', ''
-
-        # Unescape escaped headers (FIX #1123)
-        $messageContent = $messageContent -replace '^\\#\\#\\# \[', '### ['
-
-        $messages += @{
-            id = "ic-$timestamp"
-            timestamp = $timestamp
-            author = @{
-                machineId = $machineId
-                workspace = $workspaceId
+    foreach ($m in $msgMatches) {
+        $body = $m.Groups['body'].Value.Trim()
+        # Strip the trailing --- separator line (if present)
+        $body = [regex]::Replace($body, '\r?\n---\s*$', '')
+        $messages += [pscustomobject]@{
+            timestamp = $m.Groups['ts'].Value.Trim()
+            content = $body
+            author = [pscustomobject]@{
+                machineId = $m.Groups['machine'].Value.Trim()
+                workspace = $m.Groups['workspace'].Value.Trim()
             }
-            content = $messageContent
         }
     }
 
-    # Build result object matching MCP response format
-    $result = @{
-        success = $true
-        action = "read"
-        key = "workspace-$Workspace"
-        type = "workspace"
-        data = @{
-            intercom = @{
+    # Return the same shape as the old MCP-based read, but as objects (not JSON
+    # round-tripped) so the timestamp strings keep their ISO 8601 format —
+    # ConvertTo-Json would cast them to [DateTime] and emit US-locale strings.
+    return [pscustomobject]@{
+        data = [pscustomobject]@{
+            intercom = [pscustomobject]@{
                 messages = $messages
             }
         }
-        messageCount = $messages.Count
     }
-
-    return ($result | ConvertTo-Json -Compress)
 }
 
 function Test-ActionableMessage($msg, $lastAck) {
@@ -263,104 +276,104 @@ function Test-ActionableMessage($msg, $lastAck) {
 
 # ========== MAIN ==========
 
-Write-Log "INFO" "Polling workspace=$Workspace tags=[$AllowedTags] authors=[$AllowedAuthors] stub=$Stub"
-
-$lastAck = Get-LastAckTimestamp
-if ([string]::IsNullOrEmpty($lastAck)) {
-    Write-Log "INFO" "No last-ACK marker found, treating as first run."
-} else {
-    Write-Log "INFO" "Last ACK timestamp: $lastAck"
+$wsList = Resolve-Workspaces
+if ($wsList.Count -eq 0) {
+    Write-Log "WARN" "No workspaces to poll (provide -Workspaces or set ROOSYNC_SHARED_PATH). Exit 0."
+    exit 0
 }
 
-try {
-    $raw = Invoke-DashboardRead
-} catch {
-    Write-Log "ERROR" "Dashboard read failed: $_"
-    exit 2
-}
+Write-Log "INFO" "Polling $($wsList.Count) workspace(s): $($wsList -join ', ') | tags=[$AllowedTags] authors=[$AllowedAuthors] stub=$Stub"
 
-# FIX #1448: Parse JSON directly (no preamble text since we return clean JSON now)
-try {
-    $parsed = $raw | ConvertFrom-Json
-} catch {
-    Write-Log "ERROR" "JSON parse failed: $_"
-    Write-Log "DEBUG" "Raw output (first 500 chars): $($raw.Substring(0, [Math]::Min(500, $raw.Length)))"
-    exit 3
-}
+$overallExitCode = 0
+$spawnErrors = 0
 
-# Check for dashboard not found (success=false)
-if (-not $parsed.success) {
-    Write-Log "INFO" "Dashboard not found ($($parsed.message)). Treating as empty."
-    $messages = @()
-} else {
-    # Extract messages from parsed response
+foreach ($ws in $wsList) {
+    Write-Log "INFO" "--- Workspace: $ws ---"
+
+    $lastAck = Get-LastAckTimestamp $ws
+    if ([string]::IsNullOrEmpty($lastAck)) {
+        Write-Log "INFO" "[$ws] No last-ACK marker, treating as first run."
+    } else {
+        Write-Log "INFO" "[$ws] Last ACK timestamp: $lastAck"
+    }
+
+    try {
+        $parsed = Invoke-DashboardRead $ws
+    } catch {
+        Write-Log "ERROR" "[$ws] Dashboard read failed: $_"
+        $overallExitCode = 2
+        continue
+    }
+
     $messages = @()
     if ($parsed.data -and $parsed.data.intercom -and $parsed.data.intercom.messages) {
         $messages = $parsed.data.intercom.messages
     } elseif ($parsed.intercom -and $parsed.intercom.messages) {
         $messages = $parsed.intercom.messages
     }
-}
 
-$messages = @()
-if ($parsed.data -and $parsed.data.intercom -and $parsed.data.intercom.messages) {
-    $messages = $parsed.data.intercom.messages
-} elseif ($parsed.intercom -and $parsed.intercom.messages) {
-    $messages = $parsed.intercom.messages
-}
+    Write-Log "INFO" "[$ws] Received $($messages.Count) message(s) from dashboard."
 
-Write-Log "INFO" "Received $($messages.Count) messages from dashboard."
+    $actionable = @()
+    foreach ($msg in $messages) {
+        if (Test-ActionableMessage $msg $lastAck) {
+            $actionable += $msg
+        }
+    }
 
-$actionable = @()
-foreach ($msg in $messages) {
-    if (Test-ActionableMessage $msg $lastAck) {
-        $actionable += $msg
+    if ($actionable.Count -eq 0) {
+        Write-Log "INFO" "[$ws] No actionable messages since last ACK."
+        continue
+    }
+
+    Write-Log "INFO" "[$ws] Found $($actionable.Count) actionable message(s)."
+    $latestTs = ($actionable | Sort-Object -Property timestamp | Select-Object -Last 1).timestamp
+
+    if ($Stub) {
+        Write-Log "STUB" "[$ws] Would spawn: $SpawnScript -Workspace $ws -Since $lastAck"
+        foreach ($msg in $actionable) {
+            $preview = $msg.content.Substring(0, [Math]::Min(120, $msg.content.Length)).Replace("`n", " ")
+            Write-Log "STUB" "[$ws]   [$($msg.timestamp)] $($msg.author.machineId): $preview..."
+        }
+
+        # Still advance the ACK marker so the same messages don't trip the stub twice.
+        Set-LastAckTimestamp $ws $latestTs
+        Write-Log "INFO" "[$ws] Last-ACK marker advanced to $latestTs."
+        continue
+    }
+
+    # Phase 2: real spawn
+    if (-not (Test-Path $SpawnScript)) {
+        Write-Log "ERROR" "[$ws] SpawnScript not found: $SpawnScript"
+        $overallExitCode = 4
+        $spawnErrors++
+        continue
+    }
+
+    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 for $($actionable.Count) message(s)..."
+    $spawnArgs = @(
+        "-Workspace", $ws,
+        "-Since", $lastAck,
+        "-Model", "opus",
+        "-McpConfig", $McpConfig
+    )
+    & pwsh -File $SpawnScript @spawnArgs
+    $exitCode = $LASTEXITCODE
+
+    if ($exitCode -eq 0) {
+        Set-LastAckTimestamp $ws $latestTs
+        Write-Log "INFO" "[$ws] Spawn completed cleanly. Last-ACK advanced to $latestTs."
+    } else {
+        Write-Log "WARN" "[$ws] Spawn exited with code $exitCode. Last-ACK NOT advanced (will retry next poll)."
+        $spawnErrors++
+        $overallExitCode = $exitCode
     }
 }
 
-if ($actionable.Count -eq 0) {
-    Write-Log "INFO" "No actionable messages since last ACK. Exit 0 (0 token spent on spawn)."
-    exit 0
-}
-
-Write-Log "INFO" "Found $($actionable.Count) actionable message(s)."
-$latestTs = ($actionable | Sort-Object -Property timestamp | Select-Object -Last 1).timestamp
-
-if ($Stub) {
-    Write-Log "STUB" "Would spawn: $SpawnScript -Workspace $Workspace -Since $lastAck"
-    Write-Log "STUB" "Would-process messages:"
-    foreach ($msg in $actionable) {
-        $preview = $msg.content.Substring(0, [Math]::Min(120, $msg.content.Length)).Replace("`n", " ")
-        Write-Log "STUB" "  [$($msg.timestamp)] $($msg.author.machineId): $preview..."
-    }
-    Write-Log "STUB" "Stub mode: NOT invoking claude -p. Set -Stub:`$false to go live."
-
-    # Still advance the ACK marker so the same messages don't trip the stub twice.
-    Set-LastAckTimestamp $latestTs
-    Write-Log "INFO" "Last-ACK marker advanced to $latestTs."
-    exit 0
-}
-
-# Phase 2: real spawn
-if (-not (Test-Path $SpawnScript)) {
-    Write-Log "ERROR" "SpawnScript not found: $SpawnScript"
-    exit 4
-}
-
-Write-Log "INFO" "Invoking spawn-claude.ps1 for $($actionable.Count) message(s)..."
-$spawnArgs = @(
-    "-Workspace", $Workspace,
-    "-Since", $lastAck,
-    "-Model", "opus"
-)
-& pwsh -File $SpawnScript @spawnArgs
-$exitCode = $LASTEXITCODE
-
-if ($exitCode -eq 0) {
-    Set-LastAckTimestamp $latestTs
-    Write-Log "INFO" "Spawn completed cleanly. Last-ACK advanced to $latestTs."
+if ($spawnErrors -gt 0) {
+    Write-Log "WARN" "Summary: $spawnErrors spawn error(s) across $($wsList.Count) workspace(s). Exit $overallExitCode."
 } else {
-    Write-Log "WARN" "Spawn exited with code $exitCode. Last-ACK NOT advanced (will retry next poll)."
+    Write-Log "INFO" "Summary: $($wsList.Count) workspace(s) processed without spawn errors."
 }
 
-exit $exitCode
+exit $overallExitCode
