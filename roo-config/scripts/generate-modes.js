@@ -212,6 +212,14 @@ function main() {
       var effectiveGroups = levelDef.groups || fam.groups;
       var groupNames = effectiveGroups.map(function(g) { return Array.isArray(g) ? g[0] : g; });
       var hasCommand = groupNames.indexOf('command') >= 0;
+      // #1482: Anti-regression — NO mode should ever have native terminal (command group).
+      // All terminal access goes through win-cli MCP. If this fires, modes-config.json
+      // or a level override accidentally added "command" to the groups array.
+      if (hasCommand) {
+        console.error('ERROR: Mode ' + family + '-' + level + ' has "command" in groups (' + JSON.stringify(effectiveGroups) + ').');
+        console.error('Per #1482, ALL Roo modes must use win-cli exclusively. Remove "command" from groups.');
+        process.exit(1);
+      }
       var hasEdit = groupNames.indexOf('edit') >= 0;
       // #725: code and debug families always have win-cli (even with native command group)
       // This provides SSH tools that native terminal doesn't have
