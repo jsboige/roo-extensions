@@ -147,8 +147,8 @@ $TaskConfigs = @{
         DefaultInterval = 1  # 1h polls
         DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
         DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
-        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 1 runs in -Stub mode (0 token cost)."
-        MachineRestriction = "myia-ai-01"
+        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 2 = live mode by default."
+        MachineRestriction = $null  # all machines (#1519)
     }
 }
 
@@ -259,13 +259,14 @@ function Install-Task {
             )
         }
         'dashboard-watcher' {
-            # Phase 1: stub mode (no claude -p spawn). Flip to live by editing
-            # poll-dashboard.ps1 default or passing -Stub:$false.
+            # Phase 2 (live mode): spawns claude -p on actionable messages (#1519).
+            # Reverts to stub with -Stub switch on setup-scheduler.ps1.
             $workerArgs = @(
                 "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
-                "-AllowedTags", "`"ASK,TASK,BLOCKED`""
+                "-AllowedTags", "`"ASK,TASK,BLOCKED`"",
+                "-Stub:`$false"
             )
             if (-not [string]::IsNullOrEmpty($Workspace)) {
                 $workerArgs += @("-Workspace", $Workspace)
@@ -386,15 +387,15 @@ function Test-Task {
             & powershell -ExecutionPolicy Bypass -File $WorkerScript -Model $Model -DryRun
         }
         'dashboard-watcher' {
-            $testArgs = @("-AllowedTags", "ASK,TASK,BLOCKED")
+            $testArgs = @("-AllowedTags", "ASK,TASK,BLOCKED", "-Stub:`$false")
             if (-not [string]::IsNullOrEmpty($Workspace)) {
                 $testArgs += @("-Workspace", $Workspace)
-                Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+                Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (live mode #1519)"
             } elseif (-not [string]::IsNullOrEmpty($Workspaces)) {
                 $testArgs += @("-Workspaces", $Workspaces)
-                Write-Status "  Running: $WorkerScript -Workspaces '$Workspaces' -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+                Write-Status "  Running: $WorkerScript -Workspaces '$Workspaces' -AllowedTags 'ASK,TASK,BLOCKED' (live mode #1519)"
             } else {
-                Write-Status "  Running: $WorkerScript -AllowedTags 'ASK,TASK,BLOCKED' (auto-discover, stub mode default)"
+                Write-Status "  Running: $WorkerScript -AllowedTags 'ASK,TASK,BLOCKED' (auto-discover, live mode #1519)"
             }
             Write-Status ""
             & powershell -ExecutionPolicy Bypass -File $WorkerScript @testArgs
