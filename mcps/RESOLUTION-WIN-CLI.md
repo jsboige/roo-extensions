@@ -78,7 +78,7 @@ Roo -> win-cli -> execute_command avec workingDir: "d:\\roo-extensions"
 
 ### Scripts de Gestion
 - ✅ `mcps/mcp-manager.ps1` - Script principal fonctionnel
-- ✅ `mcps/test-simple.ps1` - Script de validation
+- ✅ `mcps/test-win-cli.ps1` - Script de validation
 
 ### Sauvegardes
 - ✅ `mcps/backups/mcp_settings_20250528-034822.json` - Sauvegarde initiale
