@@ -2412,10 +2412,114 @@ function Check-Escalation {
     return $null
 }
 
+# ============================================================================
+# Commit Hash Validation (#1489 - Ghost commits prevention)
+# ============================================================================
+
+function Get-RealCommitHashes {
+    <#
+    .SYNOPSIS
+    Extracts REAL commit hashes from git log, ignoring agent claims.
+    Prevents ghost commit reports where agents fabricate hashes that don't exist.
+    #>
+    param([string]$WorktreePath)
+
+    $hashes = @{
+        parent = $null
+        submodule = $null
+        commits = @()
+        error = $null
+    }
+
+    if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) {
+        $hashes.error = "WorktreePath not valid"
+        return $hashes
+    }
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Get parent repo HEAD (short hash)
+        $parentHead = (git rev-parse HEAD 2>&1) | Select-Object -First 1
+        if ($parentHead -and $parentHead -notmatch 'fatal:') {
+            $hashes.parent = $parentHead.Substring(0, [math]::Min(8, $parentHead.Length))
+        }
+
+        # Get submodule HEAD if exists
+        $submodulePath = "mcps/internal/servers/roo-state-manager"
+        if (Test-Path (Join-Path $WorktreePath $submodulePath)) {
+            $subHead = (git -C $submodulePath rev-parse HEAD 2>&1) | Select-Object -First 1
+            if ($subHead -and $subHead -notmatch 'fatal:') {
+                $hashes.submodule = $subHead.Substring(0, [math]::Min(8, $subHead.Length))
+            }
+        }
+
+        # Get recent commits on branch (if any ahead of main)
+        $recentCommits = (git log main..HEAD --format="%H" 2>&1 | Where-Object { $_ -is [string] -and $_ -notmatch 'fatal:' }) | Select-Object -First 5
+        foreach ($fullHash in $recentCommits) {
+            if ($fullHash) {
+                $hashes.commits += $fullHash.Substring(0, [math]::Min(8, $fullHash.Length))
+            }
+        }
+
+        $ErrorActionPreference = $prevPref
+    }
+    catch {
+        $hashes.error = "Error getting commit hashes: $_"
+    }
+    finally {
+        Pop-Location
+    }
+
+    return $hashes
+}
+
+function Test-CommitHashExists {
+    <#
+    .SYNOPSIS
+    Validates if a commit hash actually exists in the repo.
+    Used to detect ghost hashes claimed by agents.
+    #>
+    param(
+        [string]$WorktreePath,
+        [string]$Hash
+    )
+
+    if (-not $WorktreePath -or -not $Hash) { return $false }
+
+    try {
+        Push-Location $WorktreePath
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Test both parent and submodule
+        $parentTest = git cat-file -t $Hash 2>&1
+        $submoduleTest = git -C "mcps/internal/servers/roo-state-manager" cat-file -t $Hash 2>&1
+
+        $ErrorActionPreference = $prevPref
+        Pop-Location
+
+        return ($parentTest -notmatch 'fatal:') -or ($submoduleTest -notmatch 'fatal:')
+    }
+    catch {
+        Pop-Location
+        return $false
+    }
+}
+
 function Report-Results {
-    param($Task, $Result, [string]$FinalMode)
+    param($Task, $Result, [string]$FinalMode, [string]$WorktreePath = $null)
 
     Write-Log "Rapport des résultats au coordinateur..."
+
+    # #1489: Get REAL commit hashes to prevent ghost reports
+    $RealHashes = if ($WorktreePath -and (Test-Path $WorktreePath)) {
+        Get-RealCommitHashes -WorktreePath $WorktreePath
+    } else {
+        $null
+    }
 
     # Truncate output to last 80 lines to keep reports readable
     $OutputLines = $Result.output -split "`n"
@@ -2426,6 +2530,23 @@ function Report-Results {
         $Result.output
     }
 
+    # #1489: Detect if agent claimed commits but none exist (ghost hashes)
+    $GhostHashWarning = ""
+    if ($RealHashes -and $Result.success) {
+        $claimedHashes = $Result.output | Select-String -Pattern "[0-9a-f]{8}" | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+        if ($claimedHashes) {
+            $invalidHashes = @()
+            foreach ($claimedHash in $claimedHashes) {
+                if (-not (Test-CommitHashExists -WorktreePath $WorktreePath -Hash $claimedHash)) {
+                    $invalidHashes += $claimedHash
+                }
+            }
+            if ($invalidHashes.Count -gt 0) {
+                $GhostHashWarning = "`n`n**⚠️ WARNING: Ghost commit hashes detected**`nAgent claimed commits that don't exist: $($invalidHashes -join ', ')`nReal hashes: parent=$($RealHashes.parent), submodule=$($RealHashes.submodule)"
+            }
+        }
+    }
+
     $ReportMessage = @"
 ## Worker Report - $($env:COMPUTERNAME)
 
@@ -2434,6 +2555,10 @@ function Report-Results {
 **Statut:** $(if ($Result.success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" })
 **Itérations:** $($Result.iterations)
 $(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
+$(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
+$(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
+$(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
+$GhostHashWarning
 
 ### Output
 ``````
@@ -2782,14 +2907,19 @@ Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 5. Si les tests passent, commit avec le message :
    test(coverage): Add tests for [module] - idle worker coverage improvement
 
+6. **OBLIGATOIRE** (#1489): Apres le commit, capture le VRAI hash avec :
+   git log -1 --format="Commit: %H%nSubject: %s%n"
+   Inclus cette sortie dans ton rapport final.
+
 ## Contraintes
 - NE MODIFIE PAS le code source (seulement les fichiers de test)
 - Si la couverture est deja > 80% partout, fais une exploration de veille : cherche des TODO, FIXME, ou du code mort et rapporte tes trouvailles dans un commentaire GitHub sur une issue existante.
 - Maximum 15 minutes de travail.
+- NE FABRIQUE JAMAIS de hash de commit. Le worker script verifiera et rejettera les hashes fantomes.
 
 === AGENT STATUS ===
 STATUS: success
-REASON: [resume des tests ajoutes ou findings de veille]
+REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT: "git log -1" output pour preuve]
 ===================
 "@
         $Task = @{
@@ -2918,8 +3048,8 @@ REASON: [resume des tests ajoutes ou findings de veille]
         }
     }
 
-    # 6. Reporter résultats
-    Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode
+    # 6. Reporter résultats (#1489: pass WorktreePath for commit hash validation)
+    Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode -WorktreePath $WorktreePath
 
     # 6b. Nettoyer wait state si c'était une reprise réussie
     if ($IsResume -and $Result.success) {

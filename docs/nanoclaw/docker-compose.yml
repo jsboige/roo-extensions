@@ -1,0 +1,101 @@
+# NanoClaw Docker Compose Configuration
+# For deployment on myia-ai-01
+#
+# Usage:
+#   docker-compose up -d nanoclaw
+#   docker-compose logs -f nanoclaw
+#   docker-compose down
+
+version: '3.8'
+
+services:
+  nanoclaw:
+    image: jsboige/nanoclaw:latest
+    container_name: nanoclaw-ai-01
+    hostname: nanoclaw-ai-01
+    restart: unless-stopped
+
+    # Environment variables
+    environment:
+      # LLM Provider (z.ai GLM-5.1)
+      - ANTHROPIC_BASE_URL=https://open.bigmodel.cn/api/paas/v4/
+      - ANTHROPIC_API_KEY=${Z_AI_API_KEY}
+      - MODEL=glm-5-turbo
+
+      # RooSync Configuration
+      - ROOSYNC_MACHINE_ID=nanoclaw-ai-01
+      - ROOSYNC_WORKSPACE=nanoclaw-default
+      - ROOSYNC_SHARED_PATH=/mnt/gdrive/roosync
+
+      # GDrive Credentials (injected at runtime, NOT in image)
+      - GOOGLE_APPLICATION_CREDENTIALS=/tmp/credentials.json
+
+      # Node.js
+      - NODE_ENV=production
+
+    # Volume mounts
+    volumes:
+      # Workspace mount (roo-extensions repo)
+      - C:/dev/roo-extensions:/workspace:rw
+
+      # MCP server access (for roo-state-manager)
+      - C:/dev/roo-extensions/mcps:/workspace/mcps:ro
+
+      # RooSync skill (within container)
+      - ./skills:/nanoclaw/skills:ro
+
+      # GDrive shared state (read-only for container)
+      # NOTE: Host path should be mounted on ai-01
+      - G:/roosync:/mnt/gdrive/roosync:ro
+
+      # Credentials (injected at runtime, NOT in image)
+      # WARNING: Never commit actual credentials to git
+      - ${APPDATA}/gdrive-credentials.json:/tmp/credentials.json:ro
+
+    # Working directory inside container
+    working_dir: /workspace
+
+    # Port mapping (optional, for web UI if NanoClaw has one)
+    ports:
+      - "8082:8080"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:8080/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits (prevent container from consuming all host resources)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network (isolated network for NanoClaw)
+    networks:
+      - nanoclaw-net
+
+networks:
+  nanoclaw-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+# Volumes (named volumes for persistence)
+volumes:
+  nanoclaw-data:
+    driver: local

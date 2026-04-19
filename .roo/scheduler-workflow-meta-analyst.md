@@ -159,10 +159,23 @@ Ne rapporter QUE des problemes REELS observes dans les donnees :
 - Patterns d'echec recurrents (memes erreurs, memes modes)
 - Travail duplique (2 agents sur la meme tache)
 
-NE PAS rapporter :
+NE PAS rapporter (HARD REJECT, rejet immediat a la creation d'issue) :
 - Differences de nommage entre fichiers de regles
-- Suggestions d'harmonisation de harnais
-- Problemes theoriques sans donnees concretes
+- Asymetrie de version entre .roo/rules/* et .claude/rules/* (ex : v3.0.0 vs v3.2.0) — les deux agents evoluent a rythme different, l'asymetrie N'EST PAS un bug
+- Suggestions d'harmonisation/synchronisation/alignement de harnais
+- Problemes theoriques sans donnees concretes (incidents avec timestamp)
+- Doublons de code apparents SANS regression observee (isolation peut etre voulue, ex #1145)
+- Metriques sans seuil depasse ("succes 92%" sans regression)
+- Refactoring architectural sans incident concret
+
+Incident de reference : #1455 (2026-04-17, asymetrie INTERCOM v3.0.0/v3.2.0 rejete par utilisateur — "Ca fait pas mal du meme type qu'on refuse, qu'a tu fais pour que ca cesse ???").
+
+TEST DE VALIDATION AVANT CREATION D'ISSUE (OBLIGATOIRE, 3 questions) :
+1. Y a-t-il un incident concret avec timestamp et trace ?
+2. Le probleme est-il REPRODUIT par les donnees (>=2 occurrences) ?
+3. Si je ne cree PAS cette issue, qu'est-ce qui casse concretement ?
+
+Si une reponse est floue ou "rien, c'est juste moins propre" : NE PAS CREER.
 
 Rapporter :
 - Tableau des PRs recentes (etat, qualite, issues liees)
