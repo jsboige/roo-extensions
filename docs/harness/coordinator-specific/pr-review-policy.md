@@ -85,22 +85,58 @@ Fixes #XXX, Relates to #YYY
 
 **REQUIRED** before merging any PR with >50 lines of code changes. The coordinator MUST run a structured code review via sk-agent and post the results as a PR comment.
 
+**IMPORTANT:** Use the INTEGRATION TRACING template below, not just generic diff validation. This catches bugs like BLOCKER-3 (issue #1471) where schema changes work but downstream dispatch fails.
+
 ```bash
 # 1. Get the PR diff
 gh pr diff {PR_NUMBER} --repo jsboige/roo-extensions
 
-# 2. Run sk-agent code review
-run_conversation(conversation: "code-review", prompt: "Review this PR diff for security, performance, maintainability, and correctness:\n\n[git diff output]")
+# 2. Get files touched
+gh pr diff {PR_NUMBER} --name-only --repo jsboige/roo-extensions
 
-# 3. Post review as PR comment
+# 3. Run sk-agent code review with INTEGRATION TRACING
+run_conversation(conversation: "code-review", prompt: "[INTEGRATION TRACING TEMPLATE - see below]")
+
+# 4. Post review as PR comment
 gh pr comment {PR_NUMBER} --body "## sk-agent Review\n\n{review summary}"
 ```
 
-This provides multi-perspective analysis (security, perf, maintainability) before merge. The review summary MUST be posted as a PR comment under a `## sk-agent Review` section.
+**INTEGRATION TRACING TEMPLATE (use this for sk-agent reviews):**
+
+```
+Review this PR with a focus on INTEGRATION, not just diff correctness.
+
+DIFF:
+[git diff output]
+
+FILES TOUCHED:
+[gh pr diff --name-only output]
+
+CONTEXT TRACING (required):
+For each new field, API, or modified behavior in this PR:
+1. Where does a value enter the system? (tool input, request body, env var)
+2. Where is it validated? (schema, Zod, manual checks)
+3. What code CONSUMES it downstream?
+4. Where does it have side effects? (network call, DB write, message dispatch)
+5. At each step: is required context (workspace, machineId, auth, traceId) preserved?
+
+Use the codebase to trace these. If the PR adds/modifies a schema field,
+grep for consumers. If it changes a function signature, find callers.
+
+CRITICAL PATTERNS TO HUNT:
+- Silent failures: `.catch(() => {})`, fire-and-forget without logging
+- Context loss: passing `machineId` alone where `{machineId, workspace}` is needed
+- Defaults papering over bugs: `|| undefined`, `?? ''`, `|| []` when missing input should error
+- E2E test gap: does any test exercise the full flow from input to effect?
+- Dual-definition: check if the same schema/type is duplicated elsewhere (tool-definitions vs handler source)
+
+VERDICT: APPROVE / REQUEST_CHANGES / COMMENT.
+Be specific about bugs NOT in the diff but exposed/obscured by it.
+```
 
 **When to use:** All PRs with >50 lines of code changes.
 **Skip for:** Doc-only, config-only, or harness-only PRs (<50 LOC).
-**Blocking:** If sk-agent identifies critical issues (security, data loss), the PR MUST NOT be merged until resolved.
+**Blocking:** If sk-agent identifies critical issues (security, data loss, integration bugs), the PR MUST NOT be merged until resolved.
 
 **Note:** Since all agents use the same GitHub account (`jsboige`), GitHub cannot enforce approval via PR reviews. sk-agent review as PR comment is the enforcement mechanism (Option E, approved 2026-03-30, Issue #958). The coordinator MUST run `pr-review-and-merge.ps1` before merging any PR. This script enforces the review workflow. Future: Option A (separate bot accounts) will enable native GitHub PR reviews.
 
