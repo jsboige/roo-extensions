@@ -52,6 +52,17 @@
 
 ## Operations
 
+### Config Sync (Issue #1416)
+
+**IMPORTANT:** After any `git pull` that updates `sk_agent_config.template.json`, sync the active config:
+
+```powershell
+cd mcps\internal\servers\sk-agent
+.\deploy-sk-agent.ps1 -UpdateFromTemplate
+```
+
+This preserves your API keys while merging in template changes. See `docs/roosync/deployment/sk-agent.md` for details.
+
 ### Build Docker image
 
 ```bash
