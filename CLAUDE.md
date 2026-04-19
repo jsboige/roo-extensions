@@ -108,10 +108,10 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 |------|---------|----------|----------|
 | Orchestrateurs | `[]` | NON | orchestrator-simple/complex |
 | -simple | read,edit,browser,mcp | **NON** (win-cli MCP) | code-simple, debug-simple |
-| -complex | +command | OUI (natif) | code-complex, debug-complex |
+| -complex | read,edit,browser,mcp | **NON** (win-cli MCP) | code-complex, debug-complex |
 
 **Orchestrateurs = delegation pure** (aucun outil, `new_task` uniquement).
-**-simple = win-cli comme terminal** (pas le groupe `command` natif).
+**AUCUN mode n'a le groupe `command` natif** (#1482). Tous utilisent win-cli MCP pour le terminal.
 
 ---
 
