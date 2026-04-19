@@ -183,40 +183,61 @@ function Resolve-Workspaces {
 }
 
 function Invoke-DashboardRead($ws) {
-    # Call roo-state-manager MCP via the claude CLI in a cheap way.
-    # This is the only part that reaches out to the MCP; it does not consume
-    # Opus tokens (uses the default fast model for a pure tool call).
-    $promptFile = [System.IO.Path]::GetTempFileName()
-    $payload = @{
-        action = "read"
-        type = "workspace"
-        workspace = $ws
-        section = "intercom"
-        intercomLimit = 20
-    } | ConvertTo-Json -Compress
+    # Read the dashboard markdown directly from GDrive. Parses the intercom
+    # section into the same JSON shape that Test-ActionableMessage expects.
+    # Bypasses claude -p (whose MCP loading is unreliable across env contexts:
+    # CLAUDECODE=1 inherited from a parent Claude Code session disables MCP).
+    $sharedPath = $env:ROOSYNC_SHARED_PATH
+    if ([string]::IsNullOrEmpty($sharedPath)) {
+        throw "ROOSYNC_SHARED_PATH env var not set"
+    }
+    $dashboardFile = Join-Path $sharedPath "dashboards/workspace-$ws.md"
+    if (-not (Test-Path $dashboardFile)) {
+        throw "Dashboard file not found: $dashboardFile"
+    }
 
-    # Use roo-state-manager via claude -p with minimal prompt.
-    # The MCP tool returns the JSON payload; we parse messages out.
-    $prompt = @"
-Call the MCP tool roo-state-manager.roosync_dashboard with these exact parameters and output ONLY the raw JSON response:
+    $raw = Get-Content -Path $dashboardFile -Raw -Encoding UTF8
 
-$payload
-"@
-    Set-Content -Path $promptFile -Value $prompt -Encoding UTF8 -NoNewline
+    # Find the intercom section: starts at "## Intercom (" and ends at end of file.
+    $intercomMatch = [regex]::Match($raw, '(?ms)^## Intercom \(\d+ messages\)\s*\n(.+)$')
+    if (-not $intercomMatch.Success) {
+        # No intercom section = no messages.
+        $payload = @{ data = @{ intercom = @{ messages = @() } } }
+        return ($payload | ConvertTo-Json -Depth 10 -Compress)
+    }
+    $intercomBody = $intercomMatch.Groups[1].Value
 
-    try {
-        # claude -p with haiku to minimize cost of the read.
-        # --mcp-config is REQUIRED (#1448): subprocess does not inherit user MCP config,
-        # so roo-state-manager must be loaded explicitly.
-        if (-not (Test-Path $McpConfig)) {
-            Write-Log "ERROR" "MCP config file not found: $McpConfig (needed to load roo-state-manager)"
-            throw "MCP config missing"
+    # Each message starts with: ### [TIMESTAMP] machineId|workspace
+    # then an optional "[msg: id]" line, then blank line, then content.
+    # Content may contain ## headers, --- separators, etc.; ends at the next
+    # "### [" header or end of file.
+    $msgPattern = '(?ms)^### \[(?<ts>[^\]]+)\] (?<machine>[^|]+)\|(?<workspace>[^\r\n]+)\r?\n(?:\[msg:[^\r\n]*\]\r?\n)?\r?\n(?<body>.*?)(?=\r?\n^### \[|\z)'
+    $msgMatches = [regex]::Matches($intercomBody, $msgPattern)
+
+    $messages = @()
+    foreach ($m in $msgMatches) {
+        $body = $m.Groups['body'].Value.Trim()
+        # Strip the trailing --- separator line (if present)
+        $body = [regex]::Replace($body, '\r?\n---\s*$', '')
+        $messages += [pscustomobject]@{
+            timestamp = $m.Groups['ts'].Value.Trim()
+            content = $body
+            author = [pscustomobject]@{
+                machineId = $m.Groups['machine'].Value.Trim()
+                workspace = $m.Groups['workspace'].Value.Trim()
+            }
         }
-        $result = & claude -p --model haiku --mcp-config $McpConfig --output-format json (Get-Content $promptFile -Raw) 2>&1 |
-                  Out-String
-        return $result
-    } finally {
-        Remove-Item -Path $promptFile -Force -ErrorAction SilentlyContinue
+    }
+
+    # Return the same shape as the old MCP-based read, but as objects (not JSON
+    # round-tripped) so the timestamp strings keep their ISO 8601 format —
+    # ConvertTo-Json would cast them to [DateTime] and emit US-locale strings.
+    return [pscustomobject]@{
+        data = [pscustomobject]@{
+            intercom = [pscustomobject]@{
+                messages = $messages
+            }
+        }
     }
 }
 
@@ -277,27 +298,10 @@ foreach ($ws in $wsList) {
     }
 
     try {
-        $raw = Invoke-DashboardRead $ws
+        $parsed = Invoke-DashboardRead $ws
     } catch {
         Write-Log "ERROR" "[$ws] Dashboard read failed: $_"
         $overallExitCode = 2
-        continue
-    }
-
-    # Extract JSON from claude -p output (it may include preamble text).
-    $jsonMatch = [regex]::Match($raw, '\{[\s\S]*"intercom"[\s\S]*\}')
-    if (-not $jsonMatch.Success) {
-        Write-Log "ERROR" "[$ws] Could not extract intercom JSON from dashboard response."
-        Write-Log "DEBUG" "[$ws] Raw output (first 500 chars): $($raw.Substring(0, [Math]::Min(500, $raw.Length)))"
-        $overallExitCode = 3
-        continue
-    }
-
-    try {
-        $parsed = $jsonMatch.Value | ConvertFrom-Json
-    } catch {
-        Write-Log "ERROR" "[$ws] JSON parse failed: $_"
-        $overallExitCode = 3
         continue
     }
 
