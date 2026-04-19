@@ -9,7 +9,7 @@
     - worker:            Executor tier (6h, Haiku baseline, all machines)
     - coordinator:       Coordinator tier (8h, Sonnet baseline, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
-    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, ai-01 only).
+    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
                          dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
                          Use -Workspace to pin to a single workspace (legacy).
@@ -55,6 +55,10 @@
 .PARAMETER DryRun
     Show what would be done without making changes
 
+.PARAMETER Stub
+    Opt-in stub mode for dashboard-watcher (Phase 1 testing). Default is live mode (Phase 2).
+    When set, prints the decision but does not invoke spawn-claude.ps1.
+
 .EXAMPLE
     .\setup-scheduler.ps1                                          # List current worker task
     .\setup-scheduler.ps1 -Action list -TaskType coordinator       # List coordinator task
@@ -64,8 +68,24 @@
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
     .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw-only watcher (legacy)
-    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher                      # Install unified watcher, auto-discovers every workspace (ai-01)
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher                      # Install unified watcher, auto-discovers every workspace (all machines)
     .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspaces "nanoclaw,roo-extensions"  # Explicit multi-ws list
+    .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Stub                 # Install watcher in stub mode (Phase 1 testing)
+
+.NOTES
+    Per-machine workspace configuration for dashboard-watcher:
+
+    Option A (default): Auto-discovery - polls every workspace under $ROOSYNC_SHARED_PATH/dashboards/
+    Option B (recommended): Set $env:DASHBOARD_WATCHER_WORKSPACES in ~/.claude/settings.json to restrict to specific workspaces
+
+    Example ~/.claude/settings.json:
+    {
+      "terminal.integrated.env.windows": {
+        "DASHBOARD_WATCHER_WORKSPACES": "roo-extensions"
+      }
+    }
+
+    Or use -Workspaces parameter to set explicitly during installation.
 #>
 
 param(
@@ -82,6 +102,7 @@ param(
     [int]$TimeoutMinutes = 0,
     [string]$Workspace = '',
     [string]$Workspaces = '',
+    [switch]$Stub,  # Opt-in stub mode for dashboard-watcher (Phase 1 testing). Default is live mode.
     [switch]$DryRun
 )
 
@@ -147,8 +168,8 @@ $TaskConfigs = @{
         DefaultInterval = 1  # 1h polls
         DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
         DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
-        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 1 runs in -Stub mode (0 token cost)."
-        MachineRestriction = "myia-ai-01"
+        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 2 live mode (spawns Opus on actionable). Use -Stub to opt into Phase 1 stub mode."
+        MachineRestriction = $null  # all machines
     }
 }
 
@@ -259,14 +280,21 @@ function Install-Task {
             )
         }
         'dashboard-watcher' {
-            # Phase 1: stub mode (no claude -p spawn). Flip to live by editing
-            # poll-dashboard.ps1 default or passing -Stub:$false.
+            # Phase 2: live mode by default (spawns claude -p on actionable).
+            # Pass -Stub to opt into Phase 1 stub mode (0 token cost).
             $workerArgs = @(
                 "-ExecutionPolicy", "Bypass",
                 "-WindowStyle", "Hidden",
                 "-File", "`"$WorkerScript`"",
                 "-AllowedTags", "`"ASK,TASK,BLOCKED`""
             )
+            # Pass -Stub flag if explicitly set
+            if ($Stub) {
+                $workerArgs += @("-Stub")
+            } else {
+                # Default to live mode (Phase 2)
+                $workerArgs += @("-Stub:`$false")
+            }
             if (-not [string]::IsNullOrEmpty($Workspace)) {
                 $workerArgs += @("-Workspace", $Workspace)
             } elseif (-not [string]::IsNullOrEmpty($Workspaces)) {
@@ -387,14 +415,16 @@ function Test-Task {
         }
         'dashboard-watcher' {
             $testArgs = @("-AllowedTags", "ASK,TASK,BLOCKED")
+            # In test mode, always use stub mode for safety unless explicitly overridden
+            $testArgs += @("-Stub")
             if (-not [string]::IsNullOrEmpty($Workspace)) {
                 $testArgs += @("-Workspace", $Workspace)
-                Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+                Write-Status "  Running: $WorkerScript -Workspace $Workspace -AllowedTags 'ASK,TASK,BLOCKED' -Stub (test mode)"
             } elseif (-not [string]::IsNullOrEmpty($Workspaces)) {
                 $testArgs += @("-Workspaces", $Workspaces)
-                Write-Status "  Running: $WorkerScript -Workspaces '$Workspaces' -AllowedTags 'ASK,TASK,BLOCKED' (stub mode default)"
+                Write-Status "  Running: $WorkerScript -Workspaces '$Workspaces' -AllowedTags 'ASK,TASK,BLOCKED' -Stub (test mode)"
             } else {
-                Write-Status "  Running: $WorkerScript -AllowedTags 'ASK,TASK,BLOCKED' (auto-discover, stub mode default)"
+                Write-Status "  Running: $WorkerScript -AllowedTags 'ASK,TASK,BLOCKED' -Stub (auto-discover, test mode)"
             }
             Write-Status ""
             & powershell -ExecutionPolicy Bypass -File $WorkerScript @testArgs
