@@ -1848,9 +1848,10 @@ function Test-WorktreeHasChanges {
 
         # Auto-commit any uncommitted changes left by Claude
         # Guard #1156: Filter out non-essential files (logs, temp, local) before auto-commit
+        # Guard #1526: Filter out parasite files (empty D, test artifacts, misplaced docs)
         $Uncommitted = (git status --porcelain 2>&1) | Where-Object { $_ -is [string] }
         if ($Uncommitted) {
-            # Filter: exclude paths that should NOT trigger a PR
+            # Filter: exclude paths that should NOT trigger a PR or be committed
             $NonEssentialPatterns = @(
                 '\.claude/logs/',
                 '\.claude/local/',
@@ -1859,22 +1860,56 @@ function Test-WorktreeHasChanges {
                 '\.env$',
                 '\.log$'
             )
+            # #1526: Parasite patterns — files that should NEVER be committed
+            $ParasitePatterns = @(
+                '(?:^|[\\/])D$',                       # Empty file from accidental redirect (< 5 bytes)
+                '\.shared-state-test-',                 # Test artifact directories
+                'git-archaeology-',                     # Misplaced archaeology reports (root instead of docs/)
+                'win_cli_config\.json$',                # Config regression risk (values get reset)
+                '__test-data__',                        # Test fixture leaks
+                '-p$',                                  # Accidental -p flag artifact
+                '\.playwright-mcp/',                    # Playwright MCP state leak
+                'node_modules/',                        # Should never be tracked
+                'test-output\.log$',                    # Test output artifact
+                'test-results\.json$',                  # Test results artifact
+                'test-summary\.txt$'                    # Test summary artifact
+            )
+            $ParasiteExcluded = @()
             $EssentialChanges = @($Uncommitted | Where-Object {
                 $line = $_
                 $isNonEssential = $false
+                $isParasite = $false
                 foreach ($pat in $NonEssentialPatterns) {
                     if ($line -match $pat) { $isNonEssential = $true; break }
                 }
-                -not $isNonEssential
+                if (-not $isNonEssential) {
+                    foreach ($pat in $ParasitePatterns) {
+                        if ($line -match $pat) {
+                            $isParasite = $true
+                            $ParasiteExcluded += ($line -replace '^[!?]+ ','')
+                            break
+                        }
+                    }
+                }
+                -not $isNonEssential -and -not $isParasite
             })
+
+            if ($ParasiteExcluded.Count -gt 0) {
+                Write-Log "#1526: Excluded $($ParasiteExcluded.Count) parasite file(s): $($ParasiteExcluded -join ', ')" "WARN"
+            }
 
             if ($EssentialChanges.Count -gt 0) {
                 Write-Log "Worktree has $($EssentialChanges.Count) essential uncommitted changes, auto-committing..." "INFO"
-                git add -A 2>&1 | Out-Null
+                # #1526: Stage selectively instead of git add -A to avoid parasites
+                git reset HEAD 2>&1 | Out-Null
+                foreach ($line in $EssentialChanges) {
+                    $filePath = $line -replace '^[!?]+ ',''
+                    git add $filePath 2>&1 | Out-Null
+                }
                 $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
                 git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
             } else {
-                Write-Log "Worktree has only non-essential changes ($($Uncommitted.Count) files: logs/temp/local). Skipping auto-commit (#1156)." "INFO"
+                Write-Log "Worktree has only non-essential/parasite changes ($($Uncommitted.Count) files). Skipping auto-commit (#1156/#1526)." "INFO"
             }
         }
 
