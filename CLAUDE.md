@@ -262,7 +262,7 @@ Les documents ci-dessous sont dans `docs/harness/` (PAS auto-charges). Les consu
 13. **Dashboard = canal de COMMANDEMENT** : le coordinateur repond a chaque rapport [DONE] avec des instructions claires (qui fait quoi, priorite, deadline). Ne JAMAIS laisser un rapport sans reponse.
 14. **Dashboard = canal de RAPPORT** : tout agent (executor ou coordinateur) rapporte ses observations et actions notables en fin de session sur le dashboard. Inclure : ce qui a ete fait, PRs creees, issues commentees, prochaine action prevue.
 15. **Agents proactifs** : tous les agents sont invites a creer/alimenter des issues, mettre a jour la documentation, ou effectuer des corrections directes si elles ne necessitent pas de planification git prealable. Pour eviter le double-claiming, notamment si ces actions réagissent à des des messages sur le Dashboard, poster sur le dashboard l'action envisagee AVANT de l'entreprendre.
-16. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review.
+16. **Reviews exigeantes AVANT merge** : verifier les faits, decompter les lignes, detecter les regressions de condensation. Un PR approuve par un scheduled coordinator ne vaut PAS validation — le coordinateur interactif re-review. **IMPORTANT:** Pour les PRs >50 LOC, utiliser le template d'integration tracing (context tracing) dans [`docs/harness/coordinator-specific/pr-review-policy.md`](docs/harness/coordinator-specific/pr-review-policy.md) section 2, pas juste la validation du diff. Cf. issue #1471 (BLOCKER-3 manqué par review générique).
 17. **Presomption de regression** (issue #1463) : si un outil / une config / un service "ne marche plus" alors qu'il a fonctionne en prod pendant >7 jours, la cause probable est une **regression par un agent rogue**, pas un bug a reecrire from scratch. AVANT de proposer une refonte : `git log --oneline --all -20 -- <path>`, `git blame`, audit config drift. Ne JAMAIS proposer "recreer depuis zero" sans avoir d'abord prouve que le commit rogue n'existe pas.
 18. **Coordinateur = gardien de la raison** : les agents du cluster sont comme des enfants qui cassent regulierement des choses. Le coordinateur doit resister a la derive entropique en exigeant preuve de panne (sortie complete, commande exacte, timestamp avant/apres) avant d'agir sur tout rapport critique. Traiter la naivete comme un risque majeur.
 
@@ -294,6 +294,22 @@ Le coordinateur interactif (ai-01) applique le **Protocole de Scepticisme Raison
 
 Le repo a 7000+ tests unitaires mais la plupart des outils fonctionnent a peine. C'est la signature de la **vibecoding** : les agents modifient des fichiers critiques sans lire l'historique ni faire tourner les tests. **Le coordinateur ne doit jamais normaliser cette derive.**
 
+### Scepticisme PR Review (issue #1471)
+
+**PROBLEME :** sk-agent PR reviews se contentent de valider le diff sans tracer l'integration end-to-end. Resultat : BLOCKER-3 (bug workspace-loss dans dispatch) passé au travers de PR #124 review.
+
+**PROTOCOL :** Pour toute PR >50 LOC, le coordinateur DOIT exiger le template d'integration tracing (context tracing) :
+
+1. **Context tracing obligatoire** : Entry point → Validation → Consumers → Side effects → Context preservation
+2. **Chasse aux patterns silencieux** : `.catch(() => {})`, fire-and-forget sans log, defaults qui masquent des bugs
+3. **Verification E2E** : "Est-ce qu'un test exerce ce flow complet ?"
+4. **Detection dual-definition** : meme schema/type duplique (tool-definitions vs handler source)
+5. **Questions sceptiques** : "Ce schema accepte ces fields, est-ce que le dispatch en aval les traite correctement ?"
+
+**Template complet** : [`docs/harness/coordinator-specific/pr-review-policy.md`](docs/harness/coordinator-specific/pr-review-policy.md) section 2.
+
+**Impact attendu** : Reviews plus longues (5-10 min vs 1-2 min) mais **beaucoup** plus utiles. Catch de bugs d'integration AVANT merge, pas apres.
+
 ---
 
-**Derniere MAJ :** 2026-04-17
+**Derniere MAJ :** 2026-04-18
