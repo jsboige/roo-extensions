@@ -1,7 +1,7 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/issue-closure.md)
-**MAJ:** 2026-04-08
+**Version:** 2.1.0 (synced with .claude/rules/issue-closure.md v1.1.0)
+**MAJ:** 2026-04-19
 
 ## Regle
 
@@ -19,7 +19,14 @@
 - **JAMAIS** fermer "not planned" pour contourner le bot checklist
 - **JAMAIS** fermer sur la base d'un CLAIM sans RESULT verifie
 - **JAMAIS** fermer en batch sans lire chaque issue
+- **JAMAIS** utiliser un commentaire generique pour fermer (incident #1428)
 - **"won't fix" / "not planned"** : reserve au coordinateur interactif avec accord utilisateur
+
+## Commentaire generique (anti-pattern #1428)
+
+Chaque commentaire de fermeture doit **refleter le contenu** de l'issue concernee. Un commentaire comme "depasse par ameliorations recentes" applique a plusieurs issues sans rapport est un signal de batch-close sans lecture individuelle.
+
+**Test :** Si le meme commentaire peut etre copie-colle sur 3+ issues sans modification, c'est un batch-close.
 
 ## Si le bot rouvre une issue
 
