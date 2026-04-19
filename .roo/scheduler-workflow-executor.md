@@ -226,7 +226,34 @@ Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
 
 ### 2c-idle : Veille Active ou Consolidation
 
-> **Priorité** : Consolidation si disponible, sinon Veille Active.
+> **Priorité** : Parasite cleanup si détecté, puis Consolidation si disponible, sinon Veille Active.
+
+#### Option 0 : Détection Parasite (#1526, PRIORITAIRE)
+
+**Avant toute autre action idle**, scanner le working dir pour fichiers parasites :
+
+```
+execute_command(shell="powershell", command="git status --porcelain | Select-String -Pattern '^\?\? (C|D)$|shared-state-test-|git-archaeology-|debug_' | ForEach-Object { $_.Line }")
+```
+
+**Si parasites détectés :**
+
+1. Créer une tâche prioritaire de nettoyage :
+
+   ```text
+   Déléguer à code-simple : Supprimer les fichiers parasites détectés :
+   - Fichiers <5 bytes à la racine (C, D, etc.)
+   - Répertoires .shared-state-test-*/ orphelins
+   - Fichiers git-archaeology-*.md mal placés à la racine
+   - Fichiers debug_*.{js,ps1} à la racine
+   Puis : git status --porcelain pour confirmer le nettoyage.
+   ```
+
+2. Poster sur dashboard workspace : `[CLEANUP] {MACHINE} : {N} fichiers parasites nettoyés`
+
+3. Continuer vers Option 1 (Consolidation)
+
+**Si aucun parasite :** Passer à Option 1.
 
 #### Option 1 : Consolidation (prioritaire si disponible)
 
