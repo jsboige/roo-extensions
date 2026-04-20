@@ -167,11 +167,84 @@ The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/
 - Dispatch tasks via RooSync
 - Update issue fields (Machine, Status, Agent)
 - Create coordinator reports on GDrive
+- **Trivial auto-merge** (#1582) : approve+merge PRs matching narrow patterns defined in [`.claude/rules/pr-mandatory.md`](../../../.claude/rules/pr-mandatory.md) section "Exception : Trivial Auto-Merge". See next section for the phase procedure.
 
 ### Coordinator scheduler MUST NOT:
 - Modify harness files (same restriction as meta-analysts)
 - Force-push or destructive git operations
 - Close issues without verification (checklists must be 100%)
+- Auto-merge PRs that do NOT match the trivial patterns — rule 16 (`CLAUDE.md`) still applies to anything touching `src/`, `.claude/`, `.roo/`, config, or CI workflows.
+
+---
+
+## Trivial Auto-Merge Phase (#1582 pilot 2026-04-21 → 2026-05-05)
+
+Run this phase **after** the standard coordinator analysis, **before** writing the cycle summary.
+
+### Step 1 : List candidate PRs
+
+```powershell
+# Parent repo
+gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,mergeable,mergeStateStatus,statusCheckRollup,reviewDecision,files,additions,deletions
+
+# Submodule
+gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number,title,author,mergeable,mergeStateStatus,statusCheckRollup,reviewDecision,files,additions,deletions
+```
+
+### Step 2 : Filter by pattern
+
+For each PR, accept **ALL** conditions :
+- Title matches one of : `^test(\(coverage\))?: .+` | `^chore\(submod\): bump pointer [a-f0-9]{7,} -> [a-f0-9]{7,}.*$` | `^docs\([^)]+\): .+`
+- `mergeable == "MERGEABLE"`
+- `mergeStateStatus` in `["BLOCKED" (awaiting review only), "CLEAN"]`
+- `reviewDecision != "CHANGES_REQUESTED"`
+- All `statusCheckRollup[].conclusion == "SUCCESS"` (no `FAILURE`, no `IN_PROGRESS` — wait next cycle if IN_PROGRESS)
+- Diff inspection : `files[*].path` NOT in forbidden list (`src/`, `lib/`, `mcps/internal/servers/*/src/`, `.claude/`, `.roo/`, `CLAUDE.md`, `.roomodes`, `package*.json`, `.github/workflows/`, `*.env*`, `*.yml`)
+- For pointer bumps : exactly 1 file changed (`mcps/internal`), `additions: 1, deletions: 1`
+
+### Step 3 : Approve + merge (per accepted PR)
+
+```powershell
+# Approve as myia-ai-01 (independent review)
+gh auth switch --user myia-ai-01
+gh pr review <N> --repo <repo> --approve --body "LGTM trivial per #1582 (pattern: <matched-regex>)"
+
+# Merge as jsboige (author-merger split preserved)
+gh auth switch --user jsboige
+gh pr merge <N> --repo <repo> --squash --delete-branch
+```
+
+**Max 5 trivial-merges per cycle** (blast radius cap).
+
+### Step 4 : Log to dashboard workspace
+
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["TRIVIAL-MERGE", "claude-coordinator-scheduled"],
+  content: "### [ai-01 scheduled] Trivial merge phase — <timestamp>\n\nMerged N PRs:\n- #<num> <title> (+<add>/-<del> LOC, pattern: <regex>)\n...\n\nSkipped M PRs (reasons):\n- #<num> CI pending → retry next cycle\n- #<num> files outside scope (src/foo.ts) → interactive review required\n...\n\nTotal: X merged, Y skipped, Z seconds"
+)
+```
+
+### Step 5 : Stop conditions
+
+Stop the phase immediately if :
+- Any merge fails (report error, continue to next PR without retrying)
+- Any 2 consecutive merges fail (circuit breaker — something is off, escalate to dashboard `[ERROR]`)
+- A post-merge CI on `main` fails (self-audit)
+
+### Step 6 : Interactive coordinator audit (retroactive, at every `/coordinate`)
+
+The interactive coordinator MUST :
+1. Read all `[TRIVIAL-MERGE]` messages since last interactive cycle
+2. Verify each merge still holds (no regression, tests green on main)
+3. If anomaly detected : open `needs-approval` issue, set `TRIVIAL_MERGE_DISABLED=1` in `~/.claude/settings.json` locally, broadcast via RooSync
+
+### Pilot exit criteria (2026-05-05)
+
+- **Success** : zero regression, clear latency win (>=10 PRs auto-merged, average latency <1 cycle) → promote to stable
+- **Failure** : >=1 regression, or no measurable latency win → revert via issue `needs-approval`, disable clause in `pr-mandatory.md`
 
 ---
 
@@ -184,4 +257,4 @@ The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/
 
 ---
 
-**Last updated:** 2026-03-06
+**Last updated:** 2026-04-21 (#1582 trivial auto-merge phase added, pilot 2 weeks)

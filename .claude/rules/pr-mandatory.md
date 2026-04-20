@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.0.0 (harmonized Claude + Roo, #1053)
-**MAJ:** 2026-04-08
+**Version:** 3.1.0 (add trivial-merge exception, #1582)
+**MAJ:** 2026-04-21
 
 ---
 
@@ -64,6 +64,50 @@ Suppression INTERDITE sans approbation utilisateur :
 - MEMORY.md, INTERCOM, dashboards (coordination)
 - `.claude/rules/`, `.roo/rules/` (harnais)
 - Fichiers gitignored
+
+---
+
+## Exception : Trivial Auto-Merge (#1582)
+
+**Le scheduled coordinator ai-01 UNIQUEMENT** peut approve+merger sans validation interactive, dans un perimetre etroit. Rule 16 (review retroactive du coordinateur interactif) reste en vigueur — le trivial auto-merge est une optimisation de latence, pas un contournement.
+
+### Patterns eligibles (cumulatif, ALL conditions)
+
+1. **Titre PR** match l'une des regex :
+   - `^test(\(coverage\))?: .+`
+   - `^chore\(submod\): bump pointer [a-f0-9]{7,} -> [a-f0-9]{7,}.*$`
+   - `^docs\([^)]+\): .+`
+2. **Diff contraintes** :
+   - Aucune modification dans : `src/`, `lib/`, `mcps/internal/servers/*/src/`, `mcps/internal/servers/*/build/`, `.claude/`, `.roo/`, `CLAUDE.md`, `.roomodes`, `package*.json`, `.github/workflows/`, `*.env*`, `*.yml` (CI/infra), `*.ts` hors `**/tests/**`
+   - Zero suppression de test existant
+   - Pour pointer bump : **UNIQUEMENT** `mcps/internal` change, `+1/-1` exact
+3. **CI** : tous les checks required en `SUCCESS`
+4. **Review decision** : pas `CHANGES_REQUESTED`
+5. **Auteur** : different de `jsboige` (evite self-approve+self-merge) OU auteur est un worker/scheduler automatique
+
+### Procedure (scheduled coordinator ai-01)
+
+A chaque cycle 6-12h, phase `trivial-merge` :
+1. `gh pr list --state open --search "is:pr author:app/* OR (type:coverage) OR (pointer bump)"` — lister PRs matching
+2. Pour chaque PR, verifier les 5 conditions ci-dessus
+3. Si conditions OK : `gh auth switch --user myia-ai-01 && gh pr review <N> --approve --body "LGTM trivial per #1582"` (review independante)
+4. `gh auth switch --user jsboige && gh pr merge <N> --squash --delete-branch` (merge)
+5. Log dans le dashboard workspace avec tag `[TRIVIAL-MERGE]` : PR num, titre, LOC +/-, temps total
+6. Snapshot compact en fin de phase : total mergees, erreurs, PRs ignorees et pourquoi
+
+### Garde-fous
+
+- **Max 5 trivial-merges par cycle** pour limiter le blast radius en cas de regression
+- **Coordinateur interactif audit retroactif OBLIGATOIRE** a chaque cycle /coordinate : lire les messages `[TRIVIAL-MERGE]` du dashboard, verifier que les patterns tenaient
+- **Si une anomalie detectee** (test failure post-merge, regression introduite) : desactiver la clause via flag `TRIVIAL_MERGE_DISABLED=1` dans `~/.claude/settings.json`, incidenter via issue `needs-approval`
+- **Pilot 2 semaines** (2026-04-21 → 2026-05-05). Review en fin de periode.
+
+### Ce que ça NE change PAS
+
+- Rule 16 inchangee pour toute PR hors patterns ci-dessus
+- Review sk-agent obligatoire pour PRs >50 LOC non-test
+- Integration tracing template obligatoire pour PRs touchant `src/`, `.claude/`, `.roo/`
+- Coordinateur interactif peut re-review retroactivement et reverter
 
 ---
 
