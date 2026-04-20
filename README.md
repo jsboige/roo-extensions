@@ -131,7 +131,7 @@ roo-extensions/
 
 | MCP | Outils | Description |
 |-----|--------|-------------|
-| **roo-state-manager** | 36 | Messaging RooSync, config sync, task browsing, semantic search |
+| **roo-state-manager** | 34 | Messaging RooSync, config sync, task browsing, semantic search |
 | **sk-agent** | 7 | 13 agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
 | **playwright** | 22 | Browser automation, screenshots, form filling |
 | **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |
@@ -155,7 +155,7 @@ roo-extensions/
 - ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
 - ✅ **Inventory automatique** : Détection système complète (6 machines)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **35 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
+- ✅ **34 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
 
 #### Workflow Principal
 ```
