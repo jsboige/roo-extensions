@@ -250,8 +250,18 @@ Commence.
     if ($exitCode -eq 0) {
         Write-Log "INFO" "Spawn exit 0. Success (but verify [REPLY]/[ACK] on dashboard)."
     } elseif ($exitCode -eq 1) {
-        Write-Log "INFO" "Spawn exit 1. Often auto-compact — NOT a failure. Check dashboard for [REPLY]."
-        $exitCode = 0  # treat as success per #1423 lesson
+        # #1605: distinguish auto-compact (benign #1423 case) from rapid_refill_breaker
+        # (true failure — session killed before producing any reply).
+        # If we treat rapid_refill_breaker as success, poll-dashboard.ps1 advances
+        # lastack and the actionable message is silently lost.
+        $breakerMatch = $truncatedStdout -match '"terminal_reason"\s*:\s*"rapid_refill_breaker"'
+        if ($breakerMatch) {
+            Write-Log "ERROR" "Spawn killed by rapid_refill_breaker (true failure). Keeping exitCode=1 so lastack is NOT advanced. Cost ~`$2.68/spawn — investigate context bloat."
+            # Preserve exitCode=1
+        } else {
+            Write-Log "INFO" "Spawn exit 1. Likely auto-compact produced reply (#1423). Treating as success."
+            $exitCode = 0
+        }
     } else {
         Write-Log "WARN" "Spawn exit $exitCode. Unexpected. Caller should verify dashboard state."
     }
