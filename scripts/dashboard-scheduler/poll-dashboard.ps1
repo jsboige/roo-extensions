@@ -82,7 +82,7 @@ param(
 
     [string]$AllowedWorkspaces = "",
 
-    [string]$AllowedTags = "ASK,TASK,BLOCKED",
+    [string]$AllowedTags = "ASK,TASK,BLOCKED,ORDER,PING,URGENT",
 
     [string]$AllowedAuthors = "",
 
@@ -351,10 +351,14 @@ foreach ($ws in $wsList) {
     }
 
     Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 for $($actionable.Count) message(s)..."
+    # #1605 Bug #2: sweeps are short [REPLY]/[ACK] posts — haiku is sufficient and avoids
+    # the 79k-token boot thrash (MEMORY.md + CLAUDE.md + 12 rules + 89 deferred tools)
+    # that triggers rapid_refill_breaker on opus. ~$2.68/spawn saved on failed runs.
+    # Callers who need opus for complex coordination can invoke SpawnScript directly.
     $spawnArgs = @(
         "-Workspace", $ws,
         "-Since", $lastAck,
-        "-Model", "opus",
+        "-Model", "haiku",
         "-McpConfig", $McpConfig
     )
     & pwsh -File $SpawnScript @spawnArgs
