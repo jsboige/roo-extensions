@@ -11,6 +11,29 @@ Les propositions sont des issues GitHub `needs-approval` que le coordinateur (#5
 
 ---
 
+## CRITICAL : Gestion du contexte et troncature (#1608)
+
+**PROBLEME :** Les delegations sans troncature stricte provoquent des explosions de contexte (>50K tokens en un appel) qui saturent les modeles qwen3.6/GLM-5 et causent des plantages repetes.
+
+**REGLE ABSOLUE :** Toute delegation DOIT respecter les limites suivantes :
+
+1. **TRONCATURE OBLIGATOIRE** : Toute lecture de fichier via MCP ou PowerShell doit etre limitee a 50 lignes maximum
+   - `conversation_browser` : TOUJOURS utiliser `smart_truncation: true` + `max_output_length: 10000`
+   - `roosync_search` : TOUJOURS utiliser `max_results: 10` (jamais plus)
+   - PowerShell : TOUJOURS utiliser `Select-Object -Last 50` ou `Select-Object -First 50`
+
+2. **MAX 3 DELEGATIONS PAR CYCLE** (reduit de 5-7, #1608)
+   - Apres 3 delegations, arreter et rapporter ce qui a ete fait
+   - Mieux vaut un rapport incomplet qu'un contexte sature
+
+3. **CHECKPOINT AVANT DELEGATION** : Si >30K chars de resultats accumules ou >3 delegations deja faites → ARRETER
+
+4. **CODEBASE_SEARCH PRIORITAIRE** : Pour l'exploration, preferer `codebase_search` (resultats bornes) a `read_file`
+
+---
+
+---
+
 ## WORKFLOW EN 4 ETAPES
 
 ### Etape 0 : Pre-flight Check (OBLIGATOIRE)
@@ -267,10 +290,15 @@ attempt_completion(result: "Cycle meta-analyste termine. Rapport poste dans dash
 3. Ne JAMAIS fermer, archiver ou dispatcher des issues GitHub
 4. **RooSync** : Accessible en lecture. Privilegier dashboard workspace pour les rapports
 5. Ne JAMAIS creer d'issue SANS label `needs-approval`
-6. **Limiter les outputs** : `Select-Object -Last 50` ou `tail -50`
-7. **Maximum 3 issues par cycle** (anti-spam)
-8. Si 2 echecs consecutifs : arreter et rapporter dans dashboard workspace
-9. **PAS de fichiers rapport (#1179)** : Ne JAMAIS creer de fichiers dans docs/ ou ailleurs dans le depot. Les rapports vont sur le dashboard ou en issues GitHub, JAMAIS dans des fichiers git-trackes.
+6. **TRONCATURE OBLIGATOIRE (#1608 - CRITICAL)** :
+   - `conversation_browser` : `smart_truncation: true` + `max_output_length: 10000`
+   - `roosync_search` : `max_results: 10` maximum
+   - PowerShell : `Select-Object -Last 50` ou `Select-Object -First 50`
+   - JAMAIS plus de 50 lignes dans une delegation
+7. **Maximum 3 delegations par cycle** (#1608) - Apres 3, arreter et rapporter
+8. **Maximum 3 issues par cycle** (anti-spam)
+9. Si 2 echecs consecutifs : arreter et rapporter dans dashboard workspace
+10. **PAS de fichiers rapport (#1179)** : Ne JAMAIS creer de fichiers dans docs/ ou ailleurs dans le depot. Les rapports vont sur le dashboard ou en issues GitHub, JAMAIS dans des fichiers git-trackes.
 
 ---
 
