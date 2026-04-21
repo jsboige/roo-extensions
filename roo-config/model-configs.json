@@ -71,7 +71,7 @@
       "openAiApiKey": "{{SECRET:owuiApiKey}}",
       "openAiModelId": "Qwen_think-reason",
       "id": "owui-think-reason",
-      "description": "Qwen 3.5 via OWUI — Thinking Reasoning (temp=1.0, pp=2.0, top_p=1.0, top_k=40). Diversité max, raisonnement."
+      "description": "Qwen 3.5 via OWUI — Thinking Reasoning (temp=1.0, pp=0.5, top_p=0.95, top_k=40). Reasoning équilibré. FIX #617: pp 2.0→0.5 (MODEL_NO_ASSISTANT_MESSAGES)."
     },
     "owui-instruct": {
       "diffEnabled": true,
