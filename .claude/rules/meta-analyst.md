@@ -1,9 +1,9 @@
 # Meta-Analyste — Claude Code
 
-**Version:** 1.1.0
-**Issue:** #1375 (cree), #1455 (durcissement hard-reject)
+**Version:** 1.2.0
+**Issue:** #1375 (cree), #1455 (durcissement hard-reject), #1584 (config drift operational)
 **Miroir de :** `.roo/scheduler-workflow-meta-analyst.md` (Roo scheduler, 297 lignes)
-**MAJ:** 2026-04-18
+**MAJ:** 2026-04-21
 
 ---
 
@@ -98,6 +98,18 @@ Deleguer a `codebase-researcher` ou executer directement selon le scope. **MCP p
    ```
    roosync_dashboard(action: "read_overview")
    ```
+
+9. **Config drift operational** (#1584) : detecter les configs deployees qui divergent du depot de reference.
+   - **Scope strict (pas d'extension)** : uniquement `win-cli` `commandTimeout`, `mcp_settings.json` server list, `unrestricted-config.json`. PAS d'extension a d'autres configs sans issue explicite.
+   - **Signal positif (pas hard-reject)** : si la valeur deployee differe du depot, **c'est un drift reel** a signaler — pas une asymetrie theorique.
+   - **Procedure** :
+     ```
+     roosync_search(action: "semantic", search_query: "timed out timeout error fail", has_errors: true, tool_name: "execute_command", start_date: "{72h ago}", max_results: 10)
+     ```
+     Croiser avec le depot : `Read(mcps/internal/servers/win-cli/src/unrestricted-config.json)` vs la config deployee localement (`%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\win_cli_config.json`). Si delta → candidat issue (ex : timeout 180s deploye vs 600s depot, comme #1583).
+   - **Locale only** : le meta-analyste verifie SA machine. Cross-machine = optionnel via `roosync_inventory` mais PAS obligatoire (scope 1 machine evite les faux positifs de config machine-specific).
+   - **Exemple valide** : "win-cli `commandTimeout=180s` deploye sur ma machine vs `600s` dans depot → drift operational, issue `needs-approval`."
+   - **HARD REJECT** : si la config deployee === config depot, NE PAS creer d'issue "pourrait etre plus grand". Le depot EST la reference.
 
 ### Etape 2 : Analyse qualite PRs et issues
 
