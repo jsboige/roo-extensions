@@ -58,6 +58,7 @@ Suppression INTERDITE sans approbation utilisateur :
 - [ ] Pas de console.log dans code nouveau
 - [ ] Build + tests passent (CI vert)
 - [ ] Un plan d'agent n'est PAS une autorisation de suppression
+- [ ] **Parent pointer bump PR** : commit submod cible reachable depuis submod `origin/main` (`git -C mcps/internal merge-base --is-ancestor <commit> origin/main`). Si orphan (squash-merge a cree un autre SHA) → close + recreate vers le merge commit reel. Empeche les dangling submod pointers (#1342, #1594).
 
 ## Pas de PR necessaire pour
 
@@ -81,6 +82,7 @@ Suppression INTERDITE sans approbation utilisateur :
    - Aucune modification dans : `src/`, `lib/`, `mcps/internal/servers/*/src/`, `mcps/internal/servers/*/build/`, `.claude/`, `.roo/`, `CLAUDE.md`, `.roomodes`, `package*.json`, `.github/workflows/`, `*.env*`, `*.yml` (CI/infra), `*.ts` hors `**/tests/**`
    - Zero suppression de test existant
    - Pour pointer bump : **UNIQUEMENT** `mcps/internal` change, `+1/-1` exact
+   - **Pour pointer bump : commit cible DOIT etre reachable depuis submod origin/main** (`git -C mcps/internal merge-base --is-ancestor <new_commit> origin/main` → exit 0). Empeche les pointeurs orphan pointant sur un commit pre-squash. Pattern incident : PR #1593 orphan sur `13b4516e` apres squash-merge #165 → fresh PR #1594 (2026-04-21).
 3. **CI** : tous les checks required en `SUCCESS`
 4. **Review decision** : pas `CHANGES_REQUESTED`
 5. **Auteur** : different de `jsboige` (evite self-approve+self-merge) OU auteur est un worker/scheduler automatique
