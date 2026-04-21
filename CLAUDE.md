@@ -160,6 +160,7 @@ Les règles ci-dessous sont automatiquement chargées dans chaque conversation. 
 | **PR Mandatory** | Zéro push direct sur main. PR obligatoire. | `.claude/rules/pr-mandatory.md` |
 | **CI Guardrails** | Valider build + tests CI avant push submodule. | `.claude/rules/ci-guardrails.md` |
 | **Issue Closure** | Jamais fermer sans preuve de completion. Wontfix = utilisateur seulement. | `.claude/rules/issue-closure.md` |
+| **Agent Claim Discipline** | Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse. (#1605) | `.claude/rules/agent-claim-discipline.md` |
 
 ### Règles Opérationnelles
 
