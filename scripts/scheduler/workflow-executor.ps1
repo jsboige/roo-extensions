@@ -308,6 +308,40 @@ function Start-ExecutorWorkflow {
         }
 
         # ========================================
+        # STEP 0a: Git Branch Integrity Check (NEW)
+        # ========================================
+        Write-WorkflowStep -StepName "Git Branch Check" -Details "Verifying branch integrity"
+
+        # Check for detached HEAD state
+        $headStatus = Invoke-GitCommand -GitCommand "status --porcelain=v1 --branch" -NoLog
+        if ($headStatus.Success -and $headStatus.Output) {
+            if ($headStatus.Output.Contains("HEAD detached at")) {
+                Write-INTERCOMMessage -Type "CRITICAL" -Title "Detected detached HEAD state" -Content "**CRITICAL ISSUE DETECTED: Detached HEAD state found**`n`nDetached HEAD state detected before task execution. This could lead to lost commits.`n`nCurrent HEAD status: $($headStatus.Output.Trim())`n`n**Action required:** Check git status and checkout proper branch before continuing.`n`nWorkflow halted to prevent lost commits." -MachineName $MachineName
+                throw "Detached HEAD detected. Halting workflow to prevent lost commits."
+            }
+        }
+
+        # Check for orphan commits (commits not on any branch)
+        $logResult = Invoke-GitCommand -GitCommand "log --oneline --branches --not --remotes" -NoLog
+        if ($logResult.Success -and $logResult.Output) {
+            $orphanCommits = $logResult.Output.Trim() | Where-Object { $_ }
+            if ($orphanCommits) {
+                $commitsText = $orphanCommits -join "`n"
+                Write-INTERCOMMessage -Type "WARN" -Title "Orphan commits detected" -Content "**WARNING: Orphan commits found**`n`nFound commits that exist locally but are not on any branch:`n`n```$commitsText```" -MachineName $MachineName
+            }
+        }
+
+        # Verify main branch exists and is available
+        $branchResult = Invoke-GitCommand -GitCommand "branch --list main" -NoLog
+        if (-not $branchResult.Success -or -not $branchResult.Output.Contains("main")) {
+            $branchResult = Invoke-GitCommand -GitCommand "branch --list master" -NoLog
+            if (-not $branchResult.Success -or -not $branchResult.Output.Contains("master")) {
+                Write-INTERCOMMessage -Type "CRITICAL" -Title "No main/master branch found" -Content "**CRITICAL: No main/master branch detected**`n`nCannot proceed without a proper main branch for commit safety." -MachineName $MachineName
+                throw "No main or master branch found. Halting workflow."
+            }
+        }
+
+        # ========================================
         # STEP 0b: Heartbeat (OBLIGATOIRE)
         # ========================================
         Write-WorkflowStep -StepName "Heartbeat" -Details "Registering heartbeat"
