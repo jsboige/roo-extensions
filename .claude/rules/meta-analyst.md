@@ -1,9 +1,9 @@
 # Meta-Analyste — Claude Code
 
-**Version:** 1.2.0
-**Issue:** #1375 (cree), #1455 (durcissement hard-reject), #1584 (config drift operational)
+**Version:** 1.3.0
+**Issue:** #1375 (cree), #1455 (durcissement hard-reject), #1584 (config drift operational), #1621 (sessions sanctuary)
 **Miroir de :** `.roo/scheduler-workflow-meta-analyst.md` (Roo scheduler, 297 lignes)
-**MAJ:** 2026-04-21
+**MAJ:** 2026-04-22
 
 ---
 
@@ -16,30 +16,13 @@ Les propositions sont des issues GitHub `needs-approval` que le coordinateur ou 
 
 ---
 
-## GESTION DES SESSIONS (CRITIQUE — issue #1334)
+## SESSIONS SANCTUARISEES (CRITIQUE — issue #1621)
 
-**PROBLEME :** Les sessions meta-analyste peuvent atteindre 150-280 MB sans condensation.
-**SOLUTION :** Archiver les sessions anciennes/larges apres chaque cycle.
+**REGLE ABSOLUE :** Les sessions/conversations Claude Code ET Roo sont **sanctuarisees**. Elles seront utilisees en Reinforcement Learning a l'avenir.
 
-### Fin de cycle (OBLIGATOIRE)
+**INTERDIT :** Archiver, supprimer, compresser ou modifier des sessions. `roosync_indexing(action: "archive")` avec `claude_code_sessions: true` est BLOQUE sauf approbation utilisateur explicite.
 
-```
-roosync_indexing(action: "archive", claude_code_sessions: true, max_sessions: 5)
-```
-
-### Seuils
-
-| Taille session | Action |
-|----------------|--------|
-| < 50 MB | Conserver |
-| 50-100 MB | Surveiller |
-| > 100 MB | Archiver (URGENT) |
-
-### Verification
-
-```
-conversation_browser(action: "list", source: "claude", limit: 20)
-```
+**Les outils doivent s'adapter** aux volumes de sessions, pas l'inverse. Optimisations futures (indexation, pagination, lazy loading) doivent preserver l'integrite complete des donnees.
 
 ---
 
@@ -152,7 +135,7 @@ Si une des 3 reponses est floue : `[META-ANALYSIS]` est de trop. Ecrire le const
 - "Task #N a boucle 10x sur win-cli blocked operators entre HHMM et HH'MM'" (avec traces)
 - "MCP roo-state-manager crash sur po-2024 le DATE, erreur X, 3 recurrences cette semaine"
 - "Explosion contexte detectee sur tache #M (>50K chars en 1 tour)"
-- "7 sessions Claude >100 MB non archivees depuis 72h"
+- "7 sessions Claude >100 MB identifiees (INFO seulement, aucune action requise — #1621)"
 
 Ces exemples ont tous : **timestamp**, **reproduction**, **impact concret**.
 
@@ -233,4 +216,4 @@ Si probleme grave detecte :
 ---
 
 **Source Roo :** `.roo/scheduler-workflow-meta-analyst.md` (297 lignes)
-**Issues liees :** #807 (frictions), #855 (contexte), #981 (interventions), #1081 (dashboard compact), #1179 (pas de fichiers), #1334 (sessions), #1375 (cette regle)
+**Issues liees :** #807 (frictions), #855 (contexte), #981 (interventions), #1081 (dashboard compact), #1179 (pas de fichiers), #1375 (cette regle), #1621 (sessions sanctuary)
