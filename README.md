@@ -2,7 +2,7 @@
 
 **Version** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 03 mars 2026
+**Dernière mise à jour** : 22 avril 2026
 **GitHub Project** : [RooSync Multi-Agent Tasks #67](https://github.com/users/jsboige/projects/67)
 
 ---
@@ -20,7 +20,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
 - ✅ **GitHub Projects #67** : 242 items actifs
-- ✅ **6867 tests unitaires** : 378 fichiers, CI GitHub Actions (Node 18+20)
+- ✅ **8974 tests unitaires** : 469 fichiers, CI GitHub Actions (Node 18+20)
 
 ---
 
@@ -102,10 +102,10 @@ Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
 ```
 roo-extensions/
 ├── 📁 .claude/                    # Configuration Claude Code agents
-│   ├── agents/                    # 12 subagents spécialisés
+│   ├── agents/                    # 18 subagents spécialisés
 │   ├── skills/                    # 6 skills auto-invoqués
 │   ├── commands/                  # 4 slash commands
-│   ├── rules/                     # 14 règles auto-chargées
+│   ├── rules/                     # 17 règles auto-chargées
 │   └── local/                     # Communication locale (INTERCOM)
 ├── 📁 docs/                       # Documentation technique consolidée
 │   ├── roosync/                   # Protocoles RooSync v2.3
@@ -125,7 +125,7 @@ roo-extensions/
 └── 📄 CLAUDE.md                   # Guide principal agents
 ```
 
-### MCPs Actifs (2026-02-26)
+### MCPs Actifs (2026-04-22)
 
 **5 serveurs MCP + GitHub CLI déployés sur 6 machines :**
 
@@ -194,7 +194,7 @@ Collect → Publish → Compare → Validate → Apply
 
 ### 3. 🤖 Agents et Skills Claude Code
 
-#### 12 Subagents Disponibles
+#### 18 Subagents Disponibles
 
 | Agent | Usage |
 |-------|-------|
@@ -210,6 +210,12 @@ Collect → Publish → Compare → Validate → Apply
 | **roosync-reporter** | Rapports au coordinateur (exécutant) |
 | **task-worker** | Exécution tâches assignées (exécutant) |
 | **consolidation-worker** | Consolidations CONS-X (spécialisé) |
+| **config-auditor** | Audit configurations MCP et modes |
+| **codebase-researcher** | Recherche SDDD multi-pass |
+| **script-runner** | Exécution scripts avec gestion d'erreurs |
+| **pr-reviewer** | Review autonome de pull requests |
+| **issue-triager** | Classification et priorisation issues |
+| **sync-checker** | Vérification rapide git/MCP/schtasks |
 
 #### 6 Skills Auto-Invoqués
 
@@ -231,12 +237,12 @@ Collect → Publish → Compare → Validate → Apply
 - **Scheduler Roo** : Toutes les 3h (staggered par machine)
 - **Scheduler Claude Code** : Worker Haiku toutes les 3h (ai-01, pilot)
 - **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
-- **Build + Tests** : ~56s (6867 tests, 378 fichiers)
+- **Build + Tests** : ~62s (8974 tests, 469 fichiers)
 
 ### MCPs
 - **roo-state-manager** : 34 outils, <500ms réponse
 - **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
-- **Taux de réussite tests** : 99.7% (6867/6887)
+- **Taux de réussite tests** : 99.6% (8974/9011)
 
 ### RooSync v2.3
 - **Messagerie** : <1s latence inter-machines (GDrive partagé)
@@ -293,19 +299,18 @@ cd mcps/internal && npm install && npm run build
 ### Points d'Entrée Principaux
 
 - **Guide Agent Claude Code** : [`CLAUDE.md`](CLAUDE.md)
-- **Architecture Multi-Agent** : [`.claude/INDEX.md`](.claude/INDEX.md)
+- **Architecture Agents** : [`.claude/rules/agents-architecture.md`](.claude/rules/agents-architecture.md)
 - **Serveurs MCP** : [`mcps/README.md`](mcps/README.md)
-- **Escalade Roo** : [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md)
 
 ### Documentation RooSync v2.3
 
 - **Guide Technique** : [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
-- **Protocole INTERCOM** : [`.claude/INTERCOM_PROTOCOL.md`](.claude/INTERCOM_PROTOCOL.md)
+- **Protocole INTERCOM** : [`.claude/rules/intercom-protocol.md`](.claude/rules/intercom-protocol.md)
 
 ### Guides Techniques
 
 - **Dépannage MCP** : [`docs/guides/TROUBLESHOOTING-GUIDE.md`](docs/guides/TROUBLESHOOTING-GUIDE.md)
-- **Encodage UTF-8** : [`docs/encoding/quick-start-encoding.md`](docs/encoding/quick-start-encoding.md)
+- **Encodage UTF-8** : [`docs/dev/encoding/README.md`](docs/dev/encoding/README.md)
 
 ---
 
@@ -339,7 +344,7 @@ cd mcps/internal && npm install && npm run build
 5. **Scheduler Claude Code**
 
    - Vérifier le Task Scheduler : `.\scripts\scheduling\setup-scheduler.ps1 -Action list`
-   - Logs : `.claude/logs/worker-*.log`
+   - Logs : `$env:TEMP\claude-worker-*.log`
    - Tester manuellement : `.\scripts\scheduling\setup-scheduler.ps1 -Action test`
 
 ### Support Technique
@@ -378,7 +383,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 **Version actuelle** : 2.4.0
 **Statut** : ✅ **Production Ready**
-**Dernière mise à jour** : 03 mars 2026
+**Dernière mise à jour** : 22 avril 2026
 **GitHub Project** : [242 items actifs](https://github.com/users/jsboige/projects/67)
 
 ### Accomplissements v2.4
@@ -388,7 +393,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
 - ✅ **Wrapper MCP v4** : 34 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
-- ✅ **Tests robustes** : 6867 PASS sur 378 fichiers
+- ✅ **Tests robustes** : 8974 PASS sur 469 fichiers
 - ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel
 - ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
 - ✅ **SDDD v2** : Triple grounding (sémantique + conversationnel + technique) avec bookend pattern
