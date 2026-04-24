@@ -1,9 +1,10 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 1.1.0
-**Issue:** #1605
+**Version:** 1.2.0
+**Issue:** #1605, #1666 Phase A2
 **MAJ:** 2026-04-24
 **Origine:** Incident 2026-04-21 03:09Z — scheduled Claude worker on ai-01 reported "commit 826894f51d4f4ab074318334c726ddce59fcf29d — 357 lignes ConfigHealthCheckService.test.ts" on the dashboard as `[DONE]`. Post-compaction audit: the SHA existed in no branch, no worktree, no reflog. Work lost.
+**Update 1.2.0:** Detached HEAD double-guard (#1666 A2) — added post-commit verification, pre-push branch-name check, post-push ls-remote verification, and mandatory `[RECOVERY_BRANCH]` tag in [RESULT] when guards fire.
 
 ---
 
@@ -78,7 +79,12 @@ Le worker DOIT, avant de poster son `[RESULT]` final :
 1. Si `$PrUrl` est cité → `gh pr view $PrUrl` doit réussir
 2. Si un commit est cité → le SHA doit être reachable depuis `origin/<branch>`
 3. Sinon → le rapport doit dire "completed (no code changes needed)", PAS "PASS — commit X"
-4. **Detached HEAD guard (#1613)** : avant tout auto-commit, vérifier `git symbolic-ref -q HEAD` — si échec, créer une branche de recovery avant de committer
+4. **Detached HEAD guard (#1613 + #1666 A2)** : triple-guard avant/pendant/après l'auto-commit.
+   - Pré-commit : `git symbolic-ref -q HEAD` — si échec, créer `worker/recovery-YYYYMMDD-HHMMSS` avant de committer
+   - Post-commit : re-vérifier que HEAD est attaché ET que le commit est reachable via `git branch --contains` — sinon créer `worker/rescue-YYYYMMDD-HHMMSS` depuis l'orphan
+   - Pré-push : refuser de push si `git rev-parse --abbrev-ref HEAD` retourne "HEAD"
+   - Post-push : vérifier `git ls-remote origin refs/heads/<branch>` retourne bien le SHA local
+   - Si guard a tiré : le [RESULT] DOIT inclure un tag `[RECOVERY_BRANCH] <nom>` pour que le coordinateur récupère le travail manuellement
 
 ### Spawn/poll scripts (`scripts/dashboard-scheduler/spawn-claude.ps1`)
 
