@@ -20,7 +20,7 @@
 | Dockerfile | `mcps/internal/servers/sk-agent/Dockerfile` |
 | docker-compose | `mcps/internal/servers/sk-agent/docker-compose.sk-agent.yml` |
 | venv (stdio) | `mcps/internal/servers/sk-agent/venv/` |
-| Claude Code MCP | `.mcp.json` (project root) |
+| Claude Code MCP | `~/.claude.json` (global user scope) — **NEVER** project-level `.mcp.json` |
 | Reverse proxy | IIS site `skagents.myia.io` -> `localhost:8100` |
 
 ## Agents (13)
