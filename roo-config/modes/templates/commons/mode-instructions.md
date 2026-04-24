@@ -76,6 +76,8 @@ Pour executer des commandes shell, tu as DEUX options :
 - **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les fonctionnalités SSH (ssh_execute, ssh_disconnect, etc.)
 
 Le MCP win-cli fournit des outils SSH que le terminal natif n'a pas.
+
+CIRCUIT BREAKER BLOCKED OPERATOR (#1655) : Si win-cli repond "operator X blocked" ou "blocked operator" 2 fois de suite sur la meme commande, ARRETE immediatement. Ne retente PAS. Signale [ERROR] dans le dashboard avec le detail de la commande bloquee. Ce signal indique un probleme systeme (processus zombie, lock, permission) qui ne se resoudra pas en retryant. Apres 2 blocked → attempt_completion avec [STATUS: FAILURE] et detail de l'operateur bloque.
 {{/if}}
 {{#if ONLY_WIN_CLI}}
 Pour executer des commandes shell, utilise UNIQUEMENT le MCP win-cli (outil use_mcp_tool, server_name="win-cli", tool_name="execute_command") :
@@ -85,6 +87,8 @@ Pour executer des commandes shell, utilise UNIQUEMENT le MCP win-cli (outil use_
 
 Tu n'as PAS d'outil terminal natif. Toute execution de commande passe par win-cli.
 Si win-cli echoue, ne retente PAS la meme commande. Analyse l'erreur et adapte.
+
+CIRCUIT BREAKER BLOCKED OPERATOR (#1655) : Si win-cli repond "operator X blocked" ou "blocked operator" 2 fois de suite sur la meme commande, ARRETE immediatement. Ne retente PAS. Signale [ERROR] dans le dashboard avec le detail de la commande bloquee. Ce signal indique un probleme systeme (processus zombie, lock, permission) qui ne se resoudra pas en retryant. Apres 2 blocked → attempt_completion avec [STATUS: FAILURE] et detail de l'operateur bloque.
 {{/if}}
 {{#if NO_COMMAND}}
 IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).
