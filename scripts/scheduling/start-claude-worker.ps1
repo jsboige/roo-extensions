@@ -1890,6 +1890,20 @@ function Test-WorktreeHasChanges {
                 -not $isNonEssential
             })
 
+            # Guard #1613: Detect and recover from detached HEAD before auto-commit.
+            # Without this, commits on detached HEAD are orphaned and lost when the worktree is cleaned up.
+            $currentRef = git symbolic-ref -q HEAD 2>&1
+            if ($LASTEXITCODE -ne 0 -or -not $currentRef) {
+                $recoveryBranch = "worker/recovery-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                Write-Log "WARN" "Detached HEAD detected in worktree — creating recovery branch '$recoveryBranch' to preserve work (#1613)"
+                git checkout -b $recoveryBranch 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                if ($LASTEXITCODE -ne 0) {
+                    Write-Log "ERROR" "Failed to create recovery branch from detached HEAD — aborting commit to prevent loss (#1613)"
+                    $ErrorActionPreference = $prevPref
+                    return $false
+                }
+            }
+
             if ($EssentialChanges.Count -gt 0) {
                 Write-Log "Worktree has $($EssentialChanges.Count) essential uncommitted changes, auto-committing..." "INFO"
                 # Guard #1526: selective add instead of -A to avoid staging parasite files

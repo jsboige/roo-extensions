@@ -29,6 +29,13 @@ Un MCP peut etre dispo pour un agent mais pas l'autre. Ajout critique = configur
 **win-cli :** Critique UNIQUEMENT pour Roo (modes -simple n'ont pas le terminal natif). Claude Code utilise `Bash`.
 **NE JAMAIS** `npx @anthropic/win-cli` (npm 0.2.1 casse). Utiliser le fork local uniquement.
 
+### Attention : Config MCP sk-agent
+
+**sk-agent DOIT etre configure dans `~/.claude.json` (global), JAMAIS dans `.mcp.json` (project root).**
+
+Cause de regression #1557 : la doc indiquait erroneement `.mcp.json` comme emplacement correct. Un `.mcp.json` project-level surcharge silencieusement la config globale et peut diverger entre machines.
+**Verification :** `cat .mcp.json` a la racine du projet ne doit PAS contenir `sk-agent`. Si oui → retirer et confirmer dans `~/.claude.json`.
+
 ### Standards (non bloquants)
 
 | MCP | Outils | Role |
