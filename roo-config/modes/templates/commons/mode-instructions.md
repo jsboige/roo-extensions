@@ -85,6 +85,14 @@ Pour executer des commandes shell, utilise UNIQUEMENT le MCP win-cli (outil use_
 
 Tu n'as PAS d'outil terminal natif. Toute execution de commande passe par win-cli.
 Si win-cli echoue, ne retente PAS la meme commande. Analyse l'erreur et adapte.
+
+**Circuit breaker operateurs bloques (CRITIQUE, #1655) :**
+Si win-cli retourne une erreur "blocked operator" ou "operator X blocked" :
+1. Reessaie UNE SEULE FOIS en encapsulant la commande dans `pwsh -c "..."`
+2. Si l'erreur persiste apres cette encapsulation → ARRETE immediatement
+3. Signale [BLOCKED] via dashboard avec le texte exact de l'erreur
+4. NE JAMAIS reessayer la meme syntaxe plus de 2 fois
+5. NE JAMAIS boucler sur des operateurs bloques — c'est une limitation de securite win-cli, pas un bug transitoire
 {{/if}}
 {{#if NO_COMMAND}}
 IMPORTANT : Tu n'as PAS acces a l'execution de commandes (pas de terminal/shell).
