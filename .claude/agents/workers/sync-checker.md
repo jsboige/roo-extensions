@@ -77,7 +77,7 @@ schtasks /Query /TN "Claude-*" /FO LIST
 | MCP roo-state-manager | grep config | Présent, disabled=false |
 | MCP win-cli | grep config | Présent, fork local |
 | Scheduler Roo | schtasks | Ready |
-| Heartbeat | roosync_heartbeat | Online |
+| Heartbeat | roosync_inventory(type: "heartbeat") | Online |
 
 ## Statuts
 

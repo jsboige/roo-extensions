@@ -12,7 +12,7 @@
 
 ## Sources d'information
 
-Meta-analysts, `roosync_compare_config`, `roosync_inventory`, rapports executeurs, `roosync_heartbeat`
+Meta-analysts, `roosync_compare_config`, `roosync_inventory`, rapports executeurs (heartbeat automatique #1609)
 
 ## Guard Rails
 

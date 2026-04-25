@@ -65,7 +65,7 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 ```
 Verifier l'etat des machines executrices :
-1. roosync_heartbeat(action="status", filter="all", includeHeartbeats=true)
+1. roosync_inventory(type: "all", includeHeartbeats: true)
 2. Rapporter : liste des machines online/offline/warning.
 ```
 

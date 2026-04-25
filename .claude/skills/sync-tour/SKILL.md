@@ -706,9 +706,9 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 ### Actions
 
-**4bis-a. Etat des machines :**
+**4bis-a. Etat des machines (#1609 auto-heartbeat) :**
 ```
-roosync_heartbeat(action: "status", filter: "all", includeHeartbeats: true)
+roosync_inventory(type: "all", includeHeartbeats: true)
 ```
 
 **4bis-b. Comparaison des configs (si heartbeat montre des machines actives) :**

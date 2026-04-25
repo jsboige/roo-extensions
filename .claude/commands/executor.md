@@ -448,7 +448,7 @@ Passer directement a la Phase 2.
    - Build + tests (validation)
    - Deploiement global config
    - **Config-sync RooSync** (si pas fait) :
-     - `roosync_heartbeat(action: "register", machineId: "{MACHINE}")` → S'enregistrer
+     - Heartbeat automatique (#1609) : envoyé à chaque appel d'outil MCP, pas d'action requise
      - `roosync_config(action: "collect")` → Collecter la config locale
      - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
      - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline

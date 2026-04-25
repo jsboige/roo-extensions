@@ -22,7 +22,7 @@ SEUL MCP shell actif. `execute_command(shell="powershell", command="...")`. Shel
 
 ## roo-state-manager — Categories
 
-- **RooSync** : `roosync_send`, `roosync_read`, `roosync_manage`, `roosync_config`, `roosync_heartbeat`
+- **RooSync** : `roosync_send`, `roosync_read`, `roosync_manage`, `roosync_config`, `roosync_inventory` (heartbeat automatique #1609)
 - **Grounding** : `conversation_browser`, `codebase_search`, `roosync_search`, `view_task_details`
 - **Dashboard** : `roosync_dashboard` (canal principal de coordination)
 
