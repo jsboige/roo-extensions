@@ -100,8 +100,10 @@ function Set-PowerShellEncodingBasic {
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
 `$OutputEncoding = [System.Text.UTF8Encoding]::new()
-`$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8NoBOM'
-`$PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8NoBOM'
+if (`$PSVersionTable.PSVersion.Major -ge 7) {
+    `$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8NoBOM'
+    `$PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8NoBOM'
+}
 try { chcp 65001 | Out-Null } catch { Write-Warning "Impossible de definir la code page 65001" }
 # Fin de la configuration d'encodage
 "@
@@ -136,8 +138,10 @@ try { chcp 65001 | Out-Null } catch { Write-Warning "Impossible de definir la co
         [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
         [Console]::InputEncoding = [System.Text.UTF8Encoding]::new()
         $OutputEncoding = [System.Text.UTF8Encoding]::new()
-        $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8NoBOM'
-        $PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8NoBOM'
+        if ($PSVersionTable.PSVersion.Major -ge 7) {
+            $PSDefaultParameterValues['Out-File:Encoding'] = 'utf8NoBOM'
+            $PSDefaultParameterValues['Set-Content:Encoding'] = 'utf8NoBOM'
+        }
         try { chcp 65001 | Out-Null } catch { }
         
         Write-SafeOutput "   Configuration PowerShell terminee avec succes." "Green"
