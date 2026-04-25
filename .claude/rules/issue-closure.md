@@ -1,10 +1,11 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 1.2.0
-**MAJ:** 2026-04-24
+**Version:** 1.3.0
+**MAJ:** 2026-04-25
 **Origine:** Incident fermeture prematuree de 3 issues (#829, #850, #855) par un agent
 **Update 1:** Incident batch-close web1 (#737, #760) — commentaire generique detecte (#1428)
 **Update 2:** Incident issues utilisateur "meurent sans bruit" (#1666 Phase A1) — hard cap + user-originated protection + Evidence bloc obligatoire
+**Update 3 (v1.3.0, 2026-04-25):** Correction du critere user-originated : l'identite GitHub `jsboige` est partagee entre l'humain ET tous les agents (cycle 12 user feedback). La distinction repose desormais sur les **marqueurs explicites** (signatures dans titre/body/comments), pas sur l'identite GitHub `author`.
 
 ---
 
@@ -22,7 +23,7 @@
 - [ ] **Si "duplicate" :** L'autre issue est-elle OUVERTE et couvre le meme scope exact ?
 - [ ] **Si "resolved by PR" :** Le PR est-il MERGE (pas juste cree) et couvre-t-il tout le scope ?
 - [ ] **Bloc Evidence present** (voir section plus bas) : PR URL, commit SHA, ou user approval message-id
-- [ ] **Issue user-originated** : si `gh issue view N --json author` → `jsboige`, user a repondu dans le thread depuis la derniere action agent
+- [ ] **Issue user-originated** : appliquer la grille de marqueurs (voir section "Identifier l'origine d'une issue" plus bas). Si aucun marqueur agent identifiable -> presumer user-originated, exiger confirmation humaine reelle
 
 ## Hard Cap de Fermetures par Session Agent
 
@@ -37,34 +38,54 @@ Au-dela de 3, l'agent DOIT :
 
 ## Protection Issues User-Originated
 
-**Une issue creee par `jsboige` (utilisateur) ne peut PAS etre fermee par un agent sans :**
+**Une issue ne peut PAS etre fermee par un agent sauf si l'agent peut prouver l'origine agent OU obtient une confirmation humaine reelle.**
+
+### Identifier l'origine d'une issue (marqueurs explicites)
+
+L'identite GitHub `jsboige` est **partagee** entre l'utilisateur humain ET tous les agents (coordinateurs, schedulers, workers). Le champ `author.login=jsboige` ne distingue rien.
+
+**La distinction se fait sur les marqueurs explicites dans le titre, le body, et les commentaires :**
+
+| Signal dans titre/body/comment | Indique |
+|---|---|
+| Titre commence par `[META-ANALYSIS]`, `[Worker]`, `[AUDIT]`, `[CLAUDE-MACHINE]`, `[BOT]`, `[DISPATCH]`, `[REMEDIATION-*]`, `[EPIC-*]` | **Agent-originated** |
+| Body contient `🤖 Generated with` ou `Co-Authored-By: Claude` ou `Co-Authored-By: Roo` | **Agent-originated** |
+| Body contient `[ai-01]`, `[po-2023]`, `[po-2024]`, `[po-2025]`, `[po-2026]`, `[web1]`, `[myia-ai-01]`, `[myia-po-*]`, `[myia-web*]` | **Agent-originated** |
+| Body contient `[CLAIMED]`, `[RESULT]`, `[DISPATCH]`, `[DONE]`, `[ASK]`, `[REPLY]`, `[ACK]`, `[PROPOSAL]` | **Agent-originated** |
+| Body contient `## Validation ai-01`, `## Evidence`, `## Cross-machine status`, `## Donnees brutes` | **Agent-originated** |
+| Body contient `msg-YYYYMMDDThhmmss-xxxxxx` (format RooSync message-id) | **Agent-originated** |
+| Body contient `gh api`, `gh pr view`, `npx vitest` ou autres outputs CLI bruts | Probable **agent-originated** |
+| Aucun marqueur ci-dessus + style narratif francais conversationnel | Probable **user-originated** |
+| Aucun marqueur ci-dessus + scope ouvert / question floue / "il faudrait que..." | Probable **user-originated** |
+
+**Regle de defaut** : en l'absence d'AUCUN marqueur agent identifiable -> **presumer user-originated** (presomption protectrice).
+
+### Quand un agent peut fermer
 
 | Cas | Action requise |
 |---|---|
-| PR merge couvrant 100% scope + user a comment post-merge | OK, fermer avec ref PR |
-| PR merge mais user n'a PAS commente depuis | **STOP** — poster un comment invitant l'user a valider, attendre |
-| User a ecrit `wontfix` / `not planned` / `ferme-moi ca` dans le thread | OK, fermer avec quote |
-| Agent juge que "c'est resolu" mais user n'a pas confirme | **INTERDIT** — escalader dashboard |
+| Issue **agent-originated** (porte un marqueur ci-dessus) + work done + bloc Evidence | OK, fermer |
+| Issue **user-originated** + PR merge couvrant 100% scope + user a comment post-merge **sans signature agent** | OK, fermer avec ref PR + quote du comment user |
+| Issue **user-originated** + PR merge mais user n'a PAS commente depuis | **STOP** — poster un comment invitant l'user a valider, attendre 72h, escalader dashboard `[ASK]` |
+| User a ecrit `wontfix` / `not planned` / `ferme-moi ca` **sans signature agent** | OK, fermer avec quote |
+| Agent juge que "c'est resolu" mais aucune confirmation user verifiable | **INTERDIT** — escalader dashboard `[ASK]` |
 | Doublon d'une autre issue user-originated | Verifier que les 2 threads sont lies, commenter les deux, attendre user |
 
-**Test rapide avant close :**
+### Comment identifier une "confirmation humaine reelle"
+
+Un commentaire de `jsboige` qui ne porte AUCUN des marqueurs agent ci-dessus. Style narratif (francais conversationnel, sans output CLI brut, sans tableau formel, sans `## Evidence`).
+
+**Test bash :**
 ```bash
-gh issue view N --repo jsboige/roo-extensions --json author,comments --jq '{author:.author.login, last_user_comment:(.comments | map(select(.author.login=="jsboige")) | last | {date:.createdAt[:10], body:.body[:100]})}'
+# Recupere les 5 derniers commentaires + verifie absence de marqueurs agent
+gh issue view N --repo jsboige/roo-extensions --json comments \
+  --jq '.comments | map(select(.author.login=="jsboige")) | reverse | .[0:5] | .[] | {date:.createdAt[:10], body:.body[:200]}' | \
+  grep -vE '🤖|Co-Authored-By|\[ai-01\]|\[po-|\[web|\[CLAIMED\]|\[RESULT\]|\[DONE\]|\[ASK\]|\[REPLY\]|## Evidence|msg-2026'
 ```
 
-**CAVEAT CRITIQUE : les agents s'authentifient AUSSI en `jsboige`.** Un comment "author login: jsboige" peut etre :
-- Un message humain (jsboige reel)
-- Un comment d'agent coordinateur ai-01 (qui utilise `gh` avec le token jsboige)
-- Un comment de worker Roo scheduler (qui utilise le meme token)
+Si 0 ligne ressort -> aucune confirmation humaine, **NE PAS fermer**, escalader.
 
-**Heuristique pour distinguer** : le body contient une de ces signatures ⇒ c'est un agent, PAS un humain :
-- `🤖 Generated with` / `Co-Authored-By: Claude`
-- `[ai-01]`, `[po-2023]`, `[po-2024]`, `[po-2025]`, `[po-2026]`, `[web1]`, `[myia-ai-01]` ...
-- `[CLAIMED]`, `[RESULT]`, `[DISPATCH]`, `[DONE]`
-- `## Validation ai-01`, `## Evidence`, `## Cross-machine status`
-- `msg-YYYYMMDDThhmmss-xxxxxx` (format RooSync message-id)
-
-Si le dernier `jsboige` comment contient une de ces signatures, le traiter comme **agent-authored** et continuer d'attendre une confirmation HUMAINE reelle (un comment sans signatures agent). Si 72h sans reponse humaine : escalader dashboard `[ASK]`, **NE PAS fermer**.
+Si 72h sans reponse humaine reelle apres notification : escalader dashboard `[ASK]`, **NE PAS fermer**.
 
 ## Bloc Evidence OBLIGATOIRE dans le Comment de Fermeture
 
@@ -149,3 +170,4 @@ A chaque cycle `/coordinate`, le coordinateur DOIT en phase initiale :
 - 2026-04-06 : v1.0.0 — Cree apres incident fermeture prematuree de 3 issues (#829, #850, #855)
 - 2026-04-17 : v1.1.0 — Ajout anti-pattern commentaire generique (incident #1428, batch-close web1 #737/#760)
 - 2026-04-24 : v1.2.0 — Hard cap 3/cycle + protection user-originated + bloc Evidence + audit /coordinate (#1666 Phase A1)
+- 2026-04-25 : v1.3.0 — Correction critere user-originated : grille de marqueurs explicites au lieu de l'identite GitHub `author=jsboige` (cycle 12 user feedback : "la plupart des agents travaillent sous mon identite")
