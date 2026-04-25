@@ -75,6 +75,7 @@ Taches assignees: {liste courte}
 5. Bug ouvert reproductible
 6. Issue "In Progress" sans activite recente
 7. Tache de maintenance (build + tests, config-sync)
+8. **PR review (fallback #1713)** : Lancer `/pr-review` pour reviser les PRs ouvertes en attente
 
 **ANTI-DOUBLE-CLAIM (OBLIGATOIRE avant chaque tache) :**
 
@@ -88,7 +89,7 @@ Si une PR existe deja → **SKIP l'issue** + rapporter `[INFO] Issue #X deja cou
 
 Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-keyword}` existe avec une PR ouverte, ne pas dupliquer.
 
-**Si AUCUNE tache disponible** : Envoyer un message RooSync au coordinateur demandant du travail.
+**Si AUCUNE tache disponible (priorites 1-7)** : Lancer le skill `/pr-review` pour contribuer des reviews independantes. Si aucune PR reviewable non plus, envoyer un message RooSync au coordinateur demandant du travail.
 
 ---
 
