@@ -113,6 +113,10 @@ $script:MaxMinutes = 110  # 2h schtask limit, 110min internal for graceful exit
 # Propager NoFallback en scope script pour accès depuis Get-NextTask
 $script:NoFallbackMode = $NoFallback
 
+# #1666 Phase A2: Track if a detached HEAD recovery branch was created during this run.
+# Must be reported in the [RESULT] comment so the coordinator can follow up instead of losing the work.
+$script:RecoveryBranchName = $null
+
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
     $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -772,6 +776,12 @@ function Mark-TaskAsComplete {
                         $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
                     } else {
                         $Body = "[RESULT] $MachineId`: FAIL — no actionable result produced"
+                    }
+                    # #1666 Phase A2: Recovery branch reporting.
+                    # If guard fired and work landed on worker/recovery-* or worker/rescue-*, the coordinator
+                    # needs the exact branch name to fetch it. Otherwise the work is silently stranded.
+                    if ($script:RecoveryBranchName) {
+                        $Body += "`n`n[RECOVERY_BRANCH] Detached HEAD guard fired — work is on ``$($script:RecoveryBranchName)`` (pushed to origin). Coordinator: fetch and review/merge manually. (#1666 A2)"
                     }
                     & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
                     Write-Log "✅ [RESULT] posté sur #$($Task.issueNumber)"
@@ -1902,6 +1912,8 @@ function Test-WorktreeHasChanges {
                     $ErrorActionPreference = $prevPref
                     return $false
                 }
+                # #1666 Phase A2: record the recovery branch name for [RESULT] reporting.
+                $script:RecoveryBranchName = $recoveryBranch
             }
 
             if ($EssentialChanges.Count -gt 0) {
@@ -1918,6 +1930,36 @@ function Test-WorktreeHasChanges {
                 git add -u 2>&1 | Out-Null
                 $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
                 git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+
+                # #1666 Phase A2 Guard A2.1: Post-commit verification.
+                # Even with Guard #1613 firing, verify HEAD is now attached AND the commit is reachable
+                # from a named branch. If not, we would silently lose the work on worktree cleanup.
+                $postCommitRef = git symbolic-ref -q HEAD 2>&1
+                if ($LASTEXITCODE -ne 0 -or -not $postCommitRef) {
+                    Write-Log "CRITICAL: Post-commit verification failed — HEAD still detached after auto-commit. Work WILL be lost on worktree cleanup. (#1666 A2)" "ERROR"
+                    # Last-ditch rescue: create a second recovery branch from the orphan commit.
+                    $orphanCommit = (git rev-parse HEAD 2>&1).Trim()
+                    $rescueBranch = "worker/rescue-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+                    Write-Log "Attempting rescue: creating branch '$rescueBranch' from orphan commit $orphanCommit" "WARN"
+                    git branch $rescueBranch $orphanCommit 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                    if ($LASTEXITCODE -eq 0) {
+                        git checkout $rescueBranch 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                        $script:RecoveryBranchName = $rescueBranch
+                        Write-Log "RESCUE OK: work now on '$rescueBranch'. Will be reported in [RESULT]." "WARN"
+                    } else {
+                        Write-Log "RESCUE FAILED. Coordinator must manually reflog-recover commit $orphanCommit within 30 days." "ERROR"
+                        $ErrorActionPreference = $prevPref
+                        return $false
+                    }
+                }
+
+                $postCommitSha = (git rev-parse HEAD 2>&1).Trim()
+                $commitBranches = @((git branch --contains $postCommitSha 2>&1) | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
+                if ($commitBranches.Count -eq 0) {
+                    Write-Log "CRITICAL: Commit $postCommitSha not reachable from any local branch. Silent-loss scenario. (#1666 A2)" "ERROR"
+                    $ErrorActionPreference = $prevPref
+                    return $false
+                }
             } else {
                 Write-Log "Worktree has only non-essential changes ($($Uncommitted.Count) files: logs/temp/local). Skipping auto-commit (#1156)." "INFO"
             }
@@ -2024,6 +2066,16 @@ function Push-WorktreeBranch {
 
         # Get current branch name
         $BranchName = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
+
+        # #1666 Phase A2 Guard A2.2: Pre-push verification.
+        # If branch name is "HEAD" we are detached — pushing would fail or push to the wrong ref.
+        # Earlier guards (#1613 + A2.1) should have caught this, but we defend in depth.
+        if ($BranchName -eq "HEAD" -or -not $BranchName) {
+            Write-Log "CRITICAL: Cannot push from detached HEAD — branch name resolved to '$BranchName'. Earlier guards failed. (#1666 A2)" "ERROR"
+            $ErrorActionPreference = $prevPref
+            return $false
+        }
+
         Write-Log "Pushing branch: $BranchName"
 
         $pushOutput = git push -u origin $BranchName 2>&1
@@ -2037,7 +2089,22 @@ function Push-WorktreeBranch {
             return $false
         }
 
-        Write-Log "Branch pushed successfully"
+        # #1666 Phase A2 Guard A2.3: Post-push verification.
+        # `git push` exit 0 is not proof the ref landed on the remote (stash/hook bypass can desync).
+        # Verify the local HEAD commit is actually visible on origin/$BranchName.
+        $localHead = (git rev-parse HEAD 2>&1).Trim()
+        $remoteLs = (git ls-remote origin "refs/heads/$BranchName" 2>&1) | Where-Object { $_ -is [string] } | Select-Object -First 1
+        if (-not $remoteLs -or $remoteLs -notmatch "^[a-f0-9]{40}\s") {
+            Write-Log "CRITICAL: Post-push verification failed — 'git ls-remote origin refs/heads/$BranchName' returned nothing. (#1666 A2)" "ERROR"
+            return $false
+        }
+        $remoteSha = ($remoteLs -split '\s+')[0]
+        if ($remoteSha -ne $localHead) {
+            Write-Log "WARN: remote $BranchName is at $remoteSha but local HEAD is $localHead. Push may have landed on a different ref. Recovery name: $script:RecoveryBranchName" "WARN"
+            # Not a hard fail: coordinator can still recover via branch name in [RESULT] report.
+        }
+
+        Write-Log "Branch pushed successfully ($BranchName -> $remoteSha)"
         return $true
     }
     catch {

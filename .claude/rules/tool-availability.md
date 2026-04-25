@@ -27,7 +27,25 @@ La perte d'un outil critique = INCIDENT MAJEUR → STOP & REPAIR immediat.
 Un MCP peut etre dispo pour un agent mais pas l'autre. Ajout critique = configurer LES DEUX.
 
 **win-cli :** Critique UNIQUEMENT pour Roo (modes -simple n'ont pas le terminal natif). Claude Code utilise `Bash`.
-**NE JAMAIS** `npx @anthropic/win-cli` (npm 0.2.1 casse). Utiliser le fork local uniquement.
+**NE JAMAIS** `npx @simonb97/server-win-cli@0.2.1` ni `npx @anthropic/win-cli` (upstream npm casse — hang sur operators communs). Utiliser le fork local uniquement.
+
+**Config canonique win-cli dans Roo `mcp_settings.json`** (enforcement #1666 Phase A3) :
+```json
+"win-cli": {
+  "command": "node",
+  "args": ["d:/roo-extensions/mcps/external/win-cli/server/dist/index.js"],
+  "transportType": "stdio",
+  "disabled": false,
+  "alwaysAllow": [ "execute_command", "get_active_terminal_cwd", ... ]
+}
+```
+
+Tout autre chemin dans `args[0]` = **drift critique** (incident #1482 : agents reintroduisent `npx @simonb97/...` apres refactors config, casse le cluster entier).
+
+**Validation automatique :** `powershell -File scripts/validation/validate-wincli-config.ps1`.
+Le script lit `%APPDATA%\...\mcp_settings.json`, detecte les patterns `npx|@simonb97|@anthropic/win-cli|node_modules` dans `args[0]`, verifie que le binaire cible existe sur disque et que `package.json` du fork est en v0.2.0. Exit 0 = OK, 1 = drift, 2 = config manquante.
+
+**Integration `/coordinate` :** le coordinateur doit faire tourner ce script en phase initiale (Phase 1 STOP & REPAIR) et bloquer si drift detecte sur une des 6 machines.
 
 ### Attention : Config MCP sk-agent
 
