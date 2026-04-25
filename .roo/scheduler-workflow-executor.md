@@ -80,8 +80,7 @@ Pre-flight check : tester le MCP win-cli.
 1. Executer : execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
 2. Rapporter : PRE-FLIGHT-OK si la commande réussit, ou le message d'erreur exact si échec.
 
-Puis envoyer heartbeat au coordinateur :
-roosync_heartbeat(action: "register", machineId: "{MACHINE_ID}")
+Heartbeat automatique (#1609) : envoyé à chaque appel d'outil MCP, pas d'action requise.
 ```
 
 **Si STOP (échec win-cli) :**

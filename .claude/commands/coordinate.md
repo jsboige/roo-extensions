@@ -213,7 +213,7 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 **A chaque tour de sync, verifier :**
 1. **Rapports entrants** : Les executeurs/meta-analystes signalent-ils des problemes d'env ? (.env incomplet, service down, MCP absent)
 2. **Config drift** : Utiliser `roosync_compare_config` ou `roosync_inventory` pour detecter les divergences
-3. **Heartbeat** : `roosync_heartbeat(status)` pour l'etat online/offline des machines
+3. **Heartbeat** : automatique via tout appel MCP (#1609). Pour vérification : `roosync_inventory(type: "heartbeat")`
 
 **Actions correctives :**
 - Envoyer un message RooSync cible avec les variables/config manquantes

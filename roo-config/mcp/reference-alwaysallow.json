@@ -78,7 +78,6 @@
 				"roosync_decision_info",
 				"roosync_diagnose",
 				"roosync_get_status",
-				"roosync_heartbeat",
 				"roosync_indexing",
 				"roosync_init",
 				"roosync_inventory",
