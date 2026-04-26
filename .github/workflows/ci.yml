@@ -13,6 +13,50 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-submodule-pointer:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if mcps/internal changed
+        id: changed
+        run: |
+          if git diff --name-only origin/main...HEAD | grep -q '^mcps/internal$'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate submodule pointer is reachable
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          # Get the submodule commit this PR points to
+          SUBMOD_COMMIT=$(git ls-tree HEAD mcps/internal | awk '{print $3}')
+          echo "Submodule pointer: $SUBMOD_COMMIT"
+
+          # Get the submodule remote URL
+          SUBMOD_URL=$(git config -f .gitmodules --get submodule.mcps/internal.url)
+          echo "Submodule URL: $SUBMOD_URL"
+
+          # Clone just the metadata (bare repo, no working tree)
+          git clone --bare "$SUBMOD_URL" /tmp/submod-bare
+
+          # Check if the commit is reachable from main
+          if git -C /tmp/submod-bare merge-base --is-ancestor "$SUBMOD_COMMIT" main; then
+            echo "OK: $SUBMOD_COMMIT is reachable from submodule origin/main"
+          else
+            echo "::error::Submodule pointer $SUBMOD_COMMIT is NOT reachable from origin/main"
+            echo "This is likely a pre-squash-merge SHA. Update the pointer to the actual merge commit."
+            echo ""
+            echo "Recent submodule merges on main:"
+            git -C /tmp/submod-bare log --oneline main -5
+            exit 1
+          fi
+
   build-and-test:
     runs-on: ubuntu-latest
 
