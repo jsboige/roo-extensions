@@ -1,112 +1,43 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 2.0.0 (condensed from 1.6.0)
-**MAJ:** 2026-04-05
+**Version:** 2.0.0 (slim)
 
 ---
 
 ## REGLE NON NEGOCIABLE
 
-**Si un outil critique est absent, TOUT s'arrete.** Pas de mode degrade, pas de contournement.
-**ON REPARE D'ABORD, ON TRAVAILLE ENSUITE.**
+**Si un outil critique est absent, TOUT s'arrete.** STOP & REPAIR immediat.
 
-La perte d'un outil critique = INCIDENT MAJEUR → STOP & REPAIR immediat.
-
----
-
-## Inventaire MCP
-
-### Critiques
+## Inventaire MCP — Critiques
 
 | Agent | MCP | Outils | Verification |
 |-------|-----|--------|-------------|
 | **Claude Code** | roo-state-manager | 34 | `conversation_browser(action: "current")` |
-| **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 | `execute_command(shell="powershell", command="echo OK")` |
+| **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 | `execute_command(shell="powershell")` |
 
-**Config separee :** Claude Code = `C:\Users\{user}\.claude.json`. Roo = `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`.
-Un MCP peut etre dispo pour un agent mais pas l'autre. Ajout critique = configurer LES DEUX.
+**Config separee :** Claude = `~/.claude.json`. Roo = `%APPDATA%\...\mcp_settings.json`.
+**win-cli :** Critique UNIQUEMENT pour Roo. Claude utilise `Bash`. Jamais `npx @simonb97/...`.
 
-**win-cli :** Critique UNIQUEMENT pour Roo (modes -simple n'ont pas le terminal natif). Claude Code utilise `Bash`.
-**NE JAMAIS** `npx @simonb97/server-win-cli@0.2.1` ni `npx @anthropic/win-cli` (upstream npm casse — hang sur operators communs). Utiliser le fork local uniquement.
-
-**Config canonique win-cli dans Roo `mcp_settings.json`** (enforcement #1666 Phase A3) :
-```json
-"win-cli": {
-  "command": "node",
-  "args": ["d:/roo-extensions/mcps/external/win-cli/server/dist/index.js"],
-  "transportType": "stdio",
-  "disabled": false,
-  "alwaysAllow": [ "execute_command", "get_active_terminal_cwd", ... ]
-}
-```
-
-Tout autre chemin dans `args[0]` = **drift critique** (incident #1482 : agents reintroduisent `npx @simonb97/...` apres refactors config, casse le cluster entier).
-
-**Validation automatique :** `powershell -File scripts/validation/validate-wincli-config.ps1`.
-Le script lit `%APPDATA%\...\mcp_settings.json`, detecte les patterns `npx|@simonb97|@anthropic/win-cli|node_modules` dans `args[0]`, verifie que le binaire cible existe sur disque et que `package.json` du fork est en v0.2.0. Exit 0 = OK, 1 = drift, 2 = config manquante.
-
-**Integration `/coordinate` :** le coordinateur doit faire tourner ce script en phase initiale (Phase 1 STOP & REPAIR) et bloquer si drift detecte sur une des 6 machines.
-
-### Attention : Config MCP sk-agent
-
-**sk-agent DOIT etre configure dans `~/.claude.json` (global), JAMAIS dans `.mcp.json` (project root).**
-
-Cause de regression #1557 : la doc indiquait erroneement `.mcp.json` comme emplacement correct. Un `.mcp.json` project-level surcharge silencieusement la config globale et peut diverger entre machines.
-**Verification :** `cat .mcp.json` a la racine du projet ne doit PAS contenir `sk-agent`. Si oui → retirer et confirmer dans `~/.claude.json`.
-
-### Standards (non bloquants)
+## Standards (non bloquants)
 
 | MCP | Outils | Role |
 |-----|--------|------|
 | playwright | 22 | Automation web |
 | markitdown | 1 | Conversion documents |
 
-### Retires (NE DOIVENT PAS exister)
+## Retires (NE DOIVENT PAS exister)
 
-desktop-commander (→ win-cli), github-projects-mcp (→ `gh` CLI), quickfiles (→ outils natifs)
+desktop-commander, github-projects-mcp, quickfiles
 
----
+## STOP & REPAIR
 
-## Protocole STOP & REPAIR
+Declencher si : MCP critique absent, "tool not found", outil count diverge, MCP retire detecte.
 
-**Declencher IMMEDIATEMENT si :** MCP critique absent, "tool not found", outil count diverge, MCP retire detecte.
+- **Claude :** STOP → LOG dashboard → DIAG config → FIX → TEST → ESCAL si necessaire → RESUME
+- **Roo :** STOP → WRITE [CRITICAL] → REPORT → WAIT
 
-### Claude Code
-
-```
-1. STOP   : Arreter la tache
-2. LOG    : Dashboard [CRITICAL]
-3. DIAG   : roosync_mcp_management(action: "manage", subAction: "read")
-4. FIX    : roosync_mcp_management(subAction: "update_server_field") ou modifier sources
-5. TEST   : Appeler l'outil pour confirmer
-6. ESCAL  : RooSync URGENT si non reparable
-7. RESUME : Seulement aptes confirmation
-```
-
-### Roo Scheduler
-
-```
-1. STOP → 2. WRITE [CRITICAL] → 3. REPORT bilan → 4. WAIT prochain tick
-```
-
-### Pre-flight Scheduler (CRITIQUE)
-
-**READ-ONLY.** Ne JAMAIS modifier config, redemarrer serveur, ou utiliser ask_followup_question en scheduler.
-Si critique absent : signaler [CRITICAL], terminer proprement.
-
-### Accommodation INTERDITE
-
-Ne PAS continuer en mode degrade. Ne PAS contourner. Signaler et arreter.
+**Accommodation INTERDITE.** Ne PAS continuer en mode degrade.
 
 ---
 
-## Verification Proactive (Coordinateur)
-
-**OBLIGATION apres TOUT changement de config :**
-1. Lister 6 machines
-2. Verifier Claude (roo-state-manager 34 tools) + Roo (win-cli fork local) + pas de MCP retire
-3. Si divergence → directive corrective URGENTE
-
----
-
-**Historique incidents :** `docs/harness/reference/incident-history.md`
+**Config win-cli canonique, config sk-agent, validation auto, procedure detaillee :** [`docs/harness/reference/tool-availability-detailed.md`](docs/harness/reference/tool-availability-detailed.md)
