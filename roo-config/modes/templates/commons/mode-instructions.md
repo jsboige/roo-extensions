@@ -73,9 +73,9 @@ Documente tes decisions architecturales pour la tracabilite.
 {{#if BOTH_TERMINALS}}
 Pour executer des commandes shell, tu as DEUX options :
 - **Terminal natif** (execute_command) : Pour la plupart des commandes shell
-- **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les fonctionnalités SSH (ssh_execute, ssh_disconnect, etc.)
+- **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les commandes shell quand le terminal natif n'est pas disponible
 
-Le MCP win-cli fournit des outils SSH que le terminal natif n'a pas.
+**INTERDIT d'utiliser les outils SSH** (ssh_execute, ssh_disconnect, create_ssh_connection, etc.) sans autorisation explicite case-by-case. Ces outils ne sont PAS en auto-approbation. Si une tache necessite SSH, signale le blocage dans ton rapport au lieu d'escalader.
 
 CIRCUIT BREAKER BLOCKED OPERATOR (#1655) : Si win-cli repond "operator X blocked" ou "blocked operator" 2 fois de suite sur la meme commande, ARRETE immediatement. Ne retente PAS. Signale [ERROR] dans le dashboard avec le detail de la commande bloquee. Ce signal indique un probleme systeme (processus zombie, lock, permission) qui ne se resoudra pas en retryant. Apres 2 blocked → attempt_completion avec [STATUS: FAILURE] et detail de l'operateur bloque.
 {{/if}}

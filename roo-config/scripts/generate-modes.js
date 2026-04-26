@@ -221,13 +221,13 @@ function main() {
         process.exit(1);
       }
       var hasEdit = groupNames.indexOf('edit') >= 0;
-      // #725: code and debug families always have win-cli (even with native command group)
-      // This provides SSH tools that native terminal doesn't have
+      // #725: code and debug families always have win-cli (even without native command group)
+      // win-cli provides shell access (PowerShell, GitBash, CMD) for all modes
       var winCliFamilies = ['code', 'debug'];
       var familyUsesWinCli = winCliFamilies.indexOf(family) >= 0 && levelDef.useWinCli !== false;
       var hasWinCli = familyUsesWinCli || (levelDef.useWinCli === true && !hasCommand);
 
-      // #725: BOTH_TERMINALS = mode has both native terminal AND win-cli (for SSH tools)
+      // #725: BOTH_TERMINALS = mode has both native terminal AND win-cli (for shell access)
       var bothTerminals = hasCommand && hasWinCli;
       // #725: ONLY_WIN_CLI = mode has win-cli ONLY (no native terminal)
       var onlyWinCli = hasWinCli && !hasCommand;
