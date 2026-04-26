@@ -34,6 +34,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 ### Maintenance & Cleanup
 - `/maintenance` : Outils pour la maintenance du projet
+  - `cleanup-orphan-worktrees.ps1` : Cleanup des dirs worktrees orphelins (#1753)
 - `/cleanup` : Scripts de nettoyage
 
 ### Tests & Validation
