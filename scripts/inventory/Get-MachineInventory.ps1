@@ -676,7 +676,449 @@ try {
 }
 
 # ===============================
-# 12. Sauvegarde de l'inventaire
+# 12. VS Code Claude Settings (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des paramètres VS Code Claude..." -ForegroundColor Yellow
+try {
+    $vscodeConfig = @{}
+
+    # ~/.claude.json (configuration MCP Claude Code - niveau utilisateur)
+    $claudeJsonPath = Join-Path $env:USERPROFILE ".claude.json"
+    if (Test-Path $claudeJsonPath) {
+        $claudeJsonContent = Get-Content $claudeJsonPath -Raw | ConvertFrom-Json
+        $mcpServersList = if ($claudeJsonContent.mcpServers) {
+            ($claudeJsonContent.mcpServers.PSObject.Properties | ForEach-Object {
+                @{
+                    name = $_.Name
+                    command = $_.Value.command
+                    args = if ($_.Value.args) { $_.Value.args } else { @() }
+                    env = if ($_.Value.env) { $_.Value.env.PSObject.Properties.Name } else { @() }
+                }
+            })
+        } else { @() }
+
+        $vscodeConfig.claudeJson = @{
+            exists = $true
+            path = $claudeJsonPath
+            mcpServersCount = $mcpServersList.Count
+            mcpServers = $mcpServersList
+        }
+        Write-Host "  OK ~/.claude.json: $($mcpServersList.Count) MCPs" -ForegroundColor Green
+    } else {
+        $vscodeConfig.claudeJson = @{ exists = $false }
+        Write-Host "  ~/.claude.json non trouvé" -ForegroundColor Yellow
+    }
+
+    # Workspace settings (dans le workspace actuel)
+    $workspaceSettingsPath = Join-Path $RooExtensionsPath ".claude.json"
+    if (Test-Path $workspaceSettingsPath) {
+        $workspaceSettingsContent = Get-Content $workspaceSettingsPath -Raw | ConvertFrom-Json
+        $workspaceMcpList = if ($workspaceSettingsContent.mcpServers) {
+            ($workspaceSettingsContent.mcpServers.PSObject.Properties | ForEach-Object {
+                @{
+                    name = $_.Name
+                    command = $_.Value.command
+                    args = if ($_.Value.args) { $_.Value.args } else { @() }
+                }
+            })
+        } else { @() }
+
+        $vscodeConfig.workspaceSettings = @{
+            exists = $true
+            path = $workspaceSettingsPath
+            mcpServersCount = $workspaceMcpList.Count
+            mcpServers = $workspaceMcpList
+        }
+        Write-Host "  OK .claude.json (workspace): $($workspaceMcpList.Count) MCPs" -ForegroundColor Green
+    } else {
+        $vscodeConfig.workspaceSettings = @{ exists = $false }
+        Write-Host "  .claude.json (workspace) non trouvé" -ForegroundColor Yellow
+    }
+
+    $inventory.inventory.vscodeConfig = $vscodeConfig
+} catch {
+    Write-Host "  Erreur lors de la collecte VS Code: $_" -ForegroundColor Red
+    $inventory.inventory.vscodeConfig = @{ status = "error"; error = $_.Exception.Message }
+}
+
+# ===============================
+# 13. WSL Distros (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des distributions WSL..." -ForegroundColor Yellow
+try {
+    $wslDistros = @()
+    try {
+        $wslList = wsl --list --verbose 2>$null
+        if ($LASTEXITCODE -eq 0 -and $wslList) {
+            $lines = $wslList -split "`n"
+            foreach ($line in $lines) {
+                if ($line -match '^\s*([a-zA-Z0-9_-]+)\s+(Default|Stopped|Running)\s+(\d+)?\s*(.+)?$') {
+                    $wslDistros += @{
+                        name = $matches[1]
+                        state = $matches[2]
+                        version = if ($matches[3]) { $matches[3] } else { "Unknown" }
+                        path = if ($matches[4]) { $matches[4].Trim() } else { "Unknown" }
+                    }
+                }
+            }
+            Write-Host "  OK WSL: $($wslDistros.Count) distributions" -ForegroundColor Green
+        } else {
+            Write-Host "  WSL non disponible ou aucune distribution" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "  WSL non disponible" -ForegroundColor Yellow
+    }
+    $inventory.inventory.wslDistros = $wslDistros
+} catch {
+    Write-Host "  Erreur lors de la collecte WSL: $_" -ForegroundColor Red
+    $inventory.inventory.wslDistros = @()
+}
+
+# ===============================
+# 14. Docker Engine Details (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des détails Docker Engine..." -ForegroundColor Yellow
+try {
+    $dockerDetails = @{}
+
+    # Vérifier si Docker est disponible
+    $dockerAvailable = $false
+    try {
+        $null = docker --version 2>$null
+        if ($LASTEXITCODE -eq 0) { $dockerAvailable = $true }
+    } catch { }
+
+    if ($dockerAvailable) {
+        # Containers
+        try {
+            $containers = docker ps --all --format "{{.ID}}|{{.Names}}|{{.Status}}|{{.Image}}" 2>$null
+            if ($containers) {
+                $containerList = ($containers -split "`n" | Where-Object { $_ -match '\|' } | ForEach-Object {
+                    $parts = $_ -split '\|'
+                    @{
+                        id = $parts[0].Substring(0, [Math]::Min(12, $parts[0].Length))
+                        name = if ($parts[1]) { $parts[1] } else { "none" }
+                        status = if ($parts[2]) { $parts[2] } else { "unknown" }
+                        image = if ($parts[3]) { $parts[3] } else { "unknown" }
+                    }
+                })
+                $dockerDetails.containers = @{
+                    total = $containerList.Count
+                    running = ($containerList | Where-Object { $_.status -like 'Up*' }).Count
+                    list = $containerList
+                }
+                Write-Host "  OK Containers: $($containerList.Count) total" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  Erreur containers: $_" -ForegroundColor Yellow
+        }
+
+        # Images
+        try {
+            $images = docker images --format "{{.Repository}}:{{.Tag}}|{{.Size}}|{{.CreatedAt}}" 2>$null
+            if ($images) {
+                $imageList = ($images -split "`n" | Where-Object { $_ -match '\|' } | ForEach-Object {
+                    $parts = $_ -split '\|', 3
+                    @{
+                        name = $parts[0]
+                        size = if ($parts[1]) { $parts[1] } else { "unknown" }
+                        created = if ($parts[2]) { $parts[2] } else { "unknown" }
+                    }
+                })
+                $dockerDetails.images = @{
+                    total = $imageList.Count
+                    list = $imageList
+                }
+                Write-Host "  OK Images: $($imageList.Count) total" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  Erreur images: $_" -ForegroundColor Yellow
+        }
+
+        # Volumes
+        try {
+            $volumes = docker volume ls --format "{{.Name}}|{{.Driver}}|{{.Mountpoint}}" 2>$null
+            if ($volumes) {
+                $volumeList = ($volumes -split "`n" | Where-Object { $_ -match '\|' } | ForEach-Object {
+                    $parts = $_ -split '\|'
+                    @{
+                        name = $parts[0]
+                        driver = if ($parts[1]) { $parts[1] } else { "local" }
+                        mountpoint = if ($parts[2]) { $parts[2] } else { "unknown" }
+                    }
+                })
+                $dockerDetails.volumes = @{
+                    total = $volumeList.Count
+                    list = $volumeList
+                }
+                Write-Host "  OK Volumes: $($volumeList.Count) total" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "  Erreur volumes: $_" -ForegroundColor Yellow
+        }
+    } else {
+        $dockerDetails.status = "unavailable"
+        Write-Host "  Docker non disponible" -ForegroundColor Yellow
+    }
+
+    $inventory.inventory.dockerDetails = $dockerDetails
+} catch {
+    Write-Host "  Erreur lors de la collecte Docker: $_" -ForegroundColor Red
+    $inventory.inventory.dockerDetails = @{ status = "error"; error = $_.Exception.Message }
+}
+
+# ===============================
+# 15. Python Virtual Environments (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des environnements Python virtuels..." -ForegroundColor Yellow
+try {
+    $pythonEnvs = @{
+        conda = @()
+        venv = @()
+    }
+
+    # Conda environments
+    try {
+        $condaPath = Get-Command conda -ErrorAction SilentlyContinue
+        if ($condaPath) {
+            $condaEnvs = conda env list 2>$null
+            if ($condaEnvs) {
+                $envList = ($condaEnvs -split "`n" | Where-Object { $_ -not match '^#' -and $_ -match '\S' } | ForEach-Object {
+                    $parts = $_ -split '\s+', 3
+                    @{
+                        name = if ($parts[0]) { $parts[0] } else { "base" }
+                        path = if ($parts[1] -and $parts[1] -ne '*') { $parts[1] } else { "unknown" }
+                    }
+                })
+                $pythonEnvs.conda = $envList
+                Write-Host "  OK Conda: $($envList.Count) environnements" -ForegroundColor Green
+            }
+        } else {
+            Write-Host "  Conda non trouvé" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Host "  Conda non disponible" -ForegroundColor Gray
+    }
+
+    # Common venv locations
+    $venvPaths = @(
+        Join-Path $RooExtensionsPath "venv",
+        Join-Path $RooExtensionsPath ".venv",
+        Join-Path $env:USERPROFILE "virtualenvs"
+    )
+
+    $venvList = @()
+    foreach ($venvPath in $venvPaths) {
+        if (Test-Path $venvPath) {
+            $pythonExe = Join-Path $venvPath "Scripts/python.exe"
+            if (Test-Path $pythonExe) {
+                try {
+                    $version = & $pythonExe --version 2>$null
+                    $venvList += @{
+                        path = $venvPath
+                        pythonVersion = if ($version) { $version.Trim() } else { "unknown" }
+                    }
+                } catch {
+                    $venvList += @{
+                        path = $venvPath
+                        pythonVersion = "error"
+                    }
+                }
+            }
+        }
+    }
+
+    if ($venvList.Count -gt 0) {
+        $pythonEnvs.venv = $venvList
+        Write-Host "  OK Venv: $($venvList.Count) trouvés" -ForegroundColor Green
+    } else {
+        Write-Host "  Aucun venv trouvé" -ForegroundColor Gray
+    }
+
+    $inventory.inventory.pythonEnvs = $pythonEnvs
+} catch {
+    Write-Host "  Erreur lors de la collecte Python: $_" -ForegroundColor Red
+    $inventory.inventory.pythonEnvs = @{ conda = @(); venv = @() }
+}
+
+# ===============================
+# 16. Windows Critical Services (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des services Windows critiques..." -ForegroundColor Yellow
+try {
+    $criticalServices = @(
+        "Docker Desktop Service",
+        "com.docker.backend",
+        "WSL",
+        "wslservice",
+        "LxssManager",
+        "vmcompute",
+        "VirtualDisk",
+        "nvsvc", # NVIDIA Display Service
+        "NvContainerLocalSystem", # NVIDIA Container
+        "Schedule", # Task Scheduler
+        "W32Time" # Windows Time
+    )
+
+    $servicesList = @()
+    foreach ($serviceName in $criticalServices) {
+        try {
+            $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+            if ($service) {
+                $servicesList += @{
+                    name = $service.Name
+                    displayName = $service.DisplayName
+                    status = $service.Status.ToString()
+                    startType = (Get-Service $serviceName -ErrorAction SilentlyContinue | ForEach-Object {
+                        try {
+                            $wmi = Get-WmiObject -Class Win32_Service -Filter "Name='$serviceName'" -ErrorAction SilentlyContinue
+                            if ($wmi) { $wmi.StartMode } else { "Unknown" }
+                        } catch { "Unknown" }
+                    })
+                }
+            }
+        } catch {
+            # Service non trouvé, ignorer
+        }
+    }
+
+    if ($servicesList.Count -gt 0) {
+        Write-Host "  OK Services: $($servicesList.Count) trouvés" -ForegroundColor Green
+    } else {
+        Write-Host "  Aucun service critique trouvé" -ForegroundColor Gray
+    }
+
+    $inventory.inventory.windowsServices = $servicesList
+} catch {
+    Write-Host "  Erreur lors de la collecte services: $_" -ForegroundColor Red
+    $inventory.inventory.windowsServices = @()
+}
+
+# ===============================
+# 17. GPU nvidia-smi Details (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des détails GPU (nvidia-smi)..." -ForegroundColor Yellow
+try {
+    $gpuDetails = @()
+
+    # Essayer nvidia-smi si disponible
+    try {
+        $nvidiaSmi = nvidia-smi --query-gpu=name,memory.total,memory.free,memory.used,driver_version,temperature.gpu --format=csv,noheader,nounits 2>$null
+        if ($LASTEXITCODE -eq 0 -and $nvidiaSmi) {
+            $lines = $nvidiaSmi -split "`n"
+            $gpuIndex = 0
+            foreach ($line in $lines) {
+                if ($line -match '^"?(.+?)?",(\d+),(\d+),(\d+),"?([\d.]+)"?,(\d+)') {
+                    $gpuDetails += @{
+                        index = $gpuIndex
+                        name = $matches[1].Trim()
+                        memoryTotal = [int]$matches[2] # MB
+                        memoryFree = [int]$matches[3] # MB
+                        memoryUsed = [int]$matches[4] # MB
+                        driverVersion = $matches[5]
+                        temperature = [int]$matches[6]
+                        source = "nvidia-smi"
+                    }
+                    $gpuIndex++
+                }
+            }
+            Write-Host "  OK nvidia-smi: $($gpuDetails.Count) GPU(s)" -ForegroundColor Green
+        } else {
+            Write-Host "  nvidia-smi non disponible ou pas de GPU NVIDIA" -ForegroundColor Gray
+        }
+    } catch {
+        Write-Host "  nvidia-smi non disponible" -ForegroundColor Gray
+    }
+
+    # Fallback vers WMI si nvidia-smi n'a rien retourné
+    if ($gpuDetails.Count -eq 0) {
+        $wmiGpu = Get-CimInstance -ClassName Win32_VideoController -ErrorAction SilentlyContinue
+        if ($wmiGpu) {
+            $wmiGpu | ForEach-Object {
+                $gpuDetails += @{
+                    index = $gpuDetails.Count
+                    name = $_.Name
+                    memoryTotal = 0 # Non disponible via WMI
+                    memoryFree = 0
+                    memoryUsed = 0
+                    driverVersion = $_.DriverVersion
+                    temperature = 0 # Non disponible via WMI
+                    source = "WMI"
+                }
+            }
+            Write-Host "  OK WMI fallback: $($gpuDetails.Count) GPU(s)" -ForegroundColor Green
+        }
+    }
+
+    $inventory.inventory.gpuDetails = $gpuDetails
+} catch {
+    Write-Host "  Erreur lors de la collecte GPU: $_" -ForegroundColor Red
+    $inventory.inventory.gpuDetails = @()
+}
+
+# ===============================
+# 18. Listening Ports (NOUVEAU #1746)
+# ===============================
+Write-Host "`nCollecte des ports d'écoute..." -ForegroundColor Yellow
+try {
+    $listeningPorts = @()
+
+    # Ports TCP en écoute
+    try {
+        $tcpPorts = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $_ -ne $null }
+        foreach ($port in $tcpPorts) {
+            $processName = "unknown"
+            try {
+                $process = Get-Process -Id $port.OwningProcess -ErrorAction SilentlyContinue
+                if ($process) { $processName = $process.ProcessName }
+            } catch { }
+
+            $listeningPorts += @{
+                protocol = "TCP"
+                localAddress = $port.LocalAddress
+                localPort = $port.LocalPort
+                state = $port.State
+                processName = $processName
+                processId = $port.OwningProcess
+            }
+        }
+        Write-Host "  OK TCP: $($listeningPorts.Count) ports d'écoute" -ForegroundColor Green
+    } catch {
+        Write-Host "  Erreur Get-NetTCPConnection: $_" -ForegroundColor Yellow
+    }
+
+    # Ports UDP (optionnel, sans bloquer)
+    try {
+        $udpPorts = Get-NetUDPEndpoint -ErrorAction SilentlyContinue | Where-Object { $_ -ne $null }
+        foreach ($port in $udpPorts) {
+            $processName = "unknown"
+            try {
+                $process = Get-Process -Id $port.OwningProcess -ErrorAction SilentlyContinue
+                if ($process) { $processName = $process.ProcessName }
+            } catch { }
+
+            $listeningPorts += @{
+                protocol = "UDP"
+                localAddress = $port.LocalAddress
+                localPort = $port.LocalPort
+                state = "Listening"
+                processName = $processName
+                processId = $port.OwningProcess
+            }
+        }
+        Write-Host "  OK UDP: ports ajoutés" -ForegroundColor Green
+    } catch {
+        Write-Host "  Erreur Get-NetUDPEndpoint: $_" -ForegroundColor Yellow
+    }
+
+    $inventory.inventory.listeningPorts = $listeningPorts
+} catch {
+    Write-Host "  Erreur lors de la collecte ports: $_" -ForegroundColor Red
+    $inventory.inventory.listeningPorts = @()
+}
+
+# ===============================
+# 19. Sauvegarde de l'inventaire
 # ===============================
 Write-Host "`nSauvegarde de l'inventaire..." -ForegroundColor Yellow
 
