@@ -6,7 +6,7 @@
 
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
-| **Condensation GLM** | Seuil 80% pour z.ai (131K reels). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=80` | `condensation-thresholds.md` |
+| **Condensation GLM** | Seuil 75% pour z.ai (131K reels). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` | `condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
 | **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all | `feedback-process.md`, `friction-protocol.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
