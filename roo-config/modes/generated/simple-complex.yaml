@@ -154,9 +154,9 @@ customModes:
       - Toujours inclure le contexte worktree dans le prompt si disponible
       Pour executer des commandes shell, tu as DEUX options :
       - **Terminal natif** (execute_command) : Pour la plupart des commandes shell
-      - **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les fonctionnalités SSH (ssh_execute, ssh_disconnect, etc.)
-      
-      Le MCP win-cli fournit des outils SSH que le terminal natif n'a pas.
+      - **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les commandes shell quand le terminal natif n'est pas disponible
+
+      **INTERDIT d'utiliser les outils SSH** (ssh_execute, ssh_disconnect, create_ssh_connection, etc.) sans autorisation explicite case-by-case. Ces outils ne sont PAS en auto-approbation. Si une tache necessite SSH, signale le blocage dans ton rapport au lieu d'escalader.
     groups: 
       - read
       - edit
@@ -319,9 +319,9 @@ customModes:
       - Toujours inclure le contexte worktree dans le prompt si disponible
       Pour executer des commandes shell, tu as DEUX options :
       - **Terminal natif** (execute_command) : Pour la plupart des commandes shell
-      - **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les fonctionnalités SSH (ssh_execute, ssh_disconnect, etc.)
-      
-      Le MCP win-cli fournit des outils SSH que le terminal natif n'a pas.
+      - **MCP win-cli** (use_mcp_tool, server_name="win-cli", tool_name="execute_command") : Pour les commandes shell quand le terminal natif n'est pas disponible
+
+      **INTERDIT d'utiliser les outils SSH** (ssh_execute, ssh_disconnect, create_ssh_connection, etc.) sans autorisation explicite case-by-case. Ces outils ne sont PAS en auto-approbation. Si une tache necessite SSH, signale le blocage dans ton rapport au lieu d'escalader.
     groups: 
       - read
       - edit

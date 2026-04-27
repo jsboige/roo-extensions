@@ -2,9 +2,9 @@
 	"$schema": "https://json-schema.org/draft/2020-12/schema",
 	"title": "Reference AlwaysAllow Configuration",
 	"description": "Configuration de reference pour l'auto-approbation des outils MCP sur toutes les machines Roo",
-	"version": "1.2.0",
-	"lastUpdated": "2026-03-20",
-	"issue": "#473 - Auto-approbations Roo - Agents schedulés bloqués sur demandes d'approbation",
+	"version": "1.3.0",
+	"lastUpdated": "2026-04-26",
+	"issue": "#1681 - SSH tools removed from default alwaysAllow",
 	"mcpServers": {
 		"jinavigator": {
 			"alwaysAllow": [
@@ -21,16 +21,11 @@
 			]
 		},
 		"win-cli": {
+			"_comment": "v1.3.0: SSH tools removed from alwaysAllow (#1681). SSH requires explicit per-task authorization.",
 			"alwaysAllow": [
-				"create_ssh_connection",
-				"delete_ssh_connection",
 				"execute_command",
 				"get_command_history",
-				"get_current_directory",
-				"read_ssh_connections",
-				"ssh_disconnect",
-				"ssh_execute",
-				"update_ssh_connection"
+				"get_current_directory"
 			]
 		},
 		"markitdown": {
