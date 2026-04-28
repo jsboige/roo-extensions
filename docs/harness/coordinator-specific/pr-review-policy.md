@@ -410,16 +410,222 @@ This requires GitHub Actions app or PAT management. Option E is sufficient for c
 
 ---
 
+## 11. Pipeline Multi-Canal Cycle 21 — sk-agent + Workers + Interactif (#1754)
+
+**Version:** 1.0.0
+**Created:** 2026-04-27
+**Issue:** #1754 — META-HARNESS sk-agent PR review pipeline
+**Context:** sk-agent audit completed (#1748). This section documents the production pipeline using sk-agent agents and multi-agent conversations for automated PR review.
+
+### Overview
+
+The pipeline processes PRs through 5 stages, escalating from automated lightweight review to human verification. Each stage has clear inputs, outputs, and pass/fail criteria.
+
+```
+PR Created → Step 1 (Quick Scan) → Step 2 (Impact) → Step 3 (Tests) → Step 4 (Opus Verify) → Step 5 (Merge)
+              sk-agent              sk-agent           Worker          Claude interactif     Coordinator
+              commit-reviewer       commit-review      CI              ai-01 Opus            jsboige/NanoClaw
+              ~30s                  ~2min              ~2min           ~5min                 ~1min
+```
+
+### Stage 1: Quick Diff Scan (sk-agent `commit-reviewer`)
+
+**Goal:** Fast structured findings table from the raw diff.
+
+**Trigger:** Any PR created or updated with code changes (>10 LOC).
+
+```javascript
+// Claude Code / Coordinator triggers:
+const diff = await getPrDiff(prNumber);  // gh pr diff {N}
+const files = await getPrFiles(prNumber); // gh pr diff {N} --name-only
+
+const result = await call_agent({
+  agent: "commit-reviewer",
+  prompt: `Review this PR diff. Output a structured findings table.
+
+FILES CHANGED:
+${files}
+
+DIFF:
+${diff}
+
+For each finding, provide:
+- SEVERITY: CRITICAL / HIGH / MEDIUM / LOW / INFO
+- CATEGORY: security | performance | correctness | maintainability | style
+- FILE: affected file
+- LINE: approximate line number
+- DESCRIPTION: what the issue is
+- SUGGESTION: how to fix it
+
+End with VERDICT: APPROVE / REQUEST_CHANGES / COMMENT
+and a brief summary.`
+});
+```
+
+**Output:** Structured findings table posted as PR comment.
+**Timeout:** 30 seconds.
+**Pass criteria:** No CRITICAL or HIGH severity findings → proceed to Stage 2.
+**If fail:** Post findings, flag PR as needs-changes. Author addresses issues.
+
+### Stage 2: Impact Analysis (sk-agent `commit-review` conversation)
+
+**Goal:** Multi-perspective analysis — security, edge cases, integration risks.
+
+**Trigger:** Stage 1 passed OR PR >100 LOC (always run for large PRs).
+
+```javascript
+const diff = await getPrDiff(prNumber);
+const context = await getPrContext(prNumber); // Issue description, related issues
+
+const result = await run_conversation({
+  conversation: "commit-review",
+  prompt: `Multi-perspective code review of PR #${prNumber}.
+
+CONTEXT: ${context}
+
+DIFF:
+${diff}
+
+Agents should analyze:
+1. **commit-reviewer**: Structured findings — correctness, edge cases, type safety
+2. **devils-advocate**: What could go wrong? Attack surface, failure modes, worst-case scenarios
+3. **synthesizer**: Overall assessment, risk summary, recommendation
+
+Focus on INTEGRATION TRACING:
+- Where does each new value enter the system?
+- Where is it validated?
+- What consumes it downstream?
+- Are required context fields (machineId, workspace, auth) preserved?
+
+VERDICT: APPROVE / REQUEST_CHANGES / COMMENT with confidence level.`
+});
+```
+
+**Output:** Multi-agent review synthesis posted as PR comment.
+**Timeout:** 2 minutes.
+**Pass criteria:** No unresolved CRITICAL findings → proceed to Stage 3.
+**If fail:** Post synthesis, add `needs-changes` label.
+
+**Alternative for security-sensitive PRs:**
+
+```javascript
+// Use code-review conversation for security-critical changes
+const result = await run_conversation({
+  conversation: "code-review",
+  prompt: `Security-focused review of PR #${prNumber}...\n\nDIFF:\n${diff}`
+});
+```
+
+### Stage 3: Build + Tests (Worker)
+
+**Goal:** Verify code compiles and all tests pass.
+
+**Trigger:** Stage 2 passed.
+
+```bash
+# Worker (any executor machine) runs:
+cd mcps/internal/servers/roo-state-manager  # if submodule changed
+npm run build
+npx vitest run --config vitest.config.ci.ts
+
+# OR for parent repo changes:
+cd /c/dev/roo-extensions
+# (parent has no build, just submodule validation)
+cd mcps/internal/servers/roo-state-manager
+npm run build && npx vitest run --config vitest.config.ci.ts
+```
+
+**Output:** Build status + test results posted to CI (GitHub Actions) and dashboard.
+**Timeout:** 3 minutes.
+**Pass criteria:** Build succeeds, 0 test failures (skips OK).
+**If fail:** PR blocked until author fixes.
+
+### Stage 4: Verification Finale (Claude Interactif — Opus)
+
+**Goal:** Human-quality review with full context window and tool access.
+
+**Trigger:** Stages 1-3 all passed. Coordinator (ai-01 Opus) reviews.
+
+**Process:**
+1. Coordinator reads accumulated findings from Stages 1-2 (PR comments)
+2. Reads CI results from Stage 3
+3. Uses Claude Code tools (Read, Grep, Glob) to verify specific concerns
+4. Cross-references with MEMORY.md, CLAUDE.md rules
+5. Posts final review with APPROVE / REQUEST_CHANGES
+
+**Focus areas for Opus review:**
+- Integration correctness (Stages 1-2 may miss cross-file impacts)
+- Protected directories (`src/services/synthesis/`, `src/services/narrative/`)
+- Agent claim discipline (SHAs verified, PRs reachable)
+- No deletion without proof (Rule #4)
+
+**Timeout:** 5 minutes.
+**Pass criteria:** Coordinator explicit APPROVE.
+
+### Stage 5: Merge (Coordinator or jsboige via NanoClaw)
+
+**Goal:** Complete the merge with proper audit trail.
+
+**Who merges:**
+- **Coordinator (myia-ai-01)** for PRs authored by `jsboige` or other agents
+- **jsboige (via NanoClaw)** for PRs authored by `myia-ai-01` (CODEOWNERS self-approval constraint)
+
+```bash
+# Merge workflow:
+gh pr review {N} --approve --body "Pipeline Stages 1-4 passed. Verified by [agent]."
+gh pr merge {N} --squash --delete-branch
+```
+
+**Post-merge:**
+1. Clean up worktree: `git worktree remove .claude/worktrees/wt-{desc}`
+2. Delete branch: `git branch -D wt/{desc}`
+3. Report to dashboard: `[DONE] PR #{N} merged — {summary}`
+
+### Pipeline Decision Matrix
+
+| PR Size | Stage 1 | Stage 2 | Stage 3 | Stage 4 | Stage 5 |
+|---------|---------|---------|---------|---------|---------|
+| <10 LOC (doc/config) | SKIP | SKIP | SKIP | SKIP | Direct merge |
+| 10-50 LOC | REQUIRED | SKIP | REQUIRED | SKIP | Coordinator |
+| 50-100 LOC | REQUIRED | REQUIRED | REQUIRED | OPTIONAL | Coordinator |
+| >100 LOC | REQUIRED | REQUIRED | REQUIRED | REQUIRED | Coordinator |
+| Security-critical | REQUIRED | `code-review` | REQUIRED | REQUIRED | jsboige |
+
+### Error Handling
+
+| Stage Fails | Action |
+|-------------|--------|
+| Stage 1 (CRITICAL/HIGH) | Block PR, author fixes, re-run from Stage 1 |
+| Stage 2 (unresolved) | Block PR, add `needs-changes` label |
+| Stage 3 (build/test) | Block PR, author fixes, re-run from Stage 3 |
+| Stage 4 (Opus rejects) | Block PR, detailed feedback, author addresses |
+| sk-agent unavailable | Fall back to Opus-only review (Stage 4 directly) |
+| CI timeout | Retry once, then fall back to local validation |
+
+### sk-agent Agent Reference
+
+| Agent/Conversation | Use Case | Model |
+|-------------------|----------|-------|
+| `commit-reviewer` | Quick structured diff review | GLM-5.1 |
+| `critic` | Stress-test findings for gaps | GLM-5.1 |
+| `commit-review` conversation | Multi-perspective (3 rounds) | commit-reviewer → devils-advocate → synthesizer |
+| `code-review` conversation | Security+perf+maintainability (6 rounds) | security/perf/maintainability reviewers |
+| `deep-think` conversation | Complex architectural decisions | optimist → devils-advocate → pragmatist → mediator |
+
+---
+
 ## References
 
 - Issue #461: Worktree integration
 - Issue #535: Auto-review pipeline
 - Issue #549: CLEANUP-3 regression (motivating incident)
 - Issue #958: PR review enforcement (Option E implementation)
+- Issue #1748: sk-agent calibration uplift (audit)
+- Issue #1754: META-HARNESS pipeline design (this section)
 - Rules: [`docs/harness/reference/github-checklists.md`](../reference/github-checklists.md)
 - Scripts: `scripts/github/pr-review-and-merge.ps1`, `scripts/github/setup-branch-protection.ps1`
 
 ---
 
-**Last updated:** 2026-03-30 (Option E enforcement - Issue #958)
+**Last updated:** 2026-04-27 (Pipeline multi-canal cycle 21 — Issue #1754)
 **Maintainer:** Coordinateur RooSync (myia-ai-01)

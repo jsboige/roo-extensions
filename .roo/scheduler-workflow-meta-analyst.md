@@ -30,7 +30,11 @@ Les propositions sont des issues GitHub `needs-approval` que le coordinateur (#5
 
 4. **CODEBASE_SEARCH PRIORITAIRE** : Pour l'exploration, preferer `codebase_search` (resultats bornes) a `read_file`
 
----
+5. **INTERDICTION READ SUR TRACE FILES** (#1670) : Le Read tool valide la taille TOTALE avant d'appliquer offset/limit → fichiers >256KB INACCESSIBLES meme avec offset.
+   - **NE JAMAIS** utiliser `read_file` / `Read` sur les traces brutes (`ui_messages.json`, `.jsonl`)
+   - **UTILISER** `conversation_browser(action: "view", task_id: "{ID}", smart_truncation: true, max_output_length: 10000)` — gere la troncature automatiquement
+   - **ALTERNATIVE** : `view_task_details(task_id: "{ID}", max_output_length: 50000)` — support natif `max_output_length` (fix #1752)
+   - **FALLBACK PowerShell** : `Get-Content {path} | Select-Object -First 50` pour les cas ou MCP est indisponible
 
 ---
 
