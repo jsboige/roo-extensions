@@ -2,7 +2,18 @@
 
 **Repo:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
 **Systeme:** RooSync v2.3 — 6 machines
-**MAJ:** 2026-04-25
+**MAJ:** 2026-04-28
+
+## Travail récent
+
+### GitHub Issue #1786: Task index pollué par les tâches exploded
+**Phase 3 (Prévention) complétée le 2026-04-28:**
+- Implémentation du DeathSpiralDetector (`src/services/death-spiral-detector.ts`)
+- Ajout de l'action `garbage_monitor` dans `roosync-indexing.tool.ts`
+- Détection proactive des "death spiral tasks" avant qu'elles ne polluent le cache
+- Seuils configurables: error_ratio (80%), assistant_output_ratio (<5%), rapid_error_count, time_window_minutes
+- Classification des risques: CRITICAL/HIGH/MEDIUM/LOW
+- Actions automatiques recommandées selon le niveau de risque
 
 ---
 

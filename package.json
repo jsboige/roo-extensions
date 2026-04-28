@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.1"
+  },
+  "dependencies": {
+    "typescript": "^6.0.3"
   }
 }
