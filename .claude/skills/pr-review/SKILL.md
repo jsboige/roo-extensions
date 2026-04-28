@@ -3,7 +3,7 @@ name: pr-review
 description: Review open PRs autonomously when idle. Industrialises the PR review fallback pattern for executor machines. Trigger: "/pr-review", "review PRs", "idle review".
 metadata:
   author: "Roo Extensions Team"
-  version: "1.0.0"
+  version: "1.1.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requires gh CLI, roo-state-manager MCP"
@@ -12,8 +12,9 @@ metadata:
 
 # Skill: PR Review — Idle Executor Fallback
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Created:** 2026-04-25
+**Updated:** 2026-04-27 (#1734 anti-self-review hardening)
 **Issue:** #1713 — Idle Claude workers should perform PR reviews on ready queue
 
 ---
@@ -29,13 +30,44 @@ When an executor has no assigned task, it reviews open PRs to unblock the merge 
 ### Phase 1 : Identify Reviewable PRs
 
 ```bash
-# List open PRs, exclude own machine's PRs (anti-self-review)
-MACHINE=$(hostname | tr '[:upper:]' '[:lower:]' | sed 's/myia-//')
+# List open PRs
 gh pr list --state open --json number,title,headRefName,author,createdAt,additions,deletions,changedFiles --repo jsboige/roo-extensions
+
+# Anti-self-review check for each PR (multi-layer, run BEFORE reviewing)
+CURRENT_MACHINE=$(hostname | tr '[:upper:]' '[:lower:]')
+
+# Layer 1: Branch name check
+BRANCH_NAME=$(gh pr view {PR_NUMBER} --json headRefName --jq '.headRefName')
+
+# Layer 2: PR commits — scan commit messages for machine identifiers
+PR_COMMITS=$(gh api repos/jsboige/roo-extensions/pulls/{PR_NUMBER}/commits --jq '.[].commit.message')
+
+# Layer 3: PR body + title
+PR_BODY=$(gh pr view {PR_NUMBER} --json body,title --jq '.body + " " + .title')
+
+# Self-review detection: if ANY layer matches current machine → SKIP
+# Match patterns: po-2025, po2025, ai-01, web1, etc.
+if echo "$BRANCH_NAME $PR_COMMITS $PR_BODY" | grep -qi "$CURRENT_MACHINE"; then
+  echo "[SKIP] Self-review detected: PR #{PR_NUMBER} authored by $CURRENT_MACHINE"
+  continue
+fi
 ```
 
-**Filter criteria (ALL must pass):**
-1. PR is NOT authored by the current machine (check `headRefName` does NOT contain machine name)
+**Anti-self-review decision function (3 layers, any match = SKIP):**
+
+| Layer | Source | What it checks |
+|-------|--------|---------------|
+| 1. Branch name | `headRefName` | `wt/*-po-2025-*`, `wt/cycle*-po2025-*`, etc. |
+| 2. Commit messages | PR commits API | Machine name in any commit message |
+| 3. PR body + title | PR body/title | `[AUTHORED-BY-po-2025]`, machine mentions in description |
+
+**Log format when skipping:**
+```
+[SKIP] Self-review: PR #{N} — matched layer {1|2|3} ({branch|commits|body}) for {machine}
+```
+
+**Filter criteria (ALL must pass AFTER anti-self-review):**
+1. PR passes anti-self-review check (3 layers above)
 2. PR is older than 24 hours (`createdAt` check) — anti-fresh-PR
 3. PR is not already reviewed by this machine (check existing comments)
 4. CI status is `SUCCESS` or `MERGEABLE`
@@ -161,8 +193,21 @@ roosync_dashboard(action: "append", type: "workspace",
 
 ## Rules
 
-### Anti-Self-Review
-**NEVER review a PR whose `headRefName` contains your machine name.** All agents share the GitHub account `jsboige`, so machine identification is via branch name patterns (`wt/*-po-2025-*`, `wt/*-web1-*`, etc.).
+### Anti-Self-Review (3-layer check, #1734)
+**NEVER review a PR authored by your machine.** All agents share the GitHub account `jsboige`, so machine identification requires multi-layer detection:
+
+| Layer | Source | Detection |
+|-------|--------|-----------|
+| **1. Branch name** | `headRefName` | Contains machine hostname pattern (`po-2025`, `po2025`, `ai-01`, `web1`) |
+| **2. Commit messages** | PR commits API | Machine name found in any commit message within the PR |
+| **3. PR body + title** | PR body/title | `[AUTHORED-BY-{MACHINE}]` marker or machine name in description |
+
+**If ANY layer matches → SKIP the PR.** Log the decision:
+```
+[SKIP] Self-review: PR #{N} — layer {1|2|3} ({branch|commits|body}) matched {machine}
+```
+
+**Why 3 layers:** Branch names are not always machine-qualified (e.g., `wt/pr-review-skill-1713`). Commit messages and PR body provide fallback identification.
 
 ### Hard Cap
 Maximum **3 reviews per session**. Prevents context explosion (workers have limited context windows).
@@ -205,9 +250,10 @@ At the end of each review session, report metrics:
 | CHANGES_REQUESTED | {N} |
 | Skipped (fresh) | {N} |
 | Skipped (self-authored) | {N} |
+| Skipped (self-authored layer) | {1|2|3} ({branch|commits|body}) |
 | Skipped (already reviewed) | {N} |
 | Session duration | ~{X}min |
 
 ---
 
-**Last updated:** 2026-04-25
+**Last updated:** 2026-04-27
