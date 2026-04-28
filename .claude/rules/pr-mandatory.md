@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.1.0 (slim)
-**MAJ:** 2026-04-21
+**Version:** 3.2.0 (slim)
+**MAJ:** 2026-04-28
 
 ---
 
@@ -38,6 +38,19 @@
 - Pas de console.log
 - Build + tests passent
 - Submod pointer reachable depuis origin/main
+
+## Detached HEAD Guard (#1666 Phase A2)
+
+**Risque :** Un commit sur detached HEAD est orphelin — perdu au cleanup worktree.
+
+**Prevention :**
+1. Avant commit : `git symbolic-ref -q HEAD` — si echec, NE PAS committer
+2. Si detached : `git checkout -b worker/recovery-YYYYMMDD-HHmmss` puis commit
+3. Apres commit : verifier `git symbolic-ref -q HEAD` passe
+
+**Automatique :** `start-claude-worker.ps1` implemente ce guard (ligne 1903). En cas de recovery, le nom de branche est rapporte dans le [RESULT].
+
+**Claude Code :** Verifier `git branch --show-current` avant chaque commit dans un worktree. Si resultat vide ou "(HEAD detached", creer une branche de recovery.
 
 ## Pas de PR necessaire pour
 
