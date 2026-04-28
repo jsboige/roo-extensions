@@ -148,7 +148,7 @@ Requires validation before production use.
 ## GDrive Storage
 
 ```
-.shared-state/meta-analysis/
+docs/meta-analysis/
   +-- {machine}/
   |   +-- claude-analysis-{date}.md
   |   +-- roo-analysis-{date}.md

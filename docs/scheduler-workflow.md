@@ -494,7 +494,7 @@ $sessions = Get-ChildItem $cclaudePath -Directory | Sort-Object LastWriteTime -D
 
 **STEP 5: Report**
 - Write meta-analysis report to INTERCOM
-- Store detailed analysis on GDrive: `.shared-state/meta-analysis/{machine}/`
+- Store detailed analysis on GDrive: `docs/meta-analysis/{machine}/`
 
 ### META-INTERCOM Protocol
 

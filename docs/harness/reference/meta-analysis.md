@@ -102,7 +102,7 @@ Each tier has 2 agents: one Roo scheduler + one Claude scheduler.
 **REQUIRED output channels (in order of preference):**
 1. **Dashboard workspace** — `roosync_dashboard(action: "append", type: "workspace", tags: ["META-ANALYSIS"])` for compact summaries
 2. **GitHub issues** — `gh issue create` with `needs-approval` label for actionable findings with full detail
-3. **GDrive** — `.shared-state/meta-analysis/` for persistent analysis data (not git-tracked)
+3. **GDrive** — `docs/meta-analysis/` for persistent analysis data (not git-tracked)
 
 **Why:** Report files in git pollute the repo with temporary data, are never re-read or updated, and create merge conflicts across machines. The dashboard is visible to all machines; GitHub issues are trackable and actionable.
 
@@ -451,7 +451,7 @@ Recommendations:
 ## GDrive Storage
 
 ```
-.shared-state/meta-analysis/
+docs/meta-analysis/
   +-- {machine}/
   |   +-- claude-analysis-{date}.md
   |   +-- roo-analysis-{date}.md
