@@ -1,7 +1,7 @@
 ---
 name: task-worker
 description: Worker technique autonome pour machines exécutantes. Analyse le code, investigue les bugs, propose des fixes, et exécute les tâches. Aussi compétent que Roo pour l'investigation technique.
-tools: Read, Grep, Glob, Bash, Edit, Write
+tools: Read, Grep, Glob, Bash, Edit, Write, mcp__roo-state-manager__roosync_search, mcp__roo-state-manager__roosync_dashboard
 model: opus
 ---
 
