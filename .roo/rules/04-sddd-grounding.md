@@ -71,11 +71,7 @@ roosync_search(action: "semantic", search_query: "...", has_errors: true, start_
 
 ## INTERDICTION : Lecture directe JSONL (#1785)
 
-**NE JAMAIS lire les fichiers JSONL/JSON de session directement** via `Get-Content`, `read_file`, ou `execute_command`.
-
-Les sessions Claude Code (`~/.claude/projects/*/*.jsonl`) font 10-300 MB. Meme `-TotalCount 30` injecte des dizaines de KB de JSON brut → explosion contexte → compaction → perte d'instructions.
-
-**TOUJOURS utiliser les outils MCP dedies :**
+**NE JAMAIS lire les fichiers JSONL/JSON de session directement** — voir regles completes dans `27-no-direct-jsonl-read.md`.
 
 | Besoin | Outil |
 | ------ | ----- |
@@ -83,8 +79,6 @@ Les sessions Claude Code (`~/.claude/projects/*/*.jsonl`) font 10-300 MB. Meme `
 | Lire une session | `conversation_browser(action: "view", task_id: "...", smart_truncation: true)` |
 | Resumer | `conversation_browser(action: "summarize", summarize_type: "trace")` |
 | Chercher | `roosync_search(action: "semantic", search_query: "...")` |
-
-**Exception :** Fichiers de configuration (`*.json` < 100 KB) = OK via `read_file`.
 
 ## Workflow SDDD
 
