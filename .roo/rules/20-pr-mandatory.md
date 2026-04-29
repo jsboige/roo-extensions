@@ -63,7 +63,7 @@ Suppression INTERDITE sans approbation utilisateur :
 
 ## Pas de PR necessaire pour
 
-- MEMORY.md, INTERCOM, dashboards (coordination)
+- MEMORY.md, INTERCOM (deprecated), dashboards (coordination)
 - `.claude/rules/`, `.roo/rules/` (harnais)
 - Fichiers gitignored
 
