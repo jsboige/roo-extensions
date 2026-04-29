@@ -69,6 +69,17 @@ roosync_search(action: "semantic", search_query: "...", has_errors: true, start_
 | 3 | `search_files` exact (confirmer) |
 | 4 | Reformuler avec synonymes |
 
+## INTERDICTION : Lecture directe JSONL (#1785)
+
+**NE JAMAIS lire les fichiers JSONL/JSON de session directement** — voir regles completes dans `27-no-direct-jsonl-read.md`.
+
+| Besoin | Outil |
+| ------ | ----- |
+| Voir les sessions | `conversation_browser(action: "list")` |
+| Lire une session | `conversation_browser(action: "view", task_id: "...", smart_truncation: true)` |
+| Resumer | `conversation_browser(action: "summarize", summarize_type: "trace")` |
+| Chercher | `roosync_search(action: "semantic", search_query: "...")` |
+
 ## Workflow SDDD
 
 1. **Semantique** : `codebase_search` (Pass 1→2) + `roosync_search(semantic)`

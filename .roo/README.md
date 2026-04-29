@@ -20,7 +20,7 @@ Ce répertoire contient toute la configuration de l'extension **Roo Code** pour 
 ├── scheduler-workflow-meta-analyst.md # Workflow méta-analyste (72h, toutes machines)
 ├── rules/                             # Règles auto-chargées par Roo
 │   ├── 01-general.md                  # Règles générales
-│   ├── 02-intercom.md                 # Protocole INTERCOM
+│   ├── 02-dashboard.md                # Dashboard RooSync (canal principal)
 │   ├── 03-mcp-usage.md                # Règles MCP
 │   ├── 04-sddd-grounding.md           # Protocole triple grounding SDDD
 │   ├── 05-tool-availability.md        # STOP & REPAIR (outils critiques)

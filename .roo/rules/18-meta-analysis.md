@@ -11,6 +11,10 @@
 | Coordinateur | 6-12h | ai-01 only | Trier, dispatcher, suivre |
 | Executeur | 6h | TOUTES | Executer les taches assignees |
 
+## Canal officiel (#1818)
+
+**Dashboard workspace = canal officiel.** INTERCOM local = DEPRECATED (fallback si MCP indisponible uniquement).
+
 ## Ce que Roo analyse
 
 1. **Traces Roo (auto-analyse)** : Taux succes/echec par mode, escalades, usages outils. Outils MCP OBLIGATOIRES (`conversation_browser`, `roosync_search`).

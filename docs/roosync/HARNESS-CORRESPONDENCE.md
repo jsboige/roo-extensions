@@ -28,7 +28,7 @@ Ces règles ont des correspondances directes entre Roo et Claude :
 | `validation.md` | `22-validation.md` | ✅ Checklist validation consolidation |
 | `ci-guardrails.md` | `10-ci-guardrails.md` | ✅ Validation CI avant push |
 | `github-cli.md` | `19-github-cli.md` | ✅ Utilisation gh CLI |
-| `intercom-protocol.md` | `02-intercom.md` | ✅ Protocole communication locale |
+| `intercom-protocol.md` | `02-dashboard.md` | ✅ Protocole communication dashboard (renamed from 02-intercom.md) |
 
 ---
 
