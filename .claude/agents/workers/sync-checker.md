@@ -1,7 +1,7 @@
 ---
 name: sync-checker
 description: Agent pour vérification rapide git/MCP/schtasks. Checke l'état du repo, la disponibilité des MCPs critiques, et le statut des tâches planifiées. Pour diagnostics rapides.
-tools: Bash, Read, Grep, Glob
+tools: Bash, Read, Grep, Glob, mcp__roo-state-manager__roosync_inventory
 model: haiku
 ---
 
