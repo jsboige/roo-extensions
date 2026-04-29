@@ -32,7 +32,7 @@ Cout d'une verification : secondes. Cout d'une erreur propagee : heures sur 6 ma
 - **Executeur :** JAMAIS dire "impossible" sans preuve concrete. Inclure output exact.
 - **Tous :** Preferer "je ne sais pas" a une hypothese presentee comme fait. Ne pas confondre correlation et causalite.
 
-## Rapports INTERCOM
+## Rapports Dashboard
 
 **TOUJOURS** inclure les preuves : commit hash, output de commande, extrait de fichier. Jamais "tout est OK" sans preuve.
 

@@ -4,13 +4,15 @@
 > Pour mettre a jour les instructions : modifier ce fichier puis `git push`.
 > Les machines recevront les nouvelles instructions au prochain `git pull`.
 
+**MIGRATION 2026-04-29 (#1818) :** Canal principal = **dashboard workspace** (`roosync_dashboard`).
+INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`) = **DEPRECATED**, fallback UNIQUEMENT si MCP indisponible.
+
 ## WORKFLOW EN 6 ETAPES
 
-### Etape 1 : Lire l'INTERCOM
+### Etape 1 : Lire le dashboard workspace
 
-- Ouvre `.claude/local/INTERCOM-{MACHINE}.md` (remplace {MACHINE} par le hostname de cette machine)
-- Lis les 5 derniers messages
-- Cherche les messages de type `[SCHEDULED]`, `[TASK]` ou `[URGENT]` de Claude Code
+- Utiliser `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 5)`
+- Identifier les messages recents avec tags `[TASK]`, `[URGENT]`, `[CLAIMED]`, `[DONE]`
 - Si message `[URGENT]` : escalader vers orchestrator-complex immediatement
 - Evaluer la difficulte de chaque tache :
   - **SIMPLE** : 1 action isolee
@@ -26,7 +28,7 @@
 
 **REGLE ABSOLUE : NE JAMAIS faire le travail toi-meme. TOUJOURS deleguer via `new_task`.**
 
-Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
+Pour chaque tache `[TASK]` trouvee sur le dashboard :
 
 | Difficulte | Action |
 |-----------|--------|
@@ -41,44 +43,18 @@ Pour chaque tache `[TASK]` trouvee dans l'INTERCOM :
 2. **Escalader IMMEDIATEMENT vers le mode -complex correspondant** (1 echec = escalade immediate)
 3. Apres 1 echec en -complex : arreter et rapporter dans le bilan
 
-### Etape 4 : Rapporter dans l'INTERCOM LOCAL
+### Etape 4 : Rapporter sur le dashboard workspace
 
-**PROTECTION DU CONTENU** - Pour ecrire dans l'INTERCOM, deleguer a `code-simple` avec ces instructions EXACTES :
+Utiliser `roosync_dashboard` pour poster le bilan :
 
 ```
-1. Lis les 20 dernieres lignes de .claude/local/INTERCOM-{MACHINE}.md avec read_file (pour trouver le dernier "---").
-2. Prepare le nouveau message (format ci-dessous).
-3. Utilise apply_diff pour ajouter le message APRES le dernier separateur "---" :
-   - SEARCH: le dernier separateur "---" du fichier
-   - REPLACE: le separateur "---" + ligne vide + nouveau message + ligne vide + "---"
-4. Si apply_diff echoue, utilise win-cli : Add-Content -Path '.claude/local/INTERCOM-{MACHINE}.md' -Value @'
-[ligne vide]
-## [DATE] roo -> claude-code [TYPE]
-### Titre
-Contenu...
-
----
-'@
+roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "roo-scheduler"],
+  content: "## [DONE] Tache planifiee - Resultat\n- Taches executees : ...\n- Erreurs : ...\n- Git status : propre/dirty\n- Difficulte : SIMPLE/MOYEN/COMPLEXE\n- Escalades effectuees : aucune / vers {mode}")
 ```
 
-**REGLE CRITIQUE :** Toujours ajouter les nouveaux messages A LA FIN du fichier (ordre chronologique).
-Voir `.roo/rules/02-intercom.md` pour le protocole complet.
+**REGLE CRITIQUE :** Toujours inclure le tag `roo-scheduler` pour tracer l'origine du rapport.
 
-- NE PAS utiliser `roosync_send` (c'est pour inter-machines, pas local)
-
-**Format du nouveau message :**
-
-```markdown
-## [{DATE}] roo -> claude-code [DONE]
-### Tache planifiee - Resultat
-- Taches executees : ...
-- Erreurs : ...
-- Git status : propre/dirty
-- Difficulte : SIMPLE/MOYEN/COMPLEXE
-- Escalades effectuees : aucune / vers {mode}
-
----
-```
+**Fallback si MCP dashboard indisponible :** Ecrire dans `.claude/local/INTERCOM-{MACHINE}.md` via `apply_diff` (voir `.roo/rules/02-intercom.md` section fallback). INTERCOM = **dernier recours uniquement**.
 
 ### Etape 5 : Ne PAS commiter
 
@@ -86,17 +62,11 @@ Voir `.roo/rules/02-intercom.md` pour le protocole complet.
 - Ne JAMAIS `git commit` ou `git push` en mode planifie
 - Les commits sont la responsabilite de Claude Code
 
-### Etape 6 : Maintenance INTERCOM (si >1000 lignes)
+### Etape 6 : Verification fin de session
 
-Deleguer a `code-simple` :
-
-```
-Lis .claude/local/INTERCOM-{MACHINE}.md.
-Si plus de 1000 lignes :
-  - Condenser les 600 premieres en ~100 lignes (synthese des taches, decisions, metriques)
-  - Garder les 400 dernieres lignes intactes
-  - Reecrire le fichier (~500 lignes)
-```
+Verifier que le rapport a bien ete poste sur le dashboard :
+- `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 1)` doit montrer le message [DONE]
+- Si echoue : retenter une fois, puis fallback INTERCOM
 
 ---
 
@@ -105,7 +75,7 @@ Si plus de 1000 lignes :
 1. Ne JAMAIS commit sans validation Claude Code
 2. Ne JAMAIS push directement
 3. Verifier `git status` AVANT toute modification
-4. Lire INTERCOM EN PREMIER (urgences possibles)
+4. Lire le dashboard EN PREMIER (urgences possibles)
 5. Deleguer uniquement aux modes `-simple` ou `-complex` (jamais les natifs)
 6. Ne JAMAIS faire `git checkout` ou `git pull` dans le submodule `mcps/internal/`
 
@@ -116,7 +86,7 @@ Si plus de 1000 lignes :
 - Plus de 5 sous-taches a coordonner
 - Dependances entre sous-taches (une depend du resultat d'une autre)
 - Parallelisation requise (taches independantes a lancer simultanement)
-- Message `[URGENT]` dans l'INTERCOM
+- Message `[URGENT]` sur le dashboard
 - 1 echec sur une sous-tache simple (escalade immediate, standardise #1233)
 - Modification de plus de 3 fichiers interconnectes
 
@@ -124,11 +94,9 @@ Si plus de 1000 lignes :
 
 ## SI RIEN A FAIRE
 
-Deleguer l'ecriture INTERCOM avec le message :
+Poster sur le dashboard :
 
-```markdown
-## [{DATE}] roo -> claude-code [IDLE]
-Aucune tache planifiee. Workspace propre. En attente.
-
----
+```
+roosync_dashboard(action: "append", type: "workspace", tags: ["IDLE", "roo-scheduler"],
+  content: "Aucune tache planifiee. Workspace propre. En attente.")
 ```

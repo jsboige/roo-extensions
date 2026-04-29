@@ -19,7 +19,7 @@ Meta-analysts, `roosync_compare_config`, `roosync_inventory`, rapports executeur
 **PEUT :** Lire RooSync/git/Project #67, dispatcher taches, update issues, creer rapports.
 **NE DOIT PAS :** Modifier harnais, force-push, fermer issues sans verification.
 
-## Tags INTERCOM a surveiller
+## Tags dashboard a surveiller
 
 `[DONE]` → analyser | `[WAKE-CLAUDE]` → traiter | `[ERROR]`/`[WARN]` → investiguer | `[FRICTION-FOUND]` → verifier
 

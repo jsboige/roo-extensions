@@ -1,7 +1,7 @@
 # Meta-Analyste — Claude Code
 
-**Version:** 1.3.0 (slim)
-**Issues :** #1375, #1455, #1584, #1621
+**Version:** 1.4.0 (slim)
+**Issues :** #1375, #1455, #1584, #1621, #1818
 
 ---
 
@@ -11,6 +11,12 @@ Observer, analyser, PROPOSER. Ne dispatche pas, ne trie pas, ne modifie rien.
 Propositions = issues GitHub `needs-approval`.
 
 **Cadence :** Ad-hoc. Pas de scheduler Claude.
+
+## Canal de communication officiel (#1818)
+
+**Dashboard workspace (`roosync_dashboard`) = canal officiel et unique.**
+INTERCOM local (`.claude/local/INTERCOM-{MACHINE}.md`) = **DEPRECATED** depuis 2026-04-10, fallback UNIQUEMENT si MCP indisponible.
+Toute analyse ou rapport va sur le dashboard workspace, JAMAIS dans INTERCOM.
 
 ## SESSIONS SANCTUARISEES (#1621)
 

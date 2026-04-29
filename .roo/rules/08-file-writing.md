@@ -18,7 +18,7 @@ Qwen 3.5 (mode -simple) tronque sa sortie avant d'avoir genere le contenu comple
 | Recrire fichier volumineux | `replace_in_file` par sections |
 | Nouveau fichier <200 lignes | `write_to_file` OK |
 
-## Condensation INTERCOM (fichiers >800 lignes)
+## Condensation fichiers volumineux (>800 lignes)
 
 1. Lire le fichier, identifier zone ancienne vs recente
 2. `replace_in_file` pour remplacer zone ancienne par resume condense
