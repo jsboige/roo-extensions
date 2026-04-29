@@ -54,7 +54,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "roo-sched
 
 **REGLE CRITIQUE :** Toujours inclure le tag `roo-scheduler` pour tracer l'origine du rapport.
 
-**Fallback si MCP dashboard indisponible :** Ecrire dans `.claude/local/INTERCOM-{MACHINE}.md` via `apply_diff` (voir `.roo/rules/02-intercom.md` section fallback). INTERCOM = **dernier recours uniquement**.
+**Fallback si MCP dashboard indisponible :** Ecrire dans `.claude/local/INTERCOM-{MACHINE}.md` via `apply_diff` (voir `.roo/rules/02-dashboard.md` section fallback). INTERCOM = **dernier recours uniquement**.
 
 ### Etape 5 : Ne PAS commiter
 

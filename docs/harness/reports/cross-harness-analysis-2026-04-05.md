@@ -13,7 +13,7 @@
 | # | Fichier | Version | MAJ | Issues | Rôle |
 |---|---------|---------|-----|--------|------|
 | 01 | `01-general.md` | — | — | — | Vue d'ensemble, structure dépôt, hiérarchie |
-| 02 | `02-intercom.md` | — | — | #745 | Dashboard workspace, format messages |
+| 02 | `02-dashboard.md` | — | — | #745 | Dashboard workspace, format messages (renamed from 02-intercom.md) |
 | 03 | `03-mcp-usage.md` | — | — | — | MCPs disponibles, économie tokens |
 | 04 | `04-sddd-grounding.md` | 2.1.0 | 2026-02-23 | #636, #881, #952 | Triple grounding, conversation_browser |
 | 05 | `05-tool-availability.md` | 1.6.0 | 2026-03-22 | #650, #708, #791 | STOP & REPAIR, inventaire MCP |
@@ -62,10 +62,10 @@
 
 ### 2.1 Mappings cohérents ✅
 
-| Roo | Claude | Commentaire |
-|-----|--------|-------------|
-| `02-intercom.md` | `intercom-protocol.md` v3.0.0 | Même canal (dashboard workspace). Claude ajoute dialogue bidirectionnel (#657). |
-| `16-no-tools-warnings.md` | `conversation-browser-guide.md` | Même contenu detailLevel/fix #881. Claude est un guide dédié. |
+| Roo                            | Claude                            | Commentaire                                                                                          |
+|--------------------------------|-----------------------------------|------------------------------------------------------------------------------------------------------|
+| `02-dashboard.md`              | `intercom-protocol.md` v3.0.0     | Même canal (dashboard workspace). Claude ajoute dialogue bidirectionnel (#657). |
+| `16-no-tools-warnings.md`      | `conversation-browser-guide.md`   | Même contenu detailLevel/fix #881. Claude est un guide dédié. |
 
 ### 2.2 Mappings avec incohérence de version ⚠️
 
@@ -155,7 +155,7 @@ Les field IDs du Project #67 sont hardcodés et peuvent devenir obsolètes si Gi
 ### 3.3 Basse Priorité 🟢
 
 #### I. 7 fichiers Roo sans version explicite
-`01-general.md`, `02-intercom.md`, `03-mcp-usage.md`, `07-orchestrator-delegation.md`, `09-github-checklists.md`, `19-github-cli.md`, `22-validation.md` n'ont pas de version ni date de MAJ.
+`01-general.md`, `02-dashboard.md`, `03-mcp-usage.md`, `07-orchestrator-delegation.md`, `09-github-checklists.md`, `19-github-cli.md`, `22-validation.md` n'ont pas de version ni date de MAJ.
 
 #### J. `context-window.md` (Claude) sans équivalent Roo
 L'information sur le seuil de condensation 80% est partiellement dans `12-machine-constraints.md` mais pas dans une règle dédiée.

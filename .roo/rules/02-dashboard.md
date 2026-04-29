@@ -1,4 +1,4 @@
-# INTERCOM - Dashboard RooSync (Canal Principal)
+# Dashboard RooSync (Canal Principal)
 
 **Version:** 3.2.0 (synced with .claude/rules/intercom-protocol.md)
 **MAJ:** 2026-04-19
