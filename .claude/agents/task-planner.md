@@ -1,7 +1,7 @@
 ---
 name: task-planner
 description: Planification et ventilation des taches multi-agents. Utilise cet agent pour analyser l'avancement, repartir le travail entre les 6 machines (1 Roo + 1 Claude-Code par machine), et proposer les prochaines actions. Invoque-le lors des tours de sync pour la phase de reflexion et ventilation.
-tools: Read, Grep, Glob, Bash
+tools: Read, Grep, Glob, Bash, mcp__roo-state-manager__roosync_search
 model: opus
 ---
 

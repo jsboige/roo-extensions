@@ -1,7 +1,7 @@
 ---
 name: codebase-researcher
 description: Agent de recherche SDDD multi-pass approfondie. Utilise codebase_search avec protocole 4 passes pour localiser code et documentation par concept. Pour investigations ouvertes nécessitant plusieurs requêtes.
-tools: Read, Grep, Glob
+tools: Read, Grep, Glob, mcp__roo-state-manager__codebase_search, mcp__roo-state-manager__roosync_search
 model: haiku
 ---
 

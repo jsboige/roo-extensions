@@ -1,7 +1,7 @@
 ---
 name: code-fixer
 description: Agent autonome pour investiguer et corriger les bugs. Prend un bug (issue GitHub ou description), analyse le code source, identifie la cause racine, propose et applique un fix, puis valide avec les tests.
-tools: Read, Grep, Glob, Edit, Write, Bash
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__roo-state-manager__codebase_search, mcp__roo-state-manager__roosync_search
 model: opus
 ---
 
