@@ -184,8 +184,36 @@ if ($result.Ok) {
         if ($result.Ok) {
             Write-Log 'OK' 'E2E chain recovered after TBXark restart'
         } else {
-            Write-Log 'ERROR' "E2E chain STILL DOWN after repair attempts (HTTP $($result.Status))"
-            $script:alerts += "e2e-still-down-after-repair: http-$($result.Status)"
+            # Escalation: tbxark-restart alone failed AND sparfenyuk port was up.
+            # Sparfenyuk can be "port-up" but have a stale upstream session that
+            # tbxark can't refresh on its own. Restart sparfenyuk explicitly,
+            # then retry tbxark to clear its stale forward registration.
+            Write-Log 'WARN' 'TBXark restart insufficient — escalating to full chain restart (sparfenyuk + tbxark)'
+            try {
+                if ($Mode -eq 'dry-run') {
+                    Write-Log 'INFO' 'DRY-RUN: would Stop+Start MCP-Proxy-RSM and re-restart myia-mcp-proxy'
+                } else {
+                    Stop-ScheduledTask -TaskName 'MCP-Proxy-RSM' -ErrorAction SilentlyContinue
+                    Start-Sleep -Seconds 3
+                    Start-ScheduledTask -TaskName 'MCP-Proxy-RSM' -ErrorAction Stop
+                    $script:repairs += 'sparfenyuk-restart-escalation'
+                    Start-Sleep -Seconds 8
+                    & docker restart myia-mcp-proxy 2>&1 | Out-Null
+                    $script:repairs += 'tbxark-restart-escalation'
+                    Start-Sleep -Seconds 12
+                }
+            } catch {
+                Write-Log 'ERROR' "Escalation restart failed: $($_.Exception.Message)"
+                $script:alerts += "escalation-failed: $($_.Exception.Message)"
+            }
+
+            $result = Test-E2E
+            if ($result.Ok) {
+                Write-Log 'OK' 'E2E chain recovered after escalation (full chain restart)'
+            } else {
+                Write-Log 'ERROR' "E2E chain STILL DOWN after escalation (HTTP $($result.Status))"
+                $script:alerts += "e2e-still-down-after-escalation: http-$($result.Status)"
+            }
         }
     }
 }
