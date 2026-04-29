@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.2.0 (slim)
-**MAJ:** 2026-04-28
+**Version:** 3.3.0 (slim)
+**MAJ:** 2026-04-29
 
 ---
 
@@ -38,6 +38,22 @@
 - Pas de console.log
 - Build + tests passent
 - Submod pointer reachable depuis origin/main
+
+## Anti Pointer-Bump Premature (#1799, post cycle 22ter cascade CI)
+
+**Risque :** Creer un pointer-bump parent avant que la PR submod source soit mergee → SHA orphelin, `check-submodule-pointer` CI fail systematique.
+
+**Regle :** Un pointer-bump parent ne doit etre cree QU'APRES merge de la PR submod source.
+
+**Workflow correct :**
+1. Worker cree PR submod (ex: `mcps/internal` PR #234)
+2. Attendre merge submod (`gh pr view 234 --json state` = MERGED)
+3. Recuperer SHA mergee : `git -C mcps/internal rev-parse origin/main`
+4. ALORS creer bump parent avec ce SHA
+
+**Anti-pattern observe cycle 22ter :** PRs #1788, #1793, #1795, #1796 toutes en CI fail car pointers cibaient des SHAs non mergees. Resolu via re-creation post-merge.
+
+**Alternative coordinateur :** Bundle pointer-bump (pattern #1764, #1801) — 1 PR parent groupant plusieurs merges submod = moins de PRs, moins de race conditions.
 
 ## Detached HEAD Guard (#1666 Phase A2)
 
