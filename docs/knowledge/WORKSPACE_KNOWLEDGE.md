@@ -503,7 +503,7 @@ ROOSYNC_SHARED_PATH=<shared path>
 - `docs/roosync/README.md` - Point d'entrée
 - `docs/roosync/ARCHITECTURE_ROOSYNC.md` - Architecture complète
 - `docs/roosync/GESTION_MULTI_AGENT.md` - Protocoles multi-agents
-- `docs/roosync/GUIDE_UTILISATION_ROOSYNC.md` - Guide utilisateur
+- `docs/roosync/GUIDE_UTILISATION_ROOSYNC.md` - *(archived to docs/_archive/v2.1/)*
 - `docs/suivi/RooSync/PHASE1_DIAGNOSTIC_ET_STABILISATION.md` - État actuel
 
 ---

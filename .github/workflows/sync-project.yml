@@ -1,0 +1,70 @@
+name: Sync Project #67
+
+on:
+  issues:
+    types: [opened]
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (no changes)'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  issues: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'issues' || github.event.issue.state == 'open'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Sync issues to Project #67
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $params = @("-Execute")
+          if ('${{ inputs.dry_run }}' -eq 'true') {
+            $params = @("-DryRun")
+          }
+          ./scripts/github/sync-issues-to-project.ps1 @params
+
+      - name: Label nudge for new issues
+        if: github.event_name == 'issues'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.issue.labels || [];
+            const labelNames = labels.map(l => l.name);
+
+            const hasType = ['bug', 'enhancement', 'documentation'].some(l => labelNames.includes(l));
+            const hasAgent = ['claude-only', 'roo-schedulable'].some(l => labelNames.includes(l));
+
+            if (!hasType || !hasAgent) {
+              const missing = [];
+              if (!hasType) missing.push('type: `bug`, `enhancement`, or `documentation`');
+              if (!hasAgent) missing.push('agent: `claude-only` or `roo-schedulable`');
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: [
+                  '**Missing labels detected:**',
+                  '',
+                  ...missing.map(m => `- ${m}'),
+                  '',
+                  'Please add the missing labels so Project #67 fields are set correctly.',
+                  '',
+                  '---',
+                  `*Automated by [sync-project.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/sync-project.yml) (#1835)*`
+                ].join('\n')
+              });
+            }
