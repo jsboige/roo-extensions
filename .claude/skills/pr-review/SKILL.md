@@ -1,6 +1,13 @@
 ---
 name: pr-review
 description: Review open PRs autonomously when idle. Industrialises the PR review fallback pattern for executor machines. Trigger: "/pr-review", "review PRs", "idle review".
+triggers:
+  keywords:
+    - "review PRs"
+    - "idle review"
+    - "révise les PRs"
+    - "review les pull requests"
+  priority: low
 metadata:
   author: "Roo Extensions Team"
   version: "1.1.0"

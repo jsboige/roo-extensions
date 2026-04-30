@@ -1,6 +1,12 @@
 ---
 name: executor
 description: Lance une session d'execution multi-agent RooSync pour les machines executantes (myia-po-* et myia-web1). Phrase declencheur : "/executor", "mode executor", "lance executor".
+triggers:
+  keywords:
+    - "lance executor"
+    - "mode executor"
+    - "session executor"
+  priority: normal
 metadata:
   author: "Roo Extensions Team"
   version: "3.0.0"
