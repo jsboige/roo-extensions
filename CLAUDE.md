@@ -120,6 +120,7 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 - **Guide RooSync :** [GUIDE-TECHNIQUE-v2.3.md](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
 - **Scripts :** [scripts/README.md](scripts/README.md) | [scripts/claude/](scripts/claude/)
 - **GitHub :** https://github.com/users/jsboige/projects/67
+- **SDDD Reliability :** [sddd-reliability.md](docs/harness/reference/sddd-reliability.md) — workspace detection, multi-pass UX, and metrics
 
 ---
 
