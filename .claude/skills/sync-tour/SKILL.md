@@ -11,6 +11,8 @@ triggers:
     - "sync complet"
     - "bilan"
     - "état des machines"
+    - "synchronisation"
+    - "coordination"
   exact:
     - "sync"
   patterns:
