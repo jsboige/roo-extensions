@@ -1,6 +1,17 @@
 ---
 name: github-status
 description: Consulte l'état du GitHub Project #67 et des issues via gh CLI pour roo-extensions. Utilise ce skill pendant un tour de sync, pour vérifier l'avancement global, ou pour mettre à jour le statut d'une tâche. Phrase déclencheur : "github status", "état du projet", "issues ouvertes", "progression #67".
+triggers:
+  keywords:
+    - "github status"
+    - "état du projet"
+    - "issues ouvertes"
+    - "progression #67"
+    - "project #67"
+    - "avancement global"
+    - "gh cli"
+    - "github project"
+  priority: normal
 metadata:
   author: "Roo Extensions Team"
   version: "2.0.0"
