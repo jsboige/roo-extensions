@@ -135,8 +135,8 @@ Héberge les outils de maintenance de haut niveau pour le workspace et le dépô
 Contient les scripts pour la gestion des serveurs MCP (Multi-Context Platform).
 
 *   `deploy-environment.ps1`: Déploie l'environnement nécessaire pour les serveurs MCP.
-*   `start-jupyter-server.ps1`, `compile-mcp-servers.ps1`: Scripts pour démarrer et compiler les serveurs.
-*   `utils/Convert-McpSettings.ps1`: Utilitaires pour la conversion des fichiers de configuration MCP.
+*   `start-jupyter-server.ps1`: Script pour démarrer le serveur Jupyter.
+*   *(archived)* `compile-mcp-servers.ps1`, `utils/Convert-McpSettings.ps1`: Moved to `scripts/_archive/duplicates/`.
 
 ### `/scripts/monitoring/`
 Scripts dédiés à la surveillance de l'état de l'environnement.
