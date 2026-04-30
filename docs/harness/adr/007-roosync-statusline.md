@@ -1,4 +1,4 @@
-# ADR 006: RooSync HUD Statusline
+# ADR 007: RooSync HUD Statusline
 
 **Date:** 2026-04-30
 **Status:** Proposed
