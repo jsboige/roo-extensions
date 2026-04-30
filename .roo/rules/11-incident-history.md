@@ -19,6 +19,9 @@
 | 2026-02-21 | po-2023 | Boucle condensation infinie | Seuil + INTERCOM sature |
 | 2026-03-05 | po-2026 | roo-state-manager absent (Claude) | Config MCP separee non documentee |
 | 2026-03-06 | ai-01 | 31+ outils roosync absents (Claude) | Config MCP exposee partielle |
+| 2026-04-20/21 | ai-01 | .env corrompu 2x en 2 jours (#1551) | QDRANT_URL→localhost, QDRANT_API_KEY vide. TOUJOURS demander approbation avant modif .env |
+| 2026-04-22 | multi | 2 detached HEAD silencieux (#1613) | Commits orphelis perdus. Verifier `git symbolic-ref HEAD` avant chaque commit |
+| 2026-04-24 | po-2026 | Suppression sessions Claude/Roo (#1621) | Sessions = SANCTUAIRE, archivage INTERDIT (donnees RL futures) |
 | 2026-04-24 | po-2026 | Violation harnais orchestrateur (#1672) | Orchestrateur a execute du code au lieu de deleguer |
 | 2026-04-29 | ai-01 (NanoClaw) | Chaine MCP 404 + silencieux (#1839) | sparfenyuk proxy wedge → watchdog escalation insuffisante. Fix : escalation full chain restart |
 | 2026-04-29 | 3 machines | Overlap PRs #233/#237/#238 (#1786) | Pas de pre-claim → 3 agents meme tache → 12h travail duplique. Fix : regle #1798 pre-claim discipline |
