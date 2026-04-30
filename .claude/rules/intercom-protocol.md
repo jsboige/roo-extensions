@@ -17,7 +17,9 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-in
 roosync_dashboard(action: "read", type: "workspace")
 ```
 
-Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`
+Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `PROGRESS`
+
+**Team Pipeline tags (#1853) :** `team-plan`, `team-prd`, `team-exec`, `team-verify`, `team-fix`
 
 Auto-condensation preemptive a 92% (~46 KB).
 
@@ -39,6 +41,41 @@ Auto-condensation preemptive a 92% (~46 KB).
 | `[ERROR]` | Haute |
 | `[ASK]` | Moyenne |
 | `[DONE]` | Normale |
+
+---
+
+## Team Pipeline Reporting (#1853)
+
+**Pour les tâches complexes (>3 fichiers OU >50 LOC), les agents DOIVENT :**
+
+1. **Utiliser le paramètre `teamStage` dans les rapports dashboard :**
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["PROGRESS", "team-exec"],
+  teamStage: "team-exec",
+  content: "..."
+)
+```
+
+2. **Suivre l'ordre des stages :** team-plan → team-prd → team-exec → team-verify → [DONE]
+   - team-fix loop si team-verify échoue
+
+3. **Stages Team disponibles :**
+   - `team-plan` : Planification (sous-tâches, dépendances)
+   - `team-prd` : Clarification exigences et contraintes
+   - `team-exec` : Exécution de l'implémentation
+   - `team-verify` : Vérification (build + tests)
+   - `team-fix` : Correction des problèmes (loop)
+   - `none` : Pas de stage Team (tâches simples)
+
+4. **Tags recommandés par stage :**
+   - team-plan → `["PROGRESS", "team-plan"]`
+   - team-prd → `["PROGRESS", "team-prd"]`
+   - team-exec → `["PROGRESS", "team-exec"]`
+   - team-verify → `["DONE", "team-verify"]` (succès) ou `["PROGRESS", "team-verify"]` (échec)
+   - team-fix → `["PROGRESS", "team-fix"]`
 
 ---
 

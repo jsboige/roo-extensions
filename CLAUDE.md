@@ -96,6 +96,68 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 **Orchestrateurs = delegation pure. AUCUN mode n'a le groupe `command` natif** (#1482).
 
+---
+
+## Team Pipeline — Structured Task Execution (#1853)
+
+**Inspired by:** oh-my-claudecode Team mode evaluation (#1802)
+
+### Overview
+
+For complex tasks (>3 files or >50 LOC), agents MUST follow the Team pipeline stages to ensure structured, verifiable execution.
+
+### Stages
+
+| Stage | Purpose | Trigger | Output |
+|-------|---------|---------|--------|
+| **team-plan** | Break down task into subtasks | All complex tasks | Task list with dependencies |
+| **team-prd** | Clarify requirements and constraints | Ambiguous specifications | Requirements document |
+| **team-exec** | Execute the implementation | After plan/PRD | Code changes |
+| **team-verify** | Verify the solution (build + tests) | After exec | Build/test results |
+| **team-fix** | Fix any issues found in verification | Failed verify | Fixes, loops until verify passes |
+
+### Stage Ordering Rules
+
+**For complex tasks (>3 files or >50 LOC):**
+- **team-plan** required before **team-exec**
+- **team-prd** required for ambiguous requirements
+- **team-verify** (build + tests) required before marking [DONE]
+- **team-fix** loops until verification passes
+
+**For simple tasks (≤3 files and ≤50 LOC):**
+- May skip to **team-exec** → **team-verify** directly
+- Use `teamStage: "none"` or omit the parameter
+
+### Dashboard Reporting
+
+Agents MUST report their current Team stage in dashboard messages:
+
+```
+roosync_dashboard(
+  action: "append",
+  type: "workspace",
+  tags: ["PROGRESS", "team-plan"],
+  teamStage: "team-plan",
+  content: "Task broken down into 5 subtasks..."
+)
+```
+
+### Stage Transitions
+
+```
+[START] → team-plan → team-prd → team-exec → team-verify → [DONE]
+                                         ↓
+                                      team-fix (loop until verify passes)
+```
+
+### Related Issues
+
+- #1853 — Team pipeline implementation (this issue)
+- #1802 — oh-my-claudecode evaluation (source)
+- #1869 — Team pipeline ADR + Hermes bootstrap
+
+---
+
 ## GitHub
 
 **Project #67 :** [GitHub Projects](https://github.com/users/jsboige/projects/67)
