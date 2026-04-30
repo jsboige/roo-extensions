@@ -15,7 +15,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-sch
 
 **Auto-condensation préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
-**FALLBACK** (si MCP echoue) : `.claude/local/INTERCOM-{MACHINE}.md` — append-only, jamais inserer en haut.
+**Fichier INTERCOM local (DEPRECATED)** : `.claude/local/INTERCOM-{MACHINE}.md` — UNIQUEMENT si MCP dashboard echoue. Append-only, jamais inserer en haut.
 
 ## Mentions et Cross-Post (v3, #1363)
 
