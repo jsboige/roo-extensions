@@ -102,5 +102,6 @@ Les fichiers dans `rules/` sont chargés automatiquement par Roo Code dans le co
 
 - [docs/scheduler-workflow.md](../docs/scheduler-workflow.md) — Vue d'ensemble 3 tiers × 2 agents
 - [docs/mcp-configuration.md](../docs/mcp-configuration.md) — Configuration MCP win-cli/roo-state-manager
+- [docs/harness/reference/intercom-deprecation.md](../docs/harness/reference/intercom-deprecation.md) — Dépréciation INTERCOM (méta-auditeurs)
 - [CLAUDE.md](../CLAUDE.md) — Guide principal Claude Code
 - [.claude/rules/](../.claude/rules/) — Règles équivalentes côté Claude Code
