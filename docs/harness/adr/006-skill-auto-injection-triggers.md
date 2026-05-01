@@ -1,11 +1,11 @@
 # ADR 006: Skill Auto-Injection with Triggers
 
-**Status:** Proposed (Phase 1 design)
-**Date:** 2026-04-30
+**Status:** Implemented (Phase 2 — extended trigger types)
+**Date:** 2026-04-30 (Phase 1), 2026-05-01 (Phase 2 parser)
 **Issue:** #1854
 **EPIC:** #1864 (Cycle 26 Harness Consolidation)
 **Source pattern:** oh-my-claudecode evaluation (#1802)
-**Deciders:** jsboige, myia-po-2026 (design)
+**Deciders:** jsboige, myia-po-2026 (design + implementation)
 
 ---
 
@@ -26,44 +26,61 @@ Add a `triggers` field to SKILL.md YAML frontmatter and implement auto-injection
 
 ### 1. Trigger Format
 
-Extend SKILL.md frontmatter with a `triggers` object:
+Extend SKILL.md frontmatter with a `triggers` object supporting 4 trigger types:
 
 ```yaml
 ---
-name: git-sync
-description: Synchronisation Git...
+name: validate
+description: Valide que le code compile et que les tests passent.
 triggers:
   keywords:
-    - "git sync"
-    - "synchronise"
-    - "pull"
-    - "mets à jour le repo"
-  priority: normal
+    - "valide"
+    - "lance les tests"
+    - "vérifie le build"
+    - "CI local"
+  exact:
+    - "build"
+    - "tests"
+    - "vitest"
+    - "tsc"
+  patterns:
+    - "(lance|run|exécute).{0,10}tests?"
+    - "(build|compile).{0,10}(check|verify|valide)"
+  context:
+    - "executor"
+  priority: high
 ---
 ```
 
-**Fields:**
+**Trigger types:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `keywords` | string[] | Yes | Phrases to match in user input (case-insensitive substring) |
-| `priority` | enum | No | `high` (always suggest), `normal` (default), `low` (only if exact match) |
+| Type | Field | Required | Matching | Example |
+|------|-------|----------|----------|---------|
+| **keywords** | `keywords: []` | No* | Case-insensitive substring | "valide" matches "valide le build" |
+| **exact** | `exact: []` | No* | Case-insensitive whole-word | "build" matches "check the build" but not "buildbot" |
+| **patterns** | `patterns: []` | No* | Regex (`.match()`) | `(lance\|run).{0,10}tests?` |
+| **context** | `context: []` | No* | Session-context match | "executor" when `ROOSYNC_MACHINE_ID` set |
 
-**Design choices:**
+*At least one trigger type must be non-empty for the skill to be detected.
 
-- **Keywords over regex:** Simpler to maintain, less error-prone, sufficient for natural language matching. Regex can be added in Phase 2 if needed.
-- **Substring matching:** "synchronise" matches "synchronise le repo". More flexible than exact matching.
-- **Case-insensitive:** User input varies in casing.
-- **Priority field:** Allows fine-tuning which skills get suggested when multiple match. `high` = always surface (safety-critical like validate), `normal` = standard, `low` = only surface on near-exact match.
+**Priority field:**
+
+| Value | Behavior |
+|-------|----------|
+| `high` | Always surface (safety-critical: validate) |
+| `normal` | Standard matching (default) |
+| `low` | Only surface on near-exact match (pr-review, memory-inject) |
+
+**Matching order:** keywords → exact → patterns → context. First match wins per skill.
 
 ### 2. Detection Mechanism
 
-A `UserPromptSubmit` hook runs a PowerShell script that:
+A `UserPromptSubmit` hook runs `skill-trigger-detector.ps1` that:
 
 1. Reads JSON input from stdin (`prompt` field = user's message)
 2. Discovers all skill files (project `.claude/skills/` then global `~/.claude/skills/`)
-3. Parses YAML frontmatter for `triggers.keywords`
-4. Matches user prompt against keywords (case-insensitive substring)
+3. Parses YAML frontmatter for `triggers` section
+4. Matches user prompt against each trigger type in order (keywords → exact → patterns → context)
 5. Outputs matching skill names to stdout (injected as conversation context)
 
 **Hook configuration** (`.claude/settings.json` project or `~/.claude/settings.json` global):
@@ -77,7 +94,7 @@ A `UserPromptSubmit` hook runs a PowerShell script that:
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -ExecutionPolicy Bypass -File scripts/claude/skill-trigger-detector.ps1",
+            "command": "pwsh -ExecutionPolicy Bypass -File scripts/claude/skill-trigger-detector.ps1",
             "timeout": 5
           }
         ]
@@ -89,89 +106,84 @@ A `UserPromptSubmit` hook runs a PowerShell script that:
 
 **Output format:**
 
-If trigger matches:
+Single match:
 ```
-[SKILL-TRIGGER] User input matches skill "git-sync". Invoke /git-sync for the relevant workflow.
+[SKILL-TRIGGER] User input matches skill "validate" (keyword: "valide"). Invoke /validate for the relevant workflow.
 ```
 
-If multiple matches:
+Multiple matches:
 ```
 [SKILL-TRIGGER] Multiple skills matched:
-  - "git-sync" (keyword: "synchronise") → /git-sync
-  - "validate" (keyword: "lance les tests") → /validate
+  - "validate" (keyword: "valide") -> /validate
+  - "git-sync" (exact: "pull") -> /git-sync
 ```
-
-If no match: no output (hook returns exit code 0 silently).
 
 ### 3. Priority & Override Rules
 
 | Rule | Behavior |
 |------|----------|
 | **Project overrides global** | If both `~/.claude/skills/validate/SKILL.md` and `.claude/skills/validate/SKILL.md` have triggers, project wins |
-| **First keyword match** | If multiple skills match, all are reported, sorted by `priority` (high > normal > low) |
-| **Triggers are additive** | Skills without `triggers` field are ignored by the detector — manual `/skill-name` still works |
-| **Non-blocking** | Hook output is a suggestion, not a command. Claude decides whether to invoke the skill |
+| **First match per skill** | Keywords tested first, then exact, patterns, context. First match reported |
+| **Priority sorting** | When multiple skills match, sorted by `priority` (high > normal > low) |
+| **Triggers are additive** | Skills without `triggers` field are ignored — manual `/skill-name` still works |
+| **Non-blocking** | Hook output is a suggestion, not a command |
 
 ### 4. Compatibility
 
 | Scenario | Behavior |
 |----------|----------|
 | Skill without `triggers` | Ignored by detector, manual invocation works |
-| Skill with empty `triggers.keywords` | Treated as no triggers |
-| Hook not configured | System works exactly as before (no auto-injection) |
-| Multiple keywords match same skill | Reported once |
-| User types `/skill-name` directly | Skill invoked normally, hook does not interfere |
+| All trigger arrays empty | Treated as no triggers |
+| Hook not configured | System works exactly as before |
+| Multiple trigger types match same skill | First match type reported (keywords > exact > patterns > context) |
+| User types `/skill-name` directly | Hook exits immediately (starts with `/`), skill invoked normally |
+| Invalid regex in `patterns` | Skipped silently, other triggers still evaluated |
 
 ### 5. Scope by Phase
 
 | Phase | Scope | Status |
 |-------|-------|--------|
-| **Phase 1** (this ADR) | Design + prototype 1 skill + detector script | Proposed |
-| Phase 2 | Add triggers to all 9 project skills + 5 global skills | Future |
-| Phase 3 | `/learner` skill for pattern extraction from conversations | Done (PR #1906) |
+| **Phase 1** | Design + prototype 1 skill + detector script | Done (PR #1890) |
+| **Phase 2** | Extended trigger types (exact/patterns/context) + all 9 skills + refactored parser | Done (this update) |
+| Phase 3 | `/learner` pattern extraction from conversations | Done (PR #1906) |
+
+### 6. Skills Coverage (Phase 2)
+
+| Skill | Keywords | Exact | Patterns | Context | Priority |
+|-------|----------|-------|----------|---------|----------|
+| git-sync | 7 | 0 | 0 | 0 | normal |
+| validate | 7 | 4 | 2 | 0 | high |
+| sync-tour | 8 | 1 | 1 | 0 | normal |
+| github-status | 8 | 1 | 1 | 0 | normal |
+| debrief | 7 | 2 | 1 | 0 | normal |
+| executor | 3 | 1 | 0 | 1 | normal |
+| pr-review | 6 | 1 | 1 | 1 | low |
+| memory-inject | 3 | 1 | 1 | 0 | low |
+| redistribute-memory | 7 | 1 | 1 | 0 | low |
 
 ## Consequences
 
 ### Positive
 
 - **Deterministic matching:** Hook-based detection is reliable (no LLM hallucination)
-- **Low cost:** ~1s execution time, no API calls, pure string matching
-- **Backward compatible:** No changes to existing skill format (additive field)
+- **Low cost:** ~5ms execution time, no API calls, pure string matching
+- **Backward compatible:** No changes to existing skill invocation (additive field)
 - **Observable:** Hook output visible in conversation for debugging
-- **Extensible:** Priority field, regex patterns can be added later
+- **4 trigger types:** Covers substring, whole-word, regex, and session-context matching
+- **9/9 skills covered:** All project skills have structured triggers
 
 ### Negative
 
 - **Configuration required:** Hook must be added to settings.json (deployment step)
-- **Keyword maintenance:** Triggers must be kept in sync with skill descriptions
-- **False positives:** Substring matching may trigger on unrelated input (e.g., "pull" in "pull request review")
-- **No LLM understanding:** Cannot detect intent, only keywords. Regex helps but isn't semantic.
+- **Trigger maintenance:** Triggers must be kept in sync with skill descriptions
+- **False positives:** Keywords substring may trigger on unrelated input (e.g., "pull" in "pull request review")
+- **No semantic understanding:** Cannot detect intent. Patterns help but aren't semantic.
 
 ### Mitigations
 
-- **False positives:** Multi-word keywords preferred over single words. `priority: low` for ambiguous triggers.
-- **Deployment:** Script is self-contained, documented in hook config. Can be bundled into `roosync_config(action: "apply")`.
-- **Maintenance:** Triggers live alongside skill content in the same file — natural co-location.
-
-## Alternatives Considered
-
-### A. MCP-based detection (roo-state-manager tool)
-
-Add a `skill_match` tool to roo-state-manager that Claude calls at the start of each turn.
-
-**Rejected:** Adds latency (MCP round-trip), requires Claude to remember to call the tool, couples skill system to MCP server.
-
-### B. Skill frontmatter `auto` field with Claude-native matching
-
-Rely entirely on Claude's built-in skill matching with improved descriptions.
-
-**Rejected:** Unreliable. Claude's matching depends on model capability and context load. We already have "Phrase déclencheuse" in descriptions and it's insufficient.
-
-### C. Regex-only triggers
-
-Use regex patterns instead of keywords.
-
-**Deferred to Phase 2:** Regex is more powerful but harder to maintain. Keywords cover 80% of use cases. Can be added as `triggers.patterns` field later.
+- **False positives:** Multi-word keywords preferred. `priority: low` for ambiguous triggers. `exact` type for precise matching.
+- **Deployment:** Script is self-contained. Can be bundled into `roosync_config(action: "apply")`.
+- **Maintenance:** Triggers live alongside skill content — natural co-location.
 
 ## References
 
@@ -179,5 +191,5 @@ Use regex patterns instead of keywords.
 - Issue #1802 — OMC evaluation (source pattern)
 - Issue #1368 — Claude Code skills analysis
 - [oh-my-claudecode Skills](https://github.com/Yeachan-Heo/oh-my-claudecode#custom-skills)
-- `.claude/skills/` — Existing skill definitions
-- Claude Code hooks documentation — `UserPromptSubmit` hook type
+- `scripts/claude/skill-trigger-detector.ps1` — Detector script
+- `.claude/skills/*/SKILL.md` — Skill definitions with triggers

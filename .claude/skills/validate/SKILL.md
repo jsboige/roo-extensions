@@ -3,11 +3,21 @@ name: validate
 description: Valide que le code compile et que les tests passent pour roo-extensions (roo-state-manager). Utilise ce skill après des modifications de code TypeScript, avant un commit, ou pour diagnostiquer des erreurs de build et de tests. Phrase déclencheur : "valide", "lance les tests", "vérifie le build", "CI local".
 triggers:
   keywords:
+    - "valide"
     - "lance les tests"
     - "vérifie le build"
     - "CI local"
     - "valide le build"
     - "passe les tests"
+    - "vérifie que ça compile"
+  exact:
+    - "build"
+    - "tests"
+    - "vitest"
+    - "tsc"
+  patterns:
+    - "(lance|run|exécute).{0,10}tests?"
+    - "(build|compile).{0,10}(check|verify|valide)"
   priority: high
 metadata:
   author: "Roo Extensions Team"
