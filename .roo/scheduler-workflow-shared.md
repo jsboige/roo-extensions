@@ -170,6 +170,34 @@ attempt_completion(result: "Cycle {role} terminé. Bilan posté dans dashboard w
 
 ---
 
+## VEILLE ACTIVE — Patrouille Lecture Seule (Mandate #1886)
+
+**Contraintes OBLIGATOIRES :**
+
+1. **LECTURE SEULE STRICT** — Aucune modification de fichier, aucun commit, aucun push, aucune création d'issue
+2. **Max 1 patrol/hour** — Si moins d'1h depuis la dernière patrol, PASSER cette étape
+3. **Auto-fix INTERDIT** — Quand un problème est détecté, rapporter via dashboard (`[FRICTION-FOUND]`). NE PAS corriger, NE PAS créer de tâche de correction, NE PAS escalader vers un mode qui corrigerait
+4. **Rapport obligatoire** — Poster `[PATROL]` si OK, `[FRICTION-FOUND]` si problème détecté
+
+**Domaines de patrol :**
+
+| # | Domaine | Méthode |
+|---|---------|---------|
+| 1 | Santé build | `npm run build` (lecture du résultat, pas de fix) |
+| 2 | Config vs réalité | Comparer chemins/outils documentés avec existence réelle |
+| 3 | Dashboard anomalies | Messages `[ERROR]`/`[CRITICAL]` non traités |
+| 4 | Heartbeat machines | Machines silencieuses >6h |
+| 5 | PRs ouvertes | PRs sans activité >7 jours |
+| 6 | Docs vs code | Vérifier que documentation reflète le code actuel |
+
+**Ce que la patrol N'EST PAS :**
+- PAS un nettoyage (parasite cleanup = Etape 2b-idle du executor)
+- PAS une consolidation (consolidation = tâche séparée)
+- PAS un fix (auto-fix INTERDIT)
+- PAS une création de tâche (signaler uniquement)
+
+---
+
 ## SÉCURITÉ COMMUNE
 
 1. Ne JAMAIS commit sans validation
