@@ -1,6 +1,14 @@
 ---
 name: sync-tour
 description: Tour de synchronisation complet multi-canal et multi-étapes. Utilise ce skill quand l'utilisateur demande un "tour de sync", veut "faire le point", ou demande l'état de la coordination. Exécute toutes les phases de synchronisation, validation, et planification.
+triggers:
+  keywords:
+    - "tour de sync"
+    - "faire le point"
+    - "état de la coordination"
+    - "sync tour"
+    - "tour de synchronisation"
+  priority: normal
 metadata:
   author: "Roo Extensions Team"
   version: "2.1.0"

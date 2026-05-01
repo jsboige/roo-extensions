@@ -1,72 +1,77 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.0.0 (harmonized Claude + Roo, #1053, aligned with .claude/rules/)
-**MAJ:** 2026-04-08
+**Version:** 3.3.0 (slim, synced with .claude/rules/pr-mandatory.md)
+**MAJ:** 2026-05-01
 
 ---
 
 ## Regle Absolue
 
-**AUCUN push direct sur `main`.** Tout changement passe par :
+**AUCUN push direct sur `main`.** Tout changement passe par worktree → PR → review → merge.
 
-```
-Worktree branch -> PR -> Review -> Merge -> Cleanup
-```
+## Workflow PR — Claude Code
 
-Pas d'exception. Ni "petits fix", ni "docs only", ni coordinateur. S'applique a **TOUS les agents** (Claude ET Roo).
-
----
-
-## Workflow PR — Claude Code (interactif ou scheduler)
-
-1. **Verifier anti-double-claim :** `gh pr list --state open --search "<issue>" --repo jsboige/roo-extensions`. Si PR existe -> SKIP
+1. **Anti-double-claim :** `gh pr list --state open --search "<issue>"`
 2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
 3. **Travailler :** Commits atomiques, tests passent
-4. **Creer PR :** `gh pr create --title "type(#issue): description"`
-5. **Review :** Coordinateur ou utilisateur approuve
-6. **Merge :** Squash merge
-7. **CLEANUP OBLIGATOIRE :**
+4. **Creer PR :** `gh pr create`
+5. **Review → Merge (squash)**
+6. **Cleanup :** `git worktree remove` + `git branch -D`
 
-   ```bash
-   git worktree remove .claude/worktrees/wt-{desc}
-   git branch -D wt/{desc}
-   ```
+## Workflow PR — Roo
 
-## Workflow PR — Roo Scheduler
-
-Les modes Roo travaillent dans des worktrees. Le workflow depend du type de mode :
-
-- **Roo -complex** (terminal natif) : DOIT `git push` + `gh pr create` depuis le worktree. Meme workflow que Claude.
-- **Roo -simple** (pas de terminal natif, win-cli MCP) : DOIT committer sur la branche worktree, puis le Claude Worker (`start-claude-worker.ps1`) cree la PR automatiquement.
-- **Orchestrateurs** : NE PAS toucher au code. Delegation pure via `new_task`.
-
-**INTERDIT pour TOUS :** `git push origin main`, `git checkout main && git merge wt/...`
-
-**Si le worktree reste sans PR >24h**, le coordinateur le detecte et cree la PR ou ferme le worktree.
+- **-complex** : push + PR depuis le worktree
+- **-simple** : committer sur branche, Claude Worker cree la PR
+- **Orchestrateurs** : NE PAS toucher au code
 
 ## Repertoires PROTEGES
 
-Suppression INTERDITE sans approbation utilisateur :
-
-- `src/services/synthesis/` — Pipeline LLM (3 destructions erronees)
-- `src/services/narrative/` — Stubs = cibles d'IMPLEMENTATION, PAS code mort
+- `src/services/synthesis/` — Pipeline LLM
+- `src/services/narrative/` — Stubs = cibles d'IMPLEMENTATION
 
 ## Review Checklist
 
-- [ ] **Anti-double-claim** : Aucune PR ouverte ne couvre deja cette issue
-- [ ] Pas de suppression sans justification + remplacement PROUVE
-- [ ] Pas de suppression dans repertoires PROTEGES
-- [ ] Tests preserves, pas de nouveaux stubs (`return null`, `TODO`)
-- [ ] Pas de console.log dans code nouveau
-- [ ] Build + tests passent (CI vert)
-- [ ] Un plan d'agent n'est PAS une autorisation de suppression
+- Anti-double-claim OK
+- Pas de suppression sans preuve
+- Pas de suppression dans PROTEGES
+- Tests preserves, pas de stubs
+- Pas de console.log
+- Build + tests passent
+- Submod pointer reachable depuis origin/main
+
+## Anti Pointer-Bump Premature (#1799, post cycle 22ter cascade CI)
+
+**Risque :** Creer un pointer-bump parent avant que la PR submod source soit mergee → SHA orphelin, `check-submodule-pointer` CI fail systematique.
+
+**Regle :** Un pointer-bump parent ne doit etre cree QU'APRES merge de la PR submod source.
+
+**Workflow correct :**
+1. Worker cree PR submod (ex: `mcps/internal` PR #234)
+2. Attendre merge submod (`gh pr view 234 --json state` = MERGED)
+3. Recuperer SHA mergee : `git -C mcps/internal rev-parse origin/main`
+4. ALORS creer bump parent avec ce SHA
+
+**Anti-pattern observe cycle 22ter :** PRs #1788, #1793, #1795, #1796 toutes en CI fail car pointers cibaient des SHAs non mergees. Resolu via re-creation post-merge.
+
+**Alternative coordinateur :** Bundle pointer-bump (pattern #1764, #1801) — 1 PR parent groupant plusieurs merges submod = moins de PRs, moins de race conditions.
+
+## Detached HEAD Guard (#1666 Phase A2)
+
+**Risque :** Un commit sur detached HEAD est orphelin — perdu au cleanup worktree.
+
+**Prevention :**
+1. Avant commit : `git symbolic-ref -q HEAD` — si echec, NE PAS committer
+2. Si detached : `git checkout -b worker/recovery-YYYYMMDD-HHmmss` puis commit
+3. Apres commit : verifier `git symbolic-ref -q HEAD` passe
+
+**Automatique :** `start-claude-worker.ps1` implemente ce guard (ligne 1903). En cas de recovery, le nom de branche est rapporte dans le [RESULT].
+
+**Claude Code :** Verifier `git branch --show-current` avant chaque commit dans un worktree. Si resultat vide ou "(HEAD detached", creer une branche de recovery.
 
 ## Pas de PR necessaire pour
 
-- MEMORY.md, INTERCOM (deprecated), dashboards (coordination)
-- `.claude/rules/`, `.roo/rules/` (harnais)
-- Fichiers gitignored
+MEMORY.md, INTERCOM, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitignored
 
 ---
 
-**Historique versions completes :** Git history avant 2026-04-05
+**Trivial auto-merge policy (#1582) :** [`docs/harness/reference/pr-trivial-merge-policy.md`](docs/harness/reference/pr-trivial-merge-policy.md)
