@@ -128,7 +128,7 @@ If no match: no output (hook returns exit code 0 silently).
 |-------|-------|--------|
 | **Phase 1** (this ADR) | Design + prototype 1 skill + detector script | Proposed |
 | Phase 2 | Add triggers to all 9 project skills + 5 global skills | Future |
-| Phase 3 | Regex patterns, TF-IDF scoring, `/learner` pattern extraction | Future |
+| Phase 3 | `/learner` skill for pattern extraction from conversations | Done (PR #1906) |
 
 ## Consequences
 
