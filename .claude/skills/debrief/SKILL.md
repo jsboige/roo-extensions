@@ -4,10 +4,17 @@ description: Analyse et documente la session courante avec triple grounding SDDD
 triggers:
   keywords:
     - "débrief"
+    - "debrief"
     - "fin de session"
     - "documente la session"
     - "documente ce qu'on a fait"
     - "bilan de session"
+    - "bilan session"
+  exact:
+    - "wrap-up"
+    - "retrospective"
+  patterns:
+    - "(fin|termine|cloture).{0,15}(session|travail)"
   priority: normal
 metadata:
   author: "Roo Extensions Team"

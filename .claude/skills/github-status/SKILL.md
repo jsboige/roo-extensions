@@ -5,9 +5,17 @@ triggers:
   keywords:
     - "github status"
     - "état du projet"
+    - "issues ouvertes"
     - "progression project"
+    - "progression"
+    - "avancement global"
+    - "project #67"
     - "project 67"
-  priority: low
+  exact:
+    - "gh"
+  patterns:
+    - "(progression|avancement).{0,10}(project|projet|#67)"
+  priority: normal
 metadata:
   author: "Roo Extensions Team"
   version: "2.0.0"

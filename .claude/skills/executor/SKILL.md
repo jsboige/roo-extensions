@@ -6,6 +6,10 @@ triggers:
     - "lance executor"
     - "mode executor"
     - "session executor"
+  exact:
+    - "executor"
+  context:
+    - "executor"
   priority: normal
 metadata:
   author: "Roo Extensions Team"
