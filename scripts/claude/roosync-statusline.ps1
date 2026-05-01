@@ -17,7 +17,7 @@ formatted status text to stdout.
 Output detail level: minimal, normal (default), verbose
 
 .EXAMPLE
-echo '{"model":"glm-5.1","cwd":"c:/dev/roo-extensions"}' | powershell -File roosync-statusline.ps1 -Preset normal
+echo '{"model":"glm-5.1","cwd":"c:/dev/roo-extensions"}' | pwsh -File roosync-statusline.ps1 -Preset normal
 #>
 
 param(
@@ -26,6 +26,9 @@ param(
 )
 
 $ErrorActionPreference = 'SilentlyContinue'
+
+# Known machines in the cluster
+$knownMachines = @('myia-ai-01', 'myia-po-2023', 'myia-po-2024', 'myia-po-2025', 'myia-po-2026', 'myia-web1')
 
 # --- Resolve shared state path ---
 $sharedPath = $env:ROOSYNC_SHARED_PATH
@@ -41,7 +44,6 @@ if (-not (Test-Path $sharedPath)) {
 }
 
 # --- Parse stdin JSON for session context ---
-$sessionId = ''
 $model = ''
 $cwd = ''
 $branch = ''
@@ -68,20 +70,15 @@ $presenceDir = Join-Path $sharedPath 'presence'
 $onlineCount = 0
 $offlineCount = 0
 $warningCount = 0
-$totalCount = 0
 $offlineMachines = @()
 
-if (Test-Path $presenceDir) {
-    $pFiles = Get-ChildItem $presenceDir -Filter 'myia-*.json' -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -match '^myia-[a-z0-9-]+\.json$' }
-    $totalCount = @($pFiles).Count
-
-    foreach ($f in $pFiles) {
+foreach ($machineId in $knownMachines) {
+    $pFile = Join-Path $presenceDir "$machineId.json"
+    if (Test-Path $pFile) {
         try {
-            $raw = [System.IO.File]::ReadAllText($f.FullName, [System.Text.UTF8Encoding]::new($false))
+            $raw = [System.IO.File]::ReadAllText($pFile, [System.Text.UTF8Encoding]::new($false))
             $p = $raw | ConvertFrom-Json
 
-            # Consider stale (>30min) as warning
             $lastSeen = [DateTime]::MinValue
             if ($p.lastSeen) {
                 [DateTime]::TryParse($p.lastSeen, [ref]$lastSeen) | Out-Null
@@ -91,7 +88,7 @@ if (Test-Path $presenceDir) {
             } else { 999 }
 
             switch ($p.status) {
-                'offline'  { $offlineCount++; $offlineMachines += $p.id }
+                'offline'  { $offlineCount++; $offlineMachines += $machineId }
                 'warning'  { $warningCount++ }
                 default {
                     if ($staleMinutes -gt 30) {
@@ -102,38 +99,20 @@ if (Test-Path $presenceDir) {
                 }
             }
         } catch {
-            $offlineCount++
+            $offlineCount++; $offlineMachines += $machineId
         }
+    } else {
+        $offlineCount++; $offlineMachines += $machineId
     }
 }
 
-# Fallback to heartbeats/ if presence/ has no data
-if ($totalCount -eq 0) {
-    $heartbeatsDir = Join-Path $sharedPath 'heartbeats'
-    if (Test-Path $heartbeatsDir) {
-        $hbFiles = Get-ChildItem $heartbeatsDir -Filter 'myia-*.json' -ErrorAction SilentlyContinue
-        $totalCount = @($hbFiles).Count
-
-        foreach ($f in $hbFiles) {
-            try {
-                $hb = Get-Content $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
-                switch ($hb.status) {
-                    'offline'  { $offlineCount++; $offlineMachines += $hb.machineId }
-                    'warning'  { $warningCount++ }
-                    default    { $onlineCount++ }
-                }
-            } catch {
-                $offlineCount++
-            }
-        }
-    }
-    if ($totalCount -eq 0) { $totalCount = 6 }
-}
+$totalCount = $knownMachines.Count
 
 # --- Parse workspace dashboard for claims and stages ---
 $claimsCount = 0
 $claimsList = @()
 $activeStage = ''
+$inboxUrgent = 0
 
 $dashboardsDir = Join-Path $sharedPath 'dashboards'
 $wsDashboard = Get-ChildItem $dashboardsDir -Filter 'workspace-roo-extensions.md' -ErrorAction SilentlyContinue |
@@ -143,8 +122,12 @@ if ($wsDashboard) {
     try {
         $wsContent = [System.IO.File]::ReadAllText($wsDashboard.FullName, [System.Text.UTF8Encoding]::new($false))
 
-        # Extract active claims: patterns like "CLAIMED" or "[CLAIMED]" followed by issue numbers
-        $claimMatches = [regex]::Matches($wsContent, '\[#?(\d+)\][^\n]*CLAIMED|CLAIMED[^\n]*\[#?(\d+)\]|#(\d+)[^\n]*CLAIMED')
+        # Extract active claims from intercom messages (last 50KB for performance)
+        $recentContent = if ($wsContent.Length -gt 51200) {
+            $wsContent.Substring($wsContent.Length - 51200)
+        } else { $wsContent }
+
+        $claimMatches = [regex]::Matches($recentContent, '\[#?(\d+)\][^\n]*CLAIMED|CLAIMED[^\n]*\[#?(\d+)\]|#(\d+)[^\n]*CLAIMED')
         $claimIssues = @{}
         foreach ($m in $claimMatches) {
             foreach ($g in $m.Groups) {
@@ -156,17 +139,21 @@ if ($wsDashboard) {
         $claimsCount = $claimIssues.Count
         $claimsList = $claimIssues.Keys | Sort-Object
 
-        # Extract active team stage from "En cours" section
-        if ($wsContent -match '### En cours\s*\n((?:-.*\n?)+)') {
-            $enCours = $Matches[1]
-            if ($enCours -match '#(\d+).*Phase\s+([A-Z0-9]+)') {
-                $activeStage = "Phase $($Matches[2])"
-            } elseif ($enCours -match 'team-(\w+)') {
-                $activeStage = "team-$($Matches[1])"
-            } elseif ($enCours -match '#(\d+)') {
-                $activeStage = "#$($Matches[1])"
+        # Extract active team stage from recent [PROGRESS] or [CLAIMED] messages
+        $progressMatches = [regex]::Matches($recentContent, '\[PROGRESS\][^\n]*team-(\w+)')
+        if ($progressMatches.Count -gt 0) {
+            $activeStage = "team-$($progressMatches[$progressMatches.Count - 1].Groups[1].Value)"
+        } else {
+            # Fallback: extract issue number from [CLAIMED]
+            $claimedMatch = [regex]::Match($recentContent, '\[CLAIMED\][^\n]*#(\d+)')
+            if ($claimedMatch.Success) {
+                $activeStage = "#$($claimedMatch.Groups[1].Value)"
             }
         }
+
+        # Count urgent inbox messages
+        $inboxUrgent = ([regex]::Matches($recentContent, '\[URGENT\]')).Count
+
     } catch {
         # Dashboard parsing is optional
     }
@@ -174,41 +161,44 @@ if ($wsDashboard) {
 
 # --- Determine overall status ---
 $status = 'OK'
-if ($offlineCount -gt 0) {
+if ($offlineCount -gt 2) {
     $status = 'CRIT'
-} elseif ($warningCount -gt 0) {
+} elseif ($offlineCount -gt 0) {
     $status = 'WARN'
+} elseif ($warningCount -gt 0) {
+    $status = 'DEGRADED'
 }
 
 # --- Build output ---
 switch ($Preset) {
     'minimal' {
-        # Stage + machines
         $stagePart = if ($activeStage) { " $activeStage" } else { '' }
-        Write-Output "$status$stagePart $onlineCount/$totalCount"
+        Write-Output "$status $onlineCount/$totalCount$stagePart"
     }
 
     'normal' {
-        $parts = @("$status $onlineCount/$totalCount")
+        $parts = @("$onlineCount/$totalCount")
 
-        # Active claims
         if ($claimsCount -gt 0) {
-            $parts += "${claimsCount} claim$(if ($claimsCount -gt 1) { 's' })"
+            $parts += "${claimsCount}clm"
         }
 
-        # Active stage
         if ($activeStage) {
             $parts += $activeStage
         }
 
-        # Branch info
-        if ($branch) {
-            $shortBranch = if ($branch.Length -gt 25) {
-                $branch.Substring(0, 22) + '...'
+        if ($branch -and $branch -ne 'main') {
+            $shortBranch = if ($branch.Length -gt 20) {
+                $branch.Substring(0, 17) + '...'
             } else {
                 $branch
             }
             $parts += $shortBranch
+        }
+
+        # Urgent flag
+        if ($inboxUrgent -gt 0) {
+            $parts += "U=$inboxUrgent"
         }
 
         Write-Output ($parts -join ' | ')
@@ -218,7 +208,8 @@ switch ($Preset) {
         $parts = @("$status $onlineCount/$totalCount machines")
 
         if ($offlineMachines.Count -gt 0) {
-            $parts += "OFFLINE: $($offlineMachines -join ', ')"
+            $shortNames = $offlineMachines | ForEach-Object { ($_ -split '-')[1..2] -join '-' }
+            $parts += "OFF: $($shortNames -join ',')"
         }
 
         if ($claimsCount -gt 0) {
@@ -229,16 +220,16 @@ switch ($Preset) {
             $parts += "Stage: $activeStage"
         }
 
-        # Dashboard count
+        # Dashboard count (last 24h)
         $cutoff = (Get-Date).AddHours(-24)
         $dashFiles = Get-ChildItem $dashboardsDir -Filter '*.md' -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -match '^machine-|^global|^workspace' -and $_.LastWriteTime -gt $cutoff }
-        $parts += "$(@($dashFiles).Count) dashboards"
+        $parts += "$(@($dashFiles).Count) dash"
 
         if ($branch) { $parts += $branch }
 
         if ($model) {
-            $shortModel = $model -replace '.*glm-', 'g' -replace '.*claude-', 'c'
+            $shortModel = $model -replace '.*glm-', 'glm' -replace '.*claude-', 'cl'
             $parts += $shortModel
         }
 
