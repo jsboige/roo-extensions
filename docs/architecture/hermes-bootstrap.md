@@ -2,9 +2,9 @@
 
 **Issue:** #1862
 **EPIC:** #1864 (Cycle 26 — Cluster Expansion)
-**Status:** Proposed (Phase 1 — Design)
-**Author:** myia-po-2024
-**Date:** 2026-04-30
+**Status:** Phase 2 Complete (Bootstrap + Demo)
+**Author:** myia-po-2024 (Phase 1), myia-po-2026 (Phase 2)
+**Date:** 2026-04-30 (Phase 1), 2026-05-01 (Phase 2)
 
 ---
 
@@ -237,46 +237,82 @@ Hermes uses the **global dashboard** as its primary communication channel:
 
 ## 3. Implementation Phases
 
-### Phase 1 (Design — this document)
+### Phase 1 (Design — MERGED via PR #1869)
 
 - [x] Define Hermes identity and differentiation
 - [x] Define interaction protocol with existing cluster
 - [x] Define workspace bootstrap plan
 - [x] Define dashboard integration strategy
-- [x] Cross-workspace technical validation (po-2025, 2026-05-01)
-- [x] Workspace templates created (`docs/hermes/templates/`)
-- [x] Deployment guide created (`docs/hermes/DEPLOY.md`)
-- [ ] Get coordinator/user approval
-- [ ] Select host machine (recommendation: po-2026 for prod, po-2025 for demo)
+- [x] Get coordinator/user approval
+- [x] Select host machine: **po-2026** (confirmed)
 
-### Phase 2 (Bootstrap — follow-up)
+### Phase 2 (Bootstrap — DONE 2026-05-01 by myia-po-2026)
 
-- [ ] Create workspace directory on host machine
-- [x] Write Hermes CLAUDE.md and rules (templates in `docs/hermes/templates/`)
-- [x] Create `cluster-monitor` and `task-router` agents (templates ready)
-- [x] Create `/cluster-tour` command (template ready)
-- [x] Test: read global dashboard + all workspace dashboards (validated 2026-05-01)
-- [ ] Test: post routing decision on global dashboard (ready for demo)
+- [x] Create workspace directory on host machine (`C:\dev\hermes\`)
+- [x] Write Hermes CLAUDE.md and rules (routing-rules.md, hand-off-protocol.md)
+- [x] Create `cluster-monitor` and `task-router` agents
+- [x] Create `/cluster-tour` command
+- [x] Test: read global dashboard + all workspace dashboards (32 dashboards found)
+- [x] Test: post routing decision on global dashboard
 
-### Phase 3 (Demo)
+**Workspace structure (commit `f2003d0`):**
 
-- [ ] Demo scenario: post task on `roo-extensions` workspace → Hermes routes → target workspace picks up
-- [ ] Demo scenario: cluster health report generated automatically
-- [ ] Measure: routing latency, hand-off completion rate
-- [ ] Document lessons learned
+```text
+C:\dev\hermes\
+├── .claude/
+│   ├── CLAUDE.md              # Hermes identity + scope
+│   ├── rules/
+│   │   ├── routing-rules.md   # Keyword-based routing heuristics
+│   │   └── hand-off-protocol.md  # Cross-workspace tracking lifecycle
+│   ├── agents/
+│   │   ├── task-router.md     # Route tasks to workspaces
+│   │   └── cluster-monitor.md # Health audit agent
+│   └── commands/
+│       └── cluster-tour.md    # Cluster health check command
+├── scripts/
+│   └── router.py              # Routing prototype (Python)
+├── docs/architecture/
+├── README.md
+└── .gitignore
+```
 
-### Cross-Workspace Validation (2026-05-01, po-2025)
+### Phase 2.5 (Demo — DONE 2026-05-01)
 
-All Hermes operations tested from roo-extensions workspace on myia-po-2025:
+- [x] Demo scenario: post task on `roo-extensions` workspace → Hermes routes → target workspace picks up
+- [x] Measure: routing latency (~10 seconds)
+- [x] Document lessons learned
 
-| Operation | Result |
-| ---------- | ---------- |
-| `roosync_dashboard(action: "list")` | 30 dashboards found (8 active workspaces + 6 machines + global) |
-| `roosync_dashboard(action: "read", type: "global")` | OK — global dashboard at 0.4% (empty, ready for Hermes) |
-| `roosync_dashboard(action: "read", type: "workspace", workspace: "nanoclaw")` | OK — 89.7% util, 24 msgs |
-| `roosync_dashboard(action: "read", type: "workspace", workspace: "CoursIA")` | OK — 78.6% util, 27 msgs |
+#### Demo Evidence
 
-**Conclusion:** No new MCP tools needed. All cross-workspace read operations work from any workspace.
+**Scenario:** A `[TASK-ROUTE]` message was posted on the global dashboard requesting a fix for `dashboard.test.ts` failing tests. The Python router script processed it.
+
+**Timeline:**
+
+1. `11:03:31Z` — `[TASK-ROUTE]` posted on global dashboard by `myia-po-2026:roo-extensions`
+2. `11:03:41Z` — `[ROUTED]` posted on global dashboard by `hermes|hermes` (10s latency)
+3. `11:03:41Z` — `[DELEGATED]` posted on `workspace-roo-extensions` dashboard
+
+**Routing result:**
+
+- Target: `workspace-roo-extensions` (correct)
+- Reason: `keyword(6 matches)` — code, build, test, vitest, fix, bug
+- Confidence: 100%
+
+**Limitations observed:**
+
+- Message ID extraction from MCP-generated messages is fragile (regex-based)
+- Source workspace extraction not implemented (falls back to "unknown")
+- No deduplication — running the router twice would create duplicate `[ROUTED]` messages
+- Router operates on raw GDrive files, not through MCP — bypasses locking/condensation
+
+### Phase 3 (Next Steps — Future)
+
+- [ ] Cluster health report demo (`cluster-monitor` agent)
+- [ ] Add deduplication to router (check for existing [ROUTED] responses)
+- [ ] Add source workspace extraction from message metadata
+- [ ] Scheduler integration (automated routing every 30min)
+- [ ] ML-based routing via `codebase_search` embeddings
+- [ ] Remote git repository for hermes workspace
 
 ---
 
