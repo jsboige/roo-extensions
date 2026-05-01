@@ -38,7 +38,7 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 ### Commande
 
 ```powershell
-.\scripts\worktrees\cleanup-orphan-worktrees.ps1 [-WhatIf] [-StaleDays 30]
+.\scripts\maintenance\cleanup-orphan-worktrees.ps1 [-WhatIf] [-StaleDays 30]
 ```
 
 ### Paramètres
@@ -103,7 +103,7 @@ Max worktrees: 2
 
 ```powershell
 # Exécuté automatiquement à chaque cycle scheduler
-.\scripts\worktrees\cleanup-orphan-worktrees.ps1 -StaleDays 30
+.\scripts\maintenance\cleanup-orphan-worktrees.ps1 -StaleDays 30
 ```
 
 ---
@@ -120,7 +120,7 @@ Le cleanup est intégré à l'Étape 2c-idle du workflow executor :
 **Exécuter le cleanup automatique :**
 
 ```
-execute_command(shell="powershell", command=".\\scripts\\worktrees\\cleanup-orphan-worktrees.ps1 -StaleDays 30 2>&1 | Select-Object -Last 30")
+execute_command(shell="powershell", command=".\\scripts\\maintenance\\cleanup-orphan-worktrees.ps1 -StaleDays 30 2>&1 | Select-Object -Last 30")
 ```
 
 **Rapporter dans le bilan :** `Worktrees: {N} actifs, {M} orphelins supprimés, {K} branches stales supprimées`
