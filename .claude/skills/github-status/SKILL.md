@@ -11,6 +11,8 @@ triggers:
     - "avancement global"
     - "project #67"
     - "project 67"
+    - "gh cli"
+    - "github project"
   exact:
     - "gh"
   patterns:
