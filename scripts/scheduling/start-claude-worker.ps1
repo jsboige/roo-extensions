@@ -1592,17 +1592,48 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
-    try {
-        $prevPref = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
-        $ErrorActionPreference = $prevPref
-        $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
-        Write-Log "Worktree supprimé"
+    # #1913 Fix E: retry with backoff for Windows file-lock issues
+    $MaxRetries = 3
+    $RetryDelaySec = 5
+    $Removed = $false
+
+    for ($Attempt = 1; $Attempt -le $MaxRetries; $Attempt++) {
+        try {
+            $prevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+            $ErrorActionPreference = $prevPref
+            $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
+            if (Test-Path $WorktreePath) {
+                # Git removed metadata but FS dir survived (Windows file lock)
+                if ($Attempt -lt $MaxRetries) {
+                    Write-Log "Worktree dir still exists (attempt $Attempt/$MaxRetries), retrying in ${RetryDelaySec}s..." "WARN"
+                    Start-Sleep -Seconds $RetryDelaySec
+                    continue
+                }
+            } else {
+                Write-Log "Worktree supprimé"
+                $Removed = $true
+                break
+            }
+        }
+        catch {
+            $ErrorActionPreference = $prevPref
+            if ($Attempt -lt $MaxRetries) {
+                Write-Log "Remove attempt $Attempt failed: $_ — retrying in ${RetryDelaySec}s..." "WARN"
+                Start-Sleep -Seconds $RetryDelaySec
+            } else {
+                Write-Log "Erreur suppression worktree (all retries exhausted): $_" "WARN"
+            }
+        }
     }
-    catch {
-        $ErrorActionPreference = $prevPref
-        Write-Log "Erreur suppression worktree: $_" "WARN"
+
+    # Fallback: prune stale worktree metadata if FS removal failed
+    if (-not $Removed -and -not (Test-Path $WorktreePath -PathType Container)) {
+        # Directory gone but metadata may be stale
+        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+        Write-Log "Pruned stale worktree metadata after failed removal" "WARN"
     }
 }
 
@@ -1854,6 +1885,22 @@ function Test-WorktreeHasChanges {
         $ResetPaths = Reset-PhantomSubmodulePointers -WorktreePath $WorktreePath
         if ($ResetPaths.Count -gt 0) {
             Write-Log "Reverted $($ResetPaths.Count) phantom submodule pointer(s) before auto-commit: $($ResetPaths -join ', ')" "INFO"
+        }
+
+        # Guard #1913: Staleness check — refuse auto-commit if branch is far behind origin/main.
+        # Prevents regression like b3a785e9 where worker auto-committed on obsolete branch.
+        try {
+            git fetch origin main 2>&1 | Out-Null
+            $BehindCount = (git -C $WorktreePath rev-list HEAD..origin/main --count 2>&1).Trim()
+            if ($BehindCount -match '^\d+$' -and [int]$BehindCount -gt 50) {
+                Write-Log "REFUSED auto-commit: branch is $BehindCount commits behind origin/main — manual rebase required (#1913)" "ERROR"
+                Pop-Location
+                $ErrorActionPreference = $prevPref
+                return $false
+            }
+        }
+        catch {
+            Write-Log "Staleness check failed (non-fatal): $_" "WARN"
         }
 
         # Auto-commit any uncommitted changes left by Claude
@@ -2870,6 +2917,22 @@ $null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
 })
 
 try {
+    # ==========================================================================
+    # Pre-flight: Defensive cleanup of orphan worktrees from crashed runs (#1913 D)
+    # Runs silently — if the cleanup script is missing, we skip without error.
+    # ==========================================================================
+    try {
+        $CleanupScript = Join-Path $PSScriptRoot '..\maintenance\cleanup-orphan-worktrees.ps1'
+        if (Test-Path $CleanupScript) {
+            Write-Log "Running defensive worktree cleanup (orphans > 2 days)..." "INFO"
+            $CleanupOutput = & $CleanupScript -Execute -DaysThreshold 2 2>&1
+            $CleanupOutput | Select-Object -Last 5 | ForEach-Object { Write-Log "$_" "INFO" }
+        }
+    }
+    catch {
+        Write-Log "Defensive cleanup failed (non-fatal): $_" "WARN"
+    }
+
     # ==========================================================================
     # Watchdog check helper — call between phases to trigger graceful exit
     # ==========================================================================
