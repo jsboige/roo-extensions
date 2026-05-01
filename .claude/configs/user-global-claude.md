@@ -45,6 +45,16 @@ If an automatic mechanism handles the concern elsewhere (auto-condensation, retr
 
 ---
 
+## PR Review & Merge — Body Mandatory
+
+**Toujours lire le corps complet de la PR avant de reviewer OU merger.** Diff + titre seuls = insuffisants. Échecs récurrents observés : merges qui ignorent REQUEST CHANGES, reviews qui répètent un point déjà soulevé par un précédent reviewer.
+
+- **Avant review :** `gh pr view N --json body,reviews,comments` — verifier qu'aucun reviewer n'a deja souleve le point que tu vas mentionner. Pas de redite.
+- **Avant merge :** verifier `reviews[].state == "CHANGES_REQUESTED"` ET comments inline non-resolus. Si demandes non-adressees → NE PAS merger.
+- **Le titre n'est pas la PR.** Le body decrit le scope, les decisions, les caveats, les test results. Sauter = merger a l'aveugle.
+
+---
+
 ## Tool Discipline
 
 - **Read before Edit** — Edit fails without prior Read. Always.

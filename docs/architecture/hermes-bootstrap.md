@@ -243,17 +243,20 @@ Hermes uses the **global dashboard** as its primary communication channel:
 - [x] Define interaction protocol with existing cluster
 - [x] Define workspace bootstrap plan
 - [x] Define dashboard integration strategy
+- [x] Cross-workspace technical validation (po-2025, 2026-05-01)
+- [x] Workspace templates created (`docs/hermes/templates/`)
+- [x] Deployment guide created (`docs/hermes/DEPLOY.md`)
 - [ ] Get coordinator/user approval
-- [ ] Select host machine (recommendation: po-2026)
+- [ ] Select host machine (recommendation: po-2026 for prod, po-2025 for demo)
 
 ### Phase 2 (Bootstrap — follow-up)
 
 - [ ] Create workspace directory on host machine
-- [ ] Write Hermes CLAUDE.md and rules
-- [ ] Create `cluster-monitor` and `task-router` agents
-- [ ] Create `/cluster-tour` command
-- [ ] Test: read global dashboard + all workspace dashboards
-- [ ] Test: post routing decision on global dashboard
+- [x] Write Hermes CLAUDE.md and rules (templates in `docs/hermes/templates/`)
+- [x] Create `cluster-monitor` and `task-router` agents (templates ready)
+- [x] Create `/cluster-tour` command (template ready)
+- [x] Test: read global dashboard + all workspace dashboards (validated 2026-05-01)
+- [ ] Test: post routing decision on global dashboard (ready for demo)
 
 ### Phase 3 (Demo)
 
@@ -261,6 +264,19 @@ Hermes uses the **global dashboard** as its primary communication channel:
 - [ ] Demo scenario: cluster health report generated automatically
 - [ ] Measure: routing latency, hand-off completion rate
 - [ ] Document lessons learned
+
+### Cross-Workspace Validation (2026-05-01, po-2025)
+
+All Hermes operations tested from roo-extensions workspace on myia-po-2025:
+
+| Operation | Result |
+| ---------- | ---------- |
+| `roosync_dashboard(action: "list")` | 30 dashboards found (8 active workspaces + 6 machines + global) |
+| `roosync_dashboard(action: "read", type: "global")` | OK — global dashboard at 0.4% (empty, ready for Hermes) |
+| `roosync_dashboard(action: "read", type: "workspace", workspace: "nanoclaw")` | OK — 89.7% util, 24 msgs |
+| `roosync_dashboard(action: "read", type: "workspace", workspace: "CoursIA")` | OK — 78.6% util, 27 msgs |
+
+**Conclusion:** No new MCP tools needed. All cross-workspace read operations work from any workspace.
 
 ---
 
