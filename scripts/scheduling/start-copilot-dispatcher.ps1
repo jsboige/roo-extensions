@@ -50,32 +50,41 @@ function Write-Log {
     Add-Content -Path $logFile -Value $line
 }
 
+function Get-DefaultState {
+    return @{
+        consecutiveBlocked = 0
+        consecutiveIdle = 0
+        lastStatus = "none"
+        lastEscalation = "none"
+        lastEscalationAt = ""
+        escalationWindowStart = ""
+        escalationsInWindow = 0
+    }
+}
+
+function ConvertTo-Hashtable {
+    param([Parameter(ValueFromPipeline)]$InputObject)
+    if ($null -eq $InputObject) { return @{} }
+    if ($InputObject -is [System.Collections.IDictionary]) { return $InputObject }
+    $ht = @{}
+    $InputObject.PSObject.Properties | ForEach-Object { $ht[$_.Name] = $_.Value }
+    return $ht
+}
+
 function Load-State {
     if (-not (Test-Path $stateFile)) {
-        return @{
-            consecutiveBlocked = 0
-            consecutiveIdle = 0
-            lastStatus = "none"
-            lastEscalation = "none"
-            lastEscalationAt = ""
-            escalationWindowStart = ""
-            escalationsInWindow = 0
-        }
+        return Get-DefaultState
     }
 
     try {
-        return (Get-Content -Path $stateFile -Raw | ConvertFrom-Json -AsHashtable)
+        $json = Get-Content -Path $stateFile -Raw | ConvertFrom-Json
+        # PS 5.1 returns PSCustomObject; PS 7+ with -AsHashtable returns hashtable.
+        # Normalize to hashtable for consistent property access.
+        if ($json -is [System.Collections.IDictionary]) { return $json }
+        return ($json | ConvertTo-Hashtable)
     } catch {
         Write-Log "State file unreadable, resetting: $stateFile"
-        return @{
-            consecutiveBlocked = 0
-            consecutiveIdle = 0
-            lastStatus = "none"
-            lastEscalation = "none"
-            lastEscalationAt = ""
-            escalationWindowStart = ""
-            escalationsInWindow = 0
-        }
+        return Get-DefaultState
     }
 }
 
