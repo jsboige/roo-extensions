@@ -1,6 +1,16 @@
 ---
 name: memory-inject
-description: Auto-inject relevant MEMORY.md lessons at task start based on task type. Utilise ce skill automatiquement au début de chaque tâche significative pour prévenir les erreurs récurrentes. Pattern validé par l'analyse Reddit 3-agent (#1369).
+description: Auto-inject relevant MEMORY.md lessons at task start based on task type. Utilise ce skill automatiquement au début de chaque tâche significative pour prévenir les erreurs récurrentes.
+triggers:
+  keywords:
+    - "inject mémoire"
+    - "memoire inject"
+    - "rappelle les leçons"
+  exact:
+    - "memory"
+  patterns:
+    - "(inject|load|charge).{0,10}(memory|memoire|lecons)"
+  priority: low
 metadata:
   author: "Roo Extensions Team"
   version: "1.0.0"

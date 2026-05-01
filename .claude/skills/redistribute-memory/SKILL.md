@@ -4,10 +4,17 @@ description: Audite et redistribue les connaissances, règles et mémoires entre
 triggers:
   keywords:
     - "redistribue mémoire"
+    - "redistribue la mémoire"
+    - "redistribue la memoire"
     - "audite les règles"
     - "nettoie CLAUDE.md"
     - "redistribute memory"
-  priority: normal
+    - "CLAUDE.md saturé"
+  exact:
+    - "redistribute"
+  patterns:
+    - "(redistribu|audit|nettoye?).{0,15}(memoire|regles|rules|CLAUDE)"
+  priority: low
 metadata:
   author: "Roo Extensions Team"
   version: "2.0.0"

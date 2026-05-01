@@ -97,7 +97,9 @@ function Install-Task {
         -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
         -RepetitionDuration (New-TimeSpan -Days 365)
 
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $taskCli -WorkingDirectory $repoRoot
+    # Use pwsh.exe (PS7) for ConvertFrom-Json hashtable support and modern syntax
+    $psExe = if (Get-Command pwsh.exe -ErrorAction SilentlyContinue) { "pwsh.exe" } else { "powershell.exe" }
+    $action = New-ScheduledTaskAction -Execute $psExe -Argument $taskCli -WorkingDirectory $repoRoot
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
@@ -128,7 +130,8 @@ function Remove-Task {
 
 function Test-Task {
     Write-Host "Running dispatcher in dry-run mode..." -ForegroundColor Cyan
-    & powershell -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
+    $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
+    & $psExe -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
 }
 
 switch ($Action) {
