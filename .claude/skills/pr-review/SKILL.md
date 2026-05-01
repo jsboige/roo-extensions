@@ -7,6 +7,14 @@ triggers:
     - "idle review"
     - "révise les PRs"
     - "review les pull requests"
+    - "reviser les PRs"
+    - "code review"
+  exact:
+    - "review"
+  patterns:
+    - "(review|revis).{0,10}(PR|pull.?request)"
+  context:
+    - "idle"
   priority: low
 metadata:
   author: "Roo Extensions Team"

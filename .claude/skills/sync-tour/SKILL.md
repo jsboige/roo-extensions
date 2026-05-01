@@ -8,6 +8,15 @@ triggers:
     - "état de la coordination"
     - "sync tour"
     - "tour de synchronisation"
+    - "sync complet"
+    - "bilan"
+    - "état des machines"
+    - "synchronisation"
+    - "coordination"
+  exact:
+    - "sync"
+  patterns:
+    - "(tour|round).{0,10}(sync|synchronis)"
   priority: normal
 metadata:
   author: "Roo Extensions Team"
