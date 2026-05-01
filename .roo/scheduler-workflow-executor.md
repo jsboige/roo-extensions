@@ -223,9 +223,39 @@ execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-exten
 
 Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
 
-### 2c-idle : Veille Active ou Consolidation
+### 2b-patrol : Veille Active — Patrouille Lecture Seule (MANDATORY si >1h depuis dernière)
 
-> **Priorité** : Parasite cleanup si détecté, puis Consolidation si disponible, sinon Veille Active.
+> **Mandate #1886** : Patrouille lecture seule AVANT toute action de consolidation. Contraintes dans `.roo/scheduler-workflow-shared.md` section "VEILLE ACTIVE".
+
+**DÉLÉGUER** a `code-simple` via `new_task` :
+
+```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
+
+VEILLE ACTIVE — LECTURE SEULE STRICT. Auto-fix INTERDIT.
+
+1. roosync_dashboard(action: "read", type: "workspace") — chercher dernier [PATROL] ou [FRICTION-FOUND]
+   Si dernier patrol < 1h → RAPPORTER "SKIP: patrol < 1h" et TERMINER cette sous-tâche
+2. Si patrol nécessaire, choisir UN domaine :
+   - Santé build : npm run build dans mcps/internal/servers/roo-state-manager (lire résultat)
+   - Config vs réalité : vérifier qu'un chemin documenté existe
+   - Dashboard anomalies : messages [ERROR]/[CRITICAL] non traités
+   - PRs ouvertes sans activité : >7 jours sans update
+   - Docs vs code : documentation reflète-t-elle le code actuel ?
+3. Rapporter : domaine exploré + constat + tag [PATROL] si OK ou [FRICTION-FOUND] si problème
+
+INTERDIT : modifier des fichiers, committer, pusher, créer des issues, corriger quoi que ce soit.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+```
+
+**Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace. NE PAS corriger.
+
+→ **Ensuite : 2c-idle** (consolidation ou veille complementaire)
+
+### 2c-idle : Consolidation ou Veille Active complementaire
+
+> **Priorité** : Parasite cleanup si détecté, puis Consolidation si disponible, sinon Veille Active complementaire.
+> **Note :** La patrouille lecture seule principale est a l'Etape 2b-patrol. Cette etape est un complement.
 
 #### Option 0 : Détection Parasite (#1526, PRIORITAIRE)
 
@@ -272,9 +302,9 @@ Tâches de consolidation disponibles (voir Issue #656) :
 
 Déléguer UNE consolidation à `code-simple` via `new_task`.
 
-#### Option 2 : Veille Active (si pas de consolidation)
+#### Option 2 : Veille Active complementaire (si pas de consolidation)
 
-**RÈGLES STRICTES :** LECTURE SEULE. 1 seule exploration par session. Pas de commit/push.
+**RÈGLES STRICTES :** LECTURE SEULE. 1 seule exploration par session. Pas de commit/push. Auto-fix INTERDIT (Mandate #1886).
 
 **Domaines d'exploration :**
 

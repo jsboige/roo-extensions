@@ -101,7 +101,36 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **Prerequis :** sk-agent MCP ou vLLM sur port 5002. Non bloquant si echec.
 
-Apres auto-review → **Etape 2a** ou **Etape 2b** (selon dashboard)
+Apres auto-review → **Etape 1e** (veille active)
+
+### Etape 1e : Veille Active — Patrouille Lecture Seule (MANDATORY si >1h depuis dernière)
+
+> **Mandate #1886** : Patrouille lecture seule. Contraintes dans `.roo/scheduler-workflow-shared.md` section "VEILLE ACTIVE".
+
+**DELEGUER** a `code-simple` via `new_task` :
+
+```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
+
+VEILLE ACTIVE — LECTURE SEULE STRICT. Auto-fix INTERDIT.
+
+1. execute_command(shell="powershell", command="echo PATROL-OK")
+2. roosync_dashboard(action: "read", type: "workspace") — chercher dernier [PATROL] ou [FRICTION-FOUND]
+   Si dernier patrol < 1h → RAPPORTER "SKIP: patrol < 1h" et TERMINER cette sous-tâche
+3. Si patrol nécessaire, choisir UN domaine (rotation par rapport au dernier patrol) :
+   - Dashboard anomalies : messages [ERROR]/[CRITICAL] non traités
+   - Heartbeat machines : roosync_inventory(type: "all", includeHeartbeats: true) — machines silencieuses >6h
+   - PRs ouvertes : gh pr list --repo jsboige/roo-extensions --state open --json number,title,updatedAt
+   - Docs vs code : vérifier qu'un chemin documenté existe réellement
+4. Rapporter : domaine exploré + constat + tag [PATROL] si OK ou [FRICTION-FOUND] si problème
+
+INTERDIT : modifier des fichiers, committer, pusher, créer des issues, corriger quoi que ce soit.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+```
+
+**Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace avec description. NE PAS corriger.
+
+→ **Etape 2a** ou **Etape 2b** (selon dashboard)
 
 ### Etape 2a : Executer les taches du Dashboard Workspace
 
@@ -205,12 +234,15 @@ execute_command(shell="powershell", command="gh issue comment {NUM} --repo jsboi
 
 Si une issue est dispatchee a `myia-ai-01` ou `All` et non claimee : la lire, commenter `[CLAIMED]`, et executer en `-simple`.
 
-### Etape 2c-idle : Veille Active (si aucune tache)
+### Etape 2c-idle : Veille Active complementaire (si aucune tache)
+
+> **Note :** La patrouille lecture seule principale est a l'Etape 1e. Cette etape est un complement quand le cycle n'a rien d'autre a faire.
 
 1. **Selection intelligente** : Dashboard + `git log --since='7 days ago'` pour éviter domaines couverts
-2. **1 exploration lecture seule** parmi 10 domaines (cf executor Etape 2c-idle)
+2. **1 exploration lecture seule** parmi les domaines supplementaires coordinateur (cf shared)
 3. **Rapport dashboard** : `[PATROL]` si OK, `[FRICTION-FOUND]` si probleme
 4. **Pas de création d'issue directe** : le coordinateur Roo vérifie et escalade vers Claude
+5. **Auto-fix INTERDIT** (Mandate #1886)
 
 **Domaines supplementaires coordinateur :**
 

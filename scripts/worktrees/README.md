@@ -25,7 +25,7 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| [`scripts/worktrees/auto-cleanup.ps1`](../scripts/worktrees/auto-cleanup.ps1) | Cleanup automatique (orphans + stale branches + GC) | Scheduler executor |
+| [`scripts/worktrees/auto-cleanup.ps1`](../scripts/_archive/duplicates/auto-cleanup.ps1) | Cleanup automatique (archived — superseded by `cleanup-orphan-worktrees.ps1`) | Scheduler executor |
 | [`scripts/worktrees/create-worktree.ps1`](../scripts/worktrees/create-worktree.ps1) | Création de worktree pour issue | Manuel |
 | [`scripts/worktrees/cleanup-worktree.ps1`](../scripts/worktrees/cleanup-worktree.ps1) | Cleanup manuel après merge | Manuel |
 | [`scripts/worktrees/submit-pr.ps1`](../scripts/worktrees/submit-pr.ps1) | Soumission PR depuis worktree | Manuel |
@@ -38,7 +38,7 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 ### Commande
 
 ```powershell
-.\scripts\worktrees\auto-cleanup.ps1 [-WhatIf] [-StaleDays 30] [-MaxWorktrees 2]
+.\scripts\maintenance\cleanup-orphan-worktrees.ps1 [-WhatIf] [-StaleDays 30]
 ```
 
 ### Paramètres
@@ -47,7 +47,6 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 |-----------|--------|-------------|
 | `-WhatIf` | false | Mode dry-run (sans modification) |
 | `-StaleDays` | 30 | Branches sans activité depuis X jours |
-| `-MaxWorktrees` | 2 | Maximum de worktrees actifs autorisés |
 | `-WorktreePath` | `.claude/worktrees` | Dossier des worktrees |
 
 ### Fonctionnalités
@@ -104,7 +103,7 @@ Max worktrees: 2
 
 ```powershell
 # Exécuté automatiquement à chaque cycle scheduler
-.\scripts\worktrees\auto-cleanup.ps1 -StaleDays 30 -MaxWorktrees 2
+.\scripts\maintenance\cleanup-orphan-worktrees.ps1 -StaleDays 30
 ```
 
 ---
@@ -121,7 +120,7 @@ Le cleanup est intégré à l'Étape 2c-idle du workflow executor :
 **Exécuter le cleanup automatique :**
 
 ```
-execute_command(shell="powershell", command=".\\scripts\\worktrees\\auto-cleanup.ps1 -StaleDays 30 -MaxWorktrees 2 2>&1 | Select-Object -Last 30")
+execute_command(shell="powershell", command=".\\scripts\\maintenance\\cleanup-orphan-worktrees.ps1 -StaleDays 30 2>&1 | Select-Object -Last 30")
 ```
 
 **Rapporter dans le bilan :** `Worktrees: {N} actifs, {M} orphelins supprimés, {K} branches stales supprimées`
@@ -133,11 +132,10 @@ execute_command(shell="powershell", command=".\\scripts\\worktrees\\auto-cleanup
 
 ### Paramètres recommandés
 
-| Paramètre | Valeur | Raison |
-|-----------|--------|--------|
-| `StaleDays` | 30 | Équilibre entre nettoyage et travail en cours |
-| `MaxWorktrees` | 2 | Limitation pour éviter l'accumulation |
-| `WorktreePath` | `.claude/worktrees` | Isolé dans `.gitignore` |
+| Paramètre      | Valeur             | Raison                                       |
+|----------------|--------------------|----------------------------------------------|
+| `StaleDays`    | 30                 | Équilibre entre nettoyage et travail en cours |
+| `WorktreePath` | `.claude/worktrees` | Isolé dans `.gitignore`                      |
 
 ### .gitignore
 
@@ -194,4 +192,4 @@ git worktree list
 **Références :**
 - Issue #856 : chore: Worktree cleanup protocol
 - Issue #895 : Scheduler perd du travail - worktrees non nettoyés
-- [`scripts/worktrees/auto-cleanup.ps1`](../scripts/worktrees/auto-cleanup.ps1)
+- [`scripts/_archive/duplicates/auto-cleanup.ps1`](../scripts/_archive/duplicates/auto-cleanup.ps1) (archived — superseded by `cleanup-orphan-worktrees.ps1`)
