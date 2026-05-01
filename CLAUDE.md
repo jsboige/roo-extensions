@@ -96,6 +96,62 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 **Orchestrateurs = delegation pure. AUCUN mode n'a le groupe `command` natif** (#1482).
 
+---
+
+## Team Pipeline Stages (#1853)
+
+For complex tasks (>50 LOC or >3 files), follow the structured 5-stage pipeline extracted from oh-my-claudecode:
+
+| Stage | Purpose | Required? |
+|-------|---------|-----------|
+| **team-plan** | Break down task into subtasks | Yes, for >50 LOC or >3 files |
+| **team-prd** | Clarify requirements and constraints | If ambiguous |
+| **team-exec** | Execute the implementation | Yes |
+| **team-verify** | Verify solution (build + tests) | **REQUIRED before [DONE]** |
+| **team-fix** | Fix issues found in verification | Loop until verify passes |
+
+### Stage Transition Example
+
+```markdown
+## [CLAIMED] #NNN — task description
+**Team Stage:** team-plan
+
+## [PROGRESS] team-exec — Implementation started
+**Previous Stage:** team-plan → team-prd (skipped, requirements clear)
+
+## [PROGRESS] team-verify — Running build + tests
+**Previous Stage:** team-exec
+
+## [DONE] Verification passed
+**team-verify:** build ✓ tests ✓ (74/74)
+```
+
+### Verification Gate
+
+**NEVER** mark a task as [DONE] without running team-verify (build + tests).
+
+### Dashboard Protocol Extension
+
+Agents can report Team stages in dashboard messages via the `teamStage` field:
+
+```typescript
+// In dashboard-schemas.ts
+teamStage: 'team-plan' | 'team-prd' | 'team-exec' | 'team-verify' | 'team-fix' | 'done'
+teamStageData: {
+  previousStage?: TeamStage,
+  nextStage?: TeamStage,
+  verificationResult?: {
+    buildPassed?: boolean,
+    testsPassed?: boolean,
+    issuesFound?: string[]
+  }
+}
+```
+
+**Detail:** [docs/harness/adr/005-team-pipeline-stages.md](docs/harness/adr/005-team-pipeline-stages.md)
+
+---
+
 ## GitHub
 
 **Project #67 :** [GitHub Projects](https://github.com/users/jsboige/projects/67)
