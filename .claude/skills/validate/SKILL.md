@@ -10,6 +10,7 @@ triggers:
     - "valide le build"
     - "passe les tests"
     - "vérifie que ça compile"
+    - "typescript check"
   exact:
     - "build"
     - "tests"
