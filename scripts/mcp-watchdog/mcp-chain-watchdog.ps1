@@ -79,24 +79,34 @@ if ([string]::IsNullOrEmpty($bearer)) {
 $e2eUrl = "$baseUrl/roo-state-manager/mcp"
 
 # ---------- probes ----------
-function Test-E2E {
+$lanUrl = 'http://127.0.0.1:9090/roo-state-manager/mcp'
+
+function Invoke-McpInitialize {
+    param([string]$Url, [int]$TimeoutSec = 15)
     $body = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog","version":"1.0"}}}'
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
     try {
-        $response = Invoke-WebRequest -Uri $e2eUrl -Method Post -Headers @{
+        $response = Invoke-WebRequest -Uri $Url -Method Post -Headers @{
             'Authorization' = "Bearer $bearer"
             'Content-Type'  = 'application/json'
             'Accept'        = 'application/json, text/event-stream'
-        } -Body $body -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop
+        } -Body $body -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop
+        $sw.Stop()
         if ($response.StatusCode -eq 200 -and $response.Content -match 'serverInfo') {
-            return @{ Ok = $true; Status = 200; Body = $response.Content.Substring(0, [Math]::Min(200, $response.Content.Length)) }
+            return @{ Ok = $true; Status = 200; LatencyMs = $sw.ElapsedMilliseconds; Body = $response.Content.Substring(0, [Math]::Min(200, $response.Content.Length)) }
         }
-        return @{ Ok = $false; Status = $response.StatusCode; Body = $response.Content.Substring(0, [Math]::Min(300, $response.Content.Length)) }
+        return @{ Ok = $false; Status = $response.StatusCode; LatencyMs = $sw.ElapsedMilliseconds; Body = $response.Content.Substring(0, [Math]::Min(300, $response.Content.Length)) }
     } catch {
+        $sw.Stop()
         $status = 0
         if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        return @{ Ok = $false; Status = $status; Body = $_.Exception.Message }
+        return @{ Ok = $false; Status = $status; LatencyMs = $sw.ElapsedMilliseconds; Body = $_.Exception.Message }
     }
 }
+
+function Test-E2E { Invoke-McpInitialize -Url $e2eUrl -TimeoutSec 15 }
+
+function Test-Lan { Invoke-McpInitialize -Url $lanUrl -TimeoutSec 5 }
 
 function Test-Sparfenyuk {
     try {
@@ -155,9 +165,20 @@ Write-Log 'INFO' "Watchdog start (mode=$Mode, e2e=$e2eUrl)"
 
 $result = Test-E2E
 if ($result.Ok) {
-    Write-Log 'OK'   "E2E chain healthy (HTTP 200, serverInfo present)"
+    Write-Log 'OK'   "E2E chain healthy (HTTP 200, serverInfo present, latency=$($result.LatencyMs)ms)"
 } else {
-    Write-Log 'FAIL' "E2E chain DOWN (HTTP $($result.Status)) — $($result.Body)"
+    $bodyExcerpt = ($result.Body -replace '\s+', ' ').Substring(0, [Math]::Min(180, $result.Body.Length))
+    Write-Log 'FAIL' "E2E chain DOWN (HTTP $($result.Status), latency=$($result.LatencyMs)ms) — $bodyExcerpt"
+
+    # Differential probe: is the wedge in our backend or upstream (IIS/ARR/network)?
+    $lanResult = Test-Lan
+    if ($lanResult.Ok) {
+        Write-Log 'WARN' "LAN backend HEALTHY (HTTP 200, latency=$($lanResult.LatencyMs)ms) — wedge is upstream of ai-01 (IIS/ARR/network on po-2023). NOT restarting backend."
+        $script:alerts += "iis-or-network-issue: e2e-http-$($result.Status) lan-ok"
+        # Skip backend repairs — they would be useless and could mask the real cause
+        $result = $lanResult  # final result reflects backend health (OK), not E2E
+    } else {
+        Write-Log 'WARN' "LAN backend ALSO DOWN (HTTP $($lanResult.Status), latency=$($lanResult.LatencyMs)ms) — wedge is local. Starting repair cascade."
 
     # Step 1 : sparfenyuk
     if (-not (Test-Sparfenyuk)) {
@@ -216,6 +237,7 @@ if ($result.Ok) {
             }
         }
     }
+    }  # close LAN-down else
 }
 
 # ---------- summary + event log ----------
