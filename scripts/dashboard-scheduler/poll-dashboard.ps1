@@ -24,6 +24,7 @@
     Comma-separated list of workspace keys to poll (e.g., "nanoclaw,roo-extensions").
     If empty, auto-discovers from ROOSYNC_SHARED_PATH/dashboards/workspace-*.md,
     intersected with -AllowedWorkspaces if provided.
+    Also falls back to DASHBOARD_WATCHER_WORKSPACES env var (Phase 1.a, issue #1931).
 
 .PARAMETER Workspace
     DEPRECATED single-workspace param. Kept for backward compat with the v1
@@ -151,12 +152,22 @@ function Set-LastAckTimestamp($ws, $timestamp) {
 }
 
 function Resolve-Workspaces {
-    # Priority: explicit -Workspaces > legacy -Workspace > auto-discover
+    # Priority: explicit -Workspaces > legacy -Workspace > env var > auto-discover
     if (-not [string]::IsNullOrEmpty($Workspaces)) {
         return $Workspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     }
     if (-not [string]::IsNullOrEmpty($Workspace)) {
         return @($Workspace)
+    }
+
+    # Phase 1.a: Fall back to DASHBOARD_WATCHER_WORKSPACES env var.
+    # This is the primary fix for issue #1931 — without it, auto-discover scans
+    # ALL workspace-*.md files on GDrive (22 workspaces) and the watcher spawns
+    # Claude on irrelevant ones.
+    $envWorkspaces = $env:DASHBOARD_WATCHER_WORKSPACES
+    if (-not [string]::IsNullOrEmpty($envWorkspaces)) {
+        Write-Log "INFO" "Using DASHBOARD_WATCHER_WORKSPACES env var: $envWorkspaces"
+        return $envWorkspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     }
 
     # Auto-discover from $ROOSYNC_SHARED_PATH/dashboards/workspace-*.md
@@ -182,11 +193,15 @@ function Resolve-Workspaces {
     return @($discovered)
 }
 
-function Invoke-DashboardRead($ws) {
+function Invoke-DashboardRead($ws, [int]$MaxMessages = 0) {
     # Read the dashboard markdown directly from GDrive. Parses the intercom
     # section into the same JSON shape that Test-ActionableMessage expects.
     # Bypasses claude -p (whose MCP loading is unreliable across env contexts:
     # CLAUDECODE=1 inherited from a parent Claude Code session disables MCP).
+    #
+    # Phase 2.c: MaxMessages limits parsed messages (prevents full-history sweep
+    # on first run). Default 0 = no limit (backward compat). Caller should pass 5
+    # when lastAck is empty (first sweep).
     $sharedPath = $env:ROOSYNC_SHARED_PATH
     if ([string]::IsNullOrEmpty($sharedPath)) {
         throw "ROOSYNC_SHARED_PATH env var not set"
@@ -214,8 +229,17 @@ function Invoke-DashboardRead($ws) {
     $msgPattern = '(?ms)^### \[(?<ts>[^\]]+)\] (?<machine>[^|]+)\|(?<workspace>[^\r\n]+)\r?\n(?:\[msg:[^\r\n]*\]\r?\n)?\r?\n(?<body>.*?)(?=\r?\n^### \[|\z)'
     $msgMatches = [regex]::Matches($intercomBody, $msgPattern)
 
+    # Phase 2.c: Apply message limit for first sweep (prevents processing
+    # entire history when lastAck is empty)
+    $messagesToProcess = $msgMatches
+    if ($MaxMessages -gt 0 -and $msgMatches.Count -gt $MaxMessages) {
+        # Take only the last N messages (most recent)
+        $startIndex = $msgMatches.Count - $MaxMessages
+        $messagesToProcess = $msgMatches[$startIndex..($msgMatches.Count - 1)]
+    }
+
     $messages = @()
-    foreach ($m in $msgMatches) {
+    foreach ($m in $messagesToProcess) {
         $body = $m.Groups['body'].Value.Trim()
         # Strip the trailing --- separator line (if present)
         $body = [regex]::Replace($body, '\r?\n---\s*$', '')
@@ -241,18 +265,62 @@ function Invoke-DashboardRead($ws) {
     }
 }
 
-function Test-ActionableMessage($msg, $lastAck) {
-    # Tag check: content should contain at least one allowed tag
+function Test-ActionableMessage($msg, $lastAck, $allMessages) {
+    # Tag check: match only [TAG] as a standalone marker in headers/first lines,
+    # NOT inside code blocks, quotes, or buried in paragraph text.
     $content = $msg.content
     $hasTag = $false
     foreach ($tag in $tagList) {
-        # Tags appear either as bracketed markers [TAG] or in tags array.
-        if ($content -match "\[$tag\b") { $hasTag = $true; break }
+        # Phase 2.a: Match [TAG] only outside code blocks. Build a
+        # non-code-block content string so the "anywhere" fallback cannot
+        # match tags inside fenced code (``` ... ```).
+        $nonCodeLines = @()
+        $inCodeBlock = $false
+        foreach ($line in ($content -split "`n")) {
+            $trimmed = $line.Trim()
+            if ($trimmed -match '^````') { $inCodeBlock = -not $inCodeBlock; continue }
+            if (-not $inCodeBlock) { $nonCodeLines += $line }
+        }
+        $nonCodeContent = $nonCodeLines -join "`n"
+        # Match: ## [TAG], ### [TAG], [TAG] at line start, or exact [TAG] anywhere (non-code only)
+        if ($nonCodeContent -match "(?:^|\n)#{1,3}\s*\[$tag\]" -or
+            $nonCodeContent -match "(?:^|\n)\[$tag\]" -or
+            $nonCodeContent -match "\[$tag\]") {
+            $hasTag = $true; break
+        }
+        # Also check structured tags array if present
         if ($msg.PSObject.Properties['tags'] -and ($msg.tags -contains $tag)) {
             $hasTag = $true; break
         }
     }
     if (-not $hasTag) { return $false }
+
+    # Phase 2.b: Skip if already replied/acked by checking subsequent messages
+    if ($null -ne $allMessages -and $allMessages.Count -gt 0) {
+        $msgIndex = -1
+        for ($i = 0; $i -lt $allMessages.Count; $i++) {
+            if ($allMessages[$i].timestamp -eq $msg.timestamp -and
+                $allMessages[$i].author.machineId -eq $msg.author.machineId) {
+                $msgIndex = $i
+                break
+            }
+        }
+        if ($msgIndex -ge 0) {
+            # Check all messages AFTER this one for a REPLY/ACK referencing it
+            for ($j = $msgIndex + 1; $j -lt $allMessages.Count; $j++) {
+                $laterContent = $allMessages[$j].content
+                $laterTags = if ($allMessages[$j].PSObject.Properties['tags']) { $allMessages[$j].tags -join ',' } else { '' }
+                # If a later message has [REPLY] or [ACK] and references this message's timestamp or author
+                if (($laterContent -match '\[REPLY\]' -or $laterContent -match '\[ACK\]' -or
+                     $laterTags -match 'REPLY' -or $laterTags -match 'ACK') -and
+                    ($laterContent -match [regex]::Escape($msg.timestamp) -or
+                     $laterContent -match [regex]::Escape($msg.author.machineId))) {
+                    Write-Log "INFO" "Skipping message at $($msg.timestamp) — already has REPLY/ACK in later message"
+                    return $false
+                }
+            }
+        }
+    }
 
     # Author check if restricted
     if ($authorList.Count -gt 0) {
@@ -292,13 +360,15 @@ foreach ($ws in $wsList) {
 
     $lastAck = Get-LastAckTimestamp $ws
     if ([string]::IsNullOrEmpty($lastAck)) {
-        Write-Log "INFO" "[$ws] No last-ACK marker, treating as first run."
+        Write-Log "INFO" "[$ws] No last-ACK marker, treating as first run. Limiting to 5 messages (Phase 2.c)."
     } else {
         Write-Log "INFO" "[$ws] Last ACK timestamp: $lastAck"
     }
 
     try {
-        $parsed = Invoke-DashboardRead $ws
+        # Phase 2.c: Limit to 5 messages on first sweep (no lastAck), unlimited otherwise
+        $maxMsg = if ([string]::IsNullOrEmpty($lastAck)) { 5 } else { 0 }
+        $parsed = Invoke-DashboardRead $ws -MaxMessages $maxMsg
     } catch {
         Write-Log "ERROR" "[$ws] Dashboard read failed: $_"
         $overallExitCode = 2
@@ -316,7 +386,7 @@ foreach ($ws in $wsList) {
 
     $actionable = @()
     foreach ($msg in $messages) {
-        if (Test-ActionableMessage $msg $lastAck) {
+        if (Test-ActionableMessage $msg $lastAck $messages) {
             $actionable += $msg
         }
     }
