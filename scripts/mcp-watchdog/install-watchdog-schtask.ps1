@@ -24,7 +24,7 @@
 param(
     [string]$TaskName   = 'MCP-Chain-Watchdog',
     [string]$ScriptPath = 'D:\roo-extensions\scripts\mcp-watchdog\mcp-chain-watchdog.ps1',
-    [int]$IntervalMinutes = 5,
+    [int]$IntervalMinutes = 2,
     [int]$StartupDelayMinutes = 2
 )
 
