@@ -1,7 +1,7 @@
 # Agent Claim Discipline — Pas de Succes Non Verifie
 
-**Version:** 1.0.0 (Roo, adaptee de .claude/rules/ v1.2.0)
-**Issues :** #1605, #1613, #1666, #1697
+**Version:** 1.3.0 (slim, sync avec .claude/rules/ v1.3.0)
+**Issues :** #1605, #1613, #1666, #1697, #1798
 
 ---
 
@@ -14,6 +14,17 @@ Incidents concrets sans cette regle :
 - **#1613** : 2 detached HEAD silencieux en 24h. Commits orphelins perdus apres cleanup.
 
 ---
+
+## Pre-Claim Discipline (anti-overlap, ajoutee v1.3.0 post collision #1786)
+
+**Avant de coder** sur un issue référencié dans un dispatch :
+
+1. **Verifier PR concurrente** : `gh pr list --search "#NNN" --state open --repo jsboige/roo-extensions` — si une PR existe deja, STOP
+2. **Lire dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace")` — un autre agent a-t-il `[CLAIMED]` cet issue (< 2h) ?
+3. **Annoncer claim AVANT modification** : `roosync_dashboard(action: "append", tags: ["CLAIMED"], content: "#NNN — myia-poXXXX commencing work, ETA YY min")`
+4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` horodate prime.
+
+**Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
 
 ## Verification OBLIGATOIRE avant `[DONE]`
 
