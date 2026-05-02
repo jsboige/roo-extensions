@@ -170,31 +170,34 @@ attempt_completion(result: "Cycle {role} terminé. Bilan posté dans dashboard w
 
 ---
 
-## VEILLE ACTIVE — Patrouille Lecture Seule (Mandate #1886)
+## VEILLE ACTIVE — Patrouille Proactive avec Auto-Réparation (Mandate #1886)
 
 **Contraintes OBLIGATOIRES :**
 
-1. **LECTURE SEULE STRICT** — Aucune modification de fichier, aucun commit, aucun push, aucune création d'issue
-2. **Max 1 patrol/hour** — Si moins d'1h depuis la dernière patrol, PASSER cette étape
-3. **Auto-fix INTERDIT** — Quand un problème est détecté, rapporter via dashboard (`[FRICTION-FOUND]`). NE PAS corriger, NE PAS créer de tâche de correction, NE PAS escalader vers un mode qui corrigerait
-4. **Rapport obligatoire** — Poster `[PATROL]` si OK, `[FRICTION-FOUND]` si problème détecté
+1. **Max 1 patrol/hour** — Si moins d'1h depuis la dernière patrol, PASSER cette étape
+2. **Auto-réparation LIMITÉE** — Seulement pour les cas explicitement autorisés (voir ci-dessous)
+3. **Rapport obligatoire** — Poster `[PATROL]` si OK, `[FRICTION-FOUND]` si problème détecté
+4. **Création d'issue automatique** — SEULEMENT pour échecs critiques (tests, build)
 
-**Domaines de patrol :**
+**Domaines de patrol avec auto-réparation :**
 
-| # | Domaine | Méthode |
-|---|---------|---------|
-| 1 | Santé build | `npm run build` (lecture du résultat, pas de fix) |
-| 2 | Config vs réalité | Comparer chemins/outils documentés avec existence réelle |
-| 3 | Dashboard anomalies | Messages `[ERROR]`/`[CRITICAL]` non traités |
-| 4 | Heartbeat machines | Machines silencieuses >6h |
-| 5 | PRs ouvertes | PRs sans activité >7 jours |
-| 6 | Docs vs code | Vérifier que documentation reflète le code actuel |
+| # | Domaine | Méthode | Auto-fix autorisé ? |
+|---|---------|---------|---------------------|
+| 1 | Santé build + tests | `npm run build` + `npx vitest run` | **NON** → créer issue GitHub automatiquement |
+| 2 | Fichiers non-commités | `git status` + dates fichiers | **NON** → rapport dashboard uniquement |
+| 3 | Imports morts | Comparer exports/imports dans src/ | **NON** → rapport dashboard uniquement |
+| 4 | Sync schedules.json | Vérifier âge fichier vs sources | **OUI** → régénérer si décalé |
+
+**Règles d'auto-réparation :**
+
+- **schedules.json** : SEUL auto-fix autorisé (règle simple : régénérer depuis sources)
+- **Tests/Build échoués** : Créer issue GitHub avec label `needs-approval` + `patrol` (pas de fix automatique)
+- **Autres problèmes** : Rapport dashboard uniquement (`[FRICTION-FOUND]`)
 
 **Ce que la patrol N'EST PAS :**
 - PAS un nettoyage (parasite cleanup = Etape 2b-idle du executor)
 - PAS une consolidation (consolidation = tâche séparée)
-- PAS un fix (auto-fix INTERDIT)
-- PAS une création de tâche (signaler uniquement)
+- PAS un fix généralisé (auto-fix LIMITÉ à schedules.json)
 
 ---
 
