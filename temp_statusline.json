@@ -1,0 +1,1 @@
+{"statusLine": {"type": "command", "command": "powershell -ExecutionPolicy Bypass -File C:/dev/roo-extensions/.claude/worktrees/wt-worker-myia-web1-20260502-844/scripts/claude/roosync-statusline.ps1 -Preset normal"}}
