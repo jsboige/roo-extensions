@@ -223,32 +223,59 @@ execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-exten
 
 Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
 
-### 2b-patrol : Veille Active — Patrouille Lecture Seule (MANDATORY si >1h depuis dernière)
+### 2b-patrol : Veille Active Proactive — Patrouille avec Auto-Réparation (MANDATORY si >1h depuis dernière)
 
-> **Mandate #1886** : Patrouille lecture seule AVANT toute action de consolidation. Contraintes dans `.roo/scheduler-workflow-shared.md` section "VEILLE ACTIVE".
+> **Mandate #1886** : Patrouille proactive avec auto-réparation AVANT toute action de consolidation. Contraintes dans `.roo/scheduler-workflow-shared.md` section "VEILLE ACTIVE".
 
 **DÉLÉGUER** a `code-simple` via `new_task` :
 
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
 
-VEILLE ACTIVE — LECTURE SEULE STRICT. Auto-fix INTERDIT.
+VEILLE ACTIVE PROACTIVE — Détection et auto-réparation automatique.
 
 1. roosync_dashboard(action: "read", type: "workspace") — chercher dernier [PATROL] ou [FRICTION-FOUND]
    Si dernier patrol < 1h → RAPPORTER "SKIP: patrol < 1h" et TERMINER cette sous-tâche
-2. Si patrol nécessaire, choisir UN domaine :
-   - Santé build : npm run build dans mcps/internal/servers/roo-state-manager (lire résultat)
-   - Config vs réalité : vérifier qu'un chemin documenté existe
-   - Dashboard anomalies : messages [ERROR]/[CRITICAL] non traités
-   - PRs ouvertes sans activité : >7 jours sans update
-   - Docs vs code : documentation reflète-t-elle le code actuel ?
-3. Rapporter : domaine exploré + constat + tag [PATROL] si OK ou [FRICTION-FOUND] si problème
 
-INTERDIT : modifier des fichiers, committer, pusher, créer des issues, corriger quoi que ce soit.
+2. Si patrol nécessaire, exécuter les vérifications automatiques (dans l'ordre) :
+
+   **A. Santé Tests (Build + Vitest) :**
+   - execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npm run build")
+   - execute_command(shell="powershell", command="cd mcps/internal/servers/roo-state-manager; npx vitest run 2>&1 | Select-Object -Last 50")
+   - SI échec build ou tests :
+     * Créer issue GitHub : gh issue create --title "[PATROL] Build/Tests failed on {MACHINE}" --body "Auto-detected by Roo scheduler patrol. Details: {OUTPUT}" --label needs-approval --label patrol
+     * Poster [FRICTION-FOUND] sur dashboard avec détails
+     * TERMINER patrol (pas de auto-fix pour tests)
+
+   **B. Fichiers non-commités (>7 jours) :**
+   - execute_command(shell="gitbash", command="git status --porcelain")
+   - execute_command(shell="powershell", command="git status --porcelain | ForEach-Object { git log -1 --format=%ct -- $_.Split(' ')[-1] } | Where-Object { $_ -lt (Get-Date).AddDays(-7).Ticks } | Measure-Object")
+   - SI fichiers >7 jours non-commités :
+     * Poster [FRICTION-FOUND] sur dashboard avec liste des fichiers
+     * NE PAS créer issue (info seulement)
+
+   **C. Imports morts (exports jamais importés) :**
+   - execute_command(shell="powershell", command="Get-ChildItem -Path mcps/internal/servers/roo-state-manager/src -Recurse -Filter '*.ts' | Select-String -Pattern '^export ' | ForEach-Object { $_.Line } | Get-Unique | Measure-Object")
+   - execute_command(shell="powershell", command="Get-ChildItem -Path mcps/internal/servers/roo-state-manager -Recurse -Filter '*.ts' | Select-String -Pattern '^import.*from.*src/' | ForEach-Object { $_.Line } | Get-Unique | Measure-Object")
+   - SI exports sans imports correspondants :
+     * Poster [FRICTION-FOUND] sur dashboard avec ratio exports/imports
+     * NE PAS auto-fix (risque de faux positifs)
+
+   **D. Synchronisation schedules.json :**
+   - execute_command(shell="powershell", command="if (-not (Test-Path .roo/schedules.json)) { echo 'MISSING' } else { git log -1 --format=%ct -- .roo/schedules.json }")
+   - execute_command(shell="powershell", command="git log -1 --format=%ct -- roo-config/modes/modes-config.json")
+   - SI schedules.json manquant ou plus vieux que modes-config.json (>1 jour) :
+     * Exécuter : execute_command(shell="powershell", command="node roo-config/modes/generate-modes.js")
+     * SI succès : poster [PATROL] "schedules.json régénéré"
+     * SI échec : poster [FRICTION-FOUND] "Impossible de régénérer schedules.json"
+
+3. Rapport final : domaines vérifiés + résultats + tag [PATROL] si OK ou [FRICTION-FOUND] si problème(s)
+
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
+LIMITES : Auto-fix UNIQUEMENT pour schedules.json (règle claire). Tout autre problème = rapport seulement.
 ```
 
-**Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace. NE PAS corriger.
+**Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace avec détails. Pour tests échoués, créer issue GitHub automatiquement.
 
 → **Ensuite : 2c-idle** (consolidation ou veille complementaire)
 
