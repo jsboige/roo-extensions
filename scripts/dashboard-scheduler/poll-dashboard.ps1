@@ -24,6 +24,7 @@
     Comma-separated list of workspace keys to poll (e.g., "nanoclaw,roo-extensions").
     If empty, auto-discovers from ROOSYNC_SHARED_PATH/dashboards/workspace-*.md,
     intersected with -AllowedWorkspaces if provided.
+    Also falls back to DASHBOARD_WATCHER_WORKSPACES env var (Phase 1.a, issue #1931).
 
 .PARAMETER Workspace
     DEPRECATED single-workspace param. Kept for backward compat with the v1
@@ -151,12 +152,22 @@ function Set-LastAckTimestamp($ws, $timestamp) {
 }
 
 function Resolve-Workspaces {
-    # Priority: explicit -Workspaces > legacy -Workspace > auto-discover
+    # Priority: explicit -Workspaces > legacy -Workspace > env var > auto-discover
     if (-not [string]::IsNullOrEmpty($Workspaces)) {
         return $Workspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     }
     if (-not [string]::IsNullOrEmpty($Workspace)) {
         return @($Workspace)
+    }
+
+    # Phase 1.a: Fall back to DASHBOARD_WATCHER_WORKSPACES env var.
+    # This is the primary fix for issue #1931 — without it, auto-discover scans
+    # ALL workspace-*.md files on GDrive (22 workspaces) and the watcher spawns
+    # Claude on irrelevant ones.
+    $envWorkspaces = $env:DASHBOARD_WATCHER_WORKSPACES
+    if (-not [string]::IsNullOrEmpty($envWorkspaces)) {
+        Write-Log "INFO" "Using DASHBOARD_WATCHER_WORKSPACES env var: $envWorkspaces"
+        return $envWorkspaces -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
     }
 
     # Auto-discover from $ROOSYNC_SHARED_PATH/dashboards/workspace-*.md
@@ -260,21 +271,23 @@ function Test-ActionableMessage($msg, $lastAck, $allMessages) {
     $content = $msg.content
     $hasTag = $false
     foreach ($tag in $tagList) {
-        # Phase 2.a: Tighter regex — match [TAG] as a discrete bracket marker
-        # at start of heading/line or as exact [TAG] anywhere (not partial like [TAGfoo)
-        # Skip matches inside code blocks (``` ... ```)
+        # Phase 2.a: Match [TAG] only outside code blocks. Build a
+        # non-code-block content string so the "anywhere" fallback cannot
+        # match tags inside fenced code (``` ... ```).
+        $nonCodeLines = @()
         $inCodeBlock = $false
-        $found = $false
         foreach ($line in ($content -split "`n")) {
             $trimmed = $line.Trim()
             if ($trimmed -match '^````') { $inCodeBlock = -not $inCodeBlock; continue }
-            if ($inCodeBlock) { continue }
-            # Match: ## [TAG], ### [TAG], [TAG] at line start, or exact [TAG] anywhere
-            if ($trimmed -match "^#{1,3}\s*\[$tag\]" -or $trimmed -match "^\[$tag\]" -or $content -match "\[$tag\]") {
-                $found = $true; break
-            }
+            if (-not $inCodeBlock) { $nonCodeLines += $line }
         }
-        if ($found) { $hasTag = $true; break }
+        $nonCodeContent = $nonCodeLines -join "`n"
+        # Match: ## [TAG], ### [TAG], [TAG] at line start, or exact [TAG] anywhere (non-code only)
+        if ($nonCodeContent -match "(?:^|\n)#{1,3}\s*\[$tag\]" -or
+            $nonCodeContent -match "(?:^|\n)\[$tag\]" -or
+            $nonCodeContent -match "\[$tag\]") {
+            $hasTag = $true; break
+        }
         # Also check structured tags array if present
         if ($msg.PSObject.Properties['tags'] -and ($msg.tags -contains $tag)) {
             $hasTag = $true; break
