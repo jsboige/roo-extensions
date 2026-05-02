@@ -61,8 +61,18 @@ if (-not [string]::IsNullOrEmpty($Workspaces)) {
     $pollArgs['Workspaces'] = $Workspaces
 }
 
-& $pollScript @pollArgs 2>&1 | Tee-Object -FilePath $logFile -Append
-$exitCode = $LASTEXITCODE
+# Phase 2.d: Global try/catch to capture unhandled exceptions that crash
+# before Write-Log is reached (silent failures since 06:49Z, LastTaskResult=1,
+# log files only 138 bytes = just headers). This wrapper ensures errors are
+# always logged with stack traces.
+try {
+    & $pollScript @pollArgs 2>&1 | Tee-Object -FilePath $logFile -Append
+    $exitCode = $LASTEXITCODE
+} catch {
+    "ERROR uncaught: $_" | Tee-Object -FilePath $logFile -Append
+    "Stack: $($_.ScriptStackTrace)" | Tee-Object -FilePath $logFile -Append
+    $exitCode = 99
+}
 
 "=== Dashboard-Watcher exit code ${exitCode}: $(Get-Date -Format o) ===" | Tee-Object -FilePath $logFile -Append
 exit $exitCode
