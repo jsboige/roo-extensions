@@ -1,7 +1,7 @@
 # Agent Claim Discipline — Pas de Succes Non Verifie
 
-**Version:** 1.0.0 (Roo, adaptee de .claude/rules/ v1.2.0)
-**Issues :** #1605, #1613, #1666, #1697
+**Version:** 1.3.0 (Roo, synchronisee avec .claude/rules/ v1.3.0)
+**Issues :** #1605, #1613, #1666, #1697, #1786, #1798
 
 ---
 
@@ -9,17 +9,20 @@
 
 **Tu ne peux PAS declarer un travail termine en citant un artefact git sans que cet artefact soit verifiable a l'instant du rapport.**
 
-Incidents concrets sans cette regle :
-- **#1605** : Worker a rapporte `[DONE]` avec SHA inexistant. Travail perdu.
-- **#1613** : 2 detached HEAD silencieux en 24h. Commits orphelins perdus apres cleanup.
+## Pre-Claim Discipline (anti-overlap, ajoutee v1.3.0 post collision #1786)
 
----
+**Avant de coder** sur un issue referencee dans un dispatch :
+
+1. **Verifier PR concurrente** : `gh pr list --search "#NNN" --state open` — si une PR existe deja, STOP
+2. **Lire dashboard workspace** : un autre agent a-t-il `[CLAIMED]` cet issue (< 2h) ?
+3. **Annoncer claim AVANT modification** : poster `[CLAIMED]` sur le dashboard avec numero issue et machine
+4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` horodate prime.
+
+**Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
 
 ## Verification OBLIGATOIRE avant `[DONE]`
 
 ### 1. Commit — Confirmer que le SHA existe
-
-**Avant** de citer un SHA dans un rapport :
 
 ```
 git cat-file -e <SHA> && git branch --contains <SHA>
@@ -28,15 +31,13 @@ git cat-file -e <SHA> && git branch --contains <SHA>
 - `-simple` : via `execute_command` (win-cli MCP)
 - `-complex` : via terminal natif
 
-Si le SHA n'existe pas : **NE PAS le citer.** Le commit est perdu.
-
 ### 2. Push — Confirmer que la branche est sur origin
 
 ```
 git ls-remote origin <BRANCH>
 ```
 
-Doit retourner exactement une ligne. Si 0 lignes : le push a echoue ou n'a pas ete fait.
+Doit retourner exactement une ligne.
 
 ### 3. PR — Confirmer l'etat de la Pull Request
 
@@ -44,65 +45,25 @@ Doit retourner exactement une ligne. Si 0 lignes : le push a echoue ou n'a pas e
 gh pr view <N> --json state,url
 ```
 
-- `state` doit etre `OPEN` ou `MERGED`
-- Si la commande echoue ou retourne `CLOSED` : la PR n'est pas valide
+`state` doit etre `OPEN` ou `MERGED`.
 
 ### 4. Tests — Evidence visible
 
 Le output `npx vitest run` doit etre visible dans les logs du rapport.
-Pas de "tests passent" sans output concret.
-
----
 
 ## Garde-fous Detached HEAD (CRITIQUE pour workers)
 
-**Incident #1613 :** Les workers dans worktrees peuvent se retrouver en detached HEAD sans warning. Les commits en detached HEAD sont perdus quand le worktree est nettoyé.
+**Avant chaque commit**, verifier : `git symbolic-ref HEAD`
 
-### Pre-commit Guard
+- Si `refs/heads/<branch>` : OK
+- Si erreur : **STOP. Detached HEAD.** Creer branche `recovery/<desc>` immediatement.
 
-**Avant chaque commit**, verifier que HEAD est attache :
+## Pour l'agent qui recoit/relaie
 
-```
-git symbolic-ref HEAD
-```
-
-- Si retourne `refs/heads/<branch>` : OK, HEAD est attache
-- Si erreur `fatal: ref HEAD is not a symbolic ref` : **STOP. Detached HEAD.**
-
-### Si detached HEAD detecte
-
-1. **NE PAS commiter.**
-2. Creer une branche de recuperation immediatement :
-
-```
-git checkout -b recovery/<description>
-```
-
-3. **Taguer le rapport** : `[RECOVERY_BRANCH]` obligatoire dans le dashboard
-4. Signaler au coordinateur via dashboard
-
-### Post-commit Guard
-
-Apres un commit, verifier :
-
-```
-git log -1 --format="%H %D"
-```
-
-Si `%D` (decoration) est vide ou ne contient pas `HEAD ->` : le commit est orphelin.
-
----
-
-## Pour les orchestrateurs (delegation via new_task)
-
-Les orchestrateurs ne committent pas directement mais **DOIVENT verifier** les artefacts rapportes par les sous-taches avant de poster `[DONE]` :
-
-1. Le sous-agent rapporte un SHA → l'orchestrateur verifie `git cat-file -e <SHA>`
-2. Le sous-agent rapporte une PR → l'orchestrateur verifie `gh pr view`
-
-**Ne JAMAIS relayer un artefact non verifie.**
-
----
+**Ne JAMAIS** traiter un artefact cite comme acquis sans verification :
+- Orchestrateur : verifier artefacts rapportes par sous-taches avant de poster `[DONE]`
+- Trieur : verifier PR est MERGED (pas OPEN)
+- Ne JAMAIS relayer un artefact non verifie
 
 ## Par type de mode
 
@@ -114,11 +75,7 @@ Les orchestrateurs ne committent pas directement mais **DOIVENT verifier** les a
 
 ---
 
-## Principe condense
+**Principe condense** : *"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse. Detached HEAD = STOP immediat. Pre-claim AVANT de coder."*
 
-*"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse. Detached HEAD = STOP immediat."*
-
----
-
-**Reference Claude :** `.claude/rules/agent-claim-discipline.md` v1.2.0
+**Reference Claude :** `.claude/rules/agent-claim-discipline.md` v1.3.0
 **Details harness :** `docs/harness/reference/agent-claim-discipline-detailed.md`
