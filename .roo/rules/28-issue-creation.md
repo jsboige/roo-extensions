@@ -59,6 +59,7 @@ Si > 5 orphelines → poster `[WARN]` sur dashboard workspace.
 | Status | Todo, In Progress, Done |
 | Machine | ai-01, po-2023..2026, web1, All, Any |
 | Agent | Roo, Claude, Both |
+| Model | haiku, sonnet, opus |
 | Execution | interactive, scheduled, both |
 
 ---

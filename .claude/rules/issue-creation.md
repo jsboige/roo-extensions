@@ -74,7 +74,7 @@ gh project item-add PVT_kwHOADA1Xc4BLw3w --owner jsboige --url https://github.co
 
 Le meta-analyste doit verifier les issues orphelines (>5 = trigger investigation) :
 
-```bash
+```powershell
 # Compter les orphelines
 ./scripts/github/sync-issues-to-project.ps1 -DryRun 2>&1 | Select-String "missing"
 ```

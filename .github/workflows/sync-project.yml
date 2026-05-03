@@ -37,9 +37,9 @@ jobs:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
           $ErrorActionPreference = "Stop"
-          $params = @("-Execute")
+          $params = @{ Execute = $true }
           if ('${{ inputs.dry_run }}' -eq 'true') {
-            $params = @("-DryRun")
+            $params = @{ DryRun = $true }
           }
           ./scripts/github/sync-issues-to-project.ps1 @params
 
