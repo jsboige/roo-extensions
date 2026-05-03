@@ -3,6 +3,8 @@ name: Sync Project #67
 on:
   issues:
     types: [opened]
+  pull_request:
+    types: [opened]
   schedule:
     - cron: '17 6 * * *'
   workflow_dispatch:
@@ -15,11 +17,16 @@ on:
 
 permissions:
   issues: read
+  pull-requests: read
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    if: github.event_name != 'issues' || github.event.issue.state == 'open'
+    if: >
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.issue.state == 'open') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.state == 'open')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,6 +42,23 @@ jobs:
             $params = @("-DryRun")
           }
           ./scripts/github/sync-issues-to-project.ps1 @params
+
+      - name: Add new PR to Project #67
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $prUrl = "${{ github.event.pull_request.html_url }}"
+          $projectId = "PVT_kwHOADA1Xc4BLw3w"
+          Write-Host "Adding PR to Project #67: $prUrl"
+          $result = gh project item-add $projectId --owner jsboige --url $prUrl 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] PR added to Project #67"
+          } else {
+            Write-Host "[WARN] Could not add PR (may already exist): $result"
+          }
 
       - name: Label nudge for new issues
         if: github.event_name == 'issues'
@@ -59,7 +83,7 @@ jobs:
                 body: [
                   '**Missing labels detected:**',
                   '',
-                  ...missing.map(m => `- ${m}'),
+                  ...missing.map(m => `- ${m}`),
                   '',
                   'Please add the missing labels so Project #67 fields are set correctly.',
                   '',
