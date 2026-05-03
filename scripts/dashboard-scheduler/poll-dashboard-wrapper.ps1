@@ -9,14 +9,14 @@
     Paths and workspaces are auto-detected from $PSScriptRoot and environment variables.
     Override via parameters or env vars:
       - DASHBOARD_WATCHER_WORKSPACES: comma-separated workspace list
-      - DASHBOARD_WATCHER_TAGS: comma-separated allowed tags (default: ASK,TASK,BLOCKED,ORDER,PING,URGENT)
+      - DASHBOARD_WATCHER_TAGS: comma-separated allowed tags (default: ASK,TASK,BLOCKED,ORDER,PING,URGENT,WAKE-CLAUDE)
       - DASHBOARD_WATCHER_LOG_DIR: override log directory
 
 .PARAMETER Workspaces
     Comma-separated workspace list. Default: $env:DASHBOARD_WATCHER_WORKSPACES.
 
 .PARAMETER AllowedTags
-    Comma-separated allowed tags. Default: ASK,TASK,BLOCKED,ORDER,PING,URGENT.
+    Comma-separated allowed tags. Default: ASK,TASK,BLOCKED,ORDER,PING,URGENT,WAKE-CLAUDE.
 
 .PARAMETER LogDir
     Override log directory. Default: <repo-root>/outputs/scheduling/logs.
@@ -28,7 +28,7 @@
 
 param(
     [string]$Workspaces = $env:DASHBOARD_WATCHER_WORKSPACES,
-    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'ASK,TASK,BLOCKED,ORDER,PING,URGENT' }),
+    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'ASK,TASK,BLOCKED,ORDER,PING,URGENT,WAKE-CLAUDE' }),
     [string]$LogDir = $env:DASHBOARD_WATCHER_LOG_DIR
 )
 

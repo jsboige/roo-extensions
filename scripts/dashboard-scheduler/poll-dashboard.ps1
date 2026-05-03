@@ -35,7 +35,8 @@
     = all discovered. Ignored when -Workspaces is set explicitly.
 
 .PARAMETER AllowedTags
-    Comma-separated tags that should trigger a spawn. Defaults to "ASK,TASK,BLOCKED".
+    Comma-separated tags that should trigger a spawn. Defaults to "ASK,TASK,BLOCKED,ORDER,PING,URGENT,WAKE-CLAUDE".
+    Falls back to DASHBOARD_WATCHER_ALLOWED_TAGS env var if parameter is empty.
     Tags INFO, FYI, DONE, ACK, REPLY are ignored by design.
 
 .PARAMETER AllowedAuthors
@@ -83,7 +84,7 @@ param(
 
     [string]$AllowedWorkspaces = "",
 
-    [string]$AllowedTags = "ASK,TASK,BLOCKED,ORDER,PING,URGENT",
+    [string]$AllowedTags = "ASK,TASK,BLOCKED,ORDER,PING,URGENT,WAKE-CLAUDE",
 
     [string]$AllowedAuthors = "",
 
@@ -117,6 +118,14 @@ if ([string]::IsNullOrEmpty($McpConfig)) {
 
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
+}
+
+# Issue #1954: Allow configuring allowed tags via env var (same pattern as
+# DASHBOARD_WATCHER_WORKSPACES). The env var overrides the default if set.
+$envAllowedTags = $env:DASHBOARD_WATCHER_ALLOWED_TAGS
+if (-not [string]::IsNullOrEmpty($envAllowedTags)) {
+    Write-Log "INFO" "Using DASHBOARD_WATCHER_ALLOWED_TAGS env var: $envAllowedTags"
+    $AllowedTags = $envAllowedTags
 }
 
 $tagList = $AllowedTags -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
