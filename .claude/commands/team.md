@@ -1,6 +1,6 @@
 Execute task $ARGUMENTS through the Team pipeline (PLAN → PRD → EXEC → VERIFY → FIX loop).
 
-Read the design doc at `docs/architecture/team-pipeline-OMC-extraction.md` for full stage definitions.
+Read the design doc at `docs/harness/adr/005-team-pipeline-stages.md` for full stage definitions.
 
 ## Pipeline
 
