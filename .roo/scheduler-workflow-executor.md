@@ -108,12 +108,13 @@ Worktree cleanup check (issue #856) :
 Puis lire le dashboard WORKSPACE :
 4. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
-Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : état git + worktrees count + contenu dashboard workspace + liste des tâches/propositions trouvées.
+Chercher les messages avec tags [WAKE-ROO], [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
+Rapporter : état git + worktrees count + contenu dashboard workspace + liste des tâches/propositions trouvées + presence de [WAKE-ROO].
 ```
 
 **Décision :**
 - Si git pull ÉCHOUÉ → **Étape 3** avec rapport d'erreur
+- Si `[WAKE-ROO]` (#1955, IMMÉDIAT) → traiter le contenu IMMEDIATEMENT, repondre par `[ACK]` sur le dashboard, escalader vers `-complex` si la demande l'exige
 - Si `[URGENT]` → escalader vers `orchestrator-complex`
 - Si `[TASK]`/`[PROPOSAL]` avec `[COMPLEX]` ET date < 24h → **escalader vers orchestrator-complex**
 - Si `[TASK]`/`[PROPOSAL]` ET date < 24h → **Étape 2a**
