@@ -46,13 +46,14 @@ Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
 Puis lire le dashboard WORKSPACE :
 3. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
-Chercher les messages avec tags [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : etat git + contenu dashboard workspace + liste des taches trouvees.
+Chercher les messages avec tags [WAKE-ROO], [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
+Rapporter : etat git + contenu dashboard workspace + liste des taches trouvees + presence de [WAKE-ROO] (#1955, IMMÉDIAT).
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
 **Decision :**
 - Si git pull ECHOUE : aller DIRECTEMENT a **Etape 3** avec rapport d'erreur
+- Si `[WAKE-ROO]` (#1955, IMMÉDIAT) : traiter le contenu IMMEDIATEMENT, repondre par `[ACK]` sur le dashboard, escalader vers `-complex` si la demande l'exige
 - Si `[URGENT]` : escalader vers `orchestrator-complex`
 - Si `[TASK]` avec `[COMPLEX]` ET date < 24h : **escalader vers orchestrator-complex**
 - Si `[TASK]` ET date < 24h : aller a **Etape 2a**

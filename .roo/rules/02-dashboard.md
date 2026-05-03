@@ -81,11 +81,14 @@ Les agents en worktree (`.claude/worktrees/wt-*`) postent automatiquement dans l
 
 | Tag | Action | Priorite |
 | ----- | -------- | ---------- |
-| `[WAKE-CLAUDE]` | Traiter immediatement | **IMMEDIATE** |
+| `[WAKE-CLAUDE]` | Claude traite immediatement | **IMMEDIATE** |
+| `[WAKE-ROO]` | Roo traite immediatement | **IMMEDIATE** |
 | `[FRICTION-FOUND]` | Noter pour contexte | Haute |
 | `[ERROR]` | Investiger | Haute |
 | `[ASK]` | Repondre | Moyenne |
 | `[DONE]` | Analyser | Normale |
+
+**Trigger bidirectionnel (#1955) :** `[WAKE-CLAUDE]` reveille le Claude Worker via le dashboard-watcher (poll <1h). `[WAKE-ROO]` reveille le Roo scheduler a son prochain cycle (max 6h). Voir [`docs/harness/reference/bidirectional-trigger.md`](../../docs/harness/reference/bidirectional-trigger.md).
 
 ## Regles d'engagement
 
