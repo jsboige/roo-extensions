@@ -2230,6 +2230,45 @@ function New-WorkerPR {
             return $null
         }
 
+        # Guard #1949: Submodule pointer dedup — skip if target commit already on origin/main
+        if ($SubmoduleFiles.Count -gt 0) {
+            foreach ($SubmodulePath in $SubmoduleFiles) {
+                $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) |
+                    Select-String '\+Subproject commit ([a-f0-9]+)' |
+                    ForEach-Object { $_.Matches.Groups[1].Value }
+                if ($NewPointer) {
+                    $MainPointer = (git ls-tree origin/main -- $SubmodulePath 2>&1) |
+                        Select-String "$([regex]::Escape($SubmodulePath))\s+commit\s+([a-f0-9]+)" |
+                        ForEach-Object { $_.Matches.Groups[1].Value }
+                    if ($MainPointer -eq $NewPointer) {
+                        Write-Log "DEDUP PR BLOCKED (#1949): Submodule '$SubmodulePath' pointer $($NewPointer.Substring(0,8)) already on origin/main. Skipping." "WARN"
+                        Pop-Location
+                        Remove-RemoteBranch -BranchName $CurrentBranch -Reason "dedup submodule pointer (#1949)"
+                        Push-Location $WorktreePath
+                        return $null
+                    }
+                }
+            }
+        }
+
+        # Guard #1949: Trivial change detection — count effective non-submodule lines
+        $NonSubmoduleDiff = @((git diff main..HEAD --numstat -- . ':!mcps' ':!roo-code' 2>&1) |
+            Where-Object { $_ -is [string] -and $_ -match '^\d+\s+\d+' })
+        $EffectiveLines = 0
+        foreach ($line in $NonSubmoduleDiff) {
+            if ($line -match '^(\d+)\s+(\d+)') {
+                $EffectiveLines += [int]$Matches[1] + [int]$Matches[2]
+            }
+        }
+        $IsTrivialOverride = ($Task.subject -match '\btypo\b|\bdocs?-fix\b|\bdocumentation\b')
+        if ($EffectiveLines -lt 2 -and $SubmoduleFiles.Count -gt 0 -and -not $IsTrivialOverride) {
+            Write-Log "TRIVIAL PR BLOCKED (#1949): Only submodule pointer change ($EffectiveLines effective lines). Skipping." "WARN"
+            Pop-Location
+            Remove-RemoteBranch -BranchName $CurrentBranch -Reason "trivial change guard (#1949)"
+            Push-Location $WorktreePath
+            return $null
+        }
+
         # Extract issue number from task subject
         $IssueNum = $null
         if ($Task.subject -match '#(\d+)') { $IssueNum = $Matches[1] }
