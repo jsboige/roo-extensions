@@ -58,6 +58,13 @@ IMPORTANT - Contraintes GitHub CLI en mode -simple:
 
 ### Cas spécifiques
 
+**502 Retry Death Spiral (Issue #1783) :**
+- Si l'API retourne des erreurs 502 persistantes (3+ erreurs 502 consécutives) → **ABANDONNER la tâche immédiatement**
+- **NE PAS** réessayer indéfiniment — le retry automatique de Roo Code n'a pas de circuit breaker natif
+- **Action :** `attempt_completion(result: "ECHEC: API 502 persistant (death spiral détecté). Tâche abandonnée après N erreurs 502.")`
+- Signaler sur le dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["CRITICAL", "roo-scheduler"], content: "502 death spiral détecté — tâche abandonnée")`
+- **Seuil :** Après 5 erreurs 502 consécutives → STOP définitif, ne pas reprendre cette tâche ce cycle
+
 **MCP critique HS en mode `-simple` (#1181) :**
 - Si win-cli MCP échoue 2 fois → **NE PAS utiliser `ask_followup_question`**
 - **Action :** `attempt_completion(result: "ECHEC: MCP win-cli non disponible après 2 tentatives. Rapporté sur dashboard.")`

@@ -1,7 +1,7 @@
 # Regles d'Utilisation des MCPs
 
-**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/tool-availability.md)
-**MAJ:** 2026-04-08
+**Version:** 2.1.0 (added win-cli schema + 502 death spiral mitigation)
+**MAJ:** 2026-05-02
 
 ## Pre-requis
 
@@ -16,7 +16,27 @@ AVANT tout travail, verifier que les MCPs critiques repondent. Voir `.claude/rul
 
 ## win-cli
 
-SEUL MCP shell actif. `execute_command(shell="powershell", command="...")`. Shells : `powershell`, `cmd`, `gitbash`.
+SEUL MCP shell actif. Shells disponibles : `powershell`, `cmd`, `gitbash`.
+
+### Schema OBLIGATOIRE (Issue #1783)
+
+**Les 2 parametres sont REQUIS.** Omettre `shell` provoque une erreur schema `-32602`.
+
+```
+# CORRECT — toujours specifier shell ET command
+execute_command(shell="powershell", command="Get-Date")
+execute_command(shell="gitbash", command="git status")
+
+# INCORRECT — provoque MCP error -32602: Invalid arguments: Required
+execute_command(command="Get-Date")  # MANQUE shell
+execute_command(shell="powershell")  # MANQUE command
+```
+
+**Parametres :**
+| Parametre | Type | Requis | Valeurs |
+| --------- | ---- | ------ | ------- |
+| `shell` | string | **OUI** | `"powershell"`, `"cmd"`, `"gitbash"` |
+| `command` | string | **OUI** | Toute commande valide pour le shell choisi |
 
 **NE JAMAIS** `npx @anthropic/win-cli` (npm 0.2.1 casse). Fork local uniquement.
 
