@@ -100,63 +100,9 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 ## Team Pipeline Stages (#1853)
 
-For complex tasks (>50 LOC or >3 files), follow the structured 5-stage pipeline extracted from oh-my-claudecode:
-
-| Stage | Purpose | Required? |
-|-------|---------|-----------|
-| **team-plan** | Break down task into subtasks | Yes, for >50 LOC or >3 files |
-| **team-prd** | Clarify requirements and constraints | If ambiguous |
-| **team-exec** | Execute the implementation | Yes |
-| **team-verify** | Verify solution (build + tests) | **REQUIRED before [DONE]** |
-| **team-fix** | Fix issues found in verification | Loop until verify passes |
-
-### Stage Transition Example
-
-```markdown
-## [CLAIMED] #NNN — task description
-**Team Stage:** team-plan
-
-## [PROGRESS] team-exec — Implementation started
-**Previous Stage:** team-plan → team-prd (skipped, requirements clear)
-
-## [PROGRESS] team-verify — Running build + tests
-**Previous Stage:** team-exec
-
-## [DONE] Verification passed
-**team-verify:** build ✓ tests ✓ (74/74)
-```
-
-### Verification Gate
-
-**NEVER** mark a task as [DONE] without running team-verify (build + tests).
-
-### Dashboard Protocol Extension
-
-Agents can report Team stages in dashboard messages via the `teamStage` field:
-
-```typescript
-// In dashboard-schemas.ts
-teamStage: 'team-plan' | 'team-prd' | 'team-exec' | 'team-verify' | 'team-fix' | 'done'
-teamStageData: {
-  previousStage?: TeamStage,
-  nextStage?: TeamStage,
-  verificationResult?: {
-    buildPassed?: boolean,
-    testsPassed?: boolean,
-    issuesFound?: string[]
-  }
-}
-```
-
-**Detail:** [docs/harness/adr/005-team-pipeline-stages.md](docs/harness/adr/005-team-pipeline-stages.md)
-
----
-
-## GitHub
-
-**Project #67 :** [GitHub Projects](https://github.com/users/jsboige/projects/67)
-**Format issues :** `[CLAUDE-MACHINE] Titre` + labels. **Obligatoires :** bug/enhancement/documentation + attribution (claude-only ou roo-schedulable).
-**Detail :** [docs/harness/reference/github-cli.md](docs/harness/reference/github-cli.md)
+For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec → team-verify → team-fix**.
+**team-verify REQUIRED before [DONE]** (build + tests must pass). Report stages via `teamStage` in dashboard messages.
+**Detail & schema:** [docs/harness/adr/005-team-pipeline-stages.md](docs/harness/adr/005-team-pipeline-stages.md)
 
 ---
 
@@ -175,30 +121,22 @@ teamStageData: {
 - **Coordinateur :** [scheduled-coordinator.md](docs/harness/coordinator-specific/scheduled-coordinator.md) | [pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) | [skeptical-posture.md](docs/harness/coordinator-specific/skeptical-posture.md)
 - **Guide RooSync :** [GUIDE-TECHNIQUE-v2.3.md](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
 - **Scripts :** [scripts/README.md](scripts/README.md) | [scripts/claude/](scripts/claude/)
-- **GitHub :** https://github.com/users/jsboige/projects/67
+- **GitHub :** [Project #67](https://github.com/users/jsboige/projects/67) — Issues: `[CLAUDE-MACHINE] Titre` + labels (bug/enhancement/doc + attribution). [Detail](docs/harness/reference/github-cli.md)
 
 ---
 
 ## Regles Absolues
 
-1. RooSync = GDrive UNIQUEMENT (jamais dans git)
-2. INTERCOM = local, RooSync = inter-machine
-3. JAMAIS modifier `.roomodes`/`.roo/schedules.json` directement (sources + regenerer)
-4. Validation checklist OBLIGATOIRE pour consolidation/refactoring
-5. Annoncer avant de travailler
-6. STOP & REPAIR si MCP critique absent
-7. Verification cross-machine apres changement config
-8. Scepticisme : ne JAMAIS propager affirmation non verifiee
-9. VS Code restart requis apres modification schedules
-10. Worktree cleanup apres PR merge/close
-11. JAMAIS de cles API dans GitHub (RooSync pour partage)
-12. `.claude/` = SANCTUAIRE — jamais de fichiers temporaires. Body-files → `$TEMP`
-13. Dashboard = canal de COMMANDEMENT : repondre a chaque rapport [DONE]
-14. Dashboard = canal de RAPPORT : tout agent rapporte en fin de session
-15. Agents proactifs : poster l'action envisagee AVANT de l'entreprendre (anti-double-claim)
-16. Reviews exigeantes : PR >50 LOC = integration tracing template ([pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) section 2)
-17. Presomption de regression : "ne marche plus" apres >7j prod → chercher le commit rogue d'abord (#1463)
-18. Coordinateur = gardien de la raison : exiger preuve de panne avant d'agir. [Posture detaillee](docs/harness/coordinator-specific/skeptical-posture.md)
+1. RooSync = GDrive UNIQUEMENT (jamais git). INTERCOM = local, RooSync = inter-machine
+2. JAMAIS modifier `.roomodes`/`.roo/schedules.json` directement (sources + regenerer, VS Code restart apres modif)
+3. Validation checklist OBLIGATOIRE pour consolidation/refactoring
+4. Annoncer avant de travailler. STOP & REPAIR si MCP critique absent
+5. Verification cross-machine apres config. Worktree cleanup apres PR merge/close
+6. JAMAIS de cles API dans GitHub. `.claude/` = SANCTUAIRE (pas de fichiers temporaires, body-files → `$TEMP`)
+7. Dashboard = COMMANDEMENT + RAPPORT : repondre [DONE], rapporter fin de session, annoncer actions AVANT entreprendre (anti-double-claim)
+8. Reviews exigeantes : PR >50 LOC = integration tracing ([pr-review-policy](docs/harness/coordinator-specific/pr-review-policy.md) s2)
+9. Presomption de regression : "ne marche plus" >7j prod → chercher commit rogue (#1463)
+10. Coordinateur = gardien de la raison : exiger preuve avant agir. [Posture](docs/harness/coordinator-specific/skeptical-posture.md)
 
 ---
 

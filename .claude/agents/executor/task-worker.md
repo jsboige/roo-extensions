@@ -80,6 +80,28 @@ npx vitest run --testNamePattern="pattern"
 7. REPORTER (RooSync au coordinateur)
 ```
 
+## Team Pipeline Stages (#1853)
+
+For tasks >50 LOC or >3 files, follow the 5-stage pipeline:
+
+1. **team-plan** — Decompose into subtasks. Post `[CLAIMED]` + `[PLAN]` on dashboard.
+2. **team-prd** — (Skip if clear) Clarify requirements. Post `[ASK]` if ambiguous.
+3. **team-exec** — Implement in worktree. Report `[PROGRESS]` with stage transitions.
+4. **team-verify** — Build + tests. **REQUIRED before [DONE]**. Post `[VERIFY]` report.
+5. **team-fix** — Fix failures. Loop until verify passes. Max 3 iterations.
+
+**Simple tasks** (<3 files AND <50 LOC): skip PLAN/PRD, go EXEC → VERIFY → DONE.
+
+Report stages in dashboard messages via `teamStage` field:
+
+```text
+roosync_dashboard(action: "append", type: "workspace",
+  teamStage: "team-exec",
+  content: "[PROGRESS] Implementation started")
+```
+
+**Verification gate**: NEVER mark [DONE] without passing build + tests.
+
 ## Quand Agir Seul vs Coordonner
 
 ### Agir Seul (pas besoin d'attendre)
