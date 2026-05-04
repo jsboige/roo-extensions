@@ -1,7 +1,7 @@
 # ADR 007: RooSync HUD Statusline
 
 **Date:** 2026-04-30
-**Status:** Proposed
+**Status:** Phase 3 Complete
 **Issue:** #1855
 **Source:** oh-my-claudecode evaluation (#1802, pattern #3)
 
@@ -90,6 +90,23 @@ Portable path resolution: script uses `$env:ROOSYNC_SHARED_PATH` or defaults to 
 
 ## Implementation Phases
 
-- **Phase 1** (this PR): ADR + PowerShell script + minimal/normal/verbose presets
-- **Phase 2** (future): MCP metrics endpoint for real-time data
-- **Phase 3** (future): Active claims section, team-stage display
+- **Phase 1** (PR #1872, MERGED): ADR + PowerShell script + minimal/normal/verbose presets
+- **Phase 2** (PR #1891, MERGED): MCP metrics endpoint (get-status detail="full") + HUD data structures
+- **Phase 3** (deployed web1, template ready): Active claims, team-stage display, deployment template
+
+### Deployment Template
+
+Each machine needs `statusLine` in `~/.claude/settings.json`:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "pwsh -ExecutionPolicy Bypass -Command \"$env:ROOSYNC_SHARED_PATH='<SHARED_PATH>'; & '<REPO>/scripts/claude/roosync-statusline.ps1' -Preset normal\""
+  }
+}
+```
+
+Per-machine `ROOSYNC_SHARED_PATH` values are in `.env` files. Script also falls back to `G:\Mon Drive\...` or `D:\Mon Drive\...`.
+
+**Known limitation:** Presence/heartbeat data is stale on all machines (#1953 — heartbeat tracker redesign). Statusline correctly reads available data but machine counts may show 0/6 until #1953 is resolved.
