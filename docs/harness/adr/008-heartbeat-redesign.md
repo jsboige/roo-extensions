@@ -1,10 +1,11 @@
 # ADR 008: Heartbeat Redesign — Passive Activity Derivation
 
-**Date:** 2026-05-03
-**Status:** Proposed
+**Date:** 2026-05-03 (v2 updated 2026-05-04 by po-2024)
+**Status:** Approved (pending Phase 1 implementation)
 **Issue:** #1953
 **Supersedes:** #1495, #1674, #1791, #1938 (4 failed fixes in 6 weeks)
-**Related:** #1609 (auto-heartbeat on tool calls)
+**Related:** #1609 (auto-heartbeat), #293 (dashboard cross-check), #311 (double-callback fix)
+**Approvers:** myia-po-2024 (ADR v2 ratification), pending coordinator sign-off
 
 ## Context
 
@@ -155,3 +156,49 @@ Remove all heartbeat tracking from RooSync. Rely entirely on watchdog scripts an
 | GDrive `heartbeats/` files become orphaned | Phase 2 cleanup after validation |
 | Statusline ADR (#1855) references heartbeat.json | Update to read from in-memory source or remove heartbeat section |
 | `roosync_heartbeat_service` tool removal breaks callers | Keep redirect handler in registry.ts for backward compat |
+
+## Post-#311 Update (2026-05-04, po-2024)
+
+### What PR #311 Fixed (interim, pre-ADR implementation)
+
+PR #311 (po-2026, merged 2026-05-04) addressed the **immediate symptom** — double-callback in `startHeartbeatChecker()` that caused every status change to fire callbacks twice, amplifying the identity split bug into constant OFFLINE/ONLINE flapping.
+
+Changes:
+- Removed duplicate callback invocation in `startHeartbeatChecker()` (callbacks already fired inside `checkHeartbeats()`)
+- Removed dead `performAutoSync()` + `startAutoSync()` methods (only logged, never synced)
+- Kept `autoSyncEnabled`/`autoSyncInterval` as `@deprecated` optional fields for backward compat
+
+### What PR #293 Added (cross-check bridge)
+
+PR #293 (po-2024, merged cycle 29 W7) added a **dashboard-derived status cross-check** in `roosync_get_status`. When heartbeat data reports OFFLINE but dashboard shows recent activity, the status is overridden. This is a **palliative**, not a fix — it masks the heartbeat inaccuracy rather than fixing the source.
+
+### ADR 008 Remains Necessary
+
+Both #311 and #293 are **stopgaps**. The fundamental problems persist:
+1. **3 mechanisms, 2 identity sources** — #311 fixed the double-fire but identity split remains
+2. **GDrive file latency** — #293 cross-check works around it but adds complexity
+3. **OFFLINE false positives** — still occur, just hidden by the cross-check
+
+The ADR 008 Option A (passive activity derivation) is the correct long-term fix. #311 and #293 should be reverted as part of Phase 2 implementation (their logic is superseded by the in-memory model).
+
+### Updated Migration Roadmap
+
+| Phase | Description | Status | Dependencies |
+|-------|-------------|--------|-------------|
+| 0 (stopgap) | Double-callback fix (#311) + cross-check (#293) | DONE | None |
+| 1 | Identity fix + in-memory model (this ADR) | Pending implementation | ADR approval |
+| 2 | Remove dead code (heartbeat files, tools, GDrive writes) | Pending Phase 1 validation (48h) | Phase 1 live |
+| 3 | 48h continuous validation across 6 machines | Pending Phase 2 | Phase 2 complete |
+
+### Approval Notes (po-2024 review)
+
+The ADR is technically sound. Specific validations:
+
+- **Identity source:** `os.hostname()` is correct — verified against `heartbeat-activity.ts` which already uses it successfully
+- **In-memory only:** Correct approach — GDrive file latency is the root cause of all 4 regressions
+- **No OFFLINE status:** Correct — absence of signal should not imply failure (external tools handle this)
+- **Backward compat:** Keep redirect handlers for removed tools — consistent with project patterns
+
+**One concern:** Phase 1 should also remove the `heartbeat-activity.ts` GDrive file writes (not just HeartbeatService writes), since both write to the same unreliable medium. Recommend including this in Phase 1 scope.
+
+**Recommendation: APPROVED pending coordinator sign-off.**
