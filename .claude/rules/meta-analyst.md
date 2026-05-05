@@ -1,7 +1,7 @@
 # Meta-Analyste — Claude Code
 
-**Version:** 1.4.0 (slim)
-**Issues :** #1375, #1455, #1584, #1621, #1818
+**Version:** 1.5.0 (slim)
+**Issues :** #1375, #1455, #1584, #1621, #1818, #1608
 
 ---
 
@@ -32,6 +32,19 @@ Toute analyse ou rapport va sur le dashboard workspace, JAMAIS dans INTERCOM.
 ## HARD REJECT
 
 Interdit : asymetrie version doc, "harmoniser/aligner", refactoring sans incident, naming drift, doublons apparents, metrique sans seuil depasse.
+
+## Budget Contexte OBLIGATOIRE (#1608)
+
+**Toute lecture de conversation DOIT utiliser smart_truncation.** Sans truncation, une session CoursIA (500 MB) sature le contexte en 1 appel.
+
+| Outil | Parametres OBLIGATOIRES |
+|-------|------------------------|
+| `conversation_browser(view)` | `smart_truncation: true`, `max_output_length: 50000` |
+| `conversation_browser(summarize)` | `truncate_instruction: 120`, `compactStats: true` |
+| `conversation_browser(list)` | `limit: 20` max |
+
+**JAMAIS** appeler `view` ou `summarize` sans smart_truncation sur une session inconnue.
+**Max 3 lectures de sessions** par cycle meta-analyste. Apres, arreter et rapporter.
 
 ## Securite
 
