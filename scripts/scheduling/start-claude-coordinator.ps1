@@ -4,6 +4,7 @@
 
 .DESCRIPTION
     Issue #540 - Coordinator tier (ai-01 ONLY)
+    Issue #1980 - Idle guard: skip session when no work is pending
 
     Ce script :
     1. Analyse le trafic RooSync (messages envoyes/recus par machine)
@@ -12,14 +13,17 @@
     4. Dispatche/rebalance si necessaire
     5. Produit un rapport coordinateur sur GDrive
 
+    IDLE GUARD (#1980):
+    Before launching Claude, checks 3 conditions (0 tokens):
+    - Recent interactive [DONE] from ai-01 on dashboard (< IdleThresholdHours)
+    - Open PRs in both repos (parent + submod)
+    - RooSync inbox files on GDrive
+    If all conditions indicate "no work" → skip session entirely (0 cost).
+    Use -Force to override.
+
     Frequence : 6-12h
     Model : Sonnet baseline avec escalation sub-agent Opus pour PR reviews (#1027)
     Machine : myia-ai-01 UNIQUEMENT
-
-    ESCALATION MECHANISM (#1027):
-    - Thread principal sur Sonnet (git pull, dashboard read, dispatch decisions)
-    - PR review etale : deleguer a sub-agent Opus via Task tool si diff complexe
-    - MinimumModel guard non applicable (Sonnet suffisant pour harnais actuel)
 
 .PARAMETER Model
     Modele Claude a utiliser (defaut: sonnet)
@@ -30,9 +34,19 @@
 .PARAMETER DryRun
     Mode simulation sans execution reelle
 
+.PARAMETER IdleThresholdHours
+    Hours since last interactive [DONE] before coordinator runs (defaut: 6)
+
+.PARAMETER Force
+    Skip idle guard — always run the coordinator session
+
 .EXAMPLE
     .\start-claude-coordinator.ps1
-    # Lance la coordination en mode Sonnet (baseline)
+    # Lance la coordination en mode Sonnet (baseline), with idle guard
+
+.EXAMPLE
+    .\start-claude-coordinator.ps1 -Force
+    # Force run even if idle guard would skip
 
 .EXAMPLE
     .\start-claude-coordinator.ps1 -Model "opus" -DryRun
@@ -41,15 +55,17 @@
 .NOTES
     Auteur: Claude Code (myia-ai-01)
     Date: 2026-03-05
-    Version: 1.0.0
-    Issue: #540
+    Version: 1.1.0
+    Issue: #540, #1980
 #>
 
 [CmdletBinding()]
 param(
     [string]$Model = "sonnet",
     [int]$LookbackHours = 48,
-    [switch]$DryRun = $false
+    [switch]$DryRun = $false,
+    [double]$IdleThresholdHours = 6,
+    [switch]$Force = $false
 )
 
 # Configuration
@@ -131,6 +147,115 @@ Write-Log "DryRun: $DryRun"
 if (-not (Test-ClaudeCLI)) {
     Write-Log "ABORT: Claude CLI introuvable" "ERROR"
     exit 1
+}
+
+# =============================================================================
+# IDLE GUARD (#1980) — Skip session if interactive already handled coordination
+# Costs 0 tokens: pure PowerShell checks before launching Claude.
+# =============================================================================
+
+if (-not $Force) {
+    Write-Log "IDLE GUARD: Checking if session should be skipped..."
+
+    $IdleSkip = $true  # Assume skip unless a reason to run is found
+    $IdleReasons = @()
+
+    # Check 1: Recent interactive [DONE] on dashboard workspace (< IdleThresholdHours)
+    $DashboardFile = Join-Path $env:ROOSYNC_SHARED_PATH "dashboards\workspace-roo-extensions.md"
+    if (Test-Path $DashboardFile) {
+        try {
+            $DashboardContent = Get-Content $DashboardFile -Raw -ErrorAction Stop
+            # Find all timestamp patterns from interactive Claude sessions
+            # Format: ### [2026-05-05T08:53:12.213Z] myia-ai-01|roo-extensions
+            $RecentInteractive = $DashboardContent | Select-String -Pattern '(?m)^###\s+\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})' -AllMatches |
+                ForEach-Object { $_.Matches } |
+                ForEach-Object {
+                    $ts = [DateTime]::Parse($_.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+                    # Check if this message section contains [DONE] or [CLAIMED] from ai-01
+                    $msgStart = $_.Index
+                    $nextSection = $DashboardContent.IndexOf("`n### ", $msgStart + 1)
+                    if ($nextSection -eq -1) { $nextSection = $DashboardContent.Length }
+                    $msgBlock = $DashboardContent.Substring($msgStart, [Math]::Min($nextSection - $msgStart, 500))
+                    @{ Timestamp = $ts; HasDone = $msgBlock -match '\[DONE\]'; HasClaimed = $msgBlock -match '\[CLAIMED\]'; FromAi01 = $msgBlock -match 'myia-ai-01' }
+                } |
+                Where-Object { $_.FromAi01 -and ($_.HasDone -or $_.HasClaimed) } |
+                Sort-Object Timestamp -Descending |
+                Select-Object -First 1
+
+            if ($RecentInteractive) {
+                $TimeSince = ((Get-Date).ToUniversalTime() - $RecentInteractive.Timestamp).TotalHours
+                $TimeSinceStr = $TimeSince.ToString('F1')
+                if ($TimeSince -lt $IdleThresholdHours) {
+                    $IdleReasons += "Recent interactive [DONE]/[CLAIMED] from ai-01 ${TimeSinceStr}h ago (threshold: ${IdleThresholdHours}h)"
+                } else {
+                    $IdleSkip = $false
+                    $IdleReasons += "Last interactive [DONE]/[CLAIMED] was ${TimeSinceStr}h ago (> ${IdleThresholdHours}h threshold)"
+                }
+            } else {
+                $IdleSkip = $false
+                $IdleReasons += "No recent interactive [DONE]/[CLAIMED] from ai-01 on dashboard"
+            }
+        } catch {
+            $IdleSkip = $false
+            $IdleReasons += "Could not read dashboard: $_"
+        }
+    } else {
+        $IdleSkip = $false
+        $IdleReasons += "Dashboard file not found at $DashboardFile"
+    }
+
+    # Check 2: Open PRs needing review (any open PR = reason to run)
+    try {
+        $OpenPRs = & gh pr list --repo jsboige/roo-extensions --state open --json number 2>$null | ConvertFrom-Json
+        $OpenSubmodPRs = & gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number 2>$null | ConvertFrom-Json
+        $TotalPRs = ($OpenPRs | Measure-Object).Count + ($OpenSubmodPRs | Measure-Object).Count
+        if ($TotalPRs -gt 0) {
+            $IdleSkip = $false
+            $IdleReasons += "$TotalPRs open PR(s) need review"
+        } else {
+            $IdleReasons += "No open PRs"
+        }
+    } catch {
+        # gh might not be available — don't block on this check
+        $IdleReasons += "Could not check open PRs: $_"
+    }
+
+    # Check 3: RooSync inbox on GDrive — check for unread marker files (0 tokens)
+    try {
+        $InboxDir = Join-Path $env:ROOSYNC_SHARED_PATH "roosync\myia-ai-01\inbox"
+        if (Test-Path $InboxDir) {
+            $UnreadFiles = Get-ChildItem $InboxDir -Filter "*.json" -ErrorAction SilentlyContinue |
+                Where-Object { $_.Length -gt 0 }
+            $UnreadCount = ($UnreadFiles | Measure-Object).Count
+            if ($UnreadCount -gt 0) {
+                $IdleSkip = $false
+                $IdleReasons += "$UnreadCount RooSync inbox file(s)"
+            } else {
+                $IdleReasons += "RooSync inbox empty"
+            }
+        } else {
+            $IdleReasons += "RooSync inbox dir not found"
+        }
+    } catch {
+        $IdleReasons += "Could not check RooSync inbox: $_"
+    }
+
+    # Decision
+    if ($IdleSkip) {
+        Write-Log "IDLE GUARD: SKIP — All checks indicate no work needed:" "WARN"
+        foreach ($reason in $IdleReasons) {
+            Write-Log "  - $reason" "WARN"
+        }
+        Write-Log "IDLE GUARD: Use -Force to override. === COORDINATOR IDLE EXIT ===" "WARN"
+        exit 0
+    } else {
+        Write-Log "IDLE GUARD: PROCEED — Reasons to run:"
+        foreach ($reason in $IdleReasons) {
+            Write-Log "  - $reason"
+        }
+    }
+} else {
+    Write-Log "IDLE GUARD: BYPASSED (-Force flag set)" "WARN"
 }
 
 # Construire le prompt coordinateur
