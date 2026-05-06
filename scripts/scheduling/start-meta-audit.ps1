@@ -8,7 +8,7 @@
     Ce script :
     1. Analyse les traces locales Roo et Claude
     2. Effectue une analyse croisee des deux harnais
-    3. Ecrit les findings dans META-INTERCOM
+    3. Poste les findings sur le dashboard workspace (depuis #1818, INTERCOM deprecated)
     4. Propose des issues GitHub avec label needs-approval si applicable
 
     Frequence : 72h
@@ -37,8 +37,9 @@
 .NOTES
     Auteur: Claude Code (myia-ai-01)
     Date: 2026-03-04
-    Version: 1.0.0
+    Version: 1.1.0
     Issue: #551
+    Fix: INTERCOM→dashboard workspace (#1818)
 #>
 
 [CmdletBinding()]
@@ -137,8 +138,7 @@ if (-not (Test-ClaudeCLI)) {
 
 # Construire le prompt meta-analyse
 $Today = Get-Date -Format "yyyy-MM-dd"
-$MetaIntercomPath = ".claude/local/META-INTERCOM-$MachineName.md"
-$MetaIntercomTemplatePath = ".claude/local/META-INTERCOM_TEMPLATE.md"
+# Note: META-INTERCOM deprecated since 2026-04-10 (#1818). Reports go to dashboard workspace.
 
 $Prompt = @"
 Tu es le META-ANALYSTE Claude Code sur la machine $MachineName.
@@ -186,15 +186,19 @@ Identifier :
 - Lacunes (regles presentes d'un cote mais pas l'autre)
 - Ameliorations potentielles
 
-### 4. Ecrire dans META-INTERCOM
+### 4. Poster le rapport sur le dashboard workspace
 
-Fichier : $MetaIntercomPath
-Template (si fichier n'existe pas) : $MetaIntercomTemplatePath
+Utilise le MCP roo-state-manager pour poster le rapport :
 
-Ajouter EN FIN du fichier un rapport avec ce format :
+```
+roosync_dashboard(action: "append", type: "workspace", tags: ["META", "claude-interactive"], content: "...rapport...")
+```
 
-## [$Today] claude-code -> roo [META]
-### Analyse Meta-Analyste Claude (cycle $Today)
+Format du rapport :
+
+## Meta-Analyse Claude Code — $MachineName — $Today
+
+### Dashboard Compact (max 10 lignes)
 
 **Traces Roo (analyse croisee) :**
 - {N} taches analysees, taux succes {X}%
@@ -237,7 +241,7 @@ UNIQUEMENT si tu identifies des problemes concrets :
 - NE DISPATCHE AUCUNE tache
 - TOUTE issue creee DOIT avoir le label needs-approval
 - Limite tes outputs (pas de dump complet de fichiers)
-- NE CREER AUCUN fichier rapport dans le depot (docs/, .claude/, etc.) — les rapports vont sur le dashboard ou en issues GitHub (#1179)
+- NE CREER AUCUN fichier rapport dans le depot (docs/, .claude/, etc.) — les rapports vont sur le dashboard workspace (roosync_dashboard) ou en issues GitHub (#1179, #1818)
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire (evite les problemes de quoting PS)
