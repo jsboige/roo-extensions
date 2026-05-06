@@ -4,6 +4,7 @@
 
 .DESCRIPTION
     Issue #540 - Coordinator tier (ai-01 ONLY)
+    Issue #1980 - Idle guard: skip session when no work is pending
 
     Ce script :
     1. Analyse le trafic RooSync (messages envoyes/recus par machine)
@@ -12,14 +13,17 @@
     4. Dispatche/rebalance si necessaire
     5. Produit un rapport coordinateur sur GDrive
 
+    IDLE GUARD (#1980):
+    Before launching Claude, checks 3 conditions (0 tokens):
+    - Recent interactive [DONE] from ai-01 on dashboard (< IdleThresholdHours)
+    - Open PRs in both repos (parent + submod)
+    - RooSync inbox files on GDrive
+    If all conditions indicate "no work" → skip session entirely (0 cost).
+    Use -Force to override.
+
     Frequence : 6-12h
     Model : Sonnet baseline avec escalation sub-agent Opus pour PR reviews (#1027)
     Machine : myia-ai-01 UNIQUEMENT
-
-    ESCALATION MECHANISM (#1027):
-    - Thread principal sur Sonnet (git pull, dashboard read, dispatch decisions)
-    - PR review etale : deleguer a sub-agent Opus via Task tool si diff complexe
-    - MinimumModel guard non applicable (Sonnet suffisant pour harnais actuel)
 
 .PARAMETER Model
     Modele Claude a utiliser (defaut: sonnet)
@@ -30,9 +34,19 @@
 .PARAMETER DryRun
     Mode simulation sans execution reelle
 
+.PARAMETER IdleThresholdHours
+    Hours since last interactive [DONE] before coordinator runs (defaut: 6)
+
+.PARAMETER Force
+    Skip idle guard — always run the coordinator session
+
 .EXAMPLE
     .\start-claude-coordinator.ps1
-    # Lance la coordination en mode Sonnet (baseline)
+    # Lance la coordination en mode Sonnet (baseline), with idle guard
+
+.EXAMPLE
+    .\start-claude-coordinator.ps1 -Force
+    # Force run even if idle guard would skip
 
 .EXAMPLE
     .\start-claude-coordinator.ps1 -Model "opus" -DryRun
@@ -41,15 +55,17 @@
 .NOTES
     Auteur: Claude Code (myia-ai-01)
     Date: 2026-03-05
-    Version: 1.0.0
-    Issue: #540
+    Version: 1.1.0
+    Issue: #540, #1980
 #>
 
 [CmdletBinding()]
 param(
     [string]$Model = "sonnet",
     [int]$LookbackHours = 48,
-    [switch]$DryRun = $false
+    [switch]$DryRun = $false,
+    [double]$IdleThresholdHours = 8,
+    [switch]$Force = $false
 )
 
 # Configuration
@@ -133,196 +149,144 @@ if (-not (Test-ClaudeCLI)) {
     exit 1
 }
 
-# Construire le prompt coordinateur
+# =============================================================================
+# IDLE GUARD (#1980) — Skip session if interactive already handled coordination
+# Costs 0 tokens: pure PowerShell checks before launching Claude.
+# =============================================================================
+
+if (-not $Force) {
+    Write-Log "IDLE GUARD: Checking if session should be skipped..."
+
+    $IdleSkip = $true  # Assume skip unless a reason to run is found
+    $IdleReasons = @()
+
+    # Check 1: Recent interactive [DONE] on dashboard workspace (< IdleThresholdHours)
+    $DashboardFile = Join-Path $env:ROOSYNC_SHARED_PATH "dashboards\workspace-roo-extensions.md"
+    if (Test-Path $DashboardFile) {
+        try {
+            $DashboardContent = Get-Content $DashboardFile -Raw -ErrorAction Stop
+            # Find all timestamp patterns from interactive Claude sessions
+            # Format: ### [2026-05-05T08:53:12.213Z] myia-ai-01|roo-extensions
+            $RecentInteractive = $DashboardContent | Select-String -Pattern '(?m)^###\s+\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})' -AllMatches |
+                ForEach-Object { $_.Matches } |
+                ForEach-Object {
+                    $ts = [DateTime]::Parse($_.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::AdjustToUniversal)
+                    # Check if this message section contains [DONE] or [CLAIMED] from ai-01
+                    $msgStart = $_.Index
+                    $nextSection = $DashboardContent.IndexOf("`n### ", $msgStart + 1)
+                    if ($nextSection -eq -1) { $nextSection = $DashboardContent.Length }
+                    $msgBlock = $DashboardContent.Substring($msgStart, [Math]::Min($nextSection - $msgStart, 500))
+                    @{ Timestamp = $ts; HasDone = $msgBlock -match '\[DONE\]'; HasClaimed = $msgBlock -match '\[CLAIMED\]'; FromAi01 = $msgBlock -match 'myia-ai-01' }
+                } |
+                Where-Object { $_.FromAi01 -and ($_.HasDone -or $_.HasClaimed) } |
+                Sort-Object Timestamp -Descending |
+                Select-Object -First 1
+
+            if ($RecentInteractive) {
+                $TimeSince = ((Get-Date).ToUniversalTime() - $RecentInteractive.Timestamp).TotalHours
+                $TimeSinceStr = $TimeSince.ToString('F1')
+                if ($TimeSince -lt $IdleThresholdHours) {
+                    $IdleReasons += "Recent interactive [DONE]/[CLAIMED] from ai-01 ${TimeSinceStr}h ago (threshold: ${IdleThresholdHours}h)"
+                } else {
+                    $IdleSkip = $false
+                    $IdleReasons += "Last interactive [DONE]/[CLAIMED] was ${TimeSinceStr}h ago (> ${IdleThresholdHours}h threshold)"
+                }
+            } else {
+                $IdleSkip = $false
+                $IdleReasons += "No recent interactive [DONE]/[CLAIMED] from ai-01 on dashboard"
+            }
+        } catch {
+            $IdleSkip = $false
+            $IdleReasons += "Could not read dashboard: $_"
+        }
+    } else {
+        $IdleSkip = $false
+        $IdleReasons += "Dashboard file not found at $DashboardFile"
+    }
+
+    # Check 2: Open PRs needing review (any open PR = reason to run)
+    try {
+        $OpenPRs = & gh pr list --repo jsboige/roo-extensions --state open --json number 2>$null | ConvertFrom-Json
+        $OpenSubmodPRs = & gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number 2>$null | ConvertFrom-Json
+        $TotalPRs = ($OpenPRs | Measure-Object).Count + ($OpenSubmodPRs | Measure-Object).Count
+        if ($TotalPRs -gt 0) {
+            $IdleSkip = $false
+            $IdleReasons += "$TotalPRs open PR(s) need review"
+        } else {
+            $IdleReasons += "No open PRs"
+        }
+    } catch {
+        # gh might not be available — don't block on this check
+        $IdleReasons += "Could not check open PRs: $_"
+    }
+
+    # Check 3: RooSync inbox on GDrive — check for unread marker files (0 tokens)
+    try {
+        $InboxDir = Join-Path $env:ROOSYNC_SHARED_PATH "roosync\myia-ai-01\inbox"
+        if (Test-Path $InboxDir) {
+            $UnreadFiles = Get-ChildItem $InboxDir -Filter "*.json" -ErrorAction SilentlyContinue |
+                Where-Object { $_.Length -gt 0 }
+            $UnreadCount = ($UnreadFiles | Measure-Object).Count
+            if ($UnreadCount -gt 0) {
+                $IdleSkip = $false
+                $IdleReasons += "$UnreadCount RooSync inbox file(s)"
+            } else {
+                $IdleReasons += "RooSync inbox empty"
+            }
+        } else {
+            $IdleReasons += "RooSync inbox dir not found"
+        }
+    } catch {
+        $IdleReasons += "Could not check RooSync inbox: $_"
+    }
+
+    # Decision
+    if ($IdleSkip) {
+        Write-Log "IDLE GUARD: SKIP — All checks indicate no work needed:" "WARN"
+        foreach ($reason in $IdleReasons) {
+            Write-Log "  - $reason" "WARN"
+        }
+        Write-Log "IDLE GUARD: Use -Force to override. === COORDINATOR IDLE EXIT ===" "WARN"
+        exit 0
+    } else {
+        Write-Log "IDLE GUARD: PROCEED — Reasons to run:"
+        foreach ($reason in $IdleReasons) {
+            Write-Log "  - $reason"
+        }
+    }
+} else {
+    Write-Log "IDLE GUARD: BYPASSED (-Force flag set)" "WARN"
+}
+
+# Construire le prompt coordinateur (slim — Epic #1997 #1999)
 $Today = Get-Date -Format "yyyy-MM-dd"
 
 $Prompt = @"
-Tu es le COORDINATEUR SCHEDULE Claude Code sur myia-ai-01.
-Date du cycle : $Today
-Fenetre d'analyse : ${LookbackHours}h
+COORDINATEUR SCHEDULE Claude Code, myia-ai-01, $Today.
 
-## TON ROLE
+ROLE: Triage rapide. Pas de modif harnais. Max 3 actions/session.
 
-Tu analyses l'activite GLOBALE du collectif de 6 machines : messages RooSync, commits git, charge de travail GitHub.
-Tu dispatches et rebalances si necessaire.
-Tu NE MODIFIES AUCUN fichier de harnais.
+ETAPES (cible: <10 min, pas de boucle compaction) :
 
-## ETAPES
+1. Dashboard recent: roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 5).
+   Si [WAKE-CLAUDE]/[ASK]/[BLOCKED] <6h → traiter. Sinon → etape 3.
 
-### 0. Lire le Dashboard Workspace
+2. Inbox unread: roosync_read(mode: "inbox", status: "unread", limit: 10). Repondre les [ASK]/[URGENT].
 
-Lis le dashboard RooSync workspace : roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 10).
-Cherche les messages recents (< 24h) avec ces tags :
-- `[DONE]` : Un agent a termine une tache → analyser le bilan
-- `[WAKE-CLAUDE]` : Roo a detecte des messages RooSync non traites → les traiter en priorite
-- `[PATROL]` : Roo a fait une exploration de veille active → noter le domaine couvert
-- `[FRICTION-FOUND]` : Roo a detecte un probleme → verifier et escalader si confirme
-- `[ERROR]` / `[WARN]` : Problemes operationnels → investiguer
-- `[ASK]` : Un agent pose une question → repondre via dashboard
+3. PRs ouvertes:
+   - gh pr list --repo jsboige/roo-extensions --state open --json number,title,additions,deletions,author
+   - gh pr list --repo jsboige/jsboige-mcp-servers --state open --json number,title,additions,deletions,author
+   Pour chaque PR <100 LOC, CI green, pas de suppression sans preuve, pas de stub, pas de console.log :
+     gh pr merge {n} --squash --delete-branch
+   PRs >=100 LOC ou ambigues → laisser pour interactif.
 
-Note les messages pertinents pour les integrer a ton analyse.
+4. Bilan dashboard (OBLIGATOIRE): roosync_dashboard(action: "append", type: "workspace",
+     tags: ["DONE", "claude-scheduled"], content: "[$Today HH:MM] Coord scheduled - {N} messages, {M} PRs vues, {K} mergees, {actions/aucune}").
 
-### 1. Analyse du trafic RooSync
-
-Lis ta boite de reception RooSync (tous les messages recents) :
-- Utilise l'outil roosync_read(mode: "inbox", status: "all", limit: 50)
-- Identifie les messages par machine (from field)
-- Compte envoyes/recus par machine
-- Detecte les machines silencieuses (aucun message depuis ${LookbackHours}h)
-- Note les priorites (LOW/MEDIUM/HIGH/URGENT)
-
-ATTENTION au protocole de scepticisme : ne declare JAMAIS une machine "silencieuse" sans avoir verifie les messages read+unread sur ${LookbackHours}h. Verifie aussi les commentaires GitHub recents.
-
-### 2. Analyse de l'activite Git
-
-Utilise Bash pour analyser les commits recents :
-``````
-git log --oneline --since="${LookbackHours} hours ago" --format="%h %an %s"
-``````
-
-Pour chaque commit :
-- Identifier l'auteur/machine (Co-Authored-By ou commit author)
-- Categoriser : fix, feat, docs, chore, refactor
-- Comparer avec le trafic RooSync (travail reel vs communication)
-
-### 3. Equilibre de charge
-
-Consulte le GitHub Project #67 :
-``````
-gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { items(first: 100) { nodes { fieldValues(first: 10) { nodes { ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2SingleSelectField { name } } } } } content { ... on Issue { title number state } } } } } } }'
-``````
-
-Evaluer :
-- Issues par machine (champ Machine)
-- Distribution des statuts (Todo / In Progress / Done)
-- Machines surchargees ou inactives
-
-### 4. Review et merge des PRs ouvertes
-
-Verifie TOUTES les PRs ouvertes (Worker, Executor, et manuelles) :
-``````
-gh pr list --repo jsboige/roo-extensions --state open --json number,title,createdAt,additions,deletions,author
-``````
-
-Pour chaque PR ouverte, effectue une review structuree :
-
-**4a. Lire le diff :**
-``````
-gh pr diff {number} --repo jsboige/roo-extensions
-``````
-
-**4b. Checklist anti-destruction (OBLIGATOIRE) :**
-- Pas de suppression de code sans remplacement PROUVE
-- Pas de suppression dans repertoires PROTEGES (src/services/synthesis/, src/services/narrative/)
-- Pas de nouveaux stubs (return null, throw new Error, // TODO dans du code expose)
-- Pas de console.log dans du code nouveau
-- Build + tests CI doivent passer (verifier le statut CI si disponible)
-
-**4c. Decision :**
-
-| Critere | Action |
-|---------|--------|
-| PR petite (< 100 lignes), diff propre, pas de suppression suspecte | `gh pr merge {number} --merge --repo jsboige/roo-extensions --delete-branch` |
-| PR moyenne (100-500 lignes), diff coherent | Ajouter un commentaire `## Coordinator Review` avec analyse + merger si OK |
-| PR large (> 500 lignes) ou suppression de code | **ESCALADE** : utiliser Task tool avec sub-agent Opus pour review approfondie |
-| Titre indique "Partial" ou "needs review" | Commentaire de review, attendre corrections |
-| PR date de plus de 72h sans activite | Commenter pour relancer l'auteur, fermer si >1 semaine |
-
-**ESCALATION PATTERN (#1027) :**
-Pour PRs complexes (>500 lignes ou suppressions), deleguer la review a un sub-agent Opus :
-```
-Task(tool="code-fixer", prompt="Review PR #{number} avec focus anti-destruction. Diff: [gh pr diff {number}]. Checklist: pas de suppression sans preuve, pas de stubs, pas de console.log. Return ton analyse.", model="opus")
-```
-
-**4d. Format du commentaire de review :**
-``````
-## Coordinator Review (scheduled)
-
-**Taille:** +{additions}/-{deletions} ({files} fichiers)
-**Analyse:**
-- [ ] Pas de suppression sans remplacement
-- [ ] Pas de stubs/console.log
-- [ ] Diff coherent avec le titre
-- [ ] Build/tests OK
-
-**Decision:** APPROVE / REQUEST_CHANGES / COMMENT
-**Details:** [analyse concise]
-``````
-
-### 5. Decisions et dispatch
-
-**REGLE OBLIGATOIRE : Tu DOIS dispatcher au moins 1 tache par cycle si des issues Todo existent dans le Project #67.**
-"Aucun dispatch necessaire" n'est acceptable QUE si le Project #67 a 0 Todo ET 0 issue non-assignee.
-
-Selon l'analyse :
-
-| Constat | Action |
-|---------|--------|
-| Machine silencieuse >48h (CONFIRME) | Envoyer message RooSync URGENT |
-| Machine surchargee | Rebalancer vers machines inactives |
-| Issues Todo non assignees | **OBLIGATOIRE** : Dispatcher aux machines disponibles |
-| Aucune issue Todo | Dispatcher des taches idle (coverage, patrol, validation) |
-| Travail bloque | Escalader ou reassigner |
-
-Pour dispatcher, utilise roosync_send :
-- action: "send"
-- to: "{machine}:roo-extensions"
-- subject: "[TASK] Description"
-- tags: ["coordinator", "dispatch"]
-
-Si aucune issue Todo n'existe, cree des taches de veille :
-- Coverage : "Lance npx vitest run --coverage et identifie les modules < 60%. Ecris 2-3 tests pour le module le plus faible."
-- Patrol : "Explore le codebase, identifie du code mort, des TODO, ou des tests manquants. Rapporte tes trouvailles."
-
-### 5b. Audit config via sk-agent (si disponible)
-
-Si des divergences de configuration ont ete detectees entre machines (via roosync_compare_config ou les rapports) :
-``````
-call_agent(agent: "critic", prompt: "Audit these configuration differences between machines: [details des diffs]. Identify which are intentional (machine-specific) vs accidental (drift). Rate severity: CRITICAL/WARNING/INFO.")
-``````
-Inclure le resultat dans le rapport coordinateur sous une section "Config Audit (sk-agent)".
-Si sk-agent n'est pas disponible, sauter cette etape sans bloquer.
-
-### 6. Produire le rapport coordinateur
-
-Ecrire le rapport dans le fichier GDrive (si accessible) :
-`.shared-state/coordinator/coordinator-report-$Today.md`
-
-Format :
-``````markdown
-## Coordinator Analysis - $Today
-
-### RooSync Traffic (last ${LookbackHours}h)
-| Machine | Sent | Received | Last Active |
-|---------|------|----------|-------------|
-
-### Git Activity (last ${LookbackHours}h)
-| Author | Commits | Types | Notable |
-|--------|---------|-------|---------|
-
-### Workload Balance
-| Machine | Open Issues | In Progress | Idle? |
-|---------|------------|-------------|-------|
-
-### Actions Taken
-- [Dispatches, rebalances, escalations]
-``````
-
-### 7. Ecrire dans le Dashboard Workspace
-
-OBLIGATOIRE en fin de cycle. Utilise roosync_dashboard pour ajouter un message :
-
-Format :
-``````markdown
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["INFO", "claude-scheduled"],
-  content: "## [$Today HH:MM] Coordinateur Schedule - Bilan`n`n- Trafic RooSync : {N} messages analyses, {M} machines actives`n- Git : {N} commits depuis ${LookbackHours}h`n- Charge : {equilibree|desequilibree} ({details})`n- Actions prises : {dispatches, rebalances, ou "aucune"}`n- Messages workspace traites : {N} ({tags})`n- Prochaine action recommandee : {suggestion}`n`n## CONTRAINTES ABSOLUES (rappel)`n- NE MODIFIE AUCUN fichier de harnais (.roo/rules/, .claude/rules/, CLAUDE.md, .roomodes)`n- NE FERME AUCUNE issue sans verification checklist 100%`n- Toute issue creee DOIT avoir le label needs-approval`n- Respecte le protocole de scepticisme : VERIFIE avant de propager`n- Maximum 5 dispatches par cycle`n- Limite tes outputs (pas de dump complet de fichiers)"
-)
-``````
-
-Si le dashboard est inaccessible, note-le dans les logs mais ne bloque pas.
+CONTRAINTES:
+- 0 modif harnais. 0 fermeture issue sans Evidence. 0 dispatch (interactif /coordinate dispatche).
+- Sceptique: verifie avant de propager. Pas de Project #67 GraphQL load (couteux, deja vu en interactif).
+- Si rien de pertinent → bilan minimal et exit.
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire
