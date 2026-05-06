@@ -222,6 +222,77 @@ function Test-McpRemoteProcess {
     }
 }
 
+function Test-McpBridgeE2E {
+    <#
+    .SYNOPSIS
+        E2E health probe — sends a lightweight JSON-RPC request to the MCP proxy
+        and verifies the bridge can actually serve tool calls.
+
+    .DESCRIPTION
+        Reads MCP_URL and MCP_BEARER from the Hermes .env file, then sends a
+        tools/list request. If the response contains ClosedResourceError or times
+        out, the bridge is considered stuck.
+
+        This catches the case where mcp-remote is alive and no errors appear in
+        recent logs, but the bridge is silently wedged.
+    #>
+
+    if (-not (Test-Path $HermesEnvFile)) {
+        return @{ Ok = $true; Skipped = $true; Reason = 'no_env_file' }
+    }
+
+    $mcpUrl = Read-EnvValue -Path $HermesEnvFile -Key 'MCP_URL'
+    $mcpBearer = Read-EnvValue -Path $HermesEnvFile -Key 'MCP_BEARER'
+
+    if (-not $mcpUrl) {
+        return @{ Ok = $true; Skipped = $true; Reason = 'no_mcp_url' }
+    }
+
+    try {
+        $headers = @{
+            'Content-Type' = 'application/json'
+        }
+        if ($mcpBearer) {
+            $headers['Authorization'] = "Bearer $mcpBearer"
+        }
+
+        # Send a lightweight tools/list request (JSON-RPC)
+        $body = @{
+            jsonrpc = '2.0'
+            id      = 1
+            method  = 'tools/list'
+            params  = @{}
+        } | ConvertTo-Json -Depth 5
+
+        $response = Invoke-WebRequest -Uri $mcpUrl -Method POST -Headers $headers -Body $body -TimeoutSec 15 -UseBasicParsing -ErrorAction Stop
+
+        $content = $response.Content
+        if ($content -match 'ClosedResourceError') {
+            return @{ Ok = $false; Reason = 'bridge_wedged'; Detail = 'ClosedResourceError in response' }
+        }
+
+        if ($response.StatusCode -ge 200 -and $response.StatusCode -lt 300) {
+            return @{ Ok = $true; StatusCode = $response.StatusCode }
+        }
+
+        return @{ Ok = $false; Reason = 'http_error'; StatusCode = $response.StatusCode }
+    }
+    catch {
+        $errMsg = $_.Exception.Message
+        if ($errMsg -match 'ClosedResourceError') {
+            return @{ Ok = $false; Reason = 'bridge_wedged'; Detail = $errMsg }
+        }
+        if ($errMsg -match 'timeout|TimedOut') {
+            return @{ Ok = $false; Reason = 'bridge_timeout'; Detail = $errMsg }
+        }
+        # Connection refused = proxy down, not bridge stuck
+        if ($errMsg -match 'ECONNREFUSED|ConnectionRefused|No connection could be made') {
+            return @{ Ok = $false; Reason = 'proxy_down'; Detail = $errMsg }
+        }
+        return @{ Ok = $false; Reason = 'probe_exception'; Detail = $errMsg }
+    }
+}
+
 # ---------- repair actions ----------
 function Invoke-RestartHermesContainer {
     param([string]$ContainerName)
@@ -306,7 +377,27 @@ $logHealth = Test-McpRemoteLogErrors -ContainerName $ContainerName -LookbackMinu
 
 if ($logHealth.Ok) {
     Write-Log 'OK' "No MCP errors detected in recent logs"
-    # Reset error tracking if we had previous errors
+} else {
+    Write-Log 'WARN' "Log errors detected: count=$($logHealth.ErrorCount), ClosedResourceError=$($logHealth.HasClosedResourceError)"
+}
+
+# Step 4: E2E health probe (catches bridge stuck WITHOUT visible log errors)
+$e2eHealth = Test-McpBridgeE2E
+
+if ($e2eHealth.Ok -and -not $e2eHealth.Skipped) {
+    Write-Log 'OK' "E2E MCP bridge probe successful"
+} elseif ($e2eHealth.Skipped) {
+    Write-Log 'INFO' "E2E probe skipped ($($e2eHealth.Reason))"
+} else {
+    Write-Log 'WARN' "E2E MCP bridge probe FAILED: $($e2eHealth.Reason) — $($e2eHealth.Detail)"
+    $script:alerts += "e2e_probe_failed:$($e2eHealth.Reason)"
+}
+
+# Determine if we need to enter error tracking
+$needsAttention = (-not $logHealth.Ok) -or (-not $e2eHealth.Ok -and -not $e2eHealth.Skipped)
+
+if (-not $needsAttention) {
+    # All healthy — reset error tracking
     $state = Get-WatchdogState
     if ($state.FirstErrorTime) {
         Write-Log 'INFO' 'Clearing previous error state (errors have cleared)'
@@ -315,7 +406,7 @@ if ($logHealth.Ok) {
     exit 0
 }
 
-# Errors detected - check if sustained
+# Errors detected (log or E2E) — check if sustained
 $state = Get-WatchdogState
 $now = Get-Date
 
