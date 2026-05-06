@@ -1,0 +1,31 @@
+{
+  "generated": "2026-05-06T22:50:06.139Z",
+  "totalFiles": 302,
+  "averageCoverage": 66.65165826344479,
+  "identityManager": {
+    "coverage": 71.11111111111111,
+    "covered": 256,
+    "total": 360,
+    "runs": 1
+  },
+  "weakestFiles": [
+    {
+      "file": "server-config.ts",
+      "coverage": 100,
+      "covered": 41,
+      "total": 41
+    },
+    {
+      "file": "UnifiedToolInterface.ts",
+      "coverage": 100,
+      "covered": 17,
+      "total": 17
+    },
+    {
+      "file": "NotificationService.ts",
+      "coverage": 100,
+      "covered": 138,
+      "total": 138
+    }
+  ]
+}
