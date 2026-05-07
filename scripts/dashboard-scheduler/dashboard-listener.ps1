@@ -9,14 +9,16 @@
     When a workspace dashboard changes:
     1. Debounces 10 seconds (anti-GDrive rafales)
     2. Reads changed dashboard, parses intercom messages
-    3. Checks for actionable tags ([ASK], [TASK], [BLOCKED], [URGENT], [WAKE-CLAUDE])
-    4. If tag found AND cooldown OK (5 min) → spawns spawn-claude.ps1
+    3. Checks for actionable tags ([WAKE-CLAUDE] by default — Phase 1)
+    4. Resolves the workspace's on-disk path (so claude -p starts in the right CWD)
+    5. If tag found AND path resolved AND cooldown OK (5 min) → spawns spawn-claude.ps1
 
     Zero token cost when idle. Latency <30s when triggered.
 
 .PARAMETER AllowedTags
     Comma-separated tags that trigger a spawn.
-    Default: ASK,TASK,BLOCKED,URGENT,WAKE-CLAUDE.
+    Default: WAKE-CLAUDE (Phase 1 — restricted surface). Override via
+    DASHBOARD_WATCHER_TAGS env var (e.g. 'ASK,TASK,BLOCKED,URGENT,WAKE-CLAUDE').
 
 .PARAMETER DebounceSeconds
     Seconds to wait after last file change before processing (default: 10).
@@ -25,8 +27,9 @@
     Minimum minutes between spawns for the same workspace (default: 5).
 
 .PARAMETER Workspaces
-    Comma-separated workspace list to watch. Empty = auto-discover + filter by
-    DASHBOARD_WATCHER_WORKSPACES env var.
+    Comma-separated workspace list to watch. Empty = auto-discover ALL
+    workspace-*.md dashboards under $SharedPath/dashboards, optionally
+    filtered by DASHBOARD_WATCHER_WORKSPACES env var.
 
 .PARAMETER SharedPath
     Path to .shared-state directory. Default: $env:ROOSYNC_SHARED_PATH.
@@ -40,6 +43,18 @@
 .PARAMETER McpConfig
     Path to MCP config JSON. Default: ~/.claude.json.
 
+.PARAMETER WorkspacePathsFile
+    JSON map { "<workspace-name>": "<absolute-path>", ... } overriding path
+    auto-detection per workspace. Default: <repo-root>/.claude/local/workspace-paths.json
+    (gitignored, machine-specific).
+
+    Resolution order for a workspace name:
+      1. WorkspacePathsFile entry (explicit override)
+      2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
+      3. Self-match (ws name == leaf of $RepoRoot) → $RepoRoot
+      4. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
+      5. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
+
 .PARAMETER DryRun
     Log decisions but do not spawn.
 
@@ -52,7 +67,7 @@
 #>
 
 param(
-    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'ASK,TASK,BLOCKED,URGENT,WAKE-CLAUDE' }),
+    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE' }),
     [int]$DebounceSeconds = 10,
     [int]$CooldownMinutes = 5,
     [string]$Workspaces = "",
@@ -60,6 +75,7 @@ param(
     [string]$LockDir = "",
     [string]$SpawnScript = "",
     [string]$McpConfig = "",
+    [string]$WorkspacePathsFile = "",
     [switch]$DryRun,
     [switch]$Once
 )
@@ -80,11 +96,106 @@ if ([string]::IsNullOrEmpty($SpawnScript)) {
 if ([string]::IsNullOrEmpty($McpConfig)) {
     $McpConfig = Join-Path $env:USERPROFILE ".claude.json"
 }
+if ([string]::IsNullOrEmpty($WorkspacePathsFile)) {
+    $WorkspacePathsFile = Join-Path $RepoRoot ".claude/local/workspace-paths.json"
+}
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
 }
 
 $tagList = $AllowedTags -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
+
+# ========== WORKSPACE PATH RESOLUTION ==========
+
+# Cache so we don't re-read the file / re-parse env on every event
+$script:_wsPathCache = @{}
+$script:_wsPathFileMap = $null
+$script:_wsPathEnvMap = $null
+
+function Get-WorkspacePathMaps {
+    if ($null -eq $script:_wsPathFileMap) {
+        $script:_wsPathFileMap = @{}
+        if (Test-Path $WorkspacePathsFile) {
+            try {
+                $raw = [System.IO.File]::ReadAllText($WorkspacePathsFile, [System.Text.UTF8Encoding]::new($false))
+                $obj = $raw | ConvertFrom-Json
+                foreach ($prop in $obj.PSObject.Properties) {
+                    $script:_wsPathFileMap[$prop.Name] = [string]$prop.Value
+                }
+            } catch {
+                Write-Log "WARN" "Failed to parse $WorkspacePathsFile : $_"
+            }
+        }
+    }
+    if ($null -eq $script:_wsPathEnvMap) {
+        $script:_wsPathEnvMap = @{}
+        $envJson = $env:DASHBOARD_WATCHER_WORKSPACE_PATHS
+        if (-not [string]::IsNullOrEmpty($envJson)) {
+            try {
+                $obj = $envJson | ConvertFrom-Json
+                foreach ($prop in $obj.PSObject.Properties) {
+                    $script:_wsPathEnvMap[$prop.Name] = [string]$prop.Value
+                }
+            } catch {
+                Write-Log "WARN" "Failed to parse DASHBOARD_WATCHER_WORKSPACE_PATHS env var: $_"
+            }
+        }
+    }
+    return @{ file = $script:_wsPathFileMap; env = $script:_wsPathEnvMap }
+}
+
+function Resolve-WorkspacePath($ws) {
+    if ($script:_wsPathCache.ContainsKey($ws)) {
+        return $script:_wsPathCache[$ws]
+    }
+
+    $maps = Get-WorkspacePathMaps
+
+    # 1. Explicit override file
+    if ($maps.file.ContainsKey($ws)) {
+        $p = $maps.file[$ws]
+        if (Test-Path $p -PathType Container) {
+            $script:_wsPathCache[$ws] = $p
+            return $p
+        }
+        Write-Log "WARN" "[$ws] Mapped path does not exist: $p (from $WorkspacePathsFile)"
+    }
+
+    # 2. Env var map
+    if ($maps.env.ContainsKey($ws)) {
+        $p = $maps.env[$ws]
+        if (Test-Path $p -PathType Container) {
+            $script:_wsPathCache[$ws] = $p
+            return $p
+        }
+        Write-Log "WARN" "[$ws] Mapped path does not exist: $p (from DASHBOARD_WATCHER_WORKSPACE_PATHS)"
+    }
+
+    # 3. Self-match: ws name equals leaf of $RepoRoot (case-insensitive)
+    $selfName = Split-Path $RepoRoot -Leaf
+    if ($ws -ieq $selfName) {
+        $script:_wsPathCache[$ws] = $RepoRoot
+        return $RepoRoot
+    }
+
+    # 4. Auto-detect: scan common roots
+    $candidateRoots = @(
+        (Split-Path $RepoRoot -Parent),
+        "D:\dev", "D:\", "C:\dev", "C:\"
+    )
+    foreach ($root in $candidateRoots) {
+        if ([string]::IsNullOrEmpty($root)) { continue }
+        $candidate = Join-Path $root $ws
+        if (Test-Path $candidate -PathType Container) {
+            $script:_wsPathCache[$ws] = $candidate
+            return $candidate
+        }
+    }
+
+    # 5. Not found
+    $script:_wsPathCache[$ws] = $null
+    return $null
+}
 
 # ========== LOGGING ==========
 
@@ -260,11 +371,20 @@ function Invoke-ProcessWorkspace($ws) {
 
     $latestTs = ($actionable | Sort-Object timestamp | Select-Object -Last 1).timestamp
 
+    # Resolve workspace path so claude -p starts in the correct CWD.
+    # If unresolvable, skip spawn AND keep lastAck unchanged so the message gets
+    # a fresh chance after the operator adds the mapping.
+    $wsPath = Resolve-WorkspacePath $ws
+    if ([string]::IsNullOrEmpty($wsPath)) {
+        Write-Log "WARN" "[$ws] No on-disk workspace path resolved (file/env/self/auto-detect all failed). Skipping spawn — add an entry to $WorkspacePathsFile."
+        return
+    }
+
     # Cooldown check
     if (-not (Test-CooldownOk $ws)) { return }
 
     if ($DryRun) {
-        Write-Log "DRYRUN" "[$ws] Would spawn: $SpawnScript -Workspace $ws -Since $lastAck"
+        Write-Log "DRYRUN" "[$ws] Would spawn: $SpawnScript -Workspace $ws -Since $lastAck -WorkspacePath $wsPath"
         Set-LastAck $ws $latestTs
         return
     }
@@ -275,12 +395,12 @@ function Invoke-ProcessWorkspace($ws) {
         return
     }
 
-    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1..."
+    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 (cwd=$wsPath)..."
     $spawnArgs = @(
         "-Workspace", $ws,
         "-Since", $lastAck,
-        "-Model", "haiku",
-        "-McpConfig", $McpConfig
+        "-McpConfig", $McpConfig,
+        "-WorkspacePath", $wsPath
     )
     try {
         & pwsh -File $SpawnScript @spawnArgs
@@ -321,6 +441,17 @@ if ($wsList.Count -eq 0) {
 Write-Log "INFO" "Dashboard Listener starting (#2004)"
 Write-Log "INFO" "Watch: $dashboardDir | Workspaces: $($wsList -join ', ') | Tags: [$AllowedTags]"
 Write-Log "INFO" "Debounce: ${DebounceSeconds}s | Cooldown: ${CooldownMinutes}min | DryRun: $DryRun"
+Write-Log "INFO" "WorkspacePathsFile: $WorkspacePathsFile (exists=$(Test-Path $WorkspacePathsFile))"
+
+# Pre-resolve all workspace paths to surface mapping issues at startup
+foreach ($ws in $wsList) {
+    $p = Resolve-WorkspacePath $ws
+    if ([string]::IsNullOrEmpty($p)) {
+        Write-Log "WARN" "[$ws] No path resolved at startup — spawns will be skipped until an entry is added to $WorkspacePathsFile."
+    } else {
+        Write-Log "INFO" "[$ws] resolved to $p"
+    }
+}
 
 # Synchronized hashtable for pending workspace changes
 $pending = [hashtable]::Synchronized(@{})
