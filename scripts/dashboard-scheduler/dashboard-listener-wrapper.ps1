@@ -50,12 +50,12 @@ while ($true) {
 
     "=== Dashboard Listener exit code ${exitCode}: $(Get-Date -Format o) ===" | Tee-Object -FilePath $logFile -Append
 
-    # Auto-restart after 30s unless clean shutdown (exit 0 from -Once)
+    # Auto-restart: 30s after clean exit, 60s after error
     if ($exitCode -eq 0) {
         "=== Clean exit, restarting in 30s... ===" | Tee-Object -FilePath $logFile -Append
+        Start-Sleep -Seconds 30
     } else {
         "=== Unexpected exit ($exitCode), restarting in 60s... ===" | Tee-Object -FilePath $logFile -Append
         Start-Sleep -Seconds 60
     }
-    Start-Sleep -Seconds 30
 }
