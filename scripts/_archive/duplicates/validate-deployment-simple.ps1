@@ -1,5 +1,6 @@
 # Script de validation du deploiement UTF-8
 # Version: 1.0 - Date: 26/05/2025
+# ARCHIVED: 2026-05-07 | Superseded-by: validate-deployment.ps1 | Reason: Duplicate — subset of validate-deployment.ps1 | Reference: #656 consolidation patrol
 
 param(
     [switch]$CreateReport,

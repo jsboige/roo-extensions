@@ -1,5 +1,13 @@
 #!/usr/bin/env pwsh
 <#
+.ARCHIVED
+    Date: 2026-05-07
+    Superseded-by: test-jupyter-papermill-mcp-integration.ps1
+    Merged-features: All test cases covered by the integration version
+    Reason: Duplicate — simple version's test cases are subset of integration version
+    Reference: #656 consolidation patrol, script-deduplication-analysis.md
+#>
+<#
 .SYNOPSIS
     Test d'intégration MCP simplifié pour le serveur Jupyter-Papermill consolidé
     

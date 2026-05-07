@@ -1,6 +1,15 @@
 #Requires -Version 5.1
 
 <#
+.ARCHIVED
+    Date: 2026-05-07
+    Superseded-by: test-staged-workflow.ps1
+    Merged-features: Basic logging validation covered by test-staged-workflow.ps1
+    Reason: Duplicate — simple version's test cases are subset of full version
+    Reference: #656 consolidation patrol, script-deduplication-analysis.md
+#>
+
+<#
 .SYNOPSIS
     Simple test script for Invoke-RooStagedWorkflow wrapper
 
