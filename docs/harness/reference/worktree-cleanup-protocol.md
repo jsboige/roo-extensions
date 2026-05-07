@@ -16,7 +16,7 @@ Les worktrees Git orphelins (dossiers `.claude/worktrees/` sans entrée dans `gi
 
 ### Check automatique
 
-Le script `scripts/worktree/check-worktrees.ps1` détecte:
+Le script `scripts/worktrees/check-worktrees.ps1` détecte:
 1. **Worktrees orphelins**: Dossiers dans `.claude/worktrees/` non enregistrés dans `git worktree list`
 2. **Worktrees expirés**: Worktrees dont la branche est mergée ou fermée
 3. **Seuil d'alerte**: Si >2 worktrees actifs, alerter dans INTERCOM
@@ -130,7 +130,7 @@ if ($worktreeCount -gt 2) {
 ### Worktree Cleanup Required
 - Worktrees actifs: X (seuil: 2)
 - Orphelins détectés: Y
-- Action: Exécuter `scripts/worktree/cleanup-worktrees.ps1`
+- Action: Exécuter `scripts/worktrees/cleanup-worktrees.ps1`
 ---
 ```
 
@@ -140,8 +140,8 @@ if ($worktreeCount -gt 2) {
 
 | Script | Usage |
 |--------|-------|
-| `scripts/worktree/check-worktrees.ps1` | Détection et alerting |
-| `scripts/worktree/cleanup-worktrees.ps1` | Auto-cleanup (Phase 2) |
+| `scripts/worktrees/check-worktrees.ps1` | Détection et alerting |
+| `scripts/worktrees/cleanup-worktrees.ps1` | Auto-cleanup (Phase 2) |
 
 ---
 
