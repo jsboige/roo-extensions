@@ -52,8 +52,11 @@
       1. WorkspacePathsFile entry (explicit override)
       2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
       3. Self-match (ws name == leaf of $RepoRoot) → $RepoRoot
-      4. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
-      5. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
+      4. ~/.claude.json `projects` keys — match by basename (Claude Code's own
+         workspace registry; the most reliable per-machine source after explicit
+         overrides).
+      5. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
+      6. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
 
 .PARAMETER DryRun
     Log decisions but do not spawn.
@@ -111,6 +114,7 @@ $tagList = $AllowedTags -split ',' | ForEach-Object { $_.Trim() } | Where-Object
 $script:_wsPathCache = @{}
 $script:_wsPathFileMap = $null
 $script:_wsPathEnvMap = $null
+$script:_wsPathClaudeJsonMap = $null
 
 function Get-WorkspacePathMaps {
     if ($null -eq $script:_wsPathFileMap) {
@@ -142,6 +146,42 @@ function Get-WorkspacePathMaps {
         }
     }
     return @{ file = $script:_wsPathFileMap; env = $script:_wsPathEnvMap }
+}
+
+function Get-ClaudeJsonProjectsMap {
+    # Returns a hashtable { lowercase-leaf-name → absolute-path } populated from
+    # the `projects` section of $McpConfig (typically ~/.claude.json). This is
+    # Claude Code's own workspace registry and is the most reliable per-machine
+    # source after explicit user overrides.
+    if ($null -ne $script:_wsPathClaudeJsonMap) {
+        return $script:_wsPathClaudeJsonMap
+    }
+    $script:_wsPathClaudeJsonMap = @{}
+    if ([string]::IsNullOrEmpty($McpConfig) -or -not (Test-Path $McpConfig)) {
+        return $script:_wsPathClaudeJsonMap
+    }
+    try {
+        $raw = [System.IO.File]::ReadAllText($McpConfig, [System.Text.UTF8Encoding]::new($false))
+        # -AsHashtable preserves case-distinct keys (~/.claude.json frequently
+        # contains both `D:/x` and `d:/x` for the same path; default PSObject
+        # parsing fails on such collisions).
+        $obj = $raw | ConvertFrom-Json -AsHashtable
+        if ($null -ne $obj -and $obj.ContainsKey('projects') -and $null -ne $obj['projects']) {
+            foreach ($absPath in $obj['projects'].Keys) {
+                if ([string]::IsNullOrEmpty($absPath)) { continue }
+                $leaf = Split-Path $absPath -Leaf
+                if ([string]::IsNullOrEmpty($leaf)) { continue }
+                $key = $leaf.ToLowerInvariant()
+                # First entry wins for a given basename.
+                if (-not $script:_wsPathClaudeJsonMap.ContainsKey($key)) {
+                    $script:_wsPathClaudeJsonMap[$key] = $absPath
+                }
+            }
+        }
+    } catch {
+        Write-Log "WARN" "Failed to parse $McpConfig projects section: $_"
+    }
+    return $script:_wsPathClaudeJsonMap
 }
 
 function Resolve-WorkspacePath($ws) {
@@ -178,7 +218,19 @@ function Resolve-WorkspacePath($ws) {
         return $RepoRoot
     }
 
-    # 4. Auto-detect: scan common roots
+    # 4. ~/.claude.json projects (Claude Code's own workspace registry)
+    $cjMap = Get-ClaudeJsonProjectsMap
+    $key = $ws.ToLowerInvariant()
+    if ($cjMap.ContainsKey($key)) {
+        $p = $cjMap[$key]
+        if (Test-Path $p -PathType Container) {
+            $script:_wsPathCache[$ws] = $p
+            return $p
+        }
+        Write-Log "WARN" "[$ws] .claude.json projects entry maps to non-existent path: $p"
+    }
+
+    # 5. Auto-detect: scan common roots
     $candidateRoots = @(
         (Split-Path $RepoRoot -Parent),
         "D:\dev", "D:\", "C:\dev", "C:\"
@@ -192,7 +244,7 @@ function Resolve-WorkspacePath($ws) {
         }
     }
 
-    # 5. Not found
+    # 6. Not found
     $script:_wsPathCache[$ws] = $null
     return $null
 }
