@@ -36,8 +36,14 @@
     Required so the spawned claude -p subprocess can reach roo-state-manager
     (see #1448: MCP is NOT inherited by subprocess — must be passed explicitly).
 
+.PARAMETER WorkspacePath
+    Absolute on-disk path of the target workspace. Used as WorkingDirectory for
+    the spawned claude -p process so it loads the correct CLAUDE.md / .claude/rules.
+    Default: empty → falls back to $RepoRoot (the listener's own repo). The listener
+    (dashboard-listener.ps1) resolves this from a per-workspace map and passes it.
+
 .EXAMPLE
-    .\spawn-claude.ps1 -Workspace nanoclaw -Since "2026-04-17T00:00:00Z"
+    .\spawn-claude.ps1 -Workspace nanoclaw -Since "2026-04-17T00:00:00Z" -WorkspacePath "D:\nanoclaw"
 
 .NOTES
     - Lock file prevents concurrent spawns on the same workspace.
@@ -62,7 +68,9 @@ param(
 
     [string]$LockDir = "",
 
-    [string]$McpConfig = ""
+    [string]$McpConfig = "",
+
+    [string]$WorkspacePath = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -178,7 +186,18 @@ Commence.
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
-    $psi.WorkingDirectory = $RepoRoot
+
+    # Working directory = target workspace (so claude -p loads its CLAUDE.md / .claude/rules).
+    # Fall back to listener's repo root only if caller didn't resolve a path.
+    if (-not [string]::IsNullOrEmpty($WorkspacePath) -and (Test-Path $WorkspacePath -PathType Container)) {
+        $psi.WorkingDirectory = $WorkspacePath
+        Write-Log "INFO" "WorkingDirectory = $WorkspacePath"
+    } else {
+        if (-not [string]::IsNullOrEmpty($WorkspacePath)) {
+            Write-Log "WARN" "WorkspacePath not found on disk: $WorkspacePath — falling back to RepoRoot"
+        }
+        $psi.WorkingDirectory = $RepoRoot
+    }
 
     $proc = [System.Diagnostics.Process]::Start($psi)
     $proc.StandardInput.Write([System.IO.File]::ReadAllText($promptFile))
