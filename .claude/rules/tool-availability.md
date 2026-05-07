@@ -24,6 +24,7 @@
 |-----|--------|------|
 | playwright | 22 | Automation web |
 | markitdown | 1 | Conversion documents |
+| searxng | 2 | Recherche web (searxng_web_search, web_url_read) |
 
 ## Retires (NE DOIVENT PAS exister)
 
