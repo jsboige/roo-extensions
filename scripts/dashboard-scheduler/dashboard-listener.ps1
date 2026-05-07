@@ -52,7 +52,7 @@
 #>
 
 param(
-    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'ASK,TASK,BLOCKED,URGENT,WAKE-CLAUDE' }),
+    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE' }),
     [int]$DebounceSeconds = 10,
     [int]$CooldownMinutes = 5,
     [string]$Workspaces = "",
@@ -279,7 +279,6 @@ function Invoke-ProcessWorkspace($ws) {
     $spawnArgs = @(
         "-Workspace", $ws,
         "-Since", $lastAck,
-        "-Model", "haiku",
         "-McpConfig", $McpConfig
     )
     try {

@@ -178,6 +178,7 @@ Commence.
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
+    $psi.WorkingDirectory = $RepoRoot
 
     $proc = [System.Diagnostics.Process]::Start($psi)
     $proc.StandardInput.Write([System.IO.File]::ReadAllText($promptFile))
