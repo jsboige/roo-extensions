@@ -9,15 +9,27 @@ const testDir = path.join(rootDir, 'tests', 'temp test dir');
 
 // Function to find ripgrep executable
 async function findRipgrep() {
-    const rgPath = "C:/Program Files/Microsoft VS Code/resources/app/node_modules/@vscode/ripgrep/bin/rg.exe";
-    console.log(`\n1. Using rg path: ${rgPath}`);
+    // Primary path: WinGet installation
+    const winGetRgPath = "C:/Users/jsboi/AppData/Local/Microsoft/WinGet/Packages/BurntSushi.ripgrep.MSVC_Microsoft.Winget.Source_8wekyb3d8bbwe/ripgrep-15.1.0-x86_64-pc-windows-msvc/rg.exe";
 
-    if (fs.existsSync(rgPath)) {
-        console.log(`   [SUCCESS] Found at: ${rgPath}`);
-        return rgPath;
+    // Fallback path: VS Code installation
+    const vsCodeRgPath = "C:/Program Files/Microsoft VS Code/resources/app/node_modules/@vscode/ripgrep/bin/rg.exe";
+
+    console.log(`\n1. Searching for ripgrep...`);
+    console.log(`   Trying WinGet path: ${winGetRgPath}`);
+
+    if (fs.existsSync(winGetRgPath)) {
+        console.log(`   [SUCCESS] Found WinGet installation at: ${winGetRgPath}`);
+        return winGetRgPath;
     }
-    
-    console.error(`   [FAILURE] Could not find rg.exe at the specified path.`);
+
+    console.log(`   Trying VS Code path: ${vsCodeRgPath}`);
+    if (fs.existsSync(vsCodeRgPath)) {
+        console.log(`   [SUCCESS] Found VS Code installation at: ${vsCodeRgPath}`);
+        return vsCodeRgPath;
+    }
+
+    console.error(`   [FAILURE] Could not find rg.exe in any known location.`);
     return null;
 }
 

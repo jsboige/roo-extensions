@@ -1,7 +1,7 @@
 # Hermes MCP-Remote Bridge Watchdog
 
-**Issue:** #2014
-**Version:** 1.0.0
+**Issues:** #2012, #2014
+**Version:** 1.1.0
 **Date:** 2026-05-06
 **Owner:** myia-po-2026
 
@@ -39,6 +39,7 @@ The `mcp-remote` (Node.js) bridge does NOT automatically reconnect when the upst
    - **Log scraping**: Scans container logs for error patterns (`ClosedResourceError`, `MCP tool.*call failed`, `ReadTimeout`, etc.)
    - **Process health**: Checks if `mcp-remote` process is responsive
    - **Docker health**: Verifies container is running
+   - **E2E health probe** (v1.1, #2012): Sends a lightweight `tools/list` JSON-RPC request to the MCP proxy and checks for `ClosedResourceError` in the response. Catches bridge stuck without visible log errors.
 
 2. **Smart Thresholds**:
    - Error duration threshold (default: 5 minutes) - prevents restart for transient blips
@@ -67,11 +68,37 @@ ECONNREFUSED
 ETIMEDOUT
 ```
 
+### mcp-remote Reconnect Wrapper (Option A, #2012)
+
+The `mcp-remote-reconnect-wrapper.sh` script wraps the `mcp-remote` Node.js bridge and automatically restarts it when it crashes or enters a `ClosedResourceError` state. This is a proactive fix — the bridge reconnects itself before the watchdog even needs to intervene.
+
+**Features:**
+- Exponential backoff with jitter (2s → 60s max)
+- Configurable max retries (default: 5)
+- Monitors stderr for error patterns (`ClosedResourceError`, `ECONNREFUSED`, `ETIMEDOUT`, etc.)
+- Clean signal handling (SIGTERM/SIGINT)
+- Exits after max retries to let container restart policy handle recovery
+
+**Usage in Docker entrypoint:**
+```bash
+# Replace direct mcp-remote invocation with the wrapper
+./mcp-remote-reconnect-wrapper.sh npx mcp-remote --url https://mcp-tools.myia.io
+```
+
+**Environment variables:**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `MCP_RECONNECT_MAX_RETRIES` | 5 | Max consecutive retry attempts |
+| `MCP_RECONNECT_BACKOFF_BASE` | 2 | Base backoff in seconds |
+| `MCP_RECONNECT_BACKOFF_MAX` | 60 | Max backoff in seconds |
+| `MCP_RECONNECT_LOG_FILE` | `/tmp/mcp-remote-wrapper.log` | Wrapper log file |
+
 ### Edge Cases Handled
 
 1. **Legitimate downtime for maintenance**: Set `ErrorThresholdMinutes` higher during maintenance windows
 2. **Infinite restart loops**: Rate limit (max 3/hour) with human escalation
-3. **Bridge stuck WITHOUT visible errors**: Fallback to process health check (kills+respawns if silence >30min)
+3. **Bridge stuck WITHOUT visible errors**: E2E health probe detects silent wedge + process health check fallback
 
 ---
 
