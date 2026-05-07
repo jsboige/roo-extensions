@@ -6,7 +6,8 @@
 
 .DESCRIPTION
     Tests the workspace path map resolution from file and env var sources.
-    Validates parsing, error handling (malformed JSON), caching, and precedence.
+    Uses brace-counting extraction from source (no inline duplication).
+    Validates parsing, error handling (malformed JSON), caching, and partial failure.
 
 .NOTES
     CI: Pester requires PowerShell — run locally on Windows.
@@ -16,47 +17,58 @@
 
 Describe "Get-WorkspacePathMaps" {
     BeforeAll {
-        $script:logMessages = [System.Collections.Generic.List[string]]::new()
-        function Write-Log($level, $msg) {
-            $script:logMessages.Add("[$level] $msg")
+        # Brace-counting extraction of Get-WorkspacePathMaps from source.
+        # Avoids inline duplication so any source change is automatically reflected.
+        $scriptDir = Split-Path $PSCommandPath -Parent
+        $script:repoRoot = Split-Path (Split-Path $scriptDir -Parent) -Parent
+        $script:listenerPath = Join-Path $script:repoRoot 'scripts\dashboard-scheduler\dashboard-listener.ps1'
+
+        $lines = Get-Content $script:listenerPath
+        $startIdx = -1
+        $braceCount = 0
+        $fnLines = @()
+        for ($i = 0; $i -lt $lines.Count; $i++) {
+            if ($lines[$i] -match 'function Get-WorkspacePathMaps') { $startIdx = $i }
+            if ($startIdx -ge 0) {
+                $fnLines += $lines[$i]
+                $braceCount += ($lines[$i] -replace '[^{]', '').Length
+                $braceCount -= ($lines[$i] -replace '[^}]', '').Length
+                if ($braceCount -eq 0 -and $fnLines.Count -gt 1) { break }
+            }
         }
+        $script:fnBody = $fnLines -join "`r`n"
 
-        $script:_wsPathFileMap = $null
-        $script:_wsPathEnvMap = $null
+        # Write-Log spy for asserting on WARN calls
+        $script:logMessages = [System.Collections.Generic.List[string]]::new()
 
+        # Single-quoted templates — no PowerShell interpolation
+        $script:logSpy = 'function Write-Log($level, $msg) { $script:logMessages.Add("[$level] $msg") }'
+        $script:noOpSpy = 'function Write-Log($level, $msg) { }'
+
+        # Temp dir for test fixtures
         $script:testDir = Join-Path $env:TEMP "dashboard-listener-tests-$(Get-Random)"
         New-Item -ItemType Directory -Path $script:testDir -Force | Out-Null
 
-        function Get-WorkspacePathMaps {
-            if ($null -eq $script:_wsPathFileMap) {
-                $script:_wsPathFileMap = @{}
-                if (Test-Path $WorkspacePathsFile) {
-                    try {
-                        $raw = [System.IO.File]::ReadAllText($WorkspacePathsFile, [System.Text.UTF8Encoding]::new($false))
-                        $obj = $raw | ConvertFrom-Json
-                        foreach ($prop in $obj.PSObject.Properties) {
-                            $script:_wsPathFileMap[$prop.Name] = [string]$prop.Value
-                        }
-                    } catch {
-                        Write-Log "WARN" "Failed to parse $WorkspacePathsFile : $_"
-                    }
-                }
-            }
-            if ($null -eq $script:_wsPathEnvMap) {
-                $script:_wsPathEnvMap = @{}
-                $envJson = $env:DASHBOARD_WATCHER_WORKSPACE_PATHS
-                if (-not [string]::IsNullOrEmpty($envJson)) {
-                    try {
-                        $obj = $envJson | ConvertFrom-Json
-                        foreach ($prop in $obj.PSObject.Properties) {
-                            $script:_wsPathEnvMap[$prop.Name] = [string]$prop.Value
-                        }
-                    } catch {
-                        Write-Log "WARN" "Failed to parse DASHBOARD_WATCHER_WORKSPACE_PATHS env var: $_"
-                    }
-                }
-            }
-            return @{ file = $script:_wsPathFileMap; env = $script:_wsPathEnvMap }
+        # Helper: invoke Get-WorkspacePathMaps with extracted function body + injected state
+        function Invoke-GetWorkspacePathMaps {
+            param(
+                [string]$FilePath = '',
+                [string]$EnvJson = ''
+            )
+            $script:logMessages.Clear()
+            $envExpr = if ($EnvJson) { "'" + $EnvJson.Replace("'", "''") + "'" } else { '$null' }
+            $fpExpr = "'" + $FilePath.Replace("'", "''") + "'"
+
+            $nl = [char]10
+            $code = $script:logSpy + $nl +
+                    ('$WorkspacePathsFile = ' + $fpExpr) + $nl +
+                    '$script:_wsPathFileMap = $null' + $nl +
+                    '$script:_wsPathEnvMap = $null' + $nl +
+                    ('$env:DASHBOARD_WATCHER_WORKSPACE_PATHS = ' + $envExpr) + $nl +
+                    $script:fnBody + $nl +
+                    'Get-WorkspacePathMaps'
+
+            & ([ScriptBlock]::Create($code))
         }
     }
 
@@ -68,170 +80,217 @@ Describe "Get-WorkspacePathMaps" {
     }
 
     BeforeEach {
-        $script:_wsPathFileMap = $null
-        $script:_wsPathEnvMap = $null
-        $script:logMessages.Clear()
         Remove-Item Env:\DASHBOARD_WATCHER_WORKSPACE_PATHS -ErrorAction SilentlyContinue
     }
 
-    Context "File map — valid JSON" {
-        BeforeEach {
-            $jsonFile = Join-Path $script:testDir "workspace-paths.json"
+    Context "File map - valid JSON" {
+        BeforeAll {
+            $script:jsonFile = Join-Path $script:testDir "workspace-paths.json"
             $json = '{"roo-extensions": "C:/dev/roo-extensions", "nanoclaw": "D:/nanoclaw"}'
-            [System.IO.File]::WriteAllText($jsonFile, $json, [System.Text.UTF8Encoding]::new($false))
-            $script:WorkspacePathsFile = $jsonFile
+            [System.IO.File]::WriteAllText($script:jsonFile, $json, [System.Text.UTF8Encoding]::new($false))
         }
 
         It "Parses valid JSON file into file map" {
-            $result = Get-WorkspacePathMaps
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:jsonFile
             $result.file["roo-extensions"] | Should -Be "C:/dev/roo-extensions"
             $result.file["nanoclaw"] | Should -Be "D:/nanoclaw"
         }
 
         It "Returns empty env map when env var not set" {
-            $result = Get-WorkspacePathMaps
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:jsonFile
             $result.env.Count | Should -Be 0
         }
 
         It "Does not log any warnings" {
-            Get-WorkspacePathMaps | Out-Null
+            Invoke-GetWorkspacePathMaps -FilePath $script:jsonFile | Out-Null
             $script:logMessages.Count | Should -Be 0
         }
     }
 
-    Context "File map — missing file" {
-        BeforeEach {
-            $script:WorkspacePathsFile = Join-Path $script:testDir "nonexistent.json"
-        }
-
+    Context "File map - missing file" {
         It "Returns empty file map when file does not exist" {
-            $result = Get-WorkspacePathMaps
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            $result = Invoke-GetWorkspacePathMaps -FilePath $missingFile
             $result.file.Count | Should -Be 0
         }
 
         It "Does not log any warnings" {
-            Get-WorkspacePathMaps | Out-Null
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            Invoke-GetWorkspacePathMaps -FilePath $missingFile | Out-Null
             $script:logMessages.Count | Should -Be 0
         }
     }
 
-    Context "File map — malformed JSON" {
-        BeforeEach {
-            $jsonFile = Join-Path $script:testDir "bad.json"
-            [System.IO.File]::WriteAllText($jsonFile, "{invalid json!!!", [System.Text.UTF8Encoding]::new($false))
-            $script:WorkspacePathsFile = $jsonFile
+    Context "File map - malformed JSON" {
+        BeforeAll {
+            $script:badFile = Join-Path $script:testDir "bad.json"
+            [System.IO.File]::WriteAllText($script:badFile, "{invalid json!!!", [System.Text.UTF8Encoding]::new($false))
         }
 
         It "Returns empty file map for malformed JSON" {
-            $result = Get-WorkspacePathMaps
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:badFile
             $result.file.Count | Should -Be 0
         }
 
         It "Logs a WARN message about parse failure" {
-            Get-WorkspacePathMaps | Out-Null
+            Invoke-GetWorkspacePathMaps -FilePath $script:badFile | Out-Null
             $script:logMessages.Count | Should -BeGreaterOrEqual 1
             $script:logMessages[0] | Should -Match "WARN.*Failed to parse"
         }
     }
 
-    Context "Env var — valid JSON only" {
-        BeforeEach {
-            $script:WorkspacePathsFile = Join-Path $script:testDir "nonexistent.json"
-            $env:DASHBOARD_WATCHER_WORKSPACE_PATHS = '{"roo-extensions": "C:/dev/roo-extensions"}'
-        }
-
+    Context "Env var - valid JSON only" {
         It "Parses valid env var JSON into env map" {
-            $result = Get-WorkspacePathMaps
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            $result = Invoke-GetWorkspacePathMaps -FilePath $missingFile -EnvJson '{"roo-extensions": "C:/dev/roo-extensions"}'
             $result.env["roo-extensions"] | Should -Be "C:/dev/roo-extensions"
         }
 
         It "Returns empty file map when file missing" {
-            $result = Get-WorkspacePathMaps
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            $result = Invoke-GetWorkspacePathMaps -FilePath $missingFile -EnvJson '{"roo-extensions": "C:/dev/roo-extensions"}'
             $result.file.Count | Should -Be 0
         }
     }
 
-    Context "Env var — malformed JSON" {
-        BeforeEach {
-            $script:WorkspacePathsFile = Join-Path $script:testDir "nonexistent.json"
-            $env:DASHBOARD_WATCHER_WORKSPACE_PATHS = '{{not valid}}'
-        }
-
+    Context "Env var - malformed JSON" {
         It "Returns empty env map for malformed JSON" {
-            $result = Get-WorkspacePathMaps
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            $result = Invoke-GetWorkspacePathMaps -FilePath $missingFile -EnvJson '{{not valid}}'
             $result.env.Count | Should -Be 0
         }
 
         It "Logs a WARN about env var parse failure" {
-            Get-WorkspacePathMaps | Out-Null
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            Invoke-GetWorkspacePathMaps -FilePath $missingFile -EnvJson '{{not valid}}' | Out-Null
             $script:logMessages.Count | Should -BeGreaterOrEqual 1
             $script:logMessages[0] | Should -Match "WARN.*DASHBOARD_WATCHER_WORKSPACE_PATHS"
         }
     }
 
     Context "File + env var combined" {
-        BeforeEach {
-            $jsonFile = Join-Path $script:testDir "both.json"
+        BeforeAll {
+            $script:bothFile = Join-Path $script:testDir "both.json"
             $json = '{"roo-extensions": "C:/dev/roo-extensions"}'
-            [System.IO.File]::WriteAllText($jsonFile, $json, [System.Text.UTF8Encoding]::new($false))
-            $script:WorkspacePathsFile = $jsonFile
-            $env:DASHBOARD_WATCHER_WORKSPACE_PATHS = '{"nanoclaw": "D:/nanoclaw"}'
+            [System.IO.File]::WriteAllText($script:bothFile, $json, [System.Text.UTF8Encoding]::new($false))
         }
 
         It "Populates both file and env maps" {
-            $result = Get-WorkspacePathMaps
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:bothFile -EnvJson '{"nanoclaw": "D:/nanoclaw"}'
             $result.file["roo-extensions"] | Should -Be "C:/dev/roo-extensions"
             $result.env["nanoclaw"] | Should -Be "D:/nanoclaw"
         }
 
         It "File and env maps are independent" {
-            $result = Get-WorkspacePathMaps
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:bothFile -EnvJson '{"nanoclaw": "D:/nanoclaw"}'
             $result.file.ContainsKey("nanoclaw") | Should -BeFalse
             $result.env.ContainsKey("roo-extensions") | Should -BeFalse
         }
     }
 
-    Context "Empty env var" {
-        BeforeEach {
-            $script:WorkspacePathsFile = Join-Path $script:testDir "nonexistent.json"
-            $env:DASHBOARD_WATCHER_WORKSPACE_PATHS = ""
+    Context "Partial failure - file valid + env malformed" {
+        BeforeAll {
+            $script:partialFile = Join-Path $script:testDir "partial.json"
+            [System.IO.File]::WriteAllText($script:partialFile, '{"roo-extensions": "C:/dev/roo-extensions"}', [System.Text.UTF8Encoding]::new($false))
         }
 
+        It "File map populated, env map empty when env is malformed" {
+            $result = Invoke-GetWorkspacePathMaps -FilePath $script:partialFile -EnvJson '{{bad}}'
+            $result.file["roo-extensions"] | Should -Be "C:/dev/roo-extensions"
+            $result.env.Count | Should -Be 0
+        }
+
+        It "Logs only env-related WARN" {
+            Invoke-GetWorkspacePathMaps -FilePath $script:partialFile -EnvJson '{{bad}}' | Out-Null
+            $script:logMessages.Count | Should -BeGreaterOrEqual 1
+            $script:logMessages[0] | Should -Match "WARN.*DASHBOARD_WATCHER_WORKSPACE_PATHS"
+        }
+    }
+
+    Context "Empty env var" {
         It "Returns empty env map for empty string" {
-            $result = Get-WorkspacePathMaps
+            $missingFile = Join-Path $script:testDir "nonexistent.json"
+            $result = Invoke-GetWorkspacePathMaps -FilePath $missingFile -EnvJson ''
             $result.env.Count | Should -Be 0
         }
     }
 
     Context "Caching behavior" {
-        BeforeEach {
-            $jsonFile = Join-Path $script:testDir "cache-test.json"
-            $json = '{"ws1": "C:/ws1"}'
-            [System.IO.File]::WriteAllText($jsonFile, $json, [System.Text.UTF8Encoding]::new($false))
-            $script:WorkspacePathsFile = $jsonFile
-        }
-
         It "Returns same result on second call (cache hit)" {
-            $first = Get-WorkspacePathMaps
-            $second = Get-WorkspacePathMaps
-            $second.file["ws1"] | Should -Be $first.file["ws1"]
+            $cacheFile = Join-Path $script:testDir "cache-test.json"
+            $json = '{"ws1": "C:/ws1"}'
+            [System.IO.File]::WriteAllText($cacheFile, $json, [System.Text.UTF8Encoding]::new($false))
+
+            $fpExpr = "'" + $cacheFile.Replace("'", "''") + "'"
+            $nl = [char]10
+            $code = $script:noOpSpy + $nl +
+                    ('$WorkspacePathsFile = ' + $fpExpr) + $nl +
+                    '$script:_wsPathFileMap = $null' + $nl +
+                    '$script:_wsPathEnvMap = $null' + $nl +
+                    $script:fnBody + $nl +
+                    '$r1 = Get-WorkspacePathMaps' + $nl +
+                    '$r2 = Get-WorkspacePathMaps' + $nl +
+                    '@($r1, $r2)'
+
+            $result = & ([ScriptBlock]::Create($code))
+            $result[1].file["ws1"] | Should -Be $result[0].file["ws1"]
         }
 
         It "Cache survives file modification (stale read)" {
-            $first = Get-WorkspacePathMaps
-            $newJson = '{"ws1": "C:/ws1-UPDATED"}'
-            [System.IO.File]::WriteAllText($script:WorkspacePathsFile, $newJson, [System.Text.UTF8Encoding]::new($false))
-            $second = Get-WorkspacePathMaps
-            $second.file["ws1"] | Should -Be "C:/ws1"
+            $cacheFile = Join-Path $script:testDir "cache-stale.json"
+            $json = '{"ws1": "C:/ws1"}'
+            [System.IO.File]::WriteAllText($cacheFile, $json, [System.Text.UTF8Encoding]::new($false))
+
+            $fpExpr = "'" + $cacheFile.Replace("'", "''") + "'"
+            $nl = [char]10
+            # Use single-quoted string for the WriteAllText call to avoid escape hell
+            $writeUpdated = '[System.IO.File]::WriteAllText($WorkspacePathsFile, ''{"ws1": "C:/ws1-UPDATED"}'', [System.Text.UTF8Encoding]::new($false))'
+            $code = $script:noOpSpy + $nl +
+                    ('$WorkspacePathsFile = ' + $fpExpr) + $nl +
+                    '$script:_wsPathFileMap = $null' + $nl +
+                    '$script:_wsPathEnvMap = $null' + $nl +
+                    $script:fnBody + $nl +
+                    '$r1 = Get-WorkspacePathMaps' + $nl +
+                    $writeUpdated + $nl +
+                    '$r2 = Get-WorkspacePathMaps' + $nl +
+                    '@($r1, $r2)'
+
+            $result = & ([ScriptBlock]::Create($code))
+            $result[1].file["ws1"] | Should -Be "C:/ws1"
         }
 
         It "Cache is cleared when script variables reset" {
-            $first = Get-WorkspacePathMaps
-            $script:_wsPathFileMap = $null
-            $script:_wsPathEnvMap = $null
+            $cacheFile = Join-Path $script:testDir "cache-reset.json"
+            $json = '{"ws1": "C:/ws1"}'
+            [System.IO.File]::WriteAllText($cacheFile, $json, [System.Text.UTF8Encoding]::new($false))
+
+            $fpExpr = "'" + $cacheFile.Replace("'", "''") + "'"
+            $nl = [char]10
+
+            # First call
+            $code1 = $script:noOpSpy + $nl +
+                     ('$WorkspacePathsFile = ' + $fpExpr) + $nl +
+                     '$script:_wsPathFileMap = $null' + $nl +
+                     '$script:_wsPathEnvMap = $null' + $nl +
+                     $script:fnBody + $nl +
+                     'Get-WorkspacePathMaps'
+
+            $first = & ([ScriptBlock]::Create($code1))
+            $first.file["ws1"] | Should -Be "C:/ws1"
+
+            # Modify file
             $newJson = '{"ws1": "C:/ws1-NEW"}'
-            [System.IO.File]::WriteAllText($script:WorkspacePathsFile, $newJson, [System.Text.UTF8Encoding]::new($false))
-            $second = Get-WorkspacePathMaps
+            [System.IO.File]::WriteAllText($cacheFile, $newJson, [System.Text.UTF8Encoding]::new($false))
+
+            # Second call with fresh cache
+            $code2 = $script:noOpSpy + $nl +
+                     ('$WorkspacePathsFile = ' + $fpExpr) + $nl +
+                     '$script:_wsPathFileMap = $null' + $nl +
+                     '$script:_wsPathEnvMap = $null' + $nl +
+                     $script:fnBody + $nl +
+                     'Get-WorkspacePathMaps'
+
+            $second = & ([ScriptBlock]::Create($code2))
             $second.file["ws1"] | Should -Be "C:/ws1-NEW"
         }
     }
