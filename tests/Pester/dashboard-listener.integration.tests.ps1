@@ -179,13 +179,59 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
 
             New-TestDashboard -Workspace $ws
 
-            # The listener computes $RepoRoot from its own script path.
-            # Self-match occurs when ws name == leaf of $RepoRoot.
-            # Since we're running the real script, it will detect "roo-extensions"
-            # as the leaf of its own repo root and match.
             $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile
 
-            $result.Output | Should -Match "resolved to"
+            # Must match the actual repo leaf name in the resolved path, not just "resolved to"
+            $result.Output | Should -Match "resolved to.*roo-extensions"
+        }
+    }
+
+    Context "Level 4: ~/.claude.json projects map" {
+        It "Uses claude.json projects entry when workspace basename matches" {
+            $ws = "test-ws-claude"
+            $wsDir = Join-Path $wsDir $ws
+            New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
+
+            # No paths file override
+            $pathsFile = Join-Path $testRoot "workspace-paths-empty.json"
+            [System.IO.File]::WriteAllText($pathsFile, "{}", [System.Text.UTF8Encoding]::new($false))
+
+            # Create a fake .claude.json with a projects section mapping our workspace
+            $claudeJson = Join-Path $testRoot "fake-claude.json"
+            $claudeContent = @{
+                projects = @{
+                    $wsDir = @{ allowedTools = @() }
+                }
+            } | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($claudeJson, $claudeContent, [System.Text.UTF8Encoding]::new($false))
+
+            New-TestDashboard -Workspace $ws
+
+            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
+
+            $result.Output | Should -Match "resolved to.*$([regex]::Escape($wsDir))"
+        }
+
+        It "Falls through when claude.json projects entry points to non-existent path" {
+            $ws = "test-ws-ghost"
+            $pathsFile = Join-Path $testRoot "workspace-paths-empty.json"
+            [System.IO.File]::WriteAllText($pathsFile, "{}", [System.Text.UTF8Encoding]::new($false))
+
+            $ghostPath = Join-Path $testRoot "path-that-does-not-exist"
+            $claudeJson = Join-Path $testRoot "fake-claude-ghost.json"
+            $claudeContent = @{
+                projects = @{
+                    $ghostPath = @{ allowedTools = @() }
+                }
+            } | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($claudeJson, $claudeContent, [System.Text.UTF8Encoding]::new($false))
+
+            New-TestDashboard -Workspace $ws
+
+            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
+
+            # Should warn about non-existent path and continue to Level 5
+            $result.Output | Should -Match "non-existent path|No path resolved|No on-disk workspace path resolved"
         }
     }
 
