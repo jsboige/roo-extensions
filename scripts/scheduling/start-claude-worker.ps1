@@ -1854,6 +1854,23 @@ function Reset-PhantomSubmodulePointers {
                         # Reset submodule to origin/main (discard local commit that was never pushed)
                         git -C "$WorktreePath/$SubmodulePath" reset --hard origin/main 2>&1 | Out-Null
                         $ResetPaths += $SubmodulePath
+                    } else {
+                        # Guard #1799: Regression detection — reset if submodule HEAD is behind the
+                        # base branch's recorded pointer. Prevents auto-commit from capturing backward
+                        # submodule moves that ARE on origin/main (phantom guard misses these).
+                        $BasePointer = (git -C $WorktreePath ls-tree origin/main -- $SubmodulePath 2>&1)
+                        if ($BasePointer -match '([a-f0-9]{40})') {
+                            $BaseSha = $Matches[1]
+                            if ($NewHead -ne $BaseSha) {
+                                # Check if NewHead is an ancestor of BaseSha (= behind = regression)
+                                git -C "$WorktreePath/$SubmodulePath" merge-base --is-ancestor $NewHead $BaseSha 2>&1 | Out-Null
+                                if ($LASTEXITCODE -eq 0) {
+                                    Write-Log "REGRESSION DETECTED (#1799): Submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) is behind base $($BaseSha.Substring(0,8)). Resetting." "WARN"
+                                    git -C "$WorktreePath/$SubmodulePath" reset --hard $BaseSha 2>&1 | Out-Null
+                                    $ResetPaths += $SubmodulePath
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1974,7 +1991,8 @@ function Test-WorktreeHasChanges {
                     }
                 }
                 # Also stage any tracked modifications that git add -A would catch
-                git add -u 2>&1 | Out-Null
+                # Guard #1799: Exclude submodule paths — workers should never commit submodule pointer changes.
+                git add -u -- ':!mcps' ':!roo-code' 2>&1 | Out-Null
                 $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
                 git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
 
