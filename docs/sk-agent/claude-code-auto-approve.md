@@ -1,0 +1,71 @@
+# Auto-Approbation call_agent dans Claude Code
+
+**Issue:** #2059
+**Date:** 2026-05-08
+**Machines concernees:** po-2023, po-2024, po-2025, po-2026
+
+## Probleme
+
+Le tool `call_agent` du MCP sk-agent nécessite une approbation utilisateur a CHAQUE appel dans Claude Code. Cela bloque les workflows autonomes (cycles 24h+) car l'utilisateur doit etre present pour approuver chaque appel.
+
+## Solution: Configuration d'auto-approbation
+
+Ajouter cette configuration dans `~/.claude/settings.json` (global, pas project-level):
+
+```json
+{
+  "permissions": {
+    "allow": [
+      "mcp__sk-agent__call_agent",
+      "mcp__sk-agent__list_agents",
+      "mcp__sk-agent__list_conversations",
+      "mcp__sk-agent__run_conversation",
+      "mcp__sk-agent__end_conversation",
+      "mcp__sk-agent__ask",
+      "mcp__sk-agent__list_models",
+      "mcp__sk-agent__list_tools",
+      "mcp__sk-agent__analyze_image",
+      "mcp__sk-agent__analyze_document",
+      "mcp__sk-agent__analyze_video",
+      "mcp__sk-agent__zoom_image"
+    ]
+  }
+}
+```
+
+## Pourquoi tous les outils sk-agent ?
+
+`call_agent` est l'outil unifie qui appelle les memes endpoints que les outils dedies (analyze_image, analyze_document, etc.). Si `call_agent` est auto-approuve mais pas les autres, l'agent peut choisir d'utiliser les outils dedies a la place — ce qui contourne le probleme mais n'est pas ideal car:
+
+1. `call_agent` est l'outil principal documenté
+2. Les outils dedies sont considers comme "deprecated" dans la config sk-agent
+3. La liste d'outils a auto-approuver doit couvrir TOUS les outils sk-agent pour un fonctionnement autonome complet
+
+## Verification
+
+Apres avoir ajoute la configuration:
+
+1. Redemarrer la session Claude Code
+2. Tester un appel `call_agent` — il ne doit plus y avoir de prompt d'approbation
+3. Verifier que les autres outils sk-agent fonctionnent aussi sans approbation
+
+## Note sur Roo Code
+
+Dans Roo Code, l'auto-approbation est geree via `mcp_settings.json` avec le champ `alwaysAllow`. Voir [`roo-config/mcp/reference-alwaysallow.json`](../../roo-config/mcp/reference-alwaysallow.json).
+
+## Tools sk-agent exposes
+
+| Tool | Description |
+|------|-------------|
+| `call_agent` | Appel unifie vers un agent sk-agent |
+| `list_agents` | Lister les agents disponibles |
+| `list_conversations` | Lister les conversations |
+| `run_conversation` | Lancer une conversation multi-agent |
+| `end_conversation` | Terminer une conversation |
+| `ask` | Question simple a un agent |
+| `list_models` | Lister les modeles disponibles |
+| `list_tools` | Lister les outils disponibles |
+| `analyze_image` | Analyser une image |
+| `analyze_document` | Analyser un document |
+| `analyze_video` | Analyser une video |
+| `zoom_image` | Zoomer sur une partie d'image |
