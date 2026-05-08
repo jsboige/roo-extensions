@@ -11,6 +11,8 @@
 **Fréquence:** 6 heures
 **Mode:** orchestrator-simple (délègue tout via new_task)
 
+> **BUDGET DÉLÉGATION (#2068) :** Max 3 delegations par cycle. La premiere (ask-simple pour lire ce fichier) est hors de notre controle (config schedule). Les etapes ci-dessous utilisent donc MAXIMUM 2 delegations : Setup (Etape 0) + Tache+Rapport (Etape 1).
+
 ---
 
 ## ⛔ RÈGLE SSH - JAMAIS SSH VERS LA MACHINE LOCALE (Issue #903)
@@ -70,60 +72,55 @@ execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-man
 
 ---
 
-## Étape 0 : Pre-flight Check + Heartbeat (OBLIGATOIRE)
+## Étape 0 : Setup combiné — Pre-flight + Git + Dashboard (OBLIGATOIRE)
 
-**DÉLEGUER à `code-simple` via `new_task` :**
-
-```
-Pre-flight check : tester le MCP win-cli.
-
-1. Executer : execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
-2. Rapporter : PRE-FLIGHT-OK si la commande réussit, ou le message d'erreur exact si échec.
-
-Heartbeat automatique (#1609) : envoyé à chaque appel d'outil MCP, pas d'action requise.
-```
-
-**Si STOP (échec win-cli) :**
-- Écrire dans dashboard workspace : `roosync_dashboard(type: "workspace", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
-- Terminer la tâche sans déléguer d'autres sous-tâches
-
----
-
-## Étape 1 : Git Pull + Worktree Check + Lecture Dashboards
+> **Budget délégation (#2068) :** Cette étape combine l'ancien pre-flight ET git+dashboard en UNE SEULE délégation.
 
 **DÉLEGUER à `code-simple` via `new_task` :**
 
 ```
 REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
 
-Executer ces commandes avec win-cli MCP et rapporter le résultat :
-1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
-2. execute_command(shell="gitbash", command="git status")
+SETUP COMBINÉ — Exécuter dans l'ordre et rapporter le résultat :
 
-Worktree cleanup check (issue #856) :
-3. execute_command(shell="powershell", command="git worktree list --porcelain | Select-String '^worktree ' | Measure-Object | Select-Object -ExpandProperty Count")
+A. Pre-flight (tester MCP win-cli) :
+1. execute_command(shell="powershell", command="echo PRE-FLIGHT-OK")
+
+B. Git pull + status :
+2. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
+3. execute_command(shell="gitbash", command="git status")
+
+C. Worktree cleanup check (issue #856) :
+4. execute_command(shell="powershell", command="git worktree list --porcelain | Select-String '^worktree ' | Measure-Object | Select-Object -ExpandProperty Count")
    Si > 2 worktrees : execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -WhatIf")
    Si des orphelins détectés : execute_command(shell="powershell", command="powershell -ExecutionPolicy Bypass -File scripts/claude/worktree-cleanup.ps1 -Force")
 
-Puis lire le dashboard WORKSPACE :
-4. roosync_dashboard(action: "read", type: "workspace", section: "all")
+D. Dashboard workspace :
+5. roosync_dashboard(action: "read", type: "workspace", section: "all")
 
 Chercher les messages avec tags [WAKE-ROO], [TASK], [SCHEDULED], [URGENT], [PROPOSAL].
-Rapporter : état git + worktrees count + contenu dashboard workspace + liste des tâches/propositions trouvées + presence de [WAKE-ROO].
+Rapporter : pre-flight OK/FAIL + état git + worktrees count + contenu dashboard workspace + liste des tâches/propositions trouvées + presence de [WAKE-ROO].
+
+Heartbeat automatique (#1609) : envoyé à chaque appel d'outil MCP, pas d'action requise.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 ```
 
-**Décision :**
-- Si git pull ÉCHOUÉ → **Étape 3** avec rapport d'erreur
+**Si STOP (échec win-cli au pre-flight) :**
+- Écrire dans dashboard workspace : `roosync_dashboard(type: "workspace", action: "append", tags: ["CRITICAL", "roo-scheduler"], content: "win-cli MCP non disponible")`
+- Terminer la tâche sans déléguer d'autres sous-tâches
+
+**Décision (d'après le rapport) :**
+- Si git pull ÉCHOUÉ → **Étape 2** avec rapport d'erreur
 - Si `[WAKE-ROO]` (#1955, IMMÉDIAT) → traiter le contenu IMMEDIATEMENT, repondre par `[ACK]` sur le dashboard, escalader vers `-complex` si la demande l'exige
 - Si `[URGENT]` → escalader vers `orchestrator-complex`
-- Si `[TASK]`/`[PROPOSAL]` avec `[COMPLEX]` ET date < 24h → **escalader vers orchestrator-complex**
-- Si `[TASK]`/`[PROPOSAL]` ET date < 24h → **Étape 2a**
+- Si `[TASK]`/`[PROPOSAL]` avec `[COMPLEX]` ET date < 24h → **escaler vers orchestrator-complex**
+- Si `[TASK]`/`[PROPOSAL]` ET date < 24h → **Étape 1a**
 - Si `[TASK]` MAIS date > 24h → IGNORER
-- Si rien → **Étape 2b**
+- Si rien → **Étape 1b**
 
 ---
 
-## Étape 2a : Exécuter les tâches du Dashboard Workspace
+## Étape 1a : Exécuter les tâches du Dashboard Workspace
 
 Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 
@@ -141,25 +138,25 @@ Pour chaque `[TASK]` trouvé, déléguer selon la difficulté :
 - Écrire `[INCIDENT-SIMPLE]` dans dashboard workspace pour CHAQUE escalade
 - Ne PAS relancer en -simple
 
-Après exécution → **Étape 3**
+Après exécution → **Étape 2**
 
 ---
 
-## Étape 2b : Tâches par défaut (si pas de [TASK])
+## Étape 1b : Tâches par défaut (si pas de [TASK])
 
-> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 2b comprend TOUJOURS 4 sous-étapes séquentielles.
+> ⚠️ **OBLIGATION CRITIQUE (Bug #702)** : L'Étape 1b comprend TOUJOURS 4 sous-étapes séquentielles.
 
 **CHECKLIST SOUS-ÉTAPES OBLIGATOIRES :**
 
 ```
-☐ 2b-1 : Build + Tests (validation santé workspace)
-☐ 2b-2 : GitHub issues (chercher une tâche dispatchée ou disponible)
-☐ 2b-review : PR Review (reviewer les PRs ouvertes)
-☐ 2c-idle : Veille Active ou Consolidation (toujours, même si rien à faire)
-→ SEULEMENT ENSUITE : Étape 3
+☐ 1b-1 : Build + Tests (validation santé workspace)
+☐ 1b-2 : GitHub issues (chercher une tâche dispatchée ou disponible)
+☐ 1b-review : PR Review (reviewer les PRs ouvertes)
+☐ 1c-idle : Veille Active ou Consolidation (toujours, même si rien à faire)
+→ SEULEMENT ENSUITE : Étape 2
 ```
 
-### 2b-1 : Build + Tests
+### 1b-1 : Build + Tests
 
 ```
 Executer dans mcps/internal/servers/roo-state-manager avec win-cli :
@@ -171,7 +168,7 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 
 > **Note MyIA-Web1** : Toujours utiliser `npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 30`
 
-### 2b-2 : GitHub Issues (dispatch-aware)
+### 1b-2 : GitHub Issues (dispatch-aware)
 
 **Etape A — Lister les issues ouvertes :**
 
@@ -216,7 +213,7 @@ Si une issue est trouvée :
 8. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
 9. Revenir sur main : `git checkout main`
 
-### 2b-review : Reviewer les PRs ouvertes
+### 1b-review : Reviewer les PRs ouvertes
 
 ```
 execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,createdAt")
@@ -224,7 +221,7 @@ execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-exten
 
 Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
 
-### 2b-patrol : Veille Active Proactive — Patrouille avec Auto-Réparation (MANDATORY si >1h depuis dernière)
+### 1b-patrol : Veille Active Proactive — Patrouille avec Auto-Réparation (MANDATORY si >1h depuis dernière)
 
 > **Mandate #1886** : Patrouille proactive avec auto-réparation AVANT toute action de consolidation. Contraintes dans `.roo/scheduler-workflow-shared.md` section "VEILLE ACTIVE".
 
@@ -278,9 +275,9 @@ LIMITES : Auto-fix UNIQUEMENT pour schedules.json (règle claire). Tout autre pr
 
 **Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace avec détails. Pour tests échoués, créer issue GitHub automatiquement.
 
-→ **Ensuite : 2c-idle** (consolidation ou veille complementaire)
+→ **Ensuite : 1c-idle** (consolidation ou veille complementaire)
 
-### 2c-idle : Consolidation ou Veille Active complementaire
+### 1c-idle : Consolidation ou Veille Active complementaire
 
 > **Priorité** : Parasite cleanup si détecté, puis Consolidation si disponible, sinon Veille Active complementaire.
 > **Note :** La patrouille lecture seule principale est a l'Etape 2b-patrol. Cette etape est un complement.
@@ -348,35 +345,33 @@ Déléguer UNE consolidation à `code-simple` via `new_task`.
 | 8 | Consolidation doc | Chercher doublons sémantiques |
 | 9 | Veille harnais agentique | Observer nouveaux outils vibe coding |
 
-Après exploration → **Étape 3**
+Après exploration → **Étape 2**
 
 ---
 
-## Étape 3 : Rapporter dans Dashboards (OBLIGATOIRE)
+## Étape 2 : Rapport + Terminer (OBLIGATOIRE)
 
+> **Budget délégation (#2068) :** Cette étape ne crée PAS de nouvelle délégation. Le rapport est posté par la délégation de l'Étape 1 (tâche), OU par l'orchestrateur via attempt_completion.
+>
 > **CRITIQUE** : Le rapport est la seule trace du passage du scheduler.
 
-**DÉLEGUER à `code-simple` via `new_task` :**
+**Si une tâche a été exécutée à l'Étape 1 (1a ou 1b) :** Le rapport doit avoir été inclus dans la délégation de tâche. Ajouter à TOUTE délégation de tâche l'instruction :
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
-Écrire le bilan sur le dashboard WORKSPACE :
-
-roosync_dashboard(
-  action: "append",
-  type: "workspace",
-  tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"],
-  content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}"
-)
-
-Si le dashboard MCP échoue, fallback : apply_diff sur .claude/local/INTERCOM-{MACHINE}.md
+APRES avoir terminé la tâche, poster le bilan sur le dashboard WORKSPACE :
+roosync_dashboard(action: "append", type: "workspace", tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"], content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}")
 ```
 
-### Étape 4 : TERMINER le cycle (OBLIGATOIRE)
+**Si STOP (pre-flight échec ou aucune tâche exécutée) :** Poster le rapport directement via attempt_completion :
 
 ```
-attempt_completion(result: "Cycle executor termine. Bilan poste dans dashboard workspace.")
+attempt_completion(result: "[{MACHINE}] Cycle executor terminé. Bilan: {RÉSUMÉ}. Dashboard: {OK/non posté}")
+```
+
+### Étape 3 : TERMINER le cycle (OBLIGATOIRE)
+
+```
+attempt_completion(result: "Cycle executor terminé. Bilan posté dans dashboard workspace.")
 ```
 
 ---
