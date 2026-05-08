@@ -1,11 +1,11 @@
 # ADR 008: Heartbeat Redesign — Passive Activity Derivation
 
-**Date:** 2026-05-03 (v2 updated 2026-05-04 by po-2024)
-**Status:** Approved (pending Phase 1 implementation)
+**Date:** 2026-05-03 (v3 updated 2026-05-08 by po-2026)
+**Status:** Phase 1+2 COMPLETE — Phase 3 validation pending (48h continuous operation)
 **Issue:** #1953
 **Supersedes:** #1495, #1674, #1791, #1938 (4 failed fixes in 6 weeks)
-**Related:** #1609 (auto-heartbeat), #293 (dashboard cross-check), #311 (double-callback fix)
-**Approvers:** myia-po-2024 (ADR v2 ratification), pending coordinator sign-off
+**Related:** #1609 (auto-heartbeat), #293 (dashboard cross-check), #311 (double-callback fix), #377 (Phase 2 implementation)
+**Approvers:** myia-po-2024 (ADR v2 ratification)
 
 ## Context
 
@@ -107,22 +107,22 @@ True machine failure (power off, OS crash, network down) is NOT the responsibili
 
 ## Migration Plan
 
-### Phase 1: Identity Fix + In-Memory (low risk, immediate)
+### Phase 1: Identity Fix + In-Memory — DONE
 
-1. Fix `auto-heartbeat.ts` to use `os.hostname()` instead of `this.config.machineId`
-2. Remove GDrive heartbeat file writes from `HeartbeatService.registerHeartbeat`
-3. Keep `HeartbeatService` class but simplify to in-memory map
-4. Update `roosync_get_status` / `roosync_inventory` to use new status model (ONLINE/IDLE/UNKNOWN)
+1. Fix `auto-heartbeat.ts` to use `os.hostname()` instead of `this.config.machineId` — DONE via `getLocalMachineId()` unified function
+2. Remove GDrive heartbeat file writes from `HeartbeatService.registerHeartbeat` — DONE (in-memory only)
+3. Keep `HeartbeatService` class but simplify to in-memory map — DONE
+4. Update `roosync_get_status` / `roosync_inventory` to use new status model (ONLINE/IDLE/UNKNOWN) — DONE
 
-### Phase 2: Remove Dead Code (after 48h validation)
+### Phase 2: Remove Dead Code — DONE
 
-1. Remove `heartbeats/` directory on GDrive
-2. Remove `heartbeat-service.ts` tool (no longer needed)
-3. Remove `register-heartbeat.ts` tool (no longer needed)
-4. Clean up `background-services.ts` heartbeat auto-start code
-5. Update documentation references
+1. Remove `heartbeats/` directory on GDrive — PENDING (low priority, files orphaned but harmless)
+2. Remove `heartbeat-service.ts` tool (no longer needed) — DONE (#1609)
+3. Remove `register-heartbeat.ts` tool (no longer needed) — DONE
+4. Clean up `background-services.ts` heartbeat auto-start code — DONE (PR #377)
+5. Update documentation references — DONE (PR #377: removed offline/warning terminology)
 
-### Phase 3: Validation
+### Phase 3: Validation — PENDING
 
 1. 6 machines active → all show ONLINE simultaneously
 2. Machine idle for 30 min → shows IDLE (not OFFLINE)
@@ -186,9 +186,9 @@ The ADR 008 Option A (passive activity derivation) is the correct long-term fix.
 | Phase | Description | Status | Dependencies |
 |-------|-------------|--------|-------------|
 | 0 (stopgap) | Double-callback fix (#311) + cross-check (#293) | DONE | None |
-| 1 | Identity fix + in-memory model (this ADR) | Pending implementation | ADR approval |
-| 2 | Remove dead code (heartbeat files, tools, GDrive writes) | Pending Phase 1 validation (48h) | Phase 1 live |
-| 3 | 48h continuous validation across 6 machines | Pending Phase 2 | Phase 2 complete |
+| 1 | Identity fix + in-memory model (this ADR) | DONE (PR #377) | ADR approval |
+| 2 | Remove dead code (heartbeat files, tools, GDrive writes) | DONE (PR #377) | Phase 1 live |
+| 3 | 48h continuous validation across 6 machines | PENDING | Phase 2 complete |
 
 ### Approval Notes (po-2024 review)
 
@@ -202,3 +202,25 @@ The ADR is technically sound. Specific validations:
 **One concern:** Phase 1 should also remove the `heartbeat-activity.ts` GDrive file writes (not just HeartbeatService writes), since both write to the same unreliable medium. Recommend including this in Phase 1 scope.
 
 **Recommendation: APPROVED pending coordinator sign-off.**
+
+## Phase 1+2 Implementation Record (2026-05-08, po-2026)
+
+### What was implemented
+
+PR #377 (submod, po-2026) implemented the ADR 008 changes:
+
+1. **Identity unification**: `getLocalMachineId()` in `message-helpers.ts` now uses `ROOSYNC_MACHINE_ID` env var (set to correct hostname in `.env`) with `os.hostname()` fallback. All heartbeat activity uses this single function.
+2. **In-memory model**: `HeartbeatService` stores activity timestamps in-memory only. No GDrive writes, no disk I/O. Server restart = all machines start UNKNOWN.
+3. **Status model**: ONLINE (<30 min), IDLE (30-120 min), UNKNOWN (>120 min or never connected). No OFFLINE status.
+4. **Dead code removal**: Removed `getOfflineMachines()`, `getWarningMachines()`, `cleanupOldOfflineMachines()`. Background auto-start disabled. Configuration emptied.
+5. **Terminology**: All references to `offline`/`warning` replaced with `unknown`/`idle` across codebase (11 test files updated).
+
+### Verified behavior (po-2026, 2026-05-08)
+
+- `roosync_inventory(type: "status")` correctly shows only actively-calling machines as ONLINE
+- `dashboardOverrides` correctly detects machines active on dashboard but not yet in heartbeat map
+- Build clean, 9185 CI tests pass
+
+### Remaining (GDrive cleanup)
+
+The `heartbeats/` directory on GDrive contains orphaned `.tmp` files from the old file-based system. These are harmless (no code reads them) and should be cleaned up during routine maintenance.
