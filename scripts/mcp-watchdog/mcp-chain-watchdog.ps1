@@ -181,10 +181,21 @@ if ($result.Ok) {
         Write-Log 'WARN' "LAN backend ALSO DOWN (HTTP $($lanResult.Status), latency=$($lanResult.LatencyMs)ms) — wedge is local. Starting repair cascade."
 
     # Step 1 : sparfenyuk
+    $sparfenyukWasRestarted = $false
     if (-not (Test-Sparfenyuk)) {
         Invoke-RestartSparfenyuk
+        $sparfenyukWasRestarted = $true
     } else {
         Write-Log 'INFO' 'Sparfenyuk port 9091 is up — skipping sparfenyuk restart'
+    }
+
+    # #2023: if sparfenyuk was restarted, also restart TBXark unconditionally
+    # to clear the stale upstream session that TBXark cannot detect on its own.
+    # Without this, an E2E probe that exercises a different tool than the bot's
+    # next call may report OK while the bot still gets stale tool state.
+    if ($sparfenyukWasRestarted -and (Test-TbxarkPort)) {
+        Write-Log 'INFO' '#2023: sparfenyuk was restarted — proactively restarting TBXark to clear stale session'
+        Invoke-RestartTbxark
     }
 
     # Re-probe
