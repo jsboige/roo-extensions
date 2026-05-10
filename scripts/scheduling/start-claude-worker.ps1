@@ -3155,9 +3155,9 @@ Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 1. Lance la commande de couverture :
    cd mcps/internal/servers/roo-state-manager && npx vitest run --coverage 2>&1 | tail -100
 
-2. Identifie les 3 fichiers avec la couverture la plus faible (< 60% de lignes couvertes).
+2. Identifie le fichier avec la couverture la plus faible (< 60% de lignes couvertes). UN SEUL fichier.
 
-3. Pour le fichier le PLUS faible, ecris 2-3 tests unitaires supplementaires dans le dossier __tests__ correspondant.
+3. Pour ce fichier, ecris max 3 tests unitaires supplementaires dans le dossier __tests__ correspondant.
 
 4. Relance les tests pour verifier qu'ils passent :
    npx vitest run
@@ -3172,7 +3172,7 @@ Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 ## Contraintes
 - NE MODIFIE PAS le code source (seulement les fichiers de test)
 - Si la couverture est deja > 80% partout, fais une exploration de veille : cherche des TODO, FIXME, ou du code mort et rapporte tes trouvailles dans un commentaire GitHub sur une issue existante.
-- Maximum 15 minutes de travail.
+- Maximum 30 minutes de travail.
 - NE FABRIQUE JAMAIS de hash de commit. Le worker script verifiera et rejettera les hashes fantomes.
 
 === AGENT STATUS ===
