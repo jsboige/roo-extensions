@@ -1592,6 +1592,15 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
+    # #2084: Deinit submodules before worktree remove.
+    # git worktree remove refuses worktrees with initialized submodules on Windows
+    # ("working trees containing submodules cannot be moved or removed").
+    $prevPref = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $deinitOutput = git -C $WorktreePath submodule deinit --force --all 2>&1
+    $ErrorActionPreference = $prevPref
+    $deinitOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
     # #1913 Fix E: retry with backoff for Windows file-lock issues
     $MaxRetries = 3
     $RetryDelaySec = 5
@@ -1629,9 +1638,23 @@ function Remove-Worktree {
         }
     }
 
-    # Fallback: prune stale worktree metadata if FS removal failed
+    # #2084: Fallback when git worktree remove fails (submodules, file locks).
+    # Force-remove directory and prune metadata.
+    if (-not $Removed -and (Test-Path $WorktreePath -PathType Container)) {
+        Write-Log "git worktree remove failed, falling back to directory removal + prune (#2084)" "WARN"
+        try {
+            Remove-Item -Path $WorktreePath -Recurse -Force -ErrorAction Stop
+            Write-Log "Directory removed via Remove-Item fallback" "WARN"
+        }
+        catch {
+            Write-Log "Remove-Item fallback also failed (locked by process): $_" "WARN"
+        }
+        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+        Write-Log "Pruned stale worktree metadata" "WARN"
+    }
+
+    # Fallback: prune stale worktree metadata if FS removal succeeded but git metadata is stale
     if (-not $Removed -and -not (Test-Path $WorktreePath -PathType Container)) {
-        # Directory gone but metadata may be stale
         git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
         Write-Log "Pruned stale worktree metadata after failed removal" "WARN"
     }
