@@ -1592,6 +1592,20 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
+    # #2084: deinit submodules first — git worktree remove fails on worktrees with initialized submodules
+    if (Test-Path (Join-Path $WorktreePath ".gitmodules")) {
+        try {
+            $prevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $deinitOutput = git -C $WorktreePath submodule deinit --force --all 2>&1
+            $ErrorActionPreference = $prevPref
+            $deinitOutput | ForEach-Object { Write-Log "$_" "GIT" }
+        } catch {
+            $ErrorActionPreference = $prevPref
+            Write-Log "Deinit submodules failed (non-fatal): $_" "WARN"
+        }
+    }
+
     # #1913 Fix E: retry with backoff for Windows file-lock issues
     $MaxRetries = 3
     $RetryDelaySec = 5
@@ -1629,9 +1643,21 @@ function Remove-Worktree {
         }
     }
 
-    # Fallback: prune stale worktree metadata if FS removal failed
+    # #2084 fallback: if dir still exists after all retries, force-remove FS + prune metadata
+    if (-not $Removed -and (Test-Path $WorktreePath -PathType Container)) {
+        Write-Log "Forcing FS removal of $WorktreePath after retries exhausted" "WARN"
+        Remove-Item -Recurse -Force $WorktreePath -ErrorAction SilentlyContinue
+        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+        if (-not (Test-Path $WorktreePath)) {
+            Write-Log "FS-removed worktree dir + pruned metadata"
+            $Removed = $true
+        } else {
+            Write-Log "FS removal also failed (likely active file lock) — metadata pruned, dir will retry next cycle" "WARN"
+        }
+    }
+
+    # Original fallback: prune stale worktree metadata if FS removal succeeded but git didn't
     if (-not $Removed -and -not (Test-Path $WorktreePath -PathType Container)) {
-        # Directory gone but metadata may be stale
         git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
         Write-Log "Pruned stale worktree metadata after failed removal" "WARN"
     }

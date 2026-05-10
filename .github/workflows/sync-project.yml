@@ -49,16 +49,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
         run: |
-          $ErrorActionPreference = "Stop"
+          $ErrorActionPreference = "Continue"
           $prUrl = "${{ github.event.pull_request.html_url }}"
-          $projectId = "PVT_kwHOADA1Xc4BLw3w"
           Write-Host "Adding PR to Project #67: $prUrl"
-          $result = gh project item-add $projectId --owner jsboige --url $prUrl 2>&1
+          $result = gh project item-add 67 --owner jsboige --url $prUrl 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] PR added to Project #67"
           } else {
             Write-Host "[WARN] Could not add PR (may already exist): $result"
           }
+          # Don't fail the workflow if PR is already in project (common case)
+          exit 0
 
       - name: Label nudge for new issues
         if: github.event_name == 'issues'
