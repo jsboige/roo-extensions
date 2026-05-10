@@ -1,66 +1,64 @@
 <#
 .SYNOPSIS
-    Spawn Claude Code (claude -p) in response to actionable dashboard messages.
+    Spawn Claude Code (claude -p) with a triggering [WAKE-CLAUDE] message.
 
 .DESCRIPTION
-    Invoked by poll-dashboard.ps1 when actionable messages are detected.
-    Runs Claude Code headless with a scripted prompt to read the dashboard,
-    act on the actionable messages, and post a reply.
+    Invoked by dashboard-listener.ps1 when a [WAKE-CLAUDE] tagged message is
+    detected on a workspace dashboard. Runs Claude Code headless with the
+    triggering message embedded in the prompt — no re-read of the dashboard
+    required (#2004 Phase 2 push pattern, fixes #2004 token waste).
 
-    Uses Opus 4.7 by default (per #1430 budget validation). The poll script
+    Uses Opus 4.7 by default (per #1430 budget validation). The listener
     is responsible for gating — this script assumes the spawn is already
-    approved by the gate (i.e., at least one ASK/TASK/BLOCKED message exists).
+    approved (cooldown OK, workspace path resolved, [WAKE-CLAUDE] tag found).
 
-    Phase 2 implementation. In Phase 1, poll-dashboard.ps1 runs in -Stub mode
-    and does not call this script.
+    MCP availability: builds a merged config combining top-level mcpServers
+    + projects[$WorkspacePath].mcpServers from $McpConfig, so the spawned
+    Claude has access to ALL MCPs configured for the target workspace.
 
 .PARAMETER Workspace
     Workspace key to act upon. Required.
-
-.PARAMETER Since
-    ISO timestamp of the last ACK marker (oldest message to process). Required.
 
 .PARAMETER Model
     Claude model to use (default: opus).
 
 .PARAMETER TimeoutMinutes
     Hard kill timeout in minutes (default: 45).
-    Opus 4.7 needs room for thinking + tool calls + detailed reply. 10 min was too tight
-    (observed: nanoclaw review reply cut off mid-response).
 
 .PARAMETER LockDir
     Directory for per-workspace lock files. Defaults to repo-root/.claude/locks.
 
 .PARAMETER McpConfig
-    Path to the MCP config JSON. Defaults to $env:USERPROFILE/.claude.json.
-    Required so the spawned claude -p subprocess can reach roo-state-manager
-    (see #1448: MCP is NOT inherited by subprocess — must be passed explicitly).
+    Path to the MCP config JSON (~/.claude.json). Required so the spawned
+    claude -p subprocess can reach roo-state-manager + workspace-specific MCPs
+    (#1448: MCP is NOT inherited by subprocess — must be passed explicitly).
 
 .PARAMETER WorkspacePath
     Absolute on-disk path of the target workspace. Used as WorkingDirectory for
     the spawned claude -p process so it loads the correct CLAUDE.md / .claude/rules.
-    Default: empty → falls back to $RepoRoot (the listener's own repo). The listener
-    (dashboard-listener.ps1) resolves this from a per-workspace map and passes it.
+    Resolved by the listener from a per-workspace map.
+
+.PARAMETER MessagePayloadFile
+    Path to a UTF-8 JSON file containing the triggering message:
+    `{ "timestamp": "...", "author": {"machineId": "...", "workspace": "..."}, "content": "..." }`.
+    Written by the listener and cleaned up by this script. Required.
 
 .EXAMPLE
-    .\spawn-claude.ps1 -Workspace nanoclaw -Since "2026-04-17T00:00:00Z" -WorkspacePath "D:\nanoclaw"
+    .\spawn-claude.ps1 -Workspace nanoclaw -WorkspacePath "D:\nanoclaw" -MessagePayloadFile "C:\Temp\wake-claude-payload.json"
 
 .NOTES
     - Lock file prevents concurrent spawns on the same workspace.
     - Exit code is Claude's exit code. claude -p sometimes returns non-zero
       even on success (auto-compact). Caller should not treat non-zero as
       failure without checking for a [REPLY]/[ACK] on the dashboard.
-    - Output is truncated symmetrically if >1MB (threshold raised from 100KB in #1430
-      review to avoid asymmetric 10x loss — previous behavior kept only ~10KB out of 100KB).
+    - Output is truncated symmetrically if >1MB.
 
-    Related: issue #1430, lessons from start-claude-worker.ps1 and #1423.
+    Related: #2004 (push pattern fix), #1430 (budget), #1448 (MCP inheritance), #1423 (auto-compact).
 #>
 
 param(
     [Parameter(Mandatory=$true)]
     [string]$Workspace,
-
-    [string]$Since = "",
 
     [string]$Model = "opus",
 
@@ -70,7 +68,14 @@ param(
 
     [string]$McpConfig = "",
 
-    [string]$WorkspacePath = ""
+    [string]$WorkspacePath = "",
+
+    # #2004 Phase 2: path to a JSON file containing the triggering message
+    # ({timestamp, author{machineId,workspace}, content}). The listener writes
+    # this file and passes the path so we don't have to hand-craft a long
+    # multi-line argument across PowerShell quoting layers.
+    [Parameter(Mandatory=$true)]
+    [string]$MessagePayloadFile
 )
 
 $ErrorActionPreference = "Stop"
@@ -116,32 +121,57 @@ if (Test-Path $lockFile) {
 try {
     "$PID|$(Get-Date -Format o)" | Set-Content -Path $lockFile -Encoding UTF8
 
-    # ========== PROMPT ==========
+    # ========== PROMPT (#2004 Phase 2: push pattern) ==========
+
+    if (-not (Test-Path $MessagePayloadFile)) {
+        Write-Log "ERROR" "MessagePayloadFile not found: $MessagePayloadFile"
+        exit 12
+    }
+    try {
+        $payloadRaw = [System.IO.File]::ReadAllText($MessagePayloadFile, [System.Text.UTF8Encoding]::new($false))
+        $payload = $payloadRaw | ConvertFrom-Json
+    } catch {
+        Write-Log "ERROR" "Failed to parse MessagePayloadFile: $_"
+        exit 13
+    }
+
+    $msgTimestamp = $payload.timestamp
+    $msgAuthorMachine = $payload.author.machineId
+    $msgAuthorWorkspace = $payload.author.workspace
+    $msgContent = $payload.content
 
     $prompt = @"
-Tu es invoqué par le dashboard-watcher pour répondre aux messages actionnables sur workspace-$Workspace depuis $Since.
+Tu es invoqué par le dashboard-listener car un message [WAKE-CLAUDE] a été posté sur workspace ``$Workspace``.
 
-ÉTAPES:
-1. Lis le dashboard: roo-state-manager.roosync_dashboard(action: "read", type: "workspace", workspace: "$Workspace", section: "intercom", intercomLimit: 20)
-2. Identifie les messages avec tag [ASK], [TASK], ou [BLOCKED] postés APRÈS $Since qui n'ont pas encore reçu de [REPLY] ou [ACK] de ta part.
-3. Pour chaque message actionnable:
-   - Analyse la demande avec le contexte complet
-   - Produis une réponse technique ou un [ACK] explicite
-   - Poste la réponse via roosync_dashboard(action: "append", type: "workspace", workspace: "$Workspace", tags: ["REPLY"] ou ["ACK"], content: "...")
-4. Si aucune action nécessaire (déjà traité ou non actionnable sur reflection), poste un [ACK] explicatif pour marquer le sweep.
-5. Termine avec un résumé bref.
+MESSAGE DÉCLENCHEUR:
+- Timestamp: $msgTimestamp
+- Auteur: $msgAuthorMachine ($msgAuthorWorkspace)
+- Contenu:
+---
+$msgContent
+---
+
+INSTRUCTIONS:
+1. Analyse la demande ci-dessus avec le contexte du workspace courant ($Workspace).
+2. Si la demande est claire et actionnable: traite-la, puis poste un [REPLY] avec ta réponse technique.
+3. Si la demande est ambiguë: poste un [ACK] avec une question clarifiante via tag [ASK].
+4. Si tu déduis que la demande a déjà été traitée (vérification rapide du dashboard récent autorisée): poste un [ACK] court explicatif pour marquer le sweep.
+5. Termine.
+
+POSTE LA RÉPONSE VIA:
+roo-state-manager.roosync_dashboard(action: "append", type: "workspace", workspace: "$Workspace", tags: ["REPLY"] ou ["ACK"], content: "...")
 
 CONTRAINTES:
-- Budget: économise les tokens, réponse ciblée.
-- Pas de branch git, pas de PR depuis ce workflow (modification de code doit passer par un autre circuit).
-- Ne pas modifier le dashboard de manière destructive (pas de condense sauf si explicitement demandé).
+- Budget: réponse ciblée, économise les tokens. Le message déclencheur est ci-dessus — pas besoin de re-lire le dashboard sauf vérification ciblée.
+- Pas de branch git, pas de PR depuis ce workflow (modification de code = autre circuit).
+- Ne pas modifier le dashboard de manière destructive (pas de condense sauf si explicitement demandé dans le message ci-dessus).
 
 Commence.
 "@
 
     # ========== SPAWN ==========
 
-    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min, mcp-config=$McpConfig) for workspace=$Workspace since=$Since"
+    Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min, mcp-config=$McpConfig) for workspace=$Workspace trigger=$msgTimestamp from=$msgAuthorMachine"
 
     $outputFile = [System.IO.Path]::GetTempFileName()
     $errorFile = [System.IO.Path]::GetTempFileName()
@@ -174,8 +204,44 @@ Commence.
     if ($env:DASHBOARD_WATCHER_DEBUG_SPAWN -eq "1") {
         $argList += "--include-partial-messages"
     }
+
+    # #2004 Phase 2: Build a merged MCP config (top-level + workspace overrides
+    # from $McpConfig.projects[$WorkspacePath]) so the spawned claude -p sees ALL
+    # MCPs available for the target workspace, not just the top-level ones.
+    # Without this merge, a workspace-scoped MCP override is silently dropped.
+    $mergedMcpFile = $null
     if (-not [string]::IsNullOrEmpty($McpConfig) -and (Test-Path $McpConfig)) {
-        $argList += @("--mcp-config", $McpConfig)
+        try {
+            $rawCfg = [System.IO.File]::ReadAllText($McpConfig, [System.Text.UTF8Encoding]::new($false))
+            $cfgObj = $rawCfg | ConvertFrom-Json -AsHashtable
+            $merged = [ordered]@{}
+            if ($cfgObj.ContainsKey('mcpServers') -and $null -ne $cfgObj['mcpServers']) {
+                foreach ($k in $cfgObj['mcpServers'].Keys) { $merged[$k] = $cfgObj['mcpServers'][$k] }
+            }
+            # Workspace-specific overrides (key = absolute path, exact or normalized match)
+            if ($cfgObj.ContainsKey('projects') -and $null -ne $cfgObj['projects'] -and -not [string]::IsNullOrEmpty($WorkspacePath)) {
+                $wsKey = $null
+                $wsNormalized = ($WorkspacePath -replace '\\', '/').TrimEnd('/').ToLowerInvariant()
+                foreach ($pk in $cfgObj['projects'].Keys) {
+                    $pkNormalized = ($pk -replace '\\', '/').TrimEnd('/').ToLowerInvariant()
+                    if ($pkNormalized -eq $wsNormalized) { $wsKey = $pk; break }
+                }
+                if ($null -ne $wsKey) {
+                    $proj = $cfgObj['projects'][$wsKey]
+                    if ($proj -is [hashtable] -and $proj.ContainsKey('mcpServers') -and $null -ne $proj['mcpServers']) {
+                        foreach ($k in $proj['mcpServers'].Keys) { $merged[$k] = $proj['mcpServers'][$k] }
+                    }
+                }
+            }
+            $mergedMcpFile = Join-Path $env:TEMP "spawn-claude-mcp-$Workspace-$([guid]::NewGuid().ToString('N').Substring(0,8)).json"
+            $mergedJson = @{ mcpServers = $merged } | ConvertTo-Json -Depth 10
+            [System.IO.File]::WriteAllText($mergedMcpFile, $mergedJson, [System.Text.UTF8Encoding]::new($false))
+            $argList += @("--mcp-config", $mergedMcpFile)
+            Write-Log "INFO" "MCP config merged: $($merged.Keys.Count) servers available ($($merged.Keys -join ', ')) → $mergedMcpFile"
+        } catch {
+            Write-Log "WARN" "Failed to merge MCP config — falling back to original: $_"
+            $argList += @("--mcp-config", $McpConfig)
+        }
     }
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
@@ -290,5 +356,12 @@ Commence.
 } finally {
     if (Test-Path $lockFile) {
         Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+    }
+    # #2004 Phase 2 cleanup: temp files written by listener + this script
+    if (-not [string]::IsNullOrEmpty($MessagePayloadFile) -and (Test-Path $MessagePayloadFile)) {
+        Remove-Item $MessagePayloadFile -Force -ErrorAction SilentlyContinue
+    }
+    if (-not [string]::IsNullOrEmpty($mergedMcpFile) -and (Test-Path $mergedMcpFile)) {
+        Remove-Item $mergedMcpFile -Force -ErrorAction SilentlyContinue
     }
 }

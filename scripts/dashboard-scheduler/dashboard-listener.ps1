@@ -339,7 +339,11 @@ function Read-DashboardMessages($ws) {
 # ========== TAG DETECTION ==========
 
 function Test-ActionableContent($content) {
-    # Strip code blocks before checking tags
+    # #2004 Phase 2: Strict header-only tag detection.
+    # Previous regex matched any [TAG] anywhere in body text → false positives
+    # on meta-discussions about the tag (e.g. an ACK explaining what [WAKE-CLAUDE]
+    # means triggered itself recursively). Now: tag MUST be in a markdown header
+    # (### [TAG] ...) or at the very start of a line as a bracketed prefix.
     $nonCodeLines = @()
     $inCodeBlock = $false
     foreach ($line in ($content -split "`n")) {
@@ -350,11 +354,10 @@ function Test-ActionableContent($content) {
     $nonCode = $nonCodeLines -join "`n"
 
     foreach ($tag in $tagList) {
-        if ($nonCode -match "(?:^|\n)#{1,3}\s*\[$tag\]" -or
-            $nonCode -match "(?:^|\n)\[$tag\]" -or
-            $nonCode -match "\[$tag\]") {
-            return $true
-        }
+        # Markdown header: ## [TAG] / ### [TAG] / # [TAG]
+        if ($nonCode -match "(?m)^#{1,3}\s*\[$tag\]") { return $true }
+        # Bracket-prefix at start of line: [TAG] ...
+        if ($nonCode -match "(?m)^\[$tag\]") { return $true }
     }
     return $false
 }
@@ -435,8 +438,21 @@ function Invoke-ProcessWorkspace($ws) {
     # Cooldown check
     if (-not (Test-CooldownOk $ws)) { return }
 
+    # #2004 Phase 2: Push the triggering message into spawn-claude instead of
+    # asking the spawned agent to re-read the dashboard. We pick the OLDEST
+    # actionable message (FIFO) — additional messages get processed at the next
+    # trigger after lastAck advances.
+    $triggerMsg = $actionable | Sort-Object timestamp | Select-Object -First 1
+    $payloadObj = [pscustomobject]@{
+        timestamp = $triggerMsg.timestamp
+        author    = $triggerMsg.author
+        content   = $triggerMsg.content
+    }
+    $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
+
     if ($DryRun) {
-        Write-Log "DRYRUN" "[$ws] Would spawn: $SpawnScript -Workspace $ws -Since $lastAck -WorkspacePath $wsPath"
+        $payloadSize = $payloadJson.Length
+        Write-Log "DRYRUN" "[$ws] Would spawn: $SpawnScript -Workspace $ws -WorkspacePath $wsPath -MessagePayloadFile <${payloadSize}B JSON>"
         Set-LastAck $ws $latestTs
         return
     }
@@ -447,12 +463,17 @@ function Invoke-ProcessWorkspace($ws) {
         return
     }
 
-    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 (cwd=$wsPath)..."
+    # Persist payload to a temp file (avoid Windows command-line length limits
+    # and quoting hell for multi-line markdown content).
+    $payloadFile = Join-Path $env:TEMP "wake-claude-payload-$ws-$([guid]::NewGuid().ToString('N').Substring(0,8)).json"
+    [System.IO.File]::WriteAllText($payloadFile, $payloadJson, [System.Text.UTF8Encoding]::new($false))
+
+    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 (cwd=$wsPath, payload=$payloadFile)..."
     $spawnArgs = @(
         "-Workspace", $ws,
-        "-Since", $lastAck,
         "-McpConfig", $McpConfig,
-        "-WorkspacePath", $wsPath
+        "-WorkspacePath", $wsPath,
+        "-MessagePayloadFile", $payloadFile
     )
     try {
         & pwsh -File $SpawnScript @spawnArgs
