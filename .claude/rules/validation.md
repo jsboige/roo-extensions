@@ -32,3 +32,9 @@
 
 Creer un nouvel outil MAIS laisser les anciens dans le barrel export → compte augmente au lieu de baisser.
 **Solution :** Toujours retirer les anciens ET ajouter le nouveau.
+
+## Anti-code speculatif (#1936)
+
+**Pas de fonctionnalite au-delà de ce qui est demande. Pas d'abstraction pour du code usage unique.** Si 200 lignes font le meme travail que 50, reecrire en 50.
+
+**Pourquoi :** Agents ajoutent regulierement des features non demandees (43% context explosion sur coverage tasks, #2083). Chaque abstraction non necessaire est du code a maintenir qui n'a pas ete demande.

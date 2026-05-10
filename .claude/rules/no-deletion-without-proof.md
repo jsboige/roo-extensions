@@ -1,13 +1,19 @@
-# No Deletion Without Proof
+# No Deletion Without Proof + Surgical Changes
 
-**Version:** 2.0.0 (condensed from 1.0.0)
-**MAJ:** 2026-04-05
+**Version:** 3.0.0 (adds surgical changes guard from #1936 Karpathy analysis)
+**MAJ:** 2026-05-10
 
-## Regle
+## Regle 1 : Pas de suppression sans preuve
 
 **Aucun fichier ou fonction exporte ne peut etre supprime sans PREUVE de preservation.**
 
 "Code mort" est un label dangereux. Le code peut etre : temporairement debranche, appele dynamiquement, ou un stub d'implementation cible.
+
+## Regle 2 : Changements chirurgicaux (#1936)
+
+**Chaque ligne modifiee doit pouvoir tracer directement a la demande utilisateur.** Ne pas "ameliorer" le code adjacent, ne pas refactorer au passage, ne pas ajouter des fonctionnalites non demandees.
+
+**Pourquoi :** Les regressions viennent rarement du code demande — elles viennent des modifications non demandees "en passant". Incident type : context explosion 43% sur coverage tasks (#2083).
 
 ## Preuve requise
 
