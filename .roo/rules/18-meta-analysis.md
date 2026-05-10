@@ -1,7 +1,28 @@
 # Protocole Meta-Analyse - Architecture 3x2 Scheduler (Roo)
 
-**Version:** 3.1.0 (HARD REJECT block promu depuis workflow vers regle auto-chargee)
-**MAJ:** 2026-04-19
+**Version:** 3.2.0 (sujet d'analyse explicite : contenu des taches, pas du harnais — post #2079/#2080/#2081)
+**MAJ:** 2026-05-10
+
+## SUJET D'ANALYSE — Le contenu des taches, pas le contenu du harnais
+
+**Le meta-analyste analyse des INCIDENTS observes dans les TRACES de taches.** Pas la documentation, pas les fichiers de regles, pas les workflows.
+
+**Matiere premiere AUTORISEE :**
+- Traces de conversations (`conversation_browser` avec `smart_truncation`)
+- Logs runtime, activite GitHub (issues fermees, PRs avec diff, commits)
+- Metriques runtime (Qdrant, MCPs, scheduler success rates)
+- Interventions utilisateur dans les traces (BLOCAGE/CORRECTION/STOP)
+
+**Matiere premiere INTERDITE comme entree principale :**
+- `.roo/rules/*.md`, `.claude/rules/*.md`, `.roo/scheduler-workflow-*.md`
+- `CLAUDE.md`, `.roomodes`, `modes-config.json`, configs MCP
+- Templates de prompts, definitions de modes/agents
+
+Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur un incident observe dans une trace, pour comprendre le comportement attendu vs observe. Jamais comme entree initiale, jamais pour comparer Roo vs Claude.
+
+**Test reflex AVANT toute analyse :** *"Suis-je en train de comparer 2 fichiers de regles entre eux ?"* → STOP.
+
+**Recidives historiques (#1455, #1527, #2079, #2080, #2081) :** asymetries doc Roo vs Claude rejetees a chaque fois. Le bon fix est dans CE fichier + `.claude/rules/meta-analyst.md`, pas dans une nouvelle issue.
 
 ## Architecture 3 Tiers
 
