@@ -53,6 +53,8 @@
 
 **Anti-pattern observe cycle 22ter :** PRs #1788, #1793, #1795, #1796 toutes en CI fail car pointers cibaient des SHAs non mergees. Resolu via re-creation post-merge.
 
+**Variante interactive (incident `67514ec1` 2026-05-11)** : Agent qui resout un conflit submod en checkant out une SHA locale jamais pushee → pointer orphelin sur main, fetch fail flotte-wide. Pour les sessions interactives qui ne passent pas par worker.ps1 (qui a son `Reset-PhantomSubmodulePointers`), voir [`.claude/rules/submod-pointer-safety.md`](submod-pointer-safety.md) pour le check `git cat-file -e` obligatoire.
+
 **Alternative coordinateur :** Bundle pointer-bump (pattern #1764, #1801) — 1 PR parent groupant plusieurs merges submod = moins de PRs, moins de race conditions.
 
 ## Detached HEAD Guard (#1666 Phase A2)
