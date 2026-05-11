@@ -1,4 +1,5 @@
-# Disable Windows Update Auto-Reboot — Run as Administrator
+#Requires -RunAsAdministrator
+# Disable Windows Update Auto-Reboot
 # Issue: #1517
 # Applies registry settings to prevent Windows Update from forcing reboots
 
@@ -43,8 +44,7 @@ Set-ItemProperty -Path $uxPath -Name "ActiveHoursEnd" -Value 8 -Type DWord -Forc
 Write-Host "[OK] ActiveHoursStart = 18, ActiveHoursEnd = 8"
 
 # Step 4: Disable "Always auto-restart at scheduled time"
-$alwaysRestartPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
-Set-ItemProperty -Path $alwaysRestartPath -Name "AlwaysAutoRebootAtScheduledTime" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
+Set-ItemProperty -Path $auPath -Name "AlwaysAutoRebootAtScheduledTime" -Value 0 -Type DWord -Force -ErrorAction SilentlyContinue
 Write-Host "[OK] AlwaysAutoRebootAtScheduledTime = 0"
 
 # Verification
