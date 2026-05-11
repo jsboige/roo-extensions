@@ -45,6 +45,26 @@ gh api graphql -f query='{ user(login: "jsboige") { projectV2(number: 67) { item
 gh api graphql -f query='mutation { updateProjectV2ItemFieldValue(input: { projectId: "PVT_kwHOADA1Xc4BLw3w", itemId: "{ITEM_ID}", fieldId: "{FIELD_ID}", value: { singleSelectOptionId: "{OPTION_ID}" } }) { projectV2Item { id } } }'
 ```
 
+## Troncation Output OBLIGATOIRE (#1486)
+
+**TOUJOURS** tronquer les outputs gh CLI volumineux. Les issues/PRs peuvent generer des centaines de KB.
+
+```powershell
+# CORRECT — limiter les resultats
+gh issue list --limit 15 --json number,title,labels
+gh issue view 123 --json body --jq '.body' | Select-Object -First 50
+
+# INCORRECT — output non filtre (peut depasser 900 KB)
+gh issue list --state open --json body
+gh issue view 123 --json body
+```
+
+**Regles :**
+
+- `gh issue list` : toujours `--limit 15` max + `--json` champs specifiques (jamais `body` seul)
+- `gh issue view` : toujours `--jq` pour extraire les champs necessaires
+- `gh pr diff` : toujours `| Select-Object -Last 100` max
+
 ## REGLE CRITIQUE : Pas de fichiers temporaires (#706)
 
 **INTERDIT :** Creer `query.graphql`, `query.json` dans le workspace.
