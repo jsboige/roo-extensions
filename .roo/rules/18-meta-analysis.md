@@ -1,7 +1,21 @@
 # Protocole Meta-Analyse - Architecture 3x2 Scheduler (Roo)
 
-**Version:** 3.2.0 (sujet d'analyse explicite : contenu des taches, pas du harnais — post #2079/#2080/#2081)
-**MAJ:** 2026-05-10
+**Version:** 3.3.0 (proactive redirection post user mandate #1285 — meta-analyste se consacre à autre chose, demandé plein de fois)
+**MAJ:** 2026-05-11
+
+## CE QUE LE META-ANALYSTE DOIT CHERCHER (ANALYSES PRODUCTIVES)
+
+**Ordre de priorité — fais ces analyses, dans cet ordre, avant tout autre sujet.**
+
+1. **Interventions utilisateur dans les traces (TOP)** — `BLOCAGE`/`CORRECTION`/`STOP`/`tu hallucines`/`arrête` dans sessions récentes. Chacune = friction réelle.
+2. **Incidents concrets reproduits (≥2 occurrences)** — erreurs MCP, crashes, freezes, scheduler 0%.
+3. **Explosions contexte** — tâches >100K chars/tour, vitest sans troncature, boucles outils.
+4. **Dispatches stale (no [CLAIMED]/[DONE] >24h)** — items sans ACK ou sans résultat après échéance.
+5. **Escalations -simple → -complex échouées** — patterns boucle -simple, échec -complex post-escalade.
+6. **Bugs production observés** — mpengine, vmmem freezes, Docker cascade kills, MCP disconnects.
+7. **Frictions agents** — `roosync_search(has_errors: true)` + dashboard FRICTION tags.
+
+**Si aucune catégorie ne donne de matière en un cycle, RAPPORTE "rien à signaler".** Ne te rabats PAS sur les patterns HARD REJECT (ci-dessous).
 
 ## SUJET D'ANALYSE — Le contenu des taches, pas le contenu du harnais
 
@@ -20,9 +34,15 @@
 
 Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur un incident observe dans une trace, pour comprendre le comportement attendu vs observe. Jamais comme entree initiale, jamais pour comparer Roo vs Claude.
 
-**Test reflex AVANT toute analyse :** *"Suis-je en train de comparer 2 fichiers de regles entre eux ?"* → STOP.
+## TEST REFLEX (OBLIGATOIRE) — Pivot vers analyse productive
 
-**Recidives historiques (#1455, #1527, #2079, #2080, #2081) :** asymetries doc Roo vs Claude rejetees a chaque fois. Le bon fix est dans CE fichier + `.claude/rules/meta-analyst.md`, pas dans une nouvelle issue.
+**AVANT toute issue :** *"Suis-je en train de comparer 2 fichiers de regles entre eux ?"*
+
+**Si OUI** → **STOP IMMÉDIATEMENT** et pivote vers les 7 analyses productives ci-dessus. Ne crée PAS l'issue.
+
+**Si NON** → continue, valide 3 questions ci-dessous.
+
+**Récidives historiques (#1455, #1527, #2079, #2080, #2081, #1285) :** asymetries doc Roo vs Claude rejetees a chaque fois. Le bon fix est dans CE fichier + `.claude/rules/meta-analyst.md`, pas dans une nouvelle issue.
 
 ## Architecture 3 Tiers
 
@@ -36,7 +56,7 @@ Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur
 
 **Dashboard workspace = canal officiel.** INTERCOM local = DEPRECATED (fallback si MCP indisponible uniquement).
 
-## Ce que Roo analyse
+## Ce que Roo analyse (détail des 7 catégories productives)
 
 1. **Traces Roo (auto-analyse)** : Taux succes/echec par mode, escalades, usages outils. Outils MCP OBLIGATOIRES (`conversation_browser`, `roosync_search`).
 2. **Traces Claude (croisee)** : Commits, worktrees, logs worker. **LIMITATION #874** : sessions Claude non indexees dans Qdrant.
@@ -57,7 +77,7 @@ Canaux de sortie : 1. Dashboard workspace 2. Issues GitHub 3. GDrive `.shared-st
 
 ## HARD REJECT — Rapports INTERDITS (rejet immediat a la creation d'issue)
 
-**Ces sujets sont interdits meme si l'analyse les detecte.** Incidents historiques : #1455 (asymetrie INTERCOM v3.0.0/v3.2.0, 2026-04-17, rejete par utilisateur), #1527 (drift 7/14 paires Claude/Roo, 2026-04-19, rejete : "j'en ai marre de hard reject a chaque passe... on continue de s'enfoncer dans Kafka"). Ces rapports encombrent le coordinateur sans aucun gain fonctionnel.
+**Ces sujets sont interdits meme si l'analyse les detecte.** Incidents historiques : #1455 (asymetrie INTERCOM v3.0.0/v3.2.0, 2026-04-17, rejete par utilisateur), #1527 (drift 7/14 paires Claude/Roo, 2026-04-19, rejete : "j'en ai marre de hard reject a chaque passe... on continue de s'enfoncer dans Kafka"), #1285 (harmonisation 10 incohérences, 2026-05-11 : *"il faut surtout modifier le meta-analyste pour qu'il se consacre à autre chose"*). Ces rapports encombrent le coordinateur sans aucun gain fonctionnel.
 
 | Categorie | Exemple | Pourquoi interdit |
 |-----------|---------|-------------------|
@@ -124,4 +144,6 @@ Ces exemples ont tous : **timestamp**, **reproduction**, **impact concret**.
 
 ---
 **Historique versions completes :** Git history avant 2026-04-08
-**v3.1.0 (2026-04-19) :** Promotion du HARD REJECT block + 3 questions de validation depuis le workflow scheduler vers la regle auto-chargee. Cause : #1527 (recurrence du pattern #1455 malgre HARD REJECT present uniquement dans le workflow runtime). En auto-load, le bloc devient visible des le demarrage de toute conversation Roo (pas seulement quand le scheduler meta-analyste tourne).
+**v3.3.0 (2026-05-11) :** Restructure post mandate user #1285. Section "ANALYSES PRODUCTIVES" promue en TOP avec 7 catégories explicites + Test Reflex avec pivot proactif. Cause : recidives #1455/#1527/#2079-2081/#1285 montrent que la HARD REJECT seule (réactive) ne suffit pas — il faut une cible productive concrète qui détourne l'attention.
+**v3.2.0 (2026-05-10) :** Promotion sujet d'analyse explicite (contenu taches, pas harnais). Cause : #2079/#2080/#2081 trio asymetries Claude/Roo.
+**v3.1.0 (2026-04-19) :** Promotion du HARD REJECT block + 3 questions de validation depuis le workflow scheduler vers la regle auto-chargee.
