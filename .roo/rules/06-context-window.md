@@ -1,7 +1,7 @@
 # Condensation Context Window
 
-**Version:** 2.0.0 (condensed from 1.1.0, aligned with .claude/rules/context-window.md)
-**MAJ:** 2026-04-08
+**Version:** 2.1.0 (aligned with .claude/rules/context-window.md v2.1.0 — sync #1285)
+**MAJ:** 2026-05-11
 
 ## Regle : Seuil 75%
 

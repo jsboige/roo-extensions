@@ -1,7 +1,9 @@
 # Regle d'ecriture de fichiers - Limitation Qwen 3.5
 
-**Version:** 2.0.0 (condensed from 1.0.0, aligned with .claude/rules/file-writing.md)
-**MAJ:** 2026-04-08
+**Version:** 2.1.0 (divergence intentionnelle vs .claude/rules/file-writing.md — sync #1285)
+**MAJ:** 2026-05-11
+
+> **Note divergence intentionnelle** : Ce fichier (.roo) traite des limitations Qwen 3.5 (`write_to_file` >200 lignes troncature). Le pendant `.claude/rules/file-writing.md` traite de la sélection Edit/Write/Read générique pour Claude Code. **Les contenus diffèrent par design** car les contraintes des deux agents diffèrent. Ne PAS proposer harmonisation — voir `.claude/rules/meta-analyst.md` HARD REJECT.
 
 ## Regle
 
