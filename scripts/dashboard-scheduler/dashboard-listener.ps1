@@ -362,6 +362,15 @@ function Test-ActionableContent($content) {
     return $false
 }
 
+# #2117: Parse target machine from [WAKE-CLAUDE] <machine> — ... pattern.
+# Returns the target machine ID (lowercase) or $null for broadcast messages.
+function Get-WakeTargetMachine($content) {
+    if ($content -match '\[WAKE-CLAUDE\]\s+(myia-[a-z0-9-]+)\s') {
+        return $Matches[1].ToLowerInvariant()
+    }
+    return $null
+}
+
 # ========== COOLDOWN CHECK ==========
 
 function Test-CooldownOk($ws) {
@@ -408,6 +417,27 @@ function Invoke-ProcessWorkspace($ws) {
         if (Test-ActionableContent $msg.content) {
             $actionable += $msg
         }
+    }
+
+    # #2117: Filter messages targeting a specific machine.
+    $localMachine = if ($env:ROOSYNC_MACHINE_ID) {
+        $env:ROOSYNC_MACHINE_ID.ToLowerInvariant()
+    } elseif ($env:COMPUTERNAME) {
+        $env:COMPUTERNAME.ToLowerInvariant()
+    } else {
+        $null
+    }
+    if ($localMachine) {
+        $filtered = @()
+        foreach ($msg in $actionable) {
+            $target = Get-WakeTargetMachine $msg.content
+            if ($null -ne $target -and $target -ne $localMachine) {
+                Write-Log "INFO" "[$ws] Skipping WAKE targeting '$target' (local=$localMachine)."
+                continue
+            }
+            $filtered += $msg
+        }
+        $actionable = $filtered
     }
 
     if ($actionable.Count -eq 0) {
