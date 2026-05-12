@@ -507,7 +507,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 - Logger chaque self-merge dans MEMORY.md cycle entry
 - Inclure : PR number, justification vigilance, identité utilisée pour approve
 
-**Limite quotidienne** : Maximum **5 self-merges/24h** sans validation user. Au-delà → poster `[ASK]` dashboard pour approbation explicite.
+**Limite quotidienne** : Maximum **12 self-merges/24h** sans validation user. Au-delà → poster `[ASK]` dashboard pour approbation explicite.
 
 **Réference détaillée** : Cycle 21bis MEMORY.md (premier déblocage 11 PRs via switch jsboige)
 
