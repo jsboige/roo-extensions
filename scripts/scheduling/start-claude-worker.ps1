@@ -1592,78 +1592,73 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
-    # #2123: Removed git submodule deinit — counterproductive on Windows.
-    # It partially unregisters submodule configs from .git/config but fails to
-    # delete working tree dirs, leaving the worktree in a WORSE state than before.
-
-    # #2123: Wait for Windows to release file handles after claude process exit
+    # #2123: brief pause to let Windows release file handles from claude -p process.
+    # Without this, git worktree remove fails with "Function not implemented" due to locked CWD.
     Start-Sleep -Seconds 3
 
-    # #1913 Fix E: retry with backoff for Windows file-lock issues
+    # Strategy 1: git worktree remove --force (handles everything including submodules on non-Windows)
+    try {
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+        $ErrorActionPreference = $prevPref
+        $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
+
+        if (-not (Test-Path $WorktreePath)) {
+            Write-Log "Worktree supprimé (git worktree remove)"
+            return
+        }
+        Write-Log "git worktree remove left dir on filesystem (Windows file lock)" "WARN"
+    } catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "git worktree remove failed: $_" "WARN"
+    }
+
+    # #2123: git submodule deinit REMOVED — it is counterproductive on Windows.
+    # It partially succeeds (unregisters submodule configs) but fails to delete directories,
+    # leaving the worktree in a WORSE state. git worktree remove --force handles submodules
+    # natively; if it fails, we go straight to FS removal.
+    # Previous: #2084 added deinit, but logs prove it consistently fails on mcps/internal.
+
+    # Strategy 2: prune metadata first, then native Windows rmdir
+    git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+    Write-Log "Pruned worktree metadata, attempting FS removal..." "INFO"
+
+    # Retry loop for FS removal (handles transient file locks that release after a few seconds)
     $MaxRetries = 3
     $RetryDelaySec = 5
-    $Removed = $false
 
     for ($Attempt = 1; $Attempt -le $MaxRetries; $Attempt++) {
+        if (-not (Test-Path $WorktreePath -PathType Container)) {
+            Write-Log "Worktree dir gone (removed between attempts)"
+            return
+        }
+
+        # Try native Windows rmdir first — Win32 API handles locked dirs better than PS
         try {
-            $prevPref = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
-            $ErrorActionPreference = $prevPref
-            $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
-
-            if (Test-Path $WorktreePath) {
-                # Git removed metadata but FS dir survived (Windows file lock)
-                if ($Attempt -lt $MaxRetries) {
-                    Write-Log "Worktree dir still exists (attempt $Attempt/$MaxRetries), retrying in ${RetryDelaySec}s..." "WARN"
-                    Start-Sleep -Seconds $RetryDelaySec
-                    continue
-                }
-            } else {
-                Write-Log "Worktree supprimé"
-                $Removed = $true
-                break
-            }
-        }
-        catch {
-            $ErrorActionPreference = $prevPref
-            if ($Attempt -lt $MaxRetries) {
-                Write-Log "Remove attempt $Attempt failed: $_ — retrying in ${RetryDelaySec}s..." "WARN"
-                Start-Sleep -Seconds $RetryDelaySec
-            } else {
-                Write-Log "Erreur suppression worktree (all retries exhausted): $_" "WARN"
-            }
-        }
-    }
-
-    # #2123 fallback: prune git metadata FIRST, then aggressive FS removal
-    if (-not $Removed -and (Test-Path $WorktreePath -PathType Container)) {
-        Write-Log "Pruning git metadata before FS removal" "WARN"
-        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
-
-        Write-Log "Forcing FS removal of $WorktreePath (cmd /c rmdir)" "WARN"
-        # #2123: Use native Win32 rmdir — handles locked dirs better than PowerShell Remove-Item
-        cmd /c "rmdir /s /q `"$WorktreePath`"" 2>&1 | ForEach-Object { Write-Log "$_" "FS" }
-        if (-not (Test-Path $WorktreePath)) {
-            Write-Log "FS-removed worktree dir (rmdir) + pruned metadata"
-            $Removed = $true
-        } else {
-            # Last resort: PowerShell Remove-Item as secondary fallback
-            Remove-Item -Recurse -Force $WorktreePath -ErrorAction SilentlyContinue
+            cmd /c "rmdir /s /q `"$WorktreePath`"" 2>&1 | Out-Null
             if (-not (Test-Path $WorktreePath)) {
-                Write-Log "FS-removed worktree dir (Remove-Item fallback) + pruned metadata"
-                $Removed = $true
-            } else {
-                Write-Log "All FS removal methods failed — metadata pruned, dir will retry next cycle" "WARN"
+                Write-Log "Native rmdir /s /q succeeded (attempt $Attempt)"
+                return
             }
+        } catch {
+            # Fall through to Remove-Item
+        }
+
+        # Fallback: PowerShell Remove-Item
+        Remove-Item -Recurse -Force $WorktreePath -ErrorAction SilentlyContinue
+        if (-not (Test-Path $WorktreePath)) {
+            Write-Log "Remove-Item succeeded (attempt $Attempt)"
+            return
+        }
+
+        if ($Attempt -lt $MaxRetries) {
+            Write-Log "FS removal attempt $Attempt/$MaxRetries failed (file lock), retrying in ${RetryDelaySec}s..." "WARN"
+            Start-Sleep -Seconds $RetryDelaySec
         }
     }
 
-    # Original fallback: prune stale worktree metadata if FS removal succeeded but git didn't
-    if (-not $Removed -and -not (Test-Path $WorktreePath -PathType Container)) {
-        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
-        Write-Log "Pruned stale worktree metadata after failed removal" "WARN"
-    }
+    Write-Log "All removal methods failed — metadata pruned, orphan dir will be cleaned at next worker start" "WARN"
 }
 
 function Remove-RemoteBranch {
