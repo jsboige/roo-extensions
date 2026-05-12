@@ -58,6 +58,13 @@
       5. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
       6. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
 
+.PARAMETER GitHubRepo
+    GitHub repo for closed-issue sanity check (R11). Before spawning on a
+    [WAKE-CLAUDE] message that references issue numbers (#NNN), the listener
+    verifies those issues are still OPEN. If CLOSED, the message is skipped
+    and lastAck advanced. Default: jsboige/roo-extensions.
+    Override via DASHBOARD_WATCHER_GITHUB_REPO env var.
+
 .PARAMETER DryRun
     Log decisions but do not spawn.
 
@@ -79,6 +86,7 @@ param(
     [string]$SpawnScript = "",
     [string]$McpConfig = "",
     [string]$WorkspacePathsFile = "",
+    [string]$GitHubRepo = $(if ($env:DASHBOARD_WATCHER_GITHUB_REPO) { $env:DASHBOARD_WATCHER_GITHUB_REPO } else { 'jsboige/roo-extensions' }),
     [switch]$DryRun,
     [switch]$Once
 )
@@ -362,6 +370,36 @@ function Test-ActionableContent($content) {
     return $false
 }
 
+# ========== CLOSED ISSUE CHECK (R11 sanity) ==========
+
+function Test-ReferencedClosedIssues($content, $repo) {
+    # R11 sanity check: extracts issue numbers (#NNN) from message content
+    # and checks their state via gh CLI. Returns array of CLOSED issue strings.
+    # Non-blocking: if gh unavailable or network fails, returns empty array.
+    $closed = @()
+    if ([string]::IsNullOrEmpty($repo)) { return $closed }
+
+    $issueMatches = [regex]::Matches($content, '#(\d+)')
+    $checked = 0
+    foreach ($m in $issueMatches) {
+        if ($checked -ge 5) { break }
+        $issueNum = $m.Groups[1].Value
+        try {
+            $result = & gh issue view $issueNum --repo $repo --json state 2>$null
+            if ($LASTEXITCODE -eq 0 -and $result) {
+                $obj = $result | ConvertFrom-Json
+                if ($obj.state -eq 'CLOSED') {
+                    $closed += "#$issueNum"
+                }
+            }
+        } catch {
+            # gh not available or network issue — don't block
+        }
+        $checked++
+    }
+    return $closed
+}
+
 # ========== COOLDOWN CHECK ==========
 
 function Test-CooldownOk($ws) {
@@ -425,6 +463,27 @@ function Invoke-ProcessWorkspace($ws) {
     }
 
     $latestTs = ($actionable | Sort-Object timestamp | Select-Object -Last 1).timestamp
+
+    # R11 sanity check: filter out messages referencing closed GitHub issues.
+    # Prevents waking agents for stale targets (incident: po-2023 woken 3x on #1496 CLOSED).
+    if (-not [string]::IsNullOrEmpty($GitHubRepo)) {
+        $filtered = @()
+        foreach ($msg in $actionable) {
+            $closedRefs = Test-ReferencedClosedIssues $msg.content $GitHubRepo
+            if ($closedRefs.Count -gt 0) {
+                $preview = $msg.content.Substring(0, [Math]::Min(80, $msg.content.Length)).Replace("`n", " ")
+                Write-Log "WARN" "[$ws] Skipping message from $($msg.author.machineId): references CLOSED issue(s) $($closedRefs -join ', '). Preview: $preview..."
+            } else {
+                $filtered += $msg
+            }
+        }
+        if ($filtered.Count -eq 0 -and $actionable.Count -gt 0) {
+            Write-Log "INFO" "[$ws] All actionable messages reference closed issues. Advancing lastAck to $latestTs."
+            Set-LastAck $ws $latestTs
+            return
+        }
+        $actionable = $filtered
+    }
 
     # Resolve workspace path so claude -p starts in the correct CWD.
     # If unresolvable, skip spawn AND keep lastAck unchanged so the message gets
