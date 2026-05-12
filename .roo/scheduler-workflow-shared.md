@@ -78,6 +78,16 @@ IMPORTANT - Contraintes GitHub CLI en mode -simple:
 - **Si GraphQL nécessaire** : Escalader ou signaler "GraphQL IMPOSSIBLE en -simple"
 - ⚠️ **Anti-boucle critique** : Ne JAMAIS reessayer la meme commande graphql >1 fois. La 2e tentative = STOP.
 
+**blockedOperators win-cli (Issue #1468, lien #1288) :**
+- Si win-cli retourne `"operator X blocked"` ou `"blocked operator"` sur une commande → NE PAS réessayer la même commande
+- **Seuil :** 3 échecs consécutifs `blockedOperators` → **STOP + ESCALADE**
+- **Action après seuil :**
+
+  1. Signaler sur le dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["ERROR", "roo-scheduler"], content: "blockedOperators circuit breaker (3/3) — commande bloquée: {COMMANDE}")`
+  2. Escalader via `[ESCALADE-CLAUDE]` si mode `-simple`, ou `attempt_completion` avec `[STATUS: FAILURE]`
+  3. **NE JAMAIS** réessayer la même commande — le problème est structurel (opérateur non supporté), pas transitoire
+- **Prévention :** Si la commande contient `|`, `&&`, `||`, `;`, `>`, `>>`, `<` → encapsuler dans `pwsh -c "..."` dès le 1er essai en mode `-simple`
+
 **Condensation qui échoue :**
 - Si erreur (token limit, API error) → **NE PAS réessayer**
 - Terminer avec `attempt_completion` immédiatement
