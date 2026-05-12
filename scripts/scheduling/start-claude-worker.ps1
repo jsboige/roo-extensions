@@ -1584,6 +1584,16 @@ function Create-Worktree {
 }
 
 function Remove-Worktree {
+    <#
+    .SYNOPSIS
+    Remove a git worktree with robust Windows file-lock handling (#2123).
+
+    .DESCRIPTION
+    Windows holds file handles 1-2s after process exit. This function adds a
+    delay, tries git removal, then falls back to native Win32 rmdir and
+    PowerShell Remove-Item. Git metadata is pruned first so git considers
+    the worktree gone even if the directory persists temporarily.
+    #>
     param([string]$WorktreePath)
 
     if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) {
@@ -1592,17 +1602,60 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
-    try {
-        $prevPref = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
-        $ErrorActionPreference = $prevPref
-        $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
-        Write-Log "Worktree supprimé"
+    # Step 0: Let Windows release file handles from claude/git processes (#2123)
+    Write-Log "Attente 3s (libération handles Windows)..." "INFO"
+    Start-Sleep -Seconds 3
+
+    $prevPref = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $removed = $false
+
+    # Step 1: Try git worktree remove --force
+    $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+    $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
+    if ($LASTEXITCODE -eq 0 -and -not (Test-Path $WorktreePath)) {
+        Write-Log "Worktree supprimé (git worktree remove)"
+        $removed = $true
     }
-    catch {
-        $ErrorActionPreference = $prevPref
-        Write-Log "Erreur suppression worktree: $_" "WARN"
+
+    # Step 2: Prune git metadata so git considers the worktree gone
+    if (-not $removed) {
+        Write-Log "git worktree remove échoué, prune metadata..." "WARN"
+        git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+    }
+
+    # Step 3: Fallback — native Win32 rmdir (handles locked dirs better than PS)
+    if (-not $removed -and (Test-Path $WorktreePath)) {
+        Write-Log "Tentative cmd /c rmdir /s /q..." "WARN"
+        $rmdirOutput = cmd /c "rmdir /s /q `"$WorktreePath`"" 2>&1
+        if (-not (Test-Path $WorktreePath)) {
+            Write-Log "Répertoire supprimé (cmd rmdir)"
+            $removed = $true
+        } else {
+            $rmdirOutput | ForEach-Object { Write-Log "rmdir: $_" "WARN" }
+        }
+    }
+
+    # Step 4: Final fallback — PowerShell Remove-Item
+    if (-not $removed -and (Test-Path $WorktreePath)) {
+        Write-Log "Tentative Remove-Item -Recurse -Force..." "WARN"
+        try {
+            Remove-Item $WorktreePath -Recurse -Force -ErrorAction Stop
+            if (-not (Test-Path $WorktreePath)) {
+                Write-Log "Répertoire supprimé (Remove-Item)"
+                $removed = $true
+            }
+        } catch {
+            Write-Log "Remove-Item échoué: $_" "WARN"
+        }
+    }
+
+    $ErrorActionPreference = $prevPref
+
+    if ($removed) {
+        Write-Log "Worktree supprimé avec succès"
+    } else {
+        Write-Log "[WARN] Tous les modes de suppression ont échoué — répertoire fantôme: $WorktreePath" "WARN"
     }
 }
 
