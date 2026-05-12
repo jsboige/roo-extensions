@@ -1592,19 +1592,12 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
-    # #2084: deinit submodules first — git worktree remove fails on worktrees with initialized submodules
-    if (Test-Path (Join-Path $WorktreePath ".gitmodules")) {
-        try {
-            $prevPref = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            $deinitOutput = git -C $WorktreePath submodule deinit --force --all 2>&1
-            $ErrorActionPreference = $prevPref
-            $deinitOutput | ForEach-Object { Write-Log "$_" "GIT" }
-        } catch {
-            $ErrorActionPreference = $prevPref
-            Write-Log "Deinit submodules failed (non-fatal): $_" "WARN"
-        }
-    }
+    # #2123: Removed git submodule deinit — counterproductive on Windows.
+    # It partially unregisters submodule configs from .git/config but fails to
+    # delete working tree dirs, leaving the worktree in a WORSE state than before.
+
+    # #2123: Wait for Windows to release file handles after claude process exit
+    Start-Sleep -Seconds 3
 
     # #1913 Fix E: retry with backoff for Windows file-lock issues
     $MaxRetries = 3
@@ -1643,16 +1636,26 @@ function Remove-Worktree {
         }
     }
 
-    # #2084 fallback: if dir still exists after all retries, force-remove FS + prune metadata
+    # #2123 fallback: prune git metadata FIRST, then aggressive FS removal
     if (-not $Removed -and (Test-Path $WorktreePath -PathType Container)) {
-        Write-Log "Forcing FS removal of $WorktreePath after retries exhausted" "WARN"
-        Remove-Item -Recurse -Force $WorktreePath -ErrorAction SilentlyContinue
+        Write-Log "Pruning git metadata before FS removal" "WARN"
         git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+
+        Write-Log "Forcing FS removal of $WorktreePath (cmd /c rmdir)" "WARN"
+        # #2123: Use native Win32 rmdir — handles locked dirs better than PowerShell Remove-Item
+        cmd /c "rmdir /s /q `"$WorktreePath`"" 2>&1 | ForEach-Object { Write-Log "$_" "FS" }
         if (-not (Test-Path $WorktreePath)) {
-            Write-Log "FS-removed worktree dir + pruned metadata"
+            Write-Log "FS-removed worktree dir (rmdir) + pruned metadata"
             $Removed = $true
         } else {
-            Write-Log "FS removal also failed (likely active file lock) — metadata pruned, dir will retry next cycle" "WARN"
+            # Last resort: PowerShell Remove-Item as secondary fallback
+            Remove-Item -Recurse -Force $WorktreePath -ErrorAction SilentlyContinue
+            if (-not (Test-Path $WorktreePath)) {
+                Write-Log "FS-removed worktree dir (Remove-Item fallback) + pruned metadata"
+                $Removed = $true
+            } else {
+                Write-Log "All FS removal methods failed — metadata pruned, dir will retry next cycle" "WARN"
+            }
         }
     }
 
@@ -3007,8 +3010,8 @@ try {
     try {
         $CleanupScript = Join-Path $PSScriptRoot '..\maintenance\cleanup-orphan-worktrees.ps1'
         if (Test-Path $CleanupScript) {
-            Write-Log "Running defensive worktree cleanup (orphans > 2 days)..." "INFO"
-            $CleanupOutput = & $CleanupScript -Execute -DaysThreshold 2 2>&1
+            Write-Log "Running defensive worktree cleanup (orphans > 0 days)..." "INFO"
+            $CleanupOutput = & $CleanupScript -Execute -DaysThreshold 0 2>&1
             $CleanupOutput | Select-Object -Last 5 | ForEach-Object { Write-Log "$_" "INFO" }
         }
     }
