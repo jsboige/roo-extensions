@@ -73,7 +73,8 @@ try {
     # Skip prepublish rebuild (we patch dist/ directly)
     $pkg.scripts.'vscode:prepublish' = "echo skip"
 
-    $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
+    $jsonContent = $pkg | ConvertTo-Json -Depth 10
+    [System.IO.File]::WriteAllText($pkgPath, $jsonContent, [System.Text.UTF8Encoding]::new($false))
 
     # --- Patch dist/extension.js ---
     $extJs = Join-Path $tempDir "dist\extension.js"
@@ -109,9 +110,9 @@ try {
     # --- Build VSIX ---
     Write-Host "Building VSIX..."
     Push-Location $tempDir
-    npm install @vscode/vsce --no-save 2>$null | Out-Null
+    cmd /c "npm install @vscode/vsce --no-save 2>nul"
     $vsixName = "zoo-scheduler-0.0.11-zoo.1.vsix"
-    npx vsce package --no-dependencies -o $vsixName 2>&1 | ForEach-Object { Write-Host $_ }
+    cmd /c "npx vsce package --no-dependencies -o $vsixName 2>&1" | ForEach-Object { Write-Host $_ }
 
     if (Test-Path (Join-Path $tempDir $vsixName)) {
         $dest = Join-Path $OutputDir $vsixName
