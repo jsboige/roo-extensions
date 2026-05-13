@@ -37,8 +37,6 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 Deleguer a `code-simple` via `new_task` :
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
 Utilise le MCP win-cli pour executer ces commandes et rapporter le resultat :
 1. execute_command(shell="gitbash", command="git pull --no-rebase origin main")
 2. execute_command(shell="gitbash", command="git status")
@@ -111,8 +109,6 @@ Apres auto-review → **Etape 1e** (veille active)
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
 VEILLE ACTIVE — LECTURE SEULE STRICT. Auto-fix INTERDIT.
 
 1. execute_command(shell="powershell", command="echo PATROL-OK")
@@ -261,8 +257,6 @@ Si une issue est dispatchee a `myia-ai-01` ou `All` et non claimee : la lire, co
 **DELEGUER** a `code-simple` via `new_task` :
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
 Ecrire le bilan sur le dashboard WORKSPACE :
 
 roosync_dashboard(

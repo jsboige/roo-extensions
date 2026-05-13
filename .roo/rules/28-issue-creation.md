@@ -33,7 +33,7 @@ Si absent → signaler `[CRITICAL]` sur dashboard. Ne PAS tenter de creer le sec
 Verifier que l'issue est dans le Project (si le workflow CI est actif, c'est automatique) :
 
 ```powershell
-gh project item-list 67 --owner jsboige --format json --limit 500 | ConvertFrom-Json | ForEach-Object { $_.items } | Where-Object { $_.content.url -match "/issues/N$" }
+gh project item-list 67 --owner jsboige --format json --limit 50 | ConvertFrom-Json | ForEach-Object { $_.items } | Where-Object { $_.content.url -match "/issues/N$" }
 ```
 
 ### Si CI inactive (fallback manuel)

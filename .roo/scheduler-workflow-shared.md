@@ -26,16 +26,12 @@
 
 - Besoin de lire un fichier → **déléguer via `new_task`** à ask-simple ou code-simple
 - Besoin de décider → **décider soi-même** selon le workflow
-- Besoin de confirmer → **agir directement** sans demander
 - Outil échoue → **déléguer à un autre mode** qui a l'outil, JAMAIS demander à l'utilisateur
 
-### RÈGLE #2 : Propagation aux sous-tâches
+### Propagation aux sous-tâches
 
-**TOUTES les sous-tâches créées via `new_task` doivent commencer par :**
+**Les sous-tâches créées via `new_task` reçoivent les contraintes GitHub CLI :**
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question,
-JAMAIS demander confirmation. Agis directement.
-
 IMPORTANT - Contraintes GitHub CLI en mode -simple:
 - JAMAIS utiliser `gh api graphql` (quoting JSON instable en -simple via win-cli)
 - Utiliser UNIQUEMENT: gh issue list, gh issue view, gh pr list, gh pr view
