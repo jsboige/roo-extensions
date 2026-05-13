@@ -219,7 +219,21 @@ Si une issue est trouvée :
 execute_command(shell="powershell", command="gh pr list --repo jsboige/roo-extensions --state open --json number,title,author,createdAt")
 ```
 
-Si PR trouvée → déléguer la review à `code-complex` (JAMAIS code-simple).
+**OBLIGATOIRE avant chaque review — Déduplication SHA (#2140) :**
+
+Pour chaque PR à reviewer, vérifier qu'aucune review n'existe déjà sur le commit HEAD actuel :
+
+```bash
+# Obtenir le HEAD SHA
+HEAD_SHA=$(gh pr view {N} --json headRefOid --jq '.headRefOid')
+# Vérifier les reviews existantes sur ce SHA
+REVIEWS_COUNT=$(gh api repos/jsboige/roo-extensions/pulls/{N}/reviews --jq "[.[] | select(.commit_id == \"$HEAD_SHA\")] | length")
+# Si >0 → SKIP (ne PAS appeler gh pr review)
+```
+
+Adapter le repo dans l'URL API selon le repo de la PR (jsboige-mcp-servers, etc.).
+
+Si PR trouvée ET dédup OK → déléguer la review à `code-complex` (JAMAIS code-simple).
 
 ### 1b-patrol : Veille Active Proactive — Patrouille avec Auto-Réparation (MANDATORY si >1h depuis dernière)
 
