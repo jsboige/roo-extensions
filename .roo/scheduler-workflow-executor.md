@@ -62,13 +62,12 @@ execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-man
 ## Rappels Critiques
 
 1. **TOUJOURS déléguer via `new_task`** - NE JAMAIS exécuter soi-même
-2. **NE JAMAIS demander à l'utilisateur** - C'est RÈGLE #1 (voir preamble partagé)
-3. **TOUJOURS vérifier les MCP** - Pre-flight check OBLIGATOIRE
-4. **win-cli OBLIGATOIRE pour shell** - Les modes `-simple` n'ont PAS le terminal natif
-5. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
-6. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
-7. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
-8. **JAMAIS `ssh_execute` pour la machine locale** — Tu es DÉJÀ sur {MACHINE}
+2. **TOUJOURS vérifier les MCP** - Pre-flight check OBLIGATOIRE
+3. **win-cli OBLIGATOIRE pour shell** - Les modes `-simple` n'ont PAS le terminal natif
+4. **Identifiants de modes OBLIGATOIRES** : `code-simple`, `ask-simple`, `debug-simple`, `code-complex`, `ask-complex`, `debug-complex`, `orchestrator-simple`, `orchestrator-complex`
+5. **Escalade agressive** : 1 échec en `-simple` → immédiatement vers `-complex`
+6. **JAMAIS `write_to_file` pour fichiers >200 lignes** : Utiliser `apply_diff` ou `replace_in_file`
+7. **JAMAIS `ssh_execute` pour la machine locale** — Tu es DÉJÀ sur {MACHINE}
 
 ---
 
@@ -79,8 +78,6 @@ execute_command(shell="gitbash", command="cd mcps/internal/servers/roo-state-man
 **DÉLEGUER à `code-simple` via `new_task` :**
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
 SETUP COMBINÉ — Exécuter dans l'ordre et rapporter le résultat :
 
 A. Pre-flight (tester MCP win-cli) :
@@ -242,8 +239,6 @@ Si PR trouvée ET dédup OK → déléguer la review à `code-complex` (JAMAIS c
 **DÉLÉGUER** a `code-simple` via `new_task` :
 
 ```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
-
 VEILLE ACTIVE PROACTIVE — Détection et auto-réparation automatique.
 
 1. roosync_dashboard(action: "read", type: "workspace") — chercher dernier [PATROL] ou [FRICTION-FOUND]

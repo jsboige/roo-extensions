@@ -5,45 +5,6 @@
 
 ---
 
-## ⚠️ RÈGLE #1 - AUTONOMIE ABSOLUE (ZÉRO QUESTION)
-
-**Tu es 100% AUTONOME. Tu n'as AUCUN droit de poser une question à l'utilisateur.**
-
-### ❌ INTERDIT (bloque le scheduler IMMEDIATEMENT)
-
-```
-"Pourriez-vous copier le contenu du fichier ?"       # Demande de contenu
-"Veux-tu que je continue ?"                           # Demande de confirmation
-"Dois-je procéder à l'exécution ?"                    # Demande de permission
-"Voulez-vous que je fasse X ?"                        # Demande de validation
-"Confirmez-vous que..."                               # Demande de confirmation
-"Que préférez-vous ?"                                 # Demande de choix
-```
-
-**Pourquoi ?** Le scheduler tourne SANS utilisateur. Toute question bloque indéfiniment.
-
-### ✅ TOUJOURS FAIRE (agir directement)
-
-- Besoin de lire un fichier → **déléguer via `new_task`** à ask-simple ou code-simple
-- Besoin de décider → **décider soi-même** selon le workflow
-- Besoin de confirmer → **agir directement** sans demander
-- Outil échoue → **déléguer à un autre mode** qui a l'outil, JAMAIS demander à l'utilisateur
-
-### RÈGLE #2 : Propagation aux sous-tâches
-
-**TOUTES les sous-tâches créées via `new_task` doivent commencer par :**
-```
-REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question,
-JAMAIS demander confirmation. Agis directement.
-
-IMPORTANT - Contraintes GitHub CLI en mode -simple:
-- JAMAIS utiliser `gh api graphql` (quoting JSON instable en -simple via win-cli)
-- Utiliser UNIQUEMENT: gh issue list, gh issue view, gh pr list, gh pr view
-- Si GraphQL absolument necessaire ? escalader vers -complex ou reporter IMPOSSIBLE
-```
-
-**Il n'y a AUCUNE exception à cette règle.**
-
 ---
 
 ## 🛑 CIRCUIT BREAKER - Anti-Boucle d'Échecs (Issue #737)
