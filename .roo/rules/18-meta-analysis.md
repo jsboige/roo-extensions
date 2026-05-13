@@ -73,7 +73,7 @@ Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur
 ## INTERDICTION ABSOLUE — Pas de fichiers rapport (#1179)
 
 Les meta-analystes NE DOIVENT PAS creer de fichiers dans le depot pour leurs rapports.
-Canaux de sortie : 1. Dashboard workspace 2. Issues GitHub 3. GDrive `.shared-state/meta-analysis/`
+Canaux de sortie : 1. Dashboard workspace 2. Issues GitHub
 
 ## HARD REJECT — Rapports INTERDITS (rejet immediat a la creation d'issue)
 
