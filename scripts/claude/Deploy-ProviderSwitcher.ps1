@@ -43,7 +43,8 @@
 param(
     [switch]$Uninstall,
     [switch]$Update,
-    [string]$ZaiApiKey
+    [string]$ZaiApiKey,
+    [string]$ClaudishProxyKey
 )
 
 $ErrorActionPreference = "Stop"
@@ -110,7 +111,8 @@ function Uninstall-ProviderSwitcher {
         (Join-Path $targetRoot "commands\switch-provider.md"),
         (Join-Path $targetRoot "scripts\Switch-Provider.ps1"),
         (Join-Path $targetRoot "configs\provider.anthropic.json"),
-        (Join-Path $targetRoot "configs\provider.zai.json")
+        (Join-Path $targetRoot "configs\provider.zai.json"),
+        (Join-Path $targetRoot "configs\provider.claudish.json")
     )
 
     $removedCount = 0
@@ -146,7 +148,8 @@ try {
         (Join-Path $sourceRoot "commands\switch-provider.md"),
         (Join-Path $sourceRoot "scripts\Switch-Provider.ps1"),
         (Join-Path $sourceRoot "configs\provider.anthropic.template.json"),
-        (Join-Path $sourceRoot "configs\provider.zai.template.json")
+        (Join-Path $sourceRoot "configs\provider.zai.template.json"),
+        (Join-Path $sourceRoot "configs\provider.claudish.template.json")
     )
 
     $missingFiles = @()
@@ -194,6 +197,7 @@ try {
 
     $anthropicConfigPath = Join-Path $targetRoot "configs\provider.anthropic.json"
     $zaiConfigPath = Join-Path $targetRoot "configs\provider.zai.json"
+    $claudishConfigPath = Join-Path $targetRoot "configs\provider.claudish.json"
 
     # Check if updating existing installation
     if ($Update -and (Test-Path $anthropicConfigPath) -and (Test-Path $zaiConfigPath)) {
@@ -206,6 +210,7 @@ try {
         # Load templates
         $anthropicTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.anthropic.template.json") -Raw | ConvertFrom-Json
         $zaiTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.zai.template.json") -Raw | ConvertFrom-Json
+        $claudishTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.claudish.template.json") -Raw | ConvertFrom-Json
 
         # Anthropic config: No API key needed (uses browser auth from Pro/Max subscription)
         Write-Info "Anthropic provider: Using Claude Pro/Max browser authentication (no API key required)"
@@ -221,17 +226,38 @@ try {
 
         $zaiKey = Get-SecureApiKey -ProviderName "z.ai" -ExistingKey $ZaiApiKey
 
-        # Apply API key to z.ai template only
+        # Apply API key to z.ai template
         $zaiTemplate.env.ANTHROPIC_AUTH_TOKEN = $zaiKey
 
-        # Save configs
-        $anthropicTemplate | ConvertTo-Json -Depth 10 | Set-Content $anthropicConfigPath -Encoding UTF8
-        $zaiTemplate | ConvertTo-Json -Depth 10 | Set-Content $zaiConfigPath -Encoding UTF8
+        # Claudish config: Need proxy key (from claudish container's ~/.claudish/config.json)
+        Write-Host ""
+        Write-Host ("─" * 60) -ForegroundColor Gray
+        Write-Host "🔑 Claudish Proxy Key Configuration" -ForegroundColor Yellow
+        Write-Host ("─" * 60) -ForegroundColor Gray
+        Write-Host "Enter the proxy key from ~/.claudish/config.json (proxyKey field)" -ForegroundColor Gray
+        Write-Host "This is the x-proxy-key that authenticates to the claudish container" -ForegroundColor Gray
+        Write-Host ""
+
+        $proxyKey = Get-SecureApiKey -ProviderName "Claudish proxy" -ExistingKey $ClaudishProxyKey
+
+        # Apply proxy key to claudish template
+        $claudishTemplate.env.ANTHROPIC_AUTH_TOKEN = $proxyKey
+
+        # Save configs (BOM-free UTF-8 for Claude Code compatibility)
+        $anthropicJson = $anthropicTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($anthropicConfigPath, $anthropicJson, [System.Text.UTF8Encoding]::new($false))
+
+        $zaiJson = $zaiTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($zaiConfigPath, $zaiJson, [System.Text.UTF8Encoding]::new($false))
+
+        $claudishJson = $claudishTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($claudishConfigPath, $claudishJson, [System.Text.UTF8Encoding]::new($false))
 
         Write-Host ""
         Write-Success "Provider configs created"
         Write-Info "  • Anthropic: Browser auth (Claude Pro/Max)"
         Write-Info "  • z.ai: API key configured"
+        Write-Info "  • Claudish: Proxy key configured"
     }
 
     # Success summary
@@ -243,7 +269,7 @@ try {
     Write-Host "`n📦 Installed Components:" -ForegroundColor Cyan
     Write-Host "   • Slash command: /switch-provider" -ForegroundColor White
     Write-Host "   • Switching script: Switch-Provider.ps1" -ForegroundColor White
-    Write-Host "   • Provider configs: anthropic, zai" -ForegroundColor White
+    Write-Host "   • Provider configs: anthropic, zai, claudish" -ForegroundColor White
 
     Write-Host "`n🎯 Usage:" -ForegroundColor Cyan
     Write-Host "   In Claude Code, use the slash command:" -ForegroundColor Gray
@@ -251,6 +277,8 @@ try {
     Write-Host "→ Switch to Anthropic Claude API" -ForegroundColor Gray
     Write-Host "     /switch-provider zai          " -NoNewline -ForegroundColor Yellow
     Write-Host "→ Switch to z.ai GLM models" -ForegroundColor Gray
+    Write-Host "     /switch-provider claudish     " -NoNewline -ForegroundColor Yellow
+    Write-Host "→ Switch to Claudish unified proxy" -ForegroundColor Gray
 
     Write-Host "`n💡 Tips:" -ForegroundColor Cyan
     Write-Host "   • The slash command is now available in ALL your workspaces" -ForegroundColor Gray

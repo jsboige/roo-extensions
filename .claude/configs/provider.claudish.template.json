@@ -1,0 +1,28 @@
+{
+  "provider": "claudish",
+  "model": "opus",
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:3000",
+    "ANTHROPIC_AUTH_TOKEN": "YOUR_CLAUDISH_PROXY_KEY_HERE",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7-flash",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+  },
+  "description": "Claudish unified proxy — all models via localhost:3000",
+  "modelMapping": {
+    "opus": "GLM-5.1 (default) / Claude Opus 4.7 / Qwen3.6-35B",
+    "sonnet": "GLM-4.7 (default) / Claude Sonnet 4.6",
+    "haiku": "GLM-4.7-Flash (default) / Claude Haiku 4.5"
+  },
+  "notes": [
+    "Routes ALL models through the local claudish proxy (Docker container on port 3000)",
+    "GLM models use z.ai keys stored in ~/.claudish/config.json",
+    "Claude models use pass-through auth or stored ANTHROPIC_API_KEY from config",
+    "vLLM models (qwen3.6-35b-a3b) use custom endpoint stored in config",
+    "ANTHROPIC_AUTH_TOKEN is set to the proxy key — Claude Code sends it as 'authorization: Bearer <key>'",
+    "The proxy validates authorization/x-api-key/x-proxy-key headers against this key",
+    "To use Claude models specifically, set model explicitly: claude-opus-4-7, claude-sonnet-4-6, etc."
+  ]
+}
