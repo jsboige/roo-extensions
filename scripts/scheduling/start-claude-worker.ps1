@@ -14,7 +14,7 @@
     6. Reporte les résultats au coordinateur
 
     ESCALATION MECHANISM (#1027):
-    - Baseline: Haiku (git pull, simple tasks, maintenance)
+    - Baseline: Sonnet (glm-4.7, minimum viable — #2137 haiku saturates)
     - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
     - MinimumModel guard: Sonnet (kept as minimum until Haiku baseline validated, see #1027)
     - Harness reduced to ~24K tokens (#1026 done). Haiku baseline now feasible.
@@ -1274,12 +1274,12 @@ function Determine-Model {
     Priority chain:
     1. Project field "Model" (deterministic, set by coordinator in GitHub Project #67)
     2. Script parameter -Model (fallback, e.g. from Task Scheduler)
-    3. Default: "haiku" (#1027 - cost optimization)
+    3. Default: "sonnet" (#2137 - haiku/glm-4.5-air saturates at ~120 tours)
 
     ESCALATION MECHANISM (#1027):
-    - Baseline: Haiku (git pull, simple tasks)
-    - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
-    - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
+    - Baseline: Sonnet (glm-4.7, minimum viable)
+    - Auto-escalade: Opus (via Get-EscalatedModel on retry)
+    - MinimumModel guard: Sonnet (#2137 haiku banned for scheduler tasks)
 
     Note: Claude Code does NOT have "modes" like Roo. It uses models (haiku/sonnet/opus)
     and sub-agents (Agent tool). The mode config model is intentionally NOT in this chain.
@@ -1299,9 +1299,9 @@ function Determine-Model {
         return $Model
     }
 
-    # Priority 3: Default (Haiku baseline for cost optimization #1027)
-    Write-Log "Modele par defaut: haiku"
-    return "haiku"
+    # Priority 3: Default (Sonnet minimum — #2137 glm-4.5-air saturates at ~120 tours)
+    Write-Log "Modele par defaut: sonnet"
+    return "sonnet"
 }
 
 function Get-DeadlineUrgency {
@@ -3211,10 +3211,9 @@ REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT:
     $Model = Determine-Model -Task $Task
 
     # Guard: Minimum model check (#747 - context window overflow prevention)
-    # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~6.3K tokens (post #1083 condensation).
-    # haiku (glm-4.5-air on z.ai) has ~131K context — more than sufficient.
-    # Haiku enabled as minimum after harness reduction #1083 (29K→6.3K tokens).
-    $MinimumModel = "haiku"
+    # haiku (glm-4.5-air on z.ai) saturates at ~120 tours on coverage tasks (#2137).
+    # Sonnet (glm-4.7) minimum — Opus (glm-5.1) recommended for complex tasks.
+    $MinimumModel = "sonnet"
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
     $MinLevel = $ModelHierarchy[$MinimumModel]
