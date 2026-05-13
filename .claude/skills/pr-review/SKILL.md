@@ -27,9 +27,9 @@ metadata:
 
 # Skill: PR Review — Idle Executor Fallback
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 **Created:** 2026-04-25
-**Updated:** 2026-04-27 (#1734 anti-self-review hardening)
+**Updated:** 2026-05-13 (#2140 SHA-based dedup pre-check)
 **Issue:** #1713 — Idle Claude workers should perform PR reviews on ready queue
 
 ---
@@ -81,12 +81,36 @@ fi
 [SKIP] Self-review: PR #{N} — matched layer {1|2|3} ({branch|commits|body}) for {machine}
 ```
 
-**Filter criteria (ALL must pass AFTER anti-self-review):**
+**SHA-based dedup (MANDATORY, run BEFORE any review API call):**
+
+Before reviewing any PR, verify the current HEAD commit has NOT already been reviewed by the same identity:
+
+```bash
+# Get HEAD SHA of the PR
+HEAD_SHA=$(gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid')
+
+# Check for existing reviews on this exact commit by the current GitHub identity
+EXISTING_REVIEWS=$(gh api repos/jsboige/roo-extensions/pulls/{PR_NUMBER}/reviews \
+  --jq "[.[] | select(.commit_id == \"$HEAD_SHA\")] | length")
+
+# Also check across all repos (jsboige-mcp-servers, Epita repos, etc.)
+# For multi-repo PRs, use the appropriate repo in the API call
+
+if [ "$EXISTING_REVIEWS" -gt 0 ]; then
+  echo "[SKIP] Already reviewed: PR #{PR_NUMBER} HEAD $HEAD_SHA has $EXISTING_REVIEWS review(s)"
+  continue
+fi
+```
+
+**Why SHA-based (#2140):** A PR number alone doesn't distinguish between old and new commits. The same PR may receive new pushes that warrant fresh review. But if the commit SHA hasn't changed, posting another review is spam. This check MUST happen before any `gh pr review` or `gh pr comment` call.
+
+**Filter criteria (ALL must pass AFTER anti-self-review AND SHA dedup):**
 1. PR passes anti-self-review check (3 layers above)
-2. PR is older than 24 hours (`createdAt` check) — anti-fresh-PR
-3. PR is not already reviewed by this machine (check existing comments)
-4. CI status is `SUCCESS` or `MERGEABLE`
-5. PR is not in `DRAFT` state
+2. PR passes SHA-based dedup (no existing review on current HEAD)
+3. PR is older than 24 hours (`createdAt` check) — anti-fresh-PR
+4. PR is not already reviewed by this machine (check existing comments for `[REVIEW-*-INDEP]`)
+5. CI status is `SUCCESS` or `MERGEABLE`
+6. PR is not in `DRAFT` state
 
 **Hard cap: maximum 3 reviews per session.**
 
@@ -237,7 +261,9 @@ PRs created <24h ago are skipped. The author may still be iterating. Exception: 
 - Integration tracing is MANDATORY for PRs >50 LOC
 
 ### Duplicate Prevention
-Before reviewing, check existing PR comments for `[REVIEW-*-INDEP]` markers. If the PR already has 2+ independent reviews, skip it.
+Two-layer dedup (BOTH checked BEFORE posting):
+1. **SHA-based:** Check existing reviews via GitHub API on the PR's current HEAD commit. If any review exists from the current identity on that exact SHA → SKIP (#2140)
+2. **Marker-based:** Check existing PR comments for `[REVIEW-*-INDEP]` markers. If the PR already has 2+ independent reviews → SKIP
 
 ---
 
@@ -267,8 +293,9 @@ At the end of each review session, report metrics:
 | Skipped (self-authored) | {N} |
 | Skipped (self-authored layer) | {1|2|3} ({branch|commits|body}) |
 | Skipped (already reviewed) | {N} |
+| Skipped (SHA dedup) | {N} |
 | Session duration | ~{X}min |
 
 ---
 
-**Last updated:** 2026-04-27
+**Last updated:** 2026-05-13
