@@ -2,27 +2,28 @@
   "provider": "claudish",
   "model": "opus",
   "env": {
-    "ANTHROPIC_BASE_URL": "http://localhost:3000",
+    "ANTHROPIC_BASE_URL": "https://models.myia.io",
     "ANTHROPIC_AUTH_TOKEN": "YOUR_CLAUDISH_PROXY_KEY_HERE",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7-flash",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
     "API_TIMEOUT_MS": "3000000",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
   },
-  "description": "Claudish unified proxy — all models via localhost:3000",
+  "description": "Claudish unified proxy — all models via models.myia.io",
   "modelMapping": {
-    "opus": "GLM-5.1 (default) / Claude Opus 4.7 / Qwen3.6-35B",
-    "sonnet": "GLM-4.7 (default) / Claude Sonnet 4.6",
-    "haiku": "GLM-4.7-Flash (default) / Claude Haiku 4.5"
+    "opus": "Claude Opus 4.7 (default)",
+    "sonnet": "Z.ai GLM-5.1 (default)",
+    "haiku": "vLLM Qwen3.6-35B-A3B (default)"
   },
   "notes": [
-    "Routes ALL models through the local claudish proxy (Docker container on port 3000)",
+    "Routes ALL models through the claudish proxy (Docker via models.myia.io)",
+    "All providers also accessible by explicit name: claude-opus-4-7, glm-5.1, qwen3.6-35b-a3b, etc.",
     "GLM models use z.ai keys stored in ~/.claudish/config.json",
     "Claude models use pass-through auth or stored ANTHROPIC_API_KEY from config",
-    "vLLM models (qwen3.6-35b-a3b) use custom endpoint stored in config",
-    "ANTHROPIC_AUTH_TOKEN is set to the proxy key — Claude Code sends it as 'authorization: Bearer <key>'",
-    "The proxy validates authorization/x-api-key/x-proxy-key headers against this key",
-    "To use Claude models specifically, set model explicitly: claude-opus-4-7, claude-sonnet-4-6, etc."
+    "vLLM models use custom endpoint stored in config",
+    "ANTHROPIC_AUTH_TOKEN = proxy key, sent as authorization: Bearer by Claude Code",
+    "Compaction: 90%/200K — safe for all models (z.ai 137K real, vLLM varies, Anthropic 200K+)"
   ]
 }
