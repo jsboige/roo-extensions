@@ -26,7 +26,7 @@
 
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet("anthropic", "zai")]
+    [ValidateSet("anthropic", "zai", "claudish")]
     [string]$Provider
 )
 
@@ -206,7 +206,7 @@ try {
     }
 
     # Check 2: ANTHROPIC_BASE_URL is correct for provider
-    if ($Provider -eq "zai") {
+    if ($Provider -eq "zai" -or $Provider -eq "claudish") {
         if ($verifiedSettings.env.PSObject.Properties.Name -contains 'ANTHROPIC_BASE_URL') {
             $expectedUrl = if ($providerConfig.env.PSObject.Properties.Name -contains 'ANTHROPIC_BASE_URL') {
                 $providerConfig.env.ANTHROPIC_BASE_URL
@@ -221,10 +221,10 @@ try {
                 Write-Host "   ❌ Base URL mismatch" -ForegroundColor Red
             }
         } else {
-            # z.ai MUST have ANTHROPIC_BASE_URL set
+            # z.ai/claudish MUST have ANTHROPIC_BASE_URL set
             $verificationPassed = $false
-            $verificationErrors += "ANTHROPIC_BASE_URL missing (required for z.ai)"
-            Write-Host "   ❌ ANTHROPIC_BASE_URL missing (required for z.ai)" -ForegroundColor Red
+            $verificationErrors += "ANTHROPIC_BASE_URL missing (required for $Provider)"
+            Write-Host "   ❌ ANTHROPIC_BASE_URL missing (required for $Provider)" -ForegroundColor Red
         }
     } else {
         # anthropic should NOT have custom base URL (or default)

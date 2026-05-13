@@ -1,6 +1,6 @@
 ---
-description: Switch between LLM providers (Anthropic Claude API or z.ai GLM-5.1)
-argument-hint: anthropic | zai
+description: Switch between LLM providers (Anthropic Claude API, z.ai GLM-5.1, or Claudish proxy)
+argument-hint: anthropic | zai | claudish
 allowed-tools: Bash(powershell:*)
 ---
 
@@ -12,6 +12,7 @@ Switch the active LLM provider for Claude Code to: **$ARGUMENTS**
 
 - **anthropic**: Anthropic's official Claude API (Sonnet 4.5, Opus 4.6, Haiku 4.5)
 - **zai**: z.ai GLM models (GLM-5.1, GLM-5-Turbo, GLM-4.7, GLM-4.5-Air) via user's max subscription
+- **claudish**: Claudish unified proxy — all models (GLM, Claude, vLLM) via localhost:3000
 
 ## Process
 
@@ -30,4 +31,4 @@ This will:
 
 **IMPORTANT**: Use `Switch-Provider.ps1` (NOT Deploy-ProviderSwitcher.ps1)
 
-Run with: `/switch-provider anthropic` or `/switch-provider zai`
+Run with: `/switch-provider anthropic` or `/switch-provider zai` or `/switch-provider claudish`
