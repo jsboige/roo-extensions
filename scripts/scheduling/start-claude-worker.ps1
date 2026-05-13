@@ -3173,6 +3173,11 @@ Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 - Maximum 30 minutes de travail.
 - NE FABRIQUE JAMAIS de hash de commit. Le worker script verifiera et rejettera les hashes fantomes.
 
+## GUARDS (#2137) - Prevention saturation contexte
+- **MAX 5 iterations de vitest** (chaque run = 1 iteration). Apres la 5eme, STOP et rapporte.
+- **MAX 3 fichiers de tests** par session. Apres le 3eme, STOP et rapporte.
+- Ces limites evitent la saturation du contexte pour les modeles legers (haiku/glm-4.5-air).
+
 === AGENT STATUS ===
 STATUS: success
 REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT: "git log -1" output pour preuve]
@@ -3212,9 +3217,10 @@ REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT:
 
     # Guard: Minimum model check (#747 - context window overflow prevention)
     # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~6.3K tokens (post #1083 condensation).
-    # haiku (glm-4.5-air on z.ai) has ~131K context — more than sufficient.
+    # haiku (glm-4.5-air on z.ai) has ~131K context — more than sufficient for most tasks.
     # Haiku enabled as minimum after harness reduction #1083 (29K→6.3K tokens).
-    $MinimumModel = "haiku"
+    # EXCEPTION: idle-coverage tasks require sonnet (#2137) due to cumulative vitest output
+    $MinimumModel = if ($Task.id -match "idle-coverage") { "sonnet" } else { "haiku" }
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
     $MinLevel = $ModelHierarchy[$MinimumModel]
