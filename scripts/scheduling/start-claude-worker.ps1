@@ -136,6 +136,79 @@ function Test-ClaudeCLI {
     }
 }
 
+function Test-SkAgentAvailable {
+    <#
+    .SYNOPSIS
+    Checks if sk-agent MCP is responsive (#2139).
+    Returns $true if sk-agent can complete JSON-RPC initialize within timeout.
+
+    .DESCRIPTION
+    Prevents idle-coverage workers from wasting ~18 min when sk-agent is down.
+    Checks: wrapper script exists → Python available → config file exists → JSON-RPC initialize handshake.
+    #>
+    param(
+        [int]$TimeoutSeconds = 10
+    )
+
+    try {
+        # 1. Check wrapper script exists
+        $SkAgentDir = Join-Path $RepoRoot "mcps\internal\servers\sk-agent"
+        $WrapperScript = Join-Path $SkAgentDir "run-sk-agent.ps1"
+        if (-not (Test-Path $WrapperScript)) {
+            Write-Log "sk-agent wrapper not found: $WrapperScript" "WARN"
+            return $false
+        }
+
+        # 2. Check Python available (same logic as run-sk-agent.ps1)
+        $VenvPython = Join-Path $SkAgentDir "venv\Scripts\python.exe"
+        $PythonExe = if (Test-Path $VenvPython) { $VenvPython } else { "python" }
+        try {
+            $null = & $PythonExe --version 2>&1
+            if ($LASTEXITCODE -ne 0) { return $false }
+        } catch {
+            Write-Log "Python not available for sk-agent: $_" "WARN"
+            return $false
+        }
+
+        # 3. Check config file exists
+        $ConfigFile = Join-Path $SkAgentDir "sk_agent_config.json"
+        if (-not (Test-Path $ConfigFile)) {
+            Write-Log "sk-agent config not found: $ConfigFile" "WARN"
+            return $false
+        }
+
+        # 4. JSON-RPC initialize handshake via background job with timeout
+        $InitRequest = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"worker-preflight","version":"1.0.0"}}}'
+        $Job = Start-Job -ScriptBlock {
+            param($Wrapper, $Request)
+            $Response = $Request | & powershell -ExecutionPolicy Bypass -NoProfile -File $Wrapper 2>&1
+            $Response | Select-Object -Last 5
+        } -ArgumentList $WrapperScript, $InitRequest
+
+        $Completed = Wait-Job -Job $Job -Timeout $TimeoutSeconds
+        if (-not $Completed) {
+            Stop-Job -Job $Job 2>$null
+            Remove-Job -Job $Job -Force 2>$null
+            Write-Log "sk-agent initialize handshake timed out (${TimeoutSeconds}s)" "WARN"
+            return $false
+        }
+
+        $Output = Receive-Job -Job $Job 2>$null
+        Remove-Job -Job $Job -Force 2>$null
+
+        if ($Output -match '"result"') {
+            Write-Log "sk-agent pre-flight OK (handshake responded)"
+            return $true
+        } else {
+            Write-Log "sk-agent pre-flight FAILED (no valid initialize response)" "WARN"
+            return $false
+        }
+    } catch {
+        Write-Log "sk-agent pre-flight error: $_" "WARN"
+        return $false
+    }
+}
+
 function Get-EscalatedModel {
     <#
     .SYNOPSIS
@@ -3141,6 +3214,13 @@ try {
 
     if (-not $Task) {
         Write-Log "Aucune tâche disponible et aucun wait state prêt"
+
+        # --- Guard #2139: Check sk-agent availability before idle coverage ---
+        if (-not (Test-SkAgentAvailable -TimeoutSeconds 10)) {
+            Write-Log "sk-agent MCP unavailable — skipping idle coverage to avoid wasted compute (#2139)" "WARN"
+            Write-Log "=== WORKER TERMINÉ (idle skipped, no sk-agent) ==="
+            exit 0
+        }
 
         # --- Idle mode: coverage/patrol instead of doing nothing (#debrief-P3b) ---
         Write-Log "Passage en mode IDLE : tache de couverture de code" "INFO"
