@@ -60,6 +60,7 @@ param(
     [int]$MaxIterations = 0,
     [string]$Model,
     [string]$Prompt,
+    [double]$MaxBudgetUsd = 0.0,
     [switch]$DryRun = $false,
     [switch]$NoFallback = $false
 )
@@ -2478,6 +2479,19 @@ function Invoke-Claude {
     $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
+    # Budget cap (#1980 — prevent runaway token costs per worker session)
+    # Default budget by model if not explicitly set: haiku=$0.25, sonnet=$0.50, opus=$1.00
+    $BudgetToUse = $MaxBudgetUsd
+    if ($BudgetToUse -le 0) {
+        $BudgetToUse = switch ($ModelToUse) {
+            "haiku"  { 0.25 }
+            "sonnet" { 0.50 }
+            "opus"   { 1.00 }
+            default  { 0.50 }
+        }
+    }
+    Write-Log "Budget max: `$$BudgetToUse (model: $ModelToUse)"
+
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
     # BUG FIX (Cycle 42): Prompts containing option-like strings (e.g. "-simple",
@@ -2490,7 +2504,7 @@ function Invoke-Claude {
 
     if ($DryRun) {
         Write-Log "[DRY-RUN] Commande qui serait exécutée:" "INFO"
-        Write-Log "Get-Content $PromptFile | claude --dangerously-skip-permissions --model $ModelToUse -p -" "INFO"
+        Write-Log "Get-Content $PromptFile | claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p -" "INFO"
         Remove-Item $PromptFile -ErrorAction SilentlyContinue
         return @{ success = $true; dryRun = $true }
     }
@@ -2530,7 +2544,7 @@ function Invoke-Claude {
                 $CurrentToolInput = ""
                 $ParseErrorCount = 0
                 $ReceivedResultEvent = $false
-                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
+                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
                     Add-Content -Path $IterationOutputFile -Value $rawLine

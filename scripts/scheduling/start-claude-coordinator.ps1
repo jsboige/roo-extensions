@@ -63,6 +63,7 @@
 param(
     [string]$Model = "sonnet",
     [int]$LookbackHours = 48,
+    [double]$MaxBudgetUsd = 0.50,
     [switch]$DryRun = $false,
     [double]$IdleThresholdHours = 8,
     [switch]$Force = $false
@@ -297,14 +298,14 @@ Write-Log "Prompt sauvegarde: $PromptFile"
 
 if ($DryRun) {
     Write-Log "[DRY-RUN] Commande qui serait executee:"
-    Write-Log "  cd $RepoRoot && Get-Content '$PromptFile' -Raw | claude -p --model $Model --dangerously-skip-permissions"
+    Write-Log "  cd $RepoRoot && Get-Content '$PromptFile' -Raw | claude -p --model $Model --max-budget-usd $MaxBudgetUsd --dangerously-skip-permissions"
     Write-Log "=== COORDINATOR DRY-RUN END ==="
     exit 0
 }
 
 # Lancer Claude en mode pipe avec timeout protection
 $MaxMinutes = 110  # Generous internal timeout (2h schtask limit, 110min internal for graceful exit)
-Write-Log "Lancement Claude coordinateur (timeout: ${MaxMinutes}min)..."
+Write-Log "Lancement Claude coordinateur (timeout: ${MaxMinutes}min, budget: `$$MaxBudgetUsd)..."
 $StartTime = Get-Date
 
 try {
@@ -312,10 +313,10 @@ try {
 
     # Launch Claude as a background job with timeout
     $ClaudeJob = Start-Job -ScriptBlock {
-        param($promptFile, $model, $repoRoot)
+        param($promptFile, $model, $budget, $repoRoot)
         Set-Location $repoRoot
-        Get-Content $promptFile -Raw | & claude -p --model $model --dangerously-skip-permissions 2>&1
-    } -ArgumentList $PromptFile, $Model, $RepoRoot
+        Get-Content $promptFile -Raw | & claude -p --model $model --max-budget-usd $budget --dangerously-skip-permissions 2>&1
+    } -ArgumentList $PromptFile, $Model, $MaxBudgetUsd, $RepoRoot
 
     $Completed = Wait-Job $ClaudeJob -Timeout ($MaxMinutes * 60)
 
