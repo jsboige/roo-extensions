@@ -21,7 +21,8 @@
     "GLM models use z.ai keys stored in ~/.claudish/config.json",
     "Claude models use pass-through auth or stored ANTHROPIC_API_KEY from config",
     "vLLM models (qwen3.6-35b-a3b) use custom endpoint stored in config",
-    "ANTHROPIC_AUTH_TOKEN is set to the proxy key (x-proxy-key header) — the proxy handles provider selection",
+    "ANTHROPIC_AUTH_TOKEN is set to the proxy key — Claude Code sends it as 'authorization: Bearer <key>'",
+    "The proxy validates authorization/x-api-key/x-proxy-key headers against this key",
     "To use Claude models specifically, set model explicitly: claude-opus-4-7, claude-sonnet-4-6, etc."
   ]
 }
