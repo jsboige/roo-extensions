@@ -167,24 +167,30 @@ Lister les sessions Claude recentes :
 ls -lt ~/.claude/projects/*/  2>/dev/null | head -10
 ``````
 
-### 3. Analyse croisee des harnais
+### 3. Analyses productives (ordre de priorite — meta-analyst rule v1.7.0)
 
-Lire les fichiers cles des DEUX harnais :
+**STOP & PIVOT** : Si ton instinct te pousse a "comparer 2 fichiers de regles entre eux" (harness Claude vs Roo), STOP IMMEDIATEMENT. Pivote vers les 7 categories ci-dessous. Reference : .claude/rules/meta-analyst.md.
 
-**Roo :**
-- .roo/rules/ (tous les fichiers)
-- .roo/scheduler-workflow-coordinator.md
-- .roo/scheduler-workflow-executor.md
-- .roo/scheduler-workflow-meta-analyst.md
+Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regles) :
 
-**Claude :**
-- CLAUDE.md
-- .claude/rules/ (tous les fichiers)
+1. **Interventions utilisateur** (TOP PRIORITY) : BLOCAGE/CORRECTION/STOP/NON/arrete/tu hallucines dans sessions Claude/Roo recentes
+2. **Incidents reproduits** (>=2 occurrences) : erreurs MCP recurrentes, crashes, freezes, scheduler 0%
+3. **Explosions contexte** : taches >100K chars/tour, vitest sans troncature, boucles outils
+4. **Dispatches stale** : items sans [CLAIMED]/[DONE] apres 24h
+5. **Escalations -simple -> -complex echouees** : patterns boucle sans escalader
+6. **Bugs production** : mpengine crashes, vmmem freezes, Docker cascade, MCP disconnects
+7. **Frictions agents** : [FRICTION] dashboard + has_errors:true via roosync_search
 
-Identifier :
-- Incoherences entre les deux harnais
-- Lacunes (regles presentes d'un cote mais pas l'autre)
-- Ameliorations potentielles
+**HARD REJECT** (rejet immediat, ne PAS creer issue) :
+- Asymetrie version doc Claude/Roo (rythmes differents = normal)
+- "Harmoniser/synchroniser/aligner/standardiser/unifier" sans incident concret
+- Refactoring sans incident
+- Naming drift cosmetique
+- Doublons apparents sans incident
+- Metrique sans seuil depasse
+- Comparaison Roo vs Claude sans bug observe
+
+Si aucune des 7 categories ne donne de matiere : rapporter "rien a signaler" sur dashboard. NE PAS se rabattre sur HARD REJECT.
 
 ### 4. Poster le rapport sur le dashboard workspace
 
