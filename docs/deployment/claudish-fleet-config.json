@@ -1,0 +1,66 @@
+{
+  "version": "1.0.0",
+  "defaultProfile": "free-tier",
+  "defaultProvider": "openrouter",
+  "profiles": {
+    "free-tier": {
+      "name": "free-tier",
+      "description": "Free-tier routing — exhausts free credits before paid fallback",
+      "models": {
+        "opus": "google@gemini-2.5-pro",
+        "sonnet": "google@gemini-2.5-flash",
+        "haiku": "groq@qwen3-32b",
+        "subagent": "cerebras@qwen3-32b"
+      },
+      "createdAt": "2026-05-14T00:00:00.000Z",
+      "updatedAt": "2026-05-14T00:00:00.000Z"
+    },
+    "executor": {
+      "name": "executor",
+      "description": "Standard executor — z.ai GLM models (paid plan)",
+      "models": {
+        "opus": "gc@glm-5.1",
+        "sonnet": "gc@glm-4.7",
+        "haiku": "gc@glm-4.7-flash",
+        "subagent": "gc@glm-4.5-air"
+      },
+      "createdAt": "2026-05-14T00:00:00.000Z",
+      "updatedAt": "2026-05-14T00:00:00.000Z"
+    },
+    "coordinator": {
+      "name": "coordinator",
+      "description": "Coordinator — Anthropic Opus primary, z.ai for haiku/subagent",
+      "models": {
+        "opus": "anthropic@claude-opus-4-7",
+        "sonnet": "anthropic@claude-sonnet-4-6",
+        "haiku": "gc@glm-4.7-flash",
+        "subagent": "gc@glm-4.5-air"
+      },
+      "createdAt": "2026-05-14T00:00:00.000Z",
+      "updatedAt": "2026-05-14T00:00:00.000Z"
+    },
+    "premium": {
+      "name": "premium",
+      "description": "All Anthropic — premium mode for critical sessions",
+      "models": {
+        "opus": "anthropic@claude-opus-4-7",
+        "sonnet": "anthropic@claude-sonnet-4-6",
+        "haiku": "anthropic@claude-haiku-4-5",
+        "subagent": "anthropic@claude-haiku-4-5"
+      },
+      "createdAt": "2026-05-14T00:00:00.000Z",
+      "updatedAt": "2026-05-14T00:00:00.000Z"
+    }
+  },
+  "routing": {
+    "glm-*": ["gc", "glm", "openrouter"],
+    "gemini-2.5-pro": ["google", "openrouter@google/gemini-2.5-pro-preview-06-05"],
+    "gemini-*": ["google", "openrouter"],
+    "qwen3-32b": ["groq", "cerebras", "openrouter"],
+    "llama-3.3-70b": ["groq", "cerebras", "openrouter"],
+    "*": ["openrouter", "zen"]
+  },
+  "telemetry": {
+    "enabled": false
+  }
+}
