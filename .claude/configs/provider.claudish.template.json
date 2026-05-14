@@ -2,27 +2,31 @@
   "provider": "claudish",
   "model": "opus",
   "env": {
-    "ANTHROPIC_BASE_URL": "http://localhost:3000",
-    "ANTHROPIC_AUTH_TOKEN": "YOUR_CLAUDISH_PROXY_KEY_HERE",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.1",
-    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-4.7",
-    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.7-flash",
+    "ANTHROPIC_BASE_URL": "https://models.myia.io",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "GLM-5.1 (z.ai)",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "Qwen3.6-35B (vLLM)",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION": "GLM-5.1 via z.ai coding plan",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION": "Qwen3.6-35B-A3B via vLLM",
     "API_TIMEOUT_MS": "3000000",
-    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
   },
-  "description": "Claudish unified proxy — all models via localhost:3000",
+  "description": "Claudish unified proxy — Opus via Anthropic, Sonnet via z.ai, Haiku via vLLM",
   "modelMapping": {
-    "opus": "GLM-5.1 (default) / Claude Opus 4.7 / Qwen3.6-35B",
-    "sonnet": "GLM-4.7 (default) / Claude Sonnet 4.6",
-    "haiku": "GLM-4.7-Flash (default) / Claude Haiku 4.5"
+    "opus": "Claude Opus 4.7 (Anthropic Max)",
+    "sonnet": "GLM-5.1 (z.ai coding plan)",
+    "haiku": "Qwen3.6-35B-A3B (vLLM local)"
   },
   "notes": [
-    "Routes ALL models through the local claudish proxy (Docker container on port 3000)",
-    "GLM models use z.ai keys stored in ~/.claudish/config.json",
-    "Claude models use pass-through auth or stored ANTHROPIC_API_KEY from config",
-    "vLLM models (qwen3.6-35b-a3b) use custom endpoint stored in config",
-    "ANTHROPIC_AUTH_TOKEN is set to the proxy key — Claude Code sends it as 'authorization: Bearer <key>'",
-    "The proxy validates authorization/x-api-key/x-proxy-key headers against this key",
-    "To use Claude models specifically, set model explicitly: claude-opus-4-7, claude-sonnet-4-6, etc."
+    "Pass-through proxy: each client machine provides its own auth (no proxy key)",
+    "Opus routes to Anthropic with pass-through headers (Max subscription OAuth)",
+    "Sonnet routes to z.ai via GLM_CODING_API_KEY or ZAI_API_KEY from config",
+    "Haiku routes to vLLM Qwen3.6-35b-a3b via custom endpoint from config",
+    "The billing header `x-anthropic-billing-header` is stripped from prompts for non-Anthropic providers to preserve vLLM KV cache",
+    "/v1/models endpoint returns all routable models from config routing rules",
+    "Switch-Provider script preserves `model` field — keep it set to `opus` by default"
   ]
 }
