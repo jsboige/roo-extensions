@@ -86,4 +86,25 @@ It 'Handles uppercase machine name in message (returns lowercase)' {
     $result | Should -Be 'myia-po-2023'
 }
 
+# Regression: arrow prefix + :workspace suffix (the live coordinator format).
+# Before the fix, the regex required `\s+` before and `\s` after the machine
+# name → these were silently treated as broadcast.
+It 'Extracts target through arrow prefix and :workspace suffix' {
+    $content = '## [WAKE-CLAUDE] → myia-po-2026:Embeddings — vLLM embeddings down'
+    $result = Get-WakeTargetMachine $content
+    $result | Should -Be 'myia-po-2026'
+}
+
+It 'Extracts target with :workspace suffix and no arrow' {
+    $content = '## [WAKE-CLAUDE] myia-po-2023:IISManagement — reverse proxy down'
+    $result = Get-WakeTargetMachine $content
+    $result | Should -Be 'myia-po-2023'
+}
+
+It 'Extracts target with ASCII arrow variant' {
+    $content = '[WAKE-CLAUDE] -> myia-web1 — context explosion'
+    $result = Get-WakeTargetMachine $content
+    $result | Should -Be 'myia-web1'
+}
+
 }

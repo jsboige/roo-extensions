@@ -372,8 +372,16 @@ function Test-ActionableContent($content) {
 
 # #2117: Parse target machine from [WAKE-CLAUDE] <machine> — ... pattern.
 # Returns the target machine ID (lowercase) or $null for broadcast messages.
+# Accepts the documented routing variants:
+#   [WAKE-CLAUDE] myia-po-2023 — ...
+#   [WAKE-CLAUDE] → myia-po-2026:Embeddings — ...   (optional arrow prefix)
+#   [WAKE-CLAUDE] myia-po-2023:IISManagement — ...  (optional :workspace suffix)
+# The optional :workspace suffix is intentionally NOT captured — targeting is
+# per-machine. The previous regex required `\s+` before and `\s` after the
+# machine name, so it silently failed on both the arrow prefix and the
+# `:workspace` suffix → every targeted wake was mis-classified as broadcast.
 function Get-WakeTargetMachine($content) {
-    if ($content -match '\[WAKE-CLAUDE\]\s+(myia-[a-z0-9-]+)\s') {
+    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*(myia-[a-z0-9]+(?:-[a-z0-9]+)*)') {
         return $Matches[1].ToLowerInvariant()
     }
     return $null
