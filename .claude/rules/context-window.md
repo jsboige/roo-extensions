@@ -1,37 +1,43 @@
 # Condensation Context Window
 
-**Version:** 2.1.0
-**MAJ:** 2026-04-07
+**Version:** 3.0.0 (#2173 model-aware compact override)
+**MAJ:** 2026-05-14
 
-## Regle : Seuil 75%
+## Regle : Seuil par famille de modele (#2173)
 
-**Pour modeles GLM (z.ai), seuil OBLIGATOIRE = 75%.**
+Les spawn scripts (`spawn-claude.ps1`, `start-claude-worker.ps1`) positionnent automatiquement les env vars de compact selon le modele lance :
 
-Contexte reel = ~131k tokens (pas 200K annonces — les 200K incluent les tokens de sortie).
+| Famille | WINDOW | PCT | Seuil effectif | Raison |
+|---------|--------|-----|---------------|--------|
+| **Claude** (opus/sonnet/haiku) | 1 000 000 | 25% | 250k | 200k reels, marge generreuse |
+| **GLM / Qwen** (z.ai, vLLM) | 200 000 | 90% | 180k | ~131k reels, compact tardif mais safe |
+
+## Config
+
+`~/.claude/settings.json` (defaults machine — overriden par spawn scripts au runtime) :
+```json
+"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90"
+```
+
+**Spawn scripts override** : `spawn-claude.ps1` et `start-claude-worker.ps1` positionnent `$env:CLAUDE_CODE_AUTO_COMPACT_WINDOW` et `$env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` avant chaque invocation `claude -p`. Les env vars prennent le pas sur settings.json.
+
+## Historique des seuils
 
 | Seuil | Resultat |
 |-------|----------|
 | 50% (defaut) | Boucle infinie (#502) |
 | 70% | Boucle avec harnais lourd (#736) |
-| **75%** | **OK** — standard deploye toutes machines, compaction ~98k, marge 33k |
-| 80% | OK alternatif, marge 26k |
-| 90% | Trop haut, risque saturation |
+| 75% | Standard historique (#1152), remplace par 90% (#2173) |
+| **90%** | **Actif pour GLM/Qwen** — compact tardif, maximise le contexte utile |
+| 25% | Actif pour Claude — contexte large, compact precoce (pas de risque) |
 
-## Config
-
-`~/.claude/settings.json` :
-```json
-"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
-"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "75"
-```
-
-`CLAUDE_CODE_AUTO_COMPACT_WINDOW` fixe la fenetre a 200k (evite que Claude Code devine une valeur incorrecte).
-75% de 200k = 150k tokens = seuil de declenchement de la compaction.
-
-**JAMAIS 50%.** 70% insuffisant avec harnais lourd. 75% = standard unifie Roo + Claude (#1152).
+**JAMAIS 50%.** Modeles non-Claude = 90% minimum. Modeles Claude = 25%.
 
 ## Modeles concernes
 
-GLM-5, GLM-4.7, GLM-4.7 Flash, GLM-4.5 Air (tous z.ai) — 131k reels, seuil 75% = ~98k.
+- **GLM-5, GLM-4.7, GLM-4.5 Air** (z.ai) — ~131k reels, seuil 90% de 200k = 180k
+- **Qwen3.6-35B** (vLLM) — meme config que GLM
+- **Claude Opus/Sonnet/Haiku** (Anthropic) — 200k reels, seuil 25% de 1M = 250k
 
 **Detail complet :** `docs/harness/reference/condensation-thresholds.md`
