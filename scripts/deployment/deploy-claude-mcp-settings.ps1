@@ -111,13 +111,20 @@ if (Test-Path $SettingsPath) {
         $Changed = $true
     }
 
-    # Ensure CLAUDE_AUTOCOMPACT_PCT_OVERRIDE (#502)
+    # Ensure compact settings (#502 baseline, #2173 model-aware defaults)
+    # Default: 200k window / 90% threshold for worker machines (GLM/Qwen default model).
+    # Spawn scripts override per model at runtime — these are machine-level defaults.
     if (-not $Settings.PSObject.Properties['env']) {
         $Settings | Add-Member -NotePropertyName 'env' -NotePropertyValue @{}
     }
-    if ($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE -ne "75") {
-        $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "75" -Force
-        Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 75 in settings.json" -ForegroundColor Yellow
+    if ($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE -ne "90") {
+        $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "90" -Force
+        Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 90 in settings.json (#2173)" -ForegroundColor Yellow
+        $Changed = $true
+    }
+    if ($Settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW -ne "200000") {
+        $Settings.env | Add-Member -NotePropertyName 'CLAUDE_CODE_AUTO_COMPACT_WINDOW' -NotePropertyValue "200000" -Force
+        Write-Host "[FIX] CLAUDE_CODE_AUTO_COMPACT_WINDOW set to 200000 in settings.json (#2173)" -ForegroundColor Yellow
         $Changed = $true
     }
 

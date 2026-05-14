@@ -2492,6 +2492,20 @@ function Invoke-Claude {
     $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
+    # #2173: Override compact window/threshold based on model family.
+    # Claude models (opus/sonnet/haiku) = 1M window / 25% threshold (250k effective).
+    # Non-Claude models (GLM, Qwen, etc.) = 200k window / 90% threshold (180k effective).
+    $isClaudeModel = $ModelToUse -match '^(opus|sonnet|haiku|claude)'
+    if ($isClaudeModel) {
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "25"
+        Write-Log "Compact override: Claude model ($ModelToUse) → window=1M, threshold=25%"
+    } else {
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
+        Write-Log "Compact override: non-Claude model ($ModelToUse) → window=200k, threshold=90%"
+    }
+
     # Budget cap (#1980 — prevent runaway token costs per worker session)
     # Default budget by model if not explicitly set: haiku=$0.25, sonnet=$0.50, opus=$1.00
     $BudgetToUse = $MaxBudgetUsd

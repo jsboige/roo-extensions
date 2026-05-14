@@ -200,6 +200,21 @@ Commence.
     $promptFile = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($promptFile, $prompt, [System.Text.UTF8Encoding]::new($false))
 
+    # #2173: Override compact window/threshold based on model family.
+    # Claude models (opus/sonnet/haiku) = 1M window / 25% threshold (250k effective).
+    # Non-Claude models (GLM, Qwen, etc.) = 200k window / 90% threshold (180k effective).
+    # These env vars take precedence over settings.json per Claude Code's env var hierarchy.
+    $isClaudeModel = $Model -match '^(opus|sonnet|haiku|claude)'
+    if ($isClaudeModel) {
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "25"
+        Write-Log "INFO" "Compact override: Claude model ($Model) → window=1M, threshold=25%"
+    } else {
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
+        Write-Log "INFO" "Compact override: non-Claude model ($Model) → window=200k, threshold=90%"
+    }
+
     $argList = @("-p", "-", "--dangerously-skip-permissions", "--model", $Model, "--output-format", "stream-json", "--verbose")
     if ($env:DASHBOARD_WATCHER_DEBUG_SPAWN -eq "1") {
         $argList += "--include-partial-messages"
