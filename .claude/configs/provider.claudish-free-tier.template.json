@@ -1,0 +1,131 @@
+{
+  "provider": "claudish",
+  "model": "opus",
+  "profile": "free-tier",
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://models.myia.io",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-7",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.1",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90"
+  },
+  "description": "Claudish free-tier routing — exhausts free credits before paid fallback",
+  "routing": {
+    "strategy": "ordered-fallback",
+    "principle": "Never downgrade. Free alternatives must be equal or better quality for the use case."
+  },
+  "profiles": {
+    "free-tier": {
+      "opus": [
+        {
+          "provider": "google",
+          "model": "gemini-2.5-pro",
+          "cost": "free",
+          "limits": "5 RPM / 100 req/day / 250K TPM",
+          "quality": "Competitive with Claude Sonnet on coding. 1M context.",
+          "apiFormat": "OpenAI-compatible via claudish translation"
+        },
+        {
+          "provider": "openrouter",
+          "model": "deepseek/deepseek-r1:free",
+          "cost": "free",
+          "limits": "20 RPM / 50 req/day",
+          "quality": "Strong reasoning. Free on OpenRouter."
+        },
+        {
+          "provider": "z.ai",
+          "model": "glm-5.1",
+          "cost": "paid",
+          "limits": "z.ai coding plan",
+          "quality": "Current paid default"
+        }
+      ],
+      "sonnet": [
+        {
+          "provider": "google",
+          "model": "gemini-2.5-flash",
+          "cost": "free",
+          "limits": "10 RPM / 250 req/day / 250K TPM",
+          "quality": "Fast, generous limits. Good for code review."
+        },
+        {
+          "provider": "groq",
+          "model": "llama-3.3-70b",
+          "cost": "free",
+          "limits": "30 RPM / 1K req/day / 300+ tok/s",
+          "quality": "Speed advantage. Good coding model."
+        },
+        {
+          "provider": "cerebras",
+          "model": "llama-3.3-70b",
+          "cost": "free",
+          "limits": "30 RPM / 1M tok/day",
+          "quality": "Volume fallback. Fast inference."
+        },
+        {
+          "provider": "z.ai",
+          "model": "glm-5.1",
+          "cost": "paid",
+          "limits": "z.ai coding plan",
+          "quality": "Current paid default"
+        }
+      ],
+      "haiku": [
+        {
+          "provider": "groq",
+          "model": "qwen3-32b",
+          "cost": "free",
+          "limits": "60 RPM / 1K req/day / 6K TPM",
+          "quality": "Fast + good quality for lightweight tasks."
+        },
+        {
+          "provider": "cerebras",
+          "model": "qwen3-32b",
+          "cost": "free",
+          "limits": "30 RPM / 1M tok/day",
+          "quality": "Volume fallback."
+        },
+        {
+          "provider": "openrouter",
+          "model": "z-ai/glm-4.5-air:free",
+          "cost": "free",
+          "limits": "20 RPM / 50 req/day",
+          "quality": "Matches current z.ai haiku model."
+        },
+        {
+          "provider": "z.ai",
+          "model": "glm-4.7-flash",
+          "cost": "paid",
+          "limits": "z.ai coding plan",
+          "quality": "Current paid default"
+        }
+      ]
+    }
+  },
+  "perMachineAssignment": {
+    "po-2023": { "primaryFreeProvider": "google", "fallback": "z.ai", "rationale": "Proxmox host, always on" },
+    "po-2024": { "primaryFreeProvider": "openrouter", "fallback": "z.ai", "rationale": "Variety for code review" },
+    "po-2025": { "primaryFreeProvider": "groq+cerebras", "fallback": "z.ai", "rationale": "Speed for interactive dev" },
+    "po-2026": { "primaryFreeProvider": "cerebras", "fallback": "z.ai", "rationale": "Volume for scheduled workers" },
+    "web1": { "primaryFreeProvider": "google", "fallback": "z.ai", "rationale": "Long-context for analysis" },
+    "ai-01": { "primaryFreeProvider": "none", "fallback": "anthropic", "rationale": "Coordinateur, stays on paid" }
+  },
+  "apiKeys": {
+    "GOOGLE_AI_API_KEY": "Get at https://aistudio.google.com — no card needed",
+    "OPENROUTER_API_KEY": "Get at https://openrouter.ai — no card needed",
+    "GROQ_API_KEY": "Get at https://console.groq.com — no card needed",
+    "CEREBRAS_API_KEY": "Get at https://cloud.cerebras.ai — no card needed",
+    "DEEPSEEK_API_KEY": "Get at https://platform.deepseek.com — no card needed, 5M free tokens"
+  },
+  "notes": [
+    "This config extends provider.claudish.template.json with free-tier routing profiles",
+    "Claudish handles API format translation (Anthropic ↔ OpenAI) automatically",
+    "Ordered fallback: try free provider first, on 429 error fall to next, last resort = paid",
+    "ai-01 does NOT participate in free-tier rotation (coordinateur stays on Anthropic paid)",
+    "API keys must be configured on the claudish host (po-2023) in ~/.claudish/config.json",
+    "Per-machine assignment spreads free-tier quota across fleet to avoid hitting single provider limits",
+    "Update provider.claudish.template.json CLAUDE_AUTOCOMPACT_PCT_OVERRIDE to 90 (#2173)"
+  ]
+}
