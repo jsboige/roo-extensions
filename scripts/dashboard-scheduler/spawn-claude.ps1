@@ -80,6 +80,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# #2173: Compact window/threshold constants (single source of truth).
+# These override settings.json per-invocation via env vars.
+$COMPACT_WINDOW_CLAUDE = "1000000"   # 1M context window for Claude models
+$COMPACT_PCT_CLAUDE   = "25"        # 25% threshold (250k effective)
+$COMPACT_WINDOW_OTHER = "200000"    # 200k for GLM/Qwen
+$COMPACT_PCT_OTHER    = "90"        # 90% threshold (180k effective)
+
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RepoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 
@@ -204,14 +211,14 @@ Commence.
     # Claude models (opus/sonnet/haiku) = 1M window / 25% threshold (250k effective).
     # Non-Claude models (GLM, Qwen, etc.) = 200k window / 90% threshold (180k effective).
     # These env vars take precedence over settings.json per Claude Code's env var hierarchy.
-    $isClaudeModel = $Model -match '^(opus|sonnet|haiku|claude)'
+    $isClaudeModel = $Model -match '^(opus|sonnet|haiku|claude[- ])'
     if ($isClaudeModel) {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "25"
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_CLAUDE
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_CLAUDE
         Write-Log "INFO" "Compact override: Claude model ($Model) → window=1M, threshold=25%"
     } else {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_OTHER
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_OTHER
         Write-Log "INFO" "Compact override: non-Claude model ($Model) → window=200k, threshold=90%"
     }
 

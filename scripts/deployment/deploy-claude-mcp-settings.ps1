@@ -114,6 +114,9 @@ if (Test-Path $SettingsPath) {
     # Ensure compact settings (#502 baseline, #2173 model-aware defaults)
     # Default: 200k window / 90% threshold for worker machines (GLM/Qwen default model).
     # Spawn scripts override per model at runtime — these are machine-level defaults.
+    # CAVEAT: A manual `claude -p` (outside spawn scripts) inherits these defaults,
+    # which are tuned for GLM/Qwen. For Claude model manual sessions, pass env vars
+    # explicitly: CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=25
     if (-not $Settings.PSObject.Properties['env']) {
         $Settings | Add-Member -NotePropertyName 'env' -NotePropertyValue @{}
     }

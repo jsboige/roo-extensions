@@ -2489,20 +2489,26 @@ function Invoke-Claude {
     $Iterations = if ($MaxIter -gt 0) { $MaxIter } else { $WorkerDefaultIterations }
 
     # Model is already set by Determine-Model in main workflow (Project field > param > default)
+    # Note: $ModelToUse (this script) vs $Model (spawn-claude.ps1) — different names because
+    # this script resolves via Determine-Model fallback chain; spawn uses the param directly.
     $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
     # #2173: Override compact window/threshold based on model family.
     # Claude models (opus/sonnet/haiku) = 1M window / 25% threshold (250k effective).
     # Non-Claude models (GLM, Qwen, etc.) = 200k window / 90% threshold (180k effective).
-    $isClaudeModel = $ModelToUse -match '^(opus|sonnet|haiku|claude)'
+    # Constants: keep in sync with spawn-claude.ps1 (single source: both scripts use same values).
+    $COMPACT_WINDOW_CLAUDE = "1000000"; $COMPACT_PCT_CLAUDE = "25"
+    $COMPACT_WINDOW_OTHER  = "200000";  $COMPACT_PCT_OTHER  = "90"
+
+    $isClaudeModel = $ModelToUse -match '^(opus|sonnet|haiku|claude[- ])'
     if ($isClaudeModel) {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "1000000"
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "25"
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_CLAUDE
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_CLAUDE
         Write-Log "Compact override: Claude model ($ModelToUse) → window=1M, threshold=25%"
     } else {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
+        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_OTHER
+        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_OTHER
         Write-Log "Compact override: non-Claude model ($ModelToUse) → window=200k, threshold=90%"
     }
 
