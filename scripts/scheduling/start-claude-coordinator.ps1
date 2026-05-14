@@ -241,15 +241,39 @@ if (-not $Force) {
         $IdleReasons += "Could not check RooSync inbox: $_"
     }
 
-    # Decision
+    # Decision with consecutive IDLE cap (#2127)
+    $IdleCounterFile = Join-Path $LogDir "coordinator-idle-counter.json"
+    $MaxConsecutiveIdle = 2
+
     if ($IdleSkip) {
-        Write-Log "IDLE GUARD: SKIP — All checks indicate no work needed:" "WARN"
+        # Increment consecutive IDLE counter
+        $IdleCount = 1
+        try {
+            if (Test-Path $IdleCounterFile) {
+                $CounterData = Get-Content $IdleCounterFile -Raw | ConvertFrom-Json
+                $IdleCount = $CounterData.consecutiveIdle + 1
+            }
+        } catch { $IdleCount = 1 }
+
+        # Save counter
+        @{ consecutiveIdle = $IdleCount; lastIdleAt = (Get-Date).ToUniversalTime().ToString('o') } |
+            ConvertTo-Json | Set-Content $IdleCounterFile -Encoding utf8NoBOM
+
+        if ($IdleCount -gt $MaxConsecutiveIdle) {
+            Write-Log "IDLE GUARD: HARD CAP — $IdleCount consecutive idle cycles (max $MaxConsecutiveIdle). Stopping until next [WAKE-CLAUDE] or scheduled window." "WARN"
+            Write-Log "=== COORDINATOR IDLE CAP EXIT (#2127) ===" "WARN"
+            exit 0
+        }
+
+        Write-Log "IDLE GUARD: SKIP — All checks indicate no work needed ($IdleCount/$MaxConsecutiveIdle consecutive):" "WARN"
         foreach ($reason in $IdleReasons) {
             Write-Log "  - $reason" "WARN"
         }
         Write-Log "IDLE GUARD: Use -Force to override. === COORDINATOR IDLE EXIT ===" "WARN"
         exit 0
     } else {
+        # Reset counter on productive cycle
+        if (Test-Path $IdleCounterFile) { Remove-Item $IdleCounterFile -Force -ErrorAction SilentlyContinue }
         Write-Log "IDLE GUARD: PROCEED — Reasons to run:"
         foreach ($reason in $IdleReasons) {
             Write-Log "  - $reason"
