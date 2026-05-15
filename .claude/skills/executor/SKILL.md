@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.0.0"
+  version: "3.1.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.0.0
+**Version:** 3.1.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-04-04 (retrait executor-state.json, alignement #745 Phase 2)
+**MAJ:** 2026-05-15 (#2185 inactivity cap — auto-stop après 3 cycles IDLE consécutifs)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -151,6 +151,13 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claud
 - Build obligatoire apres toute modification TypeScript
 - Ne JAMAIS committer du code qui ne passe pas les tests
 
+### Inactivity Cap (#2185)
+- Après **3 cycles consécutifs** sans tâche exécutée (IDLE au sens : aucune investigation/implémentation/validation commencée) → **arrêter la session** (ne PAS appeler `ScheduleWakeup`)
+- Poster `[IDLE] AUTO-STOP` sur le dashboard avec le nombre de cycles
+- La session sera relancée par le prochain `[WAKE-CLAUDE]` du coordinateur ou par le scheduler (schtask)
+- **Pourquoi :** Incident web1 (37.1 MB, 2417 lignes JSONL, 16+ cycles inactifs générant des messages redondants)
+- Un cycle où une tâche a été ne serait-ce qu'investigée (code lu, commentaire posté) compte comme actif
+
 ### PR obligatoire
 - Tout changement de code passe par worktree → PR → review → merge
 - Reference : `.claude/rules/pr-mandatory.md`
@@ -177,4 +184,4 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claud
 
 ---
 
-**Derniere mise a jour :** 2026-04-04
+**Derniere mise a jour :** 2026-05-15
