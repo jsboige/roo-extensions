@@ -8,7 +8,7 @@
     triggering message embedded in the prompt — no re-read of the dashboard
     required (#2004 Phase 2 push pattern, fixes #2004 token waste).
 
-    Uses Opus 4.7 by default (per #1430 budget validation). The listener
+    Uses Haiku by default (per #2172 credit optimization). The listener
     is responsible for gating — this script assumes the spawn is already
     approved (cooldown OK, workspace path resolved, [WAKE-CLAUDE] tag found).
 
@@ -20,7 +20,7 @@
     Workspace key to act upon. Required.
 
 .PARAMETER Model
-    Claude model to use (default: opus).
+    Claude model to use (default: haiku per #2172).
 
 .PARAMETER TimeoutMinutes
     Hard kill timeout in minutes (default: 45).
@@ -60,7 +60,7 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Workspace,
 
-    [string]$Model = "opus",
+    [string]$Model = "haiku",
 
     [int]$TimeoutMinutes = 45,
 
