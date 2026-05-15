@@ -207,6 +207,7 @@ def main():
     parser = argparse.ArgumentParser(description="Classify Claude Code sessions: thrashing vs legitimate")
     parser.add_argument("--top", type=int, default=30, help="Number of top sessions to detail")
     parser.add_argument("--delete-thrashing", action="store_true", help="Delete thrashing session files")
+    parser.add_argument("--delete-stuck", action="store_true", help="Delete stuck session files (tools but 0 file edits)")
     parser.add_argument("--min-size", type=float, default=0.1, help="Minimum session size in MB to analyze (default: 0.1)")
     args = parser.parse_args()
 
@@ -297,17 +298,44 @@ def main():
         else:
             print(f"\n  To delete these sessions, re-run with --delete-thrashing")
 
+    # Stuck sessions detail
+    stuck = [s for s in classified if s["verdict"] == "STUCK"]
+    if stuck:
+        stuck_mb = sum(s["size_mb"] for s in stuck)
+        print(f"\n{'=' * 80}")
+        print(f"STUCK SESSIONS — {len(stuck)} sessions, {stuck_mb:.1f} MB")
+        print(f"{'=' * 80}")
+        for s in stuck:
+            rel = s["path"].replace(str(claude_projects), "").lstrip("/\\")
+            print(f"  {s['size_mb']:>7.1f} MB | {s['total_tools']:>4} tools | {s['unique_files']} files | {'; '.join(s['reasons'])}")
+            print(f"           {rel}")
+
+        if args.delete_stuck:
+            print(f"\n  DELETING {len(stuck)} stuck session files...")
+            for s in stuck:
+                try:
+                    os.remove(s["path"])
+                    print(f"    DELETED: {s['size_mb']:.1f} MB — {os.path.basename(s['path'])}")
+                except Exception as e:
+                    print(f"    ERROR: {s['path']}: {e}")
+            print(f"  Freed {stuck_mb:.1f} MB")
+        else:
+            print(f"\n  To delete these sessions, re-run with --delete-stuck")
+
     # Cleanup recommendation
     waste_mb = size_by_verdict.get("THRASHING", 0)
+    stuck_mb_val = size_by_verdict.get("STUCK", 0)
     print(f"\n{'=' * 80}")
     print("CLEANUP RECOMMENDATION")
     print(f"{'=' * 80}")
     print(f"  Thrashing: {waste_mb:.0f} MB ({len(thrashing)} sessions) → DELETE")
-    print(f"  Stuck:     {size_by_verdict.get('STUCK', 0):.0f} MB → REVIEW (may be legitimate stalled work)")
-    print(f"  Legitimate: {total_mb - waste_mb:.0f} MB → KEEP (real work with compactions)")
+    print(f"  Stuck:     {stuck_mb_val:.0f} MB ({len(stuck)} sessions) → REVIEW / DELETE with --delete-stuck")
+    print(f"  Legitimate: {total_mb - waste_mb - stuck_mb_val:.0f} MB → KEEP (real work with compactions)")
 
     if not args.delete_thrashing and thrashing:
         print(f"\n  Run again with --delete-thrashing to clean up {waste_mb:.0f} MB of thrashing sessions.")
+    if not args.delete_stuck and stuck:
+        print(f"  Run again with --delete-stuck to clean up {stuck_mb_val:.0f} MB of stuck sessions.")
 
 
 if __name__ == "__main__":
