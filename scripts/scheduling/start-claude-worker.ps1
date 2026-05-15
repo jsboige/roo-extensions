@@ -216,13 +216,16 @@ function Get-EscalatedModel {
     Escalates model on retry for complex tasks (#1027 escalation mechanism).
 
     .DESCRIPTION
-    Claude worker escalation: haiku -> sonnet -> opus (model-based, not Roo mode-based)
+    Claude worker escalation: haiku -> sonnet (capped — opus excluded from auto-escalation per Anthropic Max policy)
     This is called on retry when the baseline model fails to complete a task.
 
-    ESCALATION CHAIN (#1027):
-    - haiku -> sonnet (code changes, investigations)
-    - sonnet -> opus (architectural decisions, complex refactoring)
-    - opus -> null (already at max)
+    ESCALATION CHAIN (revised 2026-05-16, Anthropic Max policy change):
+    - haiku -> sonnet (code changes, investigations — max for scheduled workers)
+    - sonnet -> null (no further escalation; tasks needing opus go to interactive sessions)
+    - opus -> null (manual override only; no further escalation)
+
+    Opus removed from auto-escalation: Anthropic Max subscription quotas now too
+    restrictive to sustain opus on automated workers without exhausting weekly limits.
 
     NOTE: This is RETRY escalation, not intra-session sub-agent escalation.
     For sub-agent pattern (escalade within same session), use Task tool with model parameter.
@@ -231,8 +234,8 @@ function Get-EscalatedModel {
 
     switch ($CurrentModel) {
         "haiku"  { return "sonnet" }
-        "sonnet" { return "opus" }
-        "opus"   { return $null }  # Already at max
+        "sonnet" { return $null }   # Capped — opus excluded from auto-escalation
+        "opus"   { return $null }   # Manual override only
         default  { return "sonnet" }
     }
 }
