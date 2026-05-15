@@ -387,6 +387,21 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM** | Coordination locale Roo | Chaque action locale |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
+### Wakeup Cycle Cadence Fleet-Wide (#2203, mandate user 2026-05-15)
+
+**Intervalle fleet-wide unique : 1h (3600s).** S'applique au coordinateur (myia-ai-01) ET aux 5 exécutants.
+
+```
+ScheduleWakeup(delaySeconds: 3600, prompt: "/coordinate", reason: "...")
+```
+
+- **Pourquoi 1h** : cycles courts (5-30 min observés cycle 33) + cap 3-IDLE (#2185) déclenchaient AUTO-STOP avant que le coordinateur n'ait le temps de dispatcher du frais → flotte stallée. 1h × 3 = 3h avant AUTO-STOP, fenêtre réaliste pour préparer dispatch substantiel.
+- **Cap 3-IDLE inchangé** (#2185, par exécutants) mais effectif à 3h cumulé au lieu de 30 min.
+- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Permet réveiller un exécutant stallé sans attendre son tick 1h.
+- **Coordinateur** : pareil 1h, dispatch substantiel à chaque tick. Si la flotte est stallée (cap atteint), réveiller via [WAKE-CLAUDE] avec dispatch frais inline.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + [WAKE-CLAUDE], pas via timer adaptatif.
+- **Propagation autres workspaces** : Quand tu coordonnes un autre workspace (CoursIA notamment), poster cette règle sur leur dashboard également.
+
 ### Tags INTERCOM a surveiller (ecrits par Roo scheduler)
 
 | Tag | Signification | Action Claude |
