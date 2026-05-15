@@ -138,7 +138,8 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
   3. Atomic write GDrive `.shared-state/skeletons/<machineId>/<taskId>.json` (nouveau).
   4. Qdrant upsert (avec retry 3× backoff exponentiel, idempotent).
 - **Throttle** : 1 write GDrive/skeleton/30s (anti #2121 storm). Si plusieurs upserts dans la fenêtre, seul le dernier est flushé.
-- **Failure mode** : si GDrive indisponible → Qdrant upsert sans `gdrivePath` (fallback à `null`). Reader fallback : lecture directe par machine d'origine via RooSync (rare, mais possible).
+- **Caller wiring** (réponse Q3 review po-2023) : `upsertSkeleton()` est déclenché par l'extension du **`ToolUsageInterceptor` existant** (déjà câblé pour l'indexation Qdrant des chunks par tool-call dans `VectorIndexer`). Pas de nouveau hook à ajouter : à la fin de chaque tool-call, après que le chunk Qdrant soit écrit avec succès, l'intercepteur appelle aussi `upsertSkeleton(taskId, skeleton)`. Conséquence pour #1822 (sessions STUCK) : le skeleton est rafraîchi à granularité **tool-call**, pas seulement à la fin de la tâche — les sessions bloquées sont donc visibles dès qu'elles produisent un outil, sans attendre la complétion.
+- **Failure mode** (réponse Q2 review po-2023) : si GDrive indisponible au moment du write → Qdrant upsert avec `gdrivePath: null` dans le payload. **Reader fallback explicite** : quand un reader détecte `gdrivePath: null` dans le résultat Qdrant, il déclenche une fetch cross-machine via `roosync_messages(action: "send", attachments: [...])` adressé à la `machineId` d'origine (déjà loggée dans le payload). RooSync proxie le file read via GDrive `attachments/`. Si la machine d'origine est offline → retour gracieux (entry partial dans le list avec flag `stale: true`, ou erreur explicite dans `view`). **Pas de SPOF** : la dégradation est par-skeleton, pas globale.
 
 #### 5. Reader path
 
