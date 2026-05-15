@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.1.0"
+  version: "3.2.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.1.0
+**Version:** 3.2.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-15 (#2185 inactivity cap — auto-stop après 3 cycles IDLE consécutifs)
+**MAJ:** 2026-05-15 (#1956 niveau 1 — mention sender on ACK/REPLY; #2185 inactivity cap)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -130,7 +130,19 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["BLOCKED", "claude
 
 // Signaler friction
 roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "claude-interactive"], content: "...")
+
+// Repondre a un [ASK]/[PROPOSAL]/[REQUEST] — notifie l'expediteur via mentions (#1956)
+roosync_dashboard(action: "append", type: "workspace", tags: ["REPLY", "claude-interactive"],
+  mentions: [{ messageId: "<id-du-message-original>" }],
+  content: "...")
+
+// Accuser reception sans reponse substantielle (ACK seul)
+roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-interactive"],
+  mentions: [{ messageId: "<id-du-message-original>" }],
+  content: "...")
 ```
+
+**Regle mentions (#1956 niveau 1) :** Quand tu reponds a un message tagge `[ASK]`/`[PROPOSAL]`/`[REQUEST]` (ou tout message qui attend une reponse), TOUJOURS inclure `mentions: [{ messageId: "..." }]` avec l'id du message original. Cela notifie l'expediteur via RooSync qu'il a une reponse a lire — sans cela, l'expediteur n'a aucun signal et la boucle de coordination se rompt. Detail complet (`userId` vs `messageId` XOR, crossPost, dedup) : [`docs/harness/reference/intercom-v3-mentions.md`](../../../docs/harness/reference/intercom-v3-mentions.md).
 
 ### Communication Roo (meme machine)
 
