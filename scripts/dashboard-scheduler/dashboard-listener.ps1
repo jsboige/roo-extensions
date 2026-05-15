@@ -170,17 +170,19 @@ function Get-ClaudeJsonProjectsMap {
     }
     try {
         $raw = [System.IO.File]::ReadAllText($McpConfig, [System.Text.UTF8Encoding]::new($false))
-        # -AsHashtable preserves case-distinct keys (~/.claude.json frequently
-        # contains both `D:/x` and `d:/x` for the same path; default PSObject
-        # parsing fails on such collisions).
-        $obj = $raw | ConvertFrom-Json -AsHashtable
+        # Use .NET deserialization for PS 5.1 compatibility (#2186 Bug 2).
+        # ConvertFrom-Json -AsHashtable requires PS 7+; under Windows PowerShell 5.1
+        # it throws silently, killing path resolution source #4.
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
+        $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $serializer.MaxJsonLength = [int]::MaxValue
+        $obj = $serializer.DeserializeObject($raw)
         if ($null -ne $obj -and $obj.ContainsKey('projects') -and $null -ne $obj['projects']) {
             foreach ($absPath in $obj['projects'].Keys) {
                 if ([string]::IsNullOrEmpty($absPath)) { continue }
                 $leaf = Split-Path $absPath -Leaf
                 if ([string]::IsNullOrEmpty($leaf)) { continue }
                 $key = $leaf.ToLowerInvariant()
-                # First entry wins for a given basename.
                 if (-not $script:_wsPathClaudeJsonMap.ContainsKey($key)) {
                     $script:_wsPathClaudeJsonMap[$key] = $absPath
                 }

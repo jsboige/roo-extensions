@@ -16,7 +16,8 @@
 #>
 
 param(
-    [string]$LogDir = $env:DASHBOARD_WATCHER_LOG_DIR
+    [string]$LogDir = $env:DASHBOARD_WATCHER_LOG_DIR,
+    [string]$HeartbeatDir = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -31,6 +32,26 @@ if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
 }
 
+# Heartbeat file for liveness monitoring (#2186).
+# Touches a file after each listener iteration so watchdogs can verify the
+# listener is alive without needing elevated privileges.
+if ([string]::IsNullOrEmpty($HeartbeatDir)) {
+    $HeartbeatDir = Join-Path $RepoRoot ".claude\locks"
+}
+if (-not (Test-Path $HeartbeatDir)) {
+    New-Item -ItemType Directory -Path $HeartbeatDir -Force | Out-Null
+}
+$heartbeatFile = Join-Path $HeartbeatDir "dashboard-listener.heartbeat"
+
+function Write-Heartbeat {
+    try {
+        $ts = (Get-Date).ToUniversalTime().ToString("o")
+        [System.IO.File]::WriteAllText($heartbeatFile, $ts, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        # Non-blocking — heartbeat is a signal, not critical path
+    }
+}
+
 $listenerScript = Join-Path $scriptDir "dashboard-listener.ps1"
 
 while ($true) {
@@ -38,9 +59,12 @@ while ($true) {
     $logFile = Join-Path $LogDir "listener-$dateStamp.log"
 
     "=== Dashboard Listener started: $(Get-Date -Format o) ===" | Tee-Object -FilePath $logFile -Append
+    Write-Heartbeat
 
     try {
-        & $listenerScript 2>&1 | Tee-Object -FilePath $logFile -Append
+        # *>&1 captures ALL streams (including Write-Host / Write-Information stream 6)
+        # Previously used 2>&1 which missed Write-Host output, making logs nearly empty (#2186 Bug 1).
+        & $listenerScript *>&1 | Tee-Object -FilePath $logFile -Append
         $exitCode = $LASTEXITCODE
     } catch {
         "ERROR uncaught: $_" | Tee-Object -FilePath $logFile -Append
@@ -48,6 +72,7 @@ while ($true) {
         $exitCode = 99
     }
 
+    Write-Heartbeat
     "=== Dashboard Listener exit code ${exitCode}: $(Get-Date -Format o) ===" | Tee-Object -FilePath $logFile -Append
 
     # Auto-restart: 30s after clean exit, 60s after error
