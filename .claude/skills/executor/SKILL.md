@@ -163,6 +163,19 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 - Build obligatoire apres toute modification TypeScript
 - Ne JAMAIS committer du code qui ne passe pas les tests
 
+### Wakeup Cycle Cadence (#2203, mandate user 2026-05-15)
+
+**Intervalle fleet-wide : 1h (3600s) — DEFAULT FERMÉ.**
+
+```
+ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
+```
+
+- **Pourquoi 1h** : cycles courts (5-30 min observés cycle 33) + cap 3-IDLE déclenchent AUTO-STOP avant que le coordinateur n'ait le temps de dispatcher du frais → flotte stallée. 1h × 3 = 3h avant AUTO-STOP, fenêtre réaliste.
+- **Cap 3-IDLE inchangé** (#2185) mais devient 3h au lieu de 30 min.
+- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick 1h.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer adaptatif.
+
 ### Inactivity Cap (#2185)
 - Après **3 cycles consécutifs** sans tâche exécutée (IDLE au sens : aucune investigation/implémentation/validation commencée) → **arrêter la session** (ne PAS appeler `ScheduleWakeup`)
 - Poster `[IDLE] AUTO-STOP` sur le dashboard avec le nombre de cycles
