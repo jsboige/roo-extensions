@@ -1,11 +1,11 @@
-# ADR 010: conversation_browser — GDrive Cross-Machine Storage
+# ADR 010: conversation_browser — GDrive Cross-Machine Storage + Postgres Metadata Layer
 
-**Date:** 2026-05-15
+**Date:** 2026-05-15 (v1.0) → 2026-05-15 (v2.0 — R43 Scenario B hybrid permanent)
 **Status:** Proposed (Phase 1 — ADR for user review)
 **Issue:** #2191
-**Supersedes:** #1393 (hot/warm/cold tiered storage — rejected by user)
-**Related:** EPIC #2190 (vibe-conversation-browser), #1244 (multi-tier cache), #1360 (master plan), #1822 (STUCK sessions), #2121 (GDrive write storm), #1747 (per-tier health stats)
-**Deciders:** jsboige (mandate), claude-interactive po-2025 (Phase 1 author)
+**Supersedes:** #1393 (hot/warm/cold tiered storage — rejected by user), ADR 010 v1.0 (Option D Qdrant+GDrive — partially superseded by v2.0)
+**Related:** EPIC #2190 (vibe-conversation-browser), #1244 (multi-tier cache), #1360 (master plan), #1822 (STUCK sessions), #2121 (GDrive write storm), #1747 (per-tier health stats), #2193 (Qdrant payload `message_id` extension)
+**Deciders:** jsboige (mandate R43), claude-interactive po-2025 (Phase 1 author)
 
 ---
 
@@ -58,115 +58,245 @@ Index sémantique : Qdrant collection `roo_tasks_semantic_index` (~54.8M points,
 
 ---
 
+## Decision History
+
+### R42 (ADR 010 v1.0) — Option D : Hybride Qdrant + GDrive
+
+- Qdrant = index global cross-machine. GDrive = artefacts skeleton. Cache local Map = couche chaude.
+- **Verdict** : retenue initialement.
+
+### R43 (2026-05-15) — Scénario B : Hybrid permanent Qdrant + Postgres
+
+User réoriente après objection : *"Qdrant, il est fait pour stocker des chunks (…) c'est + du boulot pour une DB normale non ?"*. Puis confirmation :
+
+1. **"Go pour postgres"** — confirme tech DB choisie
+2. **"B également, ça ne me gène pas qu'ils se partagent les rôles et la charge"** — Scenario B retenu (hybrid permanent), PAS de migration full vers Postgres
+3. **"le résultat de la recherche bénéficierait à profiter de la structure fournie par les champs des entités dont les chunks ont matchés. Ca fait 2 requêtes de données dans 2 containers afférents"**
+
+**Architecture finale (Scénario B retenu) :**
+
+| Container | Rôle | Statut |
+|-----------|------|--------|
+| **Qdrant** | Embeddings + chunks raw (content), sert ANN | **Conservé** — rôle ANN inchangé |
+| **Postgres** | Metadata structurée (conversations, messages, tasks, workspaces, models, dates) | **Ajouté** comme complément |
+| **GDrive** | Cold archives `.jsonl.gz` (>30j, optionnel) | Optionnel selon tiering finale |
+
+**Search flow 2-step :**
+
+1. **Qdrant ANN** → top-K chunks avec refs `task_id` / `message_id`
+2. **Postgres JOIN** sur ces refs → enrichissement avec metadata + messages adjacents
+
+User point clé : 2 requêtes dans 2 containers complémentaires = OK perfs, parce que la 2ème est un simple lookup indexé par PK, pas un scan.
+
+### Ce qui change vs v1.0
+
+- ❌ **PAS** de "decommission Qdrant after 6-month validation"
+- ❌ **PAS** de migration des embeddings vers pgvector (au moins pas comme objectif)
+- ✅ Postgres est **complément**, pas remplacement
+- ✅ Hybrid permanent acceptable
+- ✅ **PAS** de colonne `embedding vector(2560)` dans Postgres `chunks` table (laissé à Qdrant)
+- ✅ Postgres `chunks` table (si ajoutée) stocke uniquement `{id, message_id, content, chunk_type}` — sans embedding
+- ✅ Qdrant payload extension : ajouter `message_id` pour permettre le JOIN inverse
+- ✅ Refactor search engine en 2-step query
+
+---
+
 ## Decision
 
-**Option D retenue : Hybride Qdrant + GDrive.**
+**Option E retenue : Hybrid permanent Qdrant + Postgres + GDrive.**
 
-- **Qdrant = index global cross-machine** (déjà en place, déjà partagé, déjà résilient).
-- **GDrive = artefacts skeleton** (déjà en place pour Tier 3, étendu à temps réel).
-- **Cache local Map en mémoire** (existant, 30 min) → conservé comme couche chaude.
+- **Qdrant** = embeddings + chunks raw content, sert ANN (rôle actuel préservé, PAS de décommission).
+- **Postgres** = metadata structurée (conversations, messages, tasks). Complément à Qdrant, pas remplacement.
+- **GDrive** = skeleton artifacts + cold archives `.jsonl.gz`.
+- **Cache local Map** = couche chaude existante.
 
 Les options écartées sont conservées avec leur argumentaire (section *Alternatives considered*).
 
 ### Architecture cible
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Machine X (writer)                                             │
-│                                                                 │
-│  Roo task / Claude session                                      │
-│        │                                                        │
-│        ├─► local persistence (Roo: tasks/  Claude: ~/.claude/)  │
-│        │                                                        │
-│        └─► SkeletonCacheService.upsertSkeleton(taskId, data)    │
-│              │                                                  │
-│              ├─► Map<string, ConversationSkeleton> (30min)      │
-│              ├─► local file .skeletons/<taskId>.json            │
-│              ├─► GDrive write .shared-state/skeletons/          │
-│              │       <machineId>/<taskId>.json (NEW, not .gz)   │
-│              │                                                  │
-│              └─► Qdrant upsert (skeleton-pointer payload)       │
-│                    collection: roo_skeletons_index              │
-│                    payload: { taskId, machineId, lastActivity,  │
-│                               source, workspace, gdrivePath,    │
-│                               summary, messageCount }           │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼  (Qdrant = single source of truth for index)
-┌─────────────────────────────────────────────────────────────────┐
-│  Machine Y (reader)                                             │
-│                                                                 │
-│  conversation_browser(action: "list" / "view")                  │
-│        │                                                        │
-│        ├─► Qdrant query (filter by workspace / lastActivity)    │
-│        │     → list of {taskId, machineId, gdrivePath}          │
-│        │                                                        │
-│        ├─► cache local Map ? → return skeleton (warm path)      │
-│        │                                                        │
-│        └─► GDrive read .shared-state/skeletons/<m>/<t>.json     │
-│              → cache → return skeleton (cold path)              │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│  Machine X (writer)                                                 │
+│                                                                     │
+│  Roo task / Claude session                                          │
+│        │                                                            │
+│        ├─► local persistence (Roo: tasks/  Claude: ~/.claude/)     │
+│        │                                                            │
+│        └─► SkeletonCacheService.upsertSkeleton(taskId, data)        │
+│              │                                                      │
+│              ├─► Map<string, ConversationSkeleton> (60min)          │
+│              ├─► local file .skeletons/<taskId>.json                │
+│              ├─► GDrive write .shared-state/skeletons/              │
+│              │       <machineId>/<taskId>.json (NEW, not .gz)       │
+│              │                                                      │
+│              ├─► Qdrant upsert (skeleton-pointer + chunk-embeddings)│
+│              │    payload: { taskId, machineId, message_id,         │
+│              │       lastActivity, source, workspace, gdrivePath }  │
+│              │                                                      │
+│              └─► Postgres upsert (metadata only)                     │
+│                   INSERT INTO conversations ... (ON CONFLICT UPDATE) │
+│                   INSERT INTO messages ... (per tool-call batch)     │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+   ┌──────────────┐   ┌──────────────┐   ┌──────────────────┐
+   │  Qdrant      │   │  Postgres    │   │  GDrive          │
+   │  (ANN index) │   │  (metadata)  │   │  (skeletons+cold)│
+   └──────────────┘   └──────────────┘   └──────────────────┘
+                               │
+                               ▼  (Qdrant = ANN, Postgres = JOIN)
+┌─────────────────────────────────────────────────────────────────────┐
+│  Machine Y (reader)                                                 │
+│                                                                     │
+│  conversation_browser(list / view / search)                         │
+│        │                                                            │
+│        ├─► Qdrant ANN query (embeddings)                            │
+│        │    → top-K chunks: { taskId, message_id, content, score }  │
+│        │                                                            │
+│        ├─► Postgres JOIN on refs                                   │
+│        │    SELECT c.content, m.role, m.content AS parent_msg,       │
+│        │           prev.content AS prev_msg, next.content AS next_msg│
+│        │        FROM chunks c                                        │
+│        │        JOIN messages m ON c.message_id = m.id               │
+│        │        LEFT JOIN messages prev ON prev.id = m.id - 1        │
+│        │        LEFT JOIN messages next ON next.id = m.id + 1        │
+│        │        WHERE c.task_id IN (taskId from Qdrant)              │
+│        │    → rich results: chunks + adjacent messages + metadata     │
+│        │                                                            │
+│        ├─► cache local Map ? → return skeleton (warm path)          │
+│        │                                                            │
+│        └─► GDrive read .shared-state/skeletons/<m>/<t>.json         │
+│              → cache → return skeleton (cold path)                  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Composants
 
-#### 1. Index Qdrant (nouveau)
+#### 1. Index Qdrant (étendu — payload message_id)
 
-- **Collection** : `roo_skeletons_index` (séparée de la collection chunks `roo_tasks_semantic_index`).
-- **Payload obligatoire** : `taskId`, `machineId`, `lastActivity` (ISO 8601), `source` (`roo` / `claude-code`), `workspace`, `gdrivePath` (chemin relatif sous `.shared-state/`), `summary` (titre court).
-- **Payload optionnel** : `messageCount`, `parentTaskId`, `tags`, `mode`.
-- **Vecteur** : embedding du `summary` (256 dim, modèle existant). Permet recherche sémantique cross-machine *du même outil*, pas seulement filtrage exact.
-- **Tombstone pattern** : un skeleton supprimé n'est pas hard-delete dans Qdrant — flag `deleted: true` dans payload, hard-delete via job nettoyage 30j (alignement contrainte backward compat).
+- **Collection** : `roo_tasks_semantic_index` (existante, PAS de nouvelle collection séparée pour skeletons — le skeleton-pointer est un champ supplémentaire dans la même collection chunks).
+- **Payload existing** : `taskId`, `machineId`, `content` (chunk text), `embedding` (vector), `chunk_type`.
+- **Payload étendu** (réponse R43) : ajouter `message_id` (BIGINT, lien vers Postgres `messages.id`) et `task_id` (déjà présent) pour permettre le JOIN inverse dans Postgres.
+- **Vecteur** : embedding du chunk (2560 dim, modèle existant). ANN via distance Cosine.
+- **Tombstone pattern** : un skeleton supprimé n'est pas hard-delete dans Qdrant — flag `deleted: true` dans payload, hard-delete via job nettoyage 30j.
 
-#### 2. GDrive skeleton artifacts (étendu)
+**Qdrant payload migration (réponse Q2 review po-2023, étendu R43) :** quand un reader détecte `gdrivePath: null` dans le résultat Qdrant, il déclenche une fetch cross-machine via `roosync_messages(action: "send", attachments: [...])` adressé à la `machineId` d'origine (déjà loggée dans le payload). **Pas de SPOF** : la dégradation est par-skeleton, pas globale.
+
+#### 2. Postgres (nouveau — metadata structurée)
+
+- **Installation** : PostgreSQL 16+ sur `ai-01` (master), logical/streaming replicas (read-only) sur `po-2024` et `po-2026`.
+- **Schema** :
+
+```sql
+CREATE TABLE conversations (
+  task_id TEXT PRIMARY KEY,
+  machine TEXT,
+  workspace TEXT,
+  model TEXT,
+  created_at TIMESTAMPTZ,
+  message_count INT,
+  archived_url TEXT NULL  -- set when conversation moved to cold tier
+);
+
+CREATE TABLE messages (
+  id BIGSERIAL PRIMARY KEY,
+  task_id TEXT REFERENCES conversations(task_id),
+  idx INT,
+  role TEXT,
+  content TEXT,
+  tool_calls JSONB,
+  created_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_messages_task_idx ON messages(task_id, idx);
+-- Index per-machine pour requêtes cross-machine via replica
+CREATE INDEX idx_messages_task_id ON messages(task_id);
+```
+
+- **PAS de colonne `embedding vector(2560)` dans Postgres** — pgvector exclu. Les vecteurs restent exclusivement dans Qdrant.
+- **PAS de table `chunks` dans Postgres** — le chunking (texte découpé + embedding) reste exclusivement dans Qdrant payload. Postgres stocke uniquement `conversations` + `messages` au niveau message complet.
+- **Duplication texte** : `messages.content` dans Postgres contient le texte complet du message. Qdrant `chunks.content` contient les fragments découpés. Du texte est dupliqué (quelques KB par message), mais cela évite de devoir Qdrant pour la lecture simple et permet les JOIN messages adjacents sans passer par Qdrant.
+- **Replication** : logical replication (par-table, plus flexible) du master `ai-01` vers replicas `po-2024`/`po-2026`. Chaque machine consulte sa replica locale → pas de round-trip MCP cross-machine pour les requêtes Postgres.
+
+#### 3. GDrive skeleton artifacts (étendu)
 
 - **Path** : `.shared-state/skeletons/<machineId>/<taskId>.json` (non gzippé, < 50KB typique).
 - **Contenu** : `ConversationSkeleton` JSON UTF-8 no-BOM, identique à Tier 1 actuel.
 - **Pas de .gz par défaut** : skeletons sont petits ; gzip overhead read pas justifié. La compression reste sur Tier 3 archives (gros volumes de messages).
 - **Atomic write** : pattern `HeartbeatService` (`fs.writeFile(tmp); fs.rename(tmp, final)`) pour éviter 0-byte corruption sur sync GDrive.
 
-#### 3. Cache local (existant, conservé)
+#### 4. Cache local (existant, conservé)
 
 - `SkeletonCacheService` singleton + `Map<string, ConversationSkeleton>`.
-- Validité étendue à **60 min** (vs 30 actuel). Justification : Qdrant index permet l'invalidation explicite (« si Qdrant `lastActivity > cache.cachedAt` alors purge cette entrée »), donc on peut allonger le TTL sans risquer la staleness.
+- Validité étendue à **60 min** (vs 30 actuel). Justification : Qdrant + Postgres index permettent l'invalidation explicite, donc on peut allonger le TTL sans risquer la staleness.
 
-#### 4. Writer path
+#### 5. Writer path
 
 - `SkeletonCacheService.upsertSkeleton(taskId, skeleton)` (méthode à ajouter) :
   1. Update Map mémoire.
   2. Atomic write local `.skeletons/<taskId>.json` (existant).
   3. Atomic write GDrive `.shared-state/skeletons/<machineId>/<taskId>.json` (nouveau).
   4. Qdrant upsert (avec retry 3× backoff exponentiel, idempotent).
+  5. Postgres upsert metadata (ON CONFLICT UPDATE, idempotent).
 - **Throttle** : 1 write GDrive/skeleton/30s (anti #2121 storm). Si plusieurs upserts dans la fenêtre, seul le dernier est flushé.
 - **Caller wiring** (réponse Q3 review po-2023) : `upsertSkeleton()` est déclenché par l'extension du **`ToolUsageInterceptor` existant** (déjà câblé pour l'indexation Qdrant des chunks par tool-call dans `VectorIndexer`). Pas de nouveau hook à ajouter : à la fin de chaque tool-call, après que le chunk Qdrant soit écrit avec succès, l'intercepteur appelle aussi `upsertSkeleton(taskId, skeleton)`. Conséquence pour #1822 (sessions STUCK) : le skeleton est rafraîchi à granularité **tool-call**, pas seulement à la fin de la tâche — les sessions bloquées sont donc visibles dès qu'elles produisent un outil, sans attendre la complétion.
-- **Failure mode** (réponse Q2 review po-2023) : si GDrive indisponible au moment du write → Qdrant upsert avec `gdrivePath: null` dans le payload. **Reader fallback explicite** : quand un reader détecte `gdrivePath: null` dans le résultat Qdrant, il déclenche une fetch cross-machine via `roosync_messages(action: "send", attachments: [...])` adressé à la `machineId` d'origine (déjà loggée dans le payload). RooSync proxie le file read via GDrive `attachments/`. Si la machine d'origine est offline → retour gracieux (entry partial dans le list avec flag `stale: true`, ou erreur explicite dans `view`). **Pas de SPOF** : la dégradation est par-skeleton, pas globale.
+- **Failure mode** : si GDrive indisponible au moment du write → Qdrant + Postgres upsert avec `gdrivePath: null` dans le payload Qdrant. **Reader fallback** : quand un reader détecte `gdrivePath: null` dans le résultat Qdrant, il déclenche une fetch cross-machine via `roosync_messages(action: "send", attachments: [...])` adressé à la `machineId` d'origine. Si la machine d'origine est offline → retour gracieux (entry partial dans le list avec flag `stale: true`). **Pas de SPOF**.
 
-#### 5. Reader path
+#### 6. Reader path — Search 2-step
 
-- `conversation_browser(list)` :
-  1. Query Qdrant `roo_skeletons_index` avec filtre payload (`workspace`, `lastActivity > Date.now() - N days`).
-  2. Pour chaque résultat, vérifier cache Map → hit → return summary.
-  3. Miss → lazy load depuis `gdrivePath` (1 read par taskId demandé, pas batch).
-- `conversation_browser(view, task_id)` :
-  1. Cache Map ? → return.
-  2. Miss → Qdrant query par `taskId` → récupère `gdrivePath`.
-  3. Read GDrive → populate cache → return.
+**`conversation_browser(list)` :**
+1. Query Qdrant `roo_tasks_semantic_index` avec filtre payload (`workspace`, `lastActivity`).
+2. Pour chaque résultat, vérifier cache Map → hit → return summary.
+3. Miss → lazy load depuis `gdrivePath` ou fallback Postgres metadata.
 
-#### 6. Migration & backward compat
+**`conversation_browser(view, task_id)` :**
+1. Cache Map ? → return.
+2. Miss → Qdrant query par `taskId` → récupère `gdrivePath` + `message_id`.
+3. Postgres JOIN sur `message_id` pour enrichir avec metadata.
+4. Read GDrive → populate cache → return skeleton.
 
-- **Phase 2 (implémentation)** : script `migrate-skeletons-to-gdrive.ts` itère sur Tier 1 local de chaque machine (run sur chaque machine), copie chaque `.skeletons/*.json` vers `.shared-state/skeletons/<machineId>/`, upserte Qdrant.
-- **Lecture v1 archives** : `TaskArchiver.readArchivedTask()` reste utilisable comme fallback ; les archives .json.gz existantes (Tier 3) ne sont pas migrées immédiatement, elles restent accessibles via le path actuel pendant la fenêtre 30j.
-- **Suppression `enableClaudeTier` / `enableArchiveTier` flags** : reportée à une ADR de cleanup ultérieure. Pour cette phase, les flags continuent à fonctionner pour compat.
+**`conversation_browser(semantic_search, query_embedding)` (nouveau, Phase 2) :**
+1. **Step 1 — Qdrant ANN** : recherche vectorielle → top-K chunks avec `{task_id, message_id, content, score}`.
+2. **Step 2 — Postgres JOIN** : pour chaque chunk result, JOIN `messages` sur `message_id` → enrichir avec `role`, `tool_calls`, messages adjacents (`prev.id = message_id - 1`, `next.id = message_id + 1`), metadata conversation (`conversations.model`, `conversations.workspace`).
+3. Fusionner résultats Qdrant + enrichissements Postgres → return.
+
+**Exemple enrichissement query Postgres :**
+```sql
+SELECT c.task_id, m.role, m.content, m.created_at,
+       prev.content AS prev_msg, next.content AS next_msg,
+       conv.model, conv.workspace
+FROM chunks c
+  JOIN messages m ON c.message_id = m.id
+  JOIN conversations conv ON m.task_id = conv.task_id
+  LEFT JOIN messages prev ON prev.task_id = m.task_id AND prev.idx = m.idx - 1
+  LEFT JOIN messages next ON next.task_id = m.task_id AND next.idx = m.idx + 1
+WHERE c.task_id IN (SELECT task_id FROM (Qdrant top-K results))
+ORDER BY score
+LIMIT 20;
+```
+→ chunks + leurs voisins immédiats + metadata parent, dans un seul query Postgres.
+
+#### 7. Migration & backward compat
+
+- **Phase 2 (implémentation)** :
+  - Script `migrate-skeletons-to-gdrive.ts` : itère Tier 1 local de chaque machine, copie `.skeletons/*.json` vers `.shared-state/skeletons/<machineId>/`, upserte Qdrant.
+  - Script `migrate-to-postgres.ts` : export metadata Qdrant chunks → Postgres `conversations` + `messages` inserts (idempotent).
+  - Qdrant payload migration : ajouter `message_id` à chunks existants (backfill depuis Postgres après import).
+  - Setup Postgres : install ai-01, replicas po-2024/po-2026, replication slots.
+- **Lecture v1 archives** : `TaskArchiver.readArchivedTask()` reste fallback ; archives .json.gz existantes (Tier 3) accessibles via path actuel pendant 30j.
+- **Suppression `enableClaudeTier` / `enableArchiveTier` flags** : reportée à ADR de cleanup ultérieure.
 
 ### Acceptance criteria — vérification
 
 | Critère | Mécanisme | Estimation |
 |---------|-----------|-----------|
-| Latence read < 500ms (warm) | Cache Map mémoire | < 5ms (mesure cache hit existant) |
-| Latence read < 500ms (cold) | GDrive read 1 fichier ~10KB | 100–300ms typique GDrive desktop |
-| Latence write < 2s | Atomic write + Qdrant upsert async | local : <10ms ; GDrive throttled : best-effort ; Qdrant : <200ms p95 |
-| Toutes sources supportées | Format identique `ConversationSkeleton`, payload `source` | Acquis (TaskArchiver couvre déjà Roo + Claude Code JSONL) |
-| Backward compat 30j | Migration script + lecture Tier 3 archives existantes | Acquis pendant fenêtre, suppression Tier 3 deferred |
+| Latence read < 500ms (warm) | Cache Map mémoire | < 5ms |
+| Latence read < 500ms (cold) | GDrive read 1 fichier ~10KB | 100–300ms typique |
+| Latence search 2-step | Qdrant ANN < 200ms + Postgres JOIN < 100ms | < 350ms total |
+| Write < 2s | Atomic write + Qdrant/Postgres upsert async | local : <10ms ; GDrive throttled : best-effort ; Qdrant : <200ms p95 |
+| Toutes sources supportées | Format identique `ConversationSkeleton`, payload `source` | Acquis |
+| Backward compat 30j | Migration script + lecture Tier 3 archives | Acquis pendant fenêtre |
 
 ---
 
@@ -184,9 +314,9 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
 - **Nouvelle infrastructure** : Postgres signifie hosting, sauvegarde, ACLs, monitoring — pas de précédent dans la flotte.
 - **Qdrant payload-only** : Qdrant n'est pas un store général-purpose, payloads > 64KB pénalisent les performances index. Skeletons sont typiquement 5–30KB mais certains atteignent 100KB+ (longs résumés).
 - **Backward compat lourd** : aucune des données actuelles n'est dans Postgres → migration totale à faire d'un coup.
-- **SPOF** : si Postgres down, plus de skeleton du tout (vs Option D qui dégrade gracieusement).
+- **SPOF** : si Postgres down, plus de skeleton du tout (vs Option E qui dégrade gracieusement).
 
-**Verdict** : rejeté. Ajoute un composant infrastructure sans bénéfice par rapport à Qdrant+GDrive déjà en place et résilients.
+**Verdict** : rejeté en standalone. Partiellement réactivé en R43 comme **complément** à Qdrant (Option E), PAS comme remplacement.
 
 ### Option B — Index global GDrive (`tasks-index.json` append-only)
 
@@ -198,8 +328,8 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
 
 **Cons** :
 - **#2121 write storm reproduit** : 6 machines qui écrivent un même fichier index → conflicts GDrive sync, 0-byte files, dupes.
-- **Pas de query** : pour lister les tâches d'un workspace, il faut télécharger tout `tasks-index.json` (peut atteindre plusieurs MB après quelques mois) et filter côté client.
-- **Pas de recherche sémantique** : Qdrant aurait dû être conservé en parallèle, donc on n'évite pas la dépendance, on l'ajoute en doublon.
+- **Pas de query** : pour lister les tâches d'un workspace, il faut télécharger tout `tasks-index.json` et filter côté client.
+- **Pas de recherche sémantique** : Qdrant aurait dû être conservé en parallèle.
 
 **Verdict** : rejeté. Le pattern « append-only sur GDrive partagé entre 6 writers » est exactement ce qui a causé #2121.
 
@@ -212,27 +342,43 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
 - Lecture cold = 1 fichier GDrive (rapide).
 
 **Cons** :
-- **Discovery slow** : `rclone lsf` sur quelques milliers de fichiers prend 5–30s. Pour `conversation_browser(list)` ce n'est pas tenable.
+- **Discovery slow** : `rclone lsf` sur quelques milliers de fichiers prend 5–30s.
 - **Pas d'index sémantique** : retombe sur recherche textuelle ou refait Qdrant.
-- **N index locaux divergents** : chaque machine reconstruit le sien, source de bugs de cohérence (déjà vu sur `roosync_search` quand les caches divergent).
+- **N index locaux divergents** : source de bugs de cohérence.
 
-**Verdict** : rejeté pour la latence discovery. Conceptuellement proche d'Option D mais sans Qdrant, donc inférieur.
+**Verdict** : rejeté pour la latence discovery. Conceptuellement proche d'Option E mais sans Qdrant, donc inférieur.
 
-### Option D — Hybride Qdrant + GDrive (retenue)
+### Option D — Hybride Qdrant + GDrive (v1.0 — partiellement superseded)
+
+**Verdict v1.0** : retenue.
+
+**Verdict v2.0** : partiellement supersédée par Option E. Les composants GDrive + Qdrant skeleton-pointer sont conservés, mais l'architecture est enrichie avec Postgres metadata layer. Le "decommission Qdrant after 6 months" de R42 est supprimé (R43 : Qdrant permanent).
+
+**Pros conservés** :
+- Réutilise l'existant : Qdrant, TaskArchiver, SkeletonCacheService.
+- Pas de SPOF : Qdrant + GDrive + Postgres dégrade gracieusement.
+- Search sémantique : Qdrant ANN.
+
+**Nouveaux risques R43** :
+- **Synchronisation Qdrant ↔ Postgres** : si l'un crash, l'autre peut diverger. Mitigation : upsert atomique dans le writer path, retry sur les deux, job nightly reconcile.
+- **Complexité accrue** : 3 containers au lieu de 2. Mitigation : Postgres = metadata uniquement, Qdrant = embeddings uniquement. Séparation claire des responsabilités.
+- **2 requêtes pour une recherche** : Qdrant ANN + Postgres JOIN. User validated : perfs OK car Postgres lookup est indexé par PK (pas de scan).
+
+### Option E — Hybrid permanent Qdrant + Postgres + GDrive (retenue)
 
 **Pros** :
-- **Réutilise l'existant** : Qdrant déjà déployé, déjà partagé, déjà résilient. TaskArchiver et SkeletonCacheService déjà en place.
-- **Pas de SPOF** : si Qdrant down → fallback Tier 1 local + Tier 3 archives existantes. Si GDrive down → fallback Qdrant payload résumé (sans contenu complet, mais navigable).
-- **Search sémantique gratuit** : déjà disponible via Qdrant.
-- **Migration douce** : Tier 3 archives restent lisibles pendant la fenêtre 30j, suppression deferred.
-- **Latence claims tenables** : warm path cache Map < 5ms ; cold path GDrive < 500ms ; index Qdrant < 200ms.
+- **Qdrant garde son rôle** : embeddings + chunks raw. Pas de refonte, pas de migration de vectors.
+- **Postgres enrichit** : metadata structurée + messages adjacents → résultats de recherche bien plus utiles que des chunks nus.
+- **2-step query validé par user** : 2 requêtes dans 2 containers complémentaires, perfs OK (Postgres lookup indexé PK).
+- **Pas de SPOF** : Qdrant down → fallback GDrive + Postgres metadata. Postgres down → Qdrant ANN + GDrive (sans enrichissement, mais navigable). GDrive down → Qdrant + Postgres (sans skeleton complet, mais list + view via metadata).
+- **Migration progressive** : Qdrant existe déjà, Postgres s'ajoute sans casser l'existant.
 
 **Cons** :
-- **Couplage Qdrant accru** : si Qdrant index corrompu, conversation_browser dégradé. Mitigation : reconstruction Qdrant possible depuis GDrive + local (script de rebuild, pattern existant `roosync_indexing rebuild`).
-- **Throttle GDrive write peut masquer updates récents** : une tâche modifiée puis re-modifiée dans la fenêtre 30s ne flush que la dernière version sur GDrive. Acceptable : la cache Map locale a la dernière version pour la machine writer ; l'autre machine la verra au prochain Qdrant upsert (qui n'est pas throttled).
-- **Backward compat partielle pendant migration** : pendant Phase 2 (script de migration), il existe une fenêtre où certaines tâches sont sur Tier 3 .json.gz et d'autres sur nouveau path .json. Reader doit gérer les deux. Code complexity temporaire.
+- **3 containers à maintenir** au lieu de 2. Complexité opérationnelle plus élevée.
+- **Sync Qdrant↔Postgres** : écrire dans les 2 en même temps ajoute une étape dans le writer path. Mitigation : upsert async Postgres (non-bloquant pour Qdrant).
+- **Schema design** : Postgres ne stocke ni embeddings ni chunks lourds → schema minimaliste mais cohérent avec le besoin (metadata + structure).
 
-**Verdict** : retenue. Meilleur ratio bénéfice/risque sur infrastructure existante.
+**Verdict** : retenue. Meilleur ratio bénéfice/complexité. Qdrant conserve son expertise ANN, Postgres apporte la structure que Qdrant ne peut pas offrir.
 
 ---
 
@@ -240,43 +386,66 @@ Les options écartées sont conservées avec leur argumentaire (section *Alterna
 
 ### Bénéfices attendus
 
-- **Visibilité cross-machine par défaut** : plus besoin d'opt-in. Toutes les tâches deviennent navigables depuis n'importe quelle machine après ~10s (GDrive sync + cache reader).
-- **Sessions STUCK (#1822) visibles** : l'écriture skeleton est faite au fil de l'eau, pas seulement à l'archivage. Une session non terminée reste navigable.
-- **#2121 risk contenu** : throttle 30s + atomic write + path par-machine (`<machineId>/`) évitent les collisions multi-writer sur même fichier.
-- **EPIC #2190 débloqué** : vibe-conversation-browser peut s'appuyer sur cet index pour ses features de navigation cross-machine.
+- **Visibilité cross-machine par défaut** : plus besoin d'opt-in. Toutes les tâches navigables depuis n'importe quelle machine.
+- **Sessions STUCK (#1822) visibles** : skeleton écrit au fil de l'eau, pas seulement à l'archivage.
+- **#2121 risk contenu** : throttle 30s + atomic write + path par-machine.
+- **Recherche enrichie (2-step)** : résultats Qdrant + metadata Postgres + messages adjacents → bien plus utiles que chunks seuls.
+- **EPIC #2190 débloqué** : vibe-conversation-browser peut s'appuyer sur cette architecture hybride.
+- **Postgres metadata** : query SQL pour `conversations.model`, `conversations.workspace`, `messages.role`, `messages.tool_calls` → analytics et filtres avancés.
 
 ### Risques résiduels
 
-1. **Qdrant collection drift** : si un upsert échoue silencieusement, le skeleton existe sur GDrive mais pas dans l'index → orphelin. Mitigation : job nightly `rebuild-qdrant-from-gdrive`.
-2. **Concurrent overwrite par-machine** : deux processus de la même machine qui upsertent simultanément le même taskId. Mitigation : `SkeletonCacheService` est singleton, donc 1 process MCP par machine = pas de race interne. Si plusieurs processes (rare), `last-write-wins` accepté.
-3. **GDrive quota / latence dégradée** : pas d'observabilité en place. Mitigation : ajouter métrique `gdrive_write_throttled_count` au dashboard observability (#2186).
-4. **Migration partielle si une machine reste offline > 30j** : ses skeletons locaux ne sont pas copiés vers GDrive avant son retour. Acceptable car backward compat 30j ne s'étend pas aux machines mortes.
+1. **Qdrant collection drift** : upsert échoue silencieusement → skeleton sur GDrive mais pas dans l'index. Mitigation : job nightly `rebuild-qdrant-from-gdrive`.
+2. **Postgres ↔ Qdrant sync lag** : metadata Postgres slightly behind Qdrant chunks. Acceptable : write Postgres est async et non-bloquant.
+3. **Concurrent overwrite par-machine** : `SkeletonCacheService` singleton = 1 process MCP = pas de race interne.
+4. **Postgres SPOF local** : si machine hébergeant Postgres (ai-01) down, replicas ne sont plus accessibles. Mitigation : replicas sur `po-2024`/`po-2026` (read-only, pas d'écriture).
+5. **GDrive quota / latence** : ajout métrique `gdrive_write_throttled_count` au dashboard observability (#2186).
 
 ### Travail Phase 2 (hors scope de cet ADR)
 
 - Implémentation `SkeletonCacheService.upsertSkeleton()` avec throttle 30s + atomic write GDrive.
-- Création collection Qdrant `roo_skeletons_index` (script setup).
-- Migration script `migrate-skeletons-to-gdrive.ts` (idempotent, par-machine).
-- Adapter `conversation_browser(list/view)` pour query Qdrant en premier.
-- Tests vitest CI : write/read round-trip cross-machine simulé via tmp dirs.
+- Setup Postgres 16 sur ai-01 + replicas logical sur po-2024/po-2026.
+- Qdrant payload migration : ajouter `message_id` à chunks existants (backfill depuis Postgres).
+- Migration script `migrate-to-postgres.ts` : export metadata → Postgres inserts.
+- Adaptation `conversation_browser` pour search 2-step (Qdrant ANN + Postgres JOIN).
+- Tests vitest CI : write/read round-trip cross-machine + search 2-step validation.
 - Métrique observability sur dashboard listener (#2186).
 - Documentation `docs/harness/reference/conversation-browser-storage.md`.
 
 ### Travail Phase 3 (post-validation)
 
-- Suppression flags `enableClaudeTier` / `enableArchiveTier` (deviennent automatiques).
-- Suppression Tier 3 `.json.gz` archives au profit du nouveau path `.json` (après 30j de coexistence).
+- Suppression flags `enableClaudeTier` / `enableArchiveTier`.
+- Suppression Tier 3 `.json.gz` au profit du nouveau path `.json` (après 30j coexistence).
 - Job nightly Qdrant integrity check + rebuild from GDrive.
+- **Optionnel** : hot/cold rotation — nightly job archive `.jsonl.gz` vers GDrive, NULL heavy columns dans Postgres.
 
 ---
 
 ## Open questions (pour user review)
 
-1. **Throttle GDrive write 30s suffisant ?** Si une session change toutes les 5s pendant 1h, on perd 119 versions intermédiaires sur GDrive (mais on a la dernière + Qdrant log). Acceptable ?
-2. **Collection Qdrant séparée ou même que `roo_tasks_semantic_index` ?** Séparée évite la pollution mais coûte un setup. Recommandation actuelle : séparée.
-3. **Suppression hard à 30j ou tombstone éternel ?** Le mandate dit « backward compat 30j » mais ne dit pas si on peut purger après. Recommandation : tombstone éternel sur Qdrant (lookup), hard-delete sur GDrive à 90j (espace).
-4. **Qui exécute la migration Phase 2 ?** Coordinator ai-01 (1 fois), ou chaque machine via worker (parallel) ? Recommandation : worker par-machine pour éviter qu'une machine offline bloque la flotte.
+1. **Replication Postgres** : logical (par-table, plus flexible, peut répliquer subset) vs streaming (whole cluster, plus simple). Recommandation : logical pour pouvoir exclure des tables très volumineuses à l'avenir si besoin.
+
+2. **Postgres hosting sur ai-01** : container Docker vs install native. Docker = isolation + backup facile. Native = perf + simplicité. Recommandation : Docker pour faciliter la maintenance et les snapshots.
+
+3. **Backup retention Postgres** : quelle rétention pour les backups ? 7 jours (standard), 30 jours (compliance), 90 jours (long-term) ?
+
+4. **Failover procedure** : si ai-01 down, comment promouvoir un replica (`po-2024` ou `po-2026`) en master ? Procedure manuelle ou automatique ?
+
+5. **Qdrant payload `message_id` backfill** : les chunks existants n'ont pas `message_id`. Faut-il un script de backfill depuis les metadata Postgres après import ? Ou `message_id` nullable et rempli à la volée ? Recommandation : nullable au départ, backfill progressif.
+
+6. **Duplication texte messages** : Postgres `messages.content` et Qdrant `chunks.content` stockent du texte en doublon. Acceptable (quelques KB de duplication par message) ou préférer référence Qdrant dans Postgres ? Recommandation : dupliquer le texte dans Postgres (lookup plus rapide, pas besoin de Qdrant pour la lecture).
+
+7. **Throttle GDrive write 30s suffisant ?** Si une session change toutes les 5s pendant 1h, on perd 119 versions intermédiaires sur GDrive (mais on a la dernière + Qdrant log). Acceptable ?
 
 ---
 
 **Implementation tracking** : Phase 2 sera ouvert en sous-issue de #2191 après approbation de cet ADR. Phase 3 dépend de l'observabilité runtime issue de Phase 2.
+
+---
+
+## Version History
+
+| Version | Date | Change |
+|---------|------|--------|
+| v1.0 | 2026-05-15 | Option D — Hybride Qdrant + GDrive (R42) |
+| v2.0 | 2026-05-15 | Option E — Hybrid permanent Qdrant + Postgres + GDrive (R43 Scenario B). Supersede R42 "decommission Qdrant". Add Postgres metadata layer, 2-step search, schema definition, Qdrant payload `message_id` extension. |
