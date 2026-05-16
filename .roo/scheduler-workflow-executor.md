@@ -296,6 +296,23 @@ LIMITES : Auto-fix UNIQUEMENT pour schedules.json (règle claire). Tout autre pr
 > **Priorité** : Parasite cleanup si détecté, puis Consolidation si disponible, sinon Veille Active complementaire.
 > **Note :** La patrouille lecture seule principale est a l'Etape 2b-patrol. Cette etape est un complement.
 
+#### 1c-idle-0 : [PROPOSAL] obligatoire si IDLE (#2215)
+
+**Si aucune tâche n'a été exécutée dans ce cycle (pas de 1a, pas de 1b-2 issue claimée) :**
+
+Poster **exactement 1** `[PROPOSAL]` sur le dashboard workspace avant toute autre action idle :
+
+```
+roosync_dashboard(action: "append", type: "workspace", tags: ["PROPOSAL", "roo-scheduler"], content: "[PROPOSAL] {MACHINE} IDLE — Suggestion: {contenu de la proposition}")
+```
+
+**Contenu de la proposition** (choisir parmi) :
+1. Un domaine d'exploration pertinent (voir Option 2 ci-dessous)
+2. Une observation faite pendant le setup/1b-1 (build anomalies, config drift, etc.)
+3. Une suggestion d'amélioration harnais basée sur une friction observée ce cycle
+
+**Max 1 PROPOSAL par cycle.** Si un PROPOSAL a déjà été posté ce cycle, ne pas repost.
+
 #### Option 0 : Détection Parasite (#1526, PRIORITAIRE)
 
 **Avant toute autre action idle**, scanner le working dir pour fichiers parasites :
@@ -344,6 +361,20 @@ Déléguer UNE consolidation à `code-simple` via `new_task`.
 #### Option 2 : Veille Active complementaire (si pas de consolidation)
 
 **RÈGLES STRICTES :** LECTURE SEULE. 1 seule exploration par session. Pas de commit/push. Auto-fix INTERDIT (Mandate #1886).
+
+**Sélection pseudo-random déterministe (#2216) :** Au lieu de parcourir les domaines séquentiellement, utiliser un hash du timestamp pour sélectionner un domaine aléatoirement mais de façon reproductible :
+
+```
+DOMAIN_INDEX=$(( $(date +%s) % 9 + 1 ))
+```
+
+Ou en PowerShell :
+
+```
+$domainIndex = ([int](Get-Date -UFormat %s) % 9) + 1
+```
+
+Le domaine sélectionné par ce calcul est celui à explorer ce cycle. Ne pas le contourner.
 
 **Domaines d'exploration :**
 
