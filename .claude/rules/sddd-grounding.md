@@ -1,7 +1,7 @@
 # Regles SDDD - Grounding Conversationnel (Roo)
 
-**Version:** 3.0.0 (condensed from 2.1.0, aligned with .claude/rules/sddd-grounding.md)
-**MAJ:** 2026-04-08
+**Version:** 4.0.0 (#2218 codebase_search SDDD bookend generalisé)
+**MAJ:** 2026-05-16
 
 ## Triple Grounding
 
@@ -53,10 +53,35 @@ roosync_search(action: "semantic", search_query: "...", has_errors: true, start_
 
 ## Pattern Bookend (OBLIGATOIRE)
 
-**`codebase_search` en DEBUT et FIN de chaque tache significative.**
+**`codebase_search` en DEBUT et FIN de chaque tache significative (>50 LOC ou >3 fichiers).**
 
 - **Debut :** Eviter de refaire un travail deja fait, comprendre le contexte.
+  - Trouver la documentation existante (README, CLAUDE.md, docs/, ADRs)
+  - Verifier que la tache n'a pas deja ete faite
+  - Identifier le contexte : qui a travaille dessus, quelles decisions ont ete prises
 - **Fin :** Confirmer que le travail est indexe et retrouvable.
+  - S'assurer que le travail est coherent avec le reste du projet
+  - Mettre a jour la documentation afferente si le travail la rend obsolete
+
+## Wiki Karpathy / SDDD Documentaire
+
+Apres chaque tache significative, si `codebase_search` en debut a trouve de la documentation existante :
+- **Verifier** qu'elle est toujours a jour
+- **Mettre a jour** si le travail l'a rendue obsolete
+- **Documenter** les decisions prises et les approches rejetees
+
+Ce pattern est analogue au "wiki Karpathy" : documenter comprehensivement ce qu'on apprend en construisant.
+
+## Complementarite Grep vs codebase_search
+
+| Besoin | Outil |
+|--------|-------|
+| Symbole exact, nom de fonction | `Grep` |
+| Fichier par pattern | `Glob` |
+| Concept, documentation, contexte | `codebase_search` |
+| Historique conversations | `roosync_search(semantic)` |
+
+`Grep` trouve des strings exacts mais pas les concepts. `codebase_search` decouvre la documentation meme sans connaitre les mots exacts.
 
 ## codebase_search — Protocole Multi-Pass
 
@@ -82,11 +107,12 @@ roosync_search(action: "semantic", search_query: "...", has_errors: true, start_
 
 ## Workflow SDDD
 
-1. **Semantique** : `codebase_search` (Pass 1→2) + `roosync_search(semantic)`
-2. **Conversationnel** : `conversation_browser(list)` → IDs → `view(skeleton)`
-3. **Technique** : `read_file`, `search_files`
-4. **Travail** : Implementer/corriger/documenter
-5. **Bookend FIN** : `codebase_search` validation
+1. **Bookend DEBUT** : `codebase_search` pour trouver docs existantes et verifier doublons
+2. **Semantique** : `codebase_search` (Pass 1→2) + `roosync_search(semantic)`
+3. **Conversationnel** : `conversation_browser(list)` → IDs → `view(skeleton)`
+4. **Technique** : `read_file`, `search_files`
+5. **Travail** : Implementer/corriger/documenter
+6. **Bookend FIN** : `codebase_search` pour confirmer indexation + mettre a jour doc afferente
 
 ---
 **Historique versions completes :** Git history avant 2026-04-08

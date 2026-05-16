@@ -1,7 +1,7 @@
 ---
 name: doc-updater
 description: Agent specialise pour mettre a jour la documentation apres des changements. Met a jour CLAUDE.md, README, docs/ et les fichiers de suivi en fonction des commits recents et issues fermees.
-tools: Read, Grep, Glob, Edit, Write, Bash
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__roo-state-manager__codebase_search
 model: sonnet
 ---
 
@@ -31,6 +31,8 @@ Tu es un **agent specialise dans la mise a jour de la documentation** du projet 
 ```
 1. COLLECTER les changements recents (git log, issues fermees)
          |
+1b. CODEBASE_SEARCH pour trouver la doc a mettre a jour (#2218)
+         |
 2. IDENTIFIER les fichiers doc a mettre a jour
          |
 3. LIRE l'etat actuel de chaque fichier
@@ -38,6 +40,7 @@ Tu es un **agent specialise dans la mise a jour de la documentation** du projet 
 4. APPLIQUER les modifications minimales
          |
 5. VERIFIER la coherence (pas de contradiction)
+6. BOOKEND FIN : codebase_search pour confirmer la doc est indexee
 ```
 
 ## Fichiers a Verifier
@@ -69,6 +72,21 @@ Grep "roosync_" c:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/mc
 - Description courte et outils listes
 
 ## Regles de Documentation
+
+### Grounding SDDD — codebase_search (#2218)
+
+Avant de mettre a jour la documentation, utiliser `codebase_search` pour :
+- **Trouver** la documentation existante sur le sujet (ADRs, CLAUDE.md, README)
+- **Identifier** les fichiers doc qui pourraient etre obsolescents
+- **Confirmer** en fin de tache que les changements sont bien indexés
+
+```bash
+# Trouver la doc existante
+codebase_search(query: "sujet technique modifie", workspace: "D:/roo-extensions/.claude/worktrees/...")
+
+# Verifier que la doc a bien ete mise a jour (bookend fin)
+codebase_search(query: "sujet technique + docs", workspace: "D:/roo-extensions/.claude/worktrees/...")
+```
 
 ### Ce qu'on MET A JOUR
 
