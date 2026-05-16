@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Test script for Claude Worker escalation (model-based)
-    Validates that escalation correctly switches model: haiku -> sonnet -> opus
+    Validates that escalation correctly switches model: haiku -> sonnet (capped)
     Decoupled from Roo modes-config.json since 2026-03-06
+    Opus removed from auto-escalation 2026-05-16 (Anthropic Max policy change)
 #>
 
 $RepoRoot = Resolve-Path "$PSScriptRoot\..\.."
@@ -22,7 +23,7 @@ function Assert-Equal {
 }
 
 # ============================================================================
-# Test 1: Model escalation chain (haiku -> sonnet -> opus)
+# Test 1: Model escalation chain (haiku -> sonnet, opus excluded 2026-05-16)
 # ============================================================================
 Write-Host "=== Test 1: Model Escalation Chain ===" -ForegroundColor Cyan
 
@@ -30,15 +31,15 @@ function Get-EscalatedModel {
     param([string]$CurrentModel)
     switch ($CurrentModel) {
         "haiku"  { return "sonnet" }
-        "sonnet" { return "opus" }
-        "opus"   { return $null }
+        "sonnet" { return $null }   # Capped — opus excluded from auto-escalation (Anthropic Max policy)
+        "opus"   { return $null }   # Manual override only
         default  { return "sonnet" }
     }
 }
 
 Assert-Equal "haiku escalates to sonnet" "sonnet" (Get-EscalatedModel "haiku")
-Assert-Equal "sonnet escalates to opus" "opus" (Get-EscalatedModel "sonnet")
-Assert-Equal "opus is max (no escalation)" $null (Get-EscalatedModel "opus")
+Assert-Equal "sonnet capped (no escalation to opus)" $null (Get-EscalatedModel "sonnet")
+Assert-Equal "opus is terminal (manual override only)" $null (Get-EscalatedModel "opus")
 Assert-Equal "unknown defaults to sonnet" "sonnet" (Get-EscalatedModel "unknown")
 
 # ============================================================================
@@ -75,7 +76,7 @@ if ($escalateToModel) {
 Assert-Equal "Auto-escalate haiku -> sonnet" "sonnet" $Model
 $Model = $OriginalModel
 
-# Scenario C: Auto-escalate sonnet -> opus
+# Scenario C: sonnet is capped (no auto-escalation to opus per Anthropic Max policy)
 $Model = "sonnet"
 $OriginalModel = $Model
 $escalateToModel = $null
@@ -86,10 +87,10 @@ if ($escalateToModel) {
     $NextModel = Get-EscalatedModel -CurrentModel $Model
     if ($NextModel) { $Model = $NextModel }
 }
-Assert-Equal "Auto-escalate sonnet -> opus" "opus" $Model
+Assert-Equal "Sonnet capped (stays sonnet, no auto-escalate)" "sonnet" $Model
 $Model = $OriginalModel
 
-# Scenario D: Already at opus, no escalation possible
+# Scenario D: Already at opus, no escalation possible (manual override only)
 $Model = "opus"
 $OriginalModel = $Model
 $escalateToModel = $null
@@ -100,7 +101,7 @@ if ($escalateToModel) {
     $NextModel = Get-EscalatedModel -CurrentModel $Model
     if ($NextModel) { $Model = $NextModel }
 }
-Assert-Equal "Opus stays at opus (no escalation)" "opus" $Model
+Assert-Equal "Opus stays at opus (terminal)" "opus" $Model
 $Model = $OriginalModel
 
 # ============================================================================
