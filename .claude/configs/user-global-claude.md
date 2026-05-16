@@ -169,7 +169,31 @@ MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboa
 
 `codebase_search` en DEBUT et FIN de chaque tache significative.
 - **Debut :** Eviter de refaire un travail deja fait, comprendre le contexte.
+  - Trouver la documentation existante (README, CLAUDE.md, docs/, ADRs)
+  - Identifier le contexte : qui a travaille dessus, quelles decisions ont ete prises
 - **Fin :** Confirmer que le travail est indexe et retrouvable.
+  - S'assurer que le travail est coherent avec le reste du projet
+  - Mettre a jour la documentation afferente si le travail la rend obsolète
+
+### Wiki Karpathy / SDDD Documentaire
+
+Apres chaque tache significative, si `codebase_search` en debut a trouve de la documentation existante :
+- **Verifier** qu'elle est toujours a jour
+- **Mettre a jour** si le travail l'a rendue obsolète
+- **Documenter** les decisions prises et les approches rejetées
+
+Ce pattern est analogue au "wiki Karpathy" : documenter comprehensivement ce qu'on apprend en construisant.
+
+### Complémentarité Grep vs codebase_search
+
+| Besoin | Outil |
+|--------|-------|
+| Symbole exact, nom de fonction | `Grep` |
+| Fichier par pattern | `Glob` |
+| Concept, documentation, contexte | `codebase_search` |
+| Historique conversations | `roosync_search(semantic)` |
+
+`Grep` trouve des strings exacts mais pas les concepts. `codebase_search` decouvre la documentation meme sans connaitre les mots exacts.
 
 ### codebase_search — Protocole Multi-Pass
 

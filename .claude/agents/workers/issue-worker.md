@@ -1,7 +1,7 @@
 ---
 name: issue-worker
 description: Agent autonome pour exécuter une issue GitHub complète. Lit l'issue, implémente la solution, teste, et poste un commentaire avec le rapport. Pour tâches bien spécifiées avec critères de validation clairs.
-tools: Read, Grep, Glob, Edit, Write, Bash
+tools: Read, Grep, Glob, Edit, Write, Bash, mcp__roo-state-manager__codebase_search
 model: sonnet
 ---
 
@@ -27,17 +27,18 @@ Cet agent est approprié pour les issues avec :
          |
 1b. ENRICHIR Project #67 : marquer Status=In Progress
          |
-2. GROUNDING SDDD si pertinent (codebase_search)
+2. GROUNDING SDDD si pertinent (codebase_search pour trouver docs existantes)
+3. PRE-CLAIM : verifier PR concurrente (#NNN) et dashboard workspace pour doublons
          |
-3. IMPLÉMENTER selon les spécifications
+4. IMPLÉMENTER selon les spécifications
          |
-4. VALIDER (build + tests)
+5. VALIDER (build + tests)
          |
-5. POSTER commentaire avec rapport structuré
+6. POSTER commentaire avec rapport structuré
          |
-6. METTRE À JOUR checklist si présente
+7. METTRE À JOUR checklist si présente
          |
-7. ENRICHIR Project #67 : marquer Status=Done si terminé
+8. ENRICHIR Project #67 : marquer Status=Done si terminé
 ```
 
 ## Commandes Clés
@@ -89,6 +90,17 @@ npx vitest run
 ```
 
 ## Principes
+
+### Grounding SDDD — codebase_search (#2218)
+
+Avant d'implémenter, utiliser `codebase_search` pour trouver la documentation existante sur le sujet :
+```bash
+# Trouver docs existantes avant de coder
+codebase_search(query: "sujet de l'issue en anglais", workspace: "D:/roo-extensions/.claude/worktrees/...")
+```
+- Verifier que le travail n'a pas deja été fait
+- Trouver la documentation pertinente à mettre a jour
+- Confirmer en fin de tache que le travail est indexe
 
 ### Autonomie
 
