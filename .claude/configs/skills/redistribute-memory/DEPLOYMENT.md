@@ -1,18 +1,27 @@
-# Déploiement redistribute-memory v2.1
+# Déploiement redistribute-memory v3.0 (V2 — 5 Tiers)
 
-**Date:** 2026-02-19
-**Issue:** #490
-**Version:** 2.1.0
+**Date:** 2026-05-16
+**Issue:** #2223
+**Version:** 3.0.0
 
 ## Objectif
 
-Mettre à jour le skill `redistribute-memory` sur toutes les machines pour la restructuration des connaissances.
+Déployer le skill `redistribute-memory` V2 (5 tiers, 6 antipatterns, dry-run par défaut) sur toutes les machines.
+
+## Changements v2.1 → v3.0
+
+- **5 tiers** au lieu de la hiérarchie plate précédente (T1-T5)
+- **6 antipatterns** formalisés (AP1-AP6)
+- **dry-run par défaut** — aucun changement sans validation user
+- **T3 (rules) = sacré** — jamais modifié sans validation explicite par action
+- **T5 (MEMORY.md) = préservé** — aucune suppression de leçons
+- **Multi-workspace** — fonctionne sur roo-extensions, CoursIA, et tout workspace
+- **Phase 0 d'auto-détection** — résout automatiquement les chemins
 
 ## Prérequis
 
-- [ ] `git pull` sur toutes les machines (commit 853259b5+)
-- [ ] Vérifier que le skill existe déjà dans `.claude/configs/skills/redistribute-memory/`
-- [ ] Vérifier que le fichier `SKILL.md` contient la version 2.1.0
+- [ ] `git pull` sur toutes les machines
+- [ ] Vérifier que le fichier `.claude/skills/redistribute-memory/SKILL.md` contient la version 3.0.0
 
 ## Instructions de déploiement
 
@@ -21,71 +30,48 @@ Mettre à jour le skill `redistribute-memory` sur toutes les machines pour la re
 1. **Mise à jour du skill :**
    ```bash
    git pull
-   # Vérifier que le fichier existe
-   ls .claude/configs/skills/redistribute-memory/SKILL.md
-   # Vérifier la version
-   grep "Version:" .claude/configs/skills/redistribute-memory/SKILL.md
-   # Attendre : "Version: 2.1.0 (2026-02-19)"
+   grep "Version:" .claude/skills/redistribute-memory/SKILL.md
+   # Attendre : "3.0.0 (2026-05-16)"
    ```
 
-2. **Exécuter le skill :**
+2. **Premier passage dry-run :**
    ```
-   /redistribute-memory
+   "redistribue la mémoire"  # → dry-run, audit + plan sans exécution
    ```
 
-3. **Rapport :** Envoyer le rapport multi-workspace au coordinateur (myia-ai-01) via RooSync
+3. **Valider et exécuter (si applicable) :**
+   ```
+   "applique ACTION-1 et ACTION-3"  # → exécute les actions validées
+   ```
 
-4. **Nettoyage local :**
-   - Nettoyer `MEMORY.md` local (retirer contenu périmé)
-   - Vérifier que les configs globales (`~/.claude/`) sont à jour vs templates
+4. **Rapport :** Le skill poste automatiquement sur le dashboard workspace
 
 ### Sur myia-ai-01 (coordinateur)
 
-1. **Mise à jour du skill :** (même procédure que ci-dessus)
-
-2. **Extraction CLAUDE.md :**
-   - Extraire ~800 lignes de `CLAUDE.md` en rules (voir plan dans SKILL.md)
-   - Créer les fichiers rules suivants :
-     - `docs/roo-code/SCHEDULER_SYSTEM.md` (~300L)
-     - `.claude/rules/validation.md` (~80L) [anciennement validation-checklist.md, fusionné #724]
-     - `docs/roosync/agents-architecture.md` (~150L)
-     - `MCP_SETUP.md` (~100L)
-   - Retirer la section GitHub Projects (doublon avec .roo/rules)
-
-3. **Nettoyage :**
-   - Nettoyer `PROJECT_MEMORY.md` (métriques obsolètes)
-   - Mettre à jour `~/.claude/CLAUDE.md` (user global) si contenu universel identifié
-
-4. **Consolidation :**
-   - Consolider les rapports des 5 machines
-   - Vérifier la cohérence globale
-
-5. **Déploiement :**
-   - Déployer les configs globales mises à jour
-   - Vérifier que toutes les machines ont bien reçu les mises à jour
+1. Tester le skill sur **roo-extensions** ET **CoursIA** (critère d'acceptation)
+2. Consolider les rapports des machines
+3. Vérifier la cohérence globale
 
 ## Livrables attendus
 
-- CLAUDE.md projet < 600 lignes (objectif : 500)
-- MEMORY.md < 150 lignes sur chaque machine
-- Nouveaux fichiers rules créés
-- Rapports multi-workspace de chaque machine
-- Configs globales mises à jour
+- Skill V2 déployé (3.0.0)
+- Doc de référence : `docs/harness/reference/redistribute-memory-skill.md`
+- Rapport de premier passage sur ai-01 / roo-extensions (avant/après tiers)
+- Rapport de premier passage sur ai-01 / CoursIA
 
 ## Vérification
 
 Après déploiement, vérifier :
-- [ ] Version du skill : 2.1.0
-- [ ] CLAUDE.md < 600 lignes
-- [ ] MEMORY.md < 150 lignes
-- [ ] Tous les fichiers rules créés
-- [ ] Rapports reçus des 5 machines
-- [ ] Git status clean (aucun fichier non commité)
+- [ ] Version du skill : 3.0.0
+- [ ] 5 tiers correctement détectés sur chaque workspace
+- [ ] 6 antipatterns détectés lors du dry-run
+- [ ] Dry-run ne modifie aucun fichier
+- [ ] T3 (rules) jamais touché sans validation user
+- [ ] Doc de référence créée
 
 ## Rollback
 
 Si problème détecté :
-1. Annuler les changements de CLAUDE.md
-2. Restaurer les anciens fichiers rules
-3. Revenir à la version précédente du skill
-4. Reporter le problème via INTERCOM
+1. `git revert` le commit de déploiement
+2. Restaurer la version 2.1.0 du skill
+3. Reporter le problème via dashboard workspace
