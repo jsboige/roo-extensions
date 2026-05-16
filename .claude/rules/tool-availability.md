@@ -24,11 +24,11 @@
 |-----|--------|------|
 | playwright | 22 | Automation web |
 | markitdown | 1 | Conversion documents |
-| searxng | 2 | Recherche web (searxng_web_search, web_url_read) |
+| **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
 
 ## Retires (NE DOIVENT PAS exister)
 
-desktop-commander, github-projects-mcp, quickfiles
+desktop-commander, github-projects-mcp, quickfiles, web_reader (crash claudish/GLM — remplace par searxng, #2210)
 
 ## STOP & REPAIR
 
