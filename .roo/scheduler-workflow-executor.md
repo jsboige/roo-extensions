@@ -363,23 +363,31 @@ Après exploration → **Étape 2**
 
 ---
 
-## Étape 2 : Rapport + Terminer (OBLIGATOIRE)
+## Étape 2 : Rapport Substantiel + Terminer (OBLIGATOIRE)
 
 > **Budget délégation (#2068) :** Cette étape ne crée PAS de nouvelle délégation. Le rapport est posté par la délégation de l'Étape 1 (tâche), OU par l'orchestrateur via attempt_completion.
 >
-> **CRITIQUE** : Le rapport est la seule trace du passage du scheduler.
+> **CRITIQUE** : Le rapport est la seule trace du passage du scheduler. Il DOIT être substantiel (#2217).
 
 **Si une tâche a été exécutée à l'Étape 1 (1a ou 1b) :** Le rapport doit avoir été inclus dans la délégation de tâche. Ajouter à TOUTE délégation de tâche l'instruction :
 
 ```
-APRES avoir terminé la tâche, poster le bilan sur le dashboard WORKSPACE :
-roosync_dashboard(action: "append", type: "workspace", tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"], content: "### [{MACHINE}] Bilan scheduler executor\n\nGit: {OK/erreur} | Build: {OK/FAIL} | Tests: {X}p/{Y}f\nTâches: {N} ({source}) | Erreurs: {aucune ou description 1 ligne}")
+APRES avoir terminé la tâche, poster le bilan SUBSTANTIEL sur le dashboard WORKSPACE :
+
+Le rapport DOIT contenir les 4 sections OBLIGATOIRES (#2217) :
+1. **Build/Tests** : build OK/FAIL + nombre tests pass/fail (même si non exécuté ce cycle → "non run")
+2. **Issues/PRs examinées** : nombre d'issues lues + nombre de PRs reviewées
+3. **Veille active** : résultat patrol (OK/détails problème) OU "non requise (<1h)"
+4. **Observation** : 1 constat technique, suggestion, ou friction détectée (JAMAIS vide)
+
+Template :
+roosync_dashboard(action: "append", type: "workspace", tags: ["{DONE|IDLE|PARTIEL}", "roo-scheduler"], content: "### [{MACHINE}] Bilan Cycle {N}\n\n**Build/Tests :** {OK/Xp/Yf | FAIL: détails | non run}\n**Issues/PRs :** {N} issues examinées, {M} PRs reviewées\n**Veille :** {patrol OK | patrol détails | non requise (<1h)}\n**Observation :** {1 constat ou suggestion}\n\nTâches : {N} ({source}) | Erreurs : {aucune ou description}")
 ```
 
 **Si STOP (pre-flight échec ou aucune tâche exécutée) :** Poster le rapport directement via attempt_completion :
 
 ```
-attempt_completion(result: "[{MACHINE}] Cycle executor terminé. Bilan: {RÉSUMÉ}. Dashboard: {OK/non posté}")
+attempt_completion(result: "[{MACHINE}] Cycle executor terminé.\n\nBuild/Tests: {non run — pre-flight FAIL}\nIssues/PRs: 0\nVeille: non requise (STOP)\nObservation: {cause du STOP}\n\nDashboard: {OK/non posté}")
 ```
 
 ### Étape 3 : TERMINER le cycle (OBLIGATOIRE)
