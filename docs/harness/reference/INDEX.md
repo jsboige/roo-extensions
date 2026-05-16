@@ -53,3 +53,4 @@
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `machine-specific/myia-web1-constraints.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
+| **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |

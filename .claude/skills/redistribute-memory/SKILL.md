@@ -1,6 +1,6 @@
 ---
 name: redistribute-memory
-description: Audite et redistribue les connaissances, règles et mémoires entre les niveaux de configuration Claude Code et Roo Code. Utilise ce skill quand CLAUDE.md est saturé, quand les règles sont mal placées, ou pour nettoyer la configuration. Phrase déclencheur : "/redistribute-memory", "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md".
+description: Audite et redistribue les connaissances entre 5 niveaux de hiérarchie. Détecte les antipatterns, propose un plan de redistribution, et exécute après validation. Utilisable sur tout workspace. Phrase déclencheur : "/redistribute-memory", "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md".
 triggers:
   keywords:
     - "redistribue mémoire"
@@ -10,625 +10,437 @@ triggers:
     - "nettoie CLAUDE.md"
     - "redistribute memory"
     - "CLAUDE.md saturé"
+    - "audit tiers"
   exact:
     - "redistribute"
   patterns:
-    - "(redistribu|audit|nettoye?).{0,15}(memoire|regles|rules|CLAUDE)"
-  priority: low
+    - "(redistribu|audit|nettoye?).{0,15}(memoire|regles|rules|CLAUDE|tiers)"
 metadata:
   author: "Roo Extensions Team"
-  version: "2.0.0"
+  version: "3.0.0"
+  issue: "#2223"
   compatibility:
     surfaces: ["claude-code", "claude.ai"]
-    restrictions: "Requiert accès aux fichiers de configuration Claude/Roo"
+    workspaces: ["roo-extensions", "CoursIA", "any"]
+    restrictions: "Requiert accès aux fichiers de configuration Claude/Roo. dry-run par défaut."
 ---
 
-# Skill : Redistribution Memoire & Regles
+# Skill : Redistribution Mémoire V2 — 5 Tiers
 
-**Version:** 2.0.0 (2026-02-19)
-**Usage:** `/redistribute-memory` ou "redistribue la memoire", "audite les regles", "nettoie CLAUDE.md"
-
-Ce skill audite et redistribue les connaissances, regles et memoires entre les differents niveaux de configuration de Claude Code et Roo Code.
-
----
-
-## Objectif
-
-Les informations s'accumulent dans des fichiers qui ne sont pas toujours au bon niveau. Ce skill :
-1. Inventorie tous les fichiers de memoire/regles/instructions
-2. Analyse le contenu pour identifier les mauvais placements, doublons et saturation
-3. Propose des deplacements/consolidations/creations de fichiers
-4. Applique les changements apres validation utilisateur
-
-**Seuils d'alerte :**
-- `CLAUDE.md` (projet) > 500 lignes → EXTRAIRE des sections en rules
-- `MEMORY.md` (auto) > 150 lignes → TRONQUE dans le system prompt, risque perte
-- Rules individuels > 150 lignes → TROP VERBEUX, condenser
-- Doublons entre niveaux → DEDUPLICATION obligatoire
+**Version:** 3.0.0 (2026-05-16)
+**Issue:** #2223
+**Usage:** `/redistribute-memory` ou "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md"
 
 ---
 
-## Niveaux de configuration
+## Les 5 Tiers
 
-### Claude Code
+| Tier | Fichier | Scope | Chargement | Mutabilité |
+|------|---------|-------|------------|------------|
+| **T1** Machine Global | `~/.claude/CLAUDE.md` | Toutes sessions, tous workspaces | Auto | Faible (template git) |
+| **T2** Workspace Projet | `{workspace}/CLAUDE.md` | Ce workspace | Auto | Moyen (git) |
+| **T3** Workspace Rules | `{workspace}/.claude/rules/*.md` | Ce workspace | Auto | **SACRÉ** — validation user obligatoire |
+| **T4** Workspace Deferred | `{workspace}/docs/harness/reference/*.md` (ou équivalent) | Ce workspace | Lazy (`Read`) | Élevé (git, docs) |
+| **T5** Machine+Workspace Memory | `~/.claude/projects/{slug}/memory/MEMORY.md` + `*.md` | Machine+workspace | Auto-injecté | Élevé (local) |
 
-| Niveau | Fichier | Portee | Versionne |
-|--------|---------|--------|-----------|
-| **User global** | `~/.claude/CLAUDE.md` | Toutes les sessions, tous les projets | Non (local) |
-| **Project instructions** | `{workspace}/CLAUDE.md` | Ce projet, toutes les sessions | Oui (git) |
-| **Project rules** | `{workspace}/.claude/rules/*.md` | Ce projet, regles auto-chargees | Oui (git) |
-| **Auto-memory** | `~/.claude/projects/{project-slug}/memory/MEMORY.md` | Ce projet, privee a cette machine | Non (local) |
-| **Auto-memory (topics)** | `~/.claude/projects/{project-slug}/memory/*.md` | Sous-fichiers de memoire par topic | Non (local) |
-| **Shared memory** | `{workspace}/.claude/memory/PROJECT_MEMORY.md` | Ce projet, partagee via git | Oui (git) |
-
-### Roo Code
-
-| Niveau | Fichier | Portee | Versionne |
-|--------|---------|--------|-----------|
-| **Rules** | `{workspace}/.roo/rules/*.md` | Toutes les conversations Roo | Oui (git) |
-| **Rules orchestrator** | `{workspace}/.roo/rules-orchestrator/*.md` | Orchestrateur uniquement | Oui (git) |
-| **Modes** | `{workspace}/.roomodes` (genere) | Modes disponibles | Oui (git) |
-| **Mode config** | `roo-config/modes/modes-config.json` | Source des modes | Oui (git) |
-| **Settings** | `roo-config/settings/settings.json` | Preferences | Oui (git) |
-| **Scheduler workflows** | `{workspace}/.roo/scheduler-workflow-*.md` | Instructions scheduler | Oui (git) |
-
-### Fichiers supplementaires (roo-extensions)
-
-| Niveau | Fichier | Portee | Versionne |
-|--------|---------|--------|-----------|
-| **Machine overrides** | `.claude/machines/{machine}/CLAUDE.md` | Instructions specifiques machine | Oui (git) |
-| **Global configs source** | `.claude/configs/**/*` | Templates deployables vers `~/.claude/` | Oui (git) |
-| **Feedback system** | `.claude/feedback/*.md` | Log des propositions d'amelioration | Oui (git) |
-| **INTERCOM local** | `.claude/local/INTERCOM-*.md` | Communication Roo local (gitignore) | Non |
-| **Guides standalone** | `.claude/ESCALATION_MECHANISM.md`, `bootstrap-checklist.md` | Docs techniques | Oui (git) |
+**Règle absolue :** T3 (rules) = sacré. Jamais de modification sans validation user explicite.
 
 ---
 
-## Workflow en 4 phases
+## Workflow — 5 Phases
 
-### Phase 0 : Vérification Préalable (NOUVEAU)
+### Phase 0 : Auto-détection
 
-**CRITIQUE :** Vérifier que le fichier global `~/.claude/CLAUDE.md` existe et est à jour.
-
-**0a. Vérifier l'existence du fichier global :**
-```
-Read: ~/.claude/CLAUDE.md
-```
-
-**Si le fichier n'existe pas ou est vide (< 50 lignes) :**
-```
-1. Lire le template : Read: {workspace}/.claude/configs/user-global-claude.md
-2. Proposer à l'utilisateur : "Le fichier ~/.claude/CLAUDE.md n'existe pas ou est vide. Veux-tu le créer depuis le template ?"
-3. Si oui, copier le template vers ~/.claude/CLAUDE.md
-4. Documenter dans le rapport : "Fichier global créé depuis template (336 lignes)"
-```
-
-**Si le fichier existe mais est obsolète :**
-```
-1. Comparer les dates de modification
-2. Si template > fichier global de plus de 30 jours : proposer mise à jour
-3. Afficher les différences principales (sections nouvelles/retirées)
-```
-
-**Raison :** Sans fichier global correctement déployé, toute redistribution est inefficace. Les règles universelles (Git, safety, tool discipline) doivent être présentes pour que les règles de projet soient correctement hiérarchisées.
-
----
-
-### Phase 1 : Inventaire
-
-Collecter TOUS les fichiers de memoire/regles dans le workspace courant, les niveaux utilisateur, ET tous les autres workspaces de cette machine.
+**Objectif :** Identifier la machine, le workspace, et résoudre les chemins des 5 tiers.
 
 **Actions :**
 
-1. **Claude Code - Workspace courant :**
-   ```
-   Glob: {workspace}/CLAUDE.md
-   Glob: {workspace}/.claude/rules/*.md
-   Glob: {workspace}/.claude/memory/*.md
-   Glob: {workspace}/.claude/agents/**/*.md
-   Glob: {workspace}/.claude/skills/*/SKILL.md
-   Glob: {workspace}/.claude/commands/*.md
-   Glob: {workspace}/.claude/configs/**/*.md
-   ```
-
-2. **Claude Code - User level :**
-   ```
-   Read: ~/.claude/CLAUDE.md (doit exister après Phase 0)
-   Read: ~/.claude/settings.json (permissions, MCPs)
-   Glob: ~/.claude/agents/**/*.md (agents globaux deployes)
-   Glob: ~/.claude/skills/*/SKILL.md (skills globaux deployes)
-   Glob: ~/.claude/commands/*.md (commands globaux deployes)
-   Glob: ~/.claude/projects/*/memory/MEMORY.md
-   Glob: ~/.claude/projects/*/memory/*.md
-   ```
-
-3. **Roo Code - Workspace courant :**
-   ```
-   Glob: {workspace}/.roo/rules/*.md
-   Read: {workspace}/.roomodes
-   Read: roo-config/modes/modes-config.json (si existe)
-   Read: roo-config/settings/settings.json (si existe)
-   ```
-
-4. **Decouverte des autres workspaces (SCAN COMPLET) :**
-
-   **4a. Decoder les slugs de projets Claude :**
-   ```bash
-   # Lister tous les projets connus
-   ls ~/.claude/projects/
-   # Chaque dossier est un slug : d--roo-extensions → D:\roo-extensions
-   # Decodage : remplacer '--' par ':/' (racine) puis '-' par '/' ou '\' (separateur)
-   ```
-
-   **4b. Pour chaque workspace decouvert, scanner :**
-   ```
-   # Memoire privee de ce workspace (dans ~/.claude/projects/{slug}/)
-   Read: ~/.claude/projects/{slug}/memory/MEMORY.md
-   Glob: ~/.claude/projects/{slug}/memory/*.md
-   Read: ~/.claude/projects/{slug}/settings.json (permissions locales)
-
-   # Fichiers locaux du workspace (dans le dossier workspace lui-meme)
-   Read: {workspace_path}/CLAUDE.md (si existe)
-   Glob: {workspace_path}/.claude/rules/*.md
-   Glob: {workspace_path}/.claude/memory/*.md
-   Glob: {workspace_path}/.claude/agents/**/*.md
-   Glob: {workspace_path}/.claude/skills/*/SKILL.md
-   Glob: {workspace_path}/.claude/commands/*.md
-   Glob: {workspace_path}/.roo/rules/*.md (si Roo present)
-   ```
-
-   **4c. Decoder un slug de projet :**
-
-   Le slug encode le chemin absolu du workspace. Regles de decodage :
-   - Premiere lettre + `--` = lettre de lecteur + `:\` (Windows). Ex: `d--` → `D:\`
-   - `-` simple = separateur de chemin `\`. Ex: `roo-extensions` → `roo-extensions` (pas de sous-dossier)
-   - Quand ambiguite (tiret dans nom vs separateur) : verifier l'existence du chemin
-
-   Exemples courants :
-   | Slug | Chemin |
-   |------|--------|
-   | `d--roo-extensions` | `D:\roo-extensions` |
-   | `d--Open-WebUI-myia-open-webui` | `D:\Open-WebUI\myia-open-webui` |
-   | `d--qdrant` | `D:\qdrant` |
-   | `d--vllm` | `D:\vllm` |
-   | `g--Mon-Drive-Maintenance` | `G:\Mon Drive\Maintenance` |
-
-   **Astuce :** Utiliser `Test-Path` pour valider les chemins ambigus :
-   ```powershell
-   # Tester si le chemin existe
-   Test-Path "D:\Open-WebUI\myia-open-webui"
-   ```
+```
+1. Machine : hostname ou $env:COMPUTERNAME
+2. Workspace : répertoire courant (process.cwd() ou pwd)
+3. Slug : encoder le chemin workspace en slug Claude Code
+   - Windows : D:\roo-extensions → d--roo-extensions
+   - Règle : lettre lecteur minuscule + "--" + chemin avec "-" pour séparateurs
+4. Résoudre les chemins :
+   T1 = ~/.claude/CLAUDE.md
+   T2 = {workspace}/CLAUDE.md
+   T3 = {workspace}/.claude/rules/*.md
+   T4 = {workspace}/docs/harness/reference/*.md  (ou équivalent projet)
+   T5 = ~/.claude/projects/{slug}/memory/MEMORY.md + *.md
+5. Vérifier l'existence de chaque tier (Glob/Read)
+```
 
 **Output :**
 ```
-## Inventaire
-
-### Claude Code
-| Fichier | Taille | Lignes | Derniere MAJ |
-|---------|--------|--------|-------------|
-| CLAUDE.md | 25KB | 700 | 2026-02-07 |
-| .claude/rules/test-success-rates.md | 1KB | 40 | ... |
-| ...
-
-### Roo Code
-| Fichier | Taille | Lignes | Derniere MAJ |
-| ...
-
-### Memoire privee
-| Fichier | Taille | Lignes |
-| ...
+## Auto-détection
+- Machine: myia-po-2025
+- Workspace: D:\roo-extensions
+- Slug: d--roo-extensions
+- T1: C:\Users\jsboi\.claude\CLAUDE.md (exists, N lignes)
+- T2: D:\roo-extensions\CLAUDE.md (exists, N lignes)
+- T3: D:\roo-extensions\.claude\rules\ (N fichiers)
+- T4: D:\roo-extensions\docs\harness\reference\ (N fichiers)
+- T5: C:\Users\jsboi\.claude\projects\d--roo-extensions\memory\ (N fichiers)
 ```
 
-### Phase 2 : Analyse (avec grounding SDDD)
+### Phase 1 : Audit des 5 Tiers
 
-**Methodologie :** Triple grounding SDDD (voir `.claude/rules/sddd-conversational-grounding.md`).
+**Objectif :** Collecter volume, contenu, et métriques pour chaque tier.
 
-**2-preambule. Grounding semantique (chercher les connaissances non documentees) :**
+**Actions :**
+
+Pour chaque tier, collecter :
+- Nombre de fichiers
+- Lignes totales / taille en KB
+- Dernière date de modification
+- Sections thématiques (titres markdown)
+
 ```
-codebase_search(query: "lessons learned patterns conventions", workspace: "d:\\roo-extensions")
-roosync_search(action: "semantic", search_query: "lecons apprises decisions architecture")
+# T1 - Machine Global
+Read: ~/.claude/CLAUDE.md
+
+# T2 - Workspace Projet
+Read: {workspace}/CLAUDE.md
+
+# T3 - Workspace Rules (LECTURE SEULE)
+Glob: {workspace}/.claude/rules/*.md
+# Pour chaque fichier : compter lignes, lister sections
+
+# T4 - Workspace Deferred
+Glob: {workspace}/docs/**/*.md (ou équivalent)
+# Identifier les docs de référence existants
+
+# T5 - Memory
+Read: ~/.claude/projects/{slug}/memory/MEMORY.md
+Glob: ~/.claude/projects/{slug}/memory/*.md
 ```
-But : Trouver des connaissances enfouies dans le code ou les conversations Roo qui n'ont jamais ete formalisees dans les fichiers de memoire/regles.
 
-**2-preambule-b. Grounding conversationnel (traces Roo recentes) :**
+**Métriques collectées :**
 ```
-conversation_browser(action: "tree", output_format: "ascii-tree")
+| Tier | Fichiers | Lignes | Taille | Dernière MAJ |
+|------|----------|--------|--------|-------------|
+| T1 | 1 | N | N KB | YYYY-MM-DD |
+| T2 | 1 | N | N KB | YYYY-MM-DD |
+| T3 | N | N | N KB | YYYY-MM-DD |
+| T4 | N | N | N KB | YYYY-MM-DD |
+| T5 | N | N | N KB | YYYY-MM-DD |
 ```
-But : Identifier les taches Roo recentes dont les resultats/lecons n'ont pas ete captures.
 
-Pour chaque fichier, analyser le contenu et identifier :
+**Seuils d'alerte :**
+- T2 (CLAUDE.md projet) > 500 lignes → **SATURATION** — candidat extraction vers T3/T4
+- T3 (rules) fichier individuel > 150 lignes → **VERBOSE** — candidat condensation
+- T5 (MEMORY.md) > 200 lignes → **TRUNCATION RISK** — candidat stabilisation vers T4 ou PROJECT_MEMORY
+- Doublons entre tiers → **REDONDANCE**
 
-**2a. Doublons et contradictions :**
-- Meme information dans CLAUDE.md ET une rule
-- Meme regle dans `.claude/rules/` ET `.roo/rules/`
-- Information dans MEMORY.md qui devrait etre dans CLAUDE.md (ou vice-versa)
+### Phase 2 : Détection d'Antipatterns
 
-**2b. Mauvais placements :**
+**Objectif :** Identifier les problèmes de placement et de structure.
 
-| Contenu | Devrait etre dans | Pas dans |
-|---------|-------------------|----------|
-| Preferences utilisateur permanentes | `~/.claude/CLAUDE.md` (user) | CLAUDE.md project |
-| Regles techniques du projet | `.claude/rules/*.md` ou `.roo/rules/*.md` | CLAUDE.md (trop gros) |
-| Etat transitoire (issues, commits) | `MEMORY.md` (auto-memory) | CLAUDE.md |
-| Architecture/conventions stables | `CLAUDE.md` project | MEMORY.md |
-| Instructions de build/test | `.claude/rules/test-success-rates.md` | CLAUDE.md |
-| Lessons learned recentes | `MEMORY.md` | CLAUDE.md (sauf si stable) |
-| Conventions partagees multi-machines | `.claude/memory/PROJECT_MEMORY.md` | MEMORY.md local |
-| Info specifique machine | `MEMORY.md` local | PROJECT_MEMORY.md partage |
+#### Antipattern 1 : Connaissance machine dupliquée dans le workspace
 
-**2c. Taille et complexite :**
-- CLAUDE.md > 500 lignes = candidat a l'extraction de rules
-- MEMORY.md > 200 lignes = tronque dans le system prompt, risque perte
-- Rules > 100 lignes = trop verbeux, condenser
+**Détection :** Comparer T1 et T2. Chercher les sections identiques ou quasi-identiques.
 
-**2d. Information perimee :**
-- Etat qui ne correspond plus a la realite (commits, issues fermees)
-- Sections "Current State" avec dates > 7 jours
-- Lessons learned qui sont maintenant dans les rules
+```
+Pour chaque section de T2 :
+  Si la même information existe dans T1 → FLAG (duplication T1↔T2)
+  Question : "Est-ce que cette info serait utile dans UN AUTRE workspace ?"
+  Si oui → doit être dans T1, pas T2
+```
 
-**2e. Contenu universel mal place (CRITIQUE) :**
-Pour chaque regle/lecon dans CLAUDE.md project, MEMORY.md, et PROJECT_MEMORY.md, poser la question :
-**"Est-ce que cette regle serait utile dans un AUTRE workspace ?"**
+**Exemples typiques :**
+- Git workflow dans CLAUDE.md projet alors que déjà dans `~/.claude/CLAUDE.md`
+- Tool discipline (Read before Edit, test commands) dupliqué
+- PowerShell/Windows gotchas dupliqué
 
-Si oui → elle doit aller dans `~/.claude/CLAUDE.md` (user global) via le template `.claude/configs/user-global-claude.md`.
+#### Antipattern 2 : Connaissance workspace remontée à tort dans T1
 
-Categories typiquement universelles :
-- Git workflow (pull strategy, commits, submodules, force push)
-- Tool discipline (Read before Edit, test commands, build verification)
-- Investigation methodology (code > docs, announce work)
-- Safety rules (backup, no secrets, verify before delete)
-- OS/platform gotchas (PowerShell BOM, line endings, paths)
-- Knowledge preservation (consolidation, memory hierarchy)
-- Terminology (definitions de l'utilisateur applicables partout)
+**Détection :** Comparer T1 et T2. Chercher les infos spécifiques au projet dans T1.
 
-**2f. Agents, Skills et Commands cross-workspace (CRITIQUE) :**
-Pour chaque agent, skill et command du workspace :
-**"Est-ce generique (tout projet) ou specifique (ce projet uniquement) ?"**
+```
+Pour chaque section de T1 :
+  Contient-elle des chemins, noms de repo, ou concepts spécifiques à un projet ?
+  Si oui → FLAG (T1 contamination)
+  Action : Déplacer vers T2 du workspace concerné
+```
 
-1. **Inventorier :**
-   ```
-   Glob: {workspace}/.claude/agents/**/*.md
-   Glob: {workspace}/.claude/skills/*/SKILL.md
-   Glob: {workspace}/.claude/commands/*.md
-   ```
+#### Antipattern 3 : Procédures longues dans T2 au lieu de T4
 
-2. **Pour chaque element, verifier :**
-   - Contient-il des chemins hardcodes specifiques au projet ? (ex: `mcps/internal/servers/...`)
-   - Contient-il des noms de projets/repos specifiques ? (ex: `roo-extensions`, `jsboige`)
-   - La methodologie est-elle universelle ? (applicable a tout projet)
+**Détection :** Sections de T2 qui sont des procédures détaillées ou de la documentation technique.
 
-3. **Classifier :**
-   | Type | Critere | Action |
-   |------|---------|--------|
-   | Generique pur | Aucune reference projet-specifique | → `.claude/configs/{type}s/` (template global) |
-   | Generalisable | Refs specifiques mais methodo universelle | → Creer version generique + override projet |
-   | Projet-specifique | Intrinsequement lie au projet | → Rester au niveau projet |
+```
+Pour chaque section de T2 :
+  Longueur > 30 lignes ET nature = procédure/documentation technique ?
+  Si oui → FLAG (deferred candidate)
+  Action : Extraire vers T4 (docs/), laisser un résumé 3-5 lignes dans T2
+```
 
-4. **Pour les autres workspaces (scan systematique, pas optionnel) :**
-   - Decoder les slugs de projets via Phase 1, etape 4c
-   - Pour chaque workspace accessible (Test-Path) :
-     - Lire CLAUDE.md, chercher agents/skills/commands
-     - Lire `.claude/local/` (INTERCOM, notes locales)
-     - Identifier les patterns ou workflows qui meritent un agent/skill generique
-     - Verifier si les templates globaux deployes seraient utiles dans ces workspaces
+**Exemples :**
+- Configuration MCP détaillée → `docs/harness/reference/mcp-setup.md`
+- Procédure de build complète → `docs/harness/reference/build-procedure.md`
+- Architecture détaillée → `docs/harness/reference/architecture.md`
 
-5. **Deployer les templates generiques :**
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1
-   ```
+#### Antipattern 4 : Rules redondantes (T3)
 
-6. **Requalifier les overrides projet :**
-   Pour chaque element qui a une version generique ET une version projet, ajouter :
-   ```markdown
-   > **Override projet** : Surcharge la version globale `~/.claude/{type}s/{name}/`.
-   > Template generique : `.claude/configs/{type}s/{name}/`
-   ```
+**Détection :** Comparer les paires de fichiers dans T3.
+
+```
+Pour chaque paire de fichiers T3 :
+  Chevauchement de contenu > 30% ?
+  Si oui → FLAG (rules redondantes)
+  ATTENTION : signaler UNIQUEMENT, ne jamais modifier sans validation user explicite
+```
+
+#### Antipattern 5 : MEMORY.md topic files orphelins
+
+**Détection :** Vérifier que chaque fichier topic dans T5 est référencé.
+
+```
+Pour chaque fichier dans T5 (sauf MEMORY.md) :
+  Rechercher son nom dans MEMORY.md (index)
+  S'il n'est pas référencé → FLAG (topic orphelin)
+  Action : Intégrer dans l'index MEMORY.md ou merger son contenu
+```
+
+#### Antipattern 6 : Contenu obsolète
+
+**Détection :** Chercher les marqueurs d'obsolescence.
+
+```
+Pour chaque tier :
+  - "Current State" avec date > 14 jours → STALE
+  - Références à des issues fermées (gh issue view N --json state) → STALE
+  - Métriques qui ne correspondent plus à la réalité → STALE
+  - Sections "TODO" ou "FIXME" anciennes → STALE
+```
+
+**Output Phase 2 :**
+```
+## Antipatterns détectés
+
+| # | Antipattern | Tier | Contenu | Action proposée |
+|---|------------|------|---------|----------------|
+| 1 | T1↔T2 duplication | T2 | Git workflow (lignes X-Y) | Retirer de T2, déjà dans T1 |
+| 2 | Deferred candidate | T2 | Procédure MCP (lignes X-Y, 80L) | Extraire vers docs/ |
+| 3 | Topic orphelin | T5 | memory/docker.md | Ajouter au index MEMORY.md |
+| ... | ... | ... | ... | ... |
+```
+
+### Phase 3 : Plan de Redistribution (dry-run)
+
+**Objectif :** Produire un plan concret. **AUCUNE exécution sans validation user.**
+
+**Format du plan :**
+```
+## Plan de Redistribution — {MACHINE} / {WORKSPACE}
+
+### Résumé
+- N antipatterns détectés
+- N actions proposées
+- Volume estimé : ±N lignes par tier
+
+### Actions proposées
+
+#### ACTION-1 : [Déplacer|Dédupliquer|Déférer|Indexer|Nettoyer]
+- **Source :** Tier X, fichier, lignes A-B
+- **Destination :** Tier Y, fichier
+- **Contenu :** [résumé 1 ligne]
+- **Raison :** [pourquoi]
+- **Impact :** [ce qui change]
+- **Risque :** [faible|moyen|élevé]
+- **Requiert validation T3 :** [oui|non]
+
+#### ACTION-2 : ...
+
+### Total par tier
+| Tier | Avant | Après | Delta |
+|------|-------|-------|-------|
+| T1 | N lignes | N lignes | ±N |
+| T2 | N lignes | N lignes | ±N |
+| T3 | N fichiers | N fichiers | ±N |
+| T4 | N fichiers | N fichiers | ±N |
+| T5 | N fichiers | N fichiers | ±N |
+
+### Validation requise
+- [ ] ACTION-1 : [description]
+- [ ] ACTION-2 : [description]
+- ...
+- [ ] Confirmer les modifications T3 (si applicable)
+```
+
+**Règles du plan :**
+1. **T3 (rules) :** Toute action touchant T3 requiert une validation user explicite par action. Pas de batch approval.
+2. **T5 (MEMORY.md) :** Jamais de suppression de leçons. Seulement déplacement (vers PROJECT_MEMORY.md ou T4) ou stabilisation.
+3. **T4 (docs) :** Création libre. Le contenu déplacé de T2 est préservé intégralement.
+4. **Token savings :** Mentionné si naturel (déduplication, déport docs). Jamais agressif.
+
+### Phase 4 : Exécution (après validation)
+
+**Objectif :** Appliquer les actions validées.
+
+**Pour chaque action validée :**
+
+```
+1. Read le fichier source (vérifier que le contenu est toujours là)
+2. Read le fichier destination (si existe, pour append/merge)
+3. Exécuter la transformation :
+   - DÉPLACER : Write destination + Edit source (retirer section)
+   - DÉDUPLIQUER : Edit source (retirer doublon)
+   - DÉFÉRER : Write destination dans T4 + Edit T2 (remplacer par résumé 3-5 lignes + lien Read)
+   - INDEXER : Edit MEMORY.md (ajouter référence au topic file)
+   - NETTOYER : Edit fichier (retirer contenu obsolète)
+4. Vérifier la cohérence (re-Read si nécessaire)
+```
 
 **Output :**
 ```
-## Analyse
+## Changements appliqués
 
-### Doublons detectes : X
-| Contenu | Present dans | Action |
-|---------|-------------|--------|
-| "npx vitest run" | CLAUDE.md + rules/test-success-rates.md + MEMORY.md | Garder rules/test-success-rates.md, retirer des autres |
-
-### Mauvais placements : Y
-| Contenu | Actuellement dans | Devrait etre dans | Raison |
-|---------|------------------|-------------------|--------|
-| Issue tracker | CLAUDE.md | MEMORY.md | Etat transitoire |
-
-### Fichiers trop gros : Z
-| Fichier | Lignes | Limite | Action |
-|---------|--------|--------|--------|
-| CLAUDE.md | 700 | 500 | Extraire sections en rules |
-
-### Info perimee : W
-| Contenu | Fichier | Raison |
-|---------|---------|--------|
-| "Git: f4630171" | MEMORY.md | Commit obsolete |
-```
-
-### Phase 3 : Proposition
-
-Generer un plan de redistribution concret :
-
-```
-## Plan de redistribution
-
-### Deplacements proposes
-
-1. CLAUDE.md → .claude/rules/roosync-protocol.md
-   Extraire la section "RooSync MCP - Configuration" (lignes X-Y)
-   Raison : Regle technique, pas instruction de haut niveau
-
-2. CLAUDE.md → .claude/rules/scheduler.md
-   Extraire la section "Taches Planifiees Roo" (lignes X-Y)
-   Raison : Documentation technique du scheduler
-
-3. MEMORY.md : Retirer section "Issue Tracker"
-   Raison : Etat transitoire, consulter GitHub directement
-
-4. MEMORY.md → .claude/memory/PROJECT_MEMORY.md
-   Deplacer "Lessons Learned" stables
-   Raison : Partageable entre machines via git
-
-### Validation utilisateur requise
-- [ ] Approuver les deplacements ci-dessus
-- [ ] Confirmer la creation de nouveaux fichiers rules
-- [ ] Valider les suppressions de contenu perime
-```
-
-**IMPORTANT : NE RIEN APPLIQUER SANS VALIDATION UTILISATEUR EXPLICITE.**
-
-### Phase 4 : Application
-
-Apres validation, appliquer les changements :
-
-1. Creer les nouveaux fichiers rules (Write)
-2. Retirer le contenu deplace des fichiers source (Edit)
-3. Mettre a jour les references croisees
-4. Nettoyer le contenu perime
-5. Verifier la coherence finale
-
-**Output :**
-```
-## Changements appliques
-
-| Action | Fichier | Detail |
+| Action | Fichier | Détail |
 |--------|---------|--------|
-| Cree | .claude/rules/scheduler.md | Extrait de CLAUDE.md |
-| Modifie | CLAUDE.md | -200 lignes (sections extraites) |
-| Modifie | MEMORY.md | Retire etat perime |
-| ...
+| ACTION-1 | T2/CLAUDE.md | -80 lignes (section MCP extraite) |
+| ACTION-1 | T4/docs/.../mcp-setup.md | +85 lignes (nouveau fichier) |
+| ACTION-2 | T5/MEMORY.md | +2 lignes (index mis à jour) |
+| ... | ... | ... |
 
-### Verification
-- CLAUDE.md : X lignes (avant: Y)
-- MEMORY.md : X lignes (avant: Y)
-- Nouveaux fichiers : Z
+### Vérification non-régression
+- T2 : N lignes (avant: M, delta: -K)
+- T4 : N+1 fichiers (avant: N)
+- T5 : N fichiers (inchangé)
+- T3 : NON MODIFIÉ (sacré)
+- Agents scheduled : peuvent toujours accéder l'info via Read ciblé
+```
+
+### Phase 5 : Rapport
+
+**Objectif :** Documenter le résultat.
+
+```
+## Rapport Redistribution — {MACHINE} / {WORKSPACE}
+**Date :** YYYY-MM-DD
+**Mode :** [dry-run | exec]
+
+### Avant
+| Tier | Lignes | Fichiers |
+|------|--------|----------|
+| T1 | N | 1 |
+| T2 | N | 1 |
+| T3 | N | N |
+| T4 | N | N |
+| T5 | N | N |
+
+### Après
+| Tier | Lignes | Fichiers | Delta |
+|------|--------|----------|-------|
+| T1 | N | 1 | ±0 |
+| T2 | N-M | 1 | -M |
+| T3 | N | N | 0 (sacré) |
+| T4 | N+K | N+1 | +K |
+| T5 | N | N | ±0 |
+
+### Antipatterns
+- N/6 résolus
+- N restants (raison)
+
+### Prochaines actions recommandées
+- [Action spécifique pour prochaine session]
+```
+
+Poster ce rapport sur le dashboard workspace :
+```
+roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "Rapport redistribution V2...")
 ```
 
 ---
 
-## Scan multi-workspace complet
+## Mode dry-run (défaut)
 
-Le scan multi-workspace est integre dans Phase 1 (etape 4) et Phase 2. Ce scan est **systematique** (pas optionnel) pour une redistribution vraiment globale.
+**Par défaut, le skill s'exécute en mode dry-run :** Phases 0-3 + Phase 5 (rapport dry-run). Phase 4 n'est exécutée QUE si l'utilisateur valide explicitement.
 
-### Decouverte automatique des workspaces
-
-```powershell
-# 1. Lister les projets Claude Code connus
-$projects = Get-ChildItem "$env:USERPROFILE\.claude\projects" -Directory
-
-# 2. Decoder chaque slug en chemin workspace
-foreach ($p in $projects) {
-    $slug = $p.Name
-    # d--roo-extensions → D:\roo-extensions
-    # Premier caractere = lettre lecteur, -- = :\
-    $drive = $slug[0].ToString().ToUpper()
-    $rest = $slug.Substring(3) -replace '-', '\'
-    $path = "${drive}:\$rest"
-    # Valider l'existence
-    if (Test-Path $path) { Write-Host "OK: $path" }
-}
-```
-
-**Note :** Le decodage des slugs peut etre ambigu (tirets dans les noms de dossiers). Toujours valider avec `Test-Path`.
-
-### Ce que le scan collecte pour chaque workspace
-
-| Niveau | Ce qui est scanne | Informations extraites |
-|--------|-------------------|------------------------|
-| **Memoire privee** | `~/.claude/projects/{slug}/memory/*.md` | Lessons learned, etat courant, patterns |
-| **Instructions projet** | `{path}/CLAUDE.md` | Architecture, conventions, regles |
-| **Rules projet** | `{path}/.claude/rules/*.md` | Regles techniques auto-chargees |
-| **Memoire partagee** | `{path}/.claude/memory/*.md` | Connaissances multi-machines |
-| **Agents projet** | `{path}/.claude/agents/**/*.md` | Agents specifiques au projet |
-| **Skills projet** | `{path}/.claude/skills/*/SKILL.md` | Skills specifiques |
-| **Commands projet** | `{path}/.claude/commands/*.md` | Commands specifiques |
-| **Fichiers locaux** | `{path}/.claude/local/*` | INTERCOM, notes locales |
-| **Roo rules** | `{path}/.roo/rules/*.md` | Regles Roo si present |
-| **Roo modes** | `{path}/.roomodes` | Modes configures |
-
-### Analyse cross-workspace
-
-Pour chaque paire de workspaces, identifier :
-
-1. **Doublons de regles** : Meme regle dans CLAUDE.md de 2+ workspaces → factoriser dans `~/.claude/CLAUDE.md`
-2. **Agents/skills reutilisables** : Agent projet-specifique qui serait utile ailleurs → creer template global
-3. **Lessons learned universelles** : Dans MEMORY.md d'un workspace mais applicable partout
-4. **Patterns de configuration** : Memes rules dans plusieurs workspaces → factoriser au niveau user
-5. **XP non capturee** : Workspace sans CLAUDE.md ou sans rules → y a-t-il de l'XP dans MEMORY.md a propager ?
-
-### Rapport multi-workspace
-
-**Output attendu :**
-```markdown
-## Scan Multi-Workspace - {MACHINE_NAME}
-
-### Workspaces detectes : N
-| Workspace | Chemin | CLAUDE.md | Rules | Agents | Skills | MEMORY.md |
-|-----------|--------|-----------|-------|--------|--------|-----------|
-| roo-extensions | D:\roo-extensions | 700L | 3 | 12 | 5 | 180L |
-| Open-WebUI | D:\Open-WebUI\... | - | - | - | - | 20L |
-| qdrant | D:\qdrant | - | - | - | - | 15L |
-| ... | ... | ... | ... | ... | ... | ... |
-
-### XP a redistribuer
-| Source | Contenu | Destination proposee | Raison |
-|--------|---------|---------------------|--------|
-| qdrant/MEMORY.md | "Always check collection exists before insert" | ~/.claude/CLAUDE.md | Regle universelle |
-| Open-WebUI/MEMORY.md | "Docker compose logs -f for debugging" | ~/.claude/CLAUDE.md | Workflow universel |
-
-### Agents/Skills a globaliser
-| Element | Workspace source | Reutilisable? | Action |
-|---------|------------------|---------------|--------|
-| validate | roo-extensions | Oui (deja global) | ✅ Deja deploye |
-| ... | ... | ... | ... |
-```
-
-### Execution multi-machines (via RooSync)
-
-Ce skill est concu pour etre execute sur CHAQUE machine du reseau.
-Chaque agent envoie son rapport via RooSync au coordinateur qui consolide.
-
-**Workflow multi-machines :**
-1. Coordinateur envoie message RooSync `[TASK] Executer redistribute-memory scan complet`
-2. Chaque agent execute le skill localement (Phase 1-2-3)
-3. Chaque agent envoie le rapport multi-workspace via RooSync
-4. Coordinateur consolide les rapports de toutes les machines
-5. Coordinateur propose les factorisations cross-machines (Phase 3 consolidee)
-6. Apres validation utilisateur, deployer les templates globaux (Phase 4)
+**Invocation :**
+- "redistribue la mémoire" → dry-run (Phases 0-3 + rapport)
+- "redistribue et applique" ou "exécute la redistribution" → dry-run + Phase 4 après validation
+- L'utilisateur peut valider des actions individuelles : "applique ACTION-1 et ACTION-3"
 
 ---
 
-## Criteres de placement (reference)
+## Critères de placement — Reference rapide
 
-### Va dans `~/.claude/CLAUDE.md` (user global)
+### T1 — `~/.claude/CLAUDE.md` (Machine Global)
+**Critère : utile dans TOUT workspace.**
 
-**Critere cle : est-ce utile dans TOUT workspace, pas seulement celui-ci ?**
+- Terminologie (définitions utilisateur)
+- Git best practices (commits, conflits, submodules, force push)
+- Tool discipline (Read before Edit, test commands)
+- Methodology investigation (code > docs)
+- Safety (backup, no secrets)
+- OS gotchas (PowerShell BOM, CRLF)
+- Knowledge preservation (consolidation, memory hierarchy)
 
-Exemples de contenu qui DOIT etre ici :
-- Definitions terminologiques (ex: "consolider" = analyser + merger + archiver)
-- Preferences de style (langue, format, emojis)
-- Git best practices (conflict resolution manuelle, conventional commits, never force push)
-- Claude Code tool discipline (Read before Edit, test commands non-bloquants)
-- Methodology investigation (code source > docs, annoncer travail avant)
-- Knowledge preservation (consolider avant fin de session)
-- Safety rules (backup avant destructif, jamais de secrets en git)
-- Windows/PowerShell gotchas (BOM, Join-Path 2 args, CRLF)
-- Submodule workflow (commit interne d'abord)
+### T2 — `{workspace}/CLAUDE.md` (Workspace Projet)
+**Critère : spécifique au projet, haut niveau.**
 
-**Verification a chaque audit :** Relire le CLAUDE.md project et MEMORY.md pour identifier les lecons
-qui sont formulees comme specifiques au projet mais en realite universelles.
-Demander : "Est-ce que cette regle serait utile si je travaillais sur un autre projet ?"
-
-**Propagation inter-machines :**
-- **Source git :** `.claude/configs/user-global-claude.md` dans le repo **roo-extensions**
-- **Deploye vers :** `~/.claude/CLAUDE.md` (local, pas dans git, s'applique a TOUS les workspaces)
-- **Workflow :** Modifier le template dans roo-extensions, commit+push, chaque machine pull et copie
-- **Commande :** `Copy-Item .claude/configs/user-global-claude.md $env:USERPROFILE\.claude\CLAUDE.md`
-- **Verif :** Comparer le deploye vs template : `diff ~/.claude/CLAUDE.md .claude/configs/user-global-claude.md`
-
-### Va dans `{workspace}/CLAUDE.md` (project)
 - Architecture du projet
-- Roles et responsabilites (multi-agent)
-- Canaux de communication (RooSync, INTERCOM)
-- Vue d'ensemble du systeme
+- Canaux de communication
+- Vue d'ensemble du système
+- Raccourcis vers docs (résumés 3-5 lignes + "Voir docs/... pour détails")
 
-### Va dans `.claude/rules/*.md` (project rules)
-- Regles de test (`test-success-rates.md`)
-- Regles GitHub CLI (`github-cli.md`)
-- Protocoles techniques (scheduler, RooSync)
+### T3 — `{workspace}/.claude/rules/*.md` (Workspace Rules) — SACRÉ
+**Critère : règles techniques auto-chargées.**
+
+- Protocoles techniques
 - Conventions de code
+- Checklist validation
+- Restriction d'accès / sécurité
 
-### Va dans `MEMORY.md` (auto-memory, privee)
-- Etat courant (commits, issues, progression)
-- Lessons learned recentes (non encore stabilisees)
-- Info specifique a cette machine
-- Contexte de session
+### T4 — `{workspace}/docs/harness/reference/` (Workspace Deferred)
+**Critère : documentation détaillée, procédures, références.**
 
-### Va dans `.claude/memory/PROJECT_MEMORY.md` (shared)
-- Lessons learned stabilisees (validees sur >3 sessions)
-- Conventions partagees multi-machines
-- Decisions architecturales documentees
+- Procédures de build/deploy
+- Documentation MCP détaillée
+- Architecture détaillée
+- Guides opérationnels
+- Post-mortems
 
-### Va dans `.roo/rules/*.md` (Roo rules)
-- Instructions pour Roo (pas Claude)
-- Restrictions d'outils Roo
-- Protocole INTERCOM cote Roo
-- Validation et securite cote Roo
+### T5 — `~/.claude/projects/{slug}/memory/` (Machine+Workspace Memory)
+**Critère : état transitoire, lessons learned récentes.**
 
----
-
-## Diagnostic rapide (NOUVEAU v2.0)
-
-Avant de lancer le workflow complet, un diagnostic rapide identifie les urgences :
-
-```
-1. Compter les lignes de chaque fichier cle :
-   - CLAUDE.md (projet) > 500 ? → ALERTE SATURATION
-   - MEMORY.md (auto) > 150 ? → ALERTE TRUNCATION
-   - PROJECT_MEMORY.md > 300 ? → ALERTE BALLONNEMENT
-
-2. Verifier les doublons evidents :
-   - Meme section dans CLAUDE.md ET dans .claude/rules/ ?
-   - Meme info dans MEMORY.md ET dans PROJECT_MEMORY.md ?
-   - Instructions Roo dans fichiers Claude et vice-versa ?
-
-3. Verifier la fraicheur :
-   - "Current State" avec dates > 7 jours ? → PERIME
-   - Issues fermees encore listees comme actives ? → STALE
-   - Metriques (tests, tools) qui ne correspondent plus ? → DECALE
-```
-
-### Actions correctives typiques pour CLAUDE.md sature
-
-Si CLAUDE.md > 500 lignes, extraire dans cet ordre de priorite :
-
-| Section a extraire | Vers | Raison |
-|--------------------|------|--------|
-| Systeme de scheduler (~300 lignes) | `docs/roo-code/SCHEDULER_SYSTEM.md` | Documentation technique, pas instructions de haut niveau |
-| GitHub Projects / GraphQL (~60 lignes) | Deja dans `docs/guides/GITHUB_CLI.md` | DOUBLON : retirer de CLAUDE.md |
-| Checklist validation technique (~80 lignes) | `.claude/rules/validation.md` | Regle technique |
-| Architecture agents/skills (~150 lignes) | `docs/roosync/AGENTS_ARCHITECTURE.md` | Reference technique, pas instructions |
-| Config MCP detaillee (~100 lignes) | `.claude/MCP_SETUP.md` (existe deja) | Consolidation |
-
-### Actions correctives pour MEMORY.md sature
-
-Si MEMORY.md > 150 lignes :
-1. Deplacer les lessons learned stables vers PROJECT_MEMORY.md
-2. Retirer les etats transitoires perimes (cycles >48h, issues fermees)
-3. Condenser les tableaux machine status en une ligne par machine
-4. Deplacer les details d'issues vers des fichiers topic (memory/issues.md)
+- État courant (commits, issues, progression)
+- Lessons learned récentes (non stabilisées)
+- Info spécifique machine
+- Index des topic files
 
 ---
 
-## Notes d'utilisation
+## Multi-workspace
 
-### Invocation
-- "redistribue la memoire" ou "audite les regles" ou "nettoie CLAUDE.md" → scan workspace courant
-- "scan global" ou "redistribue tout" → scan complet multi-workspace (Phase 1 etape 4)
-- "rapport multi-workspace" → generer le rapport tabulaire pour envoi au coordinateur
+Le skill est conçu pour fonctionner sur **tout workspace** sans modification :
 
-### Signalement de friction
-Si le scan multi-workspace revele des incoherences recurrentes ou des outils manquants :
+1. **Auto-détection** (Phase 0) résout les chemins dynamiquement
+2. **T4 adaptatif** : Si `{workspace}/docs/harness/reference/` n'existe pas, cherche `{workspace}/docs/` ou propose de créer la structure
+3. **T3 sacré** : Ne suppose jamais l'existence de rules
+4. **T5 discovery** : Encode le chemin workspace en slug pour trouver le bon répertoire memory
+
+### Exécution sur CoursIA
+
 ```
-roosync_send(action: "send", to: "all", subject: "[FRICTION] Description", body: "...", tags: ["friction", "memory"])
+Phase 0 :
+  Workspace: D:\CoursIA
+  Slug: d--CoursIA
+  T4 adaptatif: D:\CoursIA\docs/ (pas de docs/harness/reference/)
+  T3: D:\CoursIA\.claude\rules\ (si existe)
 ```
-Les ameliorations des skills sont decidees collectivement (voir `.claude/rules/sddd-conversational-grounding.md`).
 
-### Frequence recommandee
-- Apres chaque session longue (>2h)
-- Quand CLAUDE.md depasse 500 lignes
-- Quand MEMORY.md depasse 150 lignes
-- Apres ajout de nouvelles conventions/regles
-- **Sur demande du coordinateur** via RooSync (scan multi-machines)
-- **Apres deploiement global** (verifier que les templates sont bien deployes)
+Le skill s'adapte automatiquement à la structure du workspace cible.
 
-### Permissions
-- Lecture de tous les fichiers memoire/rules (workspace courant ET autres)
-- Lecture des fichiers locaux `~/.claude/` (agents, skills, commands, CLAUDE.md globaux)
-- Lecture des repertoires locaux des autres workspaces (CLAUDE.md, .claude/, .roo/)
-- Ecriture apres validation utilisateur uniquement
-- Pas de suppression de fichier (seulement edition de contenu)
+---
+
+## Antipatterns — Catalogue complet
+
+| # | Nom | Détection | Action |
+|---|-----|-----------|--------|
+| AP1 | T1↔T2 duplication | Comparaison sections T1 vs T2 | Retirer de T2 si déjà dans T1 |
+| AP2 | T1 contamination | Info projet-spécifique dans T1 | Déplacer vers T2 du workspace |
+| AP3 | Deferred candidate | Section >30L de type procédure dans T2 | Extraire vers T4 + résumé dans T2 |
+| AP4 | Rules redondantes | Chevauchement >30% entre 2 fichiers T3 | Signaler (ne jamais modifier sans user) |
+| AP5 | Topic orphelin | Fichier T5 non référencé dans MEMORY.md | Ajouter au index |
+| AP6 | Contenu obsolète | Dates >14j, issues fermées, métriques décalées | Nettoyer (après vérification) |
