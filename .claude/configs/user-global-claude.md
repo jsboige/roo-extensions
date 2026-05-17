@@ -45,13 +45,35 @@ If an automatic mechanism handles the concern elsewhere (auto-condensation, retr
 
 ---
 
-## PR Review & Merge — Body Mandatory
+## Read Body Before Any Action — review, comment, merge, dispatch, fix (HARD)
 
-**Toujours lire le corps complet de la PR avant de reviewer OU merger.** Diff + titre seuls = insuffisants. Échecs récurrents observés : merges qui ignorent REQUEST CHANGES, reviews qui répètent un point déjà soulevé par un précédent reviewer.
+**Règle HARD, aucune exception.** Avant de **poster un commentaire**, **reviewer**, **merger**, **dispatcher du travail**, ou **commencer un fix** sur une issue/PR, lire :
 
-- **Avant review :** `gh pr view N --json body,reviews,comments` — verifier qu'aucun reviewer n'a deja souleve le point que tu vas mentionner. Pas de redite.
-- **Avant merge :** verifier `reviews[].state == "CHANGES_REQUESTED"` ET comments inline non-resolus. Si demandes non-adressees → NE PAS merger.
-- **Le titre n'est pas la PR.** Le body decrit le scope, les decisions, les caveats, les test results. Sauter = merger a l'aveugle.
+1. **Le body complet** (description, scope, decisions, caveats deja documentes)
+2. **Tous les commentaires existants** (`gh pr view N --json comments`, `gh issue view N --comments`)
+3. **Toutes les reviews deja postees** (`gh pr view N --json reviews`) — humains ET bots, avec leur `state` (APPROVED / CHANGES_REQUESTED / COMMENTED)
+4. **Le diff** (`gh pr diff N` ou `git diff base..head`) avant review ou merge
+
+Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. Sauter cette lecture = agir a l'aveugle.
+
+| Action | Lecture obligatoire avant |
+|--------|--------------------------|
+| `gh pr comment N` (poster un comment) | body PR + tous comments + toutes reviews existantes |
+| `gh pr review N` (poster une review) | idem + diff complet |
+| `gh pr merge N` | idem + `mergeStateStatus` + `reviews[].state == "CHANGES_REQUESTED"` ET comments inline non-resolus → NE PAS merger si demandes non-adressees |
+| `gh issue comment N` | body issue + tous comments existants |
+| Dispatch d'une tache sur une issue a un agent | body issue + comments + linked PRs |
+| Fix d'un bug base sur une issue | body issue + comments + PRs liees + diagnostic existant |
+| Audit reassessment | body audit + le code source reel (verification > memo) |
+
+**Anti-patterns interdits** :
+- "Le titre dit X, je traite X" → lire le body, X peut etre autre chose
+- "Le bot a APPROVED, je merge" → lire le body PR + comments humains + CHANGES_REQUESTED
+- "Je connais le sujet, je sais quoi dire" → lire ce qui a deja ete dit, ne pas duplicate/conflict
+- "L'issue est ouverte depuis 2 jours, je commence a fix" → lire si un autre agent a deja commence/diagnostique/abandonne
+- "Pas de redite" en reviews : verifier qu'aucun reviewer n'a deja souleve le point que tu vas mentionner
+
+**Why** : incident 2026-05-17 (ai-01 sur CoursIA). 6 reviews detaillees postees sur PRs etudiantes EPITA Contraintes avec sections "Questions pour la soutenance" en duplicate ET en conflit avec les reviews breves bienveillantes deja postees par un autre agent (`jsboigeEpita`) la veille de la soutenance. Si les comments existants avaient ete lus AVANT, l'incident aurait ete detecte : (a) style bref bienveillant deja adopte, (b) un autre agent reviewer en charge des reviews publiques, (c) leak jury par-dessus la review de l'autre agent. La regle "lire avant" detecte les incoherences avant le post.
 
 ---
 
