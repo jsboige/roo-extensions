@@ -592,6 +592,7 @@ function Get-GitHubTask {
                 source = "github"
                 issueNumber = $Issue.number
                 projectFields = $ProjectFields
+                labels = $LabelNames
             }
         }
 
@@ -1351,10 +1352,11 @@ function Determine-Model {
     Priority chain:
     1. Project field "Model" (deterministic, set by coordinator in GitHub Project #67)
     2. Script parameter -Model (fallback, e.g. from Task Scheduler)
-    3. Default: "haiku" (#1027 - cost optimization)
+    3. Label-based heuristic (haiku for simple/doc tasks, sonnet otherwise)
+    4. Default: "sonnet" (conservative, avoids silent degradation)
 
     ESCALATION MECHANISM (#1027):
-    - Baseline: Haiku (git pull, simple tasks)
+    - Baseline: Haiku (git pull, simple tasks) or Sonnet (complex tasks)
     - Auto-escalade: Sonnet (via Get-EscalatedModel on retry)
     - MinimumModel guard: Sonnet (harness too large for Haiku, see #747)
 
@@ -1376,9 +1378,19 @@ function Determine-Model {
         return $Model
     }
 
-    # Priority 3: Default (Haiku baseline for cost optimization #1027)
-    Write-Log "Modele par defaut: haiku"
-    return "haiku"
+    # Priority 3: Label-based heuristic (coordinator dispatch #2236 Sprint 4)
+    $HaikuLabels = @("roo-schedulable", "simple", "docs", "audit")
+    if ($Task.labels) {
+        $LabelMatch = $Task.labels | Where-Object { $HaikuLabels -contains $_ }
+        if ($LabelMatch) {
+            Write-Log "Modele determine par label(s): $($LabelMatch -join ', ') -> haiku"
+            return "haiku"
+        }
+    }
+
+    # Priority 4: Default sonnet (conservative, avoids silent degradation)
+    Write-Log "Modele par defaut: sonnet (no label match)"
+    return "sonnet"
 }
 
 function Get-DeadlineUrgency {
