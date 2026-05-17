@@ -3265,16 +3265,62 @@ try {
     if (-not $Task) {
         Write-Log "Aucune tâche disponible et aucun wait state prêt"
 
-        # --- Guard #2139: Check sk-agent availability before idle coverage ---
+        # --- Guard #2139: Check sk-agent availability before idle tasks ---
         if (-not (Test-SkAgentAvailable -TimeoutSeconds 10)) {
-            Write-Log "sk-agent MCP unavailable — skipping idle coverage to avoid wasted compute (#2139)" "WARN"
+            Write-Log "sk-agent MCP unavailable — skipping idle tasks to avoid wasted compute (#2139)" "WARN"
             Write-Log "=== WORKER TERMINÉ (idle skipped, no sk-agent) ==="
             exit 0
         }
 
-        # --- Idle mode: coverage/patrol instead of doing nothing (#debrief-P3b) ---
-        Write-Log "Passage en mode IDLE : tache de couverture de code" "INFO"
-        $IdlePrompt = @"
+        # --- Idle mode: task catalog instead of doing nothing (#1417) ---
+        # Catalog of idle tasks with weights. Higher weight = more likely selected.
+        $IdleCatalog = @(
+            @{
+                Id       = "idle-coverage"
+                Weight   = 5
+                Subject  = "[IDLE] Coverage improvement"
+                MinModel = "sonnet"
+            },
+            @{
+                Id       = "idle-worktree-cleanup"
+                Weight   = 3
+                Subject  = "[IDLE] Worktree and branch cleanup"
+                MinModel = "haiku"
+            },
+            @{
+                Id       = "idle-stale-branches"
+                Weight   = 2
+                Subject  = "[IDLE] Stale branch detection"
+                MinModel = "haiku"
+            },
+            @{
+                Id       = "idle-config-audit"
+                Weight   = 2
+                Subject  = "[IDLE] Config drift audit"
+                MinModel = "haiku"
+            }
+        )
+
+        # Weighted random selection
+        $TotalWeight = ($IdleCatalog | Measure-Object -Property Weight -Sum).Sum
+        $Roll = Get-Random -Minimum 1 -Maximum ($TotalWeight + 1)
+        $Cumulative = 0
+        $SelectedIdle = $IdleCatalog[0]
+        foreach ($Entry in $IdleCatalog) {
+            $Cumulative += $Entry.Weight
+            if ($Roll -le $Cumulative) {
+                $SelectedIdle = $Entry
+                break
+            }
+        }
+
+        $IdleTaskId = "$($SelectedIdle.Id)-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+        Write-Log "Passage en mode IDLE : $($SelectedIdle.Subject) (weight=$($SelectedIdle.Weight)/$TotalWeight)" "INFO"
+
+        # Build prompt based on selected idle task type
+        $IdlePrompt = switch ($SelectedIdle.Id) {
+            "idle-coverage" {
+                @"
 Tu es un agent Claude Code en mode idle (aucune tache assignee).
 Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 
@@ -3313,12 +3359,119 @@ STATUS: success
 REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT: "git log -1" output pour preuve]
 ===================
 "@
+            }
+            "idle-worktree-cleanup" {
+                @"
+Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Ta mission : nettoyer les worktrees et branches orphelines.
+
+## Instructions
+
+1. Liste les worktrees existants :
+   git worktree list
+
+2. Liste les branches wt/ locales :
+   git branch --list 'wt/*'
+
+3. Pour chaque worktree/branche, verifie si la PR correspondante existe encore et est ouverte :
+   gh pr list --state open --json number,headRefName
+
+4. Pour les branches dont la PR est MERGED ou CLOSED, nettoie :
+   git worktree remove <path> (si worktree existe encore)
+   git branch -d <branch> (si branche locale)
+
+5. Rapporte le nombre de worktrees/branches nettoyes.
+
+## Contraintes
+- NE SUPPRIME JAMAIS une branche sans verifier le statut PR d'abord.
+- NE SUPPRIME JAMAIS la branche courante ou main.
+- Si `gh` retourne une erreur, STOP et rapporte. Ne pas nettoyer a l'aveugle.
+- Maximum 15 minutes de travail.
+
+=== AGENT STATUS ===
+STATUS: success
+REASON: [nombre de worktrees/branches nettoyees + liste detaillee]
+===================
+"@
+            }
+            "idle-stale-branches" {
+                @"
+Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Ta mission : detecter les branches stale (>14 jours sans commit) et rapporter.
+
+## Instructions
+
+1. Liste les branches locales avec leur dernier commit date :
+   git for-each-ref --sort=-committerdate --format='%(refname:short) %(committerdate:iso8601)' refs/heads/
+
+2. Pour chaque branche, calcule l'age en jours depuis le dernier commit.
+
+3. Pour les branches de plus de 14 jours :
+   - Verifie si une PR ouverte existe : `gh pr list --state open --head <branch>`
+   - Verifie si des commits uniques existent (pas dans main) : `git log main..HEAD --oneline`
+
+4. Rapporte tes trouvailles sur le dashboard workspace avec tag [INFO] :
+   - Branches stale avec commits uniques (potentiel travail perdu)
+   - Branches stale sans commits uniques (candidats nettoyage)
+   - Branches avec PR ouverte encore active
+
+## Contraintes
+- NE SUPPRIME AUCUNE BRANCHE. Detection uniquement.
+- NE FAIS AUCUN COMMIT. Rapport uniquement.
+- Maximum 15 minutes de travail.
+
+=== AGENT STATUS ===
+STATUS: success
+REASON: [rapport de detection : X branches stale, Y avec commits uniques]
+===================
+"@
+            }
+            "idle-config-audit" {
+                @"
+Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Ta mission : auditer la configuration MCP et rapporter les anomalies.
+
+## Instructions
+
+1. Verifie la config MCP Claude Code :
+   Lis le fichier ~/.claude.json et verifie la section mcpServers.
+
+2. Pour chaque MCP configure, verifie :
+   - Le chemin d'execution existe (command + args)
+   - Les variables d'environnement requises sont presentes
+   - Le nombre d'outils correspond a l'attendu (roo-state-manager: 34)
+
+3. Verifie la coherence avec les regles :
+   - Compare les counts d'outils declares dans .claude/rules/tool-availability.md avec la config reelle
+   - Signale tout MCP retire (desktop-commander, quickfiles, github-projects-mcp, web_reader)
+
+4. Rapporte sur le dashboard workspace avec tag [INFO].
+
+## Contraintes
+- NE MODIFIE AUCUN FICHIER. Audit uniquement.
+- NE FAIS AUCUN COMMIT. Rapport uniquement.
+- NE LOGUE PAS de secrets/tokens. Signale leur presence/absence seulement.
+- Maximum 15 minutes de travail.
+
+=== AGENT STATUS ===
+STATUS: success
+REASON: [rapport d'audit : anomalies detectees, counts d'outils]
+===================
+"@
+            }
+        }
+
         $Task = @{
-            id = "idle-coverage-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-            subject = "[IDLE] Coverage improvement"
+            id = $IdleTaskId
+            subject = $SelectedIdle.Subject
             from = "self"
             prompt = $IdlePrompt
         }
+
+        # Store selected idle MinModel for later use by model guard
+        $script:IdleMinModel = $SelectedIdle.MinModel
+    } else {
+        $script:IdleMinModel = $null
     }
 
     # ==========================================================================
@@ -3349,8 +3502,8 @@ REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT:
     # The project harness (CLAUDE.md + 10 rules + MCP tool schemas) consumes ~6.3K tokens (post #1083 condensation).
     # haiku (glm-4.5-air on z.ai) has ~131K context — more than sufficient for most tasks.
     # Haiku enabled as minimum after harness reduction #1083 (29K→6.3K tokens).
-    # EXCEPTION: idle-coverage tasks require sonnet (#2137) due to cumulative vitest output
-    $MinimumModel = if ($Task.id -match "idle-coverage") { "sonnet" } else { "haiku" }
+    # EXCEPTION: idle tasks may require higher model (#1417 catalog, #2137 coverage needs sonnet)
+    $MinimumModel = if ($script:IdleMinModel) { $script:IdleMinModel } elseif ($Task.id -match "idle-coverage") { "sonnet" } else { "haiku" }
     $ModelHierarchy = @{ "haiku" = 1; "sonnet" = 2; "opus" = 3 }
     $ModelLevel = if ($ModelHierarchy.ContainsKey($Model)) { $ModelHierarchy[$Model] } else { 2 }
     $MinLevel = $ModelHierarchy[$MinimumModel]
