@@ -1,11 +1,15 @@
 # Code owners for jsboige/roo-extensions
 #
 # These users must approve every PR before it can be merged.
-# This is a guard rail to ensure that high-capability models (Opus)
-# always vet PRs before merge, even when other identities (e.g.
-# clusterManager-Myia / GLM) have already reviewed.
+# Any ONE of the listed owners (other than the PR author) satisfies the gate.
 #
-# See: cycle 17 audit, 2026-04-26 — clusterManager-Myia merged
+# Quality tiering (issue #1767 Phase 4):
+#   - Opus-class (ai-01, jsboige): full review authority, any PR
+#   - GLM-class (po-2023, web1): pre-merge CI + audit only
+#     → approve restricted to trivial PRs (pointer-bumps, doc-only, <50 LOC)
+#     → non-trivial PRs require Opus-class final approval
+#
+# History: cycle 17 audit (2026-04-26) — clusterManager-Myia merged
 # submod #212+#213 autonomously without Opus review.
 
-* @jsboige @myia-ai-01
+* @jsboige @myia-ai-01 @myia-po-2023 @MyIA-Web1
