@@ -2551,15 +2551,20 @@ function Invoke-Claude {
         Write-Log "Compact override: non-Claude model ($ModelToUse) → window=200k, threshold=90%"
     }
 
-    # Budget cap (#1980 — prevent runaway token costs per worker session)
-    # Default budget by model if not explicitly set: haiku=$0.25, sonnet=$0.50, opus=$1.00
+    # Budget cap (#1980 — runaway-loop guard, NOT a dollar guard)
+    # Providers are on flat-rate subscriptions (z.ai GLM-5.1 forfait, Anthropic Max).
+    # The "$" reported by `claude -p` is a phantom price-table value, not real spend.
+    # The cap exists only to stop infinite-loop tasks; defaults must be high enough
+    # that legitimate context injection (~$0.47 for GLM-5.1 fleet config) does not
+    # exhaust budget at step 1. R61 bump (#486 evidence + R58 #2264 precedent).
+    # Defaults: haiku=$0.50, sonnet=$1.50, opus=$3.00.
     $BudgetToUse = $MaxBudgetUsd
     if ($BudgetToUse -le 0) {
         $BudgetToUse = switch ($ModelToUse) {
-            "haiku"  { 0.25 }
-            "sonnet" { 0.50 }
-            "opus"   { 1.00 }
-            default  { 0.50 }
+            "haiku"  { 0.50 }
+            "sonnet" { 1.50 }
+            "opus"   { 3.00 }
+            default  { 1.50 }
         }
     }
     Write-Log "Budget max: `$$BudgetToUse (model: $ModelToUse)"
