@@ -71,7 +71,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Resolve-Path "$ScriptDir\..\.."
 # Worker defaults (decoupled from Roo modes-config.json since 2026-03-06)
 # Model/iterations come from Project #67 fields. Escalation uses Agent Status protocol
-# (haiku -> sonnet -> opus), NOT Roo mode hierarchy (simple -> complex).
+# (haiku -> sonnet, capped since #2211), NOT Roo mode hierarchy (simple -> complex).
 $WorkerDefaultIterations = 5
 $LogDir = if (-not [string]::IsNullOrWhiteSpace($env:CLAUDE_WORKER_LOG_DIR)) {
     $env:CLAUDE_WORKER_LOG_DIR
@@ -2798,7 +2798,7 @@ function Check-Escalation {
         return $Result.escalateToModel
     }
 
-    # Auto-escalate on failure: haiku -> sonnet -> opus
+    # Auto-escalate on failure: haiku -> sonnet (capped since #2211)
     if (-not $Result.success) {
         $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
         if ($NextModel) {
@@ -3604,7 +3604,7 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
         return
     }
 
-    # 5. Vérifier escalade (model-based: haiku -> sonnet -> opus)
+    # 5. Vérifier escalade (model-based: haiku -> sonnet, capped since #2211)
     $EscalatedModel = Check-Escalation -Result $Result -CurrentModel $Model
 
     if ($EscalatedModel) {
