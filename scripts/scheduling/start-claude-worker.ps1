@@ -84,6 +84,30 @@ if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
 }
 
+# #2252: Injecter env vars MCP depuis ~/.claude.json dans le processus worker
+# Les env vars de mcpServers.roo-state-manager vont au serveur MCP uniquement,
+# PAS au subprocess claude -p. On les injecte manuellement ici.
+try {
+    $ClaudeConfigPath = Join-Path $env:USERPROFILE ".claude.json"
+    if (Test-Path $ClaudeConfigPath) {
+        $ClaudeConfig = Get-Content $ClaudeConfigPath -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
+        if ($ClaudeConfig.mcpServers.'roo-state-manager'.env) {
+            $McpEnv = $ClaudeConfig.mcpServers.'roo-state-manager'.env
+            foreach ($key in $McpEnv.PSObject.Properties) {
+                $envVarName = $key.Name
+                $envVarValue = $key.Value
+                $envPath = "env:$envVarName"
+                if (-not (Test-Path $envPath) -or -not (Get-Item $envPath).Value) {
+                    Set-Item -Path $envPath -Value $envVarValue -ErrorAction SilentlyContinue
+                    Write-Log "Env injecté: $envVarName" "DEBUG"
+                }
+            }
+        }
+    }
+} catch {
+    Write-Log "Injection env vars MCP échouée: $_" "WARN"
+}
+
 $LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
 # === Concurrency Guard: skip if another worker is already running ===
