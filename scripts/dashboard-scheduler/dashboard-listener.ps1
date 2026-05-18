@@ -372,19 +372,26 @@ function Test-ActionableContent($content) {
     return $false
 }
 
-# #2117: Parse target machine from [WAKE-CLAUDE] <machine> — ... pattern.
+# #2117 + #2240: Parse target machine from [WAKE-CLAUDE] <machine>[:<workspace>] pattern.
 # Returns the target machine ID (lowercase) or $null for broadcast messages.
 # Accepts the documented routing variants:
 #   [WAKE-CLAUDE] myia-po-2023 — ...
 #   [WAKE-CLAUDE] → myia-po-2026:Embeddings — ...   (optional arrow prefix)
 #   [WAKE-CLAUDE] myia-po-2023:IISManagement — ...  (optional :workspace suffix)
-# The optional :workspace suffix is intentionally NOT captured — targeting is
-# per-machine. The previous regex required `\s+` before and `\s` after the
-# machine name, so it silently failed on both the arrow prefix and the
-# `:workspace` suffix → every targeted wake was mis-classified as broadcast.
+#   [WAKE-CLAUDE] myia-po-2025:roo-extensions — ...  (#2240 workspace-targeted)
 function Get-WakeTargetMachine($content) {
-    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*(myia-[a-z0-9]+(?:-[a-z0-9]+)*)') {
+    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*(myia-[a-z0-9]+(?:-[a-z0-9]+)*)(?::([a-zA-Z0-9_.-]+))?') {
         return $Matches[1].ToLowerInvariant()
+    }
+    return $null
+}
+
+# #2240: Extract optional workspace suffix from [WAKE-CLAUDE] <machine>:<workspace>.
+# Returns the workspace name (original case) or $null if no workspace specified.
+# When $null, the wake targets ALL workspaces on the matched machine (backward compat).
+function Get-WakeTargetWorkspace($content) {
+    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*myia-[a-z0-9]+(?:-[a-z0-9]+)*:([a-zA-Z0-9_.-]+)') {
+        return $Matches[1]
     }
     return $null
 }
@@ -481,6 +488,12 @@ function Invoke-ProcessWorkspace($ws) {
             $target = Get-WakeTargetMachine $msg.content
             if ($null -ne $target -and $target -ne $localMachine) {
                 Write-Log "INFO" "[$ws] Skipping WAKE targeting '$target' (local=$localMachine)."
+                continue
+            }
+            # #2240: Workspace-targeted filtering.
+            $targetWs = Get-WakeTargetWorkspace $msg.content
+            if ($null -ne $targetWs -and $targetWs -ne $ws) {
+                Write-Log "INFO" "[$ws] Skipping WAKE targeting workspace '$targetWs' (local=$ws)."
                 continue
             }
             $filtered += $msg
