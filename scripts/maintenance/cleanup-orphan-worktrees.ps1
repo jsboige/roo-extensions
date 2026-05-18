@@ -212,7 +212,7 @@ function Remove-ItemWithRetry {
                     " (file locked by another process)"
                 }
                 
-                Write-Log "  RETRY $i/$MaxRetries: Failed to remove $Path$lockInfo - $_"
+                Write-Log "  RETRY ${i}/${MaxRetries}: Failed to remove $Path$lockInfo - $_"
                 Start-Sleep -Seconds $RetryDelay
             } else {
                 Write-Log "  ERROR: Failed to remove $Path after $MaxRetries retries: $_"
