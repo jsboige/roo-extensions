@@ -177,6 +177,51 @@ if (-not $Execute) {
 # Execute mode
 $processed = 0
 $failed = 0
+$maxRetries = 3
+$retryDelay = 2  # secondes
+
+# Helper: process-aware delete with retry (fixes Windows file locking #2251)
+function Remove-ItemWithRetry {
+    param(
+        [string]$Path,
+        [int]$MaxRetries = $maxRetries,
+        [int]$RetryDelay = $retryDelay
+    )
+    
+    for ($i = 1; $i -le $MaxRetries; $i++) {
+        try {
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
+            return $true
+        } catch {
+            if ($i -lt $MaxRetries) {
+                # Check for holding processes
+                $lockedFiles = @()
+                try {
+                    # Try to find what's holding the file open (Handle.exe from Sysinternals if available)
+                    $handleResult = & handle.exe -a $Path 2>&1
+                    if ($LASTEXITCODE -eq 0 -and $handleResult) {
+                        $lockedFiles = $handleResult | Where-Object { $_ -match 'pid:' }
+                    }
+                } catch {
+                    # handle.exe not available, skip process detection
+                }
+                
+                $lockInfo = if ($lockedFiles) {
+                    " (locked by: $($lockedFiles[0].Trim()))"
+                } else {
+                    " (file locked by another process)"
+                }
+                
+                Write-Log "  RETRY $i/$MaxRetries: Failed to remove $Path$lockInfo - $_"
+                Start-Sleep -Seconds $RetryDelay
+            } else {
+                Write-Log "  ERROR: Failed to remove $Path after $MaxRetries retries: $_"
+                return $false
+            }
+        }
+    }
+    return $false
+}
 
 if ($Archive) {
     if (-not (Test-Path $ArchivePath)) {
@@ -209,16 +254,16 @@ if ($Archive) {
 }
 
 foreach ($o in $oldOrphans) {
-    try {
-        if ($Archive) {
-            Write-Log "  ARCHIVED+DELETE: $($o.Name)"
-        } else {
-            Write-Log "  DELETING: $($o.Name)"
-        }
-        Remove-Item -Path $o.FullName -Recurse -Force -ErrorAction Stop
+    if ($Archive) {
+        Write-Log "  ARCHIVED+DELETE: $($o.Name)"
+    } else {
+        Write-Log "  DELETING: $($o.Name)"
+    }
+    
+    $success = Remove-ItemWithRetry -Path $o.FullName -MaxRetries $maxRetries -RetryDelay $retryDelay
+    if ($success) {
         $processed++
-    } catch {
-        Write-Log "  ERROR: Failed to remove $($o.Name): $_"
+    } else {
         $failed++
     }
 }
