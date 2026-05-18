@@ -77,7 +77,7 @@
 #>
 
 param(
-    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE' }),
+    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE,WAKE-HERMES,WAKE-NANOCLAW' }),
     [int]$DebounceSeconds = 10,
     [int]$CooldownMinutes = 5,
     [string]$Workspaces = "",
@@ -396,6 +396,18 @@ function Get-WakeTargetWorkspace($content) {
     return $null
 }
 
+# #2244: Bot wake routing — [WAKE-HERMES] → myia-po-2026:hermes-agent, [WAKE-NANOCLAW] → myia-ai-01:nanoclaw.
+# Returns @{ machine = '<id>'; workspace = '<ws>' } or $null if no bot tag matched.
+function Get-WakeBotTarget($content) {
+    if ($content -match '\[WAKE-HERMES\]') {
+        return @{ machine = 'myia-po-2026'; workspace = 'hermes-agent' }
+    }
+    if ($content -match '\[WAKE-NANOCLAW\]') {
+        return @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
+    }
+    return $null
+}
+
 # ========== CLOSED ISSUE CHECK (R11 sanity) ==========
 
 function Test-ReferencedClosedIssues($content, $repo) {
@@ -485,6 +497,18 @@ function Invoke-ProcessWorkspace($ws) {
     if ($localMachine) {
         $filtered = @()
         foreach ($msg in $actionable) {
+            # #2244: Bot wake routing — [WAKE-HERMES]/[WAKE-NANOCLAW] target specific machines.
+            $botTarget = Get-WakeBotTarget $msg.content
+            if ($null -ne $botTarget) {
+                if ($botTarget.machine -ne $localMachine) {
+                    Write-Log "INFO" "[$ws] Skipping bot WAKE targeting '$($botTarget.machine):$($botTarget.workspace)' (local=$localMachine)."
+                    continue
+                }
+                # Bot target matches local machine — accept regardless of workspace.
+                $filtered += $msg
+                continue
+            }
+            # Standard [WAKE-CLAUDE] routing.
             $target = Get-WakeTargetMachine $msg.content
             if ($null -ne $target -and $target -ne $localMachine) {
                 Write-Log "INFO" "[$ws] Skipping WAKE targeting '$target' (local=$localMachine)."
