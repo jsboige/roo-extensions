@@ -358,14 +358,25 @@ Commence.
     if ($exitCode -eq 0) {
         Write-Log "INFO" "Spawn exit 0. Success (but verify [REPLY]/[ACK] on dashboard)."
     } elseif ($exitCode -eq 1) {
-        # #1605: distinguish auto-compact (benign #1423 case) from rapid_refill_breaker
-        # (true failure — session killed before producing any reply).
-        # If we treat rapid_refill_breaker as success, poll-dashboard.ps1 advances
-        # lastack and the actionable message is silently lost.
+        # #1605 + nanoclaw retry-loop fix 2026-05-18: distinguish auto-compact
+        # (benign #1423 case) from rapid_refill_breaker (context bloat — session
+        # killed before producing any reply).
+        #
+        # PRIOR behavior: kept exitCode=1 so poll-dashboard would NOT advance
+        # lastack — but this caused an infinite retry loop (next spawn hits the
+        # same bloat, same trigger, same kill — ~$2.68/spawn wasted indefinitely).
+        # Observed nanoclaw 2026-05-17/18: 5 spawns over 14h, all killed by
+        # breaker, ~$13.40 wasted, growing stdout (62KB to 152KB) confirming the
+        # bloat replicates per retry.
+        #
+        # NEW behavior: emit dedicated exitCode=42 for breaker_kill. poll-dashboard
+        # treats 42 as "advance lastack to break the loop, but flag as ERROR so the
+        # missed trigger is visible". The single trigger may be lost, but that is
+        # strictly better than an infinite retry burning budget.
         $breakerMatch = $truncatedStdout -match '"terminal_reason"\s*:\s*"rapid_refill_breaker"'
         if ($breakerMatch) {
-            Write-Log "ERROR" "Spawn killed by rapid_refill_breaker (true failure). Keeping exitCode=1 so lastack is NOT advanced. Cost ~`$2.68/spawn — investigate context bloat."
-            # Preserve exitCode=1
+            Write-Log "ERROR" "Spawn killed by rapid_refill_breaker (context bloat). Emitting exitCode=42 so poll-dashboard advances lastack and breaks the retry loop. Cost ~`$2.68/spawn. Investigate context bloat for this workspace."
+            $exitCode = 42
         } else {
             Write-Log "INFO" "Spawn exit 1. Likely auto-compact produced reply (#1423). Treating as success."
             $exitCode = 0

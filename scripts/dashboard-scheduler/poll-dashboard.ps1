@@ -447,6 +447,16 @@ foreach ($ws in $wsList) {
     if ($exitCode -eq 0) {
         Set-LastAckTimestamp $ws $latestTs
         Write-Log "INFO" "[$ws] Spawn completed cleanly. Last-ACK advanced to $latestTs."
+    } elseif ($exitCode -eq 42) {
+        # nanoclaw retry-loop fix 2026-05-18: exit 42 = rapid_refill_breaker kill
+        # (context bloat). Advance lastack anyway to BREAK the retry loop —
+        # otherwise next poll re-spawns on the same trigger, re-hits the bloat,
+        # re-kills, and we burn ~$2.68/spawn indefinitely. The single missed
+        # trigger is logged at ERROR for human follow-up.
+        Set-LastAckTimestamp $ws $latestTs
+        Write-Log "ERROR" "[$ws] Spawn killed by rapid_refill_breaker (context bloat). Last-ACK advanced to $latestTs to break retry loop. TRIGGER MAY BE LOST — verify dashboard manually. Investigate workspace context bloat."
+        $spawnErrors++
+        $overallExitCode = $exitCode
     } else {
         Write-Log "WARN" "[$ws] Spawn exited with code $exitCode. Last-ACK NOT advanced (will retry next poll)."
         $spawnErrors++
