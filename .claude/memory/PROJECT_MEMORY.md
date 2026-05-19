@@ -6,8 +6,9 @@ Updated via git commits. Each agent should read this at session start.
 ## Architecture
 
 ### MCP Tool System
-- **Total tools (ListTools):** 34 (was 39 before consolidations CONS-1→#675)
-- **Claude wrapper (mcp-wrapper.cjs):** 34 tools (v4 pass-through, no filtering)
+- **Total tools (ListTools):** 15 — verified 2026-05-19 via mcp-tools.myia.io E2E + build/.tools-cache.json + roosync_indexing
+- **Historical:** 39 (pre-CONS) → 34 (post CONS-1→#675, 2026-03) → 15 (current, post all CONS rounds)
+- **Claude wrapper (mcp-wrapper.cjs v4.1):** pass-through + persisted cache in `build/.tools-cache.json` (NOT %TEMP%, Windows Disk Cleanup safe)
 - **Tests:** 7933 passed, 26 skipped (2026-03-20)
 - **MCP Servers:** roo-state-manager (TypeScript) + sk-agent (Python/FastMCP)
 
@@ -91,7 +92,7 @@ Updated via git commits. Each agent should read this at session start.
 ## Current State (2026-03-20)
 
 **Phase**: MAINTENANCE (Issues #556, #473 Active)
-**Tests**: 7933 PASS, 26 skipped | **Tools**: 34 | **GitHub #67**: Progression continue
+**Tests**: 7933 PASS, 26 skipped | **Tools**: 15 (post all CONS) | **GitHub #67**: Progression continue
 
 ### Issue #543: Settings Harmonisation Pipeline (COMPLETE ✅)
 

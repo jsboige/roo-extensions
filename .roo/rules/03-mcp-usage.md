@@ -11,7 +11,7 @@ AVANT tout travail, verifier que les MCPs critiques repondent. Voir `.claude/rul
 
 | MCP | Outils | Role |
 | --- | ------ | ---- |
-| **roo-state-manager** | 34 | Grounding, historique, RooSync |
+| **roo-state-manager** | 15 | Grounding, historique, RooSync |
 | **win-cli** (fork local 0.2.0) | 9 | Shell commands (OBLIGATOIRE modes -simple) |
 
 ## win-cli

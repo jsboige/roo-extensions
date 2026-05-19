@@ -267,13 +267,15 @@ if (-not $claudeConfig) {
             Write-Status "enabled" "PASS"
         }
 
-        # Check alwaysAllow count (should be 34 tools)
+        # Check alwaysAllow count (should be >= 15 tools post-CONS consolidations)
+        # Historical: 39 → 34 (CONS-1→#675) → 15 (current ListTools count post all CONS rounds)
+        # alwaysAllow may retain legacy names (inoffensive whitelist), so we accept anything >= 15
         $alwaysAllowCount = if ($rsm.alwaysAllow) { $rsm.alwaysAllow.Count } else { 0 }
-        if ($alwaysAllowCount -ge 30) {
+        if ($alwaysAllowCount -ge 15) {
             Write-Status "alwaysAllow count" "PASS" "$alwaysAllowCount tools auto-approved"
         } else {
-            Write-Status "alwaysAllow count" "WARN" "Only $alwaysAllowCount tools auto-approved (expected ~34)"
-            Add-Warning "CLAUDE_RSM" "Only $alwaysAllowCount alwaysAllow entries for roo-state-manager (expected ~34)"
+            Write-Status "alwaysAllow count" "WARN" "Only $alwaysAllowCount tools auto-approved (expected >=15)"
+            Add-Warning "CLAUDE_RSM" "Only $alwaysAllowCount alwaysAllow entries for roo-state-manager (expected >=15)"
         }
 
         # Check for sk-agent in wrong location

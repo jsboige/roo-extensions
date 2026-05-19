@@ -12,7 +12,7 @@
 
 | Agent | MCP | Outils | Verification |
 |-------|-----|--------|-------------|
-| **Claude Code** | roo-state-manager | 34 | `conversation_browser(action: "current")` |
+| **Claude Code** | roo-state-manager | 15 | `conversation_browser(action: "current")` |
 | **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 | `execute_command(shell="powershell")` |
 
 **Config separee :** Claude = `~/.claude.json`. Roo = `%APPDATA%\...\mcp_settings.json`.

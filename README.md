@@ -131,7 +131,7 @@ roo-extensions/
 
 | MCP | Outils | Description |
 |-----|--------|-------------|
-| **roo-state-manager** | 34 | Messaging RooSync, config sync, task browsing, semantic search |
+| **roo-state-manager** | 15 | Messaging RooSync, config sync, task browsing, semantic search (post all CONS rounds) |
 | **sk-agent** | 7 | 13 agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
 | **playwright** | 22 | Browser automation, screenshots, form filling |
 | **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |

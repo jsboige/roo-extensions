@@ -1,8 +1,8 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Cree:** 2026-02-21
-**Mis à jour:** 2026-03-07
+**Mis à jour:** 2026-05-19 (count rsm 36/34 → 15 post all CONS)
 **Contexte:** Incidents recurrents de perte d'outils non detectee (win-cli web1, condensation po-2023, roo-state-manager Claude Code)
 
 ---
@@ -63,7 +63,7 @@
 
 | MCP | Outils attendus | Verification | Role |
 |-----|-----------------|-------------|------|
-| **roo-state-manager** | 36 (ListTools) | `conversation_browser(action: "current")` | Grounding conversationnel, coordination, monitoring |
+| **roo-state-manager** | 15 (ListTools, post all CONS) | `conversation_browser(action: "current")` | Grounding conversationnel, coordination, monitoring |
 
 **Pour Roo (scheduler bloque sans eux) :**
 
@@ -117,7 +117,7 @@
 
 1. Un MCP CRITIQUE est absent des system-reminders (Claude Code)
 2. Un appel a un outil critique retourne une erreur de type "tool not found" ou "server not available"
-3. Le nombre d'outils ListTools diverge significativement de l'attendu (36 pour roo-state-manager)
+3. Le nombre d'outils ListTools diverge significativement de l'attendu (15 pour roo-state-manager post all CONS)
 4. Un MCP RETIRE est detecte comme actif (desktop-commander, quickfiles)
 
 ### Procedure (Claude Code)
@@ -164,7 +164,7 @@
 **Procedure :**
 1. Lister TOUTES les machines (6)
 2. Pour chaque machine, verifier via RooSync ou directement :
-   - **Claude Code** : roo-state-manager repond (34 tools)
+   - **Claude Code** : roo-state-manager repond (15 tools post all CONS)
    - **Roo** : win-cli pointe vers le fork local (PAS npx)
    - Aucun MCP retire n'est actif
 3. Si divergence detectee : envoyer directive corrective IMMEDIATE (priorite URGENT)
@@ -182,7 +182,7 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 | MCP | Outils (count) | Derniere verification |
 |-----|----------------|----------------------|
-| roo-state-manager | 36 | 2026-02-21 |
+| roo-state-manager | 15 | 2026-05-19 (post all CONS — was 36 pre-CONS, 34 post CONS-1→#675) |
 | win-cli | 9 | 2026-02-21 |
 | playwright | 22 | 2026-02-21 |
 | markitdown | 1 | 2026-02-21 |
@@ -204,4 +204,4 @@ Au minimum a chaque `/sync-tour` ou `/coordinate` :
 
 ---
 
-**Derniere mise a jour :** 2026-03-07
+**Derniere mise a jour :** 2026-05-19 (count rsm 36/34 → 15)
