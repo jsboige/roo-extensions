@@ -100,7 +100,7 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 
 ## MCP Tools (Global)
 
-### roo-state-manager (34 tools)
+### roo-state-manager (15 tools — post all CONS consolidation rounds)
 
 MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboards, et indexation.
 **Config:** `~/.claude.json` section `mcpServers.roo-state-manager`.

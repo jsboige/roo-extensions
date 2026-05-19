@@ -53,7 +53,7 @@
 			]
 		},
 		"roo-state-manager": {
-			"_comment": "v1.2.0: Updated to match post-consolidation ListTools (34 tools). Legacy names removed: list_conversations, manage_mcp_settings, rebuild_and_restart_mcp, roosync_summarize, roosync_sync_event, storage_info, task_browse, touch_mcp_settings, view_conversation_tree. Added: roosync_attachments (#674), roosync_dashboard (#675).",
+			"_comment": "v1.3.0 (2026-05-19): Current ListTools count is 15 (post all CONS rounds). Historical: v1.2.0 listed 34 tools (post CONS-1→#675). alwaysAllow retains legacy names as inoffensive whitelist (unknown names are ignored). Verified via mcp-tools.myia.io E2E + build/.tools-cache.json + roosync_indexing.",
 			"alwaysAllow": [
 				"analyze_roosync_problems",
 				"codebase_search",

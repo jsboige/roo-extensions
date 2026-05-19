@@ -39,7 +39,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 
 | Critique pour | MCP | Outils |
 |---------------|-----|--------|
-| **Claude Code** | roo-state-manager | 34 |
+| **Claude Code** | roo-state-manager | 15 |
 | **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 |
 
 **Config Claude Code :** `C:\Users\{user}\.claude.json` | **Config Roo :** `%APPDATA%\...\mcp_settings.json`

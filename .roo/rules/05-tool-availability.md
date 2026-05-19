@@ -20,7 +20,7 @@ La perte d'un outil critique = INCIDENT MAJEUR → STOP & REPAIR immediat.
 
 | Agent | MCP | Outils | Verification |
 |-------|-----|--------|-------------|
-| **Claude Code** | roo-state-manager | 34 | `conversation_browser(action: "current")` |
+| **Claude Code** | roo-state-manager | 15 | `conversation_browser(action: "current")` |
 | **Roo Scheduler** | win-cli (fork local 0.2.0) | 9 | `execute_command(shell="powershell", command="echo OK")` |
 
 **Config separee :** Claude Code = `C:\Users\{user}\.claude.json`. Roo = `%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json`.
@@ -79,7 +79,7 @@ Ne PAS continuer en mode degrade. Ne PAS contourner. Signaler et arreter.
 
 **OBLIGATION apres TOUT changement de config :**
 1. Lister 6 machines
-2. Verifier Claude (roo-state-manager 34 tools) + Roo (win-cli fork local) + pas de MCP retire
+2. Verifier Claude (roo-state-manager 15 tools post-CONS) + Roo (win-cli fork local) + pas de MCP retire
 3. Si divergence -> directive corrective URGENTE
 
 ---
