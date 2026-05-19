@@ -21,6 +21,7 @@
 | **Issue Closure (detailed)** | Grille marqueurs, test bash, audit /coordinate, historique versions | `issue-closure-detailed.md` |
 | **INTERCOM v3 Mentions** | Mentions structurees, crossPost, messageId v3, worktrees auto-detection | `intercom-v3-mentions.md` |
 | **PR Trivial Merge Policy** | Patterns eligibles, diff constraints, procedure, garde-fous (#1582) | `pr-trivial-merge-policy.md` |
+| **MCP Diagnosis (procedure)** | Healthcheck, architecture chain, diagnostic par couche (procedure complete) | `mcp-diagnosis-procedure.md` |
 
 ## Quality & CI
 
@@ -35,10 +36,15 @@
 |----------|-----------|--------|
 | **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils | `reference/scheduler-system.md` |
 | **Scheduler densification** | Seuil : 1 echec en -simple → escalade IMMEDIATE vers -complex | `reference/scheduler-densification.md` |
+| **Scheduler model defaults** | Worker (`start-claude-worker.ps1`) priority chain : Project field → -Model → labels → sonnet | `reference/scheduler-model-defaults.md` |
 | **Coordinator protocol** | Cycle 6-12h sur ai-01 | `coordinator-specific/scheduled-coordinator.md` |
 | **Meta-analysis** | Cycle 72h. Triple grounding. Lecture seule | `reference/meta-analysis.md` |
 | **PR review policy** | Agents → PR → Review coordinateur → Merge | `coordinator-specific/pr-review-policy.md` |
+| **Meta-analyste (rule)** | Rule slim (role, 7 analyses productives, HARD REJECT). Loaded par `start-meta-audit.ps1` | `coordinator-specific/meta-analyst-rule.md` |
 | **Meta-analyste (detailed)** | Workflow etapes 0-5, MCP snippets, HARD REJECT, differences Roo | `coordinator-specific/meta-analyst-detailed.md` |
+| **Agents inventory** | 18 subagents + 6 skills + 4 commands (Claude Code) | `reference/agents-inventory.md` |
+| **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `reference/bots-directory.md` |
+| **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `reference/conversation-browser-detailed.md` |
 
 ## Reference Technique
 

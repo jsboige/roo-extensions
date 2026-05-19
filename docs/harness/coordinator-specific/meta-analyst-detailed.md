@@ -1,7 +1,7 @@
 # Meta-Analyste — Workflow Detaille (Reference)
 
 **Version:** 1.3.0
-**Source :** `.claude/rules/meta-analyst.md` (version slim)
+**Source :** [`./meta-analyst-rule.md`](./meta-analyst-rule.md) (version slim, ex-`.claude/rules/meta-analyst.md` relocalisé 2026-05-19)
 **Issues :** #1375, #1455, #1584, #1621
 **Miroir Roo :** `.roo/scheduler-workflow-meta-analyst.md` (297 lignes)
 

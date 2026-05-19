@@ -1,5 +1,7 @@
 # Meta-Analyste — Claude Code
 
+> **Note relocalisation (2026-05-19)** : Ce document définit le comportement du meta-analyste Claude. Il n'est PLUS auto-chargé comme rule (déplacé hors de `.claude/rules/` pour réduire le footprint contexte des autres agents). Loaded désormais par `scripts/scheduling/start-meta-audit.ps1` au lancement de l'agent scheduled (contenu déjà inliné dans le prompt). Workflow détaillé : [`./meta-analyst-detailed.md`](./meta-analyst-detailed.md).
+
 **Version:** 1.7.0 (proactive redirection post user mandate #1285 — meta-analyste se consacre à autre chose, demandé plein de fois)
 **Issues :** #1375, #1455, #1527, #1584, #1621, #1818, #1608, #2079, #2080, #2081, #2083, #1285
 
@@ -126,4 +128,4 @@ Toute analyse ou rapport va sur le dashboard workspace, JAMAIS dans INTERCOM.
 
 ---
 
-**Workflow detaille (etapes 0-5, MCP snippets, exemples, differences Roo) :** [`docs/harness/coordinator-specific/meta-analyst-detailed.md`](docs/harness/coordinator-specific/meta-analyst-detailed.md)
+**Workflow detaille (etapes 0-5, MCP snippets, exemples, differences Roo) :** [`./meta-analyst-detailed.md`](./meta-analyst-detailed.md)

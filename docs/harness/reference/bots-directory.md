@@ -1,5 +1,7 @@
 # Bots Directory — Hermes & NanoClaw
 
+> **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/bots-directory.md`. Déplacé hors des rules auto-chargées car annuaire factuel (pas une règle de comportement).
+
 **Version:** 1.0.0
 **Issue :** #2243
 **MAJ:** 2026-05-18

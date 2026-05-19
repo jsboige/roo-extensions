@@ -1,5 +1,7 @@
 # Architecture Agents, Skills & Commands
 
+> **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/agents-architecture.md`. Déplacé hors des rules auto-chargées car descriptif pur (inventaire de ce qui existe) — pas une règle de comportement. Référencé depuis `CLAUDE.md` projet section "Ressources".
+
 **Version:** 2.0.0 (condensed from audit #556)
 **MAJ:** 2026-04-05
 

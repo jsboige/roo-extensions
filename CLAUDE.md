@@ -65,7 +65,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 ## Agents, Skills & Commands
 
 **18 subagents** + **6 skills** + **4 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`).
-**Detail :** [.claude/rules/agents-architecture.md](.claude/rules/agents-architecture.md)
+**Detail :** [docs/harness/reference/agents-inventory.md](docs/harness/reference/agents-inventory.md)
 
 ---
 
@@ -109,16 +109,18 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 ## Rules Auto-chargees
 
 **Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion + Surgical](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md) | [Issue Closure](.claude/rules/issue-closure.md) | [Agent Claim](.claude/rules/agent-claim-discipline.md)
-**Ops :** [File Writing](.claude/rules/file-writing.md) | [Meta-Analyste](.claude/rules/meta-analyst.md) | [SDDD](.claude/rules/sddd-grounding.md) | [conversation_browser](.claude/rules/conversation-browser-guide.md)
+**Ops :** [File Writing](.claude/rules/file-writing.md) | [SDDD](.claude/rules/sddd-grounding.md)
 **Com :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md) | [Friction](.claude/rules/friction-protocol.md) | [MCP Diagnosis](.claude/rules/mcp-diagnosis.md)
-**Contexte :** [Context Window](.claude/rules/context-window.md) | [Agents](.claude/rules/agents-architecture.md) | [Security](.claude/rules/security.md)
+**Contexte :** [Context Window](.claude/rules/context-window.md) | [Security](.claude/rules/security.md)
 
 ---
 
 ## Ressources
 
 - **Docs on-demand :** [docs/harness/reference/INDEX.md](docs/harness/reference/INDEX.md) — index complet de toute la documentation
-- **Coordinateur :** [scheduled-coordinator.md](docs/harness/coordinator-specific/scheduled-coordinator.md) | [pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) | [skeptical-posture.md](docs/harness/coordinator-specific/skeptical-posture.md)
+- **Agents/Bots/Scheduler :** [agents-inventory.md](docs/harness/reference/agents-inventory.md) | [bots-directory.md](docs/harness/reference/bots-directory.md) | [scheduler-model-defaults.md](docs/harness/reference/scheduler-model-defaults.md)
+- **Outils :** [conversation_browser](docs/harness/reference/conversation-browser-detailed.md) | [MCP diagnosis procedure](docs/harness/reference/mcp-diagnosis-procedure.md)
+- **Coordinateur :** [scheduled-coordinator.md](docs/harness/coordinator-specific/scheduled-coordinator.md) | [pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) | [skeptical-posture.md](docs/harness/coordinator-specific/skeptical-posture.md) | [meta-analyst-rule.md](docs/harness/coordinator-specific/meta-analyst-rule.md)
 - **Guide RooSync :** [GUIDE-TECHNIQUE-v2.3.md](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
 - **Scripts :** [scripts/README.md](scripts/README.md) | [scripts/claude/](scripts/claude/)
 - **GitHub :** [Project #67](https://github.com/users/jsboige/projects/67) — Issues: `[CLAUDE-MACHINE] Titre` + labels (bug/enhancement/doc + attribution). [Detail](docs/harness/reference/github-cli.md)
