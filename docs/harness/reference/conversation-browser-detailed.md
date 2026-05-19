@@ -1,7 +1,32 @@
-# conversation_browser — Reference Detaillee
+# conversation_browser — Guide Complet
 
-**Source :** `.claude/rules/conversation-browser-guide.md` (version slim)
+> **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/conversation-browser-guide.md` (version slim) merge dans ce document. Plus de rule auto-chargée séparée — tout est ici.
+
 **Issue :** #1063, fix #881
+
+---
+
+## Point d'Entree OBLIGATOIRE
+
+**TOUJOURS commencer par `list`** pour obtenir les IDs :
+
+```
+conversation_browser(action: "list", workspace: "C:/dev/roo-extensions", limit: 20)
+```
+
+Sans IDs, `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffisant.
+
+## Actions Principales
+
+| Action | Usage | Parametres cles |
+|--------|-------|-----------------|
+| **`list`** | Lister taches recentes (OBLIGATOIRE en premier) | `limit`, `contentPattern` |
+| `tree` | Arbre des taches | `conversation_id`, `output_format: "ascii-tree"` |
+| `current` | Tache active | `workspace` |
+| `view` | Squelette conversation | `task_id`, `smart_truncation: true` |
+| `summarize` | Resume/stats | `summarize_type: "trace"`, `taskId` |
+
+Niveaux recommandes : `Summary` ou `Compact`. Jamais `Full`.
 
 ---
 

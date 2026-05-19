@@ -299,7 +299,7 @@ cd mcps/internal && npm install && npm run build
 ### Points d'Entrée Principaux
 
 - **Guide Agent Claude Code** : [`CLAUDE.md`](CLAUDE.md)
-- **Architecture Agents** : [`.claude/rules/agents-architecture.md`](.claude/rules/agents-architecture.md)
+- **Architecture Agents** : [`docs/harness/reference/agents-inventory.md`](docs/harness/reference/agents-inventory.md)
 - **Serveurs MCP** : [`mcps/README.md`](mcps/README.md)
 
 ### Documentation RooSync v2.3

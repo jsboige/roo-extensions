@@ -169,7 +169,7 @@ ls -lt ~/.claude/projects/*/  2>/dev/null | head -10
 
 ### 3. Analyses productives (ordre de priorite — meta-analyst rule v1.7.0)
 
-**STOP & PIVOT** : Si ton instinct te pousse a "comparer 2 fichiers de regles entre eux" (harness Claude vs Roo), STOP IMMEDIATEMENT. Pivote vers les 7 categories ci-dessous. Reference : .claude/rules/meta-analyst.md.
+**STOP & PIVOT** : Si ton instinct te pousse a "comparer 2 fichiers de regles entre eux" (harness Claude vs Roo), STOP IMMEDIATEMENT. Pivote vers les 7 categories ci-dessous. Reference : docs/harness/coordinator-specific/meta-analyst-rule.md.
 
 Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regles) :
 

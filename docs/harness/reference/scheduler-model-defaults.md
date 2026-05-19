@@ -1,5 +1,7 @@
 # Worker Model Defaults — Label-Based Selection
 
+> **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/scheduler-model-defaults.md`. Déplacé hors des rules auto-chargées car ce document décrit le comportement du script `start-claude-worker.ps1` ; les agents Claude qui lisent cette doc ne peuvent pas l'influencer — c'est de la doc opérationnelle.
+
 **Version:** 1.0.0
 **Issue:** #2236 Sprint 4
 **MAJ:** 2026-05-18
