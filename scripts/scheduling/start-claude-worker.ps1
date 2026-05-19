@@ -84,6 +84,17 @@ if (-not (Test-Path $LogDir)) {
     New-Item -ItemType Directory -Path $LogDir | Out-Null
 }
 
+$LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+
+# Write-Log must be defined early — env injection blocks (lines ~100-140) call it before main body
+function Write-Log {
+    param([string]$Message, [string]$Level = "INFO")
+    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $LogMessage = "[$Timestamp] [$Level] $Message"
+    Write-Host $LogMessage
+    Add-Content -Path $LogFile -Value $LogMessage
+}
+
 # #2252: Injecter env vars MCP depuis ~/.claude.json dans le processus worker
 # Les env vars de mcpServers.roo-state-manager vont au serveur MCP uniquement,
 # PAS au subprocess claude -p. On les injecte manuellement ici.
@@ -131,8 +142,6 @@ try {
     Write-Log "Injection .env échouée: $_" "WARN"
 }
 
-$LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
-
 # === Concurrency Guard: skip if another worker is already running ===
 $LockFile = Join-Path $LogDir "worker.lock"
 if (Test-Path $LockFile) {
@@ -164,14 +173,6 @@ $script:NoFallbackMode = $NoFallback
 # #1666 Phase A2: Track if a detached HEAD recovery branch was created during this run.
 # Must be reported in the [RESULT] comment so the coordinator can follow up instead of losing the work.
 $script:RecoveryBranchName = $null
-
-function Write-Log {
-    param([string]$Message, [string]$Level = "INFO")
-    $Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $LogMessage = "[$Timestamp] [$Level] $Message"
-    Write-Host $LogMessage
-    Add-Content -Path $LogFile -Value $LogMessage
-}
 
 function Test-ClaudeCLI {
     try {
