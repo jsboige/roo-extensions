@@ -108,6 +108,29 @@ try {
     Write-Log "Injection env vars MCP échouée: $_" "WARN"
 }
 
+# #2280: Fallback — read .env from roo-state-manager submodule if env vars not already set
+try {
+    $EnvFile = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\.env"
+    if (Test-Path $EnvFile) {
+        $envLines = Get-Content $EnvFile -ErrorAction SilentlyContinue | Where-Object {
+            $_ -and -not $_.StartsWith('#') -and $_.Contains('=')
+        }
+        foreach ($line in $envLines) {
+            $idx = $line.IndexOf('=')
+            $key = $line.Substring(0, $idx).Trim()
+            $val = $line.Substring($idx + 1).Trim()
+            if ($key -and $val -and -not [System.Environment]::GetEnvironmentVariable($key)) {
+                [System.Environment]::SetEnvironmentVariable($key, $val, 'Process')
+                Write-Log "Env injecté (.env): $key" "DEBUG"
+            }
+        }
+    } else {
+        Write-Log ".env introuvable: $EnvFile" "WARN"
+    }
+} catch {
+    Write-Log "Injection .env échouée: $_" "WARN"
+}
+
 $LogFile = Join-Path $LogDir "worker-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
 
 # === Concurrency Guard: skip if another worker is already running ===
