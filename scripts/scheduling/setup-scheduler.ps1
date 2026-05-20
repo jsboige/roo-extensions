@@ -7,9 +7,10 @@
     scheduling architecture. Supports 3 task types:
 
     - worker:            Executor tier (6h, Haiku baseline, all machines)
-    - coordinator:       Coordinator tier (8h, Sonnet baseline, ai-01 only)
+    - coordinator:       Coordinator/merge tier (12h, Opus, ai-01 only — merge-coordinator
+                         exception: the ONLY scheduled task allowed on opus, cost policy 2026-05-20)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
-    - dashboard-watcher: Dashboard gate (1h, spawns Opus only on actionable messages, all machines).
+    - dashboard-watcher: Dashboard gate (1h, spawns Haiku on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
                          dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
                          Use -Workspace to pin to a single workspace (legacy).
@@ -147,10 +148,10 @@ $TaskConfigs = @{
     'coordinator' = @{
         TaskName = "Claude-Coordinator"
         Script = Join-Path $scriptDir "start-claude-coordinator.ps1"
-        DefaultInterval = 8
-        DefaultModel = "sonnet"
+        DefaultInterval = 12  # relaxed cadence (was 8h) — bounds opus cost; user mandate 2026-05-20
+        DefaultModel = "opus"  # merge-coordinator exception (user mandate 2026-05-20): the ONE scheduled task allowed on opus, because merge decisions (self-merge cap, CODEOWNERS --admin, skeptical review) need opus judgment. ai-01 only; relaxed 12h cadence bounds real Anthropic cost.
         DefaultTimeout = 120
-        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches and rebalances. Runs on Sonnet with sub-agent escalation to Opus for PR reviews."
+        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches, rebalances, and merges vetted PRs. Runs on Opus (merge-coordinator exception, 12h relaxed cadence, ai-01 only) — the only scheduled task permitted on opus per cost policy 2026-05-20."
         MachineRestriction = "myia-ai-01"
     }
     'meta-audit' = @{
@@ -166,9 +167,9 @@ $TaskConfigs = @{
         TaskName = "Claude-DashboardWatcher"  # Suffix -{Workspace} added only in legacy single-ws mode
         Script = Join-Path $RepoRoot "scripts/dashboard-scheduler/poll-dashboard.ps1"
         DefaultInterval = 1  # 1h polls
-        DefaultModel = "opus"  # model used by spawn-claude.ps1 on actionable trigger
+        DefaultModel = "haiku"  # cost policy 2026-05-20: scheduled tasks never spawn opus. poll-dashboard.ps1 hardcodes -Model haiku for sweeps anyway (#1605 Bug #2); opus → real Anthropic credit even via LAN router.
         DefaultTimeout = 15  # poll is fast; 10min reserved for spawned claude -p
-        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Phase 2 live mode (spawns Opus on actionable). Use -Stub to opt into Phase 1 stub mode."
+        Description = "Claude Code dashboard watcher (#1430): polls workspace dashboard(s), filters actionable tags (ASK/TASK/BLOCKED), spawns claude -p ONLY when actionable messages are found. Multi-workspace by default (auto-discovers all workspace-*.md under ROOSYNC_SHARED_PATH/dashboards/). Use -Workspace for legacy single-ws. Spawns Haiku on actionable (cost policy 2026-05-20). Use -Stub to opt into Phase 1 stub mode."
         MachineRestriction = $null  # all machines
     }
     'health-check' = @{
