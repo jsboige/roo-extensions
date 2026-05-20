@@ -83,34 +83,40 @@ Fixes #XXX, Relates to #YYY
 
 ### sk-agent Code Review (MANDATORY for PRs >50 LOC)
 
-**REQUIRED** before merging any PR with >50 lines of code changes. The coordinator MUST run a structured code review via sk-agent and post the results as a PR comment.
+**REQUIRED** before merging any PR with >50 lines of code changes. The coordinator MUST run a structured code review via sk-agent's `review_pr` tool and post the results as a PR comment.
 
-**IMPORTANT:** Use the INTEGRATION TRACING template below, not just generic diff validation. This catches bugs like BLOCKER-3 (issue #1471) where schema changes work but downstream dispatch fails.
+#### Tiered Review via `review_pr` Tool (Issue #1587)
 
-```bash
-# 1. Get the PR diff
-gh pr diff {PR_NUMBER} --repo jsboige/roo-extensions
+The `review_pr` MCP tool provides automated multi-tier PR review. It automatically fetches diff, files, and metadata via GitHub tools.
 
-# 2. Get files touched
-gh pr diff {PR_NUMBER} --name-only --repo jsboige/roo-extensions
+**Usage:**
+```javascript
+// Tier 1: Fast diff-only (<30s, glm-4.7-flash) — for PRs ≤50 LOC
+review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 1)
 
-# 3. Run sk-agent code review with INTEGRATION TRACING
-run_conversation(conversation: "code-review", prompt: "[INTEGRATION TRACING TEMPLATE - see below]")
+// Tier 2: Diff + context exploration (2-5min, glm-5.1) — DEFAULT, for PRs 50-500 LOC
+review_pr(repo: "jsboige/roo-extensions", pr_number: 123, tier: 2)
 
-# 4. Post review as PR comment
-gh pr comment {PR_NUMBER} --body "## sk-agent Review\n\n{review summary}"
+// Tier 3: Diff + context + execution (5-15min) — FUTURE, for critical PRs >500 LOC
+// Currently aliases Tier 2. Implementation pending.
 ```
 
-**INTEGRATION TRACING TEMPLATE (use this for sk-agent reviews):**
+**Tier mapping:**
 
-```
+| Tier | Agent | Conversation | Model | Use Case |
+|------|-------|--------------|-------|----------|
+| 1 | `fast-reviewer` | `pr-review-tier1` (sequential) | glm-4.7-flash | PRs ≤50 LOC, pointer bumps, tests-only |
+| 2 | `integration-reviewer` + `context-explorer` | `pr-review-tier2` (group_chat) | glm-5.1 | Default for PRs 50-500 LOC |
+| 3 | (aliases Tier 2) | (aliases Tier 2) | — | Future: execution + sandbox |
+
+**Output format (all tiers):** JSON with `verdict`, `confidence`, `summary`, `blocking_issues`, `suggestions`.
+
+#### Integration Tracing (for manual sk-agent reviews)
+
+When the `review_pr` tool is unavailable or for manual deep-dives, use the integration tracing template:
+
+```text
 Review this PR with a focus on INTEGRATION, not just diff correctness.
-
-DIFF:
-[git diff output]
-
-FILES TOUCHED:
-[gh pr diff --name-only output]
 
 CONTEXT TRACING (required):
 For each new field, API, or modified behavior in this PR:
@@ -120,18 +126,14 @@ For each new field, API, or modified behavior in this PR:
 4. Where does it have side effects? (network call, DB write, message dispatch)
 5. At each step: is required context (workspace, machineId, auth, traceId) preserved?
 
-Use the codebase to trace these. If the PR adds/modifies a schema field,
-grep for consumers. If it changes a function signature, find callers.
-
 CRITICAL PATTERNS TO HUNT:
 - Silent failures: `.catch(() => {})`, fire-and-forget without logging
 - Context loss: passing `machineId` alone where `{machineId, workspace}` is needed
 - Defaults papering over bugs: `|| undefined`, `?? ''`, `|| []` when missing input should error
 - E2E test gap: does any test exercise the full flow from input to effect?
-- Dual-definition: check if the same schema/type is duplicated elsewhere (tool-definitions vs handler source)
+- Dual-definition: check if the same schema/type is duplicated elsewhere
 
 VERDICT: APPROVE / REQUEST_CHANGES / COMMENT.
-Be specific about bugs NOT in the diff but exposed/obscured by it.
 ```
 
 **When to use:** All PRs with >50 lines of code changes.
@@ -627,5 +629,5 @@ gh pr merge {N} --squash --delete-branch
 
 ---
 
-**Last updated:** 2026-04-27 (Pipeline multi-canal cycle 21 — Issue #1754)
+**Last updated:** 2026-05-20 (Tiered review_pr tool — Issue #1587)
 **Maintainer:** Coordinateur RooSync (myia-ai-01)
