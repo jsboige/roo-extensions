@@ -55,15 +55,15 @@
 .NOTES
     Auteur: Claude Code (myia-ai-01)
     Date: 2026-03-05
-    Version: 1.1.0
-    Issue: #540, #1980
+    Version: 1.2.0
+    Issue: #540, #1980, #2264
 #>
 
 [CmdletBinding()]
 param(
     [string]$Model = "sonnet",
     [int]$LookbackHours = 48,
-    [double]$MaxBudgetUsd = 0.50,
+    [double]$MaxBudgetUsd = 1.50,
     [switch]$DryRun = $false,
     [double]$IdleThresholdHours = 8,
     [switch]$Force = $false
