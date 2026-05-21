@@ -64,4 +64,47 @@ Niveaux recommandes : `Summary` ou `Compact`. Jamais `Full`.
 - Utiliser `Full` sans `smart_truncation`
 - Ignorer les metadonnees (timestamp, workspace, mode)
 
+---
+
+## Nouvelles fonctionnalites — #1752 (2026-05-21)
+
+### Bug #1 — Support sessions Claude Code dans `view_task_details`
+
+`view_task_details` charge maintenant les sessions Claude Code JSONL directement depuis
+`~/.claude/projects/`. Les taches retournees par `list` avec un `taskId` prefixe `claude-`
+sont viewables sans erreur.
+
+```typescript
+view_task_details(task_id: "claude-my-project/abc123...", max_output_length: 8000)
+```
+
+### Bug #2 — `max_output_length` desormais respecte
+
+Le parametre `max_output_length` applique une troncature par hard cap (debut + fin preserved).
+Valeur par defaut : 100 000 chars. Utiliser une valeur plus basse pour eviter les explosions contextuelles.
+
+```typescript
+view_task_details(task_id: "...", max_output_length: 8000)  // retourne ≤ 8 000 chars
+```
+
+### Bug #3 — Archives GDrive cross-machine via `includeArchives`
+
+`conversation_browser(action: "list")` et `list_conversations` acceptent desormais
+`includeArchives: true` pour charger les squelettes d'autres machines depuis
+`SkeletonCacheService` (Tier 3 GDrive).
+
+```typescript
+conversation_browser(action: "list", includeArchives: true, machineId: "myia-po-2026")
+```
+
+| Parametre | Description |
+| --- | --- |
+| `includeArchives` | `true` = inclure les archives Tier 3 GDrive (defaut: `false`) |
+| `machineId` | Filtrer par machine source (ex: `"myia-po-2026"`) |
+| `source` | `"roo"`, `"claude"`, ou `"all"` |
+
+Les archives deja presentes dans le cache local ne sont pas dupliquees.
+
+---
+
 **Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes)
