@@ -48,7 +48,7 @@
     See issue #1027 for escalation mechanism details
 
 .PARAMETER MaxIterations
-    Max iterations per run (default: 1, only for worker)
+    Max iterations per run (default: 0 = use script defaults via Get-AdjustedIterations, only for worker)
 
 .PARAMETER TimeoutMinutes
     Task Scheduler kill timeout in minutes (default: worker=15, coordinator=30, meta-audit=30)
@@ -99,7 +99,7 @@ param(
     [double]$IntervalHours = 0,
     [string]$Mode = 'code-simple',
     [string]$Model = '',
-    [int]$MaxIterations = 1,
+    [int]$MaxIterations = 0,
     [int]$TimeoutMinutes = 0,
     [string]$Workspace = '',
     [string]$Workspaces = '',
