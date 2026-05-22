@@ -2044,6 +2044,125 @@ function Reset-PhantomSubmodulePointers {
     return $ResetPaths
 }
 
+function Remove-NestedSubmoduleWorktrees {
+    <#
+    .SYNOPSIS
+    Removes worktrees created inside submodule working trees by agents.
+
+    .DESCRIPTION
+    Guard #2123: Agents (Claude/Roo) sometimes create worktrees inside a submodule's
+    working tree (e.g. mcps/internal/.claude/worktrees/wt-foo). These nested worktrees
+    leak their files as "untracked" into the parent repo, causing 100k+ git notifications.
+
+    This function detects and removes registered worktrees whose path is inside a submodule
+    directory, preserving the branches (worktree remove keeps the ref).
+
+    Called at worker startup to ensure a clean state.
+
+    .OUTPUTS
+    Number of nested worktrees removed.
+    #>
+    param([string]$RepoRoot)
+
+    $RemovedCount = 0
+    try {
+        # Get submodule paths
+        $SubmodulePaths = @((git -C $RepoRoot config --file .gitmodules --get-regexp path 2>&1) |
+            Where-Object { $_ -is [string] -and $_ -match '^submodule\.\S+\.path\s+(.+)$' } |
+            ForEach-Object { $Matches[1] })
+
+        if ($SubmodulePaths.Count -eq 0) { return $RemovedCount }
+
+        # List registered worktrees
+        $WorktreeList = @((git -C $RepoRoot worktree list --porcelain 2>&1) |
+            Where-Object { $_ -is [string] -and $_ -match '^worktree\s+(.+)$' } |
+            ForEach-Object { $Matches[1] })
+
+        foreach ($wtPath in $WorktreeList) {
+            # Skip the main worktree
+            if ($wtPath -eq $RepoRoot) { continue }
+
+            foreach ($smPath in $SubmodulePaths) {
+                $fullSmPath = Join-Path $RepoRoot $smPath
+                # Normalize paths for comparison
+                $normalizedWt = $wtPath -replace '\\', '/'
+                $normalizedSm = $fullSmPath -replace '\\', '/'
+
+                if ($normalizedWt.StartsWith("$normalizedSm/") -or $normalizedWt.StartsWith("$normalizedSm\")) {
+                    Write-Log "NESTED WORKTREE DETECTED (#2123): '$wtPath' inside submodule '$smPath'. Removing." "WARN"
+                    $prevPref = $ErrorActionPreference
+                    $ErrorActionPreference = "Continue"
+                    git -C $RepoRoot worktree remove --force $wtPath 2>&1 | Out-Null
+                    $ErrorActionPreference = $prevPref
+
+                    if ($LASTEXITCODE -eq 0) {
+                        Write-Log "Removed nested worktree: $wtPath" "INFO"
+                        $RemovedCount++
+                    } else {
+                        # Deregister even if directory deletion fails (Windows rmdir issue)
+                        git -C $RepoRoot worktree prune 2>&1 | Out-Null
+                        Write-Log "Worktree deregistered (directory may remain): $wtPath" "WARN"
+                        $RemovedCount++
+                    }
+                }
+            }
+        }
+
+        # Also check submodule worktrees (worktrees registered in submodule repos)
+        foreach ($smPath in $SubmodulePaths) {
+            $fullSmPath = Join-Path $RepoRoot $smPath
+            if (-not (Test-Path $fullSmPath)) { continue }
+
+            $smGitDir = Join-Path $RepoRoot ".git/modules/$smPath"
+            if (-not (Test-Path $smGitDir)) { continue }
+
+            # List submodule worktrees using the submodule's git dir
+            $smWorktrees = @((& git --git-dir $smGitDir worktree list --porcelain 2>&1) |
+                Where-Object { $_ -is [string] -and $_ -match '^worktree\s+(.+)$' } |
+                ForEach-Object { $Matches[1] })
+
+            foreach ($smWtPath in $smWorktrees) {
+                # Skip the main submodule checkout
+                $normalizedSmWt = $smWtPath -replace '\\', '/'
+                $normalizedSm = $fullSmPath -replace '\\', '/'
+
+                if ($normalizedSmWt -eq $normalizedSm) { continue }
+
+                Write-Log "NESTED SUBMODULE WORKTREE (#2123): '$smWtPath' in submodule '$smPath'. Removing." "WARN"
+                $prevPref = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                & git --git-dir $smGitDir worktree remove --force $smWtPath 2>&1 | Out-Null
+                $ErrorActionPreference = $prevPref
+
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Log "Removed nested submodule worktree: $smWtPath" "INFO"
+                    $RemovedCount++
+                } else {
+                    & git --git-dir $smGitDir worktree prune 2>&1 | Out-Null
+                    Write-Log "Submodule worktree deregistered: $smWtPath" "WARN"
+                    $RemovedCount++
+                }
+            }
+
+            # Clean up leftover directories inside submodule .claude/worktrees/
+            $smWtDir = Join-Path $fullSmPath ".claude\worktrees"
+            if (Test-Path $smWtDir) {
+                Write-Log "Cleaning up nested worktree directory: $smWtDir" "INFO"
+                Remove-Item -LiteralPath $smWtDir -Recurse -Force -ErrorAction SilentlyContinue
+                $RemovedCount++
+            }
+        }
+
+        if ($RemovedCount -gt 0) {
+            Write-Log "Removed $RemovedCount nested worktree(s). Run 'git status' to verify clean state." "INFO"
+        }
+    }
+    catch {
+        Write-Log "Remove-NestedSubmoduleWorktrees error: $_" "WARN"
+    }
+    return $RemovedCount
+}
+
 function Test-WorktreeHasChanges {
     <#
     .SYNOPSIS
@@ -3209,6 +3328,21 @@ try {
     }
     catch {
         Write-Log "Defensive cleanup failed (non-fatal): $_" "WARN"
+    }
+
+    # ==========================================================================
+    # Guard #2123: Remove worktrees nested inside submodule working trees.
+    # Agents sometimes create worktrees inside mcps/internal/.claude/worktrees/,
+    # causing 100k+ files to leak as "untracked" in the parent repo.
+    # ==========================================================================
+    try {
+        $NestedCount = Remove-NestedSubmoduleWorktrees -RepoRoot $RepoRoot
+        if ($NestedCount -gt 0) {
+            Write-Log "Guard #2123: Cleaned up $NestedCount nested submodule worktree(s)" "WARN"
+        }
+    }
+    catch {
+        Write-Log "Nested worktree cleanup failed (non-fatal): $_" "WARN"
     }
 
     # ==========================================================================
