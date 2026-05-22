@@ -2698,8 +2698,17 @@ function Invoke-Claude {
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
                 $IterationOutputs += "ERROR: $_"
-                $Continue = $false
-                break
+                # RC-2 fix (#2309): Pre-flight failures are transient (API connectivity).
+                # Retry with 30s delay if iterations remain, instead of breaking immediately.
+                $errorMsg = $_.ToString()
+                if ($errorMsg -match "Pre-flight|pre-flight|BashTool" -and $CurrentIteration -lt $Iterations) {
+                    Write-Log "Echec pre-flight detecte — attente 30s avant retry (iteration $CurrentIteration/$Iterations)" "WARN"
+                    Start-Sleep -Seconds 30
+                    $Continue = $true
+                } else {
+                    $Continue = $false
+                    break
+                }
             }
 
             # VERIFY: Parser signaux explicites de l'agent
