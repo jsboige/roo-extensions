@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.3.0 (slim)
-**MAJ:** 2026-04-29
+**Version:** 3.4.0 (slim)
+**MAJ:** 2026-05-22
 
 ---
 
@@ -17,6 +17,16 @@
 4. **Creer PR :** `gh pr create`
 5. **Review → Merge (squash)**
 6. **Cleanup :** `git worktree remove` + `git branch -D`
+
+### Anti-Nested Worktrees (#2123 incident 2026-05-22)
+
+**JAMAIS créer un worktree dont le chemin est imbriqué dans un submodule.** Un worktree doit toujours vivre dans le repo git qui le gère.
+
+- **OK** : `.claude/worktrees/wt-foo` dans le repo parent → worktree du repo parent
+- **OK** : `../roo-extensions-wt/wt-foo` (en dehors du repo) via `create-worktree.ps1`
+- **INTERDIT** : `mcps/internal/.claude/worktrees/wt-foo` → worktree du submodule imbriqué dans le working tree du parent → 136k fichiers fuient comme untracked
+
+**Règle :** Avant `git worktree add`, vérifier `git rev-parse --show-toplevel`. Si ce toplevel est dans un sous-répertoire d'un repo parent (ex: `mcps/internal`), le worktree sera imbriqué → **utiliser un chemin en dehors du working tree** ou travailler directement dans le submodule sans worktree.
 
 ## Workflow PR — Roo
 
