@@ -77,7 +77,7 @@ schtasks /Query /TN "Claude-*" /FO LIST
 | MCP roo-state-manager | grep config | Présent, disabled=false |
 | MCP win-cli | grep config | Présent, fork local |
 | Scheduler Roo | schtasks | Ready |
-| Heartbeat | roosync_inventory(type: "heartbeat") | Online |
+| Heartbeat (machine locale UNIQUEMENT) | roosync_inventory(type: "status") | Cette machine = ONLINE |
 
 ## Statuts
 
@@ -108,9 +108,10 @@ schtasks /Query /TN "Claude-*" /FO LIST
 - **Roo-Scheduler:** ✅ Ready / ❌ {raison}
 - **Claude-*:** ✅ Ready / ❌ {raison}
 
-### Heartbeat
-- **Status:** Online/Offline
+### Heartbeat (machine locale uniquement)
+- **Status:** ONLINE / IDLE / UNKNOWN (jamais "OFFLINE" — ADR 008)
 - **Last seen:** {timestamp}
+> Ne reflete QUE cette machine (modele in-memory ADR 008). Ne PAS l'utiliser pour juger les autres machines — leur presence se lit au dashboard. Voir [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) "Phase 4: Sunset".
 
 ### Résumé
 - **Global:** ✅ OK / ⚠️ WARNING / ❌ ERROR

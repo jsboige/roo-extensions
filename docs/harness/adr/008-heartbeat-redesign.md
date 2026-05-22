@@ -1,8 +1,8 @@
 # ADR 008: Heartbeat Redesign — Passive Activity Derivation
 
-**Date:** 2026-05-03 (v3 updated 2026-05-08 by po-2026)
-**Status:** Phase 1+2 COMPLETE — Phase 3 validation pending (48h continuous operation)
-**Issue:** #1953
+**Date:** 2026-05-03 (v3 updated 2026-05-08 by po-2026; v4 Phase 4 Sunset added 2026-05-23 by ai-01)
+**Status:** Phase 1+2 COMPLETE — Phase 3 validation NEVER REACHED — **Phase 4 SUNSET (cross-machine presence role removed, see below)**
+**Issue:** #1953 (sunset tracked under #2121)
 **Supersedes:** #1495, #1674, #1791, #1938 (4 failed fixes in 6 weeks)
 **Related:** #1609 (auto-heartbeat), #293 (dashboard cross-check), #311 (double-callback fix), #377 (Phase 2 implementation)
 **Approvers:** myia-po-2024 (ADR v2 ratification)
@@ -224,3 +224,53 @@ PR #377 (submod, po-2026) implemented the ADR 008 changes:
 ### Remaining (GDrive cleanup)
 
 The `heartbeats/` directory on GDrive contains orphaned `.tmp` files from the old file-based system. These are harmless (no code reads them) and should be cleaned up during routine maintenance.
+
+## Phase 4: Sunset — Cross-Machine Presence Role Removed (2026-05-23, ai-01)
+
+**Verdict (user mandate 2026-05-23):** *"Si le heartbeat est devenu local only (on croit rêver), alors il faut le sunsetter, c'est que vous n'êtes pas arrivés à le faire marcher (ou bien répare-le, mais franchement je n'y crois plus là, je tombe de ma chaise)."*
+
+### The fatal flaw of Option A: it is structurally cross-machine BLIND
+
+Phase 1+2 moved heartbeat state to an **in-memory `Map` inside each MCP server process** (Decision, "Storage: In-Memory Activity Log"). This eliminated GDrive sync storms and file corruption — but it also eliminated the only thing that made heartbeat a *cross-machine* signal.
+
+Each machine's MCP server records **only its own tool calls**. There is no transport carrying one machine's activity to another machine's process. Therefore:
+
+- On ai-01, `roosync_inventory(type: "heartbeat" | "all" | "machines")` reports **ai-01 = ONLINE** and **every other machine = UNKNOWN**, regardless of what those machines are actually doing.
+- The same is true symmetrically on every machine: each one sees itself online and everyone else unknown.
+
+This is not a bug to be fixed — it is the **direct, intended consequence** of "in-memory only, no GDrive writes." The Phase 3 validation criterion *"6 machines active → all show ONLINE simultaneously"* was **never reachable** under the in-memory model and Phase 3 was never reached.
+
+### Why "fiabiliser" (repair) is rejected
+
+Making the in-memory heartbeat report *other* machines' presence requires a shared transport — i.e. re-introducing per-machine writes to a shared medium (GDrive). That is precisely **Option B**, already rejected in this ADR for GDrive latency + corruption + 4 prior regressions (#1495, #1674, #1791, #1938). Repairing the heartbeat means resurrecting the exact failure mode ADR 008 was written to kill. The user has explicitly withdrawn confidence in further repair attempts.
+
+**Decision: SUNSET the heartbeat's cross-machine presence role.** Do not repair it. Do not add a new mechanism to replace it (No Pendulum). The dashboard already carries cross-machine presence reliably — judgment moves there.
+
+### Single source of cross-machine presence truth: the dashboard
+
+A reliable cross-machine presence signal **already exists and is already wired** — it does not need to be built:
+
+| Signal | How | Why reliable |
+|--------|-----|--------------|
+| **`roosync_inventory(type: "status")`** | delegates to `get-status.ts` → `crossCheckWithDashboard()` (`utils/dashboard-activity.ts`) | Aggregates ALL machines' dashboard files; reads timestamps **embedded in message content** (`### [ISO8601] machine \| ...`), immune to GDrive mtime latency. #1953 Phase 4 discovers machines purely from the dashboard, independent of any heartbeat map. |
+| **Dashboard intercom recency** | `roosync_dashboard(action: "read", type: "workspace", section: "intercom")` | A machine that posted in the last hours is provably alive; recency of its newest message is the activity proof. |
+| **`.claude/locks/watcher-<ws>.lastack` mtime** | dashboard-listener ack file | Most reliable liveness signal for the watcher loop; a fresh mtime proves the machine's listener is running. |
+| **git / PR activity** | `git log`, `gh pr list --author` | Commits and PRs are timestamped proof of work, not presence inference. |
+
+### What changes (mœurs — agent practice)
+
+**STOP** using `roosync_inventory(type: "heartbeat" | "all" | "machines")` to judge **other** machines' activity. Those read paths only ever reflect the *local* process and will mislead.
+
+**DO** judge other machines' presence/activity from the dashboard signals above. To declare a machine "silent/down," the test is **"no dashboard message and no PR/commit in N hours,"** never "heartbeat says UNKNOWN."
+
+The three coordinator/worker playbooks have been corrected accordingly: `.claude/skills/sync-tour/SKILL.md` (Phase 4bis), `.claude/commands/coordinate.md` (Surveillance Santé), `.claude/agents/workers/sync-checker.md` (heartbeat row — clarified as local-self only).
+
+### What is kept
+
+- **The local self-activity map** stays (cheap, harmless, accurate for the *one* machine it observes). `roosync_inventory(type: "status")` continues to use it as a seed, then the dashboard cross-check is authoritative.
+- **`HeartbeatService.recordSchedulerRun` / scheduler metrics (#1442)** stay — they are a separate, legitimately-local concern (this process's scheduler outcomes).
+- **The write hook** (`recordRooSyncActivity`, registered on local tool calls) is harmless and stays.
+
+### Code follow-through (separate submod PR, tracked under #2121)
+
+The doc/mœurs change (this addendum + the 3 playbooks) lands first. The code change — demoting/redirecting the blind read paths (`type: "heartbeat" | "all" | "machines"`) so they cannot be mistaken for cross-machine truth, and making `get-status.ts` presence purely dashboard+lastack derived — is specified as a claimed issue under epic **#2121** (presence/config/sharedState consolidation, po-2026 owner). That epic's "Phase 2 = dashboard-derived presence" is exactly this sunset; the code work is its natural completion.

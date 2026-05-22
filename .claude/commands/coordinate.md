@@ -212,8 +212,8 @@ L'objectif long terme est de pousser Roo vers de plus en plus de taches `-comple
 
 **A chaque tour de sync, verifier :**
 1. **Rapports entrants** : Les executeurs/meta-analystes signalent-ils des problemes d'env ? (.env incomplet, service down, MCP absent)
-2. **Config drift** : Utiliser `roosync_compare_config` ou `roosync_inventory` pour detecter les divergences
-3. **Heartbeat** : automatique via tout appel MCP (#1609). Pour vérification : `roosync_inventory(type: "heartbeat")`
+2. **Config drift** : Utiliser `roosync_compare_config` ou `roosync_inventory(type: "machine")` (inventaire de config locale) pour detecter les divergences
+3. **Presence cross-machine** : `roosync_inventory(type: "status")` (dashboard-derived via `crossCheckWithDashboard`) + recence intercom `roosync_dashboard(action: "read", type: "workspace", section: "intercom")`. **NE PAS** utiliser `type: "heartbeat" | "all" | "machines"` : sous le modele in-memory ADR 008, ces lectures ne refletent QUE le processus local (ai-01 se voit ONLINE, les autres UNKNOWN, quoi qu'elles fassent). Heartbeat sunset cross-machine : [docs/harness/adr/008-heartbeat-redesign.md](../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
 
 **Actions correctives :**
 - Envoyer un message RooSync cible avec les variables/config manquantes
@@ -284,6 +284,7 @@ Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces 
 7. `git push` après validation
 
 **🟠 Machine silencieuse (> 48h) :**
+> Mesure de "silence" = aucun message dashboard ET aucun PR/commit depuis 48h (PAS "heartbeat UNKNOWN" — voir Phase 4 Sunset).
 1. Envoyer message RooSync priorité URGENT
 2. Si pas de réponse après 2-3 messages : signaler à l'utilisateur
 3. Réassigner tâches critiques à machines actives
