@@ -6,18 +6,18 @@
     Claude Code session (orphaned). Each Claude Code session spawns MCP servers
     via stdio; if the session exits without cleanup, the node processes persist.
 
+    Performance: Single WMI query fetches ALL processes, then parent chains are
+    resolved in-memory via hashtable lookup. O(N) instead of O(N*depth) WMI calls.
+
     Known MCP server patterns:
     - mcp-searxng (mcp-searxng/dist/index.js)
     - roo-state-manager (roo-state-manager/build/index.js, mcp-wrapper.cjs)
     - playwright (@playwright/mcp/cli.js)
     - win-cli (win-cli/server/dist/index.js)
 
-    Orphan detection: process whose parent PID chain does NOT lead to a running
-    Claude Code process (claude.exe or node process with "claude" in cmdline).
-
 .PARAMETER DryRun
     Show what would be killed without actually terminating processes
-.PARAMETER Verbose
+.PARAMETER VerboseOutput
     Show detailed process information including parent chain
 .EXAMPLE
     .\cleanup-mcp-orphans.ps1
@@ -66,39 +66,36 @@ function Test-IsClaudeProcess {
     return $false
 }
 
-function Get-ParentChain {
-    param([int]$ProcessId, [int]$Depth = 0)
-    if ($Depth -gt 20) { return @() }
-    try {
-        $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction SilentlyContinue
-        if (-not $proc) { return @() }
-        if ($proc.ParentProcessId -eq 0 -or $proc.ParentProcessId -eq 4) { return @($proc) }
-        return @($proc) + (Get-ParentChain -ProcessId $proc.ParentProcessId -Depth ($Depth + 1))
-    }
-    catch { return @() }
-}
-
 Write-Host "`n=== MCP Server Orphan Cleanup ===" -ForegroundColor Cyan
 Write-Host "Machine: $env:COMPUTERNAME | DryRun: $DryRun`n" -ForegroundColor Gray
 
-# Get all node processes
-$allNodeProcs = Get-CimInstance Win32_Process -Filter "Name='node.exe'" -ErrorAction SilentlyContinue
-if (-not $allNodeProcs) {
+# Single WMI query: fetch ALL processes into a hashtable (PID -> process object)
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+$allProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
+$sw.Stop()
+Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms ($($allProcs.Count) processes)" -ForegroundColor DarkGray
+
+if (-not $allProcs) {
+    Write-Host "No processes found via WMI." -ForegroundColor Yellow
+    exit 0
+}
+
+# Build PID -> process hashtable and PID -> ParentPID map
+$procById = @{}
+foreach ($proc in $allProcs) {
+    $procById[$proc.ProcessId] = $proc
+}
+
+# Get all node processes from the hashtable
+$allNodeProcs = @($allProcs | Where-Object { $_.Name -eq 'node.exe' })
+if ($allNodeProcs.Count -eq 0) {
     Write-Host "No node.exe processes found." -ForegroundColor Yellow
     exit 0
 }
 
 # Separate MCP server processes from other node processes
-$mcpProcs = @()
-$otherProcs = @()
-
-foreach ($proc in $allNodeProcs) {
-    if (Test-IsMcpServer -CmdLine $proc.CommandLine) {
-        $mcpProcs += $proc
-    } else {
-        $otherProcs += $proc
-    }
-}
+$mcpProcs = @($allNodeProcs | Where-Object { Test-IsMcpServer -CmdLine $_.CommandLine })
+$otherProcs = @($allNodeProcs | Where-Object { -not (Test-IsMcpServer -CmdLine $_.CommandLine) })
 
 Write-Host "Node processes: $($allNodeProcs.Count) total" -ForegroundColor White
 Write-Host "MCP server processes: $($mcpProcs.Count)" -ForegroundColor White
@@ -109,39 +106,60 @@ if ($mcpProcs.Count -eq 0) {
     exit 0
 }
 
-# Identify Claude Code processes (active sessions)
-$claudeProcs = @()
-foreach ($proc in $allNodeProcs) {
-    if (Test-IsClaudeProcess -CmdLine $proc.CommandLine -ProcessName $proc.Name) {
-        $claudeProcs += $proc
-    }
-}
+# Identify Claude Code processes (active sessions) from hashtable
+$claudeProcs = @($allProcs | Where-Object { Test-IsClaudeProcess -CmdLine $_.CommandLine -ProcessName $_.Name })
 $codeProcs = Get-Process -Name 'Code' -ErrorAction SilentlyContinue
 $totalClaude = $claudeProcs.Count + ($codeProcs | Measure-Object).Count
 
 Write-Host "Active Claude/VS Code processes: $totalClaude`n" -ForegroundColor White
 
-# Classify MCP processes: orphaned vs active
+# Pre-compute which PIDs are Claude/VS Code ancestors (BFS from all Claude PIDs upward)
+$claudeAncestorPids = @{}
+foreach ($cp in $claudeProcs) {
+    $claudeAncestorPids[$cp.ProcessId] = $true
+}
+foreach ($cp in $codeProcs) {
+    $claudeAncestorPids[$cp.Id] = $true
+}
+
+# Walk parent chains in-memory using the hashtable (no WMI calls)
+function Test-HasClaudeParent {
+    param([int]$ProcessId)
+    $visited = @{}
+    $currentPid = $ProcessId
+    while ($currentPid -and $currentPid -ne 0 -and $currentPid -ne 4 -and -not $visited[$currentPid]) {
+        $visited[$currentPid] = $true
+        if ($claudeAncestorPids[$currentPid]) { return $true }
+        $proc = $procById[$currentPid]
+        if (-not $proc) { return $false }
+        if (Test-IsClaudeProcess -CmdLine $proc.CommandLine -ProcessName $proc.Name) { return $true }
+        if ($proc.Name -eq 'Code.exe') { return $true }
+        $currentPid = $proc.ParentProcessId
+    }
+    return $false
+}
+
+function Get-ParentChainInMemory {
+    param([int]$ProcessId)
+    $chain = @()
+    $visited = @{}
+    $currentPid = $ProcessId
+    while ($currentPid -and $currentPid -ne 0 -and $currentPid -ne 4 -and -not $visited[$currentPid]) {
+        $visited[$currentPid] = $true
+        $proc = $procById[$currentPid]
+        if (-not $proc) { break }
+        $chain += $proc
+        $currentPid = $proc.ParentProcessId
+    }
+    return $chain
+}
+
+# Classify MCP processes: orphaned vs active (all in-memory)
 $orphans = @()
 $active = @()
 
 foreach ($mcp in $mcpProcs) {
-    $parentChain = Get-ParentChain -ProcessId $mcp.ProcessId
-    $hasClaudeParent = $false
-
-    foreach ($parent in $parentChain) {
-        if (Test-IsClaudeProcess -CmdLine $parent.CommandLine -ProcessName $parent.Name) {
-            $hasClaudeParent = $true
-            break
-        }
-        # Also check if parent is Code.exe
-        if ($parent.Name -eq 'Code.exe') {
-            $hasClaudeParent = $true
-            break
-        }
-    }
-
-    if ($hasClaudeParent) {
+    if (Test-HasClaudeParent -ProcessId $mcp.ProcessId) {
         $active += $mcp
     } else {
         $orphans += $mcp
@@ -157,7 +175,7 @@ if ($orphans.Count -gt 0) {
         Write-Host "  PID: $($proc.ProcessId) | Mem: ${memMB}MB | $cmdShort" -ForegroundColor Yellow
 
         if ($VerboseOutput) {
-            $parentChain = Get-ParentChain -ProcessId $proc.ProcessId
+            $parentChain = Get-ParentChainInMemory -ProcessId $proc.ProcessId
             foreach ($p in $parentChain) {
                 Write-Host "    -> PID:$($p.ProcessId) $($p.Name)" -ForegroundColor DarkGray
             }
@@ -180,7 +198,7 @@ if ($active.Count -gt 0) {
 if ($orphans.Count -gt 0) {
     Write-Host ""
     if ($DryRun) {
-        Write-Host "DRY RUN — Would kill $($orphans.Count) orphaned process(es):" -ForegroundColor Yellow
+        Write-Host "DRY RUN - Would kill $($orphans.Count) orphaned process(es):" -ForegroundColor Yellow
         foreach ($proc in $orphans) {
             Write-Host "  Stop-Process -Id $($proc.ProcessId) -Force" -ForegroundColor Yellow
         }
