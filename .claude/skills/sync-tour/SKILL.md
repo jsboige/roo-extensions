@@ -721,14 +721,21 @@ powershell scripts/memory/merge-memory.ps1 -DryRun
 
 **Objectif :** Utiliser les outils RooSync au-dela de la messagerie pour une vision globale des machines.
 
+> **⚠️ Heartbeat sunset (ADR 008 Phase 4, 2026-05-23).** Ne PAS utiliser `roosync_inventory(type: "heartbeat" | "all" | "machines")` pour juger l'activite des **autres** machines. Sous le modele in-memory d'ADR 008, ces lectures ne refletent QUE le processus local : ai-01 se voit ONLINE, toutes les autres UNKNOWN, quoi qu'elles fassent. La presence cross-machine se lit **exclusivement** depuis le dashboard. Detail : [docs/harness/adr/008-heartbeat-redesign.md](../../../docs/harness/adr/008-heartbeat-redesign.md) section "Phase 4: Sunset".
+
 ### Actions
 
-**4bis-a. Etat des machines (#1609 auto-heartbeat) :**
+**4bis-a. Presence cross-machine (dashboard-derived) :**
 ```
-roosync_inventory(type: "all", includeHeartbeats: true)
+roosync_inventory(type: "status")
 ```
+`type: "status"` delegue a `crossCheckWithDashboard()` : il agrege les dashboards de TOUTES les machines et lit les timestamps embarques dans le contenu des messages (immune a la latence mtime GDrive). C'est la **seule** source fiable de presence cross-machine. Croiser avec la recence intercom :
+```
+roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)
+```
+Une machine ayant poste dans les dernieres heures est prouvee vivante. Pour declarer une machine "silencieuse", le test est **"aucun message dashboard ET aucun PR/commit depuis N heures"**, jamais "heartbeat dit UNKNOWN".
 
-**4bis-b. Comparaison des configs (si heartbeat montre des machines actives) :**
+**4bis-b. Comparaison des configs (si une machine est active au dashboard) :**
 ```
 roosync_compare_config(granularity: "mcp")
 ```
@@ -738,17 +745,18 @@ roosync_compare_config(granularity: "mcp")
 roosync_refresh_dashboard(baseline: "myia-ai-01")
 ```
 
-**4bis-d. Inventaire machine (optionnel, si drift detecte) :**
+**4bis-d. Inventaire config machine (optionnel, si drift detecte) :**
 ```
-roosync_inventory(type: "all")
+roosync_inventory(type: "machine")
 ```
+(`type: "machine"` = inventaire de configuration locale, pas un signal d'activite.)
 
 ### Output attendu
 ```
 ## Phase 4bis : Vision 360 RooSync
 
-### Machines enregistrees : X/6
-| Machine | Heartbeat | Dernier signal | Config sync |
+### Presence (dashboard-derived) : X/6 actives
+| Machine | Dernier message dashboard | Dernier PR/commit | Config sync |
 |...
 
 ### Drifts detectes
