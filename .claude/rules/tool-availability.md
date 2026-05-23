@@ -22,9 +22,11 @@
 
 | MCP | Outils | Role |
 |-----|--------|------|
-| playwright | 22 | Automation web |
-| markitdown | 1 | Conversion documents |
+| playwright | 23 | Automation web |
+| sk-agent | 15 | Vision/multi-agent (call_agent dynamic descriptions) |
 | **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
+
+**Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
 
 ## Retires (NE DOIVENT PAS exister)
 
