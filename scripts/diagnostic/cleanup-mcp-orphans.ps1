@@ -73,12 +73,14 @@ Write-Host "Machine: $env:COMPUTERNAME | DryRun: $DryRun`n" -ForegroundColor Gra
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $allProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
 $sw.Stop()
-Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms ($($allProcs.Count) processes)" -ForegroundColor DarkGray
 
 if (-not $allProcs) {
+    Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms — no results (WMI failure?)" -ForegroundColor DarkGray
     Write-Host "No processes found via WMI." -ForegroundColor Yellow
     exit 0
 }
+
+Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms ($($allProcs.Count) processes)" -ForegroundColor DarkGray
 
 # Build PID -> process hashtable and PID -> ParentPID map
 $procById = @{}
