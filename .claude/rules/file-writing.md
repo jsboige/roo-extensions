@@ -21,12 +21,6 @@
 
 `Edit`/`Write` : UTF-8 no-BOM automatique. Si PowerShell : `[System.IO.File]::WriteAllText()` avec UTF8Encoding(`$false`).
 
-## INTERCOM (append-only)
-
-1. **Read** le fichier
-2. **Edit** le dernier separateur `---` → remplacer par `---` + nouveau message + `---`
-3. **Jamais** inserer en haut. **Jamais** ecraser avec Write.
-
 ## Backup
 
 Si remplacement >50% du contenu : considerer `Write` (plus sur que `Edit` partiel). Verifier apres ecriture.

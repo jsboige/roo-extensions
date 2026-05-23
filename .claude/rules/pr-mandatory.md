@@ -82,7 +82,7 @@
 
 ## Pas de PR necessaire pour
 
-MEMORY.md, INTERCOM, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitignored
+MEMORY.md, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitignored
 
 ---
 
