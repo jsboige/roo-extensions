@@ -1,7 +1,7 @@
 # Regles Communication Dashboard (Claude Code)
 
-**Version:** 3.3.0 (slim)
-**MAJ:** 2026-05-21 (#2306 lecture complete + anti-condensation manuelle)
+**Version:** 3.4.0 (slim)
+**MAJ:** 2026-05-23 (condense action removed from tool)
 
 ---
 
@@ -29,14 +29,9 @@ Auto-condensation preemptive a 92% (~46 KB).
 - **OBLIGATOIRE** : `roosync_dashboard(action: "read", type: "workspace", section: "all")` ou au minimum `section: "intercom", intercomLimit: 20`
 - Le status est une boussole, pas une verite absolue. Les decisions se prennent sur les messages intercom recents.
 
-### Condensation manuelle : INTERDITE sauf urgence (#2306)
+### Condensation
 
-**NE JAMAIS appeler `action: "condense"` manuellement** sauf si `utilizationPct > 95%` dans la reponse `append`.
-
-L'auto-condensation preemptive a 92% gere l'espace de facon optimale. Les appels manuels :
-- Detruisent des messages recents que le LLM resume parfois de facon imprecise
-- Interviennent trop tot, avant le declencheur automatique
-- Peuvent masquer des messages `[DONE]`/`[BLOCKED]` importants
+L'action `condense` a ete **retiree du schema** — elle n'est plus disponible. L'auto-condensation preemptive a 92% (~46 KB) gere l'espace de maniere optimale. Aucune intervention manuelle necessaire.
 
 ### Fichier INTERCOM local (DEPRECATED)
 
