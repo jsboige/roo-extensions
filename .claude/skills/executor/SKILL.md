@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.2.0"
+  version: "3.2.1"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.2.0
+**Version:** 3.2.1
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-15 (#1956 niveau 1 — mention sender on ACK/REPLY; #2185 inactivity cap)
+**MAJ:** 2026-05-24 (#2333 win-cli timeout guard in pre-flight)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -47,6 +47,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 1. MCP roo-state-manager disponible (34 outils) → Si absent, STOP & REPAIR
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
+4. **Win-cli timeout guard** : lire `~/.win-cli-mcp/config.json` → si `commandTimeout < 600`, poster `[WARN]` sur dashboard et corriger (anti-régression #2333)
 
 Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et STOP.
 
