@@ -21,13 +21,10 @@ Ajouter cette configuration dans `~/.claude/settings.json` (global, pas project-
       "mcp__sk-agent__list_conversations",
       "mcp__sk-agent__run_conversation",
       "mcp__sk-agent__end_conversation",
-      "mcp__sk-agent__ask",
-      "mcp__sk-agent__list_models",
       "mcp__sk-agent__list_tools",
-      "mcp__sk-agent__analyze_image",
-      "mcp__sk-agent__analyze_document",
-      "mcp__sk-agent__analyze_video",
-      "mcp__sk-agent__zoom_image"
+      "mcp__sk-agent__review_pr",
+      "mcp__sk-agent__install_libreoffice",
+      "mcp__sk-agent__diagnostics"
     ]
   }
 }
@@ -35,11 +32,11 @@ Ajouter cette configuration dans `~/.claude/settings.json` (global, pas project-
 
 ## Pourquoi tous les outils sk-agent ?
 
-`call_agent` est l'outil unifie qui appelle les memes endpoints que les outils dedies (analyze_image, analyze_document, etc.). Si `call_agent` est auto-approuve mais pas les autres, l'agent peut choisir d'utiliser les outils dedies a la place — ce qui contourne le probleme mais n'est pas ideal car:
+`call_agent` est l'outil unifie multi-agents (vision incluse). Les anciens alias dedies (`analyze_image`, `analyze_document`, `analyze_video`, `zoom_image`, `ask`, `list_models`) ont ete **retires** lors de la consolidation #522 (#2307 Phase 2) — passer desormais par `call_agent`. Auto-approuver l'ensemble des outils sk-agent **servis** garantit un fonctionnement autonome complet:
 
-1. `call_agent` est l'outil principal documenté
-2. Les outils dedies sont considers comme "deprecated" dans la config sk-agent
-3. La liste d'outils a auto-approuver doit couvrir TOUS les outils sk-agent pour un fonctionnement autonome complet
+1. `call_agent` est l'outil principal documenté (remplace les anciens alias vision)
+2. Les autres outils servis (`run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `end_conversation`, `review_pr`, `install_libreoffice`, `diagnostics`) couvrent les workflows multi-agents et le diagnostic
+3. La liste d'outils a auto-approuver doit couvrir TOUS les outils sk-agent servis pour un fonctionnement autonome complet
 
 ## Verification
 
@@ -53,19 +50,16 @@ Apres avoir ajoute la configuration:
 
 Dans Roo Code, l'auto-approbation est geree via `mcp_settings.json` avec le champ `alwaysAllow`. Voir [`roo-config/mcp/reference-alwaysallow.json`](../../roo-config/mcp/reference-alwaysallow.json).
 
-## Tools sk-agent exposes
+## Tools sk-agent exposes (9 servis)
 
 | Tool | Description |
 |------|-------------|
-| `call_agent` | Appel unifie vers un agent sk-agent |
+| `call_agent` | Appel unifie vers un agent sk-agent (vision incluse) |
 | `list_agents` | Lister les agents disponibles |
 | `list_conversations` | Lister les conversations |
 | `run_conversation` | Lancer une conversation multi-agent |
 | `end_conversation` | Terminer une conversation |
-| `ask` | Question simple a un agent |
-| `list_models` | Lister les modeles disponibles |
 | `list_tools` | Lister les outils disponibles |
-| `analyze_image` | Analyser une image |
-| `analyze_document` | Analyser un document |
-| `analyze_video` | Analyser une video |
-| `zoom_image` | Zoomer sur une partie d'image |
+| `review_pr` | Review de PR multi-agents |
+| `install_libreoffice` | Installer LibreOffice (conversion documents) |
+| `diagnostics` | Diagnostics du serveur sk-agent |
