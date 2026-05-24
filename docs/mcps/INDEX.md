@@ -96,11 +96,16 @@ npm run build
 
 **Description :** Agent LLM multi-modèle pour conversations structurées (code-review, critic, optimist, etc.).
 
-**Outils principaux (7) :**
+**Outils (9) :**
+- `call_agent` - Appeler un agent spécifique (vision incluse)
 - `run_conversation` - Lancer une conversation multi-agents
-- `call_agent` - Appeler un agent spécifique
-- `analyze_document` - Analyser un document
-- `analyze_image`, `analyze_video` - Analyser des médias
+- `list_agents` - Lister les agents disponibles
+- `list_conversations` - Lister les conversations
+- `end_conversation` - Terminer une conversation
+- `list_tools` - Lister les outils disponibles
+- `review_pr` - Review de PR multi-agents
+- `install_libreoffice` - Installer LibreOffice (conversion documents)
+- `diagnostics` - Diagnostics du serveur sk-agent
 
 **Installation :** Voir [`.claude/MCP_SETUP.md`](../../.claude/MCP_SETUP.md)
 

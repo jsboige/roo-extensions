@@ -118,19 +118,15 @@
 		},
 		"sk-agent": {
 			"alwaysAllow": [
-				"analyze_document",
-				"analyze_image",
-				"analyze_video",
-				"ask",
 				"call_agent",
+				"diagnostics",
 				"end_conversation",
 				"install_libreoffice",
 				"list_agents",
 				"list_conversations",
-				"list_models",
 				"list_tools",
-				"run_conversation",
-				"zoom_image"
+				"review_pr",
+				"run_conversation"
 			]
 		}
 	}
