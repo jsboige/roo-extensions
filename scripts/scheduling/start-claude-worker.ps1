@@ -2701,23 +2701,12 @@ function Invoke-Claude {
     $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
-    # #2173: Override compact window/threshold based on model family.
-    # Claude models (opus/sonnet/haiku) = 1M window / 25% threshold (250k effective).
-    # Non-Claude models (GLM, Qwen, etc.) = 200k window / 90% threshold (180k effective).
-    # Constants: keep in sync with spawn-claude.ps1 (single source: both scripts use same values).
-    $COMPACT_WINDOW_CLAUDE = "1000000"; $COMPACT_PCT_CLAUDE = "25"
-    $COMPACT_WINDOW_OTHER  = "200000";  $COMPACT_PCT_OTHER  = "90"
-
-    $isClaudeModel = $ModelToUse -match '^(opus|sonnet|haiku|claude[- ])'
-    if ($isClaudeModel) {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_CLAUDE
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_CLAUDE
-        Write-Log "Compact override: Claude model ($ModelToUse) → window=1M, threshold=25%"
-    } else {
-        $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW_OTHER
-        $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT_OTHER
-        Write-Log "Compact override: non-Claude model ($ModelToUse) → window=200k, threshold=90%"
-    }
+    # Universal compact override (user GO 2026-05-25, supersedes #2173 model-aware).
+    # ALL model families (Claude + GLM/Qwen) = 200k window / 90% threshold (180k effective).
+    # Keep in sync with spawn-claude.ps1 (single source: both scripts use same values).
+    $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
+    $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
+    Write-Log "Compact override: $ModelToUse → window=200k, threshold=90% (universal)"
 
     # Budget cap (#1980 — runaway-loop guard, NOT a dollar guard)
     # Providers are on flat-rate subscriptions (z.ai GLM-5.1 forfait, Anthropic Max).
