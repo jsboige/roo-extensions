@@ -101,12 +101,18 @@ function Write-Log {
 try {
     $ClaudeConfigPath = Join-Path $env:USERPROFILE ".claude.json"
     if (Test-Path $ClaudeConfigPath) {
-        $ClaudeConfig = Get-Content $ClaudeConfigPath -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue
-        if ($ClaudeConfig.mcpServers.'roo-state-manager'.env) {
-            $McpEnv = $ClaudeConfig.mcpServers.'roo-state-manager'.env
-            foreach ($key in $McpEnv.PSObject.Properties) {
-                $envVarName = $key.Name
-                $envVarValue = $key.Value
+        # -AsHashtable (2026-05-25 worker-trace fix): object-mode ConvertFrom-Json is
+        # case-insensitive on property names and THROWS on case-colliding project keys
+        # (e.g. "d:/vllm" vs "D:/vllm" in the projects map), which silently disabled this
+        # injection and emitted "Injection env vars MCP échouée" on every run. -AsHashtable
+        # tolerates such keys. (PS7+; on PS5.1 it is unsupported and we fall through to the
+        # .env injection below, #2280, which carries the same vars.)
+        $ClaudeConfig = Get-Content $ClaudeConfigPath -Raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        $McpEnv = $ClaudeConfig.mcpServers.'roo-state-manager'.env
+        if ($McpEnv) {
+            foreach ($entry in $McpEnv.GetEnumerator()) {
+                $envVarName = $entry.Key
+                $envVarValue = $entry.Value
                 $envPath = "env:$envVarName"
                 if (-not (Test-Path $envPath) -or -not (Get-Item $envPath).Value) {
                     Set-Item -Path $envPath -Value $envVarValue -ErrorAction SilentlyContinue
@@ -2914,9 +2920,13 @@ function Invoke-Claude {
 
         Write-Log "Ralph Wiggum terminé - $CurrentIteration iterations utilisées"
 
-        # VALIDATE: Stream integrity check (#1433)
-        # If too many parse errors or no valid result event received, the stream is corrupt.
-        $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent -and ($FinalResultText.Length -gt 0)
+        # VALIDATE: Stream integrity check (#1433, refined 2026-05-25 worker-trace investigation)
+        # The terminal `result` event ($ReceivedResultEvent) proves the stream completed cleanly;
+        # a low parse-error count proves it wasn't garbage. An empty result string is NOT a failure:
+        # tool-only completions legitimately end with no trailing text. Requiring FinalResultText.Length>0
+        # caused spurious haiku->sonnet escalations on successful maintenance runs (build+tests OK,
+        # dashboard posted, yet ResultLen:0 flagged the stream invalid).
+        $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent
         if (-not $StreamValid) {
             Write-Log "Stream integrity FAILED — ParseErrors: $ParseErrorCount, ResultEvent: $ReceivedResultEvent, ResultLen: $($FinalResultText.Length)" "ERROR"
         }
