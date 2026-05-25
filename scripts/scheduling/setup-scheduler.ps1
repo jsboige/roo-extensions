@@ -7,8 +7,7 @@
     scheduling architecture. Supports 3 task types:
 
     - worker:            Executor tier (6h, Haiku baseline, all machines)
-    - coordinator:       Coordinator/merge tier (12h, Opus, ai-01 only — merge-coordinator
-                         exception: the ONLY scheduled task allowed on opus, cost policy 2026-05-20)
+    - coordinator:       Coordinator/merge tier (12h, Sonnet, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
     - dashboard-watcher: Dashboard gate (1h, spawns Haiku on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
@@ -19,8 +18,9 @@
     ESCALATION MECHANISM (#1027):
     Each scheduler uses a cost-effective baseline model with targeted escalation:
     - Thread main runs on baseline (Haiku/Sonnet)
-    - Complex phases trigger sub-agent escalation (Sonnet/Opus)
-    - Retry after failure auto-escalates (Get-EscalatedModel in worker script)
+    - Complex phases trigger sub-agent escalation (Sonnet only; opus excluded —
+      zero-scheduled-opus policy 2026-05-25: Anthropic credit reserved for interactive agents)
+    - Retry after failure auto-escalates capped at Sonnet (Get-EscalatedModel in worker script)
 
 .PARAMETER Action
     Action to perform: install, remove, list, test (default: list)
@@ -142,16 +142,16 @@ $TaskConfigs = @{
         DefaultInterval = 6
         DefaultModel = "haiku"
         DefaultTimeout = 120
-        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Haiku with auto-escalation to Sonnet/Opus. Exits cleanly if no work. Runs every 6h."
+        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Haiku with auto-escalation capped at Sonnet (opus excluded — zero-scheduled-opus policy 2026-05-25). Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
         TaskName = "Claude-Coordinator"
         Script = Join-Path $scriptDir "start-claude-coordinator.ps1"
-        DefaultInterval = 12  # relaxed cadence (was 8h) — bounds opus cost; user mandate 2026-05-20
-        DefaultModel = "opus"  # merge-coordinator exception (user mandate 2026-05-20): the ONE scheduled task allowed on opus, because merge decisions (self-merge cap, CODEOWNERS --admin, skeptical review) need opus judgment. ai-01 only; relaxed 12h cadence bounds real Anthropic cost.
+        DefaultInterval = 12  # relaxed cadence (was 8h); ai-01 only
+        DefaultModel = "sonnet"  # zero-scheduled-opus policy (user mandate 2026-05-25): Anthropic credit is reserved for INTERACTIVE agents (ai-01 + po-2025 on demand) ONLY. No scheduled task spawns opus — the prior merge-coordinator opus exception (2026-05-20) is REVOKED. ai-01 only.
         DefaultTimeout = 120
-        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches, rebalances, and merges vetted PRs. Runs on Opus (merge-coordinator exception, 12h relaxed cadence, ai-01 only) — the only scheduled task permitted on opus per cost policy 2026-05-20."
+        Description = "Claude Code scheduled coordinator: analyzes RooSync traffic, git activity, workload balance. Dispatches, rebalances, and merges vetted PRs. Runs on Sonnet (12h relaxed cadence, ai-01 only) — zero-scheduled-opus policy 2026-05-25: no scheduled task spawns opus."
         MachineRestriction = "myia-ai-01"
     }
     'meta-audit' = @{
@@ -160,7 +160,7 @@ $TaskConfigs = @{
         DefaultInterval = 72
         DefaultModel = "sonnet"
         DefaultTimeout = 120
-        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h on Sonnet with sub-agent escalation to Opus for architectural recommendations."
+        Description = "Claude Code meta-analyst: analyzes local Roo+Claude traces, cross-analyzes harnesses, proposes improvements. Runs every 72h on Sonnet (zero-scheduled-opus policy 2026-05-25: no scheduled task spawns opus)."
         MachineRestriction = $null  # all machines
     }
     'dashboard-watcher' = @{

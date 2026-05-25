@@ -12,13 +12,13 @@
     4. Propose des issues GitHub avec label needs-approval si applicable
 
     Frequence : 72h
-    Model : Sonnet baseline avec escalation sub-agent Opus pour recommandations architecturales (#1027)
+    Model : Sonnet (zero-scheduled-opus policy 2026-05-25 — credit Anthropic reserve aux agents interactifs)
     Machines : TOUTES
 
-    ESCALATION MECHANISM (#1027):
+    MODEL POLICY (zero-scheduled-opus 2026-05-25):
     - Thread principal sur Sonnet (analyse traces, detection incoherences)
-    - Recommandations architecturales complexes : deleguer a sub-agent Opus
-    - MinimumModel guard non applicable (Sonnet suffisant pour harnais actuel)
+    - Recommandations architecturales : rester sur Sonnet (suffisant pour harnais actuel)
+    - Aucune escalade Opus en schedule : le credit Anthropic est reserve aux agents interactifs (ai-01 + po-2025 a la demande)
 
 .PARAMETER Model
     Modele Claude a utiliser (defaut: sonnet)
@@ -31,8 +31,8 @@
     # Lance l'audit meta-analyse en mode Sonnet (baseline)
 
 .EXAMPLE
-    .\start-meta-audit.ps1 -Model "opus" -DryRun
-    # Simulation avec modele Opus (escalade manuelle)
+    .\start-meta-audit.ps1 -Model "sonnet" -DryRun
+    # Simulation (zero-scheduled-opus policy 2026-05-25 : pas d'opus en schedule)
 
 .NOTES
     Auteur: Claude Code (myia-ai-01)
@@ -224,10 +224,10 @@ Format du rapport :
 **Recommandations :**
 1. {Rec 1} -> [action: INFO|needs-approval|harness-change]
 
-**ESCALATION PATTERN (#1027) :**
-Pour recommandations architecturales complexes (ex: refactoring majeur, nouveaux patterns), deleguer l'analyse a un sub-agent Opus :
+**ANALYSE APPROFONDIE (zero-scheduled-opus 2026-05-25) :**
+Pour recommandations architecturales complexes (ex: refactoring majeur, nouveaux patterns), deleguer l'analyse a un sub-agent (herite du modele parent = Sonnet ; AUCUNE escalade Opus en schedule) :
 ```
-Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour identifier [probleme]. Return un plan d'action detaille.", model="opus")
+Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour identifier [probleme]. Return un plan d'action detaille.")
 ```
 
 ---
