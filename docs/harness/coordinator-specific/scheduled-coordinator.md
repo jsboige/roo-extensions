@@ -53,16 +53,16 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 
 **Sources of information:**
 - **Meta-analysts** escalate environment issues found in execution traces (via `[META-CONSULT]` or `needs-approval` issues)
-- **RooSync config-sync pipeline**: `roosync_compare_config`, `roosync_inventory`, `roosync_list_diffs` detect config drift
+- **RooSync config-sync pipeline**: `roosync_compare_config`, `roosync_inventory` detect config drift
 - **Executor reports**: Agents report missing tools, broken services, incomplete `.env`
-- **Heartbeat status**: `roosync_heartbeat(status)` shows online/offline machines
+- **Machine status**: `roosync_inventory(type: "status")` shows online machines with auto-heartbeat
 
 **What to monitor:**
 - `.env` completeness on each machine (EMBEDDING_*, QDRANT_*, ROOSYNC_* vars)
-- MCP tool availability (34 tools for roo-state-manager, 9 for win-cli)
+- MCP tool availability (15 tools for roo-state-manager, 9 for win-cli)
 - Infrastructure services (embeddings.myia.io, qdrant.myia.io, search.myia.io)
 - Config drift between machines (`roosync_compare_config`)
-- Heartbeat registration (all 6 machines should be registered)
+- Machine heartbeat (auto on every MCP call, #1609)
 
 **How to act:**
 1. When a meta-analyst or executor reports an environment issue, **verify it** (skepticism protocol)
