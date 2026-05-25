@@ -45,6 +45,7 @@
 | **Agents inventory** | 18 subagents + 6 skills + 4 commands (Claude Code) | `reference/agents-inventory.md` |
 | **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `reference/bots-directory.md` |
 | **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `reference/conversation-browser-detailed.md` |
+| **RooSync coordinator tools** | health_view, inventory, compare_config, dashboard — params, output, scenarios | `reference/roosync-tools-guide.md` |
 
 ## Reference Technique
 
