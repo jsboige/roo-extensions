@@ -1674,6 +1674,25 @@ function Create-Worktree {
 
     Write-Log "Création worktree: $WorktreePath (branch: $BranchName)"
 
+    # Guard #2351: Prevent nested worktree creation inside submodule directories
+    try {
+        $SubmodulePaths = @((git -C $RepoRoot config --file .gitmodules --get-regexp path 2>&1) |
+            Where-Object { $_ -is [string] -and $_ -match '^submodule\.\S+\.path\s+(.+)$' } |
+            ForEach-Object { $Matches[1] })
+
+        $normalizedWt = ($WorktreePath -replace '\\', '/').TrimEnd('/')
+        foreach ($smPath in $SubmodulePaths) {
+            $fullSmPath = Join-Path $RepoRoot $smPath
+            $normalizedSm = ($fullSmPath -replace '\\', '/').TrimEnd('/')
+            if ($normalizedWt.StartsWith("$normalizedSm/") -or $normalizedWt -eq $normalizedSm) {
+                Write-Log "REFUSED (#2351): WorktreePath '$WorktreePath' is nested inside submodule '$smPath'. Use a sibling directory outside the working tree." "ERROR"
+                return $null
+            }
+        }
+    } catch {
+        Write-Log "Submodule path check failed (non-fatal): $_" "WARN"
+    }
+
     try {
         # Ensure we're on latest main before branching
         # Note: git sends info messages to stderr; temporarily allow errors
