@@ -26,6 +26,32 @@ Tout autre chemin dans `args[0]` = **drift critique** (incident #1482 : agents r
 
 **Integration `/coordinate` :** le coordinateur DOIT faire tourner ce script en phase initiale et bloquer si drift.
 
+### Robustesse `commandTimeout` (#2333)
+
+**Probleme :** des sessions Roo longues etaient tuees a ~30s/500s par un `commandTimeout` derive dans le `config.json` runtime de win-cli (`~/.win-cli-server/config.json`), regression silencieuse a chaque edition manuelle ou reinstall.
+
+**Mecanisme de protection (`src/utils/config.ts`) :**
+
+1. **Default verrouille** — `DEFAULT_CONFIG.security.commandTimeout = 600`. La fonction `mergeConfigs` **ecrase** systematiquement la valeur du `config.json` utilisateur par le default (`commandTimeout: defaultConfig.security.commandTimeout`). Un `config.json` qui contient `commandTimeout: 180` est donc neutralise → effectif **600**.
+2. **Override explicite par env** — apres le merge, si `WIN_CLI_COMMAND_TIMEOUT` est un entier ≥ 1, il prend le pas (`mergedConfig.security.commandTimeout = envTimeout`). C'est le **seul** moyen de monter au-dela de 600 (ex. `WIN_CLI_COMMAND_TIMEOUT=900`).
+
+**CRITIQUE — rebuild `dist/` par machine.** Le fix vit dans `src/`, mais Roo lance `dist/index.js`. Un `dist/` compile **avant** #2333 rend le fix **inerte** : le merge ne verrouille pas, le `config.json` derive reste effectif. Apres tout bump de pointer submodule `mcps/external/win-cli/server`, chaque machine DOIT :
+
+```bash
+cd mcps/external/win-cli/server && npm run build   # tsc → dist/
+# puis relancer VS Code pour que Roo recharge le MCP
+```
+
+**Verification (effectif ≥ 600, survit a une regression config) :**
+
+```js
+// charger loadConfig depuis dist/utils/config.js avec un config.json a 180,
+// sans WIN_CLI_COMMAND_TIMEOUT → effectif doit valoir 600
+// puis poser WIN_CLI_COMMAND_TIMEOUT=900 → effectif doit valoir 900
+```
+
+Verifie firsthand sur po-2025 (2026-05-25) : config derive 500→neutralise, dist rebuild, effectif 600, override env 900 OK.
+
 ## Config MCP sk-agent
 
 **sk-agent DOIT etre dans `~/.claude.json` (global), JAMAIS dans `.mcp.json` (project root).**
