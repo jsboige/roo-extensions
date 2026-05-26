@@ -5,7 +5,9 @@ param(
     [string]$Action = "backup"
 )
 
-$mcpConfigPath = "C:\Users\MYIA\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+$mcpConfigPath = Get-McpSettingsPath -Extension RooCode
 $backupDir = "D:\roo-extensions\mcps\backups"
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 

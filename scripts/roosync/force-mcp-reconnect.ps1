@@ -2,11 +2,13 @@
 # Auteur: Roo AI
 # Date: 2025-10-17
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 Write-Host "🔄 Forçage de la reconnexion MCP roo-state-manager" -ForegroundColor Cyan
 Write-Host "=============================================" -ForegroundColor Cyan
 
 # Chemin du fichier de configuration MCP
-$mcpSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+$mcpSettingsPath = Get-McpSettingsPath -Extension RooCode
 
 Write-Host "`n📁 Chemin des paramètres MCP: $mcpSettingsPath" -ForegroundColor Yellow
 

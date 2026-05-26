@@ -12,7 +12,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$RooMcpSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json",
+    [string]$RooMcpSettingsPath,
 
     [Parameter(Mandatory=$false)]
     [string]$RooRoot = "C:/dev/roo-extensions",
@@ -23,6 +23,12 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$DryRun = $false
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $RooMcpSettingsPath) {
+    $RooMcpSettingsPath = Get-McpSettingsPath -Extension RooCode
+}
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   Deploy Win-CLI Fork (Issue #468 Phase 1)" -ForegroundColor Cyan

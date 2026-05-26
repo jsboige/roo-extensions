@@ -4,8 +4,14 @@
 
 param (
     [Parameter(Mandatory=$false)]
-    [string]$FilePath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\custom_modes.json"
+    [string]$FilePath = ""
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $FilePath) {
+    $FilePath = Join-Path (Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings") "custom_modes.json"
+}
 
 # Fonction pour afficher des messages colorés
 function Write-ColorOutput {

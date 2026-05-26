@@ -11,6 +11,8 @@ param(
     [switch]$Verbose
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -20,8 +22,8 @@ Write-Host ""
 
 # Détection du stockage Roo
 $rooDataPaths = @(
-    (Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\data"),
-    (Join-Path $env:LOCALAPPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\data")
+    (Join-Path (Get-GlobalStoragePath -Extension RooCode) "data"),
+    (Join-Path (Join-Path $env:LOCALAPPDATA "Code\User\globalStorage\$RooExtensionId") "data")
 )
 
 $tasksToDelete = @()

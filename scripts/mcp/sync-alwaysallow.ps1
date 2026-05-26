@@ -30,10 +30,12 @@ param(
     [bool]$DryRun = $false
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 $ErrorActionPreference = "Stop"
 
 # Chemin vers les settings Roo
-$RooSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+$RooSettingsPath = Get-McpSettingsPath -Extension RooCode
 
 Write-Host "=== Sync AlwaysAllow MCP ===" -ForegroundColor Cyan
 Write-Host "Reference: $ReferencePath"

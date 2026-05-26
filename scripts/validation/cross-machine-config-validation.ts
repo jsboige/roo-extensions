@@ -25,6 +25,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
+// Extension identifiers — kept in sync with scripts/common/extension-paths.ps1
+const ROO_EXTENSION_ID = 'rooveterinaryinc.roo-cline';
+const ZOO_EXTENSION_ID = 'zoocodeorganization.zoo-code';
+
 interface ValidationResult {
   check: string;
   passed: boolean;
@@ -44,7 +48,7 @@ function validateRoosyncSharedPath(): ValidationResult {
       'Code',
       'User',
       'globalStorage',
-      'rooveterinaryinc.roo-cline',
+      ROO_EXTENSION_ID,
       'mcp_settings.json'
     );
 

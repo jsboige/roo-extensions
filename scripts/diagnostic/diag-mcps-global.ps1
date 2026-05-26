@@ -1,8 +1,8 @@
 # Déterminer le répertoire racine du projet de manière dynamique
 $projectRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..")
 
-# Chemin vers le fichier de configuration des MCPs dans AppData, tel que défini par le script d'installation
-$configFile = Join-Path -Path $env:APPDATA -ChildPath "Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+$configFile = Get-McpSettingsPath -Extension RooCode
 
 if (-not (Test-Path $configFile)) {
     Write-Error "Le fichier de configuration '$configFile' est introuvable."

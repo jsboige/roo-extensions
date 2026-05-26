@@ -19,8 +19,14 @@
 [CmdletBinding()]
 param(
     [switch]$Quiet,
-    [string]$ConfigPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+    [string]$ConfigPath = ""
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $ConfigPath) {
+    $ConfigPath = Get-McpSettingsPath -Extension RooCode
+}
 
 function Write-Result {
     param([string]$Message, [string]$Level = "INFO")
@@ -38,7 +44,7 @@ function Write-Result {
 
 if (-not (Test-Path $ConfigPath)) {
     Write-Result "Roo MCP config not found: $ConfigPath" "FAIL"
-    Write-Result "Expected location on Windows: %APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json" "INFO"
+    Write-Result "Expected location on Windows: %APPDATA%\Code\User\globalStorage\$RooExtensionId\settings\mcp_settings.json" "INFO"
     exit 2
 }
 

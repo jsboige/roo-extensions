@@ -5,7 +5,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$CustomModesPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\custom_modes.json",
+    [string]$CustomModesPath,
 
     [Parameter(Mandatory=$false)]
     [switch]$Backup = $true,
@@ -13,6 +13,12 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$WhatIf = $false
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $CustomModesPath) {
+    $CustomModesPath = Join-Path (Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings") "custom_modes.json"
+}
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   Correction de la configuration des providers modes" -ForegroundColor Cyan

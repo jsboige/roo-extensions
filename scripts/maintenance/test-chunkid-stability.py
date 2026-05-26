@@ -35,6 +35,10 @@ from pathlib import Path
 from collections import Counter
 
 
+# Extension identifiers — kept in sync with scripts/common/extension-paths.ps1
+ROO_EXTENSION_ID = 'rooveterinaryinc.roo-cline'
+ZOO_EXTENSION_ID = 'zoocodeorganization.zoo-code'
+
 # UUID v5 namespace — must match ChunkExtractor.ts:9
 UUID_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
 
@@ -141,7 +145,7 @@ def extract_chunk_ids_from_task(task_id: str, task_path: str) -> list[dict]:
 def find_roo_storage_path() -> str | None:
     """Find the Roo Code storage path for the current machine."""
     candidates = [
-        os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'tasks'),
+        os.path.join(os.path.expanduser('~'), 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', ROO_EXTENSION_ID, 'tasks'),
         os.path.join(os.path.expanduser('~'), '.roo', 'tasks'),
     ]
     # Also check ROO_STORAGE_PATH env var

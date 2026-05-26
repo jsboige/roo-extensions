@@ -17,11 +17,16 @@ param(
     [string]$SearchPattern,
     
     [Parameter(Mandatory=$false)]
-    [string]$TasksDirectory = "C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks",
+    [string]$TasksDirectory = "",
     
     [Parameter(Mandatory=$false)]
     [string]$OutputReport = "docs/exhaustive-search-report-$(Get-Date -Format 'yyyyMMdd-HHmmss').md"
 )
+
+if (-not $TasksDirectory) {
+    . "$PSScriptRoot\..\..\common\extension-paths.ps1"
+    $TasksDirectory = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
+}
 
 # Initialisation
 $startTime = Get-Date

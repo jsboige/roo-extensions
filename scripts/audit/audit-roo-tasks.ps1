@@ -19,8 +19,10 @@ param(
     [int]$Limit = 0
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 function Get-RooTasksPath {
-    $defaultPath = Join-Path $env:APPDATA 'Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks'
+    $defaultPath = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
     if (Test-Path -Path $defaultPath -PathType Container) {
         return $defaultPath
     }

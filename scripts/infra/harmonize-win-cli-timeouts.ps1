@@ -7,6 +7,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+. "$PSScriptRoot\..\common\extension-paths.ps1"
 $exitCode = 0
 
 function Write-Result {
@@ -46,10 +47,10 @@ if (Test-Path $internalConfigPath) {
 }
 
 # --- Level 2: Scheduler MCP transport timeout (Roo Code + Zoo Code) ---
-$globalStorageBase = "$env:APPDATA/Code/User/globalStorage"
+$globalStorageBase = Join-Path $env:APPDATA "Code\User\globalStorage"
 $schedulerDirs = @(
-    'rooveterinaryinc.roo-cline',
-    'zoocodeorganization.zoo-code'
+    $RooExtensionId,
+    $ZooExtensionId
 )
 
 foreach ($dir in $schedulerDirs) {

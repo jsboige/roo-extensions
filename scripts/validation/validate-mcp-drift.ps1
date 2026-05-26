@@ -21,11 +21,17 @@ param(
     [switch]$JsonOutput,
 
     # Paths (override for testing)
-    [string]$RooMcpPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json",
+    [string]$RooMcpPath = "",
     [string]$ClaudeConfigPath = "$env:USERPROFILE\.claude.json",
     [string]$RepoRoot = "",
     [string]$WinCliReference = ""
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $RooMcpPath) {
+    $RooMcpPath = Get-McpSettingsPath -Extension RooCode
+}
 
 # ----- Resolve RepoRoot dynamically -----
 if (-not $RepoRoot) {
