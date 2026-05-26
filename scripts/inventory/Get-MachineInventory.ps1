@@ -99,7 +99,8 @@ if (-not $RooExtensionsPath) {
     $RooExtensionsPath = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
     Write-Host "  RooExtensionsPath fallback relatif: $RooExtensionsPath" -ForegroundColor Yellow
 }
-$McpSettingsPath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+$McpSettingsPath = Get-McpSettingsPath -Extension RooCode
 $RooConfigPath = "$RooExtensionsPath\roo-config"
 $ScriptsPath = "$RooExtensionsPath\scripts"
 
@@ -567,7 +568,7 @@ try {
     }
 
     # Lire le fichier globalStorage de Claude (Roo)
-    $claudeGlobalStoragePath = "C:\Users\$env:USERNAME\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline"
+    $claudeGlobalStoragePath = Get-GlobalStoragePath -Extension RooCode
     if (Test-Path $claudeGlobalStoragePath) {
         $claudeConfig.globalStoragePath = $claudeGlobalStoragePath
         Write-Host "  OK GlobalStorage Roo: $claudeGlobalStoragePath" -ForegroundColor Green

@@ -50,6 +50,7 @@ param(
 )
 
 # Configuration UTF-8 forcée pour ce script
+. "$PSScriptRoot\..\common\extension-paths.ps1"
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [System.Text.Encoding]::UTF8
@@ -449,7 +450,7 @@ function Test-VSCodeConfiguration {
 function Test-MCPConfiguration {
     if (-not $QuickMode) { Write-DiagnosticSection "8. CONFIGURATION MCP" }
 
-    $mcpSettings = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+    $mcpSettings = Get-McpSettingsPath -Extension RooCode
     if (Test-Path $mcpSettings) {
         Write-TestResult "Configuration MCP" $true "mcp_settings.json trouvé"
         $diagnosticResults.ScoreConfiguration++

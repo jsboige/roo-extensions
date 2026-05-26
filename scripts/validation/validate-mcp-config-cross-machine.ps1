@@ -18,11 +18,17 @@ param(
 
     # Config paths (default to standard locations)
     [string]$ClaudeConfigPath = "$env:USERPROFILE\.claude.json",
-    [string]$RooConfigPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json",
+    [string]$RooConfigPath = "",
 
     # Repo root for canonical references
     [string]$RepoRoot = "D:\Dev\roo-extensions"
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $RooConfigPath) {
+    $RooConfigPath = Get-McpSettingsPath -Extension RooCode
+}
 
 # =================================================================================================
 #   RETIRED MCPs — must NOT be present in any config

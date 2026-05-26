@@ -34,6 +34,8 @@ param (
     [switch]$Force
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 # Forcer l'encodage UTF-8 pour la sortie
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
@@ -339,7 +341,7 @@ Write-ColorOutput "`n[Phase 4/4] Mise à jour de la configuration des serveurs..
 if ($installedMcps.Count -eq 0) {
     Write-ColorOutput "Aucun MCP interne n'a été installé avec succès. La configuration n'a pas été modifiée." "Yellow"
 } else {
-    $serversJsonPath = Join-Path -Path $env:APPDATA -ChildPath "Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+    $serversJsonPath = Get-McpSettingsPath -Extension RooCode
     if (-not (Test-Path $serversJsonPath)) {
         Write-ColorOutput "ERREUR : Le fichier de configuration '$serversJsonPath' est introuvable." "Red"
         exit 1

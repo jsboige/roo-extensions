@@ -15,7 +15,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Chemins des fichiers
-$basePath = "C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks"
+. "$PSScriptRoot\..\..\common\extension-paths.ps1"
+$basePath = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
 $childFile = Join-Path $basePath "$ChildTaskId\api_conversation_history.json"
 $parentFile = Join-Path $basePath "$ParentTaskId\api_conversation_history.json"
 

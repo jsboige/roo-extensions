@@ -8,8 +8,13 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$TasksDirectory = "C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks"
+    [string]$TasksDirectory = ""
 )
+
+if (-not $TasksDirectory) {
+    . "$PSScriptRoot\..\..\common\extension-paths.ps1"
+    $TasksDirectory = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
+}
 
 # Liste des 17 IDs de tâches candidates (résultats de la recherche exhaustive)
 $candidateTaskIds = @(

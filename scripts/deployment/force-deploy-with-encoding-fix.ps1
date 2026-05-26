@@ -4,6 +4,8 @@ param (
     [switch]$Force = $true
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 Write-Host "==========================================================="
 Write-Host "   Déploiement forcé des modes avec correction d'encodage"
 Write-Host "==========================================================="
@@ -22,7 +24,7 @@ Write-Host "Exécution du script de déploiement avec l'option -Force..."
 & $deployScript -Force
 
 # Vérifier le résultat du déploiement
-$destinationPath = "C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\custom_modes.json"
+$destinationPath = Join-Path (Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings") "custom_modes.json"
 
 Write-Host "Vérification du fichier déployé..."
 if (Test-Path $destinationPath) {

@@ -1,7 +1,9 @@
 # Extract last 5000 characters from parent task file
 $ErrorActionPreference = "Stop"
 
-$parentFile = 'C:\Users\jsboi\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks\cb7e564f-152f-48e3-8eff-f424d7ebc6bd\api_conversation_history.json'
+. "$PSScriptRoot\..\..\common\extension-paths.ps1"
+$basePath = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
+$parentFile = Join-Path $basePath "cb7e564f-152f-48e3-8eff-f424d7ebc6bd\api_conversation_history.json"
 $outputFile = 'd:\Dev\roo-extensions\outputs\parent-tail.txt'
 
 Write-Host "=== EXTRACTION PARENT TAIL ===`n" -ForegroundColor Cyan

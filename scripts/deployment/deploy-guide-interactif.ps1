@@ -2,6 +2,8 @@
 # Ce script guide l'utilisateur à travers les étapes de déploiement des modes
 # en appliquant les recommandations du rapport final
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 # Fonction pour afficher des messages colorés
 function Write-ColorOutput {
     param (
@@ -83,7 +85,7 @@ if (-not (Test-Path -Path $sourceFilePath)) {
 Write-ColorOutput "✓ Le fichier source existe." "Green"
 
 # Vérifier le répertoire de destination
-$destinationDir = Join-Path -Path $env:APPDATA -ChildPath "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+$destinationDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings"
 if (-not (Test-Path -Path $destinationDir)) {
     Write-ColorOutput "Le répertoire de destination n'existe pas: $destinationDir" "Yellow"
     Write-ColorOutput "Il sera créé automatiquement lors du déploiement." "Yellow"

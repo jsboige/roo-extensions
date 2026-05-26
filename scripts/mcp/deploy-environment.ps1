@@ -17,11 +17,13 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 # --- 1. Initialisation ---
 Write-Host "=== Étape 1/4: Initialisation ==="
 $ProjectRoot = $PSScriptRoot
 $ConfigSource = Join-Path $ProjectRoot "mcp_settings.json"
-$ConfigDestinationDir = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+$ConfigDestinationDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings"
 $targetSettingsFile = Join-Path $ConfigDestinationDir "mcp_settings.json"
 
 Write-Host "  - Racine du projet: $ProjectRoot"

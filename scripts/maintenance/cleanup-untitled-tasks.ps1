@@ -11,6 +11,8 @@ param(
     [switch]$Verbose
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
@@ -19,9 +21,10 @@ Write-Host "Issue #1173: MINOR: 6 orphaned task entries detected on myia-ai-01" 
 Write-Host ""
 
 # Détection du stockage Roo
+# Get-GlobalStoragePath uses APPDATA (Roaming); LOCALAPPDATA checked separately
 $rooDataPaths = @(
-    (Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\data"),
-    (Join-Path $env:LOCALAPPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\data")
+    (Join-Path (Get-GlobalStoragePath -Extension RooCode) "data"),
+    (Join-Path (Join-Path $env:LOCALAPPDATA "Code\User\globalStorage\$RooExtensionId") "data")
 )
 
 $tasksToDelete = @()

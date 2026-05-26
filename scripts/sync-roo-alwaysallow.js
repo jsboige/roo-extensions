@@ -21,13 +21,16 @@ const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
 
+// Extension identifier (mirrors scripts/common/extension-paths.ps1 $RooExtensionId)
+const EXTENSION_ID = 'rooveterinaryinc.roo-cline';
+
 // Configuration
 const MCP_SETTINGS_PATH = path.join(
     process.env.APPDATA,
     'Code',
     'User',
     'globalStorage',
-    'rooveterinaryinc.roo-cline',
+    EXTENSION_ID,
     'settings',
     'mcp_settings.json'
 );

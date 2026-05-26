@@ -31,7 +31,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Configuration
-$storageRoot = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks"
+. "$PSScriptRoot\..\..\common\extension-paths.ps1"
+$storageRoot = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
 $reportPath = "docs\NEW-TASK-EXTRACTION-REPORT-20251025.md"
 $bufferSize = 8192  # 8 KB
 $overlapSize = 1024 # 1 KB de chevauchement pour les balises fragmentées

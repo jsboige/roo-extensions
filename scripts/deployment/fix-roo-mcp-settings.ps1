@@ -3,7 +3,7 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [string]$RooMcpSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json",
+    [string]$RooMcpSettingsPath,
 
     [Parameter(Mandatory=$false)]
     [string]$RooRoot = "C:/dev/roo-extensions",
@@ -14,6 +14,12 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$Backup = $true
 )
+
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
+if (-not $RooMcpSettingsPath) {
+    $RooMcpSettingsPath = Get-McpSettingsPath -Extension RooCode
+}
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "   Correction des MCP settings Roo Code" -ForegroundColor Cyan

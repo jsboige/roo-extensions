@@ -6,13 +6,15 @@ param(
     [Parameter(Mandatory=$true)]
     [ValidateSet("backup", "restore", "status", "validate", "help")]
     [string]$Action,
-    
+
     [string]$Reason = "Opération manuelle",
     [switch]$Force
 )
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 # Configuration
-$ConfigPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+$ConfigPath = Get-McpSettingsPath -Extension RooCode
 $BackupDir = "d:\roo-extensions\mcps\backups"
 $LogFile = "d:\roo-extensions\mcps\mcp-operations.log"
 

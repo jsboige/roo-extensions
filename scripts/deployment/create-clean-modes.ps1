@@ -1,8 +1,10 @@
 # Script pour créer un fichier JSON propre avec les modes simples/complex
 # Ce script crée un nouveau fichier JSON avec les bonnes valeurs et le bon encodage
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+
 # Chemin du fichier de destination
-$destinationDir = Join-Path -Path $env:APPDATA -ChildPath "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+$destinationDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) "settings"
 $destinationFile = Join-Path -Path $destinationDir -ChildPath "custom_modes.json"
 
 # Vérifier que le répertoire de destination existe
