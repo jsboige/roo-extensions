@@ -2157,6 +2157,12 @@ function Remove-NestedSubmoduleWorktrees {
             }
 
             # Clean up leftover directories inside submodule .claude/worktrees/
+            # AUDIT-MONTH NOTE (po-2025 audit, 2026-05-26): This `Remove-Item -Recurse -Force` runs
+            # UNCONDITIONALLY at every worker tick. The path is hard-coded (`<submodule>/.claude/worktrees/`)
+            # and intentionally narrow — the worker owns this directory as a transient cleanup zone for
+            # guard #2123. If a developer ever needs to put legitimate content there, they should expect
+            # it to be removed on the next worker tick. Trade-off documented; no remediation needed unless
+            # the directory's purpose changes.
             $smWtDir = Join-Path $fullSmPath ".claude\worktrees"
             if (Test-Path $smWtDir) {
                 Write-Log "Cleaning up nested worktree directory: $smWtDir" "INFO"
@@ -2921,6 +2927,14 @@ function Invoke-Claude {
         # tool-only completions legitimately end with no trailing text. Requiring FinalResultText.Length>0
         # caused spurious haiku->sonnet escalations on successful maintenance runs (build+tests OK,
         # dashboard posted, yet ResultLen:0 flagged the stream invalid).
+        #
+        # AUDIT-MONTH TRADE-OFF (po-2025 + po-2026 audit, 2026-05-26): Dropping the FinalResultText.Length
+        # check means a stream truncated-but-graceful (gateway emits `result` event with empty text but
+        # actual completion was cut) passes silently. The remaining ParseErrorCount<5 guard catches the
+        # majority of failure modes (network drops, gateway 5xx, JSON corruption all surface as parse
+        # errors). A future tool-only detector (count tool_use blocks ≥1 OR FinalResultText.Length>0)
+        # would tighten this further without re-introducing the spurious escalation. Deferred: low-rate
+        # silent-truncation has not been observed in worker trace data; revisit if frequency grows.
         $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent
         if (-not $StreamValid) {
             Write-Log "Stream integrity FAILED — ParseErrors: $ParseErrorCount, ResultEvent: $ReceivedResultEvent, ResultLen: $($FinalResultText.Length)" "ERROR"
