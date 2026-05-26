@@ -2,7 +2,12 @@
 # Regression guards + validation logique
 # Syntaxe Pester v3 (Windows PowerShell 5.1)
 #
-# Usage: Invoke-Pester .\scripts\testing\unit\worker-pr-guards.Tests.ps1
+# Usage (Pester v3 explicit — required because the default Invoke-Pester on modern
+# Windows loads Pester 5.x, which rejects v3 syntax like `Should Be` / `BeGreaterThan`):
+#   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -RequiredVersion 3.4.0 -Force; Invoke-Pester .\scripts\testing\unit\worker-pr-guards.Tests.ps1"
+# Or inside an existing PowerShell session:
+#   Import-Module Pester -RequiredVersion 3.4.0 -Force
+#   Invoke-Pester .\scripts\testing\unit\worker-pr-guards.Tests.ps1
 
 Describe "Worker PR Guards - #1949 Anti-Trivial-PR" {
 
