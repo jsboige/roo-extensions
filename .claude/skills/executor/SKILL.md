@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.2.1
+**Version:** 3.2.2
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-24 (#2333 win-cli timeout guard in pre-flight)
+**MAJ:** 2026-05-26 (#2337 extend pre-flight guard to Roo transport timeout)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -47,7 +47,10 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 1. MCP roo-state-manager disponible (34 outils) → Si absent, STOP & REPAIR
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
-4. **Win-cli timeout guard** : lire `~/.win-cli-mcp/config.json` → si `commandTimeout < 600`, poster `[WARN]` sur dashboard et corriger (anti-régression #2333)
+4. **Win-cli timeout guard** (anti-régression #2333) :
+   - Lire `~/.win-cli-mcp/config.json` → si `commandTimeout < 600`, poster `[WARN]` et corriger
+   - Lire `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` → si win-cli `timeout < 600`, poster `[WARN]` et corriger
+   - Les deux niveaux sont indépendants (interne vs transport MCP Roo)
 
 Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et STOP.
 
