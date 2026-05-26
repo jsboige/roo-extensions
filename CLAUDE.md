@@ -119,6 +119,7 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 
 - **Docs on-demand :** [docs/harness/reference/INDEX.md](docs/harness/reference/INDEX.md) — index complet de toute la documentation
 - **Coordinateur :** [scheduled-coordinator.md](docs/harness/coordinator-specific/scheduled-coordinator.md) | [pr-review-policy.md](docs/harness/coordinator-specific/pr-review-policy.md) | [skeptical-posture.md](docs/harness/coordinator-specific/skeptical-posture.md)
+- **RooSync tools guide :** [roosync-tools-guide.md](docs/harness/reference/roosync-tools-guide.md) — health_view, inventory, compare_config, dashboard params & scenarios
 - **Guide RooSync :** [GUIDE-TECHNIQUE-v2.3.md](docs/roosync/GUIDE-TECHNIQUE-v2.3.md)
 - **Scripts :** [scripts/README.md](scripts/README.md) | [scripts/claude/](scripts/claude/)
 - **GitHub :** [Project #67](https://github.com/users/jsboige/projects/67) — Issues: `[CLAUDE-MACHINE] Titre` + labels (bug/enhancement/doc + attribution). [Detail](docs/harness/reference/github-cli.md)
