@@ -3,7 +3,13 @@
 # Syntaxe Pester v3 (Windows PowerShell 5.1)
 #
 # Pre-requis: gh CLI authentifie, acces au repo jsboige/roo-extensions
-# Usage: Invoke-Pester .\scripts\testing\unit\worker-jq-expressions.Tests.ps1
+#
+# Usage (Pester v3 explicit — required because the default Invoke-Pester on modern
+# Windows loads Pester 5.x, which rejects v3 syntax like `Should Be` / `BeGreaterThan`):
+#   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -RequiredVersion 3.4.0 -Force; Invoke-Pester .\scripts\testing\unit\worker-jq-expressions.Tests.ps1"
+# Or inside an existing PowerShell session:
+#   Import-Module Pester -RequiredVersion 3.4.0 -Force
+#   Invoke-Pester .\scripts\testing\unit\worker-jq-expressions.Tests.ps1
 
 Describe "Worker Script - jq Expressions" {
 

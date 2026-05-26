@@ -3,11 +3,16 @@
 # dans un répertoire de submodule (mcps/internal, mcps/external/win-cli/server, roo-code, ...).
 # Syntaxe Pester v3 (Windows PowerShell 5.1)
 #
-# Usage: Invoke-Pester .\scripts\testing\unit\nested-worktree-guard.Tests.ps1
+# Usage (Pester v3 explicit — required because the default Invoke-Pester on modern
+# Windows loads Pester 5.x, which rejects v3 syntax like `Should Be` / `BeGreaterThan`):
+#   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -RequiredVersion 3.4.0 -Force; Invoke-Pester .\scripts\testing\unit\nested-worktree-guard.Tests.ps1"
+# Or inside an existing PowerShell session:
+#   Import-Module Pester -RequiredVersion 3.4.0 -Force
+#   Invoke-Pester .\scripts\testing\unit\nested-worktree-guard.Tests.ps1
 #
 # Contexte : la règle .claude/rules/pr-mandatory.md:21-29 (Anti-Nested Worktrees, #2123)
 # interdit les worktrees imbriqués dans un submodule. Le guard #2351 applique cette
-# règle AVANT la création (prévention), au lieu du cleanup post-hoc Remove-NestedWorktrees.
+# règle AVANT la création (prévention), au lieu du cleanup post-hoc Remove-NestedSubmoduleWorktrees.
 
 Describe "Nested Worktree Guard - #2351 (preventive, creation-time)" {
 
