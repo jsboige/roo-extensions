@@ -1239,19 +1239,6 @@ function Test-GitHubDecision {
     }
 }
 
-function Test-IntercomMessage {
-    <#
-    .SYNOPSIS
-    Vérifie si message dashboard workspace détecté (DEPRECATED - use Test-DashboardMessage)
-    #>
-    param([string]$TaskId, $WaitState)
-
-    # DEPRECATED since #745 Phase 2 — use Test-DashboardMessage instead
-    # Returns false always (INTERCOM file no longer used for resume signals)
-    Write-Log "Test-IntercomMessage est deprecated - utiliser Test-DashboardMessage à la place" "WARN"
-    return $false
-}
-
 function Test-DashboardMessage {
     <#
     .SYNOPSIS
