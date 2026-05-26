@@ -88,8 +88,8 @@ Describe "Worktree Husk Prevention - #1913 Fixes B/C/D/E" {
             ($content -match 'CleanupScript.*-Execute') | Should Be $true
         }
 
-        It "Must use -DaysThreshold 2 for startup cleanup" {
-            ($content -match '-DaysThreshold 2') | Should Be $true
+        It "Must use -DaysThreshold 0 for startup cleanup (all orphans, not just stale)" {
+            ($content -match '-DaysThreshold 0') | Should Be $true
         }
 
         It "Must run cleanup silently (non-fatal on failure)" {
@@ -115,8 +115,8 @@ Describe "Worktree Husk Prevention - #1913 Fixes B/C/D/E" {
 
     Context "Fix E - Retry-on-lock in Remove-Worktree (#1913)" {
 
-        It "Must contain retry marker" {
-            ($content -match '#1913 Fix E') | Should Be $true
+        It "Must contain retry logic for FS removal" {
+            ($content -match 'MaxRetries = 3') | Should Be $true
         }
 
         It "Must retry 3 times before giving up" {
@@ -139,17 +139,17 @@ Describe "Worktree Husk Prevention - #1913 Fixes B/C/D/E" {
             ($content -match 'retrying in.*RetryDelaySec') | Should Be $true
         }
 
-        It "Must log when all retries exhausted" {
-            ($content -match 'all retries exhausted') | Should Be $true
+        It "Must log when all removal methods failed" {
+            ($content -match 'All removal methods failed') | Should Be $true
         }
 
         It "Remove-Worktree function must exist" {
             ($content -match 'function Remove-Worktree') | Should Be $true
         }
 
-        It "Must track removal success with a flag" {
-            ($content -match '\$Removed = \$false') | Should Be $true
-            ($content -match '\$Removed = \$true') | Should Be $true
+        It "Must track removal success via early return" {
+            ($content -match 'Worktree supprim.*git worktree remove') | Should Be $true
+            ($content -match 'Native rmdir /s /q succeeded') | Should Be $true
         }
     }
 
