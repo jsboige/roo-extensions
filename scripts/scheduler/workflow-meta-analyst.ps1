@@ -23,8 +23,6 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-. "$PSScriptRoot\..\common\extension-paths.ps1"
-
 # Import shared modules
 $ModulePath = Join-Path $PSScriptRoot "*.psm1"
 $ModulesToImport = @(

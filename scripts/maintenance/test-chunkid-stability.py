@@ -35,9 +35,8 @@ from pathlib import Path
 from collections import Counter
 
 
-# Extension identifiers — kept in sync with scripts/common/extension-paths.ps1
+# Extension identifier — kept in sync with scripts/common/extension-paths.ps1
 ROO_EXTENSION_ID = 'rooveterinaryinc.roo-cline'
-ZOO_EXTENSION_ID = 'zoocodeorganization.zoo-code'
 
 # UUID v5 namespace — must match ChunkExtractor.ts:9
 UUID_NAMESPACE = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')

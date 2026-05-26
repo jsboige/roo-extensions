@@ -10,12 +10,12 @@ if (-not $Files -or $Files.Count -eq 0) {
     . "$PSScriptRoot\..\common\extension-paths.ps1"
     $tasksDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) "tasks"
     $Files = @(
-      Join-Path $tasksDir 'ac8aa7b4-319c-4925-a139-4f4adca81921\ui_messages.json',
-      Join-Path $tasksDir 'bc93a6f7-cd2e-4686-a832-46e3cd14d338\ui_messages.json',
-      Join-Path $tasksDir '52df1bbe-8219-4bb6-8a10-1fa6aef40b02\ui_messages.json',
-      Join-Path $tasksDir '511dd928-4812-4c18-8f5f-7c6ece3e1399\ui_messages.json',
-      Join-Path $tasksDir '90aef628-ef96-4a75-8af8-6bd8ba9b6440\ui_messages.json',
-      Join-Path $tasksDir '3c502105-0dfd-4379-bfe9-c4b3317cc04b\ui_messages.json'
+      (Join-Path $tasksDir 'ac8aa7b4-319c-4925-a139-4f4adca81921\ui_messages.json'),
+      (Join-Path $tasksDir 'bc93a6f7-cd2e-4686-a832-46e3cd14d338\ui_messages.json'),
+      (Join-Path $tasksDir '52df1bbe-8219-4bb6-8a10-1fa6aef40b02\ui_messages.json'),
+      (Join-Path $tasksDir '511dd928-4812-4c18-8f5f-7c6ece3e1399\ui_messages.json'),
+      (Join-Path $tasksDir '90aef628-ef96-4a75-8af8-6bd8ba9b6440\ui_messages.json'),
+      (Join-Path $tasksDir '3c502105-0dfd-4379-bfe9-c4b3317cc04b\ui_messages.json')
     )
 }
 
