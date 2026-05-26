@@ -107,6 +107,10 @@ try {
     $newConfig = ([regex]::Matches($verifyContent, 'getConfiguration\("zoo-code"\)')).Count
     Write-Host "Patch verified: $newRefs ext refs, $newActivity activity refs, $newConfig config refs"
 
+    # --- Clean up files that should not be packaged ---
+    $envFile = Join-Path $tempDir ".env"
+    if (Test-Path $envFile) { Remove-Item $envFile -Force }
+
     # --- Build VSIX ---
     Write-Host "Building VSIX..."
     Push-Location $tempDir
