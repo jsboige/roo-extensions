@@ -45,35 +45,42 @@ if (Test-Path $internalConfigPath) {
     Write-Result 'win-cli-internal' 'OK' "No runtime override (using repo default 600s)"
 }
 
-# --- Level 2: Roo MCP transport timeout ---
-$rooMcpPath = "$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+# --- Level 2: Scheduler MCP transport timeout (Roo Code + Zoo Code) ---
+$globalStorageBase = "$env:APPDATA/Code/User/globalStorage"
+$schedulerDirs = @(
+    'rooveterinaryinc.roo-cline',
+    'zoocodeorganization.zoo-code'
+)
 
-if (Test-Path $rooMcpPath) {
-    $rooConfig = Get-Content $rooMcpPath -Raw -Encoding UTF8 | ConvertFrom-Json
+foreach ($dir in $schedulerDirs) {
+    $mcpPath = "$globalStorageBase/$dir/settings/mcp_settings.json"
+    $label = "transport-$($dir.Split('.')[0])"
 
-    if ($rooConfig.mcpServers.'win-cli') {
-        $transportTimeout = $rooConfig.mcpServers.'win-cli'.timeout
+    if (Test-Path $mcpPath) {
+        $config = Get-Content $mcpPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
-        if ($null -eq $transportTimeout) {
-            Write-Result 'roo-transport' 'WARN' 'No timeout field defined (undefined = no limit OR transport default)'
-        } elseif ($transportTimeout -lt $Minimum) {
-            Write-Result 'roo-transport' 'WARN' "timeout = ${transportTimeout}s (minimum: ${Minimum}s)"
-            if ($Fix -and $PSCmdlet.ShouldProcess($rooMcpPath, "Set win-cli timeout to $Minimum")) {
-                $rooConfig.mcpServers.'win-cli'.timeout = $Minimum
-                $json = $rooConfig | ConvertTo-Json -Depth 10
-                [System.IO.File]::WriteAllText($rooMcpPath, $json, [System.Text.UTF8Encoding]::new($false))
-                Write-Result 'roo-transport' 'FIXED' "timeout set to ${Minimum}s"
+        if ($config.mcpServers.'win-cli') {
+            $transportTimeout = $config.mcpServers.'win-cli'.timeout
+
+            if ($null -eq $transportTimeout) {
+                Write-Result $label 'WARN' 'No timeout field defined (undefined = no limit OR transport default)'
+            } elseif ($transportTimeout -lt $Minimum) {
+                Write-Result $label 'WARN' "timeout = ${transportTimeout}s (minimum: ${Minimum}s)"
+                if ($Fix -and $PSCmdlet.ShouldProcess($mcpPath, "Set win-cli timeout to $Minimum")) {
+                    $config.mcpServers.'win-cli'.timeout = $Minimum
+                    $json = $config | ConvertTo-Json -Depth 10
+                    [System.IO.File]::WriteAllText($mcpPath, $json, [System.Text.UTF8Encoding]::new($false))
+                    Write-Result $label 'FIXED' "timeout set to ${Minimum}s"
+                } else {
+                    $exitCode = 1
+                }
             } else {
-                $exitCode = 1
+                Write-Result $label 'OK' "timeout = ${transportTimeout}s"
             }
         } else {
-            Write-Result 'roo-transport' 'OK' "timeout = ${transportTimeout}s"
+            Write-Result $label 'OK' 'No win-cli entry in mcp_settings.json'
         }
-    } else {
-        Write-Result 'roo-transport' 'OK' 'No win-cli entry in mcp_settings.json'
     }
-} else {
-    Write-Result 'roo-transport' 'OK' 'No Roo mcp_settings.json found (not a Roo machine)'
 }
 
 # --- Summary ---
