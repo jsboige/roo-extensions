@@ -169,6 +169,9 @@ function Invoke-DelegatedTask {
 function Invoke-TraceCollection {
     Write-MetaWorkflowStep -StepName "Trace Collection" -Details "Preparing delegation for local trace collection"
 
+    . "$PSScriptRoot\..\common\extension-paths.ps1"
+    $rooTasksPath = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "tasks"
+
     $instruction = @"
 DELEGUER à code-complex :
 
@@ -178,12 +181,12 @@ DELEGUER à code-complex :
 
 1. Lister les 10 tâches Roo les plus récentes :
 ```
-execute_command(shell="powershell", command="Get-ChildItem '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | Select-Object Name, LastWriteTime")
+execute_command(shell="powershell", command="Get-ChildItem '$rooTasksPath' -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 10 | Select-Object Name, LastWriteTime")
 ```
 
 2. Pour chaque tâche, lire le fichier ui_messages.json :
 ```
-execute_command(shell="powershell", command="Get-Content '$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/{TASK_ID}/ui_messages.json' -Raw | ConvertFrom-Json")
+execute_command(shell="powershell", command="Get-Content '$rooTasksPath/{TASK_ID}/ui_messages.json' -Raw | ConvertFrom-Json")
 ```
 
 3. Extraire les métriques :
