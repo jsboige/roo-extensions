@@ -247,6 +247,7 @@ function Resolve-WorkspacePath($ws) {
     )
     foreach ($root in $candidateRoots) {
         if ([string]::IsNullOrEmpty($root)) { continue }
+        if (-not (Test-Path $root -PathType Container)) { continue }
         $candidate = Join-Path $root $ws
         if (Test-Path $candidate -PathType Container) {
             $script:_wsPathCache[$ws] = $candidate
