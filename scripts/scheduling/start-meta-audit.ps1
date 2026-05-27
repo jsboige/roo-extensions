@@ -140,6 +140,9 @@ if (-not (Test-ClaudeCLI)) {
 $Today = Get-Date -Format "yyyy-MM-dd"
 # Note: META-INTERCOM deprecated since 2026-04-10 (#1818). Reports go to dashboard workspace.
 
+. "$PSScriptRoot\..\common\extension-paths.ps1"
+$rooTasksPath = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "tasks"
+
 $Prompt = @"
 Tu es le META-ANALYSTE Claude Code sur la machine $MachineName.
 Date du cycle : $Today
@@ -155,7 +158,7 @@ Tu ne modifies RIEN, tu ne dispatches RIEN. Tu PROPOSES uniquement.
 
 Utilise Bash pour lister les taches Roo recentes :
 ``````
-ls -lt "$env:APPDATA/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/" 2>/dev/null | head -10
+ls -lt "$rooTasksPath/" 2>/dev/null | head -10
 ``````
 
 Pour chaque tache recente, lire les ui_messages.json (derniers 50 lignes).

@@ -22,7 +22,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 // Extension identifier (mirrors scripts/common/extension-paths.ps1 $RooExtensionId)
-const EXTENSION_ID = 'rooveterinaryinc.roo-cline';
+// Override via ROO_EXTENSION_ID env var for Zoo Code migration
+const EXTENSION_ID = process.env.ROO_EXTENSION_ID || 'rooveterinaryinc.roo-cline';
 
 // Configuration
 const MCP_SETTINGS_PATH = path.join(
