@@ -17,7 +17,7 @@
 
 **Config separee :** Claude = `~/.claude.json`. Roo = `%APPDATA%\...\mcp_settings.json`.
 **win-cli :** Critique UNIQUEMENT pour Roo. Claude utilise `Bash`. Jamais `npx @simonb97/...`.
-**Timeout guard :** `scripts/infra/harmonize-win-cli-timeouts.ps1` vérifie les 2 niveaux (interne + transport). Lancer en pre-flight ou cron (#2333, #2375).
+**Timeout guard :** `scripts/infra/harmonize-win-cli-timeouts.ps1` vérifie les 2 niveaux (interne + transport). Intégré au pre-flight executor (v3.2.3+, #2333). Peut aussi être lancé en cron.
 
 ## Standards (non bloquants)
 
