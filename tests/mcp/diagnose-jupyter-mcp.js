@@ -26,7 +26,7 @@ const __dirname = dirname(__filename);
 const config = {
   mcpServerPath: path.join(__dirname, '..', 'servers', 'jupyter-mcp-server'),
   mcpConfigPath: path.join(__dirname, '..', 'servers', 'jupyter-mcp-server', 'config.json'),
-  rooConfigPath: path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings', 'mcp_settings.json'),
+  rooConfigPath: path.join(os.homedir(), 'AppData', 'Roaming', 'Code', 'User', 'globalStorage', process.env.ROO_EXTENSION_ID || 'rooveterinaryinc.roo-cline', 'settings', 'mcp_settings.json'),
   jupyterDefaultUrl: 'http://localhost:8888',
   connectionTimeout: 5000,
   requestTimeout: 5000,

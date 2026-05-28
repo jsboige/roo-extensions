@@ -57,7 +57,8 @@ if (-not $ReferenceFile) {
     $ReferenceFile = Join-Path $repoRoot "roo-config\mcp\reference-alwaysallow.json"
 }
 
-$rooMcpSettingsPath = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\..\scripts\common\extension-paths.ps1"
+$rooMcpSettingsPath = Get-McpSettingsPath -Extension RooCode
 
 Write-Host "Sync AlwaysAllow Configuration" -ForegroundColor Cyan
 Write-Host "======================================" -ForegroundColor Cyan

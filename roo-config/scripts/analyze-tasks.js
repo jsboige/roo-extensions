@@ -6,7 +6,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const taskDir = 'C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks';
+const EXTENSION_ID = process.env.ROO_EXTENSION_ID || 'rooveterinaryinc.roo-cline';
+const taskDir = path.join(process.env.APPDATA || '', 'Code', 'User', 'globalStorage', EXTENSION_ID, 'tasks');
 const N = parseInt(process.argv[2] || '100', 10);
 const VERBOSE = process.argv.includes('--verbose');
 

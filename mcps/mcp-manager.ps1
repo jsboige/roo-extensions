@@ -7,8 +7,8 @@ param(
     [string]$Reason = "Operation manuelle"
 )
 
-$AppdataPath = [System.Environment]::GetFolderPath('ApplicationData')
-$ConfigPath = Join-Path -Path $AppdataPath -ChildPath "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\scripts\common\extension-paths.ps1"
+$ConfigPath = Get-McpSettingsPath -Extension RooCode
 $BackupDir = "d:\roo-extensions\mcps\backups"
 
 function Write-ColorText {

@@ -130,7 +130,8 @@ foreach ($name in $modeNames) {
 if ($DeploymentType -eq "local") {
     $destination = Join-Path $repoRoot ".roomodes"
 } else {
-    $globalDir = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+    . "$PSScriptRoot\..\..\scripts\common\extension-paths.ps1"
+    $globalDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
     if (-not (Test-Path $globalDir)) {
         Write-Host "WARNING: VS Code Roo extension settings dir not found: $globalDir" -ForegroundColor Yellow
         Write-Host "Creating directory..." -ForegroundColor Gray

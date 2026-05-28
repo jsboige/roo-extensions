@@ -13,7 +13,8 @@ param(
 )
 
 # Configuration
-$mcpConfigPath = "C:\Users\MYIA\AppData\Roaming\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\scripts\common\extension-paths.ps1"
+$mcpConfigPath = Get-McpSettingsPath -Extension RooCode
 $backupDir = "D:\roo-extensions\mcps\backups"
 $logFile = "D:\roo-extensions\mcps\modification-log.txt"
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'

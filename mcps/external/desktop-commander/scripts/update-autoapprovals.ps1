@@ -10,7 +10,8 @@
 $ErrorActionPreference = "Stop"
 
 # Chemin vers les settings Roo
-$rooSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\..\..\..\scripts\common\extension-paths.ps1"
+$rooSettingsPath = Get-McpSettingsPath -Extension RooCode
 
 if (-not (Test-Path $rooSettingsPath)) {
     Write-Error "Roo settings not found at: $rooSettingsPath"

@@ -58,7 +58,8 @@ if (-not (Test-Path -Path $standardModesPath)) {
 
 # Déterminer le chemin du répertoire de destination
 if ($DeploymentType -eq "global") {
-    $destinationDir = Join-Path -Path $env:APPDATA -ChildPath "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\n5-modes"
+    . "$PSScriptRoot\..\..\..\..\scripts\common\extension-paths.ps1"
+    $destinationDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings\n5-modes"
     
     # Vérifier que le répertoire de destination existe
     if (-not (Test-Path -Path $destinationDir)) {
