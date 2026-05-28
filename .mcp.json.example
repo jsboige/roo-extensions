@@ -1,0 +1,29 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest",
+        "--executable-path",
+        "C:\\Users\\jsboi\\AppData\\Local\\ms-playwright\\chromium-1208\\chrome-win64\\chrome.exe"
+      ],
+      "transportType": "stdio",
+      "disabled": true
+    },
+    "searxng": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-searxng"
+      ],
+      "env": {
+        "SEARXNG_URL": "https://search.myia.io/"
+      },
+      "alwaysAllow": [
+        "searxng_web_search",
+        "web_url_read"
+      ],
+      "disabled": true
+    }
+  }
+}
