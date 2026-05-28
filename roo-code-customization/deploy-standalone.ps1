@@ -15,7 +15,9 @@ $extensionsPath = "$env:USERPROFILE\.vscode\extensions"
 # Fonction: Trouver la dernière extension
 function Find-LatestRooExtension {
     Write-Host "`nRecherche de l'extension Roo..." -ForegroundColor Yellow
-    $extensions = Get-ChildItem -Path $extensionsPath -Directory -Filter "rooveterinaryinc.roo-cline-*" -ErrorAction Stop |
+    . "$PSScriptRoot\..\scripts\common\extension-paths.ps1"
+    $extFilter = "$RooExtensionId-*"
+    $extensions = Get-ChildItem -Path $extensionsPath -Directory -Filter $extFilter -ErrorAction Stop |
         Sort-Object Name -Descending
     
     if ($extensions.Count -eq 0) {

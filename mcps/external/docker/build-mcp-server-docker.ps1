@@ -276,7 +276,8 @@ $serverName = "mcp-server-local"
 
 # Chemin vers le fichier de configuration MCP
 # Modifier ce chemin selon votre installation de Roo
-$mcpConfigPath = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\..\..\scripts\common\extension-paths.ps1"
+$mcpConfigPath = Get-McpSettingsPath -Extension RooCode
 
 # Fonction principale
 function Main {

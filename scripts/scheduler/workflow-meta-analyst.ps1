@@ -153,7 +153,7 @@ function Invoke-DelegatedTask {
     Actual work is delegated to code-complex via new_task.
 
     Roo traces:
-    - Path: %APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/
+    - Path: %APPDATA%/Code/User/globalStorage/<extension-id>/tasks/
     - Get recent task directories (last 10 by LastWriteTime)
     - Read ui_messages.json from each task
 

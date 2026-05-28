@@ -56,7 +56,8 @@ $sourceFile = Resolve-Path $sourceFile
 Write-ColorOutput "`n[1/4] Fichier source trouvé: $sourceFile" "Green"
 
 # Déterminer le chemin du fichier de destination
-$destinationDir = Join-Path -Path $env:APPDATA -ChildPath "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+. "$PSScriptRoot\..\..\scripts\common\extension-paths.ps1"
+$destinationDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
 $destinationFile = Join-Path -Path $destinationDir -ChildPath "custom_modes.json"
 
 # Vérifier que le répertoire de destination existe

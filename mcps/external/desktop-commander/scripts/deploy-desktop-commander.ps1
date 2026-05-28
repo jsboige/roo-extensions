@@ -29,7 +29,8 @@ $RepoRoot = (Resolve-Path "$ScriptDir\..\..\..").Path
 $ConfigTemplate = "$ScriptDir\..\config\desktop-commander-config.json"
 $TargetDir = Join-Path $env:USERPROFILE ".claude-server-commander"
 $TargetConfig = Join-Path $TargetDir "config.json"
-$RooSettingsPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\..\..\..\scripts\common\extension-paths.ps1"
+$RooSettingsPath = Get-McpSettingsPath -Extension RooCode
 
 function Deploy-DCMCP {
     Write-Host "=== Deploying DesktopCommanderMCP ===" -ForegroundColor Cyan

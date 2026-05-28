@@ -71,7 +71,8 @@ if (-not $modelConfigs.apiConfigs) {
 }
 
 # Determine Roo settings path
-$rooSettingsDir = Join-Path $env:APPDATA "Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+. "$PSScriptRoot\..\..\scripts\common\extension-paths.ps1"
+$rooSettingsDir = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
 $rooSettingsFile = Join-Path $rooSettingsDir "cline_custom_instructions.md"
 
 # Check if Roo settings directory exists

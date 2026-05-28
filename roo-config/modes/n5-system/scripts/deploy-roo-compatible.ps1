@@ -11,7 +11,8 @@ param (
 )
 
 # Constantes
-$VSCodeGlobalStorage = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings"
+. "$PSScriptRoot\..\..\..\..\..\scripts\common\extension-paths.ps1"
+$VSCodeGlobalStorage = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "settings"
 $LocalConfigPath = ".roomodes"
 $BackupDir = "$PSScriptRoot\..\backup"
 $Timestamp = Get-Date -Format "yyyyMMdd_HHmmss"

@@ -40,7 +40,8 @@ if (Test-Path $backupDir) {
 
 # Test 4: Validation de la configuration MCP
 Write-Host "`n4. Test validation configuration MCP..." -ForegroundColor Yellow
-$configPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json"
+. "$PSScriptRoot\..\scripts\common\extension-paths.ps1"
+$configPath = Get-McpSettingsPath -Extension RooCode
 if (Test-Path $configPath) {
     try {
         $content = Get-Content $configPath -Raw -Encoding UTF8
