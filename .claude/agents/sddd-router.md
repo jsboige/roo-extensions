@@ -192,4 +192,4 @@ Documenter chaque usage Opus dans INTERCOM :
 
 ## Référence
 
-Voir [roo-config/sddd/level-criteria.json](../../roo-config/sddd/level-criteria.json) pour les critères détaillés.
+Level criteria defined inline in agent prompt (file `roo-config/sddd/level-criteria.json` removed).

@@ -65,7 +65,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 ## Agents, Skills & Commands
 
 **18 subagents** + **6 skills** + **4 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`).
-**Detail :** [.claude/rules/agents-architecture.md](.claude/rules/agents-architecture.md)
+**Detail :** `.claude/agents/` directory
 
 ---
 
@@ -102,16 +102,16 @@ roo-config/        # Modes Roo (modes-config.json + scripts)
 
 For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec → team-verify → team-fix**.
 **team-verify REQUIRED before [DONE]** (build + tests must pass). Report stages via `teamStage` in dashboard messages.
-**Detail & schema:** [docs/harness/adr/005-team-pipeline-stages.md](docs/harness/adr/005-team-pipeline-stages.md)
+**Detail & schema:** Team pipeline ADR (numbering gap — no ADR 005)
 
 ---
 
 ## Rules Auto-chargees
 
 **Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion + Surgical](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md) | [Issue Closure](.claude/rules/issue-closure.md) | [Agent Claim](.claude/rules/agent-claim-discipline.md) | [Submod Pointer Safety](.claude/rules/submod-pointer-safety.md)
-**Ops :** [File Writing](.claude/rules/file-writing.md) | [Meta-Analyste](.claude/rules/meta-analyst.md) | [SDDD](.claude/rules/sddd-grounding.md) | [conversation_browser](.claude/rules/conversation-browser-guide.md) | [Scheduler Model Defaults](.claude/rules/scheduler-model-defaults.md)
+**Ops :** [File Writing](.claude/rules/file-writing.md) | [SDDD](.claude/rules/sddd-grounding.md)
 **Com :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md) | [Friction](.claude/rules/friction-protocol.md) | [MCP Diagnosis](.claude/rules/mcp-diagnosis.md) | [Shell Fallback](.claude/rules/shell-fallback.md)
-**Contexte :** [Context Window](.claude/rules/context-window.md) | [Agents](.claude/rules/agents-architecture.md) | [Security](.claude/rules/security.md) | [Wake Routing](.claude/rules/wake-claude-routing.md) | [Bots Directory](.claude/rules/bots-directory.md)
+**Contexte :** [Context Window](.claude/rules/context-window.md) | [Security](.claude/rules/security.md) | [Wake Routing](.claude/rules/wake-claude-routing.md)
 
 ---
 

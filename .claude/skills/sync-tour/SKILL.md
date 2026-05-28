@@ -403,8 +403,6 @@ Suivre le workflow du skill `validate` :
 
 ## Phase 3.5 : Mise à jour Checklists GitHub (CRITIQUE)
 
-**Référence :** [`../../docs/github-checklists.md`](../../docs/github-checklists.md)
-
 ### Objectif
 
 S'assurer que les tableaux de validation dans les issues GitHub sont maintenues à jour pour garantir une traçabilité fiable.
@@ -482,7 +480,6 @@ Suivre le workflow du skill `github-status` :
    - Vérifier cohérence avec git log (commits récents)
    - Mettre à jour statut dans Project #67
    - Ajouter commentaire "Complété par [machine/agent]"
-   - **Référence :** [`../../docs/github-checklists.md`](../../docs/github-checklists.md)
 
 **2. Mettre à jour statuts "In Progress"**
    - Si tâche annoncée démarrée → marquer In Progress
