@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.2.1"
+  version: "3.2.3"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.2.2
+**Version:** 3.2.3
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-26 (#2337 extend pre-flight guard to Roo transport timeout)
+**MAJ:** 2026-05-28 (#2333 integrate harmonize script in executor pre-flight)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -48,9 +48,10 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
 4. **Win-cli timeout guard** (anti-régression #2333) :
-   - Lire `~/.win-cli-mcp/config.json` → si `commandTimeout < 600`, poster `[WARN]` et corriger
-   - Lire `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json` → si win-cli `timeout < 600`, poster `[WARN]` et corriger
-   - Les deux niveaux sont indépendants (interne vs transport MCP Roo)
+   - `pwsh.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
+   - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
+   - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
+   - Poster `[WARN]` sur dashboard si corrections appliquées
 
 Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et STOP.
 
