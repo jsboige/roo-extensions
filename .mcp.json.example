@@ -2,27 +2,31 @@
   "mcpServers": {
     "playwright": {
       "command": "npx",
-      "args": [
-        "@playwright/mcp@latest",
-        "--executable-path",
-        "C:\\Users\\jsboi\\AppData\\Local\\ms-playwright\\chromium-1208\\chrome-win64\\chrome.exe"
-      ],
+      "args": ["-y", "@playwright/mcp@latest"],
       "transportType": "stdio",
       "disabled": true
     },
     "searxng": {
       "command": "npx",
-      "args": [
-        "-y",
-        "mcp-searxng"
-      ],
+      "args": ["-y", "mcp-searxng"],
       "env": {
         "SEARXNG_URL": "https://search.myia.io/"
       },
-      "alwaysAllow": [
-        "searxng_web_search",
-        "web_url_read"
-      ],
+      "disabled": true
+    },
+    "sk-agent": {
+      "command": "C:\\dev\\roo-extensions\\mcps\\internal\\servers\\sk-agent\\.venv\\Scripts\\python.exe",
+      "args": ["C:\\dev\\roo-extensions\\mcps\\internal\\servers\\sk-agent\\sk_agent.py"],
+      "disabled": true
+    },
+    "web_reader": {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-web-reader"],
+      "disabled": true
+    },
+    "google-workspace": {
+      "command": "uvx",
+      "args": ["workspace-mcp", "--tool-tier", "core", "--transport", "stdio"],
       "disabled": true
     }
   }
