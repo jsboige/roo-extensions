@@ -4,17 +4,22 @@
 .DESCRIPTION
     Copies settings, tasks, and other config files from the Roo Code
     globalStorage directory to the Zoo Code equivalent. Preserves existing
-    Zoo files (skip if already present). Does NOT delete source files.
+    Zoo files (skip if already present) unless -Force is specified.
+    Does NOT delete source files.
 
     Issue: #2379 — Migrate globalStorage configs Roo -> Zoo.
 .PARAMETER WhatIf
     Dry run — show what would be done without executing.
+.PARAMETER Force
+    Overwrite existing Zoo files (useful when Zoo has empty stubs).
 .EXAMPLE
     .\migrate-globalstorage.ps1
     .\migrate-globalstorage.ps1 -WhatIf
+    .\migrate-globalstorage.ps1 -Force
 #>
 param(
-    [switch]$WhatIf
+    [switch]$WhatIf,
+    [switch]$Force
 )
 
 $ErrorActionPreference = "Stop"
@@ -80,20 +85,21 @@ if (Test-Path $rooSettings) {
         }
     }
 
-    $settingsFiles = @("mcp_settings.json", "custom_modes.yaml")
+    $settingsFiles = @("mcp_settings.json", "custom_modes.yaml", "schedules.json")
     foreach ($file in $settingsFiles) {
         $src = Join-Path $rooSettings $file
         $dst = Join-Path $zooSettings $file
         if (Test-Path $src) {
-            if (Test-Path $dst) {
-                Write-Host "[SKIP] $file already exists in Zoo (preserving)" -ForegroundColor Yellow
+            if ((Test-Path $dst) -and -not $Force) {
+                Write-Host "[SKIP] $file already exists in Zoo (preserving, use -Force to overwrite)" -ForegroundColor Yellow
                 $skippedFiles++
             } else {
+                $isOverwrite = Test-Path $dst
                 if ($WhatIf) {
-                    Write-Host "[WHATIF] Copy $src -> $dst"
+                    Write-Host "[WHATIF] Copy $src -> $dst$(if ($isOverwrite) { ' (overwrite)' })"
                 } else {
                     Copy-Item $src $dst -Force
-                    Write-Host "[OK] Copied $file" -ForegroundColor Green
+                    Write-Host "$(if ($isOverwrite) { '[FORCE] Overwritten' } else { '[OK] Copied' }) $file" -ForegroundColor Green
                 }
                 $copiedFiles++
             }
