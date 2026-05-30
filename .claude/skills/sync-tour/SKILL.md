@@ -51,7 +51,7 @@ Ce skill fait appel a des agents specialises :
 
 **⚠️ TOUJOURS commencer par cette phase avant tout le reste !**
 
-**Methodologie :** Triple grounding SDDD. Voir `.claude/rules/sddd-conversational-grounding.md`.
+**Methodologie :** Triple grounding SDDD. Voir `.claude/rules/sddd-grounding.md`.
 
 ### Actions
 
