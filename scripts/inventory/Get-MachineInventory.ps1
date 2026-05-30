@@ -884,7 +884,7 @@ try {
         if ($condaPath) {
             $condaEnvs = conda env list 2>$null
             if ($condaEnvs) {
-                $envList = ($condaEnvs -split "`n" | Where-Object { $_ -not match '^#' -and $_ -match '\S' } | ForEach-Object {
+                $envList = ($condaEnvs -split "`n" | Where-Object { $_ -notmatch '^#' -and $_ -match '\S' } | ForEach-Object {
                     $parts = $_ -split '\s+', 3
                     @{
                         name = if ($parts[0]) { $parts[0] } else { "base" }
