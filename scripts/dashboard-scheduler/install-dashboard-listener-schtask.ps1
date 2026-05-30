@@ -63,6 +63,29 @@ if (-not $pwshPath) {
     exit 1
 }
 
+# Ensure ROOSYNC_SHARED_PATH is set at user level (#2431).
+# The listener requires this to locate GDrive .shared-state dashboards.
+$sharedPath = [System.Environment]::GetEnvironmentVariable('ROOSYNC_SHARED_PATH', 'User')
+if (-not $sharedPath) {
+    # Try to auto-detect from common GDrive paths
+    $candidates = @(
+        "$env:USERPROFILE\Google Drive\Mon Drive\Synchronisation\RooSync\.shared-state",
+        "G:\Mon Drive\Synchronisation\RooSync\.shared-state",
+        "D:\Google Drive\Mon Drive\Synchronisation\RooSync\.shared-state"
+    )
+    $detected = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($detected) {
+        [System.Environment]::SetEnvironmentVariable('ROOSYNC_SHARED_PATH', $detected, 'User')
+        Write-Host "Set ROOSYNC_SHARED_PATH = $detected (auto-detected, User level)"
+    } else {
+        Write-Host "WARNING: ROOSYNC_SHARED_PATH not set and no GDrive .shared-state found."
+        Write-Host "  The listener will fail to start. Set it manually:"
+        Write-Host '  [System.Environment]::SetEnvironmentVariable("ROOSYNC_SHARED_PATH", "<path>", "User")'
+    }
+} else {
+    Write-Host "ROOSYNC_SHARED_PATH already set: $sharedPath"
+}
+
 $action = New-ScheduledTaskAction -Execute $pwshPath -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$wrapperScript`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
