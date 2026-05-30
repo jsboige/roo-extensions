@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.2.3"
+  version: "3.3.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.2.3
+**Version:** 3.3.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-28 (#2333 integrate harmonize script in executor pre-flight)
+**MAJ:** 2026-05-30 (#1417 enrich idle tasks catalogue for Claude Code)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -89,7 +89,7 @@ Taches assignees: {liste courte}
 4. Issue GitHub avec TODO detaille sans Machine assignee
 5. Bug ouvert reproductible
 6. Issue "In Progress" sans activite recente
-7. Tache de maintenance (build + tests, config-sync)
+7. **Catalogue idle tasks** (voir ci-dessous — #1417)
 8. **PR review (fallback #1713)** : Lancer `/pr-review` pour reviser les PRs ouvertes en attente
 
 **ANTI-DOUBLE-CLAIM (OBLIGATOIRE avant chaque tache) :**
@@ -104,7 +104,24 @@ Si une PR existe deja → **SKIP l'issue** + rapporter `[INFO] Issue #X deja cou
 
 Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-keyword}` existe avec une PR ouverte, ne pas dupliquer.
 
-**Si AUCUNE tache disponible (priorites 1-7)** : Lancer le skill `/pr-review` pour contribuer des reviews independantes. Si aucune PR reviewable non plus, envoyer un message RooSync au coordinateur demandant du travail.
+**Si AUCUNE tache disponible (priorites 1-6)** : Executer les idle tasks ci-dessous puis fallback PR review.
+
+#### Catalogue Idle Tasks (#1417)
+
+Quand aucune issue GitHub n'est assignable, executer ces taches productives dans l'ordre :
+
+| # | Tâche | Type | Description | Contraintes |
+|---|-------|------|-------------|-------------|
+| I1 | Worktree/Branch cleanup | ACTIF | Detecter branches `wt/` orphelines >48h (PR merged/closed), nettoyer worktrees | `git worktree list` + `gh pr list` |
+| I2 | Submodule drift check | READ-ONLY | Verifier `mcps/internal` vs dernier commit merged upstream. Signaler si >1 commit behind | Rapport dashboard `[WARN]` si drift |
+| I3 | Heartbeat health patrol | READ-ONLY | `roosync_inventory(type: "machines")` — verifier heartbeats <6h pour chaque machine | Signaler silencieuses `[WARN]` |
+| I4 | Config drift patrol | READ-ONLY | `roosync_compare_config()` entre machines, signaler divergences MCP/modes | Claude only |
+| I5 | Doc freshness check | READ-ONLY | Verifier `docs/`, `.claude/rules/`, `.claude/skills/` — chemins references existent encore | Poster `[FRICTION]` si cassé |
+| I6 | TODO/FIXME audit | READ-ONLY | Scanner `TODO`, `FIXME`, `HACK` dans le code. Recouper avec issues existantes | Creer issue pour non-trackés |
+| I7 | Memory freshness audit | READ-ONLY | Verifier entrées MEMORY.md >30j sans MAJ | Signaler potentiellement obsoletes |
+| I8 | Stale build artifacts | ACTIF | Scanner `build/` pour .js/.d.ts sans .ts source | Sous submodule seulement |
+
+**Regle :** Max 2 idle tasks par cycle. Poster resultat sur dashboard (`[DONE]` ou `[INFO]`). Issue staleness patrol INTERDIT sans arbitrage utilisateur (priorite 6 couvre si issue genuinely stale).
 
 ---
 
@@ -214,4 +231,4 @@ ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
 
 ---
 
-**Derniere mise a jour :** 2026-05-15
+**Derniere mise a jour :** 2026-05-30
