@@ -30,7 +30,7 @@ metadata:
 **Cree:** 2026-02-12
 **MAJ:** 2026-04-04 (retrait executor-state.json, #745 Phase 2 alignment)
 **Usage:** `/debrief`
-**Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-conversational-grounding.md`)
+**Methodologie:** SDDD triple grounding (voir `.claude/rules/sddd-grounding.md`)
 
 ---
 
@@ -104,7 +104,7 @@ Impact: [Resultat mesurable]
 Reutilisable: [Oui/Non]
 ```
 
-**Si friction detectee** : Envoyer un message au collectif (voir protocole de friction dans `.claude/rules/sddd-conversational-grounding.md`).
+**Si friction detectee** : Envoyer un message au collectif (voir protocole de friction dans `.claude/rules/sddd-grounding.md`).
 
 ### Phase 3 : Documentation Mémoire
 
