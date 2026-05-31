@@ -170,11 +170,11 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 | **Coordinateur** | Après dispatch à TOUS les workers + complétion de ses tâches individuelles (merges, reviews, bilan), en attente des prochaines PRs/reports | `/coordinate` |
 | **Worker** | Après soumission de TOUTES ses PRs (attente review/merge) + complétion des tâches dispatchées, en attente du prochain dispatch | `/executor` ou prompt worker spécifique |
 
-### Cadence — cron 3h (économie tokens), pas ScheduleWakeup 1h
+### Cadence — cron 2h (économie tokens), pas ScheduleWakeup 1h
 
-**Cadence fleet-wide actuelle : 3h, portée par `CronCreate`** (économie tokens, mandate user 2026-05-25 — RALENTIR). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle 3h. Donc :
+**Cadence fleet-wide actuelle : 2h, portée par `CronCreate`** (économie tokens, mandate user 2026-05-25 — RALENTIR ; le cycle 1h de #2203 est superseded). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures. Donc :
 
-- **ai-01 (coordinateur) = cron-driven.** `CronCreate("41 */3 * * *", "/coordinate")` (job session-only, auto-expire 7j). **NE PAS re-armer un `ScheduleWakeup` 1h par-dessus** — cela ré-introduirait le cycle 1h superseded.
+- **ai-01 (coordinateur) = cron-driven.** `CronCreate("41 */2 * * *", "/coordinate")` (job session-only, auto-expire 7j). **NE PAS re-armer un `ScheduleWakeup` 1h par-dessus** — cela ré-introduirait le cycle 1h superseded.
 - **Sessions interactives coord/worker NON pilotées par cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, fallback) à chaque fin de turn pour ne pas rompre le ping-pong. C'est le plafond technique, pas un mandat de cadence 1h.
 - **Petit jitter** (3540s = 59 min, ou minute off-`:00`) pour éviter que tous les agents frappent l'API à la même seconde.
 - **Auto-régulation** via cap 3-IDLE (#2185, par exécutant) + override urgent `[WAKE-CLAUDE]` routé `machine:workspace` (début de ligne sur dashboard append). PAS via timer adaptatif — ne PAS varier l'intervalle « selon charge perçue ».
@@ -199,8 +199,8 @@ EXCLUSIVEMENT : sessions Claude Code **interactives** (REPL avec messages utilis
 ### Pattern technique
 
 ```
-# ai-01 coordinateur (cadence 3h, économie tokens) :
-CronCreate(cron: "41 */3 * * *", prompt: "/coordinate", recurring: true)
+# ai-01 coordinateur (cadence 2h, économie tokens) :
+CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
 # → job session-only, auto-expire 7j. PAS de ScheduleWakeup 1h en plus.
 
 # Session interactive coord/worker NON-cron (fallback ≤1h, plafond technique) :

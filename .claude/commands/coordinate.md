@@ -388,17 +388,17 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM** | Coordination locale Roo | Chaque action locale |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence Fleet-Wide (#2203 → cron 3h, mandate user 2026-05-25)
+### Wakeup Cycle Cadence Fleet-Wide (#2203 → cron 2h, mandate user 2026-05-25)
 
-**Cadence fleet-wide : 3h via `CronCreate` (économie tokens).** Le cycle 1h de #2203 (2026-05-15) est **superseded** par le mandate « RALENTIR » du 2026-05-25. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle 3h ; le 3h passe donc par cron.
+**Cadence fleet-wide : 2h via `CronCreate` (économie tokens).** Le cycle 1h de #2203 (2026-05-15) est **superseded** par le mandate « RALENTIR » du 2026-05-25. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 2h passe donc par cron.
 
 ```
-# ai-01 coordinateur — cadence 3h (job session-only, auto-expire 7j) :
-CronCreate(cron: "41 */3 * * *", prompt: "/coordinate", recurring: true)
+# ai-01 coordinateur — cadence 2h (job session-only, auto-expire 7j) :
+CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup 1h par-dessus (ré-introduirait le cycle 1h superseded).
 ```
 
-- **Pourquoi 3h** : le cycle 1h générait trop de réveils coordinateur (tokens chers si mal utilisés). À chaque réveil 3h, dispatch deep-queue ≥3h de matière par machine. Cap 3-IDLE (#2185) inchangé → ~9h avant AUTO-STOP.
+- **Pourquoi 2h** : le cycle 1h générait trop de réveils coordinateur (tokens chers si mal utilisés). À chaque réveil 2h, dispatch deep-queue substantielle (≥3h de matière) par machine. Cap 3-IDLE (#2185) inchangé → ~6h avant AUTO-STOP.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence 1h. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via cap 3-IDLE + [WAKE-CLAUDE], pas via timer adaptatif.
