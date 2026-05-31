@@ -120,7 +120,11 @@ if (Test-Path $SettingsPath) {
     if (-not $Settings.PSObject.Properties['env']) {
         $Settings | Add-Member -NotePropertyName 'env' -NotePropertyValue @{}
     }
-    if ($Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE -ne "90") {
+    # Guard: preserve a deliberate HIGHER threshold (e.g. ai-01 user override =99, 2026-06-01).
+    # 90 is the fleet default; >=90 means "compact later" = always safe. Only correct a
+    # missing value or a dangerously-low one (<90, e.g. the 50/75 that caused boucle #502).
+    $currentPct = $Settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE
+    if (-not $currentPct -or ([int]$currentPct) -lt 90) {
         $Settings.env | Add-Member -NotePropertyName 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE' -NotePropertyValue "90" -Force
         Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 90 in settings.json (#2173)" -ForegroundColor Yellow
         $Changed = $true
@@ -128,6 +132,15 @@ if (Test-Path $SettingsPath) {
     if ($Settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW -ne "200000") {
         $Settings.env | Add-Member -NotePropertyName 'CLAUDE_CODE_AUTO_COMPACT_WINDOW' -NotePropertyValue "200000" -Force
         Write-Host "[FIX] CLAUDE_CODE_AUTO_COMPACT_WINDOW set to 200000 in settings.json (#2173)" -ForegroundColor Yellow
+        $Changed = $true
+    }
+    # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s strangles
+    # dashboard auto-condensation (budgeted 720s in dashboard.ts) → append-hang fleet-wide.
+    # 900s > 720s budget gives headroom. Applies to interactive sessions (spawn scripts set
+    # this at runtime for scheduled workers).
+    if ($Settings.env.MCP_TOOL_TIMEOUT -ne "900000") {
+        $Settings.env | Add-Member -NotePropertyName 'MCP_TOOL_TIMEOUT' -NotePropertyValue "900000" -Force
+        Write-Host "[FIX] MCP_TOOL_TIMEOUT set to 900000 in settings.json (#2402 condensation headroom)" -ForegroundColor Yellow
         $Changed = $true
     }
 

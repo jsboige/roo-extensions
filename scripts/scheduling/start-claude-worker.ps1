@@ -2701,6 +2701,12 @@ function Invoke-Claude {
     $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
     Write-Log "Compact override: $ModelToUse → window=200k, threshold=90% (universal)"
 
+    # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s, which
+    # STRANGLES the dashboard auto-condensation (budgeted CONDENSE_LLM_TIMEOUT_MS=720s in
+    # roo-state-manager dashboard.ts) → append-hang at 180s fleet-wide. 900s > 720s budget.
+    # Keep in sync with spawn-claude.ps1.
+    $env:MCP_TOOL_TIMEOUT = "900000"
+
     # Budget cap (#1980 — runaway-loop guard, NOT a dollar guard)
     # Providers are on flat-rate subscriptions (z.ai GLM-5.1 forfait, Anthropic Max).
     # The "$" reported by `claude -p` is a phantom price-table value, not real spend.
