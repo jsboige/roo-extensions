@@ -214,6 +214,11 @@ Commence.
     $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT
     Write-Log "INFO" "Compact override: $Model → window=200k, threshold=90% (universal)"
 
+    # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s, which
+    # STRANGLES the dashboard auto-condensation (budgeted CONDENSE_LLM_TIMEOUT_MS=720s in
+    # roo-state-manager dashboard.ts) → append-hang at 180s fleet-wide. 900s > 720s budget.
+    $env:MCP_TOOL_TIMEOUT = "900000"
+
     $argList = @("-p", "-", "--dangerously-skip-permissions", "--model", $Model, "--output-format", "stream-json", "--verbose")
     if ($env:DASHBOARD_WATCHER_DEBUG_SPAWN -eq "1") {
         $argList += "--include-partial-messages"
