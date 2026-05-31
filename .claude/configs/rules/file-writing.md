@@ -9,3 +9,4 @@
 - **Edit necessite Read prealable** — echoue sinon
 - **Edit old_string doit etre unique** — ajouter du contexte si ambigu
 - **Encodage** : UTF-8 no-BOM. PowerShell : `[System.IO.File]::WriteAllText()` avec `UTF8Encoding($false)`
+- **Backup** : si remplacement >50% du contenu, preferer `Write` (plus sur que `Edit` partiel). Verifier apres ecriture.

@@ -388,19 +388,20 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM** | Coordination locale Roo | Chaque action locale |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence Fleet-Wide (#2203, mandate user 2026-05-15)
+### Wakeup Cycle Cadence Fleet-Wide (#2203 → cron 2h, mandate user 2026-05-25)
 
-**Intervalle fleet-wide unique : 1h (3600s).** S'applique au coordinateur (myia-ai-01) ET aux 5 exécutants.
+**Cadence fleet-wide : 2h via `CronCreate` (économie tokens).** Le cycle 1h de #2203 (2026-05-15) est **superseded** par le mandate « RALENTIR » du 2026-05-25. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 2h passe donc par cron.
 
 ```
-ScheduleWakeup(delaySeconds: 3600, prompt: "/coordinate", reason: "...")
+# ai-01 coordinateur — cadence 2h (job session-only, auto-expire 7j) :
+CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
+# NE PAS re-armer un ScheduleWakeup 1h par-dessus (ré-introduirait le cycle 1h superseded).
 ```
 
-- **Pourquoi 1h** : cycles courts (5-30 min observés cycle 33) + cap 3-IDLE (#2185) déclenchaient AUTO-STOP avant que le coordinateur n'ait le temps de dispatcher du frais → flotte stallée. 1h × 3 = 3h avant AUTO-STOP, fenêtre réaliste pour préparer dispatch substantiel.
-- **Cap 3-IDLE inchangé** (#2185, par exécutants) mais effectif à 3h cumulé au lieu de 30 min.
-- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Permet réveiller un exécutant stallé sans attendre son tick 1h.
-- **Coordinateur** : pareil 1h, dispatch substantiel à chaque tick. Si la flotte est stallée (cap atteint), réveiller via [WAKE-CLAUDE] avec dispatch frais inline.
-- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + [WAKE-CLAUDE], pas via timer adaptatif.
+- **Pourquoi 2h** : le cycle 1h générait trop de réveils coordinateur (tokens chers si mal utilisés). À chaque réveil 2h, dispatch deep-queue substantielle (≥3h de matière) par machine. Cap 3-IDLE (#2185) inchangé → ~6h avant AUTO-STOP.
+- **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence 1h. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
+- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via cap 3-IDLE + [WAKE-CLAUDE], pas via timer adaptatif.
 - **Propagation autres workspaces** : Quand tu coordonnes un autre workspace (CoursIA notamment), poster cette règle sur leur dashboard également.
 
 ### Tags INTERCOM a surveiller (ecrits par Roo scheduler)
