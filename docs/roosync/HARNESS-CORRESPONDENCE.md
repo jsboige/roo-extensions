@@ -85,7 +85,7 @@ Exemple :
 ```markdown
 ## Référence Croisée
 - Roo equivalent: `.roo/rules/08-file-writing.md`
-- Claude equivalent: `.claude/rules/file-writing.md`
+- Claude equivalent: `~/.claude/rules/file-writing.md` (global, source `.claude/configs/rules/file-writing.md`)
 ```
 
 ### Règles Non Synchronisées

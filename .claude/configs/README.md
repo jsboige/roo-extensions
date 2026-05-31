@@ -19,11 +19,17 @@ configs/
 ├── skills/                      # Skills generiques (-> ~/.claude/skills/)
 │   ├── validate/SKILL.md
 │   ├── git-sync/SKILL.md
-│   └── debrief/SKILL.md
-└── commands/                    # Commands generiques (-> ~/.claude/commands/)
-    ├── switch-provider.md
-    └── debrief.md
+│   ├── debrief/SKILL.md
+│   └── redistribute-memory/SKILL.md   # Redistribution 5-tier harness/memoire
+├── commands/                    # Commands generiques (-> ~/.claude/commands/)
+│   ├── switch-provider.md
+│   └── debrief.md
+└── rules/                       # Regles globales (-> ~/.claude/rules/)
+    ├── sddd-protocol.md         # SDDD canonique cross-workspace
+    └── file-writing.md          # Selection Edit/Write/Read (global, #2368 dedup)
 ```
+
+> **Note (#2368) :** `~/.claude/CLAUDE.md` reference desormais les regles globales `~/.claude/rules/sddd-protocol.md` et `~/.claude/rules/file-writing.md` (deportees ici). La copie projet `.claude/rules/file-writing.md` a ete supprimee (contenu preserve dans le global). Les templates provider (`~/.claude/settings.json` tuning) restent hors de ce repertoire — voir `scripts/claude/` + `.claude/rules/context-window.md`.
 
 ## Deploiement
 
@@ -37,8 +43,11 @@ powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalCo
 powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target agents
 powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target skills
 powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target commands
+powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target rules
 powershell -ExecutionPolicy Bypass -File .claude/configs/scripts/Deploy-GlobalConfig.ps1 -Target claude-md
 ```
+
+Cibles valides : `all` (defaut), `agents`, `skills`, `commands`, `rules`, `claude-md`.
 
 ### Methode manuelle
 
@@ -54,6 +63,9 @@ Copy-Item -Recurse .claude/configs/skills/* $HOME/.claude/skills/
 
 # Commands
 Copy-Item -Recurse .claude/configs/commands/* $HOME/.claude/commands/
+
+# Rules globales
+Copy-Item -Recurse .claude/configs/rules/* $HOME/.claude/rules/
 ```
 
 ## Hierarchie de priorite
