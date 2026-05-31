@@ -64,7 +64,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 
 ## Agents, Skills & Commands
 
-**18 subagents** + **6 skills** + **4 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`).
+**18 subagents** + **6 skills** + **5 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`, `/team`).
 **Detail :** `.claude/agents/` directory
 
 ---
