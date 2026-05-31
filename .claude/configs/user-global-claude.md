@@ -100,152 +100,34 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 
 ## MCP Tools (Global)
 
-### roo-state-manager (15 tools — post all CONS consolidation rounds)
+**roo-state-manager (15 outils — post all CONS)** = MCP critique Claude Code (coordination, conversations, dashboards, indexation). Config : `~/.claude.json` section `mcpServers.roo-state-manager`.
 
-MCP serveur pour la coordination multi-agents, conversations Roo/Claude, dashboards, et indexation.
-**Config:** `~/.claude.json` section `mcpServers.roo-state-manager`.
+- **Dashboard** (canal PRINCIPAL) : 3 types seulement — `global`, `machine`, `workspace`. Début de session → `roosync_dashboard(action: "read", type: "workspace", section: "all")` (JAMAIS `section: "status"` seul, #2306). Fin → `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "...")`. Auto-condensation préemptive à 92% (~46 KB). Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
+- **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) → `view`/`tree`/`summarize`. `smart_truncation: true`, `summarize_type: "trace"` (pas `synthesis`).
+- **Recherche** : `roosync_search(action: "semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace` explicitement, requêtes en anglais.
+- **RooSync (inter-machines)** : `roosync_read(mode: "inbox")`, `roosync_send(to: "machine:workspace")`, `roosync_manage(action: "cleanup")`. Dashboard = principal, messages = fallback/urgences.
 
-#### Dashboard (canal principal de coordination)
-
-3 types de dashboards : `global`, `machine`, `workspace`. Pas d'autre type.
-
-| Action | Usage | Exemple |
-|--------|-------|---------|
-| `read` | Lire un dashboard | `roosync_dashboard(action: "read", type: "workspace")` |
-| `append` | Poster un message intercom | `roosync_dashboard(action: "append", type: "workspace", tags: ["INFO"], content: "...")` |
-| `write` | Remplacer le statut | `roosync_dashboard(action: "write", type: "workspace", content: "...")` |
-| `condense` | Condenser messages anciens | `roosync_dashboard(action: "condense", type: "workspace", keepMessages: 20)` |
-| `list` | Lister tous les dashboards | `roosync_dashboard(action: "list")` |
-| `read_overview` | Vue 3 niveaux en 1 appel | `roosync_dashboard(action: "read_overview")` |
-
-**Debut de session :** `roosync_dashboard(action: "read", type: "workspace")` pour lire les messages recents.
-**Fin de session :** `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "resume...")` pour rapporter.
-**Tags standards :** `INFO`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `TASK`, `BLOCKED`.
-**Auto-condensation :** Préemptive à **92% d'utilisation** (≈46 KB) avant `append`, filet de sécurité à 50 KB après. Condensation manuelle via `condense`.
-
-#### Conversation Browser
-
-**TOUJOURS commencer par `list`** pour obtenir les IDs de taches :
-
-| Action | Usage |
-|--------|-------|
-| `list` | Lister les taches recentes (**OBLIGATOIRE en premier**) |
-| `view` | Voir le contenu d'une tache (avec `task_id`, `smart_truncation: true`) |
-| `tree` | Arbre parent-enfant |
-| `current` | Tache active du workspace |
-| `summarize` | Resume (`summarize_type: "trace"` recommande) |
-
-**Sans `list` d'abord, les autres actions echouent** — pas d'IDs a deviner.
-**Bug connu :** `summarize_type: "synthesis"` peut echouer. Preferer `"trace"`.
-
-#### Recherche
-
-| Outil | Usage |
-|-------|-------|
-| `roosync_search(action: "text", search_query: "...")` | Recherche textuelle dans les taches |
-| `roosync_search(action: "semantic", search_query: "...")` | Recherche par concept (Qdrant) |
-| `codebase_search(query: "...", workspace: "C:/dev/...")` | Recherche dans le code (TOUJOURS passer `workspace`) |
-
-#### RooSync (inter-machines)
-
-| Outil | Usage |
-|-------|-------|
-| `roosync_read(mode: "inbox")` | Lire les messages entrants |
-| `roosync_send(to: "machine-id", content: "...")` | Envoyer un message |
-| `roosync_manage(action: "cleanup")` | Nettoyer les vieux messages |
-| `roosync_get_status()` | Etat de la machine locale |
-
-**Dashboard = canal PRINCIPAL. RooSync messages = fallback ou urgences.**
-
-#### Autres outils utiles
-
-| Outil | Usage |
-|-------|-------|
-| `roosync_mcp_management(action: "manage", subAction: "read")` | Lire config MCP |
-| `read_vscode_logs(filter: "error", lines: 50)` | Diagnostiquer erreurs MCP/VS Code |
-| `export_data(format: "json", taskId: "...")` | Exporter conversations |
-
-#### Bugs connus et precautions
-
-- **Dashboard redirect (#984) :** Si la reponse contient "written to file:", lire ce fichier avec `Read`.
-- **`codebase_search` :** Toujours passer `workspace` explicitement (auto-detection pointe vers le serveur MCP). Requetes en anglais, vocabulaire du code.
-- **Condensation LLM :** Utilise un LLM local (Qwen3.5). Si le LLM est indisponible, la condensation est annulee (pas de perte de donnees).
-
-### playwright (22 outils) / markitdown (1 outil)
-
-- **playwright :** Automatisation web, screenshots, navigation
-- **markitdown :** PDF/DOCX/XLSX → Markdown
+**Inventaire complet + paramètres + scénarios :** [`docs/harness/reference/roosync-tools-guide.md`](docs/harness/reference/roosync-tools-guide.md), [`docs/harness/reference/conversation-browser-detailed.md`](docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (Roo seul, PDF/DOCX→MD), searxng (web canonique), sk-agent (vision/multi-agent).
 
 ---
 
 ## SDDD — Investigation Methodology
 
-**Triple grounding (obligatoire pour travail significatif):**
-1. **Technique** — Code source = verite (Read, Grep, Glob, Git)
-2. **Conversationnel** — `conversation_browser` pour historique Roo/Claude
-3. **Semantique** — `codebase_search` + `roosync_search(semantic)` pour recherche par concept
+**Triple grounding** (toute tâche significative) : croiser **Technique** (code = vérité : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Sémantique** (`codebase_search` + `roosync_search(semantic)`). Ne jamais se contenter d'une seule source.
 
-**Regle:** Ne jamais se contenter d'une seule source. Croiser les 3 groundings.
+**Pattern Bookend** : `codebase_search` en DÉBUT (éviter de refaire, trouver la doc existante) et FIN (confirmer indexation, mettre à jour la doc afférente) de chaque tâche significative.
 
-### Pattern Bookend (obligatoire)
-
-`codebase_search` en DEBUT et FIN de chaque tache significative.
-- **Debut :** Eviter de refaire un travail deja fait, comprendre le contexte.
-  - Trouver la documentation existante (README, CLAUDE.md, docs/, ADRs)
-  - Identifier le contexte : qui a travaille dessus, quelles decisions ont ete prises
-- **Fin :** Confirmer que le travail est indexe et retrouvable.
-  - S'assurer que le travail est coherent avec le reste du projet
-  - Mettre a jour la documentation afferente si le travail la rend obsolète
-
-### Wiki Karpathy / SDDD Documentaire
-
-Apres chaque tache significative, si `codebase_search` en debut a trouve de la documentation existante :
-- **Verifier** qu'elle est toujours a jour
-- **Mettre a jour** si le travail l'a rendue obsolète
-- **Documenter** les decisions prises et les approches rejetées
-
-Ce pattern est analogue au "wiki Karpathy" : documenter comprehensivement ce qu'on apprend en construisant.
-
-### Complémentarité Grep vs codebase_search
-
-| Besoin | Outil |
-|--------|-------|
-| Symbole exact, nom de fonction | `Grep` |
-| Fichier par pattern | `Glob` |
-| Concept, documentation, contexte | `codebase_search` |
-| Historique conversations | `roosync_search(semantic)` |
-
-`Grep` trouve des strings exacts mais pas les concepts. `codebase_search` decouvre la documentation meme sans connaitre les mots exacts.
-
-### codebase_search — Protocole Multi-Pass
-
-**TOUJOURS passer `workspace` explicitement** (auto-detection pointe vers le serveur MCP, pas votre projet).
-
-| Pass | But | Methode |
-|------|-----|---------|
-| 1 | Identifier le module | Requete conceptuelle large (anglais) |
-| 2 | Zoom dans le module | `directory_prefix` + vocabulaire du code |
-| 3 | Confirmer | Grep exact (noms de fonctions, types) |
-| 4 | Variante | Reformuler avec synonymes si Pass 2 insuffisant |
-
-**Conseils :** Vocabulaire du code > langage naturel. 5-10 mots cles. `directory_prefix` divise l'espace par ~10. **Requetes en francais = mauvais resultats.**
+**Détail complet (multi-pass, Wiki Karpathy, filtres roosync_search, complémentarité Grep) :** `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](docs/harness/reference/sddd-conversational-grounding.md).
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
-1. **Debut :**
-   - `roosync_dashboard(action: "read", type: "workspace")` — lire les messages recents, identifier les demandes
-   - **`memory-inject`** — auto-injecter les leçons pertinentes depuis MEMORY.md (pattern Reddit #1369)
-2. **Pendant :** Travailler. Si question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`
-3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "resume du travail")` — **OBLIGATOIRE, aucune exception**
+1. **Début :** `roosync_dashboard(action: "read", type: "workspace", section: "all")` (lire messages récents, identifier demandes) + **`memory-inject`** (auto-injecter les leçons MEMORY.md, #1369/#1377).
+2. **Pendant :** Travailler. Question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`.
+3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "résumé")` — **OBLIGATOIRE, aucune exception**.
 
-**Regle :** TOUT agent (interactif ou scheduled) DOIT rapporter son travail sur le dashboard workspace en fin de session. Les rapports de méta-analystes vont sur le dashboard, PAS dans des fichiers du dépôt.
+**Règle :** TOUT agent (interactif ou scheduled) DOIT rapporter son travail sur le dashboard workspace en fin de session. Les rapports de méta-analystes vont sur le dashboard, PAS dans des fichiers du dépôt.
 
-**Ordre OBLIGATOIRE :** Commit + PR AVANT de poster le rapport [DONE] sur le dashboard. Ne jamais annoncer un travail qui n'est pas commité.
-
-### Scepticisme
-
-**Ne JAMAIS propager une affirmation non verifiee.** Qualifier : VERIFIE / RAPPORTE PAR [source] / SUPPOSE.
-Si ca te surprend → verifie avant de repeter ou d'agir dessus.
+**Ordre OBLIGATOIRE :** Commit + PR AVANT de poster le rapport [DONE]. Ne jamais annoncer un travail qui n'est pas commité.
 
 ---
 
@@ -272,3 +154,61 @@ Si ca te surprend → verifie avant de repeter ou d'agir dessus.
 2. Update MEMORY.md with current state + lessons learned
 3. Record tested-and-rejected approaches (avoid repeating experiments)
 4. Verify coherence before ending session
+
+---
+
+## Multi-Machine Ping-Pong — Re-arm OBLIGATOIRE (sessions interactives coord/worker)
+
+**Workspaces concernés :** `roo-extensions`, `CoursIA`, `2025-Epita-Intelligence-Symbolique`, `Argumentum`, et tout workspace engagé dans un workflow multi-machine coordinateur/workers.
+
+**Règle absolue.** Le cluster ne fonctionne en continu que si chaque agent (coordinateur ET workers) ré-arme son réveil à la fin de chaque turn où il a "terminé tout ce qu'il pouvait faire seul". Sans re-arme, l'agent s'endort pendant que le cluster continue à produire du travail (PRs, reviews, dispatches) — ping-pong rompu. Mandate user 2026-05-19 (incident R67/R68 sur ai-01) : « dans le cadre d'une tâche interactive avec messages utilisateurs, ça doit être systématique pour le ping-pong entre le coordinateur et les workers ».
+
+### Quand re-armer (chaque rôle)
+
+| Rôle | Déclencheur de re-arme | Prompt typique |
+|------|------------------------|----------------|
+| **Coordinateur** | Après dispatch à TOUS les workers + complétion de ses tâches individuelles (merges, reviews, bilan), en attente des prochaines PRs/reports | `/coordinate` |
+| **Worker** | Après soumission de TOUTES ses PRs (attente review/merge) + complétion des tâches dispatchées, en attente du prochain dispatch | `/executor` ou prompt worker spécifique |
+
+### Cadence — cron 3h (économie tokens), pas ScheduleWakeup 1h
+
+**Cadence fleet-wide actuelle : 3h, portée par `CronCreate`** (économie tokens, mandate user 2026-05-25 — RALENTIR). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle 3h. Donc :
+
+- **ai-01 (coordinateur) = cron-driven.** `CronCreate("41 */3 * * *", "/coordinate")` (job session-only, auto-expire 7j). **NE PAS re-armer un `ScheduleWakeup` 1h par-dessus** — cela ré-introduirait le cycle 1h superseded.
+- **Sessions interactives coord/worker NON pilotées par cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, fallback) à chaque fin de turn pour ne pas rompre le ping-pong. C'est le plafond technique, pas un mandat de cadence 1h.
+- **Petit jitter** (3540s = 59 min, ou minute off-`:00`) pour éviter que tous les agents frappent l'API à la même seconde.
+- **Auto-régulation** via cap 3-IDLE (#2185, par exécutant) + override urgent `[WAKE-CLAUDE]` routé `machine:workspace` (début de ligne sur dashboard append). PAS via timer adaptatif — ne PAS varier l'intervalle « selon charge perçue ».
+
+### Scope STRICT — Quand la règle de re-arme s'applique
+
+EXCLUSIVEMENT : sessions Claude Code **interactives** (REPL avec messages utilisateur) où l'agent joue **activement** un rôle **coordinateur** OU **worker** dans un workflow multi-machine.
+
+### Cadrage — Quand la règle NE s'applique PAS
+
+| Type d'interaction | Re-arme ? | Pourquoi |
+|--------------------|-----------|----------|
+| **Workers schedulés** (Task Scheduler, cron, `start-claude-worker.ps1`) | **NON** | Cadence gérée externalement par le scheduler. Re-armer = double-firing. |
+| **Méta-analystes scheduled** (cycle 72h) | **NON** | Cadence externe (`start-meta-audit.ps1`). |
+| **Sessions interactives informationnelles** (question/réponse, pas de rôle coord/worker actif) | **NON** | Pas de ping-pong à entretenir. |
+| **Sessions interactives ad-hoc / debugging / one-shot** | **NON** | Pas de ping-pong à entretenir. |
+| **Workspace single-machine** (pas de cluster) | **NON** | Pas de cluster à animer. |
+| **Handoff documenté** (un autre agent assume la suite) | **NON** | Continuité portée par l'autre agent. |
+
+**Heuristique :** « Y a-t-il un cluster d'autres machines en train de produire du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** rôle coord/worker → re-arme. Sinon → pas de re-arme.
+
+### Pattern technique
+
+```
+# ai-01 coordinateur (cadence 3h, économie tokens) :
+CronCreate(cron: "41 */3 * * *", prompt: "/coordinate", recurring: true)
+# → job session-only, auto-expire 7j. PAS de ScheduleWakeup 1h en plus.
+
+# Session interactive coord/worker NON-cron (fallback ≤1h, plafond technique) :
+ScheduleWakeup(
+  delaySeconds: 3540,                 # 59 min — clamp runtime [60,3600]
+  prompt: "/coordinate",              # ou "/executor", ou prompt rôle-spécifique
+  reason: "Re-arme ping-pong coord/workers, attente PRs/dispatches"
+)
+```
+
+Le `reason` doit être informatif (vu en telemetry + par l'user).
