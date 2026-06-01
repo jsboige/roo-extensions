@@ -3510,7 +3510,7 @@ try {
         $IdleCatalog = @(
             @{
                 Id       = "idle-coverage"
-                Weight   = 5
+                Weight   = 0     # Disabled: 2 iterations (relaxed urgency) insufficient for build+coverage+write cycle. Creates worktrees/submodule clones without producing commits/PRs. Re-enable with min 4 iterations if needed.
                 Subject  = "[IDLE] Coverage improvement"
                 MinModel = "sonnet"
             },
