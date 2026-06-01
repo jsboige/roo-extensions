@@ -34,30 +34,30 @@
 
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
-| **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils | `reference/scheduler-system.md` |
-| **Scheduler densification** | Seuil : 1 echec en -simple → escalade IMMEDIATE vers -complex | `reference/scheduler-densification.md` |
-| **Scheduler model defaults** | Worker (`start-claude-worker.ps1`) priority chain : Project field → -Model → labels → sonnet | `reference/scheduler-model-defaults.md` |
-| **Coordinator protocol** | Cycle 6-12h sur ai-01 | `coordinator-specific/scheduled-coordinator.md` |
-| **Meta-analysis** | Cycle 72h. Triple grounding. Lecture seule | `reference/meta-analysis.md` |
-| **PR review policy** | Agents → PR → Review coordinateur → Merge | `coordinator-specific/pr-review-policy.md` |
-| **Meta-analyste (rule)** | Rule slim (role, 7 analyses productives, HARD REJECT). Loaded par `start-meta-audit.ps1` | `coordinator-specific/meta-analyst-rule.md` |
-| **Meta-analyste (detailed)** | Workflow etapes 0-5, MCP snippets, HARD REJECT, differences Roo | `coordinator-specific/meta-analyst-detailed.md` |
-| **Agents inventory** | 18 subagents + 6 skills + 4 commands (Claude Code) | `reference/agents-inventory.md` |
-| **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `reference/bots-directory.md` |
-| **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `reference/conversation-browser-detailed.md` |
-| **RooSync coordinator tools** | health_view, inventory, compare_config, dashboard — params, output, scenarios | `reference/roosync-tools-guide.md` |
+| **Scheduler system** | 10 modes (5 familles x 2 niveaux). Orchestrateurs = 0 outils | `scheduler-system.md` |
+| **Scheduler densification** | Seuil : 1 echec en -simple → escalade IMMEDIATE vers -complex | `scheduler-densification.md` |
+| **Scheduler model defaults** | Worker (`start-claude-worker.ps1`) priority chain : Project field → -Model → labels → sonnet | `scheduler-model-defaults.md` |
+| **Coordinator protocol** | Cycle 6-12h sur ai-01 | `../coordinator-specific/scheduled-coordinator.md` |
+| **Meta-analysis** | Cycle 72h. Triple grounding. Lecture seule | `meta-analysis.md` |
+| **PR review policy** | Agents → PR → Review coordinateur → Merge | `../coordinator-specific/pr-review-policy.md` |
+| **Meta-analyste (rule)** | Rule slim (role, 7 analyses productives, HARD REJECT). Loaded par `start-meta-audit.ps1` | `../coordinator-specific/meta-analyst-rule.md` |
+| **Meta-analyste (detailed)** | Workflow etapes 0-5, MCP snippets, HARD REJECT, differences Roo | `../coordinator-specific/meta-analyst-detailed.md` |
+| **Agents inventory** | 18 subagents + 6 skills + 4 commands (Claude Code) | `agents-inventory.md` |
+| **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `bots-directory.md` |
+| **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
+| **RooSync coordinator tools** | health_view, inventory, compare_config, dashboard — params, output, scenarios | `roosync-tools-guide.md` |
 
 ## Reference Technique
 
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
 | **GitHub CLI** | `gh` CLI, scope `project` requis. IDs fields Project #67 | `github-cli.md` |
-| **Incidents** | Lecons cles : cross-machine check, STOP & REPAIR, CI avant push | `reference/incident-history.md` |
-| **roo-schedulable** | Seulement taches subalternes | `reference/roo-schedulable-criteria.md` |
-| **Bash fallback** | Outils natifs > MCP win-cli > degradation gracieuse | `reference/bash-fallback.md` |
-| **MCP discoverability** | Tests decouverte en 3 phases | `reference/mcp-discoverability.md` |
-| **Stub Detection** | CI gate pour stub exports | `reference/stub-detection.md` |
-| **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `machine-specific/myia-web1-constraints.md` |
+| **Incidents** | Lecons cles : cross-machine check, STOP & REPAIR, CI avant push | `incident-history.md` |
+| **roo-schedulable** | Seulement taches subalternes | `roo-schedulable-criteria.md` |
+| **Bash fallback** | Outils natifs > MCP win-cli > degradation gracieuse | `bash-fallback.md` |
+| **MCP discoverability** | Tests decouverte en 3 phases | `mcp-discoverability.md` |
+| **Stub Detection** | CI gate pour stub exports | `stub-detection.md` |
+| **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `../machine-specific/myia-web1-constraints.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
 | **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |
