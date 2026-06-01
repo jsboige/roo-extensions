@@ -229,3 +229,75 @@ Phase 1 is complete when:
 ---
 
 *Design by Claude Code (myia-po-2024), 2026-04-30. Issue #537 Phase 1.*
+
+---
+
+## 8. Phase 2 — Cross-Machine Dispatch (#2412, #537 Phase 2)
+
+**Status:** Implemented (2026-06-01)
+**Issue:** #2412
+**Epic:** #2406 (VibeSync Phase 2)
+**Dependency:** #2411 (schedules + rules overrides) — COMPLETED
+
+### 8.1 Architecture
+
+The cross-machine dispatch uses the existing RooSync dashboard infrastructure (Option A from Gap Analysis 3.1):
+
+```text
+[ai-01 Coordinator]                    [Executor Machines x5]
+       |                                       |
+  git diff HEAD~1                    Read dashboard [TASK-CONFIG-APPLY]
+  model-configs.json?                          |
+       |                              apply_profile(profileName)
+  [TASK-CONFIG-APPLY]                          |
+  → dashboard workspace              [DONE] → dashboard workspace
+  (5 dispatches, machine:workspace)            |
+       |                              Coordinator convergence check
+  compare_config(granularity: modes-yaml)      |
+       |                              Re-dispatch if needed (2h)
+  [CONFIG-DRIFT] if convergence fails
+```
+
+### 8.2 Coordinator Side (`coordinate.md`)
+
+Added "Profile Change Detection & Cross-Machine Dispatch" step to coordinator workflow:
+
+1. **Detection**: `git diff HEAD~1 -- roo-config/model-configs.json`
+2. **Dispatch**: `[TASK-CONFIG-APPLY]` dashboard message per executor machine with `profileName` and idempotency key
+3. **Convergence check**: `roosync_compare_config(granularity: "modes-yaml")` 2h post-dispatch
+4. **Re-dispatch**: If a machine stays on old profile after 2h
+5. **Escalation**: `[CONFIG-DRIFT]` tag if convergence fails after re-dispatch
+
+### 8.3 Executor Side (`executor.md`)
+
+Added "Detection des dispatchs de config" step to executor Phase 1:
+
+1. Scan dashboard for `[TASK-CONFIG-APPLY]` targeting this machine
+2. Apply profile via `roosync_config(action: "apply_profile")`
+3. Post `[DONE]` with result
+4. Skip if idempotency key matches already-applied version (post `[ACK]` only)
+
+### 8.4 Idempotency
+
+Each dispatch includes an idempotency key `<profileName>:<version>`. Executors check before applying to prevent double-apply on scheduler restart or repeated ticks.
+
+### 8.5 Convergence Verification
+
+Post-dispatch, the coordinator runs `roosync_compare_config(granularity: "modes-yaml")` to verify all machines have converged. If any machine diverges:
+
+1. First attempt: Re-dispatch `[TASK-CONFIG-APPLY]`
+2. Second failure: Post `[CONFIG-DRIFT]` for manual investigation
+
+### 8.6 Acceptance Criteria
+
+- [x] Coordinator detects profile changes via git diff
+- [x] `[TASK-CONFIG-APPLY]` dispatch format defined with idempotency key
+- [x] Executor detects and applies `[TASK-CONFIG-APPLY]` dispatches
+- [x] Convergence check via `roosync_compare_config`
+- [x] Re-dispatch and `[CONFIG-DRIFT]` escalation defined
+- [x] Documentation in `PROFILE_TO_MODES_DESIGN.md` Section 8
+- [ ] Integration test (requires live fleet coordination)
+
+---
+
+*Phase 2 added by Claude Code (myia-po-2023), 2026-06-01. Issue #2412.*

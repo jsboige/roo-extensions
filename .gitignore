@@ -104,7 +104,7 @@ nul
 !.shared-state/.gitkeep
 
 # RooSync directory (generated state, never commit)
-RooSync/
+/RooSync/
 
 # Playwright MCP data (browser profile, should use temp dir)
 .playwright-mcp/

@@ -231,6 +231,31 @@ Cet audit detecte les erreurs de config AVANT qu'elles ne causent des incidents 
 **Integration meta-analystes :**
 Les meta-analystes (24h cycle) detectent les dysfonctionnements dans les traces d'execution et les remontent au coordinateur via le dashboard workspace ou issues `needs-approval`. Le coordinateur traite ces remontees comme des signaux prioritaires.
 
+### Profile Change Detection & Cross-Machine Dispatch (#2412)
+
+**A chaque cycle de coordination**, verifier si `roo-config/model-configs.json` a change :
+
+```bash
+git diff HEAD~1 -- roo-config/model-configs.json
+```
+
+**Si changement detecte :**
+
+1. Identifier le profil modifie et la version
+2. Dispatcher `[TASK-CONFIG-APPLY]` a chaque machine executeur :
+
+```bash
+roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
+  content: "## [TASK-CONFIG-APPLY] {machine}:roo-extensions\n\nProfil '{profileName}' modifie. Appliquer :\nroosync_config(action: \"apply_profile\", profileName: \"{profileName}\")\nIdempotency key: {profileName}:{version}")
+```
+
+3. Tracker les `[DONE]` / `[ACK]` de chaque machine
+4. **Convergence check** (2h post-dispatch) : `roosync_compare_config(granularity: "modes-yaml")`
+5. **Re-dispatch** si une machine reste sur l'ancien profil apres 2h
+6. Si convergence echoue apres re-dispatch : poster `[CONFIG-DRIFT]` sur dashboard
+
+**Idempotency :** Chaque dispatch inclut une cle `<profileName>:<version>`. Les executeurs ne re-appliquent pas si deja a cette version.
+
 ### Presentation des Arbitrages (OBLIGATOIRE a chaque session interactive)
 
 **REGLE :** A chaque session de coordination interactive, presenter a l'utilisateur un tableau des arbitrages en cours avec **TOUT le contexte necessaire pour decider sans aller lire les issues**.

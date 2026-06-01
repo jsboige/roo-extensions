@@ -104,6 +104,15 @@ Condensation: {OK | ALERTE X lignes | CRITIQUE >1000 lignes}
 
 **Si codebase_search echoue** (EMBEDDING_* non configure) : Signaler en friction et continuer sans.
 
+**Detection des dispatchs de config (#2412) :**
+En lisant le dashboard workspace, chercher les messages `[TASK-CONFIG-APPLY]` du coordinateur :
+- Si un `[TASK-CONFIG-APPLY]` cible cette machine et n'a pas ete `[ACK]` :
+  1. Extraire le `profileName` et l'idempotency key
+  2. Executer : `roosync_config(action: "apply_profile", profileName: "{profileName}")`
+  3. Poster `[DONE]` avec le result sur le dashboard
+  4. Si l'idempotency key correspond a un profil deja applique → skip, poster `[ACK]` only
+- Si `[CONFIG-DRIFT]` signale pour cette machine → re-appliquer le profil et rapporter
+
 ---
 
 ## PHASE 1.5 : ANALYSE DES TRACES SCHEDULER (audit Roo + Claude)
