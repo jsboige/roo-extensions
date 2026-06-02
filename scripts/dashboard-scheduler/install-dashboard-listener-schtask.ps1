@@ -87,14 +87,32 @@ if (-not $sharedPath) {
 }
 
 $action = New-ScheduledTaskAction -Execute $pwshPath -Argument "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$wrapperScript`""
-$trigger = New-ScheduledTaskTrigger -AtLogOn
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Description "Dashboard listener #2004 — event-driven spawn on actionable messages" | Out-Null
+# #2431 durability: self-healing triggers. The wrapper is a long-running process.
+# The old lone -AtLogOn trigger fired only at interactive logon, and the default
+# 72h ExecutionTimeLimit force-terminated the wrapper (SCHED_S_TASK_TERMINATED)
+# with nothing to relaunch it — so the listener was dead for days/weeks at a time.
+# Mirror the watchdog idiom (install-watchdog-schtask.ps1): logon + startup + a
+# 15-min repetition that resurrects a dead wrapper within the interactive session.
+$trigLogon = New-ScheduledTaskTrigger -AtLogOn
+$trigStartup = New-ScheduledTaskTrigger -AtStartup
+$trigStartup.Delay = "PT1M"
+$trigRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 15)
+
+# Keep Interactive/user principal: the listener spawns user-context `claude -p`
+# (like the working Claude-Worker task) — it must NOT run as SYSTEM.
+$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -RunLevel Highest -LogonType Interactive
+
+# #2431: -ExecutionTimeLimit Zero removes the 72h kill of the long-running wrapper;
+# -MultipleInstances IgnoreNew makes the 15-min repetition a no-op while a wrapper
+# is already alive (so it only ever relaunches a dead one).
+$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon, $trigStartup, $trigRepeat) -Principal $principal -Settings $settings -Description "Dashboard listener #2004 — event-driven spawn on actionable messages (self-healing #2431)" | Out-Null
 
 Write-Host "Installed scheduled task: $taskName"
-Write-Host "  Trigger: AtLogOn | Principal: $env:USERNAME (Highest)"
+Write-Host "  Triggers: AtLogOn + AtStartup(+1m) + repeat every 15m | Principal: $env:USERNAME (Highest)"
+Write-Host "  ExecutionTimeLimit: none (Zero) | MultipleInstances: IgnoreNew"
 Write-Host "  Wrapper: $wrapperScript"
 Write-Host ""
 Write-Host "To start immediately: schtasks /run /tn `"$taskName`""
