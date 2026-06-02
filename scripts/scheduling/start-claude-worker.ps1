@@ -1732,6 +1732,62 @@ function Create-Worktree {
     }
 }
 
+# #2484: Kill child processes (node.exe, claude.exe) whose command line references the worktree path.
+# claude -p spawns node.exe children (MCP servers) that keep file handles open after the pipeline exits.
+# Without explicit termination, git worktree remove and Remove-Item fail with "Permission denied".
+function Stop-WorktreeChildProcesses {
+    param([string]$WorktreePath)
+
+    if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) { return }
+
+    # Normalize path for matching (handle both forward and backslashes)
+    $normalizedPath = $WorktreePath -replace '/', '\'
+
+    # Find node.exe / claude.exe processes whose CommandLine references the worktree path.
+    # Using WMI/CIM is the most reliable way on Windows to get CommandLine without external tools.
+    $targetProcs = @(Get-Process -Name 'node','claude' -ErrorAction SilentlyContinue |
+        Where-Object {
+            try {
+                $wmiProc = Get-CimInstance Win32_Process -Filter "ProcessId = $($_.Id)" -ErrorAction SilentlyContinue
+                if ($wmiProc -and $wmiProc.CommandLine -and
+                    ($wmiProc.CommandLine -like "*$normalizedPath*" -or $wmiProc.CommandLine -like "*$WorktreePath*")) {
+                    return $true
+                }
+                return $false
+            } catch { return $false }
+        })
+
+    if ($targetProcs.Count -eq 0) {
+        Write-Log "No child processes found holding handles in worktree"
+        return
+    }
+
+    foreach ($proc in $targetProcs) {
+        Write-Log "Stopping worktree child process: $($proc.ProcessName) (PID $($proc.Id))" "INFO"
+        try {
+            Stop-Process -Id $proc.Id -Force -ErrorAction Stop
+        } catch {
+            Write-Log "Failed to stop PID $($proc.Id): $_" "WARN"
+        }
+    }
+
+    # Wait for processes to exit (max 5 seconds total)
+    $deadline = (Get-Date).AddSeconds(5)
+    foreach ($proc in $targetProcs) {
+        try {
+            $stillRunning = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+            while ($stillRunning -and (Get-Date) -lt $deadline) {
+                Start-Sleep -Milliseconds 500
+                $stillRunning = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
+            }
+            if ($stillRunning) {
+                Write-Log "PID $($proc.Id) did not exit within 5s timeout" "WARN"
+            }
+        } catch { }
+    }
+    Write-Log "Worktree child process cleanup done (stopped $($targetProcs.Count) process(es))"
+}
+
 function Remove-Worktree {
     param([string]$WorktreePath)
 
@@ -1741,9 +1797,12 @@ function Remove-Worktree {
 
     Write-Log "Suppression worktree: $WorktreePath"
 
-    # #2123/#2158: pause to let Windows release file handles from claude -p process.
-    # Increased from 3s to 5s — 3s was insufficient when claude -p process had heavy I/O.
-    Start-Sleep -Seconds 5
+    # #2123/#2158/#2484: Kill child processes holding handles in worktree before removal.
+    # claude -p spawns node.exe children (MCP servers) that keep file handles open after exit.
+    Stop-WorktreeChildProcesses $WorktreePath
+
+    # Brief pause for OS handle release after process termination
+    Start-Sleep -Seconds 2
 
     # Strategy 1: git worktree remove --force (handles everything including submodules on non-Windows)
     try {
