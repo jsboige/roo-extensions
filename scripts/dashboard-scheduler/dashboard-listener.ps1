@@ -699,6 +699,45 @@ foreach ($ws in $wsList) {
     }
 }
 
+# ========== LIVENESS HEARTBEAT (#2431) ==========
+# Truthful liveness: written every poll cycle from INSIDE the main loop, not just
+# once at start/exit by the wrapper. The wrapper-level heartbeat went stale within
+# ~1 min even while the listener was healthy, making a live listener look dead.
+#   - Local file  → wrapper / diagnostics confirm this listener is alive.
+#   - Shared file → the coordinator (ai-01) reads every machine's listener across
+#                   GDrive and flags stale ones (#2431 observability criterion).
+$HeartbeatMachineId = if ($env:ROOSYNC_MACHINE_ID) {
+    $env:ROOSYNC_MACHINE_ID.ToLowerInvariant()
+} elseif ($env:COMPUTERNAME) {
+    $env:COMPUTERNAME.ToLowerInvariant()
+} else {
+    "unknown-machine"
+}
+$LocalHeartbeatFile = Join-Path $LockDir "dashboard-listener.heartbeat"
+$SharedHeartbeatDir = Join-Path $SharedPath "listener-heartbeats"
+$SharedHeartbeatFile = Join-Path $SharedHeartbeatDir "$HeartbeatMachineId.heartbeat"
+
+function Write-ListenerHeartbeat {
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    # Local — best effort, must never break the loop.
+    try {
+        [System.IO.File]::WriteAllText($LocalHeartbeatFile, $ts, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        Write-Log "WARN" "Failed to write local heartbeat: $_"
+    }
+    # Shared (GDrive) — best effort; GDrive may be briefly unavailable.
+    try {
+        if (-not (Test-Path $SharedHeartbeatDir)) {
+            New-Item -ItemType Directory -Path $SharedHeartbeatDir -Force | Out-Null
+        }
+        [System.IO.File]::WriteAllText($SharedHeartbeatFile, $ts, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        Write-Log "WARN" "Failed to write shared heartbeat ($SharedHeartbeatFile): $_"
+    }
+}
+
+Write-Log "INFO" "Heartbeat: local=$LocalHeartbeatFile | shared=$SharedHeartbeatFile"
+
 # ========== MAIN LOOP ==========
 
 $running = $true
@@ -706,6 +745,7 @@ $running = $true
 try {
     # Initial sweep on startup
     Write-Log "INFO" "Running initial sweep..."
+    Write-ListenerHeartbeat
     foreach ($ws in $wsList) {
         $pending[$ws] = [DateTime]::UtcNow.AddSeconds(-$DebounceSeconds - 1)
     }
@@ -745,6 +785,7 @@ try {
         # Fallback polling: check LastWriteTime every $PollIntervalSeconds
         if (($now - $lastPollTime).TotalSeconds -ge $PollIntervalSeconds) {
             $lastPollTime = $now
+            Write-ListenerHeartbeat   # #2431: refresh liveness every poll cycle (~20s)
             foreach ($ws in $wsList) {
                 $f = Join-Path $dashboardDir "workspace-$ws.md"
                 if (Test-Path $f) {
