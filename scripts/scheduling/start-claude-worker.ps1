@@ -3593,12 +3593,20 @@ try {
             }
         )
 
-        # Weighted random selection
-        $TotalWeight = ($IdleCatalog | Measure-Object -Property Weight -Sum).Sum
+        # Filter out disabled tasks (weight ≤ 0) before selection (#2465 regression fix)
+        $ActiveCatalog = @($IdleCatalog | Where-Object { $_.Weight -gt 0 })
+        if ($ActiveCatalog.Count -eq 0) {
+            Write-Log "All idle tasks disabled (weight=0). No idle work available." "INFO"
+            Write-Log "=== WORKER TERMINÉ (all idle tasks disabled) ==="
+            exit 0
+        }
+
+        # Weighted random selection (from active catalog only)
+        $TotalWeight = ($ActiveCatalog | Measure-Object -Property Weight -Sum).Sum
         $Roll = Get-Random -Minimum 1 -Maximum ($TotalWeight + 1)
         $Cumulative = 0
-        $SelectedIdle = $IdleCatalog[0]
-        foreach ($Entry in $IdleCatalog) {
+        $SelectedIdle = $ActiveCatalog[0]
+        foreach ($Entry in $ActiveCatalog) {
             $Cumulative += $Entry.Weight
             if ($Roll -le $Cumulative) {
                 $SelectedIdle = $Entry
