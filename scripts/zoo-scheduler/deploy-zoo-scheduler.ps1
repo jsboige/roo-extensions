@@ -19,7 +19,7 @@
 .EXAMPLE
     .\deploy-zoo-scheduler.ps1
     .\deploy-zoo-scheduler.ps1 -WhatIf
-    .\deploy-zoo-scheduler.ps1 -VsixPath D:\packages\zoo-scheduler-0.0.11-zoo.1.vsix -SkipBuild
+    .\deploy-zoo-scheduler.ps1 -VsixPath D:\packages\zoo-scheduler-0.0.11-zoo.2.vsix -SkipBuild
 #>
 param(
     [string]$VsixPath = "",
@@ -33,7 +33,7 @@ $ErrorActionPreference = "Stop"
 $ZooExtId = "zoocodeorganization.zoo-code"
 $RooSchedulerId = "kylehoskins.roo-scheduler"
 $ZooSchedulerId = "jsboige.zoo-scheduler"
-$VsixName = "zoo-scheduler-0.0.11-zoo.1.vsix"
+$VsixName = "zoo-scheduler-0.0.11-zoo.2.vsix"
 
 function Write-Step([string]$msg) {
     Write-Host ""
@@ -152,6 +152,14 @@ if (-not $WhatIf) {
                 Write-Host "[WARN] Old Roo references still present: $oldRefs ext, $oldActivity activity" -ForegroundColor Yellow
             } else {
                 Write-Host "[OK] Patch verification: $newRefs ext refs, $newActivity activity refs (all Zoo)" -ForegroundColor Green
+            }
+
+            # Verify getState() fix (#2373A)
+            $getStateFixed = $content.Contains("getModeConfigId(mc)")
+            if ($getStateFixed) {
+                Write-Host "[OK] getState() modeApiConfigs resolution active (#2373A fix)" -ForegroundColor Green
+            } else {
+                Write-Host "[WARN] getState() modeApiConfigs fix not detected — cycles morts may persist" -ForegroundColor Yellow
             }
         }
     }
