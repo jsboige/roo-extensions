@@ -32,7 +32,7 @@
 Le système de hiérarchie numérotée garantit :
 1. **Traçabilité complète** : Chaque sous-tâche identifiable uniquement
 2. **Navigation intuitive** : Compréhension structure arborescente immédiate
-3. **Synchronisation MCP** : Correspondance avec [`roo-state-manager`](../../../mcps/internal/servers/roo-state-manager/) tree
+3. **Synchronisation MCP** : Correspondance avec [`roo-state-manager`](../../mcps/internal/servers/roo-state-manager/) tree
 4. **Orchestration efficace** : Gestion dépendances et parallélisation
 
 ---
@@ -234,7 +234,7 @@ Concevoir et implémenter architecture Pattern Observer robuste avec :
 code-simple a implémenté endpoint GET /api/users mais observe lenteur ~3s par requête (cible <500ms).
 
 **Observations** :
-- Endpoint [`src/api/users.controller.ts`](src/api/users.controller.ts:45-89)
+- Endpoint `src/api/users.controller.ts` (lignes 45-89)
 - Database queries multiples (N+1 suspectée)
 - Pas de caching actif
 
@@ -276,7 +276,7 @@ Rapport diagnostic avec :
 **Contexte Investigation** :
 - Processus background job consomme mémoire croissante (~500MB/h)
 - Crash après 6h d'exécution
-- Fichier cible : [`src/jobs/data-processor.ts`](src/jobs/data-processor.ts)
+- Fichier cible : `src/jobs/data-processor.ts`
 
 **Objectif Profiling** :
 Utiliser outils profiling pour identifier memory leak
@@ -314,7 +314,7 @@ debug-simple identifie race condition dans pool worker threads, mais manque expe
 
 **Symptômes Observés** :
 - Corruption données sporadique (1 fois/100 exécutions)
-- Fichiers [`src/workers/pool-manager.ts`](src/workers/pool-manager.ts), [`src/workers/task-queue.ts`](src/workers/task-queue.ts)
+- Fichiers `src/workers/pool-manager.ts`, `src/workers/task-queue.ts`
 - Shared state entre workers sans synchronisation
 
 **Hypothèse Initiale** :
@@ -355,7 +355,7 @@ Diagnostiquer race condition précise et implémenter synchronisation robuste
 debug-simple a identifié bug validation email permettant emails malformés.
 
 **Bug Identifié** :
-- Fichier : [`src/validators/email.validator.ts:12`](src/validators/email.validator.ts:12)
+- Fichier : `src/validators/email.validator.ts` (ligne 12)
 - Regex actuelle : `/^[a-zA-Z0-9]+@[a-zA-Z0-9]+\.[a-zA-Z]+$/`
 - Problème : N'accepte pas caractères spéciaux légitimes (., _, -, +)
 
@@ -941,7 +941,7 @@ Créer template réutilisable pour la famille CODE avec :
 
 ### Correspondance Hiérarchie
 
-Le système de numérotation **correspond exactement** à la structure [`conversation_browser`](../../../mcps/internal/servers/roo-state-manager/src/tools/conversation-browser.tool.ts) (action: "tree") de roo-state-manager :
+Le système de numérotation **correspond exactement** à la structure [`conversation_browser`](../../mcps/internal/servers/roo-state-manager/src/tools/conversation/conversation-browser.ts) (action: "tree") de roo-state-manager :
 
 ```json
 {
@@ -1407,8 +1407,8 @@ Votre tâche actuelle : **[NUMERO] - [Titre]**
 #### Intégrations Techniques
 
 - **[`mcp-integrations-priority.md`](mcp-integrations-priority.md)** : Utilisation MCPs pour efficacité
-  * [`roo-state-manager`](../../../mcps/internal/servers/roo-state-manager/) : Tier 1, grounding conversationnel obligatoire
-  * [`quickfiles`](../../../mcps/internal/servers/quickfiles-server/) : Tier 1, lectures batch optimisées
+  * [`roo-state-manager`](../../mcps/internal/servers/roo-state-manager/) : Tier 1, grounding conversationnel obligatoire
+  * `quickfiles` : Tier 1, lectures batch optimisées (MCP retiré)
   * Patterns usage dans sous-tâches (grounding, checkpoints)
 
 ### Factorisation Commons
@@ -1466,4 +1466,4 @@ Votre tâche actuelle : **[NUMERO] - [Titre]**
 
 ---
 
-**Note :** Ce système est conçu pour l'architecture 2-niveaux (Simple/Complex) et s'intègre parfaitement avec [`roo-state-manager`](../../../mcps/internal/servers/roo-state-manager/) pour une traçabilité complète des projets complexes. La **version 2.0.0** intègre les décisions utilisateur critiques : format simplifié `1` (pas `1.0`) et universalité `new_task()` pour tous les modes.
+**Note :** Ce système est conçu pour l'architecture 2-niveaux (Simple/Complex) et s'intègre parfaitement avec [`roo-state-manager`](../../mcps/internal/servers/roo-state-manager/) pour une traçabilité complète des projets complexes. La **version 2.0.0** intègre les décisions utilisateur critiques : format simplifié `1` (pas `1.0`) et universalité `new_task()` pour tous les modes.

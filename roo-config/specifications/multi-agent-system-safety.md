@@ -2739,7 +2739,7 @@ Ajouter aux modes manipulant système (Code, Debug, etc.) :
 
 ## 📋 Section 9 : Scripts Validation Multi-Agent
 
-Les scripts de validation sont fournis dans le répertoire [`scripts/multi-agent-validation/`](../../scripts/multi-agent-validation/).
+Les scripts de validation sont fournis dans le répertoire `scripts/multi-agent-validation/`.
 
 ### Script 1 : `detect-active-agents.sh`
 
@@ -3018,9 +3018,9 @@ Cette spécification **Multi-Agent System Safety** établit des règles strictes
 - Voir aussi : Git Safety incidents (contamination multi-agents)
 
 **Scripts** :
-- [`scripts/multi-agent-validation/detect-active-agents.sh`](../../scripts/multi-agent-validation/detect-active-agents.sh)
-- [`scripts/multi-agent-validation/validate-resources.ps1`](../../scripts/multi-agent-validation/validate-resources.ps1)
-- [`scripts/multi-agent-validation/safe-cleanup.py`](../../scripts/multi-agent-validation/safe-cleanup.py)
+- `scripts/multi-agent-validation/detect-active-agents.sh`
+- `scripts/multi-agent-validation/validate-resources.ps1`
+- `scripts/multi-agent-validation/safe-cleanup.py`
 
 ---
 

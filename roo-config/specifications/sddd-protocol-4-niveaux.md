@@ -158,12 +158,12 @@ Le MCP **quickfiles** est recommandé comme fallback prioritaire pour les opéra
 
 - **Performance supérieure** : Traitement batch optimisé vs outils natifs séquentiels
 - **Robustesse** : Binaire compilé, pas de dépendances runtime Node.js
-- **Simplicité** : API minimaliste pour opérations courantes ([`read_multiple_files`](../../mcps/INSTALLATION.md#quickfiles), [`list_directory_contents`](../../mcps/INSTALLATION.md#quickfiles))
+- **Simplicité** : API minimaliste pour opérations courantes (`read_multiple_files`, `list_directory_contents`)
 
 **Workflow recommandé** :
-1. **Lecture fichier unique** : Utiliser [`read_file`](../../mcps/INSTALLATION.md#read_file) natif (économie invocation MCP)
-2. **Batch (≥3 fichiers)** : Utiliser [`quickfiles.read_multiple_files`](../../mcps/INSTALLATION.md#quickfiles) (gain performance ~60%)
-3. **Exploration répertoire** : Utiliser [`quickfiles.list_directory_contents`](../../mcps/INSTALLATION.md#quickfiles) (récursivité optimisée)
+1. **Lecture fichier unique** : Utiliser `read_file` natif (économie invocation MCP)
+2. **Batch (≥3 fichiers)** : Utiliser `quickfiles.read_multiple_files` (gain performance ~60%)
+3. **Exploration répertoire** : Utiliser `quickfiles.list_directory_contents` (récursivité optimisée)
 
 **Exemple d'usage** :
 ```markdown
@@ -177,7 +177,7 @@ quickfiles.read_multiple_files({
 })
 ```
 
-**Référence** : [`mcps/INSTALLATION.md#quickfiles`](../../mcps/INSTALLATION.md#quickfiles)
+**Référence** : `quickfiles` MCP (retired)
 
 ### 1.3 Grounding Conversationnel Initial
 
@@ -218,7 +218,7 @@ Le MCP **roo-state-manager** est l'outil central du Niveau 3, permettant d'accé
    - Éviter duplication de travail déjà effectué
    - Comprendre l'évolution d'un projet sur le temps
 
-2. **Outil principal** : [`roosync_search`](../../analysis-reports/architecture-consolidee-roo-state-manager.md#roosync_search) (action: "semantic")
+2. **Outil principal** : `roosync_search` (action: "semantic")
    - Recherche sémantique dans l'historique des tâches
    - Trouve contexte pertinent même sans mots-clés exacts
    - Renvoie extraits avec métadonnées (date, mode, résultat)
@@ -250,7 +250,7 @@ Le MCP **roo-state-manager** est l'outil central du Niveau 3, permettant d'accé
 - Résolution conflits (comprendre origine divergence)
 - Documentation décisions architecturales
 
-**Référence** : [`analysis-reports/architecture-consolidee-roo-state-manager.md`](../../analysis-reports/architecture-consolidee-roo-state-manager.md)
+**Référence** : `roo-state-manager` (outil `roosync_search`)
 
 ### 1.4 Exception : Orchestrateurs - Grounding par Délégation
 
@@ -1022,10 +1022,10 @@ Chaque tâche complexe dans Roo doit être **liée à une issue GitHub** pour :
 Le MCP **github-projects** (actuellement non-opérationnel - problèmes configuration) sera l'outil central du Niveau 4.
 
 **Outils Clés** :
-1. [`create_issue`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Créer issue GitHub depuis tâche Roo
-2. [`add_item_to_project`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Associer issue à project board
-3. [`update_project_item_field`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Synchroniser état (todo → in_progress → done)
-4. [`search_issues`](../../roo-config/specifications/mcp-integrations-priority.md#github-projects) : Retrouver issues liées au contexte actuel
+1. [`create_issue`](mcp-integrations-priority.md#github-projects) : Créer issue GitHub depuis tâche Roo
+2. [`add_item_to_project`](mcp-integrations-priority.md#github-projects) : Associer issue à project board
+3. [`update_project_item_field`](mcp-integrations-priority.md#github-projects) : Synchroniser état (todo → in_progress → done)
+4. [`search_issues`](mcp-integrations-priority.md#github-projects) : Retrouver issues liées au contexte actuel
 
 ### 📅 Roadmap Intégration
 

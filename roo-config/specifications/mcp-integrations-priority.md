@@ -498,7 +498,7 @@ Ces MCPs ont des limitations ou redondances avec d'autres outils.
 
 **Conclusion investigation** :
 1. ✅ **Faisabilité** : Débridage = état nominal du MCP
-2. ✅ **Configuration** : Restaurée dans [`mcps/external/win-cli/server/config.json`](../../mcps/external/win-cli/server/config.json)
+2. ✅ **Configuration** : Restaurée dans [`mcps/external/win-cli/server/config.sample.json`](../../mcps/external/win-cli/server/config.sample.json)
 3. ✅ **Avantages** : Meilleure gestion sessions, logs structurés, sécurité renforcée
 
 **Bénéfices vs execute_command** :
