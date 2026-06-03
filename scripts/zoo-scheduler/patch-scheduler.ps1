@@ -28,9 +28,13 @@ $ErrorActionPreference = "Stop"
 
 # --- Resolve source ---
 if (-not $SourcePath) {
+    # Prefer original Roo Scheduler as source; fall back to already-patched Zoo Scheduler
     $candidates = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter "kylehoskins.roo-scheduler-*"
     if ($candidates.Count -eq 0) {
-        Write-Error "Roo Scheduler extension not found in ~/.vscode/extensions/"
+        $candidates = Get-ChildItem "$env:USERPROFILE\.vscode\extensions" -Directory -Filter "jsboige.zoo-scheduler-*"
+    }
+    if ($candidates.Count -eq 0) {
+        Write-Error "Neither Roo Scheduler nor Zoo Scheduler found in ~/.vscode/extensions/"
         exit 1
     }
     $SourcePath = $candidates[0].FullName
@@ -67,7 +71,7 @@ try {
     $pkg.displayName = "Zoo Scheduler"
     $pkg.description = "A task scheduler for Zoo Code (fork of roo-scheduler 0.0.11)"
     $pkg.publisher = "jsboige"
-    $pkg.version = "0.0.11-zoo.1"
+    $pkg.version = "0.0.11-zoo.2"
     $pkg.extensionDependencies = @("zoocodeorganization.zoo-code")
 
     # Skip prepublish rebuild (we patch dist/ directly)
@@ -89,6 +93,19 @@ try {
     # Replace 3: Configuration section (7 occurrences)
     $content = $content.Replace('getConfiguration("roo-cline")', 'getConfiguration("zoo-code")')
 
+    # Replace 4: Fix getState() apiProvider fallback for Zoo Code modeApiConfigs (#2373A)
+    # Old: reads only top-level apiProvider (Roo legacy format), falls back to "anthropic"
+    # New: resolves via ProviderSettingsManager.modeApiConfigs → apiConfigs[name].apiProvider
+    $oldGetState = 's=a.apiProvider?a.apiProvider:"anthropic",o=this.contextProxy.getProviderSettings();return o.apiProvider||(o.apiProvider=s),{apiConfiguration:o'
+    $newGetState = 's=a.apiProvider?a.apiProvider:void 0,o=this.contextProxy.getProviderSettings();if(!o.apiProvider&&!s){try{let mc=a.mode,ms=await this.providerSettingsManager.getModeConfigId(mc),lc=await this.providerSettingsManager.listConfig(),cf=lc?.find(c=>c.id===ms);cf?.apiProvider&&(o.apiProvider=cf.apiProvider)}catch(e){}};o.apiProvider||(o.apiProvider=s||"anthropic");return{apiConfiguration:o'
+
+    if ($content.Contains($oldGetState)) {
+        $content = $content.Replace($oldGetState, $newGetState)
+        Write-Host "Replace 4: getState() apiProvider fallback patched (modeApiConfigs resolution)"
+    } else {
+        Write-Host "Replace 4: getState() pattern not found — may already be patched or different version" -ForegroundColor Yellow
+    }
+
     [System.IO.File]::WriteAllText($extJs, $content, [System.Text.UTF8Encoding]::new($false))
 
     # --- Verify patches ---
@@ -105,7 +122,14 @@ try {
     $newRefs = ([regex]::Matches($verifyContent, "zoocodeorganization\.zoo-code")).Count
     $newActivity = ([regex]::Matches($verifyContent, "zoo-code-ActivityBar")).Count
     $newConfig = ([regex]::Matches($verifyContent, 'getConfiguration\("zoo-code"\)')).Count
+    $getStateFixed = $verifyContent.Contains("getModeConfigId(mc)")
     Write-Host "Patch verified: $newRefs ext refs, $newActivity activity refs, $newConfig config refs"
+
+    if ($getStateFixed) {
+        Write-Host "Replace 4 verified: getState() modeApiConfigs resolution active" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Replace 4 getState() fix not detected in output" -ForegroundColor Yellow
+    }
 
     # --- Clean up files that should not be packaged ---
     $envFile = Join-Path $tempDir ".env"
@@ -115,7 +139,7 @@ try {
     Write-Host "Building VSIX..."
     Push-Location $tempDir
     cmd /c "npm install @vscode/vsce --no-save 2>nul"
-    $vsixName = "zoo-scheduler-0.0.11-zoo.1.vsix"
+    $vsixName = "zoo-scheduler-0.0.11-zoo.2.vsix"
     cmd /c "npx vsce package --no-dependencies -o $vsixName 2>&1" | ForEach-Object { Write-Host $_ }
 
     if (Test-Path (Join-Path $tempDir $vsixName)) {
