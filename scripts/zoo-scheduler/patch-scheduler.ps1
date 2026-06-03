@@ -71,7 +71,7 @@ try {
     $pkg.displayName = "Zoo Scheduler"
     $pkg.description = "A task scheduler for Zoo Code (fork of roo-scheduler 0.0.11)"
     $pkg.publisher = "jsboige"
-    $pkg.version = "0.0.11-zoo.2"
+    $pkg.version = "0.0.11-zoo.3"
     $pkg.extensionDependencies = @("zoocodeorganization.zoo-code")
 
     # Skip prepublish rebuild (we patch dist/ directly)
@@ -106,6 +106,20 @@ try {
         Write-Host "Replace 4: getState() pattern not found — may already be patched or different version" -ForegroundColor Yellow
     }
 
+    # Replace 5: Override provider in startTaskWithMode() based on mode suffix (#2373A)
+    # -simple modes → medium auto-hébergé (Qwen 3.6 35B)
+    # -complex modes → z.ai cloud (GLM-5.1)
+    # Source: roo-config/model-configs.json modeOverrides
+    $oldStartTask = 'static async startTaskWithMode(r,a){let n=t.getRooClineApi();console.log("got api",n);let s=n.getConfiguration();console.log("got config",s);let o={...s,mode:r,customModePrompts:s.customModePrompts||{}};console.log(o);let e=await n.startNewTask({configuration:o,text:a});return console.log("got taskId",e),e}'
+    $newStartTask = 'static async startTaskWithMode(r,a){let n=t.getRooClineApi(),s=n.getConfiguration(),_mp={};if(r.endsWith("-simple")){_mp={apiProvider:"openai",openAiBaseUrl:"https://api.medium.text-generation-webui.myia.io/v1",openAiModelId:"qwen3.6-35b-a3b",openAiLegacyFormat:true}}else if(r.endsWith("-complex")){_mp={apiProvider:"openai",openAiBaseUrl:"https://api.z.ai/api/anthropic",openAiModelId:"glm-5.1"}}let o={...s,mode:r,customModePrompts:s.customModePrompts||{},..._mp};let e=await n.startNewTask({configuration:o,text:a});return e}'
+
+    if ($content.Contains($oldStartTask)) {
+        $content = $content.Replace($oldStartTask, $newStartTask)
+        Write-Host "Replace 5: startTaskWithMode() provider routing patched (simple→medium, complex→z.ai)"
+    } else {
+        Write-Host "Replace 5: startTaskWithMode() pattern not found — may already be patched or different version" -ForegroundColor Yellow
+    }
+
     [System.IO.File]::WriteAllText($extJs, $content, [System.Text.UTF8Encoding]::new($false))
 
     # --- Verify patches ---
@@ -123,12 +137,19 @@ try {
     $newActivity = ([regex]::Matches($verifyContent, "zoo-code-ActivityBar")).Count
     $newConfig = ([regex]::Matches($verifyContent, 'getConfiguration\("zoo-code"\)')).Count
     $getStateFixed = $verifyContent.Contains("getModeConfigId(mc)")
+    $startTaskFixed = $verifyContent.Contains("api.medium.text-generation-webui.myia.io") -and $verifyContent.Contains("api.z.ai")
     Write-Host "Patch verified: $newRefs ext refs, $newActivity activity refs, $newConfig config refs"
 
     if ($getStateFixed) {
         Write-Host "Replace 4 verified: getState() modeApiConfigs resolution active" -ForegroundColor Green
     } else {
         Write-Host "WARNING: Replace 4 getState() fix not detected in output" -ForegroundColor Yellow
+    }
+
+    if ($startTaskFixed) {
+        Write-Host "Replace 5 verified: startTaskWithMode() provider routing active (medium + z.ai)" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Replace 5 startTaskWithMode() fix not detected in output" -ForegroundColor Yellow
     }
 
     # --- Clean up files that should not be packaged ---
@@ -139,7 +160,7 @@ try {
     Write-Host "Building VSIX..."
     Push-Location $tempDir
     cmd /c "npm install @vscode/vsce --no-save 2>nul"
-    $vsixName = "zoo-scheduler-0.0.11-zoo.2.vsix"
+    $vsixName = "zoo-scheduler-0.0.11-zoo.3.vsix"
     cmd /c "npx vsce package --no-dependencies -o $vsixName 2>&1" | ForEach-Object { Write-Host $_ }
 
     if (Test-Path (Join-Path $tempDir $vsixName)) {
