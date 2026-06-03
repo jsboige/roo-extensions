@@ -281,8 +281,8 @@ Le routage se fera via le switch case existant dans `src/index.ts`.
 - [07-checkpoint-phase2-services.md](07-checkpoint-phase2-services.md) : Validation services
 
 **Code :**
-- [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) : Service principal
-- [`roosync-parsers.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts) : Utilitaires parsing
+- `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) : Service principal
+- `roosync-parsers.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`) : Utilitaires parsing
 
 ---
 

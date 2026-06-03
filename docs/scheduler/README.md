@@ -12,4 +12,4 @@ Documentation du système scheduler Roo et Claude Code.
 
 - Scheduler system : [harness/reference/scheduler-system.md](../harness/reference/scheduler-system.md)
 - Scheduler densification : [harness/reference/scheduler-densification.md](../harness/reference/scheduler-densification.md)
-- Modes Roo : [../../roo-config/modes-config.json](../../roo-config/modes-config.json) (source de vérité)
+- Modes Roo : [../../roo-config/modes-config.json](../../roo-config/modes/modes-config.json) (source de vérité)

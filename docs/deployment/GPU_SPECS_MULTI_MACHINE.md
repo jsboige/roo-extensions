@@ -56,7 +56,7 @@ Documenter les capacités GPU des 5 machines du système RooSync Multi-Agent pou
 
 ### myia-po-2023
 
-> 📋 **Documentation détaillée :** [docs/hardware/gpu-specs-myia-po-2023.md](gpu-specs-myia-po-2023.md)
+> 📋 **Documentation détaillée :** [docs/hardware/gpu-specs-myia-po-2023.md](../archive/gpu-specs-myia-po-2023.md)
 
 **Configuration Multi-GPU :**
 
@@ -174,7 +174,7 @@ GPU-0ab3345e-f1ef-8f0c-e82a-8cbb3a8ed0f4
 
 ## Références
 
-- [Documentation SDDD Architecture 2-Niveaux](../sddd/ARCHITECTURE_2_NIVEAUX.md)
+- [Documentation SDDD Architecture 2-Niveaux](../architecture/ARCHITECTURE_2_NIVEAUX.md)
 - [RooSync Multi-Agent Guide](../roosync/GUIDE-TECHNIQUE-v2.3.md)
 - [Issue #354 - Documentation specs GPUs](https://github.com/jsboige/roo-extensions/issues/354)
 

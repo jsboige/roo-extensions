@@ -127,14 +127,14 @@ Le score sémantique de 1.0 dépasse largement le seuil de 0.65, rendant tout en
   - Execution Layer (apply, rollback)
 
 - ✅ **8 outils RooSync opérationnels**
-  1. [`get-status.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts) - État synchronisation
-  2. [`compare-config.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts) - Comparaison configs
-  3. [`list-diffs.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts) - Liste différences
-  4. [`get-decision-details.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts) - Détails décision
-  5. [`approve-decision.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts) - Approbation
-  6. [`reject-decision.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts) - Rejet
-  7. [`apply-decision.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) - Application
-  8. [`rollback-decision.ts`](../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) - Annulation
+  1. `get-status.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`) - État synchronisation
+  2. `compare-config.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) - Comparaison configs
+  3. `list-diffs.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`) - Liste différences
+  4. `get-decision-details.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts`) - Détails décision
+  5. `approve-decision.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts`) - Approbation
+  6. `reject-decision.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts`) - Rejet
+  7. `apply-decision.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) - Application
+  8. `rollback-decision.ts` (`../../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) - Annulation
 
 - ✅ **48/48 tests unitaires**
   - 8 tests d'outils (roosync/*.test.ts)
@@ -249,7 +249,7 @@ Procéder immédiatement à la **Tâche 40 : Tests End-to-End RooSync** pour val
 - [Documentation Phase 3 - Outils Essentiels](./08-outils-mcp-essentiels.md)
 - [Documentation Phase 4 - Outils Décision](./09-outils-mcp-decision.md)
 - [Documentation Phase 5 - Outils Exécution](./10-outils-mcp-execution.md)
-- [README roo-state-manager](../../mcps/internal/servers/roo-state-manager/README.md)
+- [README roo-state-manager](../../../mcp/roo-state-manager/README.md)
 
 ---
 

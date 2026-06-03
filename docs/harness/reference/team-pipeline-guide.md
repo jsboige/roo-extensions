@@ -1,7 +1,7 @@
 # Team Pipeline Stages — Reference Guide
 
 **Issue:** #1853
-**ADR:** [005-team-pipeline-stages.md](../adr/005-team-pipeline-stages.md)
+**ADR:** `005-team-pipeline-stages.md`
 **Source:** oh-my-claudecode Team mode extraction
 
 ---

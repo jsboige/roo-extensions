@@ -3,7 +3,7 @@
 ## Synthèse Exécutive
 
 **Bug** : `Maximum call stack size exceeded` (Stack Overflow) dans l'outil `get_task_tree`  
-**Fichier** : [`mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts`](mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts:209)  
+**Fichier** : `mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts` (`mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts`)  
 **Cause Racine** : **HYPOTHÈSE A VALIDÉE** - Cycle de références non détecté dans la fonction récursive `buildTree`  
 **Statut** : 🔍 DIAGNOSTIC COMPLET - Prêt pour implémentation du fix
 
@@ -242,8 +242,8 @@ tree = buildTree(absoluteRootId, 0, new Set(), max_depth === Infinity ? 100 : ma
 
 ## Métadonnées
 
-- **Fichier Analysé** : [`get-tree.tool.ts:1-336`](mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts)
-- **Fichier Contexte** : [`hierarchy-reconstruction-engine.ts:1056-1076`](mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:1056) (référence `wouldCreateCycle` pour inspiration)
+- **Fichier Analysé** : `get-tree.tool.ts:1-336` (`mcps/internal/servers/roo-state-manager/src/tools/task/get-tree.tool.ts`)
+- **Fichier Contexte** : `hierarchy-reconstruction-engine.ts:1056-1076` (`mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts`) (référence `wouldCreateCycle` pour inspiration)
 - **Date Analyse** : 2025-10-24
 - **Analyste** : Roo Debug Mode
 - **Statut** : ✅ DIAGNOSTIC COMPLET - Prêt pour fix

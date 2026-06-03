@@ -21,7 +21,7 @@
 
 ### Fichiers Modifiés
 
-#### 1. [`build-skeleton-cache.tool.ts`](mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts)
+#### 1. `build-skeleton-cache.tool.ts` (`mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts`)
 
 **Modifications** :
 
@@ -55,7 +55,7 @@ console.log(`📊 Build Statistics: Built=${skeletonsBuilt}, Skipped=${skeletons
 
 ---
 
-#### 2. [`list-conversations.tool.ts`](mcps/internal/servers/roo-state-manager/src/tools/conversation/list-conversations.tool.ts)
+#### 2. `list-conversations.tool.ts` (`mcps/internal/servers/roo-state-manager/src/tools/conversation/list-conversations.tool.ts`)
 
 **Modifications** :
 

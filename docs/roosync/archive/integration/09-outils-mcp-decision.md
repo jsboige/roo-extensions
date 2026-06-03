@@ -363,8 +363,8 @@ tests/fixtures/roosync-approve-test/
 - [08-outils-mcp-essentiels.md](08-outils-mcp-essentiels.md) : Outils Phase 3
 
 **Code :**
-- [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)
-- [`RooSync/src/modules/Actions.psm1`](../../RooSync/src/modules/Actions.psm1)
+- `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
+- `RooSync/src/modules/Actions.psm1` (`../../RooSync/src/modules/Actions.psm1`)
 
 ---
 

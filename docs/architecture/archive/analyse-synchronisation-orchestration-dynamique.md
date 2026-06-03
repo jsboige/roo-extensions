@@ -10,19 +10,19 @@ Cette analyse identifie les incohérences entre les points d'entrée de document
 
 | Fichier | Statut | Incohérences identifiées |
 |---------|--------|-------------------------|
-| [`README.md`](../README.md) | ⚠️ **Partiellement obsolète** | Architecture 2-niveaux présentée comme principale, N5 comme expérimentale |
-| [`roo-modes/README.md`](../roo-modes/README.md) | ⚠️ **Partiellement obsolète** | Mécanismes d'escalade décrits de manière statique |
-| [`docs/guide-complet-modes-roo.md`](guide-complet-modes-roo.md) | ✅ **Récemment mis à jour** | Contient l'orchestration dynamique mais incomplet |
-| [`docs/architecture/architecture-orchestration-5-niveaux.md`](architecture/architecture-orchestration-5-niveaux.md) | ✅ **Conforme** | Architecture théorique correcte |
+| [`README.md`](../../README.md) | ⚠️ **Partiellement obsolète** | Architecture 2-niveaux présentée comme principale, N5 comme expérimentale |
+| [`roo-modes/README.md`](../../README.md) | ⚠️ **Partiellement obsolète** | Mécanismes d'escalade décrits de manière statique |
+| [`docs/guide-complet-modes-roo.md`](../../guides/guide-complet-modes-roo.md) | ✅ **Récemment mis à jour** | Contient l'orchestration dynamique mais incomplet |
+| `docs/architecture/architecture-orchestration-5-niveaux.md` | ✅ **Conforme** | Architecture théorique correcte |
 
 ### 1.2 Points d'entrée de configuration
 
 | Fichier | Statut | Incohérences identifiées |
 |---------|--------|-------------------------|
-| [`roo-modes/configs/standard-modes-fixed.json`](../roo-modes/configs/standard-modes-fixed.json) | ✅ **Conforme** | Orchestration dynamique implémentée |
-| [`roo-modes/n5/configs/n5-modes-roo-compatible.json`](../roo-modes/n5/configs/n5-modes-roo-compatible.json) | ⚠️ **Partiellement conforme** | Mécanismes présents mais documentation incomplète |
-| [`roo-modes/n5/configs/large-modes.json`](../roo-modes/n5/configs/large-modes.json) | ❌ **Non conforme** | Structure obsolète, pas d'orchestration dynamique |
-| [`roo-modes/n5/configs/medium-modes-fixed.json`](../roo-modes/n5/configs/medium-modes-fixed.json) | ❌ **Non conforme** | Instructions simplifiées, pas d'orchestration |
+| `roo-modes/configs/standard-modes-fixed.json` (`../roo-modes/configs/standard-modes-fixed.json`) | ✅ **Conforme** | Orchestration dynamique implémentée |
+| `roo-modes/n5/configs/n5-modes-roo-compatible.json` (`../roo-modes/n5/configs/n5-modes-roo-compatible.json`) | ⚠️ **Partiellement conforme** | Mécanismes présents mais documentation incomplète |
+| `roo-modes/n5/configs/large-modes.json` (`../roo-modes/n5/configs/large-modes.json`) | ❌ **Non conforme** | Structure obsolète, pas d'orchestration dynamique |
+| `roo-modes/n5/configs/medium-modes-fixed.json` (`../roo-modes/n5/configs/medium-modes-fixed.json`) | ❌ **Non conforme** | Instructions simplifiées, pas d'orchestration |
 
 ## 2. Incohérences majeures identifiées
 

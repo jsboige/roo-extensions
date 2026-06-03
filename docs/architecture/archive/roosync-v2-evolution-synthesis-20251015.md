@@ -74,7 +74,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Cartographie de l'architecture TypeScript MCP
 
 **Documents générés** :
-- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) (775 lignes)
+- `docs/investigation/roosync-v1-vs-v2-gap-analysis.md` (775 lignes)
   - Analyse comparative complète v1 vs v2
   - Identification gap critique: détection réelle manquante
   - Recommandations d'implémentation
@@ -91,7 +91,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Stratégies de migration depuis format actuel
 
 **Documents générés** :
-- [`docs/architecture/roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md) (1492 lignes)
+- `docs/architecture/roosync-temporal-messages-architecture.md` (1492 lignes)
   - Design détaillé des schémas de messages
   - Patterns d'agrégation temporelle
   - Guide de migration
@@ -109,7 +109,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Stratégies de recommandations automatiques
 
 **Documents générés** :
-- [`docs/architecture/roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md) (1900 lignes)
+- [`docs/architecture/roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md) (1900 lignes)
   - Architecture complète des composants
   - Algorithmes de détection
   - Schémas de données
@@ -127,7 +127,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Mise à jour de la documentation
 
 **Documents générés** :
-- [`docs/architecture/roosync-real-methods-connection-design.md`](../architecture/roosync-real-methods-connection-design.md) (765 lignes)
+- [`docs/architecture/roosync-real-methods-connection-design.md`](roosync-real-methods-connection-design.md) (765 lignes)
   - Correction de l'analyse initiale
   - Documentation de la connexion existante
   - Clarification des véritables gaps
@@ -141,7 +141,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Implémenter la collecte automatique d'inventaire système
 
 **Composants créés** :
-- [`mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts) (278 lignes)
+- `mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`) (278 lignes)
   - Collecte via script PowerShell `Get-MachineInventory.ps1`
   - Cache intelligent TTL 1h
   - 4 catégories: Roo/Hardware/Software/System
@@ -165,7 +165,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Implémenter la détection et l'analyse de différences
 
 **Composants créés** :
-- [`mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts) (590 lignes)
+- `mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`) (590 lignes)
   - Détection multi-niveaux (Roo/Hardware/Software/System)
   - Scoring sévérité CRITICAL/IMPORTANT/WARNING/INFO
   - Génération recommandations automatiques
@@ -191,14 +191,14 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Intégrer InventoryCollector et DiffDetector dans l'outil MCP
 
 **Composants modifiés** :
-- [`mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts)
+- `mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`)
   - Intégration InventoryCollector
   - Intégration DiffDetector
   - Mode diagnostic `diagnose_index`
   - Enrichissement métadonnées
 
 **Scripts PowerShell créés** :
-- [`RooSync/scripts/Get-MachineInventory.ps1`](../../RooSync/scripts/Get-MachineInventory.ps1)
+- [`RooSync/scripts/Get-MachineInventory.ps1`](../../../scripts/inventory/Get-MachineInventory.ps1)
   - Collecte complète inventaire système
   - Output JSON structuré
   - Gestion erreurs robuste
@@ -227,7 +227,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Définir stratégie de tests end-to-end complète
 
 **Documents générés** :
-- [`docs/testing/roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md) (561 lignes)
+- [`docs/testing/roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md) (561 lignes)
   - 8 scénarios de tests E2E
   - Procédures de validation
   - Critères d'acceptation
@@ -240,7 +240,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Documenter les résultats des tests d'intégration
 
 **Documents générés** :
-- [`docs/testing/roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md)
+- [`docs/testing/roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md)
   - Résultats 5/6 tests (83%)
   - Analyse échec mineur
   - Recommandations
@@ -258,7 +258,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 - Validation recommandations
 
 **Documents générés** :
-- [`docs/testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md)
+- [`docs/testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../../dev/testing/archive/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md)
   - Rapport complet différences détectées
   - 17 différences CRITICAL (MCPs manquants)
   - 30 différences IMPORTANT/WARNING
@@ -271,7 +271,7 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 **Objectif** : Corriger gap-analysis et créer synthèse finale
 
 **Documents mis à jour** :
-- [`docs/investigation/roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md)
+- `docs/investigation/roosync-v1-vs-v2-gap-analysis.md`
   - Section mise à jour 2025-10-15
   - Correction affirmations obsolètes
   - Redirection vers nouveaux documents
@@ -404,25 +404,25 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md) | 1492 | Architecture messages temporelle complète |
-| [`roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md) | 1900 | Design détection réelle (3-tiers) |
-| [`roosync-real-methods-connection-design.md`](../architecture/roosync-real-methods-connection-design.md) | 765 | Correction analyse connexion méthodes |
+| `roosync-temporal-messages-architecture.md` | 1492 | Architecture messages temporelle complète |
+| [`roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md) | 1900 | Design détection réelle (3-tiers) |
+| [`roosync-real-methods-connection-design.md`](roosync-real-methods-connection-design.md) | 765 | Correction analyse connexion méthodes |
 | **Total Architecture** | **4157** | - |
 
 ### Documents de Tests
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md) | 561 | Plan tests E2E complet (8 scénarios) |
-| [`roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md) | ~200 | Rapport tests Phase 3 (5/6, 83%) |
-| [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) | ~150 | Test réel avec données machines |
+| [`roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md) | 561 | Plan tests E2E complet (8 scénarios) |
+| [`roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md) | ~200 | Rapport tests Phase 3 (5/6, 83%) |
+| [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../../dev/testing/archive/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) | ~150 | Test réel avec données machines |
 | **Total Testing** | **~911** | - |
 
 ### Documents d'Investigation
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) | 775 | Gap analysis v1 vs v2 (mis à jour) |
+| `roosync-v1-vs-v2-gap-analysis.md` | 775 | Gap analysis v1 vs v2 (mis à jour) |
 | **Total Investigation** | **775** | - |
 
 ### Documents d'Orchestration
@@ -782,40 +782,40 @@ L'évolution RooSync v2.0 a consisté à implémenter un système complet de **d
 
 | Document | Lignes | Lien |
 |----------|--------|------|
-| Architecture Messages Temporelle | 1492 | [`roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md) |
-| Design Détection Réelle | 1900 | [`roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md) |
-| Connexion Méthodes Réelles | 765 | [`roosync-real-methods-connection-design.md`](../architecture/roosync-real-methods-connection-design.md) |
+| Architecture Messages Temporelle | 1492 | `roosync-temporal-messages-architecture.md` |
+| Design Détection Réelle | 1900 | [`roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md) |
+| Connexion Méthodes Réelles | 765 | [`roosync-real-methods-connection-design.md`](roosync-real-methods-connection-design.md) |
 
 ### Tests et Validation
 
 | Document | Lignes | Lien |
 |----------|--------|------|
-| Plan Tests E2E | 561 | [`roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md) |
-| Rapport Tests Phase 3 | ~200 | [`roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md) |
-| Test Réel Machines | ~150 | [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) |
+| Plan Tests E2E | 561 | [`roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md) |
+| Rapport Tests Phase 3 | ~200 | [`roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md) |
+| Test Réel Machines | ~150 | [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../../dev/testing/archive/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) |
 
 ### Investigation
 
 | Document | Lignes | Lien |
 |----------|--------|------|
-| Gap Analysis v1 vs v2 (Mis à jour) | 775 | [`roosync-v1-vs-v2-gap-analysis.md`](roosync-v1-vs-v2-gap-analysis.md) |
+| Gap Analysis v1 vs v2 (Mis à jour) | 775 | `roosync-v1-vs-v2-gap-analysis.md` |
 
 ### Code Source
 
 | Composant | Lignes | Lien |
 |-----------|--------|------|
-| InventoryCollector.ts | 278 | [`InventoryCollector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts) |
-| DiffDetector.ts | 590 | [`DiffDetector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts) |
-| compare-config.ts (modifié) | ~250 | [`compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts) |
-| Get-MachineInventory.ps1 | ~250 | [`Get-MachineInventory.ps1`](../../RooSync/scripts/Get-MachineInventory.ps1) |
+| InventoryCollector.ts | 278 | `InventoryCollector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`) |
+| DiffDetector.ts | 590 | `DiffDetector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`) |
+| compare-config.ts (modifié) | ~250 | `compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) |
+| Get-MachineInventory.ps1 | ~250 | [`Get-MachineInventory.ps1`](../../../scripts/inventory/Get-MachineInventory.ps1) |
 
 ### Documentation RooSync v1 (Référence)
 
 | Document | Lignes | Lien |
 |----------|--------|------|
-| SYSTEM-OVERVIEW.md | 1417 | [`SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) |
+| SYSTEM-OVERVIEW.md | 1417 | `SYSTEM-OVERVIEW.md` |
 | README.md | ~200 | [`README.md`](../../RooSync/README.md) |
-| CHANGELOG.md | ~150 | [`CHANGELOG.md`](../../RooSync/CHANGELOG.md) |
+| CHANGELOG.md | ~150 | [`CHANGELOG.md`](../../../mcps/external/git/server/CHANGELOG.md) |
 
 ---
 

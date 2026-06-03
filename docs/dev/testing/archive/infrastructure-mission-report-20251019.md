@@ -28,7 +28,7 @@
 
 ## Partie 1 : Point de Situation Git ✅
 
-**Rapport** : [`docs/git/state-before-pull-20251018.md`](../git/state-before-pull-20251018.md)
+**Rapport** : `docs/git/state-before-pull-20251018.md`
 
 ### Résultats
 
@@ -60,7 +60,7 @@
 
 ## Partie 2 : Pull Multi-Dépôts ✅
 
-**Rapport** : [`docs/git/pull-report-20251018.md`](../git/pull-report-20251018.md)
+**Rapport** : `docs/git/pull-report-20251018.md`
 
 ### Stratégie
 
@@ -82,9 +82,9 @@
 
 ## Partie 3 : Recompilation MCP ✅
 
-**Rapport** : [`docs/build/rebuild-report-20251018.md`](../build/rebuild-report-20251018.md)
+**Rapport** : `docs/build/rebuild-report-20251018.md`
 
-**Script** : [`scripts/build/rebuild-mcp-servers-20251018.ps1`](../../scripts/build/rebuild-mcp-servers-20251018.ps1)
+**Script** : `scripts/build/rebuild-mcp-servers-20251018.ps1` (`../../scripts/build/rebuild-mcp-servers-20251018.ps1`)
 
 ### Résultats
 
@@ -107,7 +107,7 @@
 - [`docs/testing/test-validation-report-20251018.md`](test-validation-report-20251018.md) (principal)
 - [`docs/testing/reports/phase2-charge-2025-10-19T16-27.md`](reports/phase2-charge-2025-10-19T16-27.md) (détaillé)
 
-**Script** : [`scripts/testing/validate-all-tests-20251018.ps1`](../../scripts/testing/validate-all-tests-20251018.ps1)
+**Script** : `scripts/testing/validate-all-tests-20251018.ps1` (`../../scripts/testing/validate-all-tests-20251018.ps1`)
 
 ### Résultats par Module
 
@@ -200,16 +200,16 @@
 ### Livrables Créés
 
 **Rapports (6)** :
-1. [`docs/git/state-before-pull-20251018.md`](../git/state-before-pull-20251018.md)
-2. [`docs/git/pull-report-20251018.md`](../git/pull-report-20251018.md)
-3. [`docs/build/rebuild-report-20251018.md`](../build/rebuild-report-20251018.md)
+1. `docs/git/state-before-pull-20251018.md`
+2. `docs/git/pull-report-20251018.md`
+3. `docs/build/rebuild-report-20251018.md`
 4. [`docs/testing/test-validation-report-20251018.md`](test-validation-report-20251018.md)
 5. [`docs/testing/reports/phase2-charge-2025-10-19T16-27.md`](reports/phase2-charge-2025-10-19T16-27.md)
 6. [`docs/testing/test-coverage-increase-20251019.md`](test-coverage-increase-20251019.md)
 
 **Scripts (2)** :
-1. [`scripts/build/rebuild-mcp-servers-20251018.ps1`](../../scripts/build/rebuild-mcp-servers-20251018.ps1)
-2. [`scripts/testing/validate-all-tests-20251018.ps1`](../../scripts/testing/validate-all-tests-20251018.ps1)
+1. `scripts/build/rebuild-mcp-servers-20251018.ps1` (`../../scripts/build/rebuild-mcp-servers-20251018.ps1`)
+2. `scripts/testing/validate-all-tests-20251018.ps1` (`../../scripts/testing/validate-all-tests-20251018.ps1`)
 
 **Commits Git (3)** :
 1. `4ab5903` (mcps/internal) : test(github-projects): Add E2E tests

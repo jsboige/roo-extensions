@@ -76,7 +76,7 @@ D:\dev\roo-extensions\mcps\internal\servers\quickfiles-server\
 
 ### Bug #1: Regex Stateful
 
-**Localisation:** [`index.ts:742`](D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts:742)
+**Localisation:** `index.ts:742` (`D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts`)
 
 **Code Bugué:**
 ```typescript
@@ -111,7 +111,7 @@ for (let i = 0; i < lines.length; i++) {
 
 ### Bug #2: Glob Récursif - Implémentation Initiale
 
-**Localisation:** [`index.ts:771-786`](D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts:771)
+**Localisation:** `index.ts:771-786` (`D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts`)
 
 **Configuration Initiale (Défectueuse):**
 ```typescript
@@ -350,11 +350,11 @@ use_mcp_tool("quickfiles", "search_in_files", {
 ## 📚 Références
 
 ### Code
-- **Source:** [`D:\dev\roo-extensions\mcps\internal\servers\quickfiles-server\src\index.ts`](D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts)
-- **Build:** [`D:\dev\roo-extensions\mcps\internal\servers\quickfiles-server\build\index.js`](D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js)
+- **Source:** `D:\dev\roo-extensions\mcps\internal\servers\quickfiles-server\src\index.ts` (`D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/src/index.ts`)
+- **Build:** `D:\dev\roo-extensions\mcps\internal\servers\quickfiles-server\build\index.js` (`D:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js`)
 
 ### Documentation
-- **Exemples:** [`ateliers/demo-roo-code/02-orchestration-taches/gestion-fichiers/exemples-quickfiles.md`](../../../ateliers/demo-roo-code/02-orchestration-taches/gestion-fichiers/exemples-quickfiles.md)
+- **Exemples:** [`ateliers/demo-roo-code/02-orchestration-taches/gestion-fichiers/exemples-quickfiles.md`](../../../demo-roo-code/02-orchestration-taches/gestion-fichiers/exemples-quickfiles.md)
 
 ### Recherches Sémantiques
 1. `"implémentation search_in_files quickfiles MCP"`

@@ -35,7 +35,7 @@ Sur les 21 commits distants, **10 concernent directement mcps/internal** :
 **Conflit sur mcps/internal** : ATTENDU et NORMAL
 - **Résolution** : TOUJOURS `--ours` (notre version `8ed0a32`)
 - **Raison** : Notre référence est plus récente (merge get_current_task du 2025-10-16)
-- **Référence historique** : [`RAPPORT-CONSOLIDATION-MAIN-20251001.md`](docs/rapports/analyses/git-operations/RAPPORT-CONSOLIDATION-MAIN-20251001.md:95)
+- **Référence historique** : `RAPPORT-CONSOLIDATION-MAIN-20251001.md`
 
 ## Notre Commit Local
 

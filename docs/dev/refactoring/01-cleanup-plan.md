@@ -36,8 +36,8 @@ Clarification de la structure interne de `docs` pour séparer les rapports, les 
 Compression et nettoyage des dossiers d'archives pour alléger la structure du projet.
 
 - [x] **Archiver :** [`archive/`](./archive) -> `archive.zip`. *(Note: archive.zip créé mais le dossier archive/ existe encore avec le sous-dossier backups/)*
-- [x] **Archiver :** [`docs/archive/`](./docs/archive) -> `docs/archive.zip` (et supprimer le dossier original).
-- [x] **Archiver :** [`refactor-backup-20250528-223209/`](./refactor-backup-20250528-223209) -> `archive/backups/refactor-backup-20250528-223209.zip` (et supprimer le dossier original).
+- [x] **Archiver :** `./docs/archive` -> `docs/archive.zip` (et supprimer le dossier original).
+- [x] **Archiver :** `./refactor-backup-20250528-223209` -> `archive/backups/refactor-backup-20250528-223209.zip` (et supprimer le dossier original).
 
 ## 5. Nettoyage des Tests et Rapports de Tests
 

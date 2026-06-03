@@ -6,7 +6,7 @@ Ce document retrace le processus de débogage qui a conduit à la résolution de
 
 À l'origine, les tests E2E échouaient de manière intermittente avec des erreurs `ECONNREFUSED`. Le diagnostic initial a correctement identifié une "race condition" : les tests tentaient de se connecter au service Qdrant avant que celui-ci ne soit pleinement opérationnel.
 
-Pour y remédier, une solution basée sur le `globalSetup` de Jest a été implémentée. Un script, [`tests/global-setup.ts`](../../../../mcps/internal/servers/roo-state-manager/tests/global-setup.ts:1), a été configuré pour s'exécuter avant toute la suite de tests. Ce script sonde un endpoint de health check (`/readyz`) de Qdrant et met en pause l'exécution jusqu'à obtenir une réponse valide, garantissant ainsi que le service est prêt.
+Pour y remédier, une solution basée sur le `globalSetup` de Jest a été implémentée. Un script, `tests/global-setup.ts` (`../../../../mcps/internal/servers/roo-state-manager/tests/global-setup.ts`), a été configuré pour s'exécuter avant toute la suite de tests. Ce script sonde un endpoint de health check (`/readyz`) de Qdrant et met en pause l'exécution jusqu'à obtenir une réponse valide, garantissant ainsi que le service est prêt.
 
 ## 2. Fausse Piste : L'Isolation Réseau des Workers Jest
 

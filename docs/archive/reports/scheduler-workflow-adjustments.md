@@ -28,7 +28,7 @@ Le scheduler ne semble pas écrire les messages DONE/MAINTENANCE/IDLE dans l'INT
 
 **Objectif:** Garantir que le scheduler écrit toujours dans l'INTERCOM
 
-**Modification du workflow ([`.roo/scheduler-workflow-executor.md`](.roo/scheduler-workflow-executor.md:1)):**
+**Modification du workflow ([`.roo/scheduler-workflow-executor.md`](../../../.roo/scheduler-workflow-executor.md)):**
 
 ```markdown
 ### Etape 3 : Rapporter dans INTERCOM
@@ -73,7 +73,7 @@ Le scheduler ne semble pas écrire les messages DONE/MAINTENANCE/IDLE dans l'INT
 
 **Objectif:** S'assurer que `orchestrator-simple` peut écrire dans l'INTERCOM
 
-**Action:** Vérifier la configuration du mode dans [`.roomodes`](.roomodes:1)
+**Action:** Vérifier la configuration du mode dans [`.roomodes`](../../../roo-config/modes/n5-system/scripts/.roomodes)
 
 ```yaml
 orchestrator-simple:
@@ -108,7 +108,7 @@ orchestrator-simple:
 
 **Objectif:** Utiliser win-cli pour l'écriture INTERCOM
 
-**Action:** Activer win-cli dans [`mcp_settings.json`](.roo/mcp_settings.json:1)
+**Action:** Activer win-cli dans `mcp_settings.json` (`.roo/mcp_settings.json`)
 
 ```json
 "win-cli": {
@@ -267,7 +267,7 @@ Les logs VSCode ne contiennent pas d'informations détaillées sur les tâches s
 
 **Objectif:** Tracer les exécutions scheduler dans les logs VSCode
 
-**Action:** Modifier la configuration du scheduler dans [`.roo/schedules.json`](.roo/schedules.json:1)
+**Action:** Modifier la configuration du scheduler dans `.roo/schedules.json` (`.roo/schedules.json`)
 
 ```json
 {
@@ -398,7 +398,7 @@ Les logs VSCode ne contiennent pas d'informations détaillées sur les tâches s
 
 **Action immédiate:**
 
-1. Vérifier les permissions d'`orchestrator-simple` dans [`.roomodes`](.roomodes:1)
+1. Vérifier les permissions d'`orchestrator-simple` dans [`.roomodes`](../../../roo-config/modes/n5-system/scripts/.roomodes)
 2. Si `edit` est manquant, l'ajouter
 3. Modifier le workflow pour utiliser l'écriture directe (A1)
 4. Tester manuellement l'étape 3 du workflow
@@ -412,7 +412,7 @@ Les logs VSCode ne contiennent pas d'informations détaillées sur les tâches s
 
 **Action immédiate:**
 
-1. Modifier la configuration du scheduler dans [`.roo/schedules.json`](.roo/schedules.json:1)
+1. Modifier la configuration du scheduler dans `.roo/schedules.json` (`.roo/schedules.json`)
 2. Ajouter la section `logging` avec les options verbeuses
 3. Redémarrer VS Code pour appliquer les changements
 4. Attendre la prochaine exécution scheduler (ou forcer une exécution)

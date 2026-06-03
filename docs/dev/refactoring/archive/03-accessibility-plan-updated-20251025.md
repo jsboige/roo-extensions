@@ -118,9 +118,9 @@ Ce plan d'action détaillé les améliorations à apporter à la documentation e
      ```markdown
      ## 📚 Documentation
 
-     - **Getting Started** : [`docs/guides/01-getting-started.md`](docs/guides/01-getting-started.md)
-     - **Architecture** : [`docs/architecture/01-main-architecture.md`](docs/architecture/01-main-architecture.md)
-     - **Changelog** : [`docs/project/01-changelog.md`](docs/project/01-changelog.md)
+     - **Getting Started** : `docs/guides/01-getting-started.md`
+     - **Architecture** : `docs/architecture/01-main-architecture.md`
+     - **Changelog** : `docs/project/01-changelog.md`
      ```
 
 2. **Ajouter une section "Organisation du Projet"** 🟡

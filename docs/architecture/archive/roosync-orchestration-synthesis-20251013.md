@@ -260,7 +260,7 @@ graph TB
 
 #### 📄 Rapport Détaillé
 
-**Document complet** : [`docs/testing/roosync-test-report-20251013-213052.md`](../testing/roosync-test-report-20251013-213052.md)
+**Document complet** : [`docs/testing/roosync-test-report-20251013-213052.md`](../../dev/testing/archive/roosync-test-report-20251013-213052.md)
 
 **Contenu** :
 - 352 lignes de documentation technique
@@ -692,9 +692,9 @@ gantt
 | Document | Chemin | Description |
 |----------|--------|-------------|
 | **README Principal** | [`RooSync/README.md`](../../RooSync/README.md) | Vue d'ensemble projet |
-| **CHANGELOG** | [`RooSync/CHANGELOG.md`](../../RooSync/CHANGELOG.md) | Historique versions |
-| **Architecture** | [`RooSync/docs/architecture/`](../../RooSync/docs/architecture/) | Documents design |
-| **System Overview** | [`RooSync/docs/SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) | Documentation système (1,400 lignes) |
+| **CHANGELOG** | [`RooSync/CHANGELOG.md`](../../../mcps/external/git/server/CHANGELOG.md) | Historique versions |
+| **Architecture** | `../../RooSync/docs/architecture/` | Documents design |
+| **System Overview** | `RooSync/docs/SYSTEM-OVERVIEW.md` | Documentation système (1,400 lignes) |
 
 #### Documents d'Intégration
 
@@ -709,7 +709,7 @@ gantt
 
 | Document | Chemin | Date | Description |
 |----------|--------|------|-------------|
-| **Rapport Test Scénario 1** | [`docs/testing/roosync-test-report-20251013-213052.md`](../testing/roosync-test-report-20251013-213052.md) | 2025-10-13 | Test détection divergence |
+| **Rapport Test Scénario 1** | [`docs/testing/roosync-test-report-20251013-213052.md`](../../dev/testing/archive/roosync-test-report-20251013-213052.md) | 2025-10-13 | Test détection divergence |
 
 ### ⚙️ Fichiers de Configuration
 
@@ -776,8 +776,8 @@ gantt
 
 Pour toute question concernant cette orchestration :
 
-1. **Documentation** : Consulter [`RooSync/docs/`](../../RooSync/docs/)
-2. **Tests** : Examiner [`docs/testing/`](../testing/)
+1. **Documentation** : Consulter `../../RooSync/docs/`
+2. **Tests** : Examiner `../testing/`
 3. **Issues** : Créer issue GitHub avec label `roosync`
 4. **Logs** : Vérifier `${SHARED_STATE_PATH}/sync-report.md`
 

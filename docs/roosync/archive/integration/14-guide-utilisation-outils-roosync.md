@@ -768,12 +768,12 @@ roosync_list_diffs { filterByType: "all" }  # Trop large si inutile
 - Résultats tests : [`docs/integration/13-resultats-tests-e2e.md`](13-resultats-tests-e2e.md)
 
 **Code Source :**
-- Service : [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)
-- PowerShell Executor : [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)
+- Service : `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
+- PowerShell Executor : `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)
 
 **Tests :**
-- Tests unitaires : [`mcps/internal/servers/roo-state-manager/tests/unit/services/`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/)
-- Tests E2E : [`mcps/internal/servers/roo-state-manager/tests/e2e/`](../../mcps/internal/servers/roo-state-manager/tests/e2e/)
+- Tests unitaires : `../../mcps/internal/servers/roo-state-manager/tests/unit/services/`
+- Tests E2E : `../../mcps/internal/servers/roo-state-manager/tests/e2e/`
 
 ---
 

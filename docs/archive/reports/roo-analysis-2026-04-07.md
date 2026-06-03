@@ -153,9 +153,9 @@
 **Références clés :**
 - `06-context-window.md:49` : `**Source :** `.claude/rules/context-window.md` (auto-load Claude)`
 - `10-ci-guardrails.md:112` : `**Reference complete :** `.claude/rules/ci-guardrails.md``
-- `11-incident-history.md:43` : `Documentation complète : [`.claude/rules/tool-availability.md`](../../.claude/rules/tool-availability.md)`
-- `16-no-tools-warnings.md:92` : `**Référence :** [`.claude/rules/sddd-grounding.md`](../../.claude/rules/sddd-grounding.md)`
-- `17-friction-protocol.md:104` : `[`.claude/rules/sddd-conversational-grounding.md`](../../.claude/rules/sddd-conversational-grounding.md)`
+- `11-incident-history.md:43` : `Documentation complète : [`.claude/rules/tool-availability.md`](../../../.claude/rules/tool-availability.md)`
+- `16-no-tools-warnings.md:92` : `**Référence :** [`.claude/rules/sddd-grounding.md`](../../../.claude/rules/sddd-grounding.md)`
+- `17-friction-protocol.md:104` : `[`.claude/rules/sddd-conversational-grounding.md`](../../harness/reference/sddd-conversational-grounding.md)`
 - `21-skepticism-protocol.md:146` : `**Reference complete :** `.claude/rules/skepticism-protocol.md``
 
 ### 4.2 Références .roo dans .claude/rules/

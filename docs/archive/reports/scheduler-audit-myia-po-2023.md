@@ -24,7 +24,7 @@
 
 ### 1.1 Configuration Scheduler
 
-**Fichier:** [`.roo/schedules.json`](.roo/schedules.json:1)
+**Fichier:** `.roo/schedules.json` (`.roo/schedules.json`)
 
 ```json
 {
@@ -47,7 +47,7 @@
 
 ### 1.2 Workflow Scheduler
 
-**Fichier:** [`.roo/scheduler-workflow-executor.md`](.roo/scheduler-workflow-executor.md:1)
+**Fichier:** [`.roo/scheduler-workflow-executor.md`](../../../.roo/scheduler-workflow-executor.md)
 
 **Workflow en 3 étapes:**
 

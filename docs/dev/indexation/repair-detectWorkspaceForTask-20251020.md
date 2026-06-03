@@ -13,10 +13,10 @@
 ## 🎯 Problème Identifié
 
 ### Root Cause
-**Incohérence architecturale** dans [`roo-storage-detector.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts:1885-1943) :
+**Incohérence architecturale** dans `roo-storage-detector.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`) :
 
-- ✅ [`analyzeConversation()`](../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts:379) utilise **WorkspaceDetector moderne** (stratégie dual)
-- ❌ [`detectWorkspaceForTask()`](../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts:1885) utilise **regex manuelle obsolète**
+- ✅ `analyzeConversation()` (`../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`) utilise **WorkspaceDetector moderne** (stratégie dual)
+- ❌ `detectWorkspaceForTask()` (`../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`) utilise **regex manuelle obsolète**
 
 ### Impact Mesuré
 ```
@@ -116,26 +116,26 @@ public static async detectWorkspaceForTask(taskPath: string): Promise<string> {
 **Query** : `"WorkspaceDetector dual strategy metadata environment_details confidence"`
 
 **Découvertes** :
-- [`workspace-detector.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/workspace-detector.ts:15) - Interface `WorkspaceDetectionResult`
+- `workspace-detector.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/workspace-detector.ts`) - Interface `WorkspaceDetectionResult`
 - Stratégie dual confirmée : priorité metadata (0.95) → fallback environment_details (0.85)
 - Cache intelligent avec `Map<string, WorkspaceDetectionResult>`
-- Tests intégration : [`test-workspace-integration-finale.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-integration-finale.js:25)
+- Tests intégration : `test-workspace-integration-finale.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-integration-finale.js`)
 
 ### Recherche 2 : Documentation Système
 **Query** : `"workspace detection implementation analysis report SDDD"`
 
 **Découvertes** :
-- [`RAPPORT-MISSION-WORKSPACE-DETECTION-SDDD-20251003.md`](../../mcps/internal/servers/roo-state-manager/docs/RAPPORT-MISSION-WORKSPACE-DETECTION-SDDD-20251003.md:1) - Mission validation 100% succès
+- `RAPPORT-MISSION-WORKSPACE-DETECTION-SDDD-20251003.md` - Mission validation 100% succès
 - Performance : <2ms moyenne sur 10 fixtures
 - Taux succès : 100% (10/10 fixtures testées)
-- [`workspace-detection-implementation.md`](../../mcps/internal/servers/roo-state-manager/docs/workspace-detection-implementation.md:1) - Documentation architecture
+- `workspace-detection-implementation.md` - Documentation architecture
 
 ### Recherche 3 : Tests Existants
 **Query** : `"WorkspaceDetector test unit integration validation"`
 
 **Découvertes** :
-- [`test-workspace-detector-metadata.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-metadata.js:18) - Tests stratégie primaire
-- [`test-workspace-detector-fallback.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-fallback.js:18) - Tests stratégie fallback
+- `test-workspace-detector-metadata.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-metadata.js`) - Tests stratégie primaire
+- `test-workspace-detector-fallback.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-fallback.js`) - Tests stratégie fallback
 - Configuration tests : `enableCache: false, validateExistence: false, normalizePaths: true`
 - Validation : 100% succès sur fixtures contrôlées
 
@@ -228,7 +228,7 @@ node tests/manual/test-workspace-detector-fallback.js
 ## 🔗 Fichiers Modifiés
 
 ### Code Principal
-- **Modifié** : [`mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts:1882)
+- **Modifié** : `mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`)
   - Lignes 1882-1963 : Remplacement complet fonction `detectWorkspaceForTask()`
   - Suppression méthodes obsolètes : `normalizeWorkspacePath()`, `fileExists()`
   - Import `WorkspaceDetector` déjà présent (ligne 31)
@@ -237,9 +237,9 @@ node tests/manual/test-workspace-detector-fallback.js
 - **Créé** : `docs/indexation/repair-detectWorkspaceForTask-20251020.md` (ce fichier)
 
 ### Tests Existants (Réutilisables)
-- [`tests/manual/test-workspace-detector-metadata.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-metadata.js:1)
-- [`tests/manual/test-workspace-detector-fallback.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-fallback.js:1)
-- [`tests/manual/test-workspace-integration-finale.js`](../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-integration-finale.js:1)
+- `tests/manual/test-workspace-detector-metadata.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-metadata.js`)
+- `tests/manual/test-workspace-detector-fallback.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-detector-fallback.js`)
+- `tests/manual/test-workspace-integration-finale.js` (`../../mcps/internal/servers/roo-state-manager/tests/manual/test-workspace-integration-finale.js`)
 
 ---
 

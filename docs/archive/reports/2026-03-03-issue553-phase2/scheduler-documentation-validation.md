@@ -47,8 +47,8 @@ Validation de la cohérence entre la documentation existante et les nouveaux doc
 
 ```markdown
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
-  - Voir : [Audit Scheduler](docs/architecture/scheduler-audit-myia-po-2026.md)
-  - Voir : [Optimisations](docs/architecture/scheduler-optimization-proposals.md)
+  - Voir : [Audit Scheduler](scheduler-audit-myia-po-2026.md)
+  - Voir : [Optimisations](../../../architecture/scheduler-optimization-proposals.md)
 ```
 
 ### 2. CLAUDE.md
@@ -76,8 +76,8 @@ scheduler
 Le scheduler Claude Code est en cours de déploiement pilote sur myia-po-2026.
 
 **Documentation :**
-- [Design Complet](docs/architecture/scheduler-claude-code-design.md)
-- [Guide Déploiement Pilote](docs/architecture/scheduler-pilot-deployment-guide.md)
+- [Design Complet](../scheduler-claude-code-design.md)
+- [Guide Déploiement Pilote](../../../architecture/scheduler-pilot-deployment-guide.md)
 
 **Statut :** Phase pilote en cours (voir #487)
 ```
@@ -105,9 +105,9 @@ Le scheduler Claude Code est en cours de déploiement pilote sur myia-po-2026.
 
 **Documentation complémentaire :**
 - [Audit Scheduler Roo](scheduler-audit-myia-po-2026.md)
-- [Optimisations Scheduler Roo](scheduler-optimization-proposals.md)
-- [Design Complet](scheduler-claude-code-design.md)
-- [Guide Déploiement Pilote](scheduler-pilot-deployment-guide.md)
+- [Optimisations Scheduler Roo](../../../architecture/scheduler-optimization-proposals.md)
+- [Design Complet](../scheduler-claude-code-design.md)
+- [Guide Déploiement Pilote](../../../architecture/scheduler-pilot-deployment-guide.md)
 ```
 
 ---
@@ -181,16 +181,16 @@ scheduler-pilot-deployment-guide.md
 Le scheduler Roo exécute automatiquement des tâches de maintenance sur toutes les machines toutes les 3 heures.
 
 **Documentation :**
-- [Audit myia-po-2026](docs/architecture/scheduler-audit-myia-po-2026.md)
-- [Optimisations proposées](docs/architecture/scheduler-optimization-proposals.md)
+- [Audit myia-po-2026](scheduler-audit-myia-po-2026.md)
+- [Optimisations proposées](../../../architecture/scheduler-optimization-proposals.md)
 
 ### Scheduler Claude Code (En Déploiement Pilote)
 
 Le scheduler Claude Code est en cours de déploiement pilote sur myia-po-2026.
 
 **Documentation :**
-- [Design complet](docs/architecture/scheduler-claude-code-design.md)
-- [Guide déploiement pilote](docs/architecture/scheduler-pilot-deployment-guide.md)
+- [Design complet](../scheduler-claude-code-design.md)
+- [Guide déploiement pilote](../../../architecture/scheduler-pilot-deployment-guide.md)
 
 **Statut :** Phase pilote en cours (voir [#487](https://github.com/jsboige/roo-extensions/issues/487))
 ```
@@ -210,8 +210,8 @@ Le scheduler Claude Code est en cours de déploiement pilote sur myia-po-2026.
 - Technologie : Ralph Wiggum + Git Worktrees + RooSync
 
 **Documentation :**
-- [Design Complet](docs/architecture/scheduler-claude-code-design.md)
-- [Guide Déploiement Pilote](docs/architecture/scheduler-pilot-deployment-guide.md)
+- [Design Complet](../scheduler-claude-code-design.md)
+- [Guide Déploiement Pilote](../../../architecture/scheduler-pilot-deployment-guide.md)
 
 **Statut :** Phase pilote en cours (voir #487)
 
@@ -238,9 +238,9 @@ Le scheduler Claude Code est en cours de déploiement pilote sur myia-po-2026.
 
 **Documentation complémentaire :**
 - [Audit Scheduler Roo](scheduler-audit-myia-po-2026.md) - Analyse de l'état actuel
-- [Optimisations Scheduler Roo](scheduler-optimization-proposals.md) - Propositions d'amélioration
-- [Design Complet](scheduler-claude-code-design.md) - Architecture détaillée
-- [Guide Déploiement Pilote](scheduler-pilot-deployment-guide.md) - Instructions pas-à-pas
+- [Optimisations Scheduler Roo](../../../architecture/scheduler-optimization-proposals.md) - Propositions d'amélioration
+- [Design Complet](../scheduler-claude-code-design.md) - Architecture détaillée
+- [Guide Déploiement Pilote](../../../architecture/scheduler-pilot-deployment-guide.md) - Instructions pas-à-pas
 ```
 
 ---

@@ -373,8 +373,8 @@ Sure, I'll take care of deployment. Focus on docs.
 
 ## 📖 Related Documentation
 
-- [CLAUDE.md](../CLAUDE.md) - Workspace context
-- [MCP_SETUP.md](./MCP_SETUP.md) - MCP configuration
+- [CLAUDE.md](../hermes/templates/.claude/CLAUDE.md) - Workspace context
+- `MCP_SETUP.md` - MCP configuration
 
 ---
 

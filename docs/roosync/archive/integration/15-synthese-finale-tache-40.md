@@ -61,7 +61,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
 
 **Livrables :**
 1. **PowerShellExecutor** (329 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)
+   - Fichier : `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)
    - Wrapper Node.js → PowerShell avec `child_process.spawn`
    - Gestion timeout configurable (défaut 30s)
    - Parsing JSON output avec nettoyage automatique
@@ -70,7 +70,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
    - Support chemins avec espaces et caractères spéciaux
 
 2. **RooSyncService Extended** (650 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)
+   - Fichier : `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
    - **Nouvelles méthodes :**
      - `executeDecision()` : Approbation auto roadmap + invoke `Apply-Decisions`
      - `createRollbackPoint()` : Backup manuel dans `.rollback/`
@@ -80,7 +80,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
    - Gestion erreurs robuste avec codes d'erreur
 
 3. **Tests Unitaires PowerShellExecutor** (319 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts)
+   - Fichier : `mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`)
    - 20+ tests couvrant tous les scénarios
    - Tests timeout, erreurs, JSON parsing
    - Tests configuration personnalisée et singleton
@@ -95,7 +95,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
 
 **Livrables :**
 1. **Tests E2E Workflow** (300 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts)
+   - Fichier : `mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`)
    - 10 tests workflow detect → approve → apply
    - 4 tests rollback apply → restore
    - Tests dashboard multi-machines
@@ -103,7 +103,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
    - Tests dryRun et application réelle (skip par défaut)
 
 2. **Tests E2E Error Handling** (338 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts)
+   - Fichier : `mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts`)
    - 20+ tests robustesse et gestion erreurs
    - Tests décisions invalides (ID null, spéciaux)
    - Tests configuration manquante (SHARED_STATE_PATH)
@@ -112,7 +112,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
    - Tests cache, singleton, validation, permissions
 
 3. **Script Exécution E2E** (102 lignes)
-   - Fichier : [`mcps/internal/servers/roo-state-manager/tests/e2e/run-e2e-tests.ps1`](../../mcps/internal/servers/roo-state-manager/tests/e2e/run-e2e-tests.ps1)
+   - Fichier : [`mcps/internal/servers/roo-state-manager/tests/e2e/run-e2e-tests.ps1`](../../../../tests/e2e/run-e2e-tests.ps1)
    - Options : `-Workflow`, `-ErrorHandling`, `-All`, `-Verbose`
    - Build automatique + Jest avec timeout 2min
    - Reporting détaillé
@@ -142,7 +142,7 @@ La Tâche 40 a **remplacé les stubs PowerShell par une intégration réelle** e
    - Annexes : codes erreur, limites, ressources
 
 2. **README Mis à Jour**
-   - Fichier : [`mcps/internal/servers/roo-state-manager/README.md`](../../mcps/internal/servers/roo-state-manager/README.md)
+   - Fichier : [`mcps/internal/servers/roo-state-manager/README.md`](../../../mcp/roo-state-manager/README.md)
    - Section RooSync enrichie avec intégration PowerShell
    - Détails composants : PowerShellExecutor, RooSyncService
    - Quick Start tests E2E
@@ -205,7 +205,7 @@ roo-state-manager/
 
 ### Tests Unitaires (319 lignes)
 
-**Fichier :** [`tests/unit/services/powershell-executor.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts)
+**Fichier :** `tests/unit/services/powershell-executor.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`)
 
 **Couverture :**
 - ✅ Exécution scripts PowerShell
@@ -219,7 +219,7 @@ roo-state-manager/
 
 ### Tests E2E (638 lignes)
 
-**Workflow :** [`tests/e2e/roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts) (300 lignes)
+**Workflow :** `tests/e2e/roosync-workflow.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`) (300 lignes)
 - ✅ Obtenir statut synchronisation
 - ✅ Lister décisions pending
 - ✅ Créer rollback point
@@ -229,7 +229,7 @@ roo-state-manager/
 - ✅ Intégration dashboard
 - ✅ Performance (<5s décisions, <3s dashboard)
 
-**Error Handling :** [`tests/e2e/roosync-error-handling.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts) (338 lignes)
+**Error Handling :** `tests/e2e/roosync-error-handling.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts`) (338 lignes)
 - ✅ Décisions invalides (ID inexistant, null, caractères spéciaux)
 - ✅ Configuration manquante (SHARED_STATE_PATH)
 - ✅ PowerShell failures (script inexistant, indisponible)

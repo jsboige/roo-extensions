@@ -34,7 +34,7 @@ Transformer `roo-state-manager` en **tour de contrôle unifiée** pour :
 - Gérer les décisions de synchronisation
 - Déclencher les opérations de synchronisation
 
-**Référence :** Cette vision est déjà documentée dans [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md:857-915)
+**Référence :** Cette vision est déjà documentée dans `docs/design/02-sync-manager-architecture.md`
 
 ### 1.3 Avantages de l'Intégration
 
@@ -66,7 +66,7 @@ Transformer `roo-state-manager` en **tour de contrôle unifiée** pour :
 
 ### 2.2 Fichier .env Mis à Jour
 
-**Nouveau contenu de [`mcps/internal/servers/roo-state-manager/.env`](../../mcps/internal/servers/roo-state-manager/.env) :**
+**Nouveau contenu de `mcps/internal/servers/roo-state-manager/.env` (`../../mcps/internal/servers/roo-state-manager/.env`) :**
 
 ```env
 # === Configuration Qdrant (base de données vectorielle) ===
@@ -87,7 +87,7 @@ ROOSYNC_SCRIPT_PATH=D:\roo-extensions\RooSync\src\sync-manager.ps1
 
 ### 2.3 Fichier .env.example Mis à Jour
 
-**Nouveau contenu de [`mcps/internal/servers/roo-state-manager/.env.example`](../../mcps/internal/servers/roo-state-manager/.env.example) :**
+**Nouveau contenu de [`mcps/internal/servers/roo-state-manager/.env.example`](../../../../.env.example) :**
 
 ```env
 # === Configuration Qdrant (base de données vectorielle) ===
@@ -119,7 +119,7 @@ ROOSYNC_SCRIPT_PATH=D:\roo-extensions\RooSync\src\sync-manager.ps1
 
 ### 2.4 Validation des Variables
 
-**Ajout dans [`src/index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts:15-29) :**
+**Ajout dans `src/index.ts` (`../../mcps/internal/servers/roo-state-manager/src/index.ts`) :**
 
 ```typescript
 const REQUIRED_ENV_VARS = [
@@ -1409,7 +1409,7 @@ function validateSharedPath(sharedPath: string): void {
 
 ## 12. Référence : Vision Existante
 
-**Document Source :** [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md:857-915)
+**Document Source :** `docs/design/02-sync-manager-architecture.md`
 
 **Outils MCP Envisagés dans la Vision Originale :**
 

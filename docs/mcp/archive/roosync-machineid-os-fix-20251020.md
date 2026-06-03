@@ -11,7 +11,7 @@
 - Message de suivi à myia-po-2024 bloqué (expéditeur serait faux)
 - Communications inter-agents non fiables
 
-**Référence diagnostic** : [`sync-config-architecture-bug-20251020.md`](../roosync/sync-config-architecture-bug-20251020.md)
+**Référence diagnostic** : `sync-config-architecture-bug-20251020.md`
 
 ---
 
@@ -69,28 +69,28 @@ function getLocalMachineId(): string {
 
 ## 📝 Fichiers Modifiés
 
-### 1. [`send_message.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/send_message.ts)
+### 1. `send_message.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/send_message.ts`)
 
 **Modifications** :
 - ✅ Ligne 13 : Ajout import `os`
 - ✅ Lignes 40-65 : Remplacement fonction `getLocalMachineId()`
 - ✅ Ligne 80 : Appel sans paramètre `getLocalMachineId()`
 
-### 2. [`amend_message.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/amend_message.ts)
+### 2. `amend_message.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/amend_message.ts`)
 
 **Modifications** :
 - ✅ Ligne 13 : Ajout import `os`
 - ✅ Lignes 28-53 : Remplacement fonction `getLocalMachineId()`
 - ✅ Ligne 64 : Appel sans paramètre `getLocalMachineId()`
 
-### 3. [`read_inbox.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/read_inbox.ts)
+### 3. `read_inbox.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/read_inbox.ts`)
 
 **Modifications** :
 - ✅ Ligne 13 : Ajout import `os`
 - ✅ Lignes 25-50 : Remplacement fonction `getLocalMachineId()`
 - ✅ Ligne 100 : Appel sans paramètre `getLocalMachineId()`
 
-### 4. [`amend_message.test.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/__tests__/amend_message.test.ts)
+### 4. `amend_message.test.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/__tests__/amend_message.test.ts`)
 
 **Modifications** :
 - ✅ Lignes 41-43 : Suppression création `sync-config.json` dans tests (plus nécessaire)
@@ -102,7 +102,7 @@ function getLocalMachineId(): string {
 
 ### Test 1 : Hostname Normalisé
 
-**Script** : [`test-hostname-normalized.ps1`](../../mcps/internal/servers/roo-state-manager/scripts/test-hostname-normalized.ps1) (nouveau)
+**Script** : `test-hostname-normalized.ps1` (`../../mcps/internal/servers/roo-state-manager/scripts/test-hostname-normalized.ps1`) (nouveau)
 
 **Résultat** :
 ```
@@ -253,13 +253,13 @@ roosync_send_message({
 
 ### Documents Liés
 
-- **Diagnostic bug** : [`sync-config-architecture-bug-20251020.md`](../roosync/sync-config-architecture-bug-20251020.md)
+- **Diagnostic bug** : `sync-config-architecture-bug-20251020.md`
 - **Architecture RooSync** : `mcps/internal/servers/roo-state-manager/docs/` (TODO: lier doc architecture)
 - **Tests messaging** : `mcps/internal/servers/roo-state-manager/src/tools/roosync/__tests__/`
 
 ### Scripts Utiles
 
-- **Test hostname** : [`scripts/test-hostname-normalized.ps1`](../../mcps/internal/servers/roo-state-manager/scripts/test-hostname-normalized.ps1)
+- **Test hostname** : `scripts/test-hostname-normalized.ps1` (`../../mcps/internal/servers/roo-state-manager/scripts/test-hostname-normalized.ps1`)
 - **Build MCP** : `cd mcps/internal/servers/roo-state-manager && npm run build`
 - **Tests unitaires** : `cd mcps/internal/servers/roo-state-manager && npm test`
 

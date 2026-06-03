@@ -57,9 +57,9 @@ Ce guide documente l'intégration PowerShell dans le projet RooSync MCP, permett
 
 ### Composants Clés
 
-1. **[`PowerShellExecutor`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)** : Wrapper Node.js pour exécution asynchrone
+1. **`PowerShellExecutor` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)** : Wrapper Node.js pour exécution asynchrone
 2. **[`child_process.spawn`](https://nodejs.org/api/child_process.html)** : Primitive Node.js pour spawning processus
-3. **Scripts RooSync** : Scripts PowerShell métier dans [`RooSync/`](../../RooSync/)
+3. **Scripts RooSync** : Scripts PowerShell métier dans `../../RooSync/`
 4. **Parsing JSON** : Extraction données depuis stdout mixte
 
 ---
@@ -68,7 +68,7 @@ Ce guide documente l'intégration PowerShell dans le projet RooSync MCP, permett
 
 ### Localisation
 
-**Fichier** : [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)  
+**Fichier** : `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)  
 **Lignes** : 329 lignes (Tâche 40 - Phase 8)  
 **Langage** : TypeScript  
 
@@ -1120,7 +1120,7 @@ console.log('User:', data.metadata.user);
 
 ### Tests Unitaires PowerShellExecutor
 
-**Localisation** : [`mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts)
+**Localisation** : `mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`)
 
 **Framework** : Jest  
 **Lignes** : 319 lignes  
@@ -1262,7 +1262,7 @@ npm test -- powershell-executor.test.ts
 
 ### Tests E2E (End-to-End)
 
-**Localisation** : [`mcps/internal/servers/roo-state-manager/tests/e2e/`](../../mcps/internal/servers/roo-state-manager/tests/e2e/)
+**Localisation** : `../../mcps/internal/servers/roo-state-manager/tests/e2e/`
 
 #### Test Workflow RooSync
 
@@ -1822,15 +1822,15 @@ console.log(`${result.executionTime}ms`);
 ### Documentation Interne
 
 **Code Source** :
-- [`PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) - Wrapper Node.js principal (329 lignes)
-- [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) - Utilisation dans service métier
-- [`apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) - Outil MCP Apply Decision
-- [`rollback-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) - Outil MCP Rollback
+- `PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) - Wrapper Node.js principal (329 lignes)
+- `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) - Utilisation dans service métier
+- `apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) - Outil MCP Apply Decision
+- `rollback-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) - Outil MCP Rollback
 
 **Tests** :
-- [`powershell-executor.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts) - Tests unitaires (319 lignes)
-- [`roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts) - Tests E2E workflow (300 lignes)
-- [`roosync-error-handling.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts) - Tests E2E erreurs (338 lignes)
+- `powershell-executor.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`) - Tests unitaires (319 lignes)
+- `roosync-workflow.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`) - Tests E2E workflow (300 lignes)
+- `roosync-error-handling.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts`) - Tests E2E erreurs (338 lignes)
 
 **Documentation** :
 - [Tâche 40 - Synthèse Finale](./15-synthese-finale-tache-40.md) - Contexte développement PowerShellExecutor
@@ -1843,9 +1843,9 @@ console.log(`${result.executionTime}ms`);
 ### Scripts PowerShell RooSync
 
 **RooSync Scripts** :
-- [`src/sync-manager.ps1`](../../RooSync/src/sync-manager.ps1) - Script principal RooSync
-- [`modules/Actions.psm1`](../../RooSync/modules/Actions.psm1) - Module actions (Apply-Decisions, Create-RollbackPoint, etc.)
-- [`modules/Configuration.psm1`](../../RooSync/modules/Configuration.psm1) - Gestion configuration
+- `src/sync-manager.ps1` (`../../RooSync/src/sync-manager.ps1`) - Script principal RooSync
+- `modules/Actions.psm1` (`../../RooSync/modules/Actions.psm1`) - Module actions (Apply-Decisions, Create-RollbackPoint, etc.)
+- [`modules/Configuration.psm1`](../../../../modules/Configuration.psm1) - Gestion configuration
 .psm1`](../../RooSync/modules/Logging.psm1) - Gestion logs
 
 ### Documentation Externe
@@ -1870,7 +1870,7 @@ console.log(`${result.executionTime}ms`);
 
 **Architecture Services** :
 - [Tâche 34 - Services RooSync](./06-services-roosync.md) - Architecture services RooSync
-- [Tâche 35 - Outils MCP](./07-outils-mcp-roosync.md) - Implémentation outils MCP
+- Tâche 35 - Outils MCP - Implémentation outils MCP
 
 **Tests et Validation** :
 - [Tâche 40 - Tests E2E](./13-resultats-tests-e2e.md) - Résultats validation intégration
@@ -1885,7 +1885,7 @@ console.log(`${result.executionTime}ms`);
 
 **Contact et Support** :
 - **Documentation** : Voir [`docs/integration/`](../integration/) pour guides complets
-- **Code Source** : [`mcps/internal/servers/roo-state-manager/`](../../mcps/internal/servers/roo-state-manager/)
+- **Code Source** : `../../mcps/internal/servers/roo-state-manager/`
 - **Tests** : Lancer `npm test` dans roo-state-manager pour validation
 
 ---

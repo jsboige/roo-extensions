@@ -19,20 +19,20 @@
 
 | Fichier | Usage |
 |---------|-------|
-| [`../roosync/GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md) | Guide technique complet |
-| [`../roosync/PROTOCOLE_SDDD.md`](../roosync/PROTOCOLE_SDDD.md) | Protocole SDDD v2.5.0 |
-| [`../roosync/QUICKSTART.md`](../roosync/QUICKSTART.md) | Guide rapide (30 lignes) |
-| [`../roosync/ERROR_CODES_REFERENCE.md`](../roosync/ERROR_CODES_REFERENCE.md) | Codes erreur T2.8 |
+| [`../roosync/GUIDE-TECHNIQUE-v2.3.md`](../../roosync/GUIDE-TECHNIQUE-v2.3.md) | Guide technique complet |
+| [`../roosync/PROTOCOLE_SDDD.md`](../../roosync/PROTOCOLE_SDDD.md) | Protocole SDDD v2.5.0 |
+| [`../roosync/QUICKSTART.md`](../../roosync/QUICKSTART.md) | Guide rapide (30 lignes) |
+| [`../roosync/ERROR_CODES_REFERENCE.md`](../../roosync/ERROR_CODES_REFERENCE.md) | Codes erreur T2.8 |
 | [`../../../CLAUDE.md`](../../../CLAUDE.md) | Guide Claude Code + IDs GitHub |
 
 ### Guides Opérationnels
 
 | Fichier | Usage |
 |---------|-------|
-| [`../roosync/guides/ONBOARDING_AGENT.md`](../roosync/guides/ONBOARDING_AGENT.md) | Guide nouvel agent |
-| [`../roosync/guides/TROUBLESHOOTING.md`](../roosync/guides/TROUBLESHOOTING.md) | FAQ et problèmes |
-| [`../roosync/guides/CHECKLISTS.md`](../roosync/guides/CHECKLISTS.md) | Listes vérification |
-| [`../roosync/guides/GLOSSAIRE.md`](../roosync/guides/GLOSSAIRE.md) | Termes RooSync |
+| [`../roosync/guides/ONBOARDING_AGENT.md`](../../roosync/guides/ONBOARDING_AGENT.md) | Guide nouvel agent |
+| [`../roosync/guides/TROUBLESHOOTING.md`](../../roosync/guides/TROUBLESHOOTING.md) | FAQ et problèmes |
+| [`../roosync/guides/CHECKLISTS.md`](../../roosync/guides/CHECKLISTS.md) | Listes vérification |
+| [`../roosync/guides/GLOSSAIRE.md`](../../roosync/guides/GLOSSAIRE.md) | Termes RooSync |
 
 ---
 
@@ -52,10 +52,10 @@
 
 - **Bugs** → `BUGS_TRACKING.md`
 - **Dashboard** → `$ROOSYNC_SHARED_PATH/DASHBOARD.md` (nouveau format hiérarchique)
-- **Guide rapide** → [`QUICKSTART.md`](../roosync/QUICKSTART.md)
+- **Guide rapide** → [`QUICKSTART.md`](../../roosync/QUICKSTART.md)
 - **Archives** → `Archives/` (80+ rapports)
-- **Technique** → [`GUIDE-TECHNIQUE-v2.3.md`](../roosync/GUIDE-TECHNIQUE-v2.3.md)
-- **Consolidation Post-Harmonisation** → [`Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md`](Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md)
+- **Technique** → [`GUIDE-TECHNIQUE-v2.3.md`](../../roosync/GUIDE-TECHNIQUE-v2.3.md)
+- **Consolidation Post-Harmonisation** → `Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md`
 
 ---
 

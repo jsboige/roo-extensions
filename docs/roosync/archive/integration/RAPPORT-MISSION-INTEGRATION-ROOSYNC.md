@@ -41,23 +41,23 @@
 ### 1.2 Documents de Référence Identifiés
 
 **Documentation Principale RooSync :**
-- [`RooSync/docs/SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) ⭐ **2000+ lignes, production-ready**
-- [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md) ⭐ **Vision MCP intégration**
-- [`RooSync/README.md`](../../RooSync/README.md)
+- `RooSync/docs/SYSTEM-OVERVIEW.md` ⭐ **2000+ lignes, production-ready**
+- `docs/design/02-sync-manager-architecture.md` ⭐ **Vision MCP intégration**
+- [`RooSync/README.md`](../../README.md)
 
 **Documentation roo-state-manager :**
-- [`roo-code-customization/investigations/export-integration-analysis.md`](../../roo-code-customization/investigations/export-integration-analysis.md)
-- [`docs/configuration-mcp-roo.md`](../configuration-mcp-roo.md)
-- [`mcps/README.md`](../../mcps/README.md)
+- [`roo-code-customization/investigations/export-integration-analysis.md`](../../../../roo-code-customization/investigations/export-integration-analysis.md)
+- [`docs/configuration-mcp-roo.md`](../../../dev/archive-configuration/configuration-mcp-roo.md)
+- [`mcps/README.md`](../../README.md)
 
 **Patterns et Bonnes Pratiques :**
-- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
-- [`mcps/guide-configuration-securisee.md`](../../mcps/guide-configuration-securisee.md)
+- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
+- [`mcps/guide-configuration-securisee.md`](../../../../mcps/guide-configuration-securisee.md)
 
 ### 1.3 Insights Majeurs Découverts
 
 **🔍 Découverte 1 : Vision MCP Déjà Existante**
-- Le document [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md:857-915) contient déjà une **vision complète** de l'intégration MCP avec RooSync
+- Le document `docs/design/02-sync-manager-architecture.md` contient déjà une **vision complète** de l'intégration MCP avec RooSync
 - 3 outils MCP envisagés : `get_sync_status`, `get_pending_decisions`, `submit_decision`
 - Notre conception **étend et améliore** cette vision (8 outils vs 3)
 
@@ -215,7 +215,7 @@ ROOSYNC_SCRIPT_PATH=D:\roo-extensions\RooSync\src\sync-manager.ps1
 
 ### 3.3 Modifications du Code Existant
 
-**Fichier : [`src/index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts)**
+**Fichier : `src/index.ts` (`../../mcps/internal/servers/roo-state-manager/src/index.ts`)**
 
 | Ligne | Modification | Type |
 |-------|--------------|------|
@@ -224,7 +224,7 @@ ROOSYNC_SCRIPT_PATH=D:\roo-extensions\RooSync\src\sync-manager.ps1
 | 177-552 | Enregistrer 8 outils dans ListToolsRequestSchema | ➕ Ajout |
 | 554-707 | Ajouter 8 cases dans CallToolRequestSchema | ➕ Ajout |
 
-**Fichier : [`src/tools/index.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/index.ts)**
+**Fichier : `src/tools/index.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/index.ts`)**
 
 | Modification | Type |
 |--------------|------|
@@ -377,7 +377,7 @@ Apply → PowerShell → Sync → Report → Retour résultat
 - 🎯 **Document 03 : Score 0.78** (1er résultat !) ✅
 - 🎯 **Document 02 : Score 0.76** (2e résultat !) ✅
 - 🎯 **Document 01 : Score 0.66** (14e résultat) ✅
-- ✅ Vision originale [`02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md) : Score 0.67
+- ✅ Vision originale `02-sync-manager-architecture.md` : Score 0.67
 
 **Conclusion Validation :**
 - ✅ **Découvrabilité Excellente** : Nos 3 documents dans le top 15
@@ -450,23 +450,23 @@ Apply → PowerShell → Sync → Report → Retour résultat
 ### 7.2 Documents Stratégiques Découverts
 
 **🎯 Document Principal (Score 0.67) :**
-- [`demo-roo-code/05-projets-avances/integration-outils/README.md`](../../demo-roo-code/05-projets-avances/integration-outils/README.md)
+- [`demo-roo-code/05-projets-avances/integration-outils/README.md`](../../README.md)
 - **Contenu :** Architecture d'intégration MCP Controller
 - **Pertinence :** Pattern de référence pour intégrations
 
 **🎯 Documents Architecturaux (Scores 0.62-0.64) :**
-- [`roo-config/specifications/mcp-integrations-priority.md`](../../roo-config/specifications/mcp-integrations-priority.md)
+- [`roo-config/specifications/mcp-integrations-priority.md`](../../../../roo-config/specifications/mcp-integrations-priority.md)
   - Tier 1 : roo-state-manager (SYSTÉMATIQUE)
   - Tier 1 : quickfiles (PRIVILÉGIÉ)
   - Pattern d'utilisation dans sous-tâches
   
-- [`roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md`](../../roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md)
+- `roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md`
   - Architecture 2-niveaux comme référence
   - Scalabilité : Support charges importantes
   - Templates SDDD réutilisables
 
 **🎯 Document Intégration RooSync (Score 0.61) :**
-- [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md:853-915)
+- `docs/design/02-sync-manager-architecture.md`
   - Vision MCP tour de contrôle (déjà documentée)
   - 3 responsabilités futures du MCP
   - Architecture complète sync-manager
@@ -491,7 +491,7 @@ Apply → PowerShell → Sync → Report → Retour résultat
 
 ### 8.1 Vision Globale RooSync
 
-**De [`RooSync/docs/SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) :**
+**De `RooSync/docs/SYSTEM-OVERVIEW.md` :**
 
 **Mission RooSync :**
 > "Synchroniser automatiquement les configurations, MCPs, modes et profils entre environnements de développement tout en permettant une validation humaine des changements critiques."
@@ -877,7 +877,7 @@ L'intégration RooSync transforme `roo-state-manager` en **hub central de l'éco
 
 > **L'intégration RooSync dans roo-state-manager est une évolution naturelle et cohérente de l'architecture existante.** 
 >
-> En s'appuyant sur les patterns éprouvés (Architecture 2-niveaux, Singleton, Retry/Circuit Breaker) et en alignant parfaitement avec la vision documentée dans [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md), cette intégration apporte une **valeur stratégique immédiate** :
+> En s'appuyant sur les patterns éprouvés (Architecture 2-niveaux, Singleton, Retry/Circuit Breaker) et en alignant parfaitement avec la vision documentée dans `docs/design/02-sync-manager-architecture.md`, cette intégration apporte une **valeur stratégique immédiate** :
 >
 > 1. **Automatisation du workflow de synchronisation** via interface MCP
 > 2. **Centralisation de la gestion** (État + Configuration)
@@ -898,15 +898,15 @@ L'intégration RooSync transforme `roo-state-manager` en **hub central de l'éco
 ### 12.2 Références Stratégiques
 
 **Architecture Globale :**
-- [`RooSync/docs/SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) - Documentation complète RooSync
-- [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md) - Architecture sync-manager + vision MCP
+- `RooSync/docs/SYSTEM-OVERVIEW.md` - Documentation complète RooSync
+- `docs/design/02-sync-manager-architecture.md` - Architecture sync-manager + vision MCP
 
 **Patterns et Bonnes Pratiques :**
-- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
-- [`roo-config/specifications/mcp-integrations-priority.md`](../../roo-config/specifications/mcp-integrations-priority.md)
+- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
+- [`roo-config/specifications/mcp-integrations-priority.md`](../../../../roo-config/specifications/mcp-integrations-priority.md)
 
 **Rapports Techniques :**
-- [`roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md`](../../roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md)
+- `roo-config/reports/RAPPORT-FINAL-OPTIMISATION-MCP-SDDD-24092025.md`
 
 ### 12.3 Checklist de Validation SDDD
 

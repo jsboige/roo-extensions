@@ -23,9 +23,9 @@
 | **Tier 2 — Claude local** | `~/.claude/projects/<workspace-hash>/.skeletons/` | Sessions Claude Code locales (JSONL) | `enableClaudeTier: true` (opt-in) |
 | **Tier 3 — GDrive archives** | `.shared-state/task-archive/<machineId>/<taskId>.json.gz` | Tâches archivées cross-machine | `enableArchiveTier: true` (opt-in) |
 
-Implémentation : [`mcps/internal/servers/roo-state-manager/src/services/skeleton-cache.service.ts`](../../../mcps/internal/servers/roo-state-manager/src/services/skeleton-cache.service.ts) (517 lignes, singleton, `Map<string, ConversationSkeleton>` en mémoire avec validité 30 min).
+Implémentation : `mcps/internal/servers/roo-state-manager/src/services/skeleton-cache.service.ts` (`../../../mcps/internal/servers/roo-state-manager/src/services/skeleton-cache.service.ts`) (517 lignes, singleton, `Map<string, ConversationSkeleton>` en mémoire avec validité 30 min).
 
-Archivage GDrive : [`mcps/internal/servers/roo-state-manager/src/services/task-archiver/TaskArchiver.ts`](../../../mcps/internal/servers/roo-state-manager/src/services/task-archiver/TaskArchiver.ts) — écrit `.json.gz` au format v2 (messages complets, pas de troncation) lors de l'indexation Qdrant.
+Archivage GDrive : `mcps/internal/servers/roo-state-manager/src/services/task-archiver/TaskArchiver.ts` (`../../../mcps/internal/servers/roo-state-manager/src/services/task-archiver/TaskArchiver.ts`) — écrit `.json.gz` au format v2 (messages complets, pas de troncation) lors de l'indexation Qdrant.
 
 Index sémantique : Qdrant collection `roo_tasks_semantic_index` (~54.8M points, `qdrant.myia.io`) — vecteurs de chunks de messages, métadonnées indexées pour recherche par concept.
 

@@ -172,8 +172,8 @@ Pour chaque bug corrigé:
 ## 🔗 Liens Utiles
 
 - [Projet GitHub #67](https://github.com/users/jsboige/projects/67)
-- [GUIDE-TECHNIQUE-v2.3.md](../roosync/GUIDE-TECHNIQUE-v2.3.md)
-- [PROTOCOLE_SDDD.md](../roosync/PROTOCOLE_SDDD.md)
+- [GUIDE-TECHNIQUE-v2.3.md](../../../roosync/GUIDE-TECHNIQUE-v2.3.md)
+- [PROTOCOLE_SDDD.md](../../../roosync/PROTOCOLE_SDDD.md)
 
 ---
 

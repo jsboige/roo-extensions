@@ -517,9 +517,9 @@ try {
 ### 10.3 Documents Actifs
 
 Pour la documentation actuelle (v2.3+), consulter :
-- [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](../GUIDE-TECHNIQUE-v2.3.md)
-- [`CLAUDE.md`](../../../CLAUDE.md)
-- [`docs/INDEX.md`](../../INDEX.md)
+- [`docs/roosync/GUIDE-TECHNIQUE-v2.3.md`](../../GUIDE-TECHNIQUE-v2.3.md)
+- [`CLAUDE.md`](../../../hermes/templates/.claude/CLAUDE.md)
+- [`docs/INDEX.md`](../../../suivi/RooSync/INDEX.md)
 
 ---
 

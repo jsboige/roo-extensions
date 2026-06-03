@@ -460,7 +460,7 @@ describe("BaseCondensationProvider", () => {
 ## Related Decisions
 
 - [ADR-001: Registry Pattern](./001-registry-pattern-over-plugin-system.md)
-- [ADR-003: Backward Compatibility](./003-backward-compatibility-strategy.md)
+- ADR-003: Backward Compatibility
 
 ## References
 

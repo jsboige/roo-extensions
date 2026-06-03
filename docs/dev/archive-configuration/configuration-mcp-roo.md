@@ -123,9 +123,9 @@ Le serveur `roo-state-manager` sert de **gestionnaire central** pour :
 
 ## 📖 Références
 
-- **Documentation MCPs** : [mcps/README.md](../mcps/README.md)
-- **Scripts de gestion** : [scripts/mcp/README.md](../scripts/mcp/README.md)
-- **roo-state-manager** : [mcps/internal/servers/roo-state-manager/README.md](../mcps/internal/servers/roo-state-manager/README.md)
+- **Documentation MCPs** : [mcps/README.md](../encoding/README.md)
+- **Scripts de gestion** : [scripts/mcp/README.md](../encoding/README.md)
+- **roo-state-manager** : [mcps/internal/servers/roo-state-manager/README.md](../encoding/README.md)
 
 ## ⚠️ Important
 

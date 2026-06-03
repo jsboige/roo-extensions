@@ -4,14 +4,14 @@
 
 **Sévérité :** 🔴 CRITIQUE  
 **Impact :** Corruption du fichier de configuration MCP, blocage possible du système  
-**Cause racine identifiée :** ✅ Trouvée dans [`quickfiles-server/src/index.ts`](../../mcps/internal/servers/quickfiles-server/src/index.ts:813-839)  
+**Cause racine identifiée :** ✅ Trouvée dans `quickfiles-server/src/index.ts` (`../../mcps/internal/servers/quickfiles-server/src/index.ts`)  
 **Status :** 🔍 Diagnostiqué - Correctif à implémenter
 
 ---
 
 ## 🎯 Description du Bug
 
-Le fichier [`mcp_settings.json`](C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json) peut être **corrompu** lors de l'utilisation de l'outil `restart_mcp_servers` du serveur MCP Quickfiles, entraînant :
+Le fichier `mcp_settings.json` (`C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json`) peut être **corrompu** lors de l'utilisation de l'outil `restart_mcp_servers` du serveur MCP Quickfiles, entraînant :
 
 - Ajout de braces `}` en trop à la fin du fichier
 - Contenu JSON invalide
@@ -37,8 +37,8 @@ Le fichier `mcp_settings.json` actuel (examiné le 2025-10-13) est **valide** et
 
 Deux outils modifient `mcp_settings.json` :
 
-1. ✅ **[`roo-state-manager/manage-mcp-settings.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/manage-mcp-settings.ts)** - Code correct avec mécanisme de sécurité
-2. ❌ **[`quickfiles-server/index.ts`](../../mcps/internal/servers/quickfiles-server/src/index.ts:813-839)** - **CONTIENT LE BUG**
+1. ✅ **`roo-state-manager/manage-mcp-settings.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/manage-mcp-settings.ts`)** - Code correct avec mécanisme de sécurité
+2. ❌ **`quickfiles-server/index.ts` (`../../mcps/internal/servers/quickfiles-server/src/index.ts`)** - **CONTIENT LE BUG**
 
 ---
 
