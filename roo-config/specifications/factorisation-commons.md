@@ -68,7 +68,7 @@ La factorisation massive permet de :
 
 **Option A : Références Markdown** ❌
 - Format TypeScript Roo-Code : `customInstructions?: string` (STRING monolithique)
-- Liens Markdown [`fichier.md`](path) : Documentation humaine uniquement
+- Liens Markdown `fichier.md` : Documentation humaine uniquement
 - **Conclusion** : Pas d'inclusion automatique côté Roo-Code
 
 **Option B : Champs JSON Dédiés** ❌
@@ -195,7 +195,7 @@ customModes?: {
 
 ## 🔄 Script generate-modes.js
 
-**Fichier** : [`scripts/generate-modes.js`](../../scripts/generate-modes.js)
+**Fichier** : [`scripts/generate-modes.js`](../scripts/generate-modes.js)
 
 ### Configuration Modes
 
@@ -423,13 +423,13 @@ function generateAllModes() {
 
 ### Section 1 : Protocole SDDD (12/12 modes)
 
-**Localisation** : [`roo-config/modes/templates/commons/global-instructions.md`](../modes/templates/commons/global-instructions.md)
+**Localisation** : [`roo-config/modes/templates/commons/mode-instructions.md`](../modes/templates/commons/mode-instructions.md)
 
 **Contenu factorisé** (extrait) :
 ```markdown
 ## PROTOCOLE SDDD OBLIGATOIRE
 
-Référence complète : [`sddd-protocol-4-niveaux.md`](../../specifications/sddd-protocol-4-niveaux.md)
+Référence complète : [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
 
 ### Phase 1 : Grounding Initial
 1. **Recherche sémantique OBLIGATOIRE** : `codebase_search` AVANT toute exploration
@@ -448,13 +448,13 @@ Référence complète : [`sddd-protocol-4-niveaux.md`](../../specifications/sddd
 
 ### Section 2 : Mécaniques Escalade (10/12 modes)
 
-**Localisation** : [`roo-config/modes/templates/commons/global-instructions.md`](../modes/templates/commons/global-instructions.md)
+**Localisation** : [`roo-config/modes/templates/commons/mode-instructions.md`](../modes/templates/commons/mode-instructions.md)
 
 **Contenu factorisé** (extrait) :
 ```markdown
 ## MÉCANIQUES D'ESCALADE
 
-Référence complète : [`escalade-mechanisms-revised.md`](../../specifications/escalade-mechanisms-revised.md)
+Référence complète : [`escalade-mechanisms-revised.md`](escalade-mechanisms-revised.md)
 
 ### Seuils Universels
 - Contexte > 50k tokens → Escalade externe OBLIGATOIRE
@@ -471,13 +471,13 @@ Référence complète : [`escalade-mechanisms-revised.md`](../../specifications/
 
 ### Section 3 : Hiérarchie Numérotée (Modes orchestrateurs)
 
-**Localisation** : [`roo-config/modes/templates/commons/global-instructions.md`](../modes/templates/commons/global-instructions.md)
+**Localisation** : [`roo-config/modes/templates/commons/mode-instructions.md`](../modes/templates/commons/mode-instructions.md)
 
 **Contenu factorisé** (extrait) :
 ```markdown
 ## HIÉRARCHIE NUMÉROTÉE SYSTÉMATIQUE
 
-Référence complète : [`hierarchie-numerotee-subtasks.md`](../../specifications/hierarchie-numerotee-subtasks.md)
+Référence complète : [`hierarchie-numerotee-subtasks.md`](hierarchie-numerotee-subtasks.md)
 
 ### Format Standard
 - Tâche principale : X
@@ -500,13 +500,13 @@ Référence complète : [`hierarchie-numerotee-subtasks.md`](../../specification
 
 ### Section 4 : Intégrations MCP (12/12 modes)
 
-**Localisation** : [`roo-config/modes/templates/commons/global-instructions.md`](../modes/templates/commons/global-instructions.md)
+**Localisation** : [`roo-config/modes/templates/commons/mode-instructions.md`](../modes/templates/commons/mode-instructions.md)
 
 **Contenu factorisé** (extrait) :
 ```markdown
 ## INTÉGRATIONS MCP PRIORITAIRES
 
-Référence complète : [`mcp-integrations-priority.md`](../../specifications/mcp-integrations-priority.md)
+Référence complète : [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
 
 ### Tier 1 : Utilisation Systématique
 - **roo-state-manager** : Grounding conversationnel obligatoire
@@ -525,7 +525,7 @@ Référence complète : [`mcp-integrations-priority.md`](../../specifications/mc
 
 ## 🎨 Template Famille CODE (Exemple)
 
-**Fichier** : [`roo-config/modes/templates/commons/families/code-family.md`](../modes/templates/commons/families/code-family.md)
+**Fichier** : `roo-config/modes/templates/commons/families/code-family.md` (à créer)
 
 ```markdown
 # Template Famille CODE - Niveau {{LEVEL}}
@@ -594,7 +594,7 @@ Référence complète : [`mcp-integrations-priority.md`](../../specifications/mc
    ```
 
 2. **Développer script de base** :
-   - Créer [`scripts/generate-modes.js`](../../scripts/generate-modes.js)
+   - Créer [`scripts/generate-modes.js`](../scripts/generate-modes.js)
    - Implémenter chargement templates
    - Implémenter remplacement variables simples
 
@@ -625,7 +625,7 @@ Référence complète : [`mcp-integrations-priority.md`](../../specifications/mc
 1. **Extraire instructions communes** :
    - Analyser [`roo-config/modes/standard-modes.json`](../modes/standard-modes.json)
    - Identifier sections répétées 12/12 modes
-   - Créer [`global-instructions.md`](../modes/templates/commons/global-instructions.md) (~3k lignes)
+   - Créer [`mode-instructions.md`](../modes/templates/commons/mode-instructions.md) (~3k lignes)
 
 2. **Créer templates familles** (5 familles) :
    - CODE : 4 niveaux (Micro/Mini/Medium/Oracle)
@@ -892,9 +892,9 @@ const instructions = [
 
 1. **Identifier section** : Global / Famille / Mode
 2. **Modifier template approprié** :
-   - Global : [`commons/global-instructions.md`](../modes/templates/commons/global-instructions.md)
-   - Famille : [`commons/families/{family}-family.md`](../modes/templates/commons/families/)
-   - Mode : [`modes/{slug}-specific.md`](../modes/templates/modes/)
+   - Global : [`commons/mode-instructions.md`](../modes/templates/commons/mode-instructions.md)
+   - Famille : `commons/families/{family}-family.md` (à créer)
+   - Mode : `modes/{slug}-specific.md` (à créer)
 
 3. **Régénérer modes** :
    ```bash
@@ -927,7 +927,7 @@ const instructions = [
    ```
 
 2. **Créer instructions spécifiques** :
-   - Fichier : [`modes/code-expert-specific.md`](../modes/templates/modes/)
+   - Fichier : `modes/code-expert-specific.md` (à créer)
    - Contenu : <5% spécificités uniques
 
 3. **Régénérer et tester** :

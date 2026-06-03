@@ -699,8 +699,8 @@ Une nouvelle best practice doit satisfaire **au moins 2 des 3 critères** :
 
 ### Guides Pratiques
 
-- [Guide Création Scripts](../../docs/guides/script-creation-guide.md) (à créer si nécessaire)
-- [Guide Organisation Fichiers](../../docs/guides/file-organization-guide.md) (à créer si nécessaire)
+- Guide Création Scripts (à créer si nécessaire)
+- Guide Organisation Fichiers (à créer si nécessaire)
 
 ---
 

@@ -44,4 +44,4 @@ Pour déployer ces configurations, utilisez les scripts du dossier `deployment-s
 - Ces fichiers sont des modèles et peuvent nécessiter des ajustements selon votre environnement
 - Assurez-vous que les fichiers JSON sont valides avant de les déployer
 - Utilisez les scripts de diagnostic pour vérifier l'encodage des fichiers avant déploiement
-- Consultez le [guide d'import/export](../docs/guide-import-export.md) pour plus d'informations sur la gestion des configurations
+- Consultez la documentation du dossier `docs/` pour plus d'informations sur la gestion des configurations

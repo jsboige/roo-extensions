@@ -18,7 +18,7 @@ Cette spécification a été créée en réponse à des **incidents critiques r�
 - **Type** : `git push --force` sans validation
 - **Impact** : 5 commits orphelins, risque perte documentation critique
 - **Cause** : Rebase interactif + amend + reset sans grounding
-- **Référence** : [`docs/fixes/git-recovery-report-20250925.md`](../../docs/fixes/git-recovery-report-20250925.md)
+- **Référence** : `docs/fixes/git-recovery-report-20250925.md`
 
 #### Incident #2 : Destruction Fichiers Non-Versionnés (03/08/2025)
 - **Type** : `git clean -fdx` sans vérification
@@ -30,13 +30,13 @@ Cette spécification a été créée en réponse à des **incidents critiques r�
 - **Type** : Régression Git catastrophique
 - **Impact** : +100 commits effacés par contamination d'agent
 - **Cause** : Travail simultané multi-machines sans synchronisation
-- **Référence** : [`docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md`](../../docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md)
+- **Référence** : `docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md`
 
 #### Incident #4 : Exposition Secrets dans Historique (25/09/2025)
 - **Type** : GitHub Push Protection bloquant push
 - **Impact** : Clés API exposées dans commits (OpenAI, Qdrant)
 - **Cause** : Commits sans vérification contenu sensible
-- **Référence** : [`docs/integration/04-synchronisation-git-version-2.0.0.md`](../../docs/integration/04-synchronisation-git-version-2.0.0.md)
+- **Référence** : [`docs/integration/04-synchronisation-git-version-2.0.0.md`](../../docs/roosync/archive/integration/04-synchronisation-git-version-2.0.0.md)
 
 ### Cause Racine Commune
 
@@ -2060,9 +2060,9 @@ Cette spécification **Git Safety & Source Control** établit des règles strict
 ### Références
 
 - **Incidents documentés** :
-  - [`docs/fixes/git-recovery-report-20250925.md`](../../docs/fixes/git-recovery-report-20250925.md)
+  - `docs/fixes/git-recovery-report-20250925.md`
   - [`roo-code-customization/incident-report-condensation-revert.md`](../../roo-code-customization/incident-report-condensation-revert.md)
-  - [`docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md`](../../docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md)
+  - `docs/missions/2025-09-21-rapport-mission-restauration-git-critique-sddd.md`
 
 - **Spécifications liées** :
   - [`sddd-protocol-4-niveaux.md`](sddd-protocol-4-niveaux.md)
@@ -2070,7 +2070,7 @@ Cette spécification **Git Safety & Source Control** établit des règles strict
   - [`mcp-integrations-priority.md`](mcp-integrations-priority.md)
 
 - **Scripts sécurité Git** :
-  - [`scripts/git-safe-operations.ps1`](../../scripts/git-safe-operations.ps1)
+  - [`scripts/git-safe-operations.ps1`](../../scripts/git-workflow/git-safe-operations.ps1)
 
 ---
 

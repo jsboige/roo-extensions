@@ -1203,7 +1203,7 @@ Le document [`context-economy-patterns.md`](context-economy-patterns.md#roi-patt
 
 ### Configuration Modes
 
-- [`custom_modes.json`](../../Users/jsboi/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/custom_modes.json) : Configuration modes actuelle
+- `custom_modes.json` (Roo Code globalStorage) : Configuration modes actuelle
 
 ### MCPs Critiques
 
