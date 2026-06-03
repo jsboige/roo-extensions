@@ -365,13 +365,13 @@ Déléguer UNE consolidation à `code-simple` via `new_task`.
 **Sélection pseudo-random déterministe (#2216) :** Au lieu de parcourir les domaines séquentiellement, utiliser un hash du timestamp pour sélectionner un domaine aléatoirement mais de façon reproductible :
 
 ```
-DOMAIN_INDEX=$(( $(date +%s) % 9 + 1 ))
+DOMAIN_INDEX=$(( $(date +%s) % 11 + 1 ))
 ```
 
 Ou en PowerShell :
 
 ```
-$domainIndex = ([int](Get-Date -UFormat %s) % 9) + 1
+$domainIndex = ([int](Get-Date -UFormat %s) % 11) + 1
 ```
 
 Le domaine sélectionné par ce calcul est celui à explorer ce cycle. Ne pas le contourner.
@@ -381,14 +381,16 @@ Le domaine sélectionné par ce calcul est celui à explorer ce cycle. Ne pas le
 | # | Domaine | Description |
 |---|---------|-------------|
 | 1 | Outil MCP peu utilisé | Tester un outil MCP rarement appelé |
-| 2 | Doc vs réalité | Vérifier que chemins/outils/commandes existent |
+| 2 | Doc vs réalité (TOUTE la doc) | Vérifier que chemins/outils/commandes existent dans `docs/`, `.claude/rules/`, `.claude/skills/`, `.roo/`, `roo-config/` |
 | 3 | Couverture de tests | Lister fichiers sans tests correspondants |
 | 4 | Cohérence config | Comparer config déployée avec source |
 | 5 | Santé infrastructure | Tester un endpoint d'infrastructure |
-| 6 | Inventaire GitHub | Issues perimées (> 14j sans commentaire) |
+| 6 | Inventaire GitHub | Issues perimées (> 14j sans commentaire) — **signaler seulement, fermeture INTERDITE sans arbitrage utilisateur** (voir `.claude/rules/issue-closure.md`) |
 | 7 | Rangement dépôt | Vérifier fichiers bien placés |
 | 8 | Consolidation doc | Chercher doublons sémantiques |
 | 9 | Veille harnais agentique | Observer nouveaux outils vibe coding |
+| 10 | Submodule drift | Vérifier `mcps/internal` + `mcps/external/win-cli/server` vs dernier commit upstream mergé ; signaler `[WARN]` si > 1 commit behind (LECTURE SEULE, pas de pointer-bump) |
+| 11 | TODO/FIXME audit | Scanner `TODO`/`FIXME`/`HACK` dans le code ; recouper avec issues existantes ; signaler les non-trackés |
 
 Après exploration → **Étape 2**
 

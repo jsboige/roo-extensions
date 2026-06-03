@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.3.0"
+  version: "3.4.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.3.0
+**Version:** 3.4.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-05-30 (#1417 enrich idle tasks catalogue for Claude Code)
+**MAJ:** 2026-06-03 (#1417 gap-closing : doc freshness I5 = TOUTE la doc ; legende Qui/Type/Contraintes ; parite versant Roo)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -116,12 +116,14 @@ Quand aucune issue GitHub n'est assignable, executer ces taches productives dans
 | I2 | Submodule drift check | READ-ONLY | Verifier `mcps/internal` vs dernier commit merged upstream. Signaler si >1 commit behind | Rapport dashboard `[WARN]` si drift |
 | I3 | Heartbeat health patrol | READ-ONLY | `roosync_inventory(type: "machines")` — verifier heartbeats <6h pour chaque machine | Signaler silencieuses `[WARN]` |
 | I4 | Config drift patrol | READ-ONLY | `roosync_compare_config()` entre machines, signaler divergences MCP/modes | Claude only |
-| I5 | Doc freshness check | READ-ONLY | Verifier `docs/`, `.claude/rules/`, `.claude/skills/` — chemins references existent encore | Poster `[FRICTION]` si cassé |
+| I5 | Doc freshness check | READ-ONLY | Verifier TOUTE la doc — `docs/`, `.claude/rules/`, `.claude/skills/`, `.roo/`, `roo-config/` — chemins references existent encore | Poster `[FRICTION]` si cassé |
 | I6 | TODO/FIXME audit | READ-ONLY | Scanner `TODO`, `FIXME`, `HACK` dans le code. Recouper avec issues existantes | Creer issue pour non-trackés |
 | I7 | Memory freshness audit | READ-ONLY | Verifier entrées MEMORY.md >30j sans MAJ | Signaler potentiellement obsoletes |
 | I8 | Stale build artifacts | ACTIF | Scanner `build/` pour .js/.d.ts sans .ts source | Sous submodule seulement |
 
-**Regle :** Max 2 idle tasks par cycle. Poster resultat sur dashboard (`[DONE]` ou `[INFO]`). Issue staleness patrol INTERDIT sans arbitrage utilisateur (priorite 6 couvre si issue genuinely stale).
+**Regle :** Max 2 idle tasks par cycle. Poster resultat sur dashboard (`[DONE]` ou `[INFO]`). Issue staleness patrol INTERDIT sans arbitrage utilisateur (priorite 6 couvre si issue genuinely stale). Fermeture d'issue INTERDITE sans arbitrage utilisateur (voir `.claude/rules/issue-closure.md`).
+
+**Qui / Type / Contraintes (legende #1417) :** ce catalogue est le **versant Claude** (ce skill `executor` = agent Claude Code). Toutes les taches I1-I8 sont executables par Claude sauf restriction explicite en colonne *Contraintes* (ex. I4 = `Claude only`). Le **versant Roo** equivalent (patrouilles idle du scheduler) vit dans [`.roo/scheduler-workflow-executor.md`](../../../.roo/scheduler-workflow-executor.md) Option 2 — I2 (submodule drift) et I6 (TODO/FIXME) y sont desormais mirror. *Type* = `ACTIF` (modifie l'etat : commit/cleanup) ou `READ-ONLY` (diagnostic + rapport dashboard seulement).
 
 ---
 
