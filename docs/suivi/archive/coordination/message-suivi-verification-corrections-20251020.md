@@ -15,11 +15,11 @@
 
 ## 📋 Contexte
 
-Suite à mon message diagnostic du 2025-10-16 (msg-20251016T221615-5uxvgz) signalant le MISMATCH critique dans [`InventoryCollector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts:182-185), j'ai effectué une vérification post-pull récent.
+Suite à mon message diagnostic du 2025-10-16 (msg-20251016T221615-5uxvgz) signalant le MISMATCH critique dans `InventoryCollector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`), j'ai effectué une vérification post-pull récent.
 
 **Pull récent** : 2025-10-19  
 **Commits intégrés** : mcps/internal rebase `6e28e16` → `de1073a`  
-**Rapport complet** : [`docs/roosync/corrections-verification-20251020.md`](../roosync/corrections-verification-20251020.md)
+**Rapport complet** : `docs/roosync/corrections-verification-20251020.md`
 
 ---
 
@@ -151,7 +151,7 @@ Tu annonçais :
 **Si corrections InventoryCollector non faites** :
 - Option A : Tu les implémentes (2-3h selon diagnostic)
 - Option B : Je les implémente (2-3h) + tu review
-- Référence : [`differential-implementation-gaps-20251016.md`](../roosync/differential-implementation-gaps-20251016.md) (Phase 1)
+- Référence : `differential-implementation-gaps-20251016.md` (Phase 1)
 
 **Si corrections faites mais non synchronisées** :
 - Pusher commits + nouveau pull de ma part
@@ -162,13 +162,13 @@ Tu annonçais :
 ## 📎 Références
 
 ### Documentation
-- **Rapport vérification** : [`docs/roosync/corrections-verification-20251020.md`](../roosync/corrections-verification-20251020.md)
-- **Diagnostic original** : [`docs/roosync/differential-implementation-gaps-20251016.md`](../roosync/differential-implementation-gaps-20251016.md)
+- **Rapport vérification** : `docs/roosync/corrections-verification-20251020.md`
+- **Diagnostic original** : `docs/roosync/differential-implementation-gaps-20251016.md`
 - **Message diagnostic** : [`docs/coordination/message-diagnostic-to-myia-po-2024-20251016.md`](message-diagnostic-to-myia-po-2024-20251016.md)
 
 ### Fichiers Code
-- **InventoryCollector** : [`mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts:182-185`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts:182)
-- **PowerShell** : [`scripts/inventory/Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1:1)
+- **InventoryCollector** : `mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts:182-185` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`)
+- **PowerShell** : [`scripts/inventory/Get-MachineInventory.ps1`](../../../../scripts/inventory/Get-MachineInventory.ps1)
 
 ---
 
@@ -177,7 +177,7 @@ Tu annonçais :
 **Tool roosync_amend_message implémenté** :
 - Système pour modifier messages envoyés **avant lecture** ✅
 - 7/7 tests E2E passés
-- Documentation : [`docs/roosync/messaging-system-guide.md`](../roosync/messaging-system-guide.md)
+- Documentation : `docs/roosync/messaging-system-guide.md`
 
 **Note** : J'aurais pu amender le message diagnostic original (msg-20251016T221615-5uxvgz) avec cette vérification si tu ne l'avais pas encore lu, mais tu l'as lu le 2025-10-17 😊
 

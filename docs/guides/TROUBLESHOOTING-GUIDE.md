@@ -782,18 +782,18 @@ foreach ($metric in $metrics.GetEnumerator()) {
 ## 📞 Support et Ressources
 
 ### Documentation Technique
-- [Protocole SDDD complet](../SDDD-PROTOCOL-IMPLEMENTATION.md) - ✅ À JOUR v1.1.0
-- [Scripts de diagnostic](../scripts-transient/) - ✅ Scripts MCPs validés
+- Protocole SDDD complet - ✅ À JOUR v1.1.0
+- `../scripts-transient/` - ✅ Scripts MCPs validés
 - [Guides d'installation](./MCPs-INSTALLATION-GUIDE.md) - ✅ À JOUR v2.0.0
-- [Configuration environnement](./ENVIRONMENT-SETUP-SYNTHESIS.md) - ✅ À JOUR v1.1.0
-- [Guide utilisateur RooSync](../docs/roosync/ROOSYNC-USER-GUIDE-2025-10-28.md) - ✅ NOUVEAU
-- [Rapport mission MCPs](../MCPS-EMERGENCY-MISSION-SYNTHESIS-2025-10-28.md) - ✅ RÉCENT
+- Configuration environnement - ✅ À JOUR v1.1.0
+- Guide utilisateur RooSync - ✅ NOUVEAU
+- Rapport mission MCPs - ✅ RÉCENT
 
 ### Outils de Diagnostic
-- [Diagnostic complet](../scripts/diagnostic/complete-sddd-diagnostic.ps1)
-- [Analyseur de performance](../scripts/monitoring/performance-analyzer.ps1)
-- [Validateur de configuration](../scripts/validation/config-validator.ps1)
-- [Générateur de rapports](../scripts/reporting/report-generator.ps1)
+- Diagnostic complet (`../scripts/diagnostic/complete-sddd-diagnostic.ps1`)
+- Analyseur de performance (`../scripts/monitoring/performance-analyzer.ps1`)
+- Validateur de configuration (`../scripts/validation/config-validator.ps1`)
+- Générateur de rapports (`../scripts/reporting/report-generator.ps1`)
 
 ### Contacts Support
 - **Niveau 1** : Roo Debug Complex (diagnostic automatique)

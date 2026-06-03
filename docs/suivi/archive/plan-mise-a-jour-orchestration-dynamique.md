@@ -8,7 +8,7 @@ Ce document détaille les actions concrètes à effectuer pour synchroniser tous
 
 ### 1.1 README.md principal
 
-**Fichier** : [`README.md`](../README.md)  
+**Fichier** : [`README.md`](../monitoring/scheduled-tasks/README.md)  
 **Priorité** : CRITIQUE  
 **Temps estimé** : 2 heures
 
@@ -50,7 +50,7 @@ Ce document détaille les actions concrètes à effectuer pour synchroniser tous
 
 ### 1.2 roo-modes/README.md
 
-**Fichier** : [`roo-modes/README.md`](../roo-modes/README.md)  
+**Fichier** : [`roo-modes/README.md`](../monitoring/scheduled-tasks/README.md)  
 **Priorité** : CRITIQUE  
 **Temps estimé** : 3 heures
 
@@ -95,7 +95,7 @@ Ce document détaille les actions concrètes à effectuer pour synchroniser tous
 
 ### 1.3 docs/guide-complet-modes-roo.md
 
-**Fichier** : [`docs/guide-complet-modes-roo.md`](guide-complet-modes-roo.md)  
+**Fichier** : [`docs/guide-complet-modes-roo.md`](../../guides/guide-complet-modes-roo.md)  
 **Priorité** : HAUTE  
 **Temps estimé** : 2 heures
 

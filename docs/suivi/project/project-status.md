@@ -4,9 +4,9 @@ Ce document centralise l'état d'avancement du projet de synchronisation unifié
 
 ## Documents Clés
 
-*   **Spécifications Techniques :** [docs/design/01-sync-manager-specification.md](./design/01-sync-manager-specification.md)
-*   **Architecture Technique :** [docs/design/02-sync-manager-architecture.md](./design/02-sync-manager-architecture.md)
-*   **Plan d'Implémentation :** [docs/design/03-sync-manager-implementation-plan.md](./design/03-sync-manager-implementation-plan.md)
+*   **Spécifications Techniques :** docs/design/01-sync-manager-specification.md
+*   **Architecture Technique :** docs/design/02-sync-manager-architecture.md
+*   **Plan d'Implémentation :** docs/design/03-sync-manager-implementation-plan.md
 
 ## État Actuel
 

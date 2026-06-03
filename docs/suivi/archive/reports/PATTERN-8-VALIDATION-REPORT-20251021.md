@@ -2,7 +2,7 @@
 
 ## 🎯 Objectif
 
-Valider le fix PATTERN 8 ajouté dans [`roo-storage-detector.ts:1428`](../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts:1428) pour détecter le format `{type:"ask", ask:"tool", text:"{\"tool\":\"newTask\"...}"}`.
+Valider le fix PATTERN 8 ajouté dans `roo-storage-detector.ts:1428` (`../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`) pour détecter le format `{type:"ask", ask:"tool", text:"{\"tool\":\"newTask\"...}"}`.
 
 ## 📋 Étapes Exécutées
 

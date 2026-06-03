@@ -442,10 +442,10 @@ This approach maximizes value (pattern extraction) while minimizing risk (no arc
 
 - [oh-my-claudecode GitHub](https://github.com/Yeachan-Heo/oh-my-claudecode) — README analyzed 2026-04-30
 - [oh-my-claudecode WebReader](https://github.com/Yeachan-Heo/oh-my-claudecode) — Full content fetched 2026-04-30
-- [RooSync Agents Architecture](D:/Dev/roo-extensions/.claude/rules/agents-architecture.md) — 18 subagents
-- [RooSync Skills System](D:/Dev/roo-extensions/.claude/skills/) — 9 skills (sync-tour, validate, etc.)
-- [Unified Model Router Analysis](D:/Dev/roo-extensions/docs/investigation/unified-model-router.md) — Issue #1730
-- [Claw Ecosystem Comparison](D:/Dev/roo-extensions/docs/investigation/claw-ecosystem-comparison.md) — Issue #1073
+- RooSync Agents Architecture — 18 subagents
+- `D:/Dev/roo-extensions/.claude/skills/` — 9 skills (sync-tour, validate, etc.)
+- [Unified Model Router Analysis](unified-model-router.md) — Issue #1730
+- [Claw Ecosystem Comparison](claw-ecosystem-comparison.md) — Issue #1073
 - [Issue #1802](https://github.com/jsboige/roo-extensions/issues/1802) — Original evaluation request
 
 ---

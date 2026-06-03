@@ -31,7 +31,7 @@ Le **HierarchyReconstructionEngine** trouve correctement le match parent-enfant 
 
 ### Fichier Modifié
 
-[`mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts`](../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts)
+`mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts` (`../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts`)
 
 ### 1. Interface BuildSkeletonCacheArgs
 
@@ -158,7 +158,7 @@ Found 0 results.
 
 ### Code Suspect
 
-Dans [`build-skeleton-cache.tool.ts`](../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts:435-468) :
+Dans `build-skeleton-cache.tool.ts` (`../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts`) :
 
 ```typescript
 // Appliquer les mises à jour de hiérarchie
@@ -221,7 +221,7 @@ for (const update of skeletonsToUpdate) {
 
 ### Code Modifié
 
-- [`build-skeleton-cache.tool.ts`](../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts)
+- `build-skeleton-cache.tool.ts` (`../mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts`)
   - Interface BuildSkeletonCacheArgs étendue
   - Définition du tool avec task_ids
   - Logique de filtrage ciblé
@@ -231,8 +231,8 @@ for (const update of skeletonsToUpdate) {
 
 - Ce rapport d'investigation
 - Liens vers rapports connexes :
-  - [`PATTERN-8-VALIDATION-REPORT-20251021.md`](./PATTERN-8-VALIDATION-REPORT-20251021.md)
-  - [`DEBUG-SKELETON-BUILD-FAILURE-20251021.md`](./DEBUG-SKELETON-BUILD-FAILURE-20251021.md)
+  - [`PATTERN-8-VALIDATION-REPORT-20251021.md`](../../suivi/archive/reports/PATTERN-8-VALIDATION-REPORT-20251021.md)
+  - `DEBUG-SKELETON-BUILD-FAILURE-20251021.md`
 
 ---
 

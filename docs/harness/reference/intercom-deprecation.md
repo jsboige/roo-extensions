@@ -93,6 +93,6 @@ Cela régénère `.roo/schedules.json` à partir du template `.roo/schedules.tem
 ## Ressources
 
 - [Issue #1818](https://github.com/jsboige/roo-extensions/issues/1818)
-- [`.claude/rules/intercom-protocol.md`](../../.claude/rules/intercom-protocol.md)
-- [`.roo/rules/02-dashboard.md`](../../.roo/rules/02-dashboard.md)
+- [`.claude/rules/intercom-protocol.md`](../../../.claude/rules/intercom-protocol.md)
+- [`.roo/rules/02-dashboard.md`](../../../.roo/rules/02-dashboard.md)
 - [`deploy-scheduler.ps1`](../../../roo-config/scheduler/scripts/install/deploy-scheduler.ps1)

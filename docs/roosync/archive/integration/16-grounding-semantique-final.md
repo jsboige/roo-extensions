@@ -58,7 +58,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Architecture 5 couches expliquée
    - Diagrammes de séquence MCP ↔ PowerShell
 
-2. [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) - ✅ **Haute pertinence**
+2. `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) - ✅ **Haute pertinence**
    - Service principal singleton avec cache TTL
    - Orchestration appels PowerShell
    - JSDoc exhaustif sur l'architecture
@@ -67,7 +67,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Points d'intégration identifiés
    - Workflow synchronisation décrit
 
-4. [`mcps/internal/servers/roo-state-manager/README.md`](../../mcps/internal/servers/roo-state-manager/README.md) - ✅ **Haute pertinence**
+4. [`mcps/internal/servers/roo-state-manager/README.md`](../../../mcp/roo-state-manager/README.md) - ✅ **Haute pertinence**
    - Vue d'ensemble serveur MCP
    - Section RooSync intégration
 
@@ -92,7 +92,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts`](../../mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts`) - ✅ **Haute pertinence**
    - Configuration TypeScript avec Zod validation
    - 5 variables RooSync définies
    - Validation stricte des chemins
@@ -101,11 +101,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Section Layer 1 : Configuration détaillée
    - Explication du rôle de chaque variable
 
-3. [`mcps/internal/servers/roo-state-manager/.env.example`](../../mcps/internal/servers/roo-state-manager/.env.example) - ✅ **Haute pertinence**
+3. [`mcps/internal/servers/roo-state-manager/.env.example`](../../../../.env.example) - ✅ **Haute pertinence**
    - Template .env avec commentaires
    - Valeurs d'exemple pour RooSync
 
-4. [`tests/unit/config/roosync-config.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/config/roosync-config.test.ts) - ⚠️ **Pertinence moyenne**
+4. `tests/unit/config/roosync-config.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/config/roosync-config.test.ts`) - ⚠️ **Pertinence moyenne**
    - Tests unitaires configuration
    - Valide le comportement mais pas la doc principale
 
@@ -130,11 +130,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) - ✅ **Haute pertinence**
    - Service principal avec méthodes getStatus(), listDiffs()
    - Appels aux parsers pour dashboard/roadmap
 
-2. [`mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts) - ✅ **Haute pertinence**
+2. `mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`) - ✅ **Haute pertinence**
    - Fonctions parseDashboard(), parseRoadmap()
    - Parsing JSON et Markdown avec regex HTML comments
 
@@ -142,11 +142,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Documentation détaillée du service
    - Explication parsing dashboard/roadmap
 
-4. [`tests/unit/utils/roosync-parsers.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/utils/roosync-parsers.test.ts) - ⚠️ **Pertinence moyenne**
+4. `tests/unit/utils/roosync-parsers.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/utils/roosync-parsers.test.ts`) - ⚠️ **Pertinence moyenne**
    - Tests unitaires parsers
    - Exemples de parsing mais pas doc principale
 
-5. [`tests/unit/services/RooSyncService.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/RooSyncService.test.ts) - ⚠️ **Pertinence moyenne**
+5. `tests/unit/services/RooSyncService.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/RooSyncService.test.ts`) - ⚠️ **Pertinence moyenne**
    - Tests service avec stubs parsers
    - Validation comportement mais pas implémentation
 
@@ -167,7 +167,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) - ✅ **Haute pertinence**
    - Méthodes getInstance(), resetInstance()
    - Cache TTL 30 secondes implémenté
    - JSDoc expliquant le pattern
@@ -176,7 +176,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Section "Pattern Singleton avec Cache TTL"
    - Justification architectural du choix
 
-3. [`tests/unit/services/RooSyncService.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/RooSyncService.test.ts) - ✅ **Haute pertinence**
+3. `tests/unit/services/RooSyncService.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/RooSyncService.test.ts`) - ✅ **Haute pertinence**
    - Tests spécifiques getInstance() et cache
    - Validation comportement singleton
 
@@ -205,15 +205,15 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`) - ✅ **Haute pertinence**
    - Implémentation outil roosync_get_status
    - JSDoc complet avec exemples
 
-2. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts) - ✅ **Haute pertinence**
+2. `mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) - ✅ **Haute pertinence**
    - Implémentation outil roosync_compare_config
    - Comparaison configurations multi-machines
 
-3. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts) - ✅ **Haute pertinence**
+3. `mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`) - ✅ **Haute pertinence**
    - Implémentation outil roosync_list_diffs
    - Listage décisions pending
 
@@ -242,11 +242,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts`) - ✅ **Haute pertinence**
    - Implémentation roosync_approve_decision
    - Gestion transition état pending → approved
 
-2. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts) - ✅ **Haute pertinence**
+2. `mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts`) - ✅ **Haute pertinence**
    - Implémentation roosync_reject_decision
    - Transition pending → rejected
 
@@ -254,11 +254,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Documentation détaillée workflow décision
    - Diagrammes états transitions
 
-4. [`mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts) - ⚠️ **Pertinence moyenne**
+4. `mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`) - ⚠️ **Pertinence moyenne**
    - Parsing décisions depuis roadmap
    - Support mais pas workflow principal
 
-5. [`tests/unit/tools/roosync/approve-decision.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/approve-decision.test.ts) - ⚠️ **Pertinence moyenne**
+5. `tests/unit/tools/roosync/approve-decision.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/approve-decision.test.ts`) - ⚠️ **Pertinence moyenne**
    - Tests unitaires approbation
    - Validation mais pas doc principale
 
@@ -279,15 +279,15 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) - ✅ **Haute pertinence**
    - Implémentation roosync_apply_decision
    - Appel Apply-Decisions.ps1 via PowerShellExecutor
 
-2. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) - ✅ **Haute pertinence**
+2. `mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) - ✅ **Haute pertinence**
    - Implémentation roosync_rollback_decision
    - Restauration depuis rollback point
 
-3. [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) - ✅ **Haute pertinence**
+3. `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) - ✅ **Haute pertinence**
    - Wrapper Node.js pour PowerShell
    - Gestion child_process.spawn + timeout
 
@@ -316,11 +316,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) - ✅ **Haute pertinence**
+1. `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) - ✅ **Haute pertinence**
    - Implémentation complète wrapper
    - Gestion spawn, timeout, JSON parsing
 
-2. [`tests/unit/services/powershell-executor.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts) - ✅ **Haute pertinence**
+2. `tests/unit/services/powershell-executor.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/services/powershell-executor.test.ts`) - ✅ **Haute pertinence**
    - 21 tests unitaires PowerShellExecutor
    - Validation timeout, JSON parsing, erreurs
 
@@ -332,7 +332,7 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
    - Synthèse Tâche 40 mentionnant PowerShellExecutor
    - Vue d'ensemble mais pas détails techniques
 
-5. [`mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) - ⚠️ **Pertinence moyenne**
+5. `mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) - ⚠️ **Pertinence moyenne**
    - Utilisation PowerShellExecutor dans apply
    - Cas d'usage mais pas implémentation wrapper
 
@@ -353,11 +353,11 @@ Pour chaque recherche, les 5 premiers résultats sont évalués selon :
 
 **Top 5 Résultats** :
 
-1. [`tests/e2e/roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts) - ✅ **Haute pertinence**
+1. `tests/e2e/roosync-workflow.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`) - ✅ **Haute pertinence**
    - 8 tests workflow complet
    - Scénarios get-status → approve → apply
 
-2. [`tests/e2e/roosync-error-handling.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts) - ✅ **Haute pertinence**
+2. `tests/e2e/roosync-error-handling.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-error-handling.test.ts`) - ✅ **Haute pertinence**
    - 16 tests robustesse
    - Validation gestion erreurs PowerShell
 

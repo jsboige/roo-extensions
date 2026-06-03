@@ -80,8 +80,8 @@ npm run lint
 
 Avant de commencer, lisez :
 1. [Architecture Guide](../architecture/context-condensation-system.md)
-2. [Phase 1 Checkpoint](../pr-tracking/context-condensation/009-phase1-checkpoint.md)
-3. Code existant : [`NativeProvider.ts`](../../../src/core/condense/providers/NativeProvider.ts)
+2. Phase 1 Checkpoint
+3. Code existant : `NativeProvider.ts` (`../../../src/core/condense/providers/NativeProvider.ts`)
 
 ---
 
@@ -939,15 +939,15 @@ const mockApiHandler = {
 ### Documentation
 
 - [Architecture Guide](../architecture/context-condensation-system.md)
-- [Phase 1 Checkpoint](../pr-tracking/context-condensation/009-phase1-checkpoint.md)
+- Phase 1 Checkpoint
 - [TypeScript Handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
 - [Vitest Documentation](https://vitest.dev/)
 
 ### Code Exemples
 
-- [`NativeProvider.ts`](../../../src/core/condense/providers/NativeProvider.ts) - Provider de référence
-- [`NativeProvider.test.ts`](../../../src/core/condense/providers/__tests__/NativeProvider.test.ts) - Tests de référence
-- [`BaseProvider.ts`](../../../src/core/condense/BaseProvider.ts) - Classe de base
+- `NativeProvider.ts` (`../../../src/core/condense/providers/NativeProvider.ts`) - Provider de référence
+- `NativeProvider.test.ts` (`../../../src/core/condense/providers/__tests__/NativeProvider.test.ts`) - Tests de référence
+- `BaseProvider.ts` (`../../../src/core/condense/BaseProvider.ts`) - Classe de base
 
 ### API Documentation
 
@@ -968,8 +968,8 @@ const mockApiHandler = {
 ### Contribution
 
 Avant de créer une PR, lisez :
-- [CONTRIBUTING.md](../../../CONTRIBUTING.md)
-- [Code of Conduct](../../../CODE_OF_CONDUCT.md)
+- [CONTRIBUTING.md](../../../demo-roo-code/CONTRIBUTING.md)
+- Code of Conduct
 
 ---
 

@@ -57,7 +57,7 @@ exit $?
 
 ## 🛠️ Utilisation du script de réparation
 
-Un script automatisé a été créé : [`scripts/maintenance/repair-git-hooks.ps1`](../../scripts/maintenance/repair-git-hooks.ps1)
+Un script automatisé a été créé : [`scripts/maintenance/repair-git-hooks.ps1`](../../../scripts/maintenance/repair-git-hooks.ps1)
 
 ### Exécution :
 

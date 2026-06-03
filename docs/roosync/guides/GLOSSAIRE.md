@@ -119,7 +119,7 @@ Outil en ligne de commande officiel de GitHub pour interagir avec GitHub Project
 - `gh issue create` - Créer une issue
 - `gh issue close` - Fermer une issue
 
-**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : [`docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`](../../suivi/github-projects-migration/GUIDE_MIGRATION.md)
+**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : `docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`
 
 ### roo-state-manager
 Serveur MCP principal de RooSync.

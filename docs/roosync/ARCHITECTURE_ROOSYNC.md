@@ -99,11 +99,11 @@ graph TB
 
 **Résultat** : v3.0 gagne 4-2
 
-**Service Principal** : [`NonNominativeBaselineService`](../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts:1)
+**Service Principal** : `NonNominativeBaselineService` (`../../mcps/internal/servers/roo-state-manager/src/services/roosync/NonNominativeBaselineService.ts`)
 
 **Note** : L'ancien `BaselineService` (v2.1) est conservé pour backward compatibility mais ne doit plus être utilisé pour de nouveaux développements.
 
-**Référence** : [T3.9 Analyse Baseline Unique](../suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md)
+**Référence** : T3.9 Analyse Baseline Unique
 
 ---
 
@@ -262,7 +262,7 @@ graph TB
 
 **Tests** : 40+ tests (unitaires + intégration)
 
-**Référence** : [Rapport T3.15c](../suivi/RooSync/Archives/T3.15c_RAPPORT_COMPLETION.md)
+**Référence** : Rapport T3.15c
 
 ---
 

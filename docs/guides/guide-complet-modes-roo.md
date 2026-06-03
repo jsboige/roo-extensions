@@ -649,8 +649,8 @@ Pour effectuer des recherches web :
 ## Ressources supplémentaires
 
 - [Documentation officielle de Roo](https://docs.roo.ai/)
-- [Documentation des modes personnalisés](../roo-modes/README.md)
-- [Documentation des configurations générales](../roo-config/settings/README.md)
-- [Guide d'escalade et désescalade](./guide-escalade-desescalade.md)
-- [Guide de déploiement des configurations](./guide-deploiement-configurations-roo.md)
-- [Documentation des profils Qwen 3](../roo-config/qwen3-profiles/README.md)
+- [Documentation des modes personnalisés](../README.md)
+- [Documentation des configurations générales](../README.md)
+- Guide d'escalade et désescalade
+- Guide de déploiement des configurations
+- [Documentation des profils Qwen 3](../README.md)

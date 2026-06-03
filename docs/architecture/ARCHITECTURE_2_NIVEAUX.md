@@ -386,7 +386,7 @@ L'architecture SDDD 2-niveaux vise à **optimiser les coûts et les performances
 - [`roo-config/model-configs.json`](../../roo-config/model-configs.json) - Configuration modèles
 - [`roo-config/settings/modes.json`](../../roo-config/settings/modes.json) - Modes Roo
 - [`.claude/commands/executor.md`](../../.claude/commands/executor.md) - Protocole exécutant
-- [`.claude/local/INTERCOM-*.md`](../../.claude/local/) - Communication locale
+- `../../.claude/local/` - Communication locale
 
 ---
 

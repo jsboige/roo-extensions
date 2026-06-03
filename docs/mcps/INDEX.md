@@ -47,7 +47,7 @@ Serveurs développés et maintenus par le projet.
 
 **Statut :** ✅ Actif - 37 outils
 **Chemin :** `mcps/internal/servers/roo-state-manager/`
-**Documentation :** [README complet](../../mcps/internal/servers/roo-state-manager/README.md)
+**Documentation :** [README complet](../README.md)
 
 **Description :** Serveur MCP unifié pour la gestion des conversations et configurations Roo. Fournit grounding conversationnel, coordination RooSync, monitoring système.
 
@@ -107,7 +107,7 @@ npm run build
 - `install_libreoffice` - Installer LibreOffice (conversion documents)
 - `diagnostics` - Diagnostics du serveur sk-agent
 
-**Installation :** Voir [`.claude/MCP_SETUP.md`](../../.claude/MCP_SETUP.md)
+**Installation :** Voir `.claude/MCP_SETUP.md`
 
 ---
 
@@ -115,7 +115,7 @@ npm run build
 
 **Statut :** ✅ Actif
 **Chemin :** `mcps/internal/servers/jinavigator-server/`
-**Documentation :** [README](../../mcps/internal/servers/jinavigator-server/README.md)
+**Documentation :** [README](../README.md)
 
 **Description :** Serveur MCP pour convertir des pages web en Markdown via API Jina.
 
@@ -148,7 +148,7 @@ npm run build
 **Statut :** ⚠️ Déprécié - Utiliser `gh` CLI natif
 **Chemin :** `mcps/internal/servers/github-projects-mcp/`
 
-**Note :** Ce MCP a été remplacé par le CLI `gh` natif (voir [`.claude/rules/github-cli.md`](../../.claude/rules/github-cli.md)).
+**Note :** Ce MCP a été remplacé par le CLI `gh` natif (voir [`.claude/rules/github-cli.md`](../harness/reference/github-cli.md)).
 
 ---
 
@@ -167,7 +167,7 @@ Serveurs tiers ou community maintenus.
 
 **Statut :** ✅ Actif - Fork local 0.2.0 (Roo uniquement)
 **Chemin :** `mcps/external/win-cli/server/`
-**Documentation :** [README complet](../../mcps/external/win-cli/server/README.md)
+**Documentation :** [README complet](../README.md)
 
 **Description :** MCP pour exécuter des commandes shell sur Windows (PowerShell, CMD, Git Bash). **OBLIGATOIRE pour Roo scheduler** depuis cleanup #658.
 
@@ -305,7 +305,7 @@ Serveurs officiels disponibles via npm mais non activés dans ce projet.
 **Package :** `@modelcontextprotocol/server-github`
 **Description :** API GitHub (issues, PRs, commits).
 
-**Note :** Préférer le CLI `gh` natif (voir [`.claude/rules/github-cli.md`](../../.claude/rules/github-cli.md)).
+**Note :** Préférer le CLI `gh` natif (voir [`.claude/rules/github-cli.md`](../harness/reference/github-cli.md)).
 
 ### fetch
 **Package :** `@modelcontextprotocol/server-fetch`
@@ -404,9 +404,9 @@ Voir [`.claude/rules/tool-availability.md`](../../.claude/rules/tool-availabilit
 
 ## Références
 
-- [`.claude/MCP_SETUP.md`](../../.claude/MCP_SETUP.md) - Configuration détaillée
+- `.claude/MCP_SETUP.md` - Configuration détaillée
 - [`.claude/rules/tool-availability.md`](../../.claude/rules/tool-availability.md) - Protocole STOP & REPAIR
-- [`.claude/rules/github-cli.md`](../../.claude/rules/github-cli.md) - Migration vers gh CLI
+- [`.claude/rules/github-cli.md`](../harness/reference/github-cli.md) - Migration vers gh CLI
 - [`CLAUDE.md`](../../CLAUDE.md) - Guide principal pour agents
 
 ---

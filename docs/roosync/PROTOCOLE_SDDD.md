@@ -226,7 +226,7 @@ En attente / En cours / Terminé
 
 Cette section fournit des exemples concrets d'utilisation de **gh CLI** pour interagir avec le projet GitHub RooSync Multi-Agent.
 
-**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : [`docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`](../../suivi/github-projects-migration/GUIDE_MIGRATION.md)
+**Note** : Pour plus de détails sur la migration de MCP github-projects vers gh CLI, consultez le guide de migration : `docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`
 
 ### 3.1 Lister les Projets
 

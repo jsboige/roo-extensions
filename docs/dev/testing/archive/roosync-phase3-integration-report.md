@@ -9,13 +9,13 @@
 
 ## 📋 Vue d'Ensemble
 
-L'implémentation de la Phase 3 intègre avec succès les composants [`InventoryCollector`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts) (Phase 1) et [`DiffDetector`](../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts) (Phase 2) dans [`RooSyncService`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) pour créer un workflow complet de détection et synchronisation de différences réelles entre machines.
+L'implémentation de la Phase 3 intègre avec succès les composants `InventoryCollector` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`) (Phase 1) et `DiffDetector` (`../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`) (Phase 2) dans `RooSyncService` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) pour créer un workflow complet de détection et synchronisation de différences réelles entre machines.
 
 ## ✅ Modifications Implémentées
 
 ### 1. Enrichissement RooSyncService.ts
 
-**Fichier :** [`mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)
+**Fichier :** `mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
 
 **Ajouts :**
 - ✅ Import `DiffDetector` et types associés (ligne 26)
@@ -36,7 +36,7 @@ async compareRealConfigurations(
 
 ### 2. Modification compare-config.ts
 
-**Fichier :** [`mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts)
+**Fichier :** `mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`)
 
 **Modifications :**
 - ✅ Ajout paramètres `source`, `target`, `force_refresh` (lignes 18-22)
@@ -60,7 +60,7 @@ Utilise Get-MachineInventory.ps1 pour collecte d'inventaire complet avec cache T
 
 ### 3. Script de Test d'Intégration
 
-**Fichier :** [`mcps/internal/servers/roo-state-manager/test-roosync-integration.js`](../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js) (222 lignes)
+**Fichier :** `mcps/internal/servers/roo-state-manager/test-roosync-integration.js` (`../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js`) (222 lignes)
 
 **Scénarios testés :**
 1. ✅ Collecte inventaire local (première fois)
@@ -179,8 +179,8 @@ Durée totale:   2806ms
 
 ### Fichiers de Documentation
 
-1. **Design de référence :** [`docs/architecture/roosync-real-diff-detection-design.md`](../../docs/architecture/roosync-real-diff-detection-design.md)
-2. **Script de test :** [`test-roosync-integration.js`](../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js)
+1. **Design de référence :** [`docs/architecture/roosync-real-diff-detection-design.md`](../../../architecture/roosync-real-diff-detection-design.md)
+2. **Script de test :** `test-roosync-integration.js` (`../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js`)
 3. **Ce rapport :** [`docs/testing/roosync-phase3-integration-report.md`](roosync-phase3-integration-report.md)
 
 ### Exemples d'Utilisation MCP

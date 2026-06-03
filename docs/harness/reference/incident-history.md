@@ -31,7 +31,7 @@ Après toute modification de configuration (modes, MCPs, workflows), TOUJOURS v�
 
 Si un outil critique est absent (roo-state-manager, win-cli pour Roo), **ARRÊTER tout travail immédiatement**. Pas de mode dégradé, pas de contournement.
 
-**Référence :** [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
+**Référence :** [`.claude/rules/tool-availability.md`](../../../.claude/rules/tool-availability.md)
 
 ### 3. Séparation Config MCP Claude Code vs Roo
 
@@ -45,7 +45,7 @@ Un MCP actif pour l'un n'est pas nécessairement actif pour l'autre.
 
 Toujours exécuter `npx vitest run --config vitest.config.ci.ts` avant tout push dans `mcps/internal`. Un test qui passe en local peut casser le CI.
 
-**Référence :** [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
+**Référence :** [`.claude/rules/ci-guardrails.md`](../../../.claude/rules/ci-guardrails.md)
 
 ### 5. Fichiers Machine-Spécifiques
 
@@ -73,8 +73,8 @@ Les modèles GLM annoncent 200k tokens mais la réalité est ~131k. Utiliser le 
 
 ## Référence
 
-- Documentation MCP : [`.claude/rules/tool-availability.md`](../../rules/tool-availability.md)
-- Protocole CI : [`.claude/rules/ci-guardrails.md`](../../rules/ci-guardrails.md)
+- Documentation MCP : [`.claude/rules/tool-availability.md`](../../../.claude/rules/tool-availability.md)
+- Protocole CI : [`.claude/rules/ci-guardrails.md`](../../../.claude/rules/ci-guardrails.md)
 - Condensation GLM : [`docs/harness/reference/condensation-thresholds.md`](./condensation-thresholds.md)
 - WSL/Docker Cascade : [`docs/harness/reference/wsl-docker-cascade-protocol.md`](./wsl-docker-cascade-protocol.md)
 - Équivalent Roo : `.roo/rules/11-incident-history.md`

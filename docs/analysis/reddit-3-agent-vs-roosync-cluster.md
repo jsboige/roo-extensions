@@ -272,5 +272,5 @@ The Reddit setup proves that multi-agent architectures can ship production softw
 
 - [Original Reddit Post](https://www.reddit.com/r/micro_saas/comments/1rju8sd/i_replaced_my_dev_team_with_3_claude_code_agents/)
 - [RooSync Technical Guide v2.3](../roosync/GUIDE-TECHNIQUE-v2.3.md)
-- [Agents Architecture](../../.claude/rules/agents-architecture.md)
+- Agents Architecture
 - [SDDD Grounding Protocol](../../.claude/rules/sddd-grounding.md)

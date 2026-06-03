@@ -22,10 +22,10 @@
 **Requête :** `architecture et implémentation du serveur MCP roo-state-manager`
 
 **Documents Clés Trouvés :**
-- [`roo-code-customization/investigations/export-integration-analysis.md`](../../roo-code-customization/investigations/export-integration-analysis.md)
-- [`docs/mcp-deployment.md`](../mcp-deployment.md)
-- [`docs/mcp/roo-state-manager/features/optimized-task-navigation.md`](../mcp/roo-state-manager/features/optimized-task-navigation.md)
-- [`roo-config/settings/servers.json`](../../roo-config/settings/servers.json)
+- [`roo-code-customization/investigations/export-integration-analysis.md`](../../../../roo-code-customization/investigations/export-integration-analysis.md)
+- `docs/mcp-deployment.md`
+- [`docs/mcp/roo-state-manager/features/optimized-task-navigation.md`](../../../mcp/roo-state-manager/features/optimized-task-navigation.md)
+- [`roo-config/settings/servers.json`](../../../../roo-config/config-templates/servers.json)
 
 **Synthèse :**
 - **Serveur MCP TypeScript** utilisant `@modelcontextprotocol/sdk` version 1.16.0
@@ -55,9 +55,9 @@
 **Requête :** `configuration .env et variables d'environnement pour les serveurs MCP`
 
 **Documents Clés Trouvés :**
-- [`mcps/guide-configuration-securisee.md`](../../mcps/guide-configuration-securisee.md)
-- [`mcps/external/filesystem/CONFIGURATION.md`](../../mcps/external/filesystem/CONFIGURATION.md)
-- [`mcps/internal/servers/github-projects-mcp/DEBUGGING_GUIDE.md`](../../mcps/internal/servers/github-projects-mcp/DEBUGGING_GUIDE.md)
+- [`mcps/guide-configuration-securisee.md`](../../../../mcps/guide-configuration-securisee.md)
+- [`mcps/external/filesystem/CONFIGURATION.md`](../../../../mcps/external/docker/CONFIGURATION.md)
+- `mcps/internal/servers/github-projects-mcp/DEBUGGING_GUIDE.md`
 
 **Synthèse :**
 - **Variables communes aux MCPs :**
@@ -77,9 +77,9 @@
 **Requête :** `système RooSync synchronisation environnements architecture workflow`
 
 **Documents Clés Trouvés :**
-- [`RooSync/docs/SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) ⭐ **Document principal**
-- [`RooSync/README.md`](../../RooSync/README.md)
-- [`docs/design/02-sync-manager-architecture.md`](../design/02-sync-manager-architecture.md)
+- `RooSync/docs/SYSTEM-OVERVIEW.md` ⭐ **Document principal**
+- [`RooSync/README.md`](../../README.md)
+- `docs/design/02-sync-manager-architecture.md`
 
 **Synthèse RooSync - Architecture Complète :**
 
@@ -124,9 +124,9 @@ RooSync/
 **Requête :** `intégration outils externes avec serveurs MCP patterns et exemples`
 
 **Documents Clés Trouvés :**
-- [`demo-roo-code/05-projets-avances/integration-outils/README.md`](../../demo-roo-code/05-projets-avances/integration-outils/README.md)
-- [`mcps/README.md`](../../mcps/README.md)
-- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
+- [`demo-roo-code/05-projets-avances/integration-outils/README.md`](../../README.md)
+- [`mcps/README.md`](../../README.md)
+- [`demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md`](../../../../demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md)
 
 **Synthèse - Patterns d'Intégration MCP :**
 
@@ -174,12 +174,12 @@ RooSync/
 #### 2.1.1 Structure TypeScript
 
 **Fichiers Principaux :**
-- [`src/index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts) : Point d'entrée et classe `RooStateManagerServer` (3756 lignes)
-- [`src/services/task-navigator.ts`](../../mcps/internal/servers/roo-state-manager/src/services/task-navigator.ts) : Navigation hiérarchique
-- [`src/services/task-indexer.ts`](../../mcps/internal/servers/roo-state-manager/src/services/task-indexer.ts) : Indexation Qdrant
-- [`src/services/task-searcher.ts`](../../mcps/internal/servers/roo-state-manager/src/services/task-searcher.ts) : Recherche sémantique
-- [`src/services/qdrant.ts`](../../mcps/internal/servers/roo-state-manager/src/services/qdrant.ts) : Client Qdrant singleton
-- [`src/services/openai.ts`](../../mcps/internal/servers/roo-state-manager/src/services/openai.ts) : Client OpenAI pour embeddings
+- `src/index.ts` (`../../mcps/internal/servers/roo-state-manager/src/index.ts`) : Point d'entrée et classe `RooStateManagerServer` (3756 lignes)
+- `src/services/task-navigator.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/task-navigator.ts`) : Navigation hiérarchique
+- `src/services/task-indexer.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/task-indexer.ts`) : Indexation Qdrant
+- `src/services/task-searcher.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/task-searcher.ts`) : Recherche sémantique
+- `src/services/qdrant.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/qdrant.ts`) : Client Qdrant singleton
+- `src/services/openai.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/openai.ts`) : Client OpenAI pour embeddings
 
 **Dépendances Clés (package.json) :**
 ```json
@@ -370,7 +370,7 @@ if (missingVars.length > 0) {
 
 ### 3.1 Variables Existantes
 
-**Fichier :** [`mcps/internal/servers/roo-state-manager/.env`](../../mcps/internal/servers/roo-state-manager/.env)
+**Fichier :** `mcps/internal/servers/roo-state-manager/.env` (`../../mcps/internal/servers/roo-state-manager/.env`)
 
 ```env
 # Configuration Qdrant (base de données vectorielle)
@@ -382,7 +382,7 @@ QDRANT_COLLECTION_NAME=roo_tasks_semantic_index
 OPENAI_API_KEY=sk-your-openai-api-key-here
 ```
 
-**Fichier Exemple :** [`mcps/internal/servers/roo-state-manager/.env.example`](../../mcps/internal/servers/roo-state-manager/.env.example)
+**Fichier Exemple :** [`mcps/internal/servers/roo-state-manager/.env.example`](../../../../.env.example)
 
 ```env
 # Configuration Qdrant (base de données vectorielle)

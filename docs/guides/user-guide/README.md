@@ -19,19 +19,19 @@ Problèmes courants et solutions
 ## 📖 Documentation Technique
 
 ### Architecture
-- [Architecture Système](../technical/architecture.md)
-- [Composants MCP](../technical/mcp-components.md)
-- [Synchronisation RooSync](../technical/roosync-architecture.md)
+- Architecture Système
+- Composants MCP
+- Synchronisation RooSync
 
 ### Configuration
-- [Configuration Initiale](../configuration/initial-setup.md)
-- [Configuration Avancée](../configuration/advanced-config.md)
-- [Configuration Monitoring](../configuration/monitoring-config.md)
+- Configuration Initiale
+- Configuration Avancée
+- Configuration Monitoring
 
 ### Références API
-- [API RooSync](../api/roosync-api.md)
-- [API Monitoring](../api/monitoring-api.md)
-- [API MCP](../api/mcp-api.md)
+- API RooSync
+- API Monitoring
+- API MCP
 
 ---
 
@@ -62,9 +62,12 @@ Problèmes courants et solutions
 - **Fonctionnalités**: Métriques, alertes, contrôles
 
 ### Rapports Automatiques
-- Rapports quotidiens: eports\daily\
-- Rapports hebdomadaires: eports\weekly\
-- Rapports mensuels: eports\monthly\
+- Rapports quotidiens: 
+eports\daily\
+- Rapports hebdomadaires: 
+eports\weekly\
+- Rapports mensuels: 
+eports\monthly\
 
 ---
 
@@ -91,8 +94,10 @@ Problèmes courants et solutions
 
 ### Logs et Rapports
 - Logs système: logs\
-- Rapports d'erreur: eports\errors\
-- Métriques: eports\metrics\
+- Rapports d'erreur: 
+eports\errors\
+- Métriques: 
+eports\metrics\
 
 ### Contact et Support
 - Issues GitHub: [Repository Issues](https://github.com/roo-extensions/issues)

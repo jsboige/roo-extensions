@@ -15,7 +15,7 @@
 | myia-po-2023/2024/2025/2026 | 99.6% | `npx vitest run` | Quelques tests skipped (platform-dependents) |
 | myia-web1 | 99.6% | `npx vitest run --maxWorkers=1` | **TOUJOURS --maxWorkers=1** |
 
-**Référence Roo :** [`.roo/rules/13-test-success-rates.md`](../../.roo/rules/13-test-success-rates.md)
+**Référence Roo :** [`.roo/rules/13-test-success-rates.md`](../../../.roo/rules/13-test-success-rates.md)
 
 ---
 
@@ -113,7 +113,7 @@ mcps/internal/servers/roo-state-manager/src/**/__tests__/*.test.ts
 Cette règle consolide les commandes de test et les taux de succès (anciennement dans `testing.md`, fusionné ici).
 
 Documents complémentaires :
-- [`.claude/rules/ci-guardrails.md`](ci-guardrails.md) — Validation CI avant push
+- [`.claude/rules/ci-guardrails.md`](../../../.claude/rules/ci-guardrails.md) — Validation CI avant push
 
 ---
 

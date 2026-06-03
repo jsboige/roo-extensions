@@ -43,9 +43,9 @@ Ce rapport synthétise l'analyse des traces Roo et sessions Claude sur les 7 der
 
 ## 🔗 Liens Externes
 
-- **Documentation SDDD :** [`.roo/rules/04-sddd-grounding.md`](../../.roo/rules/04-sddd-grounding.md)
-- **Protocole Meta-Analyse :** [`.roo/rules/18-meta-analysis.md`](../../.roo/rules/18-meta-analysis.md)
-- **Règles de Validation :** [`.roo/rules/21-validation.md`](../../.roo/rules/21-validation.md)
+- **Documentation SDDD :** [`.roo/rules/04-sddd-grounding.md`](../../../../../.roo/rules/04-sddd-grounding.md)
+- **Protocole Meta-Analyse :** [`.roo/rules/18-meta-analysis.md`](../../../../../.roo/rules/18-meta-analysis.md)
+- **Règles de Validation :** `.roo/rules/21-validation.md`
 
 ---
 

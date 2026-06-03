@@ -6,7 +6,7 @@
 
 ## 1. Contexte
 
-Ce plan s'appuie sur le diagnostic architectural ([`DIAGNOSTIC-ARCHITECTURAL-UI.md`](DIAGNOSTIC-ARCHITECTURAL-UI.md)) et la proposition de solution ([`PROPOSITION-SOLUTION-UI.md`](PROPOSITION-SOLUTION-UI.md)). L'objectif est de créer un mécanisme de migration à la volée pour les anciens formats de fichiers `ui_messages.json`.
+Ce plan s'appuie sur le diagnostic architectural (`DIAGNOSTIC-ARCHITECTURAL-UI.md`) et la proposition de solution ([`PROPOSITION-SOLUTION-UI.md`](PROPOSITION-SOLUTION-UI.md)). L'objectif est de créer un mécanisme de migration à la volée pour les anciens formats de fichiers `ui_messages.json`.
 
 ## 2. Feuille de Route pour le Mode `Code`
 

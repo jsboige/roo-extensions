@@ -402,8 +402,8 @@ La Phase 8 s'est déroulée sur **12 tâches séquentielles** réparties sur 7 j
 #### Configuration (Tâche 33)
 
 **Fichiers** :
-- [`roosync-config.ts`](../../mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts) : 200 lignes
-- [`.env.example`](../../mcps/internal/servers/roo-state-manager/.env.example) : 15 lignes
+- `roosync-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/config/roosync-config.ts`) : 200 lignes
+- [`.env.example`](../../../../.env.example) : 15 lignes
 
 **Responsabilités** :
 - Validation Zod des 5 variables d'environnement RooSync
@@ -447,21 +447,21 @@ La Phase 8 s'est déroulée sur **12 tâches séquentielles** réparties sur 7 j
 #### Outils MCP (Tâches 36-38)
 
 **Phase 3 - Essentiels** (Layer 3 : Présentation) :
-1. [`get-status.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts) : ~150 lignes
-2. [`compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts) : ~150 lignes
-3. [`list-diffs.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts) : ~150 lignes
+1. `get-status.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`) : ~150 lignes
+2. `compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) : ~150 lignes
+3. `list-diffs.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`) : ~150 lignes
 
 **Phase 4 - Décision** (Layer 4 : Workflow) :
-4. [`approve-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts) : ~150 lignes
-5. [`reject-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts) : ~150 lignes
+4. `approve-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts`) : ~150 lignes
+5. `reject-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts`) : ~150 lignes
 
 **Phase 5 - Exécution** (Layer 5 : Action) :
-6. [`apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) : ~250 lignes
-7. [`rollback-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) : ~200 lignes
-8. [`get-decision-details.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts) : ~190 lignes
+6. `apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) : ~250 lignes
+7. `rollback-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) : ~200 lignes
+8. `get-decision-details.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts`) : ~190 lignes
 
 **Index centralisé** :
-- [`index.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts) : Export 8 outils + metadata MCP
+- `index.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts`) : Export 8 outils + metadata MCP
 
 **Total Outils MCP** : ~1,390 lignes
 
@@ -1050,7 +1050,7 @@ sequenceDiagram
 
 **Solution Appliquée** :
 - Structure standardisée tous documents
-- Cross-références systématiques [doc XX](lien)
+- Cross-références systématiques `lien`
 - Validation grounding sémantique à chaque checkpoint
 
 **Résultat** : ✅ Documentation cohérente, 17 documents structurés

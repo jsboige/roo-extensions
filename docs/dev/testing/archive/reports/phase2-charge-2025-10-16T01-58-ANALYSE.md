@@ -231,7 +231,7 @@ Throughput:
 
 #### 1. Réviser les Critères de Performance ⚠️ PRIORITAIRE
 
-**Action** : Mettre à jour [`docs/testing/indexer-qdrant-test-plan-20251016.md`](docs/testing/indexer-qdrant-test-plan-20251016.md:1) avec des critères réalistes.
+**Action** : Mettre à jour [`docs/testing/indexer-qdrant-test-plan-20251016.md`](../indexer-qdrant-test-plan-20251016.md) avec des critères réalistes.
 
 **Nouveau seuil proposé** :
 ```yaml
@@ -417,4 +417,4 @@ Batch 1000:
 
 **Rapport généré par** : Roo Code Agent  
 **Date** : 2025-10-16T03:58 UTC+2  
-**Basé sur** : [`phase2-charge-2025-10-16T01-58.md`](docs/testing/reports/phase2-charge-2025-10-16T01-58.md:1)
+**Basé sur** : [`phase2-charge-2025-10-16T01-58.md`](phase2-charge-2025-10-16T01-58.md)

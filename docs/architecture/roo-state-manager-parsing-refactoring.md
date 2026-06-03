@@ -6,8 +6,8 @@
 
 - **📊 Similarité système : 44.44% vs 90% requis**
 - **🚨 Statut déploiement : SUSPENDU**
-- **📋 Rapport critique : [`PHASE-2B-COMPATIBILITY-ALERT.md`](../mcps/internal/servers/roo-state-manager/docs/PHASE-2B-COMPATIBILITY-ALERT.md)**
-- **🔍 Validation détaillée : [`RAPPORT-MISSION-VALIDATION-MASSIVE-SDDD-20251003.md`](../mcps/internal/servers/roo-state-manager/docs/RAPPORT-MISSION-VALIDATION-MASSIVE-SDDD-20251003.md)**
+- **📋 Rapport critique : `PHASE-2B-COMPATIBILITY-ALERT.md`**
+- **🔍 Validation détaillée : `RAPPORT-MISSION-VALIDATION-MASSIVE-SDDD-20251003.md`**
 
 **⚠️ PHASE 2c REQUISE** : Investigation root cause des différences comportementales avant tout déploiement.
 
@@ -69,7 +69,7 @@ Adopter l'architecture **robuste et typée de roo-code** :
 
 ### Composants Clés
 
-#### 1. [`roo-storage-detector.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts)
+#### 1. `roo-storage-detector.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roo-storage-detector.ts`)
 
 **Rôle** : Extraction des instructions newTask via regex  
 **Lignes critiques** : 904-1150 (fonction `extractFromMessageFile()`)
@@ -104,7 +104,7 @@ const newTaskApiPattern = /\[new_task in ([^:]+):\s*['"](.+?)['"]\]/gs;
 - ⚠️ **Pas de validation TypeScript** des structures extraites
 - ⚠️ **Double parsing** : regex + JSON.parse() du champ `text`
 
-#### 2. [`hierarchy-reconstruction-engine.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts)
+#### 2. `hierarchy-reconstruction-engine.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts`)
 
 **Rôle** : Reconstruction hiérarchie parent-enfant (3 phases)  
 **Lignes critiques** : 100-200 (Phase 1), 240-340 (Phase 2)
@@ -144,7 +144,7 @@ for (const instruction of instructions) {
 - ⚠️ **Dépend des regex** de extractFromMessageFile()
 - ⚠️ Pas de séparation désérialisation / business logic
 
-#### 3. [`task-instruction-index.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts)
+#### 3. `task-instruction-index.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts`)
 
 **Rôle** : Index RadixTree pour recherche rapide parent-enfant  
 **Lignes critiques** : 1-150
@@ -171,7 +171,7 @@ class TaskInstructionIndex {
 **Points faibles** :
 - ⚠️ Aucun - **Ce composant n'a pas besoin de modifications**
 
-#### 4. [`index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts) (Handler `build_skeleton_cache`)
+#### 4. `index.ts` (`../../mcps/internal/servers/roo-state-manager/src/index.ts`) (Handler `build_skeleton_cache`)
 
 **Rôle** : Construction cache de squelettes avec filtrage workspace  
 **Lignes critiques** : 970-1050 (Phase 1 descendante), 1200-1280 (`buildHierarchicalSkeletons`)
@@ -201,7 +201,7 @@ const enhancedSkeletons = await engine.doReconstruction(skeletons);
 
 #### 5. Tests Actuels
 
-##### [`production-format-extraction.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/production-format-extraction.test.ts)
+##### `production-format-extraction.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/production-format-extraction.test.ts`)
 
 **Rôle** : Valide extraction format production (PATTERN 5)  
 **Fixture** : ac8aa7b4 avec 13 sous-tâches
@@ -209,7 +209,7 @@ const enhancedSkeletons = await engine.doReconstruction(skeletons);
 ```typescript
 // Test regex avec différents flags
 const patterns = [
-	{ name: 'Original (old)', regex: /\[new_task in ([^:]+):\s*['"]([^'"]+)['"]\]/g },
+	{ name: 'Original (old)', regex: /\[new_task in ([^:]+):\s*`[^'"]+`['"]\]/g },
 	{ name: 'FIXED dotAll', regex: /\[new_task in ([^:]+):\s*['"](.+?)['"]\]/gs },
 ];
 ```
@@ -219,7 +219,7 @@ const patterns = [
 - ✅ Extraction avec flag `dotAll`
 - ✅ Nombre d'instructions = 13
 
-##### [`new-task-extraction.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/new-task-extraction.test.ts)
+##### `new-task-extraction.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/new-task-extraction.test.ts`)
 
 **Rôle** : Valide extraction 6 newTask depuis ligne unique géante  
 **Fixture** : bc93a6f7 avec 6 sous-tâches
@@ -229,7 +229,7 @@ const patterns = [
 - ✅ Préfixes normalisés valides (>10 chars, ≤192)
 - ✅ Modes avec emojis nettoyés
 
-#### 6. [`gateway/UnifiedApiGateway.ts`](../../mcps/internal/servers/roo-state-manager/src/gateway/UnifiedApiGateway.ts)
+#### 6. `gateway/UnifiedApiGateway.ts` (`../../mcps/internal/servers/roo-state-manager/src/gateway/UnifiedApiGateway.ts`)
 
 **Rôle** : API Gateway consolidée avec 5 presets + architecture 2-niveaux  
 **Lignes** : 643 lignes

@@ -231,7 +231,7 @@ No instances at all, everything static.
 ## Related Decisions
 
 - [ADR-001: Registry Pattern](./001-registry-pattern-over-plugin-system.md)
-- [ADR-003: Backward Compatibility Strategy](./003-backward-compatibility-strategy.md)
+- ADR-003: Backward Compatibility Strategy
 
 ## References
 

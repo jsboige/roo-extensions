@@ -10,9 +10,9 @@
 - Chemin personnalisable via configuration VSCode
 
 **Fichiers par conversation :**
-- [`api_conversation_history.json`](../roo-code/src/shared/globalFileNames.ts:2) : Messages API (format Anthropic)
-- [`ui_messages.json`](../roo-code/src/shared/globalFileNames.ts:3) : Messages interface utilisateur (ClineMessage)
-- [`task_metadata.json`](../roo-code/src/shared/globalFileNames.ts:6) : Métadonnées de la tâche
+- `api_conversation_history.json` (`../roo-code/src/shared/globalFileNames.ts`) : Messages API (format Anthropic)
+- `ui_messages.json` (`../roo-code/src/shared/globalFileNames.ts`) : Messages interface utilisateur (ClineMessage)
+- `task_metadata.json` (`../roo-code/src/shared/globalFileNames.ts`) : Métadonnées de la tâche
 
 **Historique global :** Stocké dans `taskHistory` du state global VSCode
 
@@ -509,10 +509,10 @@ Le MCP s'intégrera parfaitement avec :
 ## 📚 RÉFÉRENCES TECHNIQUES
 
 ### Fichiers sources analysés :
-- [`roo-code/src/utils/storage.ts`](../roo-code/src/utils/storage.ts) : Gestion du stockage
-- [`roo-code/src/core/task-persistence/`](../roo-code/src/core/task-persistence/) : Persistance des tâches
-- [`roo-code/src/shared/globalFileNames.ts`](../roo-code/src/shared/globalFileNames.ts) : Noms de fichiers
-- [`roo-code/src/schemas/index.ts`](../roo-code/src/schemas/index.ts) : Schémas de données
+- `roo-code/src/utils/storage.ts` (`../roo-code/src/utils/storage.ts`) : Gestion du stockage
+- `../roo-code/src/core/task-persistence/` : Persistance des tâches
+- `roo-code/src/shared/globalFileNames.ts` (`../roo-code/src/shared/globalFileNames.ts`) : Noms de fichiers
+- `roo-code/src/schemas/index.ts` (`../roo-code/src/schemas/index.ts`) : Schémas de données
 
 ### Découvertes clés :
 1. **Stockage décentralisé** : Chaque conversation dans son propre répertoire

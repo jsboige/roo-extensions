@@ -93,8 +93,8 @@ Justification :
 ```
 
 **Mis à jour dans** :
-- [`docs/testing/indexer-qdrant-test-plan-20251016.md`](../indexer-qdrant-test-plan-20251016.md:1)
-- [`tests/indexer-phase2-load-tests.cjs`](../../tests/indexer-phase2-load-tests.cjs:1) (à ajuster si réexécution)
+- [`docs/testing/indexer-qdrant-test-plan-20251016.md`](indexer-qdrant-test-plan-20251016.md)
+- [`tests/indexer-phase2-load-tests.cjs`](../../../../tests/indexer-phase2-load-tests.cjs) (à ajuster si réexécution)
 
 ### 3. Phase 3 (Tests 24h) : NON REQUISE
 
@@ -286,12 +286,12 @@ await redis.setex(`embedding:${hash}`, 604800, JSON.stringify(embedding));
 ### Scripts et Code
 
 1. **Script Phase 1 (Tests Unitaires)** ✅
-   - Fichier : [`tests/indexer-phase1-unit-tests.cjs`](../../tests/indexer-phase1-unit-tests.cjs:1)
+   - Fichier : [`tests/indexer-phase1-unit-tests.cjs`](../../../../tests/indexer-phase1-unit-tests.cjs)
    - Utilité : Validation rapide infrastructure (1-2min)
    - Exécution : `node tests/indexer-phase1-unit-tests.cjs`
 
 2. **Script Phase 2 (Tests de Charge)** ✅
-   - Fichier : [`tests/indexer-phase2-load-tests.cjs`](../../tests/indexer-phase2-load-tests.cjs:1)
+   - Fichier : [`tests/indexer-phase2-load-tests.cjs`](../../../../tests/indexer-phase2-load-tests.cjs)
    - Utilité : Tests de charge progressifs (15min-4h selon config)
    - Exécution : `node tests/indexer-phase2-load-tests.cjs`
 
@@ -310,7 +310,7 @@ await redis.setex(`embedding:${hash}`, 604800, JSON.stringify(embedding));
    - Contenu : Analyse approfondie, justifications critères, recommandations
 
 6. **Plan de Tests Mis à Jour** ✅
-   - Fichier : [`docs/testing/indexer-qdrant-test-plan-20251016.md`](../indexer-qdrant-test-plan-20251016.md:1)
+   - Fichier : [`docs/testing/indexer-qdrant-test-plan-20251016.md`](indexer-qdrant-test-plan-20251016.md)
    - Contenu : Critères ajustés, statut phases, procédures
 
 7. **Ce Document - Recommandations Finales** ✅
@@ -391,7 +391,7 @@ await redis.setex(`embedding:${hash}`, 604800, JSON.stringify(embedding));
 **Documentation** :
 - [OpenAI Embeddings API](https://platform.openai.com/docs/guides/embeddings)
 - [Qdrant Documentation](https://qdrant.tech/documentation/)
-- [Plan de Tests Original](../indexer-qdrant-test-plan-20251016.md:1)
+- [Plan de Tests Original](indexer-qdrant-test-plan-20251016.md)
 
 **Outils de Debug** :
 - Script Phase 1 : Tests unitaires rapides

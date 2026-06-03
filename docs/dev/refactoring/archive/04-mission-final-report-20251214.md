@@ -656,12 +656,12 @@ Le projet est désormais positionné pour une évolution scalable et durable, av
 ## 📚 Annexes
 
 ### A. Références des Rapports de Phase
-- **Phase 1** : [`02-phase1-completion-report.md`](./02-phase1-completion-report.md)
+- **Phase 1** : [`02-phase1-completion-report.md`](../02-phase1-completion-report.md)
 - **Phase 2** : [`03-accessibility-plan-updated-20251025.md`](./03-accessibility-plan-updated-20251025.md)
 - **Phase 3A** : [`03a-quickfiles-completion-report.md`](./03a-quickfiles-completion-report.md)
 - **Phase 3B** : [`03b-jinavigator-completion-report.md`](./03b-jinavigator-completion-report.md)
 - **Phase 3C** : [`03c-roo-state-manager-completion-report.md`](./03c-roo-state-manager-completion-report.md)
-- **Phase 3D** : [`03d-jupyter-papermill-completion-report.md`](./03d-jupyter-papermill-completion-report.md)
+- **Phase 3D** : `03d-jupyter-papermill-completion-report.md`
 
 ### B. Métriques Détaillées par Serveur
 - **QuickFiles** : 344 tests, 74.65% couverture, 10 outils

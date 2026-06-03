@@ -39,4 +39,4 @@ Si vos terminaux intégrés VSCode ne sont pas corrects, forcez la configuration
 ## 📚 Ressources Utiles
 
 - [Guide de Dépannage](troubleshooting-guide.md) : En cas de problème.
-- [Documentation Technique](documentation-technique-encodingmanager-20251030.md) : Pour comprendre le fonctionnement interne.
+- [Documentation Technique](archive/documentation-technique-encodingmanager-20251030.md) : Pour comprendre le fonctionnement interne.

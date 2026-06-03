@@ -142,6 +142,6 @@ execute_command(shell="powershell", command="echo OK")
 ## Références
 
 - [docs/mcps/INDEX.md](mcps/INDEX.md) - Documentation complète de tous les MCPs
-- [`.claude/MCP_SETUP.md`](../.claude/MCP_SETUP.md) - Installation initiale Claude Code
+- `.claude/MCP_SETUP.md` - Installation initiale Claude Code
 - [`.claude/rules/tool-availability.md`](../.claude/rules/tool-availability.md) - Protocole STOP & REPAIR
 - [Issue #658](https://github.com/jsboige/roo-extensions/issues/658) - Retrait win-cli de Claude Code

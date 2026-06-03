@@ -320,9 +320,9 @@ nothing to commit, working tree clean
 ## 📞 Contacts et Ressources
 
 ### Rapports Connexes
-- [InventoryCollector Repair](../roosync/repair-inventory-collector-20251020.md)
-- [DiffDetector Refactoring](../roosync/refactor-diff-detector-safe-access-20251021.md)
-- [detectWorkspaceForTask Modernization](../indexation/repair-detectWorkspaceForTask-20251020.md)
+- InventoryCollector Repair
+- DiffDetector Refactoring
+- [detectWorkspaceForTask Modernization](../../../dev/indexation/repair-detectWorkspaceForTask-20251020.md)
 
 ### Commits GitHub
 - Repository : `jsboige/roo-extensions`

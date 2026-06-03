@@ -10,7 +10,7 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 
 ---
 
-## Subagents ([.claude/agents/](.claude/agents/))
+## Subagents (`.claude/agents/`)
 
 ### Agents Projet (dans `.claude/agents/`)
 
@@ -44,7 +44,7 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 | `roosync-reporter` | Envoie rapports au coordinateur |
 | `task-worker` | Prend en charge taches assignees |
 
-### Agents Workers Specialises ([.claude/agents/workers/](.claude/agents/workers/))
+### Agents Workers Specialises (`.claude/agents/workers/`)
 
 | Agent | Description |
 |-------|-------------|
@@ -55,7 +55,7 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 
 ---
 
-## Skills ([.claude/skills/](.claude/skills/))
+## Skills (`.claude/skills/`)
 
 | Skill | Description | Declencheur |
 |-------|-------------|-------------|
@@ -68,7 +68,7 @@ Deleguer les taches verboses a des **subagents**. La conversation principale res
 
 ---
 
-## Commands ([.claude/commands/](.claude/commands/))
+## Commands (`.claude/commands/`)
 
 | Commande | Machine | Description |
 |----------|---------|-------------|

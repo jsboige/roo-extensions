@@ -337,7 +337,7 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 - `protocole multi-pass` pour `codebase_search`
 
 **Pour la méthodologie SDDD au niveau RooSync** (gh CLI, orchestrator obligations, project workflow), voir :
-- [docs/roosync/PROTOCOLE_SDDD.md](../../docs/roosync/PROTOCOLE_SDDD.md) (v2.7.0)
+- [docs/roosync/PROTOCOLE_SDDD.md](../../roosync/PROTOCOLE_SDDD.md) (v2.7.0)
 
 **Les deux documents sont complémentaires** :
 - **PROTOCOLE_SDDD.md** : Méthodologie système RooSync (tous agents, gh CLI, workflow projet)

@@ -5,15 +5,15 @@
 ### Fichiers Créés
 
 **Code Source :**
-1. [`src/tools/roosync/apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) (277 lignes)
-2. [`src/tools/roosync/rollback-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) (199 lignes)
-3. [`src/tools/roosync/get-decision-details.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts) (264 lignes)
-4. [`src/tools/roosync/index.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts) (mis à jour - 8 outils)
+1. `src/tools/roosync/apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) (277 lignes)
+2. `src/tools/roosync/rollback-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) (199 lignes)
+3. `src/tools/roosync/get-decision-details.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts`) (264 lignes)
+4. `src/tools/roosync/index.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/index.ts`) (mis à jour - 8 outils)
 
 **Tests :**
-1. [`tests/unit/tools/roosync/apply-decision.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/apply-decision.test.ts) (154 lignes)
-2. [`tests/unit/tools/roosync/rollback-decision.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/rollback-decision.test.ts) (147 lignes)
-3. [`tests/unit/tools/roosync/get-decision-details.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/get-decision-details.test.ts) (164 lignes)
+1. `tests/unit/tools/roosync/apply-decision.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/apply-decision.test.ts`) (154 lignes)
+2. `tests/unit/tools/roosync/rollback-decision.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/rollback-decision.test.ts`) (147 lignes)
+3. `tests/unit/tools/roosync/get-decision-details.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/get-decision-details.test.ts`) (164 lignes)
 
 **Documentation :**
 1. `docs/integration/10-outils-mcp-execution.md` (ce fichier)
@@ -139,9 +139,9 @@ Couche 1 : Configuration (roosync-config.ts)
 - [09-outils-mcp-decision.md](09-outils-mcp-decision.md) : Outils Phase 4
 
 **Code :**
-- [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)
-- [`RooSync/src/modules/Actions.psm1`](../../RooSync/src/modules/Actions.psm1)
-- [`roosync-parsers.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts)
+- `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
+- `RooSync/src/modules/Actions.psm1` (`../../RooSync/src/modules/Actions.psm1`)
+- `roosync-parsers.ts` (`../../mcps/internal/servers/roo-state-manager/src/utils/roosync-parsers.ts`)
 
 ---
 

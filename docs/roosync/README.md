@@ -1,7 +1,7 @@
 # RooSync - Système de Synchronisation Multi-Environnements
 
 **Description** : Système de synchronisation et coordination multi-agents pour Roo
-**Version actuelle** : 2.3 (voir [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md))
+**Version actuelle** : 2.3 (voir `CHANGELOG-v2.3.md`)
 **Date de dernière mise à jour** : 2026-01-14
 **Statut** : 🟢 Production Ready
 
@@ -555,23 +555,23 @@ RooSync a évolué à travers plusieurs versions, chacune avec un objectif spéc
 | Document | Chemin | Statut |
 |---------|--------|--------|
 | Changelog v2.2 | Intégré dans v2.3 | ❌ Archivé |
-| Document de Transition | [`archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md) | ✅ Disponible |
+| Document de Transition | `archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md` | ✅ Disponible |
 
 #### Documentation v2.3
 
 | Document | Chemin | Statut |
 |---------|--------|--------|
-| Changelog v2.3 | [`CHANGELOG-v2.3.md`](CHANGELOG-v2.3.md) | ✅ Complet |
+| Changelog v2.3 | `CHANGELOG-v2.3.md` | ✅ Complet |
 | Guide Technique v2.3 | [`GUIDE-TECHNIQUE-v2.3.md`](GUIDE-TECHNIQUE-v2.3.md) | ✅ Complet |
-| Plan Migration v2.1→v2.3 | [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md) | ✅ Disponible |
+| Plan Migration v2.1→v2.3 | `archive/PLAN_MIGRATION_V2.1_V2.3.md` | ✅ Disponible |
 
 ### Guide de Migration
 
 Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
-**📄 Guide de Migration v2.1 → v2.3 :** [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md)
+**📄 Guide de Migration v2.1 → v2.3 :** `archive/PLAN_MIGRATION_V2.1_V2.3.md`
 
-**📄 Document de Transition :** [`archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`](archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md)
+**📄 Document de Transition :** `archive/TRANSITIONS_VERSIONS_V2.1_V2.2_V2.3.md`
 
 ---
 
@@ -581,11 +581,11 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
 | Version | Date | Description | Changelog |
 |---------|------|-------------|-----------|
-| **v2.3** | 2026-01 | Consolidation API, coordination multi-agent | [CHANGELOG-v2.3.md](CHANGELOG-v2.3.md) |
+| **v2.3** | 2026-01 | Consolidation API, coordination multi-agent | `CHANGELOG-v2.3.md` |
 | v2.2 | 2025-12 | Publication de configuration (corrections WP4) | Voir v2.3 |
 | v2.1 | 2025-12 | Architecture Baseline-Driven | Remplacé par v2.3 |
 
-**Migration recommandée :** v2.1 → v2.3 (voir [`archive/PLAN_MIGRATION_V2.1_V2.3.md`](archive/PLAN_MIGRATION_V2.1_V2.3.md))
+**Migration recommandée :** v2.1 → v2.3 (voir `archive/PLAN_MIGRATION_V2.1_V2.3.md`)
 
 ---
 
@@ -648,7 +648,7 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 - ✅ Rétablissement du système de messagerie
 
 **Documentation** :
-- [`DEBUG_MCP_LOADING_2025-12-27.md`](DEBUG_MCP_LOADING_2025-12-27.md)
+- `DEBUG_MCP_LOADING_2025-12-27.md`
 
 ### Corrections Récentes (Tâche 18)
 
@@ -704,9 +704,9 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
 | Fichier | Description | Lien |
 |---------|-------------|------|
-| SUIVI_TRANSVERSE_ROOSYNC.md | Suivi transverse des évolutions RooSync | [`docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`](../suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md) |
-| DEBUG_MCP_LOADING_2025-12-27.md | Diagnostic de l'erreur de chargement MCP | [`DEBUG_MCP_LOADING_2025-12-27.md`](DEBUG_MCP_LOADING_2025-12-27.md) |
-| CONSOLIDATION_POST_HARMONISATION_2026-01-20.md | Consolidation documentation post-harmonisation | [`docs/suivi/RooSync/Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md`](../suivi/RooSync/Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md) |
+| SUIVI_TRANSVERSE_ROOSYNC.md | Suivi transverse des évolutions RooSync | `docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md` |
+| DEBUG_MCP_LOADING_2025-12-27.md | Diagnostic de l'erreur de chargement MCP | `DEBUG_MCP_LOADING_2025-12-27.md` |
+| CONSOLIDATION_POST_HARMONISATION_2026-01-20.md | Consolidation documentation post-harmonisation | `docs/suivi/RooSync/Archives/CONSOLIDATION_POST_HARMONISATION_2026-01-20.md` |
 
 ### Rapports de Tests
 
@@ -790,7 +790,7 @@ Pour contribuer à RooSync :
 ### Ressources
 
 - **Documentation principale** : Ce README et les 3 guides unifiés
-- **Suivi des évolutions** : [`docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`](../suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md)
+- **Suivi des évolutions** : `docs/suivi/RooSync/SUIVI_TRANSVERSE_ROOSYNC.md`
 - **Code source** : `mcps/internal/servers/roo-state-manager/src/tools/roosync/`
 - **Tests** : `tests/results/roosync/`
 

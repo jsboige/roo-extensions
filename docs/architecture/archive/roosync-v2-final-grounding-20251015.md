@@ -13,7 +13,7 @@
 
 1. ✅ **Organisation Messages de Coordination** (Design complet)
    - Architecture temporelle messages détaillée
-   - Document [`roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md) (1492 lignes)
+   - Document `roosync-temporal-messages-architecture.md` (1492 lignes)
    - Structure évolutive pour synchronisation multi-machines
 
 2. ✅ **Inventaire Scripts Existants** (140+ scripts catalogués)
@@ -123,7 +123,7 @@ docs/investigation/
 #### 1. InventoryCollector (Phase 1)
 
 **Responsabilités :**
-- Orchestrer [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1)
+- Orchestrer [`Get-MachineInventory.ps1`](../../../scripts/inventory/Get-MachineInventory.ps1)
 - Gérer cache TTL 1h (Map<machineId, CachedInventory>)
 - Stocker inventaires dans `.shared-state/inventories/`
 - Graceful degradation sur erreurs PowerShell
@@ -260,7 +260,7 @@ User → roosync_compare_config(source, target, force_refresh)
 
 **Identifiés :** 140+ scripts dans `scripts/`
 
-**Clé :** [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1) (300 lignes)
+**Clé :** [`Get-MachineInventory.ps1`](../../../scripts/inventory/Get-MachineInventory.ps1) (300 lignes)
 - Collecte complète inventaire système
 - Output JSON structuré
 - Déjà testé et validé
@@ -327,27 +327,27 @@ User → roosync_compare_config(source, target, force_refresh)
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`README-roosync.md`](../../mcps/internal/servers/roo-state-manager/src/services/README-roosync.md) | 828 | Guide technique complet |
-| [`test-inventory-direct.js`](../../mcps/internal/servers/roo-state-manager/test-inventory-direct.js) | 115 | Tests Phase 1 |
-| [`test-diff-detector.js`](../../mcps/internal/servers/roo-state-manager/test-diff-detector.js) | 458 | Tests Phase 2 |
-| [`test-roosync-integration.js`](../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js) | 222 | Tests Phase 3 |
+| `README-roosync.md` | 828 | Guide technique complet |
+| `test-inventory-direct.js` (`../../mcps/internal/servers/roo-state-manager/test-inventory-direct.js`) | 115 | Tests Phase 1 |
+| `test-diff-detector.js` (`../../mcps/internal/servers/roo-state-manager/test-diff-detector.js`) | 458 | Tests Phase 2 |
+| `test-roosync-integration.js` (`../../mcps/internal/servers/roo-state-manager/test-roosync-integration.js`) | 222 | Tests Phase 3 |
 
 ### Pour Architectes
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
 | [`roosync-v2-evolution-synthesis-20251015.md`](roosync-v2-evolution-synthesis-20251015.md) | 986 | Synthèse complète projet |
-| [`roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md) | 1492 | Architecture messages |
-| [`roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md) | 1900 | Design détection réelle |
-| [`roosync-real-methods-connection-design.md`](../architecture/roosync-real-methods-connection-design.md) | 765 | Analyse connexion méthodes |
+| `roosync-temporal-messages-architecture.md` | 1492 | Architecture messages |
+| [`roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md) | 1900 | Design détection réelle |
+| [`roosync-real-methods-connection-design.md`](roosync-real-methods-connection-design.md) | 765 | Analyse connexion méthodes |
 
 ### Pour Testeurs
 
 | Document | Lignes | Description |
 |----------|--------|-------------|
-| [`roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md) | 561 | Plan tests E2E complet |
-| [`roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md) | 310 | Rapport intégration |
-| [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) | 279 | Test end-to-end réel |
+| [`roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md) | 561 | Plan tests E2E complet |
+| [`roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md) | 310 | Rapport intégration |
+| [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../../dev/testing/archive/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md) | 279 | Test end-to-end réel |
 
 ---
 
@@ -505,20 +505,20 @@ User → roosync_compare_config(source, target, force_refresh)
 ### Code Principal
 
 **Services :**
-- [`InventoryCollector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts) (278 lignes)
-- [`DiffDetector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts) (590 lignes)
-- [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) (modifications)
+- `InventoryCollector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`) (278 lignes)
+- `DiffDetector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`) (590 lignes)
+- `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) (modifications)
 
 **Outils MCP :**
-- [`compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts)
-- [`init.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/init.ts)
-- [`get-status.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts)
-- [`list-diffs.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts)
+- `compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`)
+- `init.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/init.ts`)
+- `get-status.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`)
+- `list-diffs.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`)
 
 ### Scripts PowerShell
 
 **Principal :**
-- [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1) (300 lignes)
+- [`Get-MachineInventory.ps1`](../../../scripts/inventory/Get-MachineInventory.ps1) (300 lignes)
 
 **Modules RooSync v1 (Référence) :**
 - `Core.psm1` dans `RooSync/src/modules/`
@@ -527,14 +527,14 @@ User → roosync_compare_config(source, target, force_refresh)
 ### Documentation Architecture
 
 **Design :**
-- [`roosync-temporal-messages-architecture.md`](../architecture/roosync-temporal-messages-architecture.md)
-- [`roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md)
-- [`roosync-real-methods-connection-design.md`](../architecture/roosync-real-methods-connection-design.md)
+- `roosync-temporal-messages-architecture.md`
+- [`roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md)
+- [`roosync-real-methods-connection-design.md`](roosync-real-methods-connection-design.md)
 
 **Tests :**
-- [`roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md)
-- [`roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md)
-- [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../testing/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md)
+- [`roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md)
+- [`roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md)
+- [`roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md`](../../dev/testing/archive/roosync-real-diff-myia-ai-01-vs-myia-po-2024-20251015-213000.md)
 
 **Orchestration :**
 - [`roosync-v2-evolution-synthesis-20251015.md`](roosync-v2-evolution-synthesis-20251015.md)
@@ -552,12 +552,12 @@ User → roosync_compare_config(source, target, force_refresh)
 
 **Puis :**
 1. [`roosync-v2-evolution-synthesis-20251015.md`](roosync-v2-evolution-synthesis-20251015.md) - Vue d'ensemble
-2. [`README-roosync.md`](../../mcps/internal/servers/roo-state-manager/src/services/README-roosync.md) - Guide technique
-3. [`roosync-e2e-test-plan.md`](../testing/roosync-e2e-test-plan.md) - Tests
+2. `README-roosync.md` - Guide technique
+3. [`roosync-e2e-test-plan.md`](../../dev/testing/roosync-e2e-test-plan.md) - Tests
 
 **Pour approfondir :**
-- [`roosync-real-diff-detection-design.md`](../architecture/roosync-real-diff-detection-design.md) - Design détaillé
-- [`roosync-phase3-integration-report.md`](../testing/roosync-phase3-integration-report.md) - Rapport tests
+- [`roosync-real-diff-detection-design.md`](../roosync-real-diff-detection-design.md) - Design détaillé
+- [`roosync-phase3-integration-report.md`](../../dev/testing/archive/roosync-phase3-integration-report.md) - Rapport tests
 
 #### 2. Points d'Entrée Code
 

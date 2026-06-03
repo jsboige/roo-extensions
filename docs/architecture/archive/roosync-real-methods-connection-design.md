@@ -586,16 +586,16 @@ it('devrait détecter conflit si deux machines appliquent simultanément', async
 
 ### Fichiers Clés
 
-1. [`apply-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts) - Outil MCP apply (239 lignes)
-2. [`rollback-decision.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts) - Outil MCP rollback (189 lignes)
-3. [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts) - Service central (676 lignes)
-4. [`PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) - Wrapper PowerShell (329 lignes)
-5. [`roosync-workflow.test.ts`](../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts) - Tests E2E (1182 lignes)
+1. `apply-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) - Outil MCP apply (239 lignes)
+2. `rollback-decision.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) - Outil MCP rollback (189 lignes)
+3. `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`) - Service central (676 lignes)
+4. `PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) - Wrapper PowerShell (329 lignes)
+5. `roosync-workflow.test.ts` (`../../mcps/internal/servers/roo-state-manager/tests/e2e/roosync-workflow.test.ts`) - Tests E2E (1182 lignes)
 
 ### Documentation
 
-1. [`20-powershell-integration-guide.md`](../integration/20-powershell-integration-guide.md) - Guide intégration PowerShell (1957 lignes)
-2. [`roosync-v1-vs-v2-gap-analysis.md`](../investigation/roosync-v1-vs-v2-gap-analysis.md) - ⚠️ Rapport OBSOLÈTE
+1. [`20-powershell-integration-guide.md`](../../roosync/archive/integration/20-powershell-integration-guide.md) - Guide intégration PowerShell (1957 lignes)
+2. `roosync-v1-vs-v2-gap-analysis.md` - ⚠️ Rapport OBSOLÈTE
 
 ---
 

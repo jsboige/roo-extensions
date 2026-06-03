@@ -232,7 +232,7 @@ Le MCP roo-state-manager pour Claude Code utilise un **wrapper** qui filtre les 
 }
 ```
 
-**Wrapper:** [mcp-wrapper.cjs](../../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs)
+**Wrapper:** mcp-wrapper.cjs (`../../mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs`)
 
 ### Depannage Claude Code MCP
 

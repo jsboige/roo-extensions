@@ -759,10 +759,10 @@ Get-Process | Where-Object {$_.ProcessName -like "*mcp*"}
 ## 📞 Support et Ressources
 
 ### Documentation Technique
-- [Architecture MCPs détaillée](../mcps/README.md)
-- [Configuration avancée](../roo-config/specifications/mcp-configuration.md)
-- [Scripts de maintenance](../scripts/maintenance/)
-- [Protocole SDDD](../roo-config/specifications/sddd-protocol-4-niveaux.md)
+- [Architecture MCPs détaillée](../README.md)
+- [Configuration avancée](../mcp-configuration.md)
+- `../scripts/maintenance/`
+- [Protocole SDDD](../../roo-config/specifications/sddd-protocol-4-niveaux.md)
 
 ### Support Technique
 - **Roo Debug Complex** : Problèmes techniques et dépannage

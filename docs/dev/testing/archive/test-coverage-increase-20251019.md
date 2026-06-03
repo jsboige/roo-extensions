@@ -7,7 +7,7 @@ Recycler stash@{0} (mcps/internal) pour augmenter couverture tests E2E du module
 ## Source
 
 - **Stash** : stash@{0} mcps/internal
-- **Patch** : [`docs/git/stash-details/internal-stash-0-tests.patch`](../git/stash-details/internal-stash-0-tests.patch)
+- **Patch** : `docs/git/stash-details/internal-stash-0-tests.patch` (`../git/stash-details/internal-stash-0-tests.patch`)
 - **Score** : 17/20 (TRÈS ÉLEVÉ)
 - **Lignes** : 170 lignes tests production-ready
 

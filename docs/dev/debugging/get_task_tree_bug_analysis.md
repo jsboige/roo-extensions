@@ -66,7 +66,7 @@ ae9a3b3d (RACINE) - "Schedule: Instructions de Synchronisation..." (Mai 2025)
 ## 📝 Actions Effectuées
 
 1. ✅ Documenter le problème (ce fichier)
-2. ✅ Examiner le code source de `get_task_tree` → [`index.ts:1465-1600`](../../../mcps/internal/servers/roo-state-manager/src/index.ts:1465)
+2. ✅ Examiner le code source de `get_task_tree` → `index.ts:1465-1600` (`../../../mcps/internal/servers/roo-state-manager/src/index.ts`)
 3. ✅ Identifier la logique défectueuse de `hasParent` → Ligne 1544
 4. ✅ Appliquer un correctif
 5. ⏳ Tester la correction
@@ -74,7 +74,7 @@ ae9a3b3d (RACINE) - "Schedule: Instructions de Synchronisation..." (Mai 2025)
 
 ## 🔧 Correctif Appliqué
 
-**Fichier:** [`mcps/internal/servers/roo-state-manager/src/index.ts:1544`](../../../mcps/internal/servers/roo-state-manager/src/index.ts:1544)
+**Fichier:** `mcps/internal/servers/roo-state-manager/src/index.ts:1544` (`../../../mcps/internal/servers/roo-state-manager/src/index.ts`)
 
 **Avant:**
 ```typescript
@@ -107,7 +107,7 @@ hasParent: (() => {
 
 **Status:** ✅ **RÉSOLU**
 
-1. ✅ Bug identifié dans [`index.ts:1544`](../../../mcps/internal/servers/roo-state-manager/src/index.ts:1544)
+1. ✅ Bug identifié dans `index.ts:1544` (`../../../mcps/internal/servers/roo-state-manager/src/index.ts`)
 2. ✅ Correctif appliqué (validation stricte de `hasParent`)
 3. ✅ Code compilé avec succès (`npm run build` → Exit 0)
 4. ⏳ Redémarrage MCP requis (le serveur se reconnectera automatiquement)

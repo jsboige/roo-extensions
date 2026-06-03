@@ -389,9 +389,9 @@ Si vous rencontrez des erreurs lors de la création du profil:
 
 ## Références
 
-- [README des profils pour les modes personnalisés](../roo-config/README-profile-modes.md)
-- [Guide d'intégration des modes personnalisés](../roo-modes/docs/guide-integration-modes-custom.md)
-- [Guide du système de verrouillage de famille](../roo-modes/docs/guide-verrouillage-famille-modes.md)
-- [Script de création de profil](../roo-config/create-profile.ps1)
-- [Script de déploiement de profil](../roo-config/deploy-profile-modes.ps1)
-- [Script de déploiement amélioré](../roo-config/deploy-modes-enhanced.ps1)
+- README des profils pour les modes personnalisés
+- Guide d'intégration des modes personnalisés
+- Guide du système de verrouillage de famille
+- [Script de création de profil](../../scripts/deployment/create-profile.ps1)
+- Script de déploiement de profil (`../roo-config/deploy-profile-modes.ps1`)
+- Script de déploiement amélioré (`../roo-config/deploy-modes-enhanced.ps1`)

@@ -701,7 +701,7 @@ flowchart TD
 - `ProviderConfig` : Configuration d'un provider
 - `ProviderMetrics` : Métriques de performance
 
-**Localisation** : [`src/core/condense/types.ts`](../../../../src/core/condense/types.ts)
+**Localisation** : `src/core/condense/types.ts` (`../../../../src/core/condense/types.ts`)
 
 ### 2. BaseCondensationProvider (`BaseProvider.ts`)
 
@@ -723,7 +723,7 @@ protected abstract condenseInternal(
 async estimateCost(context: CondensationContext): Promise<number>
 ```
 
-**Localisation** : [`src/core/condense/BaseProvider.ts`](../../../../src/core/condense/BaseProvider.ts)
+**Localisation** : `src/core/condense/BaseProvider.ts` (`../../../../src/core/condense/BaseProvider.ts`)
 
 ### 3. ProviderRegistry (`ProviderRegistry.ts`)
 
@@ -745,7 +745,7 @@ clear(): void  // Pour les tests uniquement
 - `providers: Map<string, ICondensationProvider>` : Instances des providers
 - `configs: Map<string, ProviderConfig>` : Configurations par provider
 
-**Localisation** : [`src/core/condense/ProviderRegistry.ts`](../../../../src/core/condense/ProviderRegistry.ts)
+**Localisation** : `src/core/condense/ProviderRegistry.ts` (`../../../../src/core/condense/ProviderRegistry.ts`)
 
 ### 4. CondensationManager (`CondensationManager.ts`)
 
@@ -766,7 +766,7 @@ listProviders(): ProviderInfo[]
 3. Construire le context et les options
 4. Déléguer à `provider.condense()`
 
-**Localisation** : [`src/core/condense/CondensationManager.ts`](../../../../src/core/condense/CondensationManager.ts)
+**Localisation** : `src/core/condense/CondensationManager.ts` (`../../../../src/core/condense/CondensationManager.ts`)
 
 ### 5. NativeProvider (`providers/NativeProvider.ts`)
 
@@ -784,7 +784,7 @@ listProviders(): ProviderInfo[]
 - Gap minimum de 3 messages après dernière condensation
 - Vérification que le contexte ne grandit pas
 
-**Localisation** : [`src/core/condense/providers/NativeProvider.ts`](../../../../src/core/condense/providers/NativeProvider.ts)
+**Localisation** : `src/core/condense/providers/NativeProvider.ts` (`../../../../src/core/condense/providers/NativeProvider.ts`)
 
 ---
 
@@ -1068,18 +1068,18 @@ console.log("Has recent summary:", context.messages.some(m => m.isSummary))
 
 ### Code Source
 
-- [Types](../../../../src/core/condense/types.ts)
-- [BaseProvider](../../../../src/core/condense/BaseProvider.ts)
-- [ProviderRegistry](../../../../src/core/condense/ProviderRegistry.ts)
-- [CondensationManager](../../../../src/core/condense/CondensationManager.ts)
-- [NativeProvider](../../../../src/core/condense/providers/NativeProvider.ts)
-- [Tests](../../../../src/core/condense/__tests__/)
+- Types (`../../../../src/core/condense/types.ts`)
+- BaseProvider (`../../../../src/core/condense/BaseProvider.ts`)
+- ProviderRegistry (`../../../../src/core/condense/ProviderRegistry.ts`)
+- CondensationManager (`../../../../src/core/condense/CondensationManager.ts`)
+- NativeProvider (`../../../../src/core/condense/providers/NativeProvider.ts`)
+- `../../../../src/core/condense/__tests__/`
 
 ### Documentation
 
-- [Checkpoint Phase 1](../../pr-tracking/context-condensation/009-phase1-checkpoint.md)
-- [Plan 30 Commits](../../pr-tracking/context-condensation/007-operational-plan-30-commits.md)
-- [Guide Contributeur](./contributing-guide.md) *(à créer)*
+- Checkpoint Phase 1
+- Plan 30 Commits
+- Guide Contributeur *(à créer)*
 
 ### Design Patterns
 

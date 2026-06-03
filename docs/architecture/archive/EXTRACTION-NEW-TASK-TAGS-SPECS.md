@@ -9,7 +9,7 @@
 
 ### Mécanisme Confirmé
 
-L'analyse du code source ([`hierarchy-reconstruction-engine.ts`](../mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:1), [`task-instruction-index.ts`](../mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts:1), [`sub-instruction-extractor.ts`](../mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1)) confirme :
+L'analyse du code source (`hierarchy-reconstruction-engine.ts` (`../mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts`), `task-instruction-index.ts` (`../mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts`), `sub-instruction-extractor.ts` (`../mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts`)) confirme :
 
 **Le système utilise une recherche EXACTE par préfixe, PAS de matching flou.**
 
@@ -130,7 +130,7 @@ Le problème se situe en amont :
 
 ### Scripts Créés
 
-**Fichier** : [`scripts/extract-child-parent-snippets.ps1`](../scripts/extract-child-parent-snippets.ps1:1)
+**Fichier** : [`scripts/extract-child-parent-snippets.ps1`](../../../scripts/diagnostic/hierarchy/extract-child-parent-snippets.ps1)
 
 - Lecture par streaming (pas de chargement complet en mémoire)
 - Troncature par caractères (respect de la sérialisation JSON sur une ligne)

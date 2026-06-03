@@ -59,9 +59,9 @@ return {
 |-------|--------|------|-------------|
 | [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1) | 300 | ✅ Prêt | Collecte inventaire complet |
 | `Core.psm1::Get-LocalContext` | 127 | ✅ Éprouvé | Parse MCPs/Modes actifs |
-| [`compare-config.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts) | 109 | ⚠️ Stub | À compléter |
-| [`PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) | 331 | ✅ Opérationnel | Exécution scripts PS depuis Node |
-| [`Actions.psm1::Compare-Config`](../../RooSync/src/modules/Actions.psm1) | 131 lignes | ✅ Référence v1 | Logique comparaison v1 |
+| `compare-config.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) | 109 | ⚠️ Stub | À compléter |
+| `PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) | 331 | ✅ Opérationnel | Exécution scripts PS depuis Node |
+| `Actions.psm1::Compare-Config` (`../../RooSync/src/modules/Actions.psm1`) | 131 lignes | ✅ Référence v1 | Logique comparaison v1 |
 
 ---
 
@@ -87,8 +87,8 @@ $Inventory = Get-Content $OutputPath | ConvertFrom-Json
 
 | Script | Lignes | Fonctionnalités Clés | Intégration RooSync v2 |
 |--------|--------|---------------------|------------------------|
-| **[`Actions.psm1::Compare-Config`](../../RooSync/src/modules/Actions.psm1)** | 106 | • Compare JSON profond<br>• Génère UUID décision<br>• Formate diff lisible<br>• Enrichit avec contexte<br>• Crée bloc décision Markdown | 🔄 **INSPIRATION**<br>Logique à adapter pour détection réelle |
-| [`sync_roo_environment.ps1`](../../RooSync/sync_roo_environment.ps1) | 245 | • Git pull avec gestion conflits<br>• Validation JSON post-sync<br>• Patterns de fichiers à synchroniser<br>• Logs structurés | 🔄 **RÉFÉRENCE**<br>Workflow de synchronisation |
+| **`Actions.psm1::Compare-Config` (`../../RooSync/src/modules/Actions.psm1`)** | 106 | • Compare JSON profond<br>• Génère UUID décision<br>• Formate diff lisible<br>• Enrichit avec contexte<br>• Crée bloc décision Markdown | 🔄 **INSPIRATION**<br>Logique à adapter pour détection réelle |
+| `sync_roo_environment.ps1` (`../../RooSync/sync_roo_environment.ps1`) | 245 | • Git pull avec gestion conflits<br>• Validation JSON post-sync<br>• Patterns de fichiers à synchroniser<br>• Logs structurés | 🔄 **RÉFÉRENCE**<br>Workflow de synchronisation |
 | [`validate-deployment.ps1`](../../scripts/validation/validate-deployment.ps1) | 334 | • Checks encodage<br>• Validation profil PowerShell<br>• Tests VSCode config<br>• Rapport structuré | 🔧 **UTILE**<br>Pour validation post-application |
 
 **Pattern Compare-Config v1** (À AMÉLIORER) :
@@ -107,17 +107,17 @@ $diff = Compare-Object `
 | Script | Lignes | Fonctionnalités Clés | Intégration RooSync v2 |
 |--------|--------|---------------------|------------------------|
 | [`deploy-environment.ps1`](../../scripts/mcp/deploy-environment.ps1) | 177 | • Build MCPs TypeScript<br>• Résolution placeholders<br>• Merge fichiers `.env` locaux<br>• Génération config finale | 🔧 **UTILE**<br>Pour déploiement automatique décisions |
-| [`deploy-modes.ps1`](../../scripts/deployment/deploy-modes.ps1) | 228 | • Déploiement global/local<br>• Support profils<br>• Enrichissement métadonnées<br>• Tests post-déploiement | 🔧 **UTILE**<br>Pour sync modes entre machines |
-| [`Actions.psm1::Apply-Decisions`](../../RooSync/src/modules/Actions.psm1) | 51 | • Parsing markdown avec regex<br>• Application décisions cochées `[x]`<br>• Archivage décisions<br>• Rollback sur erreur | ⭐ **BASE v2**<br>À améliorer avec TypeScript |
+| `deploy-modes.ps1` (`../../scripts/deployment/deploy-modes.ps1`) | 228 | • Déploiement global/local<br>• Support profils<br>• Enrichissement métadonnées<br>• Tests post-déploiement | 🔧 **UTILE**<br>Pour sync modes entre machines |
+| `Actions.psm1::Apply-Decisions` (`../../RooSync/src/modules/Actions.psm1`) | 51 | • Parsing markdown avec regex<br>• Application décisions cochées `[x]`<br>• Archivage décisions<br>• Rollback sur erreur | ⭐ **BASE v2**<br>À améliorer avec TypeScript |
 
 #### Catégorie 4 : Diagnostic et Monitoring
 
 | Script | Lignes | Fonctionnalités Clés | Intégration RooSync v2 |
 |--------|--------|---------------------|------------------------|
-| [`diagnostic-multi-submodules.ps1`](../../scripts/git-safe-operations/diagnostic-multi-submodules.ps1) | 241 | • Scan Git multi-niveaux<br>• Statistiques modifiés/ajoutés/supprimés<br>• Détection sous-modules<br>• Logging structuré | 🔧 **INSPIRATION**<br>Pour détection diff Git |
+| `diagnostic-multi-submodules.ps1` (`../../scripts/git-safe-operations/diagnostic-multi-submodules.ps1`) | 241 | • Scan Git multi-niveaux<br>• Statistiques modifiés/ajoutés/supprimés<br>• Détection sous-modules<br>• Logging structuré | 🔧 **INSPIRATION**<br>Pour détection diff Git |
 | [`audit-roo-tasks.ps1`](../../scripts/audit/audit-roo-tasks.ps1) | 155 | • Cache avec timestamps<br>• Métriques agrégées<br>• Rapport JSON/texte<br>• Progress bars | 📊 **PATTERN**<br>Système de cache à réutiliser |
 | [`daily-monitoring.ps1`](../../scripts/monitoring/daily-monitoring.ps1) | 194 | • Health checks multi-sections<br>• Rapport Markdown structuré<br>• Status global SUCCESS/WARNING<br>• Logs horodatés | 📊 **PATTERN**<br>Format rapport à adopter |
-| [`validation-post-sddd.ps1`](../../scripts/diagnostic/validation-post-sddd-20251007.ps1) | 411 | • Tests par catégories<br>• Collecte métriques<br>• Génération rapport détaillé<br>• Checks performance | 🧪 **RÉFÉRENCE**<br>Tests de validation |
+| `validation-post-sddd.ps1` (`../../scripts/diagnostic/validation-post-sddd-20251007.ps1`) | 411 | • Tests par catégories<br>• Collecte métriques<br>• Génération rapport détaillé<br>• Checks performance | 🧪 **RÉFÉRENCE**<br>Tests de validation |
 
 ### 2.2 Infrastructure TypeScript Existante
 
@@ -125,10 +125,10 @@ $diff = Compare-Object `
 
 | Service | Lignes | Fonctionnalités | Utilisation pour Détection |
 |---------|--------|-----------------|---------------------------|
-| **[`PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)** | 331 | • Spawn processus PowerShell<br>• Gestion timeout/kill<br>• Parse JSON depuis stdout<br>• Méthodes statiques utilitaires | ⭐ **PIERRE ANGULAIRE**<br>Déjà opérationnel |
-| **[`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts)** | 676 | • Singleton service<br>• Lecture dashboard/roadmap<br>• Gestion décisions<br>• Parsing fichiers partagés | ⭐ **FONDATION**<br>À enrichir avec comparaison |
-| [`background-services.ts`](../../mcps/internal/servers/roo-state-manager/src/services/background-services.ts) | 443 | • Services d'arrière-plan<br>• Gestion tâches asynchrones<br>• Scheduling | 🔧 **UTILE**<br>Pour collecte périodique inventaire |
-| [`CacheAntiLeakManager.ts`](../../mcps/internal/servers/roo-state-manager/src/services/CacheAntiLeakManager.ts) | 612 | • Gestion cache avec TTL<br>• Invalidation intelligente<br>• Anti-leak mémoire<br>• Métriques cache | 📦 **PATTERN**<br>Cache inventaires |
+| **`PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)** | 331 | • Spawn processus PowerShell<br>• Gestion timeout/kill<br>• Parse JSON depuis stdout<br>• Méthodes statiques utilitaires | ⭐ **PIERRE ANGULAIRE**<br>Déjà opérationnel |
+| **`RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)** | 676 | • Singleton service<br>• Lecture dashboard/roadmap<br>• Gestion décisions<br>• Parsing fichiers partagés | ⭐ **FONDATION**<br>À enrichir avec comparaison |
+| `background-services.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/background-services.ts`) | 443 | • Services d'arrière-plan<br>• Gestion tâches asynchrones<br>• Scheduling | 🔧 **UTILE**<br>Pour collecte périodique inventaire |
+| `CacheAntiLeakManager.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/CacheAntiLeakManager.ts`) | 612 | • Gestion cache avec TTL<br>• Invalidation intelligente<br>• Anti-leak mémoire<br>• Métriques cache | 📦 **PATTERN**<br>Cache inventaires |
 
 #### Outils MCP RooSync Existants
 
@@ -147,17 +147,17 @@ $diff = Compare-Object `
 
 | Document | Pages | Contenu Clé | Utilité |
 |----------|-------|-------------|---------|
-| **[`SCRIPT-INTEGRATION-PATTERN.md`](../../mcps/internal/servers/roo-state-manager/docs/roosync/SCRIPT-INTEGRATION-PATTERN.md)** | 287 lignes | • Pattern standard<br>• Gestion modules ES6<br>• Calcul `__dirname`<br>• Bonnes pratiques<br>• Debugging guide | ⭐ **GUIDE DE RÉFÉRENCE**<br>Pattern déjà validé |
-| [`roosync-powershell-integration-poc-20251014.md`](../../roo-config/reports/roosync-powershell-integration-poc-20251014.md) | 389 lignes | • POC Get-MachineInventory<br>• Problèmes rencontrés<br>• Solutions implémentées<br>• Leçons apprises | 📚 **RETOUR EXPÉRIENCE**<br>Pièges à éviter |
-| [`20-powershell-integration-guide.md`](../../docs/integration/20-powershell-integration-guide.md) | 1957 lignes | • Architecture complète<br>• Patterns d'utilisation<br>• Gestion erreurs<br>• Examples concrets | 📚 **BIBLE**<br>Documentation exhaustive |
+| **`SCRIPT-INTEGRATION-PATTERN.md`** | 287 lignes | • Pattern standard<br>• Gestion modules ES6<br>• Calcul `__dirname`<br>• Bonnes pratiques<br>• Debugging guide | ⭐ **GUIDE DE RÉFÉRENCE**<br>Pattern déjà validé |
+| `roosync-powershell-integration-poc-20251014.md` | 389 lignes | • POC Get-MachineInventory<br>• Problèmes rencontrés<br>• Solutions implémentées<br>• Leçons apprises | 📚 **RETOUR EXPÉRIENCE**<br>Pièges à éviter |
+| [`20-powershell-integration-guide.md`](../roosync/archive/integration/20-powershell-integration-guide.md) | 1957 lignes | • Architecture complète<br>• Patterns d'utilisation<br>• Gestion erreurs<br>• Examples concrets | 📚 **BIBLE**<br>Documentation exhaustive |
 
 #### Rapports d'Architecture
 
 | Document | Valeur pour Détection Diff |
 |----------|---------------------------|
-| [`roosync-v1-vs-v2-gap-analysis.md`](../../docs/investigation/roosync-v1-vs-v2-gap-analysis.md) | Gap critique identifié : compare-config ne détecte rien |
-| [`roosync-differential-analysis-20251014.md`](../../roo-config/reports/roosync-differential-analysis-20251014.md) | Analyse multi-machines avec métriques |
-| [`SYSTEM-OVERVIEW.md`](../../RooSync/docs/SYSTEM-OVERVIEW.md) | Architecture v1 complète (1417 lignes) |
+| `roosync-v1-vs-v2-gap-analysis.md` | Gap critique identifié : compare-config ne détecte rien |
+| `roosync-differential-analysis-20251014.md` | Analyse multi-machines avec métriques |
+| `SYSTEM-OVERVIEW.md` | Architecture v1 complète (1417 lignes) |
 
 ### 2.4 Patterns de Code Réutilisables
 
@@ -310,7 +310,7 @@ foreach ($file in $ChangedFiles) {
 
 2. **Get-MachineInventory.ps1 bugs syntaxe**
    - Lignes 83-84 : Expression inline invalide
-   - Déjà corrigé dans [`Fix-GetMachineInventoryScript-20251014.ps1`](../../scripts/repair/Fix-GetMachineInventoryScript-20251014.ps1)
+   - Déjà corrigé dans `Fix-GetMachineInventoryScript-20251014.ps1` (`../../scripts/repair/Fix-GetMachineInventoryScript-20251014.ps1`)
 
 3. **Module ES6 `__dirname` undefined**
    - Résolu avec `fileURLToPath(import.meta.url)`
@@ -339,7 +339,7 @@ foreach ($file in $ChangedFiles) {
 
 **BONNE NOUVELLE** : Le composant PowerShellExecutor est **déjà implémenté et opérationnel** depuis Phase 8 - Tâche 40 !
 
-**Fichier** : [`mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts)  
+**Fichier** : `mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`)  
 **Lignes** : 331  
 **Tests** : ✅ Validé en production (apply/rollback decisions)
 
@@ -1889,10 +1889,10 @@ L'architecture proposée pour la détection réelle de différences RooSync v2.0
 
 | Ressource Existante | Nouveau Composant | Type Intégration |
 |---------------------|-------------------|------------------|
-| [`PowerShellExecutor.ts`](../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts) | InventoryCollector | Réutilisation directe |
+| `PowerShellExecutor.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/PowerShellExecutor.ts`) | InventoryCollector | Réutilisation directe |
 | [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1) | InventoryCollector.collect() | Appel via executor |
 | `Core.psm1::Get-LocalContext` | LocalContextProvider | Appel via executor |
-| [`Actions.psm1::Compare-Config`](../../RooSync/src/modules/Actions.psm1) | ConfigurationComparator | Inspiration logique |
+| `Actions.psm1::Compare-Config` (`../../RooSync/src/modules/Actions.psm1`) | ConfigurationComparator | Inspiration logique |
 | `audit-roo-tasks.ps1` (cache) | InventoryCollector (cache) | Pattern timestamps |
 | `daily-monitoring.ps1` (rapport) | DifferenceFormatter | Pattern sections |
 | `deploy-environment.ps1` | DecisionApplicator | Logique déploiement |

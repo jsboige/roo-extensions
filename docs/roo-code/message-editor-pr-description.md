@@ -16,7 +16,7 @@ The message editor has a critical data loss issue caused by a **race condition**
 
 ### Root Cause
 
-Located in [`ChatView.tsx:608-620`](webview-ui/src/components/chat/ChatView.tsx#L608-L620):
+Located in `ChatView.tsx:608-620` (`webview-ui/src/components/chat/ChatView.tsx`):
 
 ```typescript
 if (sendingDisabled) {
@@ -135,7 +135,7 @@ This PR sets the foundation for **Part 2**, which will address the race conditio
 4. **Reduce debounce** - Consider 100ms for faster saves
 5. **Add race condition tests** - Comprehensive concurrent operation tests
 
-See [`AUTOSAVE-LIMITATIONS.md`](webview-ui/src/hooks/__tests__/AUTOSAVE-LIMITATIONS.md) for detailed analysis and recommendations.
+See `AUTOSAVE-LIMITATIONS.md` for detailed analysis and recommendations.
 
 ## Migration Notes
 

@@ -10,7 +10,7 @@ Ce répertoire contient la documentation des tâches planifiées pour l'environn
 
 Extension légère pour tâches récurrentes simples pendant le développement.
 
-- **Documentation** : [roo-scheduler-analysis.md](../../roo-code/roo-scheduler-analysis.md)
+- **Documentation** : [roo-scheduler-analysis.md](../../../roo-code/roo-scheduler-analysis.md)
 - **Cas d'usage** : Revue de code, linting, suggestions de refactoring
 
 ### 2. Orchestration Quotidienne (PowerShell)

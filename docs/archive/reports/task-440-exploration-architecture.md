@@ -395,7 +395,7 @@ Error: Conversation avec taskId 5d775623-2561-4d83-a0e7-65278c1ce9d1 introuvable
 
 #### P0 - Critique (Bloquants pour usage quotidien)
 
-1. **Réparer smart truncation** ([view-conversation-tree.ts](../mcps/internal/servers/roo-state-manager/src/tools/view-conversation-tree.ts))
+1. **Réparer smart truncation** (view-conversation-tree.ts (`../mcps/internal/servers/roo-state-manager/src/tools/view-conversation-tree.ts`))
    - **Cause probable :** Bug dans `handleSmartTruncationAsync` (lignes 220-227)
    - **Test requis :** Vérifier l'algorithme de gradient (fonction `applyGradientTruncation`)
    - **Workaround temporaire :** Désactiver smart truncation par défaut et forcer troncature legacy

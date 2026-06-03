@@ -35,7 +35,7 @@ MyIA-AI-01
 ```
 
 #### ✅ Script PowerShell
-- **Chemin**: [`scripts/inventory/Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1)
+- **Chemin**: [`scripts/inventory/Get-MachineInventory.ps1`](../../../../scripts/inventory/Get-MachineInventory.ps1)
 - **Statut**: Accessible et fonctionnel
 
 #### ✅ Google Drive .shared-state/
@@ -133,24 +133,24 @@ Les deux inventaires sont **identiques** car :
 
 ### ✅ Composants Validés
 
-#### 1. Script PowerShell [`Get-MachineInventory.ps1`](../../scripts/inventory/Get-MachineInventory.ps1:1)
+#### 1. Script PowerShell [`Get-MachineInventory.ps1`](../../../../scripts/inventory/Get-MachineInventory.ps1)
 - ✅ Collecte complète (16 MCPs, 4 tools, systemInfo, rooModes, etc.)
 - ✅ Export JSON bien formé (451 lignes)
 - ✅ Structure attendue respectée
 - ✅ Timestamp et machineId en racine
 
-#### 2. [`InventoryCollector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts:1)
+#### 2. `InventoryCollector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/InventoryCollector.ts`)
 - ✅ Parsing JSON correct
 - ✅ Mapping vers interface `MachineInventory`
 - ✅ Cache TTL fonctionnel (1h)
 - ✅ Sauvegarde dans `.shared-state/inventories/`
 
-#### 3. [`DiffDetector.ts`](../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts:1)
+#### 3. `DiffDetector.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/DiffDetector.ts`)
 - ✅ Détection différences par catégorie
 - ✅ Sévérité correcte (CRITICAL/IMPORTANT/WARNING/INFO)
 - ✅ Tests unitaires passés (9/9)
 
-#### 4. [`RooSyncService.ts`](../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts:1)
+#### 4. `RooSyncService.ts` (`../../mcps/internal/servers/roo-state-manager/src/services/RooSyncService.ts`)
 - ✅ Orchestration end-to-end
 - ✅ Gestion erreurs graceful
 - ✅ Tests d'intégration passés (5/6, 83%)
