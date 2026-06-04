@@ -2194,6 +2194,8 @@ function Remove-NestedSubmoduleWorktrees {
         }
 
         # Also check submodule worktrees (worktrees registered in submodule repos)
+        # #2501 Fix: Only remove submodule worktrees whose PARENT worktree no longer exists.
+        # Submodule checkouts inside legitimate parent worktrees are NOT orphans.
         foreach ($smPath in $SubmodulePaths) {
             $fullSmPath = Join-Path $RepoRoot $smPath
             if (-not (Test-Path $fullSmPath)) { continue }
@@ -2206,6 +2208,12 @@ function Remove-NestedSubmoduleWorktrees {
                 Where-Object { $_ -is [string] -and $_ -match '^worktree\s+(.+)$' } |
                 ForEach-Object { $Matches[1] })
 
+            # Build set of valid parent worktree paths (for orphan detection)
+            $ValidParentPaths = @($WorktreeList | ForEach-Object {
+                if ($_ -eq $RepoRoot) { $RepoRoot }
+                else { $_ }
+            }) -replace '\\', '/'
+
             foreach ($smWtPath in $smWorktrees) {
                 # Skip the main submodule checkout
                 $normalizedSmWt = $smWtPath -replace '\\', '/'
@@ -2213,14 +2221,29 @@ function Remove-NestedSubmoduleWorktrees {
 
                 if ($normalizedSmWt -eq $normalizedSm) { continue }
 
-                Write-Log "NESTED SUBMODULE WORKTREE (#2123): '$smWtPath' in submodule '$smPath'. Removing." "WARN"
+                # #2501: Check if this submodule worktree lives inside a still-valid parent worktree.
+                # If the parent worktree still exists, this submodule checkout is legitimate — skip it.
+                $ParentStillExists = $false
+                foreach ($parentPath in $ValidParentPaths) {
+                    if ($normalizedSmWt.StartsWith("$parentPath/") -or $normalizedSmWt.StartsWith("$parentPath\")) {
+                        $ParentStillExists = $true
+                        break
+                    }
+                }
+
+                if ($ParentStillExists) {
+                    Write-Log "Submodule worktree '$smWtPath' has valid parent — skipping (#2501)" "DEBUG"
+                    continue
+                }
+
+                Write-Log "ORPHAN SUBMODULE WORKTREE (#2123): '$smWtPath' (parent worktree gone). Removing." "WARN"
                 $prevPref = $ErrorActionPreference
                 $ErrorActionPreference = "Continue"
                 & git --git-dir $smGitDir worktree remove --force $smWtPath 2>&1 | Out-Null
                 $ErrorActionPreference = $prevPref
 
                 if ($LASTEXITCODE -eq 0) {
-                    Write-Log "Removed nested submodule worktree: $smWtPath" "INFO"
+                    Write-Log "Removed orphan submodule worktree: $smWtPath" "INFO"
                     $RemovedCount++
                 } else {
                     & git --git-dir $smGitDir worktree prune 2>&1 | Out-Null
@@ -2230,12 +2253,8 @@ function Remove-NestedSubmoduleWorktrees {
             }
 
             # Clean up leftover directories inside submodule .claude/worktrees/
-            # AUDIT-MONTH NOTE (po-2025 audit, 2026-05-26): This `Remove-Item -Recurse -Force` runs
-            # UNCONDITIONALLY at every worker tick. The path is hard-coded (`<submodule>/.claude/worktrees/`)
-            # and intentionally narrow — the worker owns this directory as a transient cleanup zone for
-            # guard #2123. If a developer ever needs to put legitimate content there, they should expect
-            # it to be removed on the next worker tick. Trade-off documented; no remediation needed unless
-            # the directory's purpose changes.
+            # These are always safe to clean — they should never contain legitimate content
+            # (agents that create worktrees inside submodules are the exact problem #2123 targets).
             $smWtDir = Join-Path $fullSmPath ".claude\worktrees"
             if (Test-Path $smWtDir) {
                 Write-Log "Cleaning up nested worktree directory: $smWtDir" "INFO"
@@ -3580,30 +3599,35 @@ try {
 
         # --- Idle mode: task catalog instead of doing nothing (#1417) ---
         # Catalog of idle tasks with weights. Higher weight = more likely selected.
+        # Idle task catalog (#1417). SkipWorktree=$true means read-only — no worktree needed (#2501).
         $IdleCatalog = @(
             @{
-                Id       = "idle-coverage"
-                Weight   = 0     # Disabled: 2 iterations (relaxed urgency) insufficient for build+coverage+write cycle. Creates worktrees/submodule clones without producing commits/PRs. Re-enable with min 4 iterations if needed.
-                Subject  = "[IDLE] Coverage improvement"
-                MinModel = "sonnet"
+                Id           = "idle-coverage"
+                Weight       = 0     # Disabled: 2 iterations (relaxed urgency) insufficient for build+coverage+write cycle. Creates worktrees/submodule clones without producing commits/PRs. Re-enable with min 4 iterations if needed.
+                Subject      = "[IDLE] Coverage improvement"
+                MinModel     = "sonnet"
+                SkipWorktree = $false   # Coverage writes test files → needs worktree
             },
             @{
-                Id       = "idle-worktree-cleanup"
-                Weight   = 3
-                Subject  = "[IDLE] Worktree and branch cleanup"
-                MinModel = "haiku"
+                Id           = "idle-worktree-cleanup"
+                Weight       = 3
+                Subject      = "[IDLE] Worktree and branch cleanup"
+                MinModel     = "haiku"
+                SkipWorktree = $true    # Read-only: git worktree list + gh pr list only
             },
             @{
-                Id       = "idle-stale-branches"
-                Weight   = 2
-                Subject  = "[IDLE] Stale branch detection"
-                MinModel = "haiku"
+                Id           = "idle-stale-branches"
+                Weight       = 2
+                Subject      = "[IDLE] Stale branch detection"
+                MinModel     = "haiku"
+                SkipWorktree = $true    # Read-only: git for-each-ref + gh pr list only
             },
             @{
-                Id       = "idle-config-audit"
-                Weight   = 2
-                Subject  = "[IDLE] Config drift audit"
-                MinModel = "haiku"
+                Id           = "idle-config-audit"
+                Weight       = 2
+                Subject      = "[IDLE] Config drift audit"
+                MinModel     = "haiku"
+                SkipWorktree = $true    # Read-only: file reads + roosync tools only
             }
         )
 
@@ -3782,10 +3806,12 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
             prompt = $IdlePrompt
         }
 
-        # Store selected idle MinModel for later use by model guard
+        # Store selected idle properties for later use
         $script:IdleMinModel = $SelectedIdle.MinModel
+        $script:IdleSkipWorktree = $SelectedIdle.SkipWorktree
     } else {
         $script:IdleMinModel = $null
+        $script:IdleSkipWorktree = $null
     }
 
     # ==========================================================================
@@ -3836,7 +3862,14 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
     $AdjustedIterations = Get-AdjustedIterations -Urgency $Urgency -BaseIterations $MaxIterations -ModeId $SelectedMode
 
     # 3. Créer worktree (#461 Phase 1 - default ON for scheduled tasks)
-    $WorktreePath = if ($UseWorktree) {
+    # #2501: Skip worktree for read-only idle tasks (SkipWorktree flag in catalog)
+    $EffectiveUseWorktree = if ($script:IdleSkipWorktree -eq $true) {
+        Write-Log "Idle task is read-only (SkipWorktree=true), skipping worktree creation (#2501)" "INFO"
+        $false
+    } else {
+        $UseWorktree
+    }
+    $WorktreePath = if ($EffectiveUseWorktree) {
         Create-Worktree -TaskId $Task.id -Task $Task
     } else {
         $RepoRoot
