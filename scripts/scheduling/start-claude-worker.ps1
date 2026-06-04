@@ -1771,8 +1771,9 @@ function Stop-WorktreeChildProcesses {
         }
     }
 
-    # Wait for processes to exit (max 5 seconds total)
-    $deadline = (Get-Date).AddSeconds(5)
+    # Wait for processes to exit (max 10 seconds total)
+    # #2495: Increased from 5s — handles can linger after SIGTERM on Windows
+    $deadline = (Get-Date).AddSeconds(10)
     foreach ($proc in $targetProcs) {
         try {
             $stillRunning = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
@@ -1781,7 +1782,7 @@ function Stop-WorktreeChildProcesses {
                 $stillRunning = Get-Process -Id $proc.Id -ErrorAction SilentlyContinue
             }
             if ($stillRunning) {
-                Write-Log "PID $($proc.Id) did not exit within 5s timeout" "WARN"
+                Write-Log "PID $($proc.Id) did not exit within 10s timeout" "WARN"
             }
         } catch { }
     }
@@ -1801,26 +1802,37 @@ function Remove-Worktree {
     # claude -p spawns node.exe children (MCP servers) that keep file handles open after exit.
     Stop-WorktreeChildProcesses $WorktreePath
 
-    # Brief pause for OS handle release after process termination
-    Start-Sleep -Seconds 2
+    # #2495: Increased from 2s to 5s — claude.exe handles can linger 30-60s after SIGTERM.
+    Start-Sleep -Seconds 5
 
-    # Strategy 1: git worktree remove --force (handles everything including submodules on non-Windows)
-    try {
-        $prevPref = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
-        $ErrorActionPreference = $prevPref
-        $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
+    # Strategy 1: git worktree remove --force with retry (handles everything including submodules)
+    # #2495: Added retry loop — handles may release after initial failure.
+    $GitRemoveRetries = 3
+    for ($Attempt = 1; $Attempt -le $GitRemoveRetries; $Attempt++) {
+        try {
+            $prevPref = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+            $ErrorActionPreference = $prevPref
+            $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
 
-        if (-not (Test-Path $WorktreePath)) {
-            Write-Log "Worktree supprimé (git worktree remove)"
-            return
+            if (-not (Test-Path $WorktreePath)) {
+                Write-Log "Worktree supprimé (git worktree remove, attempt $Attempt)"
+                return
+            }
+            if ($Attempt -lt $GitRemoveRetries) {
+                Write-Log "git worktree remove left dir (attempt $Attempt/$GitRemoveRetries), retrying in 5s..." "WARN"
+                Start-Sleep -Seconds 5
+            }
+        } catch {
+            $ErrorActionPreference = $prevPref
+            if ($Attempt -lt $GitRemoveRetries) {
+                Write-Log "git worktree remove failed (attempt $Attempt/$GitRemoveRetries): $_, retrying in 5s..." "WARN"
+                Start-Sleep -Seconds 5
+            }
         }
-        Write-Log "git worktree remove left dir on filesystem (Windows file lock)" "WARN"
-    } catch {
-        $ErrorActionPreference = $prevPref
-        Write-Log "git worktree remove failed: $_" "WARN"
     }
+    Write-Log "git worktree remove failed after $GitRemoveRetries attempts (Windows file lock)" "WARN"
 
     # #2123: git submodule deinit REMOVED — it is counterproductive on Windows.
     # It partially succeeds (unregisters submodule configs) but fails to delete directories,
@@ -1830,12 +1842,13 @@ function Remove-Worktree {
 
     # Strategy 2: prune metadata first, brief pause for handle release, then native Windows rmdir
     git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
-    Write-Log "Pruned worktree metadata, waiting 2s for handle release before FS removal..." "INFO"
-    Start-Sleep -Seconds 2
+    Write-Log "Pruned worktree metadata, waiting 3s for handle release before FS removal..." "INFO"
+    Start-Sleep -Seconds 3
 
-    # Retry loop for FS removal (handles transient file locks that release after a few seconds)
-    $MaxRetries = 3
-    $RetryDelaySec = 5
+    # #2495: Retry loop with progressive backoff for FS removal.
+    # Handles transient file locks that release after 30-60s (claude.exe handles).
+    $MaxRetries = 5
+    $RetryDelays = @(10, 15, 20, 25, 30)
 
     for ($Attempt = 1; $Attempt -le $MaxRetries; $Attempt++) {
         if (-not (Test-Path $WorktreePath -PathType Container)) {
@@ -1862,8 +1875,9 @@ function Remove-Worktree {
         }
 
         if ($Attempt -lt $MaxRetries) {
-            Write-Log "FS removal attempt $Attempt/$MaxRetries failed (file lock), retrying in ${RetryDelaySec}s..." "WARN"
-            Start-Sleep -Seconds $RetryDelaySec
+            $delay = $RetryDelays[$Attempt - 1]
+            Write-Log "FS removal attempt $Attempt/$MaxRetries failed (file lock), retrying in ${delay}s..." "WARN"
+            Start-Sleep -Seconds $delay
         }
     }
 
