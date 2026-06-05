@@ -162,13 +162,19 @@ if (-not $WhatIf) {
                 Write-Host "[WARN] getState() modeApiConfigs fix not detected" -ForegroundColor Yellow
             }
 
-            # Verify startTaskWithMode() provider routing (#2373A Replace 5)
-            $hasMedium = $content.Contains("api.medium.text-generation-webui.myia.io")
-            $hasZai = $content.Contains("api.z.ai")
-            if ($hasMedium -and $hasZai) {
-                Write-Host "[OK] startTaskWithMode() provider routing active (simple->medium, complex->z.ai)" -ForegroundColor Green
+            # Verify startTaskWithMode() resolve-from-config (#2373A Replace 5)
+            $hasModeApiConfigs = $content.Contains("modeApiConfigs")
+            $hasCurrentApiConfigName = $content.Contains("currentApiConfigName")
+            $noHardcoded = -not ($content.Contains("api.medium.text-generation-webui.myia.io") -or $content.Contains("api.z.ai"))
+            if ($hasModeApiConfigs -and $hasCurrentApiConfigName) {
+                Write-Host "[OK] startTaskWithMode() resolves from modeApiConfigs profiles (#2373A Replace 5)" -ForegroundColor Green
             } else {
-                Write-Host "[WARN] startTaskWithMode() provider routing not detected" -ForegroundColor Yellow
+                Write-Host "[WARN] startTaskWithMode() resolve-from-config not detected" -ForegroundColor Yellow
+            }
+            if ($noHardcoded) {
+                Write-Host "[OK] No hardcoded endpoints in scheduler (zero-config routing)" -ForegroundColor Green
+            } else {
+                Write-Host "[WARN] Hardcoded endpoints still present" -ForegroundColor Yellow
             }
         }
     }

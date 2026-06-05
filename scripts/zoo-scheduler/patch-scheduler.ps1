@@ -106,16 +106,17 @@ try {
         Write-Host "Replace 4: getState() pattern not found — may already be patched or different version" -ForegroundColor Yellow
     }
 
-    # Replace 5: Override provider in startTaskWithMode() based on mode suffix (#2373A)
-    # -simple modes → medium auto-hébergé (Qwen 3.6 35B)
-    # -complex modes → z.ai cloud (GLM-5.1)
-    # Source: roo-config/model-configs.json modeOverrides
+    # Replace 5: Resolve provider from configured profile in startTaskWithMode() (#2373A)
+    # Instead of hardcoding endpoints/model-IDs, resolves the profile name from modeApiConfigs
+    # and passes currentApiConfigName to startNewTask → Zoo activates the full profile automatically.
+    # This eliminates config drift: scheduler carries ZERO endpoints, everything comes from profiles.
+    # Precondition: openAiLegacyFormat must be set in model-configs.json profiles (sync-api-configs.js propagates).
     $oldStartTask = 'static async startTaskWithMode(r,a){let n=t.getRooClineApi();console.log("got api",n);let s=n.getConfiguration();console.log("got config",s);let o={...s,mode:r,customModePrompts:s.customModePrompts||{}};console.log(o);let e=await n.startNewTask({configuration:o,text:a});return console.log("got taskId",e),e}'
-    $newStartTask = 'static async startTaskWithMode(r,a){let n=t.getRooClineApi(),s=n.getConfiguration(),_mp={};if(r.endsWith("-simple")){_mp={apiProvider:"openai",openAiBaseUrl:"https://api.medium.text-generation-webui.myia.io/v1",openAiModelId:"qwen3.6-35b-a3b",openAiLegacyFormat:true}}else if(r.endsWith("-complex")){_mp={apiProvider:"openai",openAiBaseUrl:"https://api.z.ai/api/anthropic",openAiModelId:"glm-5.1"}}let o={...s,mode:r,customModePrompts:s.customModePrompts||{},..._mp};let e=await n.startNewTask({configuration:o,text:a});return e}'
+    $newStartTask = 'static async startTaskWithMode(r,a){let n=t.getRooClineApi(),s=n.getConfiguration(),_pn=s.modeApiConfigs?.[r],o={...s,mode:r,customModePrompts:s.customModePrompts||{}};if(_pn){o.currentApiConfigName=_pn}let e=await n.startNewTask({configuration:o,text:a});return e}'
 
     if ($content.Contains($oldStartTask)) {
         $content = $content.Replace($oldStartTask, $newStartTask)
-        Write-Host "Replace 5: startTaskWithMode() provider routing patched (simple→medium, complex→z.ai)"
+        Write-Host "Replace 5: startTaskWithMode() reworked — resolve from modeApiConfigs profile, zero hardcoded endpoints"
     } else {
         Write-Host "Replace 5: startTaskWithMode() pattern not found — may already be patched or different version" -ForegroundColor Yellow
     }
@@ -137,7 +138,8 @@ try {
     $newActivity = ([regex]::Matches($verifyContent, "zoo-code-ActivityBar")).Count
     $newConfig = ([regex]::Matches($verifyContent, 'getConfiguration\("zoo-code"\)')).Count
     $getStateFixed = $verifyContent.Contains("getModeConfigId(mc)")
-    $startTaskFixed = $verifyContent.Contains("api.medium.text-generation-webui.myia.io") -and $verifyContent.Contains("api.z.ai")
+    $startTaskFixed = $verifyContent.Contains("modeApiConfigs") -and $verifyContent.Contains("currentApiConfigName")
+    $noHardcoded = -not ($verifyContent.Contains("api.medium.text-generation-webui.myia.io") -or $verifyContent.Contains("api.z.ai"))
     Write-Host "Patch verified: $newRefs ext refs, $newActivity activity refs, $newConfig config refs"
 
     if ($getStateFixed) {
@@ -147,9 +149,15 @@ try {
     }
 
     if ($startTaskFixed) {
-        Write-Host "Replace 5 verified: startTaskWithMode() provider routing active (medium + z.ai)" -ForegroundColor Green
+        Write-Host "Replace 5 verified: startTaskWithMode() resolves from modeApiConfigs (zero hardcoded endpoints)" -ForegroundColor Green
     } else {
-        Write-Host "WARNING: Replace 5 startTaskWithMode() fix not detected in output" -ForegroundColor Yellow
+        Write-Host "WARNING: Replace 5 startTaskWithMode() resolve-from-config not detected in output" -ForegroundColor Yellow
+    }
+
+    if ($noHardcoded) {
+        Write-Host "Replace 5 verified: no hardcoded endpoints in patched output" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Hardcoded endpoints still present in patched output" -ForegroundColor Yellow
     }
 
     # --- Clean up files that should not be packaged ---
