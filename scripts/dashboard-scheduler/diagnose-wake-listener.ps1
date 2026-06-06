@@ -20,8 +20,9 @@
     Emit a machine-readable JSON object instead of the human/markdown block.
 
 .PARAMETER StaleSeconds
-    Heartbeat age (seconds) above which the listener is flagged STALE. Default 150 (~2.5 min;
-    the listener refreshes every ~20s).
+    Heartbeat age (seconds) above which the listener is flagged STALE. Default 7200 (2h = the span
+    of most fleet crons). The listener pings every ~5 min, so 2h of silence = certain death, never a
+    false positive. A tighter threshold is meaningless when coordination itself runs on 2h+ crons.
 
 .EXAMPLE
     pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\diagnose-wake-listener.ps1
@@ -30,7 +31,7 @@
 
 param(
     [switch]$Json,
-    [int]$StaleSeconds = 150
+    [int]$StaleSeconds = 7200
 )
 
 $ErrorActionPreference = "Continue"

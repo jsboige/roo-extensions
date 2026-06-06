@@ -1,8 +1,8 @@
 # Wake-Claude Routing & Listener Durability
 
-**Version:** 1.0.0
+**Version:** 1.1.0 (heartbeat cadence relaxed — user mandate 2026-06-06 : un listener n'est pas un service temps-reel)
 **Issue :** #2431 (durability + observability) ; routing verifie #2186
-**MAJ:** 2026-06-02
+**MAJ:** 2026-06-06
 
 ---
 
@@ -63,7 +63,9 @@ La cause des ~2 mois de reveils manuels etait **mecanique**, pas du routing :
 
 ## Liveness (observabilite #2431)
 
-Le listener ecrit son heartbeat **dans sa boucle** (chaque cycle de poll, ~20s) :
+Le listener ecrit son heartbeat **dans sa boucle**, sur une cadence **decouplee du poll 20s** :
+defaut **5 min** (`DASHBOARD_HEARTBEAT_INTERVAL_SECONDS`). Un listener n'est PAS un service temps-reel —
+la coordination flotte tourne sur des crons 2h+, donc un ping minute-par-minute ne sert qu'a saturer GDrive.
 
 - **Local** : `<RepoRoot>/.claude/locks/dashboard-listener.heartbeat`
 - **Partage (GDrive)** : `<ROOSYNC_SHARED_PATH>/listener-heartbeats/<machine>.heartbeat`
@@ -72,7 +74,10 @@ Le listener ecrit son heartbeat **dans sa boucle** (chaque cycle de poll, ~20s) 
 Ecriture best-effort/try-catch : une indisponibilite GDrive ne casse jamais la boucle.
 
 **Cote coordinateur (ai-01)** : lire `<ROOSYNC_SHARED_PATH>/listener-heartbeats/*.heartbeat` et flagger
-celui dont le mtime > ~2 min comme listener mort. Diagnostic local non-eleve dispatchable :
+celui dont le mtime > **~2h** comme listener mort — 2h = la duree de la plupart des crons flotte. Un
+listener vraiment vivant pingue toutes les 5 min, donc 2h de silence = mort certaine, jamais un faux
+positif ; un seuil plus serre n'a aucun sens quand la coordination elle-meme tourne sur des crons 2h+.
+Seuil porte par `-StaleSeconds` (defaut 7200) de `diagnose-wake-listener.ps1`. Diagnostic local non-eleve dispatchable :
 `scripts/dashboard-scheduler/diagnose-wake-listener.ps1` (State/LastTaskResult + fraicheur heartbeat +
 derniere ligne de log → append dashboard workspace).
 
