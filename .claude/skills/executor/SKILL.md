@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.4.0"
+  version: "3.5.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.4.0
+**Version:** 3.5.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-06-03 (#1417 gap-closing : doc freshness I5 = TOUTE la doc ; legende Qui/Type/Contraintes ; parite versant Roo)
+**MAJ:** 2026-06-06 (#2509 fix faux-drain : Phase 1 `--limit 100` + filtrage labels actionnables ; garde-fou anti-faux-drain Phase 2)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -65,8 +65,11 @@ Executer en parallele quand possible :
 
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")`
 2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
-3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
-4. **PRs ouvertes (ANTI-DOUBLE-CLAIM)** : `gh pr list --state open --limit 20 --json number,title,headRefName --repo jsboige/roo-extensions`
+3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 100 --json number,title,labels`
+   - **PIEGE `--limit` (bug #2509)** : `gh issue list --limit 15` retourne les **15 issues les PLUS RECENTES**, PAS un echantillon representatif. Si les 15 dernieres sont toutes `needs-approval`/meta, l'agent conclut faussement « pool draine, 0 tache » alors que des dizaines d'issues actionnables existent plus bas dans la liste. **TOUJOURS `--limit 100`** (le backlog reel tourne autour de 80-90 issues ouvertes).
+   - **Filtrage actionnable (cote agent, apres recuperation)** : ne retenir que les issues portant un label actionnable — `approved`, `bug`, `investigation` — et **exclure** `needs-approval`, `deferred`, `blocked-on-gate`, `epic`. Compter ce sous-ensemble filtre, pas la liste brute.
+   - **Conclusion « pool draine » INTERDITE** sans avoir verifie le backlog filtre complet (priorites Phase 2 ci-dessous). Un cycle IDLE ne se justifie que si le sous-ensemble actionnable est reellement vide.
+4. **PRs ouvertes (ANTI-DOUBLE-CLAIM)** : `gh pr list --state open --limit 50 --json number,title,headRefName --repo jsboige/roo-extensions`
 5. **Git state** : `git log --oneline -5`
 
 **Resume concis (10 lignes max) :**
@@ -105,6 +108,8 @@ Si une PR existe deja → **SKIP l'issue** + rapporter `[INFO] Issue #X deja cou
 Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-keyword}` existe avec une PR ouverte, ne pas dupliquer.
 
 **Si AUCUNE tache disponible (priorites 1-6)** : Executer les idle tasks ci-dessous puis fallback PR review.
+
+> **Garde-fou anti-faux-drain (#2509)** : avant de declarer « aucune tache disponible », confirmer que le **backlog filtre complet** (`--limit 100` + labels actionnables, Phase 1 etape 3) a bien ete examine — pas seulement les 15 issues les plus recentes. Les priorites 3-5 (Machine=Any, TODO detaille, bug reproductible) sont quasi toujours servies par ce backlog. Passer aux idle tasks UNIQUEMENT si ce sous-ensemble est genuinement vide.
 
 #### Catalogue Idle Tasks (#1417)
 
@@ -233,4 +238,4 @@ ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
 
 ---
 
-**Derniere mise a jour :** 2026-05-30
+**Derniere mise a jour :** 2026-06-06
