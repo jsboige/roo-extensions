@@ -691,6 +691,12 @@ Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action | 
 # Fallback: check LastWriteTime of each workspace file every $PollIntervalSeconds.
 $PollIntervalSeconds = 20
 $lastPollTime = [DateTime]::MinValue
+# #2431 follow-up: decouple the GDrive liveness heartbeat from the 20s poll cadence.
+# Polling must stay snappy (20s) for [WAKE-CLAUDE] responsiveness, but writing the
+# shared heartbeat to GDrive every 20s = 3 writes/min/machine = needless GDrive churn.
+# 60s still stays well under the coordinator's ~2min staleness threshold.
+$HeartbeatIntervalSeconds = if ($env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS) { [int]$env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS } else { 60 }
+$lastHeartbeatTime = [DateTime]::MinValue
 $lastWriteCache = @{}
 foreach ($ws in $wsList) {
     $f = Join-Path $dashboardDir "workspace-$ws.md"
@@ -700,7 +706,7 @@ foreach ($ws in $wsList) {
 }
 
 # ========== LIVENESS HEARTBEAT (#2431) ==========
-# Truthful liveness: written every poll cycle from INSIDE the main loop, not just
+# Truthful liveness: written periodically from INSIDE the main loop, not just
 # once at start/exit by the wrapper. The wrapper-level heartbeat went stale within
 # ~1 min even while the listener was healthy, making a live listener look dead.
 #   - Local file  → wrapper / diagnostics confirm this listener is alive.
@@ -782,10 +788,16 @@ try {
             break
         }
 
+        # #2431 follow-up: refresh liveness heartbeat on its own (slower) cadence,
+        # not on every 20s poll — cuts GDrive heartbeat traffic ~3x.
+        if (($now - $lastHeartbeatTime).TotalSeconds -ge $HeartbeatIntervalSeconds) {
+            $lastHeartbeatTime = $now
+            Write-ListenerHeartbeat
+        }
+
         # Fallback polling: check LastWriteTime every $PollIntervalSeconds
         if (($now - $lastPollTime).TotalSeconds -ge $PollIntervalSeconds) {
             $lastPollTime = $now
-            Write-ListenerHeartbeat   # #2431: refresh liveness every poll cycle (~20s)
             foreach ($ws in $wsList) {
                 $f = Join-Path $dashboardDir "workspace-$ws.md"
                 if (Test-Path $f) {
