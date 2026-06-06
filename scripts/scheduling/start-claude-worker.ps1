@@ -3610,17 +3610,17 @@ try {
             },
             @{
                 Id           = "idle-worktree-cleanup"
-                Weight       = 3
+                Weight       = 0     # Disabled: replaced by scripts/scheduling/cleanup-orphan-branches.ps1 in finally block (#1417 redesign)
                 Subject      = "[IDLE] Worktree and branch cleanup"
                 MinModel     = "haiku"
-                SkipWorktree = $true    # Read-only: git worktree list + gh pr list only
+                SkipWorktree = $true
             },
             @{
                 Id           = "idle-stale-branches"
-                Weight       = 2
+                Weight       = 0     # Disabled: replaced by scripts/scheduling/cleanup-orphan-branches.ps1 in finally block (#1417 redesign)
                 Subject      = "[IDLE] Stale branch detection"
                 MinModel     = "haiku"
-                SkipWorktree = $true    # Read-only: git for-each-ref + gh pr list only
+                SkipWorktree = $true
             },
             @{
                 Id           = "idle-config-audit"
@@ -4033,4 +4033,17 @@ finally {
     # Ensures cleanup even if catch block doesn't run (e.g., SIGTERM kill from scheduler)
     # The catch block conserves the worktree for reprise; finally ensures shutdown runs regardless
     Invoke-GracefulShutdown -Reason "Finally block (process termination)"
+
+    # #1417 redesign: No-LLM branch cleanup — replaces idle-worktree-cleanup/stale-branches
+    try {
+        $BranchCleanupScript = Join-Path $PSScriptRoot 'cleanup-orphan-branches.ps1'
+        if (Test-Path $BranchCleanupScript) {
+            Write-Log "Running orphan branch cleanup (no-LLM)..." "INFO"
+            $BranchCleanupOutput = & $BranchCleanupScript -DryRun:$false 2>&1
+            $BranchCleanupOutput | Select-Object -Last 5 | ForEach-Object { Write-Log "$_" "INFO" }
+        }
+    }
+    catch {
+        Write-Log "Branch cleanup failed (non-fatal): $_" "WARN"
+    }
 }
