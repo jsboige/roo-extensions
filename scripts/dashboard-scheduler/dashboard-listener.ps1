@@ -692,10 +692,13 @@ Register-ObjectEvent -InputObject $watcher -EventName Created -Action $action | 
 $PollIntervalSeconds = 20
 $lastPollTime = [DateTime]::MinValue
 # #2431 follow-up: decouple the GDrive liveness heartbeat from the 20s poll cadence.
-# Polling must stay snappy (20s) for [WAKE-CLAUDE] responsiveness, but writing the
-# shared heartbeat to GDrive every 20s = 3 writes/min/machine = needless GDrive churn.
-# 60s still stays well under the coordinator's ~2min staleness threshold.
-$HeartbeatIntervalSeconds = if ($env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS) { [int]$env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS } else { 60 }
+# Polling must stay snappy (20s) for [WAKE-CLAUDE] responsiveness, but a wake-listener is
+# NOT a real-time service — fleet coordination runs on 2h+ crons, so minute-by-minute
+# proof-of-life is pointless and writing the shared heartbeat to GDrive that often = churn.
+# A 5min ping is ample: the coordinator only flags a listener dead after ~2h of silence (the span
+# of most fleet crons; -StaleSeconds 7200 in diagnose-wake-listener.ps1), and a genuinely dead
+# wrapper self-heals within 15min via the schtask repeat trigger regardless.
+$HeartbeatIntervalSeconds = if ($env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS) { [int]$env:DASHBOARD_HEARTBEAT_INTERVAL_SECONDS } else { 300 }
 $lastHeartbeatTime = [DateTime]::MinValue
 $lastWriteCache = @{}
 foreach ($ws in $wsList) {
