@@ -179,6 +179,6 @@ Agent(
 
 **Références:**
 
-- `docs/roosync/DELEGATION.md` - Règles de délégation
-- `docs/roosync/TESTING.md` - Commandes de test
-- `docs/roosync/GITHUB_CLI.md` - Commandes gh CLI
+- `docs/harness/reference/delegation.md` - Règles de délégation
+- `.claude/rules/validation.md` - Checklist validation
+- `docs/harness/reference/github-cli.md` - Commandes gh CLI
