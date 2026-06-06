@@ -3439,8 +3439,12 @@ try {
         $CleanupScript = Join-Path $PSScriptRoot '..\maintenance\cleanup-orphan-worktrees.ps1'
         if (Test-Path $CleanupScript) {
             Write-Log "Running defensive worktree cleanup (orphans > 0 days)..." "INFO"
-            $CleanupOutput = & $CleanupScript -Execute -DaysThreshold 0 2>&1
-            $CleanupOutput | Select-Object -Last 5 | ForEach-Object { Write-Log "$_" "INFO" }
+            $CleanupOutput = @(& $CleanupScript -Execute -DaysThreshold 0 2>&1)
+            if ($CleanupOutput) {
+                $CleanupOutput | Select-Object -Last 5 | ForEach-Object {
+                    if ($null -ne $_) { Write-Log "$_" "INFO" }
+                }
+            }
         }
     }
     catch {
@@ -4039,8 +4043,12 @@ finally {
         $BranchCleanupScript = Join-Path $PSScriptRoot 'cleanup-orphan-branches.ps1'
         if (Test-Path $BranchCleanupScript) {
             Write-Log "Running orphan branch cleanup (no-LLM)..." "INFO"
-            $BranchCleanupOutput = & $BranchCleanupScript -DryRun:$false 2>&1
-            $BranchCleanupOutput | Select-Object -Last 5 | ForEach-Object { Write-Log "$_" "INFO" }
+            $BranchCleanupOutput = @(& $BranchCleanupScript -DryRun:$false 2>&1)
+            if ($BranchCleanupOutput) {
+                $BranchCleanupOutput | Select-Object -Last 5 | ForEach-Object {
+                    if ($null -ne $_) { Write-Log "$_" "INFO" }
+                }
+            }
         }
     }
     catch {

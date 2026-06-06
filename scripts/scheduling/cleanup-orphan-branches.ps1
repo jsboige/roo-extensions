@@ -49,7 +49,8 @@ $ErrorActionPreference = 'Continue'
 
 # Resolve repo root
 if (-not $RepoRoot) {
-    $RepoRoot = (git rev-parse --show-toplevel 2>$null).Trim()
+    $gitRoot = git rev-parse --show-toplevel 2>$null
+    $RepoRoot = if ($gitRoot) { $gitRoot.Trim() } else { '' }
     if (-not $RepoRoot) {
         Write-Host "Cannot determine repo root. Run from within a git repository."
         exit 1
@@ -91,6 +92,7 @@ foreach ($prefix in $BranchPrefixes) {
     $branches = git -C $RepoRoot branch --list "$prefix*" 2>$null
     if ($branches) {
         foreach ($line in $branches) {
+            if (-not $line) { continue }
             $branchName = $line.TrimStart().TrimStart('*').Trim()
             if ($branchName -and $branchName -ne $CurrentBranch) {
                 $Candidates += $branchName

@@ -54,7 +54,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Resolve repo root from current working directory (not script location)
-$RepoRoot = (git rev-parse --show-toplevel 2>$null).Trim()
+$gitRoot = git rev-parse --show-toplevel 2>$null
+$RepoRoot = if ($gitRoot) { $gitRoot.Trim() } else { '' }
 if (-not $RepoRoot) {
     Write-Error "Cannot determine repo root. Run from within a git repository."
     exit 1
@@ -73,9 +74,9 @@ if (-not $LogPath) {
 }
 
 # Get active git worktrees
-$activeWorktrees = git -C $RepoRoot worktree list --porcelain 2>$null |
+$activeWorktrees = @(git -C $RepoRoot worktree list --porcelain 2>$null |
     Where-Object { $_ -match '^worktree ' } |
-    ForEach-Object { ($_ -replace '^worktree ', '').Trim() }
+    ForEach-Object { $wt = $_ -replace '^worktree ', ''; if ($wt) { $wt.Trim() } })
 
 $activeSet = @{}
 foreach ($wt in $activeWorktrees) {
@@ -206,7 +207,7 @@ function Remove-ItemWithRetry {
                     # handle.exe not available, skip process detection
                 }
                 
-                $lockInfo = if ($lockedFiles) {
+                $lockInfo = if ($lockedFiles -and $lockedFiles[0]) {
                     " (locked by: $($lockedFiles[0].Trim()))"
                 } else {
                     " (file locked by another process)"
