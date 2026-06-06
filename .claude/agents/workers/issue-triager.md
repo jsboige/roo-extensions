@@ -250,6 +250,7 @@ Agent(
 ---
 
 **Références:**
-- `.claude/rules/github-cli.md` - Commandes gh CLI et IDs Project #67
-- `.claude/rules/delegation.md` - Règles de délégation
+
+- `docs/harness/reference/github-cli.md` - Commandes gh CLI et IDs Project #67
+- `docs/harness/reference/delegation.md` - Règles de délégation
 - `docs/harness/reference/github-checklists.md` - Discipline checklists

@@ -149,5 +149,5 @@ Agent(
 
 **Références:**
 
-- `docs/roosync/TESTING.md` - Commandes de test
-- `docs/roosync/BASH_FALLBACK.md` - Mitigation Bash
+- `.claude/rules/validation.md` - Validation et tests
+- `docs/harness/reference/bash-fallback.md` - Mitigation Bash

@@ -173,6 +173,6 @@ Agent(
 
 **Références:**
 
-- `docs/roosync/GITHUB_CLI.md` - Commandes gh CLI
-- `docs/roosync/PR_REVIEW_POLICY.md` - Politique PR
-- `docs/roosync/VALIDATION_CHECKLIST.md` - Checklist validation
+- `docs/harness/reference/github-cli.md` - Commandes gh CLI
+- `docs/harness/coordinator-specific/pr-review-policy.md` - Politique PR
+- `.claude/rules/validation.md` - Checklist validation
