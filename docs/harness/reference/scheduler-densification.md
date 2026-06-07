@@ -118,4 +118,4 @@ Pour tester l'escalade, utiliser des tâches INTERCOM avec le tag `[COMPLEX]` :
 | Succès après escalade | INTERCOM + traces | > 80% |
 | Résultats exploitables | Analyse humaine | 3/3 tâches |
 
-**Documentation complète :** `.claude/memory/issue-545-escalation-observation-plan.md`
+**Documentation complète :** `.claude/memory/archive/issue-545-escalation-observation-plan.md`
