@@ -2,7 +2,7 @@
 
 **Status:** Approved 2026-05-18 (user mandate post data-loss incident 2026-05-16)
 **Owner:** myia-ai-01 (primary), portable to po-2024 / po-2026 later
-**Scope:** Single-collection snapshots pushed to `$ROOSYNC_SHARED_PATH/qdrant-snapshots/<machineId>/`
+**Scope:** Single-collection snapshots pushed to a cloud-only GDrive path (sibling of `.shared-state`, jsboige/jsboige-mcp-servers#608)
 
 ---
 
@@ -16,12 +16,28 @@
 +--------------------+                                     |
                                                            | move + retention
                                                            v
-                              $ROOSYNC_SHARED_PATH/qdrant-snapshots/
+                              <parent of .shared-state>/qdrant-backups/
                                 <machineId>/
                                   <collection>/
                                     YYYY-MM-DD/
                                       <auto-named>.snapshot
 ```
+
+**Path resolution** (first match wins):
+
+1. `-BackupPath` parameter
+2. `$env:QDRANT_BACKUP_PATH`
+3. Parent of `$ROOSYNC_SHARED_PATH` + `/qdrant-backups` (default)
+
+> **ai-01 note:** ai-01 currently sets `$env:QDRANT_BACKUP_PATH` to its existing `Backups-Cloud`
+> target (set 2026-06-06). The canonical default is `qdrant-backups`. A future re-install on ai-01
+> without the env var would switch to `qdrant-backups` — either keep the env var or migrate.
+
+Snapshots are stored **outside `.shared-state`** (jsboige/jsboige-mcp-servers#608) so they are NOT pinned offline by
+Google Drive "Available Offline" — cloud-only access, saving ~62 GB per machine.
+
+> **Scope:** `Qdrant-Snapshot-Daily` runs on **ai-01 ONLY**. Executors (po-2023/24/25/26, web1) have
+> no local Qdrant and must keep this schtask **uninstalled**.
 
 - One `.snapshot` file per day (binary, Qdrant native format).
 - Retention: **7 daily** + **4 weekly Mondays** (max 11 directories per collection).
@@ -40,7 +56,7 @@ pwsh -NoProfile -File scripts/qdrant/backup-snapshot.ps1 -WhatIf
 Start-ScheduledTask -TaskName Qdrant-Snapshot-Daily
 ```
 
-The installer validates: Qdrant reachable, `$ROOSYNC_SHARED_PATH` set + writable, `backup-snapshot.ps1` present.
+The installer validates: Qdrant reachable, backup path writable (creates if needed), `backup-snapshot.ps1` present.
 
 ## Retention Rules
 
@@ -54,8 +70,9 @@ Both buckets are unioned (a Monday in the last 7 days counts once). Anything out
 ### Manual prune (one-off cleanup)
 
 ```powershell
-# List directories under one machine
-Get-ChildItem "$env:ROOSYNC_SHARED_PATH/qdrant-snapshots/myia-ai-01/roo_tasks_semantic_index" -Directory
+# List directories under one machine (cloud-only path)
+$backupRoot = if ($env:QDRANT_BACKUP_PATH) { $env:QDRANT_BACKUP_PATH } else { "$(Split-Path $env:ROOSYNC_SHARED_PATH -Parent)\qdrant-backups" }
+Get-ChildItem "$backupRoot/myia-ai-01/roo_tasks_semantic_index" -Directory
 
 # Force a retention pass without creating a new snapshot
 pwsh -NoProfile -File scripts/qdrant/backup-snapshot.ps1   # idempotent if today already exists
@@ -68,7 +85,8 @@ Restore is **manual** by design (Layer 1 = backup-only, no auto-rollback).
 ### Example: restore yesterday's snapshot into the current collection
 
 ```powershell
-$snap = Get-ChildItem "$env:ROOSYNC_SHARED_PATH/qdrant-snapshots/myia-ai-01/roo_tasks_semantic_index" -Recurse -Filter *.snapshot |
+$backupRoot = if ($env:QDRANT_BACKUP_PATH) { $env:QDRANT_BACKUP_PATH } else { "$(Split-Path $env:ROOSYNC_SHARED_PATH -Parent)\qdrant-backups" }
+$snap = Get-ChildItem "$backupRoot/myia-ai-01/roo_tasks_semantic_index" -Recurse -Filter *.snapshot |
     Sort-Object LastWriteTime -Descending |
     Select-Object -First 1
 
@@ -98,8 +116,9 @@ The restore script prints a `WARNING: THIS WILL DROP THE COLLECTION` block and r
 Quick health check:
 
 ```powershell
+$backupRoot = if ($env:QDRANT_BACKUP_PATH) { $env:QDRANT_BACKUP_PATH } else { "$(Split-Path $env:ROOSYNC_SHARED_PATH -Parent)\qdrant-backups" }
 $today = Get-Date -Format 'yyyy-MM-dd'
-Get-ChildItem "$env:ROOSYNC_SHARED_PATH/qdrant-snapshots/$($env:COMPUTERNAME.ToLowerInvariant())/roo_tasks_semantic_index/$today" -ErrorAction SilentlyContinue
+Get-ChildItem "$backupRoot/$($env:COMPUTERNAME.ToLowerInvariant())/roo_tasks_semantic_index/$today" -ErrorAction SilentlyContinue
 ```
 
 ## Troubleshooting

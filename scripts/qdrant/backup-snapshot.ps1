@@ -4,8 +4,14 @@
 
 .DESCRIPTION
     Triggers a Qdrant snapshot via REST API, downloads the binary .snapshot file,
-    and pushes it to $ROOSYNC_SHARED_PATH/qdrant-snapshots/<machineId>/<collection>/YYYY-MM-DD/.
+    and pushes it to a cloud-only GDrive path (sibling of .shared-state).
     Applies retention: 7 daily + 4 weekly (Mondays). Idempotent per day.
+
+    Snapshot path resolution (first match wins):
+      1. -BackupPath parameter
+      2. $env:QDRANT_BACKUP_PATH
+      3. Parent of $ROOSYNC_SHARED_PATH + "/qdrant-backups"
+         (e.g. "G:\...\RooSync\qdrant-backups\" — cloud-only, NOT pinned offline)
 
 .PARAMETER QdrantUrl
     Qdrant API URL. Default: $env:QDRANT_URL or http://localhost:6333
@@ -20,7 +26,12 @@
     Machine identifier for the snapshot path. Default: $env:COMPUTERNAME (lowercased).
 
 .PARAMETER SharedPath
-    Override for $env:ROOSYNC_SHARED_PATH (must point to GDrive folder).
+    Override for $env:ROOSYNC_SHARED_PATH. Used only to derive the backup path parent
+    when -BackupPath is not set. Snapshots are NOT stored inside .shared-state (jsboige/jsboige-mcp-servers#608).
+
+.PARAMETER BackupPath
+    Override for the snapshot storage root. Default: parent of $ROOSYNC_SHARED_PATH
+    + "/qdrant-backups". Set $env:QDRANT_BACKUP_PATH as persistent alternative.
 
 .PARAMETER WhatIf
     Dry-run: print intended actions but do not create or delete snapshots.
@@ -44,6 +55,7 @@ param(
     [string]$Collection = 'roo_tasks_semantic_index',
     [string]$MachineId = '',
     [string]$SharedPath = '',
+    [string]$BackupPath = '',
     [string]$LogDir = './outputs/qdrant-backup'
 )
 
@@ -56,9 +68,18 @@ if ([string]::IsNullOrWhiteSpace($SharedPath)) {
     [Console]::Error.WriteLine('ERROR: $env:ROOSYNC_SHARED_PATH not set and -SharedPath not provided.')
     exit 1
 }
-if (-not (Test-Path $SharedPath)) {
-    [Console]::Error.WriteLine("ERROR: SharedPath does not exist: $SharedPath")
-    exit 1
+
+# Resolve backup path: outside .shared-state to avoid GDrive offline pin (jsboige/jsboige-mcp-servers#608)
+if ([string]::IsNullOrWhiteSpace($BackupPath)) { $BackupPath = $env:QDRANT_BACKUP_PATH }
+if ([string]::IsNullOrWhiteSpace($BackupPath)) {
+    # Derive from ROOSYNC_SHARED_PATH parent: .shared-state -> ../qdrant-backups
+    $rooSyncRoot = (Resolve-Path $SharedPath -ErrorAction SilentlyContinue)
+    if ($rooSyncRoot) {
+        $BackupPath = "$($rooSyncRoot.Parent.FullName)/qdrant-backups"
+    } else {
+        # Fallback: strip .shared-state suffix
+        $BackupPath = "$SharedPath/../qdrant-backups"
+    }
 }
 
 if ([string]::IsNullOrWhiteSpace($MachineId)) {
@@ -83,7 +104,7 @@ if (-not [string]::IsNullOrWhiteSpace($ApiKey)) { $headers['api-key'] = $ApiKey 
 
 $today = Get-Date -Format 'yyyy-MM-dd'
 $dateStamp = Get-Date -Format 'yyyyMMdd'
-$snapshotRoot = "$SharedPath/qdrant-snapshots/$MachineId/$Collection"
+$snapshotRoot = "$BackupPath/$MachineId/$Collection"
 $snapshotDayDir = "$snapshotRoot/$today"
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
@@ -97,7 +118,7 @@ function Write-Log {
     Write-Information $line -InformationAction Continue
 }
 
-Write-Log "Backup start: machine=$MachineId collection=$Collection qdrant=$QdrantUrl shared=$SharedPath"
+Write-Log "Backup start: machine=$MachineId collection=$Collection qdrant=$QdrantUrl backupRoot=$snapshotRoot"
 
 # ========== IDEMPOTENCY CHECK ==========
 

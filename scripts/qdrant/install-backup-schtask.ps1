@@ -68,7 +68,7 @@ try {
     exit 1
 }
 
-# Check 2: ROOSYNC_SHARED_PATH set + writable
+# Check 2: ROOSYNC_SHARED_PATH set + derive backup path
 $shared = $env:ROOSYNC_SHARED_PATH
 if ([string]::IsNullOrWhiteSpace($shared)) {
     [Console]::Error.WriteLine('  [FAIL] $env:ROOSYNC_SHARED_PATH not set')
@@ -78,13 +78,28 @@ if (-not (Test-Path $shared)) {
     [Console]::Error.WriteLine("  [FAIL] $shared does not exist")
     exit 1
 }
-$probe = "$shared/.qdrant-backup-probe-$([Guid]::NewGuid().ToString('N'))"
+
+# Derive cloud-only backup path (sibling of .shared-state, jsboige/jsboige-mcp-servers#608)
+$backupRoot = $env:QDRANT_BACKUP_PATH
+if ([string]::IsNullOrWhiteSpace($backupRoot)) {
+    $sharedResolved = (Resolve-Path $shared -ErrorAction SilentlyContinue)
+    if ($sharedResolved) {
+        $backupRoot = "$($sharedResolved.Parent.FullName)\qdrant-backups"
+    } else {
+        $backupRoot = "$shared\..\qdrant-backups"
+    }
+}
+if (-not (Test-Path $backupRoot)) {
+    Write-Output "  [INFO] Creating backup directory: $backupRoot"
+    New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+}
+$probe = "$backupRoot/.qdrant-backup-probe-$([Guid]::NewGuid().ToString('N'))"
 try {
     'probe' | Set-Content -Path $probe -Encoding utf8
     Remove-Item -Path $probe -Force
-    Write-Output "  [OK] $shared writable"
+    Write-Output "  [OK] Backup path writable: $backupRoot"
 } catch {
-    [Console]::Error.WriteLine("  [FAIL] $shared not writable: $($_.Exception.Message)")
+    [Console]::Error.WriteLine("  [FAIL] $backupRoot not writable: $($_.Exception.Message)")
     exit 1
 }
 
@@ -149,7 +164,12 @@ Write-Output "  Get-ScheduledTaskInfo -TaskName $TaskName"
 Write-Output "  Start-ScheduledTask -TaskName $TaskName   # trigger one immediate run"
 Write-Output "  Get-Content $RepoRoot\outputs\qdrant-backup\backup-$(Get-Date -Format yyyyMMdd).log -Tail 30"
 Write-Output ''
-Write-Output 'Snapshots will land in:'
-Write-Output "  $shared\qdrant-snapshots\$($env:COMPUTERNAME.ToLowerInvariant())\<collection>\YYYY-MM-DD\"
+Write-Output 'Snapshots will land in (cloud-only, NOT pinned offline):'
+Write-Output "  $backupRoot\$($env:COMPUTERNAME.ToLowerInvariant())\<collection>\YYYY-MM-DD\"
+Write-Output ''
+Write-Output 'NOTE: Qdrant-Snapshot-Daily runs on ai-01 ONLY (executors have no local Qdrant).'
+Write-Output '  Do NOT install this schtask on executor machines (po-2023/24/25/26, web1).'
+Write-Output '  After first run on ai-01, release the old .shared-state/qdrant-snapshots/ offline pin'
+Write-Output '  via Google Drive Desktop UI (right-click → "Free up space") to reclaim ~62 GB.'
 
 exit 0
