@@ -2,7 +2,7 @@
 
 **Status:** Approved 2026-05-18 (user mandate post data-loss incident 2026-05-16)
 **Owner:** myia-ai-01 (primary), portable to po-2024 / po-2026 later
-**Scope:** Single-collection snapshots pushed to a cloud-only GDrive path (sibling of `.shared-state`, #608)
+**Scope:** Single-collection snapshots pushed to a cloud-only GDrive path (sibling of `.shared-state`, jsboige/jsboige-mcp-servers#608)
 
 ---
 
@@ -29,8 +29,15 @@
 2. `$env:QDRANT_BACKUP_PATH`
 3. Parent of `$ROOSYNC_SHARED_PATH` + `/qdrant-backups` (default)
 
-Snapshots are stored **outside `.shared-state`** (#608) so they are NOT pinned offline by
+> **ai-01 note:** ai-01 currently sets `$env:QDRANT_BACKUP_PATH` to its existing `Backups-Cloud`
+> target (set 2026-06-06). The canonical default is `qdrant-backups`. A future re-install on ai-01
+> without the env var would switch to `qdrant-backups` — either keep the env var or migrate.
+
+Snapshots are stored **outside `.shared-state`** (jsboige/jsboige-mcp-servers#608) so they are NOT pinned offline by
 Google Drive "Available Offline" — cloud-only access, saving ~62 GB per machine.
+
+> **Scope:** `Qdrant-Snapshot-Daily` runs on **ai-01 ONLY**. Executors (po-2023/24/25/26, web1) have
+> no local Qdrant and must keep this schtask **uninstalled**.
 
 - One `.snapshot` file per day (binary, Qdrant native format).
 - Retention: **7 daily** + **4 weekly Mondays** (max 11 directories per collection).

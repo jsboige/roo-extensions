@@ -79,7 +79,7 @@ if (-not (Test-Path $shared)) {
     exit 1
 }
 
-# Derive cloud-only backup path (sibling of .shared-state, #608)
+# Derive cloud-only backup path (sibling of .shared-state, jsboige/jsboige-mcp-servers#608)
 $backupRoot = $env:QDRANT_BACKUP_PATH
 if ([string]::IsNullOrWhiteSpace($backupRoot)) {
     $sharedResolved = (Resolve-Path $shared -ErrorAction SilentlyContinue)
@@ -167,7 +167,9 @@ Write-Output ''
 Write-Output 'Snapshots will land in (cloud-only, NOT pinned offline):'
 Write-Output "  $backupRoot\$($env:COMPUTERNAME.ToLowerInvariant())\<collection>\YYYY-MM-DD\"
 Write-Output ''
-Write-Output 'NOTE: After first run, release the old .shared-state/qdrant-snapshots/ offline pin'
+Write-Output 'NOTE: Qdrant-Snapshot-Daily runs on ai-01 ONLY (executors have no local Qdrant).'
+Write-Output '  Do NOT install this schtask on executor machines (po-2023/24/25/26, web1).'
+Write-Output '  After first run on ai-01, release the old .shared-state/qdrant-snapshots/ offline pin'
 Write-Output '  via Google Drive Desktop UI (right-click → "Free up space") to reclaim ~62 GB.'
 
 exit 0

@@ -9,7 +9,7 @@
 
 .PARAMETER SnapshotPath
     Full path to the .snapshot file (cloud-only qdrant-backups path, sibling of .shared-state).
-    See backup-snapshot.ps1 for path resolution (#608).
+    See backup-snapshot.ps1 for path resolution (jsboige/jsboige-mcp-servers#608).
 
 .PARAMETER Collection
     Target collection name.

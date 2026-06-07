@@ -27,7 +27,7 @@
 
 .PARAMETER SharedPath
     Override for $env:ROOSYNC_SHARED_PATH. Used only to derive the backup path parent
-    when -BackupPath is not set. Snapshots are NOT stored inside .shared-state (#608).
+    when -BackupPath is not set. Snapshots are NOT stored inside .shared-state (jsboige/jsboige-mcp-servers#608).
 
 .PARAMETER BackupPath
     Override for the snapshot storage root. Default: parent of $ROOSYNC_SHARED_PATH
@@ -69,7 +69,7 @@ if ([string]::IsNullOrWhiteSpace($SharedPath)) {
     exit 1
 }
 
-# Resolve backup path: outside .shared-state to avoid GDrive offline pin (#608)
+# Resolve backup path: outside .shared-state to avoid GDrive offline pin (jsboige/jsboige-mcp-servers#608)
 if ([string]::IsNullOrWhiteSpace($BackupPath)) { $BackupPath = $env:QDRANT_BACKUP_PATH }
 if ([string]::IsNullOrWhiteSpace($BackupPath)) {
     # Derive from ROOSYNC_SHARED_PATH parent: .shared-state -> ../qdrant-backups
