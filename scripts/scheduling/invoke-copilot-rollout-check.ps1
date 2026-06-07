@@ -269,7 +269,7 @@ try {
     $task = Get-ScheduledTask -TaskName $taskName -ErrorAction Stop
     $taskInfo = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction Stop
     $report.dispatcherReady = ($task.State -eq 'Ready')
-    $report.lastTaskResult = [int]$taskInfo.LastTaskResult
+    $report.lastTaskResult = [long]$taskInfo.LastTaskResult
     if ($report.dispatcherReady) {
         Add-Note 'Scheduled task state is Ready.'
     } else {
