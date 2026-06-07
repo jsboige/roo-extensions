@@ -23,16 +23,21 @@
 # - Set-StrictMode pour détecter les erreurs de typage
 # - Utilisation de [hashtable] explicite au lieu de PSObject
 # - Ajout de timeouts pour éviter les blocages
-Set-StrictMode -Version Latest
-$ErrorActionPreference = 'Stop'
 
 param (
     [Parameter(Mandatory = $false)]
     [string[]]$McpName,
 
     [Parameter(Mandatory = $false)]
-    [switch]$Force
+    [switch]$Force,
+
+    [Parameter(Mandatory = $false)]
+    [ValidateSet("RooCode", "ZooCode")]
+    [string]$Extension = "ZooCode"
 )
+
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
 . "$PSScriptRoot\..\common\extension-paths.ps1"
 
@@ -50,10 +55,10 @@ function Write-ColorOutput {
         [Parameter(Mandatory = $false)]
         [string]$ForegroundColor = "White"
     )
-    $originalColor = $host.UI.RawUI.ForegroundColor
-    $host.UI.RawUI.ForegroundColor = $ForegroundColor
-    Write-Output $Message
-    $host.UI.RawUI.ForegroundColor = $originalColor
+    # Use Write-Host (NOT Write-Output) to avoid polluting the PowerShell pipeline.
+    # Write-Output causes Find-ViablePythonExecutable to return diagnostic messages
+    # as array elements alongside the actual path, corrupting mcp_settings.json args.
+    Write-Host $Message -ForegroundColor $ForegroundColor
 }
 
 function Test-CommandExists {
@@ -341,10 +346,18 @@ Write-ColorOutput "`n[Phase 4/4] Mise à jour de la configuration des serveurs..
 if ($installedMcps.Count -eq 0) {
     Write-ColorOutput "Aucun MCP interne n'a été installé avec succès. La configuration n'a pas été modifiée." "Yellow"
 } else {
-    $serversJsonPath = Get-McpSettingsPath -Extension RooCode
+    $serversJsonPath = Get-McpSettingsPath -Extension $Extension
     if (-not (Test-Path $serversJsonPath)) {
-        Write-ColorOutput "ERREUR : Le fichier de configuration '$serversJsonPath' est introuvable." "Red"
-        exit 1
+        # Create the settings directory if it doesn't exist (Zoo Code first-run)
+        $settingsDir = Split-Path $serversJsonPath
+        if (-not (Test-Path $settingsDir)) {
+            New-Item -ItemType Directory -Path $settingsDir -Force | Out-Null
+            Write-ColorOutput "Répertoire créé : $settingsDir" "Green"
+        }
+        # Create empty mcp_settings.json
+        $emptyConfig = @{ mcpServers = @{} } | ConvertTo-Json -Depth 5
+        [System.IO.File]::WriteAllText($serversJsonPath, $emptyConfig, [System.Text.UTF8Encoding]::new($false))
+        Write-ColorOutput "Fichier créé : $serversJsonPath" "Green"
     }
 
     try {
