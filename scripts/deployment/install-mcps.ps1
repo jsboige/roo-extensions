@@ -55,10 +55,10 @@ function Write-ColorOutput {
         [Parameter(Mandatory = $false)]
         [string]$ForegroundColor = "White"
     )
-    $originalColor = $host.UI.RawUI.ForegroundColor
-    $host.UI.RawUI.ForegroundColor = $ForegroundColor
-    Write-Output $Message
-    $host.UI.RawUI.ForegroundColor = $originalColor
+    # Use Write-Host (NOT Write-Output) to avoid polluting the PowerShell pipeline.
+    # Write-Output causes Find-ViablePythonExecutable to return diagnostic messages
+    # as array elements alongside the actual path, corrupting mcp_settings.json args.
+    Write-Host $Message -ForegroundColor $ForegroundColor
 }
 
 function Test-CommandExists {
