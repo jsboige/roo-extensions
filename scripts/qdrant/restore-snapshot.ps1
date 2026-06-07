@@ -8,7 +8,8 @@
     Confirms restored point count and writes to the same log directory as backup-snapshot.ps1.
 
 .PARAMETER SnapshotPath
-    Full path to the .snapshot file (typically from $ROOSYNC_SHARED_PATH/qdrant-snapshots/...).
+    Full path to the .snapshot file (cloud-only qdrant-backups path, sibling of .shared-state).
+    See backup-snapshot.ps1 for path resolution (#608).
 
 .PARAMETER Collection
     Target collection name.
