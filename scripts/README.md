@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-06-07
+**Dernière mise à jour :** 2026-06-08
 
 ---
 
@@ -44,7 +44,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `git/` | 1 | Opérations Git basiques |
+| `git/` | 1 | Opérations Git basiques (pre-commit hooks) |
 | `git-workflow/` | 7 | Workflow Git avancé (submodules, commit, branches) |
 | `github/` | 4 | Intégration GitHub (sync-project, set-fields, review-bot) |
 | `worktrees/` | 4 | Gestion des worktrees Git (création, cleanup, merge) |
@@ -55,7 +55,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
 | `claude/` | 14 | Scripts Claude Code (spawn workers, switch-provider, validation) |
-| `claude-md/` | 1 | Gestion CLAUDE.md |
+| `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 2 | Gestion mémoire agents (inject, redistribute) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 16 | Scripts de planification (copilot dispatcher, schtasks) |
@@ -64,10 +64,10 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `infra/` | 6 | Infrastructure (win-cli timeout guard, ripgrep diagnostic) |
+| `infra/` | 6 | Infrastructure (win-cli timeout guard, ripgrep diagnostic, Docker) |
 | `install/` | 1 | Installation initiale |
-| `setup/` | 6 | Configuration environnement |
-| `windows/` | 3 | Spécifique Windows (WSL, startup) |
+| `setup/` | 6 | Configuration environnement (Git hooks, auto-login, VS Code) |
+| `windows/` | 3 | Spécifique Windows (WSL, startup, Docker) |
 | `zoo-scheduler/` | 4 | Migration et gestion du scheduler Zoo Code |
 
 ### Diagnostic & Monitoring
@@ -82,15 +82,15 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `testing/` | 8 | Tests unitaires et E2E |
-| `validation/` | 11 | Validation fonctionnelle (build, CI, configs) |
-| `audit/` | 1 | Audit de qualité |
+| `testing/` | 8 | Tests unitaires et E2E (Pester, Vitest, Playwright) |
+| `validation/` | 12 | Validation fonctionnelle (build, CI, configs, MCP drift) |
+| `audit/` | 1 | Audit de qualité (rules footprint) |
 
 ### Maintenance & Cleanup
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `maintenance/` | 14 | Maintenance récurrente (cleanup, sync, index repair) |
+| `maintenance/` | 14 | Maintenance récurrente (cleanup, sync, index repair, idle patrol) |
 | `cleanup/` | 1 | Nettoyage général |
 | `_archive/` | 1 | Scripts archivés (référence seulement) |
 
@@ -105,10 +105,10 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `analysis/` | 6 | Analyse de code et métriques |
+| `analysis/` | 6 | Analyse de code et métriques (branches, commits, complexity) |
 | `docs/` | 7 | Génération et maintenance de documentation |
 | `benchmarks/` | 1 | Benchmarks de performance |
-| `common/` | 1 | Utilitaires partagés |
+| `common/` | 1 | Utilitaires partagés (extension paths) |
 
 ### Autres
 
