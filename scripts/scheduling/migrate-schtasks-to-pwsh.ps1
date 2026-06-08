@@ -63,8 +63,9 @@ foreach ($name in $TaskNames) {
         continue
     }
 
-    $currentExe  = $task.Actions[0].Execute
-    $currentArgs = $task.Actions[0].Arguments
+    $currentExe     = $task.Actions[0].Execute
+    $currentArgs    = $task.Actions[0].Arguments
+    $currentWorkDir = $task.Actions[0].WorkingDirectory
 
     if ($currentExe -ieq $pwshExe) {
         Write-Host "[SKIP] $name : already on pwsh.exe" -ForegroundColor Green
@@ -80,7 +81,7 @@ foreach ($name in $TaskNames) {
     }
 
     try {
-        $newAction = New-ScheduledTaskAction -Execute $pwshExe -Argument $currentArgs
+        $newAction = New-ScheduledTaskAction -Execute $pwshExe -Argument $currentArgs -WorkingDirectory $currentWorkDir
         Set-ScheduledTask -TaskName $name -Action $newAction -ErrorAction Stop | Out-Null
         Write-Host "[OK  ] $name : migrated to pwsh.exe" -ForegroundColor Green
         $migrated++

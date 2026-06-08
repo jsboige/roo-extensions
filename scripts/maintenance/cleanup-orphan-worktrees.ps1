@@ -7,6 +7,9 @@
     no longer tracked as active git worktrees. Supports dry-run (default), execute,
     and archive modes.
 
+.PARAMETER RepoRoot
+    Repository root path. Defaults to git rev-parse --show-toplevel from CWD.
+
 .PARAMETER WorktreesPath
     Path to the worktrees directory. Defaults to .claude/worktrees/ relative to repo root.
 
@@ -43,6 +46,7 @@
 
 [CmdletBinding()]
 param(
+    [string]$RepoRoot,
     [string]$WorktreesPath,
     [int]$DaysThreshold = 7,
     [switch]$Execute,
@@ -53,11 +57,13 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Resolve repo root from current working directory (not script location)
-$gitRoot = git rev-parse --show-toplevel 2>$null
-$RepoRoot = if ($gitRoot) { $gitRoot.Trim() } else { '' }
+# Resolve repo root: explicit parameter takes priority, then git rev-parse from CWD
 if (-not $RepoRoot) {
-    Write-Error "Cannot determine repo root. Run from within a git repository."
+    $gitRoot = git rev-parse --show-toplevel 2>$null
+    $RepoRoot = if ($gitRoot) { $gitRoot.Trim() } else { '' }
+}
+if (-not $RepoRoot) {
+    Write-Error "Cannot determine repo root. Pass -RepoRoot or run from within a git repository."
     exit 1
 }
 
