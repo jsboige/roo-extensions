@@ -212,6 +212,12 @@ ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
 - **Pourquoi :** Incident web1 (37.1 MB, 2417 lignes JSONL, 16+ cycles inactifs générant des messages redondants)
 - Un cycle où une tâche a été ne serait-ce qu'investigée (code lu, commentaire posté) compte comme actif
 
+### Session Hygiene — Restart Cadence (#2532)
+- Une session **interactive** executor accumule ~30 KB/cycle (mesuré 10,3 MB / 7110 msgs sur 4 jours) → ralentissements MCP + risque de timeout
+- **Redémarrer la session interactive** après **~25 cycles** OU dès que `conversation_browser(action: "current")` rapporte **> 5 MB**
+- Workers **schedulés** (`claude -p`) = process frais par tâche → **non concernés**
+- La lecture dashboard est déjà bornée `section: "intercom", intercomLimit: 20` — **ne PAS descendre sous 20** (plancher #2306). Le levier est le restart, pas `intercomLimit`
+
 ### PR obligatoire
 - Tout changement de code passe par worktree → PR → review → merge
 - Reference : `.claude/rules/pr-mandatory.md`
