@@ -638,6 +638,20 @@ ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick 1h.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer adaptatif.
 
+### Session Hygiene — Restart Cadence (#2532)
+
+**Une session executor INTERACTIVE accumule du contexte cycle après cycle** (chaque réveil ajoute ~30 KB de messages dashboard + tool results). Mesuré 2026-06-06 : une session interactive de 4 jours avait atteint **10,3 MB / 7110 messages**. À cette taille, chaque opération MCP (lecture dashboard, append) ralentit et le risque de timeout/instabilité grimpe.
+
+**Règle :** redémarrer la session interactive executor :
+- après **~25 cycles** de réveil, OU
+- dès que `conversation_browser(action: "current")` rapporte une session **> 5 MB** (`sizeWarning`).
+
+Un redémarrage = fermer puis relancer la session Claude Code (VS Code) ; le `[WAKE-CLAUDE]` ou le tick suivant la relance avec un contexte frais.
+
+**Ce qui N'EST PAS concerné :**
+- Les workers **schedulés** (`claude -p` via Task Scheduler) : ils spawnent un process frais à chaque tâche → aucune accumulation, rien à changer.
+- La lecture dashboard par cycle est **déjà bornée** à `section: "intercom", intercomLimit: 20` (cf. début de boucle ci-dessus). **NE PAS descendre sous 20** : c'est le plancher mandaté #2306 (lire moins = rater des décisions récentes). Le levier est le redémarrage de session, pas la réduction de `intercomLimit`.
+
 ### Gestion des questions et blocages
 - **Si une question se pose** pendant l'execution d'une tache : **NE PAS s'arreter**
 - **Continuer** sur les autres taches ou aspects non bloques
