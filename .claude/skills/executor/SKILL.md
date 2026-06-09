@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.5.0"
+  version: "3.6.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.5.0
+**Version:** 3.6.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-06-06 (#2509 fix faux-drain : Phase 1 `--limit 100` + filtrage labels actionnables ; garde-fou anti-faux-drain Phase 2)
+**MAJ:** 2026-06-09 (#2509 fix faux-drain + #2539 cron 2h verification in Phase 0 pre-flight)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -52,6 +52,11 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
    - Poster `[WARN]` sur dashboard si corrections appliquées
+5. **Cron 2h re-arm verification** (#2539) :
+   - `CronList` — vérifier qu'un job récurrent `*/2` pour `/executor` existe
+   - Si absent → `CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)`
+   - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
+   - Poster `[INFO]` si réarmé (pour traçabilité)
 
 Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et STOP.
 
@@ -192,18 +197,20 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 - Build obligatoire apres toute modification TypeScript
 - Ne JAMAIS committer du code qui ne passe pas les tests
 
-### Wakeup Cycle Cadence (#2203, mandate user 2026-05-15)
+### Wakeup Cycle Cadence (#2203, mandate user 2026-05-25 — 2h supersede 1h)
 
-**Intervalle fleet-wide : 1h (3600s) — DEFAULT FERMÉ.**
+**Cadence fleet-wide : 2h via `CronCreate`** (économie tokens, mandate user 2026-05-25 — le cycle 1h de #2203 est superseded). `ScheduleWakeup` est clampé à `[60, 3600]s` → ne PEUT PAS porter un cycle 2h.
 
 ```
-ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
+CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)
 ```
 
-- **Pourquoi 1h** : cycles courts (5-30 min observés cycle 33) + cap 3-IDLE déclenchent AUTO-STOP avant que le coordinateur n'ait le temps de dispatcher du frais → flotte stallée. 1h × 3 = 3h avant AUTO-STOP, fenêtre réaliste.
-- **Cap 3-IDLE inchangé** (#2185) mais devient 3h au lieu de 30 min.
-- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick 1h.
+- **Pourquoi 2h** : mandate user 2026-05-25 — ralentir la flotte pour économiser les tokens. 1h générait trop de cycles IDLE consommateurs.
+- **Session-only**, auto-expire 7j. **Phase 0 vérifie** à chaque cycle que le cron est actif et le réarme si besoin (#2539).
+- **Cap 3-IDLE** (#2185) → 3 cycles × 2h = 6h avant AUTO-STOP.
+- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick 2h.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer adaptatif.
+- **NE PAS** ajouter un `ScheduleWakeup` par-dessus — cela réintroduirait le cycle 1h superseded.
 
 ### Inactivity Cap (#2185)
 - Après **3 cycles consécutifs** sans tâche exécutée (IDLE au sens : aucune investigation/implémentation/validation commencée) → **arrêter la session** (ne PAS appeler `ScheduleWakeup`)
@@ -244,4 +251,4 @@ ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
 
 ---
 
-**Derniere mise a jour :** 2026-06-06
+**Derniere mise a jour :** 2026-06-09
