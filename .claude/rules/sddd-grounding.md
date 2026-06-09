@@ -96,7 +96,7 @@ Ce pattern est analogue au "wiki Karpathy" : documenter comprehensivement ce qu'
 
 ## INTERDICTION : Lecture directe JSONL (#1785)
 
-**NE JAMAIS lire les fichiers JSONL/JSON de session directement** — voir regles completes dans `27-no-direct-jsonl-read.md`.
+**NE JAMAIS lire les fichiers JSONL/JSON de session directement** — voir regles completes dans `.roo/rules/27-no-direct-jsonl-read.md`.
 
 | Besoin | Outil |
 | ------ | ----- |
