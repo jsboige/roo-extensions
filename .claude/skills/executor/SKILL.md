@@ -44,7 +44,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 
 **Verifier les outils critiques AVANT toute autre action :**
 
-1. MCP roo-state-manager disponible (34 outils) → Si absent, STOP & REPAIR
+1. MCP roo-state-manager disponible (15 outils) → Si absent, STOP & REPAIR
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
 4. **Win-cli timeout guard** (anti-régression #2333) :
