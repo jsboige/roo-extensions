@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 2.0.0 (slim)
+**Version:** 3.0.0 (sk-agent count + MCP remote Claude.ai section + web_reader requalifié)
 
 ---
 
@@ -24,14 +24,25 @@
 | MCP | Outils | Role |
 |-----|--------|------|
 | playwright | 23 | Automation web |
-| sk-agent | 15 | Vision/multi-agent (call_agent dynamic descriptions) |
+| sk-agent | 9 outils + agents dynamiques | Vision/multi-agent (`call_agent` dynamic descriptions). Outils = `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`, `list_conversations`, `list_tools`, `review_pr`, `run_conversation` |
 | **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
 
 **Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
 
-## Retires (NE DOIVENT PAS exister)
+## MCP Remote Claude.ai (injectés, pas dans config locale)
 
-desktop-commander, github-projects-mcp, quickfiles, web_reader (crash claudish/GLM — remplace par searxng, #2210)
+Certains MCP apparaissent dans les sessions sans être dans `~/.claude.json` ni `.mcp.json`. Ils sont injectés par le **routeur Claudish distant** (`ANTHROPIC_BASE_URL`) ou par le hub Claude.ai (`claudeAiMcpEverConnected` dans `~/.claude.json`). Ne PAS les traiter comme des anomalies de config locale :
+
+| MCP | Outil | Source | Note |
+|-----|-------|--------|------|
+| `4_5v_mcp` | `analyze_image` | Routeur Claudish / Claude.ai remote | Vision, non critique |
+| `web_reader` | `webReader` | Routeur Claudish / Claude.ai remote | Retiré du fork claudish (#2210, commit `24ec4da`), peut encore être injecté par le routeur |
+
+**Action si détecté dans un audit :** Documenter la source (remote MCP), NE PAS chercher dans les configs locales.
+
+## Retires (NE DOIVENT PAS exister dans les configs locales)
+
+desktop-commander, github-projects-mcp, quickfiles
 
 ## STOP & REPAIR
 
