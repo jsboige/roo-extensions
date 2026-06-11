@@ -544,9 +544,21 @@ function Invoke-ProcessWorkspace($ws) {
 
     # R11 sanity check: filter out messages referencing closed GitHub issues.
     # Prevents waking agents for stale targets (incident: po-2023 woken 3x on #1496 CLOSED).
+    # #2431 fix: WAKE tags bypass R11 — coordinator dispatches mention merged PRs as context,
+    # not as action targets. R11 would reject the entire WAKE because #NNN in "merged #617"
+    # are CLOSED, killing the spawn. Only non-WAKE messages (e.g. schtask re-runs) get R11.
     if (-not [string]::IsNullOrEmpty($GitHubRepo)) {
         $filtered = @()
         foreach ($msg in $actionable) {
+            # #2431: Skip R11 for WAKE messages — they're coordinator instructions.
+            $isWake = $false
+            foreach ($tag in $tagList) {
+                if ($msg.content -match "^\[$tag\]") { $isWake = $true; break }
+            }
+            if ($isWake) {
+                $filtered += $msg
+                continue
+            }
             $closedRefs = Test-ReferencedClosedIssues $msg.content $GitHubRepo
             if ($closedRefs.Count -gt 0) {
                 $preview = $msg.content.Substring(0, [Math]::Min(80, $msg.content.Length)).Replace("`n", " ")
