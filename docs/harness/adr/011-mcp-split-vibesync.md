@@ -1,11 +1,39 @@
 # ADR 011 — MCP Split + VibeSync Rebrand (EPIC #2190 Phase 1)
 
-**Status:** Proposed (awaiting user arbitrage on open questions)
+**Status:** Amended — re-scoped to 2 MCPs + workspace trunk (user arbitrage 2026-06-11). Original 8-MCP proposal kept below for history.
 **Date:** 2026-05-15
 **Author:** myia-ai-01 (claude-interactive, R41 wake)
 **Supersedes:** N/A (new architecture)
 **Related:** #1935 (origin user mandate), #1841 (consolidation audit), EPIC #2190 (this work), #2197 / ADR 010 (conversation_browser GDrive storage, complementary)
 **Data source:** [po-2025 Phase 1 data mapping](https://github.com/jsboige/roo-extensions/issues/2190#issuecomment-4459593168) (94,767 LOC, 26 tools, 8 candidate MCPs mapped 2026-05-15T12:06Z)
+
+---
+
+## Amendment 2026-06-11 — Re-scope: 2 MCPs + workspace trunk (user arbitrage)
+
+**User verdict (2026-06-11):** the 8-MCP plan is **overkill**. The granularity that matters operationally is two families — multi-machine coordination ("Config-sync") vs conversational state — and detail questions only come after the coarse cut is settled. The user validated the following 2-MCP cut the same day.
+
+### Amended decision
+
+| MCP | Role | Tools (of the current 15) |
+|---|---|---|
+| **`vibesync`** | Multi-machine coordination (Config-sync) | `roosync_dashboard`, `roosync_messages`, `roosync_config`, `roosync_compare_config`, `roosync_baseline`, `roosync_inventory`, `roosync_mcp_management` (7) — plus future #2406 Phase 2 tools (`roosync_schtasks`, `roosync_services`, `roosync_secrets`, see ADR 013) |
+| **`vibe-conversations`** | Conversational state, search & indexing | `conversation_browser`, `codebase_search`, `roosync_search`, `roosync_indexing`, `export_data`, `roosync_storage_management`, `roosync_diagnose`, `read_vscode_logs` (8) |
+
+- **Cut rationale:** the two install populations are disjoint. `vibesync` is what ANY fleet participant needs to coordinate (Zoo machines, infra workspaces like postgres/vllm/qdrant, bots). `vibe-conversations` only makes sense where Roo/Claude conversation histories exist to browse and index. Two processes ↔ two real deployment audiences — not eight.
+- **Trunk:** `@vibesync/core` becomes an **npm workspaces package inside the monorepo** (`mcps/internal`), imported locally by both MCPs. No npm registry, no publish flow → **closes open question 2** (neither registry nor vendor copy).
+- **Monorepo retained** (**closes open question 7**): workspaces packaging requires it, and it avoids multiplying submodule pointer-bump pain (#1799).
+- **Search bundling (open question 3) resolved by the cut:** `search/` + `indexing/` both land in `vibe-conversations`; the vector cluster (openai/qdrant/task-indexer) never crosses an MCP boundary.
+- **Migration = single breaking-change window** (replaces Waves 1-3): one extraction (`vibe-conversations`) + one rename (remainder → `vibesync`). Rebrand happens in that same window (**closes open question 6**, "coupled" direction).
+- **Tool-count cap relaxed** (user, same arbitrage): *"passer de 15 à 16 outils n'est pas du tout un pb pour moi si c'est justifié, on en avait plus de 50 quand on a entamé la réduction."* The anti-proliferation principle stays, but a justified top-level tool is acceptable — directly relevant to ADR 013.
+
+### Remaining detail questions (settle at implementation time)
+
+1. Final names — `vibe-conversations` vs `vibesync-conversations` (residue of Q1, single vs dual prefix).
+2. Migration window timing (residue of Q4) — sequenced **after** the unified store Postgres lands (#2191/#2553), per the 2026-06-11 archaeology on #2190.
+3. Shim duration (residue of Q5) — simplified to a single window covering both the extraction and the rename.
+
+The Waves 1-3 plan, the 8-MCP table and open questions 1-7 below are kept for history and **superseded by this amendment**.
 
 ---
 
@@ -190,7 +218,8 @@ If Wave 1 spike fails (compile error, agent context window regression > 5%, inte
 | 2026-05-15 | Proposed 8-MCP split (4 vibe-* + 3 vibesync-* + 1 trunk SDK) | myia-ai-01 (R41) | Based on po-2025 Phase 1 data: 4 clear hot/cold clusters, 4 cross-imports → 4 single-purpose + 3 coord + trunk |
 | 2026-05-15 | Wave 1 = export + diagnose + indexing | myia-ai-01 (R41) | Low risk, validates SDK pattern, no hot-path interference |
 | 2026-05-15 | Bundle dashboard+messages = `vibesync-intercom` | myia-ai-01 (R41) | 4 services shared, splitting creates GDrive lock storm |
-| TBD | Open questions 1-7 (above) | user | Awaiting arbitrage |
+| 2026-06-11 | 8-MCP plan rejected as **overkill**; coarse 2-family cut (Config-sync vs conversational) mandated before any detail | user | "8 MCPs??? […] il faudrait déjà faire le point là-dessus avant d'aborder le détail" |
+| 2026-06-11 | Re-scope to 2 MCPs (`vibesync` + `vibe-conversations`) + `@vibesync/core` npm workspaces trunk; Q2/Q3/Q6/Q7 closed, Q1/Q4/Q5 demoted to implementation detail | user (granularity GO) + myia-ai-01 | See Amendment section at top |
 
 ---
 
