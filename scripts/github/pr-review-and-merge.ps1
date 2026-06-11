@@ -1,6 +1,9 @@
 # PR Review and Merge Script for Coordinator
 # Part of Issue #958 - Option E Implementation
 # Usage: .\scripts\github\pr-review-and-merge.ps1 -PrNumber <PR_NUMBER>
+#
+# Tier-gate (#2565): GLM-class machines can only merge trivial PRs.
+# Trivial criteria sourced from docs/harness/reference/pr-trivial-merge-policy.md.
 
 param(
     [Parameter(Mandatory=$true)]
@@ -17,6 +20,106 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# === Tier-gate constants (#2565) ===
+# Opus-class: full merge authority
+$OpusClassMachines = @('MYIA-AI-01')
+# GLM-class: trivial PRs only
+$GlmClassMachines = @('MYIA-PO-2023', 'MYIA-PO-2024', 'MYIA-PO-2025', 'MYIA-PO-2026', 'MYIA-WEB1')
+
+# Trivial title patterns (sourced from pr-trivial-merge-policy.md)
+$TrivialTitlePatterns = @(
+    '^test(\(coverage\))?: .+',
+    '^chore\(submod\): bump pointer [a-f0-9]{7,} -> [a-f0-9]{7,}.*$',
+    '^chore\(submod\): bundle pointer-bump .+',
+    '^docs\([^)]+\): .+',
+    '^(chore|docs)\(#?\d+\): .+\.gitkeep$',
+    '^fix\(#?\d+\): .+ test (only|fixup).+$'
+)
+
+# Paths that make a PR non-trivial if touched
+$ProtectedPaths = @(
+    'src/', 'lib/', 'mcps/internal/servers/*/src/', 'mcps/internal/servers/*/build/',
+    '.claude/', '.roo/', 'CLAUDE.md', '.roomodes', 'package*.json',
+    '.github/workflows/', '.github/CODEOWNERS', '*.env*', '*.yml'
+)
+
+# File extensions that make a PR non-trivial (outside test dirs)
+$ProtectedExtensions = @('.ts')
+
+function Test-IsTrivialPR {
+    param($PrData)
+    $loc = $PrData.additions + $PrData.deletions
+
+    # 1. LOC check: >=50 LOC total = non-trivial
+    if ($loc -ge 50) {
+        Write-Host "  [TIER-GATE] Non-trivial: total LOC = $loc (>=50)" -ForegroundColor DarkGray
+        return $false
+    }
+
+    # 2. Title must match at least one trivial pattern
+    $titleMatch = $false
+    foreach ($pattern in $TrivialTitlePatterns) {
+        if ($PrData.title -match $pattern) {
+            $titleMatch = $true
+            break
+        }
+    }
+    if (-not $titleMatch) {
+        Write-Host "  [TIER-GATE] Non-trivial: title does not match any trivial pattern" -ForegroundColor DarkGray
+        return $false
+    }
+
+    # 3. Protected path check: no file in protected paths
+    foreach ($file in $PrData.files) {
+        $path = $file.path
+        foreach ($protected in $ProtectedPaths) {
+            if ($protected -like '*/*') {
+                # Path prefix match
+                if ($path -like "$protected*" -or $path -like "*/$protected*") {
+                    Write-Host "  [TIER-GATE] Non-trivial: touches protected path $path" -ForegroundColor DarkGray
+                    return $false
+                }
+            } else {
+                if ($path -eq $protected -or (Split-Path $path -Leaf) -eq $protected) {
+                    Write-Host "  [TIER-GATE] Non-trivial: touches protected file $path" -ForegroundColor DarkGray
+                    return $false
+                }
+            }
+        }
+
+        # Protected extensions outside test dirs
+        $ext = [System.IO.Path]::GetExtension($path)
+        $inTestDir = $path -match '(^|/)tests?/' -or $path -match '(^|/)__tests__/'
+        if ($ProtectedExtensions -contains $ext -and -not $inTestDir) {
+            Write-Host "  [TIER-GATE] Non-trivial: $ext file outside test dir: $path" -ForegroundColor DarkGray
+            return $false
+        }
+    }
+
+    # 4. Labels check: 'security' label = non-trivial
+    # (fetched separately if needed — check PR body/labels)
+    try {
+        $labels = gh pr view $PrData.number --repo $Repo --json labels --jq '.labels[].name' 2>$null
+        if ($labels -contains 'security') {
+            Write-Host "  [TIER-GATE] Non-trivial: labeled 'security'" -ForegroundColor DarkGray
+            return $false
+        }
+    } catch {
+        # Label check best-effort
+    }
+
+    return $true
+}
+
+function Get-MachineTier {
+    $machine = $env:COMPUTERNAME
+    if ($OpusClassMachines -contains $machine) { return 'opus' }
+    if ($GlmClassMachines -contains $machine) { return 'glm' }
+    # Unknown machine: treat as GLM-class (conservative)
+    Write-Host "  [TIER-GATE] Unknown machine '$machine', treating as GLM-class (conservative)" -ForegroundColor Yellow
+    return 'glm'
+}
 
 # Log header
 Write-Host "`n=== PR Review and Merge ===" -ForegroundColor Cyan
@@ -40,6 +143,55 @@ Write-Host "  Author: $($pr.author.login)" -ForegroundColor Gray
 Write-Host "  Changes: +$($pr.additions) -$($pr.deletions) lines" -ForegroundColor Gray
 Write-Host "  Files: $($pr.files.Count)" -ForegroundColor Gray
 Write-Host "  Mergeable: $($pr.mergeable)" -ForegroundColor Gray
+
+# === Tier-gate check (#2565) ===
+Write-Host "`n[Tier Gate] Checking merge authority..." -ForegroundColor Cyan
+$tier = Get-MachineTier
+$isTrivial = Test-IsTrivialPR -PrData (@{title=$pr.title; additions=$pr.additions; deletions=$pr.deletions; files=$pr.files; number=$PrNumber})
+
+Write-Host "  Machine tier: $tier | Trivial: $isTrivial" -ForegroundColor Gray
+
+if ($tier -eq 'glm' -and -not $isTrivial) {
+    Write-Host "`n✗ TIER-GATE BLOCKED: GLM-class machine cannot merge non-trivial PR" -ForegroundColor Red
+    Write-Host "  This PR must be merged by Opus-class (ai-01/jsboige)." -ForegroundColor Red
+
+    # Post escalation comment on PR
+    $escalationComment = @"
+## 🔒 Tier-Gate: Merge Refused (GLM-class)
+
+**Machine:** $env:COMPUTERNAME
+**Tier:** GLM-class (trivial-only merge authority)
+**PR LOC:** $($pr.additions) + $($pr.deletions)
+**Title:** $($pr.title)
+
+This PR is **non-trivial** and cannot be merged by a GLM-class machine.
+Escalating to **Opus-class (ai-01/jsboige)** for merge authorization.
+
+*Ref: #2565 tier-gate policy*
+"@
+
+    if (!$DryRun) {
+        try {
+            gh pr comment $PrNumber --repo $Repo --body $escalationComment 2>$null
+        } catch {
+            Write-Host "  Could not post escalation comment" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[DRY RUN] Would post escalation comment" -ForegroundColor Yellow
+    }
+
+    # Post [ASK] on dashboard for ai-01
+    $askMessage = "[ASK] PR #$PrNumber is non-trivial (LOC $($pr.additions)+$($pr.deletions), title: $($pr.title)). GLM-class $env:COMPUTERNAME cannot merge. Requesting Opus-class merge authorization."
+    Write-Host "  Dashboard escalation: $askMessage" -ForegroundColor Yellow
+
+    exit 1
+}
+
+if ($tier -eq 'glm' -and $isTrivial) {
+    Write-Host "  ✓ GLM-class merge authorized (trivial PR)" -ForegroundColor Green
+} elseif ($tier -eq 'opus') {
+    Write-Host "  ✓ Opus-class: full merge authority" -ForegroundColor Green
+}
 
 # Step 2: Check CI status
 Write-Host "`n[Step 2] Checking CI status..." -ForegroundColor Cyan
@@ -231,7 +383,7 @@ if (!$DryRun) {
 **CI:** Passed
 **Review:** Coordinator + sk-agent (if >50 LOC)
 
-**Machine:** myia-ai-01 (coordinator)
+**Machine:** $env:COMPUTERNAME ($tier-tier)
 **Date:** $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 "@
 

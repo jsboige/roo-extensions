@@ -484,6 +484,17 @@ CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
 
 **Reference :** `docs/harness/coordinator-specific/pr-review-policy.md` section 2 (sk-agent Code Review)
 
+### Merge Tier-Gate (#2565 — GLM-class trivial-only)
+
+**PRÉCONDITION D'IDENTITÉ** : Avant tout merge, le coordinateur DOIT vérifier son propre tier :
+
+- **Opus-class (ai-01)** : Autorité complète sur toutes les PRs.
+- **GLM-class (po-2023/24/25/26, web1)** : Merge des PRs **triviales uniquement**. Pour toute PR non-triviale → **STOP**, poster `[ASK]` sur le dashboard routé `myia-ai-01`, et ne PAS merger.
+
+**Définition de « trivial »** : Exactement les critères de `docs/harness/reference/pr-trivial-merge-policy.md` (regex titre + LOC<50 + pas de protected paths). Le script `scripts/github/pr-review-and-merge.ps1` applique ce gate automatiquement.
+
+**Ce guide s'exécute sur ai-01 (Opus-class)** — le tier-gate ne devrait jamais bloquer en temps normal. Si ce guide est invoqué accidentellement depuis une machine GLM-class, le script refusera le merge.
+
 ### Self-Authored PR Merge Protocol (workaround CODEOWNERS, vigilance OBLIGATOIRE)
 
 **CONTEXTE :** Le coordinateur schedulé tournant sous identité `myia-ai-01` crée régulièrement des PRs (bundles pointer-bumps, fixes auto-générés). CODEOWNERS = `* @jsboige @myia-ai-01` interdit l'auto-approval. Sans intervention, ces PRs restent bloquées indéfiniment.
