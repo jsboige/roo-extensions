@@ -1,6 +1,6 @@
 # ADR 013 — VibeSync Phase 2 Target Dispatch Architecture
 
-**Status:** Proposed (awaiting user/coordinator arbitrage)
+**Status:** Accepted — hybrid recommendation approved (user arbitrage 2026-06-11)
 **Date:** 2026-05-28
 **Author:** myia-po-2026 (claude-interactive, R7+ autonomous, ai-01 HS)
 **Related:** ADR 011 (Phase 1 MCP split), EPIC #2406 (VibeSync Phase 2), #2408, #2409, #2410, #2411
@@ -127,6 +127,21 @@ This narrows the cons of Option A to "metaphor-debt only" instead of "tangled im
 
 ---
 
+## Resolution 2026-06-11 (user arbitrage)
+
+The hybrid recommendation is **approved as-is**: Option B (dedicated tools `roosync_schtasks`, `roosync_services`, `roosync_secrets`) for #2408/#2409/#2410, Option A (extend `apply_profile`) for #2411.
+
+Open questions resolved:
+
+1. **Primary choice:** hybrid (above) — user GO 2026-06-11.
+2. **Naming prefix:** keep `roosync_*` provisionally; the three new tools land on the **`vibesync` MCP side** at split time (ADR 011 amendment 2026-06-11) and rebrand atomically in that single window.
+3. **SDK extraction timing:** moot in its original form — the trunk is an **npm workspaces package in the monorepo** (ADR 011 amendment), so shared helpers (ownership pre-flight, RollbackManager, dryRun) can be extracted incrementally without any registry dependency.
+4. **Tool budget:** cap relaxed by user 2026-06-11 (*"passer de 15 à 16 outils n'est pas du tout un pb pour moi si c'est justifié, on en avait plus de 50 quand on a entamé la réduction"*). Justified top-level tools count normally; no exemption category needed. This supersedes the "RSM stays 15 served tools" hard cap (2026-05-24) as a blocker for this ADR.
+
+`needs-approval` gating for `roosync_secrets` (#2410) stays at the tool level, per the Option B rationale.
+
+---
+
 ## Decision Log
 
 | Date | Decision | Author | Rationale |
@@ -134,7 +149,7 @@ This narrows the cons of Option A to "metaphor-debt only" instead of "tangled im
 | 2026-05-28T19:42Z | po-2026 identifies pattern break in `services:<name>` | myia-po-2026 (cycle 99) | Investigation of #2409 against existing ConfigSharingService |
 | 2026-05-28T19:46Z | po-2024 independently converges on same architectural concern | myia-po-2024 | Full ConfigSharingService read (1504 LOC) + 3 issues feasibility assessment |
 | 2026-05-28 | ADR 013 proposed (Option A + Option B + hybrid recommendation) | myia-po-2026 (R7+, ai-01 HS) | Capture convergence before scope drift, enable coordinator/user arbitrage |
-| TBD | Arbitrage on open questions 1-4 | user / coordinator | Awaiting |
+| 2026-06-11 | Hybrid approved (Option B for #2408/#2409/#2410, Option A for #2411); Q2-Q4 resolved (provisional `roosync_*` naming, workspace trunk, tool cap relaxed) | user (interactive ai-01) | See Resolution section above |
 
 ---
 
