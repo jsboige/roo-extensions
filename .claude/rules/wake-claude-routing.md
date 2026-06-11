@@ -23,12 +23,22 @@ de code, dans la section Intercom d'un dashboard `workspace-*.md`. Detection : `
 | `[WAKE-CLAUDE] myia-po-2023` | machine entiere (tous workspaces) |
 | `[WAKE-CLAUDE] myia-po-2023:IISManagement` | machine **+ workspace** precis (#2240) |
 | `[WAKE-CLAUDE] → myia-po-2026:Embeddings` | fleche optionnelle toleree |
+| `[WAKE-CLAUDE] myia-po-2023:IISManagement model=haiku` | **suffixe `model=X` optionnel** (#2561) — choix du modele de la session reveillee |
 | `[WAKE-HERMES]` | `myia-po-2026:hermes-agent` (#2244) |
 | `[WAKE-NANOCLAW]` | `myia-ai-01:nanoclaw` (#2244) |
 
 Routing : `Get-WakeTargetMachine` (L383), `Get-WakeTargetWorkspace` (L393), `Get-WakeBotTarget` (L402).
 Garde-fous : cooldown `Test-CooldownOk` (L444), sanity issues fermees `Test-ReferencedClosedIssues` (L414).
 **Toute modif de ces fonctions est hors-scope** : la cause des reveils manuels n'a jamais ete le routing.
+
+## Choix du modele de la session reveillee (#2561, mandate user 2026-06-11)
+
+**Defaut = capable** : `spawn-claude.ps1` defaulte a `sonnet` (Claude Sonnet sur machines Anthropic, **GLM sur machines routees z.ai** via l'alias du routeur). Le haiku-defaut #2172 etait trop faible pour les interventions infra (rebind cert, restart container).
+
+- **Override par-machine** : `$env:WAKE_DEFAULT_MODEL` (ex. un id GLM z.ai epingle) — utile si l'alias `sonnet` ne mappe pas proprement cote z.ai.
+- **Override par-WAKE** : suffixe `model=X` sur la ligne WAKE → `Get-WakeModelHint` (scope = ligne d'instruction WAKE uniquement) passe `-Model X` a spawn-claude. L'appelant downshift a `model=haiku` quand la tache est triviale.
+- **Precedence** : `model=X` (per-WAKE) > `$env:WAKE_DEFAULT_MODEL` (machine) > `sonnet`.
+- Les regexes `Get-WakeTarget*` arretent la capture workspace au premier espace → un suffixe ` model=X` ne corrompt jamais le routing.
 
 ## Architecture (chaine de spawn)
 
