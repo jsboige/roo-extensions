@@ -437,6 +437,21 @@ function Get-WakeInstructionLines($content) {
     return ($wakeLines -join "`n")
 }
 
+# #2431 follow-up (model selection, user mandate 2026-06-11): a WAKE line may carry an
+# optional `model=X` hint, e.g. `[WAKE-CLAUDE] myia-po-2023:IISManagement model=haiku`.
+# No hint → spawn-claude uses its own default (Sonnet/GLM, capable). The hint lets the
+# caller downshift to haiku when the task is trivial, or pin a heavier/explicit model.
+# Scoped to the WAKE-instruction line(s) only, so `model=` words elsewhere in the body
+# are ignored. The routing regexes (Get-WakeTarget*) stop the workspace capture at the
+# first space, so a trailing ` model=X` suffix never corrupts machine/workspace routing.
+function Get-WakeModelHint($content) {
+    $wakeLines = Get-WakeInstructionLines $content
+    if ($wakeLines -match '(?i)\bmodel\s*=\s*([A-Za-z0-9._-]+)') {
+        return $Matches[1]
+    }
+    return ""
+}
+
 function Test-ReferencedClosedIssues($content, $repo) {
     # R11 sanity check: extracts issue numbers (#NNN) from message content
     # and checks their state via gh CLI. Returns array of CLOSED issue strings.
@@ -640,6 +655,14 @@ function Invoke-ProcessWorkspace($ws) {
         "-WorkspacePath", $wsPath,
         "-MessagePayloadFile", $payloadFile
     )
+    # Per-WAKE model selection (user mandate 2026-06-11): a `model=X` hint on the WAKE line
+    # overrides spawn-claude's capable default (Sonnet/GLM) — e.g. `model=haiku` for trivial
+    # tasks. No hint → spawn-claude picks its own default.
+    $modelHint = Get-WakeModelHint $triggerMsg.content
+    if (-not [string]::IsNullOrEmpty($modelHint)) {
+        $spawnArgs += @("-Model", $modelHint)
+        Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
+    }
     try {
         & pwsh -File $SpawnScript @spawnArgs
         $exitCode = $LASTEXITCODE

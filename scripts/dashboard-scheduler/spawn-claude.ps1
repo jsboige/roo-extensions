@@ -8,9 +8,11 @@
     triggering message embedded in the prompt — no re-read of the dashboard
     required (#2004 Phase 2 push pattern, fixes #2004 token waste).
 
-    Uses Haiku by default (per #2172 credit optimization). The listener
-    is responsible for gating — this script assumes the spawn is already
-    approved (cooldown OK, workspace path resolved, [WAKE-CLAUDE] tag found).
+    Defaults to a CAPABLE model (Sonnet on Anthropic-routed machines, GLM on z.ai-routed
+    machines); the WAKE caller can downshift to haiku for trivial tasks via `model=haiku`
+    on the WAKE line (user mandate 2026-06-11, supersedes #2172 haiku-default — haiku was
+    too weak for infra interventions). The listener is responsible for gating — this script
+    assumes the spawn is already approved (cooldown OK, path resolved, [WAKE-CLAUDE] found).
 
     MCP availability: builds a merged config combining top-level mcpServers
     + projects[$WorkspacePath].mcpServers from $McpConfig, so the spawned
@@ -20,7 +22,8 @@
     Workspace key to act upon. Required.
 
 .PARAMETER Model
-    Claude model to use (default: haiku per #2172).
+    Claude model to use. Default: $env:WAKE_DEFAULT_MODEL if set, else "sonnet" (capable;
+    GLM on z.ai-routed machines). A per-WAKE `model=X` hint flows here from the listener.
 
 .PARAMETER TimeoutMinutes
     Hard kill timeout in minutes (default: 45).
@@ -60,7 +63,13 @@ param(
     [Parameter(Mandatory=$true)]
     [string]$Workspace,
 
-    [string]$Model = "haiku",
+    # Woken sessions default to a CAPABLE model: "sonnet" resolves to Claude Sonnet on
+    # Anthropic-routed machines and to GLM on z.ai-routed machines (the router maps the
+    # alias). Haiku proved too weak for infra interventions (cert rebind, container restart).
+    # Per-machine override: $env:WAKE_DEFAULT_MODEL (e.g. a pinned z.ai GLM id). Per-WAKE
+    # override: the listener passes -Model from a `model=X` hint on the WAKE line when the
+    # caller deems the task trivial (model=haiku). User mandate 2026-06-11, supersedes #2172.
+    [string]$Model = $(if ($env:WAKE_DEFAULT_MODEL) { $env:WAKE_DEFAULT_MODEL } else { "sonnet" }),
 
     [int]$TimeoutMinutes = 45,
 
