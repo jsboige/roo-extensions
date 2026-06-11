@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
- * sync-api-configs.js - Generate Roo Code providerProfiles import from model-configs.json
+ * sync-api-configs.js - Generate Roo/Zoo Code providerProfiles import from model-configs.json
  *
  * Reads:  roo-config/model-configs.json (apiConfigs section)
- * Writes: roo-config/generated/roo-api-configs.json (Roo Code import format)
+ *         .env (for {{SECRET:xxx}} placeholder resolution)
+ * Writes: roo-config/generated/provider-profiles-import.json
+ *         (Roo/Zoo Code import format — providerProfilesSchema)
  *
  * Usage:
- *   node roo-config/scripts/sync-api-configs.js
+ *   node roo-config/scripts/sync-api-configs.js [--resolve-secrets]
  *
- * Then in VS Code:
- *   Roo Code > Settings > Import > select roo-config/generated/roo-api-configs.json
+ *   --resolve-secrets  Resolve {{SECRET:xxx}} from .env (otherwise keep placeholders)
  *
- * Issue: #914 - Gap déploiement modes — ApiConfigs VS Code non synchronisées
+ * Then in VS Code (Roo or Zoo):
+ *   Settings > Import > select roo-config/generated/provider-profiles-import.json
+ *
+ * Issue: #914, #2543 Phase 2(d) — re-automate provider profiles import for Zoo Code
  */
 
 const fs = require('fs');
@@ -19,50 +23,99 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', '..');
 const MODEL_CONFIGS_PATH = path.join(ROOT, 'roo-config', 'model-configs.json');
-const OUTPUT_PATH = path.join(ROOT, 'roo-config', 'generated', 'roo-api-configs.json');
+const OUTPUT_PATH = path.join(ROOT, 'roo-config', 'generated', 'provider-profiles-import.json');
+const ENV_PATH = path.join(ROOT, '.env');
+
+const resolveSecrets = process.argv.includes('--resolve-secrets');
+
+// Load .env for secret resolution (simple key=value parser)
+function loadEnv() {
+  const env = {};
+  if (!fs.existsSync(ENV_PATH)) return env;
+  const content = fs.readFileSync(ENV_PATH, 'utf8');
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const value = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+    env[key] = value;
+  }
+  return env;
+}
+
+function resolveSecretPlaceholders(value, env) {
+  if (typeof value !== 'string') return value;
+  return value.replace(/\{\{SECRET:(\w+)\}\}/g, (match, envVar) => {
+    if (!resolveSecrets) {
+      console.warn(`  ⚠ Placeholder kept: {{SECRET:${envVar}}} (use --resolve-secrets to fill)`);
+      return match;
+    }
+    const resolved = env[envVar];
+    if (!resolved) {
+      console.error(`  ❌ Missing .env variable: ${envVar}`);
+      return match;
+    }
+    return resolved;
+  });
+}
 
 console.log('Reading model-configs.json...');
 const modelConfigs = JSON.parse(fs.readFileSync(MODEL_CONFIGS_PATH, 'utf8'));
 
 console.log('Extracting apiConfigs...');
 const apiConfigs = modelConfigs.apiConfigs || {};
+const modeApiConfigs = modelConfigs.modeApiConfigs || {};
+const env = loadEnv();
 
-// Convert to Roo Code providerProfiles format
-const providerProfiles = {};
+// Convert to providerProfilesSchema format
+// Schema: { currentApiConfigName, apiConfigs: { id: providerSettingsWithId }, modeApiConfigs }
+const importApiConfigs = {};
 
 for (const [id, config] of Object.entries(apiConfigs)) {
-  providerProfiles[id] = {
+  const entry = {
     id: id,
-    description: config.description || `API Config: ${id}`,
     apiProvider: config.apiProvider,
+    description: config.description || `API Config: ${id}`,
     diffEnabled: config.diffEnabled !== undefined ? config.diffEnabled : true,
     fuzzyMatchThreshold: config.fuzzyMatchThreshold || 1,
     modelTemperature: config.modelTemperature || 0.7
   };
 
-  // Add OpenAI-specific fields
+  // OpenAI-specific fields
   if (config.apiProvider === 'openai') {
-    providerProfiles[id].openAiBaseUrl = config.openAiBaseUrl;
-    providerProfiles[id].openAiModelId = config.openAiModelId;
-    // Note: API key is NOT exported - user must set it manually in Roo Code settings
-    providerProfiles[id].openAiApiKey = '{{YOUR_API_KEY_HERE}}';
+    entry.openAiBaseUrl = config.openAiBaseUrl || '';
+    entry.openAiModelId = config.openAiModelId || '';
+    entry.openAiLegacyFormat = config.openAiLegacyFormat !== undefined ? config.openAiLegacyFormat : true;
+    // Resolve API key placeholder
+    entry.openAiApiKey = resolveSecretPlaceholders(config.openAiApiKey || '', env);
   }
 
-  // Add any additional fields
+  // Include any additional fields not yet covered
   for (const [key, value] of Object.entries(config)) {
-    if (!providerProfiles[id][key] && key !== 'id' && key !== 'description') {
-      providerProfiles[id][key] = value;
+    if (!entry[key] && key !== 'id' && key !== 'description') {
+      entry[key] = key.includes('ApiKey') || key.includes('Secret') || key.includes('Token')
+        ? resolveSecretPlaceholders(value, env)
+        : value;
     }
   }
+
+  importApiConfigs[id] = entry;
 }
 
-// Create Roo Code import format
+// Build the providerProfilesSchema-compatible structure
 const importData = {
-  providerProfiles: providerProfiles,
+  providerProfiles: {
+    currentApiConfigName: 'default',
+    apiConfigs: importApiConfigs,
+    modeApiConfigs: modeApiConfigs
+  },
   _metadata: {
     generated: new Date().toISOString(),
     source: MODEL_CONFIGS_PATH,
-    note: 'Import this file via Roo Code Settings > Import'
+    secretsResolved: resolveSecrets,
+    note: 'Import this file via Roo/Zoo Code Settings > Import'
   }
 };
 
@@ -72,9 +125,14 @@ fs.writeFileSync(OUTPUT_PATH, JSON.stringify(importData, null, 2));
 
 console.log('\n✅ Done!');
 console.log(`\nGenerated: ${OUTPUT_PATH}`);
+console.log(`Format: providerProfilesSchema (compatible Roo + Zoo Code)`);
+console.log(`Profiles: ${Object.keys(importApiConfigs).length}`);
+console.log(`Secret resolution: ${resolveSecrets ? 'RESOLVED from .env' : 'PLACEHOLDERS KEPT (--resolve-secrets to fill)'}`);
 console.log('\nNext steps:');
-console.log('1. Open Roo Code settings in VS Code');
+console.log('1. Open Roo/Zoo Code settings in VS Code');
 console.log('2. Go to API Configs section');
 console.log('3. Click "Import" and select the generated file');
 console.log('4. Review and save the imported profiles');
-console.log('\n⚠️  Note: You will need to set your API keys manually after import.');
+if (!resolveSecrets) {
+  console.log('\n⚠️  API keys contain placeholders. Re-run with --resolve-secrets to embed real keys from .env');
+}

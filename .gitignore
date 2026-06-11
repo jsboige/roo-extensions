@@ -109,6 +109,9 @@ nul
 # Playwright MCP data (browser profile, should use temp dir)
 .playwright-mcp/
 
+# Generated import files (build artifacts)
+roo-config/generated/
+
 # Debug files
 debug_payload_dump.json
 debug_trace.txt
