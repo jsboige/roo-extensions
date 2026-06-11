@@ -411,6 +411,32 @@ function Get-WakeBotTarget($content) {
 
 # ========== CLOSED ISSUE CHECK (R11 sanity) ==========
 
+# #2431 follow-up: Extract ONLY the WAKE-instruction line(s) from a message.
+# R11 (closed-issue check) must scan these lines, not the whole body. Coordinator
+# dispatches cite merged PRs (e.g. "PRs #617-#621 merged") as accomplished context;
+# scanning the full body made R11 reject the entire WAKE because those #NNN are CLOSED,
+# advancing lastAck and dropping the spawn permanently (26 days of missed wakes — the
+# #2558 attempt used `^\[$tag\]` on whole content, which misses WAKE tags embedded in
+# multi-part dispatches). Reuses the same line/header anchoring as Test-ActionableContent,
+# so a genuine "[WAKE-CLAUDE] ... #2415" with a closed target #2415 is still caught (R11
+# intent preserved), but context references on other lines are ignored.
+function Get-WakeInstructionLines($content) {
+    $inCodeBlock = $false
+    $wakeLines = @()
+    foreach ($line in ($content -split "`n")) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^```') { $inCodeBlock = -not $inCodeBlock; continue }
+        if ($inCodeBlock) { continue }
+        foreach ($tag in $tagList) {
+            if ($line -match "^#{1,3}\s*\[$tag\]" -or $line -match "^\[$tag\]") {
+                $wakeLines += $line
+                break
+            }
+        }
+    }
+    return ($wakeLines -join "`n")
+}
+
 function Test-ReferencedClosedIssues($content, $repo) {
     # R11 sanity check: extracts issue numbers (#NNN) from message content
     # and checks their state via gh CLI. Returns array of CLOSED issue strings.
@@ -542,12 +568,14 @@ function Invoke-ProcessWorkspace($ws) {
 
     $latestTs = ($actionable | Sort-Object timestamp | Select-Object -Last 1).timestamp
 
-    # R11 sanity check: filter out messages referencing closed GitHub issues.
+    # R11 sanity check: filter out WAKEs whose TARGET is a closed GitHub issue.
     # Prevents waking agents for stale targets (incident: po-2023 woken 3x on #1496 CLOSED).
+    # #2431 fix: scope the check to the WAKE-instruction line(s) only (Get-WakeInstructionLines),
+    # NOT the whole body — context refs to merged PRs were rejecting every legitimate WAKE.
     if (-not [string]::IsNullOrEmpty($GitHubRepo)) {
         $filtered = @()
         foreach ($msg in $actionable) {
-            $closedRefs = Test-ReferencedClosedIssues $msg.content $GitHubRepo
+            $closedRefs = Test-ReferencedClosedIssues (Get-WakeInstructionLines $msg.content) $GitHubRepo
             if ($closedRefs.Count -gt 0) {
                 $preview = $msg.content.Substring(0, [Math]::Min(80, $msg.content.Length)).Replace("`n", " ")
                 Write-Log "WARN" "[$ws] Skipping message from $($msg.author.machineId): references CLOSED issue(s) $($closedRefs -join ', '). Preview: $preview..."
