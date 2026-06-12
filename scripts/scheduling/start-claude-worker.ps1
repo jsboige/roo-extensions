@@ -2800,19 +2800,25 @@ function Invoke-Claude {
     $env:MCP_TOOL_TIMEOUT = "900000"
 
     # Budget cap (#1980 — runaway-loop guard, NOT a dollar guard)
-    # Providers are on flat-rate subscriptions (z.ai GLM-5.1 forfait, Anthropic Max).
-    # The "$" reported by `claude -p` is a phantom price-table value, not real spend.
-    # The cap exists only to stop infinite-loop tasks; defaults must be high enough
-    # that legitimate context injection (~$0.47 for GLM-5.1 fleet config) does not
-    # exhaust budget at step 1. R61 bump (#486 evidence + R58 #2264 precedent).
-    # Defaults: haiku=$0.50, sonnet=$1.50, opus=$3.00.
+    # Providers are on flat-rate forfaits, NOT per-token billing : z.ai Max (forfait +
+    # cap 5h glissant), Anthropic Max (cap hebdomadaire), Haiku auto-hébergé. Aucun
+    # coût réel par token — le "$" reporté par `claude -p` est une valeur phantom de
+    # price-table, sans commune mesure avec le coût réel (forfait). The cap exists ONLY
+    # as a backstop against true infinite-loop runaways — pas pour plafonner le travail.
+    # BUMP 2026-06-12 (x10, mandate user jsboige) : les caps précédents ($0.50/$1.50/
+    # $3.00) coupaient du travail légitime. 26 sessions worker terminées en
+    # `error_max_budget_usd` en juin (100% GLM, coût phantom $0.44-$2.55), dont des
+    # tâches idle de 5 turns à $1.55 — la tarification phantom GLM (cache reads comptés)
+    # dépasse largement l'estimation initiale (~$0.47). Barre rehaussée pour laisser
+    # les workers longs aller jusqu'au bout ; garde-fou conservé pour emballement massif.
+    # Defaults: haiku=$5.00, sonnet=$15.00, opus=$30.00.
     $BudgetToUse = $MaxBudgetUsd
     if ($BudgetToUse -le 0) {
         $BudgetToUse = switch ($ModelToUse) {
-            "haiku"  { 0.50 }
-            "sonnet" { 1.50 }
-            "opus"   { 3.00 }
-            default  { 1.50 }
+            "haiku"  { 5.00 }
+            "sonnet" { 15.00 }
+            "opus"   { 30.00 }
+            default  { 15.00 }
         }
     }
     Write-Log "Budget max: `$$BudgetToUse (model: $ModelToUse)"
@@ -2869,6 +2875,7 @@ function Invoke-Claude {
                 $CurrentToolInput = ""
                 $ParseErrorCount = 0
                 $ReceivedResultEvent = $false
+                $ResultSubtype = $null  # terminal result subtype (success | error_max_budget_usd | error_during_execution | ...)
                 Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
@@ -2906,6 +2913,16 @@ function Invoke-Claude {
                         elseif ($evt.type -eq "result") {
                             $ReceivedResultEvent = $true
                             if ($evt.result) { $FinalResultText = $evt.result }
+                            # HONEST REPORTING 2026-06-12 (mandate user) : `claude -p` émet un event
+                            # `result` avec JSON valide MÊME quand la session a été coupée (budget
+                            # épuisé, erreur d'exécution). Le champ `subtype` distingue une complétion
+                            # réelle (subtype="success") d'une coupure (subtype="error_*"). Sans cette
+                            # détection, une session coupée en plein tool-call (output vide) passait
+                            # pour StreamValid → success → « ✅ SUCCÈS » trompeur. 26 cas en juin.
+                            if ($evt.subtype) { $ResultSubtype = [string]$evt.subtype }
+                            if ($ResultSubtype -and $ResultSubtype -ne "success") {
+                                Write-Log "Session coupée par le gateway — subtype: $ResultSubtype (cost: `$$($evt.total_cost_usd), turns: $($evt.num_turns))" "WARN"
+                            }
                             Write-Host "`n--- Fin session ($($evt.session_id)) ---" -ForegroundColor DarkGray
                         }
                         # Skip assistant/user/system messages (content already streamed via deltas)
@@ -3026,21 +3043,25 @@ function Invoke-Claude {
         # caused spurious haiku->sonnet escalations on successful maintenance runs (build+tests OK,
         # dashboard posted, yet ResultLen:0 flagged the stream invalid).
         #
-        # AUDIT-MONTH TRADE-OFF (po-2025 + po-2026 audit, 2026-05-26): Dropping the FinalResultText.Length
-        # check means a stream truncated-but-graceful (gateway emits `result` event with empty text but
-        # actual completion was cut) passes silently. The remaining ParseErrorCount<5 guard catches the
-        # majority of failure modes (network drops, gateway 5xx, JSON corruption all surface as parse
-        # errors). A future tool-only detector (count tool_use blocks ≥1 OR FinalResultText.Length>0)
-        # would tighten this further without re-introducing the spurious escalation. Deferred: low-rate
-        # silent-truncation has not been observed in worker trace data; revisit if frequency grows.
+        # HONEST REPORTING 2026-06-12 (closes the deferred item below) : `claude -p` émet un event
+        # `result` avec JSON valide même sur coupure gateway. Le champ `subtype` ("success" vs
+        # "error_max_budget_usd" / "error_during_execution") distingue complétion réelle et coupure.
+        # $ResultCutoff capture les coupures ; success=false + raison surfacee dans le rapport.
+        # 26 sessions `error_max_budget_usd` en juin (100% GLM) passaient avant pour « ✅ SUCCÈS »
+        # output vide — désormais détectées. Le cas résiduel (subtype="success" mais text vide par
+        # truncation gateway rare) reste non-détecté ; le guard ParseErrorCount<5 le couvre majoritairement.
+        $ResultCutoff = $ResultSubtype -and ($ResultSubtype -ne "success")
         $StreamValid = ($ParseErrorCount -lt 5) -and $ReceivedResultEvent
         if (-not $StreamValid) {
             Write-Log "Stream integrity FAILED — ParseErrors: $ParseErrorCount, ResultEvent: $ReceivedResultEvent, ResultLen: $($FinalResultText.Length)" "ERROR"
         }
+        if ($ResultCutoff) {
+            Write-Log "Result cutoff détecté — subtype: $ResultSubtype (la session a été coupée par le gateway, output probablement incomplet)" "ERROR"
+        }
 
         # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
-            success = $StreamValid -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
+            success = $StreamValid -and (-not $ResultCutoff) -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
             needsEscalation = $NeedsEscalation
             escalateToModel = $EscalateToModel
             waitState = $WaitStateData
@@ -3049,6 +3070,7 @@ function Invoke-Claude {
             iterations = $CurrentIteration
             streamValid = $StreamValid
             parseErrorCount = $ParseErrorCount
+            resultSubtype = $ResultSubtype
         }
     }
     catch {
@@ -3228,6 +3250,7 @@ function Report-Results {
 **Statut:** $(if ($Result.success) { "✅ SUCCÈS" } else { "❌ ÉCHEC" })
 **Itérations:** $($Result.iterations)
 $(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
+$(if ($Result.resultSubtype -and $Result.resultSubtype -ne "success") { "**Coupure gateway:** ❌ subtype=$($Result.resultSubtype) (session coupée, output probablement incomplet)" })
 $(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
 $(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
 $(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
