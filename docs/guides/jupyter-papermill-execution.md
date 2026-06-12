@@ -1,7 +1,7 @@
 # Exécution de Notebooks Jupyter via Papermill
 
-**Version** : 1.0.0
-**Date** : 2026-03-10
+**Version** : 1.1.0
+**Date** : 2026-06-12 (ajout `-Kernel` + skill `jupyter-exec`)
 **Issue** : #600 - [STUDY] Exécution Jupyter dans Claude Code - Options
 
 ---
@@ -60,7 +60,24 @@ python -m pip show papermill
 | `-Notebook` | String | **Oui** | Chemin vers le notebook `.ipynb` à exécuter |
 | `-Output` | String | Non | Chemin de sortie (défaut : `{input}-output.ipynb`) |
 | `-Parameters` | Hashtable | Non | Paramètres à injecter dans le notebook |
+| `-Kernel` | String | Non* | Nom du kernel à imposer (`-k`). *Obligatoire si le notebook n'embarque pas de metadata kernelspec (voir [Piège kernel](#-piège-kernel-no-kernel-name-found)) |
 | `-NoReport` | Switch | Non | Désactive la génération du rapport HTML |
+
+### 🔑 Piège kernel ("No kernel name found")
+
+Un notebook créé programmatiquement (`nbformat.v4.new_notebook()`) **n'embarque aucune metadata
+kernelspec**. Sans override, papermill échoue :
+
+```text
+ValueError: No kernel name found in notebook and no override provided.
+```
+
+**Remède** : passer `-Kernel <nom>`. Lister les kernels disponibles avec `jupyter kernelspec list`
+(défaut sûr pour du Python générique : `python3`).
+
+```powershell
+.\scripts\jupyter\run-notebook.ps1 -Notebook "generated.ipynb" -Kernel python3
+```
 
 ---
 
@@ -245,6 +262,8 @@ CellExecutionError: An error occurred while executing the cell
 ## 📚 Références
 
 - **Script** : `scripts/jupyter/run-notebook.ps1`
+- **Skill agent** : `.claude/skills/jupyter-exec/SKILL.md` — invocation auto par les agents Claude Code
+- **MCP interactif** : `mcps/internal/servers/jupyter-papermill-mcp-server/` (Option 1, kernels persistants)
 - **Papermill** : https://github.com/nteract/papermill
 - **nbconvert** : https://nbconvert.readthedocs.io/
 - **Issue** : #600 - [STUDY] Exécution Jupyter dans Claude Code

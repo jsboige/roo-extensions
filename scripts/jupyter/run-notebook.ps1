@@ -1,5 +1,5 @@
 # Script d'exécution de notebooks Jupyter via papermill
-# Usage: .\scripts\jupyter\run-notebook.ps1 [-Notebook] <path> [-Output] <path> [-Parameters] <hashtable>
+# Usage: .\scripts\jupyter\run-notebook.ps1 [-Notebook] <path> [-Output] <path> [-Parameters] <hashtable> [-Kernel <name>]
 
 param(
     [Parameter(Mandatory=$true)]
@@ -8,6 +8,13 @@ param(
     [string]$Output = "",
 
     [hashtable]$Parameters = @{},
+
+    # Nom du kernel Jupyter à imposer (ex: "python3"). Obligatoire si le notebook
+    # n'embarque pas de metadata kernelspec — cas fréquent des notebooks générés
+    # programmatiquement (nbformat.v4.new_notebook()), où papermill échoue sinon
+    # avec "No kernel name found in notebook and no override provided".
+    # Lister les kernels disponibles : jupyter kernelspec list
+    [string]$Kernel = "",
 
     [switch]$NoReport
 )
@@ -32,6 +39,12 @@ if (-not $papermillCheck) {
 
 # Construire les paramètres papermill
 $papermillArgs = @("-m", "papermill", $Notebook, $Output)
+
+# Override du kernel si fourni (-k) — évite l'échec sur notebooks sans kernelspec
+if (-not [string]::IsNullOrEmpty($Kernel)) {
+    $papermillArgs += "-k"
+    $papermillArgs += $Kernel
+}
 
 foreach ($key in $Parameters.Keys) {
     $value = $Parameters[$key]
