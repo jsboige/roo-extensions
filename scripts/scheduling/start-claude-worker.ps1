@@ -3095,7 +3095,14 @@ function Check-Escalation {
     }
 
     # Auto-escalate on failure: haiku -> sonnet (capped since #2211)
+    # BUDGET CUTOFF GUARD (#2572): error_max_budget_usd means the session hit its
+    # spending cap — escalating just re-hits the same cap at a higher tier. Skip.
+    # error_during_execution (genuine technical failure) still escalates normally.
     if (-not $Result.success) {
+        if ($Result.resultSubtype -eq "error_max_budget_usd") {
+            Write-Log "Budget cutoff (error_max_budget_usd) — skip escalation (same cap would hit again at higher tier)" "WARN"
+            return $null
+        }
         $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
         if ($NextModel) {
             Write-Log "Echec detecte, escalade modele: $CurrentModel -> $NextModel" "WARN"
