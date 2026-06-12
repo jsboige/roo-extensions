@@ -49,4 +49,4 @@
 
 ---
 
-**Grille marqueurs detaillee, test bash, audit /coordinate, historique :** [`docs/harness/reference/issue-closure-detailed.md`](docs/harness/reference/issue-closure-detailed.md)
+**Grille marqueurs detaillee, test bash, audit /coordinate, historique :** [`docs/harness/reference/issue-closure-detailed.md`](../../docs/harness/reference/issue-closure-detailed.md)

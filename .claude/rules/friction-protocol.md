@@ -25,4 +25,4 @@ Alternative : RooSync `to: "all"` ou GitHub issue `[FRICTION] Description`.
 
 ---
 
-**Quand signaler, traitement detaille :** [`docs/harness/reference/friction-protocol-detailed.md`](docs/harness/reference/friction-protocol-detailed.md)
+**Quand signaler, traitement detaille :** [`docs/harness/reference/friction-protocol-detailed.md`](../../docs/harness/reference/friction-protocol-detailed.md)

@@ -54,4 +54,4 @@ L'action `condense` a ete **retiree du schema** — elle n'est plus disponible. 
 
 ---
 
-**Mentions v3, crossPost, worktrees auto-detection :** [`docs/harness/reference/intercom-v3-mentions.md`](docs/harness/reference/intercom-v3-mentions.md)
+**Mentions v3, crossPost, worktrees auto-detection :** [`docs/harness/reference/intercom-v3-mentions.md`](../../docs/harness/reference/intercom-v3-mentions.md)

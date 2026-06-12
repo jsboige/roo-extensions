@@ -38,6 +38,6 @@
 
 ---
 
-**Garde-fous harness (worker scripts, spawn/poll, sanctions) :** [`docs/harness/reference/agent-claim-discipline-detailed.md`](docs/harness/reference/agent-claim-discipline-detailed.md)
+**Garde-fous harness (worker scripts, spawn/poll, sanctions) :** [`docs/harness/reference/agent-claim-discipline-detailed.md`](../../docs/harness/reference/agent-claim-discipline-detailed.md)
 
 **Principe condense** : *"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse."*
