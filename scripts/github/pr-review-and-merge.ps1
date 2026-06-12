@@ -81,7 +81,7 @@ function Test-IsTrivialPR {
                     return $false
                 }
             } else {
-                if ($path -eq $protected -or (Split-Path $path -Leaf) -eq $protected) {
+                if ($path -like $protected -or (Split-Path $path -Leaf) -like $protected) {
                     Write-Host "  [TIER-GATE] Non-trivial: touches protected file $path" -ForegroundColor DarkGray
                     return $false
                 }
