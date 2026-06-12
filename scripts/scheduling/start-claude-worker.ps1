@@ -3096,9 +3096,21 @@ function Check-Escalation {
 
     # Auto-escalate on failure: haiku -> sonnet (capped since #2211)
     if (-not $Result.success) {
+        # #2572: A budget cutoff (error_max_budget_usd) is not a technical failure —
+        # the gateway stopped the session mid-run because the spend cap was hit.
+        # Escalating to a higher model re-hits the SAME (higher) cap or, at the top
+        # of the chain, has nowhere to go — producing phantom escalations with no
+        # value added. Short-circuit escalation for budget exhaustion only.
+        # error_during_execution (real technical failure) and unlabeled failures
+        # keep the normal escalation path, preserving the honest-reporting fix from
+        # #2571 and the Cycle 42 anti-escalation guard (subtype:"success" + empty).
+        if ($Result.resultSubtype -eq "error_max_budget_usd") {
+            Write-Log "Budget cutoff (subtype: $($Result.resultSubtype)) — skip escalation (same budget cap would hit again)" "WARN"
+            return $null
+        }
         $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
         if ($NextModel) {
-            Write-Log "Echec detecte, escalade modele: $CurrentModel -> $NextModel" "WARN"
+            Write-Log "Echec detecte (subtype: $($Result.resultSubtype)), escalade modele: $CurrentModel -> $NextModel" "WARN"
             return $NextModel
         }
         Write-Log "Echec detecte mais deja au modele max ($CurrentModel)" "WARN"
