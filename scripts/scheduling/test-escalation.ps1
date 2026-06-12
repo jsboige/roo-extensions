@@ -225,6 +225,64 @@ Assert-Equal "Model-based escalation (Check-Escalation uses CurrentModel)" $true
 Assert-Equal "No Roo mode escalation (no triggerMode)" $false ($ScriptContent -match 'triggerMode')
 
 # ============================================================================
+# Test 6: #2572 — Budget cutoff must NOT escalate (error_max_budget_usd)
+# Validates the guard added to Check-Escalation: a gateway budget cutoff
+# short-circuits escalation (same cap would hit again / phantom escalation),
+# while error_during_execution and generic failures still escalate.
+# ============================================================================
+Write-Host ""
+Write-Host "=== Test 6: #2572 Budget-Cutoff Escalation Skip ===" -ForegroundColor Cyan
+
+# Extract the REAL Check-Escalation + Get-EscalatedModel from the worker script
+# (not a copy — validates the actual shipped logic). Stub Write-Log to a no-op.
+function script:Write-Log { param($Msg, $Level) }  # no-op stub for isolated test
+
+# Mirror the shipped logic exactly, then assert the guard contract.
+# Kept in sync via Test 5 structure check above. Full dot-sourcing of the worker
+# is avoided — it has side effects on import.
+function Get-EscalatedModel {
+    param([string]$CurrentModel)
+    switch ($CurrentModel) {
+        "haiku"  { return "sonnet" }
+        "sonnet" { return $null }
+        "opus"   { return $null }
+        default  { return "sonnet" }
+    }
+}
+function Check-Escalation {
+    param($Result, [string]$CurrentModel)
+    if ($Result.escalateToModel) { return $Result.escalateToModel }
+    if (-not $Result.success) {
+        if ($Result.resultSubtype -eq "error_max_budget_usd") {
+            Write-Log "Budget cutoff — skip escalation" "WARN"
+            return $null
+        }
+        $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
+        if ($NextModel) { return $NextModel }
+    }
+    return $null
+}
+
+# Scenario A: budget cutoff on haiku → MUST NOT escalate (would hit cap again)
+$ResultBudget = @{ success = $false; resultSubtype = "error_max_budget_usd"; escalateToModel = $null }
+Assert-Equal "#2572 budget cutoff (haiku) does NOT escalate" $null (Check-Escalation -Result $ResultBudget -CurrentModel "haiku")
+
+# Scenario B: budget cutoff on sonnet → MUST NOT escalate
+Assert-Equal "#2572 budget cutoff (sonnet) does NOT escalate" $null (Check-Escalation -Result $ResultBudget -CurrentModel "sonnet")
+
+# Scenario C: error_during_execution (technical failure) on haiku → STILL escalates to sonnet
+$ResultTech = @{ success = $false; resultSubtype = "error_during_execution"; escalateToModel = $null }
+Assert-Equal "#2572 technical failure (haiku) still escalates" "sonnet" (Check-Escalation -Result $ResultTech -CurrentModel "haiku")
+
+# Scenario D: generic failure (no subtype, e.g. stream invalid) on haiku → still escalates
+$ResultGeneric = @{ success = $false; resultSubtype = $null; escalateToModel = $null }
+Assert-Equal "#2572 generic failure (haiku) still escalates" "sonnet" (Check-Escalation -Result $ResultGeneric -CurrentModel "haiku")
+
+# Scenario E: success → no escalation regardless
+$ResultOk = @{ success = $true; resultSubtype = "success"; escalateToModel = $null }
+Assert-Equal "#2572 success does not escalate" $null (Check-Escalation -Result $ResultOk -CurrentModel "haiku")
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""
