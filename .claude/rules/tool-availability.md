@@ -55,4 +55,4 @@ Declencher si : MCP critique absent, "tool not found", outil count diverge, MCP 
 
 ---
 
-**Config win-cli canonique, config sk-agent, validation auto, procedure detaillee :** [`docs/harness/reference/tool-availability-detailed.md`](docs/harness/reference/tool-availability-detailed.md)
+**Config win-cli canonique, config sk-agent, validation auto, procedure detaillee :** [`docs/harness/reference/tool-availability-detailed.md`](../../docs/harness/reference/tool-availability-detailed.md)
