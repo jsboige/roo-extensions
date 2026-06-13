@@ -37,9 +37,9 @@ TypeScript monorepo coding-agent toolkit. Key packages:
 
 ### 2.2 pi-subagents (`nicobailon/pi-subagents`)
 
-Async subagent delegation extension for Pi. **Strongest parallel to our architecture:**
+Async subagent delegation extension for Pi. **Note:** this is a third-party extension by the same author — Pi core ships *without* sub-agents (per pi.dev), so everything below is extension-provided, not built-in. **Strongest parallel to our architecture:**
 
-- 8 built-in agents: scout, researcher, planner, worker, reviewer, oracle, delegate, custom
+- 7 built-in agents: scout, researcher, planner, worker, reviewer, context-builder, oracle, delegate (plus a user-defined `custom` mode)
 - Execution modes: **parallel, chain, background** — direct analog of our executor/meta patterns
 - **Worktree isolation** per subagent (we do this via `.claude/worktrees/`)
 - **Intercom bridge** for cross-agent communication (analog of our dashboard workspace)
@@ -142,9 +142,11 @@ Ranked by impact/effort ratio:
 
 | Decision | Count | Items |
 |----------|-------|-------|
-| **Adapt** (prototype in our stack) | 4 | #2, #3 (bundle), #6, #7, #9 |
+| **Adapt** (prototype in our stack) | 4 † | #2, #3 (bundle), #6, #7, #9 |
 | **Defer** (revisit if Pi adopted / backlog) | 4 | #1, #4, #5 |
 | **Already have / approximate** | 2 | #8, #10 |
+
+† Count is post-bundle: #2 and #3 are tracked as a single follow-up (deterministic + recoverable compaction), so 5 line-items collapse to 4 distinct adaptations.
 
 **Net recommendation:** Do **not** migrate to Pi as a runtime (our fleet-coordination value is orthogonal and stronger at our scale). **Do** adapt the three compaction/manifest/continue patterns — they are harness-agnostic and improve our existing stack without a migration bet.
 
