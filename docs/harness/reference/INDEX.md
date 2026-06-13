@@ -13,6 +13,7 @@
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |
 | **Harness Reduction** | Plan de reduction du harnais (audit tokens, strategie) | `harness-reduction-plan.md` |
+| **Pi Agent Comparative Study** | Pi / pi-subagents / devstack vs RooSync — adaptation opportunities (#2416) | `pi-agent-comparative-study.md` |
 | **SDDD Grounding (detailed)** | Multi-pass protocol, filtres roosync_search, workflow complet | `sddd-grounding-detailed.md` |
 | **conversation_browser (detailed)** | detailLevel complet, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
 | **Friction Protocol (detailed)** | Quand/comment signaler, traitement, criteres approbation | `friction-protocol-detailed.md` |
