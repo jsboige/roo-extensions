@@ -171,4 +171,4 @@ Ranked by impact/effort ratio:
 **References:**
 - [Pi Agent](https://github.com/earendil-works/pi) · [pi-subagents](https://github.com/nicobailon/pi-subagents) · [devstack](https://github.com/lhl/devstack)
 - Issue [#2416](https://github.com/jsboige/roo-extensions/issues/2416)
-- Internal: [`context-window.md`](context-window-thresholds.md), [`pr-mandatory.md`](../../../.claude/rules/pr-mandatory.md), [`tool-availability.md`](../../../.claude/rules/tool-availability.md)
+- Internal: [`condensation-thresholds.md`](condensation-thresholds.md), [`pr-mandatory.md`](../../../.claude/rules/pr-mandatory.md), [`tool-availability.md`](../../../.claude/rules/tool-availability.md)
