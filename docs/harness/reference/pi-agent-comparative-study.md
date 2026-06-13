@@ -39,7 +39,7 @@ TypeScript monorepo coding-agent toolkit. Key packages:
 
 Async subagent delegation extension for Pi. **Note:** this is a third-party extension by the same author — Pi core ships *without* sub-agents (per pi.dev), so everything below is extension-provided, not built-in. **Strongest parallel to our architecture:**
 
-- 7 built-in agents: scout, researcher, planner, worker, reviewer, context-builder, oracle, delegate (plus a user-defined `custom` mode)
+- 8 built-in agents: scout, researcher, planner, worker, reviewer, context-builder, oracle, delegate (plus a user-defined `custom` mode)
 - Execution modes: **parallel, chain, background** — direct analog of our executor/meta patterns
 - **Worktree isolation** per subagent (we do this via `.claude/worktrees/`)
 - **Intercom bridge** for cross-agent communication (analog of our dashboard workspace)
