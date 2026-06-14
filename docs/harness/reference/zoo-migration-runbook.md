@@ -95,11 +95,16 @@ node roo-config\scripts\sync-api-configs.js --resolve-secrets
 # → écrit roo-config\generated\provider-profiles-import.json
 
 # 2. Configurer le setting Zoo (settings.json user) pour pointer vers ce fichier
-#    Toutes les machines de la flotte ont le repo à D:\Dev\roo-extensions
+#    IMPORTANT : ajustez $repoRoot selon VOTRE checkout local — le repo n'est PAS au
+#    même endroit sur toutes les machines (D:\Dev\roo-extensions sur ai-01/po-*,
+#    C:\Dev\roo-extensions sur web1). Le générateur (sync-api-configs.js) écrit sous
+#    `path.join(ROOT, 'roo-config/generated/...')`, donc relatif à la racine du repo.
+$repoRoot = "D:\Dev\roo-extensions"  # ← modifier si votre checkout est ailleurs (ex: C:\ sur web1)
+$providerProfilesPath = Join-Path $repoRoot "roo-config\generated\provider-profiles-import.json"
 $settings = "$env:APPDATA\Code\User\settings.json"
 $cfg = Get-Content $settings -Raw | ConvertFrom-Json
-if (-not $cfg.PSObject.Properties.Name -contains 'zoo-code.autoImportSettingsPath') {
-    $cfg | Add-Member -NotePropertyName 'zoo-code.autoImportSettingsPath' -NotePropertyValue 'D:\Dev\roo-extensions\roo-config\generated\provider-profiles-import.json'
+if ('zoo-code.autoImportSettingsPath' -notin $cfg.PSObject.Properties.Name) {
+    $cfg | Add-Member -NotePropertyName 'zoo-code.autoImportSettingsPath' -NotePropertyValue $providerProfilesPath
 }
 [System.IO.File]::WriteAllText($settings, ($cfg | ConvertTo-Json -Depth 50), [System.Text.UTF8Encoding]::new($false))
 
