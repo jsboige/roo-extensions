@@ -191,7 +191,33 @@ else {
 # Générer ou reporter statut
 if ($needsGeneration) {
     Write-Host "  Raison: $reason" -ForegroundColor Yellow
-    $success = Invoke-InventoryGeneration -MachineId $MachineId
+
+    # ========================================
+    # LOCKFILE GUARD — double-fire protection
+    # ========================================
+    # Two concurrent Bootstrap runs would both write inventories/{machineId}.json
+    # during the ~32s collection, risking a partial-write corruption (a manual run
+    # colliding with the daily scheduled task during debugging). The PID lockfile
+    # serializes generation. Stale locks (holder process no longer alive, e.g. after
+    # a crash or kill) are reclaimed automatically.
+    $lockFile = Join-Path $env:TEMP "roosync-inventory-bootstrap.lock"
+    if (Test-Path $lockFile) {
+        $lockPid = 0
+        try { $lockPid = [int]((Get-Content $lockFile -Raw).Trim()) } catch {}
+        $holderAlive = ($lockPid -gt 0) -and ($null -ne (Get-Process -Id $lockPid -ErrorAction SilentlyContinue))
+        if ($holderAlive) {
+            Write-Host "  Another Bootstrap run in progress (PID $lockPid). Skipping to avoid concurrent write." -ForegroundColor Yellow
+            exit 0
+        }
+        Write-Host "  Stale lockfile (PID $lockPid not alive). Reclaiming." -ForegroundColor Gray
+    }
+    [System.IO.File]::WriteAllText($lockFile, "$PID", [System.Text.UTF8Encoding]::new($false))
+
+    try {
+        $success = Invoke-InventoryGeneration -MachineId $MachineId
+    } finally {
+        Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+    }
 
     if ($success) {
         Write-Host "`n✅ Bootstrap complété avec succès" -ForegroundColor Green
