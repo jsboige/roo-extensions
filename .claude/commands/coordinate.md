@@ -365,9 +365,9 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 ### Qdrant
 
-- **Endpoint :** `http://localhost:6333` (local sur myia-ai-01)
-- **Collections :** 20 `ws-*` collections peuplees (1-580K vecteurs, 2560 dims)
-- **roo-extensions :** `ws-3091d0dd` = 212,521 vecteurs
+- **Endpoint :** `http://192.168.0.47:6333` (LAN shared)
+- **⚠️ Index code SDDD BROKEN (Epic #2554):** les ~74 collections `ws-*` (index CODE) sont **TOUTES VIDES (0 pts)** — pas seulement `ws-3091d0dd`/`ws-cced6a03` (roo-extensions). Root cause (2026-06-14, code-grounded) : l'indexer Zoo Code existe (fork Roo, `src/services/code-index/`) mais lit sa config depuis `process.env` (`QDRANT_URL`/`QDRANT_API_KEY`/`EMBEDDING_*`) — or le process VS Code host les a **UNSET** (RSM `.env` ne nourrit que le process MCP). → indexer ne peut écrire → `ws-*` vides. Fix opérationnel [INTERACTIVE-ONLY] : set User env vars + restart VS Code + trigger Codebase Indexing. **Ne pas re-dériver le diagnostic** — voir dashboard/Epic #2554.
+- **Collections TÂCHES (`roo_tasks_semantic_index`) = SAINES** (~793k pts). Conversations OK (~258k). Seul l'index CODE est vide.
 
 ## Références Rapides
 
