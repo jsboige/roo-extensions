@@ -1,5 +1,8 @@
 # codebase_search Patterns - Guide Pratique
 
+> **⚠️ STALE (2026-02-26 snapshot) — counts ci-dessous ne sont PLUS current.**
+> Les collections `ws-*` sont **TOUTES VIDES (0 pts)** depuis la migration Qdrant + le root cause SDDD (indexer Zoo Code non-fonctionnel : process VS Code host sans creds `QDRANT_*`/`EMBEDDING_*` en env, Epic #2554, 2026-06-14). Les patterns d'audit (test pollution, i18n, directory_prefix) restent valides ; les **vector counts sont obsolètes**. Pour l'état current → dashboard workspace / Epic #2554.
+
 **Version:** 1.0.0
 **Date:** 2026-02-25
 **Issue:** #530
