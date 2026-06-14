@@ -85,6 +85,38 @@ pwsh -ExecutionPolicy Bypass -File scripts\zoo-scheduler\migrate-globalstorage.p
 - `[OK]` pour `mcp_settings.json` et `custom_modes.yaml`
 - Nombre de tasks migrés > 0
 
+### Étape 2b : Configurer les provider profiles (#2543 Phase 2)
+
+> **Gap comblé :** `migrate-globalstorage.ps1` copie `mcp_settings.json` + `custom_modes.yaml` + `tasks/`, mais **PAS les provider profiles** (ils vivent en SecretStorage DPAPI, pas en globalStorage). Sans cette étape, Zoo démarre sans provider configuré → pas d'auth LLM. Zoo conserve le mécanisme `autoImportSettings` de Roo (setting `zoo-code.autoImportSettingsPath`, default `""`) : il lit un fichier `providerProfiles` à `activate()` et le `store()` en SecretStorage. C'est la voie native, sans build VSIX ni micro-extension.
+
+```powershell
+# 1. Générer le fichier providerProfiles (clés résolues depuis .env)
+node roo-config\scripts\sync-api-configs.js --resolve-secrets
+# → écrit roo-config\generated\provider-profiles-import.json
+
+# 2. Configurer le setting Zoo (settings.json user) pour pointer vers ce fichier
+#    IMPORTANT : ajustez $repoRoot selon VOTRE checkout local — le repo n'est PAS au
+#    même endroit sur toutes les machines (D:\Dev\roo-extensions sur ai-01/po-*,
+#    C:\Dev\roo-extensions sur web1). Le générateur (sync-api-configs.js) écrit sous
+#    `path.join(ROOT, 'roo-config/generated/...')`, donc relatif à la racine du repo.
+$repoRoot = "D:\Dev\roo-extensions"  # ← modifier si votre checkout est ailleurs (ex: C:\ sur web1)
+$providerProfilesPath = Join-Path $repoRoot "roo-config\generated\provider-profiles-import.json"
+$settings = "$env:APPDATA\Code\User\settings.json"
+$cfg = Get-Content $settings -Raw | ConvertFrom-Json
+if ('zoo-code.autoImportSettingsPath' -notin $cfg.PSObject.Properties.Name) {
+    $cfg | Add-Member -NotePropertyName 'zoo-code.autoImportSettingsPath' -NotePropertyValue $providerProfilesPath
+}
+[System.IO.File]::WriteAllText($settings, ($cfg | ConvertTo-Json -Depth 50), [System.Text.UTF8Encoding]::new($false))
+
+# 3. Le restart VS Code (Étape 5 limitation #5) déclenche l'auto-import :
+#    activate() → lit le setting → resolvePath → fileExists → importSettings → SecretStorage
+```
+
+**Vérifier post-restart :** Zoo UI > API Configs affiche les profils importés (default + glm + etc.) avec les clés peuplées.
+
+> **Format du fichier** (sortie de `sync-api-configs.js`, vérifié = schema exact de l'import Zoo) :
+> `{ "providerProfiles": { "currentApiConfigName": "default", "apiConfigs": {...}, "modeApiConfigs": {...} }, "_metadata": {...} }`
+
 ### Étape 3 : Vérification post-migration
 
 ```powershell
@@ -164,6 +196,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 3. **`custom_modes.yaml` mode groups** — Les groupes (`command`, `terminal`) ne sont pas natifs (#1482). Les modes générés utilisent `read,edit,browser,mcp`.
 4. **`alwaysAllow` invalidation** — Un changement de schema Roo peut invalider les alwaysAllow (#473). Vérifier après migration.
 5. **VS Code restart requis** — Zoo Code ne relit pas les configs à chaud. Fermer et rouvrir VS Code après migration.
+6. **Provider profiles = Étape 2b séparée** (#2543) — `migrate-globalstorage.ps1` ne couvre PAS les providers (SecretStorage ≠ globalStorage). L'auto-import `zoo-code.autoImportSettingsPath` ne tourne **qu'au restart** (pas de watch) : toute mise à jour de `model-configs.json` → `sync-api-configs.js --resolve-secrets` + restart VS Code pour re-import.
 
 ---
 
@@ -178,6 +211,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 | Zoo Scheduler installé | ⬜ | `jsboige.zoo-scheduler` |
 | migrate-globalstorage.ps1 dry-run | ⬜ | 0 erreur |
 | Migration effectuée | ⬜ | mcp_settings + custom_modes + tasks |
+| Provider profiles configurés (Étape 2b) | ⬜ | `sync-api-configs.js --resolve-secrets` + setting `autoImportSettingsPath` + profils visibles post-restart (#2543) |
 | mcp_settings.json valide | ⬜ | `ConvertFrom-Json` OK |
 | custom_modes.yaml présent | ⬜ | > 1000 chars |
 | MCP roo-state-manager (15 outils) | ⬜ | Dashboard + CB + search |
