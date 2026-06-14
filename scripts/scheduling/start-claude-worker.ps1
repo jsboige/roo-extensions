@@ -1606,6 +1606,86 @@ function Find-ExistingWorktree {
     return $null
 }
 
+# ============================================================================
+# Sync-McpSubmoduleBuild — deploy-lag mitigation (#2591 follow-up, 2026-06-14)
+# ============================================================================
+# Root cause (po-2025 forensic): submodule MCP fixes (#630 roster-validation,
+# #631 test-isolation, #628 tool-name norm...) are MERGED in source but stay
+# dead-code until `mcps/internal/.../build/` is regenerated. The host MCP
+# process (long-lived, cwd set in ~/.claude.json) serves the OLD build until a
+# manual rebuild + VS Code restart. Observed: 18/38 inbox files post-merge were
+# orphan mention-notifications (~3/h bleed) because every running MCP was pre-fix.
+#
+# This guard runs on the MAIN working tree (not the per-task worktree — the host
+# MCP reads $RepoRoot/mcps/internal, never the worktree copy). After `git fetch
+# origin main` refreshes the parent pointer, if the submodule HEAD diverges from
+# the recorded pointer, we `git submodule update` + `npm run build` so the host
+# MCP serves the current source at its next restart.
+#
+# Idempotent: when the pointer is unchanged (no new bump), NO rebuild runs.
+# Best-effort: a build failure is logged WARN, never aborts the worker — the
+# task can still proceed on the existing (possibly stale) build.
+# Non-blocking for the restart itself: VS Code reload stays [INTERACTIVE-ONLY]
+# (we cannot restart the host MCP process from inside a worker).
+function Sync-McpSubmoduleBuild {
+    param([string]$Path = $RepoRoot)
+
+    $SubmodulePath = Join-Path $Path "mcps\internal"
+    $McpServerPath = Join-Path $SubmodulePath "servers\roo-state-manager"
+    if (-not (Test-Path $McpServerPath)) { return }
+
+    try {
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Recorded pointer in the parent tree (what the parent expects)
+        $RecordedPointer = (git -C $Path ls-tree HEAD mcps/internal 2>$null)
+        if ($LASTEXITCODE -ne 0 -or -not $RecordedPointer) {
+            $ErrorActionPreference = $prevPref
+            return
+        }
+        # ls-tree output: "<mode> commit <sha>\t<path>" — extract the sha (field 3)
+        $RecordedSha = ($RecordedPointer -split '\s+')[2]
+
+        # Current submodule HEAD in the working tree
+        $CurrentHead = (git -C $SubmodulePath rev-parse HEAD 2>$null)
+        $ErrorActionPreference = $prevPref
+
+        if (-not $RecordedSha -or -not $CurrentHead) { return }
+        if ($RecordedSha -eq $CurrentHead) {
+            # Pointer unchanged since last sync — build already current. Skip.
+            return
+        }
+
+        Write-Log "Submodule pointer changed ($($CurrentHead.Substring(0,8)) -> $($RecordedSha.Substring(0,8))). Updating + rebuilding host MCP build (deploy-lag mitigation)." "INFO"
+
+        # Align the main-tree submodule to the recorded pointer
+        $prevPref2 = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        git -C $Path submodule update --init mcps/internal 2>&1 | Out-Null
+        $ErrorActionPreference = $prevPref2
+
+        # Rebuild so the host MCP serves the current source at next restart
+        $prevPref3 = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        Push-Location $McpServerPath
+        try {
+            $buildOutput = & npm run build 2>&1
+            $buildExit = $LASTEXITCODE
+            if ($buildExit -eq 0) {
+                Write-Log "Host MCP build regenerated (deploy-lag mitigation). Restart VS Code to activate the new build." "INFO"
+            } else {
+                Write-Log "Host MCP rebuild FAILED (exit $buildExit) — worker proceeds on existing build. Output: $($buildOutput | Select-Object -Last 5 | Out-String)" "WARN"
+            }
+        } finally {
+            Pop-Location
+            $ErrorActionPreference = $prevPref3
+        }
+    } catch {
+        Write-Log "Sync-McpSubmoduleBuild error (non-fatal): $_" "WARN"
+    }
+}
+
 function Create-Worktree {
     param([string]$TaskId, $Task)
 
@@ -1687,6 +1767,12 @@ function Create-Worktree {
         $ErrorActionPreference = "Continue"
 
         git -C $RepoRoot fetch origin main --quiet 2>&1 | Out-Null
+
+        # Deploy-lag mitigation (#2591 follow-up): if the fetched parent tree
+        # moved the mcps/internal pointer, align + rebuild the MAIN-tree submodule
+        # so the host MCP serves the current source at its next restart. Idempotent
+        # (no-op when the pointer is unchanged) and best-effort (never aborts).
+        Sync-McpSubmoduleBuild -Path $RepoRoot
 
         # Créer worktree with new branch from current HEAD
         $wtOutput = git -C $RepoRoot worktree add $WorktreePath -b $BranchName 2>&1

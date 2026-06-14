@@ -47,6 +47,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 1. MCP roo-state-manager disponible (15 outils) → Si absent, STOP & REPAIR
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
+   - **Deploy-lag nudge (#2591 follow-up)** : si le dernier commit merged sur main est un `chore(submod): bump roo-state-manager` ET qu'il touche `src/**/*.ts` (vérifier `git log --name-only -1`), le fix est merged en source mais **PAS live** jusqu'à rebuild+restart MCP host. Poster `[INFO] restart VS Code requis pour activer le fix submod #NNN` sur le dashboard (1 append, fusionnable avec le [DONE] du cycle). Le pre-flight worker (`start-claude-worker.ps1` `Sync-McpSubmoduleBuild`) rebuild déjà automatiquement le main-tree `build/` ; le nudge documente le restart `[INTERACTIVE-ONLY]` restant.
 4. **Win-cli timeout guard** (anti-régression #2333) :
    - `pwsh.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
