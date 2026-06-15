@@ -188,7 +188,7 @@ Requires validation before production use.
 
 **1. Outils jamais appelés (>14 jours)**
 
-Croiser les 34 outils déclarés dans `ListTools` avec les traces récentes :
+Croiser les 15 outils déclarés dans `ListTools` avec les traces récentes :
 
 ```
 roosync_search(
@@ -233,7 +233,7 @@ Vérifier :
 
 | Métrique | Valeur | Tendance |
 |----------|--------|----------|
-| Outils actifs (14j) | X/34 | ↑↓→ |
+| Outils actifs (14j) | X/15 | ↑↓→ |
 | Bugs outils ouverts >14j | Y | |
 | Workarounds non fixés | Z | |
 | Secrets exposés | 0/N | |

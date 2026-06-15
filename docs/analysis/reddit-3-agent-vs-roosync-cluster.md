@@ -37,7 +37,7 @@ This analysis compares a production-proven 3-agent Claude Code architecture (Red
 | Dimension | Reddit 3-Agent | RooSync Cluster |
 |-----------|---------------|-----------------|
 | **Scale** | 3 agents, 1 machine | 6 machines, 12+ agents (Roo + Claude) |
-| **Coordination** | File-based (docs/ repo) | MCP-based (roo-state-manager, 34 tools) |
+| **Coordination** | File-based (docs/ repo) | MCP-based (roo-state-manager, 15 tools) |
 | **State** | Shared git repo | GDrive shared state + RAM cache + Qdrant |
 | **Messaging** | `messages/` text files | RooSync send/read + dashboard workspace |
 | **Pipeline** | Sequential (Frontend → Backend) | Parallel executors + coordinator |

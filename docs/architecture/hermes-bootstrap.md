@@ -29,7 +29,7 @@ The user's strategic vision (2026-04-30) calls for expanding beyond a single wor
 │  │                  │  │                  │          │
 │  │ 6 machines       │  │ 1 machine (web1) │          │
 │  │ Roo+Claude       │  │ NanoClaw agents  │          │
-│  │ 34 MCP tools     │  │ Docker+IPC       │          │
+│  │ 15 MCP tools     │  │ Docker+IPC       │          │
 │  └─────────────────┘  └──────────────────┘          │
 │                                                      │
 │  ┌─────────────────┐                                │
@@ -61,7 +61,7 @@ Create **Hermes** as a dedicated workspace with specialized agents for cross-clu
 | **Tasks** | Build features, fix bugs, review PRs | Route tasks, archive data, track cluster health |
 | **Scope** | Per-workspace (roo-extensions) | Cross-workspace (all workspaces) |
 | **Agent type** | Claude Code + Roo Code | Claude Code (lightweight) |
-| **Primary tool** | roo-state-manager (34 tools) | roo-state-manager (read-only subset) |
+| **Primary tool** | roo-state-manager (15 tools) | roo-state-manager (read-only subset) |
 | **Communication** | Dashboard workspace | Dashboard **global** |
 
 **Key differentiator**: Hermes doesn't write code. It reads dashboards, routes messages, and maintains cluster-level metadata.
