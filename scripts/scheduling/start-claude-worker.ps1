@@ -3902,7 +3902,7 @@ Ta mission : auditer la configuration MCP et rapporter les anomalies.
 2. Pour chaque MCP configure, verifie :
    - Le chemin d'execution existe (command + args)
    - Les variables d'environnement requises sont presentes
-   - Le nombre d'outils correspond a l'attendu (roo-state-manager: 34)
+   - Le nombre d'outils correspond a l'attendu (roo-state-manager: 15)
 
 3. Verifie la coherence avec les regles :
    - Compare les counts d'outils declares dans .claude/rules/tool-availability.md avec la config reelle
