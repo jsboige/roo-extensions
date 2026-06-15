@@ -70,7 +70,7 @@ L'écosystème Claw s'est considérablement diversifié depuis mars 2026, avec 5
 **Verdict :** **OpenClaw** et **Claw Code** ont le meilleur support MCP (écosystème 500+ servers). **Agent Zero** a un support natif solide. **NanoClaw** est limité (Anthropic SDK uniquement).
 
 **Nos MCPs critiques :**
-- `roo-state-manager` (34 tools) — RooSync, conversations, dashboards
+- `roo-state-manager` (15 tools) — RooSync, conversations, dashboards
 - `sk-agent` (Python) — Multi-modal, vision, documents
 
 **Compatibilité :** OpenClaw/Claw Code peuvent connecter nos MCPs via le protocole standard. Agent Zero aussi (via Stdio/SSE).

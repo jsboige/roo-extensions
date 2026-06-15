@@ -34,7 +34,7 @@ NanoClaw Container → MCP Client → roo-state-manager → RooSync Dashboard/Me
 - **State:** Google Drive shared state
 - **Protocol:** MCP (Model Context Protocol)
 - **Transport:** Stdio (local)
-- **Tools:** 34 tools for coordination, dashboard, conversations
+- **Tools:** 15 tools for coordination, dashboard, conversations
 - **Dashboard:** 3 types (global, machine, workspace)
 
 ### Integration Architecture
@@ -63,7 +63,7 @@ NanoClaw Container → MCP Client → roo-state-manager → RooSync Dashboard/Me
 │                    Host (myia-ai-01)                                │
 │  ┌──────────────────────────────────────────────────────────────┐  │
 │  │  roo-state-manager MCP Server                                │  │
-│  │  - 34 tools (dashboard, RooSync, conversations, etc.)       │  │
+│  │  - 15 tools (dashboard, RooSync, conversations, etc.)       │  │
 │  │  - GDrive shared state access                               │  │
 │  └──────────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────────────┘
