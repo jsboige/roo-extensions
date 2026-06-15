@@ -104,14 +104,14 @@ Write-Host ""
 
 # MCP tool schemas estimation
 Write-Host "MCP Tool Schemas (estimated):" -ForegroundColor Yellow
-Write-Host "  roo-state-manager: 34 tools x ~200 chars/tool = ~6.8K chars (~1.5K tokens)" -ForegroundColor Gray
+Write-Host "  roo-state-manager: 15 tools x ~200 chars/tool = ~3.0K chars (~750 tokens)" -ForegroundColor Gray
 Write-Host "  playwright: 22 tools x ~300 chars/tool = ~6.6K chars (~1.5K tokens)" -ForegroundColor Gray
 Write-Host "  sk-agent: 7 tools x ~250 chars/tool = ~1.75K chars (~400 tokens)" -ForegroundColor Gray
 Write-Host "  markitdown: 1 tool x ~150 chars = ~150 chars (~35 tokens)" -ForegroundColor Gray
-Write-Host "  MCP schemas subtotal: ~15K chars (~3.5K tokens)" -ForegroundColor Gray
+Write-Host "  MCP schemas subtotal: ~11.5K chars (~2.7K tokens)" -ForegroundColor Gray
 Write-Host ""
 
-$grandTotalTokens = $totalTokens + 3500
+$grandTotalTokens = $totalTokens + 2700
 Write-Host ("ESTIMATED TOTAL HARNESS: ~{0:N0} tokens" -f $grandTotalTokens) -ForegroundColor $(if ($grandTotalTokens -lt 60000) { "Green" } elseif ($grandTotalTokens -lt 100000) { "Yellow" } else { "Red" })
 Write-Host ""
 
