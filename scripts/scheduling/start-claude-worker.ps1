@@ -1670,6 +1670,8 @@ function Sync-McpSubmoduleBuild {
         $ErrorActionPreference = "Continue"
         Push-Location $McpServerPath
         try {
+            # Clean build/ to prevent stale artifacts (tsc never prunes)
+            Remove-Item (Join-Path $McpServerPath "build") -Recurse -Force -ErrorAction SilentlyContinue
             $buildOutput = & npm run build 2>&1
             $buildExit = $LASTEXITCODE
             if ($buildExit -eq 0) {
