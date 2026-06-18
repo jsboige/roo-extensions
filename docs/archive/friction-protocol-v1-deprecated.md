@@ -1,3 +1,23 @@
+> ## ARCHIVED — superseded 2026-06-18
+>
+> **Status:** DEPRECATED. Kept here verbatim for traceability.
+> **Canonical now:** [`.claude/rules/friction-protocol.md`](../../.claude/rules/friction-protocol.md) (slim, auto-loaded) → points to [`docs/harness/reference/friction-protocol-detailed.md`](../harness/reference/friction-protocol-detailed.md) for the full procedure.
+> **Coordinator decision:** ai-01 dispatch 2026-06-18 (deep-queue R1) — slim rule is canonical; this big v1.0 was a name-collision duplicate (two files named `friction-protocol.md`) pointing at the deprecated INTERCOM channel.
+>
+> ### Why archived (proof of obsolescence)
+> - Points at **INTERCOM** as the "friction locale" channel (3 hits: `INTERCOM`, `roosync_send`). INTERCOM is **deprecated** — `intercom-protocol.md` v3.4.0 made Dashboard workspace the principal channel. The `[FRICTION-FOUND]` INTERCOM template below is therefore obsolete.
+> - **Name collision:** this file and the slim rule `.claude/rules/friction-protocol.md` shared the basename `friction-protocol.md`, causing ambiguity about which was canonical. The slim rule (auto-loaded every session) wins by design.
+> - All still-valid content (Quand/Comment Signaler, Traitement, Critères d'Approbation) is already covered by the canonical slim rule + `friction-protocol-detailed.md` (which correctly uses Dashboard as PRINCIPAL).
+>
+> ### What was merged (no information loss)
+> - **Nothing needed merging.** The only content unique to this v1.0 was the INTERCOM `[FRICTION-FOUND]` template (lines 45-64), which is obsolete post-INTERCOM-deprecation. The "Workflow Complet" and "Traitement" sections are already in `-detailed.md`. Verified: `grep -c "INTERCOM" friction-protocol-v1-deprecated.md` = 3 (all obsolete channel refs).
+> - The one inbound reference (`sddd-conversational-grounding.md:316`, which described this file as containing "roosync_send + INTERCOM templates") was migrated to point at `friction-protocol-detailed.md` with a corrected Dashboard-based description.
+>
+> ### Archived by
+> myia-web1 (GLM-5.2) / claude-interactive cycle 12 — consolidation per CLAUDE.md rule (3 steps: ANALYZE → MERGE → ARCHIVE with proof) + no-deletion-without-proof (archive ≠ delete, content preserved verbatim). Coordinator scope-approval: ai-01 dispatch 2026-06-18.
+
+---
+
 # Protocole de Friction - Claude Code
 
 **Version :** 1.0.0

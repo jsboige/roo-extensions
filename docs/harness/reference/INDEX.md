@@ -8,7 +8,7 @@
 |----------|-----------|--------|
 | **Condensation GLM** | Seuil 75% pour z.ai (131K reels). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` | `condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
-| **Feedback/Friction** | Signaler via RooSync `[FRICTION]` to:all | `feedback-process.md`, `friction-protocol.md` |
+| **Feedback/Friction** | Signaler via Dashboard `[FRICTION]` + RooSync. Canonique = `.claude/rules/friction-protocol.md` (slim) | `feedback-process.md`, `friction-protocol-detailed.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
 | **SDDD Grounding** | Triple grounding (semantique + conversationnel + technique) | `sddd-conversational-grounding.md` |
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |

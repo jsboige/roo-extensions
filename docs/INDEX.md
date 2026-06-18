@@ -136,8 +136,8 @@ docs/
 | `delegation.md` | Regles delegation sub-agents (issue #566) | active |
 | `escalation-protocol.md` | Protocole escalation Claude Code (issue #842) | active |
 | `feedback-process.md` | Processus feedback et amelioration | active |
-| `friction-protocol.md` | Protocole friction (issue #712) | active |
-| `friction-protocol-detailed.md` | Friction detaille (issue #1033) | active |
+| `friction-protocol-detailed.md` | Friction detaille (issue #1033) — procedure complete (Dashboard canonical) | active |
+| `friction-protocol-v1-deprecated.md` | v1.0 archivée 2026-06-18 (INTERCOM-deprecated, name collision with slim rule) | archive |
 | `github-checklists.md` | Regles checklists GitHub (issue #516) | active |
 | `github-cli.md` | Regles GitHub CLI, migration MCP vers gh | active |
 | `github-reviewer-bot-feasibility.md` | Etude faisabilite bot review (issue #1184) | active |
