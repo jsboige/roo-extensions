@@ -29,7 +29,7 @@
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
 | **Test Success Rates** | 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. Tronquer output scheduler. | `test-success-rates.md` |
-| **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet | `worktree-cleanup.md`, `worktree-cleanup-protocol.md` |
+| **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet (v2.0 — v1.0 archivée) | `worktree-cleanup.md` |
 
 ## Coordination & Scheduler
 

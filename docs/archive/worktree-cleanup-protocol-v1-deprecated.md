@@ -1,3 +1,23 @@
+> ## ARCHIVED — superseded 2026-06-18
+>
+> **Status:** DEPRECATED. Kept here verbatim for traceability.
+> **Superseded by:** [`docs/harness/reference/worktree-cleanup.md`](../harness/reference/worktree-cleanup.md) (v2.0.0)
+> **R3 dispatch:** coordinator ai-01 deep-queue R1 (docs sprawl consolidation), mandate user 2026-06-18.
+>
+> ### Why archived (proof of obsolescence)
+> - References `scripts/worktrees/cleanup-worktrees.ps1` → **MISSING** (consolidated into `scripts/claude/worktree-cleanup.ps1` per #866).
+> - "Phase 2: Auto-Cleanup" was marked *Planifié* (checklist unchecked) — never completed; v2.0 delivered the equivalent via the `-Force`/`-StaleDays` script params.
+> - v2.0 is technically superior for Windows removal (4-strategy fallback: `Remove-Item` → `\\?\` → `rmdir /s /q` → robocopy mirror) vs v1.0's manual registry/openfiles advice.
+>
+> ### What was merged into v2.0 (no information loss)
+> - **Permissions edge case** (`takeown` + `icacls` + `Remove-Item`) — the only v1.0 content absent from v2.0 — added to `worktree-cleanup.md` → "Windows-Specific Handling" → "Permissions edge case (preserved from v1.0)".
+> - All other v1.0 content (orphan detection, stale-branch detection, scheduler integration, INTERCOM alert template) is already covered by v2.0's "What It Cleans" + "Integration Points" sections.
+>
+> ### Archived by
+> myia-web1 (GLM-5.2) / claude-interactive cycle 10 — consolidation per CLAUDE.md rule (3 steps: ANALYZE → MERGE → ARCHIVE with proof) + no-deletion-without-proof (archive ≠ delete, content preserved verbatim).
+
+---
+
 # Worktree Cleanup Protocol
 
 **Version:** 1.0.0
