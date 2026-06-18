@@ -6,6 +6,11 @@
     Roo Code is shutdown (2026-05-15). Zoo Code (fork) has the ripgrep fix (#2455 PR #248)
     but is NOT configured. This script migrates all settings from Roo → Zoo:
 
+    0. TRACE PRESERVATION (CRITICAL): Back up Roo's task traces (tasks/ tree) to an
+       external directory OFF the globalStorage path, then copy them into Zoo's
+       globalStorage so Zoo Code + roo-state-manager see the full history. This runs
+       FIRST so traces are secured before any other step. The Roo and Zoo on-disk task
+       format is byte-identical (Zoo is a fork) → zero conversion.
     1. State migration: Copy provider/model/condensation/auto-approval settings from
        Roo state blob to Zoo state blob in VS Code's state.vscdb SQLite database.
     2. Secret migration: Duplicate API key secrets from Roo extensionId to Zoo extensionId.
@@ -19,6 +24,14 @@
 
     The state format is identical (Zoo is a fork of Roo).
 
+    *** WHY TRACE PRESERVATION EXISTS ***
+    Uninstalling Roo Code in VS Code DELETES its globalStorage directory
+    (%APPDATA%\Code\User\globalStorage\rooveterinaryinc.roo-cline\) and EVERY task trace
+    inside it. On other machines this caused CATASTROPHIC, unrecoverable loss of the
+    agentic history. This script never lets that happen: it makes an external backup AND
+    seeds Zoo with the traces BEFORE you are ever told it is safe to uninstall Roo. Do NOT
+    uninstall Roo until you have verified Zoo shows the task history (see final warning).
+
 .PARAMETER DryRun
     Report what would be done without making changes. Default: true.
 
@@ -30,6 +43,14 @@
 
 .PARAMETER SkipMcpSettings
     Skip mcp_settings.json migration. Use if MCPs are already configured.
+
+.PARAMETER SkipTraceMigration
+    Skip Step 0 (trace preservation). Use ONLY if traces are already secured by another
+    means. NOT recommended — this is the step that prevents catastrophic history loss.
+
+.PARAMETER TraceBackupRoot
+    Root directory for the external trace backup. Default: D:\roo-traces-backup.
+    MUST be off the globalStorage path so roo-state-manager never double-indexes it.
 
 .EXAMPLE
     ./migrate-roo-to-zoo.ps1
@@ -49,7 +70,9 @@ param(
     [switch]$DryRun = $true,
     [string]$VscdbPath,
     [switch]$SkipSecrets,
-    [switch]$SkipMcpSettings
+    [switch]$SkipMcpSettings,
+    [switch]$SkipTraceMigration,
+    [string]$TraceBackupRoot = "D:\roo-traces-backup"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -128,9 +151,81 @@ Write-Status "Mode: $(if ($DryRun) { 'DRY-RUN' } else { 'EXECUTE' })" 'Yellow'
 Write-Status "Database: $VscdbPath"
 Write-Status ""
 
-# === Step 0: Check prerequisites ===
+# === Prerequisites ===
 $null = Get-Command sqlite3 -ErrorAction Stop
 Write-Status "[OK] sqlite3 found" 'Green'
+
+# === Step 0: Trace Preservation (CRITICAL — runs before any other step) ===
+# Uninstalling Roo Code deletes its globalStorage and ALL task traces. Before anything
+# else, we (1) make an append-only external backup OFF the globalStorage path, and
+# (2) seed Zoo's globalStorage with the identical-format tasks/ tree. Only after Zoo is
+# verified to show the history is it ever safe to uninstall Roo (see final warning).
+Write-Status "`n--- Step 0: Trace Preservation ---" 'Cyan'
+
+if ($SkipTraceMigration) {
+    Write-Status "  Skipped (-SkipTraceMigration). WARNING: traces NOT secured by this run." 'Yellow'
+} else {
+    # Resolve globalStorage paths (dot-source extension-paths.ps1; fallback to hardcoded).
+    $extPathsScript = Join-Path $PSScriptRoot "..\common\extension-paths.ps1"
+    if (Test-Path $extPathsScript) { . $extPathsScript }
+    if (-not (Get-Command Get-GlobalStoragePath -ErrorAction SilentlyContinue)) {
+        function Get-GlobalStoragePath {
+            param([string]$Extension = "ZooCode")
+            $id = if ($Extension -eq "ZooCode") { "ZooCodeOrganization.zoo-code" } else { "rooveterinaryinc.roo-cline" }
+            Join-Path $env:APPDATA "Code\User\globalStorage\$id"
+        }
+    }
+
+    $rooGlobalStorage = Get-GlobalStoragePath -Extension RooCode
+    $zooGlobalStorage = Get-GlobalStoragePath -Extension ZooCode
+    $rooTasksDir = Join-Path $rooGlobalStorage "tasks"
+    $zooTasksDir = Join-Path $zooGlobalStorage "tasks"
+    $script:RooGlobalStorage = $rooGlobalStorage   # for final warning
+
+    if (-not (Test-Path $rooTasksDir)) {
+        Write-Status "  Roo tasks dir not found: $rooTasksDir" 'Yellow'
+        Write-Status "  Nothing to preserve (Roo never stored tasks here, or already migrated)." 'DarkGray'
+    } else {
+        $rooTaskCount = (Get-ChildItem -LiteralPath $rooTasksDir -Directory -ErrorAction SilentlyContinue).Count
+        Write-Status "  Roo tasks dir: $rooTasksDir ($rooTaskCount task dirs)" 'Green'
+
+        # External backup is append-only (no /MIR, no /PURGE): never deletes a previously
+        # backed-up trace even if the source later shrinks. Stable target so re-runs are
+        # incremental. OFF globalStorage so roo-state-manager never double-indexes it.
+        $backupTarget = Join-Path $TraceBackupRoot "rooveterinaryinc.roo-cline\tasks"
+        $script:TraceBackupTarget = $backupTarget
+
+        Write-Status "  External backup -> $backupTarget (append-only)" 'White'
+        Write-Status "  Seed Zoo        -> $zooTasksDir" 'White'
+
+        if ($DryRun) {
+            Write-Status "  [DRY-RUN] Would robocopy $rooTaskCount task dirs to the external backup AND seed Zoo (~GBs, includes checkpoints/)." 'Yellow'
+        } else {
+            # 1) External safety-net backup (full tree, append-only).
+            $null = robocopy $rooTasksDir $backupTarget /E /COPY:DAT /R:1 /W:1 /MT:16 /NFL /NDL /NP
+            if ($LASTEXITCODE -ge 8) {
+                throw "Trace external backup FAILED (robocopy exit $LASTEXITCODE). Aborting before any destructive step."
+            }
+            $backupCount = (Get-ChildItem -LiteralPath $backupTarget -Directory -ErrorAction SilentlyContinue).Count
+            Write-Status "  External backup OK: $backupCount task dirs (robocopy exit $LASTEXITCODE)" 'Green'
+            if ($backupCount -lt $rooTaskCount) {
+                throw "Backup count ($backupCount) < source ($rooTaskCount). Aborting — traces not fully secured."
+            }
+
+            # 2) Seed Zoo globalStorage. Identical format = zero conversion. /XO never
+            #    clobbers a newer Zoo-authored copy of a task.
+            if (-not (Test-Path $zooGlobalStorage)) {
+                New-Item -ItemType Directory -Path $zooGlobalStorage -Force | Out-Null
+            }
+            $null = robocopy $rooTasksDir $zooTasksDir /E /XO /COPY:DAT /R:1 /W:1 /MT:16 /NFL /NDL /NP
+            if ($LASTEXITCODE -ge 8) {
+                throw "Seeding Zoo tasks FAILED (robocopy exit $LASTEXITCODE). External backup is intact at $backupTarget."
+            }
+            $zooCount = (Get-ChildItem -LiteralPath $zooTasksDir -Directory -ErrorAction SilentlyContinue).Count
+            Write-Status "  Zoo seeded OK: $zooCount task dirs in Zoo globalStorage (robocopy exit $LASTEXITCODE)" 'Green'
+        }
+    }
+}
 
 # === Step 1: State migration ===
 Write-Status "`n--- Step 1: State Migration ---" 'Cyan'
@@ -357,5 +452,19 @@ if ($DryRun) {
     Write-Status "DRY-RUN — no changes made. Re-run with -DryRun:`$false to apply." 'Yellow'
 } else {
     Write-Status "Migration applied. Restart VS Code to pick up changes." 'Green'
+}
+
+# === CRITICAL trace-safety warning (always shown) ===
+if (-not $SkipTraceMigration) {
+    Write-Status "`n*** DO NOT UNINSTALL ROO YET ***" 'Red'
+    Write-Status "Uninstalling Roo Code in VS Code DELETES its globalStorage directory and EVERY" 'Yellow'
+    Write-Status "task trace inside it:" 'Yellow'
+    if ($script:RooGlobalStorage) { Write-Status "  $($script:RooGlobalStorage)" 'Yellow' }
+    Write-Status "Uninstall ONLY after you have:" 'Yellow'
+    Write-Status "  1. Opened Zoo Code and CONFIRMED the task history is visible, AND" 'Yellow'
+    Write-Status "  2. Confirmed roo-state-manager indexes the Zoo path." 'Yellow'
+    if ($script:TraceBackupTarget) {
+        Write-Status "External backup (kept regardless): $($script:TraceBackupTarget)" 'Green'
+    }
 }
 Write-Status "=== Done ==="
