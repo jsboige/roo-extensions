@@ -35,11 +35,21 @@
       "fuzzyMatchThreshold": 1,
       "modelTemperature": 0.7,
       "apiProvider": "openai",
-      "openAiBaseUrl": "https://api.z.ai/api/anthropic",
+      "openAiBaseUrl": "https://api.z.ai/api/coding/paas/v4",
       "openAiApiKey": "{{SECRET:openAiApiKey}}",
-      "openAiModelId": "glm-5.1",
+      "openAiModelId": "glm-5.2",
+      "openAiCustomModelInfo": {
+        "maxTokens": -1,
+        "contextWindow": 200000,
+        "supportsImages": true,
+        "supportsPromptCache": true,
+        "inputPrice": 0,
+        "outputPrice": 0,
+        "reasoningEffort": "medium"
+      },
+      "openAiHeaders": {},
       "id": "default",
-      "description": "GLM-5.1 Flagship via z.ai subscription (scores 45.3, near Opus 4.6 at 47.9). Contexte réel ~131k tokens (pas 200k)."
+      "description": "GLM-5.2 flagship via z.ai coding subscription. Endpoint OpenAI-compatible /api/coding/paas/v4 — PAS /api/anthropic : avec apiProvider:openai, Roo POSTe vers .../chat/completions, et /api/anthropic renvoie 404 → le profil complex échoue silencieusement (#2455). Contexte réel ~131k tokens."
     },
     "owui-think": {
       "diffEnabled": true,
