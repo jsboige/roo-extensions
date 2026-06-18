@@ -159,8 +159,8 @@ docs/
 | `stub-detection.md` | Protocol detection stubs (crise #767-#786) | active |
 | `test-success-rates.md` | Taux succes tests (issues #720/#827) | active |
 | `tool-availability-detailed.md` | Inventaire outils detaille | active |
-| `worktree-cleanup-protocol.md` | Protocol cleanup worktrees (issue #856) | active |
 | `worktree-cleanup.md` | Protocol cleanup worktrees v2.0 (issues #856/#895) | active |
+| `worktree-cleanup-protocol-v1-deprecated.md` | v1.0 archivée 2026-06-18 (superseded by worktree-cleanup.md) | archive |
 | `wsl-docker-cascade-protocol.md` | Protocol cascade kill WSL/Docker (issue #1379) | active |
 
 ### docs/harness/investigations/ — 1 fichier

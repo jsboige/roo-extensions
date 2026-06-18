@@ -270,6 +270,16 @@ On Windows, long paths and locked files can prevent removal. The script uses a 4
 3. **cmd.exe `rmdir /s /q`** — handles some locked file cases better
 4. **robocopy empty mirror** — nuclear option for stubborn directories
 
+### Permissions edge case (preserved from v1.0)
+
+If generated files have restrictive permissions that block even robocopy, take ownership then grant before removal:
+
+```powershell
+takeown /f $wtPath /r /d y
+icacls $wtPath /grant administrators:F /t
+Remove-Item -Path $wtPath -Recurse -Force
+```
+
 ---
 
 ## Integration Points (v2.0)
