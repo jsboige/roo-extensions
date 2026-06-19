@@ -3786,7 +3786,7 @@ try {
         $IdlePrompt = switch ($SelectedIdle.Id) {
             "idle-coverage" {
                 @"
-Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Tu es un agent Claude Code en mode idle (aucune tache assignee) sur la machine $($env:COMPUTERNAME).
 Ta mission : ameliorer la couverture de tests du projet roo-state-manager.
 
 ## Instructions
@@ -3827,7 +3827,7 @@ REASON: [resume des tests ajoutes ou findings de veille. Inclus OBLIGATOIREMENT:
             }
             "idle-worktree-cleanup" {
                 @"
-Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Tu es un agent Claude Code en mode idle (aucune tache assignee) sur la machine $($env:COMPUTERNAME).
 Ta mission : nettoyer les worktrees et branches orphelines.
 
 ## Instructions
@@ -3861,7 +3861,7 @@ REASON: [nombre de worktrees/branches nettoyees + liste detaillee]
             }
             "idle-stale-branches" {
                 @"
-Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Tu es un agent Claude Code en mode idle (aucune tache assignee) sur la machine $($env:COMPUTERNAME).
 Ta mission : detecter les branches stale (>14 jours sans commit) et rapporter.
 
 ## Instructions
@@ -3893,7 +3893,7 @@ REASON: [rapport de detection : X branches stale, Y avec commits uniques]
             }
             "idle-config-audit" {
                 @"
-Tu es un agent Claude Code en mode idle (aucune tache assignee).
+Tu es un agent Claude Code en mode idle (aucune tache assignee) sur la machine $($env:COMPUTERNAME).
 Ta mission : auditer la configuration MCP et rapporter les anomalies.
 
 ## Instructions
@@ -3911,6 +3911,8 @@ Ta mission : auditer la configuration MCP et rapporter les anomalies.
    - Signale tout MCP retire (desktop-commander, quickfiles, github-projects-mcp, web_reader)
 
 4. Rapporte sur le dashboard workspace avec tag [INFO].
+   IMPORTANT : Commence ton rapport par "Machine : $($env:COMPUTERNAME)" (la machine sur laquelle tu tournes).
+   Ne confonds JAMAIS avec une autre machine (ex: myia-ai-01) — tu es sur $($env:COMPUTERNAME).
 
 ## Contraintes
 - NE MODIFIE AUCUN FICHIER. Audit uniquement.
