@@ -62,7 +62,8 @@
 
 .NOTES
     Issue #2455 — codebase_search vide fleet-wide
-    Requires: sqlite3 in PATH (for state.vscdb access)
+    Issue #2629 — portable sqlite access (no sqlite3 CLI dependency)
+    Requires: Python 3.x with stdlib sqlite3 (for state.vscdb access)
 #>
 
 [CmdletBinding()]
@@ -127,13 +128,61 @@ function Write-Status {
     Write-Host $Msg -ForegroundColor $Color
 }
 
+# Inline Python helper for state.vscdb access. Uses Python stdlib sqlite3 (present
+# fleet-wide via the sk-agent Python runtime) instead of the sqlite3 CLI, which is
+# NOT installed on most machines (po-2023/po-2024 crash — see issue #2629). The helper
+# is written to a temp file once and invoked with the spec JSON piped via STDIN (not
+# argv) to avoid the Windows 32,767-char argv limit — the merged Zoo state blob is
+# ~75K chars and would trigger [WinError 206] (review po-2026, empirically confirmed).
+# Parameter binding replaces the sqlite-CLI-only readfile() function.
+$script:SqliteHelperPath = Join-Path $env:TEMP "migrate-vscdb-helper.py"
+$script:SqliteHelperPy = @'
+import json, sqlite3, sys
+# argv[1] = database path, stdin = JSON {query, params, scalar}
+conn = sqlite3.connect(sys.argv[1])
+try:
+    cur = conn.cursor()
+    # PowerShell may prepend a UTF-8 BOM when piping; strip it before parsing.
+    spec = json.loads(sys.stdin.read().lstrip("﻿"))
+    if spec.get("params"):
+        cur.execute(spec["query"], spec["params"])
+    else:
+        cur.execute(spec["query"])
+    if spec.get("scalar"):
+        row = cur.fetchone()
+        out = row[0] if row else None
+    elif cur.description is not None:
+        out = [r[0] for r in cur.fetchall()]
+    else:
+        out = cur.rowcount
+    conn.commit()
+    print(json.dumps(out))
+finally:
+    conn.close()
+'@
+[System.IO.File]::WriteAllText($script:SqliteHelperPath, $script:SqliteHelperPy, [System.Text.UTF8Encoding]::new($false))
+
 function Invoke-SqliteQuery {
-    param([string]$Database, [string]$Query, [switch]$Scalar)
-    $result = & sqlite3 $Database $Query 2>&1
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Database,
+        [Parameter(Mandatory)][string]$Query,
+        [object[]]$Params,
+        [switch]$Scalar
+    )
+    # Depth 5 (not 3) so the 95-key merged Roo→Zoo state blob round-trips fully.
+    # Piped via stdin to bypass the Windows argv length limit (review po-2026).
+    $spec = @{ query = $Query; params = $Params; scalar = [bool]$Scalar } | ConvertTo-Json -Compress -Depth 5
+    $output = $spec | & python $script:SqliteHelperPath $Database 2>&1
     if ($LASTEXITCODE -ne 0) {
-        throw "SQLite error: $result"
+        # Honor -ErrorAction SilentlyContinue from callers (e.g. secret-existence probes).
+        $PSCmdlet.WriteError([System.Management.Automation.ErrorRecord]::new(
+            [System.Exception]"SQLite error (python sqlite3): $output", 'SqliteError',
+            [System.Management.Automation.ErrorCategory]::OperationStopped, $null))
+        return
     }
-    return $result
+    # python returns JSON (string, int, or null). Cast back to the obvious type.
+    return $output | ConvertFrom-Json
 }
 
 # === Resolve paths ===
@@ -152,8 +201,13 @@ Write-Status "Database: $VscdbPath"
 Write-Status ""
 
 # === Prerequisites ===
-$null = Get-Command sqlite3 -ErrorAction Stop
-Write-Status "[OK] sqlite3 found" 'Green'
+# Python 3 with stdlib sqlite3 (no external CLI required — issue #2629).
+$null = Get-Command python -ErrorAction Stop
+$pyCheck = & python -c "import sqlite3; print(sqlite3.sqlite_version)" 2>&1
+if ($LASTEXITCODE -ne 0) {
+    throw "Python sqlite3 stdlib not available: $pyCheck"
+}
+Write-Status "[OK] python + sqlite3 stdlib found (sqlite $pyCheck)" 'Green'
 
 # === Step 0: Trace Preservation (CRITICAL — runs before any other step) ===
 # Uninstalling Roo Code deletes its globalStorage and ALL task traces. Before anything
@@ -231,7 +285,7 @@ if ($SkipTraceMigration) {
 Write-Status "`n--- Step 1: State Migration ---" 'Cyan'
 
 # Read Roo state
-$rooJson = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key='$RooKey';"
+$rooJson = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key = ?;" -Params @($RooKey)
 if (-not $rooJson) {
     Write-Status "ERROR: No Roo Code state found in state.vscdb (key: $RooKey)" 'Red'
     Write-Status "Roo Code may not have been configured on this machine." 'Yellow'
@@ -243,7 +297,7 @@ $rooKeyCount = $rooState.PSObject.Properties.Name.Count
 Write-Status "Roo state: $rooKeyCount keys" 'Green'
 
 # Read Zoo state
-$zooJson = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key='$ZooKey';"
+$zooJson = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key = ?;" -Params @($ZooKey)
 if ($zooJson) {
     $zooState = $zooJson | ConvertFrom-Json
     $zooKeyCount = $zooState.PSObject.Properties.Name.Count
@@ -313,19 +367,16 @@ if (-not $DryRun) {
     Copy-Item $VscdbPath $backupPath -Force
     Write-Status "`n  Backup: $backupPath" 'Green'
 
-    # Write to temp file to avoid quoting issues
-    $tempJsonPath = Join-Path $env:TEMP "zoo-state-migration.json"
-    [System.IO.File]::WriteAllText($tempJsonPath, $newZooJson, [System.Text.UTF8Encoding]::new($false))
-
-    # Update via sqlite3
-    $null = Invoke-SqliteQuery $VscdbPath "UPDATE ItemTable SET value = readfile('$tempJsonPath') WHERE key='$ZooKey';"
+    # Bind the new state JSON directly as a SQL parameter (Python sqlite3, issue #2629).
+    # This replaces the sqlite-CLI-only readfile() and its temp-file workaround, and
+    # avoids any SQL-quoting of the JSON value.
+    $null = Invoke-SqliteQuery $VscdbPath "UPDATE ItemTable SET value = ? WHERE key = ?;" -Params @($newZooJson, $ZooKey)
     # If Zoo key doesn't exist yet, INSERT instead
-    $check = Invoke-SqliteQuery $VscdbPath "SELECT count(*) FROM ItemTable WHERE key='$ZooKey';"
-    if ($check.Trim() -eq '0') {
-        $null = Invoke-SqliteQuery $VscdbPath "INSERT INTO ItemTable (key, value) VALUES ('$ZooKey', readfile('$tempJsonPath'));"
+    $check = Invoke-SqliteQuery $VscdbPath "SELECT count(*) FROM ItemTable WHERE key = ?;" -Scalar -Params @($ZooKey)
+    if ([string]$check -eq '0') {
+        $null = Invoke-SqliteQuery $VscdbPath "INSERT INTO ItemTable (key, value) VALUES (?, ?);" -Params @($ZooKey, $newZooJson)
     }
 
-    Remove-Item $tempJsonPath -Force -ErrorAction SilentlyContinue
 
     Write-Status "  State migrated: $($migratedKeys.Count) keys written to Zoo state" 'Green'
 } else {
@@ -345,19 +396,17 @@ if ($SkipSecrets) {
         $rooSecretKey = "secret://{""extensionId"":""$RooExtensionId"",""key"":""$secretName""}"
         $zooSecretKey = "secret://{""extensionId"":""$ZooExtensionId"",""key"":""$secretName""}"
 
-        # Check if Roo secret exists
-        $rooValue = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key='$rooSecretKey';" -ErrorAction SilentlyContinue
+        # Check if Roo secret exists (key bound as parameter — secret keys contain
+        # embedded JSON quotes, issue #2629).
+        $rooValue = Invoke-SqliteQuery $VscdbPath "SELECT value FROM ItemTable WHERE key = ?;" -Params @($rooSecretKey) -ErrorAction SilentlyContinue
         if ($rooValue -and $rooValue.Trim()) {
             # Check if Zoo secret already exists
-            $zooExists = Invoke-SqliteQuery $VscdbPath "SELECT count(*) FROM ItemTable WHERE key='$zooSecretKey';"
-            if ($zooExists.Trim() -eq '0') {
+            $zooExists = Invoke-SqliteQuery $VscdbPath "SELECT count(*) FROM ItemTable WHERE key = ?;" -Scalar -Params @($zooSecretKey)
+            if ([string]$zooExists -eq '0') {
                 Write-Status "  $secretName : FOUND in Roo → $(if ($DryRun) { 'WOULD COPY' } else { 'COPYING' })" 'White'
                 if (-not $DryRun) {
-                    # Write secret to temp file then insert
-                    $tempSecretPath = Join-Path $env:TEMP "zoo-secret-$secretName.txt"
-                    [System.IO.File]::WriteAllText($tempSecretPath, $rooValue, [System.Text.UTF8Encoding]::new($false))
-                    $null = Invoke-SqliteQuery $VscdbPath "INSERT INTO ItemTable (key, value) VALUES ('$zooSecretKey', readfile('$tempSecretPath'));"
-                    Remove-Item $tempSecretPath -Force -ErrorAction SilentlyContinue
+                    # Bind secret value directly as a parameter (no temp file / readfile).
+                    $null = Invoke-SqliteQuery $VscdbPath "INSERT INTO ItemTable (key, value) VALUES (?, ?);" -Params @($zooSecretKey, $rooValue)
                 }
                 $migratedSecrets++
             } else {
