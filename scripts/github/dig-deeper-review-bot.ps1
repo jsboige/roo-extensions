@@ -68,12 +68,16 @@ function Write-Log {
     Write-Host "[$Timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
+# NOTE: argv-array + call operator (`& gh @Argv`) instead of `Invoke-Expression`.
+# Defense-in-depth (review po-2026 c.57): avoids string re-parsing, removes the
+# injection surface should a future edit ever interpolate attacker-controllable
+# data (e.g. PR titles). Behavior is identical; args bind positionally, no eval.
 function Invoke-GhSafe {
-    param([string]$Command)
+    param([string[]]$Argv)
     try {
-        $result = Invoke-Expression $Command 2>&1
+        $result = & gh @Argv 2>&1
         if ($LASTEXITCODE -ne 0) {
-            Write-Log "gh command failed: $Command`n$result" "ERROR"
+            Write-Log "gh command failed: $($Argv -join ' ')" "ERROR"
             return $null
         }
         return $result
@@ -99,7 +103,7 @@ function Write-TempBody {
 function Get-ExistingReviewPoints {
     param([int]$Number)
 
-    $detailJson = Invoke-GhSafe "gh pr view $Number --repo $Repo --json reviews,comments"
+    $detailJson = Invoke-GhSafe @('pr','view',$Number,'--repo',$Repo,'--json','reviews,comments')
     if ($null -eq $detailJson) { return $null }
 
     $detail = $detailJson | ConvertFrom-Json
@@ -185,7 +189,7 @@ Write-Log "Machine: $MachineName | Repo: $Repo | Model: $Model | Mode: $(if($Dry
 if ($PrNumber -gt 0) {
     $prList = @([pscustomobject]@{ number = $PrNumber; title = "(single-PR mode)" })
 } else {
-    $prListJson = Invoke-GhSafe "gh pr list --repo $Repo --state open --limit 50 --json number,title"
+    $prListJson = Invoke-GhSafe @('pr','list','--repo',$Repo,'--state','open','--limit','50','--json','number,title')
     if ($null -eq $prListJson) { Write-Log "Failed to fetch PR list" "ERROR"; exit 1 }
     $prList = $prListJson | ConvertFrom-Json
     if ($prList.Count -eq 0) { Write-Log "No open PRs found" "INFO"; exit 2 }
@@ -215,7 +219,7 @@ foreach ($pr in $prList) {
     }
 
     # Fetch diff
-    $diff = Invoke-GhSafe "gh pr diff $n --repo $Repo --color=never"
+    $diff = Invoke-GhSafe @('pr','diff',$n,'--repo',$Repo,'--color=never')
     if ($null -eq $diff) { Write-Log "Failed to fetch diff for #$n, skip" "WARN"; $skipped++; continue }
     if ($diff.Length -gt $MaxDiffChars) { $diff = $diff.Substring(0, $MaxDiffChars) }
 
@@ -241,7 +245,7 @@ Read $($existing.Count) existing review/comment point(s) on this PR and looked s
             Write-Log "[DRY RUN] Would post [ACK] on #$n" "INFO"
         } else {
             $f = Write-TempBody -Content $ackBody
-            $r = Invoke-GhSafe "gh pr review $n --repo $Repo --comment --body-file $f"
+            $r = Invoke-GhSafe @('pr','review',$n,'--repo',$Repo,'--comment','--body-file',$f)
             Remove-Item $f -ErrorAction SilentlyContinue
             if ($null -ne $r) { Write-Log "Posted [ACK] on #$n" "OK"; $acked++ }
             else { Write-Log "Failed to [ACK] #$n" "ERROR"; $skipped++ }
@@ -264,7 +268,7 @@ $answer
         if ($VerboseOutput) { Write-Host $newBody }
     } else {
         $f = Write-TempBody -Content $newBody
-        $r = Invoke-GhSafe "gh pr review $n --repo $Repo --comment --body-file $f"
+        $r = Invoke-GhSafe @('pr','review',$n,'--repo',$Repo,'--comment','--body-file',$f)
         Remove-Item $f -ErrorAction SilentlyContinue
         if ($null -ne $r) { Write-Log "COMMENTED new findings on #$n" "OK"; $commented++ }
         else { Write-Log "Failed to comment on #$n" "ERROR"; $skipped++ }
