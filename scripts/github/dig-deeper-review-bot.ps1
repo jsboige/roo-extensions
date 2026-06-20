@@ -132,6 +132,27 @@ function Get-ExistingReviewPoints {
         }
     }
 
+    # Line-level review comments (inline) — distinct endpoint, NOT returned by
+    # `pr view --json reviews,comments`. Without this the bot could re-raise a
+    # point a reviewer already left on a specific line, violating the #2505
+    # "read ALL reviews + comments" criterion. (review po-2023 c.49)
+    $inlineJson = Invoke-GhSafe @('api', "repos/$Repo/pulls/$Number/comments", '--jq', '[.[] | {login: .user.login, body: .body}]')
+    if ($null -ne $inlineJson) {
+        # --jq returns compact [{login,body}] JSON server-side; degraded-safe:
+        # if the API call fails we keep whatever review/comment points we gathered.
+        $inline = $inlineJson | ConvertFrom-Json
+        foreach ($ic in $inline) {
+            $author = $ic.login
+            $body = ($ic.body -as [string]).Trim()
+            if ($body.Length -gt 0) {
+                $lines = $body -split "(`r?`n)|(?<=[.!?])\s+" | ForEach-Object { $_.Trim() } | Where-Object { $_.Length -gt 12 }
+                foreach ($line in $lines) {
+                    $points.Add("[inline $author] $line")
+                }
+            }
+        }
+    }
+
     return $points
 }
 
