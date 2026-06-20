@@ -131,16 +131,19 @@ function Write-Status {
 # Inline Python helper for state.vscdb access. Uses Python stdlib sqlite3 (present
 # fleet-wide via the sk-agent Python runtime) instead of the sqlite3 CLI, which is
 # NOT installed on most machines (po-2023/po-2024 crash — see issue #2629). The helper
-# is written to a temp file once and invoked with JSON args to avoid PowerShell/Python
-# quoting issues. Parameter binding replaces the sqlite-CLI-only readfile() function.
+# is written to a temp file once and invoked with the spec JSON piped via STDIN (not
+# argv) to avoid the Windows 32,767-char argv limit — the merged Zoo state blob is
+# ~75K chars and would trigger [WinError 206] (review po-2026, empirically confirmed).
+# Parameter binding replaces the sqlite-CLI-only readfile() function.
 $script:SqliteHelperPath = Join-Path $env:TEMP "migrate-vscdb-helper.py"
 $script:SqliteHelperPy = @'
 import json, sqlite3, sys
-# argv[1] = database path, argv[2] = JSON {query, params, scalar}
+# argv[1] = database path, stdin = JSON {query, params, scalar}
 conn = sqlite3.connect(sys.argv[1])
 try:
     cur = conn.cursor()
-    spec = json.loads(sys.argv[2])
+    # PowerShell may prepend a UTF-8 BOM when piping; strip it before parsing.
+    spec = json.loads(sys.stdin.read().lstrip("﻿"))
     if spec.get("params"):
         cur.execute(spec["query"], spec["params"])
     else:
@@ -167,8 +170,10 @@ function Invoke-SqliteQuery {
         [object[]]$Params,
         [switch]$Scalar
     )
-    $spec = @{ query = $Query; params = $Params; scalar = [bool]$Scalar } | ConvertTo-Json -Compress -Depth 3
-    $output = & python $script:SqliteHelperPath $Database $spec 2>&1
+    # Depth 5 (not 3) so the 95-key merged Roo→Zoo state blob round-trips fully.
+    # Piped via stdin to bypass the Windows argv length limit (review po-2026).
+    $spec = @{ query = $Query; params = $Params; scalar = [bool]$Scalar } | ConvertTo-Json -Compress -Depth 5
+    $output = $spec | & python $script:SqliteHelperPath $Database 2>&1
     if ($LASTEXITCODE -ne 0) {
         # Honor -ErrorAction SilentlyContinue from callers (e.g. secret-existence probes).
         $PSCmdlet.WriteError([System.Management.Automation.ErrorRecord]::new(
