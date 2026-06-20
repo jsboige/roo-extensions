@@ -14,13 +14,13 @@
     },
     "default": {
       "id": "default",
-      "description": "GLM-5.1 Flagship via z.ai subscription (scores 45.3, near Opus 4.6 at 47.9). Contexte réel ~131k tokens (pas 200k).",
+      "description": "GLM-5.2 Flagship via z.ai subscription (coding endpoint). Contexte réel ~131k tokens (pas 200k).",
       "apiProvider": "openai",
       "diffEnabled": true,
       "fuzzyMatchThreshold": 1,
       "modelTemperature": 0.7,
-      "openAiBaseUrl": "https://api.z.ai/api/anthropic",
-      "openAiModelId": "glm-5.1",
+      "openAiBaseUrl": "https://api.z.ai/api/coding/paas/v4",
+      "openAiModelId": "glm-5.2",
       "openAiApiKey": "{{YOUR_API_KEY_HERE}}"
     },
     "owui-think": {
