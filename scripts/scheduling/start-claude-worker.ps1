@@ -3751,7 +3751,7 @@ try {
             },
             @{
                 Id           = "idle-config-audit"
-                Weight       = 2
+                Weight       = 0     # Disabled: was the only active idle task (others weight=0), so it ran at 100% on every idle tick — re-discovering the same 3 known/gated anomalies (searxng absent, sk-agent orphan perms, condensation drift) and re-posting the report each time = ghost-window noise with no new value. Config drift stays detectable via dedicated issues / Roo scheduler idle patrols. Re-enable with a cool-down (timestamp gate) if periodic audit is wanted again.
                 Subject      = "[IDLE] Config drift audit"
                 MinModel     = "haiku"
                 SkipWorktree = $true    # Read-only: file reads + roosync tools only
