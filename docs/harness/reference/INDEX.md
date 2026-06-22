@@ -6,7 +6,7 @@
 
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
-| **Condensation GLM** | Seuil 75% pour z.ai (131K reels). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=75` | `condensation-thresholds.md` |
+| **Condensation** | Seuil UNIVERSEL 90% (200k/90% = 180k effectif, toutes familles — #2173 model-aware superseded 2026-05-25). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90` | `condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
 | **Feedback/Friction** | Signaler via Dashboard `[FRICTION]` + RooSync. Canonique = `.claude/rules/friction-protocol.md` (slim) | `feedback-process.md`, `friction-protocol-detailed.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |
