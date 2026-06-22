@@ -172,6 +172,11 @@ mcps/external/win-cli/server/node_modules/
 # Claude Code worktrees (machine-specific, created by Claude Code Desktop)
 .claude/worktrees/
 
+# Orphan worktree dirs created under the submodule path (anti-nested-worktree
+# violation #2123 — e.g. mcps/wt-deadpath-partial-warning/). Machine-local
+# leftovers; ignore so they don't pollute `git status` fleet-wide.
+mcps/wt-*/
+
 # Claude Code temporary working directories
 tmpclaude-*/
 
