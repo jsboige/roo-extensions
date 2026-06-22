@@ -131,7 +131,39 @@ IMPORTANT : utilise win-cli MCP (pas le terminal natif).
 
 **Si problème détecté :** Poster `[FRICTION-FOUND]` sur dashboard workspace avec description. NE PAS corriger.
 
-→ **Etape 2a** ou **Etape 2b** (selon dashboard)
+→ **Etape 1f** (détection silent-crash, non-bloquante) puis **Etape 2a/2b** (selon dashboard)
+
+### Etape 1f : Détection Silent-Crash (Coordinateur uniquement, NON-BLOQUANT)
+
+> **Issue #2633** (user-APPROVED 2026-06-22) — guard **detection-only**. Un task Roo qui démarre mais crash silencieusement au démarrage (hang provider Roo/GLM — root-cause = investigation provider INTERACTIVE-ONLY **séparée**) laisse une trace `ui_messages.json` **< 5 KB (5120 octets) sans événement `api_req_ended`**. Cette étape **détecte** la signature et alerte sur le dashboard ; elle **ne corrige jamais** (pas de restart, pas d'auto-fix, aucun changement de comportement du scheduler).
+
+**DELEGUER** a `code-simple` via `new_task` :
+
+```
+REGLE ABSOLUE: JAMAIS demander a l'utilisateur, JAMAIS poser de question, JAMAIS demander confirmation. Agis directement.
+
+Détection SILENT_CRASH — lecture seule stricte sur les traces. Auto-fix INTERDIT.
+
+1. Détection (dernier task) :
+   execute_command(shell="powershell", command=". 'scripts/common/extension-paths.ps1'; $tasksDir = Join-Path (Get-GlobalStoragePath -Extension RooCode) 'tasks'; $latest = Get-ChildItem $tasksDir -Directory -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1; if (-not $latest) { 'NO_TASKS'; exit }; $ui = Join-Path $latest.FullName 'ui_messages.json'; if (-not (Test-Path $ui)) { 'NO_UI_FILE'; exit }; $size = (Get-Item $ui).Length; $content = Get-Content $ui -Raw -ErrorAction SilentlyContinue; $hasEnded = [bool]($content -match 'api_req_ended'); \"TASK=$($latest.Name) SIZE=$size HAS_API_REQ_ENDED=$hasEnded\"")
+
+2. Décision (detection-only, JAMAIS auto-fix) :
+   - Si SIZE < 5120 ET HAS_API_REQ_ENDED=False → signature SILENT_CRASH détectée :
+     a. Lire le dashboard workspace (roosync_dashboard action read) et chercher un message tagué 'SILENT_CRASH' de moins de 4h.
+     b. S'il en existe un (< 4h) → 2+ consécutifs → poster [WARN] :
+        roosync_dashboard(action: "append", type: "workspace", tags: ["WARN", "SILENT_CRASH", "roo-scheduler"], content: "### [SILENT_CRASH] Roo scheduler — 2+ cycles consécutifs\n- Dernier task {TASK} : ui_messages.json {SIZE} octets, aucun api_req_ended\n- Signature : Roo démarré mais appel API provider jamais complété (hang startup Roo/GLM)\n- Root-cause = investigation provider INTERACTIVE-ONLY (séparée), pas d'auto-fix ici\n- Action suggérée (humain) : relancer VS Code / vérifier le provider Roo")
+     c. Sinon (1er consécutif) → poster traçabilité seule (sans WARN) :
+        roosync_dashboard(action: "append", type: "workspace", tags: ["INFO", "SILENT_CRASH", "roo-scheduler"], content: "[SILENT_CRASH] 1er consécutif — task {TASK} ({SIZE} octets, pas d'api_req_ended). Surveillance active.")
+   - Sinon (SIZE >= 5120 OU HAS_API_REQ_ENDED=True) → task sain : NE RIEN POSTER.
+   - Si NO_TASKS ou NO_UI_FILE → NE RIEN POSTER.
+
+3. Rapporter : décision (WARN / INFO / rien) + TASK + SIZE + HAS_API_REQ_ENDED.
+
+INTERDIT : modifier des fichiers, restart un process, committer, pusher, corriger quoi que ce soit. Détection + alerte uniquement.
+IMPORTANT : utilise win-cli MCP (pas le terminal natif). Le compteur « consécutif » est stateless — il se déduit en relisant le dashboard (déjà lu à l'Etape 1).
+```
+
+**Cette détection n'est JAMAIS bloquante** : après l'Etape 1f, continuer normalement vers **Etape 2a/2b**. Le root-cause (hang provider Roo/GLM au démarrage) reste l'investigation INTERACTIVE-ONLY séparée ; ce guard ne fait que rendre le crash silencieux **visible** sur le dashboard.
 
 ### Etape 2a : Executer les taches du Dashboard Workspace
 
