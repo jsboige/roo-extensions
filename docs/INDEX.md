@@ -558,7 +558,7 @@ coordination/ (3), issues/ (1), reports/ (9), sessions/ (1), plus 3 fichiers rac
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `ISSUE-543-SESSION-SUMMARY.md` | Resume session issue #543 | active |
-| `RAPPORT-BUG-CRITIQUE-QUICKFILES.md` | Investigation bug critique QuickFiles | active |
+| `RAPPORT-BUG-CRITIQUE-QUICKFILES.md` | Investigation bug critique QuickFiles (MCP retiré, corrigé 2025-11 — historique) | historical |
 | `audit-disque-web1-2026-04-28.md` | Audit pression disque web1 (issue #1807) | active |
 | `issue-543-final-report.md` | Rapport final harmonisation (issue #543) | active |
 | `issue-572-audit-summary.md` | Resume investigation issue #572 | active |
