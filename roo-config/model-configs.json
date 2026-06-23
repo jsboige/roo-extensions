@@ -1,8 +1,8 @@
 {
   "profiles": [
     {
-      "name": "Production (Qwen 3.5 local + GLM-5.1 cloud)",
-      "description": "Configuration de production: Qwen 3.5 35B A3B auto-hébergé pour modes simples (économique) + GLM-5.1 via z.ai pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = z.ai.",
+      "name": "Production (Qwen 3.6 local + GLM-5.1 cloud)",
+      "description": "Configuration de production: Qwen 3.6 35B A3B auto-hébergé pour modes simples (économique) + GLM-5.1 via z.ai pour modes complexes. Profil 'simple' = endpoint medium tgwui, Profil 'default' = z.ai.",
       "modeOverrides": {
         "code-simple": "simple",
         "code-complex": "default",
