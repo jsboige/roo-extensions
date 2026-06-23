@@ -227,7 +227,7 @@ Close issue #485 - sk-agent exploit      → Issue #485
 - Fallback automatique vers vLLM si échec
 
 **Mode vLLM (fallback) :**
-- Endpoint : `http://localhost:5002/v1` (Qwen3.5-35B-AWQ)
+- Endpoint : `http://localhost:5002/v1` (qwen3.6-35b-a3b)
 - API OpenAI-compatible
 - Pas de dépendance sk-agent
 
