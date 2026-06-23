@@ -28,7 +28,7 @@
 | Agent | Model | Tools | Special |
 |-------|-------|-------|---------|
 | analyst | glm-4.7-flash | searxng | default, memory |
-| vision-analyst | zwz-8b | - | vision, local |
+| vision-analyst | glm-4.6v | - | vision (cloud) |
 | fast | glm-4.7-flash-fast | - | no thinking, 1-5s |
 | researcher | glm-4.7-flash | searxng | memory |
 | synthesizer | glm-4.7-flash | - | reports |
@@ -119,7 +119,6 @@ venv/Scripts/pip install -r requirements.txt
 | Service | URL | Port |
 |---------|-----|------|
 | HTTP endpoint | `https://skagents.myia.io/mcp` | 443 (IIS) -> 8100 |
-| vLLM mini (zwz-8b) | `https://api.mini.text-generation-webui.myia.io/v1` | 5001 |
 | vLLM medium (glm-4.7-flash) | `https://api.medium.text-generation-webui.myia.io/v1` | 5002 |
 | OWUI API | `https://open-webui.myia.io/openai` | 2090 |
 | Embeddings | `https://embeddings.myia.io/v1` | - |
