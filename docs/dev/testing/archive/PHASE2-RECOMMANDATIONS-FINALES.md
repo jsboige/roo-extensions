@@ -298,15 +298,15 @@ await redis.setex(`embedding:${hash}`, 604800, JSON.stringify(embedding));
 ### Rapports et Documentation
 
 3. **Rapport Phase 1 Complet** ✅
-   - Fichier : [`docs/testing/reports/phase1-unitaires-20251016-0256-COMPLET.md`](reports/phase1-unitaires-20251016-0256-COMPLET.md:1)
+   - Fichier : [`docs/testing/reports/phase1-unitaires-20251016-0256-COMPLET.md`](reports/phase1-unitaires-20251016-0256-COMPLET.md)
    - Contenu : 4 tests unitaires, corrections appliquées, verdict GO Phase 2
 
 4. **Rapport Phase 2 Brut** ✅
-   - Fichier : [`docs/testing/reports/phase2-charge-2025-10-16T01-58.md`](reports/phase2-charge-2025-10-16T01-58.md:1)
+   - Fichier : [`docs/testing/reports/phase2-charge-2025-10-16T01-58.md`](reports/phase2-charge-2025-10-16T01-58.md)
    - Contenu : Métriques détaillées 3 batches, tables comparatives
 
 5. **Analyse Détaillée Phase 2** ✅
-   - Fichier : [`docs/testing/reports/phase2-charge-2025-10-16T01-58-ANALYSE.md`](reports/phase2-charge-2025-10-16T01-58-ANALYSE.md:1)
+   - Fichier : [`docs/testing/reports/phase2-charge-2025-10-16T01-58-ANALYSE.md`](reports/phase2-charge-2025-10-16T01-58-ANALYSE.md)
    - Contenu : Analyse approfondie, justifications critères, recommandations
 
 6. **Plan de Tests Mis à Jour** ✅
@@ -314,7 +314,7 @@ await redis.setex(`embedding:${hash}`, 604800, JSON.stringify(embedding));
    - Contenu : Critères ajustés, statut phases, procédures
 
 7. **Ce Document - Recommandations Finales** ✅
-   - Fichier : [`docs/testing/PHASE2-RECOMMANDATIONS-FINALES.md`](PHASE2-RECOMMANDATIONS-FINALES.md:1)
+   - Fichier : [`docs/testing/PHASE2-RECOMMANDATIONS-FINALES.md`](PHASE2-RECOMMANDATIONS-FINALES.md)
    - Contenu : Synthèse, décisions, actions, monitoring
 
 ---
