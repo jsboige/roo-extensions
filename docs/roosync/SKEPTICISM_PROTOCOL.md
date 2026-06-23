@@ -94,7 +94,7 @@ Pour les verifications de Niveau 1, consulter :
 | Contraintes machine | RAM, OS, limitations | `.claude/rules/myia-web1-constraints.md` |
 
 **Fait critique :**
-- Les modeles LLM (Qwen 3.5, GLM-5, ZwZ-8B) tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs
+- Les modeles LLM (GLM-5.2, Qwen3.6-35B) tournent sur **ai-01 via API** (vLLM ou z.ai), pas localement sur les executeurs
 - La charge compute LLM est sur le provider, PAS sur la machine qui fait la requete
 - Les MCPs tournent localement, mais les modeles sont distants
 

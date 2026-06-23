@@ -352,7 +352,7 @@ When `intercom.messages.length > 500`:
 ```bash
 OPENAI_API_KEY=your-api-key
 OPENAI_BASE_URL=https://api.medium.text-generation-webui.myia.io/v1
-OPENAI_CHAT_MODEL_ID=qwen3.5-35b-a3b
+OPENAI_CHAT_MODEL_ID=qwen3.6-35b-a3b
 ```
 
 **Summary format:**
