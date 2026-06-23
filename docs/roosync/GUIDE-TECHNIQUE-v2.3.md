@@ -2128,7 +2128,7 @@ Le wrapper intelligent filtre les outils exposes a Claude Code pour eviter la su
 
 ### 14.3 MCPs disponibles dans l'ecosysteme
 
-**MCPs internes (6) :** roo-state-manager, github-projects-mcp (deprecie), jinavigator-server, jupyter-papermill-mcp, quickfiles-server, jupyter-mcp-server (obsolete)
+**MCPs internes (8) :** roo-state-manager, sk-agent, jinavigator-server, jupyter-papermill-mcp-server, open-terminal-mcp, jupyter-mcp-server (archive), github-projects-mcp (deprecie), quickfiles-server (deprecie)
 
 **MCPs externes (12) :** filesystem, git, github, searxng, docker, jupyter, markitdown, win-cli, mcp-server-ftp, markitdown/source, playwright/source
 
