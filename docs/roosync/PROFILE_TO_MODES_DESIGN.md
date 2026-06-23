@@ -40,7 +40,7 @@ The profile-to-modes workflow allows propagating model configuration changes (e.
 ```json
 {
   "profiles": [{
-    "name": "Production (Qwen 3.5 local + GLM-5.1 cloud)",
+    "name": "Production (Qwen 3.6 local + GLM-5.1 cloud)",
     "description": "...",
     "modeOverrides": {
       "code-simple": "simple",
@@ -156,7 +156,7 @@ Phase 1 focuses on **cross-machine automated propagation** — the single most i
 {
   action: "send",
   to: "all",
-  subject: "[DEPLOY_PROFILE] Production (Qwen 3.5 local + GLM-5.1 cloud)",
+  subject: "[DEPLOY_PROFILE] Production (Qwen 3.6 local + GLM-5.1 cloud)",
   body: "Profile updated: qwen3.6-35b-a3b → qwen3.7-35b-a3b. Apply with: roosync_config(action='apply_profile', profileName='Production...')",
   priority: "HIGH",
   tags: ["DEPLOY_PROFILE", "config-change"]

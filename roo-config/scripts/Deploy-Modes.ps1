@@ -19,7 +19,7 @@
     Source .roomodes file. Default: roo-config/modes/generated/simple-complex.roomodes
 
 .PARAMETER ApiProfile
-    API profile to apply from model-configs.json (e.g., "Production (Qwen 3.5 local + GLM-5.1 cloud)")
+    API profile to apply from model-configs.json (e.g., "Production (Qwen 3.6 local + GLM-5.1 cloud)")
 
 .PARAMETER SyncApiConfigs
     Sync API configs from model-configs.json to Roo VS Code settings after deployment
@@ -36,7 +36,7 @@
     Deploy to VS Code global settings (custom_modes.yaml, YAML)
 
 .EXAMPLE
-    .\Deploy-Modes.ps1 -DeploymentType global -ApiProfile "Production (Qwen 3.5 local + GLM-5.1 cloud)" -SyncApiConfigs
+    .\Deploy-Modes.ps1 -DeploymentType global -ApiProfile "Production (Qwen 3.6 local + GLM-5.1 cloud)" -SyncApiConfigs
     Deploy modes with profile and sync API configs to Roo settings
 
 .EXAMPLE
