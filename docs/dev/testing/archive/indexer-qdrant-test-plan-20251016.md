@@ -7,7 +7,7 @@
 > **📊 MISE À JOUR POST-PHASE 2** (2025-10-16T03:58):
 > Les tests de charge Phase 2 sont complétés avec succès (1600 documents).
 > Critères de latence P95 ajustés suite aux résultats empiriques.
-> Voir: [`phase2-charge-2025-10-16T01-58-ANALYSE.md`](reports/phase2-charge-2025-10-16T01-58-ANALYSE.md:1)
+> Voir: [`phase2-charge-2025-10-16T01-58-ANALYSE.md`](reports/phase2-charge-2025-10-16T01-58-ANALYSE.md)
 
 ---
 
