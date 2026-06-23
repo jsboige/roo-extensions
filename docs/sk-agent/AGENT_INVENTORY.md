@@ -27,7 +27,7 @@
 |----|-------|--------|-------|--------|-------------|
 | analyst | glm-5 | No | searxng, playwright | Yes | General analyst with web search and memory |
 | vision-analyst | glm-4.6v | Yes | searxng | No | Image and document analysis specialist |
-| vision-local | zwz-8b | Yes | - | No | Fast local fine-grained vision (135 tok/s) |
+| vision-local | *(décommissionné)* | Yes | - | No | Local fine-grained vision (zwz-8b retiré ~2026-03) |
 | fast | glm-4.7-flash-fast | No | - | No | Quick responses (1-5s), no tools |
 
 ### Category 2: Deep Search Agents (3 agents)
@@ -72,7 +72,7 @@
 |----|----------|---------|--------|--------|-------------|
 | glm-5 | z.ai Cloud | 200K | No | Enabled | GLM-5 reasoning via z.ai cloud |
 | glm-4.6v | z.ai Cloud | 128K | Yes | Enabled | GLM-4.6V vision via z.ai cloud |
-| zwz-8b | Local vLLM | 131K | Yes | Disabled | ZwZ-8B AWQ - 135 tok/s |
+| zwz-8b | Local vLLM | 131K | Yes | Decommissioned | ZwZ-8B AWQ - 135 tok/s (retiré ~2026-03) |
 | qwen3.5-35b-a3b | Local vLLM | 262K | Yes | Disabled | Qwen3.5 35B MoE AWQ - 86 tok/s |
 | glm-4.7-flash-fast | OWUI | 131K | No | Disabled | GLM-4.7-Flash AWQ via OWUI |
 | owui-expert-analyste | OWUI | 131K | No | Disabled | OWUI custom model |
@@ -139,7 +139,7 @@
 | Service | URL |
 |---------|-----|
 | HTTP endpoint | https://skagents.myia.io/mcp |
-| vLLM mini (zwz-8b) | https://api.mini.text-generation-webui.myia.io/v1 |
+| vLLM mini (zwz-8b) — *décommissionné ~2026-03* | https://api.mini.text-generation-webui.myia.io/v1 |
 | vLLM medium (qwen3.5) | https://api.medium.text-generation-webui.myia.io/v1 |
 | OWUI API | https://open-webui.myia.io/openai |
 | Embeddings | https://embeddings.myia.io/v1 |
