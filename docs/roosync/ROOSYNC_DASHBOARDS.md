@@ -1,7 +1,8 @@
 # RooSync Dashboards - Documentation
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 **Created:** 2026-03-18
+**Updated:** 2026-06-23
 **Issue:** #675
 **Tool:** `roosync_dashboard`
 
@@ -21,12 +22,13 @@ Shared markdown dashboards for cross-machine and cross-workspace collaboration. 
 
 ## Dashboard Types
 
-| Type | Scope | Key | Replaces |
-|------|-------|-----|---------|
-| `global` | All machines, all workspaces | `global` | — |
-| `machine` | One machine, all its workspaces | `machine-{machineId}` | — |
-| `workspace` | One workspace, all machines | `workspace-{workspaceName}` | — |
-| `workspace+machine` | One machine + one workspace | `workspace-{name},machine-{id}` | **INTERCOM** ⭐ |
+| Type | Scope | Key |
+|------|-------|-----|
+| `global` | All machines, all workspaces | `global` |
+| `machine` | One machine, all its workspaces | `machine-{machineId}` |
+| `workspace` | One workspace, all machines | `workspace-{workspaceName}` |
+
+> **Removed (#836):** A fourth `workspace+machine` type (one machine + one workspace) previously existed. Only the 3 types above are valid now. The `workspace` type is the channel for cross-machine coordination (replacing local INTERCOM files).
 
 ### Storage Location
 
@@ -35,7 +37,6 @@ Shared markdown dashboards for cross-machine and cross-workspace collaboration. 
   global.json
   machine-{machineId}.json
   workspace-{workspaceName}.json
-  workspace-{workspaceName},machine-{machineId}.json
   archive/
     {key}-{datetime}.json
 ```
@@ -51,7 +52,7 @@ Read a dashboard (full or by section).
 ```typescript
 roosync_dashboard({
   action: 'read',
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
+  type: 'global' | 'machine' | 'workspace',
   machineId?: string,      // Default: local machine (ROOSYNC_MACHINE_ID env var)
   workspace?: string,      // Default: local workspace (ROOSYNC_WORKSPACE_ID env var)
   section?: 'status' | 'intercom' | 'all',  // Default: 'all'
@@ -81,7 +82,7 @@ Overwrite the `status` section (diff-style edit).
 ```typescript
 roosync_dashboard({
   action: 'write',
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
+  type: 'global' | 'machine' | 'workspace',
   content: string,          // New markdown content (replaces status.markdown)
   author?: Author,          // Default: local machine
   createIfNotExists?: boolean  // Default: true
@@ -95,7 +96,7 @@ Append a message to the `intercom` section (FIFO queue).
 ```typescript
 roosync_dashboard({
   action: 'append',
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
+  type: 'global' | 'machine' | 'workspace',
   content: string,          // Message content (markdown)
   tags?: string[],          // Optional: ['INFO', 'WARN', 'ERROR', 'TASK', 'DONE']
   author?: Author,          // Default: local machine
@@ -105,19 +106,9 @@ roosync_dashboard({
 
 **Auto-condensation:** When the dashboard file exceeds 50KB, old messages are archived automatically (keeping the 10 most recent). LLM-based intelligent summary is generated before archiving (#858).
 
-### Action: `condense`
+### Action: `condense` — REMOVED
 
-Manually condense intercom messages (archive old, keep recent).
-
-```typescript
-roosync_dashboard({
-  action: 'condense',
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
-  keepMessages?: number     // Messages to keep (default: 100)
-})
-```
-
-**Returns:** `{ condensed: boolean, archivedCount: number }`
+The manual `condense` action has been **removed from the schema**. Condensation is now **automatic and preemptive** at 92% utilization (~46 KB of the 50 KB threshold): old messages are archived with an LLM-generated summary, keeping the most recent messages. No manual intervention is needed (or possible). See `.claude/rules/intercom-protocol.md` for the current behavior.
 
 ### Action: `list`
 
@@ -137,7 +128,7 @@ Delete a dashboard by key.
 ```typescript
 roosync_dashboard({
   action: 'delete',
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
+  type: 'global' | 'machine' | 'workspace',
   machineId?: string,
   workspace?: string
 })
@@ -173,7 +164,7 @@ roosync_dashboard({
 
 ```typescript
 {
-  type: 'global' | 'machine' | 'workspace' | 'workspace+machine',
+  type: 'global' | 'machine' | 'workspace',
   key: string,
   lastModified: string,   // ISO 8601
   lastModifiedBy: Author,
@@ -268,44 +259,9 @@ roosync_dashboard({
 })
 ```
 
-### 3. INTERCOM Local Replacement (workspace+machine)
+### 3. INTERCOM Local Replacement
 
-The `workspace+machine` dashboard is the intended replacement for the local INTERCOM files (`INTERCOM-{MACHINE}.md`).
-
-```typescript
-// Claude writes a task for Roo (replaces writing to INTERCOM file)
-roosync_dashboard({
-  action: 'append',
-  type: 'workspace+machine',
-  content: '## [TASK] Issue #656 Phase 3\n\nPlease run the idle consolidation task...',
-  tags: ['TASK'],
-  author: { machineId: 'myia-po-2025', workspace: 'roo-extensions' }
-})
-
-// Roo reads recent messages (replaces reading the INTERCOM file)
-roosync_dashboard({
-  action: 'read',
-  type: 'workspace+machine',
-  section: 'intercom',
-  intercomLimit: 20
-})
-
-// Roo replies
-roosync_dashboard({
-  action: 'append',
-  type: 'workspace+machine',
-  content: '## [DONE] Task completed\n\nExecuted idle consolidation. Results: ...',
-  tags: ['DONE'],
-  author: { machineId: 'myia-po-2025', workspace: 'roo-extensions' }
-})
-
-// Claude updates persistent session status
-roosync_dashboard({
-  action: 'write',
-  type: 'workspace+machine',
-  content: '# Session en cours\n\n**Issue:** #675 Phase 4\n**Status:** Documentation\n',
-})
-```
+> **Superseded (#836):** This section previously documented the `workspace+machine` type, which was removed. Cross-machine coordination within a workspace now uses the `workspace` type (see examples 1 and 2 above). Local INTERCOM files (`INTERCOM-{MACHINE}.md`) are a deprecated fallback, used only when the dashboard MCP is unavailable.
 
 ### 4. Archive Management
 
@@ -321,13 +277,6 @@ roosync_dashboard({
   action: 'read_archive',
   type: 'global',
   archiveFile: 'global-2026-03-18T10-30-00.json'
-})
-
-// Manually condense if intercom is getting large
-roosync_dashboard({
-  action: 'condense',
-  type: 'workspace+machine',
-  keepMessages: 50
 })
 ```
 
@@ -397,7 +346,7 @@ OPENAI_CHAT_MODEL_ID=qwen3.6-35b-a3b
 ---
 ```
 
-**Manual condensation** is also available via `action: 'condense'` with custom `keepMessages`.
+Condensation is **automatic only** — the manual `action: 'condense'` was removed from the schema.
 
 ---
 
@@ -416,7 +365,7 @@ These are set in the `.env` file of the roo-state-manager server.
 **Phase 5 of issue #675** will handle the full migration. Until then:
 - Local INTERCOM files (`INTERCOM-{MACHINE}.md`) remain the primary channel
 - Dashboards can be used in parallel for cross-machine visibility
-- `workspace+machine` type is the direct replacement for INTERCOM
+- The `workspace` type is the direct replacement for INTERCOM (the `workspace+machine` type was removed in #836)
 
 **Key differences vs INTERCOM files:**
 
@@ -439,5 +388,5 @@ These are set in the `.env` file of the roo-state-manager server.
 
 ---
 
-**Last updated:** 2026-03-18
+**Last updated:** 2026-06-23
 **Maintainer:** RooSync Multi-Agent Team
