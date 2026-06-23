@@ -153,7 +153,7 @@ Status: ✅ PASS
 ### For Production Use
 1. **Monitor API usage:** Track z.ai token consumption
 2. **Cache optimization:** 97% cache hit rate is excellent - maintain this
-3. **Local models:** Consider enabling zwz-8b for faster vision processing
+3. **Local models:** Consider enabling zwz-8b for faster vision processing — ⚠️ **[DÉCOMMISSIONNÉ ~2026-03, PR #2659]** zwz-8b retiré du fleet ; le modèle vision actif est glm-4.6v (cloud). Ce conseil est obsolète.
 4. **Error handling:** Implement retry logic for API failures
 
 ### For Development
