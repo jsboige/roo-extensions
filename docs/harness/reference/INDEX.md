@@ -32,6 +32,7 @@
 |----------|-----------|--------|
 | **Test Success Rates** | 99.8% (ai-01), 99.6% (autres). Toujours `npx vitest run`. Tronquer output scheduler. | `test-success-rates.md` |
 | **Worktree Cleanup** | Script cleanup orphelins + branches stale. Lifecycle complet (v2.0 — v1.0 archivée) | `worktree-cleanup.md` |
+| **MCP stdio zombie cleanup** | Kill node/cmd zombies spawnés via `npx` qui ont survécu à leur hôte VS Code (#2675 — fenêtres fantômes + worktrees lockés). Dry-run default, protect live Code.exe ancestors. `scripts/maintenance/cleanup-mcp-stdio-zombies.ps1` + `install-mcp-zombie-cleanup-schtask.ps1` (daily 03:15) | — |
 
 ## Coordination & Scheduler
 
