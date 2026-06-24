@@ -352,7 +352,7 @@ Le système supporte le transfert de fichiers entre machines via des pièces joi
       "required": true
     },
     {
-      "path": "roo-config/mcp_settings.json",
+      "path": "config/mcp_settings.json",
       "sha256": "def456...",
       "size": 12345,
       "lastModified": "2025-12-27T10:00:00Z",
@@ -997,7 +997,7 @@ Voir section 2.2 ci-dessus.
 
 #### Contexte de Consolidation
 
-**Problématique identifiée** : 2 versions distinctes du script `sync_roo_environment.ps1` (`../../RooSync/sync_roo_environment.ps1`) avec des fonctionnalités complémentaires.
+**Problématique identifiée** : 2 versions distinctes du script `sync_roo_environment.ps1` (script consolidé désormais à `roo-config/scripts/run-config-sync.ps1`) avec des fonctionnalités complémentaires.
 
 | Aspect | Version A (RooSync/) | Version B (scheduler/) | v2.3 Consolidé |
 |--------|---------------------|------------------------|----------------|
@@ -1043,7 +1043,7 @@ RooSync/
 ```
 
 **Migration nécessaire** :
-- Mettre à jour `roo-config/scheduler/config.json`
+- Mettre à jour `.roo/schedules.json`
 - Mettre à jour `daily-orchestration.json`
 - Modifier Task Scheduler Windows (chemin d'exécution)
 
