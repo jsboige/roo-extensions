@@ -33,9 +33,13 @@
 .PARAMETER Execute
     Actually kill the candidate zombies. Without this flag, only reports (dry-run).
 
-.PARAMETER CodeProcessName
-    Name of the VS Code editor process used to detect a live host ancestor.
-    Default: 'Code.exe'. Set to 'Code - Insiders.exe' for Insiders builds.
+.PARAMETER HostProcessNames
+    Comma-separated names of the editor/CLI host processes that count as a "live
+    ancestor". MCP stdio servers are spawned by BOTH the VS Code extension host
+    (`Code.exe`) AND the Claude Code CLI (`claude.exe` — `claude -p` workers +
+    scheduled tasks), so both must be recognized to keep the "never kill a live
+    MCP server" invariant true (review po-2024, 2026-06-24). Default:
+    'Code.exe,claude.exe'. Add 'Code - Insiders.exe' for Insiders builds.
 
 .PARAMETER LogPath
     Path for log output. Defaults to outputs/cleanup-mcp-zombies-{timestamp}.log
@@ -63,7 +67,7 @@
 param(
     [double]$MinAgeHours = 18,
     [switch]$Execute,
-    [string]$CodeProcessName = 'Code.exe',
+    [string]$HostProcessNames = 'Code.exe,claude.exe',
     [string]$RepoRoot,
     [string]$LogPath
 )
@@ -92,7 +96,10 @@ function Write-Log {
 Write-Log "=== MCP stdio zombie cleanup (#2675) ==="
 Write-Log "Mode: $(if ($Execute) { 'EXECUTE' } else { 'DRY-RUN' })"
 Write-Log "MinAgeHours: $MinAgeHours"
-Write-Log "CodeProcessName (live-host ancestor): $CodeProcessName"
+
+# Parse the host-name set (comma-separated) into a lookup set for case-insensitive matching.
+$hostNames = @($HostProcessNames -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+Write-Log "Live-host ancestor names: $($hostNames -join ', ')"
 Write-Log ""
 
 # Single CIM call: enumerate every process once with the fields we need.
@@ -105,29 +112,34 @@ foreach ($p in $allProcs) { $procIndex[[int]$p.ProcessId] = $p }
 Write-Log "  Indexed $($allProcs.Count) processes."
 Write-Log ""
 
-# Build the live Code.exe PID set once (cheap membership test for the ancestor walk).
-$codePids = @($allProcs | Where-Object { $_.Name -ieq $CodeProcessName } | ForEach-Object { [int]$_.ProcessId })
-Write-Log "  Live $CodeProcessName instances: $($codePids.Count)"
+# Build the live host PID set once (cheap membership test for the ancestor walk).
+# Covers BOTH VS Code (Code.exe) AND the Claude Code CLI (claude.exe — `claude -p`
+# workers + scheduled tasks), so an MCP server hosted by either is recognized as live.
+$hostPids = @($allProcs | Where-Object { $hostNames -icontains $_.Name } | ForEach-Object { [int]$_.ProcessId })
+foreach ($hn in $hostNames) {
+    $cnt = @($allProcs | Where-Object { $_.Name -ieq $hn }).Count
+    Write-Log "  Live $hn instances: $cnt"
+}
+Write-Log "  Combined live-host PID set: $($hostPids.Count)"
 
-# Walk the parent chain from a PID; return $true if a live Code.exe ancestor is reached.
-# Cycle-safe (visited set). Returns $false if the chain dead-ends or cycles without Code.exe.
-function Test-HasLiveCodeAncestor {
-    param([int]$StartPid, [hashtable]$Index, [int[]]$LiveCodePids)
+# Walk the parent chain from a PID; return $true if a live host ancestor is reached.
+# Cycle-safe (visited set). Returns $false if the chain dead-ends or cycles without a live host.
+function Test-HasLiveHostAncestor {
+    param([int]$StartPid, [hashtable]$Index, [int[]]$LiveHostPids)
     $visited = @{}
     $current = $StartPid
     $hops = 0
     while ($current -gt 0 -and -not $visited.ContainsKey($current) -and $hops -lt 64) {
         $visited[$current] = $true
         $hops++
-        if ($LiveCodePids -contains $current) { return $true }
+        if ($LiveHostPids -contains $current) { return $true }
         if (-not $Index.ContainsKey($current)) { return $false }  # parent gone
         $current = [int]$Index[$current].ParentProcessId
     }
-    return $false  # cycle or hit hop cap without finding Code.exe -> treat as orphaned
+    return $false  # cycle or hit hop cap without finding a live host -> treat as orphaned
 }
 
 # Candidate MCP stdio processes: node.exe / cmd.exe whose CommandLine matches npx|mcp-
-$threshold = (Get-Date).AddHours(-$MinAgeHours)
 $candidates = @()
 $skippedYoung = @()
 $skippedLiveHost = @()
@@ -148,7 +160,7 @@ foreach ($p in $allProcs) {
         continue
     }
     # Old enough -> verify the host ancestor is actually gone before flagging as zombie
-    $hasLiveHost = Test-HasLiveCodeAncestor -StartPid ([int]$p.ProcessId) -Index $procIndex -LiveCodePids $codePids
+    $hasLiveHost = Test-HasLiveHostAncestor -StartPid ([int]$p.ProcessId) -Index $procIndex -LiveHostPids $hostPids
     if ($hasLiveHost) {
         $skippedLiveHost += [PSCustomObject]@{ Pid = $p.ProcessId; Name = $p.Name; AgeHours = [math]::Round($ageHours, 1); CmdShort = ($cmd.Substring(0, [math]::Min(80, $cmd.Length))) }
         continue
@@ -164,13 +176,13 @@ foreach ($p in $allProcs) {
 
 Write-Log "MCP stdio candidates (node/cmd matching npx|mcp-):"
 Write-Log "  Killed-on-Execute (zombies, no live host, > ${MinAgeHours}h): $($candidates.Count)"
-Write-Log "  Skipped (live Code.exe ancestor):  $($skippedLiveHost.Count)"
+Write-Log "  Skipped (live host ancestor):  $($skippedLiveHost.Count)"
 Write-Log "  Skipped (< ${MinAgeHours}h, too young):  $($skippedYoung.Count)"
 Write-Log "  Not matching (node/cmd without npx|mcp-): $notMatching"
 Write-Log ""
 
 if ($skippedLiveHost.Count -gt 0) {
-    Write-Log "--- Skipped: live $CodeProcessName ancestor (active session, PROTECTED) ---"
+    Write-Log "--- Skipped: live host ancestor (active session, PROTECTED) ---"
     foreach ($s in $skippedLiveHost | Sort-Object AgeHours -Descending) {
         Write-Log ("  PID {0,-7} {1,-9} {2,6}h  {3}" -f $s.Pid, $s.Name, $s.AgeHours, $s.CmdShort)
     }
