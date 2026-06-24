@@ -995,6 +995,10 @@ Voir section 2.2 ci-dessus.
 
 ### 4.3 Stratégie de Fusion Scripts
 
+> ⚠️ **Section historique (Consolidation v2.3, `bce9b756`)** — Ce récit décrit la fusion originelle des scripts `sync_roo_environment.ps1` (versions A `RooSync/` + B `scheduler/`) en une v2.3 consolidée. Les chemins ci-dessous (`RooSync/`, `roo-config/scheduler/config.json`, `daily-orchestration.json`, l'arborescence proposée) sont des **sources/plans historiques** qui ne résolvent plus dans l'arborescence courante (le dir `RooSync/` a été supprimé lors d'archivages ultérieurs `9e4edf49`).
+>
+> **État courant réel :** la logique de sync vit dans `roo-config/scripts/` (`run-config-sync.ps1`, `Sync-AlwaysAllow.ps1`, `Sync-ApiConfigs.ps1`) + le config scheduler dans `.roo/schedules.json` (ne jamais modifier directement — sources + régénérer, voir `CLAUDE.md`). Cette section est conservée comme **trace de décision**, pas comme référence de chemins exécutables.
+
 #### Contexte de Consolidation
 
 **Problématique identifiée** : 2 versions distinctes du script `sync_roo_environment.ps1` (`../../RooSync/sync_roo_environment.ps1`) avec des fonctionnalités complémentaires.
