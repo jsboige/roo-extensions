@@ -24,6 +24,7 @@
 | **PR Trivial Merge Policy** | Patterns eligibles, diff constraints, procedure, garde-fous (#1582) | `pr-trivial-merge-policy.md` |
 | **MCP Diagnosis (procedure)** | Healthcheck, architecture chain, diagnostic par couche (procedure complete) | `mcp-diagnosis-procedure.md` |
 | **Restart-on-Saturation (#2578)** | Empty-response detection + auto-restart worker. Traces SANCTUARY (no GC, no delete) | `restart-on-saturation.md` |
+| **Context Explosion (#2577)** | Diagnostic, non-destructive archive, dedup detection for large sessions | `context-explosion-runbook.md` |
 
 ## Quality & CI
 

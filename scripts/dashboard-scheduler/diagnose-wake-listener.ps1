@@ -31,7 +31,8 @@
 
 param(
     [switch]$Json,
-    [int]$StaleSeconds = 7200
+    [int]$StaleSeconds = 7200,
+    [switch]$Alert
 )
 
 $ErrorActionPreference = "Continue"
@@ -142,4 +143,31 @@ switch ($verdict) {
     "ALIVE"         { Write-Output "Verdict: **ALIVE** — listener heartbeat fresh / task running." }
     "DEAD"          { Write-Output "Verdict: **DEAD** — task State=$taskState, heartbeat stale (>$StaleSeconds s). [INTERACTIVE-ONLY] elevated re-install needed: ``install-dashboard-listener-schtask.ps1``." }
     "NOT_INSTALLED" { Write-Output "Verdict: **NOT_INSTALLED** — no ``$taskName`` task. [INTERACTIVE-ONLY] elevated install needed: ``install-dashboard-listener-schtask.ps1``." }
+}
+
+# ---------- Auto-alert (issue #2576) ----------
+# When -Alert is set and verdict is DEAD/NOT_INSTALLED, append a [WARN] to the
+# local workspace dashboard so the next RooSync cycle picks it up.
+# This is the "alerting proactif" recommendation from #2576.
+if ($Alert -and $verdict -in @("DEAD", "NOT_INSTALLED")) {
+    $localDashDir = Join-Path $RepoRoot ".claude\workspaces"
+    $localDashFile = Join-Path $localDashDir "workspace-$MachineId.md"
+    $alertLine = "[WARN] $nowUtc `[$verdict`] $machineId listener $(if ($verdict -eq 'DEAD') { 'DEAD — heartbeat stale' } else { 'NOT INSTALLED' }). [INTERACTIVE-ONLY] install needed: install-dashboard-listener-schtask.ps1"
+
+    if (Test-Path $localDashFile) {
+        $content = Get-Content $localDashFile -Raw -Encoding UTF8
+        # Append before the Intercom section header, or at end if none
+        if ($content -match '(?ms)^## Intercom') {
+            $content = $content -replace '(?ms)(^## Intercom)', "$alertLine`r`n`r`n`$1"
+        } else {
+            $content += "`r`n$r`n$alertLine"
+        }
+        # Always write (this is the alert mode — urgency over dry-run)
+        if ($true) {
+            [System.IO.File]::WriteAllText($localDashFile, $content, [System.Text.UTF8Encoding]::new($false))
+            Write-Output "[ALERT] Appended [WARN] to $localDashFile (MCP unavailable, will sync on next RooSync cycle)"
+        }
+    } else {
+        Write-Output "[ALERT] Local dashboard not found at $localDashFile — cannot post [WARN]. Manual dashboard update needed."
+    }
 }
