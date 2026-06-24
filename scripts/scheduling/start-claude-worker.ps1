@@ -2945,6 +2945,21 @@ function Invoke-Claude {
         $NeedsEscalation = $false
         $EscalateToModel = $null  # Modèle suggéré par l'agent
         $WaitStateData = $null
+        # #2578: empty-response detection. A saturated claude -p session can return
+        # a well-formed `result` event (subtype="success") with ZERO content — no
+        # text deltas, no tool_use blocks. The honest-reporting guard at line ~3127
+        # already recognized that an empty FinalResultText is legitimate *when tool
+        # calls happened*. The case here is the opposite: empty text AND no tool
+        # calls = the gateway accepted the prompt, returned nothing, and reported
+        # success. This is the signature of session saturation crashes observed on
+        # po-2024/2025/2026 (86-100 MB sessions). When 2 consecutive iterations
+        # come back empty, we break the Ralph Wiggum loop early — burning more
+        # budget on a saturated session yields the same empty result. The next
+        # scheduled worker cycle spawns a fresh `claude -p` (clean context window)
+        # = automatic restart, with traces preserved intact on disk (sanctuary
+        # mandate 2026-06-19: jamais de GC, jamais de suppression).
+        $ConsecutiveEmptyResponses = 0
+        $EmptyResponseTotal = 0
 
         while ($Continue -and $CurrentIteration -lt $Iterations) {
             $CurrentIteration++
@@ -2964,6 +2979,7 @@ function Invoke-Claude {
                 $ParseErrorCount = 0
                 $ReceivedResultEvent = $false
                 $ResultSubtype = $null  # terminal result subtype (success | error_max_budget_usd | error_during_execution | ...)
+                $AnyContentReceived = $false  # #2578: track whether the stream produced ANY text or tool_use block
                 Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
@@ -2976,12 +2992,14 @@ function Invoke-Claude {
                                 if ($inner.content_block.type -eq "tool_use") {
                                     $CurrentToolName = $inner.content_block.name
                                     $CurrentToolInput = ""
+                                    $AnyContentReceived = $true  # #2578: tool_use counts as content
                                     Write-Host ""
                                     Write-Host "  [Tool: $CurrentToolName] " -NoNewline -ForegroundColor Cyan
                                 }
                             }
                             elseif ($inner.type -eq "content_block_delta" -and $inner.delta) {
                                 if ($inner.delta.type -eq "text_delta" -and $inner.delta.text) {
+                                    $AnyContentReceived = $true  # #2578: text counts as content
                                     Write-Host $inner.delta.text -NoNewline
                                 }
                                 elseif ($inner.delta.type -eq "input_json_delta" -and $inner.delta.partial_json) {
@@ -3023,6 +3041,26 @@ function Invoke-Claude {
                 }
                 $IterationOutputs += $FinalResultText
                 Write-Log "Iteration $CurrentIteration terminée (result: $($FinalResultText.Length) chars)"
+
+                # #2578: empty-response detection. A stream that completed cleanly
+                # (ReceivedResultEvent) but produced NEITHER text NOR tool calls is
+                # the signature of a saturated session crashing with an empty body.
+                # Distinct from ResultCutoff (subtype != success) — here the gateway
+                # claimed success, it just emitted nothing. Distinct also from
+                # legitimate tool-only iterations (AnyContentReceived=true covers those).
+                if ($ReceivedResultEvent -and $FinalResultText.Length -eq 0 -and -not $AnyContentReceived) {
+                    $ConsecutiveEmptyResponses++
+                    $EmptyResponseTotal++
+                    Write-Log "EMPTY_RESPONSE #2578 — iteration $CurrentIteration produced no content (result event OK, 0 chars text, 0 tool calls). Saturation suspected. Consecutive: $ConsecutiveEmptyResponses" "WARN"
+                    if ($ConsecutiveEmptyResponses -ge 2) {
+                        Write-Log "BREAK loop #2578 — 2 consecutive empty responses. Next scheduled worker cycle spawns a fresh session (= automatic restart). Traces preserved intact (sanctuary mandate)." "WARN"
+                        $Continue = $false
+                        # Skip the VERIFY block below — there is no OutputText to parse.
+                        continue
+                    }
+                } else {
+                    $ConsecutiveEmptyResponses = 0
+                }
             }
             catch {
                 Write-Log "Erreur exécution Claude (iteration $CurrentIteration): $_" "ERROR"
@@ -3146,6 +3184,9 @@ function Invoke-Claude {
         if ($ResultCutoff) {
             Write-Log "Result cutoff détecté — subtype: $ResultSubtype (la session a été coupée par le gateway, output probablement incomplet)" "ERROR"
         }
+        if ($EmptyResponseTotal -gt 0) {
+            Write-Log "Empty-response total #2578: $EmptyResponseTotal iteration(s) produced no content. Loop broken on 2-consecutive threshold → next scheduled cycle = fresh session (restart-on-saturation, sanctuary-safe)." "WARN"
+        }
 
         # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
@@ -3159,6 +3200,7 @@ function Invoke-Claude {
             streamValid = $StreamValid
             parseErrorCount = $ParseErrorCount
             resultSubtype = $ResultSubtype
+            emptyResponseCount = $EmptyResponseTotal
         }
     }
     catch {
@@ -3194,6 +3236,14 @@ function Check-Escalation {
         # #2571 and the Cycle 42 anti-escalation guard (subtype:"success" + empty).
         if ($Result.resultSubtype -eq "error_max_budget_usd") {
             Write-Log "Budget cutoff (subtype: $($Result.resultSubtype)) — skip escalation (same budget cap would hit again)" "WARN"
+            return $null
+        }
+        # #2578: An empty-response break (loop exited on 2 consecutive empty iterations)
+        # is a saturation signal, not a model-capability signal. Escalating haiku→sonnet
+        # would saturate the larger model the same way and burn more budget. The fix is
+        # restart-on-saturation (next scheduled cycle = fresh session), NOT escalation.
+        if ($Result.emptyResponseCount -and $Result.emptyResponseCount -ge 2) {
+            Write-Log "Empty-response break #2578 (count: $($Result.emptyResponseCount)) — skip escalation (saturation, not capability; restart-on-next-cycle is the fix)" "WARN"
             return $null
         }
         $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
@@ -3351,6 +3401,7 @@ function Report-Results {
 **Itérations:** $($Result.iterations)
 $(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
 $(if ($Result.resultSubtype -and $Result.resultSubtype -ne "success") { "**Coupure gateway:** ❌ subtype=$($Result.resultSubtype) (session coupée, output probablement incomplet)" })
+$(if ($Result.emptyResponseCount -and $Result.emptyResponseCount -gt 0) { "**Empty responses:** ⚠️ $($Result.emptyResponseCount) iteration(s) produced no content (#2578 saturation suspected — loop broken, next cycle = fresh session)" })
 $(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
 $(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
 $(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
