@@ -89,6 +89,21 @@ pwsh -ExecutionPolicy Bypass -File scripts\zoo-scheduler\migrate-globalstorage.p
 
 > **Gap comblé :** `migrate-globalstorage.ps1` copie `mcp_settings.json` + `custom_modes.yaml` + `tasks/`, mais **PAS les provider profiles** (ils vivent en SecretStorage DPAPI, pas en globalStorage). Sans cette étape, Zoo démarre sans provider configuré → pas d'auth LLM. Zoo conserve le mécanisme `autoImportSettings` de Roo (setting `zoo-code.autoImportSettingsPath`, default `""`) : il lit un fichier `providerProfiles` à `activate()` et le `store()` en SecretStorage. C'est la voie native, sans build VSIX ni micro-extension.
 
+#### Recommandé : `--emit-import` (durable, self-healing — #2680)
+
+Le wrapper `sync-zoo-provider-profiles.ps1` expose un mode **one-liner** qui génère le fichier `providerProfiles` résolu **et** configure le setting `autoImportSettingsPath` en une commande :
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File roo-config\scripts\sync-zoo-provider-profiles.ps1 -Mode emit-import
+# → écrit ~/.zoo-provider-profiles.json (clés résolues, hors repo) + set le setting autoImportSettingsPath
+```
+
+**Pourquoi préférer `--emit-import` au write direct (`--apply`) :** un Zoo en cours d'exécution garde le blob provider en mémoire et le **flush à la fermeture** → écrase tout write DB direct au prochain restart (race observée sur po-2025). `--emit-import` délègue l'écriture SecretStorage à **Zoo lui-même** via `importSettingsFromPath` à chaque activation → état in-memory-consistent qui survit au flush → **self-heal à chaque restart**. Safe à lancer VS Code ouvert (pas de write DB). Restart VS Code → Zoo ré-importe → config correcte et durable.
+
+> ⚠️ Le fichier émis contient les clés API en **plaintext** (résolues, nécessaires à l'import) — gardé hors repo (défaut `~/`, home). Vérifier son ACL sur un host multi-utilisateur, et ne **jamais** pointer `--emit-import PATH` vers un chemin sous le repo (leak via `git add` accidentel).
+
+#### Alternative manuelle (3 étapes, équivalente fonctionnellement)
+
 ```powershell
 # 1. Générer le fichier providerProfiles (clés résolues depuis .env)
 node roo-config\scripts\sync-api-configs.js --resolve-secrets
