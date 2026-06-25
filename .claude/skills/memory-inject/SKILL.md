@@ -203,7 +203,7 @@ Read(".claude/memory/PROJECT_MEMORY.md")
 
 **Conventional commits**
 - Pourquoi: Historique git illisible sans format standard
-- Solution: `type(scope): description` + `Co-Authored-By: Claude Opus 4.6`
+- Solution: `type(scope): description` + `Co-Authored-By: Claude-Code`
 - Impact: Git history exploitable
 ```
 

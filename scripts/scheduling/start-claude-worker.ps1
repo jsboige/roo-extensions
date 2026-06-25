@@ -2472,7 +2472,7 @@ function Test-WorktreeHasChanges {
                 # Also stage any tracked modifications that git add -A would catch
                 # Guard #1799: Exclude submodule paths — workers should never commit submodule pointer changes.
                 git add -u -- ':!mcps' ':!roo-code' 2>&1 | Out-Null
-                $CommitMsg = "chore: Auto-commit uncommitted worker changes"
+                $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude-Code <noreply@anthropic.com>"
                 git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
 
                 # #1666 Phase A2 Guard A2.1: Post-commit verification.

@@ -137,7 +137,7 @@ Le système d'auto-injection de mémoire prévient les erreurs récurrentes en c
 
 **Conventional commits**
 - Pourquoi: Historique git illisible sans format standard
-- Solution: type(scope): description + Co-Authored-By
+- Solution: type(scope): description + Co-Authored-By: Claude-Code
 - Impact: Git history exploitable
 ```
 

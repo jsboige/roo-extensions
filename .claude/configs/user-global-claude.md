@@ -38,7 +38,7 @@ If an automatic mechanism handles the concern elsewhere (auto-condensation, retr
 
 ## Git
 
-- **Conventional commits:** `type(scope): description`.
+- **Conventional commits:** `type(scope): description`. Include `Co-Authored-By: Claude-Code <noreply@anthropic.com>` when AI-assisted.
 - **Conflicts:** NEVER auto-resolve blindly. Read markers, understand both sides, decide deliberately
 - **Submodules:** Commit inside FIRST, push, then update pointer in parent
 - **Force push:** Forbidden on shared branches. Rejected → fetch, merge, retry
