@@ -24,3 +24,6 @@
 [submodule "mcps/external/Office-PowerPoint-MCP-Server"]
 	path = mcps/external/Office-PowerPoint-MCP-Server
 	url = https://github.com/jsboige/Office-PowerPoint-MCP-Server.git
+[submodule "zoo-code"]
+	path = zoo-code
+	url = https://github.com/Zoo-Code-Org/Zoo-Code
