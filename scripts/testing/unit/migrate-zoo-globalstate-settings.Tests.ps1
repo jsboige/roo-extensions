@@ -132,4 +132,15 @@ Describe 'Test-GlobalSettingsBlob' {
         $r2 = (Test-GlobalSettingsBlob -Settings @{ deniedCommands = @('rm'); allowedCommands = @() }).Warnings
         ($r2 | Where-Object { $_ -match 'allowedCommands is empty' }).Count | Should -BeGreaterThan 0
     }
+    It 'Is INVALID when a command key holds a non-string entry (corrupted source blob)' {
+        $s = @{ deniedCommands = @('rm', 42, $true) }   # int + bool entries -> not a string array
+        $r = Test-GlobalSettingsBlob -Settings $s
+        $r.Valid | Should -BeFalse
+        ($r.Errors | Where-Object { $_ -match 'deniedCommands must be a string array' }).Count | Should -BeGreaterThan 0
+    }
+    It 'Accepts a clean string-array command key' {
+        $s = @{ deniedCommands = @('git reset --hard', 'taskkill'); allowedCommands = @('git status') }
+        $r = Test-GlobalSettingsBlob -Settings $s
+        $r.Valid | Should -BeTrue
+    }
 }

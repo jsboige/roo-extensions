@@ -180,9 +180,27 @@ function Test-GlobalSettingsBlob {
         .SYNOPSIS
             Validate a filtered GlobalSettings hashtable against the allowlist + safety invariants.
         .DESCRIPTION
-            PURE function. Returns a hashtable { Valid, Errors, Warnings }:
-              * Every key is in the allowlist.
-              * JSON-serializable.
+            PURE function. Returns a hashtable { Valid, Errors, Warnings }.
+
+            Validation is TWO-TIER (#2678 AC#1 "round-trip Zod against the roo-code schema"):
+              TIER 1 (here, key-level): every emitted key is a member of the GlobalSettings allowlist,
+                which is derived directly from `globalSettingsSchema.keyof().options`
+                (roo-code/packages/types/src/global-settings.ts) -- so KEY correctness is guaranteed by
+                construction, plus a value-shape check on the two safety-critical command keys
+                (string arrays) to catch a corrupted source blob.
+              TIER 2 (at the Zoo import boundary, value-level): the full Zod `safeParse()` against
+                the live roo-code schema is performed by Zoo Code itself via
+                `importSettingsFromPath` -> `providerSettingsManager.import` (importExport.ts).
+                Running safeParse in-process here would require installing zod + a TS runtime into the
+                roo-code submodule (reference-only, not a build env) -- disproportionate. The values
+                originate from a Roo blob that Roo already wrote through the same schema, so they are
+                schema-valid by origin; Tier 2 re-confirms at import. Deferred, not skipped.
+
+            Checks reported:
+              * Every key is in the allowlist (error).
+              * deniedCommands / allowedCommands, when present, are string arrays (error on wrong
+                type -- catches a corrupted blob).
+              * JSON-serializable (error).
               * (Warning, not error) deniedCommands and allowedCommands are present and non-empty --
                 these are the safety-critical keys; their absence is flagged but does not fail
                 validation (a machine may legitimately have empty lists).
@@ -195,21 +213,32 @@ function Test-GlobalSettingsBlob {
     $errors = @()
     $warnings = @()
 
-    # 1. Allowlist membership.
+    # 1. Allowlist membership (TIER 1 -- key correctness by construction).
     foreach ($key in $Settings.Keys) {
         if ($allow -notcontains $key) {
             $errors += "Key '$key' is not in the GlobalSettings allowlist."
         }
     }
 
-    # 2. JSON-serializable (round-trip). ConvertTo-Json -Depth 10 mirrors migrate-roo-to-zoo.ps1.
+    # 2. Value-shape check on safety-critical command keys (catches a corrupted source blob).
+    foreach ($cmdKey in @('deniedCommands', 'allowedCommands')) {
+        if ($Settings.ContainsKey($cmdKey) -and $null -ne $Settings[$cmdKey]) {
+            $arr = @($Settings[$cmdKey])
+            $nonStrings = $arr | Where-Object { $_ -isnot [string] }
+            if ($nonStrings.Count -gt 0) {
+                $errors += "$cmdKey must be a string array; found non-string entry/entries (corrupted source?)."
+            }
+        }
+    }
+
+    # 3. JSON-serializable (round-trip). ConvertTo-Json -Depth 10 mirrors migrate-roo-to-zoo.ps1.
     try {
         $null = $Settings | ConvertTo-Json -Depth 10 -Compress
     } catch {
         $errors += "Settings are not JSON-serializable: $($_.Exception.Message)"
     }
 
-    # 3. Safety-critical keys present (warning level -- absence is a safety regression flag).
+    # 4. Safety-critical keys present (warning level -- absence is a safety regression flag).
     if (-not $Settings.ContainsKey('deniedCommands')) {
         $warnings += "deniedCommands absent in source -- target will have NO command denylist (safety)."
     } elseif (-not $Settings['deniedCommands'] -or @($Settings['deniedCommands']).Count -eq 0) {
