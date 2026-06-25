@@ -311,17 +311,25 @@ def emit_import_file(path_str, new_blob, set_vscode_setting):
     so `path_str` MUST be outside the repo / gitignored (home dir recommended).
     """
     import_file = {"providerProfiles": new_blob, "globalSettings": {}}
-    out_path = os.path.expanduser(path_str)
+    # Expand once (~ + relative) and use the EXPANDED path consistently: the file is written
+    # there AND the same path goes into settings.json. roo-code's resolvePath() DOES expand
+    # `~`, but we don't depend on that contract — an absolute path is unambiguous for both sides.
+    out_path = os.path.abspath(os.path.expanduser(path_str))
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(import_file, f, indent=2, ensure_ascii=False)
-    print(f"\n[OK] autoImport file written: {out_path}")
+    # Restrict permissions on the plaintext-key file (best-effort; on Windows chmod is advisory).
+    try:
+        os.chmod(out_path, 0o600)
+    except OSError:
+        pass
+    print(f"\n[OK] autoImport file written: {out_path} (chmod 0600)")
     print("[!] Contains RESOLVED API keys (plaintext). Keep this file OUT of git "
           "(home dir recommended; the path below is outside the repo).")
     if set_vscode_setting:
-        set_vscode_autoimport_setting(path_str)
+        set_vscode_autoimport_setting(out_path)
     else:
         print("[i] Add to VS Code user settings.json, then restart VS Code:")
-        print(f'    "zoo-code.autoImportSettingsPath": "{path_str}"')
+        print(f'    "zoo-code.autoImportSettingsPath": "{out_path}"')
     print("[i] On next VS Code restart, Zoo imports this file -> writes SecretStorage "
           "-> self-heals the provider config every restart.")
 
