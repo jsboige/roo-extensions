@@ -1,8 +1,8 @@
 # Zoo Migration Fleet Rollout Runbook
 
-**Version:** 1.0.0
-**Issue:** #2379, #2381
-**MAJ:** 2026-06-12
+**Version:** 1.1.0
+**Issue:** #2379, #2381, #2678
+**MAJ:** 2026-06-25
 **Pilote validé:** po-2025 (2026-06-11, #2381 PASS)
 
 ---
@@ -117,6 +117,30 @@ if ('zoo-code.autoImportSettingsPath' -notin $cfg.PSObject.Properties.Name) {
 > **Format du fichier** (sortie de `sync-api-configs.js`, vérifié = schema exact de l'import Zoo) :
 > `{ "providerProfiles": { "currentApiConfigName": "default", "apiConfigs": {...}, "modeApiConfigs": {...} }, "_metadata": {...} }`
 
+### Étape 2c : Migrer les globalState behavioral settings (#2678)
+
+> **Gap comblé :** `migrate-globalstorage.ps1` (#2379, Étape 2) copie les **fichiers** globalStorage (mcp_settings, custom_modes, tasks) mais **ne touche jamais `state.vscdb`**, où vivent les réglages comportementaux de Roo : `allowedCommands`, `deniedCommands`, les flags `alwaysAllow*`, les réglages terminal/context. Sans cette étape, Zoo démarre avec `autoApprovalEnabled=true` + `alwaysAllowExecute=true` mais **aucune denylist** → les commandes destructrices (`Stop-Process`, `git reset --hard`...) ne sont plus bloquées. **Régression de sécurité.**
+>
+> Le script `migrate-zoo-globalstate-settings.ps1` est l'extracteur chirurgical : il lit le blob Roo depuis une **copie temporaire** de `state.vscdb` (read-only), garde **uniquement** les clés GlobalSettings (allowlist dérivée du schéma `roo-code/packages/types/src/global-settings.ts`), et **n'exporte jamais** `id`, `taskHistory`, les secrets (`*ApiKey`), ni le blob provider (`apiProvider`/`openAi*`/`currentApiConfigName`/`modeApiConfigs`/`pinnedApiConfigs` — la couche provider est l'Étape 2b, pas globalState).
+
+```powershell
+# 1. Dry-run (défaut) : lit le blob Roo, affiche le plan + la validation (denylist/allowlist),
+#    n'écrit rien. Vérifier que deniedCommands est NON vide.
+pwsh -ExecutionPolicy Bypass -File scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1
+
+# 2a. (Recommandé) Générer un fichier JSON + importer via Zoo UI : Settings -> Import.
+pwsh -ExecutionPolicy Bypass -File scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1 -DryRun:$false
+# → écrit .\zoo-globalstate-import.json (enveloppe { "globalSettings": {...} }, pas de providerProfiles)
+
+# 2b. (Alternative) Merge direct dans le blob Zoo de state.vscdb.
+#     Refuse si Code.exe tourne ; backup horodaté d'abord. VS Code fermé obligatoire.
+pwsh -ExecutionPolicy Bypass -File scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1 -Mode MergeIntoDb -DryRun:$false
+```
+
+**Vérifier :** la sortie affiche `deniedCommands : N entry(ies)` avec N > 0. Sur po-2024 : `['git clean','-Force','Restart-Computer','Stop-Process']` (4 entries), `allowedCommands` : 377 entries, 74 clés GlobalSettings extraites, **0 clé provider/secret leakée**.
+
+> **Pourquoi pas le blob provider dans globalState ?** C'était le défaut de `scripts/deployment/migrate-roo-to-zoo.ps1` (copie le provider config dans globalState) — la mauvaise couche (le provider appartient à SecretStorage + Étape 2b), et cause racine du race flush-overwrite observé sur po-2025. #2678 l'exclut explicitement.
+
 ### Étape 3 : Vérification post-migration
 
 ```powershell
@@ -197,6 +221,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 4. **`alwaysAllow` invalidation** — Un changement de schema Roo peut invalider les alwaysAllow (#473). Vérifier après migration.
 5. **VS Code restart requis** — Zoo Code ne relit pas les configs à chaud. Fermer et rouvrir VS Code après migration.
 6. **Provider profiles = Étape 2b séparée** (#2543) — `migrate-globalstorage.ps1` ne couvre PAS les providers (SecretStorage ≠ globalStorage). L'auto-import `zoo-code.autoImportSettingsPath` ne tourne **qu'au restart** (pas de watch) : toute mise à jour de `model-configs.json` → `sync-api-configs.js --resolve-secrets` + restart VS Code pour re-import.
+7. **`state.vscdb` behavioral settings = Étape 2c séparée** (#2678) — `migrate-globalstorage.ps1` ne touche jamais `state.vscdb`. Sans l'Étape 2c, Zoo hérite d'aucune denylist (`deniedCommands`), `allowedCommands`, ni flags `alwaysAllow*` → régression de sécurité (commandes destructrices débloquées). Le script `migrate-zoo-globalstate-settings.ps1` comble ce gap en n'extrayant que l'allowlist GlobalSettings (provider/secrets exclus).
 
 ---
 
@@ -227,6 +252,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 ## Références
 
 - **Script :** `scripts/zoo-scheduler/migrate-globalstorage.ps1` (191 lignes, PR #2390 merged)
+- **Script globalState settings (#2678) :** `scripts/zoo-scheduler/migrate-zoo-globalstate-settings.ps1` — extracteur chirurgical des behavioral settings depuis `state.vscdb` (allowlist GlobalSettings, provider/secrets exclus). Tests Pester : `scripts/testing/unit/migrate-zoo-globalstate-settings.Tests.ps1`.
 - **Script rollback :** `scripts/zoo-scheduler/rollback-to-roo-scheduler.ps1`
 - **Module paths :** `scripts/common/extension-paths.ps1` (dot-sourcé)
 - **Issue validation pilote :** #2381 (po-2025 PASS)
