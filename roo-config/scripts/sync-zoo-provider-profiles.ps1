@@ -15,16 +15,27 @@
     Dependencies: Python 3 + pywin32 + cryptography. The wrapper checks them.
 
 .PARAMETER Mode
-    verify   : read + decrypt the current blob (read-only).
-    dry-run  : build the planned blob, print diff, no write (default).
-    apply    : write the blob (backup + verify-by-decrypt + rollback on mismatch).
+    verify       : read + decrypt the current blob (read-only).
+    dry-run      : build the planned blob, print diff, no write (default).
+    apply        : write the blob (backup + verify-by-decrypt + rollback on mismatch).
+                   REQUIRES VS Code closed — a running Zoo flushes its in-memory state
+                   on exit and overwrites a direct DB write.
+    emit-import  : write a resolved autoImport file + set zoo-code.autoImportSettingsPath.
+                   DURABLE: Zoo imports it at every activation and writes SecretStorage itself,
+                   so the config survives the in-memory flush and self-heals on each restart.
+                   Safe to run while VS Code is running (no DB write).
 
 .PARAMETER Target
     zoo (default) or roo. Selects the VS Code extension SecretStorage namespace.
 
 .PARAMETER Force
     Allow --apply while VS Code is running (by default the wrapper refuses, because
-    Zoo may flush its in-memory state and overwrite the write — prefer close/apply/reopen).
+    Zoo may flush its in-memory state and overwrite the write — prefer emit-import, or
+    close/apply/reopen).
+
+.PARAMETER ImportPath
+    (emit-import) Path for the autoImport file. Default ~/.zoo-provider-profiles.json
+    (home dir, outside the repo, never committed — contains resolved plaintext keys).
 
 .EXAMPLE
     .\sync-zoo-provider-profiles.ps1 -Mode verify
@@ -38,12 +49,17 @@
     .\sync-zoo-provider-profiles.ps1 -Mode apply
     Write profiles to Zoo SecretStorage. Close VS Code first (or use -Force).
 
+.EXAMPLE
+    .\sync-zoo-provider-profiles.ps1 -Mode emit-import
+    Emit a self-healing autoImport file + set zoo-code.autoImportSettingsPath. Then restart
+    VS Code — Zoo re-imports and re-asserts the good provider config on every restart.
+
 .NOTES
     Issue: #2543 (Phase 2 as-code), #2134, Epic #2639 WS3.
 #>
 
 param(
-    [ValidateSet("verify", "dry-run", "apply")]
+    [ValidateSet("verify", "dry-run", "apply", "emit-import")]
     [string]$Mode = "dry-run",
 
     [ValidateSet("zoo", "roo")]
@@ -53,7 +69,9 @@ param(
 
     [string]$EnvFile = "",
 
-    [string]$ModelConfigs = ""
+    [string]$ModelConfigs = "",
+
+    [string]$ImportPath = "~/.zoo-provider-profiles.json"
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,9 +111,10 @@ if ($Mode -eq "apply") {
 # --- build python arg list ---
 $pyArgs = @($pyScript)
 switch ($Mode) {
-    "verify"  { $pyArgs += "--verify" }
-    "dry-run" { $pyArgs += "--dry-run" }
-    "apply"   { $pyArgs += "--apply" }
+    "verify"       { $pyArgs += "--verify" }
+    "dry-run"      { $pyArgs += "--dry-run" }
+    "apply"        { $pyArgs += "--apply" }
+    "emit-import"  { $pyArgs += @("--emit-import", $ImportPath, "--set-vscode-setting") }
 }
 $pyArgs += @("--target", $Target)
 if ($EnvFile)       { $pyArgs += @("--env", $EnvFile) }

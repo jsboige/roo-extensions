@@ -298,6 +298,74 @@ def mask(value):
     return value
 
 
+# --- zoo-code autoImport (self-healing native import) ---
+# Why this exists: a direct DB write (--apply) gets overwritten when Zoo, still running,
+# flushes its in-memory state on exit. The autoImport path sidesteps that race: at extension
+# activation Zoo ITSELF calls importSettingsFromPath -> providerSettingsManager.import ->
+# writes SecretStorage with an in-memory-consistent state that survives the next flush.
+# Run on every activation -> re-asserts the good config every restart. Issue #2543 durable fix.
+def emit_import_file(path_str, new_blob, set_vscode_setting):
+    """
+    Write {providerProfiles, globalSettings} to `path_str` in the exact shape Zoo's
+    importSettingsFromPath expects (mirrors exportSettings). Keys are RESOLVED (plaintext),
+    so `path_str` MUST be outside the repo / gitignored (home dir recommended).
+    """
+    import_file = {"providerProfiles": new_blob, "globalSettings": {}}
+    out_path = os.path.expanduser(path_str)
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(import_file, f, indent=2, ensure_ascii=False)
+    print(f"\n[OK] autoImport file written: {out_path}")
+    print("[!] Contains RESOLVED API keys (plaintext). Keep this file OUT of git "
+          "(home dir recommended; the path below is outside the repo).")
+    if set_vscode_setting:
+        set_vscode_autoimport_setting(path_str)
+    else:
+        print("[i] Add to VS Code user settings.json, then restart VS Code:")
+        print(f'    "zoo-code.autoImportSettingsPath": "{path_str}"')
+    print("[i] On next VS Code restart, Zoo imports this file -> writes SecretStorage "
+          "-> self-heals the provider config every restart.")
+
+
+def set_vscode_autoimport_setting(path_str):
+    """Set zoo-code.autoImportSettingsPath in VS Code user settings.json (comment-preserving when possible)."""
+    appdata = os.environ.get("APPDATA", os.path.expanduser("~/AppData/Roaming"))
+    settings_path = os.path.join(appdata, "Code", "User", "settings.json")
+    if not os.path.exists(settings_path):
+        print(f"[WARN] settings.json not found ({settings_path}) — set the key manually.")
+        return
+    raw = open(settings_path, encoding="utf-8").read()
+    import re
+    # Already present? Leave as-is (idempotent).
+    if re.search(r'"zoo-code\.autoImportSettingsPath"\s*:', raw):
+        print(f"[i] zoo-code.autoImportSettingsPath already present in settings.json — leaving untouched.")
+        return
+    try:
+        # Clean JSON -> round-trip preserves structure (comments rare in this file).
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        # JSONC (comments / trailing commas) -> regex insert before the final closing brace.
+        # Best-effort; cannot fully parse JSONC without a dedicated lib.
+        patched = re.sub(
+            r"\}\s*$",
+            f',\n  "zoo-code.autoImportSettingsPath": "{path_str}"\n}}',
+            raw.rstrip(),
+            count=1,
+        )
+        if patched == raw:
+            print(f"[WARN] could not patch settings.json (JSONC) — set manually: "
+                  f'"zoo-code.autoImportSettingsPath": "{path_str}"')
+            return
+        open(settings_path, "w", encoding="utf-8").write(patched)
+        print(f"[OK] set zoo-code.autoImportSettingsPath = {path_str} in settings.json "
+              "(JSONC best-effort insert — please verify in VS Code).")
+        return
+    data["zoo-code.autoImportSettingsPath"] = path_str
+    open(settings_path, "w", encoding="utf-8").write(
+        json.dumps(data, indent=4, ensure_ascii=False)
+    )
+    print(f"[OK] set zoo-code.autoImportSettingsPath = {path_str} in settings.json.")
+
+
 def summarize(blob):
     if not blob:
         print("  (no current blob)")
@@ -330,10 +398,15 @@ def main():
     ap.add_argument("--vscdb", default=None)
     ap.add_argument("--local-state", default=None)
     ap.add_argument("--strict", action="store_true", help="abort on unresolved secrets (default: warn)")
+    ap.add_argument("--set-vscode-setting", action="store_true",
+        help="(with --emit-import) also set zoo-code.autoImportSettingsPath in VS Code settings.json")
     mode = ap.add_mutually_exclusive_group(required=True)
     mode.add_argument("--verify", action="store_true", help="read + decrypt current blob, print summary")
     mode.add_argument("--dry-run", action="store_true", help="build planned blob, print diff, no write")
     mode.add_argument("--apply", action="store_true", help="write the blob (backup + verify + rollback)")
+    mode.add_argument("--emit-import", metavar="PATH",
+        help="write resolved providerProfiles to PATH as a zoo-code autoImport file (self-healing: "
+             "Zoo imports it at activation -> writes SecretStorage itself -> survives the in-memory flush)")
     args = ap.parse_args()
 
     ext = EXTENSIONS[args.target]
@@ -364,6 +437,11 @@ def main():
 
     print("\n=== PLANNED BLOB ===")
     summarize(new_blob)
+
+    if args.emit_import:
+        emit_import_file(args.emit_import, new_blob,
+                         set_vscode_setting=args.set_vscode_setting)
+        return
 
     if args.dry_run:
         print("\n[DRY-RUN] no write performed.")
