@@ -236,7 +236,7 @@
 
   Corps optionnel avec détails
 
-  Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+  Co-Authored-By: Claude-Code <noreply@anthropic.com>
   ```
 
 - [ ] Types valides: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`

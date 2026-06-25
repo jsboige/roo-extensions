@@ -574,7 +574,7 @@ npx vitest run   # Tests unitaires (JAMAIS npm test)
 git add {fichiers_modifies}
 git commit -m "type(scope): description
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+Co-Authored-By: Claude-Code <noreply@anthropic.com>"
 git push origin main
 ```bash
 
