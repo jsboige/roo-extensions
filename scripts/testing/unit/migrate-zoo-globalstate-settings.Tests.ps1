@@ -144,3 +144,41 @@ Describe 'Test-GlobalSettingsBlob' {
         $r.Valid | Should -BeTrue
     }
 }
+
+Describe 'CLI execution guard (regression: -File silent no-op, follow-up to #2678)' {
+    BeforeAll {
+        $projectRoot = (Resolve-Path "$PSScriptRoot\..\..\..").Path
+        $scriptPath = Join-Path $projectRoot 'scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1'
+        $pwsh = (Get-Process -Id $PID).Path   # exact interpreter running this test (pwsh or powershell)
+    }
+
+    It 'Prints the banner (does NOT silent no-op) when invoked via <interpreter> -File' {
+        # A temp file stands in for state.vscdb so the Test-Path guard inside the function passes; the
+        # banner is written BEFORE any python/sqlite work, so this assertion is portable across hosts
+        # regardless of whether python is installed. The bug being locked: under -File a
+        # [CmdletBinding()] script reported CommandOrigin='Internal', the old `-eq 'Runspace'` guard
+        # never fired, and the process exited 0 with ZERO output -- an operator following the runbook
+        # (pwsh -File ...) legitimately concluded "the script does nothing".
+        $fakeVscdb = Join-Path ([System.IO.Path]::GetTempPath()) "zoogs-guard-$([guid]::NewGuid()).vscdb"
+        Set-Content -Path $fakeVscdb -Value 'placeholder' -Encoding utf8
+        $captured = Join-Path ([System.IO.Path]::GetTempPath()) "zoogs-guard-out-$([guid]::NewGuid()).txt"
+        try {
+            & $pwsh -NoProfile -File $scriptPath -DryRun -VscdbPath $fakeVscdb *> $captured
+            $out = Get-Content $captured -Raw
+            $out | Should -Match 'Roo -> Zoo globalState settings migration'
+        } finally {
+            Remove-Item $fakeVscdb, $captured -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'Does NOT run the orchestrator when Import-Module''d (no banner during import)' {
+        $captured = Join-Path ([System.IO.Path]::GetTempPath()) "zoogs-imp-out-$([guid]::NewGuid()).txt"
+        try {
+            & $pwsh -NoProfile -Command "Import-Module '$scriptPath' -Force -ErrorAction SilentlyContinue" *> $captured
+            $out = Get-Content $captured -Raw
+            $out | Should -Not -Match 'Roo -> Zoo globalState settings migration'
+        } finally {
+            Remove-Item $captured -Force -ErrorAction SilentlyContinue
+        }
+    }
+}

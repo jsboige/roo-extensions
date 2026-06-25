@@ -467,7 +467,12 @@ try {
     # No-op: running as a CLI script (-File), not imported as a module.
 }
 
-# === Main: run only when executed directly (./script.ps1), NOT when imported as a module ===
-if ($MyInvocation.CommandOrigin -eq 'Runspace' -and $MyInvocation.InvocationName -ne '.') {
+# === Main: run only when executed directly (-File or & operator), NOT when dot-sourced or imported.
+#      NOTE: a [CmdletBinding()] script reports $MyInvocation.CommandOrigin = 'Internal' (not
+#      'Runspace') under `pwsh -File`, so a `-eq 'Runspace'` guard silently no-ops the entire CLI
+#      path (exit 0, zero output). The reliable discriminator is InvocationName: it is '.' when
+#      dot-sourced, '' when Import-Module'd, and the script path / '&' when executed directly.
+$invocName = "$($MyInvocation.InvocationName)"
+if ($invocName -ne '.' -and $invocName -ne '') {
     Invoke-ZooGlobalStateMigration @PSBoundParameters
 }
