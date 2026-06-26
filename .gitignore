@@ -241,3 +241,6 @@ _archives/
 /debug-coverage.js
 /test-outputs-md/
 /conversation-summary*.md
+
+# Qdrant Docker runtime data (persistence volume mounted at docker/qdrant-storage/) — never commit
+/docker/qdrant-storage/
