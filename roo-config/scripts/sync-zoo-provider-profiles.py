@@ -100,13 +100,23 @@ def load_env(env_path):
 
 
 def resolve_secret_placeholders(value, env, strict):
-    """Resolve {{SECRET:varname}} from env. Mirrors sync-api-configs.js."""
+    """Resolve {{SECRET:varname}} from .env (env dict) then the process environment.
+
+    Two sources, in priority order: (1) the .env values passed in `env`, (2) os.environ
+    (e.g. Machine/User-scope vars populated by the fleet fix). The VS Code extension host
+    inherits Machine-scope env vars but not a repo .env, so supporting both lets the durable
+    self-healing import (#2543) work regardless of where the secret lives. Mirrors
+    sync-api-configs.js. Explicit .env wins over ambient env (the right precedence for keys).
+    """
     missing = []
 
     def repl(m):
         var = m.group(1)
         if var in env and env[var]:
             return env[var]
+        os_val = os.environ.get(var)
+        if os_val:
+            return os_val
         missing.append(var)
         return m.group(0)
 
