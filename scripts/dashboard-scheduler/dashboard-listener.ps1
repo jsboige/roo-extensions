@@ -663,6 +663,13 @@ function Invoke-ProcessWorkspace($ws) {
         $spawnArgs += @("-Model", $modelHint)
         Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
     }
+
+    # Fire-time cooldown arm: write lastrun BEFORE spawn so failed/in-flight
+    # spawns still respect CooldownMinutes.  Without this, a non-zero exit leaves
+    # both lastAck (message stays actionable) and lastrun (cooldown never starts)
+    # untouched → the next loop iteration re-fires the same message indefinitely.
+    Set-LastSpawn $ws
+
     try {
         & pwsh -File $SpawnScript @spawnArgs
         $exitCode = $LASTEXITCODE
@@ -673,7 +680,6 @@ function Invoke-ProcessWorkspace($ws) {
 
     if ($exitCode -eq 0) {
         Set-LastAck $ws $latestTs
-        Set-LastSpawn $ws
         Write-Log "INFO" "[$ws] Spawn completed. lastAck advanced to $latestTs."
     } else {
         Write-Log "WARN" "[$ws] Spawn exited with code $exitCode. lastAck NOT advanced."
