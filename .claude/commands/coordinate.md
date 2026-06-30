@@ -46,7 +46,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 
 ### Règles de Délégation (OBLIGATOIRE)
 
-**Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
+**Référence :** [`docs/harness/reference/delegation.md`](../../docs/harness/reference/delegation.md)
 
 **Déléguer aux sub-agents si la tâche :**
 - Ne nécessite pas le contexte accumulé de la conversation
@@ -585,7 +585,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 
 ### Vérification Checklists GitHub (CRITIQUE)
 
-**Référence :** [`../../rules/github-checklists.md`](../../rules/github-checklists.md)
+**Référence :** [`docs/harness/reference/github-checklists.md`](../../docs/harness/reference/github-checklists.md)
 
 **AVANT de fermer une issue multi-machine :**
 
