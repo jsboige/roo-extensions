@@ -15,7 +15,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ## Regles de Delegation (OBLIGATOIRE)
 
-**Référence :** [`docs/roosync/delegation.md`](../../docs/roosync/delegation.md)
+**Référence :** [`docs/harness/reference/delegation.md`](../../docs/harness/reference/delegation.md)
 
 **Déléguer aux sub-agents si la tâche :**
 - Ne nécessite pas le contexte accumulé de la conversation
@@ -91,7 +91,7 @@ Puis (en parallele) :
   - **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
   - **Détection boucle** : Si présence de marqueurs "Last compacted" récents + croissance rapide → escalader au coordinateur
 
-**Référence :** [`docs/roosync/CONDENSATION_THRESHOLDS.md`](../../docs/roosync/CONDENSATION_THRESHOLDS.md) (Issue #502)
+**Référence :** [`docs/harness/reference/condensation-thresholds.md`](../../docs/harness/reference/condensation-thresholds.md) (Issue #502)
 
 Affiche un resume CONCIS (10 lignes max) :
 ```bash
@@ -593,7 +593,7 @@ git push origin main
 
 **RÈGLE ABSOLUE : NE JAMAIS commenter sans avoir mis à jour le tableau.**
 
-**Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
+**Référence :** [`docs/harness/reference/github-checklists.md`](../../docs/harness/reference/github-checklists.md)
 
 - **GitHub** : Commenter l'issue avec le resultat (commit hash, tests)
 - **Dashboard RooSync** : Rapporter la progression : `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-interactive"], content: "...")`
@@ -612,7 +612,7 @@ git push origin main
 
 **RÈGLE ABSOLUE :** Pour toute issue avec un tableau de validation, cocher les cases AU FUR ET À MESURE.
 
-**Référence :** [`docs/roosync/GITHUB_CHECKLISTS.md`](../../docs/roosync/GITHUB_CHECKLISTS.md)
+**Référence :** [`docs/harness/reference/github-checklists.md`](../../docs/harness/reference/github-checklists.md)
 
 1. **AVANT de commencer** : Lire le tableau, identifier les cases pour ta machine
 2. **PENDANT** : Cocher chaque case immédiatement après validation

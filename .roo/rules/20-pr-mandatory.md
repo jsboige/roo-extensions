@@ -74,4 +74,4 @@ MEMORY.md, INTERCOM, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitig
 
 ---
 
-**Trivial auto-merge policy (#1582) :** [`docs/harness/reference/pr-trivial-merge-policy.md`](docs/harness/reference/pr-trivial-merge-policy.md)
+**Trivial auto-merge policy (#1582) :** [`docs/harness/reference/pr-trivial-merge-policy.md`](../../docs/harness/reference/pr-trivial-merge-policy.md)
