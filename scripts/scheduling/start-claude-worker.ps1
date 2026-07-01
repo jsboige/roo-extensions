@@ -60,7 +60,7 @@ param(
     [int]$MaxIterations = 0,
     [string]$Model,
     [string]$Prompt,
-    [double]$MaxBudgetUsd = 0.0,
+    [double]$MaxBudgetUsd = 0.0,   # IGNORÉ depuis 2026-07-01 (cap phantom retiré, mandate user) — conservé pour compat appelants
     [switch]$DryRun = $false,
     [switch]$NoFallback = $false
 )
@@ -2887,29 +2887,22 @@ function Invoke-Claude {
     # Keep in sync with spawn-claude.ps1.
     $env:MCP_TOOL_TIMEOUT = "900000"
 
-    # Budget cap (#1980 — runaway-loop guard, NOT a dollar guard)
-    # Providers are on flat-rate forfaits, NOT per-token billing : z.ai Max (forfait +
-    # cap 5h glissant), Anthropic Max (cap hebdomadaire), Haiku auto-hébergé. Aucun
-    # coût réel par token — le "$" reporté par `claude -p` est une valeur phantom de
-    # price-table, sans commune mesure avec le coût réel (forfait). The cap exists ONLY
-    # as a backstop against true infinite-loop runaways — pas pour plafonner le travail.
-    # BUMP 2026-06-12 (x10, mandate user jsboige) : les caps précédents ($0.50/$1.50/
-    # $3.00) coupaient du travail légitime. 26 sessions worker terminées en
-    # `error_max_budget_usd` en juin (100% GLM, coût phantom $0.44-$2.55), dont des
-    # tâches idle de 5 turns à $1.55 — la tarification phantom GLM (cache reads comptés)
-    # dépasse largement l'estimation initiale (~$0.47). Barre rehaussée pour laisser
-    # les workers longs aller jusqu'au bout ; garde-fou conservé pour emballement massif.
-    # Defaults: haiku=$5.00, sonnet=$15.00, opus=$30.00.
-    $BudgetToUse = $MaxBudgetUsd
-    if ($BudgetToUse -le 0) {
-        $BudgetToUse = switch ($ModelToUse) {
-            "haiku"  { 5.00 }
-            "sonnet" { 15.00 }
-            "opus"   { 30.00 }
-            default  { 15.00 }
-        }
-    }
-    Write-Log "Budget max: `$$BudgetToUse (model: $ModelToUse)"
+    # Budget cap RETIRÉ (mandate user jsboige 2026-07-01).
+    # « Arrêtez avec cette notion de budget runaway, les chiffres sont fictifs, on est
+    #   sur des forfaits zai et anthropic, on paye un crédit mensuel, c'est complètement
+    #   bidon et si ça fait planter les workers, c'est une aberration. »
+    # Le "$" reporté par `claude -p` est une valeur phantom de price-table : les providers
+    # sont en forfait (z.ai Max, Anthropic Max, Haiku auto-hébergé), aucun coût réel par
+    # token. Couper un worker légitime sur ce chiffre fictif était une régression (26
+    # sessions `error_max_budget_usd` en juin, 100% GLM, dont des tâches idle de 5 turns).
+    # Les bumps successifs (x10 le 2026-06-12) n'ont fait que déplacer le seuil sans régler
+    # le fond → suppression du flag `--max-budget-usd` plutôt qu'un énième relèvement.
+    # Les vrais garde-fous anti-emballement restent en place et sont INDÉPENDANTS du $ :
+    #   - watchdog wall-clock ($script:MaxMinutes = 110, ~ligne 174)
+    #   - cap d'itérations ($MaxIterations, boucle principale)
+    #   - schtask ExecutionTimeLimit (setup-scheduler.ps1)
+    #   - cap 3-IDLE (#2185)
+    # Le paramètre -MaxBudgetUsd (ligne 63) est conservé mais IGNORÉ (compat appelants).
 
     # Construire commande Claude CLI
     # Note: --dangerously-skip-permissions requis pour autonomie
@@ -2923,7 +2916,7 @@ function Invoke-Claude {
 
     if ($DryRun) {
         Write-Log "[DRY-RUN] Commande qui serait exécutée:" "INFO"
-        Write-Log "Get-Content $PromptFile | claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p -" "INFO"
+        Write-Log "Get-Content $PromptFile | claude --dangerously-skip-permissions --model $ModelToUse -p -" "INFO"
         Remove-Item $PromptFile -ErrorAction SilentlyContinue
         return @{ success = $true; dryRun = $true }
     }
@@ -2980,7 +2973,7 @@ function Invoke-Claude {
                 $ReceivedResultEvent = $false
                 $ResultSubtype = $null  # terminal result subtype (success | error_max_budget_usd | error_during_execution | ...)
                 $AnyContentReceived = $false  # #2578: track whether the stream produced ANY text or tool_use block
-                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse --max-budget-usd $BudgetToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
+                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
                     Add-Content -Path $IterationOutputFile -Value $rawLine
