@@ -44,7 +44,8 @@ try {
     Push-Location $RepoRoot
 
     # Pipe prompt file to claude -p via stdin
-    $output = Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model haiku --max-budget-usd 0.15 -p - --output-format stream-json --verbose 2>&1
+    # (cap `--max-budget-usd` retiré 2026-07-01, mandate user : $ phantom forfait, ne doit pas planter un run scheduled)
+    $output = Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model haiku -p - --output-format stream-json --verbose 2>&1
 
     Pop-Location
 
