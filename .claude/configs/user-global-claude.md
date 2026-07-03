@@ -105,7 +105,7 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 - **Dashboard** (canal PRINCIPAL) : 3 types seulement — `global`, `machine`, `workspace`. Début de session → `roosync_dashboard(action: "read", type: "workspace", section: "all")` (JAMAIS `section: "status"` seul, #2306). Fin → `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "...")`. Auto-condensation préemptive à 92% (~46 KB). Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
 - **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) → `view`/`tree`/`summarize`. `smart_truncation: true`, `summarize_type: "trace"` (pas `synthesis`).
 - **Recherche** : `roosync_search(action: "semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace` explicitement, requêtes en anglais.
-- **RooSync (inter-machines)** : `roosync_read(mode: "inbox")`, `roosync_send(to: "machine:workspace")`, `roosync_manage(action: "cleanup")`. Dashboard = principal, messages = fallback/urgences.
+- **RooSync (inter-machines)** : `roosync_messages(action: "inbox")`, `roosync_messages(action: "send", to: "machine:workspace")`, `roosync_messages(action: "cleanup")`, `roosync_inventory(type: "status")`. Dashboard = principal, messages = fallback/urgences.
 
 **Inventaire complet + paramètres + scénarios :** [`docs/harness/reference/roosync-tools-guide.md`](docs/harness/reference/roosync-tools-guide.md), [`docs/harness/reference/conversation-browser-detailed.md`](docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (Roo seul, PDF/DOCX→MD), searxng (web canonique), sk-agent (vision/multi-agent).
 

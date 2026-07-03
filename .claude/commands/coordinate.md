@@ -163,7 +163,7 @@ conversation_browser(
 ```
 
 **3. Patterns d'erreur a chercher :**
-- `roosync_send` / `roosync_read` → Roo utilise RooSync (INTERDIT)
+- `roosync_send` / `roosync_read` / `roosync_messages` → Roo utilise RooSync (INTERDIT — historique : `roosync_send`/`roosync_read` = refs mortes CONS-1841, `roosync_messages` = outil vivant)
 - `quickfiles` / `edit_multiple_files` → Outil supprime
 - Orchestrateur qui fait le travail au lieu de deleguer via `new_task`
 - `Error`, `Failed`, `permission denied` → Erreurs d'execution
@@ -385,7 +385,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 **Pour connaître l'état actuel du projet, consulter dans cet ordre :**
 
-1. **RooSync inbox (OBLIGATOIRE)** : `roosync_read(mode: "inbox", status: "unread")` — Messages des autres machines. **Ne JAMAIS sauter. Ne JAMAIS déclarer une machine "silencieuse" sans avoir vérifié l'inbox.**
+1. **RooSync inbox (OBLIGATOIRE)** : `roosync_messages(action: "inbox", status: "unread")` — Messages des autres machines. **Ne JAMAIS sauter. Ne JAMAIS déclarer une machine "silencieuse" sans avoir vérifié l'inbox.**
 2. **Git log** : `git log --oneline -10` - Historique réel des dernières actions
 3. **GitHub Project #67** : Avancement global (% Done, tâches In Progress)
 4. **GitHub Issues** : État des bugs et tâches ouvertes

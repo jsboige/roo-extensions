@@ -69,7 +69,7 @@ Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et S
 
 Executer en parallele quand possible :
 
-1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")`
+1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_messages(action: "inbox", status: "unread")`
 2. **Dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
 3. **GitHub Issues ouvertes** : `gh issue list --repo jsboige/roo-extensions --state open --limit 100 --json number,title,labels`
    - **PIEGE `--limit` (bug #2509)** : `gh issue list --limit 15` retourne les **15 issues les PLUS RECENTES**, PAS un echantillon representatif. Si les 15 dernieres sont toutes `needs-approval`/meta, l'agent conclut faussement « pool draine, 0 tache » alors que des dizaines d'issues actionnables existent plus bas dans la liste. **TOUJOURS `--limit 100`** (le backlog reel tourne autour de 80-90 issues ouvertes).
@@ -237,7 +237,7 @@ CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)
 - **Read/Write/Edit** : Code et fichiers
 - **Bash** : Git, hostname, build, tests
 - **roosync_dashboard** : Coordination cross-machine (CANAL PRINCIPAL)
-- **roosync_read/send** : Messages inter-machines
+- **roosync_messages** : Messages inter-machines (inbox, send, mark_read, archive)
 - **conversation_browser** : Grounding conversationnel SDDD
 - **gh** CLI : Issues, PRs, Project #67
 

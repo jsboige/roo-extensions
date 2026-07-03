@@ -101,8 +101,8 @@ But : Comprendre ce que Roo fait MAINTENANT + ce qui existe dans le code/la doc.
 **Agent :** `roosync-hub` (coordinateur) ou `roosync-reporter` (exécutants)
 
 ### Actions
-1. Lire tous les messages non-lus avec `roosync_read` (mode: inbox)
-2. Pour chaque message, récupérer les détails avec `roosync_read` (mode: message)
+1. Lire tous les messages non-lus avec `roosync_messages` (action: inbox)
+2. Pour chaque message, récupérer les détails avec `roosync_messages` (action: message, message_id)
 3. Extraire :
    - Rapports d'avancement des agents
    - Demandes et questions
@@ -244,7 +244,7 @@ roosync_search(action: "semantic", search_query: "bloque erreur", role: "user", 
 | Outil/Contexte | Occurrences | Source | Exemple |
 |----------------|-------------|--------|---------|
 | write_to_file  | 3           | roo    | "impossible de créer..." |
-| roosync_send   | 2           | both   | "timeout..." |
+| roosync_messages | 2           | both   | "timeout..." |
 
 ### Actions recommandées
 - [ ] Créer issue friction pour [outil] si pattern confirmé (Phase 5)
@@ -564,13 +564,13 @@ Suivre le workflow du skill `github-status` :
      - 🎯 Prochaine tâche assignée (claire, avec GitHub #)
      - 🔗 Références : issues, commits, documentation
    - Priorité du message selon urgence
-   - Envoyer avec `roosync_send` (action: reply)
+   - Envoyer avec `roosync_messages` (action: reply)
 
 **2. Machines silencieuses (pas de message récent) :**
    - Si dernière activité > 48h : envoyer message priorité HIGH
    - Si dernière activité > 72h : envoyer message priorité URGENT
    - Si dernière activité > 96h : signaler à l'utilisateur + réassigner tâches critiques
-   - Envoyer avec `roosync_send` (action: send)
+   - Envoyer avec `roosync_messages` (action: send)
 
 **3. Machines actives sans nouvelle tâche :**
    - Envoyer mise à jour sur déploiement en cours
@@ -578,8 +578,8 @@ Suivre le workflow du skill `github-status` :
    - Assigner tâches buffer si disponibles
 
 **4. Gestion des messages :**
-   - Marquer tous les messages traités comme lus via `roosync_manage` (action: mark_read)
-   - Archiver les messages > 7 jours si conversation terminée via `roosync_manage` (action: archive)
+   - Marquer tous les messages traités comme lus via `roosync_messages` (action: mark_read)
+   - Archiver les messages > 7 jours si conversation terminée via `roosync_messages` (action: archive)
 
 ### Output attendu
 ```
@@ -775,7 +775,7 @@ Inclure le resultat de l'audit dans le rapport de Phase 4bis.
 ### Friction
 Si un outil RooSync ne fonctionne pas ou donne des resultats inexploitables, signaler :
 ```
-roosync_send(action: "send", to: "all", subject: "[FRICTION] Outil RooSync [nom]", body: "...", tags: ["friction", "roosync"])
+roosync_messages(action: "send", to: "all", subject: "[FRICTION] Outil RooSync [nom]", body: "...", tags: ["friction", "roosync"])
 ```
 
 ---
