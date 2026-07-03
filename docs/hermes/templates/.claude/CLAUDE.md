@@ -31,7 +31,7 @@ Hermes is a **read-only** agent workspace. It does NOT write code, modify files,
 |---------|------|-------|
 | **Primary** | `roosync_dashboard(type: "global")` | Routing decisions, health reports |
 | **Read** | `roosync_dashboard(type: "workspace", workspace: "...")` | Read any workspace |
-| **Alerts** | `roosync_send(to: "machine-id", ...)` | Urgent cross-machine notifications |
+| **Alerts** | `roosync_messages(action: "send", to: "machine-id", ...)` | Urgent cross-machine notifications |
 | **Status** | `roosync_dashboard(type: "machine")` | Machine-level heartbeat |
 
 **NEVER write to workspace-specific dashboards.** That's each workspace's domain.
