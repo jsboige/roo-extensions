@@ -113,7 +113,7 @@ Créer `.claude/memory/PROJECT_MEMORY.md` :
 
 Depuis le workspace `roo-extensions`, envoyer un message test :
 ```typescript
-roosync_send(
+roosync_messages(
   action: "send",
   to: "myia-ai-01:2025-Epita-Intelligence-Symbolique",
   subject: "[TEST] Configuration RooSync",
@@ -207,7 +207,7 @@ Ajouter tâches cross-workspace :
 
 1. Vérifier `ROOSYNC_MACHINE_ID` identique dans .roo/.env et .claude/.env
 2. Vérifier `ROOSYNC_SHARED_PATH` pointe vers Google Drive
-3. Tester avec `roosync_read(mode: "inbox")` dans le workspace cible
+3. Tester avec `roosync_messages(action: "inbox")` dans le workspace cible
 
 ### MCP roo-state-manager non disponible
 

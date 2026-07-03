@@ -30,9 +30,9 @@ The scheduled coordinator is part of the **3-tier scheduling architecture** and 
 - Response times per machine
 
 **How to collect:**
-- `roosync_read(mode: "inbox", status: "all", limit: 50)` — all received messages
+- `roosync_messages(action: "inbox", status: "all", limit: 50)` — all received messages
 - Scan `.shared-state/messages/sent/` for outgoing messages from each machine
-- Cross-reference with `roosync_get_status()` for system-level view
+- Cross-reference with `roosync_inventory(type: "status")` for system-level view
 
 ### 2. Git Commit Activity (cross-machine)
 

@@ -26,7 +26,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["FRICTION", "roo-s
 ### RooSync (friction systeme)
 
 ```
-roosync_send(action: "send", to: "all", subject: "[FRICTION] Description", body: "...", tags: ["friction"])
+roosync_messages(action: "send", to: "all", subject: "[FRICTION] Description", body: "...", tags: ["friction"])
 ```
 
 ### Issue GitHub

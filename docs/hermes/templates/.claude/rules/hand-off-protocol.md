@@ -100,7 +100,7 @@ Initiated → In Transit → Acknowledged → Processing → Complete → Closed
 
 If acknowledgment SLA is breached:
 1. Hermes posts `[SLA-ALERT]` on global dashboard
-2. Hermes sends `roosync_send` to target machine
+2. Hermes sends via `roosync_messages(action: "send")` to target machine
 3. After 2x SLA breach, Hermes routes task to next available workspace
 
 ---
