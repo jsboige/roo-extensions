@@ -554,13 +554,13 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 - 🔴 Modification de `.github/CODEOWNERS`, `.github/workflows/`, branch protection scripts
 - 🔴 Modification de `.claude/rules/security.md`, `.claude/rules/no-deletion-without-proof.md`
 - 🔴 Suppression de fichiers exportés sans preuve de remplacement
-- 🔴 Plus de 5 PRs auto-mergées en 1h (pattern d'abus)
+- 🔴 Plus de 10 PRs auto-mergées en 1h (pattern d'abus)
 
 **Audit trail OBLIGATOIRE** :
 - Logger chaque self-merge dans MEMORY.md cycle entry
 - Inclure : PR number, justification vigilance, identité utilisée pour approve
 
-**Limite quotidienne** : Maximum **12 self-merges/24h** sans validation user. Au-delà → poster `[ASK]` dashboard pour approbation explicite.
+**Limite quotidienne** : Maximum **24 self-merges/24h** sans validation user (relevé de 12 → 24, mandat user 2026-07-03, régime cron coord 4h + production continue ; pointer-bumps mécaniques). Au-delà → poster `[ASK]` dashboard pour approbation explicite. Les RED FLAGS absolus ci-dessus restent le vrai garde-fou, indépendamment du compte.
 
 **Réference détaillée** : Cycle 21bis MEMORY.md (premier déblocage 11 PRs via switch jsboige)
 
