@@ -18,7 +18,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 
 1. `git pull`
 2. **Verifier MCPs** (system-reminders). roo-state-manager absent → [STOP & REPAIR](.claude/rules/tool-availability.md)
-3. **Lire inbox RooSync** (`roosync_read(mode: "inbox")`) — OBLIGATOIRE
+3. **Lire inbox RooSync** (`roosync_messages(action: "inbox")`) — OBLIGATOIRE
 4. Annoncer via dashboard/RooSync avant de travailler
 
 ---
@@ -28,7 +28,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 | Canal | Portee | Outil |
 |-------|--------|-------|
 | **Dashboard workspace** | **Cross-machine (PRINCIPAL)** | `roosync_dashboard(type: "workspace")` |
-| **RooSync** | **Inter-machines** | `roosync_send/read/manage` via MCP |
+| **RooSync** | **Inter-machines** | `roosync_messages(action: "send"/"inbox"/"mark_read")` via MCP |
 | **INTERCOM local** | Intra-workspace (fallback) | `.claude/local/INTERCOM-{MACHINE}.md` |
 
 **RooSync = inter-machine. INTERCOM = local. Ne jamais confondre.**

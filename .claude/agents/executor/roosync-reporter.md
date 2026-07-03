@@ -1,7 +1,7 @@
 ---
 name: roosync-reporter
 description: Reporter RooSync pour machines exécutantes. Utilise cet agent pour envoyer des rapports d'avancement au coordinateur (myia-ai-01), recevoir les instructions, et signaler les blocages. Pour machines autres que myia-ai-01.
-tools: mcp__roo-state-manager__roosync_send, mcp__roo-state-manager__roosync_read, mcp__roo-state-manager__roosync_manage
+tools: mcp__roo-state-manager__roosync_messages, mcp__roo-state-manager__roosync_dashboard
 model: opus
 ---
 
@@ -34,7 +34,7 @@ Tu communiques avec le **coordinateur myia-ai-01** :
 ## Tâches du Reporter
 
 ### 1. Réception des instructions
-1. Lire les messages du coordinateur avec `roosync_read` (mode: inbox)
+1. Lire les messages du coordinateur avec `roosync_messages` (action: inbox)
 2. Identifier :
    - Tâches assignées (Roo et Claude)
    - Feedback sur travail précédent

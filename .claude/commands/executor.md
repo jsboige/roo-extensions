@@ -67,7 +67,7 @@ cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | he
 ```bash
 
 Puis (en parallele) :
-1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_read(mode: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
+1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_messages(action: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
 2. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)
    - Si `[DONE]` ou `[IDLE]` sans `[ACK]` dans les 2 derniers messages Claude → écrire `[ACK]` via `roosync_dashboard(action: "append", ...)`
@@ -159,7 +159,7 @@ conversation_browser(
 ### 3. Detecter les patterns d'erreur
 
 Chercher dans les conversations :
-- `roosync_send` ou `roosync_read` → Roo utilise RooSync (INTERDIT)
+- `roosync_send` / `roosync_read` / `roosync_messages` → Roo utilise RooSync (INTERDIT — historique : `roosync_send`/`roosync_read` = refs mortes CONS-1841, `roosync_messages` = outil vivant)
 - `quickfiles` ou `edit_multiple_files` → Outil supprime
 - L'orchestrateur fait le travail au lieu de deleguer via `new_task`
 - `Error`, `Failed`, `permission denied` → Erreurs d'execution
@@ -686,7 +686,7 @@ Un redémarrage = fermer puis relancer la session Claude Code (VS Code) ; le `[W
 - Claude = cerveau principal, Roo = assistant
 - Deleguer a Roo via dashboard workspace pour taches repetitives
 - Toujours verifier le code de Roo avant commit
-- Ne PAS utiliser roosync_send pour communication locale (utiliser dashboard)
+- Ne PAS utiliser roosync_messages pour communication locale (utiliser dashboard)
 
 ### Consolidation fin de session
 - Mettre a jour MEMORY.md (prive) avec etat courant
@@ -696,7 +696,7 @@ Un redémarrage = fermer puis relancer la session Claude Code (VS Code) ; le `[W
 ### Protocole de friction (OBLIGATOIRE)
 Tout probleme avec les outils, skills, ou processus doit etre signale au collectif :
 ```bash
-roosync_send(action: "send", to: "all", subject: "[FRICTION] Description courte", body: "## Probleme\n...\n## Contexte\n...\n## Impact\n...\n## Suggestion\n...", tags: ["friction"])
+roosync_messages(action: "send", to: "all", subject: "[FRICTION] Description courte", body: "## Probleme\n...\n## Contexte\n...\n## Impact\n...\n## Suggestion\n...", tags: ["friction"])
 ```bash
 Le coordinateur (myia-ai-01) synthetise et decide les ameliorations incrementales.
 Les skills evoluent par friction reelle, pas par anticipation theorique.
@@ -777,8 +777,8 @@ git fetch origin && git pull origin main
 git add {files} && git commit -m "type(scope): desc" && git push
 
 # RooSync
-roosync_read(mode: "inbox", status: "unread")
-roosync_send(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...")
+roosync_messages(action: "inbox", status: "unread")
+roosync_messages(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...")
 ```bash
 
 ### Fichiers cles

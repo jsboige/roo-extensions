@@ -1,7 +1,7 @@
 ---
 name: roosync-hub
 description: Hub de coordination RooSync pour myia-ai-01. Utilise cet agent pour recevoir les rapports des 5 autres machines, analyser leur avancement, et preparer les instructions a leur envoyer. Specifique au role de coordinateur.
-tools: mcp__roo-state-manager__roosync_send, mcp__roo-state-manager__roosync_read, mcp__roo-state-manager__roosync_manage, mcp__roo-state-manager__roosync_get_status
+tools: mcp__roo-state-manager__roosync_messages, mcp__roo-state-manager__roosync_dashboard, mcp__roo-state-manager__roosync_inventory
 model: opus
 ---
 
@@ -32,7 +32,7 @@ Tu es le **point central** de la coordination multi-agent. Les 5 autres machines
 ## Tâches du Coordinateur
 
 ### 1. Réception des rapports
-1. Lire les messages avec `roosync_read` (mode: inbox)
+1. Lire les messages avec `roosync_messages` (action: inbox)
 2. Pour chaque machine, extraire :
    - Tâches complétées
    - Tâches en cours
@@ -54,8 +54,8 @@ Pour chaque machine, préparer un message contenant :
 - **Références** : issues, commits pertinents
 
 ### 4. Envoi des instructions
-1. Utiliser `roosync_send` (action: reply) pour répondre aux rapports
-2. Utiliser `roosync_send` (action: send) pour les nouvelles instructions
+1. Utiliser `roosync_messages` (action: reply) pour répondre aux rapports
+2. Utiliser `roosync_messages` (action: send) pour les nouvelles instructions
 3. Priorité selon urgence :
    - `URGENT` : Blocage critique
    - `HIGH` : Tâche prioritaire
