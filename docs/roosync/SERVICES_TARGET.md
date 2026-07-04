@@ -17,7 +17,7 @@ The `services:<name>` target for `roosync_config` enables declarative lifecycle 
 |------|------|---------------|------|-----------------|
 | `qdrant` | Windows service (`Qdrant`) | `myia-ai-01` | 6333 | `http://localhost:6333/healthz` |
 | `iis` | Windows service (`W3SVC`) | `myia-po-2023` | 80/443 | (native) |
-| `vllm` | Process (`python -m vllm`) | `myia-ai-01` | 5002 | `http://localhost:5002/v1/models` |
+| `vllm` | Process (`python -m vllm`) | `myia-ai-01` | 5002 | `http://localhost:5002/health` |
 | `sk-agent` | Docker container | `myia-ai-01` | 8765 | `http://localhost:8765/health` |
 
 Registry is static in `ServicesConfigService.SERVICE_REGISTRY`.
