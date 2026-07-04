@@ -185,6 +185,58 @@ CONTRAINTES:
 Commence.
 "@
 
+    # ========== MCP .ENV PRE-FLIGHT (#2772 layer 1a) ==========
+    # Remediation #2772 (web1 .env deleted by agent -> MCP DOWN 28h no alarm).
+    # PR #2773 (ai-01) delivered the restore-mcp-env.ps1 helper (bootstrap-safe,
+    # no GDrive dependency). This block guards the spawn: if the .env that the
+    # roo-state-manager MCP loader reads (mcps/internal/servers/roo-state-manager/.env)
+    # is missing or empty, attempt an auto-restore from the local hors-git backup
+    # before claude -p boots. If restore fails (true disaster path), log a
+    # CRITICAL breadcrumb on the dashboard and continue anyway — we do NOT block
+    # the wake dispatch, but the spawned Claude session will start in degraded
+    # mode (15 RSM tools unavailable). The breadcrumb is what ai-01 / a human
+    # needs to act on next.
+    try {
+        $mcpEnvRelPath = 'mcps/internal/servers/roo-state-manager/.env'
+        $mcpEnvPath = Join-Path $RepoRoot $mcpEnvRelPath
+        $mcpEnvPresent = $false
+        if (Test-Path -LiteralPath $mcpEnvPath) {
+            $mcpEnvLen = (Get-Item -LiteralPath $mcpEnvPath).Length
+            if ($mcpEnvLen -gt 0) { $mcpEnvPresent = $true }
+        }
+        if (-not $mcpEnvPresent) {
+            Write-Log "WARN" "MCP .env absent or empty at $mcpEnvPath — attempting auto-restore (remediation #2772 layer 1a)"
+            $restoreScript = Join-Path $RepoRoot 'scripts/mcp/restore-mcp-env.ps1'
+            $restoreEx = $null
+            if (Test-Path -LiteralPath $restoreScript) {
+                & pwsh -NoProfile -ExecutionPolicy Bypass -File $restoreScript
+                $restoreEx = $LASTEXITCODE
+            } else {
+                Write-Log "WARN" "restore-mcp-env.ps1 not found at $restoreScript — skipping auto-restore."
+                $restoreEx = 99
+            }
+            if ($restoreEx -eq 0) {
+                Write-Log "INFO" "MCP .env auto-restored OK — spawn proceeds with full MCP availability."
+            } else {
+                # True disaster path: no local hors-git backup. Surface loudly on
+                # the dashboard workspace so ai-01 / a human can intervene. Best-
+                # effort append — do not let a dashboard failure block the spawn.
+                Write-Log "CRITICAL" "MCP .env absent and restore FAILED (exit=$restoreEx). Spawned Claude session will run in degraded mode (15 RSM tools unavailable)."
+                try {
+                    $critMsg = "[CRITICAL] spawn-claude.ps1 pre-flight: MCP .env absent on $env:COMPUTERNAME ($mcpEnvPath) and restore-mcp-env.ps1 exit=$restoreEx. Workspace=$Workspace trigger=$msgTimestamp. Spawned claude -p session will run degraded (15 RSM tools down). Remediation: re-propagate .env from offsite backup or run scripts/mcp/restore-mcp-env.ps1 manually."
+                    & pwsh -NoProfile -ExecutionPolicy Bypass -Command "Add-Content -LiteralPath '$((Join-Path $RepoRoot '.claude/local/INTERCOM-CRITICAL-' + $env:COMPUTERNAME + '.log'))' -Value '[$(Get-Date -Format o)] $critMsg' -Encoding UTF8"
+                } catch {
+                    Write-Log "WARN" "Could not write critical breadcrumb to local log: $_"
+                }
+            }
+        } else {
+            Write-Log "INFO" "MCP .env present at $mcpEnvPath ($( (Get-Item -LiteralPath $mcpEnvPath).Length ) bytes) — pre-flight OK."
+        }
+    } catch {
+        # The guard must NEVER block the spawn. Log and continue.
+        Write-Log "WARN" ".env pre-flight guard threw (continuing spawn): $_"
+    }
+
     # ========== SPAWN ==========
 
     Write-Log "INFO" "Spawning claude -p (model=$Model, timeout=${TimeoutMinutes}min, mcp-config=$McpConfig) for workspace=$Workspace trigger=$msgTimestamp from=$msgAuthorMachine"
