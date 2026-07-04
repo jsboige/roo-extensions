@@ -77,7 +77,7 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
 
 ## Mecanisme d'Escalade
 
-**Documentation complete :** [`.claude/ESCALATION_MECHANISM.md`](../roosync/ESCALATION_MECHANISM.md)
+**Documentation complete :** [`docs/roosync/ESCALATION_MECHANISM.md`](../roosync/ESCALATION_MECHANISM.md)
 
 3 couches d'escalade automatique :
 1. **Couche Scheduler** : `orchestrator-simple` → `orchestrator-complex` (6 criteres)
