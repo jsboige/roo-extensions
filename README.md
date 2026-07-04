@@ -190,7 +190,7 @@ Collect → Publish → Compare → Validate → Apply
 -simple → -complex → claude -p (CLI)
 ```
 
-**Documentation :** [`.claude/ESCALATION_MECHANISM.md`](.claude/ESCALATION_MECHANISM.md)
+**Documentation :** [`docs/roosync/ESCALATION_MECHANISM.md`](docs/roosync/ESCALATION_MECHANISM.md)
 
 ### 3. 🤖 Agents et Skills Claude Code
 
