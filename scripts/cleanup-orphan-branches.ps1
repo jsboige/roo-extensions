@@ -53,9 +53,12 @@ $needReview = @()
 $recent = @()
 $protected = @()
 
-# Get all remote branches with dates
+# Get parent-repo remote branches only (origin = jsboige/roo-extensions).
+# Exclude other remotes (e.g. `upstream` = jsboige/jsboige-mcp-servers submodule),
+# which belong to a different repo and would be mis-categorized as "unknown pattern"
+# noise — and risk a wrong `git push origin --delete <upstream/...>` if ever auto-flagged.
 Write-Host "Scanning branches..." -ForegroundColor Yellow
-$branches = git branch -r --format='%(refname:short)|%(creatordate:iso8601)|%(authorname)'
+$branches = git branch -r --list 'origin/*' --format='%(refname:short)|%(creatordate:iso8601)|%(authorname)'
 
 foreach ($line in $branches) {
     if (-not $line -or $line -notmatch '\|') { continue }
