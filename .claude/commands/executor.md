@@ -85,7 +85,7 @@ Puis (en parallele) :
 - **Reference :** [`docs/roosync/SKEPTICISM_PROTOCOL.md`](../../docs/roosync/SKEPTICISM_PROTOCOL.md)
 
 **Détection proactive de condensation (dashboard) :**
-- Le dashboard RooSync s'auto-condense à 500 messages (pas de detection manuelle necessaire)
+- Le dashboard RooSync s'auto-condense préemptivement à 92% (~46 KB) — pas de detection manuelle necessaire
 - **FALLBACK INTERCOM** : Si utilise le fichier local fallback, compter les lignes : `wc -l .claude/local/INTERCOM-{MACHINE}.md`
   - **Alerte si > 500 lignes** : Signaler "INTERCOM volumineux (X lignes) - risque condensation"
   - **Critique si > 1000 lignes** : Proposer un cleanup immédiat (archiver messages anciens)
@@ -461,7 +461,7 @@ Passer directement a la Phase 2.
      - `roosync_config(action: "collect")` → Collecter la config locale
      - `roosync_config(action: "publish", version: "1.0.0", description: "Initial config {MACHINE}")` → Publier sur GDrive
      - `roosync_compare_config(granularity: "mcp")` → Verifier les ecarts avec la baseline
-   - Nettoyage dashboard (si > 500 messages, le dashboard s'auto-condense — pas d'action necessaire)
+   - Nettoyage dashboard (auto-condensation préemptive à 92% (~46 KB) — pas d'action necessaire)
 
 ### Détection Dynamique des IDs GraphQL (RECOMMANDÉ)
 
@@ -625,18 +625,17 @@ git push origin main
 - **TOUJOURS** selectionner une tache et commencer a travailler
 - **L'utilisateur intervient uniquement** pour : arbitrages, approbation nouvelles issues, decisions irreversibles
 
-### Wakeup Cycle Cadence (#2203, mandate user 2026-05-15)
+### Wakeup Cycle Cadence (session interactive)
 
-**Intervalle fleet-wide : 1h (3600s) — DEFAULT FERMÉ.**
+**Sessions interactives non-cron : re-armer `ScheduleWakeup(delaySeconds: 3540, ...)` à chaque fin de cycle** (≤1h = plafond technique du clamp `[60,3600]s`, pas un mandat de cadence). Les workers schedulés (Task Scheduler) ont leur cadence externe — ne pas re-armer par-dessus.
 
 ```
-ScheduleWakeup(delaySeconds: 3600, prompt: "/executor", reason: "...")
+ScheduleWakeup(delaySeconds: 3540, prompt: "/executor", reason: "...")
 ```
 
-- **Pourquoi 1h** : cycles courts (5-30 min observés cycle 33) + cap 3-IDLE (#2185) déclenchent AUTO-STOP avant que le coordinateur n'ait le temps de dispatcher du frais → flotte stallée. 1h × 3 = 3h avant AUTO-STOP, fenêtre réaliste.
-- **Cap 3-IDLE inchangé** (#2185) mais devient 3h au lieu de 30 min.
-- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick 1h.
-- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer adaptatif.
+- **Caps IDLE levés** (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Réveil immédiat sans attendre le tick.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + WAKE-CLAUDE, pas via timer adaptatif.
 
 ### Session Hygiene — Restart Cadence (#2532)
 
@@ -778,7 +777,7 @@ git add {files} && git commit -m "type(scope): desc" && git push
 
 # RooSync
 roosync_messages(action: "inbox", status: "unread")
-roosync_messages(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: "...")
+roosync_messages(action: "send", to: "myia-ai-01:roo-extensions", subject: "[DONE] ...", body: "...")
 ```bash
 
 ### Fichiers cles
@@ -804,8 +803,8 @@ roosync_messages(action: "send", to: "myia-ai-01", subject: "[DONE] ...", body: 
 
 ### Configuration EMBEDDING_* requise dans `.env`
 ```bash
-EMBEDDING_MODEL=Alibaba-NLP/gte-Qwen2-1.5B-instruct
+EMBEDDING_MODEL=qwen3-4b-awq-embedding
 EMBEDDING_DIMENSIONS=2560
-EMBEDDING_API_BASE_URL=http://embeddings.myia.io:11436/v1
-EMBEDDING_API_KEY=vllm-placeholder-key-2024
+EMBEDDING_API_BASE_URL=https://embeddings.myia.io/v1
+EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 ```bash

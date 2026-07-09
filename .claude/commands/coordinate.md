@@ -358,7 +358,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 
 ### sk-agent (Python MCP via FastMCP + Semantic Kernel)
 
-**Outils :** `call_agent`, `run_conversation`, `list_agents`, `list_conversations`, `list_tools`, `end_conversation`
+**Outils (9) :** `call_agent`, `diagnostics`, `end_conversation`, `install_libreoffice`, `list_agents`, `list_conversations`, `list_tools`, `review_pr`, `run_conversation`
 **11 agents :** analyst, vision-analyst, vision-local, fast, researcher, synthesizer, critic, optimist, devils-advocate, pragmatist, mediator
 **4 conversations :** deep-search, deep-think, code-review, research-debate
 **4 modeles :** Cloud reasoning (Opus/Sonnet), Cloud vision, Local reasoning (GLM-5), Local vision
@@ -409,24 +409,25 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 ### Communication Multi-Canal
 | Canal | Usage | Fréquence |
 |-------|-------|-----------|
-| **RooSync** | Instructions aux exécutants | Chaque tour de sync |
-| **INTERCOM** | Coordination locale Roo | Chaque action locale |
+| **Dashboard workspace** | Coordination cross-machine (PRINCIPAL) | Chaque tour de sync |
+| **RooSync `roosync_messages`** | Inter-machine (fallback/urgences) | Au besoin |
+| **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence Fleet-Wide (#2203 → cron 2h, mandate user 2026-05-25)
+### Wakeup Cycle Cadence Fleet-Wide (cron 4h, mandate user 2026-07-07)
 
-**Cadence fleet-wide : 2h via `CronCreate` (économie tokens).** Le cycle 1h de #2203 (2026-05-15) est **superseded** par le mandate « RALENTIR » du 2026-05-25. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 2h passe donc par cron.
+**Cadence coordinateur ai-01 : 4h via `CronCreate`.** Supersede la 2h (#2203/2026-05-25) et la 6h. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 4h passe donc par cron.
 
 ```
-# ai-01 coordinateur — cadence 2h (job session-only, auto-expire 7j) :
-CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
-# NE PAS re-armer un ScheduleWakeup 1h par-dessus (ré-introduirait le cycle 1h superseded).
+# ai-01 coordinateur — cadence 4h (job session-only, auto-expire 7j) :
+CronCreate(cron: "41 */4 * * *", prompt: "/coordinate", recurring: true)
+# NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
-- **Pourquoi 2h** : le cycle 1h générait trop de réveils coordinateur (tokens chers si mal utilisés). À chaque réveil 2h, dispatch deep-queue substantielle (≥3h de matière) par machine. Cap 3-IDLE (#2185) inchangé → ~6h avant AUTO-STOP.
-- **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence 1h. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
+- **À chaque réveil**, dispatch deep-queue substantielle (≥3h de matière) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
-- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via cap 3-IDLE + [WAKE-CLAUDE], pas via timer adaptatif.
+- **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
 - **Propagation autres workspaces** : Quand tu coordonnes un autre workspace (CoursIA notamment), poster cette règle sur leur dashboard également.
 
 ### Tags INTERCOM a surveiller (ecrits par Roo scheduler)
@@ -440,7 +441,7 @@ CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
 | `[PATROL]` | Exploration de veille active effectuee (domaine X) | Noter le domaine couvert, eviter de re-explorer |
 | `[FRICTION-FOUND]` | Probleme detecte pendant la veille active | Verifier la friction, escalader si confirmee → issue GitHub |
 | `[ERROR]` / `[WARN]` | Probleme operationnel | Investiguer |
-| `[ASK]` | Question de Roo | Repondre via INTERCOM |
+| `[ASK]` | Question de Roo | Repondre via dashboard workspace |
 
 ### Deliberation Structuree pour Decisions Architecturales (sk-agent)
 
