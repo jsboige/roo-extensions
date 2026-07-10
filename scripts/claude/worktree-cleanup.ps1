@@ -1,7 +1,7 @@
 # Worktree Cleanup Protocol
 # Description: Automated cleanup of orphan worktrees, stale local branches, and dead remote branches
 # Author: Claude Code (myia-po-2025)
-# Issue: #856, #1076
+# Issue: #856, #1076, #2772 (submodule deletion guard)
 # Usage: worktree-cleanup.ps1 [-WhatIf] [-Force] [-Remote] [-SkipRemote]
 
 [CmdletBinding()]
@@ -16,6 +16,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Guard #2772 (couche 3b): shared deletion-path guards (submodule + #2123 nesting)
+. "$PSScriptRoot\..\common\path-guards.ps1"
+
 # Configuration
 $script:RepoRoot = (git rev-parse --show-toplevel 2>$null)
 if (-not $script:RepoRoot) {
@@ -24,6 +27,17 @@ if (-not $script:RepoRoot) {
 }
 
 $script:WorktreesDir = Join-Path $script:RepoRoot $WorktreePath
+
+# Guard #2772/#2123: vet the cleanup container once — refuse to operate on a
+# worktrees dir inside a submodule working tree, or from a repo nested in a
+# superproject (nested-repo configuration of incident #2123).
+$rootVerdict = Test-SafeCleanupRoot -Root $script:WorktreesDir -RepoRoot $script:RepoRoot
+if (-not $rootVerdict.Safe) {
+    # Write-Host + exit 1 (NOT Write-Error): under $ErrorActionPreference='Stop',
+    # Write-Error terminates before reaching `exit 1` and -File returns exit code 0
+    Write-Host "[ERROR] REFUSED (#2772): $($rootVerdict.Reason)" -ForegroundColor Red
+    exit 1
+}
 
 # Colors for output
 function Write-Info { param($msg) Write-Host "[INFO] $msg" -ForegroundColor Cyan }
@@ -114,9 +128,13 @@ function Get-OrphanWorktreeDirs {
     $dirs = Get-ChildItem -Path $WorktreesDir -Directory -ErrorAction SilentlyContinue
 
     foreach ($dir in $dirs) {
+        # Normalize both sides (#2772 validation catch): `git worktree list` emits
+        # forward slashes (D:/dev/...) while FullName is backslashed (D:\dev\...) —
+        # a raw -eq NEVER matches, so every ACTIVE worktree was flagged orphan.
+        $dirNorm = ConvertTo-NormalizedPath -Path $dir.FullName
         $isActive = $false
         foreach ($wt in $ActiveWorktrees) {
-            if ($wt.Path -eq $dir.FullName) {
+            if ([string]::Equals((ConvertTo-NormalizedPath -Path $wt.Path), $dirNorm, [System.StringComparison]::OrdinalIgnoreCase)) {
                 $isActive = $true
                 break
             }
@@ -141,6 +159,16 @@ function Get-OrphanWorktreeDirs {
 # Remove orphan worktree directory (Windows-safe: handles long paths and locked files)
 function Remove-OrphanWorktreeDir {
     param([string]$Path, [bool]$WhatIf)
+
+    # Guard #2772: refuse recursive force-delete on any path resolving inside a
+    # submodule working tree (would destroy gitignored .env), containing one, or
+    # escaping the worktrees container. Runs BEFORE every deletion strategy.
+    $verdict = Test-SafeDeletionPath -Path $Path -RepoRoot $script:RepoRoot -AllowedRoot $script:WorktreesDir
+    if (-not $verdict.Safe) {
+        Write-Err "REFUSED (#2772): $($verdict.Reason)"
+        Write-Info "  Nothing deleted for this target."
+        return
+    }
 
     if ($WhatIf) {
         Write-Info "[WHATIF] Would remove: $Path"

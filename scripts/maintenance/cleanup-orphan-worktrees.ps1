@@ -42,6 +42,7 @@
 
 .NOTES
     Issue #1753 — Cleanup script worktrees orphelins
+    Issue #2772 (couche 3b) — submodule deletion guard
 #>
 
 [CmdletBinding()]
@@ -57,6 +58,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# Guard #2772 (couche 3b): shared deletion-path guards (submodule + #2123 nesting)
+. "$PSScriptRoot/../common/path-guards.ps1"
+
 # Resolve repo root: explicit parameter takes priority, then git rev-parse from CWD
 if (-not $RepoRoot) {
     $gitRoot = git rev-parse --show-toplevel 2>$null
@@ -69,6 +73,17 @@ if (-not $RepoRoot) {
 
 if (-not $WorktreesPath) {
     $WorktreesPath = "$RepoRoot/.claude/worktrees"
+}
+
+# Guard #2772/#2123: vet the cleanup container once — refuse to operate on a
+# worktrees dir inside a submodule working tree, or from a repo nested in a
+# superproject (nested-repo configuration of incident #2123).
+$rootVerdict = Test-SafeCleanupRoot -Root $WorktreesPath -RepoRoot $RepoRoot
+if (-not $rootVerdict.Safe) {
+    # Write-Host + exit 1 (NOT Write-Error): under $ErrorActionPreference='Stop',
+    # Write-Error terminates before reaching `exit 1` and -File returns exit code 0
+    Write-Host "REFUSED (#2772): $($rootVerdict.Reason)" -ForegroundColor Red
+    exit 1
 }
 if (-not $ArchivePath) {
     $ArchivePath = "$WorktreesPath/_archive"
@@ -194,7 +209,16 @@ function Remove-ItemWithRetry {
         [int]$MaxRetries = $maxRetries,
         [int]$RetryDelay = $retryDelay
     )
-    
+
+    # Guard #2772: refuse recursive force-delete on any path resolving inside a
+    # submodule working tree (would destroy gitignored .env), containing one, or
+    # escaping the worktrees container. Runs BEFORE any deletion attempt.
+    $verdict = Test-SafeDeletionPath -Path $Path -RepoRoot $RepoRoot -AllowedRoot $WorktreesPath
+    if (-not $verdict.Safe) {
+        Write-Log "  REFUSED (#2772): $($verdict.Reason)"
+        return $false
+    }
+
     for ($i = 1; $i -le $MaxRetries; $i++) {
         try {
             Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
