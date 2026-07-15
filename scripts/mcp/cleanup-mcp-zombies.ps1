@@ -17,8 +17,11 @@
        conservative heuristic and EXCLUDES it categorically from any kill list.
     3. Identifies ZOMBIE candidates: procs whose StartTime is older than `-OlderThanHours`
        (default 12) AND not the live PID.
-    4. Refuses to kill (exit code 2) if the live PID cannot be identified with reasonable
-       certainty. Safer to do nothing than to kill the wrong PID and break the live session.
+    4. Refuses to kill (exit code 2) ONLY when the live session(s) genuinely cannot be located
+       (no build/index.js in the newest cluster, or no cluster at all). When the newest restart
+       cluster has MULTIPLE build/index.js procs (a multi-session machine: interactive Claude +
+       a scheduled worker), it cannot single out the live PID → it preserves the ENTIRE newest
+       cluster and still cleans older-cluster zombies. See "MULTI-SESSION MACHINES" below.
 
     Mode of operation:
     - DEFAULT (no flag) = DRY RUN. Lists zombies, marks live PID, exits 0. NOTHING is killed.
@@ -64,9 +67,23 @@
     SAFETY GUARANTEES:
     - Default mode is read-only. No proc is killed without explicit `-Execute`.
     - The LIVE PID is always excluded from the kill list, period.
-    - If the LIVE PID cannot be identified with reasonable certainty, the script refuses to kill
-      (exits 2) rather than risk killing the wrong process.
+    - If the newest restart cluster has NO build/index.js at all (genuinely cannot locate the
+      live session), the script refuses to kill (exits 2) rather than risk the wrong process.
+    - On MULTI-SESSION machines (newest cluster has >1 build/index.js), the script preserves
+      the ENTIRE newest cluster and cleans only older-cluster zombies. See below.
     - The kill uses `Stop-Process -Force` only after a clear log of which PIDs are about to die.
+
+    MULTI-SESSION MACHINES (#2830 follow-up, validated po-204):
+    - A machine running 2+ concurrent MCP host sessions (interactive Claude + scheduled
+      `claude -p`, or two IDE windows) produces a newest cluster with >1 build/index.js proc.
+      The script cannot guess which is live, so it refuses to kill ANY newest-cluster member —
+      but unlike a hard exit-2 it still cleans unambiguous zombies from OLDER clusters
+      (>OlderThanHours, not live).
+    - This restores effectiveness without weakening safety: the zombie criterion (age +
+      not-live + not-in-newest-cluster) is identical to the single-session path; only the
+      "refuse everything" over-reaction is removed. Validated firsthand on po-204 (newest
+      cluster = 2 build/index.js → 14 older-cluster zombies became cleanable that the prior
+      exit-2 blocked).
 
     HEURISTIC FOR LIVE PID IDENTIFICATION:
     - Cluster all matching procs by StartTime. A "cluster" is a group of procs started within
@@ -76,7 +93,10 @@
     - Within the newest cluster, if there are MULTIPLE procs (typical: 1 wrapper + 1 build/index.js
       + maybe 1 searxng/playwright), the live one is the build/index.js with the most recent
       StartTime. Wrappers and non-build/index.js procs are excluded.
-    - If NO cluster can be identified, or the heuristic fails → exit 2, refuse kill.
+    - If NO cluster can be identified → exit 2, refuse kill.
+    - If the newest cluster has NO build/index.js → exit 2, refuse kill (live session unlocatable).
+    - If the newest cluster has >1 build/index.js (multi-session) → preserve the whole newest
+      cluster, clean only older-cluster zombies (do NOT exit 2).
 #>
 
 [CmdletBinding(SupportsShouldProcess = $true)]
@@ -199,30 +219,53 @@ if ($liveCandidates.Count -eq 0) {
     exit 2
 }
 
-if ($liveCandidates.Count -gt 1) {
-    Write-Host "[REFUSE] Newest cluster has $($liveCandidates.Count) build/index.js procs. Live PID ambiguous. Exit 2 (no kill)." -ForegroundColor Red
-    Write-Host "  (This is unusual — typically there should be exactly one build/index.js per restart.)" -ForegroundColor Red
-    Write-Host "  Candidates:" -ForegroundColor Red
+# Multi-session support (#2830 follow-up): when the newest cluster has MULTIPLE build/index.js
+# procs, this machine is running 2+ concurrent MCP host sessions (e.g. an interactive Claude +
+# a scheduled `claude -p` worker). We CANNOT guess which build/index.js is the live one → we
+# preserve ALL of them and proceed to clean ONLY older-cluster zombies. This restores
+# effectiveness on multi-session machines (the script was previously a hard no-op exit-2 there,
+# unable to clean even days-old zombies) while keeping the core safety invariant:
+# NEVER guess the live PID. The whole newest cluster is also unconditionally excluded below
+# (defense in depth), so even a mis-guess cannot touch any concurrent session.
+$ambiguousLive = $false
+$livePidLabel = ""
+if ($liveCandidates.Count -eq 1) {
+    $livePid = $liveCandidates[0].ProcessId
+    $liveStart = $liveCandidates[0].CreationDate
+    $livePidLabel = "PID=$livePid"
+    Write-Host "[LIVE] Identified live MCP host PID=$livePid (build/index.js, started $liveStart)" -ForegroundColor Green
+} else {
+    $ambiguousLive = $true
+    $livePid = $null
+    $livePidLabel = "all $($liveCandidates.Count) newest-cluster build/index.js procs"
+    Write-Host "[LIVE-AMBIGUOUS] Newest cluster has $($liveCandidates.Count) build/index.js procs (multi-session machine)." -ForegroundColor Yellow
+    Write-Host "  Cannot single out the live PID → preserving ALL newest-cluster build/index.js procs." -ForegroundColor Yellow
     foreach ($c in $liveCandidates) {
-        Write-Host ("    PID={0,-7} started {1:yyyy-MM-dd HH:mm:ss}" -f $c.ProcessId, $c.CreationDate) -ForegroundColor Red
+        Write-Host ("    PID={0,-7} started {1:yyyy-MM-dd HH:mm:ss}" -f $c.ProcessId, $c.CreationDate) -ForegroundColor Yellow
     }
-    exit 2
+    Write-Host "  Will clean ONLY older-cluster zombies (entire newest cluster preserved)." -ForegroundColor Yellow
 }
-
-$livePid = $liveCandidates[0].ProcessId
-$liveStart = $liveCandidates[0].CreationDate
-
-Write-Host "[LIVE] Identified live MCP host PID=$livePid (build/index.js, started $liveStart)" -ForegroundColor Green
 Write-Host ""
 
 # --- 4. Identify zombie candidates -----------------------------------------
 
-$zombies = $allProcs | Where-Object {
-    $_.ProcessId -ne $livePid -and        # NOT the live PID
-    $_.CreationDate -lt $cutoffTime        # AND older than threshold
+# Build the set of PIDs to PRESERVE (never killed). In single-session mode this is just the
+# one live PID; in ambiguous multi-session mode it is ALL newest-cluster build/index.js procs.
+$preservePids = @()
+if ($ambiguousLive) {
+    $preservePids += $liveCandidates.ProcessId
+} elseif ($null -ne $livePid) {
+    $preservePids += $livePid
 }
 
-# Also defend-in-depth: never kill anything in the newest cluster regardless of age.
+$zombies = $allProcs | Where-Object {
+    $preservePids -notcontains $_.ProcessId -and   # NOT a preserved/live PID
+    $_.CreationDate -lt $cutoffTime                 # AND older than threshold
+}
+
+# Also defend-in-depth: never kill anything in the newest cluster regardless of age. This is the
+# safety backstop in ambiguous mode — even if a live PID were mis-guessed, the whole newest
+# cluster (including every concurrent MCP host session) is unconditionally preserved.
 $newestClusterPids = $newestCluster | ForEach-Object { $_.ProcessId }
 $zombies = $zombies | Where-Object { $newestClusterPids -notcontains $_.ProcessId }
 
@@ -241,13 +284,13 @@ Write-Host ""
 # --- 5. Execute or report --------------------------------------------------
 
 if ($zombies.Count -eq 0) {
-    Write-Host "Nothing to do. Live PID=$livePid is preserved." -ForegroundColor Green
+    Write-Host "Nothing to do. Preserved: $livePidLabel" -ForegroundColor Green
     exit 0
 }
 
 if (-not $Execute) {
     Write-Host "[DRY RUN] Would kill $($zombies.Count) zombie proc(s) with -Execute flag." -ForegroundColor Cyan
-    Write-Host "[DRY RUN] Live PID=$livePid is PRESERVED." -ForegroundColor Cyan
+    Write-Host "[DRY RUN] Preserved: $livePidLabel" -ForegroundColor Cyan
     Write-Host "[DRY RUN] Re-run with -Execute to actually kill." -ForegroundColor Cyan
     exit 0
 }
@@ -266,9 +309,9 @@ foreach ($z in $zombies) {
 }
 
 if ($killErrors.Count -gt 0) {
-    Write-Host "[DONE with errors] $($killErrors.Count) kill(s) failed. Live PID=$livePid was preserved." -ForegroundColor Red
+    Write-Host "[DONE with errors] $($killErrors.Count) kill(s) failed. Preserved: $livePidLabel" -ForegroundColor Red
     exit 1
 }
 
-Write-Host "[DONE] Killed $($zombies.Count) zombie proc(s). Live PID=$livePid preserved." -ForegroundColor Green
+Write-Host "[DONE] Killed $($zombies.Count) zombie proc(s). Preserved: $livePidLabel" -ForegroundColor Green
 exit 0
