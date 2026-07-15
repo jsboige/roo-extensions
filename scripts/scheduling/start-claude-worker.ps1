@@ -1688,6 +1688,58 @@ function Sync-McpSubmoduleBuild {
     }
 }
 
+# ============================================================================
+# Reset-WorktreeForMaintenance — #2834 worktree-reset-on-maintenance-run
+# ============================================================================
+# Maintenance runs (fallback-maintenance: build + vitest, no valuable commits)
+# reuse a persistent worktree that accumulates cruft over days: stray 0-byte
+# files (path-quoting artefacts like `C`/`D`), safety auto-commits, phantom
+# `M mcps/internal`, build/test artefacts. Resetting at run START keeps the
+# worktree clean. Called ONLY for source="fallback" tasks (see Create-Worktree)
+# — work-task worktrees are never reset (in-progress work preservation,
+# no-deletion-without-proof + detached-HEAD guard #1666).
+#
+# Excludes .env, *.log, and node_modules from `git clean` so secrets, logs and
+# the (often junction-linked) dependency tree survive the reset. Best-effort:
+# a reset failure is logged WARN, never aborts the run.
+function Reset-WorktreeForMaintenance {
+    param([string]$WorktreePath)
+
+    if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) { return $false }
+
+    try {
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+
+        # Fetch latest main so reset lands on the current parent tree
+        git -C $WorktreePath fetch origin main --quiet 2>&1 | Out-Null
+
+        # Hard reset to origin/main (discards cruft commits + working-tree changes)
+        git -C $WorktreePath reset --hard origin/main 2>&1 | ForEach-Object { Write-Log "  $_" "GIT" }
+        $resetExit = $LASTEXITCODE
+
+        # Clean untracked/ignored cruft, preserving .env, logs, and node_modules
+        git -C $WorktreePath clean -fd -e .env -e '*.log' -e node_modules 2>&1 |
+            ForEach-Object { Write-Log "  $_" "GIT" }
+
+        # Re-align submodules (reset --hard does not touch submodule contents)
+        git -C $WorktreePath submodule update --init --recursive 2>&1 | Out-Null
+
+        $ErrorActionPreference = $prevPref
+
+        if ($resetExit -ne 0) {
+            Write-Log "git reset --hard failed (exit $resetExit)" "WARN"
+            return $false
+        }
+        return $true
+    }
+    catch {
+        $ErrorActionPreference = $prevPref
+        Write-Log "Reset-WorktreeForMaintenance error (non-fatal): $_" "WARN"
+        return $false
+    }
+}
+
 function Create-Worktree {
     param([string]$TaskId, $Task)
 
@@ -1701,14 +1753,32 @@ function Create-Worktree {
 
     if ($ExistingWt) {
         if ($ExistingWt.state -eq "resume") {
-            # Worktree avec changements - on reprend dedans
-            Write-Log "🔄 REPRISE dans worktree existant: $($ExistingWt.worktreePath)"
-            Write-Log "  → Branch: $($ExistingWt.branch)"
-            Write-Log "  → Les changements existants seront préservés"
+            # #2834: maintenance runs (source = "fallback") produce no valuable commits
+            # (safety auto-commit only) but accumulate cruft across days — stray 0-byte
+            # files (path-quoting artefacts like `C`/`D`), auto-commits, phantom
+            # `M mcps/internal`, build/test artefacts. Reset to a clean state at the START
+            # of the run so cruft doesn't compound. Work-tasks (roosync/github) keep the
+            # preserve-and-resume semantics: in-progress work must NEVER be destroyed
+            # (no-deletion-without-proof, detached-HEAD guard #1666).
+            $IsMaintenanceTask = $Task -and $Task.source -eq "fallback"
+            if ($IsMaintenanceTask) {
+                Write-Log "🧹 #2834 RESET worktree maintenance: $($ExistingWt.worktreePath) (source=fallback — no valuable work to preserve)"
+                $ResetOk = Reset-WorktreeForMaintenance -WorktreePath $ExistingWt.worktreePath
+                if ($ResetOk) {
+                    Write-Log "  → Worktree reset à origin/main, poursuite du run maintenance"
+                } else {
+                    Write-Log "  → Reset a échoué (non-fatal), poursuite dans worktree tel quel" "WARN"
+                }
+            } else {
+                # Work-task avec changements en cours - on reprend dedans (travail préservé)
+                Write-Log "🔄 REPRISE dans worktree existant: $($ExistingWt.worktreePath)"
+                Write-Log "  → Branch: $($ExistingWt.branch)"
+                Write-Log "  → Les changements existants seront préservés"
 
-            # Ajouter un contexte de continuation au prompt si fourni
-            if ($Task -and $Task.prompt) {
-                $Task.prompt = "[CONTINUATION FROM PREVIOUS SESSION - Resuming in existing worktree with uncommitted changes]`n`n" + $Task.prompt
+                # Ajouter un contexte de continuation au prompt si fourni
+                if ($Task -and $Task.prompt) {
+                    $Task.prompt = "[CONTINUATION FROM PREVIOUS SESSION - Resuming in existing worktree with uncommitted changes]`n`n" + $Task.prompt
+                }
             }
 
             return $ExistingWt.worktreePath
