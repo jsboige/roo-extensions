@@ -204,9 +204,7 @@ Local `wt/` branches with no active worktree and last commit > N days old.
 
 ## Script
 
-**Location:** `scripts/claude/worktree-cleanup.ps1` (consolidated from `.claude/scripts/` per #866)
-
-**Legacy path still works:** `.claude/scripts/worktree-cleanup.ps1`
+**Location:** `scripts/claude/worktree-cleanup.ps1` (consolidated from `.claude/scripts/` per #866 — legacy `.claude/scripts/` path removed)
 
 ### Usage
 
