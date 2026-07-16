@@ -53,7 +53,7 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 ## PHASE 1 : COLLECTE RAPIDE + GROUNDING SDDD (5 min max)
 
-**Methodologie :** Triple grounding SDDD (voir `.claude/rules/sddd-conversational-grounding.md`).
+**Methodologie :** Triple grounding SDDD (voir [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md)).
 
 Execute ces actions automatiquement, en parallele quand possible :
 
