@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-06-08
+**Dernière mise à jour :** 2026-07-16
 
 ---
 
@@ -24,7 +24,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
 | `roosync/` | 20 | Synchronisation multi-machines RooSync (indexation, storage, config sync) |
-| `dashboard-scheduler/` | 8 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation) |
+| `dashboard-scheduler/` | 10 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation, listener diagnostics) |
 | `messaging/` | 4 | Communication inter-machines (ventilation, inbox) |
 | `gdrive/` | 1 | Intégration Google Drive |
 | `scheduler/` | 3 | Configuration du scheduler Roo |
@@ -33,9 +33,10 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `mcp/` | 14 | Gestion et validation des serveurs MCP (build, validate, deploy) |
+| `mcp/` | 17 | Gestion et validation des serveurs MCP (build, validate, deploy, env backup/restore, zombie cleanup) |
 | `mcp-watchdog/` | 6 | Surveillance et redémarrage automatique des MCP |
 | `qdrant/` | 5 | Gestion Qdrant (backup, restore, diagnostics) |
+| `postgres/` | 2 | Sauvegarde Postgres (backup dump, schtask install) |
 | `copilot/` | 1 | Configuration VS Code Copilot MCP |
 | `deployment/` | 14 | Déploiement des configurations (install-mcps, migrate-roo-to-zoo) |
 | `roo-settings/` | 2 | Gestion des paramètres Roo Code |
@@ -44,7 +45,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `git/` | 1 | Opérations Git basiques (pre-commit hooks) |
+| `git/` | 2 | Opérations Git (pre-commit hooks, branch triage) |
 | `git-workflow/` | 7 | Workflow Git avancé (submodules, commit, branches) |
 | `github/` | 4 | Intégration GitHub (sync-project, set-fields, review-bot) |
 | `worktrees/` | 4 | Gestion des worktrees Git (création, cleanup, merge) |
@@ -58,7 +59,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 2 | Gestion mémoire agents (inject, redistribute) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
-| `scheduling/` | 16 | Scripts de planification (copilot dispatcher, schtasks) |
+| `scheduling/` | 17 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
 
 ### Infrastructure & Système
 
@@ -68,7 +69,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `install/` | 1 | Installation initiale |
 | `setup/` | 6 | Configuration environnement (Git hooks, auto-login, VS Code) |
 | `windows/` | 3 | Spécifique Windows (WSL, startup, Docker) |
-| `zoo-scheduler/` | 4 | Migration et gestion du scheduler Zoo Code |
+| `zoo-scheduler/` | 6 | Migration et gestion du scheduler Zoo Code (globalState migration, health check) |
 
 ### Diagnostic & Monitoring
 
@@ -76,21 +77,21 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 |------------|---------|-------------|
 | `diagnostic/` | 12 | Diagnostic environnement (MCP, GDrive, Qdrant, submodules) |
 | `monitoring/` | 13 | Monitoring continu (health checks, metrics, alerts) |
-| `inventory/` | 3 | Inventaire machines et configurations |
+| `inventory/` | 4 | Inventaire machines et configurations |
 
 ### Validation & Tests
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
 | `testing/` | 8 | Tests unitaires et E2E (Pester, Vitest, Playwright) |
-| `validation/` | 12 | Validation fonctionnelle (build, CI, configs, MCP drift) |
+| `validation/` | 13 | Validation fonctionnelle (build, CI, configs, MCP drift, commit citations) |
 | `audit/` | 1 | Audit de qualité (rules footprint) |
 
 ### Maintenance & Cleanup
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `maintenance/` | 14 | Maintenance récurrente (cleanup, sync, index repair, idle patrol) |
+| `maintenance/` | 16 | Maintenance récurrente (cleanup, sync, index repair, idle patrol, MCP stdio zombies) |
 | `cleanup/` | 1 | Nettoyage général |
 | `_archive/` | 1 | Scripts archivés (référence seulement) |
 
@@ -108,7 +109,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `analysis/` | 6 | Analyse de code et métriques (branches, commits, complexity) |
 | `docs/` | 7 | Génération et maintenance de documentation |
 | `benchmarks/` | 1 | Benchmarks de performance |
-| `common/` | 1 | Utilitaires partagés (extension paths) |
+| `common/` | 2 | Utilitaires partagés (extension paths, submodule deletion guards) |
 
 ### Autres
 
