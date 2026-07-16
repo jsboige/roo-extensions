@@ -97,7 +97,7 @@ Agent("code-explorer") // Investigation approfondie
 - Peut être parallélisée avec d'autres tâches
 - Requiert une recherche approfondie
 
-**Voir aussi :** `.claude/rules/delegation.md` pour les règles de délégation.
+**Voir aussi :** [`docs/harness/reference/delegation.md`](delegation.md) pour les règles de délégation.
 
 ### Niveau 3 : sk-Agent Délibération
 **Utiliser sk-agent pour des capacités de raisonnement étendues :**
@@ -128,7 +128,7 @@ sk-agent call_agent avec options:
 4. **Pass 4 - Conversationnel** (conversation_browser)
    - But : analyser traces Roo et sessions Claude passées
 
-**Référence :** `.claude/rules/sddd-conversational-grounding.md`
+**Référence :** [`docs/harness/reference/sddd-conversational-grounding.md`](sddd-conversational-grounding.md)
 
 ### Niveau 5 : Escalade Utilisateur
 **Quand 2+ approches ont échoué ou une décision utilisateur est requise :**
@@ -214,8 +214,8 @@ Quand vous escaladez (sous-agent ou utilisateur), documentez toujours :
 
 - Issue #842 : Création de ce document
 - Roo equivalent : `docs/roosync/ESCALATION_MECHANISM.md` (mécanisme Roo 3 couches)
-- `.claude/rules/delegation.md` : Règles de délégation aux sub-agents
-- `.claude/rules/sddd-conversational-grounding.md` : Protocole SDDD multi-pass
+- [`docs/harness/reference/delegation.md`](delegation.md) : Règles de délégation aux sub-agents
+- [`docs/harness/reference/sddd-conversational-grounding.md`](sddd-conversational-grounding.md) : Protocole SDDD multi-pass
 - `.claude/rules/skepticism-protocol.md` : Scepticisme raisonnable (vérifier avant de propager)
 
 ---

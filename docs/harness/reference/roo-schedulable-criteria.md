@@ -86,7 +86,7 @@ La tâche nécessite-t-elle de créer du code ?
 ## 📚 Références
 
 - Issue #605: Cascade de délégation
-- `.claude/rules/delegation.md`: Règles de délégation sub-agents
+- [`docs/harness/reference/delegation.md`](delegation.md): Règles de délégation sub-agents
 - `docs/harness/reference/scheduler-system.md`: Architecture scheduler Roo
 - `docs/roosync/ESCALATION_MECHANISM.md`: Mécanisme d'escalade 3 couches
 
