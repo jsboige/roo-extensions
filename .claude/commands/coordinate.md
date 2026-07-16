@@ -430,6 +430,23 @@ CronCreate(cron: "41 */4 * * *", prompt: "/coordinate", recurring: true)
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
 - **Propagation autres workspaces** : Quand tu coordonnes un autre workspace (CoursIA notamment), poster cette règle sur leur dashboard également.
 
+### Post-Continuation Cron Verification (#2832 — anti-silent-coordinator)
+
+**Problème (user-authored #2832) :** Le job `CronCreate` est **session-only** (in-memory, perdu à la fin de la session Claude). Une **continuation de contexte** (seuil condensation 200k/90%) redémarre la boucle avec un nouveau contexte mais **ne re-arme pas le cron**. Le coordinateur poste alors son bilan et s'endort **sans cron armé** → aucun tick suivant ne le relance → l'utilisateur doit taper « Reprends stp » manuellement (observé **3× en 4 jours**).
+
+**Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
+
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `41 */4 * * *`) est présent dans `CronList`.
+2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
+
+**Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
+```
+CronCreate(cron: "41 */4 * * *", prompt: "/coordinate", recurring: true)
+```
+puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
+
+**Invariant :** *le coordinateur ne s'endort JAMAIS sans un cron `/coordinate` armé.* Garde-fou de fiabilité, pas un changement de cadence. La continuation de contexte est silencieuse pour l'agent — ne JAMAIS supposer que le cron a survécu, le vérifier explicitement. (Ceci ne concerne PAS les sessions interactives non-cron, qui utilisent `ScheduleWakeup` — cf. section ci-dessus.)
+
 ### Tags INTERCOM a surveiller (ecrits par Roo scheduler)
 
 | Tag | Signification | Action Claude |
