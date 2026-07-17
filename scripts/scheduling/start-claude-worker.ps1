@@ -364,11 +364,21 @@ function Get-RooSyncTask {
     }
 
     # Lire tous les messages JSON
+    # Fix #2845 Bug #3 (race GDriveFS + log imprecise) :
+    # - Capturer $fileName avant le try (sinon $_ dans le catch = ErrorRecord, pas le fichier → log imprecis)
+    # - Test-Path avant Get-Content : tolère la race GDriveFS (online-only cache)
+    #   où un fichier listé peut disparaître entre Get-ChildItem et Get-Content
+    #   (un autre agent a archivé le message, ou pin/unpin en cours).
     $Messages = Get-ChildItem $InboxPath -Filter "*.json" -ErrorAction SilentlyContinue | ForEach-Object {
+        $fileName = $_.Name
+        if (-not (Test-Path $_.FullName)) {
+            Write-Log "Message inbox disparu (race GDriveFS): $fileName" "DEBUG"
+            return $null
+        }
         try {
             Get-Content $_.FullName -Raw | ConvertFrom-Json
         } catch {
-            Write-Log "Erreur lecture $($_.Name): $_" "WARN"
+            Write-Log "Erreur lecture $fileName : $_" "WARN"
             $null
         }
     } | Where-Object { $_ -ne $null }
