@@ -127,7 +127,12 @@ if (-not $PSCmdlet.ShouldProcess($McpServerPath, "Run 'npm run build' (clean + t
 Push-Location $McpServerPath
 try {
     Write-Result 'OK' "Running 'npm run build' (clean rebuild)..."
-    $buildOutput = & npm run build 2>&1
+    # Use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to the npm.ps1
+    # wrapper, and invoking it via the call operator (`& npm ...`) corrupts arg
+    # passing (npm receives a mangled command → "Unknown command: pm", exit 1).
+    # The non-fatal design then silently keeps the stale build — exactly the
+    # STALE-TRAP this helper exists to prevent. npm.cmd bypasses the wrapper.
+    $buildOutput = & npm.cmd run build 2>&1
     $buildExit = $LASTEXITCODE
     if ($buildExit -eq 0) {
         Write-Result 'REBUILT' "MCP build regenerated successfully. Restart VS Code to activate the new build ([INTERACTIVE-ONLY])."
