@@ -58,7 +58,7 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 | Harness | `~/.claude/settings.json` | Provider tuning + permissions (JAMAIS dans le repo) |
 | Rules | `.claude/rules/*.md` | Auto-chargees chaque conversation |
 
-**ai-01 (Opus)** : `AUTO_COMPACT_WINDOW=1000000`, `COMPACT_PCT=20` | **Autres (GLM)** : `200000`, `75`. **`.claude/settings.json` projet : INTERDIT.** `settings.local.json` : tolere pour permissions uniquement.
+**Toutes familles** (Claude Opus/Sonnet/Haiku, GLM, Qwen) : `AUTO_COMPACT_WINDOW=200000`, `COMPACT_PCT=90` (universel — règle v4.0.0, supersede le model-aware #2173 par décision user 2026-05-25, voir `.claude/rules/context-window.md`). **`.claude/settings.json` projet : INTERDIT.** `settings.local.json` : tolere pour permissions uniquement.
 
 ---
 
