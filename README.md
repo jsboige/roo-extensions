@@ -14,13 +14,13 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 ### 🏆 Réalisations Principales
 
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
-- ✅ **6 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent, GitHub CLI
+- ✅ **5 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent (github-projects-mcp RETIRÉ #368)
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
 - ✅ **15 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
 - ✅ **GitHub Projects #67** : 242 items actifs
-- ✅ **8974 tests unitaires** : 469 fichiers, CI GitHub Actions (Node 18+20)
+- ✅ **~13 400 tests unitaires** : 720 fichiers .test.ts, CI GitHub Actions (Node 18+20)
 
 ---
 
@@ -237,12 +237,12 @@ Collect → Publish → Compare → Validate → Apply
 - **Scheduler Roo** : Toutes les 3h (staggered par machine)
 - **Scheduler Claude Code** : Worker Haiku toutes les 3h (ai-01, pilot)
 - **CI GitHub Actions** : Node 18+20 sur ubuntu-latest
-- **Build + Tests** : ~62s (8974 tests, 469 fichiers)
+- **Build + Tests** : ~62s (~13 400 tests, 720 fichiers)
 
 ### MCPs
 - **roo-state-manager** : 15 outils, <500ms réponse
 - **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
-- **Taux de réussite tests** : 99.6% (8974/9011)
+- **Taux de réussite tests** : mesuré à chaque run CI (historique 99.6%)
 
 ### RooSync v2.3
 - **Messagerie** : <1s latence inter-machines (GDrive partagé)
@@ -393,7 +393,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
 - ✅ **Wrapper MCP v4** : 15 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
-- ✅ **Tests robustes** : 8974 PASS sur 469 fichiers
+- ✅ **Tests robustes** : ~13 400 PASS sur 720 fichiers .test.ts
 - ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel
 - ✅ **codebase_search** : Recherche sémantique dans le code (Qdrant + embeddings)
 - ✅ **SDDD v2** : Triple grounding (sémantique + conversationnel + technique) avec bookend pattern
