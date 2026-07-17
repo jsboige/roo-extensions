@@ -39,12 +39,15 @@ Set-Location $TestProjectPath
 
 # Vérifier que Vitest est disponible
 try {
-    $VitestVersion = & npm run test:version 2>$null
+    # Use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to npm.ps1 and
+    # `& npm ...` corrupts arg passing → "Unknown command: pm" (silent failure).
+    # npm.cmd bypasses the wrapper (same rationale as #2857/#2859).
+    $VitestVersion = & npm.cmd run test:version 2>$null
     Write-Host "✅ Vitest détecté : $VitestVersion" -ForegroundColor Green
 }
 catch {
     Write-Error "❌ Vitest n'est pas disponible. Installation des dépendances..."
-    & npm install
+    & npm.cmd install
 }
 
 # Construire la commande de test
