@@ -67,6 +67,13 @@ foreach ($name in $TaskNames) {
     $currentArgs    = $task.Actions[0].Arguments
     $currentWorkDir = $task.Actions[0].WorkingDirectory
 
+    # Canonicalize bare executable names (e.g. "pwsh.exe" resolved via PATH) to a full
+    # path before comparison — otherwise an already-migrated task won't match $pwshExe (#2855 Bug A).
+    if (-not [System.IO.Path]::IsPathRooted($currentExe)) {
+        $resolved = Get-Command $currentExe -ErrorAction SilentlyContinue
+        if ($resolved) { $currentExe = $resolved.Source }
+    }
+
     if ($currentExe -ieq $pwshExe) {
         Write-Host "[SKIP] $name : already on pwsh.exe" -ForegroundColor Green
         $skipped++
@@ -81,7 +88,13 @@ foreach ($name in $TaskNames) {
     }
 
     try {
-        $newAction = New-ScheduledTaskAction -Execute $pwshExe -Argument $currentArgs -WorkingDirectory $currentWorkDir
+        # New-ScheduledTaskAction rejects an empty WorkingDirectory (ValidateNotNullOrEmpty);
+        # only pass it when non-empty — tasks legitimately without one run in System32 by default (#2855 Bug B).
+        if ([string]::IsNullOrWhiteSpace($currentWorkDir)) {
+            $newAction = New-ScheduledTaskAction -Execute $pwshExe -Argument $currentArgs
+        } else {
+            $newAction = New-ScheduledTaskAction -Execute $pwshExe -Argument $currentArgs -WorkingDirectory $currentWorkDir
+        }
         Set-ScheduledTask -TaskName $name -Action $newAction -ErrorAction Stop | Out-Null
         Write-Host "[OK  ] $name : migrated to pwsh.exe" -ForegroundColor Green
         $migrated++
