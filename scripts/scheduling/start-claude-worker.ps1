@@ -3560,9 +3560,20 @@ function Invoke-GitSyncAndReview {
         Write-Log "Git HEAD before pull: $($oldHead.Substring(0, 7))"
 
         # Pull from origin (no-rebase to avoid conflicts)
+        # Guard $ErrorActionPreference (#2845 Bug #2): under the script's global
+        # "Stop" mode (L69), git's normal stderr output ("From https://github.com/...")
+        # is promoted to a terminating error via 2>&1, jumping to the catch block
+        # before pullSuccess is set — silently disabling auto-review on every tick.
+        # Same Continue-guard pattern as ~30 other native-call sites in this script.
         Write-Log "Git pull origin main..."
-        $pullOutput = git -C $RepoRoot pull --no-rebase origin main 2>&1
-        $pullExitCode = $LASTEXITCODE
+        $prevPref = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        try {
+            $pullOutput = git -C $RepoRoot pull --no-rebase origin main 2>&1
+            $pullExitCode = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevPref
+        }
 
         if ($pullExitCode -ne 0) {
             Write-Log "Git pull failed (exit $pullExitCode): $pullOutput" "WARN"
