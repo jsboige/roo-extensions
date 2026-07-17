@@ -118,8 +118,10 @@ if ($BuildCheck) {
             $prevPref = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
 
-            # Build
-            $buildOutput = & npm run build 2>&1 | Select-Object -Last 10
+            # Build — use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to npm.ps1 and
+            # `& npm ...` corrupts arg passing → "Unknown command: pm", false build-failure
+            # (same as ensure-build-fresh.ps1 #2857). npm.cmd bypasses the wrapper.
+            $buildOutput = & npm.cmd run build 2>&1 | Select-Object -Last 10
             $buildOk = ($LASTEXITCODE -eq 0)
 
             # Tests (maxWorkers=1 for low-RAM machines)

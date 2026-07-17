@@ -1682,7 +1682,10 @@ function Sync-McpSubmoduleBuild {
         try {
             # Clean build/ to prevent stale artifacts (tsc never prunes)
             Remove-Item (Join-Path $McpServerPath "build") -Recurse -Force -ErrorAction SilentlyContinue
-            $buildOutput = & npm run build 2>&1
+            # Use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to npm.ps1, and
+            # `& npm ...` corrupts arg passing → "Unknown command: pm", silent rebuild failure
+            # (same as ensure-build-fresh.ps1 #2857). npm.cmd bypasses the wrapper.
+            $buildOutput = & npm.cmd run build 2>&1
             $buildExit = $LASTEXITCODE
             if ($buildExit -eq 0) {
                 Write-Log "Host MCP build regenerated (deploy-lag mitigation). Restart VS Code to activate the new build." "INFO"
