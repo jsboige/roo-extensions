@@ -100,12 +100,19 @@ if (Test-Path $logDir) {
 }
 
 # ---------- Verdict ----------
-# ALIVE requires: task Running OR local heartbeat fresh. A fresh heartbeat is the
-# strongest signal (the task can read Ready between repetition fires while the
-# wrapper process is alive).
+# The local heartbeat is the authoritative liveness signal: it is written inside
+# the inner listener's loop (#2431), so a fresh heartbeat proves the inner
+# listener is actively processing. A task in "Running" state alone is NOT
+# sufficient — a hung wrapper (e.g. blocked on GDrive I/O #2823) stays "Running"
+# while the inner listener is dead and stops writing heartbeats. That case is
+# reported as ZOMBIE so interactive callers don't mistake it for ALIVE
+# (#2576 regression observed firsthand 2026-07-12: verdict "ALIVE" with a
+# 22.96h-stale heartbeat on po-204).
 $hbFresh = $localHb.exists -and $localHb.ageSeconds -lt $StaleSeconds
-if ($hbFresh -or $taskState -eq "Running") {
+if ($hbFresh) {
     $verdict = "ALIVE"
+} elseif ($taskState -eq "Running") {
+    $verdict = "ZOMBIE"
 } elseif ($taskState -eq "NOT_INSTALLED") {
     $verdict = "NOT_INSTALLED"
 } else {
@@ -141,18 +148,26 @@ Write-Output "- Last log line: $lastLogLine"
 Write-Output ""
 switch ($verdict) {
     "ALIVE"         { Write-Output "Verdict: **ALIVE** — listener heartbeat fresh / task running." }
+    "ZOMBIE"        { Write-Output "Verdict: **ZOMBIE** — task State=$taskState but heartbeat stale (>$StaleSeconds s): the wrapper is hung while the inner listener is dead. Restart VS Code (or re-run the wrapper) to recover; elevated re-install only if it persists: ``install-dashboard-listener-schtask.ps1``." }
     "DEAD"          { Write-Output "Verdict: **DEAD** — task State=$taskState, heartbeat stale (>$StaleSeconds s). [INTERACTIVE-ONLY] elevated re-install needed: ``install-dashboard-listener-schtask.ps1``." }
     "NOT_INSTALLED" { Write-Output "Verdict: **NOT_INSTALLED** — no ``$taskName`` task. [INTERACTIVE-ONLY] elevated install needed: ``install-dashboard-listener-schtask.ps1``." }
 }
 
 # ---------- Auto-alert (issue #2576) ----------
-# When -Alert is set and verdict is DEAD/NOT_INSTALLED, append a [WARN] to the
+# When -Alert is set and verdict is DEAD/NOT_INSTALLED/ZOMBIE, append a [WARN] to the
 # local workspace dashboard so the next RooSync cycle picks it up.
 # This is the "alerting proactif" recommendation from #2576.
-if ($Alert -and $verdict -in @("DEAD", "NOT_INSTALLED")) {
+# ZOMBIE is included (not just DEAD/NOT_INSTALLED) because a hung wrapper is just
+# as deaf to [WAKE-CLAUDE] as a dead one — the inner listener isn't processing.
+if ($Alert -and $verdict -in @("DEAD", "NOT_INSTALLED", "ZOMBIE")) {
     $localDashDir = Join-Path $RepoRoot ".claude\workspaces"
     $localDashFile = Join-Path $localDashDir "workspace-$MachineId.md"
-    $alertLine = "[WARN] $nowUtc `[$verdict`] $machineId listener $(if ($verdict -eq 'DEAD') { 'DEAD — heartbeat stale' } else { 'NOT INSTALLED' }). [INTERACTIVE-ONLY] install needed: install-dashboard-listener-schtask.ps1"
+    $verdictDesc = switch ($verdict) {
+        "DEAD"          { "DEAD — heartbeat stale" }
+        "ZOMBIE"        { "ZOMBIE — wrapper hung, inner listener dead" }
+        "NOT_INSTALLED" { "NOT INSTALLED" }
+    }
+    $alertLine = "[WARN] $nowUtc `[$verdict`] $machineId listener $verdictDesc. [INTERACTIVE-ONLY] install needed: install-dashboard-listener-schtask.ps1"
 
     if (Test-Path $localDashFile) {
         $content = Get-Content $localDashFile -Raw -Encoding UTF8
