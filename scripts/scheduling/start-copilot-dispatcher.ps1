@@ -1,13 +1,10 @@
 <#
 .SYNOPSIS
-    Copilot scheduler bridge worker (Phase B).
+    Copilot scheduler worker (Phase C fallback via gh copilot -p).
 
 .DESCRIPTION
-    Transitional worker for regular cadence without full headless Copilot runtime.
-    It validates prerequisites and emits a traceable heartbeat-style log.
-
-    Future Phase C can replace this with actual task execution once a stable
-    headless Copilot runtime is validated.
+    Scheduled worker that validates prerequisites, executes a real non-interactive
+    Copilot request through `gh copilot -p`, and records usage evidence.
 
 .PARAMETER DryRun
     Print actions only.
@@ -38,6 +35,9 @@ $logDir = if (-not [string]::IsNullOrWhiteSpace($env:COPILOT_DISPATCHER_LOG_DIR)
 }
 if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir | Out-Null }
 $logFile = Join-Path $logDir ("copilot-dispatcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".log")
+$reportDir = Join-Path $repoRoot "outputs\scheduling\reports"
+if (-not (Test-Path $reportDir)) { New-Item -ItemType Directory -Path $reportDir | Out-Null }
+$reportFile = Join-Path $reportDir ("copilot-dispatcher-" + (Get-Date -Format "yyyyMMdd-HHmmss") + ".md")
 $stateDir = Join-Path $repoRoot ".claude\scheduler"
 if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir | Out-Null }
 $stateFile = Join-Path $stateDir "copilot-dispatcher-state.json"
@@ -93,6 +93,84 @@ function Save-State {
 
     $json = $State | ConvertTo-Json -Depth 5
     [System.IO.File]::WriteAllText($stateFile, $json, [System.Text.UTF8Encoding]::new($false))
+}
+
+function Save-Report {
+    param([string]$Content)
+
+    if ([string]::IsNullOrWhiteSpace($Content)) {
+        return
+    }
+
+    [System.IO.File]::WriteAllText($reportFile, $Content, [System.Text.UTF8Encoding]::new($false))
+    Write-Log "Saved work report: $reportFile"
+}
+
+function Get-SanitizedReport {
+    param([object[]]$Lines)
+
+    $reportLines = @($Lines | ForEach-Object { [string]$_ })
+    $startIndex = -1
+    for ($index = 0; $index -lt $reportLines.Count; $index++) {
+        if ($reportLines[$index] -match '^## ') {
+            $startIndex = $index
+            break
+        }
+    }
+
+    if ($startIndex -ge 0) {
+        $reportLines = $reportLines[$startIndex..($reportLines.Count - 1)]
+    }
+
+    $reportLines = $reportLines | Where-Object {
+        $_ -notmatch '^(●|└|│)' -and
+        $_ -notmatch '^Changes\s+' -and
+        $_ -notmatch '^Requests\s+' -and
+        $_ -notmatch '^Tokens\s+' -and
+        $_ -notmatch '^What do you need me to do\?' -and
+        $_ -notmatch '^I.m starting as the scheduled Copilot dispatcher' -and
+        $_ -notmatch '^Let me ' -and
+        $_ -notmatch '^\*\*Dispatcher session initiated' -and
+        $_ -notmatch '^No active todos'
+    }
+
+    return (($reportLines -join "`n").Trim())
+}
+
+function Convert-JsonWorkReport {
+    param([string]$RawOutput)
+
+    if ([string]::IsNullOrWhiteSpace($RawOutput)) {
+        return ''
+    }
+
+    $jsonMatches = [regex]::Matches($RawOutput, '\{[\s\S]*?\}')
+    if ($jsonMatches.Count -eq 0) {
+        return ''
+    }
+
+    for ($index = $jsonMatches.Count - 1; $index -ge 0; $index--) {
+        $candidate = $jsonMatches[$index].Value
+        try {
+            $json = $candidate | ConvertFrom-Json
+            $workSummary = [string]$json.work_summary
+            $nextAction = [string]$json.next_action
+            $risk = [string]$json.risk
+            if ($workSummary -or $nextAction -or $risk) {
+                return @(
+                    '## Work Summary',
+                    $workSummary,
+                    '## Next Action',
+                    $nextAction,
+                    '## Risk',
+                    $risk
+                ) -join "`n"
+            }
+        } catch {
+        }
+    }
+
+    return ''
 }
 
 function Resolve-EscalationTarget {
@@ -182,78 +260,6 @@ function Register-Escalation {
     $State.lastEscalationAt = $now.ToString('o')
 }
 
-function Test-GitHubIssueLock {
-    param([int]$Issue)
-
-    if ($Issue -le 0) { return $false }
-
-    try {
-        $commentsJson = & gh issue view $Issue --repo jsboige/roo-extensions --json comments --jq '.comments[-3:]' 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not $commentsJson) { return $false }
-
-        $comments = $commentsJson | ConvertFrom-Json
-        foreach ($comment in $comments) {
-            $body = [string]$comment.body
-            $createdAt = [DateTime]::Parse($comment.createdAt)
-            $age = (Get-Date).ToUniversalTime() - $createdAt.ToUniversalTime()
-            if (($body -match 'LOCK:' -or $body -match 'Claimed by') -and $age.TotalMinutes -lt 5) {
-                return $true
-            }
-        }
-    } catch {
-        return $false
-    }
-
-    return $false
-}
-
-function Test-RecentIdleOnIssue {
-    param([int]$Issue)
-
-    if ($Issue -le 0) { return $false }
-
-    try {
-        $commentsJson = & gh issue view $Issue --repo jsboige/roo-extensions --json comments --jq '.comments[-10:]' 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not $commentsJson) { return $false }
-
-        $comments = $commentsJson | ConvertFrom-Json
-        foreach ($comment in $comments) {
-            $body = [string]$comment.body
-            $createdAt = [DateTime]::Parse($comment.createdAt)
-            $age = (Get-Date).ToUniversalTime() - $createdAt.ToUniversalTime()
-            if ($body -match 'agent: copilot-dispatcher' -and $body -match 'result: idle' -and $age.TotalHours -lt 24) {
-                return $true
-            }
-        }
-    } catch {
-        return $false
-    }
-
-    return $false
-}
-
-function Write-GitHubIssueComment {
-    param(
-        [int]$Issue,
-        [string]$Body
-    )
-
-    if ($Issue -le 0 -or [string]::IsNullOrWhiteSpace($Body)) {
-        return
-    }
-
-    try {
-        & gh issue comment $Issue --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) {
-            Write-Log "Posted GitHub comment to issue #$Issue"
-        } else {
-            Write-Log "Unable to post GitHub comment to issue #$Issue"
-        }
-    } catch {
-        Write-Log "Unable to post GitHub comment to issue #$Issue"
-    }
-}
-
 function Get-PremiumUsagePercent {
     if ($PremiumUsagePercent -ge 0) {
         return [double]$PremiumUsagePercent
@@ -306,6 +312,106 @@ function Resolve-EffectiveProfile {
     return $RequestedProfile
 }
 
+function Invoke-PhaseCDispatch {
+    param(
+        [string]$Profile,
+        [string]$RepositoryRoot,
+        [string]$Prompt
+    )
+
+    $result = @{
+        status = 'blocked'
+        exitCode = -1
+        premiumRequests = -1.0
+        output = @()
+        error = ''
+        report = ''
+    }
+
+    try {
+        Push-Location $RepositoryRoot
+        $cmdOutput = & gh copilot -p $Prompt 2>&1
+        $exit = $LASTEXITCODE
+        Pop-Location
+
+        $result.exitCode = $exit
+        $result.output = @($cmdOutput)
+        $rawOutput = ($cmdOutput | Out-String)
+        $result.report = Convert-JsonWorkReport -RawOutput $rawOutput
+        if ([string]::IsNullOrWhiteSpace($result.report)) {
+            $result.report = Get-SanitizedReport -Lines $cmdOutput
+        }
+
+        $joined = ($cmdOutput | Out-String)
+        $match = [regex]::Match($joined, 'Requests\s+([0-9]+(?:\.[0-9]+)?)\s+Premium', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if ($match.Success) {
+            $result.premiumRequests = [double]$match.Groups[1].Value
+        }
+
+        if ($exit -eq 0) {
+            $result.status = 'active'
+        } else {
+            $result.status = 'blocked'
+        }
+    } catch {
+        $result.error = $_.Exception.Message
+        if ((Get-Location).Path -ne $RepositoryRoot) {
+            try { Pop-Location } catch { }
+        }
+    }
+
+    return $result
+}
+
+function Get-WorkPrompt {
+    param(
+        [string]$Profile,
+        [hashtable]$State,
+        [string]$RepositoryRoot
+    )
+
+    $gitSummary = ''
+    try {
+        $gitSummary = (& git -C $RepositoryRoot status --short --branch 2>$null | Select-Object -First 12) -join "`n"
+    } catch {
+        $gitSummary = ''
+    }
+
+    if ([string]::IsNullOrWhiteSpace($gitSummary)) {
+        $gitSummary = 'clean-or-unavailable'
+    }
+
+    $previousStatus = if ($State.ContainsKey('lastStatus')) { [string]$State.lastStatus } else { 'none' }
+    $lastObservedPremium = if ($State.ContainsKey('lastObservedPremiumRequests')) { [string]$State.lastObservedPremiumRequests } else { 'unknown' }
+
+    return @"
+You are the scheduled Copilot dispatcher for the repository roo-extensions.
+
+Return exactly one JSON object with these keys:
+- work_summary
+- next_action
+- risk
+
+Constraints:
+- The full response must be valid JSON only.
+- No markdown.
+- No code fences.
+- Be concrete and repository-specific.
+- Focus on useful fleet work, not acknowledgements.
+- Never ask a question.
+- Never mention tools, sessions, or interactive behavior.
+- Keep each value to one short sentence.
+
+Context:
+- Profile: $Profile
+- Previous dispatcher status: $previousStatus
+- Last observed premium requests: $lastObservedPremium
+- Repository root: $RepositoryRoot
+- Git status summary:
+$gitSummary
+"@
+}
+
 Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
@@ -337,26 +443,47 @@ if ($copilotConfig) {
     $status = "blocked"
 }
 
-$state = Load-State
-
-$skipClaim = $false
-if ($IssueNumber -gt 0 -and -not $DryRun) {
-    if (Test-RecentIdleOnIssue -Issue $IssueNumber) {
-        Write-Log "Skipping claim on issue #$IssueNumber — recent idle by copilot-dispatcher within 24h (spin-loop guard)"
-        $skipClaim = $true
-    } elseif (Test-GitHubIssueLock -Issue $IssueNumber) {
-        Write-Log "Lock active on issue #$IssueNumber (recent claim)"
-        $skipClaim = $true
+$dispatch = $null
+if ($status -ne 'blocked') {
+    if ($DryRun) {
+        Write-Log "DryRun: skipping gh copilot execution"
     } else {
-        $claimTimestamp = Get-Date -Format "o"
-        Write-GitHubIssueComment -Issue $IssueNumber -Body "Claimed by copilot-dispatcher on $($env:COMPUTERNAME.ToLower()) at $claimTimestamp"
-        Write-GitHubIssueComment -Issue $IssueNumber -Body "STATUS: started`nagent: copilot-dispatcher`nmachine: $($env:COMPUTERNAME.ToLower())`nmode: scheduled`nprofile: $effectiveProfile"
+        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State (Load-State) -RepositoryRoot $repoRoot
+        Write-Log "Executing Phase C fallback via gh copilot -p"
+        $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $repoRoot -Prompt $workPrompt
+        $status = [string]$dispatch.status
+        if ($dispatch.exitCode -eq 0) {
+            Write-Log "Phase C execution success (exit=0)"
+            if ($dispatch.premiumRequests -ge 0) {
+                Write-Log "Observed Copilot premium requests: $($dispatch.premiumRequests)"
+            } else {
+                Write-Log "Copilot output did not expose premium usage metric"
+            }
+            Save-Report -Content $dispatch.report
+        } else {
+            Write-Log "Phase C execution failed (exit=$($dispatch.exitCode))"
+            if ($dispatch.error) {
+                Write-Log "Dispatch error: $($dispatch.error)"
+            }
+            if ($dispatch.output.Count -gt 0) {
+                $tailLines = $dispatch.output | Select-Object -Last 6
+                foreach ($line in $tailLines) {
+                    Write-Log "Dispatch output: $line"
+                }
+            }
+        }
     }
 }
+
+$state = Load-State
+Write-Log "GitHub issue comment channel disabled for scheduled routine runs"
 
 if ($status -eq "blocked") {
     $state.consecutiveBlocked = [int]$state.consecutiveBlocked + 1
     $state.consecutiveIdle = 0
+} elseif ($status -eq 'active') {
+    $state.consecutiveIdle = 0
+    $state.consecutiveBlocked = 0
 } else {
     $state.consecutiveIdle = [int]$state.consecutiveIdle + 1
     $state.consecutiveBlocked = 0
@@ -376,26 +503,22 @@ $state.lastPremiumUsagePercent = $usagePercent
 if ($IssueNumber -gt 0) {
     $state.lastIssueNumber = $IssueNumber
 }
+if ($dispatch) {
+    $state.lastDispatchStatus = [string]$dispatch.status
+    $state.lastDispatchExitCode = [int]$dispatch.exitCode
+    if ($dispatch.premiumRequests -ge 0) {
+        $state.lastObservedPremiumRequests = [double]$dispatch.premiumRequests
+    }
+    if (-not [string]::IsNullOrWhiteSpace($dispatch.report)) {
+        $state.lastReportFile = $reportFile
+    }
+}
 
 if ($target -ne 'none') {
     Register-Escalation -State $state
     Write-Log "Escalation requested: $target"
-    if ($IssueNumber -gt 0 -and -not $DryRun) {
-        $handoffPayload = @(
-            "STATUS: blocked",
-            "agent: copilot-dispatcher",
-            "machine: $($env:COMPUTERNAME.ToLower())",
-            "resume_when: github_comment|intercom_message|timeout_hours:3",
-            "handoff_target: $target",
-            "handoff_reason: repeated_$status"
-        ) -join "`n"
-        Write-GitHubIssueComment -Issue $IssueNumber -Body $handoffPayload
-    }
 } else {
     Write-Log "No escalation required"
-    if ($IssueNumber -gt 0 -and -not $DryRun -and -not $skipClaim) {
-        Write-GitHubIssueComment -Issue $IssueNumber -Body "STATUS: done`nagent: copilot-dispatcher`nresult: $status`nescalation: none"
-    }
 }
 
 Save-State -State $state
@@ -405,7 +528,10 @@ if ($DryRun) {
     exit 0
 }
 
-# Phase B behavior intentionally conservative: keep regular cadence + observability
-# without assuming a stable headless Copilot executor is available.
-Write-Log "Phase B bridge complete (no-op dispatch)."
-Write-Log "Next step: upgrade to Phase C when headless execution is validated."
+if ($status -eq 'active') {
+    Write-Log "Phase C fallback complete (real Copilot request executed)."
+} elseif ($status -eq 'blocked') {
+    Write-Log "Phase C fallback blocked (check gh copilot auth/runtime)."
+} else {
+    Write-Log "Phase C fallback ended idle."
+}
