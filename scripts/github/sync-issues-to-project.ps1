@@ -152,7 +152,8 @@ Write-Host "  Fetching all project items (single call)..."
 # repo lifetime). A low --limit returned only the head and the tail was treated as "missing"
 # every run, then re-added as no-op idempotent item-add calls — an infinite reconcile loop.
 # gh CLI paginates GraphQL under the hood to satisfy the requested limit.
-$cmd = "gh project item-list $ProjectNumber --owner $Owner --format json --limit 10000"
+$ProjectItemListLimit = 10000   # hard ceiling — guard below warns if the project outgrows it
+$cmd = "gh project item-list $ProjectNumber --owner $Owner --format json --limit $ProjectItemListLimit"
 $result = Invoke-GhSafe $cmd
 if (-not $result) {
     Write-Err "Failed to fetch project items"
@@ -164,6 +165,14 @@ $projectItems = @($json.items ?? @())
 $totalCount = $json.totalCount ?? 0
 
 Write-Host "  Fetched $($projectItems.Count) items (total: ${totalCount})"
+
+# Guard (#2870 follow-up): gh returns totalCount = the REAL project total regardless of the
+# limit. If the project ever outgrows $ProjectItemListLimit, the tail is silently dropped and
+# the same "missing -> no-op re-add" reconcile loop recurs. Make the failure mode loud instead
+# of silent — raise the limit or switch to offset pagination when this fires.
+if ($totalCount -gt $ProjectItemListLimit) {
+    Write-Warn "Project #$ProjectNumber total ($totalCount) exceeds fetch limit ($ProjectItemListLimit) — tail truncated, 'missing' count will be inflated (pre-fix #2870 bug class). Increase limit or add offset pagination."
+}
 
 # Extract issue numbers already in project
 $issuesInProject = @{}
