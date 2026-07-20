@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.7.0"
+  version: "3.7.1"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.7.0
+**Version:** 3.7.1
 **Cree:** 2026-03-28
-**MAJ:** 2026-07-20 (cron cadence PROVIDER-AWARE : executors z.ai = 2h conditionnel sur production, ai-01 Anthropic = 4-6h ; supersede le 3h-uniforme 2026-07-14 — mandate user 2026-07-20)
+**MAJ:** 2026-07-20 (stale-job cleanup in Phase 0 step 6 : `CronDelete` l'ancienne cadence avant de créer la nouvelle, ferme le gap double-fire sur transition `*/3`→`*/2` po-204/web1 — follow-up #2872, finding po-2024 +1 po-2023)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -62,6 +62,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/2` → `CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)` — **CONDITIONNEL sur production réelle** dans l'intervalle (2h se mérite, ne se définit pas par défaut ; l'AUTO-STOP cap #2185 gère les cycles IDLE, ne PAS remonter à 3h par timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
    - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/2` pour executors z.ai) — sinon un re-arm `*/3` sur une machine z.ai = cycle trop lent superseded.
+   - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence provider (ex: `*/3` résiduel sur z.ai en transition `*/3`→`*/2`), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 3h = overlap 0,6,12,18 = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
    - Poster `[INFO]` si réarmé (pour traçabilité)
 
