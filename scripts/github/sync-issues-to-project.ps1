@@ -148,7 +148,11 @@ Write-Status "Phase 1: Collecting Project #$ProjectNumber items..."
 $projectItems = @()
 Write-Host "  Fetching all project items (single call)..."
 
-$cmd = "gh project item-list $ProjectNumber --owner $Owner --format json --limit 500"
+# Paginate fully: Project #67 has grown past 1000 items (issues + PRs + drafts over the
+# repo lifetime). A low --limit returned only the head and the tail was treated as "missing"
+# every run, then re-added as no-op idempotent item-add calls — an infinite reconcile loop.
+# gh CLI paginates GraphQL under the hood to satisfy the requested limit.
+$cmd = "gh project item-list $ProjectNumber --owner $Owner --format json --limit 10000"
 $result = Invoke-GhSafe $cmd
 if (-not $result) {
     Write-Err "Failed to fetch project items"
