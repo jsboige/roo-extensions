@@ -62,6 +62,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/2` → `CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)` — **CONDITIONNEL sur production réelle** dans l'intervalle (2h se mérite, ne se définit pas par défaut ; l'AUTO-STOP cap #2185 gère les cycles IDLE, ne PAS remonter à 3h par timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
    - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/2` pour executors z.ai) — sinon un re-arm `*/3` sur une machine z.ai = cycle trop lent superseded.
+   - **Nettoyer le stale leftover** : si un job `/executor` existe à la MAUVAISE cadence (ex `*/3` sur un executor z.ai, ou `*/2` sur ai-01), `CronDelete`-le **AVANT** de créer le bon — sinon les deux firent ensemble (double-fire aux heures communes). Transition v3.6.2→v3.7.0 = cas concret (3h→2h sur executors z.ai).
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
    - Poster `[INFO]` si réarmé (pour traçabilité)
 
