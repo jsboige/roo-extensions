@@ -1,3 +1,11 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/xml-export-specification.md` · **Last commit:** `86768ce5` (2025-09-12) · **Theme:** xml export spec
+>
+> **Preservation:** git history (`git show 86768ce5:roo-code-customization/investigations/xml-export-specification.md`) + this archive copy. No content modified — move-only.
+>
+> **Superseded by:** historical XML export specification, superseded by the merged implementation.
+
 # Spécification Technique - Export XML pour roo-state-manager
 
 **Auteur :** Roo Architecte

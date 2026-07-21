@@ -22,7 +22,7 @@
 **Requête :** `architecture et implémentation du serveur MCP roo-state-manager`
 
 **Documents Clés Trouvés :**
-- [`roo-code-customization/investigations/export-integration-analysis.md`](../../../../roo-code-customization/investigations/export-integration-analysis.md)
+- [`docs/_archive/2026-Q3/roo-code-investigations/export-integration-analysis.md`](../../../_archive/2026-Q3/roo-code-investigations/export-integration-analysis.md)
 - `docs/mcp-deployment.md`
 - [`docs/mcp/roo-state-manager/features/optimized-task-navigation.md`](../../../mcp/roo-state-manager/features/optimized-task-navigation.md)
 - [`roo-config/settings/servers.json`](../../../../roo-config/config-templates/servers.json)

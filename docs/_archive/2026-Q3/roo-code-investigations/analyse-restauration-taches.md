@@ -1,3 +1,11 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/analyse-restauration-taches.md` · **Last commit:** `7bf3c69f` (2025-08-20) · **Theme:** task restoration analysis
+>
+> **Preservation:** git history (`git show 7bf3c69f:roo-code-customization/investigations/analyse-restauration-taches.md`) + this archive copy. No content modified — move-only.
+>
+> **Superseded by:** historical task-restoration analysis, findings consumed by the restored Qdrant index (1.32M points).
+
 # Analyse de la Restauration des Tâches Roo
 
 Ce document détaille le mécanisme de persistance de l'historique des tâches de l'extension Roo et propose des stratégies pour leur restauration après une perte de données.

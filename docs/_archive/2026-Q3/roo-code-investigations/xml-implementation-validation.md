@@ -1,3 +1,11 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/xml-implementation-validation.md` · **Last commit:** `86768ce5` (2025-09-12) · **Theme:** xml implementation validation
+>
+> **Preservation:** git history (`git show 86768ce5:roo-code-customization/investigations/xml-implementation-validation.md`) + this archive copy. No content modified — move-only.
+>
+> **Superseded by:** historical XML implementation validation report, findings consumed by merged submod bumps.
+
 # Validation de l'Implémentation XML - roo-state-manager
 
 **Date :** 2025-09-09  
