@@ -1,0 +1,153 @@
+{
+  "audit": "mcps-internal-readme-freshness",
+  "date": "2026-07-21",
+  "auditor": "myia-web1 (claude-interactive executor, c.166)",
+  "parent_issues": {
+    "w8_sub_issue": 2885,
+    "epic": 2877,
+    "audit_parent": 2876
+  },
+  "submodule": {
+    "path": "mcps/internal",
+    "head_sha": "85764754",
+    "head_subject": "fix(indexing): retry_rate counts only same-tool calls after an error (#753 Bug 1) (#874)",
+    "root_package": "jsboige-mcp-servers@1.0.0 (no workspaces field)"
+  },
+  "canonical_active_source": "roo-config/settings/servers.json (13 servers, consumed by run-diagnostic.ps1, maintenance-workflow.ps1, deployment/README.md + 7 more)",
+  "totals": {
+    "md_files": 239,
+    "top_level": 11,
+    "servers": 228,
+    "servers_dirs": 8
+  },
+  "staleness": {
+    "metric": "last-commit-mtime",
+    "fresh_lt180": 239,
+    "stale_180_365": 0,
+    "stale_gt365": 0,
+    "no_date": 0,
+    "caveat": "All 239 .md show last-commit 2026-07-01 (uniform) = bulk import/sync artifact that reset mtomes. Mtime-based staleness is UNRELIABLE for this submodule (returns 0 stale, masks structural drift). Structural status audit (below) is the operative signal."
+  },
+  "top_level_docs": [
+    {"path": "README.md", "lines": 159, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "INDEX.md", "lines": 38, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "CONTRIBUTING.md", "lines": 272, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "docs/architecture.md", "lines": 165, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "docs/getting-started.md", "lines": 66, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "docs/troubleshooting.md", "lines": 128, "last_commit": "2026-07-01", "status": "OK"},
+    {"path": "examples/README.md", "lines": 90, "last_commit": "2026-07-01", "status": "OK"}
+  ],
+  "servers": [
+    {
+      "name": "roo-state-manager",
+      "status": "ACTIVE",
+      "status_proof": "canonical settings/servers.json: 'node ./mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs'",
+      "md_count": 128,
+      "readme": true,
+      "manifest": "package.json@1.0.14",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-19",
+      "finding": "README 18 days behind code (code advanced to 07-19 via submod bumps #2820/#2826/#2827/#2829, README frozen at 07-01 bulk import). README does not echo package.json version (1.0.14) in a prominent header.",
+      "action": "UPDATE-NEEDED (minor: refresh README tool list / version ref to match 1.0.14 + recent tool additions)"
+    },
+    {
+      "name": "sk-agent",
+      "status": "ACTIVE",
+      "status_proof": "tool-availability.md references sk-agent (9 outils + dynamic agents) as Claude Code MCP; NOT in Roo settings/servers.json (Roo config) nor ~/.claude.json mcpServers (standard location) — config injection source not in standard local configs (possibly project-scoped or remote-injected, unresolved)",
+      "md_count": 3,
+      "readme": true,
+      "manifest": "none (no package.json/pyproject.toml)",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "No manifest file (version untracked). Config location not in standard local files — should be documented in README (where is sk-agent configured?).",
+      "action": "UPDATE-NEEDED (minor: document config-injection source in README)"
+    },
+    {
+      "name": "jupyter-papermill-mcp-server",
+      "status": "ACTIVE",
+      "status_proof": "canonical settings/servers.json: 'jupyter' workingDirectory './mcps/internal/servers/jupyter-papermill-mcp-server'",
+      "md_count": 49,
+      "readme": true,
+      "manifest": "package.json (version field empty) + pyproject.toml",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "Largest doc surface (49 .md) — many historical consolidation/checkpoint/rapport docs (RAPPORT_*, CHECKPOINT_SDDD_*, CHANGELOG_CONSOLIDATION_*). Version field empty in package.json. High concentration of mission-report docs (candidate for archive in a future doc-consolidation pass, not W8 scope).",
+      "action": "OK (active, README present); FLAG for future archive pass of historical mission docs"
+    },
+    {
+      "name": "jinavigator-server",
+      "status": "ACTIVE",
+      "status_proof": "canonical settings/servers.json: 'jinavigator' command 'node ./mcps/internal/servers/jinavigator-server/dist/index.js'",
+      "md_count": 6,
+      "readme": true,
+      "manifest": "package.json@1.0.0",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "Clean. README + CONFIGURATION + INSTALLATION + TROUBLESHOOTING + USAGE (well-documented).",
+      "action": "OK"
+    },
+    {
+      "name": "jupyter-mcp-server",
+      "status": "SUPERSEDED",
+      "status_proof": "canonical 'jupyter' server points to jupyter-PAPERMILL-mcp-server (workingDirectory), NOT this jupyter-mcp-server dir. This dir is a separate, non-active Jupyter variant.",
+      "md_count": 1,
+      "readme": true,
+      "manifest": "package.json@1.0.0",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "Superseded by jupyter-papermill-mcp-server (the active canonical 'jupyter' target). README does not mark itself as superseded/deprecated.",
+      "action": "UPDATE-NEEDED (add deprecation/superseded-by header to README pointing to jupyter-papermill); full removal is a separate user-gated decision"
+    },
+    {
+      "name": "github-projects-mcp",
+      "status": "RETIRED",
+      "status_proof": "0 references in canonical settings/servers.json (13 servers) + CLAUDE.md '.claude/rules/tool-availability.md' lists under 'Retires: desktop-commander, github-projects-mcp, quickfiles'. Source + README still present in submodule (historical).",
+      "md_count": 12,
+      "readme": true,
+      "manifest": "package.json@0.1.0",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "Retired from active config but source+docs still in submodule (12 .md incl. DEBUG guides, mission_report). README does not mark as retired. NOTE: W8 DoD literal removal-proof criterion ('server absent de mcps/internal/servers/ OU package.json workspaces') is NOT met — server dir IS still present + no workspaces field — so README removal alone is NOT justified (would leave undocumented orphan code).",
+      "action": "FLAG (retired-from-config, source-still-present). README-deprecation header is safe; full server removal (source+docs) = separate user-gated decommission (no-deletion-without-proof + retired-server decommission is owner-gated)."
+    },
+    {
+      "name": "quickfiles-server",
+      "status": "RETIRED",
+      "status_proof": "0 references in canonical settings/servers.json + CLAUDE.md 'Retires' list. NOTE: roo-config/config-templates/servers.json (STALE STARTER TEMPLATE, 0 script consumers) still lists quickfiles — that is the stale-template trap (config-templates/ ≠ canonical settings/).",
+      "md_count": 29,
+      "readme": true,
+      "manifest": "package.json@1.0.0",
+      "readme_last_commit": "2026-07-01",
+      "code_last_commit": "2026-07-01",
+      "finding": "Retired from active config (canonical settings/) but 29 .md + source still in submodule. Same caveat as github-projects-mcp: dir still present so README-only removal unsafe. Bonus finding: stale starter template config-templates/servers.json still references quickfiles (should be cleaned, separate from W8).",
+      "action": "FLAG (retired-from-config, source-still-present). Same handling as github-projects-mcp."
+    },
+    {
+      "name": "open-terminal-mcp",
+      "status": "UNDOCUMENTED",
+      "status_proof": "0 references in canonical settings/servers.json. Single file (open_terminal_mcp.py, 9437 bytes), no README, no manifest.",
+      "md_count": 0,
+      "readme": false,
+      "manifest": "none",
+      "readme_last_commit": "n/a",
+      "code_last_commit": "2026-04-13 (file mtime)",
+      "finding": "Undocumented stub: single Python file, no README, no manifest, not in canonical active config. Status unclear (experimental? abandoned? active elsewhere?).",
+      "action": "UPDATE-NEEDED (add minimal README documenting purpose + status, OR flag for removal if abandoned — user-gated)"
+    }
+  ],
+  "findings_summary": {
+    "active_ok": ["jupyter-papermill-mcp-server", "jinavigator-server"],
+    "active_update_needed": ["roo-state-manager", "sk-agent"],
+    "superseded": ["jupyter-mcp-server"],
+    "retired_source_still_present": ["github-projects-mcp", "quickfiles-server"],
+    "undocumented": ["open-terminal-mcp"]
+  },
+  "destructive_actions_this_cycle": "NONE (report-only). All removals/deprecations deferred to ai-01 / user arbitration (no-deletion-without-proof + retired-server decommission is owner-gated).",
+  "dod_acceptance": {
+    "submodule_100pct_scanned": true,
+    "documented_X_md_Y_stale": "239 .md, 0 mtime-stale (caveat: bulk-import artifact), 4 structural status issues",
+    "per_server_status_explicit": true,
+    "no_deletion_without_proof": true,
+    "sddd_bookend": "DEBUT (codebase_search collection_not_found — web1 Qdrant empty post-#2863, compensated by Grep+Read technique grounding); FIN (report indexed by this commit)"
+  }
+}
