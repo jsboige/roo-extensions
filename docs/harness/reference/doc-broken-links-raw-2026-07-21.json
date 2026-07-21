@@ -1,0 +1,3853 @@
+{
+  "scanDate": "2026-07-21",
+  "scope": "parent repo + mcps/internal submodule, tracked .md only (git ls-files)",
+  "stats": {
+    "totalFiles": 1087,
+    "totalLinks": 3050,
+    "externalLinks": 566,
+    "internalLinks": 2484,
+    "okLinks": 1195,
+    "brokenPath": 202,
+    "brokenAnchor": 0,
+    "nonMd": 346,
+    "filesWithBroken": 548
+  },
+  "brokenLinks": [
+    {
+      "file": ".claude/commands/executor.md",
+      "text": "File Title",
+      "target": "path/to/file.md",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/commands/path/to/file.md"
+    },
+    {
+      "file": ".claude/configs/skills/SKILLS-AUDIT-REPORT.md",
+      "text": "Related doc 1",
+      "target": "path/to/doc",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/configs/skills/path/to/doc"
+    },
+    {
+      "file": ".claude/configs/skills/SKILLS-AUDIT-REPORT.md",
+      "text": "Related doc 2",
+      "target": "path/to/doc",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/configs/skills/path/to/doc"
+    },
+    {
+      "file": ".claude/configs/user-global-claude.md",
+      "text": "`docs/harness/reference/roosync-tools-guide.md`",
+      "target": "docs/harness/reference/roosync-tools-guide.md",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/configs/docs/harness/reference/roosync-tools-guide.md"
+    },
+    {
+      "file": ".claude/configs/user-global-claude.md",
+      "text": "`docs/harness/reference/conversation-browser-detailed.md`",
+      "target": "docs/harness/reference/conversation-browser-detailed.md",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/configs/docs/harness/reference/conversation-browser-detailed.md"
+    },
+    {
+      "file": ".claude/configs/user-global-claude.md",
+      "text": "`docs/harness/reference/sddd-conversational-grounding.md`",
+      "target": "docs/harness/reference/sddd-conversational-grounding.md",
+      "classification": "BROKEN-PATH",
+      "resolved": ".claude/configs/docs/harness/reference/sddd-conversational-grounding.md"
+    },
+    {
+      "file": "demo-roo-code/01-decouverte/demo-2-vision/README.md",
+      "text": "Demo 3 - Organisation et productivité",
+      "target": "../demo-3-organisation/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/01-decouverte/demo-3-organisation/README.md"
+    },
+    {
+      "file": "demo-roo-code/01-decouverte/demo-2-vision/README.md",
+      "text": "Demo 4 - Questions techniques et conceptuelles",
+      "target": "../demo-4-questions/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/01-decouverte/demo-4-questions/README.md"
+    },
+    {
+      "file": "demo-roo-code/01-decouverte/README.md",
+      "text": "Demo 3 - Organisation et productivité",
+      "target": "./demo-3-organisation/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/01-decouverte/demo-3-organisation/README.md"
+    },
+    {
+      "file": "demo-roo-code/01-decouverte/README.md",
+      "text": "Demo 4 - Questions techniques et conceptuelles",
+      "target": "./demo-4-questions/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/01-decouverte/demo-4-questions/README.md"
+    },
+    {
+      "file": "demo-roo-code/CONTRIBUTING.md",
+      "text": "guide d'installation complet",
+      "target": "./guide_installation.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/guide_installation.md"
+    },
+    {
+      "file": "demo-roo-code/README-integration.md",
+      "text": "guide d'installation complet",
+      "target": "./guide_installation.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/guide_installation.md"
+    },
+    {
+      "file": "demo-roo-code/README-integration.md",
+      "text": "guide d'installation",
+      "target": "./guide_installation.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/guide_installation.md"
+    },
+    {
+      "file": "demo-roo-code/README-integration.md",
+      "text": "guide d'installation",
+      "target": "./guide_installation.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/guide_installation.md"
+    },
+    {
+      "file": "demo-roo-code/README.md",
+      "text": "Accéder au guide d'installation complet",
+      "target": "./docs/installation-complete.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/docs/installation-complete.md"
+    },
+    {
+      "file": "demo-roo-code/README.md",
+      "text": "le guide d'orchestration des démos",
+      "target": "./docs/orchestration_demos.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/docs/orchestration_demos.md"
+    },
+    {
+      "file": "demo-roo-code/README.md",
+      "text": "Guide d'installation complet",
+      "target": "./docs/installation-complete.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "demo-roo-code/docs/installation-complete.md"
+    },
+    {
+      "file": "demo-roo-code/VERSION.md",
+      "text": "guide de maintenance",
+      "target": "../docs/guides/demo-maintenance.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/guides/demo-maintenance.md"
+    },
+    {
+      "file": "docs/architecture/roo-state-manager-parsing-refactoring.md",
+      "text": "'\"",
+      "target": ".+?",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/architecture/.+?"
+    },
+    {
+      "file": "docs/architecture/roo-state-manager-parsing-refactoring.md",
+      "text": "'\"",
+      "target": ".+?",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/architecture/.+?"
+    },
+    {
+      "file": "docs/archive/friction-protocol-v1-deprecated.md",
+      "text": "`docs/harness/reference/feedback-process.md`",
+      "target": "./feedback-process.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/archive/feedback-process.md"
+    },
+    {
+      "file": "docs/archive/friction-protocol-v1-deprecated.md",
+      "text": "`.claude/rules/sddd-conversational-grounding.md`",
+      "target": "sddd-conversational-grounding.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/archive/sddd-conversational-grounding.md"
+    },
+    {
+      "file": "docs/cleanup/CONSOLIDATION-MCP-DEPRECATED-PROOF.md",
+      "text": "'\\\"",
+      "target": ".*github-projects-mcp|.*quickfiles-server",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/cleanup/.*github-projects-mcp|.*quickfiles-server"
+    },
+    {
+      "file": "docs/harness/reference/bidirectional-trigger.md",
+      "text": "`.claude/rules/wake-claude-routing.md`",
+      "target": "../../../claude/rules/wake-claude-routing.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "claude/rules/wake-claude-routing.md"
+    },
+    {
+      "file": "docs/harness/reference/bidirectional-trigger.md",
+      "text": "`.claude/rules/wake-claude-routing.md`",
+      "target": "../../../claude/rules/wake-claude-routing.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "claude/rules/wake-claude-routing.md"
+    },
+    {
+      "file": "docs/harness/reference/bidirectional-trigger.md",
+      "text": "`.claude/rules/wake-claude-routing.md`",
+      "target": "../../../claude/rules/wake-claude-routing.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "claude/rules/wake-claude-routing.md"
+    },
+    {
+      "file": "docs/harness/reference/bidirectional-trigger.md",
+      "text": "`.claude/rules/intercom-protocol.md`",
+      "target": "../../../claude/rules/intercom-protocol.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "claude/rules/intercom-protocol.md"
+    },
+    {
+      "file": "docs/roosync/archive/integration/08-outils-mcp-essentiels.md",
+      "text": "`02-points-integration-roosync.md`",
+      "target": "02-points-integration-roosync.md:141-176",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/roosync/archive/integration/02-points-integration-roosync.md:141-176"
+    },
+    {
+      "file": "docs/roosync/archive/integration/08-outils-mcp-essentiels.md",
+      "text": "`02-points-integration-roosync.md`",
+      "target": "02-points-integration-roosync.md:492-552",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/roosync/archive/integration/02-points-integration-roosync.md:492-552"
+    },
+    {
+      "file": "docs/roosync/archive/integration/08-outils-mcp-essentiels.md",
+      "text": "`02-points-integration-roosync.md`",
+      "target": "02-points-integration-roosync.md:216-291",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/roosync/archive/integration/02-points-integration-roosync.md:216-291"
+    },
+    {
+      "file": "mcps/external/git/server/README.md",
+      "text": ".clinerules",
+      "target": ".clinerules",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/external/git/server/.clinerules"
+    },
+    {
+      "file": "mcps/external/git/server/README.md",
+      "text": "docs/tree.md",
+      "target": "docs/tree.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/git/server/docs/tree.md"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "start-jupyter-mcp-offline.bat",
+      "target": "../scripts/mcp-starters/start-jupyter-mcp-offline.bat",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/external/scripts/mcp-starters/start-jupyter-mcp-offline.bat"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "sync-mcp-config.ps1",
+      "target": "../scripts/sync-mcp-config.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/external/scripts/sync-mcp-config.ps1"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "test-jupyter-vscode-integration.js",
+      "target": "../../tests/mcp/test-jupyter-vscode-integration.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/tests/mcp/test-jupyter-vscode-integration.js"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "test-jupyter-connection.js",
+      "target": "../../tests/mcp/test-jupyter-connection.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/tests/mcp/test-jupyter-connection.js"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "test-jupyter-mcp-offline.js",
+      "target": "../../tests/mcp/test-jupyter-mcp-offline.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/tests/mcp/test-jupyter-mcp-offline.js"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "test-jupyter-mcp-switch-offline.js",
+      "target": "../../tests/mcp/test-jupyter-mcp-switch-offline.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/tests/mcp/test-jupyter-mcp-switch-offline.js"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "Documentation principale du MCP Jupyter",
+      "target": "../mcp-servers/README-JUPYTER-MCP.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/mcp-servers/README-JUPYTER-MCP.md"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "Documentation du mode hors ligne",
+      "target": "../mcp-servers/docs/jupyter-mcp-offline-mode.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/mcp-servers/docs/jupyter-mcp-offline-mode.md"
+    },
+    {
+      "file": "mcps/external/jupyter/README.md",
+      "text": "Documentation des tests de connexion",
+      "target": "../mcp-servers/docs/jupyter-mcp-connection-test.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/mcp-servers/docs/jupyter-mcp-connection-test.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Documentation complète",
+      "target": "./mcp-servers/servers/quickfiles-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/quickfiles-server/README.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Documentation complète",
+      "target": "./mcp-servers/servers/jinavigator-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jinavigator-server/README.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Documentation complète",
+      "target": "./mcp-servers/servers/jupyter-mcp-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jupyter-mcp-server/README.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "index des MCPs internes",
+      "target": "./mcp-servers/INDEX.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/INDEX.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Documentation complète",
+      "target": "./external/filesystem/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/filesystem/README.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Installation des MCPs internes",
+      "target": "./mcp-servers/INSTALLATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/INSTALLATION.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Installation des MCPs externes",
+      "target": "./external/INSTALLATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/INSTALLATION.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Configuration des MCPs internes",
+      "target": "./mcp-servers/CONFIGURATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/CONFIGURATION.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Configuration des MCPs externes",
+      "target": "./external/CONFIGURATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/CONFIGURATION.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Configuration dans Roo",
+      "target": "./CONFIGURATION_ROO.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/CONFIGURATION_ROO.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Utilisation des MCPs internes",
+      "target": "./mcp-servers/USAGE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/USAGE.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Utilisation des MCPs externes",
+      "target": "./external/USAGE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/USAGE.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Bonnes pratiques",
+      "target": "./BEST_PRACTICES.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/BEST_PRACTICES.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Dépannage des MCPs internes",
+      "target": "./mcp-servers/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Dépannage des MCPs externes",
+      "target": "./external/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "Exemples d'utilisation",
+      "target": "./mcp-servers/examples/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/examples"
+    },
+    {
+      "file": "mcps/INDEX.md",
+      "text": "MCPs Internes",
+      "target": "./mcp-servers/INDEX.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/INDEX.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "documentation QuickFiles",
+      "target": "./mcp-servers/servers/quickfiles-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/quickfiles-server/README.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "documentation JinaNavigator",
+      "target": "./mcp-servers/servers/jinavigator-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jinavigator-server/README.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "documentation Jupyter MCP",
+      "target": "./mcp-servers/servers/jupyter-mcp-server/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jupyter-mcp-server/README.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "documentation Filesystem MCP",
+      "target": "./external/filesystem/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/filesystem/README.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "Guide de dépannage du MCP Jupyter",
+      "target": "./internal/docs/jupyter-mcp-troubleshooting.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/jupyter-mcp-troubleshooting.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "Guide de contribution",
+      "target": "./mcp-servers/CONTRIBUTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/CONTRIBUTING.md"
+    },
+    {
+      "file": "mcps/INSTALLATION.md",
+      "text": "Exemples d'utilisation des MCPs",
+      "target": "./mcp-servers/examples/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/examples"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`list_projects`",
+      "target": "src/tools.ts:143",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/tools.ts:143"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`index.ts:53`",
+      "target": "src/index.ts:53",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/index.ts:53"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`tools.ts:133`",
+      "target": "src/tools.ts:133",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/tools.ts:133"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`tools.ts:157`",
+      "target": "src/tools.ts:157",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/tools.ts:157"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`github.ts:21`",
+      "target": "src/utils/github.ts:21",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/utils/github.ts:21"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`mcp_settings.json:121`",
+      "target": "c:/Users/jsboi/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json:121",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/c:/Users/jsboi/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json:121"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`github.ts:15-33`",
+      "target": "src/utils/github.ts:15",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/utils/github.ts:15"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`index.ts:59-113`",
+      "target": "src/index.ts:59",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/index.ts:59"
+    },
+    {
+      "file": "mcps/internal/servers/github-projects-mcp/DEBUG-RAPPORT-TYPEERROR.md",
+      "text": "`tools.ts:133-167`",
+      "target": "src/tools.ts:133",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/github-projects-mcp/src/tools.ts:133"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/CONFIGURATION.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/jinavigator-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/jinavigator-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/INSTALLATION.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/jinavigator-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/jinavigator-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/TROUBLESHOOTING.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/jinavigator-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/jinavigator-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/USAGE.md",
+      "text": "-\\/",
+      "target": "0[1-9]|1[0-2]",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jinavigator-server/0[1-9]|1[0-2]"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/USAGE.md",
+      "text": "-\\/",
+      "target": "0[1-9]|[12][0-9]|3[01]",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jinavigator-server/0[1-9]|[12][0-9]|3[01]"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/USAGE.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/jinavigator-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/jinavigator-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/jinavigator-server/USAGE.md",
+      "text": "Contribuer au développement",
+      "target": "../CONTRIBUTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/CONTRIBUTING.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_execution_status(job_id)`",
+      "target": "papermill_mcp/services/notebook_service.py:339-372",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:339-372"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_job_logs(job_id, since_line)`",
+      "target": "papermill_mcp/services/notebook_service.py:374-407",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:374-407"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`cancel_job(job_id)`",
+      "target": "papermill_mcp/services/notebook_service.py:409-446",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:409-446"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`list_jobs()`",
+      "target": "papermill_mcp/services/notebook_service.py:448-472",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:448-472"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`cleanup_old_jobs(max_age_hours)`",
+      "target": "papermill_mcp/services/notebook_service.py:604-633",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:604-633"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_execution_status_async`",
+      "target": "papermill_mcp/tools/execution_tools.py:813-838",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/execution_tools.py:813-838"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_job_logs`",
+      "target": "papermill_mcp/tools/execution_tools.py:841-867",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/execution_tools.py:841-867"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`cancel_job`",
+      "target": "papermill_mcp/tools/execution_tools.py:870-895",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/execution_tools.py:870-895"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`list_jobs`",
+      "target": "papermill_mcp/tools/execution_tools.py:898-919",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/execution_tools.py:898-919"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_execution_status()`",
+      "target": "papermill_mcp/services/notebook_service.py:339-372",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:339-372"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`get_job_logs()`",
+      "target": "papermill_mcp/services/notebook_service.py:374-407",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:374-407"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`cancel_job()`",
+      "target": "papermill_mcp/services/notebook_service.py:409-446",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:409-446"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`list_jobs()`",
+      "target": "papermill_mcp/services/notebook_service.py:448-472",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:448-472"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE4.md",
+      "text": "`cleanup_old_jobs()`",
+      "target": "papermill_mcp/services/notebook_service.py:604-633",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:604-633"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE5.md",
+      "text": "`kernel_service.py:61-173`",
+      "target": "papermill_mcp/services/kernel_service.py:61-173",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/kernel_service.py:61-173"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE5.md",
+      "text": "`kernel_tools.py:100-198`",
+      "target": "papermill_mcp/tools/kernel_tools.py:100-198",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/kernel_tools.py:100-198"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/01_CHANGELOG_CONSOLIDATION_PHASE1A.md",
+      "text": "`RAPPORT_ARCHITECTURE_CONSOLIDATION.md`",
+      "target": "./RAPPORT_ARCHITECTURE_CONSOLIDATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/RAPPORT_ARCHITECTURE_CONSOLIDATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/01_CHANGELOG_CONSOLIDATION_PHASE1A.md",
+      "text": "`SPECIFICATIONS_API_CONSOLIDEE.md`",
+      "target": "./SPECIFICATIONS_API_CONSOLIDEE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/SPECIFICATIONS_API_CONSOLIDEE.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/01_CHANGELOG_CONSOLIDATION_PHASE1A.md",
+      "text": "`tests/test_read_cells_consolidation.py`",
+      "target": "./tests/test_read_cells_consolidation.py",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase1a/tests/test_read_cells_consolidation.py"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/03_CHANGELOG_CONSOLIDATION_PHASE2.md",
+      "text": "`SPECIFICATIONS_API_CONSOLIDEE.md`",
+      "target": "SPECIFICATIONS_API_CONSOLIDEE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/SPECIFICATIONS_API_CONSOLIDEE.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/03_CHANGELOG_CONSOLIDATION_PHASE2.md",
+      "text": "`CHANGELOG_CONSOLIDATION_PHASE1A.md`",
+      "target": "CHANGELOG_CONSOLIDATION_PHASE1A.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/CHANGELOG_CONSOLIDATION_PHASE1A.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/03_CHANGELOG_CONSOLIDATION_PHASE2.md",
+      "text": "`CHANGELOG_CONSOLIDATION_PHASE1B.md`",
+      "target": "CHANGELOG_CONSOLIDATION_PHASE1B.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/docs/consolidation/phase2/CHANGELOG_CONSOLIDATION_PHASE1B.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/GUIDE_MIGRATION_UTILISATEURS.md",
+      "text": "SPECIFICATIONS_API_CONSOLIDEE.md",
+      "target": "SPECIFICATIONS_API_CONSOLIDEE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/SPECIFICATIONS_API_CONSOLIDEE.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_FINAL_PHASE6.md",
+      "text": "`CHECKPOINT_SDDD_PHASE1A.md`",
+      "target": "CHECKPOINT_SDDD_PHASE1A.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE1A.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_FINAL_PHASE6.md",
+      "text": "`CHECKPOINT_SDDD_PHASE1B.md`",
+      "target": "CHECKPOINT_SDDD_PHASE1B.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE1B.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_FINAL_PHASE6.md",
+      "text": "`CHECKPOINT_SDDD_PHASE2.md`",
+      "target": "CHECKPOINT_SDDD_PHASE2.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE2.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_FINAL_PHASE6.md",
+      "text": "`CHECKPOINT_SDDD_PHASE3_FINAL.md`",
+      "target": "CHECKPOINT_SDDD_PHASE3_FINAL.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/CHECKPOINT_SDDD_PHASE3_FINAL.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_MISSION_PHASE4_TRIPLE_GROUNDING.md",
+      "text": "`papermill_mcp/tools/execution_tools.py:815`",
+      "target": "papermill_mcp/tools/execution_tools.py:815",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/tools/execution_tools.py:815"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_MISSION_PHASE4_TRIPLE_GROUNDING.md",
+      "text": "`papermill_mcp/services/notebook_service.py:681`",
+      "target": "papermill_mcp/services/notebook_service.py:681",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/papermill_mcp/services/notebook_service.py:681"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT_MISSION_PHASE4_TRIPLE_GROUNDING.md",
+      "text": "`SPECIFICATIONS_API_CONSOLIDEE.md`",
+      "target": "SPECIFICATIONS_API_CONSOLIDEE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/SPECIFICATIONS_API_CONSOLIDEE.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT-SYNC-REFACTORING.md",
+      "text": "`ARCHITECTURE.md`",
+      "target": "./ARCHITECTURE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/ARCHITECTURE.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/RAPPORT-SYNC-REFACTORING.md",
+      "text": "`CONDA_ENVIRONMENT_SETUP.md`",
+      "target": "./CONDA_ENVIRONMENT_SETUP.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/CONDA_ENVIRONMENT_SETUP.md"
+    },
+    {
+      "file": "mcps/internal/servers/jupyter-papermill-mcp-server/README.md",
+      "text": "LICENSE",
+      "target": "LICENSE",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-papermill-mcp-server/LICENSE"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-README.md",
+      "text": "`mcp_settings.json`",
+      "target": "C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/C:/Users/MYIA/AppData/Roaming/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-README.md",
+      "text": "`test-restart-fix.ts`",
+      "target": "./test-restart-fix.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/test-restart-fix.ts"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-README.md",
+      "text": "`build/index.js`",
+      "target": "./build/index.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/build/index.js"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-README.md",
+      "text": "`test-restart-fix.ts`",
+      "target": "./test-restart-fix.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/test-restart-fix.ts"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-README.md",
+      "text": "Documentation complète du bug",
+      "target": "../../../docs/debugging/mcp_settings_corruption_bug.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/docs/debugging/mcp_settings_corruption_bug.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`src/index.ts`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts:307",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts:307"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`src/index.ts`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts:590",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts:590"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`__tests__/quicklines-fixes.test.js`",
+      "target": "mcps/internal/servers/quickfiles-server/__tests__/quicklines-fixes.test.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/__tests__/quicklines-fixes.test.js"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`handleReadMultipleFiles()`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts:307",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts:307"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`handleEditMultipleFiles()`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts:590",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts:590"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`escapeRegex()`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts:168",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts:168"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`src/index.ts`",
+      "target": "mcps/internal/servers/quickfiles-server/src/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/src/index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`__tests__/quicklines-fixes.test.js`",
+      "target": "mcps/internal/servers/quickfiles-server/__tests__/quicklines-fixes.test.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/__tests__/quicklines-fixes.test.js"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/BUGFIX-REPORT.md",
+      "text": "`jest.config.js`",
+      "target": "mcps/internal/servers/quickfiles-server/jest.config.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/mcps/internal/servers/quickfiles-server/jest.config.js"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/CONFIGURATION.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/quickfiles-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/docs/quickfiles-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/CONFIGURATION.md",
+      "text": "Index des MCPs internes",
+      "target": "../../INDEX.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/INDEX.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/CONFIGURATION.md",
+      "text": "Documentation QuickFiles",
+      "target": "./README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/docs/README.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/CONFIGURATION.md",
+      "text": "Guide de recherche",
+      "target": "../../../SEARCH.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/SEARCH.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/INSTALLATION.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/quickfiles-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/docs/quickfiles-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/INSTALLATION.md",
+      "text": "Index des MCPs internes",
+      "target": "../../INDEX.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/INDEX.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/INSTALLATION.md",
+      "text": "Documentation QuickFiles",
+      "target": "./README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/docs/README.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/INSTALLATION.md",
+      "text": "Guide de recherche",
+      "target": "../../../SEARCH.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/SEARCH.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/TECHNICAL-DETAILS.md",
+      "text": "RESTAURATION-2025-09-30.md",
+      "target": "docs/RESTAURATION-2025-09-30.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/docs/docs/RESTAURATION-2025-09-30.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/TECHNICAL-DETAILS.md",
+      "text": "Rapport de Restauration Complet",
+      "target": "docs/RESTAURATION-2025-09-30.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/docs/docs/RESTAURATION-2025-09-30.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/TROUBLESHOOTING.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/quickfiles-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/docs/quickfiles-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/USAGE.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/quickfiles-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/docs/quickfiles-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/USAGE.md",
+      "text": "Contribuer au développement",
+      "target": "../CONTRIBUTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/CONTRIBUTING.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/docs/VALIDATION-FINALE-2025-09-30.md",
+      "text": "Workflow CI/CD",
+      "target": "../.github/workflows/test.yml",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/.github/workflows/test.yml"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Configurer le serveur",
+      "target": "CONFIGURATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/CONFIGURATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Apprendre à utiliser le serveur",
+      "target": "USAGE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/USAGE.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Consulter le guide de dépannage",
+      "target": "TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Explorer les cas d'utilisation avancés",
+      "target": "../../docs/quickfiles-use-cases.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/quickfiles-use-cases.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Configuration",
+      "target": "./CONFIGURATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/CONFIGURATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Utilisation",
+      "target": "./USAGE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/USAGE.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/INSTALLATION.md",
+      "text": "Dépannage",
+      "target": "./TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/quickfiles-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/TECHNICAL.md",
+      "text": "`package.json`",
+      "target": "package.json:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/package.json:1"
+    },
+    {
+      "file": "mcps/internal/servers/quickfiles-server/TECHNICAL.md",
+      "text": "`tsconfig.json`",
+      "target": "tsconfig.json:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/quickfiles-server/tsconfig.json:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`HierarchyReconstructionEngine`",
+      "target": "src/utils/hierarchy-reconstruction-engine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/hierarchy-reconstruction-engine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`TaskInstructionIndex`",
+      "target": "src/utils/task-instruction-index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/task-instruction-index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`2025-05-26-01-PHASE-implementation-phase-1.md`",
+      "target": "archives/2025-05/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-05"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`2025-09-28-01-DOC-TECH-validation-tests-unitaires-reconstruction.md`",
+      "target": "archives/2025-09/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-09"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "tests/unit/regression-hierarchy-extraction.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/regression-hierarchy-extraction.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`src/utils/hierarchy-reconstruction-engine.ts`",
+      "target": "src/utils/hierarchy-reconstruction-engine.ts:175-189",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/hierarchy-reconstruction-engine.ts:175-189"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`README.md`",
+      "target": "../../README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/README.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/ARCHITECTURE-SYSTEME-HIERARCHIQUE.md",
+      "text": "`tests/fixtures/controlled-hierarchy/`",
+      "target": "tests/fixtures/controlled-hierarchy/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/fixtures/controlled-hierarchy"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`active/INDEX-DOCUMENTATION.md`",
+      "target": "../active/INDEX-DOCUMENTATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/active/INDEX-DOCUMENTATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`active/README-STATUS.md`",
+      "target": "../active/README-STATUS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/active/README-STATUS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`README.md`",
+      "target": "../README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/README.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`CONVENTION-NOMMAGE-DOCUMENTATION.md`",
+      "target": "../CONVENTION-NOMMAGE-DOCUMENTATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/CONVENTION-NOMMAGE-DOCUMENTATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`docs-status-report.ps1`",
+      "target": "../../scripts/docs-status-report.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/scripts/docs-status-report.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`add-new-doc.ps1`",
+      "target": "../../scripts/add-new-doc.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/scripts/add-new-doc.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-04-03-RAPPORT-reorganisation-documentation-complete.md",
+      "text": "`validate-docs-reorganization.ps1`",
+      "target": "../../scripts/validate-docs-reorganization.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/scripts/validate-docs-reorganization.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-07-RAPPORT-VALIDATION-TIMEOUT-FIX.md",
+      "text": "`mcps/internal/servers/roo-state-manager/src/index.ts:952`",
+      "target": "src/index.ts:952",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/src/index.ts:952"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/2025-10-07-RAPPORT-VALIDATION-TIMEOUT-FIX.md",
+      "text": "`src/index.ts`",
+      "target": "src/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-10/src/index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`index.ts`",
+      "target": "../src/index.ts:3175-3249",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:3175-3249"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleBuildSkeletonCache()`",
+      "target": "../src/index.ts:948",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:948"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleListConversations()`",
+      "target": "../src/index.ts:740-898",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:740-898"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleGetTaskTree()`",
+      "target": "../src/index.ts:1465-1605",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:1465-1605"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleSearchTasksSemantic()`",
+      "target": "../src/index.ts:1689-1821",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:1689-1821"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleIndexTaskSemantic()`",
+      "target": "../src/index.ts:1884-1938",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:1884-1938"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleExportTaskXml()`",
+      "target": "../src/index.ts:2137-2185",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2137-2185"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleExportConversationXml()`",
+      "target": "../src/index.ts:2190-2265",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2190-2265"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleExportProjectXml()`",
+      "target": "../src/index.ts:2270-2345",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2270-2345"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleViewTaskDetails()`",
+      "target": "../src/index.ts:2697-2764",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2697-2764"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleGenerateTraceSummary()`",
+      "target": "../src/index.ts:2769-2810",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2769-2810"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleGenerateClusterSummary()`",
+      "target": "../src/index.ts:2429-2555",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2429-2555"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleGetConversationSynthesis()`",
+      "target": "../src/index.ts:2876-2915",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2876-2915"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleExportTaskTreeMarkdown()`",
+      "target": "../src/index.ts:2920-3042",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:2920-3042"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleGetCurrentTask()`",
+      "target": "../src/tools/task/get-current-task.tool.ts:82-134",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/get-current-task.tool.ts:82-134"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`_ensureSkeletonCacheIsFresh()`",
+      "target": "../src/index.ts:3175-3249",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:3175-3249"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/AUTO_REBUILD_MECHANISM.md",
+      "text": "`handleBuildSkeletonCache()`",
+      "target": "../src/index.ts:948-1350",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:948-1350"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/BUGS-ET-RESOLUTIONS.md",
+      "text": "`src/utils/hierarchy-reconstruction-engine.ts`",
+      "target": "src/utils/hierarchy-reconstruction-engine.ts:175-189",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/hierarchy-reconstruction-engine.ts:175-189"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/BUGS-ET-RESOLUTIONS.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "tests/unit/regression-hierarchy-extraction.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/regression-hierarchy-extraction.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/BUGS-ET-RESOLUTIONS.md",
+      "text": "`scripts/analyze-all-workspaces-stats.mjs`",
+      "target": "../scripts/analyze-all-workspaces-stats.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/analyze-all-workspaces-stats.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/debug/DEBUGGING.md",
+      "text": "`src/tools/view-conversation-tree.ts`",
+      "target": "src/tools/view-conversation-tree.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/debug/src/tools/view-conversation-tree.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/debug/DEBUGGING.md",
+      "text": "`src/tools/index.ts`",
+      "target": "src/tools/index.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/debug/src/tools/index.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/debug/DEBUGGING.md",
+      "text": "`tsconfig.json`",
+      "target": "tsconfig.json:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/debug/tsconfig.json:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/fixes/20251015-fix-indexer-p0-corrections.md",
+      "text": "`start.log`",
+      "target": "../../start.log",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/start.log"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`test-pattern-1-xml.test.ts`",
+      "target": "tests/unit/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`production-format-extraction.test.ts`",
+      "target": "tests/unit/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`test-multi-pattern-extraction.test.ts`",
+      "target": "tests/unit/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`hierarchy-reconstruction-engine.ts:175-189`",
+      "target": "src/utils/hierarchy-reconstruction-engine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/hierarchy-reconstruction-engine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`SubInstructionExtractor`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PARSING-ET-EXTRACTION.md",
+      "text": "`archives/2025-09/`",
+      "target": "archives/2025-09/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-09"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/PLAN-INVESTIGATION-PHASE-2C-SDDD.md",
+      "text": "roo-state-manager-parsing-refactoring.md",
+      "target": "../../docs/architecture/roo-state-manager-parsing-refactoring.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/docs/architecture/roo-state-manager-parsing-refactoring.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RADIXTREE-ET-MATCHING.md",
+      "text": "`TaskInstructionIndex`",
+      "target": "src/utils/task-instruction-index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/task-instruction-index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RADIXTREE-ET-MATCHING.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "tests/unit/regression-hierarchy-extraction.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/regression-hierarchy-extraction.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RADIXTREE-ET-MATCHING.md",
+      "text": "`README.md`",
+      "target": "../../README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/README.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RADIXTREE-ET-MATCHING.md",
+      "text": "`src/utils/task-instruction-index.ts`",
+      "target": "src/utils/task-instruction-index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/task-instruction-index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RADIXTREE-ET-MATCHING.md",
+      "text": "`src/utils/sub-instruction-extractor.ts`",
+      "target": "src/utils/sub-instruction-extractor.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/utils/sub-instruction-extractor.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`src/utils/hierarchy-reconstruction-engine.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:175-189",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:175-189"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`src/utils/sub-instruction-extractor.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`debug-final-fix-test.js`",
+      "target": "mcps/internal/servers/roo-state-manager/tmp-debug/debug-final-fix-test.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/tmp-debug/debug-final-fix-test.js"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`docs/tests/hierarchie-reconstruction-validation.md`",
+      "target": "mcps/internal/servers/roo-state-manager/docs/tests/hierarchie-reconstruction-validation.md:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/docs/tests/hierarchie-reconstruction-validation.md:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`tests/fixtures/controlled-hierarchy/`",
+      "target": "mcps/internal/servers/roo-state-manager/tests/fixtures/controlled-hierarchy/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/tests/fixtures/controlled-hierarchy"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`README.md`",
+      "target": "mcps/internal/servers/roo-state-manager/README.md:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/README.md:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`exact-trie`",
+      "target": "mcps/internal/servers/roo-state-manager/package.json:dependencies",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/package.json:dependencies"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`sub-instruction-extractor.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`regression-hierarchy-extraction.test.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`sub-instruction-extractor.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`src/utils/sub-instruction-extractor.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/sub-instruction-extractor.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`src/utils/task-instruction-index.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts:210",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/task-instruction-index.ts:210"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/tests/unit/regression-hierarchy-extraction.test.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/RAPPORT-FINAL-MISSION-SDDD-TRIPLE-GROUNDING.md",
+      "text": "`src/utils/hierarchy-reconstruction-engine.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:175",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/mcps/internal/servers/roo-state-manager/src/utils/hierarchy-reconstruction-engine.ts:175"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`../scripts/docs-status-report.ps1`",
+      "target": "../scripts/docs-status-report.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/docs-status-report.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`../scripts/add-new-doc.ps1`",
+      "target": "../scripts/add-new-doc.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/add-new-doc.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`../scripts/validate-docs-reorganization.ps1`",
+      "target": "../scripts/validate-docs-reorganization.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/validate-docs-reorganization.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`add-new-doc.ps1`",
+      "target": "../scripts/add-new-doc.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/add-new-doc.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`docs-status-report.ps1`",
+      "target": "../scripts/docs-status-report.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/docs-status-report.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/README.md",
+      "text": "`validate-docs-reorganization.ps1`",
+      "target": "../scripts/validate-docs-reorganization.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/validate-docs-reorganization.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/CONSOLIDATION-DOCUMENTATION.md",
+      "text": "`scripts/audit-markdown-files.ps1`",
+      "target": "../../scripts/audit-markdown-files.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/audit-markdown-files.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/CONSOLIDATION-DOCUMENTATION.md",
+      "text": "`scripts/finalize-docs-consolidation.ps1`",
+      "target": "../../scripts/finalize-docs-consolidation.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/finalize-docs-consolidation.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/CONSOLIDATION-DOCUMENTATION.md",
+      "text": "`scripts/commit-docs-consolidation.ps1`",
+      "target": "../../scripts/commit-docs-consolidation.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/commit-docs-consolidation.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`TEST-SUITE-COMPLETE-RESULTS.md`",
+      "target": "./TEST-SUITE-COMPLETE-RESULTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/TEST-SUITE-COMPLETE-RESULTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`AUDIT-TESTS-LAYOUT.md`",
+      "target": "./AUDIT-TESTS-LAYOUT.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/AUDIT-TESTS-LAYOUT.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`NOUVEAU-LAYOUT-TESTS.md`",
+      "target": "./NOUVEAU-LAYOUT-TESTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/NOUVEAU-LAYOUT-TESTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`TESTS-ORGANIZATION.md`",
+      "target": "./TESTS-ORGANIZATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/TESTS-ORGANIZATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`MIGRATION-PLAN-TESTS.md`",
+      "target": "./MIGRATION-PLAN-TESTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/MIGRATION-PLAN-TESTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`TESTS-ORGANIZATION.md`",
+      "target": "./TESTS-ORGANIZATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/TESTS-ORGANIZATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`NOUVEAU-LAYOUT-TESTS.md`",
+      "target": "./NOUVEAU-LAYOUT-TESTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/NOUVEAU-LAYOUT-TESTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`MIGRATION-PLAN-TESTS.md`",
+      "target": "./MIGRATION-PLAN-TESTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/MIGRATION-PLAN-TESTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/INDEX-LIVRABLES-REORGANISATION-TESTS.md",
+      "text": "`TESTS-ORGANIZATION.md`",
+      "target": "./TESTS-ORGANIZATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/TESTS-ORGANIZATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/utils/timestamp-parsing.test.ts`",
+      "target": "tests/unit/utils/timestamp-parsing.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/utils/timestamp-parsing.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`src/tools/smart-truncation/__tests__/engine.test.ts`",
+      "target": "src/tools/smart-truncation/__tests__/engine.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/__tests__/engine.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`SmartTruncationEngine.ts:85`",
+      "target": "src/tools/smart-truncation/engine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/engine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/gateway/unified-api-gateway.test.ts`",
+      "target": "tests/unit/gateway/unified-api-gateway.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/gateway/unified-api-gateway.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`src/tools/smart-truncation/__tests__/content-truncator.test.ts`",
+      "target": "src/tools/smart-truncation/__tests__/content-truncator.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/__tests__/content-truncator.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/utils/timestamp-parsing.test.ts`",
+      "target": "tests/unit/utils/timestamp-parsing.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/utils/timestamp-parsing.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/services/task-indexer.test.ts`",
+      "target": "tests/unit/services/task-indexer.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/services/task-indexer.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/utils/bom-handling.test.ts`",
+      "target": "tests/unit/utils/bom-handling.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/utils/bom-handling.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/utils/timestamp-parsing.test.ts`",
+      "target": "tests/unit/utils/timestamp-parsing.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/utils/timestamp-parsing.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`src/tools/smart-truncation/__tests__/engine.test.ts`",
+      "target": "src/tools/smart-truncation/__tests__/engine.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/__tests__/engine.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/gateway/unified-api-gateway.test.ts`",
+      "target": "tests/unit/gateway/unified-api-gateway.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/gateway/unified-api-gateway.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`src/tools/smart-truncation/__tests__/content-truncator.test.ts`",
+      "target": "src/tools/smart-truncation/__tests__/content-truncator.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/__tests__/content-truncator.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/services/task-indexer.test.ts`",
+      "target": "tests/unit/services/task-indexer.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/services/task-indexer.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`tests/unit/utils/bom-handling.test.ts`",
+      "target": "tests/unit/utils/bom-handling.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/utils/bom-handling.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE2_CORRECTIONS_COMPLETE_REPORT.md",
+      "text": "`src/tools/smart-truncation/engine.ts`",
+      "target": "src/tools/smart-truncation/engine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/tools/smart-truncation/engine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE3C_SYNTHESIS_REPORT.md",
+      "text": "`tests/unit/services/synthesis.service.test.ts`",
+      "target": "tests/unit/services/synthesis.service.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/tests/unit/services/synthesis.service.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/PHASE3C_SYNTHESIS_REPORT.md",
+      "text": "`src/services/synthesis/SynthesisOrchestratorService.ts`",
+      "target": "src/services/synthesis/SynthesisOrchestratorService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/synthesis/SynthesisOrchestratorService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/gateway/UnifiedApiGateway.ts`",
+      "target": "src/gateway/UnifiedApiGateway.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/gateway/UnifiedApiGateway.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/interfaces/UnifiedToolInterface.ts`",
+      "target": "src/interfaces/UnifiedToolInterface.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/interfaces/UnifiedToolInterface.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/services/CacheAntiLeakManager.ts`",
+      "target": "src/services/CacheAntiLeakManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/CacheAntiLeakManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/services/ServiceRegistry.ts`",
+      "target": "src/services/ServiceRegistry.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/ServiceRegistry.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/services/TwoLevelProcessingOrchestrator.ts`",
+      "target": "src/services/TwoLevelProcessingOrchestrator.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/TwoLevelProcessingOrchestrator.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/validation/ValidationEngine.ts`",
+      "target": "src/validation/ValidationEngine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/validation/ValidationEngine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`src/__tests__/UnifiedApiGateway.test.ts`",
+      "target": "src/__tests__/UnifiedApiGateway.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/__tests__/UnifiedApiGateway.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-FINAL-VALIDATION-ARCHITECTURE-CONSOLIDEE.md",
+      "text": "`validation-architecture-consolidee.cjs`",
+      "target": "validation-architecture-consolidee.cjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/validation-architecture-consolidee.cjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-AUTO-REBUILD-GET-CURRENT-TASK-20251016.md",
+      "text": "`handleGetCurrentTask()`",
+      "target": "../src/tools/task/get-current-task.tool.ts:82-134",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/task/get-current-task.tool.ts:82-134"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-GET-CURRENT-TASK-20251016.md",
+      "text": "`registry.ts`",
+      "target": "../../src/tools/registry.ts:352",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:352"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-GET-CURRENT-TASK-20251016.md",
+      "text": "`VALIDATION-FINALE-20251015.md`",
+      "target": "../VALIDATION-FINALE-20251015.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/VALIDATION-FINALE-20251015.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-GET-CURRENT-TASK-20251016.md",
+      "text": "`findMostRecentTask()`",
+      "target": "../../src/tools/task/get-current-task.tool.ts:28",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/get-current-task.tool.ts:28"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-GET-CURRENT-TASK-20251016.md",
+      "text": "`src/tools/registry.ts`",
+      "target": "../../src/tools/registry.ts:352",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:352"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/gateway/UnifiedApiGateway.ts`",
+      "target": "src/gateway/UnifiedApiGateway.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/gateway/UnifiedApiGateway.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/services/CacheAntiLeakManager.ts`",
+      "target": "src/services/CacheAntiLeakManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/CacheAntiLeakManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/services/ServiceRegistry.ts`",
+      "target": "src/services/ServiceRegistry.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/ServiceRegistry.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/services/TwoLevelProcessingOrchestrator.ts`",
+      "target": "src/services/TwoLevelProcessingOrchestrator.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/services/TwoLevelProcessingOrchestrator.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/validation/ValidationEngine.ts`",
+      "target": "src/validation/ValidationEngine.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/validation/ValidationEngine.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`src/__tests__/UnifiedApiGateway.test.ts`",
+      "target": "src/__tests__/UnifiedApiGateway.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/src/__tests__/UnifiedApiGateway.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`validation-architecture-consolidee.cjs`",
+      "target": "validation-architecture-consolidee.cjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/validation-architecture-consolidee.cjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`validation-architecture-consolidee.cjs`",
+      "target": "validation-architecture-consolidee.cjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/validation-architecture-consolidee.cjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/RAPPORT-MISSION-ORCHESTRATEUR-VALIDATION-COMPLETE.md",
+      "text": "`validation-architecture-consolidee.cjs`",
+      "target": "validation-architecture-consolidee.cjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/reports/validation-architecture-consolidee.cjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`build/src/tools/task/get-current-task.tool.js`",
+      "target": "../build/src/tools/task/get-current-task.tool.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/build/src/tools/task/get-current-task.tool.js"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`build/src/tools/task/get-current-task.tool.d.ts`",
+      "target": "../build/src/tools/task/get-current-task.tool.d.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/build/src/tools/task/get-current-task.tool.d.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`build/src/tools/task/get-current-task.tool.js.map`",
+      "target": "../build/src/tools/task/get-current-task.tool.js.map",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/build/src/tools/task/get-current-task.tool.js.map"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`build/src/tools/registry.js`",
+      "target": "../build/src/tools/registry.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/build/src/tools/registry.js"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`build/src/index.js`",
+      "target": "../build/src/index.js",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/build/src/index.js"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/reports/VALIDATION-BUILD-RESTART-GET-CURRENT-TASK-20251016.md",
+      "text": "`get-current-task.tool.ts:53-57`",
+      "target": "../src/tools/task/get-current-task.tool.ts:53",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/task/get-current-task.tool.ts:53"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/QUICKSTART.md",
+      "text": "GUIDE-TECHNIQUE-v2.3.md",
+      "target": "GUIDE-TECHNIQUE-v2.3.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/roosync/GUIDE-TECHNIQUE-v2.3.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/README.md",
+      "text": "`roo-config/reports/roosync-messaging-e2e-test-report-20251016.md`",
+      "target": "../../../../../roo-config/reports/roosync-messaging-e2e-test-report-20251016.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/roo-config/reports/roosync-messaging-e2e-test-report-20251016.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/SCRIPT-INTEGRATION-PATTERN.md",
+      "text": "`Get-MachineInventory.ps1`",
+      "target": "../../../../scripts/inventory/Get-MachineInventory.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/scripts/inventory/Get-MachineInventory.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/SCRIPT-INTEGRATION-PATTERN.md",
+      "text": "Documentation roosync_init",
+      "target": "./roosync-init.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/roosync/roosync-init.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/SCRIPT-INTEGRATION-PATTERN.md",
+      "text": "Script Get-MachineInventory.ps1",
+      "target": "../../../../scripts/inventory/Get-MachineInventory.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/scripts/inventory/Get-MachineInventory.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/roosync/SCRIPT-INTEGRATION-PATTERN.md",
+      "text": "Architecture RooSync v2",
+      "target": "./architecture.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/roosync/architecture.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`BaselineManager.test.ts`",
+      "target": "../../tests/unit/services/roosync/BaselineManager.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/BaselineManager.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`non-nominative-baseline.test.ts`",
+      "target": "../../tests/unit/services/roosync/non-nominative-baseline.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/non-nominative-baseline.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`BaselineManager.ts`",
+      "target": "../../src/services/roosync/BaselineManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/BaselineManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`NonNominativeBaselineService.ts`",
+      "target": "../../src/services/roosync/NonNominativeBaselineService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/NonNominativeBaselineService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`baseline.ts`",
+      "target": "../../src/types/baseline.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`non-nominative-baseline.ts`",
+      "target": "../../src/types/non-nominative-baseline.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/non-nominative-baseline.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`BaselineManager.ts`",
+      "target": "../../src/services/roosync/BaselineManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/BaselineManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`NonNominativeBaselineService.ts`",
+      "target": "../../src/services/roosync/NonNominativeBaselineService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/NonNominativeBaselineService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`BaselineManager.test.ts`",
+      "target": "../../tests/unit/services/roosync/BaselineManager.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/BaselineManager.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_12_RAPPORT_VALIDATION_ARCHITECTURE.md",
+      "text": "`non-nominative-baseline.test.ts`",
+      "target": "../../tests/unit/services/roosync/non-nominative-baseline.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/non-nominative-baseline.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/integration/baseline-workflow.test.ts`",
+      "target": "../../tests/integration/baseline-workflow.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/integration/baseline-workflow.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/integration/baseline-workflow.test.ts`",
+      "target": "../../tests/integration/baseline-workflow.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/integration/baseline-workflow.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`src/services/roosync/HeartbeatService.ts`",
+      "target": "../../src/services/roosync/HeartbeatService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/HeartbeatService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/unit/services/roosync/HeartbeatService.test.ts`",
+      "target": "../../tests/unit/services/roosync/HeartbeatService.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/HeartbeatService.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`src/services/roosync/HeartbeatService.ts`",
+      "target": "../../src/services/roosync/HeartbeatService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/HeartbeatService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/unit/services/roosync/HeartbeatService.test.ts`",
+      "target": "../../tests/unit/services/roosync/HeartbeatService.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/HeartbeatService.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`src/services/RooSyncService.ts`",
+      "target": "../../src/services/RooSyncService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/RooSyncService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/integration/baseline-workflow.test.ts`",
+      "target": "../../tests/integration/baseline-workflow.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/integration/baseline-workflow.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`src/services/roosync/HeartbeatService.ts`",
+      "target": "../../src/services/roosync/HeartbeatService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/HeartbeatService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`tests/unit/services/roosync/HeartbeatService.test.ts`",
+      "target": "../../tests/unit/services/roosync/HeartbeatService.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/HeartbeatService.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_13_14_15_RAPPORT_COMPLETION.md",
+      "text": "`NonNominativeBaselineService.ts`",
+      "target": "../../src/services/roosync/NonNominativeBaselineService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/NonNominativeBaselineService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`register-heartbeat.ts`",
+      "target": "../../src/tools/roosync/register-heartbeat.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/register-heartbeat.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`get-offline-machines.ts`",
+      "target": "../../src/tools/roosync/get-offline-machines.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/get-offline-machines.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`get-warning-machines.ts`",
+      "target": "../../src/tools/roosync/get-warning-machines.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/get-warning-machines.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`get-heartbeat-state.ts`",
+      "target": "../../src/tools/roosync/get-heartbeat-state.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/get-heartbeat-state.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`start-heartbeat-service.ts`",
+      "target": "../../src/tools/roosync/start-heartbeat-service.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/start-heartbeat-service.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`stop-heartbeat-service.ts`",
+      "target": "../../src/tools/roosync/stop-heartbeat-service.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/stop-heartbeat-service.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`check-heartbeats.ts`",
+      "target": "../../src/tools/roosync/check-heartbeats.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/check-heartbeats.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`sync-on-offline.ts`",
+      "target": "../../src/tools/roosync/sync-on-offline.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/sync-on-offline.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`sync-on-online.ts`",
+      "target": "../../src/tools/roosync/sync-on-online.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/sync-on-online.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`tests/unit/tools/heartbeat-tools.test.ts`",
+      "target": "../../tests/unit/tools/heartbeat-tools.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/tools/heartbeat-tools.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`src/tools/roosync/index.ts`",
+      "target": "../../src/tools/roosync/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/tools/roosync/index.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_16_RAPPORT_OUTILS_MCP_HEARTBEAT.md",
+      "text": "`src/services/RooSyncService.ts`",
+      "target": "../../src/services/RooSyncService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/RooSyncService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`NonNominativeBaselineService.ts`",
+      "target": "../../src/services/roosync/NonNominativeBaselineService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/NonNominativeBaselineService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`BaselineManager.ts`",
+      "target": "../../src/services/roosync/BaselineManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/BaselineManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline.ts`",
+      "target": "../../src/types/baseline.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`non-nominative-baseline.ts`",
+      "target": "../../src/types/non-nominative-baseline.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/non-nominative-baseline.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts:77",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts:77"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts:42",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts:42"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts:125",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts:125"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts:216",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts:216"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts:322",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts:322"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`BaselineManager.test.ts`",
+      "target": "../../tests/unit/services/roosync/BaselineManager.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/BaselineManager.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`non-nominative-baseline.test.ts`",
+      "target": "../../tests/unit/services/roosync/non-nominative-baseline.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/services/roosync/non-nominative-baseline.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`baseline-unified.ts`",
+      "target": "../../src/types/baseline-unified.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/types/baseline-unified.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`NonNominativeBaselineService.ts`",
+      "target": "../../src/services/roosync/NonNominativeBaselineService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/NonNominativeBaselineService.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`BaselineManager.ts`",
+      "target": "../../src/services/roosync/BaselineManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/src/services/roosync/BaselineManager.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/suivi/RooSync/T3_9_ANALYSE_BASELINE_UNIQUE.md",
+      "text": "`PHASE3B_BASELINE_REPORT.md`",
+      "target": "../reports/PHASE3B_BASELINE_REPORT.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/suivi/reports/PHASE3B_BASELINE_REPORT.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`analyze-parentid-stats.mjs`",
+      "target": "../scripts/analyze-parentid-stats.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/analyze-parentid-stats.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`generate-skeleton-cache.mjs`",
+      "target": "../scripts/generate-skeleton-cache.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/generate-skeleton-cache.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`run-phase2c-analysis.ps1`",
+      "target": "../scripts/run-phase2c-analysis.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/run-phase2c-analysis.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`analyze-parentid-stats.mjs`",
+      "target": "../scripts/analyze-parentid-stats.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/analyze-parentid-stats.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`generate-skeleton-cache.mjs`",
+      "target": "../scripts/generate-skeleton-cache.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/generate-skeleton-cache.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/SYNTHESE-PHASE2C-FINAL.md",
+      "text": "`run-phase2c-analysis.ps1`",
+      "target": "../scripts/run-phase2c-analysis.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/scripts/run-phase2c-analysis.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/TESTS-ET-VALIDATION.md",
+      "text": "`tests/unit/regression-hierarchy-extraction.test.ts`",
+      "target": "tests/unit/regression-hierarchy-extraction.test.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/unit/regression-hierarchy-extraction.test.ts"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/TESTS-ET-VALIDATION.md",
+      "text": "`2025-09-28-01-DOC-TECH-validation-tests-unitaires-reconstruction.md`",
+      "target": "archives/2025-09/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/archives/2025-09"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/TESTS-ET-VALIDATION.md",
+      "text": "`tests/fixtures/controlled-hierarchy/`",
+      "target": "tests/fixtures/controlled-hierarchy/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/fixtures/controlled-hierarchy"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/TESTS-ET-VALIDATION.md",
+      "text": "`scripts/direct-diagnosis.mjs`",
+      "target": "scripts/direct-diagnosis.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/scripts/direct-diagnosis.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/TESTS-ET-VALIDATION.md",
+      "text": "`scripts/test-radixtree-matching.mjs`",
+      "target": "scripts/test-radixtree-matching.mjs",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/scripts/test-radixtree-matching.mjs"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/MIGRATION-PLAN-TESTS.md",
+      "text": "TESTS-ORGANIZATION.md",
+      "target": "../TESTS-ORGANIZATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/TESTS-ORGANIZATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/MIGRATION-PLAN-TESTS.md",
+      "text": "NOUVEAU-LAYOUT-TESTS.md",
+      "target": "../NOUVEAU-LAYOUT-TESTS.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/NOUVEAU-LAYOUT-TESTS.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/TESTS-ORGANIZATION.md",
+      "text": "`RAPPORT-AVANCEMENT-REORGANISATION.md`",
+      "target": "./RAPPORT-AVANCEMENT-REORGANISATION.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/RAPPORT-AVANCEMENT-REORGANISATION.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/TESTS-ORGANIZATION.md",
+      "text": "`scripts/audit-tests.ps1`",
+      "target": "./scripts/audit-tests.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/scripts/audit-tests.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/TESTS-ORGANIZATION.md",
+      "text": "`scripts/migrate-tests.ps1`",
+      "target": "./scripts/migrate-tests.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/scripts/migrate-tests.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tests/TESTS-ORGANIZATION.md",
+      "text": "`scripts/run-tests.ps1`",
+      "target": "./scripts/run-tests.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/tests/scripts/run-tests.ps1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tools/GET_CURRENT_TASK.md",
+      "text": "`registry.ts`",
+      "target": "../../src/tools/registry.ts:352",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:352"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/docs/tools/GET_CURRENT_TASK.md",
+      "text": "`findMostRecentTask()`",
+      "target": "../../src/tools/task/get-current-task.tool.ts:28-58",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/get-current-task.tool.ts:28-58"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "🎯 Document de Référence",
+      "target": "./docs/SDDD_Master_Document.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/SDDD_Master_Document.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "🏗️ Architecture",
+      "target": "./docs/architecture/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/architecture"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "👥 Utilisation",
+      "target": "./docs/usage/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/usage"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "🔧 Maintenance",
+      "target": "./docs/maintenance/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/maintenance"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Rapport de validation",
+      "target": "./examples/validation/SDDD-Checkpoint1-Validation-Report.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/examples/validation/SDDD-Checkpoint1-Validation-Report.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`docs/architecture/conversation-synthesis/`",
+      "target": "./docs/architecture/conversation-synthesis/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/docs/architecture/conversation-synthesis"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`mcp_settings.json`",
+      "target": "../../../../../config/mcp_settings.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "config/mcp_settings.json"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`mcp_settings.json`",
+      "target": "../../../../../config/mcp_settings.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "config/mcp_settings.json"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`roosync-v2-baseline-driven-architecture-design-20251020.md`",
+      "target": "../../../../../roo-config/reports/roosync-v2-baseline-driven-architecture-design-20251020.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/reports/roosync-v2-baseline-driven-architecture-design-20251020.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`roosync-v2-baseline-driven-synthesis-20251020.md`",
+      "target": "../../../../../roo-config/reports/roosync-v2-baseline-driven-synthesis-20251020.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/reports/roosync-v2-baseline-driven-synthesis-20251020.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Plan d'intégration E2E",
+      "target": "../../../../../docs/integration/12-plan-integration-e2e.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/integration/12-plan-integration-e2e.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Résultats tests E2E",
+      "target": "../../../../../docs/integration/13-resultats-tests-e2e.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/integration/13-resultats-tests-e2e.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Guide utilisation outils",
+      "target": "../../../../../docs/integration/14-guide-utilisation-outils-roosync.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/integration/14-guide-utilisation-outils-roosync.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Architecture d'intégration",
+      "target": "../../../../../docs/integration/03-architecture-integration-roosync.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/integration/03-architecture-integration-roosync.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "Points d'intégration",
+      "target": "../../../../../docs/integration/02-points-integration-roosync.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/integration/02-points-integration-roosync.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "CHANGELOG RooSync",
+      "target": "../../../../../RooSync/CHANGELOG.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "RooSync/CHANGELOG.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/README.md",
+      "text": "`roosync-v2-baseline-driven-architecture-design-20251020.md`",
+      "target": "../../../../../roo-config/reports/roosync-v2-baseline-driven-architecture-design-20251020.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/reports/roosync-v2-baseline-driven-architecture-design-20251020.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`VITEST_MIGRATION_REPORT.md`",
+      "target": "../VITEST_MIGRATION_REPORT.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/VITEST_MIGRATION_REPORT.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`index.ts`",
+      "target": "index.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/index.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`StateManager`",
+      "target": "services/state-manager.service.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/state-manager.service.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`createMcpServer()`",
+      "target": "config/server-config.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/config/server-config.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`server-config.ts`",
+      "target": "config/server-config.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/config/server-config.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`createMcpServer()`",
+      "target": "config/server-config.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/config/server-config.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`state-manager.service.ts`",
+      "target": "services/state-manager.service.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/state-manager.service.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`background-services.ts`",
+      "target": "services/background-services.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/background-services.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`loadSkeletonsFromDisk()`",
+      "target": "services/background-services.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/background-services.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`startProactiveMetadataRepair()`",
+      "target": "services/background-services.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/background-services.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`initializeQdrantIndexingService()`",
+      "target": "services/background-services.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/background-services.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`verifyQdrantConsistency()`",
+      "target": "services/background-services.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/background-services.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`TraceSummaryService.ts`",
+      "target": "services/TraceSummaryService.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/TraceSummaryService.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`SynthesisOrchestratorService.ts`",
+      "target": "services/SynthesisOrchestratorService.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/SynthesisOrchestratorService.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`XMLExportService.ts`",
+      "target": "services/XMLExportService.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/XMLExportService.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`LLMSynthesisService.ts`",
+      "target": "services/LLMSynthesisService.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/LLMSynthesisService.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`indexing-decision.service.ts`",
+      "target": "services/indexing-decision.service.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/services/indexing-decision.service.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`registry.ts`",
+      "target": "tools/registry.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`ListTools`",
+      "target": "tools/registry.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`CallTool`",
+      "target": "tools/registry.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/registry.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`build-skeleton-cache.tool.ts`",
+      "target": "tools/cache/build-skeleton-cache.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/cache/build-skeleton-cache.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`rebuild-task-index.tool.ts`",
+      "target": "tools/cache/rebuild-task-index.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/cache/rebuild-task-index.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`list-conversations.tool.ts`",
+      "target": "tools/conversation/list-conversations.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/conversation/list-conversations.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`read-conversation.tool.ts`",
+      "target": "tools/conversation/read-conversation.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/conversation/read-conversation.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`view-conversation-tree.tool.ts`",
+      "target": "tools/conversation/view-conversation-tree.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/conversation/view-conversation-tree.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`get-raw-conversation.tool.ts`",
+      "target": "tools/conversation/get-raw-conversation.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/conversation/get-raw-conversation.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-conversation-json.tool.ts`",
+      "target": "tools/export/export-conversation-json.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-conversation-json.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-conversation-csv.tool.ts`",
+      "target": "tools/export/export-conversation-csv.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-conversation-csv.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-tasks-xml.tool.ts`",
+      "target": "tools/export/export-tasks-xml.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-tasks-xml.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-conversation-xml.tool.ts`",
+      "target": "tools/export/export-conversation-xml.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-conversation-xml.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-project-xml.tool.ts`",
+      "target": "tools/export/export-project-xml.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-project-xml.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`export-task-tree-markdown.tool.ts`",
+      "target": "tools/export/export-task-tree-markdown.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/export/export-task-tree-markdown.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`index-task-semantic.tool.ts`",
+      "target": "tools/indexing/index-task-semantic.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/indexing/index-task-semantic.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`reset-qdrant-collection.tool.ts`",
+      "target": "tools/indexing/reset-qdrant-collection.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/indexing/reset-qdrant-collection.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`diagnose-conversation-bom.tool.ts`",
+      "target": "tools/repair/diagnose-conversation-bom.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/repair/diagnose-conversation-bom.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`repair-conversation-bom.tool.ts`",
+      "target": "tools/repair/repair-conversation-bom.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/repair/repair-conversation-bom.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`search-tasks-semantic.tool.ts`",
+      "target": "tools/search/search-tasks-semantic.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/search/search-tasks-semantic.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`debug-analyze-conversation.tool.ts`",
+      "target": "tools/search/debug-analyze-conversation.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/search/debug-analyze-conversation.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`detect-roo-storage.tool.ts`",
+      "target": "tools/storage/detect-roo-storage.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/storage/detect-roo-storage.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`get-storage-stats.tool.ts`",
+      "target": "tools/storage/get-storage-stats.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/storage/get-storage-stats.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`generate-trace-summary.tool.ts`",
+      "target": "tools/summary/generate-trace-summary.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/summary/generate-trace-summary.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`generate-cluster-summary.tool.ts`",
+      "target": "tools/summary/generate-cluster-summary.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/summary/generate-cluster-summary.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`get-conversation-synthesis.tool.ts`",
+      "target": "tools/summary/get-conversation-synthesis.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/summary/get-conversation-synthesis.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`get-task-tree.tool.ts`",
+      "target": "tools/task/get-task-tree.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/get-task-tree.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`view-task-details.tool.ts`",
+      "target": "tools/task/view-task-details.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/view-task-details.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`debug-task-parsing.tool.ts`",
+      "target": "tools/task/debug-task-parsing.tool.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/tools/task/debug-task-parsing.tool.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`tool-definitions.ts`",
+      "target": "types/tool-definitions.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/types/tool-definitions.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`conversation.ts`",
+      "target": "types/conversation.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/types/conversation.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`task.ts`",
+      "target": "types/task.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/types/task.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`server-helpers.ts`",
+      "target": "utils/server-helpers.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/utils/server-helpers.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`truncateResult()`",
+      "target": "utils/server-helpers.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/utils/server-helpers.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`handleTouchMcpSettings()`",
+      "target": "utils/server-helpers.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/utils/server-helpers.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`handleExportConversationJson()`",
+      "target": "utils/server-helpers.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/utils/server-helpers.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "`handleExportConversationCsv()`",
+      "target": "utils/server-helpers.ts:1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/internal/servers/roo-state-manager/src/utils/server-helpers.ts:1"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "Guide de Développement",
+      "target": "../CONTRIBUTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/CONTRIBUTING.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/README.md",
+      "text": "Architecture détaillée",
+      "target": "../ARCHITECTURE.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/roo-state-manager/ARCHITECTURE.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/services/README-roosync.md",
+      "text": "`roosync-real-diff-detection-design.md`",
+      "target": "../../../../docs/architecture/roosync-real-diff-detection-design.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/architecture/roosync-real-diff-detection-design.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/services/README-roosync.md",
+      "text": "`roosync-e2e-test-plan.md`",
+      "target": "../../../../docs/testing/roosync-e2e-test-plan.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/testing/roosync-e2e-test-plan.md"
+    },
+    {
+      "file": "mcps/internal/servers/roo-state-manager/src/services/README-roosync.md",
+      "text": "`roosync-v2-evolution-synthesis-20251015.md`",
+      "target": "../../../../docs/orchestration/roosync-v2-evolution-synthesis-20251015.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/docs/orchestration/roosync-v2-evolution-synthesis-20251015.md"
+    },
+    {
+      "file": "mcps/OPTIMIZATIONS.md",
+      "text": "Graphique d'utilisation CPU",
+      "target": "../docs/images/cpu-usage-comparison.png",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/images/cpu-usage-comparison.png"
+    },
+    {
+      "file": "mcps/OPTIMIZATIONS.md",
+      "text": "Graphique d'utilisation mémoire",
+      "target": "../docs/images/memory-usage-comparison.png",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/images/memory-usage-comparison.png"
+    },
+    {
+      "file": "mcps/OPTIMIZATIONS.md",
+      "text": "Graphique d'utilisation réseau",
+      "target": "../docs/images/network-usage-comparison.png",
+      "classification": "BROKEN-ASSET",
+      "resolved": "docs/images/network-usage-comparison.png"
+    },
+    {
+      "file": "mcps/README.md",
+      "text": "Documentation détaillée",
+      "target": "./external/mcp-server-ftp/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/mcp-server-ftp/README.md"
+    },
+    {
+      "file": "mcps/README.md",
+      "text": "Synthèse Finale SDDD : Réparations des Serveurs MCP",
+      "target": "..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md"
+    },
+    {
+      "file": "mcps/README.md",
+      "text": "Configuration MCP dans Roo",
+      "target": "../docs/configuration/configuration-mcp-roo.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/configuration/configuration-mcp-roo.md"
+    },
+    {
+      "file": "mcps/README.md",
+      "text": "Documentation des modes Roo",
+      "target": "../roo-modes/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-modes/README.md"
+    },
+    {
+      "file": "mcps/README.md",
+      "text": "Configuration MCP dans Roo",
+      "target": "../docs/configuration/configuration-mcp-roo.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/configuration/configuration-mcp-roo.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "consultez la synthèse SDDD dédiée",
+      "target": "..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "Guide de dépannage QuickFiles",
+      "target": "mcp-servers/servers/quickfiles-server/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/quickfiles-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "Guide de dépannage JinaNavigator",
+      "target": "mcp-servers/servers/jinavigator-server/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jinavigator-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "Guide de dépannage Jupyter",
+      "target": "mcp-servers/servers/jupyter-mcp-server/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/servers/jupyter-mcp-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "Guide de dépannage Filesystem",
+      "target": "external/filesystem/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/external/filesystem/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "Guide de dépannage Jupyter",
+      "target": "internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/internal/servers/jupyter-mcp-server/TROUBLESHOOTING.md"
+    },
+    {
+      "file": "mcps/TROUBLESHOOTING.md",
+      "text": "MCPs Internes",
+      "target": "./mcp-servers/INDEX.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/mcp-servers/INDEX.md"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`ClineProvider.ts`",
+      "target": "../../src/core/webview/ClineProvider.ts:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "src/core/webview/ClineProvider.ts:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`file-search.ts`",
+      "target": "../../src/services/search/file-search.ts:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "src/services/search/file-search.ts:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`roo-code/src/core/webview/ClineProvider.ts`",
+      "target": "roo-code/src/core/webview/ClineProvider.ts:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/webview/ClineProvider.ts:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`roo-code/src/services/search/file-search.ts`",
+      "target": "roo-code/src/services/search/file-search.ts:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/services/search/file-search.ts:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`roo-code/myia/`",
+      "target": "../../roo-code/myia/:0",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code/myia/:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`03-ui-crash-deep-dive.md`",
+      "target": "../../roo-code/myia/03-ui-crash-deep-dive.md:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code/myia/03-ui-crash-deep-dive.md:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "text": "`04-file-search-escaping-issue.md`",
+      "target": "../../roo-code/myia/04-file-search-escaping-issue.md:0",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code/myia/04-file-search-escaping-issue.md:0"
+    },
+    {
+      "file": "roo-code-customization/investigations/07-file-search-analysis.md",
+      "text": "`roo-code/src/services/search/file-search.ts`",
+      "target": "../../roo-code/src/services/search/file-search.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code/src/services/search/file-search.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+      "text": "`roo-code/myia/03-ui-crash-deep-dive.md`",
+      "target": "../../roo-code/myia/03-ui-crash-deep-dive.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code/myia/03-ui-crash-deep-dive.md"
+    },
+    {
+      "file": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+      "text": "`roo-code/myia/01-ui-crash-investigation.md`",
+      "target": "../../roo-code/myia/01-ui-crash-investigation.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code/myia/01-ui-crash-investigation.md"
+    },
+    {
+      "file": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+      "text": "`ClineProvider.ts`",
+      "target": "../../roo-code/src/core/webview/ClineProvider.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code/src/core/webview/ClineProvider.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+      "text": "`deploy-fix.ps1`",
+      "target": "../../deploy-fix.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "deploy-fix.ps1"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`src/core/sliding-window/index.ts`",
+      "target": "../roo-code/src/core/sliding-window/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`src/core/sliding-window/index.ts`",
+      "target": "../roo-code/src/core/sliding-window/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`src/core/task/Task.ts`",
+      "target": "../roo-code/src/core/task/Task.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/task/Task.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`truncateConversationIfNeeded()`",
+      "target": "../roo-code/src/core/sliding-window/index.ts:91",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts:91"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`summarizeConversation()`",
+      "target": "../roo-code/src/core/condense/index.ts:85",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:85"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`truncateConversation()`",
+      "target": "../roo-code/src/core/sliding-window/index.ts:41",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts:41"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`truncateConversationIfNeeded()`",
+      "target": "../roo-code/src/core/sliding-window/index.ts:125-142",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts:125-142"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`summarizeConversation()`",
+      "target": "../roo-code/src/core/condense/index.ts:133",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:133"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`summarizeConversation()`",
+      "target": "../roo-code/src/core/condense/index.ts:202-205",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:202-205"
+    },
+    {
+      "file": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "text": "`truncateConversation()`",
+      "target": "../roo-code/src/core/sliding-window/index.ts:41-50",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts:41-50"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design-rapport-mission.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:14",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:14"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:14",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:14"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:14",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:14"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`summarizeConversation()`",
+      "target": "../roo-code/src/core/condense/index.ts:85",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:85"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/package.json`",
+      "target": "../roo-code/src/package.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/package.json"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/package.nls.fr.json`",
+      "target": "../roo-code/src/package.nls.fr.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/package.nls.fr.json"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:133",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:133"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/package.json`",
+      "target": "../roo-code/src/package.json:317",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/package.json:317"
+    },
+    {
+      "file": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:133",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:133"
+    },
+    {
+      "file": "roo-code-customization/investigations/11-sddd-process-post-mortem.md",
+      "text": "`src/core/sliding-window/index.ts`",
+      "target": "../roo-code/src/core/sliding-window/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/sliding-window/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/11-sddd-process-post-mortem.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/11-sddd-process-post-mortem.md",
+      "text": "`src/core/condense/index.ts`",
+      "target": "../roo-code/src/core/condense/index.ts:14",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/roo-code/src/core/condense/index.ts:14"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/src/core/webview/ClineProvider.ts`",
+      "target": "roo-code/src/core/webview/ClineProvider.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/webview/ClineProvider.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/src/core/webview/ClineProvider.ts`",
+      "target": "roo-code/src/core/webview/ClineProvider.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/webview/ClineProvider.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/src/core/webview/ClineProvider.ts`",
+      "target": "roo-code/src/core/webview/ClineProvider.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/webview/ClineProvider.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/src/core/task/Task.ts`",
+      "target": "roo-code/src/core/task/Task.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/task/Task.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/src/core/webview/ClineProvider.ts`",
+      "target": "roo-code/src/core/webview/ClineProvider.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/src/core/webview/ClineProvider.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "text": "`roo-code/packages/types/src/history.ts`",
+      "target": "roo-code/packages/types/src/history.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/roo-code/packages/types/src/history.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/powershell-typescript-comparative-analysis.md",
+      "text": "Screenshot",
+      "target": "$2",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code-customization/investigations/$2"
+    },
+    {
+      "file": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+      "text": "`XmlExporterService.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/services/XmlExporterService.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/mcps/internal/servers/roo-state-manager/src/services/XmlExporterService.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+      "text": "`ExportConfigManager.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/services/ExportConfigManager.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/mcps/internal/servers/roo-state-manager/src/services/ExportConfigManager.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+      "text": "`index.ts`",
+      "target": "mcps/internal/servers/roo-state-manager/src/index.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "roo-code-customization/investigations/mcps/internal/servers/roo-state-manager/src/index.ts"
+    },
+    {
+      "file": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+      "text": "`README-XML-Export.md`",
+      "target": "mcps/internal/servers/roo-state-manager/README-XML-Export.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code-customization/investigations/mcps/internal/servers/roo-state-manager/README-XML-Export.md"
+    },
+    {
+      "file": "roo-code-customization/investigations/typescript-implementation-gaps.md",
+      "text": "",
+      "target": "path",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-code-customization/investigations/path"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-complex`",
+      "target": "code-complex",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-complex"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`architect-simple`",
+      "target": "architect-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/architect-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`ask-simple`",
+      "target": "ask-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/ask-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`ask-complex`",
+      "target": "ask-complex",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/ask-complex"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`debug-simple`",
+      "target": "debug-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/debug-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`code-simple`",
+      "target": "code-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/code-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`architect-simple`",
+      "target": "architect-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/architect-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`architect-simple`",
+      "target": "architect-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/architect-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`architect-complex`",
+      "target": "architect-complex",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/architect-complex"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`ask-simple`",
+      "target": "ask-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/ask-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`ask-simple`",
+      "target": "ask-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/ask-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`ask-simple`",
+      "target": "ask-simple",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/ask-simple"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`orchestrator`",
+      "target": "orchestrator",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/orchestrator"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`orchestrator`",
+      "target": "orchestrator",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/orchestrator"
+    },
+    {
+      "file": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+      "text": "`orchestrator`",
+      "target": "orchestrator",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/specifications/orchestrator"
+    },
+    {
+      "file": "roo-config/specifications/mcp-integrations-priority.md",
+      "text": "`mcps/external/win-cli/server/config.sample.json`",
+      "target": "../../mcps/external/win-cli/server/config.sample.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "mcps/external/win-cli/server/config.sample.json"
+    },
+    {
+      "file": "scripts/scheduling/README.md",
+      "text": "docs/architecture/scheduler-claude-code.md",
+      "target": "../../docs/architecture/scheduler-claude-code.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "docs/architecture/scheduler-claude-code.md"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/worktrees/auto-cleanup.ps1`",
+      "target": "../scripts/_archive/duplicates/auto-cleanup.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/_archive/duplicates/auto-cleanup.ps1"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/worktrees/create-worktree.ps1`",
+      "target": "../scripts/worktrees/create-worktree.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/worktrees/create-worktree.ps1"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/worktrees/cleanup-worktree.ps1`",
+      "target": "../scripts/worktrees/cleanup-worktree.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/worktrees/cleanup-worktree.ps1"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/worktrees/submit-pr.ps1`",
+      "target": "../scripts/worktrees/submit-pr.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/worktrees/submit-pr.ps1"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/claude/worktree-cleanup.ps1`",
+      "target": "../scripts/claude/worktree-cleanup.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/claude/worktree-cleanup.ps1"
+    },
+    {
+      "file": "scripts/worktrees/README.md",
+      "text": "`scripts/_archive/duplicates/auto-cleanup.ps1`",
+      "target": "../scripts/_archive/duplicates/auto-cleanup.ps1",
+      "classification": "BROKEN-ASSET",
+      "resolved": "scripts/scripts/_archive/duplicates/auto-cleanup.ps1"
+    },
+    {
+      "file": "tests/mcp-win-cli/README.md",
+      "text": "`roo-config/settings/win-cli-config.json`",
+      "target": "roo-config/settings/win-cli-config.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "tests/mcp-win-cli/roo-config/settings/win-cli-config.json"
+    },
+    {
+      "file": "tests/mcp-win-cli/README.md",
+      "text": "`roo-config/settings/servers.json`",
+      "target": "roo-config/settings/servers.json",
+      "classification": "BROKEN-ASSET",
+      "resolved": "tests/mcp-win-cli/roo-config/settings/servers.json"
+    },
+    {
+      "file": "tests/README.md",
+      "text": "mcps/tests/reports/",
+      "target": "../mcps/tests/reports/",
+      "classification": "BROKEN-PATH",
+      "resolved": "mcps/tests/reports"
+    },
+    {
+      "file": "tests/README.md",
+      "text": "roo-modes/n5/tests/",
+      "target": "../roo-modes/n5/tests/",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-modes/n5/tests"
+    },
+    {
+      "file": "tests/README.md",
+      "text": "roo-modes/n5/tests/",
+      "target": "../roo-modes/n5/tests/",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-modes/n5/tests"
+    },
+    {
+      "file": "tests/README.md",
+      "text": "Documentation des modes Roo",
+      "target": "../roo-modes/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-modes/README.md"
+    },
+    {
+      "file": "tests/results/roosync/test1-logger-report.md",
+      "text": "`docs/roosync/logger-usage-guide.md`",
+      "target": "../../docs/roosync/logger-usage-guide.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "tests/docs/roosync/logger-usage-guide.md"
+    },
+    {
+      "file": "tests/results/roosync/test1-logger-report.md",
+      "text": "`mcps/internal/servers/roo-state-manager/src/utils/logger.ts`",
+      "target": "../../mcps/internal/servers/roo-state-manager/src/utils/logger.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "tests/mcps/internal/servers/roo-state-manager/src/utils/logger.ts"
+    },
+    {
+      "file": "tests/results/roosync/test2-git-helpers-report.md",
+      "text": "`docs/roosync/git-requirements.md`",
+      "target": "../../docs/roosync/git-requirements.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "tests/docs/roosync/git-requirements.md"
+    },
+    {
+      "file": "tests/results/roosync/test2-git-helpers-report.md",
+      "text": "`mcps/internal/servers/roo-state-manager/src/utils/git-helpers.ts`",
+      "target": "../../mcps/internal/servers/roo-state-manager/src/utils/git-helpers.ts",
+      "classification": "BROKEN-ASSET",
+      "resolved": "tests/mcps/internal/servers/roo-state-manager/src/utils/git-helpers.ts"
+    },
+    {
+      "file": "tests/test-encodage.md",
+      "text": "Documentation sur l'encodage",
+      "target": "../roo-config/encoding-scripts/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/encoding-scripts/README.md"
+    },
+    {
+      "file": "tests/test-encodage.md",
+      "text": "Scripts de diagnostic d'encodage",
+      "target": "../roo-config/diagnostic-scripts/README.md",
+      "classification": "BROKEN-PATH",
+      "resolved": "roo-config/diagnostic-scripts/README.md"
+    }
+  ]
+}
