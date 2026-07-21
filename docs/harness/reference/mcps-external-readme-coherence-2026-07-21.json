@@ -1,0 +1,274 @@
+{
+  "audit_date": "2026-07-21",
+  "issue": 2882,
+  "parent_issue": 2877,
+  "source_audit_issue": 2876,
+  "baseline_commit": "6e56ce8f7151e58b22d75f19a06f8b7742ebcdff",
+  "baseline_tree": "c39db7a4395ebc22a7785977548d8e8e493b8b22",
+  "scope_source": "docs/harness/reference/doc-audit-raw-2026-07-21.json categories.other paths starting with mcps/external/",
+  "summary": {
+    "files_expected": 45,
+    "files_read": 45,
+    "packages": 10,
+    "OK": 0,
+    "UPDATE-NEEDED": 36,
+    "REMOVE": 9
+  },
+  "sddd": {
+    "codebase_search_start": "collection_not_found: no Qdrant collection exists on myia-web1 for this workspace",
+    "roosync_search": "semantic degraded to text; zero prior results",
+    "conversation_browser": "list succeeded on retry; zero prior #2882 conversations",
+    "codebase_search_finish": "collection_not_found unchanged; reported as dashboard friction",
+    "technical_grounding": "45/45 files read and checked against manifests, source, canonical configuration, exact searches, and git history"
+  },
+  "packages": [
+    {
+      "name": "external-index",
+      "path": "mcps/external/README.md",
+      "file_count": 1,
+      "readme_age_days": "425",
+      "code_age_days": "113",
+      "versions_match": "N/A",
+      "paths_match": "PARTIAL",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Rebuild directory index; remove phantom filesystem directory entry and add five omitted package directories.",
+      "evidence": [
+        "mcps/external/README.md:7-15",
+        "mcps/external/README.md:23",
+        "roo-config/settings/servers.json:1-136"
+      ]
+    },
+    {
+      "name": "desktop-commander",
+      "path": "mcps/external/desktop-commander",
+      "file_count": 1,
+      "readme_age_days": "152",
+      "code_age_days": "39 (retirement policy)",
+      "versions_match": "N/A",
+      "paths_match": "FALSE",
+      "status": "REMOVE",
+      "action_proposed": "Dedicated consolidation/removal PR for the retired subtree and obsolete always-allow source entry.",
+      "absence_proof": [
+        "No entry in roo-config/settings/servers.json",
+        ".claude/rules/tool-availability.md:43-45 marks desktop-commander retired",
+        "scripts/validation/validate-mcp-drift.ps1:126 rejects it",
+        "scripts/validation/validate-mcp-config-cross-machine.ps1:37-41 rejects it"
+      ],
+      "preservation": {
+        "tree_sha": "b90c7a242987ed00f0b38b514cbfe79db25fd478",
+        "readme_blob_sha": "44e25772f386228ebd0abf4d1f252597eb118965",
+        "source_commit": "2d4dca22a82012085b54a2693cc8089480bc978f"
+      }
+    },
+    {
+      "name": "docker",
+      "path": "mcps/external/docker",
+      "file_count": 6,
+      "readme_age_days": "419-425",
+      "code_age_days": "54",
+      "versions_match": "PARTIAL",
+      "paths_match": "PARTIAL",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Correct BUILD-LOCAL image/tag and mount; raise obsolete Node minimum in INSTALLATION.",
+      "evidence": [
+        "roo-config/settings/servers.json:121-135",
+        "mcps/external/docker/BUILD-LOCAL.md:52-54",
+        "mcps/external/docker/INSTALLATION.md:10"
+      ]
+    },
+    {
+      "name": "git",
+      "path": "mcps/external/git",
+      "file_count": 7,
+      "readme_age_days": "425",
+      "code_age_days": "113 (canonical config)",
+      "versions_match": "FALSE",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Decide between configured Python MCP and vendored Cyanheads package, then rewrite the wrapper docs and label/remove unused source.",
+      "evidence": [
+        "roo-config/settings/servers.json:38-44 uses python -m mcp_server_git",
+        "mcps/external/git/README.md:58-72 documents @modelcontextprotocol/server-git",
+        "mcps/external/git/server/package.json:2-17 declares @cyanheads/git-mcp-server 2.0.6",
+        "mcps/external/git/server/README.md:185,193 still says 2.0.2",
+        "mcps/external/git/server/CHANGELOG.md:8 stops at 2.0.5"
+      ]
+    },
+    {
+      "name": "github",
+      "path": "mcps/external/github",
+      "file_count": 8,
+      "readme_age_days": "425",
+      "code_age_days": "113 (canonical config)",
+      "versions_match": "PARTIAL",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Rewrite active Node package docs and remove unrelated Go license-only subtree in one package decision.",
+      "evidence": [
+        "roo-config/settings/servers.json:46-55",
+        "mcps/external/github/INSTALLATION.md:8,158",
+        "mcps/external/github/CONFIGURATION.md:127-159,208-217",
+        "mcps/external/github/server/third-party-licenses.darwin.md:3,11"
+      ],
+      "preservation": {
+        "server_tree_sha": "bf2ea20e952db8a2f24b4956d245ed3a9d012aa2",
+        "darwin_linux_blob_sha": "cdb19b55500b2a2c197e62e5158d2e7320695789",
+        "windows_blob_sha": "b34d7e6ac23313fb045787866061bdcdb9f7a365"
+      }
+    },
+    {
+      "name": "jupyter",
+      "path": "mcps/external/jupyter",
+      "file_count": 3,
+      "readme_age_days": "425",
+      "code_age_days": "20",
+      "versions_match": "FALSE",
+      "paths_match": "FALSE",
+      "status": "REMOVE",
+      "action_proposed": "Dedicated consolidation/removal PR; assess sibling startup script and preserve useful guidance in Papermill docs first.",
+      "absence_proof": [
+        "roo-config/settings/servers.json:21-27 configures Python papermill_mcp.main",
+        "Documented mcps/mcp-servers/servers/jupyter-mcp-server path does not exist",
+        "mcps/JUPYTER-CONFLICT-RESOLUTION-REPORT.md:7-24 explicitly identifies this external directory as obsolete"
+      ],
+      "preservation": {
+        "tree_sha": "6ce7cc4e3bca0a1cda6f00414281ddf01fb07e6e",
+        "readme_blob_sha": "56125c6ff0338c0f845c523859f34512a7434354",
+        "configuration_blob_sha": "a63a3a504a1ddf20498836b7a3e0cc6fb3641fbc",
+        "troubleshooting_blob_sha": "4a2c84aaafbc607b2e1179e3414630024e46da57"
+      }
+    },
+    {
+      "name": "markitdown",
+      "path": "mcps/external/markitdown",
+      "file_count": 2,
+      "readme_age_days": "315-364",
+      "code_age_days": "113",
+      "versions_match": "PARTIAL",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Require Python >=3.10, remove user-specific path, document canonical python -m markitdown_mcp command, and correct purpose text.",
+      "evidence": [
+        "mcps/external/markitdown/source/packages/markitdown-mcp/pyproject.toml:5-10",
+        "roo-config/settings/servers.json:80-85",
+        "mcps/external/markitdown/CONFIGURATION.md:27,40",
+        "mcps/external/markitdown/README.md:3"
+      ]
+    },
+    {
+      "name": "playwright",
+      "path": "mcps/external/playwright",
+      "file_count": 3,
+      "readme_age_days": "280-364",
+      "code_age_days": "109",
+      "versions_match": "FALSE",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Correct README and CONFIGURATION for canonical npx deployment; remove stale one-shot INSTALLATION_REPORT.",
+      "evidence": [
+        "roo-config/settings/servers.json:88-93",
+        "mcps/external/playwright/source/packages/playwright-mcp/package.json:2-11,39-40",
+        "mcps/external/playwright/README.md:46-61",
+        "mcps/external/playwright/CONFIGURATION.md:54",
+        "mcps/external/playwright/INSTALLATION_REPORT.md:5,114,194"
+      ],
+      "preservation": {
+        "installation_report_blob_sha": "554ed2515776b99e87c076b67f68f4e6f69c4d55"
+      }
+    },
+    {
+      "name": "searxng",
+      "path": "mcps/external/searxng",
+      "file_count": 6,
+      "readme_age_days": "315-425",
+      "code_age_days": "113",
+      "versions_match": "FALSE",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Rewrite for @modelcontextprotocol/server-searxng and SEARXNG_URL=https://search.myia.io; verify current two-tool examples.",
+      "evidence": [
+        "roo-config/settings/servers.json:5-11",
+        "mcps/external/searxng/mcp-config-example.json:17",
+        "mcps/external/searxng/installation.md:37-89,144-185",
+        "mcps/external/searxng/configuration.md:17-67"
+      ]
+    },
+    {
+      "name": "win-cli",
+      "path": "mcps/external/win-cli",
+      "file_count": 8,
+      "readme_age_days": "130-425",
+      "code_age_days": "57",
+      "versions_match": "PARTIAL",
+      "paths_match": "FALSE",
+      "status": "UPDATE-NEEDED",
+      "action_proposed": "Rewrite docs against fork 0.2.0 schema and current Roo-only policy; merge useful French security content into SECURITY.md before removing duplicate securite.md.",
+      "evidence": [
+        "mcps/external/win-cli/server/package.json:2-7,31-33",
+        "mcps/external/win-cli/server/src/utils/config.ts:56-57",
+        "mcps/external/win-cli/server/src/types/config.ts:10-19",
+        "mcps/external/win-cli/configuration.md:16-59,202-267",
+        "mcps/external/win-cli/installation.md:14,60,112-115",
+        ".claude/rules/tool-availability.md:19"
+      ],
+      "preservation": {
+        "win_cli_tree_sha": "ea96a08ce979983724474c8e2ddaf08880f02ef2"
+      }
+    }
+  ],
+  "files": [
+    {"path":"mcps/external/README.md","package":"external-index","age_days":425,"sha8":"e2386f3f","status":"UPDATE-NEEDED","reason":"Incomplete directory index and phantom filesystem directory"},
+    {"path":"mcps/external/desktop-commander/README.md","package":"desktop-commander","age_days":152,"sha8":"2d942f3b","status":"REMOVE","reason":"MCP explicitly retired and absent from canonical config"},
+    {"path":"mcps/external/docker/BUILD-LOCAL.md","package":"docker","age_days":419,"sha8":"44698fa5","status":"UPDATE-NEEDED","reason":"Wrong image tag and mount"},
+    {"path":"mcps/external/docker/CONFIGURATION.md","package":"docker","age_days":425,"sha8":"3074ff61","status":"UPDATE-NEEDED","reason":"Retain and align package-level canonical command"},
+    {"path":"mcps/external/docker/INSTALLATION.md","package":"docker","age_days":425,"sha8":"fab4a37a","status":"UPDATE-NEEDED","reason":"Node 14 prerequisite obsolete"},
+    {"path":"mcps/external/docker/README.md","package":"docker","age_days":419,"sha8":"e7b50aa2","status":"UPDATE-NEEDED","reason":"Align cross-file installation claims"},
+    {"path":"mcps/external/docker/TROUBLESHOOTING.md","package":"docker","age_days":425,"sha8":"0abffc14","status":"UPDATE-NEEDED","reason":"Align prerequisite references"},
+    {"path":"mcps/external/docker/USAGE.md","package":"docker","age_days":425,"sha8":"599308fd","status":"UPDATE-NEEDED","reason":"Align package-level references"},
+    {"path":"mcps/external/git/CONFIGURATION.md","package":"git","age_days":425,"sha8":"33bfe55e","status":"UPDATE-NEEDED","reason":"Wrong package identity and unsupported options/env vars"},
+    {"path":"mcps/external/git/INSTALLATION.md","package":"git","age_days":425,"sha8":"c2c643b5","status":"UPDATE-NEEDED","reason":"npm package conflicts with configured Python server"},
+    {"path":"mcps/external/git/README.md","package":"git","age_days":425,"sha8":"8231b42c","status":"UPDATE-NEEDED","reason":"Description conflicts with config and adjacent source"},
+    {"path":"mcps/external/git/TROUBLESHOOTING.md","package":"git","age_days":425,"sha8":"4d763c88","status":"UPDATE-NEEDED","reason":"Troubleshoots wrong package and variables"},
+    {"path":"mcps/external/git/USAGE.md","package":"git","age_days":425,"sha8":"a6809347","status":"UPDATE-NEEDED","reason":"Tool surface does not match configured server"},
+    {"path":"mcps/external/git/server/CHANGELOG.md","package":"git","age_days":425,"sha8":"7e82f70f","status":"UPDATE-NEEDED","reason":"Stops at 2.0.5 while manifest is 2.0.6"},
+    {"path":"mcps/external/git/server/README.md","package":"git","age_days":425,"sha8":"c7bc5d9e","status":"UPDATE-NEEDED","reason":"Says 2.0.2 while manifest is 2.0.6; package unused by config"},
+    {"path":"mcps/external/github/CONFIGURATION.md","package":"github","age_days":425,"sha8":"a3e058a8","status":"UPDATE-NEEDED","reason":"Unsupported CLI/env/HTTP claims"},
+    {"path":"mcps/external/github/INSTALLATION.md","package":"github","age_days":425,"sha8":"33004a3b","status":"UPDATE-NEEDED","reason":"Node 14 and nonexistent HTTP verification"},
+    {"path":"mcps/external/github/README.md","package":"github","age_days":425,"sha8":"55cb938f","status":"UPDATE-NEEDED","reason":"Must distinguish active Node package from unrelated Go notices"},
+    {"path":"mcps/external/github/TROUBLESHOOTING.md","package":"github","age_days":425,"sha8":"b350dcc5","status":"UPDATE-NEEDED","reason":"Unsupported retry/debug flags and env vars"},
+    {"path":"mcps/external/github/USAGE.md","package":"github","age_days":425,"sha8":"ad778622","status":"UPDATE-NEEDED","reason":"Tool list needs current upstream verification"},
+    {"path":"mcps/external/github/server/third-party-licenses.darwin.md","package":"github","age_days":425,"sha8":"745df2a2","status":"REMOVE","reason":"Notice belongs to absent Go server"},
+    {"path":"mcps/external/github/server/third-party-licenses.linux.md","package":"github","age_days":425,"sha8":"745df2a2","status":"REMOVE","reason":"Duplicate notice for absent Go server"},
+    {"path":"mcps/external/github/server/third-party-licenses.windows.md","package":"github","age_days":425,"sha8":"97a72e17","status":"REMOVE","reason":"Notice belongs to absent Go server"},
+    {"path":"mcps/external/jupyter/README.md","package":"jupyter","age_days":425,"sha8":"9d65e6d0","status":"REMOVE","reason":"Obsolete Node server; active MCP is Papermill"},
+    {"path":"mcps/external/jupyter/configurations-jupyter-mcp.md","package":"jupyter","age_days":425,"sha8":"ba5c6c2f","status":"REMOVE","reason":"Nonexistent paths and unused schema"},
+    {"path":"mcps/external/jupyter/troubleshooting.md","package":"jupyter","age_days":425,"sha8":"d6457945","status":"REMOVE","reason":"Nonexistent paths/scripts for retired implementation"},
+    {"path":"mcps/external/markitdown/CONFIGURATION.md","package":"markitdown","age_days":315,"sha8":"3c817bef","status":"UPDATE-NEEDED","reason":"Python 3.9 and hardcoded path conflict with manifest/config"},
+    {"path":"mcps/external/markitdown/README.md","package":"markitdown","age_days":364,"sha8":"478d7d89","status":"UPDATE-NEEDED","reason":"Describes manipulation rather than conversion to Markdown"},
+    {"path":"mcps/external/playwright/CONFIGURATION.md","package":"playwright","age_days":315,"sha8":"6c0c544e","status":"UPDATE-NEEDED","reason":"Wrong local binary path and inverted deployment recommendation"},
+    {"path":"mcps/external/playwright/INSTALLATION_REPORT.md","package":"playwright","age_days":280,"sha8":"0f2a4a68","status":"REMOVE","reason":"Stale one-machine snapshot, version 0.0.41 vs 0.0.70"},
+    {"path":"mcps/external/playwright/README.md","package":"playwright","age_days":364,"sha8":"370b190a","status":"UPDATE-NEEDED","reason":"Nonexistent lib/index.js path; canonical deployment is npx"},
+    {"path":"mcps/external/searxng/README.md","package":"searxng","age_days":315,"sha8":"ef3528c0","status":"UPDATE-NEEDED","reason":"Wrong npm package and config pattern"},
+    {"path":"mcps/external/searxng/TROUBLESHOOTING.md","package":"searxng","age_days":315,"sha8":"df28ee8a","status":"UPDATE-NEEDED","reason":"Troubleshoots deprecated package/path/schema"},
+    {"path":"mcps/external/searxng/USAGE.md","package":"searxng","age_days":425,"sha8":"5a3d9c38","status":"UPDATE-NEEDED","reason":"Must align examples with current two-tool server"},
+    {"path":"mcps/external/searxng/configuration.md","package":"searxng","age_days":425,"sha8":"55db8388","status":"UPDATE-NEEDED","reason":"Fabricated JSON schema vs SEARXNG_URL contract"},
+    {"path":"mcps/external/searxng/exemples.md","package":"searxng","age_days":425,"sha8":"a3c0d73b","status":"UPDATE-NEEDED","reason":"Remove multi-instance assumptions and verify tool arguments"},
+    {"path":"mcps/external/searxng/installation.md","package":"searxng","age_days":425,"sha8":"bf68b175","status":"UPDATE-NEEDED","reason":"Wrong package, binary paths, and Node minimum"},
+    {"path":"mcps/external/win-cli/README.md","package":"win-cli","age_days":130,"sha8":"4bbfba39","status":"UPDATE-NEEDED","reason":"Dual-harness guidance conflicts with current policy"},
+    {"path":"mcps/external/win-cli/SECURITY.md","package":"win-cli","age_days":425,"sha8":"a24612bd","status":"UPDATE-NEEDED","reason":"Security examples use fields absent from fork schema"},
+    {"path":"mcps/external/win-cli/TROUBLESHOOTING.md","package":"win-cli","age_days":425,"sha8":"a192e401","status":"UPDATE-NEEDED","reason":"Wrong Node minimum, config path, and fields"},
+    {"path":"mcps/external/win-cli/USAGE.md","package":"win-cli","age_days":425,"sha8":"d6d00e08","status":"UPDATE-NEEDED","reason":"Command-chaining explanation uses obsolete schema"},
+    {"path":"mcps/external/win-cli/configuration.md","package":"win-cli","age_days":425,"sha8":"9d46ecfc","status":"UPDATE-NEEDED","reason":"Major rewrite needed against actual fork schema"},
+    {"path":"mcps/external/win-cli/exemples.md","package":"win-cli","age_days":425,"sha8":"602724d2","status":"UPDATE-NEEDED","reason":"Operator defaults conflict with fork configuration"},
+    {"path":"mcps/external/win-cli/installation.md","package":"win-cli","age_days":419,"sha8":"caa9adc0","status":"UPDATE-NEEDED","reason":"Node 16 and binary/config instructions are wrong"},
+    {"path":"mcps/external/win-cli/securite.md","package":"win-cli","age_days":425,"sha8":"f72ebddb","status":"REMOVE","reason":"Unreferenced duplicate of SECURITY.md; merge useful content first"}
+  ],
+  "recommended_pr_sequence": [
+    "Audit report and JSON companion",
+    "desktop-commander removal/consolidation",
+    "jupyter removal/consolidation",
+    "win-cli documentation rewrite",
+    "searxng documentation rewrite",
+    "git, github, playwright, markitdown, docker, then external index in a later cycle"
+  ]
+}
