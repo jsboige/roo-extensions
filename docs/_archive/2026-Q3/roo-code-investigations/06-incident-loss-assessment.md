@@ -1,3 +1,13 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/06-incident-loss-assessment.md` · **Last commit:** `ad7555d9` (2025-08-25) · **Theme:** incident-analysis
+>
+> **Preservation:** git history (`git show ad7555d9:roo-code-customization/investigations/06-incident-loss-assessment.md`) + this archive copy. No content modified — move-only.
+>
+> **Incoming links:** 0 functional navigation links. Only audit inventories (#2876 doc-audit, #2886 broken-links, #2896 W6-investigations) and `docs/knowledge/WORKSPACE_KNOWLEDGE.md` arborescence cartography reference this file — all point-in-time mentions that remain valid post-archive.
+>
+> **Superseded by:** historical incident-loss assessment (Aug 2025), findings consumed by subsequent resilience work.
+
 # Rapport d'Évaluation des Pertes - Incident `git clean`
 
 **Date :** 2025-08-03

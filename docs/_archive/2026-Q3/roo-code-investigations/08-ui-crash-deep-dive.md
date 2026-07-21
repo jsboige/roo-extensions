@@ -1,3 +1,13 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/08-ui-crash-deep-dive.md` · **Last commit:** `087e0a86` (2025-08-11) · **Theme:** incident-analysis (ui-crash)
+>
+> **Preservation:** git history (`git show 087e0a86:roo-code-customization/investigations/08-ui-crash-deep-dive.md`) + this archive copy. No content modified — move-only.
+>
+> **Incoming links:** 0 functional navigation links. Only audit inventories (#2876 doc-audit, #2886 broken-links, #2896 W6-investigations) and `docs/knowledge/WORKSPACE_KNOWLEDGE.md` arborescence cartography reference this file — all point-in-time mentions that remain valid post-archive.
+>
+> **Superseded by:** historical UI-crash deep-dive, root cause resolved.
+
 # Investigation Approfondie : Logging Fichier pour Diagnostic Crash Webview
 
 **Date :** 2025-08-08  
