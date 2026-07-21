@@ -710,13 +710,7 @@ Pour migrer de v2.1 vers v2.3, consultez le guide détaillé :
 
 ### Rapports de Tests
 
-| Rapport | Description | Lien |
-|---------|-------------|------|
-| test1-logger-report.md | Tests du Logger | [`tests/results/roosync/test1-logger-report.md`](../../tests/results/roosync/test1-logger-report.md) |
-| test2-git-helpers-report.md | Tests des Git Helpers | [`tests/results/roosync/test2-git-helpers-report.md`](../../tests/results/roosync/test2-git-helpers-report.md) |
-| test3-deployment-report.md | Tests de déploiement | [`tests/results/roosync/test3-deployment-report.md`](../../tests/results/roosync/test3-deployment-report.md) |
-| test4-task-scheduler-report.md | Tests du Task Scheduler | [`tests/results/roosync/test4-task-scheduler-report.md`](../../tests/results/roosync/test4-task-scheduler-report.md) |
-| validation-wp1-wp4.md | Validation des Work Packages 1-4 | [`tests/results/roosync/validation-wp1-wp4.md`](../../tests/results/roosync/validation-wp1-wp4.md) |
+Les rapports de tests historiques (test1-4, validation-wp1-wp4) ont été nettoyés en 2026-07 (W4 #2881) — voir [`tests/results/INDEX.md`](../../tests/results/INDEX.md) pour le lookup des SHAs de préservation git.
 
 ### Guides de Déploiement
 
