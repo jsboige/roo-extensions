@@ -968,7 +968,7 @@ const mockApiHandler = {
 ### Contribution
 
 Avant de créer une PR, lisez :
-- [CONTRIBUTING.md](../../../demo-roo-code/CONTRIBUTING.md)
+- [CONTRIBUTING.md (roo-code)](https://github.com/RooCodeInc/Roo-Code/blob/main/CONTRIBUTING.md)
 - Code of Conduct
 
 ---
