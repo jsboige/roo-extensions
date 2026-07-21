@@ -1,6 +1,6 @@
 # Bidirectional Trigger — [WAKE-CLAUDE] / [WAKE-ROO]
 
-**Status :** ⚠️ **DEPRECATED — Voir [`.claude/rules/wake-claude-routing.md`](../../../claude/rules/wake-claude-routing.md) pour le contrat de routing canonique.**
+**Status :** ⚠️ **DEPRECATED — Voir [`.claude/rules/wake-claude-routing.md`](../../../.claude/rules/wake-claude-routing.md) pour le contrat de routing canonique.**
 
 **Version:** 1.0.0
 **Issue:** #1955 (Claude→Roo direction), #1954 (Claude side dispatcher fix), #2639 WS3 (po-2023 c.65/c.66 audit)
@@ -10,7 +10,7 @@
 
 ## ⛔ Redirection canonique
 
-Le contrat de routage Wake-Claude vit maintenant dans **[`.claude/rules/wake-claude-routing.md`](../../../claude/rules/wake-claude-routing.md)** (slim, auto-chargé). Ce document est conservé comme **trace historique** du mécanisme bidirectionnel (Roo → Claude ET Claude → Roo) qui prévalait avant :
+Le contrat de routage Wake-Claude vit maintenant dans **[`.claude/rules/wake-claude-routing.md`](../../../.claude/rules/wake-claude-routing.md)** (slim, auto-chargé). Ce document est conservé comme **trace historique** du mécanisme bidirectionnel (Roo → Claude ET Claude → Roo) qui prévalait avant :
 
 - Le re-travail du wake-listener (#2431) qui a remplacé `dashboard-watcher`/`poll-dashboard.ps1` par `dashboard-listener.ps1` + wrapper durable (`-ExecutionTimeLimit PT0S`, triggers `AtLogOn/AtStartup/Once/15min`).
 - La migration Roo Code → Zoo Code (#2379) qui rend la direction Claude → Roo (`[WAKE-ROO]`) **non-applicable** post-décommission Roo (gating user #2381 en cours).
@@ -146,8 +146,8 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["WAKE-CLAUDE"], co
 
 ## References
 
-- **[`.claude/rules/wake-claude-routing.md`](../../../claude/rules/wake-claude-routing.md)** — **CONTRAT CANONIQUE** (slim, auto-chargé)
-- [`.claude/rules/intercom-protocol.md`](../../../claude/rules/intercom-protocol.md) — Protocole dashboard côté Claude
+- **[`.claude/rules/wake-claude-routing.md`](../../../.claude/rules/wake-claude-routing.md)** — **CONTRAT CANONIQUE** (slim, auto-chargé)
+- [`.claude/rules/intercom-protocol.md`](../../../.claude/rules/intercom-protocol.md) — Protocole dashboard côté Claude
 - [`scripts/dashboard-scheduler/dashboard-listener.ps1`](../../../scripts/dashboard-scheduler/dashboard-listener.ps1) — Listener post-#2431
 - [`docs/harness/reference/bots-directory.md`](bots-directory.md) — Bots alternatifs (Hermes, NanoClaw) qui remplacent `[WAKE-ROO]`
 - [`docs/harness/reference/intercom-deprecation.md`](intercom-deprecation.md) — Déprécation INTERCOM local (2026-04-30)
