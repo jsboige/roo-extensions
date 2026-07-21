@@ -1,0 +1,197 @@
+{
+  "audit_metadata": {
+    "issue": "#2884",
+    "parent_epic": "#2877",
+    "prerequisite": "#2876 (audit exhaustif docs)",
+    "machine": "myia-ai-01",
+    "date": "2026-07-21",
+    "method": "SDDD triple grounding (technique Read + conversationnel conversation_browser + sémantique roosync_search)",
+    "scope": ".claude/rules/ (18 files) + .claude/skills/ (11 files) = 29 files",
+    "caveats": [
+      "Qdrant ai-01 401 (cle stale) → roosync_search semantic en fallback text-only",
+      "embedding_api_error → résultats moins précis que semantic vector search",
+      "Re-run post-fix Qdrant recommandé pour confirmer counts"
+    ]
+  },
+  "rules": [
+    {"file": "agent-claim-discipline.md", "size_bytes": 2144, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER", "rationale": "Claim discipline distinct de issue-closure/validation"},
+    {"file": "ci-guardrails.md", "size_bytes": 1454, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Technique pure vitest+CI"},
+    {"file": "context-window.md", "size_bytes": 2517, "last_modified": "2026-05-25", "age_days": 57, "decision": "GARDER", "rationale": "Référence canonique 200k/90%"},
+    {"file": "friction-protocol.md", "size_bytes": 788, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER", "rationale": "Courte, signal clair"},
+    {"file": "intercom-protocol.md", "size_bytes": 1962, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER", "rationale": "Protocole dashboard principal"},
+    {"file": "issue-closure.md", "size_bytes": 1719, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER", "rationale": "Checklist fermeture stricte"},
+    {"file": "issue-creation.md", "size_bytes": 2579, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Project #67 automation"},
+    {"file": "mcp-diagnosis.md", "size_bytes": 2885, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Anti-patterns timing-fantasy"},
+    {"file": "no-deletion-without-proof.md", "size_bytes": 1872, "last_modified": "2026-05-10", "age_days": 72, "decision": "GARDER avec fusion candidate", "rationale": "Liste PROTEGED paths dupliquée avec pr-mandatory.md"},
+    {"file": "pr-mandatory.md", "size_bytes": 4239, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER avec fusion candidate", "rationale": "Liste PROTEGED paths dupliquée avec no-deletion-without-proof.md"},
+    {"file": "sddd-grounding.md", "size_bytes": 4783, "last_modified": "2026-06-09", "age_days": 42, "decision": "GARDER", "rationale": "Protocole triple grounding"},
+    {"file": "security.md", "size_bytes": 1503, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Secrets/credentials"},
+    {"file": "shell-fallback.md", "size_bytes": 802, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Petit, contexte Windows spécifique"},
+    {"file": "skepticism-protocol.md", "size_bytes": 1540, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "VERIFIE/RAPPORTE/SUPPOSE"},
+    {"file": "submod-pointer-safety.md", "size_bytes": 4440, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Incident 67514ec1 documenté"},
+    {"file": "tool-availability.md", "size_bytes": 3025, "last_modified": "2026-06-12", "age_days": 39, "decision": "GARDER", "rationale": "STOP & REPAIR"},
+    {"file": "validation.md", "size_bytes": 1320, "last_modified": "2026-05-26", "age_days": 56, "decision": "GARDER", "rationale": "Checklist avant/après CONS"},
+    {"file": "wake-claude-routing.md", "size_bytes": 6714, "last_modified": "2026-06-11", "age_days": 40, "decision": "GARDER", "rationale": "Contrat routing critique"}
+  ],
+  "skills": [
+    {
+      "skill": "debrief",
+      "size_bytes": 7728,
+      "last_modified": "2026-05-30",
+      "age_days": 52,
+      "invocation_90j_text_results": 0,
+      "trigger_keywords": ["débrief", "debrief", "fin de session"],
+      "decision": "CANDIDAT FUSION",
+      "rationale": "Redondance partielle avec redistribute-memory (Phase 5 rapport session identique). Aucune invocation slash-command en 90j.",
+      "action": "Fusion Phase 4 → Phase 5bis redistribute-memory (gated user)"
+    },
+    {
+      "skill": "executor",
+      "size_bytes": 17351,
+      "last_modified": "2026-07-20",
+      "age_days": 1,
+      "invocation_90j_text_results": "ELEVEE",
+      "trigger_keywords": ["/executor", "mode executor"],
+      "decision": "GARDER",
+      "rationale": "Skill le plus invoqué (<command-message>executor</command-message> récent, Phase 0/1/2/3 citées 100+ fois)"
+    },
+    {
+      "skill": "github-status",
+      "size_bytes": 4321,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": "ELEVEE",
+      "trigger_keywords": ["github status", "project 67"],
+      "decision": "GARDER",
+      "rationale": "Invoqué 100+ fois pour Project #67 (Phase 4 sync-tour)"
+    },
+    {
+      "skill": "git-sync",
+      "size_bytes": 5199,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": 0,
+      "trigger_keywords": ["git sync", "synchronise", "git pull"],
+      "decision": "CANDIDAT INVESTIGATION",
+      "rationale": "0 invocation slash-command en 90j, exécution inline dans Phase 0 executor. Override du global par design (workspace-spécifique).",
+      "action": "À confirmer user : maintenir référence-only, supprimer, ou garder"
+    },
+    {
+      "skill": "jupyter-exec",
+      "size_bytes": 4389,
+      "last_modified": "2026-06-13",
+      "age_days": 38,
+      "invocation_90j_text_results": 0,
+      "trigger_keywords": ["papermill", "exécute le notebook"],
+      "decision": "CANDIDAT INVESTIGATION",
+      "rationale": "0 invocation 90j, aucun .ipynb dans repo, MCP jupyter-papermill-mcp-server désactivé. Script scripts/jupyter/run-notebook.ps1 existe mais usage marginal.",
+      "action": "À confirmer user : supprimer si aucun usage planifié"
+    },
+    {
+      "skill": "learner",
+      "size_bytes": 5222,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": 0,
+      "trigger_keywords": ["apprendre les triggers", "extract patterns"],
+      "decision": "CANDIDAT SUPPRESSION",
+      "rationale": "0 invocation 90j sur workspace roo-extensions. Skill read-only sans consumer actif. ADR 006 référencé mais aucune utilisation.",
+      "action": "PR suppression (gated user)"
+    },
+    {
+      "skill": "memory-inject",
+      "size_bytes": 10026,
+      "last_modified": "2026-06-25",
+      "age_days": 26,
+      "invocation_90j_text_results": "FAIBLE",
+      "trigger_keywords": ["inject mémoire", "memory"],
+      "decision": "GARDER avec caveat",
+      "rationale": "Prévu auto-injection par hook (ligne 272 SKILL.md), dépendance before_task:memory-inject non confirmée dans settings.json. Invocation non traçable en semantic search mais design l'attend comme auto-trigger."
+    },
+    {
+      "skill": "pr-review",
+      "size_bytes": 9897,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": "ELEVEE",
+      "trigger_keywords": ["review PRs", "idle review"],
+      "decision": "GARDER",
+      "rationale": "Invoqué 100+ fois en idle fallback (Phase 2c)"
+    },
+    {
+      "skill": "redistribute-memory",
+      "size_bytes": 15020,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": "FAIBLE",
+      "trigger_keywords": ["redistribue la mémoire", "audite les règles"],
+      "decision": "GARDER avec investigation",
+      "rationale": "Invocation rare (4 mentions dont 1 review PR #2225 dans roo-extensions) mais c'est précisément l'outillage W7 (cette issue). À re-tester post-fix Qdrant."
+    },
+    {
+      "skill": "sync-tour",
+      "size_bytes": 27974,
+      "last_modified": "2026-07-03",
+      "age_days": 18,
+      "invocation_90j_text_results": "ELEVEE",
+      "trigger_keywords": ["tour de sync", "faire le point"],
+      "decision": "GARDER",
+      "rationale": "Invoqué 100+ fois via scheduler-workflow-coordinator.md (Phase 0/1/2/3)"
+    },
+    {
+      "skill": "validate",
+      "size_bytes": 5496,
+      "last_modified": "2026-05-26",
+      "age_days": 56,
+      "invocation_90j_text_results": "ELEVEE",
+      "trigger_keywords": ["valide", "lance les tests"],
+      "decision": "GARDER",
+      "rationale": "Invoqué 100+ fois (build + tests, Phase 3 sync-tour)"
+    }
+  ],
+  "redundancy_pairs": [
+    {
+      "pair": ["debrief", "redistribute-memory"],
+      "overlap_type": "PARTIAL",
+      "overlap_nature": "Rapport de session identique (Phase 4 debrief = Phase 5 redistribute-memory)",
+      "decision": "FUSION CANDIDATE",
+      "evidence": "Both skills postent rapport markdown session + dashboard append tags[DONE]"
+    },
+    {
+      "pair": ["no-deletion-without-proof", "pr-mandatory"],
+      "overlap_type": "DUPLICATE_LIST",
+      "overlap_nature": "Liste PROTEGED paths (src/services/synthesis/, src/services/narrative/) dupliquée EXACTEMENT",
+      "decision": "FUSION CANDIDATE (rules)",
+      "evidence": "no-deletion-without-proof.md L38-39 == pr-mandatory.md L39-40"
+    }
+  ],
+  "global_decisions": {
+    "rules_to_keep": 16,
+    "rules_fusion_candidate": 2,
+    "rules_to_remove": 0,
+    "skills_to_keep": 7,
+    "skills_fusion_candidate": 1,
+    "skills_remove_candidate": 1,
+    "skills_investigate": 2,
+    "audit_files_created": 2,
+    "audit_files_size_total_bytes": 13214
+  },
+  "next_actions_user_gated": [
+    "PR-A : audit report (ce document) — auto-merge post-review",
+    "PR-B : suppression skill learner — gated user",
+    "PR-C : fusion debrief → redistribute-memory — gated user",
+    "PR-D : centralisation PROTEGED paths (no-deletion ↔ pr-mandatory) — gated user",
+    "PR-E : décision git-sync + jupyter-exec — gated user"
+  ],
+  "compliance": {
+    "sddd_bookend_debut": "codebase_search tenté (qdrant 401, fallback grep)",
+    "sddd_bookend_fin": "rapport généré, prêt à indexer quand Qdrant revient",
+    "anti_double_claim": "W1-W6 vérifiés, W7 ai-01 assigné explicitement",
+    "read_body_before_action": "issue #2884 body + comments + audit #2876 + dashboard intercom lus",
+    "no_deletion_without_proof": "preuves roosync_search count documentées par skill",
+    "surgical_1936": "1 action par fichier OU 1 fusion par PR",
+    "hard_cap_3_rules_1_skill_per_pr": "respecté dans le plan d'actions",
+    "100_percent_audited": "29/29 fichiers (18 rules + 11 skills)",
+    "proteged_paths": "aucune modification destructive sur .claude/rules/ sans user-gate"
+  }
+}
