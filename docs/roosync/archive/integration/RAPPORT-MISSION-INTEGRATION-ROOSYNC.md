@@ -46,7 +46,7 @@
 - [`RooSync/README.md`](../../README.md)
 
 **Documentation roo-state-manager :**
-- [`roo-code-customization/investigations/export-integration-analysis.md`](../../../../roo-code-customization/investigations/export-integration-analysis.md)
+- [`docs/_archive/2026-Q3/roo-code-investigations/export-integration-analysis.md`](../../../_archive/2026-Q3/roo-code-investigations/export-integration-analysis.md)
 - [`docs/configuration-mcp-roo.md`](../../../dev/archive-configuration/configuration-mcp-roo.md)
 - [`mcps/README.md`](../../README.md)
 

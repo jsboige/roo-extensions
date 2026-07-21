@@ -1,3 +1,11 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/export-integration-analysis.md` · **Last commit:** `86768ce5` (2025-09-12) · **Theme:** xml export integration
+>
+> **Preservation:** git history (`git show 86768ce5:roo-code-customization/investigations/export-integration-analysis.md`) + this archive copy. No content modified — move-only.
+>
+> **Superseded by:** historical XML export integration analysis, findings consumed by merged submod bumps (#2551/#2745/#2474/#2552).
+
 # Analyse d'Intégration - Fonctionnalités d'Export XML dans roo-state-manager
 
 **Mission SDDD :** Extension de roo-state-manager avec fonctionnalités d'export XML
