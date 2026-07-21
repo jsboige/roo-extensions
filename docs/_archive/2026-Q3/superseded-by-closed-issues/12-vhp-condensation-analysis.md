@@ -1,3 +1,8 @@
+> Archived 2026-07-21 | superseded by #333 (PR #2015 merged) | preserved at https://github.com/jsboige/roo-extensions/issues/333
+> Source path: roo-code-customization/investigations/12-vhp-condensation-analysis.md
+> Audit: docs/harness/reference/superseded-by-closed-issues-audit-2026-07-21.md (W2 #2879)
+> Preservation evidence: commit `2af03b6c` reachable in main (bundle pointer-bump cycle 30 W7 R3+ merge tour, submod 1221f6fb→20bfa358)
+
 # Analyse du Mécanisme de Condensation de Contexte - VHP
 
 **Date :** 2025-08-11

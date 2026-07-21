@@ -1,3 +1,8 @@
+> Archived 2026-07-21 | superseded by #333 (PR #2015 merged), #555 (PR #2452 merged), #666 (PR #2724 merged) | preserved at https://github.com/jsboige/roo-extensions/issues/333 + /issues/555 + /issues/666
+> Source path: demo-roo-code/04-creation-contenu/demo-1-web/ressources/composants-web.md
+> Audit: docs/harness/reference/superseded-by-closed-issues-audit-2026-07-21.md (W2 #2879)
+> Preservation evidence: #333 → commit `2af03b6c`; #555 → commits `b4c0af41` (condenser z.ai compat), `4acfa332` (condensation-thresholds.md), `115e4f05` (threshold 75%→70%); #666 → commits `9047432a`, `b3fa969c`. All reachable in main.
+
 # Composants web et modèles de pages
 
 Ce document présente différents composants HTML/CSS et modèles de pages que vous pouvez utiliser comme base pour votre site web.

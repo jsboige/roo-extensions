@@ -1,3 +1,8 @@
+> Archived 2026-07-21 | superseded by #666 (PR #2724 merged) | preserved at https://github.com/jsboige/roo-extensions/issues/666
+> Source path: roo-code-customization/investigations/propositions-ameliorations-techniques.md
+> Audit: docs/harness/reference/superseded-by-closed-issues-audit-2026-07-21.md (W2 #2879)
+> Preservation evidence: commits `9047432a` (#665/#666 harden weak assertions) and `b3fa969c` (Claude session metadata enrichment) reachable in main
+
 # PROPOSITIONS D'AMÉLIORATIONS TECHNIQUES
 ## TraceSummaryService : Conception Détaillée des Implémentations Manquantes
 

@@ -1,3 +1,9 @@
+> Archived 2026-07-21 | superseded by #666 (PR #2724 merged) | preserved at https://github.com/jsboige/roo-extensions/issues/666
+> Source path: roo-code-customization/investigations/powershell-typescript-comparative-analysis.md
+> Audit: docs/harness/reference/superseded-by-closed-issues-audit-2026-07-21.md (W2 #2879)
+> Preservation evidence: commits `9047432a` (#665/#666 harden weak assertions) and `b3fa969c` (Claude session metadata enrichment) reachable in main
+> Note: the PS→TS migration described in this document has been fully completed; the current state is captured in mcps/internal submod (roo-state-manager)
+
 # ANALYSE COMPARATIVE POWERSHELL ↔ TYPESCRIPT
 ## TraceSummaryService : Script PS1 vs Implémentation TypeScript
 
