@@ -1,0 +1,95 @@
+{
+  "audit_id": "mcps-external-readme-coherence-2026-07-21",
+  "sub_issue": 2882,
+  "epic": 2877,
+  "source_audit_pr": 2876,
+  "source_audit_commit": "6e56ce8f",
+  "author_machine": "myia-web1",
+  "date": "2026-07-21",
+  "scope_note": "45 git-tracked .md files under mcps/external (all .md, not only README.md). Verified via git ls-files = 45, matches audit JSON.",
+  "livrable": 1,
+  "livrable_type": "read-only-audit",
+  "files_modified": 0,
+  "files_deleted": 0,
+  "summary": {
+    "total_files": 45,
+    "stale_gt_180d": 39,
+    "packages": 10,
+    "verdicts": { "OK": 19, "UPDATE_NEEDED": 24, "REMOVE": 1, "INDEX_INCONSISTENCY": 1 }
+  },
+  "packages": [
+    {
+      "name": "win-cli", "files": 8, "age_days_min": 130, "age_days_max": 425,
+      "active": true, "active_source": "tool-availability.md (Roo fork 0.2.0) + config-templates/servers.json",
+      "coherence": "README references unrestricted-config.json + mcps/external/win-cli paths = matches deployment",
+      "verdict": "OK", "action": "KEEP", "next_pr": null
+    },
+    {
+      "name": "searxng", "files": 6, "age_days_min": 315, "age_days_max": 425,
+      "active": true, "active_source": "tool-availability.md (standard, 2 tools) + config-templates/servers.json",
+      "coherence": "active, mounted fleet-wide",
+      "verdict": "OK", "action": "KEEP (verify r.jina.ai #2210 note)", "next_pr": null
+    },
+    {
+      "name": "playwright", "files": 3, "age_days_min": 280, "age_days_max": 364,
+      "active": true, "active_source": "tool-availability.md (standard, 23 tools); machine-local config",
+      "coherence": "README documents Microsoft submodule source",
+      "verdict": "OK", "action": "KEEP", "next_pr": null
+    },
+    {
+      "name": "markitdown", "files": 2, "age_days_min": 315, "age_days_max": 364,
+      "active": true, "active_source": "tool-availability.md (Roo-only, 1 tool); submodule microsoft/markitdown",
+      "coherence": "README documents submodule origin correctly",
+      "verdict": "OK", "action": "KEEP", "next_pr": null
+    },
+    {
+      "name": "jupyter", "files": 3, "age_days_min": 425, "age_days_max": 425,
+      "active": "semi", "active_source": "config-templates/servers.json (Roo) but NOT in tool-availability.md active list",
+      "coherence": "vendored docs for possibly-semi-active Roo MCP",
+      "verdict": "UPDATE_NEEDED", "action": "confirm usage then UPDATE or archive-with-proof", "next_pr": "UPDATE"
+    },
+    {
+      "name": "git", "files": 7, "age_days_min": 425, "age_days_max": 425,
+      "active": false, "active_source": "NOT in active MCP set; server/ subdir = vendored server + docs",
+      "coherence": "vendored, not active",
+      "verdict": "UPDATE_NEEDED", "action": "confirm deployment then UPDATE or archive-with-proof", "next_pr": "UPDATE"
+    },
+    {
+      "name": "github", "files": 8, "age_days_min": 425, "age_days_max": 425,
+      "active": false, "active_source": "NOT in config-templates; Roo GitHub MCP (NOT github-projects-mcp retired)",
+      "coherence": "auto-generated README; 3 platform license files = redundant artifacts",
+      "verdict": "UPDATE_NEEDED", "action": "UPDATE; reduce license files if active or archive-with-proof", "next_pr": "UPDATE"
+    },
+    {
+      "name": "docker", "files": 6, "age_days_min": 419, "age_days_max": 425,
+      "active": false, "active_source": "NOT in active MCP set; generic containerization docs",
+      "coherence": "vendored, not active",
+      "verdict": "UPDATE_NEEDED", "action": "confirm relevance then UPDATE or archive-with-proof", "next_pr": "UPDATE"
+    },
+    {
+      "name": "desktop-commander", "files": 1, "age_days_min": 152, "age_days_max": 152,
+      "active": false, "active_source": "RETIRED per tool-availability.md; config grep EMPTY",
+      "coherence": "README documents reversed migration #468 (win-cli won, DCM retired); dead doc",
+      "verdict": "REMOVE", "action": "REMOVE PR with proof",
+      "retirement_proof": ["tool-availability.md Retires list", "git grep desktop-commander in roo-config/** = empty", ".mcp.json* = empty"],
+      "next_pr": "REMOVE"
+    },
+    {
+      "name": "(index) mcps/external/README.md", "files": 1, "age_days_min": 425, "age_days_max": 425,
+      "active": "n/a", "active_source": "index file",
+      "coherence": "lists 7 packages (docker, filesystem, git, github, jupyter, searxng, win-cli) but dir has 11 entries; omits desktop-commander, markitdown, playwright, mcp-server-ftp, Office-PowerPoint",
+      "verdict": "INDEX_INCONSISTENCY", "action": "UPDATE index to match actual dir contents + active status", "next_pr": "UPDATE"
+    }
+  ],
+  "meta_findings_out_of_scope": [
+    "config-templates/servers.json is itself stale (lists retired quickfiles, omits active playwright/markitdown)",
+    "mcp-server-ftp + Office-PowerPoint-MCP-Server are orphan submodules (zero config refs) — separate investigation"
+  ],
+  "acceptance_criteria": {
+    "all_45_accounted": true,
+    "explicit_status_per_package": true,
+    "no_deletion_without_proof_satisfied": true,
+    "prs_separated_by_action": "deferred to livrables #2/#3 (user-gated)",
+    "sddd_bookend": true
+  }
+}
