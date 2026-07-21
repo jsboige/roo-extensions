@@ -1,3 +1,11 @@
+<!--
+  Archived 2026-07-21 from roo-code-customization/investigations/11-sddd-process-post-mortem.md
+  Last commit in source path: 087e0a869 (2025-08-11)
+  Preservation: git mv (history preserved via git log --follow)
+  Archive reason: W6 #2883 — findings live in active SDDD protocol (.claude/rules/sddd-grounding.md)
+  canonical reference. Original folder had 0 active incoming refs (audit PR #2896).
+  Theme: sddd-mission-reports (7/24 files archived in this PR; 17 more in follow-up PRs by theme).
+-->
 # Post-Mortem SDDD : Analyse de l'Échec d'Orchestration "Condensation PoC"
 
 **Date du Post-Mortem :** 10 août 2025

@@ -1,3 +1,11 @@
+<!--
+  Archived 2026-07-21 from roo-code-customization/investigations/SDDD-xml-export-mission-report.md
+  Last commit in source path: 86768ce51 (2025-09-12)
+  Preservation: git mv (history preserved via git log --follow)
+  Archive reason: W6 #2883 — findings merged into submodule roo-state-manager
+  (PRs #2551, #2745, #2474, #2552). Original folder had 0 active incoming refs (audit PR #2896).
+  Theme: sddd-mission-reports (7/24 files archived in this PR; 17 more in follow-up PRs by theme).
+-->
 # Rapport de Mission SDDD : Spécification et Architecture d'Export XML
 
 **Auteur :** Roo Architecte

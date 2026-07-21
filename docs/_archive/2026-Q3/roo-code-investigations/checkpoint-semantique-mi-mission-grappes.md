@@ -1,3 +1,11 @@
+<!--
+  Archived 2026-07-21 from roo-code-customization/investigations/checkpoint-semantique-mi-mission-grappes.md
+  Last commit in source path: c131af2e6 (2025-09-12)
+  Preservation: git mv (history preserved via git log --follow)
+  Archive reason: W6 #2883 — findings live in active SDDD protocol (.claude/rules/sddd-grounding.md)
+  canonical reference. Original folder had 0 active incoming refs (audit PR #2896).
+  Theme: sddd-mission-reports (7/24 files archived in this PR; 17 more in follow-up PRs by theme).
+-->
 # CHECKPOINT SÉMANTIQUE MI-MISSION - GRAPPES DE TÂCHES
 *Phase 4 du SDDD - Semantic-Documentation-Driven-Design*
 
