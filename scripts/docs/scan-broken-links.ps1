@@ -68,6 +68,16 @@ foreach ($mdFile in $allMd) {
             continue
         }
 
+        # Placeholder / illustrative-example exclusion (forward note W1 #2878 c.114/c.115)
+        # Skip known documentation placeholder patterns that are not real links:
+        #   - "path/to/...", "file.md#..." literal examples in methodology prose
+        #   - the literal token "target" as a link destination
+        # These are false-positives in audit/rule/skill docs, not broken navigation.
+        # NOTE: do NOT exclude text==target cases — those can be REAL broken links
+        # (e.g. [.clinerules](.clinerules) in upstream READMEs where the file is missing).
+        if ($target -match '^(path/to/|file\.md#)') { continue }
+        if ($target -eq 'target') { continue }
+
         # Separate path and anchor
         $anchor = $null
         $pathPart = $target
