@@ -1,0 +1,49 @@
+{
+  "inbound_check": [
+    {
+      "path": "roo-code-customization/investigations/12-vhp-condensation-analysis.md",
+      "inbound_count": 5,
+      "inbound_files": [
+        "docs/harness/reference/doc-audit-2026-07-21.md",
+        "docs/harness/reference/doc-audit-raw-2026-07-21.json",
+        "docs/harness/reference/roo-code-investigations-inventory-2026-07-21.md",
+        "docs/harness/reference/roo-code-investigations-inventory-raw-2026-07-21.json",
+        "docs/knowledge/WORKSPACE_KNOWLEDGE.md"
+      ]
+    },
+    {
+      "path": "roo-code-customization/investigations/propositions-ameliorations-techniques.md",
+      "inbound_count": 6,
+      "inbound_files": [
+        "docs/harness/reference/doc-audit-2026-07-21.md",
+        "docs/harness/reference/doc-audit-raw-2026-07-21.json",
+        "docs/harness/reference/roo-code-investigations-inventory-2026-07-21.md",
+        "docs/harness/reference/roo-code-investigations-inventory-raw-2026-07-21.json",
+        "roo-code-customization/investigations/rapport-mission-sddd.md",
+        "roo-code-customization/investigations/validation-semantique-finale.md"
+      ]
+    },
+    {
+      "path": "roo-code-customization/investigations/powershell-typescript-comparative-analysis.md",
+      "inbound_count": 6,
+      "inbound_files": [
+        "docs/harness/reference/doc-audit-raw-2026-07-21.json",
+        "docs/harness/reference/doc-broken-links-raw-2026-07-21.json",
+        "docs/harness/reference/roo-code-investigations-inventory-2026-07-21.md",
+        "docs/harness/reference/roo-code-investigations-inventory-raw-2026-07-21.json",
+        "roo-code-customization/investigations/rapport-mission-sddd.md",
+        "roo-code-customization/investigations/validation-semantique-finale.md"
+      ]
+    },
+    {
+      "path": "demo-roo-code/04-creation-contenu/demo-1-web/ressources/composants-web.md",
+      "inbound_count": 4,
+      "inbound_files": [
+        "docs/harness/reference/demo-roo-code-inventory-2026-07-21.md",
+        "docs/harness/reference/demo-roo-code-inventory-raw-2026-07-21.json",
+        "docs/harness/reference/doc-audit-2026-07-21.md",
+        "docs/harness/reference/doc-audit-raw-2026-07-21.json"
+      ]
+    }
+  ]
+}

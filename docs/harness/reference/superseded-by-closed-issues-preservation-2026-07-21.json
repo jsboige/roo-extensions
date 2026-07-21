@@ -1,0 +1,107 @@
+{
+  "candidates_with_evidence": [
+    {
+      "path": "roo-code-customization/investigations/12-vhp-condensation-analysis.md",
+      "age_days": 329,
+      "size_kb": 15.3,
+      "sha8": "7efb263c",
+      "category": "other",
+      "refs": [
+        {
+          "ref": 333,
+          "kind": "issue-closed",
+          "title": "[HARMONISATION] H4 - Ajouter github MCP sur machines manquantes",
+          "url": "https://github.com/jsboige/roo-extensions/issues/333",
+          "closed_at": "2026-01-26T10:47:20Z",
+          "fix_commits_in_main": [
+            "2af03b6c chore(submod): bundle pointer-bump for cycle 30 W7 R3+ merge tour (1221f6fb→20bfa358) (#2015)"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "roo-code-customization/investigations/propositions-ameliorations-techniques.md",
+      "age_days": 311,
+      "size_kb": 23.0,
+      "sha8": "5fa2cac3",
+      "category": "other",
+      "refs": [
+        {
+          "ref": 666,
+          "kind": "issue-closed",
+          "title": "conversation_browser(list): Claude sessions metadata missing + output size explosion",
+          "url": "https://github.com/jsboige/roo-extensions/issues/666",
+          "closed_at": "2026-03-13T21:18:57Z",
+          "fix_commits_in_main": [
+            "9047432a chore(submod): bump mcps/internal → #665/#666 harden weak assertions (#833 R3 deep-queue) (#2724)",
+            "b3fa969c chore(submodule): Update mcps/internal - Claude session metadata enrichment (#666)"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "roo-code-customization/investigations/powershell-typescript-comparative-analysis.md",
+      "age_days": 311,
+      "size_kb": 10.6,
+      "sha8": "c39957e4",
+      "category": "other",
+      "refs": [
+        {
+          "ref": 666,
+          "kind": "issue-closed",
+          "title": "conversation_browser(list): Claude sessions metadata missing + output size explosion",
+          "url": "https://github.com/jsboige/roo-extensions/issues/666",
+          "closed_at": "2026-03-13T21:18:57Z",
+          "fix_commits_in_main": [
+            "9047432a chore(submod): bump mcps/internal → #665/#666 harden weak assertions (#833 R3 deep-queue) (#2724)",
+            "b3fa969c chore(submodule): Update mcps/internal - Claude session metadata enrichment (#666)"
+          ]
+        }
+      ]
+    },
+    {
+      "path": "demo-roo-code/04-creation-contenu/demo-1-web/ressources/composants-web.md",
+      "age_days": 224,
+      "size_kb": 20.2,
+      "sha8": "6981ce7d",
+      "category": "other",
+      "refs": [
+        {
+          "ref": 333,
+          "kind": "issue-closed",
+          "title": "[HARMONISATION] H4 - Ajouter github MCP sur machines manquantes",
+          "url": "https://github.com/jsboige/roo-extensions/issues/333",
+          "closed_at": "2026-01-26T10:47:20Z",
+          "fix_commits_in_main": [
+            "2af03b6c chore(submod): bundle pointer-bump for cycle 30 W7 R3+ merge tour (1221f6fb→20bfa358) (#2015)"
+          ]
+        },
+        {
+          "ref": 555,
+          "kind": "issue-closed",
+          "title": "[BUG] GLM-5 saturation contexte sur po-2023/po-2024 - Paramètres condensation à vérifier",
+          "url": "https://github.com/jsboige/roo-extensions/issues/555",
+          "closed_at": "2026-03-03T23:42:20Z",
+          "fix_commits_in_main": [
+            "b4c0af41 chore(submod): bump mcps/internal f722c5d1 -> 7ab9908d (#575 condenser z.ai compat) (#2452)",
+            "4acfa332 feat(harness): Add condensation-thresholds.md for Claude Code (#806)",
+            "115e4f05 fix(#618): Harmonize condensation threshold 75% → 70%",
+            "02245d9d docs(#580): Unified 70% condensation threshold for GLM models",
+            "ea05a1d5 docs(memory): Update PROJECT_MEMORY.md #556 Cycle 53"
+          ]
+        },
+        {
+          "ref": 666,
+          "kind": "issue-closed",
+          "title": "conversation_browser(list): Claude sessions metadata missing + output size explosion",
+          "url": "https://github.com/jsboige/roo-extensions/issues/666",
+          "closed_at": "2026-03-13T21:18:57Z",
+          "fix_commits_in_main": [
+            "9047432a chore(submod): bump mcps/internal → #665/#666 harden weak assertions (#833 R3 deep-queue) (#2724)",
+            "b3fa969c chore(submodule): Update mcps/internal - Claude session metadata enrichment (#666)"
+          ]
+        }
+      ]
+    }
+  ]
+}
