@@ -1,0 +1,4341 @@
+{
+  "total": 718,
+  "stale_180": 282,
+  "stale_365": 70,
+  "categories": {
+    "claude-md-root": [
+      {
+        "path": "CLAUDE.md",
+        "size_kb": 6.9,
+        "age_days": 3,
+        "sha8": "993149b4"
+      }
+    ],
+    "root-readme": [
+      {
+        "path": "README.md",
+        "size_kb": 15.0,
+        "age_days": 3,
+        "sha8": "9e8ebc5e"
+      }
+    ],
+    "other": [
+      {
+        "path": "demo-roo-code/05-projets-avances/integration-outils/bonnes-pratiques.md",
+        "size_kb": 71.5,
+        "age_days": 224,
+        "sha8": "5d808868"
+      },
+      {
+        "path": "mcps/TROUBLESHOOTING.md",
+        "size_kb": 48.2,
+        "age_days": 271,
+        "sha8": "0b8df489"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/multimedia/instructions-traitement.md",
+        "size_kb": 27.1,
+        "age_days": 224,
+        "sha8": "6ad08c7c"
+      },
+      {
+        "path": "roo-code-customization/investigations/specification-extensions-grappes.md",
+        "size_kb": 26.9,
+        "age_days": 311,
+        "sha8": "890d976f"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/communication/modeles-emails.md",
+        "size_kb": 25.2,
+        "age_days": 224,
+        "sha8": "8a110001"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/integration-outils/exemples-integration.md",
+        "size_kb": 24.2,
+        "age_days": 224,
+        "sha8": "f0462e0e"
+      },
+      {
+        "path": "roo-code-customization/investigations/propositions-ameliorations-techniques.md",
+        "size_kb": 23.0,
+        "age_days": 311,
+        "sha8": "5fa2cac3"
+      },
+      {
+        "path": "roo-code-customization/investigations/xml-export-specification.md",
+        "size_kb": 22.7,
+        "age_days": 311,
+        "sha8": "bc212ae5"
+      },
+      {
+        "path": "mcps/external/github/USAGE.md",
+        "size_kb": 21.6,
+        "age_days": 425,
+        "sha8": "ad778622"
+      },
+      {
+        "path": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+        "size_kb": 21.4,
+        "age_days": 343,
+        "sha8": "ea1b32e4"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-1-web/ressources/composants-web.md",
+        "size_kb": 20.2,
+        "age_days": 224,
+        "sha8": "6981ce7d"
+      },
+      {
+        "path": "mcps/external/win-cli/configuration.md",
+        "size_kb": 19.5,
+        "age_days": 425,
+        "sha8": "9d46ecfc"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-1-architecture/ressources/modeles-architecture.md",
+        "size_kb": 18.9,
+        "age_days": 224,
+        "sha8": "8ce7a7a9"
+      },
+      {
+        "path": "tests/results/test-results-qwen-mixed-detailed.md",
+        "size_kb": 18.5,
+        "age_days": 425,
+        "sha8": "6baf30dc"
+      },
+      {
+        "path": "mcps/INSTALLATION.md",
+        "size_kb": 18.1,
+        "age_days": 280,
+        "sha8": "f339d0d4"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/documentation/exemple-api.md",
+        "size_kb": 17.7,
+        "age_days": 224,
+        "sha8": "2b8da4dc"
+      },
+      {
+        "path": "scripts/diagnostic/SCRIPTS-POWERSHELL-AUTONOMES-DIAGNOSTIC.md",
+        "size_kb": 17.5,
+        "age_days": 271,
+        "sha8": "134f0635"
+      },
+      {
+        "path": "mcps/external/git/TROUBLESHOOTING.md",
+        "size_kb": 17.5,
+        "age_days": 425,
+        "sha8": "4d763c88"
+      },
+      {
+        "path": "mcps/external/github/TROUBLESHOOTING.md",
+        "size_kb": 17.4,
+        "age_days": 425,
+        "sha8": "b350dcc5"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/analyse-documents/guide-analyse.md",
+        "size_kb": 17.3,
+        "age_days": 224,
+        "sha8": "b3d706e5"
+      },
+      {
+        "path": "mcps/external/git/USAGE.md",
+        "size_kb": 17.1,
+        "age_days": 425,
+        "sha8": "a6809347"
+      },
+      {
+        "path": "scripts/hermes-watchdog/README.md",
+        "size_kb": 16.7,
+        "age_days": 75,
+        "sha8": "0de5cb09"
+      },
+      {
+        "path": "demo-roo-code/README.md",
+        "size_kb": 16.5,
+        "age_days": 224,
+        "sha8": "575feb89"
+      },
+      {
+        "path": "mcps/external/git/server/README.md",
+        "size_kb": 16.5,
+        "age_days": 425,
+        "sha8": "c7bc5d9e"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/assistant-recherche/exemple-synthese.md",
+        "size_kb": 16.5,
+        "age_days": 224,
+        "sha8": "70273c79"
+      },
+      {
+        "path": "roo-code-customization/investigations/checkpoint-semantique-mi-mission-grappes.md",
+        "size_kb": 16.2,
+        "age_days": 311,
+        "sha8": "11dc31ef"
+      },
+      {
+        "path": "mcps/external/win-cli/TROUBLESHOOTING.md",
+        "size_kb": 15.8,
+        "age_days": 425,
+        "sha8": "a192e401"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/documentation/exemple-guide.md",
+        "size_kb": 15.8,
+        "age_days": 224,
+        "sha8": "fa2bad62"
+      },
+      {
+        "path": "roo-code-customization/investigations/12-vhp-condensation-analysis.md",
+        "size_kb": 15.3,
+        "age_days": 329,
+        "sha8": "7efb263c"
+      },
+      {
+        "path": "mcps/external/searxng/TROUBLESHOOTING.md",
+        "size_kb": 15.3,
+        "age_days": 315,
+        "sha8": "df28ee8a"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/communication/preparation-reunion.md",
+        "size_kb": 15.3,
+        "age_days": 224,
+        "sha8": "cdc063e5"
+      },
+      {
+        "path": "roo-code-customization/investigations/rapport-mission-sddd.md",
+        "size_kb": 15.1,
+        "age_days": 311,
+        "sha8": "6459d9ef"
+      },
+      {
+        "path": "mcps/OPTIMIZATIONS.md",
+        "size_kb": 14.6,
+        "age_days": 425,
+        "sha8": "7be094f0"
+      },
+      {
+        "path": ".claude/configs/user-global-claude.md",
+        "size_kb": 14.6,
+        "age_days": 18,
+        "sha8": "12357754"
+      },
+      {
+        "path": "roo-code-customization/investigations/analyse-architecture-actuelle-grappes.md",
+        "size_kb": 14.4,
+        "age_days": 311,
+        "sha8": "63440702"
+      },
+      {
+        "path": "mcps/external/win-cli/README.md",
+        "size_kb": 14.3,
+        "age_days": 130,
+        "sha8": "4bbfba39"
+      },
+      {
+        "path": "roo-code-customization/investigations/powershell-to-nodejs-analysis.md",
+        "size_kb": 14.0,
+        "age_days": 311,
+        "sha8": "c5a09697"
+      },
+      {
+        "path": "mcps/external/playwright/INSTALLATION_REPORT.md",
+        "size_kb": 14.0,
+        "age_days": 280,
+        "sha8": "0f2a4a68"
+      },
+      {
+        "path": "roo-code-customization/investigations/11-sddd-process-post-mortem.md",
+        "size_kb": 13.7,
+        "age_days": 343,
+        "sha8": "5d44a313"
+      },
+      {
+        "path": "roo-code-customization/investigations/10-condensation-poc-design.md",
+        "size_kb": 13.4,
+        "age_days": 343,
+        "sha8": "f0dfbbb0"
+      },
+      {
+        "path": "tests/encoding/multi-language-encoding-tests/FINAL-ENCODING-ANALYSIS-REPORT.md",
+        "size_kb": 13.3,
+        "age_days": 253,
+        "sha8": "35ddba5c"
+      },
+      {
+        "path": "mcps/external/jupyter/troubleshooting.md",
+        "size_kb": 13.1,
+        "age_days": 425,
+        "sha8": "d6457945"
+      },
+      {
+        "path": "mcps/external/win-cli/USAGE.md",
+        "size_kb": 12.9,
+        "age_days": 425,
+        "sha8": "d6d00e08"
+      },
+      {
+        "path": "scripts/roosync/sync-roadmap-local.md",
+        "size_kb": 12.8,
+        "age_days": 228,
+        "sha8": "34e94367"
+      },
+      {
+        "path": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+        "size_kb": 12.7,
+        "age_days": 343,
+        "sha8": "3c1a920a"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/assistant-recherche/methodologie-recherche.md",
+        "size_kb": 12.7,
+        "age_days": 224,
+        "sha8": "43d67a65"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/contenu-marketing/modeles-posts.md",
+        "size_kb": 12.6,
+        "age_days": 224,
+        "sha8": "8cca11ca"
+      },
+      {
+        "path": "mcps/external/searxng/configuration.md",
+        "size_kb": 12.2,
+        "age_days": 425,
+        "sha8": "55db8388"
+      },
+      {
+        "path": "mcps/external/docker/USAGE.md",
+        "size_kb": 12.1,
+        "age_days": 425,
+        "sha8": "599308fd"
+      },
+      {
+        "path": "mcps/external/jupyter/README.md",
+        "size_kb": 12.1,
+        "age_days": 425,
+        "sha8": "9d65e6d0"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/analyse-documents/README.md",
+        "size_kb": 12.0,
+        "age_days": 224,
+        "sha8": "2c12ba84"
+      },
+      {
+        "path": "mcps/external/win-cli/installation.md",
+        "size_kb": 11.9,
+        "age_days": 419,
+        "sha8": "caa9adc0"
+      },
+      {
+        "path": "mcps/external/win-cli/SECURITY.md",
+        "size_kb": 11.8,
+        "age_days": 425,
+        "sha8": "a24612bd"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/analyse-documents/exemple-document.md",
+        "size_kb": 11.7,
+        "age_days": 224,
+        "sha8": "f14311dd"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/documentation-scripts.md",
+        "size_kb": 11.7,
+        "age_days": 224,
+        "sha8": "da795a5f"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/presentations/structure-presentation.md",
+        "size_kb": 11.7,
+        "age_days": 224,
+        "sha8": "2e51078c"
+      },
+      {
+        "path": "demo-roo-code/docs/demo-maintenance.md",
+        "size_kb": 11.5,
+        "age_days": 224,
+        "sha8": "9b46f274"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/gestion-fichiers/exemples-quickfiles.md",
+        "size_kb": 11.5,
+        "age_days": 224,
+        "sha8": "aa8079b1"
+      },
+      {
+        "path": "tests/results/roosync/test3-deployment-report.md",
+        "size_kb": 11.4,
+        "age_days": 268,
+        "sha8": "104ec789"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/contenu-marketing/strategie-contenu.md",
+        "size_kb": 11.4,
+        "age_days": 224,
+        "sha8": "4abd51bc"
+      },
+      {
+        "path": "tests/mcp-win-cli/rapport-synthese.md",
+        "size_kb": 11.1,
+        "age_days": 433,
+        "sha8": "2971b3ad"
+      },
+      {
+        "path": "tests/results/roosync/VALIDATION-SUMMARY.md",
+        "size_kb": 11.1,
+        "age_days": 155,
+        "sha8": "d21dbd0a"
+      },
+      {
+        "path": "tests/results/roosync/checkpoint2-test3-test4-validation.md",
+        "size_kb": 11.0,
+        "age_days": 268,
+        "sha8": "efdc34d2"
+      },
+      {
+        "path": "tests/results/roosync/test4-task-scheduler-report.md",
+        "size_kb": 10.9,
+        "age_days": 268,
+        "sha8": "5e2833c6"
+      },
+      {
+        "path": "mcps/external/github/CONFIGURATION.md",
+        "size_kb": 10.9,
+        "age_days": 425,
+        "sha8": "a3e058a8"
+      },
+      {
+        "path": "mcps/external/jupyter/configurations-jupyter-mcp.md",
+        "size_kb": 10.9,
+        "age_days": 425,
+        "sha8": "ba5c6c2f"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-2-documentation/ressources/modeles-documentation.md",
+        "size_kb": 10.9,
+        "age_days": 224,
+        "sha8": "04369f67"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-2-reseaux-sociaux/ressources/modeles-publications.md",
+        "size_kb": 10.8,
+        "age_days": 224,
+        "sha8": "6adb21be"
+      },
+      {
+        "path": "roo-code-customization/investigations/powershell-typescript-comparative-analysis.md",
+        "size_kb": 10.6,
+        "age_days": 311,
+        "sha8": "c39957e4"
+      },
+      {
+        "path": "tests/results/test-results-qwen-advanced-config.md",
+        "size_kb": 10.5,
+        "age_days": 425,
+        "sha8": "af883fe4"
+      },
+      {
+        "path": "mcps/INDEX.md",
+        "size_kb": 10.3,
+        "age_days": 27,
+        "sha8": "b3799da2"
+      },
+      {
+        "path": "tests/results/test-results-qwen-config.md",
+        "size_kb": 10.3,
+        "age_days": 425,
+        "sha8": "35963603"
+      },
+      {
+        "path": "mcps/external/git/CONFIGURATION.md",
+        "size_kb": 10.2,
+        "age_days": 425,
+        "sha8": "33bfe55e"
+      },
+      {
+        "path": "mcps/README.md",
+        "size_kb": 10.1,
+        "age_days": 271,
+        "sha8": "9b020abd"
+      },
+      {
+        "path": "mcps/external/docker/TROUBLESHOOTING.md",
+        "size_kb": 9.9,
+        "age_days": 425,
+        "sha8": "0abffc14"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/integration-outils/README.md",
+        "size_kb": 9.8,
+        "age_days": 224,
+        "sha8": "63ccda9c"
+      },
+      {
+        "path": ".claude/memory/PROJECT_MEMORY.md",
+        "size_kb": 9.7,
+        "age_days": 27,
+        "sha8": "90a25c4f"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/README.md",
+        "size_kb": 9.6,
+        "age_days": 224,
+        "sha8": "527c4f1b"
+      },
+      {
+        "path": "scripts/utf8/README.md",
+        "size_kb": 9.5,
+        "age_days": 296,
+        "sha8": "5fa0e0d2"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-3-communication/ressources/modeles-communication.md",
+        "size_kb": 9.5,
+        "age_days": 224,
+        "sha8": "d3c33a7d"
+      },
+      {
+        "path": "mcps/external/searxng/USAGE.md",
+        "size_kb": 9.4,
+        "age_days": 425,
+        "sha8": "5a3d9c38"
+      },
+      {
+        "path": "scripts/scheduling/README.md",
+        "size_kb": 9.3,
+        "age_days": 94,
+        "sha8": "3a97156e"
+      },
+      {
+        "path": "roo-code-customization/investigations/analyse-restauration-taches.md",
+        "size_kb": 9.3,
+        "age_days": 334,
+        "sha8": "19cc02ff"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/multimedia/documentation_generation_images.md",
+        "size_kb": 9.3,
+        "age_days": 224,
+        "sha8": "9f0dfcb6"
+      },
+      {
+        "path": "roo-code-customization/investigations/10-condensation-poc-design-rapport-mission.md",
+        "size_kb": 9.0,
+        "age_days": 343,
+        "sha8": "d38b1399"
+      },
+      {
+        "path": "mcps/external/searxng/installation.md",
+        "size_kb": 9.0,
+        "age_days": 425,
+        "sha8": "bf68b175"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/design/palette-couleurs.md",
+        "size_kb": 9.0,
+        "age_days": 224,
+        "sha8": "025a0d34"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/scripts-multiplateforme/documentation-scripts.md",
+        "size_kb": 9.0,
+        "age_days": 224,
+        "sha8": "2d1087c7"
+      },
+      {
+        "path": "mcps/SEARCH.md",
+        "size_kb": 8.7,
+        "age_days": 419,
+        "sha8": "87abc2f8"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/design/principes-design.md",
+        "size_kb": 8.7,
+        "age_days": 224,
+        "sha8": "d8c0702d"
+      },
+      {
+        "path": "roo-code-customization/investigations/validation-semantique-finale.md",
+        "size_kb": 8.6,
+        "age_days": 311,
+        "sha8": "f6e764e1"
+      },
+      {
+        "path": "mcps/external/win-cli/exemples.md",
+        "size_kb": 8.5,
+        "age_days": 425,
+        "sha8": "602724d2"
+      },
+      {
+        "path": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+        "size_kb": 8.4,
+        "age_days": 311,
+        "sha8": "186c7b25"
+      },
+      {
+        "path": ".claude/configs/skills/SKILLS-AUDIT-REPORT.md",
+        "size_kb": 8.4,
+        "age_days": 149,
+        "sha8": "9493e171"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/taches-demo.md",
+        "size_kb": 8.2,
+        "age_days": 224,
+        "sha8": "3f1d5e62"
+      },
+      {
+        "path": "tests/results/roosync/test1-logger-report.md",
+        "size_kb": 8.1,
+        "age_days": 268,
+        "sha8": "28a060b7"
+      },
+      {
+        "path": "roo-code-customization/investigations/checkpoint-semantique-mi-mission.md",
+        "size_kb": 8.0,
+        "age_days": 311,
+        "sha8": "5a446d4c"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/multimedia/README.md",
+        "size_kb": 8.0,
+        "age_days": 224,
+        "sha8": "0fb2c2bc"
+      },
+      {
+        "path": "tests/results/roosync/validation-fixes-T14-20260118.md",
+        "size_kb": 7.9,
+        "age_days": 183,
+        "sha8": "1f0958d3"
+      },
+      {
+        "path": "roo-code-customization/investigations/export-integration-analysis.md",
+        "size_kb": 7.8,
+        "age_days": 311,
+        "sha8": "e6241273"
+      },
+      {
+        "path": "demo-roo-code/README-integration.md",
+        "size_kb": 7.7,
+        "age_days": 224,
+        "sha8": "212db3ac"
+      },
+      {
+        "path": "mcps/external/searxng/README.md",
+        "size_kb": 7.7,
+        "age_days": 315,
+        "sha8": "ef3528c0"
+      },
+      {
+        "path": "tests/results/roosync/apply-config-validation-20260118.md",
+        "size_kb": 7.6,
+        "age_days": 183,
+        "sha8": "6cef34d1"
+      },
+      {
+        "path": "tests/results/roosync/test2-git-helpers-report.md",
+        "size_kb": 7.5,
+        "age_days": 268,
+        "sha8": "101d088c"
+      },
+      {
+        "path": "tests/results/gh-cli-vs-mcp-github-comparison.md",
+        "size_kb": 7.4,
+        "age_days": 175,
+        "sha8": "6f4b2b43"
+      },
+      {
+        "path": "tests/results/roosync/validation-workflow-myia-ai-01-20260118.md",
+        "size_kb": 7.4,
+        "age_days": 183,
+        "sha8": "adc37c4f"
+      },
+      {
+        "path": "mcps/monitoring/README.md",
+        "size_kb": 7.4,
+        "age_days": 425,
+        "sha8": "f6c10d90"
+      },
+      {
+        "path": "tests/mcp-win-cli/README.md",
+        "size_kb": 7.2,
+        "age_days": 385,
+        "sha8": "6bafaf7e"
+      },
+      {
+        "path": "mcps/external/github/README.md",
+        "size_kb": 7.2,
+        "age_days": 425,
+        "sha8": "55cb938f"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/exemples-questions.md",
+        "size_kb": 7.2,
+        "age_days": 224,
+        "sha8": "43c7bc2d"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/taches-demo.md",
+        "size_kb": 7.1,
+        "age_days": 224,
+        "sha8": "8f0952c4"
+      },
+      {
+        "path": "tests/README.md",
+        "size_kb": 7.0,
+        "age_days": 425,
+        "sha8": "799fa701"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/taches-demo.md",
+        "size_kb": 7.0,
+        "age_days": 224,
+        "sha8": "358461ec"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/taches-demo.md",
+        "size_kb": 7.0,
+        "age_days": 224,
+        "sha8": "6a3f810e"
+      },
+      {
+        "path": "roo-code-customization/deployment-script-tests-design.md",
+        "size_kb": 6.8,
+        "age_days": 350,
+        "sha8": "c1849c2b"
+      },
+      {
+        "path": "roo-code-customization/investigations/typescript-implementation-gaps.md",
+        "size_kb": 6.8,
+        "age_days": 311,
+        "sha8": "8648e320"
+      },
+      {
+        "path": "mcps/external/git/README.md",
+        "size_kb": 6.8,
+        "age_days": 425,
+        "sha8": "8231b42c"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-2-presentation/ressources/modeles-presentation.md",
+        "size_kb": 6.8,
+        "age_days": 224,
+        "sha8": "e4e1d514"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/recherche-web/searxng.md",
+        "size_kb": 6.8,
+        "age_days": 224,
+        "sha8": "ab73d543"
+      },
+      {
+        "path": "mcps/external/docker/README.md",
+        "size_kb": 6.6,
+        "age_days": 419,
+        "sha8": "e7b50aa2"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/analyse-donnees/analyse-exemple.md",
+        "size_kb": 6.6,
+        "age_days": 224,
+        "sha8": "a95c6f87"
+      },
+      {
+        "path": "tests/results/test-results-qwen-mixed-config-template.md",
+        "size_kb": 6.5,
+        "age_days": 425,
+        "sha8": "5a797ee4"
+      },
+      {
+        "path": "mcps/external/github/INSTALLATION.md",
+        "size_kb": 6.5,
+        "age_days": 425,
+        "sha8": "33004a3b"
+      },
+      {
+        "path": "mcps/external/win-cli/securite.md",
+        "size_kb": 6.5,
+        "age_days": 425,
+        "sha8": "f72ebddb"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-2-vision/ressources/guide-analyse-images.md",
+        "size_kb": 6.5,
+        "age_days": 224,
+        "sha8": "c6332309"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/recherche-web/jinavigator.md",
+        "size_kb": 6.4,
+        "age_days": 224,
+        "sha8": "9ef26edf"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/scripts-multiplateforme/installation.md",
+        "size_kb": 6.4,
+        "age_days": 224,
+        "sha8": "43b804f3"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-1-conversation/ressources/conseils-questions-efficaces.md",
+        "size_kb": 6.4,
+        "age_days": 224,
+        "sha8": "e40650c6"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/taches-demo.md",
+        "size_kb": 6.3,
+        "age_days": 224,
+        "sha8": "7acded39"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/assistant-recherche/README.md",
+        "size_kb": 6.3,
+        "age_days": 224,
+        "sha8": "6da8d073"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/contenu-marketing/README.md",
+        "size_kb": 6.0,
+        "age_days": 224,
+        "sha8": "fb326f10"
+      },
+      {
+        "path": ".claude/memory/hermes-mcp-watchdog-2014.md",
+        "size_kb": 6.0,
+        "age_days": 75,
+        "sha8": "92bc20be"
+      },
+      {
+        "path": "mcps/external/git/INSTALLATION.md",
+        "size_kb": 5.9,
+        "age_days": 425,
+        "sha8": "c2c643b5"
+      },
+      {
+        "path": "tests/results/roosync/checkpoint1-test1-test2-validation.md",
+        "size_kb": 5.8,
+        "age_days": 268,
+        "sha8": "648979b5"
+      },
+      {
+        "path": "roo-code-customization/investigations/xml-implementation-validation.md",
+        "size_kb": 5.8,
+        "age_days": 311,
+        "sha8": "584f4f79"
+      },
+      {
+        "path": "mcps/external/docker/CONFIGURATION.md",
+        "size_kb": 5.7,
+        "age_days": 425,
+        "sha8": "3074ff61"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/presentations/conseils-slides.md",
+        "size_kb": 5.7,
+        "age_days": 224,
+        "sha8": "97b2e99f"
+      },
+      {
+        "path": "mcps/guide-configuration-securisee.md",
+        "size_kb": 5.6,
+        "age_days": 433,
+        "sha8": "2756db82"
+      },
+      {
+        "path": "roo-code-customization/investigations/07-file-search-analysis.md",
+        "size_kb": 5.6,
+        "age_days": 347,
+        "sha8": "db565e7b"
+      },
+      {
+        "path": "roo-code-customization/investigations/SDDD-xml-export-mission-report.md",
+        "size_kb": 5.6,
+        "age_days": 311,
+        "sha8": "208edf5d"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-1-analyse/ressources/guide-analyse-donnees.md",
+        "size_kb": 5.6,
+        "age_days": 224,
+        "sha8": "0864cb2f"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/recherche-web/navigateur-integre.md",
+        "size_kb": 5.6,
+        "age_days": 224,
+        "sha8": "335388bb"
+      },
+      {
+        "path": ".claude/memory/codebase-search-patterns.md",
+        "size_kb": 5.6,
+        "age_days": 36,
+        "sha8": "b3156256"
+      },
+      {
+        "path": "mcps/external/desktop-commander/README.md",
+        "size_kb": 5.5,
+        "age_days": 152,
+        "sha8": "2d942f3b"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-2-documentation/docs/guide-agent.md",
+        "size_kb": 5.5,
+        "age_days": 224,
+        "sha8": "7d1b76f6"
+      },
+      {
+        "path": "tests/mcp/quickfiles-uat-test/VALIDATION-RESULTS-20251004-103835.md",
+        "size_kb": 5.4,
+        "age_days": 286,
+        "sha8": "1456a37f"
+      },
+      {
+        "path": "scripts/review/README.md",
+        "size_kb": 5.4,
+        "age_days": 141,
+        "sha8": "11ff6371"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-2-recherche/ressources/methodologie-recherche.md",
+        "size_kb": 5.4,
+        "age_days": 224,
+        "sha8": "09797c1f"
+      },
+      {
+        "path": "mcps/tests/README.md",
+        "size_kb": 5.3,
+        "age_days": 427,
+        "sha8": "4884fd66"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-1-conversation/ressources/exemples-questions.md",
+        "size_kb": 5.3,
+        "age_days": 224,
+        "sha8": "24951891"
+      },
+      {
+        "path": "scripts/README.md",
+        "size_kb": 5.2,
+        "age_days": 3,
+        "sha8": "eb3c36d9"
+      },
+      {
+        "path": "scripts/worktrees/README.md",
+        "size_kb": 5.2,
+        "age_days": 80,
+        "sha8": "7b79ad2b"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/design/README.md",
+        "size_kb": 5.2,
+        "age_days": 224,
+        "sha8": "cdfcef71"
+      },
+      {
+        "path": "mcps/JUPYTER-CONFLICT-RESOLUTION-REPORT.md",
+        "size_kb": 5.1,
+        "age_days": 421,
+        "sha8": "04b34880"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-2-vision/README.md",
+        "size_kb": 5.1,
+        "age_days": 224,
+        "sha8": "c4418477"
+      },
+      {
+        "path": ".github/copilot-instructions.md",
+        "size_kb": 5.0,
+        "age_days": 162,
+        "sha8": "886a05ed"
+      },
+      {
+        "path": "mcps/PROCEDURE-GESTION-SECURISEE-MCP.md",
+        "size_kb": 5.0,
+        "age_days": 418,
+        "sha8": "284b727c"
+      },
+      {
+        "path": "mcps/REORGANISATION-RAPPORT.md",
+        "size_kb": 5.0,
+        "age_days": 419,
+        "sha8": "80ec97bf"
+      },
+      {
+        "path": "demo-roo-code/CONTRIBUTING.md",
+        "size_kb": 4.9,
+        "age_days": 224,
+        "sha8": "cac19097"
+      },
+      {
+        "path": "tests/results/escalation-matrix-20250516-095859.md",
+        "size_kb": 4.9,
+        "age_days": 425,
+        "sha8": "58ad014a"
+      },
+      {
+        "path": "tests/results/escalation-matrix-20250516-100250.md",
+        "size_kb": 4.9,
+        "age_days": 425,
+        "sha8": "58ad014a"
+      },
+      {
+        "path": "tests/results/escalation-matrix-20250516-100522.md",
+        "size_kb": 4.9,
+        "age_days": 425,
+        "sha8": "1ee85f12"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/commandes-basiques.md",
+        "size_kb": 4.9,
+        "age_days": 224,
+        "sha8": "ce69e4d8"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/communication/README.md",
+        "size_kb": 4.9,
+        "age_days": 224,
+        "sha8": "d75a61d9"
+      },
+      {
+        "path": "docker/README.md",
+        "size_kb": 4.8,
+        "age_days": 62,
+        "sha8": "1d1d3f3a"
+      },
+      {
+        "path": "mcps/MCP-CONFIGURATION-SAFETY-GUIDE.md",
+        "size_kb": 4.8,
+        "age_days": 419,
+        "sha8": "e87d4b2c"
+      },
+      {
+        "path": "mcps/TEST-RESULTS.md",
+        "size_kb": 4.7,
+        "age_days": 430,
+        "sha8": "7761d923"
+      },
+      {
+        "path": "roo-code-customization/incident-report-condensation-revert.md",
+        "size_kb": 4.7,
+        "age_days": 350,
+        "sha8": "b1a2aa5b"
+      },
+      {
+        "path": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+        "size_kb": 4.7,
+        "age_days": 329,
+        "sha8": "7a5babb1"
+      },
+      {
+        "path": "mcps/external/searxng/exemples.md",
+        "size_kb": 4.7,
+        "age_days": 425,
+        "sha8": "a3c0d73b"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/site-web-simple/README.md",
+        "size_kb": 4.7,
+        "age_days": 224,
+        "sha8": "de7c7ac9"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/gestion-fichiers/README.md",
+        "size_kb": 4.7,
+        "age_days": 224,
+        "sha8": "94ba963d"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-vision/instructions-analyse.md",
+        "size_kb": 4.7,
+        "age_days": 224,
+        "sha8": "59da918c"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-2-vision/docsX/guide-agent.md",
+        "size_kb": 4.7,
+        "age_days": 224,
+        "sha8": "e12c8e69"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/documentation/README.md",
+        "size_kb": 4.5,
+        "age_days": 224,
+        "sha8": "077e3f09"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/scripts-multiplateforme/README.md",
+        "size_kb": 4.4,
+        "age_days": 224,
+        "sha8": "9e2f67d5"
+      },
+      {
+        "path": "mcps/external/docker/INSTALLATION.md",
+        "size_kb": 4.3,
+        "age_days": 425,
+        "sha8": "fab4a37a"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-1-architecture/docs/guide-agent.md",
+        "size_kb": 4.3,
+        "age_days": 224,
+        "sha8": "670aa258"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-2-reseaux-sociaux/docs/guide-agent.md",
+        "size_kb": 4.3,
+        "age_days": 224,
+        "sha8": "3d2163bc"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-1-conversation/docs/guide-agent.md",
+        "size_kb": 4.3,
+        "age_days": 224,
+        "sha8": "a082378b"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-vision/README.md",
+        "size_kb": 4.2,
+        "age_days": 224,
+        "sha8": "bd6d36f8"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-1-conversation/README.md",
+        "size_kb": 4.1,
+        "age_days": 224,
+        "sha8": "c9563474"
+      },
+      {
+        "path": ".claude/configs/README.md",
+        "size_kb": 4.1,
+        "age_days": 50,
+        "sha8": "5182e473"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-1-planification/ressources/modeles-evenements.md",
+        "size_kb": 4.0,
+        "age_days": 224,
+        "sha8": "745cd387"
+      },
+      {
+        "path": ".claude/configs/agents/workers/code-fixer.md",
+        "size_kb": 4.0,
+        "age_days": 139,
+        "sha8": "e1c7cb1a"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-1-web/docs/guide-agent.md",
+        "size_kb": 3.9,
+        "age_days": 224,
+        "sha8": "bb227a52"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/presentations/README.md",
+        "size_kb": 3.9,
+        "age_days": 224,
+        "sha8": "ae43c755"
+      },
+      {
+        "path": "mcps/MANUAL_START.md",
+        "size_kb": 3.8,
+        "age_days": 427,
+        "sha8": "8b96f643"
+      },
+      {
+        "path": "roo-code-customization/deployment-script-testing-plan.md",
+        "size_kb": 3.8,
+        "age_days": 350,
+        "sha8": "d9f1daaf"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/recherche-web/README.md",
+        "size_kb": 3.8,
+        "age_days": 224,
+        "sha8": "85fed9a3"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-3-communication/docs/guide-agent.md",
+        "size_kb": 3.7,
+        "age_days": 224,
+        "sha8": "0b8ad9a2"
+      },
+      {
+        "path": ".claude/configs/agents/workers/test-investigator.md",
+        "size_kb": 3.7,
+        "age_days": 158,
+        "sha8": "c7620e5d"
+      },
+      {
+        "path": "mcps/external/github/server/third-party-licenses.windows.md",
+        "size_kb": 3.6,
+        "age_days": 425,
+        "sha8": "97a72e17"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/tableau-de-bord.md",
+        "size_kb": 3.6,
+        "age_days": 0,
+        "sha8": "ca88211b"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/analyse-donnees/presentation-ventes-t1-2024.md",
+        "size_kb": 3.6,
+        "age_days": 224,
+        "sha8": "b38b74ba"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-2-presentation/docs/guide-agent.md",
+        "size_kb": 3.5,
+        "age_days": 224,
+        "sha8": "515bb361"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-1-analyse/docs/guide-agent.md",
+        "size_kb": 3.5,
+        "age_days": 224,
+        "sha8": "7a156545"
+      },
+      {
+        "path": "mcps/GUIDE-DEMARRAGE-RAPIDE-MCP.md",
+        "size_kb": 3.4,
+        "age_days": 418,
+        "sha8": "c589c994"
+      },
+      {
+        "path": "mcps/GUIDE-UTILISATION-MCP.md",
+        "size_kb": 3.4,
+        "age_days": 418,
+        "sha8": "63443eac"
+      },
+      {
+        "path": "mcps/RESOLUTION-WIN-CLI.md",
+        "size_kb": 3.4,
+        "age_days": 92,
+        "sha8": "28b9af69"
+      },
+      {
+        "path": "roo-code-customization/deployment-script-design.md",
+        "size_kb": 3.4,
+        "age_days": 350,
+        "sha8": "52887495"
+      },
+      {
+        "path": "mcps/external/github/server/third-party-licenses.darwin.md",
+        "size_kb": 3.4,
+        "age_days": 425,
+        "sha8": "745df2a2"
+      },
+      {
+        "path": "mcps/external/github/server/third-party-licenses.linux.md",
+        "size_kb": 3.4,
+        "age_days": 425,
+        "sha8": "745df2a2"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/premiers-pas.md",
+        "size_kb": 3.4,
+        "age_days": 224,
+        "sha8": "45b3e854"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/analyse-donnees/README.md",
+        "size_kb": 3.4,
+        "age_days": 224,
+        "sha8": "3b474dba"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-2-recherche/docs/guide-agent.md",
+        "size_kb": 3.4,
+        "age_days": 224,
+        "sha8": "b9780727"
+      },
+      {
+        "path": "demo-roo-code/VERSION.md",
+        "size_kb": 3.2,
+        "age_days": 224,
+        "sha8": "8bce7efc"
+      },
+      {
+        "path": "mcps/SOLUTION-FINALE-WIN-CLI.md",
+        "size_kb": 3.2,
+        "age_days": 418,
+        "sha8": "1b93acd1"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/05-Budget/budget-previsionnel.md",
+        "size_kb": 3.2,
+        "age_days": 0,
+        "sha8": "1141edf3"
+      },
+      {
+        "path": "modules/form-validator/README.md",
+        "size_kb": 3.1,
+        "age_days": 425,
+        "sha8": "5c7a55ca"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/06-Participants/liste-participants.md",
+        "size_kb": 3.1,
+        "age_days": 0,
+        "sha8": "8529423c"
+      },
+      {
+        "path": "mcps/scripts/README.md",
+        "size_kb": 3.0,
+        "age_days": 329,
+        "sha8": "c12ab560"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/README.md",
+        "size_kb": 3.0,
+        "age_days": 224,
+        "sha8": "bf3f181a"
+      },
+      {
+        "path": "scripts/deployment/README.md",
+        "size_kb": 2.9,
+        "age_days": 325,
+        "sha8": "6b80a3ae"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/analyse-donnees/presentation-README.md",
+        "size_kb": 2.9,
+        "age_days": 224,
+        "sha8": "1384197e"
+      },
+      {
+        "path": "profiles/README.md",
+        "size_kb": 2.8,
+        "age_days": 419,
+        "sha8": "b3e2cc17"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-1-planification/docs/guide-agent.md",
+        "size_kb": 2.8,
+        "age_days": 224,
+        "sha8": "06d502ed"
+      },
+      {
+        "path": ".claude/configs/skills/debrief/SKILL.md",
+        "size_kb": 2.8,
+        "age_days": 158,
+        "sha8": "2c2f75b9"
+      },
+      {
+        "path": ".claude/configs/agents/workers/doc-updater.md",
+        "size_kb": 2.7,
+        "age_days": 158,
+        "sha8": "0fc14337"
+      },
+      {
+        "path": "mcps/external/playwright/README.md",
+        "size_kb": 2.6,
+        "age_days": 364,
+        "sha8": "370b190a"
+      },
+      {
+        "path": ".claude/configs/skills/validate/SKILL.md",
+        "size_kb": 2.6,
+        "age_days": 158,
+        "sha8": "bce7ae56"
+      },
+      {
+        "path": "tests/results/roosync/validation-wp1-wp4.md",
+        "size_kb": 2.5,
+        "age_days": 205,
+        "sha8": "6b806f9f"
+      },
+      {
+        "path": "mcps/external/docker/BUILD-LOCAL.md",
+        "size_kb": 2.5,
+        "age_days": 419,
+        "sha8": "44698fa5"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/03-Programme/agenda.md",
+        "size_kb": 2.5,
+        "age_days": 0,
+        "sha8": "03e6b24f"
+      },
+      {
+        "path": ".claude/configs/skills/redistribute-memory/SKILL.md",
+        "size_kb": 2.5,
+        "age_days": 65,
+        "sha8": "74441ae1"
+      },
+      {
+        "path": "demo-roo-code/docs/MIGRATION.md",
+        "size_kb": 2.4,
+        "age_days": 224,
+        "sha8": "f7fadf5c"
+      },
+      {
+        "path": ".claude/configs/skills/git-sync/SKILL.md",
+        "size_kb": 2.4,
+        "age_days": 158,
+        "sha8": "04c8d090"
+      },
+      {
+        "path": ".claude/configs/skills/redistribute-memory/DEPLOYMENT.md",
+        "size_kb": 2.4,
+        "age_days": 65,
+        "sha8": "8fa8ccf7"
+      },
+      {
+        "path": ".claude/configs/agents/git-sync.md",
+        "size_kb": 2.3,
+        "age_days": 158,
+        "sha8": "845bcc02"
+      },
+      {
+        "path": "tests/test-encodage.md",
+        "size_kb": 2.2,
+        "age_days": 427,
+        "sha8": "32b40449"
+      },
+      {
+        "path": "tests/encoding/multi-language-encoding-tests/README.md",
+        "size_kb": 2.2,
+        "age_days": 253,
+        "sha8": "afd8ad19"
+      },
+      {
+        "path": "scripts/claude/README.md",
+        "size_kb": 2.2,
+        "age_days": 116,
+        "sha8": "0961a310"
+      },
+      {
+        "path": ".claude/configs/agents/test-runner.md",
+        "size_kb": 2.2,
+        "age_days": 158,
+        "sha8": "567ad058"
+      },
+      {
+        "path": "mcps/CORRECTIONS.md",
+        "size_kb": 2.1,
+        "age_days": 430,
+        "sha8": "bf668e07"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-2-reseaux-sociaux/workspace/README.md",
+        "size_kb": 2.0,
+        "age_days": 224,
+        "sha8": "6e0f3a4e"
+      },
+      {
+        "path": "scripts/encoding/README.md",
+        "size_kb": 1.9,
+        "age_days": 281,
+        "sha8": "edb39d8f"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-1-architecture/workspace/README.md",
+        "size_kb": 1.9,
+        "age_days": 224,
+        "sha8": "ff6d51af"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-2-recherche/README.md",
+        "size_kb": 1.9,
+        "age_days": 224,
+        "sha8": "460c5951"
+      },
+      {
+        "path": "mcps/external/markitdown/CONFIGURATION.md",
+        "size_kb": 1.8,
+        "age_days": 315,
+        "sha8": "3c817bef"
+      },
+      {
+        "path": "mcps/external/playwright/CONFIGURATION.md",
+        "size_kb": 1.8,
+        "age_days": 315,
+        "sha8": "6c0c544e"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-1-architecture/README.md",
+        "size_kb": 1.8,
+        "age_days": 224,
+        "sha8": "78dee65a"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-2-reseaux-sociaux/README.md",
+        "size_kb": 1.8,
+        "age_days": 224,
+        "sha8": "6a88487b"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-1-planification/README.md",
+        "size_kb": 1.8,
+        "age_days": 224,
+        "sha8": "95cf3ef9"
+      },
+      {
+        "path": "scripts/diagnostic/README.md",
+        "size_kb": 1.7,
+        "age_days": 329,
+        "sha8": "0b181542"
+      },
+      {
+        "path": "scripts/setup/README.md",
+        "size_kb": 1.7,
+        "age_days": 329,
+        "sha8": "1111cfa2"
+      },
+      {
+        "path": "scripts/validation/README.md",
+        "size_kb": 1.7,
+        "age_days": 329,
+        "sha8": "c9823b45"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/README.md",
+        "size_kb": 1.7,
+        "age_days": 224,
+        "sha8": "bc5376fb"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-2-documentation/workspace/README.md",
+        "size_kb": 1.7,
+        "age_days": 224,
+        "sha8": "67b76e1f"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-2-presentation/README.md",
+        "size_kb": 1.7,
+        "age_days": 224,
+        "sha8": "d7353328"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-3-communication/README.md",
+        "size_kb": 1.7,
+        "age_days": 224,
+        "sha8": "9485cc51"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/demo-2-documentation/README.md",
+        "size_kb": 1.6,
+        "age_days": 224,
+        "sha8": "1161e7bd"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-1-web/README.md",
+        "size_kb": 1.6,
+        "age_days": 224,
+        "sha8": "a35f4730"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-1-analyse/README.md",
+        "size_kb": 1.6,
+        "age_days": 224,
+        "sha8": "5765d5b5"
+      },
+      {
+        "path": "scripts/roosync/production-tests/PRODUCTION-TEST-REPORT-TEMPLATE.md",
+        "size_kb": 1.5,
+        "age_days": 227,
+        "sha8": "711998ec"
+      },
+      {
+        "path": "mcps/external/git/server/CHANGELOG.md",
+        "size_kb": 1.5,
+        "age_days": 425,
+        "sha8": "7e82f70f"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "a707efa5"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "efe48801"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "3b5578fc"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/04-Communication/modele-invitation.md",
+        "size_kb": 1.5,
+        "age_days": 0,
+        "sha8": "267babe6"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/demo-1-web/workspace/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "270103d0"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-3-communication/workspace/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "4ac01556"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-2-presentation/workspace/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "4b3465ed"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/demo-1-analyse/workspace/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "d6b520a6"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-2-vision/workspace/README.md",
+        "size_kb": 1.5,
+        "age_days": 224,
+        "sha8": "e6772ae0"
+      },
+      {
+        "path": ".claude/configs/agents/code-explorer.md",
+        "size_kb": 1.4,
+        "age_days": 158,
+        "sha8": "5fe52283"
+      },
+      {
+        "path": ".claude/configs/rules/sddd-protocol.md",
+        "size_kb": 1.4,
+        "age_days": 105,
+        "sha8": "be3417c4"
+      },
+      {
+        "path": "tests/results/escalation-matrix-20250516-094558.md",
+        "size_kb": 1.3,
+        "age_days": 425,
+        "sha8": "c316704a"
+      },
+      {
+        "path": "demo-roo-code/docs/README.md",
+        "size_kb": 1.3,
+        "age_days": 224,
+        "sha8": "7477122b"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-2-recherche/workspace/README.md",
+        "size_kb": 1.3,
+        "age_days": 224,
+        "sha8": "263accaa"
+      },
+      {
+        "path": ".github/ISSUE_TEMPLATE/harness-change.md",
+        "size_kb": 1.3,
+        "age_days": 135,
+        "sha8": "92e2ab0c"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/demo-1-planification/workspace/README.md",
+        "size_kb": 1.2,
+        "age_days": 224,
+        "sha8": "853eecc4"
+      },
+      {
+        "path": ".claude/configs/commands/switch-provider.md",
+        "size_kb": 1.2,
+        "age_days": 68,
+        "sha8": "7c1dd99c"
+      },
+      {
+        "path": "mcps/external/README.md",
+        "size_kb": 1.1,
+        "age_days": 425,
+        "sha8": "e2386f3f"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/workspace/README.md",
+        "size_kb": 1.1,
+        "age_days": 224,
+        "sha8": "38455fd7"
+      },
+      {
+        "path": "demo-roo-code/05-projets-avances/automatisation/test-evenement/Conférence Tech 2025/README.md",
+        "size_kb": 1.1,
+        "age_days": 0,
+        "sha8": "21fccef3"
+      },
+      {
+        "path": "demo-roo-code/04-creation-contenu/workspace/README.md",
+        "size_kb": 1.1,
+        "age_days": 224,
+        "sha8": "b171929c"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/demo-1-conversation/workspace/README.md",
+        "size_kb": 1.1,
+        "age_days": 224,
+        "sha8": "7add1496"
+      },
+      {
+        "path": ".claude/configs/commands/debrief.md",
+        "size_kb": 1.1,
+        "age_days": 158,
+        "sha8": "038c72b0"
+      },
+      {
+        "path": "tests/mcp-structure/output/report.md",
+        "size_kb": 1.0,
+        "age_days": 433,
+        "sha8": "2c812464"
+      },
+      {
+        "path": "scripts/maintenance/reports/maintenance-report-20250821-004614.md",
+        "size_kb": 1.0,
+        "age_days": 228,
+        "sha8": "3b53eb9a"
+      },
+      {
+        "path": "demo-roo-code/03-assistant-pro/workspace/README.md",
+        "size_kb": 1.0,
+        "age_days": 224,
+        "sha8": "e493f4ba"
+      },
+      {
+        "path": "demo-roo-code/02-orchestration-taches/workspace/README.md",
+        "size_kb": 1.0,
+        "age_days": 224,
+        "sha8": "0d31d81b"
+      },
+      {
+        "path": "demo-roo-code/01-decouverte/workspace/README.md",
+        "size_kb": 1.0,
+        "age_days": 224,
+        "sha8": "6d4f6b9e"
+      },
+      {
+        "path": "tests/git-mcp/README.md",
+        "size_kb": 0.7,
+        "age_days": 421,
+        "sha8": "dee0e8ff"
+      },
+      {
+        "path": "tests/results/environment-check-20250515-155044.md",
+        "size_kb": 0.6,
+        "age_days": 425,
+        "sha8": "7c1ebd28"
+      },
+      {
+        "path": ".claude/configs/rules/file-writing.md",
+        "size_kb": 0.6,
+        "age_days": 50,
+        "sha8": "fac1c4a6"
+      },
+      {
+        "path": "mcps/cleanup-log.md",
+        "size_kb": 0.5,
+        "age_days": 424,
+        "sha8": "dfd16060"
+      },
+      {
+        "path": "scripts/mcp/README.md",
+        "size_kb": 0.4,
+        "age_days": 329,
+        "sha8": "3c9136ab"
+      },
+      {
+        "path": "mcps/external/markitdown/README.md",
+        "size_kb": 0.3,
+        "age_days": 364,
+        "sha8": "478d7d89"
+      },
+      {
+        "path": "tests/mcp/quickfiles-uat-test/test2.md",
+        "size_kb": 0.2,
+        "age_days": 286,
+        "sha8": "31e6104d"
+      },
+      {
+        "path": "scripts/audit/README.md",
+        "size_kb": 0.2,
+        "age_days": 329,
+        "sha8": "3cda7b45"
+      },
+      {
+        "path": "scripts/messaging/12-rapport-final-mission-messagerie.md",
+        "size_kb": 0.0,
+        "age_days": 274,
+        "sha8": "da39a3ee"
+      }
+    ],
+    "roo-other": [
+      {
+        "path": ".roo/scheduler-workflow-executor.md",
+        "size_kb": 22.5,
+        "age_days": 47,
+        "sha8": "fb984277"
+      },
+      {
+        "path": ".roo/scheduler-workflow-meta-analyst.md",
+        "size_kb": 16.5,
+        "age_days": 83,
+        "sha8": "6db6b887"
+      },
+      {
+        "path": ".roo/scheduler-workflow-coordinator.md",
+        "size_kb": 15.5,
+        "age_days": 28,
+        "sha8": "9a7fd90f"
+      },
+      {
+        "path": ".roo/scheduler-workflow-shared.md",
+        "size_kb": 10.6,
+        "age_days": 69,
+        "sha8": "c0c9eab2"
+      },
+      {
+        "path": ".roo/README.md",
+        "size_kb": 5.2,
+        "age_days": 81,
+        "sha8": "1caf944c"
+      },
+      {
+        "path": ".roo/scheduler-workflow.md",
+        "size_kb": 4.2,
+        "age_days": 82,
+        "sha8": "b7513d5a"
+      },
+      {
+        "path": ".roo/rules-orchestrator/rules.md",
+        "size_kb": 0.9,
+        "age_days": 127,
+        "sha8": "8a461c1a"
+      }
+    ],
+    "docs-other": [
+      {
+        "path": "docs/architecture/roosync-real-diff-detection-design.md",
+        "size_kb": 82.5,
+        "age_days": 47,
+        "sha8": "a40077b4"
+      },
+      {
+        "path": "docs/architecture/roo-state-manager-parsing-refactoring.md",
+        "size_kb": 57.4,
+        "age_days": 47,
+        "sha8": "2693100c"
+      },
+      {
+        "path": "docs/architecture/message-to-skeleton-transformer.md",
+        "size_kb": 49.6,
+        "age_days": 290,
+        "sha8": "d66aa7bc"
+      },
+      {
+        "path": "docs/knowledge/WORKSPACE_KNOWLEDGE.md",
+        "size_kb": 45.1,
+        "age_days": 81,
+        "sha8": "059859a4"
+      },
+      {
+        "path": "docs/roo-code/architecture/context-condensation-system.md",
+        "size_kb": 31.6,
+        "age_days": 47,
+        "sha8": "7ec5c2d8"
+      },
+      {
+        "path": "docs/investigation/openclaw-containerized-deployment-ai01.md",
+        "size_kb": 30.4,
+        "age_days": 108,
+        "sha8": "75e53ae4"
+      },
+      {
+        "path": "docs/INDEX.md",
+        "size_kb": 29.2,
+        "age_days": 28,
+        "sha8": "b587098a"
+      },
+      {
+        "path": "docs/guides/guide-complet-modes-roo.md",
+        "size_kb": 26.6,
+        "age_days": 47,
+        "sha8": "a2245ad1"
+      },
+      {
+        "path": "docs/investigation/claw-ecosystem-comparison.md",
+        "size_kb": 25.6,
+        "age_days": 35,
+        "sha8": "50699329"
+      },
+      {
+        "path": "docs/roo-code/contributing/add-condensation-provider.md",
+        "size_kb": 25.5,
+        "age_days": 47,
+        "sha8": "4051a36b"
+      },
+      {
+        "path": "docs/guides/TROUBLESHOOTING-GUIDE.md",
+        "size_kb": 24.8,
+        "age_days": 47,
+        "sha8": "b9d7a5c9"
+      },
+      {
+        "path": "docs/sk-agent/EXPLOITATION_REPORT_485.md",
+        "size_kb": 24.7,
+        "age_days": 142,
+        "sha8": "b4220b43"
+      },
+      {
+        "path": "docs/architecture/scheduler-claude-code-design.md",
+        "size_kb": 23.5,
+        "age_days": 152,
+        "sha8": "8ed5d867"
+      },
+      {
+        "path": "docs/architecture/investigations/investigation-461-phase1.md",
+        "size_kb": 22.9,
+        "age_days": 156,
+        "sha8": "42b3ceea"
+      },
+      {
+        "path": "docs/guides/MCPs-INSTALLATION-GUIDE.md",
+        "size_kb": 22.7,
+        "age_days": 47,
+        "sha8": "fb888b5c"
+      },
+      {
+        "path": "docs/scheduler-workflow.md",
+        "size_kb": 22.1,
+        "age_days": 35,
+        "sha8": "eb16cd4d"
+      },
+      {
+        "path": "docs/guides/vscode-extension-debug-powershell-configuration.md",
+        "size_kb": 21.1,
+        "age_days": 273,
+        "sha8": "f01041a7"
+      },
+      {
+        "path": "docs/architecture/scheduler-pilot-deployment-guide.md",
+        "size_kb": 18.5,
+        "age_days": 152,
+        "sha8": "de04e425"
+      },
+      {
+        "path": "docs/dev/debugging/mcp_settings_corruption_bug.md",
+        "size_kb": 18.3,
+        "age_days": 47,
+        "sha8": "1d1c6a08"
+      },
+      {
+        "path": "docs/investigation/oh-my-claudecode-evaluation.md",
+        "size_kb": 17.9,
+        "age_days": 47,
+        "sha8": "2dcf559a"
+      },
+      {
+        "path": "docs/sk-agent/EXPLOITATION_REPORT_PHASE1-3.md",
+        "size_kb": 17.5,
+        "age_days": 141,
+        "sha8": "83324388"
+      },
+      {
+        "path": "docs/_archive/v2.1/GUIDE_UTILISATION_ROOSYNC.md",
+        "size_kb": 17.5,
+        "age_days": 81,
+        "sha8": "125a1e31"
+      },
+      {
+        "path": "docs/guides/guide-utilisation-profils-modes.md",
+        "size_kb": 16.7,
+        "age_days": 47,
+        "sha8": "5aef5062"
+      },
+      {
+        "path": "docs/audit/roo-state-manager-tools-usage-2026-05-08.md",
+        "size_kb": 16.2,
+        "age_days": 73,
+        "sha8": "f4823f42"
+      },
+      {
+        "path": "docs/guides/guide-utilisation-mcps.md",
+        "size_kb": 16.2,
+        "age_days": 430,
+        "sha8": "2a4c3e56"
+      },
+      {
+        "path": "docs/architecture/roo-state-manager-architecture.md",
+        "size_kb": 15.9,
+        "age_days": 47,
+        "sha8": "36e3da3b"
+      },
+      {
+        "path": "docs/dev/testing/roosync-e2e-test-plan.md",
+        "size_kb": 15.7,
+        "age_days": 161,
+        "sha8": "0ceb0733"
+      },
+      {
+        "path": "docs/architecture/hermes-bootstrap.md",
+        "size_kb": 14.9,
+        "age_days": 35,
+        "sha8": "00cdd521"
+      },
+      {
+        "path": "docs/architecture/unified-task-extraction-architecture.md",
+        "size_kb": 14.8,
+        "age_days": 96,
+        "sha8": "12044f12"
+      },
+      {
+        "path": "docs/testing/issue-564-phase1-inventory.md",
+        "size_kb": 14.3,
+        "age_days": 136,
+        "sha8": "bb99ccb5"
+      },
+      {
+        "path": "docs/architecture/ARCHITECTURE_2_NIVEAUX.md",
+        "size_kb": 13.7,
+        "age_days": 47,
+        "sha8": "224bfa62"
+      },
+      {
+        "path": "docs/architecture/team-pipeline-OMC-extraction.md",
+        "size_kb": 13.5,
+        "age_days": 81,
+        "sha8": "975e5aa4"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-03-27.md",
+        "size_kb": 13.5,
+        "age_days": 88,
+        "sha8": "390c094a"
+      },
+      {
+        "path": "docs/analysis/mcp-usage-patterns-2026-02.md",
+        "size_kb": 13.2,
+        "age_days": 143,
+        "sha8": "e7041ad6"
+      },
+      {
+        "path": "docs/roo-code/adr/004-template-method-pattern-in-base-provider.md",
+        "size_kb": 13.2,
+        "age_days": 47,
+        "sha8": "43fc87d1"
+      },
+      {
+        "path": "docs/design/claudish-phase1-design.md",
+        "size_kb": 12.7,
+        "age_days": 70,
+        "sha8": "58e0a7b4"
+      },
+      {
+        "path": "docs/guides/guide-utilisation-mcp-jupyter.md",
+        "size_kb": 12.3,
+        "age_days": 281,
+        "sha8": "eae5227e"
+      },
+      {
+        "path": "docs/cleanup/CONSOLIDATION-PLAN-EPIC-2639.md",
+        "size_kb": 12.1,
+        "age_days": 28,
+        "sha8": "6c5fbc98"
+      },
+      {
+        "path": "docs/sk-agent/EXPLOITATION_REPORT_2026-03-01.md",
+        "size_kb": 12.1,
+        "age_days": 141,
+        "sha8": "c2bcf675"
+      },
+      {
+        "path": "docs/architecture/scheduler-optimization-proposals.md",
+        "size_kb": 12.0,
+        "age_days": 152,
+        "sha8": "27e85aed"
+      },
+      {
+        "path": "docs/guides/MCP-TROUBLESHOOTING-UNIFIED.md",
+        "size_kb": 11.9,
+        "age_days": 47,
+        "sha8": "c83e22ce"
+      },
+      {
+        "path": "docs/dev/archive-configuration/guide-configuration-mcps.md",
+        "size_kb": 11.7,
+        "age_days": 154,
+        "sha8": "6275c376"
+      },
+      {
+        "path": "docs/architecture/repository-map.md",
+        "size_kb": 11.6,
+        "age_days": 80,
+        "sha8": "c0794eac"
+      },
+      {
+        "path": "docs/mcps/INDEX.md",
+        "size_kb": 11.6,
+        "age_days": 35,
+        "sha8": "9f74998b"
+      },
+      {
+        "path": "docs/investigation/unified-model-router.md",
+        "size_kb": 11.5,
+        "age_days": 84,
+        "sha8": "678010af"
+      },
+      {
+        "path": "docs/_archive/v2.1/GUIDE_SIMPLIFICATION_BASELINES_V3.md",
+        "size_kb": 11.5,
+        "age_days": 81,
+        "sha8": "592d46cc"
+      },
+      {
+        "path": "docs/nanoclaw/NANOCLAW_ROOSYNC_BRIDGE.md",
+        "size_kb": 10.9,
+        "age_days": 35,
+        "sha8": "60dc7af2"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-20260326.md",
+        "size_kb": 10.9,
+        "age_days": 88,
+        "sha8": "d069586a"
+      },
+      {
+        "path": "docs/dev/indexation/repair-detectWorkspaceForTask-20251020.md",
+        "size_kb": 10.4,
+        "age_days": 47,
+        "sha8": "18a6e6ae"
+      },
+      {
+        "path": "docs/architecture/scheduling-claude-code.md",
+        "size_kb": 10.2,
+        "age_days": 161,
+        "sha8": "8293dae0"
+      },
+      {
+        "path": "docs/cleanup/CONSOLIDATION-MCP-DEPRECATED-PROOF.md",
+        "size_kb": 9.9,
+        "age_days": 27,
+        "sha8": "f1afe8e1"
+      },
+      {
+        "path": "docs/dev/fixes/PHASE3-PERSISTENCE-FIX-20251024.md",
+        "size_kb": 9.8,
+        "age_days": 47,
+        "sha8": "8ef7a998"
+      },
+      {
+        "path": "docs/audit/REMEDIATION_STEPS_572.md",
+        "size_kb": 9.7,
+        "age_days": 136,
+        "sha8": "1e2ce3ca"
+      },
+      {
+        "path": "docs/analysis/reddit-3-agent-vs-roosync-cluster.md",
+        "size_kb": 9.6,
+        "age_days": 35,
+        "sha8": "7528c990"
+      },
+      {
+        "path": "docs/sk-agent/PHASE_4_IMPLEMENTATION_REPORT.md",
+        "size_kb": 9.6,
+        "age_days": 142,
+        "sha8": "0aa7ccf5"
+      },
+      {
+        "path": "docs/mcp-audit-report-1401.md",
+        "size_kb": 9.5,
+        "age_days": 92,
+        "sha8": "7327bd36"
+      },
+      {
+        "path": "docs/architecture/ROO_TASK_FORENSICS_2026-02-08.md",
+        "size_kb": 9.5,
+        "age_days": 161,
+        "sha8": "aa729fb8"
+      },
+      {
+        "path": "docs/dev/refactoring/02-phase1-completion-report.md",
+        "size_kb": 9.5,
+        "age_days": 161,
+        "sha8": "9a5d8ccc"
+      },
+      {
+        "path": "docs/suivi/ISSUE-543-SESSION-SUMMARY.md",
+        "size_kb": 9.4,
+        "age_days": 141,
+        "sha8": "465d6662"
+      },
+      {
+        "path": "docs/git-notification-maintenance.md",
+        "size_kb": 9.3,
+        "age_days": 123,
+        "sha8": "6d609021"
+      },
+      {
+        "path": "docs/dev/sk-agent-enhancement-485.md",
+        "size_kb": 9.3,
+        "age_days": 142,
+        "sha8": "050d7c93"
+      },
+      {
+        "path": "docs/roo-code/roo-scheduler-direct-config-guide.md",
+        "size_kb": 9.0,
+        "age_days": 180,
+        "sha8": "5030471b"
+      },
+      {
+        "path": "docs/roo-code/INDEXING_ARCHITECTURE.md",
+        "size_kb": 8.9,
+        "age_days": 158,
+        "sha8": "34c0735a"
+      },
+      {
+        "path": "docs/suivi/monitoring/daily-monitoring-system.md",
+        "size_kb": 8.6,
+        "age_days": 161,
+        "sha8": "523ef053"
+      },
+      {
+        "path": "docs/roo-code/roo-scheduler-analysis.md",
+        "size_kb": 8.4,
+        "age_days": 77,
+        "sha8": "5c1402f8"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-03-28.md",
+        "size_kb": 8.3,
+        "age_days": 88,
+        "sha8": "f07c567e"
+      },
+      {
+        "path": "docs/investigation/free-tier-audit-2026-05.md",
+        "size_kb": 8.2,
+        "age_days": 67,
+        "sha8": "1822f0fd"
+      },
+      {
+        "path": "docs/guides/procedures-maintenance.md",
+        "size_kb": 7.9,
+        "age_days": 281,
+        "sha8": "7794b7be"
+      },
+      {
+        "path": "docs/testing/issue-564-phase1-audit-report.md",
+        "size_kb": 7.8,
+        "age_days": 131,
+        "sha8": "4b0cd2be"
+      },
+      {
+        "path": "docs/architecture/proposals/todo1-get-nexttask-impl.md",
+        "size_kb": 7.8,
+        "age_days": 156,
+        "sha8": "9689b27b"
+      },
+      {
+        "path": "docs/guides/jupyter-papermill-execution.md",
+        "size_kb": 7.7,
+        "age_days": 38,
+        "sha8": "88187b35"
+      },
+      {
+        "path": "docs/sk-agent/AGENT_INVENTORY.md",
+        "size_kb": 7.7,
+        "age_days": 27,
+        "sha8": "cee25103"
+      },
+      {
+        "path": "docs/roo-code/race-condition-manual-verification.md",
+        "size_kb": 7.6,
+        "age_days": 291,
+        "sha8": "5c1fac67"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/features/optimized-task-navigation.md",
+        "size_kb": 7.6,
+        "age_days": 360,
+        "sha8": "8d2dd117"
+      },
+      {
+        "path": "docs/suivi/monitoring/mcp-debug-logging-system.md",
+        "size_kb": 7.4,
+        "age_days": 161,
+        "sha8": "573e0ddd"
+      },
+      {
+        "path": "docs/dev/testing/TEST_STRATEGY.md",
+        "size_kb": 7.3,
+        "age_days": 161,
+        "sha8": "2ed995da"
+      },
+      {
+        "path": "docs/suivi/monitoring/daily-monitoring-implementation-report.md",
+        "size_kb": 7.2,
+        "age_days": 161,
+        "sha8": "9a4fb131"
+      },
+      {
+        "path": "docs/cleanup/CONSOLIDATION-SCRIPTS-SUPERSEDED.md",
+        "size_kb": 7.1,
+        "age_days": 27,
+        "sha8": "3e50ab66"
+      },
+      {
+        "path": "docs/deployment/scheduler-modes-deployment-guide.md",
+        "size_kb": 7.0,
+        "age_days": 161,
+        "sha8": "21febfcd"
+      },
+      {
+        "path": "docs/guides/guide-exploration-prompts-natifs.md",
+        "size_kb": 6.9,
+        "age_days": 281,
+        "sha8": "7611fae1"
+      },
+      {
+        "path": "docs/roo-code/send-message-flow-analysis.md",
+        "size_kb": 6.8,
+        "age_days": 291,
+        "sha8": "fe540b6c"
+      },
+      {
+        "path": "docs/validation/semantic-search-validation-myia-ai-01.md",
+        "size_kb": 6.8,
+        "age_days": 122,
+        "sha8": "bb3999ab"
+      },
+      {
+        "path": "docs/evaluation/qwen-3.5-35b-a3b-evaluation-536.md",
+        "size_kb": 6.7,
+        "age_days": 145,
+        "sha8": "eac95b8a"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/report-2026-04-22.md",
+        "size_kb": 6.7,
+        "age_days": 88,
+        "sha8": "3e8ccf1a"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-04-04.md",
+        "size_kb": 6.7,
+        "age_days": 88,
+        "sha8": "70cf1972"
+      },
+      {
+        "path": "docs/roo-code/roo-scheduler-installation-guide.md",
+        "size_kb": 6.6,
+        "age_days": 180,
+        "sha8": "896a0773"
+      },
+      {
+        "path": "docs/roo-code/SCHEDULED_COORDINATOR.md",
+        "size_kb": 6.6,
+        "age_days": 17,
+        "sha8": "397f93ee"
+      },
+      {
+        "path": "docs/suivi/audit-disque-web1-2026-04-28.md",
+        "size_kb": 6.6,
+        "age_days": 82,
+        "sha8": "599aebd8"
+      },
+      {
+        "path": "docs/roo-code/adr/001-registry-pattern-over-plugin-system.md",
+        "size_kb": 6.6,
+        "age_days": 291,
+        "sha8": "4a6c2be2"
+      },
+      {
+        "path": "docs/qdrant/backup-layer-1.md",
+        "size_kb": 6.5,
+        "age_days": 43,
+        "sha8": "9b77ec50"
+      },
+      {
+        "path": "docs/scheduler/copilot-roostate-v3-plan.md",
+        "size_kb": 6.5,
+        "age_days": 94,
+        "sha8": "1ae8d84c"
+      },
+      {
+        "path": "docs/services/ConfigSharingService.md",
+        "size_kb": 6.5,
+        "age_days": 146,
+        "sha8": "2aad5e3f"
+      },
+      {
+        "path": "docs/suivi/RAPPORT-BUG-CRITIQUE-QUICKFILES.md",
+        "size_kb": 6.5,
+        "age_days": 161,
+        "sha8": "3aae128a"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/harnais-analysis.md",
+        "size_kb": 6.4,
+        "age_days": 88,
+        "sha8": "ef5f550d"
+      },
+      {
+        "path": "docs/knowledge/MEMORY-AUTO-INJECTION.md",
+        "size_kb": 6.2,
+        "age_days": 25,
+        "sha8": "dde46044"
+      },
+      {
+        "path": "docs/deployment/scheduler-issues-fixes.md",
+        "size_kb": 6.1,
+        "age_days": 161,
+        "sha8": "90260bf2"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/features/task-tree-navigation.md",
+        "size_kb": 6.1,
+        "age_days": 358,
+        "sha8": "946ba8a6"
+      },
+      {
+        "path": "docs/dev/debugging/task_hierarchy_complete.md",
+        "size_kb": 6.1,
+        "age_days": 161,
+        "sha8": "6111b54a"
+      },
+      {
+        "path": "docs/github/pr-review-enforcement-implementation.md",
+        "size_kb": 6.0,
+        "age_days": 108,
+        "sha8": "412fe2fc"
+      },
+      {
+        "path": "docs/guides/CODEBASE_SEARCH_GUIDE.md",
+        "size_kb": 6.0,
+        "age_days": 153,
+        "sha8": "9fc2a26e"
+      },
+      {
+        "path": "docs/roo-code/message-editor-fix-summary.md",
+        "size_kb": 5.9,
+        "age_days": 291,
+        "sha8": "64413902"
+      },
+      {
+        "path": "docs/services/GranularDiffDetector.md",
+        "size_kb": 5.9,
+        "age_days": 146,
+        "sha8": "f3a8cee7"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/META-ANALYSIS-SYNTHESIS.md",
+        "size_kb": 5.9,
+        "age_days": 88,
+        "sha8": "0f3f0741"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-03-30.md",
+        "size_kb": 5.9,
+        "age_days": 88,
+        "sha8": "122b1089"
+      },
+      {
+        "path": "docs/sk-agent/VALIDATION_SUMMARY_#645.md",
+        "size_kb": 5.8,
+        "age_days": 27,
+        "sha8": "e934ebb3"
+      },
+      {
+        "path": "docs/suivi/issue-543-final-report.md",
+        "size_kb": 5.8,
+        "age_days": 139,
+        "sha8": "de8a73e3"
+      },
+      {
+        "path": "docs/roo-code/adr/002-singleton-pattern-for-manager-and-registry.md",
+        "size_kb": 5.8,
+        "age_days": 47,
+        "sha8": "4f717148"
+      },
+      {
+        "path": "docs/analysis/2026-05_preflight_miss_investigation.md",
+        "size_kb": 5.7,
+        "age_days": 60,
+        "sha8": "8594f4ec"
+      },
+      {
+        "path": "docs/roo-code/message-editor-pr-description.md",
+        "size_kb": 5.6,
+        "age_days": 47,
+        "sha8": "46386a8a"
+      },
+      {
+        "path": "docs/roo-code/PLAN-IMPLEMENTATION-MIGRATION-UI.md",
+        "size_kb": 5.6,
+        "age_days": 47,
+        "sha8": "98625448"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-03-29.md",
+        "size_kb": 5.6,
+        "age_days": 88,
+        "sha8": "5f827296"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/project-plan.md",
+        "size_kb": 5.6,
+        "age_days": 358,
+        "sha8": "9a49927c"
+      },
+      {
+        "path": "docs/scheduling/DEPLOYMENT_GUIDE.md",
+        "size_kb": 5.5,
+        "age_days": 116,
+        "sha8": "e82f16eb"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/features/granular-indexing-strategy.md",
+        "size_kb": 5.5,
+        "age_days": 358,
+        "sha8": "80109671"
+      },
+      {
+        "path": "docs/suivi/monitoring/scheduled-tasks/settings_sync_procedure.md",
+        "size_kb": 5.4,
+        "age_days": 161,
+        "sha8": "9bc0914c"
+      },
+      {
+        "path": "docs/dev/refactoring/COMPLEXITY-REFACTORING-REPORT.md",
+        "size_kb": 5.4,
+        "age_days": 161,
+        "sha8": "abfdd880"
+      },
+      {
+        "path": "docs/suivi/RooSync/ANALYSE-#486-skills-agents.md",
+        "size_kb": 5.3,
+        "age_days": 152,
+        "sha8": "0885a52b"
+      },
+      {
+        "path": "docs/dev/WORKTREE-WORKFLOW.md",
+        "size_kb": 4.8,
+        "age_days": 161,
+        "sha8": "011a1dfb"
+      },
+      {
+        "path": "docs/guides/README.md",
+        "size_kb": 4.8,
+        "age_days": 222,
+        "sha8": "79918ea9"
+      },
+      {
+        "path": "docs/ops/docker-wsl-watchdog.md",
+        "size_kb": 4.8,
+        "age_days": 92,
+        "sha8": "42e3a41c"
+      },
+      {
+        "path": "docs/services/sk-agent-deployment.md",
+        "size_kb": 4.8,
+        "age_days": 27,
+        "sha8": "f4d81ee9"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/traces-roo-analysis.md",
+        "size_kb": 4.8,
+        "age_days": 88,
+        "sha8": "3de3c48d"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/features/semantic-task-search.md",
+        "size_kb": 4.8,
+        "age_days": 360,
+        "sha8": "9d112ccc"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/technical-audit/e2e-qdrant-connection-issue.md",
+        "size_kb": 4.8,
+        "age_days": 360,
+        "sha8": "a2e7f4d1"
+      },
+      {
+        "path": "docs/dev/maintenance/GUIDE_HOOKS_GIT_RESOLUTION.md",
+        "size_kb": 4.8,
+        "age_days": 47,
+        "sha8": "070b76ab"
+      },
+      {
+        "path": "docs/roo-code/message-editor-pr-guide.md",
+        "size_kb": 4.7,
+        "age_days": 291,
+        "sha8": "0cecab73"
+      },
+      {
+        "path": "docs/roo-code/SCHEDULER_DENSIFICATION.md",
+        "size_kb": 4.7,
+        "age_days": 101,
+        "sha8": "c2118135"
+      },
+      {
+        "path": "docs/dev/debugging/get_task_tree_bug_analysis.md",
+        "size_kb": 4.7,
+        "age_days": 47,
+        "sha8": "bd7ed1c0"
+      },
+      {
+        "path": "docs/guides/BASH_FALLBACK.md",
+        "size_kb": 4.6,
+        "age_days": 134,
+        "sha8": "3f41facc"
+      },
+      {
+        "path": "docs/history/worker-reports/README.md",
+        "size_kb": 4.6,
+        "age_days": 92,
+        "sha8": "ed99d00e"
+      },
+      {
+        "path": "docs/roo-code/SCHEDULER_SYSTEM.md",
+        "size_kb": 4.5,
+        "age_days": 16,
+        "sha8": "2b842a36"
+      },
+      {
+        "path": "docs/deployment/DEPLOY-SCHEDULED-ROO.md",
+        "size_kb": 4.4,
+        "age_days": 161,
+        "sha8": "9dc153d7"
+      },
+      {
+        "path": "docs/mcp/TIMEOUT_AUDIT.md",
+        "size_kb": 4.4,
+        "age_days": 116,
+        "sha8": "14a6448d"
+      },
+      {
+        "path": "docs/nanoclaw/IMPLEMENTATION_CHECKLIST.md",
+        "size_kb": 4.4,
+        "age_days": 92,
+        "sha8": "17fbf7a9"
+      },
+      {
+        "path": "docs/audit/issue-603-baseline-2026-03-29.md",
+        "size_kb": 4.3,
+        "age_days": 112,
+        "sha8": "d62f5a46"
+      },
+      {
+        "path": "docs/audit/issue-603-lot-b-legacy-mapping.md",
+        "size_kb": 4.3,
+        "age_days": 104,
+        "sha8": "29ddfe1d"
+      },
+      {
+        "path": "docs/mcp-configuration.md",
+        "size_kb": 4.2,
+        "age_days": 47,
+        "sha8": "b58ba767"
+      },
+      {
+        "path": "docs/incidents/reboots-analysis-2026-05.md",
+        "size_kb": 4.2,
+        "age_days": 80,
+        "sha8": "d355a3f8"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/technical-audit/jest-module-resolution.md",
+        "size_kb": 4.2,
+        "age_days": 360,
+        "sha8": "6063e348"
+      },
+      {
+        "path": "docs/architecture/task-hierarchy-analysis-20251203.md",
+        "size_kb": 4.1,
+        "age_days": 161,
+        "sha8": "9eb72dea"
+      },
+      {
+        "path": "docs/roo-code/PROPOSITION-SOLUTION-UI.md",
+        "size_kb": 4.1,
+        "age_days": 304,
+        "sha8": "ea77f2fc"
+      },
+      {
+        "path": "docs/services/NarrativeContextBuilderService.md",
+        "size_kb": 4.0,
+        "age_days": 146,
+        "sha8": "3dadeb31"
+      },
+      {
+        "path": "docs/dev/archive-configuration/configuration-mcp-roo.md",
+        "size_kb": 4.0,
+        "age_days": 47,
+        "sha8": "179d7379"
+      },
+      {
+        "path": "docs/deployment/claudish-per-machine.md",
+        "size_kb": 3.9,
+        "age_days": 67,
+        "sha8": "68ea4560"
+      },
+      {
+        "path": "docs/guides/consolidated-task-management-guide.md",
+        "size_kb": 3.9,
+        "age_days": 281,
+        "sha8": "fdef74a1"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/report-2026-04-21.md",
+        "size_kb": 3.9,
+        "age_days": 88,
+        "sha8": "6d994fb6"
+      },
+      {
+        "path": "docs/deployment/GPU_SPECS_MULTI_MACHINE.md",
+        "size_kb": 3.8,
+        "age_days": 47,
+        "sha8": "afd2cce9"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/myia-po-2026-meta-analysis-2026-03-24.md",
+        "size_kb": 3.8,
+        "age_days": 88,
+        "sha8": "77ea49f2"
+      },
+      {
+        "path": "docs/history/worker-reports/DELEGATION.md",
+        "size_kb": 3.8,
+        "age_days": 92,
+        "sha8": "39d422eb"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/sessions-claude-analysis.md",
+        "size_kb": 3.6,
+        "age_days": 88,
+        "sha8": "7ff22c29"
+      },
+      {
+        "path": "docs/framework-multi-agent/TEMPLATE_WORKSPACE.md",
+        "size_kb": 3.5,
+        "age_days": 125,
+        "sha8": "a76cc4da"
+      },
+      {
+        "path": "docs/guides/GITHUB_CLI.md",
+        "size_kb": 3.5,
+        "age_days": 134,
+        "sha8": "bd4e7a92"
+      },
+      {
+        "path": "docs/guides/guide-synchronisation-submodules.md",
+        "size_kb": 3.5,
+        "age_days": 281,
+        "sha8": "79465314"
+      },
+      {
+        "path": "docs/suivi/RooSync/web1-jupyter-fix-instructions.md",
+        "size_kb": 3.5,
+        "age_days": 142,
+        "sha8": "95d823ba"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/roo-analysis-2026-04-07.md",
+        "size_kb": 3.5,
+        "age_days": 88,
+        "sha8": "e715d590"
+      },
+      {
+        "path": "docs/history/worker-reports/INDEX.md",
+        "size_kb": 3.5,
+        "age_days": 92,
+        "sha8": "0e785f5c"
+      },
+      {
+        "path": "docs/history/worker-reports/myia-po-2023/2026-04-17-scheduler-health-metrics-1442.md",
+        "size_kb": 3.4,
+        "age_days": 92,
+        "sha8": "41dbb326"
+      },
+      {
+        "path": "docs/services/HierarchyReconstructionEngine.md",
+        "size_kb": 3.3,
+        "age_days": 146,
+        "sha8": "41a1a075"
+      },
+      {
+        "path": "docs/sk-agent/validation-report-2026-03-19.md",
+        "size_kb": 3.3,
+        "age_days": 123,
+        "sha8": "acc3aa94"
+      },
+      {
+        "path": "docs/dev/archive-configuration/configuration-win-cli-operateurs.md",
+        "size_kb": 3.3,
+        "age_days": 161,
+        "sha8": "32a47a9b"
+      },
+      {
+        "path": "docs/architecture/DATA_STORAGE_POLICY.md",
+        "size_kb": 3.2,
+        "age_days": 223,
+        "sha8": "f382dda0"
+      },
+      {
+        "path": "docs/dev/precommit-hook.md",
+        "size_kb": 3.2,
+        "age_days": 161,
+        "sha8": "d3511a70"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/technical-audit/e2e-testing-architecture.md",
+        "size_kb": 3.2,
+        "age_days": 47,
+        "sha8": "9fa28355"
+      },
+      {
+        "path": "docs/hermes/DEPLOY.md",
+        "size_kb": 3.1,
+        "age_days": 80,
+        "sha8": "abbd674b"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/CLAUDE.md",
+        "size_kb": 3.1,
+        "age_days": 17,
+        "sha8": "d386e383"
+      },
+      {
+        "path": "docs/guides/user-guide/TROUBLESHOOTING.md",
+        "size_kb": 3.1,
+        "age_days": 161,
+        "sha8": "06fb8896"
+      },
+      {
+        "path": "docs/dev/testing/strategies-de-test.md",
+        "size_kb": 3.1,
+        "age_days": 161,
+        "sha8": "e6c1717c"
+      },
+      {
+        "path": "docs/sk-agent/claude-code-auto-approve.md",
+        "size_kb": 2.8,
+        "age_days": 57,
+        "sha8": "99807aaf"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/rapport-2026-04-22.md",
+        "size_kb": 2.8,
+        "age_days": 88,
+        "sha8": "81ef41de"
+      },
+      {
+        "path": "docs/dev/refactoring/01-cleanup-plan.md",
+        "size_kb": 2.8,
+        "age_days": 47,
+        "sha8": "ea6434f2"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/rules/hand-off-protocol.md",
+        "size_kb": 2.7,
+        "age_days": 17,
+        "sha8": "3052642a"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/agents/cluster-monitor.md",
+        "size_kb": 2.6,
+        "age_days": 80,
+        "sha8": "c4fdef93"
+      },
+      {
+        "path": "docs/guides/user-guide/README.md",
+        "size_kb": 2.6,
+        "age_days": 47,
+        "sha8": "6d142ae1"
+      },
+      {
+        "path": "docs/dev/encoding/README.md",
+        "size_kb": 2.6,
+        "age_days": 47,
+        "sha8": "f035f9c3"
+      },
+      {
+        "path": "docs/dev/encoding/troubleshooting-guide.md",
+        "size_kb": 2.5,
+        "age_days": 161,
+        "sha8": "5923ab3a"
+      },
+      {
+        "path": "docs/audit/issue-603-tool-inventory-2026-03-29.md",
+        "size_kb": 2.4,
+        "age_days": 112,
+        "sha8": "2d5ee601"
+      },
+      {
+        "path": "docs/scheduler/issue-copilot-v3-connectors.md",
+        "size_kb": 2.4,
+        "age_days": 133,
+        "sha8": "e4f733ec"
+      },
+      {
+        "path": "docs/suivi/RooSync/INDEX.md",
+        "size_kb": 2.4,
+        "age_days": 47,
+        "sha8": "895f1ce8"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/agents/task-router.md",
+        "size_kb": 2.4,
+        "age_days": 80,
+        "sha8": "9c1f3ee9"
+      },
+      {
+        "path": "docs/README.md",
+        "size_kb": 2.3,
+        "age_days": 88,
+        "sha8": "00e6cfa3"
+      },
+      {
+        "path": "docs/scheduler/scheduler-pilot-test-plan.md",
+        "size_kb": 2.2,
+        "age_days": 151,
+        "sha8": "550ad8c0"
+      },
+      {
+        "path": "docs/history/worker-reports/myia-po-2023/2026-04-16-test-coverage-analysis.md",
+        "size_kb": 2.2,
+        "age_days": 92,
+        "sha8": "d7552188"
+      },
+      {
+        "path": "docs/guides/user-guide/QUICK-START.md",
+        "size_kb": 2.2,
+        "age_days": 161,
+        "sha8": "387cc189"
+      },
+      {
+        "path": "docs/suivi/issue-572-audit-summary.md",
+        "size_kb": 2.1,
+        "age_days": 136,
+        "sha8": "c2076042"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/rules/routing-rules.md",
+        "size_kb": 2.1,
+        "age_days": 80,
+        "sha8": "b2c8e33a"
+      },
+      {
+        "path": "docs/mcps/mcp-timeouts-recommended.md",
+        "size_kb": 2.0,
+        "age_days": 116,
+        "sha8": "e3872891"
+      },
+      {
+        "path": "docs/audit/issue-603-lot-b-candidates-2026-03-29.md",
+        "size_kb": 1.9,
+        "age_days": 112,
+        "sha8": "7d008bdd"
+      },
+      {
+        "path": "docs/cleanup/orphan-branches-2026-05.md",
+        "size_kb": 1.9,
+        "age_days": 80,
+        "sha8": "5c02a829"
+      },
+      {
+        "path": "docs/dev/encoding/maintenance-procedures.md",
+        "size_kb": 1.9,
+        "age_days": 161,
+        "sha8": "20f80a1c"
+      },
+      {
+        "path": "docs/audit/protected-path-migration-2026-04-07.md",
+        "size_kb": 1.8,
+        "age_days": 104,
+        "sha8": "e1fd88e2"
+      },
+      {
+        "path": "docs/history/worker-reports/myia-po-2023/2026-04-16-test-coverage-improvement.md",
+        "size_kb": 1.7,
+        "age_days": 92,
+        "sha8": "80098c17"
+      },
+      {
+        "path": "docs/dev/encoding/quick-start-encoding.md",
+        "size_kb": 1.7,
+        "age_days": 47,
+        "sha8": "63b57e6b"
+      },
+      {
+        "path": "docs/suivi/monitoring/scheduled-tasks/README.md",
+        "size_kb": 1.6,
+        "age_days": 47,
+        "sha8": "f516878a"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/archives/2026-03/INDEX.md",
+        "size_kb": 1.6,
+        "age_days": 47,
+        "sha8": "5c8a439b"
+      },
+      {
+        "path": "docs/history/worker-reports/EXTRACTOR.md",
+        "size_kb": 1.6,
+        "age_days": 92,
+        "sha8": "163dda3b"
+      },
+      {
+        "path": "docs/history/worker-reports/myia-po-2023/2026-04-16-idle-worker-veille.md",
+        "size_kb": 1.6,
+        "age_days": 92,
+        "sha8": "86df0783"
+      },
+      {
+        "path": "docs/hermes/templates/.claude/commands/cluster-tour.md",
+        "size_kb": 1.5,
+        "age_days": 80,
+        "sha8": "a66dfac0"
+      },
+      {
+        "path": "docs/mcp/roo-state-manager/README.md",
+        "size_kb": 1.1,
+        "age_days": 130,
+        "sha8": "329284dc"
+      },
+      {
+        "path": "docs/scheduler/README.md",
+        "size_kb": 0.8,
+        "age_days": 47,
+        "sha8": "5e7df12c"
+      },
+      {
+        "path": "docs/services/README.md",
+        "size_kb": 0.7,
+        "age_days": 88,
+        "sha8": "f8b3e57d"
+      },
+      {
+        "path": "docs/suivi/project/project-status.md",
+        "size_kb": 0.6,
+        "age_days": 47,
+        "sha8": "d7f5d2bd"
+      },
+      {
+        "path": "docs/meta-analysis/myia-po-2026/README.md",
+        "size_kb": 0.6,
+        "age_days": 88,
+        "sha8": "7b224742"
+      },
+      {
+        "path": "docs/suivi/project/project-changelog.md",
+        "size_kb": 0.5,
+        "age_days": 161,
+        "sha8": "66cabc26"
+      },
+      {
+        "path": "docs/dev/archive-configuration/mcp_configuration_summary.md",
+        "size_kb": 0.5,
+        "age_days": 161,
+        "sha8": "5f467ee0"
+      },
+      {
+        "path": "docs/roo-code/PARSING_XML_ASSISTANT_MESSAGES.md",
+        "size_kb": 0.0,
+        "age_days": 277,
+        "sha8": "3f2b94f3"
+      }
+    ],
+    "roo-config": [
+      {
+        "path": "roo-config/specifications/multi-agent-system-safety.md",
+        "size_kb": 93.1,
+        "age_days": 47,
+        "sha8": "ca51c7d8"
+      },
+      {
+        "path": "roo-config/specifications/git-safety-source-control.md",
+        "size_kb": 53.8,
+        "age_days": 47,
+        "sha8": "b957cfaa"
+      },
+      {
+        "path": "roo-config/specifications/context-economy-patterns.md",
+        "size_kb": 49.6,
+        "age_days": 291,
+        "sha8": "2b2d7305"
+      },
+      {
+        "path": "roo-config/specifications/sddd-protocol-4-niveaux.md",
+        "size_kb": 48.9,
+        "age_days": 47,
+        "sha8": "3e7781c5"
+      },
+      {
+        "path": "roo-config/specifications/llm-modes-mapping.md",
+        "size_kb": 47.5,
+        "age_days": 47,
+        "sha8": "4fe77274"
+      },
+      {
+        "path": "roo-config/specifications/mcp-integrations-priority.md",
+        "size_kb": 43.8,
+        "age_days": 47,
+        "sha8": "3a0f8b34"
+      },
+      {
+        "path": "roo-config/specifications/hierarchie-numerotee-subtasks.md",
+        "size_kb": 43.1,
+        "age_days": 47,
+        "sha8": "782999bc"
+      },
+      {
+        "path": "roo-config/specifications/escalade-mechanisms-revised.md",
+        "size_kb": 41.9,
+        "age_days": 291,
+        "sha8": "a1e42e7d"
+      },
+      {
+        "path": "roo-config/specifications/factorisation-commons.md",
+        "size_kb": 29.6,
+        "age_days": 47,
+        "sha8": "31f92473"
+      },
+      {
+        "path": "roo-config/specifications/operational-best-practices.md",
+        "size_kb": 25.4,
+        "age_days": 47,
+        "sha8": "1d6db179"
+      },
+      {
+        "path": "roo-config/README.md",
+        "size_kb": 18.5,
+        "age_days": 162,
+        "sha8": "c0bb3d5d"
+      },
+      {
+        "path": "roo-config/local/roo-schedulable-status-report.md",
+        "size_kb": 7.8,
+        "age_days": 75,
+        "sha8": "086cc018"
+      },
+      {
+        "path": "roo-config/modes/templates/commons/mode-instructions.md",
+        "size_kb": 7.6,
+        "age_days": 69,
+        "sha8": "40ed8eb9"
+      },
+      {
+        "path": "roo-config/reports/script-deduplication-analysis.md",
+        "size_kb": 7.2,
+        "age_days": 75,
+        "sha8": "0f8f6d2d"
+      },
+      {
+        "path": "roo-config/modes/n5-system/CHANGELOG.md",
+        "size_kb": 5.9,
+        "age_days": 162,
+        "sha8": "8a66a87d"
+      },
+      {
+        "path": "roo-config/docs/PROTOCOLE-AJUSTEMENT-MODES.md",
+        "size_kb": 5.5,
+        "age_days": 162,
+        "sha8": "139908ad"
+      },
+      {
+        "path": "roo-config/settings/README.md",
+        "size_kb": 5.4,
+        "age_days": 162,
+        "sha8": "340abbef"
+      },
+      {
+        "path": "roo-config/mcp/README.md",
+        "size_kb": 4.7,
+        "age_days": 141,
+        "sha8": "65378a54"
+      },
+      {
+        "path": "roo-config/specifications/README.md",
+        "size_kb": 4.5,
+        "age_days": 162,
+        "sha8": "22bbe6e9"
+      },
+      {
+        "path": "roo-config/scheduler/prompts/orchestrator-scheduled.md",
+        "size_kb": 3.7,
+        "age_days": 89,
+        "sha8": "2a145c74"
+      },
+      {
+        "path": "roo-config/config-templates/README.md",
+        "size_kb": 2.0,
+        "age_days": 47,
+        "sha8": "22797c74"
+      },
+      {
+        "path": "roo-config/rules-global/01-sddd-escalade.md",
+        "size_kb": 2.0,
+        "age_days": 162,
+        "sha8": "aab31fd0"
+      },
+      {
+        "path": "roo-config/rules-global/03-vigilance-pratiques.md",
+        "size_kb": 1.9,
+        "age_days": 151,
+        "sha8": "ab1e8a2a"
+      },
+      {
+        "path": "roo-config/scheduler/README.md",
+        "size_kb": 1.9,
+        "age_days": 161,
+        "sha8": "d269841f"
+      },
+      {
+        "path": "roo-config/rules-global/00-securite.md",
+        "size_kb": 0.7,
+        "age_days": 162,
+        "sha8": "41f000d1"
+      },
+      {
+        "path": "roo-config/rules-global/02-terminal-environnement.md",
+        "size_kb": 0.7,
+        "age_days": 162,
+        "sha8": "d1acadc1"
+      }
+    ],
+    "harness-reference": [
+      {
+        "path": "docs/harness/adr/010-conversation-browser-gdrive-storage.md",
+        "size_kb": 30.0,
+        "age_days": 47,
+        "sha8": "0f34f9af"
+      },
+      {
+        "path": "docs/harness/coordinator-specific/pr-review-policy.md",
+        "size_kb": 22.2,
+        "age_days": 61,
+        "sha8": "58539de7"
+      },
+      {
+        "path": "docs/harness/reference/meta-analysis.md",
+        "size_kb": 18.1,
+        "age_days": 35,
+        "sha8": "939c21e4"
+      },
+      {
+        "path": "docs/harness/adr/008-heartbeat-redesign.md",
+        "size_kb": 18.0,
+        "age_days": 59,
+        "sha8": "acab4929"
+      },
+      {
+        "path": "docs/harness/adr/011-mcp-split-vibesync.md",
+        "size_kb": 16.5,
+        "age_days": 39,
+        "sha8": "0c17da7f"
+      },
+      {
+        "path": "docs/harness/reference/zoo-migration-runbook.md",
+        "size_kb": 14.9,
+        "age_days": 25,
+        "sha8": "a092a431"
+      },
+      {
+        "path": "docs/harness/reference/sddd-conversational-grounding.md",
+        "size_kb": 14.1,
+        "age_days": 32,
+        "sha8": "a32008a9"
+      },
+      {
+        "path": "docs/harness/design/skill-auto-injection.md",
+        "size_kb": 13.2,
+        "age_days": 80,
+        "sha8": "697a83d0"
+      },
+      {
+        "path": "docs/harness/reference/pi-agent-comparative-study.md",
+        "size_kb": 13.1,
+        "age_days": 37,
+        "sha8": "f5c7abc4"
+      },
+      {
+        "path": "docs/harness/investigations/2026-05-karpathy-rules-harvest.md",
+        "size_kb": 12.2,
+        "age_days": 78,
+        "sha8": "ca9f656a"
+      },
+      {
+        "path": "docs/harness/reports/cross-harness-analysis-2026-04-05.md",
+        "size_kb": 12.1,
+        "age_days": 82,
+        "sha8": "676cfe11"
+      },
+      {
+        "path": "docs/harness/adr/013-vibesync-phase2-target-dispatch.md",
+        "size_kb": 11.4,
+        "age_days": 39,
+        "sha8": "6ba9d4ac"
+      },
+      {
+        "path": "docs/harness/reference/github-reviewer-bot-feasibility.md",
+        "size_kb": 11.4,
+        "age_days": 92,
+        "sha8": "c320d3f8"
+      },
+      {
+        "path": "docs/harness/coordinator-specific/scheduled-coordinator.md",
+        "size_kb": 10.3,
+        "age_days": 17,
+        "sha8": "205b1a1a"
+      },
+      {
+        "path": "docs/harness/reference/roosync-tools-guide.md",
+        "size_kb": 9.3,
+        "age_days": 55,
+        "sha8": "63deb913"
+      },
+      {
+        "path": "docs/harness/reference/worktree-cleanup.md",
+        "size_kb": 8.8,
+        "age_days": 4,
+        "sha8": "efec0fe5"
+      },
+      {
+        "path": "docs/harness/reference/escalation-protocol.md",
+        "size_kb": 8.5,
+        "age_days": 4,
+        "sha8": "415fcc8e"
+      },
+      {
+        "path": "docs/harness/reference/wsl-docker-cascade-protocol.md",
+        "size_kb": 8.5,
+        "age_days": 97,
+        "sha8": "a58f8078"
+      },
+      {
+        "path": "docs/harness/coordinator-specific/meta-analyst-detailed.md",
+        "size_kb": 8.3,
+        "age_days": 62,
+        "sha8": "2d30eacc"
+      },
+      {
+        "path": "docs/harness/investigations/ISSUE-1264-reboot-investigation.md",
+        "size_kb": 8.2,
+        "age_days": 98,
+        "sha8": "b01ff82f"
+      },
+      {
+        "path": "docs/harness/adr/009-nanoclaw-v2-pr-reviewer.md",
+        "size_kb": 7.7,
+        "age_days": 77,
+        "sha8": "70e2e6c5"
+      },
+      {
+        "path": "docs/harness/coordinator-specific/meta-analyst-rule.md",
+        "size_kb": 7.5,
+        "age_days": 62,
+        "sha8": "71c7c11e"
+      },
+      {
+        "path": "docs/harness/reference/mcp-proxy-host.md",
+        "size_kb": 7.5,
+        "age_days": 99,
+        "sha8": "538bea78"
+      },
+      {
+        "path": "docs/harness/research/native-pr-review-tools.md",
+        "size_kb": 7.5,
+        "age_days": 92,
+        "sha8": "489e26ab"
+      },
+      {
+        "path": "docs/harness/adr/006-skill-auto-injection-triggers.md",
+        "size_kb": 7.4,
+        "age_days": 80,
+        "sha8": "dbfb1728"
+      },
+      {
+        "path": "docs/harness/investigations/meta-analyst-context-explosion.md",
+        "size_kb": 7.4,
+        "age_days": 80,
+        "sha8": "d7eeef79"
+      },
+      {
+        "path": "docs/harness/reference/context-explosion-runbook.md",
+        "size_kb": 7.3,
+        "age_days": 26,
+        "sha8": "3de997a9"
+      },
+      {
+        "path": "docs/harness/reference/delegation.md",
+        "size_kb": 7.0,
+        "age_days": 62,
+        "sha8": "27a733a1"
+      },
+      {
+        "path": "docs/harness/reference/bidirectional-trigger.md",
+        "size_kb": 6.9,
+        "age_days": 4,
+        "sha8": "431cf6c7"
+      },
+      {
+        "path": "docs/harness/reference/redistribute-memory-skill.md",
+        "size_kb": 6.7,
+        "age_days": 65,
+        "sha8": "da8318a7"
+      },
+      {
+        "path": "docs/harness/reference/restart-on-saturation.md",
+        "size_kb": 6.5,
+        "age_days": 26,
+        "sha8": "8485a337"
+      },
+      {
+        "path": "docs/harness/reference/INDEX.md",
+        "size_kb": 6.4,
+        "age_days": 26,
+        "sha8": "620506bf"
+      },
+      {
+        "path": "docs/harness/reference/github-cli.md",
+        "size_kb": 6.1,
+        "age_days": 106,
+        "sha8": "faa9ebe6"
+      },
+      {
+        "path": "docs/harness/reference/scheduler-system.md",
+        "size_kb": 5.7,
+        "age_days": 106,
+        "sha8": "f33e8862"
+      },
+      {
+        "path": "docs/harness/adr/012-sk-agent-multi-tier-pr-reviews.md",
+        "size_kb": 5.2,
+        "age_days": 54,
+        "sha8": "4dea9f8f"
+      },
+      {
+        "path": "docs/harness/reference/issue-closure-detailed.md",
+        "size_kb": 5.2,
+        "age_days": 86,
+        "sha8": "66310a2d"
+      },
+      {
+        "path": "docs/harness/reference/postmortem-template.md",
+        "size_kb": 5.1,
+        "age_days": 70,
+        "sha8": "8003bfba"
+      },
+      {
+        "path": "docs/harness/reference/condensation-thresholds.md",
+        "size_kb": 4.9,
+        "age_days": 27,
+        "sha8": "d6385893"
+      },
+      {
+        "path": "docs/harness/machine-specific/myia-web1-constraints.md",
+        "size_kb": 4.7,
+        "age_days": 106,
+        "sha8": "96f1556a"
+      },
+      {
+        "path": "docs/harness/reference/scheduler-densification.md",
+        "size_kb": 4.7,
+        "age_days": 43,
+        "sha8": "c2118135"
+      },
+      {
+        "path": "docs/harness/reference/bash-fallback.md",
+        "size_kb": 4.6,
+        "age_days": 106,
+        "sha8": "3f41facc"
+      },
+      {
+        "path": "docs/harness/reference/mcp-proxy-architecture.md",
+        "size_kb": 4.3,
+        "age_days": 98,
+        "sha8": "51a6a025"
+      },
+      {
+        "path": "docs/harness/reference/incident-history.md",
+        "size_kb": 4.1,
+        "age_days": 47,
+        "sha8": "65299224"
+      },
+      {
+        "path": "docs/harness/reference/tool-availability-detailed.md",
+        "size_kb": 4.0,
+        "age_days": 35,
+        "sha8": "036f8feb"
+      },
+      {
+        "path": "docs/harness/reference/conversation-browser-detailed.md",
+        "size_kb": 3.9,
+        "age_days": 60,
+        "sha8": "d013daee"
+      },
+      {
+        "path": "docs/harness/reference/pr-trivial-merge-policy.md",
+        "size_kb": 3.9,
+        "age_days": 73,
+        "sha8": "71c37e93"
+      },
+      {
+        "path": "docs/harness/adr/007-roosync-statusline.md",
+        "size_kb": 3.8,
+        "age_days": 77,
+        "sha8": "796da231"
+      },
+      {
+        "path": "docs/harness/reference/github-checklists.md",
+        "size_kb": 3.7,
+        "age_days": 106,
+        "sha8": "0e2373bc"
+      },
+      {
+        "path": "docs/harness/reference/harness-reduction-plan.md",
+        "size_kb": 3.5,
+        "age_days": 106,
+        "sha8": "12e6095a"
+      },
+      {
+        "path": "docs/harness/reference/intercom-deprecation.md",
+        "size_kb": 3.5,
+        "age_days": 47,
+        "sha8": "b8fa0f6d"
+      },
+      {
+        "path": "docs/harness/reference/roo-schedulable-criteria.md",
+        "size_kb": 3.5,
+        "age_days": 4,
+        "sha8": "d4ca14b1"
+      },
+      {
+        "path": "docs/harness/reference/test-success-rates.md",
+        "size_kb": 3.5,
+        "age_days": 47,
+        "sha8": "60691a07"
+      },
+      {
+        "path": "docs/harness/reference/bots-directory.md",
+        "size_kb": 3.4,
+        "age_days": 35,
+        "sha8": "8cf39a18"
+      },
+      {
+        "path": "docs/harness/reference/findability-historical-decisions.md",
+        "size_kb": 3.1,
+        "age_days": 81,
+        "sha8": "be84ca62"
+      },
+      {
+        "path": "docs/harness/reference/rules-footprint.md",
+        "size_kb": 2.6,
+        "age_days": 62,
+        "sha8": "a740ffe5"
+      },
+      {
+        "path": "docs/harness/coordinator-specific/skeptical-posture.md",
+        "size_kb": 2.5,
+        "age_days": 86,
+        "sha8": "7d89f5dc"
+      },
+      {
+        "path": "docs/harness/reference/mcp-discoverability.md",
+        "size_kb": 2.5,
+        "age_days": 106,
+        "sha8": "a740a146"
+      },
+      {
+        "path": "docs/harness/reference/team-pipeline-guide.md",
+        "size_kb": 2.5,
+        "age_days": 47,
+        "sha8": "93d8d5a2"
+      },
+      {
+        "path": "docs/harness/reference/tool-usage-telemetry.md",
+        "size_kb": 2.5,
+        "age_days": 77,
+        "sha8": "ae1c3030"
+      },
+      {
+        "path": "docs/harness/reference/agent-claim-discipline-detailed.md",
+        "size_kb": 2.2,
+        "age_days": 86,
+        "sha8": "e70679e2"
+      },
+      {
+        "path": "docs/harness/reference/intercom-v3-mentions.md",
+        "size_kb": 2.2,
+        "age_days": 86,
+        "sha8": "7987ebea"
+      },
+      {
+        "path": "docs/harness/reference/mcp-diagnosis-procedure.md",
+        "size_kb": 2.2,
+        "age_days": 62,
+        "sha8": "8482f286"
+      },
+      {
+        "path": "docs/harness/reference/stub-detection.md",
+        "size_kb": 2.1,
+        "age_days": 106,
+        "sha8": "71a1564b"
+      },
+      {
+        "path": "docs/harness/reference/agents-inventory.md",
+        "size_kb": 1.9,
+        "age_days": 62,
+        "sha8": "ebf77d7d"
+      },
+      {
+        "path": "docs/harness/reference/scheduler-model-defaults.md",
+        "size_kb": 1.7,
+        "age_days": 62,
+        "sha8": "b3bb2ac5"
+      },
+      {
+        "path": "docs/harness/reference/sddd-grounding-detailed.md",
+        "size_kb": 1.7,
+        "age_days": 86,
+        "sha8": "a93eb957"
+      },
+      {
+        "path": "docs/harness/reference/feedback-process.md",
+        "size_kb": 1.4,
+        "age_days": 106,
+        "sha8": "dbe5e0c1"
+      },
+      {
+        "path": "docs/harness/reference/friction-protocol-detailed.md",
+        "size_kb": 1.4,
+        "age_days": 17,
+        "sha8": "20435d29"
+      },
+      {
+        "path": "docs/harness/README.md",
+        "size_kb": 0.7,
+        "age_days": 88,
+        "sha8": "00b88280"
+      }
+    ],
+    "roosync": [
+      {
+        "path": "docs/roosync/GUIDE-TECHNIQUE-v2.3.md",
+        "size_kb": 78.6,
+        "age_days": 26,
+        "sha8": "9c7a4dfe"
+      },
+      {
+        "path": "docs/roosync/README.md",
+        "size_kb": 27.5,
+        "age_days": 47,
+        "sha8": "b1a8504e"
+      },
+      {
+        "path": "docs/roosync/PROTOCOLE_SDDD.md",
+        "size_kb": 26.1,
+        "age_days": 47,
+        "sha8": "576737ce"
+      },
+      {
+        "path": "docs/roosync/ESCALATION_MECHANISM.md",
+        "size_kb": 23.9,
+        "age_days": 134,
+        "sha8": "d6090f3b"
+      },
+      {
+        "path": "docs/roosync/ARCHITECTURE_ROOSYNC.md",
+        "size_kb": 19.4,
+        "age_days": 47,
+        "sha8": "dec59bea"
+      },
+      {
+        "path": "docs/roosync/GESTION_MULTI_AGENT.md",
+        "size_kb": 17.6,
+        "age_days": 199,
+        "sha8": "3af2920b"
+      },
+      {
+        "path": "docs/roosync/worktree-best-practices.md",
+        "size_kb": 14.3,
+        "age_days": 125,
+        "sha8": "7d1b0c5c"
+      },
+      {
+        "path": "docs/roosync/PROFILE_TO_MODES_DESIGN.md",
+        "size_kb": 12.7,
+        "age_days": 27,
+        "sha8": "cf93649f"
+      },
+      {
+        "path": "docs/roosync/ERROR_CODES_REFERENCE.md",
+        "size_kb": 11.8,
+        "age_days": 186,
+        "sha8": "5dee15e8"
+      },
+      {
+        "path": "docs/roosync/ROOSYNC_DASHBOARDS.md",
+        "size_kb": 10.4,
+        "age_days": 27,
+        "sha8": "35cfda62"
+      },
+      {
+        "path": "docs/roosync/QUALITY-PIPELINE.md",
+        "size_kb": 10.3,
+        "age_days": 27,
+        "sha8": "011dab6a"
+      },
+      {
+        "path": "docs/roosync/SUBMODULE_WORKFLOW.md",
+        "size_kb": 9.9,
+        "age_days": 47,
+        "sha8": "b7445e97"
+      },
+      {
+        "path": "docs/roosync/PR_REVIEW_POLICY.md",
+        "size_kb": 9.2,
+        "age_days": 47,
+        "sha8": "66e88381"
+      },
+      {
+        "path": "docs/roosync/INTERCOM_PROTOCOL.md",
+        "size_kb": 9.1,
+        "age_days": 47,
+        "sha8": "4f042093"
+      },
+      {
+        "path": "docs/roosync/DASHBOARD_AUTO_REFRESH.md",
+        "size_kb": 8.8,
+        "age_days": 158,
+        "sha8": "78dce617"
+      },
+      {
+        "path": "docs/roosync/guides/TROUBLESHOOTING.md",
+        "size_kb": 8.6,
+        "age_days": 186,
+        "sha8": "cf161b1a"
+      },
+      {
+        "path": "docs/roosync/MCP_AVAILABILITY.md",
+        "size_kb": 8.0,
+        "age_days": 62,
+        "sha8": "8bd17dc9"
+      },
+      {
+        "path": "docs/roosync/guides/CHECKLISTS.md",
+        "size_kb": 7.8,
+        "age_days": 25,
+        "sha8": "1be1d5c2"
+      },
+      {
+        "path": "docs/roosync/guides/GLOSSAIRE.md",
+        "size_kb": 7.5,
+        "age_days": 47,
+        "sha8": "f222a78a"
+      },
+      {
+        "path": "docs/roosync/guides/ONBOARDING_AGENT.md",
+        "size_kb": 6.8,
+        "age_days": 132,
+        "sha8": "f374873a"
+      },
+      {
+        "path": "docs/roosync/META_ANALYSIS.md",
+        "size_kb": 6.4,
+        "age_days": 83,
+        "sha8": "38938cc6"
+      },
+      {
+        "path": "docs/roosync/BASELINE_GHOST_MCPS.md",
+        "size_kb": 6.2,
+        "age_days": 158,
+        "sha8": "476644d4"
+      },
+      {
+        "path": "docs/roosync/CROSS_WORKSPACE_SETUP.md",
+        "size_kb": 6.0,
+        "age_days": 17,
+        "sha8": "c8e5b6f7"
+      },
+      {
+        "path": "docs/roosync/HARNESS-CORRESPONDENCE.md",
+        "size_kb": 6.0,
+        "age_days": 50,
+        "sha8": "35bdacca"
+      },
+      {
+        "path": "docs/roosync/SKEPTICISM_PROTOCOL.md",
+        "size_kb": 5.7,
+        "age_days": 27,
+        "sha8": "3a5320e2"
+      },
+      {
+        "path": "docs/roosync/HEARTBEAT_REGISTRATION_PROCEDURE.md",
+        "size_kb": 5.3,
+        "age_days": 158,
+        "sha8": "6ab77a70"
+      },
+      {
+        "path": "docs/roosync/SERVICES_TARGET.md",
+        "size_kb": 5.2,
+        "age_days": 16,
+        "sha8": "29cdb5a3"
+      },
+      {
+        "path": "docs/roosync/AGENTS_ARCHITECTURE.md",
+        "size_kb": 3.1,
+        "age_days": 47,
+        "sha8": "3ffe5f46"
+      },
+      {
+        "path": "docs/roosync/FEEDBACK_PROCESS.md",
+        "size_kb": 1.4,
+        "age_days": 134,
+        "sha8": "dbe5e0c1"
+      },
+      {
+        "path": "docs/roosync/guides/README.md",
+        "size_kb": 1.1,
+        "age_days": 186,
+        "sha8": "adf70162"
+      },
+      {
+        "path": "docs/roosync/QUICKSTART.md",
+        "size_kb": 0.9,
+        "age_days": 186,
+        "sha8": "615d7b02"
+      }
+    ],
+    "roo-rules": [
+      {
+        "path": ".roo/rules/18-meta-analysis.md",
+        "size_kb": 9.5,
+        "age_days": 68,
+        "sha8": "e01745ec"
+      },
+      {
+        "path": ".roo/rules/24-issue-closure.md",
+        "size_kb": 6.6,
+        "age_days": 86,
+        "sha8": "3d033da3"
+      },
+      {
+        "path": ".roo/rules/27-no-direct-jsonl-read.md",
+        "size_kb": 4.6,
+        "age_days": 82,
+        "sha8": "87c8818b"
+      },
+      {
+        "path": ".roo/rules/02-dashboard.md",
+        "size_kb": 3.8,
+        "age_days": 78,
+        "sha8": "c2eef075"
+      },
+      {
+        "path": ".roo/rules/04-sddd-grounding.md",
+        "size_kb": 3.4,
+        "age_days": 82,
+        "sha8": "0e8f2359"
+      },
+      {
+        "path": ".roo/rules/20-pr-mandatory.md",
+        "size_kb": 3.0,
+        "age_days": 20,
+        "sha8": "8cb9ada9"
+      },
+      {
+        "path": ".roo/rules/19-github-cli.md",
+        "size_kb": 2.9,
+        "age_days": 71,
+        "sha8": "77426c64"
+      },
+      {
+        "path": ".roo/rules/21-mcp-diagnosis.md",
+        "size_kb": 2.9,
+        "age_days": 83,
+        "sha8": "8e96e940"
+      },
+      {
+        "path": ".roo/rules/05-tool-availability.md",
+        "size_kb": 2.7,
+        "age_days": 62,
+        "sha8": "3fee510b"
+      },
+      {
+        "path": ".roo/rules/26-agent-claim-discipline.md",
+        "size_kb": 2.7,
+        "age_days": 78,
+        "sha8": "62ae585e"
+      },
+      {
+        "path": ".roo/rules/07-orchestrator-delegation.md",
+        "size_kb": 2.3,
+        "age_days": 89,
+        "sha8": "9107bc7a"
+      },
+      {
+        "path": ".roo/rules/21-shell-fallback.md",
+        "size_kb": 2.2,
+        "age_days": 80,
+        "sha8": "88a0a2ee"
+      },
+      {
+        "path": ".roo/rules/03-mcp-usage.md",
+        "size_kb": 2.1,
+        "age_days": 17,
+        "sha8": "3a00d4a5"
+      },
+      {
+        "path": ".roo/rules/11-incident-history.md",
+        "size_kb": 1.9,
+        "age_days": 82,
+        "sha8": "e74ace31"
+      },
+      {
+        "path": ".roo/rules/28-issue-creation.md",
+        "size_kb": 1.9,
+        "age_days": 68,
+        "sha8": "6cfb2680"
+      },
+      {
+        "path": ".roo/rules/08-file-writing.md",
+        "size_kb": 1.7,
+        "age_days": 50,
+        "sha8": "d7799d31"
+      },
+      {
+        "path": ".roo/rules/21-skepticism-protocol.md",
+        "size_kb": 1.7,
+        "age_days": 82,
+        "sha8": "400ce48d"
+      },
+      {
+        "path": ".roo/rules/29-api-error-handling.md",
+        "size_kb": 1.6,
+        "age_days": 71,
+        "sha8": "5e17211d"
+      },
+      {
+        "path": ".roo/rules/01-general.md",
+        "size_kb": 1.5,
+        "age_days": 103,
+        "sha8": "22dd34a4"
+      },
+      {
+        "path": ".roo/rules/10-ci-guardrails.md",
+        "size_kb": 1.5,
+        "age_days": 103,
+        "sha8": "69482cc2"
+      },
+      {
+        "path": ".roo/rules/30-bots-directory.md",
+        "size_kb": 1.4,
+        "age_days": 64,
+        "sha8": "a843e1ca"
+      },
+      {
+        "path": ".roo/rules/06-context-window.md",
+        "size_kb": 1.3,
+        "age_days": 56,
+        "sha8": "3435a40c"
+      },
+      {
+        "path": ".roo/rules/23-no-deletion-without-proof.md",
+        "size_kb": 1.3,
+        "age_days": 103,
+        "sha8": "2644100a"
+      },
+      {
+        "path": ".roo/rules/17-friction-protocol.md",
+        "size_kb": 1.1,
+        "age_days": 17,
+        "sha8": "700c597c"
+      },
+      {
+        "path": ".roo/rules/25-security.md",
+        "size_kb": 1.1,
+        "age_days": 103,
+        "sha8": "ba02bc4a"
+      },
+      {
+        "path": ".roo/rules/15-coordinator-responsibilities.md",
+        "size_kb": 1.0,
+        "age_days": 82,
+        "sha8": "2886afe4"
+      },
+      {
+        "path": ".roo/rules/12-machine-constraints.md",
+        "size_kb": 0.9,
+        "age_days": 103,
+        "sha8": "75a0d942"
+      },
+      {
+        "path": ".roo/rules/13-test-success-rates.md",
+        "size_kb": 0.9,
+        "age_days": 103,
+        "sha8": "d58883e5"
+      },
+      {
+        "path": ".roo/rules/22-validation.md",
+        "size_kb": 0.9,
+        "age_days": 103,
+        "sha8": "b1fb5b4e"
+      },
+      {
+        "path": ".roo/rules/09-github-checklists.md",
+        "size_kb": 0.8,
+        "age_days": 103,
+        "sha8": "214ddd05"
+      },
+      {
+        "path": ".roo/rules/16-no-tools-warnings.md",
+        "size_kb": 0.8,
+        "age_days": 103,
+        "sha8": "5989c3f9"
+      },
+      {
+        "path": ".roo/rules/14-tdd-recommended.md",
+        "size_kb": 0.6,
+        "age_days": 103,
+        "sha8": "4a5afaef"
+      }
+    ],
+    "claude-agents": [
+      {
+        "path": ".claude/agents/workers/issue-triager.md",
+        "size_kb": 8.3,
+        "age_days": 44,
+        "sha8": "5fdba461"
+      },
+      {
+        "path": ".claude/agents/workers/consolidation-worker.md",
+        "size_kb": 7.6,
+        "age_days": 163,
+        "sha8": "d691647d"
+      },
+      {
+        "path": ".claude/agents/workers/test-investigator.md",
+        "size_kb": 5.9,
+        "age_days": 163,
+        "sha8": "d6c6461f"
+      },
+      {
+        "path": ".claude/agents/workers/issue-worker.md",
+        "size_kb": 5.6,
+        "age_days": 44,
+        "sha8": "3e34414c"
+      },
+      {
+        "path": ".claude/agents/sddd-router.md",
+        "size_kb": 5.4,
+        "age_days": 53,
+        "sha8": "d5fca006"
+      },
+      {
+        "path": ".claude/agents/intercom-compactor.md",
+        "size_kb": 5.2,
+        "age_days": 169,
+        "sha8": "7b771448"
+      },
+      {
+        "path": ".claude/agents/workers/code-fixer.md",
+        "size_kb": 4.9,
+        "age_days": 82,
+        "sha8": "8d3de747"
+      },
+      {
+        "path": ".claude/agents/workers/doc-updater.md",
+        "size_kb": 4.9,
+        "age_days": 65,
+        "sha8": "c83d9a8b"
+      },
+      {
+        "path": ".claude/agents/workers/config-auditor.md",
+        "size_kb": 4.8,
+        "age_days": 134,
+        "sha8": "ff471f11"
+      },
+      {
+        "path": ".claude/agents/executor/task-worker.md",
+        "size_kb": 4.7,
+        "age_days": 78,
+        "sha8": "b841bcaf"
+      },
+      {
+        "path": ".claude/agents/coordinator/roosync-hub.md",
+        "size_kb": 4.4,
+        "age_days": 18,
+        "sha8": "f63ffa05"
+      },
+      {
+        "path": ".claude/agents/workers/pr-reviewer.md",
+        "size_kb": 3.9,
+        "age_days": 44,
+        "sha8": "497af179"
+      },
+      {
+        "path": ".claude/agents/workers/sync-checker.md",
+        "size_kb": 3.9,
+        "age_days": 59,
+        "sha8": "6edec251"
+      },
+      {
+        "path": ".claude/agents/task-planner.md",
+        "size_kb": 3.8,
+        "age_days": 82,
+        "sha8": "ef1fddab"
+      },
+      {
+        "path": ".claude/agents/coordinator/dispatch-manager.md",
+        "size_kb": 3.7,
+        "age_days": 134,
+        "sha8": "a0f0892e"
+      },
+      {
+        "path": ".claude/agents/workers/codebase-researcher.md",
+        "size_kb": 3.6,
+        "age_days": 44,
+        "sha8": "2b5f460c"
+      },
+      {
+        "path": ".claude/agents/workers/script-runner.md",
+        "size_kb": 3.3,
+        "age_days": 44,
+        "sha8": "d1838b18"
+      },
+      {
+        "path": ".claude/agents/github-tracker.md",
+        "size_kb": 3.2,
+        "age_days": 134,
+        "sha8": "b2af3c81"
+      },
+      {
+        "path": ".claude/agents/executor/roosync-reporter.md",
+        "size_kb": 3.1,
+        "age_days": 18,
+        "sha8": "9e7173dc"
+      },
+      {
+        "path": ".claude/agents/intercom-handler.md",
+        "size_kb": 1.7,
+        "age_days": 185,
+        "sha8": "9cf40b60"
+      }
+    ],
+    "claude-commands": [
+      {
+        "path": ".claude/commands/executor.md",
+        "size_kb": 32.7,
+        "age_days": 4,
+        "sha8": "6508a3b8"
+      },
+      {
+        "path": ".claude/commands/coordinate.md",
+        "size_kb": 32.6,
+        "age_days": 5,
+        "sha8": "477eaeca"
+      },
+      {
+        "path": ".claude/commands/debrief.md",
+        "size_kb": 3.5,
+        "age_days": 158,
+        "sha8": "8dcea21d"
+      },
+      {
+        "path": ".claude/commands/team.md",
+        "size_kb": 1.7,
+        "age_days": 11,
+        "sha8": "6a22fcff"
+      },
+      {
+        "path": ".claude/commands/switch-provider.md",
+        "size_kb": 1.2,
+        "age_days": 68,
+        "sha8": "7c1dd99c"
+      }
+    ],
+    "claude-rules": [
+      {
+        "path": ".claude/rules/wake-claude-routing.md",
+        "size_kb": 6.6,
+        "age_days": 39,
+        "sha8": "31c7a81e"
+      },
+      {
+        "path": ".claude/rules/sddd-grounding.md",
+        "size_kb": 4.7,
+        "age_days": 41,
+        "sha8": "5b1b3fb9"
+      },
+      {
+        "path": ".claude/rules/submod-pointer-safety.md",
+        "size_kb": 4.3,
+        "age_days": 70,
+        "sha8": "a76ee599"
+      },
+      {
+        "path": ".claude/rules/pr-mandatory.md",
+        "size_kb": 4.1,
+        "age_days": 38,
+        "sha8": "d24830b9"
+      },
+      {
+        "path": ".claude/rules/tool-availability.md",
+        "size_kb": 3.0,
+        "age_days": 38,
+        "sha8": "d00bd0fd"
+      },
+      {
+        "path": ".claude/rules/mcp-diagnosis.md",
+        "size_kb": 2.8,
+        "age_days": 62,
+        "sha8": "386a8bef"
+      },
+      {
+        "path": ".claude/rules/context-window.md",
+        "size_kb": 2.5,
+        "age_days": 56,
+        "sha8": "1fa0ac98"
+      },
+      {
+        "path": ".claude/rules/issue-creation.md",
+        "size_kb": 2.5,
+        "age_days": 78,
+        "sha8": "3d38c6a6"
+      },
+      {
+        "path": ".claude/rules/agent-claim-discipline.md",
+        "size_kb": 2.1,
+        "age_days": 38,
+        "sha8": "84ef0cb9"
+      },
+      {
+        "path": ".claude/rules/intercom-protocol.md",
+        "size_kb": 1.9,
+        "age_days": 38,
+        "sha8": "fcf4a202"
+      },
+      {
+        "path": ".claude/rules/no-deletion-without-proof.md",
+        "size_kb": 1.8,
+        "age_days": 71,
+        "sha8": "7ab5aa1a"
+      },
+      {
+        "path": ".claude/rules/issue-closure.md",
+        "size_kb": 1.7,
+        "age_days": 38,
+        "sha8": "fa9db7a6"
+      },
+      {
+        "path": ".claude/rules/security.md",
+        "size_kb": 1.5,
+        "age_days": 104,
+        "sha8": "4287d8e5"
+      },
+      {
+        "path": ".claude/rules/skepticism-protocol.md",
+        "size_kb": 1.5,
+        "age_days": 106,
+        "sha8": "5166a58c"
+      },
+      {
+        "path": ".claude/rules/ci-guardrails.md",
+        "size_kb": 1.4,
+        "age_days": 106,
+        "sha8": "37ba2713"
+      },
+      {
+        "path": ".claude/rules/validation.md",
+        "size_kb": 1.3,
+        "age_days": 71,
+        "sha8": "67ede6d7"
+      },
+      {
+        "path": ".claude/rules/friction-protocol.md",
+        "size_kb": 0.8,
+        "age_days": 38,
+        "sha8": "9098af64"
+      },
+      {
+        "path": ".claude/rules/shell-fallback.md",
+        "size_kb": 0.8,
+        "age_days": 80,
+        "sha8": "7bd31675"
+      }
+    ],
+    "claude-skills": [
+      {
+        "path": ".claude/skills/sync-tour/SKILL.md",
+        "size_kb": 27.3,
+        "age_days": 18,
+        "sha8": "f9d5a047"
+      },
+      {
+        "path": ".claude/skills/executor/SKILL.md",
+        "size_kb": 16.9,
+        "age_days": 0,
+        "sha8": "5c97b37a"
+      },
+      {
+        "path": ".claude/skills/redistribute-memory/SKILL.md",
+        "size_kb": 14.7,
+        "age_days": 65,
+        "sha8": "70de50f2"
+      },
+      {
+        "path": ".claude/skills/memory-inject/SKILL.md",
+        "size_kb": 9.8,
+        "age_days": 25,
+        "sha8": "0b05030c"
+      },
+      {
+        "path": ".claude/skills/pr-review/SKILL.md",
+        "size_kb": 9.7,
+        "age_days": 68,
+        "sha8": "bae000f8"
+      },
+      {
+        "path": ".claude/skills/debrief/SKILL.md",
+        "size_kb": 7.5,
+        "age_days": 51,
+        "sha8": "55570add"
+      },
+      {
+        "path": ".claude/skills/validate/SKILL.md",
+        "size_kb": 5.4,
+        "age_days": 80,
+        "sha8": "7381a5ef"
+      },
+      {
+        "path": ".claude/skills/git-sync/SKILL.md",
+        "size_kb": 5.1,
+        "age_days": 81,
+        "sha8": "47d27554"
+      },
+      {
+        "path": ".claude/skills/learner/SKILL.md",
+        "size_kb": 5.1,
+        "age_days": 80,
+        "sha8": "79a2c6f7"
+      },
+      {
+        "path": ".claude/skills/jupyter-exec/SKILL.md",
+        "size_kb": 4.3,
+        "age_days": 38,
+        "sha8": "1c09a3a5"
+      },
+      {
+        "path": ".claude/skills/github-status/SKILL.md",
+        "size_kb": 4.2,
+        "age_days": 80,
+        "sha8": "a2049e6d"
+      }
+    ]
+  }
+}
