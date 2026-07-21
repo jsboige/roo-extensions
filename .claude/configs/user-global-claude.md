@@ -107,7 +107,7 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 - **Recherche** : `roosync_search(action: "semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace` explicitement, requêtes en anglais.
 - **RooSync (inter-machines)** : `roosync_messages(action: "inbox")`, `roosync_messages(action: "send", to: "machine:workspace")`, `roosync_messages(action: "cleanup")`, `roosync_inventory(type: "status")`. Dashboard = principal, messages = fallback/urgences.
 
-**Inventaire complet + paramètres + scénarios :** [`docs/harness/reference/roosync-tools-guide.md`](docs/harness/reference/roosync-tools-guide.md), [`docs/harness/reference/conversation-browser-detailed.md`](docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (Roo seul, PDF/DOCX→MD), searxng (web canonique), sk-agent (vision/multi-agent).
+**Inventaire complet + paramètres + scénarios :** [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`docs/harness/reference/conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (Roo seul, PDF/DOCX→MD), searxng (web canonique), sk-agent (vision/multi-agent).
 
 ---
 
@@ -117,7 +117,7 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 
 **Pattern Bookend** : `codebase_search` en DÉBUT (éviter de refaire, trouver la doc existante) et FIN (confirmer indexation, mettre à jour la doc afférente) de chaque tâche significative.
 
-**Détail complet (multi-pass, Wiki Karpathy, filtres roosync_search, complémentarité Grep) :** `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](docs/harness/reference/sddd-conversational-grounding.md).
+**Détail complet (multi-pass, Wiki Karpathy, filtres roosync_search, complémentarité Grep) :** `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
