@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    Install/remove/list/test a Windows scheduled task for Copilot dispatcher bridge.
+    Install/remove/list/test a Windows scheduled task for Copilot dispatcher worker.
 
 .DESCRIPTION
     Creates task `Copilot-Dispatcher` that runs every N hours and executes
-    a lightweight bridge script. This is a transition scheduler (Phase B):
-    claim/dispatch traceability, not full headless Copilot code execution.
+    the Copilot dispatcher worker. The default mode writes logs and local
+    work reports without posting routine GitHub issue comments.
 
 .PARAMETER Action
     install | remove | list | test
@@ -20,7 +20,7 @@
     Escalation policy profile: low | balanced | throughput.
 
 .PARAMETER IssueNumber
-    Optional GitHub issue number for claim/status/handoff comments.
+    Optional legacy GitHub issue number. Default 0 disables issue-comment notifications.
 
 .PARAMETER PremiumUsagePercent
     Optional premium usage percentage override (0..100).
@@ -108,7 +108,7 @@ function Install-Task {
         -MultipleInstances IgnoreNew
 
     Register-ScheduledTask -TaskName $taskName `
-        -Description "Copilot dispatcher bridge (roo-state-manager V3 transition)." `
+        -Description "Copilot dispatcher worker (silent issue channel, local reports)." `
         -Trigger $trigger -Action $action -Settings $settings -RunLevel Limited | Out-Null
 
     Write-Host "[OK] Installed $taskName" -ForegroundColor Green
