@@ -1,0 +1,236 @@
+{
+  "workstream": "W6 #2883",
+  "parent_epic": "#2877",
+  "scan_date": "2026-07-21",
+  "directory": "roo-code-customization/investigations/",
+  "total_files": 24,
+  "total_size_bytes": 306331,
+  "total_size_kb": 299.2,
+  "themes": {
+    "condensation-poc": 4,
+    "grappes-clusters": 2,
+    "incident-file-search": 2,
+    "other": 3,
+    "powershell-typescript-migration": 3,
+    "sddd-mission-reports": 7,
+    "xml-export-validation": 3
+  },
+  "files": [
+    {
+      "path": "roo-code-customization/investigations/06-incident-loss-assessment.md",
+      "filename": "06-incident-loss-assessment.md",
+      "size_bytes": 4832,
+      "size_kb": 4.7,
+      "last_commit_sha": "ad7555d92",
+      "last_commit_date": "2025-08-25",
+      "theme": "incident-file-search"
+    },
+    {
+      "path": "roo-code-customization/investigations/07-file-search-analysis.md",
+      "filename": "07-file-search-analysis.md",
+      "size_bytes": 5771,
+      "size_kb": 5.6,
+      "last_commit_sha": "4692173ce",
+      "last_commit_date": "2025-08-07",
+      "theme": "incident-file-search"
+    },
+    {
+      "path": "roo-code-customization/investigations/08-ui-crash-deep-dive.md",
+      "filename": "08-ui-crash-deep-dive.md",
+      "size_bytes": 12961,
+      "size_kb": 12.7,
+      "last_commit_sha": "087e0a869",
+      "last_commit_date": "2025-08-11",
+      "theme": "other"
+    },
+    {
+      "path": "roo-code-customization/investigations/09-context-condensation-analysis.md",
+      "filename": "09-context-condensation-analysis.md",
+      "size_bytes": 21929,
+      "size_kb": 21.4,
+      "last_commit_sha": "087e0a869",
+      "last_commit_date": "2025-08-11",
+      "theme": "condensation-poc"
+    },
+    {
+      "path": "roo-code-customization/investigations/10-condensation-poc-design-rapport-mission.md",
+      "filename": "10-condensation-poc-design-rapport-mission.md",
+      "size_bytes": 9253,
+      "size_kb": 9.0,
+      "last_commit_sha": "087e0a869",
+      "last_commit_date": "2025-08-11",
+      "theme": "condensation-poc"
+    },
+    {
+      "path": "roo-code-customization/investigations/10-condensation-poc-design.md",
+      "filename": "10-condensation-poc-design.md",
+      "size_bytes": 13711,
+      "size_kb": 13.4,
+      "last_commit_sha": "087e0a869",
+      "last_commit_date": "2025-08-11",
+      "theme": "condensation-poc"
+    },
+    {
+      "path": "roo-code-customization/investigations/11-sddd-process-post-mortem.md",
+      "filename": "11-sddd-process-post-mortem.md",
+      "size_bytes": 14001,
+      "size_kb": 13.7,
+      "last_commit_sha": "087e0a869",
+      "last_commit_date": "2025-08-11",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/12-vhp-condensation-analysis.md",
+      "filename": "12-vhp-condensation-analysis.md",
+      "size_bytes": 15661,
+      "size_kb": 15.3,
+      "last_commit_sha": "ad7555d92",
+      "last_commit_date": "2025-08-25",
+      "theme": "condensation-poc"
+    },
+    {
+      "path": "roo-code-customization/investigations/analyse-architecture-actuelle-grappes.md",
+      "filename": "analyse-architecture-actuelle-grappes.md",
+      "size_bytes": 14757,
+      "size_kb": 14.4,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "grappes-clusters"
+    },
+    {
+      "path": "roo-code-customization/investigations/analyse-restauration-taches.md",
+      "filename": "analyse-restauration-taches.md",
+      "size_bytes": 9516,
+      "size_kb": 9.3,
+      "last_commit_sha": "7bf3c69f1",
+      "last_commit_date": "2025-08-20",
+      "theme": "other"
+    },
+    {
+      "path": "roo-code-customization/investigations/checkpoint-semantique-mi-mission-grappes.md",
+      "filename": "checkpoint-semantique-mi-mission-grappes.md",
+      "size_bytes": 16575,
+      "size_kb": 16.2,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/checkpoint-semantique-mi-mission.md",
+      "filename": "checkpoint-semantique-mi-mission.md",
+      "size_bytes": 8243,
+      "size_kb": 8.0,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/export-integration-analysis.md",
+      "filename": "export-integration-analysis.md",
+      "size_bytes": 7981,
+      "size_kb": 7.8,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "xml-export-validation"
+    },
+    {
+      "path": "roo-code-customization/investigations/powershell-to-nodejs-analysis.md",
+      "filename": "powershell-to-nodejs-analysis.md",
+      "size_bytes": 14333,
+      "size_kb": 14.0,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "powershell-typescript-migration"
+    },
+    {
+      "path": "roo-code-customization/investigations/powershell-typescript-comparative-analysis.md",
+      "filename": "powershell-typescript-comparative-analysis.md",
+      "size_bytes": 10859,
+      "size_kb": 10.6,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "powershell-typescript-migration"
+    },
+    {
+      "path": "roo-code-customization/investigations/propositions-ameliorations-techniques.md",
+      "filename": "propositions-ameliorations-techniques.md",
+      "size_bytes": 23577,
+      "size_kb": 23.0,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "other"
+    },
+    {
+      "path": "roo-code-customization/investigations/rapport-mission-sddd.md",
+      "filename": "rapport-mission-sddd.md",
+      "size_bytes": 15440,
+      "size_kb": 15.1,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/SDDD-xml-export-mission-report.md",
+      "filename": "SDDD-xml-export-mission-report.md",
+      "size_bytes": 5779,
+      "size_kb": 5.6,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/SDDD-xml-validation-mission-final-report.md",
+      "filename": "SDDD-xml-validation-mission-final-report.md",
+      "size_bytes": 8639,
+      "size_kb": 8.4,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/specification-extensions-grappes.md",
+      "filename": "specification-extensions-grappes.md",
+      "size_bytes": 27521,
+      "size_kb": 26.9,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "grappes-clusters"
+    },
+    {
+      "path": "roo-code-customization/investigations/typescript-implementation-gaps.md",
+      "filename": "typescript-implementation-gaps.md",
+      "size_bytes": 6961,
+      "size_kb": 6.8,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "powershell-typescript-migration"
+    },
+    {
+      "path": "roo-code-customization/investigations/validation-semantique-finale.md",
+      "filename": "validation-semantique-finale.md",
+      "size_bytes": 8848,
+      "size_kb": 8.6,
+      "last_commit_sha": "c131af2e6",
+      "last_commit_date": "2025-09-12",
+      "theme": "sddd-mission-reports"
+    },
+    {
+      "path": "roo-code-customization/investigations/xml-export-specification.md",
+      "filename": "xml-export-specification.md",
+      "size_bytes": 23218,
+      "size_kb": 22.7,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "xml-export-validation"
+    },
+    {
+      "path": "roo-code-customization/investigations/xml-implementation-validation.md",
+      "filename": "xml-implementation-validation.md",
+      "size_bytes": 5965,
+      "size_kb": 5.8,
+      "last_commit_sha": "86768ce51",
+      "last_commit_date": "2025-09-12",
+      "theme": "xml-export-validation"
+    }
+  ]
+}
