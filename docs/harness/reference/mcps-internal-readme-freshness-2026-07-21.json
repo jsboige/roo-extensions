@@ -21,12 +21,12 @@
     "servers_dirs": 8
   },
   "staleness": {
-    "metric": "last-commit-mtime",
+    "metric": "git -C mcps/internal log -1 --format=%cs (submodule-own git commit-date, canonical)",
     "fresh_lt180": 239,
     "stale_180_365": 0,
     "stale_gt365": 0,
     "no_date": 0,
-    "caveat": "All 239 .md show last-commit 2026-07-01 (uniform) = bulk import/sync artifact that reset mtomes. Mtime-based staleness is UNRELIABLE for this submodule (returns 0 stale, masks structural drift). Structural status audit (below) is the operative signal."
+    "caveat": "All 239 .md show last-commit 2026-07-01 (uniform) because the submodule's main branch is a FRESH-ROOT REBUILD from 2026-07-01 (root commit 2c7726a3, parent=[]). This is the actual git commit-date (NOT filesystem mtime), verified 3 ways (one-pass %cs, one-pass %as, slow per-file). Commit-date staleness is therefore DEGENERATE/uninformative for this submodule — 0 stale reflects the rebuild date, not content age. Content genuinely predates main on non-canonical refs (git log --all reaches fa4f9cce initial commit 2025-05-01; origin/backup-pre-merge-f724301 2025-10-14 shows quickfiles README last touched 2025-10-14), but that history is not on deployed main/origin/HEAD. Structural status (active/superseded/retired/undocumented) is the operative signal. See MD 'Reconciliation with po-204 c.111' for the 3rd-party review that flagged this and the parent-repo-gitlog methodological clarification."
   },
   "top_level_docs": [
     {"path": "README.md", "lines": 159, "last_commit": "2026-07-01", "status": "OK"},

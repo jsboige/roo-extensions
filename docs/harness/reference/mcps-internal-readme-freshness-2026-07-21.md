@@ -10,7 +10,7 @@
 
 ## Executive summary
 
-Scanned **239 markdown files** across the `mcps/internal` submodule (228 under `servers/` across 8 server dirs + 11 top-level/docs/examples). By last-commit mtime, **0 files are stale** (>180d) — **but this is a measurement artifact**: a 2026-07-01 bulk import/sync reset every file's last-commit date to the same day, so mtime-based staleness is **unreliable** for this submodule and masks the real signal.
+Scanned **239 markdown files** across the `mcps/internal` submodule (228 under `servers/` across 8 server dirs + 11 top-level/docs/examples). By the canonical metric (submodule-own `git log -1 --format=%cs` on `origin/HEAD` `85764754`), **0 files are stale** (>180d) — **but this is uninformative, not "fresh"**: the submodule's `main` branch is a **fresh-root rebuild from 2026-07-01** (`2c7726a3`, `parent=[]` — verified), so every file's last-commit-date on main is 2026-07-01 regardless of when the *content* was authored. Commit-date staleness is therefore **degenerate** for this submodule. (The repo does retain older history on non-main refs — `fa4f9cce` initial commit 2025-05-01, `origin/backup-pre-merge-f724301` 2025-10-14 — so content genuinely predates main, but that history is not on the deployed `main`/`origin/HEAD`.) See the [Staleness metrics reconciliation](#staleness-metrics-) section for the full picture, including a 3rd-party review (po-204 c.111) that flagged this.
 
 The **operative finding is structural**: of the 8 server dirs, only **2 are unambiguously clean** (active + well-documented + no drift). The other **6 carry status issues that mtime does not capture**:
 
@@ -34,7 +34,7 @@ The **operative finding is structural**: of the 8 server dirs, only **2 are unam
 ## Method
 
 1. **Inventory**: `git -C mcps/internal ls-files "*.md"` → 239 files (categorized: top-level/docs/examples = 11, `servers/` = 228).
-2. **Staleness metric**: last-commit date per file (`git log -1 --format=%cs`), bucketed fresh<180d / 180-365d / >365d. → **0 stale**, flagged as bulk-import artifact (uniform 2026-07-01 date across all 239 files).
+2. **Staleness metric**: last-commit date per file (`git -C mcps/internal log -1 --format=%cs`), bucketed fresh<180d / 180-365d / >365d. → **0 stale**, because `main` is a fresh-root rebuild from 2026-07-01 (commit-date degenerate — see [Staleness metrics](#staleness-metrics-) section). Structural status is the operative signal.
 3. **Canonical active-source**: `roo-config/settings/servers.json` `servers` array (13 entries) — the file scripts actually load (`git grep -l "settings/servers.json"` = 10 consumers), not the stale `config-templates/servers.json` starter.
 4. **Per-server status**: cross-reference each `servers/<name>/` dir against the canonical active set + CLAUDE.md retired list + manifest presence + README/code commit-drift.
 5. **Structural findings**: status (active/retired/superseded/undocumented) — the signal mtime cannot capture.
@@ -43,7 +43,7 @@ The **operative finding is structural**: of the 8 server dirs, only **2 are unam
 
 ---
 
-## Staleness metrics (mtime — matches #2876 format)
+## Staleness metrics (canonical: submodule-own git commit-date)
 
 | Metric | Count |
 |--------|------:|
@@ -53,7 +53,19 @@ The **operative finding is structural**: of the 8 server dirs, only **2 are unam
 | Stale >365d | 0 |
 | No date | 0 |
 
-⚠ **Caveat**: all 239 files show last-commit = 2026-07-01 (uniform). This is a bulk-import/sync artifact that resets mtimes. **Do not interpret "0 stale" as "all genuinely maintained"** — see structural findings below.
+⚠ **Critical caveat — main is a fresh-root rebuild (2026-07-01), so commit-date staleness is degenerate.**
+
+The canonical metric (`git -C mcps/internal log -1 --format=%cs -- <file>`, matching how #2876 measured parent-repo files via the parent's own git) returns **2026-07-01 for all 239 files** (verified 3 ways: one-pass `%cs`, one-pass `%as`, slow per-file). This is **not** a filesystem-mtime artifact — it is the actual git commit-date. The reason: the submodule's `main` branch is a **fresh root commit rebuilt on 2026-07-01** (`2c7726a3`, `parent=[]`, confirmed via `git rev-list --max-parents=0 main`). All 190 commits on `main` are dated 2026-07-01..2026-07-19. **"0 stale" is factually correct for `main`/`origin/HEAD`, but uninformative** — it reflects the rebuild date, not content age.
+
+**Content genuinely predates main** on non-canonical refs: `git log --all` reaches 6543 commits back to `fa4f9cce Initial commit` (2025-05-01); the `origin/backup-pre-merge-f724301` branch (2025-10-14) shows the quickfiles README last touched `2025-10-14 b26d7dfa`. So the *content* is older, but that history is **not on the deployed `main`** — measuring it requires a non-canonical ref or creation-date lookup (`--diff-filter=A`), which is a different metric than #2876's "days since last commit on the file's own repo".
+
+**Do not interpret "0 stale" as "all genuinely maintained"** — the operative signal is the **structural status** (6 of 8 servers carry active/superseded/retired/undocumented issues), documented server-by-server below. Content-age is real but not captured by the canonical metric here due to the 2026-07-01 rebuild.
+
+### Reconciliation with po-204 c.111 3rd-party review (222/239 stale claim)
+
+po-204 flagged a "CRITICAL staleness measurement error — 222/239 stale not 0, distribution 2025-05-01→2026-06-16". Re-measured firsthand, this number **could not be reproduced from the submodule's own git** on `main`/`origin/HEAD` (0 stale) or via `git log --all` restricted to the 239 main-files (quickfiles README still 2026-07-01; `--all` over all *.md yields a non-comparable 4465-file set). The 2025-05-01..2026-06-16 distribution matches **parent-repo `git log` on the submodule path** — verified: `git log -1 --format=%cs -- mcps/internal/servers/quickfiles-server/README.md` run **from the parent repo (no `-git -C mcps/internal`)** returns `2025-05-28 1fcea5fa` (the parent commit that added the submodule gitlink), because the parent tracks `mcps/internal` as a gitlink (mode `160000`), not individual files. po-204's "222 stale" almost certainly reflects parent-repo gitlink-touch dates, not the submodule's own file history.
+
+**Both framings were incomplete**: this report understated that main-commit-date is degenerate (main rebuilt 2026-07-01 → uninformative); po-204's review correctly surfaced that content is older but attributed the number to a canonical commit-date metric that it isn't (it's a parent-repo path-log). The synthesis above is the corrected picture: **0 stale by canonical submodule metric (degenerate due to main rebuild); content older on non-main refs; structural status is the operative signal.** — web1 c.167, acknowledgment of po-204's valid kernel.
 
 ---
 
