@@ -1,3 +1,13 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/analyse-architecture-actuelle-grappes.md` · **Last commit:** `c131af2e` (2025-09-12) · **Theme:** grappes (semantic clusters architecture)
+>
+> **Preservation:** git history (`git show c131af2e:roo-code-customization/investigations/analyse-architecture-actuelle-grappes.md`) + this archive copy. No content modified — move-only.
+>
+> **Incoming links:** 0 functional navigation links. Only audit inventories (#2876 doc-audit, #2886 broken-links, #2896 W6-investigations) reference this file — all point-in-time mentions that remain valid post-archive.
+>
+> **Superseded by:** historical grappes architecture analysis, findings consumed by the merged semantic-clusters implementation (VectorIndexer grappes).
+
 # ANALYSE ARCHITECTURE ACTUELLE - GRAPPES DE TÂCHES
 *Phase 2 du SDDD - Semantic-Documentation-Driven-Design*
 

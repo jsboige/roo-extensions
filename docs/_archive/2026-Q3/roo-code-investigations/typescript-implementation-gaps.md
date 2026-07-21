@@ -1,3 +1,13 @@
+> **Archived 2026-07-21** — W6 #2883 (Epic #2877 livrable #2).
+>
+> **Source:** `roo-code-customization/investigations/typescript-implementation-gaps.md` · **Last commit:** `c131af2e` (2025-09-12) · **Theme:** typescript migration (gaps)
+>
+> **Preservation:** git history (`git show c131af2e:roo-code-customization/investigations/typescript-implementation-gaps.md`) + this archive copy. No content modified — move-only.
+>
+> **Incoming links:** 0 functional navigation links. Only audit inventories (#2876 doc-audit, #2886 broken-links, #2896 W6-investigations) reference this file — all point-in-time mentions that remain valid post-archive.
+>
+> **Superseded by:** historical TS implementation gaps analysis, gaps resolved by the merged roo-state-manager TS codebase.
+
 # IDENTIFICATION DES GAPS - IMPLÉMENTATION TYPESCRIPT
 ## TraceSummaryService : Liste Priorisée des Manques Critiques
 
