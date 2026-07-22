@@ -81,10 +81,10 @@ Cette universalité permet :
 4. **Action consommatrice tokens** → Besoin décomposer pour économie contexte
 
 **Exemples concrets** :
-- [`code-simple`](code-simple) crée sous-tâche [`code-complex`](code-complex) pour architecture avancée (**escalade**)
-- [`debug-simple`](debug-simple) crée sous-tâche [`debug-simple`](debug-simple) pour profiling lourd (**décomposition**)
-- [`architect-simple`](architect-simple) crée sous-tâche [`code-simple`](code-simple) pour prototypage (**spécialisation**)
-- [`ask-simple`](ask-simple) crée sous-tâche [`ask-complex`](ask-complex) pour recherche approfondie (**escalade**)
+- `code-simple` crée sous-tâche `code-complex` pour architecture avancée (**escalade**)
+- `debug-simple` crée sous-tâche `debug-simple` pour profiling lourd (**décomposition**)
+- `architect-simple` crée sous-tâche `code-simple` pour prototypage (**spécialisation**)
+- `ask-simple` crée sous-tâche `ask-complex` pour recherche approfondie (**escalade**)
 
 ---
 
@@ -151,7 +151,7 @@ Exemples :
 
 #### Cas d'Usage A : Économie Contexte (Décomposition)
 
-**Situation** : [`code-simple`](code-simple) atteint 45k tokens avec lecture 15 fichiers → Besoin déléguer actions lourdes
+**Situation** : `code-simple` atteint 45k tokens avec lecture 15 fichiers → Besoin déléguer actions lourdes
 
 ```xml
 <new_task>
@@ -180,7 +180,7 @@ Créer tests unitaires complets pour AuthService
 
 #### Cas d'Usage B : Escalade Compétences (Simple → Complex)
 
-**Situation** : [`code-simple`](code-simple) identifie besoin architecture avancée (patterns distribués)
+**Situation** : `code-simple` identifie besoin architecture avancée (patterns distribués)
 
 ```xml
 <new_task>
@@ -221,7 +221,7 @@ Concevoir et implémenter architecture Pattern Observer robuste avec :
 
 #### Cas d'Usage C : Spécialisation (Délégation Debug)
 
-**Situation** : [`code-simple`](code-simple) implémente feature mais rencontre bug performance → Délégation [`debug-simple`](debug-simple)
+**Situation** : `code-simple` implémente feature mais rencontre bug performance → Délégation `debug-simple`
 
 ```xml
 <new_task>
@@ -264,7 +264,7 @@ Rapport diagnostic avec :
 
 #### Cas d'Usage A : Économie Contexte (Profiling Lourd)
 
-**Situation** : [`debug-simple`](debug-simple) analyse bug complexe nécessitant profiling CPU/mémoire lourd
+**Situation** : `debug-simple` analyse bug complexe nécessitant profiling CPU/mémoire lourd
 
 ```xml
 <new_task>
@@ -300,7 +300,7 @@ Utiliser outils profiling pour identifier memory leak
 
 #### Cas d'Usage B : Escalade Compétences (Simple → Complex)
 
-**Situation** : [`debug-simple`](debug-simple) rencontre race condition multi-threads nécessitant expertise avancée
+**Situation** : `debug-simple` rencontre race condition multi-threads nécessitant expertise avancée
 
 ```xml
 <new_task>
@@ -342,7 +342,7 @@ Diagnostiquer race condition précise et implémenter synchronisation robuste
 
 #### Cas d'Usage C : Spécialisation (Délégation Code pour Fix)
 
-**Situation** : [`debug-simple`](debug-simple) identifie bug → Délégation [`code-simple`](code-simple) pour correction
+**Situation** : `debug-simple` identifie bug → Délégation `code-simple` pour correction
 
 ```xml
 <new_task>
@@ -383,7 +383,7 @@ Corriger regex validation email selon RFC 5322 (simplifié)
 
 #### Cas d'Usage A : Spécialisation (Prototypage Validation)
 
-**Situation** : [`architect-simple`](architect-simple) conçoit architecture → Besoin prototypage rapide pour validation
+**Situation** : `architect-simple` conçoit architecture → Besoin prototypage rapide pour validation
 
 ```xml
 <new_task>
@@ -429,7 +429,7 @@ Implémenter PoC minimal API Gateway avec routing basique
 
 #### Cas d'Usage B : Escalade Compétences (Décision Architecturale Complexe)
 
-**Situation** : [`architect-simple`](architect-simple) rencontre décision architecture nécessitant patterns distribués
+**Situation** : `architect-simple` rencontre décision architecture nécessitant patterns distribués
 
 ```xml
 <new_task>
@@ -473,7 +473,7 @@ architect-simple identifie besoin système event-driven pour découplage microse
 
 #### Cas d'Usage C : Escalade Orchestrateur (Multi-Domaines)
 
-**Situation** : [`architect-complex`](architect-complex) conçoit projet multi-domaines nécessitant coordination
+**Situation** : `architect-complex` conçoit projet multi-domaines nécessitant coordination
 
 ```xml
 <new_task>
@@ -522,7 +522,7 @@ Coordonner implémentation migration complète avec sous-tâches par domaine
 
 #### Cas d'Usage A : Économie Contexte (Recherche Approfondie)
 
-**Situation** : [`ask-simple`](ask-simple) répond question nécessitant recherche web extensive
+**Situation** : `ask-simple` répond question nécessitant recherche web extensive
 
 ```xml
 <new_task>
@@ -567,7 +567,7 @@ Comparer 5 frameworks ML Python populaires selon critères techniques
 
 #### Cas d'Usage B : Escalade Compétences (Expertise Domaine)
 
-**Situation** : [`ask-simple`](ask-simple) reçoit question nécessitant expertise académique approfondie
+**Situation** : `ask-simple` reçoit question nécessitant expertise académique approfondie
 
 ```xml
 <new_task>
@@ -617,7 +617,7 @@ Fournir analyse académique détaillée avec recommandation contextualisée
 
 #### Cas d'Usage C : Spécialisation (Délégation Code Exemples)
 
-**Situation** : [`ask-simple`](ask-simple) explique concept → Besoin exemples code concrets
+**Situation** : `ask-simple` explique concept → Besoin exemples code concrets
 
 ```xml
 <new_task>
@@ -665,7 +665,7 @@ Créer exemples code TypeScript démonstratifs pattern Repository
 
 #### Cas d'Usage A : Décomposition Systématique (Usage Principal)
 
-**Situation** : [`orchestrator`](orchestrator) reçoit projet complexe nécessitant coordination multi-étapes
+**Situation** : `orchestrator` reçoit projet complexe nécessitant coordination multi-étapes
 
 ```xml
 <new_task>
@@ -712,7 +712,7 @@ Document markdown structuré pour réutilisation orchestrateur dans planificatio
 
 #### Cas d'Usage B : Coordination Parallèle
 
-**Situation** : [`orchestrator`](orchestrator) identifie sous-tâches indépendantes parallélisables
+**Situation** : `orchestrator` identifie sous-tâches indépendantes parallélisables
 
 ```xml
 <!-- Création 3 sous-tâches parallèles -->
@@ -772,7 +772,7 @@ Résultats consolidés dans sous-tâche 5.3 (intégration finale)
 
 #### Cas d'Usage C : Grounding Périodique
 
-**Situation** : [`orchestrator`](orchestrator) après 3-4 sous-tâches, besoin checkpoint grounding
+**Situation** : `orchestrator` après 3-4 sous-tâches, besoin checkpoint grounding
 
 ```xml
 <new_task>
