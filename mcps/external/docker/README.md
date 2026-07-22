@@ -1,5 +1,7 @@
 # MCP Docker pour Roo
 
+> 🔌 MCP tiers — intégration myia ; schéma canonique : `roo-config/settings/servers.json` ; upstream : [ckreiling/mcp-server-docker](https://github.com/ckreiling/mcp-server-docker).
+
 <!-- START_SECTION: introduction -->
 ## Introduction
 

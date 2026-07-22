@@ -1,5 +1,7 @@
 # MCP Win-CLI - Support Dual-Harnais (Roo + Claude Code)
 
+> 🔌 MCP tiers — intégration myia ; schéma canonique : `roo-config/settings/servers.json` ; upstream : [simonb97/server-win-cli](https://github.com/simonb97/server-win-cli).
+
 <!-- START_SECTION: introduction -->
 ## Introduction
 

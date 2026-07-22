@@ -1,5 +1,7 @@
 # MCP SearXNG pour Roo
 
+> 🔌 MCP tiers — intégration myia ; schéma canonique : `roo-config/settings/servers.json`.
+
 <!-- START_SECTION: introduction -->
 ## Introduction
 
