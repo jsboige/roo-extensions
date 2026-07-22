@@ -300,7 +300,7 @@ Les pistes d'amélioration futures identifiées dans ce document permettront de 
 <!-- START_SECTION: navigation -->
 ## Navigation
 
-- [Index principal](./INDEX.md)
+- [Index principal](../docs/mcps/INDEX.md)
 - [Accueil](./README.md)
 - [Guide de dépannage](./TROUBLESHOOTING.md)
 - [Guide de recherche](./SEARCH.md)
