@@ -46,7 +46,7 @@ Ces tests vérifient le bon fonctionnement de chaque serveur MCP spécifique. Le
 - **JinaNavigator** : Tests de conversion web vers Markdown, accès aux ressources et extraction de plans
 - **Jupyter** : Tests de création, lecture, modification et exécution de notebooks
 
-Les rapports de test récents (mai 2025) sont disponibles dans le répertoire [mcps/tests/reports/](../mcps/tests/reports/).
+Les rapports de test récents (mai 2025) sont disponibles dans le répertoire `mcps/tests/reports/`.
 
 ### Tests d'escalade et désescalade
 
@@ -56,7 +56,7 @@ Ces tests vérifient les mécanismes de transition entre les différents niveaux
 - **Tests de désescalade** : Vérifient que le système revient à un niveau de complexité inférieur lorsque approprié
 - **Tests de transition** : Vérifient les transitions fluides entre les différents modes et niveaux
 
-Ces tests sont disponibles dans le répertoire [roo-modes/n5/tests/](../roo-modes/n5/tests/) et leurs résultats sont stockés dans [tests/results/n5/](results/n5/).
+Ces tests sont disponibles dans le répertoire `roo-modes/n5/tests/` et leurs résultats sont stockés dans [tests/results/n5/](results/n5/).
 
 ### Tests d'encodage
 
@@ -149,7 +149,7 @@ Les résultats des tests d'escalade et désescalade sont stockés dans des fichi
 
 ### Intégration avec les tests de roo-modes
 
-Les tests de ce répertoire complètent les tests d'escalade, désescalade et transition disponibles dans le répertoire [roo-modes/n5/tests/](../roo-modes/n5/tests/). Ensemble, ils fournissent une couverture complète des fonctionnalités du projet.
+Les tests de ce répertoire complètent les tests d'escalade, désescalade et transition disponibles dans le répertoire `roo-modes/n5/tests/`. Ensemble, ils fournissent une couverture complète des fonctionnalités du projet.
 
 ### Intégration avec les tests MCP
 
@@ -171,7 +171,7 @@ Si vous souhaitez contribuer aux tests, veuillez suivre ces directives :
 ## Ressources supplémentaires
 
 - [README principal du projet](../README.md)
-- [Documentation des modes Roo](../roo-modes/README.md)
+- Documentation des modes Roo
 - [Documentation de la configuration Roo](../roo-config/README.md)
 - [Documentation des MCPs](../mcps/README.md)
 - [Documentation générale du projet](../docs/README.md)

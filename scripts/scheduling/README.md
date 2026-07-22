@@ -276,7 +276,7 @@ Tests: real escalation (Haiku→Sonnet), sub-agent delegation, wait state signal
 - **#414** : Phase 1 - Base implementation (po-2026)
 - **#525** : Phase 2 - Capabilities validation + Task Scheduler (ai-01)
 - **#534** : Phase 3 - Multi-machine deployment (planned)
-- [docs/architecture/scheduler-claude-code.md](../../docs/architecture/scheduler-claude-code.md) : Architecture design
+- [docs/architecture/scheduler-claude-code-design.md](../../docs/architecture/scheduler-claude-code-design.md) : Architecture design
 
 ---
 
