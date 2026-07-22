@@ -15,7 +15,13 @@ $ErrorActionPreference = "Stop"
 function Convert-Slashes([string]$p) { return $p.Replace('\','/') }
 
 # 1. Collect tracked .md files (parent + submodule)
-$parentMd = git -C $RepoRoot ls-files "*.md" 2>$null | Where-Object { $_ -notlike "roo-code/*" }
+# Exclude docs/_archive/** as a SOURCE of outgoing links: archived docs are frozen
+# historical snapshots whose internal links reflect intentional old layouts (consolider
+# != archiver — we stamp a header, we don't "fix" a snapshot's links). SOURCE-ONLY:
+# links in LIVE docs that point INTO _archive/ are still resolved below (target
+# Test-Path unchanged) — only archived files stop being walked for their outgoing links.
+# Segment-safe regex '(^|/)_archive/' won't false-match e.g. 'some_archive/'.
+$parentMd = git -C $RepoRoot ls-files "*.md" 2>$null | Where-Object { $_ -notlike "roo-code/*" -and $_ -notmatch '(^|/)_archive/' }
 $submodMd = git -C "$RepoRoot/mcps/internal" ls-files "*.md" 2>$null | ForEach-Object { "mcps/internal/$_" }
 $allMd = @($parentMd) + @($submodMd) | Sort-Object -Unique
 
@@ -151,7 +157,7 @@ $stats.filesWithBroken = ($results | Group-Object file).Count
 
 $output = [ordered]@{
     scanDate = "2026-07-21"
-    scope = "parent repo + mcps/internal submodule, tracked .md only (git ls-files)"
+    scope = "parent repo + mcps/internal submodule, tracked .md only (git ls-files); docs/_archive/** excluded as link SOURCE (frozen snapshots)"
     stats = $stats
     brokenLinks = $results
 }
