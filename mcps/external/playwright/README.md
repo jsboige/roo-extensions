@@ -1,5 +1,7 @@
 # MCP Playwright
 
+> 🔌 MCP tiers — intégration myia ; schéma canonique : `roo-config/settings/servers.json` ; upstream : [microsoft/playwright-mcp](https://github.com/microsoft/playwright-mcp).
+
 Ce répertoire contient le MCP Playwright, installé en tant que sous-module Git.
 
 Le MCP `playwright` fournit des outils pour piloter un navigateur web via l'API Playwright, permettant d'automatiser des tâches, d'effectuer des tests end-to-end ou de faire du web scraping.
