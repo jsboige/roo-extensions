@@ -1423,7 +1423,7 @@ Si vous rencontrez un problème qui n'est pas couvert par ce guide ou les guides
 <!-- START_SECTION: navigation -->
 ## Navigation
 
-- [Index principal](./INDEX.md)
+- [Index principal](../docs/mcps/INDEX.md)
 - [Accueil](./README.md)
 - [Guide de recherche](./SEARCH.md)
 - [MCPs Internes](./mcp-servers/INDEX.md)

@@ -39,7 +39,7 @@ mcps/
 ```
 
 Pour trouver des informations :
-1. Commencez par [INDEX.md](./INDEX.md) qui offre une vue d'ensemble de toute la documentation
+1. Commencez par [INDEX.md](../docs/mcps/INDEX.md) qui offre une vue d'ensemble de toute la documentation
 2. Naviguez vers la section pertinente (MCPs internes ou externes)
 3. Accédez au serveur MCP spécifique qui vous intéresse
 4. Consultez le document approprié (README, INSTALLATION, CONFIGURATION, USAGE, TROUBLESHOOTING)
@@ -207,7 +207,7 @@ grep -r -A 10 -B 2 "```json" --include="*.md" ./mcps/
 <!-- START_SECTION: best_practices -->
 ## Bonnes pratiques de recherche
 
-1. **Commencez par l'index** : Utilisez [INDEX.md](./INDEX.md) comme point de départ pour naviguer dans la documentation
+1. **Commencez par l'index** : Utilisez [INDEX.md](../docs/mcps/INDEX.md) comme point de départ pour naviguer dans la documentation
 
 2. **Utilisez des mots-clés spécifiques** : Plus vos termes de recherche sont spécifiques, meilleurs seront les résultats
 
@@ -225,7 +225,7 @@ grep -r -A 10 -B 2 "```json" --include="*.md" ./mcps/
 <!-- START_SECTION: navigation -->
 ## Navigation
 
-- [Retour à l'index](./INDEX.md)
+- [Retour à l'index](../docs/mcps/INDEX.md)
 - [Accueil](./README.md)
 - [Installation](./INSTALLATION.md)
 - [Dépannage](./TROUBLESHOOTING.md)

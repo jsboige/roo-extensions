@@ -17,7 +17,7 @@ Les serveurs MCP externes sont organisés dans les sous-répertoires suivants. L
 - **searxng/** - Recherche web via SearXNG
 - **win-cli/** - Exécution de commandes CLI sur Windows
 
-> ❌ **Retirés** (présents pour l'historique, ne pas réinstaller) : `desktop-commander/` — remplacé par les outils natifs Read/Write/Edit (convention [`mcps/INDEX.md`](../INDEX.md)).
+> ❌ **Retirés** (présents pour l'historique, ne pas réinstaller) : `desktop-commander/` — remplacé par les outils natifs Read/Write/Edit (convention [`docs/mcps/INDEX.md`](../../docs/mcps/INDEX.md)).
 
 ## Installation
 

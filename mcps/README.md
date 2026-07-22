@@ -9,7 +9,6 @@
     - [MCPs internes](#mcps-internes)
     - [MCPs externes](#mcps-externes)
   - [Fonctionnalités](#fonctionnalités)
-  - [État Actuel des Serveurs](#état-actuel-des-serveurs)
   - [Installation](#installation)
   - [Configuration](#configuration)
   - [Utilisation](#utilisation)
@@ -63,12 +62,6 @@ Les serveurs MCP offrent un large éventail de fonctionnalités :
 - **Exécution de commandes** - Exécution de commandes système sur Windows
 - **Opérations Git et GitHub** - Interaction avec les dépôts Git et l'API GitHub
 - **Accès au système de fichiers** - Opérations avancées sur le système de fichiers
-## État Actuel des Serveurs
-
-Suite à une campagne de fiabilisation utilisant la méthodologie SDDD, plusieurs serveurs critiques ont été réparés et leur documentation améliorée. Tous les serveurs listés ci-dessous sont actuellement considérés comme stables et opérationnels.
-
-Pour une synthèse complète des réparations effectuées, veuillez consulter le document : **[Synthèse Finale SDDD : Réparations des Serveurs MCP](..../docs/missions/2025-01-13-synthese-reparations-mcp-sddd.md)**.
-
 
 ## Installation
 
@@ -90,7 +83,7 @@ Pour des instructions détaillées, consultez le fichier [INSTALLATION.md](./INS
 Les configurations des serveurs MCP sont définies dans le fichier global `mcp_settings.json` de Roo. Ce fichier se trouve dans le répertoire de stockage global de Roo et est géré automatiquement par l'extension.
 
 **📖 Pour des informations détaillées sur la configuration MCP, consultez :**
-**[Configuration MCP dans Roo](../docs/configuration/configuration-mcp-roo.md)**
+**[Configuration MCP dans Roo](../docs/dev/archive-configuration/configuration-mcp-roo.md)**
 
 Cette documentation explique :
 - L'emplacement exact du fichier `mcp_settings.json`
@@ -273,10 +266,9 @@ Pour des instructions détaillées de dépannage, consultez le fichier [TROUBLES
 ## Ressources supplémentaires
 
 - [README principal](../README.md)
-- [Documentation des modes Roo](../roo-modes/README.md)
 - [Documentation de la configuration Roo](../roo-config/README.md)
 - [Documentation des tests](../tests/README.md)
-- [Configuration MCP dans Roo](../docs/configuration/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
+- [Configuration MCP dans Roo](../docs/dev/archive-configuration/configuration-mcp-roo.md) - Guide de configuration et gestion des MCPs
 - [INSTALLATION.md](./INSTALLATION.md) - Instructions d'installation détaillées
 - [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) - Guide de dépannage
 - [MANUAL_START.md](./MANUAL_START.md) - Instructions pour démarrer manuellement les serveurs

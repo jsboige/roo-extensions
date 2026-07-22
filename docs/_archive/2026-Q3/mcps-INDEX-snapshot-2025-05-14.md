@@ -12,7 +12,7 @@ author: "Équipe MCP"
 
 # Documentation des MCPs (Model Context Protocol)
 
-> **⚠️ ARCHIVE HISTORIQUE (snapshot 2025-05-14) — l'index MCP canonique courant est [`docs/mcps/INDEX.md`](../docs/mcps/INDEX.md).**
+> **⚠️ ARCHIVE HISTORIQUE (snapshot 2025-05-14) — l'index MCP canonique courant est [`docs/mcps/INDEX.md`](../../mcps/INDEX.md).**
 >
 > Les serveurs **retirés** (`quickfiles-server`, `desktop-commander`, `github-projects-mcp`) y sont marqués ❌ Retiré. En particulier **`quickfiles-server` = RETIRÉ (CONS-1)** — remplacé par les outils natifs Read/Write/Glob ; le bloc de config `autostart` et les exemples d'usage QuickFiles ci-dessous sont **obsolètes, ne pas réinstaller**.
 
