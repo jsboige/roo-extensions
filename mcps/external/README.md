@@ -4,15 +4,20 @@ Ce répertoire contient la documentation et les configurations pour les serveurs
 
 ## Organisation
 
-Les serveurs MCP externes sont organisés dans les sous-répertoires suivants :
+Les serveurs MCP externes sont organisés dans les sous-répertoires suivants. Les serveurs **actifs** sont wirés dans `roo-config/settings/servers.json` :
 
 - **docker/** - Documentation et scripts pour la conteneurisation des serveurs MCP
-- **filesystem/** - Serveur MCP pour accéder au système de fichiers
-- **git/** - Documentation pour le serveur MCP Git
-- **github/** - Documentation pour le serveur MCP GitHub
-- **jupyter/** - Documentation pour l'intégration avec Jupyter
-- **searxng/** - Serveur MCP pour effectuer des recherches web via SearXNG
-- **win-cli/** - Serveur MCP pour exécuter des commandes CLI sur Windows
+- **git/** - Serveur MCP Git
+- **github/** - Serveur MCP GitHub
+- **jupyter/** - Intégration Jupyter (lanceur VS Code `start-jupyter-mcp-vscode.bat`)
+- **markitdown/** - Conversion PDF/DOCX → Markdown
+- **Office-PowerPoint-MCP-Server/** - Génération et édition de présentations PowerPoint *(submodule)*
+- **playwright/** - Automatisation web (Playwright)
+- **mcp-server-ftp/** - Transferts FTP/SFTP *(submodule)*
+- **searxng/** - Recherche web via SearXNG
+- **win-cli/** - Exécution de commandes CLI sur Windows
+
+> ❌ **Retirés** (présents pour l'historique, ne pas réinstaller) : `desktop-commander/` — remplacé par les outils natifs Read/Write/Edit (convention [`mcps/INDEX.md`](../INDEX.md)).
 
 ## Installation
 
