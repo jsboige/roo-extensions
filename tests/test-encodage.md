@@ -56,5 +56,5 @@ Pour vérifier si l'encodage est correct dans vos fichiers :
 
 ## Références
 
-- [Documentation sur l'encodage](../roo-config/encoding-scripts/README.md)
-- [Scripts de diagnostic d'encodage](../roo-config/diagnostic-scripts/README.md)
+- Documentation sur l'encodage
+- Scripts de diagnostic d'encodage
