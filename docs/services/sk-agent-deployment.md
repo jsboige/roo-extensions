@@ -94,7 +94,7 @@ docker logs sk-agent --tail 20
 
 ```bash
 curl -s -X POST https://skagents.myia.io/mcp \
-  -H "Authorization: Bearer 181ecbaa03674f028e4dbb3c7efc8cb6" \
+  -H "Authorization: Bearer $SK_AGENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 ```
@@ -110,7 +110,7 @@ venv/Scripts/pip install -r requirements.txt
 
 | Variable | Value | Source |
 |----------|-------|--------|
-| SK_AGENT_API_KEY | `181ecbaa03674f028e4dbb3c7efc8cb6` | docker-compose / myia.env |
+| SK_AGENT_API_KEY | `<in myia.env, not committed>` | docker-compose / myia.env |
 | SK_AGENT_CONFIG | `/app/sk_agent_config.json` (container) | Dockerfile |
 | SK_AGENT_PORT | `8100` | Dockerfile default |
 
