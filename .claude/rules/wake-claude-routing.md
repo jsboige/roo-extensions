@@ -104,7 +104,27 @@ pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-dashboard
 Verifier ensuite : `(Get-ScheduledTask Claude-DashboardListener).Triggers` (AtLogOn + AtStartup + repetition),
 `.Settings.ExecutionTimeLimit = PT0S`, `.Settings.MultipleInstances = IgnoreNew`.
 
+## Detection fleet proactive (#2928 systemic gap)
+
+Sans surveiller les heartbeats eux-memes, un listener mort passe inaperçu 8h+ (au lieu de 2h max).
+`check-all-listeners.ps1` lit tous les `*.heartbeat` partagees et poste `[FLEET-ALERT] [WARN]` des qu'une
+machine depasse 2h. Concu pour cron 2h, mais **il n'etait enregistre sur AUCUNE machine** (incident #2928 :
+ai-01 dead 8h, remarque seulement par patrouilles manuelles po-2026/po-204).
+
+Installer (identique sur chaque machine -- n'importe laquelle peut detecter n'importe quel autre listener
+mort via les heartbeats partagees GDrive) :
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-check-all-listeners-schtask.ps1 -DryRun   # preview
+pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-check-all-listeners-schtask.ps1           # register (elevated)
+```
+
+Rollout options (lane coordinator/user) : (1) ai-01 seul auto-monitore tout le fleet, (2) chaque machine
+installe -> detection distribuee redondante, (3) garder ad-hoc. L'installer ne decide pas -- il supporte
+les trois selon qui l'installe.
+
 ---
 
 **Reference technique :** `dashboard-listener.ps1`, `dashboard-listener-wrapper.ps1`,
-`install-dashboard-listener-schtask.ps1`, `diagnose-wake-listener.ps1` (tous dans `scripts/dashboard-scheduler/`).
+`install-dashboard-listener-schtask.ps1`, `diagnose-wake-listener.ps1`,
+`check-all-listeners.ps1`, `install-check-all-listeners-schtask.ps1` (tous dans `scripts/dashboard-scheduler/`).

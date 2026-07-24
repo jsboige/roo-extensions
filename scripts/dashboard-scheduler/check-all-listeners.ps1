@@ -109,7 +109,7 @@ Write-Output ""
 Write-Output "| Machine | Heartbeat | Age | Status |"
 Write-Output "|---------|-----------|-----|--------|"
 foreach ($r in $results) {
-    $ageStr = if ($null -ne $r.heartbeatAge) { "$($r.heartbeatAge)s" } else { "N/A" }
+    $ageStr = if ($null -ne $r.ageSeconds) { "$($r.ageSeconds)s" } else { "N/A" }
     $statusStr = if ($r.heartbeat -eq "ALIVE") { "**OK**" } elseif ($r.heartbeat -eq "STALE") { "**STALE >2h**" } else { "???" }
     Write-Output "| $($r.machineId) | $($r.heartbeat) | $ageStr | $statusStr |"
 }
