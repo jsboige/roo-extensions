@@ -44,7 +44,8 @@ applies three checks in order:
 
 1. **C0 (silent-exit)** — Is `GoogleDriveFS.exe` running? → exit 0 (no action).
 2. **C1 (hung-process)** — Is every GDriveFS process below a CPU% threshold
-   (default `0.5%`) over a sample window (default `30s`)? → hung.
+   (default `0.5%`) over a sample window? → hung. **Opt-in: disabled by default**
+   (`HungSampleSeconds=0`); set `HungSampleSeconds=30` to enable.
 3. **C2 (cooldown)** — If a relaunch is needed and we're in cooldown, skip and
    emit an alert. Otherwise relaunch in the **user context** (same command as
    the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), wait 20s, re-check,
@@ -53,13 +54,18 @@ applies three checks in order:
 ### C1 — Hung-process detection (CPU sampling)
 
 `Test-GDriveFSHung` records `[Process].CPU` (cumulative seconds) at T0 for
-every GoogleDriveFS.exe, sleeps `HungSampleSeconds` (default 30), re-reads
+every GoogleDriveFS.exe, sleeps `HungSampleSeconds`, re-reads
 CPU, and computes the per-process delta. If **all** processes are below
-`HungCpuPctLow` (default `0.5%` of one core), the process is alive but
-unresponsive → relaunch.
+`HungCpuPctLow` (default `0.5%` of total CPU across all cores), the process
+is alive but unresponsive → relaunch.
 
 Notes:
-- `HungSampleSeconds=0` disables C1 entirely (process-existence-only mode).
+- **C1 is opt-in: `HungSampleSeconds=0` (the default) disables it** — the watchdog
+  runs in process-existence-only mode (C0+C2). C1 defaults off because an
+  idle-but-healthy GDriveFS (sync done, no I/O) samples at ~0% CPU and would be
+  wrongly flagged hung → needless relaunch. Enable per host with `HungSampleSeconds=30`
+  only where a genuine hang (vs. idle) is distinguishable. A positive liveness probe
+  (mount stat / IPC) is the real fix — tracked as a follow-up.
 - The body is bounded by the scheduled task's `ExecutionTimeLimit` (5 min); the
   default 30s sample leaves ample headroom on top of the 20s post-relaunch wait.
 - Per-process PID matching: if a process is recycled mid-sample, the new PID
@@ -155,8 +161,8 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Mode` (body) | `poll` | `poll` = relaunch if dead/hung; `dry-run` = probe only (never relaunch, never touch state) |
-| `HungSampleSeconds` (body) | `30` | C1 — sample window for CPU-delta hung detection. `0` disables C1. |
-| `HungCpuPctLow` (body) | `0.5` | C1 — below this CPU% of one core over the window → hung. |
+| `HungSampleSeconds` (body) | `0` | C1 — sample window for CPU-delta hung detection. `0` (default) disables C1 (opt-in); set `30` to enable. |
+| `HungCpuPctLow` (body) | `0.5` | C1 — below this CPU% of total CPU (all cores) over the window → hung. |
 | `MaxConsecutiveFailures` (body) | `3` | C2 — after this many failed relaunches, enter cooldown. |
 | `CooldownHours` (body) | `24` | C2 — hours to suppress further relaunches after threshold reached. |
 | `LogRetentionDays` (body) | `14` | Auto-prune logs older than N days. |
@@ -167,9 +173,10 @@ Artifacts (gitignored):
 - **Logs**: `<LogDir>/watchdog-YYYYMMDD.log`
 - **State file**: `<LogDir>/watchdog-state.json` (C2) — survives across polls to track consecutive failures and cooldown.
 
-Tuning `HungSampleSeconds`/`HungCpuPctLow`: the default 30s @ 0.5% detects a
-fully unresponsive process while tolerating normal idling. Tighten
-(`HungSampleSeconds=15`, `HungCpuPctLow=0.2`) for stricter detection on a
-host with frequent sync; loosen (`HungSampleSeconds=60`) on a slow host that
-runs heavy sync periodically. Cooldown should stay ≥ 24h to avoid masking
-persistent auth loss with noise.
+Tuning `HungSampleSeconds`/`HungCpuPctLow` (only relevant once C1 is enabled with
+`HungSampleSeconds>0`): `30s @ 0.5%` detects a fully unresponsive process while
+tolerating normal idling. **Caveat:** on a host where GDriveFS goes fully idle
+(sync done, no I/O) this still reads as ~0% CPU and will false-positive as hung —
+which is why C1 ships disabled. Enable it only where genuine hang and idle are
+distinguishable, or wait for the positive-liveness-probe follow-up. Cooldown should
+stay ≥ 24h to avoid masking persistent auth loss with noise.

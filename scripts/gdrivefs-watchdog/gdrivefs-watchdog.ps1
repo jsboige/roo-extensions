@@ -10,10 +10,12 @@
     and the fleet reports the host "dead/non-responsive" for hours/days.
 
     This watchdog polls every ~15 min via scheduled task:
-      C1 (silent-exit) : is GoogleDriveFS.exe running? If not → relaunch.
-      C2 (hung-process): if it IS running but unresponsive (CPU stuck at 0%
+      C0 (silent-exit) : is GoogleDriveFS.exe running? If not → relaunch.
+      C1 (hung-process): if it IS running but unresponsive (CPU stuck at 0%
                           for a sample window while sync is expected) → relaunch.
-      C3 (cooldown)    : after N consecutive relaunch failures, suppress further
+                          OPT-IN: disabled by default (HungSampleSeconds=0), because
+                          an idle-but-healthy GDriveFS reads as 0% CPU → false hung.
+      C2 (cooldown)    : after N consecutive relaunch failures, suppress further
                           attempts for a cooldown window and emit an Error-level
                           alert. Re-arms on next successful detection.
 
@@ -36,7 +38,9 @@
 
 .PARAMETER HungSampleSeconds
     C1 — Window (seconds) over which to sample CPU delta for hung-process detection.
-    0 disables C1. Default: 30.
+    0 disables C1 (default — opt-in). Set to e.g. 30 to enable. Disabled by default
+    because an idle-but-healthy GDriveFS samples at ~0% CPU and would be flagged hung,
+    triggering a needless relaunch (the very reload-spam C2 exists to prevent).
 
 .PARAMETER HungCpuPctLow
     C1 — Below this CPU% delta over the window → considered hung (idle/no I/O).
@@ -61,7 +65,7 @@ param(
     [string]$Mode = 'poll',
     [string]$LogDir,
     [int]$LogRetentionDays = 14,
-    [int]$HungSampleSeconds = 30,
+    [int]$HungSampleSeconds = 0,
     [double]$HungCpuPctLow = 0.5,
     [int]$MaxConsecutiveFailures = 3,
     [int]$CooldownHours = 24
@@ -188,7 +192,10 @@ function Test-GDriveFSAlive {
 # Sample cumulative CPU across all GoogleDriveFS processes at T0 and T0+window,
 # compute delta% per process. If ALL processes are below the low threshold, the
 # process is alive but unresponsive (no I/O / no heartbeat) → treat as hung.
-# Cores is used to convert "CPU seconds" into a percent-of-one-core.
+# Dividing by core count normalizes CPU-seconds into a percent of TOTAL machine CPU
+# (all cores), not a single core. For near-zero hung detection the normalization is
+# immaterial (an idle process reads ~0% either way); the LowPct threshold is therefore
+# "% of total CPU across all cores".
 function Test-GDriveFSHung {
     param([int]$WindowSeconds, [double]$LowPct, [switch]$DryRun)
 
