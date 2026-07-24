@@ -320,20 +320,26 @@ function Read-DashboardMessages($ws) {
     $dashboardFile = Join-Path $SharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) { return @() }
 
-    # Fix #2926 (TOCTOU race, po-2024 firsthand 2026-07-24) :
+    # Fix #2926 (TOCTOU race, po-204 firsthand 2026-07-24) :
     # Test-Path ci-dessus passe, puis ReadAllText échoue → le cache online-only GDriveFS
-    # a évincé le fichier entre le check et le read (time-of-check vs time-of-use).
-    # Attendu/bénin → DEBUG + return @() (retry au prochain poll). On reserve l'ERROR
-    # du caller (L841) aux VRAIES erreurs (IOException disque, permission refusée) en
-    # relançant l'exception. Match sur les types (pas le message : localisé FR/EN fragile).
+    # a évincé le fichier OU le dossier parent entre le check et le read (time-of-check
+    # vs time-of-use). Attendu/bénin → DEBUG + return @() (retry au prochain poll). On
+    # reserve l'ERROR du caller (L841) aux VRAIES erreurs (IOException disque, permission
+    # refusée) en relançant l'exception. Match sur les types (pas le message : localisé
+    # FR/EN fragile). PowerShell enveloppe FileNotFoundException/DirectoryNotFoundException
+    # dans MethodInvocationException → c'est `InnerException` qui porte le type réel.
+    # Les 2 premiers checks sont défensifs (peuvent matcher sur certains chemins PowerShell
+    # non-wrap) — le check effectif passe par InnerException (#2927 review web1).
     try {
         $raw = [System.IO.File]::ReadAllText($dashboardFile, [System.Text.UTF8Encoding]::new($false))
     } catch {
         $isMissingFile = ($_.Exception -is [System.IO.FileNotFoundException]) -or
+                         ($_.Exception -is [System.IO.DirectoryNotFoundException]) -or
                          ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) -or
-                         ($_.Exception.InnerException -is [System.IO.FileNotFoundException])
+                         ($_.Exception.InnerException -is [System.IO.FileNotFoundException]) -or
+                         ($_.Exception.InnerException -is [System.IO.DirectoryNotFoundException])
         if ($isMissingFile) {
-            Write-Log "DEBUG" "[$ws] Dashboard file disappeared (race GDriveFS post-Test-Path): $dashboardFile"
+            Write-Log "DEBUG" "[$ws] Dashboard file or directory disappeared (race GDriveFS post-Test-Path): $dashboardFile"
             return @()
         }
         throw
