@@ -330,7 +330,12 @@ function Invoke-PhaseCDispatch {
 
     try {
         Push-Location $RepositoryRoot
-        $cmdOutput = & gh copilot -p $Prompt 2>&1
+        # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
+        # Copilot cannot execute any tool (shell/file/git) and falls back to a
+        # conversational "ready, standing by" no-op instead of doing real work
+        # (gh copilot --help: "required for non-interactive mode", env COPILOT_ALLOW_ALL).
+        # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
+        $cmdOutput = & gh copilot -p $Prompt --allow-all-tools 2>&1
         $exit = $LASTEXITCODE
         Pop-Location
 
@@ -399,8 +404,12 @@ Constraints:
 - Be concrete and repository-specific.
 - Focus on useful fleet work, not acknowledgements.
 - Never ask a question.
-- Never mention tools, sessions, or interactive behavior.
+- Never mention tools, sessions, or interactive behavior in your output.
 - Keep each value to one short sentence.
+
+Investigation (ground your answer in real findings, not assumptions):
+- Use available tools to inspect the repository: run `git log --oneline -10`, read recently changed files, check `gh issue list --state open --limit 20` for actionable work.
+- Base work_summary and next_action on what you actually observe, so the dispatch consumes real analysis rather than producing a "ready, standing by" acknowledgement.
 
 Context:
 - Profile: $Profile
