@@ -378,7 +378,22 @@ function Get-RooSyncTask {
         try {
             Get-Content $_.FullName -Raw | ConvertFrom-Json
         } catch {
-            Write-Log "Erreur lecture $fileName : $_" "WARN"
+            # Fix #2845 Bug #3 follow-up (TOCTOU race, po-2026 firsthand 2026-07-23) :
+            # Test-Path ci-dessus passe, puis Get-Content échoue → le cache online-only
+            # GDriveFS a évincé le fichier entre le check et le read (time-of-check vs
+            # time-of-use). Attendu/bénin → DEBUG (pas WARN). On réserve WARN aux vraies
+            # erreurs de parsing (JSON malformé, encodage, permission refusée).
+            # Match sur les types d'exception (pas le message : localisé FR/EN fragile) :
+            # Get-Content lève ItemNotFoundException (résolution path) OU FileNotFoundException
+            # (.NET, lecture stream GDriveFS) selon le moment de l'éviction.
+            $isMissingFile = ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) -or
+                             ($_.Exception -is [System.IO.FileNotFoundException]) -or
+                             ($_.Exception.InnerException -is [System.IO.FileNotFoundException])
+            if ($isMissingFile) {
+                Write-Log "Message inbox disparu (race GDriveFS post-Test-Path): $fileName" "DEBUG"
+            } else {
+                Write-Log "Erreur lecture $fileName : $_" "WARN"
+            }
             $null
         }
     } | Where-Object { $_ -ne $null }
