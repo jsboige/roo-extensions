@@ -17,7 +17,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 ---
 
-## Sous-répertoires (42)
+## Sous-répertoires (43)
 
 ### Coordination & Synchronisation
 
@@ -27,6 +27,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `dashboard-scheduler/` | 10 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation, listener diagnostics) |
 | `messaging/` | 4 | Communication inter-machines (ventilation, inbox) |
 | `gdrive/` | 1 | Intégration Google Drive |
+| `gdrivefs-watchdog/` | 2 | Watchdog GoogleDriveFS.exe (silent-exit #2875) — relance auto quand le process meurt |
 | `scheduler/` | 3 | Configuration du scheduler Roo |
 
 ### MCP & Services
