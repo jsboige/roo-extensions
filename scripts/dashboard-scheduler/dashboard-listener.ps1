@@ -320,7 +320,24 @@ function Read-DashboardMessages($ws) {
     $dashboardFile = Join-Path $SharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) { return @() }
 
-    $raw = [System.IO.File]::ReadAllText($dashboardFile, [System.Text.UTF8Encoding]::new($false))
+    # Fix #2926 (TOCTOU race, po-2024 firsthand 2026-07-24) :
+    # Test-Path ci-dessus passe, puis ReadAllText échoue → le cache online-only GDriveFS
+    # a évincé le fichier entre le check et le read (time-of-check vs time-of-use).
+    # Attendu/bénin → DEBUG + return @() (retry au prochain poll). On reserve l'ERROR
+    # du caller (L841) aux VRAIES erreurs (IOException disque, permission refusée) en
+    # relançant l'exception. Match sur les types (pas le message : localisé FR/EN fragile).
+    try {
+        $raw = [System.IO.File]::ReadAllText($dashboardFile, [System.Text.UTF8Encoding]::new($false))
+    } catch {
+        $isMissingFile = ($_.Exception -is [System.IO.FileNotFoundException]) -or
+                         ($_.Exception -is [System.Management.Automation.ItemNotFoundException]) -or
+                         ($_.Exception.InnerException -is [System.IO.FileNotFoundException])
+        if ($isMissingFile) {
+            Write-Log "DEBUG" "[$ws] Dashboard file disappeared (race GDriveFS post-Test-Path): $dashboardFile"
+            return @()
+        }
+        throw
+    }
 
     # Find intercom section
     $intercomMatch = [regex]::Match($raw, '(?ms)^## Intercom \(\d+ messages\)\s*\n(.+)$')
