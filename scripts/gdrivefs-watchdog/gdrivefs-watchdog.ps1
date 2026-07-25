@@ -11,10 +11,9 @@
 
     This watchdog polls every ~15 min via scheduled task:
       C0 (silent-exit) : is GoogleDriveFS.exe running? If not → relaunch.
-      C1 (hung-process): if it IS running but unresponsive (CPU stuck at 0%
-                          for a sample window while sync is expected) → relaunch.
-                          OPT-IN: disabled by default (HungSampleSeconds=0), because
-                          an idle-but-healthy GDriveFS reads as 0% CPU → false hung.
+      C1 (hung-process): if it IS running, can the configured DriveFS mount serve
+                          a bounded metadata request? Timeout/error → relaunch.
+                          Enabled by default; succeeds even when DriveFS is idle.
       C2 (cooldown)    : after N consecutive relaunch failures, suppress further
                           attempts for a cooldown window and emit an Error-level
                           alert. Re-arms on next successful detection.
@@ -36,15 +35,12 @@
 .PARAMETER LogRetentionDays
     Log files older than this are pruned each run. Default: 14.
 
-.PARAMETER HungSampleSeconds
-    C1 — Window (seconds) over which to sample CPU delta for hung-process detection.
-    0 disables C1 (default — opt-in). Set to e.g. 30 to enable. Disabled by default
-    because an idle-but-healthy GDriveFS samples at ~0% CPU and would be flagged hung,
-    triggering a needless relaunch (the very reload-spam C2 exists to prevent).
+.PARAMETER MountPath
+    C1 — DriveFS mount to probe. Default: G:\.
 
-.PARAMETER HungCpuPctLow
-    C1 — Below this CPU% delta over the window → considered hung (idle/no I/O).
-    Default: 0.5.
+.PARAMETER MountProbeTimeoutSeconds
+    C1 — Maximum seconds allowed for a mount metadata request. Default: 5.
+    0 disables C1 for recovery or hosts without a mounted drive.
 
 .PARAMETER MaxConsecutiveFailures
     C2 — After this many consecutive relaunch failures without recovery, enter
@@ -65,8 +61,9 @@ param(
     [string]$Mode = 'poll',
     [string]$LogDir,
     [int]$LogRetentionDays = 14,
-    [int]$HungSampleSeconds = 0,
-    [double]$HungCpuPctLow = 0.5,
+    [string]$MountPath = 'G:\',
+    [ValidateRange(0, 60)]
+    [int]$MountProbeTimeoutSeconds = 5,
     [int]$MaxConsecutiveFailures = 3,
     [int]$CooldownHours = 24
 )
@@ -188,62 +185,54 @@ function Test-GDriveFSAlive {
     return @{ Alive = $false; Pids = '' }
 }
 
-# ---------- C1: hung-process detection ----------
-# Sample cumulative CPU across all GoogleDriveFS processes at T0 and T0+window,
-# compute delta% per process. If ALL processes are below the low threshold, the
-# process is alive but unresponsive (no I/O / no heartbeat) → treat as hung.
-# Dividing by core count normalizes CPU-seconds into a percent of TOTAL machine CPU
-# (all cores), not a single core. For near-zero hung detection the normalization is
-# immaterial (an idle process reads ~0% either way); the LowPct threshold is therefore
-# "% of total CPU across all cores".
-function Test-GDriveFSHung {
-    param([int]$WindowSeconds, [double]$LowPct, [switch]$DryRun)
+# ---------- C1: positive mount liveness probe ----------
+# Probe a positive signal from DriveFS: a metadata request against the configured
+# mount must complete within a bounded timeout. Unlike CPU sampling, this succeeds
+# when DriveFS is idle and fails when core_controller stops serving filesystem I/O.
+function Test-GDriveFSMountLive {
+    param([string]$Path, [int]$TimeoutSeconds)
 
-    if ($WindowSeconds -le 0) {
-        return @{ Hung = $false; Reason = 'c1-disabled' }
+    if ($TimeoutSeconds -le 0) {
+        return @{ Live = $true; Reason = 'c1-disabled' }
     }
 
-    $cores  = [Environment]::ProcessorCount
-    if ($cores -lt 1) { $cores = 1 }
+    $job = $null
+    try {
+        $job = Start-Job -ScriptBlock {
+            param($ProbePath)
+            $item = Get-Item -LiteralPath $ProbePath -Force -ErrorAction Stop
+            [pscustomobject]@{
+                FullName    = $item.FullName
+                PSIsContainer = $item.PSIsContainer
+            }
+        } -ArgumentList $Path
 
-    if ($DryRun) {
-        Write-Log 'INFO' "DRY-RUN: would sample GoogleDriveFS CPU over ${WindowSeconds}s (cores=$cores, low=${LowPct}%)"
-        return @{ Hung = $false; Reason = 'dry-run' }
-    }
-
-    $procs = @(Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue)
-    if (-not $procs -or $procs.Count -eq 0) {
-        return @{ Hung = $false; Reason = 'no-procs' }
-    }
-
-    $t0 = @{}
-    foreach ($p in $procs) {
-        $t0[$p.Id] = [double]$p.CPU
-    }
-
-    Write-Log 'INFO' "C1 sample: tracking $($procs.Count) process(es) for ${WindowSeconds}s"
-    Start-Sleep -Seconds $WindowSeconds
-
-    $procs2 = @(Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue)
-    if (-not $procs2 -or $procs2.Count -eq 0) {
-        return @{ Hung = $false; Reason = 'no-procs-after-sample' }
-    }
-
-    $below = 0
-    foreach ($p2 in $procs2) {
-        $cpu0 = if ($t0.ContainsKey($p2.Id)) { $t0[$p2.Id] } else { 0 }
-        $delta = [double]$p2.CPU - $cpu0
-        $pct   = ($delta / $WindowSeconds) * 100.0 / $cores
-        if ($pct -lt $LowPct) {
-            $below++
+        if (-not (Wait-Job -Job $job -Timeout $TimeoutSeconds)) {
+            return @{ Live = $false; Reason = "mount-probe-timeout-${TimeoutSeconds}s" }
         }
-        Write-Log 'INFO' "C1 sample pid=$($p2.Id) cpu_delta=${delta}s → ${pct}% (low=${LowPct}%)"
-    }
 
-    if ($below -eq $procs2.Count) {
-        return @{ Hung = $true; Reason = "all-$($procs2.Count)-procs-below-${LowPct}%"}
+        $probeError = @()
+        $result = Receive-Job -Job $job -ErrorAction SilentlyContinue -ErrorVariable probeError
+        if ($job.State -eq 'Completed' -and $result -and $result.PSIsContainer -and $probeError.Count -eq 0) {
+            return @{ Live = $true; Reason = 'mount-stat-ok' }
+        }
+
+        $detail = if ($job.ChildJobs[0].JobStateInfo.Reason) {
+            $job.ChildJobs[0].JobStateInfo.Reason.Message
+        } elseif ($probeError.Count -gt 0) {
+            $probeError[0].Exception.Message
+        } else {
+            "job-state-$($job.State)"
+        }
+        return @{ Live = $false; Reason = "mount-probe-error: $detail" }
+    } catch {
+        return @{ Live = $false; Reason = "mount-probe-error: $($_.Exception.Message)" }
+    } finally {
+        if ($job) {
+            Stop-Job -Job $job -ErrorAction SilentlyContinue
+            Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+        }
     }
-    return @{ Hung = $false; Reason = 'responsive' }
 }
 
 # ---------- C2: cooldown gate ----------
@@ -280,7 +269,7 @@ function Invoke-RelaunchGDriveFS {
 }
 
 # ---------- main ----------
-Write-Log 'INFO' "GDriveFS watchdog start (mode=$Mode, host=$env:COMPUTERNAME, user=$env:USERNAME, hungWindowSec=$HungSampleSeconds)"
+Write-Log 'INFO' "GDriveFS watchdog start (mode=$Mode, host=$env:COMPUTERNAME, user=$env:USERNAME, mount=$MountPath, mountProbeTimeoutSec=$MountProbeTimeoutSeconds)"
 
 # Load state (C2)
 $state = Read-WatchdogState
@@ -305,14 +294,14 @@ if (-not $binary -or -not (Test-Path $binary)) {
     } else {
         Write-Log 'OK' "GoogleDriveFS.exe alive (pids=$($live.Pids)) — checking health (C1)"
 
-        # C1: hung-process detection (only if process is alive)
-        $hung = Test-GDriveFSHung -WindowSeconds $HungSampleSeconds -LowPct $HungCpuPctLow -DryRun:($Mode -eq 'dry-run')
-        if ($hung.Hung) {
+        # C1: positive mount liveness probe (only if process is alive)
+        $mountProbe = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
+        if (-not $mountProbe.Live) {
             $needsRelaunch = $true
-            $reason        = "hung: $($hung.Reason)"
-            Write-Log 'FAIL' "GoogleDriveFS.exe hung ($($hung.Reason)) — triggering relaunch"
+            $reason        = "hung: $($mountProbe.Reason)"
+            Write-Log 'FAIL' "GoogleDriveFS.exe alive but mount '$MountPath' is unresponsive ($($mountProbe.Reason)) — triggering relaunch"
         } else {
-            Write-Log 'OK' "GoogleDriveFS.exe healthy (C1 verdict: $($hung.Reason))"
+            Write-Log 'OK' "GoogleDriveFS.exe healthy (C1 verdict: $($mountProbe.Reason), mount=$MountPath)"
         }
     }
 
@@ -325,10 +314,15 @@ if (-not $binary -or -not (Test-Path $binary)) {
         } else {
             Invoke-RelaunchGDriveFS -BinaryPath $binary
 
-            # Re-check after the wait.
+            # Re-check process and positive liveness after the wait.
             $after = Test-GDriveFSAlive
-            if ($after.Alive) {
-                Write-Log 'OK' "GoogleDriveFS.exe recovered after relaunch (pids=$($after.Pids))"
+            $afterProbe = if ($after.Alive) {
+                Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
+            } else {
+                @{ Live = $false; Reason = 'process-absent-after-relaunch' }
+            }
+            if ($after.Alive -and $afterProbe.Live) {
+                Write-Log 'OK' "GoogleDriveFS.exe recovered after relaunch (pids=$($after.Pids), C1=$($afterProbe.Reason))"
                 # C2: success → reset failure counter
                 if ($Mode -ne 'dry-run') {
                     $state.consecutive_relaunch_failures = 0
@@ -336,8 +330,8 @@ if (-not $binary -or -not (Test-Path $binary)) {
                     Save-WatchdogState -State $state
                 }
             } else {
-                Write-Log 'WARN' "GoogleDriveFS.exe still absent 20s after relaunch — may need one-time interactive re-auth (WebView2), or binary failed to init. See GDriveFS logs."
-                $script:alerts += 'still-absent-after-relaunch'
+                Write-Log 'WARN' "GoogleDriveFS.exe failed recovery after 20s (processAlive=$($after.Alive), C1=$($afterProbe.Reason)) — may need one-time interactive re-auth (WebView2), or core_controller failed to init. See GDriveFS logs."
+                $script:alerts += "unhealthy-after-relaunch: $($afterProbe.Reason)"
 
                 # C2: increment failure counter, escalate if over threshold
                 if ($Mode -ne 'dry-run') {
@@ -389,6 +383,11 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue
 } catch {}
 
-# Exit code: 0 if GDriveFS is alive at end (or dry-run), 1 if still dead/hung.
+# Exit code: 0 if GDriveFS is alive and its mount responds at end (or dry-run), 1 otherwise.
 $final = Test-GDriveFSAlive
-if ($Mode -eq 'dry-run' -or $final.Alive) { exit 0 } else { exit 1 }
+$finalProbe = if ($final.Alive) {
+    Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
+} else {
+    @{ Live = $false }
+}
+if ($Mode -eq 'dry-run' -or ($final.Alive -and $finalProbe.Live)) { exit 0 } else { exit 1 }

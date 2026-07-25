@@ -1,7 +1,7 @@
 # GDriveFS Watchdog
 
-**Issues:** #2875 (silent-exit), #2933 (hung-process C1 + cooldown/escalation C2)
-**Date:** 2026-07-24
+**Issues:** #2875 (silent-exit), #2933 (C1 mechanism + C2), #2938 (positive C1 liveness probe)
+**Date:** 2026-07-25
 **Owner:** myia-web1
 
 ---
@@ -42,34 +42,30 @@ Incident 2026-07-24: web1 was silent ~26h because of exactly this.
 A short-lived scheduled task runs `gdrivefs-watchdog.ps1` every 15 min and
 applies three checks in order:
 
-1. **C0 (silent-exit)** — Is `GoogleDriveFS.exe` running? → exit 0 (no action).
-2. **C1 (hung-process)** — Is every GDriveFS process below a CPU% threshold
-   (default `0.5%`) over a sample window? → hung. **Opt-in: disabled by default**
-   (`HungSampleSeconds=0`); set `HungSampleSeconds=30` to enable.
+1. **C0 (silent-exit)** — Is `GoogleDriveFS.exe` running? If not, relaunch.
+2. **C1 (hung-process)** — Can the configured DriveFS mount serve a metadata
+   request within 5 seconds? A healthy idle mount succeeds; timeout/error means
+   `core_controller` is not serving filesystem I/O, so relaunch.
 3. **C2 (cooldown)** — If a relaunch is needed and we're in cooldown, skip and
    emit an alert. Otherwise relaunch in the **user context** (same command as
-   the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), wait 20s, re-check,
-   log it.
+   the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), wait 20s, re-check
+   both process existence and mount liveness, then log the result.
 
-### C1 — Hung-process detection (CPU sampling)
+### C1 — Positive mount liveness probe
 
-`Test-GDriveFSHung` records `[Process].CPU` (cumulative seconds) at T0 for
-every GoogleDriveFS.exe, sleeps `HungSampleSeconds`, re-reads
-CPU, and computes the per-process delta. If **all** processes are below
-`HungCpuPctLow` (default `0.5%` of total CPU across all cores), the process
-is alive but unresponsive → relaunch.
+`Test-GDriveFSMountLive` runs `Get-Item -LiteralPath <MountPath>` in a background
+PowerShell job and waits at most `MountProbeTimeoutSeconds` (default `5`). The
+bounded metadata operation provides a positive signal from DriveFS itself:
 
-Notes:
-- **C1 is opt-in: `HungSampleSeconds=0` (the default) disables it** — the watchdog
-  runs in process-existence-only mode (C0+C2). C1 defaults off because an
-  idle-but-healthy GDriveFS (sync done, no I/O) samples at ~0% CPU and would be
-  wrongly flagged hung → needless relaunch. Enable per host with `HungSampleSeconds=30`
-  only where a genuine hang (vs. idle) is distinguishable. A positive liveness probe
-  (mount stat / IPC) is the real fix — tracked as a follow-up.
-- The body is bounded by the scheduled task's `ExecutionTimeLimit` (5 min); the
-  default 30s sample leaves ample headroom on top of the 20s post-relaunch wait.
-- Per-process PID matching: if a process is recycled mid-sample, the new PID
-  re-baselines at 0 (no false positives from inherited cumulative CPU).
+- Healthy and idle: mount stat completes → healthy.
+- Process alive but `core_controller` wedged: stat hangs until timeout → hung.
+- Mount absent or serving errors: stat fails → unhealthy.
+
+C1 is enabled by default for `G:\`. Set `MountPath` for hosts that use a different
+DriveFS mount. `MountProbeTimeoutSeconds=0` disables C1 as an explicit recovery
+option; normal installs should retain the default probe. The previous CPU-delta
+heuristic was removed because an idle-but-healthy DriveFS legitimately uses 0%
+CPU and therefore produced false positives.
 
 ### C2 — Cooldown + escalation
 
@@ -118,6 +114,7 @@ user re-auths) clears the cooldown and the watchdog resumes normal operation.
 | File | Role |
 |------|------|
 | `gdrivefs-watchdog.ps1` | Body — one-shot poll: detect (C0) + health-check (C1) + cooldown (C2) + relaunch + log. |
+| `test-gdrivefs-watchdog.ps1` | Regression tests for successful idle mount stat, error, disable, and bounded return behavior. |
 | `install-gdrivefs-watchdog-schtask.ps1` | Installer — registers the `GDriveFS-Watchdog` scheduled task. |
 
 ## Installation — [INTERACTIVE-ONLY]
@@ -146,6 +143,9 @@ session).
 # Dry-run (probe only, never relaunch) — safe, no system change:
 pwsh -File scripts\gdrivefs-watchdog\gdrivefs-watchdog.ps1 -Mode dry-run
 
+# Run regression tests for the positive mount probe:
+pwsh -File scripts\gdrivefs-watchdog\test-gdrivefs-watchdog.ps1
+
 # Run the poll manually:
 pwsh -File scripts\gdrivefs-watchdog\gdrivefs-watchdog.ps1
 
@@ -161,8 +161,8 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `Mode` (body) | `poll` | `poll` = relaunch if dead/hung; `dry-run` = probe only (never relaunch, never touch state) |
-| `HungSampleSeconds` (body) | `0` | C1 — sample window for CPU-delta hung detection. `0` (default) disables C1 (opt-in); set `30` to enable. |
-| `HungCpuPctLow` (body) | `0.5` | C1 — below this CPU% of total CPU (all cores) over the window → hung. |
+| `MountPath` (body) | `G:\` | C1 — DriveFS mount whose metadata is probed. Override on hosts using another mount. |
+| `MountProbeTimeoutSeconds` (body) | `5` | C1 — bounded mount-stat timeout. `0` explicitly disables C1. |
 | `MaxConsecutiveFailures` (body) | `3` | C2 — after this many failed relaunches, enter cooldown. |
 | `CooldownHours` (body) | `24` | C2 — hours to suppress further relaunches after threshold reached. |
 | `LogRetentionDays` (body) | `14` | Auto-prune logs older than N days. |
@@ -172,11 +172,3 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 Artifacts (gitignored):
 - **Logs**: `<LogDir>/watchdog-YYYYMMDD.log`
 - **State file**: `<LogDir>/watchdog-state.json` (C2) — survives across polls to track consecutive failures and cooldown.
-
-Tuning `HungSampleSeconds`/`HungCpuPctLow` (only relevant once C1 is enabled with
-`HungSampleSeconds>0`): `30s @ 0.5%` detects a fully unresponsive process while
-tolerating normal idling. **Caveat:** on a host where GDriveFS goes fully idle
-(sync done, no I/O) this still reads as ~0% CPU and will false-positive as hung —
-which is why C1 ships disabled. Enable it only where genuine hang and idle are
-distinguishable, or wait for the positive-liveness-probe follow-up. Cooldown should
-stay ≥ 24h to avoid masking persistent auth loss with noise.
