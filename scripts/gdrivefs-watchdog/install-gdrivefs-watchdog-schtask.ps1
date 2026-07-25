@@ -33,7 +33,10 @@
 param(
     [switch]$Uninstall,
     [int]$RepeatMinutes = 15,
-    [int]$StartupDelayMinutes = 2
+    [int]$StartupDelayMinutes = 2,
+    [string]$MountPath = 'G:\',
+    [ValidateRange(0, 60)]
+    [int]$MountProbeTimeoutSeconds = 5
 )
 
 $scriptDir   = Split-Path $MyInvocation.MyCommand.Path -Parent
@@ -69,7 +72,10 @@ if (-not $pwshPath) {
     exit 1
 }
 
-$action = New-ScheduledTaskAction -Execute $pwshPath -Argument "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$watchdogPs1`""
+$escapedWatchdogPath = $watchdogPs1.Replace('"', '`"')
+$escapedMountPath = $MountPath.Replace('"', '`"')
+$actionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds"
+$action = New-ScheduledTaskAction -Execute $pwshPath -Argument $actionArguments
 
 # Self-healing triggers, mirroring install-dashboard-listener-schtask.ps1 (#2431).
 # - AtLogOn: covers the normal interactive-session start (matches the old HKCU Run).
@@ -101,6 +107,7 @@ Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon
 Write-Host "Installed scheduled task: $taskName"
 Write-Host "  Triggers: AtLogOn + AtStartup(+${StartupDelayMinutes}m) + repeat every ${RepeatMinutes}m | Principal: $env:USERNAME (Highest, Interactive)"
 Write-Host "  ExecutionTimeLimit: 5 min | MultipleInstances: IgnoreNew"
+Write-Host "  C1 positive probe: mount=$MountPath, timeout=${MountProbeTimeoutSeconds}s"
 Write-Host "  Body: $watchdogPs1"
 Write-Host ""
 Write-Host "To start immediately: schtasks /run /tn `"$taskName`""
