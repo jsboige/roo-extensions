@@ -119,23 +119,88 @@ Write-Output ""
 
 # ---------- Dashboard alert ----------
 if ($totalDead -gt 0 -and -not $NoAlert) {
-    $warnContent = "[WARN] Fleet listener check: $totalDead of $($results.Count) machines have STALE/DEAD wake-listeners (threshold >2h). Machines affected: $($results | Where-Object { $_.isDead } | ForEach-Object { $_.machineId } | Select-Object -First 10 | ForEach-Object { $_ })..."
+    $deadMachines = @($results | Where-Object { $_.isDead } | ForEach-Object { $_.machineId })
+    $deadList = ($deadMachines | Select-Object -First 10) -join ', '
+    $warnContent = "[FLEET-ALERT] [WARN] Fleet listener check: $totalDead of $($results.Count) machines have STALE/DEAD wake-listeners (threshold >2h). Machines affected: $deadList."
     Write-Output ""
-    Write-Output "[FLEET-ALERT] $warnContent"
+    Write-Output $warnContent
 
-    # Append to local workspace dashboard (MCP fallback)
-    $localDashDir = Join-Path $RepoRoot ".claude\workspaces"
-    $localDashFile = Join-Path $localDashDir "workspace-$(if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }).md"
+    # Write alert to shared workspace dashboard — canonical path: $ROOSYNC_SHARED_PATH/dashboards/
+    # The previous sink (.claude/workspaces/) was dead code: directory exists on no machine,
+    # is versioned nowhere, and is not where shared dashboards live. (#2952)
+    $sharedPath = $env:ROOSYNC_SHARED_PATH
+    $localMachineId = if ($env:ROOSYNC_MACHINE_ID) { $env:ROOSYNC_MACHINE_ID.ToLowerInvariant() } else { $env:COMPUTERNAME.ToLowerInvariant() }
+    # Derive canonical workspace name from git remote (not directory name — wrong in worktrees)
+    $workspaceName = Split-Path $RepoRoot -Leaf
+    try { if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path "$RepoRoot/.git" -PathType Any)) {
+        $remoteUrl = & git -C $RepoRoot remote get-url origin 2>$null
+        if ($remoteUrl -match '/([^/]+?)(\.git)?$') { $workspaceName = $Matches[1] }
+    } } catch { }
 
-    if (Test-Path $localDashFile) {
-        $content = Get-Content $localDashFile -Raw -Encoding UTF8
-        if ($content -match '(?ms)^## Intercom') {
-            $content = $content -replace '(?ms)(^## Intercom)', "$warnContent`r`n`r`n`$1"
-        } else {
-            $content += "`r`n$r`n$warnContent"
+    if (-not $sharedPath) {
+        Write-Output "[FLEET-ALERT] ROOSYNC_SHARED_PATH not set — alert on stdout only (no dashboard write)."
+    } else {
+        try {
+            $sharedDashDir = Join-Path $sharedPath "dashboards"
+            $sharedDashFile = Join-Path $sharedDashDir "workspace-$workspaceName.md"
+
+            # Anti-spam: cooldown — skip if we already alerted for overlapping dead machines within 6h.
+            # Prevents flooding Intercom on long outages (cron 2h × detecting machines × outage duration).
+            $cooldownHours = 6
+            $cooldownCutoff = $nowUtc.AddHours(-$cooldownHours)
+            $shouldAlert = $true
+
+            if (Test-Path $sharedDashFile) {
+                $existingRaw = Get-Content $sharedDashFile -Raw -Encoding UTF8
+                # Match prior FLEET-ALERT messages — require [FLEET-ALERT] as first content line
+                # (after [msg:] marker + blank line) to avoid false-positives on reports that quote alerts
+                $alertRe = '(?m)^### \[([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?Z)\][^\r\n]*\r?\n(?:\[msg:[^\r\n]*\r?\n)?\r?\n\[FLEET-ALERT\][^\r\n]*Machines affected:\s*([^\r\n.]+)'
+                foreach ($am in [regex]::Matches($existingRaw, $alertRe)) {
+                    try {
+                        $postTime = [DateTimeOffset]::Parse($am.Groups[1].Value).UtcDateTime
+                        if ($postTime -ge $cooldownCutoff) {
+                            $listed = @($am.Groups[2].Value -split ',' | ForEach-Object { $_.Trim().ToLowerInvariant() } | Where-Object { $_ })
+                            $overlap = @($listed | Where-Object { $deadMachines -contains $_ })
+                            if ($overlap.Count -gt 0) {
+                                $shouldAlert = $false
+                                Write-Output "[FLEET-ALERT] Cooldown: already posted about {$($listed -join ', ')} at $($am.Groups[1].Value) (within ${cooldownHours}h). Skipping."
+                                break
+                            }
+                        }
+                    } catch { }
+                }
+            }
+
+            if ($shouldAlert) {
+                # Build canonical Intercom message format (matches roosync_dashboard append schema)
+                $timestamp = $nowUtc.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+                $randSuffix = -join ((48..57) + (97..122) | Get-Random -Count 4 | ForEach-Object { [char]$_ })
+                $msgId = $localMachineId + ':' + $workspaceName + ':ic-' + $nowUtc.ToString('yyyyMMddTHHmm') + '-' + $randSuffix
+                $newMessage = "`r`n### [$timestamp] $localMachineId|$workspaceName`r`n[msg: $msgId]`r`n`r`n$warnContent`r`n"
+
+                if (-not (Test-Path $sharedDashDir)) {
+                    New-Item -ItemType Directory -Path $sharedDashDir -Force | Out-Null
+                }
+
+                if (Test-Path $sharedDashFile) {
+                    $content = Get-Content $sharedDashFile -Raw -Encoding UTF8
+                    $content = $content.TrimEnd() + "`r`n" + $newMessage
+                    # Update message count in ## Intercom (N messages) header
+                    $content = [regex]::Replace($content, '(?<=## Intercom\s*\()\d+', {
+                        param($m); ([int]$m.Value + 1).ToString()
+                    })
+                } else {
+                    # Dashboard doesn't exist — create minimal file
+                    $content = "---`r`ntype: workspace`r`nlastModified: '$timestamp'`r`nlastModifiedBy:`r`n  machineId: $localMachineId`r`n  workspace: $workspaceName`r`ntotalMessages: 1`r`n---`r`n`r`n## Status`r`n`r`n## Intercom (1 message)`r`n$newMessage"
+                }
+
+                [System.IO.File]::WriteAllText($sharedDashFile, $content, [System.Text.UTF8Encoding]::new($false))
+                Write-Output "[FLEET-ALERT] Posted [WARN] to $sharedDashFile"
+            }
+        } catch {
+            # Best-effort: GDrive unavailability must never fail the probe
+            Write-Output "[FLEET-ALERT] Failed to write dashboard (best-effort, probe continues): $($_.Exception.Message)"
         }
-        [System.IO.File]::WriteAllText($localDashFile, $content, [System.Text.UTF8Encoding]::new($false))
-        Write-Output "[FLEET-ALERT] Appended [WARN] to $localDashFile"
     }
 }
 
