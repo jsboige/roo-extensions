@@ -25,11 +25,11 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 
 | Script | Description | Usage |
 |--------|-------------|-------|
-| [`scripts/worktrees/auto-cleanup.ps1`](../scripts/_archive/duplicates/auto-cleanup.ps1) | Cleanup automatique (archived — superseded by `cleanup-orphan-worktrees.ps1`) | Scheduler executor |
-| [`scripts/worktrees/create-worktree.ps1`](../scripts/worktrees/create-worktree.ps1) | Création de worktree pour issue | Manuel |
-| [`scripts/worktrees/cleanup-worktree.ps1`](../scripts/worktrees/cleanup-worktree.ps1) | Cleanup manuel après merge | Manuel |
-| [`scripts/worktrees/submit-pr.ps1`](../scripts/worktrees/submit-pr.ps1) | Soumission PR depuis worktree | Manuel |
-| [`scripts/claude/worktree-cleanup.ps1`](../scripts/claude/worktree-cleanup.ps1) | Cleanup avancé (alternative) | Manuel |
+| [`scripts/worktrees/auto-cleanup.ps1`](../_archive/duplicates/auto-cleanup.ps1) | Cleanup automatique (archived — superseded by `cleanup-orphan-worktrees.ps1`) | Scheduler executor |
+| [`scripts/worktrees/create-worktree.ps1`](create-worktree.ps1) | Création de worktree pour issue | Manuel |
+| [`scripts/worktrees/cleanup-worktree.ps1`](cleanup-worktree.ps1) | Cleanup manuel après merge | Manuel |
+| [`scripts/worktrees/submit-pr.ps1`](submit-pr.ps1) | Soumission PR depuis worktree | Manuel |
+| [`scripts/claude/worktree-cleanup.ps1`](../claude/worktree-cleanup.ps1) | Cleanup avancé (alternative) | Manuel |
 
 ---
 
@@ -192,4 +192,4 @@ git worktree list
 **Références :**
 - Issue #856 : chore: Worktree cleanup protocol
 - Issue #895 : Scheduler perd du travail - worktrees non nettoyés
-- [`scripts/_archive/duplicates/auto-cleanup.ps1`](../scripts/_archive/duplicates/auto-cleanup.ps1) (archived — superseded by `cleanup-orphan-worktrees.ps1`)
+- [`scripts/_archive/duplicates/auto-cleanup.ps1`](../_archive/duplicates/auto-cleanup.ps1) (archived — superseded by `cleanup-orphan-worktrees.ps1`)
