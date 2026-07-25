@@ -107,8 +107,18 @@ Describe "Worker Script - Model Guard" {
     }
 
     Context "Minimum model configuration" {
-        It "MinimumModel must be defined" {
-            ($content -match '\$MinimumModel\s*=\s*"(haiku|sonnet|opus)"') | Should Be $true
+        # The assignment became conditional in #2144 (idle-coverage→sonnet exception
+        # + IdleMinModel override): `$MinimumModel = if ($script:IdleMinModel) {...}`.
+        # The old literal-form assertion (`$MinimumModel = "haiku"`) went permanently
+        # red after that. Assert the guard exists (variable assigned + model hierarchy
+        # for comparison), independent of the assignment form — so the test survives
+        # future conditional-form changes while still catching removal of the guard.
+        It "MinimumModel guard must be defined (#747 context-window overflow prevention)" {
+            ($content -match '\$MinimumModel\s*=') | Should Be $true
+        }
+
+        It "Model hierarchy must be defined for minimum-model comparison" {
+            ($content -match '\$ModelHierarchy\s*=\s*@\{') | Should Be $true
         }
     }
 }
