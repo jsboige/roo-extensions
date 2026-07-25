@@ -148,6 +148,16 @@ try {
     Write-Log "Injection .env échouée: $_" "WARN"
 }
 
+# === #2944: Bounded git execution — no interactive credential prompts ===
+# Set process-wide so ANY git invocation in this worker (fetch, worktree add,
+# submodule update, push, etc.) fails fast instead of hanging indefinitely on
+# an invisible credential prompt. Worker runs headless under schtask: there is
+# no console attached, so a credential prompt never resolves and the scheduler
+# eventually kills the run (LastTaskResult=267014). These vars convert that
+# hang into an immediate error git reports on stderr.
+$env:GIT_TERMINAL_PROMPT = "0"
+$env:GCM_INTERACTIVE = "never"
+
 # === Concurrency Guard: skip if another worker is already running ===
 $LockFile = Join-Path $LogDir "worker.lock"
 if (Test-Path $LockFile) {
@@ -1751,7 +1761,10 @@ function Reset-WorktreeForMaintenance {
             ForEach-Object { Write-Log "  $_" "GIT" }
 
         # Re-align submodules (reset --hard does not touch submodule contents)
-        git -C $WorktreePath submodule update --init --recursive 2>&1 | Out-Null
+        # Bounded #2944: same hang risk as Create-Worktree — recursive clone of
+        # mcps/internal + roo-code can stall on credential prompt or network.
+        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Recurse `
+            -LogLabel "Submodules (maintenance reset)"
 
         $ErrorActionPreference = $prevPref
 
@@ -1765,6 +1778,91 @@ function Reset-WorktreeForMaintenance {
         $ErrorActionPreference = $prevPref
         Write-Log "Reset-WorktreeForMaintenance error (non-fatal): $_" "WARN"
         return $false
+    }
+}
+
+# ============================================================================
+# Invoke-BoundedSubmoduleInit — #2944 bounded git submodule update
+# ============================================================================
+# git submodule update --init [--recursive] can hang indefinitely in a headless
+# worker. Two failure modes observed in the wild:
+#   1. Credential prompt: Git Credential Manager waits for stdin that never
+#      arrives (no console attached to schtask). Process never returns.
+#   2. Network stall: HTTP transfer drops to 0 byte/s but the connection stays
+#      open. Git's default http.lowSpeedTime=0 means it waits forever.
+# Three complementary guards:
+#   (a) GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=never (also set process-wide
+#       at script start) → credential hang becomes an immediate error.
+#   (b) http.lowSpeedLimit=1000 + http.lowSpeedTime=60 via `git -c` → transfer
+#       stall aborts after 60s of <1KB/s.
+#   (c) Start-Job + Wait-Job -Timeout → wall-clock cap; on abandon logs WARN
+#       and returns $false so the worker can proceed (or fail controlled)
+#       instead of being killed silently by the scheduler.
+# Returns $true on success, $false on timeout or non-zero exit.
+function Invoke-BoundedSubmoduleInit {
+    param(
+        [Parameter(Mandatory=$true)][string]$WorktreePath,
+        [switch]$Recurse,
+        [int]$TimeoutSeconds = 600,
+        [string]$LogLabel = "Submodules"
+    )
+
+    if (-not $WorktreePath -or -not (Test-Path $WorktreePath)) {
+        Write-Log "Invoke-BoundedSubmoduleInit: WorktreePath missing" "WARN"
+        return $false
+    }
+
+    $smArgs = @('submodule', 'update', '--init')
+    if ($Recurse) { $smArgs += '--recursive' }
+
+    $prevPref = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+
+    try {
+        # Job runs in a child powershell.exe — re-state env guards (a) inside
+        # the scriptblock too, since Start-Job env var inheritance is not
+        # guaranteed across PowerShell versions and the cost is trivial.
+        $job = Start-Job -ScriptBlock {
+            param($Path, $SmArgs)
+            $env:GIT_TERMINAL_PROMPT = "0"
+            $env:GCM_INTERACTIVE = "never"
+            $out = & git -C $Path `
+                -c http.lowSpeedLimit=1000 `
+                -c http.lowSpeedTime=60 `
+                @SmArgs 2>&1
+            [PSCustomObject]@{
+                Output   = $out
+                ExitCode = $LASTEXITCODE
+            }
+        } -ArgumentList $WorktreePath, $smArgs
+
+        $completed = Wait-Job -Job $job -Timeout $TimeoutSeconds
+        if (-not $completed) {
+            Stop-Job -Job $job 2>$null
+            Remove-Job -Job $job -Force 2>$null
+            Write-Log "$LogLabel init TIMED OUT after ${TimeoutSeconds}s — abandoning (worker proceeds, submodules may be missing)." "WARN"
+            return $false
+        }
+
+        $result = Receive-Job -Job $job 2>$null
+        Remove-Job -Job $job -Force 2>$null
+
+        $exitCode = if ($result -and $result.ExitCode -ne $null) { $result.ExitCode } else { -1 }
+        $outLines = if ($result -and $result.Output) { $result.Output } else { @() }
+        $outLines | ForEach-Object { Write-Log "$_" "GIT" }
+
+        if ($exitCode -eq 0) {
+            Write-Log "$LogLabel initialisés avec succès"
+            return $true
+        } else {
+            Write-Log "Attention: initialisation $LogLabel code $exitCode" "WARN"
+            return $false
+        }
+    } catch {
+        Write-Log "Invoke-BoundedSubmoduleInit error: $_" "WARN"
+        return $false
+    } finally {
+        $ErrorActionPreference = $prevPref
     }
 }
 
@@ -1888,26 +1986,10 @@ function Create-Worktree {
 
         Write-Log "Worktree créé avec succès (branch: $BranchName)"
 
-        # Initialize submodules in the new worktree (#802)
+        # Initialize submodules in the new worktree (#802, bounded #2944)
         Write-Log "Initialisation des submodules dans le worktree..."
-        try {
-            $prevPref2 = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-            $smOutput = git -C $WorktreePath submodule update --init --recursive 2>&1
-            $smExitCode = $LASTEXITCODE
-            $ErrorActionPreference = $prevPref2
-
-            $smOutput | ForEach-Object { Write-Log "$_" "GIT" }
-
-            if ($smExitCode -eq 0) {
-                Write-Log "Submodules initialisés avec succès"
-            } else {
-                Write-Log "Attention: initialisation submodules code $smExitCode" "WARN"
-            }
-        } catch {
-            $ErrorActionPreference = $prevPref2
-            Write-Log "Erreur initialisation submodules: $_" "WARN"
-        }
+        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Recurse `
+            -LogLabel "Submodules"
 
         return $WorktreePath
     }

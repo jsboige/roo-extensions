@@ -38,7 +38,15 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
         }
 
         It "Reset must re-align submodules after hard reset" {
-            ($content -match 'submodule update --init --recursive') | Should Be $true
+            # #2944: recursive submodule init now lives in Invoke-BoundedSubmoduleInit
+            # (helper exists, takes -Recurse, called from this function).
+            ($content -match 'Reset-WorktreeForMaintenance') | Should Be $true
+            $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
+            $createPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
+            $resetPos | Should BeGreaterThan 0
+            $createPos | Should BeGreaterThan 0
+            $window = $content.Substring($resetPos, $createPos - $resetPos)
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Recurse') | Should Be $true
         }
     }
 
