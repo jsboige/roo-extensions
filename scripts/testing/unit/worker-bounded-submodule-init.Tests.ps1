@@ -1,13 +1,15 @@
 # Tests unitaires pour le fix #2944 — git submodule update --init --recursive
-# non-borné dans Create-Worktree + Reset-WorktreeForMaintenance.
+# non-borné ET non-scopé dans Create-Worktree + Reset-WorktreeForMaintenance.
 #
 # Symptôme : la schtask Claude-Worker sur ai-01 a atteint sa limite d'exécution
 # (LastTaskResult=267014 = terminated) sans qu'aucune logique d'escalade ne
-# s'active, parce que le process était figé sur un git submodule update qui ne
-# rendait jamais la main (hang credentials ou stall réseau). Le worker doit
-# borner l'appel par wall-clock et logguer l'abandon.
+# s'active, parce que le process téléchargeait ~703 MB de submodules (les 9
+# déclarés, en récursif) à chaque worktree — ~32 min, mesuré firsthand ai-01
+# cycle 71. Le worker doit borner l'appel ET restreindre la portée au seul
+# submodule compilé (mcps/internal).
 #
-# Trois gardes complémentaires :
+# PRIMARY fix = scope restriction (-Subpath "mcps/internal", plus de --recursive).
+# Trois gardes complémentaires (defense-in-depth, #2945) :
 #   (a) GIT_TERMINAL_PROMPT=0 + GCM_INTERACTIVE=never → hang credentials = erreur
 #   (b) http.lowSpeedLimit=1000 + http.lowSpeedTime=60 → stall réseau = abort
 #   (c) Start-Job + Wait-Job -Timeout → plafond wall-clock dur + WARN explicite
@@ -71,8 +73,14 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
             ($content -match '\[Parameter\(Mandatory=\$true\)\]\[string\]\$WorktreePath') | Should Be $true
         }
 
-        It "Helper param block must support -Recurse switch" {
-            ($content -match '\[switch\]\$Recurse') | Should Be $true
+        It "Helper param block must support -Subpath (scope restriction, #2944)" {
+            ($content -match '\[string\]\$Subpath') | Should Be $true
+        }
+
+        It "Helper must append \$Subpath to smArgs when set (not --recursive)" {
+            $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
+            $window = $content.Substring($funcPos, 2500)
+            ($window -match 'if \(\$Subpath\) \{ \$smArgs \+= \$Subpath \}') | Should Be $true
         }
 
         It "Helper param block must expose -TimeoutSeconds with default 600s" {
@@ -162,20 +170,33 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
     # Wiring : both recursive call sites use the helper
     # ---------------------------------------------------------------------------
 
-    Context "Wiring - both recursive sites delegate to helper" {
+    Context "Wiring - both call sites delegate to helper scoped to mcps/internal" {
 
-        It "Create-Worktree must call helper with -Recurse" {
+        It "Create-Worktree must call helper with -Subpath mcps/internal" {
             $createPos = $content.IndexOf('function Create-Worktree')
             $createEnd = $content.IndexOf('function Stop-WorktreeChildProcesses', $createPos)
             $window = $content.Substring($createPos, $createEnd - $createPos)
-            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Recurse') | Should Be $true
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should Be $true
         }
 
-        It "Reset-WorktreeForMaintenance must call helper with -Recurse" {
+        It "Reset-WorktreeForMaintenance must call helper with -Subpath mcps/internal" {
             $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
             $resetEnd = $content.IndexOf('function Invoke-BoundedSubmoduleInit', $resetPos)
             $window = $content.Substring($resetPos, $resetEnd - $resetPos)
-            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Recurse') | Should Be $true
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should Be $true
+        }
+
+        It "No call site must pass -Recurse (regression: full recursive clone = #2944 cause)" {
+            # After the scope fix, no caller should re-introduce --recursive cloning
+            # of all 9 submodules. Scan both call sites for -Recurse.
+            $createPos = $content.IndexOf('function Create-Worktree')
+            $createEnd = $content.IndexOf('function Stop-WorktreeChildProcesses', $createPos)
+            $createWindow = $content.Substring($createPos, $createEnd - $createPos)
+            $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
+            $resetEnd = $content.IndexOf('function Invoke-BoundedSubmoduleInit', $resetPos)
+            $resetWindow = $content.Substring($resetPos, $resetEnd - $resetPos)
+            ($createWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should Be $false
+            ($resetWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should Be $false
         }
 
         It "Create-Worktree must gate the helper call behind #2944 marker" {

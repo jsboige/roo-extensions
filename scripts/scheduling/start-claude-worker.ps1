@@ -1760,11 +1760,11 @@ function Reset-WorktreeForMaintenance {
         git -C $WorktreePath clean -fd -e .env -e '*.log' -e node_modules 2>&1 |
             ForEach-Object { Write-Log "  $_" "GIT" }
 
-        # Re-align submodules (reset --hard does not touch submodule contents)
-        # Bounded #2944: same hang risk as Create-Worktree — recursive clone of
-        # mcps/internal + roo-code can stall on credential prompt or network.
-        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Recurse `
-            -LogLabel "Submodules (maintenance reset)"
+        # Re-align mcps/internal only (reset --hard does not touch submodule
+        # contents). #2944 scope fix: same as Create-Worktree — init only the
+        # compiled submodule, not the full recursive clone.
+        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Subpath "mcps/internal" `
+            -LogLabel "Submodule mcps/internal (maintenance reset)"
 
         $ErrorActionPreference = $prevPref
 
@@ -1782,10 +1782,22 @@ function Reset-WorktreeForMaintenance {
 }
 
 # ============================================================================
-# Invoke-BoundedSubmoduleInit — #2944 bounded git submodule update
+# Invoke-BoundedSubmoduleInit — #2944 bounded + scoped git submodule update
 # ============================================================================
-# git submodule update --init [--recursive] can hang indefinitely in a headless
-# worker. Two failure modes observed in the wild:
+# Root cause (measured firsthand ai-01 cycle 71, run worker-20260725-170701):
+# `git submodule update --init [--recursive]` clones ALL 9 declared submodules
+# from scratch in every worktree — ~703 MB / ~32 min (roo-code 255 + zoo-code
+# 278 + mcps/internal 171). The worker only compiles mcps/internal; the rest is
+# wasted download that consumes the whole schtask window before any task. The
+# log looks frozen because `git submodule--helper` writes nothing until a
+# submodule finishes.
+#
+# PRIMARY mitigation = scope: init only mcps/internal (-Subpath), not --recursive.
+# The 3 guards below remain as defense-in-depth (a real stall or credential hang
+# must still surface as a WARN, not a silent kill).
+#
+# git submodule update --init [<subpath>] can still hang indefinitely in a
+# headless worker. Two failure modes observed in the wild:
 #   1. Credential prompt: Git Credential Manager waits for stdin that never
 #      arrives (no console attached to schtask). Process never returns.
 #   2. Network stall: HTTP transfer drops to 0 byte/s but the connection stays
@@ -1802,7 +1814,13 @@ function Reset-WorktreeForMaintenance {
 function Invoke-BoundedSubmoduleInit {
     param(
         [Parameter(Mandatory=$true)][string]$WorktreePath,
-        [switch]$Recurse,
+        # #2944 scope restriction: init ONLY the compiled submodule instead of
+        # `--recursive` cloning all 9 declared submodules (~703 MB / ~32 min per
+        # worktree, measured firsthand ai-01 cycle 71). `mcps/internal` is the
+        # only submodule the worker compiles (Sync-McpSubmoduleBuild); roo-code
+        # is "REFERENCE SEULEMENT" (CLAUDE.md) and the other 7 are unused in a
+        # worker worktree. Empty = init all (kept for flexibility, not used).
+        [string]$Subpath,
         [int]$TimeoutSeconds = 600,
         [string]$LogLabel = "Submodules"
     )
@@ -1813,7 +1831,7 @@ function Invoke-BoundedSubmoduleInit {
     }
 
     $smArgs = @('submodule', 'update', '--init')
-    if ($Recurse) { $smArgs += '--recursive' }
+    if ($Subpath) { $smArgs += $Subpath }
 
     $prevPref = $ErrorActionPreference
     $ErrorActionPreference = "Continue"
@@ -1986,10 +2004,12 @@ function Create-Worktree {
 
         Write-Log "Worktree créé avec succès (branch: $BranchName)"
 
-        # Initialize submodules in the new worktree (#802, bounded #2944)
-        Write-Log "Initialisation des submodules dans le worktree..."
-        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Recurse `
-            -LogLabel "Submodules"
+        # Initialize ONLY mcps/internal in the new worktree (#802, #2944 scope fix).
+        # The worker compiles mcps/internal alone; cloning roo-code/zoo-code/etc.
+        # (~700 MB, ~32 min) wasted the whole schtask window before any task.
+        Write-Log "Initialisation du submodule mcps/internal dans le worktree..."
+        $null = Invoke-BoundedSubmoduleInit -WorktreePath $WorktreePath -Subpath "mcps/internal" `
+            -LogLabel "Submodule mcps/internal"
 
         return $WorktreePath
     }
