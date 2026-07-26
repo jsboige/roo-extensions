@@ -92,7 +92,7 @@ Remplacez `chemin/vers/tests/mcp-win-cli` par le chemin absolu vers le répertoi
 
 ## Configuration du MCP Win-CLI
 
-La configuration du MCP Win-CLI est gérée par le fichier [`roo-config/settings/win-cli-config.json`](roo-config/settings/win-cli-config.json). Ce fichier permet de définir :
+La configuration du MCP Win-CLI est gérée par le fichier [`roo-config/settings/win-cli-config.json`](../../roo-config/settings/win-cli-config.json). Ce fichier permet de définir :
 
 - **Timeout des commandes :** Le timeout par défaut est maintenant de 600 secondes (10 minutes). Ceci est configurable via la clé `commandTimeout` dans la section `security` et `defaultTimeout` dans la section `ssh`.
 - **Configuration débridée :**
@@ -102,7 +102,7 @@ La configuration du MCP Win-CLI est gérée par le fichier [`roo-config/settings
    - `restrictWorkingDirectory`: Mis à `false`, ne restreint pas le répertoire de travail aux `allowedPaths`.
    - `enableInjectionProtection`: Mis à `false`, autorise les opérateurs de chaînage de commandes comme `&&`, `||`, `;`.
    - `blockedOperators` pour chaque shell: Liste vide, tous les opérateurs sont autorisés.
-- **Chemin de démarrage :** La commande de démarrage du serveur est configurée dans [`roo-config/settings/servers.json`](roo-config/settings/servers.json) et inclut maintenant l'argument `--config ./roo-config/settings/win-cli-config.json` pour charger cette configuration spécifique.
+- **Chemin de démarrage :** La commande de démarrage du serveur est configurée dans [`roo-config/settings/servers.json`](../../roo-config/settings/servers.json) et inclut maintenant l'argument `--config ./roo-config/settings/win-cli-config.json` pour charger cette configuration spécifique.
 
 ## Fonctionnalités testées
 
