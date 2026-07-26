@@ -31,7 +31,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Sync issues to Project #67
+      # Full reconcile scans the whole project (10000-item GraphQL item-list) to find
+      # gaps. That is expensive in GraphQL quota and must NOT run on every issue/PR
+      # open event — a burst of creations would exhaust the hourly quota and take down
+      # the whole workflow (#2970). It only runs on the daily schedule and manual
+      # dispatch. Issue/PR opens use the targeted item-add steps below (one mutation
+      # each); field-setting for newly-added issues is picked up by this daily run.
+      - name: Sync issues to Project #67 (full reconcile)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
@@ -42,6 +49,25 @@ jobs:
             $params = @{ DryRun = $true }
           }
           ./scripts/github/sync-issues-to-project.ps1 @params
+
+      - name: Add new issue to Project #67
+        if: github.event_name == 'issues'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          $ErrorActionPreference = "Continue"
+          $issueUrl = "${{ github.event.issue.html_url }}"
+          Write-Host "Adding issue to Project #67: $issueUrl"
+          $result = gh project item-add 67 --owner jsboige --url $issueUrl 2>&1
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Issue added to Project #67"
+          } else {
+            Write-Host "[WARN] Could not add issue (may already exist): $result"
+          }
+          # Don't fail the workflow if issue is already in project (the daily
+          # full reconcile handles idempotent re-add + field-setting).
+          exit 0
 
       - name: Add new PR to Project #67
         if: github.event_name == 'pull_request'

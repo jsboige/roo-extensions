@@ -129,7 +129,18 @@ function Invoke-GhSafe($cmd) {
         $result = Invoke-Expression $cmd 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Err "Command failed (exit $LASTEXITCODE): $cmd"
-            Write-Err $result
+            if ($result) {
+                Write-Err $result
+            } else {
+                # An empty error block on a non-zero exit is itself a defect (#2970):
+                # gh exited non-zero without emitting anything the `2>&1` merge could
+                # capture (pwsh native-stream redirection does not behave like a cmdlet
+                # pipeline). Surface it explicitly so the failure is not visually silent
+                # — and point at the one check that resolves the most common cause
+                # (hourly GraphQL quota exhaustion, which self-recovers within the hour).
+                Write-Err "(gh produced no captured output — stderr not merged or process killed)"
+                Write-Err "Next diagnostics: gh api rate_limit --jq '.resources.graphql'  ;  gh auth status"
+            }
             return $null
         }
         # Return output (may be empty for commands like item-edit)
