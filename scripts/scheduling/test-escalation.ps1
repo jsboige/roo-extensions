@@ -224,15 +224,16 @@ Assert-Equal "IDLE exit message exists" $true ($ScriptContent -match 'WORKER IDL
 Assert-Equal "Model-based escalation (Check-Escalation uses CurrentModel)" $true ($ScriptContent -match 'Check-Escalation.*CurrentModel')
 Assert-Equal "No Roo mode escalation (no triggerMode)" $false ($ScriptContent -match 'triggerMode')
 
-# #2968: success-conjunction must consult the content-derived ApiErrorInOutput guard,
-# and the guard regex must cover the three gateway-error signatures enumerated in the
-# issue (API Error / Rate limit / No credentialed providers) WITHOUT matching the
-# worker's own "Iteration Break" separator (present on every legit multi-iteration run).
+# #2968: success-conjunction must consult the content-derived ApiErrorInOutput guard.
+# Follow-up (#2980 review, ai-01): the guard is ANCHORED on the gateway's emission
+# form (line-start "API Error[:\s]", optional [ERROR]: log prefix, multiline) — NOT on
+# bare vocabulary. The prior loose "Rate limit" / "No credentialed providers"
+# alternatives matched 3/6 prose false-positives (#2968's own title, a PR body, the
+# worker's own report), so the loose regex must be ABSENT from the shipped script.
 Assert-Equal "#2968 success-conjunction consults ApiErrorInOutput" $true ($ScriptContent -match 'success = \$StreamValid.*ApiErrorInOutput')
 Assert-Equal "#2968 ApiErrorInOutput flag is computed" $true ($ScriptContent -match '\$ApiErrorInOutput\s*=\s*\$JoinedIterationOutput -match')
-Assert-Equal "#2968 guard matches 'API Error'" $true ($ScriptContent -match '\(?i\)API Error')
-Assert-Equal "#2968 guard matches 'Rate limit'" $true ($ScriptContent -match 'Rate limit')
-Assert-Equal "#2968 guard matches 'No credentialed providers'" $true ($ScriptContent -match 'No credentialed providers')
+Assert-Equal "#2968 guard anchored on multiline line-start 'API Error[:\s]' emission form" $true ($ScriptContent -match '\(\?im\)\^.*API Error\[:\\s\]')
+Assert-Equal "#2968 old loose vocab regex (Rate limit | No credentialed providers) removed - prose FP vector" $false ($ScriptContent -match '\(\?i\)API Error\|Rate limit\|No credentialed providers')
 Assert-Equal "#2968 escalation skip present (Check-Escalation guard)" $true ($ScriptContent -match 'if \(\$Result\.apiErrorInOutput\)')
 
 # ============================================================================
@@ -345,11 +346,16 @@ $ResultOkApi = @{ success = $true; resultSubtype = "success"; apiErrorInOutput =
 Assert-Equal "#2968 success does not escalate" $null (Check-Escalation -Result $ResultOkApi -CurrentModel "haiku")
 
 # Scenario F: content-regex signature detection (the $ApiErrorInOutput computation logic)
-# Mirrors the shipped regex: '(?i)API Error|Rate limit|No credentialed providers'
-$TestRegex = '(?i)API Error|Rate limit|No credentialed providers'
+# Mirrors the SHIPPED regex (#2968 follow-up anchor tightening, ai-01 review of PR #2980):
+# anchored on the gateway's emission FORM, not bare vocabulary.
+$TestRegex = '(?im)^\s*(?:\[?ERROR\]?:?\s*)?API Error[:\s]'
 Assert-Equal "#2968 regex matches 'API Error: Rate limit reached' (web1)" $true ("API Error: Rate limit reached" -match $TestRegex)
-Assert-Equal "#2968 regex matches 'No credentialed providers in chain' (po-2026)" $true ("API Error: 500 ... No credentialed providers in chain for `"glm-5.2`"" -match $TestRegex)
-Assert-Equal "#2968 regex matches 'Rate limit' alone" $true ("Rate limit exceeded" -match $TestRegex)
+Assert-Equal "#2968 regex matches 'API Error: 500 ... No credentialed providers in chain' (po-2026)" $true ("API Error: 500 ... No credentialed providers in chain for `"glm-5.2`"" -match $TestRegex)
+Assert-Equal "#2968 regex matches a mid-stream multiline 'API Error:' line" $true ("Iteration 3 output follows.`nAPI Error: 500 internal" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match bare 'Rate limit exceeded' prose (ai-01 follow-up inversion - this WAS $true in PR #2980, the very false-positive being fixed)" $false ("Rate limit exceeded" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match #2968 issue title prose" $false ("[CLAUDE-MACHINE] #2968 worker marks rate-limit / no-credential gateway errors as success" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match a PR body describing the fix" $false ("This PR tightens the API Error guard anchor on the worker's success-detection path" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match the worker's own report quoting the error" $false ("The gateway returned subtype=success but the body mentions API Error detection was bypassed" -match $TestRegex)
 Assert-Equal "#2968 regex does NOT match worker separator '=== Iteration Break ===' (red herring)" $false ("=== Iteration Break ===" -match $TestRegex)
 Assert-Equal "#2968 regex does NOT match a legitimate CI-green output" $false ("CI on PR #905 is all green ... 12635 passed" -match $TestRegex)
 
