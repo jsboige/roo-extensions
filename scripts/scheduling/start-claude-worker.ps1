@@ -3377,13 +3377,32 @@ function Invoke-Claude {
         if ($ResultCutoff) {
             Write-Log "Result cutoff détecté — subtype: $ResultSubtype (la session a été coupée par le gateway, output probablement incomplet)" "ERROR"
         }
+
+        # #2968: Content-derived API-error guard. The 2026-06-12 honest-reporting
+        # guard ($ResultCutoff) catches subtype-based cutoffs (error_max_budget_usd /
+        # error_during_execution). But the gateway ALSO returns subtype="success" with
+        # the error sitting in the BODY text — rate-limit, no-credentialed-providers,
+        # upstream 500. ai-01 reproduced both shapes on 2026-07-26 (web1 rate-limit,
+        # po-2026 no-credential): each reported ✅ SUCCÈS with zero work done, because
+        # subtype="success" passed $ResultCutoff and the error text was never consulted.
+        # Scanning the joined iteration output for the signatures ai-01 enumerated
+        # (API Error / Rate limit / No credentialed providers) closes that gap — same
+        # shape as the 2026-06-12 fix, one layer down (content vs subtype). The reason
+        # is already in the report's `output` field (L3390); it just wasn't consulted.
+        # NOTE: do NOT match "Iteration Break" — that is the worker's own separator
+        # (=== Iteration Break ===), present on every legitimate multi-iteration run.
+        $JoinedIterationOutput = $IterationOutputs -join "`n"
+        $ApiErrorInOutput = $JoinedIterationOutput -match '(?i)API Error|Rate limit|No credentialed providers'
+        if ($ApiErrorInOutput) {
+            Write-Log "API error in output #2968 — gateway returned subtype=success but body carries API Error / Rate limit / No credentialed providers (rate-limit / credential / upstream). Surfacing as FAILURE (reason already in raw output)." "ERROR"
+        }
         if ($EmptyResponseTotal -gt 0) {
             Write-Log "Empty-response total #2578: $EmptyResponseTotal iteration(s) produced no content. Loop broken on 2-consecutive threshold → next scheduled cycle = fresh session (restart-on-saturation, sanctuary-safe)." "WARN"
         }
 
         # GATHER CONTEXT: Retourner résultat avec flag escalade ou wait state si nécessaire
         return @{
-            success = $StreamValid -and (-not $ResultCutoff) -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
+            success = $StreamValid -and (-not $ResultCutoff) -and (-not $ApiErrorInOutput) -and (-not $NeedsEscalation) -and ($null -eq $WaitStateData)
             needsEscalation = $NeedsEscalation
             escalateToModel = $EscalateToModel
             waitState = $WaitStateData
@@ -3394,6 +3413,7 @@ function Invoke-Claude {
             parseErrorCount = $ParseErrorCount
             resultSubtype = $ResultSubtype
             emptyResponseCount = $EmptyResponseTotal
+            apiErrorInOutput = $ApiErrorInOutput
         }
     }
     catch {
@@ -3437,6 +3457,16 @@ function Check-Escalation {
         # restart-on-saturation (next scheduled cycle = fresh session), NOT escalation.
         if ($Result.emptyResponseCount -and $Result.emptyResponseCount -ge 2) {
             Write-Log "Empty-response break #2578 (count: $($Result.emptyResponseCount)) — skip escalation (saturation, not capability; restart-on-next-cycle is the fix)" "WARN"
+            return $null
+        }
+        # #2968: A content-detected API error (rate limit / no credentialed
+        # providers / upstream 500) is a gateway/credential condition, NOT a
+        # model-capability signal. Escalating haiku→sonnet re-hits the SAME
+        # rate-limited or credential-less provider (the chain is shared), burning
+        # budget on a run that will fail identically. Same logic as #2572 budget
+        # cutoff: restart-on-next-cycle (fresh session) is the fix, not escalation.
+        if ($Result.apiErrorInOutput) {
+            Write-Log "API error in output #2968 — skip escalation (gateway/credential condition, not capability; restart-on-next-cycle is the fix)" "WARN"
             return $null
         }
         $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
@@ -3595,6 +3625,7 @@ function Report-Results {
 $(if (-not $Result.streamValid) { "**Stream:** ⚠️ INVALIDE (ParseErrors: $($Result.parseErrorCount))" })
 $(if ($Result.resultSubtype -and $Result.resultSubtype -ne "success") { "**Coupure gateway:** ❌ subtype=$($Result.resultSubtype) (session coupée, output probablement incomplet)" })
 $(if ($Result.emptyResponseCount -and $Result.emptyResponseCount -gt 0) { "**Empty responses:** ⚠️ $($Result.emptyResponseCount) iteration(s) produced no content (#2578 saturation suspected — loop broken, next cycle = fresh session)" })
+$(if ($Result.apiErrorInOutput) { "**Erreur API dans l'output:** ❌ Le gateway a retourné subtype=success mais l'output contient une erreur API (rate limit / credentials manquants / upstream 500). Run interrompu — à refaire, pas un succès (#2968). Raison détaillée dans l'output brut ci-dessous." })
 $(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
 $(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
 $(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
