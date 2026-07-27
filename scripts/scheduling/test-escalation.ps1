@@ -218,7 +218,12 @@ Assert-Equal "Has WorkerDefaultIterations" $true ($ScriptContent -match '\$Worke
 
 # Verify NoFallback still works
 Assert-Equal "NoFallback parameter exists" $true ($ScriptContent -match '\[switch\]\$NoFallback')
-Assert-Equal "IDLE exit message exists" $true ($ScriptContent -match 'WORKER IDLE')
+# "IDLE exit message exists" assertion removed (#2985): it checked for the literal
+# 'WORKER IDLE' in the script, a string that has never existed there
+# (git log -S "WORKER IDLE" = empty). The cap-3-IDLE AUTO-STOP (#2185) is an
+# agent/dashboard-level behavior, not a string the worker script emits. The
+# assertion was false on day one and, with no CI job running this harness, sat
+# unread for 62 days.
 
 # Verify escalation is model-based, not mode-based
 Assert-Equal "Model-based escalation (Check-Escalation uses CurrentModel)" $true ($ScriptContent -match 'Check-Escalation.*CurrentModel')

@@ -7,6 +7,7 @@ on:
       - 'mcps/internal'
       - 'mcps/internal/**'
       - '.github/workflows/ci.yml'
+      - 'scripts/scheduling/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -95,3 +96,17 @@ jobs:
           name: test-results-node${{ matrix.node-version }}
           path: mcps/internal/servers/roo-state-manager/test-results/
           retention-days: 7
+
+  # Static scheduling-harness (#2985): test-escalation.ps1 is a pure in-memory
+  # harness (368 lines, 46 assertions, no network/Docker/schtask/disk writes) that
+  # reads start-claude-worker.ps1 as text and compares strings. It ran nowhere —
+  # the IDLE assertion sat false for 62 days unseen. pwsh is preinstalled on
+  # ubuntu-latest; the script resolves the worker via $PSScriptRoot (cwd-independent).
+  scheduling-harness:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Run scheduling static harness
+        shell: bash
+        run: pwsh -File scripts/scheduling/test-escalation.ps1
