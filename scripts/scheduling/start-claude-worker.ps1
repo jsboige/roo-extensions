@@ -3385,16 +3385,26 @@ function Invoke-Claude {
         # upstream 500. ai-01 reproduced both shapes on 2026-07-26 (web1 rate-limit,
         # po-2026 no-credential): each reported ✅ SUCCÈS with zero work done, because
         # subtype="success" passed $ResultCutoff and the error text was never consulted.
-        # Scanning the joined iteration output for the signatures ai-01 enumerated
-        # (API Error / Rate limit / No credentialed providers) closes that gap — same
-        # shape as the 2026-06-12 fix, one layer down (content vs subtype). The reason
-        # is already in the report's `output` field (L3390); it just wasn't consulted.
+        # Scanning the joined iteration output for the gateway's EMISSION FORM closes
+        # that gap — same shape as the 2026-06-12 fix, one layer down (content vs
+        # subtype). The reason is already in the report's `output` field (L3390); it
+        # just wasn't consulted.
+        # ANCHOR RATIONALE (#2968 follow-up, ai-01 review of PR #2980): the prior loose
+        # vocabulary regex (bare alternatives for the three gateway signatures, case-
+        # insensitive, unanchored) matched 3/6 prose cases it should NOT have — #2968's
+        # own title, a PR body mentioning the fix, and the worker's own report (which
+        # quotes the error). Anchor on the EMISSION FORM instead of vocabulary:
+        # line-start (multiline), optional [ERROR]/ERROR: log prefix, then the literal
+        # "API Error" token followed by a delimiter (colon or whitespace). Verified
+        # firsthand 8/8 cases (catches web1+po-2026 real errors + mid-stream; rejects
+        # #2968 title / PR body / worker report / Iteration Break / CI-green). Strictly
+        # better than PR #2980: no detection lost, 3 prose false-positives gone.
         # NOTE: do NOT match "Iteration Break" — that is the worker's own separator
         # (=== Iteration Break ===), present on every legitimate multi-iteration run.
         $JoinedIterationOutput = $IterationOutputs -join "`n"
-        $ApiErrorInOutput = $JoinedIterationOutput -match '(?i)API Error|Rate limit|No credentialed providers'
+        $ApiErrorInOutput = $JoinedIterationOutput -match '(?im)^\s*(?:\[?ERROR\]?:?\s*)?API Error[:\s]'
         if ($ApiErrorInOutput) {
-            Write-Log "API error in output #2968 — gateway returned subtype=success but body carries API Error / Rate limit / No credentialed providers (rate-limit / credential / upstream). Surfacing as FAILURE (reason already in raw output)." "ERROR"
+            Write-Log "API error in output #2968 — gateway returned subtype=success but body carries an anchored 'API Error' emission (rate-limit / no-credential / upstream). Surfacing as FAILURE (reason already in raw output)." "ERROR"
         }
         if ($EmptyResponseTotal -gt 0) {
             Write-Log "Empty-response total #2578: $EmptyResponseTotal iteration(s) produced no content. Loop broken on 2-consecutive threshold → next scheduled cycle = fresh session (restart-on-saturation, sanctuary-safe)." "WARN"
