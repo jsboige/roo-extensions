@@ -224,6 +224,17 @@ Assert-Equal "IDLE exit message exists" $true ($ScriptContent -match 'WORKER IDL
 Assert-Equal "Model-based escalation (Check-Escalation uses CurrentModel)" $true ($ScriptContent -match 'Check-Escalation.*CurrentModel')
 Assert-Equal "No Roo mode escalation (no triggerMode)" $false ($ScriptContent -match 'triggerMode')
 
+# #2968: success-conjunction must consult the content-derived ApiErrorInOutput guard,
+# and the guard regex must cover the three gateway-error signatures enumerated in the
+# issue (API Error / Rate limit / No credentialed providers) WITHOUT matching the
+# worker's own "Iteration Break" separator (present on every legit multi-iteration run).
+Assert-Equal "#2968 success-conjunction consults ApiErrorInOutput" $true ($ScriptContent -match 'success = \$StreamValid.*ApiErrorInOutput')
+Assert-Equal "#2968 ApiErrorInOutput flag is computed" $true ($ScriptContent -match '\$ApiErrorInOutput\s*=\s*\$JoinedIterationOutput -match')
+Assert-Equal "#2968 guard matches 'API Error'" $true ($ScriptContent -match '\(?i\)API Error')
+Assert-Equal "#2968 guard matches 'Rate limit'" $true ($ScriptContent -match 'Rate limit')
+Assert-Equal "#2968 guard matches 'No credentialed providers'" $true ($ScriptContent -match 'No credentialed providers')
+Assert-Equal "#2968 escalation skip present (Check-Escalation guard)" $true ($ScriptContent -match 'if \(\$Result\.apiErrorInOutput\)')
+
 # ============================================================================
 # Test 6: #2572 — Budget cutoff must NOT escalate (error_max_budget_usd)
 # Validates the guard added to Check-Escalation: a gateway budget cutoff
@@ -281,6 +292,66 @@ Assert-Equal "#2572 generic failure (haiku) still escalates" "sonnet" (Check-Esc
 # Scenario E: success → no escalation regardless
 $ResultOk = @{ success = $true; resultSubtype = "success"; escalateToModel = $null }
 Assert-Equal "#2572 success does not escalate" $null (Check-Escalation -Result $ResultOk -CurrentModel "haiku")
+
+# ============================================================================
+# Test 7: #2968 — API-error-in-output must NOT escalate (rate limit / no credentials / upstream 500)
+# Validates the guard added to Check-Escalation: when the gateway returns subtype=success
+# but the iteration body carries an API error (the shape ai-01 reproduced 2026-07-26 on
+# web1 rate-limit and po-2026 no-credential), the run surfaces as FAILURE and escalation
+# short-circuits — escalating re-hits the SAME rate-limited/credential-less provider chain.
+# Also validates the content regex catches the three signatures WITHOUT matching the
+# worker's own "Iteration Break" separator (red herring — present on every legit run).
+# ============================================================================
+Write-Host ""
+Write-Host "=== Test 7: #2968 API-Error-in-Output Escalation Skip ===" -ForegroundColor Cyan
+
+# Redefine Check-Escalation mirroring the FULLY shipped logic (budget #2572 +
+# empty-response #2578 + api-error #2968 guards). Test 6's leaner copy is superseded here.
+function Check-Escalation {
+    param($Result, [string]$CurrentModel)
+    if ($Result.escalateToModel) { return $Result.escalateToModel }
+    if (-not $Result.success) {
+        if ($Result.resultSubtype -eq "error_max_budget_usd") {
+            Write-Log "Budget cutoff — skip escalation" "WARN"; return $null
+        }
+        if ($Result.emptyResponseCount -and $Result.emptyResponseCount -ge 2) {
+            Write-Log "Empty-response break — skip escalation" "WARN"; return $null
+        }
+        if ($Result.apiErrorInOutput) {
+            Write-Log "API error in output — skip escalation" "WARN"; return $null
+        }
+        $NextModel = Get-EscalatedModel -CurrentModel $CurrentModel
+        if ($NextModel) { return $NextModel }
+    }
+    return $null
+}
+
+# Scenario A: API error in output (rate limit), haiku → MUST NOT escalate
+$ResultApiErr = @{ success = $false; resultSubtype = "success"; apiErrorInOutput = $true; emptyResponseCount = 0; escalateToModel = $null }
+Assert-Equal "#2968 rate-limit (haiku) does NOT escalate" $null (Check-Escalation -Result $ResultApiErr -CurrentModel "haiku")
+
+# Scenario B: API error in output (no credentialed providers), sonnet → MUST NOT escalate
+Assert-Equal "#2968 no-credentials (sonnet) does NOT escalate" $null (Check-Escalation -Result $ResultApiErr -CurrentModel "sonnet")
+
+# Scenario C: API error at top of chain (opus) → MUST NOT escalate (nowhere to go anyway)
+Assert-Equal "#2968 api-error (opus) does NOT escalate" $null (Check-Escalation -Result $ResultApiErr -CurrentModel "opus")
+
+# Scenario D: failure WITHOUT apiErrorInOutput flag (generic/stream-invalid) on haiku → still escalates
+$ResultNoApiErr = @{ success = $false; resultSubtype = $null; apiErrorInOutput = $false; emptyResponseCount = 0; escalateToModel = $null }
+Assert-Equal "#2968 generic failure (haiku, no api-error) still escalates" "sonnet" (Check-Escalation -Result $ResultNoApiErr -CurrentModel "haiku")
+
+# Scenario E: success with apiErrorInOutput stale/absent → no escalation regardless
+$ResultOkApi = @{ success = $true; resultSubtype = "success"; apiErrorInOutput = $false; emptyResponseCount = 0; escalateToModel = $null }
+Assert-Equal "#2968 success does not escalate" $null (Check-Escalation -Result $ResultOkApi -CurrentModel "haiku")
+
+# Scenario F: content-regex signature detection (the $ApiErrorInOutput computation logic)
+# Mirrors the shipped regex: '(?i)API Error|Rate limit|No credentialed providers'
+$TestRegex = '(?i)API Error|Rate limit|No credentialed providers'
+Assert-Equal "#2968 regex matches 'API Error: Rate limit reached' (web1)" $true ("API Error: Rate limit reached" -match $TestRegex)
+Assert-Equal "#2968 regex matches 'No credentialed providers in chain' (po-2026)" $true ("API Error: 500 ... No credentialed providers in chain for `"glm-5.2`"" -match $TestRegex)
+Assert-Equal "#2968 regex matches 'Rate limit' alone" $true ("Rate limit exceeded" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match worker separator '=== Iteration Break ===' (red herring)" $false ("=== Iteration Break ===" -match $TestRegex)
+Assert-Equal "#2968 regex does NOT match a legitimate CI-green output" $false ("CI on PR #905 is all green ... 12635 passed" -match $TestRegex)
 
 # ============================================================================
 # Summary
