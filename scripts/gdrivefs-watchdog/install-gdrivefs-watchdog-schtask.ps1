@@ -73,7 +73,12 @@ if (-not $pwshPath) {
 }
 
 $escapedWatchdogPath = $watchdogPs1.Replace('"', '`"')
-$escapedMountPath = $MountPath.Replace('"', '`"')
+# A run of backslashes immediately before the closing quote escapes it (Windows argv
+# convention), so the default `-MountPath "G:\"` reached the body as the single token
+# `G:" -MountProbeTimeoutSeconds 5`. Test-Path then failed on EVERY poll and the
+# watchdog relaunched a perfectly healthy GDriveFS every 15 min. Doubling the trailing
+# run lets the quote close and yields the literal path.
+$escapedMountPath = $MountPath.Replace('"', '`"') -replace '(\\+)$', '$1$1'
 $actionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds"
 $action = New-ScheduledTaskAction -Execute $pwshPath -Argument $actionArguments
 
