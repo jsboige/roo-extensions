@@ -24,6 +24,12 @@ Ou directement :
 cd mcps/internal/servers/roo-state-manager && npm run build && npx vitest run --config vitest.config.ci.ts
 ```
 
+Raccourci depuis la racine du depot (#3009) :
+```bash
+npm run test:mcp
+```
+**NE JAMAIS lancer `npx vitest run` depuis la racine du depot** — un garde `vitest.config.ts` root limite la decouverte aux tests root-level uniquement, et `test:mcp` delegue au sous-repertoire du submodule.
+
 **Si echec :** NE PAS POUSSER. Corriger, revalider, pousser SEULEMENT quand tout passe.
 
 ### Deux configs Vitest
