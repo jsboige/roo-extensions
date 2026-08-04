@@ -1,5 +1,9 @@
 {
+  "scripts": {
+    "test:mcp": "cd mcps/internal/servers/roo-state-manager && npx vitest run"
+  },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.1"
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
   }
 }
