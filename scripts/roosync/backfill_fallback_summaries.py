@@ -508,7 +508,21 @@ def backfill_one(
         # Verifie pas de CRLF dans le contenu (defense in depth)
         if b"\r\n" in new_bytes:
             new_bytes = new_bytes.replace(b"\r\n", b"\n")
-        archive.path.write_bytes(new_bytes)
+        # Ecriture ATOMIQUE. Ces archives sont du patrimoine partage, sur un
+        # repertoire GDrive synchronise par six machines. Une ecriture en place
+        # laisse un fichier tronque si le process est tue ou si G: decroche en
+        # plein write_bytes -- et le verbatim qu'on voulait preserver est perdu.
+        # tmp + os.replace est atomique sur le meme volume : le lecteur voit
+        # soit l'ancien contenu, soit le nouveau, jamais un fichier a moitie
+        # ecrit. Le tmp est nettoye si l'ecriture echoue, pour ne pas laisser
+        # de residus dans le partage.
+        tmp_path = archive.path.with_suffix(archive.path.suffix + ".tmp")
+        try:
+            tmp_path.write_bytes(new_bytes)
+            os.replace(tmp_path, archive.path)
+        except BaseException:
+            tmp_path.unlink(missing_ok=True)
+            raise
 
     return BackfillResult(
         path=archive.path,
@@ -633,8 +647,15 @@ def main(argv: list[str] | None = None) -> int:
         # Log ligne par ligne
         mode_str = f"mode={result.mode}" if result.mode else ""
         reason_str = f"reason={result.reason}" if result.reason else ""
+        # En dry-run rien n'a ete ecrit : afficher "backfilled" ferait conclure
+        # l'inverse a qui parcourt le log rapidement.
+        status_str = (
+            "would-backfill"
+            if (not args.apply and result.status == "backfilled")
+            else result.status
+        )
         print(
-            f"[{i}/{len(archives)}] {result.status:9} {archive.path.name[:60]:60} "
+            f"[{i}/{len(archives)}] {status_str:14} {archive.path.name[:60]:60} "
             f"{mode_str} {reason_str}"
         )
 

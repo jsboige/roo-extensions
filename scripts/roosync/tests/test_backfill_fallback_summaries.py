@@ -20,6 +20,7 @@ import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 # Permet l'import depuis le repertoire parent
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -285,6 +286,45 @@ class TestApplyDryRun(unittest.TestCase):
             new_content = archive_path.read_text("utf-8")
             self.assertNotIn("[FALLBACK TRUNCATION]", new_content)
             self.assertIn("backfilledAt:", new_content)
+
+            # L'ecriture passe par un tmp + os.replace (atomicite sur un
+            # partage GDrive). Le tmp ne doit rien laisser derriere lui :
+            # un residu .tmp dans le repertoire partage serait un defaut
+            # introduit par l'atomicite elle-meme.
+            self.assertEqual(list(Path(tmpdir).glob("*.tmp")), [])
+
+    def test_interrupted_write_leaves_archive_intact(self):
+        """Une ecriture coupee en cours ne doit pas tronquer l'archive.
+
+        C'est la raison d'etre du tmp + os.replace : ces archives sont du
+        patrimoine partage, sur un repertoire GDrive synchronise par six
+        machines. Process tue, G: qui decroche, disque plein -> l'archive
+        d'origine doit rester lisible, et aucun .tmp ne doit subsister.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            archive_path = Path(tmpdir) / "test-fallback.md"
+            recent = f"'{datetime.now(timezone.utc).isoformat()}'"
+            text = SAMPLE_FALLBACK.replace("'2026-05-15T05:08:22.460Z'", recent)
+            archive_path.write_bytes(text.encode("utf-8"))
+            original = archive_path.read_bytes()
+
+            arch = load_archive(archive_path)
+            real_write_bytes = Path.write_bytes
+
+            def interrupted_write(self, data):
+                # Coupe l'ecriture a mi-parcours, QUELLE QUE SOIT sa cible :
+                # l'archive elle-meme (ecriture en place) ou un tmp. Les deux
+                # implementations subissent donc exactement le meme incident,
+                # et c'est l'etat de l'archive apres coup qui les departage.
+                real_write_bytes(self, data[: len(data) // 2])
+                raise OSError("ecriture interrompue")
+
+            with patch.object(Path, "write_bytes", interrupted_write):
+                with self.assertRaises(OSError):
+                    backfill_one(arch, llm_config=None, dry_run=False)
+
+            self.assertEqual(archive_path.read_bytes(), original)
+            self.assertEqual(list(Path(tmpdir).glob("*.tmp")), [])
 
 
 class TestIdempotence(unittest.TestCase):
