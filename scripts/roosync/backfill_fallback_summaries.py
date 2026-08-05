@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""backfill_fallback_summaries.py — #8889: re-resume les archives dashboard en fallback.
+"""backfill_fallback_summaries.py — #2719: re-resume les archives dashboard en fallback.
 
-Issue #8889: ~11.6% des archives RooSync (537/4615) ont ete archivees en
+Contexte (PR #3031): ~11.6% des archives RooSync (537/4615) ont ete archivees en
 "truncation fallback" sans resume LLM (le condenseur a echoue parce que le LLM
 primaire ET le fallback cloud etaient tous les deux HS). Les fichiers d'archive
 sont sur disque avec leur contenu verbatim intact ; seul le bloc de resume manque.
@@ -15,14 +15,14 @@ Ce script re-genere un resume pour ces archives en s'appuyant sur :
 
 Le script :
   - Scanne `<archive_dir>/*-fallback.md` et detecte `fallbackTruncation: true`
-    dans le frontmatter (verifie via PyYAML, pas le nom de fichier seul — cf #8889 AC #1).
+    dans le frontmatter (verifie via PyYAML, pas le nom de fichier seul — cf PR #3031 AC #1).
   - Skip si `backfilledAt` deja present (idempotent).
-  - Skip si `archivedAt` > `--max-age-days` (par defaut 30j, cf #8889 note de perimetre).
-  - Preserve verbatim le contenu des messages (cf #8889 AC #2).
+  - Skip si `archivedAt` > `--max-age-days` (par defaut 30j, cf PR #3031 note de perimetre).
+  - Preserve verbatim le contenu des messages (cf PR #3031 AC #2).
   - Remplace le bloc `[FALLBACK TRUNCATION] ...` dans le header par le resume.
   - Met a jour le frontmatter : ajoute `backfilledAt`, `backfillModel`,
     `fallbackTruncation: false`, `llmGenerated: true`.
-  - Arrete au premier echec LLM (cf #8889 "s'arreter au premier echec LLM").
+  - Arrete au premier echec LLM (cf PR #3031 "s'arreter au premier echec LLM").
   - Limite a `--limit N` archives par passe.
   - Dry-run par defaut (cf catalog-pr-hygiene : JAMAIS touche sans `--apply`).
 
@@ -45,7 +45,7 @@ Usage:
     # Cible un autre dossier d'archives (utile pour les tests)
     python scripts/roosync/backfill_fallback_summaries.py --archive-dir ./tests/data/fake-archives
 
-Bornes (cf #8889 acceptance) :
+Bornes (cf PR #3031 ACceptance) :
   - Backfill detecte via frontmatter (AC #1)
   - Contenu verbatim preserve (AC #2)
   - Idempotent (AC #3) — skip si `backfilledAt` deja la
@@ -55,7 +55,7 @@ Bornes (cf #8889 acceptance) :
   - Compteur avant/apres reporte (AC #5 — sortie stdout structuree)
 
 Voir aussi:
-  - Issue #8889 (mandat user)
+  - Issue #2719 (rattachement: condensation fallback) · PR #3031 (criteres d'acceptation)
   - dashboard.ts lignes 1990-2040 (pattern fallback original)
   - dashboard.ts lignes 2320-2360 (pattern archive normal — cible du frontmatter post-backfill)
 """
@@ -336,7 +336,7 @@ def heuristic_summary(messages_text: str, message_count: int) -> str:
     lines.extend([
         "",
         "*Resume heuristique genere par `backfill_fallback_summaries.py` "
-        "(#8889). Remplaceable par un vrai resume LLM : relancer avec "
+        "(#2719). Remplaceable par un vrai resume LLM : relancer avec "
         "`LLM_API_KEY` configure.*",
     ])
     return "\n".join(lines)
@@ -395,7 +395,7 @@ def build_backfilled_content(
         # Secours : pas de pattern exact, on insere apres "# Archive (fallback): ..."
         # header. Plus risqué mais degrade gracefully.
         replacement = (
-            "Method: Backfilled summary (#8889)\n\n"
+            "Method: Backfilled summary (#2719)\n\n"
             + new_summary
             + "\n"
         )
@@ -409,7 +409,7 @@ def build_backfilled_content(
         # Cas nominal : on remplace EXACTEMENT les 3 lignes (Method + vide + FALLBACK TRUNCATION)
         # par un bloc propre.
         replacement = (
-            f"Method: Backfilled summary (#8889, mode={mode})\n\n"
+            f"Method: Backfilled summary (#2719, mode={mode})\n\n"
             + new_summary
             + "\n"
         )
@@ -538,7 +538,7 @@ def backfill_one(
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Backfill RooSync fallback archives with summaries (#8889)"
+        description="Backfill RooSync fallback archives with summaries (#2719)"
     )
     parser.add_argument(
         "--archive-dir",
@@ -660,7 +660,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
         if stop_passe:
-            print(f"  Passe stoppee au premier echec LLM (cf AC #8889).", file=sys.stderr)
+            print(f"  Passe stoppee au premier echec LLM (cf PR #3031 AC).", file=sys.stderr)
             break
 
     # Compteurs post (les archives traitees voient leur frontmatter change,
@@ -689,7 +689,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print()
         print("=" * 60)
-        print("BACKFILL SUMMARY (#8889)")
+        print("BACKFILL SUMMARY (#2719)")
         print("=" * 60)
         for k, v in counts.items():
             print(f"  {k:30} = {v}")

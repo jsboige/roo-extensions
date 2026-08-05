@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_backfill_fallback_summaries.py — tests unitaires pour #8889 backfill.
+"""test_backfill_fallback_summaries.py — tests unitaires pour #2719 backfill.
 
 Couverture :
   - parse_frontmatter : frontmatter valide, absent, mal forme
@@ -219,7 +219,7 @@ Suite.
 
 class TestVerbatimPreservation(unittest.TestCase):
     def test_message_count_preserved(self):
-        """Le contenu verbatim des messages doit etre preserve (AC #2 #8889)."""
+        """Le contenu verbatim des messages doit etre preserve (AC #2, PR #3031)."""
         arch = make_archive(SAMPLE_FALLBACK)
         # Pas de LLM -> mode heuristique
         # Calcule un resume manuellement
@@ -331,7 +331,7 @@ class TestIdempotence(unittest.TestCase):
     def test_second_pass_skips_via_fallback_flag(self):
         """Une archive deja backfillede a fallbackTruncation:false -> non-candidate.
 
-        AC #3 (#8889 idempotence) est garantie par DEUX mecanismes :
+        AC #3 (PR #3031, idempotence) est garantie par DEUX mecanismes :
         - fallbackTruncation:false post-backfill -> is_fallback_candidate retourne False
         - backfilledAt present -> is_already_backfilled retourne True (defense in depth)
 
