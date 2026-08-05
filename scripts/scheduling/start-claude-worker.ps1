@@ -464,7 +464,10 @@ function Test-IssueAlreadyProcessed {
             $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
 
             # Skip if claimed by claude worker in the last 6 hours
-            if ($Comment.body -match "Claimed by claude" -and $Age.TotalHours -lt 6) {
+            # #1980 (c.122): the actually-posted string is "[CLAIMED] by claude on <machine>",
+            # not "Claimed by claude" — the original pattern (C upper, no bracket) never matched.
+            # Without this fix, releasing the locks (item 1+2) removes the last guard.
+            if ($Comment.body -match "\[CLAIMED\] by claude" -and $Age.TotalHours -lt 6) {
                 Write-Log "  Issue #$IssueNumber : deja traitee il y a $([Math]::Round($Age.TotalHours, 1))h, skip" "INFO"
                 return $true
             }
@@ -609,9 +612,29 @@ function Get-GitHubTask {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
                         # ANTI-DOUBLON: skip si résultat déjà posté
+                        # #1980 (c.122): bound the [RESULT] exclusion to 24h instead of
+                        # breaking out permanently. The same bounded guard (Test-IssueAlreadyProcessed)
+                        # already exists 6h/24h below — both must agree or the lock is
+                        # permanent in one path and temporary in another. The `--remove-assignee`
+                        # release in Mark-TaskAsComplete is the actual release; this guard
+                        # becomes belt-and-braces against manual cases.
                         if ($Dc -match "\[RESULT\]") {
-                            $IsDispatchedToOther = $true  # Already completed
-                            break
+                            $DcCreatedAt = $null
+                            try {
+                                # Pull the matching comment timestamp via second API call.
+                                # Bounded: 1 call/issue, only on this code path.
+                                $CommentList = & gh issue view $Issue.number --repo jsboige/roo-extensions `
+                                    --json comments --jq '[.comments[] | select(.body | contains("[RESULT]"))] | .[0].createdAt' 2>&1
+                                if ($LASTEXITCODE -eq 0 -and $CommentList) {
+                                    $DcCreatedAt = [DateTime]::Parse($CommentList).ToUniversalTime()
+                                }
+                            } catch {}
+                            if ($DcCreatedAt -and ((Get-Date).ToUniversalTime() - $DcCreatedAt).TotalHours -gt 24) {
+                                Write-Log "  Issue #$($Issue.number) : [RESULT] >24h, éligible à re-dispatch (#1980 bornage)" "INFO"
+                            } else {
+                                $IsDispatchedToOther = $true  # Already completed recently
+                                break
+                            }
                         }
                         if ($Dc -match "\[CLAIMED\]") {
                             $IsDispatchedToOther = $true  # Already claimed
@@ -952,6 +975,11 @@ function Mark-TaskAsComplete {
                     }
                     & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
                     Write-Log "✅ [RESULT] posté sur #$($Task.issueNumber)"
+                    # #1980 (c.122): symmetric release — Claim-GitHubIssue takes the lock via
+                    # --add-assignee, Mark-TaskAsComplete must release it. Otherwise the
+                    # assignee stays for ever and silences subsequent dispatches.
+                    & gh issue edit $Task.issueNumber --repo jsboige/roo-extensions --remove-assignee "jsboige" 2>&1 | Out-Null
+                    Write-Log "✅ Assignee retiré sur #$($Task.issueNumber) (#1980 release pair)"
                 } catch {
                     Write-Log "Erreur comment GitHub: $_" "WARN"
                 }
@@ -1526,11 +1554,21 @@ function Get-AdjustedIterations {
     param(
         [string]$Urgency,
         [int]$BaseIterations,
-        [string]$ModeId
+        [string]$ModeId,
+        [string]$TaskSource = $null
     )
 
     # Iterations: explicit param > worker default
     $Iterations = if ($BaseIterations -gt 0) { $BaseIterations } else { $WorkerDefaultIterations }
+
+    # #1980 (c.121): maintenance / fallback tasks are idempotent (build OK / tests OK).
+    # "relaxed" was meant to spread work across scheduler ticks, but a maintenance run
+    # has nothing to spread — running it twice doubles the CI cost with zero new output.
+    # Force 1 iteration for source=fallback, regardless of urgency decision.
+    if ($TaskSource -eq "fallback") {
+        Write-Log "Iterations: 1 (fallback maintenance, force 1 — #1980 c.121)"
+        return 1
+    }
 
     $AdjustedIterations = switch ($Urgency) {
         "urgent"  { [Math]::Max($Iterations, 10) }   # Max effort
@@ -4284,7 +4322,7 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
     # ==========================================================================
 
     $Urgency = Get-DeadlineUrgency -Task $Task
-    $AdjustedIterations = Get-AdjustedIterations -Urgency $Urgency -BaseIterations $MaxIterations -ModeId $SelectedMode
+    $AdjustedIterations = Get-AdjustedIterations -Urgency $Urgency -BaseIterations $MaxIterations -ModeId $SelectedMode -TaskSource $Task.source
 
     # 3. Créer worktree (#461 Phase 1 - default ON for scheduled tasks)
     # #2501: Skip worktree for read-only idle tasks (SkipWorktree flag in catalog)
