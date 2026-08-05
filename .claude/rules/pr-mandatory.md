@@ -80,6 +80,22 @@
 
 **Claude Code :** Verifier `git branch --show-current` avant chaque commit dans un worktree. Si resultat vide ou "(HEAD detached", creer une branche de recovery.
 
+## Identite `gh` — la garde est DANS la commande agissante (#3032)
+
+Plus de 5 sessions Claude Code, le worker, le listener et des conteneurs appellent `gh` de front sur
+la meme machine. `gh` n'a **aucun** modele de concurrence : l'identite vit dans un unique
+`hosts.yml` machine-globale, qu'un autre processus peut reecrire entre deux de tes commandes.
+
+**Ne jamais separer « choisir l'identite » de « agir ».** Assert l'identite dans la **meme** commande :
+
+```bash
+gh auth switch --user <bot> && [ "$(gh api user --jq .login)" = "<bot>" ] \
+  && gh pr review N --approve --body "..." && gh pr merge N --squash
+```
+
+Un `gh auth status` lu en debut de session ne dit rien de l'identite de la commande suivante.
+**Detail et pistes ecartees :** [`docs/harness/reference/gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md)
+
 ## Pas de PR necessaire pour
 
 MEMORY.md, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitignored
