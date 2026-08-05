@@ -81,7 +81,10 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: npm install
+        # npm ci (pas npm install) : installe exactement l'arbre du package-lock.json
+        # committe dans le submodule. Sans ca, une publication amont peut casser ce job
+        # sans aucun commit fautif (incident @qdrant/js-client-rest, 2026-08-04 — #3037).
+        run: npm ci
 
       - name: Build TypeScript
         run: npm run build

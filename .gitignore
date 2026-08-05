@@ -47,7 +47,11 @@ yarn-error.log
 .pnp.js
 .npm
 .yarn-integrity
-package-lock.json
+
+# NE PAS ignorer package-lock.json : un lockfile ignore signifie que la CI et les
+# 6 machines resolvent leur arbre de dependances independamment, et qu'une
+# publication amont peut casser le build SANS aucun commit fautif — c'est
+# exactement ce qui s'est produit le 2026-08-04 (@qdrant/js-client-rest). Voir #3037.
 
 # Fichiers de build
 /build/
