@@ -4,211 +4,94 @@
 **Source:** `.claude/configs/user-global-claude.md` in roo-extensions repo
 **Deploy:** `~/.claude/CLAUDE.md` (local, not in git, all workspaces)
 **Update:** Edit source in roo-extensions, commit+push, each machine pulls+copies
+**Détail déporté:** [`docs/harness/global-rules-detail.md`](../../docs/harness/global-rules-detail.md) — matrices complètes, verbatims, incidents fondateurs.
 
 ---
 
 ## Terminology — "Consolider" != "Archiver"
 
-**Consolidation = 3 steps:**
-1. **ANALYZE** every function in the old script
-2. **MERGE** each feature into target (cite exact line numbers as proof)
-3. **ARCHIVE** only after verification — header: date, superseded-by, merged features
-
-**NOT consolidation:** Moving to `_archives/` without proof of preservation. Established after Session 101 (8+ scripts lost, pipeline broken).
-
----
+**Consolidation = 3 etapes :** (1) ANALYSER chaque fonction de l'ancien script, (2) FUSIONNER chaque feature dans la cible **en citant les numeros de ligne comme preuve**, (3) ARCHIVER seulement apres verification. Deplacer vers `_archives/` sans preuve de preservation n'est **pas** une consolidation (Session 101 : 8+ scripts perdus).
 
 ## Fixing Prompts and Rules — No Pendulum
 
-When a line in a prompt/rule causes bad behavior: **delete it first.** Only add a replacement if removal leaves an actual gap the other directives don't cover.
-
-Replacing a line with its opposite (e.g. "viser 50-100 lignes" → "viser 10-14 KB", "ne pas copier-coller" → "préserver l'intégralité") is the pendulum failure — it swings the problem to the other extreme. Equilibrium is reached by subtracting, not by adding a counterweight.
-
-If an automatic mechanism handles the concern elsewhere (auto-condensation, retries, rate limits), don't re-encode its intent in the prompt.
-
----
+Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer d'abord.** N'ajouter un remplacement que si le retrait laisse un trou reel. Remplacer une ligne par son oppose est l'echec-pendule. L'equilibre s'atteint en soustrayant. Si un mecanisme automatique traite deja la question (auto-condensation, retries, rate limits), ne pas re-encoder son intention dans le prompt.
 
 ## Conventions
 
-- **Language:** User = French. Code/commits/docs = English OK. INTERCOM = French when relevant.
-- **Workspace scope:** Stay in YOUR workspace. Ignore dispatches from other workspaces. `roosync_dashboard(type: "workspace")` for YOUR workspace only.
-- **Safety:** Never delete without proof of preservation. No secrets in commits. Prefer reversible actions.
-
----
+- **Langue :** User = francais. Code/commits/docs = anglais OK. INTERCOM = francais.
+- **Scope workspace :** rester dans SON workspace. Ignorer les dispatchs d'autres workspaces.
+- **Securite :** jamais de suppression sans preuve de preservation. Pas de secrets dans les commits. Preferer les actions reversibles.
 
 ## Git
 
-- **Conventional commits:** `type(scope): description`. Include `Co-Authored-By: Claude-Code <noreply@anthropic.com>` when AI-assisted.
-- **Conflicts:** NEVER auto-resolve blindly. Read markers, understand both sides, decide deliberately
-- **Submodules:** Commit inside FIRST, push, then update pointer in parent
-- **Force push:** Forbidden on shared branches. Rejected → fetch, merge, retry
+- **Conventional commits** : `type(scope): description`. `Co-Authored-By: Claude-Code <noreply@anthropic.com>` si assiste.
+- **Conflits** : JAMAIS de resolution aveugle. Lire les marqueurs, comprendre les deux cotes, decider deliberement.
+- **Submodules** : commiter DEDANS d'abord, push, puis bump le pointeur parent.
+- **Force push** : interdit sur branches partagees. Rejete -> fetch, merge, retry.
 
----
+## Read Body Before Any Action (HARD, aucune exception)
 
-## Read Body Before Any Action — review, comment, merge, dispatch, fix (HARD)
+Avant de **commenter**, **reviewer**, **merger**, **dispatcher**, ou **commencer un fix** sur une issue/PR, lire : (1) le **body complet**, (2) **tous les commentaires** existants, (3) **toutes les reviews** postees (humains ET bots) avec leur `state`, (4) le **diff**.
 
-**Règle HARD, aucune exception.** Avant de **poster un commentaire**, **reviewer**, **merger**, **dispatcher du travail**, ou **commencer un fix** sur une issue/PR, lire :
+Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. **Ne pas merger** si `reviews[].state == "CHANGES_REQUESTED"` non adressee ou commentaires inline non resolus.
 
-1. **Le body complet** (description, scope, decisions, caveats deja documentes)
-2. **Tous les commentaires existants** (`gh pr view N --json comments`, `gh issue view N --comments`)
-3. **Toutes les reviews deja postees** (`gh pr view N --json reviews`) — humains ET bots, avec leur `state` (APPROVED / CHANGES_REQUESTED / COMMENTED)
-4. **Le diff** (`gh pr diff N` ou `git diff base..head`) avant review ou merge
-
-Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. Sauter cette lecture = agir a l'aveugle.
-
-| Action | Lecture obligatoire avant |
-|--------|--------------------------|
-| `gh pr comment N` (poster un comment) | body PR + tous comments + toutes reviews existantes |
-| `gh pr review N` (poster une review) | idem + diff complet |
-| `gh pr merge N` | idem + `mergeStateStatus` + `reviews[].state == "CHANGES_REQUESTED"` ET comments inline non-resolus → NE PAS merger si demandes non-adressees |
-| `gh issue comment N` | body issue + tous comments existants |
-| Dispatch d'une tache sur une issue a un agent | body issue + comments + linked PRs |
-| Fix d'un bug base sur une issue | body issue + comments + PRs liees + diagnostic existant |
-| Audit reassessment | body audit + le code source reel (verification > memo) |
-
-**Anti-patterns interdits** :
-- "Le titre dit X, je traite X" → lire le body, X peut etre autre chose
-- "Le bot a APPROVED, je merge" → lire le body PR + comments humains + CHANGES_REQUESTED
-- "Je connais le sujet, je sais quoi dire" → lire ce qui a deja ete dit, ne pas duplicate/conflict
-- "L'issue est ouverte depuis 2 jours, je commence a fix" → lire si un autre agent a deja commence/diagnostique/abandonne
-- "Pas de redite" en reviews : verifier qu'aucun reviewer n'a deja souleve le point que tu vas mentionner
-
-**Why** : incident 2026-05-17 (ai-01 sur CoursIA). 6 reviews detaillees postees sur PRs etudiantes EPITA Contraintes avec sections "Questions pour la soutenance" en duplicate ET en conflit avec les reviews breves bienveillantes deja postees par un autre agent (`jsboigeEpita`) la veille de la soutenance. Si les comments existants avaient ete lus AVANT, l'incident aurait ete detecte : (a) style bref bienveillant deja adopte, (b) un autre agent reviewer en charge des reviews publiques, (c) leak jury par-dessus la review de l'autre agent. La regle "lire avant" detecte les incoherences avant le post.
-
----
+Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « je connais le sujet » · « l'issue est ouverte depuis 2 jours, je fix ». Matrice action->lecture + incident fondateur (2026-05-17, reviews en double et en conflit sur PRs etudiantes la veille d'une soutenance) : [detail](../../docs/harness/global-rules-detail.md#read-body-before-any-action).
 
 ## Tool Discipline
 
-- **Read before Edit** — Edit fails without prior Read. Always.
-- **Test commands:** `npx vitest run` / `npx jest --ci` (never `npm test` — watch mode blocks)
-- **Build + test** after code changes. Never commit broken code.
-- **Large persisted outputs (#1340):** When a tool returns `<persisted-output>` with "Output too large (N MB/KB)", adapt your read strategy based on size:
-  - **< 50KB:** `Read` the full file is acceptable
-  - **50KB - 500KB:** Use `Read` with `offset`/`limit` to read sections
-  - **> 500KB:** Use `Bash` with `head`/`tail`/`grep`/`jq` to extract relevant parts
-  - **Always:** If a preview is shown, analyze it first before deciding if more data is needed. Never blindly `Read` the full persisted file — context explosion kills the task.
-
----
+- **Read avant Edit** — Edit echoue sans Read prealable. Toujours.
+- **Tests** : `npx vitest run` / `npx jest --ci` (jamais `npm test` — le watch mode bloque).
+- **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
+- **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet OK ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
 
 ## Windows / PowerShell Gotchas
 
-- **UTF-8 BOM:** `Set-Content`/`Out-File` add BOM → breaks parsers. Use `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` or PS7+ `-Encoding utf8NoBOM`
-- **Join-Path PS 5.1:** Only 2 args. Use `"$a/b/c/d"` instead of `Join-Path $a "b" "c" "d"`
-- **Line endings:** `core.autocrlf = true` or `.gitattributes`. CRLF-sensitive: Bash, Docker
+- **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.
+- **Join-Path PS 5.1** : 2 args seulement. Preferer `"$a/b/c/d"`.
+- **Line endings** : `core.autocrlf = true` ou `.gitattributes`. Sensibles au CRLF : Bash, Docker.
 
----
+## MCP Tools
 
-## MCP Tools (Global)
+**roo-state-manager** = MCP critique (coordination, conversations, dashboards, indexation). Config : `~/.claude.json` section `mcpServers.roo-state-manager`.
 
-**roo-state-manager (15 outils — post all CONS)** = MCP critique Claude Code (coordination, conversations, dashboards, indexation). Config : `~/.claude.json` section `mcpServers.roo-state-manager`.
+- **Dashboard (canal PRINCIPAL)** : 3 types — `global`, `machine`, `workspace`. Debut de session -> `roosync_dashboard(action:"read", type:"workspace", section:"all")` (JAMAIS `section:"status"` seul, #2306). Fin -> `append` avec tag `DONE`. Auto-condensation preemptive a 92 %. Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
+- **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) -> `view`/`tree`/`summarize`. `smart_truncation:true`, `summarize_type:"trace"` (pas `synthesis`).
+- **Recherche** : `roosync_search(action:"semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace`, requetes en anglais.
+- **RooSync inter-machines** : `roosync_messages(action:"inbox"|"send")`. Dashboard = principal, DM = decision/urgence.
 
-- **Dashboard** (canal PRINCIPAL) : 3 types seulement — `global`, `machine`, `workspace`. Début de session → `roosync_dashboard(action: "read", type: "workspace", section: "all")` (JAMAIS `section: "status"` seul, #2306). Fin → `roosync_dashboard(action: "append", type: "workspace", tags: ["DONE"], content: "...")`. Auto-condensation préemptive à 92% (~46 KB). Tags : `INFO`, `TASK`, `DONE`, `WARN`, `ERROR`, `ASK`, `REPLY`, `ACK`, `PROPOSAL`, `BLOCKED`, `CLAIMED`.
-- **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) → `view`/`tree`/`summarize`. `smart_truncation: true`, `summarize_type: "trace"` (pas `synthesis`).
-- **Recherche** : `roosync_search(action: "semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace` explicitement, requêtes en anglais.
-- **RooSync (inter-machines)** : `roosync_messages(action: "inbox")`, `roosync_messages(action: "send", to: "machine:workspace")`, `roosync_messages(action: "cleanup")`, `roosync_inventory(type: "status")`. Dashboard = principal, messages = fallback/urgences.
+Inventaire complet : [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
 
-**Inventaire complet + paramètres + scénarios :** [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`docs/harness/reference/conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (Roo seul, PDF/DOCX→MD), searxng (web canonique), sk-agent (vision/multi-agent).
+## SDDD — Triple grounding
 
----
+Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source.
 
-## SDDD — Investigation Methodology
-
-**Triple grounding** (toute tâche significative) : croiser **Technique** (code = vérité : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Sémantique** (`codebase_search` + `roosync_search(semantic)`). Ne jamais se contenter d'une seule source.
-
-**Pattern Bookend** : `codebase_search` en DÉBUT (éviter de refaire, trouver la doc existante) et FIN (confirmer indexation, mettre à jour la doc afférente) de chaque tâche significative.
-
-**Détail complet (multi-pass, Wiki Karpathy, filtres roosync_search, complémentarité Grep) :** `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
+**Pattern Bookend** : `codebase_search` en DEBUT (eviter de refaire, trouver la doc existante) et en FIN (confirmer l'indexation, mettre a jour la doc afferente). Detail : `~/.claude/rules/sddd-protocol.md` + [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md).
 
 ### Session Pattern (tout workspace) — OBLIGATOIRE
 
-1. **Début :** `roosync_dashboard(action: "read", type: "workspace", section: "all")` (lire messages récents, identifier demandes) + **`memory-inject`** (auto-injecter les leçons MEMORY.md, #1369/#1377).
-2. **Pendant :** Travailler. Question/blocage → `roosync_dashboard(action: "append", tags: ["ASK"], ...)`.
-3. **Fin :** `roosync_dashboard(action: "append", tags: ["DONE"], content: "résumé")` — **OBLIGATOIRE, aucune exception**.
+1. **Debut** : `roosync_dashboard(action:"read", type:"workspace", section:"all")` + skill `memory-inject`.
+2. **Pendant** : travailler. Blocage -> `append` tag `ASK`.
+3. **Fin** : `append` tag `DONE` — **aucune exception**. Les rapports vont sur le dashboard, PAS dans des fichiers du depot.
 
-**Règle :** TOUT agent (interactif ou scheduled) DOIT rapporter son travail sur le dashboard workspace en fin de session. Les rapports de méta-analystes vont sur le dashboard, PAS dans des fichiers du dépôt.
-
-**Ordre OBLIGATOIRE :** Commit + PR AVANT de poster le rapport [DONE]. Ne jamais annoncer un travail qui n'est pas commité.
-
----
+**Ordre OBLIGATOIRE** : commit + PR AVANT le rapport `[DONE]`. Ne jamais annoncer un travail non commite.
 
 ## Knowledge Preservation
 
-- **No memory between sessions.** Always write learnings to files before session ends.
-- **Memory hierarchy:**
-  - `~/.claude/CLAUDE.md` — Global (THIS FILE)
-  - `CLAUDE.md` (repo root) — Project instructions
-  - `~/.claude/projects/<hash>/memory/MEMORY.md` — Per-machine session learnings
-  - `.claude/memory/PROJECT_MEMORY.md` — Cross-machine shared (via git)
-  - `.claude/rules/*.md` — Auto-loaded project rules
+Pas de memoire entre sessions : ecrire les apprentissages dans des fichiers avant la fin. Hierarchie : `~/.claude/CLAUDE.md` (global) · `CLAUDE.md` repo (projet) · `~/.claude/projects/<hash>/memory/MEMORY.md` (par machine) · `.claude/rules/*.md` (auto-loaded). Apres chaque tache significative : MAJ CLAUDE.md projet + MEMORY.md, consigner les approches **testees-et-rejetees**.
 
-- **Memory auto-injection (#1377):** Le skill `memory-inject` auto-charge les leçons pertinentes au debut de chaque tache pour prevenir les erreurs recurrentes. Pattern valide par l'analyse Reddit 3-agent (#1369).
+## Multi-Machine Ping-Pong — Re-arm
 
-**After each significant task:** Update project CLAUDE.md + MEMORY.md. Record rejected approaches.
+**Scope STRICT** : sessions Claude Code **interactives** ou l'agent joue **activement** un role coordinateur OU worker dans un workflow multi-machine. **Ne s'applique PAS** aux workers/meta-analystes schedules (cadence externe -> double-firing), aux sessions informationnelles, ad-hoc/debug, workspace single-machine, ou apres handoff documente.
 
----
-
-## Self-Maintenance
-
-**After each significant task:**
-1. Update project CLAUDE.md if technical sections changed
-2. Update MEMORY.md with current state + lessons learned
-3. Record tested-and-rejected approaches (avoid repeating experiments)
-4. Verify coherence before ending session
-
----
-
-## Multi-Machine Ping-Pong — Re-arm OBLIGATOIRE (sessions interactives coord/worker)
-
-**Workspaces concernés :** `roo-extensions`, `CoursIA`, `2025-Epita-Intelligence-Symbolique`, `Argumentum`, et tout workspace engagé dans un workflow multi-machine coordinateur/workers.
-
-**Règle absolue.** Le cluster ne fonctionne en continu que si chaque agent (coordinateur ET workers) ré-arme son réveil à la fin de chaque turn où il a "terminé tout ce qu'il pouvait faire seul". Sans re-arme, l'agent s'endort pendant que le cluster continue à produire du travail (PRs, reviews, dispatches) — ping-pong rompu. Mandate user 2026-05-19 (incident R67/R68 sur ai-01) : « dans le cadre d'une tâche interactive avec messages utilisateurs, ça doit être systématique pour le ping-pong entre le coordinateur et les workers ».
-
-### Quand re-armer (chaque rôle)
-
-| Rôle | Déclencheur de re-arme | Prompt typique |
-|------|------------------------|----------------|
-| **Coordinateur** | Après dispatch à TOUS les workers + complétion de ses tâches individuelles (merges, reviews, bilan), en attente des prochaines PRs/reports | `/coordinate` |
-| **Worker** | Après soumission de TOUTES ses PRs (attente review/merge) + complétion des tâches dispatchées, en attente du prochain dispatch | `/executor` ou prompt worker spécifique |
-
-### Cadence — cron 2h (économie tokens), pas ScheduleWakeup 1h
-
-**Cadence fleet-wide actuelle : 2h, portée par `CronCreate`** (économie tokens, mandate user 2026-05-25 — RALENTIR ; le cycle 1h de #2203 est superseded). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures. Donc :
-
-- **ai-01 (coordinateur) = cron-driven.** `CronCreate("41 */2 * * *", "/coordinate")` (job session-only, auto-expire 7j). **NE PAS re-armer un `ScheduleWakeup` 1h par-dessus** — cela ré-introduirait le cycle 1h superseded.
-- **Sessions interactives coord/worker NON pilotées par cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, fallback) à chaque fin de turn pour ne pas rompre le ping-pong. C'est le plafond technique, pas un mandat de cadence 1h.
-- **Petit jitter** (3540s = 59 min, ou minute off-`:00`) pour éviter que tous les agents frappent l'API à la même seconde.
-- **Auto-régulation** via cap 3-IDLE (#2185, par exécutant) + override urgent `[WAKE-CLAUDE]` routé `machine:workspace` (début de ligne sur dashboard append). PAS via timer adaptatif — ne PAS varier l'intervalle « selon charge perçue ».
-
-### Scope STRICT — Quand la règle de re-arme s'applique
-
-EXCLUSIVEMENT : sessions Claude Code **interactives** (REPL avec messages utilisateur) où l'agent joue **activement** un rôle **coordinateur** OU **worker** dans un workflow multi-machine.
-
-### Cadrage — Quand la règle NE s'applique PAS
-
-| Type d'interaction | Re-arme ? | Pourquoi |
-|--------------------|-----------|----------|
-| **Workers schedulés** (Task Scheduler, cron, `start-claude-worker.ps1`) | **NON** | Cadence gérée externalement par le scheduler. Re-armer = double-firing. |
-| **Méta-analystes scheduled** (cycle 72h) | **NON** | Cadence externe (`start-meta-audit.ps1`). |
-| **Sessions interactives informationnelles** (question/réponse, pas de rôle coord/worker actif) | **NON** | Pas de ping-pong à entretenir. |
-| **Sessions interactives ad-hoc / debugging / one-shot** | **NON** | Pas de ping-pong à entretenir. |
-| **Workspace single-machine** (pas de cluster) | **NON** | Pas de cluster à animer. |
-| **Handoff documenté** (un autre agent assume la suite) | **NON** | Continuité portée par l'autre agent. |
-
-**Heuristique :** « Y a-t-il un cluster d'autres machines en train de produire du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** rôle coord/worker → re-arme. Sinon → pas de re-arme.
-
-### Pattern technique
+Heuristique : « un cluster produit-il du travail dont je dois m'occuper au tour suivant ? » — si OUI **et** session interactive **et** role coord/worker -> re-armer.
 
 ```
-# ai-01 coordinateur (cadence 2h, économie tokens) :
-CronCreate(cron: "41 */2 * * *", prompt: "/coordinate", recurring: true)
-# → job session-only, auto-expire 7j. PAS de ScheduleWakeup 1h en plus.
-
-# Session interactive coord/worker NON-cron (fallback ≤1h, plafond technique) :
-ScheduleWakeup(
-  delaySeconds: 3540,                 # 59 min — clamp runtime [60,3600]
-  prompt: "/coordinate",              # ou "/executor", ou prompt rôle-spécifique
-  reason: "Re-arme ping-pong coord/workers, attente PRs/dispatches"
-)
+# coordinateur — cadence portee par cron (economie tokens) :
+CronCreate(cron: "<minute off-:00> */<N> * * *", prompt: "/coordinate", recurring: true)
+# session interactive NON-cron (fallback, plafond technique 1 h) :
+ScheduleWakeup(delaySeconds: 3540, prompt: "/coordinate", reason: "<informatif>")
 ```
 
-Le `reason` doit être informatif (vu en telemetry + par l'user).
+`ScheduleWakeup` est clampe a `[60, 3600]s` : il ne PEUT PAS porter un cycle multi-heures — quand la cadence depasse 1 h, c'est `CronCreate` qui la porte, **sans** `ScheduleWakeup` par-dessus. Jitter (minute off-`:00`) pour ne pas frapper l'API a la meme seconde. Auto-regulation par cap 3-IDLE (#2185) + override `[WAKE-CLAUDE]`, pas par timer adaptatif.
+
+Matrice de scope complete + verbatims du mandat : [detail](../../docs/harness/global-rules-detail.md#multi-machine-ping-pong--re-arm).
