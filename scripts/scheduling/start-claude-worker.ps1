@@ -603,50 +603,58 @@ function Get-GitHubTask {
             $IsDispatchedToMe = $false
             $IsDispatchedToOther = $false
             try {
-                # NOTE: jq expression stored in variable with escaped quotes to avoid PowerShell parsing issues
-                # PowerShell interprets contains() as a command if passed inline — use $jqExpr variable instead
-                $jqExpr = '[.comments[-10:][] | .body | select(contains(\"[DISPATCH]\") or contains(\"[CLAIMED]\") or contains(\"[RESULT]\"))]'
+                # NOTE: jq `test()` regex treats `[` as a char-class opener — `test("[X]")` matches
+                # ANY char in X (false positives on `[sync-project.yml]`, `[#1835]`, etc.).
+                # Use three `contains()` calls joined by `or`: literal substring, no metacharacter
+                # ambiguity. PowerShell single-quotes preserve `[`/`]` literally (double-quote parses
+                # `[` as a type accelerator prefix → ParserError). Verified on #1980: 3 hits
+                # (1 [CLAIMED] + 2 [RESULT]); #3042 (no tags in any comment) returns [] (c.146).
+                $jqExpr = '[.comments[-10:][] | {body, createdAt} | select((.body | contains("[DISPATCH]")) or (.body | contains("[CLAIMED]")) or (.body | contains("[RESULT]")))]'
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
                     --json comments --jq $jqExpr 2>&1
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
-                        # ANTI-DOUBLON: skip si résultat déjà posté
-                        # #1980 (c.122): bound the [RESULT] exclusion to 24h instead of
-                        # breaking out permanently. The same bounded guard (Test-IssueAlreadyProcessed)
-                        # already exists 6h/24h below — both must agree or the lock is
-                        # permanent in one path and temporary in another. The `--remove-assignee`
-                        # release in Mark-TaskAsComplete is the actual release; this guard
-                        # becomes belt-and-braces against manual cases.
-                        if ($Dc -match "\[RESULT\]") {
-                            $DcCreatedAt = $null
-                            try {
-                                # Pull the matching comment timestamp via second API call.
-                                # Bounded: 1 call/issue, only on this code path.
-                                $CommentList = & gh issue view $Issue.number --repo jsboige/roo-extensions `
-                                    --json comments --jq '[.comments[] | select(.body | contains("[RESULT]"))] | .[0].createdAt' 2>&1
-                                if ($LASTEXITCODE -eq 0 -and $CommentList) {
-                                    $DcCreatedAt = [DateTime]::Parse($CommentList).ToUniversalTime()
-                                }
-                            } catch {}
-                            if ($DcCreatedAt -and ((Get-Date).ToUniversalTime() - $DcCreatedAt).TotalHours -gt 24) {
-                                Write-Log "  Issue #$($Issue.number) : [RESULT] >24h, éligible à re-dispatch (#1980 bornage)" "INFO"
+                        # #1980 (c.145): both [CLAIMED] and [RESULT] are now age-bounded,
+                        # consistent with Test-IssueAlreadyProcessed (6h for [CLAIMED],
+                        # 24h for [RESULT]). The previous [CLAIMED] branch `break`d
+                        # unconditionally, and [CLAIMED] is always posted BEFORE [RESULT]
+                        # in the chronological-ascending comment stream — that break
+                        # short-circuited the [RESULT] age check entirely (the [RESULT]
+                        # branch was never reached). The 6h window matches
+                        # Test-IssueAlreadyProcessed: a CLAIM older than 6h means the
+                        # agent that took it is presumed dead.
+                        $DcCreatedAt = $null
+                        if ($Dc.createdAt) {
+                            try { $DcCreatedAt = [DateTime]::Parse($Dc.createdAt).ToUniversalTime() } catch {}
+                        }
+                        $DcAgeHours = $null
+                        if ($DcCreatedAt) { $DcAgeHours = ((Get-Date).ToUniversalTime() - $DcCreatedAt).TotalHours }
+
+                        if ($Dc.body -match "\[RESULT\]") {
+                            if ($null -ne $DcAgeHours -and $DcAgeHours -gt 24) {
+                                Write-Log "  Issue #$($Issue.number) : [RESULT] >24h ($([Math]::Round($DcAgeHours,1))h), éligible à re-dispatch (#1980 bornage)" "INFO"
                             } else {
                                 $IsDispatchedToOther = $true  # Already completed recently
                                 break
                             }
                         }
-                        if ($Dc -match "\[CLAIMED\]") {
-                            $IsDispatchedToOther = $true  # Already claimed
-                            break
+                        elseif ($Dc.body -match "\[CLAIMED\]") {
+                            if ($null -ne $DcAgeHours -and $DcAgeHours -gt 6) {
+                                Write-Log "  Issue #$($Issue.number) : [CLAIMED] >6h ($([Math]::Round($DcAgeHours,1))h), claimant présumé mort, éligible (#1980 bornage)" "INFO"
+                                # do not break, do not flag dispatched-to-other — fall through to [DISPATCH] check
+                            } else {
+                                $IsDispatchedToOther = $true  # Active claim within 6h
+                                break
+                            }
                         }
-                        if ($Dc -match "\[DISPATCH\]\s*$MachineId") {
+                        elseif ($Dc.body -match "\[DISPATCH\]\s*$MachineId") {
                             $IsDispatchedToMe = $true
                         }
-                        elseif ($Dc -match "\[DISPATCH\]\s*(All|Any)") {
+                        elseif ($Dc.body -match "\[DISPATCH\]\s*(All|Any)") {
                             $IsDispatchedToMe = $true  # Available to any
                         }
-                        elseif ($Dc -match "\[DISPATCH\]") {
+                        elseif ($Dc.body -match "\[DISPATCH\]") {
                             $IsDispatchedToOther = $true  # Dispatched to another machine
                         }
                     }
