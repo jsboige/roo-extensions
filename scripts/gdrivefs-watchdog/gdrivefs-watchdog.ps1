@@ -256,12 +256,33 @@ function Invoke-RelaunchGDriveFS {
         Write-Log 'INFO' "DRY-RUN: would Start-Process '$BinaryPath' --startup_mode"
         return
     }
-    Write-Log 'WARN' "GoogleDriveFS.exe absent — relaunching (user context, --startup_mode)"
+    # DriveFS is single-instance: Start-Process while a wedged instance is still alive
+    # is a no-op (observed 2026-08-06 on ai-01: relaunch "issued", same PIDs survived,
+    # mount stayed dead). Kill any existing instance first — no-op in the C0
+    # (process-absent) case, required in the C1 (hung) case.
+    $existing = Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Log 'WARN' "GoogleDriveFS.exe alive but unhealthy — killing wedged instance (pids=$($existing.Id -join ',')) before relaunch"
+        try {
+            $existing | Stop-Process -Force -ErrorAction Stop
+        } catch {
+            Write-Log 'WARN' "Stop-Process reported: $($_.Exception.Message) — continuing with relaunch"
+        }
+        Start-Sleep -Seconds 3
+    }
+    Write-Log 'WARN' "Relaunching GoogleDriveFS.exe (user context, --startup_mode)"
     try {
         Start-Process -FilePath $BinaryPath -ArgumentList '--startup_mode' -ErrorAction Stop
         $script:repairs += 'gdrivefs-relaunch'
-        Write-Log 'INFO' "Start-Process issued for $BinaryPath — waiting 20s for core_controller init"
-        Start-Sleep -Seconds 20
+        # Mount init takes 45-90s after a cold relaunch (measured 2026-08-06 on ai-01);
+        # a fixed 20s wait declared failure on repairs that were still completing and
+        # incremented the C2 counter for nothing. Poll the mount up to 90s instead.
+        Write-Log 'INFO' "Start-Process issued for $BinaryPath — polling mount up to 90s for core_controller init"
+        $deadline = (Get-Date).AddSeconds(90)
+        do {
+            Start-Sleep -Seconds 10
+            $probe = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
+        } until ($probe.Live -or (Get-Date) -ge $deadline)
     } catch {
         Write-Log 'ERROR' "Start-Process failed: $($_.Exception.Message)"
         $script:alerts += "relaunch-failed: $($_.Exception.Message)"
