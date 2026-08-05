@@ -1,9 +1,55 @@
 # SDDD — Protocole Multi-Pass et Filtres (Reference)
 
 **Source :** `.claude/rules/sddd-grounding.md` (version slim)
-**Issue :** #1063
+**Issue :** #1063 — enrichi le 2026-08-05 (déport v5.0.0 de la règle)
 
 ---
+
+## conversation_browser — actions
+
+| Action | Usage | Parametres cles |
+| ------ | ----- | --------------- |
+| **`list`** | **OBLIGATOIRE en premier** — sans IDs, le reste est impossible | `workspace`, `limit`, `contentPattern` |
+| `tree` | Arbre des taches | `conversation_id`, `output_format: "ascii-tree"` |
+| `view` | Squelette de conversation | `task_id`, `smart_truncation: true` |
+| `summarize` | Resume / stats | `summarize_type: "trace"`, `taskId` |
+
+Toujours `smart_truncation: true` au-dela de 10K chars.
+
+## detailLevel (post-fix #881)
+
+| Niveau | Recommandation |
+| ------ | -------------- |
+| `Summary` | Recommande |
+| `Compact` / `NoTools` | Recommande (`NoTools` = alias de `Compact` depuis #881) |
+| `Messages` / `UserOnly` | Compact |
+| `Full` | **JAMAIS** (explosion de contexte) |
+
+Toujours definir `truncationChars` quand `summarize_type != "trace"`.
+
+## Grep vs codebase_search — complementarite
+
+| Besoin | Outil |
+|--------|-------|
+| Symbole exact, nom de fonction | `Grep` |
+| Fichier par pattern | `Glob` |
+| Concept, documentation, contexte | `codebase_search` |
+| Historique de conversations | `roosync_search(semantic)` |
+
+`Grep` trouve des chaines exactes mais pas des concepts. `codebase_search` decouvre la documentation
+meme sans en connaitre les mots exacts.
+
+## Substituts a la lecture directe des JSONL (#1785)
+
+**Ne JAMAIS lire un fichier JSONL/JSON de session directement** (regle complete :
+`.roo/rules/27-no-direct-jsonl-read.md`).
+
+| Besoin | Outil |
+| ------ | ----- |
+| Voir les sessions | `conversation_browser(action: "list")` |
+| Lire une session | `conversation_browser(action: "view", task_id: ..., smart_truncation: true)` |
+| Resumer | `conversation_browser(action: "summarize", summarize_type: "trace")` |
+| Chercher | `roosync_search(action: "semantic", search_query: ...)` |
 
 ## codebase_search — Protocole Multi-Pass
 
@@ -39,6 +85,12 @@
 ```
 
 **Etape 2 :** `list` est OBLIGATOIRE en premier. Sans IDs, `view`/`tree`/`summarize` sont impossibles.
+
+## Wiki Karpathy / SDDD documentaire
+
+Apres chaque tache significative, si le bookend de debut a trouve de la documentation existante :
+la **verifier**, la **mettre a jour** si le travail l'a rendue obsolete, et **documenter** les
+decisions prises ainsi que les approches testees-et-rejetees.
 
 **Reference complete :** `docs/harness/reference/sddd-conversational-grounding.md` (344 lignes)
 **Methodologie systeme :** `docs/roosync/PROTOCOLE_SDDD.md`

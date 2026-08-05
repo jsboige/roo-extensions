@@ -36,6 +36,18 @@
 
 **Interdits :** "Resolved by recent improvements", "Superseded" sans ref, `[CLAIMED]` d'un agent.
 
+## `gh issue close` n'est PAS la fermeture (#3033)
+
+La commande retourne un succès **avant** que le bot de checklist ait statué. Le bot **rouvre** l'issue
+~4 min plus tard si des cases restent décochées. Une session qui rapporte « fermée » sur le retour de
+la commande rapporte donc régulièrement du faux.
+
+1. **Cocher les cases AVANT** `gh issue close` — pas après, pas « je cocherai ensuite ».
+2. **Relire l'état ≥ 5 min APRÈS** : `gh issue view N --json state,closedAt`.
+3. Ne citer la fermeture dans un `[DONE]`, un bilan ou un décompte **qu'après** cette relecture.
+
+Vaut aussi pour le décompte du hard cap : une issue rouverte par le bot n'a jamais été fermée.
+
 ## Interdictions
 
 - JAMAIS "not planned" pour contourner le bot checklist

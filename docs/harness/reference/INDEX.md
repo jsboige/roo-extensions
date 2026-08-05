@@ -14,7 +14,9 @@
 | **Delegation** | Deleguer aux sub-agents si autonome, parallelisable | `delegation.md` |
 | **Harness Reduction** | Plan de reduction du harnais (audit tokens, strategie) | `harness-reduction-plan.md` |
 | **Pi Agent Comparative Study** | Pi / pi-subagents / devstack vs RooSync — adaptation opportunities (#2416) | `pi-agent-comparative-study.md` |
-| **SDDD Grounding (detailed)** | Multi-pass protocol, filtres roosync_search, workflow complet | `sddd-grounding-detailed.md` |
+| **SDDD Grounding (detailed)** | Actions `conversation_browser`, `detailLevel`, filtres `roosync_search`, multi-pass, substituts JSONL, workflow complet | `sddd-grounding-detailed.md` |
+| **Wake-Claude listener** | Chaine de spawn, durabilite #2431 (kill 72h + heartbeat menteur), liveness 5 min / seuil 2h, re-install elevee `[INTERACTIVE-ONLY]`, detection fleet #2928 | `wake-claude-listener.md` |
+| **Submod pointer safety (procedure)** | Incident `67514ec1`, procedure `cat-file -e` apres fetch, anti-patterns, pattern PR submod→parent | `submod-pointer-safety-procedure.md` |
 | **conversation_browser (detailed)** | detailLevel complet, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
 | **Friction Protocol (detailed)** | Quand/comment signaler, traitement, criteres approbation | `friction-protocol-detailed.md` |
 | **Agent Claim Discipline (detailed)** | Incident classes, worker guards (detached HEAD), sanctions | `agent-claim-discipline-detailed.md` |
@@ -56,6 +58,8 @@
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
 | **GitHub CLI** | `gh` CLI, scope `project` requis. IDs fields Project #67 | `github-cli.md` |
+| **`gh` multi-processus (#3032)** | `hosts.yml` est machine-globale, `gh` n'a pas de modele de concurrence → garde d'identite DANS la commande agissante. Pistes de controle ecartees | `gh-identity-concurrency.md` |
+| **Project #67 automation** | Workflow `sync-project.yml`, secret `PROJECT_TOKEN` + scopes, reconciliation manuelle, Field IDs, widget orphelines | `project-67-automation.md` |
 | **Incidents** | Lecons cles : cross-machine check, STOP & REPAIR, CI avant push | `incident-history.md` |
 | **roo-schedulable** | Seulement taches subalternes | `roo-schedulable-criteria.md` |
 | **Bash fallback** | Outils natifs > MCP win-cli > degradation gracieuse | `bash-fallback.md` |
