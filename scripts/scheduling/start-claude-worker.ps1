@@ -3657,7 +3657,15 @@ function Report-Results {
     # #1489: Detect if agent claimed commits but none exist (ghost hashes)
     $GhostHashWarning = ""
     if ($RealHashes -and $Result.success) {
-        $claimedHashes = $Result.output | Select-String -Pattern "[0-9a-f]{8}" | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+        # Case-sensitive + boundary guards: git SHAs are lowercase hex, so -CaseSensitive
+        # rejects uppercase hex in Windows error codes (e.g. 0x800710E0). The lookbehind
+        # (?<![0-9a-fx]) skips runs preceded by 'x' (the 0x of an HRESULT) or another hex
+        # digit; the lookahead (?![0-9a-f]) avoids 8-char sub-windows of longer runs.
+        # The optional {32} group keeps FULL 40-char SHAs detectable: without it the
+        # lookahead makes every window of a 40-char run fail, so a fabricated full-length
+        # hash — the most convincing kind — would slip past the detector entirely.
+        # Together they stop false "ghost commit" warnings on legitimate status codes.
+        $claimedHashes = $Result.output | Select-String -Pattern "(?<![0-9a-fx])[0-9a-f]{8}(?:[0-9a-f]{32})?(?![0-9a-f])" -CaseSensitive | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
         if ($claimedHashes) {
             $invalidHashes = @()
             foreach ($claimedHash in $claimedHashes) {
