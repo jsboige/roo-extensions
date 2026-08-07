@@ -443,6 +443,49 @@ function Get-RooSyncTask {
     }
 }
 
+function ConvertTo-UtcDateTime {
+    <#
+    .SYNOPSIS
+    Parses a JSON-derived timestamp to UTC, culture-independently.
+
+    .DESCRIPTION
+    #2958: under PowerShell 7, ConvertFrom-Json coerces ISO-8601 strings into
+    [DateTime] OBJECTS (PS 5.1 left them as [String]). Calling [DateTime]::Parse()
+    on such an object first stringifies it via the CURRENT CULTURE — on fr-FR that
+    yields "07/08/2026" (dd/MM/yyyy), which Parse() then reads back as 8 July.
+    A comment 2h old was measured 724h old: a constant +722h (30d + TZ) phantom age.
+
+    Every age-bounded guard compares against 6h/24h thresholds, so ALL of them
+    failed open simultaneously and #2958 was re-dispatched 5 times in 3 hours —
+    including once AFTER an explicit "STATUS: Awaiting" marker was posted.
+
+    Passing a [DateTime] straight through avoids the round-trip entirely; strings
+    are parsed with InvariantCulture + RoundtripKind so the offset in the literal
+    is honoured rather than reinterpreted. Mirrors the already-correct call site
+    in start-claude-coordinator.ps1:174.
+
+    Returns $null on unparseable input — callers must treat $null as "unknown age"
+    and NOT as "old enough to re-dispatch".
+    #>
+    param($Value)
+
+    if ($null -eq $Value) { return $null }
+
+    # PS7 already handed us a real DateTime — no string round-trip, no culture.
+    if ($Value -is [DateTime]) { return $Value.ToUniversalTime() }
+    if ($Value -is [DateTimeOffset]) { return $Value.UtcDateTime }
+
+    try {
+        return [DateTime]::Parse(
+            [string]$Value,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::RoundtripKind
+        ).ToUniversalTime()
+    } catch {
+        return $null
+    }
+}
+
 function Test-IssueAlreadyProcessed {
     <#
     .SYNOPSIS
@@ -460,8 +503,14 @@ function Test-IssueAlreadyProcessed {
         $Comments = $CommentsJson | ConvertFrom-Json
 
         foreach ($Comment in $Comments) {
-            $CreatedAt = [DateTime]::Parse($Comment.createdAt)
-            $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
+            $CreatedAt = ConvertTo-UtcDateTime $Comment.createdAt
+            # #2958: unparseable timestamp => age unknown. Treat as RECENT (skip the
+            # issue), never as old — the fail-safe direction is "do not re-dispatch".
+            if ($null -eq $CreatedAt) {
+                Write-Log "  Issue #$IssueNumber : timestamp illisible sur un commentaire, skip par prudence (#2958)" "WARN"
+                return $true
+            }
+            $Age = (Get-Date).ToUniversalTime() - $CreatedAt
 
             # Skip if claimed by claude worker in the last 6 hours
             # #1980 (c.122): the actually-posted string is "[CLAIMED] by claude on <machine>",
@@ -624,10 +673,11 @@ function Get-GitHubTask {
                         # branch was never reached). The 6h window matches
                         # Test-IssueAlreadyProcessed: a CLAIM older than 6h means the
                         # agent that took it is presumed dead.
-                        $DcCreatedAt = $null
-                        if ($Dc.createdAt) {
-                            try { $DcCreatedAt = [DateTime]::Parse($Dc.createdAt).ToUniversalTime() } catch {}
-                        }
+                        # #2958: parse culture-independently. [DateTime]::Parse() on the
+                        # [DateTime] object PS7 hands back from ConvertFrom-Json round-trips
+                        # through fr-FR dd/MM/yyyy and lands 30 days in the past, so every
+                        # bound below (>6h, >24h) fired open. See ConvertTo-UtcDateTime.
+                        $DcCreatedAt = ConvertTo-UtcDateTime $Dc.createdAt
                         $DcAgeHours = $null
                         if ($DcCreatedAt) { $DcAgeHours = ((Get-Date).ToUniversalTime() - $DcCreatedAt).TotalHours }
 
@@ -736,8 +786,11 @@ function Test-GitHubIssueLock {
 
         foreach ($Comment in $Comments) {
             $Body = $Comment.body
-            $CreatedAt = [DateTime]::Parse($Comment.createdAt)
-            $Age = (Get-Date).ToUniversalTime() - $CreatedAt.ToUniversalTime()
+            # #2958: same ConvertFrom-Json/culture trap — a phantom +722h age made
+            # every LOCK look expired, defeating the anti-race window entirely.
+            $CreatedAt = ConvertTo-UtcDateTime $Comment.createdAt
+            if ($null -eq $CreatedAt) { return $true }  # unknown age => assume locked
+            $Age = (Get-Date).ToUniversalTime() - $CreatedAt
 
             # LOCK actif si < 30 minutes (extended from 5min — fix #1005 anti-race condition)
             if (($Body -match "LOCK:" -or $Body -match "\[CLAIMED\]" -or $Body -match "Claimed by") -and $Age.TotalMinutes -lt 30) {
@@ -1216,7 +1269,8 @@ function Test-RooSyncResponse {
     if (-not (Test-Path $InboxPath)) { return $false }
 
     try {
-        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+        $SavedTimestamp = ConvertTo-UtcDateTime $WaitState.timestamp
+        if ($null -eq $SavedTimestamp) { return $false }
         $MachineId = $env:COMPUTERNAME.ToLower()
 
         # Lire messages inbox pour cette machine
@@ -1228,8 +1282,8 @@ function Test-RooSyncResponse {
         foreach ($Message in $Messages) {
             if (($Message.to -eq $MachineId -or $Message.to -eq "all") -and
                 $Message.status -eq "unread") {
-                $MessageTimestamp = [DateTime]::Parse($Message.timestamp)
-                if ($MessageTimestamp -gt $SavedTimestamp) {
+                $MessageTimestamp = ConvertTo-UtcDateTime $Message.timestamp
+                if ($null -ne $MessageTimestamp -and $MessageTimestamp -gt $SavedTimestamp) {
                     # Vérifier si le message concerne cette tâche
                     if ($Message.subject -match $TaskId -or $Message.body -match $TaskId) {
                         return $true
@@ -1280,7 +1334,8 @@ function Test-GitHubDecision {
         }
 
         $Issue = $IssueJson | ConvertFrom-Json
-        $SavedTimestamp = [DateTime]::Parse($WaitState.timestamp)
+        $SavedTimestamp = ConvertTo-UtcDateTime $WaitState.timestamp
+        if ($null -eq $SavedTimestamp) { return $false }
 
         # Vérifier si issue fermée après le timestamp
         if ($Issue.state -eq "CLOSED") {
@@ -1291,8 +1346,8 @@ function Test-GitHubDecision {
         # Vérifier commentaires récents avec approval
         $ApprovalPatterns = @('approve', 'go ahead', 'proceed', 'continue', 'done', 'confirmed', 'validated', 'tested', 'ok', 'lgtm')
         foreach ($Comment in $Issue.comments) {
-            $CommentTimestamp = [DateTime]::Parse($Comment.createdAt)
-            if ($CommentTimestamp -gt $SavedTimestamp) {
+            $CommentTimestamp = ConvertTo-UtcDateTime $Comment.createdAt
+            if ($null -ne $CommentTimestamp -and $CommentTimestamp -gt $SavedTimestamp) {
                 foreach ($Pattern in $ApprovalPatterns) {
                     if ($Comment.body -match $Pattern) {
                         Write-Log "  Commentaire approval détecté: $($Comment.body.Substring(0, [Math]::Min(50, $Comment.body.Length)))"
@@ -1523,7 +1578,11 @@ function Get-DeadlineUrgency {
     }
 
     try {
-        $DeadlineDate = [DateTime]::Parse($Task.projectFields.Deadline)
+        $DeadlineDate = ConvertTo-UtcDateTime $Task.projectFields.Deadline
+        if ($null -eq $DeadlineDate) {
+            Write-Log "  Erreur parsing deadline '$($Task.projectFields.Deadline)'" "WARN"
+            return "relaxed"
+        }
         $TimeLeft = $DeadlineDate - (Get-Date).ToUniversalTime()
 
         if ($TimeLeft.TotalHours -lt 0) {

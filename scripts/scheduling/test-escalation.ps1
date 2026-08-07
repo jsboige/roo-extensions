@@ -365,6 +365,44 @@ Assert-Equal "#2968 regex does NOT match worker separator '=== Iteration Break =
 Assert-Equal "#2968 regex does NOT match a legitimate CI-green output" $false ("CI on PR #905 is all green ... 12635 passed" -match $TestRegex)
 
 # ============================================================================
+# Test 8: #2958 — JSON DateTime parsing must not round-trip through fr-FR
+# PowerShell 7 ConvertFrom-Json returns DateTime objects for ISO timestamps.
+# Re-parsing that object stringifies 07 August as "07/08", then reads it as
+# 08 July under fr-FR, adding a phantom 30 days to the computed comment age.
+# ============================================================================
+Write-Host ""
+Write-Host "=== Test 8: #2958 Culture-Independent JSON Timestamp Parsing ===" -ForegroundColor Cyan
+
+function ConvertTo-UtcDateTime {
+    param($Value)
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [DateTime]) { return $Value.ToUniversalTime() }
+    if ($Value -is [DateTimeOffset]) { return $Value.UtcDateTime }
+    try {
+        return [DateTime]::Parse(
+            [string]$Value,
+            [System.Globalization.CultureInfo]::InvariantCulture,
+            [System.Globalization.DateTimeStyles]::RoundtripKind
+        ).ToUniversalTime()
+    } catch {
+        return $null
+    }
+}
+
+$OriginalCulture = [System.Threading.Thread]::CurrentThread.CurrentCulture
+try {
+    [System.Threading.Thread]::CurrentThread.CurrentCulture = [System.Globalization.CultureInfo]::GetCultureInfo('fr-FR')
+    $IsoTimestamp = '2026-08-07T13:16:58Z'
+    $JsonDateTime = [DateTime]::Parse($IsoTimestamp, [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind)
+
+    Assert-Equal "#2958 DateTime object preserves August 7 under fr-FR" '2026-08-07T13:16:58.0000000Z' ((ConvertTo-UtcDateTime $JsonDateTime).ToString('o'))
+    Assert-Equal "#2958 ISO string preserves August 7 under fr-FR" '2026-08-07T13:16:58.0000000Z' ((ConvertTo-UtcDateTime $IsoTimestamp).ToString('o'))
+    Assert-Equal "#2958 malformed timestamp fails closed" $null (ConvertTo-UtcDateTime 'not-a-date')
+} finally {
+    [System.Threading.Thread]::CurrentThread.CurrentCulture = $OriginalCulture
+}
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""
