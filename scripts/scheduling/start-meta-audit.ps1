@@ -261,7 +261,7 @@ Write-Log "Prompt sauvegarde: $PromptFile"
 
 if ($DryRun) {
     Write-Log "[DRY-RUN] Commande qui serait executee:"
-    Write-Log "  cd $RepoRoot && Get-Content '$PromptFile' -Raw | claude -p --model $Model --dangerously-skip-permissions --output-format stream-json --verbose"
+    Write-Log "  claude -p --model $Model --dangerously-skip-permissions  (stdin: $PromptFile, cwd: $RepoRoot)"
     Write-Log "=== META-AUDIT DRY-RUN END ==="
     exit 0
 }
@@ -271,38 +271,125 @@ $MaxMinutes = 110  # Generous internal timeout (2h schtask limit, 110min interna
 Write-Log "Lancement Claude meta-audit (timeout: ${MaxMinutes}min)..."
 $StartTime = Get-Date
 
+# Resolve claude command (handles .cmd shim, .exe, etc.)
+$ClaudeCmd = (Get-Command claude -ErrorAction SilentlyContinue).Source
+if (-not $ClaudeCmd) {
+    Write-Log "ABORT: 'claude' command not found in PATH" "ERROR"
+    exit 1
+}
+Write-Log "Claude binary: $ClaudeCmd"
+
+# Raw output files (full output persisted for debugging, streamed to log during run)
+$RawOutputFile = Join-Path $LogDir "meta-audit-raw-output-$Today.txt"
+$RawErrorFile = Join-Path $LogDir "meta-audit-raw-error-$Today.txt"
+Remove-Item $RawOutputFile, $RawErrorFile -Force -ErrorAction SilentlyContinue
+
 try {
-    Push-Location $RepoRoot
+    # Launch Claude with stdin from prompt file, stdout/stderr redirected to files.
+    # Start-Process resolves .cmd/.bat shims and gives us the real PID for cleanup.
+    # This replaces Start-Job which buffered all output until Receive-Job (#3068).
+    $ClaudeProcess = Start-Process -FilePath $ClaudeCmd `
+        -ArgumentList "-p --model $Model --dangerously-skip-permissions" `
+        -WorkingDirectory $RepoRoot `
+        -RedirectStandardInput $PromptFile `
+        -RedirectStandardOutput $RawOutputFile `
+        -RedirectStandardError $RawErrorFile `
+        -NoNewWindow `
+        -PassThru
 
-    # Launch Claude as a background job with timeout
-    $ClaudeJob = Start-Job -ScriptBlock {
-        param($promptFile, $model, $repoRoot)
-        Set-Location $repoRoot
-        Get-Content $promptFile -Raw | & claude -p --model $model --dangerously-skip-permissions 2>&1
-    } -ArgumentList $PromptFile, $Model, $RepoRoot
+    $ClaudePid = $ClaudeProcess.Id
+    Write-Log "Claude process started (PID: $ClaudePid)"
 
-    $Completed = Wait-Job $ClaudeJob -Timeout ($MaxMinutes * 60)
+    # Polling loop: stream output to log in real-time, emit heartbeat, enforce timeout.
+    # This replaces Wait-Job which produced zero output during the entire run (#3068).
+    $TimeoutSeconds = $MaxMinutes * 60
+    $Elapsed = 0
+    $PollInterval = 5  # seconds
+    $LastOutLineCount = 0
+    $LastErrLineCount = 0
 
-    if ($null -eq $Completed) {
-        # Timeout reached - kill the job and all child processes
-        Write-Log "TIMEOUT: Claude depasse ${MaxMinutes}min, arret force" "WARN"
-        Stop-Job $ClaudeJob -PassThru | Remove-Job -Force
-        Get-Process -Name "claude" -ErrorAction SilentlyContinue | Where-Object {
-            $_.StartTime -ge $StartTime
-        } | Stop-Process -Force -ErrorAction SilentlyContinue
+    while (-not $ClaudeProcess.HasExited -and $Elapsed -lt $TimeoutSeconds) {
+        Start-Sleep -Seconds $PollInterval
+        $Elapsed += $PollInterval
+
+        # Stream new stdout lines to the log file in real-time
+        if (Test-Path $RawOutputFile) {
+            $CurrentLines = @(Get-Content $RawOutputFile -ErrorAction SilentlyContinue)
+            if ($CurrentLines.Count -gt $LastOutLineCount) {
+                foreach ($line in $CurrentLines[$LastOutLineCount..($CurrentLines.Count - 1)]) {
+                    Write-Log "  [CLAUDE] $line"
+                }
+                $LastOutLineCount = $CurrentLines.Count
+            }
+        }
+
+        # Stream new stderr lines to the log file
+        if (Test-Path $RawErrorFile) {
+            $CurrentErrLines = @(Get-Content $RawErrorFile -ErrorAction SilentlyContinue)
+            if ($CurrentErrLines.Count -gt $LastErrLineCount) {
+                foreach ($line in $CurrentErrLines[$LastErrLineCount..($CurrentErrLines.Count - 1)]) {
+                    Write-Log "  [CLAUDE-ERR] $line" "WARN"
+                }
+                $LastErrLineCount = $CurrentErrLines.Count
+            }
+        }
+
+        # Heartbeat every 60 seconds so a frozen run is distinguishable from a working one
+        if ($Elapsed % 60 -eq 0) {
+            $MinutesElapsed = [math]::Floor($Elapsed / 60)
+            Write-Log "Heartbeat: ${MinutesElapsed}min elapsed, PID $ClaudePid running"
+        }
+    }
+
+    if (-not $ClaudeProcess.HasExited) {
+        # Timeout: kill the specific PID and its process tree.
+        # NEVER use Get-Process -Name "claude" — it kills unrelated sessions and misses
+        # the actual process (node.exe via npm shim). See issue #3068.
+        Write-Log "TIMEOUT: Claude (PID $ClaudePid) depasse ${MaxMinutes}min, arret force" "WARN"
+
+        # taskkill /T kills the process tree (parent + all children including node.exe)
+        $KillOutput = & taskkill /T /F /PID $ClaudePid 2>&1
+        foreach ($line in $KillOutput) {
+            Write-Log "  [KILL] $line"
+        }
+
+        # Wait briefly for the kill to take effect
+        try { $ClaudeProcess.WaitForExit(5000) | Out-Null } catch { }
+
+        # Flush any remaining output that was written before the kill
+        if (Test-Path $RawOutputFile) {
+            $FinalLines = @(Get-Content $RawOutputFile -ErrorAction SilentlyContinue)
+            if ($FinalLines.Count -gt $LastOutLineCount) {
+                foreach ($line in $FinalLines[$LastOutLineCount..($FinalLines.Count - 1)]) {
+                    Write-Log "  [CLAUDE] $line"
+                }
+            }
+        }
+
         Write-Log "=== META-AUDIT TIMEOUT ==="
         exit 2
     }
 
-    $ClaudeOutput = Receive-Job $ClaudeJob
-    Remove-Job $ClaudeJob -Force -ErrorAction SilentlyContinue
+    # Process completed normally — drain any remaining buffered output
+    Start-Sleep -Seconds 1
+    if (Test-Path $RawOutputFile) {
+        $FinalLines = @(Get-Content $RawOutputFile -ErrorAction SilentlyContinue)
+        if ($FinalLines.Count -gt $LastOutLineCount) {
+            foreach ($line in $FinalLines[$LastOutLineCount..($FinalLines.Count - 1)]) {
+                Write-Log "  [CLAUDE] $line"
+            }
+        }
+    }
 
+    $ExitCode = $ClaudeProcess.ExitCode
     $Duration = (Get-Date) - $StartTime
-    Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes"
-    Write-Log "Output (dernieres 20 lignes):"
+    Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes (exit code: $ExitCode)"
 
-    $OutputLines = ($ClaudeOutput -split "`n")
-    $LastLines = $OutputLines | Select-Object -Last 20
+    # Full output is persisted in the raw file; log last 20 lines as summary
+    $AllOutputLines = if (Test-Path $RawOutputFile) { @(Get-Content $RawOutputFile -ErrorAction SilentlyContinue) } else { @() }
+    Write-Log "Output: $($AllOutputLines.Count) lines total (full output: $RawOutputFile)"
+    Write-Log "Output (dernieres 20 lignes):"
+    $LastLines = $AllOutputLines | Select-Object -Last 20
     foreach ($line in $LastLines) {
         Write-Log "  $line"
     }
@@ -312,7 +399,7 @@ try {
     if ($SharedPath) {
         Write-Log "Envoi rapport RooSync..."
         $ReportSubject = "Meta-Audit Report - $MachineName - $Today"
-        $ReportBody = "## Meta-Audit Report`n`n**Machine:** $MachineName`n**Date:** $Today`n**Duration:** $($Duration.TotalMinutes.ToString('F1')) min`n**Model:** $Model`n`n### Output (last 10 lines)`n$(($OutputLines | Select-Object -Last 10) -join "`n")"
+        $ReportBody = "## Meta-Audit Report`n`n**Machine:** $MachineName`n**Date:** $Today`n**Duration:** $($Duration.TotalMinutes.ToString('F1')) min`n**Model:** $Model`n`n### Output (last 10 lines)`n$(($AllOutputLines | Select-Object -Last 10) -join "`n")"
 
         # Ecrire le rapport en JSON dans l'outbox
         $OutboxPath = Join-Path $SharedPath "messages\outbox"
@@ -344,7 +431,6 @@ try {
     Write-Log "=== META-AUDIT FAILED ==="
     exit 1
 } finally {
-    Pop-Location
     # Release lock file
     Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     # Cleanup prompt file (garder les 5 derniers)
