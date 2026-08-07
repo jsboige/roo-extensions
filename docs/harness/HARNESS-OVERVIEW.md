@@ -1,0 +1,165 @@
+# Le harnais, vue d'ensemble
+
+**Ce que c'est.** La documentation de ce dépôt vit dans 70 fichiers de référence, chacun exact sur son sujet et muet sur le reste. Ce document est la vue d'ensemble qui manquait : ce que le harnais fait, avec quoi, et pourquoi il est construit ainsi.
+
+**À qui ça s'adresse.** À un agent ou un humain qui arrive sur le cluster et veut comprendre l'ensemble avant de plonger dans une règle particulière. C'est aussi la **source de vérité** dont le module pédagogique [`NOTRE-STACK.md`](https://github.com/jsboige/CoursIA/blob/main/MyIA.AI.Notebooks/GenAI/Vibe-Coding/docs/NOTRE-STACK.md) du dépôt CoursIA tire sa matière — le rendu pédagogique est chez eux, les faits techniques sont ici (précédent [`1f26d9fb`](https://github.com/jsboige/roo-extensions/commit/1f26d9fb), Epic #2877).
+
+**Ce que ce document n'est pas.** Il ne duplique pas les références détaillées : il les situe et pointe vers elles. Chaque section se termine par ses liens.
+
+---
+
+## 1. La forme générale
+
+Six machines, deux agents par machine (un Roo, un Claude Code), un dépôt commun. Une machine coordonne (`myia-ai-01`), les autres exécutent. Il n'y a **pas** de serveur d'orchestration : la coordination passe par des fichiers partagés sur Google Drive et par GitHub. C'est un choix, et il a une conséquence directe — tout état partagé est *éventuellement cohérent*, jamais transactionnel. Une bonne part des règles qui suivent existent pour rendre ce compromis vivable.
+
+Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécute un cycle de travail autonome, écrit son bilan, et se rendort. Le coordinateur a sa propre cadence (3 h). Rien ne garantit que deux agents soient éveillés en même temps — d'où le fait que **tous les canaux de coordination soient asynchrones et durables**.
+
+---
+
+## 2. `roo-state-manager` — les 15 outils
+
+C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **15 outils** au handshake MCP.
+
+> **Le compte est 15, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
+
+### 2.1 Coordination (6 outils)
+
+| Outil | Ce qu'il fait | Ce qu'il remplace |
+|---|---|---|
+| `roosync_dashboard` | Lit et écrit les tableaux de bord partagés (`global`, `machine`, `workspace`). C'est **le** canal de coordination. Actions : `read`, `append`, `write`, `update`, `list`, `refresh`, `read_overview`, `read_archive`, `delete`. | Les fichiers `INTERCOM-*.md` locaux, dépréciés en avril 2026 |
+| `roosync_messages` | Messagerie point-à-point entre machines, avec priorités (`LOW`→`URGENT`), fils de discussion, pièces jointes et TTL d'auto-destruction. Survit à la condensation des dashboards. | Le courrier électronique interne qui n'a jamais existé |
+| `roosync_inventory` | État des machines : inventaire de configuration locale, heartbeats, santé du cluster avec score. | Des scripts d'inventaire ad-hoc par machine |
+| `roosync_compare_config` | Compare les configurations entre deux machines, par granularité (`mcp`, `mode`, `settings`, `claude`, `modes-yaml`, `full`), avec sévérités. | La comparaison manuelle de fichiers JSON |
+| `roosync_config` | Collecte, publie et applique des paquets de configuration via Google Drive. | La copie manuelle de configs entre machines |
+| `roosync_baseline` | Gère la configuration de référence : versionner, restaurer, exporter, lister les versions. | Rien — cette capacité n'existait pas |
+
+**Les deux canaux, et pourquoi ils coexistent.** Le dashboard est *diffusé* : tout le monde le lit, il porte l'état collectif. Les messages sont *dirigés* : ils portent une instruction à une machine précise. La distinction n'est pas cosmétique — le dashboard s'auto-condense à 92 % de sa taille limite, ce qui archive les messages anciens. Une instruction postée uniquement sur le dashboard peut donc disparaître avant d'avoir été lue par une machine endormie. **Une consigne qui doit survivre passe par `roosync_messages`.** C'est une règle née d'instructions perdues, pas d'une préférence esthétique.
+
+### 2.2 Mémoire et recherche (4 outils)
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `conversation_browser` | Navigue dans l'historique des sessions : `list`, `tree`, `view`, `summarize`, `rebuild`. **`list` est obligatoire en premier** — les autres actions ont besoin des identifiants qu'il rend. |
+| `roosync_search` | Recherche dans les tâches : `semantic` (vectorielle, via Qdrant), `text` (dans le cache), `diagnose` (santé de l'index). |
+| `codebase_search` | Recherche sémantique dans le code, par concept plutôt que par chaîne exacte. **Le paramètre `workspace` doit toujours être passé explicitement** : l'auto-détection pointe vers le répertoire du serveur MCP, pas vers celui de l'appelant. |
+| `export_data` | Exporte tâches, conversations ou projets en XML, JSON, CSV ou Markdown. |
+
+**Recherche exacte contre recherche sémantique.** Interroger un moteur sémantique avec un identifiant exact, c'est le tester hors de son domaine : l'appariement littéral se fait enterrer sous des voisins thématiques et sort de la liste, ce qui se lit comme une panne. Pour un jeton exact, `Grep`. Pour un concept dont on ignore les mots employés, `codebase_search`. Les deux, jamais l'un à la place de l'autre.
+
+### 2.3 Infrastructure et diagnostic (5 outils)
+
+| Outil | Ce qu'il fait |
+|---|---|
+| `roosync_indexing` | Pilote l'index sémantique : indexer, réindexer, diagnostiquer, archiver, nettoyer, détecter les déchets, agréger les statistiques d'usage des outils. |
+| `roosync_storage_management` | Inspection du stockage et maintenance, dont la réparation des fichiers JSONL corrompus par un BOM. |
+| `roosync_mcp_management` | Gestion des serveurs MCP eux-mêmes : lire/écrire la configuration, reconstruire, forcer un rechargement. |
+| `roosync_diagnose` | Diagnostics RooSync : environnement, débogage, réinitialisation, tests, santé du cache, machine à états du cycle de vie, analyse de feuille de route. |
+| `read_vscode_logs` | Lit les journaux de l'hôte d'extension VS Code — utile quand un MCP ne se charge pas et qu'aucune autre trace n'existe. |
+
+**Références :** [`tool-availability.md`](../../.claude/rules/tool-availability.md) · [`roosync-tools-guide.md`](reference/roosync-tools-guide.md) · [`conversation-browser-detailed.md`](reference/conversation-browser-detailed.md)
+
+---
+
+## 3. Le pattern coordinateur / workers
+
+### 3.1 Les rôles
+
+Le **coordinateur** (`myia-ai-01`) merge les PR, arbitre les collisions, dispatche le travail, et présente à l'utilisateur les décisions qui lui reviennent. Il n'écrit pas le contenu métier : il route et il tranche.
+
+Les **workers** (`myia-po-2023` à `myia-po-2026`, `myia-web1`) prennent du travail, produisent des PR atomiques, et rapportent. **Un worker ne merge jamais sa propre PR** — la séparation entre celui qui produit et celui qui intègre est ce qui rend la revue réelle.
+
+### 3.2 Les gardes, et l'incident qui a produit chacune
+
+Ces règles ne sont pas des principes d'hygiène généraux. Chacune est la cicatrice d'une panne précise, et c'est ce qui les rend intéressantes à lire.
+
+**Anti-double-claim.** Avant de coder sur une issue, vérifier qu'aucune PR ouverte ne la référence, lire le dashboard pour un `[CLAIMED]` récent, et poster son propre `[CLAIMED]` horodaté **avant** de modifier quoi que ce soit. *Origine :* trois implémentations parallèles de la même issue, environ douze heures de travail dupliqué. Corollaire appris plus tard : **l'urgence produit la collision** — un relevé fait à un instant ne protège pas d'une PR créée une minute après.
+
+**PR obligatoire, aucun push direct sur `main`.** Worktree → branche → PR → revue → merge → nettoyage. *Origine :* des changements arrivés sur `main` sans revue, dont certains cassaient la CI de toute la flotte.
+
+**Garde d'identité dans la commande agissante.** Plusieurs sessions, un worker et des conteneurs appellent `gh` de front sur la même machine ; `gh` n'a aucun modèle de concurrence et son identité vit dans un unique fichier machine-global qu'un autre processus peut réécrire entre deux commandes. La garde doit donc être **dans** la commande qui agit :
+```bash
+gh auth switch --user <bot> && [ "$(gh api user --jq .login)" = "<bot>" ] && gh pr merge N --squash
+```
+*Origine :* un merge passé sous la mauvaise identité parce que le `switch` avait été fait au tour précédent. **Une vérification faite au tour d'avant ne protège rien.**
+
+**Pointeur de sous-module : jamais avant le merge, jamais sans vérifier l'atteignabilité.** Bumper le pointeur parent vers une SHA non mergée produit un pointeur orphelin qui casse `git pull` **sur toute la flotte**, pas seulement chez soi. La séquence est : la PR sous-module est `MERGED` → `rev-parse` → `cat-file -e` → `merge-base --is-ancestor` → `update-index --cacheinfo` → **relire `git ls-files -s`**, parce que `--cacheinfo` ne valide rien.
+
+**Pas de suppression sans preuve de préservation.** « Code mort » est un label dangereux : le code peut être temporairement débranché, appelé dynamiquement, ou être un stub d'implémentation cible. La preuve exigée est explicite — équivalent fonctionnel, migration des imports, tests préservés, `git grep` à zéro résultat. *Origine :* des chaînes de suppression circulaires — A importe B, B est supprimé « consolidé dans C », A n'a alors plus d'importateurs et est supprimé à son tour.
+
+**Lire le corps avant d'agir.** Avant de commenter, reviewer, merger ou dispatcher : le corps complet, **tous** les commentaires, **toutes** les revues avec leur état, et le diff. Le titre n'est pas la PR ; un `mergeStateStatus` n'est pas une revue.
+
+**Références :** [`agent-claim-discipline.md`](../../.claude/rules/agent-claim-discipline.md) · [`pr-mandatory.md`](../../.claude/rules/pr-mandatory.md) · [`submod-pointer-safety.md`](../../.claude/rules/submod-pointer-safety.md) · [`no-deletion-without-proof.md`](../../.claude/rules/no-deletion-without-proof.md) · [`gh-identity-concurrency.md`](reference/gh-identity-concurrency.md)
+
+---
+
+## 4. Les règles auto-chargées
+
+Le répertoire [`.claude/rules/`](../../.claude/rules/) est injecté dans le contexte de **chaque** session, sans invocation. C'est le mécanisme par lequel le harnais se souvient de ce qu'il a appris entre deux sessions qui ne partagent aucune mémoire.
+
+Deux propriétés le rendent utilisable :
+
+**Les règles sont minces, le détail est déporté.** Chaque fichier de règle tient en une page et pointe vers un document de référence pour la procédure complète. Le coût en contexte est payé à chaque session ; le détail ne l'est qu'à la demande.
+
+**On corrige une règle en soustrayant.** Quand une ligne produit un mauvais comportement, on la supprime d'abord ; on n'ajoute un remplacement que si le retrait laisse un trou réel. Remplacer une ligne par son opposé est l'échec-pendule, et il produit des règles qui oscillent au lieu de converger. Si un mécanisme automatique traite déjà la question, ne pas ré-encoder son intention dans le prompt.
+
+**Référence :** [`global-rules-detail.md`](global-rules-detail.md)
+
+---
+
+## 5. Ce qui ne marche pas
+
+Cette section est la plus utile du document, et c'est celle que la documentation d'outillage omet systématiquement. Un harnais qui tourne depuis un an a des modes de défaillance connus ; les taire donne une image fausse de ce que coûte l'automatisation multi-agents.
+
+### 5.1 Les faux succès
+
+**Un rapport n'est pas une preuve.** Un agent qui déclare « terminé, PR créée » peut citer une SHA qui n'existe pas, une branche jamais poussée, une PR jamais ouverte. La discipline en vigueur exige que l'artefact soit vérifiable **à l'instant du rapport** : `git cat-file -e` pour un commit, `git ls-remote` pour une branche, `gh pr view` pour une PR. *Le principe condensé :* pas de SHA sans `git cat-file -e`, pas de PR sans URL valide, pas de `[DONE]` sur une promesse.
+
+**Fermer une issue n'est pas la fermer.** La commande retourne un succès avant que le bot de checklist ait statué ; il rouvre l'issue quelques minutes plus tard si des cases restent décochées. Une session qui rapporte « fermée » sur le retour de la commande rapporte du faux. Il faut cocher **avant**, puis relire l'état **au moins cinq minutes après**.
+
+**Un watchdog peut relancer un service sain.** Un script d'installation affiche « tâche enregistrée » que la tâche fonctionne ou non. Déclencher une fois et lire le résultat est la seule mesure qui distingue « installé » de « fonctionne ».
+
+### 5.2 Les mesures qui mentent
+
+**Un résultat vide ne se signale pas comme une erreur.** C'est la classe de panne la plus coûteuse du harnais : une commande qui rend zéro résultat parce que son motif est faux se lit exactement comme une commande qui rend zéro résultat parce que la chose est absente. La règle est devenue : *une mesure qui rend « rien » doit d'abord être suspectée elle-même.*
+
+**Un drapeau alimenté par un champ que personne n'écrit est faux à cent pour cent, et paraît sain.** Un indicateur de synchronisation obsolète s'est déclenché sur les six machines pendant plus de cinq mois : son champ source n'était écrit que par des opérations de baseline, jamais par la coordination courante. Les tests le couvraient — mais chaque fixture passait une valeur *fraîche*, si bien que la suite n'a jamais exercé l'état permanent de la production. CI verte, cent pour cent faux en production. Un drapeau toujours allumé est pire qu'un drapeau absent : il entraîne les lecteurs à ignorer aussi ceux qui, à côté, disent vrai.
+
+**Une fenêtre d'observation plus courte que la période du phénomène mesure zéro** — et ce zéro se lit comme « absent », jamais comme « mal échantillonné ».
+
+**Un chiffre qui circule sans son échantillon devient un fait.** Un taux mesuré sur deux requêtes s'est propagé sur trois machines avant qu'une mesure sur douze requêtes ne le divise par deux. La direction était bonne, l'ampleur fausse — et rien dans la circulation du chiffre ne portait la taille de l'échantillon.
+
+### 5.3 Le contexte
+
+La fenêtre de contexte est la ressource rare, et sa gestion est un sujet à part entière. Le seuil de condensation est **universel** : 200 000 jetons, déclenchement à 90 %. La valeur par défaut de 50 % produit une boucle de condensation infinie — c'est un piège dans lequel le harnais est tombé, et la règle actuelle existe pour ça. Une session interactive ne recharge pas sa configuration en cours de route : un changement de seuil ne prend effet qu'au redémarrage.
+
+Côté outils, la discipline de lecture est chiffrée : moins de 50 Ko se lit entièrement, entre 50 et 500 Ko avec un décalage et une limite, au-delà de 500 Ko jamais directement — un `head`, un `grep` ou un `jq`. Lire un fichier persisté énorme ne dégrade pas la tâche, il la tue.
+
+### 5.4 L'index sémantique
+
+L'index a des défauts mesurés, et les publier vaut mieux que les découvrir. Environ **16 %** des fragments rendus en tête de résultats sont des doublons exacts ; la moitié d'entre eux proviennent de tâches différentes, ce qu'une déduplication par identifiant de tâche ne peut pas voir. L'index avale aussi les sorties d'outils de recherche des agents, si bien qu'une recherche peut retrouver la recherche précédente plutôt que son sujet.
+
+Ces défauts ont failli produire un mauvais correctif : cinq machines avaient convergé vers « filtrer les fragments d'interaction outil », et une mesure directe a montré que ce filtre **supprime du signal** — les fragments les plus utiles sur certaines requêtes en font partie, et l'écho, lui, est classé ailleurs. *La leçon :* cinq machines convergentes ne valent pas une mesure. La convergence portait sur le symptôme, réel, et se prolongeait en une inférence sur la cause que personne n'avait testée.
+
+**Références :** [`agent-claim-discipline.md`](../../.claude/rules/agent-claim-discipline.md) · [`issue-closure.md`](../../.claude/rules/issue-closure.md) · [`context-window.md`](../../.claude/rules/context-window.md) · [`condensation-thresholds.md`](reference/condensation-thresholds.md) · [`context-explosion-runbook.md`](reference/context-explosion-runbook.md)
+
+---
+
+## 6. Le protocole de travail : SDDD
+
+Toute tâche significative croise trois sources : **technique** (le code, qui est la vérité), **conversationnel** (l'historique des sessions), **sémantique** (la recherche par concept). Jamais une seule.
+
+Le motif d'encadrement est simple et il paye : une recherche sémantique **au début** d'une tâche (est-ce que ça a déjà été fait ? quelle documentation existe ?) et **à la fin** (le travail est-il retrouvable ? la documentation trouvée au début est-elle devenue fausse ?). La recherche initiale évite de refaire ; la finale évite de laisser derrière soi une documentation qui contredit le code.
+
+S'y ajoute une exigence de qualification. Une affirmation est **vérifiée** (testée soi-même), **rapportée** (un autre le dit, non confirmé), ou **supposée**. Ne jamais propager sans qualifier : le coût d'une vérification se compte en secondes, celui d'une erreur propagée en heures multipliées par six machines.
+
+**Références :** [`sddd-grounding.md`](../../.claude/rules/sddd-grounding.md) · [`skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md)
+
+---
+
+## Portée de ce document
+
+Rédigé comme corpus source pour l'issue #3054, en réponse au mandat utilisateur du 2026-08-07 demandant que roo-extensions s'implique directement dans la documentation pédagogique du harnais plutôt que de la laisser s'écrire de l'extérieur.
+
+Il est **anonymisé** au même standard que le module CoursIA : rôles et familles de machines, aucun hôte sensible, aucun secret, aucune clé.
+
+Les sections 1 à 6 couvrent l'ossature. Ce qui reste à écrire, et qui viendra par ajouts successifs : les modes Roo et leur pipeline de génération, l'architecture interne du serveur MCP, et le cycle de vie détaillé d'un worker planifié.

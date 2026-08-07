@@ -13,6 +13,7 @@ Documentation on-demand pour le harnais Roo/Claude Code. Ces fichiers ne sont PA
 | [reports/](reports/) | Rapports ponctuels |
 | [research/](research/) | Notes de recherche |
 
-## Point d'entrée
+## Points d'entrée
 
-[reference/INDEX.md](reference/INDEX.md) — Index complet de la documentation harness.
+- **[HARNESS-OVERVIEW.md](HARNESS-OVERVIEW.md)** — vue d'ensemble : ce que le harnais fait, avec quoi, et ce qui ne marche pas. À lire en premier quand on arrive sur le cluster. Sert aussi de corpus source au module pédagogique `NOTRE-STACK.md` du dépôt CoursIA (#3054).
+- [reference/INDEX.md](reference/INDEX.md) — index complet de la documentation harness, pour le détail par sujet.
