@@ -216,10 +216,146 @@ C'est ce qui rend le harnais robuste à ses propres pannes : un worker qui crash
 
 ---
 
+## 8. Les modes Roo et leur pipeline de génération
+
+La coordination décrite jusqu'ici s'adresse au niveau *cluster* : qui parle à qui, sur quel canal, avec quelle garde. Elle s'exécute via Claude Code. **Le travail lui-même** — les modifications de code, les diagnostics, les analyses — est réalisé par Roo Code, et Roo n'est pas un agent monolithique : il opère sous un *mode*, qui sélectionne le jeu d'outils, le modèle, l'instruction système, et les critères d'escalade. Choisir le mauvais mode est l'une des causes structurelles de dépense excessive et de mauvais résultats.
+
+### 8.1 Pourquoi deux niveaux, `simple` et `complex`
+
+Chaque *famille* de tâches (code, debug, architect, ask, orchestrator) existe en deux niveaux. Le niveau `-simple` est conçu pour les tâches mécaniques bien définies : lecture de fichier, vérification de `git status`, exécution de commande, corrections localisées, formatage, documentation inline. Le niveau `-complex` absorbe la conception, le refactoring, l'analyse multi-composants et les décisions de design.
+
+**Le coût.** Modèles petits et rapides pour `-simple` (Qwen 3 32B, GLM 4.7-Air). Modèles puissants et chers pour `-complex` (Claude Sonnet, Opus, GLM 4.7). Un orchestrateur qui décompose une tâche de 8 sous-taches en 8 appels `-complex` consomme l'équivalent de plusieurs heures d'un modèle lourd ; la même décomposition en `-simple` monte une fraction de cela. **Le bon mode est presque toujours le mode le moins cher qui réussit** — l'escalade est un recours, pas un réflexe.
+
+**Le piège symétrique.** L'inverse existe : un `-simple` qui tente une modification d'API publique, un refactoring de schéma, ou un changement d'outil MCP est une mauvaise escalade *par le bas*. Le résultat est presque bon, les tests passent localement, et trois jours plus tard un autre composant casse parce que le contrat a dérivé. La règle de discrimination est exposée dans les `escalationCriteria` et `deescalationCriteria` de chaque mode, et c'est par là que le choix se fait — pas à l'instinct.
+
+### 8.2 Les cinq familles
+
+| Famille | Ce qu'elle fait | Mode `-simple` | Mode `-complex` |
+|---|---|---|---|
+| **code** | Modifier le code : du correctif au refactoring | `code-simple` | `code-complex` |
+| **debug** | Diagnostiquer et corriger : du bug évident au problème système | `debug-simple` | `debug-complex` |
+| **architect** | Décider et documenter l'architecture ; *modifie les `.md` uniquement* (regex native Roo) | `architect-simple` | `architect-complex` |
+| **ask** | Lire et expliquer sans modifier | `ask-simple` | `ask-complex` |
+| **orchestrator** | Décomposer et déléguer via `new_task` ; *aucun outil direct* | `orchestrator-simple` | `orchestrator-complex` |
+
+L'orchestrateur est particulier : il n'exécute jamais lui-même. **Tout** ce qu'il fait passe par `new_task` à un autre mode. Cette contrainte n'est pas une suggestion — c'est l'invariant qui empêche un orchestrateur de prendre des décisions qu'il n'a pas les outils pour assumer. La règle est rendue littérale par un `groups: []` dans la configuration : *aucun groupe d'outils*, pas même `read`.
+
+Cinq familles × deux niveaux = **dix modes générés**, et c'est exactement ce que produit le pipeline décrit ci-dessous. D'autres jeux de modes coexistent dans le dépôt (configurations historiques, profils par machine) et peuvent en contenir davantage ; ils ne sont pas produits par ce pipeline et ne s'y substituent pas.
+
+### 8.3 Le pipeline de génération
+
+Les modes ne sont pas écrits à la main dans `.roomodes`. Ils sont *générés* à partir de deux sources. Le pipeline est délibéré : il garantit qu'un changement de configuration (un nouveau critère d'escalade, une consigne d'orchestrateur) traverse une étape de validation avant d'atterrir dans la configuration effective de VS Code.
+
+**Sources.**
+1. [`roo-config/modes/modes-config.json`](../../roo-config/modes/modes-config.json) — les données : familles, `roleDefinition`, `groups`, `escalationCriteria`, `deescalationCriteria`, instructions d'escalade inter-niveaux.
+2. [`roo-config/modes/templates/commons/mode-instructions.md`](../../roo-config/modes/templates/commons/mode-instructions.md) — le squelette Markdown qui assemble les champs en `customInstructions`.
+
+**Cible.**
+3. [`roo-config/modes/generated/simple-complex.roomodes`](../../roo-config/modes/generated/simple-complex.roomodes) — la sortie JSON ou YAML (YAML requis pour Roo 3.51.1+ en déploiement global).
+
+**Le générateur.** [`generate-modes.js`](../../roo-config/scripts/generate-modes.js) lit les sources, applique le template avec un moteur `{{VAR}}` et `{{#if VAR}}…{{else}}…{{/if}}`, sérialise en JSON ou YAML et écrit la cible. Le sérialiseur YAML est *maison* — la dépendance externe a été retirée parce que les dépendances tierces sur un fichier critique de configuration sont un risque non rémunéré.
+
+```powershell
+# Génération standard
+node roo-config/scripts/generate-modes.js
+# Avec profil de modèle (résolution depuis model-configs.json)
+node roo-config/scripts/generate-modes.js --profile <nom>
+# Et déploiement direct vers .roomodes à la racine
+node roo-config/scripts/generate-modes.js --deploy
+```
+
+**Pourquoi pas éditer `.roomodes` directement.** Trois raisons :
+1. **Dérive silencieuse.** Une modification manuelle sera écrasée à la prochaine génération, sans avertissement. Seul le source est versionné.
+2. **Pas de validation partagée.** Le format JSON/YAML n'est validé qu'en sortie du générateur. Une édition directe contourne ce filet.
+3. **Pas de format commun entre machines.** Les profils de modèles, les groupes d'outils réglementés, et les instructions communes sont des sources ; les copier-coller dérive.
+
+**Validation.** Avant commit, le script `check-mode-api-configs-drift` détecte la dérive entre le profil déclaré dans `modes-config.json` et la résolution effective dans `model-configs.json`. Une dérive non corrigée produit un mode qui pointe sur un modèle qui n'existe pas dans la configuration effective.
+
+### 8.4 Le routage inter-famille pendant l'exécution
+
+Une sous-tâche peut changer de nature en cours d'exécution. Un mode `code` qui découvre un bug pendant l'implémentation ne continue pas à coder sur un terrain devenu glissant — il délègue à `debug-simple`, qui lui-même peut escalader à `debug-complex` si la cause racine est multi-composants. Un `debug-simple` qui a besoin d'une décision d'architecture remonte à `architect-simple`, jamais au coordinateur du cluster.
+
+**Seuls les orchestrateurs font ce routage.** Les workers spécialisés restent dans leur famille. C'est ce qui empêche un cycle d'escalade sans fin : un `-simple` qui appellerait un `-complex` sans passer par l'orchestrateur consommerait des appels que personne n'arbitre.
+
+**Références :** [`roo-config/README.md`](../../roo-config/README.md) · [`modes-config.json`](../../roo-config/modes/modes-config.json) · [`generate-modes.js`](../../roo-config/scripts/generate-modes.js) · [`check-mode-api-configs-drift.js`](../../roo-config/scripts/check-mode-api-configs-drift.js)
+
+---
+
+## 9. L'architecture interne du serveur MCP `roo-state-manager`
+
+Les 15 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
+
+### 9.1 Forme générale
+
+[`roo-state-manager`](../../mcps/internal/servers/roo-state-manager/) vit comme **sous-module** (`mcps/internal`) et non comme dossier du dépôt racine. C'est délibéré : il a son propre cycle de release, ses propres tests, son propre `package.json`, et il est partagé entre plusieurs extensions (Roo et, via le routeur, Claude Code). Le dépôt parent le consume via un gitlink bumper par PR — voir section 3.2 sur le bump de pointeur obligatoire après merge.
+
+Le code source tient dans `src/` :
+- `index.ts` — point d'entrée, bootstrap.
+- `tools/` — les handlers MCP, un fichier par outil ou par famille d'outils.
+- `services/` — la logique métier : `state-manager`, `background-services`, plus un sous-dossier par domaine (`roosync/`, `task-indexer/`, `unified-store/`, `synthesis/`…).
+- `notifications/` — la couche de notification push, à côté de `services/` et non dedans.
+- `config/` — lecture et validation de la configuration statique.
+- `schemas/` — schémas Zod des arguments par outil — le contrat d'API interne.
+- `interfaces/`, `types/`, `models/` — types partagés.
+- `utils/` — utilitaires : logger, format d'erreur, détecteurs de stockage.
+- `__tests__/`, `tests/` — batteries de tests unitaires, intégration, e2e.
+
+### 9.2 Le démarrage rapide
+
+Le client MCP attend que `tools/list` réponde pour considérer le serveur prêt. Tout ce qui retarde ce moment — un import profond, une connexion réseau, un parsing lourd — retarde l'agent qui appelle. L'architecture observée trace cet arbitrage explicitement.
+
+**Étape 1 — bootstrap synchrone et silencieux (`src/index.ts`).** Le serveur charge `dotenv`, valide les variables d'environnement critiques, installe le monkey-patch `graceful-fs` *avant tout import touchant `fs`* (#2312), et redirige `console.log` vers `stderr` parce que `stdout` porte exclusivement le JSON-RPC du transport stdio. La redirection n'est pas cosmétique : plus de 730 appels `console.log` répartis sur 63 fichiers pollueraient le flux et casseraient le handshake. Pas d'import lourd ici.
+
+**Étape 2 — connexion transport ASAP.** Le `StdioServerTransport` est connecté dès que possible, ce qui débloque `tools/list` même si le reste du système n'est pas prêt. *Latence mesurée du handshake* : sous la seconde sur la machine de référence.
+
+**Étape 3 — chargement paresseux des services lourds (`tools/registry.ts`, #1140, #1145).** `tools/list` lit un fichier `tool-definitions.ts` *statique*, zéro import de handler. `tools/call` importe le handler du nom d'outil à la première invocation, puis le cache. Les modules lourds (détecteurs de stockage, services d'arrière-plan, indexeur) sont tous derrière des accesseurs lazy. *Réduction mesurée (#1140) :* un import statique de tous les handlers ajoutait **8,6 secondes** au démarrage (barrel `tools/index.js` profilé à 8,6 s, dominé par `roosync/index.js` à 8,3 s) ; en paresseux, le premier appel paye le coût et les suivants sont gratuits.
+
+**Étape 4 — services d'arrière-plan.** Une fois le handshake passé, les `background-services` démarrent : heartbeat automatique, indexeur sémantique, notifications. Ils ne bloquent ni le client ni les outils.
+
+### 9.3 L'enregistrement des outils
+
+Le fichier [`tools/registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) est le point d'entrée des appels. Il fait trois choses :
+
+1. **Maintenir un registre nom → handler.** L'enregistrement est explicite pour rendre auditable la liste des outils — c'est ce qui permet d'affirmer « 15 outils » sans grep dans tout `src/`.
+2. **Appliquer un timeout par outil.** Défaut 120 s ; outils lourds (`roosync_indexing` 300 s, `codebase_search` 180 s, `roosync_storage_management` 180 s). *Origine :* un appel MCP resté pendant 22 heures en attendant une dépendance morte (#2267). Le timeout ne résout pas la cause, il borne le coût.
+3. **Déléguer vers les accesseurs paresseux** présentés en 9.2.
+
+### 9.4 La dégradation progressive (#1635)
+
+Le serveur n'échoue pas au démarrage si une dépendance est manquante. Au lieu de cela, il *marque* la capacité correspondante comme « dégradée » via [`utils/server-capabilities.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/server-capabilities.ts), et les outils affectés retournent une erreur explicite quand on les appelle. Les variables `ROOSYNC_SHARED_PATH`, `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION_NAME` sont requises ; `EMBEDDING_API_KEY` ou `OPENAI_API_KEY` est requise pour la recherche sémantique. Manquer l'une d'elles ne casse pas le démarrage, mais le cluster n'a plus de dashboards / plus de recherche sémantique — *et c'est visible*.
+
+**L'invariant.** `tools/list` répond toujours avec la liste complète des 15 outils, même dégradé. C'est ce qui permet à l'orchestrateur ou au coordinateur d'appeler un outil de diagnostic, d'apprendre que la capacité est dégradée, et d'agir — au lieu de recevoir un crash incompréhensible au démarrage.
+
+### 9.5 Le cycle de vie d'une tâche indexée
+
+La section 5.4 a parlé des défauts de l'index sémantique. Côté serveur, ce que cet index fait, et c'est ce qu'il faut comprendre pour interpréter ses résultats :
+
+1. **Capture.** Chaque session agent — Roo ou Claude — produit un JSONL de messages horodatés. Le stockage vit sur disque local à chaque machine, puis est centralisé sur Google Drive via le watcher RooSync.
+2. **Indexation.** `roosync_indexing(action: "index")` segmente chaque JSONL en chunks (`message_exchange` pour les paires user/assistant, `tool_interaction` pour les paires assistant/tool+résultat), les envoie au modèle d'embedding déclaré dans `EMBEDDING_*`, et pousse les vecteurs dans Qdrant sous la collection `QDRANT_COLLECTION_NAME` (1,78 million de points mesurés).
+3. **Recherche.** `roosync_search(action: "semantic")` encode la requête, cherche les plus proches voisins dans Qdrant, déduplique par similarité intra-cluster, et rend un top-K.
+4. **Reconstruction.** `conversation_browser(action: "view")` lit une conversation par son identifiant, en reconstituant le squelette depuis l'index si nécessaire (auto-rétraction du cache).
+
+**Ce qui se passe mal.** Les `[tool_result]` massifs issus d'appels de recherche antérieurs sont indexés avec leur propre contenu ; une recherche qui retrouve une recherche précédente n'est pas un bug, c'est l'effet direct d'un index qui contient ses propres entrées. C'est ce qui a produit la fausse piste « filtrer les fragments d'interaction outil » évoquée en 5.4 — la mesure a montré que ce filtre *supprime du signal*, et le filtre a été retiré.
+
+### 9.6 Tests et validation
+
+Trois batteries coexistent :
+- **Unit (`vitest`).** Couvrent les services et les outils, par dossier (`tests/unit/services`, `tests/unit/tools`).
+- **Intégration (`vitest run tests/integration`).** Couvrent les interactions entre services, avec dépendances réelles (Qdrant, GDrive).
+- **E2E (`vitest run tests/e2e`).** Parcours complet d'un cas d'usage.
+
+Le script [`validate-before-push.ps1`](../../scripts/mcp/validate-before-push.ps1) enchaîne build + tests `vitest` sur le sous-module avant tout push — c'est la garde contre la régression silencieuse dans `mcps/internal`. Un raccourci à la racine du dépôt est `npm run test:mcp`, qui délègue au sous-module sans risquer un `vitest` root qui ne découvrirait rien d'utile (un garde `vitest.config.ts` à la racine limite la découverte aux tests de la racine).
+
+**L'invariant.** Aucune modification de `mcps/internal` ne doit être poussée sans ce passage en vert. La règle n'est pas négociable, parce que les six machines consomment le même module — une régression ici se voit partout.
+
+**Références :** [`roo-state-manager/src/index.ts`](../../mcps/internal/servers/roo-state-manager/src/index.ts) · [`registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) · [`server-capabilities.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/server-capabilities.ts) · [`ci-guardrails.md`](../../.claude/rules/ci-guardrails.md) · [`mcp-diagnosis.md`](../../.claude/rules/mcp-diagnosis.md)
+
+---
+
 ## Portée de ce document
 
 Rédigé comme corpus source pour l'issue #3054, en réponse au mandat utilisateur du 2026-08-07 demandant que roo-extensions s'implique directement dans la documentation pédagogique du harnais plutôt que de la laisser s'écrire de l'extérieur.
 
 Il est **anonymisé** au même standard que le module CoursIA : rôles et familles de machines, aucun hôte sensible, aucun secret, aucune clé.
 
-Les sections 1 à 7 couvrent l'ossature. Ce qui reste à écrire, et qui viendra par ajouts successifs : les modes Roo et leur pipeline de génération, et l'architecture interne du serveur MCP.
+Les sections 1 à 7 couvrent l'ossature, les sections 8 et 9 ajoutent la couche générative et la structure du serveur MCP qui les rend opérantes.
