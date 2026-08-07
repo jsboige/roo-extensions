@@ -241,6 +241,12 @@ Assert-Equal "#2968 guard anchored on multiline line-start 'API Error[:\s]' emis
 Assert-Equal "#2968 old loose vocab regex (Rate limit | No credentialed providers) removed - prose FP vector" $false ($ScriptContent -match '\(\?i\)API Error\|Rate limit\|No credentialed providers')
 Assert-Equal "#2968 escalation skip present (Check-Escalation guard)" $true ($ScriptContent -match 'if \(\$Result\.apiErrorInOutput\)')
 
+# #2958: Test 8 below exercises a LOCAL COPY of ConvertTo-UtcDateTime (this harness
+# cannot dot-source the worker, which executes on load). A copy proves nothing about
+# what ships, so bind the two here — same role as the assertions above.
+Assert-Equal "#2958 shipped worker defines ConvertTo-UtcDateTime" $true ($ScriptContent -match 'function ConvertTo-UtcDateTime')
+Assert-Equal "#2958 no naive [DateTime]::Parse left on a JSON field (culture round-trip)" $false ($ScriptContent -match '\[DateTime\]::Parse\(\$\w+\.\w+\)')
+
 # ============================================================================
 # Test 6: #2572 — Budget cutoff must NOT escalate (error_max_budget_usd)
 # Validates the guard added to Check-Escalation: a gateway budget cutoff
@@ -365,10 +371,12 @@ Assert-Equal "#2968 regex does NOT match worker separator '=== Iteration Break =
 Assert-Equal "#2968 regex does NOT match a legitimate CI-green output" $false ("CI on PR #905 is all green ... 12635 passed" -match $TestRegex)
 
 # ============================================================================
-# Test 8: #2958 — JSON DateTime parsing must not round-trip through fr-FR
+# Test 8: #2958 — JSON DateTime parsing must not round-trip through two cultures
 # PowerShell 7 ConvertFrom-Json returns DateTime objects for ISO timestamps.
-# Re-parsing that object stringifies 07 August as "07/08", then reads it as
-# 08 July under fr-FR, adding a phantom 30 days to the computed comment age.
+# Re-parsing such an object stringifies 7 August via the INVARIANT culture as
+# "08/07" (MM/dd), then reads it back under fr-FR as dd/MM = 8 July: a phantom
+# 30 days added to every computed age. The mismatch between the two halves is
+# the defect — a same-culture round-trip would be lossless.
 # ============================================================================
 Write-Host ""
 Write-Host "=== Test 8: #2958 Culture-Independent JSON Timestamp Parsing ===" -ForegroundColor Cyan
@@ -398,6 +406,14 @@ try {
     Assert-Equal "#2958 DateTime object preserves August 7 under fr-FR" '2026-08-07T13:16:58.0000000Z' ((ConvertTo-UtcDateTime $JsonDateTime).ToString('o'))
     Assert-Equal "#2958 ISO string preserves August 7 under fr-FR" '2026-08-07T13:16:58.0000000Z' ((ConvertTo-UtcDateTime $IsoTimestamp).ToString('o'))
     Assert-Equal "#2958 malformed timestamp fails closed" $null (ConvertTo-UtcDateTime 'not-a-date')
+
+    # Pin the DEFECT, not only the fix. Without this, the suite stays green if the
+    # helper is ever reverted to a naive Parse — a test that only exercises the
+    # correct path cannot tell a working guard from a removed one.
+    # Date-only assertion: TZ-independent (the corruption happens before any UTC
+    # conversion), so it holds on the fr-FR workstations AND on the UTC CI runner.
+    $NaiveParse = [DateTime]::Parse($JsonDateTime)  # exactly what the worker did before #2958
+    Assert-Equal "#2958 naive Parse DOES corrupt 7 Aug into 8 Jul (the defect itself)" '2026-07-08' ($NaiveParse.ToString('yyyy-MM-dd'))
 } finally {
     [System.Threading.Thread]::CurrentThread.CurrentCulture = $OriginalCulture
 }

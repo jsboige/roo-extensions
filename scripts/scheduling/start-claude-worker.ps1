@@ -451,9 +451,19 @@ function ConvertTo-UtcDateTime {
     .DESCRIPTION
     #2958: under PowerShell 7, ConvertFrom-Json coerces ISO-8601 strings into
     [DateTime] OBJECTS (PS 5.1 left them as [String]). Calling [DateTime]::Parse()
-    on such an object first stringifies it via the CURRENT CULTURE — on fr-FR that
-    yields "07/08/2026" (dd/MM/yyyy), which Parse() then reads back as 8 July.
-    A comment 2h old was measured 724h old: a constant +722h (30d + TZ) phantom age.
+    on such an object forces a string round-trip whose two halves do NOT use the
+    same culture — and that asymmetry IS the bug:
+      - [DateTime] -> [string] coercion uses the INVARIANT culture (PowerShell
+        always formats IFormattable that way), so 7 August becomes "08/07/2026"
+        in MM/dd/yyyy;
+      - [DateTime]::Parse(string) then reads it back under the CURRENT culture,
+        and fr-FR reads "08/07" as dd/MM = 8 July.
+    A same-culture round-trip would be lossless, so "it's an fr-FR problem" is the
+    wrong reading: forcing the thread culture to fr-FR would NOT fix this.
+    Measured on ai-01 (PS 7.6.3, fr-FR): a comment 2h old came back 724h old —
+    a constant +722h (30d + 2h TZ) phantom age. ConvertFrom-Json preserves
+    Kind=Utc, so the ToUniversalTime() below is a no-op on that path and cannot
+    introduce a second offset.
 
     Every age-bounded guard compares against 6h/24h thresholds, so ALL of them
     failed open simultaneously and #2958 was re-dispatched 5 times in 3 hours —
@@ -674,9 +684,10 @@ function Get-GitHubTask {
                         # Test-IssueAlreadyProcessed: a CLAIM older than 6h means the
                         # agent that took it is presumed dead.
                         # #2958: parse culture-independently. [DateTime]::Parse() on the
-                        # [DateTime] object PS7 hands back from ConvertFrom-Json round-trips
-                        # through fr-FR dd/MM/yyyy and lands 30 days in the past, so every
-                        # bound below (>6h, >24h) fired open. See ConvertTo-UtcDateTime.
+                        # [DateTime] object PS7 hands back from ConvertFrom-Json stringifies
+                        # it as INVARIANT "08/07" (MM/dd), then re-reads it as fr-FR dd/MM
+                        # and lands 30 days in the past, so every bound below (>6h, >24h)
+                        # fired open. See ConvertTo-UtcDateTime.
                         $DcCreatedAt = ConvertTo-UtcDateTime $Dc.createdAt
                         $DcAgeHours = $null
                         if ($DcCreatedAt) { $DcAgeHours = ((Get-Date).ToUniversalTime() - $DcCreatedAt).TotalHours }
