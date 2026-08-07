@@ -162,7 +162,7 @@ Les workers ne tournent pas en continu. Chacun est réveillé par une tâche pla
 
 ### 7.1 Le réveil
 
-Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. La cadence flotte-wide actuelle est **3 h** (défaut), ou **2 h** pour le coordinateur — un compromis entre réactivité et coût en tokens. Le script installe un gestionnaire `trap` dès sa première ligne utile : tout signal de terminaison (SIGTERM, SIGINT, timeout) déclenche un shutdown gracieux qui préserve le travail en cours avant de rendre la main.
+Une tâche planifiée (`schtasks` sur Windows, `cron` sur Linux) déclenche [`start-claude-worker.ps1`](../../scripts/scheduling/start-claude-worker.ps1) à intervalle régulier. La cadence par défaut est **3 h**, coordinateur compris ; deux machines exécutantes tournent à **2 h** — un compromis entre réactivité et coût en tokens, arbitré par machine et non uniformément. Le script installe un gestionnaire `trap` dès sa première ligne utile : tout signal de terminaison (SIGTERM, SIGINT, timeout) déclenche un shutdown gracieux qui préserve le travail en cours avant de rendre la main.
 
 Le script injecte les variables d'environnement de `~/.claude.json` dans le processus worker (`#2252`) — sans cela, le sous-processus `claude -p` n'hérite pas des variables critiques (clés API, endpoints) qui ne vont qu'au serveur MCP, et la session démarre avec un MCP amputé.
 
