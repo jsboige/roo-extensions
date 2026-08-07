@@ -130,7 +130,12 @@ function Get-PrunableBranches {
     git remote update origin --prune
     
     # La commande varie un peu selon l'OS pour le parsing
-    $mergedBranches = git branch --merged | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "*" -and $_ -ne "main" -and $_ -ne "master" }
+    # Strip git branch-list markers: '*' (current branch), '+' (checked out in
+    # another worktree), and leading whitespace — same markers cleanup-orphan-branches.ps1
+    # strips. The original `$_ -ne "*"` never matched: the current branch renders as
+    # "* main" (marker + name), so it passed the filter and "-d * main" was attempted
+    # instead of being skipped. Strip the marker first, then exclude main/master by name.
+    $mergedBranches = git branch --merged | ForEach-Object { $_.TrimStart().TrimStart('*').TrimStart('+').Trim() } | Where-Object { $_ -ne "main" -and $_ -ne "master" -and $_ -ne "" }
 
     if ($mergedBranches.Count -gt 0) {
         Write-Host "Trouvé $($mergedBranches.Count) branche(s) locale(s) pouvant être supprimée(s):" -ForegroundColor Yellow
