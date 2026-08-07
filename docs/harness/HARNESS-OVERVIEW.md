@@ -352,6 +352,44 @@ Le script [`validate-before-push.ps1`](../../scripts/mcp/validate-before-push.ps
 
 ---
 
+## 10. La topologie réseau : LAN commun contre machines hors-réseau
+
+Le cluster est décrit jusqu'ici comme s'il partageait un réseau unique. Ce n'est pas tout à fait vrai : la plupart des machines cohabitent sur un LAN privé (`192.168.0.x`), mais deux d'entre elles — un worker OVH et un second hors-site — sont **hors de ce réseau**. Cette section existe parce que personne sur le LAN ne peut mesurer à leur place ce que cette asymétrie change.
+
+### 10.1 Deux chemins pour le même SDDD
+
+Sur le LAN, les diagnostics pointent vers des adresses internes : Qdrant sur son port privé, le service d'embeddings sur un autre. Ces adresses sont **inatteignables** depuis une machine hors-réseau. Le SDDD y fonctionne pourtant — parce qu'une machine hors-LAN n'emprunte pas le chemin LAN, elle en a un autre.
+
+Ses endpoints sont **publics**, sous un domaine dédié propre au cluster. Qdrant, les embeddings et le proxy de modèles passent tous par là. Les outils SDDD marchent donc depuis l'extérieur, mais par une route différente de celle qu'emprunte le reste de la flotte.
+
+### 10.2 La latence : le modèle, pas le tuyau
+
+Mesuré depuis une machine hors-réseau :
+
+| Opération | Cible | Latence |
+|---|---|---|
+| Recherche Qdrant (sémantique) | endpoint Qdrant public | ~1,4 s |
+| Embeddings + recherche (`codebase_search`) | endpoint d'embeddings public | ~16 s |
+| Appel modèle `glm-4.7` (`/no_think`) | API du fournisseur | ~16 s |
+
+La leçon est que **le goulot est le modèle, pas le réseau**. Une requête Qdrant pure traverse l'internet et revient en une seconde et demie ; un appel qui passe par un modèle d'embedding ou de génération plafonne autour de seize secondes, indépendamment de la topologie. Un opérateur qui voit seize secondes ne voit pas un réseau dégradé : il voit le coût normal d'une inférence.
+
+### 10.3 Ce qui se dégrade silencieusement plutôt que d'échouer franchement
+
+La panne caractéristique de l'asymétrie réseau n'est pas une rupture, c'est un **faux négatif**. Une sonde écrite sur le LAN — un appel vers l'adresse interne de Qdrant pour vérifier qu'il répond — lancée depuis une machine hors-réseau **échoue**, parce que cette adresse n'y mène nulle part. L'opérateur lit l'échec, conclut « SDDD en panne », alors que le chemin réel de cette machine — son endpoint public — est sain. C'est la classe de pannes de la section 5.2, spécialisée à la topologie : une mesure qui rend « erreur » parce que **sa cible est fausse**, pas parce que la chose est absente.
+
+La réciproque est vraie et moins traîtresse : un endpoint public qui tombe fait tomber la machine hors-réseau pendant que le LAN continue — mais celle-là échoue **franchement**, et elle se voit.
+
+### 10.4 La règle, et la panne qui l'a produite
+
+**Diagnostiquer une machine hors-réseau contre son endpoint public, jamais contre l'adresse LAN.** Et mesurer l'état du SDDD « vu de l'extérieur » depuis ces machines, parce que personne sur le LAN ne peut le faire à leur place.
+
+*Origine :* pendant des mois, tous les diagnostics SDDD de la flotte supposaient le chemin LAN commun. L'état réel du SDDD vu de l'extérieur était **inconnu de tous** — non parce qu'il échouait, mais parce que personne n'était en position de le mesurer. Une topologie implicite est un angle mort : ce qu'une machine hors-réseau voit, aucune machine sur le LAN ne peut le voir à sa place.
+
+**Références :** [`skepticism-protocol.md`](../../.claude/rules/skepticism-protocol.md) · [`tool-availability.md`](../../.claude/rules/tool-availability.md) · [`mcp-diagnosis.md`](../../.claude/rules/mcp-diagnosis.md)
+
+---
+
 ## Portée de ce document
 
 Rédigé comme corpus source pour l'issue #3054, en réponse au mandat utilisateur du 2026-08-07 demandant que roo-extensions s'implique directement dans la documentation pédagogique du harnais plutôt que de la laisser s'écrire de l'extérieur.
