@@ -240,7 +240,7 @@ Chaque *famille* de tâches (code, debug, architect, ask, orchestrator) existe e
 
 L'orchestrateur est particulier : il n'exécute jamais lui-même. **Tout** ce qu'il fait passe par `new_task` à un autre mode. Cette contrainte n'est pas une suggestion — c'est l'invariant qui empêche un orchestrateur de prendre des décisions qu'il n'a pas les outils pour assumer. La règle est rendue littérale par un `groups: []` dans la configuration : *aucun groupe d'outils*, pas même `read`.
 
-Le `manager` complète la famille `complex` : il décompose les tâches complexes en sous-tâches, utilisé pour des coordinations longues qui dépassent l'orchestrateur simple.
+Cinq familles × deux niveaux = **dix modes générés**, et c'est exactement ce que produit le pipeline décrit ci-dessous. D'autres jeux de modes coexistent dans le dépôt (configurations historiques, profils par machine) et peuvent en contenir davantage ; ils ne sont pas produits par ce pipeline et ne s'y substituent pas.
 
 ### 8.3 Le pipeline de génération
 
@@ -292,7 +292,8 @@ Les 15 outils décrits en section 2 sont la face visible. En dessous, le serveur
 Le code source tient dans `src/` :
 - `index.ts` — point d'entrée, bootstrap.
 - `tools/` — les handlers MCP, un fichier par outil ou par famille d'outils.
-- `services/` — la logique métier : `state-manager`, `notifications`, `background-services`.
+- `services/` — la logique métier : `state-manager`, `background-services`, plus un sous-dossier par domaine (`roosync/`, `task-indexer/`, `unified-store/`, `synthesis/`…).
+- `notifications/` — la couche de notification push, à côté de `services/` et non dedans.
 - `config/` — lecture et validation de la configuration statique.
 - `schemas/` — schémas Zod des arguments par outil — le contrat d'API interne.
 - `interfaces/`, `types/`, `models/` — types partagés.
@@ -303,7 +304,7 @@ Le code source tient dans `src/` :
 
 Le client MCP attend que `tools/list` réponde pour considérer le serveur prêt. Tout ce qui retarde ce moment — un import profond, une connexion réseau, un parsing lourd — retarde l'agent qui appelle. L'architecture observée trace cet arbitrage explicitement.
 
-**Étape 1 — bootstrap synchrone et silencieux (`src/index.ts`).** Le serveur charge `dotenv`, valide les variables d'environnement critiques, installe le monkey-patch `graceful-fs` *avant tout import touchant `fs`* (#2312), et redirige `console.log` vers `stderr` parce que `stdout` porte exclusivement le JSON-RPC du transport stdio. Pas d'import lourd ici. (Note : la redirection `console.log`→`stderr` est un invariant du transport MCP stdio plutôt qu'un correctif d'incident — la citation d'origine était erronée.)
+**Étape 1 — bootstrap synchrone et silencieux (`src/index.ts`).** Le serveur charge `dotenv`, valide les variables d'environnement critiques, installe le monkey-patch `graceful-fs` *avant tout import touchant `fs`* (#2312), et redirige `console.log` vers `stderr` parce que `stdout` porte exclusivement le JSON-RPC du transport stdio. La redirection n'est pas cosmétique : plus de 730 appels `console.log` répartis sur 63 fichiers pollueraient le flux et casseraient le handshake. Pas d'import lourd ici.
 
 **Étape 2 — connexion transport ASAP.** Le `StdioServerTransport` est connecté dès que possible, ce qui débloque `tools/list` même si le reste du système n'est pas prêt. *Latence mesurée du handshake* : sous la seconde sur la machine de référence.
 
