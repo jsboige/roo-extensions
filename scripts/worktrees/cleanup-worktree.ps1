@@ -77,7 +77,11 @@ foreach ($wt in $worktrees) {
 if (-not $targetBranch) {
     $branches = git branch --list "feature/$IssueNumber-*" 2>$null
     if ($branches) {
-        $targetBranch = ($branches[0] -replace '^\s*\*?\s*', '').Trim()
+        # Strip BOTH git branch-list markers: '*' (current branch) AND '+' (checked
+        # out in another worktree). The original regex `\*?` only stripped '*', so a
+        # branch still checked out in a worktree passed through as "+ feature/..." and
+        # broke the downstream worktree/branch removal. [*+]? covers both markers.
+        $targetBranch = ($branches[0] -replace '^\s*[*+]?\s*', '').Trim()
         # Chercher le dossier
         $possiblePath = Get-ChildItem $WorktreeRoot -Directory -ErrorAction SilentlyContinue |
             Where-Object { $_.Name -match "^$IssueNumber-" } |
