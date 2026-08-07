@@ -93,7 +93,11 @@ foreach ($prefix in $BranchPrefixes) {
     if ($branches) {
         foreach ($line in $branches) {
             if (-not $line) { continue }
-            $branchName = $line.TrimStart().TrimStart('*').Trim()
+            # Strip git branch-list markers: '*' (current branch), '+' (checked out in
+            # another worktree), and leading whitespace. The '+' marker was previously
+            # not stripped, so an orphan branch still checked out in a worktree was
+            # passed as "+ wt/..." to git branch -D and failed with "branch not found".
+            $branchName = $line.TrimStart().TrimStart('*').TrimStart('+').Trim()
             if ($branchName -and $branchName -ne $CurrentBranch) {
                 $Candidates += $branchName
             }
