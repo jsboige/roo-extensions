@@ -19,6 +19,7 @@ L'unité de base de la navigation dans une tâche est le **"chunk"**. Cependant,
 1.  **`message_exchange` (Indexé)**: Représente un échange de messages (ex: utilisateur/assistant). **Seul ce type de chunk sera vectorisé et indexé dans Qdrant.** Le contenu peut être tronqué pour l'affichage avec un lien vers le contenu complet.
 2.  **`tool_interaction` (Non-indexé)**: Représente une interaction avec un outil (commande CLI, appel MCP, lecture de fichier). Ce chunk contient des métadonnées sur l'action mais son contenu (ex: le `stdout` d'une commande) n'est pas indexé pour éviter de saturer l'index avec des données peu pertinentes sémantiquement. Il est stocké pour la navigation et peut être consulté à la demande.
 3.  **`task_summary` (Indexé)**: Un résumé de la tâche (titre, objectif) qui sert de méta-description.
+4.  **`code_citation` (Indexé, sélectif)**: Représente une citation de code (ex: extrait de référence depuis un fichier, un gist, ou une conversation antérieure). Actif depuis `feat(indexer) #959` (PR #957). Vectorisé seulement quand la heuristic `isCodeCitation` (ChunkExtractor.ts:158-179) le qualifie — intent-conservative par design ("false-negatives are cheap, false-positives cost signal"). Voir `code_citation_samples_c*.json` archive pour les mesures empiriques.
 
 **Principe de l'Indexation Sélective :**
 Le but est de peupler l'index sémantique uniquement avec le contenu riche et concis des dialogues, tout en conservant la trace complète des actions pour une consultation manuelle.
@@ -34,7 +35,7 @@ Chaque **chunk** est un objet JSON. Seuls les chunks indexables seront envoyés 
   "task_id": "task-12345",
   "parent_task_id": "task-12344",      // Cohérence avec la navigation en arborescence
   "root_task_id": "task-12300",        // Cohérence avec la navigation en arborescence
-  "chunk_type": "message_exchange",    // 'message_exchange' ou 'tool_interaction'
+  "chunk_type": "message_exchange",    // 'message_exchange' | 'tool_interaction' | 'task_summary' | 'code_citation'
   "sequence_order": 15,
   "timestamp": "2023-10-27T10:00:00Z",
   "indexed": true,                     // Booléen contrôlant l'envoi à Qdrant
