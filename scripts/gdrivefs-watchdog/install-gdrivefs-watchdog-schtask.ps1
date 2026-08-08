@@ -59,6 +59,31 @@ if (-not (Test-Path $watchdogPs1)) {
     exit 1
 }
 
+# Validate / auto-detect the DriveFS mount path (#2875 follow-up, web1 c.202
+# firsthand). The default 'G:\' is correct for most machines, but hosts whose
+# Google Drive mounts under a folder (web1 = 'C:\Drive\', different GDrive
+# account) would otherwise install a watchdog probing a non-existent drive:
+# the process is alive but the probe fails -> false "hung-process" verdict ->
+# relaunch no-op counted as failure -> 3 failures -> perpetual cooldown lock.
+# Net effect: false ALERTs every poll AND zero protection of a real outage.
+$mountExplicit = $PSBoundParameters.ContainsKey('MountPath')
+if (-not (Test-Path $MountPath)) {
+    if ($mountExplicit) {
+        Write-Host "WARN: -MountPath '$MountPath' does not resolve on this host. Proceeding (explicit override) — the watchdog will ALERT until the mount appears."
+    } else {
+        # Known fleet DriveFS mount points (drive-letter default + web1 folder mount).
+        $candidates = @('G:\', 'C:\Drive\')
+        $detected = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+        if ($detected) {
+            Write-Host "INFO: default mount 'G:\' not found on this host — auto-detected DriveFS mount at '$detected'."
+            $MountPath = $detected
+        } else {
+            Write-Host "ERROR: no DriveFS mount found at default 'G:\' or fallback 'C:\Drive\'. This host's Google Drive mount path is unknown — pass -MountPath explicitly. A watchdog probing a non-existent mount generates false ALERTs and never protects a real outage (#2875)."
+            exit 1
+        }
+    }
+}
+
 # Remove old task if exists (idempotent reinstall).
 $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
 if ($existing) {
