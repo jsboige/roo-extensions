@@ -173,10 +173,10 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 **Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only' --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred' --limit 40 --json number,title,labels")
 ```
 
-> ⚠️ **Les deux filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
+> ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
 > que la fenetre ne contient que des issues que TU peux reellement prendre.
 >
 > - **`no:assignee`** — la regle B4 ci-dessous fait PASSER toute issue dont l'`assignee` est defini.
@@ -188,6 +188,13 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 >   NOT for Roo schedulers »*. Tu es un orchestrateur Roo. Sans ce filtre tu peux non seulement perdre
 >   ton cycle dessus, mais **poser le verrou `assignee`** sur une issue de Claude et la lui retirer.
 >   Au 2026-08-11 : 45 des 95 ouvertes, et 9 des 15 libres.
+> - **`-label:needs-approval -label:harness-change -label:deferred`** — ces trois labels signifient
+>   qu'une decision humaine est en attente (`needs-approval`), que le changement touche le harness et
+>   demande le feu vert utilisateur (`harness-change`), ou que l'issue est explicitement garee
+>   (`deferred`). Tu es autonome : les implementer contourne exactement la porte que le label pose.
+>   Ces filtres n'existaient pas tant que la fenetre etait saturee — ils deviennent necessaires
+>   maintenant qu'elle rend enfin des candidates. Au 2026-08-11 : la fenetre passe de 6 a 5, la seule
+>   retiree etant #1684 (`harness-change` + `deferred`).
 
 **Etape B — Selectionner une issue (priorité) :**
 

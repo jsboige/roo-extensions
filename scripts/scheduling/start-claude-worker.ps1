@@ -645,8 +645,12 @@ function Get-GitHubTask {
         # ici. Ce worker relache pourtant ses propres verrous (Mark-TaskAsComplete) : ceux qui saturent
         # sa fenetre viennent du workflow Roo, qui ne relachait pas. Le test l.652 reste necessaire
         # comme garde de course entre le list et le claim.
+        #
+        # `-label:harness-change -label:deferred` : ce worker est autonome, et ces deux labels posent
+        # une porte humaine (feu vert utilisateur / issue explicitement garee). `needs-approval` est
+        # deja filtre en aval l.656 ; on le laisse la pour ne pas dupliquer la regle a deux endroits.
         $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
-            --search 'is:open no:assignee' `
+            --search 'is:open no:assignee -label:harness-change -label:deferred' `
             --limit 30 --json number,title,body,labels,assignees 2>&1
 
         if ($LASTEXITCODE -ne 0) { return $null }
