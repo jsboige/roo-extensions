@@ -30,7 +30,8 @@
       "url": "http://host.docker.internal:9091/roo-state-manager/mcp",
       "headers": {
         "Authorization": "Bearer REPLACE_WITH_HOST_PROXY_TOKEN"
-      }
+      },
+      "timeout": "5m"
     }
   }
 }
