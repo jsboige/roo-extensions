@@ -224,22 +224,24 @@ Si une issue est trouvée :
 
 7. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`
 8. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
-9. **RELACHER LE VERROU** : `gh issue edit {NUM} --remove-assignee jsboige`
-10. Revenir sur main : `git checkout main`
+9. Revenir sur main : `git checkout main`
 
-> 🔒 **L'etape 9 n'est pas optionnelle.** Le verrou de la Phase 1 est pris pour la duree d'UNE tentative,
-> pas pour la vie de l'issue : `assignee` sert d'exclusion mutuelle entre les 5 machines, et les 5
-> posent la **meme** identite `jsboige` — un verrou non relache est donc indistinguable d'un verrou
-> tenu, pour toujours, par tout le monde. Sans l'etape 9 la regle B4 exclut definitivement l'issue du
-> pool, l'issue restant ouverte. Mesure du 2026-08-11 : **60 issues ouvertes portaient un verrou fuite**
-> (un `[RESULT]` poste, l'issue toujours assignee), aucune n'etant `claude-only`.
+> 🔒 **Ne PAS ajouter ici un `--remove-assignee` sans traiter d'abord le worker Claude.**
+> Le verrou de la Phase 1 n'est jamais relache, et c'est un vrai defaut : `assignee` sert d'exclusion
+> mutuelle entre les 5 machines, les 5 posent la **meme** identite `jsboige`, donc un verrou fuite est
+> indistinguable d'un verrou tenu, pour toujours, par tout le monde. Mesure du 2026-08-11 : **60 issues
+> ouvertes portaient un verrou fuite** (un `[RESULT]` poste, l'issue toujours assignee).
 >
-> Ces 60 la ne redeviennent PAS prenables en retirant seulement l'assignee : la regle B4 les exclut
-> aussi sur leur `[RESULT]`. Elles relevent du triage (fermer ou re-scoper), pas du scheduler — cf.
-> #1298. Ce que l'etape 9 corrige, c'est le **flux** : empecher les issues suivantes de s'y ajouter.
+> Mais le relacher **en l'etat re-ouvre du travail deja fait**. La regle B4 ci-dessus exclut sur
+> `[RESULT]` sans borne d'age, donc Roo ne reprendrait pas l'issue ; le worker Claude, lui, borne
+> `[RESULT]` a 24 h (`start-claude-worker.ps1`, bornage #1980) et journalise au-dela
+> *« eligible a re-dispatch »*. Pour une issue terminee mais non fermee, **l'assignee est donc le
+> dernier garde-fou** : le retirer la rend re-prenable par le worker 24 h plus tard.
 >
-> Relacher **aussi en cas d'echec** : si l'execution s'interrompt apres la Phase 1, retirer l'assignee
-> avant de passer a l'issue suivante. Un verrou pris et abandonne coute autant qu'un verrou fuite.
+> Le relachement doit arriver avec sa contrepartie cote worker (exiger un `[DISPATCH]` explicite
+> plutot qu'un simple depassement de 24 h). Tant que ce n'est pas tranche, le verrou reste — le flux
+> continue de fuir, mais rien ne se refait tout seul. Le present correctif traite la **saturation de
+> fenetre**, qui est independante : voir le filtre `no:assignee` en 1a.
 
 ### 1b-review : Reviewer les PRs ouvertes
 
