@@ -635,10 +635,18 @@ function Get-GitHubTask {
     }
 
     try {
-        # Lister TOUTES les issues ouvertes (pas seulement roo-schedulable)
-        # Le filtrage se fait en aval (labels, dispatch status, claim status, Agent field)
+        # Lister les issues ouvertes ET NON ASSIGNEES (pas seulement roo-schedulable)
+        # Le filtrage restant se fait en aval (labels, dispatch status, claim status, Agent field)
+        #
+        # `no:assignee` cote serveur est OBLIGATOIRE (#490). La boucle ci-dessous fait `continue` sur
+        # toute issue assignee : sans filtre, une fenetre de 30 saturee de verrous rend zero candidat
+        # et le worker s'endort, alors que des issues libres existent plus bas dans l'ordre par defaut.
+        # Mesure 2026-08-11 : 80 des 95 ouvertes assignees, dont les 40 premieres — donc les 30 vues
+        # ici. Ce worker relache pourtant ses propres verrous (Mark-TaskAsComplete) : ceux qui saturent
+        # sa fenetre viennent du workflow Roo, qui ne relachait pas. Le test l.652 reste necessaire
+        # comme garde de course entre le list et le claim.
         $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
-            --state open `
+            --search 'is:open no:assignee' `
             --limit 30 --json number,title,body,labels,assignees 2>&1
 
         if ($LASTEXITCODE -ne 0) { return $null }
