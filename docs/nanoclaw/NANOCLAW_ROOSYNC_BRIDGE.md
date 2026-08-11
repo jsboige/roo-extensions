@@ -194,6 +194,21 @@ roosync_heartbeat(action="register", machineId="nanoclaw-ai-01", metadata={...})
 }
 ```
 
+**Note #1357 (2026-08-11) — timeout client MCP :** La frontiere 5-min de la chaine n'est PAS
+appliquee cote client MCP nanoclaw. Verification SDK : `@modelcontextprotocol/sdk`'s
+`StdioServerParameters` (esm/client/stdio.d.ts) definit `command/args/env/stderr/cwd` — **PAS de
+champ `timeout`**. Un client MCP SDK vanilla n'enforce aucun timeout sur les appels stdio : c'est
+l'event loop de l'agent qui decide. La frontiere 5-min reelle pour le client nanoclaw passe par :
+
+1. Le wrapper `getToolTimeoutMs(toolName)` cote roo-state-manager (per-tool : 60s-720s selon
+   l'outil — voir `mcps/internal/servers/roo-state-manager/src/tools/registry.ts` L52-87, #2267).
+2. Le wrapper `withReadTimeout` sur les reads GDrive (mcps/.../utils/with-read-timeout.ts).
+3. La watchdog chain (mcp-chain-watchdog.ps1) qui coupe le bridge cote host si 15s E2E echoue.
+
+Le champ `timeout` au format `time.Duration` (`"5m"`) dans TBXark container protege le proxy quand
+le backend hang — il est laisse ici **inapplique cote client MCP** mais documente pour coherence.
+Pas de modif cote nanoclaw `mcp-config.json` (le champ n'est pas dans le schema SDK).
+
 ### Docker Volume Mounts
 
 ```yaml
