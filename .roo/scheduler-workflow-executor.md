@@ -170,11 +170,31 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 
 ### 1b-2 : GitHub Issues (dispatch-aware)
 
-**Etape A — Lister les issues ouvertes :**
+**Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred' --limit 40 --json number,title,labels")
 ```
+
+> ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
+> que la fenetre ne contient que des issues que TU peux reellement prendre.
+>
+> - **`no:assignee`** — la regle B4 ci-dessous fait PASSER toute issue dont l'`assignee` est defini.
+>   Une fenetre non filtree se remplit d'issues verrouillees et tu rapportes IDLE sans jamais atteindre
+>   les issues libres, qui sont plus bas dans l'ordre par defaut. Mesure du 2026-08-11 : 80 des 95
+>   ouvertes verrouillees, **40/40 dans la fenetre**, 0 prenable vue — alors que 15 etaient libres.
+>   C'est la cause mecanique de la famine #490.
+> - **`-label:claude-only`** — le label se decrit lui-meme comme *« reserved for Claude Code agents —
+>   NOT for Roo schedulers »*. Tu es un orchestrateur Roo. Sans ce filtre tu peux non seulement perdre
+>   ton cycle dessus, mais **poser le verrou `assignee`** sur une issue de Claude et la lui retirer.
+>   Au 2026-08-11 : 45 des 95 ouvertes, et 9 des 15 libres.
+> - **`-label:needs-approval -label:harness-change -label:deferred`** — ces trois labels signifient
+>   qu'une decision humaine est en attente (`needs-approval`), que le changement touche le harness et
+>   demande le feu vert utilisateur (`harness-change`), ou que l'issue est explicitement garee
+>   (`deferred`). Tu es autonome : les implementer contourne exactement la porte que le label pose.
+>   Ces filtres n'existaient pas tant que la fenetre etait saturee — ils deviennent necessaires
+>   maintenant qu'elle rend enfin des candidates. Au 2026-08-11 : la fenetre passe de 6 a 5, la seule
+>   retiree etant #1684 (`harness-change` + `deferred`).
 
 **Etape B — Selectionner une issue (priorité) :**
 
@@ -212,6 +232,23 @@ Si une issue est trouvée :
 7. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`
 8. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
 9. Revenir sur main : `git checkout main`
+
+> 🔒 **Ne PAS ajouter ici un `--remove-assignee` sans traiter d'abord le worker Claude.**
+> Le verrou de la Phase 1 n'est jamais relache, et c'est un vrai defaut : `assignee` sert d'exclusion
+> mutuelle entre les 5 machines, les 5 posent la **meme** identite `jsboige`, donc un verrou fuite est
+> indistinguable d'un verrou tenu, pour toujours, par tout le monde. Mesure du 2026-08-11 : **60 issues
+> ouvertes portaient un verrou fuite** (un `[RESULT]` poste, l'issue toujours assignee).
+>
+> Mais le relacher **en l'etat re-ouvre du travail deja fait**. La regle B4 ci-dessus exclut sur
+> `[RESULT]` sans borne d'age, donc Roo ne reprendrait pas l'issue ; le worker Claude, lui, borne
+> `[RESULT]` a 24 h (`start-claude-worker.ps1`, bornage #1980) et journalise au-dela
+> *« eligible a re-dispatch »*. Pour une issue terminee mais non fermee, **l'assignee est donc le
+> dernier garde-fou** : le retirer la rend re-prenable par le worker 24 h plus tard.
+>
+> Le relachement doit arriver avec sa contrepartie cote worker (exiger un `[DISPATCH]` explicite
+> plutot qu'un simple depassement de 24 h). Tant que ce n'est pas tranche, le verrou reste — le flux
+> continue de fuir, mais rien ne se refait tout seul. Le present correctif traite la **saturation de
+> fenetre**, qui est independante : voir le filtre `no:assignee` en 1a.
 
 ### 1b-review : Reviewer les PRs ouvertes
 
