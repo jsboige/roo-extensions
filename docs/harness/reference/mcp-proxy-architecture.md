@@ -95,7 +95,7 @@ Clients concernes : nanoclaw Bot, eventuels scripts Roo/Claude pointant sur l'an
 
 | Couche | Type de timeout | Configurable ? | Valeur courante | Source |
 |--------|-----------------|----------------|-----------------|--------|
-| **TBXark HTTP serveur (:9090)** | `http.Server{ReadTimeout, WriteTimeout, IdleTimeout, ReadHeaderTimeout}` | **NON** (upstream n'expose rien) | `0` (aucun) | [`http.go` ligne ~xx](https://github.com/tbxark/mcp-proxy/blob/master/http.go) : `&http.Server{Addr, Handler}` sans aucun champ timeout |
+| **TBXark HTTP serveur (:9090)** | `http.Server{ReadTimeout, WriteTimeout, IdleTimeout, ReadHeaderTimeout}` | **NON** (upstream n'expose rien) | `0` (aucun) | [`http.go`](https://github.com/tbxark/mcp-proxy/blob/master/http.go) (lu sur `master` le 2026-08-11) : `&http.Server{Addr, Handler}` sans aucun champ timeout |
 | **TBXark client HTTP -> upstream** | `mcpServers.*.timeout` (time.Duration) | OUI | `5m` (#1357) | `config.go` `StreamableMCPClientConfig.Timeout` ; `client.go` `transport.WithHTTPTimeout(v.Timeout)` (streamable HTTP only, **pas stdio**) |
 | **sparfenyuk HTTP serveur (:9091)** | uvicorn `timeout_keep_alive`, etc. | **NON** expose en JSON (uvicorn defaults) | `timeout_keep_alive=5s` (uvicorn default) | [`mcp_server.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/mcp_server.py) : `uvicorn.Config(starlette_app, host, port, log_level)` |
 | **sparfenyuk client HTTP -> upstream** | `mcpServers.*.timeout` (number) | OUI mais semantique non documentee | n/a (stdio-only dans notre config) | [`config_loader.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/config_loader.py) ne charge PAS le champ `timeout` — il l'ignore |
