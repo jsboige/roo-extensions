@@ -170,11 +170,24 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 
 ### 1b-2 : GitHub Issues (dispatch-aware)
 
-**Etape A — Lister les issues ouvertes :**
+**Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only' --limit 40 --json number,title,labels")
 ```
+
+> ⚠️ **Les deux filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
+> que la fenetre ne contient que des issues que TU peux reellement prendre.
+>
+> - **`no:assignee`** — la regle B4 ci-dessous fait PASSER toute issue dont l'`assignee` est defini.
+>   Une fenetre non filtree se remplit d'issues verrouillees et tu rapportes IDLE sans jamais atteindre
+>   les issues libres, qui sont plus bas dans l'ordre par defaut. Mesure du 2026-08-11 : 80 des 95
+>   ouvertes verrouillees, **40/40 dans la fenetre**, 0 prenable vue — alors que 15 etaient libres.
+>   C'est la cause mecanique de la famine #490.
+> - **`-label:claude-only`** — le label se decrit lui-meme comme *« reserved for Claude Code agents —
+>   NOT for Roo schedulers »*. Tu es un orchestrateur Roo. Sans ce filtre tu peux non seulement perdre
+>   ton cycle dessus, mais **poser le verrou `assignee`** sur une issue de Claude et la lui retirer.
+>   Au 2026-08-11 : 45 des 95 ouvertes, et 9 des 15 libres.
 
 **Etape B — Selectionner une issue (priorité) :**
 
@@ -211,7 +224,22 @@ Si une issue est trouvée :
 
 7. Commit + push + PR : `gh pr create --repo jsboige/roo-extensions --title 'fix(#{NUM}): {TITRE}' --body '[RESULT] {MACHINE}: PASS.'`
 8. Commenter l'issue : `gh issue comment {NUM} --body "[RESULT] {MACHINE}: PR created."`
-9. Revenir sur main : `git checkout main`
+9. **RELACHER LE VERROU** : `gh issue edit {NUM} --remove-assignee jsboige`
+10. Revenir sur main : `git checkout main`
+
+> 🔒 **L'etape 9 n'est pas optionnelle.** Le verrou de la Phase 1 est pris pour la duree d'UNE tentative,
+> pas pour la vie de l'issue : `assignee` sert d'exclusion mutuelle entre les 5 machines, et les 5
+> posent la **meme** identite `jsboige` — un verrou non relache est donc indistinguable d'un verrou
+> tenu, pour toujours, par tout le monde. Sans l'etape 9 la regle B4 exclut definitivement l'issue du
+> pool, l'issue restant ouverte. Mesure du 2026-08-11 : **60 issues ouvertes portaient un verrou fuite**
+> (un `[RESULT]` poste, l'issue toujours assignee), aucune n'etant `claude-only`.
+>
+> Ces 60 la ne redeviennent PAS prenables en retirant seulement l'assignee : la regle B4 les exclut
+> aussi sur leur `[RESULT]`. Elles relevent du triage (fermer ou re-scoper), pas du scheduler — cf.
+> #1298. Ce que l'etape 9 corrige, c'est le **flux** : empecher les issues suivantes de s'y ajouter.
+>
+> Relacher **aussi en cas d'echec** : si l'execution s'interrompt apres la Phase 1, retirer l'assignee
+> avant de passer a l'issue suivante. Un verrou pris et abandonne coute autant qu'un verrou fuite.
 
 ### 1b-review : Reviewer les PRs ouvertes
 

@@ -228,10 +228,16 @@ execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchr
 > ⚠️ **LIMITE OBLIGATOIRE** : Traiter **MAXIMUM 5 issues** par cycle. Au-delà, le volume d'appels d'outils explose le contexte (80-200 messages, saturation GLM).
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --state open --limit 5 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee' --limit 5 --json number,title,labels")
 ```
 
 **Note :** `--limit 5` remplace l'ancien `--limit 40`. Le round-robin se fait sur plusieurs cycles, pas dans un seul.
+
+> ⚠️ **`no:assignee` OBLIGATOIRE, meme raison que cote executeur.** La regle 5 ci-dessous refuse de
+> re-dispatcher toute issue dont les `assignees` sont non vides. Sans filtre serveur, la fenetre de 5
+> se remplit d'issues deja verrouillees et le cycle dispatche zero — le round-robin n'y change rien,
+> il repasse sur les memes. Mesure du 2026-08-11 : 80 des 95 ouvertes verrouillees, dont **les 5
+> premieres de l'ordre par defaut**.
 
 **5. Dispatcher les issues (max 5)**
 
