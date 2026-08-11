@@ -168,18 +168,28 @@ Rollout helper behavior:
 
 ```
 1. Check RooSync inbox → prioritized messages
-2. Check GitHub issues (label: roo-schedulable) → oldest unclaimed
+2. Check GitHub issues (open, unassigned) → oldest claimable
 3. If -NoFallback → clean exit (WORKER IDLE)
 4. Else → fallback maintenance (build + tests)
 ```
 
 ### GitHub Issue Selection
 
-- Issues must have label `roo-schedulable`
-- Issues with `Agent: Roo` (explicitly, without Both/Any) are skipped
-- Already-assigned issues are skipped
-- Issues locked by recent "Claimed by" comment (<5min) are skipped
-- Worker claims the issue before execution
+Décrit l'état du code après #3081 (`start-claude-worker.ps1` L.638-664, L.819).
+
+- **Toutes les issues ouvertes sont candidates, pas seulement `roo-schedulable`.** Le worker
+  ramasse l'ensemble des issues dispatchées.
+- **Le filtre `no:assignee` est appliqué côté serveur, et il est obligatoire** (#490 / #3081) :
+  `--search 'is:open no:assignee -label:harness-change -label:deferred' --limit 30`. Le `continue`
+  côté client sur `assignees.Count -gt 0` reste, mais il ne suffit pas — mesure du 2026-08-11 :
+  **80 des 95 issues ouvertes étaient assignées, dont les 40 premières**. Une fenêtre de 30 filtrée
+  seulement côté client rendait donc **zéro candidat**, et affamait les deux flottes en silence.
+- Les labels `harness-change` et `deferred` sont exclus côté serveur.
+- Les issues avec `Agent: Roo` (explicitement, sans Both/Any) sont ignorées.
+- Les issues verrouillées par un commentaire récent — motifs `LOCK:`, `[CLAIMED]` ou `Claimed by` —
+  sont ignorées pendant **30 minutes** (L.819), pas 5.
+- Le worker claim l'issue (assignee = verrou atomique + commentaire de traçabilité, double-check
+  après 5 s pour la course) avant exécution.
 
 ---
 

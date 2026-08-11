@@ -312,7 +312,9 @@ function Get-NextTask {
     .DESCRIPTION
     Système hybride à 3 priorités :
     1. RooSync inbox (instructions coordinateur)
-    2. GitHub issues avec label "roo-schedulable" ET champ Agent
+    2. GitHub issues ouvertes ET NON ASSIGNEES — toutes, pas seulement "roo-schedulable" (#3081).
+       Le filtre `no:assignee` est applique cote serveur et il est obligatoire : la fenetre de 30
+       est saturee de verrous sans lui (#490).
     3. Fallback maintenance (build + tests)
 
     .OUTPUTS
