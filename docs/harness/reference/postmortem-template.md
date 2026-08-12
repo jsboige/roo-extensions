@@ -1,6 +1,6 @@
 # Postmortem Template — Multi-Agent Incident Analysis
 
-**Version:** 2.0.0
+**Version:** 2.0.1
 **Issue:** #1244 Phase 2 (cross-machine browsing now operational)
 **MAJ:** 2026-08-12
 
@@ -10,7 +10,11 @@
 
 Structured template for postmortems of multi-agent incidents where agent reports diverged from real-world outcomes. Derives from the CoursIA slides migration failure (2026-04-08).
 
-**v2.0.0 change:** Cross-machine browsing via `conversation_browser` is now operational (cold-start timeout fixed). The previous "Tool Limitations" section listed it as unsupported — that is no longer accurate.
+**v2.0.0 change:** Cross-machine browsing via `conversation_browser` is operational. The previous "Tool Limitations" section listed it as unsupported — that is no longer accurate.
+
+**v2.0.1 correction:** v2.0.0 also claimed the cold-start timeout was *fixed*. That claim was a
+po-2023 measurement relayed as a property of the tool, and it does not hold everywhere — see
+[Cold-start performance](#tool-capabilities-verified-2026-08-12) below.
 
 ## Template
 
@@ -103,8 +107,10 @@ Sources:
 
 ### Step 2: Gather traces (cross-machine — verified operational as of 2026-08-12)
 
-`conversation_browser` now loads cross-machine archives from `ROOSYNC_SHARED_PATH/task-archive/<machineId>/`
-on first call. Cold-start is parallel (20-wide) and typically completes in <5s for ~11k archives.
+`conversation_browser` loads cross-machine archives from `ROOSYNC_SHARED_PATH/task-archive/<machineId>/`
+on first call. That first call may be slow enough to hit the 30s tool ceiling — see
+[Cold-start performance](#tool-capabilities-verified-2026-08-12). If it errors out, call again:
+the cache is warm and the second call returns in ~100ms.
 
 ```bash
 # List recent tasks on a specific workspace — across ALL machines
@@ -191,8 +197,25 @@ Each recommendation must have:
 | Dashboard message history | ✅ Operational | `roosync_dashboard(action: "read_archive")` |
 | User intervention detection | ✅ Operational | `roosync_search(role: "user", exclude_tool_results: true)` |
 
-**Cold-start performance:** First call after MCP server start loads ~11k archives in <5s.
-Subsequent calls return in <100ms (30-minute cache TTL).
+**Cold-start performance — machine-dependent, do not treat as a tool property.**
+
+The first call after an MCP server start populates the Tier 3 cache. How long that takes depends on
+the machine's DriveFS state, not on the tool alone. Two measurements on 2026-08-12, same build
+(submodule `4c1a480f`, #975 live in both):
+
+| machine | first call, `includeArchives: true` | second call |
+|---------|-------------------------------------|-------------|
+| myia-po-2023 | ~5s for ~11k archives | ~26ms |
+| myia-ai-01 | **TIMEOUT at 30s** (error returned to caller) | 134ms |
+
+On ai-01 the first call still primes the cache — it just fails to return before the ceiling, so the
+caller sees an error and the retry succeeds. `includeArchives: false` returns in ~73ms there, which
+isolates the cost to Tier 3.
+
+Do not plan a postmortem around a single fast cold call. **Budget for a retry**, and if you are
+writing performance figures into this file, say which machine produced them.
+
+Subsequent calls return in <100ms (30-minute cache TTL) on both machines.
 
 ---
 
