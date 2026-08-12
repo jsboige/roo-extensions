@@ -200,13 +200,17 @@ Each recommendation must have:
 **Cold-start performance — machine-dependent, do not treat as a tool property.**
 
 The first call after an MCP server start populates the Tier 3 cache. How long that takes depends on
-the machine's DriveFS state, not on the tool alone. Two measurements on 2026-08-12, same build
+the machine's DriveFS state, not on the tool alone. Measurements on 2026-08-12, same build
 (submodule `4c1a480f`, #975 live in both):
 
-| machine | first call, `includeArchives: true` | second call |
-|---------|-------------------------------------|-------------|
-| myia-po-2023 | ~5s for ~11k archives | ~26ms |
-| myia-ai-01 | **TIMEOUT at 30s** (error returned to caller) | 134ms |
+| machine | `includeArchives: true` | second call | provenance |
+|---------|-------------------------|-------------|------------|
+| myia-ai-01 | **TIMEOUT at 30s** (error returned to caller) | 134ms | measured on ai-01, first call after a VS Code restart — cold, confirmed |
+| myia-po-2023 | ~5s for ~11k archives | ~26ms | reported by po-2023; **whether that call was cold or warm is not confirmed** |
+
+That caveat is the point, not a footnote. The two rows only contradict each other if po-2023's
+figure came from a cold call. If it came from a warm one, the two are consistent and no machine has
+yet demonstrated a fast cold start.
 
 On ai-01 the first call still primes the cache — it just fails to return before the ceiling, so the
 caller sees an error and the retry succeeds. `includeArchives: false` returns in ~73ms there, which
