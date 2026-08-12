@@ -99,8 +99,8 @@ Clients concernes : nanoclaw Bot, eventuels scripts Roo/Claude pointant sur l'an
 | **TBXark client HTTP -> upstream** | `mcpServers.*.timeout` (time.Duration) | OUI | `5m` (#1357) | `config.go` `StreamableMCPClientConfig.Timeout` ; `client.go` `transport.WithHTTPTimeout(v.Timeout)` (streamable HTTP only, **pas stdio**) |
 | **sparfenyuk HTTP serveur (:9091)** | uvicorn `timeout_keep_alive`, etc. | **NON** expose en JSON (uvicorn defaults) | `timeout_keep_alive=5s` (uvicorn default) | [`mcp_server.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/mcp_server.py) : `uvicorn.Config(starlette_app, host, port, log_level)` |
 | **sparfenyuk client HTTP -> upstream** | `mcpServers.*.timeout` (number) | OUI mais semantique non documentee | n/a (stdio-only dans notre config) | [`config_loader.py`](https://github.com/sparfenyuk/mcp-proxy/blob/main/src/mcp_proxy/config_loader.py) ne charge PAS le champ `timeout` — il l'ignore |
-| **IIS / ARR (po-2023, frontend)** | `connectionTimeout`, `activityTimeout` | OUI (IIS Manager + `web.config`) | `120s` minimum documente | [`docker/README.md` ligne 153](../../docker/README.md) |
-| **roo-state-manager CallTool wrapper** | per-tool Promise.race | OUI | default 120s, 5min pour `roosync_indexing`, 12min pour `roosync_dashboard` | [`mcps/internal/servers/roo-state-manager/src/tools/registry.ts` L52-87](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) (#2267) |
+| **IIS / ARR (po-2023, frontend)** | `connectionTimeout`, `activityTimeout` | OUI (IIS Manager + `web.config`) | `120s` minimum documente | [`docker/README.md` ligne 153](../../../docker/README.md) |
+| **roo-state-manager CallTool wrapper** | per-tool Promise.race | OUI | default 120s, 5min pour `roosync_indexing`, 12min pour `roosync_dashboard` | [`mcps/internal/servers/roo-state-manager/src/tools/registry.ts` L52-87](../../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) (#2267) |
 | **mcp-wrapper.cjs parent-PID watchdog** | kill cascade T+5s / T+10s / T+12s | NON (compile) | hardcoded | `mcps/internal/servers/roo-state-manager/mcp-wrapper.cjs` |
 
 ### Ce que la 5-min fait reellement (#1357)
