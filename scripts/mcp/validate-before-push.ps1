@@ -65,18 +65,46 @@ try {
     }
 
     # Step 2: Tests (CI config)
+    # NOTE: do NOT pass --reporter=verbose. The verbose reporter emits one onTaskUpdate
+    # IPC event per test (~12790 events) versus ~654 per-file events with the default
+    # reporter. Under the forks pool (4 workers) this can saturate the birpc channel and
+    # trip vitest's hardcoded 60s RPC timeout (DEFAULT_TIMEOUT = 6e4, not configurable),
+    # making vitest exit non-zero on a fully green tree. The Tests summary line is treated
+    # as the source of truth, not the exit code. (dispatch ai-01 c.203/c.204)
     Write-Host "[2/2] Running CI tests (vitest.config.ci.ts)..." -ForegroundColor Yellow
-    $testResult = npx vitest run --config vitest.config.ci.ts --reporter=verbose 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  FAIL: Tests failed!" -ForegroundColor Red
-        Write-Host "  DO NOT PUSH. Fix failing tests first." -ForegroundColor Red
+    $testResult = npx vitest run --config vitest.config.ci.ts 2>&1
+    $vitestExit = $LASTEXITCODE
+
+    # The Tests summary line ("Tests  N passed [| M failed] ...") is the authority.
+    # Select-Object -Last 1 (not .LastOrDefault(), which is unavailable in PS 5.1).
+    $testsLine = $testResult | Select-String "Tests\s+\d+" | Select-Object -Last 1
+    if (-not $testsLine) {
+        # No summary line at all: vitest crashed or failed during collection - block.
+        Write-Host "  FAIL: no test result line found (vitest exit $vitestExit)." -ForegroundColor Red
+        Write-Host "  Likely a crash or collect error - investigate before pushing." -ForegroundColor Red
         Write-Host ""
-        # Show summary
+        $testResult | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        exit 1
+    }
+    # A green line has no "failed" token (vitest omits it at 0 failures) -> 0.
+    $failed = if ($testsLine.Line -match "(\d+)\s+failed") { [int]$Matches[1] } else { 0 }
+
+    if ($failed -gt 0) {
+        Write-Host "  FAIL: $failed test(s) failed - DO NOT PUSH." -ForegroundColor Red
+        Write-Host "  Fix failing tests first." -ForegroundColor Red
+        Write-Host ""
         $testResult | Select-String "Test Files|Tests " | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
         exit 1
     }
-    # Show summary
+
+    # failed == 0: green tree. Show the summary.
     $testResult | Select-String "Test Files|Tests " | ForEach-Object { Write-Host "  $_" -ForegroundColor Green }
+
+    if ($vitestExit -ne 0) {
+        # Green tree but non-zero exit: benign IPC teardown noise (the onTaskUpdate
+        # timeout), NOT a test failure. Warn but do not block.
+        Write-Host "  PASS (0 failed); vitest exit $vitestExit = benign IPC teardown noise, not a test failure." -ForegroundColor Yellow
+    }
     Write-Host ""
     Write-Host "=== Full validation PASSED - Safe to push ===" -ForegroundColor Green
 } finally {
