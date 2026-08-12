@@ -1,14 +1,16 @@
 # Postmortem Template — Multi-Agent Incident Analysis
 
-**Version:** 1.0.0
-**Issue:** #1244 Phase 1
-**MAJ:** 2026-05-11
+**Version:** 2.0.0
+**Issue:** #1244 Phase 2 (cross-machine browsing now operational)
+**MAJ:** 2026-08-12
 
 ---
 
 ## Purpose
 
 Structured template for postmortems of multi-agent incidents where agent reports diverged from real-world outcomes. Derives from the CoursIA slides migration failure (2026-04-08).
+
+**v2.0.0 change:** Cross-machine browsing via `conversation_browser` is now operational (cold-start timeout fixed). The previous "Tool Limitations" section listed it as unsupported — that is no longer accurate.
 
 ## Template
 
@@ -97,26 +99,59 @@ Sources:
 - User report (BLOCAGE/CORRECTION in traces)
 - Dashboard [FRICTION] or [ERROR] messages
 - `roosync_search(has_errors: true)` for error patterns
-- `roosync_search(role: "user", exclude_tool_results: true, start_date: "...")` for user interventions
+- `roosync_search(role: "user", exclude_tool_results: true)` for user interventions
 
-### Step 2: Gather traces
+### Step 2: Gather traces (cross-machine — verified operational as of 2026-08-12)
 
-For each machine involved:
+`conversation_browser` now loads cross-machine archives from `ROOSYNC_SHARED_PATH/task-archive/<machineId>/`
+on first call. Cold-start is parallel (20-wide) and typically completes in <5s for ~11k archives.
 
 ```bash
-# List recent tasks on the workspace
-conversation_browser(action: "list", workspace: "C:/dev/WORKSPACE", limit: 30)
+# List recent tasks on a specific workspace — across ALL machines
+conversation_browser(
+    action: "list",
+    workspace: "CoursIA",                  # any workspace basename
+    workspacePathMatch: "substring",       # tolerant cross-machine path matching
+    includeArchives: true,                 # REQUIRED to include cross-machine GDrive archives
+    source: "all",                         # roo + claude
+    sortBy: "lastActivity", sortOrder: "desc",
+    limit: 20
+)
 
-# View specific task traces
-conversation_browser(action: "view", task_id: "TASK_ID", smart_truncation: true, detail_level: "summary")
+# Filter by machine + date window (incident timeline)
+conversation_browser(
+    action: "list",
+    machineId: "myia-po-2025",             # cross-machine filter
+    startDate: "2026-04-07", endDate: "2026-04-09",
+    includeArchives: true,
+    limit: 30
+)
+
+# Search by content across the entire fleet (no workspace filter)
+conversation_browser(
+    action: "list",
+    contentPattern: "slidev",              # searched in archive sequences (Tier 3) + local
+    includeArchives: true,
+    source: "all",
+    limit: 20
+)
+
+# View a specific task's traces (works for any machine's archive)
+conversation_browser(
+    action: "view",
+    task_id: "TASK_ID_FROM_LIST",
+    detail_level: "summary",
+    smart_truncation: true,
+    max_output_length: 50000
+)
 ```
 
-For cross-machine investigation:
+For semantic concept search:
 ```bash
-# Search by concept across all workspaces
+# Semantic search (requires embeddings API — may be degraded if vLLM is down)
 roosync_search(action: "semantic", search_query: "slides migration slidev marp", workspace: "*")
 
-# Text search if semantic is degraded
+# Text fallback (always available)
 roosync_search(action: "text", search_query: "deck slidev PROPRE", workspace: "*")
 ```
 
@@ -143,14 +178,21 @@ Each recommendation must have:
 
 ---
 
-## Tool Limitations (current)
+## Tool Capabilities (verified 2026-08-12)
 
-| Capability | Status | Workaround |
-|------------|--------|------------|
-| Cross-machine conversation browsing | Not supported | `roosync_search(workspace: "*")` as fallback |
-| Semantic search when degraded | Fallback to text | `roosync_search(action: "text")` |
-| Dashboard message history | Last N messages | `roosync_dashboard(action: "read_archive")` |
-| User intervention detection | Manual search | `roosync_search(role: "user", exclude_tool_results: true)` |
+| Capability | Status | Notes |
+|------------|--------|-------|
+| Cross-machine conversation browsing | ✅ Operational | `includeArchives: true` + `workspace`/`machineId`/date filters |
+| Content-pattern search (cross-machine) | ✅ Operational | `contentPattern: "..."` searches Tier 1/2/3 sequences in-memory |
+| Date-window filter | ✅ Operational | `startDate`/`endDate` on `lastActivity` |
+| Machine filter | ✅ Operational | `machineId: "myia-po-XXXX"` isolates one machine's archives |
+| View archive detail | ✅ Operational | `view(task_id)` reads from any machine's archive |
+| Semantic search | ⚠️ Degraded | Requires embeddings API; falls back to text when vLLM is down |
+| Dashboard message history | ✅ Operational | `roosync_dashboard(action: "read_archive")` |
+| User intervention detection | ✅ Operational | `roosync_search(role: "user", exclude_tool_results: true)` |
+
+**Cold-start performance:** First call after MCP server start loads ~11k archives in <5s.
+Subsequent calls return in <100ms (30-minute cache TTL).
 
 ---
 
@@ -160,3 +202,12 @@ Each recommendation must have:
 2. **No blame, only systems**: Focus on what harness change prevents recurrence, not who made the mistake
 3. **No close without action**: Each postmortem must produce at least 1 actionable recommendation
 4. **No complacency markers**: If agents reported success but the user says it failed, the postmortem must explain WHY agents assessed incorrectly — this is the core finding
+
+---
+
+## CoursIA reference postmortems
+
+For examples of completed postmortems using this template, see the comments on issue [#1244](https://github.com/jsboige/roo-extensions/issues/1244):
+- **po-2024 (2026-05-12)** — Full postmortem with timeline, root causes, recommendations
+- **web1 (2026-05-18)** — Harness failure analysis + 5 harness recommendations
+- **po-2023 (2026-08-12)** — Cold-start timeout fix; tooling capability now operational
