@@ -10,7 +10,7 @@
 
 ## TL;DR
 
-**Aucun nouveau MCP `doc-processor` à créer.** Les briques existent, sont'opérationnelles, et l'écart
+**Aucun nouveau MCP `doc-processor` à créer.** Les briques existent, sont opérationnelles, et l'écart
 de l'issue #494 porte moins sur des trous techniques que sur **trois absences de surface** :
 
 1. **Aucun routage canonique** : quel outil pour quel type de doc n'est pas documenté.
@@ -20,8 +20,9 @@ de l'issue #494 porte moins sur des trous techniques que sur **trois absences de
    first-class : pas de binding systématique dans `sk_agent_config.json`, pas d'endpoint distant
    accessible aux machines `web1` et `po-2023..2026` (réseau OVH distinct).
 
-**Recommandation principale :** un **doc d'orchestration** routant 5 cas d'usage vers 4 backends
-existants, sans nouveau service. Étalement sur 2 incréments — (1) doc + bindings sk-agent,
+**Recommandation principale :** un **doc d'orchestration** routant les 8 cas d'usage du tableau §3.2
+vers 5 MCPs existants (`markitdown`, `sk-agent`, `searxng`, `jinavigator`, `open-terminal`), sans
+nouveau service. Étalement sur 2 incréments — (1) doc + bindings sk-agent,
 (2) routeur fleet optionnel.
 
 ## 1. Périmètre d'investigation
@@ -138,9 +139,9 @@ input: document URI (file://, http://, ou chemin local)
      * extension .pdf → pipeline PDF
      * extension .docx/.pptx/.xlsx → markitdown-native
      * extension .png/.jpg/.jpeg → vision direct
-     * autre → marquerdown en fallback
+     * autre → markitdown en fallback
    - URL http(s) → pipeline Web
-   - chemin OCaml/Code → grep/read
+   - chemin vers du code source → grep/read (hors périmètre acquisition documentaire)
 
 2. ROUTER :
    ── PDF textuel (extractable text via pdfplumber > 0 char) :
@@ -287,10 +288,10 @@ L'option 4 du tableau propose un MCP `doc-processor` unifié. **Rejet argumenté
 
 ## 7. Sources et liens
 
-- Issue #494 + 4 commentaires (2006-03-04 LIVRESAGITÉS, 2026-03-24 dispatch BACKLOG, 2026-05-02 backlog-sweep, 2026-05-18 web1 investigation)
+- Issue #494 + 4 commentaires (2026-03-04 LIVRESAGITÉS, 2026-03-24 dispatch BACKLOG, 2026-05-02 backlog-sweep, 2026-05-18 web1 investigation)
 - `mcps/external/markitdown/source/packages/markitdown-ocr/README.md` (plugin LLM Vision OCR)
 - `mcps/internal/servers/sk-agent/sk_agent_config.json` (bindings agents + modèles)
-- `~/roo-extensions/.claude/worktrees/wt-bump-976` (PR #976 fix [NOTIF] — contexte dashboard)
+- PR #976 (fix `[NOTIF]` stale footer, mergée `0a0ac937`) — contexte dashboard du même cycle
 - Dashboard workspace 2026-08-12 09:05 (status flotte, blockers en cours)
 
 ---
