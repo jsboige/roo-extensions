@@ -530,13 +530,56 @@ foreach ($section in $sections) {
     [void]$sb.AppendLine()
 }
 
-# UTF-8 without BOM: Set-Content/Out-File would prepend one and break parsers.
-[System.IO.File]::WriteAllText($ReportPath, $sb.ToString(), [System.Text.UTF8Encoding]::new($false))
+# Write the report, then PROVE it landed.
+#
+# The shared path is a Google Drive mount. When Drive is degraded -- which it is, routinely, on
+# this fleet -- WriteAllText throws "Ressources systeme insuffisantes" and PowerShell carries on:
+# the summary printed a "report: G:\..." line for a file that was never created, and the script
+# exited 0. A machine could then report its audit as published with nothing on disk, which is
+# exactly what an empty worktree-audit/ directory looks like.
+#
+# So: fall back to a local path on failure, and re-read the file afterwards. Announcing a path is
+# a claim about an artifact; it has to be earned, not assumed.
+function Write-ReportOrFallback {
+    param([string]$Path, [string]$Text)
+
+    try {
+        # UTF-8 without BOM: Set-Content/Out-File would prepend one and break parsers.
+        [System.IO.File]::WriteAllText($Path, $Text, [System.Text.UTF8Encoding]::new($false))
+        if ((Test-Path -LiteralPath $Path) -and (Get-Item -LiteralPath $Path).Length -gt 0) {
+            return $Path
+        }
+        Write-Warning "Report write to '$Path' reported no error but produced no file."
+    } catch {
+        Write-Warning "Report write to '$Path' failed: $($_.Exception.Message)"
+    }
+    return $null
+}
+
+$written = Write-ReportOrFallback -Path $ReportPath -Text $sb.ToString()
+
+if (-not $written) {
+    $localDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSScriptRoot)) 'outputs'
+    if (-not (Test-Path -LiteralPath $localDir)) {
+        New-Item -ItemType Directory -Path $localDir -Force | Out-Null
+    }
+    $fallback = Join-Path $localDir (Split-Path -Leaf $ReportPath)
+    Write-Warning "Falling back to local path: $fallback"
+    $written = Write-ReportOrFallback -Path $fallback -Text $sb.ToString()
+}
 
 Write-Host ""
 Write-Host "=== SUMMARY ($Machine) ===" -ForegroundColor Cyan
 $allResults | Group-Object Class | Sort-Object Name | ForEach-Object {
     Write-Host ("  {0,-22} {1,3}" -f $_.Name, $_.Count)
 }
-Write-Host "  report: $ReportPath" -ForegroundColor Cyan
+if ($written) {
+    Write-Host "  report: $written" -ForegroundColor Cyan
+} else {
+    Write-Host "  report: NOT WRITTEN -- both shared and local paths failed." -ForegroundColor Red
+}
 if (-not $Apply) { Write-Host "  dry-run -- nothing was modified. Re-run with -Apply to delete the safe classes." -ForegroundColor Yellow }
+
+# A caller that scripts this (cron, worker, dispatch) reads the exit code, not the console. If no
+# report exists, the run did not deliver what it was asked for and must not look like success.
+if (-not $written) { exit 1 }
