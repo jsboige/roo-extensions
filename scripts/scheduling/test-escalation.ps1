@@ -419,6 +419,48 @@ try {
 }
 
 # ============================================================================
+# Test: the dispatch jq expression must survive Windows PowerShell 5.1
+# ============================================================================
+Write-Host ""
+Write-Host "=== Test: dispatch-guard jq expression is 5.1-safe ===" -ForegroundColor Cyan
+
+# The VBS launcher runs the worker under powershell.exe 5.1, which STRIPS inner
+# double quotes when passing an argument to a native command. jq then receives
+# `contains([DISPATCH])` and dies with `function not defined: DISPATCH/0`. The
+# surrounding catch fails open, so the anti-double-claim guard silently stops
+# guarding — #833 was claimed by four machines in a row over nine days.
+#
+# This assertion is a string check on purpose: it holds on the ubuntu/pwsh CI
+# runner, which cannot reproduce the 5.1 argument-passing behaviour that causes
+# the defect. A test that could only fail on Windows would run nowhere.
+$WorkerText = Get-Content (Join-Path $RepoRoot 'scripts\scheduling\start-claude-worker.ps1') -Raw
+$JqLine = ($WorkerText -split "`n" | Where-Object { $_ -match '^\s*\$jqExpr\s*=' })
+
+Assert-Equal "jqExpr is assigned exactly once" 1 @($JqLine).Count
+Assert-Equal "jqExpr contains no double quote (5.1 strips them)" $false ($JqLine -join '').Contains('"')
+
+# The line-scoped check above only sees a single-line assignment: a later refactor
+# to a continuation or a here-string would move the quote off the assignment line
+# and slip past it (caught in review by po-2023 on #3116). So also scan the WHOLE
+# file for the killer form, which is form-independent. jq's function is lowercase
+# `contains(`; PowerShell's method is `.Contains(` — case-sensitive matching keeps
+# them apart, so this does not fire on the `-match`/.Contains() code below.
+$BareQuoteJq = [regex]::Matches($WorkerText, 'contains\("', 'None').Count
+Assert-Equal "no bare-quote jq contains( anywhere in the worker" 0 $BareQuoteJq
+
+# The sibling expression 180 lines down kept the escaped form `\"`, which DOES
+# survive 5.1 (measured: exit 0). #3045 rewrote only $jqExpr and dropped it there.
+# Pin the survivor: "harmonising" it to bare quotes would kill the claim check the
+# same silent way.
+Assert-Equal "jqClaimExpr keeps the 5.1-safe escaped form" $true ($WorkerText -match '\$jqClaimExpr\s*=.*contains\(\\"')
+
+# Pin the DEFECT: the shipped-dead form must be recognised as unsafe by the same
+# checks, otherwise this only asserts that today's file happens to be clean.
+$ShippedDead = '$jqExpr = ' + "'" + '[.comments[-10:][] | {body, createdAt} | select((.body | contains(' + '"' + '[DISPATCH]' + '"' + ')))]' + "'"
+Assert-Equal "the 5c7675e1 form is caught line-scoped (the defect itself)" $true $ShippedDead.Contains('"')
+Assert-Equal "the 5c7675e1 form is caught file-wide (multi-line safe)" 1 ([regex]::Matches($ShippedDead, 'contains\("', 'None').Count)
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""
