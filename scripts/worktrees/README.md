@@ -58,6 +58,12 @@ pwsh -File scripts/maintenance/audit-worktrees-fleet.ps1 -Repos D:\roo-extension
 
 Le rapport part dans `$ROOSYNC_SHARED_PATH/worktree-audit/<machine>-<date>.md`.
 
+Ce chemin est un montage Google Drive, qui échoue par intermittence (« Ressources système
+insuffisantes »). Le script bascule alors sur `outputs/` en local, **relit le fichier écrit** pour
+prouver qu'il existe, et n'annonce que le chemin réellement produit. Si les deux écritures
+échouent, il le dit et **sort en 1** — un appelant scripté ne doit pas lire un succès dans une
+exécution qui n'a rien livré.
+
 ### Ce qui est supprimé, ce qui ne l'est pas
 
 La décision est prise par [`worktree-classify.ps1`](../maintenance/worktree-classify.ps1), pure et

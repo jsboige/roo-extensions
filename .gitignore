@@ -101,6 +101,12 @@ temp/
 tmp/
 nul
 
+# outputs/ - artefacts locaux des scripts de maintenance (rapports d'audit, logs de
+# cleanup). Le repertoire existait deja mais restait invisible par accident : il ne
+# contenait que des *.log, ignores plus haut. Un rapport .md y apparaitrait comme
+# untracked.
+outputs/
+
 # RooSync shared state (GDrive local mount, never commit)
 .shared-state*
 !.shared-state/.gitkeep
