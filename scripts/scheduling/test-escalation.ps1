@@ -419,6 +419,32 @@ try {
 }
 
 # ============================================================================
+# Test: the dispatch jq expression must survive Windows PowerShell 5.1
+# ============================================================================
+Write-Host ""
+Write-Host "=== Test: dispatch-guard jq expression is 5.1-safe ===" -ForegroundColor Cyan
+
+# The VBS launcher runs the worker under powershell.exe 5.1, which STRIPS inner
+# double quotes when passing an argument to a native command. jq then receives
+# `contains([DISPATCH])` and dies with `function not defined: DISPATCH/0`. The
+# surrounding catch fails open, so the anti-double-claim guard silently stops
+# guarding — #833 was claimed by four machines in a row over nine days.
+#
+# This assertion is a string check on purpose: it holds on the ubuntu/pwsh CI
+# runner, which cannot reproduce the 5.1 argument-passing behaviour that causes
+# the defect. A test that could only fail on Windows would run nowhere.
+$WorkerText = Get-Content (Join-Path $RepoRoot 'scripts\scheduling\start-claude-worker.ps1') -Raw
+$JqLine = ($WorkerText -split "`n" | Where-Object { $_ -match '^\s*\$jqExpr\s*=' })
+
+Assert-Equal "jqExpr is assigned exactly once" 1 @($JqLine).Count
+Assert-Equal "jqExpr contains no double quote (5.1 strips them)" $false ($JqLine -join '').Contains('"')
+
+# Pin the DEFECT: the shipped-dead form must be recognised as unsafe by the same
+# check, otherwise this only asserts that today's line happens to be clean.
+$ShippedDead = '$jqExpr = ' + "'" + '[.comments[-10:][] | {body, createdAt} | select((.body | contains(' + '"' + '[DISPATCH]' + '"' + ')))]' + "'"
+Assert-Equal "the 5c7675e1 form is caught by this check (the defect itself)" $true $ShippedDead.Contains('"')
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""

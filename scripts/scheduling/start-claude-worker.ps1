@@ -676,13 +676,19 @@ function Get-GitHubTask {
             $IsDispatchedToMe = $false
             $IsDispatchedToOther = $false
             try {
-                # NOTE: jq `test()` regex treats `[` as a char-class opener — `test("[X]")` matches
-                # ANY char in X (false positives on `[sync-project.yml]`, `[#1835]`, etc.).
-                # Use three `contains()` calls joined by `or`: literal substring, no metacharacter
-                # ambiguity. PowerShell single-quotes preserve `[`/`]` literally (double-quote parses
-                # `[` as a type accelerator prefix → ParserError). Verified on #1980: 3 hits
-                # (1 [CLAIMED] + 2 [RESULT]); #3042 (no tags in any comment) returns [] (c.146).
-                $jqExpr = '[.comments[-10:][] | {body, createdAt} | select((.body | contains("[DISPATCH]")) or (.body | contains("[CLAIMED]")) or (.body | contains("[RESULT]")))]'
+                # NOTE: this jq expression MUST NOT contain a double quote. Windows PowerShell 5.1
+                # — the shell the VBS launcher actually runs this script under — strips inner `"`
+                # when passing an argument to a native command; jq then receives
+                # `contains([DISPATCH])` and dies with `function not defined: DISPATCH/0`
+                # (measured: 5.1.26100.9168 → exit 1). pwsh 7 with
+                # $PSNativeCommandArgumentPassing='Windows' passes them intact, which is why the
+                # quoted form verified green and still shipped dead for 9 days (5c7675e1, #3045).
+                # The `catch` below fails OPEN, so a broken expression silently disables the
+                # anti-double-claim guard: #833 was claimed by 4 machines in a row.
+                # The tag filtering lives in the `-match` chain below — jq only fetches the window,
+                # so no double quote is needed here. Don't reintroduce `select(contains("…"))`;
+                # `test("[X]")` is also wrong (regex char class → matches any char of X).
+                $jqExpr = '[.comments[-10:][] | {body, createdAt}]'
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
                     --json comments --jq $jqExpr 2>&1
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
