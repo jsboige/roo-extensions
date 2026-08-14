@@ -75,9 +75,10 @@ L'ordre des tests **est** la propriété de sûreté :
 | `PR-MERGED-DIVERGED` | PR `MERGED` mais HEAD ≠ le commit mergé | conserver, **rapporter** |
 | `PR-OPEN` / `PR-CLOSED` | PR ouverte / fermée sans merge | conserver, rapporter |
 | `PR-FORGOTTEN` | commits en avance, aucune PR | conserver, **rapporter** |
-| `DETACHED-ORPHANABLE` | detached HEAD, commits qu'aucune branche ne référence | conserver, rapporter |
+| `DETACHED-LANDED` | detached HEAD, mais chaque patch est déjà sur `origin/<défaut>` | **supprimer** (branche `rescue/` d'abord) |
+| `DETACHED-ORPHANABLE` | detached HEAD, commits dont le patch n'est nulle part en amont | conserver, rapporter |
 
-Trois subtilités décident de la justesse, et sont chacune épinglées par un test :
+Quatre subtilités décident de la justesse, et sont chacune épinglées par un test :
 
 - **`DIRTY` l'emporte sur tout signal de merge.** Un worktree dont la PR est mergée peut porter du
   travail non commité ; le supprimer parce que la PR a atterri détruit exactement ce que personne
@@ -100,6 +101,18 @@ Trois subtilités décident de la justesse, et sont chacune épinglées par un t
   worktree ne supprime jamais sa branche — ces commits survivent dans tous les cas. Le garde contre
   la perte réelle reste la branche `rescue/` des worktrees detached, qui n'atteignent jamais cette
   règle (sans branche, pas de PR).
+- **Un detached HEAD hors de la ligne d'ascendance ne prouve rien non plus.** C'est le même piège du
+  squash-merge, en pire : sans nom de branche, il n'y a aucune PR à interroger pour s'en sortir.
+  C'est l'**identité de patch** qui tranche — `git cherry <défaut> <head>` marque `-` un commit dont
+  un patch équivalent existe déjà en amont, `+` sinon. Mesuré sur ai-01 : sur **17** worktrees
+  detached retenus comme « travail potentiellement orphelin », **14** ne portaient que des patchs
+  déjà sur `main` (des heads de PR squash-mergées) ; **3** seulement portaient du travail jamais
+  livré. Lire « pas ancêtre » comme « non mergé » gonflait la pile manuelle d'un facteur 5.
+
+  La suppression est ici sûre pour deux raisons indépendantes : le contenu est prouvé en amont,
+  **et** la branche `rescue/` est créée avant retrait, donc les commits restent atteignables même si
+  l'identité de patch se trompait. Si `git cherry` ne peut pas tourner, la mesure est déclarée
+  absente et le worktree reste dans la pile manuelle — jamais supprimable par défaut.
 
 Le cas `pr9962` révèle aussi pourquoi la résolution de PR ne peut pas se faire sur le seul nom de branche :
 `pr9962` n'est le `headRefName` d'aucune PR (celui de la #9962 est `feature/c9959-check-lane-paths`),

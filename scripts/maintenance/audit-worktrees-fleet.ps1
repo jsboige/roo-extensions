@@ -26,9 +26,10 @@
     Classification is delegated to worktree-classify.ps1 (pure, covered by
     scripts/testing/harness/test-worktree-classify.ps1, which runs in CI).
 
-    Default mode is dry-run. -Apply deletes only GHOST / MERGED / MERGED-BY-PR
-    entries, and only clean ones, behind the shared deletion guards of
-    scripts/common/path-guards.ps1 (#2772 submodule, #2123 nesting).
+    Default mode is dry-run. -Apply deletes only GHOST / MERGED / MERGED-BY-PR /
+    DETACHED-LANDED entries, and only clean ones, behind the shared deletion
+    guards of scripts/common/path-guards.ps1 (#2772 submodule, #2123 nesting).
+    Detached entries get a rescue branch on their HEAD before removal.
 .PARAMETER SearchRoots
     Where to look for repositories. Default: D:\, C:\dev, the user profile.
 .PARAMETER Repos
@@ -335,6 +336,21 @@ foreach ($repo in $Repos) {
             }
         }
 
+        # Patch identity, detached worktrees only. Without a branch name there is
+        # no PR to ask, so ancestry would be the only signal -- and ancestry
+        # cannot see through a squash merge. git cherry marks a commit "-" when
+        # an equivalent patch is already upstream and "+" when it is not.
+        # Zero output means the command failed: stay unmeasured, stay manual.
+        $patchesMeasured = $false
+        $patchesNotLanded = 0
+        if ($e.Detached -and $default -and $e.Head -and $ahead -gt 0) {
+            $cherry = @(Invoke-Git @('-C', $repo, 'cherry', $default, $e.Head))
+            if ($cherry.Count -gt 0) {
+                $patchesMeasured = $true
+                $patchesNotLanded = @($cherry | Where-Object { $_ -match '^\+' }).Count
+            }
+        }
+
         $lastDate = ''
         if ($e.Head) {
             $d = @(Invoke-Git @('-C', $repo, 'log', '-1', '--format=%ci', $e.Head))
@@ -352,6 +368,7 @@ foreach ($repo in $Repos) {
             -CommitsAhead $ahead `
             -PrState $prState -PrNumber $prNumber -PrHeadOid $prHeadOid `
             -PrHeadComparable $prComparable -CommitsAheadOfPrHead $aheadOfPr `
+            -PatchesMeasured $patchesMeasured -PatchesNotLanded $patchesNotLanded `
             -Head $e.Head -LastCommitDate $lastDate
 
         $verdict = Get-WorktreeClass -Facts $facts
@@ -482,7 +499,7 @@ $sections = @(
     @{ Title = 'Needs a decision -- uncommitted work'; Classes = @('DIRTY') },
     @{ Title = 'Needs a decision -- on disk, no repository registers them (git reports nothing)'; Classes = @('ORPHAN-DIR') },
     @{ Title = 'Kept -- open pull request'; Classes = @('PR-OPEN') },
-    @{ Title = 'Deletable'; Classes = @('GHOST', 'MERGED', 'MERGED-BY-PR') },
+    @{ Title = 'Deletable'; Classes = @('GHOST', 'MERGED', 'MERGED-BY-PR', 'DETACHED-LANDED') },
     @{ Title = 'Unclassified'; Classes = @('UNDETERMINED') }
 )
 

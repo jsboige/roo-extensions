@@ -26,10 +26,12 @@
       5. branch whose PR is OPEN            -> PR-OPEN              keep
       6. branch whose PR is CLOSED unmerged -> PR-CLOSED            keep, report
       7. branch, no PR, commits ahead       -> PR-FORGOTTEN         keep, report
-      8. detached, commits not in default   -> DETACHED-ORPHANABLE  keep, report
+      8. detached, every commit's patch is  -> DETACHED-LANDED      delete (safe)
+         already on the default branch
+      8b. detached, commits not in default  -> DETACHED-ORPHANABLE  keep, report
       -  anything else                      -> UNDETERMINED         keep
 
-    Three rules carry the weight:
+    Four rules carry the weight:
 
     * DIRTY is tested BEFORE any "merged" test. A worktree whose PR is merged
       can still hold uncommitted work; deleting it because the PR landed would
@@ -54,6 +56,22 @@
       worktree never deletes its branch, so those commits survive either way.
       The guard against actual loss is the rescue branch on detached worktrees,
       which never reach this rule (they have no branch, so no PR).
+
+    * A detached HEAD is not evidence of unmerged work. Counting commits that
+      are not ANCESTORS of the default branch is the same squash-merge trap as
+      above, and for detached worktrees no PR state is available to escape it:
+      there is no branch name to look a PR up by.
+
+      Patch identity escapes it. `git cherry <default> <head>` marks each commit
+      "-" when an equivalent patch already exists upstream and "+" when it does
+      not. Measured on ai-01, of SEVENTEEN detached worktrees held back as
+      possibly-orphanable work, FOURTEEN carried patches already on main -- they
+      were squash-merged PR heads. Only three held work that never landed.
+      Reading "not an ancestor" as "unmerged" over-reported by a factor of five.
+
+      Deleting one of these is safe on two independent grounds: the content is
+      provably upstream, AND the rescue branch is created first, so the commits
+      remain reachable even if patch identity were wrong.
 .NOTES
     Companion harness: scripts/testing/harness/test-worktree-classify.ps1
 #>
@@ -90,6 +108,11 @@ function New-WorktreeFacts {
         [string]$PrHeadOid        = '',
         [bool]$PrHeadComparable   = $false,
         [int]$CommitsAheadOfPrHead = 0,
+        # Patch identity against the default branch, for detached worktrees.
+        # Measured = $false when git cherry could not run, in which case the
+        # count means nothing and the worktree stays in the manual pile.
+        [bool]$PatchesMeasured    = $false,
+        [int]$PatchesNotLanded    = 0,
         [string]$Head             = '',
         [string]$LastCommitDate   = ''
     )
@@ -109,6 +132,8 @@ function New-WorktreeFacts {
         PrHeadOid           = $PrHeadOid
         PrHeadComparable    = $PrHeadComparable
         CommitsAheadOfPrHead = $CommitsAheadOfPrHead
+        PatchesMeasured     = $PatchesMeasured
+        PatchesNotLanded    = $PatchesNotLanded
         Head                = $Head
         LastCommitDate      = $LastCommitDate
     }
@@ -264,8 +289,16 @@ function Get-WorktreeClass {
     }
 
     if ($Facts.IsDetached -and $Facts.CommitsAhead -gt 0) {
+        # "Not an ancestor" is not "unmerged" -- a squash merge leaves the head
+        # off the ancestry line. Patch identity settles it where the missing
+        # branch name makes a PR lookup impossible.
+        if ($Facts.PatchesMeasured -and $Facts.PatchesNotLanded -eq 0) {
+            return New-Verdict 'DETACHED-LANDED' $true "detached HEAD, but every one of its $($Facts.CommitsAhead) commit(s) has an equivalent patch on the default branch" $true
+        }
         # No branch references these commits: removing the worktree orphans them.
-        return New-Verdict 'DETACHED-ORPHANABLE' $false "detached HEAD with $($Facts.CommitsAhead) commit(s) no branch points at" $true
+        $unlanded = if ($Facts.PatchesMeasured) { "$($Facts.PatchesNotLanded) commit(s) whose patch is nowhere on the default branch" }
+                    else { "$($Facts.CommitsAhead) commit(s) no branch points at, patch identity unmeasured" }
+        return New-Verdict 'DETACHED-ORPHANABLE' $false "detached HEAD with $unlanded" $true
     }
 
     return New-Verdict 'UNDETERMINED' $false 'facts do not match any known class'

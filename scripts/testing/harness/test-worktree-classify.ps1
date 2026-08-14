@@ -304,6 +304,61 @@ $headLookupFinds = @($headRefNames | Where-Object { $_ -eq 'pr9962' }).Count
 Assert-Equal 'a --head query on pr9962 finds nothing' 0 $headLookupFinds
 
 # ============================================================================
+# Test 10: a detached HEAD off the ancestry line is not evidence of lost work
+# ============================================================================
+# Measured on ai-01, 2026-08-14: seventeen detached worktrees were held back as
+# possibly-orphanable. `git cherry origin/main <head>` showed FOURTEEN carried
+# only patches already upstream -- squash-merged PR heads. Three held work that
+# never landed: wt10305 (+2), CoursIA-wt10496 (+5), wt-tp (+1). Treating "not an
+# ancestor" as "unmerged" over-reported the manual pile by a factor of five.
+Write-Host "=== Test 10: detached HEAD resolved by patch identity ===" -ForegroundColor Cyan
+
+# 736d6ddc: one commit, patch already on main.
+$landed = New-WorktreeFacts -Path 'C:/lt6616' -IsDetached $true `
+    -Head '736d6ddc' -CommitsAhead 1 -PatchesMeasured $true -PatchesNotLanded 0
+$v = Get-WorktreeClass -Facts $landed
+Assert-Equal 'every patch upstream classifies DETACHED-LANDED' 'DETACHED-LANDED' $v.Class
+Assert-Equal 'DETACHED-LANDED is deletable'                    $true             $v.Deletable
+Assert-Equal 'a rescue branch is still cut first'              $true             $v.NeedsRescueBranch
+
+# The defect this pins: an ancestry-only rule sees commits off the line and
+# reports work that is demonstrably already on main.
+Assert-Equal 'an ancestry-only rule WOULD have held it back' $true ($landed.CommitsAhead -gt 0)
+
+# 966b0ad0: five commits, none upstream. Real work, must stay in the manual pile.
+$orphanable = New-WorktreeFacts -Path 'D:/CoursIA-wt10496' -IsDetached $true `
+    -Head '966b0ad0' -CommitsAhead 5 -PatchesMeasured $true -PatchesNotLanded 5
+$v = Get-WorktreeClass -Facts $orphanable
+Assert-Equal 'unlanded patches stay DETACHED-ORPHANABLE' 'DETACHED-ORPHANABLE' $v.Class
+Assert-Equal 'DETACHED-ORPHANABLE is never deletable'    $false                $v.Deletable
+Assert-Equal 'the reason counts the unlanded patches'    $true ($v.Reason -match '5 commit')
+
+# A partial landing is not a landing: one unlanded patch is enough to hold it.
+$partial = New-WorktreeFacts -Path 'D:/CoursIA-wt/wt10305' -IsDetached $true `
+    -Head '4185530e' -CommitsAhead 2 -PatchesMeasured $true -PatchesNotLanded 1
+Assert-Equal 'one unlanded patch out of two still holds it back' 'DETACHED-ORPHANABLE' `
+    (Get-WorktreeClass -Facts $partial).Class
+
+# Unmeasured means unknown, and unknown must never mean deletable: if git cherry
+# could not run, the worktree keeps its conservative class.
+$unmeasured = New-WorktreeFacts -Path 'D:/repo-wt/u' -IsDetached $true `
+    -Head 'cccccccc' -CommitsAhead 3 -PatchesMeasured $false -PatchesNotLanded 0
+$v = Get-WorktreeClass -Facts $unmeasured
+Assert-Equal 'unmeasured patch identity stays DETACHED-ORPHANABLE' 'DETACHED-ORPHANABLE' $v.Class
+Assert-Equal 'unmeasured is not deletable'                         $false                $v.Deletable
+Assert-Equal 'the reason says the measurement is missing' $true ($v.Reason -match 'unmeasured')
+
+# The defect this pins: reading PatchesNotLanded without checking PatchesMeasured
+# turns "never measured" into "zero unlanded", i.e. straight into deletable.
+$naiveSaysLanded = ($unmeasured.PatchesNotLanded -eq 0)
+Assert-Equal 'a count-only rule WOULD have called it landed' $true $naiveSaysLanded
+
+# Dirty outranks patch identity too.
+$dirtyLanded = New-WorktreeFacts -Path 'D:/repo-wt/dl' -IsDetached $true -IsDirty $true `
+    -Head 'dddddddd' -CommitsAhead 1 -PatchesMeasured $true -PatchesNotLanded 0
+Assert-Equal 'dirty wins over patch identity' 'DIRTY' (Get-WorktreeClass -Facts $dirtyLanded).Class
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""
