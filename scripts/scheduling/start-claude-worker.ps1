@@ -686,8 +686,11 @@ function Get-GitHubTask {
                 # The `catch` below fails OPEN, so a broken expression silently disables the
                 # anti-double-claim guard: #833 was claimed by 4 machines in a row.
                 # The tag filtering lives in the `-match` chain below — jq only fetches the window,
-                # so no double quote is needed here. Don't reintroduce `select(contains("…"))`;
-                # `test("[X]")` is also wrong (regex char class → matches any char of X).
+                # so no double quote is needed here. Don't reintroduce a jq-side select() with
+                # straight double quotes; jq test() is wrong too (its regex reads [X] as a
+                # character class and matches any single char of X).
+                # NB: this comment deliberately spells out no literal quoted jq call — the harness
+                # scans this whole file for that pattern, and prose would trip it (it did).
                 $jqExpr = '[.comments[-10:][] | {body, createdAt}]'
                 $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
                     --json comments --jq $jqExpr 2>&1
