@@ -8,6 +8,10 @@ on:
       - 'mcps/internal/**'
       - '.github/workflows/ci.yml'
       - 'scripts/scheduling/**'
+      # Sources of the static harnesses below: without these, a change to the
+      # worktree classifier landing on main would never re-run its own check.
+      - 'scripts/maintenance/worktree-classify.ps1'
+      - 'scripts/testing/harness/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -113,3 +117,11 @@ jobs:
       - name: Run scheduling static harness
         shell: bash
         run: pwsh -File scripts/scheduling/test-escalation.ps1
+
+      # Same reasoning as above, applied to the worktree cleanup classifier:
+      # Get-WorktreeClass decides whether a worktree gets DELETED. It is pure
+      # (no git, no gh, no disk), so it belongs on the wired path rather than in
+      # scripts/testing/unit/, where eleven Pester files execute nowhere.
+      - name: Run worktree classifier static harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-worktree-classify.ps1
