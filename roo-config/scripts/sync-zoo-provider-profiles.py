@@ -384,6 +384,70 @@ def set_vscode_autoimport_setting(path_str):
     print(f"[OK] set zoo-code.autoImportSettingsPath = {path_str} in settings.json.")
 
 
+def remove_vscode_autoimport_setting():
+    """Remove zoo-code.autoImportSettingsPath from VS Code user settings.json.
+
+    Symmetric counterpart of set_vscode_autoimport_setting(). The autoImport file is a
+    MIGRATION BOOTSTRAP: Zoo reads it at activate() and writes the profiles into
+    SecretStorage (DPAPI). Once SecretStorage holds them, re-importing on every restart
+    only produces the "Paramètres ZooCode importés automatiquement" toast — no added value.
+    Per the extension's own docs, an empty/absent setting disables auto-import.
+    """
+    appdata = os.environ.get("APPDATA", os.path.expanduser("~/AppData/Roaming"))
+    settings_path = os.path.join(appdata, "Code", "User", "settings.json")
+    if not os.path.exists(settings_path):
+        print(f"[WARN] settings.json not found ({settings_path}) — nothing to remove.")
+        return
+    raw = open(settings_path, encoding="utf-8").read()
+    import re
+    if not re.search(r'"zoo-code\.autoImportSettingsPath"\s*:', raw):
+        print("[i] zoo-code.autoImportSettingsPath absent — already disabled (idempotent).")
+        return
+
+    backup = settings_path + ".bak-autoimport"
+    open(backup, "w", encoding="utf-8").write(raw)
+    print(f"[i] backup: {backup}")
+
+    m = re.search(r'"zoo-code\.autoImportSettingsPath"\s*:\s*"([^"]*)"', raw)
+    imported_path = m.group(1) if m else None
+
+    # Surgical line removal, NOT a json.dumps() round-trip: settings.json is a
+    # hand-maintained user file (own indentation, key order, possibly comments). Rewriting
+    # it wholesale to drop one key would churn the entire file for no reason — and would
+    # silently strip any JSONC comment. Drop the line, then repair a dangling comma in case
+    # the key was the last member of its object.
+    patched = re.sub(r'^[ \t]*"zoo-code\.autoImportSettingsPath"\s*:.*\r?\n', "", raw, count=1, flags=re.M)
+    if patched == raw:
+        print("[WARN] could not locate the key on its own line — remove it manually.")
+        return
+    patched = re.sub(r",(\s*[}\]])", r"\1", patched)
+
+    # Guard: only accept the edit if it does not degrade parseability. If the file was
+    # strict JSON before, it must still be strict JSON after — otherwise restore and bail.
+    was_json = True
+    try:
+        json.loads(raw)
+    except json.JSONDecodeError:
+        was_json = False
+    if was_json:
+        try:
+            json.loads(patched)
+        except json.JSONDecodeError as e:
+            print(f"[ABORT] edit would break settings.json ({e}) — file left untouched.")
+            return
+
+    open(settings_path, "w", encoding="utf-8").write(patched)
+    print("[OK] removed zoo-code.autoImportSettingsPath from settings.json "
+          f"({'strict JSON re-validated' if was_json else 'JSONC — verify in VS Code'}).")
+
+    print("[i] Restart VS Code: the auto-import toast is gone. Provider profiles keep working "
+          "— they live in SecretStorage, not in this file.")
+    if imported_path:
+        print(f"[!] The autoImport file still holds PLAINTEXT API keys: {imported_path}")
+        print("    It is no longer read. Delete it once you are satisfied the profiles persist "
+              "(regenerate anytime with --emit-import).")
+
+
 def summarize(blob):
     if not blob:
         print("  (no current blob)")
@@ -425,7 +489,18 @@ def main():
     mode.add_argument("--emit-import", metavar="PATH",
         help="write resolved providerProfiles to PATH as a zoo-code autoImport file (self-healing: "
              "Zoo imports it at activation -> writes SecretStorage itself -> survives the in-memory flush)")
+    mode.add_argument("--remove-import", action="store_true",
+        help="undo --set-vscode-setting: remove zoo-code.autoImportSettingsPath from VS Code "
+             "settings.json (stops the auto-import toast at every restart). Profiles stay in "
+             "SecretStorage; this touches no credential.")
     args = ap.parse_args()
+
+    # Handled before any DPAPI/vscdb work: removing a settings key needs neither the
+    # encrypted blob nor the master key, and must stay usable on a machine where the
+    # migration is long done.
+    if args.remove_import:
+        remove_vscode_autoimport_setting()
+        return
 
     ext = EXTENSIONS[args.target]
     vscdb, local_state = env_paths(args.target, args)
