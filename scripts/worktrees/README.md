@@ -30,6 +30,72 @@ Un protocole d'auto-cleanup intégré au workflow scheduler executor.
 | [`scripts/worktrees/cleanup-worktree.ps1`](cleanup-worktree.ps1) | Cleanup manuel après merge | Manuel |
 | [`scripts/worktrees/submit-pr.ps1`](submit-pr.ps1) | Soumission PR depuis worktree | Manuel |
 | [`scripts/claude/worktree-cleanup.ps1`](../claude/worktree-cleanup.ps1) | Cleanup avancé (alternative) | Manuel |
+| [`scripts/maintenance/audit-worktrees-fleet.ps1`](../maintenance/audit-worktrees-fleet.ps1) | **Audit multi-dépôts** — tous les dépôts de la machine | Manuel / dispatch flotte |
+
+---
+
+## Portée : un dépôt vs toute la machine
+
+Tous les scripts du tableau ci-dessus, sauf le dernier, sont scopés à `.claude/worktrees/` d'**un
+seul** dépôt. C'est le bon périmètre pour le cycle normal issue → worktree → PR → merge, et ce n'est
+pas ce qu'il faut pour une passe de ménage.
+
+Mesuré sur `myia-ai-01` le 2026-08-14 : **83 worktrees enregistrés** — CoursIA 75, nanoclaw 5,
+roo-extensions 3 — éparpillés dans `D:/CoursIA-wt/`, des scratchpads de session, `C:/Users/…/Temp/`,
+`C:/wt*`, et un jusque dans `D:/CoursIA/.git/`. Un scan de `.claude/worktrees/` en voit quatre.
+
+**Seul `git worktree list --porcelain`, interrogé depuis chaque dépôt, les révèle tous.** D'où
+`audit-worktrees-fleet.ps1`, qui découvre d'abord les *dépôts* (répertoire contenant un `.git`
+**répertoire** ; un `.git` *fichier* est un worktree) puis interroge chacun.
+
+```powershell
+# Inventaire complet de la machine, aucune modification
+pwsh -File scripts/maintenance/audit-worktrees-fleet.ps1
+
+# Un dépôt précis, puis suppression des seules classes prouvées sûres
+pwsh -File scripts/maintenance/audit-worktrees-fleet.ps1 -Repos D:\roo-extensions -Apply
+```
+
+Le rapport part dans `$ROOSYNC_SHARED_PATH/worktree-audit/<machine>-<date>.md`.
+
+### Ce qui est supprimé, ce qui ne l'est pas
+
+La décision est prise par [`worktree-classify.ps1`](../maintenance/worktree-classify.ps1), pure et
+couverte en CI par [`test-worktree-classify.ps1`](../testing/harness/test-worktree-classify.ps1).
+L'ordre des tests **est** la propriété de sûreté :
+
+| Classe | Condition | Action |
+|---|---|---|
+| `MAIN` | working tree du dépôt | conserver |
+| `ORPHAN-DIR` | working tree sur disque qu'aucun dépôt n'enregistre | conserver, **rapporter** |
+| `GHOST` | répertoire absent, ou cible `gitdir:` disparue | **supprimer** |
+| `DIRTY` | `status --porcelain` non vide | conserver, rapporter |
+| `MERGED` | HEAD ancêtre de `origin/<défaut>` | **supprimer** |
+| `MERGED-BY-PR` | PR `MERGED` d'après `gh` | **supprimer** |
+| `PR-OPEN` / `PR-CLOSED` | PR ouverte / fermée sans merge | conserver, rapporter |
+| `PR-FORGOTTEN` | commits en avance, aucune PR | conserver, **rapporter** |
+| `DETACHED-ORPHANABLE` | detached HEAD, commits qu'aucune branche ne référence | conserver, rapporter |
+
+Deux subtilités décident de la justesse, et sont chacune épinglées par un test :
+
+- **`DIRTY` l'emporte sur tout signal de merge.** Un worktree dont la PR est mergée peut porter du
+  travail non commité ; le supprimer parce que la PR a atterri détruit exactement ce que personne
+  n'a encore vu. Vérifié en conditions réelles : salir `wt-bump-974` (PR #3102 mergée) le fait
+  passer de `MERGED-BY-PR` à `DIRTY` et le sort des supprimables.
+- **L'ascendance git ne prouve pas « non mergé ».** Une branche squash-mergée reste « en avance »
+  sur `main` alors que son contenu a atterri — et toutes les branches `wt/*` d'ici sont
+  squash-mergées. C'est pourquoi l'état de la **PR** est interrogé avant toute conclusion tirée de
+  la topologie.
+
+Et un piège mesuré : **`git worktree list` ne signale pas `prunable`** pour un worktree dont le
+`gitdir:` pointe vers un répertoire disparu (0 prunable sur les 75 entrées CoursIA, dont deux
+étaient des coquilles vides). La détection lit donc la cible du pointeur, pas le drapeau de git.
+
+Avant toute suppression, une branche `rescue/<nom>-<sha>` est créée sur le HEAD des worktrees
+detached — assurance contre une erreur de classification, non poussée. Les suppressions passent par
+`Test-SafeDeletionPath` ([`scripts/common/path-guards.ps1`](../common/path-guards.ps1), gardes
+submodule #2772 et anti-imbrication #2123), et par `git worktree remove` **sans** `--force` : git
+refuse alors un worktree sale, ce qui ne peut se produire que si la classification s'est trompée.
 
 ---
 
