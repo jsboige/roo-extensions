@@ -19,14 +19,17 @@
       2. uncommitted or untracked files     -> DIRTY                keep
       3. HEAD is an ancestor of the default -> MERGED               delete (safe)
          remote branch
-      4. branch whose PR is MERGED          -> MERGED-BY-PR         delete (safe)
+      4. branch whose PR is MERGED, holding  -> MERGED-BY-PR        delete (safe)
+         no commit the PR head cannot reach
+      4b. branch whose PR is MERGED but that -> PR-MERGED-DIVERGED  keep, report
+         holds commits ahead of the PR head
       5. branch whose PR is OPEN            -> PR-OPEN              keep
       6. branch whose PR is CLOSED unmerged -> PR-CLOSED            keep, report
       7. branch, no PR, commits ahead       -> PR-FORGOTTEN         keep, report
       8. detached, commits not in default   -> DETACHED-ORPHANABLE  keep, report
       -  anything else                      -> UNDETERMINED         keep
 
-    Two rules carry the weight:
+    Three rules carry the weight:
 
     * DIRTY is tested BEFORE any "merged" test. A worktree whose PR is merged
       can still hold uncommitted work; deleting it because the PR landed would
@@ -36,6 +39,21 @@
       commits that are not ancestors of the default branch even though its
       content landed. Rule 4 therefore asks GitHub for the PR state, which is
       authoritative, before rule 7 concludes anything from git topology.
+
+    * A merged PR only vouches for the commit it merged. Commits the PR head
+      cannot reach were never in that PR and were never reviewed, so reporting
+      the worktree as fully merged is wrong.
+
+      "Ahead of the PR head", not "different from the PR head": measured on
+      ai-01, of three worktrees whose HEAD differed from their merged PR's head,
+      only ONE was ahead (pr9962, +1). The other two were stale checkouts
+      sitting 4 and 45 commits behind -- their content is entirely inside the
+      merge. Reading SHA inequality as divergence misclassified two of three.
+
+      Note this is a reporting refinement, not a data-loss guard: removing a
+      worktree never deletes its branch, so those commits survive either way.
+      The guard against actual loss is the rescue branch on detached worktrees,
+      which never reach this rule (they have no branch, so no PR).
 .NOTES
     Companion harness: scripts/testing/harness/test-worktree-classify.ps1
 #>
@@ -66,6 +84,12 @@ function New-WorktreeFacts {
         # $null = no PR found; otherwise MERGED / OPEN / CLOSED
         [string]$PrState          = $null,
         [int]$PrNumber            = 0,
+        # The commit the PR actually carried, and how many commits this worktree
+        # holds that are NOT reachable from it. Comparable = $false when the PR
+        # head is not in the local object store, so the count means nothing.
+        [string]$PrHeadOid        = '',
+        [bool]$PrHeadComparable   = $false,
+        [int]$CommitsAheadOfPrHead = 0,
         [string]$Head             = '',
         [string]$LastCommitDate   = ''
     )
@@ -82,6 +106,9 @@ function New-WorktreeFacts {
         CommitsAhead        = $CommitsAhead
         PrState             = $PrState
         PrNumber            = $PrNumber
+        PrHeadOid           = $PrHeadOid
+        PrHeadComparable    = $PrHeadComparable
+        CommitsAheadOfPrHead = $CommitsAheadOfPrHead
         Head                = $Head
         LastCommitDate      = $LastCommitDate
     }
@@ -122,6 +149,32 @@ function Get-WorktreePointerKind {
         return [pscustomobject]@{ Kind = 'Submodule'; OwnerRepo = '' }
     }
     return [pscustomobject]@{ Kind = 'Unknown'; OwnerRepo = '' }
+}
+
+function Get-PrNumberFromBranchName {
+    <#
+    .SYNOPSIS
+        Returns the PR number a branch name encodes, or 0. Pure: takes the name.
+    .DESCRIPTION
+        `git fetch origin pull/N/head:prN` -- the usual way to get someone
+        else's PR onto disk -- names the local branch `prN`. That name is NOT
+        the PR's headRefName, so looking the PR up by branch name finds nothing
+        and the branch reads as "no PR at all", i.e. forgotten work.
+
+        Measured on ai-01: four CoursIA worktrees on branches pr9962, pr9967,
+        pr9968 and pr10010 were reported as forgotten. All four PRs are merged.
+
+        Only the exact `pr<digits>` shape counts. `pr-fix-thing` or `prefetch`
+        are ordinary branch names and must not be read as PR numbers.
+    .OUTPUTS
+        [int] the PR number, or 0 when the name does not encode one.
+    #>
+    [CmdletBinding()]
+    param([string]$Branch)
+
+    if ([string]::IsNullOrWhiteSpace($Branch)) { return 0 }
+    if ($Branch -match '^pr(\d+)$') { return [int]$Matches[1] }
+    return 0
 }
 
 function Get-WorktreeClass {
@@ -183,6 +236,16 @@ function Get-WorktreeClass {
     if ($hasBranch -and $Facts.PrState) {
         switch ($Facts.PrState.ToUpperInvariant()) {
             'MERGED' {
+                # A merged PR vouches for the commit it merged, and for nothing
+                # else. Commits this worktree holds that the PR head cannot
+                # reach never went through that PR and were never reviewed.
+                #
+                # The test is "ahead of the PR head", NOT "different from the PR
+                # head": a stale checkout sitting several commits BEHIND is also
+                # a different SHA, and its content is entirely inside the merge.
+                if ($Facts.PrHeadComparable -and $Facts.CommitsAheadOfPrHead -gt 0) {
+                    return New-Verdict 'PR-MERGED-DIVERGED' $false "PR #$($Facts.PrNumber) is merged, but this worktree holds $($Facts.CommitsAheadOfPrHead) commit(s) the PR never carried"
+                }
                 # Squash merge: the commits are not ancestors, yet the content landed.
                 $rescue = [bool]$Facts.IsDetached
                 return New-Verdict 'MERGED-BY-PR' $true "PR #$($Facts.PrNumber) is merged (squash merge keeps commits off the ancestry line)" $rescue

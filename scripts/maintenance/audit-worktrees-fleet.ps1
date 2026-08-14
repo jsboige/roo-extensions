@@ -164,7 +164,7 @@ function Get-PullRequestIndex {
     <#
         One `gh pr list` per repository rather than one per branch: 40 branch
         worktrees would otherwise mean 40 network round-trips.
-        Returns @{ branchName = @{ Number; State } }, empty when gh is
+        Returns @{ branchName = @{ Number; State; HeadOid } }, empty when gh is
         unavailable or the repo has no GitHub remote -- in which case branches
         simply fall through to PR-FORGOTTEN, which is reported, never deleted.
     #>
@@ -173,13 +173,13 @@ function Get-PullRequestIndex {
     $index = @{}
     if (-not $Slug) { return $index }
     try {
-        $json = & gh pr list --repo $Slug --state all --limit 500 --json number,state,headRefName 2>$null
+        $json = & gh pr list --repo $Slug --state all --limit 500 --json number,state,headRefName,headRefOid 2>$null
         if (-not $json) { return $index }
         foreach ($pr in ($json | ConvertFrom-Json)) {
             # Keep the most decisive state when a branch carries several PRs:
             # a merged PR proves the content landed, whatever was closed later.
             if ($index.ContainsKey($pr.headRefName) -and $index[$pr.headRefName].State -eq 'MERGED') { continue }
-            $index[$pr.headRefName] = @{ Number = $pr.number; State = $pr.state }
+            $index[$pr.headRefName] = @{ Number = $pr.number; State = $pr.state; HeadOid = $pr.headRefOid }
         }
     } catch { }
     return $index
@@ -197,6 +197,10 @@ function Resolve-PullRequest {
 
         So a miss is not a conclusion: it triggers one `--head` query for that
         branch, cached including its negative result.
+
+        A `pr<N>` branch is looked up by NUMBER instead: that name comes from
+        `git fetch origin pull/N/head:prN` and never matches any headRefName,
+        so no `--head` query can ever find it. See Get-PrNumberFromBranchName.
     #>
     param([string]$Slug, [string]$Branch, [hashtable]$Index, [hashtable]$Cache)
 
@@ -206,13 +210,22 @@ function Resolve-PullRequest {
 
     $result = $null
     try {
-        $json = & gh pr list --repo $Slug --head $Branch --state all --limit 10 --json number,state 2>$null
-        if ($json) {
-            $prs = @($json | ConvertFrom-Json)
-            if ($prs.Count -gt 0) {
-                $merged = @($prs | Where-Object { $_.state -eq 'MERGED' })
-                $chosen = if ($merged.Count -gt 0) { $merged[0] } else { $prs[0] }
-                $result = @{ Number = $chosen.number; State = $chosen.state }
+        $byNumber = Get-PrNumberFromBranchName -Branch $Branch
+        if ($byNumber -gt 0) {
+            $json = & gh pr view $byNumber --repo $Slug --json number,state,headRefOid 2>$null
+            if ($json) {
+                $pr = $json | ConvertFrom-Json
+                if ($pr) { $result = @{ Number = $pr.number; State = $pr.state; HeadOid = $pr.headRefOid } }
+            }
+        } else {
+            $json = & gh pr list --repo $Slug --head $Branch --state all --limit 10 --json number,state,headRefOid 2>$null
+            if ($json) {
+                $prs = @($json | ConvertFrom-Json)
+                if ($prs.Count -gt 0) {
+                    $merged = @($prs | Where-Object { $_.state -eq 'MERGED' })
+                    $chosen = if ($merged.Count -gt 0) { $merged[0] } else { $prs[0] }
+                    $result = @{ Number = $chosen.number; State = $chosen.state; HeadOid = $chosen.headRefOid }
+                }
             }
         }
     } catch { }
@@ -300,10 +313,26 @@ foreach ($repo in $Repos) {
             }
         }
 
-        $prState = $null; $prNumber = 0
+        $prState = $null; $prNumber = 0; $prHeadOid = ''
+        $prComparable = $false; $aheadOfPr = 0
         if ($e.Branch) {
             $pr = Resolve-PullRequest -Slug $slug -Branch $e.Branch -Index $prIndex -Cache $prCache
-            if ($pr) { $prState = $pr.State; $prNumber = $pr.Number }
+            if ($pr) {
+                $prState = $pr.State; $prNumber = $pr.Number
+                if ($pr.ContainsKey('HeadOid') -and $pr.HeadOid) { $prHeadOid = [string]$pr.HeadOid }
+            }
+        }
+        # Only meaningful when the PR head is in the local object store: after a
+        # merge the head branch is usually deleted on the remote, so the commit
+        # may simply not be here. Absent object -> not comparable, and the
+        # classifier falls back to trusting the PR state.
+        if ($prHeadOid -and $e.Head -and $exists) {
+            & git -C $repo cat-file -e "$prHeadOid^{commit}" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $prComparable = $true
+                $c = @(Invoke-Git @('-C', $repo, 'rev-list', '--count', "$prHeadOid..$($e.Head)"))
+                if ($c.Count -gt 0) { [int]::TryParse($c[0].Trim(), [ref]$aheadOfPr) | Out-Null }
+            }
         }
 
         $lastDate = ''
@@ -321,7 +350,8 @@ foreach ($repo in $Repos) {
             -Branch $e.Branch `
             -IsAncestorOfDefault $isAncestor `
             -CommitsAhead $ahead `
-            -PrState $prState -PrNumber $prNumber `
+            -PrState $prState -PrNumber $prNumber -PrHeadOid $prHeadOid `
+            -PrHeadComparable $prComparable -CommitsAheadOfPrHead $aheadOfPr `
             -Head $e.Head -LastCommitDate $lastDate
 
         $verdict = Get-WorktreeClass -Facts $facts
@@ -447,14 +477,26 @@ foreach ($g in @($allResults | Group-Object Class | Sort-Object Name)) {
 }
 [void]$sb.AppendLine()
 
-foreach ($section in @(
-    @{ Title = 'Needs a decision -- unmerged work'; Classes = @('PR-FORGOTTEN', 'DETACHED-ORPHANABLE', 'PR-CLOSED') },
+$sections = @(
+    @{ Title = 'Needs a decision -- unmerged work'; Classes = @('PR-FORGOTTEN', 'PR-MERGED-DIVERGED', 'DETACHED-ORPHANABLE', 'PR-CLOSED') },
     @{ Title = 'Needs a decision -- uncommitted work'; Classes = @('DIRTY') },
     @{ Title = 'Needs a decision -- on disk, no repository registers them (git reports nothing)'; Classes = @('ORPHAN-DIR') },
     @{ Title = 'Kept -- open pull request'; Classes = @('PR-OPEN') },
     @{ Title = 'Deletable'; Classes = @('GHOST', 'MERGED', 'MERGED-BY-PR') },
     @{ Title = 'Unclassified'; Classes = @('UNDETERMINED') }
-)) {
+)
+
+# A class the sections above forget still counts in the summary table, so the
+# report would claim N entries and then list none of them. That happened the
+# first time PR-MERGED-DIVERGED was introduced. Whatever the sections miss is
+# collected here rather than dropped.
+$covered = @($sections | ForEach-Object { $_.Classes } )
+$uncovered = @(@($allResults | Select-Object -ExpandProperty Class -Unique) | Where-Object { $covered -notcontains $_ })
+if ($uncovered.Count -gt 0) {
+    $sections += @{ Title = "Not covered by any report section ($($uncovered -join ', '))"; Classes = $uncovered }
+}
+
+foreach ($section in $sections) {
     $rows = @($allResults | Where-Object { $section.Classes -contains $_.Class })
     if ($rows.Count -eq 0) { continue }
     [void]$sb.AppendLine("## $($section.Title)  ($($rows.Count))")

@@ -214,6 +214,96 @@ Assert-Equal 'unmatched facts classify UNDETERMINED' 'UNDETERMINED' $v.Class
 Assert-Equal 'unmatched facts are not deletable'     $false         $v.Deletable
 
 # ============================================================================
+# Test 8: a merged PR vouches for one commit, not for a branch
+#
+# Measured on ai-01 (CoursIA). Three worktrees sat on a merged PR at a commit
+# that was NOT the PR's head. Counting commits in each direction, rather than
+# comparing the two SHAs, splits them one against two:
+#
+#   pr9962                          ahead 1, behind 8   -> a commit the PR never had
+#   pr9967                          ahead 0, behind 4   -> stale checkout, fully merged
+#   feature/c-voting-density-10488  ahead 0, behind 45  -> stale checkout, fully merged
+#
+# "HEAD differs from the PR head" would call all three diverged and would be
+# wrong twice: a checkout sitting behind is also a different SHA, and its
+# content is entirely inside the merge.
+# ============================================================================
+Write-Host "=== Test 8: merged PR vs commits ahead of it ===" -ForegroundColor Cyan
+
+$onPrHead = New-WorktreeFacts -Path 'D:/repo-wt/pr10010' -Branch 'pr10010' `
+    -PrState 'MERGED' -PrNumber 10010 `
+    -Head 'be526bb234fa3142dd4f3929cb735aa73c4a53e1' `
+    -PrHeadOid 'be526bb234fa3142dd4f3929cb735aa73c4a53e1' `
+    -PrHeadComparable $true -CommitsAheadOfPrHead 0 -CommitsAhead 3
+$v = Get-WorktreeClass -Facts $onPrHead
+Assert-Equal 'sitting on the PR head classifies MERGED-BY-PR' 'MERGED-BY-PR' $v.Class
+Assert-Equal 'sitting on the PR head is deletable'            $true          $v.Deletable
+
+# pr9967: behind, not ahead -- deletable despite a different SHA.
+$behind = New-WorktreeFacts -Path 'D:/repo-wt/pr9967' -Branch 'pr9967' `
+    -PrState 'MERGED' -PrNumber 9967 `
+    -Head 'c7b525cf9812c22fefdc8bbfec1e433d5a96355f' `
+    -PrHeadOid '0427c1920ebc730bcf6984f90f2b7721d4795489' `
+    -PrHeadComparable $true -CommitsAheadOfPrHead 0 -CommitsAhead 7
+$v = Get-WorktreeClass -Facts $behind
+Assert-Equal 'behind the PR head is still MERGED-BY-PR' 'MERGED-BY-PR' $v.Class
+Assert-Equal 'behind the PR head stays deletable'       $true          $v.Deletable
+
+# The defect this pins: an inequality test calls the stale checkout diverged.
+$sha = ($behind.Head -ne $behind.PrHeadOid)
+Assert-Equal 'a SHA-inequality rule WOULD have called it diverged' $true $sha
+
+# pr9962: one commit the PR never carried.
+$diverged = New-WorktreeFacts -Path 'D:/repo-wt/pr9962' -Branch 'pr9962' `
+    -PrState 'MERGED' -PrNumber 9962 `
+    -Head '6ed747a339253edf1a52835b37210f02057ea821' `
+    -PrHeadOid '4b7121381237863f92f198d321454a8ce0e99561' `
+    -PrHeadComparable $true -CommitsAheadOfPrHead 1 -CommitsAhead 5
+$v = Get-WorktreeClass -Facts $diverged
+Assert-Equal 'ahead of the PR head classifies PR-MERGED-DIVERGED' 'PR-MERGED-DIVERGED' $v.Class
+Assert-Equal 'ahead of the PR head is NOT deletable'              $false               $v.Deletable
+Assert-Equal 'the reason names the PR and the count'              $true `
+    ($v.Reason -match '#9962' -and $v.Reason -match '1 commit')
+
+# The defect this pins: reading only PrState reports the branch as fully merged.
+$naiveSaysMerged = ($diverged.PrState -eq 'MERGED')
+Assert-Equal 'a PrState-only rule WOULD have called it fully merged' $true $naiveSaysMerged
+
+# A PR head absent from the local object store makes the count meaningless; the
+# classifier must fall back to the PR state, never invent a divergence.
+$notComparable = New-WorktreeFacts -Path 'D:/repo-wt/y' -Branch 'wt/y' `
+    -PrState 'MERGED' -PrNumber 42 -Head 'aaaaaaaa' -PrHeadOid 'bbbbbbbb' `
+    -PrHeadComparable $false -CommitsAheadOfPrHead 0 -CommitsAhead 1
+Assert-Equal 'an unfetchable PR head falls back to MERGED-BY-PR' 'MERGED-BY-PR' `
+    (Get-WorktreeClass -Facts $notComparable).Class
+
+# Dirty still outranks the divergence test, as it outranks every merge signal.
+$dirtyDiverged = New-WorktreeFacts -Path 'D:/repo-wt/z' -Branch 'pr9962' -IsDirty $true `
+    -PrState 'MERGED' -PrNumber 9962 -PrHeadComparable $true -CommitsAheadOfPrHead 1
+Assert-Equal 'dirty still wins over divergence' 'DIRTY' (Get-WorktreeClass -Facts $dirtyDiverged).Class
+
+# ============================================================================
+# Test 9: prN branch names carry a PR number that no --head query can find
+# ============================================================================
+Write-Host "=== Test 9: prN branch names ===" -ForegroundColor Cyan
+
+Assert-Equal 'pr9962 yields 9962'   9962  (Get-PrNumberFromBranchName -Branch 'pr9962')
+Assert-Equal 'pr10010 yields 10010' 10010 (Get-PrNumberFromBranchName -Branch 'pr10010')
+
+# Ordinary branch names must not be mistaken for PR references: resolving the
+# wrong PR is how a worktree gets classified against someone else's merge.
+foreach ($name in @('wt/worktree-audit', 'pr-fix-thing', 'prefetch', 'feature/pr123', 'pr', '')) {
+    Assert-Equal "'$name' yields no PR number" 0 (Get-PrNumberFromBranchName -Branch $name)
+}
+
+# The defect this pins: a --head lookup on `pr9962` finds nothing, because the
+# PR's own head ref is `feature/c9959-check-lane-paths`. Name-only resolution
+# reports merged work as forgotten -- which is what ai-01 measured, 4 times.
+$headRefNames = @('feature/c9959-check-lane-paths', 'lean/tricolorable-transfer-invariant')
+$headLookupFinds = @($headRefNames | Where-Object { $_ -eq 'pr9962' }).Count
+Assert-Equal 'a --head query on pr9962 finds nothing' 0 $headLookupFinds
+
+# ============================================================================
 # Summary
 # ============================================================================
 Write-Host ""
