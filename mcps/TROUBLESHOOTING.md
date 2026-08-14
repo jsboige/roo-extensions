@@ -1372,7 +1372,7 @@ Suite à une campagne de fiabilisation de plusieurs serveurs MCP, les patterns d
 ### 1. Incohérence Build TypeScript vs. Configuration MCP (`roo-state-manager`)
 - **Symptôme :** Erreur `Cannot find module` au démarrage du MCP, bien que les fichiers compilés existent.
 - **Diagnostic :** La structure des répertoires en sortie (`build/src/`) ne correspondait pas au chemin attendu par le point d'entrée du `tsconfig.json`. Le serveur cherchait `./tools/index.js` au lieu de `../src/tools/index.js`.
-- **Solution Efficace :** Mettre à jour le chemin dans `mcp_settings.json` pour pointer vers le point d'entrée correct (`.../build/src/index.js`). Cette solution est minimalement invasive et évite de modifier la configuration de build potentiellement partagée.
+- **Solution Efficace :** Mettre à jour le chemin dans `mcp_settings.json` pour pointer vers le point d'entrée correct (`.../build/index.js` — layout canonique depuis le fix `rootDir: "./src"` ; `build/src/index.js` est un vestige de l'ère `rootDir: "."`, voir `docs/mcp/archive/roo-state-manager-module-not-found-fix-20251020.md`). Cette solution est minimalement invasive et évite de modifier la configuration de build potentiellement partagée.
 - **Leçon :** Toujours valider le chemin d'exécution final d'un MCP compilé par rapport à sa configuration de lancement.
 
 ### 2. Erreur de Configuration par Variable d'Environnement (`office-powerpoint`)
