@@ -125,3 +125,12 @@ jobs:
       - name: Run worktree classifier static harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-worktree-classify.ps1
+
+      # Same reasoning again: start-meta-audit.ps1 resolved `claude` to the npm
+      # claude.ps1, which Start-Process cannot launch — the audit exit 1'd in ~2s
+      # on every run, and the wscript //B launcher swallowed the error. The guard
+      # is static (text + AST of the production script), so it runs here rather
+      # than needing a Windows runner.
+      - name: Run meta-audit claude resolution harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-metaaudit-claude-resolution.ps1

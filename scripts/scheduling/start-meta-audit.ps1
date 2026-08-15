@@ -271,10 +271,27 @@ $MaxMinutes = 110  # Generous internal timeout (2h schtask limit, 110min interna
 Write-Log "Lancement Claude meta-audit (timeout: ${MaxMinutes}min)..."
 $StartTime = Get-Date
 
-# Resolve claude command (handles .cmd shim, .exe, etc.)
-$ClaudeCmd = (Get-Command claude -ErrorAction SilentlyContinue).Source
+# Resolve claude to an image Start-Process can actually launch.
+# `Get-Command claude` returns the npm `claude.ps1` FIRST (CommandType=ExternalScript) whenever
+# npm's shim directory precedes the others in PATH. Start-Process -FilePath on a .ps1 dies with
+# "%1 n'est pas une application Win32 valide" and the audit exits 1 in ~2s. Measured on ai-01
+# 2026-08-13 (meta-audit-20260813-193527.log); web1 reported the same symptom.
+# "claude is in PATH" was the neighbouring property — true, and it told us nothing. The property
+# that counts is "this path is a launchable image", so assert the extension, not the presence.
+# Resolution order mirrors spawn-claude.ps1: VS Code native binary, then the .cmd shim.
+$ClaudeCmd = $null
+$LaunchableExt = @('.exe', '.cmd', '.bat', '.com')
+$ClaudeCandidates = @(
+    (Get-ChildItem -Path "$env:USERPROFILE/.vscode/extensions/anthropic.claude-code-*-win32-x64/resources/native-binary/claude.exe" -ErrorAction SilentlyContinue | Sort-Object Name -Descending | Select-Object -First 1).FullName,
+    (Get-Command claude.cmd -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+)
+foreach ($c in $ClaudeCandidates) {
+    if ($c -and ([System.IO.Path]::GetExtension($c).ToLowerInvariant() -in $LaunchableExt)) { $ClaudeCmd = $c; break }
+}
 if (-not $ClaudeCmd) {
-    Write-Log "ABORT: 'claude' command not found in PATH" "ERROR"
+    $seen = ($ClaudeCandidates | Where-Object { $_ }) -join ', '
+    if (-not $seen) { $seen = '(none)' }
+    Write-Log "ABORT: no launchable 'claude' image found. Start-Process needs .exe/.cmd/.bat — a bare claude.ps1 is NOT launchable. Candidates seen: $seen" "ERROR"
     exit 1
 }
 Write-Log "Claude binary: $ClaudeCmd"
