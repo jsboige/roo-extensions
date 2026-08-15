@@ -20,11 +20,16 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\..\common\path-guards.ps1"
 
 # Configuration
-$script:RepoRoot = (git rev-parse --show-toplevel 2>$null)
+# Resolve the repo root from the script's own location: scheduled runs may have no
+# WorkingDirectory (CWD = System32), and the VBS launcher cannot carry one — plain
+# `git rev-parse` then failed and the task exit 1'd before producing any output.
+# Set-Location afterwards: every later git call in this script assumes CWD = repo.
+$script:RepoRoot = (git -C "$PSScriptRoot\..\.." rev-parse --show-toplevel 2>$null)
 if (-not $script:RepoRoot) {
     Write-Error "Not in a git repository"
     exit 1
 }
+Set-Location -LiteralPath $script:RepoRoot
 
 $script:WorktreesDir = Join-Path $script:RepoRoot $WorktreePath
 
