@@ -134,3 +134,13 @@ jobs:
       - name: Run meta-audit claude resolution harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-claude-resolution.ps1
+
+      # Same reasoning, applied to mcp-chain-watchdog.ps1, whose repair drops
+      # every live bot session. Two ways to be wrong, both measured on ai-01 on
+      # 2026-08-16: it restarted the chain for a 20s stall (nominal round-trip
+      # 589ms, but a probe that took 23_164ms SUCCEEDED), and it blamed po-2023
+      # for a wedge local to ai-01 because it compared URL spellings rather than
+      # network hops. Static (text + AST), so no Windows runner needed.
+      - name: Run watchdog slow-vs-dead harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-watchdog-slow-vs-dead.ps1
