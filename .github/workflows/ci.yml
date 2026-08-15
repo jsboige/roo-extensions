@@ -12,6 +12,11 @@ on:
       # worktree classifier landing on main would never re-run its own check.
       - 'scripts/maintenance/worktree-classify.ps1'
       - 'scripts/testing/harness/**'
+      # Same gap, measured rather than predicted: f6580da6 changed
+      # mcp-chain-watchdog.ps1 on main and triggered ZERO CI runs, because no
+      # path in this filter matched. The harness below guards that script, so
+      # the script's own path has to be a trigger for it.
+      - 'scripts/mcp-watchdog/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
