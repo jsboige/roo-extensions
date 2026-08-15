@@ -5,7 +5,7 @@ Write-Host ""
 $mcpFiles = @(
     "C:/dev/roo-extensions/mcps/internal/servers/jupyter-mcp-server/dist/index.js",
     "C:/dev/roo-extensions/mcps/internal/servers/github-projects-mcp/dist/index.js",
-    "C:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/build/src/index.js",
+    "C:/dev/roo-extensions/mcps/internal/servers/roo-state-manager/build/index.js",
     "C:/dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js",
     "C:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js"
 )

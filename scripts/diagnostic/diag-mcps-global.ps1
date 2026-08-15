@@ -38,7 +38,7 @@ foreach ($serverKey in $config.mcpServers.PSObject.Properties.Name) {
             Push-Location -Path $mcpPath
             npm run build # Utiliser le script de build pour une compilation correcte
             Pop-Location
-            $startCommand = "node build/src/index.js" # Pointer vers le bon fichier de sortie
+            $startCommand = "node build/index.js" # Layout canonique (tsconfig rootDir ./src -> outDir ./build)
         }
 
         $finalJsFile = $startCommand.Split(' ')[-1]
