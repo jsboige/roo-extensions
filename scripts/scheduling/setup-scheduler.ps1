@@ -140,9 +140,9 @@ $TaskConfigs = @{
         TaskName = "Claude-Worker"
         Script = Join-Path $scriptDir "start-claude-worker.ps1"
         DefaultInterval = 6
-        DefaultModel = "haiku"
+        DefaultModel = "sonnet"  # cost policy 2026-08-14: since the role-failover cascade, haiku routes to DeepSeek PAYG (cash) while sonnet routes to the GLM forfait — sonnet is now the CHEAPER lane. Zero-scheduled-opus policy unchanged.
         DefaultTimeout = 120
-        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), starts with Haiku with auto-escalation capped at Sonnet (opus excluded — zero-scheduled-opus policy 2026-05-25). Exits cleanly if no work. Runs every 6h."
+        Description = "Claude Code automated worker: picks up ALL dispatched GitHub issues (not just roo-schedulable), runs on Sonnet (haiku base revoked 2026-08-14: haiku lane now bills DeepSeek PAYG, sonnet bills the GLM forfait; auto-escalation cap unchanged, opus excluded — zero-scheduled-opus policy 2026-05-25). Exits cleanly if no work. Runs every 6h."
         MachineRestriction = $null  # all machines
     }
     'coordinator' = @{
