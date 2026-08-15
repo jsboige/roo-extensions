@@ -82,9 +82,11 @@ if (-not (Test-Path $shared)) {
 # Derive cloud-only backup path (sibling of .shared-state, jsboige/jsboige-mcp-servers#608)
 $backupRoot = $env:QDRANT_BACKUP_PATH
 if ([string]::IsNullOrWhiteSpace($backupRoot)) {
+    # Split-Path, not .Parent: Resolve-Path returns a PathInfo, which has no Parent
+    # member — $sharedResolved.Parent.FullName silently expands to "" (#3122 review).
     $sharedResolved = (Resolve-Path $shared -ErrorAction SilentlyContinue)
     if ($sharedResolved) {
-        $backupRoot = "$($sharedResolved.Parent.FullName)\qdrant-backups"
+        $backupRoot = "$(Split-Path $sharedResolved -Parent)\qdrant-backups"
     } else {
         $backupRoot = "$shared\..\qdrant-backups"
     }

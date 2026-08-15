@@ -96,9 +96,11 @@ if (-not (Test-Path $shared)) {
 # Derive cloud-only backup path (sibling of .shared-state)
 $backupRoot = $env:PG_BACKUP_PATH
 if ([string]::IsNullOrWhiteSpace($backupRoot)) {
+    # Split-Path, not .Parent: Resolve-Path returns a PathInfo, which has no Parent
+    # member — $sharedResolved.Parent.FullName silently expands to "" (#3122 review).
     $sharedResolved = (Resolve-Path $shared -ErrorAction SilentlyContinue)
     if ($sharedResolved) {
-        $backupRoot = "$($sharedResolved.Parent.FullName)\pg-backups"
+        $backupRoot = "$(Split-Path $sharedResolved -Parent)\pg-backups"
     } else {
         $backupRoot = "$shared\..\pg-backups"
     }

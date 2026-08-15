@@ -73,9 +73,11 @@ if ([string]::IsNullOrWhiteSpace($SharedPath)) {
 if ([string]::IsNullOrWhiteSpace($BackupPath)) { $BackupPath = $env:QDRANT_BACKUP_PATH }
 if ([string]::IsNullOrWhiteSpace($BackupPath)) {
     # Derive from ROOSYNC_SHARED_PATH parent: .shared-state -> ../qdrant-backups
+    # Split-Path, not .Parent: Resolve-Path returns a PathInfo, which has no Parent
+    # member — $rooSyncRoot.Parent.FullName silently expands to "" (#3122 review).
     $rooSyncRoot = (Resolve-Path $SharedPath -ErrorAction SilentlyContinue)
     if ($rooSyncRoot) {
-        $BackupPath = "$($rooSyncRoot.Parent.FullName)/qdrant-backups"
+        $BackupPath = "$(Split-Path $rooSyncRoot -Parent)/qdrant-backups"
     } else {
         # Fallback: strip .shared-state suffix
         $BackupPath = "$SharedPath/../qdrant-backups"
