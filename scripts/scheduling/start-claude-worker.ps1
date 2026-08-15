@@ -279,8 +279,16 @@ function Test-SkAgentAvailable {
             return $false
         }
     } catch {
-        Write-Log "sk-agent pre-flight error: $_" "WARN"
-        return $false
+        # Fail OPEN, not closed. Every $false above is evidence about sk-agent
+        # (wrapper missing, python missing, config missing, no handshake). Landing
+        # here means the GUARD's own machinery broke — Start-Job, Receive-Job,
+        # a path expression — which says nothing about sk-agent. Returning $false
+        # would let a bug in this function silently suppress idle coverage forever,
+        # which is exactly the failure this guard produced on 2026-08-15. Proceeding
+        # costs at most the ~18 min the guard exists to save, once per idle tick,
+        # and the worker's own error handling still applies downstream.
+        Write-Log "sk-agent pre-flight errored (guard machinery, not sk-agent): $_ — proceeding anyway" "WARN"
+        return $true
     }
 }
 
