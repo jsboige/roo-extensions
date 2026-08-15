@@ -107,11 +107,25 @@ function Test-BenignTaskResult {
 # clever heuristic: each entry is a task observed failing on a fleet machine, and
 # a heuristic broad enough to catch them would eventually swallow one of ours.
 #
-#   OneDrive Standalone Update Task-S-1-5-21-...  RC 0x8004EE04, ai-01, daily.
+#   OneDrive*Update Task*                         RC 0x8004EE04, ai-01, daily.
 #       Registered at '\' with a per-SID suffix, so it survives the path guard.
 #       Microsoft's updater failing is not ours to fix, and it fires every day.
+#
+#       The wildcard sits in the MIDDLE for a measured reason. The first version
+#       of this list read 'OneDrive Standalone Update Task*', which matched the
+#       name on ai-01 and nothing else: po-2023 reviewed this PR and reported
+#       'OneDrive Per-Machine Standalone Update Task' (RC 0x8004EE04), where the
+#       vendor inserts two words before "Standalone". A prefix taken from one
+#       machine's spelling is not the family it was meant to name -- and the
+#       report on that machine would have carried the same noise row forever.
+#
+#   NahimicTask64                                 RC 0xC0000005, po-2023, NextRun=never.
+#       Access violation in an audio-driver task, registered at the root. Also
+#       reported by po-2023 on this PR; frozen (it has no next run), so it would
+#       reappear in every single report.
 $ForeignRootTaskPatterns = @(
-    'OneDrive Standalone Update Task*'
+    'OneDrive*Update Task*',
+    'NahimicTask64'
 )
 
 function Test-OwnedTask {

@@ -94,7 +94,47 @@ Assert-That "le perimetre par defaut est la racine"       ($Text -match 'TaskPat
 # figurait parmi les 6 resultats a cote de nos 5 vraies pannes. Sans cette seconde
 # condition le rapport porte une ligne de bruit quotidienne.
 Assert-That "le garde filtre aussi par NOM"               ($Text -match '\$ForeignRootTaskPatterns')
-Assert-That "OneDrive est exclu nommement"                ($Text -match 'OneDrive Standalone Update Task')
+
+# Les motifs sont evalues depuis l'AST puis appliques a de VRAIS noms de taches
+# mesures sur la flotte, au lieu d'etre compares comme du texte. La premiere
+# version de ce test epinglait la chaine 'OneDrive Standalone Update Task' : elle
+# etait verte pendant que le motif ratait la variante de po-2023
+# ('OneDrive Per-Machine Standalone Update Task'), ou le fabricant insere deux
+# mots au milieu. Verifier l'ORTHOGRAPHE d'un motif ne dit rien de ce qu'il
+# attrape -- seul un -like contre le nom reel le dit.
+$Foreign = $Ast.FindAll({
+    param($n)
+    $n -is [System.Management.Automation.Language.AssignmentStatementAst] -and
+    $n.Left.Extent.Text -eq '$ForeignRootTaskPatterns'
+}, $true) | Select-Object -First 1
+
+if (-not $Foreign) {
+    $script:Fails++
+    Write-Host "  FAIL affectation `$ForeignRootTaskPatterns introuvable dans l'AST" -ForegroundColor Red
+} else {
+    $Patterns = @($Foreign.Right.FindAll({
+        param($n) $n -is [System.Management.Automation.Language.ConstantExpressionAst]
+    }, $true) | ForEach-Object { [string]$_.Value })
+
+    function Test-MatchesAny([string]$Name) {
+        foreach ($p in $Patterns) { if ($Name -like $p) { return $true } }
+        return $false
+    }
+
+    # Noms observes, pas inventes : ai-01 le 15/08, po-2023 en revue de cette PR.
+    Assert-That "la variante ai-01 (suffixe par SID) est attrapee" `
+        (Test-MatchesAny 'OneDrive Standalone Update Task-S-1-5-21-1234567890-1234567890-1234567890-1001')
+    Assert-That "la variante po-2023 (Per-Machine) est attrapee" `
+        (Test-MatchesAny 'OneDrive Per-Machine Standalone Update Task')
+    Assert-That "NahimicTask64 (0xC0000005, po-2023) est attrapee" `
+        (Test-MatchesAny 'NahimicTask64')
+
+    # La contre-epreuve : un motif assez large pour avaler les notres rendrait
+    # le rapport vide tout en restant vert ci-dessus.
+    Assert-That "Claude-DashboardListener n'est PAS avale"    (-not (Test-MatchesAny 'Claude-DashboardListener'))
+    Assert-That "Qdrant-Snapshot-Daily n'est PAS avale"       (-not (Test-MatchesAny 'Qdrant-Snapshot-Daily'))
+    Assert-That "MCP-Proxy-RSM n'est PAS avale"               (-not (Test-MatchesAny 'MCP-Proxy-RSM'))
+}
 Assert-That "le garde consomme nom ET chemin"             ($Text -match 'Test-OwnedTask\s+-TaskPath\s+\$task\.TaskPath\s+-TaskName\s+\$task\.TaskName')
 
 # --- 4. Un resultat fige n'est pas une panne a rapporter --------------------
