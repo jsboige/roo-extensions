@@ -47,7 +47,9 @@
     Dry-run: print intended actions but do not dump or delete.
 
 .PARAMETER LogDir
-    Directory for log files. Default: ./outputs/pg-backup
+    Directory for log files. Default: <repo>/outputs/pg-backup, resolved from
+    the script location (scheduled runs carry no WorkingDirectory — CWD-relative
+    would land in System32, cf. #3119).
 
 .EXAMPLE
     .\backup-dump.ps1
@@ -71,7 +73,7 @@ param(
     [string]$SharedPath = '',
     [string]$BackupPath = '',
     [string]$PgDumpExe = 'pg_dump',
-    [string]$LogDir = './outputs/pg-backup'
+    [string]$LogDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -132,6 +134,10 @@ $today = Get-Date -Format 'yyyy-MM-dd'
 $dateStamp = Get-Date -Format 'yyyyMMdd'
 $dumpRoot = "$BackupPath/$MachineId/$PgDatabase"
 $dumpDayDir = "$dumpRoot/$today"
+
+# CWD-independent default: the VBS schtask wrapper carries no WorkingDirectory
+# (CWD = System32), so a relative './outputs' wrote logs into C:\Windows\System32 (#3119 class).
+if ([string]::IsNullOrWhiteSpace($LogDir)) { $LogDir = Join-Path $PSScriptRoot '../../outputs/pg-backup' }
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 $logFile = "$LogDir/backup-$dateStamp.log"

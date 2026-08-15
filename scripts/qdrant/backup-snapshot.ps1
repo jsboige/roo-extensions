@@ -37,7 +37,9 @@
     Dry-run: print intended actions but do not create or delete snapshots.
 
 .PARAMETER LogDir
-    Directory for log files. Default: ./outputs/qdrant-backup
+    Directory for log files. Default: <repo>/outputs/qdrant-backup, resolved from
+    the script location (scheduled runs carry no WorkingDirectory — CWD-relative
+    would land in System32, cf. #3119).
 
 .EXAMPLE
     .\backup-snapshot.ps1
@@ -56,7 +58,7 @@ param(
     [string]$MachineId = '',
     [string]$SharedPath = '',
     [string]$BackupPath = '',
-    [string]$LogDir = './outputs/qdrant-backup'
+    [string]$LogDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -106,6 +108,10 @@ $today = Get-Date -Format 'yyyy-MM-dd'
 $dateStamp = Get-Date -Format 'yyyyMMdd'
 $snapshotRoot = "$BackupPath/$MachineId/$Collection"
 $snapshotDayDir = "$snapshotRoot/$today"
+
+# CWD-independent default: the VBS schtask wrapper carries no WorkingDirectory
+# (CWD = System32), so a relative './outputs' wrote logs into C:\Windows\System32 (#3119 class).
+if ([string]::IsNullOrWhiteSpace($LogDir)) { $LogDir = Join-Path $PSScriptRoot '../../outputs/qdrant-backup' }
 
 if (-not (Test-Path $LogDir)) { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null }
 $logFile = "$LogDir/backup-$dateStamp.log"
