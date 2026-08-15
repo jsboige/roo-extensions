@@ -74,6 +74,20 @@ if ($Text -match '\$SlowRetryTimeoutSec\s*=\s*(\d+)') {
 }
 Assert-That "la retente est conditionnee par TimedOut"   ($Text -match '\$result\.TimedOut[\s\S]{0,400}?Invoke-McpProbe[^\r\n]*SlowRetryTimeoutSec')
 
+# Revue po-2025 sur cette PR (F1, medium) : la retente ci-dessus ne couvrait que
+# la sonde E2E. Or la sonde qui DECIDE la reparation est Test-Lan -- 20 s, sans
+# retente, et la branche de reparation n'avait aucune sortie sur TimedOut. Un
+# blocage GDrive vivant plus de 20+60+20 s retombait donc dans la meme sequence
+# destructive, cent secondes plus tard. La classe d'incident du 00:48 etait
+# retrecie, pas fermee.
+Assert-That "la sonde LAN a AUSSI droit a une retente" `
+    ($Text -match '\$lanResult\.TimedOut[\s\S]{0,600}?Invoke-McpProbe[^\r\n]*\$lanUrl[^\r\n]*SlowRetryTimeoutSec')
+# Et la moitie qui compte : apres la retente, un timeout NE DOIT PAS conduire a
+# la reparation. Ancre sur la branche elle-meme, et sur le fait qu'elle precede
+# le bloc destructif -- une garde placee apres ne garderait rien.
+Assert-That "un timeout LAN persistant DIFFERE la reparation" `
+    ($Text -match 'elseif[ \t]*\([ \t]*\$lanResult\.TimedOut[ \t]*\)[\s\S]{0,900}?elseif[ \t]*\([ \t]*\$repairOnCooldown')
+
 # --- 3. Le verdict amont se decide sur le HOP, pas sur la chaine -----------
 Assert-That "Test-UrlIsLocalHop existe"                  ($Text -match 'function\s+Test-UrlIsLocalHop\b')
 # Ancre sur la COMPARAISON, pas sur la chaine : "127.0.0.1" apparait aussi dans
@@ -116,7 +130,28 @@ Assert-That "le restart du conteneur est APPELE (pas juste cite en commentaire)"
 Assert-That "isError:true interdit toujours le verdict sain" `
     ($Text -match 'StatusCode[ \t]+-eq[ \t]+200[^\r\n]*-notmatch[^\r\n]*isError')
 Assert-That "le marqueur dashboards est toujours exige"  ($Text -match 'StatusCode[ \t]+-eq[ \t]+200[^\r\n]*-match[ \t]*.{0,3}dashboards')
-Assert-That "le cooldown anti-restart-storm survit"      ($Text -match '\$RepairCooldownMin[ \t]*=[ \t]*\d+')
+# Revue po-2025 (F2) : ce test acceptait n'importe quel \d+, donc un cooldown de
+# 0 le laissait vert -- et un cooldown de 0 EST la tempete de restarts que la
+# variable existe pour empecher, sur une tache qui tire toutes les 2 minutes.
+# Verifier qu'une valeur est ecrite n'est pas verifier qu'elle protege : meme
+# defaut que celui qui a produit les 4 assertions sans dents de ce fichier.
+Assert-That "le cooldown anti-restart-storm survit"      ($Text -match '\$RepairCooldownMin[ \t]*=[ \t]*(\d+)')
+if ($Text -match '\$RepairCooldownMin[ \t]*=[ \t]*(\d+)') {
+    $cooldown = [int]$matches[1]
+    # Plancher : la tache tire toutes les 2 min et chaque reparation coute toutes
+    # les sessions bot vivantes. Sous 5 min, le cooldown ne freine plus rien.
+    Assert-That "le cooldown est un vrai frein (>= 5 min)"  ($cooldown -ge 5)
+    Assert-That "le cooldown reste borne (<= 240 min)"      ($cooldown -le 240)
+}
+
+# Revue po-2025 (F3) : le verdict amont ne compare plus des chaines, mais son
+# message nommait toujours "IIS/ARR sur po-2023" -- exactement l'attribution que
+# le garde de hop a ete ecrit pour cesser de produire. Cette sonde ne sait qu'une
+# chose : la panne n'est pas dans SON backend. Ancre sur les lignes emises
+# (Write-Log), pas sur le fichier entier : l'en-tete de doc cite l'ancien message
+# comme piece a conviction et doit pouvoir continuer de le faire.
+Assert-That "aucun message emis n'accuse une machine de la flotte" `
+    (-not ($Text -match "(?m)^[^\r\n]*Write-Log[^\r\n]*(po-20\d\d|web1|ai-01)"))
 
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }

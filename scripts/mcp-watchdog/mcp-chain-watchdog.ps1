@@ -276,10 +276,35 @@ if ($result.Ok) {
     # which compares two spellings of the same hop and grants the upstream
     # verdict on a difference of text.
     $lanResult = Test-Lan
+
+    # The same argument as above, applied to the probe that actually DECIDES the
+    # repair. Until po-2025 reviewed this PR the retry covered only the E2E side,
+    # so a GDrive stall outliving 20+60+20s still reached the destructive branch
+    # -- a hundred seconds later than before, but just as destructively. The
+    # budget was never the guard; the reasoning is: the failure this repair
+    # exists for (a dead RSM instance inside a live sparfenyuk) answers in under
+    # 100 ms with isError:true, so it can NEVER present as a timeout.
+    if (-not $lanResult.Ok -and $lanResult.TimedOut) {
+        Write-Log 'WARN' "LAN probe spent its full 20s budget (latency=$($lanResult.LatencyMs)ms) — retrying once with ${SlowRetryTimeoutSec}s before deciding anything destructive."
+        $lanResult = Invoke-McpProbe -Url $lanUrl -TimeoutSec $SlowRetryTimeoutSec
+    }
+
     if ($lanResult.Ok -and $probesAreDistinctHops) {
-        Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of ai-01 (IIS/ARR/network on po-2023). NOT restarting backend."
-        $script:alerts += "iis-or-network-issue: e2e-http-$($result.Status) lan-ok"
+        # Names no machine: this host knows that the wedge is NOT in its own
+        # backend, and nothing more. The previous wording asserted "IIS/ARR on
+        # po-2023" -- a conclusion the probe cannot support, and the same false
+        # attribution the hop guard above was written to stop producing.
+        Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of $env:COMPUTERNAME (reverse proxy / network), NOT in this backend. NOT restarting."
+        $script:alerts += "upstream-issue: e2e-http-$($result.Status) lan-ok"
         $result = $lanResult  # final result reflects backend health (OK), not E2E
+    } elseif ($lanResult.TimedOut) {
+        # Both probes ran out of clock, the second one on a 60s budget. That is
+        # 100+ seconds of silence, which is a lot -- and still not the signature
+        # of the fault this repair treats. Restarting here trades a stall that
+        # may clear itself (00:48 -> healthy at 00:52) for a certainty: every
+        # live bot session dropped. Report it and let the next tick decide.
+        Write-Log 'WARN' "LAN probe STILL timing out after the ${SlowRetryTimeoutSec}s retry (latency=$($lanResult.LatencyMs)ms) — unresponsive is not dead. Deferring repair to the next tick."
+        $script:alerts += "chain-unresponsive-repair-deferred: e2e-and-lan-both-timed-out"
     } elseif ($repairOnCooldown) {
         Write-Log 'WARN' "chain still down but repair is on cooldown (last repair $([math]::Round(((Get-Date) - $lastRepairAt).TotalMinutes,0)) min ago < $RepairCooldownMin) — waiting, not restarting"
         $script:alerts += "chain-down-repair-on-cooldown"
