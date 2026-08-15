@@ -138,7 +138,36 @@ function Test-OwnedTask {
     return $true
 }
 
+# A Disabled task's LastTaskResult is a fossil. It cannot change, because the
+# task will not run again -- so it would surface in every single report, forever.
+# That is precisely the static background this script exists to cut through, and
+# it matters more, not less, once the script is scheduled: a report that always
+# carries the same two rows trains its reader to skim past the row that is new.
+#
+# Measured by web1 on 2026-08-15, reviewing this PR: two of its three findings
+# were Disabled tasks holding a frozen code -- Qdrant-Snapshot-Daily (disabled
+# the day before on user GO, no local Qdrant after the ai-01 move) and
+# Claude-DashboardWatcher (legacy, disabled since 2026-05-05).
+#
+# ai-01 has no Disabled task with a non-zero code, so this exclusion is NOT
+# exercised on the machine writing it. It rests on web1's measurement plus the
+# harness below, not on a local observation -- said plainly rather than implied.
+function Test-FrozenTaskState {
+    <#
+    .SYNOPSIS
+        True when a task's last result can never change again.
+    .DESCRIPTION
+        Pure, like Test-BenignTaskResult, and for the same reason: this is the
+        second piece of knowledge in the script, so it belongs on the tested
+        path rather than inlined in the loop.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$State)
+
+    return $State -eq 'Disabled'
+}
+
 $failures = @()
+$frozen   = @()
 
 foreach ($task in Get-ScheduledTask) {
     if (-not $IncludeSystem -and -not (Test-OwnedTask -TaskPath $task.TaskPath -TaskName $task.TaskName)) { continue }
@@ -150,6 +179,14 @@ foreach ($task in Get-ScheduledTask) {
     try { $info = $task | Get-ScheduledTaskInfo -ErrorAction Stop } catch { continue }
 
     if (Test-BenignTaskResult -ResultCode $info.LastTaskResult) { continue }
+
+    # Checked AFTER the benign filter on purpose, so the count below means
+    # "disabled tasks that WOULD have been reported" rather than "disabled
+    # tasks", which is the number a reader can act on.
+    if (Test-FrozenTaskState -State ([string]$task.State)) {
+        $frozen += $task.TaskName
+        continue
+    }
 
     $failures += [pscustomobject]@{
         Name    = $task.TaskName
@@ -186,6 +223,13 @@ if ($Markdown) {
                 $f.Name, $f.Result, $f.Hex, (Format-Stamp $f.LastRun), (Format-Stamp $f.NextRun)
         }
     }
+    # Reported, not silently dropped. A sweep that hides how much it discarded
+    # reads as "nothing to see" when it isn't -- and a task disabled by accident
+    # is a real problem, merely not a FAILURE one.
+    if ($frozen.Count -gt 0) {
+        ''
+        "_Exclu : $($frozen.Count) tâche(s) désactivée(s) au code figé — $($frozen -join ', ')._"
+    }
 } else {
     if ($failures.Count -eq 0) {
         Write-Host "No failed scheduled tasks on $env:COMPUTERNAME (benign codes excluded)." -ForegroundColor Green
@@ -198,6 +242,9 @@ if ($Markdown) {
                           @{ n = 'LastRun'; e = { Format-Stamp $_.LastRun } },
                           @{ n = 'NextRun'; e = { Format-Stamp $_.NextRun } } |
             Format-Table -AutoSize
+    }
+    if ($frozen.Count -gt 0) {
+        Write-Host "Excluded: $($frozen.Count) disabled task(s) with a frozen result — $($frozen -join ', ')" -ForegroundColor DarkGray
     }
 }
 

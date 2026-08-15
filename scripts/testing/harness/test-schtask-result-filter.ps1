@@ -24,8 +24,13 @@ function Assert-That([string]$Label, [bool]$Condition) {
     else { $script:Fails++; Write-Host "  FAIL $Label" -ForegroundColor Red }
 }
 
-$Target = Join-Path $PSScriptRoot '..' '..' 'maintenance' 'report-failed-scheduled-tasks.ps1'
-$Target = [System.IO.Path]::GetFullPath($Target)
+# Forme chaine, PAS Join-Path multi-arguments : sous Windows PowerShell 5.1,
+# Join-Path n'accepte que DEUX arguments et le harnais meurt sur
+# "Impossible de trouver un parametre positionnel acceptant l'argument .." --
+# avant sa premiere assertion. La CI tourne pwsh 7 et ne verrait jamais la
+# difference ; un harnais qui ne demarre pas chez l'humain qui le lance ne sert
+# a rien. Constate en le lancant sous les deux editions.
+$Target = [System.IO.Path]::GetFullPath("$PSScriptRoot/../../maintenance/report-failed-scheduled-tasks.ps1")
 Write-Host "=== scheduled-task result filter harness ==="
 Write-Host "Target: $Target"
 
@@ -92,7 +97,26 @@ Assert-That "le garde filtre aussi par NOM"               ($Text -match '\$Forei
 Assert-That "OneDrive est exclu nommement"                ($Text -match 'OneDrive Standalone Update Task')
 Assert-That "le garde consomme nom ET chemin"             ($Text -match 'Test-OwnedTask\s+-TaskPath\s+\$task\.TaskPath\s+-TaskName\s+\$task\.TaskName')
 
-# --- 4. Discipline de code de sortie ---------------------------------------
+# --- 4. Un resultat fige n'est pas une panne a rapporter --------------------
+# Datapoint web1 sur cette PR (2026-08-15) : 2 de ses 3 resultats etaient des
+# taches Disabled portant un code fige -- elles reapparaitraient a chaque
+# execution, indefiniment. ai-01 n'en a aucune, donc cette regle est couverte
+# ICI et pas par la liste vivante de la machine qui l'ecrit.
+Assert-That "un garde d'etat fige existe"                 ($Text -match 'function\s+Test-FrozenTaskState\b')
+Assert-That "le garde vise Disabled"                      ($Text -match "\`$State\s+-eq\s+'Disabled'")
+Assert-That "la boucle consomme le garde d'etat"          ($Text -match 'Test-FrozenTaskState\s+-State')
+# L'ordre est la moitie qui compte : place AVANT le filtre de codes benins, le
+# compteur dirait "taches desactivees" au lieu de "taches desactivees qui
+# auraient ete rapportees" -- un nombre que personne ne peut utiliser.
+Assert-That "le garde d'etat vient APRES le filtre de codes" `
+    ($Text -match 'Test-BenignTaskResult\s+-ResultCode[\s\S]{0,600}?Test-FrozenTaskState\s+-State')
+# Rien de silencieux : ce qui est ecarte est compte et nomme dans les DEUX
+# sorties, sinon le rapport se lit "rien a signaler" alors qu'il a jete des
+# lignes.
+Assert-That "l'exclusion est rapportee en markdown"       ($Text -match '\$frozen\.Count[^\r\n]*\r?\n[^\r\n]*désactivée|désactivée[^\r\n]*\$frozen')
+Assert-That "l'exclusion est rapportee en console"        ($Text -match 'Write-Host[^\r\n]*disabled task\(s\)[^\r\n]*\$frozen')
+
+# --- 5. Discipline de code de sortie ---------------------------------------
 # Un moniteur qui rend non-zero quand il TROUVE quelque chose se denonce
 # lui-meme au balayage suivant s'il est un jour planifie.
 $ExitCodes = [regex]::Matches($Text, '(?m)^\s*exit\s+(\d+)') | ForEach-Object { $_.Groups[1].Value }
