@@ -277,7 +277,12 @@ $allResults = [System.Collections.Generic.List[psobject]]::new()
 foreach ($repo in $Repos) {
     if (-not (Test-Path -LiteralPath (Join-Path $repo '.git'))) { continue }
 
-    $entries = Get-WorktreeEntries -Repo $repo
+    # @() is load-bearing: PowerShell unrolls a one-element array on return, so a repo
+    # whose only entry is its own MAIN checkout comes back as a bare PSCustomObject.
+    # Under StrictMode .Count then throws PropertyNotFoundException instead of being 1,
+    # so this very guard fails to skip the repo and it falls through to full processing
+    # with a scalar. Measured 2026-08-15 on the first fleet run (jsboige_test).
+    $entries = @(Get-WorktreeEntries -Repo $repo)
     if ($entries.Count -le 1) {
         Write-Host "  $repo : no extra worktree" -ForegroundColor DarkGray
         continue
