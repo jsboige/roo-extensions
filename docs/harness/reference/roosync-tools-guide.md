@@ -145,8 +145,8 @@ roosync_inventory({ type: "status", detail: "full", includeDetails: true })
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `source` | string | local | Source machine ID |
-| `target` | string | "remote" | Target machine or profile |
+| `source` | string | local machineId | Source machine. Alias `"local-machine"` = machine locale ; machines distantes par machineId réel (ex `"myia-ai-01"`). NB : le littéral `"local"` retourne une erreur CRITICAL de validation |
+| `target` | string | first other roster machine (sorted) | Cible. `"local-machine"` ou machineId réel — le littéral `"remote"` n'est PAS une valeur valide (CRITICAL) |
 | `granularity` | string | — | `mcp`, `mode`, `settings`, `claude`, `modes-yaml`, `full` |
 | `filter` | string | — | Path filter (e.g. `"jupyter"` for specific MCP) |
 | `force_refresh` | boolean | false | Force inventory re-collection |
