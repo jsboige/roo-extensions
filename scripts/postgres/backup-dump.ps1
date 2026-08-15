@@ -89,9 +89,11 @@ if ([string]::IsNullOrWhiteSpace($SharedPath)) {
 # Resolve backup path: outside .shared-state to avoid GDrive offline pin
 if ([string]::IsNullOrWhiteSpace($BackupPath)) { $BackupPath = $env:PG_BACKUP_PATH }
 if ([string]::IsNullOrWhiteSpace($BackupPath)) {
+    # Split-Path, not .Parent: Resolve-Path returns a PathInfo, which has no Parent
+    # member — $rooSyncRoot.Parent.FullName silently expands to "" (#3122 review).
     $rooSyncRoot = (Resolve-Path $SharedPath -ErrorAction SilentlyContinue)
     if ($rooSyncRoot) {
-        $BackupPath = "$($rooSyncRoot.Parent.FullName)/pg-backups"
+        $BackupPath = "$(Split-Path $rooSyncRoot -Parent)/pg-backups"
     } else {
         $BackupPath = "$SharedPath/../pg-backups"
     }
