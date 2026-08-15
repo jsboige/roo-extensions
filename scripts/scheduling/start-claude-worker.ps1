@@ -210,9 +210,19 @@ function Test-SkAgentAvailable {
     .DESCRIPTION
     Prevents idle-coverage workers from wasting ~18 min when sk-agent is down.
     Checks: wrapper script exists → Python available → config file exists → JSON-RPC initialize handshake.
+
+    The budget must clear a COLD start, not a warm one. Measured on ai-01 2026-08-15:
+    cold handshake 9.7s, warm 4.8-5.3s (Start-Job overhead is negligible, ~0.2s).
+    The worker only reaches this guard on an idle tick — 6h apart — so it is always
+    cold, and the original 10s default (introduced wholesale with the guard in #2376,
+    never calibrated) sat 0.3s above the cold cost. Both idle ticks of 2026-08-15
+    tripped it and skipped idle coverage while sk-agent was healthy. 30s keeps the
+    guard's purpose intact: it still costs 30s to decide instead of the ~18 min it
+    protects, and cold-start cost is machine-dependent (#1244), so the margin has to
+    absorb slower hosts than this one.
     #>
     param(
-        [int]$TimeoutSeconds = 10
+        [int]$TimeoutSeconds = 30
     )
 
     try {
@@ -4161,7 +4171,9 @@ try {
         Write-Log "Aucune tâche disponible et aucun wait state prêt"
 
         # --- Guard #2139: Check sk-agent availability before idle tasks ---
-        if (-not (Test-SkAgentAvailable -TimeoutSeconds 10)) {
+        # 30s, not 10s: this is a cold start every time (idle ticks are 6h apart).
+        # See Test-SkAgentAvailable for the measurement.
+        if (-not (Test-SkAgentAvailable -TimeoutSeconds 30)) {
             Write-Log "sk-agent MCP unavailable — skipping idle tasks to avoid wasted compute (#2139)" "WARN"
             Write-Log "=== WORKER TERMINÉ (idle skipped, no sk-agent) ==="
             exit 0
