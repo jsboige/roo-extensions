@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.0.0 (sk-agent count + MCP remote Claude.ai section + web_reader requalifié)
+**Version:** 3.1.0 (section MCP désactivés ≠ absents, #3137)
 
 ---
 
@@ -28,6 +28,19 @@
 | **searxng** | 2 | **Web canonique**: searxng_web_search + web_url_read. Markdown: prefix r.jina.ai (#2210) |
 
 **Note:** markitdown (1 outil) est configure uniquement dans Roo `mcp_settings.json`, pas dans Claude Code `~/.claude.json`.
+
+## MCP désactivés ≠ absents (#3137)
+
+Des MCP dédiés sont **désactivés** (`"disabled": true`) pour réduire la surface exposée — pas désinstallés. Leur config reste sur disque, l' état varie **par workspace** (`<workspace>/.mcp.json`) et par machine (`~/.claude.json` → `mcpServers`).
+
+**Avant de proposer d'installer un nouveau client** (playwright, sk-agent, jupyter-papermill…), vérifier si le MCP dédié n'est pas simplement désactivé :
+
+1. Lire le `.mcp.json` du workspace + `~/.claude.json` (`mcpServers`) : champ `disabled`.
+2. Si désactivé → réactiver (`"disabled": false`), puis **redémarrer la session** du workspace (scope MCP chargé au démarrage).
+3. Vérifier que les outils `mcp__<serveur>__*` apparaissent.
+4. Re-désactiver après usage si la réduction de surface doit être restaurée.
+
+**Recensement flotte par machine/workspace :** issue #3137. Un MCP désactivé n'est PAS un MCP retiré (cf. section Retires) — la réactivation est locale et réversible, zéro installation.
 
 ## MCP Remote Claude.ai (injectés, pas dans config locale)
 
