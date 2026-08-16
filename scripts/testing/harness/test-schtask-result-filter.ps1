@@ -128,6 +128,8 @@ if (-not $Foreign) {
         (Test-MatchesAny 'OneDrive Per-Machine Standalone Update Task')
     Assert-That "NahimicTask64 (0xC0000005, po-2023) est attrapee" `
         (Test-MatchesAny 'NahimicTask64')
+    Assert-That "NahimicTask32 (0x40010004, po-204) est attrapee" `
+        (Test-MatchesAny 'NahimicTask32')
 
     # La contre-epreuve : un motif assez large pour avaler les notres rendrait
     # le rapport vide tout en restant vert ci-dessus.
