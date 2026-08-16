@@ -12,6 +12,7 @@ on:
       # worktree classifier landing on main would never re-run its own check.
       - 'scripts/maintenance/worktree-classify.ps1'
       - 'scripts/testing/harness/**'
+      - 'scripts/dashboard-scheduler/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -147,3 +148,14 @@ jobs:
       - name: Run scheduled-task result filter harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-schtask-result-filter.ps1
+
+      # The listener's R11 filter skips WAKEs that reference a closed issue, and
+      # when it skips them all it advances lastAck — so a wrongly-skipped message
+      # is destroyed, not deferred. On 2026-08-16 its pattern read "AC#4" as issue
+      # #4 and dropped a real WAKE addressed to ai-01. The harness extracts the
+      # live pattern out of dashboard-listener.ps1 and exercises it, so restoring
+      # the naive '#(\d+)' turns this step red. Pure string work, no gh, no
+      # network — hence ubuntu-latest alongside the others.
+      - name: Run listener issue-reference harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-listener-issue-refs.ps1

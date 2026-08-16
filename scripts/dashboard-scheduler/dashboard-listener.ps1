@@ -482,7 +482,20 @@ function Test-ReferencedClosedIssues($content, $repo) {
     $closed = @()
     if ([string]::IsNullOrEmpty($repo)) { return $closed }
 
-    $issueMatches = [regex]::Matches($content, '#(\d+)')
+    # The lookbehind is load-bearing. Without it, '#(\d+)' matches the tail of any
+    # token ending in #N -- and acceptance criteria are written "AC#4". On
+    # 2026-08-16 that swallowed a real WAKE addressed to ai-01: the line read
+    # "[WAKE-CLAUDE] myia-ai-01 - #1357 AC#4 : probe E2E", the check extracted
+    # BOTH #1357 (open) and #4 (closed, unrelated), and the message was dropped.
+    #
+    # The two error directions are not symmetric, which is what sets the bias:
+    #   false positive -> the WAKE is skipped AND lastAck advances (see caller),
+    #                     so it is never retried. The instruction is destroyed.
+    #   false negative -> an agent wakes on a stale target, reads the issue, and
+    #                     says so. Cheap and self-correcting.
+    # So this pattern deliberately under-matches: "PR#3083" is not treated as a
+    # reference either. Only a # at a word boundary counts.
+    $issueMatches = [regex]::Matches($content, '(?<![A-Za-z0-9_])#(\d+)')
     $checked = 0
     foreach ($m in $issueMatches) {
         if ($checked -ge 5) { break }
