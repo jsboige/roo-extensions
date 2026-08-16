@@ -140,6 +140,19 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-claude-resolution.ps1
 
+      # report-failed-scheduled-tasks.ps1 exists because nothing reads
+      # LastTaskResult: five of our own tasks on ai-01 were sitting on failing
+      # exit codes on 2026-08-15, the oldest since 2026-08-01, none of which had
+      # reached anyone. Its entire value is the list of result codes it treats as
+      # benign, and that list is a standing target for "simplification" — drop
+      # 0x800710E0 and it denounces the live WAKE listener four times an hour;
+      # add RC=1 and it goes quiet while looking healthy. The harness reads that
+      # list from the production AST and asserts both directions. Static (no
+      # scheduler access), so ubuntu-latest is fine.
+      - name: Run scheduled-task result filter harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-schtask-result-filter.ps1
+
       # Same reasoning, applied to mcp-chain-watchdog.ps1, whose repair drops
       # every live bot session. Two ways to be wrong, both measured on ai-01 on
       # 2026-08-16: it restarted the chain for a 20s stall (nominal round-trip
