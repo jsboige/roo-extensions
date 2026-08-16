@@ -27,6 +27,7 @@
 | **MCP Diagnosis (procedure)** | Healthcheck, architecture chain, diagnostic par couche (procedure complete) | `mcp-diagnosis-procedure.md` |
 | **Restart-on-Saturation (#2578)** | Empty-response detection + auto-restart worker. Traces SANCTUARY (no GC, no delete) | `restart-on-saturation.md` |
 | **Context Explosion (#2577)** | Diagnostic, non-destructive archive, dedup detection for large sessions | `context-explosion-runbook.md` |
+| **Unified Store Ops (#2957)** | Séquence fermeture AC : env-gate dual-write, backfill CLI (dry-run→live), catchup SQL casse, requêtes vérification, rollout flotte | `unified-store-ops-runbook.md` |
 
 ## Quality & CI
 
