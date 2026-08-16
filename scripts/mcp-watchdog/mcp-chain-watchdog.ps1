@@ -300,6 +300,19 @@ if ($result.Ok) {
     # Test-UrlIsLocalHop. Until 2026-08-16 the condition was $e2eUrl -ne $lanUrl,
     # which compares two spellings of the same hop and grants the upstream
     # verdict on a difference of text.
+    #
+    # Second measurement of the same night, taken on main by 155db6df: a GDrive
+    # flap made the e2e spelling time out at 20s while the LAN spelling squeaked
+    # through at 15s, and this branch mislabeled a purely local slowdown as an
+    # upstream wedge. Same defect, caught twice, hours apart.
+    #
+    # 155db6df gated the branch on $e2eUrl -match 'mcp-tools\.myia\.io'. That
+    # closes this instance and no other: it hardcodes today's edge hostname, so
+    # a renamed edge or a second one silently changes the verdict, and it keeps
+    # naming po-2023 in the log line. Test-UrlIsLocalHop asks the question the
+    # verdict actually rests on — does this probe leave the host — by resolving
+    # both URLs and comparing against our own addresses. No hostname is spelled
+    # out anywhere, and no machine is accused.
     $lanResult = Test-Lan
 
     # The same argument as above, applied to the probe that actually DECIDES the
