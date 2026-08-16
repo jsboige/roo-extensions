@@ -168,6 +168,20 @@ function Invoke-McpProbe {
 # down. 3x the normal budget and ~2.5x the slowest round-trip ever observed to
 # SUCCEED (23_164ms) -- generous enough that "still nothing after this" is real
 # evidence of death rather than evidence of a slow shared drive.
+#
+# That 2.5x is a property of THIS machine, not of the number. web1 reviewed this
+# PR and measured its own worst SUCCEEDING GDrive round-trip at 54s, which turns
+# the same 60s into a margin of 1.1x -- a slow-but-healthy call there lands
+# within a second of the timeout. Anyone deploying this watchdog on another host
+# has to re-derive the budget from that host's own slowest success; the figure
+# below is not portable, and the harness deliberately bounds it 24..180 rather
+# than pinning 60 so that re-deriving stays cheap.
+#
+# Left as a constant rather than a parameter on purpose: this watchdog runs on
+# ai-01 alone (web1 confirmed by schtasks that it hosts a different one), and a
+# knob for a deployment that does not exist would be an abstraction with a
+# single caller. The measurement is what a future deployer needs, so the
+# measurement is what is recorded here.
 $SlowRetryTimeoutSec = 60
 
 function Test-E2E { Invoke-McpProbe -Url $e2eUrl -TimeoutSec 20 }
