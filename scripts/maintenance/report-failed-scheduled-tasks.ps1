@@ -119,13 +119,17 @@ function Test-BenignTaskResult {
 #       machine's spelling is not the family it was meant to name -- and the
 #       report on that machine would have carried the same noise row forever.
 #
-#   NahimicTask64                                 RC 0xC0000005, po-2023, NextRun=never.
-#       Access violation in an audio-driver task, registered at the root. Also
-#       reported by po-2023 on this PR; frozen (it has no next run), so it would
-#       reappear in every single report.
+#   NahimicTask*                                  RC 0xC0000005 (Task64, po-2023) and
+#                                                 RC 0x40010004 (Task32, po-204), NextRun=never.
+#       Access violation in an audio-driver task, registered at the root. Reported
+#       by po-2023 (Task64) and po-204 (Task32) on this PR. The first version
+#       excluded only the literal 'NahimicTask64' -- the spelling seen on po-2023 --
+#       and po-204's Task32 twin went straight through, same lesson as the OneDrive
+#       prefix above: a name taken from one machine is not the family. Both are
+#       frozen (no next run), so each would reappear in every single report.
 $ForeignRootTaskPatterns = @(
     'OneDrive*Update Task*',
-    'NahimicTask64'
+    'NahimicTask*'
 )
 
 function Test-OwnedTask {

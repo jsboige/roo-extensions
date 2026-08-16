@@ -143,13 +143,99 @@ function Invoke-McpProbe {
         $sw.Stop()
         $status = 0
         if ($_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        return @{ Ok = $false; Status = $status; LatencyMs = $sw.ElapsedMilliseconds; Body = $_.Exception.Message }
+        # SLOW IS NOT DEAD. A timeout means we stopped waiting -- it says nothing
+        # about whether the backend is alive. Measured 2026-08-16 on ai-01:
+        # nominal round-trip is 589ms (p50 of 30 probes), yet a probe that took
+        # 23_164ms SUCCEEDED, well past this 20s budget. Meanwhile the failure
+        # this watchdog was written for -- the RSM instance dead inside a live
+        # sparfenyuk -- is FAST: it answers 200 with isError:true in under 100ms.
+        # So the discriminating signal is exactly the one a bare Ok=$false threw
+        # away, and at 00:48 that cost a full destructive chain restart on a
+        # backend that was merely waiting on GDrive.
+        #
+        # Detected on elapsed time, not on the exception type or message: the
+        # messages are localised (this machine logged "Le delai d'attente de
+        # l'operation a expire") and the exception class differs between PS 5.1
+        # (WebException) and PS 7 (TaskCanceledException). Elapsed time is the
+        # one signal that is neither locale- nor version-dependent.
+        $budgetMs = [int]($TimeoutSec * 1000 * 0.9)
+        $timedOut = ($status -eq 0 -and $sw.ElapsedMilliseconds -ge $budgetMs)
+        return @{ Ok = $false; Status = $status; LatencyMs = $sw.ElapsedMilliseconds; TimedOut = $timedOut; Body = $_.Exception.Message }
     }
 }
+
+# Retry budget used once a probe has timed out, before concluding the chain is
+# down. 3x the normal budget and ~2.5x the slowest round-trip ever observed to
+# SUCCEED (23_164ms) -- generous enough that "still nothing after this" is real
+# evidence of death rather than evidence of a slow shared drive.
+#
+# That 2.5x is a property of THIS machine, not of the number. Two reviewers
+# measured their own worst SUCCEEDING GDrive round-trip on this PR:
+#
+#   ai-01    23s  -> 60s is a 2.5x margin
+#   web1     54s  -> 60s is a 1.1x margin
+#   po-2026  70s  -> 60s is BELOW the slowest success ever seen there
+#
+# po-2026's number is the one that matters, and it is above the budget: a cold
+# read after a G: remount pays cloud lazy-hydration, a cost ai-01 cannot observe
+# by construction because nothing hydrates here. On such a host a healthy call
+# is classified TimedOut. That is survivable only because of the rule above --
+# post-fc663849 a timeout DEFERS the repair instead of performing it, so the
+# damage is a WARN every 2 minutes during a long stall, not a chain restart.
+#
+# So: this figure is not portable, and 60 is not a floor. Anyone deploying this
+# watchdog elsewhere has to re-derive it from that host's own slowest success
+# (po-2026 recommends >= 90s to cover the measured range). The harness bounds it
+# 24..180 rather than pinning 60 precisely so that re-deriving stays cheap.
+#
+# Left as a constant rather than a parameter on purpose: this watchdog runs on
+# ai-01 alone -- both web1 and po-2026 checked their own schtasks and neither
+# hosts it -- and a knob for a deployment that does not exist would be an
+# abstraction with a single caller. What a future deployer actually needs is not
+# a knob but the measurements, so the measurements are what is recorded here.
+$SlowRetryTimeoutSec = 60
 
 function Test-E2E { Invoke-McpProbe -Url $e2eUrl -TimeoutSec 20 }
 
 function Test-Lan { Invoke-McpProbe -Url $lanUrl -TimeoutSec 20 }
+
+function Test-UrlIsLocalHop {
+    <#
+    .SYNOPSIS
+        True when a probe URL resolves to this very machine.
+    .DESCRIPTION
+        Used to decide whether the differential (e2e vs LAN) verdict means
+        anything at all. Comparing the URL STRINGS -- which is what this script
+        did until 2026-08-16 -- answers a different question: on ai-01,
+        MCP_PROXY_BASE_URL is http://host.docker.internal:9090, and
+        host.docker.internal resolves to 192.168.0.47, which IS ai-01. The two
+        probes then traverse the identical hop while differing as text, and the
+        verdict built on that difference blamed a machine that is not even in
+        the path: at 00:50:33 it logged "wedge is upstream of ai-01 (IIS/ARR on
+        po-2023)" for a stall entirely local to this host.
+    #>
+    param([Parameter(Mandatory)][string]$Url)
+
+    try {
+        $u = [Uri]$Url
+        $targets = @([System.Net.Dns]::GetHostAddresses($u.Host) | ForEach-Object { $_.IPAddressToString })
+        if (-not $targets) { return $false }
+        $mine = @([System.Net.Dns]::GetHostAddresses([System.Net.Dns]::GetHostName()) | ForEach-Object { $_.IPAddressToString })
+        foreach ($t in $targets) {
+            if ($t -eq '127.0.0.1' -or $t -eq '::1' -or ($mine -contains $t)) { return $true }
+        }
+        return $false
+    } catch {
+        # Unresolvable: say "not local" rather than guess. The caller only uses
+        # this to GRANT the upstream-wedge verdict, so the cautious answer is
+        # the one that does not manufacture a second hop out of a DNS failure.
+        return $false
+    }
+}
+
+# The differential verdict is only meaningful when the e2e probe actually leaves
+# this machine. If both ends land here, they are one hop and one failure.
+$probesAreDistinctHops = -not ((Test-UrlIsLocalHop -Url $e2eUrl) -and (Test-UrlIsLocalHop -Url $lanUrl))
 
 function Test-Sparfenyuk {
     try {
@@ -186,25 +272,77 @@ if (Test-Path $repairStateFile) {
 $repairOnCooldown = ((Get-Date) - $lastRepairAt).TotalMinutes -lt $RepairCooldownMin
 
 $result = Test-E2E
+
+# A timed-out probe buys one retry on a generous budget before we are allowed to
+# call the chain down. The repair below stops the task, restarts sparfenyuk and
+# restarts the container -- it drops every live bot session. That price is worth
+# paying against a dead instance; it is pure damage against a slow shared drive,
+# and on 2026-08-16 the script paid it twice in four minutes for a stall that
+# resolved on its own by 00:52.
+if (-not $result.Ok -and $result.TimedOut) {
+    Write-Log 'WARN' "E2E probe spent its full 20s budget (latency=$($result.LatencyMs)ms) — that is slowness, not proof of death. Retrying once with ${SlowRetryTimeoutSec}s before concluding."
+    $result = Invoke-McpProbe -Url $e2eUrl -TimeoutSec $SlowRetryTimeoutSec
+    if ($result.Ok) { $script:alerts += "chain-slow: $($result.LatencyMs)ms (nominal ~600ms)" }
+}
+
 if ($result.Ok) {
-    Write-Log 'OK'   "E2E chain healthy (REAL tool call, latency=$($result.LatencyMs)ms)"
+    if ($result.LatencyMs -ge 20000) {
+        Write-Log 'OK' "E2E chain healthy but SLOW (REAL tool call, latency=$($result.LatencyMs)ms vs ~600ms nominal) — reported, NOT repaired."
+    } else {
+        Write-Log 'OK'   "E2E chain healthy (REAL tool call, latency=$($result.LatencyMs)ms)"
+    }
 } else {
     $bodyExcerpt = ($result.Body -replace '\s+', ' ').Substring(0, [Math]::Min(180, $result.Body.Length))
     Write-Log 'FAIL' "E2E chain DOWN (HTTP $($result.Status), latency=$($result.LatencyMs)ms) — $bodyExcerpt"
 
     # Differential probe: is the wedge in our backend or upstream (IIS/ARR/network)?
-    # ONLY meaningful on the edge config (https://mcp-tools.myia.io). On the
-    # direct-TBXark bypass, e2e (host.docker.internal:9090) and LAN (127.0.0.1:9090)
-    # are the SAME hop reached via two spellings — 2026-08-16 night: a GDrive
-    # flap made the e2e spelling time out while the LAN spelling squeaked through
-    # at 15s, and this branch mislabeled it "wedge is upstream (IIS/po-2023),
-    # NOT restarting backend" over a purely local slowdown.
+    # Only meaningful when the e2e probe genuinely leaves this machine — see
+    # Test-UrlIsLocalHop. Until 2026-08-16 the condition was $e2eUrl -ne $lanUrl,
+    # which compares two spellings of the same hop and grants the upstream
+    # verdict on a difference of text.
+    #
+    # Second measurement of the same night, taken on main by 155db6df: a GDrive
+    # flap made the e2e spelling time out at 20s while the LAN spelling squeaked
+    # through at 15s, and this branch mislabeled a purely local slowdown as an
+    # upstream wedge. Same defect, caught twice, hours apart.
+    #
+    # 155db6df gated the branch on $e2eUrl -match 'mcp-tools\.myia\.io'. That
+    # closes this instance and no other: it hardcodes today's edge hostname, so
+    # a renamed edge or a second one silently changes the verdict, and it keeps
+    # naming po-2023 in the log line. Test-UrlIsLocalHop asks the question the
+    # verdict actually rests on — does this probe leave the host — by resolving
+    # both URLs and comparing against our own addresses. No hostname is spelled
+    # out anywhere, and no machine is accused.
     $lanResult = Test-Lan
-    $onEdgeConfig = $e2eUrl -match 'mcp-tools\.myia\.io'
-    if ($lanResult.Ok -and $onEdgeConfig) {
-        Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of ai-01 (IIS/ARR/network on po-2023). NOT restarting backend."
-        $script:alerts += "iis-or-network-issue: e2e-http-$($result.Status) lan-ok"
+
+    # The same argument as above, applied to the probe that actually DECIDES the
+    # repair. Until po-2025 reviewed this PR the retry covered only the E2E side,
+    # so a GDrive stall outliving 20+60+20s still reached the destructive branch
+    # -- a hundred seconds later than before, but just as destructively. The
+    # budget was never the guard; the reasoning is: the failure this repair
+    # exists for (a dead RSM instance inside a live sparfenyuk) answers in under
+    # 100 ms with isError:true, so it can NEVER present as a timeout.
+    if (-not $lanResult.Ok -and $lanResult.TimedOut) {
+        Write-Log 'WARN' "LAN probe spent its full 20s budget (latency=$($lanResult.LatencyMs)ms) — retrying once with ${SlowRetryTimeoutSec}s before deciding anything destructive."
+        $lanResult = Invoke-McpProbe -Url $lanUrl -TimeoutSec $SlowRetryTimeoutSec
+    }
+
+    if ($lanResult.Ok -and $probesAreDistinctHops) {
+        # Names no machine: this host knows that the wedge is NOT in its own
+        # backend, and nothing more. The previous wording asserted "IIS/ARR on
+        # po-2023" -- a conclusion the probe cannot support, and the same false
+        # attribution the hop guard above was written to stop producing.
+        Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of $env:COMPUTERNAME (reverse proxy / network), NOT in this backend. NOT restarting."
+        $script:alerts += "upstream-issue: e2e-http-$($result.Status) lan-ok"
         $result = $lanResult  # final result reflects backend health (OK), not E2E
+    } elseif ($lanResult.TimedOut) {
+        # Both probes ran out of clock, the second one on a 60s budget. That is
+        # 100+ seconds of silence, which is a lot -- and still not the signature
+        # of the fault this repair treats. Restarting here trades a stall that
+        # may clear itself (00:48 -> healthy at 00:52) for a certainty: every
+        # live bot session dropped. Report it and let the next tick decide.
+        Write-Log 'WARN' "LAN probe STILL timing out after the ${SlowRetryTimeoutSec}s retry (latency=$($lanResult.LatencyMs)ms) — unresponsive is not dead. Deferring repair to the next tick."
+        $script:alerts += "chain-unresponsive-repair-deferred: e2e-and-lan-both-timed-out"
     } elseif ($repairOnCooldown) {
         Write-Log 'WARN' "chain still down but repair is on cooldown (last repair $([math]::Round(((Get-Date) - $lastRepairAt).TotalMinutes,0)) min ago < $RepairCooldownMin) — waiting, not restarting"
         $script:alerts += "chain-down-repair-on-cooldown"
