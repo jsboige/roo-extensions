@@ -68,7 +68,9 @@ node scripts/backfill-unified-store.mjs
 
 Sorties attendues : `Mode: DRY RUN (NullUnifiedStoreWriter)` / `Mode: LIVE (PgUnifiedStoreWriter)`, puis `total / processed / skipped / errors`.
 
-⚠️ **Durée :** `--limit` borne le nombre d'*upserts*, pas la lecture — le CLI lit **tout** le corpus `.json` avant d'appliquer la limite (lecture directe dans le script), et la détection des stockages (`RooStorageDetector`) ajoute son propre scan. Sur un gros corpus, même `--dry-run --limit 10` prend un temps proportionné au corpus : lancer en tâche de fond, pas en interactif.
+⚠️ **Prérequis submod — fix #993 (`cache-manager` timer unref) :** sans lui, le CLI **complete son travail puis ne se termine jamais** (timer de cleanup jamais `unref()`'d maintient l'event loop ; mesuré po-204 : run fini, 0 CPU, process vivant 28+ min — données OK, process jamais rendu). Sur un build antérieur au fix, wrapper avec `timeout`. Post-fix, validé firsthand : dry-run intégral EXIT=0 en secondes (14 squelettes po-204).
+
+**Durée :** `--limit` borne le nombre d'*upserts*, pas la lecture — le CLI lit **tout** le corpus `.json` avant d'appliquer la limite (lecture directe dans le script). Sur le corpus ai-01 (~7 400 squelettes), lancer en tâche de fond et vérifier le EXIT=0.
 
 - `--dry-run` **supprime** les clés après le chargement du `.env` (fix #2815 — avant, une machine avec `.env` configuré se connectait LIVE malgré le flag).
 - Chaque machine ne backfill que **son** corpus disque local (lecture directe de ses `tasks/.skeletons/`, pas via le cache singleton).
@@ -129,4 +131,4 @@ SELECT machine_id, count(*) FROM conversations GROUP BY 1 ORDER BY 2 DESC;
 
 ---
 
-**Historique :** 3 défauts diagnostiqués ai-01 c.73 (#2957) · fixes web1 (#898/#899) + po-2026 (#970) · verdict deploy-ready web1 12/08 · runbook po-204 16/08 (rédigé contre le code `c42f1706` lu firsthand ; exécution dry-run po-204 rapportée en commentaire de la PR).
+**Historique :** 3 défauts diagnostiqués ai-01 c.73 (#2957) · fixes web1 (#898/#899) + po-2026 (#970) · verdict deploy-ready web1 12/08 · runbook po-204 16/08 — **séquence §2 validée firsthand** (dry-run intégral po-204 : 14 squelettes, 0 erreur, EXIT=0) + fix découverte au passage : submod #993 (timer unref, le CLI ne terminait pas).
