@@ -98,7 +98,19 @@ Un `gh auth status` lu en debut de session ne dit rien de l'identite de la comma
 
 ## Pas de PR necessaire pour
 
-MEMORY.md, dashboards, `.claude/rules/`, `.roo/rules/`, fichiers gitignored
+MEMORY.md (`~/.claude/projects/…`), dashboards (GDrive), fichiers gitignored.
+
+Ces trois-la ne sont **pas versionnes** : il n'y a pas de PR a faire, faute de commit.
+
+### `.claude/rules/` et `.roo/rules/` : PR OBLIGATOIRE (#3140)
+
+Ces deux repertoires **sont versionnes** et **proteges par la branch protection**. Ils figuraient
+par erreur dans la liste ci-dessus. La regle generale s'applique : **aucun push direct sur `main`**.
+
+Constate le 2026-08-16 (po-2023 c.18) : push refuse cote serveur, PR #3138 ouverte a la place.
+Le fait qu'un OWNER passe parfois en direct ne fait pas une exception — c'est un privilege
+d'identite, pas une propriete du chemin. Un agent qui croyait l'exception perd un cycle sur un
+push refuse.
 
 ---
 
