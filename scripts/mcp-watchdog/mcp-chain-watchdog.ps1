@@ -193,10 +193,15 @@ if ($result.Ok) {
     Write-Log 'FAIL' "E2E chain DOWN (HTTP $($result.Status), latency=$($result.LatencyMs)ms) — $bodyExcerpt"
 
     # Differential probe: is the wedge in our backend or upstream (IIS/ARR/network)?
-    # Only meaningful when the e2e URL differs from the LAN one (edge config);
-    # with the direct-TBXark bypass they are the same hop and both fail together.
+    # ONLY meaningful on the edge config (https://mcp-tools.myia.io). On the
+    # direct-TBXark bypass, e2e (host.docker.internal:9090) and LAN (127.0.0.1:9090)
+    # are the SAME hop reached via two spellings — 2026-08-16 night: a GDrive
+    # flap made the e2e spelling time out while the LAN spelling squeaked through
+    # at 15s, and this branch mislabeled it "wedge is upstream (IIS/po-2023),
+    # NOT restarting backend" over a purely local slowdown.
     $lanResult = Test-Lan
-    if ($lanResult.Ok -and $e2eUrl -ne $lanUrl) {
+    $onEdgeConfig = $e2eUrl -match 'mcp-tools\.myia\.io'
+    if ($lanResult.Ok -and $onEdgeConfig) {
         Write-Log 'WARN' "LAN backend HEALTHY (latency=$($lanResult.LatencyMs)ms) — wedge is upstream of ai-01 (IIS/ARR/network on po-2023). NOT restarting backend."
         $script:alerts += "iis-or-network-issue: e2e-http-$($result.Status) lan-ok"
         $result = $lanResult  # final result reflects backend health (OK), not E2E
