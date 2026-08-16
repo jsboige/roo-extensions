@@ -169,19 +169,30 @@ function Invoke-McpProbe {
 # SUCCEED (23_164ms) -- generous enough that "still nothing after this" is real
 # evidence of death rather than evidence of a slow shared drive.
 #
-# That 2.5x is a property of THIS machine, not of the number. web1 reviewed this
-# PR and measured its own worst SUCCEEDING GDrive round-trip at 54s, which turns
-# the same 60s into a margin of 1.1x -- a slow-but-healthy call there lands
-# within a second of the timeout. Anyone deploying this watchdog on another host
-# has to re-derive the budget from that host's own slowest success; the figure
-# below is not portable, and the harness deliberately bounds it 24..180 rather
-# than pinning 60 so that re-deriving stays cheap.
+# That 2.5x is a property of THIS machine, not of the number. Two reviewers
+# measured their own worst SUCCEEDING GDrive round-trip on this PR:
+#
+#   ai-01    23s  -> 60s is a 2.5x margin
+#   web1     54s  -> 60s is a 1.1x margin
+#   po-2026  70s  -> 60s is BELOW the slowest success ever seen there
+#
+# po-2026's number is the one that matters, and it is above the budget: a cold
+# read after a G: remount pays cloud lazy-hydration, a cost ai-01 cannot observe
+# by construction because nothing hydrates here. On such a host a healthy call
+# is classified TimedOut. That is survivable only because of the rule above --
+# post-fc663849 a timeout DEFERS the repair instead of performing it, so the
+# damage is a WARN every 2 minutes during a long stall, not a chain restart.
+#
+# So: this figure is not portable, and 60 is not a floor. Anyone deploying this
+# watchdog elsewhere has to re-derive it from that host's own slowest success
+# (po-2026 recommends >= 90s to cover the measured range). The harness bounds it
+# 24..180 rather than pinning 60 precisely so that re-deriving stays cheap.
 #
 # Left as a constant rather than a parameter on purpose: this watchdog runs on
-# ai-01 alone (web1 confirmed by schtasks that it hosts a different one), and a
-# knob for a deployment that does not exist would be an abstraction with a
-# single caller. The measurement is what a future deployer needs, so the
-# measurement is what is recorded here.
+# ai-01 alone -- both web1 and po-2026 checked their own schtasks and neither
+# hosts it -- and a knob for a deployment that does not exist would be an
+# abstraction with a single caller. What a future deployer actually needs is not
+# a knob but the measurements, so the measurements are what is recorded here.
 $SlowRetryTimeoutSec = 60
 
 function Test-E2E { Invoke-McpProbe -Url $e2eUrl -TimeoutSec 20 }
