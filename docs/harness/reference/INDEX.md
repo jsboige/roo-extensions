@@ -68,5 +68,6 @@
 | **Stub Detection** | CI gate pour stub exports | `stub-detection.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `../machine-specific/myia-web1-constraints.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
+| **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
 | **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |
