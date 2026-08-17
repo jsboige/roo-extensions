@@ -15,7 +15,7 @@ The meta-analysis tier is part of the **3-tier scheduling architecture** (3 type
 |------|-----------|----------|------|
 | **Meta-Analyst** | 72h | ALL | Observe, analyze, PROPOSE |
 | Coordinator | 6-12h | ai-01 only | Triage, dispatch, track |
-| Executor | 3h | ALL | Execute assigned tasks |
+| Executor | 4h | ALL | Execute assigned tasks |
 
 Each tier has 2 agents: one Roo scheduler + one Claude scheduler (schtask `Claude-MetaAudit`, launcher `scripts/scheduling/start-meta-audit.ps1`).
 
