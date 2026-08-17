@@ -175,11 +175,12 @@ docs/
 |---------|-------------|--------|
 | `myia-web1-constraints.md` | Contraintes web1 (16GB RAM, Win Server 2019) | active |
 
-### docs/harness/reports/ — 1 fichier
+### docs/harness/reports/ — 2 fichiers
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `cross-harness-analysis-2026-04-05.md` | Analyse croisee harnais etape 2 | active |
+| `harness-convergence-audit-2026-08-17.md` | Audit convergence roo-extensions ↔ CoursIA passe 2 (verification locale po-2026, issue #3111) | active |
 
 ### docs/harness/research/ — 1 fichier
 
