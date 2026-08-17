@@ -9,6 +9,9 @@
     - worker:            Executor tier (6h, Haiku baseline, all machines)
     - coordinator:       Coordinator/merge tier (12h, Sonnet, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
+    - executor-cron:     Executor /executor cadence 4h (#3141 — substitution CronCreate session-only).
+                         Wrapper minimal qui spawn `claude -p /executor`. Toutes machines.
+                         Premier déploiement : po-2026 (lane #3141 explicite).
     - dashboard-watcher: Dashboard gate (1h, spawns Haiku on actionable messages, all machines).
                          Default mode: multi-workspace — 1 task sweeps ALL workspace
                          dashboards discovered under $ROOSYNC_SHARED_PATH/dashboards/.
@@ -66,6 +69,7 @@
     .\setup-scheduler.ps1 -Action install                          # Install worker (6h, Haiku baseline)
     .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Sonnet baseline, ai-01 only)
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
+    .\setup-scheduler.ps1 -Action install -TaskType executor-cron  # Install executor-cron (4h, Sonnet, #3141)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
     .\setup-scheduler.ps1 -Action remove -TaskType coordinator     # Remove coordinator task
     .\setup-scheduler.ps1 -Action install -TaskType dashboard-watcher -Workspace nanoclaw  # Install NanoClaw-only watcher (legacy)
@@ -93,7 +97,7 @@ param(
     [ValidateSet('install', 'remove', 'list', 'test')]
     [string]$Action = 'list',
 
-    [ValidateSet('worker', 'coordinator', 'meta-audit', 'dashboard-watcher', 'health-check')]
+    [ValidateSet('worker', 'coordinator', 'meta-audit', 'dashboard-watcher', 'health-check', 'executor-cron')]
     [string]$TaskType = 'worker',
 
     [double]$IntervalHours = 0,
@@ -180,6 +184,15 @@ $TaskConfigs = @{
         DefaultTimeout = 5
         Description = "Claude Code health check (#1499): monitors embeddings endpoint (embeddings.myia.io/v1), posts [CRITICAL] on workspace dashboard if down. Runs every 30 min."
         MachineRestriction = $null  # all machines
+    }
+    'executor-cron' = @{
+        TaskName = "Claude-Executor-Cron"
+        Script = Join-Path $scriptDir "start-claude-executor.ps1"
+        DefaultInterval = 4  # 4h cadence (mandate user 2026-08-15/17 — executors z.ai unifies)
+        DefaultModel = "sonnet"  # zero-scheduled-opus policy 2026-05-25
+        DefaultTimeout = 60  # /executor cycles run 15-30min wall-clock
+        Description = "Claude Code executor cron (#3141): wrapper minimal qui spawn `claude -p /executor`. Substitue CronCreate (session-only, meurt au restart) par schtasks persistante. Cadence 4h alignee mandates user 2026-08-15/17. Toutes machines executantes."
+        MachineRestriction = $null  # all machines — mais premier test po-2026 (lane #3141)
     }
 }
 
@@ -319,6 +332,13 @@ function Install-Task {
                 "-File", "`"$WorkerScript`""
             )
         }
+        'executor-cron' {
+            $workerArgs = @(
+                "-ExecutionPolicy", "Bypass",
+                "-WindowStyle", "Hidden",
+                "-File", "`"$WorkerScript`""
+            )
+        }
     }
     $arguments = $workerArgs -join " "
 
@@ -447,6 +467,11 @@ function Test-Task {
             & powershell -ExecutionPolicy Bypass -File $WorkerScript @testArgs
         }
         'health-check' {
+            Write-Status "  Running: $WorkerScript -DryRun"
+            Write-Status ""
+            & powershell -ExecutionPolicy Bypass -File $WorkerScript -DryRun
+        }
+        'executor-cron' {
             Write-Status "  Running: $WorkerScript -DryRun"
             Write-Status ""
             & powershell -ExecutionPolicy Bypass -File $WorkerScript -DryRun
