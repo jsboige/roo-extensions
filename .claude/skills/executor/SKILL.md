@@ -61,7 +61,12 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - `CronList` — vérifier qu'un job récurrent pour `/executor` existe à la cadence **de VOTRE provider** :
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 sur les 5 machines exécutantes, supersede le 2h-conditionnel 2026-07-20 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
-   - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
+   - **AVANT tout re-arm : vérifier qu'une schtask ne porte pas déjà la cadence** (#3141) :
+     `Get-ScheduledTask -TaskName Claude-Executor-Cron -ErrorAction SilentlyContinue`
+     Si la tâche existe → **NE PAS `CronCreate`**, la cadence est portée par le Task Scheduler.
+     Un cron session-only créé à côté d'elle produirait un double-fire 4×/jour, et le lock
+     single-instance du wrapper ne couvre pas les sessions interactives.
+   - Si absent à VOTRE cadence **et** sans schtask → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
    - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence (ex: `*/2` résiduel de l'ère 2h-conditionnel), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 4h = overlap 0,4,8,12… = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
    - Poster `[INFO]` si réarmé (pour traçabilité)
