@@ -244,7 +244,6 @@ docs/
 | `HEARTBEAT_REGISTRATION_PROCEDURE.md` | Procedure enregistrement heartbeat (issue #460) | active |
 | `INTERCOM_PROTOCOL.md` | Protocol communication inter-agents v1.1 | active |
 | `MCP_AVAILABILITY.md` | Inventaire outils et STOP & REPAIR v1.2 | active |
-| `META_ANALYSIS.md` | Protocol meta-analyse architecture 3x2 | active |
 | `PROTOCOLE_SDDD.md` | Protocol SDDD v2.7 | active |
 | `PR_REVIEW_POLICY.md` | Politique review PR multi-agents (issue #461) | active |
 | `QUALITY-PIPELINE.md` | Pipeline qualite automatique (issue #544) | active |
@@ -588,7 +587,6 @@ coordination/ (3), issues/ (1), reports/ (9), sessions/ (1), plus 3 fichiers rac
 - `roo-code/SCHEDULER_DENSIFICATION.md` ↔ `harness/reference/scheduler-densification.md`
 - `roo-code/SCHEDULER_SYSTEM.md` ↔ `harness/reference/scheduler-system.md`
 - `roosync/FEEDBACK_PROCESS.md` ↔ `harness/reference/feedback-process.md`
-- `roosync/META_ANALYSIS.md` ↔ `harness/reference/meta-analysis.md`
 - `roosync/PR_REVIEW_POLICY.md` ↔ `harness/coordinator-specific/pr-review-policy.md`
 - `roosync/SKEPTICISM_PROTOCOL.md` ↔ `rules/skepticism-protocol.md`
 

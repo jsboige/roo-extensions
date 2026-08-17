@@ -398,125 +398,24 @@ $result = @{
 
 ---
 
-## Workflow 3: Meta-Analyst (workflow-meta-analyst.ps1)
+## Workflow 3: Meta-Analyst
 
 **Machines:** ALL (including myia-ai-01)
 **Interval:** 72 hours
-**Entry Point:** `Start-MetaAnalystWorkflow`
+**Launcher:** `scripts/scheduling/start-meta-audit.ps1` (schtask `Claude-MetaAudit`)
 
-### Purpose
+### Protocol — superseded by the canonical references
 
-Independently analyze **BOTH** schedulers (Roo + Claude) on the local machine, then reconcile findings via META-INTERCOM.
+The meta-analyst protocol (what to analyze, cycle steps, META-INTERCOM reconciliation, decision
+chain) now lives in the canonical docs — this section was a stale duplicate of them (follow-up
+flagged in the #3143 review):
 
-### What Meta-Analysts Analyze
+- **Claude (canonical):** [`docs/harness/reference/meta-analysis.md`](harness/reference/meta-analysis.md) — v3, evidence-based rewrite (#3110)
+- **Roo runtime:** `.roo/scheduler-workflow-meta-analyst.md` — mirror: [`docs/harness/coordinator-specific/meta-analyst-detailed.md`](harness/coordinator-specific/meta-analyst-detailed.md)
+- **Rule:** `.roo/rules/18-meta-analysis.md`
 
-**1. Local Roo scheduler traces**
-- Path: `%APPDATA%/Code/User/globalStorage/rooveterinaryinc.roo-cline/tasks/`
-- Success/failure rates per mode
-- Escalation patterns
-- Tool usage patterns
-- Delegation effectiveness
-
-**2. Local Claude session transcripts**
-- Path: `~/.claude/projects/*/`
-- Worker execution logs
-- Error patterns
-- Model escalation frequency
-
-**3. Both harnesses (cross-analysis)**
-- Roo analyzes `.claude/rules/`, `CLAUDE.md`, `.claude/commands/`, `.claude/skills/`
-- Claude analyzes `.roo/rules/`, `.roomodes`, `scheduler-workflow-*.md`, `modes-config.json`
-
-**4. Operational metrics**
-- Issues created vs closed
-- Machine utilization
-- Guard rail violations
-
-### Cycle Steps
-
-**STEP 0: Pre-flight Check (OBLIGATORY)**
-- Same as other workflows
-
-**STEP 1: Collect Traces**
-
-**1a: Collect Roo traces**
-```powershell
-$tasksPath = "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\tasks"
-$tasks = Get-ChildItem $tasksPath -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 5
-```
-
-**1b: Collect Claude traces**
-```powershell
-$cclaudePath = "$env:USERPROFILE\.claude\projects"
-$sessions = Get-ChildItem $cclaudePath -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 5
-```
-
-**STEP 2: Analyze Traces**
-
-**2a: Analyze Roo scheduler**
-- Success/failure rates per mode
-- Escalation patterns
-- Tool usage patterns
-- Delegation effectiveness
-
-**2b: Analyze Claude scheduler**
-- Worker execution logs
-- Error patterns
-- Model escalation frequency
-
-**2c: Cross-analysis**
-- Roo analyzes Claude harness files
-- Claude analyzes Roo harness files
-- Each more free to critique the OTHER harness
-
-**STEP 3: Reconcile via META-INTERCOM**
-
-**3a: Write analysis to META-INTERCOM**
-- File: `.claude/local/META-INTERCOM-{MACHINE}.md`
-- Separate from operational INTERCOM
-- Same format as INTERCOM but for meta-analysis
-
-**3b: Cross-machine consultation (OPTIONAL)**
-- If both local agents agree on a non-trivial finding
-- Send RooSync message with tag `[META-CONSULT]`
-- Collect responses at next cycle (24h)
-
-**STEP 4: Create GitHub Issues (if needed)**
-
-**Decision Chain:**
-| Finding type | Action |
-|-------------|--------|
-| Informational (stats, rates) | Append to analysis doc + META-INTERCOM (Autonomous) |
-| Operational suggestion | Write to META-INTERCOM, coordinator picks up (Autonomous) |
-| Environment issue | Write to META-INTERCOM + flag for coordinator (Autonomous) |
-| New issue (bug, friction) | Create with `needs-approval` label (Semi-autonomous) |
-| Harness change | Create with `needs-approval` + `harness-change` (**BLOCKED until user approval**) |
-
-**STEP 5: Report**
-- Write meta-analysis report to INTERCOM
-- Store detailed analysis on GDrive: `docs/meta-analysis/{machine}/`
-
-### META-INTERCOM Protocol
-
-**File:** `.claude/local/META-INTERCOM-{MACHINE}.md`
-
-**Template:** `.claude/local/META-INTERCOM_TEMPLATE.md`
-
-**Dedicated channel** for meta-analysis reconciliation. Separate from operational INTERCOM.
-
-**Workflow:**
-1. Agent A writes its analysis (self + cross) to META-INTERCOM
-2. Agent B reads Agent A's analysis, writes its own + reconciliation notes
-3. Both agents can comment on the other's findings
-4. Actionable findings become GitHub issues with `needs-approval`
-
-**Cross-Machine Consultation:**
-- When both local meta-analysts AGREE on a non-trivial finding
-- Send RooSync message with tag `[META-CONSULT]`
-- Include reconciled finding + specific question
-- Collect responses at next meta-analysis cycle (24h)
-- If consensus reached → create issue with `needs-approval`
-- If disagreement → document in META-INTERCOM, escalate to coordinator
+The legacy `workflow-meta-analyst.ps1` / `Start-MetaAnalystWorkflow` entry point no longer exists
+in `scripts/scheduling/` (only `start-meta-audit.ps1` does).
 
 ---
 

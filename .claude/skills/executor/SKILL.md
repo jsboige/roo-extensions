@@ -57,12 +57,12 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
    - Poster `[WARN]` sur dashboard si corrections appliquées
-6. **Cron re-arm verification — PROVIDER-AWARE** (#2539, mandate user 2026-07-20) :
+6. **Cron re-arm verification — PROVIDER-AWARE** (#2539 ; cadence unifiée 4h par mandates user 2026-08-15/17) :
    - `CronList` — vérifier qu'un job récurrent pour `/executor` existe à la cadence **de VOTRE provider** :
-     - **Executors z.ai** (po-2023/24/25/26, web1) : `*/2` → `CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)` — **CONDITIONNEL sur production réelle** dans l'intervalle (2h se mérite, ne se définit pas par défaut ; l'AUTO-STOP cap #2185 gère les cycles IDLE, ne PAS remonter à 3h par timer adaptatif)
+     - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 sur les 5 machines exécutantes, supersede le 2h-conditionnel 2026-07-20 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
-   - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/2` pour executors z.ai) — sinon un re-arm `*/3` sur une machine z.ai = cycle trop lent superseded.
-   - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence provider (ex: `*/3` résiduel sur z.ai en transition `*/3`→`*/2`), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 3h = overlap 0,6,12,18 = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
+   - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
+   - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence (ex: `*/2` résiduel de l'ère 2h-conditionnel), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 4h = overlap 0,4,8,12… = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
    - Poster `[INFO]` si réarmé (pour traçabilité)
 
@@ -205,13 +205,13 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 - Build obligatoire apres toute modification TypeScript
 - Ne JAMAIS committer du code qui ne passe pas les tests
 
-### Wakeup Cycle Cadence — PROVIDER-AWARE (#2203, mandate user 2026-07-20 — provider split supersede 3h-uniforme)
+### Wakeup Cycle Cadence — PROVIDER-AWARE (#2203 ; unifiée 4h exécuteurs — mandates user 2026-08-15/17)
 
-**Cadence dépend du provider de la machine** (mandate user 2026-07-20 : ai-01 Anthropic est cher → ralentir ; executors z.ai sont moins chers → peuvent accélérer **s'ils produisent**). `ScheduleWakeup` est clampé à `[60, 3600]s` → ne PEUT PAS porter un cycle multi-heures.
+**Cadence dépend du provider de la machine** (split initial 2026-07-20 : ai-01 Anthropic cher → ralentir ; executors z.ai moins chers → accélérer. **Depuis 2026-08-15/17, l'utilisateur a unifié les exécuteurs à 4h**, machine par machine — supersede le 2h-conditionnel). `ScheduleWakeup` est clampé à `[60, 3600]s` → ne PEUT PAS porter un cycle multi-heures.
 
 ```
-# Executors z.ai (po-2023/24/25/26, web1) — 2h CONDITIONNEL sur production :
-CronCreate(cron: "41 */2 * * *", prompt: "/executor", recurring: true)
+# Executors z.ai (po-2023/24/25/26, web1) — 4h (mandates user 2026-08-15/17) :
+CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)
 
 # ai-01 coordinateur (Anthropic) — 4-6h (économie tokens) :
 CronCreate(cron: "41 */6 * * *", prompt: "/coordinate", recurring: true)
@@ -220,12 +220,12 @@ CronCreate(cron: "41 */6 * * *", prompt: "/coordinate", recurring: true)
 | Machine | Provider | Cadence | Condition |
 |---------|----------|---------|-----------|
 | ai-01 (coordinateur) | Anthropic | **4-6h** | Économie tokens Anthropic (déjà à 6h) |
-| po-2023/24/25/26, web1 (executors) | z.ai | **2h** | **Conditionnel : production réelle dans l'intervalle** |
+| po-2023/24/25/26, web1 (executors) | z.ai | **4h** | Unifiée par mandates user 2026-08-15/17 (supersede le 2h-conditionnel 2026-07-20) |
 
-- **Bar de production (executors 2h)** : 2h se mérite par un travail substantiel (fix/PR/review/investigation livrée), PAS par défaut. Si IDLE-storm répété → l'AUTO-STOP cap #2185 (3×2h=6h) gère ; **NE PAS remonter à 3h par timer adaptatif** (l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer).
-- **Pourquoi le split** (mandate 2026-07-20) : le coût token Anthropic d'ai-01 justifie 4-6h ; les executors z.ai sont assez bon marché pour 2h **s'ils produisent**. Supersede le 3h-uniforme 2026-07-14 (qui restait prudent uniformément).
+- **Bar de production** : la cadence se mérite par un travail substantiel (fix/PR/review/investigation livrée), PAS par défaut. Si IDLE-storm répété → l'AUTO-STOP cap #2185 gère ; **NE PAS ajuster par timer adaptatif** (l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer).
+- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard).
 - **Session-only**, auto-expire 7j. **Phase 0 vérifie** à chaque cycle que le cron est actif à VOTRE cadence provider et le réarme si besoin (#2539).
-- **Cap 3-IDLE** (#2185) → executors z.ai : 3 cycles × 2h = 6h avant AUTO-STOP.
+- **Cap 3-IDLE** (#2185) → executors z.ai : 3 cycles × 4h = 12h avant AUTO-STOP.
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick cadence.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer adaptatif.
 - **NE PAS** ajouter un `ScheduleWakeup` par-dessus — cela réintroduirait un cycle plus court superseded.
