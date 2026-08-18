@@ -52,6 +52,17 @@ if (-not (Test-Path (Join-Path $RepoRoot '.git'))) {
 # --- Build the command ---
 $claudeCmd = 'claude'
 $prompt = '/executor'
+# Headless : aucun humain ne peut repondre a une demande d'approbation. Sans ce flag,
+# la session spawnee bloque sur la premiere (MCP roo-state-manager, git fetch, gh) et
+# le cycle est MUET alors que le fichier de log existe -- le critere d'acceptation
+# "le log existe" passe pendant que rien ne tourne (#3141, feux 18/08 : po-2023 12:08,
+# po-2024 12:36). Meme posture que les trois autres wrappers headless du repertoire :
+# start-claude-worker.ps1, start-claude-coordinator.ps1, start-meta-audit.ps1.
+# --permission-mode acceptEdits ne suffirait pas : il n'auto-accepte que les editions,
+# pas les appels bash/MCP, qui sont precisement ceux que les logs montrent refuses.
+# Une seule liste d'arguments, consommee par le DryRun ET par l'appel reel, pour que
+# les deux ne puissent pas diverger.
+$claudeArgs = @('-p', $prompt, '--dangerously-skip-permissions')
 $envBlock = @{
     CLAUDE_CODE_AUTO_COMPACT_WINDOW = '200000'
     CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = '90'
@@ -65,7 +76,7 @@ $envBlock = @{
 if ($DryRun) {
     Write-Host "[DRY RUN] cwd: $RepoRoot"
     Write-Host "[DRY RUN] env: $($envBlock | ConvertTo-Json -Compress)"
-    Write-Host "[DRY RUN] cmd: $claudeCmd -p $prompt"
+    Write-Host "[DRY RUN] cmd: $claudeCmd $($claudeArgs -join ' ')"
     exit 0
 }
 
@@ -106,7 +117,7 @@ foreach ($kv in $envBlock.GetEnumerator()) {
 Push-Location $RepoRoot
 try {
     $envBlock | Out-File -FilePath "$logFile.env" -Encoding utf8
-    $output = & $claudeCmd -p $prompt 2>&1 | Tee-Object -FilePath $logFile
+    $output = & $claudeCmd @claudeArgs 2>&1 | Tee-Object -FilePath $logFile
     $exitCode = $LASTEXITCODE
 } finally {
     Pop-Location
