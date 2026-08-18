@@ -67,11 +67,11 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
      2. `CronList` — **vérifier que le job existe réellement** ;
      3. seulement alors `Unregister-ScheduledTask -TaskName "Claude-Executor-Cron" -Confirm:$false`.
 
-     **Si `CronCreate` est indisponible ou échoue → GARDER la schtask**, poster `[INFO]` et laisser le retrait à une session interactive locale. Ne jamais retirer la schtask sur la promesse d'un cron pas encore vérifié.
+     **Si `CronCreate` est indisponible ou échoue → retirer la schtask QUAND MÊME**, et poster `[INFO] cadence absente` pour que le trou soit visible. **Zéro cadence est l'état accepté par le user ; une cadence headless est celle qu'il a interdite** — entre les deux, l'arbitrage a déjà tranché. Ne jamais garder `Claude-Executor-Cron` en vie au motif qu'elle vaudrait mieux que rien.
 
-     *Pourquoi (mesuré, 2026-08-19)* : la version précédente disait « Unregister **PUIS** `CronCreate` ». Une session **headless** qui l'a suivie à la lettre a supprimé la tâche qui la lançait, puis n'a pas pu armer de cron — `CronCreate` n'est pas exposé dans une session `claude -p`, et un cron session-only mourrait de toute façon à l'exit. Résultat : **po-2026 s'est retrouvée sans AUCUNE cadence**, ce qui est pire que la schtask qu'on voulait retirer. po-2023 a évité le piège en refusant de le faire depuis headless.
+     *Pourquoi cet ordre (2026-08-19)* : la version précédente disait « Unregister **PUIS** `CronCreate` ». En session **interactive**, un `CronCreate` qui échoue après le retrait laisse la machine sans la cadence interactive qu'elle pouvait avoir — perte évitable, et silencieuse. L'inversion supprime ce cas. En session headless, `CronCreate` n'est pas exposé (constat po-2026 le 19/08) et un cron session-only mourrait de toute façon à l'exit : la machine retire sa schtask et reste sans cadence — **c'est conforme à l'arbitrage, pas un incident**.
 
-     La précondition qui compte n'est pas « suis-je interactive ? » mais **« le cron est-il armé et vérifié ? »** — d'où l'inversion : on ne peut plus se retrouver avec ni l'un ni l'autre.
+     La précondition qui compte n'est pas « suis-je interactive ? » mais **« le cron est-il armé et vérifié ? »**. La garde protège la cadence *atteignable* ; elle ne protège jamais la schtask, dont le retrait est inconditionnel.
    - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
    - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence (ex: `*/2` résiduel de l'ère 2h-conditionnel), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 4h = overlap 0,4,8,12… = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
