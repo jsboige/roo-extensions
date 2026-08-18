@@ -44,6 +44,16 @@
       (1) pre-flight ensure-build-fresh (cause reproductible connue, #2822, datapoint po-2023 2026-08-18)
       (2) branche de degradation prompt -> fallback .claude/local/META-INTERCOM-{MACHINE}.md [FALLBACK]
       (3) post-run grep JSONL session pour mcp__roo-state-manager -> alerte log si 0 hit sans fallback
+    Fix: #3142 v2 — durcissements de c.237 (coordinateur):
+      (1) ciblage déterministe via --session-id <uuid> + lecture <projectdir>/<uuid>.jsonl
+          (finding web1 c.282, prioritaire — heuristique marqueur "META-ANALYSTE Claude Code"
+          avait 7x collisions mesurées dans la session executor web1, et toutes les sessions
+          qui lisent le prompt l'ont aussi. Selection heuristique par marqueur = non-fiable
+          post-merge puisque le marqueur vit sur main.)
+      (2) borne temporelle (Get-Item $FallbackFile).LastWriteTime -ge $StartTime
+          (finding po-2023 c.236 — Test-Path seul + Contains [FALLBACK] accepte un fallback
+          périmé d'un cycle précédent comme valide, ce qui masque silencieusement les
+          répétitions de panne.)
 #>
 
 [CmdletBinding()]
@@ -330,8 +340,19 @@ try {
     # Launch Claude with stdin from prompt file, stdout/stderr redirected to files.
     # Start-Process resolves .cmd/.bat shims and gives us the real PID for cleanup.
     # This replaces Start-Job which buffered all output until Receive-Job (#3068).
+    # Generate deterministic session id (--session-id <uuid>) for the post-run check (#3142 v2,
+    # finding web1 c.282): avoids the fragile textual-marker heuristic that collided with any
+    # session containing "META-ANALYSTE Claude Code" (7+ hits in web1's own cycle). The UUID
+    # path is <projectdir>/<uuid>.jsonl — Claude creates the dir pattern <lower-cwd with \ and :
+    # replaced by ->. We re-encode here to match.
+    $SessionId = [guid]::NewGuid().ToString()
+    Write-Log "SessionId: $SessionId"
+    $EncodedCwd = $RepoRoot.Path.ToLowerInvariant() -replace "\\", "-" -replace ":", "-"
+    $SessionProjectDir = Join-Path (Join-Path $env:USERPROFILE ".claude\projects") $EncodedCwd
+    $ExpectedJsonl = Join-Path $SessionProjectDir "$SessionId.jsonl"
+
     $ClaudeProcess = Start-Process -FilePath $ClaudeCmd `
-        -ArgumentList "-p --model $Model --dangerously-skip-permissions" `
+        -ArgumentList "-p --model $Model --dangerously-skip-permissions --session-id $SessionId" `
         -WorkingDirectory $RepoRoot `
         -RedirectStandardInput $PromptFile `
         -RedirectStandardOutput $RawOutputFile `
@@ -427,36 +448,50 @@ try {
     $Duration = (Get-Date) - $StartTime
     Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes (exit code: $ExitCode)"
 
-    # --- Post-run RSM presence check (#3142) ---
+    # --- Post-run RSM presence check (#3142 + #3142 v2) ---
     # Sans ce check, un run prive de roo-state-manager au spawn est indiscernable d'un succes :
-    # exit 0, output streame, et un rapport nulle part. On identifie le JSONL de la session via
-    # le marqueur unique du prompt, puis on compte les usages mcp__roo-state-manager.
-    # Si 0 : le dashboard n'a pas pu etre poste (le post exige le MCP) -> on verifie le fallback
-    # local prescrit, sinon alerte ERROR dans le log schtask.
+    # exit 0, output streame, et un rapport nulle part. On lit le JSONL ciblé par UUID
+    # (--session-id passé au spawn, finding web1 c.282 — la sélection heuristique par marqueur
+    # "META-ANALYSTE Claude Code" avait 7+ collisions mesurées dans la session executor web1,
+    # et toutes les sessions qui lisent ou citent le prompt acquièrent le marqueur). Si 0 RSM
+    # calls sur la BONNE session -> on vérifie le fallback local prescrit, avec une BORNE
+    # TEMPORELLE (finding po-2023 c.236 — Test-Path seul + Contains [FALLBACK] acceptait un
+    # fallback écrit par un cycle précédent comme valide, masquant les répétitions de panne).
+    # Sans fallback frais (écrit par CE run) : alerte ERROR dans le log schtask.
     try {
-        $ProjectsRoot = Join-Path $env:USERPROFILE ".claude\projects"
-        $SessionMarker = "META-ANALYSTE Claude Code"
-        $SessionJsonl = Get-ChildItem -Path $ProjectsRoot -Recurse -Filter "*.jsonl" -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -ge $StartTime.AddSeconds(-30) } |
-            Where-Object {
-                $raw = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
-                $raw -and ($raw.Contains($SessionMarker))
-            } |
-            Sort-Object LastWriteTime -Descending |
-            Select-Object -First 1
+        $SessionJsonl = $null
+        if ($ExpectedJsonl -and (Test-Path $ExpectedJsonl)) {
+            $SessionJsonl = Get-Item $ExpectedJsonl
+        } else {
+            # Defensive fallback: if --session-id was not honored (older Claude binary,
+            # launchable wrapping the shim, etc.) fall back to the marker heuristic. This
+            # keeps the safety net alive while the targeted path is the primary one.
+            Write-Log "Post-run #3142 v2: JSONL cible $ExpectedJsonl absent — fallback heuristique (marqueur). Risque collision reconnu, voir commentaire c.237" "WARN"
+            $ProjectsRoot = Join-Path $env:USERPROFILE ".claude\projects"
+            $SessionMarker = "META-ANALYSTE Claude Code"
+            $SessionJsonl = Get-ChildItem -Path $ProjectsRoot -Recurse -Filter "*.jsonl" -ErrorAction SilentlyContinue |
+                Where-Object { $_.LastWriteTime -ge $StartTime.AddSeconds(-30) } |
+                Where-Object {
+                    $raw = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+                    $raw -and ($raw.Contains($SessionMarker))
+                } |
+                Sort-Object LastWriteTime -Descending |
+                Select-Object -First 1
+        }
         if (-not $SessionJsonl) {
-            Write-Log "Post-run #3142: session JSONL non identifiee (marqueur '$SessionMarker' introuvable) — presence check annule" "WARN"
+            Write-Log "Post-run #3142: session JSONL non identifiee (UUID $SessionId introuvable et heuristique marqueur muette) — presence check annule" "WARN"
         } else {
             $RsmLines = @(Select-String -Path $SessionJsonl.FullName -Pattern "mcp__roo-state-manager" -AllMatches -ErrorAction SilentlyContinue)
             if ($RsmLines.Count -gt 0) {
-                Write-Log "Post-run #3142: OK — $($RsmLines.Count) ligne(s) mcp__roo-state-manager dans $($SessionJsonl.Name)"
+                Write-Log "Post-run #3142: OK — $($RsmLines.Count) ligne(s) mcp__roo-state-manager dans $($SessionJsonl.Name) (selection UUID)"
             } else {
                 $FallbackFile = Join-Path $RepoRoot ".claude\local\META-INTERCOM-$MachineName.md"
-                $FallbackOk = (Test-Path $FallbackFile) -and ((Get-Content $FallbackFile -Raw -ErrorAction SilentlyContinue).Contains("[FALLBACK]"))
-                if ($FallbackOk) {
-                    Write-Log "Post-run #3142: RSM ABSENT de la session, rapport [FALLBACK] present dans META-INTERCOM-$MachineName.md — rapport NON perdu (visible machine-local uniquement)" "WARN"
+                $FallbackFresh = (Test-Path $FallbackFile) -and ((Get-Item $FallbackFile).LastWriteTime -ge $StartTime) -and ((Get-Content $FallbackFile -Raw -ErrorAction SilentlyContinue).Contains("[FALLBACK]"))
+                if ($FallbackFresh) {
+                    Write-Log "Post-run #3142: RSM ABSENT de la session, [FALLBACK] FRAIS ($(((Get-Item $FallbackFile).LastWriteTime).ToString('o'))) dans META-INTERCOM-$MachineName.md — rapport NON perdu (visible machine-local uniquement)" "WARN"
                 } else {
-                    Write-Log "Post-run #3142: ALERTE — 0 outil roo-state-manager dans la session ET aucun [FALLBACK] dans META-INTERCOM-$MachineName.md : RAPPORT DE CYCLE PERDU. Remediation connue: (1) build stale #2822 -> relancer scripts/claude/ensure-build-fresh.ps1 puis ce script ; (2) si build fresh -> host-side (incident 2026-08-16) -> STOP & REPAIR .claude/rules/tool-availability.md" "ERROR"
+                    $FallbackExists = Test-Path $FallbackFile
+                    Write-Log "Post-run #3142: ALERTE — 0 outil roo-state-manager dans la session $SessionJsonl.Name ET aucun [FALLBACK] FRAIS dans META-INTERCOM-$MachineName.md (existe=$FallbackExists; périmé si présent). RAPPORT DE CYCLE PERDU. Remediation connue: (1) build stale #2822 -> relancer scripts/claude/ensure-build-fresh.ps1 puis ce script ; (2) si build fresh -> host-side (incident 2026-08-16) -> STOP & REPAIR .claude/rules/tool-availability.md" "ERROR"
                 }
             }
         }
