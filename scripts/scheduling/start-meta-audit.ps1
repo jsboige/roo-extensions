@@ -37,9 +37,13 @@
 .NOTES
     Auteur: Claude Code (myia-ai-01)
     Date: 2026-03-04
-    Version: 1.1.0
+    Version: 1.2.0
     Issue: #551
     Fix: INTERCOM→dashboard workspace (#1818)
+    Fix: #3142 — rapport non perdu si RSM absent au spawn :
+      (1) pre-flight ensure-build-fresh (cause reproductible connue, #2822, datapoint po-2023 2026-08-18)
+      (2) branche de degradation prompt -> fallback .claude/local/META-INTERCOM-{MACHINE}.md [FALLBACK]
+      (3) post-run grep JSONL session pour mcp__roo-state-manager -> alerte log si 0 hit sans fallback
 #>
 
 [CmdletBinding()]
@@ -136,6 +140,23 @@ if (-not (Test-ClaudeCLI)) {
     exit 1
 }
 
+# Pre-flight build freshness (#3142, datapoint po-2023 2026-08-18) :
+# la seule cause-class REPRODUCTIBLE de "RSM absent au spawn" a ce jour est un build/ stale
+# (submod bump sans rebuild, #2822). On elimine la cause connue AVANT le spawn — ce qui reste
+# apres est host-side (incident 08-16 po-2026). Non-fatal : un echec de build ne bloque pas le run.
+$EnsureBuildScript = Join-Path $ScriptDir "..\claude\ensure-build-fresh.ps1"
+if (Test-Path $EnsureBuildScript) {
+    Write-Log "Pre-flight: ensure-build-fresh (stale build = cause connue de RSM absent #2822)..."
+    try {
+        $BuildVerdict = & pwsh -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript 2>&1 | Select-Object -Last 3
+        foreach ($line in $BuildVerdict) { Write-Log "  [BUILD] $line" }
+    } catch {
+        Write-Log "Pre-flight ensure-build-fresh echoue (non fatal): $_" "WARN"
+    }
+} else {
+    Write-Log "Pre-flight: ensure-build-fresh.ps1 introuvable ($EnsureBuildScript) — skip" "WARN"
+}
+
 # Construire le prompt meta-analyse
 $Today = Get-Date -Format "yyyy-MM-dd"
 # Note: META-INTERCOM deprecated since 2026-04-10 (#1818). Reports go to dashboard workspace.
@@ -197,6 +218,10 @@ Si aucune des 7 categories ne donne de matiere : rapporter "rien a signaler" sur
 
 ### 4. Poster le rapport sur le dashboard workspace
 
+**CHECK PREALABLE (#3142)** : verifie d'abord que les outils roo-state-manager (roosync_dashboard, roosync_messages, ...) sont PRESENTS dans ta session.
+- **Si presents** : poste via le MCP comme decrit ci-dessous.
+- **Si ABSENTS (0 outil roo-state-manager)** : le dashboard est INJOIGNABLE pour toi. Ecris alors le rapport COMPLET dans `.claude/local/META-INTERCOM-$MachineName.md` (fichier local gitignore) avec le tag `[FALLBACK]` et la date du cycle EN TETE du rapport, et precise que le canal dashboard etait indisponible. C'est la seule exception autorisee a la contrainte "aucun fichier rapport dans le depot".
+
 Utilise le MCP roo-state-manager pour poster le rapport :
 
 ```
@@ -250,7 +275,7 @@ UNIQUEMENT si tu identifies des problemes concrets :
 - NE DISPATCHE AUCUNE tache
 - TOUTE issue creee DOIT avoir le label needs-approval
 - Limite tes outputs (pas de dump complet de fichiers)
-- NE CREER AUCUN fichier rapport dans le depot (docs/, .claude/, etc.) — les rapports vont sur le dashboard workspace (roosync_dashboard) ou en issues GitHub (#1179, #1818)
+- NE CREER AUCUN fichier rapport dans le depot (docs/, .claude/, etc.) — les rapports vont sur le dashboard workspace (roosync_dashboard) ou en issues GitHub (#1179, #1818). Exception UNIQUE (#3142) : si les outils roo-state-manager sont ABSENTS de la session, rapport en fallback dans .claude/local/META-INTERCOM-$MachineName.md avec tag [FALLBACK]
 "@
 
 # Sauvegarder le prompt dans un fichier temporaire (evite les problemes de quoting PS)
@@ -401,6 +426,43 @@ try {
     $ExitCode = $ClaudeProcess.ExitCode
     $Duration = (Get-Date) - $StartTime
     Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes (exit code: $ExitCode)"
+
+    # --- Post-run RSM presence check (#3142) ---
+    # Sans ce check, un run prive de roo-state-manager au spawn est indiscernable d'un succes :
+    # exit 0, output streame, et un rapport nulle part. On identifie le JSONL de la session via
+    # le marqueur unique du prompt, puis on compte les usages mcp__roo-state-manager.
+    # Si 0 : le dashboard n'a pas pu etre poste (le post exige le MCP) -> on verifie le fallback
+    # local prescrit, sinon alerte ERROR dans le log schtask.
+    try {
+        $ProjectsRoot = Join-Path $env:USERPROFILE ".claude\projects"
+        $SessionMarker = "META-ANALYSTE Claude Code"
+        $SessionJsonl = Get-ChildItem -Path $ProjectsRoot -Recurse -Filter "*.jsonl" -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $StartTime.AddSeconds(-30) } |
+            Where-Object {
+                $raw = Get-Content $_.FullName -Raw -ErrorAction SilentlyContinue
+                $raw -and ($raw.Contains($SessionMarker))
+            } |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if (-not $SessionJsonl) {
+            Write-Log "Post-run #3142: session JSONL non identifiee (marqueur '$SessionMarker' introuvable) — presence check annule" "WARN"
+        } else {
+            $RsmLines = @(Select-String -Path $SessionJsonl.FullName -Pattern "mcp__roo-state-manager" -AllMatches -ErrorAction SilentlyContinue)
+            if ($RsmLines.Count -gt 0) {
+                Write-Log "Post-run #3142: OK — $($RsmLines.Count) ligne(s) mcp__roo-state-manager dans $($SessionJsonl.Name)"
+            } else {
+                $FallbackFile = Join-Path $RepoRoot ".claude\local\META-INTERCOM-$MachineName.md"
+                $FallbackOk = (Test-Path $FallbackFile) -and ((Get-Content $FallbackFile -Raw -ErrorAction SilentlyContinue).Contains("[FALLBACK]"))
+                if ($FallbackOk) {
+                    Write-Log "Post-run #3142: RSM ABSENT de la session, rapport [FALLBACK] present dans META-INTERCOM-$MachineName.md — rapport NON perdu (visible machine-local uniquement)" "WARN"
+                } else {
+                    Write-Log "Post-run #3142: ALERTE — 0 outil roo-state-manager dans la session ET aucun [FALLBACK] dans META-INTERCOM-$MachineName.md : RAPPORT DE CYCLE PERDU. Remediation connue: (1) build stale #2822 -> relancer scripts/claude/ensure-build-fresh.ps1 puis ce script ; (2) si build fresh -> host-side (incident 2026-08-16) -> STOP & REPAIR .claude/rules/tool-availability.md" "ERROR"
+                }
+            }
+        }
+    } catch {
+        Write-Log "Post-run #3142 check erreur (non fatal): $_" "WARN"
+    }
 
     # Full output is persisted in the raw file; log last 20 lines as summary
     $AllOutputLines = if (Test-Path $RawOutputFile) { @(Get-Content $RawOutputFile -ErrorAction SilentlyContinue) } else { @() }
