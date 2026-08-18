@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.7.1"
+  version: "3.8.0"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.7.1
+**Version:** 3.8.0
 **Cree:** 2026-03-28
-**MAJ:** 2026-07-20 (stale-job cleanup in Phase 0 step 6 : `CronDelete` l'ancienne cadence avant de créer la nouvelle, ferme le gap double-fire sur transition `*/3`→`*/2` po-204/web1 — follow-up #2872, finding po-2024 +1 po-2023)
+**MAJ:** 2026-08-18 (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -57,19 +57,16 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
    - Poster `[WARN]` sur dashboard si corrections appliquées
-6. **Cron re-arm verification — PROVIDER-AWARE** (#2539 ; cadence unifiée 4h par mandates user 2026-08-15/17) :
+6. **Cron re-arm verification — PROVIDER-AWARE** (#2539 ; cadence unifiée 4h mandates user 2026-08-15/17 ; **arbitrage user 2026-08-18 : cron INTERACTIF primaire, schtask executor-cron interdite**) :
    - `CronList` — vérifier qu'un job récurrent pour `/executor` existe à la cadence **de VOTRE provider** :
-     - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 sur les 5 machines exécutantes, supersede le 2h-conditionnel 2026-07-20 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
+     - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
-   - **AVANT tout re-arm : vérifier qu'une schtask ne porte pas déjà la cadence** (#3141) :
-     `Get-ScheduledTask -TaskName Claude-Executor-Cron -ErrorAction SilentlyContinue`
-     Si la tâche existe → **NE PAS `CronCreate`**, la cadence est portée par le Task Scheduler.
-     Un cron session-only créé à côté d'elle produirait un double-fire 4×/jour, et le lock
-     single-instance du wrapper ne couvre pas les sessions interactives.
-   - Si absent à VOTRE cadence **et** sans schtask → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
+   - **Le cron doit vivre dans la session INTERACTIVE** (arbitrage user 2026-08-18, revert #3141, relay web1 c.283 : « je préfère un cron avec lequel je peux interagir quand je passe sur la machine… j'ai besoin de trouver la dernière conversation interactive dans VS Code quand je débarque sur la machine »). Les cycles atterrissent dans LA conversation que l'utilisateur rouvre — jamais dans des sessions headless séparées. Le trade-off « pas de cycles si VS Code fermé » est accepté par le user.
+   - **Schtask résiduelle à SUPPRIMER** (le rollout #3141/#3161 est rendu interdit par l'arbitrage) : si `Get-ScheduledTask -TaskName Claude-Executor-Cron -ErrorAction SilentlyContinue` retourne la tâche → `Unregister-ScheduledTask -TaskName "Claude-Executor-Cron" -Confirm:$false` **PUIS** `CronCreate`. Une schtask executor-cron spawn des sessions headless invisibles/indépendantes de la conversation interactive.
+   - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
    - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence (ex: `*/2` résiduel de l'ère 2h-conditionnel), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 4h = overlap 0,4,8,12… = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
-   - Poster `[INFO]` si réarmé (pour traçabilité)
+   - Poster `[INFO]` si réarmé ou schtask retirée (pour traçabilité)
 
 Si un outil critique manque : signaler via dashboard workspace `[CRITICAL]` et STOP.
 
@@ -210,9 +207,11 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 - Build obligatoire apres toute modification TypeScript
 - Ne JAMAIS committer du code qui ne passe pas les tests
 
-### Wakeup Cycle Cadence — PROVIDER-AWARE (#2203 ; unifiée 4h exécuteurs — mandates user 2026-08-15/17)
+### Wakeup Cycle Cadence — PROVIDER-AWARE (#2203 ; unifiée 4h exécuteurs — mandates user 2026-08-15/17 ; arbitrage user 2026-08-18 : cron INTERACTIF primaire)
 
 **Cadence dépend du provider de la machine** (split initial 2026-07-20 : ai-01 Anthropic cher → ralentir ; executors z.ai moins chers → accélérer. **Depuis 2026-08-15/17, l'utilisateur a unifié les exécuteurs à 4h**, machine par machine — supersede le 2h-conditionnel). `ScheduleWakeup` est clampé à `[60, 3600]s` → ne PEUT PAS porter un cycle multi-heures.
+
+**Arbitrage user 2026-08-18 (revert #3141)** : le cron vit dans la **session interactive** — les cycles doivent être retrouvables dans la conversation que l'utilisateur rouvre dans VS Code. La schtask `Claude-Executor-Cron` est **interdite** (sessions headless invisibles et indépendantes) ; une résiduelle du rollout #3141/#3161 se supprime puis se remplace par `CronCreate`. Relay web1 c.283 ; appliqué web1/po-2025/po-204 le 18/08.
 
 ```
 # Executors z.ai (po-2023/24/25/26, web1) — 4h (mandates user 2026-08-15/17) :
@@ -228,7 +227,7 @@ CronCreate(cron: "41 */6 * * *", prompt: "/coordinate", recurring: true)
 | po-2023/24/25/26, web1 (executors) | z.ai | **4h** | Unifiée par mandates user 2026-08-15/17 (supersede le 2h-conditionnel 2026-07-20) |
 
 - **Bar de production** : la cadence se mérite par un travail substantiel (fix/PR/review/investigation livrée), PAS par défaut. Si IDLE-storm répété → l'AUTO-STOP cap #2185 gère ; **NE PAS ajuster par timer adaptatif** (l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer).
-- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard).
+- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard) → brief schtask rollout #3141/#3161 (17-18/08) → **arbitrage user 2026-08-18 : retour au CronCreate interactif**, schtask executor-cron interdite (motif : continuité conversationnelle dans VS Code).
 - **Session-only**, auto-expire 7j. **Phase 0 vérifie** à chaque cycle que le cron est actif à VOTRE cadence provider et le réarme si besoin (#2539).
 - **Cap 3-IDLE** (#2185) → executors z.ai : 3 cycles × 4h = 12h avant AUTO-STOP.
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick cadence.
@@ -238,7 +237,7 @@ CronCreate(cron: "41 */6 * * *", prompt: "/coordinate", recurring: true)
 ### Inactivity Cap (#2185)
 - Après **3 cycles consécutifs** sans tâche exécutée (IDLE au sens : aucune investigation/implémentation/validation commencée) → **arrêter la session** (ne PAS appeler `ScheduleWakeup`)
 - Poster `[IDLE] AUTO-STOP` sur le dashboard avec le nombre de cycles
-- La session sera relancée par le prochain `[WAKE-CLAUDE]` du coordinateur ou par le scheduler (schtask)
+- La session sera relancée par le prochain `[WAKE-CLAUDE]` du coordinateur ou à la réouverture de VS Code par l'utilisateur (plus de schtask executor-cron — arbitrage 2026-08-18)
 - **Pourquoi :** Incident web1 (37.1 MB, 2417 lignes JSONL, 16+ cycles inactifs générant des messages redondants)
 - Un cycle où une tâche a été ne serait-ce qu'investigée (code lu, commentaire posté) compte comme actif
 
