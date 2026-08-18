@@ -49,13 +49,37 @@ if (-not (Test-Path (Join-Path $RepoRoot '.git'))) {
     exit 1
 }
 
+# --- Build the command ---
+$claudeCmd = 'claude'
+$prompt = '/executor'
+$envBlock = @{
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW = '200000'
+    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = '90'
+    WAKE_DEFAULT_MODEL              = 'sonnet'
+}
+
+# --- DryRun : sortir AVANT la prise de lock ---
+# Incident 17/08 : le DryRun ecrivait le lock puis exit 0 sans passer par le
+# finally qui le nettoie -> lock orphelin -> PID reutilise par un processus
+# sans rapport -> tous les feux suivants SKIPpent silencieusement.
+if ($DryRun) {
+    Write-Host "[DRY RUN] cwd: $RepoRoot"
+    Write-Host "[DRY RUN] env: $($envBlock | ConvertTo-Json -Compress)"
+    Write-Host "[DRY RUN] cmd: $claudeCmd -p $prompt"
+    exit 0
+}
+
 # --- Single-instance guard ---
 # Si une session /executor tourne deja (schtask ou interactif), sortir silencieusement.
 # Evite double-fire quand deux schtasks pointent vers le meme script.
+# Le proprietaire du lock doit etre un process de CETTE chaine (pwsh/claude/node) :
+# un PID vivant mais reutilise par un process sans rapport (SoundTune.exe, incident
+# 17/08) ne compte pas comme session active.
 $lockFile = Join-Path $env:TEMP 'claude-executor.lock'
 if (Test-Path $lockFile) {
     $existingPid = Get-Content $lockFile -ErrorAction SilentlyContinue
-    if ($existingPid -and (Get-Process -Id $existingPid -ErrorAction SilentlyContinue)) {
+    $owner = if ($existingPid) { Get-Process -Id $existingPid -ErrorAction SilentlyContinue } else { $null }
+    if ($owner -and @('pwsh', 'powershell', 'claude', 'node') -contains $owner.ProcessName) {
         Write-Host "[SKIP] Session /executor deja active (PID $existingPid)"
         exit 0
     }
@@ -71,22 +95,6 @@ if (-not (Test-Path $logDir)) {
 }
 $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $logFile = Join-Path $logDir "executor-$timestamp.log"
-
-# --- Build the command ---
-$claudeCmd = 'claude'
-$prompt = '/executor'
-$envBlock = @{
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW = '200000'
-    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = '90'
-    WAKE_DEFAULT_MODEL              = 'sonnet'
-}
-
-if ($DryRun) {
-    Write-Host "[DRY RUN] cwd: $RepoRoot"
-    Write-Host "[DRY RUN] env: $($envBlock | ConvertTo-Json -Compress)"
-    Write-Host "[DRY RUN] cmd: $claudeCmd -p $prompt"
-    exit 0
-}
 
 # --- Persist env into a temp file so the spawned claude.exe inherits them ---
 # (Set-Content alone ne suffit pas — `claude` est un process enfant, pas PowerShell.)
