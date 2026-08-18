@@ -21,7 +21,7 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.8.0
+**Version:** 3.8.1
 **Cree:** 2026-03-28
 **MAJ:** 2026-08-18 (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
@@ -62,7 +62,16 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
      - **ai-01 (Anthropic, coordinateur)** : `4-6h` (économie tokens Anthropic — déjà à 6h)
    - **Le cron doit vivre dans la session INTERACTIVE** (arbitrage user 2026-08-18, revert #3141, relay web1 c.283 : « je préfère un cron avec lequel je peux interagir quand je passe sur la machine… j'ai besoin de trouver la dernière conversation interactive dans VS Code quand je débarque sur la machine »). Les cycles atterrissent dans LA conversation que l'utilisateur rouvre — jamais dans des sessions headless séparées. Le trade-off « pas de cycles si VS Code fermé » est accepté par le user.
-   - **Schtask résiduelle à SUPPRIMER** (le rollout #3141/#3161 est rendu interdit par l'arbitrage) : si `Get-ScheduledTask -TaskName Claude-Executor-Cron -ErrorAction SilentlyContinue` retourne la tâche → `Unregister-ScheduledTask -TaskName "Claude-Executor-Cron" -Confirm:$false` **PUIS** `CronCreate`. Une schtask executor-cron spawn des sessions headless invisibles/indépendantes de la conversation interactive.
+   - **Schtask résiduelle à SUPPRIMER — mais ARMER D'ABORD, RETIRER ENSUITE** (le rollout #3141/#3161 est rendu interdit par l'arbitrage). Une schtask executor-cron spawn des sessions headless invisibles/indépendantes de la conversation interactive, donc elle doit partir. **L'ordre n'est pas cosmétique** :
+     1. `CronCreate(...)` — armer le cron interactif ;
+     2. `CronList` — **vérifier que le job existe réellement** ;
+     3. seulement alors `Unregister-ScheduledTask -TaskName "Claude-Executor-Cron" -Confirm:$false`.
+
+     **Si `CronCreate` est indisponible ou échoue → GARDER la schtask**, poster `[INFO]` et laisser le retrait à une session interactive locale. Ne jamais retirer la schtask sur la promesse d'un cron pas encore vérifié.
+
+     *Pourquoi (mesuré, 2026-08-19)* : la version précédente disait « Unregister **PUIS** `CronCreate` ». Une session **headless** qui l'a suivie à la lettre a supprimé la tâche qui la lançait, puis n'a pas pu armer de cron — `CronCreate` n'est pas exposé dans une session `claude -p`, et un cron session-only mourrait de toute façon à l'exit. Résultat : **po-2026 s'est retrouvée sans AUCUNE cadence**, ce qui est pire que la schtask qu'on voulait retirer. po-2023 a évité le piège en refusant de le faire depuis headless.
+
+     La précondition qui compte n'est pas « suis-je interactive ? » mais **« le cron est-il armé et vérifié ? »** — d'où l'inversion : on ne peut plus se retrouver avec ni l'un ni l'autre.
    - Si absent à VOTRE cadence → réarmer. **Vérifier la bonne cadence** (`*/4` pour executors z.ai) — un re-arm `*/2`/`*/3` résiduel = cadence superseded.
    - **Cleanup stale job (anti-double-fire)** : si un job `/executor` existe à la MAUVAISE cadence (ex: `*/2` résiduel de l'ère 2h-conditionnel), `CronDelete`-le **AVANT** de `CronCreate` le bon — sinon les deux firent (`:41` à 2h + 4h = overlap 0,4,8,12… = double-fire 4×/jour). `CronList` pour lister les IDs, `CronDelete <id>` sur le stale.
    - Session-only, auto-expire 7j — doit être vérifié/réarmé à chaque session
