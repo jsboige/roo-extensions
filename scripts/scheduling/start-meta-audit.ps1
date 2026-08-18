@@ -294,9 +294,28 @@ $PromptFile = Join-Path $LogDir "meta-audit-prompt-$Today.txt"
 
 Write-Log "Prompt sauvegarde: $PromptFile"
 
+# Session identity and the argument string are built ONCE here, above the DryRun exit, and
+# consumed by BOTH the preview and the real spawn. Before this, the DryRun printed a
+# hand-written copy of the arguments and exited ~50 lines before the real ArgumentList was
+# assembled: #3166 added --session-id to the spawn alone, so -DryRun advertised a command the
+# script no longer ran. That is the divergence #3163 had just removed from
+# start-claude-executor.ps1 - a preview that is not the call it previews is worse than no
+# preview, because it is believed. Pinned by test-metaaudit-args-single-source.ps1.
+#
+# UUID path layout: Claude writes <projectdir>/<uuid>.jsonl, where <projectdir> is the cwd
+# lowercased with backslash and ':' both replaced by '-'. Verified live against a real spawn
+# (web1 c.284, CLI 2.1.86; flag also present on CLI 2.1.17, ai-01 c.238).
+$SessionId = [guid]::NewGuid().ToString()
+Write-Log "SessionId: $SessionId"
+$EncodedCwd = $RepoRoot.Path.ToLowerInvariant() -replace "\\", "-" -replace ":", "-"
+$SessionProjectDir = Join-Path (Join-Path $env:USERPROFILE ".claude\projects") $EncodedCwd
+$ExpectedJsonl = Join-Path $SessionProjectDir "$SessionId.jsonl"
+$ClaudeArgs = "-p --model $Model --dangerously-skip-permissions --session-id $SessionId"
+
 if ($DryRun) {
     Write-Log "[DRY-RUN] Commande qui serait executee:"
-    Write-Log "  claude -p --model $Model --dangerously-skip-permissions  (stdin: $PromptFile, cwd: $RepoRoot)"
+    Write-Log "  claude $ClaudeArgs  (stdin: $PromptFile, cwd: $RepoRoot)"
+    Write-Log "  JSONL de session attendu: $ExpectedJsonl"
     Write-Log "=== META-AUDIT DRY-RUN END ==="
     exit 0
 }
@@ -340,19 +359,13 @@ try {
     # Launch Claude with stdin from prompt file, stdout/stderr redirected to files.
     # Start-Process resolves .cmd/.bat shims and gives us the real PID for cleanup.
     # This replaces Start-Job which buffered all output until Receive-Job (#3068).
-    # Generate deterministic session id (--session-id <uuid>) for the post-run check (#3142 v2,
-    # finding web1 c.282): avoids the fragile textual-marker heuristic that collided with any
-    # session containing "META-ANALYSTE Claude Code" (7+ hits in web1's own cycle). The UUID
-    # path is <projectdir>/<uuid>.jsonl — Claude creates the dir pattern <lower-cwd with \ and :
-    # replaced by ->. We re-encode here to match.
-    $SessionId = [guid]::NewGuid().ToString()
-    Write-Log "SessionId: $SessionId"
-    $EncodedCwd = $RepoRoot.Path.ToLowerInvariant() -replace "\\", "-" -replace ":", "-"
-    $SessionProjectDir = Join-Path (Join-Path $env:USERPROFILE ".claude\projects") $EncodedCwd
-    $ExpectedJsonl = Join-Path $SessionProjectDir "$SessionId.jsonl"
-
+    # --session-id targets the post-run check at THIS session's JSONL (finding web1 c.282):
+    # the old textual-marker heuristic matched any session containing "META-ANALYSTE Claude
+    # Code" - 7+ collisions measured in web1's own cycle, and post-merge the marker lives on
+    # main, so its uniqueness erodes by being read. $ClaudeArgs and $ExpectedJsonl are built
+    # once above the DryRun exit, so the preview and this call cannot drift apart.
     $ClaudeProcess = Start-Process -FilePath $ClaudeCmd `
-        -ArgumentList "-p --model $Model --dangerously-skip-permissions --session-id $SessionId" `
+        -ArgumentList $ClaudeArgs `
         -WorkingDirectory $RepoRoot `
         -RedirectStandardInput $PromptFile `
         -RedirectStandardOutput $RawOutputFile `
@@ -491,7 +504,7 @@ try {
                     Write-Log "Post-run #3142: RSM ABSENT de la session, [FALLBACK] FRAIS ($(((Get-Item $FallbackFile).LastWriteTime).ToString('o'))) dans META-INTERCOM-$MachineName.md — rapport NON perdu (visible machine-local uniquement)" "WARN"
                 } else {
                     $FallbackExists = Test-Path $FallbackFile
-                    Write-Log "Post-run #3142: ALERTE — 0 outil roo-state-manager dans la session $SessionJsonl.Name ET aucun [FALLBACK] FRAIS dans META-INTERCOM-$MachineName.md (existe=$FallbackExists; périmé si présent). RAPPORT DE CYCLE PERDU. Remediation connue: (1) build stale #2822 -> relancer scripts/claude/ensure-build-fresh.ps1 puis ce script ; (2) si build fresh -> host-side (incident 2026-08-16) -> STOP & REPAIR .claude/rules/tool-availability.md" "ERROR"
+                    Write-Log "Post-run #3142: ALERTE — 0 outil roo-state-manager dans la session $($SessionJsonl.Name) ET aucun [FALLBACK] FRAIS dans META-INTERCOM-$MachineName.md (existe=$FallbackExists; périmé si présent). RAPPORT DE CYCLE PERDU. Remediation connue: (1) build stale #2822 -> relancer scripts/claude/ensure-build-fresh.ps1 puis ce script ; (2) si build fresh -> host-side (incident 2026-08-16) -> STOP & REPAIR .claude/rules/tool-availability.md" "ERROR"
                 }
             }
         }
