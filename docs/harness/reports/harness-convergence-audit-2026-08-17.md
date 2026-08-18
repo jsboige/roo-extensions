@@ -68,7 +68,7 @@ candidat de convergence n° 1 dans le sens CoursIA ← roo-extensions**, étayé
 
 | Flotte | Cadence | Porteur | Durabilité |
 |---|---|---|---|
-| roo-extensions | 4 h (économie tokens, 2026-05-25) | schtask `Claude-Executor-Cron` (PT4H) depuis #3152 | Survit aux restarts de session |
+| roo-extensions | 4 h (mandats user 2026-08-15/17) | schtask `Claude-Executor-Cron` (PT4H) depuis #3152 | Survit aux restarts de session |
 | CoursIA | 30 min (mandat 2026-08-11) | CronCreate session-only (`/continue`) | Meurt avec la session / expire à 7 j |
 
 L'écart 8× n'est **pas** une incohérence à corriger (deux mandats user distincts, deux contraintes
@@ -134,15 +134,16 @@ Même famille que la leçon ai-01 du 17/08 (« vérifier que l'instrument a mord
 
 ## 6. Mémoire par machine — profondeur mesurée
 
-`~/.claude/projects/c--dev-CoursIA/memory/` sur po-2026 : **298 fichiers** (vs ~40 `feedback_*.md`
-sur web1 côté roo-extensions, passe 1). Sur une machine de production CoursIA, la mémoire par
-machine est d'un ordre de grandeur plus profonde que ce que la passe 1 avait mesuré côté
-roo-extensions.
+`~/.claude/projects/c--dev-CoursIA/memory/` sur po-2026 : **298 fichiers**. La comparaison
+*like-for-like* est **71 fichiers** dans le `memory/` équivalent de web1 côté roo-extensions, soit un
+rapport de **4,2×** — et non 7× : ce chiffre-là venait d'opposer un répertoire entier (298) à son
+seul sous-ensemble `feedback_*.md` (~40) de l'autre côté. Les deux répertoires sont bien du **même
+scope** (auto-memory par machine). Correction apportée par web1 en cross-review.
 
 Deux lectures non exclusives :
 1. La production à 30 min de cadence **génère** plus de leçons (plus de cycles, plus d'incidents).
 2. La règle CoursIA `harness-hygiene` (3 tiers, anti-gonflement) ne s'applique pas au répertoire
-   `memory/` local — même prolifération que les `feedback_*.md` roo-extensions, à échelle 7×.
+   `memory/` local — même prolifération que côté roo-extensions, à échelle 4,2×.
 
 **Candidat de convergence renforcé** : la passe 1 proposait « adopter `harness-hygiene` 3-tiers »
 dans un sens ; la mesure locale montre que **les deux workspaces partagent le même défaut de
@@ -162,7 +163,7 @@ Reprise de la liste passe 1 (§8), amendée par les preuves locales :
 | 4 | roo-ext ← CoursIA | Pre-commit + gates CI sur `mcps/internal` | Inchangé |
 | 5 | CoursIA ← roo-ext | Format « En attente d'arbitrage user » re-parcouru | Inchangé |
 | **6 (nouveau)** | **CoursIA ← roo-ext** | **Couche porteur schtask pour les crons workers** (`setup-scheduler.ps1 -TaskType executor-cron` transposé, cadence 30 min préservée) | **Ajouté** — incident 2026-07-28 (60 h muette ×2 lanes) + migration #3141/#3152/#3153 fraîchement déployée. Le remède actuel CoursIA est comportemental (`CronList` au réveil) ; le remède roo-ext est mécanique |
-| 7 | roo-ext ← CoursIA | Méta-doc + `harness-hygiene` 3-tiers | **Requalifié** — le défaut de gonflement mémoire est **bilatéral** (298 fichiers CoursIA local vs 40 roo-ext) : abstraire un patron commun plutôt qu'importer unilatéralement |
+| 7 | roo-ext ← CoursIA | Méta-doc + `harness-hygiene` 3-tiers | **Requalifié** — le défaut de gonflement mémoire est **bilatéral** (298 fichiers CoursIA local vs 71 roo-ext, like-for-like) : abstraire un patron commun plutôt qu'importer unilatéralement |
 | 8 | Abstraction | Workspace blueprint (plans/progress + deep-queue + claim cross-lane + 3-tiers + gates + **porteur schtask**) | **Étendu** — ajouter le porteur schtask au blueprint |
 
 **Divergences légitimes confirmées** (ne pas converger) : cadence 4 h vs 30 min (mandats user
