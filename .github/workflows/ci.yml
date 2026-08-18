@@ -174,3 +174,14 @@ jobs:
       - name: Run watchdog slow-vs-dead harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-watchdog-slow-vs-dead.ps1
+
+      # start-meta-audit.ps1 built its claude arguments twice: the -DryRun preview wrote its
+      # own copy and exited ~50 lines before the real ArgumentList was assembled. #3166 added
+      # --session-id to the spawn alone, so -DryRun advertised a command the script no longer
+      # ran -- and that preview was cited as validation of the change. #3163 had removed this
+      # exact divergence from start-claude-executor.ps1 one PR earlier; nothing stopped it
+      # coming back next door. The harness asserts a single argument source consumed by both
+      # call sites, and pins the two #3166 hardenings against regression. Static (text + AST).
+      - name: Run meta-audit argument single-source harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-metaaudit-args-single-source.ps1
