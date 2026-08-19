@@ -1,8 +1,8 @@
 # API Error Handling — Circuit Breaker
 
-**Version:** 1.0.0
-**Issue :** #1783 (502 retry death spiral)
-**MAJ:** 2026-05-11
+**Version:** 1.1.0
+**Issues :** #1783 (502 retry death spiral) · #3170 (429 Fair Usage — le retry aggrave)
+**MAJ:** 2026-08-19
 
 ---
 
@@ -27,8 +27,31 @@ Ne pas re essayer indefiniment. Le retry automatique de Roo Code n'a pas de circ
 | 503 Service Unavailable | Circuit breaker |
 | 504 Gateway Timeout | Circuit breaker |
 | Connection refused | Circuit breaker |
-| 429 Rate Limited | Attendre (retry avec backoff) — PAS un circuit breaker |
+| 429 **Fair Usage / account-level** | **Circuit breaker** — le retry AGGRAVE (voir ci-dessous) |
+| 429 quota / rate limit ordinaire | Attendre (retry avec backoff) — PAS un circuit breaker |
 | 400/401/403 | Erreur de requete — ne PAS retry, corriger |
+
+## Les deux 429 ne se traitent pas pareil (#3170)
+
+**Tous les 429 ne sont pas des limites de debit.** Un 429 dit "trop de requetes" ; il ne dit pas
+*quelle* limite a ete franchie. Deux cas, deux traitements opposes :
+
+| | Quota / rate limit ordinaire | **Fair Usage / account-level** |
+|---|---|---|
+| Porte sur | ta consommation, une fenetre de temps | le **compte**, et la **frequence** des requetes |
+| Le corps HTTP contient | `rate limit`, `quota`, `tokens per minute`, un `retry-after` | `Fair Usage`, `account`, `usage pattern`, `request frequency`, souvent **`not your usage limit`** |
+| Retry | legitime, avec backoff | **AGGRAVE** — chaque retry est une requete de plus dans la fenetre qui declenche la limite |
+| Action | attendre, reessayer | **circuit breaker immediat** : STOP, LOG, TERMINATE |
+
+**Lire le corps de la reponse avant de decider.** Le code seul (429) ne suffit pas, et le prefixe
+du message nomme le handler, pas la limite (`OpenAI completion error: 429` apparait sur n'importe
+quel provider OpenAI-compatible).
+
+**Mesure a l'appui (#3170, po-2025, 2026-08-19)** : 48 retries consecutifs sur un 429 Fair Usage
+dans une seule session. Aucun n'a abouti — la limite portant sur la frequence, la boucle de retry
+etait elle-meme la cause de sa propre prolongation. La regle telle qu'ecrite avant ce correctif
+exemptait explicitement les 429 du circuit breaker : ce n'etait pas un defaut de conformite de
+l'agent, c'etait un trou dans la regle.
 
 ## Pourquoi
 
