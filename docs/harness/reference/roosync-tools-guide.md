@@ -35,10 +35,11 @@ The coordinator and meta-analyst use a subset of roo-state-manager tools for fle
   timestamp: string,                             // ISO 8601
   localMachine: string,
   systemHealth: {
-    machinesOnline: number,                      // Heartbeat < 2h
-    machinesUnknown: number,                     // Heartbeat > 2h or unreadable
+    machinesOnline: number,                      // Dashboard append < 8h (#2546)
+    machinesUnknown: number,                     // No dashboard append seen in 8h (#2546)
     machinesTotal: number,
-    flags: string[]                              // e.g. "SYNC_STALE:myia-po-2024"
+    flags: string[],                             // e.g. "SYNC_STALE:myia-po-2024"
+    lastSeenByMachine: Record<string, string | null>  // #3160: last append seen by THIS observer (null = never on this mirror)
   },
   capabilities: {
     sharedPath: boolean,                         // ROOSYNC_SHARED_PATH configured
@@ -69,6 +70,16 @@ The coordinator and meta-analyst use a subset of roo-state-manager tools for fle
 | Capabilities | 0-30 | sharedPath=15, qdrant=10, embeddings=5 deducted per missing |
 | Config drift | 0-30 | critical×10 (max 20), important×3 (max 10) deducted |
 | Env vars | 0-20 | critical missing × 10 deducted |
+
+### UNKNOWN Semantics (#3160)
+
+`machinesUnknown` / `UNKNOWN:<mid>` flags mean **no dashboard append from that machine within the 8h window, as seen by THIS observer** — absence of observed signal, **NOT a confirmed outage**. A machine can be UNKNOWN and perfectly healthy (quiet cycle, voluntary downtime). Before escalating to `[WAKE]`/`[ASK]`:
+
+1. **Re-read the dashboard** (`roosync_dashboard`, `section: "intercom"`) — the machine may have posted after this observer's GDrive mirror last synced.
+2. **Check provenance** — `lastSeenByMachine[mid] === null` = "never seen on this mirror", the strongest tell of a stale observer-side mirror rather than a dead machine.
+3. **Check listener heartbeats** (`$ROOSYNC_SHARED_PATH/listener-heartbeats/*.heartbeat`, 2h staleness) — a different, per-machine signal with its own cadence.
+
+Measurement 2026-08-18 (#3160): the "2h threshold vs 4h cadence" hypothesis was refuted — the 2h threshold lives in the in-memory, local-only `HeartbeatService` (ADR 008) and is not in the cross-machine causal chain; both observed UNKNOWN flips that day were true positives. UNKNOWN means "unobserved", not "down" — never escalate on a single UNKNOWN reading.
 
 ### Usage Scenarios
 
@@ -106,7 +117,7 @@ Skips env var inspection when you only need machine presence + drift + capabilit
 
 | `type` | Purpose | Cross-Machine |
 |--------|---------|---------------|
-| `"status"` | Compact fleet snapshot (online/offline, flags, toolUsage) | Yes (reads GDrive heartbeats) |
+| `"status"` | Compact fleet snapshot (online/unknown, flags, toolUsage) | Yes (dashboard activity, 8h window) |
 | `"machines"` | List machine IDs (unknown/idle status) | Yes |
 | `"machine"` | Single machine details | Local only |
 | `"all"` | Full inventory | Local only |
