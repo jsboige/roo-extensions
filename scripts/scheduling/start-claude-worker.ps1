@@ -2399,6 +2399,40 @@ function Test-OnlyAutoCommits {
 }
 
 # ============================================================================
+# Worker Heartbeat (fichier de vie — même pattern que listener-heartbeats)
+# ============================================================================
+
+function Write-WorkerHeartbeat {
+    <#
+    .SYNOPSIS
+    Écrit un timestamp ISO brut dans worker-heartbeats/<machine>.heartbeat à chaque tick.
+    Appelé depuis le bloc finally top-level : couvre TOUS les chemins de sortie
+    (pool vide / idle / crash / succès), y compris exit 0 silencieux.
+    Permet au coordinateur de distinguer « worker mort » (fichier périmé) de
+    « worker vivant, pool vide » (fichier frais, aucun rapport dashboard).
+    #>
+    try {
+        $SharedPath = $env:ROOSYNC_SHARED_PATH
+        if (-not $SharedPath) { return }
+
+        $HeartbeatDir = Join-Path $SharedPath "worker-heartbeats"
+        if (-not (Test-Path $HeartbeatDir)) {
+            New-Item -ItemType Directory -Path $HeartbeatDir -Force | Out-Null
+        }
+
+        $MachineId = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+        $HeartbeatFile = Join-Path $HeartbeatDir "$MachineId.heartbeat"
+        $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        [System.IO.File]::WriteAllText($HeartbeatFile, $Timestamp, [System.Text.UTF8Encoding]::new($false))
+        Write-Log "Worker heartbeat written ($Timestamp)" "DEBUG"
+    }
+    catch {
+        # Non-fatal : GDriveFS indisponible ne doit jamais faire échouer le worker (#2845)
+        Write-Log "Worker heartbeat failed (non-fatal): $_" "WARN"
+    }
+}
+
+# ============================================================================
 # Graceful Shutdown (#1147 - Worktree cleanup on SIGTERM/SIGINT/timeout)
 # ============================================================================
 
@@ -4619,6 +4653,9 @@ catch {
     exit 1
 }
 finally {
+    # Heartbeat EN PREMIER — doit s'exécuter sur tout chemin de sortie, avant tout cleanup
+    Write-WorkerHeartbeat
+
     # Release lock file
     Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
     # Graceful shutdown safety net (#1147)
