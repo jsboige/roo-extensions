@@ -1,7 +1,8 @@
 # Cycle de vie des worktrees — pas d'orphelin
 
-**Version:** 1.0.0
+**Version:** 1.0.1
 **Origine :** [PROPOSAL] po-2026 (20/08), approuvée par l'utilisateur — ancrages (a) + (b)
+**Révisions :** 1.0.1 — points Hermes/jsboige confirmés par web1 sur #3197 : `-d` → `-D` après lecture d'état, worktree sale ≠ orphelin.
 **Coût qui la motive :** ~300 worktrees orphelins purgés à la main en 4 vagues sur la flotte (14→20/08), dont certains portaient du travail jamais livré (un notebook complet, un fix tsync absent de `main`).
 
 ---
@@ -13,7 +14,10 @@
 À la fin de chaque session, l'agent est responsable de l'état de **ses** worktrees. Trois issues, pas quatre :
 
 1. **Le contenu a de la valeur → le livrer en PR.** Une PR ouverte conserve le travail, le rend visible et reviewable. Un worktree ne fait aucune des trois.
-2. **Le contenu est supplanté → suppression propre**, preuves d'abord : `git worktree remove`, puis `git branch -d` **séparément**, puis `git worktree prune`.
+2. **Le contenu est supplanté → suppression propre**, preuves d'abord : `git worktree remove`, puis la branche **séparément**, puis `git worktree prune`. L'état de livraison se lit dans `gh pr view --json state` — jamais dans l'ascendance (piège ci-dessous). La preuve porte la sécurité, pas le flag :
+   - `state=MERGED` lu → `git branch -D` ;
+   - branche jamais poussée et sans valeur → `git branch -d` ;
+   - **`-d` après squash-merge refusera toujours** (« not fully merged ») : c'est l'ascendance qu'il vérifie.
 3. **Doute réel → arbitrage humain.** Le doute n'est pas une raison de laisser traîner, c'est une raison de demander.
 
 ## Le piège qui rend cette règle nécessaire
@@ -39,6 +43,7 @@ Seul le cas **detached HEAD** perd réellement du travail au retrait : vérifier
 ## Garde-fous permanents
 
 - **Jamais de `rm -rf` sur un worktree.** Passer par `git worktree remove`.
+- **Sale ≠ orphelin.** `worktree remove` refuse un worktree avec modifications non commitées sans `--force`. Ce refus est une protection : des modifications non commitées peuvent être du travail jamais livré ailleurs. Examiner le contenu (`git status` + `git diff` dans le worktree) **avant** d'utiliser `--force` — pas l'inverse.
 - **Jonctions `.mathlib-cache` et projet SEED : intouchables.**
 - **Preuves avant suppression de branche** — état de PR lu, ou absence de contenu constatée.
 - Un worktree imbriqué dans un submodule est un défaut en soi (#2123) : vérifier `git rev-parse --show-toplevel` avant `git worktree add`.
