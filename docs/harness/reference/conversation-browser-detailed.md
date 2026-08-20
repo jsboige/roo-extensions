@@ -26,7 +26,7 @@ Sans IDs, `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffi
 | `view` | Squelette conversation | `task_id`, `smart_truncation: true` |
 | `summarize` | Resume/stats | `summarize_type: "trace"`, `taskId` |
 
-Niveaux recommandes : `Summary` ou `Compact`. Jamais `Full`.
+Niveaux recommandes : `Summary` ou `NoTools`. Jamais `Full`.
 
 ---
 
@@ -38,12 +38,12 @@ Niveaux recommandes : `Summary` ou `Compact`. Jamais `Full`.
 | Niveau | Contenu | Recommandation |
 |--------|---------|----------------|
 | **`Summary`** | Vue condensee | Recommande |
-| **`Compact`** | Messages + outils resumes (nom + statut) | Recommande (#881) |
+| **`Compact`** | Messages + outils resumes (nom + statut) | ⚠️ **non expose par le schema** — passer par `NoTools` |
 | **`NoTools`** | Alias vers `Compact` (fix #881) | OK maintenant |
 | **`NoResults`** | Messages + params sans resultats | Compact |
 | **`Messages`** | Messages seulement | Tres compact |
 | **`UserOnly`** | Messages utilisateur seulement | Plus compact |
-| **`NoToolParams`** | Params masques, resultats complets | Debug seulement |
+| **`NoToolParams`** | Params masques, resultats complets | ⚠️ **non expose par le schema** — injoignable via l'outil |
 | **`Full`** | Tout inclus | JAMAIS (explosion contextuelle) |
 
 ## summarize_type
