@@ -181,3 +181,58 @@ machine bi-lane (pattern CoursIA-2).
 - Point d'attention pour la passe 3 éventuelle : web1 n'avait pas d'accès local CoursIA ; po-2026
   n'a pas d'accès au workspace CoursIA d'**ai-01** (dashboards archivés seulement) — la vision du
   coordinateur CoursIA reste vue de l'extérieur.
+
+---
+
+## 9. Passe 3 (2026-08-20, po-2023) — vision coordinateur CoursIA + candidat n°5 VERIFIE
+
+**Limite comblée :** le §8 ci-dessus notait que la vision du coordinateur CoursIA (ai-01) restait
+extérieure, et le candidat n°5 (« format arbitrages roo-ext → CoursIA ») demeurait RAPPORTE (web1).
+Cette passe lit les dashboards CoursIA/CoursIA-2 **live + archives** (`$ROOSYNC_SHARED_PATH/dashboards/`,
+GDrive) depuis po-2023, machine exécutante des deux workspaces. Qualification : VERIFIE = lu ce jour
+dans les fichiers dashboard cités.
+
+### 9.1 Candidat n°5 — VERIFIE, avec raffinement
+
+Le contraste (observation user n°3) se vérifie, mais il est plus fin que « formel vs informel » :
+
+| Surface | roo-extensions (VERIFIE, archives 15-18/08) | CoursIA (VERIFIE, live 20/08 + archives 13-14/08) |
+|---|---|---|
+| Décisions USER en attente | Section récurrente par cycle : « **En attente d'arbitrage user** (aucune action prise) : #3121 approbation · sauvegarde Qdrant · catch fail-open · 198 assertions Pester · 868 worktrees · #3097 » (ai-01 c.224, archive 15/08 18:45) ; ré-apparaît 16/08 et 18/08 (« ### En attente d'arbitrage user »). ~31 % des archives roo-extensions (429/1387) portent une mention d'arbitrage en attente | Intégrée au fil des messages : demandes de sign-off en fin de [INFO]-leçon (« une règle ne s'auto-promeut pas, elle passe par un sign-off user », 20/08 04:46Z) ; HOLD user tracés dans les bodies d'issues (« décision 2026-08-12 », #10038) |
+| Qui arbitre | Le user — la liste explicite dit « aucune action prise » | **Le coordinateur d'abord** : arbitrages tranchés en DM/commentaires (« arbitrage SALE worktrees TRANCHÉ (réponse DM…) », archives 14/08) ; [ASK coordinator] des workers tranchés au cycle suivant |
+| Traçabilité des oublis | La liste re-parcourue chaque cycle → un item ne peut pas disparaître silencieusement | Dette personnelle en texte libre : « Ce que je prends moi : les 4 arbitrages restés en l'air (#7257, #7266, #7298, #6711) — un [ASK USER] jamais arrivé pré-merge […] c'est ma dette, pas celle des lanes » (ai-01, archive `workspace-CoursIA-2026-08-15T16-48-41.md`, messages 13-14/08). Un [ASK USER] « jamais arrivé » est précisément la panne que le format roo-ext prévient |
+
+**Raffinement du candidat n°5** : ce n'est pas un formalisme qui manque à CoursIA, c'est un
+**registre re-parcouru** des décisions user en attente. CoursIA escalade moins au user (le
+coordinateur arbitre plus lui-même — plus rapide en production), mais ses demandes user en attente
+ne survivent pas au cycle. La convergence pertinente = le format liste re-parcourue, pas la
+fréquence d'escalade.
+
+### 9.2 Vision coordinateur CoursIA — premiers faits internes
+
+- **Déroulé de tour** : mandat user cité **verbatim** en tête (« pour les blocages, fais en sorte de
+  mobiliser les agents pour qu'ils réparent les PRs… », 20/08 04:29Z), puis dispatch tabulaire par
+  lane (PR / créée / rouge), puis ordres nominatifs. Pas de bilan-type — chaque message est un objet
+  différent ([DISPATCH], [INFO]-leçon, [DONE]).
+- **Volume** : 24 merges/jour par ai-01 (condensation CoursIA 20/08) ; les queues merge sont portées
+  par les workers eux-mêmes dans leurs [DONE] (« Queue review/merge ai-01 : #11839, #11854… »).
+- **Nouveau régime user (nuit du 19-20/08)** : « le tirage devient le premier geste de chaque cycle,
+  pour fermer des issues et des Epics qui méritent d'être conduites à leur terme et sont souvent
+  délaissées devant les sujets du moment » — le user impose mécaniquement ce que le candidat n°2
+  (anti-tarissement) encode : les chantiers délaissés doivent remonter d'eux-mêmes. Donnée pour
+  l'arbitrage : le problème visé par cet Epic est toujours actif côté user.
+- **Réflexe EPIC-stale** (ai-01, 20/08 04:46Z) : « plus une EPIC est ancienne, plus son body a de
+  chances d'être faux » — réparation par bloc « > Etat mesuré au <date> » préfixé au body, historique
+  conservé. Applicable à #3111 lui-même au cadrage phase 2.
+
+### 9.3 État de l'Epic après passe 3
+
+- **Phase 1 : complète.** 4 passes (web1 15/08, po-2023 16/08, po-2026 17/08, po-2023 20/08) ;
+  dernière qualification RAPPORTE résolue (n°5). Aucune invalidation entre passes.
+- **Phase 2 : 8 candidats prêts à arbitrer** (synthèse po-2025 18/08, reprise dans le commentaire
+  #3111 du 20/08) — user-gated, aucun changement de harnais sur les 4 passes (non-but respecté).
+- **Numérotation** : le §7 ci-dessus (rédigé 17/08) et la synthèse po-2025 (18/08) divergent sur les
+  n°7/8 — le §7 compte « méta-doc + 3-tiers » comme n°7 et n'intègre pas « résilience canal »
+  (ajouté par la passe 2 en commentaire, 16/08) ; la synthèse po-2025 replie le 3-tiers dans le
+  blueprint (n°7) et met « résilience canal » en n°8. **La table du commentaire #3111 du 20/08 fait
+  foi pour la phase 2.**
