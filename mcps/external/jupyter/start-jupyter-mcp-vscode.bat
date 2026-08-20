@@ -1,9 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo ===================================================
-echo Script de démarrage du MCP Jupyter avec kernels VSCode
-echo ===================================================
+REM stdout est reserve au flux JSON-RPC du MCP : tout diagnostic va sur stderr (1>&2)
+echo =================================================== 1>&2
+echo Script de démarrage du MCP Jupyter avec kernels VSCode 1>&2
+echo =================================================== 1>&2
 
 REM Définition des chemins
 set "MCP_JUPYTER_DIR=%~dp0..\mcp-servers\servers\jupyter-mcp-server"
@@ -13,24 +14,24 @@ set "TEMP_CONFIG=%TEMP%\jupyter_mcp_config_temp.json"
 set "VSCODE_EXTENSIONS=%USERPROFILE%\.vscode\extensions"
 set "VSCODE_INSIDERS_EXTENSIONS=%USERPROFILE%\.vscode-insiders\extensions"
 
-echo [INFO] Recherche des kernels Jupyter dans VSCode...
+echo [INFO] Recherche des kernels Jupyter dans VSCode... 1>&2
 
 REM Vérification si le répertoire du MCP Jupyter existe
 if not exist "%MCP_JUPYTER_DIR%" (
-    echo [ERREUR] Le répertoire du MCP Jupyter n'existe pas: %MCP_JUPYTER_DIR%
-    echo Veuillez vérifier l'installation du MCP Jupyter.
+    echo [ERREUR] Le répertoire du MCP Jupyter n'existe pas: %MCP_JUPYTER_DIR% 1>&2
+    echo Veuillez vérifier l'installation du MCP Jupyter. 1>&2
     exit /b 1
 )
 
 REM Sauvegarde de la configuration actuelle
 if exist "%CONFIG_FILE%" (
-    echo [INFO] Sauvegarde de la configuration actuelle...
+    echo [INFO] Sauvegarde de la configuration actuelle... 1>&2
     copy /Y "%CONFIG_FILE%" "%CONFIG_BACKUP%" > nul
-    echo [INFO] Configuration sauvegardée dans %CONFIG_BACKUP%
+    echo [INFO] Configuration sauvegardée dans %CONFIG_BACKUP% 1>&2
 )
 
 REM Détection des kernels VSCode via PowerShell
-echo [INFO] Recherche des extensions Jupyter dans VSCode...
+echo [INFO] Recherche des extensions Jupyter dans VSCode... 1>&2
 
 powershell -Command "& {
     # Fonction pour trouver les kernels dans un répertoire d'extensions
@@ -147,12 +148,12 @@ powershell -Command "& {
     $config | ConvertTo-Json -Depth 10 | Set-Content -Path '$env:TEMP\jupyter_mcp_config_temp.json'
     
     Write-Host '[INFO] Configuration générée avec succès.'
-}"
+}" 1>&2
 
 REM Vérifier si la génération de la configuration a réussi
 if not exist "%TEMP_CONFIG%" (
-    echo [ERREUR] Échec de la génération de la configuration.
-    echo Restauration de la configuration précédente...
+    echo [ERREUR] Échec de la génération de la configuration. 1>&2
+    echo Restauration de la configuration précédente... 1>&2
     if exist "%CONFIG_BACKUP%" (
         copy /Y "%CONFIG_BACKUP%" "%CONFIG_FILE%" > nul
     )
@@ -160,7 +161,7 @@ if not exist "%TEMP_CONFIG%" (
 )
 
 REM Copier la configuration temporaire vers le fichier de configuration du MCP Jupyter
-echo [INFO] Application de la nouvelle configuration...
+echo [INFO] Application de la nouvelle configuration... 1>&2
 copy /Y "%TEMP_CONFIG%" "%CONFIG_FILE%" > nul
 
 REM Déterminer le mode de démarrage
@@ -173,17 +174,17 @@ powershell -Command "& {
         Write-Host '[INFO] Démarrage du MCP Jupyter en mode connecté...'
         exit 0
     }
-}"
+}" 1>&2
 
 REM Démarrer le MCP Jupyter avec la configuration appropriée
 if %ERRORLEVEL% EQU 1 (
-    echo [INFO] Mode hors ligne activé.
-    echo [INFO] Démarrage du serveur MCP Jupyter en mode hors ligne...
+    echo [INFO] Mode hors ligne activé. 1>&2
+    echo [INFO] Démarrage du serveur MCP Jupyter en mode hors ligne... 1>&2
     node "%MCP_JUPYTER_DIR%\dist\index.js" --offline
 ) else (
-    echo [INFO] Mode connecté activé.
-    echo [INFO] Démarrage du serveur MCP Jupyter en mode connecté...
-    echo [INFO] Port configuré: 8890
+    echo [INFO] Mode connecté activé. 1>&2
+    echo [INFO] Démarrage du serveur MCP Jupyter en mode connecté... 1>&2
+    echo [INFO] Port configuré: 8890 1>&2
     node "%MCP_JUPYTER_DIR%\dist\index.js"
 )
 
