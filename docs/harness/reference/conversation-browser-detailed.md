@@ -38,12 +38,12 @@ Niveaux recommandes : `Summary` ou `NoTools`. Jamais `Full`.
 | Niveau | Contenu | Recommandation |
 |--------|---------|----------------|
 | **`Summary`** | Vue condensee | Recommande |
-| **`Compact`** | Messages + outils resumes (nom + statut) | ⚠️ **non expose par le schema** — passer par `NoTools` |
-| **`NoTools`** | Alias vers `Compact` (fix #881) | OK maintenant |
+| **`Compact`** | Messages + outils resumes (nom + statut) | Expose depuis #3196 (`NoTools` reste l'alias recommande) |
+| **`NoTools`** | Alias vers `Compact` (fix #881) | Recommande pour ce niveau |
 | **`NoResults`** | Messages + params sans resultats | Compact |
 | **`Messages`** | Messages seulement | Tres compact |
 | **`UserOnly`** | Messages utilisateur seulement | Plus compact |
-| **`NoToolParams`** | Params masques, resultats complets | ⚠️ **non expose par le schema** — injoignable via l'outil |
+| **`NoToolParams`** | Params masques, resultats complets | Expose depuis #3196 |
 | **`Full`** | Tout inclus | JAMAIS (explosion contextuelle) |
 
 ## summarize_type

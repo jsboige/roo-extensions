@@ -21,11 +21,13 @@ Ne jamais conclure sur une seule source.
 - **`conversation_browser` : `list` d'abord.** Sans IDs, `view` / `tree` / `summarize` sont impossibles.
 - **Ne pas confondre les deux paramètres de détail** — ce sont deux vocabulaires disjoints :
   `view` prend **`detail_level`** (`skeleton` / `summary` / `full`) ; `summarize` prend
-  **`detailLevel`** (`Summary` / `NoTools` / `NoResults` / `Messages` / `UserOnly` / `Full`).
+  **`detailLevel`** (`Full` / `Summary` / `NoTools` / `NoResults` / `Messages` / `UserOnly` /
+  `Compact` / `NoToolParams` — ces deux derniers exposés depuis #3196).
   Passer `detailLevel` à `view` est désormais rejeté explicitement (#3174) au lieu d'être ignoré.
 - **`detailLevel: "Full"` = JAMAIS** (explosion de contexte). Préférer `Summary`, ou `NoTools`
   pour garder les outils résumés (`NoTools` est l'alias de la stratégie *Compact*, #881).
-  ⚠️ Ne pas écrire `Compact` : la stratégie existe, mais **le schéma de l'outil ne l'expose pas**.
+  `Compact` et `NoToolParams` sont désormais exposés par le schéma (#3196) — un test drift-guard
+  maintient l'alignement avec les 8 stratégies de `DetailLevelStrategyFactory`.
   Toujours `smart_truncation: true` au-delà de 10K chars.
 - **`codebase_search` : `workspace` toujours explicite**, requêtes **en anglais** (vocabulaire du code).
   L'auto-détection pointe vers le répertoire du serveur MCP, pas vers le tien.
