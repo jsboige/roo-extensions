@@ -19,7 +19,13 @@ Ne jamais conclure sur une seule source.
 ## Les quatre invariants
 
 - **`conversation_browser` : `list` d'abord.** Sans IDs, `view` / `tree` / `summarize` sont impossibles.
-- **`detailLevel: "Full"` = JAMAIS** (explosion de contexte). Préférer `Summary` ou `Compact`.
+- **Ne pas confondre les deux paramètres de détail** — ce sont deux vocabulaires disjoints :
+  `view` prend **`detail_level`** (`skeleton` / `summary` / `full`) ; `summarize` prend
+  **`detailLevel`** (`Summary` / `NoTools` / `NoResults` / `Messages` / `UserOnly` / `Full`).
+  Passer `detailLevel` à `view` est désormais rejeté explicitement (#3174) au lieu d'être ignoré.
+- **`detailLevel: "Full"` = JAMAIS** (explosion de contexte). Préférer `Summary`, ou `NoTools`
+  pour garder les outils résumés (`NoTools` est l'alias de la stratégie *Compact*, #881).
+  ⚠️ Ne pas écrire `Compact` : la stratégie existe, mais **le schéma de l'outil ne l'expose pas**.
   Toujours `smart_truncation: true` au-delà de 10K chars.
 - **`codebase_search` : `workspace` toujours explicite**, requêtes **en anglais** (vocabulaire du code).
   L'auto-détection pointe vers le répertoire du serveur MCP, pas vers le tien.
