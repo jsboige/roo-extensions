@@ -104,8 +104,27 @@ function Write-WorkerHeartbeat {
         $MachineId = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
         $HeartbeatFile = Join-Path $HeartbeatDir "$MachineId.heartbeat"
         $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        [System.IO.File]::WriteAllText($HeartbeatFile, $Timestamp, [System.Text.UTF8Encoding]::new($false))
-        Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
+        # Écriture bornée (#3207) : le WriteAllText GDrive peut staller indéfiniment si DriveFS est
+        # en attente I/O ininterruptible (observé ~12 min dans un appel réputé « non-fatal »). On
+        # l'exécute dans un process enfant (Start-Job) borné à 3 s, tuable par Stop-Job : le tick ne
+        # stalle jamais, et on tue un process (pas un thread .NET bloqué, dont on ne se libère pas).
+        $job = Start-Job -ScriptBlock {
+            param($file, $content)
+            [System.IO.File]::WriteAllText($file, $content, [System.Text.UTF8Encoding]::new($false))
+        } -ArgumentList $HeartbeatFile, $Timestamp
+
+        if ($null -ne $job) {
+            if (Wait-Job $job -Timeout 3) {
+                if ($job.State -eq 'Failed') {
+                    Write-Log "Heartbeat failed (non-fatal): $($job.ChildJobs[0].JobStateInfo.Reason)" "WARN"
+                } else {
+                    Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
+                }
+            } else {
+                Write-Log "Heartbeat write exceeded 3s — abandoned (DriveFS stall?)" "WARN"
+            }
+            Remove-Job $job -Force -ErrorAction SilentlyContinue
+        }
     } catch {
         # Non-fatal : GDriveFS indisponible ne doit jamais faire echouer le worker (#2845)
         Write-Log "Heartbeat failed (non-fatal): $_" "WARN"
