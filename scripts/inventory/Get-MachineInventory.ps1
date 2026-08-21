@@ -100,7 +100,11 @@ if (-not $RooExtensionsPath) {
     Write-Host "  RooExtensionsPath fallback relatif: $RooExtensionsPath" -ForegroundColor Yellow
 }
 . "$PSScriptRoot\..\common\extension-paths.ps1"
-$McpSettingsPath = Get-McpSettingsPath -Extension RooCode
+# #3135 — Zoo-only hosts: probe the installed extension instead of hardcoding
+# RooCode, so the published inventory carries the real mcpServers (Zoo here)
+# instead of a degraded "absent" entry that makes compare_config refuse to diff.
+$ActiveExtension = Get-ActiveExtension
+$McpSettingsPath = Get-McpSettingsPath -Extension $ActiveExtension
 $RooConfigPath = "$RooExtensionsPath\roo-config"
 $ScriptsPath = "$RooExtensionsPath\scripts"
 
@@ -134,6 +138,7 @@ $inventory = @{
     paths = @{
         rooExtensions = $RooExtensionsPath
         mcpSettings = $McpSettingsPath
+        mcpSettingsSource = $ActiveExtension
         rooConfig = $RooConfigPath
         scripts = $ScriptsPath
     }
@@ -567,13 +572,13 @@ try {
         Write-Host "  Fichier mcp_settings.json non trouvé" -ForegroundColor Yellow
     }
 
-    # Lire le fichier globalStorage de Claude (Roo)
-    $claudeGlobalStoragePath = Get-GlobalStoragePath -Extension RooCode
+    # Lire le fichier globalStorage de l'extension active (Roo ou Zoo — #3135)
+    $claudeGlobalStoragePath = Get-GlobalStoragePath -Extension $ActiveExtension
     if (Test-Path $claudeGlobalStoragePath) {
         $claudeConfig.globalStoragePath = $claudeGlobalStoragePath
-        Write-Host "  OK GlobalStorage Roo: $claudeGlobalStoragePath" -ForegroundColor Green
+        Write-Host "  OK GlobalStorage ${ActiveExtension}: $claudeGlobalStoragePath" -ForegroundColor Green
     } else {
-        Write-Host "  GlobalStorage Roo non trouvé" -ForegroundColor Yellow
+        Write-Host "  GlobalStorage ${ActiveExtension} non trouvé" -ForegroundColor Yellow
     }
 
     # Fichiers Claude Code (user-level)
