@@ -121,6 +121,7 @@ function Write-WorkerHeartbeat {
                     Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
                 }
             } else {
+                Stop-Job $job -ErrorAction SilentlyContinue
                 Write-Log "Heartbeat write exceeded 3s — abandoned (DriveFS stall?)" "WARN"
             }
             Remove-Job $job -Force -ErrorAction SilentlyContinue
