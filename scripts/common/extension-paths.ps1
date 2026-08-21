@@ -47,3 +47,47 @@ function Get-McpSettingsPath {
     $gsPath = Get-GlobalStoragePath -Extension $Extension
     return Join-Path (Join-Path $gsPath "settings") "mcp_settings.json"
 }
+
+function Get-ActiveExtension {
+    <#
+    .SYNOPSIS
+        Probes the filesystem for the installed extension (Roo or Zoo).
+    .DESCRIPTION
+        PowerShell mirror of the TS probe #2766 S2 + #3006 in
+        src/utils/extension-paths.ts. The probe targets the settings/
+        mcp_settings.json FILE, not the extension directory: on a migrated
+        host the roo-cline globalStorage survives as an empty shell and a
+        directory-based probe would pick Roo despite Zoo carrying the live
+        config. Preference when both files exist: Roo (back-compat with
+        dual-install hosts). Returns "RooCode" when neither exists (default,
+        matches the TS fallback).
+    .OUTPUTS
+        "RooCode" or "ZooCode".
+    #>
+    [CmdletBinding()]
+    param()
+
+    $rooSettings = Get-McpSettingsPath -Extension RooCode
+    if (Test-Path $rooSettings) { return "RooCode" }
+    $zooSettings = Get-McpSettingsPath -Extension ZooCode
+    if (Test-Path $zooSettings) { return "ZooCode" }
+    return "RooCode"
+}
+
+function Get-ActiveMcpSettingsPath {
+    <#
+    .SYNOPSIS
+        Returns the mcp_settings.json path of the ACTIVE extension (#3135).
+    .DESCRIPTION
+        Zoo-only hosts (Roo globalStorage absent) must not publish an
+        "absent" mcpServers inventory just because the collector hardcoded
+        RooCode — compare_config then reports degraded collection instead
+        of diffing (#3135 arbitrage 2026-08-20).
+    .OUTPUTS
+        Full path to the active extension's mcp_settings.json.
+    #>
+    [CmdletBinding()]
+    param()
+
+    return Get-McpSettingsPath -Extension (Get-ActiveExtension)
+}
