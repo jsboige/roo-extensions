@@ -169,11 +169,12 @@ docs/
 |---------|-------------|--------|
 | `ISSUE-1264-reboot-investigation.md` | Investigation reboot inattendu ai-01/po-2023 | active |
 
-### docs/harness/machine-specific/ — 1 fichier
+### docs/harness/machine-specific/ — 2 fichiers
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `myia-web1-constraints.md` | Contraintes web1 (16GB RAM, Win Server 2019) | active |
+| `vps4-2027-provisioning-runbook.md` | Runbook provisionnement VPS-4 2027, nouveau web1 (Épic #3188 Phase 0, lane IISManagement) | active |
 
 ### docs/harness/reports/ — 2 fichiers
 

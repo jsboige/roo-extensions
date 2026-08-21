@@ -67,6 +67,7 @@
 | **MCP discoverability** | Tests decouverte en 3 phases | `mcp-discoverability.md` |
 | **Stub Detection** | CI gate pour stub exports | `stub-detection.md` |
 | **Web1 contraintes** | 16GB RAM, `--maxWorkers=1`, GDrive path different | `../machine-specific/myia-web1-constraints.md` |
+| **VPS-4 2027 provisioning** | Runbook migration web1 → VPS-4 (Épic #3188, Phase 0) : extracteur web1, IIS/ARR/runtimes/certs, bindings par domaine, fenêtre ACME, inventaire IP po-2023 | `../machine-specific/vps4-2027-provisioning-runbook.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
