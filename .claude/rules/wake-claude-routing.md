@@ -23,6 +23,7 @@ code, dans la section Intercom d'un dashboard `workspace-*.md`.
 | `[WAKE-CLAUDE] myia-po-2023:IISManagement model=haiku` | suffixe `model=X` optionnel (#2561) |
 | `[WAKE-HERMES]` | `myia-po-2026:hermes-agent` (#2244) |
 | `[WAKE-NANOCLAW]` | `myia-ai-01:nanoclaw` (#2244) |
+| `[WAKE-VIBE]` | `myia-po-2025:CoursIA` (#3202) — spawn = `start-vibe-worker.ps1`, pas `spawn-claude.ps1` |
 
 **Modèle** : précédence `model=X` (par-WAKE) > `$env:WAKE_DEFAULT_MODEL` (machine) > `sonnet` (défaut).
 Downshift à `model=haiku` quand la tâche est triviale.

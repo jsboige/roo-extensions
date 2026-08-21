@@ -77,7 +77,7 @@
 #>
 
 param(
-    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE,WAKE-HERMES,WAKE-NANOCLAW' }),
+    [string]$AllowedTags = $(if ($env:DASHBOARD_WATCHER_TAGS) { $env:DASHBOARD_WATCHER_TAGS } else { 'WAKE-CLAUDE,WAKE-HERMES,WAKE-NANOCLAW,WAKE-VIBE' }),
     [int]$DebounceSeconds = 10,
     [int]$CooldownMinutes = 5,
     [string]$Workspaces = "",
@@ -421,6 +421,7 @@ function Get-WakeTargetWorkspace($content) {
 }
 
 # #2244: Bot wake routing — [WAKE-HERMES] → myia-po-2026:hermes-agent, [WAKE-NANOCLAW] → myia-ai-01:nanoclaw.
+# #3202: [WAKE-VIBE] → CoursIA (Mistral Vibe — spawn is NOT claude -p, see Process-WakeTags).
 # Returns @{ machine = '<id>'; workspace = '<ws>' } or $null if no bot tag matched.
 function Get-WakeBotTarget($content) {
     if ($content -match '\[WAKE-HERMES\]') {
@@ -428,6 +429,9 @@ function Get-WakeBotTarget($content) {
     }
     if ($content -match '\[WAKE-NANOCLAW\]') {
         return @{ machine = 'myia-ai-01'; workspace = 'nanoclaw' }
+    }
+    if ($content -match '\[WAKE-VIBE\]') {
+        return @{ machine = 'myia-po-2025'; workspace = 'CoursIA' }
     }
     return $null
 }
@@ -666,16 +670,15 @@ function Invoke-ProcessWorkspace($ws) {
     }
     $payloadJson = $payloadObj | ConvertTo-Json -Depth 4 -Compress
 
+    # #3202: [WAKE-VIBE] spawns the Vibe worker, not spawn-claude.ps1.
+    # Detect early so DryRun logs the right target too.
+    $isVibeWake = ($triggerMsg.content -match '\[WAKE-VIBE\]')
+
     if ($DryRun) {
         $payloadSize = $payloadJson.Length
-        Write-Log "DRYRUN" "[$ws] Would spawn: $SpawnScript -Workspace $ws -WorkspacePath $wsPath -MessagePayloadFile <${payloadSize}B JSON>"
+        $dryTarget = if ($isVibeWake) { "start-vibe-worker.ps1 -ConfigPath <coursia.json>" } else { "$SpawnScript -Workspace $ws -WorkspacePath $wsPath" }
+        Write-Log "DRYRUN" "[$ws] Would spawn: $dryTarget -MessagePayloadFile <${payloadSize}B JSON>"
         Set-LastAck $ws $latestTs
-        return
-    }
-
-    # Real spawn
-    if (-not (Test-Path $SpawnScript)) {
-        Write-Log "ERROR" "[$ws] SpawnScript not found: $SpawnScript"
         return
     }
 
@@ -684,20 +687,46 @@ function Invoke-ProcessWorkspace($ws) {
     $payloadFile = Join-Path $env:TEMP "wake-claude-payload-$ws-$([guid]::NewGuid().ToString('N').Substring(0,8)).json"
     [System.IO.File]::WriteAllText($payloadFile, $payloadJson, [System.Text.UTF8Encoding]::new($false))
 
-    Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 (cwd=$wsPath, payload=$payloadFile)..."
-    $spawnArgs = @(
-        "-Workspace", $ws,
-        "-McpConfig", $McpConfig,
-        "-WorkspacePath", $wsPath,
-        "-MessagePayloadFile", $payloadFile
-    )
+    if ($isVibeWake) {
+        $effectiveSpawnScript = Join-Path $RepoRoot "scripts/scheduling/start-vibe-worker.ps1"
+        $vibeProfile = Join-Path $RepoRoot "scripts/scheduling/vibe-profiles/coursia.json"
+        Write-Log "INFO" "[$ws] Invoking start-vibe-worker.ps1 (profile=$vibeProfile, payload=$payloadFile)..."
+        $spawnArgs = @(
+            "-ConfigPath", $vibeProfile,
+            "-MessagePayloadFile", $payloadFile
+        )
+    } else {
+        $effectiveSpawnScript = $SpawnScript
+        Write-Log "INFO" "[$ws] Invoking spawn-claude.ps1 (cwd=$wsPath, payload=$payloadFile)..."
+        $spawnArgs = @(
+            "-Workspace", $ws,
+            "-McpConfig", $McpConfig,
+            "-WorkspacePath", $wsPath,
+            "-MessagePayloadFile", $payloadFile
+        )
+    }
+
+    # Real spawn — existence check on the effective script.
+    # Remove the temp payload on this error path: it was written above, and returning
+    # without spawning would otherwise leave it orphaned in %TEMP% (review #3203).
+    if (-not (Test-Path $effectiveSpawnScript)) {
+        Write-Log "ERROR" "[$ws] Spawn script not found: $effectiveSpawnScript"
+        Remove-Item $payloadFile -Force -ErrorAction SilentlyContinue
+        return
+    }
     # Per-WAKE model selection (user mandate 2026-06-11): a `model=X` hint on the WAKE line
     # overrides spawn-claude's capable default (Sonnet/GLM) — e.g. `model=haiku` for trivial
     # tasks. No hint → spawn-claude picks its own default.
-    $modelHint = Get-WakeModelHint $triggerMsg.content
-    if (-not [string]::IsNullOrEmpty($modelHint)) {
-        $spawnArgs += @("-Model", $modelHint)
-        Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
+    # #3202: only the claude branch takes -Model. Get-WakeModelHint matches `model=X` on ANY
+    # wake line, so an operator writing `[WAKE-VIBE] … model=haiku` (the routing doc presents
+    # the suffix as generic) would otherwise pass -Model to the vibe worker and lose the wake
+    # on a parameter-binding error.
+    if (-not $isVibeWake) {
+        $modelHint = Get-WakeModelHint $triggerMsg.content
+        if (-not [string]::IsNullOrEmpty($modelHint)) {
+            $spawnArgs += @("-Model", $modelHint)
+            Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
+        }
     }
 
     # Fire-time cooldown arm: write lastrun BEFORE spawn so failed/in-flight
@@ -707,7 +736,7 @@ function Invoke-ProcessWorkspace($ws) {
     Set-LastSpawn $ws
 
     try {
-        & pwsh -File $SpawnScript @spawnArgs
+        & pwsh -File $effectiveSpawnScript @spawnArgs
         $exitCode = $LASTEXITCODE
     } catch {
         Write-Log "ERROR" "[$ws] Spawn failed: $_"

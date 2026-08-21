@@ -1,0 +1,10 @@
+{
+  "name": "coursia",
+  "description": "Profil CoursIA — Mistral Vibe sur le workspace CoursIA. Presentable dans la serie vibe-coding.",
+  "workspace": "CoursIA",
+  "workspacePath": "D:/CoursIA",
+  "harnessCommand": "mistral vibe run --command continue",
+  "intervalHours": 1,
+  "maxIterations": 1,
+  "notes": "Le CLI Vibe (mistral) arrive par la synchro des extensions VS Code. Avant installation effective, ce profil sert de documentation de l'invocation standard."
+}
