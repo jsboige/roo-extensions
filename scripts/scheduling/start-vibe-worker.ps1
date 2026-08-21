@@ -33,6 +33,11 @@
     sur un [WAKE-VIBE]). Le contenu est injecte dans la variable d'environnement
     VIBE_WAKE_PAYLOAD pour que la commande harnais puisse le consommer.
 
+.PARAMETER Model
+    Accepte mais non utilise en v1 (Vibe n'a pas de chaine multi-modele). Present pour que
+    l'invocation reste valide si un `model=X` traverse depuis une ligne WAKE : le listener
+    garde deja le -Model a la branche claude, ce parametre est la defense en profondeur.
+
 .PARAMETER DryRun
     Affiche l'invocation prevue sans executer.
 
@@ -54,6 +59,7 @@ param(
     [string]$ConfigPath = "",
     [int]$MaxIterations = 1,
     [string]$MessagePayloadFile = "",
+    [string]$Model = "",
     [switch]$DryRun
 )
 
@@ -82,12 +88,41 @@ function Write-Log {
     Write-Host $line -ForegroundColor $color
 }
 
+# ========== HEARTBEAT (pattern #3199) ==========
+# Declared before the early-exit guards so EVERY exit path can heartbeat, including
+# operator errors (missing profile / missing command). #3199 covers all exits in
+# start-claude-worker; keeping parity here matters for the future shared extraction.
+
+function Write-WorkerHeartbeat {
+    try {
+        $SharedPath = $env:ROOSYNC_SHARED_PATH
+        if (-not $SharedPath) { return }
+        $HeartbeatDir = Join-Path $SharedPath "worker-heartbeats"
+        if (-not (Test-Path $HeartbeatDir)) {
+            New-Item -ItemType Directory -Path $HeartbeatDir -Force | Out-Null
+        }
+        $MachineId = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+        $HeartbeatFile = Join-Path $HeartbeatDir "$MachineId.heartbeat"
+        $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        [System.IO.File]::WriteAllText($HeartbeatFile, $Timestamp, [System.Text.UTF8Encoding]::new($false))
+        Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
+    } catch {
+        # Non-fatal : GDriveFS indisponible ne doit jamais faire echouer le worker (#2845)
+        Write-Log "Heartbeat failed (non-fatal): $_" "WARN"
+    }
+}
+
 # ========== PROFILE LOADING ==========
+
+if (-not [string]::IsNullOrWhiteSpace($Model)) {
+    Write-Log "Model hint received ('$Model') — ignored in v1 (Vibe has no multi-model chain)"
+}
 
 $profileObj = $null
 if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) {
     if (-not (Test-Path $ConfigPath)) {
         Write-Log "ConfigPath not found: $ConfigPath" "ERROR"
+        Write-WorkerHeartbeat
         exit 1
     }
     $profileObj = Get-Content $ConfigPath -Raw | ConvertFrom-Json
@@ -98,6 +133,7 @@ if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) {
 
 if ([string]::IsNullOrWhiteSpace($HarnessCommand)) {
     Write-Log "HarnessCommand is required (or -ConfigPath with harnessCommand)" "ERROR"
+    Write-WorkerHeartbeat
     exit 1
 }
 if ([string]::IsNullOrWhiteSpace($Workspace)) {
@@ -151,26 +187,6 @@ if (Test-Path $LockFile) {
 }
 $MachineLock = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
 @{ pid = $PID; startedAt = (Get-Date -Format "o"); machine = $MachineLock } | ConvertTo-Json | Set-Content $LockFile -Force
-
-# ========== HEARTBEAT (pattern #3199) ==========
-
-function Write-WorkerHeartbeat {
-    try {
-        $SharedPath = $env:ROOSYNC_SHARED_PATH
-        if (-not $SharedPath) { return }
-        $HeartbeatDir = Join-Path $SharedPath "worker-heartbeats"
-        if (-not (Test-Path $HeartbeatDir)) {
-            New-Item -ItemType Directory -Path $HeartbeatDir -Force | Out-Null
-        }
-        $MachineId = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
-        $HeartbeatFile = Join-Path $HeartbeatDir "$MachineId.heartbeat"
-        $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        [System.IO.File]::WriteAllText($HeartbeatFile, $Timestamp, [System.Text.UTF8Encoding]::new($false))
-        Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
-    } catch {
-        Write-Log "Heartbeat failed (non-fatal): $_" "WARN"
-    }
-}
 
 # ========== EXECUTION ==========
 

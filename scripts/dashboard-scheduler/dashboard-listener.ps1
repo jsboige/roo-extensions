@@ -706,18 +706,27 @@ function Invoke-ProcessWorkspace($ws) {
         )
     }
 
-    # Real spawn — existence check on the effective script
+    # Real spawn — existence check on the effective script.
+    # Remove the temp payload on this error path: it was written above, and returning
+    # without spawning would otherwise leave it orphaned in %TEMP% (review #3203).
     if (-not (Test-Path $effectiveSpawnScript)) {
         Write-Log "ERROR" "[$ws] Spawn script not found: $effectiveSpawnScript"
+        Remove-Item $payloadFile -Force -ErrorAction SilentlyContinue
         return
     }
     # Per-WAKE model selection (user mandate 2026-06-11): a `model=X` hint on the WAKE line
     # overrides spawn-claude's capable default (Sonnet/GLM) — e.g. `model=haiku` for trivial
     # tasks. No hint → spawn-claude picks its own default.
-    $modelHint = Get-WakeModelHint $triggerMsg.content
-    if (-not [string]::IsNullOrEmpty($modelHint)) {
-        $spawnArgs += @("-Model", $modelHint)
-        Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
+    # #3202: only the claude branch takes -Model. Get-WakeModelHint matches `model=X` on ANY
+    # wake line, so an operator writing `[WAKE-VIBE] … model=haiku` (the routing doc presents
+    # the suffix as generic) would otherwise pass -Model to the vibe worker and lose the wake
+    # on a parameter-binding error.
+    if (-not $isVibeWake) {
+        $modelHint = Get-WakeModelHint $triggerMsg.content
+        if (-not [string]::IsNullOrEmpty($modelHint)) {
+            $spawnArgs += @("-Model", $modelHint)
+            Write-Log "INFO" "[$ws] WAKE model hint applied: -Model $modelHint"
+        }
     }
 
     # Fire-time cooldown arm: write lastrun BEFORE spawn so failed/in-flight
