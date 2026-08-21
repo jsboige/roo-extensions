@@ -41,6 +41,10 @@
 .PARAMETER LauncherDir
     Repertoire des VBS generes (defaut : C:\ProgramData\claude-hidden-launchers).
 
+.PARAMETER Force
+    Autorise le remplacement d'une tache preexistante que ce script n'a pas posee.
+    Sans ce commutateur, l'installation refuse de toucher a une tache etrangere.
+
 .PARAMETER DryRun
     Previsualisation sans modification.
 
@@ -63,6 +67,7 @@ param(
     [int]$TimeoutMinutes = 55,
     [string]$TaskName = 'Vibe-Worker',
     [string]$LauncherDir = 'C:\ProgramData\claude-hidden-launchers',
+    [switch]$Force,
     [switch]$DryRun
 )
 
@@ -70,6 +75,10 @@ $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 $workerScript = Join-Path $scriptDir "start-vibe-worker.ps1"
+
+# Marqueur d'appropriation : porte par la description de la tache, seul champ que ce
+# script controle et que Get-ScheduledTask rend sans elevation.
+$VibeTaskMarker = 'Vibe worker (#3202)'
 
 function Write-Utf8NoBom {
     param([string]$Path, [string]$Content)
@@ -116,6 +125,27 @@ function Install-Task {
     }
     $safeName = $TaskName -replace '[\\/:*?"<>|]', '_'
     $vbsPath = Join-Path $LauncherDir ("{0}.vbs" -f $safeName)
+
+    # --- Garde d'appropriation (incident po-2025, 21/08) ---
+    # $LauncherDir est PARTAGE avec harden-hidden-tasks.ps1, qui y conserve
+    # <TaskName>.orig.json = l'action d'ORIGINE d'une tache, pour rollback exact.
+    # Sans cette garde, un -TaskName designant une tache preexistante causait trois
+    # degats silencieux : le .vbs etranger reecrit, le .orig.json etranger ecrase
+    # (original perdu -- un rollback ulterieur restaurerait la commande Vibe), et la
+    # tache elle-meme desenregistree plus bas.
+    $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($existingTask -and -not $Force) {
+        $isOurs = $existingTask.Description -and $existingTask.Description.StartsWith($VibeTaskMarker)
+        if (-not $isOurs) {
+            $origPath = Join-Path $LauncherDir ("{0}.orig.json" -f $safeName)
+            throw ("La tache '$TaskName' existe deja et n'a pas ete posee par ce script " +
+                   "(description : '$($existingTask.Description)'). L'installer la remplacerait et " +
+                   "ecraserait '$origPath', qui peut contenir l'action d'origine conservee par " +
+                   "harden-hidden-tasks.ps1. Choisir un autre -TaskName, ou -Force si le remplacement " +
+                   "est voulu et que le rollback de la tache existante n'est plus necessaire.")
+        }
+    }
+
     $vbsCmdLiteral = $origCmd -replace '"', '""'
     $vbs = @"
 ' Genere par scripts/scheduling/setup-vibe-scheduler.ps1 -- NE PAS EDITER A LA MAIN.
@@ -133,9 +163,15 @@ WScript.Quit rc
     Write-Utf8NoBom -Path $vbsPath -Content $vbs
 
     # Sauvegarde de l'action d'origine (rollback exact, convention harden-hidden-tasks.ps1)
+    # Ne jamais ecraser un backup deja present : c'est la garde de
+    # harden-hidden-tasks.ps1:178, dont le commentaire ci-dessus revendique la convention.
+    # Un .orig.json existant est, par construction, plus proche de l'original que celui
+    # qu'on s'apprete a ecrire.
     $backupPath = Join-Path $LauncherDir ("{0}.orig.json" -f $safeName)
-    @{ Execute = $cmd.exe; Arguments = $cmd.arguments; WorkingDirectory = $repoRoot } |
-        ConvertTo-Json | Set-Content -Path $backupPath -Encoding utf8NoBOM
+    if (-not (Test-Path $backupPath)) {
+        @{ Execute = $cmd.exe; Arguments = $cmd.arguments; WorkingDirectory = $repoRoot } |
+            ConvertTo-Json | Set-Content -Path $backupPath -Encoding utf8NoBOM
+    }
 
     # --- Scheduled task ---
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -154,7 +190,7 @@ WScript.Quit rc
         -MultipleInstances IgnoreNew
 
     Register-ScheduledTask -TaskName $TaskName `
-        -Description "Vibe worker (#3202) — Mistral Vibe cadence via schtask (pas de cron dans le harnais Vibe)." `
+        -Description "$VibeTaskMarker — Mistral Vibe cadence via schtask (pas de cron dans le harnais Vibe)." `
         -Trigger $trigger -Action $action -Settings $settings -RunLevel Limited | Out-Null
 
     Write-Host "[OK] Installed $TaskName (interval=${IntervalHours}h, VBS=$vbsPath)" -ForegroundColor Green
