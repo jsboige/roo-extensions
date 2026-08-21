@@ -89,48 +89,12 @@ function Write-Log {
 }
 
 # ========== HEARTBEAT (pattern #3199) ==========
+# Implémentation partagée : scripts/common/worker-heartbeat.ps1 (#3207, #3209).
 # Declared before the early-exit guards so EVERY exit path can heartbeat, including
-# operator errors (missing profile / missing command). #3199 covers all exits in
-# start-claude-worker; keeping parity here matters for the future shared extraction.
+# operator errors (missing profile / missing command). Les appels passent
+# -LogPrefix 'Heartbeat' pour préserver les logs greppables d'avant l'extraction.
 
-function Write-WorkerHeartbeat {
-    try {
-        $SharedPath = $env:ROOSYNC_SHARED_PATH
-        if (-not $SharedPath) { return }
-        $HeartbeatDir = Join-Path $SharedPath "worker-heartbeats"
-        if (-not (Test-Path $HeartbeatDir)) {
-            New-Item -ItemType Directory -Path $HeartbeatDir -Force | Out-Null
-        }
-        $MachineId = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
-        $HeartbeatFile = Join-Path $HeartbeatDir "$MachineId.heartbeat"
-        $Timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        # Écriture bornée (#3207) : le WriteAllText GDrive peut staller indéfiniment si DriveFS est
-        # en attente I/O ininterruptible (observé ~12 min dans un appel réputé « non-fatal »). On
-        # l'exécute dans un process enfant (Start-Job) borné à 3 s, tuable par Stop-Job : le tick ne
-        # stalle jamais, et on tue un process (pas un thread .NET bloqué, dont on ne se libère pas).
-        $job = Start-Job -ScriptBlock {
-            param($file, $content)
-            [System.IO.File]::WriteAllText($file, $content, [System.Text.UTF8Encoding]::new($false))
-        } -ArgumentList $HeartbeatFile, $Timestamp
-
-        if ($null -ne $job) {
-            if (Wait-Job $job -Timeout 3) {
-                if ($job.State -eq 'Failed') {
-                    Write-Log "Heartbeat failed (non-fatal): $($job.ChildJobs[0].JobStateInfo.Reason)" "WARN"
-                } else {
-                    Write-Log "Heartbeat written ($Timestamp)" "DEBUG"
-                }
-            } else {
-                Stop-Job $job -ErrorAction SilentlyContinue
-                Write-Log "Heartbeat write exceeded 3s — abandoned (DriveFS stall?)" "WARN"
-            }
-            Remove-Job $job -Force -ErrorAction SilentlyContinue
-        }
-    } catch {
-        # Non-fatal : GDriveFS indisponible ne doit jamais faire echouer le worker (#2845)
-        Write-Log "Heartbeat failed (non-fatal): $_" "WARN"
-    }
-}
+. (Join-Path $ScriptDir '..\common\worker-heartbeat.ps1')
 
 # ========== PROFILE LOADING ==========
 
@@ -142,7 +106,7 @@ $profileObj = $null
 if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) {
     if (-not (Test-Path $ConfigPath)) {
         Write-Log "ConfigPath not found: $ConfigPath" "ERROR"
-        Write-WorkerHeartbeat
+        Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
         exit 1
     }
     $profileObj = Get-Content $ConfigPath -Raw | ConvertFrom-Json
@@ -153,7 +117,7 @@ if (-not [string]::IsNullOrWhiteSpace($ConfigPath)) {
 
 if ([string]::IsNullOrWhiteSpace($HarnessCommand)) {
     Write-Log "HarnessCommand is required (or -ConfigPath with harnessCommand)" "ERROR"
-    Write-WorkerHeartbeat
+    Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
     exit 1
 }
 if ([string]::IsNullOrWhiteSpace($Workspace)) {
@@ -236,7 +200,7 @@ try {
     Write-Log "Stack: $($_.ScriptStackTrace)" "ERROR"
     $exitCode = 1
 } finally {
-    Write-WorkerHeartbeat
+    Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
     Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
 }
 
