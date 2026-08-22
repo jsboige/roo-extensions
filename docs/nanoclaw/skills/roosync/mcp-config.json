@@ -1,0 +1,20 @@
+{
+  "$schema": "https://github.com/modelcontextprotocol/schema/schemas/2024-11-05/mcp-config.json",
+  "mcpServers": {
+    "roo-state-manager": {
+      "command": "node",
+      "args": [
+        "/workspace/mcps/internal/servers/roo-state-manager/dist/index.js"
+      ],
+      "cwd": "/workspace",
+      "description": "RooSync coordination system - dashboard, messaging, heartbeat",
+      "env": {
+        "ROOSYNC_MACHINE_ID": "nanoclaw-ai-01",
+        "ROOSYNC_WORKSPACE": "nanoclaw-default",
+        "ROOSYNC_SHARED_PATH": "/mnt/gdrive/roosync",
+        "NODE_ENV": "production"
+      },
+      "disabled": false
+    }
+  }
+}

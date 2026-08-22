@@ -28,7 +28,7 @@
 - [x] Create skill definition (`docs/nanoclaw/skills/roosync/SKILL.md`)
 - [x] Create MCP client wrapper (`docs/nanoclaw/skills/roosync/index.ts`)
 - [ ] Create Docker Compose config (`docs/nanoclaw/docker-compose.yml`)
-- [ ] Create MCP config template (`docs/nanoclaw/skills/roosync/mcp-config.json`)
+- [x] Create MCP config template (`docs/nanoclaw/skills/roosync/mcp-config.json`)
 
 ### Implementation (in nanoclaw fork)
 - [ ] Copy skill files to nanoclaw/skills/roosync/
@@ -68,7 +68,7 @@
 - [ ] Send RooSync message to myia-ai-01
 - [ ] Read inbox from container
 - [ ] Register heartbeat
-- [ ] Verify heartbeat in roosync_heartbeat status
+- [ ] Verify heartbeat in roosync_inventory(type="machines") status
 
 ### Integration Tests
 - [ ] Claude Code on ai-01 sees NanoClaw messages
@@ -115,7 +115,7 @@
 1. [ ] NanoClaw agent can post to RooSync workspace dashboard
 2. [ ] NanoClaw agent can read RooSync inbox messages
 3. [ ] Dashboard messages from NanoClaw are tagged `[NANOCLAW]`
-4. [ ] Heartbeat visible in `roosync_heartbeat` status
+4. [ ] Heartbeat visible in `roosync_inventory` status
 5. [ ] GDrive credentials never stored in container/image
 
 ---
