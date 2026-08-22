@@ -28,7 +28,7 @@
 - [x] Create skill definition (`docs/nanoclaw/skills/roosync/SKILL.md`)
 - [x] Create MCP client wrapper (`docs/nanoclaw/skills/roosync/index.ts`)
 - [ ] Create Docker Compose config (`docs/nanoclaw/docker-compose.yml`)
-- [ ] Create MCP config template (`docs/nanoclaw/skills/roosync/mcp-config.json`)
+- [x] Create MCP config template (`docs/nanoclaw/skills/roosync/mcp-config.json`)
 
 ### Implementation (in nanoclaw fork)
 - [ ] Copy skill files to nanoclaw/skills/roosync/
