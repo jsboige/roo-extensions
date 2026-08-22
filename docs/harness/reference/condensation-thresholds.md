@@ -89,15 +89,15 @@ Seuil de déclenchement : 90%
 ## Distinction : condensation CONTEXTE vs condensation DASHBOARD
 
 Ne pas confondre (deux mécanismes distincts) :
-- **Context window** (ce doc, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) : seuil **90%** de la fenêtre 200k → déclenche la compaction de la **conversation** Claude Code.
+- **Context window** (ce doc, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) : seuil **≥ 90%** de la fenêtre configurée sur la machine (`settings.json` fait foi) → déclenche la compaction de la **conversation** Claude Code.
 - **Dashboard RooSync** (`roosync_dashboard`) : auto-condensation **préemptive à 92%** (~46 KB) / réactive à 50 KB → gère l'espace du **fichier dashboard** shared (GDrive). Voir [`.claude/rules/intercom-protocol.md`](../../../.claude/rules/intercom-protocol.md).
 
 ---
 
 ## Références
 
-- **Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v4.0.0
-- **INDEX :** [`INDEX.md`](./INDEX.md) — entrée Condensation (seuil universel 90%)
+- **Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v6.0.0
+- **INDEX :** [`INDEX.md`](./INDEX.md) — entrée Condensation (`settings.json` fait foi)
 - **Issue #502 :** Boucle infinie condensation Roo
 - **Issue #1152 :** Standard unifié historique 75%
 - **Issue #2173 :** Réglage model-aware (superseded)
