@@ -4,16 +4,20 @@
 # le worktree à origin/main au DÉBUT du run maintenance, MAIS préserve les work-tasks
 # (source roosync/github) qui peuvent contenir du travail en cours.
 #
-# Syntaxe Pester v3 (Windows PowerShell 5.1) — cohérent avec worktree-husk-prevention.Tests.ps1
+# Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
+# scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux
+# (assertions purement statiques sur le texte du worker).
 #
-# Usage :
-#   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -RequiredVersion 3.4.0 -Force; Invoke-Pester .\scripts\testing\unit\worker-worktree-reset.Tests.ps1"
+# Usage:
+#   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/worker-worktree-reset.Tests.ps1 -Output Detailed"
+
+BeforeAll {
+    $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
+    $workerScript = Join-Path $projectRoot "scripts/scheduling/start-claude-worker.ps1"
+    $content = Get-Content $workerScript -Raw
+}
 
 Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
-
-    $projectRoot = (Resolve-Path -Path "$PSScriptRoot\..\..\..").Path
-    $workerScript = Join-Path $projectRoot "scripts\scheduling\start-claude-worker.ps1"
-    $content = Get-Content $workerScript -Raw
 
     # ---------------------------------------------------------------------------
     # AC (a) : maintenance run → worktree reset
@@ -22,66 +26,66 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
     Context "AC (a) - Reset-WorktreeForMaintenance helper exists and is wired" {
 
         It "Must define the Reset-WorktreeForMaintenance function" {
-            ($content -match 'function Reset-WorktreeForMaintenance') | Should Be $true
+            ($content -match 'function Reset-WorktreeForMaintenance') | Should -Be $true
         }
 
         It "Reset must hard-reset to origin/main" {
-            ($content -match 'git -C \$WorktreePath reset --hard origin/main') | Should Be $true
+            ($content -match 'git -C \$WorktreePath reset --hard origin/main') | Should -Be $true
         }
 
         It "Reset must fetch origin/main before resetting" {
-            ($content -match 'git -C \$WorktreePath fetch origin main') | Should Be $true
+            ($content -match 'git -C \$WorktreePath fetch origin main') | Should -Be $true
         }
 
         It "Reset must run git clean to remove cruft" {
-            ($content -match 'git -C \$WorktreePath clean -fd') | Should Be $true
+            ($content -match 'git -C \$WorktreePath clean -fd') | Should -Be $true
         }
 
         It "Reset must re-align submodules after hard reset" {
             # #2944: scoped submodule init (mcps/internal only) lives in
             # Invoke-BoundedSubmoduleInit (helper exists, takes -Subpath, called
             # from this function with -Subpath "mcps/internal").
-            ($content -match 'Reset-WorktreeForMaintenance') | Should Be $true
+            ($content -match 'Reset-WorktreeForMaintenance') | Should -Be $true
             $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
             $createPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
-            $resetPos | Should BeGreaterThan 0
-            $createPos | Should BeGreaterThan 0
+            $resetPos | Should -BeGreaterThan 0
+            $createPos | Should -BeGreaterThan 0
             $window = $content.Substring($resetPos, $createPos - $resetPos)
-            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should Be $true
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should -Be $true
         }
     }
 
     Context "AC (a) - .env and logs preserved by git clean" {
 
         It "git clean must exclude .env" {
-            ($content -match 'clean -fd -e \.env') | Should Be $true
+            ($content -match 'clean -fd -e \.env') | Should -Be $true
         }
 
         It "git clean must exclude *.log" {
-            ($content -match "-e '\*\.log'") | Should Be $true
+            ($content -match "-e '\*\.log'") | Should -Be $true
         }
 
         It "git clean must exclude node_modules (perf — junction-linked deps)" {
-            ($content -match 'clean -fd -e \.env -e ''\*\.log'' -e node_modules') | Should Be $true
+            ($content -match 'clean -fd -e \.env -e ''\*\.log'' -e node_modules') | Should -Be $true
         }
     }
 
     Context "AC (a) - maintenance task (source=fallback) triggers reset on resume" {
 
         It "Create-Worktree must detect maintenance task by source=fallback" {
-            ($content -match '\$IsMaintenanceTask = \$Task -and \$Task\.source -eq "fallback"') | Should Be $true
+            ($content -match '\$IsMaintenanceTask = \$Task -and \$Task\.source -eq "fallback"') | Should -Be $true
         }
 
         It "Create-Worktree must call Reset-WorktreeForMaintenance for maintenance tasks" {
-            ($content -match 'Reset-WorktreeForMaintenance -WorktreePath \$ExistingWt\.worktreePath') | Should Be $true
+            ($content -match 'Reset-WorktreeForMaintenance -WorktreePath \$ExistingWt\.worktreePath') | Should -Be $true
         }
 
         It "Maintenance reset must be gated behind #2834 marker for traceability" {
-            ($content -match '#2834 RESET worktree maintenance') | Should Be $true
+            ($content -match '#2834 RESET worktree maintenance') | Should -Be $true
         }
 
         It "Reset failure must be non-fatal (WARN, not abort)" {
-            ($content -match 'Reset a échoué \(non-fatal\)') | Should Be $true
+            ($content -match 'Reset a échoué \(non-fatal\)') | Should -Be $true
         }
     }
 
@@ -92,21 +96,21 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
     Context "AC (b) - work-task (source!=fallback) preserves resume semantics" {
 
         It "Work-task branch must still emit REPRISE (resume) log" {
-            ($content -match 'REPRISE dans worktree existant') | Should Be $true
+            ($content -match 'REPRISE dans worktree existant') | Should -Be $true
         }
 
         It "Work-task branch must still preserve changes (travail préservé)" {
-            ($content -match 'changements existants seront préservés') | Should Be $true
+            ($content -match 'changements existants seront préservés') | Should -Be $true
         }
 
         It "Work-task branch must still inject CONTINUATION prompt context" {
-            ($content -match 'CONTINUATION FROM PREVIOUS SESSION') | Should Be $true
+            ($content -match 'CONTINUATION FROM PREVIOUS SESSION') | Should -Be $true
         }
 
         It "Reset call must be inside the maintenance (IsMaintenanceTask) branch only" {
             # The reset call appears once (maintenance branch), the REPRISE log appears
             # inside the else (work-task) branch — both gated, no unconditional reset.
-            ($content -match 'if \(\$IsMaintenanceTask\)') | Should Be $true
+            ($content -match 'if \(\$IsMaintenanceTask\)') | Should -Be $true
         }
     }
 
@@ -117,11 +121,11 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
     Context "Regression - Create-Worktree guard intact" {
 
         It "Create-Worktree must keep the UseWorktree early-return guard" {
-            ($content -match 'if \(-not \$UseWorktree\)') | Should Be $true
+            ($content -match 'if \(-not \$UseWorktree\)') | Should -Be $true
         }
 
         It "Create-Worktree must keep the Worktree désactivé message" {
-            ($content -match 'Worktree désactivé, travail sur branche principale') | Should Be $true
+            ($content -match 'Worktree désactivé, travail sur branche principale') | Should -Be $true
         }
     }
 }

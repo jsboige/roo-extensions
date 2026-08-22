@@ -3,10 +3,13 @@
     Covers the PURE functions: allowlist, extraction filter, validation/safety invariants.
     The I/O orchestrator (Invoke-ZooGlobalStateMigration) is exercised headlessly on real
     state.vscdb blobs, not mocked here.
+
+    Exécuté en CI par le job `unit-pester` (#3216) — pwsh Windows ET Linux
+    (chemins en slashes, subprocess via (Get-Process -Id $PID).Path).
 #>
 BeforeAll {
-    $projectRoot = (Resolve-Path "$PSScriptRoot\..\..\..").Path
-    $modulePath = Join-Path $projectRoot 'scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1'
+    $projectRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
+    $modulePath = Join-Path $projectRoot 'scripts/zoo-scheduler/migrate-zoo-globalstate-settings.ps1'
     Import-Module $modulePath -Force -ErrorAction SilentlyContinue
 }
 
@@ -147,8 +150,8 @@ Describe 'Test-GlobalSettingsBlob' {
 
 Describe 'CLI execution guard (regression: -File silent no-op, follow-up to #2678)' {
     BeforeAll {
-        $projectRoot = (Resolve-Path "$PSScriptRoot\..\..\..").Path
-        $scriptPath = Join-Path $projectRoot 'scripts\zoo-scheduler\migrate-zoo-globalstate-settings.ps1'
+        $projectRoot = (Resolve-Path "$PSScriptRoot/../../..").Path
+        $scriptPath = Join-Path $projectRoot 'scripts/zoo-scheduler/migrate-zoo-globalstate-settings.ps1'
         $pwsh = (Get-Process -Id $PID).Path   # exact interpreter running this test (pwsh or powershell)
     }
 
