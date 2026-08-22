@@ -49,8 +49,18 @@ Un ID de modèle sans suffixe `[1m]` est clampé au contexte catalogué **quelle
 "ANTHROPIC_DEFAULT_HAIKU_MODEL":  "claude-haiku-4-5-20251001[1m]"
 ```
 
-Ces IDs vivent dans `settings.json` **par machine** — il n'y a aucune occurrence de `[1m]` dans
-le dépôt (vérifié 2026-08-22, deux instruments indépendants).
+Ces IDs vivent dans `settings.json` **par machine**. Hors de cette documentation, `[1m]` n'a
+**aucune occurrence dans du fichier exécutable ou de configuration du dépôt** (vérifié 2026-08-22,
+deux instruments indépendants) : aucune PR ne peut corriger le suffixe à votre place.
+
+## Machine neuve : déployer AVANT le premier spawn
+
+Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1`. Sur une machine dont
+`settings.json` n'a jamais été déployé, un `claude -p` tombe donc sur le défaut Claude Code
+(~50 %) et retrouve la boucle de condensation — les scripts de spawn ne le rattrapent plus.
+
+**Sur une machine neuve : lancer `deploy-claude-mcp-settings.ps1` avant le premier spawn.** Sur
+une machine déjà en service, il n'y a rien à faire : le pourcentage y est déjà ≥ 90.
 
 ## Le piège qui reste
 

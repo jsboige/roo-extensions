@@ -6,7 +6,7 @@
 
 | Document | Essentiel | Chemin |
 |----------|-----------|--------|
-| **Condensation** | Seuil UNIVERSEL 90% (200k/90% = 180k effectif, toutes familles — #2173 model-aware superseded 2026-05-25). `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=90` | `condensation-thresholds.md` |
+| **Condensation** | `settings.json` de la machine **fait foi** — aucun script ne surcharge la fenêtre. Seul invariant : `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE >= 90` (jamais 50%, boucle #502). Le mandat universel 200k est **supersedé** (bug, 2026-08-22) | `condensation-thresholds.md` |
 | **Checklists GitHub** | Ne JAMAIS fermer une issue avec tableau vide | `github-checklists.md` |
 | **Feedback/Friction** | Signaler via Dashboard `[FRICTION]` + RooSync. Canonique = `.claude/rules/friction-protocol.md` (slim) | `feedback-process.md`, `friction-protocol-detailed.md` |
 | **Escalade** | 5 niveaux (outils → sub-agent → sk-agent → SDDD → utilisateur) | `escalation-protocol.md` |

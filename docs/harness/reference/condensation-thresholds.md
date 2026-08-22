@@ -3,7 +3,7 @@
 **Version:** 5.0.0 (le clamp universel 200k est un **bug** — `settings.json` par machine fait foi, décision user 2026-08-22)
 **Créé:** 2026-02-21
 **Mis à jour:** 2026-06-23
-**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → historique 75% (#1152) → **UNIVERSEL 90% (mandate user 2026-05-25)**
+**Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → historique 75% (#1152) → UNIVERSEL 200k/90 (mandate user 2026-05-25) → **`settings.json` par machine (décision user 2026-08-22 : le clamp universel était un bug)**
 
 > **⚠️ Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v6.0.0. Ce document en est le **détail**. En cas d'écart, la **règle** gagne.
 
