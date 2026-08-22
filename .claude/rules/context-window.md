@@ -53,6 +53,24 @@ Ces IDs vivent dans `settings.json` **par machine**. Hors de cette documentation
 **aucune occurrence dans du fichier exécutable ou de configuration du dépôt** (vérifié 2026-08-22,
 deux instruments indépendants) : aucune PR ne peut corriger le suffixe à votre place.
 
+## La fenêtre est VOLONTAIREMENT sous le contexte du modèle
+
+`[1m]` déclare que le modèle tient 1M. La fenêtre de compaction, elle, est réglée
+**bien en dessous** : 280k sur po-2023, 310k sur ai-01. **Ce n'est pas un clamp résiduel, c'est
+une décision** (user, 2026-08-22) : garder les modèles frais et ne pas laisser filer les coûts.
+
+Ce sont donc **deux réglages distincts**, et l'écart entre eux est intentionnel :
+
+| Réglage | Où | Ce qu'il dit |
+|---|---|---|
+| `[1m]` sur l'ID de modèle | `settings.json` | ce que le modèle **peut** tenir |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | `settings.json` | ce qu'on **veut** laisser grandir avant de condenser |
+
+**Ne pas « corriger » une fenêtre de 280k/310k vers 1M sous prétexte que le modèle le supporte.**
+Ce serait le coup de pendule inverse de celui que cette règle vient de défaire : le mandat 200k était
+un bug parce qu'il **écrasait** un choix machine, pas parce que 200k était trop petit. Une valeur
+choisie se respecte dans les deux sens.
+
 ## Machine neuve : déployer AVANT le premier spawn
 
 Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1`. Sur une machine dont

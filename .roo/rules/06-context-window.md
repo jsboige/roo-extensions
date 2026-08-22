@@ -27,6 +27,17 @@ scripts qui l'appliquaient (`spawn-claude.ps1`, `start-claude-worker.ps1`,
 Une **grande fenetre** n'est jamais dangereuse ; seul un **pourcentage bas** l'est. Le garde-fou
 vit dans `deploy-claude-mcp-settings.ps1` (condition `< 90`), pas dans les scripts de spawn.
 
+## La fenetre est VOLONTAIREMENT sous le contexte du modele
+
+Le suffixe [1m] sur un ID de modele declare que le modele tient 1M. La fenetre de compaction est
+reglee bien en dessous (280k po-2023, 310k ai-01) : ce n'est pas un clamp residuel, c'est une
+decision user du 2026-08-22 -- garder les modeles frais et borner les couts.
+
+Deux reglages distincts : [1m] dit ce que le modele PEUT tenir, la fenetre dit ce qu'on VEUT
+laisser grandir avant de condenser. Ne pas remonter une fenetre de 280k/310k vers 1M sous pretexte
+que le modele le supporte : le mandat 200k etait un bug parce qu'il ECRASAIT un choix machine, pas
+parce que 200k etait trop petit.
+
 ## Contexte reel par famille (inchange)
 
 GLM-5 / 4.7 / 4.5 Air (z.ai) et Qwen3.6-35B (vLLM) annoncent 200k mais n'ont que **~131k en
