@@ -1,7 +1,7 @@
 # Fermeture d'Issues — Regles Strictes
 
 **Version:** 1.4.0 (slim)
-**MAJ:** 2026-04-25
+**MAJ:** 2026-08-22
 
 ---
 

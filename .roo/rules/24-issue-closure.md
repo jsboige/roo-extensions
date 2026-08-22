@@ -1,7 +1,7 @@
 # Fermeture d'Issues — Regles Strictes
 
 **Version:** 3.1.0 (synced with .claude/rules/issue-closure.md v1.4.0)
-**MAJ:** 2026-04-25
+**MAJ:** 2026-08-22
 **Origine:** Incident fermeture prematuree (#829, #850, #855, #1428) + lacune detectee par meta-analyse cycle 2026-04-25 (#1696)
 
 ## Regle Absolue
