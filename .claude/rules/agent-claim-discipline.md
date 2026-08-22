@@ -1,6 +1,6 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 1.3.0 (slim)
+**Version:** 1.4.0 (slim)
 **Issues :** #1605, #1666 Phase A2, #1798
 
 ---
@@ -19,6 +19,25 @@
 4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` horodate prime.
 
 **Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
+
+## Pre-Delivery Discipline (#3224) — le claim garde le DEPART, pas la LIVRAISON
+
+La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le reverifie **avant de
+livrer** — or c'est entre les deux que l'etat change.
+
+**Avant `gh pr create`, relire le dashboard workspace FRAIS** (`action: "read"`, `section: "intercom"`) :
+
+1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
+2. Une PR concurrente est-elle apparue depuis ? (`gh pr list --search "#NNN" --state open`)
+3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja
+   ecrit ». Du travail jete coute moins cher qu'une collision a demeler.
+
+**Incident fondateur (2026-08-22, #1025/#1026)** : web1 a livre #1026 a 15:15Z alors qu'un `[REPLY]`
+STOP avait ete poste a 15:00Z — quinze minutes plus tot, sur le canal qu'elle avait lu au depart et
+plus jamais depuis. En parallele, le claim concurrent de po-2025 citait un etat web1 vieux de 2h30.
+
+**La lecture au depart n'est pas une lecture a la livraison.** Un dashboard lu il y a deux heures est
+une photographie, pas un etat.
 
 ## Discipline requise — Pour l'agent qui rapporte
 

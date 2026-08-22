@@ -1,6 +1,6 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 3.0.0 (synced with .claude/rules/issue-closure.md v1.3.0)
+**Version:** 3.1.0 (synced with .claude/rules/issue-closure.md v1.4.0)
 **MAJ:** 2026-04-25
 **Origine:** Incident fermeture prematuree (#829, #850, #855, #1428) + lacune detectee par meta-analyse cycle 2026-04-25 (#1696)
 
@@ -91,6 +91,32 @@ Tout commentaire de fermeture (via win-cli MCP `gh issue close N --comment "..."
 - **JAMAIS** utiliser un commentaire generique pour fermer (test : si copie-collable sur 3+ issues sans modif, c'est un batch-close interdit, incident #1428)
 - **"won't fix" / "not planned"** : reserve au coordinateur interactif Claude avec accord utilisateur OU a l'utilisateur directement
 
+## Fermer n'est pas ferme (#3033, #3225)
+
+Le bot de checklist **rouvre** l'issue ~4 min plus tard si des cases restent decochees. Une session
+qui rapporte « fermee » sur le retour immediat de son action rapporte donc regulierement du faux.
+
+**Les deux chemins de fermeture sont concernes — et le second est celui qu'on oublie :**
+
+| Chemin | Ce qui rend « succes » tout de suite | Le bot statue |
+|---|---|---|
+| `gh issue close N` | le code de retour de la commande | ~4 min apres |
+| **un merge portant `Closes #NNN`** | **le merge de la PR** | ~4 min apres, pareil |
+
+Le second n'etait couvert par aucune regle. Constate le 2026-08-22 sur **#3216** : fermee a 14:48Z
+par le merge de #3218, **rouverte a 14:52Z** par le bot. Personne n'avait fait de `gh issue close`
+— et personne n'avait coche la checklist non plus.
+
+1. **Cocher les cases AVANT** — avant le `gh issue close`, et avant le **merge** de la PR qui porte
+   `Closes #NNN`. Pas apres : une fois la PR mergee, le compte a rebours du bot a deja commence.
+2. **Relire l'etat >= 5 min APRES** : `gh issue view N --json state,closedAt`.
+3. Ne citer la fermeture dans un `[DONE]`, un bilan ou un decompte **qu'apres** cette relecture.
+   Vaut aussi pour le decompte du hard cap : une issue rouverte n'a jamais ete fermee.
+
+**Pourquoi ce n'est pas cosmetique.** Apres trois reouvertures, la boucle du bot s'arrete (#1487).
+Une issue peut donc finir durablement `CLOSED` avec une **checklist vide** — exactement l'etat que
+la regle existe pour empecher, atteint sans que personne n'ait rien contourne.
+
 ## Si le Bot Checklist Rouvre une Issue
 
 C'est normal — la checklist n'est pas complete. Options :
@@ -111,3 +137,4 @@ C'est normal — la checklist n'est pas complete. Options :
 **Historique :**
 - v2.1.0 (2026-04-19) : Sync Claude v1.1.0 (commentaire generique anti-pattern)
 - v3.0.0 (2026-04-25) : Sync Claude v1.3.0 — Hard cap 3/cycle + marqueurs explicites user-originated + bloc Evidence + lacune comblee (#1696)
+- v3.1.0 (2026-08-22) : Sync Claude v1.4.0 — « Fermer n'est pas ferme ». Le miroir n'avait jamais recu la regle #3033 tout en se declarant synchronise ; elle est ajoutee ici en meme temps que son extension au merge portant `Closes #NNN` (#3225)
