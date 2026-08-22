@@ -22,8 +22,9 @@ Dashboard operations for cross-machine coordination.
 - `read`: Read dashboard messages
 - `append`: Post a new message with tags
 - `write`: Replace status section
-- `condense`: Condense old messages
 - `list`: List all dashboards
+
+> Note: condensation is automatic (preemptive at 92% utilization) — there is no `condense` action.
 
 **Parameters:**
 - `action` (required): Action to perform

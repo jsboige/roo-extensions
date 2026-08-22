@@ -23,7 +23,7 @@ import fs from 'fs';
 // ============================================================
 
 export type DashboardType = 'global' | 'machine' | 'workspace';
-export type DashboardAction = 'read' | 'write' | 'append' | 'condense' | 'list' | 'delete' | 'read_archive' | 'read_overview';
+export type DashboardAction = 'read' | 'write' | 'append' | 'list' | 'delete' | 'read_archive' | 'read_overview' | 'refresh' | 'update';
 export type DashboardSection = 'status' | 'intercom' | 'all';
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
@@ -237,17 +237,6 @@ export class RooSyncClient {
         content: options.content,
         machineId: options.machineId || this.config.machineId,
         workspace: options.workspace || this.config.workspace,
-      });
-    },
-
-    /**
-     * Condense old messages
-     */
-    condense: async (type: DashboardType, keepMessages = 100): Promise<unknown> => {
-      return this.callTool('roosync_dashboard', {
-        action: 'condense',
-        type,
-        keepMessages,
       });
     },
 

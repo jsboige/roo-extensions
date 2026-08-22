@@ -49,9 +49,8 @@ NanoClaw Container → MCP Client → roo-state-manager → RooSync Dashboard/Me
 │  └──────────────┘      │  ┌────────────────────────────────┐  │   │
 │                        │  │  RooSync Skill (NEW)          │  │   │
 │                        │  │  - roosync_dashboard()         │  │   │
-│                        │  │  - roosync_send()              │  │   │
-│                        │  │  - roosync_read()              │  │   │
-│                        │  │  - roosync_heartbeat()         │  │   │
+│                        │  │  - roosync_messages()          │  │   │
+│                        │  │  - roosync_inventory()         │  │   │
 │                        │  └────────────────────────────────┘  │   │
 │                        └──────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
@@ -87,14 +86,13 @@ NanoClaw Container → MCP Client → roo-state-manager → RooSync Dashboard/Me
 ```
 nanoclaw/skills/roosync/
 ├── SKILL.md              # Skill definition (NanoClaw format)
-├── index.ts              # MCP client wrapper
-├── tools/
-│   ├── dashboard.ts      # Dashboard operations
-│   ├── messaging.ts      # Send/receive messages
-│   └── heartbeat.ts      # Heartbeat registration
-└── config/
-    └── mcp-config.json   # MCP client configuration
+├── index.ts              # MCP client wrapper (dashboard, messaging, inventory)
+└── mcp-config.json       # MCP client configuration
 ```
+
+> **Note (2026-08-23)** : la structure livrée (#3227) est plate — pas de sous-répertoire
+> `tools/` ni `config/`. La registration heartbeat n'existe pas côté MCP : elle est gérée
+> par le listener hôte. Le wrapper expose la lecture d'inventaire (`roosync_inventory`).
 
 ### SKILL.md Format
 
@@ -120,10 +118,11 @@ roosync_dashboard(action="read", type="workspace")
 roosync_dashboard(action="append", type="workspace", tags=["NANOCLAW", "INFO"], content="...")
 ```
 
-### roosync_send
+### roosync_messages (send)
 Send inter-machine messages to other agents.
 
 **Parameters:**
+- `action`: "send" (outbound)
 - `to`: Target machine (e.g., "myia-ai-01")
 - `subject`: Message subject
 - `body`: Message body (markdown)
@@ -132,28 +131,26 @@ Send inter-machine messages to other agents.
 
 **Usage:**
 ```
-roosync_send(to="myia-ai-01", subject="Task complete", body="...", tags=["NANOCLAW"])
+roosync_messages(action="send", to="myia-ai-01", subject="Task complete", body="...", tags=["NANOCLAW"])
 ```
 
-### roosync_read
+### roosync_messages (inbox)
 Read the RooSync inbox.
 
 **Usage:**
 ```
-roosync_read(mode="inbox", status="unread", limit=20)
+roosync_messages(action="inbox", status="unread", limit=20)
 ```
 
-### roosync_heartbeat
-Register agent heartbeat for cluster visibility.
-
-**Actions:**
-- `register`: Register/refresh heartbeat
-- `status`: Check all machine heartbeats
+### roosync_inventory
+Check cluster liveness / heartbeat status (read-only).
 
 **Usage:**
 ```
-roosync_heartbeat(action="register", machineId="nanoclaw-ai-01", metadata={...})
+roosync_inventory(type="machines", includeHeartbeats=true)
 ```
+
+> Heartbeat registration is NOT an MCP call — the host RooSync listener owns it.
 
 ## Best Practices
 
@@ -242,7 +239,7 @@ volumes:
 - [ ] Create MCP client wrapper (`index.ts`)
 - [ ] Implement dashboard operations (`tools/dashboard.ts`)
 - [ ] Implement messaging (`tools/messaging.ts`)
-- [ ] Implement heartbeat (`tools/heartbeat.ts`)
+- [x] Implement inventory read (liveness check) — delivered flat in `index.ts` (#3227), no `tools/heartbeat.ts`
 - [ ] Add unit tests for MCP client wrapper
 
 ### Phase 3: Docker Configuration
@@ -253,7 +250,7 @@ volumes:
 ### Phase 4: Testing
 - [ ] Test dashboard read/write from container
 - [ ] Test bidirectional messaging
-- [ ] Test heartbeat registration
+- [ ] Test inventory read (`roosync_inventory`)
 - [ ] Verify GDrive credentials isolation
 
 ### Phase 5: Documentation
@@ -268,7 +265,7 @@ volumes:
 1. ✅ NanoClaw agent can post to RooSync workspace dashboard
 2. ✅ NanoClaw agent can read RooSync inbox messages
 3. ✅ Dashboard messages from NanoClaw are tagged `[NANOCLAW]`
-4. ✅ Heartbeat visible in `roosync_heartbeat` status
+4. ✅ Cluster liveness visible in `roosync_inventory` status
 5. ✅ GDrive credentials never stored in container/image
 
 ---
