@@ -61,19 +61,22 @@ Describe "Worker Script - jq Expressions" {
 
         It "Dispatch jq expression executes without error and selects only tagged bodies" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
+            # jq -c (compact) : le tableau sort sur UNE ligne, comme le --jq de gh —
+            # c'est la forme que le worker consomme réellement.
             $out = @($script:CommentsJson | jq -c $script:JqExpr)
             $LASTEXITCODE | Should -Be 0
+            $parsed = @(($out -join "`n") | ConvertFrom-Json)
             # [-10:] window covers the whole fixture: [CLAIMED]@0, [DISPATCH]@3, [CLAIMED]@4, [RESULT]@5
-            $out.Count | Should -Be 4
-            ($out -join "`n") | Should -Match '\[DISPATCH\]'
-            ($out -join "`n") | Should -Not -Match 'unrelated comment'
+            $parsed.Count | Should -Be 4
+            ($parsed -join "`n") | Should -Match '\[DISPATCH\]'
+            ($parsed -join "`n") | Should -Not -Match 'unrelated comment'
         }
 
-        It "Dispatch jq result is parseable JSON (one JSON string per line)" {
+        It "Dispatch jq result is parseable JSON (compact array, like gh --jq output)" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
             $out = @($script:CommentsJson | jq -c $script:JqExpr)
             $LASTEXITCODE | Should -Be 0
-            $parsed = @($out | ForEach-Object { $_ | ConvertFrom-Json })
+            $parsed = @(($out -join "`n") | ConvertFrom-Json)
             $parsed.Count | Should -Be 4
             $parsed | Should -Contain '[DISPATCH] run audit on scripts/maintenance'
         }
@@ -100,8 +103,9 @@ Describe "Worker Script - jq Expressions" {
             # comments[-5:] = indices 1..5 → only the late [CLAIMED]@4 is selected;
             # the early [CLAIMED]@0 proves the window actually truncates.
             $out = @($script:CommentsJson | jq -c $script:JqClaimExpr)
-            $out.Count | Should -Be 1
-            $out[0] | ConvertFrom-Json | Should -Be '[CLAIMED] taken by web1'
+            $parsed = @(($out -join "`n") | ConvertFrom-Json)
+            $parsed.Count | Should -Be 1
+            $parsed | Should -Contain '[CLAIMED] taken by web1'
         }
     }
 }
