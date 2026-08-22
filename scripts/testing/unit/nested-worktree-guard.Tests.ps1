@@ -89,13 +89,15 @@ Describe "Nested Worktree Guard - #2351 (preventive, creation-time)" {
     Context "Nesting predicate behaviour - refusal logic (#2351)" {
 
         BeforeAll {
-            # Réplique fidèle de la logique du guard (start-claude-worker.ps1)
+            # Réplique fidèle de la logique du guard (start-claude-worker.ps1).
+            # Concaténation de chaînes (pas Join-Path) : sur pwsh Linux, Join-Path
+            # sur un chemin "D:/..." tente de résoudre le PSDrive "D" inexistant
+            # et lève DriveNotFoundException — mesuré sur le runner ubuntu (#3216).
             function Test-IsNested {
                 param([string]$WorktreePath, [string[]]$SubmodulePaths, [string]$RepoRoot)
                 $normalizedWt = ($WorktreePath -replace '\\', '/').TrimEnd('/')
                 foreach ($smPath in $SubmodulePaths) {
-                    $fullSmPath   = Join-Path $RepoRoot $smPath
-                    $normalizedSm = ($fullSmPath -replace '\\', '/').TrimEnd('/')
+                    $normalizedSm = (("$RepoRoot/$smPath") -replace '\\', '/').TrimEnd('/')
                     if ($normalizedWt.StartsWith("$normalizedSm/") -or $normalizedWt -eq $normalizedSm) {
                         return $true
                     }

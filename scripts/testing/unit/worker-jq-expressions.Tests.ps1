@@ -61,7 +61,7 @@ Describe "Worker Script - jq Expressions" {
 
         It "Dispatch jq expression executes without error and selects only tagged bodies" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
-            $out = @($script:CommentsJson | jq $script:JqExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqExpr)
             $LASTEXITCODE | Should -Be 0
             # [-10:] window covers the whole fixture: [CLAIMED]@0, [DISPATCH]@3, [CLAIMED]@4, [RESULT]@5
             $out.Count | Should -Be 4
@@ -71,7 +71,7 @@ Describe "Worker Script - jq Expressions" {
 
         It "Dispatch jq result is parseable JSON (one JSON string per line)" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
-            $out = @($script:CommentsJson | jq $script:JqExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqExpr)
             $LASTEXITCODE | Should -Be 0
             $parsed = @($out | ForEach-Object { $_ | ConvertFrom-Json })
             $parsed.Count | Should -Be 4
@@ -81,7 +81,7 @@ Describe "Worker Script - jq Expressions" {
         It "Must handle special characters in comment bodies (pipes, quotes — ex-live #1061)" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
             # A body with embedded quotes/pipes must not break jq nor leak into selection
-            $out = @($script:CommentsJson | jq $script:JqExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqExpr)
             $LASTEXITCODE | Should -Be 0
             ($out -join "`n") | Should -Not -Match 'pipes'
         }
@@ -91,7 +91,7 @@ Describe "Worker Script - jq Expressions" {
 
         It "Claim jq expression executes without error" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
-            $out = @($script:CommentsJson | jq $script:JqClaimExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqClaimExpr)
             $LASTEXITCODE | Should -Be 0
         }
 
@@ -99,7 +99,7 @@ Describe "Worker Script - jq Expressions" {
             if (-not $script:JqAvailable) { Set-ItResult -Skipped -Because 'jq not on PATH (preinstalled on ubuntu-latest CI)' }
             # comments[-5:] = indices 1..5 → only the late [CLAIMED]@4 is selected;
             # the early [CLAIMED]@0 proves the window actually truncates.
-            $out = @($script:CommentsJson | jq $script:JqClaimExpr)
+            $out = @($script:CommentsJson | jq -c $script:JqClaimExpr)
             $out.Count | Should -Be 1
             $out[0] | ConvertFrom-Json | Should -Be '[CLAIMED] taken by web1'
         }

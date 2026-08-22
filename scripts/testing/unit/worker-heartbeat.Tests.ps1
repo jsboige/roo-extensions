@@ -31,7 +31,7 @@ Describe "Worker Heartbeat - module partagé (#3207)" {
         # Même fallback que le module : COMPUTERNAME (Windows) sinon 'unknown' (Linux CI)
         $machine = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
         $hb = Join-Path $script:TempRoot "worker-heartbeats/$machine.heartbeat"
-        Test-Path $hb | Should -Be $false
+        Test-Path $hb | Should -Be $true
         $content = Get-Content $hb -Raw
         $content.Length | Should -Be 20  # "yyyy-MM-ddTHH:mm:ssZ" exact — WriteAllText n'ajoute pas de newline
         $content -match '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z' | Should -Be $true
