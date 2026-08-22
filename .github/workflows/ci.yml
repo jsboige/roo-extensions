@@ -18,6 +18,16 @@ on:
       # path in this filter matched. The harness below guards that script, so
       # the script's own path has to be a trigger for it.
       - 'scripts/mcp-watchdog/**'
+      # #3216: the unit-pester job below runs the Pester suite in
+      # scripts/testing/unit/; its runner and the production sources that suite
+      # guards must re-trigger it on main pushes (same principle as above).
+      - 'scripts/testing/unit/**'
+      - 'scripts/testing/run-pester-tests.ps1'
+      - 'scripts/encoding/**'
+      - 'scripts/common/**'
+      - 'scripts/zoo-scheduler/**'
+      - 'scripts/claude/worktree-cleanup.ps1'
+      - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -126,8 +136,9 @@ jobs:
 
       # Same reasoning as above, applied to the worktree cleanup classifier:
       # Get-WorktreeClass decides whether a worktree gets DELETED. It is pure
-      # (no git, no gh, no disk), so it belongs on the wired path rather than in
-      # scripts/testing/unit/, where eleven Pester files execute nowhere.
+      # (no git, no gh, no disk), so it runs on this static path. (The Pester
+      # files in scripts/testing/unit/ that used to execute nowhere now have
+      # their own wired job below, unit-pester — #3216.)
       - name: Run worktree classifier static harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-worktree-classify.ps1
@@ -185,3 +196,28 @@ jobs:
       - name: Run meta-audit argument single-source harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-args-single-source.ps1
+
+  # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
+  # ~200 assertions that no CI executed. Two had gone silently red while dead
+  # (deploy-modes: its target was archived 2025-12; worktree-husk: retry
+  # constants drifted in #2495) — a dead test is indistinguishable from a
+  # green one, so the files kept receiving edits as if they protected
+  # something. The suite is static (text guards on production scripts) or
+  # fixture-based (temp dirs, git sandbox, offline jq fixtures), so
+  # ubuntu-latest is enough — no Windows runner needed. Pester is not
+  # preinstalled on ubuntu images, installed per-run. The runner exits
+  # non-zero on failure (Pester Run.Exit — measured: an invented Run.CI key
+  # is silently ignored and exits 0 on red).
+  unit-pester:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Pester
+        shell: pwsh
+        run: Install-Module Pester -Force -Scope CurrentUser
+
+      - name: Run unit Pester suite
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit -CI

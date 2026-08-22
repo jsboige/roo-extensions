@@ -14,16 +14,20 @@
 #   (b) http.lowSpeedLimit=1000 + http.lowSpeedTime=60 → stall réseau = abort
 #   (c) Start-Job + Wait-Job -Timeout → plafond wall-clock dur + WARN explicite
 #
-# Syntaxe Pester v3 (Windows PowerShell 5.1) — cf. nested-worktree-guard.Tests.ps1
+# Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
+# scripts/testing/run-pester-tests.ps1. Fonctionne sur pwsh Windows ET Linux
+# (assertions purement statiques sur le texte du worker).
 #
 # Usage :
-#   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "Import-Module Pester -RequiredVersion 3.4.0 -Force; Invoke-Pester .\scripts\testing\unit\worker-bounded-submodule-init.Tests.ps1"
+#   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/worker-bounded-submodule-init.Tests.ps1 -Output Detailed"
+
+BeforeAll {
+    $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
+    $workerScript = Join-Path $projectRoot "scripts/scheduling/start-claude-worker.ps1"
+    $content = Get-Content $workerScript -Raw
+}
 
 Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
-
-    $projectRoot = (Resolve-Path -Path "$PSScriptRoot\..\..\..").Path
-    $workerScript = Join-Path $projectRoot "scripts\scheduling\start-claude-worker.ps1"
-    $content = Get-Content $workerScript -Raw
 
     # ---------------------------------------------------------------------------
     # Guard (a) : env vars process-wide + inside helper scriptblock
@@ -32,22 +36,22 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
     Context "Guard (a) - GIT_TERMINAL_PROMPT / GCM_INTERACTIVE (no interactive prompts)" {
 
         It "Must set GIT_TERMINAL_PROMPT=0 at script level (covers ALL git calls)" {
-            ($content -match '\$env:GIT_TERMINAL_PROMPT\s*=\s*"0"') | Should Be $true
+            ($content -match '\$env:GIT_TERMINAL_PROMPT\s*=\s*"0"') | Should -Be $true
         }
 
         It "Must set GCM_INTERACTIVE=never at script level" {
-            ($content -match '\$env:GCM_INTERACTIVE\s*=\s*"never"') | Should Be $true
+            ($content -match '\$env:GCM_INTERACTIVE\s*=\s*"never"') | Should -Be $true
         }
 
         It "Env-var block must reference #2944 for traceability" {
             $blockPos = $content.IndexOf('#2944: Bounded git execution')
-            $blockPos | Should BeGreaterThan 0
+            $blockPos | Should -BeGreaterThan 0
         }
 
         It "Env-var block must explain why (headless worker, scheduler kill)" {
             $blockPos = $content.IndexOf('#2944: Bounded git execution')
             $window = $content.Substring($blockPos, 600)
-            ($window -match 'LastTaskResult=267014') | Should Be $true
+            ($window -match 'LastTaskResult=267014') | Should -Be $true
         }
     }
 
@@ -58,39 +62,39 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
     Context "Helper - Invoke-BoundedSubmoduleInit exists and is well-formed" {
 
         It "Must define the Invoke-BoundedSubmoduleInit function" {
-            ($content -match 'function Invoke-BoundedSubmoduleInit') | Should Be $true
+            ($content -match 'function Invoke-BoundedSubmoduleInit') | Should -Be $true
         }
 
         It "Helper must be defined BEFORE Create-Worktree (so it can be called)" {
             $helperPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $createPos = $content.IndexOf('function Create-Worktree')
-            $helperPos | Should BeGreaterThan 0
-            $createPos | Should BeGreaterThan 0
-            $createPos | Should BeGreaterThan $helperPos
+            $helperPos | Should -BeGreaterThan 0
+            $createPos | Should -BeGreaterThan 0
+            $createPos | Should -BeGreaterThan $helperPos
         }
 
         It "Helper param block must accept WorktreePath (Mandatory)" {
-            ($content -match '\[Parameter\(Mandatory=\$true\)\]\[string\]\$WorktreePath') | Should Be $true
+            ($content -match '\[Parameter\(Mandatory=\$true\)\]\[string\]\$WorktreePath') | Should -Be $true
         }
 
         It "Helper param block must support -Subpath (scope restriction, #2944)" {
-            ($content -match '\[string\]\$Subpath') | Should Be $true
+            ($content -match '\[string\]\$Subpath') | Should -Be $true
         }
 
         It "Helper must append \$Subpath to smArgs when set (not --recursive)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 2500)
-            ($window -match 'if \(\$Subpath\) \{ \$smArgs \+= \$Subpath \}') | Should Be $true
+            ($window -match 'if \(\$Subpath\) \{ \$smArgs \+= \$Subpath \}') | Should -Be $true
         }
 
         It "Helper param block must expose -TimeoutSeconds with default 600s" {
-            ($content -match '\[int\]\$TimeoutSeconds\s*=\s*600') | Should Be $true
+            ($content -match '\[int\]\$TimeoutSeconds\s*=\s*600') | Should -Be $true
         }
 
         It "Helper must return \$false when WorktreePath is missing (graceful)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 2000)
-            ($window -match 'WorktreePath missing') | Should Be $true
+            ($window -match 'WorktreePath missing') | Should -Be $true
         }
     }
 
@@ -101,23 +105,23 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
     Context "Guard (b) - http.lowSpeedLimit / http.lowSpeedTime (network stall abort)" {
 
         It "Helper scriptblock must set http.lowSpeedLimit=1000" {
-            ($content -match 'http\.lowSpeedLimit=1000') | Should Be $true
+            ($content -match 'http\.lowSpeedLimit=1000') | Should -Be $true
         }
 
         It "Helper scriptblock must set http.lowSpeedTime=60" {
-            ($content -match 'http\.lowSpeedTime=60') | Should Be $true
+            ($content -match 'http\.lowSpeedTime=60') | Should -Be $true
         }
 
         It "Helper scriptblock must re-state GIT_TERMINAL_PROMPT=0 (child process)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match '\$env:GIT_TERMINAL_PROMPT = "0"') | Should Be $true
+            ($window -match '\$env:GIT_TERMINAL_PROMPT = "0"') | Should -Be $true
         }
 
         It "Helper scriptblock must re-state GCM_INTERACTIVE=never (child process)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match '\$env:GCM_INTERACTIVE = "never"') | Should Be $true
+            ($window -match '\$env:GCM_INTERACTIVE = "never"') | Should -Be $true
         }
     }
 
@@ -130,39 +134,39 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
         It "Helper must wrap git call in Start-Job -ScriptBlock" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match 'Start-Job -ScriptBlock') | Should Be $true
+            ($window -match 'Start-Job -ScriptBlock') | Should -Be $true
         }
 
         It "Helper must Wait-Job -Timeout (bounded)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match 'Wait-Job -Job \$job -Timeout \$TimeoutSeconds') | Should Be $true
+            ($window -match 'Wait-Job -Job \$job -Timeout \$TimeoutSeconds') | Should -Be $true
         }
 
         It "Helper must Stop-Job on timeout (kill the hung process)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match 'Stop-Job -Job \$job') | Should Be $true
+            ($window -match 'Stop-Job -Job \$job') | Should -Be $true
         }
 
         It "Helper must Remove-Job -Force after stop (cleanup)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match 'Remove-Job -Job \$job -Force') | Should Be $true
+            ($window -match 'Remove-Job -Job \$job -Force') | Should -Be $true
         }
 
         It "Helper must log WARN with TIMED OUT marker (not silent)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $window = $content.Substring($funcPos, 3000)
-            ($window -match 'TIMED OUT') | Should Be $true
-            ($window -match '"WARN"') | Should Be $true
+            ($window -match 'TIMED OUT') | Should -Be $true
+            ($window -match '"WARN"') | Should -Be $true
         }
 
         It "Helper must return \$false on timeout (signal failure to caller)" {
             $funcPos = $content.IndexOf('function Invoke-BoundedSubmoduleInit')
             $timeoutPos = $content.IndexOf('TIMED OUT', $funcPos)
             $window = $content.Substring($timeoutPos, 500)
-            ($window -match 'return \$false') | Should Be $true
+            ($window -match 'return \$false') | Should -Be $true
         }
     }
 
@@ -176,14 +180,14 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
             $createPos = $content.IndexOf('function Create-Worktree')
             $createEnd = $content.IndexOf('function Stop-WorktreeChildProcesses', $createPos)
             $window = $content.Substring($createPos, $createEnd - $createPos)
-            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should Be $true
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should -Be $true
         }
 
         It "Reset-WorktreeForMaintenance must call helper with -Subpath mcps/internal" {
             $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
             $resetEnd = $content.IndexOf('function Invoke-BoundedSubmoduleInit', $resetPos)
             $window = $content.Substring($resetPos, $resetEnd - $resetPos)
-            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should Be $true
+            ($window -match 'Invoke-BoundedSubmoduleInit -WorktreePath \$WorktreePath -Subpath "mcps/internal"') | Should -Be $true
         }
 
         It "No call site must pass -Recurse (regression: full recursive clone = #2944 cause)" {
@@ -195,22 +199,22 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
             $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
             $resetEnd = $content.IndexOf('function Invoke-BoundedSubmoduleInit', $resetPos)
             $resetWindow = $content.Substring($resetPos, $resetEnd - $resetPos)
-            ($createWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should Be $false
-            ($resetWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should Be $false
+            ($createWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should -Be $false
+            ($resetWindow -match 'Invoke-BoundedSubmoduleInit.*-Recurse') | Should -Be $false
         }
 
         It "Create-Worktree must gate the helper call behind #2944 marker" {
             $createPos = $content.IndexOf('function Create-Worktree')
             $createEnd = $content.IndexOf('function Stop-WorktreeChildProcesses', $createPos)
             $window = $content.Substring($createPos, $createEnd - $createPos)
-            ($window -match '#2944') | Should Be $true
+            ($window -match '#2944') | Should -Be $true
         }
 
         It "Reset-WorktreeForMaintenance must reference #2944 in its helper call comment" {
             $resetPos = $content.IndexOf('function Reset-WorktreeForMaintenance')
             $resetEnd = $content.IndexOf('function Invoke-BoundedSubmoduleInit', $resetPos)
             $window = $content.Substring($resetPos, $resetEnd - $resetPos)
-            ($window -match '#2944') | Should Be $true
+            ($window -match '#2944') | Should -Be $true
         }
     }
 
@@ -226,7 +230,7 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
             $syncPos = $content.IndexOf('function Sync-McpSubmoduleBuild')
             $syncEnd = $content.IndexOf('function Reset-WorktreeForMaintenance', $syncPos)
             $window = $content.Substring($syncPos, $syncEnd - $syncPos)
-            ($window -match 'git -C \$Path submodule update --init mcps/internal') | Should Be $true
+            ($window -match 'git -C \$Path submodule update --init mcps/internal') | Should -Be $true
         }
 
         It "No unbounded recursive submodule update must remain outside the helper" {
@@ -237,10 +241,10 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
             while (($idx = $content.IndexOf($pattern, $idx)) -ge 0) {
                 $inHelper = ($idx -gt $content.IndexOf('function Invoke-BoundedSubmoduleInit')) -and
                             ($idx -lt $content.IndexOf('function Create-Worktree'))
-                $inHelper | Should Be $true
+                $inHelper | Should -Be $true
                 $idx += $pattern.Length
             }
-            $true | Should Be $true  # ensure Describe block runs even if 0 matches
+            $true | Should -Be $true  # ensure Describe block runs even if 0 matches
         }
     }
 }

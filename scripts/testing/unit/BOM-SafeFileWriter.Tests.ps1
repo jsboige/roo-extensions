@@ -5,19 +5,20 @@
 # (0xEF 0xBB 0xBF), car PowerShell 5.1 Set-Content/Add-Content -Encoding UTF8 l'ajoute
 # et casse le parsing JSON (issue #664).
 #
-# Syntaxe Pester v5 — compatible avec le runner scripts/testing/run-pester-tests.ps1
-# qui charge Pester 5.x par défaut (Import-Module Pester -Force).
+# Syntaxe Pester v5 — exécuté en CI par le job `unit-pester` (#3216) via
+# scripts/testing/run-pester-tests.ps1 (Pester 5.x). Fonctionne sur pwsh Windows
+# ET Linux : chemins en slashes, temp via [IO.Path], aucune API Windows-only.
 #
 # Usage:
-#   pwsh -NoProfile -Command "Invoke-Pester -Path .\scripts\testing\unit\BOM-SafeFileWriter.Tests.ps1 -Output Detailed"
+#   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/BOM-SafeFileWriter.Tests.ps1 -Output Detailed"
 
 BeforeAll {
-    $projectRoot = (Resolve-Path -Path "$PSScriptRoot\..\..\..").Path
+    $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
     # Import-Module (not dot-source): BOM-SafeFileWriter.ps1 ends with Export-ModuleMember,
     # which is only valid inside a module. Import-Module exposes the 3 functions as cmdlets.
     # -ErrorAction SilentlyContinue: suppresses the benign Export-ModuleMember chatter emitted
     # when a .ps1 (vs .psm1) is imported; the functions still load (verified: all tests pass).
-    Import-Module (Join-Path $projectRoot "scripts\encoding\BOM-SafeFileWriter.ps1") -Force -ErrorAction SilentlyContinue
+    Import-Module (Join-Path $projectRoot "scripts/encoding/BOM-SafeFileWriter.ps1") -Force -ErrorAction SilentlyContinue
 
     # Helper : retourne $true si le fichier commence par un BOM UTF-8 (EF BB BF)
     function Test-FileHasBom {
