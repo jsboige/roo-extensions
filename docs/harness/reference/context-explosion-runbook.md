@@ -130,12 +130,19 @@ The 8 coordinator doublons (153.9 MB) were sessions spawned in the same workspac
 
 ## Prevention — reducing session growth
 
-### Context window settings (already deployed fleet-wide)
+### Context window settings (per machine, from `~/.claude/settings.json`)
+
+There is **no fleet-wide value**: each machine configures the window its models can actually
+hold, and nothing overrides it at runtime (the spawn scripts used to, which was a bug --
+fixed 2026-08-22).
 
 | Setting | Value | Effect |
 |---------|-------|--------|
-| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | 200000 | Compact at 200k tokens |
-| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | 90 | Trigger at 90% (= 180k effective) |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | whatever the machine configures (200000 for GLM/Qwen defaults; 280k-310k observed on Claude `[1m]` machines) | Compaction counting space |
+| `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | **>= 90** -- the only invariant | Trigger point. **Never 50%** (infinite loop #502) |
+
+Read the live values rather than assuming: `Get-ChildItem env: | Where-Object Name -match 'COMPACT'`
+in a running session, or the `env` block of `~/.claude/settings.json`.
 
 These cause auto-compaction *within* a session, but the `.jsonl` still grows. The compaction prevents runtime saturation but not disk growth.
 

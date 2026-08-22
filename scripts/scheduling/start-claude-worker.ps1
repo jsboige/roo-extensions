@@ -3238,12 +3238,11 @@ function Invoke-Claude {
     $ModelToUse = if ($Model) { $Model } else { "sonnet" }
     Write-Log "Modele final: $ModelToUse"
 
-    # Universal compact override (user GO 2026-05-25, supersedes #2173 model-aware).
-    # ALL model families (Claude + GLM/Qwen) = 200k window / 90% threshold (180k effective).
-    # Keep in sync with spawn-claude.ps1 (single source: both scripts use same values).
-    $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = "200000"
-    $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "90"
-    Write-Log "Compact override: $ModelToUse → window=200k, threshold=90% (universal)"
+    # Compaction: settings.json is authoritative -- no env override here.
+    # Forcing 200000/90 clamped every worker run below the machine's configured
+    # window, because env vars outrank settings.json (user decision 2026-08-22).
+    # The #502 floor lives in deploy-claude-mcp-settings.ps1's `< 90` guard.
+    Write-Log "Compact: inherited from settings.json (no env override)"
 
     # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s, which
     # STRANGLES the dashboard auto-condensation (budgeted CONDENSE_LLM_TIMEOUT_MS=720s in
