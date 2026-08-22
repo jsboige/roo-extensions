@@ -26,9 +26,6 @@ export type DashboardType = 'global' | 'machine' | 'workspace';
 export type DashboardAction = 'read' | 'write' | 'append' | 'condense' | 'list' | 'delete' | 'read_archive' | 'read_overview';
 export type DashboardSection = 'status' | 'intercom' | 'all';
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
-export type RooSyncReadMode = 'inbox' | 'message' | 'attachments';
-export type HeartbeatAction = 'status' | 'register' | 'start' | 'stop';
-export type HeartbeatFilter = 'all' | 'online' | 'offline' | 'warning';
 
 export interface DashboardAuthor {
   machineId: string;
@@ -71,13 +68,8 @@ export interface ReadInboxOptions {
   perPage?: number;
 }
 
-export interface HeartbeatRegisterOptions {
-  machineId: string;
-  metadata?: Record<string, unknown>;
-}
-
 export interface HeartbeatStatusOptions {
-  filter?: HeartbeatFilter;
+  machineId?: string;
   includeHeartbeats?: boolean;
 }
 
@@ -278,7 +270,7 @@ export class RooSyncClient {
      * Send a RooSync message to another machine
      */
     send: async (options: SendMessageOptions): Promise<unknown> => {
-      return this.callTool('roosync_send', {
+      return this.callTool('roosync_messages', {
         action: 'send',
         to: options.to,
         subject: options.subject,
@@ -294,8 +286,8 @@ export class RooSyncClient {
      * Read the inbox
      */
     readInbox: async (options: ReadInboxOptions = {}): Promise<unknown> => {
-      return this.callTool('roosync_read', {
-        mode: 'inbox',
+      return this.callTool('roosync_messages', {
+        action: 'inbox',
         status: options.status || 'all',
         limit: options.limit || 10,
         page: options.page,
@@ -307,8 +299,8 @@ export class RooSyncClient {
      * Get a specific message
      */
     getMessage: async (messageId: string, markAsRead = false): Promise<unknown> => {
-      return this.callTool('roosync_read', {
-        mode: 'message',
+      return this.callTool('roosync_messages', {
+        action: 'message',
         message_id: messageId,
         mark_as_read: markAsRead,
       });
@@ -318,8 +310,8 @@ export class RooSyncClient {
      * List attachments for a message
      */
     listAttachments: async (messageId: string): Promise<unknown> => {
-      return this.callTool('roosync_read', {
-        mode: 'attachments',
+      return this.callTool('roosync_messages', {
+        action: 'attachments_list',
         message_id: messageId,
       });
     },
@@ -329,29 +321,17 @@ export class RooSyncClient {
   // Heartbeat Operations
   // ============================================================
 
-  readonly heartbeat = {
+  readonly inventory = {
     /**
-     * Register/refresh this agent's heartbeat
-     */
-    register: async (options: HeartbeatRegisterOptions): Promise<unknown> => {
-      return this.callTool('roosync_heartbeat', {
-        action: 'register',
-        machineId: options.machineId || this.config.machineId,
-        metadata: options.metadata || {
-          agentType: 'NanoClaw',
-          version: '1.0.0',
-          workspace: this.config.workspace,
-        },
-      });
-    },
-
-    /**
-     * Get heartbeat status of all machines
+     * Get heartbeat / cluster status of all machines.
+     *
+     * Note: registering a heartbeat is NOT an MCP operation — it is managed by the host
+     * RooSync listener. This is a read-only view of the cluster liveness.
      */
     status: async (options: HeartbeatStatusOptions = {}): Promise<unknown> => {
-      return this.callTool('roosync_heartbeat', {
-        action: 'status',
-        filter: options.filter || 'all',
+      return this.callTool('roosync_inventory', {
+        type: 'machines',
+        machineId: options.machineId,
         includeHeartbeats: options.includeHeartbeats !== undefined ? options.includeHeartbeats : true,
       });
     },
@@ -362,11 +342,13 @@ export class RooSyncClient {
   // ============================================================
 
   /**
-   * Get full RooSync status
+   * Get full RooSync cluster status
    */
-  async getStatus(machineFilter?: string): Promise<unknown> {
-    return this.callTool('roosync_get_status', {
-      machineFilter,
+  async getStatus(machineId?: string): Promise<unknown> {
+    return this.callTool('roosync_inventory', {
+      type: 'machines',
+      machineId,
+      includeHeartbeats: true,
     });
   }
 

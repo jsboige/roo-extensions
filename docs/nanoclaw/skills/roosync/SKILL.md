@@ -46,11 +46,12 @@ roosync_dashboard(action="write", type="machine", content="## Status\n\nActive: 
 
 ---
 
-### roosync_send
+### roosync_messages (send)
 
-Send inter-machine messages to other agents.
+Send inter-machine messages to other agents. The `action` is required and must be `send` for outbound messages.
 
 **Parameters:**
+- `action` (required): "send" — outbound message
 - `to` (required): Target machine ID (e.g., "myia-ai-01", "all")
 - `subject` (required): Message subject
 - `body` (required): Message body (markdown supported)
@@ -60,62 +61,57 @@ Send inter-machine messages to other agents.
 **Examples:**
 ```
 # Send to coordinator
-roosync_send(to="myia-ai-01", subject="Task Complete", body="Finished bridge implementation", tags=["NANOCLAW", "DONE"])
+roosync_messages(action="send", to="myia-ai-01", subject="Task Complete", body="Finished bridge implementation", tags=["NANOCLAW", "DONE"])
 
 # Broadcast to all machines
-roosync_send(to="all", subject="Cluster Notice", body="Maintenance window starting", priority="HIGH")
+roosync_messages(action="send", to="all", subject="Cluster Notice", body="Maintenance window starting", priority="HIGH")
 ```
 
 ---
 
-### roosync_read
+### roosync_messages (inbox / message / attachments)
 
-Read the RooSync inbox.
+Read the RooSync inbox, a single message, or a message's attachments. The `action` selects the operation.
 
 **Parameters:**
-- `mode` (required): "inbox" (list messages), "message" (single message), "attachments" (list attachments)
-- `status` (optional): "unread", "read", or "all"
+- `action` (required): `"inbox"` (list messages), `"message"` (single message), `"attachments_list"` (list attachments)
+- `status` (optional): "unread", "read", or "all" (for action="inbox")
 - `limit` (optional): Max messages to return (default: 10)
-- `message_id` (optional): For mode="message" or "attachments"
+- `message_id` (optional): For action="message" or "attachments_list"
 
 **Examples:**
 ```
 # List unread messages
-roosync_read(mode="inbox", status="unread", limit=20)
+roosync_messages(action="inbox", status="unread", limit=20)
 
 # Get specific message
-roosync_read(mode="message", message_id="msg-123")
+roosync_messages(action="message", message_id="msg-123")
 
 # List attachments
-roosync_read(mode="attachments", message_id="msg-123")
+roosync_messages(action="attachments_list", message_id="msg-123")
 ```
 
 ---
 
-### roosync_heartbeat
+### roosync_inventory
 
-Register and check agent heartbeat for cluster visibility.
+Check the cluster's health/heartbeat status. This is a read-only inventory of machines and their liveness.
 
-**Actions:**
-- `register`: Register/refresh heartbeat for this agent
-- `status`: Check heartbeat status of all machines
-
-**Parameters (register):**
-- `machineId` (required): This machine's ID
-- `metadata` (optional): Key-value pairs (version, tasks, etc.)
-
-**Parameters (status):**
-- `filter` (optional): "all", "online", "offline", "warning"
+**Parameters:**
+- `type` (required): `"machines"` (full roster), `"heartbeat"` (heartbeat-focussed), `"status"` (compact status)
+- `machineId` (optional): Filter to a single machine
 - `includeHeartbeats` (optional): Include full heartbeat data
+- `includeDetails` (optional): Include detailed metrics
 
 **Examples:**
 ```
-# Register heartbeat
-roosync_heartbeat(action="register", machineId="nanoclaw-ai-01", metadata={"version": "1.0.0", "task": "bridge"})
-
-# Check cluster status
-roosync_heartbeat(action="status", filter="all", includeHeartbeats=true)
+# Check cluster status / heartbeat liveness
+roosync_inventory(type="machines", includeHeartbeats=true)
 ```
+
+> **Note:** Registering a heartbeat is **not** an MCP operation — it is managed by the host RooSync listener
+> process (the listener writes heartbeat files). A NanoClaw agent signals presence through the
+> coordination channel it does control (see Pattern 1 below): append to the workspace dashboard.
 
 ---
 
@@ -136,8 +132,8 @@ tags=["NANOCLAW", "ERROR"]
 
 ### 3. Check Heartbeat Before Critical Operations
 ```
-status = roosync_heartbeat(action="status", filter="all")
-if "myia-ai-01" not in status["online"]:
+status = roosync_inventory(type="machines", includeHeartbeats=true)
+if "myia-ai-01" not in status:
     # Coordinator offline, defer critical operations
 ```
 
@@ -190,10 +186,10 @@ volumes:
 ### Pattern 1: Start of Session
 ```
 # Check for new messages
-messages = roosync_read(mode="inbox", status="unread", limit=10)
+messages = roosync_messages(action="inbox", status="unread", limit=10)
 
-# Check coordinator status
-status = roosync_heartbeat(action="status", filter="all")
+# Check cluster / coordinator status
+status = roosync_inventory(type="machines", includeHeartbeats=true)
 
 # Read workspace dashboard
 dashboard = roosync_dashboard(action="read", type="workspace", section="intercom", intercomLimit=10)
@@ -231,7 +227,8 @@ roosync_dashboard(
     tags=["NANOCLAW", "ERROR"],
     content=f"Error in {task}: {error_message}",
 )
-roosync_send(
+roosync_messages(
+    action="send",
     to="myia-ai-01",
     subject="[NANOCLAW] Error Report",
     body=error_details,
@@ -259,9 +256,9 @@ roosync_send(
 - Check GDrive connection
 
 ### Heartbeat Not Visible
-- Verify `machineId` matches expected format
-- Check `roosync_heartbeat(action="status")` response
-- Ensure metadata is JSON-serializable
+- Heartbeat registration is managed by the host listener, not via an MCP call
+- Check `roosync_inventory(type="machines", includeHeartbeats=true)` to confirm the machine is reported
+- Ensure the listener process on the host is running and writing heartbeat files
 
 ---
 
