@@ -89,12 +89,15 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Universal compact window/threshold (single source of truth, user GO 2026-05-25).
-# Supersedes #2173 model-aware override: ALL models (Claude + GLM/Qwen) now use
-# 200k window / 90% threshold (180k effective). These override settings.json
-# per-invocation via env vars.
-$COMPACT_WINDOW = "200000"   # 200k context window (all model families)
-$COMPACT_PCT    = "90"       # 90% threshold (180k effective). JAMAIS 50%.
+# Compaction: settings.json is authoritative. This script sets NO compaction env var.
+#
+# It used to force 200000/90 unconditionally here, which silently clamped every
+# spawned `claude -p` regardless of the machine's configured window (user decision
+# 2026-08-22: that clamp is a bug). Env vars outrank settings.json, so setting them
+# here made the configured value unreachable for spawned sessions.
+#
+# The #502 floor (never a LOW percentage) is enforced where it belongs -- in
+# settings.json itself, by deploy-claude-mcp-settings.ps1's `< 90` guard.
 
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RepoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
@@ -268,12 +271,8 @@ Commence.
     $promptFile = [System.IO.Path]::GetTempFileName()
     [System.IO.File]::WriteAllText($promptFile, $prompt, [System.Text.UTF8Encoding]::new($false))
 
-    # Universal compact override (user GO 2026-05-25, supersedes #2173 model-aware).
-    # ALL model families (Claude + GLM/Qwen) = 200k window / 90% threshold (180k effective).
-    # These env vars take precedence over settings.json per Claude Code's env var hierarchy.
-    $env:CLAUDE_CODE_AUTO_COMPACT_WINDOW = $COMPACT_WINDOW
-    $env:CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = $COMPACT_PCT
-    Write-Log "INFO" "Compact override: $Model → window=200k, threshold=90% (universal)"
+    # No compaction override: the spawned session inherits settings.json (see header).
+    Write-Log "INFO" "Compact: inherited from settings.json (no env override)"
 
     # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s, which
     # STRANGLES the dashboard auto-condensation (budgeted CONDENSE_LLM_TIMEOUT_MS=720s in

@@ -63,10 +63,13 @@ $prompt = '/executor'
 # Une seule liste d'arguments, consommee par le DryRun ET par l'appel reel, pour que
 # les deux ne puissent pas diverger.
 $claudeArgs = @('-p', $prompt, '--dangerously-skip-permissions')
+# Compaction absente d'envBlock a dessein : settings.json fait foi. Forcer
+# 200000/90 ici clampait chaque feu executor sous la fenetre configuree de la
+# machine (les env vars priment sur settings.json) -- decision user 2026-08-22.
+# Le plancher #502 (jamais un POURCENTAGE bas) reste garde par la condition
+# `< 90` de deploy-claude-mcp-settings.ps1, au niveau du fichier settings.
 $envBlock = @{
-    CLAUDE_CODE_AUTO_COMPACT_WINDOW = '200000'
-    CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = '90'
-    WAKE_DEFAULT_MODEL              = 'sonnet'
+    WAKE_DEFAULT_MODEL = 'sonnet'
 }
 
 # --- DryRun : sortir AVANT la prise de lock ---

@@ -112,11 +112,11 @@ if (Test-Path $SettingsPath) {
     }
 
     # Ensure compact settings (#502 baseline, #2173 model-aware defaults)
-    # Default: 200k window / 90% threshold for worker machines (GLM/Qwen default model).
-    # Spawn scripts override per model at runtime — these are machine-level defaults.
-    # CAVEAT: A manual `claude -p` (outside spawn scripts) inherits these defaults,
-    # which are tuned for GLM/Qwen. For Claude model manual sessions, pass env vars
-    # explicitly: CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000 CLAUDE_AUTOCOMPACT_PCT_OVERRIDE=25
+    # settings.json is the ONE place the compaction window is decided (user 2026-08-22).
+    # Nothing overrides it at runtime any more: spawn-claude.ps1, start-claude-worker.ps1
+    # and start-claude-executor.ps1 used to set these env vars unconditionally before each
+    # `claude -p`, which clamped every spawned session below the configured window. Those
+    # overrides were removed; a manual `claude -p` and a spawned one now behave identically.
     if (-not $Settings.PSObject.Properties['env']) {
         $Settings | Add-Member -NotePropertyName 'env' -NotePropertyValue @{}
     }
@@ -129,10 +129,20 @@ if (Test-Path $SettingsPath) {
         Write-Host "[FIX] CLAUDE_AUTOCOMPACT_PCT_OVERRIDE set to 90 in settings.json (#2173)" -ForegroundColor Yellow
         $Changed = $true
     }
-    if ($Settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW -ne "200000") {
+    # Guard: fill an ABSENT window only -- never rewrite a configured one.
+    # This guard used to be asymmetric with the threshold guard above: the threshold was
+    # protected against a downgrade (`< 90` only), while the window was force-reset to
+    # 200000 whenever it differed. One run therefore silently demoted a machine tuned to
+    # 280k/310k back to 200k while leaving its percentage intact -- a regression that looked
+    # clean because the visible half was preserved. Unlike a LOW percentage (boucle #502),
+    # a LARGE window is never dangerous, so there is no floor to enforce here: absence is
+    # the only condition worth correcting.
+    if (-not $Settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) {
         $Settings.env | Add-Member -NotePropertyName 'CLAUDE_CODE_AUTO_COMPACT_WINDOW' -NotePropertyValue "200000" -Force
-        Write-Host "[FIX] CLAUDE_CODE_AUTO_COMPACT_WINDOW set to 200000 in settings.json (#2173)" -ForegroundColor Yellow
+        Write-Host "[FIX] CLAUDE_CODE_AUTO_COMPACT_WINDOW absent -> set to 200000 in settings.json" -ForegroundColor Yellow
         $Changed = $true
+    } else {
+        Write-Host "[KEEP] CLAUDE_CODE_AUTO_COMPACT_WINDOW = $($Settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW) (configured, preserved)" -ForegroundColor DarkGray
     }
     # MCP tool-call timeout (#2402 follow-up). Unset → Claude Code default ~180s strangles
     # dashboard auto-condensation (budgeted 720s in dashboard.ts) → append-hang fleet-wide.

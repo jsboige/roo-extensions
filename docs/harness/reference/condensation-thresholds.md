@@ -1,11 +1,11 @@
 # Règles de Condensation - Context Window
 
-**Version:** 4.0.0 (UNIVERSEL 200k/90% — supersedes model-aware #2173)
+**Version:** 5.0.0 (le clamp universel 200k est un **bug** — `settings.json` par machine fait foi, décision user 2026-08-22)
 **Créé:** 2026-02-21
 **Mis à jour:** 2026-06-23
 **Issues:** #502 (boucle) + #555 (saturation) + #618 (harmonisation) + #736 (boucle po-2023) → historique 75% (#1152) → **UNIVERSEL 90% (mandate user 2026-05-25)**
 
-> **⚠️ Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v4.0.0. Ce document en est le **détail**. En cas d'écart, la **règle** gagne.
+> **⚠️ Source canonique :** [`.claude/rules/context-window.md`](../../../.claude/rules/context-window.md) v6.0.0. Ce document en est le **détail**. En cas d'écart, la **règle** gagne.
 
 ---
 
@@ -15,17 +15,22 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 
 ---
 
-## Solution active : Seuil UNIVERSEL 90% (200k)
+## Solution active : `settings.json` par machine, avec un plancher sur le POURCENTAGE
 
-**Mandate user 2026-05-25** — ralentir la flotte, maximiser le contexte utile (compact tardif). **Une seule fenêtre + un seul pct pour TOUTES les familles** (Claude, GLM, Qwen). Le réglage model-aware #2173 (Claude = 1M/25% = 250k) est **SUPERSEDÉ**.
+**Décision user 2026-08-22** — le mandat « fenêtre 200 000 pour tous » (2026-05-25) est **supersedé** : il était appliqué par trois scripts qui écrasaient `settings.json` à chaque `claude -p`, rendant la valeur configurée inatteignable. Ces overrides ont été retirés.
 
-| Famille | Fenêtre (`AUTO_COMPACT_WINDOW`) | `% override` | Seuil effectif | Contexte réel |
-|---------|----------------------------------|--------------|----------------|---------------|
-| **Claude** (opus/sonnet/haiku) | 200 000 | **90%** | 180k | ~200k |
-| **GLM-5 / 4.7 / 4.5 Air** (z.ai) | 200 000 | **90%** | 180k | ~131k |
-| **Qwen3.6-35B** (vLLM) | 200 000 | **90%** | 180k | ~131k |
+**La fenêtre est une décision de machine.** Il n'y a plus de table de flotte à faire respecter — seulement un plancher, et un fait de contexte à connaître :
 
-**Note :** pour GLM/Qwen le seuil effectif (180k) dépasse le contexte réel d'entrée (~131k) — c'est **délibéré** (compact tardif, maximise le contexte utile). La fenêtre var (`200000`) est l'espace de **comptage** Claude Code, pas la limite hard du provider. Réglage validé empiriquement sur ai-01.
+| Famille | Contexte réel en entrée | Fenêtre raisonnable | `% override` |
+|---------|--------------------------|---------------------|--------------|
+| **Claude avec `[1m]`** (opus/sonnet/haiku) | ~1M | ce que la machine configure (280k–1M constatés) | **≥ 90%** |
+| **Claude sans `[1m]`** | clampé au catalogue | la fenêtre ne rattrape pas l'absence de `[1m]` | **≥ 90%** |
+| **GLM-5 / 4.7 / 4.5 Air** (z.ai) | **~131k** (les 200k annoncés incluent la sortie) | 200 000 reste adapté | **≥ 90%** |
+| **Qwen3.6-35B** (vLLM) | ~131k | 200 000 reste adapté | **≥ 90%** |
+
+**Une grande fenêtre n'est jamais dangereuse** — seul un pourcentage bas l'est (#502). C'est pourquoi le garde-fou porte sur le pct (`< 90`) et **pas** sur la fenêtre.
+
+**Note GLM/Qwen :** un seuil effectif qui dépasse le contexte réel d'entrée (~131k) est **délibéré** — compact tardif, maximise le contexte utile. La fenêtre est l'espace de **comptage** Claude Code, pas la limite hard du provider.
 
 ### Historique des seuils
 
@@ -52,7 +57,11 @@ Les modèles GLM (Zhipu AI) annoncent **200k tokens** de contexte mais la réali
 }
 ```
 
-**S'applique à TOUTES les familles** (Claude, GLM, Qwen) — y compris Anthropic. Les spawn scripts (`spawn-claude.ps1`, `start-claude-worker.ps1`) positionnent ces vars **inconditionnellement** avant chaque `claude -p`, quel que soit le modèle (elles priment sur settings.json). Les sessions interactives lisent settings.json directement ; le changement de seuil ne prend effet qu'au **restart** de la session.
+**Les scripts de spawn ne positionnent plus aucune variable de compaction** (`spawn-claude.ps1`, `start-claude-worker.ps1`, `start-claude-executor.ps1`) : une session spawnée et une session manuelle héritent désormais du même `settings.json`. Auparavant les env vars y étaient posées inconditionnellement et **primaient sur settings.json**, ce qui clampait toute session `claude -p` à 200k quelle que soit la configuration — c'est le bug corrigé le 2026-08-22.
+
+`deploy-claude-mcp-settings.ps1` n'écrit la fenêtre que si elle est **absente** ; une fenêtre configurée est préservée. Le pct reste corrigé s'il est `< 90`.
+
+Les sessions interactives lisent settings.json directement ; le changement ne prend effet qu'au **restart** de la session.
 
 **⚠️ NE JAMAIS utiliser 50%** → Boucle de condensation infinie (#502).
 
