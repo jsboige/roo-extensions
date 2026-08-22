@@ -1,6 +1,6 @@
 # Fermeture d'Issues — Regles Strictes
 
-**Version:** 1.3.0 (slim)
+**Version:** 1.4.0 (slim)
 **MAJ:** 2026-04-25
 
 ---
@@ -36,15 +36,31 @@
 
 **Interdits :** "Resolved by recent improvements", "Superseded" sans ref, `[CLAIMED]` d'un agent.
 
-## `gh issue close` n'est PAS la fermeture (#3033)
+## Fermer n'est pas fermé (#3033, #3225)
 
-La commande retourne un succès **avant** que le bot de checklist ait statué. Le bot **rouvre** l'issue
-~4 min plus tard si des cases restent décochées. Une session qui rapporte « fermée » sur le retour de
-la commande rapporte donc régulièrement du faux.
+Le bot de checklist **rouvre** l'issue ~4 min plus tard si des cases restent décochées. Une session
+qui rapporte « fermée » sur le retour immédiat de son action rapporte donc régulièrement du faux.
 
-1. **Cocher les cases AVANT** `gh issue close` — pas après, pas « je cocherai ensuite ».
+**Ça vaut pour les deux chemins de fermeture — et le second est celui qu'on oublie :**
+
+| Chemin | Ce qui rend « succès » tout de suite | Le bot statue |
+|---|---|---|
+| `gh issue close N` | le code de retour de la commande | ~4 min après |
+| **un merge portant `Closes #NNN`** | **le merge de la PR** | ~4 min après, pareil |
+
+Le second n'a longtemps été couvert par aucune règle. Constaté le 2026-08-22 sur **#3216** : fermée
+à 14:48Z par le merge de #3218, **rouverte à 14:52Z** par le bot. Personne n'avait fait de
+`gh issue close` — et personne n'avait coché la checklist non plus.
+
+1. **Cocher les cases AVANT** — avant le `gh issue close`, et avant le **merge** de la PR qui porte
+   `Closes #NNN`. Pas après, pas « je cocherai ensuite » : après le merge, le compte à rebours du bot
+   a déjà commencé.
 2. **Relire l'état ≥ 5 min APRÈS** : `gh issue view N --json state,closedAt`.
 3. Ne citer la fermeture dans un `[DONE]`, un bilan ou un décompte **qu'après** cette relecture.
+
+**Pourquoi ce n'est pas cosmétique.** Après trois réouvertures, la boucle du bot s'arrête (#1487).
+Une issue peut donc finir durablement `CLOSED` avec une **checklist vide** — l'état exact que la
+règle existe pour empêcher, atteint sans que personne n'ait rien contourné.
 
 Vaut aussi pour le décompte du hard cap : une issue rouverte par le bot n'a jamais été fermée.
 
