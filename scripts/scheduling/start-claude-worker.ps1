@@ -3824,6 +3824,40 @@ Voir: $LogFile
     Write-Log $ReportMessage
 
     # Envoyer message RooSync au coordinateur
+    # #3237: l'envoi passe par MessageManager (CLI du submodule) — dual-write PG
+    # et suffixe d'unicité s'appliquent par construction, comme pour tout producteur MCP.
+    # Fallback: écriture GDrive brute si node/build indisponible — le canal de
+    # signalement d'échec doit survivre à sa propre chaîne d'outils.
+    $MachineId = $env:COMPUTERNAME.ToLower()
+    $Priority = if ($Result.success) { "LOW" } else { "HIGH" }
+    $Subject = "Worker Report - $($Task.subject)"
+    $SentViaCli = $false
+
+    $SendCli = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\scripts\send-roosync-message.mjs"
+    if (Test-Path $SendCli) {
+        try {
+            # Body via fichier temp (quoting-safe) — sanctuary rule: body-files → $TEMP
+            $BodyFile = Join-Path $env:TEMP "worker-report-$($Task.id)-$(Get-Date -Format 'yyyyMMddHHmmss').md"
+            [System.IO.File]::WriteAllText($BodyFile, $ReportMessage, [System.Text.UTF8Encoding]::new($false))
+            $CliOutput = & node $SendCli --from $MachineId --to "myia-ai-01" --subject $Subject --body-file $BodyFile --priority $Priority --tags "worker-report,scheduler" 2>&1
+            if ($LASTEXITCODE -eq 0) {
+                $SentViaCli = $true
+                Write-Log "✅ Message RooSync envoyé (chemin MessageManager): $CliOutput"
+            } else {
+                Write-Log "CLI send exit $LASTEXITCODE — fallback écriture GDrive brute" "WARN"
+            }
+            Remove-Item $BodyFile -ErrorAction SilentlyContinue
+        }
+        catch {
+            Write-Log "CLI send échoué: $_ — fallback écriture GDrive brute" "WARN"
+        }
+    } else {
+        Write-Log "CLI send introuvable ($SendCli) — fallback écriture GDrive brute" "WARN"
+    }
+
+    if ($SentViaCli) { return }
+
+    # Fallback : écriture directe GDrive (sans dual-write PG, #3237)
     $SharedPath = $env:ROOSYNC_SHARED_PATH
     if (-not $SharedPath) {
         Write-Log "ROOSYNC_SHARED_PATH non défini - skip envoi RooSync" "WARN"
@@ -3831,17 +3865,19 @@ Voir: $LogFile
     }
 
     try {
-        $MachineId = $env:COMPUTERNAME.ToLower()
         $Timestamp = Get-Date -Format "yyyyMMddTHHmmss"
-        $MessageId = "msg-$Timestamp-worker-report"
+        # Suffixe aléatoire : deux machines rapportant dans la même seconde ne doivent
+        # plus s'écraser dans l'inbox partagé (#3237, second défaut)
+        $Suffix = -join ((48..57) + (97..122) | Get-Random -Count 6 | ForEach-Object { [char]$_ })
+        $MessageId = "msg-$Timestamp-$Suffix"
 
         $Message = @{
             id = $MessageId
             from = $MachineId
             to = "myia-ai-01"
-            subject = "Worker Report - $($Task.subject)"
+            subject = $Subject
             body = $ReportMessage
-            priority = if ($Result.success) { "LOW" } else { "HIGH" }
+            priority = $Priority
             status = "unread"
             timestamp = (Get-Date).ToUniversalTime().ToString("o")
             tags = @("worker-report", "scheduler")
@@ -3862,7 +3898,7 @@ Voir: $LogFile
         [System.IO.File]::WriteAllText($SentFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
         [System.IO.File]::WriteAllText($InboxFile, $JsonText, [System.Text.UTF8Encoding]::new($false))
 
-        Write-Log "✅ Message RooSync envoyé: $MessageId"
+        Write-Log "✅ Message RooSync envoyé (fallback GDrive, sans dual-write PG): $MessageId"
     }
     catch {
         Write-Log "Erreur envoi RooSync: $_" "ERROR"
