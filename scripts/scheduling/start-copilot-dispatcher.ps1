@@ -395,7 +395,8 @@ function Get-WorkPrompt {
     param(
         [string]$Profile,
         [hashtable]$State,
-        [string]$RepositoryRoot
+        [string]$RepositoryRoot,
+        [psobject]$TargetIssue
     )
 
     $gitSummary = ''
@@ -419,6 +420,11 @@ function Get-WorkPrompt {
     $previousStatus = if ($State.ContainsKey('lastStatus')) { [string]$State.lastStatus } else { 'none' }
     $lastObservedPremium = if ($State.ContainsKey('lastObservedPremiumRequests')) { [string]$State.lastObservedPremiumRequests } else { 'unknown' }
 
+    # The gate (Get-TargetIssue) already picked ONE actionable issue; the prompt must
+    # work on that one, not re-select from the unfiltered seed — otherwise the premium
+    # spend the gate avoids can land right back on the noise it just excluded.
+    $targetIssueLine = if ($null -ne $TargetIssue) { "#$($TargetIssue.number) — $($TargetIssue.title)" } else { 'none' }
+
     return @"
 You are the scheduled Copilot dispatcher for the repository roo-extensions.
 
@@ -440,7 +446,7 @@ Constraints:
 - Keep each value to one short sentence.
 
 Execution mandate:
-- Select exactly one issue from the open issue seed and perform one concrete repository action now (edit/add/delete in a file).
+- Work on the target issue below and perform one concrete repository action now (edit/add/delete in a file).
 - If no safe action is possible, output a blocker with exact reason and still include the issue_id attempted.
 - evidence must mention either a changed file path, a generated artifact, or a validation command/result.
 
@@ -456,7 +462,10 @@ Context:
 - Git status summary:
 $gitSummary
 
-- Open issues seed (pick one):
+- Target issue (selected by the actionable-issue gate — work on this one):
+$targetIssueLine
+
+- Open issues seed (context only):
 $issueSeed
 "@
 }
@@ -607,7 +616,7 @@ if ($status -ne 'blocked') {
             repositoryChanges = $false
         }
     } else {
-        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $repoRoot
+        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $repoRoot -TargetIssue $targetIssue
         $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $repoRoot -Prompt $workPrompt
         $status = [string]$dispatch.status
         if ($dispatch.exitCode -eq 0) {
