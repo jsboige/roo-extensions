@@ -3835,24 +3835,45 @@ Voir: $LogFile
 
     $SendCli = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\scripts\send-roosync-message.mjs"
     if (Test-Path $SendCli) {
+        $BodyFile = Join-Path $env:TEMP "worker-report-$($Task.id)-$(Get-Date -Format 'yyyyMMddHHmmss').md"
+        $CliOutput = ""
+        $CliExit = -1
+        # $ErrorActionPreference vaut "Stop" au niveau script (L69). Sous Windows
+        # PowerShell 5.1, une commande native qui ecrit sur stderr alors que sa sortie
+        # est fusionnee par 2>&1 leve une NativeCommandError TERMINANTE, y compris a
+        # exit 0 (node emet des warnings de depreciation). Meme remede qu'aux L1744-1762.
+        $PrevPref = $ErrorActionPreference
         try {
-            # Body via fichier temp (quoting-safe) — sanctuary rule: body-files → $TEMP
-            $BodyFile = Join-Path $env:TEMP "worker-report-$($Task.id)-$(Get-Date -Format 'yyyyMMddHHmmss').md"
+            # Body via fichier temp (quoting-safe) - sanctuary rule: body-files -> $TEMP
             [System.IO.File]::WriteAllText($BodyFile, $ReportMessage, [System.Text.UTF8Encoding]::new($false))
-            $CliOutput = & node $SendCli --from $MachineId --to "myia-ai-01" --subject $Subject --body-file $BodyFile --priority $Priority --tags "worker-report,scheduler" 2>&1
-            if ($LASTEXITCODE -eq 0) {
-                $SentViaCli = $true
-                Write-Log "✅ Message RooSync envoyé (chemin MessageManager): $CliOutput"
-            } else {
-                Write-Log "CLI send exit $LASTEXITCODE — fallback écriture GDrive brute" "WARN"
-            }
-            Remove-Item $BodyFile -ErrorAction SilentlyContinue
+            $ErrorActionPreference = "Continue"
+            $CliOutput = (& node $SendCli --from $MachineId --to "myia-ai-01" --subject $Subject --body-file $BodyFile --priority $Priority --tags "worker-report,scheduler" 2>&1 | ForEach-Object { "$_" }) -join [Environment]::NewLine
+            $CliExit = $LASTEXITCODE
         }
         catch {
-            Write-Log "CLI send échoué: $_ — fallback écriture GDrive brute" "WARN"
+            Write-Log "CLI send exception: $_" "WARN"
+        }
+        finally {
+            $ErrorActionPreference = $PrevPref
+            Remove-Item $BodyFile -ErrorAction SilentlyContinue
+        }
+
+        # Le MARQUEUR prime sur le code de sortie. Le CLI ecrit GDrive (sent/ + inbox/)
+        # AVANT tout ce qui peut echouer ensuite (flush PG, fermeture du pool). Un
+        # non-zero tardif signifie donc "delivre mais bruyant" : declencher le fallback
+        # sur le seul code de sortie produirait un worker-report EN DOUBLE.
+        if ($CliOutput -match 'SENT msg-') {
+            $SentViaCli = $true
+            if ($CliExit -eq 0) {
+                Write-Log "OK Message RooSync envoye (chemin MessageManager): $CliOutput"
+            } else {
+                Write-Log "OK Message RooSync envoye, mais exit $CliExit APRES delivrance - pas de fallback (doublon evite, #3237): $CliOutput" "WARN"
+            }
+        } else {
+            Write-Log "CLI send sans marqueur SENT (exit $CliExit) - fallback ecriture GDrive brute" "WARN"
         }
     } else {
-        Write-Log "CLI send introuvable ($SendCli) — fallback écriture GDrive brute" "WARN"
+        Write-Log "CLI send introuvable ($SendCli) - fallback ecriture GDrive brute" "WARN"
     }
 
     if ($SentViaCli) { return }
