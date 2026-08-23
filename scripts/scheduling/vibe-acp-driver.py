@@ -14,7 +14,8 @@ Usage:
   python vibe-acp-driver.py --cwd D:/CoursIA --prompt "do the thing"
   python vibe-acp-driver.py --cwd D:/CoursIA --prompt-file task.txt --timeout 300
   # WAKE path: dashboard-listener writes the trigger message to a JSON file and
-  # sets VIBE_WAKE_PAYLOAD to its path; --wake consumes it as the prompt.
+  # start-vibe-worker.ps1 injects its CONTENT into VIBE_WAKE_PAYLOAD (env var
+  # avoids quoting issues with markdown). --wake parses that JSON ({content|prompt}).
   python vibe-acp-driver.py --cwd D:/CoursIA --wake
 
 Exit codes:
@@ -54,7 +55,8 @@ def find_vibe_acp(explicit: str) -> str:
         exe = os.path.join(ext_dir, "bin", "vibe-acp.exe")
         if os.path.isfile(exe):
             candidates.append(exe)
-    return max(candidates) if candidates else ""
+    # getmtime, not lexicographic max: "0.9.0" > "0.10.0" as strings.
+    return max(candidates, key=os.path.getmtime) if candidates else ""
 
 
 def main() -> int:
@@ -83,10 +85,18 @@ def main() -> int:
     else:
         prompt_text = args.prompt.strip()
     wake_payload = os.environ.get("VIBE_WAKE_PAYLOAD", "")
-    if not prompt_text and wake_payload and os.path.isfile(wake_payload):
-        with open(wake_payload, encoding="utf-8") as f:
+    # Contract (start-vibe-worker.ps1:180): the env var holds the payload CONTENT
+    # (not its path). A path is tolerated as a secondary contract for manual runs.
+    if not prompt_text and args.wake and wake_payload:
+        raw = ""
+        if os.path.isfile(wake_payload):
+            with open(wake_payload, encoding="utf-8") as f:
+                raw = f.read()
+        elif wake_payload.lstrip().startswith("{"):
+            raw = wake_payload
+        if raw:
             try:
-                payload = json.load(f)
+                payload = json.loads(raw)
                 prompt_text = payload.get("content", payload.get("prompt", "")).strip()
             except (json.JSONDecodeError, AttributeError):
                 prompt_text = ""
