@@ -2,6 +2,19 @@
 
 Ce dossier contient des scripts PowerShell consolidés pour installer et gérer l'environnement de développement des MCPs (Model Context Protocol).
 
+## sync-claude-settings.ps1
+
+Harmonisation flotte de `~/.claude/settings.json` (structure de référence po-2023). Porté du GDrive (`.shared-state/configs/claude-settings/`) vers ce dépôt le 23/08/2026 après l'incident de blocage DriveFS : 3 machines coupées du script pendant ~2 jours (po-204 a nécessité un reboot, po-2023 a dû relayer via gist). Le dépôt est déjà tiré par chaque machine au pre-flight (`git pull`) — la distribution ne dépend plus de l'état de G:.
+
+```powershell
+# dry-run (lecture seule)
+pwsh -ExecutionPolicy Bypass -File scripts/deployment/sync-claude-settings.ps1 -MachineName myia-po-2025 -Verify
+# application (backup horodaté automatique, garde TCP anti port mort)
+pwsh -ExecutionPolicy Bypass -File scripts/deployment/sync-claude-settings.ps1 -MachineName myia-po-2025
+```
+
+Le script est idempotent, ne touche pas `permissions`/`model`/`effortLevel`, et n'écrit jamais de secret (le `x-proxy-key` existant est préservé, jamais dupliqué). Vérification d'intégrité de la v2.1 : sha256 `85175bd44d613f2b9f7d60bb844db3a085b8e7d433a21f3dae10575d65507230`.
+
 ## install-mcps.ps1
 
 C'est le script principal pour automatiser l'installation et la configuration des MCPs internes et externes.
