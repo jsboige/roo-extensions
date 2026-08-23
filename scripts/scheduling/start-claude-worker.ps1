@@ -3901,7 +3901,7 @@ Voir: $LogFile
             priority = $Priority
             status = "unread"
             timestamp = (Get-Date).ToUniversalTime().ToString("o")
-            tags = @("worker-report", "scheduler")
+            tags = @("worker-report", "scheduler", "no-pg-dual-write")
         }
 
         $SentPath = Join-Path $SharedPath "messages\sent"
