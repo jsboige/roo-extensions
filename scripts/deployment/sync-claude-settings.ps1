@@ -1,6 +1,8 @@
 # sync-claude-settings.ps1 — Harmonisation flotte ~/.claude/settings.json (reference po-2023)
 # Mandat user 21-22/08/2026 : diffuser la structure de reference du settings.json du hub.
 # 23/08 v2 : modele custom -> gpt-5.6-sol (onboarding OpenAI Pro, credits Codex).
+# 23/08 v2.2 : fenetre de compaction = SEULEMENT-SI-ABSENT (miroir garde #3215, WARN ai-01 15:05Z) —
+#              le settings.json de la machine FAIT FOI (.claude/rules/context-window.md v6).
 # Idempotent : re-executable sans effet de bord. Backup horodate avant chaque ecriture.
 # NE TOUCHE PAS : permissions, model, effortLevel, et toute autre cle locale.
 # Preserve le x-proxy-key existant (canal secret) et ne l'ecrit JAMAIS ailleurs qu'a sa place.
@@ -27,7 +29,7 @@ $BaseUrlTable = @{
   'myia-po-2023' = 'http://192.168.0.46:3000'   # hub (direct)
   'myia-ai-01'   = 'http://localhost:3000'      # sidecar local (vivant 22/08, .51:3000)
   'myia-po-2024' = 'http://192.168.0.46:3000'   # hub direct (sidecar retiré c.184) — corrigé 23/08
-  'myia-po-2026' = 'http://localhost:3000'      # sidecar local (à confirmer par netstat :3000)
+  'myia-po-2026' = 'https://models.myia.io'     # WAN (netstat :3000 = com.docker.backend, PAS un sidecar — corrigé 23/08, 3e stale-table)
   'myia-po-2025' = 'https://models.myia.io'     # WAN itinérante (domaine public, pas d'IP LAN)
   'myia-po-2027' = 'https://models.myia.io'     # WAN itinérante (2 IPs publiques observées, légitime user 23/08)
   'myia-web1'    = 'https://models.myia.io'     # WAN
@@ -103,6 +105,10 @@ relancer avec -BaseUrl <endpoint ouvert>, ou corriger la table.
 if (-not $settings.env) {
   $settings | Add-Member -MemberType NoteProperty -Name 'env' -Value ([pscustomobject]@{}) -Force
 }
+# Fenetre de compaction : SEULEMENT-SI-ABSENT (garde symetrique #3215). Ces 2 cles ne s'ecrivent
+# que pour bootstrapper une machine vierge — JAMAIS pour ecraser un choix machine (ai-01=310k).
+# Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
+$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE')
 $changed = @()
 foreach ($k in $RefEnv.Keys) {
   $new = [string]$RefEnv[$k]
@@ -110,7 +116,7 @@ foreach ($k in $RefEnv.Keys) {
   if ($null -eq $old) {
     $settings.env | Add-Member -MemberType NoteProperty -Name $k -Value $new -Force
     $changed += "+ $k"
-  } elseif ("$old" -ne $new) {
+  } elseif ("$old" -ne $new -and $k -notin $OnlyIfAbsent) {
     $settings.env.$k = $new
     $changed += "~ $k : '$old' -> '$new'"
   }
@@ -125,7 +131,8 @@ if (-not $proxyKeyLine) {
 }
 $newHeaders = "X-Claudish-Machine: $MachineName`n$proxyKeyLine"
 if ($existingHeaders -ne $newHeaders) {
-  $settings.env.ANTHROPIC_CUSTOM_HEADERS = $newHeaders
+  # Add-Member -Force : cree si absent (affectation directe jette sur PSCustomObject vierge)
+  $settings.env | Add-Member -MemberType NoteProperty -Name 'ANTHROPIC_CUSTOM_HEADERS' -Value $newHeaders -Force
   $changed += '~ ANTHROPIC_CUSTOM_HEADERS (machine=' + $MachineName + ', x-proxy-key preserve)'
 }
 
