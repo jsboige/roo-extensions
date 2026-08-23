@@ -1,7 +1,7 @@
 # Unified Store (Postgres) — Runbook Ops
 
-**Issues :** #2957 (AC restants) · Epic #2191 · déploiement prod #2553 (clos)
-**MAJ :** 2026-08-16 (po-204, séquence vérifiée contre le code `c42f1706`)
+**Issues :** #2957 (AC restants) · Epic #2191 · déploiement prod #2553 (clos) · #3151 Phase D (§7)
+**MAJ :** 2026-08-23 (§7 Phase D-1 : écriture canal PG-primaire + rétention, po-2023)
 **Audience :** ai-01 (DB prod + corpus de référence), puis chaque machine qui rejoint le dual-write.
 
 ---
@@ -128,6 +128,71 @@ SELECT machine_id, count(*) FROM conversations GROUP BY 1 ORDER BY 2 DESC;
 - Credentials PG vers les machines (canal RooSync, pas git).
 - Restart des hosts MCP (`[INTERACTIVE-ONLY]`, un par machine).
 - Décision pilote + GO rollout flotte (reco : po-204, host le plus GDrive-impacté = stress test réaliste).
+
+## 7. Phase D (#3151) — retrait GDrive du canal messagerie
+
+**État au 23/08 :** Phases A/A.2 (dual-write), B (lecture messages), C (dashboards) mergées et
+déployables par flags. La Phase D-1 ci-dessous (écriture canal PG-primaire + rétention) est livrée
+en [PR submod jsboige-mcp-servers#1030](https://github.com/jsboige/jsboige-mcp-servers/pull/1030),
+par défaut **OFF** — aucun comportement ne change tant que les flags ne sont pas posés.
+
+### 7.1 Ce que fait `UNIFIED_STORE_CHANNEL_PG_PRIMARY=1`
+
+- **Écriture PG-primaire** : `send`/`reply`/`amend`/`mark_read`/`archive`/`destroy` persiste dans
+  `roosync_messages` et **n'écrit plus les fichiers GDrive** (`messages/inbox|sent`). GDrive devient
+  archive legacy **en lecture seule** — rien n'y est jamais supprimé (preuve de préservation).
+- **Le flag implique la lecture PG** (`UNIFIED_STORE_CHANNEL_READ_PG`) : une machine qui ne write
+  plus GDrive ne doit pas non plus y lire en primaire, sous peine d'être aveugle aux envois
+  PG-primary des autres.
+- **Dégradation gracieuse** : panne PG → fallback sur le chemin fichier d'origine (l'envoi n'est
+  jamais perdu). La divergence résultante se re-synchronise par le backfill canal
+  (`scripts/backfill-roosync-channel.mjs`).
+
+### 7.2 Séquence d'activation d'une machine (canal)
+
+1. `.env` : `UNIFIED_STORE_DUAL_WRITE=1` + `UNIFIED_STORE_PG_URL=…` (runbook §1), backfill canal
+   fait, lecture PG validée ≥ 1 semaine (`UNIFIED_STORE_CHANNEL_READ_PG=1`).
+2. Ajouter `UNIFIED_STORE_CHANNEL_PG_PRIMARY=1` → restart host MCP (`[INTERACTIVE-ONLY]`).
+3. Vérifier : un `roosync_messages send` de test → row dans PG (`SELECT count(*) FROM
+   roosync_messages WHERE id = '<id>'`), **aucun** nouveau fichier dans `messages/inbox/`.
+4. Pilote 1 machine ≥ 48 h, puis généralisation échelonnée (§5).
+
+**Prérequis flotte** : activer PG_PRIMARY sur UNE machine d'écriture n'est sûr que si toutes les
+machines destinataires lisent déjà PG (`READ_PG`). Sinon les messages PG-only sont invisibles aux
+laggards — under-show, le pire défaut du canal. Activer la lecture partout AVANT la première
+écriture PG-primaire.
+
+### 7.3 Rétention PG (`UNIFIED_STORE_CHANNEL_RETENTION_DAYS`)
+
+- L'action `roosync_messages cleanup` purge les rows `status='archived'` plus vieilles que N jours
+  **avec leurs attachments bytea**, en une transaction (`purgeArchivedRooSyncMessages`).
+- **0 / absent = OFF** (aucune suppression par défaut — règle no-deletion). Valeur conseillée : 180.
+- GDrive n'est **jamais** touché par la rétention (archive legacy).
+- Compteur observable dans la sortie du cleanup (« Rétention PG : N message(s) purgé(s) »).
+
+### 7.4 Backup du canal (aligné #3134)
+
+Le backup PG couvre tout le store — pas de procédure séparée pour le canal :
+
+```powershell
+# ai-01 (héberge pg.myia.io) — cron hebdo conseillé, rétention 4 dumps
+pg_dump --host=pg.myia.io --port=5432 --username=unified_store \
+  --format=custom --file="unified_store-$(Get-Date -Format yyyyMMdd).dump" unified_store
+```
+
+Vérification mensuelle : restaurer le dernier dump sur une DB jetable et compter
+`roosync_messages` / `roosync_dashboards` (proche des counts prod = backup sain).
+
+### 7.5 Reste de la Phase D (non couvert par D-1)
+
+- **Dashboards write-side** : gate `UNIFIED_STORE_DASHBOARD_PG_PRIMARY` NON livrée — les listeners
+  wake (`poll-dashboard.ps1`, 6 machines) lisent les fichiers `workspace-*.md` sur G:. Arrêter
+  l'écriture fichier avant leur bascule = casser le wake-routing flotte. Séquence : CLI lecture
+  journal PG → patch listener → pilote → seulement alors gate d'écriture.
+- **Attachments read/write PG-primaire** : les blobs restent écrits GDrive + miroir bytea
+  (Phase A). Le destroy purge bien les deux couches.
+- **Critères d'acceptation finaux** (#3151) : mesure 2 cycles complets × 6 machines après
+  généralisation — coordination ai-01.
 
 ---
 
