@@ -156,10 +156,16 @@ function Convert-JsonWorkReport {
             $workSummary = [string]$json.work_summary
             $nextAction = [string]$json.next_action
             $risk = [string]$json.risk
+            $issueId = [string]$json.issue_id
+            $evidence = [string]$json.evidence
             if ($workSummary -or $nextAction -or $risk) {
                 return @(
                     '## Work Summary',
                     $workSummary,
+                    '## Issue',
+                    $issueId,
+                    '## Evidence',
+                    $evidence,
                     '## Next Action',
                     $nextAction,
                     '## Risk',
@@ -326,10 +332,14 @@ function Invoke-PhaseCDispatch {
         output = @()
         error = ''
         report = ''
+        repositoryChanges = $false
     }
 
     try {
+        $beforeStatus = ''
+        $afterStatus = ''
         Push-Location $RepositoryRoot
+        $beforeStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
         # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
         # Copilot cannot execute any tool (shell/file/git) and falls back to a
         # conversational "ready, standing by" no-op instead of doing real work
@@ -337,6 +347,7 @@ function Invoke-PhaseCDispatch {
         # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
         $cmdOutput = & gh copilot -p $Prompt --allow-all-tools 2>&1
         $exit = $LASTEXITCODE
+        $afterStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
         Pop-Location
 
         $result.exitCode = $exit
@@ -346,6 +357,7 @@ function Invoke-PhaseCDispatch {
         if ([string]::IsNullOrWhiteSpace($result.report)) {
             $result.report = Get-SanitizedReport -Lines $cmdOutput
         }
+        $result.repositoryChanges = ($beforeStatus -ne $afterStatus)
 
         $joined = ($cmdOutput | Out-String)
         $match = [regex]::Match($joined, 'Requests\s+([0-9]+(?:\.[0-9]+)?)\s+Premium', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
@@ -353,8 +365,19 @@ function Invoke-PhaseCDispatch {
             $result.premiumRequests = [double]$match.Groups[1].Value
         }
 
-        if ($exit -eq 0) {
+        $joinedLower = $joined.ToLowerInvariant()
+        $isIdleLike = (
+            $joinedLower -match 'standing by' -or
+            $joinedLower -match 'no dispatch actions required' -or
+            $joinedLower -match 'no pending dispatch tasks' -or
+            $joinedLower -match 'no incoming work is queued'
+        )
+        $hasActionEvidence = ($result.repositoryChanges -or $joinedLower -match 'issue\s*#\d+' -or $joinedLower -match 'pr\s*#\d+' -or $joinedLower -match 'patched|updated|modified|created')
+
+        if ($exit -eq 0 -and $hasActionEvidence -and -not $isIdleLike) {
             $result.status = 'active'
+        } elseif ($exit -eq 0) {
+            $result.status = 'idle'
         } else {
             $result.status = 'blocked'
         }
@@ -386,6 +409,13 @@ function Get-WorkPrompt {
         $gitSummary = 'clean-or-unavailable'
     }
 
+    $issueSeed = 'unavailable'
+    try {
+        $issueSeed = (& gh issue list --state open --limit 15 --json number,title,labels,updatedAt 2>$null | Out-String).Trim()
+    } catch {
+        $issueSeed = 'unavailable'
+    }
+
     $previousStatus = if ($State.ContainsKey('lastStatus')) { [string]$State.lastStatus } else { 'none' }
     $lastObservedPremium = if ($State.ContainsKey('lastObservedPremiumRequests')) { [string]$State.lastObservedPremiumRequests } else { 'unknown' }
 
@@ -394,6 +424,8 @@ You are the scheduled Copilot dispatcher for the repository roo-extensions.
 
 Return exactly one JSON object with these keys:
 - work_summary
+- issue_id
+- evidence
 - next_action
 - risk
 
@@ -407,6 +439,11 @@ Constraints:
 - Never mention tools, sessions, or interactive behavior in your output.
 - Keep each value to one short sentence.
 
+Execution mandate:
+- Select exactly one issue from the open issue seed and perform one concrete repository action now (edit/add/delete in a file).
+- If no safe action is possible, output a blocker with exact reason and still include the issue_id attempted.
+- evidence must mention either a changed file path, a generated artifact, or a validation command/result.
+
 Investigation (ground your answer in real findings, not assumptions):
 - Use available tools to inspect the repository: run `git log --oneline -10`, read recently changed files, check `gh issue list --state open --limit 20` for actionable work.
 - Base work_summary and next_action on what you actually observe, so the dispatch consumes real analysis rather than producing a "ready, standing by" acknowledgement.
@@ -418,7 +455,107 @@ Context:
 - Repository root: $RepositoryRoot
 - Git status summary:
 $gitSummary
+
+- Open issues seed (pick one):
+$issueSeed
 "@
+}
+
+function Test-IsActionableIssue {
+    param([psobject]$Issue)
+
+    if ($null -eq $Issue) { return $false }
+
+    $title = [string]$Issue.title
+    $labels = @()
+    if ($Issue.PSObject.Properties.Name -contains 'labels' -and $Issue.labels) {
+        $labels = @($Issue.labels | ForEach-Object {
+            if ($_ -is [string]) { $_ }
+            elseif ($_.name) { [string]$_.name }
+            else { [string]$_ }
+        })
+    }
+
+    $labelText = ($labels -join ' ')
+    $combinedText = "$title $labelText"
+
+    # Fail closed on scheduler/coordination noise. These are operational chatter,
+    # not actionable engineering tasks, and are the main source of no-op Copilot runs.
+    if ($combinedText -match '(?i)stand[- ]?down|heartbeat|listener|dispatch|coordination|meta|triage|scheduler|routing|idle') {
+        return $false
+    }
+
+    if ($labels -match '(?i)meta|triage|coordination|scheduler|automation') {
+        return $false
+    }
+
+    return $true
+}
+
+function Get-TargetIssue {
+    param(
+        [string]$RepositoryRoot,
+        [int]$PreferredIssueNumber = 0
+    )
+
+    if ($PreferredIssueNumber -gt 0) {
+        try {
+            $preferred = & gh issue view $PreferredIssueNumber --json number,title,state,url,labels 2>$null | ConvertFrom-Json
+            if ($preferred) {
+                if (-not (Test-IsActionableIssue -Issue $preferred)) {
+                    return $null
+                }
+
+                return @{
+                    number = [int]$preferred.number
+                    title = "{0} [state={1}]" -f ([string]$preferred.title), ([string]$preferred.state)
+                    url = [string]$preferred.url
+                    updatedAt = ''
+                }
+            }
+
+            return @{
+                number = [int]$PreferredIssueNumber
+                title = 'Configured scheduler seed issue'
+                url = ''
+                updatedAt = ''
+            }
+        } catch {
+            # Fall back to the configured issue number when GitHub query is unavailable.
+            return @{
+                number = [int]$PreferredIssueNumber
+                title = 'Configured scheduler seed issue'
+                url = ''
+                updatedAt = ''
+            }
+        }
+    }
+
+    try {
+        $items = & gh issue list --state open --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        if ($null -eq $items -or $items.Count -eq 0) {
+            return $null
+        }
+
+        $candidates = @($items | Where-Object { Test-IsActionableIssue -Issue $_ })
+        if ($candidates.Count -eq 0) {
+            return $null
+        }
+
+        $selected = $candidates | Sort-Object {[DateTime]$_.updatedAt} -Descending | Select-Object -First 1
+        if ($null -eq $selected) {
+            return $null
+        }
+
+        return @{
+            number = [int]$selected.number
+            title = [string]$selected.title
+            url = [string]$selected.url
+            updatedAt = [string]$selected.updatedAt
+        }
+    } catch {
+        return $null
+    }
 }
 
 Write-Log "Copilot dispatcher started"
@@ -452,13 +589,25 @@ if ($copilotConfig) {
     $status = "blocked"
 }
 
+$state = Load-State
+
 $dispatch = $null
 if ($status -ne 'blocked') {
-    if ($DryRun) {
-        Write-Log "DryRun: skipping gh copilot execution"
+    $targetIssue = Get-TargetIssue -RepositoryRoot $repoRoot -PreferredIssueNumber $IssueNumber
+    if ($null -eq $targetIssue) {
+        Write-Log "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
+        $status = 'idle'
+        $dispatch = @{
+            status = 'idle'
+            exitCode = 0
+            premiumRequests = 0.0
+            output = @('Skipped: no actionable issue')
+            error = ''
+            report = ''
+            repositoryChanges = $false
+        }
     } else {
-        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State (Load-State) -RepositoryRoot $repoRoot
-        Write-Log "Executing Phase C fallback via gh copilot -p"
+        $workPrompt = Get-WorkPrompt -Profile $effectiveProfile -State $state -RepositoryRoot $repoRoot
         $dispatch = Invoke-PhaseCDispatch -Profile $effectiveProfile -RepositoryRoot $repoRoot -Prompt $workPrompt
         $status = [string]$dispatch.status
         if ($dispatch.exitCode -eq 0) {
@@ -483,8 +632,6 @@ if ($status -ne 'blocked') {
         }
     }
 }
-
-$state = Load-State
 Write-Log "GitHub issue comment channel disabled for scheduled routine runs"
 
 if ($status -eq "blocked") {
@@ -521,6 +668,10 @@ if ($dispatch) {
     if (-not [string]::IsNullOrWhiteSpace($dispatch.report)) {
         $state.lastReportFile = $reportFile
     }
+}
+if ($targetIssue) {
+    $state.lastTargetIssueNumber = [int]$targetIssue.number
+    $state.lastTargetIssueTitle = [string]$targetIssue.title
 }
 
 if ($target -ne 'none') {

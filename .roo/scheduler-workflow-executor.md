@@ -5,6 +5,31 @@
 
 ---
 
+## ⭐ RÈGLE CRITIQUE: Lire Avant d'Écrire — Dé-duplication (Issue #2505)
+
+**OBLIGATOIRE pour tous les bots de review (Hermes, NanoClaw, dig-deeper) :**
+
+1. **ÉTAPE 1 obligatoire — LIRE AVANT d'ÉCRIRE.**
+   - Récupérer TOUTES les reviews + commentaires existants sur la PR : `gh pr view N --json reviews,comments`
+   - Extraire la liste des points DÉJÀ soulevés via `scripts/helpers/review-dedup-helper.ps1 -RepoOwner jsboige -RepoName roo-extensions -PrNumber N`
+   - Analyser la rapport JSON de déduplication
+
+2. **ÉTAPE 2 — NE poster que du NOUVEAU.**
+   - Chercher des problèmes que PERSONNE n'a déjà mentionnés
+   - Ignorer les points déjà couverts par les reviews existantes
+   - Si rien de nouveau à ajouter : poster un simple `[ACK]` / +1 référençant la review existante, PAS une review complète qui paraphrase
+
+3. **Gouvernance bots (Issue #1767) :**
+   - **Comment-only, JAMAIS approve/merge**
+   - Aucun bot ne doit porter l'autorité à merger une PR
+   - Restriction appliquée via rôle bot dans `.roo/roles.json` (NEVER allow `approve`, `merge` actions)
+
+**Tickets d'escalade pour violations :**
+- Review redondante = `[BOT-MENTION] Hermes/NanoClaw : redite détectée, appliquer règle read-before-write`
+- Bot tente approve/merge = INCIDENT critique, report immédiat
+
+---
+
 ## Workflow Executor
 
 **Machine:** {MACHINE} (myia-po-* ou myia-web1)
