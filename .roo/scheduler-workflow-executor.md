@@ -343,6 +343,12 @@ VEILLE ACTIVE PROACTIVE — Détection et auto-réparation automatique.
      * SI succès : poster [PATROL] "schedules.json régénéré"
      * SI échec : poster [FRICTION-FOUND] "Impossible de régénérer schedules.json"
 
+   **E. Cycles Zoo morts — stall silencieux (#3220) :**
+   - execute_command(shell="powershell", command="pwsh -ExecutionPolicy Bypass -File scripts/zoo-scheduler/Test-ZooSchedulerHealth.ps1 -AsJson")
+   - SI `counts.STALLED > 0` dans la sortie JSON (tâches des dernières 24 h sans `completion_result`, silencieuses depuis ≥60 min — orage proxy 502 ou kill) :
+     * Poster [WARN] sur dashboard workspace : machine, IDs des tâches (champ `tasks[].taskId` où `outcome=STALLED`), dernier événement et durée de silence
+     * NE PAS re-dispatcher le travail perdu automatiquement (arbitrage coordinateur)
+
 3. Rapport final : domaines vérifiés + résultats + tag [PATROL] si OK ou [FRICTION-FOUND] si problème(s)
 
 IMPORTANT : utilise win-cli MCP (pas le terminal natif).
