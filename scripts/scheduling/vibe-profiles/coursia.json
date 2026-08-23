@@ -2,9 +2,9 @@
   "name": "coursia",
   "description": "Profil CoursIA — Mistral Vibe sur le workspace CoursIA. Presentable dans la serie vibe-coding.",
   "workspace": "CoursIA",
-  "workspacePath": "D:/CoursIA",
-  "harnessCommand": "mistral vibe run --command continue",
+  "workspacePath": "D:/dev/CoursIA",
+  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 600",
   "intervalHours": 1,
   "maxIterations": 1,
-  "notes": "Le CLI Vibe (mistral) arrive par la synchro des extensions VS Code. Avant installation effective, ce profil sert de documentation de l'invocation standard."
+  "notes": "Aucun CLI one-shot n'existe : l'extension VS Code bundle vibe-acp.exe (serveur ACP). Le driver scripts/scheduling/vibe-acp-driver.py est le client headless (initialize -> session/new -> session/prompt). --wake lit VIBE_WAKE_PAYLOAD posee par start-vibe-worker.ps1 sur un [WAKE-VIBE]. Auth etablie une fois par browser-auth interactive VS Code (verifie 2026-08-22 : tick headless PROMPT_OK, ~$0.03/tick)."
 }
