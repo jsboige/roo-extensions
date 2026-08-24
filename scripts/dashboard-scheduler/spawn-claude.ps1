@@ -387,7 +387,7 @@ Commence.
     if ($stdoutSize -gt 0) {
         if ($stdoutSize -gt $TruncateThresholdBytes) {
             $truncatedStdout = "...[truncated, $stdoutSize bytes total, last $TruncateTailLines lines]...`n"
-            $truncatedStdout += Get-Content -Path $outputFile -Tail $TruncateTailLines -Raw
+            $truncatedStdout += (Get-Content -Path $outputFile -Tail $TruncateTailLines) -join "`n"
         } else {
             $truncatedStdout = Get-Content -Path $outputFile -Raw
         }
@@ -395,7 +395,7 @@ Commence.
     if ($stderrSize -gt 0) {
         if ($stderrSize -gt $TruncateThresholdBytes) {
             $truncatedStderr = "...[truncated, $stderrSize bytes total, last $TruncateTailLines lines]...`n"
-            $truncatedStderr += Get-Content -Path $errorFile -Tail $TruncateTailLines -Raw
+            $truncatedStderr += (Get-Content -Path $errorFile -Tail $TruncateTailLines) -join "`n"
         } else {
             $truncatedStderr = Get-Content -Path $errorFile -Raw
         }
