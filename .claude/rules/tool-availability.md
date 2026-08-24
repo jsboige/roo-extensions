@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.1.0 (section MCP désactivés ≠ absents, #3137)
+**Version:** 3.2.0 (3e emplacement `disabledMcpServers`, #3137)
 
 ---
 
@@ -31,12 +31,20 @@
 
 ## MCP désactivés ≠ absents (#3137)
 
-Des MCP dédiés sont **désactivés** (`"disabled": true`) pour réduire la surface exposée — pas désinstallés. Leur config reste sur disque, l' état varie **par workspace** (`<workspace>/.mcp.json`) et par machine (`~/.claude.json` → `mcpServers`).
+Des MCP dédiés sont **désactivés** pour réduire la surface exposée — pas désinstallés. Leur config reste sur disque. L'état se lit à **TROIS emplacements** (finding ai-01 23/08 + vérif live po-204 24/08, #3137) :
+
+| # | Emplacement | Champ | Portée |
+|---|---|---|---|
+| 1 | `~/.claude.json` → `mcpServers` | `disabled` bool par serveur | machine |
+| 2 | `<workspace>/.mcp.json` | `disabled` bool par serveur | workspace |
+| 3 | `~/.claude.json` → `projects[<workspace>].disabledMcpServers` | **liste de noms** de serveurs | workspace, **prime sur l'activation user-scope** |
+
+**Priorité vérifiée en session** : une entrée dans `disabledMcpServers` (emplacement 3) désactive le serveur dans CE workspace **même s'il est `disabled:false` en user-scope** — piège mesuré sur ai-01 et po-204 : lire les emplacements 1-2 seul conclut « activé » à tort. L'instrument qui ne ment pas : la **présence effective des outils `mcp__<serveur>__*` en session**.
 
 **Avant de proposer d'installer un nouveau client** (playwright, sk-agent, jupyter-papermill…), vérifier si le MCP dédié n'est pas simplement désactivé :
 
-1. Lire le `.mcp.json` du workspace + `~/.claude.json` (`mcpServers`) : champ `disabled`.
-2. Si désactivé → réactiver (`"disabled": false`), puis **redémarrer la session** du workspace (scope MCP chargé au démarrage).
+1. Lire les **3 emplacements** ci-dessus pour le workspace courant.
+2. Si désactivé → réactiver : `"disabled": false` (emplacements 1-2) **ou retirer le nom du tableau** `disabledMcpServers` (emplacement 3) ; puis **redémarrer la session** du workspace (scope MCP chargé au démarrage).
 3. Vérifier que les outils `mcp__<serveur>__*` apparaissent.
 4. Re-désactiver après usage si la réduction de surface doit être restaurée.
 
