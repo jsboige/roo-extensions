@@ -200,7 +200,14 @@ def main() -> int:
     for msg in notifications:
         update = (msg.get("params") or {}).get("update") or {}
         content = update.get("content") or {}
-        text = content.get("text", "")
+        if isinstance(content, list):
+            # ACP session/update may send content as a list of typed blocks
+            # (e.g. [{"type": "text", "text": "..."}]) instead of a plain dict.
+            text = "".join(
+                block.get("text", "") for block in content if isinstance(block, dict)
+            )
+        else:
+            text = content.get("text", "")
         if "failed to connect" in text:
             mcp_failures.append(text[:200])
         if update.get("sessionUpdate") == "agent_message_chunk" and text:
