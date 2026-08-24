@@ -67,14 +67,14 @@ Get-ScheduledTask | Where-Object State -ne 'Disabled' | Select-Object TaskName, 
 
 ## 3. Rôle IIS + features
 
-Baseline DNN (à **confirmer contre l'extracteur §1**, qui prime) :
+Baseline DNN (à **confirmer contre l'extracteur §1**, qui prime). **Écarts réconciliés contre le snapshot web1 du 23/08** (`vps4-snapshot-web1-20260823.txt`) : source en .NET **4.7** (pas 4.8) · `Web-Windows-Auth` **absent** de la source (retiré) · `Web-WebSockets` **présent** dans la source (ajouté). `Web-Digest-Auth` est aussi installé sur la source mais n'est pas requis pour DNN — volontairement absent de la baseline.
 
 ```powershell
 Install-WindowsFeature Web-Server, Web-Asp-Net45, Web-Net-Ext45, Web-ISAPI-Ext, Web-ISAPI-Filter,
-  Web-Basic-Auth, Web-Windows-Auth, Web-Http-Logging, Web-Http-Tracing, Web-Mgmt-Console -Restart
+  Web-Basic-Auth, Web-WebSockets, Web-Http-Logging, Web-Http-Tracing, Web-Mgmt-Console -Restart
 ```
 
-- [ ] Vérifier `.NET Framework 4.8` (in-box WS2022) : `reg query "HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" /v Release` ≥ 528040
+- [ ] **.NET Framework — source en 4.7, pas 4.8** : l'extracteur §1 montre `Web-Net-Ext45 = .NET Extensibility 4.7` et `NET-Framework-45-Core = .NET Framework 4.7`. La source n'est **pas** en 4.8. WS2022 embarque 4.8 **in-box** (rétrocompatible avec les apps 4.7, donc DNN 9.x tourne dessus) — `reg query "HKLM\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full" /v Release` y retournera ≥ 528040, ce qui est **attendu, pas un écart**. Décision rester en 4.8 (in-box) vs forcer 4.7 : à confirmer par la lane Argumentum avant cutover.
 - [ ] Pools : créer `Argumentum` (miroir des settings de l'extracteur — `managedRuntimeVersion`, `startMode`, identité), **pas** DefaultAppPool pour le DNN
 - [ ] Logging W3C par site (voir §6 — observabilité par hôte)
 
@@ -132,12 +132,12 @@ La lane po-2023 exploite déjà wacs en auto (cert SAN 52 domaines, renew automa
 
 ## 9. Dépendances ouvertes hors lane (pour mémoire)
 
-| Dépendance | Owner | État au 21/08 |
+| Dépendance | Owner | État (MAJ 24/08) |
 |---|---|---|
 | Livraison/acccès VPS-4 GRA | owner | **matériel pas prêt** (20/08) |
-| Audit allowlist vLLM (IP web1) | ai-01 | ouvert (reco #3 web1 c.293) |
-| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | ouvert (reco #2) |
-| Snapshot extracteur §1 | web1 | à exécuter (lecture seule) |
+| Audit allowlist vLLM (IP web1) | ai-01 | ouvert — **seule surface restante** (reco #3 web1 c.293, répétée ×2) |
+| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | **clos 22/08** (po-204 c.266 : 0 occurrence) |
+| Snapshot extracteur §1 | web1 | **exécuté 23/08 14:14** (web1 c.318 → `vps4-snapshot-web1-20260823.txt`) |
 | Bascule DNS + fenêtre ACME | coordination Épic | fenêtre interdite 05/10→04/11 |
 
 ---
