@@ -132,12 +132,12 @@ La lane po-2023 exploite déjà wacs en auto (cert SAN 52 domaines, renew automa
 
 ## 9. Dépendances ouvertes hors lane (pour mémoire)
 
-| Dépendance | Owner | État au 21/08 |
+| Dépendance | Owner | État (MAJ 24/08) |
 |---|---|---|
 | Livraison/acccès VPS-4 GRA | owner | **matériel pas prêt** (20/08) |
-| Audit allowlist vLLM (IP web1) | ai-01 | ouvert (reco #3 web1 c.293) |
-| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | ouvert (reco #2) |
-| Snapshot extracteur §1 | web1 | à exécuter (lecture seule) |
+| Audit allowlist vLLM (IP web1) | ai-01 | ouvert — **seule surface restante** (reco #3 web1 c.293, répétée ×2) |
+| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | **clos 22/08** (po-204 c.266 : 0 occurrence) |
+| Snapshot extracteur §1 | web1 | **exécuté 23/08 14:14** (web1 c.318 → `vps4-snapshot-web1-20260823.txt`) |
 | Bascule DNS + fenêtre ACME | coordination Épic | fenêtre interdite 05/10→04/11 |
 
 ---
