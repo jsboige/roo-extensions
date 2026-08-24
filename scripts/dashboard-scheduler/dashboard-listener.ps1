@@ -492,14 +492,22 @@ function Test-ReferencedClosedIssues($content, $repo) {
     # "[WAKE-CLAUDE] myia-ai-01 - #1357 AC#4 : probe E2E", the check extracted
     # BOTH #1357 (open) and #4 (closed, unrelated), and the message was dropped.
     #
+    # The {4,} length floor is load-bearing for the same reason. A bare ordinal at
+    # a word boundary -- "Calibration #1", "run #2", "cycle #3" -- passes the
+    # lookbehind, and #1..#999 are all closed issues in roo-extensions. On
+    # 2026-08-24 that silently swallowed po-2025's dispatch "Calibration #1"
+    # (skipped + lastAck advanced, never retried). Both live repos number their
+    # issues in the thousands (roo-extensions ~#3261, jsboige-mcp-servers ~#1037),
+    # so a genuine reference always has 4+ digits. Ordinals never do.
+    #
     # The two error directions are not symmetric, which is what sets the bias:
     #   false positive -> the WAKE is skipped AND lastAck advances (see caller),
     #                     so it is never retried. The instruction is destroyed.
     #   false negative -> an agent wakes on a stale target, reads the issue, and
     #                     says so. Cheap and self-correcting.
     # So this pattern deliberately under-matches: "PR#3083" is not treated as a
-    # reference either. Only a # at a word boundary counts.
-    $issueMatches = [regex]::Matches($content, '(?<![A-Za-z0-9_])#(\d+)')
+    # reference either. Only a # at a word boundary counts, and only 4+ digits.
+    $issueMatches = [regex]::Matches($content, '(?<![A-Za-z0-9_])#(\d{4,})')
     $checked = 0
     foreach ($m in $issueMatches) {
         if ($checked -ge 5) { break }

@@ -16,6 +16,12 @@
       [WARN] Skipping message from myia-po-2023: references CLOSED issue(s) #4.
       [INFO] All actionable messages reference closed issues. Advancing lastAck.
 
+    It failed again on 2026-08-24, through the other door. "Calibration #1" has
+    its ordinal at a word boundary, so the lookbehind fix of 2026-08-16 does not
+    apply -- and #1 is a closed issue. po-2025's dispatch was skipped and its
+    lastAck advanced. The fix is a 4-digit length floor: both live repos number
+    their issues in the thousands, ordinals never reach 4 digits.
+
     HOW THIS TESTS THE REAL THING
     Test-ReferencedClosedIssues cannot be dot-sourced: dashboard-listener.ps1
     runs its polling loop on load. So this harness reads the production file,
@@ -96,7 +102,11 @@ $mustNotMatch = @(
     @{ Name = 'AC#1-3 range';                 Text = 'AC#1-3 remain satisfied' },
     @{ Name = 'PR#3083 (deliberate under-match)'; Text = 'see PR#3083' },
     @{ Name = 'version suffix v#2';           Text = 'schema v#2' },
-    @{ Name = 'underscore-joined ref_#9';     Text = 'ref_#9' }
+    @{ Name = 'underscore-joined ref_#9';     Text = 'ref_#9' },
+    @{ Name = 'Calibration #1 (the 2026-08-24 defect)'; Text = 'Calibration #1 : audit deck' },
+    @{ Name = 'ordinal run #2';               Text = 'run #2 of the pilot' },
+    @{ Name = 'ordinal cycle #3';             Text = 'cycle #3 reproductible' },
+    @{ Name = 'bare 3-digit ordinal #999';    Text = 'etape #999 du plan' }
 )
 foreach ($c in $mustNotMatch) {
     Assert-Equal $c.Name 0 (Get-Refs $c.Text).Count
@@ -110,9 +120,13 @@ Write-Host "`n=== Test 2: real references must still be extracted ===" -Foregrou
 
 Assert-Equal 'bare ref at start of string'   '1357' ((Get-Refs '#1357 needs work') -join ',')
 Assert-Equal 'ref after whitespace'          '1357' ((Get-Refs 'traiter #1357') -join ',')
-Assert-Equal 'ref in parentheses'            '974'  ((Get-Refs 'fixed (#974)') -join ',')
+Assert-Equal 'ref in parentheses'            '3131' ((Get-Refs 'fixed (#3131)') -join ',')
+Assert-Equal '3-digit paren ref now under-matched (floor)' 0 (Get-Refs 'fixed (#974)').Count
 Assert-Equal 'ref after newline'             '3131' ((Get-Refs "line one`n#3131") -join ',')
 Assert-Equal 'two refs in one line'          '1496,2431' ((Get-Refs 'traiter #1496 et #2431') -join ',')
+Assert-Equal '4-digit submodule ref #1037'   '1037' ((Get-Refs 'fix merged in #1037') -join ',')
+Assert-Equal 'real ref beside an ordinal'    '3255' ((Get-Refs 'run #2 of #3255 lane') -join ',')
+Assert-Equal '5-digit ref untouched'         '32560' ((Get-Refs 'issue #32560') -join ',')
 Assert-Equal 'markdown heading is not a ref' 0 (Get-Refs '## [WAKE-CLAUDE] myia-ai-01').Count
 
 # ============================================================================
@@ -123,6 +137,12 @@ Write-Host "`n=== Test 3: the message the listener actually dropped ===" -Foregr
 
 $droppedWake = '## [WAKE-CLAUDE] myia-ai-01 - #1357 AC#4 : probe E2E (~5 min) a executer sur TOI (bearer host)'
 Assert-Equal 'only #1357 is a reference' '1357' ((Get-Refs $droppedWake) -join ',')
+
+# The 2026-08-24 twin: a bare ordinal at a word boundary. The lookbehind alone
+# cannot see it -- only the 4-digit floor does. This dispatch was skipped and its
+# lastAck advanced, so po-2025's Calibration #1 was never delivered.
+$droppedWake2 = '[WAKE-VIBE] myia-po-2025:CoursIA - Calibration #1 : audit deck 03-logique'
+Assert-Equal 'Calibration #1 extracts no reference' 0 (Get-Refs $droppedWake2).Count
 
 # ============================================================================
 # Test 4: the mutation bit
@@ -136,6 +156,14 @@ $naive = '#(\d+)'
 Assert-Equal 'naive pattern differs from production' $true ($naive -ne $pattern)
 $naiveRefs = @([regex]::Matches($droppedWake, $naive) | ForEach-Object { $_.Groups[1].Value })
 Assert-Equal 'naive pattern extracts the phantom #4' '1357,4' ($naiveRefs -join ',')
+
+# Mutation bit for the 2026-08-24 fix: the PREVIOUS production pattern
+# (lookbehind, no length floor) must mis-extract the ordinal, otherwise the
+# Tests above would pass even against a listener that had never been fixed.
+$prevPattern = '(?<![A-Za-z0-9_])#(\d+)'
+Assert-Equal 'pre-fix pattern differs from production' $true ($prevPattern -ne $pattern)
+$prevRefs = @([regex]::Matches($droppedWake2, $prevPattern) | ForEach-Object { $_.Groups[1].Value })
+Assert-Equal 'pre-fix pattern extracts the phantom #1' '1' ($prevRefs -join ',')
 
 # ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
