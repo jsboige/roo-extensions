@@ -13,8 +13,8 @@
   },
   "mcpServers": {
     "searxng": {
-      "command": "npx",
-      "args": ["-y", "mcp-searxng"],
+      "command": "mcp-searxng",
+      "args": [],
       "env": {
         "SEARXNG_URL": "https://search.myia.io/"
       }
