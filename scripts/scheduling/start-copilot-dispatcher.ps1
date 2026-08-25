@@ -412,7 +412,7 @@ function Get-WorkPrompt {
 
     $issueSeed = 'unavailable'
     try {
-        $issueSeed = (& gh issue list --state open --limit 15 --json number,title,labels,updatedAt 2>$null | Out-String).Trim()
+        $issueSeed = (& gh issue list --state open --limit 5 --json number,title 2>$null | Out-String).Trim()
     } catch {
         $issueSeed = 'unavailable'
     }
