@@ -340,12 +340,16 @@ function Invoke-PhaseCDispatch {
         $afterStatus = ''
         Push-Location $RepositoryRoot
         $beforeStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
-        # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
+        # --allow-all is REQUIRED for non-interactive mode (-p): without it,
         # Copilot cannot execute any tool (shell/file/git) and falls back to a
         # conversational "ready, standing by" no-op instead of doing real work
         # (gh copilot --help: "required for non-interactive mode", env COPILOT_ALLOW_ALL).
+        # --allow-all = --allow-all-tools --allow-all-paths --allow-all-urls (superset).
+        # --no-ask-user: in -p non-interactive mode there is no user to answer the
+        #   ask_user tool — without it the agent emits "Permission denied and could
+        #   not request permission from user" on every tool call instead of running.
         # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
-        $cmdOutput = & gh copilot -p $Prompt --allow-all-tools 2>&1
+        $cmdOutput = & gh copilot -p $Prompt --allow-all --no-ask-user 2>&1
         $exit = $LASTEXITCODE
         $afterStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
         Pop-Location
