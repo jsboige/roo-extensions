@@ -175,6 +175,29 @@ roosync_dashboard(
 
 ---
 
+## 🔬 VÉRIFICATION AVANT AFFIRMATION — états de flotte (#3241)
+
+> **Lu par TOUS les orchestrateurs scheduler.** Toute affirmation sur l'état d'une AUTRE machine ou d'un service partagé (« coordinateur silencieux », « service DOWN », « infrastructure dégradée ») DOIT être précédée d'une mesure directe datée. Une absence de donnée n'est pas une donnée.
+
+### Sonde AVANT d'écrire
+
+| Affirmation envisagée | Sonde obligatoire AVANT |
+|----------------------|--------------------------|
+| « {machine} silencieux depuis Xh » | `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)` → timestamps réels des messages de {machine} |
+| « service DOWN / dégradé » | Une erreur observée LOCALEMENT (401, timeout) prouve l'état LOCAL uniquement. Une étiquette d'erreur d'outil (`network_timeout`, `401`) décrit le symptôme local, pas la cause flotte. Ne JAMAIS conclure « infrastructure dégradée » sans sonde datée. |
+
+### Qualification obligatoire dans les rapports et issues
+
+Chaque affirmation d'état porte sa qualification — sinon elle ne doit PAS être écrite :
+
+- **VÉRIFIÉ [instrument + date]** : mesuré par toi (ex : « dashboard read 25/08 13:40Z → dernier append ai-01 11:15Z »)
+- **RAPPORTE PAR [source]** : relayé d'un rapport ou d'une étiquette d'outil — pas confirmé
+- **NON-VERIFIÉ / SUPPOSÉ** : inférence sans mesure
+
+**Incident fondateur (#3241)** : po-2025 a rapporté « coordinator ai-01 silencieux >200h » et « Qdrant contradictoire » pendant 5+ cycles — réfuté par sondes datées (ai-01 actif en continu, Qdrant vivant). Le 401 était local à po-2025 (credential) : signal utile noyé dans une conclusion fausse. Coût : une lane entière d'analyses sur des états inexistants.
+
+---
+
 ## TERMINER LE CYCLE (OBLIGATOIRE)
 
 > **CRITIQUE :** L'orchestrateur DOIT appeler `attempt_completion` pour marquer la tâche comme terminée. Sans cela, le scheduler considère la tâche "en cours" et SAUTE les prochains ticks (`taskInteraction: "skip"`).
