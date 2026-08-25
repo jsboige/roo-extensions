@@ -186,7 +186,17 @@ Ne rapporter QUE des problemes REELS observes dans les donnees :
 - Patterns d'echec recurrents (memes erreurs, memes modes)
 - Travail duplique (2 agents sur la meme tache)
 
+ETAPE 6 — ETATS DE FLOTTE : SONDE + QUALIFICATION OBLIGATOIRES (#3241) :
+Toute affirmation sur l'etat d'une AUTRE machine ou d'un service partage (ex : "coordinator silencieux", "Qdrant degrade", "service DOWN") DOIT :
+1. ETRE PRECEDEE d'une sonde directe datee :
+   - "X silencieux depuis Yh" → roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20) → lire les timestamps REELS des messages de X
+   - erreur observee localement (401, timeout) = etat LOCAL uniquement, jamais "infrastructure degradee"
+2. PORTER sa qualification : VERIFIE [instrument+date] | RAPPORTE PAR [source] | NON-VERIFIE
+Une affirmation d'etat sans preuve datee = HARD REJECT a la creation d'issue.
+Incident fondateur : po-2025 a rapporte "coordinator silencieux >200h, Qdrant degrade" sur 5+ cycles (22-24/08) — faux (ai-01 actif, Qdrant vivant) ; le 401 etait son credential local, signal utile noye dans une conclusion fausse.
+
 NE PAS rapporter (HARD REJECT, rejet immediat a la creation d'issue) :
+- Affirmations d'etat de flotte sans sonde datee ("silencieux", "DOWN", "degrade") — #3241
 - Differences de nommage entre fichiers de regles
 - Asymetrie de version entre .roo/rules/* et .claude/rules/* (ex : v3.0.0 vs v3.2.0) — les deux agents evoluent a rythme different, l'asymetrie N'EST PAS un bug
 - Suggestions d'harmonisation/synchronisation/alignement de harnais
@@ -235,6 +245,7 @@ REGLES :
 - Pas de tableaux detailles, pas de listes d'outils, pas de rapports verbeux
 - Chaque finding actionnable = une issue GitHub (Etape 4) avec le detail complet
 - Le dashboard est un INDEX vers les issues, pas un rapport
+- Toute affirmation d'etat d'une autre machine ou d'un service partage porte sa qualification : VERIFIE [sonde+date] / RAPPORTE PAR [source] / NON-VERIFIE (#3241). Une ligne d'etat non qualifiee ne doit PAS etre ecrite.
 ```
 
 ### Etape 4 : Creer des issues GitHub avec le DETAIL COMPLET
@@ -269,6 +280,7 @@ REGLES :
 - TOUJOURS inclure le label 'needs-approval'
 - Le body de l'issue DOIT contenir TOUT le detail
 - Inclure les donnees chiffrees, tableaux, exemples concrets
+- Chaque affirmation d'etat (machine, service, infrastructure) dans le Constat porte sa preuve datee : VERIFIE [instrument+date] / RAPPORTE PAR [source] / NON-VERIFIE (#3241) — une issue dont les constats d'etat ne portent pas leur sonde sera rejetee par le coordinateur
 - NE PAS creer plus de 3 issues par cycle (eviter le spam)
 - NE PAS creer d'issue si la recommandation est purement informationnelle
 - TOUJOURS verifier les issues existantes AVANT de creer

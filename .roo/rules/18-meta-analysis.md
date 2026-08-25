@@ -1,7 +1,7 @@
 # Protocole Meta-Analyse - Architecture 3x2 Scheduler (Roo)
 
-**Version:** 3.3.0 (proactive redirection post user mandate #1285 — meta-analyste se consacre à autre chose, demandé plein de fois)
-**MAJ:** 2026-05-11
+**Version:** 3.4.0 (qualification obligatoire des états de flotte #3241)
+**MAJ:** 2026-08-25
 
 ## CE QUE LE META-ANALYSTE DOIT CHERCHER (ANALYSES PRODUCTIVES)
 
@@ -89,13 +89,14 @@ Canaux de sortie : 1. Dashboard workspace 2. Issues GitHub
 | Metrique sans seuil depasse | "Taux de succes 92%" sans constat de regression | Juste un chiffre. |
 | Drift comparatif Claude/Roo sans bug | "50% des paires divergentes" | Pas de fonctionnalite cassee = pas un probleme. |
 
-## Test de validation AVANT creation d'issue (OBLIGATOIRE, 3 questions)
+## Test de validation AVANT creation d'issue (OBLIGATOIRE, 4 questions)
 
 Avant de creer toute issue `[META-ANALYSIS]`, repondre :
 
 1. **Y a-t-il un incident concret avec timestamp et trace ?** (ex : "task #N echouee 2026-04-XX", "agent Y bloque 5h")
 2. **Le probleme est-il REPRODUIT par les donnees ?** (>=2 occurrences avec dates)
 3. **Si je ne cree PAS cette issue, qu'est-ce qui casse concretement ?** Si la reponse est "rien, c'est juste moins propre" → **NE PAS CREER.**
+4. **Chaque affirmation sur l'etat d'une autre machine ou d'un service partage porte-t-elle sa sonde datee ?** Qualification obligatoire : **VERIFIE [instrument+date]** / **RAPPORTE PAR [source]** / **NON-VERIFIE** (#3241). Une erreur observee localement (401, timeout) prouve l'etat LOCAL, pas "l'infrastructure degradee". Une affirmation d'etat sans sonde datee ne doit PAS etre ecrite.
 
 Si une reponse est floue : pas d'issue. Constat dans le dashboard compact (Etape 3 du workflow).
 
@@ -144,6 +145,7 @@ Ces exemples ont tous : **timestamp**, **reproduction**, **impact concret**.
 
 ---
 **Historique versions completes :** Git history avant 2026-04-08
+**v3.4.0 (2026-08-25) :** Question de validation n°4 (sonde datée + qualification VERIFIE/RAPPORTE PAR/NON-VERIFIE pour tout état de flotte). Cause : #3241 — po-2025 a propagé « coordinator silencieux >200h » / « Qdrant dégradé » sur 5+ cycles sans sonde, réfuté par ai-01 ; la qualification existait dans la règle scepticisme mais aucun format de rapport ne rendait son omission visible.
 **v3.3.0 (2026-05-11) :** Restructure post mandate user #1285. Section "ANALYSES PRODUCTIVES" promue en TOP avec 7 catégories explicites + Test Reflex avec pivot proactif. Cause : recidives #1455/#1527/#2079-2081/#1285 montrent que la HARD REJECT seule (réactive) ne suffit pas — il faut une cible productive concrète qui détourne l'attention.
 **v3.2.0 (2026-05-10) :** Promotion sujet d'analyse explicite (contenu taches, pas harnais). Cause : #2079/#2080/#2081 trio asymetries Claude/Roo.
 **v3.1.0 (2026-04-19) :** Promotion du HARD REJECT block + 3 questions de validation depuis le workflow scheduler vers la regle auto-chargee.
