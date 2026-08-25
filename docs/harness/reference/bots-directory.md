@@ -2,9 +2,9 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/bots-directory.md`. Déplacé hors des rules auto-chargées car annuaire factuel (pas une règle de comportement).
 
-**Version:** 1.1.0
-**Issue :** #2243
-**MAJ:** 2026-06-15 (Hermes scheduler corrigé — #2242 grounding)
+**Version:** 1.2.0
+**Issue :** #2243, #3219
+**MAJ:** 2026-08-25 (NanoClaw scheduler corrigé — #3219 audit)
 
 ---
 
@@ -13,6 +13,8 @@
 - **Rôle** : Cron intercom review, fleet ping, patrol erreurs, PR review fallback
 - **Host** : myia-po-2026
 - **Scheduler** : **Python scheduler** dans le fork `hermes-agent` (`github.com/jsboige/hermes-agent`, fork de `NousResearch/hermes-agent`). `cron/scheduler.py` (`tick()` appelé ~60s par le gateway Docker `hermes`). Jobs = prompts agent LLM dans **runtime** `~/.hermes/cron/jobs.json` (hors-git). *(Corrigé 2026-06-15 #2242 : l'ancienne description « Roo Hermes scheduler cron 0,30 » était inexacte — Roo Code n'est plus installé sur po-2026 depuis la migration Zoo #2379.)*
+
+  **MAJ 2026-08-25 (#3219 audit)** : distribution des minutes des 183 reviews `[Hermes]` mesurée (po-2025, échantillon 200 PRs). Aucun pic à `:00` ou `:30` — la cadence réelle est étalée (top minutes : `:29`=19, `:28`=19, `:26`=16, `:32`=14, `:27`=14). Le tick interne est plus rapide que l'intervalle apparent entre revues (qui dépend des PRs à reviewer). **La description "tick toutes les X minutes" ne se mesure PAS à partir des timestamps GitHub.**
 - **Identité GitHub** : TBD
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "hermes"], content: "...")`
@@ -28,7 +30,12 @@
 
 - **Rôle** : Cron review-pr, identité review CODEOWNERS, dashboard listener auxiliaire
 - **Host** : myia-ai-01
-- **Scheduler** : Roo NanoClaw scheduler, cron `15,45 * * * *` (every 30 min at :15/:45) — ⚠ **à vérifier** : la description Hermes ci-dessus s'est avérée inexacte (bot Python, pas schedule Roo). NanoClaw n'a pas été ré-audité ce cycle (2026-06-15 #2242) ; la même inexactitude est possible. À confirmer sur ai-01 avant de s'y fier. *(Note : cette ligne reste inchangée faute d'audit NanoClaw ce cycle — correction à venir.)*
+- **Scheduler** : **Service Windows NSSM + conteneur Docker** (corrigé 2026-08-25 #3219 audit).
+  - `Get-Service NanoClaw` → `Running`, `StartMode Auto`, `LocalSystem` (PathName `D:\nanoclaw\scripts\service\nssm.exe`, audit ai-01 2026-08-22).
+  - Conteneur Docker `nanoclaw-v2-telegram_main` (restart policy Docker ; Up depuis 2026-08-22T16:45:00Z post-panne-17h).
+  - **L'ancienne description "Roo NanoClaw scheduler, cron `15,45 * * * *`" est FAUSSE** — Roo Code n'est plus installé sur ai-01, et les timestamps de revues ne montrent aucune concentration à `:15/:45` (`:15` → 0 reviews, `:45` → 1 review, sur 92 mesures ; top minutes : `:16`=7, `:06`=6, `:18`/`:46`/`:31`/`:24`/`:20`=5). La cadence réelle est sub-15min au niveau du service, mais l'intervalle entre revues varie selon charge PR.
+
+  ⚠ **MAJ 2026-08-25 (#3219)** : malgré le retour du service à 16:45Z le 22/08, **aucune nouvelle review NanoClaw n'a été postée depuis 2026-08-20T19:18:16Z** (~4,8 jours au moment de l'audit). Le diagnostic "NanoClaw tire peu = panne disponible" reste valide, mais la récupération post-22/08 n'est **pas** confirmée. Audit live sur ai-01 requis pour confirmer l'état de santé du service.
 - **Identité GitHub** : TBD
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "nanoclaw"], content: "...")`
@@ -46,14 +53,26 @@ Pour réveil immédiat hors cron tick (mécanisme listener #2244) :
 
 ## Intercom Coverage
 
-Les 2 bots couvrent **chaque quart d'heure** :
+⚠ **INEXACT depuis au moins 2026-06-15 (#2242)** — corrigé en partie le 2026-08-25 (#3219 audit).
 
-| Minute | Bot |
-|--------|-----|
-| :00 | Hermes |
-| :15 | NanoClaw |
-| :30 | Hermes |
-| :45 | NanoClaw |
+Le tableau historique ci-dessous **n'est pas confirmé** par les timestamps GitHub mesurés (po-2025,
+2026-08-25). Les cadences réelles sont sub-15min au niveau service (cf. sections ci-dessus), mais
+les timestamps des revues postées ne montrent aucun alignement strict aux quarts d'heure :
+
+| Minute | Doc historique | Mesure réelle (po-2025, 92 reviews NC + 183 Hermes) |
+|--------|----------------|------------------------------------------------------|
+| :00 | Hermes | Hermes : 0 — distribution étalée (`:28`/`:29` top) |
+| :15 | NanoClaw | NanoClaw : **0 reviews** sur 92 |
+| :30 | Hermes | Hermes : 11 — pas un pic |
+| :45 | NanoClaw | NanoClaw : 1 review sur 92 |
+
+Le "chaque quart d'heure" est une **vue de l'esprit**, pas une mesure. Les cadences sont plus
+rapides (services sub-15min) mais le throttle GitHub API + la dépendance aux PRs ouvertes
+expliquent l'irrégularité des timestamps.
+
+**Recommandation** : retirer ce tableau de la version publiée ou le requalifier en "vue
+historique non auditée". Une nouvelle mesure, idéalement côté scheduler interne des deux bots
+(tick counter log), remplacerait l'estimation externe par des chiffres vérifiés.
 
 ## Références
 
@@ -62,3 +81,4 @@ Les 2 bots couvrent **chaque quart d'heure** :
 - Bots inbox standardisé : #2241
 - Bots active polling : #2242
 - Wake-on-tag listener : #2244
+- Audit cadence bot : #3219 (po-2025, 2026-08-25 — correction scheduler NanoClaw)
