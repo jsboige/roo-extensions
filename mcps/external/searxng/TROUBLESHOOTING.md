@@ -412,6 +412,27 @@ Si vous rencontrez des problèmes avec une instance SearXNG spécifique:
 <!-- START_SECTION: common_errors -->
 ## Erreurs courantes
 
+### "SearXNG API error: 401 Unauthorized" — Basic auth sur l'edge IIS (#3264)
+
+**Symptôme**: `searxng_web_search` échoue systématiquement avec `401 Unauthorized`, tandis que `web_url_read` fonctionne toujours (il ne transite pas par l'instance). Reproduit fleet-wide, pas machine-spécifique.
+
+**Signature**: le body de l'erreur contient `IIS 10.0 Detailed Error - 401.2 - Unauthorized` (Module `IIS Web Core`, code `0x80070005`) et la réponse porte `WWW-Authenticate: Basic realm="myia"`.
+
+**Cause racine**: le site IIS `search.myia.io` (reverse proxy ARR sur po-2023 → backend SearXNG LAN `192.168.0.47:8181` = ai-01) exige une authentification Basic — override `<location path="search.myia.io">` dans `applicationHost.config` : `anonymousAuthentication` off, `basicAuthentication` on (modification du 2026-08-19 13:31, hors repo). IIS rejette la requête **avant** la règle de rewrite ARR. Or `mcp-searxng` v0.4.5 n'envoie aucune credential et **ne le peut pas** : son `fetch` (undici) refuse les URLs à userinfo — `TypeError: Request cannot be constructed from a URL that includes credentials`. Aucun contournement client-side n'existe sans patch du package.
+
+**Diagnostic en une commande** (appel réel, classification par couches, exit code distinct par famille) :
+
+```powershell
+pwsh -NoProfile -File scripts/mcp/searxng-healthcheck.ps1 -BackendUrl http://192.168.0.47:8181/
+```
+
+Exit codes : `0` sain · `2` auth edge · `3` backend SearXNG (ex: format json) · `4` rate-limit · `5` amont 5xx · `6` connectivité. Avec `-BackendUrl`, le health-check sonde aussi le backend et précise si le défaut est purement edge.
+
+**Remédiations**:
+
+1. **Flotte on-prem (recommandée)** : pointer `SEARXNG_URL` vers le backend LAN direct (`http://192.168.0.47:8181/`) dans le `.mcp.json` machine (gitignored) — zéro secret, vérifié 200 avec résultats. La modification prend effet au **redémarrage de la session** (scope MCP chargé au démarrage).
+2. **Arbitrage user** : ré-activer `anonymousAuthentication` sur l'edge IIS — décision shared-infra : l'endpoint est exposé sur Internet et le Basic auth du 2026-08-19 est vraisemblablement un durcissement volontaire. Un client off-LAN (VPS) exigeant l'edge devra de toute façon passer par une auth supportée (API key middleware), pas par Basic dans `SEARXNG_URL`.
+
 ### "McpError: MCP error -32000: Connection closed" (Windows)
 
 **Cause**: Problème de normalisation des chemins Windows empêchant le démarrage du serveur principal. Régression identifiée en janvier 2025.

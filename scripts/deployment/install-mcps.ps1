@@ -8,6 +8,10 @@
     Spécifie le nom d'un ou plusieurs MCPs à installer. Si non fourni, le script tentera d'installer tous les MCPs découverts.
 .PARAMETER Force
     Force la réinstallation d'un MCP même s'il semble déjà installé (par exemple, si le répertoire node_modules existe déjà).
+.PARAMETER SearxngUrl
+    URL SearXNG écrite dans la config searxng. Défaut : l'edge public https://search.myia.io/.
+    Sur machines on-prem où l'edge exige Basic auth (non supporté par mcp-searxng, #3264),
+    passer le backend LAN direct : -SearxngUrl "http://192.168.0.47:8181/".
 .EXAMPLE
     PS > .\install-mcps.ps1
     Tente d'installer tous les MCPs.
@@ -33,7 +37,10 @@ param (
 
     [Parameter(Mandatory = $false)]
     [ValidateSet("RooCode", "ZooCode")]
-    [string]$Extension = "ZooCode"
+    [string]$Extension = "ZooCode",
+
+    [Parameter(Mandatory = $false)]
+    [string]$SearxngUrl = "https://search.myia.io/"
 )
 
 Set-StrictMode -Version Latest
@@ -463,7 +470,7 @@ if ($installedMcps.Count -eq 0) {
             disabled = $false
             autoStart = $true
             description = "MCP pour la recherche web avec SearXNG"
-            env = @{ "SEARXNG_URL" = "https://search.myia.io/" }
+            env = @{ "SEARXNG_URL" = $SearxngUrl }
             autoApprove = @()
             alwaysAllow = @("web_url_read", "searxng_web_search")
         }
