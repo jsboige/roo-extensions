@@ -41,6 +41,64 @@ import time
 DEFAULT_TIMEOUT = 300  # 5 min per phase budget for the prompt
 
 
+def timeout_diagnostics(notifications, t_prompt, timeout):
+    """Chronology of session/update notifications for the timeout path.
+
+    One timed-out run must distinguish three causes (TASK ai-01 2026-08-26,
+    Vibe volet B): agent still working at the deadline (streaming), API stall
+    (long silence before the deadline), or session that never started (zero
+    activity). The hint labels the pattern; the measured lines are the evidence.
+    """
+    counts = collections.Counter()
+    last_usage = None
+    t_first = t_last = None
+    longest_silence = 0.0
+    silence_from = silence_to = None
+    prev = None
+    for t_recv, msg in notifications:
+        update = (msg.get("params") or {}).get("update") or {}
+        kind = update.get("sessionUpdate") or "non_update"
+        counts[kind] += 1
+        if kind == "usage_update":
+            last_usage = update
+        if t_first is None:
+            t_first = t_recv
+        if prev is not None and t_recv - prev > longest_silence:
+            longest_silence = t_recv - prev
+            silence_from, silence_to = prev, t_recv
+        prev = t_recv
+        t_last = t_recv
+
+    activity_total = sum(n for k, n in counts.items() if k != "non_update")
+    activity_detail = " ".join(f"{k}={n}" for k, n in counts.most_common())
+    deadline = t_prompt + timeout
+    lines = [f"=== TIMEOUT DIAGNOSTICS (budget {timeout}s) ==="]
+    lines.append(f"activity: {activity_detail or '(none)'}")
+    if t_last is None:
+        lines.append("timeline: NO session/update ever received")
+        hint = ("NO_ACTIVITY — session never started: check auth, MCP connection, "
+                "session/new (latency hypothesis is moot)")
+    else:
+        silence_final = max(0.0, deadline - t_last)
+        lines.append(
+            f"timeline: first_update=+{t_first - t_prompt:.1f}s "
+            f"last_update=+{t_last - t_prompt:.1f}s silence_final={silence_final:.1f}s "
+            f"longest_silence={longest_silence:.1f}s"
+            + (f" (from +{silence_from - t_prompt:.1f}s to +{silence_to - t_prompt:.1f}s)"
+               if silence_to is not None else "")
+        )
+        if silence_final < min(60.0, timeout * 0.1):
+            hint = (f"STREAMING_TO_DEADLINE — activity within {silence_final:.0f}s of "
+                    "the deadline: the agent was working; budget/prompt size, not API")
+        else:
+            hint = (f"STALLED_BEFORE_DEADLINE — no update for {silence_final:.0f}s "
+                    "before the deadline: API stall pattern")
+    if last_usage is not None:
+        lines.append(f"last_usage_update: {json.dumps(last_usage)[:300]}")
+    lines.append(f"verdict_hint={hint}")
+    return "\n".join(lines)
+
+
 def find_vibe_acp(explicit: str) -> str:
     """Locate vibe-acp.exe: explicit path, else newest mistral extension."""
     if explicit:
@@ -155,7 +213,7 @@ def main() -> int:
                 continue
             if msg.get("id") == rid:
                 return msg, notifications
-            notifications.append(msg)
+            notifications.append((time.time(), msg))
         return None, notifications
 
     t0 = time.time()
@@ -187,6 +245,7 @@ def main() -> int:
     session_id = sess["result"].get("sessionId", "?")
     print(f"session: {session_id} mode={sess['result'].get('modes', {}).get('currentModeId', '?')}")
 
+    t_prompt = time.time()
     send({
         "jsonrpc": "2.0", "id": 3, "method": "session/prompt",
         "params": {"sessionId": session_id,
@@ -197,7 +256,7 @@ def main() -> int:
 
     mcp_failures = []
     final_text = []
-    for msg in notifications:
+    for _ts, msg in notifications:
         update = (msg.get("params") or {}).get("update") or {}
         content = update.get("content") or {}
         if isinstance(content, list):
@@ -213,7 +272,7 @@ def main() -> int:
         if update.get("sessionUpdate") == "agent_message_chunk" and text:
             final_text.append(text)
     last_usage = None
-    for msg in notifications:
+    for _ts, msg in notifications:
         upd = (msg.get("params") or {}).get("update") or {}
         if upd.get("sessionUpdate") == "usage_update":
             last_usage = upd
@@ -234,6 +293,7 @@ def main() -> int:
 
     if resp is None:
         print(f"PROMPT_TIMEOUT after {args.timeout}s", file=sys.stderr)
+        print(timeout_diagnostics(notifications, t_prompt, args.timeout), file=sys.stderr)
         for line in stderr_tail:
             print(f"stderr: {line[:200]}", file=sys.stderr)
         return 5
