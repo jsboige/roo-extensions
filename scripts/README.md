@@ -83,7 +83,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `diagnostic/` | 12 | Diagnostic environnement (MCP, GDrive, Qdrant, submodules) |
+| `diagnostic/` | 13 | Diagnostic environnement (MCP, GDrive, Qdrant, submodules, tool_use dupliqués #3276) |
 | `monitoring/` | 13 | Monitoring continu (health checks, metrics, alerts) |
 | `inventory/` | 4 | Inventaire machines et configurations |
 
