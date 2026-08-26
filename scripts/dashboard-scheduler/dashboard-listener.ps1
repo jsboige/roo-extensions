@@ -291,18 +291,6 @@ function Write-Log($level, $msg) {
     $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $line = "[$ts] [$level] $msg"
     Write-Host $line
-    # Rollover journalier côté listener (#3277 fix 5) : le Tee du wrapper est bâti une
-    # fois et ne roule jamais tant que le listener vit — les lignes du jour N+1
-    # atterrissaient dans listener-jour0.log. Chaque appel recalcule le fichier du jour
-    # (activé par le wrapper via DASHBOARD_LISTENER_LOG_DIR).
-    if (-not [string]::IsNullOrEmpty($env:DASHBOARD_LISTENER_LOG_DIR)) {
-        try {
-            $rollFile = Join-Path $env:DASHBOARD_LISTENER_LOG_DIR ("listener-{0}.log" -f (Get-Date).ToUniversalTime().ToString("yyyyMMdd"))
-            Add-Content -Path $rollFile -Value $line -Encoding utf8NoBOM
-        } catch {
-            # Non-bloquant : la sortie stdout (capturée par le wrapper) reste le canal principal.
-        }
-    }
 }
 
 # ========== PERSISTENT STATE ==========

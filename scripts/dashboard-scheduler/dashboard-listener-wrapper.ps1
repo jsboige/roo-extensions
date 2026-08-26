@@ -69,11 +69,6 @@ function Write-Heartbeat {
     }
 }
 
-# Child writes its own daily-rolling file (#3277 fix 5): the wrapper's single
-# Tee pipeline is built once and never rolls while the listener lives, which
-# used to leave day-N lines in listener-day0.log.
-$env:DASHBOARD_LISTENER_LOG_DIR = $LogDir
-
 function Write-WrapLog {
     param([string]$Message)
     # Date evaluated per call so each write targets the current day's file.

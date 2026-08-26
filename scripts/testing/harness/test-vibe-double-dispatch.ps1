@@ -92,6 +92,8 @@ Assert-True 'worker Write-Log horodatage UTC réel' ($workerLogBody -match 'ToUn
 $listenerRaw = [System.IO.File]::ReadAllText($listener)
 Assert-True 'listener : garde mutex Get-SingleInstance présente' ($listenerRaw -match 'Get-SingleInstance')
 Assert-True 'listener : exit 75 sur instance déjà active' ($listenerRaw -match 'exit 75')
+Assert-True 'listener : PAS de Add-Content de fichier journalier (rollover retiré après review web1)' (
+    -not ($listenerRaw -match 'DASHBOARD_LISTENER_LOG_DIR'))
 Assert-True 'listener : tentative comptée au fire (Add-VibeAttempt après Set-LastSpawn)' (
     $listenerRaw.IndexOf('Set-LastSpawn $ws') -lt $listenerRaw.IndexOf('Add-VibeAttempt $triggerMsg.timestamp'))
 Assert-True 'listener : rollback de tentative sur exit 75 (Remove-VibeAttempt)' (
@@ -104,6 +106,10 @@ $wrapperRaw = [System.IO.File]::ReadAllText($wrapper)
 Assert-True 'wrapper : garde mutex Get-SingleInstance présente' ($wrapperRaw -match 'Get-SingleInstance')
 Assert-True 'wrapper : stop de chaîne sur exit 75 du fils' ($wrapperRaw -match 'exitCode -eq 75')
 Assert-True 'wrapper : horodatage UTC' ($wrapperRaw -match 'ToUniversalTime')
+Assert-True 'wrapper : PAS de pose de DASHBOARD_LISTENER_LOG_DIR (rollover côté listener retiré)' (
+    -not ($wrapperRaw -match 'DASHBOARD_LISTENER_LOG_DIR'))
+Assert-True 'wrapper : Write-WrapLog recalcule le fichier par appel (rollover OK côté Tee)' (
+    $wrapperRaw -match 'Write-WrapLog' -and $wrapperRaw -match 'yyyyMMdd')
 
 $workerRaw = [System.IO.File]::ReadAllText($worker)
 Assert-True 'worker : création de lock atomique (FileMode CreateNew)' ($workerRaw -match 'FileMode\]::CreateNew')
