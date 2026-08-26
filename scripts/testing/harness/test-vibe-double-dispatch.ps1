@@ -130,7 +130,11 @@ Assert-True 'B1 première acquisition réussie' $h1.Acquired
 # du 25/08) : un enfant tente pendant que le parent détient.
 $b2Script = Join-Path ([System.IO.Path]::GetTempPath()) ('vibe3277-b2-' + [guid]::NewGuid().ToString('N').Substring(0, 8) + '.ps1')
 [System.IO.File]::WriteAllText($b2Script, ". `"$mutexModule`"`n`$h = Get-SingleInstance -Name 'RooSync-HarnessTest-Mutex'`nif (`$h.Acquired) { Release-SingleInstance `$h; exit 0 } else { exit 1 }", [System.Text.UTF8Encoding]::new($false))
-$b2Child = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $b2Script) -Wait -PassThru -WindowStyle Hidden
+# -NoNewWindow (pas -WindowStyle Hidden) : Linux/PowerShell-7 n'a pas ce commutateur,
+# le run ubuntu-24.04 crashe ici sous $ErrorActionPreference='Stop' et la suite des
+# assertions B ne tourne jamais (finding web1 c.324 sur l'ancien head #007b5845).
+# Le fils est sous -Wait — pas de fenêtre visible à masquer.
+$b2Child = Start-Process -FilePath 'pwsh' -ArgumentList @('-NoProfile', '-File', $b2Script) -Wait -PassThru -NoNewWindow
 Assert-Equal 'B2 acquisition refusée depuis un autre process (exit 1 = refusée)' '1' ([string]$b2Child.ExitCode)
 Remove-Item $b2Script -Force -ErrorAction SilentlyContinue
 $h3 = Get-SingleInstance -Name 'RooSync-HarnessTest-Mutex-Autre'
