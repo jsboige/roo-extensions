@@ -87,6 +87,13 @@ param(
     [string]$McpConfig = "",
     [string]$WorkspacePathsFile = "",
     [string]$GitHubRepo = $(if ($env:DASHBOARD_WATCHER_GITHUB_REPO) { $env:DASHBOARD_WATCHER_GITHUB_REPO } else { 'jsboige/roo-extensions' }),
+    # #3277 fix 4 : lane payant — un [WAKE-VIBE] échoué n'est jamais re-dispatché
+    # au-delà de N tentatives (défaut 1). spawn-claude garde sa sémantique retry-gratuit.
+    [int]$VibeMaxAttempts = $(if ($env:DASHBOARD_VIBE_MAX_ATTEMPTS) { [int]$env:DASHBOARD_VIBE_MAX_ATTEMPTS } else { 1 }),
+    # #3277 fix 1 : suffixe du mutex single-instance (isolation de test uniquement).
+    [string]$InstanceSuffix = "",
+    # #3277 : chemin du worker Vibe (seam de test ; défaut = chemin de production).
+    [string]$VibeWorkerScript = "",
     [switch]$DryRun,
     [switch]$Once
 )
@@ -112,6 +119,22 @@ if ([string]::IsNullOrEmpty($WorkspacePathsFile)) {
 }
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
+}
+if ([string]::IsNullOrEmpty($VibeWorkerScript)) {
+    $VibeWorkerScript = Join-Path $RepoRoot "scripts/scheduling/start-vibe-worker.ps1"
+}
+
+# ========== SINGLE-INSTANCE GUARD (#3277 fix 1) ==========
+# Mutex nommé kernel-side : élimine toute 2e invocation concurrente du listener,
+# quelle que soit sa voie de spawn (wrapper dupliqué OU invocation bare hors wrapper
+# — incident 25/08 : 2 chaînes concurrentes → 1 [WAKE-VIBE] → 3 sessions payées).
+# exit 75 = « une autre instance vit » : le wrapper reconnaît ce code et STOPPE sa
+# chaîne au lieu de redémarrer en boucle.
+. (Join-Path $RepoRoot "scripts\common\single-instance-mutex.ps1")
+$script:SingleInstance = Get-SingleInstance -Name "RooSync-DashboardListener$InstanceSuffix"
+if (-not $script:SingleInstance.Acquired) {
+    Write-Host "[$((Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ'))] [ERROR] Another dashboard-listener instance is already active ($($script:SingleInstance.Namespace)mutex) — exiting 75, dispatch chain preserved (#3277)."
+    exit 75
 }
 
 $tagList = $AllowedTags -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }
@@ -263,9 +286,23 @@ function Resolve-WorkspacePath($ws) {
 # ========== LOGGING ==========
 
 function Write-Log($level, $msg) {
-    $ts = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
+    # #3277 fix 5 : UTC réel. Le "Z" littéral collé sur l'heure locale faisait mentir
+    # chaque ligne du log sur le fuseau (fausse piste « 20:06Z » des mémoires 25/08).
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $line = "[$ts] [$level] $msg"
     Write-Host $line
+    # Rollover journalier côté listener (#3277 fix 5) : le Tee du wrapper est bâti une
+    # fois et ne roule jamais tant que le listener vit — les lignes du jour N+1
+    # atterrissaient dans listener-jour0.log. Chaque appel recalcule le fichier du jour
+    # (activé par le wrapper via DASHBOARD_LISTENER_LOG_DIR).
+    if (-not [string]::IsNullOrEmpty($env:DASHBOARD_LISTENER_LOG_DIR)) {
+        try {
+            $rollFile = Join-Path $env:DASHBOARD_LISTENER_LOG_DIR ("listener-{0}.log" -f (Get-Date).ToUniversalTime().ToString("yyyyMMdd"))
+            Add-Content -Path $rollFile -Value $line -Encoding utf8NoBOM
+        } catch {
+            # Non-bloquant : la sortie stdout (capturée par le wrapper) reste le canal principal.
+        }
+    }
 }
 
 # ========== PERSISTENT STATE ==========
@@ -294,6 +331,59 @@ function Set-LastSpawn($ws) {
     $f = Join-Path $LockDir "listener-$ws.lastrun"
     $ts = (Get-Date).ToUniversalTime().ToString("o")
     [System.IO.File]::WriteAllText($f, $ts, [System.Text.UTF8Encoding]::new($false))
+}
+
+# ========== VIBE WAKE ATTEMPTS (#3277 fix 4 : lane payant, tentative bornée) ==========
+# Un [WAKE-VIBE] échoué (timeout = exit 1) restait actionable pour toujours :
+# lastAck n'avance que sur exit 0 et le cooldown (5 min) expire bien avant la fin
+# du runtime (600-900 s) → re-dispatch payé à chaque cycle (session #3 du 25/08 =
+# 15 min après le double-spawn). Ce store compte les tentatives PAR message ;
+# au-delà de $VibeMaxAttempts le message est consommé (lastAck avancé) avec un
+# WARN — jamais re-fire automatiquement un échec sur un lane Mistral payant.
+
+$VibeAttemptsFile = Join-Path $LockDir "vibe-wake-attempts.json"
+
+function Get-VibeAttemptsMap {
+    if (Test-Path $VibeAttemptsFile) {
+        try {
+            $obj = [System.IO.File]::ReadAllText($VibeAttemptsFile, [System.Text.UTF8Encoding]::new($false)) | ConvertFrom-Json
+            $map = @{}
+            foreach ($prop in $obj.PSObject.Properties) { $map[$prop.Name] = [int]$prop.Value }
+            return $map
+        } catch { }
+    }
+    return @{}
+}
+
+function Save-VibeAttemptsMap($map) {
+    # Prune : garde les 100 clés les plus récentes (les clés sont des timestamps ISO).
+    if ($map.Count -gt 100) {
+        $sorted = $map.GetEnumerator() | Sort-Object Name -Descending | Select-Object -First 100
+        $map = @{}
+        foreach ($e in $sorted) { $map[$e.Key] = $e.Value }
+    }
+    $obj = [pscustomobject]$map
+    [System.IO.File]::WriteAllText($VibeAttemptsFile, ($obj | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+}
+
+function Get-VibeAttemptCount($msgTs) {
+    $map = Get-VibeAttemptsMap
+    if ($map.ContainsKey($msgTs)) { return $map[$msgTs] }
+    return 0
+}
+
+function Add-VibeAttempt($msgTs) {
+    $map = Get-VibeAttemptsMap
+    if ($map.ContainsKey($msgTs)) { $map[$msgTs] = $map[$msgTs] + 1 } else { $map[$msgTs] = 1 }
+    Save-VibeAttemptsMap $map
+}
+
+function Remove-VibeAttempt($msgTs) {
+    $map = Get-VibeAttemptsMap
+    if ($map.ContainsKey($msgTs)) {
+        $map.Remove($msgTs)
+        Save-VibeAttemptsMap $map
+    }
 }
 
 # ========== WORKSPACE RESOLUTION ==========
@@ -654,6 +744,32 @@ function Invoke-ProcessWorkspace($ws) {
         $actionable = $filtered
     }
 
+    # #3277 fix 4 : consommer (sans re-fire) les [WAKE-VIBE] épuisés AVANT le check de
+    # cooldown — l'épuisement ne doit pas dépendre d'une fenêtre de 5 min. Un message
+    # vibe dont les tentatives >= $VibeMaxAttempts est skippé + ack : la perte est
+    # EXPLICITE (WARN), un humain peut re-dispatcher manuellement, la machine ne brûle
+    # plus de crédits en boucle. Les WAKE-CLAUDE ne passent pas par ce filtre
+    # (retry-gratuit : réessayer spawn-claude ne coûte rien).
+    $vibeKept = @()
+    $vibeExhausted = 0
+    foreach ($msg in $actionable) {
+        if ($msg.content -match '\[WAKE-VIBE\]') {
+            $attempts = Get-VibeAttemptCount $msg.timestamp
+            if ($attempts -ge $VibeMaxAttempts) {
+                Write-Log "WARN" "[$ws] [WAKE-VIBE] exhausted (attempts=$attempts >= max=$VibeMaxAttempts, ts=$($msg.timestamp)) — consuming without re-fire (paid lane, #3277)."
+                $vibeExhausted++
+                continue
+            }
+        }
+        $vibeKept += $msg
+    }
+    if ($vibeKept.Count -eq 0 -and $actionable.Count -gt 0) {
+        Write-Log "INFO" "[$ws] All actionable messages exhausted (vibe attempts). Advancing lastAck to $latestTs."
+        Set-LastAck $ws $latestTs
+        return
+    }
+    $actionable = $vibeKept
+
     # Resolve workspace path so claude -p starts in the correct CWD.
     # If unresolvable, skip spawn AND keep lastAck unchanged so the message gets
     # a fresh chance after the operator adds the mapping.
@@ -696,7 +812,7 @@ function Invoke-ProcessWorkspace($ws) {
     [System.IO.File]::WriteAllText($payloadFile, $payloadJson, [System.Text.UTF8Encoding]::new($false))
 
     if ($isVibeWake) {
-        $effectiveSpawnScript = Join-Path $RepoRoot "scripts/scheduling/start-vibe-worker.ps1"
+        $effectiveSpawnScript = $VibeWorkerScript
         $vibeProfile = Join-Path $RepoRoot "scripts/scheduling/vibe-profiles/coursia.json"
         Write-Log "INFO" "[$ws] Invoking start-vibe-worker.ps1 (profile=$vibeProfile, payload=$payloadFile)..."
         $spawnArgs = @(
@@ -743,11 +859,27 @@ function Invoke-ProcessWorkspace($ws) {
     # untouched → the next loop iteration re-fires the same message indefinitely.
     Set-LastSpawn $ws
 
+    # #3277 fix 4 : la tentative est comptée AVANT le spawn — un crash pendant le spawn
+    # doit compter (sinon crash-loop = re-fire payé illimité). Rollback si SKIP.
+    if ($isVibeWake) {
+        Add-VibeAttempt $triggerMsg.timestamp
+        Write-Log "INFO" "[$ws] [WAKE-VIBE] attempt recorded (ts=$($triggerMsg.timestamp))"
+    }
+
     try {
         & pwsh -File $effectiveSpawnScript @spawnArgs
         $exitCode = $LASTEXITCODE
     } catch {
         Write-Log "ERROR" "[$ws] Spawn failed: $_"
+        return
+    }
+
+    # #3277 fix 3 : exit 75 = SKIP du worker (un worker vivant détient le lock). Le
+    # dispatch n'est PAS consommé (pas d'ack) ET la tentative est retirée — le travail
+    # est en cours ailleurs, le re-fire après cooldown livrera le résultat manquant.
+    if ($exitCode -eq 75) {
+        if ($isVibeWake) { Remove-VibeAttempt $triggerMsg.timestamp }
+        Write-Log "INFO" "[$ws] Worker SKIPped (exit 75 — lock held by a live worker). lastAck NOT advanced, attempt rolled back."
         return
     }
 
@@ -956,4 +1088,5 @@ try {
     $watcher.Dispose()
     Get-EventSubscriber | Where-Object { $_.SourceObject -eq $watcher } | Unregister-Event -ErrorAction SilentlyContinue
     Get-Job | Where-Object { $_.Name -like "*FileSystemWatcher*" } | Remove-Job -Force -ErrorAction SilentlyContinue
+    Release-SingleInstance $script:SingleInstance
 }

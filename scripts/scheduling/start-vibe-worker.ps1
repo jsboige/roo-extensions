@@ -49,6 +49,8 @@
 
 .NOTES
     Issue : #3202 (GO user 21/08)
+    Issue : #3277 — lock atomique (CreateNew + FileShare.None), SKIP = exit 75
+    (le listener n'avance pas lastAck sur 75 : un skip ne consomme pas le dispatch).
     Mutualisation : lock, heartbeat, logs sont candidats a une extraction commune future
     (voir table des gisements dans le body de l'issue #3202).
 #>
@@ -79,7 +81,8 @@ $LogFile = Join-Path $LogDir ("vibe-worker-{0}.log" -f (Get-Date -Format "yyyyMM
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
-    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    # UTC réel (#3277 fix 5) : l'heure locale collait au raisonnement cross-machine.
+    $ts = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     $line = "[$ts] [$Level] $Message"
     try {
         Add-Content -Path $LogFile -Value $line -Encoding utf8NoBOM
@@ -153,24 +156,60 @@ if ($DryRun) {
     exit 0
 }
 
-# ========== ANTI-OVERLAP LOCK (pattern start-claude-worker.ps1) ==========
+# ========== ANTI-OVERLAP LOCK (#3277 fix 2 : création atomique, pas check-then-create) ==========
+# Incident 25/08 : deux invocations à la même seconde passaient TOUTES DEUX le check
+# Test-Path/Set-Content → 2 workers payés en parallèle (le logueur du vainqueur
+# voyait « Remove-Item vibe-worker.lock — does not exist » : chaque worker supprimait
+# le lock de l'autre).
+#
+# CreateNew + FileShare.None est atomique kernel-side : un seul gagnant, et le handle
+# resté ouvert bloque toute réouverture tant que le worker vit. Discriminateur
+# stale : si la lecture du lock RÉUSSIT, personne ne détient de handle (le titulaire
+# bloque aussi la lecture via FileShare.None) → reste de crash → remove + un unique
+# retry. Si la lecture échoue (sharing violation), un worker VIVANT le détient → SKIP.
 
 $LockFile = Join-Path $LogDir "vibe-worker.lock"
-if (Test-Path $LockFile) {
-    try {
-        $LockContent = Get-Content $LockFile -Raw | ConvertFrom-Json
-        if ($LockContent.pid) {
-            $ExistingProcess = Get-Process -Id $LockContent.pid -ErrorAction SilentlyContinue
-            if ($ExistingProcess) {
-                Write-Log "[SKIP] Another vibe worker is running (PID $($LockContent.pid), started $($LockContent.startedAt))"
-                exit 0
+$script:LockStream = $null
+
+function Open-WorkerLock {
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        try {
+            $script:LockStream = [System.IO.File]::Open($LockFile,
+                [System.IO.FileMode]::CreateNew,
+                [System.IO.FileAccess]::Write,
+                [System.IO.FileShare]::None)
+            $MachineLock = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
+            $lockBody = @{ pid = $PID; startedAt = (Get-Date).ToUniversalTime().ToString("o"); machine = $MachineLock } | ConvertTo-Json -Compress
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($lockBody)
+            $script:LockStream.Write($bytes, 0, $bytes.Length)
+            $script:LockStream.Flush()
+            return $true
+        } catch [System.IO.IOException] {
+            try {
+                # Le fichier existe (CreateNew a échoué). Le lit-on ?
+                $null = [System.IO.File]::ReadAllText($LockFile)
+                # Lecture OK → aucun handle détient le fichier → lock stale (crash d'un
+                # worker précédent) → remove + retry CreateNew (au plus une fois).
+                Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+                continue
+            } catch {
+                # Sharing violation → un worker VIVANT détient le lock → SKIP.
+                return $false
             }
+        } catch {
+            return $false
         }
-    } catch { }
-    Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
+    }
+    return $false
 }
-$MachineLock = if ($env:COMPUTERNAME) { $env:COMPUTERNAME.ToLower() } else { 'unknown' }
-@{ pid = $PID; startedAt = (Get-Date -Format "o"); machine = $MachineLock } | ConvertTo-Json | Set-Content $LockFile -Force
+
+if (-not (Open-WorkerLock)) {
+    # exit 75 (#3277 fix 3) : SKIP ≠ succès. Le listener n'avance PAS lastAck sur 75 —
+    # le dispatch n'est pas consommé par un worker qui n'a rien fait.
+    Write-Log "[SKIP] Another vibe worker holds the lock — exiting WITHOUT consuming the dispatch (exit 75)."
+    Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
+    exit 75
+}
 
 # ========== EXECUTION ==========
 
@@ -201,6 +240,11 @@ try {
     $exitCode = 1
 } finally {
     Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
+    # Relâcher le handle AVANT le delete (un handle ouvert rend le remove non garanti).
+    if ($script:LockStream) {
+        try { $script:LockStream.Close() } catch { }
+        $script:LockStream = $null
+    }
     Remove-Item $LockFile -Force -ErrorAction SilentlyContinue
 }
 
