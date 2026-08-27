@@ -105,10 +105,13 @@ relancer avec -BaseUrl <endpoint ouvert>, ou corriger la table.
 if (-not $settings.env) {
   $settings | Add-Member -MemberType NoteProperty -Name 'env' -Value ([pscustomobject]@{}) -Force
 }
-# Fenetre de compaction : SEULEMENT-SI-ABSENT (garde symetrique #3215). Ces 3 cles ne s'ecrivent
-# que pour bootstrapper une machine vierge — JAMAIS pour ecraser un choix machine (ai-01=310k,
-# ai-01 API_TIMEOUT_MS=3000000). Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
-$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', 'API_TIMEOUT_MS')
+# SEULEMENT-SI-ABSENT (garde symetrique #3215). Ces cles ne s'ecrivent que pour bootstrapper
+# une machine vierge — JAMAIS pour ecraser un choix machine (ai-01=310k, ai-01 API_TIMEOUT_MS=3000000,
+# ai-01 modele selecteur=qwen3.8-max). Les cles ANTHROPIC_CUSTOM_MODEL_OPTION* ne se surchargent pas
+# non plus : la route du selecteur est un choix machine ET, tant que #3276 n'est pas tranchee,
+# ecrire la valeur par defaut (gpt-5.6-sol) propagerait la route sous investigation (finding ai-01 27/08).
+# Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
+$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', 'API_TIMEOUT_MS', 'ANTHROPIC_CUSTOM_MODEL_OPTION', 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION')
 $changed = @()
 foreach ($k in $RefEnv.Keys) {
   $new = [string]$RefEnv[$k]
