@@ -41,7 +41,7 @@ if (-not $BaseUrl) { throw "Machine inconnue '$MachineName' et -BaseUrl absent. 
 $RefEnv = [ordered]@{
   'ANTHROPIC_AUTH_TOKEN'                            = ''
   'ANTHROPIC_BASE_URL'                              = $BaseUrl
-  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable-5'
+  'ANTHROPIC_DEFAULT_FABLE_MODEL'                   = 'claude-fable-5[1m]'
   'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME'              = 'Fable 5'
   'ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION'       = 'Anthropic Fable 5 (SOTA)'
   'ANTHROPIC_DEFAULT_OPUS_MODEL'                    = 'claude-opus-5[1m]'
@@ -105,10 +105,10 @@ relancer avec -BaseUrl <endpoint ouvert>, ou corriger la table.
 if (-not $settings.env) {
   $settings | Add-Member -MemberType NoteProperty -Name 'env' -Value ([pscustomobject]@{}) -Force
 }
-# Fenetre de compaction : SEULEMENT-SI-ABSENT (garde symetrique #3215). Ces 2 cles ne s'ecrivent
-# que pour bootstrapper une machine vierge — JAMAIS pour ecraser un choix machine (ai-01=310k).
-# Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
-$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE')
+# Fenetre de compaction : SEULEMENT-SI-ABSENT (garde symetrique #3215). Ces 3 cles ne s'ecrivent
+# que pour bootstrapper une machine vierge — JAMAIS pour ecraser un choix machine (ai-01=310k,
+# ai-01 API_TIMEOUT_MS=3000000). Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
+$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', 'API_TIMEOUT_MS')
 $changed = @()
 foreach ($k in $RefEnv.Keys) {
   $new = [string]$RefEnv[$k]
