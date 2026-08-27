@@ -176,6 +176,16 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-listener-issue-refs.ps1
 
+      # #3277: the paid-lane double-dispatch guards. One [WAKE-VIBE] dispatched
+      # three paid sessions on 25/08 (two concurrent listener chains + a
+      # check-then-create worker lock + a SKIP that consumed the dispatch + an
+      # unlimited re-fire). Sections A/B (static guards + mutex module) run here;
+      # the multi-process Windows sections skip with a notice on Linux — they are
+      # the pre-merge local proof (39 assertions total when run on Windows).
+      - name: Run vibe double-dispatch harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-vibe-double-dispatch.ps1
+
       # Same reasoning, applied to mcp-chain-watchdog.ps1, whose repair drops
       # every live bot session. Two ways to be wrong, both measured on ai-01 on
       # 2026-08-16: it restarted the chain for a 20s stall (nominal round-trip
