@@ -13,7 +13,7 @@ pwsh -ExecutionPolicy Bypass -File scripts/deployment/sync-claude-settings.ps1 -
 pwsh -ExecutionPolicy Bypass -File scripts/deployment/sync-claude-settings.ps1 -MachineName myia-po-2025
 ```
 
-Le script est idempotent, ne touche pas `permissions`/`model`/`effortLevel`, et n'écrit jamais de secret (le `x-proxy-key` existant est préservé, jamais dupliqué). La fenêtre de compaction (`CLAUDE_CODE_AUTO_COMPACT_WINDOW`) et le pourcentage (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) ne s'écrivent que si absents — le `settings.json` de la machine fait foi (garde #3215). Vérification d'intégrité de la v2.2 : sha256 `3bdd9cc9a1417526f709754807f38bcd4ee2f2d034459169d2805f0575da3b4d`.
+Le script est idempotent, ne touche pas `permissions`/`model`/`effortLevel`, et n'écrit jamais de secret (le `x-proxy-key` existant est préservé, jamais dupliqué). La fenêtre de compaction (`CLAUDE_CODE_AUTO_COMPACT_WINDOW`), le pourcentage (`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`) et la route machine (`ANTHROPIC_BASE_URL`) ne s'écrivent que si absents — le `settings.json` de la machine fait foi (garde #3215).
 
 ## install-mcps.ps1
 
