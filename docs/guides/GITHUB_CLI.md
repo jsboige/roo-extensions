@@ -24,6 +24,24 @@ gh auth refresh --hostname github.com -s project
 
 Sans ce scope, toutes les requêtes GraphQL sur `projectV2` échoueront avec une erreur 403.
 
+### Prérequis : Scope `workflow`
+
+**Le scope `workflow` est requis pour créer de nouvelles branches sur un dépôt contenant des workflows GitHub Actions** (ex: `jsboige/CoursIA` — ~110 workflows). Un token OAuth sans ce scope peut **mettre à jour** des branches existantes mais toute **création de ref** est refusée :
+
+- `git push` (nouvelle branche) → « workflow scope may be required »
+- REST `POST /git/refs` → 404
+- GraphQL `createRef` → FORBIDDEN
+
+```bash
+# Vérifier les scopes actuels
+gh auth status
+
+# Ajouter le scope workflow si manquant
+gh auth refresh --hostname github.com -s workflow
+```
+
+La commande ouvre un flux navigateur interactif : **à exécuter à l'onboarding de chaque machine** (action opérateur, pas scriptable). Référence : #3289 (po-2027 onboardée sans le scope — création de branches CoursIA bloquée, workaround coûteux via credentials d'une autre machine).
+
 ### Commandes gh CLI
 
 ```bash
