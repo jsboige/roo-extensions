@@ -1,14 +1,14 @@
 # Roo Extensions - Guide Agent Claude Code
 
 **Repo:** [jsboige/roo-extensions](https://github.com/jsboige/roo-extensions)
-**Systeme:** RooSync v2.3 — 6 machines
-**MAJ:** 2026-04-25
+**Systeme:** RooSync v2.3 — 7 machines
+**MAJ:** 2026-08-28
 
 ---
 
 ## Vue d'ensemble
 
-Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (implementation, coordination, docs) sur 6 machines : `myia-ai-01` (coordinateur), `myia-po-2023/24/25/26`, `myia-web1`.
+Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (implementation, coordination, docs) sur 7 machines : `myia-ai-01` (coordinateur), `myia-po-2023/24/25/26`, `myia-po-2027` (portable, Claude seul pour l'instant), `myia-web1`.
 
 **Claude DIRIGE, Roo ASSISTE.** Claude = code critique + architecture + decisions. Roo = tests, build, taches repetitives (validees par Claude). Ne JAMAIS deleguer du code critique a Roo.
 
@@ -141,4 +141,4 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 
 ---
 
-**Derniere MAJ :** 2026-04-25
+**Derniere MAJ :** 2026-08-28
