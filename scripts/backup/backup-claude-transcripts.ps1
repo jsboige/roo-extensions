@@ -50,7 +50,10 @@
   Exit 0 = ok · 2 = precondition (projects dir, 7z) · 3 = compression ou
   verification 7z echouee (etat non avance) · 4 = archive locale faite mais
   destination hors-site injoignable : la machine n'apparaitra dans aucun
-  listing flotte tant que -GDriveDir n'est pas corrige.
+  listing flotte tant que -GDriveDir n'est pas corrige. Comme pour 3, l'etat
+  n'est PAS avance quand un hors-site est configure et que l'expedition
+  echoue - le delta reste dans le perimetre et la course suivante re-archive
+  puis retente. Sans -GDriveDir il n'y a rien a expedier et l'etat avance.
 
 .PARAMETER SkipRetentionGuard
   Do not touch settings.json. For dry inspection only; leaves the leak open.
@@ -224,10 +227,21 @@ if ($changed.Count -gt 0) {
       }
     }
 
-    # Advance state only once the archive is verified. If the GDrive copy failed
-    # the local archive still holds the delta and the manifest says shippedOffsite=false.
-    foreach ($c in $changed) { $state[$c.Rel] = $c.Sig }
-    [System.IO.File]::WriteAllText($stateFile, ($state | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    # Advance state only once the delta is SAFE: archived locally AND shipped when a
+    # hors-site is configured. Advancing after a failed copy would drop these files
+    # from $changed on the next run - the local archive would then sit there forever
+    # and the "will retry next run" logged above would be a promise nothing keeps.
+    # Nothing re-walks local archives, so the state file IS the retry mechanism.
+    # With no hors-site configured there is nothing to ship, so a verified local
+    # archive is the whole job and the state must advance (a local-only machine must
+    # not re-archive the same delta on every run).
+    if ((-not $GDriveDir) -or $shipped) {
+      foreach ($c in $changed) { $state[$c.Rel] = $c.Sig }
+      [System.IO.File]::WriteAllText($stateFile, ($state | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    else {
+      Log "state NOT advanced - delta stays in scope so the next run re-archives it and retries the off-site copy"
+    }
   }
 } else {
   Log "no change since last run - no archive produced"
