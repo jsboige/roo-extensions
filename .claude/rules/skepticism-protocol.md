@@ -8,7 +8,7 @@
 ## Principe
 
 **Ne JAMAIS propager une affirmation non verifiee.** Verifier AVANT de repeter, agir dessus, ou transmettre.
-Cout d'une verification : secondes. Cout d'une erreur propagee : heures sur 6 machines.
+Cout d'une verification : secondes. Cout d'une erreur propagee : heures sur 7 machines.
 
 ## Qualification Obligatoire
 

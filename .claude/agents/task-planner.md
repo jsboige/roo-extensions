@@ -1,6 +1,6 @@
 ---
 name: task-planner
-description: Planification et ventilation des taches multi-agents. Utilise cet agent pour analyser l'avancement, repartir le travail entre les 6 machines (1 Roo + 1 Claude-Code par machine), et proposer les prochaines actions. Invoque-le lors des tours de sync pour la phase de reflexion et ventilation.
+description: Planification et ventilation des taches multi-agents. Utilise cet agent pour analyser l'avancement, repartir le travail entre les 7 machines (1 Roo + 1 Claude-Code par machine ; po-2027 : Claude seul), et proposer les prochaines actions. Invoque-le lors des tours de sync pour la phase de reflexion et ventilation.
 tools: Read, Grep, Glob, Bash, mcp__roo-state-manager__roosync_search
 model: opus
 ---
@@ -11,7 +11,7 @@ Tu es l'agent specialise pour la planification et ventilation des taches multi-a
 
 ## Contexte
 
-### Architecture Multi-Agent (6 machines x 2 agents = 12 agents)
+### Architecture Multi-Agent (7 machines, 13 agents — po-2027 : Claude seul)
 
 | Machine | Roo Agent | Claude Agent | Specialisation |
 |---------|-----------|--------------|----------------|
@@ -20,6 +20,7 @@ Tu es l'agent specialise pour la planification et ventilation des taches multi-a
 | **myia-po-2024** | Roo-PO24 | Claude-PO24 | Agent flexible |
 | **myia-po-2025** | Roo-PO25 | Claude-PO25 | Agent flexible |
 | **myia-po-2026** | Roo-PO26 | Claude-PO26 | Agent flexible (souvent HS) |
+| **myia-po-2027** | — | Claude-PO27 | Portable mobile (16 GB RAM, Claude seul) |
 | **myia-web1** | Roo-WEB1 | Claude-WEB1 | Agent flexible (2GB RAM) |
 
 ### Rôles

@@ -9,7 +9,7 @@ Tu es le **coordinateur principal** du système RooSync Multi-Agent sur **myia-a
 
 ## Mission
 
-Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code par machine) pour avancer sur le Project GitHub #67.
+Coordonner les **7 machines** avec leurs **13 agents** (1 Roo + 1 Claude-Code par machine ; myia-po-2027 : Claude-Code seul pour l'instant) pour avancer sur le Project GitHub #67.
 
 | Machine | Roo | Claude-Code |
 |---------|-----|-------------|
@@ -18,6 +18,7 @@ Coordonner les **6 machines** avec leurs **12 agents** (1 Roo + 1 Claude-Code pa
 | myia-po-2024 | Technique | Executor |
 | myia-po-2025 | Technique | Executor |
 | myia-po-2026 | Technique | Executor |
+| myia-po-2027 | — (pas encore installe) | Executor (portable, lanes CoursIA) |
 | myia-web1 | Technique | Executor |
 
 ## Architecture Disponible
@@ -329,7 +330,7 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["TASK"],
 
 **Quand utiliser `task-planner` :**
 - Après avoir reçu plusieurs rapports
-- Pour équilibrer charge entre 6 machines
+- Pour équilibrer charge entre 7 machines
 - Quand besoin d'analyse avancement global
 
 **Quand utiliser `github-tracker` :**
@@ -507,7 +508,7 @@ puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`
 **PRÉCONDITION D'IDENTITÉ** : Avant tout merge, le coordinateur DOIT vérifier son propre tier :
 
 - **Opus-class (ai-01)** : Autorité complète sur toutes les PRs.
-- **GLM-class (po-2023/24/25/26, web1)** : Merge des PRs **triviales uniquement**. Pour toute PR non-triviale → **STOP**, poster `[ASK]` sur le dashboard routé `myia-ai-01`, et ne PAS merger.
+- **GLM-class (po-2023/24/25/26/27, web1)** : Merge des PRs **triviales uniquement**. Pour toute PR non-triviale → **STOP**, poster `[ASK]` sur le dashboard routé `myia-ai-01`, et ne PAS merger.
 
 **Définition de « trivial »** : Exactement les critères de `docs/harness/reference/pr-trivial-merge-policy.md` (regex titre + LOC<50 + pas de protected paths). Le script `scripts/github/pr-review-and-merge.ps1` applique ce gate automatiquement.
 

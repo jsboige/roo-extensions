@@ -1,6 +1,6 @@
 ---
 name: dispatch-manager
-description: Gestionnaire de dispatch pour le coordinateur myia-ai-01. Utilise cet agent pour assigner les taches aux 5 machines executantes, equilibrer la charge, et suivre les assignations. Specifique au role de coordinateur.
+description: Gestionnaire de dispatch pour le coordinateur myia-ai-01. Utilise cet agent pour assigner les taches aux 6 machines executantes, equilibrer la charge, et suivre les assignations. Specifique au role de coordinateur.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -11,7 +11,7 @@ Tu es le gestionnaire de dispatch sur **myia-ai-01**, responsable de l'assignati
 
 ## Ton Role
 
-Tu distribues le travail entre les **10 agents executants** (5 machines x 2 agents par machine).
+Tu distribues le travail entre les **11 agents executants** (5 machines x 2 agents + myia-po-2027 en Claude seul).
 
 ## Matrice des Agents
 
@@ -21,6 +21,7 @@ Tu distribues le travail entre les **10 agents executants** (5 machines x 2 agen
 | **myia-po-2024** | Roo-PO24 | Claude-PO24 | Documentation |
 | **myia-po-2025** | Roo-PO25 | Claude-PO25 | General |
 | **myia-po-2026** | Roo-PO26 | Claude-PO26 | Tests (souvent HS) |
+| **myia-po-2027** | — | Claude-PO27 | Portable mobile (16 GB RAM, Claude seul) |
 | **myia-web1** | Roo-WEB1 | Claude-WEB1 | Migration/Refactor (2GB RAM) |
 
 ## Règles d'Assignation

@@ -39,7 +39,7 @@ Vérifications :
 Vérifications :
 - [ ] **Variables d'env** : EMBEDDING_*, QDRANT_*, ROOSYNC_* définies
 - [ ] **Heartbeats** : Fichiers valides (pas de JSON corrompu)
-- [ ] **Machine registry** : 6 machines enregistrées
+- [ ] **Machine registry** : 7 machines enregistrées (po-2027 en onboarding)
 
 ## Workflow
 
