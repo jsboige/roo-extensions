@@ -348,8 +348,7 @@ function Invoke-PhaseCDispatch {
         #   ask_user tool — without it the agent emits "Permission denied and could
         #   not request permission from user" on every tool call instead of running.
         # (kept --allow-all-tools, NOT --allow-all, to keep file-path/url scope
-        #  restricted — po-204 review #3274: blast radius. Paths/urls are not needed;
-        #  the root cause was ask_user only, resolved by --no-ask-user.)
+        #  restricted — po-204 review #3274: blast radius.)
         # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
         $cmdOutput = & gh copilot -p $Prompt --allow-all-tools --no-ask-user 2>&1
         $exit = $LASTEXITCODE
@@ -366,9 +365,14 @@ function Invoke-PhaseCDispatch {
         $result.repositoryChanges = ($beforeStatus -ne $afterStatus)
 
         $joined = ($cmdOutput | Out-String)
-        $match = [regex]::Match($joined, 'Requests\s+([0-9]+(?:\.[0-9]+)?)\s+Premium', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        if ($match.Success) {
-            $result.premiumRequests = [double]$match.Groups[1].Value
+        $usageMatch = [regex]::Match(
+            $joined,
+            '(?:Requests\s+([0-9]+(?:\.[0-9]+)?)\s+Premium|AI\s+Credits\s+([0-9]+(?:\.[0-9]+)?))',
+            [System.Text.RegularExpressions.RegexOptions]::IgnoreCase
+        )
+        if ($usageMatch.Success) {
+            $usageValue = if ($usageMatch.Groups[1].Success) { $usageMatch.Groups[1].Value } else { $usageMatch.Groups[2].Value }
+            $result.premiumRequests = [double]$usageValue
         }
 
         $joinedLower = $joined.ToLowerInvariant()
@@ -378,7 +382,7 @@ function Invoke-PhaseCDispatch {
             $joinedLower -match 'no pending dispatch tasks' -or
             $joinedLower -match 'no incoming work is queued'
         )
-        $hasActionEvidence = ($result.repositoryChanges -or $joinedLower -match 'issue\s*#\d+' -or $joinedLower -match 'pr\s*#\d+' -or $joinedLower -match 'patched|updated|modified|created')
+        $hasActionEvidence = $result.repositoryChanges
 
         if ($exit -eq 0 -and $hasActionEvidence -and -not $isIdleLike) {
             $result.status = 'active'
@@ -416,13 +420,6 @@ function Get-WorkPrompt {
         $gitSummary = 'clean-or-unavailable'
     }
 
-    $issueSeed = 'unavailable'
-    try {
-        $issueSeed = (& gh issue list --state open --limit 5 --json number,title 2>$null | Out-String).Trim()
-    } catch {
-        $issueSeed = 'unavailable'
-    }
-
     $previousStatus = if ($State.ContainsKey('lastStatus')) { [string]$State.lastStatus } else { 'none' }
     $lastObservedPremium = if ($State.ContainsKey('lastObservedPremiumRequests')) { [string]$State.lastObservedPremiumRequests } else { 'unknown' }
 
@@ -432,7 +429,10 @@ function Get-WorkPrompt {
     $targetIssueLine = if ($null -ne $TargetIssue) { "#$($TargetIssue.number) — $($TargetIssue.title)" } else { 'none' }
 
     return @"
-You are the scheduled Copilot dispatcher for the repository roo-extensions.
+TARGET ISSUE — work on this one and no other: $targetIssueLine
+REPOSITORY ROOT: $RepositoryRoot
+
+You are a focused repository worker for roo-extensions. The target issue has already been selected for you.
 
 Return exactly one JSON object with these keys:
 - work_summary
@@ -452,12 +452,15 @@ Constraints:
 - Keep each value to one short sentence.
 
 Execution mandate:
-- Work on the target issue below and perform one concrete repository action now (edit/add/delete in a file).
-- If no safe action is possible, output a blocker with exact reason and still include the issue_id attempted.
-- evidence must mention either a changed file path, a generated artifact, or a validation command/result.
+- Work ONLY on the target issue below. Do not re-select, assign, label, comment on, or dispatch any issue.
+- Perform one concrete LOCAL repository action now (edit/add/delete in a file under the repository root).
+- Do not run mutating GitHub commands. Do not create commits or pull requests.
+- Prefer the smallest useful change directly supported by the target issue's existing evidence.
+- If no safe local action is possible, output a blocker with the exact reason and still include the issue_id attempted.
+- evidence must mention either a changed file path or a validation command/result.
 
 Investigation (ground your answer in real findings, not assumptions):
-- Use available tools to inspect the repository: run `git log --oneline -10`, read recently changed files, check `gh issue list --state open --limit 20` for actionable work.
+- Inspect only the target issue and relevant repository files; do not list or triage other open issues.
 - Base work_summary and next_action on what you actually observe, so the dispatch consumes real analysis rather than producing a "ready, standing by" acknowledgement.
 
 Context:
@@ -468,11 +471,8 @@ Context:
 - Git status summary:
 $gitSummary
 
-- Target issue (selected by the actionable-issue gate — work on this one):
+- Target issue (selected by the actionable-issue gate — work on this one and no other):
 $targetIssueLine
-
-- Open issues seed (context only):
-$issueSeed
 "@
 }
 
