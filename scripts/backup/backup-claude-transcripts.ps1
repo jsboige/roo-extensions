@@ -46,6 +46,12 @@
   Floor enforced on cleanupPeriodDays. Below it (or absent), the setting is
   rewritten to 36500 and the event is logged as a repair.
 
+.OUTPUTS
+  Exit 0 = ok · 2 = precondition (projects dir, 7z) · 3 = compression ou
+  verification 7z echouee (etat non avance) · 4 = archive locale faite mais
+  destination hors-site injoignable : la machine n'apparaitra dans aucun
+  listing flotte tant que -GDriveDir n'est pas corrige.
+
 .PARAMETER SkipRetentionGuard
   Do not touch settings.json. For dry inspection only; leaves the leak open.
 
@@ -95,7 +101,18 @@ if (-not (Test-Path -LiteralPath $ProjectsDir)) { Write-Host "FATAL: projects di
 if (-not (Test-Path -LiteralPath $ArchiveDir))  { New-Item -ItemType Directory -Path $ArchiveDir -Force | Out-Null }
 $SevenZip = Resolve-SevenZip $SevenZip
 if (-not $SevenZip) { Log "FATAL: 7z.exe not found (PATH, D:\Apps\PortableApps, Program Files)"; exit 2 }
+$offsiteUnreachable = $false
+if ($GDriveDir) {
+  # Une destination hors-site injoignable ne se voit PAS a distance : la machine
+  # disparait simplement du listing flotte, ce qui est indiscernable d'un job
+  # jamais installe. Le seul signal possible est donc LOCAL - d'ou le code de
+  # sortie 4 en fin de script. Constate par myia-web1 sur #3294 : le defaut par
+  # defaut vise G:\, qui n'existe pas sur toutes les machines.
+  $offsiteRoot = [System.IO.Path]::GetPathRoot($GDriveDir)
+  if ($offsiteRoot -and -not (Test-Path -LiteralPath $offsiteRoot)) { $offsiteUnreachable = $true }
+}
 Log "START machine=$machine projects=$ProjectsDir archive=$ArchiveDir 7z=$SevenZip"
+if ($offsiteUnreachable) { Log "OFFSITE-UNREACHABLE $GDriveDir - archivage LOCAL seul; passer -GDriveDir au chemin reel de cette machine" }
 
 # --- 1. retention guard: the leak this whole script exists because of --------
 $retentionState = "skipped"
@@ -196,9 +213,15 @@ if ($changed.Count -gt 0) {
         $remote = Join-Path $dst $archiveName
         Copy-Item -LiteralPath $archivePath -Destination $remote -Force
         $rLen = (Get-Item -LiteralPath $remote).Length
-        if ($rLen -ne $aLen) { Log "WARN GDrive copy size mismatch ($rLen != $aLen) - kept local, will retry next run" }
+        if ($rLen -ne $aLen) {
+          Log "WARN GDrive copy size mismatch ($rLen != $aLen) - kept local, will retry next run"
+          $offsiteUnreachable = $true
+        }
         else { $shipped = $true; Log "shipped -> $remote" }
-      } catch { Log "WARN GDrive copy failed: $($_.Exception.Message) - archive kept locally" }
+      } catch {
+        Log "WARN GDrive copy failed: $($_.Exception.Message) - archive kept locally"
+        $offsiteUnreachable = $true
+      }
     }
 
     # Advance state only once the archive is verified. If the GDrive copy failed
@@ -230,7 +253,16 @@ if ($GDriveDir) {
     $dst = Join-Path $GDriveDir $machine
     if (-not (Test-Path -LiteralPath $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
     [System.IO.File]::WriteAllText((Join-Path $dst "manifest.json"), $mJson, (New-Object System.Text.UTF8Encoding($false)))
-  } catch { Log "WARN manifest not shipped: $($_.Exception.Message)" }
+  } catch {
+    Log "WARN manifest not shipped: $($_.Exception.Message)"
+    $offsiteUnreachable = $true
+  }
 }
 
 Log "END"
+if ($offsiteUnreachable) {
+  # L'archive locale est faite et verifiee : rien n'est perdu. Mais cette machine
+  # n'apparaitra dans AUCUN listing flotte, et un exit 0 la ferait passer pour saine.
+  Log "EXIT 4 offsite destination unreachable - local archive intact, machine ABSENTE du listing flotte"
+  exit 4
+}
