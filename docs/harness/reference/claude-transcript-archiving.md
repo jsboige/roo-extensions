@@ -96,7 +96,7 @@ Get-ChildItem 'G:\Mon Drive\Backups-Cloud\claude-transcripts' -Directory | ForEa
 } | Format-Table machine, retention, transcriptsTracked, oldestTranscript, newestTranscript, shippedOffsite
 ```
 
-**Trois signaux qui doivent déclencher une action :**
+**Quatre signaux qui doivent déclencher une action :**
 
 | Signal | Ce qu'il veut dire |
 |---|---|
@@ -106,6 +106,19 @@ Get-ChildItem 'G:\Mon Drive\Backups-Cloud\claude-transcripts' -Directory | ForEa
 | Machine **absente** du listing | le job n'y tourne pas — c'est le cas le plus dangereux, car il est silencieux |
 
 Un manifeste absent n'est pas une machine saine : c'est une machine dont on ne sait rien.
+
+Le dernier signal ne peut se lire **que localement** : une machine dont le hors-site est
+injoignable n'écrit rien nulle part, et son absence du tableau ressemble trait pour trait à un
+job jamais installé. C'est la raison du **code de sortie 4** — l'archive locale est faite et
+vérifiée, rien n'est perdu, mais la machine ne remontera dans aucun listing tant que
+`-GDriveDir` ne pointe pas vers un chemin réel sur cette machine-là.
+
+| Code | Sens |
+|---|---|
+| `0` | passage complet |
+| `2` | précondition : répertoire `projects` ou `7z.exe` introuvable |
+| `3` | compression ou vérification `7z t` échouée — **l'état n'avance pas** |
+| `4` | archive locale faite, **hors-site injoignable** — machine absente du listing flotte |
 
 ## Restaurer
 
