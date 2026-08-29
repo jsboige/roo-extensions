@@ -60,7 +60,9 @@ verdict ; puis une section **Constat** disant ce que la mesure etablit, **ce qu'
 et ce qu'il faudrait pour trancher le reste.
 
 ## Interdits
-Aucun commit, aucune PR, aucune modification hors `outputs/vibe/`. Aucun chiffre que tu n'as pas
+Aucun commit, aucune PR. **Le SEUL fichier que tu peux ecrire est
+`outputs/vibe/{slug}.md`** : ce repertoire est partage par plusieurs audits qui tournent en
+meme temps, et y supprimer ou y deplacer quoi que ce soit detruit le travail des autres. Aucun chiffre que tu n'as pas
 mesure toi-meme dans ce run — ecris "non mesure" plutot qu'une estimation presentee comme un fait.
 """
 

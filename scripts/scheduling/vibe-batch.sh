@@ -34,21 +34,50 @@ set -- "${args[@]}"
 echo "packs a traiter: $#  (CAP=$CAP, WS=$WS)"
 
 WSSH="$WS"; command -v cygpath >/dev/null 2>&1 && WSSH=$(cygpath -u "$WS")
+SNAP="$LOGS/products"; mkdir -p "$SNAP"
 for p in "$@"; do
   while [ "$(jobs -rp | wc -l)" -ge "$CAP" ]; do sleep 3; done
   slug=$(basename "$p" .txt)
   ( cd "$WSSH" && python "$DRV" --cwd "$WS" \
       --prompt-file "$p" --timeout "${TIMEOUT:-1800}" >"$LOGS/$slug.log" 2>&1
-    echo "$slug EXIT=$?" >>"$LOGS/_exits.txt" ) &
+    rc=$?
+    # Instantane IMMEDIAT. Le lot n'archive qu'a la fin : entre l'ecriture
+    # d'un produit et cette archive il s'ecoule des minutes. Mesure ai-01
+    # 2026-08-29 : 20 produits sur 24 ont ete ecrits (traces fs/write_text_file
+    # reelles, chemins exacts) puis DETRUITS dans cet intervalle — 320 785
+    # octets d'audit perdus, coupure nette a 20:54:21 sans une exception sur
+    # 24 runs. Le mecanisme n'est pas etabli ; copier tout de suite n'en
+    # suppose rien.
+    [ -s "$WSSH/outputs/vibe/$slug.md" ] && cp "$WSSH/outputs/vibe/$slug.md" "$SNAP/" 2>/dev/null
+    echo "$slug EXIT=$rc" >>"$LOGS/_exits.txt" ) &
   echo "launched $slug"
 done
 wait
 
 echo "=== LOT TERMINE ==="
+# Un run qui sort EXIT=0 n'a PAS forcement produit son livrable, et l'agent
+# affirme regulierement le contraire dans sa reponse finale (« Le livrable est
+# disponible dans outputs/vibe/... »). Mesure ai-01 2026-08-29 sur un lot de
+# 24 packs : 23 EXIT=0, mais **4 fichiers** dans outputs/vibe en fin de lot.
+# L'affirmation de l'agent n'est pas une preuve ; seul le fichier en est une.
+#
+# Correction du 29/08 au soir : les 20 autres n'ont PAS manque d'etre produits,
+# ils ont ete produits puis detruits (cf. le commentaire de l'instantane
+# ci-dessus). D'ou la lecture en DEUX temps : l'instantane dit ce que le run a
+# produit, le repertoire vivant dit ce qui a survecu jusqu'ici. Un ecart entre
+# les deux est un signal, pas un echec de production.
+delivered=0; missing=0; vanished=0
 for f in "$LOGS"/i*.log; do
   [ -e "$f" ] || continue
-  printf '%-52s %s\n' "$(basename "$f" .log)" "$(grep -E '^PROMPT_' "$f" | head -1)"
+  slug=$(basename "$f" .log)
+  if [ -s "$SNAP/$slug.md" ]; then
+    delivered=$((delivered+1)); mark="LIVRE "
+    [ -s "$WSSH/outputs/vibe/$slug.md" ] || { mark="LIVRE*"; vanished=$((vanished+1)); }
+  else mark="ABSENT"; missing=$((missing+1)); fi
+  printf '%s %-52s %s\n' "$mark" "$slug" "$(grep -E '^PROMPT_' "$f" | head -1)"
 done
+echo "--- livrables : $delivered produits, $missing ABSENTS (verifies sur disque, pas sur declaration)"
+[ "$vanished" -gt 0 ] && echo "--- ATTENTION : $vanished produits (LIVRE*) ont DISPARU de outputs/vibe apres leur ecriture, sauves par l'instantane"
 echo "--- fs servis : $(grep -ahc 'fs served' "$LOGS"/i*.log 2>/dev/null | awk '{s+=$1} END{print s+0}')"
 grep -ho 'cost=[0-9.]*' "$LOGS"/i*.log 2>/dev/null | cut -d= -f2 \
   | awk '{s+=$1;n++} END{printf "%d runs avec cout  total=%.3f USD\n",n,s}'
