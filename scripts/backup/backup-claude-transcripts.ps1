@@ -46,6 +46,15 @@
   Floor enforced on cleanupPeriodDays. Below it (or absent), the setting is
   rewritten to 36500 and the event is logged as a repair.
 
+.OUTPUTS
+  Exit 0 = ok · 2 = precondition (projects dir, 7z) · 3 = compression ou
+  verification 7z echouee (etat non avance) · 4 = archive locale faite mais
+  destination hors-site injoignable : la machine n'apparaitra dans aucun
+  listing flotte tant que -GDriveDir n'est pas corrige. Comme pour 3, l'etat
+  n'est PAS avance quand un hors-site est configure et que l'expedition
+  echoue - le delta reste dans le perimetre et la course suivante re-archive
+  puis retente. Sans -GDriveDir il n'y a rien a expedier et l'etat avance.
+
 .PARAMETER SkipRetentionGuard
   Do not touch settings.json. For dry inspection only; leaves the leak open.
 
@@ -95,7 +104,18 @@ if (-not (Test-Path -LiteralPath $ProjectsDir)) { Write-Host "FATAL: projects di
 if (-not (Test-Path -LiteralPath $ArchiveDir))  { New-Item -ItemType Directory -Path $ArchiveDir -Force | Out-Null }
 $SevenZip = Resolve-SevenZip $SevenZip
 if (-not $SevenZip) { Log "FATAL: 7z.exe not found (PATH, D:\Apps\PortableApps, Program Files)"; exit 2 }
+$offsiteUnreachable = $false
+if ($GDriveDir) {
+  # Une destination hors-site injoignable ne se voit PAS a distance : la machine
+  # disparait simplement du listing flotte, ce qui est indiscernable d'un job
+  # jamais installe. Le seul signal possible est donc LOCAL - d'ou le code de
+  # sortie 4 en fin de script. Constate par myia-web1 sur #3294 : le defaut par
+  # defaut vise G:\, qui n'existe pas sur toutes les machines.
+  $offsiteRoot = [System.IO.Path]::GetPathRoot($GDriveDir)
+  if ($offsiteRoot -and -not (Test-Path -LiteralPath $offsiteRoot)) { $offsiteUnreachable = $true }
+}
 Log "START machine=$machine projects=$ProjectsDir archive=$ArchiveDir 7z=$SevenZip"
+if ($offsiteUnreachable) { Log "OFFSITE-UNREACHABLE $GDriveDir - archivage LOCAL seul; passer -GDriveDir au chemin reel de cette machine" }
 
 # --- 1. retention guard: the leak this whole script exists because of --------
 $retentionState = "skipped"
@@ -196,15 +216,32 @@ if ($changed.Count -gt 0) {
         $remote = Join-Path $dst $archiveName
         Copy-Item -LiteralPath $archivePath -Destination $remote -Force
         $rLen = (Get-Item -LiteralPath $remote).Length
-        if ($rLen -ne $aLen) { Log "WARN GDrive copy size mismatch ($rLen != $aLen) - kept local, will retry next run" }
+        if ($rLen -ne $aLen) {
+          Log "WARN GDrive copy size mismatch ($rLen != $aLen) - kept local, will retry next run"
+          $offsiteUnreachable = $true
+        }
         else { $shipped = $true; Log "shipped -> $remote" }
-      } catch { Log "WARN GDrive copy failed: $($_.Exception.Message) - archive kept locally" }
+      } catch {
+        Log "WARN GDrive copy failed: $($_.Exception.Message) - archive kept locally"
+        $offsiteUnreachable = $true
+      }
     }
 
-    # Advance state only once the archive is verified. If the GDrive copy failed
-    # the local archive still holds the delta and the manifest says shippedOffsite=false.
-    foreach ($c in $changed) { $state[$c.Rel] = $c.Sig }
-    [System.IO.File]::WriteAllText($stateFile, ($state | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    # Advance state only once the delta is SAFE: archived locally AND shipped when a
+    # hors-site is configured. Advancing after a failed copy would drop these files
+    # from $changed on the next run - the local archive would then sit there forever
+    # and the "will retry next run" logged above would be a promise nothing keeps.
+    # Nothing re-walks local archives, so the state file IS the retry mechanism.
+    # With no hors-site configured there is nothing to ship, so a verified local
+    # archive is the whole job and the state must advance (a local-only machine must
+    # not re-archive the same delta on every run).
+    if ((-not $GDriveDir) -or $shipped) {
+      foreach ($c in $changed) { $state[$c.Rel] = $c.Sig }
+      [System.IO.File]::WriteAllText($stateFile, ($state | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    else {
+      Log "state NOT advanced - delta stays in scope so the next run re-archives it and retries the off-site copy"
+    }
   }
 } else {
   Log "no change since last run - no archive produced"
@@ -230,7 +267,16 @@ if ($GDriveDir) {
     $dst = Join-Path $GDriveDir $machine
     if (-not (Test-Path -LiteralPath $dst)) { New-Item -ItemType Directory -Path $dst -Force | Out-Null }
     [System.IO.File]::WriteAllText((Join-Path $dst "manifest.json"), $mJson, (New-Object System.Text.UTF8Encoding($false)))
-  } catch { Log "WARN manifest not shipped: $($_.Exception.Message)" }
+  } catch {
+    Log "WARN manifest not shipped: $($_.Exception.Message)"
+    $offsiteUnreachable = $true
+  }
 }
 
 Log "END"
+if ($offsiteUnreachable) {
+  # L'archive locale est faite et verifiee : rien n'est perdu. Mais cette machine
+  # n'apparaitra dans AUCUN listing flotte, et un exit 0 la ferait passer pour saine.
+  Log "EXIT 4 offsite destination unreachable - local archive intact, machine ABSENTE du listing flotte"
+  exit 4
+}

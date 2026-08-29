@@ -53,10 +53,17 @@ signalé**. C'est le défaut de fond documenté par l'Épic #3293.
 sur lequel il est modelé : les captures du proxy sont jetables une fois compressées, les
 transcripts ne le sont pas.
 
-**L'état n'avance qu'après vérification.** `state.json` n'est mis à jour qu'une fois l'archive
-passée par `7z t`. Un échec de compression ou de vérification laisse l'état inchangé — le
-prochain passage réessaiera le même delta. Un échec de copie GDrive laisse l'archive en local
-et `shippedOffsite: false` dans le manifeste.
+**L'état n'avance qu'une fois le delta EN SÛRETÉ.** `state.json` n'est mis à jour qu'après
+vérification `7z t` **et**, lorsqu'un hors-site est configuré, après expédition réussie. Un échec
+de compression, de vérification **ou de copie hors-site** laisse l'état inchangé — le prochain
+passage ré-archive le même delta et retente.
+
+C'est structurel, pas cosmétique : **rien ne reparcourt les archives locales**, donc `state.json`
+*est* le mécanisme de reprise. Avancer l'état après une copie ratée retirerait ces transcripts du
+delta au passage suivant, et l'archive locale resterait sur place indéfiniment — le
+« will retry next run » du log serait une promesse que rien ne tient (finding @jsboige sur #3299).
+Sans `-GDriveDir` il n'y a rien à expédier : l'archive locale vérifiée est tout le travail et
+l'état avance, sinon une machine local-only ré-archiverait le même delta à chaque passage.
 
 ## Installation (par machine)
 
@@ -96,7 +103,7 @@ Get-ChildItem 'G:\Mon Drive\Backups-Cloud\claude-transcripts' -Directory | ForEa
 } | Format-Table machine, retention, transcriptsTracked, oldestTranscript, newestTranscript, shippedOffsite
 ```
 
-**Trois signaux qui doivent déclencher une action :**
+**Quatre signaux qui doivent déclencher une action :**
 
 | Signal | Ce qu'il veut dire |
 |---|---|
@@ -106,6 +113,19 @@ Get-ChildItem 'G:\Mon Drive\Backups-Cloud\claude-transcripts' -Directory | ForEa
 | Machine **absente** du listing | le job n'y tourne pas — c'est le cas le plus dangereux, car il est silencieux |
 
 Un manifeste absent n'est pas une machine saine : c'est une machine dont on ne sait rien.
+
+Le dernier signal ne peut se lire **que localement** : une machine dont le hors-site est
+injoignable n'écrit rien nulle part, et son absence du tableau ressemble trait pour trait à un
+job jamais installé. C'est la raison du **code de sortie 4** — l'archive locale est faite et
+vérifiée, rien n'est perdu, mais la machine ne remontera dans aucun listing tant que
+`-GDriveDir` ne pointe pas vers un chemin réel sur cette machine-là.
+
+| Code | Sens |
+|---|---|
+| `0` | passage complet |
+| `2` | précondition : répertoire `projects` ou `7z.exe` introuvable |
+| `3` | compression ou vérification `7z t` échouée — **l'état n'avance pas** |
+| `4` | archive locale faite, **hors-site injoignable** — machine absente du listing flotte ; **l'état n'avance pas**, le passage suivant retente |
 
 ## Restaurer
 
