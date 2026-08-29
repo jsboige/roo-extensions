@@ -30,6 +30,7 @@ Exit codes:
 import argparse
 import collections
 import glob
+import io
 import json
 import os
 import queue
@@ -199,6 +200,63 @@ def main() -> int:
         proc.stdin.write(json.dumps(obj) + "\n")
         proc.stdin.flush()
 
+    def fs_resolve(path):
+        """Resolve an agent-supplied path, refusing anything outside --cwd.
+
+        The driver runs unattended: an agent asking to read C:/Users/.../.env
+        or to write outside the working copy must be refused, not served.
+        Declaring the fs capability is not handing over the filesystem.
+        """
+        root = os.path.realpath(args.cwd)
+        full = os.path.realpath(os.path.join(root, path))
+        if full != root and not full.startswith(root + os.sep):
+            raise PermissionError(f"path outside --cwd: {path}")
+        return full
+
+    def answer_fs_request(msg, method):
+        """Serve the two fs methods we advertise in clientCapabilities.
+
+        `initialize` declares fs.readTextFile/writeTextFile; before this the
+        driver implemented neither, so the agent fell back to shell and burned
+        the prompt's command budget on `cat`/`sed`. Measured ai-01 2026-08-29:
+        16 read + 14 write requests across 12 runs, all refused -32601.
+        """
+        params = msg.get("params") or {}
+        try:
+            full = fs_resolve(params.get("path") or "")
+            if method == "fs/read_text_file":
+                with io.open(full, encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
+                # ACP allows a 1-based line window; absent means the whole file.
+                line, limit = params.get("line"), params.get("limit")
+                if line is not None or limit is not None:
+                    rows = text.splitlines(keepends=True)
+                    start = max(0, (line or 1) - 1)
+                    rows = rows[start:start + limit] if limit else rows[start:]
+                    text = "".join(rows)
+                result = {"content": text}
+            else:
+                parent = os.path.dirname(full)
+                if parent:
+                    os.makedirs(parent, exist_ok=True)
+                with io.open(full, "w", encoding="utf-8", newline=chr(10)) as fh:
+                    fh.write(params.get("content") or "")
+                result = {}
+        except (PermissionError, OSError, ValueError) as exc:
+            send({"jsonrpc": "2.0", "id": msg["id"],
+                  "error": {"code": -32602, "message": f"{method}: {exc}"}})
+            print(f"fs refused: {method} {params.get('path')!r} — {exc}",
+                  file=sys.stderr)
+            return
+        # Trace symetrique de "permission granted" : sans elle, un log sans
+        # "fs refused" ne distingue pas "servi" de "jamais demande".
+        if method.endswith("read_text_file"):
+            size = len(result.get("content", ""))
+        else:
+            size = len(params.get("content") or "")
+        print(f"fs served: {method} {params.get('path')!r} {size}c", file=sys.stderr)
+        send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
+
     def answer_request(msg):
         """Repondre a une requete ENTRANTE de l'agent.
 
@@ -210,6 +268,9 @@ def main() -> int:
         jusqu'au deadline (ai-01 2026-08-29 : 3 tool_call -> mort a T+9.0s).
         """
         method = msg.get("method")
+        if method in ("fs/read_text_file", "fs/write_text_file"):
+            answer_fs_request(msg, method)
+            return
         if method == "session/request_permission":
             options = ((msg.get("params") or {}).get("options")) or []
             pick = None
