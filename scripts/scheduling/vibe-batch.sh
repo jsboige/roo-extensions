@@ -45,10 +45,21 @@ done
 wait
 
 echo "=== LOT TERMINE ==="
+# Un run qui sort EXIT=0 n'a PAS forcement produit son livrable, et l'agent
+# affirme regulierement le contraire dans sa reponse finale (« Le livrable est
+# disponible dans outputs/vibe/... »). Mesure ai-01 2026-08-29 sur un lot de
+# 24 packs : 23 EXIT=0, mais **4 fichiers** sur disque — 17,89 USD passes sur
+# des runs dont l'artefact n'existait nulle part, ni dans outputs/ ni ailleurs.
+# L'affirmation de l'agent n'est pas une preuve ; seul le fichier en est une.
+delivered=0; missing=0
 for f in "$LOGS"/i*.log; do
   [ -e "$f" ] || continue
-  printf '%-52s %s\n' "$(basename "$f" .log)" "$(grep -E '^PROMPT_' "$f" | head -1)"
+  slug=$(basename "$f" .log)
+  if [ -s "$WSSH/outputs/vibe/$slug.md" ]; then mark="LIVRE "; delivered=$((delivered+1))
+  else mark="ABSENT"; missing=$((missing+1)); fi
+  printf '%s %-52s %s\n' "$mark" "$slug" "$(grep -E '^PROMPT_' "$f" | head -1)"
 done
+echo "--- livrables : $delivered presents, $missing ABSENTS (verifies sur disque, pas sur declaration)"
 echo "--- fs servis : $(grep -ahc 'fs served' "$LOGS"/i*.log 2>/dev/null | awk '{s+=$1} END{print s+0}')"
 grep -ho 'cost=[0-9.]*' "$LOGS"/i*.log 2>/dev/null | cut -d= -f2 \
   | awk '{s+=$1;n++} END{printf "%d runs avec cout  total=%.3f USD\n",n,s}'
