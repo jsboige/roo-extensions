@@ -54,6 +54,22 @@ erreur de l'auteur.
 Un fichier imparfait vaut infiniment mieux qu'un run sans produit. N'attends jamais d'avoir tout
 compris pour ecrire.
 
+## Format des verdicts (OBLIGATOIRE)
+Chaque affirmation verifiee porte, sur une ligne a elle seule et sans gras :
+
+    VERDICT: <VERIFIE|PARTIEL|REFUTE|NON_MESURABLE> | <fichier:ligne ou -> | <motif ou ->
+
+Le motif n'est requis que pour NON_MESURABLE, et vaut exactement l'un de :
+HORS_DEPOT_GITHUB, HORS_DEPOT_WEB, SERVICE_VIVANT, MATERIEL, AUTRE_WORKSPACE, ISSUE_SANS_SOURCE.
+
+Ce n'est pas de la mise en forme. Sur les 19 audits du lot du 29/08, **3 seulement** portaient un
+verdict reperable par un programme : les 16 autres inventaient leur propre disposition, si bien
+qu'aucune lecture d'ensemble n'etait possible et que 46 % des 148 mentions "NON MESURABLE" sont
+restees inclassables. Le motif porte la decision qui compte : HORS_DEPOT_* se corrige en donnant la
+donnee au pack, SERVICE_VIVANT et MATERIEL disent que l'issue ne convient pas a cette lane, et
+ISSUE_SANS_SOURCE n'est pas une limite mais un resultat -- l'issue avance un chiffre que rien
+n'etaye.
+
 ## Livrable
 `outputs/vibe/{slug}.md` : une section par affirmation verifiee, chacune avec sa citation et son
 verdict ; puis une section **Constat** disant ce que la mesure etablit, **ce qu'elle n'etablit PAS**,
