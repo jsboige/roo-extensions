@@ -199,6 +199,46 @@ def main() -> int:
         proc.stdin.write(json.dumps(obj) + "\n")
         proc.stdin.flush()
 
+    def answer_request(msg):
+        """Repondre a une requete ENTRANTE de l'agent.
+
+        ACP est bidirectionnel : l'agent nous envoie des requetes (method + id),
+        au premier rang desquelles session/request_permission avant d'executer un
+        outil. Une requete laissee sans reponse bloque l'agent DEFINITIVEMENT --
+        il attend notre reponse pendant que nous attendons la sienne. Signature
+        mesuree : last_update fige juste apres les tool_call, puis silence
+        jusqu'au deadline (ai-01 2026-08-29 : 3 tool_call -> mort a T+9.0s).
+        """
+        method = msg.get("method")
+        if method == "session/request_permission":
+            options = ((msg.get("params") or {}).get("options")) or []
+            pick = None
+            for kind in ("allow_always", "allow_once"):
+                pick = next((o for o in options if o.get("kind") == kind), None)
+                if pick:
+                    break
+            if pick is None and options:
+                pick = options[0]
+            if pick:
+                result = {"outcome": {"outcome": "selected",
+                                      "optionId": pick.get("optionId")}}
+                # Trace d'audit : le driver tourne sans surveillance, chaque
+                # autorisation accordee doit rester lisible dans le log.
+                print(f"permission granted: req_id={msg.get('id')} "
+                      f"kind={pick.get('kind')} option={pick.get('optionId')}",
+                      file=sys.stderr)
+            else:
+                result = {"outcome": {"outcome": "cancelled"}}
+                print("permission request had no options — cancelled",
+                      file=sys.stderr)
+            send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
+            return
+        # Toute autre requete entrante : repondre une erreur plutot que de
+        # laisser l'agent attendre indefiniment.
+        send({"jsonrpc": "2.0", "id": msg["id"],
+              "error": {"code": -32601, "message": f"method not handled: {method}"}})
+        print(f"unhandled inbound request: {method}", file=sys.stderr)
+
     def recv_response(rid, timeout):
         deadline = time.time() + timeout
         notifications = []
@@ -210,6 +250,19 @@ def main() -> int:
             try:
                 msg = json.loads(line)
             except json.JSONDecodeError:
+                continue
+            # ORDRE CRITIQUE : le champ "method" discrimine AVANT l'id.
+            # L'agent numerote ses propres requetes dans un espace d'ids
+            # DISJOINT du notre : sa 3e requete porte id=3, exactement comme
+            # notre session/prompt. Tester l'id en premier fait passer une
+            # requete entrante pour notre reponse -> KeyError 'result'.
+            # Mesure ai-01 2026-08-29 : A1-1 (3 permissions) plante, A1-2
+            # (1 permission) passe. Un message porteur de "method" est une
+            # requete ou une notification, jamais une reponse.
+            if msg.get("method"):
+                if msg.get("id") is not None:
+                    answer_request(msg)
+                notifications.append((time.time(), msg))
                 continue
             if msg.get("id") == rid:
                 return msg, notifications
