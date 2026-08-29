@@ -4,7 +4,7 @@
 
 **Version:** 1.2.0
 **Issue :** #2243, #3219
-**MAJ:** 2026-08-25 (NanoClaw scheduler corrigé — #3219 audit)
+**MAJ:** 2026-08-29 (récupération NanoClaw confirmée GitHub-side + identité `clusterManager-Myia` — #3219)
 
 ---
 
@@ -35,8 +35,8 @@
   - Conteneur Docker `nanoclaw-v2-telegram_main` (restart policy Docker ; Up depuis 2026-08-22T16:45:00Z post-panne-17h).
   - **L'ancienne description "Roo NanoClaw scheduler, cron `15,45 * * * *`" est FAUSSE** — Roo Code n'est plus installé sur ai-01, et les timestamps de revues ne montrent aucune concentration à `:15/:45` (`:15` → 0 reviews, `:45` → 1 review, sur 92 mesures ; top minutes : `:16`=7, `:06`=6, `:18`/`:46`/`:31`/`:24`/`:20`=5). La cadence réelle est sub-15min au niveau du service, mais l'intervalle entre revues varie selon charge PR.
 
-  ⚠ **MAJ 2026-08-25 (#3219)** : malgré le retour du service à 16:45Z le 22/08, **aucune nouvelle review NanoClaw n'a été postée depuis 2026-08-20T19:18:16Z** (~4,8 jours au moment de l'audit). Le diagnostic "NanoClaw tire peu = panne disponible" reste valide, mais la récupération post-22/08 n'est **pas** confirmée. Audit live sur ai-01 requis pour confirmer l'état de santé du service.
-- **Identité GitHub** : TBD
+  ✅ **MAJ 2026-08-29 (#3219, po-2026)** : la récupération est **confirmée côté GitHub**. Reviews NanoClaw postées après le silence 2026-08-20T19:18:16Z → 2026-08-26T16:21:07Z (**gap ~5,9 jours** fermé) : #3282 (26/08 16:21Z), #3299 (28/08 18:17Z), #3301 (28/08 23:16Z) — minutes `:21`/`:17`/`:16`, toujours aucune concentration `:15`/`:45`. Le diagnostic "NanoClaw tire peu = panne de disponibilité, pas défaut de cadence" tient. (Un audit live du service sur ai-01 reste la vérification autorité, mais l'activité review observée est le signal disponible le plus fort.)
+- **Identité GitHub** : `clusterManager-Myia` (permission **write**, vérifié `gh api .../collaborators/clusterManager-Myia/permission` 2026-08-29 ; login confirmé sur 5 reviews #3165→#3301). **Comptage branch protection** : ce login n'est jamais l'auteur d'une PR flotte, et la protection `main` exige 1 approbation sans `require_code_owner_reviews` → un `APPROVED` NanoClaw **compterait** tel quel (pas besoin de la règle per-author d'Hermes, qui n'existe que parce qu'Hermes poste sous `jsboige`). En pratique, toutes les reviews NanoClaw observées sont `COMMENTED`, y compris à verdict positif (#3301 « merge prêt ») — le signal existe, il est muet sur sa propre force (#3219 §3).
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "nanoclaw"], content: "...")`
   - Inbox direct : `roosync_messages(action: "send", to: "myia-ai-01:nanoclaw", ...)`
