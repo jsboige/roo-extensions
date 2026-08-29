@@ -52,3 +52,31 @@ done
 echo "--- fs servis : $(grep -ahc 'fs served' "$LOGS"/i*.log 2>/dev/null | awk '{s+=$1} END{print s+0}')"
 grep -ho 'cost=[0-9.]*' "$LOGS"/i*.log 2>/dev/null | cut -d= -f2 \
   | awk '{s+=$1;n++} END{printf "%d runs avec cout  total=%.3f USD\n",n,s}'
+
+# --- Archivage (mandat utilisateur : « archiver proprement, a l'avenir »)
+# Les produits d'audit vivent sous $WS/outputs/, qui est GITIGNORE : sans cette
+# etape ils n'existent que sur le disque local de la machine qui les a produits.
+# 201 produits (~150 EUR de mesures) ont ainsi vecu non versionnes le 29/08.
+#
+# Une SEULE archive, pas 200 copies : sur DriveFS le cout est l'OUVERTURE par
+# fichier (~4,8 s a froid pour 2,5 Ko), pas le debit.
+# ARCHIVE=0 pour desactiver.
+if [ "${ARCHIVE:-1}" = "1" ] && [ -n "${ROOSYNC_SHARED_PATH:-}" ]; then
+  SHARED=$(command -v cygpath >/dev/null 2>&1 && cygpath -u "$ROOSYNC_SHARED_PATH" || echo "$ROOSYNC_SHARED_PATH")
+  WSU="$WS"; command -v cygpath >/dev/null 2>&1 && WSU=$(cygpath -u "$WS")
+  if [ -d "$SHARED" ] && [ -d "$WSU/outputs/vibe" ]; then
+    DEST="$SHARED/vibe-audits"; mkdir -p "$DEST"
+    STAMP=$(basename "$LOGS")-$(hostname)
+    TMPA="${TMPDIR:-/tmp}/vibe-$STAMP.tar.gz"
+    if tar -czf "$TMPA" -C "$WSU/outputs" vibe -C "$(dirname "$LOGS")" "$(basename "$LOGS")"; then
+      cp "$TMPA" "$DEST/" \
+        && n=$(tar -tzf "$DEST/$(basename "$TMPA")" 2>/dev/null | grep -c '\.md$') \
+        && echo "archive: $DEST/$(basename "$TMPA") — $n produits relus depuis la destination"
+      rm -f "$TMPA"
+    else
+      echo "archive: ECHEC du tar — produits NON archives" >&2
+    fi
+  else
+    echo "archive: ignoree (chemin partage ou outputs/vibe absent)" >&2
+  fi
+fi
