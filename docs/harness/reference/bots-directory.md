@@ -2,9 +2,9 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/bots-directory.md`. Déplacé hors des rules auto-chargées car annuaire factuel (pas une règle de comportement).
 
-**Version:** 1.2.0
+**Version:** 1.3.0
 **Issue :** #2243, #3219
-**MAJ:** 2026-08-29 (récupération NanoClaw confirmée GitHub-side + identité `clusterManager-Myia` — #3219)
+**MAJ:** 2026-08-29 (récupération NanoClaw + identité `clusterManager-Myia` ; cadence `:15/:45` rétablie par les logs conteneur — #3219)
 
 ---
 
@@ -33,9 +33,20 @@
 - **Scheduler** : **Service Windows NSSM + conteneur Docker** (corrigé 2026-08-25 #3219 audit).
   - `Get-Service NanoClaw` → `Running`, `StartMode Auto`, `LocalSystem` (PathName `D:\nanoclaw\scripts\service\nssm.exe`, audit ai-01 2026-08-22).
   - Conteneur Docker `nanoclaw-v2-telegram_main` (restart policy Docker ; Up depuis 2026-08-22T16:45:00Z post-panne-17h).
-  - **L'ancienne description "Roo NanoClaw scheduler, cron `15,45 * * * *`" est FAUSSE** — Roo Code n'est plus installé sur ai-01, et les timestamps de revues ne montrent aucune concentration à `:15/:45` (`:15` → 0 reviews, `:45` → 1 review, sur 92 mesures ; top minutes : `:16`=7, `:06`=6, `:18`/`:46`/`:31`/`:24`/`:20`=5). La cadence réelle est sub-15min au niveau du service, mais l'intervalle entre revues varie selon charge PR.
+  - **Attribution de mécanisme corrigée, cadence RÉTABLIE (2026-08-29, mesure ai-01).** L'ancienne description « Roo NanoClaw scheduler, cron `15,45 * * * *` » se trompe sur le **mécanisme** (Roo Code n'est plus installé sur ai-01 : ce n'est pas un scheduler Roo), **pas sur la cadence**. Le conteneur nomme lui-même ses cycles dans ses propres logs — `docker logs nanoclaw-v2-telegram_main`, ai-01, 2026-08-29 :
 
-  ✅ **MAJ 2026-08-29 (#3219, po-2026)** : la récupération est **confirmée côté GitHub**. Reviews NanoClaw postées après le silence 2026-08-20T19:18:16Z → 2026-08-26T16:21:07Z (**gap ~5,9 jours** fermé) : #3282 (26/08 16:21Z), #3299 (28/08 18:17Z), #3301 (28/08 23:16Z) — minutes `:21`/`:17`/`:16`, toujours aucune concentration `:15`/`:45`. Le diagnostic "NanoClaw tire peu = panne de disponibilité, pas défaut de cadence" tient. (Un audit live du service sur ai-01 reste la vérification autorité, mais l'activité review observée est le signal disponible le plus fort.)
+    ```
+    [poll-loop] Result: Cycle :15 clos — review #13456 postée et vérifiée (id 5057152018)
+    [poll-loop] Result: Cycle :45 clos — review #13458 postée et vérifiée (id 5057203106)
+    ```
+
+    **La grille `:15/:45` est vivante.**
+
+    ⚠️ **Ne jamais réfuter une cadence de FEU avec des heures de POST.** Le relevé « aucune concentration à `:15/:45` » (`:16`=7, `:06`=6, `:18`/`:46`/`:31`/`:24`/`:20`=5 sur 92 mesures) mesurait l'instant où la review est **publiée**, pas celui où le cycle **démarre** : les deux sont séparés par la durée de la review. Un feu à `:15` qui publie à `:16`–`:21` produit **exactement** cette distribution — elle **confirme** la grille au lieu de l'infirmer. Le décalage entre les deux événements est le signal, pas le bruit.
+
+    Finding posé par po-2025 sur #3302 (review arrivée 6 s après le merge, donc non prise en compte), vérifié ici par les logs de l'émetteur lui-même.
+
+  ✅ **MAJ 2026-08-29 (#3219, po-2026)** : la récupération est **confirmée côté GitHub**. Reviews NanoClaw postées après le silence 2026-08-20T19:18:16Z → 2026-08-26T16:21:07Z (**gap ~5,9 jours** fermé) : #3282 (26/08 16:21Z), #3299 (28/08 18:17Z), #3301 (28/08 23:16Z) — minutes `:21`/`:17`/`:16` — soit le cycle `:15` augmenté de la durée de la review (cf. correction cadence ci-dessus), et `:46` pour #3302 = cycle `:45`. Le diagnostic "NanoClaw tire peu = panne de disponibilité, pas défaut de cadence" tient. (Un audit live du service sur ai-01 reste la vérification autorité, mais l'activité review observée est le signal disponible le plus fort.)
 - **Identité GitHub** : `clusterManager-Myia` (permission **write**, vérifié `gh api .../collaborators/clusterManager-Myia/permission` 2026-08-29 ; login confirmé sur 5 reviews #3165→#3301). **Comptage branch protection** : ce login n'est jamais l'auteur d'une PR flotte, et la protection `main` exige 1 approbation sans `require_code_owner_reviews` → un `APPROVED` NanoClaw **compterait** tel quel (pas besoin de la règle per-author d'Hermes, qui n'existe que parce qu'Hermes poste sous `jsboige`). En pratique, toutes les reviews NanoClaw observées sont `COMMENTED`, y compris à verdict positif (#3301 « merge prêt ») — le signal existe, il est muet sur sa propre force (#3219 §3).
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "nanoclaw"], content: "...")`
