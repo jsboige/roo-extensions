@@ -57,7 +57,12 @@ compris pour ecrire.
 ## Format des verdicts (OBLIGATOIRE)
 Chaque affirmation verifiee porte, sur une ligne a elle seule et sans gras :
 
-    VERDICT: <VERIFIE|PARTIEL|REFUTE|NON_MESURABLE> | <fichier:ligne ou -> | <motif ou ->
+    VERDICT: VERIFIE|PARTIEL|REFUTE|NON_MESURABLE | "fichier:ligne" ou "-" | motif ou "-"
+
+Le tiret des deux derniers champs s ecrit seul, sans chevron : un gabarit rendu
+`<fichier:ligne ou ->` a ete relu "ou ->" par **11 lignes sur 11** du lot de validation du 30/08,
+qui ont toutes emis `->`. Le champ motif, lui, vaut EXACTEMENT un des mots ci-dessous, sans phrase
+autour -- la phrase va dans la section, pas dans la ligne.
 
 Le motif n'est requis que pour NON_MESURABLE, et vaut exactement l'un de :
 HORS_DEPOT_GITHUB, HORS_DEPOT_WEB, SERVICE_VIVANT, MATERIEL, AUTRE_WORKSPACE, ISSUE_SANS_SOURCE.
