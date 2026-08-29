@@ -17,6 +17,24 @@
 
 .PARAMETER IntervalHours
     Intervalle de repetition en heures (defaut : 1 — decision utilisateur 21/08).
+    Ignore si -IntervalMinutes est fourni.
+
+.PARAMETER IntervalMinutes
+    Intervalle de repetition en MINUTES. Prime sur -IntervalHours quand > 0.
+    Existe parce que -IntervalHours est un entier : la cadence ne pouvait pas
+    descendre sous 1 h, ce qui bloquait toute montee en cadence (#3202 suivi).
+    Minimum accepte par le planificateur Windows : 1 minute.
+
+    ATTENTION — deux plafonds subsistent EN AVAL de ce parametre, et ils ne
+    sont pas leves ici :
+      1. -MultipleInstances IgnoreNew (ci-dessous) : un tir qui arrive pendant
+         qu'un tick tourne est IGNORE, pas mis en file.
+      2. start-vibe-worker.ps1 pose un lock-file atomique (#3277) et sort en
+         SKIP (exit 75) si un tick est deja en cours.
+    Consequence : avec un budget driver de 900 s, descendre sous ~15 min
+    n'augmente PAS le nombre de runs effectifs — les tirs excedentaires sont
+    absorbes en silence. Pour depasser ce plafond il faut plusieurs workers
+    (TaskName + workspace distincts), pas un intervalle plus court.
 
 .PARAMETER StaggerMinutes
     Decalage du premier tir par rapport a maintenant (anti-synchronisation flotte).
@@ -60,6 +78,7 @@ param(
     [ValidateSet('install','remove','list','test')]
     [string]$Action = 'list',
     [int]$IntervalHours = 1,
+    [int]$IntervalMinutes = 0,
     [int]$StaggerMinutes = 0,
     [string]$ConfigPath = "",
     [string]$HarnessCommand = "",
@@ -112,7 +131,7 @@ function Get-WorkerCommandLine {
 
 function Install-Task {
     if ($DryRun) {
-        Write-Host "[DRY-RUN] Would install $TaskName (interval=${IntervalHours}h, stagger=${StaggerMinutes}min)" -ForegroundColor Yellow
+        Write-Host "[DRY-RUN] Would install $TaskName (interval=$(if ($IntervalMinutes -gt 0) { "${IntervalMinutes}min" } else { "${IntervalHours}h" }), stagger=${StaggerMinutes}min)" -ForegroundColor Yellow
         return
     }
 
@@ -177,8 +196,17 @@ WScript.Quit rc
     $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false }
 
+    if ($IntervalMinutes -gt 0) {
+        if ($IntervalMinutes -lt 1) { throw "IntervalMinutes doit valoir au moins 1 (limite du planificateur Windows)." }
+        $repetition = New-TimeSpan -Minutes $IntervalMinutes
+        $cadenceLabel = "${IntervalMinutes}min"
+    } else {
+        $repetition = New-TimeSpan -Hours $IntervalHours
+        $cadenceLabel = "${IntervalHours}h"
+    }
+
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes($StaggerMinutes) `
-        -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
+        -RepetitionInterval $repetition `
         -RepetitionDuration (New-TimeSpan -Days 365)
     $action = New-ScheduledTaskAction -Execute "wscript.exe" `
         -Argument "//B //Nologo `"$vbsPath`"" -WorkingDirectory $repoRoot
@@ -193,7 +221,12 @@ WScript.Quit rc
         -Description "$VibeTaskMarker — Mistral Vibe cadence via schtask (pas de cron dans le harnais Vibe)." `
         -Trigger $trigger -Action $action -Settings $settings -RunLevel Limited | Out-Null
 
-    Write-Host "[OK] Installed $TaskName (interval=${IntervalHours}h, VBS=$vbsPath)" -ForegroundColor Green
+    Write-Host "[OK] Installed $TaskName (interval=$cadenceLabel, VBS=$vbsPath)" -ForegroundColor Green
+    if ($IntervalMinutes -gt 0 -and $IntervalMinutes -lt 15) {
+        Write-Host "[WARN] interval=$cadenceLabel < budget driver typique (900s) : les tirs qui" -ForegroundColor Yellow
+        Write-Host "       chevauchent un tick en cours seront IGNORES (IgnoreNew + lock #3277)." -ForegroundColor Yellow
+        Write-Host "       Le nombre de runs EFFECTIFS ne montera pas. Voir -IntervalMinutes." -ForegroundColor Yellow
+    }
 }
 
 function Remove-Task {

@@ -3,8 +3,9 @@
   "description": "Profil CoursIA — Mistral Vibe sur le workspace CoursIA. Presentable dans la serie vibe-coding.",
   "workspace": "CoursIA",
   "workspacePath": "D:/dev/CoursIA",
-  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 900",
+  "harnessCommand": "python D:/dev/roo-extensions/scripts/scheduling/vibe-acp-driver.py --cwd D:/dev/CoursIA --wake --timeout 1800",
   "intervalHours": 1,
+  "_budget": "--timeout 1800 = 30 min, aligne sur .vibe/commands/continue.md qui declare 'Frequence: 30 min' et 'Workflow (30 min max)'. Etait 900 (15 min) : la moitie du temps que le protocole demande, alors que la schtask en autorise 55 (TimeoutMinutes). Le budget driver etait le seul des trois nombres hors-cadre.",
   "maxIterations": 1,
   "notes": "Aucun CLI one-shot n'existe : l'extension VS Code bundle vibe-acp.exe (serveur ACP). Le driver scripts/scheduling/vibe-acp-driver.py est le client headless (initialize -> session/new -> session/prompt). --wake lit VIBE_WAKE_PAYLOAD posee par start-vibe-worker.ps1 sur un [WAKE-VIBE]. Auth etablie une fois par browser-auth interactive VS Code (verifie 2026-08-22 : tick headless PROMPT_OK, ~$0.03/tick)."
 }
