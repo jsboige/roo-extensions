@@ -196,10 +196,10 @@ Collect → Publish → Compare → Validate → Apply
 
 | Agent | Usage |
 |-------|-------|
-| ~~**git-sync**~~ | Retiré — c'est un **skill** (`.claude/skills/git-sync/SKILL.md`), pas un agent. |
-| ~~**test-runner**~~ | Retiré — agent non déployé dans `.claude/agents/` (source `.claude/configs/agents/`). |
+| **git-sync** | Pull conservatif + résolution conflits |
+| **test-runner** | Build + tests unitaires |
 | **code-fixer** | Investigation et correction bugs |
-| ~~**code-explorer**~~ | Retiré — agent non déployé dans `.claude/agents/` (source `.claude/configs/agents/`). |
+| **code-explorer** | Exploration codebase |
 | **doc-updater** | Mise à jour documentation |
 | **test-investigator** | Investigation tests échoués/instables |
 | **roosync-hub** | Hub central messages RooSync (coordinateur) |
