@@ -60,9 +60,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 3. **Installer et configurer les MCPs :**
     ```powershell
     # Installation des MCPs internes
-    cd mcps/internal
-    npm install
-    npm run build
+    cd mcps/internal/servers/roo-state-manager && npm install && npm run build
     # Submodule: mcps/internal pointe vers jsboige-mcp-servers
     ```
 
@@ -198,10 +196,10 @@ Collect → Publish → Compare → Validate → Apply
 
 | Agent | Usage |
 |-------|-------|
-| **git-sync** | Pull conservatif + résolution conflits |
-| **test-runner** | Build + tests unitaires |
+| ~~**git-sync**~~ | Retiré — c'est un **skill** (`.claude/skills/git-sync/SKILL.md`), pas un agent. |
+| ~~**test-runner**~~ | Retiré — agent non déployé dans `.claude/agents/` (source `.claude/configs/agents/`). |
 | **code-fixer** | Investigation et correction bugs |
-| **code-explorer** | Exploration codebase |
+| ~~**code-explorer**~~ | Retiré — agent non déployé dans `.claude/agents/` (source `.claude/configs/agents/`). |
 | **doc-updater** | Mise à jour documentation |
 | **test-investigator** | Investigation tests échoués/instables |
 | **roosync-hub** | Hub central messages RooSync (coordinateur) |
@@ -270,7 +268,7 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
 ./roo-config/scheduler/scripts/install/deploy-scheduler.ps1 -Action deploy
 
 # 4. Installer MCPs internes
-cd mcps/internal && npm install && npm run build
+cd mcps/internal/servers/roo-state-manager && npm install && npm run build
 
 # 5. Redémarrer VS Code
 ```
