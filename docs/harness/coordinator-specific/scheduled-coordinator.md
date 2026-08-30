@@ -214,7 +214,7 @@ gh auth switch --user jsboige
 gh pr merge <N> --repo <repo> --squash --delete-branch
 ```
 
-**Max 5 trivial-merges per cycle** (blast radius cap).
+**Max 8 trivial-merges per cycle** (blast radius cap ; étendu de 5 → 8 le 2026-05-08, #1715 — voir `docs/harness/reference/pr-trivial-merge-policy.md`).
 
 ### Step 4 : Log to dashboard workspace
 
