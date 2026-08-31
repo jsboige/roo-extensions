@@ -2,9 +2,16 @@
 
 **Version** : 2.3.1
 **Date de création** : 2025-12-27
-**Dernière mise à jour** : 2026-01-15
+**Dernière mise à jour** : 2026-08-31
 **Statut** : 🟢 Production Ready
 **Auteur** : Roo Architect Mode
+
+> ⚠️ **DOCUMENT PÉRIMÉ** (marqué 2026-08-31, audit #3319 point 5) — ce guide décrit RooSync v2.3 / Cycle 7, obsolète depuis ~juin 2026. Conservé pour historique. Références à jour :
+> - Inventaire des outils MCP : [`docs/harness/reference/roosync-tools-guide.md`](../harness/reference/roosync-tools-guide.md)
+> - Index complet de la documentation : [`docs/harness/reference/INDEX.md`](../harness/reference/INDEX.md)
+> - Architecture actuelle : [`docs/roosync/ARCHITECTURE_ROOSYNC.md`](ARCHITECTURE_ROOSYNC.md)
+>
+> **Correction de comptage** : roo-state-manager sert **15** outils (verrouillé par le test serveur `EXPECTED_TOOL_COUNT=15`, arbitrages #512/#603) — ni 12, ni 26. Le « 26 » de l'audit #3319 compte les 27 *définitions* du fichier `tool-definitions.ts`, dont ~12 sont dé-enregistrées (retirées par #603 : `roosync_init`, `roosync_list_diffs`, famille `roosync_*_decision`…). Le compte serveur ([tool-availability.md](../../.claude/rules/tool-availability.md)) fait foi.
 
 ---
 
@@ -83,18 +90,20 @@ roo-state-manager/
 │   │   ├── ConfigDiffService.ts        ← Moteur de diff granulaire
 │   │   ├── InventoryService.ts         ← Collecte inventaire (Native TS)
 │   │   ├── MessageManager.ts           ← Gestion conversations
-│   ├── tools/ (42 outils MCP organisés)
-│   │   ├── roosync/ (12 outils RooSync v2.3 consolidés)
-│   │   ├── exports/ (7 outils XML/JSON/CSV)
-│   │   ├── synthesis/ (3 outils résumés LLM)
-│   │   └── debug/ (3 outils diagnostic)
+│   ├── tools/ (15 outils MCP servis — voir §2.4)
+│   │   ├── roosync/ (cœur RooSync)
+│   │   ├── conversation/ · task/ · search/ · export/ · indexing/ · summary/
+│   │   ├── storage/ · cache/ · repair/ · maintenance/ · diagnostic/
+│   │   └── tool-definitions.ts (barrel des définitions)
 │   └── index.ts (point d'entrée serveur MCP)
 ├── tests/ (suite complète de tests)
 ├── package.json
 └── README.md
 ```
 
-#### Outils MCP RooSync v2.3 (12 outils consolidés)
+#### Outils MCP RooSync v2.3 (12 outils consolidés — OBSOLÈTE, voir §2.4)
+
+> **Périmé (2026-08-31, audit #3319 point 5)** : la table ci-dessous reflète l'état Cycle 7 (déc. 2025). Plusieurs outils listés ont été **RETIRÉS** (#603) : `roosync_init`, `roosync_get_status` (fusionné dans `roosync_inventory`), `roosync_list_diffs`, et la famille `roosync_*_decision` (`approve/reject/apply/rollback/get_decision_details`). Le serveur sert **15** outils aujourd'hui (test serveur `EXPECTED_TOOL_COUNT=15`). Liste canonique : [`docs/harness/reference/roosync-tools-guide.md`](../harness/reference/roosync-tools-guide.md).
 
 Les 12 outils RooSync v2.3 consolidés dans roo-state-manager :
 
@@ -392,7 +401,9 @@ roo-state-manager/
 
 ### 2.4 Outils MCP RooSync v2.3
 
-Le serveur MCP `roo-state-manager` expose **12 outils RooSync consolidés** :
+> **OBSOLÈTE (2026-08-31, audit #3319 point 5)** — le serveur expose **15** outils au total (verrouillé par le test serveur `EXPECTED_TOOL_COUNT=15` ; arbitrages #512/#603), pas 12 ni 26. Le tableau ci-dessous (Cycle 7, déc. 2025) est périmé : `roosync_init`, `roosync_get_status`, `roosync_list_diffs` et toute la famille `roosync_*_decision` ont été **RETIRÉS ou fusionnés** (#603 — `roosync_diagnose` englobe analyse/best-practices ; `roosync_inventory(type:"status")` englobe `get_status` ; `roosync_dashboard` englobe read/update). Le « 26 » de l'audit #3319 compte les **définitions** du fichier `tool-definitions.ts` (27 `name:`), dont ~12 dé-enregistrées — pas les outils réellement servis. Source canonique : [`../harness/reference/roosync-tools-guide.md`](../harness/reference/roosync-tools-guide.md) + [`../../.claude/rules/tool-availability.md`](../../.claude/rules/tool-availability.md).
+
+Le serveur MCP `roo-state-manager` expose **12 outils RooSync consolidés** (état historique — voir avertissement ci-dessus) :
 
 | Outil | Rôle | Phase Workflow | Outils Source |
 |-------|------|----------------|---------------|
