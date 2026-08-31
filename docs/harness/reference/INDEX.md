@@ -28,6 +28,10 @@
 | **Restart-on-Saturation (#2578)** | Empty-response detection + auto-restart worker. Traces SANCTUARY (no GC, no delete) | `restart-on-saturation.md` |
 | **Context Explosion (#2577)** | Diagnostic, non-destructive archive, dedup detection for large sessions | `context-explosion-runbook.md` |
 | **Unified Store Ops (#2957)** | Séquence fermeture AC : env-gate dual-write, backfill CLI (dry-run→live), catchup SQL casse, requêtes vérification, rollout flotte | `unified-store-ops-runbook.md` |
+| **Team Pipeline Guide (#1853)** | Stages team-plan → team-prd → team-exec → team-verify → team-fix pour taches complexes — detail, schema, usage | `team-pipeline-guide.md` |
+| **Claude Transcript Archiving (#3294)** | Runbook archivage transcripts Claude Code (schtask ClaudeTranscriptArchive, quotidienne 04:41 — origine : perte de donnees ai-01) | `claude-transcript-archiving.md` |
+| **Zoo Migration Runbook (#2379)** | Migration Roo Code → Zoo Code (#2379/#2381/#2678) — pilote po-2025, profils par machine, MCPs et modes | `zoo-migration-runbook.md` |
+| **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
 
 ## Quality & CI
 
@@ -53,6 +57,7 @@
 | **Bots directory** | Hermes (po-2026) + NanoClaw (ai-01), cron coverage 4×/hour, wake-on-demand | `bots-directory.md` |
 | **conversation_browser (guide+detail)** | Point d'entree `list`, actions, detailLevel, summarize_type, anti-patterns | `conversation-browser-detailed.md` |
 | **RooSync coordinator tools** | health_view, inventory, compare_config, dashboard — params, output, scenarios | `roosync-tools-guide.md` |
+| **INTERCOM deprecation (#1818)** | Deprecation du fichier INTERCOM local — dashboard workspace = canal principal, timeline, fallbacks | `intercom-deprecation.md` |
 
 ## Reference Technique
 
@@ -72,3 +77,24 @@
 | **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
 | **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |
+| **Findability decisions historiques (#1819)** | Retrouvabilite des decisions historiques — ou chercher, ancrages, index | `findability-historical-decisions.md` |
+| **GitHub reviewer bot (feasibility)** | Etude de faisabilite d'un bot reviewer GitHub (#1184, PRELIMINARY — non deploye) | `github-reviewer-bot-feasibility.md` |
+| **MCP proxy architecture** | Architecture du MCP proxy mcp-tools.myia.io (decision 2026-04-13, migration en cours) | `mcp-proxy-architecture.md` |
+| **MCP proxy host (#1354)** | Hebergement du MCP proxy sur ai-01 — deploiement, config, operations | `mcp-proxy-host.md` |
+| **Tool usage telemetry (#1863)** | Telemetrie usage des outils (Phase D) — `tool_usage_stats`, snapshots hebdo, `trend_report` | `tool-usage-telemetry.md` |
+
+## Snapshots & Audits dates
+
+> Documents figes a une date donnee — utiles comme reference historique, NON maintenus a jour.
+
+| Document | Essentiel | Chemin |
+|----------|-----------|--------|
+| **Rules footprint (2026-05-19)** | Snapshot empreinte des `.claude/rules/` (#1606) | `rules-footprint.md` |
+| **demo-roo-code inventory** | Inventaire demo-roo-code/ + Matrice de Decision (2026-07-21) | `demo-roo-code-inventory-2026-07-21.md` |
+| **Doc audit** | Audit de la documentation (2026-07-21) | `doc-audit-2026-07-21.md` |
+| **Doc broken links** | Audit des liens casses dans docs/ (2026-07-21) | `doc-broken-links-2026-07-21.md` |
+| **mcps/external README coherence** | Coherence des READMEs mcps/external (2026-07-21) | `mcps-external-readme-coherence-2026-07-21.md` |
+| **mcps/internal README freshness** | Fraicheur du README mcps/internal — W8 (2026-07-21) | `mcps-internal-readme-freshness-2026-07-21.md` |
+| **roo-code investigations inventory** | Inventaire des investigations roo-code/ — W6 #2883 (2026-07-21) | `roo-code-investigations-inventory-2026-07-21.md` |
+| **Rules/skills invocation audit** | Audit invocation rules & skills (2026-07-21) | `rules-skills-invocation-audit-2026-07-21.md` |
+| **Superseded-by-closed-issues audit** | Audit des docs marquees superseded par issues fermees — W2 #2879 (2026-07-21) | `superseded-by-closed-issues-audit-2026-07-21.md` |
