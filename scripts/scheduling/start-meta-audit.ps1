@@ -201,9 +201,9 @@ Lister les sessions Claude recentes :
 ls -lt ~/.claude/projects/*/  2>/dev/null | head -10
 ``````
 
-### 3. Analyses productives (ordre de priorite — meta-analyst rule v1.7.0)
+### 3. Analyses productives (ordre de priorite — meta-analyst rule v1.8.0)
 
-**STOP & PIVOT** : Si ton instinct te pousse a "comparer 2 fichiers de regles entre eux" (harness Claude vs Roo), STOP IMMEDIATEMENT. Pivote vers les 7 categories ci-dessous. Reference : docs/harness/coordinator-specific/meta-analyst-rule.md.
+**STOP & PIVOT** : Si ton instinct te pousse a "comparer 2 fichiers de regles entre eux" (harness Claude vs Roo), STOP IMMEDIATEMENT. Pivote vers les 8 categories ci-dessous. Reference : docs/harness/coordinator-specific/meta-analyst-rule.md.
 
 Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regles) :
 
@@ -214,6 +214,7 @@ Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regl
 5. **Escalations -simple -> -complex echouees** : patterns boucle sans escalader
 6. **Bugs production** : mpengine crashes, vmmem freezes, Docker cascade, MCP disconnects
 7. **Frictions agents** : [FRICTION] dashboard + has_errors:true via roosync_search
+8. **Archives RooSync** (#3347) : dashboards archives + messages inter-machines des 7 derniers jours — personne ne les analyse aujourd'hui. Racine : $(if ($env:ROOSYNC_SHARED_PATH) { $env:ROOSYNC_SHARED_PATH } else { 'G:/Mon Drive/Synchronisation/RooSync/.shared-state' }). Dashboards : dashboards/archive/, fichiers workspace-*-YYYY-MM-DDTHH-MM-SS.md — PRIORITE aux *-fallback.md (resume LLM absent = l'archive brute est la SEULE copie). Messages : messages/inbox/ + messages/archive/, fichiers msg-YYYYMMDDTHHMMSS-*. Filtrer par horodatage DU NOM DE FICHIER >= $((Get-Date).AddDays(-7).ToString('yyyy-MM-dd')) — JAMAIS de scan recursif complet du pool (~6700 fichiers dashboards, ~60000 messages). Max 10 fichiers lus par cycle. Chercher : [ERROR]/[BLOCKED]/[ASK] restes sans reponse, incidents non trackes en issue, escalations sans suite.
 
 **HARD REJECT** (rejet immediat, ne PAS creer issue) :
 - Asymetrie version doc Claude/Roo (rythmes differents = normal)
@@ -224,7 +225,7 @@ Cherche dans cet ordre, dans les TRACES de taches (pas dans les fichiers de regl
 - Metrique sans seuil depasse
 - Comparaison Roo vs Claude sans bug observe
 
-Si aucune des 7 categories ne donne de matiere : rapporter "rien a signaler" sur dashboard. NE PAS se rabattre sur HARD REJECT.
+Si aucune des 8 categories ne donne de matiere : rapporter "rien a signaler" sur dashboard. NE PAS se rabattre sur HARD REJECT.
 
 ### 4. Poster le rapport sur le dashboard workspace
 
@@ -273,6 +274,8 @@ Task(tool="code-explorer", prompt="Analyse l'architecture [composant] pour ident
 ### 5. Creer des issues si recommandations actionnables
 
 UNIQUEMENT si tu identifies des problemes concrets :
+- Tout verdict qui passe les HARD REJECT et le Test 3 Questions DOIT aboutir a une issue : un verdict qui ne vit que dans le rapport dashboard est perdu (#3347)
+- Avant CHAQUE creation, dedupliquer : ``gh issue list --state open --search "<mots-cles>"`` — si le probleme est deja tracke, commenter l'issue existante au lieu d'en creer une nouvelle
 - Utilise ``gh issue create`` avec label ``needs-approval``
 - Si changement de harnais : ajouter label ``harness-change``
 - Maximum 3 issues par cycle
