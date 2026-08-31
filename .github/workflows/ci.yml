@@ -28,6 +28,7 @@ on:
       - 'scripts/zoo-scheduler/**'
       - 'scripts/claude/worktree-cleanup.ps1'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
+      - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
