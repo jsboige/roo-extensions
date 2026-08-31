@@ -1,32 +1,23 @@
-# Script de correction du type implicite dans compare-config.ts
-# Ajoute le type DetectedDifference au paramètre diff
+#!/usr/bin/env pwsh
+# ARCHIVED — one-shot fix #3323 (2026-08-31)
+#
+# This script attempted to add `DetectedDifference` type annotation to
+# a `.map(diff => ...)` pattern at line 127 of compare-config.ts.
+#
+# VERIFIED OBSOLETE:
+# - Current compare-config.ts does NOT import `DetectedDifference` from DiffDetector.js
+# - Current compare-config.ts uses bare `.map(diff => ...)` in 5 locations
+#   (lines 624, 630, 636, 1010, 1057)
+# - The targeted "line 127" no longer exists in the current file (file was restructured)
+# - The script's regex `\.map\(diff =>` would actually match lines that
+#   weren't the original target — running it would corrupt other call sites
+#
+# Original archived at:
+#   scripts/_archive/cleanup-3323-2026-08-31/fix-compare-config-type.ps1
+#
+# DO NOT RUN. See scripts/_archive/cleanup-3323-2026-08-31/README.md.
 
-$compareConfigPath = "mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts"
-
-Write-Host "🔧 Correction du type implicite dans compare-config.ts..." -ForegroundColor Cyan
-
-# Lire le fichier actuel
-$content = Get-Content $compareConfigPath -Raw
-
-# Vérifier si le type est déjà explicite
-if ($content -match "map\(\(diff: DetectedDifference\)") {
-    Write-Host "✅ Le type est déjà explicite" -ForegroundColor Green
-    exit 0
-}
-
-# Ajouter l'import du type DetectedDifference en haut du fichier
-if ($content -notmatch "import.*DetectedDifference") {
-    # Trouver la ligne d'import DiffDetector et ajouter le type
-    $content = $content -replace "(import.*from '\./\./services/DiffDetector\.js';)", @'
-import { DiffDetector, type ComparisonReport, type DetectedDifference } from '../../services/DiffDetector.js';
-'@
-}
-
-# Corriger le paramètre implicite diff à la ligne 127
-$content = $content -replace "\.map\(diff =>", ".map((diff: DetectedDifference) =>"
-
-# Écrire le fichier modifié
-Set-Content -Path $compareConfigPath -Value $content -Encoding UTF8
-
-Write-Host "✅ Type explicite ajouté au paramètre diff" -ForegroundColor Green
-Write-Host "📝 Fichier modifié: $compareConfigPath" -ForegroundColor Yellow
+Write-Host "[ARCHIVED] fix-compare-config-type.ps1 — obsolete. Target file structure changed since script was authored." -ForegroundColor Red
+Write-Host "[ARCHIVED] Running this script would corrupt 5 unrelated .map(diff => ...) call sites." -ForegroundColor Red
+Write-Host "[ARCHIVED] See scripts/_archive/cleanup-3323-2026-08-31/README.md (#3323)." -ForegroundColor Yellow
+exit 0

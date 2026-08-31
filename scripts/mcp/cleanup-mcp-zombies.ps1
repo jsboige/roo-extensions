@@ -43,26 +43,44 @@
     Path to roo-state-manager root (where build/index.js lives).
     Default = auto-detect from script location (assumes standard layout).
 
+.PARAMETER Mode
+    Heuristic used to identify live MCP procs (Consolidation #3323, 2026-08-31).
+    - 'Cluster'      (default) — newest-StartTime cluster. Original behavior (Issue #2830).
+    - 'ParentChain'  — walk parent chain in-memory, kill only procs with no Claude ancestor.
+                       Merged from `scripts/diagnostic/cleanup-mcp-orphans.ps1` (#1281, WMI approach).
+    - 'Stdio'        — walk parent chain for `Code.exe` ancestor (handles `npx`-spawned stdio MCPs).
+                       Merged from `scripts/maintenance/cleanup-mcp-stdio-zombies.ps1` (#2675).
+
+.PARAMETER CodeProcessName
+    Stdio mode only: VS Code editor process name used to detect a live host ancestor.
+    Default: 'Code.exe'. Set to 'Code - Insiders.exe' for Insiders builds.
+
+.PARAMETER MinAgeHours
+    ParentChain mode only: minimum process age (hours) to consider killing. Default 12.
+    Matches the WMI orphan heuristic from cleanup-mcp-orphans.ps1.
+
 .EXAMPLE
     .\cleanup-mcp-zombies.ps1
-    Dry run: list zombies, identify live PID, do nothing. Default mode.
+    Dry run (Cluster mode): list zombies, identify live PID, do nothing.
 
 .EXAMPLE
-    .\cleanup-mcp-zombies.ps1 -OlderThanHours 24
-    Dry run with 24h threshold instead of default 12h.
+    .\cleanup-mcp-zombies.ps1 -Mode ParentChain -Execute
+    ParentChain mode: kill MCP procs with no live Claude ancestor. Merged feature #1281.
 
 .EXAMPLE
-    .\cleanup-mcp-zombies.ps1 -Execute -OlderThanHours 12
-    Actually kill zombies older than 12h. Refuses (exit 2) if live PID is ambiguous.
-
-.EXAMPLE
-    .\cleanup-mcp-zombies.ps1 -IncludeAllMcp -Execute
-    Also kill orphan playwright/mcp and mcp-searxng procs. Use with caution.
+    .\cleanup-mcp-zombies.ps1 -Mode Stdio -Execute -CodeProcessName 'Code - Insiders.exe'
+    Stdio mode: kill stdio MCPs (npx/cmd wrappers) with no live VS Code ancestor. Merged feature #2675.
 
 .NOTES
     Issue: #2830 — MCP host zombie processes accumulate on each restart
     Finding: po-2023 c.38 (~51 zombies), po-204 c.46 (7 zombies)
     Gate: Livrable B (auto-scheduling) is USER-GATED. This script stays DORMANT in scheduled tasks.
+
+    CONSOLIDATION (#3323, 2026-08-31):
+    - Absorbed `scripts/diagnostic/cleanup-mcp-orphans.ps1` (WMI parent-chain, #1281) → Mode ParentChain
+    - Absorbed `scripts/maintenance/cleanup-mcp-stdio-zombies.ps1` (stdio npx, #2675) → Mode Stdio
+    - Originals archived to scripts/_archive/cleanup-mcp-scripts-{date}/ with header proof of merger.
+    - Cluster mode = original behavior of this file (the most robust heuristic, validated po-2023 c.38).
 
     SAFETY GUARANTEES:
     - Default mode is read-only. No proc is killed without explicit `-Execute`.
@@ -107,7 +125,17 @@ param(
 
     [switch]$IncludeAllMcp = $false,
 
-    [string]$McpRoot
+    [string]$McpRoot,
+
+    # --- Consolidation #3323: absorb modes from cleanup-mcp-orphans.ps1 + cleanup-mcp-stdio-zombies.ps1 ---
+    [ValidateSet('Cluster', 'ParentChain', 'Stdio')]
+    [string]$Mode = 'Cluster',
+
+    # Stdio mode only: VS Code editor process name to detect a live host ancestor.
+    [string]$CodeProcessName = 'Code.exe',
+
+    # ParentChain mode only: minimum process age (hours) to consider killing.
+    [int]$MinAgeHours = 12
 )
 
 $ErrorActionPreference = "Stop"
@@ -314,4 +342,213 @@ if ($killErrors.Count -gt 0) {
 }
 
 Write-Host "[DONE] Killed $($zombies.Count) zombie proc(s). Preserved: $livePidLabel" -ForegroundColor Green
+exit 0
+
+
+# ============================================================================
+# CONSOLIDATION (#3323, 2026-08-31): absorbed modes from
+#   - scripts/diagnostic/cleanup-mcp-orphans.ps1       (WMI parent-chain, #1281)
+#   - scripts/maintenance/cleanup-mcp-stdio-zombies.ps1 (stdio npx, #2675)
+# ============================================================================
+
+function Invoke-ParentChainMode {
+    # Absorbed from scripts/diagnostic/cleanup-mcp-orphans.ps1 (#1281)
+    # Strategy: WMI single-fetch → in-memory parent chain walk → kill MCP procs with NO Claude ancestor
+    # AND older than MinAgeHours.
+
+    Write-Host "`n=== [Mode: ParentChain] WMI parent-chain cleanup (#1281, absorbed) ===" -ForegroundColor Cyan
+    Write-Host "Minimum age: $MinAgeHours h | Execute: $Execute | VerboseOutput: $false`n" -ForegroundColor Gray
+
+    $McpPatterns = @(
+        'mcp-searxng\dist\index.js'
+        'roo-state-manager\build\index.js'
+        'roo-state-manager\mcp-wrapper.cjs'
+        '@playwright\mcp\cli.js'
+        'win-cli\server\dist\index.js'
+        'mcp-searxng'             # npx wrapper
+        '@playwright/mcp'         # npx wrapper
+    )
+
+    $ClaudePatterns = @('claude', 'Code.exe', 'claud')
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $allProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
+    $sw.Stop()
+    if (-not $allProcs) {
+        Write-Host "WMI query failed — aborting ParentChain mode." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms ($($allProcs.Count) processes)" -ForegroundColor DarkGray
+
+    $procById = @{}
+    foreach ($p in $allProcs) { $procById[$p.ProcessId] = $p }
+
+    function Test-IsMcpServerLocal {
+        param([string]$CmdLine)
+        foreach ($pattern in $McpPatterns) {
+            if ($CmdLine -like "*$pattern*") { return $true }
+        }
+        return $false
+    }
+    function Test-IsClaudeProcessLocal {
+        param([string]$CmdLine, [string]$ProcessName)
+        if ($ProcessName -like '*Code*') { return $true }
+        foreach ($pattern in $ClaudePatterns) {
+            if ($CmdLine -like "*$pattern*") { return $true }
+        }
+        return $false
+    }
+
+    $allNodeProcs = @($allProcs | Where-Object { $_.Name -eq 'node.exe' })
+    $mcpProcs = @($allNodeProcs | Where-Object { Test-IsMcpServerLocal -CmdLine $_.CommandLine })
+    if ($mcpProcs.Count -eq 0) {
+        Write-Host "No MCP server processes found." -ForegroundColor Green
+        return
+    }
+
+    $claudeProcs = @($allProcs | Where-Object { Test-IsClaudeProcessLocal -CmdLine $_.CommandLine -ProcessName $_.Name })
+    $codeProcs = Get-Process -Name 'Code' -ErrorAction SilentlyContinue
+
+    $claudeAncestorPids = @{}
+    foreach ($cp in $claudeProcs) { $claudeAncestorPids[$cp.ProcessId] = $true }
+    foreach ($cp in $codeProcs) { $claudeAncestorPids[$cp.Id] = $true }
+
+    function Test-HasClaudeParentLocal {
+        param([int]$ProcessId)
+        $visited = @{}
+        $currentPid = $ProcessId
+        while ($currentPid -and $currentPid -ne 0 -and $currentPid -ne 4 -and -not $visited[$currentPid]) {
+            $visited[$currentPid] = $true
+            if ($claudeAncestorPids[$currentPid]) { return $true }
+            $proc = $procById[$currentPid]
+            if (-not $proc) { return $false }
+            if (Test-IsClaudeProcessLocal -CmdLine $proc.CommandLine -ProcessName $proc.Name) { return $true }
+            if ($proc.Name -eq 'Code.exe') { return $true }
+            $currentPid = $proc.ParentProcessId
+        }
+        return $false
+    }
+
+    $cutoffTime2 = (Get-Date).AddHours(-$MinAgeHours)
+    $orphans = @()
+    foreach ($mcp in $mcpProcs) {
+        if (-not (Test-HasClaudeParentLocal -ProcessId $mcp.ProcessId) -and $mcp.CreationDate -lt $cutoffTime2) {
+            $orphans += $mcp
+        }
+    }
+
+    if ($orphans.Count -eq 0) {
+        Write-Host "No orphaned MCP servers found." -ForegroundColor Green
+        return
+    }
+    Write-Host "ORPHANED MCP servers ($($orphans.Count)):" -ForegroundColor Red
+    foreach ($p in $orphans) {
+        $ageH = [math]::Round(((Get-Date) - $p.CreationDate).TotalHours, 1)
+        Write-Host ("  PID={0,-7} age={1,5}h  {2}" -f $p.ProcessId, $ageH, $p.CommandLine.Substring(0, [Math]::Min(80, $p.CommandLine.Length))) -ForegroundColor Yellow
+    }
+
+    if (-not $Execute) {
+        Write-Host "[DRY RUN] Would kill $($orphans.Count) orphan(s). Re-run with -Execute." -ForegroundColor Cyan
+        return
+    }
+
+    $killed = 0; $failed = 0
+    foreach ($p in $orphans) {
+        try {
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+            $killed++
+            Write-Host "  [KILLED] PID=$($p.ProcessId)" -ForegroundColor Magenta
+        } catch {
+            $failed++
+            Write-Host "  [ERROR] PID=$($p.ProcessId): $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    Write-Host "`n[ParentChain DONE] killed=$killed failed=$failed" -ForegroundColor $(if ($failed -eq 0) { 'Green' } else { 'Yellow' })
+}
+
+function Invoke-StdioMode {
+    # Absorbed from scripts/maintenance/cleanup-mcp-stdio-zombies.ps1 (#2675)
+    # Strategy: find node.exe/cmd.exe whose CommandLine matches npx OR mcp-, walk parent chain
+    # to check for live $CodeProcessName ancestor. Kill if no ancestor AND older than $OlderThanHours.
+
+    Write-Host "`n=== [Mode: Stdio] stdio MCP cleanup (#2675, absorbed) ===" -ForegroundColor Cyan
+    Write-Host "OlderThan: $OlderThanHours h | VS Code proc: $CodeProcessName | Execute: $Execute`n" -ForegroundColor Gray
+
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    $allProcs = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue
+    $sw.Stop()
+    if (-not $allProcs) {
+        Write-Host "WMI query failed — aborting Stdio mode." -ForegroundColor Yellow
+        return
+    }
+    Write-Host "WMI query: $($sw.ElapsedMilliseconds)ms ($($allProcs.Count) processes)" -ForegroundColor DarkGray
+
+    $procById = @{}
+    foreach ($p in $allProcs) { $procById[$p.ProcessId] = $p }
+
+    # Pre-compute set of CodeProcessName PIDs
+    $codePids = @{}
+    foreach ($p in $allProcs) { if ($p.Name -eq $CodeProcessName) { $codePids[$p.ProcessId] = $true } }
+
+    function Test-HasCodeAncestor {
+        param([int]$ProcessId)
+        $visited = @{}
+        $currentPid = $ProcessId
+        while ($currentPid -and $currentPid -ne 0 -and $currentPid -ne 4 -and -not $visited[$currentPid]) {
+            $visited[$currentPid] = $true
+            if ($codePids[$currentPid]) { return $true }
+            $proc = $procById[$currentPid]
+            if (-not $proc) { return $false }
+            $currentPid = $proc.ParentProcessId
+        }
+        return $false
+    }
+
+    $cutoffTime3 = (Get-Date).AddHours(-$OlderThanHours)
+    $candidates = @()
+    foreach ($p in $allProcs) {
+        if ($p.Name -ne 'node.exe' -and $p.Name -ne 'cmd.exe') { continue }
+        if ($p.CreationDate -ge $cutoffTime3) { continue }
+        $cmd = $p.CommandLine
+        if ($cmd -notmatch 'npx' -and $cmd -notmatch 'mcp-') { continue }
+        if (-not (Test-HasCodeAncestor -ProcessId $p.ProcessId)) {
+            $candidates += $p
+        }
+    }
+
+    if ($candidates.Count -eq 0) {
+        Write-Host "No stdio MCP zombie candidates found." -ForegroundColor Green
+        return
+    }
+    Write-Host "STDIO MCP zombie candidates ($($candidates.Count)):" -ForegroundColor Red
+    foreach ($p in $candidates) {
+        $ageH = [math]::Round(((Get-Date) - $p.CreationDate).TotalHours, 1)
+        Write-Host ("  PID={0,-7} age={1,5}h  {2}" -f $p.ProcessId, $ageH, $p.CommandLine.Substring(0, [Math]::Min(80, $p.CommandLine.Length))) -ForegroundColor Yellow
+    }
+
+    if (-not $Execute) {
+        Write-Host "[DRY RUN] Would kill $($candidates.Count) stdio zombie(s). Re-run with -Execute." -ForegroundColor Cyan
+        return
+    }
+
+    $killed = 0; $failed = 0
+    foreach ($p in $candidates) {
+        try {
+            Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+            $killed++
+            Write-Host "  [KILLED] PID=$($p.ProcessId)" -ForegroundColor Magenta
+        } catch {
+            $failed++
+            Write-Host "  [ERROR] PID=$($p.ProcessId): $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+    Write-Host "`n[Stdio DONE] killed=$killed failed=$failed" -ForegroundColor $(if ($failed -eq 0) { 'Green' } else { 'Yellow' })
+}
+
+# --- Mode dispatch (only reached if -Mode != Cluster, since Cluster exits above) ----
+switch ($Mode) {
+    'ParentChain' { Invoke-ParentChainMode }
+    'Stdio'       { Invoke-StdioMode }
+    default       { Write-Host "[REFUSE] Unknown mode: $Mode" -ForegroundColor Red; exit 2 }
+}
 exit 0
