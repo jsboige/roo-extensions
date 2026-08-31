@@ -129,7 +129,7 @@ The scheduled coordinator MUST read and write the local INTERCOM file (`.claude/
 **Script:** `scripts/scheduling/start-claude-coordinator.ps1`
 **Setup:** `scripts/scheduling/setup-scheduler.ps1 -Action install -TaskType coordinator`
 **Task name:** `Claude-Coordinator`
-**Default:** 8h interval, opus model, 30min timeout
+**Default:** 12h interval, sonnet model, 120min timeout (alignés sur `setup-scheduler.ps1` TaskConfigs.coordinator ; zero-scheduled-opus policy 2026-05-25)
 
 ```powershell
 # Install

@@ -60,9 +60,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 3. **Installer et configurer les MCPs :**
     ```powershell
     # Installation des MCPs internes
-    cd mcps/internal
-    npm install
-    npm run build
+    cd mcps/internal/servers/roo-state-manager && npm install && npm run build
     # Submodule: mcps/internal pointe vers jsboige-mcp-servers
     ```
 
@@ -270,7 +268,7 @@ Copy-Item roo-config/modes/generated/simple-complex.roomodes .roomodes
 ./roo-config/scheduler/scripts/install/deploy-scheduler.ps1 -Action deploy
 
 # 4. Installer MCPs internes
-cd mcps/internal && npm install && npm run build
+cd mcps/internal/servers/roo-state-manager && npm install && npm run build
 
 # 5. Redémarrer VS Code
 ```
