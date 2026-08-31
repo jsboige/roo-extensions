@@ -144,7 +144,7 @@ Agent(
   subagent_type="config-auditor",
   prompt="Auditer la configuration MCP sur cette machine.
           Verifier: win-cli fork local, roo-state-manager present avec 15 outils,
-          pas de MCPs obsoletes (desktop-commander, github-projects-mcp).
+          pas de MCPs obsoletes (liste canonique : .claude/rules/tool-availability.md, section Retires).
           Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO)."
 )
 ```
@@ -153,7 +153,7 @@ Agent(
 
 Le config-auditor verifie :
 - **Config MCP (mcp_settings.json)** : win-cli fork local, roo-state-manager present, alwaysAllow coherence
-- **MCPs obsolètes** : desktop-commander, github-projects-mcp ne doivent pas être présents
+- **MCPs obsolètes** : aucun MCP de la section Retires de `.claude/rules/tool-availability.md` ne doit être présent
 - **Modes Roo (.roomodes)** : Nombre de modes attendus, profils valides, groups=[]
 - **Scheduler (.roo/schedules.json)** : Intervalle 180min, staggering correct
 - **Config RooSync** : Variables d'environnement EMBEDDING_*, QDRANT_*, ROOSYNC_*
