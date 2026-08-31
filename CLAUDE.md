@@ -65,7 +65,11 @@ Multi-agent coordonnant **Roo Code** (technique, scheduler) et **Claude Code** (
 ## Agents, Skills & Commands
 
 **20 subagents** + **11 skills** + **5 commands** (`/coordinate`, `/executor`, `/switch-provider`, `/debrief`, `/team`).
-**Detail :** `.claude/agents/` directory
+
+> **Règle de recompte (#3321)** : à chaque modification de cette ligne, recompter firsthand
+> (`find .claude/agents -name '*.md' | wc -l`, `find .claude/skills -name 'SKILL.md' | wc -l`,
+> `ls .claude/commands/*.md | wc -l`) — ne JAMAIS propager un compte non vérifié.
+> **Detail :** `.claude/agents/` directory
 
 ---
 
