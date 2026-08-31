@@ -109,7 +109,7 @@ Reutilisable: [Oui/Non]
 ### Phase 3 : Documentation Mémoire
 
 **Cibles :**
-1. **Mémoire Auto** (`.claude/memory/MEMORY.md`)
+1. **Mémoire Auto** (`~/.claude/projects/<hash>/memory/MEMORY.md`, par machine)
    - Patterns confirmés multi-sessions
    - Configurations critiques
    - Procédures récurrentes

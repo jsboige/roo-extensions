@@ -38,7 +38,7 @@ Analyse la session de travail courante, documente les leçons apprées, et prép
 - Extrait métriques (tests, commits, temps)
 
 ### 2. Documentation Leçons
-- Met à jour `.claude/memory/MEMORY.md` (patterns généraux)
+- Met à jour `~/.claude/projects/<hash>/memory/MEMORY.md` (patterns généraux, par machine)
 - Met à jour `.claude/memory/PROJECT_MEMORY.md` (leçons projet)
 - Évite duplication avec contenu existant
 
@@ -74,7 +74,7 @@ Analyse la session de travail courante, documente les leçons apprées, et prép
 5. Envoyer rapport coordinateur dans 5min après reconnexion
 
 ## 📁 Documentation
-- `.claude/memory/MEMORY.md` (ajout section MCP Setup)
+- `~/.claude/projects/<hash>/memory/MEMORY.md` (ajout section MCP Setup)
 - `.claude/memory/PROJECT_MEMORY.md` (leçon coordinator escalation)
 - `.claude/local/INTERCOM-myia-po-2023.md` (résumé session)
 
