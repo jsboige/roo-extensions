@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Patches Roo Scheduler extension for Zoo-Code compatibility.
 .DESCRIPTION

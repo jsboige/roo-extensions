@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Script de validation post-activation UTF-8 pour Windows 11 Pro français
 .DESCRIPTION

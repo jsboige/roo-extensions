@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Phase 2 : re-register MCP-Proxy-RSM with LogonType=Password + AtStartup trigger.
 

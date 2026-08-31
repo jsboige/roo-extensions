@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Vibe worker: execute un tick Mistral Vibe (pas de cron dans son harnais — la cadence est portee par schtask).
 

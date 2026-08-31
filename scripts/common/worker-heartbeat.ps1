@@ -1,4 +1,4 @@
-# ============================================================================
+﻿# ============================================================================
 # Worker Heartbeat (fichier de vie — même pattern que listener-heartbeats)
 # Module partagé : dot-sourcé par start-claude-worker.ps1 et start-vibe-worker.ps1
 # (#3207 : « le correctif gagne à être posé une fois dans une fonction partagée

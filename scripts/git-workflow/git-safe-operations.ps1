@@ -1,4 +1,4 @@
-# Script de sécurité Git pour éviter les push --force accidentels
+﻿# Script de sécurité Git pour éviter les push --force accidentels
 # Auteur: Roo Debug Agent
 # Date: 25/09/2025
 

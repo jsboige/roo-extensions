@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Watchdog E2E pour le chain MCP roo-state-manager (bot NanoClaw → mcp-tools.myia.io → TBXark → sparfenyuk).
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install or uninstall the GDriveFS-Watchdog scheduled task (#2875).
 

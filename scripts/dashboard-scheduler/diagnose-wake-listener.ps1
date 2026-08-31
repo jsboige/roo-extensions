@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Read-only, non-elevated diagnostic for the Claude-DashboardListener wake mechanism (#2431).
 

@@ -1,4 +1,4 @@
-# Worktree Cleanup Protocol
+﻿# Worktree Cleanup Protocol
 # Description: Automated cleanup of orphan worktrees, stale local branches, and dead remote branches
 # Author: Claude Code (myia-po-2025)
 # Issue: #856, #1076, #2772 (submodule deletion guard)

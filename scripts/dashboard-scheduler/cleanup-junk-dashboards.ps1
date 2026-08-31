@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cleanup junk/orphan workspace dashboards from GDrive shared state.
 

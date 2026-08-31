@@ -1,4 +1,4 @@
-# Branch Protection Setup for roo-extensions (Issue #958)
+﻿# Branch Protection Setup for roo-extensions (Issue #958)
 # This script configures GitHub branch protection for the main branch
 # Implements Option E: Hybrid CI + sk-agent review (no native GitHub approvals)
 

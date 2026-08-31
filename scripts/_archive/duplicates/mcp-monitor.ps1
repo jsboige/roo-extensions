@@ -1,4 +1,4 @@
-# MCP MONITORING SCRIPT
+﻿# MCP MONITORING SCRIPT
 # 
 # Script PowerShell pour valider l'état des MCPs et détecter les divergences
 # Auteur: Roo Code Assistant

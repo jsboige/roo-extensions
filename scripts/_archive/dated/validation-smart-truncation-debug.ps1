@@ -1,4 +1,4 @@
-#!/usr/bin/env powershell
+﻿#!/usr/bin/env powershell
 # DIAGNOSTIC SMART TRUNCATION - Phase 2 Validation SDDD
 # Validation des hypothèses sur les tests 300K et configuration Jest
 

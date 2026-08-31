@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Diagnose and fix ripgrep binary for VS Code extensions (Roo Code / Zoo Code).
 

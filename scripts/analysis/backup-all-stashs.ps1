@@ -1,4 +1,4 @@
-# Script de backup de tous les stashs en .patch
+﻿# Script de backup de tous les stashs en .patch
 # Crée un fichier .patch pour chaque stash pour archivage sécurisé
 
 $backupDir = "docs/git/stash-backups"

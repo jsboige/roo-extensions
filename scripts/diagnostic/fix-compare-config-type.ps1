@@ -1,4 +1,4 @@
-# Script de correction du type implicite dans compare-config.ts
+﻿# Script de correction du type implicite dans compare-config.ts
 # Ajoute le type DetectedDifference au paramètre diff
 
 $compareConfigPath = "mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts"

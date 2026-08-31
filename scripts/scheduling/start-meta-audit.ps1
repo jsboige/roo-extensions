@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Lance un audit meta-analyse via Claude Code (Tier Meta-Analyst de l'architecture 3x2)
 

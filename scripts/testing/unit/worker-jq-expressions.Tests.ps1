@@ -1,4 +1,4 @@
-# Tests unitaires pour les expressions jq du worker script
+﻿# Tests unitaires pour les expressions jq du worker script
 # Valide que les expressions jq utilisées par start-claude-worker.ps1 fonctionnent
 # correctement (parsing dispatch/claim des commentaires d'issue).
 #

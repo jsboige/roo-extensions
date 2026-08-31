@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install/remove/list/test la schtask du worker Vibe (#3202).
 

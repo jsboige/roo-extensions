@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Rolls back Zoo Scheduler to original Roo Scheduler.
 .DESCRIPTION

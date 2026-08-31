@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Valide les inventaires RooSync de toutes les machines
 

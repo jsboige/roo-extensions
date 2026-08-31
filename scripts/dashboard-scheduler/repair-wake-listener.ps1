@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Auto-repair for dead Claude-DashboardListener (issue #2576, #2431, #2503).
 

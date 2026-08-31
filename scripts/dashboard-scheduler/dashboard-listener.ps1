@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Event-driven dashboard listener using FileSystemWatcher (#2004, Epic #1997).
 

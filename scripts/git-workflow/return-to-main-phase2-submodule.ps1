@@ -1,4 +1,4 @@
-# PHASE 2: Opération sous-module - Retour sur main sécurisé
+﻿# PHASE 2: Opération sous-module - Retour sur main sécurisé
 # Stratégie SDDD - Merge Safe pour préserver l'historique
 
 param(

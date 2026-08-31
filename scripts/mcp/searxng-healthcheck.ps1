@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Health-check SearXNG pour le MCP searxng — appel REEL + classification par couches (#3264).
 

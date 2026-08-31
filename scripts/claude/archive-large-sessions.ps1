@@ -1,4 +1,4 @@
-# Archive Large Claude Code Sessions (#2577)
+﻿# Archive Large Claude Code Sessions (#2577)
 # Diagnostic + non-destructive archive for context explosion mitigation.
 #
 # SANCTUARY MANDATE (user 2026-06-19): Agent traces are NEVER deleted.

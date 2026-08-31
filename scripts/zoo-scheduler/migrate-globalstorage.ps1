@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Migrates globalStorage configs from Roo Code to Zoo Code.
 .DESCRIPTION

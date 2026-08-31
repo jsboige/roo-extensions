@@ -1,4 +1,4 @@
-# review-bot.ps1 - Automated PR review bot for #1767 Phase 2
+﻿# review-bot.ps1 - Automated PR review bot for #1767 Phase 2
 #
 # Non-interactive, cron-safe script that:
 # 1. Polls PRs authored by the coordinator (myia-ai-01)

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Script de standardisation des variables d'environnement UTF-8 pour Windows 11 Pro français
 .DESCRIPTION

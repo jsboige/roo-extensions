@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Script de validation des variables d'environnement standardisées UTF-8
 .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cleanup orphan local branches whose associated PR is merged/closed or has no PR.
 

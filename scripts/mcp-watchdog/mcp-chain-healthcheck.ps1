@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Read-only healthcheck for the MCP chain (NanoClaw -> mcp-tools.myia.io -> TBXark -> sparfenyuk -> roo-state-manager).
 

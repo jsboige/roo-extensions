@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Cleanup orphaned MCP server node processes (#1281)
 .DESCRIPTION
