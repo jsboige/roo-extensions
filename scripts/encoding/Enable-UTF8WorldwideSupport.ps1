@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Active le support UTF-8 worldwide beta sur Windows 11 Pro français
 .DESCRIPTION

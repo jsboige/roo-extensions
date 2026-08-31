@@ -1,4 +1,4 @@
-# harmonize-win-cli-timeouts.ps1 — Verify and fix win-cli timeouts (#2333)
+﻿# harmonize-win-cli-timeouts.ps1 — Verify and fix win-cli timeouts (#2333)
 # Usage: ./harmonize-win-cli-timeouts.ps1 [-Minimum 600] [-Fix]
 [CmdletBinding(SupportsShouldProcess)]
 param(
