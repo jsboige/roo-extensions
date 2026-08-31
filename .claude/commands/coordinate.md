@@ -415,7 +415,7 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence Fleet-Wide (cron 4h, mandate user 2026-07-07)
+### Wakeup Cycle Cadence Fleet-Wide (cron 4h, mandates user 2026-08-15/17)
 
 **Cadence coordinateur ai-01 : 4h via `CronCreate`.** Supersede la 2h (#2203/2026-05-25) et la 6h. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 4h passe donc par cron.
 
