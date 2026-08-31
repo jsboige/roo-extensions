@@ -16,8 +16,8 @@
 
     What it does:
     1. Lists all `agent-*` worktrees registered via `git worktree list --porcelain`
-    2. For each, checks whether the locking PID is alive (`tasklist` on Windows,
-       `kill -0` on Unix)
+    2. For each, checks whether the locking PID is alive (`Get-Process` under
+       pwsh — works on Windows and Unix)
     3. Reports (default) or removes (with -Execute) the lock and prunes the entry
 
     Scope:
@@ -95,6 +95,17 @@ function Write-Log {
     }
 }
 
+# There is no `pid:` PowerShell provider — Test-Path cannot probe a PID
+# (review finding on #3349: `Test-Path "pid:<n>"` returns $false for every
+# PID, so the alive-branch was dead code). Get-Process works cross-platform
+# under pwsh.
+function Test-PidAlive {
+    param([string]$PidString)
+    $procId = 0
+    if (-not [int]::TryParse($PidString, [ref]$procId)) { return $false }
+    return [bool](Get-Process -Id $procId -ErrorAction SilentlyContinue)
+}
+
 # Enumerate worktrees
 Write-Log "=== Agent Orphan Worktree Cleanup (Issue #3345) ==="
 Write-Log "Repo: $RepoRoot"
@@ -162,7 +173,7 @@ foreach ($wt in $matched) {
         if ($wt.LockReason -match '\(pid (\d+)\)') {
             $lockPid = $Matches[1]
         }
-        if ($lockPid -and (Test-Path "pid:$lockPid" -ErrorAction SilentlyContinue)) {
+        if ($lockPid -and (Test-PidAlive $lockPid)) {
             $reason = "LOCKED but PID $lockPid is alive — leaving alone"
         } elseif ($lockPid) {
             $reason = "LOCKED, PID $lockPid is dead — orphan"
@@ -211,7 +222,7 @@ Write-Log "Total matched: $($matched.Count)"
 Write-Log "Detected orphans: $orphanCount"
 if (-not $Execute) {
     Write-Log ""
-    Write-Log "Re-run with -Execute to unlock + prune orphans." -ForegroundColor Yellow
+    Write-Log "Re-run with -Execute to unlock + prune orphans."
 }
 
 exit 0

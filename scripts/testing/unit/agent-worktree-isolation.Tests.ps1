@@ -156,6 +156,30 @@ Describe "Issue #3345 — Agent worktree isolation" {
             }
         }
 
+        It "-Execute leaves a locked worktree alone when the locking PID is alive" {
+            $repo = New-TempRepo
+            try {
+                $wtPath = Join-Path $repo ".claude/worktrees/agent-alive"
+                New-Item -ItemType Directory -Path (Split-Path $wtPath -Parent) -Force | Out-Null
+                # Lock with the PID of the Pester runner itself — guaranteed
+                # alive for the duration of this test (review finding on
+                # #3349: the previous Test-Path "pid:" check never returned
+                # true, so this safety branch was untested and dead).
+                git -C $repo worktree add --lock --reason "claude agent agent-alive (pid $PID)" $wtPath feature/test 2>&1 | Out-Null
+
+                $output = pwsh -NoProfile -File $script:cleanupScript -RepoRoot $repo -Execute 2>&1 | Out-String
+                $output | Should -Match "is alive"
+                $output | Should -Match "leaving alone"
+
+                # The worktree must STILL be locked — the script must not
+                # unlock an in-flight agent's worktree even with -Execute.
+                $porcelain = git -C $repo worktree list --porcelain -z 2>&1 | Out-String
+                $porcelain | Should -Match "locked"
+            } finally {
+                Remove-TempRepo -Path $repo
+            }
+        }
+
         It "ignores non-agent worktrees by default pattern" {
             $repo = New-TempRepo
             try {
@@ -197,9 +221,14 @@ Describe "Issue #3345 — Agent worktree isolation" {
             # fix the upstream bug locally. The error message `Refusing to use
             # ... as an isolation worktree` must NOT appear in this repo's
             # production source. (The test file itself mentions it for context;
-            # we exclude it from the scan.)
+            # we exclude it from the scan. Investigation docs under
+            # docs/harness/investigations/ quote the upstream message as
+            # narrative evidence — they are artefacts, not production source.)
             $hits = Get-ChildItem -Path $script:projectRoot -Recurse -File -Include '*.ts','*.ps1','*.js','*.sh','*.md' |
-                Where-Object { $_.FullName -ne $PSCommandPath } |
+                Where-Object {
+                    $_.FullName -ne $PSCommandPath -and
+                    $_.FullName -notmatch '[\\/]docs[\\/]harness[\\/]investigations[\\/]'
+                } |
                 Select-String -Pattern "Refusing to use" -List |
                 Measure-Object
             $hits.Count | Should -Be 0
