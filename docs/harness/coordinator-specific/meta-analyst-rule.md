@@ -2,8 +2,8 @@
 
 > **Note relocalisation (2026-05-19)** : Ce document définit le comportement du meta-analyste Claude. Il n'est PLUS auto-chargé comme rule (déplacé hors de `.claude/rules/` pour réduire le footprint contexte des autres agents). Loaded désormais par `scripts/scheduling/start-meta-audit.ps1` au lancement de l'agent scheduled (contenu déjà inliné dans le prompt). Workflow détaillé : [`./meta-analyst-detailed.md`](./meta-analyst-detailed.md).
 
-**Version:** 1.7.0 (proactive redirection post user mandate #1285 — meta-analyste se consacre à autre chose, demandé plein de fois)
-**Issues :** #1375, #1455, #1527, #1584, #1621, #1818, #1608, #2079, #2080, #2081, #2083, #1285
+**Version:** 1.8.0 (catégorie 8 archives RooSync + devoir d'issue par verdict, #3347)
+**Issues :** #1375, #1455, #1527, #1584, #1621, #1818, #1608, #2079, #2080, #2081, #2083, #1285, #3347
 
 ---
 
@@ -39,7 +39,10 @@ mpengine crashes, vmmem freezes, Docker cascade kills, MCP disconnects. Format :
 ### 7. Frictions agents (`[FRICTION]` dashboard, `has_errors: true` traces)
 `roosync_search(has_errors: true)` + dashboard FRICTION tags. Format : pattern d'erreur + nombre occurrences + machines affectées.
 
-**Si aucune de ces 7 catégories ne te donne de matière en un cycle, RAPPORTE "rien à signaler" sur le dashboard. Ne te rabats PAS sur les patterns HARD REJECT (ci-dessous).**
+### 8. Archives RooSync (dashboards + messages, fenêtre 7 jours)
+Dashboards archivés (`dashboards/archive/workspace-*-YYYY-MM-DDTHH-MM-SS.md`, priorité aux `*-fallback.md` — sans résumé LLM, l'archive brute est la seule copie) et messages inter-machines (`messages/inbox/`, `messages/archive/`, fichiers `msg-YYYYMMDDTHHMMSS-*`). Filtrer par l'horodatage DU NOM DE FICHIER ≥ J-7 — jamais de scan récursif complet (~6700 dashboards, ~60000 messages). Max 10 fichiers lus/cycle. Chercher : `[ERROR]`/`[BLOCKED]`/`[ASK]` restés sans réponse, incidents non trackés en issue, escalations sans suite. Format : fichier + horodatage + machines + pourquoi personne ne l'a traité.
+
+**Si aucune de ces 8 catégories ne te donne de matière en un cycle, RAPPORTE "rien à signaler" sur le dashboard. Ne te rabats PAS sur les patterns HARD REJECT (ci-dessous).**
 
 ## SUJET D'ANALYSE — Le contenu des taches, pas le contenu du harnais
 
@@ -51,6 +54,7 @@ mpengine crashes, vmmem freezes, Docker cascade kills, MCP disconnects. Format :
 - Activite GitHub : issues fermees recemment, PRs avec leur diff, commits
 - Metriques runtime : Qdrant, MCP availability, scheduler success rates
 - Interventions utilisateur observees dans les traces (BLOCAGE/CORRECTION/STOP)
+- Archives RooSync (dashboards + messages, fenêtre 7 jours — cf. catégorie 8)
 
 **Matiere premiere INTERDITE comme entree principale :**
 - `.claude/rules/*.md`, `.roo/rules/*.md`, `.roo/scheduler-workflow-*.md`
@@ -63,7 +67,7 @@ Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur
 
 **AVANT toute issue, demande-toi :** *"Suis-je en train de comparer 2 fichiers de regles entre eux ?"*
 
-**Si OUI** → **STOP IMMÉDIATEMENT** et pivote vers l'une des 7 analyses productives ci-dessus. Ne crée PAS l'issue. Si après pivot tu n'as toujours rien, rapporte "rien à signaler".
+**Si OUI** → **STOP IMMÉDIATEMENT** et pivote vers l'une des 8 analyses productives ci-dessus. Ne crée PAS l'issue. Si après pivot tu n'as toujours rien, rapporte "rien à signaler".
 
 **Si NON** → continue, mais valide les 3 questions ci-dessous.
 
@@ -75,7 +79,7 @@ Lecture de regles harness AUTORISEE *uniquement* dans le cadre d'une enquete sur
 
 ## HARD REJECT — Patterns interdits (rejet immédiat)
 
-Ces sujets sont interdits **même si l'analyse les détecte**. Si ton instinct te pousse vers l'un de ces patterns, c'est un signal que tu dois pivoter vers les 7 analyses productives ci-dessus.
+Ces sujets sont interdits **même si l'analyse les détecte**. Si ton instinct te pousse vers l'un de ces patterns, c'est un signal que tu dois pivoter vers les 8 analyses productives ci-dessus.
 
 | Pattern interdit | Pourquoi |
 |---|---|
