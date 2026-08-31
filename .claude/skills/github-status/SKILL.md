@@ -154,7 +154,7 @@ gh issue close <numero> --repo jsboige/roo-extensions
 
 ## Regles
 
-- Utiliser TOUJOURS `gh` CLI (le MCP github-projects-mcp est RETIRE — cf. `.claude/rules/tool-availability.md`)
+- Utiliser TOUJOURS `gh` CLI (les MCP GitHub sont RETIRES — liste canonique : `.claude/rules/tool-availability.md`, section Retires)
 - Ne creer de nouvelles issues qu'apres validation utilisateur
 - Retourner un rapport condense
 - Utiliser les heredocs pour les bodies multilignes (eviter problemes d'echappement)
