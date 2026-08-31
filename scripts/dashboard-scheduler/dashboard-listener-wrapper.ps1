@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Wrapper for dashboard-listener.ps1 with file logging (Task Scheduler swallows stdout).
 

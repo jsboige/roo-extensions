@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Migrate settings from Roo Code to Zoo Code (state.vscdb + mcp_settings.json + secrets).
 

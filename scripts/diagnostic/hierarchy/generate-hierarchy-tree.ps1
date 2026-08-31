@@ -1,4 +1,4 @@
-# Génération Arbre Hiérarchique ASCII - Post Phase 3D
+﻿# Génération Arbre Hiérarchique ASCII - Post Phase 3D
 $ErrorActionPreference = "Stop"
 
 Write-Host "=== GÉNÉRATION ARBRE HIÉRARCHIQUE ASCII ===" -ForegroundColor Cyan

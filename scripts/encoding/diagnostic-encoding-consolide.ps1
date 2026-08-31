@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # ==============================================================================
 # Script: diagnostic-encoding-consolide.ps1
 # Description: Diagnostic consolidé et optimisé de l'encodage UTF-8

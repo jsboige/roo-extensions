@@ -1,4 +1,4 @@
-# Script d'analyse rapide des stashs autosave
+﻿# Script d'analyse rapide des stashs autosave
 # Génère un rapport structuré pour décision de recyclage
 
 $repo = "d:/roo-extensions"

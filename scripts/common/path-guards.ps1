@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Shared path-safety guards for recursive deletion in cleanup automation.
 .DESCRIPTION

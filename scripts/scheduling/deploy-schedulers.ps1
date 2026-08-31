@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Déploie les tâches Windows Task Scheduler pour Claude Worker sur toutes les machines exécutrices.
 

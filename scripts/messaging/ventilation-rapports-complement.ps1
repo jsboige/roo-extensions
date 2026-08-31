@@ -1,4 +1,4 @@
-# Script complémentaire de ventilation des rapports restants
+﻿# Script complémentaire de ventilation des rapports restants
 # Date: 2025-12-10
 # Mission: Finaliser la ventilation des rapports dans docs/suivi/
 

@@ -1,4 +1,4 @@
-# Counter-evidence: prove the fix changes the verdict.
+﻿# Counter-evidence: prove the fix changes the verdict.
 # Simulates the post-run check (line ~430 of start-meta-audit.ps1) on the test directory
 # `counter-evidence-data/` next to this script. Two concurrent JSONLs:
 #  - "wrong-session-*.jsonl"  : older, contains the marker, 5 RSM hits (the decoy)

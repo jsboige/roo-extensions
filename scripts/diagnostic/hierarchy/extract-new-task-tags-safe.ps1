@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Extraction sécurisée des balises <new_task> d'une tâche parent avec streaming
 

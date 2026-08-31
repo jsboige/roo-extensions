@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Watchdog for GoogleDriveFS.exe (silent-exit #2875 + hung-process #2933 + cooldown C2).
 

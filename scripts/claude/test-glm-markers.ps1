@@ -1,4 +1,4 @@
-# GLM-5.1 Marker-Based Context Truncation Test
+﻿# GLM-5.1 Marker-Based Context Truncation Test
 # Places 18 unique markers at ~10K token intervals across ~180K tokens
 # Then asks the model to report all markers found — detecting silent truncation
 

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Génère le rapport final de déploiement pour la Phase 1 des corrections d'encodage.
 

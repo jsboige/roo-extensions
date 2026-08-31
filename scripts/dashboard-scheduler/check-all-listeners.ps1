@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Fleet-wide health check: diagnose wake-listeners on all known machines (#2576).
 

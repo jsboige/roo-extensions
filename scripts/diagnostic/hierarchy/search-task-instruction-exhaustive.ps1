@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Recherche exhaustive d'une chaîne d'instruction dans toutes les tâches Roo
 .DESCRIPTION

@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Script de réparation consolidé pour les problèmes d'encodage UTF-8

@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # ==============================================================================
 # Script: test-emoji-fix-validation.ps1
 # Description: Test de validation des corrections d'emojis dans les scripts PowerShell

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Harness #3277 : single-instance + lock atomique + tentative bornée du lane Vibe.
 .DESCRIPTION

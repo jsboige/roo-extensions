@@ -1,4 +1,4 @@
-param()
+﻿param()
 
 $ErrorActionPreference = 'Stop'
 $scriptPath = Join-Path $PSScriptRoot 'gdrivefs-watchdog.ps1'

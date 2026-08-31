@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Bascule entre différentes configurations MCP pour debugger les doublons d'outils
 

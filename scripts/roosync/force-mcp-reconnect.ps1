@@ -1,4 +1,4 @@
-# Script pour forcer la reconnexion du serveur MCP roo-state-manager
+﻿# Script pour forcer la reconnexion du serveur MCP roo-state-manager
 # Auteur: Roo AI
 # Date: 2025-10-17
 

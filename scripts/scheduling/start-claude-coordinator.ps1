@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Lance le coordinateur schedule via Claude Code (Tier Coordinator de l'architecture 3x2)
 

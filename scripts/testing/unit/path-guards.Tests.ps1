@@ -1,4 +1,4 @@
-# Tests unitaires pour les guards de suppression (#2772 couche 3b)
+﻿# Tests unitaires pour les guards de suppression (#2772 couche 3b)
 # Module: scripts/common/path-guards.ps1
 # Guard: les cleaners refusent tout `Remove-Item -Recurse -Force` dont la cible
 # résout dans (ou contient) un working tree de submodule, ou échappe au conteneur

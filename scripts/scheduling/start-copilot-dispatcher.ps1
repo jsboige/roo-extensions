@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Copilot scheduler worker (Phase C fallback via gh copilot -p).
 

@@ -1,4 +1,4 @@
-# Script de ventilation des rapports selon la structure SDDD
+﻿# Script de ventilation des rapports selon la structure SDDD
 # Date: 2025-12-10
 # Mission: Réorganisation des rapports dans docs/suivi/
 

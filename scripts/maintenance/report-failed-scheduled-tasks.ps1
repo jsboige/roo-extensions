@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Report scheduled tasks whose last run actually failed, with the benign
     result codes filtered out.

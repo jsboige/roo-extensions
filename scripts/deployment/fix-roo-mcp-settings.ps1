@@ -1,4 +1,4 @@
-# Script pour corriger la configuration MCP dans Roo Code
+﻿# Script pour corriger la configuration MCP dans Roo Code
 # Corrige les variables %ROO_ROOT% non résolues et active win-cli
 
 param(

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Watchdog for Hermes mcp-remote bridge — auto-restart on ClosedResourceError (#2014).
 

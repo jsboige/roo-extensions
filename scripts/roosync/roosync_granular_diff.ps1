@@ -1,4 +1,4 @@
-# Script PowerShell autonome pour le diff granulaire
+﻿# Script PowerShell autonome pour le diff granulaire
 # Phase 3B - Implémentation du diff granulaire
 
 param(

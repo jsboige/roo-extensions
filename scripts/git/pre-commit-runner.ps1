@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 # scripts/git/pre-commit-runner.ps1
 # Pre-commit validation runner - minimal version

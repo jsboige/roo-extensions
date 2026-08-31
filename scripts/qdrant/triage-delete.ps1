@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Phase 3 — Execute Qdrant point deletion for triage audit (#1987).
 

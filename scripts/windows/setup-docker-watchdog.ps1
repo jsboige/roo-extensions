@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Setup script for Docker/WSL Watchdog scheduled task
 .DESCRIPTION

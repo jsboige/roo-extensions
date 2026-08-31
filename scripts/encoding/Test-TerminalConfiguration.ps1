@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Valide la configuration des terminaux (Windows Terminal et VSCode) pour le support UTF-8.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install Qdrant-Snapshot-Daily Windows Task Scheduler entry.
 

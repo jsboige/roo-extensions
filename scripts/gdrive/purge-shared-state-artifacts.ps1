@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Purge accumulated artifacts from GDrive .shared-state/ (#2121 Phase 2)
 .DESCRIPTION

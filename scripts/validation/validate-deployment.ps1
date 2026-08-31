@@ -1,4 +1,4 @@
-# Script de validation post-déploiement - Correction d'encodage UTF-8
+﻿# Script de validation post-déploiement - Correction d'encodage UTF-8
 # Version: 1.0
 # Date: 26/05/2025
 

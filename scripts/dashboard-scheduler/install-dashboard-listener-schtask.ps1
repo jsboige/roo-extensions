@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install or uninstall Claude-DashboardListener scheduled task (#2004).
 

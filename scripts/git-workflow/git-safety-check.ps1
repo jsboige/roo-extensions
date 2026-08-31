@@ -1,4 +1,4 @@
-# Script de Sécurité Git - Prévention des Catastrophes
+﻿# Script de Sécurité Git - Prévention des Catastrophes
 # Auteur: Agent Debug - Système de Réparation d'Urgence
 # Date: 2025-11-03
 # Version: 1.0

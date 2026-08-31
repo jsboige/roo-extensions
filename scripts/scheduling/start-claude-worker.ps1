@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Démarre un worker Claude Code avec mode automatique et escalade
 

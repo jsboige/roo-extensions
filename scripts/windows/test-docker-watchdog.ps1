@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Test script for Docker/WSL Watchdog
 .DESCRIPTION

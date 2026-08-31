@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install Postgres-Dump-Daily Windows Task Scheduler entry.
 

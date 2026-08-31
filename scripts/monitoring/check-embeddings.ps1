@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Monitor embeddings endpoint health and alert on failure.
 

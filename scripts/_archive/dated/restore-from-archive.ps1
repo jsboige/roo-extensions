@@ -1,4 +1,4 @@
-# Script pour restaurer les fichiers depuis l'archive vers leurs emplacements d'origine
+﻿# Script pour restaurer les fichiers depuis l'archive vers leurs emplacements d'origine
 $ErrorActionPreference = "Stop"
 
 function Write-Log {

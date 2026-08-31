@@ -1,4 +1,4 @@
-# Script de test pour valider la correction BOM UTF-8 (Bug #302)
+﻿# Script de test pour valider la correction BOM UTF-8 (Bug #302)
 # Date: 2026-01-14
 # Objectif: Tester que BaselineLoader peut lire les fichiers JSON avec BOM UTF-8
 

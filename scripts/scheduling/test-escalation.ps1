@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Test script for Claude Worker escalation (model-based)
     Validates that escalation correctly switches model: haiku -> sonnet (capped)

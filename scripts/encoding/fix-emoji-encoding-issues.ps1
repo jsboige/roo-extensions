@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 # ==============================================================================
 # Script: fix-emoji-encoding-issues.ps1
 # Description: Correction automatique des problemes d'encodage d'emojis dans les scripts PowerShell

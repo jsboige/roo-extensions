@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Test script for Docker auto-start scheduled task (#1171 Phase 1)
 .DESCRIPTION

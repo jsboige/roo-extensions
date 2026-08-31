@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Configure Windows Task Scheduler for Claude Code automated tasks.
 

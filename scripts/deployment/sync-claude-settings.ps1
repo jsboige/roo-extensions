@@ -1,4 +1,4 @@
-# sync-claude-settings.ps1 — Harmonisation flotte ~/.claude/settings.json (reference po-2023)
+﻿# sync-claude-settings.ps1 — Harmonisation flotte ~/.claude/settings.json (reference po-2023)
 # Mandat user 21-22/08/2026 : diffuser la structure de reference du settings.json du hub.
 # 23/08 v2 : modele custom -> gpt-5.6-sol (onboarding OpenAI Pro, credits Codex).
 # 23/08 v2.2 : fenetre de compaction = SEULEMENT-SI-ABSENT (miroir garde #3215, WARN ai-01 15:05Z) —

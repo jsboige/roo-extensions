@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Deploys Zoo Scheduler VSIX, replacing the original Roo Scheduler.
 .DESCRIPTION

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Spawn Claude Code (claude -p) with a triggering [WAKE-CLAUDE] message.
 

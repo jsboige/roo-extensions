@@ -1,4 +1,4 @@
-# Tests unitaires pour le fix #2834 — reset du worktree réutilisé sur run maintenance
+﻿# Tests unitaires pour le fix #2834 — reset du worktree réutilisé sur run maintenance
 # Le worker réutilise un worktree persistant ; les runs maintenance (source="fallback")
 # accumulent du cruft (stray files, auto-commits, phantom M mcps/internal). Le fix reset
 # le worktree à origin/main au DÉBUT du run maintenance, MAIS préserve les work-tasks

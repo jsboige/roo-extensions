@@ -1,4 +1,4 @@
-# PR Review and Merge Script for Coordinator
+﻿# PR Review and Merge Script for Coordinator
 # Part of Issue #958 - Option E Implementation
 # Usage: .\scripts\github\pr-review-and-merge.ps1 -PrNumber <PR_NUMBER>
 #

@@ -1,4 +1,4 @@
-# Script pour corriger la configuration des providers dans les modes
+﻿# Script pour corriger la configuration des providers dans les modes
 # Corrige le champ "model" pour utiliser les bons providers:
 # - complex → "default" (Z.AI souscription, GLM-4.7)
 # - simple → "simple" (provider maison xx.myia.io, GLM-4.7 Flash)

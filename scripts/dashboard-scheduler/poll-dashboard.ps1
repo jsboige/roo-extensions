@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Multi-workspace dashboard watcher: gate that decides whether to spawn
     Claude Code in response to actionable messages on RooSync workspace
