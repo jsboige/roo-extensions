@@ -6,7 +6,7 @@
     Creates, lists, or removes Windows Task Scheduler tasks for the 3x2
     scheduling architecture. Supports 3 task types:
 
-    - worker:            Executor tier (6h, Haiku baseline, all machines)
+    - worker:            Executor tier (6h, Sonnet baseline, all machines)
     - coordinator:       Coordinator/merge tier (12h, Sonnet, ai-01 only)
     - meta-audit:        Meta-Analyst tier (72h, Sonnet baseline, all machines)
     - executor-cron:     Executor /executor cadence 4h (#3141 — substitution CronCreate session-only).
@@ -41,20 +41,20 @@
     auto-discovers every workspace under $ROOSYNC_SHARED_PATH/dashboards/workspace-*.md.
 
 .PARAMETER IntervalHours
-    Hours between runs (default depends on TaskType: worker=3, coordinator=8, meta-audit=24)
+    Hours between runs (default depends on TaskType: worker=6, coordinator=12, meta-audit=72)
 
 .PARAMETER Mode
     Claude mode to use (default: code-simple, only for worker)
 
 .PARAMETER Model
-    Claude model override (default depends on TaskType: worker=haiku, others=sonnet)
+    Claude model override (default depends on TaskType: all=sonnet)
     See issue #1027 for escalation mechanism details
 
 .PARAMETER MaxIterations
     Max iterations per run (default: 0 = use script defaults via Get-AdjustedIterations, only for worker)
 
 .PARAMETER TimeoutMinutes
-    Task Scheduler kill timeout in minutes (default: worker=15, coordinator=30, meta-audit=30)
+    Task Scheduler kill timeout in minutes (default: worker=120, coordinator=120, meta-audit=120)
 
 .PARAMETER DryRun
     Show what would be done without making changes
@@ -66,8 +66,8 @@
 .EXAMPLE
     .\setup-scheduler.ps1                                          # List current worker task
     .\setup-scheduler.ps1 -Action list -TaskType coordinator       # List coordinator task
-    .\setup-scheduler.ps1 -Action install                          # Install worker (6h, Haiku baseline)
-    .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (8h, Sonnet baseline, ai-01 only)
+    .\setup-scheduler.ps1 -Action install                          # Install worker (6h, Sonnet baseline)
+    .\setup-scheduler.ps1 -Action install -TaskType coordinator    # Install coordinator (12h, Sonnet baseline, ai-01 only)
     .\setup-scheduler.ps1 -Action install -TaskType meta-audit     # Install meta-audit (72h, Sonnet baseline)
     .\setup-scheduler.ps1 -Action install -TaskType executor-cron  # Install executor-cron (4h, Sonnet, #3141)
     .\setup-scheduler.ps1 -Action test -TaskType coordinator       # Test coordinator in DryRun
