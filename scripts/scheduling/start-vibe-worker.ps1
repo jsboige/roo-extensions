@@ -156,6 +156,35 @@ if ($DryRun) {
     exit 0
 }
 
+# ========== NO-OP GUARD (#3296) ==========
+# Un tick planifie sans [WAKE-VIBE] en attente est un NO-OP, pas un echec. La commande
+# harnais du profil CoursIA est `--wake`-only : le driver prend son prompt dans
+# VIBE_WAKE_PAYLOAD (vibe-acp-driver.py l.149) et sort en erreur sans lui. La schtask
+# tirant toutes les heures sans condition, ~105 des 121 ticks de 5 jours (86 %) etaient
+# des exit-1 structurels — assez de bruit ERROR pour noyer les vrais.
+#
+# On sort AVANT le lock : un tick qui ne fera rien n'a aucune raison de le prendre, et
+# rien a liberer (le `finally` de l'execution ne couvre pas ce point du script).
+# Le heartbeat, lui, est ecrit : sans lui le worker paraitrait mort entre deux WAKE,
+# qui sont rares. C'est la convention que ce fichier declare l.96.
+#
+# Deux absences distinctes, deux sorties — ne pas les confondre :
+#   * aucun -MessagePayloadFile passe  -> tick planifie, aucun dispatch n'existe -> exit 0.
+#   * -MessagePayloadFile passe mais illisible -> un dispatch A ete route et son payload
+#     manque : c'est une anomalie, elle doit rester bruyante. Ce cas ne passe donc PAS
+#     par cette garde et retombe sur le chemin d'erreur existant.
+# Un `--prompt`/`--prompt-file` explicite bat le payload cote driver (l.149) : une telle
+# commande fonctionne sans WAKE et ne doit pas etre sautee.
+$wakeOnly = ($HarnessCommand -match '(^|\s)--wake(\s|$)') -and
+            ($HarnessCommand -notmatch '(^|\s)--prompt(-file)?[\s=]')
+if ($wakeOnly -and
+    [string]::IsNullOrWhiteSpace($MessagePayloadFile) -and
+    [string]::IsNullOrWhiteSpace($env:VIBE_WAKE_PAYLOAD)) {
+    Write-Log "[SKIP] no WAKE payload pending - scheduled tick is a no-op (exit 0)."
+    Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
+    exit 0
+}
+
 # ========== ANTI-OVERLAP LOCK (#3277 fix 2 : création atomique, pas check-then-create) ==========
 # Incident 25/08 : deux invocations à la même seconde passaient TOUTES DEUX le check
 # Test-Path/Set-Content → 2 workers payés en parallèle (le logueur du vainqueur
