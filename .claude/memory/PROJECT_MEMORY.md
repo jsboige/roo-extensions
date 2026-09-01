@@ -31,6 +31,19 @@ Updated via git commits. Each agent should read this at session start.
 8. Update `alwaysAllow` in Roo mcp_settings.json (use `sync_always_allow` subAction)
 9. Restart VS Code (MCPs load at startup only)
 
+### Adding a Parameter to an Existing Tool — 3 Surfaces (+ derived paths)
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-01). Complement of the checklist above: that one covers new tools, this one the most common edit after.*
+
+Adding a param to a roo-state-manager tool is **never a one-file edit**:
+
+1. **Zod schema** (`*ArgsSchema` / tool args interface) — the obvious surface.
+2. **Static wire schema** in `src/tools/tool-definitions.ts` — the drift-guard (#3254) requires **exact key parity** with the zod schema. A zod field without its wire key = red CI.
+3. **Unit-test mocks with EXACT arity** — `toHaveBeenCalledWith` rejects a 7-arg call when the test expects 6, even if the 7th is `undefined`; and a mock object missing a method the code now calls = `TypeError` on **all** tests of the file, not just the new param's.
+
+**Plus propagation:** if the param changes a read path (e.g. a `deep` flag), every **derived** path must receive it too (e.g. `getFilteredCount` — otherwise derived counts come from the full pool while the listing serves the slice: visible inconsistency).
+
+**Why:** targeted tests green ≠ suite green — a first full-suite pass caught 12 regressions (11 mock-layer + 1 drift-guard) after 4 targeted tests passed. Always run the full CI suite (`npx vitest run --config vitest.config.ci.ts`) before concluding.
+
 ## Consolidation History (CONS) - All Done
 
 | CONS | Description | Before | After |
