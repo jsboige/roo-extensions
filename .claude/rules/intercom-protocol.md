@@ -33,6 +33,28 @@ Auto-condensation preemptive a 92% (~46 KB).
 
 L'action `condense` a ete **retiree du schema** — elle n'est plus disponible. L'auto-condensation preemptive a 92% (~46 KB) gere l'espace de maniere optimale. Aucune intervention manuelle necessaire.
 
+### Un `append` qui expire n'est PAS un message perdu -- relire, jamais retenter
+
+**Quand le timeout se produit, le message est deja sur disque.** `handleAppend` ecrit d'abord
+(`// === WRITE-FIRST: persist message to disk immediately ===`), *puis* declenche la condensation si
+le dashboard depasse 92 % -- et il l'**attend** (`await condenseIntercom`, `dashboard.ts`). Le
+commentaire du code le dit : l'append incremental est *"the authoritative state -- no message loss"*.
+
+Sous 92 % ton `append` coute quelques ms ; a partir de 92 % le **meme appel** paie en plus une passe
+de condensation LLM entiere. Seul echantillon journalise a ce jour : **35 s**. po-2024 rapporte (c.327,
+non reverifie ici) un timeout client a **180 s** sur son propre append -- alors que l'ecriture etait
+deja faite. L'ordre de grandeur varie ; la propriete qui suit, non.
+
+**Conduite a tenir quand un `append` expire :**
+
+1. **Ne pas retenter** -- l'ecriture ayant precede, un retry **duplique** le message par construction.
+2. **Relire** (`action: "read"`, `section: "intercom"`) et verifier que ton message y est. Il y sera.
+3. Ne le rapporter comme panne que si la relecture **ne le trouve pas**.
+
+Un seul agent paie : verrou inter-processus (#2818) + skip sur hash (#2464). Les autres appends
+passent en quelques ms pendant ce temps, d'ou un symptome **intermittent et irreproductible** alors
+que le mecanisme est parfaitement deterministe. C'est une **marge**, pas un bug.
+
 ### Fichier INTERCOM local (DEPRECATED)
 
 `.claude/local/INTERCOM-{MACHINE}.md` — UNIQUEMENT si MCP dashboard echoue.

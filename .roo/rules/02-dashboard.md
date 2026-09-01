@@ -15,6 +15,18 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-sch
 
 **Auto-condensation préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
+**Un `append` qui expire n'est PAS un message perdu.** L'ecriture precede la condensation
+(`WRITE-FIRST` puis `await condenseIntercom`) : au-dela de 92 %, le meme appel paie en plus une passe
+LLM entiere (35 s sur le seul echantillon journalise ; po-2024 rapporte un timeout client a 180 s).
+Le message est deja sur disque.
+
+- **Ne jamais retenter** un `append` qui expire : l'ecriture ayant precede, le retry **duplique**.
+- **Relire** (`action: "read"`) et verifier que le message y est. Il y sera.
+- Ne rapporter une panne que si la relecture **ne le trouve pas**.
+
+Un seul agent paie (verrou #2818 + skip hash #2464) : d'ou un symptome intermittent, alors que le
+mecanisme est deterministe.
+
 **Fichier INTERCOM local (DEPRECATED)** : `.claude/local/INTERCOM-{MACHINE}.md` — UNIQUEMENT si MCP dashboard echoue. Append-only, jamais inserer en haut.
 
 ## Mentions et Cross-Post (v3, #1363)
