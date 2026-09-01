@@ -34,7 +34,17 @@
     Glob pattern for worktree basenames to consider. Default: `agent-*`.
 
 .PARAMETER Execute
-    Actually unlock + prune orphan entries. Without this flag, only reports.
+    Actually unlock + remove + prune orphan entries. Without this flag, only
+    reports.
+
+.PARAMETER AllowCrossRepo
+    Incident #3345 class: the admin entry lives in this repo's
+    `.git/worktrees/` registry but the physical tree sits OUTSIDE the repo
+    root (e.g. under a path-prefix sibling like `D:/Dev/CoursIA` while the
+    registry belongs to `D:/Dev/CoursIA-2`). Without this switch such orphans
+    are detected and reported but always SKIPped by -Execute. With it, they
+    are cleaned too — only if their path sits under a `.claude/worktrees/`
+    directory (never an arbitrary outside path).
 
 .PARAMETER LogPath
     Optional path for log output. Defaults to stdout.
@@ -51,6 +61,10 @@
     # Custom pattern (e.g. for a test scenario)
     ./cleanup-agent-orphan-worktrees.ps1 -NamePattern 'worktree-*' -Execute
 
+.EXAMPLE
+    # Cross-repo orphans (registry here, physical tree under a sibling repo)
+    ./cleanup-agent-orphan-worktrees.ps1 -Execute -AllowCrossRepo
+
 .NOTES
     Issue #3345 — Agent harness bug (upstream). Defensive cleanup only.
     Related: #2772 (submodule deletion guard), #2123 (nested worktrees).
@@ -61,6 +75,7 @@ param(
     [string]$RepoRoot,
     [string]$NamePattern = 'agent-*',
     [switch]$Execute,
+    [switch]$AllowCrossRepo,
     [string]$LogPath
 )
 
@@ -162,6 +177,7 @@ if (-not $matched -or $matched.Count -eq 0) {
 }
 
 $orphanCount = 0
+$crossRepoSkipped = 0
 foreach ($wt in $matched) {
     $basename = Split-Path -Path $wt.Path -Leaf
     $reason = '(unlocked)'
@@ -194,10 +210,26 @@ foreach ($wt in $matched) {
     Write-Log ("[{0}] {1}" -f $reason, $wtPath)
 
     if ($Execute -and $wt.Locked -and $reason -match 'orphan') {
-        # Verify path is under repo root before touching (defense in depth)
-        if (-not (Test-PathUnder -Path $wtPath -Root $RepoRoot)) {
-            Write-Log "  SKIP: path outside repo root (defense)"
-            continue
+        $inRoot = Test-PathUnder -Path $wtPath -Root $RepoRoot
+
+        # Cross-repo target (incident #3345 class): the admin entry belongs to
+        # this repo's registry but the physical tree lives outside the repo
+        # root. Registry operations below write only inside $RepoRoot/.git,
+        # but `worktree remove` deletes the physical tree — cross-repo removal
+        # therefore needs explicit consent AND must target a worktree under a
+        # `.claude/worktrees/` directory, never an arbitrary outside path.
+        if (-not $inRoot) {
+            if (-not $AllowCrossRepo) {
+                Write-Log "  SKIP: path outside repo root (defense) — re-run with -AllowCrossRepo to clean registry-owned cross-repo orphans"
+                $crossRepoSkipped++
+                continue
+            }
+            $normalizedWt = ($wtPath -replace '\\', '/')
+            if ($normalizedWt -notmatch '/\.claude/worktrees/[^/]+/?$') {
+                Write-Log "  SKIP: cross-repo target is not under a .claude/worktrees/ directory (defense)"
+                continue
+            }
+            Write-Log "  NOTE: cross-repo orphan (-AllowCrossRepo) — physical tree is outside the repo root"
         }
 
         Write-Log "  -> git worktree unlock '$wtPath'"
@@ -206,13 +238,31 @@ foreach ($wt in $matched) {
             Write-Log "  FAILED: $unlockOut"
             continue
         }
+
+        # Remove the physical tree + the admin entry. Deliberately NO --force:
+        # git refuses to remove a worktree holding modified or untracked
+        # files, so a dirty orphan (possible uncommitted work of a crashed
+        # agent) is retained for manual review instead of destroyed.
+        Write-Log "  -> git worktree remove '$wtPath'"
+        $removeOut = git -C $RepoRoot worktree remove $wtPath 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "  -> git worktree prune"
+            $pruneOut = git -C $RepoRoot worktree prune 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Log "  prune FAILED: $pruneOut"
+                continue
+            }
+            Write-Log "  OK: unlocked; tree RETAINED (not clean or not removable: $removeOut) — manual review"
+            continue
+        }
+
         Write-Log "  -> git worktree prune"
         $pruneOut = git -C $RepoRoot worktree prune 2>&1
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  prune FAILED: $pruneOut"
             continue
         }
-        Write-Log "  OK: unlocked + pruned"
+        Write-Log "  OK: unlocked + removed + pruned"
     }
 }
 
@@ -220,9 +270,12 @@ Write-Log ""
 Write-Log "=== Summary ==="
 Write-Log "Total matched: $($matched.Count)"
 Write-Log "Detected orphans: $orphanCount"
+if ($crossRepoSkipped -gt 0) {
+    Write-Log "Cross-repo orphans skipped (defense): $crossRepoSkipped — re-run with -AllowCrossRepo to clean them"
+}
 if (-not $Execute) {
     Write-Log ""
-    Write-Log "Re-run with -Execute to unlock + prune orphans."
+    Write-Log "Re-run with -Execute to unlock + remove + prune orphans."
 }
 
 exit 0

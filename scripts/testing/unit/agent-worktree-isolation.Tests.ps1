@@ -15,7 +15,9 @@
 # Issue #3345: validation that `git worktree add` produces an actually
 # isolated worktree, plus the defensive cleanup script
 # (`scripts/maintenance/cleanup-agent-orphan-worktrees.ps1`) is reachable
-# and reports (does NOT execute) cleanly on a synthetic orphan.
+# and reports (does NOT execute) cleanly on a synthetic orphan — and, since
+# the cross-repo gap fix, actually cleans the incident class (registry entry
+# in one repo, physical tree under a path-prefix sibling) with -AllowCrossRepo.
 #
 # Run:
 #   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/agent-worktree-isolation.Tests.ps1 -Output Detailed"
@@ -140,17 +142,21 @@ Describe "Issue #3345 — Agent worktree isolation" {
             }
         }
 
-        It "-Execute unlocks + prunes the orphan" {
+        It "-Execute unlocks + removes + prunes the orphan" {
             $repo = New-TempRepo
             try {
                 $wtPath = Join-Path $repo ".claude/worktrees/agent-exec"
                 New-Item -ItemType Directory -Path (Split-Path $wtPath -Parent) -Force | Out-Null
                 git -C $repo worktree add --lock --reason "claude agent agent-exec (pid 99999)" $wtPath feature/test 2>&1 | Out-Null
 
-                pwsh -NoProfile -File $script:cleanupScript -RepoRoot $repo -Execute 2>&1 | Out-Null
+                $output = pwsh -NoProfile -File $script:cleanupScript -RepoRoot $repo -Execute 2>&1 | Out-String
+                $output | Should -Match "unlocked \+ removed \+ pruned"
 
+                # Criterion #3345-6: no orphan (locked or listed) must remain.
                 $porcelain = git -C $repo worktree list --porcelain -z 2>&1 | Out-String
+                $porcelain | Should -Not -Match "agent-exec"
                 $porcelain | Should -Not -Match "locked"
+                (Test-Path $wtPath) | Should -Be $false
             } finally {
                 Remove-TempRepo -Path $repo
             }
@@ -211,6 +217,70 @@ Describe "Issue #3345 — Agent worktree isolation" {
             } finally {
                 Remove-TempRepo -Path $repo
             }
+        }
+    }
+
+    Context "Cross-repo orphans (incident class: registry in one repo, tree under a sibling)" {
+
+        # Incident #3345 topology: the admin entry lives in repo A's
+        # .git/worktrees/ registry but the physical tree sits under a sibling
+        # directory B (path-prefix collision, e.g. D:/Dev/CoursIA vs
+        # D:/Dev/CoursIA-2). Review finding on the merged mitigation: -Execute
+        # SKIPped this class entirely, so the only real-world instances of the
+        # bug could never be cleaned. These tests pin the fixed contract.
+        BeforeEach {
+            # Sandbox prefix deliberately NOT matching the worktree basename
+            # (`agent-xrepo`) so path assertions can't false-positive on the
+            # sandbox root itself.
+            $script:xroot = Join-Path ([System.IO.Path]::GetTempPath()) ("xrepo-sb-" + [Guid]::NewGuid().ToString('N').Substring(0, 8))
+            $script:repoA = Join-Path $script:xroot "A"
+            $script:siblB = Join-Path $script:xroot "B"
+            New-Item -ItemType Directory -Path $script:repoA | Out-Null
+            Push-Location $script:repoA
+            try {
+                git init -q 2>&1 | Out-Null
+                git -c user.email=t@t -c user.name=t commit --allow-empty -q -m initial
+                git branch feature/test HEAD 2>&1 | Out-Null
+            } finally {
+                Pop-Location
+            }
+            $script:wtPath = Join-Path $script:siblB ".claude/worktrees/agent-xrepo"
+            New-Item -ItemType Directory -Path (Split-Path $script:wtPath -Parent) -Force | Out-Null
+            git -C $script:repoA worktree add --lock --reason "claude agent agent-xrepo (pid 99999)" $script:wtPath feature/test 2>&1 | Out-Null
+        }
+        AfterEach {
+            if (Test-Path $script:xroot) {
+                # Remove any worktree registered from A but living under B
+                # before deleting the sandbox, or git blocks dir removal.
+                git -C $script:repoA worktree unlock $script:wtPath 2>&1 | Out-Null
+                git -C $script:repoA worktree remove --force $script:wtPath 2>&1 | Out-Null
+                Remove-Item -Recurse -Force $script:xroot -ErrorAction SilentlyContinue
+            }
+        }
+
+        It "default -Execute SKIPs a cross-repo orphan (defense unchanged)" {
+            $output = pwsh -NoProfile -File $script:cleanupScript -RepoRoot $script:repoA -Execute 2>&1 | Out-String
+            $output | Should -Match "orphan"
+            $output | Should -Match "SKIP: path outside repo root"
+            $output | Should -Match "-AllowCrossRepo"
+
+            # The orphan must remain untouched without explicit consent.
+            $porcelain = git -C $script:repoA worktree list --porcelain -z 2>&1 | Out-String
+            $porcelain | Should -Match "agent-xrepo"
+            $porcelain | Should -Match "locked"
+        }
+
+        It "-AllowCrossRepo cleans the cross-repo orphan — no locked orphan remains" {
+            $output = pwsh -NoProfile -File $script:cleanupScript -RepoRoot $script:repoA -Execute -AllowCrossRepo 2>&1 | Out-String
+            $output | Should -Match "cross-repo orphan"
+            $output | Should -Match "unlocked \+ removed \+ pruned"
+
+            # Criterion #3345-6 for the incident class: registry entry gone,
+            # physical tree gone, nothing locked left behind.
+            $porcelain = git -C $script:repoA worktree list --porcelain -z 2>&1 | Out-String
+            $porcelain | Should -Not -Match "agent-xrepo"
+            $porcelain | Should -Not -Match "locked"
+            (Test-Path $script:wtPath) | Should -Be $false
         }
     }
 
