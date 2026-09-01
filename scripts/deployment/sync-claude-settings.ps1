@@ -113,7 +113,20 @@ if (-not $settings.env) {
 # un choix machine ET, tant que #3276 n'est pas tranchee, ecrire la valeur par defaut (gpt-5.6-sol)
 # propagerait la route sous investigation (findings ai-01 27/08).
 # Le plancher PCT >= 90 reste garanti par deploy-claude-mcp-settings.ps1.
-$OnlyIfAbsent = @('CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', 'API_TIMEOUT_MS', 'ANTHROPIC_BASE_URL', 'ANTHROPIC_CUSTOM_MODEL_OPTION', 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION')
+# Les cles ANTHROPIC_DEFAULT_{OPUS,SONNET,HAIKU,FABLE}_MODEL* (+ *_NAME/_DESCRIPTION) ne se
+# surchargent PAS non plus : ce sont des choix machine/provider poses par Switch-Provider.ps1 a
+# partir des templates provider.claudish/zai (ex. sonnet -> glm-5.1 sur un executor). Les ecraser
+# avec un ID Anthropic natif (claude-sonnet-5[1m]) fait router le role par la table * du hub vers
+# un fournisseur non provisionne (Mistral -> HTTP 402) — issue #3361.
+$OnlyIfAbsent = @(
+  'CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE', 'API_TIMEOUT_MS',
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_CUSTOM_MODEL_OPTION', 'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION',
+  'ANTHROPIC_DEFAULT_FABLE_MODEL', 'ANTHROPIC_DEFAULT_FABLE_MODEL_NAME', 'ANTHROPIC_DEFAULT_FABLE_MODEL_DESCRIPTION',
+  'ANTHROPIC_DEFAULT_OPUS_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL_NAME', 'ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION',
+  'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_SONNET_MODEL_NAME', 'ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION',
+  'ANTHROPIC_DEFAULT_HAIKU_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME', 'ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION'
+)
 $changed = @()
 foreach ($k in $RefEnv.Keys) {
   $new = [string]$RefEnv[$k]
