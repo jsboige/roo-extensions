@@ -15,6 +15,22 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-sch
 
 **Auto-condensation préemptive à 92% d'utilisation** (≈46 KB, filet de sécurité à 50 KB). Le dashboard reste lisible en un seul appel. Pas besoin de `intercomLimit`.
 
+**Un `append` qui expire n'est PAS un message perdu.** L'ecriture precede la condensation
+(`WRITE-FIRST` puis `await condenseIntercom`) : au-dela de 92 %, le meme appel paie en plus une passe
+LLM entiere. Mesure directe ai-01 (01/09) : **45,3 s** au total, dont **1,9 s d'ecriture** et
+**42,3 s de condensation** (le seul appel LLM `## Status` = 99,4 % de ces 42 s) -- contre **605 ms**
+pour le meme appel repasse sous le seuil 10 min plus tard, soit **~75x**. po-2024 rapporte un
+timeout client a 180 s (non reverifie ici). Le message est deja sur disque.
+
+- **Ne jamais retenter a l'aveugle** : si l'ecriture a eu lieu, le retry **duplique**.
+- **Relire** (`action: "read"`) : **seule la relecture tranche**. Mesure du 02/07/2026 : 3 appends
+  expires a 300 s, **1 seul** avait ete ecrit. `WRITE-FIRST` rend l'ecriture anterieure a la
+  condensation, pas garantie.
+- Re-poster seulement si le message est absent ; ne rapporter une panne que dans ce cas.
+
+Un seul agent paie (verrou #2818 + skip hash #2464) : d'ou un symptome intermittent, alors que le
+mecanisme est deterministe.
+
 **Fichier INTERCOM local (DEPRECATED)** : `.claude/local/INTERCOM-{MACHINE}.md` — UNIQUEMENT si MCP dashboard echoue. Append-only, jamais inserer en haut.
 
 ## Mentions et Cross-Post (v3, #1363)
