@@ -45,8 +45,10 @@ de condensation LLM entiere. **Mesure directe (ai-01, 01/09/2026)** : append tot
 **1,9 s d'ecriture** et **42,3 s de condensation** -- soit **93 % du temps passe APRES que le message
 soit devenu durable**. Dans ces 42,3 s, l'appel LLM du bloc `## Status` pese a lui seul **99,4 %**.
 po-2024 rapporte (c.327, non reverifie ici) un timeout client a **180 s** sur son propre append.
-Cet appel-ci n'a pas expire ; le point n'est pas qu'il expire toujours, c'est que le meme appel coute
-~24x plus cher au-dela du seuil. L'ordre de grandeur varie ; la propriete qui suit, non.
+**A/B sur le meme outil, meme session, 10 min d'ecart** : le meme `append` repasse a **605 ms**
+(602 ms d'ecriture, **0** de condensation) une fois l'utilisation retombee a 58,6 %. Soit un facteur
+**~75x** porte entierement par la condensation. Cet appel-la n'a pas expire ; le point n'est pas
+qu'il expire toujours, c'est que le meme appel change d'ordre de grandeur au franchissement. L'ordre de grandeur varie ; la propriete qui suit, non.
 
 **Conduite a tenir quand un `append` expire :**
 
