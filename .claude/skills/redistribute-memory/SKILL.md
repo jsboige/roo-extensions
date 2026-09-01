@@ -129,11 +129,19 @@ Glob: ~/.claude/projects/{slug}/memory/*.md
 **Seuils d'alerte :**
 - T2 (CLAUDE.md projet) > 500 lignes → **SATURATION** — candidat extraction vers T3/T4
 - T3 (rules) fichier individuel > 150 lignes → **VERBOSE** — candidat condensation
-- T5 (MEMORY.md) > **20 Ko** → **TRUNCATION RISK** — candidat stabilisation vers T4 ou PROJECT_MEMORY
-  - ⚠️ **Mesurer en OCTETS, jamais en lignes.** Au-delà d'une read-limit d'environ **24,4 Ko**,
-    les entrées de l'index sont **silencieusement droppées** — amnésie partielle, sans erreur
-    (mesuré po-2025 le 2026-08-13 ; re-mesuré ai-01 le 2026-09-01 : **160 lignes pour 24 994 o**,
-    soit 6 o du cap et 40 lignes SOUS un seuil de 200).
+- T5 (MEMORY.md) > **17,1 Ko** → **TRUNCATION RISK** — candidat stabilisation vers T4 ou PROJECT_MEMORY
+  - ⚠️ **Mesurer en OCTETS, jamais en lignes.** Les deux nombres ci-dessus (**24,4 Ko** de
+    read-limit, **17,1 Ko** de cible) ne sont pas choisis : ils sont **énoncés par le hook
+    système `PostToolUse:Edit`** lui-même, verbatim (capté par po-2025 le 2026-08-13) :
+    > *this write left the memory index at MEMORY.md at 24.9KB, over its 24.4KB read limit.
+    > The write succeeded, but everything past the limit is **silently dropped each time the
+    > index is loaded** — entries at the end are already invisible to readers. Rewrite it to
+    > under 17.1KB now: keep one line per entry, move detail into topic files, and merge or
+    > drop stale entries.*
+  - **L'écriture RÉUSSIT** — il n'y a ni erreur ni troncature visible. Seule la *lecture* perd
+    la fin de l'index, à chaque chargement. C'est pourquoi un seuil qui ne se déclenche pas
+    ne se remarque jamais. Re-mesure ai-01 le 2026-09-01 : **160 lignes pour 24 994 o**, soit
+    40 lignes SOUS un seuil de 200 et déjà **au-dessus** de la read-limit.
   - Un seuil en lignes ne se déclenche sur **aucun** des 14 index d'ai-01, et il **décorrèle à
     mesure que le skill réussit** : compacter une entrée en pointeur + accroche densifie les lignes,
     donc fait BAISSER leur compte à octets constants. La métrique de succès s'éloigne de la
@@ -315,6 +323,8 @@ Pour chaque tier :
        Si l'ajout ferait dépasser ~24,4 Ko → compacter/stabiliser d'abord. Ne JAMAIS rabattre
        le contenu dans un topic voisin faute de place : le fait devient introuvable pour qui
        ne sait pas déjà où regarder, et l'index chargé à chaque session n'apprend pas qu'il existe.
+       La sortie du hook prescrit exactement la discipline de ce skill — *« keep one line per
+       entry, move detail into topic files »* : compacter en pointeur + accroche, détail déporté.
    - NETTOYER : Edit fichier (retirer contenu obsolète)
 4. Vérifier la cohérence (re-Read si nécessaire)
 ```
