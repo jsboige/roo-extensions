@@ -2,6 +2,7 @@
 
 > Lu par orchestrateur-simple sur les machines executrices. MAJ : modifier + `git push`.
 > **PRÉAMBULE** : Lire `.roo/scheduler-workflow-shared.md` pour les règles communes (autonomie, circuit breaker, output, win-cli, rapport dashboard).
+> **Appel MCP (#3295)** : le dashboard s'appelle en `use_mcp_tool` (`server_name: roo-state-manager`, `tool_name: roosync_dashboard`). **JAMAIS `access_mcp_resource` ni d'URI `roosync://`** — le serveur n'expose pas le protocole *resources* et rend `-32601 Method not found`. Les `roosync_dashboard(...)` notés plus bas sont du pseudo-code, pas une forme d'appel.
 
 ---
 

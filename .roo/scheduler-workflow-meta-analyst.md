@@ -3,6 +3,7 @@
 > Lu par orchestrateur-complex. MAJ : modifier ce fichier + `git push`.
 > Frequence : 72h. Mode : orchestrator-complex (GLM-5 / Qwen 3.5 complex).
 > **PRÉAMBULE** : Lire `.roo/scheduler-workflow-shared.md` pour les règles communes (autonomie, circuit breaker, output, win-cli, rapport dashboard).
+> **Appel MCP (#3295)** : le dashboard s'appelle en `use_mcp_tool` (`server_name: roo-state-manager`, `tool_name: roosync_dashboard`). **JAMAIS `access_mcp_resource` ni d'URI `roosync://`** — le serveur n'expose pas le protocole *resources* et rend `-32601 Method not found`. Les `roosync_dashboard(...)` notés plus bas sont du pseudo-code, pas une forme d'appel.
 
 ## ROLE
 
