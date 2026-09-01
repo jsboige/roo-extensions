@@ -41,9 +41,12 @@ le dashboard depasse 92 % -- et il l'**attend** (`await condenseIntercom`, `dash
 commentaire du code le dit : l'append incremental est *"the authoritative state -- no message loss"*.
 
 Sous 92 % ton `append` coute quelques ms ; a partir de 92 % le **meme appel** paie en plus une passe
-de condensation LLM entiere. Seul echantillon journalise a ce jour : **35 s**. po-2024 rapporte (c.327,
-non reverifie ici) un timeout client a **180 s** sur son propre append -- alors que l'ecriture etait
-deja faite. L'ordre de grandeur varie ; la propriete qui suit, non.
+de condensation LLM entiere. **Mesure directe (ai-01, 01/09/2026)** : append total **45,3 s**, dont
+**1,9 s d'ecriture** et **42,3 s de condensation** -- soit **93 % du temps passe APRES que le message
+soit devenu durable**. Dans ces 42,3 s, l'appel LLM du bloc `## Status` pese a lui seul **99,4 %**.
+po-2024 rapporte (c.327, non reverifie ici) un timeout client a **180 s** sur son propre append.
+Cet appel-ci n'a pas expire ; le point n'est pas qu'il expire toujours, c'est que le meme appel coute
+~24x plus cher au-dela du seuil. L'ordre de grandeur varie ; la propriete qui suit, non.
 
 **Conduite a tenir quand un `append` expire :**
 

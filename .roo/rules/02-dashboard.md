@@ -17,8 +17,9 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["{TYPE}", "roo-sch
 
 **Un `append` qui expire n'est PAS un message perdu.** L'ecriture precede la condensation
 (`WRITE-FIRST` puis `await condenseIntercom`) : au-dela de 92 %, le meme appel paie en plus une passe
-LLM entiere (35 s sur le seul echantillon journalise ; po-2024 rapporte un timeout client a 180 s).
-Le message est deja sur disque.
+LLM entiere. Mesure directe ai-01 (01/09) : **45,3 s** au total, dont **1,9 s d'ecriture** et
+**42,3 s de condensation** (le seul appel LLM `## Status` = 99,4 % de ces 42 s). po-2024 rapporte un
+timeout client a 180 s (non reverifie ici). Le message est deja sur disque.
 
 - **Ne jamais retenter** un `append` qui expire : l'ecriture ayant precede, le retry **duplique**.
 - **Relire** (`action: "read"`) et verifier que le message y est. Il y sera.
