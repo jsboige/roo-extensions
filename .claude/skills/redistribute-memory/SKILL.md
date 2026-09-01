@@ -17,7 +17,7 @@ triggers:
     - "(redistribu|audit|nettoye?).{0,15}(memoire|regles|rules|CLAUDE|tiers)"
 metadata:
   author: "Roo Extensions Team"
-  version: "3.1.0"
+  version: "3.2.0"
   issue: "#2223"
   compatibility:
     surfaces: ["claude-code", "claude.ai"]
@@ -27,13 +27,13 @@ metadata:
 
 # Skill : Redistribution Mémoire V2 — 5 Tiers
 
-**Version:** 3.1.0 (2026-09-01)
+**Version:** 3.2.0 (2026-09-01)
 **Issue:** #2223
 **Usage:** `/redistribute-memory` ou "redistribue la mémoire", "audite les règles", "nettoie CLAUDE.md"
 
 ---
 
-## Les 5 Tiers
+## Les 6 Tiers
 
 | Tier | Fichier | Scope | Chargement | Mutabilité |
 |------|---------|-------|------------|------------|
@@ -42,6 +42,40 @@ metadata:
 | **T3** Workspace Rules | `{workspace}/.claude/rules/*.md` | Ce workspace | Auto | **SACRÉ** — validation user obligatoire |
 | **T4** Workspace Deferred | `{workspace}/docs/harness/reference/*.md` (ou équivalent) | Ce workspace | Lazy (`Read`) | Élevé (git, docs) |
 | **T5** Machine+Workspace Memory | `~/.claude/projects/{slug}/memory/MEMORY.md` + `*.md` | Machine+workspace | Auto-injecté | Élevé (local) |
+| **T6** Workspace Shared Memory | `{workspace}/.claude/memory/PROJECT_MEMORY.md` | Ce workspace, **toutes machines** | Lazy (`Read`) | Élevé (git) |
+
+### T5 et T6 : deux magasins de leçons, un seul axe de différence
+
+T5 et T6 stockent la même chose — des leçons. Ils diffèrent sur **un point** : T5 ne quitte jamais
+la machine et meurt avec elle ; T6 est versionné et atteint toutes les machines.
+
+**Le défaut par défaut : une leçon est rangée là où elle a été APPRISE, pas là où elle SERT.** Une
+session tourne sur une machine, donc sa leçon atterrit en T5 — par géographie, pas par jugement. Une
+leçon vraie pour toute la flotte s'y retrouve verrouillée sans que personne n'ait décidé qu'elle
+devait l'être. Le critère de placement était **muet** sur cette promotion : il n'y avait pas de tier
+vers lequel promouvoir.
+
+**Le test qui tranche** — deux questions, dans cet ordre :
+
+1. *« Cette leçon serait-elle vraie, et utile, sur une AUTRE machine ? »* Si non → **T5**, c'est fini.
+2. *« Son texte nomme-t-il quelque chose de propre à cette machine ? »* (chemin local, matériel,
+   état local, incident vécu ici) Si oui → **T5**. Si non → **T6**.
+
+Formulation équivalente, plus rapide à appliquer : **bucketer par le sujet, jamais par l'endroit où
+la leçon a été apprise.**
+
+**Contre-épreuve** : *« si cette machine était remplacée demain, cette leçon devrait-elle disparaître
+avec elle ? »* Pour une machine dont le remplacement est **programmé**, la question n'est pas
+rhétorique — c'est tout le corpus flotte-générique qui part avec le disque.
+
+**Le coût de la promotion, à ne pas taire.** T6 est chargé en `Read`, pas auto-injecté : une leçon
+promue gagne la flotte et **perd l'injection automatique**. Ce n'est pas une raison de ne pas
+promouvoir, c'est une raison de garder **un pointeur d'une ligne dans l'index T5** de la machine qui
+l'a apprise — exactement le motif pointeur + détail déporté déjà prescrit pour T4.
+
+**Pourquoi T6 est numéroté en dernier** alors que sa portée s'insère entre T4 et T5 : la stabilité
+des références. « T5 » est écrit dans des dashboards, des rapports et des mémoires de toute la
+flotte ; renuméroter les invaliderait tous pour un gain cosmétique.
 
 **Règle absolue :** T3 (rules) = sacré. Jamais de modification sans validation user explicite.
 
@@ -67,6 +101,7 @@ metadata:
    T3 = {workspace}/.claude/rules/*.md
    T4 = {workspace}/docs/harness/reference/*.md  (ou équivalent projet)
    T5 = ~/.claude/projects/{slug}/memory/MEMORY.md + *.md
+   T6 = {workspace}/.claude/memory/PROJECT_MEMORY.md  (absent sur certains workspaces)
 5. Vérifier l'existence de chaque tier (Glob/Read)
 ```
 
@@ -113,6 +148,9 @@ Glob: {workspace}/docs/**/*.md (ou équivalent)
 # T5 - Memory
 Read: ~/.claude/projects/{slug}/memory/MEMORY.md
 Glob: ~/.claude/projects/{slug}/memory/*.md
+
+# T6 - Shared Memory (peut ne pas exister)
+Read: {workspace}/.claude/memory/PROJECT_MEMORY.md
 ```
 
 **Métriques collectées :**
@@ -124,6 +162,7 @@ Glob: ~/.claude/projects/{slug}/memory/*.md
 | T3 | N | N | N KB | YYYY-MM-DD |
 | T4 | N | N | N KB | YYYY-MM-DD |
 | T5 | N | N | N KB | YYYY-MM-DD |
+| T6 | 0-1 | N | N KB | YYYY-MM-DD |
 ```
 
 **Seuils d'alerte :**
@@ -291,6 +330,7 @@ Pour chaque tier :
 | T3 | N fichiers | N fichiers | ±N |
 | T4 | N fichiers | N fichiers | ±N |
 | T5 | N fichiers | N fichiers | ±N |
+| T6 | N lignes | N lignes | ±N |
 
 ### Validation requise
 - [ ] ACTION-1 : [description]
@@ -301,7 +341,7 @@ Pour chaque tier :
 
 **Règles du plan :**
 1. **T3 (rules) :** Toute action touchant T3 requiert une validation user explicite par action. Pas de batch approval.
-2. **T5 (MEMORY.md) :** Jamais de suppression de leçons. Seulement déplacement (vers PROJECT_MEMORY.md ou T4) ou stabilisation.
+2. **T5 (MEMORY.md) :** Jamais de suppression de leçons. Seulement déplacement (vers **T6** si la leçon vaut pour une autre machine, sinon T4) ou stabilisation. Une promotion T5 → T6 **copie** puis laisse un pointeur : elle ne fait jamais disparaître la leçon de la machine qui l'a apprise.
 3. **T4 (docs) :** Création libre. Le contenu déplacé de T2 est préservé intégralement.
 4. **Token savings :** Mentionné si naturel (déduplication, déport docs). Jamais agressif.
 
@@ -365,6 +405,7 @@ Pour chaque tier :
 | T3 | N | N |
 | T4 | N | N |
 | T5 | N | N |
+| T6 | N | 0-1 |
 
 ### Après
 | Tier | Lignes | Fichiers | Delta |
@@ -374,9 +415,10 @@ Pour chaque tier :
 | T3 | N | N | 0 (sacré) |
 | T4 | N+K | N+1 | +K |
 | T5 | N | N | ±0 |
+| T6 | N+P | 0-1 | +P |
 
 ### Antipatterns
-- N/6 résolus
+- N/7 résolus
 - N restants (raison)
 
 ### Prochaines actions recommandées
@@ -447,6 +489,19 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["DONE", "claude-in
 - Info spécifique machine
 - Index des topic files
 
+### T6 — `{workspace}/.claude/memory/PROJECT_MEMORY.md` (Workspace Shared Memory)
+**Critère : leçon stable, vraie pour une autre machine, dont le texte ne nomme rien de local.**
+
+- Patterns de code et disciplines d'édition du dépôt
+- Conventions et décisions de projet, avec leur raison
+- Pièges d'outillage reproductibles ailleurs
+- Leçons T5 stabilisées dont le sujet dépasse la machine
+
+**N'y va pas :** état courant, progression, incident local, et tout ce qui nomme une machine.
+
+**Absent ?** Si `{workspace}/.claude/memory/` n'existe pas, le tier est absent de ce workspace :
+le signaler dans les métriques, ne pas le créer sans validation user.
+
 ---
 
 ## Multi-workspace
@@ -457,6 +512,7 @@ Le skill est conçu pour fonctionner sur **tout workspace** sans modification :
 2. **T4 adaptatif** : Si `{workspace}/docs/harness/reference/` n'existe pas, cherche `{workspace}/docs/` ou propose de créer la structure
 3. **T3 sacré** : Ne suppose jamais l'existence de rules
 4. **T5 discovery** : Encode le chemin workspace en slug pour trouver le bon répertoire memory
+5. **T6 optionnel** : `.claude/memory/PROJECT_MEMORY.md` n'existe pas partout — son absence est un constat à rapporter, pas un fichier à créer d'office
 
 ### Exécution sur CoursIA
 
@@ -482,3 +538,4 @@ Le skill s'adapte automatiquement à la structure du workspace cible.
 | AP4 | Rules redondantes | Chevauchement >30% entre 2 fichiers T3 | Signaler (ne jamais modifier sans user) |
 | AP5 | Topic orphelin | Fichier T5 non référencé dans MEMORY.md | Ajouter au index |
 | AP6 | Contenu obsolète | Dates >14j, issues fermées, métriques décalées | Nettoyer (après vérification) |
+| AP7 | Leçon flotte verrouillée en T5 | Fichier T5 dont le sujet vaut pour une autre machine et dont le texte ne nomme rien de local | Proposer promotion vers T6 — **jamais automatique**, c'est un jugement |
