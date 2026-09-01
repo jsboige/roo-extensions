@@ -90,6 +90,16 @@ Adding a param to a roo-state-manager tool is **never a one-file edit**:
 - **Machine count**: Always 6 (ai-01, po-2023, po-2024, po-2025, po-2026, web1)
 - **Deprecation ripple**: When deprecating, grep ALL `.claude/` files for references
 
+### Comment/code divergence — grep the named mechanism before push
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-02).*
+
+When a comment (code, PR body, issue) names a precise mechanism — cmdlet, condition, convention — **grep the code for that mechanism before pushing**. Review-by-effects sees nothing: these defects are only readable at the named condition/call site, not in behavior.
+
+- **Before push:** if a comment references a mechanism, `grep` the exact name in the emitted diff.
+- **In PR review:** read the code's comments AND verify the named condition actually exists — a read of the *condition*, not of the effects.
+- **Why:** three occurrences in one day (2026-08-21): #3208 (backup guard claimed in a comment, absent from code), #1023 ("Condensation stamp" claimed guarded by `!backfill` — it wasn't), #3209 (comment said "killable by `Stop-Job`" while the code only did `Remove-Job -Force`). The third was caught an hour *after* a review had explicitly cited this exact defect class — the class is easy to name and easy to miss.
+
 ## Known Bugs / Gotchas
 
 ### Critical (recurring)
