@@ -147,6 +147,39 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 
 > **CRITIQUE** : Le rapport est la seule trace du passage du scheduler. **Ne JAMAIS quitter sans avoir écrit le rapport.**
 
+### Forme d'appel — `use_mcp_tool`, JAMAIS `access_mcp_resource` (#3295)
+
+Le dashboard s'appelle **comme un outil**, jamais comme une ressource :
+
+```xml
+<use_mcp_tool>
+<server_name>roo-state-manager</server_name>
+<tool_name>roosync_dashboard</tool_name>
+<arguments>
+{
+  "action": "append",
+  "type": "workspace",
+  "tags": ["DONE", "roo-scheduler"],
+  "content": "..."
+}
+</arguments>
+</use_mcp_tool>
+```
+
+Les balises sont en **snake_case** (`server_name`, `tool_name`) — vérifié dans la source
+Roo (`NativeToolCallParser.ts`), pas déduit.
+
+**`access_mcp_resource` et les URI `roosync://…` n'existent pas ici.** Le serveur
+roo-state-manager n'implémente **aucun** handler du protocole *resources* (zéro
+`ReadResourceRequestSchema` dans sa source, vérifié 01/09) : il n'expose que `tools/`.
+Un `access_mcp_resource` visant `roo-state-manager` ne peut donc **jamais** aboutir,
+quelle que soit l'URI — il rend `-32601 Method not found`, mécaniquement. Ce n'est pas
+un outil manquant du catalogue : c'est le mauvais **type d'appel**.
+
+Le reste de ce document note les appels en pseudo-code (`roosync_dashboard(action: …)`)
+pour rester lisible. **C'est un raccourci d'écriture, pas une forme d'appel** : le verbe
+à employer est toujours celui du bloc ci-dessus.
+
 ### Format
 
 ```
@@ -168,6 +201,11 @@ roosync_dashboard(
 | `claude-interactive` | Claude Code interactif |
 
 ### Fallback si dashboard MCP échoue
+
+> **`-32601 Method not found` n'est PAS une panne du dashboard** — c'est le mauvais verbe
+> (voir « Forme d'appel » ci-dessus). Ne pas basculer en fallback sur ce code : refaire
+> l'appel en `use_mcp_tool`. Le 28/08, deux tâches ont pris ce -32601 pour une panne,
+> écrit leur rapport dans le fallback, et le dashboard n'a jamais rien reçu.
 
 1. `roosync_dashboard(action: "append", ...)` — retenter une fois
 2. Si toujours échec : écrire dans `.claude/local/INTERCOM-{MACHINE}.md` via `apply_diff`
