@@ -21,9 +21,11 @@ LLM entiere. Mesure directe ai-01 (01/09) : **45,3 s** au total, dont **1,9 s d'
 **42,3 s de condensation** (le seul appel LLM `## Status` = 99,4 % de ces 42 s). po-2024 rapporte un
 timeout client a 180 s (non reverifie ici). Le message est deja sur disque.
 
-- **Ne jamais retenter** un `append` qui expire : l'ecriture ayant precede, le retry **duplique**.
-- **Relire** (`action: "read"`) et verifier que le message y est. Il y sera.
-- Ne rapporter une panne que si la relecture **ne le trouve pas**.
+- **Ne jamais retenter a l'aveugle** : si l'ecriture a eu lieu, le retry **duplique**.
+- **Relire** (`action: "read"`) : **seule la relecture tranche**. Mesure du 02/07/2026 : 3 appends
+  expires a 300 s, **1 seul** avait ete ecrit. `WRITE-FIRST` rend l'ecriture anterieure a la
+  condensation, pas garantie.
+- Re-poster seulement si le message est absent ; ne rapporter une panne que dans ce cas.
 
 Un seul agent paie (verrou #2818 + skip hash #2464) : d'ou un symptome intermittent, alors que le
 mecanisme est deterministe.

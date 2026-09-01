@@ -50,9 +50,15 @@ Cet appel-ci n'a pas expire ; le point n'est pas qu'il expire toujours, c'est qu
 
 **Conduite a tenir quand un `append` expire :**
 
-1. **Ne pas retenter** -- l'ecriture ayant precede, un retry **duplique** le message par construction.
-2. **Relire** (`action: "read"`, `section: "intercom"`) et verifier que ton message y est. Il y sera.
-3. Ne le rapporter comme panne que si la relecture **ne le trouve pas**.
+1. **Ne jamais retenter a l'aveugle** -- si l'ecriture a eu lieu, le retry **duplique** sur un canal
+   que sept machines lisent.
+2. **Relire** (`action: "read"`, `section: "intercom"`) : **seule la relecture tranche.** Ce n'est
+   *ni* « c'est toujours ecrit » *ni* « ce n'est jamais ecrit ». Mesure du 02/07/2026 sur
+   `workspace-myia-open-webui` : **3 appends expires a 300 s, 1 seul avait ete ecrit.** Le
+   `WRITE-FIRST` rend l'ecriture *anterieure* a la condensation, pas *garantie* : l'appel peut aussi
+   expirer avant elle.
+3. Re-poster **seulement** si la relecture ne trouve pas le message ; ne rapporter une panne que dans
+   ce cas.
 
 Un seul agent paie : verrou inter-processus (#2818) + skip sur hash (#2464). Les autres appends
 passent en quelques ms pendant ce temps, d'ou un symptome **intermittent et irreproductible** alors
