@@ -102,6 +102,7 @@ c.184, #3205 résiduel write-side (PR #1035) : après vérification par mutation
 - Interpréter un SUT qui répond instantanément (3-11 ms) là où un verrou/retry est attendu comme une « optimisation » — c'est la signature d'un chemin lent absent.
 - Lire « file state is current in your context » après un revert comme une garantie — l'état disque est le fichier REVERTI.
 - Séquencer « Edit réussi » puis verification sans backup — le revert détruit alors le fix.
+- Manipuler un fichier porteur d'un fix non-commité : committer d'abord, même en WIP.
 
 ### Cousins
 
