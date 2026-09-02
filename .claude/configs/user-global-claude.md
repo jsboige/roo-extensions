@@ -28,6 +28,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 - **Conflits** : JAMAIS de resolution aveugle. Lire les marqueurs, comprendre les deux cotes, decider deliberement.
 - **Submodules** : commiter DEDANS d'abord, push, puis bump le pointeur parent.
 - **Force push** : interdit sur branches partagees. Rejete -> fetch, merge, retry.
+- **Checkout safety** : `git checkout -- <fichier>` restaure depuis l'INDEX — sur une branche de travail il efface TOUT le non-commite du fichier, pas seulement la derniere manipulation. Pour reverter une mutation de verification : `cp` backup/restore, JAMAIS `git checkout --`. [Detail](../../docs/harness/global-rules-detail.md#git--checkout-safety)
 
 ## Read Body Before Any Action (HARD, aucune exception)
 
