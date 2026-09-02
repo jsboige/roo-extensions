@@ -61,7 +61,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 |------------|---------|-------------|
 | `claude/` | 15 | Scripts Claude Code (spawn workers, switch-provider, validation) |
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
-| `memory/` | 2 | Gestion mémoire agents (inject, redistribute) |
+| `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
 
