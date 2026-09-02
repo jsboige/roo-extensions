@@ -3,11 +3,11 @@
     Deploy global Claude Code configuration from roo-extensions templates.
 
 .DESCRIPTION
-    Copies agents, skills, commands, and CLAUDE.md from .claude/configs/
+    Copies agents, skills, commands, rules, and CLAUDE.md from .claude/configs/
     to ~/.claude/ for global availability across all workspaces.
 
 .PARAMETER Target
-    What to deploy: all, agents, skills, commands, claude-md
+    What to deploy: all, agents, skills, commands, rules, claude-md
 
 .PARAMETER DryRun
     Show what would be deployed without actually copying.
@@ -18,7 +18,7 @@
     .\Deploy-GlobalConfig.ps1 -DryRun
 #>
 param(
-    [ValidateSet("all", "agents", "skills", "commands", "claude-md")]
+    [ValidateSet("all", "agents", "skills", "commands", "rules", "claude-md")]
     [string]$Target = "all",
     [switch]$DryRun
 )
@@ -105,6 +105,14 @@ if ($Target -in "all", "commands") {
     $cmdsSrc = Join-Path $configsDir "commands"
     $cmdsDst = Join-Path $globalDir "commands"
     $totalFiles += (Deploy-Files -SourceDir $cmdsSrc -TargetDir $cmdsDst -Label "commands")
+}
+
+# Deploy Rules (global rules auto-loaded in ALL workspaces)
+if ($Target -in "all", "rules") {
+    Write-Host "`n--- Rules ---" -ForegroundColor Yellow
+    $rulesSrc = Join-Path $configsDir "rules"
+    $rulesDst = Join-Path $globalDir "rules"
+    $totalFiles += (Deploy-Files -SourceDir $rulesSrc -TargetDir $rulesDst -Label "rules")
 }
 
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan

@@ -15,9 +15,15 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
   - Installs MCPs globally or per-project
   - Creates config files from templates
 
-- **`Deploy-GlobalConfig.ps1`** - Deploy global agents/skills/commands to all machines
-  - Usage: `scripts/claude/Deploy-GlobalConfig.ps1`
+- **`Deploy-GlobalConfig.ps1`** - Deploy global CLAUDE.md/agents/skills/commands/**rules** to a machine
+  - Usage: `scripts/claude/Deploy-GlobalConfig.ps1` (ou `-Target rules|claude-md|agents|skills|commands`)
   - Copies configs from `.claude/configs/` to `~/.claude/`
+  - **Deuxième copie** : `.claude/configs/scripts/Deploy-GlobalConfig.ps1`. Les deux chemins sont
+    documentés, chacun dans son README, et les agents lancent l'un ou l'autre indifféremment.
+    **L'invariant n'est pas qu'elles soient identiques, c'est que chacune déploie les rules.**
+    Du 26/05 au 02/09 cette copie-ci n'avait ni `rules` dans son `ValidateSet` ni son bloc de
+    déploiement : lancée avec `-Target all` elle affichait `Done.` en laissant `~/.claude/rules/`
+    inchangé. Garde : `scripts/testing/unit/deploy-global-config.Tests.ps1` (job CI `unit-pester`).
 
 ### Provider Management
 

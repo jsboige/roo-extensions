@@ -27,6 +27,13 @@ on:
       - 'scripts/common/**'
       - 'scripts/zoo-scheduler/**'
       - 'scripts/claude/worktree-cleanup.ps1'
+      # Same gap again, on the script that deploys the global harness: its two
+      # copies diverged for three months (rules block added to one on 26/05,
+      # never to the other) and the amputated one reported "Done." while
+      # ~/.claude/rules/ went unwritten. deploy-global-config.Tests.ps1 guards
+      # both copies, so both their paths have to re-trigger it.
+      - 'scripts/claude/Deploy-GlobalConfig.ps1'
+      - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
   pull_request:
