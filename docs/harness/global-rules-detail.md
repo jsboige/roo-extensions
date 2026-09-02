@@ -88,6 +88,27 @@ Le champ `reason` du `ScheduleWakeup` doit être informatif (visible en télém�
 
 ---
 
+## Git — Checkout Safety
+
+`git checkout -- <fichier>` restaure un fichier depuis l'**INDEX**, pas depuis « avant ma dernière modification ». Sur une branche de travail où un fix n'est jamais commité, ce checkout efface **l'intégralité du fix** — pas seulement la dernière manipulation.
+
+### Le geste de vérification qui efface le fix (incident fondateur 2026-08-24)
+
+c.184, #3205 résiduel write-side (PR #1035) : après vérification par mutations A/B (tests rouges ✓), le revert des mutations via `git checkout -- dashboard.ts` a silencieusement effacé le fix complet non-commité. Les 3 tests « foreign lock » ont échoué en full-file (retour ~3 ms au lieu d'attendre ≥200/500 ms) alors qu'ils passaient en isolation. 4 hypothèses de pollution amont investiguées en vain (clearAllMocks, TTL env, garbage-steal, fail-open catch) — instrumenter n'importe où ne loggait rien parce que le chemin verrouillé **n'existait plus dans le code exécuté**. Les tests étaient CORRECTS : ils détectaient l'absence du fix (comportement exact attendu d'un test de mutation).
+
+### Anti-patterns
+
+- Chasser un pollueur amont sans avoir vérifié que le fix est encore là : `grep -c <symbole-du-fix> <fichier-SUT>` d'abord, toujours.
+- Interpréter un SUT qui répond instantanément (3-11 ms) là où un verrou/retry est attendu comme une « optimisation » — c'est la signature d'un chemin lent absent.
+- Lire « file state is current in your context » après un revert comme une garantie — l'état disque est le fichier REVERTI.
+- Séquencer « Edit réussi » puis verification sans backup — le revert détruit alors le fix.
+
+### Cousins
+
+- `.claude/rules/submod-pointer-safety.md` — `git checkout --theirs` / `git checkout HEAD --` sur des pointeurs submodule : même famille, mêmes effacements (eux s'appliquent à un gitlink, pas à un fichier de travail).
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)
