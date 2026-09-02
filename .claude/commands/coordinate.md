@@ -84,10 +84,51 @@ Si l'audit retourne des problèmes CRITICAL ou WARNING, les traiter AVANT de con
 3. **Lire INTERCOM local** : Verifier messages de Roo en premier
 4. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 5. **Analyse rapports** : Traiter messages RooSync entrants
-6. **Planification** : Ventiler le travail (task-planner ou manuel)
-7. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
-8. **Suivi GitHub** : Mettre a jour Project #67
-9. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+6. **Balayage des dettes** : solder ce qui attend sur MOI **avant** de distribuer du travail (voir section ci-dessous). Position empruntee a `coordinate.md` d'Epita, dont la Phase 3 « Merger ce qui est mergeable » precede la Phase 5 « Dispatcher ».
+7. **Planification** : Ventiler le travail (task-planner ou manuel)
+8. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
+9. **Suivi GitHub** : Mettre a jour Project #67
+10. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+
+### Balayage des dettes — ce qui attend sur MOI (AVANT tout dispatch)
+
+**Emprunte a CoursIA `continue.md` Phase 2 P0** (« Reparer SON PROPRE rouge »), dont la justification
+vaut mot pour mot ici : *« La raison est mecanique, pas disciplinaire : une PR rouge ne peut etre
+reparee que par sa lane [...] tant que la lane ne revient pas dessus, elle reste ouverte indefiniment
+pendant que les PRs du jour, elles, mergent. »*
+
+Le role coordinateur ajoute **un second axe que le worker CoursIA n'a pas** : je suis approbateur
+CODEOWNERS. Une PR d'un autre qui attend ma review est bloquee **par moi**, et ne se signale qu'une fois.
+
+**1. Les deux axes, les deux depots.**
+
+```bash
+gh pr list --repo jsboige/roo-extensions --state open \
+  --json number,title,author,reviewDecision,updatedAt \
+  --jq '.[]|"parent #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE") maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
+gh pr list --repo jsboige/jsboige-mcp-servers --state open \
+  --json number,title,author,reviewDecision,updatedAt \
+  --jq '.[]|"submod #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE") maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
+```
+
+`review=AUCUNE` sur la PR **d'un autre** = dette d'approbation. `review=CHANGES_REQUESTED` sur **la
+mienne** = dette de reparation. ⚠️ Le depot submodule est **`jsboige/jsboige-mcp-servers`**, pas
+`roo-state-manager` : une PR submod s'oublie deux fois, son depot ne porte pas le nom du produit.
+
+**2. Inbox** : `roosync_messages(action: "inbox", status: "unread")` — un non-lu est une dette.
+
+**3. Ce que je porte** : le **dernier** commentaire d'une epic que je porte est-il une question d'un
+autre agent ? `gh issue view <N> --json comments --jq '.comments[-1]|"\(.author.login) \(.createdAt[0:10])"'`
+Si oui, elle n'est pas « en cours » : elle est **en attente de moi**.
+
+**Une dette a une echeance EXTERNE** : « pousse ces deux gestes et j'approuve dans la foulee » tombe
+quand l'autre pousse, pas quand je m'en souviens — et personne ne me reveille. Comme chez CoursIA,
+l'echappatoire se justifie **par ecrit** sur la PR ou l'issue ; elle ne se prend pas en silence.
+
+**Incident fondateur (2026-09-02)** : 4 PRs sans review — dont une bloquant nommement po-2026
+(« je n'agis pas avant l'approbation formelle d'un approver flotte ») — 2 messages non lus, et une
+question posee a ma lane sur l'Epic #3188 restee **5 jours** sans reponse, pendant que je rapportais
+la flotte comme saine.
 
 ### Champs obligatoires pour issues roo-schedulable
 
