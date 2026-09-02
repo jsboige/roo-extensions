@@ -100,6 +100,19 @@ When a comment (code, PR body, issue) names a precise mechanism — cmdlet, cond
 - **In PR review:** read the code's comments AND verify the named condition actually exists — a read of the *condition*, not of the effects.
 - **Why:** three occurrences in one day (2026-08-21): #3208 (backup guard claimed in a comment, absent from code), #1023 ("Condensation stamp" claimed guarded by `!backfill` — it wasn't), #3209 (comment said "killable by `Stop-Job`" while the code only did `Remove-Job -Force`). The third was caught an hour *after* a review had explicitly cited this exact defect class — the class is easy to name and easy to miss.
 
+### Validate the measurement harness before concluding a fix failed
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-02).*
+
+When a measurement contradicts a fix you have just verified in the code, **suspect the instrument before the fix**. A buggy harness produces credible-looking numbers that are simply wrong.
+
+- **Absolute paths, always**, when spawning a process from a test or ad-hoc measurement — `cwd` changes relative-path resolution; the process dies at 0.1 s on `MODULE_NOT_FOUND` while the harness reports "cold start 76 s" or "timeout".
+- **Never swallow stderr** in a disposable harness — a silent `p.stderr.on('data',()=>{})` turns an instant crash into a phantom latency.
+- **Aberrant timing (too slow AND too fast)** = first verify the measured process is actually alive.
+- **Separate the server's first-call cost** (lazy load, paid once by whichever tool runs first) from the cost of the tool being measured — otherwise the tool inherits a latency that isn't its. Measure a different tool first to isolate.
+
+**Why:** #3292 re-measurement (2026-09-01): a harness spawned the server with a changed `cwd`; the relative path died at startup, stderr was discarded, and the run reported "76.7 s cold start / 200 s timeout" for a server that actually answers in 0.4–0.6 s — numbers that nearly went out as "fix #1052 doesn't work". Same fault class as concluding from a threshold without having the value: acting on an unvalidated instrument.
+
 ## Known Bugs / Gotchas
 
 ### Critical (recurring)
