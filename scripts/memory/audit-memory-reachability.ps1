@@ -148,7 +148,9 @@ function Invoke-ReachabilityAudit {
 
     Write-Host ("  INATTEIGNABLES            : {0}" -f $unreach.Count)
     if ($unreach.Count -gt 0) {
-        $byPrefix = $unreach | ForEach-Object { ($_ -split '_')[0] } | Group-Object | Sort-Object Count -Descending
+        # Decoupage sur - ET _ : le corpus est en kebab-case, un split sur le seul underscore
+        # rendait un seau par fichier et ne pouvait donc repondre a "combien de feedback- ?".
+        $byPrefix = $unreach | ForEach-Object { ($_ -split '[-_]')[0] } | Group-Object | Sort-Object Count -Descending
         Write-Host ("     par prefixe : {0}" -f (($byPrefix | ForEach-Object { "$($_.Name)=$($_.Count)" }) -join '  '))
         if ($ListUnreachable) {
             foreach ($u in $unreach) {
