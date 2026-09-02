@@ -65,7 +65,10 @@ function Invoke-ReachabilityAudit {
     $indexPath = Join-Path $Dir 'MEMORY.md'
     $files = @(Get-ChildItem -Path $Dir -Filter '*.md' -File |
              Where-Object { $_.Name -ne 'MEMORY.md' })
-    $slugs = [System.Collections.Generic.HashSet[string]]::new()
+    # Comparateur insensible a la casse : aligne $slugs sur les tables @{} ci-dessous (insensibles
+    # par defaut en PowerShell) et sur NTFS, ou un lien differant seulement par la casse ouvre
+    # bien le fichier. Sans cela un tel lien compte a la fois comme mort ET comme inatteignable.
+    $slugs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $mtime = @{}
     foreach ($f in $files) {
         $s = $f.BaseName
@@ -131,8 +134,8 @@ function Invoke-ReachabilityAudit {
     #   (a) l'index doit produire au moins un pointeur direct ;
     #   (b) au moins un fichier doit avoir ete atteint a profondeur >= 2, sinon on ne
     #       peut pas distinguer "corpus vraiment plat" de "traversee non exercee".
-    if ($direct.Count -eq 0 -and $total -gt 0) {
-        Write-Host "  INSTRUMENT SUSPECT : 0 pointeur direct pour $total fichiers -- l'index utilise-t-il bien la syntaxe [[slug]] ?" -ForegroundColor Red
+    if ($total -gt 0 -and $direct.Count -lt (0.05 * $total)) {
+        Write-Host ("  INSTRUMENT SUSPECT : {0} pointeur(s) direct(s) pour {1} fichiers -- index a une autre convention, ou volontairement condense ?" -f $direct.Count, $total) -ForegroundColor Red
     }
     $maxDepth = 0
     if ($depth.Count -gt 0) { $maxDepth = ($depth.Values | Measure-Object -Maximum).Maximum }
@@ -174,7 +177,13 @@ $results | Format-Table -AutoSize Dir, Total, Reachable, Percent, Unreachable, D
 
 $worst = ($results | Measure-Object -Property Percent -Minimum).Minimum
 if ($FailUnder -gt 0 -and $worst -lt $FailUnder) {
+    $under = @($results | Where-Object { $_.Percent -lt $FailUnder } | Sort-Object Percent)
     Write-Host ("ECHEC : atteignabilite minimale {0} % < seuil {1} %." -f $worst, $FailUnder) -ForegroundColor Red
+    foreach ($u in $under) {
+        Write-Host ("   sous le seuil : {0} % -- {1}" -f $u.Percent, $u.Dir) -ForegroundColor Red
+    }
+    Write-Host "   Un index volontairement condense (peu de pointeurs, detail retrouve autrement) descend legitimement bas :" -ForegroundColor Yellow
+    Write-Host "   verifier le motif avant de cabler ce seuil dans un cron." -ForegroundColor Yellow
     exit 1
 }
 exit 0
