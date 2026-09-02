@@ -11,7 +11,7 @@
 > - Index complet de la documentation : [`docs/harness/reference/INDEX.md`](../harness/reference/INDEX.md)
 > - Architecture actuelle : [`docs/roosync/ARCHITECTURE_ROOSYNC.md`](ARCHITECTURE_ROOSYNC.md)
 >
-> **Correction de comptage** : roo-state-manager sert **15** outils (verrouillé par le test serveur `EXPECTED_TOOL_COUNT=15`, arbitrages #512/#603) — ni 12, ni 26. Le « 26 » de l'audit #3319 compte les 27 *définitions* du fichier `tool-definitions.ts`, dont ~12 sont dé-enregistrées (retirées par #603 : `roosync_init`, `roosync_list_diffs`, famille `roosync_*_decision`…). Le compte serveur ([tool-availability.md](../../.claude/rules/tool-availability.md)) fait foi.
+> **Correction de comptage** : roo-state-manager sert **16** outils (verrouillé par le test serveur `EXPECTED_TOOL_COUNT=16`, arbitrages #512/#603, +`claudish_traffic` #3391) — ni 12, ni 26. Le « 26 » de l'audit #3319 compte les 27 *définitions* du fichier `tool-definitions.ts`, dont ~12 sont dé-enregistrées (retirées par #603 : `roosync_init`, `roosync_list_diffs`, famille `roosync_*_decision`…). Le compte serveur ([tool-availability.md](../../.claude/rules/tool-availability.md)) fait foi.
 
 ---
 
