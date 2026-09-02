@@ -284,6 +284,57 @@ Describe "Issue #3345 — Agent worktree isolation" {
         }
     }
 
+    Context "Windows path-normalization defect class (#3345 D1)" {
+
+        # The reported #3345 refusal refused a worktree that resolved to
+        # ITSELF: the harness held `d:\dev\...` (lowercase drive, backslashes)
+        # while git returned `D:/dev/...` (canonical). Measured firsthand
+        # (myia-po-2026, 2026-09-02, git 2.55.0.windows.4): git canonicalizes
+        # the drive letter to uppercase and separators to `/` even when invoked
+        # with the lowercase/backslash form. A strict string comparison on that
+        # pair false-positives as "resolves outside the worktree".
+        #
+        # CI (unit-pester) runs on ubuntu where drive letters don't exist, so
+        # this test skips there — it guards Windows dev machines, which is
+        # where the defect lives.
+
+        It "lowercase-drive/backslash path variant resolves to the same worktree — strict string comparison false-positives" -Skip:(-not $IsWindows) {
+            $repo = New-TempRepo
+            try {
+                $wtPath = Join-Path $repo ".claude/worktrees/agent-case"
+                New-Item -ItemType Directory -Path (Split-Path $wtPath -Parent) -Force | Out-Null
+                git -C $repo worktree add $wtPath feature/test 2>&1 | Out-Null
+
+                $canonical = (git -C $wtPath rev-parse --show-toplevel).Trim()
+
+                # The form the #3345 harness held: lowercase drive + backslashes.
+                $variant = $canonical.Substring(0, 1).ToLower() + $canonical.Substring(1) -replace '/', '\'
+
+                # The variant IS the same location: git resolves it back to
+                # the canonical form, and a read-only command anchors inside
+                # the worktree (nothing writes outside it).
+                $resolvedFromVariant = (git -C $variant rev-parse --show-toplevel).Trim()
+                $resolvedFromVariant | Should -Be $canonical
+                git -C $variant status --porcelain 2>&1 | Out-Null
+                $LASTEXITCODE | Should -Be 0
+
+                # The exact false-positive class of the #3345 refusal: strict
+                # (case-sensitive, separator-sensitive) string comparison of
+                # the held form vs git's canonical output FAILS even though
+                # both denote the same worktree.
+                ($variant -ceq $resolvedFromVariant) | Should -Be $false
+
+                # The comparison the upstream validator should perform on
+                # win32: fold separators and case (Windows filesystems are
+                # case-insensitive).
+                $fold = { param($p) ($p -replace '\\', '/').TrimEnd('/').ToLowerInvariant() }
+                (& $fold $variant) | Should -Be (& $fold $resolvedFromVariant)
+            } finally {
+                Remove-TempRepo -Path $repo
+            }
+        }
+    }
+
     Context "Upstream scope acknowledgement" {
 
         It "the actual harness validator lives in upstream Claude Code, not this repo" {
