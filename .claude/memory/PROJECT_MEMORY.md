@@ -113,6 +113,19 @@ When a measurement contradicts a fix you have just verified in the code, **suspe
 
 **Why:** #3292 re-measurement (2026-09-01): a harness spawned the server with a changed `cwd`; the relative path died at startup, stderr was discarded, and the run reported "76.7 s cold start / 200 s timeout" for a server that actually answers in 0.4–0.6 s — numbers that nearly went out as "fix #1052 doesn't work". Same fault class as concluding from a threshold without having the value: acting on an unvalidated instrument.
 
+### Cite fresh measurement artifacts from the tree being changed
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-02).*
+
+When citing coverage stats (or any regenerated measurement artifact) as a pre-work baseline in `[CLAIMED]` or pre-work analysis, read the **worktree's** artifact — never the parent checkout's. The parent's copy is refreshed only when a full run happens there, so it can describe a state several cycles old, especially after a submodule pointer bump.
+
+- **Run the measurement from inside the worktree**, so the emitted JSON describes the code you are about to change.
+- **Pass the worktree's artifact path** to any analyzer script — never a parent-tree path picked by convenience.
+- **Cite those fresh numbers** as the baseline; a stale one silently misstates both the starting point and the credit for the work delivered.
+- A mismatch discovered after the fact must be corrected in the [DONE] — acceptable only when the delivered work matches the post-PR fresh state.
+
+**Why:** Sprint C3 coverage work: a [CLAIMED] cited "11 cold branches / 89.7%" read from the parent repo's `coverage-final.json` (stale, pre-#751 merge — the post-work state of a *previous* cycle). The worktree's fresh run showed the real baseline: 18 cold branches / 67.95%. Complement of the harness rule above: there the instrument was wrong; here the instrument was right but pointed at a stale artifact of the wrong tree.
+
 ## Known Bugs / Gotchas
 
 ### Critical (recurring)
