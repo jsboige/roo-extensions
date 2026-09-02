@@ -23,7 +23,7 @@
 
 Describe 'sync-claude-settings protected model keys (#3361)' {
     BeforeAll {
-        $scriptPath = Join-Path $PSScriptRoot '..\..\scripts\deployment\sync-claude-settings.ps1'
+        $scriptPath = Join-Path $PSScriptRoot '..\..\..\scripts\deployment\sync-claude-settings.ps1'
         $tokens = $null
         $errors = $null
         $ast = [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors)
