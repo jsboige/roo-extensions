@@ -16,7 +16,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
 - ✅ **5 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent (github-projects-mcp RETIRÉ #368)
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **15 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
+- ✅ **16 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13, + `claudish_traffic` (#3391)
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
 - ✅ **GitHub Projects #67** : 242 items actifs
@@ -112,7 +112,7 @@ roo-extensions/
 │   ├── scheduler/                 # Documentation scheduler (NOUVEAU)
 │   └── framework-multi-agent/     # Templates coordination
 ├── 📁 mcps/internal/servers/
-│   ├── roo-state-manager/         # 15 outils MCP (wrapper v4)
+│   ├── roo-state-manager/         # 16 outils MCP (wrapper v4)
 │   └── sk-agent/                  # 7 outils (Python FastMCP + Semantic Kernel)
 ├── 📁 roo-config/                 # Configuration centralisée
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
@@ -153,7 +153,7 @@ roo-extensions/
 - ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
 - ✅ **Inventory automatique** : Détection système complète (6 machines)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **15 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
+- ✅ **16 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
 
 #### Workflow Principal
 ```
@@ -238,7 +238,7 @@ Collect → Publish → Compare → Validate → Apply
 - **Build + Tests** : ~62s (~13 400 tests, 720 fichiers)
 
 ### MCPs
-- **roo-state-manager** : 15 outils, <500ms réponse
+- **roo-state-manager** : 16 outils, <500ms réponse
 - **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
 - **Taux de réussite tests** : mesuré à chaque run CI (historique 99.6%)
 
@@ -389,7 +389,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
-- ✅ **Wrapper MCP v4** : 15 outils roo-state-manager exposés (pass-through)
+- ✅ **Wrapper MCP v4** : 16 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
 - ✅ **Tests robustes** : ~13 400 PASS sur 720 fichiers .test.ts
 - ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel

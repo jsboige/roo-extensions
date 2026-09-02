@@ -79,7 +79,7 @@ Ne PAS continuer en mode degrade. Ne PAS contourner. Signaler et arreter.
 
 **OBLIGATION apres TOUT changement de config :**
 1. Lister 6 machines
-2. Verifier Claude (roo-state-manager 15 tools post-CONS) + Roo (win-cli fork local) + pas de MCP retire
+2. Verifier Claude (roo-state-manager 16 tools post-CONS) + Roo (win-cli fork local) + pas de MCP retire
 3. Si divergence -> directive corrective URGENTE
 
 ---

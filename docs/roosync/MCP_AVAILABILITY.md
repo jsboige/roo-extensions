@@ -164,7 +164,7 @@
 **Procedure :**
 1. Lister TOUTES les machines (6)
 2. Pour chaque machine, verifier via RooSync ou directement :
-   - **Claude Code** : roo-state-manager repond (15 tools post all CONS)
+   - **Claude Code** : roo-state-manager repond (16 tools post all CONS)
    - **Roo** : win-cli pointe vers le fork local (PAS npx)
    - Aucun MCP retire n'est actif
 3. Si divergence detectee : envoyer directive corrective IMMEDIATE (priorite URGENT)

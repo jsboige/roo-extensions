@@ -44,7 +44,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 
 **Verifier les outils critiques AVANT toute autre action :**
 
-1. MCP roo-state-manager disponible (15 outils) → Si absent, STOP & REPAIR
+1. MCP roo-state-manager disponible (16 outils) → Si absent, STOP & REPAIR
 2. `git fetch origin && git pull origin main`
 3. Verifier submodule mcps/internal a jour
    - **Deploy-lag nudge (#2591 follow-up)** : si le dernier commit merged sur main est un `chore(submod): bump roo-state-manager` ET qu'il touche `src/**/*.ts` (vérifier `git log --name-only -1`), le fix est merged en source mais **PAS live** jusqu'à rebuild+restart MCP host. Poster `[INFO] restart VS Code requis pour activer le fix submod #NNN` sur le dashboard (1 append, fusionnable avec le [DONE] du cycle). L'étape 4 (`ensure-build-fresh`) rebuild le main-tree `build/` côté session interactive ; le worker planifié a déjà son `Sync-McpSubmoduleBuild`. Le nudge documente le restart `[INTERACTIVE-ONLY]` restant (build fresh sur disque ≠ MCP host process servi).

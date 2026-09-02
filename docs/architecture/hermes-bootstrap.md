@@ -61,7 +61,7 @@ Create **Hermes** as a dedicated workspace with specialized agents for cross-clu
 | **Tasks** | Build features, fix bugs, review PRs | Route tasks, archive data, track cluster health |
 | **Scope** | Per-workspace (roo-extensions) | Cross-workspace (all workspaces) |
 | **Agent type** | Claude Code + Roo Code | Claude Code (lightweight) |
-| **Primary tool** | roo-state-manager (15 tools) | roo-state-manager (read-only subset) |
+| **Primary tool** | roo-state-manager (16 tools) | roo-state-manager (read-only subset) |
 | **Communication** | Dashboard workspace | Dashboard **global** |
 
 **Key differentiator**: Hermes doesn't write code. It reads dashboards, routes messages, and maintains cluster-level metadata.
