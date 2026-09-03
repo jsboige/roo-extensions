@@ -153,6 +153,64 @@ if ($Text -match '\$RepairCooldownMin[ \t]*=[ \t]*(\d+)') {
 Assert-That "aucun message emis n'accuse une machine de la flotte" `
     (-not ($Text -match "(?m)^[^\r\n]*Write-Log[^\r\n]*(po-20\d\d|web1|ai-01)"))
 
+# --- 5. La telemetrie flotte ne doit pas tuer le chien de garde -------------
+# #3394 : les notes vont sur le machine dashboard via la chaine qu'elles
+# surveillent. Un append dashboard peut prendre ~45 s quand l'auto-condensation
+# se declenche (mesure 01/09/2026), et la schtask tourne sous une
+# ExecutionTimeLimit de 2 min : une note sans budget borne pourrait faire tuer
+# le watchdog en pleine sequence de reparation. Et sans heartbeat etrangle,
+# la tache qui tire toutes les 2 min remplirait le dashboard (et nourrirait la
+# condensation a 92 %) pour rien.
+Assert-That "la telemetrie flotte existe" ($Text -match 'function\s+Publish-FleetNote\b')
+Assert-That "le budget de telemetrie est ecrit dans le code" ($Text -match '\$FleetNoteTimeoutSec[ \t]*=[ \t]*(\d+)')
+if ($Text -match '\$FleetNoteTimeoutSec[ \t]*=[ \t]*(\d+)') {
+    $noteBudget = [int]$matches[1]
+    # Le budget porte sur l'AGGREGAT, pas la requete (revue po-2023 F2 /
+    # po-2026 F3, arbitrage ai-01) : le pire cas de Publish-FleetNote est
+    # 3 requetes x 2 URLs x budget. Asserter ~15 s/requete laissait la garde
+    # accepter 6 x 15 = 90 s + ~30 s de reparation = 120 s, l'ExecutionTimeLimit,
+    # marge nulle. A 8 s (valeur ecrite) : 48 + 30 = 78 s, marge 42 s.
+    # 75 s = au pire 105 s avec la reparation, 15 s de marge.
+    Assert-That "la telemetrie ne peut pas bloquer une reparation (6 x budget <= 75 s, agregat)" ($noteBudget * 6 -le 75)
+}
+Assert-That "le heartbeat est etrangle dans le code" ($Text -match '\$HeartbeatIntervalHours[ \t]*=[ \t]*(\d+)')
+if ($Text -match '\$HeartbeatIntervalHours[ \t]*=[ \t]*(\d+)') {
+    $heartbeatHours = [int]$matches[1]
+    # La tache tire toutes les 2 min : un intervalle < 1 h produirait 24+
+    # notes/jour sur le machine dashboard pour un chien de garde en sante.
+    Assert-That "le heartbeat ne spamme pas le dashboard (>= 1 h)" ($heartbeatHours -ge 1)
+}
+# La telemetrie doit echouer SILENCIEUSEMENT : si un echec d'append pouvait
+# faire sortir le script avant la fin du tick, une panne du dashboard (chaine
+# lente, condensation) transformerait chaque tick en tick perdu. Le catch de
+# la fonction doit exister et rester dans la fonction.
+Assert-That "la telemetrie est best-effort (echec avale dans la fonction)" `
+    ($Text -match 'function\s+Publish-FleetNote[\s\S]{0,5000}?catch')
+# Et la note doit passer par un VRAI appel d'outil dashboard, pas par un simple
+# HTTP 200 sur initialize -- exactement la lecon du 15/08 qui a cree ce
+# watchdog : un handshake qui repond ne prouve rien sur l'outil en bout de
+# chaine. Ancre sur tools/call DANS la fonction de telemetrie.
+Assert-That "la note est un vrai tools/call dashboard" `
+    ($Text -match 'function\s+Publish-FleetNote[\s\S]{0,3000}?roosync_dashboard')
+
+# --- 6. La note porte une cle d'idempotence (#3276) --------------------------
+# Revue po-2023 (F1, bloquante) : le fallback e2e->LAN re-ecrit la meme note
+# quand la 1re route time-out apres l'ecriture serveur (WRITE-FIRST) -- un
+# doublon sur un canal que 7 machines lisent. Revue ai-01 (03/09, mesure 57
+# notes/9h) : sans bucket de temps, les 8 ticks d'un cooldown de 15 min
+# ecrivent 8 notes identiques. Une cle stable (hote + niveau + empreinte +
+# bucket) fait converger les deux URLS et les ticks sur une seule ligne.
+Assert-That "la note porte une cle d'idempotence (messageId)" `
+    ($Text -match 'function\s+Publish-FleetNote[\s\S]{0,5000}?messageId[ \t]*=[ \t]*\$fleetNoteId')
+Assert-That "la cle d'idempotence porte un bucket de temps (cooldown 15 min)" `
+    ($Text -match 'TotalSeconds[^\r\n]{0,80}?/ 900')
+# Une seule definition de la cle : calculee pour LA note, partagee par les 2
+# routes. Si elle etait recalculee dans la boucle, chaque route ecrirait la
+# meme note sous une cle differente et le doublon reviendrait.
+$idDefCount = ([regex]::Matches($Text, '\$fleetNoteId[ \t]*=')).Count
+Assert-That "la cle d'idempotence est definie UNE seule fois (partagee par les 2 routes)" `
+    ($idDefCount -eq 1)
+
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }
 else { Write-Host "$($script:Fails) ECHEC(S)" -ForegroundColor Red; exit 1 }

@@ -15,8 +15,11 @@
          sur "port up") : Stop+Start MCP-Proxy-RSM puis docker restart
          myia-mcp-proxy (stale session TBXark #2023), cooldown 15 min.
       4. Si encore KO après réparation → ALERT (event log).
+      5. Télémétrie flotte (#3394) : réparations/alertes ET un heartbeat
+         périodique sont postés sur le MACHINE dashboard de l'hôte via la
+         chaîne elle-même — best-effort, budget borné, jamais bloquant.
 
-    Conçu pour tourner en SYSTEM via scheduled task "At startup + every 5 min".
+    Conçu pour tourner en SYSTEM via scheduled task "At startup + every 2 min".
 
 .PARAMETER Mode
     'poll' (défaut) : run one shot and exit. 'dry-run' : probe only, never repair.
@@ -194,6 +197,92 @@ function Invoke-McpProbe {
 # abstraction with a single caller. What a future deployer actually needs is not
 # a knob but the measurements, so the measurements are what is recorded here.
 $SlowRetryTimeoutSec = 60
+
+# ---------- fleet telemetry (#3394) ----------
+# Two bus outages (02/09 23:10->00:05Z, 03/09 01:21->01:44Z) were only visible
+# through bot anecdotes, and afterwards nobody could tell whether this watchdog
+# had even run: its actions lived in a local log and a local Event Log, neither
+# of which the fleet reads. These notes go to the MACHINE dashboard of this
+# host, through the very chain being guarded, so that:
+#   - a repair or an alert becomes fleet-visible within one tick;
+#   - a periodic heartbeat proves the watchdog itself is alive -- its own
+#     meta-failure (schtask gone or stopped) is otherwise indistinguishable
+#     from a healthy quiet chain, which is how 15/08 stayed invisible 2.5 days.
+#
+# Best-effort ONLY: short per-request budget, one fallback URL, no retry, all
+# errors swallowed. The schtask runs under a 2-min ExecutionTimeLimit, and a
+# dashboard append can legitimately take ~45 s when the auto-condensation
+# fires (measured 01/09/2026); telemetry that can outrun its budget is
+# telemetry that gets the repair sequence killed mid-flight.
+$FleetNoteTimeoutSec = 8
+
+function Publish-FleetNote {
+    param([string]$Level, [string]$Text)
+    $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog","version":"2.1"}}}'
+    # Idempotence (#3276) : la cle identifie LA note (hote + niveau + empreinte
+    # du texte + bucket de 15 min), pas la TENTATIVE. Un append dont le
+    # messageId existe deja est SAUTE par le serveur (deduplicated:true). Deux
+    # doublons meurtris sur un canal que 7 machines lisent (revues po-2023 F1
+    # + ai-01 03/09, mesures 57 notes/9h) :
+    #   - le fallback e2e->LAN re-ecrit la meme note quand la 1re route time-out
+    #     apres l'ecriture serveur (WRITE-FIRST, dashboard.ts:3428) ;
+    #   - les ticks de 2 min d'un incident en cooldown (15 min) convergent dans
+    #     le meme bucket : 8 notes identiques par incident -> 1 ligne.
+    # Si l'ecriture a echoue avant le serveur, l'id de la tentative suivante
+    # n'existe pas : le retry ecrit normalement.
+    $epoch = [datetime]::UtcNow - [datetime]::new(1970, 1, 1, 0, 0, 0, [datetimekind]::Utc)
+    $bucket = [int][math]::Floor($epoch.TotalSeconds / 900)
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    try {
+        $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$Level|$Text"))
+    } finally { $md5.Dispose() }
+    $digest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
+    $fleetNoteId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
+    $payload = @{
+        jsonrpc = '2.0'
+        id      = 3
+        method  = 'tools/call'
+        params  = @{
+            name      = 'roosync_dashboard'
+            arguments = @{
+                action     = 'append'
+                type       = 'machine'
+                tags       = @($Level, 'mcp-chain-watchdog')
+                content    = $Text
+                messageId  = $fleetNoteId
+            }
+        }
+    } | ConvertTo-Json -Depth 6 -Compress
+    $headers = @{
+        'Authorization' = "Bearer $bearer"
+        'Content-Type'  = 'application/json'
+        'Accept'        = 'application/json, text/event-stream'
+    }
+    foreach ($url in @($e2eUrl, $lanUrl)) {
+        try {
+            $init = Invoke-WebRequest -Uri $url -Method Post -Headers $headers -Body $initBody `
+                                      -UseBasicParsing -TimeoutSec $FleetNoteTimeoutSec -ErrorAction Stop
+            $sid = $null
+            foreach ($k in @($init.Headers.Keys)) { if ("$k" -ieq 'mcp-session-id') { $sid = $init.Headers[$k]; break } }
+            $callHeaders = $headers
+            if ($sid) {
+                $callHeaders = @{} + $headers
+                $callHeaders['mcp-session-id'] = "$sid"
+                $null = Invoke-WebRequest -Uri $url -Method Post -Headers $callHeaders `
+                                          -Body '{"jsonrpc":"2.0","method":"notifications/initialized"}' `
+                                          -UseBasicParsing -TimeoutSec $FleetNoteTimeoutSec -ErrorAction SilentlyContinue
+            }
+            $null = Invoke-WebRequest -Uri $url -Method Post -Headers $callHeaders -Body $payload `
+                                      -UseBasicParsing -TimeoutSec $FleetNoteTimeoutSec -ErrorAction Stop
+            Write-Log 'INFO' "fleet note posted to machine dashboard ($Level)"
+            return $true
+        } catch {
+            continue
+        }
+    }
+    Write-Log 'WARN' 'fleet note NOT posted (chain down or slow) — telemetry is best-effort, continuing'
+    return $false
+}
 
 function Test-E2E { Invoke-McpProbe -Url $e2eUrl -TimeoutSec 20 }
 
@@ -409,6 +498,34 @@ if ($script:alerts.Count -gt 0) {
         }
         Write-EventLog -LogName Application -Source $src -EventId 2000 -EntryType Error -Message $alertMsg -ErrorAction SilentlyContinue
     } catch {}
+}
+
+# ---------- fleet telemetry emission (#3394) ----------
+# One note per run, max: repairs/alerts take precedence over the heartbeat.
+# Heartbeat throttle: the task fires every 2 min; a note per tick would spam
+# the machine dashboard and feed the 92% auto-condensation for nothing. 6h =
+# 4 lines/day. On a chain that stays healthy, silence beyond ~2x this interval
+# means the watchdog itself is dead — see verify-watchdog-deployment.ps1.
+$HeartbeatIntervalHours = 6
+if ($script:repairs.Count -gt 0 -or $script:alerts.Count -gt 0) {
+    $parts = @()
+    if ($script:repairs.Count -gt 0) { $parts += "repaired: $($script:repairs -join ', ')" }
+    if ($script:alerts.Count -gt 0)  { $parts += "alerts: $($script:alerts -join '; ')" }
+    $parts += "final=$(if ($result.Ok) { 'OK' } else { 'DOWN' })"
+    $note = (($parts -join ' | ') -replace '\s+', ' ')
+    if ($note.Length -gt 300) { $note = $note.Substring(0, 300) }
+    $null = Publish-FleetNote -Level 'WARN' -Text $note
+} elseif ($result.Ok) {
+    $heartbeatStateFile = Join-Path $LogDir 'heartbeat-state.json'
+    $lastHeartbeatAt = [datetime]::MinValue
+    if (Test-Path $heartbeatStateFile) {
+        try { $lastHeartbeatAt = [datetime](Get-Content $heartbeatStateFile -Raw | ConvertFrom-Json).lastHeartbeatAt } catch { }
+    }
+    if (((Get-Date) - $lastHeartbeatAt).TotalHours -ge $HeartbeatIntervalHours) {
+        if (Publish-FleetNote -Level 'INFO' -Text "alive: E2E chain healthy (latency=$($result.LatencyMs)ms)") {
+            @{ lastHeartbeatAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $heartbeatStateFile -Encoding utf8
+        }
+    }
 }
 
 # ---------- log rotation ----------
