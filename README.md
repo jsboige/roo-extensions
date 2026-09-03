@@ -16,7 +16,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 - ✅ **6 machines actives** : Coordination bicéphale Roo + Claude Code
 - ✅ **5 MCPs déployés** : roo-state-manager, playwright, markitdown, win-cli, sk-agent (github-projects-mcp RETIRÉ #368)
 - ✅ **RooSync v2.3** : Messagerie inter-machines + baseline-driven sync
-- ✅ **15 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13
+- ✅ **16 outils MCP RooSync** : Consolidés via CONS-1 à CONS-13, + `claudish_traffic` (#3391)
 - ✅ **Scheduler Roo automatique** : Exécution toutes les 3h avec escalade CLI
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique via Windows Task Scheduler (NEW)
 - ✅ **GitHub Projects #67** : 242 items actifs
@@ -153,7 +153,7 @@ roo-extensions/
 - ✅ **Configuration sync** : collect, publish, apply, compare (CONS-2/3/4)
 - ✅ **Inventory automatique** : Détection système complète (6 machines)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex)
-- ✅ **15 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
+- ✅ **16 outils MCP** : Wrapper v4 pass-through (tasks, search, export, diagnostic)
 
 #### Workflow Principal
 ```
