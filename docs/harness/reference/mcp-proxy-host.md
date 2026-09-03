@@ -138,6 +138,15 @@ Get-ScheduledTask -TaskName MCP-Proxy-RSM | Format-List State
 Get-ScheduledTaskInfo -TaskName MCP-Proxy-RSM
 ```
 
+### Modes de panne de la tache (#3394)
+
+La tache a `RestartCount 5` x 1 min et un trigger `AtLogOn` (`LogonType Interactive`, exige par GDrive). Deux consequences :
+
+- **Crash-loop > 5** : au-dela du budget de restarts, plus RIEN ne relance sparfenyuk jusqu'au prochain logon. C'est la signature « le proxy tombe et rien ne le relance » des episodes du 02-03/09 (#3394). Le filet de secours est le chain watchdog (`scripts/mcp-watchdog/mcp-chain-watchdog.ps1`, schtask `MCP-Chain-Watchdog`) — verifier son deploiement avec `scripts\mcp-watchdog\verify-watchdog-deployment.ps1` (lecture seule).
+- **Session perdue** : logoff/reboot sans logon = :9091 down jusqu'a la prochaine session interactive.
+
+Le watchdog poste sa telemetrie (reparations, alertes, heartbeat 6 h) sur le **machine dashboard** de l'hote — voir `mcp-diagnosis-procedure.md` « Verifier le watchdog lui-meme ».
+
 ### Restart apres modification de roo-state-manager
 
 ```powershell
@@ -172,6 +181,7 @@ Puis mettre a jour `docker/mcp-proxy/config.json` et `docker compose restart mcp
 | Tache ne demarre pas | `Get-ScheduledTaskInfo -TaskName MCP-Proxy-RSM` (voir `LastTaskResult`) + `Get-WinEvent -LogName Microsoft-Windows-TaskScheduler/Operational -MaxEvents 20` |
 | 401 sur endpoint | Token incorrect dans `Authorization: Bearer ...` |
 | Connection refused container -> host | Verifier `host.docker.internal` resolve + firewall Windows (autoriser port 9091 sur interface Docker) |
+| Refus par fenetres de 20-55 min qui se referment seules (#3394) | `.\scripts\mcp-watchdog\verify-watchdog-deployment.ps1` sur l'hote : crash-loop au-dela du budget RestartCount, session perdue, ou chain watchdog mort |
 | Docker proxy bloque en "Connecting" | Oubli de `"transportType": "streamable-http"` dans la config Docker (voir section Registration) |
 | Tools/list vide | roo-state-manager stdio crash - verifier `Get-Process mcp-proxy` tourne et relancer la tache |
 | GDrive tools echouent | La tache tourne-t-elle bien dans une session utilisateur interactive (pas LocalSystem) ? `Get-ScheduledTask -TaskName MCP-Proxy-RSM \| Select-Object -ExpandProperty Principal` doit montrer `LogonType: Interactive` |

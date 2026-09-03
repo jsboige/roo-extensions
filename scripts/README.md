@@ -38,7 +38,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
 | `mcp/` | 18 | Gestion et validation des serveurs MCP (build, validate, deploy, env backup/restore, zombie cleanup) |
-| `mcp-watchdog/` | 6 | Surveillance et redémarrage automatique des MCP |
+| `mcp-watchdog/` | 7 | Surveillance et redémarrage automatique des MCP (+ vérificateur de déploiement #3394) |
 | `qdrant/` | 6 | Gestion Qdrant (backup, restore, diagnostics) |
 | `postgres/` | 3 | Sauvegarde Postgres (backup dump, schtask install) |
 | `copilot/` | 1 | Configuration VS Code Copilot MCP |

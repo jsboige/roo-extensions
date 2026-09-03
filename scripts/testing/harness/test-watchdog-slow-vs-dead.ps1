@@ -153,6 +153,43 @@ if ($Text -match '\$RepairCooldownMin[ \t]*=[ \t]*(\d+)') {
 Assert-That "aucun message emis n'accuse une machine de la flotte" `
     (-not ($Text -match "(?m)^[^\r\n]*Write-Log[^\r\n]*(po-20\d\d|web1|ai-01)"))
 
+# --- 5. La telemetrie flotte ne doit pas tuer le chien de garde -------------
+# #3394 : les notes vont sur le machine dashboard via la chaine qu'elles
+# surveillent. Un append dashboard peut prendre ~45 s quand l'auto-condensation
+# se declenche (mesure 01/09/2026), et la schtask tourne sous une
+# ExecutionTimeLimit de 2 min : une note sans budget borne pourrait faire tuer
+# le watchdog en pleine sequence de reparation. Et sans heartbeat etrangle,
+# la tache qui tire toutes les 2 min remplirait le dashboard (et nourrirait la
+# condensation a 92 %) pour rien.
+Assert-That "la telemetrie flotte existe" ($Text -match 'function\s+Publish-FleetNote\b')
+Assert-That "le budget de telemetrie est ecrit dans le code" ($Text -match '\$FleetNoteTimeoutSec[ \t]*=[ \t]*(\d+)')
+if ($Text -match '\$FleetNoteTimeoutSec[ \t]*=[ \t]*(\d+)') {
+    $noteBudget = [int]$matches[1]
+    # 3 requetes (initialize, initialized, tools/call) x budget, 2 URLs :
+    # meme au pire, la note doit rester tres en dessous des 120 s de la tache
+    # une fois additionnee aux ~30 s de la sequence de reparation.
+    Assert-That "la telemetrie ne peut pas bloquer une reparation (<= 15 s)" ($noteBudget -le 15)
+}
+Assert-That "le heartbeat est etrangle dans le code" ($Text -match '\$HeartbeatIntervalHours[ \t]*=[ \t]*(\d+)')
+if ($Text -match '\$HeartbeatIntervalHours[ \t]*=[ \t]*(\d+)') {
+    $heartbeatHours = [int]$matches[1]
+    # La tache tire toutes les 2 min : un intervalle < 1 h produirait 24+
+    # notes/jour sur le machine dashboard pour un chien de garde en sante.
+    Assert-That "le heartbeat ne spamme pas le dashboard (>= 1 h)" ($heartbeatHours -ge 1)
+}
+# La telemetrie doit echouer SILENCIEUSEMENT : si un echec d'append pouvait
+# faire sortir le script avant la fin du tick, une panne du dashboard (chaine
+# lente, condensation) transformerait chaque tick en tick perdu. Le catch de
+# la fonction doit exister et rester dans la fonction.
+Assert-That "la telemetrie est best-effort (echec avale dans la fonction)" `
+    ($Text -match 'function\s+Publish-FleetNote[\s\S]{0,3000}?catch')
+# Et la note doit passer par un VRAI appel d'outil dashboard, pas par un simple
+# HTTP 200 sur initialize -- exactement la lecon du 15/08 qui a cree ce
+# watchdog : un handshake qui repond ne prouve rien sur l'outil en bout de
+# chaine. Ancre sur tools/call DANS la fonction de telemetrie.
+Assert-That "la note est un vrai tools/call dashboard" `
+    ($Text -match 'function\s+Publish-FleetNote[\s\S]{0,3000}?roosync_dashboard')
+
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }
 else { Write-Host "$($script:Fails) ECHEC(S)" -ForegroundColor Red; exit 1 }
