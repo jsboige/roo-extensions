@@ -779,9 +779,7 @@ roo-code-customization/
 │   ├── 11-sddd-process-post-mortem.md
 │   ├── 12-vhp-condensation-analysis.md
 │   └── ...
-├── deployment-script-design.md
-├── deployment-script-testing-plan.md
-└── deployment-script-tests-design.md
+└── archive/  # cluster deploy-fix (script cible supprimé — classé périmé #3381, 2026-09)
 ```
 
 #### Thèmes
