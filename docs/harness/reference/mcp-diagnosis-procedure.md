@@ -53,7 +53,7 @@ Lecture du verdict :
 |---|---|---|
 | 0 ligne dans la fenetre | La schtask watchdog n'a PAS tourne pendant l'episode | Reinstaller `install-watchdog-schtask.ps1` (elevation) — cause premiere |
 | Lignes OK uniquement | Watchdog vivant mais sa sonde etait VERTE pendant l'episode | Divergence de chemin sonde (:9090) vs bots (:9091) — instruire |
-| Lignes FAIL/repair | Le watchdog a vu la panne et est intervenu | Verifier pourquoi la reparation n'a pas tenu (crash-loop sparfenyuk) |
+| Lignes FAIL/repair | Le watchdog a vu la panne et est intervenu | Verifier pourquoi la reparation n'a pas tenu — distinguer la signature : HTTP 404 (backend vivant / instance morte — GDrive, RSM) vs HTTP 0 ou timeouts (couche proxy/reseau) ; les deux n'appellent pas la meme reparation (mesure ai-01 03/09 : 2 fenetres, 2 signatures) |
 
 **Modes de panne connus de `MCP-Proxy-RSM`** (pourquoi « rien ne le relance » est possible) :
 
@@ -64,6 +64,10 @@ Lecture du verdict :
 **Telemetrie flotte (depuis #3394)** : le watchdog poste sur le **machine dashboard** de l'hote (a travers la chaine qu'il surveille, best-effort, budget borne 8 s/requete) :
 - `WARN` + tag `mcp-chain-watchdog` a chaque reparation/alerte (verdict final inclus) ;
 - `INFO` + tag `mcp-chain-watchdog` en heartbeat toutes les 6 h quand tout est sain.
+
+La note porte une **cle d'idempotence** (#3276) : `watchdog-<hote>-<niveau>-<empreinte>-<bucket 15 min>`. Les 8 ticks de 2 min d'un incident en cooldown et les 2 routes du fallback convergent sur une seule ligne du dashboard.
+
+**Limite structurelle (po-2023 F4)** : la note transite par la chaine qu'elle surveille — le cas « reparation ECHOUEE, final=DOWN » est le seul qui ne peut jamais etre livre (chaine down = append impossible). La telemetrie prouve « le watchdog est vivant » et « une reparation a reussi » ; jamais « une reparation a echoue ». Pour ce cas, le verifier host-side ci-dessus est la seule source.
 
 Silence `mcp-chain-watchdog` > ~12 h sur une chaine saine = watchdog probablement mort (meta-panne) : lancer le verifier ci-dessus sur l'hote.
 

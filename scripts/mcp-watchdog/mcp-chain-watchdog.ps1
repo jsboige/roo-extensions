@@ -19,7 +19,7 @@
          périodique sont postés sur le MACHINE dashboard de l'hôte via la
          chaîne elle-même — best-effort, budget borné, jamais bloquant.
 
-    Conçu pour tourner en SYSTEM via scheduled task "At startup + every 5 min".
+    Conçu pour tourner en SYSTEM via scheduled task "At startup + every 2 min".
 
 .PARAMETER Mode
     'poll' (défaut) : run one shot and exit. 'dry-run' : probe only, never repair.
@@ -219,6 +219,25 @@ $FleetNoteTimeoutSec = 8
 function Publish-FleetNote {
     param([string]$Level, [string]$Text)
     $initBody = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"mcp-watchdog","version":"2.1"}}}'
+    # Idempotence (#3276) : la cle identifie LA note (hote + niveau + empreinte
+    # du texte + bucket de 15 min), pas la TENTATIVE. Un append dont le
+    # messageId existe deja est SAUTE par le serveur (deduplicated:true). Deux
+    # doublons meurtris sur un canal que 7 machines lisent (revues po-2023 F1
+    # + ai-01 03/09, mesures 57 notes/9h) :
+    #   - le fallback e2e->LAN re-ecrit la meme note quand la 1re route time-out
+    #     apres l'ecriture serveur (WRITE-FIRST, dashboard.ts:3428) ;
+    #   - les ticks de 2 min d'un incident en cooldown (15 min) convergent dans
+    #     le meme bucket : 8 notes identiques par incident -> 1 ligne.
+    # Si l'ecriture a echoue avant le serveur, l'id de la tentative suivante
+    # n'existe pas : le retry ecrit normalement.
+    $epoch = [datetime]::UtcNow - [datetime]::new(1970, 1, 1, 0, 0, 0, [datetimekind]::Utc)
+    $bucket = [int][math]::Floor($epoch.TotalSeconds / 900)
+    $md5 = [System.Security.Cryptography.MD5]::Create()
+    try {
+        $digestBytes = $md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$Level|$Text"))
+    } finally { $md5.Dispose() }
+    $digest = [System.BitConverter]::ToString($digestBytes).Replace('-', '').Substring(0, 12)
+    $fleetNoteId = "watchdog-$env:COMPUTERNAME-$Level-$digest-$bucket"
     $payload = @{
         jsonrpc = '2.0'
         id      = 3
@@ -226,10 +245,11 @@ function Publish-FleetNote {
         params  = @{
             name      = 'roosync_dashboard'
             arguments = @{
-                action  = 'append'
-                type    = 'machine'
-                tags    = @($Level, 'mcp-chain-watchdog')
-                content = $Text
+                action     = 'append'
+                type       = 'machine'
+                tags       = @($Level, 'mcp-chain-watchdog')
+                content    = $Text
+                messageId  = $fleetNoteId
             }
         }
     } | ConvertTo-Json -Depth 6 -Compress

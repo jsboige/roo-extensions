@@ -114,13 +114,21 @@ if (Test-Path $LogDir) {
 if (-not $logFiles -or $logFiles.Count -eq 0) {
     Add-Result 'FAIL' "aucun log watchdog recent dans $LogDir (depuis $since)" "Le watchdog n'a JAMAIS ecrit ici : soit la schtask n'existe pas, soit -LogDir ne correspond pas au deploiement."
 } else {
+    # Write-Log pad le niveau a 5 caracteres ("{1,-5}" -> [OK   ]/[WARN ]) ;
+    # seul [ERROR] (5 lettres) ne porte pas de pad. Une regex qui exige ']'
+    # immediat ne voit que les ERROR : mesure ai-01 03/09, 57/675 lignes
+    # visibles et le verdict "watchdog MUET" devenait le comportement nominal
+    # (revue po-2026, confirme ai-01). [A-Z]+? + \s* couvre les deux formes ;
+    # le .{0,3}? absorbe le BOM que PS 5.1 Add-Content -Encoding utf8 ecrit en
+    # tete du fichier du jour (1 ligne/jour, ai-01 03/09).
+    $LogLineRx = '^.{0,3}?(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\S+) \[([A-Z]+?)\s*\]'
     $levelCounts = @{}
     $allLines = New-Object System.Collections.Generic.List[string]
     foreach ($f in $logFiles) {
         foreach ($line in (Get-Content -Path $f.FullName -Encoding utf8 -ErrorAction SilentlyContinue)) {
             $allLines.Add($line)
-            if ($line -match '^\S+ \[([A-Z]+)\]') {
-                $lv = $matches[1]
+            if ($line -match $LogLineRx) {
+                $lv = $matches[2]
                 if (-not $levelCounts.ContainsKey($lv)) { $levelCounts[$lv] = 0 }
                 $levelCounts[$lv]++
             }
@@ -144,7 +152,7 @@ if (-not $logFiles -or $logFiles.Count -eq 0) {
             Write-Host "  Fenetre $From -> $To (heure locale) :"
             $inWindow = New-Object System.Collections.Generic.List[string]
             foreach ($line in $allLines) {
-                if ($line -match '^(\S+) \[([A-Z]+)\]') {
+                if ($line -match $LogLineRx) {
                     $ts = [datetime]::MinValue
                     if ([datetime]::TryParseExact($matches[1], 'yyyy-MM-ddTHH:mm:sszzz', [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$ts)) {
                         if ($ts -ge $fromTs -and $ts -le $toTs) { $inWindow.Add($line) }
@@ -154,11 +162,11 @@ if (-not $logFiles -or $logFiles.Count -eq 0) {
             if ($inWindow.Count -eq 0) {
                 Add-Result 'FAIL' 'watchdog MUET pendant la fenetre (0 ligne loggee)' 'Pendant cet episode, la schtask n''a pas tourne : cause premiere a traiter (absente/desactivee/trigger mort).'
             } else {
-                $okCount  = ($inWindow | Where-Object { $_ -match '\[OK\]' }).Count
+                $okCount  = ($inWindow | Where-Object { $_ -match '\[OK\s*\]' }).Count
                 $badCount = $inWindow.Count - $okCount
                 Write-Host "  ---- extrait non-OK ($badCount lignes) + 3 dernieres OK ($okCount lignes OK au total) ----"
-                $inWindow | Where-Object { $_ -notmatch '\[OK\]' } | Select-Object -First 15 | ForEach-Object { Write-Host "    $_" }
-                $inWindow | Where-Object { $_ -match '\[OK\]' } | Select-Object -Last 3 | ForEach-Object { Write-Host "    $_" }
+                $inWindow | Where-Object { $_ -notmatch '\[OK\s*\]' } | Select-Object -First 15 | ForEach-Object { Write-Host "    $_" }
+                $inWindow | Where-Object { $_ -match '\[OK\s*\]' } | Select-Object -Last 3 | ForEach-Object { Write-Host "    $_" }
                 if ($okCount -gt 0 -and $badCount -eq 0) {
                     Add-Result 'WARN' "watchdog vivant mais sonde VERTE pendant la fenetre ($okCount OK)" 'Il a juge la chaine saine pendant que les bots etaient refuses : divergence de chemin (sonde via :9090 vs bots via :9091) a instruire.'
                 } elseif ($badCount -gt 0) {
