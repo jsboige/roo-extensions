@@ -198,14 +198,12 @@ docs/
 | `scheduler-issues-fixes.md` | Fixes scheduler (2026-02-09) | active |
 | `scheduler-modes-deployment-guide.md` | Guide deploiement modes scheduler (issue #487) | active |
 
-### docs/roo-code/ — 15 fichiers + sous-dossiers
+### docs/roo-code/ — 13 fichiers + sous-dossiers
 
 | Fichier | Description | Statut |
 |---------|-------------|--------|
 | `INDEXING_ARCHITECTURE.md` | Architecture indexation semantique (issue #452) | active |
 | `PARSING_XML_ASSISTANT_MESSAGES.md` | Notes parsing XML assistant | active |
-| `PLAN-IMPLEMENTATION-MIGRATION-UI.md` | Plan migration UI taches orphelines (Sept 2025) | archived |
-| `PROPOSITION-SOLUTION-UI.md` | Solution interface taches orphelines (Sept 2025) | archived |
 | `SCHEDULED_COORDINATOR.md` | Protocol coordinateur (doublon harness/) | active |
 | `SCHEDULER_DENSIFICATION.md` | Regle densification (doublon harness/) | active |
 | `SCHEDULER_SYSTEM.md` | Reference scheduler (doublon harness/) | active |
