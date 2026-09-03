@@ -3,8 +3,8 @@
 **Date:** 2026-08-31
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
-**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343)
-**Status:** ⚠️ **UPSTREAM BUG** — root cause lives in the Claude Code Agent tool, not in this repository.
+**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03)
+**Status:** ⚠️ **UPSTREAM BUG** — root cause lives in the Claude Code Agent tool, not in this repository. **Not reproducible on Claude Code 2.1.86** under a reconstructed trigger (see *Live re-validation* below); the original harness version is unknown and may still carry D1.
 
 ---
 
@@ -122,6 +122,34 @@ required** for this class.
 
 ---
 
+## Live re-validation on Claude Code 2.1.86 (myia-po-2024, 2026-09-03)
+
+All probes firsthand on myia-po-2024 (Claude Code **2.1.86**, git 2.51.0.windows.1, Windows 11).
+This is the first live exercise of the actual provisioner on a current install — po-2026's 2.1.41
+predates the isolation feature, so only the git-level primitive had been measurable until now.
+
+| # | Question | Method | Result |
+|---|----------|--------|--------|
+| R1 | Does D1 (path false-positive) fire on an uppercase-C session? | Probe A: in-session `Agent(isolation="worktree")` (real repo; session cwd itself a linked worktree) | Launched, **no refusal**. Worktree created under the **main repo root's** `.claude/worktrees/agent-<8hex>` |
+| R2 | Does D1 fire under the reported trigger (lowercase drive letter)? | Probe B: headless `claude -p` spawned via CreateProcess with `cwd: d:\tmp-3345-probe\repo` — lowercase form verified preserved into the child's `process.cwd()` — scratch repo with 2 historical worktrees in `.claude/worktrees/` | Agent call **succeeded** (37.9 s run): **no refusal** |
+| R3 | Cleanup after agent completion (D3, success path) | `git worktree list` + `git branch` after both probes | **Zero debris**: worktree dir removed, registry entry pruned, `worktree-agent-*` branch deleted, 0 locked entries — both probes |
+| R4 | `isolation="remote"` silent local fallback (F2)? | Agent tool schema on 2.1.86 | `isolation` enum is `["worktree"]` **only** — `remote` is not an offered mode; an invalid value is rejected at schema level, so the silent remote→local fallback cannot occur |
+| R5 | Merged Windows test suite on an actual Windows runner | Local Pester 5.7.1 run of `agent-worktree-isolation.Tests.ps1` (CI `unit-pester` runs ubuntu and skips the D1 context) | **12/12 passed**, including the Windows-guarded D1 path-normalization context |
+
+Mechanistic notes: the worktree path is built from the **resolved main working tree** (probe A:
+session cwd was inside a linked worktree, yet the agent worktree landed under the primary repo
+root), which suggests 2.1.86 no longer derives the worktree path from the raw session cwd string —
+the D1 entry vector. The id format also differs (`agent-<8 hex>` vs the incident's
+`agent-<16 hex>`), confirming a different provisioner generation.
+
+**Scope of the claim (do not over-read):** D1 is *not reproducible on 2.1.86 under a
+deterministically reconstructed trigger*. The harness that produced the 2026-08-31 incident is of
+unknown version — it accepted `isolation="remote"`, which 2.1.86 does not even offer — so it is a
+different build lineage that may still carry D1. The upstream report below remains worth filing,
+with the version pinned; the 2.1.86 datapoint goes in it as "latest stable does not reproduce".
+
+---
+
 ## Why this repo cannot fully fix it
 
 The error message is generated inside the Claude Code binary. `grep -R "Refusing to use" .` in this repo returns 0 hits in production source (verified 2026-08-31 18:15Z, web1). Fixing the provisioner logic would require:
@@ -199,9 +227,9 @@ git -C D:/Dev/CoursIA-2 worktree prune
 | Criterion | Status | Where |
 |-----------|--------|-------|
 | 1. Reproduce on Windows with multiple historical worktrees | ✅ po-2023 c.286 (synthetic + live observation) · real-repo dry-run audit po-2026 2026-09-02 (`C:/dev/CoursIA-2`: 20+ historical sibling worktrees, 0 `agent-*` orphan remaining, script exits clean) | — |
-| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3 | `anthropics/claude-code` |
-| 3. `isolation="remote"` does not silently use local provisioner | ❌ Upstream (fallback observed firsthand in the issue; document/return-real-mode arm covered by this doc's upstream report) | `anthropics/claude-code` |
-| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
+| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3. **Not reproducible on 2.1.86** (R2, 2026-09-03); incident build unknown | `anthropics/claude-code` |
+| 3. `isolation="remote"` does not silently use local provisioner | ❌ Upstream (fallback observed firsthand in the issue). On 2.1.86 `remote` is **not an offered mode** (schema enum `["worktree"]` only, R4) — silent fallback structurally impossible there | `anthropics/claude-code` |
+| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script. Success-path cleanup verified clean on 2.1.86 (R3); the original *failure-path* refusal no longer triggers, so its orphan-producing path could not be re-exercised | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
 | 5. Windows test creating agent worktree + checking `rev-parse --show-toplevel` | ✅ 12 tests (incl. D1 normalization defect class, Windows-guarded) | `scripts/testing/unit/agent-worktree-isolation.Tests.ps1` |
 | 6. No orphan locked worktree after provisioning failure | ⚠️ Partial — defensive script | same as #4 |
 
@@ -210,6 +238,13 @@ git -C D:/Dev/CoursIA-2 worktree prune
 ## Upstream ticket recommendation
 
 When filing in the upstream `anthropics/claude-code` repository (or wherever the Agent tool lives), the technical content is:
+
+> **Pin the harness version.** The incident build (2026-08-31) is unidentified — it accepted
+> `isolation="remote"`, which Claude Code 2.1.86 does not offer — while 2.1.86 does **not**
+> reproduce D1 under a reconstructed lowercase-drive trigger (worktree path appears to be derived
+> from the resolved main working tree, not the raw session cwd). The report should state both
+> facts so upstream can bisect between the two builds.
+
 
 > **Title:** Agent isolation worktree validation false-positives on Windows (drive-letter case / separator normalization)
 >
