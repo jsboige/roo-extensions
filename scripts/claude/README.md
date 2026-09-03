@@ -32,6 +32,13 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
   - Updates `~/.claude/settings.json` with provider-specific config
   - Version: 1.1.0 (includes verification)
 
+- **`provider-preflight.ps1`** - Provider health check BEFORE a sub-agent fan-out (#3361)
+  - Usage: `scripts/claude/provider-preflight.ps1 [-Model sonnet|opus|haiku|fable|all]`
+  - Traces the chain `alias -> model ID -> endpoint`, probes `{BASE_URL}/v1/models`,
+    and on 401/402/403 prints a diagnostic naming the config keys + remediation
+  - Exit codes: 0 healthy / 1 config / 2 auth-billing / 3 unreachable / 4 routing mismatch
+  - Guard: `scripts/testing/unit/provider-preflight.guard.Tests.ps1` (job CI `unit-pester`)
+
 - **`Deploy-ProviderSwitcher.ps1`** - Deploy provider switcher infrastructure
   - Usage: `scripts/claude/Deploy-ProviderSwitcher.ps1 [-Update]`
   - Installs switcher commands and scripts globally
