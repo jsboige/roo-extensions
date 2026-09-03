@@ -9,7 +9,7 @@
 
 ## 🎯 Vue d'Ensemble
 
-Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (15 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
+Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (assistant VS Code) et Claude Code sur **6 machines** en parallèle. Ce dépôt centralise des **modes personnalisés**, des **serveurs MCP** (16 outils RooSync), un **scheduler automatique Roo**, et un **protocole de coordination RooSync**.
 
 ### 🏆 Réalisations Principales
 
