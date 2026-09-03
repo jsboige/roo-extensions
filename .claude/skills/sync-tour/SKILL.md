@@ -143,7 +143,7 @@ Lancer l'audit de configuration via l'agent config-auditor :
 Agent(
   subagent_type="config-auditor",
   prompt="Auditer la configuration MCP sur cette machine.
-          Verifier: win-cli fork local, roo-state-manager present avec 15 outils,
+          Verifier: win-cli fork local, roo-state-manager present avec 16 outils,
           pas de MCPs obsoletes (liste canonique : .claude/rules/tool-availability.md, section Retires).
           Rapporter les ecarts classes par severite (CRITICAL/WARNING/INFO)."
 )

@@ -41,6 +41,6 @@ Read the design doc at `docs/harness/reference/team-pipeline-guide.md` for full 
 If scope < 3 files AND < 50 LOC AND clear requirements: skip PLAN/PRD, go EXEC → VERIFY → DONE.
 
 ## Required
-- MCP roo-state-manager (15 tools) must be available
+- MCP roo-state-manager (16 tools) must be available
 - Git clean working tree
 - Issue #$ARGUMENTS must exist and be OPEN

@@ -112,7 +112,7 @@ roo-extensions/
 │   ├── scheduler/                 # Documentation scheduler (NOUVEAU)
 │   └── framework-multi-agent/     # Templates coordination
 ├── 📁 mcps/internal/servers/
-│   ├── roo-state-manager/         # 15 outils MCP (wrapper v4)
+│   ├── roo-state-manager/         # 16 outils MCP (wrapper v4)
 │   └── sk-agent/                  # 7 outils (Python FastMCP + Semantic Kernel)
 ├── 📁 roo-config/                 # Configuration centralisée
 │   ├── modes/                     # 10 modes Roo (5 simple + 5 complex)
@@ -129,7 +129,7 @@ roo-extensions/
 
 | MCP | Outils | Description |
 |-----|--------|-------------|
-| **roo-state-manager** | 15 | Messaging RooSync, config sync, task browsing, semantic search (post all CONS rounds) |
+| **roo-state-manager** | 16 | Messaging RooSync, config sync, task browsing, semantic search (post all CONS rounds) |
 | **sk-agent** | 7 | 13 agents IA (Semantic Kernel) : analyst, researcher, critic, etc. |
 | **playwright** | 22 | Browser automation, screenshots, form filling |
 | **markitdown** | 1 | Conversion documents (PDF, DOCX, XLSX) → Markdown |
@@ -238,7 +238,7 @@ Collect → Publish → Compare → Validate → Apply
 - **Build + Tests** : ~62s (~13 400 tests, 720 fichiers)
 
 ### MCPs
-- **roo-state-manager** : 15 outils, <500ms réponse
+- **roo-state-manager** : 16 outils, <500ms réponse
 - **sk-agent** : 13 agents IA, 4 conversations, 4 modèles
 - **Taux de réussite tests** : mesuré à chaque run CI (historique 99.6%)
 
@@ -389,7 +389,7 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 - ✅ **Architecture multi-agent** : 6 machines coordonnées (1 coordinateur + 5 exécutants)
 - ✅ **Scheduler Roo** : Orchestration autonome (3h interval, modes simple/complex, escalade)
 - ✅ **Scheduler Claude Code** : Worker Haiku automatique (Windows Task Scheduler, escalade vers Sonnet/Opus)
-- ✅ **Wrapper MCP v4** : 15 outils roo-state-manager exposés (pass-through)
+- ✅ **Wrapper MCP v4** : 16 outils roo-state-manager exposés (pass-through)
 - ✅ **CI Pipeline** : GitHub Actions (Node 18+20, ubuntu-latest)
 - ✅ **Tests robustes** : ~13 400 PASS sur 720 fichiers .test.ts
 - ✅ **sk-agent** : 13 agents IA via FastMCP + Semantic Kernel

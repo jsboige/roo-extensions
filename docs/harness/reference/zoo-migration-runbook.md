@@ -178,7 +178,7 @@ $mcp.mcpServers.PSObject.Properties.Name
 
 ```powershell
 # Lancer une session Claude Code et vérifier :
-# 1. MCP roo-state-manager disponible (15 outils)
+# 1. MCP roo-state-manager disponible (16 outils)
 # 2. conversation_browser fonctionne
 # 3. roosync_dashboard read + append OK
 # 4. DashboardListener Running
@@ -254,7 +254,7 @@ Remove-Item "$zooGS\tasks" -Recurse -Force
 | Provider profiles configurés (Étape 2b) | ⬜ | `sync-api-configs.js --resolve-secrets` + setting `autoImportSettingsPath` + profils visibles post-restart (#2543) |
 | mcp_settings.json valide | ⬜ | `ConvertFrom-Json` OK |
 | custom_modes.yaml présent | ⬜ | > 1000 chars |
-| MCP roo-state-manager (15 outils) | ⬜ | Dashboard + CB + search |
+| MCP roo-state-manager (16 outils) | ⬜ | Dashboard + CB + search |
 | DashboardListener Running | ⬜ | PT0S, IgnoreNew, 3 triggers |
 | Claude-Worker Ready | ⬜ | `start-claude-worker.ps1` |
 | Roo Code désinstallé | ⬜ | 0 résultat `rooveterinaryinc` |

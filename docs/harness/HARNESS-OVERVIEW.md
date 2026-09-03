@@ -16,11 +16,11 @@ Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécu
 
 ---
 
-## 2. `roo-state-manager` — les 15 outils
+## 2. `roo-state-manager` — les 16 outils
 
-C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **15 outils** au handshake MCP.
+C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **16 outils** au handshake MCP.
 
-> **Le compte est 15, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
+> **Le compte est 16, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
 
 ### 2.1 Coordination (6 outils)
 
@@ -295,7 +295,7 @@ Une sous-tâche peut changer de nature en cours d'exécution. Un mode `code` qui
 
 ## 9. L'architecture interne du serveur MCP `roo-state-manager`
 
-Les 15 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
+Les 16 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
 
 ### 9.1 Forme générale
 
