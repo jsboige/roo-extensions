@@ -106,6 +106,9 @@ cree alors un **doublon** (incident fondateur : review CHANGES_REQUESTED au body
 
 - **Toujours** ecrire le body dans un fichier scratchpad puis `--body-file <path>` — pour
   `gh pr review`, `gh pr comment` ET `gh issue create|comment`
+- `gh issue close` n'expose **pas** `--comment-file` : poster le commentaire d'abord
+  (`gh issue comment --body-file <path>`), **puis** `gh issue close --reason completed` — jamais
+  basculer le commentaire en `--body` inline pour contourner l'absence du flag
 - Si le stderr d'un post montre une erreur shell : verifier le resultat via l'API
   (`gh api .../reviews`, `.../comments`) **avant** de retenter — le retry naif duplique
 
