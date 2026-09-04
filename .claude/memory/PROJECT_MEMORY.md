@@ -126,6 +126,30 @@ When citing coverage stats (or any regenerated measurement artifact) as a pre-wo
 
 **Why:** Sprint C3 coverage work: a [CLAIMED] cited "11 cold branches / 89.7%" read from the parent repo's `coverage-final.json` (stale, pre-#751 merge — the post-work state of a *previous* cycle). The worktree's fresh run showed the real baseline: 18 cold branches / 67.95%. Complement of the harness rule above: there the instrument was wrong; here the instrument was right but pointed at a stale artifact of the wrong tree.
 
+### Reach the errors>0 log branch by throwing per-extractor, not per-iteration
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 5th of the series).*
+
+In `MessageExtractionCoordinator.extractFromMessages()` (roo-state-manager submodule), the `logExtractionSummary(result)` call sits **inside** the outer `try`, and the global `catch` appends to `result.errors` *after* the summary has been bypassed. So an exception thrown at **iteration level** (e.g. a throwing `Symbol.iterator`) jumps straight to the global catch — the summary call never runs, and the `Error details:` log (which only fires when `result.errors.length > 0` at summary time) is unreachable that way.
+
+To cover the `errors > 0` branch of the summary log, throw **inside a per-extractor `extract()`** instead:
+
+```ts
+const extractors = (coordinator as any).extractors as any[];
+extractors[0].extract = () => { throw new Error('synthetic'); };
+// pass a message shape that makes the extractor's canHandle return true
+coordinator.extractFromMessages(messages, { enableDebug: true });
+// → per-extractor try/catch populates result.errors WITHOUT escaping
+//   the outer try → summary runs with errors > 0 → "Error details" logs
+```
+
+- **Mechanism, not lines:** verified intact 2026-09-04 (`src/utils/message-extraction-coordinator.ts` — summary call in `try`, global catch bypasses it). Exact line numbers drift; grep `logExtractionSummary` to relocate.
+- **General form:** when a summary/report call lives inside the same `try` as the loop it reports on, only errors swallowed *below* the loop's handler reach it — design the throw at the same depth the production code recovers.
+
+**Why:** Sprint C3 (web1 c.30): a coverage test aimed a throw at the iteration level, saw the test pass, and assumed the `errors > 0` summary branch was covered — it was not; the global catch had bypassed the summary entirely. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
+
+## Known Bugs / Gotchas
+
 ## Known Bugs / Gotchas
 
 ### Critical (recurring)
