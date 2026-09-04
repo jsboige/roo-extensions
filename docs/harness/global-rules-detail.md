@@ -36,7 +36,15 @@ Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. 
 - « Je connais le sujet, je sais quoi dire » → lire ce qui a déjà été dit, ne pas dupliquer/contredire
 - « L'issue est ouverte depuis 2 jours, je commence à fix » → lire si un autre agent a déjà commencé/diagnostiqué/abandonné
 - « Pas de redite » en reviews : vérifier qu'aucun reviewer n'a déjà soulevé le point
-- « J'ai listé les N derniers commentaires » → **l'instrument de lecture tronque** : `--jq '.comments[]'` pipé vers `tail -N` fragmente le JSON multi-lignes (un commentaire = plusieurs lignes) et en cache d'autres. Garde : énumérer les en-têtes d'abord (`--jq '.comments[] | "\(.id) \(.createdAt) \(.author.login)"'`), puis lecture ciblée. Incident #3137 (2026-08-24) : commentaire existant invisible sous `tail`, reposté en double.
+- « J'ai listé les N derniers commentaires » → **l'instrument de lecture tronque** : seuls `| jq '.comments[]'` (binaire externe, pretty-print) et `--jq '.comments[].body'` fragmentent — mesuré sur 26 commentaires (`#2368`, 2026-09-04) :
+
+  | Forme | Lignes rendues | `tail -N` ? |
+  |---|---|---|
+  | `gh … --jq '.comments[]'` | **26** | sûr — 1 ligne = 1 commentaire |
+  | `gh … \| jq '.comments[]'` (externe) | **390** | fragmente (~15 l./commentaire) |
+  | `gh … --jq '.comments[].body'` | **1020** | fragmente (~39 l./commentaire) |
+
+  Garde : énumérer les en-têtes (`--jq '.comments[] | "\(.id) \(.createdAt) \(.author.login)"'`), ou rendre 1 ligne = 1 enregistrement avec `@tsv` (échappe les newlines nativement). Piège distinct mais même symptôme apparent : `@chemin` dans un body `gh` part tel quel (non interprété) — cf. incident `@FILE:` 2026-08-24 15:17Z.
 
 ### Incident fondateur (2026-05-17, ai-01 sur CoursIA)
 
