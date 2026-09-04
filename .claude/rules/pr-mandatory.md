@@ -96,6 +96,19 @@ gh auth switch --user <bot> && [ "$(gh api user --jq .login)" = "<bot>" ] \
 Un `gh auth status` lu en debut de session ne dit rien de l'identite de la commande suivante.
 **Detail et pistes ecartees :** [`docs/harness/reference/gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md)
 
+## Bodies gh : `--body-file`, jamais `--body` inline (promotion T5→T3, #2368)
+
+Dans `--body "..."` a guillemets doubles, les backticks markdown sont de la **substitution de
+commande** pour bash : chaque span `` `code` `` du corps s'execute avant que gh ne voie la chaine.
+Un span qui echoue (glob sans correspondance, commande inexistante) laisse le post partir quand
+meme — stderr affiche l'erreur, **exit code reste 0** — avec un corps ecorche ; le retry « propre »
+cree alors un **doublon** (incident fondateur : review CHANGES_REQUESTED au body tronque, PR #2864).
+
+- **Toujours** ecrire le body dans un fichier scratchpad puis `--body-file <path>` — pour
+  `gh pr review`, `gh pr comment` ET `gh issue create|comment`
+- Si le stderr d'un post montre une erreur shell : verifier le resultat via l'API
+  (`gh api .../reviews`, `.../comments`) **avant** de retenter — le retry naif duplique
+
 ## Pas de PR necessaire pour
 
 MEMORY.md (`~/.claude/projects/…`), dashboards (GDrive), fichiers gitignored.
