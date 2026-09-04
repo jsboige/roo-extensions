@@ -110,6 +110,35 @@ c.184, #3205 résiduel write-side (PR #1035) : après vérification par mutation
 
 ---
 
+## MCP — Stale host memory
+
+Un hôte MCP (process VS Code / session Claude Code longue durée) charge `build/*.js` **une fois**, au démarrage du process. Après un rebuild ou un bump de submodule, la session vivante continue d'exécuter l'**ancien build en mémoire** — quoi que dise le disque. « Build fresh sur disque ≠ MCP host process servi » (skill executor, #2822 follow-up).
+
+### Discriminant en 3 colonnes
+
+| État source | État `build/` | Symptôme en session | Diagnostic | Fix |
+|---|---|---|---|---|
+| frais | frais | `-32603 "no export named X"`, compte d'outils ou comportements anciens | **process hôte stale** | restart de la session — dernier recours légitime |
+| frais | **stale** | idem | build pas rebuildé | `ensure-build-fresh.ps1`, re-tester, restart ensuite |
+| modifié/cassé | — | outil absent, `-32602`, crash au handshake | config ou build cassé | réparer ; le MCP revient DANS la session en cours |
+
+### Relation avec la règle « jamais suggérer un restart »
+
+`.claude/rules/mcp-diagnosis.md` interdit « le MCP reviendra à la prochaine session » quand le problème est de la config ou du build — l'outil revient dans la session **en cours** une fois corrigé. Le stale host est l'exception prouvée : la correction (rebuild) est sur le disque, mais le process ne peut pas la voir sans redémarrer. C'est exactement le « dernier recours » que cette règle réserve déjà. Le prérequis avant de l'invoquer : **vérifier les deux premières colonnes firsthand** (timestamps source/build + grep du symbole du fix dans `build/*.js`) — sinon c'est l'hallucination que la règle interdit.
+
+### Anti-patterns
+
+- Diagnostiquer « timing de démarrage » ou « MCP pas prêt » — règle #1 de mcp-diagnosis : pas de timing fantasy, le MCP répond ou il crash.
+- Invoquer stale-host sans preuve que source ET build sont frais (timestamps + grep) — c'est la porte d'entrée de l'hallucination restart.
+- Rebuilder à chaud pendant que des process hôtes armés vivent (mèches ESM) — rebuild d'abord, restart ensuite.
+- Généraliser l'auto-fresh d'une machine à la flotte : hétérogène (web1 = cron worker 6h qui rebuild ; sessions interactives = non, d'où `ensure-build-fresh.ps1`).
+
+### Incidents
+
+- po-204 (c.14, confirmé firsthand : build stale 48 min après bump → rebuild → 12 422 tests verts ; puis signature `-32603 "no export named"` avec build fresh = couche hôte) · web1 (c.82 : mode hôte mémoire nommé « distinct failure mode ») · po-2026 (c.24 : signal initial du stale build). Promotion T5→T1 #2368 : la leçon survit au changement de machine — elle décrit le harnais (process hôte + build), pas une machine.
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)
