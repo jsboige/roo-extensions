@@ -167,6 +167,26 @@ Without `enableDebug: true`, every gated branch stays silent: the per-message tr
 
 **Why:** Sprint C3 (web1 c.30): coverage tests stubbed `ROO_DEBUG_INSTRUCTIONS='1'`, saw green, and believed the debug branches were covered — the mid-body reset had zeroed the flag and the asserted branches never ran. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
 
+### A constructor-ordering branch can be unreachable by design — skip with evidence, don't reorder
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 7th of the series).*
+
+In `MessageExtractionCoordinator` (roo-state-manager submodule), the constructor calls `this.initializeExtractors()` **before** assigning `this.debugEnabled` from the env var — so the `if (this.debugEnabled)` log inside `initializeExtractors()` is always evaluated against the class-field default `false`. The truthy arm is **unreachable by design**: no test input can reach it, because the flag is set only after the guarded code has already run.
+
+For coverage work, the correct response is **skip-with-evidence, not source mutation**:
+
+```ts
+// unreachable-by-design: initializeExtractors() runs in the constructor BEFORE
+// this.debugEnabled is assigned from the env var — this log always sees false.
+it.todo('extractor-init debug log — unreachable by constructor ordering');
+```
+
+- **Mechanism, not lines:** verified intact 2026-09-05 (`src/utils/message-extraction-coordinator.ts` — constructor: `initializeExtractors()` then `debugEnabled = env`; the guarded log lives inside `initializeExtractors`). Exact line numbers drift; grep `initializeExtractors` to relocate.
+- **Companion of the options-reset lesson above:** that one kills debug flags set *before* the call (env vars flattened by `options.enableDebug || false`); this one kills them set *after* the call — together, only `{ enableDebug: true }` at call sites exercises debug branches.
+- **Do not "fix" by reordering the source:** a coverage gap caused by construction order is a design fact, not a bug — reordering production code so a test can reach a log line is churn (surgical-changes rule).
+
+**Why:** Sprint C3 (web1 c.30): the truthy arm was unreachable from any test seam without editing the source; the temptation to reorder production code for a coverage line was rejected and the gap documented instead. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
 ## Known Bugs / Gotchas
 
 ## Known Bugs / Gotchas
