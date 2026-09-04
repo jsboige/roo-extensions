@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.8.1
+**Version:** 3.8.2
 **Cree:** 2026-03-28
-**MAJ:** 2026-08-18 (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
+**MAJ:** 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -49,11 +49,11 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 3. Verifier submodule mcps/internal a jour
    - **Deploy-lag nudge (#2591 follow-up)** : si le dernier commit merged sur main est un `chore(submod): bump roo-state-manager` ET qu'il touche `src/**/*.ts` (vérifier `git log --name-only -1`), le fix est merged en source mais **PAS live** jusqu'à rebuild+restart MCP host. Poster `[INFO] restart VS Code requis pour activer le fix submod #NNN` sur le dashboard (1 append, fusionnable avec le [DONE] du cycle). L'étape 4 (`ensure-build-fresh`) rebuild le main-tree `build/` côté session interactive ; le worker planifié a déjà son `Sync-McpSubmoduleBuild`. Le nudge documente le restart `[INTERACTIVE-ONLY]` restant (build fresh sur disque ≠ MCP host process servi).
 4. **MCP build-freshness** (#2822 STALE-TRAP) : `git submodule update` rafraîchit la source TS mais NE déclenche PAS `npm run build` → `build/*.js` drift stale → un restart VS Code peut servir du code pre-fix silencieusement (4/5 machines touchées sprint 07-11). Lancer le helper idempotent :
-   - `pwsh -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1`
+   - `powershell -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1` (5.1 partout — pwsh absent sur certaines machines, cf shell-fallback.md #2368)
    - Compare mtime `src/**/*.ts` vs `build/**/*.js` (exclut `__tests__`/`*.test.ts`/`*.spec.ts`, comme `tsconfig.exclude`), rebuild si stale. Non-fatal (échec build → WARN, ne bloque pas la session). No-op si déjà fresh.
    - Le restart VS Code reste `[INTERACTIVE-ONLY]` : build fresh sur disque ≠ MCP host process qui sert le nouveau build en mémoire (distinct failure mode, web1 c.82).
 5. **Win-cli timeout guard** (anti-régression #2333) :
-   - `pwsh.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
+   - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
    - Poster `[WARN]` sur dashboard si corrections appliquées
