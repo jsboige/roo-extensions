@@ -59,6 +59,7 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) -> `view`/`tree`/`summarize`. `smart_truncation:true`, `summarize_type:"trace"` (pas `synthesis`).
 - **Recherche** : `roosync_search(action:"semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace`, requetes en anglais.
 - **RooSync inter-machines** : `roosync_messages(action:"inbox"|"send")`. Dashboard = principal, DM = decision/urgence.
+- **Stale MCP host** : une session vivante sert le build charge au demarrage du process hote — `-32603 "no export named X"` ou outils/comportements anciens alors que source ET `build/` sont frais = hote memoire stale. Restart de session = fix legitime (dernier recours), pas hallucination. [Detail](../../docs/harness/global-rules-detail.md#mcp--stale-host-memory)
 
 Inventaire complet : [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
 
