@@ -2,6 +2,22 @@
 .SYNOPSIS
     Cleanup orphan worktree directories from .claude/worktrees/
 
+.FAMILY
+    Scheduled cleanup (daily/weekly schtask) — F1 des 3 familles worktree-cleanup.
+
+    Voir aussi (alignement Tâche A #3422, CONSOLIDATION-SCRIPTS-SUPERSEDED.md §2) :
+      - `scripts/maintenance/install-worktree-cleanup-schtask.ps1` — installeur de cette tâche planifiée (hebdomadaire dimanche 03:00, SYSTEM).
+      - `scripts/worktrees/cleanup-worktree.ps1` — F2, cleanup post-merge PR unique (create-worktree/submit-pr).
+      - `scripts/claude/worktree-cleanup.ps1`   — F3, scheduled-task alternatif + skills (debrief/git-sync, .roo/scheduler-workflow-executor).
+      - `scripts/claude/install-worktree-cleanup-scheduled-task.ps1` — installeur F3.
+
+    CONTRAT INTÉGRAL (chemin critique, intouchable, #3422) :
+      - Appelé par `scheduling/start-claude-worker.ps1` (worker schedulé) ET
+      - la schtask `MCP-Worktree-Cleanup` (live) ET
+      - `scripts/testing/unit/worktree-husk-prevention.Tests.ps1` (CI job `unit-pester`).
+    Toute modification de signature/flags/codes de sortie casserait l'un de ces 3 appelants.
+    PR #3422 n'a touché AUCUN comportement : en-têtes « voir aussi » seulement.
+
 .DESCRIPTION
     Identifies and removes filesystem directories under .claude/worktrees/ that are
     no longer tracked as active git worktrees. Supports dry-run (default), execute,

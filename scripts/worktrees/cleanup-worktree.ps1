@@ -2,6 +2,18 @@
 .SYNOPSIS
     Nettoie un worktree apres merge de la PR.
 
+.FAMILY
+    F2 (PR-workflow) — appelée par `scripts/worktrees/create-worktree.ps1` et `scripts/worktrees/submit-pr.ps1`.
+
+    Voir aussi (alignement Tâche A #3422, CONSOLIDATION-SCRIPTS-SUPERSEDED.md §2) :
+      - F1 planifiée : `scripts/maintenance/cleanup-orphan-worktrees.ps1` (+ `install-worktree-cleanup-schtask.ps1`) — daily/weekly schtask.
+      - F3 alternative : `scripts/claude/worktree-cleanup.ps1` (+ `install-worktree-cleanup-scheduled-task.ps1`) — daily 02:00 + skills.
+
+    Différences de scope :
+      - F2 (ce script) : cleanup **unitaire** post-merge PR (#IssueNumber requis). Supprime worktree + branche local + remote.
+      - F1            : cleanup **.claude/worktrees/** orphelins anciens (>= 7j, mode dry-run défaut).
+      - F3            : cleanup **combiné** (worktrees + branches loc + dead remote via PR state, >= 30j par défaut).
+
 .DESCRIPTION
     - Supprime le worktree Git
     - Supprime la branche locale et remote

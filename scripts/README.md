@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-08-31
+**Dernière mise à jour :** 2026-09-04 (alignement 3 familles worktree-cleanup, #3422)
 
 ---
 
@@ -106,6 +106,28 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `cleanup/` | 1 | Nettoyage général |
 | `backup/` | 1 | Archivage transcripts Claude (TranscriptArchive, schtask `ClaudeTranscriptArchive` 04:41) |
 | `_archive/` | 30 | Scripts archivés (référence seulement) |
+
+#### Worktree cleanup — alignement des 3 familles (#3422, 2026-09-04)
+
+Il existe **3 familles fonctionnelles distinctes** de scripts worktree-cleanup, **non** à fusionner
+mais à aligner (documentation croisée). Voir `docs/cleanup/CONSOLIDATION-SCRIPTS-SUPERSEDED.md` §2 +
+PR #3422.
+
+| Famille | Scripts | Entrée | Callers actifs |
+|---|---|---|---|
+| **F1 — Scheduled cleanup (chemin critique)** | `maintenance/cleanup-orphan-worktrees.ps1` (+ `maintenance/install-worktree-cleanup-schtask.ps1`) | `-Execute -DaysThreshold 7` | 🔴 `scheduling/start-claude-worker.ps1` + schtask live `MCP-Worktree-Cleanup` (weekly Sunday 03:00, SYSTEM) + `testing/unit/worktree-husk-prevention.Tests.ps1` (CI `unit-pester`) |
+| **F2 — PR-workflow cleanup** | `worktrees/cleanup-worktree.ps1` | `-IssueNumber N` (requis) | 🟢 `worktrees/create-worktree.ps1`, `worktrees/submit-pr.ps1` |
+| **F3 — Scheduled-task alternatif + skills** | `claude/worktree-cleanup.ps1` (+ `claude/install-worktree-cleanup-scheduled-task.ps1`) | `-Force` / `-WhatIf` / `-StaleDays 30` | 🟢 skills `debrief`/`git-sync`, `.roo/scheduler-workflow-executor.md` + schtask `Roo-Worktree-Cleanup` (daily 02:00, SYSTEM) |
+| (archivé) | `_archive/duplicates/cleanup-worktrees.ps1` | — | ⚪ Référence seulement (`worktrees/check-worktrees.ps1`, docs) |
+
+**Pourquoi 3 et pas 1 :** scopes incompatibles (F1 vs F3 : trigger/cadence/flags différents ;
+F2 : entrée par IssueNumber). Fusionner F1 avec F3 toucherait le contrat de 3 appelants critiques
+(worker + schtask + test unitaire) — risque de régression inacceptable. PR antérieure #2617 (MERGED
+2026-06-18) avait déjà consolidé une paire **docs** (`reference/worktree-cleanup*.md`) — périmètre
+différent.
+
+**Vérifications croisées par fichier :** chaque script porte désormais un en-tête `.FAMILY` (ou
+`# FAMILY:`) renvoyant aux 4 autres scripts actifs.
 
 ### Encodage & Format
 
