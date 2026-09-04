@@ -53,6 +53,10 @@ function Deploy-Files {
         $destPath = Join-Path $TargetDir $relativePath
         $destDir = Split-Path -Parent $destPath
 
+        # Statut calcule AVANT la copie : teste apres coup, le mode reel voit toujours
+        # le fichier deja ecrit — NEW n etait donc structurellement jamais atteignable.
+        $status = if (Test-Path $destPath) { "UPDATE" } else { "NEW" }
+
         if (-not $DryRun) {
             if (-not (Test-Path $destDir)) {
                 New-Item -ItemType Directory -Path $destDir -Force | Out-Null
@@ -60,7 +64,6 @@ function Deploy-Files {
             Copy-Item -Path $_.FullName -Destination $destPath -Force
         }
 
-        $status = if (Test-Path $destPath) { "UPDATE" } else { "NEW" }
         Write-Host "  $status $relativePath" -ForegroundColor $(if ($status -eq "NEW") { "Green" } else { "White" })
         $count++
     }
