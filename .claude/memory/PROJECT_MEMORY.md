@@ -148,6 +148,25 @@ coordinator.extractFromMessages(messages, { enableDebug: true });
 
 **Why:** Sprint C3 (web1 c.30): a coverage test aimed a throw at the iteration level, saw the test pass, and assumed the `errors > 0` summary branch was covered — it was not; the global catch had bypassed the summary entirely. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
 
+### extractFromMessages() re-reads debug flags from options — env vars alone stay silent
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 6th of the series).*
+
+In `MessageExtractionCoordinator` (roo-state-manager submodule), the constructor sets `this.debugEnabled` from `process.env.ROO_DEBUG_INSTRUCTIONS === '1'`, and the head of `extractFromMessages()` has a diagnostic block that sets it again from the same env var — **but a few lines later the unconditional assignment `this.debugEnabled = options.enableDebug || false;` flattens both back**. Setting the env var in a test therefore produces a constructor-time `true` that is dead before any message is processed.
+
+To assert on debug log lines, pass the option:
+
+```ts
+coordinator.extractFromMessages(messages, { enableDebug: true });
+```
+
+Without `enableDebug: true`, every gated branch stays silent: the per-message trace, the extractor-matched log, the no-extractor-matched log, `logExtractionSummary` (including its `errors > 0` "Error details" block — see the lesson above), and `logError`. A test asserting on those lines passes vacuously: the guard `if (!this.debugEnabled) return;` short-circuits before them.
+
+- **Mechanism, not lines:** verified intact 2026-09-04 (`src/utils/message-extraction-coordinator.ts` — unconditional `options.enableDebug || false` assignment inside `extractFromMessages`). Exact line numbers drift; grep `enableDebug` to relocate.
+- **General form:** when a method re-derives a flag from its `options` argument mid-body, constructor state and env vars are not state — pass the option, don't rely on ambient setup.
+
+**Why:** Sprint C3 (web1 c.30): coverage tests stubbed `ROO_DEBUG_INSTRUCTIONS='1'`, saw green, and believed the debug branches were covered — the mid-body reset had zeroed the flag and the asserted branches never ran. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
+
 ## Known Bugs / Gotchas
 
 ## Known Bugs / Gotchas
