@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-05 (détail 7 scripts `claude/`, #3460)
+**Dernière mise à jour :** 2026-09-05 (détail 13 scripts `claude/`, #3460 + #3465)
 
 ---
 
@@ -65,7 +65,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
 
-#### Détail scripts `claude/` (#3460)
+#### Détail scripts `claude/` (#3460, #3465)
 
 Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de vérité = le fichier lui-même).
 
@@ -78,6 +78,12 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 | `claude/provider-preflight.ps1` | Vérifie la chaîne du provider LLM AVANT le fan-out de sub-agents (#3361) : trace de résolution, health probe, diagnostic actionnable sur 401/402/403 |
 | `claude/ensure-build-fresh.ps1` | Reconstruit le build du submodule MCP s'il est obsolète (#2822 STALE-TRAP) — compare mtime `src/` vs `build/`, rebuild si stale, idempotent et non bloquant |
 | `claude/diagnose-harness.ps1` | Thin wrapper déléguant à `analyze-harness-tokens.ps1` (consolidation #3323, analyse token-footprint canonique) |
+| `claude/archive-large-sessions.ps1` | Diagnostic et archivage non destructif des sessions Claude Code volumineuses (#2577) — copie vers un emplacement d'archive avec vérification par comptage d'octets, les sessions source restent intactes sur disque |
+| `claude/init-claude-code.ps1` | Initialise les fichiers de configuration spécifiques à la machine à partir des templates, à exécuter après clonage du dépôt ou lors de la configuration d'une nouvelle machine |
+| `claude/roosync-statusline.ps1` | Statusline HUD RooSync pour Claude Code — lit les fichiers d'état partagés RooSync (présence, dashboard workspace) et affiche une ligne de statut compacte dans la barre de statut du terminal |
+| `claude/skill-trigger-detector.ps1` | Détecteur de triggers de skills pour le hook `UserPromptSubmit` de Claude Code — lit le prompt utilisateur depuis stdin JSON, scanne les fichiers de skills à la recherche de mots-clés déclencheurs (keywords, exact, patterns, context) |
+| `claude/test-glm-context.ps1` | Teste la taille réelle de la fenêtre de contexte GLM-5.1 via l'API z.ai en envoyant des prompts de taille croissante avec un code secret, afin de détecter une troncature silencieuse |
+| `claude/test-glm-markers.ps1` | Teste la troncature de contexte GLM-5.1 par marqueurs — place 18 marqueurs uniques à intervalles d'environ 10K tokens sur ~180K tokens puis demande au modèle de les rapporter tous, afin de détecter une troncature silencieuse |
 
 #### Stack worker Mistral Vibe (`scheduling/`, #3202)
 
