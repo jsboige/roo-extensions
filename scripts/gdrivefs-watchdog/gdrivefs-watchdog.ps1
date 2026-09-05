@@ -12,8 +12,12 @@
     This watchdog polls every ~15 min via scheduled task:
       C0 (silent-exit) : is GoogleDriveFS.exe running? If not → relaunch.
       C1 (hung-process): if it IS running, can the configured DriveFS mount serve
-                          a bounded metadata request? Timeout/error → relaunch.
-                          Enabled by default; succeeds even when DriveFS is idle.
+                          a bounded metadata request AND a bounded content
+                          enumeration? Timeout/error → relaunch. Enabled by
+                          default; succeeds even when DriveFS is idle. The stat
+                          stage alone misses the content-hang class (stat OK,
+                          every read wedged — incident 2026-09-05), hence the
+                          second stage.
       C2 (cooldown)    : after N consecutive relaunch failures, suppress further
                           attempts for a cooldown window and emit an Error-level
                           alert. Re-arms on next successful detection.
@@ -39,8 +43,8 @@
     C1 — DriveFS mount to probe. Default: G:\.
 
 .PARAMETER MountProbeTimeoutSeconds
-    C1 — Maximum seconds allowed for a mount metadata request. Default: 5.
-    0 disables C1 for recovery or hosts without a mounted drive.
+    C1 — Maximum seconds allowed per mount probe stage (stat, then enumeration).
+    Default: 5. 0 disables C1 for recovery or hosts without a mounted drive.
 
 .PARAMETER MaxConsecutiveFailures
     C2 — After this many consecutive relaunch failures without recovery, enter
@@ -186,35 +190,27 @@ function Test-GDriveFSAlive {
 }
 
 # ---------- C1: positive mount liveness probe ----------
-# Probe a positive signal from DriveFS: a metadata request against the configured
-# mount must complete within a bounded timeout. Unlike CPU sampling, this succeeds
-# when DriveFS is idle and fails when core_controller stops serving filesystem I/O.
-function Test-GDriveFSMountLive {
-    param([string]$Path, [int]$TimeoutSeconds)
-
-    if ($TimeoutSeconds -le 0) {
-        return @{ Live = $true; Reason = 'c1-disabled' }
-    }
+# Probe a positive signal from DriveFS against the configured mount, in two
+# bounded stages. Unlike CPU sampling, both succeed when DriveFS is idle and
+# fail when core_controller stops serving filesystem I/O.
+function Invoke-BoundedMountProbe {
+    # Run one probe scriptblock (receives the path as its only argument) in a
+    # background job bounded by a timeout, so a wedged kernel I/O path can never
+    # hang the watchdog itself. Returns TimedOut/Succeeded/Result/Detail.
+    param([scriptblock]$Probe, [string]$Path, [int]$TimeoutSeconds)
 
     $job = $null
     try {
-        $job = Start-Job -ScriptBlock {
-            param($ProbePath)
-            $item = Get-Item -LiteralPath $ProbePath -Force -ErrorAction Stop
-            [pscustomobject]@{
-                FullName    = $item.FullName
-                PSIsContainer = $item.PSIsContainer
-            }
-        } -ArgumentList $Path
+        $job = Start-Job -ScriptBlock $Probe -ArgumentList $Path
 
         if (-not (Wait-Job -Job $job -Timeout $TimeoutSeconds)) {
-            return @{ Live = $false; Reason = "mount-probe-timeout-${TimeoutSeconds}s" }
+            return @{ TimedOut = $true; Succeeded = $false; Result = $null; Detail = '' }
         }
 
         $probeError = @()
         $result = Receive-Job -Job $job -ErrorAction SilentlyContinue -ErrorVariable probeError
-        if ($job.State -eq 'Completed' -and $result -and $result.PSIsContainer -and $probeError.Count -eq 0) {
-            return @{ Live = $true; Reason = 'mount-stat-ok' }
+        if ($job.State -eq 'Completed' -and $probeError.Count -eq 0) {
+            return @{ TimedOut = $false; Succeeded = $true; Result = $result; Detail = '' }
         }
 
         $detail = if ($job.ChildJobs[0].JobStateInfo.Reason) {
@@ -224,15 +220,61 @@ function Test-GDriveFSMountLive {
         } else {
             "job-state-$($job.State)"
         }
-        return @{ Live = $false; Reason = "mount-probe-error: $detail" }
+        return @{ TimedOut = $false; Succeeded = $false; Result = $null; Detail = $detail }
     } catch {
-        return @{ Live = $false; Reason = "mount-probe-error: $($_.Exception.Message)" }
+        return @{ TimedOut = $false; Succeeded = $false; Result = $null; Detail = $_.Exception.Message }
     } finally {
         if ($job) {
             Stop-Job -Job $job -ErrorAction SilentlyContinue
             Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
         }
     }
+}
+
+function Test-GDriveFSMountLive {
+    param([string]$Path, [int]$TimeoutSeconds)
+
+    if ($TimeoutSeconds -le 0) {
+        return @{ Live = $true; Reason = 'c1-disabled' }
+    }
+
+    # Stage 1 — stat (metadata). Fast first-line probe; semantics unchanged.
+    $stat = Invoke-BoundedMountProbe -Path $Path -TimeoutSeconds $TimeoutSeconds -Probe {
+        param($ProbePath)
+        $item = Get-Item -LiteralPath $ProbePath -Force -ErrorAction Stop
+        [pscustomobject]@{
+            FullName    = $item.FullName
+            PSIsContainer = $item.PSIsContainer
+        }
+    }
+    if ($stat.TimedOut) {
+        return @{ Live = $false; Reason = "mount-probe-timeout-${TimeoutSeconds}s" }
+    }
+    if (-not $stat.Succeeded) {
+        return @{ Live = $false; Reason = "mount-probe-error: $($stat.Detail)" }
+    }
+    if (-not ($stat.Result -and $stat.Result.PSIsContainer)) {
+        return @{ Live = $false; Reason = 'mount-probe-error: not-a-container' }
+    }
+
+    # Stage 2 — bounded content enumeration. Incident 2026-09-05 (po-204 c.361):
+    # a wedged DriveFS served stat normally while EVERY content read hung — the
+    # watchdog logged "healthy" through a full outage. Enumerating one entry
+    # exercises the content path; completing with zero entries still counts as
+    # success (the call completed, the mount is simply empty).
+    $enum = Invoke-BoundedMountProbe -Path $Path -TimeoutSeconds $TimeoutSeconds -Probe {
+        param($ProbePath)
+        $null = Get-ChildItem -LiteralPath $ProbePath -Force -ErrorAction Stop |
+            Select-Object -First 1
+        'enum-ok'
+    }
+    if ($enum.TimedOut) {
+        return @{ Live = $false; Reason = "mount-enum-timeout-${TimeoutSeconds}s" }
+    }
+    if (-not $enum.Succeeded) {
+        return @{ Live = $false; Reason = "mount-enum-error: $($enum.Detail)" }
+    }
+    return @{ Live = $true; Reason = 'mount-stat+enum-ok' }
 }
 
 # ---------- C2: cooldown gate ----------
