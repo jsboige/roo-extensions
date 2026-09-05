@@ -35,20 +35,30 @@ D'où la règle.
 ## Procédure — avant tout commit avec pointeur submod modifié
 
 ```bash
-# 1. Identifier les submodules modifiés
-git status --porcelain | grep -E '^\s*M\s+(mcps/|roo-code)'
+# 0. Identifier les submodules modifiés ET asserter que l'instrument vise le BON dépôt
+#    (incident 2026-09-05, retarget #3454) : dans un worktree neuf, un submodule non peuplé
+#    est un répertoire VIDE et `git -C <submod> ...` répond au nom du dépôt PARENT — tous
+#    les gardes suivants vérifieraient une propriété réelle du MAUVAIS dépôt (mesuré :
+#    3 gardes verts sur le squash d'une PR du parent). Le garde teste le MÉCANISME
+#    (`git -C` a remonté au parent), pas un nom d'upstream : il vaut pour les trois
+#    submodules sans adaptation — un grep d'URL n'aurait couvert que mcps/internal et
+#    crié « MAUVAIS DEPOT » à tort sur roo-code et win-cli/server.
+for SUBMOD in $(git status --porcelain | grep -oE '(mcps/[A-Za-z0-9_/.-]+|roo-code)' | sort -u); do
+  [ "$(git -C "$SUBMOD" rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] \
+    || { echo "$SUBMOD : git -C a remonté au PARENT (submodule non peuplé) — STOP"; exit 1; }
+done
 
-# 2. Récupérer le HEAD local du submod concerné
+# 1. Récupérer le HEAD local du submod concerné (exemple : mcps/internal)
 SUBMOD_HEAD=$(git -C mcps/internal rev-parse HEAD)
 
-# 3. Fetch upstream
+# 2. Fetch upstream
 git -C mcps/internal fetch upstream main 2>&1 || git -C mcps/internal fetch origin main
 
-# 4. Vérifier que la SHA est atteignable
+# 3. Vérifier que la SHA est atteignable
 git -C mcps/internal merge-base --is-ancestor $SUBMOD_HEAD origin/main \
   && echo "OK reachable" || echo "ORPHAN — STOP"
 
-# 5. Si ORPHAN :
+# 4. Si ORPHAN :
 #    - commit local non poussé  -> pousser le submod d'abord (PR + merge)
 #    - sinon                    -> git -C mcps/internal reset --hard origin/main
 ```
