@@ -1,7 +1,7 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 1.5.0 (slim)
-**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts)
+**Version:** 1.6.0 (slim)
+**Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09)
 
 ---
 
@@ -16,10 +16,11 @@
 1. **Verifier PR concurrente — dans les DEUX depots** (une PR submodule vit dans `jsboige/jsboige-mcp-servers`, invisible au check single-repo — trou #3407 : #1091 ouverte 26 h, non vue) :
    ```bash
    for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
-     gh pr list --repo "$R" --search "#NNN" --state open --json number,author,title
+     gh pr list --repo "$R" --state open --json number,author,title \
+       --jq '.[] | select(.title | test("#NNN([^0-9]|$)"))'
    done
    ```
-   — si une PR existe deja dans l'un des deux, STOP
+   — si une PR existe deja dans l'un des deux, STOP. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, pas de `\b` — fragilise par les couches de quoting bash→gh) : le filtre `--search "#NNN"` de GitHub est flou (mesure 05/09 : `#34` ramene des PRs sans rapport, meme quoté) et `#109` matche `#1091` — sans frontiere, une issue est skippee a tort.
 2. **Lire dashboard workspace** : `roosync_dashboard(action: "read", type: "workspace")` — un autre agent a-t-il `[CLAIMED]` cet issue (< 2h) ?
 3. **Annoncer claim AVANT modification** : `roosync_dashboard(action: "append", tags: ["CLAIMED"], content: "#NNN — myia-poXXXX commencing work, ETA YY min")`
 4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` horodate prime.
@@ -34,7 +35,7 @@ livrer** — or c'est entre les deux que l'etat change.
 **Avant `gh pr create`, relire le dashboard workspace FRAIS** (`action: "read"`, `section: "intercom"`) :
 
 1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
-2. Une PR concurrente est-elle apparue depuis ? (`gh pr list --search "#NNN" --state open` — **les deux depots**, cf. pre-claim #1)
+2. Une PR concurrente est-elle apparue depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
 3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est deja
    ecrit ». Du travail jete coute moins cher qu'une collision a demeler.
 
