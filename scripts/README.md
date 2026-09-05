@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-04 (alignement 3 familles worktree-cleanup, #3422)
+**Dernière mise à jour :** 2026-09-05 (détail 7 scripts `claude/`, #3460)
 
 ---
 
@@ -64,6 +64,20 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
+
+#### Détail scripts `claude/` (#3460)
+
+Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de vérité = le fichier lui-même).
+
+| Script | Description |
+|--------|-------------|
+| `claude/Deploy-GlobalConfig.ps1` | Déploie la configuration globale Claude Code depuis les templates roo-extensions (copie agents, skills, commands, rules et CLAUDE.md de `.claude/configs/` vers `~/.claude/`) |
+| `claude/Deploy-ProviderSwitcher.ps1` | Déploie le Provider Switcher Claude Code dans les paramètres globaux de l'utilisateur (`~/.claude/`) : commande slash, script de bascule et templates de config providers |
+| `claude/Switch-MCPConfig.ps1` | Bascule entre différentes configurations MCP pour debugger les doublons d'outils (erreur « Tool names must be unique ») |
+| `claude/Switch-Provider.ps1` | Bascule Claude Code entre providers LLM (anthropic, zai, claudish) en mettant à jour le `settings.json` utilisateur |
+| `claude/provider-preflight.ps1` | Vérifie la chaîne du provider LLM AVANT le fan-out de sub-agents (#3361) : trace de résolution, health probe, diagnostic actionnable sur 401/402/403 |
+| `claude/ensure-build-fresh.ps1` | Reconstruit le build du submodule MCP s'il est obsolète (#2822 STALE-TRAP) — compare mtime `src/` vs `build/`, rebuild si stale, idempotent et non bloquant |
+| `claude/diagnose-harness.ps1` | Thin wrapper déléguant à `analyze-harness-tokens.ps1` (consolidation #3323, analyse token-footprint canonique) |
 
 #### Stack worker Mistral Vibe (`scheduling/`, #3202)
 
