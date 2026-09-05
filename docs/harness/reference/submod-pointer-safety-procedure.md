@@ -35,6 +35,13 @@ D'où la règle.
 ## Procédure — avant tout commit avec pointeur submod modifié
 
 ```bash
+# 0. Asserter que l'instrument vise le BON dépôt (incident 2026-09-05, retarget #3454) :
+#    dans un worktree neuf, mcps/internal est VIDE et `git -C mcps/internal ...` répond au
+#    nom du dépôt PARENT — tous les gardes suivants vérifieraient une propriété réelle du
+#    MAUVAIS dépôt (mesuré : 3 gardes verts sur le squash d'une PR du parent).
+git -C mcps/internal remote get-url origin | grep -q jsboige-mcp-servers \
+  || { echo "MAUVAIS DEPOT — STOP"; exit 1; }
+
 # 1. Identifier les submodules modifiés
 git status --porcelain | grep -E '^\s*M\s+(mcps/|roo-code)'
 

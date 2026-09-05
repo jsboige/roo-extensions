@@ -1,5 +1,6 @@
 # Submodule Pointer Safety
 
+**Version:** 2.2.0 (+ garde d'identité de dépôt — incident 2026-09-05, retarget #3454)
 **Version:** 2.1.0 (garde sur le SHA complet — incident 2026-08-07, PR #3056)
 **Issue :** #2089 follow-up (incident 2026-05-11, commit `67514ec1`)
 
@@ -8,8 +9,9 @@
 ## Règle Absolue
 
 **Avant tout commit modifiant un pointeur submodule** (`mcps/internal`,
-`mcps/external/win-cli/server`, `roo-code`) : **`git fetch` le submodule, puis vérifier que la SHA
-cible est atteignable depuis son upstream.**
+`mcps/external/win-cli/server`, `roo-code`) : **asserter que l'instrument vise le bon dépôt,
+puis `git fetch` le submodule, puis vérifier que la SHA cible est atteignable depuis son
+upstream.**
 
 ```bash
 git -C <submod> fetch origin main
@@ -20,6 +22,34 @@ git -C <submod> merge-base --is-ancestor $(git -C <submod> rev-parse HEAD) origi
 **Si la SHA n'est pas atteignable → STOP.** Pousser d'abord le commit submodule sur son upstream,
 ou `reset --hard origin/main`. Un pointeur orphelin casse `git pull` **sur toute la flotte**
 (`upload-pack: not our ref`), pas seulement chez soi.
+
+## Asserter que l'instrument vise le BON dépôt avant de croire sa réponse (incident 2026-09-05, retarget #3454)
+
+Dans un worktree neuf, `mcps/internal` est **vide** (submodule non peuplé). `git -C
+mcps/internal rev-parse origin/main` ne rend alors **pas** une erreur : il remonte au dépôt
+**parent** et rend le `origin/main` de roo-extensions. Les gardes de cette règle (existence de
+l'objet, ancêtre commun, relecture 40 caractères) vérifient alors une propriété **réelle du
+mauvais dépôt** — toutes trois ont passé sur `b141dc32`, le squash d'une PR de roo-extensions,
+écrit dans le gitlink du submodule. Trois contrôles qui partagent le même instrument n'en font
+qu'un.
+
+Corroboration croisée le même jour, autre objet : po-2024 (c.364) sur les husks
+`wt-worker-po-2024-*` — « dir vide → status/wc issus du parent ». Deux machines, deux objets,
+un seul mécanisme : **`git -C` sur un répertoire non-peuplé répond au nom du parent.**
+
+Le garde, AVANT tout appel `git -C <submod>` de cette règle :
+
+```bash
+git -C <submod> remote get-url origin | grep -q jsboige-mcp-servers \
+  || { echo "MAUVAIS DEPOT — STOP"; exit 1; }
+```
+
+(Adapter le motif d'URL au submodule visé — `win-cli` et `roo-code` ont chacun leur upstream.)
+
+Rattrapage de second ordre, en toutes circonstances : **lire ce que la SHA porte** (le message
+du commit qu'elle désigne) — un titre de PR de roo-extensions là où on attend un commit
+`jsboige-mcp-servers` est une signature de mauvais dépôt, même quand chaque garde isolé est
+vert.
 
 ## Pourquoi cette règle existe pour les sessions **interactives**
 
