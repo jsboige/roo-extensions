@@ -50,6 +50,14 @@
     C2 — Hours to suppress further relaunch attempts after the failure threshold.
     Default: 24.
 
+.PARAMETER StartupGraceSeconds
+    Guard (#3466) — never kill an instance younger than this. Derived from the
+    observed GoogleDriveFS mount init time (~11-20 min on ai-01, 2026-09-05).
+    An instance still inside this window when the C1 probe fails is a relaunch
+    mid-init, not a genuine hang; the watchdog leaves it alone and defers its
+    verdict. The post-relaunch verification window is this factor, not a fixed
+    90s constant. Default: 1200 (20 min).
+
 .EXAMPLE
     .\gdrivefs-watchdog.ps1
     .\gdrivefs-watchdog.ps1 -Mode dry-run
@@ -65,7 +73,9 @@ param(
     [ValidateRange(0, 60)]
     [int]$MountProbeTimeoutSeconds = 5,
     [int]$MaxConsecutiveFailures = 3,
-    [int]$CooldownHours = 24
+    [int]$CooldownHours = 24,
+    [ValidateRange(0, 86400)]
+    [int]$StartupGraceSeconds = 1200
 )
 
 $ErrorActionPreference = 'Continue'
@@ -249,6 +259,48 @@ function Test-CooldownActive {
     return $false
 }
 
+# ---------- startup grace (A0.1/A0.2, #3466) ----------
+# GoogleDriveFS mount init takes ~11-20 min on slow hosts (measured ai-01
+# 2026-09-05, #3466). A watchdog that kills an instance younger than the
+# observed init time dark-drops a relaunch that was still completing, and its
+# next tick kills the instance the previous tick launched. Anchor the grace on
+# (a) the process StartTime (host-native / manually-started instances) and (b)
+# the last_relaunch_attempt field we already persist but never read (instances
+# the watchdog itself launched). This is the reader the #3466 issue calls for.
+function Test-IsInStartupGrace {
+    param(
+        [datetime]$Now,
+        [object[]]$Processes,
+        [object]$LastRelaunchAttempt,
+        [int]$GraceSeconds
+    )
+    if ($GraceSeconds -le 0) { return $false }
+
+    # (a) instance age — youngest process StartTime. A young process that fails
+    #     the C1 mount probe is a relaunch mid-init, not a genuine hang.
+    if ($Processes -and @($Processes).Count -gt 0) {
+        $youngestStart = ($Processes | Measure-Object -Property StartTime -Maximum).Maximum
+        if ($youngestStart -and (($Now - $youngestStart).TotalSeconds -lt $GraceSeconds)) {
+            return $true
+        }
+    }
+
+    # (b) watchdog's own relaunch timestamp (persisted, never read until now).
+    if ($LastRelaunchAttempt) {
+        try {
+            $lastAt = if ($LastRelaunchAttempt -is [datetime]) {
+                $LastRelaunchAttempt
+            } else {
+                [datetime]::Parse([string]$LastRelaunchAttempt)
+            }
+            if (($Now - $lastAt).TotalSeconds -lt $GraceSeconds) {
+                return $true
+            }
+        } catch {}
+    }
+    return $false
+}
+
 # ---------- relaunch ----------
 function Invoke-RelaunchGDriveFS {
     param([string]$BinaryPath)
@@ -274,15 +326,13 @@ function Invoke-RelaunchGDriveFS {
     try {
         Start-Process -FilePath $BinaryPath -ArgumentList '--startup_mode' -ErrorAction Stop
         $script:repairs += 'gdrivefs-relaunch'
-        # Mount init takes 45-90s after a cold relaunch (measured 2026-08-06 on ai-01);
-        # a fixed 20s wait declared failure on repairs that were still completing and
-        # incremented the C2 counter for nothing. Poll the mount up to 90s instead.
-        Write-Log 'INFO' "Start-Process issued for $BinaryPath — polling mount up to 90s for core_controller init"
-        $deadline = (Get-Date).AddSeconds(90)
-        do {
-            Start-Sleep -Seconds 10
-            $probe = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
-        } until ($probe.Live -or (Get-Date) -ge $deadline)
+        # Mount init takes far longer than a bounded probe on slow hosts (measured
+        # ~11-20 min on ai-01, 2026-09-05, #3466). We do NOT wait for it here: the
+        # caller defers the verdict to the startup-grace window (StartupGraceSeconds),
+        # so a relaunch still in init is never declared failed or re-killed by the
+        # next poll. A bounded probe runs immediately for fast-success feedback.
+        Write-Log 'INFO' "Start-Process issued for $BinaryPath — verdict deferred to startup grace window ($StartupGraceSeconds s) pending core_controller init"
+        $script:probeAfterLaunch = Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
     } catch {
         Write-Log 'ERROR' "Start-Process failed: $($_.Exception.Message)"
         $script:alerts += "relaunch-failed: $($_.Exception.Message)"
@@ -333,32 +383,32 @@ if (-not $binary -or -not (Test-Path $binary)) {
             Write-Log 'WARN' $msg
             $script:alerts += "cooldown-skip: $reason"
         } else {
-            Invoke-RelaunchGDriveFS -BinaryPath $binary
-
-            # Re-check process and positive liveness after the wait.
-            $after = Test-GDriveFSAlive
-            $afterProbe = if ($after.Alive) {
-                Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
-            } else {
-                @{ Live = $false; Reason = 'process-absent-after-relaunch' }
+            # A0.1 (#3466): never kill an instance younger than the observed init
+            # time. A C1-hung instance still inside its startup-grace window is a
+            # relaunch mid-init (core_controller), not a genuine hang — leave it
+            # alone. (C0, process absent, has nothing to protect, so grace skips.)
+            $existingProcs = if ($live.Alive) { Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue } else { $null }
+            $inGrace = $false
+            if ($live.Alive) {
+                $inGrace = Test-IsInStartupGrace -Now (Get-Date) -Processes $existingProcs -LastRelaunchAttempt $state.last_relaunch_attempt -GraceSeconds $StartupGraceSeconds
             }
-            if ($after.Alive -and $afterProbe.Live) {
-                Write-Log 'OK' "GoogleDriveFS.exe recovered after relaunch (pids=$($after.Pids), C1=$($afterProbe.Reason))"
-                # C2: success → reset failure counter
-                if ($Mode -ne 'dry-run') {
-                    $state.consecutive_relaunch_failures = 0
-                    $state.cooldown_until                = $null
-                    Save-WatchdogState -State $state
-                }
+
+            if ($inGrace) {
+                Write-Log 'INFO' "Suppressing relaunch — GDriveFS instance younger than startup grace (${StartupGraceSeconds}s), likely still initializing (reason=$reason). No kill, no failed-cycle count."
             } else {
-                Write-Log 'WARN' "GoogleDriveFS.exe failed recovery after 20s (processAlive=$($after.Alive), C1=$($afterProbe.Reason)) — may need one-time interactive re-auth (WebView2), or core_controller failed to init. See GDriveFS logs."
-                $script:alerts += "unhealthy-after-relaunch: $($afterProbe.Reason)"
-
-                # C2: increment failure counter, escalate if over threshold
-                if ($Mode -ne 'dry-run') {
+                # A0.2 (#3466): a relaunch cycle is judged by the measured grace
+                # window, never a 90s constant. If the prior relaunch's grace already
+                # elapsed and the instance is still missing/hung, THIS cycle failed —
+                # count it (C2). Otherwise the verdict is deferred below.
+                $cycleFailed = $false
+                if ($state.last_relaunch_attempt) {
+                    try { $lastAt = [datetime]::Parse([string]$state.last_relaunch_attempt) } catch { $lastAt = $null }
+                    if ($lastAt -and ((Get-Date) - $lastAt).TotalSeconds -ge $StartupGraceSeconds) {
+                        $cycleFailed = $true
+                    }
+                }
+                if ($Mode -ne 'dry-run' -and $cycleFailed) {
                     $state.consecutive_relaunch_failures = $state.consecutive_relaunch_failures + 1
-                    $state.last_relaunch_attempt         = (Get-Date).ToString('o')
-
                     if ($state.consecutive_relaunch_failures -ge $MaxConsecutiveFailures) {
                         $state.cooldown_until = (Get-Date).AddHours($CooldownHours).ToString('o')
                         $state.last_alert_at   = (Get-Date).ToString('o')
@@ -370,6 +420,34 @@ if (-not $binary -or -not (Test-Path $binary)) {
                     } else {
                         Save-WatchdogState -State $state
                     }
+                }
+
+                $state.last_relaunch_attempt = (Get-Date).ToString('o')
+                if ($Mode -ne 'dry-run') { Save-WatchdogState -State $state }
+
+                Invoke-RelaunchGDriveFS -BinaryPath $binary
+
+                # Immediate process + liveness check (bounded). If not yet healthy,
+                # defer the verdict to the grace window — the mount may still be in init.
+                $after = Test-GDriveFSAlive
+                $afterProbe = if ($after.Alive) {
+                    Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
+                } else {
+                    @{ Live = $false; Reason = 'process-absent-after-relaunch' }
+                }
+                if ($after.Alive -and $afterProbe.Live) {
+                    Write-Log 'OK' "GoogleDriveFS.exe recovered after relaunch (pids=$($after.Pids), C1=$($afterProbe.Reason))"
+                    # C2: success → reset failure counter
+                    if ($Mode -ne 'dry-run') {
+                        $state.consecutive_relaunch_failures = 0
+                        $state.cooldown_until                = $null
+                        Save-WatchdogState -State $state
+                    }
+                } else {
+                    # A0.2 (#3466): deferred verdict — a relaunch inside the grace
+                    # window is not a failure yet. The next poll that sees it still
+                    # hung AFTER grace elapses counts the cycle as failed (above).
+                    Write-Log 'INFO' "Relaunch issued but instance not yet healthy (processAlive=$($after.Alive), C1=$($afterProbe.Reason)). Deferring verdict until startup grace (${StartupGraceSeconds}s) elapses — possible core_controller init."
                 }
             }
         }
@@ -404,11 +482,18 @@ try {
         Remove-Item -Force -ErrorAction SilentlyContinue
 } catch {}
 
-# Exit code: 0 if GDriveFS is alive and its mount responds at end (or dry-run), 1 otherwise.
+# Exit code: 0 if GDriveFS is alive and its mount responds at end (or dry-run, or
+# still inside its startup-grace window — an in-init instance is not a failure),
+# 1 otherwise.
 $final = Test-GDriveFSAlive
 $finalProbe = if ($final.Alive) {
     Test-GDriveFSMountLive -Path $MountPath -TimeoutSeconds $MountProbeTimeoutSeconds
 } else {
     @{ Live = $false }
 }
-if ($Mode -eq 'dry-run' -or ($final.Alive -and $finalProbe.Live)) { exit 0 } else { exit 1 }
+$finalGrace = $false
+if ($final.Alive) {
+    $finalProcs = Get-Process -Name 'GoogleDriveFS' -ErrorAction SilentlyContinue
+    $finalGrace = Test-IsInStartupGrace -Now (Get-Date) -Processes $finalProcs -LastRelaunchAttempt $state.last_relaunch_attempt -GraceSeconds $StartupGraceSeconds
+}
+if ($Mode -eq 'dry-run' -or ($final.Alive -and $finalProbe.Live) -or $finalGrace) { exit 0 } else { exit 1 }
