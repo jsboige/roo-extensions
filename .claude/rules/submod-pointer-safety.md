@@ -1,7 +1,6 @@
 # Submodule Pointer Safety
 
 **Version:** 2.2.0 (+ garde d'identité de dépôt — incident 2026-09-05, retarget #3454)
-**Version:** 2.1.0 (garde sur le SHA complet — incident 2026-08-07, PR #3056)
 **Issue :** #2089 follow-up (incident 2026-05-11, commit `67514ec1`)
 
 ---
@@ -37,19 +36,22 @@ Corroboration croisée le même jour, autre objet : po-2024 (c.364) sur les husk
 `wt-worker-po-2024-*` — « dir vide → status/wc issus du parent ». Deux machines, deux objets,
 un seul mécanisme : **`git -C` sur un répertoire non-peuplé répond au nom du parent.**
 
-Le garde, AVANT tout appel `git -C <submod>` de cette règle :
+Le garde, AVANT toute **lecture** `git -C <submod>` de cette règle (c'est la lecture qui est
+empoisonnée : à l'écriture, la mauvaise valeur est déjà en main et les gardes de la règle la
+valident). Il teste le **mécanisme** — `git -C` a remonté au parent — pas l'une de ses
+conséquences (un nom d'upstream) : il vaut pour les trois submodules sans adaptation et ne
+périme pas si un quatrième arrive :
 
 ```bash
-git -C <submod> remote get-url origin | grep -q jsboige-mcp-servers \
-  || { echo "MAUVAIS DEPOT — STOP"; exit 1; }
+[ "$(git -C <submod> rev-parse --show-toplevel)" != "$(git rev-parse --show-toplevel)" ] \
+  || { echo "git -C a remonté au PARENT (submodule non peuplé) — STOP"; exit 1; }
 ```
 
-(Adapter le motif d'URL au submodule visé — `win-cli` et `roo-code` ont chacun leur upstream.)
-
-Rattrapage de second ordre, en toutes circonstances : **lire ce que la SHA porte** (le message
-du commit qu'elle désigne) — un titre de PR de roo-extensions là où on attend un commit
+Rattrapage de second ordre, en toutes circonstances : **lire ce que la SHA porte** — le sujet
+du commit qu'elle désigne (`git -C <submod> log -1 --format=%s "$SHA"`) — pas seulement
+qu'elle existe. Un titre de PR de roo-extensions là où on attend un commit
 `jsboige-mcp-servers` est une signature de mauvais dépôt, même quand chaque garde isolé est
-vert.
+vert. C'est ce contrôle qui a réellement rattrapé l'incident, aucune des trois gardes.
 
 ## Pourquoi cette règle existe pour les sessions **interactives**
 
