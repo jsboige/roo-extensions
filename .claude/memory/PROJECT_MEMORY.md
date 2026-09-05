@@ -148,6 +148,18 @@ coordinator.extractFromMessages(messages, { enableDebug: true });
 
 **Why:** Sprint C3 (web1 c.30): a coverage test aimed a throw at the iteration level, saw the test pass, and assumed the `errors > 0` summary branch was covered — it was not; the global catch had bypassed the summary entirely. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
 
+### path.join expectations must be built with path.join, never hand-written slashes — CI is Linux, the fleet is Windows
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 12th of the series).*
+
+`path.join` is cross-platform but uses the **native separator** — `/` on POSIX, `\` on Windows. An expectation hand-written as `'/mock/storage2/tasks/task-xyz'` fails on Windows with `expected '\mock\storage2\tasks\task-xyz'`, because the code under test (`path.join(locationPath, 'tasks', taskId)` — e.g. `zoo-task-extractor.ts` builds exactly this shape) produced backslashes. The trap is fleet-shaped: **submodule CI runs on `ubuntu-22.04` while every executor machine is Windows** — a slash-literal expectation passes CI green and breaks locally (or gets "fixed" by skipping, hiding real coverage).
+
+- **Build the expectation with `path.join` itself**: `expect(result).toBe(path.join('/mock', 'storage2', 'tasks', 'task-xyz'))` — cross-platform by construction.
+- **Or assert on what is separator-invariant**: `path.basename(result)`, or `result.endsWith('tasks/task-xyz')` — safe because the tail is a literal you control.
+- **Smell test**: any hand-written `/foo/bar` string inside an `expect(...).toBe(...)` over a `path.join`/`path.resolve` output is a Linux-only assumption.
+
+**Why:** Sprint C3 (web1 c.31): a hand-written slash expectation failed on Windows against a correct `path.join` output — the test was wrong about the platform, not the code. Fleet-relevant for any machine writing vitest on the submodule (Windows devs, Linux CI); zero machine-specific content.
+
 ### A replaced extract() never runs unless the message satisfies canHandle
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
