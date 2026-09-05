@@ -19,7 +19,7 @@ triggers:
   priority: medium
 metadata:
   author: "Roo Extensions Team"
-  version: "1.0.0"
+  version: "1.0.1"
   compatibility:
     surfaces: ["claude-code", "claude.ai"]
     restrictions: "Requiert Python + papermill installés sur la machine (po-2023 : papermill 2.6.0 / Python 3.13.3 vérifié 2026-06-12)"
@@ -58,16 +58,17 @@ Issue source : **#600** ([STUDY] Exécution Jupyter dans Claude Code — Option 
 
 ```powershell
 # Exécution simple (notebook embarquant déjà sa metadata kernelspec)
-pwsh -File scripts/jupyter/run-notebook.ps1 -Notebook chemin/vers/notebook.ipynb
+# (powershell 5.1 — pwsh absent sur certaines machines, cf .claude/rules/shell-fallback.md #2368)
+powershell -ExecutionPolicy Bypass -File scripts/jupyter/run-notebook.ps1 -Notebook chemin/vers/notebook.ipynb
 
 # Notebook SANS kernelspec (généré via nbformat.v4.new_notebook()) → -Kernel OBLIGATOIRE
-pwsh -File scripts/jupyter/run-notebook.ps1 -Notebook chemin/vers/notebook.ipynb -Kernel python3
+powershell -ExecutionPolicy Bypass -File scripts/jupyter/run-notebook.ps1 -Notebook chemin/vers/notebook.ipynb -Kernel python3
 
 # Avec paramètres injectés + sortie explicite
-pwsh -File scripts/jupyter/run-notebook.ps1 -Notebook in.ipynb -Output out.ipynb -Parameters @{ alpha = 0.5; label = "run1" }
+powershell -ExecutionPolicy Bypass -File scripts/jupyter/run-notebook.ps1 -Notebook in.ipynb -Output out.ipynb -Parameters @{ alpha = 0.5; label = "run1" }
 
 # Sans rapport HTML
-pwsh -File scripts/jupyter/run-notebook.ps1 -Notebook in.ipynb -NoReport
+powershell -ExecutionPolicy Bypass -File scripts/jupyter/run-notebook.ps1 -Notebook in.ipynb -NoReport
 ```
 
 Le script écrit `<nom>-output.ipynb` + `<nom>-output.html` à côté du notebook (sauf `-Output`/`-NoReport`),

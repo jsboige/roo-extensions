@@ -2,6 +2,18 @@
 .SYNOPSIS
     Installe la scheduled task 'MCP-Worktree-Cleanup' (SYSTEM, weekly Sunday 03:00).
 
+.FAMILY
+    F1 (installeur) — installe la schtask qui exécute `scripts/maintenance/cleanup-orphan-worktrees.ps1` (-Execute -DaysThreshold 7).
+
+    Voir aussi (alignement Tâche A #3422, CONSOLIDATION-SCRIPTS-SUPERSEDED.md §2) :
+      - F1 planifiée : `scripts/maintenance/cleanup-orphan-worktrees.ps1` (chemin critique — worker + schtask + test).
+      - F2 PR       : `scripts/worktrees/cleanup-worktree.ps1` (appelée par `create-worktree.ps1` + `submit-pr.ps1`).
+      - F3 alternative : `scripts/claude/worktree-cleanup.ps1` + `scripts/claude/install-worktree-cleanup-scheduled-task.ps1`
+                        (tâche `Roo-Worktree-Cleanup`, daily 02:00 SYSTEM — installeur séparé).
+
+    Note : installateur F1 ≠ installeur F3. F1 = hebdomadaire dimanche (MCP-Worktree-Cleanup).
+    F3 = quotidien 02h (Roo-Worktree-Cleanup). Les deux schtasks coexistent sur certaines machines — #3422 ne les a pas fusionnés (F1 chemin critique, F3 séparée par skills).
+
 .DESCRIPTION
     Runs cleanup-orphan-worktrees.ps1 -Execute -DaysThreshold 7 automatically
     to prevent worktree husk accumulation (#1913).

@@ -1,4 +1,21 @@
 # Install Worktree Cleanup Scheduled Task
+# FAMILY: F3 (installeur) — installe la schtask Roo-Worktree-Cleanup (SYSTEM, daily 02:00)
+# qui exécute `scripts/claude/worktree-cleanup.ps1 -Force`.
+#
+# Voir aussi (alignement Tâche A #3422, CONSOLIDATION-SCRIPTS-SUPERSEDED.md §2) :
+#   - F1 (installeur)    : scripts/maintenance/install-worktree-cleanup-schtask.ps1
+#                          — tâche MCP-Worktree-Cleanup, weekly Sunday 03:00.
+#   - F2                 : scripts/worktrees/cleanup-worktree.ps1 (PR-workflow, pas de schtask).
+#   - F3 (ce script)     : scripts/claude/install-worktree-cleanup-scheduled-task.ps1
+#                          (+ scripts/claude/worktree-cleanup.ps1) — tâche Roo-Worktree-Cleanup,
+#                          daily 02:00, skills debrief/git-sync, .roo/scheduler-workflow-executor.
+#
+# Différences F1 vs F3 :
+#   - Schtask F1 : MCP-Worktree-Cleanup, weekly Sunday 03:00, lance cleanup-orphan-worktrees.ps1 -Execute -DaysThreshold 7.
+#   - Schtask F3 : Roo-Worktree-Cleanup,  daily 02:00,        lance worktree-cleanup.ps1 -Force.
+#   - Les 2 schtasks coexistent sur les machines qui ont installé les deux. PR #3422 ne les a pas fusionnés.
+#
+# PR #3422 n'a touché AUCUN comportement : ajout d'en-tête seulement.
 # Description: Creates a Windows scheduled task to automatically cleanup orphan worktrees
 # Issue: #895 - Le harnais scheduler PERD DU TRAVAIL
 # Author: Claude Code (myia-po-2026)

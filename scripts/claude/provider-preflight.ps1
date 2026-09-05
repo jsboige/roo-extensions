@@ -117,7 +117,8 @@ foreach ($role in $rolesToCheck) {
     if ($apiId -like 'claude-*' -and $baseUrl -and $baseUrl -notmatch 'anthropic\.com') {
         Write-Host ("           WARN: '{0}' is a native-Anthropic ID routed via the hub. If unintended on an" -f $rawId) -ForegroundColor Yellow
         Write-Host '           executor machine, re-apply the fleet policy:' -ForegroundColor Yellow
-        Write-Host '           powershell scripts/claude/Switch-Provider.ps1 -Provider claudish   (sonnet -> glm-5.1, z.ai)' -ForegroundColor Yellow
+        Write-Host '           powershell scripts/claude/Switch-Provider.ps1 -Provider claudish   (sonnet -> glm-5.2, z.ai)' -ForegroundColor Yellow
+        Write-Host '           (one-time setup if the provider config is missing: scripts/claude/Deploy-ProviderSwitcher.ps1)' -ForegroundColor Yellow
     }
 }
 
@@ -216,7 +217,8 @@ if ($probe.Code -in 401, 402, 403) {
     Write-Host '    - env.ANTHROPIC_DEFAULT_*_MODEL keys (chain traced above)'
     Write-Host '  Remediation, in order:' -ForegroundColor Cyan
     Write-Host '    1. Re-apply the machine provider policy:'
-    Write-Host '       powershell scripts/claude/Switch-Provider.ps1 -Provider claudish   (executor pool: z.ai glm-5.1)'
+    Write-Host '       powershell scripts/claude/Switch-Provider.ps1 -Provider claudish   (executor pool: z.ai glm-5.2)'
+    Write-Host '       (one-time setup if the provider config is missing: scripts/claude/Deploy-ProviderSwitcher.ps1)'
     Write-Host '    2. If the chain above already matches the policy, the refused provider is hub-side:'
     Write-Host '       check ~/.claudish/config.json on the claudish host (docs/deployment/claudish-per-machine.md).'
     Write-Host '    3. Do NOT switch to -Provider anthropic on executor machines: the fleet policy'
@@ -275,6 +277,7 @@ if ($notRoutable.Count -gt 0) {
     Write-Host '  The hub has no rule for these IDs (incident #3361 wildcard path).' -ForegroundColor Cyan
     Write-Host '  Remediation: re-apply the machine policy so IDs match the hub routing table:'
     Write-Host '    powershell scripts/claude/Switch-Provider.ps1 -Provider claudish'
+    Write-Host '    (one-time setup if the provider config is missing: scripts/claude/Deploy-ProviderSwitcher.ps1)'
     Write-Host '  Preflight result: DEGRADED (endpoint healthy, routing mismatch)' -ForegroundColor Yellow
     exit 4
 }

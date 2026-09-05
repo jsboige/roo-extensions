@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-08-31
+**Dernière mise à jour :** 2026-09-05 (détail 13 scripts `claude/`, #3460 + #3465)
 
 ---
 
@@ -65,6 +65,26 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
 
+#### Détail scripts `claude/` (#3460, #3465)
+
+Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de vérité = le fichier lui-même).
+
+| Script | Description |
+|--------|-------------|
+| `claude/Deploy-GlobalConfig.ps1` | Déploie la configuration globale Claude Code depuis les templates roo-extensions (copie agents, skills, commands, rules et CLAUDE.md de `.claude/configs/` vers `~/.claude/`) |
+| `claude/Deploy-ProviderSwitcher.ps1` | Déploie le Provider Switcher Claude Code dans les paramètres globaux de l'utilisateur (`~/.claude/`) : commande slash, script de bascule et templates de config providers |
+| `claude/Switch-MCPConfig.ps1` | Bascule entre différentes configurations MCP pour debugger les doublons d'outils (erreur « Tool names must be unique ») |
+| `claude/Switch-Provider.ps1` | Bascule Claude Code entre providers LLM (anthropic, zai, claudish) en mettant à jour le `settings.json` utilisateur |
+| `claude/provider-preflight.ps1` | Vérifie la chaîne du provider LLM AVANT le fan-out de sub-agents (#3361) : trace de résolution, health probe, diagnostic actionnable sur 401/402/403 |
+| `claude/ensure-build-fresh.ps1` | Reconstruit le build du submodule MCP s'il est obsolète (#2822 STALE-TRAP) — compare mtime `src/` vs `build/`, rebuild si stale, idempotent et non bloquant |
+| `claude/diagnose-harness.ps1` | Thin wrapper déléguant à `analyze-harness-tokens.ps1` (consolidation #3323, analyse token-footprint canonique) |
+| `claude/archive-large-sessions.ps1` | Diagnostic et archivage non destructif des sessions Claude Code volumineuses (#2577) — copie vers un emplacement d'archive avec vérification par comptage d'octets, les sessions source restent intactes sur disque |
+| `claude/init-claude-code.ps1` | Initialise les fichiers de configuration spécifiques à la machine à partir des templates, à exécuter après clonage du dépôt ou lors de la configuration d'une nouvelle machine |
+| `claude/roosync-statusline.ps1` | Statusline HUD RooSync pour Claude Code — lit les fichiers d'état partagés RooSync (présence, dashboard workspace) et affiche une ligne de statut compacte dans la barre de statut du terminal |
+| `claude/skill-trigger-detector.ps1` | Détecteur de triggers de skills pour le hook `UserPromptSubmit` de Claude Code — lit le prompt utilisateur depuis stdin JSON, scanne les fichiers de skills à la recherche de mots-clés déclencheurs (keywords, exact, patterns, context) |
+| `claude/test-glm-context.ps1` | Teste la taille réelle de la fenêtre de contexte GLM-5.1 via l'API z.ai en envoyant des prompts de taille croissante avec un code secret, afin de détecter une troncature silencieuse |
+| `claude/test-glm-markers.ps1` | Teste la troncature de contexte GLM-5.1 par marqueurs — place 18 marqueurs uniques à intervalles d'environ 10K tokens sur ~180K tokens puis demande au modèle de les rapporter tous, afin de détecter une troncature silencieuse |
+
 #### Stack worker Mistral Vibe (`scheduling/`, #3202)
 
 - `start-vibe-worker.ps1` — worker d'un tick Vibe : lock anti-chevauchement **atomique** (`CreateNew` + `FileShare.None`, #3277 — deux invocations same-seconde → un seul worker, l'autre `exit 75` sans consommer le dispatch), heartbeat (pattern `Write-WorkerHeartbeat`), injection du payload `[WAKE-VIBE]` via la variable d'environnement `VIBE_WAKE_PAYLOAD`, logs horodatés UTC dans `outputs/scheduling/logs/vibe-worker-*.log`.
@@ -106,6 +126,28 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | `cleanup/` | 1 | Nettoyage général |
 | `backup/` | 1 | Archivage transcripts Claude (TranscriptArchive, schtask `ClaudeTranscriptArchive` 04:41) |
 | `_archive/` | 30 | Scripts archivés (référence seulement) |
+
+#### Worktree cleanup — alignement des 3 familles (#3422, 2026-09-04)
+
+Il existe **3 familles fonctionnelles distinctes** de scripts worktree-cleanup, **non** à fusionner
+mais à aligner (documentation croisée). Voir `docs/cleanup/CONSOLIDATION-SCRIPTS-SUPERSEDED.md` §2 +
+PR #3422.
+
+| Famille | Scripts | Entrée | Callers actifs |
+|---|---|---|---|
+| **F1 — Scheduled cleanup (chemin critique)** | `maintenance/cleanup-orphan-worktrees.ps1` (+ `maintenance/install-worktree-cleanup-schtask.ps1`) | `-Execute -DaysThreshold 7` | 🔴 `scheduling/start-claude-worker.ps1` + schtask live `MCP-Worktree-Cleanup` (weekly Sunday 03:00, SYSTEM) + `testing/unit/worktree-husk-prevention.Tests.ps1` (CI `unit-pester`) |
+| **F2 — PR-workflow cleanup** | `worktrees/cleanup-worktree.ps1` | `-IssueNumber N` (requis) | 🟢 `worktrees/create-worktree.ps1`, `worktrees/submit-pr.ps1` |
+| **F3 — Scheduled-task alternatif + skills** | `claude/worktree-cleanup.ps1` (+ `claude/install-worktree-cleanup-scheduled-task.ps1`) | `-Force` / `-WhatIf` / `-StaleDays 30` | 🟢 skills `debrief`/`git-sync`, `.roo/scheduler-workflow-executor.md` + schtask `Roo-Worktree-Cleanup` (daily 02:00, SYSTEM) |
+| (archivé) | `_archive/duplicates/cleanup-worktrees.ps1` | — | ⚪ Référence seulement (`worktrees/check-worktrees.ps1`, docs) |
+
+**Pourquoi 3 et pas 1 :** scopes incompatibles (F1 vs F3 : trigger/cadence/flags différents ;
+F2 : entrée par IssueNumber). Fusionner F1 avec F3 toucherait le contrat de 3 appelants critiques
+(worker + schtask + test unitaire) — risque de régression inacceptable. PR antérieure #2617 (MERGED
+2026-06-18) avait déjà consolidé une paire **docs** (`reference/worktree-cleanup*.md`) — périmètre
+différent.
+
+**Vérifications croisées par fichier :** chaque script porte désormais un en-tête `.FAMILY` (ou
+`# FAMILY:`) renvoyant aux 4 autres scripts actifs.
 
 ### Encodage & Format
 

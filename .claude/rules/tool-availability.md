@@ -1,6 +1,6 @@
 # Inventaire des Outils et Protocole STOP & REPAIR
 
-**Version:** 3.2.0 (3e emplacement `disabledMcpServers`, #3137)
+**Version:** 3.3.0 (note « code supprimé » quickfiles/github-projects-mcp, #3423)
 
 ---
 
@@ -64,6 +64,8 @@ Certains MCP apparaissent dans les sessions sans être dans `~/.claude.json` ni 
 ## Retires (NE DOIVENT PAS exister dans les configs locales)
 
 desktop-commander, github-projects-mcp, quickfiles
+
+> **quickfiles + github-projects-mcp : code supprimé (2026-09)** — Epic #2639 tâche C (#3423, PR submod #1093) : les serveurs sont retirés de `servers/` du submod (quickfiles remplacé par les capacités natives Claude Code, github-projects-mcp par `gh` CLI). Les **noms** restent dans la garde `RETIRED_MCP_NAMES` du RSM — les tests qui les référencent testent le validateur, pas les serveurs. `desktop-commander` : retiré des configs, non concerné par la suppression de code.
 
 ## STOP & REPAIR
 

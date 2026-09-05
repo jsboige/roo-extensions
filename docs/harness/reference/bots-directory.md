@@ -2,9 +2,9 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/bots-directory.md`. Déplacé hors des rules auto-chargées car annuaire factuel (pas une règle de comportement).
 
-**Version:** 1.3.0
-**Issue :** #2243, #3219
-**MAJ:** 2026-08-29 (récupération NanoClaw + identité `clusterManager-Myia` ; cadence `:15/:45` rétablie par les logs conteneur — #3219)
+**Version:** 1.4.0
+**Issue :** #2243, #3219, #3413
+**MAJ:** 2026-09-04 (#3413 : accès RooSync Hermes corrigé — bridge mcp-remote, l'ancienne lecture « pas de RSM » est périmée ; adresse inbox NanoClaw corrigée — `myia-ai-01:roo-extensions` effectif, `:nanoclaw` n'aboutit pas)
 
 ---
 
@@ -19,7 +19,8 @@
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "hermes"], content: "...")`
   - Inbox direct : `roosync_messages(action: "send", to: "myia-po-2026:hermes-agent", ...)`
-- **Accès RooSync (important pour #2242)** : Le runtime Hermes (`.mcp.json`) n'expose **que** `searxng`, `playwright`, `sk-agent` — **roo-state-manager n'est PAS configuré**, donc le cron agent ne peut PAS appeler `roosync_messages`/`roosync_dashboard` directement. L'intégration RooSync actuelle se fait via **bridge scripts** PowerShell (`roosync-cluster/scripts/*.ps1` : `cluster-monitor.ps1`, `router.py`, `hermes-mcp-watchdog.ps1`).
+- **Accès RooSync (important pour #2242)** : le runtime Hermes charge roo-state-manager **par le réseau** via le bridge **`mcp-remote`** (stdio→HTTP) vers la chaîne proxy `myia-mcp-proxy` — `http://192.168.0.47:9090/roo-state-manager/mcp` (LAN ai-01, jeton A ; visible dans les logs npm quotidiens `~/.hermes/.npm/_logs/*-debug-0.log`, finding firsthand #2242 24/07, re-sondé #3413 04/09 : 401 <5 ms sans jeton = chaîne debout). L'ancienne lecture « le `.mcp.json` d'Hermes n'expose que searxng/playwright/sk-agent, donc pas de RSM » **est périmée** — elle décrit le fichier de déclaration local, pas le bus effectif. Résilience : `scripts/hermes-watchdog/hermes-mcp-watchdog.ps1` (po-2026, restart auto sur `ClosedResourceError`, #2014).
+  ⚠ **Identité de chaîne résolue serveur-side** : les appels passant par la chaîne apparaissent comme `myia-ai-01:roo-extensions` (classe #3230) — un message adressé à un autre workspace de po-2026 peut être visible en liste mais illisible en `action:message`.
 - **Cas d'usage** :
   - Escalade review PR si CODEOWNERS bloque
   - Ping fleet status
@@ -50,7 +51,7 @@
 - **Identité GitHub** : `clusterManager-Myia` (permission **write**, vérifié `gh api .../collaborators/clusterManager-Myia/permission` 2026-08-29 ; login confirmé sur 5 reviews #3165→#3301). **Comptage branch protection** : ce login n'est jamais l'auteur d'une PR flotte, et la protection `main` exige 1 approbation sans `require_code_owner_reviews` → un `APPROVED` NanoClaw **compterait** tel quel (pas besoin de la règle per-author d'Hermes, qui n'existe que parce qu'Hermes poste sous `jsboige`). En pratique, toutes les reviews NanoClaw observées sont `COMMENTED`, y compris à verdict positif (#3301 « merge prêt ») — le signal existe, il est muet sur sa propre force (#3219 §3).
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "nanoclaw"], content: "...")`
-  - Inbox direct : `roosync_messages(action: "send", to: "myia-ai-01:nanoclaw", ...)`
+  - Inbox direct : `roosync_messages(action: "send", to: "myia-ai-01:roo-extensions", ...)` — **inbox effectif confirmé firsthand par le bot lui-même (#3413, 04/09)** : l'identité de chaîne du container est résolue `myia-ai-01:roo-extensions`, l'adresse `myia-ai-01:nanoclaw` **n'aboutit pas** (classe #3230). Pickup au cycle `:15/:45`.
 - **Cas d'usage** :
   - Review PR du coord ai-01 (workaround CODEOWNERS self-merge protocol)
   - Co-hébergé OpenWebUI + sk-agent HTTP

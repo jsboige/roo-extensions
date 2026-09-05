@@ -1,4 +1,18 @@
 ﻿# Worktree Cleanup Protocol
+# FAMILY: F3 (script principal) — scheduled-task alternatif. Exécuté par la schtask
+# Roo-Worktree-Cleanup (daily 02:00) installée par install-worktree-cleanup-scheduled-task.ps1,
+# et consommé par les skills debrief/git-sync + .roo/scheduler-workflow-executor.md.
+#
+# Voir aussi (alignement Tâche A #3422, CONSOLIDATION-SCRIPTS-SUPERSEDED.md §2) :
+#   - F1 (script principal) : scripts/maintenance/cleanup-orphan-worktrees.ps1
+#     (+ installeur scripts/maintenance/install-worktree-cleanup-schtask.ps1) — schtask
+#     MCP-Worktree-Cleanup, weekly Sunday 03:00. CONTRAT INTÉGRAL intouchable : appelé par
+#     scheduling/start-claude-worker.ps1 + la schtask live + worktree-husk-prevention.Tests.ps1 (CI).
+#   - F2                     : scripts/worktrees/cleanup-worktree.ps1 (PR-workflow :
+#     create-worktree/submit-pr, pas de schtask).
+#   - F3 (ce script)         : ce fichier + scripts/claude/install-worktree-cleanup-scheduled-task.ps1.
+#
+# Alignement Tâche A #3422 : en-têtes « voir aussi » seulement, aucun comportement modifié.
 # Description: Automated cleanup of orphan worktrees, stale local branches, and dead remote branches
 # Author: Claude Code (myia-po-2025)
 # Issue: #856, #1076, #2772 (submodule deletion guard)

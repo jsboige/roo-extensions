@@ -344,6 +344,92 @@ function Test-TbxarkPort {
     }
 }
 
+# ---------- latency baseline watch (#3404) ----------
+# The 24/08 regression (median 277 ms -> ~4 340 ms, 13x, stable 10 days) was
+# invisible because the ONLY slowness signal was the absolute 20 s budget --
+# 33x the then-nominal. A step of 13x fits entirely in that blind spot. The
+# guard below watches the property that actually moved: TODAY's median vs the
+# trailing baseline of the previous 7 full days, computed from this watchdog's
+# OWN logs -- no hardcoded nominal anywhere (the "~600ms" engraved at commit
+# 33acef1e was true when written and false by 7x eleven days later).
+#
+# Threshold 3x on DAILY MEDIANS: the healthy spread observed 20-23/08 was
+# 252-495 ms (max/min ~2x), so 3x on medians (n ~ 700/day) cannot fire on
+# ordinary variance -- while the step to catch was 7-15x. Reconstructed
+# against the real logs: this guard fires at midday on 24/08, ten days
+# before a human noticed.
+#
+# REPORT-ONLY by design: whether a new latency regime is acceptable is a
+# human call, and re-anchoring the baseline programmatically is exactly the
+# "engrave the regression as the new nominal" move #3404 forbids.
+$LatencyShiftRatioThreshold  = 3
+$LatencyShiftMinSamples      = 50   # per-day gate: a handful of probes is noise
+$LatencyShiftMinBaselineDays = 3    # of the last 7 full days
+$LatencyShiftRealertHours    = 12   # one fleet note per half-day while it persists
+
+function Get-ProbeMedianForDate {
+    param([string]$Dir, [string]$DayStamp)
+    # Both healthy line shapes count (issue #3404 reproduction):
+    #   "E2E chain healthy (REAL tool call, latency=Nms)"
+    #   "E2E chain healthy but SLOW (REAL tool call, latency=Nms) ..."
+    $f = Join-Path $Dir "watchdog-$DayStamp.log"
+    if (-not (Test-Path $f)) { return $null }
+    $lat = @()
+    foreach ($line in (Get-Content -Path $f -ErrorAction SilentlyContinue)) {
+        # Named group on purpose: an optional capture before it ("but SLOW ")
+        # shifts positional indices between the two line shapes.
+        if ($line -match 'E2E chain healthy (but SLOW )?\(REAL tool call, latency=(?<lat>\d+)ms') {
+            $lat += [int]$Matches['lat']
+        }
+    }
+    if ($lat.Count -lt $LatencyShiftMinSamples) { return $null }
+    $sorted = @($lat | Sort-Object)
+    return [int]$sorted[[int][math]::Floor(($sorted.Count - 1) / 2)]
+}
+
+function Test-LatencyShift {
+    <#
+    .SYNOPSIS
+        Returns a chain-latency-regression alert string when today's median
+        probe latency is >= 3x the trailing 7-day baseline median, else $null.
+    .DESCRIPTION
+        Baseline = per-day medians of the previous 7 FULL days (>= 3 of them
+        with >= 50 probes each, else no verdict -- silence over guessing).
+        Today counts only once it has >= 50 probes (midday on a 2-min tick).
+        Re-alerts at most every $LatencyShiftRealertHours while the shift
+        persists (state file), so a sustained regression stays visible on the
+        machine dashboard without flooding it.
+    #>
+    $stateFile = Join-Path $LogDir 'latency-shift-state.json'
+    $lastAlertAt = [datetime]::MinValue
+    if (Test-Path $stateFile) {
+        try { $lastAlertAt = [datetime](Get-Content $stateFile -Raw | ConvertFrom-Json).lastAlertAt } catch { }
+    }
+    if (((Get-Date) - $lastAlertAt).TotalHours -lt $LatencyShiftRealertHours) { return $null }
+
+    $todayMedian = Get-ProbeMedianForDate -Dir $LogDir -DayStamp (Get-Date).ToString('yyyyMMdd')
+    if ($null -eq $todayMedian) { return $null }
+
+    $baselineVals = @()
+    for ($i = 1; $i -le 7; $i++) {
+        $m = Get-ProbeMedianForDate -Dir $LogDir -DayStamp ((Get-Date).Date.AddDays(-$i).ToString('yyyyMMdd'))
+        if ($null -ne $m) { $baselineVals += $m }
+    }
+    if ($baselineVals.Count -lt $LatencyShiftMinBaselineDays) { return $null }
+    $sorted = @($baselineVals | Sort-Object)
+    $baselineMedian = [int]$sorted[[int][math]::Floor(($sorted.Count - 1) / 2)]
+    if ($baselineMedian -le 0) { return $null }
+
+    if ($todayMedian -ge [int]($baselineMedian * $LatencyShiftRatioThreshold)) {
+        @{ lastAlertAt = (Get-Date).ToString('o') } | ConvertTo-Json | Set-Content -Path $stateFile -Encoding utf8
+        # Constant text on purpose (#3404 residual, cf #3276): embedding the
+        # live latency changes the digest every tick and defeats the 15-min
+        # messageId bucket. Numbers live in the local watchdog log.
+        return "chain-latency-regression: today's median >= ${LatencyShiftRatioThreshold}x trailing 7-day baseline (details in local watchdog log)"
+    }
+    return $null
+}
+
 # ---------- repair actions are inlined in the main flow below ----------
 
 # ---------- main ----------
@@ -371,15 +457,31 @@ $result = Test-E2E
 if (-not $result.Ok -and $result.TimedOut) {
     Write-Log 'WARN' "E2E probe spent its full 20s budget (latency=$($result.LatencyMs)ms) — that is slowness, not proof of death. Retrying once with ${SlowRetryTimeoutSec}s before concluding."
     $result = Invoke-McpProbe -Url $e2eUrl -TimeoutSec $SlowRetryTimeoutSec
-    if ($result.Ok) { $script:alerts += "chain-slow: $($result.LatencyMs)ms (nominal ~600ms)" }
+    # Constant text on purpose (#3404): the previous form embedded the live
+    # latency AND a nominal (~600ms) that had been false by 7x since 24/08.
+    # A variable number changes the dedup digest every tick, defeating the
+    # 15-min messageId bucket (~16 notes/day for one incident, #3276 résiduel).
+    # The precise latency lives in the WARN log line above.
+    if ($result.Ok) { $script:alerts += 'chain-slow: probe succeeded past its 20s budget (see local watchdog log)' }
 }
 
 if ($result.Ok) {
     if ($result.LatencyMs -ge 20000) {
-        Write-Log 'OK' "E2E chain healthy but SLOW (REAL tool call, latency=$($result.LatencyMs)ms vs ~600ms nominal) — reported, NOT repaired."
+        # No hardcoded nominal here anymore (#3404): "~600ms" was true when
+        # written (commit 33acef1e) and false by 7x eleven days later -- a
+        # nominal engraved in text is a regression made invisible. Regime
+        # shifts vs baseline are watched by Test-LatencyShift below; this
+        # line only reports that the probe outran its own budget.
+        Write-Log 'OK' "E2E chain healthy but SLOW (REAL tool call, latency=$($result.LatencyMs)ms vs 20s probe budget) — reported, NOT repaired."
     } else {
         Write-Log 'OK'   "E2E chain healthy (REAL tool call, latency=$($result.LatencyMs)ms)"
     }
+
+    # #3404: the 24/08 regression (median 277 ms -> ~4 340 ms, 13x, 10 days
+    # stable) held entirely under the 20 s budget above. This is the signal
+    # that would have caught it at midday on 24/08. Report-only.
+    $latencyShift = Test-LatencyShift
+    if ($latencyShift) { $script:alerts += $latencyShift }
 } else {
     $bodyExcerpt = ($result.Body -replace '\s+', ' ').Substring(0, [Math]::Min(180, $result.Body.Length))
     Write-Log 'FAIL' "E2E chain DOWN (HTTP $($result.Status), latency=$($result.LatencyMs)ms) — $bodyExcerpt"

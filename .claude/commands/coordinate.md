@@ -121,6 +121,29 @@ mienne** = dette de reparation. ⚠️ Le depot submodule est **`jsboige/jsboige
 autre agent ? `gh issue view <N> --json comments --jq '.comments[-1]|"\(.author.login) \(.createdAt[0:10])"'`
 Si oui, elle n'est pas « en cours » : elle est **en attente de moi**.
 
+**4. Ce que J'AI envoye et que personne n'a pris.** Les trois points ci-dessus regardent ce que les
+autres m'ont adresse. Aucun ne regarde mes propres dispatchs — or un `[TASK]` poste sans claim ne
+produit **aucun signal** : « personne n'a repondu » et « personne n'a rien demande » laissent la meme
+trace, rien.
+
+```
+roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 30)
+```
+
+Relire **mes** `[TASK]` des 72 h : chacun a-t-il un `[CLAIMED]`, un `[DONE]`, une PR ou un
+commentaire d'issue en face ? Sinon la dette est **mienne**, pas celle de la lane.
+
+Deux variantes de la meme cecite, mesurees le 2026-09-04 :
+
+- **Une levee de gel n'est pas un dispatch.** #2368 a cale deux fois : 49 h parce que le gel n'etait
+  pas leve, puis 72 h parce qu'il l'etait. Une levee est une *permission* ; le travail exige une
+  *obligation adressee a quelqu'un*. Revoir **mes propres gels** chaque cycle : un mandat d'ARRET
+  sans mandat de REPRISE est un abandon.
+- **Le miroir : reclasser mon travail en gate utilisateur.** Trois items rapportes le meme jour comme
+  « attente utilisateur » etaient les miens (diagnostic Gandi, relance po-2027, dispatch des
+  attestations #3405). Avant d'inscrire quoi que ce soit au compte de l'utilisateur, verifier que je
+  ne peux pas le faire moi-meme. Sur-demander et ne-pas-demander produisent le meme resultat.
+
 **Une dette a une echeance EXTERNE** : « pousse ces deux gestes et j'approuve dans la foulee » tombe
 quand l'autre pousse, pas quand je m'en souviens — et personne ne me reveille. Comme chez CoursIA,
 l'echappatoire se justifie **par ecrit** sur la PR ou l'issue ; elle ne se prend pas en silence.

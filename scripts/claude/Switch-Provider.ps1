@@ -112,11 +112,16 @@ try {
     # Create clean settings object with only essential properties
     $cleanSettings = [PSCustomObject]@{}
 
-    # Preserve non-provider-specific settings from existing settings
-    $preservedProperties = @('permissions', 'mcpServers', 'hooks', 'allowed-tools', 'denied-tools')
-    foreach ($prop in $preservedProperties) {
-        if ($userSettings.PSObject.Properties.Name -contains $prop) {
-            $cleanSettings | Add-Member -MemberType NoteProperty -Name $prop -Value $userSettings.$prop
+    # Preserve every existing top-level setting the switcher does not own (#3361
+    # follow-up). The old fixed allow-list (permissions, mcpServers, hooks,
+    # allowed-tools, denied-tools) silently DROPPED machine settings such as
+    # statusLine, effortLevel or cleanupPeriodDays when re-applying a provider -
+    # measured firsthand on myia-po-2026 (2026-09-04). Provider switching owns
+    # exactly two top-level keys: env and model. Everything else is machine state.
+    $switcherOwnedProperties = @('env', 'model')
+    foreach ($prop in $userSettings.PSObject.Properties) {
+        if ($prop.Name -notin $switcherOwnedProperties) {
+            $cleanSettings | Add-Member -MemberType NoteProperty -Name $prop.Name -Value $prop.Value
         }
     }
 
@@ -124,7 +129,17 @@ try {
     # Protected keys that should NEVER be overwritten from template placeholders
     # Note: ANTHROPIC_AUTH_TOKEN is NOT protected - it's a z.ai override token
     # that must be removed when switching to Anthropic (handled by removeEnv)
-    $protectedKeys = @('ANTHROPIC_API_KEY')
+    # Machine-scoped settings are protected too (#3361 follow-up): the compaction
+    # window/percentage are machine decisions (context-window.md v6 - "settings.json
+    # de la machine fait foi"). The provider templates carry bootstrap values
+    # (200000/90), but re-applying a provider on an already-tuned machine (e.g.
+    # po-2026: 280000/95) must NOT stomp them - same only-if-absent semantics as
+    # sync-claude-settings.ps1 (#3363).
+    $protectedKeys = @(
+        'ANTHROPIC_API_KEY',
+        'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+        'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'
+    )
 
     # Start with existing env if present
     $mergedEnv = @{}

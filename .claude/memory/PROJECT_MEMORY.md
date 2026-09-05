@@ -126,6 +126,137 @@ When citing coverage stats (or any regenerated measurement artifact) as a pre-wo
 
 **Why:** Sprint C3 coverage work: a [CLAIMED] cited "11 cold branches / 89.7%" read from the parent repo's `coverage-final.json` (stale, pre-#751 merge — the post-work state of a *previous* cycle). The worktree's fresh run showed the real baseline: 18 cold branches / 67.95%. Complement of the harness rule above: there the instrument was wrong; here the instrument was right but pointed at a stale artifact of the wrong tree.
 
+### Reach the errors>0 log branch by throwing per-extractor, not per-iteration
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 5th of the series).*
+
+In `MessageExtractionCoordinator.extractFromMessages()` (roo-state-manager submodule), the `logExtractionSummary(result)` call sits **inside** the outer `try`, and the global `catch` appends to `result.errors` *after* the summary has been bypassed. So an exception thrown at **iteration level** (e.g. a throwing `Symbol.iterator`) jumps straight to the global catch — the summary call never runs, and the `Error details:` log (which only fires when `result.errors.length > 0` at summary time) is unreachable that way.
+
+To cover the `errors > 0` branch of the summary log, throw **inside a per-extractor `extract()`** instead:
+
+```ts
+const extractors = (coordinator as any).extractors as any[];
+extractors[0].extract = () => { throw new Error('synthetic'); };
+// pass a message shape that makes the extractor's canHandle return true
+coordinator.extractFromMessages(messages, { enableDebug: true });
+// → per-extractor try/catch populates result.errors WITHOUT escaping
+//   the outer try → summary runs with errors > 0 → "Error details" logs
+```
+
+- **Mechanism, not lines:** verified intact 2026-09-04 (`src/utils/message-extraction-coordinator.ts` — summary call in `try`, global catch bypasses it). Exact line numbers drift; grep `logExtractionSummary` to relocate.
+- **General form:** when a summary/report call lives inside the same `try` as the loop it reports on, only errors swallowed *below* the loop's handler reach it — design the throw at the same depth the production code recovers.
+
+**Why:** Sprint C3 (web1 c.30): a coverage test aimed a throw at the iteration level, saw the test pass, and assumed the `errors > 0` summary branch was covered — it was not; the global catch had bypassed the summary entirely. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
+
+### path.join expectations must be built with path.join, never hand-written slashes — CI is Linux, the fleet is Windows
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 12th of the series).*
+
+`path.join` is cross-platform but uses the **native separator** — `/` on POSIX, `\` on Windows. An expectation hand-written as `'/mock/storage2/tasks/task-xyz'` fails on Windows with `expected '\mock\storage2\tasks\task-xyz'`, because the code under test (`path.join(locationPath, 'tasks', taskId)` — e.g. `zoo-task-extractor.ts` builds exactly this shape) produced backslashes. The trap is fleet-shaped: **submodule CI runs on `ubuntu-22.04` while every executor machine is Windows** — a slash-literal expectation passes CI green and breaks locally (or gets "fixed" by skipping, hiding real coverage).
+
+- **Build the expectation with `path.join` itself**: `expect(result).toBe(path.join('/mock', 'storage2', 'tasks', 'task-xyz'))` — cross-platform by construction.
+- **Or assert on what is separator-invariant**: `path.basename(result)`, or `result.endsWith('tasks/task-xyz')` — safe because the tail is a literal you control.
+- **Smell test**: any hand-written `/foo/bar` string inside an `expect(...).toBe(...)` over a `path.join`/`path.resolve` output is a Linux-only assumption.
+
+**Why:** Sprint C3 (web1 c.31): a hand-written slash expectation failed on Windows against a correct `path.join` output — the test was wrong about the platform, not the code. Fleet-relevant for any machine writing vitest on the submodule (Windows devs, Linux CI); zero machine-specific content.
+
+### A replaced extract() never runs unless the message satisfies canHandle
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
+
+The coordinator dispatches per message as `if (extractor.canHandle(message)) { extractor.extract(message); }` — so a test that replaces `extract()` with a throwing stub to reach a per-extractor error branch first needs a message the **real** `canHandle` accepts. `ApiContentExtractor` accepts exactly:
+
+```ts
+{ type: 'api_req_started', content: { tool: 'newTask', … } }
+```
+
+If the shape misses (wrong `type`, `content` not an object, `tool` not `'newTask'`), `extract()` is never called and the throw never lands: `result.errors` stays empty with **no exception anywhere** — the test fails in a non-obvious, silent way.
+
+- **Mechanism, not lines:** verified intact 2026-09-05 (`src/utils/extractors/api-message-extractor.ts` — `canHandle` predicate on `type`/`content`/`tool`; dispatch in `message-extraction-coordinator.ts`). Exact line numbers drift; grep `canHandle(message)` to relocate — each extractor carries its own predicate (say/user/assistant, tool_result, tool_call variants).
+- **Prerequisite of the per-extractor throw lesson above:** that pattern's comment "pass a message shape that makes the extractor's canHandle return true" is this lesson — the shape is not decoration, it is the trigger.
+
+**Why:** Sprint C3 (web1 c.30): a message-shape change in a fixture silently untriggered a throw test — errors stayed empty with nothing thrown, which reads as "the guard works" when nothing ran at all. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
+### process.env is a shared singleton — delete the var in beforeEach AND afterEach, not set-and-restore
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 11th of the series).*
+
+`process.env` is process-global and vitest does NOT reset it between tests in the same file. A test that sets `process.env.X = '1'` and restores with `try { origX = process.env.X; … } finally { process.env.X = origX }` only works if `origX` captured a CLEAN value. When a prior test in the same file set `X` and left it (or restored to an already-`'1'` value), every later test that reads `process.env.X === '1'` sees the polluted leftover — the failure surfaces as a subtle boolean diff one test later, with no test appearing to set the variable (`enableDebug: true` instead of `false`).
+
+- **`beforeEach` must `delete process.env.X`** for every env var the code under test reads — not set it back to `undefined`, delete it.
+- **`afterEach` must also `delete process.env.X`** — so the cleanup happens even if the test crashes before reaching its `finally`.
+- **Check whether the code reads `process.env.X === '1'`**: `ROO_DEBUG_INSTRUCTIONS` is read 4× in `api-message-extractor.ts`, and 78 tool files read `process.env`. When it does, the `delete`-in-hooks pattern is the env-var analogue of `vi.clearAllMocks()` — independent of the test body.
+
+**Why:** Sprint C3 (web1 c.31): a polluted `process.env` reading the debug flag made test N+1 fail on a subtle boolean diff with no test visibly setting the variable, because the restore captured an already-polluted value. Fleet-relevant for any machine writing vitest on the submodule; zero machine-specific content.
+
+### readdir with withFileTypes returns Dirent objects, not strings — the mock must match the shape
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 10th of the series).*
+
+`fs.readdir(path, { withFileTypes: true })` returns `Dirent[]` — objects with `name`, `isDirectory()`, `isFile()` — not `string[]`. A test that mocks `mockReaddir.mockResolvedValue(['taskA'])` compiles and resolves, but the production loop calls `entry.isDirectory()` on a string: `undefined` → `!undefined` = `true` → **every entry is skipped and the loop body never runs**. The change of shape is silent: nothing throws, the test reads green intuition against a body that executed zero times.
+
+For any test mocking `fs.readdir` over code that iterates directories (the submodule has 5+ such sites — `background-services.ts`, `zoo-task-extractor.ts`, `AttachmentManager.ts`, `skeleton-cache.service.ts`):
+
+- **Grep `withFileTypes` in the code under test before writing `mockResolvedValue`.** If present, the mock must return Dirent-like objects, not strings.
+- **Helper:** `const dirent = (name: string, isDir = true) => ({ name, isDirectory: () => isDir, isFile: () => !isDir });`
+- **Tell-tale symptom:** a test "covers" a directory scan but zero entries are processed — check the shape of the array the readdir mock returns.
+
+**Why:** Sprint C3 (web1 c.31): a string-array readdir mock silently emptied the iteration under test — coverage looked exercised while the loop body never ran once. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
+### A wrapper's derived boolean inverts intuition — test the expression as written, not the semantics you infer
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 9th of the series).*
+
+`getAllConversationsInWorkspace(wsPath, maxTasks)` (roo-state-manager submodule) bridges to the production API as `buildHierarchicalSkeletons(workspacePath, maxTasks < 1000)` — feeding the param named `useFullVolume`. Reading "maxTasks=50, small, so useFullVolume=false" is the trap: `50 < 1000` evaluates `true`, and the comparison is a **legacy short-circuit** (small maxTasks → legacy path), not a volume flag. The wrapper's parameter semantics invert when bridged to the new API, and the intermediate boolean has no name of its own.
+
+For tests over short wrappers that pass a boolean derived from a comparison:
+
+- **Test the bool as the code expresses it**: if the source says `maxTasks < 1000`, the assertion for `maxTasks=50` is `toHaveBeenCalledWith(ws, true)` — evaluate the expression, don't infer business meaning.
+- **If the naming keeps tripping you**, bind the expression to an honestly-named local in the test (`const useLegacy = maxTasks < 1000`) and assert on that.
+
+**Why:** Sprint C3 (web1 c.31, F21): the test expected the "logical" inverse and read green intuition against red reality — the assertion contradicted the single line it covered. Fleet-relevant for any machine writing vitest on the submodule; zero machine-specific content.
+
+### extractFromMessages() re-reads debug flags from options — env vars alone stay silent
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 6th of the series).*
+
+In `MessageExtractionCoordinator` (roo-state-manager submodule), the constructor sets `this.debugEnabled` from `process.env.ROO_DEBUG_INSTRUCTIONS === '1'`, and the head of `extractFromMessages()` has a diagnostic block that sets it again from the same env var — **but a few lines later the unconditional assignment `this.debugEnabled = options.enableDebug || false;` flattens both back**. Setting the env var in a test therefore produces a constructor-time `true` that is dead before any message is processed.
+
+To assert on debug log lines, pass the option:
+
+```ts
+coordinator.extractFromMessages(messages, { enableDebug: true });
+```
+
+Without `enableDebug: true`, every gated branch stays silent: the per-message trace, the extractor-matched log, the no-extractor-matched log, `logExtractionSummary` (including its `errors > 0` "Error details" block — see the lesson above), and `logError`. A test asserting on those lines passes vacuously: the guard `if (!this.debugEnabled) return;` short-circuits before them.
+
+- **Mechanism, not lines:** verified intact 2026-09-04 (`src/utils/message-extraction-coordinator.ts` — unconditional `options.enableDebug || false` assignment inside `extractFromMessages`). Exact line numbers drift; grep `enableDebug` to relocate.
+- **General form:** when a method re-derives a flag from its `options` argument mid-body, constructor state and env vars are not state — pass the option, don't rely on ambient setup.
+
+**Why:** Sprint C3 (web1 c.30): coverage tests stubbed `ROO_DEBUG_INSTRUCTIONS='1'`, saw green, and believed the debug branches were covered — the mid-body reset had zeroed the flag and the asserted branches never ran. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
+
+### A constructor-ordering branch can be unreachable by design — skip with evidence, don't reorder
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 7th of the series).*
+
+In `MessageExtractionCoordinator` (roo-state-manager submodule), the constructor calls `this.initializeExtractors()` **before** assigning `this.debugEnabled` from the env var — so the `if (this.debugEnabled)` log inside `initializeExtractors()` is always evaluated against the class-field default `false`. The truthy arm is **unreachable by design**: no test input can reach it, because the flag is set only after the guarded code has already run.
+
+For coverage work, the correct response is **skip-with-evidence, not source mutation**:
+
+```ts
+// unreachable-by-design: initializeExtractors() runs in the constructor BEFORE
+// this.debugEnabled is assigned from the env var — this log always sees false.
+it.todo('extractor-init debug log — unreachable by constructor ordering');
+```
+
+- **Mechanism, not lines:** verified intact 2026-09-05 (`src/utils/message-extraction-coordinator.ts` — constructor: `initializeExtractors()` then `debugEnabled = env`; the guarded log lives inside `initializeExtractors`). Exact line numbers drift; grep `initializeExtractors` to relocate.
+- **Companion of the options-reset lesson above:** that one kills debug flags set *before* the call (env vars flattened by `options.enableDebug || false`); this one kills them set *after* the call — together, only `{ enableDebug: true }` at call sites exercises debug branches.
+- **Do not "fix" by reordering the source:** a coverage gap caused by construction order is a design fact, not a bug — reordering production code so a test can reach a log line is churn (surgical-changes rule).
+
+**Why:** Sprint C3 (web1 c.30): the truthy arm was unreachable from any test seam without editing the source; the temptation to reorder production code for a coverage line was rejected and the gap documented instead. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
+## Known Bugs / Gotchas
+
 ## Known Bugs / Gotchas
 
 ### Critical (recurring)

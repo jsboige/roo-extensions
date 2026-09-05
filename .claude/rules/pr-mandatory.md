@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.4.0 (slim)
-**MAJ:** 2026-05-22
+**Version:** 3.5.0 (slim)
+**MAJ:** 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407)
 
 ---
 
@@ -11,7 +11,12 @@
 
 ## Workflow PR — Claude Code
 
-1. **Anti-double-claim :** `gh pr list --state open --search "<issue>"`
+1. **Anti-double-claim (les 2 depots — une PR submod vit dans `jsboige/jsboige-mcp-servers`, #3407) :**
+   ```bash
+   for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
+     gh pr list --repo "$R" --state open --search "<issue>" --json number,author,title
+   done
+   ```
 2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
 3. **Travailler :** Commits atomiques, tests passent
 4. **Creer PR :** `gh pr create`
@@ -95,6 +100,30 @@ gh auth switch --user <bot> && [ "$(gh api user --jq .login)" = "<bot>" ] \
 
 Un `gh auth status` lu en debut de session ne dit rien de l'identite de la commande suivante.
 **Detail et pistes ecartees :** [`docs/harness/reference/gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md)
+
+## Economie d'identite review — l'APPROVE OWNER se depense (promotion T5→T3, #2368)
+
+Avant de poster un APPROVE sous `jsboige` (compte partage) : verifier `gh pr view N --json reviews`
+d'abord. Si un reviewer qualifiant a deja APPROVE la PR sur la tete courante, faire sa passe
+independante en **COMMENT** — un 2e approval ne deplace rien, et l'identite OWNER sert aussi a
+merger (chaque usage = un conflit `gh` potentiel de plus, #3032). Reserver l'APPROVE a : (1) ma
+review est la 1ere qualifiante, ou (2) la branch protection exige une 2e review.
+
+## Bodies gh : `--body-file`, jamais `--body` inline (promotion T5→T3, #2368)
+
+Dans `--body "..."` a guillemets doubles, les backticks markdown sont de la **substitution de
+commande** pour bash : chaque span `` `code` `` du corps s'execute avant que gh ne voie la chaine.
+Un span qui echoue (glob sans correspondance, commande inexistante) laisse le post partir quand
+meme — stderr affiche l'erreur, **exit code reste 0** — avec un corps ecorche ; le retry « propre »
+cree alors un **doublon** (incident fondateur : review CHANGES_REQUESTED au body tronque, PR #2864).
+
+- **Toujours** ecrire le body dans un fichier scratchpad puis `--body-file <path>` — pour
+  `gh pr review`, `gh pr comment` ET `gh issue create|comment`
+- `gh issue close` n'expose **pas** `--comment-file` : poster le commentaire d'abord
+  (`gh issue comment --body-file <path>`), **puis** `gh issue close --reason completed` — jamais
+  basculer le commentaire en `--body` inline pour contourner l'absence du flag
+- Si le stderr d'un post montre une erreur shell : verifier le resultat via l'API
+  (`gh api .../reviews`, `.../comments`) **avant** de retenter — le retry naif duplique
 
 ## Pas de PR necessaire pour
 

@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.8.0"
+  version: "3.8.3"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.8.1
+**Version:** 3.8.3
 **Cree:** 2026-03-28
-**MAJ:** 2026-08-18 (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
+**MAJ:** 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -49,11 +49,11 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 3. Verifier submodule mcps/internal a jour
    - **Deploy-lag nudge (#2591 follow-up)** : si le dernier commit merged sur main est un `chore(submod): bump roo-state-manager` ET qu'il touche `src/**/*.ts` (vérifier `git log --name-only -1`), le fix est merged en source mais **PAS live** jusqu'à rebuild+restart MCP host. Poster `[INFO] restart VS Code requis pour activer le fix submod #NNN` sur le dashboard (1 append, fusionnable avec le [DONE] du cycle). L'étape 4 (`ensure-build-fresh`) rebuild le main-tree `build/` côté session interactive ; le worker planifié a déjà son `Sync-McpSubmoduleBuild`. Le nudge documente le restart `[INTERACTIVE-ONLY]` restant (build fresh sur disque ≠ MCP host process servi).
 4. **MCP build-freshness** (#2822 STALE-TRAP) : `git submodule update` rafraîchit la source TS mais NE déclenche PAS `npm run build` → `build/*.js` drift stale → un restart VS Code peut servir du code pre-fix silencieusement (4/5 machines touchées sprint 07-11). Lancer le helper idempotent :
-   - `pwsh -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1`
+   - `powershell -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1` (5.1 partout — pwsh absent sur certaines machines, cf shell-fallback.md #2368)
    - Compare mtime `src/**/*.ts` vs `build/**/*.js` (exclut `__tests__`/`*.test.ts`/`*.spec.ts`, comme `tsconfig.exclude`), rebuild si stale. Non-fatal (échec build → WARN, ne bloque pas la session). No-op si déjà fresh.
    - Le restart VS Code reste `[INTERACTIVE-ONLY]` : build fresh sur disque ≠ MCP host process qui sert le nouveau build en mémoire (distinct failure mode, web1 c.82).
 5. **Win-cli timeout guard** (anti-régression #2333) :
-   - `pwsh.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
+   - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`
    - Poster `[WARN]` sur dashboard si corrections appliquées
@@ -93,7 +93,7 @@ Executer en parallele quand possible :
    - **PIEGE `--limit` (bug #2509)** : `gh issue list --limit 15` retourne les **15 issues les PLUS RECENTES**, PAS un echantillon representatif. Si les 15 dernieres sont toutes `needs-approval`/meta, l'agent conclut faussement « pool draine, 0 tache » alors que des dizaines d'issues actionnables existent plus bas dans la liste. **TOUJOURS `--limit 100`** (le backlog reel tourne autour de 80-90 issues ouvertes).
    - **Filtrage actionnable (cote agent, apres recuperation)** : ne retenir que les issues portant un label actionnable — `approved`, `bug`, `investigation` — et **exclure** `needs-approval`, `deferred`, `blocked-on-gate`, `epic`. Compter ce sous-ensemble filtre, pas la liste brute.
    - **Conclusion « pool draine » INTERDITE** sans avoir verifie le backlog filtre complet (priorites Phase 2 ci-dessous). Un cycle IDLE ne se justifie que si le sous-ensemble actionnable est reellement vide.
-4. **PRs ouvertes (ANTI-DOUBLE-CLAIM)** : `gh pr list --state open --limit 50 --json number,title,headRefName --repo jsboige/roo-extensions`
+4. **PRs ouvertes (ANTI-DOUBLE-CLAIM)** : les DEUX depots (#3407) — `gh pr list --state open --limit 50 --json number,title,headRefName --repo jsboige/roo-extensions` puis idem `--repo jsboige/jsboige-mcp-servers`
 5. **Git state** : `git log --oneline -5`
 
 **Resume concis (10 lignes max) :**
@@ -124,10 +124,14 @@ Taches assignees: {liste courte}
 Avant de travailler sur une issue, verifier qu'aucune PR ouverte ne la couvre deja :
 
 ```bash
-gh pr list --state open --search "<issue-number>" --repo jsboige/roo-extensions
+# Les DEUX depots — une PR submodule vit dans jsboige/jsboige-mcp-servers,
+# invisible au check single-repo (trou #3407 : #1091 ouverte 26 h, non vue)
+for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
+  gh pr list --repo "$R" --state open --search "<issue-number>" --json number,author,title
+done
 ```
 
-Si une PR existe deja → **SKIP l'issue** + rapporter `[INFO] Issue #X deja couverte par PR #Y, skip`.
+Si une PR existe deja (dans l'un des deux) → **SKIP l'issue** + rapporter `[INFO] Issue #X deja couverte par PR #Y, skip`.
 
 Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-keyword}` existe avec une PR ouverte, ne pas dupliquer.
 

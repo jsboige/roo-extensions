@@ -36,6 +36,8 @@ Avant de **commenter**, **reviewer**, **merger**, **dispatcher**, ou **commencer
 
 Le titre seul n'est pas la PR. Le `mergeStateStatus` seul n'est pas une review. **Ne pas merger** si `reviews[].state == "CHANGES_REQUESTED"` non adressee ou commentaires inline non resolus.
 
+L'instrument de lecture peut mentir : `| jq '.comments[]'` (binaire externe, pretty-print) et `--jq '.comments[].body'` rendent 15 a 40 lignes **par** commentaire — `tail -N` y coupe en plein corps et masque des commentaires entiers. `gh --jq '.comments[]'` est compact (1 ligne = 1 commentaire) et sur. Enumerer les en-tetes avant de poster.
+
 Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « je connais le sujet » · « l'issue est ouverte depuis 2 jours, je fix ». Matrice action->lecture + incident fondateur (2026-05-17, reviews en double et en conflit sur PRs etudiantes la veille d'une soutenance) : [detail](../../docs/harness/global-rules-detail.md#read-body-before-any-action).
 
 ## Tool Discipline
@@ -59,6 +61,7 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - **conversation_browser** : `list` OBLIGATOIRE en premier (sinon pas d'IDs) -> `view`/`tree`/`summarize`. `smart_truncation:true`, `summarize_type:"trace"` (pas `synthesis`).
 - **Recherche** : `roosync_search(action:"semantic"|"text")` ; `codebase_search(query, workspace)` — TOUJOURS passer `workspace`, requetes en anglais.
 - **RooSync inter-machines** : `roosync_messages(action:"inbox"|"send")`. Dashboard = principal, DM = decision/urgence.
+- **Stale MCP host** : une session vivante sert le build charge au demarrage du process hote — `-32603 "no export named X"` ou outils/comportements anciens alors que source ET `build/` sont frais = hote memoire stale. Restart de session = fix legitime (dernier recours) a DEMANDER a l'utilisateur, jamais suggere d'office — pas hallucination. [Detail](../../docs/harness/global-rules-detail.md#mcp--stale-host-memory)
 
 Inventaire complet : [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
 

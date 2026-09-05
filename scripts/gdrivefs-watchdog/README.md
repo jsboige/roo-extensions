@@ -43,23 +43,37 @@ A short-lived scheduled task runs `gdrivefs-watchdog.ps1` every 15 min and
 applies three checks in order:
 
 1. **C0 (silent-exit)** — Is `GoogleDriveFS.exe` running? If not, relaunch.
-2. **C1 (hung-process)** — Can the configured DriveFS mount serve a metadata
-   request within 5 seconds? A healthy idle mount succeeds; timeout/error means
-   `core_controller` is not serving filesystem I/O, so relaunch.
+2. **C1 (hung-process)** — Can the configured DriveFS mount serve a bounded
+   metadata request AND a bounded content enumeration (5 s per stage)? A healthy
+   idle mount succeeds; timeout/error means `core_controller` is not serving
+   filesystem I/O, so relaunch.
 3. **C2 (cooldown)** — If a relaunch is needed and we're in cooldown, skip and
    emit an alert. Otherwise relaunch in the **user context** (same command as
-   the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), wait 20s, re-check
-   both process existence and mount liveness, then log the result.
+   the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), then re-check
+   process existence and mount liveness, and log the result.
 
 ### C1 — Positive mount liveness probe
 
-`Test-GDriveFSMountLive` runs `Get-Item -LiteralPath <MountPath>` in a background
-PowerShell job and waits at most `MountProbeTimeoutSeconds` (default `5`). The
-bounded metadata operation provides a positive signal from DriveFS itself:
+`Test-GDriveFSMountLive` runs two bounded stages, each in a background PowerShell
+job with at most `MountProbeTimeoutSeconds` (default `5`):
 
-- Healthy and idle: mount stat completes → healthy.
-- Process alive but `core_controller` wedged: stat hangs until timeout → hung.
-- Mount absent or serving errors: stat fails → unhealthy.
+1. **Stat** — `Get-Item -LiteralPath <MountPath>` (metadata only, fast).
+2. **Enumeration** — `Get-ChildItem <MountPath> | Select-Object -First 1`
+   (bounded content read; exercising one entry is enough, and a mount that
+   completes with zero entries still passes — the call completed).
+
+The bounded operations provide a positive signal from DriveFS itself:
+
+- Healthy and idle: stat + enumeration complete → healthy (`mount-stat+enum-ok`).
+- Process alive but `core_controller` wedged: stat or enumeration hangs until
+  timeout → hung (`mount-probe-timeout-Ns` / `mount-enum-timeout-Ns`).
+- Mount absent or serving errors: stat fails → unhealthy (`mount-probe-error`).
+
+The enumeration stage exists because of the 2026-09-05 incident (po-204): a
+wedged DriveFS instance served stat normally while **every content read hung**
+(the whole fleet saw the machine go silent). A stat-only probe logged
+"healthy" through the entire outage. Stat answers "is the mount there?",
+enumeration answers "does it serve content?" — both are needed.
 
 C1 is enabled by default for `G:\`. Set `MountPath` for hosts that use a different
 DriveFS mount. `MountProbeTimeoutSeconds=0` disables C1 as an explicit recovery
@@ -91,6 +105,39 @@ Logic:
 - `dry-run` mode never mutates the state file (safe to test).
 - Re-arms automatically: when the next successful detection (alive + healthy)
   reports, the counter and cooldown are reset in the same poll.
+
+### Startup grace guard (A0.1/A0.2, #3466)
+
+GoogleDriveFS mount init takes **~11-20 min** on slow hosts (measured on ai-01,
+2026-09-05). The poll cadence (15 min) is shorter than that init, so the watchdog
+would otherwise **kill an instance its previous tick had just launched** — and
+declare its own relaunch failed on a 90 s constant that couldn't see the init
+complete (proof n1: `15:42 FAIL → 16:03 mount-stat-ok`, same pids; proof n2:
+the recovery came from a manual restart, not the watchdog).
+
+Two guards, both anchored on `StartupGraceSeconds` (default 1200 = 20 min,
+derived from the measured init):
+
+- **A0.1 — no kill during init.** A C1-hung instance whose youngest process is
+  still inside the grace window is a relaunch mid-init, not a genuine hang. The
+  watchdog leaves it alone: no kill, no relaunch, no failed-cycle count. Grace
+  reads the process `StartTime` (host-native / manually-started instances) **and**
+  the `last_relaunch_attempt` field already written by C2 (instances the watchdog
+  itself launched).
+- **A0.2 — verdict measured, not a 90 s constant.** After a relaunch, the
+  watchdog does **not** declare failure on a fixed 90 s window. It issues the
+  relaunch, does one bounded probe for fast-success feedback, and defers the
+  verdict to the grace window: a relaunch still inside grace is not a failure, and
+  the next poll that sees it still hung **after** grace elapses counts that cycle
+  as a genuine failure (and re-launches). The C2 cooldown still engages on repeated
+  post-grace failures, so a truly broken relaunch (e.g. dropped account token) is
+  still escalated.
+
+**A0.3 positive control** is a regression test: replay the in-init sequence from
+proof n2 (relaunch at 17:37:47 → observations at 17:39:25 and 17:48:30, 11 min
+old, still in init). The old code (no grace) kills the in-init instance **(2
+kills)**; the grace guard kills it **zero** times, while still killing a
+genuinely-hung instance past the init window.
 
 ### Why user context (NOT SYSTEM)
 
@@ -165,6 +212,7 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | `MountProbeTimeoutSeconds` (body) | `5` | C1 — bounded mount-stat timeout. `0` explicitly disables C1. |
 | `MaxConsecutiveFailures` (body) | `3` | C2 — after this many failed relaunches, enter cooldown. |
 | `CooldownHours` (body) | `24` | C2 — hours to suppress further relaunches after threshold reached. |
+| `StartupGraceSeconds` (body) | `1200` | Guard (#3466) — never kill an instance younger than this. Derived from the measured init time (~11-20 min). The post-relaunch verdict window is this factor, not a fixed 90 s. |
 | `LogRetentionDays` (body) | `14` | Auto-prune logs older than N days. |
 | `RepeatMinutes` (installer) | `15` | Poll cadence. |
 | `StartupDelayMinutes` (installer) | `2` | Delay after boot (let GDrive settle). |

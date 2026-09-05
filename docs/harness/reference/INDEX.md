@@ -83,6 +83,7 @@
 | **MCP proxy architecture** | Architecture du MCP proxy mcp-tools.myia.io (decision 2026-04-13, migration en cours) | `mcp-proxy-architecture.md` |
 | **MCP proxy host (#1354)** | Hebergement du MCP proxy sur ai-01 — deploiement, config, operations | `mcp-proxy-host.md` |
 | **Tool usage telemetry (#1863)** | Telemetrie usage des outils (Phase D) — `tool_usage_stats`, snapshots hebdo, `trend_report` | `tool-usage-telemetry.md` |
+| **Leçons archivées (#2368)** | 11 leçons longues (wire schema statique, cycle de vie cache, mocks vitest, runner-régime CI, process flotte) — ventilées T5→T4 depuis la mémoire po-2023 | `lessons-archive.md` |
 
 ## Snapshots & Audits dates
 
