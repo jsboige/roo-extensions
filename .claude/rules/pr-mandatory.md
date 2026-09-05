@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.5.0 (slim)
-**MAJ:** 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407)
+**Version:** 3.5.1 (slim)
+**MAJ:** 2026-09-05 (anti-double-claim 2 dépôts #3407 ; word-boundary T#80)
 
 ---
 
@@ -11,10 +11,11 @@
 
 ## Workflow PR — Claude Code
 
-1. **Anti-double-claim (les 2 depots — une PR submod vit dans `jsboige/jsboige-mcp-servers`, #3407) :**
+1. **Anti-double-claim (les 2 depots — une PR submod vit dans `jsboige/jsboige-mcp-servers`, #3407 ; frontiere de mot sur le numero — `--search` GitHub est flou) :**
    ```bash
    for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
-     gh pr list --repo "$R" --state open --search "<issue>" --json number,author,title
+     gh pr list --repo "$R" --state open --json number,author,title \
+       --jq '.[] | select(.title | test("#<issue>([^0-9]|$)"))'
    done
    ```
 2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
