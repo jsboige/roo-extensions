@@ -165,6 +165,19 @@ If the shape misses (wrong `type`, `content` not an object, `tool` not `'newTask
 
 **Why:** Sprint C3 (web1 c.30): a message-shape change in a fixture silently untriggered a throw test — errors stayed empty with nothing thrown, which reads as "the guard works" when nothing ran at all. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
 
+### A wrapper's derived boolean inverts intuition — test the expression as written, not the semantics you infer
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 9th of the series).*
+
+`getAllConversationsInWorkspace(wsPath, maxTasks)` (roo-state-manager submodule) bridges to the production API as `buildHierarchicalSkeletons(workspacePath, maxTasks < 1000)` — feeding the param named `useFullVolume`. Reading "maxTasks=50, small, so useFullVolume=false" is the trap: `50 < 1000` evaluates `true`, and the comparison is a **legacy short-circuit** (small maxTasks → legacy path), not a volume flag. The wrapper's parameter semantics invert when bridged to the new API, and the intermediate boolean has no name of its own.
+
+For tests over short wrappers that pass a boolean derived from a comparison:
+
+- **Test the bool as the code expresses it**: if the source says `maxTasks < 1000`, the assertion for `maxTasks=50` is `toHaveBeenCalledWith(ws, true)` — evaluate the expression, don't infer business meaning.
+- **If the naming keeps tripping you**, bind the expression to an honestly-named local in the test (`const useLegacy = maxTasks < 1000`) and assert on that.
+
+**Why:** Sprint C3 (web1 c.31, F21): the test expected the "logical" inverse and read green intuition against red reality — the assertion contradicted the single line it covered. Fleet-relevant for any machine writing vitest on the submodule; zero machine-specific content.
+
 ### extractFromMessages() re-reads debug flags from options — env vars alone stay silent
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 6th of the series).*
