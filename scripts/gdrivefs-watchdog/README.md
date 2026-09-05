@@ -43,9 +43,10 @@ A short-lived scheduled task runs `gdrivefs-watchdog.ps1` every 15 min and
 applies three checks in order:
 
 1. **C0 (silent-exit)** — Is `GoogleDriveFS.exe` running? If not, relaunch.
-2. **C1 (hung-process)** — Can the configured DriveFS mount serve a metadata
-   request within 5 seconds? A healthy idle mount succeeds; timeout/error means
-   `core_controller` is not serving filesystem I/O, so relaunch.
+2. **C1 (hung-process)** — Can the configured DriveFS mount serve a bounded
+   metadata request AND a bounded content enumeration (5 s per stage)? A healthy
+   idle mount succeeds; timeout/error means `core_controller` is not serving
+   filesystem I/O, so relaunch.
 3. **C2 (cooldown)** — If a relaunch is needed and we're in cooldown, skip and
    emit an alert. Otherwise relaunch in the **user context** (same command as
    the HKCU `Run` entry: `GoogleDriveFS.exe --startup_mode`), wait 20s, re-check
@@ -53,13 +54,26 @@ applies three checks in order:
 
 ### C1 — Positive mount liveness probe
 
-`Test-GDriveFSMountLive` runs `Get-Item -LiteralPath <MountPath>` in a background
-PowerShell job and waits at most `MountProbeTimeoutSeconds` (default `5`). The
-bounded metadata operation provides a positive signal from DriveFS itself:
+`Test-GDriveFSMountLive` runs two bounded stages, each in a background PowerShell
+job with at most `MountProbeTimeoutSeconds` (default `5`):
 
-- Healthy and idle: mount stat completes → healthy.
-- Process alive but `core_controller` wedged: stat hangs until timeout → hung.
-- Mount absent or serving errors: stat fails → unhealthy.
+1. **Stat** — `Get-Item -LiteralPath <MountPath>` (metadata only, fast).
+2. **Enumeration** — `Get-ChildItem <MountPath> | Select-Object -First 1`
+   (bounded content read; exercising one entry is enough, and a mount that
+   completes with zero entries still passes — the call completed).
+
+The bounded operations provide a positive signal from DriveFS itself:
+
+- Healthy and idle: stat + enumeration complete → healthy (`mount-stat+enum-ok`).
+- Process alive but `core_controller` wedged: stat or enumeration hangs until
+  timeout → hung (`mount-probe-timeout-Ns` / `mount-enum-timeout-Ns`).
+- Mount absent or serving errors: stat fails → unhealthy (`mount-probe-error`).
+
+The enumeration stage exists because of the 2026-09-05 incident (po-204): a
+wedged DriveFS instance served stat normally while **every content read hung**
+(the whole fleet saw the machine go silent). A stat-only probe logged
+"healthy" through the entire outage. Stat answers "is the mount there?",
+enumeration answers "does it serve content?" — both are needed.
 
 C1 is enabled by default for `G:\`. Set `MountPath` for hosts that use a different
 DriveFS mount. `MountProbeTimeoutSeconds=0` disables C1 as an explicit recovery
