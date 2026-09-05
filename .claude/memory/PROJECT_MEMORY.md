@@ -165,6 +165,18 @@ If the shape misses (wrong `type`, `content` not an object, `tool` not `'newTask
 
 **Why:** Sprint C3 (web1 c.30): a message-shape change in a fixture silently untriggered a throw test — errors stayed empty with nothing thrown, which reads as "the guard works" when nothing ran at all. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
 
+### process.env is a shared singleton — delete the var in beforeEach AND afterEach, not set-and-restore
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 11th of the series).*
+
+`process.env` is process-global and vitest does NOT reset it between tests in the same file. A test that sets `process.env.X = '1'` and restores with `try { origX = process.env.X; … } finally { process.env.X = origX }` only works if `origX` captured a CLEAN value. When a prior test in the same file set `X` and left it (or restored to an already-`'1'` value), every later test that reads `process.env.X === '1'` sees the polluted leftover — the failure surfaces as a subtle boolean diff one test later, with no test appearing to set the variable (`enableDebug: true` instead of `false`).
+
+- **`beforeEach` must `delete process.env.X`** for every env var the code under test reads — not set it back to `undefined`, delete it.
+- **`afterEach` must also `delete process.env.X`** — so the cleanup happens even if the test crashes before reaching its `finally`.
+- **Check whether the code reads `process.env.X === '1'`**: `ROO_DEBUG_INSTRUCTIONS` is read 4× in `api-message-extractor.ts`, and 78 tool files read `process.env`. When it does, the `delete`-in-hooks pattern is the env-var analogue of `vi.clearAllMocks()` — independent of the test body.
+
+**Why:** Sprint C3 (web1 c.31): a polluted `process.env` reading the debug flag made test N+1 fail on a subtle boolean diff with no test visibly setting the variable, because the restore captured an already-polluted value. Fleet-relevant for any machine writing vitest on the submodule; zero machine-specific content.
+
 ### A wrapper's derived boolean inverts intuition — test the expression as written, not the semantics you infer
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 9th of the series).*
