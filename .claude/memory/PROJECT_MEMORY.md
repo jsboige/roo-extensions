@@ -148,6 +148,23 @@ coordinator.extractFromMessages(messages, { enableDebug: true });
 
 **Why:** Sprint C3 (web1 c.30): a coverage test aimed a throw at the iteration level, saw the test pass, and assumed the `errors > 0` summary branch was covered — it was not; the global catch had bypassed the summary entirely. Fleet-relevant for any machine writing vitest coverage on the submodule (po-2023/24/25, ai-01, web1); zero machine-specific content.
 
+### A replaced extract() never runs unless the message satisfies canHandle
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
+
+The coordinator dispatches per message as `if (extractor.canHandle(message)) { extractor.extract(message); }` — so a test that replaces `extract()` with a throwing stub to reach a per-extractor error branch first needs a message the **real** `canHandle` accepts. `ApiContentExtractor` accepts exactly:
+
+```ts
+{ type: 'api_req_started', content: { tool: 'newTask', … } }
+```
+
+If the shape misses (wrong `type`, `content` not an object, `tool` not `'newTask'`), `extract()` is never called and the throw never lands: `result.errors` stays empty with **no exception anywhere** — the test fails in a non-obvious, silent way.
+
+- **Mechanism, not lines:** verified intact 2026-09-05 (`src/utils/extractors/api-message-extractor.ts` — `canHandle` predicate on `type`/`content`/`tool`; dispatch in `message-extraction-coordinator.ts`). Exact line numbers drift; grep `canHandle(message)` to relocate — each extractor carries its own predicate (say/user/assistant, tool_result, tool_call variants).
+- **Prerequisite of the per-extractor throw lesson above:** that pattern's comment "pass a message shape that makes the extractor's canHandle return true" is this lesson — the shape is not decoration, it is the trigger.
+
+**Why:** Sprint C3 (web1 c.30): a message-shape change in a fixture silently untriggered a throw test — errors stayed empty with nothing thrown, which reads as "the guard works" when nothing ran at all. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
 ### extractFromMessages() re-reads debug flags from options — env vars alone stay silent
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-04, 6th of the series).*
