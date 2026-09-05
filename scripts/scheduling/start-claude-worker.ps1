@@ -920,9 +920,11 @@ function Claim-GitHubIssue {
             $ExistingPR = & gh pr list --repo $PrRepo --state open `
                 --json title,headRefName --jq ".[].title" 2>&1
             if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
-                # \b = frontiere de mot : "#109" ne doit pas matcher "#1091" (fausse collision
-                # => issue skippee a tort). .NET regex, pas de couche de quoting ici.
-                $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber\b" -or $_ -match "issue.*$IssueNumber\b" })
+                # \b = frontiere de mot des DEUX cotes : "#109" ne doit matcher ni "#1091"
+                # (suffixe) ni "issue 3109" (prefixe — ".*" absorberait le "3" sans l'ancre
+                # gauche). Fausse collision => issue skippee a tort. .NET regex, pas de
+                # couche de quoting ici.
+                $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber\b" -or $_ -match "issue.*\b$IssueNumber\b" })
                 if ($PRsForIssue.Count -gt 0) {
                     Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber ($PrRepo) — skip" "WARN"
                     & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
