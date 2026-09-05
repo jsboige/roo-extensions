@@ -177,6 +177,20 @@ If the shape misses (wrong `type`, `content` not an object, `tool` not `'newTask
 
 **Why:** Sprint C3 (web1 c.31): a polluted `process.env` reading the debug flag made test N+1 fail on a subtle boolean diff with no test visibly setting the variable, because the restore captured an already-polluted value. Fleet-relevant for any machine writing vitest on the submodule; zero machine-specific content.
 
+### readdir with withFileTypes returns Dirent objects, not strings — the mock must match the shape
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 10th of the series).*
+
+`fs.readdir(path, { withFileTypes: true })` returns `Dirent[]` — objects with `name`, `isDirectory()`, `isFile()` — not `string[]`. A test that mocks `mockReaddir.mockResolvedValue(['taskA'])` compiles and resolves, but the production loop calls `entry.isDirectory()` on a string: `undefined` → `!undefined` = `true` → **every entry is skipped and the loop body never runs**. The change of shape is silent: nothing throws, the test reads green intuition against a body that executed zero times.
+
+For any test mocking `fs.readdir` over code that iterates directories (the submodule has 5+ such sites — `background-services.ts`, `zoo-task-extractor.ts`, `AttachmentManager.ts`, `skeleton-cache.service.ts`):
+
+- **Grep `withFileTypes` in the code under test before writing `mockResolvedValue`.** If present, the mock must return Dirent-like objects, not strings.
+- **Helper:** `const dirent = (name: string, isDir = true) => ({ name, isDirectory: () => isDir, isFile: () => !isDir });`
+- **Tell-tale symptom:** a test "covers" a directory scan but zero entries are processed — check the shape of the array the readdir mock returns.
+
+**Why:** Sprint C3 (web1 c.31): a string-array readdir mock silently emptied the iteration under test — coverage looked exercised while the loop body never ran once. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
+
 ### A wrapper's derived boolean inverts intuition — test the expression as written, not the semantics you infer
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 9th of the series).*

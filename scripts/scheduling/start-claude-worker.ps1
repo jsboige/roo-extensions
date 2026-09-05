@@ -913,17 +913,21 @@ function Claim-GitHubIssue {
             }
         }
 
-        # Step 5: Also check if a PR already exists for this issue (prevents duplicate work)
-        $ExistingPR = & gh pr list --repo jsboige/roo-extensions --state open `
-            --json title,headRefName --jq ".[].title" 2>&1
-        if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
-            $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber" -or $_ -match "issue.*$IssueNumber" })
-            if ($PRsForIssue.Count -gt 0) {
-                Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber — skip" "WARN"
-                & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
-                & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
-                    --body "[RELEASED] by $AgentType on $MachineId — PR already exists for this issue." 2>&1 | Out-Null
-                return $false
+        # Step 5: Also check if a PR already exists for this issue (prevents duplicate work).
+        # Both repos: a submodule PR lives in jsboige/jsboige-mcp-servers and is invisible
+        # to a product-repo-only check (#3407: #1091 open 26h, undetected).
+        foreach ($PrRepo in @('jsboige/roo-extensions', 'jsboige/jsboige-mcp-servers')) {
+            $ExistingPR = & gh pr list --repo $PrRepo --state open `
+                --json title,headRefName --jq ".[].title" 2>&1
+            if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
+                $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber" -or $_ -match "issue.*$IssueNumber" })
+                if ($PRsForIssue.Count -gt 0) {
+                    Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber ($PrRepo) — skip" "WARN"
+                    & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
+                    & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
+                        --body "[RELEASED] by $AgentType on $MachineId — PR already exists for this issue ($PrRepo)." 2>&1 | Out-Null
+                    return $false
+                }
             }
         }
 
