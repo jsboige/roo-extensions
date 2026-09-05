@@ -12,7 +12,7 @@
 
 | Metric | Count |
 |--------|-------|
-| **Total models** | 16 (12 enabled, 4 disabled) |
+| **Total models** | 17 (13 enabled, 4 disabled) |
 | **Top-level agents** | 32 |
 | **Inline agents** (conversation-scoped) | 15 |
 | **Memory-enabled agents** | 5 |
@@ -29,7 +29,8 @@
 | `glm-5.1-fast` | api.z.ai/api/coding/paas/v4 | 200000 | N | N | Y | GLM-5.1 non-thinking via z.ai — faster responses, lower token usage, same model quality for non-reasoning tasks |
 | `glm-5` | api.z.ai/api/coding/paas/v4 | 200000 | N | Y | Y | GLM-5 reasoning via z.ai cloud (200K context, strong coding and analysis) |
 | `glm-5-fast` | api.z.ai/api/coding/paas/v4 | 200000 | N | N | Y | GLM-5 non-thinking via z.ai — faster responses for straightforward tasks |
-| `glm-4.6v` | api.z.ai/api/coding/paas/v4 | 128000 | Y | N | Y | GLM-4.6V vision via z.ai cloud (128K context) |
+| `glm-4.6v` | api.z.ai/api/coding/paas/v4 | 128000 | Y | N | Y | GLM-4.6V vision via z.ai cloud (128K context). Kept as a vision fallback; primary vision routing now uses glm-5.3-flash (#3389). |
+| `glm-5.3-flash` | api.z.ai/api/coding/paas/v4 | 131072 | Y | Y | Y | GLM-5.3-Flash via z.ai cloud — native multimodal (text+vision), 320B/18B active, 1M model context (context_window deliberately capped at 131072 per fleet cost/freshness policy), MIT. Benchmarked ~2x faster than glm-4.6v at ~2x lower cost (list price; ~3x during the 50% promo ending 2026-09-09) for PDF/document workloads (#3389). |
 | `glm-4.7-flash` | api.z.ai/api/coding/paas/v4 | 131072 | N | N | Y | GLM-4.7-Flash via z.ai cloud — fast responses, no thinking overhead |
 | `omnicoder-9b` | api.mini.text-generation-webui.m... | 131072 | Y | Y | N | OmniCoder-9B — 96-107 tok/s, 131K ctx, thinking+vision, OCR 97.5%, MME 1258.5, tool call 1.09s. GPU 2 (port 5001). qwen3_coder parser. |
 | `qwen3.6-35b-a3b` | api.medium.text-generation-webui... | 262144 | Y | Y | Y | Qwen3.6 35B MoE AWQ — 86 tok/s, 262K ctx, vision+thinking. Benchmarks: GSM8K 88%, IFEval 88.5%, MME 1294.7, SWE-bench 69.2%. GPU 0+1 |
@@ -47,7 +48,7 @@
 | ID | Model | MCPs | Memory | Description |
 |----|-------|------|--------|-------------|
 | `analyst` | `glm-5.1` | searxng, playwright, markitdown | Y | General analyst with web search, document conversion, and memory. Local: Qwen3.6 35B MoE (86 tok/s, 262K ctx, GSM8K 88%, SWE-bench 69.2%). Cloud: GLM-5.1 (45.3/113 coding) |
-| `vision-analyst` | `glm-4.6v` | searxng, playwright, markitdown | N | Image and document analysis specialist with web context and document conversion. Cloud: GLM-4.6V. Can browse web, search context, and convert PDF/DOCX/XLSX to markdown |
+| `vision-analyst` | `glm-5.3-flash` | searxng, playwright, markitdown | N | Image and document analysis specialist with web context and document conversion. Cloud: GLM-5.3-Flash (native multimodal, ~2x faster and ~2x cheaper at list price than glm-4.6v — #3389). Can browse web, search context, and convert PDF/DOCX/XLSX to markdown. |
 | `vision-local` | `qwen3.6-35b-a3b` | searxng, playwright, markitdown | N | Fast local vision+thinking with web context and document conversion (Qwen3.6 35B MoE — 86 tok/s, 262K ctx, vision+thinking, MME 1294.7). Best for OCR, spatial reasoning, detailed analysis |
 | `coder` | `qwen3.6-35b-no-thinking` | open_terminal, searxng | N | Agentic coding assistant with terminal access and web search (Qwen3.6 35B MoE — 86 tok/s, 262K ctx, no-thinking mode). Can execute commands and search documentation |
 | `fast` | `qwen3.6-35b-no-thinking` | — | N | Fast responses via local vLLM Qwen3.6 35B no-thinking (86 tok/s, 262K ctx). No tools, fastest reliable option (glm-4.7-flash deprecated: 60% rate-limit failures in benchmark) |

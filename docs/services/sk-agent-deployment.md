@@ -49,8 +49,8 @@ Verified by `test_inventory_validation.py::test_template_counts_match_expected_b
 
 | Metric | Count | Notes |
 |--------|-------|-------|
-| **Models** | 16 | 12 enabled, 4 disabled (z.ai cloud 6, vLLM direct 3, OWUI proxy 4, OWUI custom 3) |
-| **Top-level agents** | 32 | Across 5 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI) |
+| **Models** | 17 | 13 enabled, 4 disabled (z.ai cloud 7, vLLM direct 3, OWUI proxy 4, OWUI custom 3) |
+| **Top-level agents** | 32 | Across 7 functional groups (core, deep-search, deep-think, operational, PR-review, surveillance, OWUI) |
 | **Inline agents** (conversation-scoped) | 15 | Defined inside `code-review`, `research-debate`, `config-harmonization`, `pr-review-tier1/2/3` |
 | **Memory-enabled agents** | 5 | `analyst`, `analyst-glm5`, `researcher`, `guardian-sentinel`, `owui-analyst` |
 | **MCP plugins** | 5 | `searxng`, `playwright`, `sk_agent` (self-inclusion), `open_terminal`, `markitdown` |
@@ -91,8 +91,10 @@ process, talks JSON-RPC over stdin/stdout.
 }
 ```
 
-> **NEVER** register sk-agent at project scope (`.mcp.json`). User scope
-> keeps the same config across all workspaces and avoids double-loading.
+> **Default to user scope** (`~/.claude.json`): it keeps the same config
+> across all workspaces and avoids double-loading. Project scope
+> (`.mcp.json`) is a sanctioned exception for the layouts validated in
+> #3411 (per-project wiring such as streamable-http — see Transport 2).
 
 #### Consumer: Roo Code (stdio MCP)
 
