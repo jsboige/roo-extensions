@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.4.0 (slim)
-**MAJ:** 2026-05-22
+**Version:** 3.5.0 (slim)
+**MAJ:** 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407)
 
 ---
 
@@ -11,7 +11,12 @@
 
 ## Workflow PR — Claude Code
 
-1. **Anti-double-claim :** `gh pr list --state open --search "<issue>"`
+1. **Anti-double-claim (les 2 depots — une PR submod vit dans `jsboige/jsboige-mcp-servers`, #3407) :**
+   ```bash
+   for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
+     gh pr list --repo "$R" --state open --search "<issue>" --json number,author,title
+   done
+   ```
 2. **Creer worktree :** `git worktree add .claude/worktrees/wt-{desc} -b wt/{desc}`
 3. **Travailler :** Commits atomiques, tests passent
 4. **Creer PR :** `gh pr create`
