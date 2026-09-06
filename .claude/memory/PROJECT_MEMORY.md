@@ -176,6 +176,20 @@ Mocking `fs.access` does **not** short-circuit the glob — access failures are 
 
 **Why:** Sprint C3 coverage (web1 c.32, F19.2-F19.9) — eight tests mocked only one link. Grounding re-verified 2026-09-06 against roo-storage-detector.ts at the same line numbers (L74/L79/L264/L268/L274/L1996); zero machine-specific content.
 
+### An fs.stat mock without `birthtime` turns the analysis into silent `null`
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-06, 14th of the series).*
+
+**Symptom:** `expect(result.parentTaskId).toBe('parent-xyz')` fails with `TypeError: Cannot read properties of null` — the SUT returned `null` from its catch block, no error surfaced, `mockStat` and `mockReadFile` were both called with correct-looking arguments.
+
+Mechanism: `analyzeWithOldSystem` (`src/utils/roo-storage-detector.ts` L460) reads `createdAt = taskDirStats.birthtime` (L666). A `mockStat.mockResolvedValue({ size, mtime, isFile })` without `birthtime` makes `new Date(undefined)` → Invalid Date → `.toISOString()` throws `RangeError: Invalid time value` → the catch at L708 swallows it and returns `null`. A per-test override that REPLACES a fuller beforeEach mock silently drops the field — the mock shape regresses where you least expect it.
+
+Rules:
+- Mock `fs.stat` with the **full shape**: `{ size, mtime, birthtime, isFile, isDirectory }` — even when the test doesn't think it uses `birthtime`; timestamp fallback analysis can reach for it.
+- Debug pattern when a result is unexpectedly `null`: throw an error carrying `mockStat.mock.calls.length` + the paths `mockReadFile` saw — vitest captures stdout inconsistently, a thrown error always surfaces.
+
+**Why:** Sprint C3 (web1 c.32, F11.5/F11.6) — grounding re-verified 2026-09-06: L460/L666/L708 unchanged in roo-storage-detector.ts.
+
 ### A replaced extract() never runs unless the message satisfies canHandle
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
