@@ -59,13 +59,13 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `claude/` | 15 | Scripts Claude Code (spawn workers, switch-provider, validation) |
+| `claude/` | 16 | Scripts Claude Code (spawn workers, switch-provider, validation) |
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
 | `scheduling/` | 27 | Scripts de planification (copilot dispatcher, schtasks, tool-usage snapshot) |
 
-#### Détail scripts `claude/` (#3460, #3465)
+#### Détail scripts `claude/` (#3460, #3465, #3471)
 
 Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de vérité = le fichier lui-même).
 
@@ -84,6 +84,9 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 | `claude/skill-trigger-detector.ps1` | Détecteur de triggers de skills pour le hook `UserPromptSubmit` de Claude Code — lit le prompt utilisateur depuis stdin JSON, scanne les fichiers de skills à la recherche de mots-clés déclencheurs (keywords, exact, patterns, context) |
 | `claude/test-glm-context.ps1` | Teste la taille réelle de la fenêtre de contexte GLM-5.1 via l'API z.ai en envoyant des prompts de taille croissante avec un code secret, afin de détecter une troncature silencieuse |
 | `claude/test-glm-markers.ps1` | Teste la troncature de contexte GLM-5.1 par marqueurs — place 18 marqueurs uniques à intervalles d'environ 10K tokens sur ~180K tokens puis demande au modèle de les rapporter tous, afin de détecter une troncature silencieuse |
+| `claude/analyze-harness-tokens.ps1` | Analyse complète de l'empreinte token du harnais Claude Code (#1026) — cible canonique de l'analyse, que `diagnose-harness.ps1` wrappe : compte chars/tokens par composant (CLAUDE.md global/projet/worktree, rules, docs, settings) et liste les opportunités d'optimisation estimées |
+| `claude/worktree-cleanup.ps1` | Nettoyage automatisé des worktrees orphelins, des branches locales périmées et des branches distantes mortes (#856, #1076, gardes suppression submodule #2772/#2123) — famille F3 : exécuté par la schtask `Roo-Worktree-Cleanup` (daily 02:00) et les skills debrief/git-sync |
+| `claude/install-worktree-cleanup-scheduled-task.ps1` | Installe (ou retire via `-Remove`) la schtask Windows `Roo-Worktree-Cleanup` (SYSTEM, daily 02:00) qui exécute `worktree-cleanup.ps1 -Force` (#895) — installeur de la famille F3 |
 
 #### Stack worker Mistral Vibe (`scheduling/`, #3202)
 
