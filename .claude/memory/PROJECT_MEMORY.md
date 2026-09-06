@@ -160,6 +160,22 @@ coordinator.extractFromMessages(messages, { enableDebug: true });
 
 **Why:** Sprint C3 (web1 c.31): a hand-written slash expectation failed on Windows against a correct `path.join` output — the test was wrong about the platform, not the code. Fleet-relevant for any machine writing vitest on the submodule (Windows devs, Linux CI); zero machine-specific content.
 
+### detectStorageLocations is a 3-link chain — mock glob AND existsSync; fs.access is swallowed
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-06, 13th of the series).*
+
+**Symptom:** tests mock `existsSync → true` yet `buildHierarchicalSkeletonsLegacy` returns `[]` — nothing errors, the pipeline simply has no locations to scan.
+
+`detectStorageLocations` (`src/utils/roo-storage-detector.ts` L74-94) is a composite with three mockable links:
+
+1. `globalCacheManager.get('storage_locations')` → `null` with default mocks (fine);
+2. `findPotentialStorageLocations()` (L264) — iterates the hardcoded `COMMON_ROO_PATHS` (L268) and calls `fs.access` then `glob` per path (L274). With `mockGlob.mockResolvedValue([])` (the default), locations = `[]` and everything downstream is empty;
+3. `validateCustomPath()` → `existsSync(tasksPath)` (L1996) — needs `mockExistsSync.mockReturnValue(true)`.
+
+Mocking `fs.access` does **not** short-circuit the glob — access failures are swallowed in a try/catch inside the loop. Any test that needs storage locations must set **both** `mockGlob.mockResolvedValue([locationPath])` and `mockExistsSync.mockReturnValue(true)`. Debug pattern for an unexpected `[]`: log `mockGlob.mock.calls` to check whether it ran and with what pattern.
+
+**Why:** Sprint C3 coverage (web1 c.32, F19.2-F19.9) — eight tests mocked only one link. Grounding re-verified 2026-09-06 against roo-storage-detector.ts at the same line numbers (L74/L79/L264/L268/L274/L1996); zero machine-specific content.
+
 ### A replaced extract() never runs unless the message satisfies canHandle
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
