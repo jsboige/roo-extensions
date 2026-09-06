@@ -7,5 +7,11 @@
   "intervalHours": 1,
   "_budget": "--timeout 1800 = 30 min, aligne sur .vibe/commands/continue.md qui declare 'Frequence: 30 min' et 'Workflow (30 min max)'. Etait 900 (15 min) : la moitie du temps que le protocole demande, alors que la schtask en autorise 55 (TimeoutMinutes). Le budget driver etait le seul des trois nombres hors-cadre.",
   "maxIterations": 1,
+  "queue": {
+    "repo": "jsboige/CoursIA",
+    "label": "vibe-target",
+    "maxIdleRunsPerDay": 4,
+    "_doc": "Idle-picker (06/09, GO user) : un tick planifie sans WAKE pioche la plus ancienne issue ouverte vibe-target et l'injecte comme payload. Cap 4 runs/jour + anti-marteau 6h (start-vibe-worker.ps1). Pool vide = SKIP historique (aucun cout). Label a creer sur CoursIA ; provisioning = /coordinate (ai-01) ou tout executor."
+  },
   "notes": "Aucun CLI one-shot n'existe : l'extension VS Code bundle vibe-acp.exe (serveur ACP). Le driver scripts/scheduling/vibe-acp-driver.py est le client headless (initialize -> session/new -> session/prompt). --wake lit VIBE_WAKE_PAYLOAD posee par start-vibe-worker.ps1 sur un [WAKE-VIBE]. Auth etablie une fois par browser-auth interactive VS Code (verifie 2026-08-22 : tick headless PROMPT_OK, ~$0.03/tick)."
 }
