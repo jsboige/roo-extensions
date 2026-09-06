@@ -190,6 +190,19 @@ Rules:
 
 **Why:** Sprint C3 (web1 c.32, F11.5/F11.6) — grounding re-verified 2026-09-06: L460/L666/L708 unchanged in roo-storage-detector.ts.
 
+### console.error with multiple args lands in mock.calls as separate elements — join before asserting
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-06, 15th of the series).*
+
+**Symptom:** `expect(String(consoleErrorSpy.mock.calls[0][0]))` sees only the label `"❌ Erreur:"`, never the error message — every catch-path assertion becomes a false negative that still passes.
+
+Mechanism: `console.error("❌ Erreur:", error)` (`src/debug-hierarchy.ts` L82) passes its arguments separately — `mock.calls[0]` is an array whose `[0]` is the label string and `[1]` the `Error` object. Stringifying `[0]` alone drops the message entirely.
+
+Rule:
+- For any multi-arg `console.error/log/warn`, build the assertion string by joining all args: `mock.calls[0].map(a => a instanceof Error ? a.message : String(a)).join(' ')` — helper pattern in place at `debug-hierarchy.coverage.test.ts` L124/L441/L456.
+
+**Why:** Sprint C3 (web1 c.35) — grounding re-verified 2026-09-06: L82 call-site and the join helper unchanged in the current tree.
+
 ### A replaced extract() never runs unless the message satisfies canHandle
 
 *Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-05, 8th of the series).*
