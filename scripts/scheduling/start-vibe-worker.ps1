@@ -156,6 +156,95 @@ if ($DryRun) {
     exit 0
 }
 
+# ========== IDLE QUEUE PICKER (06/09, lane pérenne — opt-in via profil) ==========
+# Un tick planifié sans WAKE en attente n'est plus forcément un no-op : si le
+# profil définit une file ("queue": {repo, label, maxIdleRunsPerDay}), le tick
+# pioche la plus ancienne issue ouverte portant le label et l'injecte comme
+# payload WAKE (JSON {content}, contrat vibe-acp-driver.py l.149) — la lane
+# s'alimente seule après un reboot, là où le feeder cron session-only meurt.
+# Gardes : plafond de runs idle/jour (budget, défaut 4), anti-marteau (même
+# issue re-piquée seulement après QueueRetrySameIssueHours), file vide ou non
+# configurée => comportement SKIP historique (aucun coût). Le pick a lieu AVANT
+# le lock : un run payant le prendra comme tout run.
+
+$QueueStateDir = Join-Path $RepoRoot "outputs\scheduling\state"
+$script:QueueRetrySameIssueHours = 6
+
+function Get-QueueState {
+    param([string]$Path)
+    if (Test-Path $Path) {
+        try { return (Get-Content $Path -Raw | ConvertFrom-Json) } catch { }
+    }
+    return $null
+}
+
+function Save-QueueState {
+    param([string]$Path, [object]$State)
+    if (-not (Test-Path $QueueStateDir)) { New-Item -ItemType Directory -Path $QueueStateDir -Force | Out-Null }
+    [System.IO.File]::WriteAllText($Path, ($State | ConvertTo-Json -Compress), [System.Text.UTF8Encoding]::new($false))
+}
+
+function Invoke-IdleQueuePick {
+    # Returns $true when a payload was injected into $env:VIBE_WAKE_PAYLOAD
+    # (the caller then falls through to lock + execution).
+    if (-not $profileObj -or -not $profileObj.queue -or
+        -not $profileObj.queue.repo -or -not $profileObj.queue.label) {
+        return $false
+    }
+    $queue = $profileObj.queue
+    $maxPerDay = 4
+    if ($queue.PSObject.Properties.Name -contains 'maxIdleRunsPerDay' -and
+        [int]$queue.maxIdleRunsPerDay -gt 0) {
+        $maxPerDay = [int]$queue.maxIdleRunsPerDay
+    }
+
+    $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+    $statePath = Join-Path $QueueStateDir ("vibe-queue-{0}.json" -f ($Workspace -replace '[^a-zA-Z0-9_-]', '_'))
+    $qState = Get-QueueState -Path $statePath
+    $idleRuns = 0
+    if ($qState -and [string]$qState.date -eq $today) { $idleRuns = [int]$qState.idleRuns }
+    if ($idleRuns -ge $maxPerDay) {
+        Write-Log "[SKIP] idle-picker daily cap reached ($idleRuns/$maxPerDay) - scheduled tick is a no-op."
+        return $false
+    }
+
+    try {
+        $items = & gh issue list -R ([string]$queue.repo) --state open --label ([string]$queue.label) --limit 10 --json number,title,body,updatedAt 2>$null | ConvertFrom-Json
+    } catch { $items = $null }
+    if (-not $items -or @($items).Count -eq 0) {
+        return $false
+    }
+    $picked = @($items | Sort-Object {[DateTime]$_.updatedAt}) | Select-Object -First 1
+
+    # Anti-marteau : re-piquer la même issue seulement après QueueRetrySameIssueHours
+    # (le temps de la review/close par la lane — le picker ne sait pas closer).
+    if ($qState -and [int]$qState.lastIssueNumber -eq [int]$picked.number -and $qState.lastRunAt) {
+        try {
+            $last = [DateTime]$qState.lastRunAt
+            $sinceH = ((Get-Date).ToUniversalTime() - $last).TotalHours
+            if ($sinceH -lt $script:QueueRetrySameIssueHours) {
+                Write-Log ("[SKIP] idle-picker: issue #{0} already picked {1:N1}h ago (<{2}h) - awaiting review/close." -f [int]$picked.number, $sinceH, $script:QueueRetrySameIssueHours)
+                return $false
+            }
+        } catch { }
+    }
+
+    $body = [string]$picked.body
+    if ($body.Length -gt 4000) { $body = $body.Substring(0, 4000) + "..." }
+    $promptText = ("Issue #{0}: {1}`n`n{2}`n`n-- Provenance: idle-picker (tick planifie sans WAKE). Livrer le travail correspondant dans ce workspace." -f [int]$picked.number, [string]$picked.title, $body)
+    $payload = @{ content = $promptText } | ConvertTo-Json -Compress
+    $env:VIBE_WAKE_PAYLOAD = $payload
+    Write-Log ("[PICK] idle-picker: issue #{0} '{1}' -> payload {2} chars" -f [int]$picked.number, [string]$picked.title, $payload.Length)
+
+    Save-QueueState -Path $statePath -State @{
+        date = $today
+        idleRuns = ($idleRuns + 1)
+        lastIssueNumber = [int]$picked.number
+        lastRunAt = (Get-Date).ToUniversalTime().ToString("o")
+    }
+    return $true
+}
+
 # ========== NO-OP GUARD (#3296) ==========
 # Un tick planifie sans [WAKE-VIBE] en attente est un NO-OP, pas un echec. La commande
 # harnais du profil CoursIA est `--wake`-only : le driver prend son prompt dans
@@ -180,9 +269,12 @@ $wakeOnly = ($HarnessCommand -match '(^|\s)--wake(\s|$)') -and
 if ($wakeOnly -and
     [string]::IsNullOrWhiteSpace($MessagePayloadFile) -and
     [string]::IsNullOrWhiteSpace($env:VIBE_WAKE_PAYLOAD)) {
-    Write-Log "[SKIP] no WAKE payload pending - scheduled tick is a no-op (exit 0)."
-    Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
-    exit 0
+    if (-not (Invoke-IdleQueuePick)) {
+        Write-Log "[SKIP] no WAKE payload pending - scheduled tick is a no-op (exit 0)."
+        Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
+        exit 0
+    }
+    # Payload injected by the idle picker — fall through to lock + execution.
 }
 
 # ========== ANTI-OVERLAP LOCK (#3277 fix 2 : création atomique, pas check-then-create) ==========
