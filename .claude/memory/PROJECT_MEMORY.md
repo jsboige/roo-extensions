@@ -298,6 +298,26 @@ it.todo('extractor-init debug log — unreachable by constructor ordering');
 
 **Why:** Sprint C3 (web1 c.30): the truthy arm was unreachable from any test seam without editing the source; the temptation to reorder production code for a coverage line was rejected and the gap documented instead. Fleet-relevant for any machine writing vitest coverage on the submodule; zero machine-specific content.
 
+### OR-chain coverage: JS short-circuit leaves the 3rd disjunct COLD unless a negative case forces it
+
+*Promoted T5→T6 (#2368 ACTION-B, web1 2026-09-06, 16th of the series).*
+
+**Symptom:** a coverage test feeds truthy values through every disjunct of a `canHandle`-style OR chain, yet v8/istanbul still reports the 3rd disjunct branch cold — and branch % can even DROP after the test while the cold-arm count improves.
+
+Mechanism: in `return (a || b || (c && d))`, JS short-circuits at the first true disjunct. `typeof [] === 'object'`, so `content: [{type:'text'}]` already returns TRUE at disjunct 2 (`typeof message.content === 'object'`) — the disjunct-3 expression body never executes, no matter what you pass afterwards.
+
+Rule:
+- Give EACH disjunct its own positive case, AND add a NEGATIVE case (all disjuncts false: non-object `text`, non-object non-array `content`) so disjunct 3 actually evaluates and returns false:
+  ```ts
+  expect(canHandle({text:{foo:'bar'}, content:'x'})).toBe(true);          // disjunct 1
+  expect(canHandle({text:'plain', content:{foo:'bar'}})).toBe(true);      // disjunct 2
+  expect(canHandle({text:'plain', content:[{type:'text'}]})).toBe(true);  // disjunct 3 positive
+  expect(canHandle({text:'plain', content:'plain string'})).toBe(false);  // disjunct 3 negative
+  ```
+- Report the cold-arm COUNT delta alongside branch % — v8 normalizes over total arms, so % can move the wrong way on a net improvement.
+
+**Why:** Sprint C3 (web1 c.29), anchors re-verified 2026-09-06 at submod `289cd7bd`: the chain lives at `src/utils/extractors/ui-message-extractor.ts` L84-85 (file moved from `src/utils/` to `src/utils/extractors/` since c.29; operands now `message.text`/`message.content` — grep the structure, not the literal), and the 4-case pattern stands at `src/utils/extractors/__tests__/ui-message-extractor.coverage.test.ts` L127/L129/L135/L138.
+
 ## Known Bugs / Gotchas
 
 ## Known Bugs / Gotchas
