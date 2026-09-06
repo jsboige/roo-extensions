@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.8.3"
+  version: "3.8.4"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,7 +21,7 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.8.3
+**Version:** 3.8.4 (word-boundary anti-double-claim, T#80)
 **Cree:** 2026-03-28
 **MAJ:** 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
@@ -125,9 +125,12 @@ Avant de travailler sur une issue, verifier qu'aucune PR ouverte ne la couvre de
 
 ```bash
 # Les DEUX depots — une PR submodule vit dans jsboige/jsboige-mcp-servers,
-# invisible au check single-repo (trou #3407 : #1091 ouverte 26 h, non vue)
+# invisible au check single-repo (trou #3407 : #1091 ouverte 26 h, non vue).
+# Frontiere de mot sur le numero : --search GitHub est flou (mesure 05/09 :
+# "#34" ramene des PRs sans rapport) et "#109" matche "#1091" sans elle.
 for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
-  gh pr list --repo "$R" --state open --search "<issue-number>" --json number,author,title
+  gh pr list --repo "$R" --state open --json number,author,title \
+    --jq '.[] | select(.title | test("#<issue-number>([^0-9]|$)"))'
 done
 ```
 
