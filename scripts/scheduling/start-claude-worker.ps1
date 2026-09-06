@@ -2696,9 +2696,31 @@ function Remove-NestedSubmoduleWorktrees {
                     continue
                 }
 
-                Write-Log "ORPHAN SUBMODULE WORKTREE (#2123): '$smWtPath' (parent worktree gone). Removing." "WARN"
                 $prevPref = $ErrorActionPreference
                 $ErrorActionPreference = "Continue"
+
+                # Ne JAMAIS forcer le retrait d'un worktree qui porte du travail non commite.
+                # worktree-lifecycle.md l'ecrit deja pour la main humaine : "worktree remove refuse
+                # un worktree avec modifications non commitees sans --force. Ce refus est une
+                # protection" -- le --force ci-dessous la contournait sans le savoir.
+                # Mesure (ai-01, 2026-09-06) : le correctif client PG #2427 et ses tests ont ete
+                # detruits ici, dans D:/roo-extensions-wt/wt-pg-highwater. Ce placement n'etait pas
+                # une erreur : .claude/rules/pr-mandatory.md le prescrit ("OK : ../roo-extensions-wt/
+                # wt-foo, en dehors du repo") et create-worktree.ps1 le produit par defaut. Comme la
+                # seule provenance reconnue legitime ci-dessus est "imbrique dans un worktree parent"
+                # (le motif du worker lui-meme), tout worktree conforme a la regle est orphelin par
+                # construction. On ne corrige pas la classification -- on cesse de passer outre la
+                # protection native : ca suffit, et ca ne se perime pas si un placement s'ajoute.
+                # Un worktree PROPRE reste retire exactement comme avant : aucune regression #2123.
+                $smWtStatus = @(& git -C $smWtPath status --porcelain 2>$null)
+                $smWtStatusRc = $LASTEXITCODE
+                if ($smWtStatusRc -eq 0 -and $smWtStatus.Count -gt 0) {
+                    $ErrorActionPreference = $prevPref
+                    Write-Log "DIRTY submodule worktree '$smWtPath' ($($smWtStatus.Count) uncommitted change(s)) -- NOT removed, left for its owner" "WARN"
+                    continue
+                }
+
+                Write-Log "ORPHAN SUBMODULE WORKTREE (#2123): '$smWtPath' (parent worktree gone). Removing." "WARN"
                 & git --git-dir $smGitDir worktree remove --force $smWtPath 2>&1 | Out-Null
                 $ErrorActionPreference = $prevPref
 
