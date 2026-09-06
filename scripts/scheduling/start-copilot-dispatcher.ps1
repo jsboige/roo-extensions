@@ -476,6 +476,45 @@ $targetIssueLine
 "@
 }
 
+# ========== CLI KNOWN-BAD GUARD (06/09) ==========
+# On these gh-copilot CLI versions the server-side approval judge refuses ALL
+# mutations on work-prompt sessions ("Permission denied and could not request
+# permission from user"), even with --allow-all-tools/--no-ask-user/--yolo:
+# every scheduled run burns ~15 premium credits and ends idle. Reproduced 3x on
+# 1.0.83 (05/09); last verified good: 1.0.78. Empty the list to re-arm the lane
+# once upstream fixes it.
+$Script:KnownBadCopilotCliVersions = @('1.0.83')
+
+function Get-CopilotCliVersion {
+    try {
+        # Real output is multi-line ("GitHub Copilot CLI 1.0.83." + advice line):
+        # PS returns an array, and -match on an array filters instead of parsing
+        # ($Matches stays empty) — join first, match on the scalar.
+        $raw = (& gh copilot --version 2>$null) -join "`n"
+        if ($raw -match 'CLI\s+v?(\d+\.\d+\.\d+)') {
+            return $Matches[1]
+        }
+    } catch { }
+    return ''
+}
+
+function Test-CopilotCliBlocked {
+    $version = Get-CopilotCliVersion
+    if ([string]::IsNullOrWhiteSpace($version)) {
+        # Unparseable version (probe output changed / gh missing): proceed — the
+        # remaining burn guards are the actionable-issue gate and the usage caps;
+        # parking the lane on a broken probe would be a silent stall.
+        Write-Log "Copilot CLI version unparseable — proceeding without the known-bad guard"
+        return $false
+    }
+    Write-Log "Copilot CLI version: $version"
+    if ($Script:KnownBadCopilotCliVersions -contains $version) {
+        Write-Log "Copilot CLI $version is known-bad (server-side mutation denials) — parking run (fail-closed)"
+        return $true
+    }
+    return $false
+}
+
 function Test-IsActionableIssue {
     param([psobject]$Issue)
 
@@ -547,7 +586,13 @@ function Get-TargetIssue {
     }
 
     try {
-        $items = & gh issue list --state open --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        # Pool semantics (06/09): the auto-pick fallback draws ONLY from issues
+        # the fleet explicitly provisioned for this lane (label `copilot-target`)
+        # — the c.112 "no auto-pick" recommendation made durable. An empty pool
+        # returns no candidates, and the no-target gate skips fail-closed (zero
+        # premium burn). The pinned -IssueNumber path above is unaffected
+        # (explicit provisioning beats the pool).
+        $items = & gh issue list --state open --label copilot-target --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
         if ($null -eq $items -or $items.Count -eq 0) {
             return $null
         }
@@ -577,6 +622,13 @@ Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
 Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay"
+
+# Known-bad CLI park: exit BEFORE any Copilot call, without touching the run
+# state (a parked lane is not an idle streak — no escalation accounting).
+if (Test-CopilotCliBlocked) {
+    Write-Log "Dispatcher parked this tick — no Copilot call, no premium burned."
+    exit 0
+}
 
 $usagePercent = Get-PremiumUsagePercent
 if ($usagePercent -ge 0) {
