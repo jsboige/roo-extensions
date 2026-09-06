@@ -1,5 +1,5 @@
 ﻿# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
-# Usage: pwsh -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun]
+# Usage: pwsh -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm]
 #
 # WHY: Interactive Claude Code executor sessions run `git submodule update` (Phase 0)
 # which refreshes the TypeScript SOURCE but never triggers `npm run build`. The compiled
@@ -14,13 +14,22 @@
 # Idempotent: a no-op when the build is already fresh. Non-fatal: a build failure logs WARN
 # and exits 0 so it never blocks the executor session.
 #
+# ARM GUARD (#3489): rebuilding `build/` while live RSM host processes are running produces
+# mixed ESM graphs -> the `assertSharedStoreAccessible` crash on the next dynamic import,
+# which makes `roosync_messages` (inbox) unreadable until VS Code restart. Rebuilding under
+# ANY live RSM host arms that crash (proven 2026-09-06: a rebuild under fresh post-build
+# hosts still armed them). So when a rebuild is required AND >=1 live RSM host is running,
+# the helper REFUSES to rebuild and exits with `ARMED-DEFER`. Escape hatch = `-Arm` (named,
+# used deliberately by the interactive session when it is about to restart VS Code).
+#
 # NOTE: This ensures the ON-DISK build is current. A separate, distinct failure mode — the
 # MCP host process serving a stale in-memory build even though build/ is fresh on disk —
 # still requires a VS Code restart ([INTERACTIVE-ONLY], out of scope here).
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$RepoRoot,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Arm
 )
 
 $ErrorActionPreference = 'Continue'
@@ -34,6 +43,8 @@ function Write-Result {
         'REBUILT' { 'Cyan' }
         'WARN'    { 'Yellow' }
         'SKIP'    { 'DarkGray' }
+        'ARMED-DEFER' { 'Magenta' }
+        'ARM'      { 'Red' }
         default   { 'White' }
     }
     Write-Host "[ensure-build-fresh][$Status] $Message" -ForegroundColor $color
@@ -111,6 +122,38 @@ if (-not $buildNewest) {
 } else {
     $lagSec = [math]::Round(($srcNewest - $buildNewest) / 10000000)
     Write-Result 'WARN' "build/ STALE — newest src .ts ($srcFileRel) is ${lagSec}s newer than newest build .js."
+}
+
+# --- ARM GUARD (#3489): refuse to rebuild under live RSM hosts (ESM mixed-millage) ---
+# Rebuilding `build/` while a live roo-state-manager host process is running replaces the
+# ESM modules that host already imported -> mixed module graph -> the next dynamic import
+# crashes with `assertSharedStoreAccessible`, making `roosync_messages` (inbox) unreadable
+# until VS Code restart. The crash is armed by ANY live host, fresh or stale (proven
+# 2026-09-06: rebuilding under fresh post-build hosts still armed them).
+$liveHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js|mcp-wrapper\.cjs)' } |
+    Select-Object -Property ProcessId, CreationDate, CommandLine)
+
+if ($liveHosts.Count -gt 0) {
+    if ($Arm) {
+        Write-Result 'ARM' "-Arm override: rebuilding under $($liveHosts.Count) live RSM host(s). The new build is only served after a VS Code restart ([INTERACTIVE-ONLY])."
+    } else {
+        # ai-01 ARMÉ signature: hosts whose creation predates the current build/index.js mtime.
+        $buildIndex = Join-Path $BuildPath 'index.js'
+        $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
+        $staleCount = 0
+        foreach ($h in $liveHosts) {
+            if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
+                $staleCount++
+            }
+        }
+        $hostsDetail = "{0} live RSM host(s) (running from {1})" -f $liveHosts.Count, (Split-Path $McpServerPath -Leaf)
+        if ($staleCount -gt 0) {
+            $hostsDetail += ", {0} predating build/index.js (ARMÉ signature)" -f $staleCount
+        }
+        Write-Result 'ARMED-DEFER' "$hostsDetail. Rebuilding would arm the ESM mixed-millage crash (#3489) and break inbox until VS Code restart. Deferred — restart VS Code first, then re-run; or pass -Arm to override."
+        exit 0
+    }
 }
 
 if ($DryRun) {
