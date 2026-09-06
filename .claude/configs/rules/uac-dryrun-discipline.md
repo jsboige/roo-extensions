@@ -16,7 +16,7 @@
 
 Scripts concernés : schtasks (`Register/Unregister-ScheduledTask`), ACL/sécurité (`icacls`, `Set-Acl`), écritures `Program Files`/`Windows`/HKLM, install/désinstall service/driver, spawn `-Verb RunAs`/`sudo`, suppression de fichier protégé ou worktree sale.
 
-- PowerShell : `-WhatIf` natif ou `$WhatIfPreference` ; Bash : `--dry-run` ou mode echo-only.
+- PowerShell : `-WhatIf` natif ou son équivalent de construction (`New-ScheduledTask` — assemble et valide l'objet complet sans écrire — quand la cible est `Register-ScheduledTask`, cmdlet CDXML sans `SupportsShouldProcess`) ou `$WhatIfPreference` ; Bash : `--dry-run` ou mode echo-only.
 - **La sortie du dry-run est postée sur le dashboard avant le geste UAC** — traçabilité + audit croisé avant consommation de la fenêtre user.
 - Exemptés : lectures pures (`Get-*`, `Test-Path`), dry-runs triviaux sur fichier jetable déjà identifié.
 

@@ -65,6 +65,34 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 
 Inventaire complet : [`docs/harness/reference/roosync-tools-guide.md`](../../docs/harness/reference/roosync-tools-guide.md), [`conversation-browser-detailed.md`](../../docs/harness/reference/conversation-browser-detailed.md). Autres MCP : playwright (automation web), markitdown (PDF/DOCX->MD), searxng (web), sk-agent (vision/multi-agent).
 
+### Escalade cross-workspace — le cross-post donne le point de rendez-vous
+
+**Règle (arbitrage user 06/09/2026, promue depuis `jsboige/Maintenance@b704b52`).** Le dashboard **workspace** est le canal par défaut : tant qu'un sujet reste dans une lane, il y reste. **Dès qu'un problème devient cross-workspace, c'est l'opportunité de le remonter** — sur le dashboard `global`, et potentiellement sur le dashboard `machine` s'il est spécifique à une machine.
+
+**Le mécanisme est le cross-post, et sa fonction est de désigner un point de rendez-vous unique.** Escalader ne veut pas dire recopier le sujet partout : cela veut dire poster **une fois** à l'échelon supérieur, en disant explicitement où la suite se passe, puis n'utiliser les DM que pour pointer vers cet endroit.
+
+| Portée du sujet | Canal | Geste |
+|---|---|---|
+| Une seule lane | dashboard `workspace` | `append` normal |
+| Plusieurs workspaces / plusieurs machines | dashboard **`global`** | `append` + `crossPost` vers les workspaces concernés |
+| Spécifique à une machine mais traversant ses lanes | dashboard **`machine`** | `append`/`update` + `crossPost` |
+
+```
+roosync_dashboard(action:"append", type:"global", content:"...",
+                  crossPost:[{type:"workspace", workspace:"roo-extensions"},
+                             {type:"workspace", workspace:"claudish"}])
+```
+
+**Pourquoi.** Un sujet cross-workspace traité en messages point-à-point produit autant de fils qu'il y a de destinataires : personne ne voit l'état consolidé, les réponses atterrissent dans des inbox disjointes, et le premier qui agit ignore ce que les autres ont déjà fait. Le cross-post inverse la charge — **un seul endroit fait foi, les DM ne font plus qu'y renvoyer.**
+
+**À écrire dans le message d'escalade**, sinon le rendez-vous ne tient pas :
+1. **Qui porte quel volet** (tableau de répartition explicite).
+2. **Ce qui est en cours à l'instant**, pour que personne ne le refasse en double.
+3. **Ce qui est attendu en retour** de chaque lane.
+4. **Les effets de bord annoncés** (ex. « un redémarrage de conteneur va couper les connexions dans les minutes qui viennent ») — un effet de bord non annoncé se lit comme une panne chez le voisin.
+
+**Précédent fondateur** — chantier « pression de ressources » du 06/09/2026 : PostgreSQL saturé côté serveur (Maintenance), pools clients (roo-extensions), mesure fleet-wide (6 lanes Maintenance), trafic proxy (claudish). Quatre porteurs, un seul dashboard `global`.
+
 ## SDDD — Triple grounding
 
 Croiser **Technique** (code = verite : Read/Grep/Glob/Git), **Conversationnel** (`conversation_browser`), **Semantique** (`codebase_search` + `roosync_search`). Jamais une seule source.
