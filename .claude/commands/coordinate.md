@@ -104,15 +104,20 @@ CODEOWNERS. Une PR d'un autre qui attend ma review est bloquee **par moi**, et n
 
 ```bash
 gh pr list --repo jsboige/roo-extensions --state open \
-  --json number,title,author,reviewDecision,updatedAt \
-  --jq '.[]|"parent #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE") maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
+  --json number,title,author,reviewDecision,updatedAt,isDraft \
+  --jq '.[]|"parent #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE")\(if .isDraft then " DRAFT" else "" end) maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
 gh pr list --repo jsboige/jsboige-mcp-servers --state open \
-  --json number,title,author,reviewDecision,updatedAt \
-  --jq '.[]|"submod #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE") maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
+  --json number,title,author,reviewDecision,updatedAt,isDraft \
+  --jq '.[]|"submod #\(.number) \(.author.login) review=\(.reviewDecision // "AUCUNE")\(if .isDraft then " DRAFT" else "" end) maj=\(.updatedAt[0:10]) — \(.title[0:58])"'
 ```
 
 `review=AUCUNE` sur la PR **d'un autre** = dette d'approbation. `review=CHANGES_REQUESTED` sur **la
-mienne** = dette de reparation. ⚠️ Le depot submodule est **`jsboige/jsboige-mcp-servers`**, pas
+mienne** = dette de reparation. **`DRAFT` = ni l'un ni l'autre** : un brouillon est bloque
+sur son AUTEUR, pas sur moi — mais `reviewDecision` y vaut `REVIEW_REQUIRED` exactement comme sur
+une vraie dette, donc sans `isDraft` le balayage m'en fabrique une a chaque cycle. Mesure 07/09 :
+submod #861, brouillon en conflit depuis le 14/07, remontait en dette d'approbation depuis deux mois.
+
+⚠️ Le depot submodule est **`jsboige/jsboige-mcp-servers`**, pas
 `roo-state-manager` : une PR submod s'oublie deux fois, son depot ne porte pas le nom du produit.
 
 **2. Inbox** : `roosync_messages(action: "inbox", status: "unread")` — un non-lu est une dette.
