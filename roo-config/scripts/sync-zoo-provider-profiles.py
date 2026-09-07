@@ -301,11 +301,153 @@ def build_new_blob(model_configs, env, current_blob, strict):
     return blob
 
 
-def mask(value):
-    """Mask secret-like string values for safe logging."""
-    if isinstance(value, str) and any(s in value.lower() for s in ("apikey", "token", "secret")) and len(value) > 8:
-        return value[:4] + "…" + value[-3:] + f" ({len(value)} chars)"
+def mask(value, key_name=""):
+    """Mask secret-like values, keyed on the FIELD NAME.
+
+    The previous version tested the VALUE for the substrings apikey/token/secret -- words a real
+    API key never contains -- so it masked nothing and printed provider keys in cleartext
+    (observed 2026-09-07 on a --dry-run). The field name is what actually says "this is a secret".
+    """
+    name = (key_name or "").lower()
+    secretish = ("apikey", "api_key", "token", "secret", "password")
+    if not isinstance(value, str) or not value:
+        return value
+    if any(s in name for s in secretish) or any(s in value.lower() for s in secretish):
+        if len(value) > 8:
+            return value[:4] + "…" + value[-3:] + " (" + str(len(value)) + " chars)"
+        return "…(set, " + str(len(value)) + " chars)"
     return value
+
+
+# --- globalSettings (codebase indexing) ---
+# Why this exists: providers were deployed as-code (#2543) but codebaseIndexConfig was not,
+# so `globalSettings` went out EMPTY and every machine kept whatever indexing state it had
+# locally -- in practice, disabled. A workspace with indexing off has no ws-* collection, and
+# codebase_search answers `collection_not_found`.
+#
+# Split of responsibilities, imposed by Zoo's own schemas (verified in roo-code):
+#   - NON-SECRET keys live in globalSettings.codebaseIndexConfig (codebaseIndexConfigSchema,
+#     reachable through globalSettingsSchema -> contextProxy.setValues).
+#   - The two SECRETS the indexer actually reads -- getSecret("codeIndexQdrantApiKey") and
+#     getSecret("codebaseIndexOpenAiCompatibleApiKey") (config-manager.ts) -- are NOT in
+#     globalSettingsSchema; a top-level key there would be silently STRIPPED by Zod. They are
+#     fields of codebaseIndexProviderSchema, merged into providerSettingsSchema
+#     (provider-settings.ts), so they travel in the provider profile and land in SecretStorage
+#     via importSettings -> setProviderSettings -> setValues -> storeSecret.
+# Hence: put the URLs/model/dimension here, and the two keys in the `default` apiConfig.
+def build_global_settings(model_configs, env, strict):
+    """Resolve model-configs.globalSettings ({{SECRET:...}} aware). Returns {} when absent."""
+    raw = model_configs.get("globalSettings")
+    if not isinstance(raw, dict) or not raw:
+        return {}
+    js = json.dumps(raw)
+    resolved, missing = resolve_secret_placeholders(js, env, strict)
+    if missing:
+        miss = ", ".join(sorted(set(missing)))
+        if strict:
+            sys.exit(f"[FATAL] Unresolved {{{{SECRET:...}}}} in globalSettings: {miss} (missing in .env)")
+        # Never emit a literal placeholder as a value.
+        print(f"[WARN] globalSettings dropped: unresolved secret(s) {miss}", file=sys.stderr)
+        return {}
+    return json.loads(resolved)
+
+
+def attach_index_secrets(new_blob, model_configs, env, strict):
+    """Attach codebaseIndexSecrets to the CURRENT apiConfig, where Zoo will pick them up.
+
+    Why not globalSettings: the two keys the indexer reads -- getSecret("codeIndexQdrantApiKey")
+    and getSecret("codebaseIndexOpenAiCompatibleApiKey") -- are absent from globalSettingsSchema,
+    so Zod would silently strip them from the import. They ARE fields of
+    codebaseIndexProviderSchema, merged into providerSettingsSchema, so the route that works is
+    importSettings -> setProviderSettings(currentProvider) -> setValues -> storeSecret.
+
+    Unresolved secrets are SKIPPED, never fatal: a machine missing the var must not lose its
+    whole provider profile (build_new_blob's skip path) just because indexing is unavailable.
+    """
+    src = model_configs.get("codebaseIndexSecrets")
+    if not isinstance(src, dict) or not src:
+        return {}
+    cur_name = new_blob.get("currentApiConfigName")
+    cur = new_blob.get("apiConfigs", {}).get(cur_name)
+    if not isinstance(cur, dict):
+        print("[WARN] no current apiConfig -- index secrets not attached", file=sys.stderr)
+        return {}
+    attached = {}
+    for k, v in src.items():
+        if not isinstance(v, str):
+            continue
+        rv, missing = resolve_secret_placeholders(v, env, strict)
+        if missing:
+            print("[WARN] index secret " + k + " unresolved (" + ", ".join(sorted(set(missing)))
+                  + ") -- indexing will 401 on this machine", file=sys.stderr)
+            continue
+        cur[k] = rv
+        attached[k] = rv
+    return attached
+
+
+def preflight_index_credentials(global_settings, attached):
+    """Probe the endpoints with the RESOLVED keys BEFORE arming indexing.
+
+    Measured on ai-01 the day this was written: the repo-root .env carried an EMBEDDING_API_KEY
+    that 401s, while a different, working key lived in the roo-state-manager .env. Shipping
+    codebaseIndexEnabled=true with that credential would have armed indexing on 7 machines and
+    authenticated on none -- a fleet-wide failure that looks exactly like a successful deploy.
+    So: a credential that cannot authenticate DISARMS the flag instead of shipping a false green.
+    Network errors are NOT treated as auth failures (an offline machine must not disarm itself).
+    """
+    cic = (global_settings or {}).get("codebaseIndexConfig")
+    if not cic or not cic.get("codebaseIndexEnabled"):
+        return global_settings
+    import urllib.request, urllib.error, json as _json
+
+    def probe(url, headers, body=None):
+        req = urllib.request.Request(url, data=body, headers=headers,
+                                     method="POST" if body else "GET")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as r:
+                return r.status, None
+        except urllib.error.HTTPError as e:
+            return e.code, None
+        except Exception as e:
+            return None, str(e)
+
+    failures = []
+    qurl = (cic.get("codebaseIndexQdrantUrl") or "").rstrip("/")
+    qkey = attached.get("codeIndexQdrantApiKey")
+    if qurl and qkey:
+        code, err = probe(qurl + "/collections", {"api-key": qkey})
+        if err:
+            print("[i] qdrant probe skipped (network): " + err, file=sys.stderr)
+        elif code in (401, 403):
+            failures.append("qdrant " + qurl + " rejected codeIndexQdrantApiKey (HTTP "
+                            + str(code) + ")")
+
+    eurl = cic.get("codebaseIndexOpenAiCompatibleBaseUrl") or ""
+    ekey = attached.get("codebaseIndexOpenAiCompatibleApiKey")
+    if eurl and ekey:
+        payload = _json.dumps({"model": cic.get("codebaseIndexEmbedderModelId"),
+                               "input": "preflight"}).encode("utf-8")
+        code, err = probe(eurl, {"Authorization": "Bearer " + ekey,
+                                 "Content-Type": "application/json"}, payload)
+        if err:
+            print("[i] embeddings probe skipped (network): " + err, file=sys.stderr)
+        elif code in (401, 403):
+            failures.append("embeddings " + eurl + " rejected codebaseIndexOpenAiCompatibleApiKey"
+                            + " (HTTP " + str(code) + ")")
+
+    if failures:
+        print("", file=sys.stderr)
+        print("[FAIL] index credential preflight:", file=sys.stderr)
+        for f in failures:
+            print("       - " + f, file=sys.stderr)
+        print("[FAIL] codebaseIndexEnabled forced to FALSE -- fix the credential in .env, "
+              "then rerun. Arming indexing with a rejected key breaks it silently.",
+              file=sys.stderr)
+        cic["codebaseIndexEnabled"] = False
+    else:
+        print("[OK] index credential preflight: endpoints accept the resolved keys.")
+    return global_settings
 
 
 # --- zoo-code autoImport (self-healing native import) ---
@@ -314,13 +456,13 @@ def mask(value):
 # activation Zoo ITSELF calls importSettingsFromPath -> providerSettingsManager.import ->
 # writes SecretStorage with an in-memory-consistent state that survives the next flush.
 # Run on every activation -> re-asserts the good config every restart. Issue #2543 durable fix.
-def emit_import_file(path_str, new_blob, set_vscode_setting):
+def emit_import_file(path_str, new_blob, global_settings, set_vscode_setting):
     """
     Write {providerProfiles, globalSettings} to `path_str` in the exact shape Zoo's
     importSettingsFromPath expects (mirrors exportSettings). Keys are RESOLVED (plaintext),
     so `path_str` MUST be outside the repo / gitignored (home dir recommended).
     """
-    import_file = {"providerProfiles": new_blob, "globalSettings": {}}
+    import_file = {"providerProfiles": new_blob, "globalSettings": global_settings or {}}
     # Expand once (~ + relative) and use the EXPANDED path consistently: the file is written
     # there AND the same path goes into settings.json. roo-code's resolvePath() DOES expand
     # `~`, but we don't depend on that contract — an absolute path is unambiguous for both sides.
@@ -457,7 +599,7 @@ def summarize(blob):
         prov = cfg.get("apiProvider")
         model = cfg.get("openAiModelId") or cfg.get("apiModelId")
         base = cfg.get("openAiBaseUrl", "")
-        key = mask(str(cfg.get("openAiApiKey", "")))
+        key = mask(str(cfg.get("openAiApiKey", "")), "openAiApiKey")
         print(f"  [{name}] id={cfg.get('id')} provider={prov} model={model}")
         print(f"        baseUrl={base}")
         print(f"        apiKey={key}")
@@ -527,12 +669,30 @@ def main():
         model_configs = json.load(f)
     env = load_env(args.env)
     new_blob = build_new_blob(model_configs, env, current_blob, args.strict)
+    global_settings = build_global_settings(model_configs, env, args.strict)
+    index_secrets = attach_index_secrets(new_blob, model_configs, env, args.strict)
+    global_settings = preflight_index_credentials(global_settings, index_secrets)
 
     print("\n=== PLANNED BLOB ===")
     summarize(new_blob)
 
+    # Indexing is deployed through TWO channels (see build_global_settings): show both,
+    # so a dry-run cannot look green while half the config is missing.
+    cic = (global_settings or {}).get("codebaseIndexConfig")
+    print("\n=== PLANNED globalSettings.codebaseIndexConfig ===")
+    if not cic:
+        print("  (absent from model-configs.json -- indexing NOT deployed)")
+    else:
+        for k, v in cic.items():
+            print(f"  {k} = {mask(v, k)}")
+        cur_name = new_blob.get("currentApiConfigName")
+        cur = new_blob.get("apiConfigs", {}).get(cur_name, {})
+        for k in ("codeIndexQdrantApiKey", "codebaseIndexOpenAiCompatibleApiKey"):
+            state = "set" if cur.get(k) else "MISSING (indexer will 401)"
+            print(f"  [secret in '{cur_name}'] {k} = {state}")
+
     if args.emit_import:
-        emit_import_file(args.emit_import, new_blob,
+        emit_import_file(args.emit_import, new_blob, global_settings,
                          set_vscode_setting=args.set_vscode_setting)
         return
 
