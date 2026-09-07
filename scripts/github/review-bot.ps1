@@ -1,16 +1,34 @@
 ﻿# review-bot.ps1 - Automated PR review bot for #1767 Phase 2
 #
 # Non-interactive, cron-safe script that:
-# 1. Polls PRs authored by the coordinator (myia-ai-01)
+# 1. Polls open PRs - default repo jsboige/jsboige-mcp-servers, no author
+#    filter by default (#1767: the PRs that actually block live in the
+#    submodule and are authored by jsboige)
 # 2. Checks CI status, restricted labels, and runs no-complaisance audit
-# 3. Auto-approves if all checks pass, or comments with flagged issues
+# 3. Posts a review if all checks pass, or comments with flagged issues
 # 4. Does NOT merge (coordinator handles merge)
 #
+# APPROVE est OPT-IN (-AllowApprove). Sans ce commutateur, toute passe est
+# postee en --comment, jamais en --approve. Ce defaut existe parce que
+# l'arbitrage utilisateur du 13/05 sur #1767 dit : << je ne suis pas pour que
+# tout le monde ait le pouvoir de merger, mais tout le monde doit pouvoir
+# utiliser github correctement et notamment faire des comments et des
+# reviews >>. La frontiere approve/comment n'est pas tranchee et ce script ne
+# doit pas la trancher a la place de l'utilisateur.
+#
+# -Once : traite les PRs candidates puis rend la main - une seule passe,
+# aucune boucle, aucun sleep, code de sortie explicite (voir ci-dessous).
+# Pense pour etre invoque par le cycle /executor (4 h) : ce script
+# n'installe AUCUNE tache planifiee et n'appelle ni Register-ScheduledTask
+# ni schtasks.
+#
 # Usage:
-#   .\review-bot.ps1                            # Review all eligible PRs
-#   .\review-bot.ps1 -DryRun                    # Print what would happen
-#   .\review-bot.ps1 -Verbose                   # Detailed output
-#   .\review-bot.ps1 -AuthorFilter "myia-ai-01" # Override author filter
+#   .\review-bot.ps1 -Once                                 # Single pass, comment-only
+#   .\review-bot.ps1 -Once -DryRun                         # Print what would happen
+#   .\review-bot.ps1 -Once -VerboseOutput                  # Detailed output
+#   .\review-bot.ps1 -Once -Repo "jsboige/roo-extensions"  # Target another repo
+#   .\review-bot.ps1 -Once -AuthorFilter "myia-ai-01"      # Restrict to one author
+#   .\review-bot.ps1 -Once -AllowApprove                   # Opt in to --approve
 #
 # Exit codes:
 #   0 = Success (PRs reviewed or none eligible)
@@ -20,11 +38,13 @@
 # Part of issue #1767 Phase 2: Distributed review bots
 
 param(
-    [string]$Repo = "jsboige/roo-extensions",
-    [string]$AuthorFilter = "myia-ai-01",
+    [string]$Repo = "jsboige/jsboige-mcp-servers",
+    [string]$AuthorFilter = "",
     [int]$MaxDiffChars = 50000,
     [switch]$DryRun,
-    [switch]$VerboseOutput
+    [switch]$VerboseOutput,
+    [switch]$AllowApprove,
+    [switch]$Once
 )
 
 $ErrorActionPreference = "Stop"
@@ -133,14 +153,22 @@ function Test-RestrictedLabels {
 # --- Main logic ---
 
 Write-Log "=== Review Bot Started ===" "INFO"
-Write-Log "Machine: $MachineName | Repo: $Repo | Author filter: $AuthorFilter" "INFO"
+$AuthorDisplay = if ([string]::IsNullOrEmpty($AuthorFilter)) { "(all)" } else { $AuthorFilter }
+Write-Log "Machine: $MachineName | Repo: $Repo | Author filter: $AuthorDisplay" "INFO"
 if ($DryRun) {
-    Write-Log "MODE: DRY RUN (no approve/comment)" "WARN"
+    Write-Log "MODE: DRY RUN (no review posted)" "WARN"
+}
+if ($Once) {
+    Write-Log "MODE: ONCE - single pass, returns immediately (for /executor cycle)" "INFO"
 }
 
-# Step 1: Fetch eligible PRs
-Write-Log "Fetching PRs authored by $AuthorFilter..." "INFO"
-$prListJson = Invoke-GhSafe "gh pr list --repo $Repo --state open --search `"author:$AuthorFilter`" --json number,title,labels,reviewDecision,author"
+# Step 1: Fetch eligible PRs (empty author filter = all open PRs are candidates)
+$searchClause = ""
+if (-not [string]::IsNullOrEmpty($AuthorFilter)) {
+    $searchClause = " --search `"author:$AuthorFilter`""
+}
+Write-Log "Fetching open PRs (author filter: $AuthorDisplay)..." "INFO"
+$prListJson = Invoke-GhSafe "gh pr list --repo $Repo --state open$searchClause --json number,title,labels,reviewDecision,author"
 if ($null -eq $prListJson) {
     Write-Log "Failed to fetch PR list" "ERROR"
     exit 1
@@ -148,11 +176,11 @@ if ($null -eq $prListJson) {
 
 $prList = $prListJson | ConvertFrom-Json
 if ($prList.Count -eq 0) {
-    Write-Log "No open PRs found for author $AuthorFilter" "INFO"
+    Write-Log "No open PRs found (author filter: $AuthorDisplay)" "INFO"
     exit 2
 }
 
-Write-Log "Found $($prList.Count) PR(s) for author $AuthorFilter" "INFO"
+Write-Log "Found $($prList.Count) open PR(s) (author filter: $AuthorDisplay)" "INFO"
 
 # Step 2: Process each PR
 $approved = 0
@@ -238,8 +266,15 @@ foreach ($pr in $prList) {
     $botIdentity = "$MachineName-review-bot"
 
     if ($allFindings.Count -eq 0) {
+        # Approve is opt-in (#1767): without -AllowApprove the pass is a plain comment
+        $reviewFlag = "--comment"
+        $reviewHeader = "Checks passed - comment-only review by $botIdentity"
+        if ($AllowApprove) {
+            $reviewFlag = "--approve"
+            $reviewHeader = "Auto-approve by $botIdentity"
+        }
         $approveBody = @"
-## Auto-approve by $botIdentity
+## $reviewHeader
 
 **Checks passed:**
 - CI: green
@@ -253,20 +288,20 @@ foreach ($pr in $prList) {
 *This is an automated review by $botIdentity. No merge performed — coordinator handles merge.*
 "@
         if ($DryRun) {
-            Write-Log "[DRY RUN] Would APPROVE PR #$prNumber" "OK"
+            Write-Log "[DRY RUN] Would post $reviewFlag review on PR #$prNumber" "OK"
             if ($VerboseOutput) { Write-Host $approveBody }
         }
         else {
             # Write body to temp file to avoid quoting issues
             $tempFile = [System.IO.Path]::GetTempFileName()
             [System.IO.File]::WriteAllText($tempFile, $approveBody, [System.Text.UTF8Encoding]::new($false))
-            $result = Invoke-GhSafe "gh pr review $prNumber --repo $Repo --approve --body-file $tempFile"
+            $result = Invoke-GhSafe "gh pr review $prNumber --repo $Repo $reviewFlag --body-file $tempFile"
             Remove-Item $tempFile -ErrorAction SilentlyContinue
             if ($null -ne $result) {
-                Write-Log "APPROVED PR #$prNumber" "OK"
+                Write-Log "Posted $reviewFlag review on PR #$prNumber" "OK"
             }
             else {
-                Write-Log "Failed to approve PR #$prNumber" "ERROR"
+                Write-Log "Failed to post $reviewFlag review on PR #$prNumber" "ERROR"
                 continue
             }
         }
@@ -310,5 +345,5 @@ $($allFindings | ForEach-Object { "- $_" }) -join "`n"
 
 # Summary
 Write-Log "`n=== Review Bot Complete ===" "INFO"
-Write-Log "Total: $($prList.Count) | Approved: $approved | Flagged: $flagged | Skipped: $skipped" "INFO"
+Write-Log "Total: $($prList.Count) | Passed: $approved | Flagged: $flagged | Skipped: $skipped" "INFO"
 exit 0
