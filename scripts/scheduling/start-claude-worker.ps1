@@ -1865,26 +1865,42 @@ function Sync-McpSubmoduleBuild {
         git -C $Path submodule update --init mcps/internal 2>&1 | Out-Null
         $ErrorActionPreference = $prevPref2
 
-        # Rebuild so the host MCP serves the current source at next restart
-        $prevPref3 = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        Push-Location $McpServerPath
-        try {
-            # Clean build/ to prevent stale artifacts (tsc never prunes)
-            Remove-Item (Join-Path $McpServerPath "build") -Recurse -Force -ErrorAction SilentlyContinue
-            # Use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to npm.ps1, and
-            # `& npm ...` corrupts arg passing → "Unknown command: pm", silent rebuild failure
-            # (same as ensure-build-fresh.ps1 #2857). npm.cmd bypasses the wrapper.
-            $buildOutput = & npm.cmd run build 2>&1
-            $buildExit = $LASTEXITCODE
-            if ($buildExit -eq 0) {
-                Write-Log "Host MCP build regenerated (deploy-lag mitigation). Restart VS Code to activate the new build." "INFO"
-            } else {
-                Write-Log "Host MCP rebuild FAILED (exit $buildExit) — worker proceeds on existing build. Output: $($buildOutput | Select-Object -Last 5 | Out-String)" "WARN"
+        # Rebuild so the host MCP serves the current source at next restart — THROUGH the
+        # guarded helper, never inline (#3489 arbitration, 2026-09-08).
+        #
+        # This block used to `Remove-Item build/` + `npm run build` with NO host probe at
+        # all. That is the worst placement on the fleet: the worker is a SCHEDULED process
+        # and cannot restart VS Code. Rebuilding here replaces the ESM modules every live
+        # RSM host has already imported -> `assertSharedStoreAccessible` on their next
+        # dynamic import -> inbox unreadable, with nobody able to close the armed window
+        # (measured po-2024, 2026-09-07 02:08Z). `-Headless` IS that contract, and this is
+        # the caller it was introduced for.
+        #
+        # The helper owns the decision AND the build: its `npm run build` runs `clean:build`
+        # first, so the explicit Remove-Item was redundant — and it was the destructive half,
+        # running before any probe. Staleness is now decided on mtime rather than on the
+        # pointer alone, which is strictly more precise: a pointer bump touching only tests
+        # or docs no longer forces a runtime rebuild.
+        $ensureScript = Join-Path $Path 'scripts\claude\ensure-build-fresh.ps1'
+        if (-not (Test-Path $ensureScript)) {
+            Write-Log "ensure-build-fresh.ps1 absent ($ensureScript) — host MCP rebuild SKIPPED. An unguarded inline rebuild is not an acceptable fallback (#3489)." "WARN"
+        } else {
+            $prevPref3 = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            try {
+                # `powershell`, not `pwsh`: PS7 is absent on some fleet machines (#2368).
+                $guardOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $ensureScript -RepoRoot $Path -Headless 2>&1
+                $verdict = ($guardOutput | Select-Object -Last 3 | Out-String).Trim()
+                if ($verdict -match 'ARMED-DEFER') {
+                    Write-Log "Host MCP rebuild DEFERRED under live RSM hosts (#3489): a worker cannot restart VS Code, so rebuilding would arm the ESM crash with nobody to disarm it. The machine stays STALE until an interactive session rebuilds — that is the safe failure mode, not a silent success. Verdict: $verdict" "WARN"
+                } else {
+                    Write-Log "Host MCP build sync (deploy-lag mitigation). Verdict: $verdict" "INFO"
+                }
+            } catch {
+                Write-Log "ensure-build-fresh invocation threw (non-fatal): $_" "WARN"
+            } finally {
+                $ErrorActionPreference = $prevPref3
             }
-        } finally {
-            Pop-Location
-            $ErrorActionPreference = $prevPref3
         }
     } catch {
         Write-Log "Sync-McpSubmoduleBuild error (non-fatal): $_" "WARN"
