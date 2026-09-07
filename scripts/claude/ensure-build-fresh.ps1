@@ -130,26 +130,37 @@ if (-not $buildNewest) {
 # crashes with `assertSharedStoreAccessible`, making `roosync_messages` (inbox) unreadable
 # until VS Code restart. The crash is armed by ANY live host, fresh or stale (proven
 # 2026-09-06: rebuilding under fresh post-build hosts still armed them).
-$liveHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js|mcp-wrapper\.cjs)' } |
+#
+# Each VS Code RSM session spawns TWO distinct node processes: `mcp-wrapper.cjs` (parent)
+# and `build/index.js` (child). The roles are 1:1 per session, so the message must count
+# each role once — not the process count — to give the human operator the number of sessions
+# at stake (ai-01 review note, 2026-09-06 23:28Z). The ARMÉ signature is computed against
+# `build/index.js` processes specifically: they are the ones that loaded the ESM modules
+# the next dynamic import would mismatch.
+$indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |"|$)' } |
     Select-Object -Property ProcessId, CreationDate, CommandLine)
+$wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
+    Select-Object -Property ProcessId, CreationDate, CommandLine)
+$liveHosts = @($indexHosts + $wrapperHosts)
 
 if ($liveHosts.Count -gt 0) {
     if ($Arm) {
-        Write-Result 'ARM' "-Arm override: rebuilding under $($liveHosts.Count) live RSM host(s). The new build is only served after a VS Code restart ([INTERACTIVE-ONLY])."
+        Write-Result 'ARM' "-Arm override: rebuilding under $($indexHosts.Count) RSM session(s) ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js procs). The new build is only served after a VS Code restart ([INTERACTIVE-ONLY])."
     } else {
-        # ai-01 ARMÉ signature: hosts whose creation predates the current build/index.js mtime.
+        # ai-01 ARMÉ signature: index.js processes whose creation predates the current build/index.js mtime.
         $buildIndex = Join-Path $BuildPath 'index.js'
         $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
         $staleCount = 0
-        foreach ($h in $liveHosts) {
+        foreach ($h in $indexHosts) {
             if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
                 $staleCount++
             }
         }
-        $hostsDetail = "{0} live RSM host(s) (running from {1})" -f $liveHosts.Count, (Split-Path $McpServerPath -Leaf)
+        $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js), running from {1}" -f $indexHosts.Count, (Split-Path $McpServerPath -Leaf)
         if ($staleCount -gt 0) {
-            $hostsDetail += ", {0} predating build/index.js (ARMÉ signature)" -f $staleCount
+            $hostsDetail += "; {0} build/index.js predating build/index.js (ARMÉ signature)" -f $staleCount
         }
         Write-Result 'ARMED-DEFER' "$hostsDetail. Rebuilding would arm the ESM mixed-millage crash (#3489) and break inbox until VS Code restart. Deferred — restart VS Code first, then re-run; or pass -Arm to override."
         exit 0
