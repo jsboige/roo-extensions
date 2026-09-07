@@ -3,8 +3,8 @@
 **Date:** 2026-08-31
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
-**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03)
-**Status:** ⚠️ **UPSTREAM BUG** — root cause lives in the Claude Code Agent tool, not in this repository. **Not reproducible on Claude Code 2.1.86** under a reconstructed trigger (see *Live re-validation* below); the original harness version is unknown and may still carry D1.
+**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07)
+**Status:** ⚠️ **UPSTREAM BUG — REPRODUCES ON CURRENT STABLE (2.1.236, 2026-09-07)** — root cause lives in the Claude Code Agent tool, not in this repository. Not reproducible on 2.1.86 only (see *Live reproduction on 2.1.236* below); the defect returned/stayed on stable, `isolation="remote"` still falls back silently to the local provisioner, and refused provisioning still leaves locked orphans. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
 
 ---
 
@@ -148,6 +148,75 @@ unknown version — it accepted `isolation="remote"`, which 2.1.86 does not even
 different build lineage that may still carry D1. The upstream report below remains worth filing,
 with the version pinned; the 2.1.86 datapoint goes in it as "latest stable does not reproduce".
 
+> **Superseded 2026-09-07:** "latest stable does not reproduce" no longer holds — see the next
+> section. D1, the `remote` silent fallback (F2), and the missing failure-path cleanup (D3) all
+> reproduce **deterministically on 2.1.236** (dist-tag `stable` that day). The 2.1.86 datapoint
+> remains valid for its version and now bounds the upstream bisection window from below.
+
+---
+
+## Live reproduction on Claude Code 2.1.236 — myia-po-2026 (2026-09-07)
+
+Firsthand, deterministic. Methodology identical to po-2024's R2 probe, refreshed for the then-current
+stable:
+
+- Scratch repo `C:\Users\jsboi\AppData\Local\Temp\3345-probe\repo` (one commit) with **two historical
+  worktrees** under `.claude/worktrees/` (`hist-1`, `hist-2`) — the criterion-1 trigger condition.
+- Headless claude spawned via `ProcessStartInfo.WorkingDirectory` set to the **lowercase-drive form**
+  `c:\Users\jsboi\AppData\Local\Temp\3345-probe\repo`; preservation into the child verified
+  (`node process.cwd(): c:\Users\jsboi\AppData\Local\Temp\3345-probe\repo`).
+- Claude Code **2.1.236** (dist-tag `stable` on 2026-09-07) via
+  `npx -y @anthropic-ai/claude-code@2.1.236` — npx cache hash `f49fa6589d7d9c67` verified to carry
+  `package.json` version 2.1.236 — with `DISABLE_AUTOUPDATER=1` so the machine's 2.1.41 install was
+  untouched. Machine's standard provider env (proxy auth) inherited unchanged.
+- Prompt: Task call with `isolation="worktree"` (step 1), Task call with `isolation="remote"`
+  (step 2), then `git worktree list` (step 3).
+
+| # | Question | Result |
+|---|----------|--------|
+| R1′ | Does D1 fire under the lowercase-drive trigger on 2.1.236? | **YES — verbatim incident refusal** (below) |
+| R2′ | Is `isolation="remote"` schema-rejected (as R4 measured on 2.1.86)? | **NO — accepted, and it silently provisioned a LOCAL worktree** → same refusal, second agent id. F2 is live on stable |
+| R3′ | Orphan locks after the refusal (D3)? | **YES — two `locked claude agent agent-… (pid 30992)` entries + directories left behind**, zero cleanup on the failure path |
+| R4′ | Is the worktree admin actually corrupt (real redirect)? | **NO** — gitfile `gitdir: C:/…/repo/.git/worktrees/agent-a75f651045fa09cc5`, admin `gitdir` back-pointer consistent, `core.worktree` unset → the refusal's parenthetical guesses are falsified; refused ≡ resolved modulo drive-letter case + separators |
+
+Verbatim refusal (step 1, `isolation="worktree"`):
+
+```
+Refusing to use c:\Users\jsboi\AppData\Local\Temp\3345-probe\repo\.claude\worktrees\agent-a75f651045fa09cc5 as an isolation worktree:
+git resolves its working tree to C:/Users/jsboi/AppData/Local/Temp/3345-probe/repo/.claude/worktrees/agent-a75f651045fa09cc5
+(a core.worktree redirect, or a checkout discovered above it), so commands run there would write outside the worktree.
+Remove the redirect, restore the worktree's own .git, or recreate the worktree, then retry.
+```
+
+Step 2 (`isolation="remote"`) produced the **same refusal** for a second locally created worktree
+(`agent-a1b07c0053e8af1de`): `remote` is an accepted enum value on 2.1.236 that stages a **local**
+worktree without any error naming the mode actually used. **This overturns the 2.1.86-era R4
+reading** ("remote structurally impossible") — the schema changed between the two builds and F2 is
+live again on stable. Post-run registry (excerpt):
+
+```
+worktree C:/Users/jsboi/AppData/Local/Temp/3345-probe/repo/.claude/worktrees/agent-a1b07c0053e8af1de
+branch refs/heads/worktree-agent-a1b07c0053e8af1de
+locked claude agent agent-a1b07c0053e8af1de (pid 30992)
+worktree C:/Users/jsboi/AppData/Local/Temp/3345-probe/repo/.claude/worktrees/agent-a75f651045fa09cc5
+branch refs/heads/worktree-agent-a75f651045fa09cc5
+locked claude agent agent-a75f651045fa09cc5 (pid 30992)
+```
+
+### Bisection window for upstream
+
+- 2.1.41 — feature absent (no `isolation` parameter on the Task tool).
+- 2.1.86 — **no repro** (R2, po-2024 2026-09-03; worktree path apparently derived from the resolved
+  main working tree, not the raw session cwd).
+- 2.1.236 — **reproduces** (this probe; deterministic; the raw lowercase cwd string is back in the
+  comparison chain).
+- 2.1.238 / 2.1.257 / 2.1.259 — CHANGELOG entries touch worktree-isolation **Bash-command** refusals,
+  not pre-flight provisioning validation; no entry up to 2.1.263 (checked 2026-09-07) matches D1.
+
+Upstream tracker: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618)
+(OPEN, labels `bug`/`has repro`/`platform:windows`/`area:agents`). The 2.1.236 reproduction was posted
+there as a bisection datapoint on 2026-09-07.
+
 ---
 
 ## Why this repo cannot fully fix it
@@ -226,24 +295,24 @@ git -C D:/Dev/CoursIA-2 worktree prune
 
 | Criterion | Status | Where |
 |-----------|--------|-------|
-| 1. Reproduce on Windows with multiple historical worktrees | ✅ po-2023 c.286 (synthetic + live observation) · real-repo dry-run audit po-2026 2026-09-02 (`C:/dev/CoursIA-2`: 20+ historical sibling worktrees, 0 `agent-*` orphan remaining, script exits clean) | — |
-| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3. **Not reproducible on 2.1.86** (R2, 2026-09-03); incident build unknown | `anthropics/claude-code` |
-| 3. `isolation="remote"` does not silently use local provisioner | ❌ Upstream (fallback observed firsthand in the issue). On 2.1.86 `remote` is **not an offered mode** (schema enum `["worktree"]` only, R4) — silent fallback structurally impossible there | `anthropics/claude-code` |
-| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script. Success-path cleanup verified clean on 2.1.86 (R3); the original *failure-path* refusal no longer triggers, so its orphan-producing path could not be re-exercised | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
-| 5. Windows test creating agent worktree + checking `rev-parse --show-toplevel` | ✅ 12 tests (incl. D1 normalization defect class, Windows-guarded) | `scripts/testing/unit/agent-worktree-isolation.Tests.ps1` |
-| 6. No orphan locked worktree after provisioning failure | ⚠️ Partial — defensive script | same as #4 |
+| 1. Reproduce on Windows with multiple historical worktrees | ✅ po-2023 c.286 (synthetic + live observation) · **deterministic live repro on 2.1.236** (2026-09-07, lowercase-drive cwd + 2 historical worktrees → verbatim refusal) · real-repo dry-run audit po-2026 2026-09-02 (`C:/dev/CoursIA-2`: 0 `agent-*` orphan remaining, script exits clean) | — |
+| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3. No-repro was 2.1.86-only; **reproduces on 2.1.236** (R1′, 2026-09-07); no matching fix in CHANGELOG up to 2.1.263 | `anthropics/claude-code#91618` |
+| 3. `isolation="remote"` does not silently use local provisioner, **or the real mode is documented** | ✅ documented (document-arm): on 2.1.236 `remote` is an accepted enum value that silently stages a **local** worktree (R2′, 2026-09-07 — supersedes the 2.1.86 "not offered" reading, which held only for that build). The defect itself remains upstream | this doc + `anthropics/claude-code#91618` |
+| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script. Failure-path orphan production **confirmed live on 2.1.236** (R3′: two locked `agent-*` left, no cleanup) → the script guards a real, current failure mode | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
+| 5. Windows test creating agent worktree + checking `rev-parse --show-toplevel` | ✅ 12 tests (incl. D1 normalization defect class, Windows-guarded), re-verified 12/12 on 2026-09-07 (Pester 6.1.0, pwsh 7.6.3, git 2.55.0.windows.4) | `scripts/testing/unit/agent-worktree-isolation.Tests.ps1` |
+| 6. No orphan locked worktree after provisioning failure | ⚠️ Partial — defensive script (same as #4) | same as #4 |
 
 ---
 
-## Upstream ticket recommendation
+## Upstream ticket
 
-When filing in the upstream `anthropics/claude-code` repository (or wherever the Agent tool lives), the technical content is:
+**Filed by an external reporter as [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618)**
+(*Windows: isolation-worktree safety check rejects valid worktree due to case-sensitive drive-letter
+comparison*, OPEN since 2026-09-02). A bisection datapoint comment (2.1.41 feature-absent / 2.1.86
+no-repro / **2.1.236 deterministic repro** + the `remote` silent-fallback observation) was posted
+there on 2026-09-07 from this investigation.
 
-> **Pin the harness version.** The incident build (2026-08-31) is unidentified — it accepted
-> `isolation="remote"`, which Claude Code 2.1.86 does not offer — while 2.1.86 does **not**
-> reproduce D1 under a reconstructed lowercase-drive trigger (worktree path appears to be derived
-> from the resolved main working tree, not the raw session cwd). The report should state both
-> facts so upstream can bisect between the two builds.
+The technical content that fed the ticket:
 
 
 > **Title:** Agent isolation worktree validation false-positives on Windows (drive-letter case / separator normalization)
