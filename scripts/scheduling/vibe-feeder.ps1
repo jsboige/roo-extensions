@@ -145,7 +145,15 @@ function Invoke-RsmAppend {
             $line = $readTask.Result
             if ($null -eq $line) { break }
             if ($line -match '"id"\s*:\s*3') {
-                $found = ($line -notmatch '"isError"\s*:\s*true')
+                # Succes = JSON-RPC "result" sans "error" ET sans MCP isError.
+                # Un rejet de schema arrive en "error" JSON-RPC (code -32603), pas en isError.
+                $found = $false
+                $parsed = $null
+                try { $parsed = $line | ConvertFrom-Json } catch { }
+                if ($parsed -and -not $parsed.error -and $parsed.result) {
+                    $found = (-not $parsed.result.isError)
+                }
+                Write-FeederLog -Level 'INFO' -Text ("reponse append: " + $line.Substring(0, [Math]::Min(400, $line.Length)))
                 break
             }
             $readTask = $proc.StandardOutput.ReadLineAsync()
@@ -194,8 +202,10 @@ foreach ($g in $grains) {
         exit 0
     }
     $noteId = "vibe-feeder-$env:COMPUTERNAME-$($g.id)-$(Get-Date -Format yyyyMMddHHmm)"
-    $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('WAKE-VIBE', 'vibe-feeder'); content = $payload; messageId = $noteId }
-    $posted = Invoke-RsmAppend -Args $appendArgs -TimeoutSec $TimeoutSec
+    # Le listener matche le token literal [WAKE-VIBE] en DEBUT DE LIGNE dans le corps
+    # (detection stricte #2004) — le parametre `tags` du MCP n'est pas rendu dans l'intercom.
+    $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('WAKE-VIBE', 'vibe-feeder'); content = "[WAKE-VIBE] $payload"; messageId = $noteId }
+    $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec $TimeoutSec
     if ($posted) {
         Write-FeederLog -Level 'INFO' -Text "[WAKE-VIBE] poste: grain $($g.id) -> workspace-CoursIA"
         exit 0
