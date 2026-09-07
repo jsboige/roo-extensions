@@ -1,5 +1,5 @@
 ﻿# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
-# Usage: pwsh -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm]
+# Usage: powershell -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm] [-Headless]
 #
 # WHY: Interactive Claude Code executor sessions run `git submodule update` (Phase 0)
 # which refreshes the TypeScript SOURCE but never triggers `npm run build`. The compiled
@@ -14,13 +14,22 @@
 # Idempotent: a no-op when the build is already fresh. Non-fatal: a build failure logs WARN
 # and exits 0 so it never blocks the executor session.
 #
-# ARM GUARD (#3489): rebuilding `build/` while live RSM host processes are running produces
-# mixed ESM graphs -> the `assertSharedStoreAccessible` crash on the next dynamic import,
-# which makes `roosync_messages` (inbox) unreadable until VS Code restart. Rebuilding under
-# ANY live RSM host arms that crash (proven 2026-09-06: a rebuild under fresh post-build
-# hosts still armed them). So when a rebuild is required AND >=1 live RSM host is running,
-# the helper REFUSES to rebuild and exits with `ARMED-DEFER`. Escape hatch = `-Arm` (named,
-# used deliberately by the interactive session when it is about to restart VS Code).
+# ARM GUARD (#3489, revised by the #3489 FRICTION arbitration): rebuilding `build/` while a
+# live RSM host process runs produces mixed ESM graphs -> the `assertSharedStoreAccessible`
+# crash on the next dynamic import, which makes `roosync_messages` (inbox) unreadable until a
+# VS Code restart. Any live host is armed by a rebuild, fresh or stale (proven 2026-09-06).
+#
+# What decides is NOT how many hosts are alive. RSM is the MCP of every session, so on an
+# interactive machine that count is never 0, and "refuse under live hosts" reduces to "never
+# rebuild" (measured 2026-09-07: po-2026 STALE 14 h across 4 executor cycles, po-2025
+# deadlocked; both released only by direct human mandate). What decides is whether the CALLER
+# can close the armed window with a restart:
+#   - interactive caller (default)   -> rebuild, then emit `ARM`. The machine is armed until
+#                                       the operator restarts VS Code; that restart is OWED.
+#   - headless caller (`-Headless`)  -> `ARMED-DEFER`. A worker/cron/pre-flight cannot restart
+#                                       VS Code, so its rebuild leaves the machine armed
+#                                       indefinitely (measured po-2024, 2026-09-07 02:08Z).
+# `-Arm` overrides `-Headless`, for a human running a scheduled path by hand under mandate.
 #
 # NOTE: This ensures the ON-DISK build is current. A separate, distinct failure mode — the
 # MCP host process serving a stale in-memory build even though build/ is fresh on disk —
@@ -29,7 +38,8 @@
 param(
     [string]$RepoRoot,
     [switch]$DryRun,
-    [switch]$Arm
+    [switch]$Arm,
+    [switch]$Headless
 )
 
 $ErrorActionPreference = 'Continue'
@@ -146,25 +156,28 @@ $wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -Err
 $liveHosts = @($indexHosts + $wrapperHosts)
 
 if ($liveHosts.Count -gt 0) {
-    if ($Arm) {
-        Write-Result 'ARM' "-Arm override: rebuilding under $($indexHosts.Count) RSM session(s) ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js procs). The new build is only served after a VS Code restart ([INTERACTIVE-ONLY])."
-    } else {
-        # ai-01 ARMÉ signature: index.js processes whose creation predates the current build/index.js mtime.
-        $buildIndex = Join-Path $BuildPath 'index.js'
-        $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
-        $staleCount = 0
-        foreach ($h in $indexHosts) {
-            if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
-                $staleCount++
-            }
+    # ARMÉ signature: index.js processes whose creation predates the current build/index.js
+    # mtime. Reported on BOTH branches — it names what the operator has to restart, and it is
+    # how a machine left armed is recognised after the fact.
+    $buildIndex = Join-Path $BuildPath 'index.js'
+    $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
+    $staleCount = 0
+    foreach ($h in $indexHosts) {
+        if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
+            $staleCount++
         }
-        $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js), running from {1}" -f $indexHosts.Count, (Split-Path $McpServerPath -Leaf)
-        if ($staleCount -gt 0) {
-            $hostsDetail += "; {0} build/index.js predating build/index.js (ARMÉ signature)" -f $staleCount
-        }
-        Write-Result 'ARMED-DEFER' "$hostsDetail. Rebuilding would arm the ESM mixed-millage crash (#3489) and break inbox until VS Code restart. Deferred — restart VS Code first, then re-run; or pass -Arm to override."
+    }
+    $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js), running from {1}" -f $indexHosts.Count, (Split-Path $McpServerPath -Leaf)
+    if ($staleCount -gt 0) {
+        $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
+    }
+
+    if ($Headless -and -not $Arm) {
+        Write-Result 'ARMED-DEFER' "$hostsDetail. Headless caller (worker/cron/pre-flight) cannot restart VS Code, so rebuilding here would leave the machine ARMED indefinitely (#3489) and inbox broken. Deferred — an interactive session must rebuild and restart. Pass -Arm to override under an explicit human mandate."
         exit 0
     }
+
+    Write-Result 'ARM' "$hostsDetail. Rebuilding now ARMS the ESM mixed-millage crash (#3489) on those sessions: the new build is served only after a VS Code restart, and inbox stays broken until then. THE RESTART IS OWED ([INTERACTIVE-ONLY])."
 }
 
 if ($DryRun) {

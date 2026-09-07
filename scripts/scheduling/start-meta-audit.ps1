@@ -158,7 +158,9 @@ $EnsureBuildScript = Join-Path $ScriptDir "..\claude\ensure-build-fresh.ps1"
 if (Test-Path $EnsureBuildScript) {
     Write-Log "Pre-flight: ensure-build-fresh (stale build = cause connue de RSM absent #2822)..."
     try {
-        $BuildVerdict = & pwsh -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript 2>&1 | Select-Object -Last 3
+        # -Headless: this is a scheduled path. It cannot restart VS Code, so it must never
+        # rebuild under live RSM hosts — it would leave the machine ARMED indefinitely (#3489).
+        $BuildVerdict = & pwsh -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript -Headless 2>&1 | Select-Object -Last 3
         foreach ($line in $BuildVerdict) { Write-Log "  [BUILD] $line" }
     } catch {
         Write-Log "Pre-flight ensure-build-fresh echoue (non fatal): $_" "WARN"
