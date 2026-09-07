@@ -15,7 +15,8 @@
 
 .NOTES
     Requires admin elevation (RunLevel Highest) for schtasks registration.
-    Run from an elevated PowerShell: pwsh -ExecutionPolicy Bypass -File .\install-dashboard-listener-schtask.ps1
+    Run from an elevated PowerShell (pwsh ou powershell 5.1 — fallback #2368) :
+    powershell -ExecutionPolicy Bypass -File .\install-dashboard-listener-schtask.ps1
 #>
 
 param(
@@ -57,9 +58,16 @@ if ($oldTask -and $oldTask.State -ne "Disabled") {
     Write-Host "Disabled old Claude-DashboardWatcher task."
 }
 
+# #2368 — pwsh (PS7) est absent de certaines machines (ex: po-2027) : fallback
+# sur powershell 5.1, présent partout. Le wrapper ne porte aucune syntaxe PS7
+# (audit #3338/#3339, compat 5.1 du depot).
 $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwshPath) {
-    Write-Host "ERROR: pwsh not found in PATH."
+    $pwshPath = (Get-Command powershell -ErrorAction SilentlyContinue).Source
+    if ($pwshPath) { Write-Host "pwsh absent — fallback powershell 5.1: $pwshPath" }
+}
+if (-not $pwshPath) {
+    Write-Host "ERROR: neither pwsh nor powershell found in PATH."
     exit 1
 }
 
