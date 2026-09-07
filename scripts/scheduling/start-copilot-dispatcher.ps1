@@ -1,10 +1,10 @@
 ﻿<#
 .SYNOPSIS
-    Copilot scheduler worker (Phase C fallback via gh copilot -p).
+    Copilot scheduler worker (Phase C fallback via copilot -p).
 
 .DESCRIPTION
     Scheduled worker that validates prerequisites, executes a real non-interactive
-    Copilot request through `gh copilot -p`, and records usage evidence.
+    Copilot request through `copilot -p`, and records usage evidence.
 
 .PARAMETER DryRun
     Print actions only.
@@ -343,15 +343,31 @@ function Invoke-PhaseCDispatch {
         # --allow-all-tools is REQUIRED for non-interactive mode (-p): without it,
         # Copilot cannot execute any tool (shell/file/git) and falls back to a
         # conversational "ready, standing by" no-op instead of doing real work
-        # (gh copilot --help: "required for non-interactive mode", env COPILOT_ALLOW_ALL).
+        # (copilot --help: "required for non-interactive mode", env COPILOT_ALLOW_ALL).
         # --no-ask-user: in -p non-interactive mode there is no user to answer the
         #   ask_user tool — without it the agent emits "Permission denied and could
         #   not request permission from user" on every tool call instead of running.
         # (kept --allow-all-tools, NOT --allow-all, to keep file-path/url scope
         #  restricted — po-204 review #3274: blast radius.)
         # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
-        $cmdOutput = & gh copilot -p $Prompt --allow-all-tools --no-ask-user 2>&1
-        $exit = $LASTEXITCODE
+        # PS 5.1 + $ErrorActionPreference='Stop' (set at the top of this script) turns
+        # ANY native stderr write into a TERMINATING error when it is merged with
+        # `2>&1`. `copilot` on Windows is an npm shim (copilot.ps1 -> node
+        # npm-loader.js) that writes to stderr on a perfectly successful run, so the
+        # call threw before $exit was ever assigned: the dispatcher logged
+        # "Phase C execution failed (exit=-1)" -- the INITIALISER, not a real exit
+        # code -- while Copilot had actually answered. Measured on ai-01 07/09: with
+        # EAP=Stop and 2>&1 the call throws; without 2>&1, rc=0 and the reply is
+        # correct. Stderr from a native command is not a PowerShell error; scope EAP
+        # to Continue around the call so it stays captured output.
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            $cmdOutput = & copilot -p $Prompt --allow-all-tools --no-ask-user 2>&1
+            $exit = $LASTEXITCODE
+        } finally {
+            $ErrorActionPreference = $prevEap
+        }
         $afterStatus = (& git -C $RepositoryRoot status --porcelain 2>$null | Out-String).Trim()
         Pop-Location
 
@@ -476,21 +492,36 @@ $targetIssueLine
 "@
 }
 
-# ========== CLI KNOWN-BAD GUARD (06/09) ==========
-# On these gh-copilot CLI versions the server-side approval judge refuses ALL
-# mutations on work-prompt sessions ("Permission denied and could not request
-# permission from user"), even with --allow-all-tools/--no-ask-user/--yolo:
-# every scheduled run burns ~15 premium credits and ends idle. Reproduced 3x on
-# 1.0.83 (05/09); last verified good: 1.0.78. Empty the list to re-arm the lane
-# once upstream fixes it.
-$Script:KnownBadCopilotCliVersions = @('1.0.83')
+# ========== CLI KNOWN-BAD GUARD (06/09, re-scoped 07/09) ==========
+# The guard MECHANISM stays; the list is empty because its only entry was
+# measured on ANOTHER RUNTIME than the one this script now invokes.
+#
+# 06/09 finding: "gh-copilot 1.0.83 refuses ALL mutations on work-prompt
+# sessions server-side (Permission denied and could not request permission
+# from user), reproduced 3x 05/09" -- measured through the `gh copilot`
+# EXTENSION. This script called that path too, so the datum matched its call
+# site. It no longer does: the invocation is the standalone `copilot` binary
+# (@github/copilot on npm), which is what the -p / --allow-all-tools /
+# --no-ask-user flags were written against -- the extension never had them.
+#
+# Firsthand on ai-01, 07/09, standalone 1.0.83, the exact shipped flags:
+#   * work-prompt session (glob + 2 reads + 2 edits + `git commit` via shell):
+#     ALL mutations applied, commit 8653400 present, `git status` clean, exit 0.
+#   * single-file mutation probe: file written, "Changes +1 -0", exit 0.
+# Zero "Permission denied" in either. Cost 4.13-8.63 credits/invocation over
+# four probes -- the trivial UNCACHED prompt was the DEAREST (8.63): the ~30k
+# system preamble dominates, so cadence costs more than task size.
+#
+# A version is known-bad only against the runtime it was measured on: re-adding
+# an entry here requires a probe through THIS call site, not the extension.
+$Script:KnownBadCopilotCliVersions = @()
 
 function Get-CopilotCliVersion {
     try {
         # Real output is multi-line ("GitHub Copilot CLI 1.0.83." + advice line):
         # PS returns an array, and -match on an array filters instead of parsing
         # ($Matches stays empty) — join first, match on the scalar.
-        $raw = (& gh copilot --version 2>$null) -join "`n"
+        $raw = (& copilot --version 2>$null) -join "`n"
         if ($raw -match 'CLI\s+v?(\d+\.\d+\.\d+)') {
             return $Matches[1]
         }
@@ -758,7 +789,7 @@ if ($DryRun) {
 if ($status -eq 'active') {
     Write-Log "Phase C fallback complete (real Copilot request executed)."
 } elseif ($status -eq 'blocked') {
-    Write-Log "Phase C fallback blocked (check gh copilot auth/runtime)."
+    Write-Log "Phase C fallback blocked (check copilot auth/runtime)."
 } else {
     Write-Log "Phase C fallback ended idle."
 }
