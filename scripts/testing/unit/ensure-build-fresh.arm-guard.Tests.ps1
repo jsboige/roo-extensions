@@ -68,4 +68,25 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
     It 'Preserves the FRESH no-op path' {
         $content | Should -Match 'build/ is up to date'
     }
+
+    It 'Counts each RSM role once: separate indexHosts and wrapperHosts (ai-01 review note)' {
+        # Each VS Code RSM session spawns TWO distinct node processes: mcp-wrapper.cjs (parent) +
+        # build/index.js (child). The c.28 merged #3493 aggregated both with a single regex,
+        # so a 30-session machine reported "60 live RSM host(s)". The role-once fix splits the
+        # filter into two variables so the message reports session count (30) plus the role split.
+        $content | Should -Match '\$indexHosts\s*=\s*@\(Get-CimInstance Win32_Process'
+        $content | Should -Match '\$wrapperHosts\s*=\s*@\(Get-CimInstance Win32_Process'
+        # The combined single filter must be gone (regression guard for the c.28 bug).
+        $content | Should -Not -Match 'roo-state-manager\[\\\\\]\(build\[\\\\/\]index\\\.js\|mcp-wrapper\\\.cjs\)'
+    }
+
+    It 'Computes the ARMÉ signature from index.js hosts only, not wrapper.cjs' {
+        # The wrapper.cjs hosts do NOT load the build/ ESM modules themselves; only the
+        # build/index.js child does. Counting wrappers in the "predating build/index.js" set
+        # would inflate the signature. The fix loops $indexHosts, not $liveHosts.
+        $indexHostsIdx = $content.IndexOf('$indexHosts')
+        $staleLoopIdx = $content.IndexOf('foreach ($h in $indexHosts)')
+        $staleLoopIdx | Should -BeGreaterThan $indexHostsIdx
+        $staleLoopIdx | Should -BeGreaterThan 0
+    }
 }
