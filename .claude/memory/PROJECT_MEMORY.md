@@ -320,8 +320,6 @@ Rule:
 
 ## Known Bugs / Gotchas
 
-## Known Bugs / Gotchas
-
 ### Critical (recurring)
 - **npm test blocks**: ALWAYS use `npx vitest run` not `npm test`
 - **MCP tools load at startup only**: Code changes need VS Code restart
