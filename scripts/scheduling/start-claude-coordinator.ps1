@@ -10,7 +10,8 @@
     1. Analyse le trafic RooSync (messages envoyes/recus par machine)
     2. Analyse l'activite Git recente (commits merges, auteurs)
     3. Evalue l'equilibre de charge entre les 6 machines
-    4. Dispatche/rebalance si necessaire
+    4. Signale les desequilibres de charge -- SANS dispatcher : le prompt impose
+       « 0 dispatch », le dispatch appartient au /coordinate interactif.
     5. Produit un rapport coordinateur sur GDrive
 
     IDLE GUARD (#1980):
@@ -66,6 +67,12 @@ param(
     [double]$MaxBudgetUsd = 1.50,   # IGNORÉ depuis 2026-07-01 (cap phantom retiré, mandate user) — conservé pour compat appelants
     [switch]$DryRun = $false,
     [double]$IdleThresholdHours = 8,
+
+    # Reaper de verrous morts (#490 suite, 2026-09-07). L'assignee EST le verrou de claim
+    # (Claim-GitHubIssue --add-assignee) et seul le chemin de SUCCES le rend
+    # (Mark-TaskAsComplete --remove-assignee). Un run mort laisse donc un verrou eternel.
+    [double]$LockStaleHours = 24,
+    [int]$MaxLocksReleased = 40,
     [switch]$Force = $false
 )
 
@@ -133,6 +140,124 @@ function Test-ClaudeCLI {
     }
 }
 
+function Invoke-StaleLockReaper {
+    <#
+    .SYNOPSIS
+    Libere les verrous de claim que des runs morts n'ont jamais rendus.
+
+    .DESCRIPTION
+    `start-claude-worker.ps1` cherche ses taches avec `no:assignee` -- filtre OBLIGATOIRE
+    cote serveur (#490) parce que l'assignee EST le verrou de claim (#1005). Le verrou est
+    pris par Claim-GitHubIssue (--add-assignee) et rendu par le SEUL Mark-TaskAsComplete
+    (--remove-assignee) : un run qui meurt en timeout, budget ou crash ne le rend jamais.
+
+    Mesure du 2026-09-07 sur jsboige/roo-extensions : 98 des 123 issues ouvertes portaient
+    `assignee=jsboige`, ramenant la fenetre reelle du worker a 24 issues. 67 de ces verrous
+    dataient de plus de 7 jours alors que le worker se borne lui-meme a 6 h.
+
+    DISCRIMINANT -- ne PAS se fier a l'acteur de l'assignation. Le worker s'assigne sous le
+    compte partage `jsboige`, exactement comme l'utilisateur humain : la timeline rend
+    `assigned par=jsboige qui=jsboige` dans les deux cas et ne discrimine rien. Le seul
+    signal fiable est le commentaire `[CLAIMED] by <agent> on <machine> at <ts>` que
+    Claim-GitHubIssue poste a la prise du verrou. Une issue assignee SANS ce commentaire est
+    presumee intention humaine et n'est PAS touchee.
+    #>
+    param(
+        [double]$StaleHours = 24,
+        [int]$MaxReleases = 40,
+        [switch]$WhatIfMode
+    )
+
+    Write-Log "LOCK REAPER: recherche des verrous de claim perimes (> ${StaleHours}h)..."
+
+    $Locked = $null
+    try {
+        $Raw = & gh issue list --repo jsboige/roo-extensions --state open --limit 200 `
+                 --json number,updatedAt,assignees 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            Write-Log "LOCK REAPER: gh issue list a echoue -- reaper saute (pas de conclusion)" "WARN"
+            return
+        }
+        $Locked = $Raw | ConvertFrom-Json
+    } catch {
+        Write-Log "LOCK REAPER: lecture impossible ($_) -- reaper saute" "WARN"
+        return
+    }
+
+    $Cutoff = (Get-Date).ToUniversalTime().AddHours(-$StaleHours)
+    $Candidates = @($Locked | Where-Object {
+        ($_.assignees | ForEach-Object { $_.login }) -contains 'jsboige' -and
+        ([datetime]$_.updatedAt).ToUniversalTime() -lt $Cutoff
+    })
+
+    if ($Candidates.Count -eq 0) {
+        Write-Log "LOCK REAPER: aucun verrou perime -- rien a rendre."
+        return
+    }
+    Write-Log "LOCK REAPER: $($Candidates.Count) verrou(s) perime(s) a qualifier."
+
+    $Released = 0; $Kept = 0
+    foreach ($Issue in $Candidates) {
+        if ($Released -ge $MaxReleases) {
+            Write-Log "LOCK REAPER: plafond $MaxReleases atteint pour ce tick -- reste au prochain." "WARN"
+            break
+        }
+
+        # Le discriminant : un commentaire [CLAIMED] prouve que c'est un verrou de worker.
+        #
+        # DEUX PIEGES PS 5.1, tous deux SILENCIEUX (mesures du 2026-09-07) :
+        #  1. L'expression --jq ne doit contenir AUCUN guillemet double. Windows PowerShell
+        #     re-quote les arguments des commandes natives et casse startswith("...") : gh
+        #     rend « failed to parse jq expression ». Invisible sous pwsh 7, qui passe les
+        #     arguments correctement -- une sonde validee dans un pwsh echoue donc a 100 %
+        #     sur la flotte, qui tourne en 5.1. On tronque cote serveur, on compare cote PS.
+        #  2. @(<pipeline> | ConvertFrom-Json) ENVELOPPE le tableau au lieu de l'enumerer
+        #     (5.1 emet le tableau comme un objet unique) : Count vaut 1 au lieu de 9 et le
+        #     compte de claims qui en sort est faux mais plausible. Assigner, PUIS iterer.
+        $ClaimCount = -1
+        $ProbeErr = ""
+        try {
+            $Url = "repos/jsboige/roo-extensions/issues/" + $Issue.number + "/comments?per_page=100"
+            $Raw = & gh api $Url --jq '[.[].body[0:20]]' 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                $ProbeErr = "gh rc=$LASTEXITCODE"
+            } elseif ([string]::IsNullOrWhiteSpace($Raw)) {
+                $ProbeErr = "sortie vide"
+            } else {
+                $Bodies = ($Raw -join "`n") | ConvertFrom-Json
+                $ClaimCount = 0
+                foreach ($B in $Bodies) {
+                    if ($B -is [string] -and $B.StartsWith('[CLAIMED] by')) { $ClaimCount++ }
+                }
+            }
+        } catch { $ClaimCount = -1; $ProbeErr = $_.Exception.Message }
+
+        if ($ClaimCount -lt 0) {
+            Write-Log "  #$($Issue.number) : sonde en echec ($ProbeErr) -- CONSERVE (on ne libere pas sur une mesure ratee)" "WARN"
+            $Kept++; continue
+        }
+        if ($ClaimCount -eq 0) {
+            Write-Log "  #$($Issue.number) : aucun [CLAIMED] -- CONSERVE (intention humaine presumee)"
+            $Kept++; continue
+        }
+
+        if ($WhatIfMode) {
+            Write-Log "  [DRY-RUN] #$($Issue.number) : $ClaimCount claim(s), verrou mort -> serait libere"
+            $Released++; continue
+        }
+
+        & gh issue edit $Issue.number --repo jsboige/roo-extensions --remove-assignee jsboige 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Log "  #$($Issue.number) : verrou mort libere ($ClaimCount claim(s) sans completion)"
+            $Released++
+        } else {
+            Write-Log "  #$($Issue.number) : liberation refusee par gh" "WARN"
+        }
+    }
+
+    Write-Log "LOCK REAPER: $Released libere(s), $Kept conserve(s)."
+}
+
 # =============================================================================
 # MAIN
 # =============================================================================
@@ -149,6 +274,10 @@ if (-not (Test-ClaudeCLI)) {
     Write-Log "ABORT: Claude CLI introuvable" "ERROR"
     exit 1
 }
+
+# Reaper de verrous morts — AVANT l'idle guard : il ne coute aucun token, et un verrou
+# mort est precisement ce qui fait paraitre la flotte inactive alors qu'elle est bloquee.
+Invoke-StaleLockReaper -StaleHours $LockStaleHours -MaxReleases $MaxLocksReleased -WhatIfMode:$DryRun
 
 # =============================================================================
 # IDLE GUARD (#1980) — Skip session if interactive already handled coordination
@@ -296,7 +425,7 @@ ETAPES (cible: <10 min, pas de boucle compaction) :
 1. Dashboard recent: roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 5).
    Si [WAKE-CLAUDE]/[ASK]/[BLOCKED] <6h → traiter. Sinon → etape 3.
 
-2. Inbox unread: roosync_read(mode: "inbox", status: "unread", limit: 10). Repondre les [ASK]/[URGENT].
+2. Inbox unread: roosync_messages(action: "inbox", status: "unread", limit: 10). Repondre les [ASK]/[URGENT].
 
 3. PRs ouvertes:
    - gh pr list --repo jsboige/roo-extensions --state open --json number,title,additions,deletions,author

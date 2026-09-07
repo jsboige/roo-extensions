@@ -98,7 +98,7 @@ Execute un sync-tour complet avec les spécifications suivantes :
    - Messages récents de Roo
    - Tâches en cours
 
-2. **Phase 1 (Messages RooSync)** : Lire inbox avec roosync_read (mode: inbox)
+2. **Phase 1 (Messages RooSync)** : Lire inbox avec roosync_messages (action: inbox)
    - Filtrer messages non-lus
    - Extraire directives coordinateur
 
