@@ -77,7 +77,10 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         $content | Should -Match '\$indexHosts\s*=\s*@\(Get-CimInstance Win32_Process'
         $content | Should -Match '\$wrapperHosts\s*=\s*@\(Get-CimInstance Win32_Process'
         # The combined single filter must be gone (regression guard for the c.28 bug).
-        $content | Should -Not -Match 'roo-state-manager\[\\\\\]\(build\[\\\\/\]index\\\.js\|mcp-wrapper\\\.cjs\)'
+        # Literal .Contains, not a hand-escaped -Match pattern: hand-escaping is what made the
+        # previous guard inert (ai-01 review #3502). The positive control proves the predicate bites.
+        $content.Contains('index\.js|mcp-wrapper\.cjs') | Should -BeFalse
+        'roo-state-manager[\/](build[\/]index\.js|mcp-wrapper\.cjs)'.Contains('index\.js|mcp-wrapper\.cjs') | Should -BeTrue
     }
 
     It 'Computes the ARMÉ signature from index.js hosts only, not wrapper.cjs' {

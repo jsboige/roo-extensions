@@ -138,7 +138,7 @@ if (-not $buildNewest) {
 # `build/index.js` processes specifically: they are the ones that loaded the ESM modules
 # the next dynamic import would mismatch.
 $indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |$)' } |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |"|$)' } |
     Select-Object -Property ProcessId, CreationDate, CommandLine)
 $wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
