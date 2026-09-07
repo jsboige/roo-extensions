@@ -395,6 +395,13 @@ def preflight_index_credentials(global_settings, attached):
     authenticated on none -- a fleet-wide failure that looks exactly like a successful deploy.
     So: a credential that cannot authenticate DISARMS the flag instead of shipping a false green.
     Network errors are NOT treated as auth failures (an offline machine must not disarm itself).
+
+    A MISSING credential is not a skipped probe -- it is a certain 401 at use time. Guarding the
+    probe with `if url and key` made the whole preflight vacuous whenever the key was absent:
+    nothing was probed, `failures` stayed empty, and it printed [OK] while arming the flag. That
+    is the exact defect this function exists to prevent, so absence disarms like rejection does,
+    and the success line states how many endpoints actually answered -- a preflight that probed
+    nothing can no longer word itself as a pass.
     """
     cic = (global_settings or {}).get("codebaseIndexConfig")
     if not cic or not cic.get("codebaseIndexEnabled"):
@@ -413,28 +420,40 @@ def preflight_index_credentials(global_settings, attached):
             return None, str(e)
 
     failures = []
+    probed = 0
     qurl = (cic.get("codebaseIndexQdrantUrl") or "").rstrip("/")
     qkey = attached.get("codeIndexQdrantApiKey")
-    if qurl and qkey:
+    if qurl and not qkey:
+        failures.append("codeIndexQdrantApiKey is MISSING while " + qurl
+                        + " is configured -- the indexer would 401 on every call")
+    elif qurl and qkey:
         code, err = probe(qurl + "/collections", {"api-key": qkey})
         if err:
             print("[i] qdrant probe skipped (network): " + err, file=sys.stderr)
-        elif code in (401, 403):
-            failures.append("qdrant " + qurl + " rejected codeIndexQdrantApiKey (HTTP "
-                            + str(code) + ")")
+        else:
+            probed += 1
+            if code in (401, 403):
+                failures.append("qdrant " + qurl + " rejected codeIndexQdrantApiKey (HTTP "
+                                + str(code) + ")")
 
     eurl = cic.get("codebaseIndexOpenAiCompatibleBaseUrl") or ""
     ekey = attached.get("codebaseIndexOpenAiCompatibleApiKey")
-    if eurl and ekey:
+    if eurl and not ekey:
+        failures.append("codebaseIndexOpenAiCompatibleApiKey is MISSING while " + eurl
+                        + " is configured -- the indexer would 401 on every call")
+    elif eurl and ekey:
         payload = _json.dumps({"model": cic.get("codebaseIndexEmbedderModelId"),
                                "input": "preflight"}).encode("utf-8")
         code, err = probe(eurl, {"Authorization": "Bearer " + ekey,
                                  "Content-Type": "application/json"}, payload)
         if err:
             print("[i] embeddings probe skipped (network): " + err, file=sys.stderr)
-        elif code in (401, 403):
-            failures.append("embeddings " + eurl + " rejected codebaseIndexOpenAiCompatibleApiKey"
-                            + " (HTTP " + str(code) + ")")
+        else:
+            probed += 1
+            if code in (401, 403):
+                failures.append("embeddings " + eurl
+                                + " rejected codebaseIndexOpenAiCompatibleApiKey"
+                                + " (HTTP " + str(code) + ")")
 
     if failures:
         print("", file=sys.stderr)
@@ -445,8 +464,13 @@ def preflight_index_credentials(global_settings, attached):
               "then rerun. Arming indexing with a rejected key breaks it silently.",
               file=sys.stderr)
         cic["codebaseIndexEnabled"] = False
+    elif probed == 0:
+        print("[WARN] index credential preflight probed NOTHING (no endpoint reachable and no "
+              "credential rejected) -- not claiming a pass; codebaseIndexEnabled left as-is.",
+              file=sys.stderr)
     else:
-        print("[OK] index credential preflight: endpoints accept the resolved keys.")
+        print("[OK] index credential preflight: " + str(probed)
+              + " endpoint(s) probed, all accepted the resolved keys.")
     return global_settings
 
 
