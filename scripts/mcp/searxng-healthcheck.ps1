@@ -223,11 +223,14 @@ function Invoke-SearxngProbe {
             $headers = @{}
             $body = ''
             try {
-                if ($r.Headers -is [System.Net.Http.Headers.HttpResponseHeaders]) {
-                    foreach ($h in $r.Headers.GetEnumerator()) { $headers[$h.Key] = [string]($h.Value -join ', ') }
-                }
-                elseif ($r.Headers -is [System.Net.WebHeaderCollection]) {
+                # 'System.Net.Http.Headers.HttpResponseHeaders' (PS7 style) n'est PAS resolvable dans tous les
+                # runspaces PS 5.1 — la reference de type y THROW et le catch vide les headers (#3264).
+                # On prioritise donc WebHeaderCollection (toujours resolvable) puis on enumere generiquement.
+                if ($r.Headers -is [System.Net.WebHeaderCollection]) {
                     foreach ($k in $r.Headers.AllKeys) { $headers[$k] = [string]$r.Headers[$k] }
+                }
+                else {
+                    foreach ($h in $r.Headers.GetEnumerator()) { $headers[[string]$h.Key] = ($h.Value -join ', ') }
                 }
             }
             catch { }
