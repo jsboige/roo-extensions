@@ -43,7 +43,7 @@ execute_command(shell="powershell")  # MANQUE command
 ## roo-state-manager — Categories
 
 - **RooSync** : `roosync_messages` (messagerie inter-machines : send/inbox/reply/mark_read/archive/cleanup), `roosync_config`, `roosync_inventory`
-- **Grounding** : `conversation_browser`, `codebase_search`, `roosync_search`, `view_task_details`
+- **Grounding** : `conversation_browser`, `codebase_search`, `roosync_search`
 - **Dashboard** : `roosync_dashboard` (canal principal de coordination)
 
 ## MCPs retires

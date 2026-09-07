@@ -739,7 +739,7 @@ roosync_compare_config(granularity: "mcp")
 
 **4bis-c. Rafraichir le dashboard MCP :**
 ```
-roosync_refresh_dashboard(baseline: "myia-ai-01")
+roosync_dashboard(action: "refresh", baseline: "myia-ai-01")
 ```
 
 **4bis-d. Inventaire config machine (optionnel, si drift detecte) :**
@@ -766,11 +766,12 @@ roosync_inventory(type: "machine")
 
 **4bis-e. Audit post-modification MCP (si config modifiee ce tour) :**
 
-Si des modifications MCP ont ete effectuees pendant ce tour (via `manage_mcp_settings` ou manuellement), lancer un audit via sk-agent :
+Si des modifications MCP ont ete effectuees pendant ce tour (via `roosync_mcp_management` ou manuellement), verifier qu'elles ont atterri et n'ont pas fait deriver la machine :
 ```
-call_agent(agent: "critic", prompt: "Audit MCP config changes: [description]. Check alwaysAllow completeness, disabled servers, naming consistency, drift vs other machines.")
+roosync_mcp_management(action: "manage", subAction: "read")   # relire l'etat effectif
+roosync_compare_config(granularity: "mcp")                     # deriver vs une autre machine
 ```
-Inclure le resultat de l'audit dans le rapport de Phase 4bis.
+Inclure le resultat dans le rapport de Phase 4bis.
 
 ### Friction
 Si un outil RooSync ne fonctionne pas ou donne des resultats inexploitables, signaler :
