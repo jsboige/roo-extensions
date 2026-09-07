@@ -2,9 +2,9 @@
 
 > **Note relocalisation (2026-05-19)** : Ancien `.claude/rules/bots-directory.md`. Déplacé hors des rules auto-chargées car annuaire factuel (pas une règle de comportement).
 
-**Version:** 1.4.0
+**Version:** 1.5.0
 **Issue :** #2243, #3219, #3413
-**MAJ:** 2026-09-04 (#3413 : accès RooSync Hermes corrigé — bridge mcp-remote, l'ancienne lecture « pas de RSM » est périmée ; adresse inbox NanoClaw corrigée — `myia-ai-01:roo-extensions` effectif, `:nanoclaw` n'aboutit pas)
+**MAJ:** 2026-09-08 (#3219 re-mesure : identité GitHub Hermes résolue — `clusterManager-Myia` **partagé** avec NanoClaw + `jsboige` ; λ.51 attributions par `clusterManager-Myia` révisées ; Hermes approuve désormais depuis ~09-06, NanoClaw reste `COMMENTED` ; note audit contenu + nom runtime conteneur NanoClaw). — 2026-09-04 (#3413 : accès RooSync Hermes corrigé — bridge mcp-remote, l'ancienne lecture « pas de RSM » est périmée ; adresse inbox NanoClaw corrigée — `myia-ai-01:roo-extensions` effectif, `:nanoclaw` n'aboutit pas)
 
 ---
 
@@ -15,7 +15,7 @@
 - **Scheduler** : **Python scheduler** dans le fork `hermes-agent` (`github.com/jsboige/hermes-agent`, fork de `NousResearch/hermes-agent`). `cron/scheduler.py` (`tick()` appelé ~60s par le gateway Docker `hermes`). Jobs = prompts agent LLM dans **runtime** `~/.hermes/cron/jobs.json` (hors-git). *(Corrigé 2026-06-15 #2242 : l'ancienne description « Roo Hermes scheduler cron 0,30 » était inexacte — Roo Code n'est plus installé sur po-2026 depuis la migration Zoo #2379.)*
 
   **MAJ 2026-08-25 (#3219 audit)** : distribution des minutes des 183 reviews `[Hermes]` mesurée (po-2025, échantillon 200 PRs). Aucun pic à `:00` ou `:30` — la cadence réelle est étalée (top minutes : `:29`=19, `:28`=19, `:26`=16, `:32`=14, `:27`=14). Le tick interne est plus rapide que l'intervalle apparent entre revues (qui dépend des PRs à reviewer). **La description "tick toutes les X minutes" ne se mesure PAS à partir des timestamps GitHub.**
-- **Identité GitHub** : TBD
+- **Identité GitHub** : `clusterManager-Myia` (compte bot **partagé avec NanoClaw** — résolu 2026-09-08 #3219 ; l'attribution se fait par la signature `[Hermes]`/`[NanoClaw]`, pas par login) **et** `jsboige` (OWNER partagé, utilisé quand l'opener n'est pas `jsboige` afin d'éviter le self-approve).
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "hermes"], content: "...")`
   - Inbox direct : `roosync_messages(action: "send", to: "myia-po-2026:hermes-agent", ...)`
@@ -33,7 +33,7 @@
 - **Host** : myia-ai-01
 - **Scheduler** : **Service Windows NSSM + conteneur Docker** (corrigé 2026-08-25 #3219 audit).
   - `Get-Service NanoClaw` → `Running`, `StartMode Auto`, `LocalSystem` (PathName `D:\nanoclaw\scripts\service\nssm.exe`, audit ai-01 2026-08-22).
-  - Conteneur Docker `nanoclaw-v2-telegram_main` (restart policy Docker ; Up depuis 2026-08-22T16:45:00Z post-panne-17h).
+  - Conteneur Docker `nanoclaw-v2-telegram_main` (restart policy Docker ; Up depuis 2026-08-22T16:45:00Z post-panne-17h). **Nom runtime vérifié 2026-09-08 (#3219)** : le conteneur effectif porte un suffixe numérique — `nanoclaw-v2-telegram_main-1788816819774` (image `nanoclaw-agent-v2-fdcb96b5`) — variable à chaque rebuild ; `docker logs` doit donc être ciblé par `docker logs $(docker ps -q --filter "name=nanoclaw-v2-telegram_main")` et non par le nom projet.
   - **Attribution de mécanisme corrigée, cadence RÉTABLIE (2026-08-29, mesure ai-01).** L'ancienne description « Roo NanoClaw scheduler, cron `15,45 * * * *` » se trompe sur le **mécanisme** (Roo Code n'est plus installé sur ai-01 : ce n'est pas un scheduler Roo), **pas sur la cadence**. Le conteneur nomme lui-même ses cycles dans ses propres logs — `docker logs nanoclaw-v2-telegram_main`, ai-01, 2026-08-29 :
 
     ```
@@ -48,7 +48,7 @@
     Finding posé par po-2025 sur #3302 (review arrivée 6 s après le merge, donc non prise en compte), vérifié ici par les logs de l'émetteur lui-même.
 
   ✅ **MAJ 2026-08-29 (#3219, po-2026)** : la récupération est **confirmée côté GitHub**. Reviews NanoClaw postées après le silence 2026-08-20T19:18:16Z → 2026-08-26T16:21:07Z (**gap ~5,9 jours** fermé) : #3282 (26/08 16:21Z), #3299 (28/08 18:17Z), #3301 (28/08 23:16Z) — minutes `:21`/`:17`/`:16` — soit le cycle `:15` augmenté de la durée de la review (cf. correction cadence ci-dessus), et `:46` pour #3302 = cycle `:45`. Le diagnostic "NanoClaw tire peu = panne de disponibilité, pas défaut de cadence" tient. (Un audit live du service sur ai-01 reste la vérification autorité, mais l'activité review observée est le signal disponible le plus fort.)
-- **Identité GitHub** : `clusterManager-Myia` (permission **write**, vérifié `gh api .../collaborators/clusterManager-Myia/permission` 2026-08-29 ; login confirmé sur 5 reviews #3165→#3301). **Comptage branch protection** : ce login n'est jamais l'auteur d'une PR flotte, et la protection `main` exige 1 approbation sans `require_code_owner_reviews` → un `APPROVED` NanoClaw **compterait** tel quel (pas besoin de la règle per-author d'Hermes, qui n'existe que parce qu'Hermes poste sous `jsboige`). En pratique, toutes les reviews NanoClaw observées sont `COMMENTED`, y compris à verdict positif (#3301 « merge prêt ») — le signal existe, il est muet sur sa propre force (#3219 §3).
+- **Identité GitHub** : `clusterManager-Myia` (permission **write**, vérifié `gh api .../collaborators/clusterManager-Myia/permission` 2026-08-29 ; login confirmé sur 5 reviews #3165→#3301). ⚠ **Login PARTAGÉ avec Hermes** (résolu 2026-09-08 #3219) : les review `[Hermes]` postent aussi sous `clusterManager-Myia` (ex. #3509, #3505, #3504, #3485 en `APPROVED`) — **l'attribution par login est donc cassée**, seul le préfixe `[NanoClaw]`/`[Hermes]` du corps tranche. **Comptage branch protection** : ce login n'est jamais l'auteur d'une PR flotte, et la protection `main` exige 1 approbation sans `require_code_owner_reviews` → un `APPROVED` NanoClaw **compterait** tel quel. En pratique, **toutes les reviews NanoClaw observées restent `COMMENTED`**, y compris à verdict positif (#3301 « merge prêt », et les 2 reviews du 2026-09-07 #3496/#3500) — le signal existe, il est muet sur sa propre force (#3219 §3). (À l'inverse, **Hermes approuve désormais** depuis ~2026-09-06, fix #1767/#3509 : §3 est résolu pour Hermes, pas pour NanoClaw.)
 - **Contacter** :
   - Dashboard : `roosync_dashboard(action: "append", type: "workspace", tags: ["BOT-MENTION", "nanoclaw"], content: "...")`
   - Inbox direct : `roosync_messages(action: "send", to: "myia-ai-01:roo-extensions", ...)` — **inbox effectif confirmé firsthand par le bot lui-même (#3413, 04/09)** : l'identité de chaîne du container est résolue `myia-ai-01:roo-extensions`, l'adresse `myia-ai-01:nanoclaw` **n'aboutit pas** (classe #3230). Pickup au cycle `:15/:45`.
@@ -56,6 +56,8 @@
   - Review PR du coord ai-01 (workaround CODEOWNERS self-merge protocol)
   - Co-hébergé OpenWebUI + sk-agent HTTP
 - **Ne PAS contacter pour** : Modifier code prod (use workers PR pattern)
+
+  **Audit contenu 2026-09-08 (#3219, ai-01)** : sur les 30 dernières PRs mergées de roo-extensions, NanoClaw pèse ~2 reviews (toutes `COMMENTED`, #3496/#3500) contre ~14 pour Hermes — ratio ~7:1 qui **confirme** la mesure initiale. La faible couverture roo-extensions **n'est pas** une panne : le conteneur tire sur `:15/:45` et review des PRs **multi-dépôts** (#1128 jsboige, #15073/#15126/#15132) sous un **protocole « fenêtre structurelle »** (reads section + source refs, pas toujours de full diff). À retenir : attribuer par **signature**, pas par login (`clusterManager-Myia` est partagé) ; et la thèse initiale « Hermes = surface / NanoClaw = profondeur » n'est **pas établie par le contenu** (`n=2`, longueur ≠ profondeur) — seule l'**asymétrie de fréquence/approbation** l'est.
 
 ## Wake-on-Demand
 
