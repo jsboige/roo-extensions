@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Guard test: ensure-build-fresh.ps1 must keep its #3489 contracts (ARM guard, -Arm escape, defer-before-build).
 
@@ -43,12 +43,41 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         $content | Should -Match '\.cjs'
     }
 
-    It 'Refuses to rebuild by default when live hosts exist (ARMED-DEFER decided before the build)' {
+    It 'Refuses on the HEADLESS path only, and still decides before the build' {
+        # Arbitration on the #3489 FRICTION (2026-09-07): what decides is not how many hosts are
+        # alive but whether the CALLER can close the armed window with a restart. RSM is the MCP
+        # of every session, so "refuse under live hosts" reduced to "never rebuild" on every
+        # interactive machine (po-2026: STALE 14 h across 4 executor cycles; po-2025 deadlocked;
+        # both released only by direct human mandate).
         $content | Should -Match 'ARMED-DEFER'
-        $deferIdx = $content.IndexOf('ARMED-DEFER')
-        $buildIdx = $content.IndexOf('& npm.cmd run build')
-        $deferIdx | Should -BeGreaterThan 0
+        $headlessIdx = $content.IndexOf('$Headless -and -not $Arm')
+        $deferIdx    = $content.IndexOf("Write-Result 'ARMED-DEFER'")
+        $buildIdx    = $content.IndexOf('& npm.cmd run build')
+        # the defer is gated by -Headless (overridable by -Arm), not by the host count alone
+        $headlessIdx | Should -BeGreaterThan 0
+        $deferIdx    | Should -BeGreaterThan $headlessIdx
+        ($deferIdx - $headlessIdx) | Should -BeLessThan 400   # same guard block, not elsewhere
+        # ...and the refusal is still reached BEFORE any build is invoked
         $buildIdx | Should -BeGreaterThan $deferIdx
+
+        # Positive control: the discriminator is absent from the pre-arbitration shape, so this
+        # test goes red if the unconditional "refuse under live hosts" gate is ever restored.
+        'if ($liveHosts.Count -gt 0) { if ($Arm) { } else { ARMED-DEFER; exit 0 } }'.IndexOf('$Headless -and -not $Arm') | Should -Be -1
+    }
+
+    It 'Declares the named -Headless switch that scheduled callers pass' {
+        $content | Should -Match '\[switch\]\$Headless'
+    }
+
+    It 'The interactive default rebuilds and states that the restart is OWED' {
+        # The interactive caller can restart VS Code, so it rebuilds — but the armed window it
+        # opens must be named, or the machine is left armed silently (the failure this guard
+        # exists for). ARM is emitted, and the build is NOT skipped on that path.
+        $content | Should -Match 'THE RESTART IS OWED'
+        $armIdx   = $content.IndexOf("Write-Result 'ARM'")
+        $buildIdx = $content.IndexOf('& npm.cmd run build')
+        $armIdx   | Should -BeGreaterThan 0
+        $buildIdx | Should -BeGreaterThan $armIdx
     }
 
     It 'Declares the named -Arm escape hatch switch' {

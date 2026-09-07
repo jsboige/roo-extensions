@@ -51,6 +51,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 4. **MCP build-freshness** (#2822 STALE-TRAP) : `git submodule update` rafraîchit la source TS mais NE déclenche PAS `npm run build` → `build/*.js` drift stale → un restart VS Code peut servir du code pre-fix silencieusement (4/5 machines touchées sprint 07-11). Lancer le helper idempotent :
    - `powershell -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1` (5.1 partout — pwsh absent sur certaines machines, cf shell-fallback.md #2368)
    - Compare mtime `src/**/*.ts` vs `build/**/*.js` (exclut `__tests__`/`*.test.ts`/`*.spec.ts`, comme `tsconfig.exclude`), rebuild si stale. Non-fatal (échec build → WARN, ne bloque pas la session). No-op si déjà fresh.
+   - **Garde ARM (#3489, arbitrage 2026-09-07)** : sous hôtes RSM vivants, le chemin **interactif rebuild** et affiche `[ARM]` avec le nombre de sessions armées — tu **dois** le restart. Le refus (`ARMED-DEFER`) ne concerne plus que les appelants **headless** (`-Headless` : worker/cron/pré-vol), qui ne peuvent pas refermer la fenêtre. Ne plus passer `-Arm` par réflexe : il ne sert qu'à forcer un chemin planifié lancé à la main sous mandat.
    - Le restart VS Code reste `[INTERACTIVE-ONLY]` : build fresh sur disque ≠ MCP host process qui sert le nouveau build en mémoire (distinct failure mode, web1 c.82).
 5. **Win-cli timeout guard** (anti-régression #2333) :
    - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
