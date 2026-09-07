@@ -318,6 +318,30 @@ function Resolve-EffectiveProfile {
     return $RequestedProfile
 }
 
+# Windows PowerShell 5.1 re-quotes arguments to native commands, and an embedded
+# double quote TERMINATES the generated quoted string: the rest of the prompt is
+# then handed to the process as separate arguments. The work prompt contains a
+# quoted phrase, so `copilot` received a dozen stray words and answered
+#   error: Invalid command format.
+#   It looks like your prompt was not quoted, so the extra words were treated as
+#   separate arguments.
+# -- the CLI naming the defect precisely, which the dispatcher only became able to
+# SEE once the EAP/2>&1 throw below was fixed. Measured on ai-01 07/09, same
+# prompt, same flags: 5.1 unescaped rc=1; 5.1 escaped rc=0 with the right answer.
+#
+# The escape is scoped to 5.1 ON PURPOSE. pwsh 7 passes arguments correctly
+# (measured: rc=0 either way), so escaping there would only inject literal
+# backslashes into the prompt text. Both shells are in play -- the fleet runs 5.1,
+# but setup-copilot-dispatcher.ps1 registers the task with pwsh.exe when present.
+#
+# Same family as the `--jq` trap in start-claude-coordinator.ps1: an expression
+# validated in a pwsh session fails on every 5.1 host, silently.
+function ConvertTo-NativeArg {
+    param([string]$Value)
+    if ($PSVersionTable.PSVersion.Major -lt 6) { return ($Value -replace '"', '\"') }
+    return $Value
+}
+
 function Invoke-PhaseCDispatch {
     param(
         [string]$Profile,
@@ -363,7 +387,20 @@ function Invoke-PhaseCDispatch {
         $prevEap = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
         try {
-            $cmdOutput = & copilot -p $Prompt --allow-all-tools --no-ask-user 2>&1
+            # `2>&1` wraps every stderr line in an ErrorRecord. Logged as-is, the ones
+            # PowerShell cannot render collapse to the literal string
+            # "System.Management.Automation.RemoteException" -- which is what the log
+            # showed while the CLI was plainly saying
+            #   You have exceeded your monthly quota (Request ID: ...)
+            # on the very same stream (ai-01, 07/09: message invisible in the
+            # dispatcher log, readable the moment stdout/stderr were separated).
+            # Normalise to text so the lane's own diagnostics survive the trip.
+            $cmdOutput = & copilot -p (ConvertTo-NativeArg $Prompt) --allow-all-tools --no-ask-user 2>&1 |
+                ForEach-Object {
+                    if ($_ -is [System.Management.Automation.ErrorRecord]) {
+                        if ($_.Exception -and $_.Exception.Message) { $_.Exception.Message } else { $_.ToString() }
+                    } else { $_ }
+                }
             $exit = $LASTEXITCODE
         } finally {
             $ErrorActionPreference = $prevEap
