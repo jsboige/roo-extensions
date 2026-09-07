@@ -19,7 +19,7 @@
         message.id + same tool_use.id + two tool_results),
       - it stays silent on a clean fixture (no false positives),
       - it honours -IncludeExecutedOnly (the default) — a duplicate cluster
-        whose second copy was not executed is NOT reported,
+        whose shared tool_use executed only once is NOT reported,
       - it supports all three -OutputFormat values without throwing,
       - it accepts multiple files via the array form of -Path.
 
@@ -92,6 +92,29 @@ Describe 'Find-DuplicateToolUse.ps1 (#3276)' {
         $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Path $cleanFixture -OutputFormat Summary 2>&1
         $joined = ($output | Out-String)
         $joined | Should -Match 'No duplicate tool_use clusters detected'
+    }
+
+    It 'Filters out a cluster whose shared tool_use executed only once (-IncludeExecutedOnly default)' {
+        if (-not (Test-Path $dupFixture)) {
+            Set-ItResult -Skipped -Because "Fixture not found at $dupFixture"
+            return
+        }
+        # Regression guard (review of #3498): the default filter must require
+        # >= 2 executions (tool_results carrying the shared tool_use.id), not
+        # merely >= 1. Variant = the #3276 fixture minus one of its two
+        # tool_result lines: duplicate copies exist, side effects ran once.
+        $lines = Get-Content $dupFixture | Where-Object { $_ -notmatch '"id":"msg_1787734193543"' }
+        $variant = Join-Path $TestDrive 'dup-single-execution.jsonl'
+        [System.IO.File]::WriteAllLines($variant, $lines)
+
+        $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Path $variant -OutputFormat Summary 2>&1
+        $joined = ($output | Out-String)
+        $joined | Should -Match 'No duplicate tool_use clusters detected'
+
+        # Same variant with the filter OFF is still reported — the cluster
+        # detection sees it; only the execution-count filter drops it.
+        $outputOff = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Path $variant -OutputFormat Summary -IncludeExecutedOnly:$false 2>&1
+        ($outputOff | Out-String) | Should -Match 'msg_1787734193541'
     }
 
     It 'Emits parseable JSON when -OutputFormat Json is requested' {

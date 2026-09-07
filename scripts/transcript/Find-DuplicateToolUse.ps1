@@ -18,8 +18,9 @@
       - the tool_use name (Read, Bash, PowerShell, etc.)
       - timestamps of each occurrence
       - parentUuid chain (to confirm fork signature)
-      - whether each node was executed (followed by a tool_result with the same
-        tool_use.id)
+      - how many times the shared tool_use was executed (tool_result entries
+        carrying the same tool_use.id — a cluster-level count: both copies
+        share the id, so per-occurrence attribution is impossible)
 
     Detection is purely structural — no side effects, no mutations. The script is
     a forensic tool: it surfaces a fingerprint that lets an investigator
@@ -42,9 +43,10 @@
     summary table. Default: Object.
 
 .PARAMETER IncludeExecutedOnly
-    When set, only report duplicate clusters where every occurrence was actually
-    executed (followed by a tool_result with the same tool_use.id). This is the
-    "executed twice" fingerprint described in #3276. Default: true.
+    When set, only report duplicate clusters whose shared tool_use was executed
+    at least TWICE — two or more tool_result entries carrying the same
+    tool_use.id. A single tool_result means the runtime executed only one copy,
+    so the duplicated side effects of #3276 did not occur. Default: true.
 
 .PARAMETER PassThru
     When set with -OutputFormat Object, return the raw duplicate cluster objects
@@ -252,26 +254,27 @@ function Find-DuplicateClusters {
                         Timestamp = $copy.Timestamp
                         Uuid = $copy.Uuid
                         ParentUuid = $copy.ParentUuid
-                        Executed = $toolResults.ContainsKey($block.ToolUseId)
-                        ExecutionCount = if ($toolResults.ContainsKey($block.ToolUseId)) {
-                            $toolResults[$block.ToolUseId].Count
-                        } else { 0 }
                     }
                 }
             }
             if ($occurrences.Count -gt 1) {
-                $allExecuted = -not $IncludeExecutedOnly
-                if ($IncludeExecutedOnly) {
-                    $allExecuted = $true
-                    foreach ($occ in $occurrences) {
-                        if (-not $occ.Executed) { $allExecuted = $false; break }
-                    }
-                }
+                # Executed / ExecutionCount are properties of the shared
+                # tool_use, not of any single occurrence: both copies carry the
+                # same tool_use.id, so a tool_result matches either copy
+                # indifferently — per-occurrence attribution is impossible.
+                $executed = $toolResults.ContainsKey($block.ToolUseId)
+                $executionCount = if ($executed) { $toolResults[$block.ToolUseId].Count } else { 0 }
+                # "Executed twice" fingerprint of #3276: duplicated side effects
+                # only exist when the runtime ran the tool_use more than once
+                # (>= 2 tool_results for the id).
+                $allExecuted = -not $IncludeExecutedOnly -or $executionCount -ge 2
                 if ($allExecuted) {
                     $sharedToolUses += [PSCustomObject]@{
                         ToolUseId = $block.ToolUseId
                         ToolName = $block.ToolName
                         Input = $block.Input
+                        Executed = $executed
+                        ExecutionCount = $executionCount
                         Occurrences = $occurrences
                     }
                 }
@@ -351,9 +354,9 @@ switch ($OutputFormat) {
             Write-Host "SessionId:  $($cluster.SessionId)"
             Write-Host "Cwd:        $($cluster.Cwd)"
             foreach ($stu in $cluster.SharedToolUses) {
-                Write-Host "  ToolUseId: $($stu.ToolUseId)  Name: $($stu.ToolName)" -ForegroundColor Magenta
+                Write-Host "  ToolUseId: $($stu.ToolUseId)  Name: $($stu.ToolName)  executed=$($stu.Executed) executions=$($stu.ExecutionCount)" -ForegroundColor Magenta
                 foreach ($occ in $stu.Occurrences) {
-                    Write-Host "    [$($occ.CopyIndex)] line=$($occ.LineNumber) ts=$($occ.Timestamp) executed=$($occ.Executed) executions=$($occ.ExecutionCount)"
+                    Write-Host "    [$($occ.CopyIndex)] line=$($occ.LineNumber) ts=$($occ.Timestamp)"
                 }
             }
             Write-Host ""
