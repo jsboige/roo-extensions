@@ -1226,7 +1226,7 @@ function Test-WaitStateReady {
                 $TimeoutHours = [int]$Matches[1]
                 Write-Log "  Vérification timeout ($TimeoutHours heures)..."
                 if ($WaitAge.TotalHours -ge $TimeoutHours) {
-                    Write-Log "✅ Timeout expiré ($([math]::Round($WaitAge.TotalHours))h >= ${TimeoutHours}h) - reprise autorisée"
+                    Write-Log "  Timeout expiré ($([math]::Round($WaitAge.TotalHours))h >= ${TimeoutHours}h) - signal de reprise candidate (un timeout ne vaut pas autorisation)"
                     return $State
                 } else {
                     Write-Log "  ⏳ Timeout pas encore atteint ($([math]::Round($WaitAge.TotalHours,1))h / ${TimeoutHours}h)"
@@ -1235,28 +1235,28 @@ function Test-WaitStateReady {
             "user_approval|user approval" {
                 Write-Log "  Vérification user approval (Dashboard + GitHub)..."
                 if (Test-UserApproval -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ User approval détectée - reprise autorisée"
+                    Write-Log "  Forme d'approbation détectée (heuristique) - signal de reprise candidate (à confirmer, un commentaire ne vaut pas autorisation)"
                     return $State
                 }
             }
             "roosync_response|roosync response" {
                 Write-Log "  Vérification RooSync response (inbox)..."
                 if (Test-RooSyncResponse -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ RooSync response détectée - reprise autorisée"
+                    Write-Log "  RooSync response détectée - signal de reprise candidate (à confirmer)"
                     return $State
                 }
             }
             "github_decision|github decision|github_status|github status|github_comment|github comment" {
                 Write-Log "  Vérification GitHub decision/comment (issue status)..."
                 if (Test-GitHubDecision -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ GitHub decision/comment détectée - reprise autorisée"
+                    Write-Log "  GitHub decision/comment détectée - signal de reprise candidate (à confirmer, un commentaire ne vaut pas autorisation)"
                     return $State
                 }
             }
             "intercom_message|intercom message" {
                 Write-Log "  Vérification Dashboard message..."
                 if (Test-DashboardMessage -TaskId $TaskId -WaitState $State) {
-                    Write-Log "✅ Dashboard message détecté - reprise autorisée"
+                    Write-Log "  Dashboard message détecté - signal de reprise candidate (à confirmer)"
                     return $State
                 }
             }
@@ -1399,7 +1399,7 @@ function Test-GitHubDecision {
 
         # Vérifier si issue fermée après le timestamp
         if ($Issue.state -eq "CLOSED") {
-            Write-Log "  Issue #$IssueNumber est fermée - reprise autorisée"
+            Write-Log "  Issue #$IssueNumber est fermée - signal de reprise candidate (une fermeture d'issue ne vaut pas autorisation)"
             return $true
         }
 
@@ -1410,7 +1410,7 @@ function Test-GitHubDecision {
             if ($null -ne $CommentTimestamp -and $CommentTimestamp -gt $SavedTimestamp) {
                 foreach ($Pattern in $ApprovalPatterns) {
                     if ($Comment.body -match $Pattern) {
-                        Write-Log "  Commentaire approval détecté: $($Comment.body.Substring(0, [Math]::Min(50, $Comment.body.Length)))"
+                        Write-Log "  Commentaire correspondant à un motif d'approbation (heuristique): $($Comment.body.Substring(0, [Math]::Min(50, $Comment.body.Length)))"
                         return $true
                     }
                 }
@@ -1470,7 +1470,7 @@ function Get-PendingWaitStates {
         $State = Test-WaitStateReady -TaskId $TaskId
 
         if ($State) {
-            Write-Log "✅ Wait state prêt: $TaskId (condition: $($State.resumeWhen))"
+            Write-Log "  Signal de reprise candidate: $TaskId (condition: $($State.resumeWhen))"
             return @{
                 taskId = $TaskId
                 state = $State
@@ -1522,11 +1522,11 @@ function Build-ResumePrompt {
     $ResumePrompt = @"
 === REPRISE DE TÂCHE EN ATTENTE ===
 
-Cette tâche a été mise en pause précédemment et reprend maintenant.
+Cette tâche a été mise en pause précédemment.
 
 **Raison de la pause :** $($WaitState.reason)
 **En attente de :** $($WaitState.waitFor)
-**Condition remplie :** $($WaitState.resumeWhen)
+**Condition d'attente (resumeWhen) :** $($WaitState.resumeWhen)
 **Iteration précédente :** $($WaitState.context.iteration)
 **Mode précédent :** $($WaitState.context.mode)
 **Modèle précédent :** $($WaitState.context.model)
@@ -1537,10 +1537,12 @@ $($WaitState.context.outputSnippet)
 ```
 
 === INSTRUCTIONS ===
-La condition d'attente est maintenant remplie. Reprends la tâche là où elle a été interrompue.
+Le passage en reprise a été déclenché par un signal heuristique (condition d'attente $($WaitState.resumeWhen)). Ce signal ne constitue pas une approbation humaine : un commentaire, un message de dashboard, une réponse RooSync, la fermeture d'une issue ou l'expiration d'un timeout ne valent pas autorisation. Les actions encore soumises à accord humain restent EN ATTENTE et ne doivent pas être exécutées tant qu'une approbation explicite n'a pas été obtenue sur le canal prévu.
+
+Le signal décrit ci-dessus est le déclencheur du réexamen de l'attente, pas la preuve que la condition est remplie. Réexamine l'attente avant d'agir : si la reprise dépend d'une décision humaine, vérifie que l'approbation a réellement eu lieu ; sinon, reprends la tâche en laissant sous accord les actions qui le restent.
 $(if ($OriginalPrompt) { "Tâche originale : $OriginalPrompt" })
 
-Continue l'exécution en tenant compte du contexte ci-dessus.
+Reprends la tâche en tenant compte du contexte ci-dessus et en préservant les parties de la tâche encore soumises à accord.
 "@
 
     return $ResumePrompt
@@ -4188,7 +4190,7 @@ try {
 
         Write-Log "🔄 REPRISE d'une tâche en attente (priorité sur nouvelles tâches)"
         Write-Log "  → TaskId: $($PendingResume.taskId)"
-        Write-Log "  → Condition remplie: $($ResumeState.resumeWhen)"
+        Write-Log "  → Signal de reprise: $($ResumeState.resumeWhen) (signal heuristique, pas une autorisation)"
         Write-Log "  → Mode sauvegardé: $($ResumeState.context.mode)"
         Write-Log "  → Modèle sauvegardé: $($ResumeState.context.model)"
 

@@ -220,6 +220,12 @@ Haiku (code-simple) → Agent signals ESCALATE
 
 Agent signals STATUS: wait → Worker saves state to `.claude/scheduler/wait-states/{taskId}.json` → Next run can check and resume.
 
+### Resume Authorization Semantics (#3442)
+
+The resume decision in `start-claude-worker.ps1` is a **heuristic** (`Test-WaitStateReady` / `Test-GitHubDecision` / `Test-UserApproval`): it matches keywords in a GitHub comment, issue state, dashboard message, RooSync inbox or a timeout. It is **not** an authorization boundary — a comment that merely contains "continue" (e.g. French "continueront") matches `-match 'continue'` with no human-approval provenance (measured 2026-09-08, Windows PowerShell 5.1).
+
+Accordingly, `Build-ResumePrompt` and the resume logs describe the observed signal as a **resume candidate** (`signal de reprise candidate`) and state that a comment / timeout / closure is **not** an authorization and that approval-gated actions remain pending. This is a **prompt/log hardening only**: the selection and resume predicates (`-match` keyword lists, the `switch` on `resumeWhen`, the `return $State` control flow) are intentionally unchanged — no technical lock is asserted. Guarded by `scripts/testing/unit/worker-resume-prompt.Tests.ps1` (AST extraction of the real functions, no worker dot-source, no gh/Claude CLI).
+
 ---
 
 ## Logs
