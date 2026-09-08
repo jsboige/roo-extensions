@@ -12,16 +12,21 @@
     "ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION": "Qwen3.6-35B-A3B via vLLM",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
-    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000"
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "ANTHROPIC_CUSTOM_HEADERS": "X-Claudish-Machine: MACHINE_NAME_PLACEHOLDER\nx-proxy-key: CLAUDISH_PROXY_KEY_PLACEHOLDER"
   },
-  "description": "Claudish unified proxy — Opus via Anthropic, Sonnet via z.ai, Haiku via vLLM",
+  "removeEnv": [
+    "ANTHROPIC_API_KEY",
+    "ANTHROPIC_AUTH_TOKEN"
+  ],
+  "description": "Claudish hybrid proxy — Opus via Anthropic, Sonnet via z.ai, Haiku via vLLM",
   "modelMapping": {
     "opus": "Claude Opus 4.7 (Anthropic Max)",
     "sonnet": "GLM-5.2 (z.ai coding plan)",
     "haiku": "Qwen3.6-35B-A3B (vLLM local)"
   },
   "notes": [
-    "Pass-through proxy: each client machine provides its own auth (no proxy key)",
+    "Hybrid proxy: x-proxy-key authenticates the hub; native Anthropic lanes additionally use the client's OAuth",
     "Opus routes to Anthropic with pass-through headers (Max subscription OAuth)",
     "Sonnet routes to z.ai via GLM_CODING_API_KEY or ZAI_API_KEY from config",
     "Haiku routes to vLLM Qwen3.6-35b-a3b via custom endpoint from config",

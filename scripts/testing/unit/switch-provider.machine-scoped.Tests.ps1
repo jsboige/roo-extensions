@@ -63,8 +63,8 @@ Describe 'Switch-Provider machine-scoped guard (#3361 follow-up)' {
         $content | Should -Not -Match '\$preservedProperties\s*='
     }
 
-    It 'Preserves every top-level setting the switcher does not own (env and model only)' {
-        $content | Should -Match '\$switcherOwnedProperties\s*=\s*@\(\s*''env'',\s*''model''\s*\)'
+    It 'Preserves every top-level setting except provider-owned routing and auth policy' {
+        $content | Should -Match '\$switcherOwnedProperties\s*=\s*@\(\s*''env'',\s*''model'',\s*''forceLoginMethod'',\s*''disableClaudeAiConnectors''\s*\)'
     }
 
     It 'Keeps the claudish template sonnet ID in the executor pool (never a native claude-* ID)' {

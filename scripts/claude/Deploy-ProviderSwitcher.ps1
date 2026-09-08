@@ -44,13 +44,17 @@ param(
     [switch]$Uninstall,
     [switch]$Update,
     [string]$ZaiApiKey,
-    [string]$ClaudishProxyKey
+    [string]$ClaudishProxyKey,
+    [string]$MachineName = $env:COMPUTERNAME
 )
 
 $ErrorActionPreference = "Stop"
 
 # Paths
-$sourceRoot = Join-Path $PSScriptRoot ".."
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\.."))
+$configSourceRoot = Join-Path $repoRoot ".claude\configs"
+$commandSourcePath = Join-Path $repoRoot ".claude\commands\switch-provider.md"
+$switcherSourcePath = Join-Path $PSScriptRoot "Switch-Provider.ps1"
 $targetRoot = Join-Path $env:USERPROFILE ".claude"
 
 function Write-Header {
@@ -78,6 +82,15 @@ function Write-Warning {
 function Write-Error {
     param([string]$Text)
     Write-Host "❌ $Text" -ForegroundColor Red
+}
+
+function Backup-IfExists {
+    param([string]$Path)
+
+    if (Test-Path $Path) {
+        $timestamp = Get-Date -Format 'yyyyMMdd-HHmmssfff'
+        Copy-Item $Path "$Path.backup-$timestamp"
+    }
 }
 
 function Get-SecureApiKey {
@@ -112,7 +125,8 @@ function Uninstall-ProviderSwitcher {
         (Join-Path $targetRoot "scripts\Switch-Provider.ps1"),
         (Join-Path $targetRoot "configs\provider.anthropic.json"),
         (Join-Path $targetRoot "configs\provider.zai.json"),
-        (Join-Path $targetRoot "configs\provider.claudish.json")
+        (Join-Path $targetRoot "configs\provider.claudish.json"),
+        (Join-Path $targetRoot "configs\provider.claudish-proxy.json")
     )
 
     $removedCount = 0
@@ -145,11 +159,12 @@ try {
     # Verify source files exist
     Write-Info "Verifying source files..."
     $requiredFiles = @(
-        (Join-Path $sourceRoot "commands\switch-provider.md"),
-        (Join-Path $sourceRoot "scripts\Switch-Provider.ps1"),
-        (Join-Path $sourceRoot "configs\provider.anthropic.template.json"),
-        (Join-Path $sourceRoot "configs\provider.zai.template.json"),
-        (Join-Path $sourceRoot "configs\provider.claudish.template.json")
+        $commandSourcePath,
+        $switcherSourcePath,
+        (Join-Path $configSourceRoot "provider.anthropic.template.json"),
+        (Join-Path $configSourceRoot "provider.zai.template.json"),
+        (Join-Path $configSourceRoot "provider.claudish.template.json"),
+        (Join-Path $configSourceRoot "provider.claudish-proxy.template.json")
     )
 
     $missingFiles = @()
@@ -182,8 +197,8 @@ try {
     Write-Info "Copying commands and scripts..."
 
     $filesToCopy = @{
-        (Join-Path $sourceRoot "commands\switch-provider.md") = (Join-Path $targetRoot "commands\switch-provider.md")
-        (Join-Path $sourceRoot "scripts\Switch-Provider.ps1") = (Join-Path $targetRoot "scripts\Switch-Provider.ps1")
+        $commandSourcePath = (Join-Path $targetRoot "commands\switch-provider.md")
+        $switcherSourcePath = (Join-Path $targetRoot "scripts\Switch-Provider.ps1")
     }
 
     foreach ($source in $filesToCopy.Keys) {
@@ -198,19 +213,57 @@ try {
     $anthropicConfigPath = Join-Path $targetRoot "configs\provider.anthropic.json"
     $zaiConfigPath = Join-Path $targetRoot "configs\provider.zai.json"
     $claudishConfigPath = Join-Path $targetRoot "configs\provider.claudish.json"
+    $claudishProxyConfigPath = Join-Path $targetRoot "configs\provider.claudish-proxy.json"
 
     # Check if updating existing installation
-    if ($Update -and (Test-Path $anthropicConfigPath) -and (Test-Path $zaiConfigPath)) {
-        Write-Warning "Update mode: Preserving existing API keys in provider configs"
-        Write-Success "Configs preserved (use fresh install to update API keys)"
+    if ($Update -and (Test-Path $anthropicConfigPath) -and (Test-Path $zaiConfigPath) -and
+        (Test-Path $claudishConfigPath)) {
+        Write-Warning "Update mode: Preserving existing credentials while refreshing Claudish profiles"
+
+        $existingHybrid = Get-Content $claudishConfigPath -Raw | ConvertFrom-Json
+        $existingProxy = if (Test-Path $claudishProxyConfigPath) {
+            Get-Content $claudishProxyConfigPath -Raw | ConvertFrom-Json
+        } else {
+            $null
+        }
+        $claudishTemplate = Get-Content (Join-Path $configSourceRoot "provider.claudish.template.json") -Raw | ConvertFrom-Json
+        $claudishProxyTemplate = Get-Content (Join-Path $configSourceRoot "provider.claudish-proxy.template.json") -Raw | ConvertFrom-Json
+
+        $existingHeaders = $existingProxy.env.ANTHROPIC_CUSTOM_HEADERS
+        if (-not $existingHeaders) {
+            $existingHeaders = $existingHybrid.env.ANTHROPIC_CUSTOM_HEADERS
+        }
+        if (-not $existingHeaders -and $ClaudishProxyKey) {
+            $machineHeader = if ($MachineName) { $MachineName } else { 'external-client' }
+            $existingHeaders = "X-Claudish-Machine: $machineHeader`nx-proxy-key: $ClaudishProxyKey"
+        }
+        if (-not $existingHeaders) {
+            throw "Existing Claudish configs contain no ANTHROPIC_CUSTOM_HEADERS; rerun -Update with -ClaudishProxyKey supplied securely"
+        }
+
+        $claudishTemplate.env.ANTHROPIC_CUSTOM_HEADERS = $existingHeaders
+        $claudishProxyTemplate.env.ANTHROPIC_CUSTOM_HEADERS = $existingHeaders
+
+        Backup-IfExists $claudishConfigPath
+        Backup-IfExists $claudishProxyConfigPath
+
+        $claudishJson = $claudishTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($claudishConfigPath, $claudishJson, [System.Text.UTF8Encoding]::new($false))
+
+        $claudishProxyJson = $claudishProxyTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($claudishProxyConfigPath, $claudishProxyJson, [System.Text.UTF8Encoding]::new($false))
+
+        Write-Success "Anthropic and z.ai credentials preserved"
+        Write-Success "Claudish hybrid and proxy-only profiles refreshed"
     } else {
         # Fresh install or missing configs
         Write-Info "Setting up provider configurations..."
 
         # Load templates
-        $anthropicTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.anthropic.template.json") -Raw | ConvertFrom-Json
-        $zaiTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.zai.template.json") -Raw | ConvertFrom-Json
-        $claudishTemplate = Get-Content (Join-Path $sourceRoot "configs\provider.claudish.template.json") -Raw | ConvertFrom-Json
+        $anthropicTemplate = Get-Content (Join-Path $configSourceRoot "provider.anthropic.template.json") -Raw | ConvertFrom-Json
+        $zaiTemplate = Get-Content (Join-Path $configSourceRoot "provider.zai.template.json") -Raw | ConvertFrom-Json
+        $claudishTemplate = Get-Content (Join-Path $configSourceRoot "provider.claudish.template.json") -Raw | ConvertFrom-Json
+        $claudishProxyTemplate = Get-Content (Join-Path $configSourceRoot "provider.claudish-proxy.template.json") -Raw | ConvertFrom-Json
 
         # Anthropic config: No API key needed (uses browser auth from Pro/Max subscription)
         Write-Info "Anthropic provider: Using Claude Pro/Max browser authentication (no API key required)"
@@ -240,8 +293,18 @@ try {
 
         $proxyKey = Get-SecureApiKey -ProviderName "Claudish proxy" -ExistingKey $ClaudishProxyKey
 
-        # Apply proxy key to claudish template
-        $claudishTemplate.env.ANTHROPIC_AUTH_TOKEN = $proxyKey
+        # The real proxy key belongs only in x-proxy-key. ANTHROPIC_AUTH_TOKEN in
+        # proxy-only mode is a non-secret placeholder used to bypass local onboarding.
+        $machineHeader = if ($MachineName) { $MachineName } else { 'external-client' }
+        $customHeaders = "X-Claudish-Machine: $machineHeader`nx-proxy-key: $proxyKey"
+        $claudishTemplate.env.ANTHROPIC_CUSTOM_HEADERS = $customHeaders
+        $claudishProxyTemplate.env.ANTHROPIC_CUSTOM_HEADERS = $customHeaders
+
+        # Back up any partial installation before replacing its configs.
+        Backup-IfExists $anthropicConfigPath
+        Backup-IfExists $zaiConfigPath
+        Backup-IfExists $claudishConfigPath
+        Backup-IfExists $claudishProxyConfigPath
 
         # Save configs (BOM-free UTF-8 for Claude Code compatibility)
         $anthropicJson = $anthropicTemplate | ConvertTo-Json -Depth 10
@@ -253,11 +316,15 @@ try {
         $claudishJson = $claudishTemplate | ConvertTo-Json -Depth 10
         [System.IO.File]::WriteAllText($claudishConfigPath, $claudishJson, [System.Text.UTF8Encoding]::new($false))
 
+        $claudishProxyJson = $claudishProxyTemplate | ConvertTo-Json -Depth 10
+        [System.IO.File]::WriteAllText($claudishProxyConfigPath, $claudishProxyJson, [System.Text.UTF8Encoding]::new($false))
+
         Write-Host ""
         Write-Success "Provider configs created"
         Write-Info "  • Anthropic: Browser auth (Claude Pro/Max)"
         Write-Info "  • z.ai: API key configured"
-        Write-Info "  • Claudish: Proxy key configured"
+        Write-Info "  • Claudish: Hybrid proxy with Anthropic pass-through"
+        Write-Info "  • Claudish proxy-only: No Anthropic account required"
     }
 
     # Success summary
@@ -269,7 +336,7 @@ try {
     Write-Host "`n📦 Installed Components:" -ForegroundColor Cyan
     Write-Host "   • Slash command: /switch-provider" -ForegroundColor White
     Write-Host "   • Switching script: Switch-Provider.ps1" -ForegroundColor White
-    Write-Host "   • Provider configs: anthropic, zai, claudish" -ForegroundColor White
+    Write-Host "   • Provider configs: anthropic, zai, claudish, claudish-proxy" -ForegroundColor White
 
     Write-Host "`n🎯 Usage:" -ForegroundColor Cyan
     Write-Host "   In Claude Code, use the slash command:" -ForegroundColor Gray
@@ -278,7 +345,9 @@ try {
     Write-Host "     /switch-provider zai          " -NoNewline -ForegroundColor Yellow
     Write-Host "→ Switch to z.ai GLM models" -ForegroundColor Gray
     Write-Host "     /switch-provider claudish     " -NoNewline -ForegroundColor Yellow
-    Write-Host "→ Switch to Claudish unified proxy" -ForegroundColor Gray
+    Write-Host "→ Switch to Claudish with Anthropic pass-through" -ForegroundColor Gray
+    Write-Host "     /switch-provider claudish-proxy" -NoNewline -ForegroundColor Yellow
+    Write-Host " → Switch to Claudish without an Anthropic account" -ForegroundColor Gray
 
     Write-Host "`n💡 Tips:" -ForegroundColor Cyan
     Write-Host "   • The slash command is now available in ALL your workspaces" -ForegroundColor Gray

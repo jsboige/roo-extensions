@@ -27,9 +27,11 @@ These scripts were moved from `.claude/scripts/` to `scripts/claude/` to reduce 
 
 ### Provider Management
 
-- **`Switch-Provider.ps1`** - Switch between LLM providers (Anthropic/z.ai)
-  - Usage: `scripts/claude/Switch-Provider.ps1 -Provider [anthropic|zai]`
-  - Updates `~/.claude/settings.json` with provider-specific config
+- **`Switch-Provider.ps1`** - Switch between LLM providers and Claudish authentication contracts
+  - Usage: `scripts/claude/Switch-Provider.ps1 -Provider [anthropic|zai|claudish|claudish-proxy]`
+  - `claudish` is hybrid/pass-through: native Anthropic lanes require the client's local OAuth
+  - `claudish-proxy` needs no Claude/Anthropic account: non-secret onboarding placeholders are separate from the real `x-proxy-key` hub credential
+  - Updates `~/.claude/settings.json` with provider-specific config while preserving machine-owned settings
   - Version: 1.1.0 (includes verification)
 
 - **`provider-preflight.ps1`** - Provider health check BEFORE a sub-agent fan-out (#3361)

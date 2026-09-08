@@ -1,0 +1,34 @@
+{
+  "provider": "claudish-proxy",
+  "model": "sonnet",
+  "forceLoginMethod": "console",
+  "disableClaudeAiConnectors": true,
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://models.myia.io",
+    "ANTHROPIC_API_KEY": "sk-ant-api03-placeholder-not-used-proxy-handles-auth-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+    "ANTHROPIC_AUTH_TOKEN": "placeholder-token-not-used-proxy-handles-auth",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "qwen3.6-35b-a3b",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "GLM-5.2 (Claudish)",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "GLM-5.2 (Claudish)",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "Qwen3.6-35B (Claudish)",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "90",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "200000",
+    "ANTHROPIC_CUSTOM_HEADERS": "X-Claudish-Machine: MACHINE_NAME_PLACEHOLDER\nx-proxy-key: CLAUDISH_PROXY_KEY_PLACEHOLDER"
+  },
+  "description": "Claudish proxy-only — no Claude or Anthropic account required",
+  "modelMapping": {
+    "opus": "GLM-5.2 through Claudish",
+    "sonnet": "GLM-5.2 through Claudish",
+    "haiku": "Qwen3.6-35B through Claudish"
+  },
+  "notes": [
+    "Designed for fresh machines without a Claude or Anthropic account",
+    "ANTHROPIC_API_KEY and ANTHROPIC_AUTH_TOKEN are non-secret onboarding placeholders",
+    "x-proxy-key authenticates the client to the Claudish hub and must be provisioned separately",
+    "Provider credentials remain on the hub and must never be copied into this client profile",
+    "No native Anthropic lane is advertised by this profile"
+  ]
+}
