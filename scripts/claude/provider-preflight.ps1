@@ -80,6 +80,12 @@ $baseUrl = $envMap['ANTHROPIC_BASE_URL']
 if ($baseUrl) { $baseUrl = $baseUrl.TrimEnd('/') }
 $token = $envMap['ANTHROPIC_AUTH_TOKEN']
 $hasToken = [bool]$token
+# Executor nuance (po-204 datapoint 03/09): the key may EXIST with an empty value while the
+# session auths through ANTHROPIC_CUSTOM_HEADERS - reporting "absent" misdirects the operator.
+$tokenKeyExists = $envMap.ContainsKey('ANTHROPIC_AUTH_TOKEN')
+$tokenLabel = if ($hasToken) { 'present (never printed)' }
+    elseif ($tokenKeyExists) { 'EMPTY in settings (executor layout: auth may ride ANTHROPIC_CUSTOM_HEADERS)' }
+    else { 'not set in settings' }
 
 # Role -> settings key (the mapping Switch-Provider.ps1 owns, protected by $OnlyIfAbsent #3361)
 $roleKeys = [ordered]@{
@@ -93,7 +99,7 @@ $roleKeys = [ordered]@{
 Write-Host '=== Provider preflight (#3361) ===' -ForegroundColor Cyan
 $endpoint = if ($baseUrl) { $baseUrl } else { 'https://api.anthropic.com (native - no ANTHROPIC_BASE_URL set)' }
 Write-Host "Endpoint : $endpoint"
-Write-Host "Token    : $(if ($hasToken) { 'present (never printed)' } else { 'ABSENT from settings' })"
+Write-Host "Token    : $tokenLabel"
 Write-Host ''
 Write-Host 'Resolution chain  alias -> model ID -> endpoint:' -ForegroundColor Yellow
 
@@ -213,7 +219,7 @@ if ($probe.Code -in 401, 402, 403) {
     Write-Host ''
     Write-Host '  DIAGNOSTIC - config involved:' -ForegroundColor Cyan
     Write-Host "    - $SettingsPath -> env.ANTHROPIC_BASE_URL = $baseUrl"
-    Write-Host "    - $SettingsPath -> env.ANTHROPIC_AUTH_TOKEN (present: $hasToken)"
+    Write-Host "    - $SettingsPath -> env.ANTHROPIC_AUTH_TOKEN ($tokenLabel)"
     Write-Host '    - env.ANTHROPIC_DEFAULT_*_MODEL keys (chain traced above)'
     Write-Host '  Remediation, in order:' -ForegroundColor Cyan
     Write-Host '    1. Re-apply the machine provider policy:'

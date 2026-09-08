@@ -16,6 +16,7 @@
         and the remediation command (Switch-Provider.ps1 -Provider claudish),
       - the fleet policy note (no native Anthropic on executors) is present,
       - the exit-code contract (0 healthy, 2 auth/billing, 3 unreachable, 4 routing mismatch),
+      - an EMPTY token key is reported distinctly from an absent key (executor layout),
       - the token is never echoed (no Write-* command interpolates $token / $apiKey).
 
 .NOTES
@@ -63,6 +64,13 @@ Describe 'provider-preflight guard (#3361)' {
     It 'Detects the #3361 wildcard signature (model ID not in the routable list)' {
         $content | Should -Match 'NOT LISTED'
         $content | Should -Match 'wildcard'
+    }
+
+    It 'Distinguishes an EMPTY token from an absent key (executor auth may ride custom headers)' {
+        # po-204 datapoint 03/09: on executors the key exists but is empty - reporting
+        # "absent" sends the operator looking in the wrong place during a 401/402 incident.
+        $content | Should -Match "ContainsKey\('ANTHROPIC_AUTH_TOKEN'\)"
+        $content | Should -Match 'EMPTY in settings'
     }
 
     It 'Never echoes the token (no Write-* command interpolates the token variable)' {
