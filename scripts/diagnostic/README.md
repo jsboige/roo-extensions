@@ -64,3 +64,17 @@ python scripts/diagnostic/scan-duplicate-tool-use.py --json
 # Validation autonome (fixture synthétique signature #3276)
 python scripts/diagnostic/scan-duplicate-tool-use.py --selftest
 ```
+
+### `../transcript/Find-DuplicateToolUse.ps1` (PR #3498)
+
+Variante PowerShell du même détecteur, ajoutée post-#3278. Mêmes signatures (`EMIT_FORK` / `EXEC_DOUBLE` / `EXEC_COPY`) sur un transcript unique, avec sortie `Object` / `Json` / `Summary` — utile quand le harnais cible est Windows natif (`powershell`) et que le Python n'est pas disponible. Tests Pester dans `scripts/testing/unit/Find-DuplicateToolUse.Tests.ps1` (12/12 verts).
+
+```powershell
+# Walk tous les transcripts sous ~/.claude/projects
+Get-ChildItem ~/.claude/projects/*/*.jsonl | ForEach-Object {
+    powershell -ExecutionPolicy Bypass -File scripts/transcript/Find-DuplicateToolUse.ps1 `
+        -Path $_.FullName -OutputFormat Summary
+}
+```
+
+Les deux outils sont **complémentaires**, pas redondants : le scanner Python fait le balayage de masse (exit codes CI-friendly), le script PowerShell est l'analyseur forensic d'un transcript précis (sortie structurée pour triage).
