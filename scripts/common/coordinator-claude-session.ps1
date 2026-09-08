@@ -55,8 +55,9 @@ function Invoke-ClaudeCoordinatorSession {
 
     .NOTES
     Le chemin Timeout preserve le comportement d'origine : Stop-Job force,
-    puis kill des processus orphelins du meme nom derives du lanceur et
-    demarres apres le lancement de la session.
+    puis kill des processus du MEME NOM que le lanceur et demarres apres lui
+    (balayage nom + StartTime -- ce n'est PAS une ascendance prouvee ;
+    comportement preexistant, conserve tel quel dans cette PR).
     #>
     [CmdletBinding()]
     param(
@@ -82,7 +83,7 @@ function Invoke-ClaudeCoordinatorSession {
     $Completed = Wait-Job $Job -Timeout $TimeoutSeconds
 
     if ($null -eq $Completed) {
-        # Timeout atteint -- arret force du job et des processus orphelins
+        # Timeout atteint -- arret force du job, puis balayage nom + StartTime (voir NOTES)
         # (comportement d'origine du wrapper, preserve a l'identique).
         Stop-Job $Job -PassThru | Remove-Job -Force
         $ProcName = [System.IO.Path]::GetFileNameWithoutExtension($ClaudeCli)
