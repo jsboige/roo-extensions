@@ -166,4 +166,52 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         ('$raw | ConvertFrom-Json -AsHashtable'    -match $callPattern) | Should -BeTrue
         ('  ConvertFrom-Json -AsHashtable : PS 7'  -match $callPattern) | Should -BeFalse
     }
+
+    It 'No .ps1 uses a PS7-only null operator without declaring #Requires -Version 7' {
+        # Sibling class of the -AsHashtable split above, same root cause: syntax that only ONE
+        # engine understands. `??` and `??=` are PS 7.0+. Under 5.1 they are not a runtime
+        # error but a PARSE error -- the script does not run AT ALL, so no amount of internal
+        # error handling saves it. Measured 2026-09-08 on ai-01 (PS 5.1.26100.9168):
+        #   scripts/github/sync-issues-to-project.ps1 -> 2 errors
+        #   scripts/github/set-project-fields.ps1     -> 4 errors (2 of them cascade)
+        # while the docs tell agents to invoke both bare, and `pwsh` is absent from po-2027.
+        #
+        # The instrument is the TOKENIZER, not a regex. Measured on this tree: a `??` regex
+        # matched 6 files, but only 2 were defects -- the other 4 carried `??` inside STRINGS
+        # (git porcelain status codes, a UI label, one line of markdown prose). The parser
+        # emits QuestionQuestion only for the real operator, so strings and comments are
+        # discriminated for free. The controls at the bottom prove that, rather than assume it.
+        $offenders = @()
+        Get-ChildItem (Join-Path $PSScriptRoot '../..') -Recurse -Filter '*.ps1' | ForEach-Object {
+            $tokens = $null; $perrs = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+                $_.FullName, [ref]$tokens, [ref]$perrs)
+            $usesPs7Only = @($tokens | Where-Object {
+                $_.Kind -eq [System.Management.Automation.Language.TokenKind]::QuestionQuestion -or
+                $_.Kind -eq [System.Management.Automation.Language.TokenKind]::QuestionQuestionEquals
+            }).Count -gt 0
+            if ($usesPs7Only) {
+                # Declaring the requirement is a legitimate choice; using it silently is not.
+                $declares = (Get-Content $_.FullName -Raw) -match '(?im)^\s*#Requires\s+-Version\s+([7-9]|\d{2,})'
+                if (-not $declares) { $offenders += $_.Name }
+            }
+        }
+        $offenders | Should -BeNullOrEmpty -Because 'a PS7-only operator makes the script unparseable under 5.1, which the fleet still runs'
+
+        # Controls, on the tokenizer itself: it must bite on the operators and stay blind to
+        # the same two characters appearing in a string or a comment.
+        function Test-Ps7NullOp([string]$Code) {
+            $tk = $null; $er = $null
+            [void][System.Management.Automation.Language.Parser]::ParseInput($Code, [ref]$tk, [ref]$er)
+            @($tk | Where-Object {
+                $_.Kind -eq [System.Management.Automation.Language.TokenKind]::QuestionQuestion -or
+                $_.Kind -eq [System.Management.Automation.Language.TokenKind]::QuestionQuestionEquals
+            }).Count -gt 0
+        }
+        (Test-Ps7NullOp '$a = $x ?? "d"')        | Should -BeTrue  -Because 'the operator must be detected'
+        (Test-Ps7NullOp '$a ??= 5')              | Should -BeTrue  -Because 'the compound form must be detected too'
+        (Test-Ps7NullOp '$s = "?? in a string"') | Should -BeFalse -Because 'a string is not an operator'
+        (Test-Ps7NullOp "`$s = '??'")            | Should -BeFalse -Because 'a literal is not an operator'
+        (Test-Ps7NullOp '# ?? in a comment')     | Should -BeFalse -Because 'a comment is not an operator'
+    }
 }

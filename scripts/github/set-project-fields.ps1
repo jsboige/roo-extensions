@@ -122,7 +122,7 @@ if (-not $result) {
 }
 
 $json = $result | ConvertFrom-Json
-$projectItems = @($json.items ?? @())
+$projectItems = @(if ($null -ne $json.items) { $json.items } else { @() })
 Write-Host "  Fetched $($projectItems.Count) items"
 
 # Filter to items with issue URLs
@@ -133,7 +133,7 @@ foreach ($item in $projectItems) {
         $issueItems += @{
             itemId    = $item.id
             issueNum  = [int]$Matches[1]
-            title     = $content.title ?? ""
+            title     = $(if ($null -ne $content.title) { $content.title } else { "" })
         }
     }
 }
