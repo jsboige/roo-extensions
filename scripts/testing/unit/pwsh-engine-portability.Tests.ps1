@@ -37,6 +37,7 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         $script:init     = Get-Content (Join-Path $root 'scripts/claude/init-claude-code.ps1') -Raw
         $script:copilot  = Get-Content (Join-Path $root 'scripts/copilot/configure-copilot-mcp.ps1') -Raw
         $script:rollout  = Get-Content (Join-Path $root 'scripts/scheduling/invoke-copilot-rollout-check.ps1') -Raw
+        $script:dispatch = Get-Content (Join-Path $root 'scripts/scheduling/start-copilot-dispatcher.ps1') -Raw
     }
 
     It 'Both JSON-parsing scripts define the portable helper' {
@@ -93,16 +94,16 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         }
     }
 
-    It 'The four remaining scripts define the portable helper' {
-        foreach ($c in @($audit, $init, $copilot, $rollout)) {
+    It 'The five remaining scripts define the portable helper' {
+        foreach ($c in @($audit, $init, $copilot, $rollout, $dispatch)) {
             $c | Should -Match 'function ConvertFrom-JsonToDictionary'
         }
     }
 
-    It 'No engine-specific parser is called OUTSIDE the helper in the four scripts' {
+    It 'No engine-specific parser is called OUTSIDE the helper in the five scripts' {
         $callAsh = '$Json | ConvertFrom-Json -AsHashtable'
         $callJss = 'New-Object System.Web.Script.Serialization.JavaScriptSerializer'
-        foreach ($c in @($audit, $init, $copilot, $rollout)) {
+        foreach ($c in @($audit, $init, $copilot, $rollout, $dispatch)) {
             ([regex]::Matches($c, [regex]::Escape($callAsh))).Count | Should -Be 1
             ([regex]::Matches($c, [regex]::Escape($callJss))).Count | Should -Be 1
         }
