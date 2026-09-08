@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Event-driven dashboard listener using FileSystemWatcher (#2004, Epic #1997).
 
@@ -179,6 +179,40 @@ function Get-WorkspacePathMaps {
     return @{ file = $script:_wsPathFileMap; env = $script:_wsPathEnvMap }
 }
 
+function ConvertFrom-JsonToDictionary {
+    <#
+    .SYNOPSIS
+        Engine-portable JSON -> IDictionary. Works on BOTH Windows PowerShell 5.1 and PowerShell 7+.
+    .DESCRIPTION
+        MEASURED 2026-09-08 on both engines (ai-01) — the two available mechanisms are
+        MUTUALLY EXCLUSIVE, so neither one alone is portable:
+
+          ConvertFrom-Json -AsHashtable : PS 7.6.5 OK (OrderedHashtable)
+                                          PS 5.1   FAILS ("parametre ... AsHashtable" introuvable)
+          JavaScriptSerializer          : PS 5.1   OK (Dictionary[string,object])
+                                          PS 7.6.5 FAILS ("Could not load type
+                                          'System.Web.UI.WebResourceAttribute'" — System.Web.Extensions
+                                          is .NET Framework only, absent from .NET Core)
+
+        Picking either one hard-codes a dependency on one engine and silently degrades on the
+        other, which is exactly the bug this helper exists to end (#2368).
+
+        CALLER CONTRACT: the two shapes are different .NET types. Test membership with
+        `-is [System.Collections.IDictionary]` (true for BOTH); `-is [hashtable]` is true only
+        for the PS 7 shape and silently drops data under 5.1.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Json)
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
 function Get-ClaudeJsonProjectsMap {
     # Returns a hashtable { lowercase-leaf-name → absolute-path } populated from
     # the `projects` section of $McpConfig (typically ~/.claude.json). This is
@@ -193,13 +227,13 @@ function Get-ClaudeJsonProjectsMap {
     }
     try {
         $raw = [System.IO.File]::ReadAllText($McpConfig, [System.Text.UTF8Encoding]::new($false))
-        # Use .NET deserialization for PS 5.1 compatibility (#2186 Bug 2).
-        # ConvertFrom-Json -AsHashtable requires PS 7+; under Windows PowerShell 5.1
-        # it throws silently, killing path resolution source #4.
-        Add-Type -AssemblyName System.Web.Extensions -ErrorAction SilentlyContinue
-        $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
-        $serializer.MaxJsonLength = [int]::MaxValue
-        $obj = $serializer.DeserializeObject($raw)
+        # Engine-portable parse (#2368). The PS 5.1 shim that used to sit here
+        # (JavaScriptSerializer, #2186 Bug 2) fixed 5.1 and BROKE PS 7 — and the listener
+        # runs under pwsh 7, so path-resolution source #4 was dead on every PS7 machine.
+        # Observed 63x in outputs/scheduling/logs/listener-*.log (ai-01, 09-06 -> 09-07):
+        #   "Failed to parse ...\.claude.json projects section: Could not load type
+        #    'System.Web.UI.WebResourceAttribute'"
+        $obj = ConvertFrom-JsonToDictionary $raw
         if ($null -ne $obj -and $obj.ContainsKey('projects') -and $null -ne $obj['projects']) {
             foreach ($absPath in $obj['projects'].Keys) {
                 if ([string]::IsNullOrEmpty($absPath)) { continue }
@@ -855,7 +889,11 @@ function Invoke-ProcessWorkspace($ws) {
     }
 
     try {
-        & pwsh -File $effectiveSpawnScript @spawnArgs
+        # #2368: pwsh (PS7) is absent on some machines (po-2027). Fall back to Windows
+        # PowerShell 5.1, present everywhere. Safe only because the spawn target is now
+        # engine-portable (ConvertFrom-JsonToDictionary above + in spawn-claude.ps1).
+        $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+        & $psHost -File $effectiveSpawnScript @spawnArgs
         $exitCode = $LASTEXITCODE
     } catch {
         Write-Log "ERROR" "[$ws] Spawn failed: $_"

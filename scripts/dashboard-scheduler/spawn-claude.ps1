@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Spawn Claude Code (claude -p) with a triggering [WAKE-CLAUDE] message.
 
@@ -124,6 +124,41 @@ function Write-Log($level, $msg) {
     $ts = Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ"
     Write-Host "[$ts] [$level] $msg"
 }
+
+function ConvertFrom-JsonToDictionary {
+    <#
+    .SYNOPSIS
+        Engine-portable JSON -> IDictionary. Works on BOTH Windows PowerShell 5.1 and PowerShell 7+.
+    .DESCRIPTION
+        MEASURED 2026-09-08 on both engines (ai-01) — the two available mechanisms are
+        MUTUALLY EXCLUSIVE, so neither one alone is portable:
+
+          ConvertFrom-Json -AsHashtable : PS 7.6.5 OK (OrderedHashtable)
+                                          PS 5.1   FAILS ("parametre ... AsHashtable" introuvable)
+          JavaScriptSerializer          : PS 5.1   OK (Dictionary[string,object])
+                                          PS 7.6.5 FAILS ("Could not load type
+                                          'System.Web.UI.WebResourceAttribute'" — System.Web.Extensions
+                                          is .NET Framework only, absent from .NET Core)
+
+        Picking either one hard-codes a dependency on one engine and silently degrades on the
+        other, which is exactly the bug this helper exists to end (#2368).
+
+        CALLER CONTRACT: the two shapes are different .NET types. Test membership with
+        `-is [System.Collections.IDictionary]` (true for BOTH); `-is [hashtable]` is true only
+        for the PS 7 shape and silently drops data under 5.1.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Json)
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
 
 # ========== LOCK ==========
 
@@ -292,7 +327,7 @@ Commence.
     if (-not [string]::IsNullOrEmpty($McpConfig) -and (Test-Path $McpConfig)) {
         try {
             $rawCfg = [System.IO.File]::ReadAllText($McpConfig, [System.Text.UTF8Encoding]::new($false))
-            $cfgObj = $rawCfg | ConvertFrom-Json -AsHashtable
+            $cfgObj = ConvertFrom-JsonToDictionary $rawCfg
             $merged = [ordered]@{}
             if ($cfgObj.ContainsKey('mcpServers') -and $null -ne $cfgObj['mcpServers']) {
                 foreach ($k in $cfgObj['mcpServers'].Keys) { $merged[$k] = $cfgObj['mcpServers'][$k] }
@@ -307,7 +342,11 @@ Commence.
                 }
                 if ($null -ne $wsKey) {
                     $proj = $cfgObj['projects'][$wsKey]
-                    if ($proj -is [hashtable] -and $proj.ContainsKey('mcpServers') -and $null -ne $proj['mcpServers']) {
+                    # -is [IDictionary], NOT -is [hashtable]: under PS 5.1 the portable parser
+                    # yields Dictionary[string,object], which is NOT a [hashtable]. Testing the
+                    # concrete type here would silently drop every workspace-scoped override and
+                    # quietly undo #2004 Phase 2 on 5.1.
+                    if ($proj -is [System.Collections.IDictionary] -and $proj.ContainsKey('mcpServers') -and $null -ne $proj['mcpServers']) {
                         foreach ($k in $proj['mcpServers'].Keys) { $merged[$k] = $proj['mcpServers'][$k] }
                     }
                 }

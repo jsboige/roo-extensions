@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Lance un audit meta-analyse via Claude Code (Tier Meta-Analyst de l'architecture 3x2)
 
@@ -160,7 +160,11 @@ if (Test-Path $EnsureBuildScript) {
     try {
         # -Headless: this is a scheduled path. It cannot restart VS Code, so it must never
         # rebuild under live RSM hosts — it would leave the machine ARMED indefinitely (#3489).
-        $BuildVerdict = & pwsh -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript -Headless 2>&1 | Select-Object -Last 3
+        # #2368: pwsh (PS7) is absent on some machines (po-2027) — fall back to Windows
+        # PowerShell 5.1. ensure-build-fresh.ps1 carries no PS7-only syntax or runtime call
+        # (parse-checked under 5.1.26100.9168, 2026-09-08).
+        $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+        $BuildVerdict = & $psHost -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript -Headless 2>&1 | Select-Object -Last 3
         foreach ($line in $BuildVerdict) { Write-Log "  [BUILD] $line" }
     } catch {
         Write-Log "Pre-flight ensure-build-fresh echoue (non fatal): $_" "WARN"
