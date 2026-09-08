@@ -12,8 +12,9 @@
 #
 # Execute en CI par le job unit-pester (#3216) via
 # scripts/testing/run-pester-tests.ps1. Faux executables NATIFS obligatoires
-# (.cmd sous Windows, script +x sous Linux) : un .ps1 ne peuplerait pas
-# $LASTEXITCODE, grandeur que le module doit transporter.
+# (.cmd sous Windows, script +x avec SHEBANG sous Linux -- sans shebang,
+# execve rend ENOEXEC et le fake ne s'execute pas, premiere CI du 08/09) :
+# un .ps1 ne peuplerait pas $LASTEXITCODE, grandeur que le module transporte.
 #
 # Mesures de sonde prealables (ai-01, pwsh 7 + PS 5.1, 08/09) :
 # - & <inexistant> ... 2>&1 dans un job NE fait PAS passer le job en
@@ -21,8 +22,11 @@
 #   $LASTEXITCODE reste $null -> le module doit le classer NoResult. Teste
 #   ici via l'API publique (cas reel, sans mock).
 # - Set-Location sur un repertoire inexistant n'echoue pas non plus le job
-#   (erreur non-terminante). State=Failed est donc une branche DEFENSIVE :
-#   elle se teste avec un job simule (Mock), comme le resultat absent.
+#   (erreur non-terminante). State=Failed est donc une branche DEFENSIVE,
+#   atteinte uniquement par exception dans le scriptblock : testee avec un
+#   VRAI job en echoue rendu par un Mock Start-Job (objet Job reel, tous les
+#   bindings restent valides). Idem pour le resultat absent : vrai job
+#   Complete + Receive-Job mocke.
 # - Aucun appel Claude reel : uniquement des faux natifs dans un temp dir.
 # - Le chemin Timeout ne tue que des processus nommes d'apres le faux :
 #   aucun processus claude reel n'est touche par cette suite.
@@ -49,7 +53,7 @@ BeforeAll {
             [System.IO.File]::WriteAllText($p, ($body -join "`r`n") + "`r`n", [System.Text.UTF8Encoding]::new($false))
         } else {
             $p = Join-Path $script:TempRoot "$Name.sh"
-            $body = @($Lines | ForEach-Object { "echo '$_'" }) + "exit $ExitCode"
+            $body = @('#!/bin/sh') + @($Lines | ForEach-Object { "echo '$_'" }) + "exit $ExitCode"
             [System.IO.File]::WriteAllText($p, ($body -join "`n") + "`n", [System.Text.UTF8Encoding]::new($false))
             & chmod +x $p
         }
@@ -64,7 +68,7 @@ BeforeAll {
             [System.IO.File]::WriteAllText($p, "@ping -n 12 127.0.0.1 > nul`r`n@exit /b 0", [System.Text.UTF8Encoding]::new($false))
         } else {
             $p = Join-Path $script:TempRoot "slow.sh"
-            [System.IO.File]::WriteAllText($p, "sleep 11`nexit 0", [System.Text.UTF8Encoding]::new($false))
+            [System.IO.File]::WriteAllText($p, "#!/bin/sh`nsleep 11`nexit 0", [System.Text.UTF8Encoding]::new($false))
             & chmod +x $p
         }
         return $p
