@@ -80,6 +80,30 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         $buildIdx | Should -BeGreaterThan $armIdx
     }
 
+    It 'Does not claim the restart is OWED on a run that rebuilds NOTHING (-DryRun / -WhatIf)' {
+        # Finding by po-2024 reviewing #3519, reproduced on main 2026-09-08 (ai-01): the
+        # categorical ARM line fired under -DryRun AND under -WhatIf, then the run skipped the
+        # build -- announcing a debt it had not incurred, with build/index.js mtime unchanged.
+        # An operator reading the first line believes the machine was armed by their command.
+        #
+        # The predicate must cover BOTH dry doors: -DryRun exits at the gate below, -WhatIf is
+        # declined by ShouldProcess. Testing only -DryRun would leave -WhatIf free to drift.
+        $content | Should -Match '\$noRebuildThisRun\s*=\s*\$DryRun\s+-or\s+\$WhatIfPreference'
+        $content | Should -Match 'NOTHING was rebuilt and NOTHING is armed'
+
+        # The categorical claim must live in the ELSE branch, i.e. after the guard.
+        # Measured on TOKENS, not on raw text: a comment quoting the string (this fix ships
+        # one, naming the incident) sits before the guard and made a raw IndexOf assertion
+        # fail on the comment instead of the code -- the test would have been measuring prose.
+        $owedToken = $tokens |
+            Where-Object { $_.Kind -ne 'Comment' -and $_.Text -like '*THE RESTART IS OWED*' } |
+            Select-Object -First 1
+        $owedToken | Should -Not -BeNullOrEmpty -Because 'the categorical ARM message must still exist for real rebuilds'
+        $guardIdx = $content.IndexOf('if ($noRebuildThisRun)')
+        $guardIdx | Should -BeGreaterThan -1
+        $owedToken.Extent.StartOffset | Should -BeGreaterThan $guardIdx
+    }
+
     It 'Declares the named -Arm escape hatch switch' {
         $content | Should -Match '\[switch\]\$Arm'
     }

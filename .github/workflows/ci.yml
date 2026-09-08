@@ -33,6 +33,11 @@ on:
       # ~/.claude/rules/ went unwritten. deploy-global-config.Tests.ps1 guards
       # both copies, so both their paths have to re-trigger it.
       - 'scripts/claude/Deploy-GlobalConfig.ps1'
+      # Third instance of the same gap, found while fixing the ARM guard (#3489):
+      # ensure-build-fresh.arm-guard.Tests.ps1 guards ensure-build-fresh.ps1, but the
+      # script's own path was not a trigger -- a change to it landing on main re-ran
+      # nothing, exactly like mcp-chain-watchdog.ps1 above.
+      - 'scripts/claude/ensure-build-fresh.ps1'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
