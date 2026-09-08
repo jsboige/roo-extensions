@@ -51,7 +51,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         # both released only by direct human mandate).
         $content | Should -Match 'ARMED-DEFER'
         $headlessIdx = $content.IndexOf('$Headless -and -not $Arm')
-        $deferIdx    = $content.IndexOf("Write-Result 'ARMED-DEFER'")
+        $deferIdx    = $content.IndexOf("Exit-NotFresh 'ARMED-DEFER'")
         $buildIdx    = $content.IndexOf('& npm.cmd run build')
         # the defer is gated by -Headless (overridable by -Arm), not by the host count alone
         $headlessIdx | Should -BeGreaterThan 0

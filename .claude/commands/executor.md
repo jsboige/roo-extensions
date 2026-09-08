@@ -57,14 +57,15 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 Execute ces actions automatiquement, en parallele quand possible :
 
-```bashbash
-# En parallele
+```powershell
+# Transaction atomique : pull + gitlink + build frais. Ne pas poursuivre sur exit 1 ou 10.
+powershell.exe -ExecutionPolicy Bypass -File scripts/claude/executor-preflight.ps1
+if ($LASTEXITCODE -eq 10) { throw "Restart VS Code requis avant de reprendre /executor" }
+if ($LASTEXITCODE -ne 0) { throw "Pré-vol executor bloqué : fraîcheur build non garantie" }
+
 hostname
 git log --oneline -5
-git fetch origin && git pull origin main
-# Verifier submodule mcps/internal (evite merge conflicts)
-cd mcps/internal && git fetch origin && git log --oneline HEAD..origin/main | head -5 && cd ../..
-```bash
+```
 
 Puis (en parallele) :
 1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_messages(action: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
