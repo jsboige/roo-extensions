@@ -83,11 +83,24 @@ jobs:
           $result = gh project item-add 67 --owner jsboige --url $issueUrl 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] Issue added to Project #67"
-          } else {
-            Write-Host "[WARN] Could not add issue (may already exist): $result"
+            exit 0
           }
-          # Don't fail the workflow if issue is already in project (the daily
-          # full reconcile handles idempotent re-add + field-setting).
+          # Measured 2026-09-08: `gh project item-add` is IDEMPOTENT -- re-adding an
+          # item already on the board exits 0 with empty output. A non-zero exit is
+          # therefore NEVER "already exists". The previous wording said exactly that
+          # and turned a hard credential failure ("unknown owner type") into a green
+          # run: the at-open attach was broken for ~13 h while every run stayed green.
+          Write-Host "[FAIL] item-add exited $LASTEXITCODE : $result"
+          # Which class of failure? Tolerating one only makes sense while the daily
+          # reconcile can still catch it -- and the reconcile runs on THIS SAME token.
+          # Probe whether the credential can address the project at all. If it cannot,
+          # the safety net is down too and staying green hides a fleet-wide outage.
+          gh project view 67 --owner jsboige --format json 1>$null 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::PROJECT_TOKEN cannot address Project #67 (probe 'gh project view 67' failed too). The daily reconcile shares this credential and will NOT recover it. Issue $issueUrl is not on the board."
+            exit 1
+          }
+          Write-Host "::warning::Issue $issueUrl was not added to Project #67 (item-specific or transient; the credential itself is healthy). The daily reconcile should pick it up within 24 h."
           exit 0
 
       - name: Add new PR to Project #67
@@ -102,10 +115,24 @@ jobs:
           $result = gh project item-add 67 --owner jsboige --url $prUrl 2>&1
           if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] PR added to Project #67"
-          } else {
-            Write-Host "[WARN] Could not add PR (may already exist): $result"
+            exit 0
           }
-          # Don't fail the workflow if PR is already in project (common case)
+          # Measured 2026-09-08: `gh project item-add` is IDEMPOTENT -- re-adding an
+          # item already on the board exits 0 with empty output. A non-zero exit is
+          # therefore NEVER "already exists". The previous wording said exactly that
+          # and turned a hard credential failure ("unknown owner type") into a green
+          # run: the at-open attach was broken for ~13 h while every run stayed green.
+          Write-Host "[FAIL] item-add exited $LASTEXITCODE : $result"
+          # Which class of failure? Tolerating one only makes sense while the daily
+          # reconcile can still catch it -- and the reconcile runs on THIS SAME token.
+          # Probe whether the credential can address the project at all. If it cannot,
+          # the safety net is down too and staying green hides a fleet-wide outage.
+          gh project view 67 --owner jsboige --format json 1>$null 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::PROJECT_TOKEN cannot address Project #67 (probe 'gh project view 67' failed too). The daily reconcile shares this credential and will NOT recover it. PR $prUrl is not on the board."
+            exit 1
+          }
+          Write-Host "::warning::PR $prUrl was not added to Project #67 (item-specific or transient; the credential itself is healthy). The daily reconcile should pick it up within 24 h."
           exit 0
 
       - name: Label nudge for new issues
