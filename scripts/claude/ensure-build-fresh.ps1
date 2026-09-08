@@ -177,7 +177,26 @@ if ($liveHosts.Count -gt 0) {
         exit 0
     }
 
-    Write-Result 'ARM' "$hostsDetail. Rebuilding now ARMS the ESM mixed-millage crash (#3489) on those sessions: the new build is served only after a VS Code restart, and inbox stays broken until then. THE RESTART IS OWED ([INTERACTIVE-ONLY])."
+    # The ARM claim must match what the run actually DOES. Under -DryRun no rebuild happens
+    # (the gate below exits before `npm run build`), so the categorical form announced a debt
+    # the run had not incurred: `-DryRun` printed "THE RESTART IS OWED" and then "would run
+    # npm run build", with build/index.js mtime unchanged. Reported by po-2024 reviewing #3519
+    # and reproduced on main (2026-09-08). The host detail is still worth printing in a dry-run
+    # -- it is how an operator learns how many sessions a real run would arm -- so the branch
+    # keeps the information and changes only the tense.
+    #
+    # The predicate is NOT "-DryRun": it is "will this run actually rebuild". `-WhatIf` reaches
+    # the same place by another door -- ShouldProcess declines below and no build happens -- and
+    # measured identically on main (2026-09-08): categorical ARM, then "ShouldProcess declined",
+    # build/index.js mtime unchanged. `$WhatIfPreference` is $true in scope under -WhatIf, so
+    # both dry paths share one condition and neither can drift away from it alone.
+    $noRebuildThisRun = $DryRun -or $WhatIfPreference
+    if ($noRebuildThisRun) {
+        $dryLabel = if ($DryRun) { '-DryRun' } else { '-WhatIf' }
+        Write-Result 'ARM' "$hostsDetail. ${dryLabel}: NOTHING was rebuilt and NOTHING is armed. A REAL run would ARM the ESM mixed-millage crash (#3489) on those sessions -- the new build is served only after a VS Code restart, and inbox stays broken until then -- and would OWE that restart ([INTERACTIVE-ONLY])."
+    } else {
+        Write-Result 'ARM' "$hostsDetail. Rebuilding now ARMS the ESM mixed-millage crash (#3489) on those sessions: the new build is served only after a VS Code restart, and inbox stays broken until then. THE RESTART IS OWED ([INTERACTIVE-ONLY])."
+    }
 }
 
 if ($DryRun) {
