@@ -110,4 +110,21 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match 'LastWriteTime\s*-(gt|ge|lt|le)') | Should -Be $false
         }
     }
+
+    Context "Logging resilient aux verrous de lecture (mesure 08/09 03:15Z)" {
+
+        It "l'Add-Content du log est retry-able (-ErrorAction Stop dans un try)" {
+            # EAP=Continue avale l'IOException de partage : 3 lignes perdues en
+            # direct, un feu entier sans trace. Le Stop local capture l'echec.
+            ($content -match 'Add-Content -Path \$logFile -Value \$line -Encoding utf8 -ErrorAction Stop') | Should -Be $true
+        }
+
+        It "un fichier de repli recueille la ligne quand le log reste verrouille" {
+            ($content -match '\$logFile\.sidecar') | Should -Be $true
+        }
+
+        It "deux tentatives avant le repli" {
+            ($content -match 'foreach \(\$attempt in 1\.\.2\)') | Should -Be $true
+        }
+    }
 }
