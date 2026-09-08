@@ -93,14 +93,30 @@ jobs:
           Write-Host "[FAIL] item-add exited $LASTEXITCODE : $result"
           # Which class of failure? Tolerating one only makes sense while the daily
           # reconcile can still catch it -- and the reconcile runs on THIS SAME token.
-          # Probe whether the credential can address the project at all. If it cannot,
-          # the safety net is down too and staying green hides a fleet-wide outage.
-          gh project view 67 --owner jsboige --format json 1>$null 2>&1
+          # So: is the credential itself dead, or was this one call merely refused?
+          #
+          # Measured 2026-09-08: the outage that motivated this PR was NOT a dead
+          # token. It was the user-level GraphQL budget of `jsboige`, drained by
+          # interactive project enumerations -- the CI shares that budget because it
+          # runs as the same user. `gh` surfaces it as "unknown owner type", which is
+          # the message of its refused owner-resolution query, not of a scope problem.
+          # It cleared on its own within the hour, and the daily reconcile covers it.
+          #
+          # A GraphQL probe (`gh project view`) CANNOT separate the two: it fails in
+          # both cases, so it would hard-fail the run on a condition that self-heals.
+          # REST and GraphQL carry SEPARATE budgets -- a REST call keeps working while
+          # GraphQL is refused, and fails only when the credential itself is gone.
+          # Do NOT reach for `gh api rate_limit` instead: measured twice announcing
+          # 5000/5000 while every GraphQL call was being refused.
+          # Residual case: if the REST budget is spent too, this reports a dead
+          # credential wrongly. Accepted -- a red run gets read, whereas the green run
+          # this PR removes hid a real failure for ~13 h.
+          gh api user 1>$null 2>&1
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::PROJECT_TOKEN cannot address Project #67 (probe 'gh project view 67' failed too). The daily reconcile shares this credential and will NOT recover it. Issue $issueUrl is not on the board."
+            Write-Host "::error::PROJECT_TOKEN no longer authenticates at all (REST probe 'gh api user' failed too, so this is not a GraphQL-budget refusal). The daily reconcile shares this credential and will NOT recover it. Issue $issueUrl is not on the board."
             exit 1
           }
-          Write-Host "::warning::Issue $issueUrl was not added to Project #67 (item-specific or transient; the credential itself is healthy). The daily reconcile should pick it up within 24 h."
+          Write-Host "::warning::Issue $issueUrl was not added to Project #67, but PROJECT_TOKEN still authenticates (REST probe OK) -- GraphQL budget exhaustion, or an item-specific error. The daily reconcile should pick it up within 24 h."
           exit 0
 
       - name: Add new PR to Project #67
@@ -125,14 +141,30 @@ jobs:
           Write-Host "[FAIL] item-add exited $LASTEXITCODE : $result"
           # Which class of failure? Tolerating one only makes sense while the daily
           # reconcile can still catch it -- and the reconcile runs on THIS SAME token.
-          # Probe whether the credential can address the project at all. If it cannot,
-          # the safety net is down too and staying green hides a fleet-wide outage.
-          gh project view 67 --owner jsboige --format json 1>$null 2>&1
+          # So: is the credential itself dead, or was this one call merely refused?
+          #
+          # Measured 2026-09-08: the outage that motivated this PR was NOT a dead
+          # token. It was the user-level GraphQL budget of `jsboige`, drained by
+          # interactive project enumerations -- the CI shares that budget because it
+          # runs as the same user. `gh` surfaces it as "unknown owner type", which is
+          # the message of its refused owner-resolution query, not of a scope problem.
+          # It cleared on its own within the hour, and the daily reconcile covers it.
+          #
+          # A GraphQL probe (`gh project view`) CANNOT separate the two: it fails in
+          # both cases, so it would hard-fail the run on a condition that self-heals.
+          # REST and GraphQL carry SEPARATE budgets -- a REST call keeps working while
+          # GraphQL is refused, and fails only when the credential itself is gone.
+          # Do NOT reach for `gh api rate_limit` instead: measured twice announcing
+          # 5000/5000 while every GraphQL call was being refused.
+          # Residual case: if the REST budget is spent too, this reports a dead
+          # credential wrongly. Accepted -- a red run gets read, whereas the green run
+          # this PR removes hid a real failure for ~13 h.
+          gh api user 1>$null 2>&1
           if ($LASTEXITCODE -ne 0) {
-            Write-Host "::error::PROJECT_TOKEN cannot address Project #67 (probe 'gh project view 67' failed too). The daily reconcile shares this credential and will NOT recover it. PR $prUrl is not on the board."
+            Write-Host "::error::PROJECT_TOKEN no longer authenticates at all (REST probe 'gh api user' failed too, so this is not a GraphQL-budget refusal). The daily reconcile shares this credential and will NOT recover it. PR $prUrl is not on the board."
             exit 1
           }
-          Write-Host "::warning::PR $prUrl was not added to Project #67 (item-specific or transient; the credential itself is healthy). The daily reconcile should pick it up within 24 h."
+          Write-Host "::warning::PR $prUrl was not added to Project #67, but PROJECT_TOKEN still authenticates (REST probe OK) -- GraphQL budget exhaustion, or an item-specific error. The daily reconcile should pick it up within 24 h."
           exit 0
 
       - name: Label nudge for new issues
