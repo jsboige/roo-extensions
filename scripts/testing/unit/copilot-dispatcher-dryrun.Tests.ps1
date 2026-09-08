@@ -19,11 +19,11 @@
 #   invocation" leaves none. The assertions check for the RECORD, not for
 #   the success of the call: that is the required discriminator between
 #   absence of invocation and invocation that failed.
-# * Anti-fallback: before spawning the child, Get-Command must resolve BOTH
-#   names inside the fake bin dir -- proving the child (which inherits the
-#   same PATH, same resolution order) cannot reach the real copilot/gh
-#   installed on the host. A test that silently fell through to the real
-#   executables would violate the zero-burn contract it claims to verify.
+# * Anti-fallback: the spawn helper THROWS unless BOTH names resolve inside
+#   the fake bin dir -- checked immediately before every child spawn, so a
+#   red standalone It can never leave the mutation control running against
+#   a real copilot/gh from the host (review of #3542). A separate It also
+#   asserts the resolution so the failure reads as a clean test result.
 # * Positive control (last test): runs a MUTATED copy of the script with the
 #   early DryRun exit stripped -- i.e. the defect itself -- and asserts the
 #   violation signals DO appear (paid `-p` call recorded, gh called, state
@@ -129,6 +129,11 @@ exit 0
                 Repo = $repo
                 Script = $scriptCopy
                 StateFile = $stateFile
+                # SHA-256 of the fixture BYTES as written: the untouched-state
+                # contract is byte-identical, and text comparison would equate
+                # different byte sequences that decode to the same string
+                # (review of #3542: ReadAllText compares text, not bytes).
+                StateSha256 = (Get-FileSha256Hex -Path $stateFile)
                 AppData = $appData
                 Bin = $bin
                 InvocationLog = $invocationLog
@@ -144,8 +149,35 @@ exit 0
             $env:COPILOT_FAKE_INVOCATION_LOG = $Harness.InvocationLog
         }
 
+        function Get-FileSha256Hex {
+            param([string]$Path)
+            $bytes = [System.IO.File]::ReadAllBytes($Path)
+            $sha = [System.Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = $sha.ComputeHash($bytes)
+            } finally {
+                $sha.Dispose()
+            }
+            return ([System.BitConverter]::ToString($hash) -replace '-', '')
+        }
+
         function Invoke-DispatcherDryRun {
             param([hashtable]$Harness)
+
+            # Anti-fallback gate -- RAISING, checked before EVERY child spawn,
+            # inside the helper (review of #3542: a standalone It does not
+            # gate anything; if it fails, Pester would still run the mutation
+            # control against a possibly-real CLI). Both exact names must
+            # resolve inside the fake bin dir or we refuse to spawn at all.
+            foreach ($name in @('copilot', 'gh')) {
+                $resolved = Get-Command $name -ErrorAction SilentlyContinue
+                if (-not $resolved) {
+                    throw ("Anti-fallback gate: '{0}' does not resolve on PATH at all -- refusing to spawn the dispatcher child" -f $name)
+                }
+                if (-not ($resolved.Source.StartsWith($Harness.Bin, [System.StringComparison]::OrdinalIgnoreCase))) {
+                    throw ("Anti-fallback gate: '{0}' resolves to '{1}' outside the fake bin dir '{2}' -- refusing to spawn the dispatcher child against a real executable" -f $name, $resolved.Source, $Harness.Bin)
+                }
+            }
 
             $engineArgs = @('-NoProfile')
             if ($env:OS -eq 'Windows_NT') {
@@ -218,11 +250,11 @@ exit 0
         $script:harness.InvocationLog | Should -Not -Exist
     }
 
-    It '-DryRun leaves the run state file byte-identical' {
+    It '-DryRun leaves the run state file byte-identical (SHA-256 of the bytes)' {
         $result = Invoke-DispatcherDryRun -Harness $script:harness
 
         $result.ExitCode | Should -Be 0
-        [System.IO.File]::ReadAllText($script:harness.StateFile) | Should -Be $script:fixtureState
+        Get-FileSha256Hex -Path $script:harness.StateFile | Should -Be $script:harness.StateSha256
     }
 
     It '-DryRun writes no work report' {
@@ -287,8 +319,8 @@ exit 0
         $records | Should -Match '(?s)copilot :: -p .*--allow-all-tools --no-ask-user'
         # gh was called for target discovery:
         $records | Should -Match ([regex]::Escape('gh :: issue view'))
-        # The state file was rewritten (not byte-identical anymore):
-        [System.IO.File]::ReadAllText($script:harness.StateFile) | Should -Not -Be $script:fixtureState
+        # The state file was rewritten (bytes differ from the fixture):
+        Get-FileSha256Hex -Path $script:harness.StateFile | Should -Not -Be $script:harness.StateSha256
         # A work report was written:
         $reports = @(Get-ChildItem -LiteralPath $script:harness.ReportDir -Filter 'copilot-dispatcher-*.md' -ErrorAction SilentlyContinue)
         $reports.Count | Should -BeGreaterThan 0
