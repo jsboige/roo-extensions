@@ -108,9 +108,10 @@ jobs:
           # GraphQL is refused, and fails only when the credential itself is gone.
           # Do NOT reach for `gh api rate_limit` instead: measured twice announcing
           # 5000/5000 while every GraphQL call was being refused.
-          # Residual case: if the REST budget is spent too, this reports a dead
-          # credential wrongly. Accepted -- a red run gets read, whereas the green run
-          # this PR removes hid a real failure for ~13 h.
+          # Residual case: anything that makes REST unreachable -- its own budget
+          # spent, or a plain network failure -- reports a dead credential wrongly.
+          # Accepted: a red run gets read and a re-run clears it, whereas the green
+          # run this PR removes hid a real failure for ~13 h.
           gh api user 1>$null 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::PROJECT_TOKEN no longer authenticates at all (REST probe 'gh api user' failed too, so this is not a GraphQL-budget refusal). The daily reconcile shares this credential and will NOT recover it. Issue $issueUrl is not on the board."
@@ -156,9 +157,10 @@ jobs:
           # GraphQL is refused, and fails only when the credential itself is gone.
           # Do NOT reach for `gh api rate_limit` instead: measured twice announcing
           # 5000/5000 while every GraphQL call was being refused.
-          # Residual case: if the REST budget is spent too, this reports a dead
-          # credential wrongly. Accepted -- a red run gets read, whereas the green run
-          # this PR removes hid a real failure for ~13 h.
+          # Residual case: anything that makes REST unreachable -- its own budget
+          # spent, or a plain network failure -- reports a dead credential wrongly.
+          # Accepted: a red run gets read and a re-run clears it, whereas the green
+          # run this PR removes hid a real failure for ~13 h.
           gh api user 1>$null 2>&1
           if ($LASTEXITCODE -ne 0) {
             Write-Host "::error::PROJECT_TOKEN no longer authenticates at all (REST probe 'gh api user' failed too, so this is not a GraphQL-budget refusal). The daily reconcile shares this credential and will NOT recover it. PR $prUrl is not on the board."
