@@ -37,7 +37,18 @@ jobs:
       # the whole workflow (#2970). It only runs on the daily schedule and manual
       # dispatch. Issue/PR opens use the targeted item-add steps below (one mutation
       # each); field-setting for newly-added issues is picked up by this daily run.
-      - name: Sync issues to Project #67 (full reconcile)
+      #
+      # The reconcile runs once PER TRACKED REPOSITORY. Project #67 is the dispatch board for
+      # the whole system, but part of the work lives in the submodule repository
+      # (jsboige/jsboige-mcp-servers) -- 29 open issues on 2026-09-08, none of which had ever
+      # reached the board, because this workflow only ever reconciled its own repository.
+      #
+      # The asymmetry below is deliberate: the event-driven steps fire on `issues: opened` IN
+      # THIS REPOSITORY ONLY -- a workflow cannot observe another repo's events. A submodule
+      # issue therefore reaches the board on the next daily reconcile, up to 24 h later, never
+      # within seconds like a roo-extensions one. Closing that would mean installing a workflow
+      # in the submodule repository; the latency is accepted instead.
+      - name: Sync issues to Project #67 (full reconcile, per repository)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         shell: pwsh
         env:
@@ -48,7 +59,17 @@ jobs:
           if ('${{ inputs.dry_run }}' -eq 'true') {
             $params = @{ DryRun = $true }
           }
-          ./scripts/github/sync-issues-to-project.ps1 @params
+          $failed = @()
+          foreach ($repo in @('roo-extensions', 'jsboige-mcp-servers')) {
+            Write-Host "::group::reconcile $repo"
+            ./scripts/github/sync-issues-to-project.ps1 -Repo $repo @params
+            # A script `exit 1` does NOT throw under ErrorActionPreference=Stop: without this
+            # check a failing repository would be swallowed by the next iteration and the step
+            # would still go green.
+            if ($LASTEXITCODE -ne 0) { $failed += "$repo (exit $LASTEXITCODE)" }
+            Write-Host "::endgroup::"
+          }
+          if ($failed.Count -gt 0) { throw "reconcile failed for: $($failed -join ', ')" }
 
       - name: Add new issue to Project #67
         if: github.event_name == 'issues'
