@@ -460,53 +460,58 @@ if ($DryRun) {
 # Lancer Claude en mode pipe avec timeout protection
 $MaxMinutes = 110  # Generous internal timeout (2h schtask limit, 110min internal for graceful exit)
 Write-Log "Lancement Claude coordinateur (timeout: ${MaxMinutes}min)..."
-$StartTime = Get-Date
+$StartTime = Get-Date   # borne du bloc catch (duree en cas d'erreur hors session)
+
+# Implementation partagee : transport du code de sortie depuis le job.
+# Avant l'extraction (2026-09-08), le scriptblock du Start-Job ne retournait
+# que stdout : $LASTEXITCODE restait dans le runspace du job et ce wrapper
+# logguait "COORDINATOR SUCCESS" sans jamais voir le code natif (ex :
+# 03:37Z 08/09 : sortie "API Error: Rate limit reached", code non capte).
+# La decision se prend desormais sur : etat du job + resultat transporte + code natif.
+. (Join-Path $ScriptDir '..\common\coordinator-claude-session.ps1')
 
 try {
     Push-Location $RepoRoot
 
-    # Launch Claude as a background job with timeout
-    $ClaudeJob = Start-Job -ScriptBlock {
-        param($promptFile, $model, $budget, $repoRoot)
-        Set-Location $repoRoot
-        Get-Content $promptFile -Raw | & claude -p --model $model --dangerously-skip-permissions 2>&1
-    } -ArgumentList $PromptFile, $Model, $MaxBudgetUsd, $RepoRoot
+    $Session = Invoke-ClaudeCoordinatorSession -PromptFile $PromptFile -Model $Model -RepoRoot $RepoRoot -MaxMinutes $MaxMinutes
 
-    $Completed = Wait-Job $ClaudeJob -Timeout ($MaxMinutes * 60)
-
-    if ($null -eq $Completed) {
-        # Timeout reached - kill the job and all child processes
-        Write-Log "TIMEOUT: Claude depasse ${MaxMinutes}min, arret force" "WARN"
-        Stop-Job $ClaudeJob -PassThru | Remove-Job -Force
-        # Also kill any orphaned claude processes from this session
-        Get-Process -Name "claude" -ErrorAction SilentlyContinue | Where-Object {
-            $_.StartTime -ge $StartTime
-        } | Stop-Process -Force -ErrorAction SilentlyContinue
+    if ($Session.Status -eq 'Timeout') {
+        Write-Log "TIMEOUT: $($Session.Reason)" "WARN"
         Write-Log "=== COORDINATOR TIMEOUT ==="
         exit 2
     }
 
-    $ClaudeOutput = Receive-Job $ClaudeJob
-    Remove-Job $ClaudeJob -Force -ErrorAction SilentlyContinue
+    $ExitStr = 'n/a'
+    if ($null -ne $Session.ExitCode) { $ExitStr = $Session.ExitCode }
+    Write-Log "Claude termine en $($Session.DurationMinutes.ToString('F1')) minutes (status: $($Session.Status), exit: $ExitStr)"
 
-    $Duration = (Get-Date) - $StartTime
-    Write-Log "Claude termine en $($Duration.TotalMinutes.ToString('F1')) minutes"
-    Write-Log "Output (dernieres 20 lignes):"
-
-    $OutputLines = ($ClaudeOutput -split "`n")
-    $LastLines = $OutputLines | Select-Object -Last 20
-    foreach ($line in $LastLines) {
-        Write-Log "  $line"
+    # Sortie loggee dans TOUS les cas termines (succes ou echec) : c'est la
+    # seule trace locale du contenu du run -- la logguer uniquement en cas de
+    # succes masquait justement les echecs.
+    if ($Session.Output) {
+        Write-Log "Output (dernieres 20 lignes):"
+        $OutputLines = ($Session.Output -split "`n")
+        $LastLines = $OutputLines | Select-Object -Last 20
+        foreach ($line in $LastLines) {
+            Write-Log "  $line"
+        }
     }
 
-    Write-Log "=== COORDINATOR SUCCESS ==="
-    exit 0
+    if ($Session.Status -eq 'Success') {
+        Write-Log "=== COORDINATOR SUCCESS ==="
+        exit 0
+    }
+
+    # NonZeroExit | JobFailed | NoResult : echec, motive, exit non nul.
+    Write-Log "COORDINATOR FAILED: $($Session.Status) -- $($Session.Reason)" "ERROR"
+    Write-Log "=== COORDINATOR FAILED ===" "ERROR"
+    exit 1
 
 } catch {
     $Duration = (Get-Date) - $StartTime
     Write-Log "ERREUR: $_" "ERROR"
     Write-Log "Duration: $($Duration.TotalMinutes.ToString('F1')) min" "ERROR"
-    Write-Log "=== COORDINATOR FAILED ==="
+    Write-Log "=== COORDINATOR FAILED ===" "ERROR"
     exit 1
 } finally {
     Pop-Location
