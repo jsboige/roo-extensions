@@ -133,4 +133,37 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         # positive control: the predicate bites on the pre-fix shape
         'if ($cache.Contains($taskId) -and ...)'.Contains('$cache.Contains($taskId)') | Should -BeTrue
     }
+
+    It 'No .ps1 outside a portable helper pipes into the engine-specific parser (closes the CLASS)' {
+        # The tests above enumerate five INSTANCES. A sixth bare caller added tomorrow passes
+        # every one of them -- which is how start-copilot-dispatcher.ps1 survived this suite.
+        # This predicate is written against the CLASS instead: any .ps1 under scripts/ that
+        # PIPES into ConvertFrom-Json -AsHashtable without defining the portable helper.
+        #
+        # The pipe is the discriminator between a CALL and the doc-comments that merely name
+        # the parameter (measured on this tree 2026-09-08: 10 piped call sites, 14 prose
+        # mentions, zero overlap).
+        #
+        # Two files are exempt, for opposite reasons:
+        #   - this test file quotes the pattern inside its own assertions;
+        #   - start-claude-worker.ps1 DOCUMENTS a deliberate 5.1 fall-through to the #2280
+        #     .env injection, which carries the same variables. Occurrence, not defect.
+        $exempt      = @('pwsh-engine-portability.Tests.ps1', 'start-claude-worker.ps1')
+        $callPattern = '\|\s*ConvertFrom-Json\s+-AsHashtable'
+        $scriptsRoot = Join-Path $PSScriptRoot '../..'
+
+        $offenders = Get-ChildItem $scriptsRoot -Recurse -Filter '*.ps1' |
+            Where-Object { $exempt -notcontains $_.Name } |
+            Where-Object {
+                $body = Get-Content $_.FullName -Raw
+                ($body -match $callPattern) -and
+                ($body -notmatch 'function ConvertFrom-JsonToDictionary')
+            } | ForEach-Object { $_.Name }
+
+        $offenders | Should -BeNullOrEmpty
+
+        # positive controls: the predicate must bite on a call and ignore a prose mention
+        ('$raw | ConvertFrom-Json -AsHashtable'    -match $callPattern) | Should -BeTrue
+        ('  ConvertFrom-Json -AsHashtable : PS 7'  -match $callPattern) | Should -BeFalse
+    }
 }
