@@ -9,7 +9,7 @@
     by updating the user's settings.json file with provider-specific configurations.
 
 .PARAMETER Provider
-    The provider to switch to. Valid values: anthropic, zai
+    The provider to switch to. Valid values: anthropic, zai, claudish, claudish-proxy
 
 .EXAMPLE
     .\Switch-Provider.ps1 -Provider anthropic
@@ -26,7 +26,7 @@
 
 param(
     [Parameter(Mandatory=$true, Position=0)]
-    [ValidateSet("anthropic", "zai", "claudish")]
+    [ValidateSet("anthropic", "zai", "claudish", "claudish-proxy")]
     [string]$Provider
 )
 
@@ -117,11 +117,17 @@ try {
     # allowed-tools, denied-tools) silently DROPPED machine settings such as
     # statusLine, effortLevel or cleanupPeriodDays when re-applying a provider -
     # measured firsthand on myia-po-2026 (2026-09-04). Provider switching owns
-    # exactly two top-level keys: env and model. Everything else is machine state.
-    $switcherOwnedProperties = @('env', 'model')
+    # routing plus its explicit auth policy keys. Everything else is machine state.
+    $switcherOwnedProperties = @('env', 'model', 'forceLoginMethod', 'disableClaudeAiConnectors')
     foreach ($prop in $userSettings.PSObject.Properties) {
         if ($prop.Name -notin $switcherOwnedProperties) {
             $cleanSettings | Add-Member -MemberType NoteProperty -Name $prop.Name -Value $prop.Value
+        }
+    }
+
+    foreach ($authProperty in @('forceLoginMethod', 'disableClaudeAiConnectors')) {
+        if ($providerConfig.PSObject.Properties.Name -contains $authProperty) {
+            $cleanSettings | Add-Member -MemberType NoteProperty -Name $authProperty -Value $providerConfig.$authProperty
         }
     }
 
@@ -153,8 +159,17 @@ try {
     if ($providerConfig.PSObject.Properties.Name -contains 'env') {
         foreach ($prop in $providerConfig.env.PSObject.Properties) {
             $keyName = $prop.Name
-            # Skip protected keys if they already exist in user settings
-            if ($protectedKeys -contains $keyName -and $mergedEnv.ContainsKey($keyName)) {
+            # Proxy-only must replace a stale API key with its onboarding placeholder.
+            # All other machine-scoped protected values remain only-if-absent.
+            $replaceWithProxyPlaceholder = (
+                $Provider -eq 'claudish-proxy' -and
+                $keyName -eq 'ANTHROPIC_API_KEY'
+            )
+            if (
+                -not $replaceWithProxyPlaceholder -and
+                $protectedKeys -contains $keyName -and
+                $mergedEnv.ContainsKey($keyName)
+            ) {
                 Write-Host "   🔐 Preserving existing $keyName" -ForegroundColor Yellow
                 continue
             }
@@ -221,7 +236,7 @@ try {
     }
 
     # Check 2: ANTHROPIC_BASE_URL is correct for provider
-    if ($Provider -eq "zai" -or $Provider -eq "claudish") {
+    if ($Provider -eq "zai" -or $Provider -eq "claudish" -or $Provider -eq "claudish-proxy") {
         if ($verifiedSettings.env.PSObject.Properties.Name -contains 'ANTHROPIC_BASE_URL') {
             $expectedUrl = if ($providerConfig.env.PSObject.Properties.Name -contains 'ANTHROPIC_BASE_URL') {
                 $providerConfig.env.ANTHROPIC_BASE_URL

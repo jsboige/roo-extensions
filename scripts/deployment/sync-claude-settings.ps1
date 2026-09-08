@@ -6,6 +6,9 @@
 # Idempotent : re-executable sans effet de bord. Backup horodate avant chaque ecriture.
 # NE TOUCHE PAS : permissions, model, effortLevel, et toute autre cle locale.
 # Preserve le x-proxy-key existant (canal secret) et ne l'ecrit JAMAIS ailleurs qu'a sa place.
+# Ce script synchronise le profil FLOTTE HYBRIDE : ANTHROPIC_AUTH_TOKEN vide laisse l'OAuth
+# Claude/Anthropic local prendre en charge les lanes natives. Il ne bootstrappe pas un client externe
+# proxy-only sans compte ; utiliser Deploy-ProviderSwitcher.ps1 + provider claudish-proxy pour ce cas.
 #
 # Usage:
 #   pwsh -File sync-claude-settings.ps1 -MachineName myia-po-2024          # applique

@@ -29,7 +29,20 @@ configs/
     └── file-writing.md          # Selection Edit/Write/Read (global, #2368 dedup)
 ```
 
-> **Note (#2368) :** `~/.claude/CLAUDE.md` reference desormais les regles globales `~/.claude/rules/sddd-protocol.md` et `~/.claude/rules/file-writing.md` (deportees ici). La copie projet `.claude/rules/file-writing.md` a ete supprimee (contenu preserve dans le global). Les templates provider (`~/.claude/settings.json` tuning) restent hors de ce repertoire — voir `scripts/claude/` + `.claude/rules/context-window.md`.
+> **Note (#2368) :** `~/.claude/CLAUDE.md` reference desormais les regles globales `~/.claude/rules/sddd-protocol.md` et `~/.claude/rules/file-writing.md` (deportees ici). La copie projet `.claude/rules/file-writing.md` a ete supprimee (contenu preserve dans le global). Le deploiement des templates provider vers `~/.claude/settings.json` passe par `scripts/claude/` + `.claude/rules/context-window.md`.
+
+## Profils Claudish
+
+Deux profils distincts evitent de confondre l'authentification locale Claude Code avec celle du hub :
+
+| Profil | Usage | Authentification |
+|---|---|---|
+| `provider.claudish.template.json` | Hybride / pass-through Anthropic | `x-proxy-key` authentifie le hub ; une lane Anthropic native requiert l'OAuth local du client |
+| `provider.claudish-proxy.template.json` | Poste neuf sans compte ni abonnement Claude/Anthropic | Deux placeholders non secrets franchissent l'onboarding local avec `forceLoginMethod: "console"`; `x-proxy-key` reste le seul credential client reel |
+
+Les credentials des providers restent sur le hub. Ne jamais copier une cle provider dans un profil client et ne jamais reutiliser `x-proxy-key` comme `ANTHROPIC_AUTH_TOKEN`.
+
+Deployer les profils avec `scripts/claude/Deploy-ProviderSwitcher.ps1`, puis choisir explicitement `claudish` ou `claudish-proxy` avec `Switch-Provider.ps1`.
 
 ## Deploiement
 
