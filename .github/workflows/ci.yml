@@ -38,6 +38,7 @@ on:
       # script's own path was not a trigger -- a change to it landing on main re-ran
       # nothing, exactly like mcp-chain-watchdog.ps1 above.
       - 'scripts/claude/ensure-build-fresh.ps1'
+      - 'scripts/claude/executor-preflight.ps1'
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'

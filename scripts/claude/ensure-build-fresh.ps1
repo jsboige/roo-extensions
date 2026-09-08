@@ -1,5 +1,5 @@
 ﻿# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
-# Usage: powershell -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm] [-Headless]
+# Usage: powershell -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm] [-Headless] [-RequireFresh]
 #
 # WHY: Interactive Claude Code executor sessions run `git submodule update` (Phase 0)
 # which refreshes the TypeScript SOURCE but never triggers `npm run build`. The compiled
@@ -11,8 +11,8 @@
 # WHAT: Compares the newest mtime of compiled source (`src/**/*.ts`, excluding tests which
 # tsconfig.exclude removes from compilation) against the newest `build/**/*.js`. If the
 # source is newer than the build (or build/ is absent), runs `npm run build` (clean + tsc).
-# Idempotent: a no-op when the build is already fresh. Non-fatal: a build failure logs WARN
-# and exits 0 so it never blocks the executor session.
+# Idempotent: a no-op when the build is already fresh. Legacy callers remain non-fatal on
+# skips/build failures; `-RequireFresh` makes those conditions block an executor pre-flight.
 #
 # ARM GUARD (#3489, revised by the #3489 FRICTION arbitration): rebuilding `build/` while a
 # live RSM host process runs produces mixed ESM graphs -> the `assertSharedStoreAccessible`
@@ -31,19 +31,28 @@
 #                                       indefinitely (measured po-2024, 2026-09-07 02:08Z).
 # `-Arm` overrides `-Headless`, for a human running a scheduled path by hand under mandate.
 #
-# NOTE: This ensures the ON-DISK build is current. A separate, distinct failure mode — the
-# MCP host process serving a stale in-memory build even though build/ is fresh on disk —
-# still requires a VS Code restart ([INTERACTIVE-ONLY], out of scope here).
+# NOTE: This ensures the ON-DISK build is current. In strict mode it also detects the distinct
+# failure mode where live MCP hosts predate that fresh build and returns 10, requiring a VS Code
+# restart before the executor continues ([INTERACTIVE-ONLY]).
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$RepoRoot,
     [switch]$DryRun,
     [switch]$Arm,
-    [switch]$Headless
+    [switch]$Headless,
+    [switch]$RequireFresh
 )
 
 $ErrorActionPreference = 'Continue'
 $exitCode = 0
+$restartRequired = $false
+
+function Exit-NotFresh {
+    param([string]$Status, [string]$Message)
+    Write-Result $Status $Message
+    if ($RequireFresh) { exit 1 }
+    exit 0
+}
 
 function Write-Result {
     param([string]$Status, [string]$Message)
@@ -64,24 +73,21 @@ function Write-Result {
 if (-not $RepoRoot) {
     $RepoRoot = (git rev-parse --show-toplevel 2>$null)
     if (-not $RepoRoot) {
-        Write-Result 'SKIP' "Not in a git repo and -RepoRoot not given."
-        exit 0
+        Exit-NotFresh 'SKIP' "Not in a git repo and -RepoRoot not given."
     }
 }
 
 # --- Resolve MCP server path; skip gracefully if absent (e.g. machine without submod) ---
 $McpServerPath = Join-Path $RepoRoot 'mcps/internal/servers/roo-state-manager'
 if (-not (Test-Path $McpServerPath)) {
-    Write-Result 'SKIP' "MCP server path not found ($McpServerPath). Machine without submodule — nothing to rebuild."
-    exit 0
+    Exit-NotFresh 'SKIP' "MCP server path not found ($McpServerPath). Machine without submodule — nothing to rebuild."
 }
 
 $SrcPath   = Join-Path $McpServerPath 'src'
 $BuildPath = Join-Path $McpServerPath 'build'
 
 if (-not (Test-Path $SrcPath)) {
-    Write-Result 'SKIP' "src/ not found at $SrcPath. Nothing to compare."
-    exit 0
+    Exit-NotFresh 'SKIP' "src/ not found at $SrcPath. Nothing to compare."
 }
 
 # --- Newest mtime among COMPILED source files ---
@@ -103,8 +109,7 @@ foreach ($f in $srcFiles) {
 }
 
 if ($srcNewest -eq 0) {
-    Write-Result 'SKIP' "No compiled src/*.ts found under $SrcPath."
-    exit 0
+    Exit-NotFresh 'SKIP' "No compiled src/*.ts found under $SrcPath."
 }
 
 # --- Newest mtime among compiled build outputs ---
@@ -120,9 +125,36 @@ if (Test-Path $BuildPath) {
 
 $srcFileRel = $srcNewestFile.Substring($RepoRoot.Length).TrimStart('\','/')
 
+# Probe the machine-wide RSM hosts before the FRESH return. A build can be fresh on disk while
+# the live hosts still serve the previous modules; strict executor pre-flight must preserve that
+# restart debt instead of forgetting it on the next cycle.
+$indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |"|$)' } |
+    Select-Object -Property ProcessId, CreationDate, CommandLine)
+$wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
+    Select-Object -Property ProcessId, CreationDate, CommandLine)
+$liveHosts = @($indexHosts + $wrapperHosts)
+$buildIndex = Join-Path $BuildPath 'index.js'
+$buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
+$staleCount = 0
+foreach ($h in $indexHosts) {
+    if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
+        $staleCount++
+    }
+}
+$hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js), running from {1}" -f $indexHosts.Count, (Split-Path $McpServerPath -Leaf)
+if ($staleCount -gt 0) {
+    $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
+}
+
 # --- Decision ---
 if ($buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
     Write-Result 'FRESH' "build/ is up to date (newest build .js >= newest src .ts: $srcFileRel)."
+    if ($RequireFresh -and $staleCount -gt 0) {
+        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle."
+        exit 10
+    }
     exit 0
 }
 
@@ -147,34 +179,9 @@ if (-not $buildNewest) {
 # at stake (ai-01 review note, 2026-09-06 23:28Z). The ARMÉ signature is computed against
 # `build/index.js` processes specifically: they are the ones that loaded the ESM modules
 # the next dynamic import would mismatch.
-$indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |"|$)' } |
-    Select-Object -Property ProcessId, CreationDate, CommandLine)
-$wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
-    Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
-    Select-Object -Property ProcessId, CreationDate, CommandLine)
-$liveHosts = @($indexHosts + $wrapperHosts)
-
 if ($liveHosts.Count -gt 0) {
-    # ARMÉ signature: index.js processes whose creation predates the current build/index.js
-    # mtime. Reported on BOTH branches — it names what the operator has to restart, and it is
-    # how a machine left armed is recognised after the fact.
-    $buildIndex = Join-Path $BuildPath 'index.js'
-    $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
-    $staleCount = 0
-    foreach ($h in $indexHosts) {
-        if ($h.CreationDate -and $buildMtimeUtc -and $h.CreationDate.ToUniversalTime() -lt $buildMtimeUtc) {
-            $staleCount++
-        }
-    }
-    $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($indexHosts.Count) build/index.js), running from {1}" -f $indexHosts.Count, (Split-Path $McpServerPath -Leaf)
-    if ($staleCount -gt 0) {
-        $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
-    }
-
     if ($Headless -and -not $Arm) {
-        Write-Result 'ARMED-DEFER' "$hostsDetail. Headless caller (worker/cron/pre-flight) cannot restart VS Code, so rebuilding here would leave the machine ARMED indefinitely (#3489) and inbox broken. Deferred — an interactive session must rebuild and restart. Pass -Arm to override under an explicit human mandate."
-        exit 0
+        Exit-NotFresh 'ARMED-DEFER' "$hostsDetail. Headless caller (worker/cron/pre-flight) cannot restart VS Code, so rebuilding here would leave the machine ARMED indefinitely (#3489) and inbox broken. Deferred — an interactive session must rebuild and restart. Pass -Arm to override under an explicit human mandate."
     }
 
     # The ARM claim must match what the run actually DOES. Under -DryRun no rebuild happens
@@ -196,17 +203,16 @@ if ($liveHosts.Count -gt 0) {
         Write-Result 'ARM' "$hostsDetail. ${dryLabel}: NOTHING was rebuilt and NOTHING is armed. A REAL run would ARM the ESM mixed-millage crash (#3489) on those sessions -- the new build is served only after a VS Code restart, and inbox stays broken until then -- and would OWE that restart ([INTERACTIVE-ONLY])."
     } else {
         Write-Result 'ARM' "$hostsDetail. Rebuilding now ARMS the ESM mixed-millage crash (#3489) on those sessions: the new build is served only after a VS Code restart, and inbox stays broken until then. THE RESTART IS OWED ([INTERACTIVE-ONLY])."
+        $restartRequired = $true
     }
 }
 
 if ($DryRun) {
-    Write-Result 'SKIP' "-DryRun set: would run 'npm run build' in $McpServerPath."
-    exit 0
+    Exit-NotFresh 'SKIP' "-DryRun set: would run 'npm run build' in $McpServerPath."
 }
 
 if (-not $PSCmdlet.ShouldProcess($McpServerPath, "Run 'npm run build' (clean + tsc)")) {
-    Write-Result 'SKIP' "ShouldProcess declined — not rebuilding."
-    exit 0
+    Exit-NotFresh 'SKIP' "ShouldProcess declined — not rebuilding."
 }
 
 # --- Rebuild (mirror worker Sync-McpSubmoduleBuild: clean:build + tsc, non-fatal on failure) ---
@@ -222,14 +228,15 @@ try {
     $buildExit = $LASTEXITCODE
     if ($buildExit -eq 0) {
         Write-Result 'REBUILT' "MCP build regenerated successfully. Restart VS Code to activate the new build ([INTERACTIVE-ONLY])."
+        if ($RequireFresh -and $restartRequired) { $exitCode = 10 }
     } else {
         $tail = ($buildOutput | Select-Object -Last 5 | Out-String).Trim()
         Write-Result 'WARN' "Build FAILED (exit $buildExit) — proceeding on existing build. Tail:`n$tail"
-        $exitCode = 0   # non-fatal: do not block the executor session
+        $exitCode = if ($RequireFresh) { 1 } else { 0 }
     }
 } catch {
     Write-Result 'WARN' "Build invocation threw (non-fatal): $_"
-    $exitCode = 0
+    $exitCode = if ($RequireFresh) { 1 } else { 0 }
 } finally {
     Pop-Location
 }

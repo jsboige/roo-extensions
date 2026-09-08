@@ -45,15 +45,14 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 **Verifier les outils critiques AVANT toute autre action :**
 
 1. MCP roo-state-manager disponible (16 outils) → Si absent, STOP & REPAIR
-2. `git fetch origin && git pull origin main`
-3. Verifier submodule mcps/internal a jour
-   - **Deploy-lag nudge (#2591 follow-up)** : si le dernier commit merged sur main est un `chore(submod): bump roo-state-manager` ET qu'il touche `src/**/*.ts` (vérifier `git log --name-only -1`), le fix est merged en source mais **PAS live** jusqu'à rebuild+restart MCP host. Poster `[INFO] restart VS Code requis pour activer le fix submod #NNN` sur le dashboard (1 append, fusionnable avec le [DONE] du cycle). L'étape 4 (`ensure-build-fresh`) rebuild le main-tree `build/` côté session interactive ; le worker planifié a déjà son `Sync-McpSubmoduleBuild`. Le nudge documente le restart `[INTERACTIVE-ONLY]` restant (build fresh sur disque ≠ MCP host process servi).
-4. **MCP build-freshness** (#2822 STALE-TRAP) : `git submodule update` rafraîchit la source TS mais NE déclenche PAS `npm run build` → `build/*.js` drift stale → un restart VS Code peut servir du code pre-fix silencieusement (4/5 machines touchées sprint 07-11). Lancer le helper idempotent :
-   - `powershell -ExecutionPolicy Bypass -File scripts/claude/ensure-build-fresh.ps1` (5.1 partout — pwsh absent sur certaines machines, cf shell-fallback.md #2368)
-   - Compare mtime `src/**/*.ts` vs `build/**/*.js` (exclut `__tests__`/`*.test.ts`/`*.spec.ts`, comme `tsconfig.exclude`), rebuild si stale. Non-fatal (échec build → WARN, ne bloque pas la session). No-op si déjà fresh.
-   - **Garde ARM (#3489, arbitrage 2026-09-07)** : sous hôtes RSM vivants, le chemin **interactif rebuild** et affiche `[ARM]` avec le nombre de sessions armées — tu **dois** le restart. Le refus (`ARMED-DEFER`) ne concerne plus que les appelants **headless** (`-Headless` : worker/cron/pré-vol), qui ne peuvent pas refermer la fenêtre. Ne plus passer `-Arm` par réflexe : il ne sert qu'à forcer un chemin planifié lancé à la main sous mandat.
-   - Le restart VS Code reste `[INTERACTIVE-ONLY]` : build fresh sur disque ≠ MCP host process qui sert le nouveau build en mémoire (distinct failure mode, web1 c.82).
-5. **Win-cli timeout guard** (anti-régression #2333) :
+2. **Pré-vol transactionnel obligatoire** (#2822/#3489, incident po-2025 08/09) :
+   - Exécuter **une seule commande**, sans séparer le pull du build :
+     `powershell.exe -ExecutionPolicy Bypass -File scripts/claude/executor-preflight.ps1`
+   - Le script enchaîne `fetch` → `pull origin main` → `submodule update --init mcps/internal` → vérification identité/gitlink → `ensure-build-fresh.ps1 -RequireFresh` dans un **nouveau processus** qui charge la version fraîchement tirée.
+   - Exit `0` = parent, submodule et build prêts. Exit `1` = fraîcheur non garantie : **STOP & REPAIR**, aucune autre phase. Exit `10` = des hôtes RSM vivants précèdent le build frais sur disque (rebuild courant ou dette persistante) : **STOP et restart VS Code immédiatement** ; le cycle ne reprend qu'après le restart, où le même pré-vol doit rendre `0`.
+   - **Interdit** : exécuter le pull et le helper comme deux étapes indépendantes. C'est ce qui a permis au cycle po-2025 de tirer #3525, poursuivre sans build, puis gaspiller le reboot suivant sur l'ancien binaire.
+   - **Deploy-lag nudge (#2591)** : si le pré-vol rend `10`, fusionner au rapport `[INFO]` le gitlink activé ; build frais sur disque ≠ hôte MCP qui le sert en mémoire.
+3. **Win-cli timeout guard** (anti-régression #2333) :
    - `powershell.exe -ExecutionPolicy Bypass -File scripts/infra/harmonize-win-cli-timeouts.ps1`
    - Script idempotent vérifie les 2 niveaux (interne `~/.win-cli-mcp/config.json` + transport `mcp_settings.json`)
    - Ajouter `-Fix` pour corriger automatiquement si `commandTimeout < 600`

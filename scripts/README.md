@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-05 (détail 13 scripts `claude/`, #3460 + #3465)
+**Dernière mise à jour :** 2026-09-08 (détail 17 scripts PowerShell `claude/`, recompte après ajout du pré-vol executor)
 
 ---
 
@@ -59,7 +59,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
-| `claude/` | 16 | Scripts Claude Code (spawn workers, switch-provider, validation) |
+| `claude/` | 17 | Scripts PowerShell Claude Code (spawn workers, switch-provider, validation) |
 | `claude-md/` | 1 | Génération CLAUDE.md machine-level |
 | `memory/` | 3 | Gestion mémoire agents (inject, redistribute, audit d'atteignabilité) |
 | `review/` | 4 | Reviews automatisées (PR review, code review) |
@@ -76,7 +76,8 @@ Descriptions dérivées de l'en-tête `.SYNOPSIS` de chaque script (source de v�
 | `claude/Switch-MCPConfig.ps1` | Bascule entre différentes configurations MCP pour debugger les doublons d'outils (erreur « Tool names must be unique ») |
 | `claude/Switch-Provider.ps1` | Bascule Claude Code entre providers LLM (anthropic, zai, claudish) en mettant à jour le `settings.json` utilisateur |
 | `claude/provider-preflight.ps1` | Vérifie la chaîne du provider LLM AVANT le fan-out de sub-agents (#3361) : trace de résolution, health probe, diagnostic actionnable sur 401/402/403 |
-| `claude/ensure-build-fresh.ps1` | Reconstruit le build du submodule MCP s'il est obsolète (#2822 STALE-TRAP) — compare mtime `src/` vs `build/`, rebuild si stale, idempotent et non bloquant |
+| `claude/ensure-build-fresh.ps1` | Reconstruit le build du submodule MCP s'il est obsolète (#2822 STALE-TRAP) — compare mtime `src/` vs `build/`; `-RequireFresh` rend les skips/échecs bloquants et signale le restart dû par exit 10 |
+| `claude/executor-preflight.ps1` | Pré-vol transactionnel executor : pull parent, matérialisation/vérification du gitlink `mcps/internal`, puis garantie d'un build RSM frais avant toute autre phase |
 | `claude/diagnose-harness.ps1` | Thin wrapper déléguant à `analyze-harness-tokens.ps1` (consolidation #3323, analyse token-footprint canonique) |
 | `claude/archive-large-sessions.ps1` | Diagnostic et archivage non destructif des sessions Claude Code volumineuses (#2577) — copie vers un emplacement d'archive avec vérification par comptage d'octets, les sessions source restent intactes sur disque |
 | `claude/init-claude-code.ps1` | Initialise les fichiers de configuration spécifiques à la machine à partir des templates, à exécuter après clonage du dépôt ou lors de la configuration d'une nouvelle machine |
