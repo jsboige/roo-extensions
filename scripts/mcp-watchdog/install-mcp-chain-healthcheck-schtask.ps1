@@ -26,6 +26,17 @@
 .PARAMETER IntervalMinutes
     Default: 5
 
+.PARAMETER DryRun
+    Valide et AFFICHE la tache qui serait enregistree, sans rien ecrire et sans exiger
+    l'elevation. Exerce tout le script sauf Unregister-ScheduledTask/Register-ScheduledTask
+    (les deux seuls appels privilegies) : chemin resolu, action, principal, declencheurs et
+    reglages sont construits pour de vrai. Discipline UAC : la sortie du dry-run se poste sur
+    le dashboard AVANT de consommer la fenetre d'elevation.
+
+.EXAMPLE
+    # Validation sans elevation (a poster sur le dashboard avant le geste UAC)
+    powershell -ExecutionPolicy Bypass -File .\install-mcp-chain-healthcheck-schtask.ps1 -DryRun
+
 .EXAMPLE
     # Doit être lance en Administrateur
     .\install-mcp-chain-healthcheck-schtask.ps1
@@ -35,15 +46,16 @@ param(
     [string]$TaskName   = 'MCP-Chain-Healthcheck',
     [string]$ScriptPath = (Join-Path $PSScriptRoot 'mcp-chain-healthcheck.ps1'),
     [int]$IntervalMinutes = 5,
-    [int]$StartupDelayMinutes = 2
+    [int]$StartupDelayMinutes = 2,
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = 'Stop'
 
 # Check admin
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    Write-Error "Ce script doit etre execute en Administrateur."
+if (-not $isAdmin -and -not $DryRun) {
+    Write-Error "Ce script doit etre execute en Administrateur (ou relance avec -DryRun pour valider sans elevation)."
     exit 1
 }
 
@@ -52,13 +64,18 @@ if (-not (Test-Path $ScriptPath)) {
     exit 1
 }
 
-Write-Host "=== Install scheduled task: $TaskName ==="
+$titlePrefix = if ($DryRun) { "[DRY-RUN] " } else { "" }
+Write-Host "=== ${titlePrefix}Install scheduled task: $TaskName ==="
 
 # Remove existing
 $existing = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host "Removing existing task..."
-    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    if ($DryRun) {
+        Write-Host "[DRY-RUN] Would REPLACE existing task (Unregister-ScheduledTask -TaskName '$TaskName')."
+    } else {
+        Write-Host "Removing existing task..."
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    }
 }
 
 # Action : powershell.exe -ExecutionPolicy Bypass -NoProfile -File <script> -Scheduled
@@ -100,6 +117,28 @@ $task = New-ScheduledTask `
     -Principal $principal `
     -Settings $settings `
     -Description 'Healthcheck read-only de la chaine MCP locale (arbitrage #3495) : sondage 5 min, battement observable, notes dashboard machine sur transition/panne. Ne repare jamais.'
+
+if ($DryRun) {
+    Write-Host ""
+    Write-Host "[DRY-RUN] Aucune ecriture. Ce qui SERAIT enregistre :"
+    Write-Host "  TaskName    : $TaskName"
+    Write-Host "  Execute     : powershell.exe"
+    Write-Host "  Argument    : $($action.Arguments)"
+    Write-Host "  WorkingDir  : $($action.WorkingDirectory)"
+    Write-Host "  ScriptPath  : $ScriptPath (existe: $(Test-Path $ScriptPath))"
+    Write-Host "  Principal   : $env:USERNAME (LogonType=Interactive, RunLevel=Highest)"
+    Write-Host "  Trigger 1   : AtStartup delay=PT${StartupDelayMinutes}M"
+    Write-Host "  Trigger 2   : Once + repetition toutes les $IntervalMinutes min"
+    Write-Host "  Timeout     : 5 min | Restart 3x/1min | MultipleInstances=IgnoreNew"
+    Write-Host "  Elevation   : requise pour l'ecriture reelle (session courante admin: $isAdmin)"
+    if ($ScriptPath -like '*.claude*worktrees*') {
+        Write-Host ""
+        Write-Warning "Ce chemin est dans un WORKTREE. Une tache enregistree ici pointerait vers un repertoire supprime au cleanup du worktree, et echouerait ensuite en silence a chaque tick. Lancer l'installation reelle depuis la checkout principale."
+    }
+    Write-Host ""
+    Write-Host "[DRY-RUN] Relancer SANS -DryRun dans un shell Administrateur pour installer."
+    exit 0
+}
 
 Register-ScheduledTask -TaskName $TaskName -InputObject $task | Out-Null
 
