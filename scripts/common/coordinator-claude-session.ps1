@@ -3,10 +3,10 @@
 # Origine : scripts/scheduling/start-claude-coordinator.ps1 lancait `claude -p`
 # dans un Start-Job dont le scriptblock ne retournait QUE stdout --
 # $LASTEXITCODE restait dans le runspace du job, et le parent logguait
-# "=== COORDINATOR SUCCESS ===" meme quand claude sortait non-zero.
-# Mesure du 08/09/2026 (log coordinator-20260908-053702) : run 03:37Z,
-# sortie "API Error: Rate limit reached", exit non nul, SUCCESS dans le log,
-# LastTaskResult=0 cote schtask -- la flotte croyait la lane saine.
+# "=== COORDINATOR SUCCESS ===" sans jamais voir le code natif de claude.
+# Constat du 08/09/2026 (log coordinator-20260908-053702) : run 03:37Z,
+# sortie "API Error: Rate limit reached", code natif NON CAPTE (jamais
+# transporte -- c etait le bug), SUCCESS dans le log, LastTaskResult=0.
 #
 # Ce module transporte un resultat structure { Output, ExitCode } depuis le
 # job. La decision SUCCESS/FAILED se prend sur : etat du job, presence du

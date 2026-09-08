@@ -3,8 +3,8 @@
 #
 # Bug d'origine : le scriptblock du Start-Job ne retournait que stdout --
 # $LASTEXITCODE restait dans le runspace du job et le wrapper logguait
-# "=== COORDINATOR SUCCESS ===" sur des runs echoues (log du 08/09 03:37Z :
-# "API Error: Rate limit reached" puis SUCCESS, LastTaskResult=0).
+# "=== COORDINATOR SUCCESS ===" sans voir le code natif (08/09 03:37Z :
+# "API Error: Rate limit reached" puis SUCCESS, code natif non capte).
 #
 # Mandat : la decision se prend sur le code de sortie transporte, PAS sur un
 # grep de la sortie. "API Error" avec exit 0 doit rester Success ; une sortie
@@ -86,7 +86,7 @@ Describe "Invoke-ClaudeCoordinatorSession - transport du code de sortie" {
         $r.Reason | Should -Be ''
     }
 
-    It "NONZERO : exit 1 avec 'API Error' dans la sortie -> NonZeroExit (le cas du 08/09 03:37Z)" {
+    It "NONZERO : exit 1 avec 'API Error' dans la sortie -> NonZeroExit (reproduction controlee du 08/09 03:37Z)" {
         $cli = New-FakeClaude -Name 'rate' -Lines @('API Error: Rate limit reached') -ExitCode 1
         $r = Invoke-ClaudeCoordinatorSession -PromptFile $script:PromptFile -Model 'sonnet' -RepoRoot $script:TempRoot -MaxMinutes 2 -ClaudeCli $cli
         $r.Status | Should -Be 'NonZeroExit'

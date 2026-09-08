@@ -465,9 +465,9 @@ $StartTime = Get-Date   # borne du bloc catch (duree en cas d'erreur hors sessio
 # Implementation partagee : transport du code de sortie depuis le job.
 # Avant l'extraction (2026-09-08), le scriptblock du Start-Job ne retournait
 # que stdout : $LASTEXITCODE restait dans le runspace du job et ce wrapper
-# logguait "COORDINATOR SUCCESS" sur des runs echoues (ex : 03:37Z 08/09,
-# "API Error: Rate limit reached"). La decision se prend desormais sur
-# l'etat du job + le resultat transporte + le code de sortie natif.
+# logguait "COORDINATOR SUCCESS" sans jamais voir le code natif (ex :
+# 03:37Z 08/09 : sortie "API Error: Rate limit reached", code non capte).
+# La decision se prend desormais sur : etat du job + resultat transporte + code natif.
 . (Join-Path $ScriptDir '..\common\coordinator-claude-session.ps1')
 
 try {
