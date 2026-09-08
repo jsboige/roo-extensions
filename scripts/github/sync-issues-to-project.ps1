@@ -10,10 +10,11 @@
     Adds missing issues and sets fields (Agent, Machine, Status) based on labels.
 
 .PARAMETER DryRun
-    If set, shows what would be done without making changes. Default: true.
+    Shows what would be done without making changes. This is the DEFAULT: without
+    -Execute the script never mutates the project.
 
 .PARAMETER Execute
-    If set, actually adds issues and updates fields.
+    Actually adds issues and updates fields. Required to mutate anything.
 
 .PARAMETER ProjectNumber
     GitHub Project number. Default: 67.
@@ -246,7 +247,13 @@ if ($missingIssues.Count -eq 0) {
 
 # --- Phase 4: Add missing issues ---
 
-$mode = if ($Execute) { "EXECUTE" } else { "DRY-RUN" }
+# A flagless invocation must be a dry run. The mode line below has always announced
+# DRY-RUN when -Execute was absent, but every guard downstream tested -DryRun, which
+# defaults to $false -- so `./sync-issues-to-project.ps1` printed "mode: DRY-RUN" and
+# then added items and wrote fields. Derive both from the SAME predicate so the label
+# cannot disagree with the behaviour, and let dry-run win if both switches are passed.
+$DryRun = $DryRun -or (-not $Execute)
+$mode = if ($DryRun) { "DRY-RUN" } else { "EXECUTE" }
 Write-Status "Phase 4: Adding missing issues (mode: $mode)..."
 
 $addedCount = 0

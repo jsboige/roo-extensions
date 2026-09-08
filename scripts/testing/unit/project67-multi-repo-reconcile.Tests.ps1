@@ -82,4 +82,42 @@ Describe 'Project #67 reconcile covers both repositories (#1835 follow-up)' {
         # positive control: the predicate bites on the pre-fix shape
         '-not $issuesInProject.ContainsKey([int]$_.number)'.Contains('$issuesInProject.ContainsKey([int]$_.number)') | Should -BeTrue
     }
+    It 'A flagless invocation is a real dry run, not merely a DRY-RUN label' {
+        # BEHAVIOURAL: pull the script's OWN two lines out and evaluate them for all four
+        # switch combinations. A textual assertion would pass on any file that mentions
+        # $DryRun -- and the defect here was precisely that the text looked right.
+        #
+        # Pre-fix, `./sync-issues-to-project.ps1` with no flag printed "mode: DRY-RUN"
+        # (derived from -Execute) and then added items and wrote fields (every guard
+        # downstream tested -DryRun, which defaults to $false). The label and the behaviour
+        # were computed from DIFFERENT switches, so one could lie about the other.
+        $derive = [regex]::Match($sync, '(?m)^\$DryRun = .+$')
+        $derive.Success | Should -BeTrue -Because 'the dry-run derivation must be findable'
+        $modeLine = [regex]::Match($sync, '(?m)^\$mode = if .+$')
+        $modeLine.Success | Should -BeTrue -Because 'the mode line must be findable'
+
+        $src = 'param([bool]$DryRun,[bool]$Execute)' + "`n" +
+               $derive.Value + "`n" + $modeLine.Value + "`n" +
+               '[pscustomobject]@{ mode = $mode; guarded = $DryRun }'
+        $eval = [scriptblock]::Create($src)
+
+        $none = & $eval $false $false
+        $none.guarded | Should -BeTrue  -Because 'a flagless run must not mutate the board'
+        $none.mode    | Should -Be 'DRY-RUN'
+
+        (& $eval $true  $false).guarded | Should -BeTrue
+        (& $eval $false $true ).guarded | Should -BeFalse -Because '-Execute must actually execute'
+        (& $eval $false $true ).mode    | Should -Be 'EXECUTE'
+        (& $eval $true  $true ).guarded | Should -BeTrue  -Because 'dry-run wins when both are passed'
+
+        # Negative control: the pre-fix pair really did disagree with itself, so this test is
+        # capable of failing. Without it, a derivation that never ran would also "pass".
+        $pre = [scriptblock]::Create(
+            'param([bool]$DryRun,[bool]$Execute)' + "`n" +
+            '$mode = if ($Execute) { "EXECUTE" } else { "DRY-RUN" }' + "`n" +
+            '[pscustomobject]@{ mode = $mode; guarded = $DryRun }')
+        $old = & $pre $false $false
+        $old.mode    | Should -Be 'DRY-RUN'
+        $old.guarded | Should -BeFalse -Because 'this is the label/behaviour split the fix removes'
+    }
 }
