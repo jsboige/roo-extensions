@@ -48,8 +48,24 @@ function Write-FeederLog {
     param([string]$Level, [string]$Text)
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
     $stamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd HH:mm:ss')
-    Add-Content -Path $logFile -Value "$stamp [$Level] $Text" -Encoding utf8
-    Write-Host "$stamp [$Level] $Text"
+    $line = "$stamp [$Level] $Text"
+    # Add-Content echoue de facon NON terminante quand un lecteur tient le log
+    # sans partage (mesure 08/09 03:15Z : 3 lignes perdues sur un run manuel,
+    # feu 02:54Z entierement muet) — EAP=Continue les avale et le tick devient
+    # inobservable. Retry court puis fichier de repli : la ligne n'est JAMAIS
+    # perdue, le diagnostic reste possible apres coup.
+    $written = $false
+    foreach ($attempt in 1..2) {
+        try {
+            Add-Content -Path $logFile -Value $line -Encoding utf8 -ErrorAction Stop
+            $written = $true
+            break
+        } catch { Start-Sleep -Milliseconds 400 }
+    }
+    if (-not $written) {
+        Add-Content -Path "$logFile.sidecar" -Value $line -Encoding utf8 -ErrorAction SilentlyContinue
+    }
+    Write-Host $line
 }
 
 # ---------- run-in-flight guard (conservative) ----------
