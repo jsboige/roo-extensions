@@ -53,6 +53,40 @@ function Get-TaskWorkspacePath {
     return "[Workspace non trouvé]"
 }
 
+function ConvertFrom-JsonToDictionary {
+    <#
+    .SYNOPSIS
+        Engine-portable JSON -> IDictionary. Works on BOTH Windows PowerShell 5.1 and PowerShell 7+.
+    .DESCRIPTION
+        MEASURED 2026-09-08 on both engines (ai-01) — the two available mechanisms are
+        MUTUALLY EXCLUSIVE, so neither one alone is portable:
+
+          ConvertFrom-Json -AsHashtable : PS 7.6.5 OK (OrderedHashtable)
+                                          PS 5.1   FAILS ("parametre ... AsHashtable" introuvable)
+          JavaScriptSerializer          : PS 5.1   OK (Dictionary[string,object])
+                                          PS 7.6.5 FAILS ("Could not load type
+                                          'System.Web.UI.WebResourceAttribute'" — System.Web.Extensions
+                                          is .NET Framework only, absent from .NET Core)
+
+        Picking either one hard-codes a dependency on one engine and silently degrades on the
+        other, which is exactly the bug this helper exists to end (#2368).
+
+        CALLER CONTRACT: the two shapes are different .NET types. Test membership with
+        `-is [System.Collections.IDictionary]` (true for BOTH); `-is [hashtable]` is true only
+        for the PS 7 shape and silently drops data under 5.1.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Json)
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
 # --- Point d'entrée ---
 
 $tasksPath = Get-RooTasksPath
@@ -66,7 +100,7 @@ $cacheFile = Join-Path -Path $PSScriptRoot -ChildPath "audit_cache.json"
 $cache = @{}
 if (Test-Path $cacheFile) {
     try {
-        $cache = Get-Content -Path $cacheFile -Raw | ConvertFrom-Json -AsHashtable
+        $cache = ConvertFrom-JsonToDictionary (Get-Content -Path $cacheFile -Raw)
     } catch {}
 }
 $newCache = @{ LastScan = (Get-Date).ToUniversalTime().ToString("o") }
@@ -108,7 +142,7 @@ $tasksToProcess | ForEach-Object -Process {
         Write-Progress -Activity "Analyse des tâches Roo" -Status "Analyse de $($taskDir.Name)" -PercentComplete (($i / $totalTasks) * 100)
     }
 
-    if ($cache.Contains($taskId) -and $cache[$taskId].LastWriteTime -eq $lastWriteTime) {
+    if ($cache.ContainsKey($taskId) -and $cache[$taskId].LastWriteTime -eq $lastWriteTime) {
         $auditResult = $cache[$taskId].Report
         $auditResults += $auditResult
         $newCache[$taskId] = $cache[$taskId]
