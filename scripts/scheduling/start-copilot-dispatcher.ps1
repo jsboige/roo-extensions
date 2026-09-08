@@ -725,6 +725,21 @@ Write-Log "RepoRoot=$repoRoot"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
 Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay"
 
+# DryRun MUST terminate here — BEFORE the first external call of the script
+# (the `copilot --version` probe below, gh target discovery, the paid
+# `copilot -p` dispatch, and Save-State/Save-Report). The previous guard sat
+# at the very end of the script, AFTER Invoke-PhaseCDispatch and Save-State:
+# a -DryRun run burned a real premium request and rewrote the run state, then
+# logged "no external actions" — the log asserted the opposite of what the
+# run had just done (qualified 08/09, coordinator dispatch). What DryRun
+# still legitimately does before this point is the local init trace only:
+# the log/report/state directories are created and the startup lines above
+# are written. Nothing else runs, nothing else is written.
+if ($DryRun) {
+    Write-Log "DryRun mode: exiting before any CLI call (no copilot, no gh, no state write)"
+    exit 0
+}
+
 # Known-bad CLI park: exit BEFORE any Copilot call, without touching the run
 # state (a parked lane is not an idle streak — no escalation accounting).
 if (Test-CopilotCliBlocked) {
@@ -852,10 +867,9 @@ if ($target -ne 'none') {
 
 Save-State -State $state
 
-if ($DryRun) {
-    Write-Log "DryRun mode: no external actions"
-    exit 0
-}
+# No late DryRun guard here anymore: the early exit above is the single
+# DryRun path. A guard placed after Invoke-PhaseCDispatch/Save-State was
+# structurally unable to keep its "no external actions" promise.
 
 if ($status -eq 'active') {
     Write-Log "Phase C fallback complete (real Copilot request executed)."
