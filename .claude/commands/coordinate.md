@@ -485,22 +485,22 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence (coordinateur ai-01 **3h** depuis 2026-09-07 ; executeurs **4h**)
+### Wakeup Cycle Cadence (coordinateur ai-01 **2h** depuis 2026-09-08 ; executeurs **4h**)
 
-**Cadence coordinateur ai-01 : 3h via `CronCreate`** (décision user 2026-09-07, « augmente la fréquence de ton cron à 3h », assortie d'un mandat de dispatch massif). Supersede le 4h du 2026-09-06, le 8h du 2026-09-03, le 4h du mandat 2026-08-15/17, la 2h (#2203/2026-05-25) et la 6h. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 3h passe donc par cron.
+**Cadence coordinateur ai-01 : 2h via `CronCreate`** (décision user 2026-09-08, « réarmer un cron de 2h », minute :23 conservée). Supersede le 3h du 2026-09-07 (« augmente la fréquence de ton cron à 3h », mandat dispatch massif), le 4h du 2026-09-06, le 8h du 2026-09-03, le 4h du mandat 2026-08-15/17, la 2h (#2203/2026-05-25) et la 6h. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 2h passe donc par cron.
 
-> ⚠️ **Le ralentissement ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne ralentit rien au-delà de la session courante.
+> ⚠️ **Le changement de cadence ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne ralentit rien au-delà de la session courante.
 
-> **Portée : la flotte n'est PLUS alignée, et c'est délibéré.** Le coordinateur passe à **3h** ; les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** sur `/executor` (`.claude/skills/executor/SKILL.md`). Un coordinateur plus rapide que ses exécuteurs est la bonne asymétrie : il produit les dispatchs, ils les consomment — une file légèrement en avance vaut mieux qu'une lane qui se réveille les mains vides. Ne PAS « corriger » cet écart en réalignant. Minutes décalées (:23 coord, :41 exécuteurs) pour ne pas frapper l'API en même temps. Les deux cadences ne partagent une **heure** que deux fois par jour — coord tire à 00/03/06/09/12/15/18/21, exécuteurs à 00/04/08/12/16/20, intersection = {00, 12} — et le décalage de minute suffit alors.
+> **Portée : la flotte n'est PLUS alignée, et c'est délibéré.** Le coordinateur passe à **2h** ; les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** sur `/executor` (`.claude/skills/executor/SKILL.md`). Un coordinateur plus rapide que ses exécuteurs est la bonne asymétrie : il produit les dispatchs, ils les consomment — une file légèrement en avance vaut mieux qu'une lane qui se réveille les mains vides. Ne PAS « corriger » cet écart en réalignant. Minutes décalées (:23 coord, :41 exécuteurs) pour ne pas frapper l'API en même temps. Les deux cadences partagent une **heure** six fois par jour — coord tire à 00/02/04/06/08/10/12/14/16/18/20/22, exécuteurs à 00/04/08/12/16/20, intersection = {00, 04, 08, 12, 16, 20} — et le décalage de minute suffit alors.
 
 ```
-# ai-01 coordinateur — cadence 3h (job session-only, auto-expire 7j) :
+# ai-01 coordinateur — cadence 2h (job session-only, auto-expire 7j) :
 # minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe sur l'API.
-CronCreate(cron: "23 */3 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */2 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
-- **À chaque réveil**, dispatch deep-queue substantielle (≥3h de matière) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **À chaque réveil**, dispatch deep-queue substantielle (≥2h de matière) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
@@ -512,12 +512,12 @@ CronCreate(cron: "23 */3 * * *", prompt: "/coordinate", recurring: true)
 
 **Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
 
-1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */3 * * *`) est présent dans `CronList`.
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */2 * * *`) est présent dans `CronList`.
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
 **Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
 ```
-CronCreate(cron: "23 */3 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */2 * * *", prompt: "/coordinate", recurring: true)
 ```
 puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
 
