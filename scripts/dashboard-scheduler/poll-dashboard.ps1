@@ -441,7 +441,9 @@ foreach ($ws in $wsList) {
         "-Model", "haiku",
         "-McpConfig", $McpConfig
     )
-    & pwsh -File $SpawnScript @spawnArgs
+    # #2368: fall back to Windows PowerShell 5.1 when pwsh (PS7) is absent (po-2027).
+    $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+    & $psHost -File $SpawnScript @spawnArgs
     $exitCode = $LASTEXITCODE
 
     if ($exitCode -eq 0) {

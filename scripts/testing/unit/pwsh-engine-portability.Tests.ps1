@@ -1,0 +1,90 @@
+<#
+.SYNOPSIS
+    Guard: the WAKE path must not hard-depend on one PowerShell engine (#2368).
+
+.DESCRIPTION
+    MEASURED 2026-09-08 on ai-01, both engines — the two JSON->dictionary mechanisms are
+    MUTUALLY EXCLUSIVE:
+
+      ConvertFrom-Json -AsHashtable : PS 7.6.5 OK  / PS 5.1   FAILS (no such parameter)
+      JavaScriptSerializer          : PS 5.1   OK  / PS 7.6.5 FAILS (System.Web.Extensions
+                                      is .NET Framework only)
+
+    Each script had picked one, so each was broken on the opposite engine:
+      - dashboard-listener.ps1 used JavaScriptSerializer and runs under pwsh 7 => workspace
+        path-resolution source #4 was DEAD fleet-wide (63 WARN hits in
+        outputs/scheduling/logs/listener-*.log, 09-06 -> 09-07).
+      - spawn-claude.ps1 used -AsHashtable => under 5.1 the catch dropped every
+        workspace-scoped MCP override (silently undoing #2004 Phase 2).
+
+    This is a STRUCTURAL guard (content): CI runs on ubuntu/pwsh and cannot exercise 5.1.
+    Every predicate below carries a positive control, because a hand-escaped pattern that
+    matches nothing is an inert guard (lesson from #3502).
+
+.NOTES
+    Issue #2368
+#>
+
+Describe 'PowerShell engine portability on the WAKE path (#2368)' {
+    BeforeAll {
+        $root = Join-Path $PSScriptRoot '../../..'
+        $script:spawn    = Get-Content (Join-Path $root 'scripts/dashboard-scheduler/spawn-claude.ps1') -Raw
+        $script:listener = Get-Content (Join-Path $root 'scripts/dashboard-scheduler/dashboard-listener.ps1') -Raw
+        $script:poll     = Get-Content (Join-Path $root 'scripts/dashboard-scheduler/poll-dashboard.ps1') -Raw
+        $script:meta     = Get-Content (Join-Path $root 'scripts/scheduling/start-meta-audit.ps1') -Raw
+    }
+
+    It 'Both JSON-parsing scripts define the portable helper' {
+        $spawn    | Should -Match 'function ConvertFrom-JsonToDictionary'
+        $listener | Should -Match 'function ConvertFrom-JsonToDictionary'
+    }
+
+    It 'The helper branches on the engine rather than picking one' {
+        foreach ($c in @($spawn, $listener)) {
+            $c | Should -Match '\$PSVersionTable\.PSVersion\.Major -ge 7'
+            $c | Should -Match 'ConvertFrom-Json -AsHashtable'      # the PS7 branch
+            $c | Should -Match 'JavaScriptSerializer'               # the PS5.1 branch
+        }
+    }
+
+    It 'Neither engine-specific parser is called OUTSIDE the helper' {
+        # Count the EXECUTABLE call forms, not the bare names: the helper's own doc-comment
+        # names both mechanisms, so a bare-name count matches prose as well as code. It did —
+        # this assertion failed on its first run and caught its own over-broad predicate.
+        $callAsh = '$Json | ConvertFrom-Json -AsHashtable'
+        $callJss = 'New-Object System.Web.Script.Serialization.JavaScriptSerializer'
+        foreach ($c in @($spawn, $listener)) {
+            ([regex]::Matches($c, [regex]::Escape($callAsh))).Count | Should -Be 1
+            ([regex]::Matches($c, [regex]::Escape($callJss))).Count | Should -Be 1
+        }
+        # positive controls: both predicates bite on text that really contains the call
+        ([regex]::Matches("x $callAsh y", [regex]::Escape($callAsh))).Count | Should -Be 1
+        ([regex]::Matches("x $callJss y", [regex]::Escape($callJss))).Count | Should -Be 1
+    }
+
+    It 'Membership is tested with IDictionary, never the concrete [hashtable]' {
+        # Under 5.1 the portable parser yields Dictionary[string,object], which is NOT a
+        # [hashtable] (measured: -is [hashtable] = False). Testing the concrete type drops
+        # every workspace-scoped MCP override on 5.1.
+        $spawn | Should -Match '\$proj -is \[System\.Collections\.IDictionary\]'
+        $spawn.Contains('$proj -is [hashtable]') | Should -BeFalse
+        # positive control: the predicate bites on the pre-fix shape
+        'if ($proj -is [hashtable] -and $proj.ContainsKey(''mcpServers''))'.Contains('$proj -is [hashtable]') | Should -BeTrue
+    }
+
+    It 'No bare "& pwsh" invocation survives on the spawn/pre-flight paths' {
+        foreach ($c in @($listener, $poll, $meta)) {
+            $c.Contains('& pwsh ') | Should -BeFalse
+        }
+        # positive control: the predicate bites on the pre-fix shape
+        '        & pwsh -File $SpawnScript @spawnArgs'.Contains('& pwsh ') | Should -BeTrue
+    }
+
+    It 'Each of those three sites resolves a host with a 5.1 fallback' {
+        foreach ($c in @($listener, $poll, $meta)) {
+            $c | Should -Match "Get-Command pwsh -ErrorAction SilentlyContinue"
+            $c | Should -Match "else \{ 'powershell' \}"
+            $c | Should -Match '& \$psHost '
+        }
+    }
+}
