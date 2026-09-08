@@ -63,8 +63,16 @@ function Test-RunInFlight {
         $lines = Get-Content -Path $src.FullName -Tail 30 -ErrorAction SilentlyContinue
         foreach ($ln in $lines) {
             if ($ln -match 'PROMPT_OK|PROMPT_TIMEOUT|HarnessCommand exited|SESSION_NEW_FAILED|pickup|Iteration') {
-                # horodatage : ligne de log, on ne parse pas le fuseau ; on verifie juste la recence du fichier
-                if ($src.LastWriteTime -gt $cut) { $recent = $true }
+                # Recence = horodatage de la LIGNE ([ISO Z]), pas le mtime du fichier :
+                # le heartbeat de chaque tick horaire rafraichit le mtime d'un fichier
+                # qui contient des marqueurs de run historiques -> faux "en vol" perpetuel
+                # a <30 min de chaque tick (mesure 08/09 : tick SKIP 00:40Z a bloque le dispatch 00:57Z).
+                if ($ln -match '^\[(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z)\]') {
+                    try {
+                        $ts = [datetime]::Parse($Matches[1], [Globalization.CultureInfo]::InvariantCulture, 'RoundtripKind')
+                        if ($ts.ToUniversalTime() -gt $cut) { $recent = $true }
+                    } catch { }
+                }
             }
         }
     }
@@ -151,7 +159,12 @@ function Invoke-RsmAppend {
                 $parsed = $null
                 try { $parsed = $line | ConvertFrom-Json } catch { }
                 if ($parsed -and -not $parsed.error -and $parsed.result) {
-                    $found = (-not $parsed.result.isError)
+                    # 3 jambes : pas d'error JSON-RPC, pas d'isError MCP,
+                    # ET le texte de la reponse porte "success": true
+                    # (GDrive inaccessible rend success:false SANS isError — mesure 08/09).
+                    $txt = ''
+                    if ($parsed.result.content) { $txt = ($parsed.result.content | ForEach-Object { $_.text }) -join '' }
+                    $found = (-not $parsed.result.isError) -and ($txt -match '"success"\s*:\s*true')
                 }
                 Write-FeederLog -Level 'INFO' -Text ("reponse append: " + $line.Substring(0, [Math]::Min(400, $line.Length)))
                 break
