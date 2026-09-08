@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Guard (prompt/log hardening): the worker resume path must never present an
     heuristic event as a HUMAN authorization (#3442 investigation thread).
@@ -26,9 +26,23 @@
          / timeout, while the disclaimer IS present;
       3. the negative assertions discriminate (counter-proof on the OLD prompt).
 
+    The dynamic cases are bound with `It -ForEach` so each `It` executes its OWN data (a
+    plain `foreach` + closure would let every `It` see the last iteration's value — distinct
+    test names alone do not prove the right data ran).
+
 .NOTES
     Coordination thread: #3442 (workspace dashboard) — do NOT close. Requires Pester 5+.
+    File is UTF-8 WITH BOM: it carries non-ASCII prose that Windows PowerShell 5.1 would
+    otherwise mis-decode on machines whose active code page is not 65001 (#2368).
 #>
+
+# Bound data for the `-ForEach` It blocks. This MUST be at file scope (not in BeforeAll):
+# Pester reads it during DISCOVERY, before BeforeAll runs; an empty/absent value fails the run.
+$script:Cases = @(
+    @{ label = 'github_comment';  resumeWhen = 'github_comment';    waitFor = 'WAITFOR-SENTINEL-github-approved' }
+    @{ label = 'user_approval';   resumeWhen = 'user_approval';     waitFor = 'WAITFOR-SENTINEL-user-approved' }
+    @{ label = 'timeout';         resumeWhen = 'timeout_hours: 5';  waitFor = 'WAITFOR-SENTINEL-timeout-5h' }
+)
 
 Describe 'Worker resume prompt hardening (#3442)' {
 
@@ -45,9 +59,10 @@ Describe 'Worker resume prompt hardening (#3442)' {
             if (-not $fn) { return '' }
             $s = $fn.Extent.StartOffset
             $e = $fn.Extent.EndOffset
-            ($Tokens | Where-Object { $_.Extent.StartOffset -ge $s -and $_.Extent.EndOffset -le $e -and
-                                      $_.Kind -ne [System.Management.Automation.Language.TokenKind]::Comment } |
-             ForEach-Object { $_.Text }) -join ' '
+            $x = ($Tokens | Where-Object { $_.Extent.StartOffset -ge $s -and $_.Extent.EndOffset -le $e -and
+                                           $_.Kind -ne [System.Management.Automation.Language.TokenKind]::Comment } |
+                  ForEach-Object { $_.Text }) -join ' '
+            return $x.Trim()
         }
 
         # Does the text assert that a resume is authorized / the wait condition is met?
@@ -68,15 +83,17 @@ Describe 'Worker resume prompt hardening (#3442)' {
         }
 
         function New-WaitState([string]$ResumeWhen, [string]$WaitFor) {
+            # Unambiguous sentinels: every preserved-context assertion below matches these
+            # exact tokens, so a false positive on shared boilerplate cannot satisfy them.
             @{
-                reason     = 'waiting on human decision'
+                reason     = 'RAISON-SENTINEL-waiting'
                 waitFor    = $WaitFor
                 resumeWhen = $ResumeWhen
                 context    = @{
-                    iteration     = 3
-                    mode          = 'code'
-                    model         = 'sonnet'
-                    outputSnippet = 'LAST-OUTPUT-SNIPPET'
+                    iteration     = 42
+                    mode          = 'mode-SENTINEL'
+                    model         = 'model-SENTINEL'
+                    outputSnippet = 'SNIPPET-SENTINEL-ac6132'
                 }
             }
         }
@@ -117,59 +134,49 @@ Describe 'Worker resume prompt hardening (#3442)' {
             $script:HasBuildResumePrompt | Should -BeTrue
         }
 
-        It 'Builds a non-empty prompt for each resumeWhen category' {
-            foreach ($rw in @('github_comment', 'user_approval', 'timeout_hours: 5')) {
-                $ws = New-WaitState -ResumeWhen $rw -WaitFor 'approval'
-                $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL'
-                $p | Should -Not -BeNullOrEmpty
-            }
+        It 'Builds a non-empty prompt for <label>' -ForEach $script:Cases {
+            $ws = New-WaitState -ResumeWhen $_.resumeWhen -WaitFor $_.waitFor
+            $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL-PROMPT-SENTINEL'
+            $p | Should -Not -BeNullOrEmpty
         }
     }
 
     Context 'Prompt preserves the full wait state and the original prompt' {
-        $cases = @(
-            @{ label = 'github_comment';  resumeWhen = 'github_comment';    waitFor = 'approval on issue #123'; expected = 'approval on issue #123' }
-            @{ label = 'user_approval';   resumeWhen = 'user_approval';     waitFor = 'user approval';          expected = 'user approval' }
-            @{ label = 'timeout';         resumeWhen = 'timeout_hours: 5';  waitFor = 'wait 5 hours';           expected = 'wait 5 hours' }
-        )
-        foreach ($case in $cases) {
-            It "preserves reason/waitFor/resumeWhen/context/OriginalPrompt for '$($case.label)'" {
-                $ws = New-WaitState -ResumeWhen $case.resumeWhen -WaitFor $case.waitFor
-                $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL-TASK-PROMPT'
 
-                $p | Should -Match 'waiting on human decision'          # reason preserved
-                $p | Should -Match ([regex]::Escape($case.expected))    # waitFor preserved
-                $p | Should -Match ([regex]::Escape($case.resumeWhen))  # resumeWhen preserved (as the wait condition, not "condition remplie")
-                $p | Should -Match '3'                                  # context.iteration preserved
-                $p | Should -Match 'code'                               # context.mode preserved
-                $p | Should -Match 'sonnet'                             # context.model preserved
-                $p | Should -Match 'LAST-OUTPUT-SNIPPET'                # context.outputSnippet preserved
-                $p | Should -Match 'ORIGINAL-TASK-PROMPT'               # OriginalPrompt preserved
-            }
+        It "preserves context for <label>" -ForEach $script:Cases {
+            $ws = New-WaitState -ResumeWhen $_.resumeWhen -WaitFor $_.waitFor
+            $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL-PROMPT-SENTINEL'
+
+            $p | Should -Match 'RAISON-SENTINEL-waiting'                                     # reason preserved
+            $p | Should -Match ([regex]::Escape($_.waitFor))                                 # waitFor preserved
+            $p | Should -Match ([regex]::Escape("**Condition d'attente (resumeWhen) :** $($_.resumeWhen)")) # resumeWhen preserved as the wait condition
+            $p | Should -Match '42'                                                          # context.iteration preserved
+            $p | Should -Match 'mode-SENTINEL'                                               # context.mode preserved
+            $p | Should -Match 'model-SENTINEL'                                              # context.model preserved
+            $p | Should -Match 'SNIPPET-SENTINEL-ac6132'                                     # context.outputSnippet preserved
+            $p | Should -Match 'ORIGINAL-PROMPT-SENTINEL'                                    # OriginalPrompt preserved
         }
     }
 
     Context 'Prompt never asserts approval — and carries the disclaimer' {
-        $cases = @(
-            @{ label = 'github_comment';  resumeWhen = 'github_comment';    waitFor = 'approval on issue #123' }
-            @{ label = 'user_approval';   resumeWhen = 'user_approval';     waitFor = 'user approval' }
-            @{ label = 'timeout';         resumeWhen = 'timeout_hours: 5';  waitFor = 'wait 5 hours' }
-        )
-        foreach ($case in $cases) {
-            It "does not assert approval, and carries the disclaimer, for '$($case.label)'" {
-                $ws = New-WaitState -ResumeWhen $case.resumeWhen -WaitFor $case.waitFor
-                $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL'
 
-                # No unauthorized claim of authorization / condition met.
-                Test-HasApprovalAssertion $p | Should -BeFalse
+        It "no approval assertion + disclaimer for <label>" -ForEach $script:Cases {
+            $ws = New-WaitState -ResumeWhen $_.resumeWhen -WaitFor $_.waitFor
+            $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL-PROMPT-SENTINEL'
 
-                # The disclaimer IS present: comment/timeout are not an authorization,
-                # and approval-gated actions remain pending.
-                $p | Should -Match 'ne constitue pas une approbation humaine'
-                $p | Should -Match 'ne valent pas autorisation'
-                $p | Should -Match 'restent EN ATTENTE'
-                $p | Should -Match "réexamine l'attente"
-            }
+            # No unauthorized claim of authorization / condition met.
+            Test-HasApprovalAssertion $p | Should -BeFalse
+
+            # The disclaimer IS present: comment/timeout are not an authorization,
+            # and approval-gated actions remain pending.
+            $p | Should -Match 'ne constitue pas une approbation humaine'
+            $p | Should -Match 'ne valent pas autorisation'
+            $p | Should -Match 'restent EN ATTENTE'
+            $p | Should -Match "réexamine l'attente"
+
+            # Exact category: resumeWhen is stated explicitly as the (unconfirmed) wait
+            # condition header, not merely present somewhere in the disclaimer.
+            $p | Should -Match ([regex]::Escape("**Condition d'attente (resumeWhen) :** $($_.resumeWhen)"))
         }
     }
 
@@ -200,21 +207,25 @@ La condition d'attente est maintenant remplie. Reprends la tâche là où elle a
         }
 
         It 'Does NOT flag the NEW prompt (the hardening holds)' {
-            $ws = New-WaitState -ResumeWhen 'github_comment' -WaitFor 'approval on issue #123'
-            $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL'
+            $ws = New-WaitState -ResumeWhen 'github_comment' -WaitFor 'WAITFOR-SENTINEL-github-approved'
+            $p = Build-ResumePrompt -WaitState $ws -OriginalPrompt 'ORIGINAL-PROMPT-SENTINEL'
             Test-HasApprovalAssertion $p | Should -BeFalse
         }
     }
 
     Context 'Structural guards on the worker resume functions (logs)' {
 
-        It 'Test-WaitStateReady code no longer asserts "reprise autorisée"' {
+        It 'Test-WaitStateReady code is non-empty and no longer asserts "reprise autorisée"' {
+            # The negative assertion is only meaningful on real code — an empty string would
+            # vacuously pass every `Should -Not -Match`.
+            $script:WaitStateReadyCode | Should -Not -BeNullOrEmpty
             $script:WaitStateReadyCode | Should -Not -Match 'reprise autorisée'
             # positive control: the predicate bites on the pre-fix shape
             'Timeout expiré (2h >= 1h) - reprise autorisée' | Should -Match 'reprise autorisée'
         }
 
-        It 'Test-GitHubDecision code no longer asserts "reprise autorisée" nor "approval détecté"' {
+        It 'Test-GitHubDecision code is non-empty and no longer asserts "reprise autorisée" nor "approval détecté"' {
+            $script:GitHubDecisionCode | Should -Not -BeNullOrEmpty
             $script:GitHubDecisionCode | Should -Not -Match 'reprise autorisée'
             $script:GitHubDecisionCode | Should -Not -Match 'approval détecté'
             # positive controls
@@ -222,7 +233,8 @@ La condition d'attente est maintenant remplie. Reprends la tâche là où elle a
             'Commentaire approval détecté: x'           | Should -Match 'approval détecté'
         }
 
-        It 'Build-ResumePrompt code no longer asserts "Condition remplie :" nor "est maintenant remplie"' {
+        It 'Build-ResumePrompt code is non-empty and no longer asserts "Condition remplie :" nor "est maintenant remplie"' {
+            $script:ResumePromptCode | Should -Not -BeNullOrEmpty
             $script:ResumePromptCode | Should -Not -Match 'Condition remplie :'
             $script:ResumePromptCode | Should -Not -Match 'est maintenant remplie'
             # positive controls
