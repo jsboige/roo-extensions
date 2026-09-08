@@ -1,6 +1,6 @@
 # Inventaire des consommateurs du modèle local — Issue #3401
 
-**Date :** 2026-09-03
+**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-08 (gel embeddings + correction localisation hub — po-2023)
 **Auteur :** web1 (lane executor)
 **Issue :** [#3401](https://github.com/jsboige/roo-extensions/issues/3401)
 **Sonde primaire :** `grep -rE 'qwen3[.\-][0-9a-zA-Z\-]+|OPENAI_BASE_URL|OPENAI_API_KEY|EMBEDDING_API_KEY|VLLM_API_KEY|ANTHROPIC_BASE_URL|claudish|models\.myia' --include='*.ps1' --include='*.json' --include='*.ts' --include='*.js' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.template*' --include='*.env*'` dans `/c/dev/roo-extensions` (working tree).
@@ -16,7 +16,7 @@
 | 1 | **Claude Code (agents + coord)** | `ANTHROPIC_BASE_URL` → claudish (proxy `models.myia.io`) | `~/.claude/settings.json` (par machine) + template `.claude/configs/provider.claudish*.template.json` | `claude-opus-5[1m]` / `claude-sonnet-5[1m]` / `claude-haiku-4-5-20251001[1m]` — **alias stables**, pas de nom de version | clé = `ANTHROPIC_CUSTOM_HEADERS.x-proxy-key` (po-2023) ou `ANTHROPIC_AUTH_TOKEN` (ai-01 natif) | grep `ANTHROPIC_BASE_URL` dans `.claude/configs/` | **DEJA-VERS-CLAUDISH** ✅ |
 | 2 | **Claude Code (rôle haiku fallback modèle local)** | `ANTHROPIC_DEFAULT_HAIKU_MODEL` = `qwen3.6-35b-a3b` quand template free-tier | `.claude/configs/provider.claudish.template.json` l.8 ; `.claude/configs/provider.claudish-free-tier.template.json` l.9 | **`qwen3.6-35b-a3b`** ⚠️ (prod actuelle) | dérivée via claudish (routeur) | grep `ANTHROPIC_DEFAULT_HAIKU_MODEL` | **VERS-CLAUDISH-ALIAS** : remplacer par `claude-haiku-local` (alias) |
 | 3 | **roo-state-manager (condensation LLM + dashboards)** | SDK OpenAI direct via `OPENAI_BASE_URL` | `mcps/internal/servers/roo-state-manager/.env.template` l.6 (submod gitlink `0e5240df`) | **`qwen3.6-35b-a3b`** (defaut `openai.ts:97` + `index.ts:96`) | `OPENAI_API_KEY` (env conteneur) | grep `OPENAI_BASE_URL\|qwen3\.6` dans submod | **VERS-CLAUDISH** : SDK OpenAI de claudish côté `models.myia.io/v1` — alias `local-coding` |
-| 4 | **roo-state-manager (embeddings Qdrant)** | SDK OpenAI direct via `EMBEDDING_API_BASE_URL` (legacy) | submod `.env.example` l.59-66 ; `services/task-indexer/EmbeddingValidator.ts:54` | **`qwen3-4b-awq-embedding`** | `EMBEDDING_API_KEY` (env conteneur) | grep `EMBEDDING_API_KEY` dans submod | **VERS-CLAUDISH** : endpoint embeddings stable `https://models.myia.io/v1/embeddings` (API OpenAI supportée par claudish) |
+| 4 | **roo-state-manager (embeddings Qdrant)** | SDK OpenAI direct via `EMBEDDING_API_BASE_URL` (legacy) | submod `.env.example` l.59-66 ; `services/task-indexer/EmbeddingValidator.ts:54` | **`qwen3-4b-awq-embedding`** | `EMBEDDING_API_KEY` (env conteneur) | grep `EMBEDDING_API_KEY` dans submod | **VERS-CLAUDISH** : endpoint embeddings stable `https://models.myia.io/v1/embeddings` (API OpenAI supportée par claudish) — **GELÉ 06/09** : l'inférence « API OpenAI supportée ⇒ `/v1/embeddings` servi » est contredite par la sonde (404) ; bascule différée jusqu'à relais effectif (arbitrage user) |
 | 5 | **roo-state-manager (fallback embeddings cloud)** | OpenAI cloud API (`api.openai.com`) | submod `.env.example` l.248 (commentaire : "primary vLLM down → cloud") | variable (pas en dur) | `OPENAI_API_KEY` (cloud) | grep `OPENAI_API_KEY` dans submod | **RESTE-DIRECT** (cloud OpenAI officiel = chemin de secours, hors surface locale) |
 | 6 | **sk-agent (LLM endpoints du serveur)** | Config statique JSON + appel OpenAI-compat | `mcps/internal/servers/sk-agent/sk_agent_config.template.json` l.95/99/106/110/137/152 ; `sk_agent_config.py:469` ; `benchmark_models.py:91` ; `run_benchmark.py:31` | `qwen3.6-35b-a3b`, `qwen3.6-35b-no-thinking`, `owui-qwen3.6-35b`, etc. | `sk_agent_config.json` (deployé, hors repo) — clé passée par appelant | grep `sk_agent_config.template.json\|benchmark_models.py` | **VERS-CLAUDISH** : sk-agent expose déjà une API OpenAI-compat (consommée par `scripts/review/call-sk-agent.ps1`) → passer par `models.myia.io/v1` au lieu de `text-generation-webui.myia.io/v1` |
 | 7 | **call-sk-agent.ps1 (script review)** | HTTP direct POST `/v1/chat/completions` | `scripts/review/call-sk-agent.ps1` l.118/131/148 | **`qwen3.5-35b-a3b`** (en dur l.118) | `$env:VLLM_API_KEY` OU `qwenModel.api_key` (config sk-agent) | grep `call-sk-agent.ps1` | **VERS-CLAUDISH** : remplacer par `local-coding` alias |
@@ -55,18 +55,18 @@
 
 ### Étape 1 — Alias stable côté routeur (1 PR ai-01, ~30 min)
 
-1. Sur ai-01 : ajouter au fichier de routing claudish 3 alias stables :
+1. Sur le hub central — **po-2023** (conteneur `claudish-proxy`, routing `~/.claudish/config.json` monté `/root/.claudish`) — ajouter 3 alias stables. *Corrigé 08/09 : le plan initial situait ce fichier sur ai-01, mais le hub servi par `models.myia.io` / `192.168.0.46:3000` tourne sur po-2023 (sondes po-2023 c.5545204924 et ai-01 06/09 concordantes) ; le sidecar ai-01 n'est pas sur le chemin des consommateurs des étapes 2-4.* :
    - `claude-haiku-local` → `qwen3.6-35b-a3b` (alias court pour Claude Code haiku fallback)
    - `local-coding` → `qwen3.6-35b-a3b` (alias long pour SDK OpenAI des services RSM)
    - `local-fast` → `qwen3-32b` (alias court pour sub-agent claudish-free-tier)
-2. Vérifier que `/v1/models` annonce les 3 alias et que la résolution retourne 200.
+2. Vérifier que `/v1/models` annonce les 3 alias et que la résolution retourne 200. **Rév. 08/09 :** `local-embed` est retiré de la vérification de vague 1 (voir gel embeddings, étape 2 point 3) — la vérif porte sur `claude-haiku-local`, `local-coding`, `local-fast`.
 
 ### Étape 2 — Bascule SDK OpenAI roo-state-manager (1 PR submod, ~1h)
 
 Submod `mcps/internal` :
 1. `.env.template` l.6 : `OPENAI_BASE_URL=https://models.myia.io/v1`
 2. `.env.template` l.8 : `OPENAI_CHAT_MODEL_ID=local-coding`
-3. `.env.example` l.59-66 : pointer `EMBEDDING_API_BASE_URL=https://models.myia.io/v1`, garder `EMBEDDING_MODEL` mais **ne plus le hardcoder** — laisser le routeur choisir (alias `local-embed`)
+3. **GELÉ (arbitrage user 06/09) — NE PAS EXÉCUTER en l'état.** claudish ne sert pas `/v1/embeddings` (sonde ai-01 06/09 : 404 sur hub po-2023, sidecar ai-01 et `models.myia.io` ; 0 route `/v1/embeddings` sur 99 refs du dépôt claudish). Le mode de défaillance est **silencieux** : `codebase_search` ne remonte pas d'erreur, il remonte zéro résultat. `EMBEDDING_API_BASE_URL` reste sur son endpoint actuel (po-2026 `:8004`) jusqu'à ce qu'un ingress `/v1/embeddings` existe dans claudish. Verbatim user : *« on ne basculera embedding que quand il aura été bien relayé »*. Les points 1, 2 et 4 de cette étape restent exécutables à l'ouverture du gate.
 4. Tests : mettre à jour les mocks `OPENAI_CHAT_MODEL_ID` ; vérifier que `getLLMModelId()` retourne l'alias.
 
 ### Étape 3 — Bascule Roo modes (-complex primaire + sub-agents) (1 PR parent, ~45 min)
@@ -123,7 +123,7 @@ Pour chaque étape 2-7 : `npx vitest run` côté submod + `npm run test:mcp` cô
 |----------|----------|----------|----------------|
 | OpenRouter Roo (-simple) | Reste OpenRouter direct | Passe par claudish (qui supporte openRouter en upstream) | **B** — uniformise la clé |
 | OWUI écoles : durée grâce double-nom | 1 semaine | 2 semaines | **2 sem.** — coordination 7 écoles |
-| `EMBEDDING_MODEL` en dur ou pas | Hardcoder (`qwen3-4b-awq-embedding`) | Alias claudish (`local-embed`) | **alias** — embedding change plus souvent que chat |
+| `EMBEDDING_MODEL` en dur ou pas | Hardcoder (`qwen3-4b-awq-embedding`) | Alias claudish (`local-embed`) | **alias** — embedding change plus souvent que chat *(GO 04/09 ; exécution gelée 06/09 — non arbitrable tant que le relais `/v1/embeddings` n'existe pas)* |
 | Référentiel alias (rôle vs version) | `local-coding` (rôle) | `qwen-stable` (sentinelle version) | **`local-coding`** — le swap #2716 devient invisible (cf. leçon issue) |
 
 ---
