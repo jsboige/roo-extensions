@@ -24,6 +24,17 @@
 #   red standalone It can never leave the mutation control running against
 #   a real copilot/gh from the host (review of #3542). A separate It also
 #   asserts the resolution so the failure reads as a clean test result.
+# * Env isolation (review of #3542, second round): env vars read by the
+#   script are enumerated per role. Only COPILOT_DISPATCHER_LOG_DIR has an
+#   EXTERNAL effect -- it is the log target dir, and production may point it
+#   outside repoRoot (script lines 31-35); a host value would write logs
+#   outside the temp sandbox and break the local-trace test, so it is pinned
+#   to the harness LogDir (and saved/restored). $env:APPDATA is pinned to the
+#   harness (config-candidate fixture determinism). COPILOT_PREMIUM_USAGE_
+#   PERCENT (read-only usage hint, only shifts $effectiveProfile, never
+#   reached by the fixed path, no effect on the zero-burn/state/report
+#   contract) and $HOME (read-only config-candidate fallback, never consulted
+#   because the APPDATA fixture always wins) are deliberately NOT isolated.
 # * Positive control (last test): runs a MUTATED copy of the script with the
 #   early DryRun exit stripped -- i.e. the defect itself -- and asserts the
 #   violation signals DO appear (paid `-p` call recorded, gh called, state
@@ -40,6 +51,11 @@ Describe 'Copilot dispatcher DryRun invariants' {
         $script:origPath = $env:PATH
         $script:origAppData = $env:APPDATA
         $script:origFakeLog = $env:COPILOT_FAKE_INVOCATION_LOG
+        # COPILOT_DISPATCHER_LOG_DIR has an EXTERNAL effect (it is the log target
+        # dir; production may externalize it outside repoRoot -- see the script
+        # lines 31-35). A host value would write logs outside the temp sandbox
+        # an, on the "local init trace" test, make it fail. Save/restore it.
+        $script:origLogDir = $env:COPILOT_DISPATCHER_LOG_DIR
         $script:harnessRoots = @()
 
         # Engine that runs the dispatcher child: the SAME binary running this
@@ -147,6 +163,11 @@ exit 0
             $env:PATH = $Harness.Bin + [System.IO.Path]::PathSeparator + $script:origPath
             $env:APPDATA = $Harness.AppData
             $env:COPILOT_FAKE_INVOCATION_LOG = $Harness.InvocationLog
+            # Pin the log dir INSIDE the sandbox: production honors this
+            # override (script line 31), so the child logs to the temp dir
+            # regardless of any host value. Prevents a host-configured
+            # external log path from swallowing the sandbox log.
+            $env:COPILOT_DISPATCHER_LOG_DIR = $Harness.LogDir
         }
 
         function Get-FileSha256Hex {
@@ -223,6 +244,7 @@ exit 0
         $env:PATH = $script:origPath
         $env:APPDATA = $script:origAppData
         $env:COPILOT_FAKE_INVOCATION_LOG = $script:origFakeLog
+        $env:COPILOT_DISPATCHER_LOG_DIR = $script:origLogDir
         foreach ($root in $script:harnessRoots) {
             if ($root -and (Test-Path -LiteralPath $root)) {
                 Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue
@@ -278,6 +300,26 @@ exit 0
         $content = Get-Content -LiteralPath $newest.FullName -Raw
         $content | Should -Match 'Copilot dispatcher started'
         $content | Should -Match 'DryRun mode: exiting before any CLI call'
+    }
+
+    It 'NON-REGRESSION: COPILOT_DISPATCHER_LOG_DIR override is honored, but pinned inside the sandbox' {
+        # Production externalizes the log dir when the env var is set (script
+        # line 31). This control proves the override is honored WITHOUT writing
+        # to any real location: the override points at a path INSIDE the
+        # sandbox, and the default harness LogDir must stay empty.
+        $altLogDir = Join-Path $script:harness.Root 'alt-logs'
+        $env:COPILOT_DISPATCHER_LOG_DIR = $altLogDir
+        try {
+            $result = Invoke-DispatcherDryRun -Harness $script:harness
+
+            $result.ExitCode | Should -Be 0
+            $altLogs = @(Get-ChildItem -LiteralPath $altLogDir -Filter 'copilot-dispatcher-*.log' -ErrorAction SilentlyContinue)
+            $altLogs.Count | Should -BeGreaterThan 0
+            # The default (non-overridden) location must NOT have received logs:
+            @(Get-ChildItem -LiteralPath $script:harness.LogDir -Filter 'copilot-dispatcher-*.log' -ErrorAction SilentlyContinue).Count | Should -Be 0
+        } finally {
+            $env:COPILOT_DISPATCHER_LOG_DIR = $script:harness.LogDir
+        }
     }
 
     It 'Record-first discriminator: a fake invocation that FAILS still leaves a record' {
