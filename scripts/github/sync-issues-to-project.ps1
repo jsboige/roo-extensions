@@ -175,8 +175,8 @@ if (-not $result) {
 }
 
 $json = $result | ConvertFrom-Json
-$projectItems = @($json.items ?? @())
-$totalCount = $json.totalCount ?? 0
+$projectItems = @(if ($null -ne $json.items) { $json.items } else { @() })
+$totalCount = if ($null -ne $json.totalCount) { $json.totalCount } else { 0 }
 
 Write-Host "  Fetched $($projectItems.Count) items (total: ${totalCount})"
 

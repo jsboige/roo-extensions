@@ -42,6 +42,12 @@ on:
       - '.claude/configs/scripts/**'
       - 'scripts/maintenance/cleanup-orphan-worktrees.ps1'
       - 'scripts/maintenance/cleanup-agent-orphan-worktrees.ps1'
+      # Fifth instance of the same gap. pwsh-engine-portability.Tests.ps1 now guards the
+      # PS7-only-operator class across scripts/, and its two current subjects live here --
+      # a `??` reintroduced into either by a direct main push would re-run nothing.
+      # (Scoped to the guarded directory, not scripts/**: widening every push trigger to
+      # the whole tree is a CI-budget decision, not a portability fix.)
+      - 'scripts/github/**'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
