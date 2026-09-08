@@ -4,14 +4,17 @@
     Sync open GitHub issues to Project #67 (RooSync Multi-Agent Tasks).
 
 .DESCRIPTION
-    Reconciles open issues in jsboige/roo-extensions with GitHub Project #67.
+    Reconciles the open issues of ONE repository with GitHub Project #67.
+    Pass -Repo to reconcile a repository other than the default (roo-extensions);
+    the daily workflow invokes it once per tracked repository.
     Adds missing issues and sets fields (Agent, Machine, Status) based on labels.
 
 .PARAMETER DryRun
-    If set, shows what would be done without making changes. Default: true.
+    Shows what would be done without making changes. This is the DEFAULT: without
+    -Execute the script never mutates the project.
 
 .PARAMETER Execute
-    If set, actually adds issues and updates fields.
+    Actually adds issues and updates fields. Required to mutate anything.
 
 .PARAMETER ProjectNumber
     GitHub Project number. Default: 67.
@@ -185,15 +188,22 @@ if ($totalCount -gt $ProjectItemListLimit) {
     Write-Warn "Project #$ProjectNumber total ($totalCount) exceeds fetch limit ($ProjectItemListLimit) — tail truncated, 'missing' count will be inflated (pre-fix #2870 bug class). Increase limit or add offset pagination."
 }
 
-# Extract issue numbers already in project
+# Extract the issues already in the project, keyed by REPOSITORY + number.
+#
+# The key used to be the bare number, dropping the repository segment of the URL. That was
+# harmless while Project #67 tracked a single repository; it stops being harmless the moment a
+# second one is reconciled (jsboige-mcp-servers, whose issue numbers fall in a range that
+# roo-extensions has also used). Two distinct issues collapse onto one key, and the second one
+# read is silently treated as "already in project" -- never added, and no gap reported.
+# Measured on this tree 2026-09-08: 735 issue items, 735 distinct repo#number keys, 0 collisions
+# TODAY. The defect is LATENT, not yet triggered -- which is why it needs a test, not a note.
 $issuesInProject = @{}
 foreach ($item in $projectItems) {
     $content = $item.content
     if ($content -and $content.url) {
         $url = $content.url
-        if ($url -match "/issues/(\d+)$") {
-            $issueNum = [int]$Matches[1]
-            $issuesInProject[$issueNum] = $item.id
+        if ($url -match "/([^/]+)/issues/(\d+)$") {
+            $issuesInProject["$($Matches[1])#$([int]$Matches[2])"] = $item.id
         }
     }
 }
@@ -225,7 +235,7 @@ Write-Ok "Found $($allIssues.Count) open issues"
 Write-Status "Phase 3: Finding issues missing from project..."
 
 $missingIssues = $allIssues | Where-Object {
-    -not $issuesInProject.ContainsKey([int]$_.number)
+    -not $issuesInProject.ContainsKey("$Repo#$([int]$_.number)")
 } | Sort-Object -Property number -Descending
 
 Write-Host "  Missing from project: $($missingIssues.Count) issues"
@@ -237,7 +247,13 @@ if ($missingIssues.Count -eq 0) {
 
 # --- Phase 4: Add missing issues ---
 
-$mode = if ($Execute) { "EXECUTE" } else { "DRY-RUN" }
+# A flagless invocation must be a dry run. The mode line below has always announced
+# DRY-RUN when -Execute was absent, but every guard downstream tested -DryRun, which
+# defaults to $false -- so `./sync-issues-to-project.ps1` printed "mode: DRY-RUN" and
+# then added items and wrote fields. Derive both from the SAME predicate so the label
+# cannot disagree with the behaviour, and let dry-run win if both switches are passed.
+$DryRun = $DryRun -or (-not $Execute)
+$mode = if ($DryRun) { "DRY-RUN" } else { "EXECUTE" }
 Write-Status "Phase 4: Adding missing issues (mode: $mode)..."
 
 $addedCount = 0
