@@ -31,6 +31,40 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+function ConvertFrom-JsonToDictionary {
+    <#
+    .SYNOPSIS
+        Engine-portable JSON -> IDictionary. Works on BOTH Windows PowerShell 5.1 and PowerShell 7+.
+    .DESCRIPTION
+        MEASURED 2026-09-08 on both engines (ai-01) — the two available mechanisms are
+        MUTUALLY EXCLUSIVE, so neither one alone is portable:
+
+          ConvertFrom-Json -AsHashtable : PS 7.6.5 OK (OrderedHashtable)
+                                          PS 5.1   FAILS ("parametre ... AsHashtable" introuvable)
+          JavaScriptSerializer          : PS 5.1   OK (Dictionary[string,object])
+                                          PS 7.6.5 FAILS ("Could not load type
+                                          'System.Web.UI.WebResourceAttribute'" — System.Web.Extensions
+                                          is .NET Framework only, absent from .NET Core)
+
+        Picking either one hard-codes a dependency on one engine and silently degrades on the
+        other, which is exactly the bug this helper exists to end (#2368).
+
+        CALLER CONTRACT: the two shapes are different .NET types. Test membership with
+        `-is [System.Collections.IDictionary]` (true for BOTH); `-is [hashtable]` is true only
+        for the PS 7 shape and silently drops data under 5.1.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Json)
+
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        return $Json | ConvertFrom-Json -AsHashtable
+    }
+
+    Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+    $serializer = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+    $serializer.MaxJsonLength = [int]::MaxValue
+    return $serializer.DeserializeObject($Json)
+}
+
 $userMcpConfigPath = Join-Path $env:APPDATA "Code\User\mcp.json"
 $wrapperPath = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\mcp-wrapper.cjs"
 
@@ -43,7 +77,7 @@ $config = @{}
 if (Test-Path $userMcpConfigPath) {
     $raw = Get-Content -Path $userMcpConfigPath -Raw
     if ($raw.Trim().Length -gt 0) {
-        $config = $raw | ConvertFrom-Json -AsHashtable
+        $config = ConvertFrom-JsonToDictionary $raw
     }
 }
 

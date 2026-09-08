@@ -32,6 +32,11 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
         $script:listener = Get-Content (Join-Path $root 'scripts/dashboard-scheduler/dashboard-listener.ps1') -Raw
         $script:poll     = Get-Content (Join-Path $root 'scripts/dashboard-scheduler/poll-dashboard.ps1') -Raw
         $script:meta     = Get-Content (Join-Path $root 'scripts/scheduling/start-meta-audit.ps1') -Raw
+        # Remaining naked -AsHashtable callers (finding ai-01 2026-09-08, per #2368)
+        $script:audit    = Get-Content (Join-Path $root 'scripts/audit/audit-roo-tasks.ps1') -Raw
+        $script:init     = Get-Content (Join-Path $root 'scripts/claude/init-claude-code.ps1') -Raw
+        $script:copilot  = Get-Content (Join-Path $root 'scripts/copilot/configure-copilot-mcp.ps1') -Raw
+        $script:rollout  = Get-Content (Join-Path $root 'scripts/scheduling/invoke-copilot-rollout-check.ps1') -Raw
     }
 
     It 'Both JSON-parsing scripts define the portable helper' {
@@ -86,5 +91,45 @@ Describe 'PowerShell engine portability on the WAKE path (#2368)' {
             $c | Should -Match "else \{ 'powershell' \}"
             $c | Should -Match '& \$psHost '
         }
+    }
+
+    It 'The four remaining scripts define the portable helper' {
+        foreach ($c in @($audit, $init, $copilot, $rollout)) {
+            $c | Should -Match 'function ConvertFrom-JsonToDictionary'
+        }
+    }
+
+    It 'No engine-specific parser is called OUTSIDE the helper in the four scripts' {
+        $callAsh = '$Json | ConvertFrom-Json -AsHashtable'
+        $callJss = 'New-Object System.Web.Script.Serialization.JavaScriptSerializer'
+        foreach ($c in @($audit, $init, $copilot, $rollout)) {
+            ([regex]::Matches($c, [regex]::Escape($callAsh))).Count | Should -Be 1
+            ([regex]::Matches($c, [regex]::Escape($callJss))).Count | Should -Be 1
+        }
+        # positive controls
+        ([regex]::Matches("x $callAsh y", [regex]::Escape($callAsh))).Count | Should -Be 1
+        ([regex]::Matches("x $callJss y", [regex]::Escape($callJss))).Count | Should -Be 1
+    }
+
+    It 'The rollout check tests membership with IDictionary, never the concrete [hashtable]' {
+        # Under 5.1 the portable parser yields Dictionary[string,object], which is NOT a
+        # [hashtable]; testing the concrete type would drop the roo-state-manager match and
+        # silently fall to the plain-text fallback. Assert the executable conditions, not the
+        # helper's doc-comment text (which names the concrete type in prose).
+        $rollout | Should -Match '\$json\.servers -is \[System\.Collections\.IDictionary\]'
+        $rollout | Should -Match '\$json\.mcpServers -is \[System\.Collections\.IDictionary\]'
+        $rollout.Contains('$json.servers -is [hashtable]') | Should -BeFalse
+        $rollout.Contains('$json.mcpServers -is [hashtable]') | Should -BeFalse
+        # positive control: the predicate bites on the pre-fix shape
+        'if ($json.servers -is [hashtable] -and ...)'.Contains('$json.servers -is [hashtable]') | Should -BeTrue
+    }
+
+    It 'The audit script tests membership with ContainsKey, never the bare Contains' {
+        # Dictionary[string,object] (the 5.1 shape) has ContainsKey, NOT Contains — the bare
+        # .Contains() line was a second 5.1 breakage in the same script, found behaviourally.
+        $audit | Should -Match '\$cache\.ContainsKey\(\$taskId\)'
+        $audit.Contains('$cache.Contains($taskId)') | Should -BeFalse
+        # positive control: the predicate bites on the pre-fix shape
+        'if ($cache.Contains($taskId) -and ...)'.Contains('$cache.Contains($taskId)') | Should -BeTrue
     }
 }
