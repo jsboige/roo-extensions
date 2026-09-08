@@ -5,7 +5,8 @@
 .DESCRIPTION
     Lance par la schtask durable Vibe-Feeder (PT1H/P365D, #3202). AUCUN LLM interne :
     le grain vient d'une file de travail (feeder-queue.json) alimentee par les coordinateurs.
-    PURE DISPATCH : ne modifie aucun depot, ne pousse rien, n'ecrit que le dashboard CoursIA.
+    PURE DISPATCH : ne modifie aucun depot, ne pousse rien ; ecrit le dashboard CoursIA
+    et retire de la file le grain poste (consommation, review #3518 C1).
 
     Le post se fait via le serveur roo-state-manager en stdio (pattern Publish-HealthNote,
     #3513 — spawn de mcp-wrapper.cjs, stdin ouvert jusqu'a la reponse tools/call id:3,
@@ -87,7 +88,7 @@ function Read-Queue {
     }
     try {
         $q = Get-Content -Path $QueuePath -Raw -Encoding utf8 | ConvertFrom-Json
-        return $q.grains
+        return $q
     } catch {
         Write-FeederLog -Level 'ERROR' -Text "queue illisible: $($_.Exception.Message)"
         return $null
@@ -107,10 +108,22 @@ function Prepare-Worktree {
     if ($exists) { Write-FeederLog -Level 'INFO' -Text "worktree deja present: $wt"; return $true }
     $parent = Split-Path $wt -Parent
     if ($parent -and -not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
-    git -C $runtimeDir worktree add $wt -b $branch $base 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-FeederLog -Level 'INFO' -Text "worktree cree: $wt -> $branch @ $base"
-        return $true
+    # La branche survit souvent au `worktree remove` (il ne la supprime pas, et -d
+    # refuse apres squash-merge) : sans repli, `worktree add -b` echoue a CHAQUE
+    # tick et le grain est SKIP indefiniment (review #3518 W2).
+    $branchExists = (git -C $runtimeDir branch --list $branch) 2>$null
+    if ($branchExists) {
+        git -C $runtimeDir worktree add $wt $branch 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-FeederLog -Level 'INFO' -Text "worktree rattache (branche existante): $wt -> $branch"
+            return $true
+        }
+    } else {
+        git -C $runtimeDir worktree add $wt -b $branch $base 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-FeederLog -Level 'INFO' -Text "worktree cree: $wt -> $branch @ $base"
+            return $true
+        }
     }
     Write-FeederLog -Level 'ERROR' -Text "worktree add echoue (exit $LASTEXITCODE)"
     return $false
@@ -189,17 +202,27 @@ if (Test-RunInFlight) {
     exit 0
 }
 
-$grains = Read-Queue
+$q = Read-Queue
+$grains = $null
+if ($q) { $grains = @($q.grains) }
 if (-not $grains -or $grains.Count -eq 0) {
     Write-FeederLog -Level 'INFO' -Text "NOOP: 0 grain dans la file (a alimenter par les coordinateurs)"
     exit 0
+}
+
+# Sans fetch, la garde fraicheur compare au ref local tel que le dernier
+# processus l'a laisse : un merge distant passe inapercu jusqu'au prochain
+# fetch etranger, et le grain part sur base perime (review #3518 C2).
+git -C $runtimeDir fetch origin main 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-FeederLog -Level 'WARN' -Text "fetch origin/main echoue — garde fraicheur sur ref local possiblement perime"
 }
 
 foreach ($g in $grains) {
     # base fraiche ? (le worktree ne doit pas partir d'un main perime)
     $originMain = (git -C $runtimeDir rev-parse origin/main) 2>$null
     if ($originMain -match '^[0-9a-f]{40}$' -and $originMain -ne $g.baseSha) {
-        Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: baseShA perime ({1} != main {2})" -f $g.id, $g.baseSha, $originMain)
+        Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: baseSha perime ({1} != main {2})" -f $g.id, $g.baseSha, $originMain)
         continue
     }
     if (-not (Prepare-Worktree -Grain $g)) {
@@ -221,6 +244,13 @@ foreach ($g in $grains) {
     $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec $TimeoutSec
     if ($posted) {
         Write-FeederLog -Level 'INFO' -Text "[WAKE-VIBE] poste: grain $($g.id) -> workspace-CoursIA"
+        # Consommer le grain poste : sinon il reste en tete de file et le tick
+        # suivant le re-poste (messageId horodate a la minute => la dedup du
+        # dashboard ne dedup rien entre deux posts, review #3518 C1).
+        $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+        $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+        [System.IO.File]::WriteAllText($QueuePath, ($outObj | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding $false))
+        Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
         exit 0
     } else {
         Write-FeederLog -Level 'ERROR' -Text "post echoue grain $($g.id) — relire dashboard avant retry (write-first)"
