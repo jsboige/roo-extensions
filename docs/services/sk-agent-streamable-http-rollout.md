@@ -22,12 +22,24 @@ Goal: make the streamable-http container the canonical surface for remote consum
 Proxy routing: per-server paths (`/<server>/mcp`) — Go mcp-proxy behind bearer
 `authTokens` (values in local config, never in Git).
 
-### Authenticated smoke via proxy (streamable-http MCP, Bearer)
+### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09, instance attribution uncertain
+
+Route smoked: `/sk-agent/mcp` on a proxy leg reached from po-2026, with the proxy
+Bearer read from local config at runtime. The exact instance was **not recorded**,
+and attribution cannot be pinned down from po-2026 today: the local `:9092` listener
+no longer exists, and that leg is described as `:9092→9090` (forwards to the
+`.47:9090` production proxy). Caveat: an authenticated `tools/list` run from po-2026
+on 09/09 against the production proxy (`http://192.168.0.47:9090/sk-agent/mcp` =
+`mcp-tools.myia.io`) returns **13 tools, serverInfo v1.0.0** (finding E — frozen
+stdio copy, image built 2026-02-28), so the 04/09 9-tool observation cannot be
+reproduced on that leg. The recorded `v1.0.0 + 9 tools` combination matches neither
+instance cleanly (production proxy = v1.0.0 + 13 tools; HTTP container = v1.30.0 +
+9 tools) — itself the symptom of the unrecorded attribution.
 
 | Check | Result |
 |---|---|
-| `initialize` | 200 — `sk-agent` v1.0.0, FastMCP protocol |
-| `tools/list` | 200 — **9 tools** (canonical inventory) |
+| `initialize` | 200 — `sk-agent` v1.0.0, FastMCP protocol *(version matches the frozen stdio copy — see attribution caveat)* |
+| `tools/list` | 200 — **9 tools** *(container-shaped inventory — see attribution caveat)* |
 | Text — `call_agent` | 200 — exact echo reply, `conversation_id` returned, `model_used: glm-5.1` (cloud) |
 | Vision — `call_agent` + PNG attachment (URL) | 200 — `vision-analyst` / glm-4.6v: "solid red square", `images_analyzed: 1` |
 | Conversation — `run_conversation` | 200 — multi-agent preset completed |
@@ -36,6 +48,15 @@ Proxy routing: per-server paths (`/<server>/mcp`) — Go mcp-proxy behind bearer
 Smoke protocol = exactly what OWUI's MCP Tool Server client sends
 (initialize → initialized → tools/list → tools/call, POST + Bearer). No code path
 specific to the smoke client.
+
+**Reconciliation (finding E, ai-01 08/09):** the 04/09 "9 tools" observation above
+carries uncertain instance attribution (ran from po-2026; local `:9092` forwards to
+`.47:9090`, i.e. the production proxy). Re-measured firsthand from po-2026 on
+09/09 (authenticated): the production proxy (`mcp-tools.myia.io` / `192.168.0.47:9090`)
+serves **13 tools, v1.0.0** (frozen stdio copy baked 2026-02-28), while the HTTP
+container (`skagents.myia.io`, port 8100) serves **9 tools, v1.30.0**. Therefore
+**the legacy baseline = 13 tools** (production proxy); the 9-tool inventory is the
+post-canonicalization target (Step 0.5-C), not the legacy baseline.
 
 ### Authentication & health model (hardened code, submod `7519afe4`)
 
@@ -136,7 +157,12 @@ the proxy already supports url-relay upstreams.
 
 - url-relay pattern runs in this exact proxy today: the `roo-state-manager` entry
   (`http://host.docker.internal:9091/...` + Bearer header — `config.template.json`),
-  route live on the production proxy (401-gated, po-2026 09/09).
+  route registered on the production proxy: unauthenticated POST → 401 (po-2026
+  09/09). **Scope of that proof:** the pre-auth 401 attests the route is registered
+  and auth-gated only — it does **not** exercise the relay to its URL upstream, so
+  it is not end-to-end proof of the url-relay mechanism. End-to-end relay
+  confirmation comes from the authenticated 5-check smoke against `/sk-agent/mcp`
+  in Step 0.5 after the switch (no additional authenticated test exists yet).
 - relay target live and hardened (po-2026 09/09): `http://192.168.0.47:8100/healthz`
   → 200 public (7 ms); `/mcp` → 401 unauth. Inside the proxy container the same
   endpoint is `http://host.docker.internal:8100/mcp` (host-gateway already declared
