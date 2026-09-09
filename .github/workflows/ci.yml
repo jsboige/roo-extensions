@@ -48,6 +48,13 @@ on:
       # (Scoped to the guarded directory, not scripts/**: widening every push trigger to
       # the whole tree is a CI-budget decision, not a portability fix.)
       - 'scripts/github/**'
+      # #3410: the sk-agent-inventory job below runs generate_inventory.py --check
+      # against these two docs. The counts in them had drifted from the template
+      # config for months precisely because no path here matched -- a doc edit
+      # landing on main re-ran nothing. The template itself lives in the
+      # submodule, already covered by 'mcps/internal' above.
+      - 'docs/sk-agent/AGENT_INVENTORY.md'
+      - 'docs/services/sk-agent-deployment.md'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
@@ -251,3 +258,25 @@ jobs:
       - name: Run unit Pester suite
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit -CI
+
+  # Inventory drift guard (#3410): docs/sk-agent/AGENT_INVENTORY.md and the
+  # deployment guide carry agent/model/MCP counts that are derived from
+  # mcps/internal/servers/sk-agent/sk_agent_config.template.json. They had
+  # drifted silently for months -- the counts were written by hand in three
+  # places and nothing reconciled them. The generator/checker lives in the
+  # submodule (PR submod #1110); this job runs it against the PARENT-side
+  # docs it exists to guard. A doc-only edit on a PR or main re-runs this
+  # job via the paths filter above. Stdlib-only Python, no setup needed.
+  sk-agent-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (submodule provides the generator)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Inventory docs match template config
+        run: |
+          python3 mcps/internal/servers/sk-agent/generate_inventory.py --check \
+            --doc-path docs/sk-agent/AGENT_INVENTORY.md \
+            --deployment-doc docs/services/sk-agent-deployment.md

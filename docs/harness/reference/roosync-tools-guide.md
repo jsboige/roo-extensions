@@ -214,7 +214,12 @@ roosync_compare_config({ source: "myia-ai-01", granularity: "full" })
 | `read_overview` | 3-level overview (global + machine + workspace) in 1 call |
 | `append` | Post an intercom message |
 | `write` | Replace dashboard status |
+| `update` | Create or replace an editable v3 section |
 | `list` | List all dashboards |
+
+`read`, `write`, `append`, and `update` use the same v3 key family for `global`, `machine`, and
+`workspace` dashboards. `update` creates an absent section or modifies an existing one; it does not
+fall back to the legacy monolithic `DASHBOARD.md` store.
 
 ### `read_overview` — Coordinator Quick Scan
 
