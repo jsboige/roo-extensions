@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-08 (détail 17 scripts PowerShell `claude/`, recompte après ajout du pré-vol executor)
+**Dernière mise à jour :** 2026-09-09 (ajout 2 scripts `github/` — watchguards #3381 D4/D13)
 
 ---
 
@@ -51,7 +51,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 |------------|---------|-------------|
 | `git/` | 2 | Opérations Git (pre-commit hooks, branch triage) |
 | `git-workflow/` | 7 | Workflow Git avancé (submodules, commit, branches) |
-| `github/` | 5 | Intégration GitHub (sync-project, set-fields, review-bot) |
+| `github/` | 7 | Intégration GitHub (sync-project, set-fields, review-bot, watchguards #3381 D4/D13) |
 | `worktrees/` | 4 | Gestion des worktrees Git (création, cleanup, merge) |
 | `hermes-watchdog/` | 4 | Surveillance du bot Hermes (cluster manager) |
 
