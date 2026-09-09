@@ -60,7 +60,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 6. **Cron re-arm verification — PROVIDER-AWARE** (#2539 ; cadence unifiée 4h mandates user 2026-08-15/17 ; **arbitrage user 2026-08-18 : cron INTERACTIF primaire, schtask executor-cron interdite**) :
    - `CronList` — vérifier qu'un job récurrent pour `/executor` existe à la cadence **de VOTRE provider** :
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
-     - **ai-01 (Anthropic, coordinateur)** : `3h` — `23 */3` (décision user 2026-09-08, #3547 ; supersede le 8h #3396 du 03/09, lui-même supersedeur du 4-6h)
+     - **ai-01 (Anthropic, coordinateur)** : `3h` — `23 */3` (décision user 2026-09-09, #3547 ; supersede le 8h #3396 du 03/09)
    - **Le cron doit vivre dans la session INTERACTIVE** (arbitrage user 2026-08-18, revert #3141, relay web1 c.283 : « je préfère un cron avec lequel je peux interagir quand je passe sur la machine… j'ai besoin de trouver la dernière conversation interactive dans VS Code quand je débarque sur la machine »). Les cycles atterrissent dans LA conversation que l'utilisateur rouvre — jamais dans des sessions headless séparées. Le trade-off « pas de cycles si VS Code fermé » est accepté par le user.
    - **Schtask résiduelle à SUPPRIMER — mais ARMER D'ABORD, RETIRER ENSUITE** (le rollout #3141/#3161 est rendu interdit par l'arbitrage). Une schtask executor-cron spawn des sessions headless invisibles/indépendantes de la conversation interactive, donc elle doit partir. **L'ordre n'est pas cosmétique** :
      1. `CronCreate(...)` — armer le cron interactif ;
@@ -233,18 +233,18 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 # Executors z.ai (po-2023/24/25/26, web1) — 4h (mandates user 2026-08-15/17) :
 CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)
 
-# ai-01 coordinateur (Anthropic) — 3h (décision user 2026-09-08, #3547 ; supersede le 8h #3396) :
+# ai-01 coordinateur (Anthropic) — 3h (décision user 2026-09-09, #3547 ; supersede le 8h #3396) :
 # minute 23 : hors :00/:30 et hors du :41 des exécuteurs — pas de tir groupé sur l'API.
 CronCreate(cron: "23 */3 * * *", prompt: "/coordinate", recurring: true)
 ```
 
 | Machine | Provider | Cadence | Condition |
 |---------|----------|---------|-----------|
-| ai-01 (coordinateur) | Anthropic | **3h** | Décision user 2026-09-08 (#3547) — supersede le 8h #3396 (2026-09-03) |
+| ai-01 (coordinateur) | Anthropic | **3h** | Décision user 2026-09-09 (#3547) — supersede le 8h #3396 (2026-09-03) |
 | po-2023/24/25/26, web1 (executors) | z.ai | **4h** | Unifiée par mandates user 2026-08-15/17 (supersede le 2h-conditionnel 2026-07-20) |
 
 - **Bar de production** : la cadence se mérite par un travail substantiel (fix/PR/review/investigation livrée), PAS par défaut. Si IDLE-storm répété → l'AUTO-STOP cap #2185 gère ; **NE PAS ajuster par timer adaptatif** (l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer).
-- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard) → brief schtask rollout #3141/#3161 (17-18/08) → **arbitrage user 2026-08-18 : retour au CronCreate interactif**, schtask executor-cron interdite (motif : continuité conversationnelle dans VS Code) → **coordinateur ai-01 : 8h #3396 (2026-09-03) puis 3h #3547 (2026-09-08)** — exécuteurs inchangés à 4h.
+- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard) → brief schtask rollout #3141/#3161 (17-18/08) → **arbitrage user 2026-08-18 : retour au CronCreate interactif**, schtask executor-cron interdite (motif : continuité conversationnelle dans VS Code) → **coordinateur ai-01 : 8h #3396 (2026-09-03) → 4h #3485 (06/09) → 3h #3505 (07/09) → 2h #3539 (08/09 15:40Z) → 3h #3547 (2026-09-09)** (chaîne complète, cf. `coordinate.md` ; citation périmée = restaure silencieusement l'ancienne cadence) — exécuteurs inchangés à 4h.
 - **Session-only**, auto-expire 7j. **Phase 0 vérifie** à chaque cycle que le cron est actif à VOTRE cadence provider et le réarme si besoin (#2539).
 - **Cap 3-IDLE** (#2185) → executors z.ai : 3 cycles × 4h = 12h avant AUTO-STOP.
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick cadence.
