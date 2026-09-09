@@ -81,31 +81,48 @@ function Get-CommitAttribution {
     }
 }
 
-$rows = @()
-foreach ($pr in Get-MergedPrs) {
-    $attr = Get-CommitAttribution -Number $pr.number
-    if ($attr) {
-        $rows += [pscustomobject]@{
-            Number     = $pr.number
-            MergedAt   = $pr.merged_at
-            PrAuthor   = $pr.author
-            CommitAuth = $attr.Authors
-            CoAuthored = $attr.CoAuthored
-            Title      = $pr.title
+function Test-SharedIdentityCandidate {
+    # A PR is a shared-identity candidate when at least one commit author in
+    # the FULL author set differs from the PR author login. Comparing only the
+    # first author (string prefix match on the joined list) undercounted
+    # mixed-author PRs where the PR author is also the first committer
+    # (measured on #3553 at review time).
+    param([string]$PrAuthor, [string]$CommitAuth)
+    if (-not ($PrAuthor -and $CommitAuth)) { return $false }
+    $authorNames = @($CommitAuth -split '; ' | ForEach-Object { ($_ -split ' <')[0].Trim() } | Where-Object { $_ })
+    if ($authorNames.Count -eq 0) { return $false }
+    $differs = @($authorNames | Where-Object { $_ -notmatch [regex]::Escape($PrAuthor) }).Count -gt 0
+    return $differs
+}
+
+# Main guard: dot-sourcing (unit tests) loads the functions only.
+if ($MyInvocation.InvocationName -ne '.') {
+    $rows = @()
+    foreach ($pr in Get-MergedPrs) {
+        $attr = Get-CommitAttribution -Number $pr.number
+        if ($attr) {
+            $rows += [pscustomobject]@{
+                Number     = $pr.number
+                MergedAt   = $pr.merged_at
+                PrAuthor   = $pr.author
+                CommitAuth = $attr.Authors
+                CoAuthored = $attr.CoAuthored
+                Title      = $pr.title
+            }
         }
     }
-}
 
-if ($rows.Count -eq 0) {
-    Write-Host "No merged PR found in the last $Days day(s)."
-    exit 0
-}
+    if ($rows.Count -eq 0) {
+        Write-Host "No merged PR found in the last $Days day(s)."
+        exit 0
+    }
 
-if ($Json) {
-    $rows | ConvertTo-Json -Depth 3
-    exit 0
-}
+    if ($Json) {
+        $rows | ConvertTo-Json -Depth 3
+        exit 0
+    }
 
-$rows | Sort-Object MergedAt -Descending | Format-Table Number, MergedAt, PrAuthor, CommitAuth, CoAuthored -AutoSize -Wrap
-$loginOnly = ($rows | Where-Object { $_.PrAuthor -and $_.CommitAuth -and ($_.CommitAuth -notmatch "^$([regex]::Escape($_.PrAuthor))") }).Count
-Write-Host ("$($rows.Count) merged PR(s) in window; $loginOnly where commit authors differ from the PR author login (shared-identity candidates).")
+    $rows | Sort-Object MergedAt -Descending | Format-Table Number, MergedAt, PrAuthor, CommitAuth, CoAuthored -AutoSize -Wrap
+    $candidates = @($rows | Where-Object { Test-SharedIdentityCandidate -PrAuthor $_.PrAuthor -CommitAuth $_.CommitAuth })
+    Write-Host ("$($rows.Count) merged PR(s) in window; $($candidates.Count) where the full commit-author set differs from the PR author login (shared-identity candidates).")
+}
