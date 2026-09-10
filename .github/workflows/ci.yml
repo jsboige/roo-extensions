@@ -23,6 +23,7 @@ on:
       # guards must re-trigger it on main pushes (same principle as above).
       - 'scripts/testing/unit/**'
       - 'scripts/testing/run-pester-tests.ps1'
+      - 'scripts/mcp/set-mcp-env-var.ps1'
       - 'scripts/encoding/**'
       - 'scripts/common/**'
       - 'scripts/zoo-scheduler/**'

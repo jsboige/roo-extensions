@@ -23,16 +23,27 @@ Sans IDs, `view`/`tree`/`summarize` sont impossibles. `current` seul est insuffi
 | **`list`** | Lister taches recentes (OBLIGATOIRE en premier) | `limit`, `contentPattern` |
 | `tree` | Arbre des taches | `conversation_id`, `output_format: "ascii-tree"` |
 | `current` | Tache active | `workspace` |
-| `view` | Squelette conversation | `task_id`, `smart_truncation: true` |
-| `summarize` | Resume/stats | `summarize_type: "trace"`, `taskId` |
+| `view` | Squelette conversation | `task_id`, `detail_level: "summary"`, `smart_truncation: true` |
+| `summarize` | Resume/stats | `summarize_type: "trace"`, `taskId`, `detailLevel: "Summary"` |
 
-Niveaux recommandes : `Summary` ou `NoTools`. Jamais `Full`.
+Les deux réglages de détail sont distincts et leurs vocabulaires ne se mélangent pas :
+
+| Action | Paramètre | Valeurs |
+|--------|-----------|---------|
+| `view` | `detail_level` | `skeleton`, `summary`, `full` |
+| `summarize` | `detailLevel` | `Summary`, `NoTools`, `Compact`, `NoResults`, `Messages`, `UserOnly`, `NoToolParams`, `Full` |
+
+Pour `view`, utiliser `detail_level: "summary"`. Pour `summarize`, préférer
+`detailLevel: "Summary"` ou `"NoTools"` et ne jamais demander `"Full"`.
+Une valeur réelle du vocabulaire d'une autre action est rejetée explicitement plutôt qu'ignorée.
+Les bindings qui imposent tous les champs du schéma plat peuvent utiliser `null` pour « non
+applicable » ; cette sentinelle de transport n'est jamais une valeur métier.
 
 ---
 
-## detailLevel — Reference Complete
+## summarize.detailLevel — Reference Complete
 
-**TOUJOURS activer `smart_truncation: true`** pour conversations >10K chars.
+**TOUJOURS activer `smart_truncation: true` sur `view`** pour conversations >10K chars.
 **TOUJOURS definir `truncationChars`** quand `summarize_type != "trace"`.
 
 | Niveau | Contenu | Recommandation |
@@ -52,16 +63,17 @@ Niveaux recommandes : `Summary` ou `NoTools`. Jamais `Full`.
 |------|-------|-----------------|
 | `trace` | Stats (messages par type, taille, breakdown) | Pas requis |
 | `cluster` | Grappes parent-enfant | Recommande |
-| `synthesis` | Pipeline LLM (requiert `OPENAI_API_KEY`) | Recommande |
+| `synthesis` | Désactivé (#788), absent du schéma servi | Non disponible |
 
-**Bug connu :** `synthesis` peut echouer. Preferer `trace`.
+Utiliser `trace` ou `cluster` ; `synthesis` est rejeté tant que le pipeline LLM n'est pas disponible.
 
 ## Anti-Patterns
 
 - Deviner les IDs de taches
 - Utiliser `current` comme seul point d'entree
 - Aller a `view`/`tree` sans `list` prealable
-- Utiliser `Full` sans `smart_truncation`
+- Passer `detailLevel` à `view` ou `detail_level` à `summarize`
+- Utiliser `summarize.detailLevel: "Full"`
 - Ignorer les metadonnees (timestamp, workspace, mode)
 
 ---
