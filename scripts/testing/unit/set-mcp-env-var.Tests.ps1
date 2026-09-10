@@ -105,6 +105,30 @@ Describe 'set-mcp-env-var - single-key upsert (#3555)' {
         } finally { Remove-Item -LiteralPath $fx.Root -Recurse -Force -ErrorAction SilentlyContinue }
     }
 
+    It 'fails closed on duplicate active assignments before backup or write' {
+        $lines = @(
+            'ROOSYNC_MACHINE_ID=fictitious-machine',
+            'SKELETON_PREWARM=fictitious-first',
+            '# SKELETON_PREWARM=fictitious-commented',
+            'SKELETON_PREWARM=fictitious-last',
+            'OTHER_SETTING=fictitious-keep'
+        )
+        $original = ($lines -join "`n") + "`n"
+        $fx = New-SetterFixtureRoot -EnvContent $original
+        try {
+            $originalBytes = [System.IO.File]::ReadAllBytes($fx.EnvPath)
+            $res = Invoke-EnvSetter -TargetPath $fx.EnvPath -Name 'SKELETON_PREWARM' -Value 'fictitious-off' -BackupDir $fx.BackupDir
+            $res.ExitCode | Should -Be 6
+            $res.Output | Should -Match 'multiple active assignments'
+            $res.Output | Should -Not -Match 'fictitious-first'
+            $res.Output | Should -Not -Match 'fictitious-last'
+            $res.Output | Should -Not -Match 'fictitious-off'
+            [System.BitConverter]::ToString([System.IO.File]::ReadAllBytes($fx.EnvPath)) |
+                Should -BeExactly ([System.BitConverter]::ToString($originalBytes))
+            Test-Path -LiteralPath $fx.BackupDir | Should -Be $false
+        } finally { Remove-Item -LiteralPath $fx.Root -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+
     It 'preserves CRLF line endings of unrelated lines' {
         $lines = @(
             'ROOSYNC_MACHINE_ID=fictitious-machine',

@@ -64,6 +64,7 @@
       3  fichier cible introuvable (ou n'est pas un fichier)
       4  backup impossible (dir dans un depot Git, ou echec de copie)
       5  echec d'ecriture apres backup (le backup est conserve)
+      6  plusieurs assignations actives detectees (aucune mutation)
 
     Fichier volontairement ASCII pur sans BOM : PowerShell 5.1 lit un .ps1 sans
     BOM comme ANSI ; le contenu reste correct meme sans BOM (#3338/#3339).
@@ -129,6 +130,12 @@ $newLine  = $Name + '=' + $Value
 # Decoupe en conservant chaque fin de ligne dans son chunk : les lignes non
 # modifiees (et leurs EOL respectifs CRLF/LF) sont restituees a l'identique.
 $chunks   = [regex]::Split($raw, '(?<=\n)')
+$activeAssignmentCount = @($chunks | Where-Object { $_ -match $pattern }).Count
+if ($activeAssignmentCount -gt 1) {
+    Write-Host "[set-mcp-env-var] ABORT: multiple active assignments for $Name -- refusing, no backup, no write." -ForegroundColor Red
+    exit 6
+}
+
 $found    = $false
 $outChunks = New-Object System.Collections.Generic.List[string]
 foreach ($chunk in $chunks) {
