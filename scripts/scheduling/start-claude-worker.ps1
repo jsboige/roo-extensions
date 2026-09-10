@@ -1059,7 +1059,8 @@ function Mark-TaskAsComplete {
     param(
         $Task,
         [string]$PrUrl = $null,
-        [bool]$Success = $false
+        [bool]$Success = $false,
+        [array]$DeliveredArtifacts = @()
     )
 
     switch ($Task.source) {
@@ -1081,10 +1082,20 @@ function Mark-TaskAsComplete {
                 try {
                     # #1213: Post [RESULT] with proof — aligns with Roo protocol
                     $MachineId = $env:COMPUTERNAME.ToLower()
-                    if ($PrUrl) {
+                    if ($Success -and $PrUrl) {
                         $Body = "[RESULT] $MachineId`: PASS — PR created: $PrUrl"
                     } elseif ($Success) {
                         $Body = "[RESULT] $MachineId`: PASS — completed (no code changes needed)"
+                    } elseif ($PrUrl -or $DeliveredArtifacts.Count -gt 0) {
+                        $ArtifactParts = @()
+                        $ReconciledUrls = @($DeliveredArtifacts | Where-Object { $_.Type -eq 'pull_request' } | ForEach-Object { $_.Url })
+                        if ($PrUrl -and $PrUrl -notin $ReconciledUrls) { $ArtifactParts += "PR $PrUrl" }
+                        $ArtifactParts += @($DeliveredArtifacts | ForEach-Object {
+                            if ($_.Type -eq 'pull_request') { "PR #$($_.Number) $($_.Url)" }
+                            else { "remote branch $($_.Ref)@$(([string]$_.Commit).Substring(0, 8))" }
+                        })
+                        $ArtifactSummary = @($ArtifactParts | Select-Object -Unique) -join ', '
+                        $Body = "[RESULT] $MachineId`: FAIL — run terminal en échec, mais artefacts livrés et vérifiés: $ArtifactSummary — ne pas redispatcher (#3560)"
                     } else {
                         $Body = "[RESULT] $MachineId`: FAIL — no actionable result produced"
                     }
@@ -3765,6 +3776,158 @@ function Get-RealCommitHashes {
     return $hashes
 }
 
+function Get-DeliveredArtifacts {
+    <#
+    .SYNOPSIS
+    Reconciles artifacts that were verifiably delivered during this worker run.
+    This pass is read-only and never changes the stream verdict (#3560).
+    #>
+    param(
+        $Task,
+        [DateTime]$RunStartUtc,
+        [string]$WorktreePath,
+        [scriptblock]$PrListProvider = $null,
+        [string]$ExpectedAuthor = $null,
+        [hashtable]$ExpectedRefsByRepository = $null
+    )
+
+    $Artifacts = @()
+    $IssueNumber = if ($Task -and $Task.issueNumber) { [string]$Task.issueNumber } else { $null }
+    $RunStart = $RunStartUtc.ToUniversalTime()
+
+    if (-not $ExpectedRefsByRepository) {
+        $ExpectedRefsByRepository = @{}
+        if ($WorktreePath -and (Test-Path $WorktreePath)) {
+            $ParentTop = [string](& git -C $WorktreePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+            $ParentBranch = [string](& git -C $WorktreePath branch --show-current 2>$null | Select-Object -First 1)
+            if ($LASTEXITCODE -eq 0 -and $ParentBranch -and $ParentBranch -notin @('main', 'master')) {
+                $ExpectedRefsByRepository['jsboige/roo-extensions'] = $ParentBranch
+            }
+
+            $SubmodulePath = Join-Path $WorktreePath 'mcps/internal'
+            if (Test-Path $SubmodulePath) {
+                $SubmoduleTop = [string](& git -C $SubmodulePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+                $SubmoduleIsPopulated = $LASTEXITCODE -eq 0 -and $SubmoduleTop -and $SubmoduleTop -ne $ParentTop
+                if ($SubmoduleIsPopulated) {
+                    $SubmoduleBranch = [string](& git -C $SubmodulePath branch --show-current 2>$null | Select-Object -First 1)
+                    if ($LASTEXITCODE -eq 0 -and $SubmoduleBranch -and $SubmoduleBranch -notin @('main', 'master')) {
+                        $ExpectedRefsByRepository['jsboige/jsboige-mcp-servers'] = $SubmoduleBranch
+                    }
+                }
+            }
+        }
+    }
+
+    if ($IssueNumber -and -not $ExpectedAuthor -and $WorktreePath -and (Test-Path $WorktreePath)) {
+        $PreviousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $ExpectedAuthor = [string](& git -C $WorktreePath config --get user.name 2>$null | Select-Object -First 1)
+            if ($LASTEXITCODE -ne 0) { $ExpectedAuthor = $null }
+        }
+        catch {
+            $ExpectedAuthor = $null
+        }
+        finally {
+            $ErrorActionPreference = $PreviousPreference
+        }
+    }
+
+    if ($IssueNumber -and $ExpectedAuthor) {
+        $IssuePattern = "#$([regex]::Escape($IssueNumber))([^0-9]|$)"
+        $CreatedQualifier = $RunStart.ToString('yyyy-MM-ddTHH:mm:ssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+        $SearchQuery = "#$IssueNumber in:title,body created:>=$CreatedQualifier"
+        foreach ($Repository in @('jsboige/roo-extensions', 'jsboige/jsboige-mcp-servers')) {
+            $PreviousPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                if ($PrListProvider) {
+                    $PullRequests = @(& $PrListProvider $Repository $SearchQuery | Where-Object { $null -ne $_ })
+                    $GhExitCode = 0
+                } else {
+                    # Server-side issue/date search avoids the former newest-100 window. The exact issue
+                    # boundary, timestamp, and author are still verified locally.
+                    $PrJson = & gh pr list --repo $Repository --state all --search $SearchQuery --limit 1000 --json number,url,title,body,headRefName,createdAt,author 2>$null
+                    $GhExitCode = $LASTEXITCODE
+                    $PullRequests = if ($PrJson) { @($PrJson | ConvertFrom-Json | Where-Object { $null -ne $_ }) } else { @() }
+                }
+                $ErrorActionPreference = $PreviousPreference
+                if ($GhExitCode -ne 0) { continue }
+                foreach ($PullRequest in $PullRequests) {
+                    $CreatedAt = [DateTime]::Parse(
+                        [string]$PullRequest.createdAt,
+                        [System.Globalization.CultureInfo]::InvariantCulture,
+                        [System.Globalization.DateTimeStyles]::RoundtripKind
+                    ).ToUniversalTime()
+                    $ReferencesIssue = ($PullRequest.title -match $IssuePattern) -or ($PullRequest.body -match $IssuePattern)
+                    $PullRequestAuthor = if ($PullRequest.author) { [string]$PullRequest.author.login } else { $null }
+                    $ExpectedRef = [string]$ExpectedRefsByRepository[$Repository]
+                    $MatchesRunProvenance = $ExpectedRef -and ([string]$PullRequest.headRefName -eq $ExpectedRef)
+                    if ($ReferencesIssue -and $CreatedAt -ge $RunStart -and $PullRequestAuthor -eq $ExpectedAuthor -and $MatchesRunProvenance) {
+                        $Artifacts += [PSCustomObject]@{
+                            Type = 'pull_request'
+                            Repository = $Repository
+                            Number = [int]$PullRequest.number
+                            Url = [string]$PullRequest.url
+                            Ref = [string]$PullRequest.headRefName
+                            CreatedAt = $CreatedAt.ToString('o')
+                        }
+                    }
+                }
+            }
+            catch {
+                Write-Log "Artifact reconciliation: PR lookup failed for $Repository`: $_" 'WARN'
+            }
+            finally {
+                $ErrorActionPreference = $PreviousPreference
+            }
+        }
+    }
+
+    if ($WorktreePath -and (Test-Path $WorktreePath)) {
+        $PreviousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $Branch = (& git -C $WorktreePath branch --show-current 2>$null | Select-Object -First 1)
+            if ($LASTEXITCODE -eq 0 -and $Branch -and $Branch -notin @('main', 'master')) {
+                $RemoteLine = (& git -C $WorktreePath ls-remote origin "refs/heads/$Branch" 2>$null | Select-Object -First 1)
+                if ($LASTEXITCODE -eq 0 -and $RemoteLine -match '^([0-9a-f]{40})\s+') {
+                    $RemoteHash = $Matches[1]
+                    $CommittedAtText = (& git -C $WorktreePath show -s --format=%cI $RemoteHash 2>$null | Select-Object -First 1)
+                    if ($LASTEXITCODE -eq 0 -and $CommittedAtText) {
+                        $CommittedAt = [DateTime]::Parse(
+                            [string]$CommittedAtText,
+                            [System.Globalization.CultureInfo]::InvariantCulture,
+                            [System.Globalization.DateTimeStyles]::RoundtripKind
+                        ).ToUniversalTime()
+                        $PrForBranch = @($Artifacts | Where-Object { $_.Type -eq 'pull_request' -and $_.Ref -eq $Branch })
+                        if ($CommittedAt -ge $RunStart -and $PrForBranch.Count -eq 0) {
+                            $Artifacts += [PSCustomObject]@{
+                                Type = 'remote_branch'
+                                Repository = 'origin'
+                                Number = $null
+                                Url = $null
+                                Ref = [string]$Branch
+                                Commit = $RemoteHash
+                                CreatedAt = $CommittedAt.ToString('o')
+                            }
+                        }
+                    }
+                }
+            }
+            $ErrorActionPreference = $PreviousPreference
+        }
+        catch {
+            Write-Log "Artifact reconciliation: remote branch lookup failed: $_" 'WARN'
+        }
+        finally {
+            $ErrorActionPreference = $PreviousPreference
+        }
+    }
+
+    return @($Artifacts)
+}
+
 function Test-CommitHashExists {
     <#
     .SYNOPSIS
@@ -3799,7 +3962,7 @@ function Test-CommitHashExists {
 }
 
 function Report-Results {
-    param($Task, $Result, [string]$FinalMode, [string]$WorktreePath = $null)
+    param($Task, $Result, [string]$FinalMode, [string]$WorktreePath = $null, [array]$DeliveredArtifacts = @())
 
     Write-Log "Rapport des résultats au coordinateur..."
 
@@ -3858,6 +4021,13 @@ $(if ($Result.apiErrorInOutput) { "**Erreur API dans l'output:** ❌ Le gateway 
 $(if ($RealHashes -and $RealHashes.parent) { "**Commit parent:** $($RealHashes.parent)" })
 $(if ($RealHashes -and $RealHashes.submodule) { "**Commit submodule:** $($RealHashes.submodule)" })
 $(if ($RealHashes -and $RealHashes.commits.Count -gt 0) { "**Commits créés:** $($RealHashes.commits -join ', ')" })
+$(if ($DeliveredArtifacts.Count -gt 0) {
+    $ArtifactLines = @($DeliveredArtifacts | ForEach-Object {
+        if ($_.Type -eq 'pull_request') { "- PR #$($_.Number) $($_.Url) ($($_.Repository), créée $($_.CreatedAt))" }
+        else { "- Branche distante ``$($_.Ref)`` commit ``$($_.Commit)`` ($($_.CreatedAt))" }
+    }) -join "`n"
+    "**Livraison vérifiée (réconciliation #3560) — ne pas redispatcher :**`n$ArtifactLines"
+})
 $GhostHashWarning
 
 ### Output
@@ -4643,9 +4813,6 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
         }
     }
 
-    # 6. Reporter résultats (#1489: pass WorktreePath for commit hash validation)
-    Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode -WorktreePath $WorktreePath
-
     # 6b. Nettoyer wait state si c'était une reprise réussie
     if ($IsResume -and $Result.success) {
         Write-Log "Nettoyage wait state après reprise réussie"
@@ -4685,9 +4852,18 @@ REASON: [rapport d'audit : anomalies detectees, counts d'outils]
         }
     }
 
+    # 6d. Reconcile verifiable delivery after the worktree/PR workflow and before
+    # any terminal report or issue verdict (#3560). This read-only pass deliberately
+    # leaves Result.success and the process exit code unchanged.
+    $DeliveredArtifacts = Get-DeliveredArtifacts -Task $Task -RunStartUtc $script:ScriptStartTime.ToUniversalTime() -WorktreePath $WorktreePath
+
+    # 6e. Report only after reconciliation, so a stream failure cannot hide a PR or
+    # remote branch that was verifiably delivered during this run.
+    Report-Results -Task $Task -Result $Result -FinalMode $SelectedMode -WorktreePath $WorktreePath -DeliveredArtifacts $DeliveredArtifacts
+
     # 7. Marquer tâche comme complétée (RooSync, GitHub, ou rien si fallback)
     # Pass PR URL and success status for accountability (#1213)
-    Mark-TaskAsComplete -Task $Task -PrUrl $PrUrl -Success $Result.success
+    Mark-TaskAsComplete -Task $Task -PrUrl $PrUrl -Success $Result.success -DeliveredArtifacts $DeliveredArtifacts
 
     # 8. Cleanup worktree SEULEMENT après push+PR confirmés
     # Si PR créée avec succès, on peut supprimer le worktree (branch existe sur origin)
