@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Detect and unlock orphan `agent-*` worktrees left by the Claude Code Agent tool
     when provisioning fails (Issue #3345).

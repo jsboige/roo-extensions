@@ -1,4 +1,4 @@
-# Tests for the Agent harness isolation bug (#3345).
+﻿# Tests for the Agent harness isolation bug (#3345).
 #
 # Reproduces the failure mode locally: an `agent-*` worktree must be
 # genuinely isolated, i.e. `git rev-parse --show-toplevel` run inside the
