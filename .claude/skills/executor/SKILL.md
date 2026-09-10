@@ -45,7 +45,12 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 **Verifier les outils critiques AVANT toute autre action :**
 
 1. MCP roo-state-manager disponible (16 outils) → Si absent, STOP & REPAIR
-2. **Pré-vol transactionnel obligatoire** (#2822/#3489, incident po-2025 08/09) :
+2. **[INBOX-GATE] Lecture inbox obligatoire en première action effective** (#3554) :
+   - Appeler `roosync_messages(action:"inbox", status:"unread")` **avant toute commande shell, synchronisation git ou parallélisation**.
+   - Traiter les HIGH/URGENT adressés à cette machine, puis appeler `roosync_messages(action:"mark_read", message_id:"<id>")` pour chacun effectivement traité.
+   - Ne pas scanner `messages/inbox` directement : l'énumération DriveFS peut prendre plusieurs minutes à froid. Le MCP préserve le backend fichier/PG et constitue la source de vérité.
+   - Si l'appel inbox échoue, appliquer STOP & REPAIR ; ne pas poursuivre le cycle en prétendant l'inbox vide.
+3. **Pré-vol transactionnel obligatoire** (#2822/#3489, incident po-2025 08/09) :
    - Exécuter **une seule commande**, sans séparer le pull du build :
      `powershell.exe -ExecutionPolicy Bypass -File scripts/claude/executor-preflight.ps1`
    - Le script enchaîne `fetch` → `pull origin main` → `submodule update --init mcps/internal` → vérification identité/gitlink → `ensure-build-fresh.ps1 -RequireFresh` dans un **nouveau processus** qui charge la version fraîchement tirée.

@@ -55,7 +55,13 @@ L'utilisateur n'intervient que pour les **arbitrages** (decisions architecturale
 
 **Methodologie :** Triple grounding SDDD (voir [`docs/harness/reference/sddd-conversational-grounding.md`](../../docs/harness/reference/sddd-conversational-grounding.md)).
 
-Execute ces actions automatiquement, en parallele quand possible :
+### [INBOX-GATE] Première action effective — avant shell et parallélisation (#3554)
+
+1. Appeler `roosync_messages(action: "inbox", status: "unread")`.
+2. Traiter les HIGH/URGENT adressés à cette machine, puis appeler `roosync_messages(action: "mark_read", message_id: "<id>")` pour chacun effectivement traité.
+3. Si l'appel inbox échoue : **STOP & REPAIR**. Ne pas poursuivre en prétendant l'inbox vide.
+
+Ne pas lire `messages/inbox` directement : l'énumération DriveFS peut prendre plusieurs minutes à froid. Le MCP est la source de vérité fichier/PG. **Seulement après ce gate**, exécuter les actions suivantes, en parallèle quand possible :
 
 ```powershell
 # Transaction atomique : pull + gitlink + build frais. Ne pas poursuivre sur exit 1 ou 10.
@@ -68,8 +74,7 @@ git log --oneline -5
 ```
 
 Puis (en parallele) :
-1. **RooSync inbox (OBLIGATOIRE, EN PREMIER)** : `roosync_messages(action: "inbox", status: "unread")` — instructions du coordinateur. **Ne JAMAIS sauter cette étape.**
-2. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
+1. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)
    - Si `[DONE]` ou `[IDLE]` sans `[ACK]` dans les 2 derniers messages Claude → écrire `[ACK]` via `roosync_dashboard(action: "append", ...)`
    - Si Roo était **IDLE** → ajouter `[PROPOSAL]` avec 1-2 tâches suggérées
