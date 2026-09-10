@@ -29,13 +29,16 @@ Describe 'Worker artifact reconciliation (#3560)' {
 
         function Write-Log { param($Message, $Level) }
 
+        $script:observedSearches = @()
         $script:prListProvider = {
-            param($repository)
+            param($repository, $searchQuery)
+            $script:observedSearches += $searchQuery
             if ($repository -eq 'jsboige/roo-extensions') {
                 return @(
-                    [PSCustomObject]@{ number = 101; url = 'https://example.test/pr/101'; title = 'fix: reconcile worker result'; body = 'Relates to #3560'; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:05:00Z' },
-                    [PSCustomObject]@{ number = 102; url = 'https://example.test/pr/102'; title = 'fix: unrelated #35601 result'; body = ''; headRefName = 'fix/35601'; createdAt = '2026-09-10T12:06:00Z' },
-                    [PSCustomObject]@{ number = 99; url = 'https://example.test/pr/99'; title = 'fix: old #3560 result'; body = ''; headRefName = 'fix/old'; createdAt = '2026-09-10T10:00:00Z' }
+                    [PSCustomObject]@{ number = 101; url = 'https://example.test/pr/101'; title = 'fix: reconcile worker result'; body = 'Relates to #3560'; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:05:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
+                    [PSCustomObject]@{ number = 102; url = 'https://example.test/pr/102'; title = 'fix: unrelated #35601 result'; body = ''; headRefName = 'fix/35601'; createdAt = '2026-09-10T12:06:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
+                    [PSCustomObject]@{ number = 103; url = 'https://example.test/pr/103'; title = 'fix: foreign #3560 result'; body = ''; headRefName = 'fix/foreign'; createdAt = '2026-09-10T12:07:00Z'; author = [PSCustomObject]@{ login = 'other-account' } },
+                    [PSCustomObject]@{ number = 99; url = 'https://example.test/pr/99'; title = 'fix: old #3560 result'; body = ''; headRefName = 'fix/old'; createdAt = '2026-09-10T10:00:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } }
                 )
             }
             return @()
@@ -53,23 +56,66 @@ Describe 'Worker artifact reconciliation (#3560)' {
         $code | Should -Match "jsboige/jsboige-mcp-servers"
         $code | Should -Match "\(\[\^0-9\]\|\$\)"
         $code | Should -Match "gh pr list"
+        $code | Should -Match "--search"
+        $code | Should -Match "created:>="
+        $code | Should -Match 'git -C \$WorktreePath config --get user\.name'
+        $code | Should -Not -Match "gh api user"
+        $code | Should -Not -Match "--limit 100(?!0)"
         $code | Should -Not -Match "gh pr (create|merge|close|edit|comment)"
         $code | Should -Not -Match "gh issue (edit|close|comment)"
     }
 
-    It 'retains only a recent exact issue reference' {
+    It 'retains only a recent exact issue reference from the expected author' {
         try {
             $task = [PSCustomObject]@{ issueNumber = 3560 }
-            $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $script:prListProvider)
+            $script:observedSearches = @()
+            $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $script:prListProvider -ExpectedAuthor 'worker-account')
 
             $artifacts.Count | Should -Be 1
             $artifacts[0].Type | Should -Be 'pull_request'
             $artifacts[0].Number | Should -Be 101
             $artifacts[0].Repository | Should -Be 'jsboige/roo-extensions'
+            $script:observedSearches.Count | Should -Be 2
+            $script:observedSearches[0] | Should -Match '#3560 in:title,body created:>=2026-09-10T12:00:00Z'
         }
         finally {
             $artifacts = $null
         }
+    }
+
+    It 'examines a valid artifact beyond the former 100-PR window' {
+        $largeProvider = {
+            param($repository, $searchQuery)
+            if ($repository -ne 'jsboige/roo-extensions') { return @() }
+
+            $rows = @(1..150 | ForEach-Object {
+                [PSCustomObject]@{
+                    number = $_
+                    url = "https://example.test/pr/$_"
+                    title = 'unrelated pull request'
+                    body = ''
+                    headRefName = "other/$_"
+                    createdAt = '2026-09-10T12:01:00Z'
+                    author = [PSCustomObject]@{ login = 'worker-account' }
+                }
+            })
+            $rows += [PSCustomObject]@{
+                number = 151
+                url = 'https://example.test/pr/151'
+                title = 'fix: delivered #3560 artifact'
+                body = ''
+                headRefName = 'fix/3560-late-in-list'
+                createdAt = '2026-09-10T12:02:00Z'
+                author = [PSCustomObject]@{ login = 'worker-account' }
+            }
+            return $rows
+        }
+
+        $task = [PSCustomObject]@{ issueNumber = 3560 }
+        $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $largeProvider -ExpectedAuthor 'worker-account')
+
+        $artifacts.Count | Should -Be 1
+        $artifacts[0].Number | Should -Be 151
     }
 
     It 'reconciles after PR creation and before both terminal outputs' {

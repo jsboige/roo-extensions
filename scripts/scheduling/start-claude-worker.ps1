@@ -3786,24 +3786,44 @@ function Get-DeliveredArtifacts {
         $Task,
         [DateTime]$RunStartUtc,
         [string]$WorktreePath,
-        [scriptblock]$PrListProvider = $null
+        [scriptblock]$PrListProvider = $null,
+        [string]$ExpectedAuthor = $null
     )
 
     $Artifacts = @()
     $IssueNumber = if ($Task -and $Task.issueNumber) { [string]$Task.issueNumber } else { $null }
     $RunStart = $RunStartUtc.ToUniversalTime()
 
-    if ($IssueNumber) {
+    if ($IssueNumber -and -not $ExpectedAuthor -and $WorktreePath -and (Test-Path $WorktreePath)) {
+        $PreviousPreference = $ErrorActionPreference
+        try {
+            $ErrorActionPreference = 'Continue'
+            $ExpectedAuthor = [string](& git -C $WorktreePath config --get user.name 2>$null | Select-Object -First 1)
+            if ($LASTEXITCODE -ne 0) { $ExpectedAuthor = $null }
+        }
+        catch {
+            $ExpectedAuthor = $null
+        }
+        finally {
+            $ErrorActionPreference = $PreviousPreference
+        }
+    }
+
+    if ($IssueNumber -and $ExpectedAuthor) {
         $IssuePattern = "#$([regex]::Escape($IssueNumber))([^0-9]|$)"
+        $CreatedQualifier = $RunStart.ToString('yyyy-MM-ddTHH:mm:ssZ', [System.Globalization.CultureInfo]::InvariantCulture)
+        $SearchQuery = "#$IssueNumber in:title,body created:>=$CreatedQualifier"
         foreach ($Repository in @('jsboige/roo-extensions', 'jsboige/jsboige-mcp-servers')) {
             $PreviousPreference = $ErrorActionPreference
             try {
                 $ErrorActionPreference = 'Continue'
                 if ($PrListProvider) {
-                    $PullRequests = @(& $PrListProvider $Repository | Where-Object { $null -ne $_ })
+                    $PullRequests = @(& $PrListProvider $Repository $SearchQuery | Where-Object { $null -ne $_ })
                     $GhExitCode = 0
                 } else {
-                    $PrJson = & gh pr list --repo $Repository --state all --limit 100 --json number,url,title,body,headRefName,createdAt,author 2>$null
+                    # Server-side issue/date search avoids the former newest-100 window. The exact issue
+                    # boundary, timestamp, and author are still verified locally.
+                    $PrJson = & gh pr list --repo $Repository --state all --search $SearchQuery --limit 1000 --json number,url,title,body,headRefName,createdAt,author 2>$null
                     $GhExitCode = $LASTEXITCODE
                     $PullRequests = if ($PrJson) { @($PrJson | ConvertFrom-Json | Where-Object { $null -ne $_ }) } else { @() }
                 }
@@ -3816,7 +3836,8 @@ function Get-DeliveredArtifacts {
                         [System.Globalization.DateTimeStyles]::RoundtripKind
                     ).ToUniversalTime()
                     $ReferencesIssue = ($PullRequest.title -match $IssuePattern) -or ($PullRequest.body -match $IssuePattern)
-                    if ($ReferencesIssue -and $CreatedAt -ge $RunStart) {
+                    $PullRequestAuthor = if ($PullRequest.author) { [string]$PullRequest.author.login } else { $null }
+                    if ($ReferencesIssue -and $CreatedAt -ge $RunStart -and $PullRequestAuthor -eq $ExpectedAuthor) {
                         $Artifacts += [PSCustomObject]@{
                             Type = 'pull_request'
                             Repository = $Repository
