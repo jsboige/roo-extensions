@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Dispatche un [WAKE-VIBE] vers workspace-CoursIA (lane Mistral Vibe po-2025) — drainer deterministe durable.
 
