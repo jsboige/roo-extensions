@@ -3787,12 +3787,36 @@ function Get-DeliveredArtifacts {
         [DateTime]$RunStartUtc,
         [string]$WorktreePath,
         [scriptblock]$PrListProvider = $null,
-        [string]$ExpectedAuthor = $null
+        [string]$ExpectedAuthor = $null,
+        [hashtable]$ExpectedRefsByRepository = $null
     )
 
     $Artifacts = @()
     $IssueNumber = if ($Task -and $Task.issueNumber) { [string]$Task.issueNumber } else { $null }
     $RunStart = $RunStartUtc.ToUniversalTime()
+
+    if (-not $ExpectedRefsByRepository) {
+        $ExpectedRefsByRepository = @{}
+        if ($WorktreePath -and (Test-Path $WorktreePath)) {
+            $ParentTop = [string](& git -C $WorktreePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+            $ParentBranch = [string](& git -C $WorktreePath branch --show-current 2>$null | Select-Object -First 1)
+            if ($LASTEXITCODE -eq 0 -and $ParentBranch -and $ParentBranch -notin @('main', 'master')) {
+                $ExpectedRefsByRepository['jsboige/roo-extensions'] = $ParentBranch
+            }
+
+            $SubmodulePath = Join-Path $WorktreePath 'mcps/internal'
+            if (Test-Path $SubmodulePath) {
+                $SubmoduleTop = [string](& git -C $SubmodulePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+                $SubmoduleIsPopulated = $LASTEXITCODE -eq 0 -and $SubmoduleTop -and $SubmoduleTop -ne $ParentTop
+                if ($SubmoduleIsPopulated) {
+                    $SubmoduleBranch = [string](& git -C $SubmodulePath branch --show-current 2>$null | Select-Object -First 1)
+                    if ($LASTEXITCODE -eq 0 -and $SubmoduleBranch -and $SubmoduleBranch -notin @('main', 'master')) {
+                        $ExpectedRefsByRepository['jsboige/jsboige-mcp-servers'] = $SubmoduleBranch
+                    }
+                }
+            }
+        }
+    }
 
     if ($IssueNumber -and -not $ExpectedAuthor -and $WorktreePath -and (Test-Path $WorktreePath)) {
         $PreviousPreference = $ErrorActionPreference
@@ -3837,7 +3861,9 @@ function Get-DeliveredArtifacts {
                     ).ToUniversalTime()
                     $ReferencesIssue = ($PullRequest.title -match $IssuePattern) -or ($PullRequest.body -match $IssuePattern)
                     $PullRequestAuthor = if ($PullRequest.author) { [string]$PullRequest.author.login } else { $null }
-                    if ($ReferencesIssue -and $CreatedAt -ge $RunStart -and $PullRequestAuthor -eq $ExpectedAuthor) {
+                    $ExpectedRef = [string]$ExpectedRefsByRepository[$Repository]
+                    $MatchesRunProvenance = $ExpectedRef -and ([string]$PullRequest.headRefName -eq $ExpectedRef)
+                    if ($ReferencesIssue -and $CreatedAt -ge $RunStart -and $PullRequestAuthor -eq $ExpectedAuthor -and $MatchesRunProvenance) {
                         $Artifacts += [PSCustomObject]@{
                             Type = 'pull_request'
                             Repository = $Repository

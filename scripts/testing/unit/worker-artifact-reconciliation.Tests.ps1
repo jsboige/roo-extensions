@@ -37,7 +37,8 @@ Describe 'Worker artifact reconciliation (#3560)' {
                 return @(
                     [PSCustomObject]@{ number = 101; url = 'https://example.test/pr/101'; title = 'fix: reconcile worker result'; body = 'Relates to #3560'; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:05:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
                     [PSCustomObject]@{ number = 102; url = 'https://example.test/pr/102'; title = 'fix: unrelated #35601 result'; body = ''; headRefName = 'fix/35601'; createdAt = '2026-09-10T12:06:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
-                    [PSCustomObject]@{ number = 103; url = 'https://example.test/pr/103'; title = 'fix: foreign #3560 result'; body = ''; headRefName = 'fix/foreign'; createdAt = '2026-09-10T12:07:00Z'; author = [PSCustomObject]@{ login = 'other-account' } },
+                    [PSCustomObject]@{ number = 103; url = 'https://example.test/pr/103'; title = 'fix: foreign-author #3560 result'; body = ''; headRefName = 'fix/3560'; createdAt = '2026-09-10T12:07:00Z'; author = [PSCustomObject]@{ login = 'other-account' } },
+                    [PSCustomObject]@{ number = 104; url = 'https://example.test/pr/104'; title = 'fix: foreign-branch #3560 result'; body = ''; headRefName = 'fix/foreign'; createdAt = '2026-09-10T12:08:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } },
                     [PSCustomObject]@{ number = 99; url = 'https://example.test/pr/99'; title = 'fix: old #3560 result'; body = ''; headRefName = 'fix/old'; createdAt = '2026-09-10T10:00:00Z'; author = [PSCustomObject]@{ login = 'worker-account' } }
                 )
             }
@@ -59,17 +60,19 @@ Describe 'Worker artifact reconciliation (#3560)' {
         $code | Should -Match "--search"
         $code | Should -Match "created:>="
         $code | Should -Match 'git -C \$WorktreePath config --get user\.name'
+        $code | Should -Match 'headRefName -eq \$ExpectedRef'
+        $code | Should -Match '\$SubmoduleTop -ne \$ParentTop'
         $code | Should -Not -Match "gh api user"
         $code | Should -Not -Match "--limit 100(?!0)"
         $code | Should -Not -Match "gh pr (create|merge|close|edit|comment)"
         $code | Should -Not -Match "gh issue (edit|close|comment)"
     }
 
-    It 'retains only a recent exact issue reference from the expected author' {
+    It 'retains only a recent exact issue reference from the expected author and branch' {
         try {
             $task = [PSCustomObject]@{ issueNumber = 3560 }
             $script:observedSearches = @()
-            $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $script:prListProvider -ExpectedAuthor 'worker-account')
+            $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $script:prListProvider -ExpectedAuthor 'worker-account' -ExpectedRefsByRepository @{ 'jsboige/roo-extensions' = 'fix/3560' })
 
             $artifacts.Count | Should -Be 1
             $artifacts[0].Type | Should -Be 'pull_request'
@@ -112,7 +115,7 @@ Describe 'Worker artifact reconciliation (#3560)' {
         }
 
         $task = [PSCustomObject]@{ issueNumber = 3560 }
-        $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $largeProvider -ExpectedAuthor 'worker-account')
+        $artifacts = @(Get-DeliveredArtifacts -Task $task -RunStartUtc ([DateTime]'2026-09-10T12:00:00Z') -WorktreePath $null -PrListProvider $largeProvider -ExpectedAuthor 'worker-account' -ExpectedRefsByRepository @{ 'jsboige/roo-extensions' = 'fix/3560-late-in-list' })
 
         $artifacts.Count | Should -Be 1
         $artifacts[0].Number | Should -Be 151
