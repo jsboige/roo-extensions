@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Guards the transactional executor pre-flight introduced after the po-2025 stale-build reboot incident.
 #>
@@ -26,6 +26,23 @@ Describe 'Executor transactional build pre-flight' {
     It 'requires the live main checkout before synchronizing or rebuilding' {
         $preflight | Should -Match '\$branch\s+-ne\s+''main'''
         $preflight | Should -Match 'must run from main'
+    }
+
+    It 'gates both executor entry points on the MCP inbox before shell pre-flight' {
+        foreach ($entryPoint in @($skill, $command)) {
+            $inboxGate = $entryPoint.IndexOf('[INBOX-GATE]')
+            $inboxCall = $entryPoint.IndexOf('roosync_messages(action:')
+            $preflight = $entryPoint.IndexOf('executor-preflight.ps1')
+
+            $inboxGate | Should -BeGreaterThan -1
+            $inboxCall | Should -BeGreaterThan $inboxGate
+            $preflight | Should -BeGreaterThan $inboxCall
+            $entryPoint.Substring($inboxGate, $preflight - $inboxGate) | Should -Match 'HIGH/URGENT'
+            $entryPoint.Substring($inboxGate, $preflight - $inboxGate) | Should -Match 'mark_read'
+            $gateBlock = $entryPoint.Substring($inboxGate, $preflight - $inboxGate)
+            $gateBlock | Should -Match 'STOP & REPAIR'
+            $gateBlock | Should -Not -Match 'Get-ChildItem'
+        }
     }
 
     It 'orders pull, submodule materialization, then the strict freshness helper' {
