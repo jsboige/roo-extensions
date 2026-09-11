@@ -27,15 +27,19 @@
 BeforeAll {
     $projectRoot = (Resolve-Path -Path "$PSScriptRoot/../../..").Path
     $feederScript = Join-Path $projectRoot "scripts/scheduling/vibe-feeder.ps1"
+    $refreshScript = Join-Path $projectRoot "scripts/scheduling/vibe-refresh-basesha.py"
     $content      = Get-Content $feederScript -Raw
+    $refreshContent = Get-Content $refreshScript -Raw
 }
 
 Describe "Vibe feeder - gardes du drainer (review #3518)" {
 
     Context "C1 : le grain poste est consomme (la file est reecrite apres post)" {
 
-        It "reecrit la file via WriteAllText sur QueuePath" {
-            ($content -match '\[System\.IO\.File\]::WriteAllText\(\$QueuePath') | Should -Be $true
+        It "reecrit la file via Write-Queue sur QueuePath" {
+            ($content -match 'function Write-Queue') | Should -Be $true
+            ($content -match '\[System\.IO\.File\]::WriteAllText\(') | Should -Be $true
+            ($content -match '\$QueuePath') | Should -Be $true
         }
 
         It "retire le grain poste, pas un autre" {
@@ -53,12 +57,12 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             # doit vivre a l'interieur, pas apres un exit qui la court-circuite.
             $postedBlock = [regex]::Match($content, '(?s)if \(\$posted\) \{.*?exit 0').Value
             $postedBlock | Should -Not -BeNullOrEmpty
-            ($postedBlock -match 'WriteAllText\(\$QueuePath') | Should -Be $true
+            ($postedBlock -match 'Write-Queue -Queue \$outObj') | Should -Be $true
         }
 
         It "la consommation suit l'appel de post, pas l'inverse" {
             $iPost = $content.IndexOf('$posted = Invoke-RsmAppend')
-            $iConsume = $content.IndexOf('[System.IO.File]::WriteAllText($QueuePath')
+            $iConsume = $content.IndexOf('Write-Queue -Queue $outObj')
             $iPost | Should -BeGreaterThan 0
             $iConsume | Should -BeGreaterThan $iPost
         }
@@ -77,6 +81,42 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             $iRev   = $content.IndexOf('rev-parse origin/main')
             $iFetch | Should -BeGreaterThan 0
             $iRev   | Should -BeGreaterThan $iFetch
+        }
+    }
+
+    Context "C3 : la fraicheur est recalee dans le tick, sans course cron :44 -> :54" {
+
+        It "tente un recalage avant de declarer baseSha perime" {
+            $iRefresh = $content.IndexOf('Update-StaleGrainBase')
+            $iSkip = $content.IndexOf('baseSha perime')
+            $iRefresh | Should -BeGreaterThan 0
+            $iSkip | Should -BeGreaterThan $iRefresh
+        }
+
+        It "ne recale qu'un worktree propre sans commit propre au grain" {
+            ($content -match 'status --porcelain') | Should -Be $true
+            ($content -match 'rev-list --count') | Should -Be $true
+            ($content -match 'merge-base --is-ancestor') | Should -Be $true
+        }
+
+        It "persiste le nouveau baseSha dans la file avant le post" {
+            $iQueueRefresh = $content.IndexOf('$Grain.baseSha = $OriginMain')
+            $iPost = $content.IndexOf('$posted = Invoke-RsmAppend')
+            $iQueueRefresh | Should -BeGreaterThan 0
+            $iPost | Should -BeGreaterThan $iQueueRefresh
+            ($content -match 'Write-Queue') | Should -Be $true
+        }
+    }
+
+    Context "C4 : le refresh ne supprime pas un grain au payload non reconnu" {
+
+        It "utilise targetPath comme contrat structure avant les heuristiques de payload" {
+            ($refreshContent -match 'grain\.get\("targetPath"\)') | Should -Be $true
+        }
+
+        It "conserve explicitement un grain dont la cible est inconnue" {
+            ($refreshContent -match 'cible inconnue conservee') | Should -Be $true
+            ($refreshContent -match 'if not target:\s+keep\.append\(grain\)') | Should -Be $true
         }
     }
 

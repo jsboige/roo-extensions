@@ -111,6 +111,15 @@ function Read-Queue {
     }
 }
 
+function Write-Queue {
+    param([object]$Queue)
+    [System.IO.File]::WriteAllText(
+        $QueuePath,
+        ($Queue | ConvertTo-Json -Depth 8),
+        (New-Object System.Text.UTF8Encoding $false)
+    )
+}
+
 # ---------- worktree prep (git -C runtime, jamais reset) ----------
 # Retourne $true si le worktree est pret (cree ou deja present), false sinon.
 function Prepare-Worktree {
@@ -143,6 +152,37 @@ function Prepare-Worktree {
     }
     Write-FeederLog -Level 'ERROR' -Text "worktree add echoue (exit $LASTEXITCODE)"
     return $false
+}
+
+function Update-StaleGrainBase {
+    param([object]$Grain, [string]$OriginMain)
+
+    if ($Grain.baseSha -eq $OriginMain) { return $true }
+    if (-not (Test-Path $Grain.worktree)) { return $false }
+
+    git -C $runtimeDir merge-base --is-ancestor $Grain.baseSha $OriginMain 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: ancienne base non ancetre de main — recalage refuse" -f $Grain.id)
+        return $false
+    }
+
+    $dirty = (git -C $Grain.worktree status --porcelain 2>$null)
+    $ahead = (git -C $Grain.worktree rev-list --count "$($Grain.baseSha)..HEAD" 2>$null)
+    if ($dirty -or $LASTEXITCODE -ne 0 -or $ahead -ne '0') {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: worktree sale ou avec commits — recalage automatique refuse" -f $Grain.id)
+        return $false
+    }
+
+    git -C $Grain.worktree reset --hard $OriginMain 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: reset vers main echoue" -f $Grain.id)
+        return $false
+    }
+
+    $Grain.baseSha = $OriginMain
+    Write-Queue -Queue $q
+    Write-FeederLog -Level 'INFO' -Text ("{0}: baseSha recalee dans le tick vers {1}" -f $Grain.id, $OriginMain)
+    return $true
 }
 
 # ---------- post via stdio roo-state-manager (pattern Publish-HealthNote) ----------
@@ -238,8 +278,10 @@ foreach ($g in $grains) {
     # base fraiche ? (le worktree ne doit pas partir d'un main perime)
     $originMain = (git -C $runtimeDir rev-parse origin/main) 2>$null
     if ($originMain -match '^[0-9a-f]{40}$' -and $originMain -ne $g.baseSha) {
-        Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: baseSha perime ({1} != main {2})" -f $g.id, $g.baseSha, $originMain)
-        continue
+        if (-not (Update-StaleGrainBase -Grain $g -OriginMain $originMain)) {
+            Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: baseSha perime ({1} != main {2})" -f $g.id, $g.baseSha, $originMain)
+            continue
+        }
     }
     if (-not (Prepare-Worktree -Grain $g)) {
         Write-FeederLog -Level 'INFO' -Text ("SKIP {0}: worktree non preparable (voir log)" -f $g.id)
@@ -265,7 +307,7 @@ foreach ($g in $grains) {
         # dashboard ne dedup rien entre deux posts, review #3518 C1).
         $remaining = @($grains | Where-Object { $_.id -ne $g.id })
         $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
-        [System.IO.File]::WriteAllText($QueuePath, ($outObj | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding $false))
+        Write-Queue -Queue $outObj
         Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
         exit 0
     } else {
