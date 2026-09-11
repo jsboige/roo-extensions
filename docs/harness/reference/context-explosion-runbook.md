@@ -33,6 +33,43 @@ Observed instances (measured 2026-06-12):
 
 ---
 
+## Acute variant — atomic multimodal injection (PDF reads, #3579)
+
+The gradual-growth problem above has an acute sibling: a **single tool result** can poison a
+session in one call. Measured firsthand (CoursIA, 10/09): one `Read` on a PDF with
+`pages: "1-15"` returned 15 base64 JPEGs (203-343k chars/page, JSONL record **4,388,885 bytes**),
+the next request failed with `context_length_exceeded`, every `/continue` reproduced it, and
+`/compact` could not summarize because its own request inherited the oversized context.
+
+**Three distinct budgets — never conflate them (#3579):**
+
+| Budget | Governed by | Blocks the incident? |
+|--------|-------------|----------------------|
+| 1. Tokens / context | `CLAUDE_CODE_MAX_CONTEXT_TOKENS`, `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` | No — client-side compaction thresholds; they do not cap a tool result before injection |
+| 2. Serialized request bytes | The backend/route (payload limit, real tokens of the mapped model) | No — it rejects *after* injection |
+| 3. Atomic multimodal tool result | **Nothing native** | This is the gap; bounded by the [`guard-pdf-read` hook](pdf-read-guard.md) |
+
+The built-in `Read` allows up to 20 PDF pages per call, exposes no byte budget, no text-only
+mode, and does not use the text-result truncation path when returning images. "A large window
+is never dangerous" holds for budget 1 only — for budget 3 it makes the defect *less visible*.
+
+**Operating procedure (PDF text-first):**
+1. Extract text first (`pdftotext`, `pypdf`, markitdown) and check yield — a full 17-page
+   document measured 56,738 chars of text, **less than a single page rendered as image**.
+2. Visual reading only when needed (tables, figures, scans), in slices of **1-2 pages max**
+   (`pages: "N"` / `"N-M"`). Never 10-20 pages in one call.
+3. **Never re-read the PDF after a context error in the same session** — the payload is already
+   in the history and `/compact` inherits it. The only recovery is a fresh session.
+4. The transcript stays a SANCTUARY — keep the JSONL intact as evidence.
+
+Interception status of `PreToolUse` hooks on PDF reads: **VERIFIED** by a reproducible test
+(2026-09-11, po-2026, Claude Code 2.1.41) — the hook fires before the native PDF→image
+pipeline and blocks the call. Fleet arbitration: operating rule (versioned rule + opt-in hook),
+global `Read(**/*.pdf)` deny rejected. Full details, wiring and the Sol-route window bisect
+protocol: [pdf-read-guard.md](pdf-read-guard.md).
+
+---
+
 ## Diagnostic — identify large and duplicate sessions
 
 ### Quick scan
@@ -170,12 +207,15 @@ schtasks /create /tn "Claude-SessionSizeCheck" /tr "powershell -ExecutionPolicy 
 - ❌ Archiving without byte-count verification
 - ❌ Merging `.jsonl` traces (corrupts conversation ordering)
 - ❌ Truncating session files to "reduce size"
+- ❌ Reading 10-20 PDF pages via built-in `Read` in one call (atomic multimodal injection, #3579)
+- ❌ Re-reading a PDF after a context error in the same session (re-injects the payload; `/compact` inherits it)
 
 ---
 
 ## Related
 
 - **#2578 / [Restart-on-Saturation](restart-on-saturation.md)** — Worker-side empty-response detection + auto-restart
+- **#3579 / [PDF read guard](pdf-read-guard.md)** — Atomic multimodal injection: hook script, verified interception test, fleet arbitration, Sol-route window bisect
 - **[Condensation Thresholds](condensation-thresholds.md)** — 200k/90% universal threshold documentation
 - **[Context Window Rule](../../../.claude/rules/context-window.md)** — Auto-loaded rule with threshold settings
-- **Issues:** #1608, #1486, #1808 (closed without structural resolution), #2577 (this issue), #2578 (worker fix)
+- **Issues:** #1608, #1486, #1808 (closed without structural resolution), #2577 (this issue), #2578 (worker fix), #3579 (PDF multimodal)

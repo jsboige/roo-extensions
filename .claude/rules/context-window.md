@@ -1,6 +1,6 @@
 # Condensation — Context Window
 
-**Version:** 6.0.0 (le clamp universel 200k est un **bug**, pas une règle — décision user 2026-08-22)
+**Version:** 6.1.0 (amende v6.0.0 : « grande fenêtre jamais dangereuse » rescopée à la compaction tokenique seule, + règle PDF #3579)
 **Supersede :** v5.0.0 « seuil UNIVERSEL 200k/90 » (décision user 2026-05-25)
 
 ---
@@ -21,8 +21,17 @@ condensation infinie (#502), et 70 % la reproduit sous harnais lourd (#736). C'e
 garde-fou, et il vit dans `deploy-claude-mcp-settings.ps1` (condition `< 90`), au niveau du
 fichier settings.
 
-**Une grande fenêtre n'est jamais dangereuse** — seul un pourcentage bas l'est. Il n'y a donc
-aucun plancher ni plafond à imposer sur `CLAUDE_CODE_AUTO_COMPACT_WINDOW`.
+**Une grande fenêtre n'est jamais dangereuse pour la compaction tokenique** — seul un pourcentage
+bas l'est. Il n'y a donc aucun plancher ni plafond à imposer sur `CLAUDE_CODE_AUTO_COMPACT_WINDOW`.
+
+**Exception multimodale (#3579) :** cette affirmation ne couvre pas les tool results **atomiques**.
+Un `Read` PDF rend chaque page en image base64 (~200-340k caractères/page) injectée en un bloc,
+sans budget d'octets ni troncature — aucune variable `CLAUDE_CODE_*` ne plafonne ce canal ; une
+grande fenêtre y rend le défaut moins visible. Règle : **texte d'abord** (`pdftotext` : tout un
+document pèse moins qu'une page-image), vision par tranches de **1-2 pages max** (`pages`),
+**jamais relire le PDF après une erreur de contexte** (session fraîche requise). Garde
+structurel opt-in : `scripts/hooks/guard-pdf-read.js` — interception VÉRIFIÉE
+([pdf-read-guard](../../docs/harness/reference/pdf-read-guard.md)).
 
 ## Ce qui a été retiré, et pourquoi
 

@@ -32,6 +32,7 @@
 | **Claude Transcript Archiving (#3294)** | Runbook archivage transcripts Claude Code (schtask ClaudeTranscriptArchive, quotidienne 04:41 — origine : perte de donnees ai-01) | `claude-transcript-archiving.md` |
 | **Zoo Migration Runbook (#2379)** | Migration Roo Code → Zoo Code (#2379/#2381/#2678) — pilote po-2025, profils par machine, MCPs et modes | `zoo-migration-runbook.md` |
 | **Block-placeholder hook (#3367)** | Garde PreToolUse anti envoi-first (Tier 1) — script canonique + câblage settings par groupe | `block-placeholder-hook.md` |
+| **PDF read guard (#3579)** | Borne les lectures PDF multimodales — 3 budgets distincts (tokens / bytes sérialisés / résultat atomique), procédure text-first, interception PreToolUse VÉRIFIÉE par test reproductible, arbitrage flotte, protocole bisect fenêtre route Sol (délégué) | `pdf-read-guard.md` |
 | **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
 
 ## Quality & CI
