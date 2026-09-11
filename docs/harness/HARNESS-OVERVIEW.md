@@ -16,11 +16,11 @@ Les agents ne tournent pas en continu. Chacun est réveillé par un cron, exécu
 
 ---
 
-## 2. `roo-state-manager` — les 16 outils
+## 2. `roo-state-manager` — les 17 outils
 
-C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **16 outils** au handshake MCP.
+C'est le serveur MCP central du harnais, écrit en TypeScript, vivant dans le sous-module `mcps/internal`. Il expose **17 outils** au handshake MCP.
 
-> **Le compte est 16, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
+> **Le compte est 17, pas 34.** Les consolidations « CONS » ont regroupé des dizaines d'outils unitaires en outils-familles paramétrés par une `action`. Le chiffre 34 circule encore dans des documents antérieurs à ce regroupement ; il est faux depuis. La mesure qui fait autorité est le handshake : ce qu'une session voit réellement.
 
 ### 2.1 Coordination (6 outils)
 
@@ -296,7 +296,7 @@ Une sous-tâche peut changer de nature en cours d'exécution. Un mode `code` qui
 
 ## 9. L'architecture interne du serveur MCP `roo-state-manager`
 
-Les 16 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
+Les 17 outils décrits en section 2 sont la face visible. En dessous, le serveur est un programme TypeScript structuré pour répondre à trois exigences contradictoires : démarrer vite (le client MCP attend un handshake rapide), supporter des outils lourds sans bloquer le démarrage, et dégrader proprement quand une dépendance externe est indisponible.
 
 ### 9.1 Forme générale
 
@@ -329,7 +329,7 @@ Le client MCP attend que `tools/list` réponde pour considérer le serveur prêt
 
 Le fichier [`tools/registry.ts`](../../mcps/internal/servers/roo-state-manager/src/tools/registry.ts) est le point d'entrée des appels. Il fait trois choses :
 
-1. **Maintenir un registre nom → handler.** L'enregistrement est explicite pour rendre auditable la liste des outils — c'est ce qui permet d'affirmer « 16 outils » sans grep dans tout `src/`.
+1. **Maintenir un registre nom → handler.** L'enregistrement est explicite pour rendre auditable la liste des outils — c'est ce qui permet d'affirmer « 17 outils » sans grep dans tout `src/`.
 2. **Appliquer un timeout par outil.** Défaut 120 s ; outils lourds (`roosync_indexing` 300 s, `codebase_search` 180 s, `roosync_storage_management` 180 s). *Origine :* un appel MCP resté pendant 22 heures en attendant une dépendance morte (#2267). Le timeout ne résout pas la cause, il borne le coût.
 3. **Déléguer vers les accesseurs paresseux** présentés en 9.2.
 
@@ -337,7 +337,7 @@ Le fichier [`tools/registry.ts`](../../mcps/internal/servers/roo-state-manager/s
 
 Le serveur n'échoue pas au démarrage si une dépendance est manquante. Au lieu de cela, il *marque* la capacité correspondante comme « dégradée » via [`utils/server-capabilities.ts`](../../mcps/internal/servers/roo-state-manager/src/utils/server-capabilities.ts), et les outils affectés retournent une erreur explicite quand on les appelle. Les variables `ROOSYNC_SHARED_PATH`, `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION_NAME` sont requises ; `EMBEDDING_API_KEY` ou `OPENAI_API_KEY` est requise pour la recherche sémantique. Manquer l'une d'elles ne casse pas le démarrage, mais le cluster n'a plus de dashboards / plus de recherche sémantique — *et c'est visible*.
 
-**L'invariant.** `tools/list` répond toujours avec la liste complète des 16 outils, même dégradé. C'est ce qui permet à l'orchestrateur ou au coordinateur d'appeler un outil de diagnostic, d'apprendre que la capacité est dégradée, et d'agir — au lieu de recevoir un crash incompréhensible au démarrage.
+**L'invariant.** `tools/list` répond toujours avec la liste complète des 17 outils, même dégradé. C'est ce qui permet à l'orchestrateur ou au coordinateur d'appeler un outil de diagnostic, d'apprendre que la capacité est dégradée, et d'agir — au lieu de recevoir un crash incompréhensible au démarrage.
 
 ### 9.5 Le cycle de vie d'une tâche indexée
 
