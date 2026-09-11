@@ -70,6 +70,22 @@ try {
 
     Invoke-GitChecked @('fetch', 'origin')
     Invoke-GitChecked @('pull', 'origin', 'main', '--no-rebase', '--autostash')
+
+    # `--autostash` ne fait PAS echouer le pull quand la remise de la remise
+    # conflicte : mesure du 11/09 (git 2.50.1, depot jetable, edit local divergent
+    # de l'upstream) -> exit **0**, arbre laisse en `UU`, marqueurs `<<<<<<< Updated
+    # upstream` dans les fichiers, `stash@{0}: autostash` residuel. `Invoke-GitChecked`
+    # ne lit que `$LASTEXITCODE` : sans cette garde le preflight enchaine et le build
+    # tourne sur un arbre porteur de marqueurs de conflit. Les edits ne sont pas
+    # perdus — ils sont dans la remise — mais rien ne le SIGNALE.
+    # Un arbre simplement sale apres remise reussie est normal (c'est le but
+    # d'`--autostash`) : seul un chemin NON FUSIONNE est un STOP.
+    $unmerged = @(& git -C $RepoRoot status --porcelain) | Where-Object { $_ -match '^(DD|AU|UD|UA|DU|AA|UU)' }
+    if ($unmerged) {
+        $residual = @(& git -C $RepoRoot stash list) | Where-Object { $_ -match 'autostash' }
+        throw ("Autostash conflict after pull: {0} unmerged path(s) -> {1}. " -f $unmerged.Count, ($unmerged -join '; ')) +
+              ("Your edits are safe in the stash ({0} autostash entry/entries); resolve them, then re-run the pre-flight." -f $residual.Count)
+    }
     Invoke-GitChecked @('submodule', 'update', '--init', 'mcps/internal')
 
     $parentTop = (& git -C $RepoRoot rev-parse --show-toplevel).Trim()
