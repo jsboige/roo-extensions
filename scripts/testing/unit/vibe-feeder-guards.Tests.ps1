@@ -1,10 +1,16 @@
-﻿# Tests unitaires pour les gardes du drainer Vibe-Feeder (review #3518).
+# Tests unitaires pour les gardes du drainer Vibe-Feeder (review #3518).
 # Script sous test : scripts/scheduling/vibe-feeder.ps1
 #
 # Syntaxe Pester v5 -- execute en CI par le job `unit-pester` (#3216) via
-# scripts/testing/run-pester-tests.ps1, sur ubuntu-latest. Assertions purement
+# scripts/testing/run-pester-tests.ps1, sur ubuntu-latest. Assertions
 # STATIQUES sur le texte du drainer, comme vibe-worker-noop-guard : le ps1
 # cible des chemins Windows (D:\dev\...) et ne s'execute pas sous pwsh Linux.
+#
+# EXCEPTION : le contexte C3-bis est COMPORTEMENTAL. Il n'execute pas le
+# drainer non plus -- il en EXTRAIT les lignes d'eligibilite et les evalue
+# contre un depot git jetable. Ces lignes-la ne portent aucun chemin Windows
+# (elles ne connaissent que $Grain.worktree / $runtimeDir, que le test pose
+# lui-meme), donc elles sont portables sous pwsh Linux.
 #
 # CE QUE CES TESTS PROUVENT, ET CE QU'ILS NE PROUVENT PAS
 # -------------------------------------------------------
@@ -102,7 +108,7 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
         It "mesure l'eligibilite par rapport a MAIN, pas a l'ancienne base" {
             # `baseSha..HEAD` compte aussi ce que MAIN a pris depuis : un worktree
             # deja fast-forwarde sur main (crash entre reset et persistance) y
-            # paraissait « avec commits » et restait refuse indefiniment.
+            # paraissait "avec commits" et restait refuse indefiniment.
             ($content -match 'rev-list --count "\$OriginMain\.\.HEAD"') | Should -Be $true
             ($content -match 'rev-list --count "\$\(\$Grain\.baseSha\)\.\.HEAD"') | Should -Be $false
         }
@@ -120,6 +126,124 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             $iQueueRefresh | Should -BeGreaterThan 0
             $iPost | Should -BeGreaterThan $iQueueRefresh
             ($content -match 'Write-Queue') | Should -Be $true
+        }
+    }
+
+    Context "C3-bis : le predicat d'eligibilite, exerce sur un vrai depot" {
+
+        # Les tests C3 ci-dessus sont des contrats de SOURCE : ils verifient que la
+        # bonne expression est ecrite au bon endroit. Ils passeraient encore si
+        # l'expression etait juste a la lettre et fausse au sens. Ce contexte-ci
+        # extrait les lignes du drainer et les EXECUTE contre un depot jetable --
+        # c'est la seule forme qui rougit quand la mesure change de referentiel.
+
+        It "accepte un worktree deja fast-forwarde sur main, refuse un commit propre ou un arbre sale" {
+            # $ErrorActionPreference = 'Continue' pendant la plomberie git : sous
+            # PowerShell 5.1 la moindre ligne de stderr native devient une erreur
+            # TERMINANTE quand la preference vaut 'Stop', et le harnais echoue
+            # alors a la place de la garde. Restauree dans le finally.
+            $savedEap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-elig-" + [guid]::NewGuid().ToString('N').Substring(0,8))
+            try {
+                New-Item -ItemType Directory -Path $root -Force | Out-Null
+                $repo = Join-Path $root 'runtime'
+                & git init -q --initial-branch=main $repo
+                & git -C $repo config user.email 't@t'
+                & git -C $repo config user.name 't'
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'base'
+                & git -C $repo add f.txt
+                & git -C $repo commit -qm base
+                $oldBase = (& git -C $repo rev-parse HEAD).Trim()
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'main-advanced'
+                & git -C $repo commit -qam advance
+                $mainSha = (& git -C $repo rev-parse HEAD).Trim()
+
+                $lines  = $content -split "`n"
+                $lDirty = ($lines | Where-Object { $_ -match '^\s*\$dirty = \(git ' }   | Select-Object -First 1)
+                $lRc    = ($lines | Where-Object { $_ -match '^\s*\$rcDirty = ' }       | Select-Object -First 1)
+                $lAhead = ($lines | Where-Object { $_ -match '^\s*\$ahead = \(git ' }   | Select-Object -First 1)
+                $lIf    = ($lines | Where-Object { $_ -match '^\s*if \(\$dirty -or ' }  | Select-Object -First 1)
+                $lDirty | Should -Not -BeNullOrEmpty
+                $lRc    | Should -Not -BeNullOrEmpty
+                $lAhead | Should -Not -BeNullOrEmpty
+                $lIf    | Should -Not -BeNullOrEmpty
+                $cond = [regex]::Match($lIf, '^\s*if \((.+)\)\s*\{\s*$').Groups[1].Value
+                $cond | Should -Not -BeNullOrEmpty
+
+                $OriginMain = $mainSha
+                $Grain = [pscustomobject]@{ worktree = $repo; baseSha = $oldBase }
+
+                # (1) arbre propre, deja sur main, base ANCIENNE dans la file :
+                #     c'est l'etat exact laisse par un kill entre le reset --hard et
+                #     la persistance du baseSha. Mesure contre l'ancienne base il
+                #     paraissait "avec commits" et restait refuse a chaque tick.
+                Invoke-Expression $lDirty; Invoke-Expression $lRc; Invoke-Expression $lAhead
+                (Invoke-Expression $cond) | Should -Be $false
+
+                # (2) le worktree porte un commit a lui : le refus tient (fail-closed).
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'grain-work'
+                & git -C $repo commit -qam grain
+                Invoke-Expression $lDirty; Invoke-Expression $lRc; Invoke-Expression $lAhead
+                (Invoke-Expression $cond) | Should -Be $true
+
+                # (3) arbre sale sans commit : le refus tient aussi.
+                & git -C $repo reset -q --hard $mainSha
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'edit-non-commit'
+                Invoke-Expression $lDirty; Invoke-Expression $lRc; Invoke-Expression $lAhead
+                (Invoke-Expression $cond) | Should -Be $true
+            }
+            finally {
+                $ErrorActionPreference = $savedEap
+                if (Test-Path $root) { Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue }
+            }
+        }
+
+        It "refuse une base qui n'est pas ancetre de main, et accepte celle qui l'est" {
+            $savedEap = $ErrorActionPreference
+            $ErrorActionPreference = 'Continue'
+            $root = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-anc-" + [guid]::NewGuid().ToString('N').Substring(0,8))
+            try {
+                New-Item -ItemType Directory -Path $root -Force | Out-Null
+                $repo = Join-Path $root 'runtime'
+                & git init -q --initial-branch=main $repo
+                & git -C $repo config user.email 't@t'
+                & git -C $repo config user.name 't'
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'base'
+                & git -C $repo add f.txt
+                & git -C $repo commit -qm base
+                $oldBase = (& git -C $repo rev-parse HEAD).Trim()
+                & git -C $repo checkout -q -b side
+                Set-Content -Path (Join-Path $repo 'g.txt') -Value 'side'
+                & git -C $repo add g.txt
+                & git -C $repo commit -qm side
+                $sideSha = (& git -C $repo rev-parse HEAD).Trim()
+                & git -C $repo checkout -q main
+                Set-Content -Path (Join-Path $repo 'f.txt') -Value 'main-advanced'
+                & git -C $repo commit -qam advance
+                $mainSha = (& git -C $repo rev-parse HEAD).Trim()
+
+                $lAnc = ($content -split "`n" | Where-Object { $_ -match 'merge-base --is-ancestor' } | Select-Object -First 1)
+                $lAnc | Should -Not -BeNullOrEmpty
+
+                $runtimeDir = $repo
+                $OriginMain = $mainSha
+
+                # Base sur une branche laterale : hors de l'ascendance de main.
+                $Grain = [pscustomobject]@{ baseSha = $sideSha }
+                Invoke-Expression $lAnc
+                $LASTEXITCODE | Should -Not -Be 0
+
+                # Controle negatif : la vraie ancienne base EST ancetre -> la garde
+                # se tait. Sans ce cas, un git casse ferait passer le cas ci-dessus.
+                $Grain = [pscustomobject]@{ baseSha = $oldBase }
+                Invoke-Expression $lAnc
+                $LASTEXITCODE | Should -Be 0
+            }
+            finally {
+                $ErrorActionPreference = $savedEap
+                if (Test-Path $root) { Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue }
+            }
         }
     }
 
