@@ -46,12 +46,16 @@ Describe 'Executor transactional build pre-flight' {
     }
 
     It 'orders pull, submodule materialization, then the strict freshness helper' {
-        $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase')")
+        $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase', '--autostash')")
         $submodule = $preflight.IndexOf("@('submodule', 'update', '--init', 'mcps/internal')")
         $helper = $preflight.IndexOf('-RequireFresh')
         $pull | Should -BeGreaterThan -1
         $submodule | Should -BeGreaterThan $pull
         $helper | Should -BeGreaterThan $submodule
+    }
+
+    It 'preserves tracked local edits across pull with autostash' {
+        $preflight | Should -Match "@\('pull', 'origin', 'main', '--no-rebase', '--autostash'\)"
     }
 
     It 'rejects a submodule path that resolves to the parent repository' {

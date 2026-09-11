@@ -69,7 +69,7 @@ try {
     }
 
     Invoke-GitChecked @('fetch', 'origin')
-    Invoke-GitChecked @('pull', 'origin', 'main', '--no-rebase')
+    Invoke-GitChecked @('pull', 'origin', 'main', '--no-rebase', '--autostash')
     Invoke-GitChecked @('submodule', 'update', '--init', 'mcps/internal')
 
     $parentTop = (& git -C $RepoRoot rev-parse --show-toplevel).Trim()
