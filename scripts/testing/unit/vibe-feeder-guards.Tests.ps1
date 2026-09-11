@@ -1,4 +1,4 @@
-# Tests unitaires pour les gardes du drainer Vibe-Feeder (review #3518).
+﻿# Tests unitaires pour les gardes du drainer Vibe-Feeder (review #3518).
 # Script sous test : scripts/scheduling/vibe-feeder.ps1
 #
 # Syntaxe Pester v5 -- execute en CI par le job `unit-pester` (#3216) via
@@ -97,6 +97,21 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match 'status --porcelain') | Should -Be $true
             ($content -match 'rev-list --count') | Should -Be $true
             ($content -match 'merge-base --is-ancestor') | Should -Be $true
+        }
+
+        It "mesure l'eligibilite par rapport a MAIN, pas a l'ancienne base" {
+            # `baseSha..HEAD` compte aussi ce que MAIN a pris depuis : un worktree
+            # deja fast-forwarde sur main (crash entre reset et persistance) y
+            # paraissait « avec commits » et restait refuse indefiniment.
+            ($content -match 'rev-list --count "\$OriginMain\.\.HEAD"') | Should -Be $true
+            ($content -match 'rev-list --count "\$\(\$Grain\.baseSha\)\.\.HEAD"') | Should -Be $false
+        }
+
+        It "ne juge pas l'eligibilite sur un code retour git perime" {
+            # Deux appels git se suivent : le code retour du premier doit etre
+            # capture avant que le second ne l'ecrase.
+            ($content -match '\$rcDirty = \$LASTEXITCODE') | Should -Be $true
+            ($content -match '\$rcDirty -ne 0') | Should -Be $true
         }
 
         It "persiste le nouveau baseSha dans la file avant le post" {

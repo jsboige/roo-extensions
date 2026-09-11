@@ -167,9 +167,17 @@ function Update-StaleGrainBase {
     }
 
     $dirty = (git -C $Grain.worktree status --porcelain 2>$null)
-    $ahead = (git -C $Grain.worktree rev-list --count "$($Grain.baseSha)..HEAD" 2>$null)
-    if ($dirty -or $LASTEXITCODE -ne 0 -or $ahead -ne '0') {
-        Write-FeederLog -Level 'WARN' -Text ("{0}: worktree sale ou avec commits — recalage automatique refuse" -f $Grain.id)
+    $rcDirty = $LASTEXITCODE
+    # Eligibilite mesuree par rapport a MAIN, jamais a l'ancienne base : `baseSha..HEAD`
+    # compte aussi les commits que MAIN a pris depuis, donc un worktree deja avance
+    # sur main (cas du crash entre le `reset` et la persistance ci-dessous : reboot,
+    # kill) y paraissait « avec commits » et restait refuse a chaque tick — le grain
+    # bloque en SKIP jusqu'a intervention externe. `$OriginMain..HEAD` ne compte que
+    # ce que le worktree porte EN PLUS de main : 0 => rien a preserver, le reset est
+    # un no-op et la fenetre de crash se referme d'elle-meme au tick suivant.
+    $ahead = (git -C $Grain.worktree rev-list --count "$OriginMain..HEAD" 2>$null)
+    if ($dirty -or $rcDirty -ne 0 -or $LASTEXITCODE -ne 0 -or $ahead -ne '0') {
+        Write-FeederLog -Level 'WARN' -Text ("{0}: worktree sale ou avec commits propres — recalage automatique refuse" -f $Grain.id)
         return $false
     }
 
