@@ -1,4 +1,4 @@
-# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
+﻿# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
 # Usage: powershell -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm] [-Headless] [-RequireFresh]
 #
 # WHY: Interactive Claude Code executor sessions run `git submodule update` (Phase 0)
