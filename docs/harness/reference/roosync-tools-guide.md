@@ -216,6 +216,7 @@ roosync_compare_config({ source: "myia-ai-01", granularity: "full" })
 | `write` | Replace dashboard status |
 | `update` | Create or replace an editable v3 section |
 | `list` | List all dashboards |
+| `scrub` | #3584 — retroactively mask secrets in the LIVE dashboard (file + PG mirror). Run from a seat whose `process.env` holds the leaked value; archives need the manual procedure |
 
 `read`, `write`, `append`, and `update` use the same v3 key family for `global`, `machine`, and
 `workspace` dashboards. `update` creates an absent section or modifies an existing one; it does not
