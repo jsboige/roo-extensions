@@ -44,7 +44,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 
 **Verifier les outils critiques AVANT toute autre action :**
 
-1. MCP roo-state-manager disponible (16 outils) → Si absent, STOP & REPAIR
+1. MCP roo-state-manager disponible (17 outils) → Si absent, STOP & REPAIR
 2. **[INBOX-GATE] Lecture inbox obligatoire en première action effective** (#3554) :
    - Appeler `roosync_messages(action:"inbox", status:"unread")` **avant toute commande shell, synchronisation git ou parallélisation**.
    - Traiter les HIGH/URGENT adressés à cette machine, puis appeler `roosync_messages(action:"mark_read", message_id:"<id>")` pour chacun effectivement traité.
