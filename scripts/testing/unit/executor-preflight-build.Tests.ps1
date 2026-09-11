@@ -46,12 +46,96 @@ Describe 'Executor transactional build pre-flight' {
     }
 
     It 'orders pull, submodule materialization, then the strict freshness helper' {
-        $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase')")
+        $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase', '--autostash')")
         $submodule = $preflight.IndexOf("@('submodule', 'update', '--init', 'mcps/internal')")
         $helper = $preflight.IndexOf('-RequireFresh')
         $pull | Should -BeGreaterThan -1
         $submodule | Should -BeGreaterThan $pull
         $helper | Should -BeGreaterThan $submodule
+    }
+
+    It 'preserves tracked local edits across pull with autostash' {
+        $preflight | Should -Match "@\('pull', 'origin', 'main', '--no-rebase', '--autostash'\)"
+    }
+
+    It 'stops on an autostash conflict instead of building a tree with conflict markers' {
+        # `--autostash` sort en exit 0 meme quand la remise conflicte : sans garde,
+        # `Invoke-GitChecked` (qui ne lit que $LASTEXITCODE) laisse passer un arbre
+        # porteur de marqueurs. La garde doit vivre APRES le pull et AVANT le
+        # submodule update, sinon le build part sur l'arbre casse.
+        $pull = $preflight.IndexOf("@('pull', 'origin', 'main', '--no-rebase', '--autostash')")
+        $guard = $preflight.IndexOf('$unmerged =')
+        $submodule = $preflight.IndexOf("@('submodule', 'update', '--init', 'mcps/internal')")
+        $guard | Should -BeGreaterThan $pull
+        $submodule | Should -BeGreaterThan $guard
+        $preflight | Should -Match 'Autostash conflict after pull'
+    }
+
+    It 'keys the stop on unmerged paths, not on a merely dirty tree' {
+        # Un arbre sale apres une remise REUSSIE est le fonctionnement nominal
+        # d'--autostash : une garde `if ($dirty)` bloquerait chaque pre-flight
+        # legitime. Le predicat doit nommer les codes de non-fusion.
+        $preflight | Should -Match 'DD\|AU\|UD\|UA\|DU\|AA\|UU'
+    }
+
+    It 'the guard predicate actually fires on a real autostash conflict (throwaway repo)' {
+        # Contre-epreuve COMPORTEMENTALE : on reproduit l'etat git reel, puis on evalue
+        # l'expression PRISE DANS LE SCRIPT — pas une copie recopiee ici, qui pourrait
+        # diverger de ce que le pre-flight execute vraiment.
+        #
+        # `$ErrorActionPreference = 'Continue'` pendant la plomberie git : ce test pousse
+        # DELIBEREMENT git dans un conflit, et sous PowerShell 5.1 la moindre ligne de
+        # stderr native (« Auto-merging », « Automatic merge failed ») devient une erreur
+        # TERMINANTE quand la preference vaut 'Stop'. L'echec serait alors celui du
+        # harnais, pas de la garde — exactement le faux negatif qu'on cherche a exclure.
+        $savedEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $root = Join-Path ([System.IO.Path]::GetTempPath()) ("preflight-autostash-" + [guid]::NewGuid().ToString('N').Substring(0,8))
+        $bare = Join-Path $root 'origin.git'; $a = Join-Path $root 'A'; $b = Join-Path $root 'B'
+        try {
+            New-Item -ItemType Directory -Path $root -Force | Out-Null
+            # `init` + `remote add` plutot qu'un `clone` de depot vide : ce clone-la emet
+            # un warning stderr qui n'a rien a voir avec ce qu'on mesure.
+            & git init -q --bare --initial-branch=main $bare
+            & git init -q --initial-branch=main $a
+            & git -C $a remote add origin $bare
+            & git -C $a config user.email 't@t'; & git -C $a config user.name 't'
+            Set-Content -Path (Join-Path $a 'f.txt') -Value @('l1','l2','l3')
+            & git -C $a add f.txt; & git -C $a commit -qm base; & git -C $a push -q origin main
+
+            & git clone -q $bare $b
+            & git -C $b config user.email 't@t'; & git -C $b config user.name 't'
+            Set-Content -Path (Join-Path $b 'f.txt') -Value @('l1','UPSTREAM','l3')
+            & git -C $b commit -qam upstream; & git -C $b push -q origin main
+
+            Set-Content -Path (Join-Path $a 'f.txt') -Value @('l1','LOCAL','l3')
+            & git -C $a pull origin main --no-rebase --autostash 2>&1 | Out-Null
+            $pullExit = $LASTEXITCODE
+
+            # Le predicat, extrait du script lui-meme.
+            $line = ($preflight -split "`n" | Where-Object { $_ -match '^\s*\$unmerged = ' } | Select-Object -First 1)
+            $line | Should -Not -BeNullOrEmpty
+            $RepoRoot = $a
+            $unmerged = $null
+            Invoke-Expression $line
+
+            $pullExit | Should -Be 0                       # la premisse : git ne signale RIEN par le code retour
+            @($unmerged).Count | Should -BeGreaterThan 0   # la garde, elle, mord
+
+            # Controle negatif : sur un arbre sale SANS conflit, la garde se tait. Sans
+            # lui, un predicat qui renverrait toujours quelque chose passerait ce test.
+            & git -C $a checkout -q --theirs f.txt
+            & git -C $a add f.txt
+            & git -C $a commit -qm resolve
+            Set-Content -Path (Join-Path $a 'f.txt') -Value @('l1','edit-propre','l3')
+            $unmerged = $null
+            Invoke-Expression $line
+            @($unmerged).Count | Should -Be 0
+        }
+        finally {
+            $ErrorActionPreference = $savedEap
+            if (Test-Path $root) { Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue }
+        }
     }
 
     It 'rejects a submodule path that resolves to the parent repository' {
