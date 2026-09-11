@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     Behavioural test: ensure-build-fresh.ps1 must not rebuild when only MTIMES moved.
 
@@ -113,6 +113,23 @@ Describe 'ensure-build-fresh content key -- mtime is not evidence of a source ch
     It 'refuses when src/ carries an uncommitted content change' {
         $f = New-Fixture
         Set-Content -LiteralPath (Join-Path $f.Mcp 'src/tool.ts') -Value 'export const x = 2;' -NoNewline
+        Invoke-Guard $f | Should -BeFalse
+    }
+
+    It 'refuses when src/ carries an UNTRACKED source file (#3589, raised by web1)' {
+        # diff reports only files git TRACKS, so a never-added src/*.ts leaves it silent -- while
+        # tsconfig includes src/**/*.ts, so tsc WOULD emit a module and the build really is behind.
+        # The stamp cannot rescue this: dirty is computed when the build ran, so a file created
+        # afterwards postdates it by construction.
+        $f = New-Fixture
+        Set-Content -LiteralPath (Join-Path $f.Mcp 'src/brand-new.ts') -Value 'export const y = 1;' -NoNewline
+
+        # Premise, so this case cannot pass for the wrong reason: the content check really IS
+        # blind here. If diff ever began reporting untracked files, this test would silently stop
+        # exercising the defect it was written for, and its green would mean nothing.
+        & git -C $f.Mcp diff --quiet -- src 2>$null
+        $LASTEXITCODE | Should -Be 0
+
         Invoke-Guard $f | Should -BeFalse
     }
 

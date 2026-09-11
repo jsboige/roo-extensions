@@ -1,4 +1,4 @@
-﻿# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
+# ensure-build-fresh.ps1 — Rebuild the MCP submodule build/ if stale (#2822 STALE-TRAP)
 # Usage: powershell -File scripts/claude/ensure-build-fresh.ps1 [-RepoRoot <path>] [-DryRun] [-Arm] [-Headless] [-RequireFresh]
 #
 # WHY: Interactive Claude Code executor sessions run `git submodule update` (Phase 0)
@@ -201,6 +201,16 @@ function Test-BuildMatchesSource {
     # directory, scoping it to this server's src/ inside the submodule.
     & git -C $McpServerPath diff --quiet -- src 2>$null
     if ($LASTEXITCODE -ne 0) { return $false }
+
+    # `diff` compares the index against the worktree, so it only ever reports files git already
+    # TRACKS. A new, never-added `src/*.ts` is silent here -- while tsconfig includes
+    # `src/**/*.ts`, so tsc WOULD emit a module for it and the build really is behind. The stamp
+    # cannot rescue this either: `dirty` is computed WHEN THE BUILD RAN, so a file created
+    # afterwards postdates it by construction. Measured on ai-01 (2026-09-11): with an untracked
+    # `src/__probe.ts` present, `diff --quiet -- src` still exits 0. Raised by web1 on #3589.
+    $untracked = (& git -C $McpServerPath ls-files --others --exclude-standard -- src 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $false }
+    if ($untracked) { return $false }
 
     return $true
 }
