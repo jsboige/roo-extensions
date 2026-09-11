@@ -11,7 +11,10 @@
 # WHAT: Compares the newest mtime of compiled source (`src/**/*.ts`, excluding tests which
 # tsconfig.exclude removes from compilation) against the newest `build/**/*.js`. If the
 # source is newer than the build (or build/ is absent), runs `npm run build` (clean + tsc).
-# Idempotent: a no-op when the build is already fresh. Legacy callers remain non-fatal on
+# Idempotent: a no-op when the build is already fresh -- and, since the content-key guard below,
+# also when the mtimes merely LOOK stale while `build-info.json` proves the build came from the
+# source currently checked out. A rebuild owes a restart, so a redundant one costs an operator
+# interruption, not just CPU. Legacy callers remain non-fatal on
 # skips/build failures; `-RequireFresh` makes those conditions block an executor pre-flight.
 #
 # ARM GUARD (#3489, revised by the #3489 FRICTION arbitration): rebuilding `build/` while a
@@ -148,9 +151,89 @@ if ($staleCount -gt 0) {
     $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
 }
 
+# --- Content key: an MTIME verdict is not evidence of a source change (#2822/#3489 amendment) ---
+# A `git checkout`, a branch switch, a stash, or a `git submodule update` that re-checks-out the
+# SAME sha rewrites the mtime of every file it writes, leaving the CONTENT untouched. The mtime
+# comparison above then reads STALE; `npm run build` (clean + tsc) rewrites `build/index.js`
+# unconditionally -- even when tsc re-emits byte-identical output -- and every live RSM host now
+# predates that new mtime, so the ARM guard demands a VS Code restart. Not one of those steps
+# needs a real source change: the restart cadence tracks GIT OPERATIONS, not fixes. Measured on
+# ai-01 (2026-09-11): the newest `src/*.ts` was `src/utils/secret-redaction.ts`, content identical
+# to HEAD. The operator reported ~3 restarts/day for "blocking corrections" that did not exist.
+#
+# `postbuild` already stamps `build/build-info.json` with the submodule sha the build came from.
+# That answers the question mtime cannot: was this build produced from exactly this source? When
+# it was, the lag is noise and there is nothing to rebuild -- and nothing to restart.
+#
+# Fail-CLOSED by construction: every unknown (no stamp, unreadable stamp, absent sha, `dirty`
+# stamp, sha mismatch, uncommitted src/, unpopulated submodule, any git failure) returns $false
+# and falls through to the existing mtime behaviour. The guard can only ever SUPPRESS a rebuild
+# it has positively proven redundant.
+function Test-BuildMatchesSource {
+    param([string]$BuildPath, [string]$McpServerPath, [string]$RepoRoot)
+
+    $infoPath = Join-Path $BuildPath 'build-info.json'
+    if (-not (Test-Path $infoPath)) { return $false }
+
+    $info = $null
+    try { $info = Get-Content -Raw -LiteralPath $infoPath -ErrorAction Stop | ConvertFrom-Json } catch { return $false }
+    if (-not $info.sha) { return $false }
+    if ($info.dirty) { return $false }
+
+    # `git -C` on an UNPOPULATED submodule answers for the PARENT repo instead of failing. Assert
+    # the MECHANISM (did -C walk up?), not one of its consequences: a sha comparison made against
+    # the parent could only mismatch here, but relying on that accident would leave the guard
+    # correct for the wrong reason.
+    $subTop = (& git -C $McpServerPath rev-parse --show-toplevel 2>$null)
+    $rcSub = $LASTEXITCODE
+    $parentTop = (& git -C $RepoRoot rev-parse --show-toplevel 2>$null)
+    $rcParent = $LASTEXITCODE
+    if ($rcSub -ne 0 -or $rcParent -ne 0 -or -not $subTop -or -not $parentTop) { return $false }
+    if ($subTop.Trim() -eq $parentTop.Trim()) { return $false }
+
+    $head = (& git -C $McpServerPath rev-parse HEAD 2>$null)
+    if ($LASTEXITCODE -ne 0 -or -not $head) { return $false }
+    if ($head.Trim() -ne $info.sha.Trim()) { return $false }
+
+    # A matching HEAD still leaves uncommitted edits. Ask git for CONTENT: `diff --quiet`
+    # refreshes the index and compares blobs, so a file whose mtime ALONE was rewritten is silent
+    # here -- precisely the case this guard exists to catch. The pathspec resolves against the -C
+    # directory, scoping it to this server's src/ inside the submodule.
+    & git -C $McpServerPath diff --quiet -- src 2>$null
+    if ($LASTEXITCODE -ne 0) { return $false }
+
+    # `diff` compares the index against the worktree, so it only ever reports files git already
+    # TRACKS. A new, never-added `src/*.ts` is silent here -- while tsconfig includes
+    # `src/**/*.ts`, so tsc WOULD emit a module for it and the build really is behind. The stamp
+    # cannot rescue this either: `dirty` is computed WHEN THE BUILD RAN, so a file created
+    # afterwards postdates it by construction. Measured on ai-01 (2026-09-11): with an untracked
+    # `src/__probe.ts` present, `diff --quiet -- src` still exits 0. Raised by web1 on #3589.
+    $untracked = (& git -C $McpServerPath ls-files --others --exclude-standard -- src 2>$null)
+    if ($LASTEXITCODE -ne 0) { return $false }
+    if ($untracked) { return $false }
+
+    return $true
+}
+
 # --- Decision ---
 if ($buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
     Write-Result 'FRESH' "build/ is up to date (newest build .js >= newest src .ts: $srcFileRel)."
+    if ($RequireFresh -and $staleCount -gt 0) {
+        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle."
+        exit 10
+    }
+    exit 0
+}
+
+# mtime says STALE. Before paying for a rebuild -- and for the VS Code restart that a rebuild
+# OWES (ARM guard below) -- ask whether the source actually moved. Guarded on `$buildNewest -gt 0`:
+# an absent build/ carries no stamp to trust and must always be produced.
+if ($buildNewest -gt 0 -and (Test-BuildMatchesSource -BuildPath $BuildPath -McpServerPath $McpServerPath -RepoRoot $RepoRoot)) {
+    $lagSec = [math]::Round(($srcNewest - $buildNewest) / 10000000)
+    Write-Result 'FRESH' "build/ was produced from the checked-out source (build-info.json sha = submodule HEAD, src/ clean). Newest src .ts ($srcFileRel) leads by ${lagSec}s in MTIME ONLY -- a git checkout rewrites mtimes without changing content. No rebuild, so no restart is owed."
+    # The ARM debt is NOT suppressed with the rebuild: a host predating build/index.js loaded an
+    # EARLIER build and genuinely serves older modules. What disappears is the spurious arming
+    # that a redundant rebuild manufactured for every live host at once.
     if ($RequireFresh -and $staleCount -gt 0) {
         Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle."
         exit 10
