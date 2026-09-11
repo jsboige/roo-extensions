@@ -1,6 +1,6 @@
 # sk-agent streamable-http — Rollout Runbook (OWUI + MCP proxy)
 
-**Issue:** #3412 (parent #794, crosses #3401) | **Status:** Gate 0 executed 2026-09-07; Step 0.5 (proxy canonicalization) decision pending
+**Issue:** #3412 (parent #794, crosses #3401) | **Status:** Gate 0 executed 2026-09-07 (persisting, re-verified 09/09 + 11/09); Step 0.5 (proxy canonicalization) decision pending — dossier updated 11/09 (finding F: production proxy leg functionally broken for LLM calls)
 **Validated from:** myia-po-2026 (consumer-side), 2026-09-04 | **Execution lane:** myia-ai-01 (Docker + OWUI access)
 
 Goal: make the streamable-http container the canonical surface for remote consumers
@@ -22,41 +22,55 @@ Goal: make the streamable-http container the canonical surface for remote consum
 Proxy routing: per-server paths (`/<server>/mcp`) — Go mcp-proxy behind bearer
 `authTokens` (values in local config, never in Git).
 
-### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09, instance attribution uncertain
+### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09; attribution RESOLVED 11/09
 
 Route smoked: `/sk-agent/mcp` on a proxy leg reached from po-2026, with the proxy
-Bearer read from local config at runtime. The exact instance was **not recorded**,
-and attribution cannot be pinned down from po-2026 today: the local `:9092` listener
-no longer exists, and that leg is described as `:9092→9090` (forwards to the
-`.47:9090` production proxy). Caveat: an authenticated `tools/list` run from po-2026
-on 09/09 against the production proxy (`http://192.168.0.47:9090/sk-agent/mcp` =
-`mcp-tools.myia.io`) returns **13 tools, serverInfo v1.0.0** (finding E — frozen
-stdio copy, image built 2026-02-28), so the 04/09 9-tool observation cannot be
-reproduced on that leg. The recorded `v1.0.0 + 9 tools` combination matches neither
-instance cleanly (production proxy = v1.0.0 + 13 tools; HTTP container = v1.30.0 +
-9 tools) — itself the symptom of the unrecorded attribution.
+Bearer read from local config at runtime. **Attribution resolved (po-2026, 11/09):**
+the recorded `v1.0.0 + 9 tools` combination matches the **po-2026 local proxy leg**
+exactly (`:9092`, own `myia-mcp-proxy` container — NOT a forwarder to `.47:9090`;
+its `sk-agent` entry is a local stdio child from an image built **2026-05-28**,
+serving the 9-tool post-refactor surface before the `1.30.0` version bump). There
+are therefore **three instance variants**, not two:
+
+| Instance | Image built | Surface | Version |
+|---|---|---|---|
+| po-2026 local proxy stdio copy | 2026-05-28 | 9 tools | v1.0.0 |
+| Production proxy stdio copy (ai-01, `.47:9090` = `mcp-tools.myia.io`) | 2026-02-28 | 13 tools | v1.0.0 |
+| HTTP container (`skagents.myia.io` / `:8100`) | 2026-09-07 | 9 tools | v1.30.0 |
+
+Re-measured firsthand 11/09 from po-2026 (authenticated, token read at runtime —
+same fleet-shared proxy `authTokens` accepted by all three proxy legs): initialize
+200 + tools/list **9 tools** on the local leg; **13 tools** on production
+(`:9090` LAN and `mcp-tools.myia.io` public). See finding F for the functional
+breakage this re-measurement exposed on the production leg.
 
 | Check | Result |
 |---|---|
-| `initialize` | 200 — `sk-agent` v1.0.0, FastMCP protocol *(version matches the frozen stdio copy — see attribution caveat)* |
-| `tools/list` | 200 — **9 tools** *(container-shaped inventory — see attribution caveat)* |
+| `initialize` | 200 — `sk-agent` v1.0.0, FastMCP protocol *(po-2026 local proxy leg — attribution resolved 11/09)* |
+| `tools/list` | 200 — **9 tools** *(po-2026 local proxy leg, image 2026-05-28)* |
 | Text — `call_agent` | 200 — exact echo reply, `conversation_id` returned, `model_used: glm-5.1` (cloud) |
 | Vision — `call_agent` + PNG attachment (URL) | 200 — `vision-analyst` / glm-4.6v: "solid red square", `images_analyzed: 1` |
 | Conversation — `run_conversation` | 200 — multi-agent preset completed |
 | Attachment inline base64 | **Rejected by design** — `attachment` takes a path/URL/JSON array of paths; container needs a reachable URL (e.g. `http://host.docker.internal:<port>/file`) |
 
+**Attributed re-run (po-2026, 11/09, local `:9092` leg — 5/5):** unauth 401 · initialize 200 (v1.0.0) · tools/list 200 (9 tools) · text `call_agent` 200 in 12.4 s (exact echo `PROBE-OK-3412`, `conversation_id`, `glm-5.1`) · vision 200 in 6.5 s (`vision-analyst`, `glm-5.3-flash` — the vision alias moved on from 04/09's `glm-4.6v`, consumer-invisible) · `run_conversation` 200 in 4.4 s (4 agents, 1 round, coherent reply). Attachment URL served from the consumer host via `http://host.docker.internal:<port>/` — same pattern OWUI fixtures will need.
+
 Smoke protocol = exactly what OWUI's MCP Tool Server client sends
 (initialize → initialized → tools/list → tools/call, POST + Bearer). No code path
 specific to the smoke client.
 
-**Reconciliation (finding E, ai-01 08/09):** the 04/09 "9 tools" observation above
-carries uncertain instance attribution (ran from po-2026; local `:9092` forwards to
-`.47:9090`, i.e. the production proxy). Re-measured firsthand from po-2026 on
-09/09 (authenticated): the production proxy (`mcp-tools.myia.io` / `192.168.0.47:9090`)
+**Reconciliation (finding E, ai-01 08/09; attribution closed po-2026 11/09):** the
+04/09 "9 tools" observation was served by the **po-2026 local proxy leg** (own
+container, stdio copy, image 2026-05-28) — not the production proxy and not the
+HTTP container. The production proxy (`mcp-tools.myia.io` / `192.168.0.47:9090`)
 serves **13 tools, v1.0.0** (frozen stdio copy baked 2026-02-28), while the HTTP
 container (`skagents.myia.io`, port 8100) serves **9 tools, v1.30.0**. Therefore
 **the legacy baseline = 13 tools** (production proxy); the 9-tool inventory is the
-post-canonicalization target (Step 0.5-C), not the legacy baseline.
+post-canonicalization target (Step 0.5-C), not the legacy baseline. The 04/09
+smoke's transport/protocol validity is unaffected — it ran the exact OWUI client
+sequence through a mcp-proxy streamable-http leg — but its functional evidence
+applies to the local instance, and was **re-run attributed 11/09** (5/5 checks on
+the local leg, plus the production-leg differential of finding F).
 
 ### Authentication & health model (hardened code, submod `7519afe4`)
 
@@ -74,7 +88,8 @@ post-canonicalization target (Step 0.5-C), not the legacy baseline.
 | B | `owui-*` agents 401 against `https://open-webui.myia.io/openai` from **po-2026's** config (no key set) | sk-agent→OWUI-model direction broken on this machine only; rollout targets ai-01's container (doc: key in `myia.env`) | ai-01: confirm `owui-*` models carry the OWUI key in ITS config before OWUI pilot; else `enabled:false` per graceful-degradation note |
 | C | `myia-mcp-proxy` container healthcheck is `CMD true` (no-op) | Container shows "healthy" regardless of upstream state | Ops: replace with real probe (401 on `/<server>/mcp` = alive) — confirmed firsthand ai-01 08/09 |
 | D | Proxy returns 404 (not 401) for unknown paths without auth | Path enumeration possible; MCP paths remain gated | Acceptable — note only |
-| E | **Proxy leg and container are two instances** (found ai-01 08/09): `mcp-tools.myia.io/sk-agent` serves a stdio copy baked into `myia-mcp-proxy:latest` (built 2026-02-28, 13 tools, v1.0.0), not the HTTP container (9 tools, v1.30.0). 24 commits of drift; divergence in both directions (`diagnostics`/`review_pr` missing on proxy; `analyze_*`/`ask`/`list_models`/`zoom_image` missing on container) | Rebuilding the sk-agent container never updates the proxy leg; a consumer's tool surface depends on which leg it is on. Not a security hole (proxy stdio has no HTTP surface of its own; gated by `authTokens`) | **Step 0.5** below — decision A/B/C (recommendation: C, url-relay) |
+| E | **Proxy leg and container are two instances** (found ai-01 08/09): `mcp-tools.myia.io/sk-agent` serves a stdio copy baked into `myia-mcp-proxy:latest` (built 2026-02-28, 13 tools, v1.0.0), not the HTTP container (9 tools, v1.30.0). **25 commits** of drift as of 11/09 (24 on 08/09 — grows by itself); divergence in both directions (`diagnostics`/`review_pr` missing on proxy; `analyze_*`/`ask`/`list_models`/`zoom_image` missing on container) | Rebuilding the sk-agent container never updates the proxy leg; a consumer's tool surface depends on which leg it is on. Not a security hole (proxy stdio has no HTTP surface of its own; gated by `authTokens`) | **Step 0.5** below — decision A/B/C (recommendation: C, url-relay) |
+| F | **Production proxy leg cannot complete LLM tool calls** (po-2026, 11/09, authenticated): `list_agents` 200 in 38 ms (plumbing fine, roster correct), but `call_agent` (text, `analyst`) **hangs ≥180 s then the next attempt returns `{"error": "No agents initialized"}` instantly**. Differential: the po-2026 local leg (same stdio-through-proxy architecture, image 2026-05-28, current repo config) completes the identical call in 12.4 s — the breakage is specific to the production instance (Feb code and/or its env on ai-01), not the architecture. Root cause SUPPOSÉ (ai-01 to verify): agent-manager init hang — candidate: stale credential or embeddings dependency in the Feb code path (analyst carries `memory`); note the concurrent embeddings-key rotation on ai-01 | The production proxy leg is **functionally broken today** for any consumer needing an agent call, while looking healthy to handshake-level probes (401/initialize/tools_list — all previous probes stopped there). An OWUI tenant registered on this leg pre-canonicalization would see tools hang | Strengthens Step 0.5-C (option A is not impact-free — see §4bis); ai-01: capture `docker logs myia-mcp-proxy` during one `call_agent` to pin the root cause |
 
 ---
 
@@ -108,7 +123,7 @@ OWUI tenant ──(agent ID)──> sk-agent agent (e.g. owui-analyst | vision-a
 | Consumer | Connection | Auth |
 |---|---|---|
 | OWUI tenant (Tool Server) | `https://skagents.myia.io/mcp` (streamable-http) | Bearer key = `SK_AGENT_API_KEY` (from `myia.env`, ai-01) |
-| MCP proxy upstream | **frozen stdio copy — divergent (finding E)**; target state after Step 0.5: url-relay `http://host.docker.internal:8100/mcp` | Bearer `SK_AGENT_API_KEY` in gitignored proxy config (same file as `authTokens`) |
+| MCP proxy upstream | **frozen stdio copy — divergent (finding E) and functionally broken for LLM calls (finding F)**; target state after Step 0.5: url-relay `http://host.docker.internal:8100/mcp` | Bearer `SK_AGENT_API_KEY` in gitignored proxy config (same file as `authTokens`) |
 | LAN consumers | `http://192.168.0.47:9090/sk-agent/mcp` | Bearer `authTokens` (proxy config) |
 
 Post-registration smoke (per consumer, ~1 min):
@@ -144,11 +159,18 @@ Total calendar: ~2 weeks (pilot soak dominates). Steps 3–9 add 7 days.
 Finding E must be resolved **before** Step 1: OWUI tenants are registered against
 one leg, and their tool surface depends on which one. The original framing
 ("rebuild the proxy, or is divergence intentional?") missed a third option —
-the proxy already supports url-relay upstreams.
+the proxy already supports url-relay upstreams. **Update 11/09 (po-2026):** finding
+F removes the main appeal of option A — the production frozen leg does not actually
+serve working agent calls today, so "keep it untouched" preserves a broken surface,
+not a working one. The relay switch (C) replaces a hang with the container's
+measured-working handshake path; the container's authenticated `tools/call` smoke
+(5 checks) remains to be run by ai-01 post-switch — it is the one leg whose
+functional smoke has never been recorded (po-2026 holds no `SK_AGENT_API_KEY`, by
+design).
 
 | Option | Proxy `/sk-agent` serves | Drift | Effort | Rollback | Consumer impact |
 |---|---|---|---|---|---|
-| **A. Status quo** (stdio, frozen Feb build) | 13 tools, v1.0.0 | grows forever (24 commits behind already) | none | n/a | none — but the proxy leg never gets hardening #1085 or later fixes |
+| **A. Status quo** (stdio, frozen Feb build) | 13 tools, v1.0.0 | grows forever (25 commits behind as of 11/09) | none | n/a | ~~none~~ **falsified by measurement 11/09** — the production leg's LLM calls are already broken (finding F: hang → "No agents initialized"); it also never gets hardening #1085 or later fixes |
 | **B. Rebuild proxy image** (re-bake the stdio copy) | 9 tools, v1.30.0 | resumes immediately (same mechanism that produced the drift) | image rebuild + recreate | retag image | −6 tools (`analyze_document`, `analyze_image`, `analyze_video`, `ask`, `list_models`, `zoom_image`), +2 (`diagnostics`, `review_pr`) |
 | **C. Switch entry to url-relay** (config-only) | 9 tools, v1.30.0 — **tracks the container** | **eliminated at the root** | edit gitignored `config.json` + `up -d --force-recreate` | revert one entry + recreate (seconds) | same −6/+2 as B |
 
@@ -212,7 +234,7 @@ recreate from versioned image + config file so state stays reproducible.
 
 | Acceptance item | Evidence produced |
 |---|---|
-| 401 sans auth + smoke authentifié via proxy | Done po-2026 (§1) for proxy legs; repeated ai-01 08/09 on both legs (3-leg 401 matrix, authenticated smoke, positive + negative auth controls); healthz 200 re-verified po-2026 09/09 |
+| 401 sans auth + smoke authentifié via proxy | Done po-2026 (§1) for proxy legs; repeated ai-01 08/09 on both legs (3-leg 401 matrix, authenticated smoke, positive + negative auth controls); healthz 200 re-verified po-2026 09/09; **full 5-check smoke re-run with clean attribution po-2026 11/09** (local leg 5/5; production leg handshake OK but LLM calls broken — finding F) |
 | OWUI interne + école pilote appellent texte, vision/document, conversation | Steps 1–2 evidence (ai-01 lane) |
 | Aucun ID physique requis côté consommateur | By construction (§2): consumers use agent IDs; verified in config + code (`get_model` / `model_id` indirection) |
 | Plan séquentiel validé pour les sept écoles | This doc — **awaiting ai-01/user validation** |
