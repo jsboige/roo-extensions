@@ -345,11 +345,21 @@ Describe "Issue #3345 — Agent worktree isolation" {
             # we exclude it from the scan. Investigation docs under
             # docs/harness/investigations/ quote the upstream message as
             # narrative evidence — they are artefacts, not production source.)
-            $hits = Get-ChildItem -Path $script:projectRoot -Recurse -File -Include '*.ts','*.ps1','*.js','*.sh','*.md' |
+            # Enumeration is `git ls-files` (tracked files), not a filesystem
+            # walk: the guard's target is production source, and a walk is
+            # unbounded by debris. Measured on myia-ai-01 (2026-09-13): the
+            # main checkout held 34 leftover `agent-*` worktrees (62,037 files)
+            # plus ~40k node_modules files — >100k files walked for one
+            # assertion, and the walk does not stop at the filter. Tracked
+            # ts/ps1/js/sh/md files at the same commit: 1,305.
+            $selfRel = [System.IO.Path]::GetRelativePath($script:projectRoot, $PSCommandPath) -replace '\\', '/'
+            $hits = @(git -C $script:projectRoot ls-files -- ':(glob)**/*.ts' ':(glob)**/*.ps1' ':(glob)**/*.js' ':(glob)**/*.sh' ':(glob)**/*.md') |
                 Where-Object {
-                    $_.FullName -ne $PSCommandPath -and
-                    $_.FullName -notmatch '[\\/]docs[\\/]harness[\\/]investigations[\\/]'
+                    $_ -ne '' -and
+                    $_ -ne $selfRel -and
+                    $_ -notmatch '^docs/harness/investigations/'
                 } |
+                ForEach-Object { Join-Path $script:projectRoot $_ } |
                 Select-String -Pattern "Refusing to use" -List |
                 Measure-Object
             $hits.Count | Should -Be 0
