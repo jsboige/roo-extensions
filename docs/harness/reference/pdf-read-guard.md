@@ -150,31 +150,59 @@ au défaut 2. Après édition : **restart de la session** (les hooks se chargent
 |---|---|---|
 | **Règle opératoire versionnée** (`.claude/rules/context-window.md`, auto-chargée partout) | **RETENUE** | Seul vecteur qui tient fleet-wide sans toucher au canon : Hermes (11/09) a vérifié que les 3 variables de l'incident sont portées par le canon `hc-claude-settings-1.0.1` (mode `enforce-value`, #3544) — un garde en `CLAUDE.local.md` serait écrasé à la vague d'harmonisation suivante |
 | **Garde hook opt-in** (`guard-pdf-read.js`, câblage par machine/groupe) | **RETENUE** | Le statut d'interception est VÉRIFIÉ (ci-dessus) ; chaque groupe décide de l'armer selon son exposition réelle aux PDF |
-| **Deny global `Read(**/*.pdf)`** | **REJETÉ** (révisable) | Trop radical : usages légitimes (CoursIA, docs specs) ; le hook borné couvre le risque aigu sans couper la lecture 1-2 pages. Réviser si le bisect Sol (ci-dessous) révèle une fenêtre backend encore plus étroite |
+| **Deny global `Read(**/*.pdf)`** | **REJETÉ** (révisable) | Trop radical : usages légitimes (CoursIA, docs specs) ; le hook borné couvre le risque aigu sans couper la lecture 1-2 pages. Réviser si le bisect Sol (ci-dessous) révèle une fenêtre backend encore plus étroite — **résolu 12/09 : pas plus étroite (§ Mesure), le rejet tient** |
 
 Toute évolution vers un canon (nouvelle clé ou fenêtre corrigée) = décision coordinateur/user.
 
-## Mesure de la fenêtre effective de la route Sol — protocole bisect (DÉLÉGUÉ)
+## Mesure de la fenêtre effective de la route Sol — MESURÉE (2026-09-12, po-204)
 
 **Pourquoi :** le canon pose `CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000` et
 `CLAUDE_CODE_AUTO_COMPACT_WINDOW=280000`, mais la fenêtre effective est celle du **modèle mappé
 par le proxy** (mesuré Hermes 11/09 : Claudish `.50`/`.46` mappent sonnet→glm-5.3 et servent
-`gpt-5.6-sol` ; `.51` mappe glm-5.2). Si le backend accepte < 280k, l'autocompact client ne se
-déclenche **jamais** avant le rejet backend — dérive chronique pour toute session longue, le PDF
-n'étant que le déclencheur aigu. **Ne pas conclure que l'incident vient uniquement du 4,39 MB
-tant que cette mesure n'existe pas.**
+`gpt-5.6-sol` ; `.51` mappe glm-5.2). Si le backend acceptait < 280k, l'autocompact client ne se
+déclencherait **jamais** avant le rejet backend — dérive chronique pour toute session longue.
 
-**Protocole (bisect authentifié, ~6 requêtes) :**
-1. Depuis un siège porteur d'une clé Claudish valide, envoyer des requêtes à padding gradué
-   (ex. 60k / 120k / 180k / 240k / 300k tokens de texte factice) à la route Sol.
-2. Noter la première taille rejetée (`context_length_exceeded` ou équivalent) → fenêtre effective.
-3. Comparer aux trois variables du canon ; si effective < 280k, rouvrir l'arbitrage
-   (fenêtre canon ou clé `PDF_READ_MAX_PAGES` plus stricte).
+**Méthode (reproductible) :** bisect authentifié depuis **po-204** (siège porteur d'une clé
+Claudish valide — `x-proxy-key` du `~/.claude/settings.json` local, jamais loggée) contre le hub
+`http://192.168.0.50:3000` : requêtes `POST /v1/messages` à padding gradué (`"a "` répété,
+calibré 1,14 tok/paire sur la sonde 100 tok, overhead constant +14), `max_tokens=16`, lecture du
+`usage.input_tokens` **renvoyé par la route** sur chaque succès. Script jetable hors repo.
+19 requêtes au total. (po-2025/ai-01 aussi éligibles ; po-2026 exclu — 401, Hermes 11/09.)
 
-**Qui :** po-2025 executor (accès settings live confirmé via `roosync_harmonization`) ou ai-01.
-**Depuis po-2026 : impossible** — la seule clé API accessible appartient à un autre siège et
-retourne 401 contre Claudish (Hermes, 11/09). Pas de guess de clés. La route `count_tokens` du
-proxy n'est pas vérifiable sans auth : un 401 ne dit rien de son existence.
+**Résultats — route Sol (`gpt-5.6-sol`) :**
+
+| Padding (tokens visés) | `input_tokens` servi | Verdict |
+|---|---|---|
+| 100 puis 60k→800k (8 paliers) | exact (+14 constant) | **PASS** |
+| 900k (2 runs, re-confirmé) | 900 014 | **PASS** |
+| 925k / 950k / 990k / 1 000k | 280 000 (artefact, ci-dessous) | **FAIL** `context_length_exceeded` |
+
+**Fenêtre effective Sol ∈ (900 k, 925 k) tokens.** Comparaison route sonnet
+(`claude-sonnet-5[1m]` → glm-5.3) : PASS à 300k et 850k — aucun rejet observé sous 850k.
+
+**Conclusions contre les trois variables du canon :**
+
+1. `AUTO_COMPACT_WINDOW=280000` : **SÛR** — les deux routes mesurées acceptent ≥ 850k ; le seuil
+   de compaction tire à 280k, ~3× sous les fenêtres effectives. L'hypothèse de **dérive
+   chronique** (rejet backend avant autocompact) est **falsifiée** pour ces deux routes.
+2. `MAX_CONTEXT_TOKENS=1000000` : **SURÉVALUÉ pour Sol** — fenêtre effective ~900k.
+   Arithmétique de l'incident : 4 388 885 octets ≈ ≥ 1,1 M tokens (base64 ≈ chars/4) dépassent
+   la fenêtre effective **à eux seuls**, quel que soit le contexte préalable — la lecture de
+   15 pages n'était faisable sur **aucune** fenêtre ; la croyance 1 M l'a juste fait paraître
+   plausible côté client.
+3. `AUTOCOMPACT_PCT_OVERRIDE=95` : facteur client du budget 1 — non observable via API brute,
+   inchangé par la mesure.
+
+**Arbitrage (suite) :** la fenêtre backend n'est **pas** plus étroite que le seuil de
+compaction → le REJET du deny global `Read(**/*.pdf)` **tient**. Nouveau finding pour
+coordinateur/user : la valeur canon `MAX_CONTEXT_TOKENS=1000000` surévalue la route Sol de ~10 %
+— toute correction du canon reste décision coordinateur/user (gouvernance § Arbitrage).
+
+**Artefact observé (RAPPORTÉ, non expliqué) :** les rejets Sol reviennent en HTTP **200** avec
+`input_tokens=280000` et l'erreur `context_length_exceeded` embarquée dans le texte de sortie.
+Le hub ne clamppe PAS l'entrée à 280k (800k servi intégral par la même route) ; le chiffre
+apparaissant sur les échecs n'est pas la taille servie. Non bloquant — à instruire côté lane
+claudish si souhaité.
 
 ## Limites connues (déclarées, pas corrigées)
 
@@ -191,3 +219,4 @@ proxy n'est pas vérifiable sans auth : un 401 ne dit rien de son existence.
 | 10/09 | Incident CoursIA : `Read` PDF `pages "1-15"` → 4,39 MB injectés, session bloquée toute la nuit |
 | 11/09 | #3579 ouvert (mesures JSONL firsthand + repro upstream) ; Hermes : exposition canon fleet-wide, gardes locaux contournés par le canon, bisect Sol à déléguer |
 | 11/09 | Script + tests synthétiques 8/8 + e2e VÉRIFIÉ sur po-2026 (Claude Code 2.1.41) + cette doc |
+| 12/09 | Bisect Sol exécuté depuis po-204 (siège Claudish) : fenêtre effective ∈ (900k, 925k) — 280k sûr, 1M surévalué ~10 %, dérive chronique falsifiée ; critère 5 de #3579 soldé |

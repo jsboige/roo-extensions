@@ -33,6 +33,8 @@ Automated Claude Code worker that picks up GitHub issues and executes them via W
 | `setup-copilot-dispatcher.ps1` | Install/remove/list/test Copilot dispatcher scheduled task | Copilot scheduler bridge |
 | `start-copilot-dispatcher.ps1` | Phase B bridge worker (regular cadence + observability) | Copilot transition |
 | `invoke-copilot-rollout-check.ps1` | Controlled rollout helper (preflight + install + validation + evidence report) | Machine-by-machine rollout |
+| `rotate-scheduling-logs.ps1` | Log retention for `outputs/scheduling/logs/` (#3323) — report-only by default, `-Execute` to delete, unknown patterns never touched | Manual or weekly cron (install requires elevation) |
+| `test-rotate-scheduling-logs.ps1` | 17 sandbox tests for the rotation script (no real logs touched) | Validation |
 
 ---
 
