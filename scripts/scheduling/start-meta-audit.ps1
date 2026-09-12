@@ -178,7 +178,11 @@ $Today = Get-Date -Format "yyyy-MM-dd"
 # Note: META-INTERCOM deprecated since 2026-04-10 (#1818). Reports go to dashboard workspace.
 
 . "$PSScriptRoot\..\common\extension-paths.ps1"
-$rooTasksPath = Get-GlobalStoragePath -Extension RooCode | Join-Path -ChildPath "tasks"
+# #3006 / #3135 : cibler l'extension ACTIVE au lieu de coder RooCode en dur, via le probe
+# Get-ActiveExtension (rationale dans scripts/common/extension-paths.ps1 : sur un hote migre,
+# la coquille roo-cline survit sans son settings/ et l'etape 1 pointait le mauvais tasks/).
+$ActiveExtension = Get-ActiveExtension
+$ActiveTasksPath = Get-GlobalStoragePath -Extension $ActiveExtension | Join-Path -ChildPath "tasks"
 
 $Prompt = @"
 Tu es le META-ANALYSTE Claude Code sur la machine $MachineName.
@@ -191,11 +195,11 @@ Tu ne modifies RIEN, tu ne dispatches RIEN. Tu PROPOSES uniquement.
 
 ## ETAPES
 
-### 1. Collecte des traces Roo (5 dernieres taches)
+### 1. Collecte des traces $ActiveExtension (5 dernieres taches)
 
-Utilise Bash pour lister les taches Roo recentes :
+Utilise Bash pour lister les taches $ActiveExtension recentes :
 ``````
-ls -lt "$rooTasksPath/" 2>/dev/null | head -10
+ls -lt "$ActiveTasksPath/" 2>/dev/null | head -10
 ``````
 
 Pour chaque tache recente, lire les ui_messages.json (derniers 50 lignes).
