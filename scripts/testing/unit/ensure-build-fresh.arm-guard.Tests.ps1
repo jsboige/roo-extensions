@@ -145,4 +145,34 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         $staleLoopIdx | Should -BeGreaterThan $indexHostsIdx
         $staleLoopIdx | Should -BeGreaterThan 0
     }
+
+    It 'Corroborates CIM-listed hosts with the .NET view before counting (ghost tolerance)' {
+        # Finding by po-204 (2026-09-12, c.413): Win32_Process keeps listing a terminated
+        # process whose object handle a third party retains (unreaped child of a killed
+        # mcp-wrapper). CIM counted it; taskkill reported "no running instance"; the .NET view
+        # reported HasExited=True. One such ghost held this guard at exit 10 across three
+        # consecutive pre-flights after a legitimate host-kill pass, with ZERO real hosts
+        # predating the fresh build. The corroboration must:
+        #   1. exist as a function consulted by BOTH host lists,
+        #   2. exclude ONLY processes positively proven exited (fail-closed: an inability to
+        #      prove exit keeps the host counted).
+        $content | Should -Match 'function Test-ProcessExited'
+        # Both lists pass through the corroboration AFTER the CIM query and BEFORE $liveHosts.
+        $cimIdx      = $content.IndexOf('$wrapperHosts = @(Get-CimInstance Win32_Process')
+        $filterIdx   = $content.IndexOf('$indexHosts   = @($indexHosts   | Where-Object { -not (Test-ProcessExited')
+        $liveIdx     = $content.IndexOf('$liveHosts = @($indexHosts + $wrapperHosts)')
+        $cimIdx    | Should -BeGreaterThan 0
+        $filterIdx | Should -BeGreaterThan $cimIdx
+        $liveIdx   | Should -BeGreaterThan $filterIdx
+        $content | Should -Match '\$wrapperHosts = @\(\$wrapperHosts \| Where-Object \{ -not \(Test-ProcessExited'
+        # Fail-closed shape: the catch branch returns $false (cannot prove exit -> keep counting).
+        $fnStart = $content.IndexOf('function Test-ProcessExited')
+        $fnEnd   = $content.IndexOf('}', $content.IndexOf('return $false', $fnStart))
+        $fnBody = $content.Substring($fnStart, $fnEnd - $fnStart)
+        $fnBody | Should -Match 'return \$true'    # null (absent from OS list) or HasExited both exclude
+        $fnBody | Should -Match 'catch \{\s*\r?\n\s*return \$false'
+        # Positive control: the pre-fix shape (CIM lists consumed directly, no corroboration)
+        # contains no Test-ProcessExited call, so this predicate bites on regression to it.
+        '$indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = ''node.exe''" | Where-Object { $_.CommandLine -match ''roo-state-manager'' })'.Contains('Test-ProcessExited') | Should -BeFalse
+    }
 }

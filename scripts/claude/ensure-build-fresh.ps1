@@ -131,12 +131,35 @@ $srcFileRel = $srcNewestFile.Substring($RepoRoot.Length).TrimStart('\','/')
 # Probe the machine-wide RSM hosts before the FRESH return. A build can be fresh on disk while
 # the live hosts still serve the previous modules; strict executor pre-flight must preserve that
 # restart debt instead of forgetting it on the next cycle.
+function Test-ProcessExited {
+    # Ghost corroboration (po-204, 2026-09-12): Win32_Process keeps listing a process after
+    # termination when a third party holds its object handle (observed: the unreaped child of a
+    # killed mcp-wrapper -- CIM listed it with a 2.3 GB working set, taskkill said "no running
+    # instance", the .NET view said HasExited=True). Counted as a live host, such a ghost wedges
+    # this guard at exit 10 indefinitely after a legitimate host-kill pass. Only a POSITIVE
+    # verdict excludes: a PID the .NET enumeration cannot see is absent from the OS process
+    # list (the same source taskkill consults); HasExited=$true means no code is executing.
+    # Any failure to prove exit (property access denied, enumeration error) keeps the host
+    # counted -- the corroboration can only ever remove a process that cannot run, never a
+    # live server.
+    param([int]$ProbePid)
+    try {
+        $p = Get-Process -Id $ProbePid -ErrorAction SilentlyContinue
+        if ($null -eq $p) { return $true }
+        return [bool]$p.HasExited
+    } catch {
+        return $false
+    }
+}
 $indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'roo-state-manager[\\/](build[\\/]index\.js)( |"|$)' } |
     Select-Object -Property ProcessId, CreationDate, CommandLine)
 $wrapperHosts = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" -ErrorAction SilentlyContinue |
     Where-Object { $_.CommandLine -match 'roo-state-manager[\\/]mcp-wrapper\.cjs' } |
     Select-Object -Property ProcessId, CreationDate, CommandLine)
+# Drop CIM-listed processes that the .NET view positively reports exited (see Test-ProcessExited).
+$indexHosts   = @($indexHosts   | Where-Object { -not (Test-ProcessExited $_.ProcessId) })
+$wrapperHosts = @($wrapperHosts | Where-Object { -not (Test-ProcessExited $_.ProcessId) })
 $liveHosts = @($indexHosts + $wrapperHosts)
 $buildIndex = Join-Path $BuildPath 'index.js'
 $buildMtimeUtc = if (Test-Path $buildIndex) { (Get-Item $buildIndex).LastWriteTimeUtc } else { $null }
