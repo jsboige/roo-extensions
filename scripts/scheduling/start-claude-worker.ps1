@@ -666,11 +666,19 @@ function Get-GitHubTask {
         # sa fenetre viennent du workflow Roo, qui ne relachait pas. Le test l.652 reste necessaire
         # comme garde de course entre le list et le claim.
         #
-        # `-label:harness-change -label:deferred` : ce worker est autonome, et ces deux labels posent
-        # une porte humaine (feu vert utilisateur / issue explicitement garee). `needs-approval` est
-        # deja filtre en aval l.656 ; on le laisse la pour ne pas dupliquer la regle a deux endroits.
+        # `-label:harness-change -label:deferred -label:epic` : ce worker est autonome, et les deux
+        # premiers posent une porte humaine (feu vert utilisateur / issue explicitement garee).
+        # `needs-approval` est deja filtre en aval l.656 ; on le laisse la pour ne pas dupliquer la
+        # regle a deux endroits.
+        # `-label:epic` n'est PAS redondant avec le filtrage aval : les epics sont des conteneurs, pas
+        # des work items. /executor SKILL.md l.99 les exclut nommement du vivier actionnable (aux cotes
+        # de needs-approval/deferred/blocked-on-gate) ; ce script etait hors conformite avec cette regle
+        # deja tranchee. Mesure 2026-09-11 : 15 epics OPEN dont 11 exposees au dispatch autonome par cette
+        # seule ligne, chacune candidate sur chaque machine et relancee a chaque liberation de claim —
+        # le mecanisme de re-dispatch de #3463 multiplie par onze (arbitrage ai-01 2026-09-12 : aligner
+        # l'implementation sur la regle ecrite est de l'execution, pas une nouvelle decision).
         $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
-            --search 'is:open no:assignee -label:harness-change -label:deferred' `
+            --search 'is:open no:assignee -label:harness-change -label:deferred -label:epic' `
             --limit 30 --json number,title,body,labels,assignees 2>&1
 
         if ($LASTEXITCODE -ne 0) { return $null }
