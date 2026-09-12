@@ -34,6 +34,7 @@ import io
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -118,6 +119,34 @@ def find_vibe_acp(explicit: str) -> str:
     return max(candidates, key=os.path.getmtime) if candidates else ""
 
 
+def resolve_session_cwd(cli_cwd: str, prompt_text: str) -> str:
+    """Session cwd for session/new: the grain worktree named by the payload.
+
+    session/new WALKS its cwd, and `--cwd` is the WORKSPACE. That workspace
+    accumulates nested worktrees (`.claude/worktrees/*`), so the walk is
+    unbounded in the thing it scans: measured 2026-09-12, D:/dev/CoursIA held
+    ~3.2M entries (2.4M of them under `.claude/worktrees`, 127 registered
+    worktrees) and session/new never answered — 45 s silent, then 180 s, then
+    330 s, no error, no notification, no reply. The driver's 30 s budget turned
+    that into SESSION_NEW_FAILED:null and the lane lost every run for 13 h.
+
+    The grain payload carries the worktree on a stable line (`worktree: <path>`,
+    written by vibe-feeder.ps1 from the queue grain), which is 12k entries for
+    the same repository — session/new answers in 3.5 s. Falling back to cli_cwd
+    when the line is absent or the path does not exist keeps manual runs
+    (`--prompt`, `--cwd`) working exactly as before.
+    """
+    for line in prompt_text.splitlines():
+        m = re.match(r"\s*(?:worktree|cwd)\s*:\s*(\S+)", line, re.IGNORECASE)
+        if not m:
+            continue
+        candidate = m.group(1).strip().strip("\"'")
+        if os.path.isdir(candidate):
+            return candidate
+        print(f"WARN: payload worktree not a directory: {candidate!r}", file=sys.stderr)
+    return cli_cwd
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Drive Mistral Vibe headless via ACP")
     ap.add_argument("--exe", default="", help="Path to vibe-acp.exe (auto-discovered if empty)")
@@ -165,9 +194,13 @@ def main() -> int:
         print("ERROR: no prompt (--prompt, --prompt-file, or VIBE_WAKE_PAYLOAD)", file=sys.stderr)
         return 6
 
+    session_cwd = resolve_session_cwd(args.cwd, prompt_text)
+    if session_cwd != args.cwd:
+        print(f"session cwd: {session_cwd} (grain worktree, from payload — NOT {args.cwd})")
+
     if args.dry_run:
         print(f"DRY-RUN exe={exe}")
-        print(f"DRY-RUN cwd={args.cwd}")
+        print(f"DRY-RUN cwd={session_cwd}")
         print(f"DRY-RUN timeout={args.timeout}s")
         print(f"DRY-RUN prompt ({len(prompt_text)} chars): {prompt_text[:200]}")
         return 0
@@ -179,7 +212,7 @@ def main() -> int:
         stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
-        cwd=args.cwd,
+        cwd=session_cwd,
     )
     lines = queue.Queue()
     stderr_tail = collections.deque(maxlen=40)
@@ -349,7 +382,7 @@ def main() -> int:
     # config.toml servers load (verified behavior 2026-08-22).
     send({
         "jsonrpc": "2.0", "id": 2, "method": "session/new",
-        "params": {"cwd": args.cwd, "mcpServers": []},
+        "params": {"cwd": session_cwd, "mcpServers": []},
     })
     sess, _ = recv_response(2, 30)
     if not sess or "result" not in sess:
