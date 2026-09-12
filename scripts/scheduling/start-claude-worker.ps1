@@ -1797,6 +1797,22 @@ function Find-ExistingWorktree {
             Write-Log "  → Derniers commits:"
             $LogOutput -split "`n" | ForEach-Object { Write-Log "    $_" "GIT" }
 
+            # Guard #3597: never resume a worktree whose branch is already
+            # contained in origin/main — that branch was delivered (merged) by a
+            # prior run, and resuming on it re-opens PRs from an already-merged
+            # branch (specimen #3594: same-day branch reuse, PR with zero bytes
+            # of contribution). Treat the candidate as spent and keep looking;
+            # when no candidate survives, the caller falls back to a fresh
+            # branch cut from origin/main. Fetch failure leaves origin/main
+            # stale → is-ancestor under-detects → resume proceeds as before:
+            # the frontier guard in New-WorkerPR still catches the outcome.
+            git -C $WorktreePath fetch origin main --quiet 2>&1 | Out-Null
+            git -C $WorktreePath merge-base --is-ancestor $Branch origin/main 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+                Write-Log "Worktree branch '$Branch' already merged into origin/main (#3597) — candidate ignored (delivered by a prior run)" "WARN"
+                continue
+            }
+
             # Décider: si pas de changements, proposer de supprimer et recréer
             # Si changements, proposer de reprendre
             if ($HasChanges) {
@@ -3193,6 +3209,30 @@ function New-WorkerPR {
             Write-Log "TRIVIAL PR BLOCKED (#1949): Only submodule pointer change ($EffectiveLines effective lines). Skipping." "WARN"
             Pop-Location
             Remove-RemoteBranch -BranchName $CurrentBranch -Reason "trivial change guard (#1949)"
+            Push-Location $WorktreePath
+            return $null
+        }
+
+        # Guard #3597: refuse delivery when merging the branch into origin/main
+        # would contribute NOTHING. The local-main guards above cannot see the
+        # two observed failure modes: (a) branch tip already contained in
+        # origin/main (re-merge of a delivered branch), and (b) content already
+        # on main via a SQUASH-merge of the same work — specimen #3594: 1 commit
+        # above base, 3 blobs identical to main, so rev-list, name-only and stat
+        # guards all pass while the merge delivers zero bytes. merge-tree is the
+        # honest instrument: when the tree it produces equals origin/main's tree,
+        # there is nothing to deliver. Fails OPEN when unavailable or conflicted
+        # (absence of evidence is not evidence to block).
+        git fetch origin main --quiet 2>&1 | Out-Null
+        $MainTree = git rev-parse "origin/main^{tree}" 2>&1
+        $MainTree = if ($LASTEXITCODE -eq 0) { "$MainTree".Trim() } else { $null }
+        $MergeOut = git merge-tree --write-tree origin/main HEAD 2>&1
+        $MergeTree = if ($LASTEXITCODE -eq 0) { "$(@($MergeOut) | Select-Object -First 1)".Trim() } else { $null }
+        if ($MainTree -and $MergeTree -and $MergeTree -eq $MainTree) {
+            Write-Log "PHANTOM PR BLOCKED (#3597): merge of '$CurrentBranch' into origin/main contributes nothing — content already delivered by a prior run. Skipping PR creation." "WARN"
+            # #1423: branch was already pushed — delete remote to avoid orphan
+            Pop-Location
+            Remove-RemoteBranch -BranchName $CurrentBranch -Reason "phantom delivery guard (#3597)"
             Push-Location $WorktreePath
             return $null
         }
