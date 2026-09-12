@@ -485,22 +485,22 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence (flotte **entiere a 4h** depuis 2026-09-11 : coordinateur ai-01 ET executeurs)
+### Wakeup Cycle Cadence (coordinateur ai-01 **a 6h** depuis 2026-09-12 ; executeurs **a 4h**)
 
-**Cadence coordinateur ai-01 : 4h via `CronCreate`** (décision user 2026-09-11, « Réarme stp un cron 4h », minute :23 conservée). Supersede le 3h du 2026-09-09, le 2h du 2026-09-08, le 3h du 2026-09-07, le 4h du 2026-09-06, le 8h du 2026-09-03, le 4h du mandat 2026-08-15/17, la 2h (#2203/2026-05-25) et la 6h. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 4h passe donc par cron.
+**Cadence coordinateur ai-01 : 6h via `CronCreate`** (décision user 2026-09-12, « Réarme un cron 6h stp », minute :23 conservée). Supersede le 4h du 2026-09-11, le 3h du 2026-09-09, le 2h du 2026-09-08, le 3h du 2026-09-07, le 4h du 2026-09-06, le 8h du 2026-09-03, le 4h du mandat 2026-08-15/17 et la 2h (#2203/2026-05-25). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 6h passe donc par cron.
 
 > ⚠️ **Le changement de cadence ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne change rien au-delà de la session courante.
 
-> **Portée : la flotte est de nouveau ALIGNÉE à 4h.** Le coordinateur repasse à **4h**, cadence à laquelle les cinq exécuteurs (po-2023/24/25/26, web1) n'ont jamais cessé d'être (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). L'asymétrie coord-plus-rapide installée du 06 au 10/09 est **caduque** — ne pas la restaurer au motif qu'elle était argumentée : elle l'était pour une cadence que l'utilisateur a depuis retirée. Coordinateur et exécuteurs tirent désormais aux **mêmes heures** (00/04/08/12/16/20) ; seule la **minute** les sépare — :23 coord, :41 exécuteurs, 18 min d'écart — et c'est ce décalage, désormais systématique et non plus occasionnel, qui évite le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41 sous prétexte d'uniformité** : c'est la seule séparation qui reste.
+> **Portée : le coordinateur SEUL passe à 6h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`) : l'utilisateur a demandé *son* cron, pas celui de la flotte. **Ne pas propager le 6h aux exécuteurs** au motif d'uniformité — et symétriquement, ne pas ramener le coordinateur à 4h au motif que la flotte y est. L'alignement strict installé le 11/09 est donc caduc à son tour : le coordinateur tire à **00/06/12/18**:23, les exécuteurs à **00/04/08/12/16/20**:41. Deux heures sur quatre se recouvrent (00 et 12), et sur celles-là les **18 min** séparant :23 de :41 restent la seule protection contre le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
 
 ```
-# ai-01 coordinateur — cadence 4h (job session-only, auto-expire 7j) :
+# ai-01 coordinateur — cadence 6h (job session-only, auto-expire 7j) :
 # minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe sur l'API.
-CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
-- **À chaque réveil**, dispatch deep-queue substantielle (≥4h de matière) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **À chaque réveil**, dispatch deep-queue substantielle (**≥6h de matière** — un exécuteur peut ticker deux fois entre deux de mes dispatchs) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
@@ -512,12 +512,12 @@ CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
 
 **Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
 
-1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */4 * * *`) est présent dans `CronList`.
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */6 * * *`) est présent dans `CronList`.
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
 **Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
 ```
-CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 ```
 puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
 
@@ -654,7 +654,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 - Logger chaque self-merge dans MEMORY.md cycle entry
 - Inclure : PR number, justification vigilance, identité utilisée pour approve
 
-**Limite quotidienne** : Maximum **24 self-merges/24h** sans validation user (relevé de 12 → 24, mandat user 2026-07-03, régime cron coord 4h + production continue ; pointer-bumps mécaniques). Au-delà → poster `[ASK]` dashboard pour approbation explicite. Les RED FLAGS absolus ci-dessus restent le vrai garde-fou, indépendamment du compte.
+**Limite quotidienne** : Maximum **24 self-merges/24h** sans validation user (relevé de 12 → 24, mandat user 2026-07-03, régime cron coord 6h + production continue ; pointer-bumps mécaniques). Au-delà → poster `[ASK]` dashboard pour approbation explicite. Les RED FLAGS absolus ci-dessus restent le vrai garde-fou, indépendamment du compte.
 
 **Réference détaillée** : Cycle 21bis MEMORY.md (premier déblocage 11 PRs via switch jsboige)
 
