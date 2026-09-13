@@ -48,7 +48,7 @@ Mission : faire passer CHAQUE fichier de targetPath a 0 finding de
 Recettes par pathologie (n'appliquer que celle detectee sur la ligne visee) :
 - ORPHAN_TABLE_ROW : re-declarer le header + separateur REELS avant la ligne pipe orpheline (ne deplacer aucune ligne, ne pas inventer de colonne).
 - COL_MISMATCH ou CODE_SPAN_PIPE : echapper le `|` nu en `\\|` dans la cellule (dans un code span inline : `\\|` aussi).
-- MATH_SPAN_PIPE : remplacer `|` par `\\lvert` / `\\rvert` (LaTeX sans pipe).
+- MATH_SPAN_PIPE : remplacer le `|` par `\\mid` (condition / such-that, ex. p(a|s)) ou `\\vert` (valeur absolue). TOUJOURS espacer l'operateur : `a \\mid b`, `\\vert x \\vert`. Ne jamais coller une commande LaTeX a la lettre suivante : elle l'absorbe et la commande devient non definie.
 - NO_BLANK_BEFORE / NO_BLANK_AFTER : inserer UNE ligne vide avant / apres la table.
 
 FAUX POSITIFS connus : navigation `[Precedent](...) | [Suivant](...)`, metadonnees
