@@ -221,6 +221,13 @@ def main() -> int:
         cwd=session_cwd,
     )
     lines = queue.Queue()
+    # Always read this through list(): the stderr_reader thread below can outlive
+    # proc.kill(), because kill() reaps only the direct child -- a descendant
+    # holding the inherited stderr handle keeps the pipe open and the thread
+    # appending. Iterating a deque that is being appended to raises
+    # "RuntimeError: deque mutated during iteration", which turns a classified
+    # exit code into a traceback. Measured (2026-09-14): the mutation lands after
+    # 35 597 iterations when a descendant holds the pipe, never without one.
     stderr_tail = collections.deque(maxlen=40)
 
     def reader():
@@ -453,14 +460,14 @@ def main() -> int:
     if resp is None:
         print(f"PROMPT_TIMEOUT after {args.timeout}s", file=sys.stderr)
         print(timeout_diagnostics(notifications, t_prompt, args.timeout), file=sys.stderr)
-        for line in stderr_tail:
+        for line in list(stderr_tail):
             print(f"stderr: {line[:200]}", file=sys.stderr)
         return 5
     error = resp.get("error")
     if error:
         print(f"PROMPT_ERROR code={error.get('code')} message={error.get('message')} "
               f"data={json.dumps(error.get('data'))[:400]}", file=sys.stderr)
-        for line in stderr_tail:
+        for line in list(stderr_tail):
             print(f"stderr: {line[:200]}", file=sys.stderr)
         return 4
 
