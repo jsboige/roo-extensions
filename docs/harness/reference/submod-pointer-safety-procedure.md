@@ -89,6 +89,36 @@ Voir aussi la section « Anti pointer-bump prématuré » de `.claude/rules/pr-m
 
 Dans **tous** ces cas, la vérification `cat-file -e` après fetch reste obligatoire.
 
+## Corroboration croisée du défaut `git -C` (2026-09-05)
+
+Deux machines, deux objets, **un seul mécanisme** :
+
+| Siège | Objet | Symptôme |
+|---|---|---|
+| ai-01 (retarget #3454) | gitlink `mcps/internal` | trois gardes vertes sur `b141dc32`, le squash d'une PR **du parent**, écrit dans le gitlink du submodule |
+| po-2024 (c.364) | husks `wt-worker-po-2024-*` | « dir vide → `status`/`wc` issus du parent » |
+
+**`git -C` sur un répertoire non-peuplé répond au nom du parent.** C'est la *lecture* qui est
+empoisonnée : à l'écriture, la mauvaise valeur est déjà en main et les gardes la valident. D'où le
+placement du garde de mécanisme **avant** toute lecture, et non en contrôle final.
+
+## Préfixe vs chaîne exacte — incident 2026-08-07 (PR #3056)
+
+`git update-index --cacheinfo` exige un SHA **complet à 40 caractères** et **ne valide rien**. Les
+gardes `cat-file -e` / `merge-base --is-ancestor` acceptent en revanche une **abréviation**, que git
+résout correctement. Les deux propriétés se combinent en un piège :
+
+- écrit dans le gitlink : `45388458d0e05e02…`
+- attendu : `45388458191dec35…`
+- vérifié « avec succès » : `45388458` — les 8 premiers caractères, communs aux deux
+
+Résultat : CI rouge sur `upload-pack: not our ref`, avec toutes les gardes au vert.
+
+La relecture `git ls-files -s` existe précisément pour rattraper ce que `--cacheinfo` ne valide
+pas — **comparée sur le préfixe, elle ne rattrape rien.** Ne jamais recopier ni reconstituer une
+SHA à la main : la lire en entier dans une variable, comparer la valeur **écrite** à la valeur
+**voulue** sur les 40 caractères.
+
 ## Post-mortem — pointeur orphelin détecté sur `main`
 
 1. **NE PAS force-push** sur `main` (interdit, et risque de perte de travail utilisateur).

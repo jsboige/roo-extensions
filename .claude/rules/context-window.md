@@ -35,15 +35,13 @@ structurel opt-in : `scripts/hooks/guard-pdf-read.js` — interception VÉRIFIÉ
 
 ## Ce qui a été retiré, et pourquoi
 
-Trois mécanismes ramenaient la flotte à 200k **quoi qu'il y ait dans `settings.json`** :
+Trois mécanismes ramenaient la flotte à 200k **quoi qu'il y ait dans `settings.json`** : les
+overrides d'env posés par les scripts de spawn avant chaque `claude -p` (**supprimés** — les env
+vars priment sur `settings.json`), la réécriture par `deploy-claude-mcp-settings.ps1` (garde rendue
+**symétrique** : la fenêtre n'est écrite que si elle est **absente**), et l'absence de `[1m]` sur
+l'ID de modèle.
 
-| Mécanisme | Correctif |
-|---|---|
-| `spawn-claude.ps1`, `start-claude-worker.ps1`, `start-claude-executor.ps1` posaient `200000`/`90` en env avant chaque `claude -p` — **et les env vars priment sur `settings.json`** | overrides **supprimés** |
-| `deploy-claude-mcp-settings.ps1` **réécrivait** la fenêtre à `200000` si elle différait, alors que le pourcentage, lui, n'était corrigé que s'il était `< 90` | garde rendue **symétrique** : la fenêtre n'est écrite que si elle est **absente** |
-| ID de modèle `opus` sans suffixe `[1m]` → clamp au contexte catalogué | par machine (`settings.json`), hors dépôt — voir ci-dessous |
-
-L'asymétrie de la deuxième rendait la régression discrète : un seul run rétrogradait une machine
+L'asymétrie de la deuxième rendait la régression **discrète** : un seul run rétrogradait une machine
 réglée à 280k/310k vers 200k **en préservant son pourcentage**, si bien que la moitié visible du
 réglage avait l'air respectée.
 
@@ -64,30 +62,21 @@ deux instruments indépendants) : aucune PR ne peut corriger le suffixe à votre
 
 ## La fenêtre est VOLONTAIREMENT sous le contexte du modèle
 
-`[1m]` déclare que le modèle tient 1M. La fenêtre de compaction, elle, est réglée
-**bien en dessous** : 280k sur po-2023, 310k sur ai-01. **Ce n'est pas un clamp résiduel, c'est
-une décision** (user, 2026-08-22) : garder les modèles frais et ne pas laisser filer les coûts.
-
-Ce sont donc **deux réglages distincts**, et l'écart entre eux est intentionnel :
-
-| Réglage | Où | Ce qu'il dit |
-|---|---|---|
-| `[1m]` sur l'ID de modèle | `settings.json` | ce que le modèle **peut** tenir |
-| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | `settings.json` | ce qu'on **veut** laisser grandir avant de condenser |
+Deux réglages **distincts** : `[1m]` dit ce que le modèle **peut** tenir,
+`CLAUDE_CODE_AUTO_COMPACT_WINDOW` ce qu'on **veut** laisser grandir avant de condenser. L'écart
+est intentionnel — 280k sur po-2023, 310k sur ai-01 — et c'est **une décision** (user, 2026-08-22) :
+garder les modèles frais, ne pas laisser filer les coûts.
 
 **Ne pas « corriger » une fenêtre de 280k/310k vers 1M sous prétexte que le modèle le supporte.**
-Ce serait le coup de pendule inverse de celui que cette règle vient de défaire : le mandat 200k était
-un bug parce qu'il **écrasait** un choix machine, pas parce que 200k était trop petit. Une valeur
-choisie se respecte dans les deux sens.
+Le mandat 200k était un bug parce qu'il **écrasait** un choix machine, pas parce que 200k était trop
+petit : une valeur choisie se respecte dans les deux sens.
 
 ## Machine neuve : déployer AVANT le premier spawn
 
-Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1`. Sur une machine dont
-`settings.json` n'a jamais été déployé, un `claude -p` tombe donc sur le défaut Claude Code
-(~50 %) et retrouve la boucle de condensation — les scripts de spawn ne le rattrapent plus.
-
-**Sur une machine neuve : lancer `deploy-claude-mcp-settings.ps1` avant le premier spawn.** Sur
-une machine déjà en service, il n'y a rien à faire : le pourcentage y est déjà ≥ 90.
+Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1` : sur une machine jamais
+déployée, `claude -p` retombe sur le défaut Claude Code (~50 %) et retrouve la boucle — les scripts
+de spawn ne le rattrapent plus. **Lancer `deploy-claude-mcp-settings.ps1` avant le premier spawn.**
+Machine déjà en service : rien à faire, le pourcentage y est déjà ≥ 90.
 
 ## Le piège qui reste
 

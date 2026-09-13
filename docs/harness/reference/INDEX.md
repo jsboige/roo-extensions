@@ -35,6 +35,8 @@
 | **PDF read guard (#3579)** | Borne les lectures PDF multimodales — 3 budgets distincts (tokens / bytes sérialisés / résultat atomique), procédure text-first, interception PreToolUse VÉRIFIÉE par test reproductible, arbitrage flotte, fenêtre route Sol MESURÉE (900-925k, 12/09) | `pdf-read-guard.md` |
 | **Secret withdrawal procedure (#3584)** | Retrait d'un secret publié sur un dashboard — inventaire des copies (vivant, PG, archives, Qdrant, transit LLM), fenêtres, action `scrub`, rotation | `secret-withdrawal-procedure.md` |
 | **Quota GraphQL / instrument REST (#3623)** | Le REST `GET /rate_limit` `.resources.graphql` annonce 5000/0 quand le vrai quota est épuisé (`reset` roulant = now+3600, fenêtre différente de l'ancrée GraphQL). Contournements REST + `GH_TOKEN` explicite, routage par token | `github-rate-limit-instrument.md` |
+| **`append` dashboard qui expire** | Mesures du timeout d'`append` : WRITE-FIRST puis condensation attendue, 45,3 s dont 42,3 s de condensation (99,4 % = bloc `## Status`), A/B ~75×, 3 expirés / 1 écrit (02/07). Conduite canonique = `.claude/rules/intercom-protocol.md` (slim) | `intercom-append-timeout.md` |
+| **Garde-fous workflow PR** | Incidents et workflows pas à pas déportés de `pr-mandatory.md` : worktrees imbriqués (#2123, 136k untracked), pointer-bump prématuré (#1799), detached HEAD (#1666 A2), `--body-file` (#2864), économie d'identité APPROVE (#2368) | `pr-workflow-guards.md` |
 | **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
 
 ## Quality & CI
