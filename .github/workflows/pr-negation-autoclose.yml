@@ -1,0 +1,189 @@
+name: PR Negation Auto-Close Guard
+
+# Issue #3626 : A negation keyword does not disarm auto-close. A PR body can
+# close an issue by the sentence that says it does not.
+#
+# GitHub's closing-keyword parser is token-based: it matches 'close', 'closes',
+# 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved' followed
+# by '#N'. The official documentation states verbatim:
+#
+#   "A negation keyword is not supported for closing issues. The keyword 'not'
+#    cannot be used ... to negate a closing keyword. For example,
+#    'Closes NOT #...' will still close the issue."
+#
+# This means a sentence like "Does not close #3276 — the runtime root cause
+# stays open" ARMS the auto-close for #3276 at merge. The author wrote the
+# sentence to prevent the closure; the parser uses it as the closing trigger.
+#
+# The guard is AUTHORITATIVE on GitHub's resolution: it queries
+# closingIssuesReferences (the same source GitHub uses at merge) and compares
+# to the PR body. If any reference in closingIssuesReferences is paired with a
+# negation keyword adjacent to the closing keyword, the check fails. This is
+# NOT a regex-over-body pass (cf. #10327 lesson: a body-side regex would
+# generate its own false positives). It is a confirmation pass on what GitHub
+# has already decided to close.
+#
+# The check is OPT-IN per PR via a closing-keyword-aware failsafe: an explicit
+# marker [NEGATION-AUTOCLOSE-OK] in the PR body overrides the failure (escape
+# hatch for cases where the author genuinely intends the issue to close despite
+# the prose).
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no auto-close armed by negation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = pr.body || '';
+
+            // Escape hatch: explicit override marker.
+            if (body.includes('[NEGATION-AUTOCLOSE-OK]')) {
+              console.log('[NEGATION-AUTOCLOSE-OK] marker found in body. Overriding guard.');
+              return;
+            }
+
+            // Authoritative source: GitHub's own resolution.
+            const { data } = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 10) {
+                      totalCount
+                      nodes { number state }
+                    }
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              number: pr.number
+            });
+
+            const closing = data.repository.pullRequest.closingIssuesReferences;
+            if (closing.totalCount === 0) {
+              console.log('No closing-issue references. Guard trivially satisfied.');
+              return;
+            }
+
+            // Negation patterns: word-boundary, case-insensitive. Match the
+            // patterns documented in the issue body (#3626):
+            //   - 'not' / 'NOT'
+            //   - 'does not' / 'do not'
+            //   - 'no longer'
+            //   - 'stays open' / 'remain open' / 'remains open'
+            //   - 'is the deliverable' (c. #3232)
+            // Closing keywords (verbatim from GitHub docs).
+            const negationPatterns = [
+              /\bnot\b/i,
+              /\bno\s+longer\b/i,
+              /\bdoes\s+not\b/i,
+              /\bdo\s+not\b/i,
+              /\bdoesn'?t\b/i,
+              /\bdon'?t\b/i,
+              /\bstays?\s+open\b/i,
+              /\bremains?\s+open\b/i,
+              /\b(study|draft|proposal|investigation)\s+is\s+the\s+deliverable\b/i
+            ];
+
+            const closingKeywords = [
+              /\bclose[sd]?\b/i,
+              /\bfix(?:e[sd])?\b/i,
+              /\bresolv(?:e[sd])?\b/i
+            ];
+
+            // Tokenize the body by issue reference. For each '#NNNN' that
+            // appears in the body, take a window of 200 chars around it and
+            // check whether that window contains BOTH a closing keyword AND a
+            // negation pattern. This avoids the lesson of #10327 (a body-side
+            // regex without reference-anchoring generates false positives).
+            const refRe = /#(\d{4,})\b/g;
+            const issues = closing.nodes.map(n => n.number);
+            const violations = [];
+
+            for (const m of body.matchAll(refRe)) {
+              const refNum = parseInt(m[1], 10);
+              if (!issues.includes(refNum)) continue;
+
+              const start = Math.max(0, m.index - 200);
+              const end = Math.min(body.length, m.index + m[0].length + 200);
+              const window = body.slice(start, end);
+
+              // Skip windows that are entirely inside fenced code blocks or
+              // inline code spans. The GitHub parser also excludes those, so
+              // doing the same here keeps the test in lockstep.
+              const windowSansCode = window
+                .replace(/```[\s\S]*?```/g, '')
+                .replace(/`[^`\n]*`/g, '');
+
+              const hasNegation = negationPatterns.some(p => p.test(windowSansCode));
+              const hasClosing = closingKeywords.some(p => p.test(windowSansCode));
+
+              if (hasNegation && hasClosing) {
+                violations.push({
+                  issue: refNum,
+                  excerpt: windowSansCode.replace(/\s+/g, ' ').trim().slice(0, 240)
+                });
+              }
+            }
+
+            if (violations.length === 0) {
+              console.log(`Guard satisfied: ${closing.totalCount} closing reference(s), no negation-adjacent matches.`);
+              return;
+            }
+
+            // Build the failure summary.
+            const lines = [
+              '## Negation-keyword auto-close arming detected',
+              '',
+              `PR #${pr.number} would close ${closing.totalCount} issue(s) at merge, but the body contains a negation keyword adjacent to a closing keyword for:`,
+              '',
+              ...violations.map(v => `- **#${v.issue}**: "${v.excerpt}..."`),
+              '',
+              '### Why this fails',
+              '',
+              'GitHub\'s closing-keyword parser is token-based. The official documentation (verbatim):',
+              '',
+              '> A negation keyword is not supported for closing issues. The keyword `not` **cannot** be used ... to negate a closing keyword. For example, `Closes NOT #...` **will still close the issue**.',
+              '',
+              'The sentence "Does not close #N — stays open" ARMS the auto-close for #N at merge. The negation in prose does not disarm it.',
+              '',
+              '### How to fix',
+              '',
+              '1. **Avoid the coupling** (preferred): rephrase the negation without a closing keyword adjacent to `#N`. Examples that do NOT arm:',
+              '   - `suivi dans #3276`',
+              '   - `reste ouvert, voir #3276`',
+              '   - `Refs #3276` (without `Closes`, `Fixes`, `Resolves`)',
+              '2. **Move the reference away** from the closing keyword (different paragraph, different sentence).',
+              '3. **Override (escape hatch)**: if the auto-close is genuinely intended despite the prose, add `[NEGATION-AUTOCLOSE-OK]` anywhere in the PR body.',
+              '',
+              '### Verification',
+              '',
+              'After editing the body, re-run this check (push a commit or close/reopen the PR). The query `gh api graphql -f query=\'...closingIssuesReferences...\'' will return `totalCount=0` once the coupling is removed.',
+              '',
+              '---',
+              `*Automatis\u00E9 par [pr-negation-autoclose.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/pr-negation-autoclose.yml) (#3626)*`
+            ];
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: lines.join('\n')
+            });
+
+            core.setFailed(
+              `Negation-keyword auto-close arming detected for ${violations.length} issue(s). ` +
+              `See PR comment for details. Override marker: [NEGATION-AUTOCLOSE-OK].`
+            );
