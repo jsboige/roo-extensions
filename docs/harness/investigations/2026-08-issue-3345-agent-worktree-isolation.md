@@ -3,8 +3,8 @@
 **Date:** 2026-08-31
 **Issue:** [#3345](https://github.com/jsboige/roo-extensions/issues/3345)
 **Reporter:** jsboige (OWNER) on 2026-08-31 15:09Z
-**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07)
-**Status:** ⚠️ **UPSTREAM BUG — REPRODUCES ON CURRENT STABLE (2.1.236, 2026-09-07)** — root cause lives in the Claude Code Agent tool, not in this repository. Not reproducible on 2.1.86 only (see *Live reproduction on 2.1.236* below); the defect returned/stayed on stable, `isolation="remote"` still falls back silently to the local provisioner, and refused provisioning still leaves locked orphans. Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
+**Analysts:** jsboige (probes 15:29Z), myia-po-2023 (cause 15:42Z, c.286), claude on myia-web1 (mitigation 2026-08-31 18:15Z), myia-po-2026 (defect-class measurement 2026-09-02, c.343), myia-po-2024 (live re-validation on 2.1.86, 2026-09-03), myia-po-2026 (live reproduction on 2.1.236, 2026-09-07), myia-ai-01 (live reproduction + validator static read on 2.1.269, 2026-09-13)
+**Status:** ⚠️ **UPSTREAM BUG — REPRODUCES ON 2.1.269 (2026-09-13; the build deployed on myia-ai-01 via the VS Code extension)** — root cause lives in the Claude Code Agent tool, not in this repository. Bisection to date: not reproducible on 2.1.86 and 2.1.141, reproduces deterministically on 2.1.236 and 2.1.269 (refused provisioning still leaves the worktree `locked` → D3 live). `isolation="remote"` remains an accepted enum value on 2.1.269, now described as a gated remote-cloud mode (live fallback behavior not re-exercised on that build). Tracked upstream: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618).
 
 ---
 
@@ -208,14 +208,89 @@ locked claude agent agent-a75f651045fa09cc5 (pid 30992)
 - 2.1.41 — feature absent (no `isolation` parameter on the Task tool).
 - 2.1.86 — **no repro** (R2, po-2024 2026-09-03; worktree path apparently derived from the resolved
   main working tree, not the raw session cwd).
+- 2.1.141 — **no repro** (po-2023, 2026-09-10; both uppercase and lowercase cwd forms tested).
 - 2.1.236 — **reproduces** (this probe; deterministic; the raw lowercase cwd string is back in the
   comparison chain).
 - 2.1.238 / 2.1.257 / 2.1.259 — CHANGELOG entries touch worktree-isolation **Bash-command** refusals,
   not pre-flight provisioning validation; no entry up to 2.1.263 (checked 2026-09-07) matches D1.
+- 2.1.269 — **reproduces** (myia-ai-01, 2026-09-13 — see the dedicated section above; also the first
+  datapoint taken from the **VS Code extension** distribution channel rather than an npm install).
 
 Upstream tracker: [anthropics/claude-code#91618](https://github.com/anthropics/claude-code/issues/91618)
 (OPEN, labels `bug`/`has repro`/`platform:windows`/`area:agents`). The 2.1.236 reproduction was posted
 there as a bisection datapoint on 2026-09-07.
+
+---
+
+## Live reproduction on Claude Code 2.1.269 — myia-ai-01 (2026-09-13)
+
+Firsthand, deterministic, exact methodology match (scratch repo + **two** historical worktrees under
+`.claude/worktrees/` + headless session with **lowercase-drive cwd** preserved, Task call with
+`isolation="worktree"`).
+
+**Version provenance — why this datapoint matters for the fleet.** The harness actually serving
+agents on myia-ai-01 is **not** the npm global (`claude --version` → 2.1.17, which predates the
+feature entirely: the refusal string has 0 occurrences in its `cli.js`, control string 19 —
+instrument validated). It is the **VS Code extension**
+`~/.vscode/extensions/anthropic.claude-code-2.1.269-win32-x64/`, whose
+`resources/native-binary/claude.exe` (222 MB) answers `--version` as 2.1.269 and was installed
+2026-09-12. Lesson: on any machine where agents run through VS Code, `claude --version` understates
+the effective build — probe the extension's native binary instead.
+
+### Result
+
+Verbatim refusal (worktree id `agent-ae1af2b131ce6c04e`):
+
+```
+Refusing to use c:\Users\MYIA\AppData\Local\Temp\probe-3345-269\repo\.claude\worktrees\agent-ae1af2b131ce6c04e as an isolation worktree:
+git resolves its working tree to C:/Users/MYIA/AppData/Local/Temp/probe-3345-269/repo/.claude/worktrees/agent-ae1af2b131ce6c04e
+(a core.worktree redirect, or a checkout discovered above it), so commands run there would write outside the worktree.
+Remove the redirect, restore the worktree's own .git, or recreate the worktree, then retry.
+```
+
+Post-run registry:
+
+```
+worktree C:/.../probe-3345-269/repo/.claude/worktrees/agent-ae1af2b131ce6c04e
+branch refs/heads/worktree-agent-ae1af2b131ce6c04e
+locked
+```
+
+**D1 reproduces and D3 reproduces**: the just-provisioned worktree is left `locked` with no cleanup
+on the refusal path, exactly as on 2.1.236. (Note the `locked` reason field is empty here, unlike
+the `(pid NNNN)` form seen on 2.1.236.)
+
+### Static read of the 2.1.269 validator (from the native binary)
+
+The refusal is emitted by a three-valued comparison:
+
+```js
+function lN(e, n) { return Fzn(e, n, U7) }                 // "same" | "distinct" | "indeterminate"
+function Fzn(e, n, r) { let s = AT(e), d = AT(n);
+  if (Tw(s) || Tw(d)) return "indeterminate";
+  if (s.skipped !== d.skipped) return "indeterminate";
+  return r(s, d) && r(d, s) ? "same" : "distinct" }
+function U7(e, n) { /* ... */ return nyn(e.canonical, n.canonical) }   // canonical-vs-canonical
+function nyn(e, n) { return B7(e, n, !1) }                 // case-SENSITIVE string compare
+```
+
+`AT()` is an up-to-8-iteration realpath-style canonicalizer. **Methodological note (recorded as a
+lesson):** reading this statically suggested the canonicalization would fold the drive-letter case
+and therefore that D1 might be fixed in 2.1.269. The live probe above **falsified that reading** —
+the lowercase-`c:` held form still lands `"distinct"` against git's uppercase-`C:` toplevel, so the
+canonical path does not normalize drive-letter case (or the held form bypasses it). Static reading
+of a minified validator proposed; only execution disposed.
+
+### `isolation="remote"` on 2.1.269 (criterion 3)
+
+The Task schema still accepts `remote`, but the parameter is now documented distinctly:
+
+> `"worktree"` creates a temporary git worktree so the agent works on an isolated copy of the repo.
+> `"remote"` launches the agent in a remote cloud environment (always runs in background; availability is gated).
+
+Whether the 2.1.236-era silent local fallback (F2) still occurs was **not** re-exercised live this
+session; the description change is the only 2.1.269 evidence. Last live measurement of F2 remains
+R2′ (2.1.236, po-2026).
 
 ---
 
@@ -269,7 +344,7 @@ Safety:
 - `-NamePattern` allows matching other patterns.
 - Cross-repo orphans: default `-Execute` SKIPs (defense); `-AllowCrossRepo` cleans them with nothing locked left behind.
 - **D1 defect class (Windows)**: a lowercase-drive/backslash path variant of a worktree resolves to the same canonical toplevel; a strict string comparison false-positives (the reported refusal class) while a case/separator-folded comparison passes. Skips on non-Windows (CI `unit-pester` runs ubuntu).
-- Static guard: the upstream error message must not appear in this repo's production source (test file excluded).
+- Static guard: the upstream error message must not appear in this repo's production source (test file excluded). Enumerates **tracked files via `git ls-files`** (1,305 files) instead of a filesystem walk — a walk is unbounded by debris and did not stop at the filter: on ai-01's main checkout (2026-09-13) it enumerated >100k files (34 leftover `agent-*` worktrees = 62,037 files, plus ~40k in `node_modules`).
 
 ### 3. Manual cleanup procedure (USER-GATED, before this script existed)
 
@@ -295,11 +370,11 @@ git -C D:/Dev/CoursIA-2 worktree prune
 
 | Criterion | Status | Where |
 |-----------|--------|-------|
-| 1. Reproduce on Windows with multiple historical worktrees | ✅ po-2023 c.286 (synthetic + live observation) · **deterministic live repro on 2.1.236** (2026-09-07, lowercase-drive cwd + 2 historical worktrees → verbatim refusal) · real-repo dry-run audit po-2026 2026-09-02 (`C:/dev/CoursIA-2`: 0 `agent-*` orphan remaining, script exits clean) | — |
-| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3. No-repro was 2.1.86-only; **reproduces on 2.1.236** (R1′, 2026-09-07); no matching fix in CHANGELOG up to 2.1.263 | `anthropics/claude-code#91618` |
+| 1. Reproduce on Windows with multiple historical worktrees | ✅ po-2023 c.286 (synthetic + live observation) · **deterministic live repro on 2.1.236** (2026-09-07, lowercase-drive cwd + 2 historical worktrees → verbatim refusal) · **repro on 2.1.269** (myia-ai-01, 2026-09-13, same methodology, from the VS Code-extension binary) · real-repo dry-run audit po-2026 2026-09-02 (`C:/dev/CoursIA-2`: 0 `agent-*` orphan remaining, script exits clean) | — |
+| 2. Fix `.git` / `core.worktree` creation/validation | ❌ Upstream — refined 2026-09-02: the refusal is D1 (strict path comparison, no win32 normalization), see Class 3. No-repro on 2.1.86 and 2.1.141; **reproduces on 2.1.236 and 2.1.269** (R1′ 2026-09-07; ai-01 2026-09-13). 2.1.269 ships a three-valued canonical comparison (`Fzn`/`AT`) but the lowercase-drive pair still lands `distinct` — static read alone suggested a fix, live probe falsified it | `anthropics/claude-code#91618` |
 | 3. `isolation="remote"` does not silently use local provisioner, **or the real mode is documented** | ✅ documented (document-arm): on 2.1.236 `remote` is an accepted enum value that silently stages a **local** worktree (R2′, 2026-09-07 — supersedes the 2.1.86 "not offered" reading, which held only for that build). The defect itself remains upstream | this doc + `anthropics/claude-code#91618` |
-| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script. Failure-path orphan production **confirmed live on 2.1.236** (R3′: two locked `agent-*` left, no cleanup) → the script guards a real, current failure mode | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
-| 5. Windows test creating agent worktree + checking `rev-parse --show-toplevel` | ✅ 12 tests (incl. D1 normalization defect class, Windows-guarded), re-verified 12/12 on 2026-09-07 (Pester 6.1.0, pwsh 7.6.3, git 2.55.0.windows.4) | `scripts/testing/unit/agent-worktree-isolation.Tests.ps1` |
+| 4. Auto-cleanup on provisioning failure | ⚠️ Partial — defensive script. Failure-path orphan production **confirmed live on 2.1.236** (R3′: two locked `agent-*` left, no cleanup) **and on 2.1.269** (ai-01 2026-09-13: provisioned worktree left `locked`) → the script guards a real, current failure mode | `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1` |
+| 5. Windows test creating agent worktree + checking `rev-parse --show-toplevel` | ✅ 12 tests (incl. D1 normalization defect class, Windows-guarded), re-verified 12/12 on 2026-09-07 (Pester 6.1.0, pwsh 7.6.3, git 2.55.0.windows.4); 2026-09-13: re-verified live on ai-01 and the static-guard scan **bounded** (tracked-files enumeration via `git ls-files` — see deliverables) | `scripts/testing/unit/agent-worktree-isolation.Tests.ps1` |
 | 6. No orphan locked worktree after provisioning failure | ⚠️ Partial — defensive script (same as #4) | same as #4 |
 
 ---
@@ -332,6 +407,28 @@ The technical content that fed the ticket:
 > - No orphan locked worktree entries should remain after a failure.
 >
 > **Workaround (until fixed):** `scripts/maintenance/cleanup-agent-orphan-worktrees.ps1 -Execute` from the roo-extensions repo.
+
+---
+
+## Fleet observation — unlocked `agent-*` debris on ai-01's main checkout (2026-09-13, reported, not actioned)
+
+Dry-run of the cleanup script on `D:/roo-extensions` reports **34 `agent-*` worktrees, all
+unlocked → "Detected orphans: 0"** (the script only handles the *locked* class — by design, since
+the incident refusal leaves them locked). This is the **success/abandoned-path** debt, a sibling of
+the worktree-lifecycle problem (#2638), not the #3345 failure path itself:
+
+- 34 directories, **62,037 files** total under `.claude/worktrees/` (≈1,523 files per agent worktree).
+- 2 of 34 are **dirty** (rule: dirty ≠ orphan — inspected, not deleted):
+  - `agent-a6df703a71f9d1d3b` — abandoned WIP: `M .github/workflows/ci.yml`,
+    `M scripts/scheduling/start-meta-audit.ps1`, `?? scripts/testing/harness/test-metaaudit-active-extension.ps1`,
+    0 commits ahead of main.
+  - `agent-ac34b6f199d572320` — branch `wt/submod-bundle-1133`, one commit ahead duplicating merged
+    PR #3541, plus a modified `mcps/internal` gitlink (phantom-pointer risk per the submod rules).
+- **No cleanup was performed** — deleting these is a worktree-lifecycle decision for the owner, not
+  part of this issue. The two dirty ones should be inspected before any removal.
+
+Provenance note: ai-01's npm-global `claude` is 2.1.17 (feature-absent), so these were created by a
+newer harness — consistent with the VS Code extension lineage identified above.
 
 ---
 
