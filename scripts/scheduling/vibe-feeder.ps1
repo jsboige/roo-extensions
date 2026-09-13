@@ -307,6 +307,7 @@ foreach ($g in $grains) {
     # Le listener matche le token literal [WAKE-VIBE] en DEBUT DE LIGNE dans le corps
     # (detection stricte #2004) — le parametre `tags` du MCP n'est pas rendu dans l'intercom.
     $appendArgs = @{ action = 'append'; type = 'workspace'; workspace = 'CoursIA'; tags = @('WAKE-VIBE', 'vibe-feeder'); content = "[WAKE-VIBE] $payload"; messageId = $noteId }
+    $postStarted = Get-Date
     $posted = Invoke-RsmAppend -AppendOptions $appendArgs -TimeoutSec $TimeoutSec
     if ($posted) {
         Write-FeederLog -Level 'INFO' -Text "[WAKE-VIBE] poste: grain $($g.id) -> workspace-CoursIA"
@@ -319,6 +320,46 @@ foreach ($g in $grains) {
         Write-FeederLog -Level 'INFO' -Text ("file mise a jour: {0} grain(s) restant(s)" -f $remaining.Count)
         exit 0
     } else {
+        # Le declencheur de la lane passait ENTIEREMENT par le cloud : post
+        # [WAKE-VIBE] sur le dashboard partage, puis pickup par le listener. Un
+        # DriveFS qui decroche arretait donc la lane alors que la file, le grain
+        # et le worker sont tous LOCAUX. Mesure 2026-09-12 : G: demonte, post en
+        # timeout a 151 s pour TimeoutSec=150, 0 run pendant 13 h.
+        # Discriminant : un post qui epuise son timeout n'a recu AUCUNE reponse —
+        # le store partage est injoignable et le message n'a pas pu aboutir. Un
+        # echec RAPIDE (rejet de schema, wrapper absent) garde au contraire la
+        # doctrine write-first : ne pas spawner, relire avant retry.
+        $elapsed = ((Get-Date) - $postStarted).TotalSeconds
+        $wrapperMissing = -not (Test-Path $wrapperPath)
+        if ($elapsed -ge ($TimeoutSec - 5) -or $wrapperMissing) {
+            $trigger = if ($wrapperMissing) { 'wrapper absent' } else { ("timeout {0:N0}s" -f $elapsed) }
+            Write-FeederLog -Level 'WARN' -Text ("post [WAKE-VIBE] impossible ({0}) — store/outillage cloud injoignable, repli sur spawn LOCAL du worker" -f $trigger)
+            $payloadFile = Join-Path $env:TEMP ("vibe-feeder-payload-{0}.json" -f $g.id)
+            $payloadObj = [pscustomobject]@{
+                timestamp = (Get-Date).ToUniversalTime().ToString('o')
+                author    = [pscustomobject]@{ machineId = $env:COMPUTERNAME }
+                content   = "[WAKE-VIBE] $payload"
+            }
+            [IO.File]::WriteAllText($payloadFile, ($payloadObj | ConvertTo-Json -Depth 4 -Compress), (New-Object Text.UTF8Encoding($false)))
+            $vibeWorkerScript = Join-Path $repoRoot 'scripts\scheduling\start-vibe-worker.ps1'
+            $vibeProfile = Join-Path $repoRoot 'scripts\scheduling\vibe-profiles\coursia.json'
+            $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+            & $psHost -File $vibeWorkerScript -ConfigPath $vibeProfile -MessagePayloadFile $payloadFile
+            $spawnExit = $LASTEXITCODE
+            if ($spawnExit -eq 0) {
+                Write-FeederLog -Level 'INFO' -Text ("repli local OK (exit 0) — grain {0} consomme, pas de re-post" -f $g.id)
+                $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+                $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+                Write-Queue -Queue $outObj
+                Write-FeederLog -Level 'INFO' -Text ("file mise a jour (repli local): {0} grain(s) restant(s)" -f $remaining.Count)
+                exit 0
+            }
+            # exit 75 = un worker vivant detient le lock : le payload n'a PAS ete
+            # traite. Ne pas consommer le grain (ce serait le perdre) — le tick
+            # suivant le reprendra.
+            Write-FeederLog -Level 'ERROR' -Text ("repli local en echec (exit={0}) — grain {1} conserve en file pour le tick suivant" -f $spawnExit, $g.id)
+            exit 1
+        }
         Write-FeederLog -Level 'ERROR' -Text "post echoue grain $($g.id) — relire dashboard avant retry (write-first)"
         exit 1
     }
