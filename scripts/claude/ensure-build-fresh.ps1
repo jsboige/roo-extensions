@@ -173,6 +173,16 @@ $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($in
 if ($staleCount -gt 0) {
     $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
 }
+# Kill remedy (host-kill validated po-204 2026-09-12; role discrimination corrected by po-2026
+# 2026-09-13): kill ONLY the build/index.js children predating the build. $staleCount counts the
+# children alone, and the mcp-wrapper.cjs parent exits by itself when its child exits
+# (server.on('exit') -> process.exit in mcp-wrapper.cjs) -- so killing a child retires the pair,
+# while killing a WRAPPER first orphans the child: it stays counted here and can linger as an
+# unreaped CIM ghost (the case Test-ProcessExited above tolerates). The stale set is machine-wide,
+# so a caller whose OWN session host is in it cannot cure itself by killing -- that one clears
+# only via a VS Code restart (Claude Code does not respawn a killed MCP host; restartOnCrash is
+# absent from the client config).
+$killHint = "Kill remedy: kill ONLY the build/index.js node processes predating it -- NEVER the mcp-wrapper.cjs parents (each parent exits when its child exits; a killed wrapper orphans the child). If this session's own host is in the stale set, only a VS Code restart clears it."
 
 # --- Content key: an MTIME verdict is not evidence of a source change (#2822/#3489 amendment) ---
 # A `git checkout`, a branch switch, a stash, or a `git submodule update` that re-checks-out the
@@ -242,7 +252,7 @@ function Test-BuildMatchesSource {
 if ($buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
     Write-Result 'FRESH' "build/ is up to date (newest build .js >= newest src .ts: $srcFileRel)."
     if ($RequireFresh -and $staleCount -gt 0) {
-        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle."
+        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle. $killHint"
         exit 10
     }
     exit 0
@@ -258,7 +268,7 @@ if ($buildNewest -gt 0 -and (Test-BuildMatchesSource -BuildPath $BuildPath -McpS
     # EARLIER build and genuinely serves older modules. What disappears is the spurious arming
     # that a redundant rebuild manufactured for every live host at once.
     if ($RequireFresh -and $staleCount -gt 0) {
-        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle."
+        Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle. $killHint"
         exit 10
     }
     exit 0

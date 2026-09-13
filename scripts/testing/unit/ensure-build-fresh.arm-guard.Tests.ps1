@@ -175,4 +175,23 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         # contains no Test-ProcessExited call, so this predicate bites on regression to it.
         '$indexHosts = @(Get-CimInstance Win32_Process -Filter "Name = ''node.exe''" | Where-Object { $_.CommandLine -match ''roo-state-manager'' })'.Contains('Test-ProcessExited') | Should -BeFalse
     }
+
+    It 'States the corrected kill remedy on both exit-10 paths: kill the child, never the wrapper' {
+        # Correction by po-2026 (2026-09-13, blocked cycle): the host-kill remedy (validated
+        # po-204 2026-09-12) must name the CHILD. $staleCount counts build/index.js hosts only,
+        # and mcp-wrapper.cjs exits by itself when its child exits -- killing a wrapper instead
+        # ORPHANS the child, which stays counted here (and was the unreaped-ghost wedge this
+        # guard's Test-ProcessExited had to tolerate). Before this fix the exit-10 message
+        # prescribed "Restart VS Code" alone: the remedy lived only in unversioned channels
+        # (dashboard Patterns + machine memory), unreadable by the operator blocked at the gate.
+        $content | Should -Match '\$killHint\s*=\s*"'
+        $content | Should -Match 'ONLY the build/index\.js node processes'
+        $content | Should -Match 'NEVER the mcp-wrapper\.cjs parents'
+        # The hint is appended to BOTH exit-10 ARM messages (two identical sites), so the two
+        # cannot drift apart on a future edit of one of them.
+        ([regex]::Matches($content, [regex]::Escape('Restart VS Code before continuing the executor cycle. $killHint'))).Count | Should -Be 2
+        # Positive control: the pre-fix message shape carries no hint, so the count predicate
+        # above bites on regression to it.
+        ([regex]::Matches('Restart VS Code before continuing the executor cycle."', [regex]::Escape('Restart VS Code before continuing the executor cycle. $killHint'))).Count | Should -Be 0
+    }
 }
