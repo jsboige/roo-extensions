@@ -4035,13 +4035,18 @@ function Report-Results {
     if ($RealHashes -and $Result.success) {
         # Case-sensitive + boundary guards: git SHAs are lowercase hex, so -CaseSensitive
         # rejects uppercase hex in Windows error codes (e.g. 0x800710E0). The lookbehind
-        # (?<![0-9a-fx]) skips runs preceded by 'x' (the 0x of an HRESULT) or another hex
-        # digit; the lookahead (?![0-9a-f]) avoids 8-char sub-windows of longer runs.
-        # The optional {32} group keeps FULL 40-char SHAs detectable: without it the
+        # (?<![0-9a-fx-]) skips runs preceded by 'x' (the 0x of an HRESULT), another hex
+        # digit, or '-'; the lookahead (?![0-9a-f-]) avoids 8-char sub-windows of longer
+        # runs. The optional {32} group keeps FULL 40-char SHAs detectable: without it the
         # lookahead makes every window of a 40-char run fail, so a fabricated full-length
         # hash — the most convincing kind — would slip past the detector entirely.
-        # Together they stop false "ghost commit" warnings on legitimate status codes.
-        $claimedHashes = $Result.output | Select-String -Pattern "(?<![0-9a-fx])[0-9a-f]{8}(?:[0-9a-f]{32})?(?![0-9a-f])" -CaseSensitive | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+        # The '-' in both boundary guards excludes UUID segments: every lowercase UUID
+        # (session IDs, scratchpad GUID paths) starts with an 8-hex group followed by '-',
+        # which matched the 8-char form and raised false "ghost commit" accusations —
+        # the first segment is dash-adjacent by construction, SHAs in claims are not.
+        # Accepted trade: a SHA glued to a dash on either side (abc12345-suffix) is no
+        # longer detected — not a claim pattern workers produce.
+        $claimedHashes = $Result.output | Select-String -Pattern "(?<![0-9a-fx-])[0-9a-f]{8}(?:[0-9a-f]{32})?(?![0-9a-f-])" -CaseSensitive | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
         if ($claimedHashes) {
             $invalidHashes = @()
             foreach ($claimedHash in $claimedHashes) {
