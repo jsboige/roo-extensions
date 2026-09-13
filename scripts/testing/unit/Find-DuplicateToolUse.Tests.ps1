@@ -157,4 +157,30 @@ Describe 'Find-DuplicateToolUse.ps1 (#3276)' {
         $content = Get-Content $scriptPath -Raw
         $content | Should -Match 'Issue #3276'
     }
+
+    It 'Refuses to report a verdict when a requested path does not exist (no false clean)' {
+        # Regression guard: an unresolvable path used to fall through to the green
+        # "No duplicate tool_use clusters detected." with exit 0 — indistinguishable
+        # from a genuinely clean scan. A negative control that read nothing is not a
+        # clean transcript.
+        $missing = Join-Path $fixturesDir 'does-not-exist-3276.jsonl'
+        $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Path $missing -OutputFormat Summary *>&1
+        $code = $LASTEXITCODE
+        $joined = ($output | Out-String)
+        $code | Should -Not -Be 0
+        $joined | Should -Not -Match 'No duplicate tool_use clusters detected'
+        $joined | Should -Match 'unreadable'
+    }
+
+    It 'Still reports clean with exit 0 on a readable clean fixture (over-correction guard)' {
+        if (-not (Test-Path $cleanFixture)) {
+            Set-ItResult -Skipped -Because "Fixture not found at $cleanFixture"
+            return
+        }
+        $output = & pwsh -NoProfile -ExecutionPolicy Bypass -File $scriptPath -Path $cleanFixture -OutputFormat Summary *>&1
+        $code = $LASTEXITCODE
+        $joined = ($output | Out-String)
+        $code | Should -Be 0
+        $joined | Should -Match 'No duplicate tool_use clusters detected'
+    }
 }
