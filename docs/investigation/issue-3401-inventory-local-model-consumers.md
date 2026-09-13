@@ -1,6 +1,6 @@
 # Inventaire des consommateurs du modèle local — Issue #3401
 
-**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-08 (gel embeddings + correction localisation hub — po-2023)
+**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-13 (exécution étape 1 instance locale po-203 + découverte topologie relais → hub autoritaire po-2025 — po-2023)
 **Auteur :** web1 (lane executor)
 **Issue :** [#3401](https://github.com/jsboige/roo-extensions/issues/3401)
 **Sonde primaire :** `grep -rE 'qwen3[.\-][0-9a-zA-Z\-]+|OPENAI_BASE_URL|OPENAI_API_KEY|EMBEDDING_API_KEY|VLLM_API_KEY|ANTHROPIC_BASE_URL|claudish|models\.myia' --include='*.ps1' --include='*.json' --include='*.ts' --include='*.js' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.template*' --include='*.env*'` dans `/c/dev/roo-extensions` (working tree).
@@ -53,13 +53,16 @@
 
 **Pré-condition :** claudish expose une **API Anthropic ET OpenAI** (vérifié #2612). Le routeur peut donc servir **les deux** familles de clients.
 
-### Étape 1 — Alias stable côté routeur (1 PR ai-01, ~30 min)
+### Étape 1 — Alias stable côté routeur (hub, ~30 min)
 
-1. Sur le hub central — **po-2023** (conteneur `claudish-proxy`, routing `~/.claudish/config.json` monté `/root/.claudish`) — ajouter 3 alias stables. *Corrigé 08/09 : le plan initial situait ce fichier sur ai-01, mais le hub servi par `models.myia.io` / `192.168.0.46:3000` tourne sur po-2023 (sondes po-2023 c.5545204924 et ai-01 06/09 concordantes) ; le sidecar ai-01 n'est pas sur le chemin des consommateurs des étapes 2-4.* :
-   - `claude-haiku-local` → `qwen3.6-35b-a3b` (alias court pour Claude Code haiku fallback)
-   - `local-coding` → `qwen3.6-35b-a3b` (alias long pour SDK OpenAI des services RSM)
-   - `local-fast` → `qwen3-32b` (alias court pour sub-agent claudish-free-tier)
-2. Vérifier que `/v1/models` annonce les 3 alias et que la résolution retourne 200. **Rév. 08/09 :** `local-embed` est retiré de la vérification de vague 1 (voir gel embeddings, étape 2 point 3) — la vérif porte sur `claude-haiku-local`, `local-coding`, `local-fast`.
+**Rév. 13/09 (po-203, exécution + sondes firsthand) : la topologie a changé APRÈS la correction du 08/09.** Le port fleet-facing `192.168.0.46:3000` (conteneur `claudish-proxy` po-2023) tourne en **mode relais** : `POST` chat → `http://host.docker.internal:18182` (relais TCP node, `D:\Production\claudish-relay-po2025\relay.js`, créé 05/09) → **hub autoritaire `192.168.0.50:3000` sur po-2025**. Seul `GET /v1/models` est servi par l'instance locale po-2023 (route fork `model-discovery.ts` relit `~/.claudish/config.json` à chaque requête ; le chemin chat snapshot la config au boot ET résout désormais chez po-2025). Conséquence : **l'annonce catalogue et la résolution chat peuvent diverger sur le même port** — la vérification de gate doit être **end-to-end** (complétion 200 via `192.168.0.46:3000`), jamais catalog-only.
+
+1. **Fait 13/09 sur l'instance locale po-2023** (sert le catalogue + le fallback local quand le forward relais échoue) : ajout `local-coding` → `vllm-myia@qwen3.6-35b-a3b` et `local-fast` → `vllm-myia@qwen3.6-35b-a3b` dans `routing` (backup `config.json.bak-alias-local-20260913-085642`), `docker restart claudish-proxy` (opération routinière — le watchdog la pratique chaque nuit). Catalogue local : 23 modèles, 2 alias annoncés.
+2. **Divergences vs plan initial :**
+   - `local-fast` → `qwen3-32b` **impossible** : `qwen3-32b` n'existe plus dans aucun catalogue (hub 21 modèles, sondé 13/09). Aliased vers le seul modèle local ; retarget = 1 ligne quand un modèle local « rapide » existera.
+   - `claude-haiku-local` **REJETÉ** : tout nom `claude-*` est capturé par le mappage de rôle du hub (empirique : requête `claude-haiku-local` → rôle haiku → `MiniMax-M3` cloud, jamais le vLLM local — le glob défaut `"claude-*"` + ComposedHandler précèdent la résolution d'alias). Un alias annoncé mais routé vers le cloud est exactement la panne silencieuse que cette Epic combat : ne pas créer. Le besoin « haiku Claude Code → local » est une décision de **profil hub** (rôle haiku), pas un alias.
+3. **Reste à faire — même runbook sur le hub autoritaire po-2025** (lane po-2025) : backup `~/.claudish/config.json` → ajouter `local-coding`/`local-fast` dans `routing` vers l'endpoint vLLM local **tel que nommé dans SA config** (vérifier le nom du customEndpoint, pas recopier `vllm-myia` aveuglément) → `docker restart` de son conteneur claudish → vérifier end-to-end : `/v1/models` sur `192.168.0.46:3000` annonce les 2 alias **ET** complétion 200 à travers `192.168.0.46:3000` (pas seulement en direct sur `.50`).
+4. **Critère de gate (vague 1) :** `local-coding` + `local-fast` — annoncés dans `/v1/models` **et** complétion 200 end-to-end via `192.168.0.46:3000`. `local-embed` reste gelé (étape 2 point 3). `claude-haiku-local` retiré (cf. point 2).
 
 ### Étape 2 — Bascule SDK OpenAI roo-state-manager (1 PR submod, ~1h)
 

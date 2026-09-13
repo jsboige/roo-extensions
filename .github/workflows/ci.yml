@@ -235,6 +235,17 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-args-single-source.ps1
 
+      # start-meta-audit.ps1 hardcoded RooCode when building its step-1 trace collection:
+      # on a migrated host (Zoo active, roo-cline an empty shell -- the probe rationale in
+      # scripts/common/extension-paths.ps1) the meta-analyst was pointed at the wrong tasks/.
+      # Dynamic where the sibling metaaudit harnesses are static: executes the selection
+      # statements and $Prompt here-string extracted from the production AST under fixture
+      # %APPDATA% roots (temp dir), across the four Get-ActiveExtension probe cases
+      # (roo-only/zoo-only/both/neither). No real host state, no spawn, no schtask.
+      - name: Run meta-audit active-extension harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-metaaudit-active-extension.ps1
+
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
   # (deploy-modes: its target was archived 2025-12; worktree-husk: retry

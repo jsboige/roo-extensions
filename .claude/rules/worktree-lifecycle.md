@@ -17,7 +17,7 @@
 2. **Le contenu est supplanté → suppression propre**, preuves d'abord : `git worktree remove`, puis la branche **séparément**, puis `git worktree prune`. L'état de livraison se lit dans `gh pr view --json state` — jamais dans l'ascendance (piège ci-dessous). La preuve porte la sécurité, pas le flag :
    - `state=MERGED` lu → `git branch -D` ;
    - branche jamais poussée et sans valeur → `git branch -d` ;
-   - **`-d` après squash-merge refusera toujours** (« not fully merged ») : c'est l'ascendance qu'il vérifie.
+   - **`-d` ne refuse PAS systématiquement après un squash-merge.** Son critère est « contenue dans HEAD **ou** dans son upstream de suivi » : une branche poussée sur `origin` avant le squash y est contenue par construction, donc `-d` la supprime. Il ne refuse que la branche qui n'est **ni** dans HEAD **ni** poussée. Corollaire : l'échec de `-d` n'est pas un filet de sécurité — la preuve de livraison reste `gh pr view --json state`.
 3. **Doute réel → arbitrage humain.** Le doute n'est pas une raison de laisser traîner, c'est une raison de demander.
 
 ## Le piège qui rend cette règle nécessaire
