@@ -269,6 +269,74 @@ function Invoke-RsmAppend {
     }
 }
 
+# ---------- verification par relecture (maillon 3, mesure 13/09) ----------
+# Un append qui epuise son timeout a PU etre livre : WRITE-FIRST ecrit le
+# message sur disque AVANT la condensation, et la condensation peut durer
+# 132 s (mesure 13/09 09:31Z : append 146 s totales dont ecriture 7,5 s).
+# La non-livraison n'est donc prouvee que par la RELECTURE — la meme
+# medecine que la regle intercom impose aux agents. Sans elle, un dispatch
+# livre etait enregistre ECHOUE (13/09 08:57:54Z timeout 151 s alors que le
+# message etait sur le dashboard a 08:56:10Z) : repli local heurtant le lock
+# du run parti de CE message (exit 75), puis grain garde en file et
+# re-dispatche au tick suivant = run double paye sur le budget Vibe.
+# Le marqueur est l'ID du message ($noteId : machine + grain + minute), PAS
+# le contenu : un grain garde apres exit 75 est re-poste au tick suivant avec
+# un contenu byte-identique — matcher sur le contenu confondrait le message
+# du tick precedent avec celui-ci (faux positif = grain consomme sans run).
+function Test-WakeDelivered {
+    param([string]$Marker, [string]$Workspace = 'CoursIA', [int]$TimeoutSec = 60)
+    if (-not $Marker -or -not (Test-Path $wrapperPath)) { return $false }
+    $readReq = @{ jsonrpc = '2.0'; id = 7; method = 'tools/call'
+        params = @{ name = 'roosync_dashboard'; arguments = @{
+            action = 'read'; type = 'workspace'; workspace = $Workspace
+            section = 'intercom'; intercomLimit = 12 } } } | ConvertTo-Json -Depth 6 -Compress
+
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = 'node'
+    $psi.Arguments = "`"$wrapperPath`""
+    $psi.WorkingDirectory = $repoRoot
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $false
+
+    $proc = $null
+    try {
+        $proc = [System.Diagnostics.Process]::Start($psi)
+        $proc.StandardInput.WriteLine('{"jsonrpc":"2.0","method":"initialize","id":1,"params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"vibe-feeder","version":"1.0"}}}')
+        $proc.StandardInput.WriteLine('{"jsonrpc":"2.0","method":"notifications/initialized"}')
+        $proc.StandardInput.WriteLine($readReq)
+        $proc.StandardInput.Flush()
+
+        $deadline = (Get-Date).AddSeconds($TimeoutSec)
+        $readTask = $proc.StandardOutput.ReadLineAsync()
+        while ((Get-Date) -lt $deadline) {
+            if (-not $readTask.Wait(1000)) { continue }
+            $line = $readTask.Result
+            if ($null -eq $line) { break }
+            if ($line -match '"id"\s*:\s*7') {
+                if ($line.Contains($Marker)) {
+                    Write-FeederLog -Level 'INFO' -Text ("relecture intercom: marqueur retrouve (message livre)")
+                    return $true
+                }
+                Write-FeederLog -Level 'INFO' -Text ("relecture intercom: marqueur ABSENT (reponse lue, message non livre)")
+                return $false
+            }
+            $readTask = $proc.StandardOutput.ReadLineAsync()
+        }
+        # Read sans reponse dans le delai : store injoignable — indetermine,
+        # rendu comme non-livre (le repli local reste le filet de securite).
+        return $false
+    } catch {
+        Write-FeederLog -Level 'ERROR' -Text "relecture stdio erreur: $($_.Exception.Message)"
+        return $false
+    } finally {
+        if ($proc -and -not $proc.HasExited) { try { $proc.Kill() } catch { } }
+        if ($proc) { $proc.Dispose() }
+    }
+}
+
 # ---------- re-mesure de la file (organe refresh-vibe-queue.py, #3609) ----------
 # Appele quand la file est vide ou integralement SKIP : re-scan du corpus a
 # l'origin/main courant (l'organe fait son propre fetch) + re-decoupe aux
@@ -377,15 +445,34 @@ for ($pass = 1; $pass -le 2; $pass++) {
             # DriveFS qui decroche arretait donc la lane alors que la file, le grain
             # et le worker sont tous LOCAUX. Mesure 2026-09-12 : G: demonte, post en
             # timeout a 151 s pour TimeoutSec=150, 0 run pendant 13 h.
-            # Discriminant : un post qui epuise son timeout n'a recu AUCUNE reponse —
-            # le store partage est injoignable et le message n'a pas pu aboutir. Un
-            # echec RAPIDE (rejet de schema, wrapper absent) garde au contraire la
-            # doctrine write-first : ne pas spawner, relire avant retry.
+            # Discriminant (revu 13/09, maillon 3) : un post qui epuise son timeout
+            # n'a recu aucune reponse, mais le message a PU etre livre (WRITE-FIRST
+            # ecrit avant la condensation, qui peut durer 132 s) — d'ou la relecture
+            # ci-dessous. Le repli local ne se declenche que si la relecture ne
+            # trouve PAS le message. Un echec RAPIDE (rejet de schema, wrapper
+            # absent) garde au contraire la doctrine write-first : ne pas spawner,
+            # relire avant retry.
             $elapsed = ((Get-Date) - $postStarted).TotalSeconds
             $wrapperMissing = -not (Test-Path $wrapperPath)
             if ($elapsed -ge ($TimeoutSec - 5) -or $wrapperMissing) {
                 $trigger = if ($wrapperMissing) { 'wrapper absent' } else { ("timeout {0:N0}s" -f $elapsed) }
-                Write-FeederLog -Level 'WARN' -Text ("post [WAKE-VIBE] impossible ({0}) — store/outillage cloud injoignable, repli sur spawn LOCAL du worker" -f $trigger)
+                # Maillon 3 : le timeout n'est pas une preuve de non-livraison
+                # (WRITE-FIRST + condensation longue, mesure 13/09). Relire
+                # l'intercom AVANT de replier : si le message y figure, le
+                # dispatch a abouti — le repli local ne ferait que se heurter
+                # au lock du run parti de CE message (exit 75, 13/09 08:57:58Z),
+                # et le grain garde en file serait re-dispatche au tick suivant.
+                if (-not $wrapperMissing) {
+                    if (Test-WakeDelivered -Marker $noteId -Workspace $appendArgs.workspace -TimeoutSec 60) {
+                        Write-FeederLog -Level 'INFO' -Text ("post en fait LIVRE malgre {0} (relecture write-first) — grain {1} consomme, pas de repli" -f $trigger, $g.id)
+                        $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+                        $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+                        Write-Queue -Queue $outObj
+                        Write-FeederLog -Level 'INFO' -Text ("file mise a jour (post livre malgre timeout): {0} grain(s) restant(s)" -f $remaining.Count)
+                        exit 0
+                    }
+                }
+                Write-FeederLog -Level 'WARN' -Text ("post [WAKE-VIBE] impossible ({0}) — relecture sans trace du message, repli sur spawn LOCAL du worker" -f $trigger)
                 $payloadFile = Join-Path $env:TEMP ("vibe-feeder-payload-{0}.json" -f $g.id)
                 $payloadObj = [pscustomobject]@{
                     timestamp = (Get-Date).ToUniversalTime().ToString('o')

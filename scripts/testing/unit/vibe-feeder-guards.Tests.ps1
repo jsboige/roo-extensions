@@ -306,4 +306,59 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($content -match 'foreach \(\$attempt in 1\.\.2\)') | Should -Be $true
         }
     }
+
+    Context "C5 : un timeout de post n'est pas une preuve de non-livraison (maillon 3, mesure 13/09)" {
+
+        # WRITE-FIRST ecrit le message AVANT la condensation, qui peut durer
+        # 132 s (13/09 09:31Z : append 146 s dont ecriture 7,5 s). Un post
+        # livre etait donc enregistre ECHOUE (13/09 08:57:54Z timeout 151 s,
+        # message visible des 08:56:10Z) : repli local heurtant le lock du run
+        # parti de CE message (exit 75), grain garde, re-dispatch au tick
+        # suivant = run double paye. Ces contrats verifient que la relecture
+        # tranche AVANT tout repli.
+
+        It "possede une fonction de verification par relecture" {
+            ($content -match 'function Test-WakeDelivered') | Should -Be $true
+        }
+
+        It "la relecture lit l'intercom du meme dashboard que le post" {
+            # Un read sur une autre section/canal ne pourrait jamais y voir
+            # le message qui vient d'etre poste.
+            ($content -match "section = 'intercom'; intercomLimit = 12") | Should -Be $true
+        }
+
+        It "le marqueur est l'ID du message, pas le contenu" {
+            # Un grain garde apres exit 75 est re-poste au tick suivant avec
+            # un contenu byte-identique : matcher sur le contenu confondrait
+            # le message du tick precedent avec celui-ci (faux positif =
+            # grain consomme sans run). $noteId = machine + grain + minute.
+            ($content -match 'Test-WakeDelivered -Marker \$noteId') | Should -Be $true
+            ($content -match '\$marker = "\[WAKE-VIBE\] \$payload"') | Should -Be $false
+        }
+
+        It "la relecture precede le repli local (WARN puis spawn)" {
+            $iVerify = $content.IndexOf('Test-WakeDelivered -Marker $noteId')
+            $iWarn   = $content.IndexOf('repli sur spawn LOCAL')
+            $iSpawn  = $content.IndexOf('& $psHost -File $vibeWorkerScript')
+            $iVerify | Should -BeGreaterThan 0
+            $iWarn   | Should -BeGreaterThan $iVerify
+            $iSpawn  | Should -BeGreaterThan $iWarn
+        }
+
+        It "la relecture exige le wrapper present" {
+            # Sans wrapper, la relecture stdio est impossible : passer
+            # directement au repli au lieu d'un faux verdict.
+            ($content -match 'if \(-not \$wrapperMissing\) \{\s*\r?\n\s*if \(Test-WakeDelivered') | Should -Be $true
+        }
+
+        It "la branche livre consomme le grain SANS spawner" {
+            # Si le message est livre : ecrire la file et sortir. Le spawn
+            # local serait un double-run (le listener part du message poste).
+            $delivered = [regex]::Match($content, '(?s)if \(Test-WakeDelivered.*?exit 0').Value
+            $delivered | Should -Not -BeNullOrEmpty
+            ($delivered -match 'Write-Queue -Queue \$outObj') | Should -Be $true
+            ($delivered -match '\$grains \| Where-Object \{ \$_\.id -ne \$g\.id \}') | Should -Be $true
+            ($delivered -match '\$psHost -File') | Should -Be $false
+        }
+    }
 }
