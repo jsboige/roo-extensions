@@ -130,14 +130,20 @@ def resolve_session_cwd(cli_cwd: str, prompt_text: str) -> str:
     330 s, no error, no notification, no reply. The driver's 30 s budget turned
     that into SESSION_NEW_FAILED:null and the lane lost every run for 13 h.
 
-    The grain payload carries the worktree on a stable line (`worktree: <path>`,
-    written by vibe-feeder.ps1 from the queue grain), which is 12k entries for
-    the same repository — session/new answers in 3.5 s. Falling back to cli_cwd
-    when the line is absent or the path does not exist keeps manual runs
-    (`--prompt`, `--cwd`) working exactly as before.
+    The grain payload carries the worktree on a stable line (`worktree: <path>`),
+    emitted by the queue template in refresh-vibe-queue.py (#3609) — 12k entries
+    for the same repository, and session/new answers in 3.5 s. The feeder relays
+    the payload verbatim: it does not inject the line, so the coverage of this
+    resolution is exactly the grains cut by that organ. A historical or
+    hand-written grain without the line falls back to cli_cwd (and the workspace
+    walk above). Falling back when the line is absent or the path does not exist
+    keeps manual runs (`--prompt`, `--cwd`) working exactly as before.
     """
     for line in prompt_text.splitlines():
-        m = re.match(r"\s*(?:worktree|cwd)\s*:\s*(\S+)", line, re.IGNORECASE)
+        # One contract: `worktree:`. No producer in the repo emits a `cwd:` line
+        # in a payload, and accepting one made any grain prose line that looks
+        # like `cwd: <existing dir>` a silent session redirect.
+        m = re.match(r"\s*worktree\s*:\s*(\S+)", line, re.IGNORECASE)
         if not m:
             continue
         candidate = m.group(1).strip().strip("\"'")
