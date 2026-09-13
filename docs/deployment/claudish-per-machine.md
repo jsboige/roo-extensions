@@ -5,7 +5,11 @@
 
 ## Base Config
 
-All machines share `docs/deployment/claudish-fleet-config.json` as the base `~/.claudish/config.json`.
+> ⚠ **Superseded — this document is a 2026-05-14 plan, kept for history.** The profile names, providers and API keys below (free-tier gemini/groq/cerebras, `coordinator`, `GEMINI_API_KEY`…) are not what the fleet runs.
+>
+> `docs/deployment/claudish-fleet-config.json` is a snapshot of the same date (its only commit: `74371eb83`, 2026-05-14) and is **not** the live source. Measured on po-203, 2026-09-13: the live `~/.claudish/config.json` carries entirely different profiles (`default`, `ai-01`), a different `defaultProfile`, a different `routing` table, and provider keys this repo file does not hold. **Do not `cp` the snapshot over a live config** — it would replace a working configuration with a four-month-old one whose pins (`glm-4.7`, `anthropic@claude-opus-4-7`, `anthropic@claude-sonnet-4-6`) no longer resolve.
+>
+> The per-machine live config is the authority. Re-establishing a shared fleet config is open work, and it starts by reading each machine's current `~/.claudish/config.json` — a fleet-affecting change needs a measured per-consumer artifact before it is called done.
 
 ## Per-Machine Overrides
 
@@ -97,11 +101,16 @@ npm install -g claudish
 claudish --version  # Verify
 ```
 
-### 2. Deploy base config
+### 2. ~~Deploy base config~~ — retired, do not run
+
+The copy below **overwrites a machine's working config with a 2026-05-14 snapshot**. It is kept only so the old procedure is recognisable:
 
 ```bash
-# Copy fleet config to global location
-cp docs/deployment/claudish-fleet-config.json ~/.claudish/config.json
+# RETIRED — would clobber the live config with a stale snapshot
+# cp docs/deployment/claudish-fleet-config.json ~/.claudish/config.json
+
+# What to do instead — read the machine's actual config:
+cat ~/.claudish/config.json
 ```
 
 ### 3. Set API keys
