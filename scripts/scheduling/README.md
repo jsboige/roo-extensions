@@ -177,19 +177,21 @@ Rollout helper behavior:
 
 ### GitHub Issue Selection
 
-Décrit l'état du code après #3081 (`start-claude-worker.ps1` L.638-664, L.819).
+Décrit l'état du code après #3081 puis #3592 (`start-claude-worker.ps1` L.658-682, L.856).
 
 - **Toutes les issues ouvertes sont candidates, pas seulement `roo-schedulable`.** Le worker
   ramasse l'ensemble des issues dispatchées.
 - **Le filtre `no:assignee` est appliqué côté serveur, et il est obligatoire** (#490 / #3081) :
-  `--search 'is:open no:assignee -label:harness-change -label:deferred' --limit 30`. Le `continue`
+  `--search 'is:open no:assignee -label:harness-change -label:deferred -label:epic' --limit 30`. Le `continue`
   côté client sur `assignees.Count -gt 0` reste, mais il ne suffit pas — mesure du 2026-08-11 :
   **80 des 95 issues ouvertes étaient assignées, dont les 40 premières**. Une fenêtre de 30 filtrée
   seulement côté client rendait donc **zéro candidat**, et affamait les deux flottes en silence.
-- Les labels `harness-change` et `deferred` sont exclus côté serveur.
+- Les labels `harness-change`, `deferred` et `epic` sont exclus côté serveur. `epic` depuis #3592 :
+  une epic est un conteneur, pas un work item, et **aucun filtrage aval ne la rattrape** — contrairement
+  à `needs-approval`, laissé au filtre client (L.696) pour ne pas dupliquer la règle à deux endroits.
 - Les issues avec `Agent: Roo` (explicitement, sans Both/Any) sont ignorées.
 - Les issues verrouillées par un commentaire récent — motifs `LOCK:`, `[CLAIMED]` ou `Claimed by` —
-  sont ignorées pendant **30 minutes** (L.819), pas 5.
+  sont ignorées pendant **30 minutes** (L.856), pas 5.
 - Le worker claim l'issue (assignee = verrou atomique + commentaire de traçabilité, double-check
   après 5 s pour la course) avant exécution.
 
