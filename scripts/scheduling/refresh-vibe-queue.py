@@ -44,23 +44,36 @@ worktree: {worktree}
 branch: {branch}
 
 Mission : faire passer CHAQUE fichier de targetPath a 0 finding de
-`python scripts/notebook_tools/scan_md_table_syntax.py --check <fichier>`.
+`python scripts/notebook_tools/scan_md_table_syntax.py --check <fichier>`,
+ou a un NOOP justifie (voir plus bas). Un NOOP justifie est une REUSSITE,
+pas un echec de grain.
 Recettes par pathologie (n'appliquer que celle detectee sur la ligne visee) :
 - ORPHAN_TABLE_ROW : re-declarer le header + separateur REELS avant la ligne pipe orpheline (ne deplacer aucune ligne, ne pas inventer de colonne).
 - COL_MISMATCH ou CODE_SPAN_PIPE : echapper le `|` nu en `\\|` dans la cellule (dans un code span inline : `\\|` aussi).
 - MATH_SPAN_PIPE : remplacer le `|` par `\\mid` (condition / such-that, ex. p(a|s)) ou `\\vert` (valeur absolue). TOUJOURS espacer l'operateur : `a \\mid b`, `\\vert x \\vert`. Ne jamais coller une commande LaTeX a la lettre suivante : elle l'absorbe et la commande devient non definie.
 - NO_BLANK_BEFORE / NO_BLANK_AFTER : inserer UNE ligne vide avant / apres la table.
 
-FAUX POSITIFS connus : navigation `[Precedent](...) | [Suivant](...)`, metadonnees
-`**Duree estimee** : ... | **Prerequis** : ...`, manifests et archives. NE PAS
-fabriquer de header pour ces cas : les signaler dans le rapport et passer.
+FAUX POSITIFS connus, mesures : (1) span mathematique `$...$` pontant le `|`
+separateur de cellules (ex. `Input ($/1M tokens) | Output ($/1M tokens)`) ;
+(2) `||` logique JavaScript dans une fence de code ; (3) `|` en prose
+(ex. `pi*(y|x)`, navigation `[Precedent](...) | [Suivant](...)`, metadonnees
+`**Duree estimee** : ... | **Prerequis** : ...`) ; (4) boites ASCII a traits
+verticaux, manifests et archives. Ces cas NE SONT PAS du travail : ne rien
+reecrire, les citer en une ligne dans le rapport et passer.
+
+NOOP JUSTIFIE : fichier INCHANGE, finding cite (pathologie + ligne), motif en
+une ligne. C'est une REUSSITE, pas un echec de grain. La liste ci-dessus n'est
+pas exhaustive -- c'est le NOOP qui protege, elle ne fait qu'epargner des cycles.
+
+PRIORITE EN CAS DE CONFLIT : si respecter "aucune prose reecrite, aucun mot
+change" empeche d'atteindre 0 finding, c'est "aucun mot change" qui GAGNE.
 
 Notebooks : modifier UNIQUEMENT la source markdown des cellules concernees. Cellules code, outputs, execution_count et metadata byte-identiques (aucune re-serialisation generale). Aucune prose reecrite, aucun mot change. Ne jamais couper dans un chemin, lien markdown ou jeton.
 
 INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
 N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
 
-CHECKPOINT-COMMIT obligatoire, puis rapport : scan avant/apres par fichier (0 attendu), git status, liste des fichiers touches."""
+CHECKPOINT-COMMIT obligatoire, puis rapport : scan avant/apres par fichier (0 attendu), NOOP justifies (fichier + finding + motif), git status, liste des fichiers touches."""
 
 
 def sh(cmd, cwd=None, check=True):
