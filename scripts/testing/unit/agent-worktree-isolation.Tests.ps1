@@ -345,13 +345,42 @@ Describe "Issue #3345 — Agent worktree isolation" {
             # we exclude it from the scan. Investigation docs under
             # docs/harness/investigations/ quote the upstream message as
             # narrative evidence — they are artefacts, not production source.)
-            $hits = Get-ChildItem -Path $script:projectRoot -Recurse -File -Include '*.ts','*.ps1','*.js','*.sh','*.md' |
+            # Enumeration is `git ls-files` (tracked files), not a filesystem
+            # walk: the guard's target is production source, and a walk is
+            # unbounded by debris. Measured on myia-ai-01 (2026-09-13): the
+            # main checkout held 34 leftover `agent-*` worktrees (62,037 files)
+            # plus ~40k node_modules files — >100k files walked for one
+            # assertion, and the walk does not stop at the filter. Tracked
+            # ts/ps1/js/sh/md files at the same commit: 1,305.
+            # [System.IO.Path]::GetRelativePath is .NET Core 2.0+: absent from the
+            # .NET Framework 4.8 runtime of Windows PowerShell 5.1, where it throws
+            # MethodNotFound and reddens this guard for a reason unrelated to what
+            # it asserts — invisibly to CI, which runs pwsh. The prefix is known by
+            # construction (this file lives under $projectRoot), so Substring does.
+            # Select-String binds a [string] pipeline to -InputObject, not to
+            # -LiteralPath: piped paths make it search the path TEXT, never
+            # opening a file, so the guard returns 0 for every input. Only
+            # FileInfo (whose PSPath NoteProperty binds by name) reads files.
+            # Measured 2026-09-13 on 5.1 AND pwsh 7: piped strings find 0 of the
+            # 2 files that hold the pattern and miss a planted violation;
+            # -LiteralPath over the array finds both, in 102 ms — faster than
+            # re-hydrating FileInfo via Get-Item (330 ms), so the enumeration
+            # win that motivates this change is preserved.
+            # core.quotePath=false is load-bearing, not cosmetic: git otherwise
+            # wraps any non-ASCII path in literal double quotes with octal
+            # escapes (this repo has one, under docs/architecture/archive/
+            # planning/). That string is not a usable path — 5.1 throws
+            # ArgumentException and the whole call yields nothing, which would
+            # reintroduce the very same silent zero.
+            $selfRel = $PSCommandPath.Substring($script:projectRoot.Length).TrimStart('\', '/') -replace '\\', '/'
+            $tracked = @(git -C $script:projectRoot -c core.quotePath=false ls-files -- ':(glob)**/*.ts' ':(glob)**/*.ps1' ':(glob)**/*.js' ':(glob)**/*.sh' ':(glob)**/*.md') |
                 Where-Object {
-                    $_.FullName -ne $PSCommandPath -and
-                    $_.FullName -notmatch '[\\/]docs[\\/]harness[\\/]investigations[\\/]'
+                    $_ -ne '' -and
+                    $_ -ne $selfRel -and
+                    $_ -notmatch '^docs/harness/investigations/'
                 } |
-                Select-String -Pattern "Refusing to use" -List |
-                Measure-Object
+                ForEach-Object { Join-Path $script:projectRoot $_ }
+            $hits = @(Select-String -LiteralPath $tracked -Pattern "Refusing to use" -List)
             $hits.Count | Should -Be 0
         }
     }
