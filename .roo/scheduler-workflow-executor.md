@@ -199,7 +199,7 @@ INTERDIT : --coverage ou vitest sans '2>&1 | Select-Object -Last 30'.
 **Etape A — Lister les issues ouvertes ET PRENABLES :**
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred' --limit 40 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:claude-only -label:needs-approval -label:harness-change -label:deferred -label:epic' --limit 40 --json number,title,labels")
 ```
 
 > ⚠️ **Ces filtres sont OBLIGATOIRES, ne pas revenir a `--state open` seul.** Ils garantissent
@@ -221,6 +221,16 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 >   Ces filtres n'existaient pas tant que la fenetre etait saturee — ils deviennent necessaires
 >   maintenant qu'elle rend enfin des candidates. Au 2026-08-11 : la fenetre passe de 6 a 5, la seule
 >   retiree etant #1684 (`harness-change` + `deferred`).
+> - **`-label:epic`** — une epic est un **conteneur**, pas un work item : la prendre revient a claimer
+>   un sommaire, et le verrou `assignee` pose dessus bloque toutes ses sous-taches.
+>   ⚠️ **Ce filtre ne corrige rien aujourd'hui, et c'est precisement pourquoi il faut l'ecrire.**
+>   Mesure du 2026-09-13 : **16 epics OPEN, les 16 non assignees**, mais **0** atteint cette requete
+>   — parce que **les 16 portent `claude-only`**, deja exclu ci-dessus. L'exclusion des epics repose
+>   donc sur une **coincidence d'etiquetage** (les epics du depot se trouvent etre Claude), pas sur
+>   une regle : la premiere epic ouverte sans `claude-only` tombe directement dans ce vivier. Le
+>   filtre rend l'invariant independant de cette coincidence. Meme terme, meme motif que
+>   `start-claude-worker.ps1` l.681 (#3592 — ou l'exposition etait, elle, bien reelle : **13 epics**
+>   passaient cette forme de requete) et que `/executor` SKILL.md l.99.
 
 **Etape B — Selectionner une issue (priorité) :**
 

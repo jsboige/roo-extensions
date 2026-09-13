@@ -229,7 +229,7 @@ execute_command(shell="powershell", command="(Get-ChildItem 'G:/Mon Drive/Synchr
 > ⚠️ **LIMITE OBLIGATOIRE** : Traiter **MAXIMUM 5 issues** par cycle. Au-delà, le volume d'appels d'outils explose le contexte (80-200 messages, saturation GLM).
 
 ```
-execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee' --limit 5 --json number,title,labels")
+execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-extensions --search 'is:open no:assignee -label:epic' --limit 5 --json number,title,labels")
 ```
 
 **Note :** `--limit 5` remplace l'ancien `--limit 40`. Le round-robin se fait sur plusieurs cycles, pas dans un seul.
@@ -239,6 +239,20 @@ execute_command(shell="powershell", command="gh issue list --repo jsboige/roo-ex
 > se remplit d'issues deja verrouillees et le cycle dispatche zero — le round-robin n'y change rien,
 > il repasse sur les memes. Mesure du 2026-08-11 : 80 des 95 ouvertes verrouillees, dont **les 5
 > premieres de l'ordre par defaut**.
+
+> ⚠️ **`-label:epic` OBLIGATOIRE, et il n'est PAS redondant avec la regle 5a ci-dessous.** La regle 5a
+> filtre `needs-approval` cote client ; elle ne filtre **rien** sur les epics. Une epic est un
+> **conteneur**, pas une unite de travail : la dispatcher envoie une machine implementer un sommaire,
+> et le verrou pose dessus bloque ses sous-taches.
+>
+> C'est ici que le risque est le plus fort de tout le harnais, a cause du `--limit 5` : mesure du
+> 2026-09-13, **16 epics OPEN, les 16 non assignees, et les 16 atteignent cette requete** — cette
+> ligne ne porte aucune exclusion. De quoi saturer entierement une fenetre de 5 et dispatcher zero
+> work item reel, cycle apres cycle, sans qu'aucun signal ne le dise.
+>
+> Meme terme et meme motif que `start-claude-worker.ps1` l.681 (#3592) et que `/executor`
+> SKILL.md l.99, qui excluent `epic` du vivier actionnable. Ce fichier etait le dernier chemin de
+> dispatch a ne pas s'y conformer.
 
 **5. Dispatcher les issues (max 5)**
 
