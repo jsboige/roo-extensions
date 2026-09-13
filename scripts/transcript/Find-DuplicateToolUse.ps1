@@ -72,6 +72,11 @@
     audit report.
 
 .NOTES
+    Exit codes:
+      0  the requested transcript(s) were read and the report is complete.
+      2  at least one requested path was unreadable — no verdict is emitted.
+         A negative control that read nothing must not look like a clean scan.
+
     Issue #3276
     Requires PowerShell 5.1+ (no external dependencies).
 #>
@@ -300,7 +305,13 @@ function Find-DuplicateClusters {
 # --- main ---
 
 $allClusters = @()
+$unreadable = @()
 foreach ($filePath in $Path) {
+    if (-not (Test-Path -LiteralPath $filePath)) {
+        Write-Warning "Transcript file not found: $filePath"
+        $unreadable += $filePath
+        continue
+    }
     $messages = Get-TranscriptLines -FilePath $filePath
     $filtered = @()
     foreach ($m in $messages) {
@@ -321,6 +332,19 @@ foreach ($filePath in $Path) {
             Cwd = $c.Cwd
         }
     }
+}
+
+# --- input contract (issue #3276) ---
+
+# A negative control that never read its input is not a clean transcript. Refuse
+# to emit any verdict when a requested path is unreadable, rather than falling
+# through to the same green "No duplicate tool_use clusters detected." and exit 0
+# as a genuinely clean scan. The Python sibling
+# (scripts/diagnostic/scan-duplicate-tool-use.py) already exits 1 on an
+# unresolvable target; this keeps the two instruments consistent.
+if ($unreadable.Count -gt 0) {
+    Write-Warning "Refusing to report a verdict: $($unreadable.Count)/$($Path.Count) requested transcript path(s) unreadable."
+    exit 2
 }
 
 switch ($OutputFormat) {
