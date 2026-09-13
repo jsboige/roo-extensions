@@ -396,9 +396,20 @@ def main() -> int:
         "jsonrpc": "2.0", "id": 2, "method": "session/new",
         "params": {"cwd": session_cwd, "mcpServers": []},
     })
-    sess, _ = recv_response(2, 30)
+    # 90 s, not 30: session/new BLOCKS on the session's MCP servers starting up.
+    # Measured 2026-09-13 23:00Z on this lane: initialize answered in 2.0 s, but
+    # session/new took 22.4 s, and the session then reported
+    #   "MCP servers failed to connect: playwright: ExceptionGroup;
+    #    searxng: Timed out while waiting for response to ClientRequest (15.0 s)"
+    # At 30 s the answer sat inside the noise of that startup: one run died with
+    # SESSION_NEW_FAILED:null (no reply at all), which is indistinguishable from
+    # the workspace-walk hang the 30 s budget was originally written for.
+    sess, _ = recv_response(2, 90)
     if not sess or "result" not in sess:
-        print(f"SESSION_NEW_FAILED: {json.dumps(sess)[:400]}", file=sys.stderr)
+        detail = "no reply within budget" if sess is None else json.dumps(sess)[:400]
+        print(f"SESSION_NEW_FAILED: {detail}", file=sys.stderr)
+        for line in stderr_tail:
+            print(f"stderr: {line[:200]}", file=sys.stderr)
         proc.kill()
         return 3
     session_id = sess["result"].get("sessionId", "?")
