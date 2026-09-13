@@ -176,9 +176,23 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
 **Vérifier les labels disponibles :** `gh label list --repo jsboige/roo-extensions`
 
+### ⚠️ Quota GraphQL : ne pas croire le REST `GET /rate_limit`
+
+Le REST `.resources.graphql` rend **5000/0 en toutes circonstances** pour ce compte — y compris quand
+le quota GraphQL réel est épuisé (le champ `reset` y est roulant, `now + 3600`, pas la fenêtre ancrée
+qui sert les requêtes). Conséquence : `gh pr view`, `gh issue view` et les `search` (chemins GraphQL)
+échouent d'un bloc sur « API rate limit already exceeded » **pendant que le REST annonce 5000/5000**.
+
+- Ne jamais conclure « quota plein / réessayer » sur un échec GraphQL sans vérifier **le compte
+  réellement utilisé** (l'erreur ne nomme que l'id numérique).
+- Contournements : routes REST (`gh api repos/O/R/issues/N`, `.../pulls/N`) et `GH_TOKEN` explicite.
+
+Détail, mesures firsthand et mécanisme : [`github-rate-limit-instrument.md`](github-rate-limit-instrument.md) (#3623).
+
 ## Référence
 
 - Issue #368 : Migration gh CLI
 - Issue #706 : Fix fichiers temporaires workspace (2026-03-14)
 - Issue #830 : Documentation labels GitHub (2026-03-24)
+- Issue #3623 : Instrument de mesure trompeur `GET /rate_limit` vs quota GraphQL (2026-09-13)
 - Documentation : https://cli.github.com/manual/
