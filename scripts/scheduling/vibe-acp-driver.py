@@ -396,9 +396,29 @@ def main() -> int:
         "jsonrpc": "2.0", "id": 2, "method": "session/new",
         "params": {"cwd": session_cwd, "mcpServers": []},
     })
-    sess, _ = recv_response(2, 30)
+    # 90 s, not 30: session/new BLOCKS on the session's MCP servers starting up.
+    #
+    # Two distinct events the same night (13/09) -- they are not one measurement:
+    #  - probe run, 23:00Z, cwd = the grain worktree: initialize answered in 2.0 s,
+    #    session/new in 22.4 s (75 % of the old 30 s budget), then the session
+    #    reported "MCP servers failed to connect: playwright: ExceptionGroup;
+    #    searxng: Timed out while waiting for response to ClientRequest (15.0 s)".
+    #    That run DID answer: it measures the latency the budget must absorb, it
+    #    does not prove 30 s insufficient.
+    #  - the scheduled run of the same night: SESSION_NEW_FAILED:null, no reply at
+    #    all, and no session/new duration measured for it -- so 30 s is not proven
+    #    to be its cause. What is established is that "no reply" and "too slow"
+    #    share one signature here, which is exactly why the failure path below now
+    #    prints the notifications and the server's stderr. The raise buys headroom
+    #    over the 22.4 s measured; it does not claim a diagnosis it never had.
+    sess, notifications = recv_response(2, 90)
     if not sess or "result" not in sess:
-        print(f"SESSION_NEW_FAILED: {json.dumps(sess)[:400]}", file=sys.stderr)
+        detail = "no reply within budget" if sess is None else json.dumps(sess)[:400]
+        print(f"SESSION_NEW_FAILED: {detail}", file=sys.stderr)
+        for _ts, msg in notifications:
+            print(f"notify: {json.dumps(msg)[:300]}", file=sys.stderr)
+        for line in list(stderr_tail):
+            print(f"stderr: {line[:200]}", file=sys.stderr)
         proc.kill()
         return 3
     session_id = sess["result"].get("sessionId", "?")
