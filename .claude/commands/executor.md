@@ -83,7 +83,10 @@ Puis (en parallele) :
    - **Référence :** `.claude/rules/intercom-protocol.md` — Section "Dialogue Bidirectionnel (#657)"
    - **FALLBACK :** Si le MCP dashboard echoue (GDrive offline), utiliser `.claude/local/INTERCOM-{MACHINE}.md` comme fichier local de LAST RESORT.
 3. **Bookend SDDD** : `codebase_search(query: "etat courant taches en cours", workspace: "d:\\roo-extensions")` + `conversation_browser(action: "current")`
-4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 15`
+4. **GitHub Issues** : `gh issue list --repo jsboige/roo-extensions --state open --limit 100 --json number,title,labels`
+   - ⚠️ **`--limit 100`, jamais 15** (bug #2509) : `--limit 15` rend les **15 issues les PLUS RECENTES**, pas un echantillon representatif. Si ces 15 sont toutes `needs-approval`/meta, tu conclus « pool draine » alors que des dizaines d'actionnables existent plus bas. Le backlog reel tourne autour de 80-90 ouvertes.
+   - **Filtrage actionnable cote agent, apres recuperation** : exclure `needs-approval`, `deferred`, `blocked-on-gate`, `epic`. Ce chemin filtre **cote agent** et non dans la requete, a dessein — contrairement aux pools autonomes (`start-claude-worker.ps1` l.681, workflows Roo), un executeur interactif doit **voir** qu'une issue est gatee plutot qu'en etre aveugle.
+   - **Source de verite** : `.claude/skills/executor/SKILL.md` l.97-100. Ne pas laisser les deux diverger.
 
 **Verification sceptique des instructions recues :**
 - Si une instruction du coordinateur contient une premisse sur l'infrastructure locale (GPU, RAM, services), la verifier contre CLAUDE.md/MEMORY.md
