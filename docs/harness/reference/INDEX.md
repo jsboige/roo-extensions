@@ -34,6 +34,8 @@
 | **Block-placeholder hook (#3367)** | Garde PreToolUse anti envoi-first (Tier 1) — script canonique + câblage settings par groupe | `block-placeholder-hook.md` |
 | **PDF read guard (#3579)** | Borne les lectures PDF multimodales — 3 budgets distincts (tokens / bytes sérialisés / résultat atomique), procédure text-first, interception PreToolUse VÉRIFIÉE par test reproductible, arbitrage flotte, fenêtre route Sol MESURÉE (900-925k, 12/09) | `pdf-read-guard.md` |
 | **Secret withdrawal procedure (#3584)** | Retrait d'un secret publié sur un dashboard — inventaire des copies (vivant, PG, archives, Qdrant, transit LLM), fenêtres, action `scrub`, rotation | `secret-withdrawal-procedure.md` |
+| **`append` dashboard qui expire** | Mesures du timeout d'`append` : WRITE-FIRST puis condensation attendue, 45,3 s dont 42,3 s de condensation (99,4 % = bloc `## Status`), A/B ~75×, 3 expirés / 1 écrit (02/07). Conduite canonique = `.claude/rules/intercom-protocol.md` (slim) | `intercom-append-timeout.md` |
+| **Garde-fous workflow PR** | Incidents et workflows pas à pas déportés de `pr-mandatory.md` : worktrees imbriqués (#2123, 136k untracked), pointer-bump prématuré (#1799), detached HEAD (#1666 A2), `--body-file` (#2864), économie d'identité APPROVE (#2368) | `pr-workflow-guards.md` |
 | **Bidirectional Trigger** | ⚠️ DEPRECATED — remplace par `.claude/rules/wake-claude-routing.md` (#1955). Historique du trigger bidirectionnel Roo↔Claude | `bidirectional-trigger.md` |
 
 ## Quality & CI
