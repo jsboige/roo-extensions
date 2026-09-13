@@ -37,7 +37,7 @@
 function script:Invoke-PreflightChain {
     param([string]$ScriptPath, [string]$SettingsPath)
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = 'powershell'
+    $psi.FileName = if ($IsWindows -or $ENV:OS -eq 'Windows_NT') { 'powershell' } else { 'pwsh' }
     $psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$ScriptPath`" -Model sonnet -SettingsPath `"$SettingsPath`""
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
@@ -71,7 +71,7 @@ Describe 'provider-preflight fan-out routing contract (#3361 AC#5)' {
         $settings = @{
             model = 'sonnet[1m]'
             env = @{
-                ANTHROPIC_BASE_URL = 'https://models.myia.io'
+                ANTHROPIC_BASE_URL = 'https://preflight-3361.invalid'
                 ANTHROPIC_AUTH_TOKEN = ''
                 ANTHROPIC_DEFAULT_OPUS_MODEL = 'glm-5.2'
                 ANTHROPIC_DEFAULT_SONNET_MODEL = 'glm-5.2'
@@ -182,7 +182,7 @@ Describe 'provider-preflight fan-out routing contract (#3361 AC#5)' {
             $bad = @{
                 model = 'sonnet[1m]'
                 env = @{
-                    ANTHROPIC_BASE_URL = 'https://models.myia.io'
+                    ANTHROPIC_BASE_URL = 'https://preflight-3361.invalid'
                     ANTHROPIC_AUTH_TOKEN = ''
                     # The exact #3361 reported ID: claude-sonnet-5[1m] reaching a hub.
                     ANTHROPIC_DEFAULT_SONNET_MODEL = 'claude-sonnet-5[1m]'
@@ -203,14 +203,11 @@ Describe 'provider-preflight fan-out routing contract (#3361 AC#5)' {
         It 'Preflight detects the #3361 wildcard signature across the four agent types' {
             # The preflight must WARN (never silence) when sonnet resolves to a
             # native-Anthropic ID on an executor machine.
-            $sawWarn = $false
             foreach ($k in @($script:badChains.Keys)) {
                 $output = $script:badChains[$k]
-                if ($output -match 'WARN.*native-Anthropic ID routed via the hub') {
-                    $sawWarn = $true
-                }
+                $output | Should -Match 'WARN.*native-Anthropic ID routed via the hub' `
+                    -Because "agent '$k' must trigger the #3361 wildcard WARN (every fan-out invocation, not just the first)"
             }
-            $sawWarn | Should -BeTrue -Because 'the preflight must warn for every fan-out agent type, not just the first'
         }
     }
 }
