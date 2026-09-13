@@ -910,8 +910,18 @@ function Invoke-ProcessWorkspace($ws) {
     }
 
     if ($exitCode -eq 0) {
-        Set-LastAck $ws $latestTs
-        Write-Log "INFO" "[$ws] Spawn completed. lastAck advanced to $latestTs."
+        # FIFO head, not the batch tail: the spawn above consumed ONLY $triggerMsg
+        # (the OLDEST actionable message). Acking $latestTs — the NEWEST of the
+        # batch — pushes every message between the two under the marker, where the
+        # `$msgTs -le $ackTs` filter above makes them permanently non-actionable:
+        # silent loss, no WARN, no retry. Measured 2026-09-12 on CoursIA: the
+        # coordinator posted 9 [WAKE-VIBE] fournees in 4 min, the listener spawned
+        # for the first, acked the ninth, and 7 grains (13 h of paid lane) were
+        # swallowed. Acking the handled message keeps the rest actionable, which is
+        # exactly what the FIFO comment at $triggerMsg already promises.
+        Set-LastAck $ws $triggerMsg.timestamp
+        $pending = $actionable.Count - 1
+        Write-Log "INFO" "[$ws] Spawn completed. lastAck advanced to $($triggerMsg.timestamp) (FIFO head). $pending other actionable message(s) stay pending for the next trigger."
     } else {
         Write-Log "WARN" "[$ws] Spawn exited with code $exitCode. lastAck NOT advanced."
     }
