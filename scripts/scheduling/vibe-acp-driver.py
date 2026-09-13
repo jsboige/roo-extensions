@@ -234,16 +234,22 @@ def main() -> int:
         proc.stdin.flush()
 
     def fs_resolve(path):
-        """Resolve an agent-supplied path, refusing anything outside --cwd.
+        """Resolve an agent-supplied path, refusing anything outside the session worktree.
 
         The driver runs unattended: an agent asking to read C:/Users/.../.env
         or to write outside the working copy must be refused, not served.
         Declaring the fs capability is not handing over the filesystem.
+
+        The root is `session_cwd` (the grain worktree when the payload names
+        one), not `--cwd`: rooting on `--cwd` served relative paths OUTSIDE the
+        worktree -- silently, in the very tree the payload forbids writing --
+        and refused absolute paths INTO it. Same root as `Popen(cwd=...)` and
+        `session/new`, so "the run operates in the worktree" stays one decision.
         """
-        root = os.path.realpath(args.cwd)
+        root = os.path.realpath(session_cwd)
         full = os.path.realpath(os.path.join(root, path))
         if full != root and not full.startswith(root + os.sep):
-            raise PermissionError(f"path outside --cwd: {path}")
+            raise PermissionError(f"path outside session worktree ({root}): {path}")
         return full
 
     def answer_fs_request(msg, method):
