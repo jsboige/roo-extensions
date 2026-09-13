@@ -352,7 +352,12 @@ Describe "Issue #3345 — Agent worktree isolation" {
             # plus ~40k node_modules files — >100k files walked for one
             # assertion, and the walk does not stop at the filter. Tracked
             # ts/ps1/js/sh/md files at the same commit: 1,305.
-            $selfRel = [System.IO.Path]::GetRelativePath($script:projectRoot, $PSCommandPath) -replace '\\', '/'
+            # [System.IO.Path]::GetRelativePath is .NET Core 2.0+: absent from the
+            # .NET Framework 4.8 runtime of Windows PowerShell 5.1, where it throws
+            # MethodNotFound and reddens this guard for a reason unrelated to what
+            # it asserts — invisibly to CI, which runs pwsh. The prefix is known by
+            # construction (this file lives under $projectRoot), so Substring does.
+            $selfRel = $PSCommandPath.Substring($script:projectRoot.Length).TrimStart('\', '/') -replace '\\', '/'
             $hits = @(git -C $script:projectRoot ls-files -- ':(glob)**/*.ts' ':(glob)**/*.ps1' ':(glob)**/*.js' ':(glob)**/*.sh' ':(glob)**/*.md') |
                 Where-Object {
                     $_ -ne '' -and
