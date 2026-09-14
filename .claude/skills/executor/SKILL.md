@@ -178,7 +178,7 @@ Pour chaque tache selectionnee, executer le cycle complet :
 4. **Commit + PR** : Worktree → commit → PR (regle PR-mandatory)
 5. **Rapport** : Dashboard workspace `[DONE]` + commentaire GitHub
 
-**Objectif : 2-3 taches substantielles par session minimum.**
+**`always-pick-next` reste obligatoire** : si une candidate est bloquee, l'exclure avec `WAIT_FOR` + `RESUME_WHEN`, puis prendre une autre tache actionnable. Le signal de reprise declenche un reexamen ; il n'accorde aucune autorisation.
 
 ---
 
@@ -220,8 +220,17 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 
 ### Autonomie maximale
 - **NE PAS** demander "Que dois-je faire ?"
-- **TOUJOURS** selectionner une tache et commencer
+- **`always-pick-next`** : selectionner une autre tache actionnable lorsqu'une candidate est bloquee ; ne pas retraiter cette candidate avant son `RESUME_WHEN`.
 - L'utilisateur intervient pour : arbitrages, approval issues, decisions irreversibles
+
+### Ledger turn-local et observateur unique (#3647)
+
+- Tenir un **ledger turn-local** : `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`, `observer`, `evidence`. Aucun nouveau stockage persistant.
+- Avant un sweep speculatif, solder chaque obligation en vol en `done`, `blocked` avec reprise nommee, ou `handed-off` avec destinataire.
+- Reutiliser les lectures du tour ; rafraichir seulement apres mutation pertinente, acteur independant pertinent, ou frontiere de securite.
+- Une condition asynchrone a **un seul observateur**. Aucun polling parallele si `Monitor`, une tache de fond ou `gh run watch` notifiera deja ; couvrir `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
+- Attribuer d'abord par `session_id`, puis machine ; distinguer `parent_session_id` et `subagent_id` quand disponibles. Machine-only ne prouve pas la cause.
+- Messages : **3-5 lignes par defaut**, sauf decision, blocage ou preuve qui exige davantage.
 
 ### Tests
 - `npx vitest run` (JAMAIS `npm test` — bloque en mode watch)

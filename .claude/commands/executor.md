@@ -609,9 +609,9 @@ git push origin main
 - **RooSync message au coordinateur** : Resume concis (pas de pave)
 
 ### 3g. Tache suivante
-- **Retour a Phase 2** : Selectionner la prochaine tache
-- **Objectif** : 2-3 taches substantielles par session minimum
-- **Ne PAS s'arreter** apres une seule tache
+- **Retour a Phase 2** : Selectionner la prochaine tache actionnable.
+- **`always-pick-next` reste obligatoire** : une candidate bloquee est exclue, pas la file entiere.
+- Pour chaque candidate bloquee, consigner `WAIT_FOR` et un `RESUME_WHEN` nomme. Ne la reexaminer qu'apres cet evenement ; le signal autorise le reexamen, pas l'action qu'elle attend.
 
 ---
 
@@ -631,8 +631,17 @@ git push origin main
 ### Autonomie maximale
 - **NE PAS** demander a l'utilisateur "Que dois-je faire maintenant ?"
 - **NE PAS** afficher un resume et attendre des instructions
-- **TOUJOURS** selectionner une tache et commencer a travailler
+- **`always-pick-next`** : selectionner une autre tache actionnable lorsqu'une candidate est bloquee ; ne pas retraiter cette candidate avant son `RESUME_WHEN`.
 - **L'utilisateur intervient uniquement** pour : arbitrages, approbation nouvelles issues, decisions irreversibles
+
+### Ledger turn-local et observateur unique (#3647)
+
+- Tenir un **ledger turn-local** des obligations demarrees dans ce tour : `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`, `observer`, `evidence`. Il vit dans le raisonnement du tour, pas dans un nouveau fichier ou service persistant.
+- Avant tout sweep ou nouvelle exploration, chaque obligation en vol doit etre `done`, `blocked` avec condition de reprise nommee, ou `handed-off` avec destinataire explicite.
+- Reutiliser toute lecture deja faite dans le tour. Rafraichir seulement apres une action susceptible d'avoir change l'etat, un acteur independant pertinent, ou une frontiere de securite.
+- Une condition asynchrone a **un seul observateur**. Ne pas ajouter de polling parallele quand `Monitor`, une tache de fond ou `gh run watch` notifiera deja. L'observateur couvre `success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
+- Attribuer d'abord par `session_id`, puis par machine ; quand disponible, distinguer `parent_session_id` et `subagent_id`. Une agregation machine-only n'est pas une attribution de cause.
+- Messages de coordination : **3-5 lignes par defaut**. Depasser seulement pour une decision, un blocage ou une preuve qui serait autrement invérifiable.
 
 ### Wakeup Cycle Cadence (session interactive)
 
