@@ -270,6 +270,17 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-active-extension.ps1
 
+      # #3575: the spawn must MOUNT RSM, and the post-run check must see it truthfully.
+      # Measured on po-2026 (2 no-RSM cycles in 9 runs): the pre-flight ran without
+      # -RepoRoot under the schtask chain and SKIPped on every run since deployment; the
+      # headless child got no MCP startup budget and lost the whole MCP layer silently on
+      # cold-machine runs (RSM cold warmup 75-90s > default ~30s); the post-run substring
+      # grep counted the agent's prose about the absent tools and declared both failing
+      # cycles "OK". Static (text + AST), ubuntu-latest alongside its sibling harnesses.
+      - name: Run meta-audit RSM mount harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-metaaudit-rsm-mount.ps1
+
   # Unit Pester suite (#3216): scripts/testing/unit/ held 12 Pester files /
   # ~200 assertions that no CI executed. Two had gone silently red while dead
   # (deploy-modes: its target was archived 2025-12; worktree-husk: retry
