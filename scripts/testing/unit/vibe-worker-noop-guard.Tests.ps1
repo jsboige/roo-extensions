@@ -19,6 +19,10 @@
 # Un test statique seul ne distinguerait aucun de ces trois etats : ne pas le
 # lire comme une preuve que le tick se comporte bien.
 #
+# Cette preuve du 31/08 porte sur la garde AVANT #3646, qui n'avait qu'une issue
+# (exit 0). Le picker idle y a ajoute une seconde issue, l'echec d'infrastructure
+# (exit 1) : elle est epinglee STATIQUEMENT ici, pas re-prouvee en comportement.
+#
 # Usage:
 #   pwsh -NoProfile -Command "Invoke-Pester -Path ./scripts/testing/unit/vibe-worker-noop-guard.Tests.ps1 -Output Detailed"
 
@@ -62,9 +66,38 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
         It "sort en 0 : un no-op est une operation normale, pas un echec" {
             $guard = [regex]::Match($content, '(?s)NO-OP GUARD \(#3296\).*?\n\}').Value
             $guard | Should -Not -BeNullOrEmpty
-            ($guard -match 'exit 0')  | Should -Be $true
-            ($guard -match 'exit 75') | Should -Be $false   # 75 = SKIP qui NE consomme pas un dispatch
-            ($guard -match 'exit 1')  | Should -Be $false
+            # Forme ANCRÉE (`^\s*exit 0\s*$`), pas `exit 0` nu : le message de SKIP
+            # contient lui-même la mention `(exit 0)` et le commentaire d'en-tête une
+            # seconde -- un `-match 'exit 0'` restait donc vert la sortie supprimée.
+            ($guard -match "(?m)^\s*exit 0\s*$") | Should -Be $true
+            ($guard -match 'exit 75')             | Should -Be $false  # 75 = SKIP qui NE consomme pas un dispatch
+            # ...et cette sortie 0 est bien celle du chemin no-op, pas une occurrence orpheline.
+            ($guard -match "(?ms)no WAKE payload pending.*?^\s*exit 0\s*$") | Should -Be $true
+        }
+
+        It "sort en 1 sur un refus d'infrastructure, et sur celui-la seulement" {
+            # #3646 : le picker idle ajoute une SECONDE issue a ce bloc. Un refus
+            # d'infrastructure (workspacePath non resolu, base illisible, worktree add en
+            # echec, branche existante porteuse de travail) n'est pas un tick sans travail :
+            # il doit sortir NON-ZERO la ou le no-op genuin sort a 0 -- exigence explicite de
+            # la review ai-01 du 14/09 (« infrastructure refusal terminates non-zero while
+            # genuine pool/cap/anti-hammer no-ops remain zero »).
+            #
+            # L'assertion precedente -- `exit 1` absent de la garde -- encodait la propriete
+            # #3296 par un PROXY, valide tant que la garde n'avait qu'une issue. Elle est
+            # remplacee par la propriete reelle : les deux sorties restent DISTINCTES, et
+            # l'echec est conditionne par l'outcome type publie par le picker.
+            #
+            # Limite assumee (mesuree) : ce test STATIQUE lit le texte, il ne prouve pas que
+            # la condition GATE reellement la sortie -- remplacer `-eq 'infrastructure'` par
+            # `-eq 'infrastructure' -or $true` laisse la suite VERTE. Ce qu'il attrape : une
+            # sortie 1 absente, en double, ou non conditionnee textuellement dans la garde.
+            $guard = [regex]::Match($content, '(?s)NO-OP GUARD \(#3296\).*?\n\}').Value
+            $guard | Should -Not -BeNullOrEmpty
+            # Exactement une sortie 1 : en ajouter une seconde, hors condition, rougit ici.
+            ([regex]::Matches($guard, "(?m)^\s*exit 1\s*$")).Count | Should -Be 1
+            # ...et elle est sous la condition, pas dans le chemin no-op.
+            ($guard -match "(?ms)IdlePickOutcome -eq 'infrastructure'.*?^\s*exit 1\s*$") | Should -Be $true
         }
 
         It "ecrit le heartbeat avant de sortir" {
@@ -90,6 +123,28 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
             $iGuard = $content.IndexOf('NO-OP GUARD (#3296)')
             $iDry   | Should -BeGreaterThan 0
             $iGuard | Should -BeGreaterThan $iDry
+        }
+    }
+
+    Context "Le picker idle normalise les separateurs avant de matcher git worktree list" {
+
+        # Regression #3646 mesuree 14/09 16:40Z : `git worktree list` imprime des
+        # slashes, `Join-Path` rend des backslashes sur Windows. Sans normalisation,
+        # $known ne matche JAMAIS, le re-pick retombe sur `worktree add` sur un
+        # chemin deja enregistre (exit 128) et l'issue devient indisponible.
+
+        It "construit une forme normalisee depuis \$wt" {
+            ($content -match '\$wtForMatch\s*=\s*\$wt\s+-replace') | Should -Be $true
+        }
+
+        It "matche la sortie git sur la forme normalisee, pas sur \$wt brut" {
+            # Ancre sur la ligne $known = : si quelqu'un rebranche SimpleMatch sur
+            # $wt (la forme a backslashes), l'assertion rougit. Une sous-chaîne
+            # "-replace" non ancrée resterait verte si la normalisation existait
+            # ailleurs sans etre consommee ici.
+            $knownLine = @($content -split "`n" | Where-Object { $_ -match '^\s*\$known\s*=' })[0]
+            $knownLine | Should -Not -BeNullOrEmpty
+            ($knownLine -match 'SimpleMatch\s+\$wtForMatch') | Should -Be $true
         }
     }
 }
