@@ -88,6 +88,7 @@ Please act on this.
             [string]$PathsFile = "",
             [string]$EnvPaths = "",
             [string]$McpConfigPath = "",
+            [switch]$AllowImplicit,
             [switch]$RealSpawn
         )
         if (Test-Path $captureFile) { Remove-Item $captureFile -Force -ErrorAction SilentlyContinue }
@@ -111,6 +112,9 @@ Please act on this.
         }
         if (-not [string]::IsNullOrEmpty($McpConfigPath)) {
             $args += @("-McpConfig", $McpConfigPath)
+        }
+        if ($AllowImplicit) {
+            $args += "-AllowImplicitWorkspaceResolution"
         }
 
         $output = & pwsh -NoProfile -File $listenerScript @args 2>&1
@@ -187,6 +191,30 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
     }
 
     Context "Level 4: ~/.claude.json projects map" {
+        It "Skips claude.json-mapped workspace when implicit resolution is off (#3641)" {
+            $ws = "test-ws-claude-gated"
+            $wsDir = Join-Path $testRoot $ws
+            New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
+
+            $pathsFile = Join-Path $testRoot "workspace-paths-empty.json"
+            [System.IO.File]::WriteAllText($pathsFile, "{}", [System.Text.UTF8Encoding]::new($false))
+
+            $claudeJson = Join-Path $testRoot "fake-claude-gated.json"
+            $claudeContent = @{
+                projects = @{
+                    $wsDir = @{ allowedTools = @() }
+                }
+            } | ConvertTo-Json -Depth 3
+            [System.IO.File]::WriteAllText($claudeJson, $claudeContent, [System.Text.UTF8Encoding]::new($false))
+
+            New-TestDashboard -Workspace $ws
+
+            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson -RealSpawn
+
+            $result.Output | Should -Match "Implicit workspace resolution disabled"
+            $result.Captured | Should -BeNullOrEmpty
+        }
+
         It "Uses claude.json projects entry when workspace basename matches" {
             $ws = "test-ws-claude"
             $wsDir = Join-Path $wsDir $ws
@@ -207,7 +235,7 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
 
             New-TestDashboard -Workspace $ws
 
-            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
+            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson -AllowImplicit
 
             $result.Output | Should -Match "resolved to.*$([regex]::Escape($wsDir))"
         }
@@ -228,7 +256,7 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
 
             New-TestDashboard -Workspace $ws
 
-            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
+            $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson -AllowImplicit
 
             # Should warn about non-existent path and continue to Level 5
             $result.Output | Should -Match "non-existent path|No path resolved|No on-disk workspace path resolved"

@@ -30,7 +30,7 @@ BeforeAll {
     # We must pass only the body statements (without the function wrapper).
     # Also: parameters defined in the function signature (not param() block) must be
     # re-added as param() at the top of the extracted body.
-    $needed = @('Resolve-WorkspacePath', 'Get-WorkspacePathMaps', 'Get-ClaudeJsonProjectsMap', 'Write-Log')
+    $needed = @('Resolve-WorkspacePath', 'Get-WorkspacePathMaps', 'Get-ClaudeJsonProjectsMap', 'ConvertFrom-JsonToDictionary', 'Write-Log')
     foreach ($fd in $funcDefs) {
         if ($fd.Name -in $needed) {
             # Body text includes outer { } — strip them
@@ -66,6 +66,9 @@ BeforeAll {
     $global:_wsPathFileMap = $null
     $global:_wsPathEnvMap = $null
     $global:_wsPathClaudeJsonMap = $null
+    # #3641 : implicit resolution (levels 4-5) is OFF by default — the gate
+    # variable follows the same $script: → $global: rewrite as the caches above.
+    $global:AllowImplicitResolution = $false
 }
 
 BeforeEach {
@@ -74,6 +77,7 @@ BeforeEach {
     $global:_wsPathFileMap = $null
     $global:_wsPathEnvMap = $null
     $global:_wsPathClaudeJsonMap = $null
+    $global:AllowImplicitResolution = $false
     if (Test-Path $global:WorkspacePathsFile) { Remove-Item $global:WorkspacePathsFile -Force }
     if (Test-Path $global:McpConfig) { Remove-Item $global:McpConfig -Force }
     Remove-Item Env:\DASHBOARD_WATCHER_WORKSPACE_PATHS -ErrorAction SilentlyContinue
@@ -153,6 +157,8 @@ AfterAll {
     }
 
     Context 'Level 4: Claude.json projects' {
+        BeforeEach { $global:AllowImplicitResolution = $true }
+
         It 'Returns path from .claude.json projects registry' {
             $wsDir = Join-Path $TestDrive 'my-claude-project'
             New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
@@ -186,12 +192,52 @@ AfterAll {
     }
 
     Context 'Level 5: Auto-detect' {
+        BeforeEach { $global:AllowImplicitResolution = $true }
+
         It 'Finds workspace under parent of RepoRoot' {
             $wsDir = Join-Path (Split-Path $RepoRoot -Parent) 'auto-ws'
             New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
 
             $result = Resolve-WorkspacePath 'auto-ws'
             $result | Should -BeExactly $wsDir
+        }
+    }
+
+    Context '#3641: Implicit resolution fail-closed by default' {
+        It 'Returns null when claude.json projects matches but gate is off' {
+            # The exact defect: d:/CoursIA-style projects key + basename match
+            # must NOT land a --dangerously-skip-permissions spawn in that tree.
+            $wsDir = Join-Path $TestDrive 'coursia-live-session-tree'
+            New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
+
+            $claudeJson = @{ projects = @{ $wsDir = @{} } } | ConvertTo-Json -Depth 5
+            Set-Content $McpConfig $claudeJson -Encoding UTF8NoBOM
+
+            $result = Resolve-WorkspacePath 'coursia-live-session-tree'
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Returns null when an auto-detect candidate exists but gate is off' {
+            $wsDir = Join-Path (Split-Path $RepoRoot -Parent) 'guessed-ws'
+            New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
+
+            $result = Resolve-WorkspacePath 'guessed-ws'
+            $result | Should -BeNullOrEmpty
+        }
+
+        It 'Explicit file mapping still resolves with gate off' {
+            $targetDir = Join-Path $TestDrive 'designated-tree'
+            New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+            @{ 'designated-ws' = $targetDir } | ConvertTo-Json |
+                Set-Content $WorkspacePathsFile -Encoding UTF8NoBOM
+
+            $result = Resolve-WorkspacePath 'designated-ws'
+            $result | Should -BeExactly $targetDir
+        }
+
+        It 'Self-match still resolves with gate off' {
+            $result = Resolve-WorkspacePath 'repo'
+            $result | Should -BeExactly $RepoRoot
         }
     }
 

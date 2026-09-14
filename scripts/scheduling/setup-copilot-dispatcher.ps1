@@ -19,6 +19,11 @@
 .PARAMETER BudgetProfile
     Escalation policy profile: low | balanced | throughput.
 
+.PARAMETER TargetRepo
+    GitHub repo (owner/name) whose issue pool the dispatcher reads. Passed
+    through to start-copilot-dispatcher.ps1 so gh calls carry -R explicitly
+    (#3641) instead of inheriting the task's WorkingDirectory repo.
+
 .PARAMETER IssueNumber
     Optional legacy GitHub issue number. Default 0 disables issue-comment notifications.
 
@@ -55,6 +60,7 @@ param(
     [int]$TimeoutMinutes = 10,
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [string]$TargetRepo = 'jsboige/roo-extensions',
     [int]$IssueNumber = 0,
     [double]$PremiumUsagePercent = -1,
     [double]$SoftUsageCapPercent = 70,
@@ -92,7 +98,7 @@ function Install-Task {
     $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
     if ($existing) { Unregister-ScheduledTask -TaskName $taskName -Confirm:$false }
 
-    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay"
+    $taskCli = "-ExecutionPolicy Bypass -File `"$workerScript`" -BudgetProfile $BudgetProfile -TargetRepo $TargetRepo -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay"
     $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(5) `
         -RepetitionInterval (New-TimeSpan -Hours $IntervalHours) `
         -RepetitionDuration (New-TimeSpan -Days 365)
@@ -131,7 +137,7 @@ function Remove-Task {
 function Test-Task {
     Write-Host "Running dispatcher in dry-run mode..." -ForegroundColor Cyan
     $psExe = if (Get-Command pwsh -ErrorAction SilentlyContinue) { "pwsh" } else { "powershell" }
-    & $psExe -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
+    & $psExe -ExecutionPolicy Bypass -File $workerScript -BudgetProfile $BudgetProfile -TargetRepo $TargetRepo -IssueNumber $IssueNumber -PremiumUsagePercent $PremiumUsagePercent -SoftUsageCapPercent $SoftUsageCapPercent -HardUsageCapPercent $HardUsageCapPercent -MaxConsecutiveBlocked $MaxConsecutiveBlocked -MaxConsecutiveIdle $MaxConsecutiveIdle -MinEscalationIntervalMinutes $MinEscalationIntervalMinutes -MaxEscalationsPerDay $MaxEscalationsPerDay -DryRun
 }
 
 switch ($Action) {

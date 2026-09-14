@@ -33,6 +33,37 @@ ne corrompt jamais le routing.
 **Toute modification de ces fonctions est hors-scope** : la cause des réveils manuels n'a jamais été
 le routing.
 
+## Résolution du workspace cible — fail-closed (#3641)
+
+Le wake nomme un workspace ; le listener doit le traduire en chemin disque pour poser le
+`WorkingDirectory` du `claude -p --dangerously-skip-permissions`. Ordre (`Resolve-WorkspacePath`) :
+
+1. entrée de `.claude/local/workspace-paths.json` (gitignored, **désignation explicite**)
+2. `DASHBOARD_WATCHER_WORKSPACE_PATHS` (map JSON, désignation explicite)
+3. self-match (feuille de `$RepoRoot`) — déploiement par construction
+4. ~~`~/.claude.json` `projects` (match basename)~~ — **opt-in** (#3641)
+5. ~~scan `D:\`, `D:\dev`, `C:\`, `C:\dev`~~ — **opt-in** (#3641)
+6. aucun match → WARN + SKIP (lastAck NON avancé)
+
+Les niveaux 4-5 sont des **devinettes** : le registre `projects` est par construction la liste des
+arbres où des sessions interactives ont vécu, et le balayage de racines peut tomber sur l'arbre de
+travail d'une session vivante — un spawn `--dangerously-skip-permissions` y déplacerait HEAD,
+l'index et la pile de stash sous les pieds de la session (incident fondateur : issue #3641, déduit
+sur ai-01 où un wake CoursIA résolvait sur `d:/CoursIA`).
+
+Depuis #3641 ces niveaux sont **désactivés par défaut** : un workspace sans désignation explicite
+et sans self-match résout à `$null` → WARN + SKIP, le message reste actionable (lastAck non
+avancé). Ré-armement legacy : `-AllowImplicitWorkspaceResolution` ou `DASHBOARD_WATCHER_ALLOW_IMPLICIT=1`
+(le wrapper invoque le listener sans arguments — l'env var est le canal qui marche sur une tâche
+planifiée déjà installée).
+
+**Pour chaque workspace non-self devant recevoir des wakes : désigner un arbre DÉDIÉ au listener**
+(jamais l'arbre d'une session interactive) dans `workspace-paths.json` :
+
+```json
+{ "CoursIA": "D:/dev/CoursIA-listener" }
+```
+
 ## Choix du modèle de la session réveillée (#2561, mandat user 2026-06-11)
 
 **Défaut = capable** : `spawn-claude.ps1` défaute à `sonnet` (Claude Sonnet sur machines Anthropic,

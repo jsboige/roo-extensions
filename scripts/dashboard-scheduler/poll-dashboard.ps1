@@ -17,8 +17,10 @@
     Phase 1 (current): stub mode — prints "would spawn" but does NOT invoke
     claude -p. Used to validate gating logic without consuming Opus tokens.
 
-    Phase 2 (after 48h stub validation): wire spawn-claude.ps1 to actually
-    invoke claude -p with the Opus 4.7 model.
+    Phase 2 (shipped): spawn-claude.ps1 actually invokes claude -p, with the
+    model pinned to haiku at the spawn site (see the #1605 note there: opus
+    boot thrash triggers rapid_refill_breaker, ~$2.68 saved per avoided
+    failed run).
 
 .PARAMETER Workspaces
     Comma-separated list of workspace keys to poll (e.g., "nanoclaw,roo-extensions").

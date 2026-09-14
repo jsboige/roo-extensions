@@ -6,6 +6,14 @@
     Scheduled worker that validates prerequisites, executes a real non-interactive
     Copilot request through `copilot -p`, and records usage evidence.
 
+.PARAMETER TargetRepo
+    GitHub repo (owner/name) whose issue pool the dispatcher reads. Every gh
+    call passes -R explicitly (#3641): the scheduled task's WorkingDirectory is
+    the roo-extensions checkout, so without -R the pool silently reads
+    roo-extensions whatever the intended target. Default jsboige/roo-extensions;
+    overridable via COPILOT_DISPATCHER_TARGET_REPO (works on already-installed
+    tasks without reinstallation).
+
 .PARAMETER DryRun
     Print actions only.
 #>
@@ -14,6 +22,7 @@
 param(
     [ValidateSet('low','balanced','throughput')]
     [string]$BudgetProfile = 'balanced',
+    [string]$TargetRepo = $(if ($env:COPILOT_DISPATCHER_TARGET_REPO) { $env:COPILOT_DISPATCHER_TARGET_REPO } else { 'jsboige/roo-extensions' }),
     [int]$IssueNumber = 0,
     [double]$PremiumUsagePercent = -1,
     [double]$SoftUsageCapPercent = 70,
@@ -651,12 +660,13 @@ function Test-IsActionableIssue {
 function Get-TargetIssue {
     param(
         [string]$RepositoryRoot,
-        [int]$PreferredIssueNumber = 0
+        [int]$PreferredIssueNumber = 0,
+        [string]$TargetRepo = 'jsboige/roo-extensions'
     )
 
     if ($PreferredIssueNumber -gt 0) {
         try {
-            $preferred = & gh issue view $PreferredIssueNumber --json number,title,state,url,labels 2>$null | ConvertFrom-Json
+            $preferred = & gh issue view $PreferredIssueNumber -R $TargetRepo --json number,title,state,url,labels 2>$null | ConvertFrom-Json
             if ($preferred) {
                 if (-not (Test-IsActionableIssue -Issue $preferred)) {
                     return $null
@@ -694,7 +704,7 @@ function Get-TargetIssue {
         # returns no candidates, and the no-target gate skips fail-closed (zero
         # premium burn). The pinned -IssueNumber path above is unaffected
         # (explicit provisioning beats the pool).
-        $items = & gh issue list --state open --label copilot-target --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
+        $items = & gh issue list -R $TargetRepo --state open --label copilot-target --limit 25 --json number,title,labels,updatedAt,url 2>$null | ConvertFrom-Json
         if ($null -eq $items -or $items.Count -eq 0) {
             return $null
         }
@@ -722,6 +732,7 @@ function Get-TargetIssue {
 
 Write-Log "Copilot dispatcher started"
 Write-Log "RepoRoot=$repoRoot"
+Write-Log "TargetRepo=$TargetRepo (gh calls pass -R explicitly, #3641)"
 Write-Log "BudgetProfile=$BudgetProfile SoftCap=$SoftUsageCapPercent HardCap=$HardUsageCapPercent BlockedThreshold=$MaxConsecutiveBlocked IdleThreshold=$MaxConsecutiveIdle"
 Write-Log "IssueNumber=$IssueNumber EscalationCooldownMinutes=$MinEscalationIntervalMinutes MaxEscalationsPerDay=$MaxEscalationsPerDay"
 
@@ -777,7 +788,7 @@ $state = Load-State
 
 $dispatch = $null
 if ($status -ne 'blocked') {
-    $targetIssue = Get-TargetIssue -RepositoryRoot $repoRoot -PreferredIssueNumber $IssueNumber
+    $targetIssue = Get-TargetIssue -RepositoryRoot $repoRoot -PreferredIssueNumber $IssueNumber -TargetRepo $TargetRepo
     if ($null -eq $targetIssue) {
         Write-Log "No actionable target issue discovered; skipping Copilot call to avoid idle premium burn"
         $status = 'idle'

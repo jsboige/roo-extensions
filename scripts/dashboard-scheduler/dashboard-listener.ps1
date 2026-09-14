@@ -52,11 +52,26 @@
       1. WorkspacePathsFile entry (explicit override)
       2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
       3. Self-match (ws name == leaf of $RepoRoot) → $RepoRoot
-      4. ~/.claude.json `projects` keys — match by basename (Claude Code's own
-         workspace registry; the most reliable per-machine source after explicit
-         overrides).
-      5. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
+      4. ~/.claude.json `projects` keys — match by basename — ONLY when implicit
+         resolution is explicitly enabled (see -AllowImplicitWorkspaceResolution)
+      5. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev —
+         ONLY when implicit resolution is explicitly enabled
       6. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
+
+    Levels 4-5 are guesses: the `projects` registry is by construction the list
+    of trees where interactive Claude Code sessions have run, so matching a wake
+    against it selects exactly the trees an interactive session may be living in
+    — and spawn-claude.ps1 runs `claude -p --dangerously-skip-permissions` in
+    the resolved tree (#3641). Point every non-self workspace at a
+    listener-DEDICATED tree via WorkspacePathsFile.
+
+.PARAMETER AllowImplicitWorkspaceResolution
+    Re-enable legacy levels 4-5 (~/.claude.json projects basename match, common
+    root scan). Off by default (#3641): a wake with no explicit mapping and no
+    self-match resolves to $null → WARN + SKIP, lastAck NOT advanced. Can also
+    be enabled via DASHBOARD_WATCHER_ALLOW_IMPLICIT=1 (the wrapper invokes the
+    listener without arguments, so the env var is the channel that works on
+    already-deployed scheduled tasks).
 
 .PARAMETER GitHubRepo
     GitHub repo for closed-issue sanity check (R11). Before spawning on a
@@ -87,6 +102,8 @@ param(
     [string]$McpConfig = "",
     [string]$WorkspacePathsFile = "",
     [string]$GitHubRepo = $(if ($env:DASHBOARD_WATCHER_GITHUB_REPO) { $env:DASHBOARD_WATCHER_GITHUB_REPO } else { 'jsboige/roo-extensions' }),
+    # #3641 : résolution implicite (niveaux 4-5) désactivée par défaut — fail-closed.
+    [switch]$AllowImplicitWorkspaceResolution,
     # #3277 fix 4 : lane payant — un [WAKE-VIBE] échoué n'est jamais re-dispatché
     # au-delà de N tentatives (défaut 1). spawn-claude garde sa sémantique retry-gratuit.
     [int]$VibeMaxAttempts = $(if ($env:DASHBOARD_VIBE_MAX_ATTEMPTS) { [int]$env:DASHBOARD_VIBE_MAX_ATTEMPTS } else { 1 }),
@@ -117,6 +134,10 @@ if ([string]::IsNullOrEmpty($McpConfig)) {
 if ([string]::IsNullOrEmpty($WorkspacePathsFile)) {
     $WorkspacePathsFile = Join-Path $RepoRoot ".claude/local/workspace-paths.json"
 }
+# #3641 : le garde de Resolve-WorkspacePath lit cette variable (préfixe $script:
+# obligatoire — les tests Pester extraient la fonction via AST et réécrivent
+# $script: → $global:).
+$script:AllowImplicitResolution = $AllowImplicitWorkspaceResolution.IsPresent -or ($env:DASHBOARD_WATCHER_ALLOW_IMPLICIT -eq '1')
 if (-not (Test-Path $LockDir)) {
     New-Item -ItemType Directory -Path $LockDir -Force | Out-Null
 }
@@ -283,6 +304,17 @@ function Resolve-WorkspacePath($ws) {
     if ($ws -ieq $selfName) {
         $script:_wsPathCache[$ws] = $RepoRoot
         return $RepoRoot
+    }
+
+    # #3641 : niveaux 4-5 (devinettes) opt-in. Un chemin deviné peut être l'arbre
+    # de travail d'une session interactive vivante — le registre `projects` est
+    # précisément la liste des arbres où des sessions ont vécu — et spawn-claude
+    # y lance claude -p --dangerously-skip-permissions. Fail-closed : WARN + SKIP,
+    # lastAck NON avancé, l'opérateur désigne un arbre dédié via workspace-paths.json.
+    if (-not $script:AllowImplicitResolution) {
+        Write-Log "WARN" "[$ws] Implicit workspace resolution disabled (#3641): no explicit mapping (workspace-paths.json / DASHBOARD_WATCHER_WORKSPACE_PATHS) and not a self-match. Skipping spawn — designate a listener-dedicated tree in $WorkspacePathsFile (DASHBOARD_WATCHER_ALLOW_IMPLICIT=1 restores legacy guessing)."
+        $script:_wsPathCache[$ws] = $null
+        return $null
     }
 
     # 4. ~/.claude.json projects (Claude Code's own workspace registry)
@@ -797,7 +829,7 @@ function Invoke-ProcessWorkspace($ws) {
     # a fresh chance after the operator adds the mapping.
     $wsPath = Resolve-WorkspacePath $ws
     if ([string]::IsNullOrEmpty($wsPath)) {
-        Write-Log "WARN" "[$ws] No on-disk workspace path resolved (file/env/self/auto-detect all failed). Skipping spawn — add an entry to $WorkspacePathsFile."
+        Write-Log "WARN" "[$ws] No on-disk workspace path resolved. Skipping spawn — add an entry to $WorkspacePathsFile."
         return
     }
 
@@ -950,6 +982,7 @@ Write-Log "INFO" "Dashboard Listener starting (#2004)"
 Write-Log "INFO" "Watch: $dashboardDir | Workspaces: $($wsList -join ', ') | Tags: [$AllowedTags]"
 Write-Log "INFO" "Debounce: ${DebounceSeconds}s | Cooldown: ${CooldownMinutes}min | DryRun: $DryRun"
 Write-Log "INFO" "WorkspacePathsFile: $WorkspacePathsFile (exists=$(Test-Path $WorkspacePathsFile))"
+Write-Log "INFO" "Implicit workspace resolution (levels 4-5): $(if ($script:AllowImplicitResolution) { 'ENABLED (legacy opt-in)' } else { 'disabled — fail-closed (#3641)' })"
 
 # Pre-resolve all workspace paths to surface mapping issues at startup
 foreach ($ws in $wsList) {
