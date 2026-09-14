@@ -7,9 +7,9 @@
 
 > ⚠ **Superseded — this document is a 2026-05-14 plan, kept for history.** The profile names, providers and API keys below (free-tier gemini/groq/cerebras, `coordinator`, `GEMINI_API_KEY`…) are not what the fleet runs.
 >
-> `docs/deployment/claudish-fleet-config.json` is a snapshot of the same date (its only commit: `74371eb83`, 2026-05-14) and is **not** the live source. Measured on po-203, 2026-09-13: the live `~/.claudish/config.json` carries entirely different profiles (`default`, `ai-01`), a different `defaultProfile`, a different `routing` table, and provider keys this repo file does not hold. **Do not `cp` the snapshot over a live config** — it would replace a working configuration with a four-month-old one whose pins (`glm-4.7`, `anthropic@claude-opus-4-7`, `anthropic@claude-sonnet-4-6`) no longer resolve.
+> `docs/deployment/claudish-fleet-config.json` is a snapshot of the same date (its only commit: `74371eb83`, 2026-05-14) and is **not** the live source. Measured on po-203, 2026-09-13: the live `~/.claudish/config.json` carries entirely different profiles (`default`, `ai-01`), a different `defaultProfile`, a different `routing` table, and provider keys this repo file does not hold. **Do not `cp` the snapshot over a live config** — the snapshot carries none of `apiKeys`, `customEndpoints`, `endpoints` or `providerConcurrency`, while the live config (measured on ai-01, 2026-09-13) carries all four families: copying it stomps active machine settings.
 >
-> The per-machine live config is the authority. Re-establishing a shared fleet config is open work, and it starts by reading each machine's current `~/.claudish/config.json` — a fleet-affecting change needs a measured per-consumer artifact before it is called done.
+> The per-machine live config is the authority. Re-establishing a shared fleet config is open work, and it starts by reading each machine's current `~/.claudish/config.json` — a fleet-affecting change needs a measured per-consumer artifact before it is called done. On web1, `~/.claudish/` does not exist at all (measured 2026-09-14): the instruction would not even overwrite anything there, it would create a non-canonical copy next to that seat's actual claudish artifacts.
 
 ## Per-Machine Overrides
 
