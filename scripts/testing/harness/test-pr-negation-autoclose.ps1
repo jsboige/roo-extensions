@@ -333,6 +333,39 @@ if ($scriptIdx -lt 0) {
 }
 
 # ============================================================================
+# Test 12: the permissions mapping regression (#3636). createComment on a PR
+# posts to /issues/N/comments, but the resource behind a PR number is a pull
+# request and the server authorizes against pull_requests, not issues. The
+# original cut granted issues: write + pull-requests: read: every guidance
+# comment died with 403 "Resource not accessible by integration" while the
+# runner's setup log displayed "Issues: write" (run 34795588618, reproduced
+# on PR #3637). Assert the workflow grants pull-requests: write.
+# ============================================================================
+Write-Host "`n=== Test 12: permissions grant pull-requests: write (#3636) ===" -ForegroundColor Cyan
+
+$permGrantOk = $false
+$inPermissions = $false
+foreach ($l in (Get-Content $wfPath)) {
+    if ($l -match '^permissions:\s*$') { $inPermissions = $true; continue }
+    if ($inPermissions -and $l -match '^[^\s#]') { break }   # next top-level key
+    if ($inPermissions -and $l -match '^\s+pull-requests:\s*write') { $permGrantOk = $true; break }
+}
+Assert-Equal 'workflow grants pull-requests: write' $true $permGrantOk
+
+# ============================================================================
+# Test 13: createComment is guarded (#3636). The guidance comment is the
+# guard's main path in its nominal usage scenario; an unhandled HttpError
+# there kills the run BEFORE core.setFailed, so the author gets a bare 403
+# stack trace instead of the remediation. Assert the call sits inside a
+# try/catch (raw-text check -- Test 11 already proves the block compiles).
+# ============================================================================
+Write-Host "`n=== Test 13: createComment wrapped in try/catch (#3636) ===" -ForegroundColor Cyan
+
+$wfRaw = Get-Content $wfPath -Raw
+Assert-Equal 'createComment preceded by try and followed by catch' $true `
+    ([bool]($wfRaw -match '(?s)try\s*\{[\s\S]{0,2000}createComment[\s\S]{0,2000}\}\s*catch'))
+
+# ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
 Write-Host "  Passed: $TestsPassed" -ForegroundColor Green
 Write-Host "  Failed: $TestsFailed" -ForegroundColor $(if ($TestsFailed -gt 0) { 'Red' } else { 'Green' })
