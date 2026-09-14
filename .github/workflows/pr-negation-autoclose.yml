@@ -37,8 +37,14 @@ on:
     branches: [main]
 
 permissions:
-  pull-requests: read
-  issues: write        # github.rest.issues.createComment on the failure path
+  # The guidance comment posts to /issues/N/comments, but the resource behind
+  # a PR number IS a pull request: the server authorizes that call against
+  # pull_requests, not issues (#3636). Granting issues: write alone gets 403
+  # "Resource not accessible by integration" while the runner dutifully
+  # reports "Issues: write" in the job setup -- both observed in production
+  # on run 34795588618 and reproduced deterministically on PR #3637.
+  pull-requests: write
+  issues: read         # closingIssuesReferences reads issue state through the PR
 
 jobs:
   guard:
@@ -192,14 +198,41 @@ jobs:
               `*Automatis\u00E9 par [pr-negation-autoclose.yml](${context.payload.repository.html_url}/blob/main/.github/workflows/pr-negation-autoclose.yml) (#3626)*`
             ];
 
-            await github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: pr.number,
-              body: lines.join('\n')
-            });
+            // Post the guidance comment. This is the guard's failure path --
+            // its main path in the nominal usage scenario -- so it must not
+            // be a single point of failure itself (#3636): an unhandled
+            // HttpError here kills the run BEFORE core.setFailed, replacing
+            // the designed failure message with a bare 403 stack trace and
+            // losing the guidance entirely.
+            let commentPosted = false;
+            try {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: lines.join('\n')
+              });
+              commentPosted = true;
+            } catch (commentError) {
+              core.warning(
+                `Guidance comment could not be posted ` +
+                `(${commentError.status || 'unknown'} ${commentError.message}). ` +
+                `Full guidance reproduced below and embedded in the check annotation.`
+              );
+              console.log(lines.join('\n'));
+            }
 
+            // The failure message is self-sufficient: if the comment never
+            // landed, the annotation alone still tells the author how to
+            // disarm. Keep under ~900 chars (annotation size limit).
             core.setFailed(
-              `Negation-keyword auto-close arming detected for ${violations.length} issue(s). ` +
-              `See PR comment for details. Override marker: [NEGATION-AUTOCLOSE-OK] alone on its own line.`
+              `Negation-keyword auto-close arming detected for ${violations.length} issue(s): ` +
+              `${violations.map(v => '#' + v.issue).join(', ')}. ` +
+              (commentPosted
+                ? `See the PR comment for details. `
+                : `HOW TO FIX (comment unavailable): rephrase so no closing keyword ` +
+                  `(close/fix/resolve) sits adjacent to the reference (e.g. 'suivi dans #N' ` +
+                  `or 'Refs #N'), or move the reference to another sentence. `) +
+              `If the closure is genuinely intended, add the override marker ` +
+              `[NEGATION-AUTOCLOSE-OK] alone on its own line in the PR body.`
             );
