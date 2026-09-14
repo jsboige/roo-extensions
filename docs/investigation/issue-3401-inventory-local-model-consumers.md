@@ -1,6 +1,6 @@
 # Inventaire des consommateurs du modèle local — Issue #3401
 
-**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-13 (exécution étape 1 instance locale po-203 + découverte topologie relais → hub autoritaire po-2025 — po-2023)
+**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-14 (lane po-2024 : §7 — déclaration de siège + re-mesure du gate end-to-end (toujours fermé) + provenance des clés — po-2024 ; précédente 2026-09-13 : étape 1 instance locale po-203 + topologie relais → hub autoritaire po-2025 — po-2023)
 **Auteur :** web1 (lane executor)
 **Issue :** [#3401](https://github.com/jsboige/roo-extensions/issues/3401)
 **Sonde primaire :** `grep -rE 'qwen3[.\-][0-9a-zA-Z\-]+|OPENAI_BASE_URL|OPENAI_API_KEY|EMBEDDING_API_KEY|VLLM_API_KEY|ANTHROPIC_BASE_URL|claudish|models\.myia' --include='*.ps1' --include='*.json' --include='*.ts' --include='*.js' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.template*' --include='*.env*'` dans `/c/dev/roo-extensions` (working tree).
@@ -148,6 +148,67 @@ Pour chaque étape 2-7 : `npx vitest run` côté submod + `npm run test:mcp` cô
 - **Clés à rotater au pire :** 7 (1 env RSM × 3 canaux × 7 écoles OWUI) — ramenées à **1** si tous les consommateurs passent par claudish (alias + clé unique `x-proxy-key`).
 - **PRs prévues :** 5 (1 ai-01 alias, 1 submod RSM, 1 submod sk-agent, 1 parent Roo+claudish+call-sk-agent, 1 ai-01 swap final).
 - **Fenêtre totale estimée :** 1 journée cluster (alias + bascule RSM + Roo = ~3h ; écoles + rotation + swap = ~5h, parallélisable sur 7 ops-schools).
+
+---
+
+## 7. Lane po-2024 — déclaration firsthand (14/09) + re-mesure du gate vague 1
+
+**Sonde :** lecture directe des fichiers de config du siège (`~/.claude/settings.json`, `.env` RSM déployé, `sk_agent_config.json` déployé) + sondes HTTP live. **Clés jamais lues en clair** (longueur + sha8 seulement).
+
+### 7.1 Consommateurs du siège po-2024
+
+| # | Système | Mode d'accès | Emplacement config | Nom de modèle | Provenance de la clé | Sonde | Verdict |
+|---|---------|--------------|--------------------|---------------|----------------------|-------|---------|
+| 20 | **Claude Code po-2024** | `ANTHROPIC_BASE_URL=http://192.168.0.50:3000` (hub po-2025, LAN direct) | `~/.claude/settings.json` clé `env` | rôles `claude-*[1m]` — **aucun nom qwen en dur** | `x-proxy-key` dans `ANTHROPIC_CUSTOM_HEADERS` (len 64) | `grep ANTHROPIC_BASE_URL settings.json` | **DEJA-VERS-CLAUDISH** ✅ |
+| 21 | **RSM po-2024 — condensation LLM** | SDK OpenAI → `http://192.168.0.47:5002/v1` (`OPENAI_BASE_URL`) | `.env` RSM déployé (`mcps/internal/servers/roo-state-manager/.env`) | pas de `OPENAI_CHAT_MODEL_ID` → défaut code **`qwen3.6-35b-a3b`** (`index.ts:97`, `openai.ts:102`) | **`VLLM_API_KEY_MEDIUM`** — le build lit ce nom **en premier** (`chat-key.ts:37`) | `POST /v1/chat/completions` @ `.47:5002` | **RESTE-DIRECT** tant que le gate est fermé — cible `local-coding` (étape 2) |
+| 22 | **RSM po-2024 — embeddings Qdrant** | SDK OpenAI → `http://192.168.0.51:8004/v1` (`EMBEDDING_API_BASE_URL`) | idem | `qwen3-4b-awq-embedding` (`EMBEDDING_MODEL`) | `EMBEDDING_API_KEY` (len 64) | `POST /v1/embeddings` → **200**, `qwen3-4b-awq-embedding` | **RESTE-DIRECT** (gel 06/09 : pas d'ingress `/v1/embeddings` côté claudish) |
+| 23 | **RSM po-2024 — vLLM mini** | SDK OpenAI → `https://api.mini.text-generation-webui.myia.io/v1` | idem | `zwz-8b` (`VLLM_MINI_MODEL_ID`) | `VLLM_API_KEY_MINI` | `grep VLLM_MINI` dans `.env` | hors surface prod |
+| 24 | **RSM po-2024 — fallback cloud** | z.ai | idem | `glm-4.7` (`FALLBACK_LLM_MODEL_ID`) | `ZAI_API_KEY` | idem | **RESTE-DIRECT** (cloud) |
+| 25 | **sk-agent po-2024** | config JSON + appel OpenAI-compat, 3 endpoints | `mcps/internal/servers/sk-agent/sk_agent_config.json` **déployé** (hors repo, 49 KB) | 17 entrées dont **10 locales** : `qwen3.6-35b-a3b`, `qwen3.6-35b-no-thinking`, `omnicoder-9b`, 6 `owui-*` | clés inline **par entrée** — **3 provenances distinctes** (voir 7.3) | `json.load(…)['models']` | **VERS-CLAUDISH** (étape 5) — **2 entrées actuellement cassées**, cf. 7.3 |
+| 26 | **`scripts/review/call-sk-agent.ps1`** | HTTP direct POST `/v1/chat/completions` | repo `scripts/review/call-sk-agent.ps1` l.118/137 | `qwen3.5-35b-a3b` | `$env:VLLM_API_KEY` ou `qwenModel.api_key` | `grep -nE 'model = \|\.id -eq'` | **VERS-CLAUDISH** (étape 4, déjà au plan) |
+
+**Contrôle négatif :** `schtasks /query` du siège → **0** tâche claude/executor/watchdog/mcp ; `~/.claude.json` → aucune URL `192.168.0.*` / `myia.io` hormis le roster `ROO_FLEET_ROSTER`.
+
+### 7.2 Re-mesure du gate vague 1 (14/09) — **TOUJOURS FERMÉ**
+
+Le **catalogue** annonce désormais les alias (changement depuis le 13/09), mais **la résolution chat ne suit pas** :
+
+| Vantage | `GET /v1/models` | `POST /v1/chat/completions` `model=local-coding` |
+|---|---|---|
+| hub po-2025 `192.168.0.50:3000` | **200**, 23 modèles, `local-coding` + `local-fast` présents | **401** `{"error":{"message":"x-api-key header is required","type":"authentication_error"}}` |
+| relais po-203 `192.168.0.46:3000` | idem | **401** idem |
+| edge public `https://models.myia.io` | idem (23 modèles) | **401** idem |
+
+**Contrôles appariés (requêtes identiques, mêmes en-têtes) :**
+
+- `qwen3.6-35b-a3b` (baseline) → **200** sur le hub **et** sur le relais.
+- nom **volontairement bidon** (`totally-bogus-xyz`) → **401 aux mêmes octets** que `local-coding` ; `local-fast` idem. ⇒ l'alias **ne résout pas** — il tombe dans le même chemin que « modèle inconnu », exactement la panne silencieuse que cette Epic combat.
+- en-tête `x-api-key` (forme Anthropic) sur `/v1/chat/completions` → **401** identique ;
+- route Anthropic `/v1/messages` (`x-api-key` + `anthropic-version`) : `claude-sonnet-4-6` → **200** (rôle servi `deepseek-flash`), `local-coding` → **401** identique.
+
+**Conclusion :** le critère de gate (annoncé **ET** complétion 200 end-to-end via `192.168.0.46:3000`) **n'est pas satisfait**. Une lecture **catalog-only** conclurait « gate ouvert » **à tort** : c'est précisément le piège documenté §3 étape 1, ici mesuré sur les **3 vantages**. Les étapes 2-5 restent **gated**.
+
+### 7.3 Provenance des clés — une clé morte dupliquée que le build ne lit pas
+
+Le `.env` RSM déployé de po-2024 porte **deux** clés chat de 32 caractères, de **valeurs différentes** :
+
+| Variable | sha8 | `POST .47:5002/v1/chat/completions` (l'endpoint que `OPENAI_BASE_URL` désigne) | lue par le build ? |
+|---|---|---|---|
+| `VLLM_API_KEY_MEDIUM` | `299ad00b` | **200**, complétion réelle | **oui** — `chat-key.ts:37` la lit **en premier** |
+| `OPENAI_API_KEY` | `1c6a3bc7` | **401** `{"error":"Unauthorized"}` | non — repli seulement si `VLLM_API_KEY_MEDIUM` est absent |
+
+La même valeur morte `1c6a3bc7` est **dupliquée** dans `sk_agent_config.json` déployé sur les **deux** entrées vLLM direct :
+
+| Entrée sk-agent | `base_url` | sha8 clé configurée | `POST` sur cet endpoint |
+|---|---|---|---|
+| `qwen3.6-35b-a3b` | `api.medium.text-generation-webui.myia.io/v1` | `1c6a3bc7` | **401** `{"error":"Unauthorized"}` |
+| `qwen3.6-35b-no-thinking` | idem | `1c6a3bc7` | (idem entrée ci-dessus) |
+| *contrôle* : même endpoint, clé flotte | idem | `299ad00b` | **200** |
+
+**Deux conséquences pour l'inventaire :**
+
+1. **Méthode — nommer la variable que le BUILD lit.** Un audit qui teste la clé au nom le plus générique (`OPENAI_API_KEY`) conclut « consommateur cassé, 401 » et « corrige » le mauvais levier ; le build lit `VLLM_API_KEY_MEDIUM` (`chat-key.ts:37`), acceptée. C'est la même classe que #1147 (« la clé de chat doit correspondre à son endpoint »), vue depuis l'autre bout : ici la clé *morte* est présente, co-localisée, et **silencieusement inoffensive** pour RSM.
+2. **Surface de rotation — `1c6a3bc7` est une copie morte en 3 emplacements** (1 var RSM + 2 entrées sk-agent) : elle n'apparaît dans **aucun** inventaire dérivé d'un `.env` unique. Les 2 entrées sk-agent concernées sont **actuellement non fonctionnelles** (401 sur leur propre endpoint) — à traiter en **étape 5** (aucune correction appliquée ici : la mutation de config est gated par le plan synchronisé §3, cette Epic porte un recensement, pas une bascule).
 
 ---
 
