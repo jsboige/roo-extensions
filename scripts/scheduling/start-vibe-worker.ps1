@@ -284,7 +284,11 @@ function Invoke-IdleQueuePick {
         $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
         if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
         $base = $base.Trim()
-        $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wt)
+        # git worktree list imprime des slashes ; Join-Path rend des backslashes sur
+        # Windows — sans normalisation, $known ne matche JAMAIS et le pick retombe
+        # sur "worktree add" (exit 128, deja enregistre). #3646 regression.
+        $wtForMatch = $wt -replace '\\', '/'
+        $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wtForMatch)
         if ($known) {
             # Worktree deja en place (tick precedent). On ne le reutilise QUE sur
             # PREUVE qu'il ne porte rien : un residu non commite, ou des commits
