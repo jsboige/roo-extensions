@@ -171,9 +171,28 @@ $QueueStateDir = Join-Path $RepoRoot "outputs\scheduling\state"
 $script:QueueRetrySameIssueHours = 6
 
 function Get-QueueState {
+    # Fail-closed (arbitrage #3649 decision 1, 14/09) : « absent » et « illisible »
+    # ne sont pas le meme etat. L'ancien `catch { }` rendait $null pour les deux, et
+    # l'appelant lisait $null comme « premier run du jour » : plafond du jour ET
+    # anti-marteau 6 h contournes en silence, puis Save-QueueState ecrasait le
+    # fichier — compteur perdu sans aucune ligne de journal. Un etat illisible ou
+    # de forme inattendue pose le flag $script:QueueStateUnreadable ; l'appelant
+    # REFUSE alors le tirage (outcome 'infrastructure').
     param([string]$Path)
+    $script:QueueStateUnreadable = $false
     if (Test-Path $Path) {
-        try { return (Get-Content $Path -Raw | ConvertFrom-Json) } catch { }
+        $parsed = $null
+        try { $parsed = Get-Content $Path -Raw | ConvertFrom-Json }
+        catch {
+            $script:QueueStateUnreadable = $true
+            return $null
+        }
+        if ($null -ne $parsed -and
+            $parsed.PSObject.Properties.Name -contains 'date' -and
+            $parsed.PSObject.Properties.Name -contains 'idleRuns') {
+            return $parsed
+        }
+        $script:QueueStateUnreadable = $true
     }
     return $null
 }
@@ -210,6 +229,17 @@ function Invoke-IdleQueuePick {
     $today = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
     $statePath = Join-Path $QueueStateDir ("vibe-queue-{0}.json" -f ($Workspace -replace '[^a-zA-Z0-9_-]', '_'))
     $qState = Get-QueueState -Path $statePath
+    if ($script:QueueStateUnreadable) {
+        # Fail-closed (arbitrage #3649 decision 1) : sur etat illisible, le plafond
+        # ne peut pas etre garanti — pas de tirage. Distinction journalisee :
+        # absent = premier run du jour (tirage autorise) ; illisible = etat
+        # corrompu, tirage refuse jusqu'a reparation. Le fichier n'est PAS
+        # reecrit ici : la preuve du defaut doit survivre au tick.
+        $script:IdlePickOutcome = 'infrastructure'
+        $script:IdlePickFailure = "queue state illisible ou de forme inattendue ($statePath)"
+        Write-Log ("[ERROR] idle-picker: queue state ILLISIBLE ({0}) - tirage REFUSE (fail-closed, arbitrage #3649). Absent = premier run du jour ; illisible = plafond/anti-marteau non garantis. Reparer ou archiver le fichier, le tick suivant recreera l'etat." -f $statePath) "ERROR"
+        return $false
+    }
     $idleRuns = 0
     if ($qState -and [string]$qState.date -eq $today) { $idleRuns = [int]$qState.idleRuns }
     if ($idleRuns -ge $maxPerDay) {
