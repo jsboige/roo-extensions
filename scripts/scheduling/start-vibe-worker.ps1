@@ -187,6 +187,15 @@ function Save-QueueState {
 function Invoke-IdleQueuePick {
     # Returns $true when a payload was injected into $env:VIBE_WAKE_PAYLOAD
     # (the caller then falls through to lock + execution).
+    #
+    # Le booleen ne suffit PAS a l'appelant : "rien a faire" et "dispatch refuse
+    # sur panne d'infrastructure" se rendaient tous deux en `[SKIP] ... no-op
+    # (exit 0)`, donc un `fetch` casse ou un `worktree add` en echec etaient
+    # indiscernables d'un pool vide pour le scheduler — exactement le motif que
+    # le garde NO-OP (#3296) existe pour rendre bruyant. La raison est publiee
+    # ici ; l'appelant sort non-zero sur 'infrastructure' seulement.
+    $script:IdlePickOutcome = 'noop'
+    $script:IdlePickFailure = ''
     if (-not $profileObj -or -not $profileObj.queue -or
         -not $profileObj.queue.repo -or -not $profileObj.queue.label) {
         return $false
@@ -262,38 +271,69 @@ function Invoke-IdleQueuePick {
         $wtRoot = [string]$queue.worktreeRoot
     }
     if ([string]::IsNullOrWhiteSpace($WorkspacePath) -or -not (Test-Path $WorkspacePath)) {
-        Write-Log ("[SKIP] idle-picker: workspacePath non resolu - impossible de preparer un worktree pour #{0}, pas de dispatch." -f [int]$picked.number) "WARN"
+        $script:IdlePickOutcome = 'infrastructure'
+        $script:IdlePickFailure = "workspacePath non resolu ($WorkspacePath)"
+        Write-Log ("[ERROR] idle-picker: workspacePath non resolu - impossible de preparer un worktree pour #{0}, pas de dispatch." -f [int]$picked.number) "ERROR"
         return $false
     }
     $wt = Join-Path $wtRoot ("idle-{0}" -f [int]$picked.number)
     $branch = "wt/vibe-idle-{0}" -f [int]$picked.number
     try {
         if (-not (Test-Path $wtRoot)) { New-Item -ItemType Directory -Path $wtRoot -Force | Out-Null }
+        git -C $WorkspacePath fetch origin main 2>$null | Out-Null
+        $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
+        if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
+        $base = $base.Trim()
         $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wt)
-        if (-not $known) {
-            git -C $WorkspacePath fetch origin main 2>$null | Out-Null
-            $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
-            if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
-            # La branche survit au `worktree remove` (il ne la supprime pas) : sans
-            # repli, un `worktree add -b` echouerait a chaque tick sur l'issue deja
-            # piquee — meme motif que Prepare-Worktree cote feeder (#3518 W2).
+        if ($known) {
+            # Worktree deja en place (tick precedent). On ne le reutilise QUE sur
+            # PREUVE qu'il ne porte rien : un residu non commite, ou des commits
+            # d'avance sur origin/main, sont du travail potentiellement non livre.
+            # Mesure 14/09 : wt/vibe-g1-genai a ete reutilise avec la mutation
+            # 42af9095b encore dedans — la reutilisation aveugle est le vecteur.
+            $dirty = @(git -C $wt status --porcelain 2>$null)
+            $ahead = (git -C $wt rev-list --count "origin/main..HEAD" 2>$null | Select-Object -First 1)
+            if ($dirty.Count -gt 0 -or "$ahead" -ne '0') {
+                throw ("worktree deja en place et porteur de contenu (dirty=$($dirty.Count) fichier(s), ahead=$ahead commit(s)) - refus de le reutiliser")
+            }
+            git -C $wt reset --hard $base 2>$null | Out-Null
+        } else {
             if ((git -C $WorkspacePath branch --list $branch 2>$null)) {
+                # La branche survit au `worktree remove` (il ne la supprime pas) :
+                # sans repli, un `worktree add -b` echouerait a chaque tick sur
+                # l'issue deja piquee — meme motif que Prepare-Worktree cote feeder
+                # (#3518 W2). Mais rattacher sans garde, c'est reattacher une branche
+                # qui porte peut-etre du travail non livre : on exige d'abord
+                # qu'elle n'ait RIEN d'avance sur origin/main. La remettre sur la
+                # base fraiche ne perd alors rien (c'est la preuve qui l'autorise).
+                $ahead = (git -C $WorkspacePath rev-list --count "origin/main..$branch" 2>$null | Select-Object -First 1)
+                if ("$ahead" -ne '0') {
+                    throw ("branche $branch deja existante et $ahead commit(s) d'avance sur origin/main - refus de la rattacher")
+                }
+                git -C $WorkspacePath branch -f $branch $base 2>$null | Out-Null
                 git -C $WorkspacePath worktree add $wt $branch 2>$null | Out-Null
             } else {
-                git -C $WorkspacePath worktree add $wt -b $branch $base.Trim() 2>$null | Out-Null
+                git -C $WorkspacePath worktree add $wt -b $branch $base 2>$null | Out-Null
             }
             if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wt)) {
                 throw "worktree add a echoue (exit $LASTEXITCODE)"
             }
         }
     } catch {
-        Write-Log ("[SKIP] idle-picker: worktree indisponible pour #{0} ({1}) - pas de dispatch (un payload sans 'worktree:' pendrait sur session/new)." -f [int]$picked.number, $_) "WARN"
+        $script:IdlePickOutcome = 'infrastructure'
+        $script:IdlePickFailure = "$_"
+        Write-Log ("[ERROR] idle-picker: worktree indisponible pour #{0} ({1}) - pas de dispatch (un payload sans 'worktree:' pendrait sur session/new)." -f [int]$picked.number, $_) "ERROR"
         return $false
     }
 
     $body = [string]$picked.body
     if ($body.Length -gt 4000) { $body = $body.Substring(0, 4000) + "..." }
-    $promptText = ("Issue #{0}: {1}`n`n{2}`n`nworktree: {3}`nbranch: {4}`n`n-- Provenance: idle-picker (tick planifie sans WAKE). Livrer le travail correspondant dans ce worktree." -f [int]$picked.number, [string]$picked.title, $body, $wt, $branch)
+    # Le corps d'issue est insere AVANT le bloc du picker et n'est pas du contrat.
+    # Le bloc est donc ouvert par son marqueur de provenance, et resolve_session_cwd
+    # ne scanne que lui : un corps qui se contente de DOCUMENTER le format
+    # (`worktree: D:/dev/CoursIA`, repertoire existant) ne peut plus detourner le cwd
+    # de session vers le workspace a 3,75 M d'entrees, sans WARN puisque le chemin existe.
+    $promptText = ("Issue #{0}: {1}`n`n{2}`n`n-- Provenance: idle-picker (tick planifie sans WAKE). Livrer le travail correspondant dans le worktree ci-dessous.`nworktree: {3}`nbranch: {4}" -f [int]$picked.number, [string]$picked.title, $body, $wt, $branch)
     $payload = @{ content = $promptText } | ConvertTo-Json -Compress
     $env:VIBE_WAKE_PAYLOAD = $payload
     Write-Log ("[PICK] idle-picker: issue #{0} '{1}' -> payload {2} chars" -f [int]$picked.number, [string]$picked.title, $payload.Length)
@@ -332,6 +372,16 @@ if ($wakeOnly -and
     [string]::IsNullOrWhiteSpace($MessagePayloadFile) -and
     [string]::IsNullOrWhiteSpace($env:VIBE_WAKE_PAYLOAD)) {
     if (-not (Invoke-IdleQueuePick)) {
+        # 'infrastructure' = le picker a REFUSE de dispatcher (workspacePath non
+        # resolu, fetch casse, worktree add en echec, branche existante porteuse de
+        # travail). Ce n'est PAS un tick sans travail : le sortir en exit 0 le rendait
+        # indiscernable d'un pool vide pour le scheduler. Seuls les no-op genuins
+        # (pool vide, cap atteint, anti-marteau) restent a zero.
+        if ($script:IdlePickOutcome -eq 'infrastructure') {
+            Write-Log ("[ERROR] idle-picker: preparation refusee ({0}) - tick termine en echec, pas en no-op." -f $script:IdlePickFailure) "ERROR"
+            Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
+            exit 1
+        }
         Write-Log "[SKIP] no WAKE payload pending - scheduled tick is a no-op (exit 0)."
         Write-WorkerHeartbeat -LogPrefix 'Heartbeat'
         exit 0

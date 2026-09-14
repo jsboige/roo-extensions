@@ -101,7 +101,7 @@ if (-not $py) {
     $probe = @'
 import contextlib, importlib.util, io, sys
 
-DRIVER, REAL, CLI = sys.argv[1], sys.argv[2], sys.argv[3]
+DRIVER, REAL, CLI, OWN = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 spec = importlib.util.spec_from_file_location("drv", DRIVER)
 m = importlib.util.module_from_spec(spec)
 # The driver reads sys.argv only under __main__; blank it so exec_module cannot
@@ -122,12 +122,33 @@ out.append("no_line=%s"     % (r("Issue #1: x\n\nno such line here\n") == CLI))
 # Stop preference never turns it into a terminating NativeCommandError.
 with contextlib.redirect_stderr(io.StringIO()):
     out.append("missing_dir=%s" % (r("Issue #1: x\n\nworktree: D:/no/such/worktree/at/all\n") == CLI))
+
+# The issue body is inserted BEFORE the picker's block and is NOT the contract.
+# The resolver anchors with re.match, so the hazard is a body line that STARTS
+# with `worktree:` -- exactly what a body reproducing the payload format (a
+# fenced block, as the grain bodies do) contains. Two hazards here: a bare
+# contract line, and a body that also recopies the provenance marker.
+body = ("The payload format is:\n\nworktree: " + REAL + "\nbranch: wt/x\n\n"
+        "and a body recopying the marker:\n"
+        "-- Provenance: idle-picker\nworktree: " + REAL + "\n")
+prompt = ("Issue #1: x\n\n" + body + "\n\n"
+          "-- Provenance: idle-picker (tick planifie sans WAKE)."
+          " Livrer le travail correspondant dans le worktree ci-dessous.\n"
+          "worktree: " + OWN + "\nbranch: wt/vibe-idle-1\n")
+out.append("body_cannot_override=%s" % (r(prompt) == OWN))
+# A contract block naming no usable worktree is MALFORMED, not "absent": the
+# body's own valid line must still not be promoted to the contract.
+mal = ("Issue #1: x\n\nworktree: " + REAL + "\n\n"
+       "-- Provenance: idle-picker (tick planifie sans WAKE).\n"
+       "worktree: D:/no/such/worktree/at/all\n")
+with contextlib.redirect_stderr(io.StringIO()):
+    out.append("malformed_block=%s" % (r(mal) == CLI))
 print("\n".join(out))
 '@
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $tmpPy = [System.IO.Path]::GetTempFileName() + '.py'
     [System.IO.File]::WriteAllText($tmpPy, $probe, $utf8)
-    $out = & $py $tmpPy $driverPath $repoRoot 'D:/the/fallback/cwd' 2>$null
+    $out = & $py $tmpPy $driverPath $repoRoot 'D:/the/fallback/cwd' "$repoRoot/scripts" 2>$null
     $rc = $LASTEXITCODE
     Remove-Item $tmpPy -ErrorAction SilentlyContinue
 
@@ -135,6 +156,8 @@ print("\n".join(out))
     Assert-Equal 'worktree line wins' 'with_line=True' ($out[0])
     Assert-Equal 'no line -> cli_cwd' 'no_line=True' ($out[1])
     Assert-Equal 'absent dir -> cli_cwd (never a bogus cwd)' 'missing_dir=True' ($out[2])
+    Assert-Equal 'an issue body cannot override the contract' 'body_cannot_override=True' ($out[3])
+    Assert-Equal 'malformed contract block -> cli_cwd' 'malformed_block=True' ($out[4])
 }
 
 # ============================================================================
@@ -153,6 +176,48 @@ Assert-Equal 'the filter runs BEFORE the selection' $true `
 Assert-Equal 'pool-exhaustion guard present' $true ($body -match 'tout le pool est sous anti-marteau')
 # Mutation bit: reinstating the per-tick abort turns this red.
 Assert-Equal 'the per-tick abort is gone' $false ($body -match 'already picked')
+
+# ============================================================================
+# Test 5: the picker's own block is OPENED by its provenance marker. The issue
+# body is inserted before it, so without a delimiter a body can present itself
+# as the contract (measured at head a26267e2 — see Test 3's override case).
+# ============================================================================
+Write-Host "`n=== Test 5: the contract block is delimited ===" -ForegroundColor Cyan
+
+Assert-Equal 'the payload emits the provenance marker' $true ($body -match 'Provenance: idle-picker')
+Assert-Equal 'the marker precedes the worktree line' $true `
+    ($body.IndexOf('Provenance: idle-picker') -lt $body.IndexOf('worktree: {3}'))
+
+# ============================================================================
+# Test 6: reusing a branch or a worktree requires PROOF that it carries nothing.
+# Measured 2026-09-14: wt/vibe-g1-genai was reused with mutation 42af9095b still
+# inside — blind reuse is the vector this guard closes.
+# ============================================================================
+Write-Host "`n=== Test 6: no blind reuse of a branch or worktree ===" -ForegroundColor Cyan
+
+Assert-Equal 'an in-place worktree is guarded on dirty/ahead' $true `
+    ($body -match 'worktree deja en place et porteur de contenu')
+Assert-Equal 'the dirty guard precedes the reset' $true `
+    ($body.IndexOf('worktree deja en place et porteur de contenu') -lt $body.IndexOf('reset --hard $base'))
+Assert-Equal 'an existing branch is guarded on ahead' $true `
+    ($body -match "d'avance sur origin/main - refus de la rattacher")
+Assert-Equal 'the ahead guard precedes the reattach' $true `
+    ($body.IndexOf("d'avance sur origin/main - refus de la rattacher") -lt $body.IndexOf('worktree add $wt $branch'))
+
+# ============================================================================
+# Test 7: an infrastructure refusal is NOT a tick without work. The picker
+# publishes a typed reason; the caller exits non-zero on 'infrastructure' and
+# keeps 0 for the genuine no-ops (empty pool, cap, anti-hammer).
+# ============================================================================
+Write-Host "`n=== Test 7: infrastructure failure != no-op ===" -ForegroundColor Cyan
+
+$callerRegion = $src.Substring($src.IndexOf('if (-not (Invoke-IdleQueuePick))'))
+Assert-Equal 'the picker publishes a typed reason' $true `
+    ([regex]::Matches($body, "IdlePickOutcome = 'infrastructure'").Count -ge 2)
+Assert-Equal 'the caller discriminates on infrastructure' $true `
+    ($callerRegion -match "IdlePickOutcome -eq 'infrastructure'")
+Assert-Equal 'the caller exits non-zero on infrastructure' $true ($callerRegion -match 'exit 1')
+Assert-Equal 'the caller keeps exit 0 for a genuine no-op' $true ($callerRegion -match 'exit 0')
 
 # ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
