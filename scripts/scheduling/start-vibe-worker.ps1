@@ -229,9 +229,62 @@ function Invoke-IdleQueuePick {
         } catch { }
     }
 
+    # ===== Worktree OBLIGATOIRE (14/09) =====
+    # Le payload doit porter une ligne `worktree:` : c'est la SEULE source dont le
+    # driver sait tirer un cwd borne (vibe-acp-driver.py:resolve_session_cwd). Sans
+    # elle il retombe sur le --cwd du profil, qui est le WORKSPACE ENTIER, et
+    # session/new MARCHE son cwd : D:/dev/CoursIA porte 3 750 355 entrees mesurees
+    # le 14/09 (149 worktrees imbriques sous .claude/worktrees) -> aucune reponse
+    # dans le budget de 90 s -> SESSION_NEW_FAILED, exit 3.
+    #
+    # Mesure 14/09 07:40:27Z sur #16120 : le pick est enregistre (payload 4323 chars),
+    # le run meurt a 07:42:00 (93 s), et comme l'etat est sauve juste apres
+    # l'injection, le slot du jour ET les 6 h d'anti-marteau sont consommes pour un
+    # run qui n'a rien produit. Sonde A/B du meme jour, meme exe, memes MCP :
+    #   cwd=D:/dev/CoursIA            -> session/new TIMEOUT a 120 s
+    #   cwd=<worktree CoursIA>        -> session/new 5,6 s OK
+    # Le cwd est le seul discriminant.
+    #
+    # Echec de preparation => pas de dispatch (return $false) : un payload sans
+    # `worktree:` pendrait a coup sur, et consommerait les compteurs pour rien.
+    $wtRoot = "$WorkspacePath-vibe"
+    if ($queue.PSObject.Properties.Name -contains 'worktreeRoot' -and
+        -not [string]::IsNullOrWhiteSpace([string]$queue.worktreeRoot)) {
+        $wtRoot = [string]$queue.worktreeRoot
+    }
+    if ([string]::IsNullOrWhiteSpace($WorkspacePath) -or -not (Test-Path $WorkspacePath)) {
+        Write-Log ("[SKIP] idle-picker: workspacePath non resolu - impossible de preparer un worktree pour #{0}, pas de dispatch." -f [int]$picked.number) "WARN"
+        return $false
+    }
+    $wt = Join-Path $wtRoot ("idle-{0}" -f [int]$picked.number)
+    $branch = "wt/vibe-idle-{0}" -f [int]$picked.number
+    try {
+        if (-not (Test-Path $wtRoot)) { New-Item -ItemType Directory -Path $wtRoot -Force | Out-Null }
+        $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wt)
+        if (-not $known) {
+            git -C $WorkspacePath fetch origin main 2>$null | Out-Null
+            $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
+            if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
+            # La branche survit au `worktree remove` (il ne la supprime pas) : sans
+            # repli, un `worktree add -b` echouerait a chaque tick sur l'issue deja
+            # piquee — meme motif que Prepare-Worktree cote feeder (#3518 W2).
+            if ((git -C $WorkspacePath branch --list $branch 2>$null)) {
+                git -C $WorkspacePath worktree add $wt $branch 2>$null | Out-Null
+            } else {
+                git -C $WorkspacePath worktree add $wt -b $branch $base.Trim() 2>$null | Out-Null
+            }
+            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wt)) {
+                throw "worktree add a echoue (exit $LASTEXITCODE)"
+            }
+        }
+    } catch {
+        Write-Log ("[SKIP] idle-picker: worktree indisponible pour #{0} ({1}) - pas de dispatch (un payload sans 'worktree:' pendrait sur session/new)." -f [int]$picked.number, $_) "WARN"
+        return $false
+    }
+
     $body = [string]$picked.body
     if ($body.Length -gt 4000) { $body = $body.Substring(0, 4000) + "..." }
-    $promptText = ("Issue #{0}: {1}`n`n{2}`n`n-- Provenance: idle-picker (tick planifie sans WAKE). Livrer le travail correspondant dans ce workspace." -f [int]$picked.number, [string]$picked.title, $body)
+    $promptText = ("Issue #{0}: {1}`n`n{2}`n`nworktree: {3}`nbranch: {4}`n`n-- Provenance: idle-picker (tick planifie sans WAKE). Livrer le travail correspondant dans ce worktree." -f [int]$picked.number, [string]$picked.title, $body, $wt, $branch)
     $payload = @{ content = $promptText } | ConvertTo-Json -Compress
     $env:VIBE_WAKE_PAYLOAD = $payload
     Write-Log ("[PICK] idle-picker: issue #{0} '{1}' -> payload {2} chars" -f [int]$picked.number, [string]$picked.title, $payload.Length)
