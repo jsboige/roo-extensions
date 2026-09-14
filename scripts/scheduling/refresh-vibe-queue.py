@@ -49,7 +49,7 @@ ou a un NOOP justifie (voir plus bas). Un NOOP justifie est une REUSSITE,
 pas un echec de grain.
 Recettes par pathologie (n'appliquer que celle detectee sur la ligne visee) :
 - ORPHAN_TABLE_ROW : re-declarer le header + separateur REELS avant la ligne pipe orpheline (ne deplacer aucune ligne, ne pas inventer de colonne).
-- COL_MISMATCH ou CODE_SPAN_PIPE : echapper le `|` nu en `\\|` dans la cellule (dans un code span inline : `\\|` aussi).
+- COL_MISMATCH ou CODE_SPAN_PIPE : echapper le `|` nu en `\\|` dans la cellule -- UNIQUEMENT si la ligne est une vraie rangee de tableau (bloc sous un separateur `|---|`). Dans un code span inline sur une ligne de PROSE, le `|` est deja litteral : ne pas y toucher (FP 5).
 - MATH_SPAN_PIPE : remplacer le `|` par `\\mid` (condition / such-that, ex. p(a|s)) ou `\\vert` (valeur absolue). TOUJOURS espacer l'operateur : `a \\mid b`, `\\vert x \\vert`. Ne jamais coller une commande LaTeX a la lettre suivante : elle l'absorbe et la commande devient non definie.
 - NO_BLANK_BEFORE / NO_BLANK_AFTER : inserer UNE ligne vide avant / apres la table.
 
@@ -58,8 +58,18 @@ separateur de cellules (ex. `Input ($/1M tokens) | Output ($/1M tokens)`) ;
 (2) `||` logique JavaScript dans une fence de code ; (3) `|` en prose
 (ex. `pi*(y|x)`, navigation `[Precedent](...) | [Suivant](...)`, metadonnees
 `**Duree estimee** : ... | **Prerequis** : ...`) ; (4) boites ASCII a traits
-verticaux, manifests et archives. Ces cas NE SONT PAS du travail : ne rien
-reecrire, les citer en une ligne dans le rapport et passer.
+verticaux, manifests et archives ; (5) `|` dans un code span inline sur des
+lignes de PROSE consecutives, lues comme un pseudo-tableau -- signature : le
+finding porte une ligne SANS AUCUN pipe (ex. `**Objectif** -- ...`). Ces cas
+NE SONT PAS du travail : ne rien reecrire, les citer en une ligne dans le
+rapport et passer.
+
+ATTENTION FP 5 : l'echappement y est une MUTATION, pas un fix. Dans un code
+span, l'antislash est LITTERAL et devient visible : `float\\|None` s'affiche
+avec l'antislash devant l'etudiant. Mesure les 13-14/09 sur 10e_LLamaSharp --
+deux vecteurs distincts de la meme mutation : lignes vides inserees au milieu
+d'une phrase, puis echappements de pipes en prose. Le NOOP justifie est la
+seule issue correcte pour cette famille.
 
 NOOP JUSTIFIE : fichier INCHANGE, finding cite (pathologie + ligne), motif en
 une ligne. C'est une REUSSITE, pas un echec de grain. La liste ci-dessus n'est
