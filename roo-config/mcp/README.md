@@ -36,7 +36,7 @@ Lists all MCP tools that should be auto-approved by Roo Code without requiring m
 | win-cli | 9 | **CRITICAL** |
 | markitdown | 1 | Active |
 | playwright | 15 | Active |
-| roo-state-manager | 36 | Active |
+| roo-state-manager | 17 | Active |
 | jupyter | 22 | DISABLED on execution machines |
 | desktop-commander | 26 | Deprecated (for backward compat) |
 
@@ -101,8 +101,12 @@ See `docs/deployment/DEPLOY-ALWAYSALLOW.md` for complete deployment guide.
 
 1. **Check if sync was applied:**
    ```powershell
-   $settings = Get-Content "$env:APPDATA\Code\User\globalStorage\rooveterinaryinc.roo-cline\settings\mcp_settings.json" | ConvertFrom-Json
-   $settings.mcpServers."win-cli".alwaysAllow.Count
+   # Resolve the ACTIVE extension's settings (Roo or Zoo) -- never hardcode
+   # either seat: on a migrated host the roo-cline copy survives as an empty
+   # shell and a hardcoded path reads the config nothing loads (#3639).
+   . .\scripts\common\extension-paths.ps1
+   $settings = Get-Content (Get-ActiveMcpSettingsPath) | ConvertFrom-Json
+   $settings.mcpServers."roo-state-manager".alwaysAllow.Count
    ```
 
 2. **Restart VS Code:**

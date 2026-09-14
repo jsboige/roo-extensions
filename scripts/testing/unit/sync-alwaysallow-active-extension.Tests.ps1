@@ -24,10 +24,11 @@
     expression the scripts use, not a copy of it that could drift.
 
     Executed in CI by the `unit-pester` job (.github/workflows/ci.yml, #3216) on
-    ubuntu-latest. That job checks out WITHOUT submodules, so the one block that
-    needs the submodule source (the catalogue cross-check) skips itself there and
-    says so -- same contract as path-guards.Tests.ps1. The other blocks are
-    fixture-based and run everywhere.
+    ubuntu-latest. That job checks out WITH submodules (#3644 second review): the
+    catalogue cross-check is the only assertion anchoring the reference to the
+    SERVED definitions -- when the submodule is absent it skips itself (same
+    contract as path-guards.Tests.ps1), and a pipeline where it never runs is a
+    pipeline where the reference can drift with this suite green.
 
     This file is deliberately ASCII-only: Windows PowerShell 5.1 mis-decodes
     non-ASCII prose on a host whose active code page is not 65001 unless the file
@@ -331,6 +332,34 @@ Describe 'alwaysAllow sync against the active extension (#3639)' {
                 $persisted = Get-PersistedTools -Path $zooPath
                 $persisted | Should -Not -Contain 'roosync_send'
                 $persisted | Should -Not -Contain 'roosync_read'
+            } finally {
+                Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    # --------------------------------------------------------------- dual seat
+
+    # Get-ActiveExtension prefers Roo when BOTH settings files exist
+    # (scripts/common/extension-paths.ps1, back-compat with dual-install hosts).
+    # The resolution these scripts delegate to is only as safe as that pinned
+    # preference -- a silent flip to Zoo here would rewrite a different seat on
+    # every dual-install host without any test going red (#3644 review, follow-up 4).
+    Context 'both seats installed (<Label>) -- pinned preference: Roo' -ForEach $script:SyncScripts {
+
+        It 'writes the Roo target and leaves the Zoo copy untouched' {
+            $root = New-Sandbox
+            try {
+                $rooPath = Get-SeatPath -Root $root -Seat RooCode
+                $zooPath = Get-SeatPath -Root $root -Seat ZooCode
+                Write-LiveSettings -Path $rooPath -Tools @('conversation_browser')
+                Write-LiveSettings -Path $zooPath -Tools @('conversation_browser')
+
+                $result = Invoke-Sync -Rel $Rel -RefFlag $RefFlag -Root $root
+                $result.ExitCode | Should -Be 0
+
+                Get-PersistedTools -Path $rooPath | Should -Contain 'roosync_harmonization'
+                Get-PersistedTools -Path $zooPath | Should -Not -Contain 'roosync_harmonization' -Because 'the documented dual-seat preference is Roo; Zoo is not the resolved seat'
             } finally {
                 Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
             }
