@@ -125,4 +125,26 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
             $iGuard | Should -BeGreaterThan $iDry
         }
     }
+
+    Context "Le picker idle normalise les separateurs avant de matcher git worktree list" {
+
+        # Regression #3646 mesuree 14/09 16:40Z : `git worktree list` imprime des
+        # slashes, `Join-Path` rend des backslashes sur Windows. Sans normalisation,
+        # $known ne matche JAMAIS, le re-pick retombe sur `worktree add` sur un
+        # chemin deja enregistre (exit 128) et l'issue devient indisponible.
+
+        It "construit une forme normalisee depuis \$wt" {
+            ($content -match '\$wtForMatch\s*=\s*\$wt\s+-replace') | Should -Be $true
+        }
+
+        It "matche la sortie git sur la forme normalisee, pas sur \$wt brut" {
+            # Ancre sur la ligne $known = : si quelqu'un rebranche SimpleMatch sur
+            # $wt (la forme a backslashes), l'assertion rougit. Une sous-chaîne
+            # "-replace" non ancrée resterait verte si la normalisation existait
+            # ailleurs sans etre consommee ici.
+            $knownLine = @($content -split "`n" | Where-Object { $_ -match '^\s*\$known\s*=' })[0]
+            $knownLine | Should -Not -BeNullOrEmpty
+            ($knownLine -match 'SimpleMatch\s+\$wtForMatch') | Should -Be $true
+        }
+    }
 }

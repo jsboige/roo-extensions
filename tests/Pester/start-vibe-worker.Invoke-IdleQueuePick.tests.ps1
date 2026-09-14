@@ -52,12 +52,16 @@ BeforeAll {
     # the mock materialises the directory the production call then Test-Path's.
     $script:WorkspacePath = $script:TestStateDir
     $script:WtRoot = Join-Path $script:TestStateDir 'wt'
-    # Same expression the picker builds, so `Select-String -SimpleMatch $wt` on the
-    # mocked `worktree list` matches exactly (the profile carries forward slashes).
-    $script:WtPath7 = Join-Path ($script:WtRoot -replace '\\', '/') 'idle-7'
+    # git worktree list prints FORWARD SLASHES ONLY, even on Windows — while the
+    # picker's `$wt` (Join-Path on a forward-slash wtRoot) carries a backslash
+    # before the leaf. The mock must emit git's real format: mirroring the
+    # picker's mixed form instead made every reuse test vacuous for the
+    # separator defect (regression #3646, measured 14/09 — idle-16120 exit 128).
+    $script:WtPath7 = ((Join-Path ($script:WtRoot -replace '\\', '/') 'idle-7') -replace '\\', '/')
     $script:MockAhead = '0'
     $script:MockKnownWt = ''
     $script:MockBranchExists = ''
+    $script:WorktreeAddCalls = 0
 
     Mock git {
         $global:LASTEXITCODE = 0
@@ -70,6 +74,7 @@ BeforeAll {
         if ($a -contains 'rev-parse') { return 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }
         if ($a -contains 'branch' -and $a -contains '--list') { return $script:MockBranchExists }
         if ($a -contains 'worktree' -and $a -contains 'add') {
+            $script:WorktreeAddCalls++
             $dest = $a[[array]::IndexOf($a, 'add') + 1]
             New-Item -ItemType Directory -Path $dest -Force | Out-Null
             return ''
@@ -84,6 +89,7 @@ BeforeEach {
     $script:MockAhead = '0'
     $script:MockKnownWt = ''
     $script:MockBranchExists = ''
+    $script:WorktreeAddCalls = 0
     Remove-Item $script:WtRoot -Recurse -Force -ErrorAction SilentlyContinue
     # Fresh profile: queue enabled, cap 2/day, worktreeRoot under the test dir
     $script:profileObj = ('{"queue":{"repo":"jsboige/CoursIA","label":"vibe-target","maxIdleRunsPerDay":2,"worktreeRoot":"' + ($script:WtRoot -replace '\\', '/') + '"}}') | ConvertFrom-Json
@@ -218,5 +224,21 @@ It 'Reuses an in-place worktree that provably carries nothing' {
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
     $script:IdlePickOutcome | Should -Be 'noop'
+    # Reuse must mean reuse: falling back to `worktree add` on an already
+    # registered path is the exit-128 refusal, not the clean-reuse contract.
+    $script:WorktreeAddCalls | Should -Be 0
+}
+
+It 'Recognizes a git-printed worktree path despite the Join-Path separator mix' {
+    # Regression #3646 (14/09): git prints `.../wt/idle-7`, the picker builds
+    # `.../wt\idle-7` — without normalizing before Select-String, $known stayed
+    # empty on every Windows tick and the re-pick died on `worktree add` exit 128.
+    # The mock returns git's pure-forward-slash form; only the normalization
+    # in the picker can turn it into a recognized (reusable) worktree.
+    $script:MockKnownWt = $script:WtPath7
+    $script:MockAhead = '0'
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    $script:WorktreeAddCalls | Should -Be 0
 }
 }
