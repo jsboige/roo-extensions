@@ -188,7 +188,10 @@ jobs:
       # queries closingIssuesReferences and compares to the body). The harness
       # below exercises the same patterns in lockstep — any change to the
       # patterns in the workflow MUST also change this file, and the test will
-      # catch a drift. Static (pure regex over strings), ubuntu-latest is fine.
+      # catch a drift. It also compiles the workflow's embedded script with
+      # node/AsyncFunction (what actions/github-script itself does): the first
+      # cut shipped a quoting SyntaxError no runner ever surfaced. Static
+      # (regex over strings + one compile), ubuntu-latest is fine.
       - name: Run PR negation auto-close harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-pr-negation-autoclose.ps1
