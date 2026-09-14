@@ -73,6 +73,8 @@ hostname
 git log --oneline -5
 ```
 
+> **Exit `10` — conduite #3605** (spéc user 13/09) : `[RESTART-REQUIRED]` (répétitions 1-2) → poster **UN** `[ASK]` user (restart full-quit VS Code) et stopper le cycle. `[ESCALATE]` (3ᵉ répétition de la forme absorbante) → **UN seul** `[ASK]`, ni kill ni retry automatique. `[SHORT-CYCLE]` (escalade déjà émise) → rapport **1 ligne**, pas de collecte, pas de nouveau `[ASK]`. Pré-vol `0` → le cycle normal reprend. Détail : `.claude/skills/executor/SKILL.md` Phase 0.
+
 Puis (en parallele) :
 1. **Dashboard RooSync workspace** : `roosync_dashboard(action: "read", type: "workspace", section: "intercom", intercomLimit: 20)`
    - Identifier le dernier message de Roo (tags `[DONE]`, `[IDLE]`, `[PARTIEL]`)
