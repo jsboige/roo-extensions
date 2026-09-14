@@ -28,7 +28,12 @@ function Get-BlockageStatePath {
     if ($ExplicitPath) { return $ExplicitPath }
     # Machine-local, OUTSIDE any repo and outside ~/.claude (sanctuary rule): the
     # streak must survive checkouts and must never show up as repo litter.
-    return (Join-Path $env:LOCALAPPDATA 'claude-executor\preflight-blockage.json')
+    # LOCALAPPDATA is null on non-Windows (Linux CI runner): fall back to a
+    # temp-rooted path there instead of throwing; the Windows fleet always
+    # takes the intended LOCALAPPDATA location (review #3653).
+    $base = $env:LOCALAPPDATA
+    if (-not $base) { $base = [System.IO.Path]::GetTempPath() }
+    return (Join-Path (Join-Path $base 'claude-executor') 'preflight-blockage.json')
 }
 
 function Update-BlockageState {

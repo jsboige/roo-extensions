@@ -95,7 +95,14 @@ Describe 'Executor exit-10 absorbing-form escalation (#3605)' {
     It 'Get-BlockageStatePath honors an explicit path and stays outside repo and ~/.claude' {
         Get-BlockageStatePath -ExplicitPath 'C:\somewhere\state.json' | Should -Be 'C:\somewhere\state.json'
         $default = Get-BlockageStatePath
-        $default | Should -Match [regex]::Escape($env:LOCALAPPDATA)
+        if ($env:LOCALAPPDATA) {
+            # Windows fleet: the machine-local location, exactly.
+            $default | Should -Match [regex]::Escape($env:LOCALAPPDATA)
+        } else {
+            # Linux CI runner: LOCALAPPDATA is null; the default must resolve to
+            # the temp fallback instead of throwing (review #3653).
+            $default | Should -Match 'claude-executor'
+        }
         $default | Should -Not -Match '\.claude'
     }
 
