@@ -119,6 +119,9 @@ def find_vibe_acp(explicit: str) -> str:
     return max(candidates, key=os.path.getmtime) if candidates else ""
 
 
+_CONTRACT_MARKER = "provenance: idle-picker"
+
+
 def resolve_session_cwd(cli_cwd: str, prompt_text: str) -> str:
     """Session cwd for session/new: the grain worktree named by the payload.
 
@@ -138,8 +141,23 @@ def resolve_session_cwd(cli_cwd: str, prompt_text: str) -> str:
     hand-written grain without the line falls back to cli_cwd (and the workspace
     walk above). Falling back when the line is absent or the path does not exist
     keeps manual runs (`--prompt`, `--cwd`) working exactly as before.
+
+    The line is only authoritative where its PRODUCER owns it. The idle-picker
+    composes `titre + corps d'issue (jusqu'a 4000 car.) + son propre bloc`, so
+    the body sits BEFORE the contract — and a body merely *documenting* the
+    format (`worktree: D:/dev/CoursIA`, an existing directory) would win the
+    first-match scan and hand session/new back the 3.75M-entry workspace, with
+    no WARN, since the path exists. The producer therefore delimits its block
+    with a provenance marker, and when that marker is present only the block is
+    scanned. Payloads without it (grains) keep the historical resolution.
     """
-    for line in prompt_text.splitlines():
+    region = prompt_text
+    # rfind: the picker APPENDS its block, so the last marker is the producer's.
+    # A body recopying the marker stays before it and cannot become the contract.
+    idx = prompt_text.lower().rfind(_CONTRACT_MARKER)
+    if idx != -1:
+        region = prompt_text[idx:]
+    for line in region.splitlines():
         # One contract: `worktree:`. No producer in the repo emits a `cwd:` line
         # in a payload, and accepting one made any grain prose line that looks
         # like `cwd: <existing dir>` a silent session redirect.
@@ -150,6 +168,10 @@ def resolve_session_cwd(cli_cwd: str, prompt_text: str) -> str:
         if os.path.isdir(candidate):
             return candidate
         print(f"WARN: payload worktree not a directory: {candidate!r}", file=sys.stderr)
+    if idx != -1:
+        # A contract block that names no usable worktree is malformed, not
+        # "absent": say so, rather than falling back silently to the workspace.
+        print("WARN: idle-picker contract block carries no usable `worktree:` line", file=sys.stderr)
     return cli_cwd
 
 
