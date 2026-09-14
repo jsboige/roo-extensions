@@ -11,7 +11,9 @@
     "repo": "jsboige/CoursIA",
     "label": "vibe-target",
     "maxIdleRunsPerDay": 4,
-    "_doc": "Idle-picker (06/09, GO user) : un tick planifie sans WAKE pioche la plus ancienne issue ouverte vibe-target et l'injecte comme payload. Cap 4 runs/jour + anti-marteau 6h (start-vibe-worker.ps1). Pool vide = SKIP historique (aucun cout). Label a creer sur CoursIA ; provisioning = /coordinate (ai-01) ou tout executor."
+    "worktreeRoot": "D:/dev/CoursIA-vibe",
+    "_doc": "Idle-picker (06/09, GO user) : un tick planifie sans WAKE pioche la plus ancienne issue ouverte vibe-target et l'injecte comme payload. Cap 4 runs/jour + anti-marteau 6h (start-vibe-worker.ps1). Pool vide = SKIP historique (aucun cout). Label a creer sur CoursIA ; provisioning = /coordinate (ai-01) ou tout executor.",
+    "_worktree": "worktreeRoot = racine des worktrees idle (defaut <workspacePath>-vibe). Le picker prepare <worktreeRoot>/idle-<issue> sur origin/main et emet les lignes `worktree:`/`branch:` dans le payload — OBLIGATOIRE : c'est la seule source dont le driver tire un cwd borne. Sans elle session/new marche le workspace entier (3,75 M entrees mesurees le 14/09) et ne repond jamais dans son budget de 90 s (SESSION_NEW_FAILED, mesure 14/09 07:40:27Z sur #16120)."
   },
   "notes": "Aucun CLI one-shot n'existe : l'extension VS Code bundle vibe-acp.exe (serveur ACP). Le driver scripts/scheduling/vibe-acp-driver.py est le client headless (initialize -> session/new -> session/prompt). --wake lit VIBE_WAKE_PAYLOAD posee par start-vibe-worker.ps1 sur un [WAKE-VIBE]. Auth etablie une fois par browser-auth interactive VS Code (verifie 2026-08-22 : tick headless PROMPT_OK, ~$0.03/tick)."
 }
