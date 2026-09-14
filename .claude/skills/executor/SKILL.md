@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.8.6 (cadence coordinateur ai-01 6h→4h — #3629, directive user 2026-09-13 ; retour à l'alignement coord/exécuteurs)
+**Version:** 3.9.0 (escalade après N=3 formes absorbantes exit-10 — #3605, spec user 2026-09-13)
 **Cree:** 2026-03-28
-**MAJ:** 2026-09-13 (cadence coordinateur ai-01 6h→4h, #3629 — directive user « Réarme un cron 4h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-12 (cadence coordinateur ai-01 4h→6h, #3610 — mandat user ; **portée asymétrique** : les exécuteurs restent à `41 */4`, ne pas uniformiser dans un sens ni dans l'autre) — 2026-09-11 (cadence coordinateur ai-01 3h→4h — flotte réalignée à 4h) — 2026-09-09 (cadence coordinateur ai-01 8h→3h, #3547) — 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
+**MAJ:** 2026-09-14 (escalade après N=3 formes absorbantes exit-10, #3605 — spec user 13/09 : `[ESCALATE]`/`[SHORT-CYCLE]`/`[RESTART-REQUIRED]`, ni kill ni retry auto, streak par signature) — 2026-09-13 (cadence coordinateur ai-01 6h→4h, #3629 — directive user « Réarme un cron 4h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-12 (cadence coordinateur ai-01 4h→6h, #3610 — mandat user ; **portée asymétrique** : les exécuteurs restent à `41 */4`, ne pas uniformiser dans un sens ni dans l'autre) — 2026-09-11 (cadence coordinateur ai-01 3h→4h — flotte réalignée à 4h) — 2026-09-09 (cadence coordinateur ai-01 8h→3h, #3547) — 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
