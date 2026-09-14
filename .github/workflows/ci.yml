@@ -180,6 +180,22 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-metaaudit-claude-resolution.ps1
 
+      # #3626: GitHub's auto-close parser is token-based. A negation keyword
+      # adjacent to a closing keyword (close/fix/resolve) does NOT disarm the
+      # auto-close at merge — the live case was PR #3625 (po-2026, 13/09)
+      # arming #3276 by the sentence "Does not close #3276 — stays open". The
+      # production guard is .github/workflows/pr-negation-autoclose.yml (it
+      # queries closingIssuesReferences and compares to the body). The harness
+      # below exercises the same patterns in lockstep — any change to the
+      # patterns in the workflow MUST also change this file, and the test will
+      # catch a drift. It also compiles the workflow's embedded script with
+      # node/AsyncFunction (what actions/github-script itself does): the first
+      # cut shipped a quoting SyntaxError no runner ever surfaced. Static
+      # (regex over strings + one compile), ubuntu-latest is fine.
+      - name: Run PR negation auto-close harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-pr-negation-autoclose.ps1
+
       # report-failed-scheduled-tasks.ps1 exists because nothing reads
       # LastTaskResult: five of our own tasks on ai-01 were sitting on failing
       # exit codes on 2026-08-15, the oldest since 2026-08-01, none of which had
