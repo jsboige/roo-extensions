@@ -71,13 +71,32 @@ foreach ($pair in @(
         ($Text -match ("\`$env:{0}\s*=\s*\`${1}" -f $pair.Env, $pair.Var))
 }
 
+# --- 2b. PLANCHER, pas override (review #3648) ---------------------------------
+# Le setting flotte documente est 300000 (PROJECT_MEMORY.md, setx machine-wide pour
+# le chargement lent de semantic_kernel) : le spawn ne doit jamais ABAISSER un
+# budget de demarrage herite plus grand que la constante de base.
+$FloorCompare = @($Lines | Select-String -Pattern '\[int64\]\$env:MCP_TIMEOUT\s+-gt\s+\[int64\]\$McpStartupTimeoutMs')
+Assert-That "180000 est un PLANCHER : comparaison -gt avec la valeur heritee" ($FloorCompare.Count -eq 1)
+$FloorAssign = @($Lines | Select-String -Pattern '^\s*\$McpStartupTimeoutMs\s*=\s*\$env:MCP_TIMEOUT\s*$')
+Assert-That "une valeur heritee plus grande est preservee (affectation depuis env)" ($FloorAssign.Count -eq 1)
+
 # --- 3. Compteur post-run : tool_use reels, pas des sous-chaines -------------
 Assert-That "le post-run parse les blocs tool_use (compteur d'appels reels)" `
     ($Text -match "\`$Block\.type -eq 'tool_use'" -and $Text -match "\`$Block\.name -like 'mcp__roo-state-manager__\*'")
 Assert-That "le compteur borne aux messages assistant (prose/snapshots exclus)" `
     ($Text -match "\`$Entry\.type -ne 'assistant'")
+
+# Review #3648: la premiere version de ce pattern portait un backtick parasite avant
+# $SessionJsonl — en single-quoted PS le backtick est un literal et $ une ancre
+# fin-de-ligne, donc le regex ne pouvait JAMAIS matcher et l'assertion d'absence
+# ci-dessous passait toujours (14/15 assertions effectives). Le self-test garantit
+# desormais que le pattern detecte reellement la forme ancienne qu'il doit bannir.
+$OldGrepPattern = 'Select-String\s+-Path\s+\$SessionJsonl\.FullName\s+-Pattern\s+"mcp__roo-state-manager"'
+$OldGrepForm = 'Select-String -Path $SessionJsonl.FullName -Pattern "mcp__roo-state-manager"'
+Assert-That "le pattern de detection du vieux grep MATCH la forme ancienne (garde contre l'assertion inerte)" `
+    ($OldGrepForm -match $OldGrepPattern)
 Assert-That "l'ancien grep par sous-chaine 'mcp__roo-state-manager' est ABSENT (comptait la prose)" `
-    (-not ($Text -match 'Select-String\s+-Path\s+\`$SessionJsonl\.FullName\s+-Pattern\s+"mcp__roo-state-manager"'))
+    (-not ($Text -match $OldGrepPattern))
 
 # --- 4. La preview DryRun montre le budget qu'elle executera -------------------
 $PreviewEnv = @($Lines | Select-String -Pattern 'env au spawn: MCP_TIMEOUT=\$McpStartupTimeoutMs')

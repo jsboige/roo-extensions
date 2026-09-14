@@ -331,7 +331,13 @@ $ExpectedJsonl = Join-Path $SessionProjectDir "$SessionId.jsonl"
 $ClaudeArgs = "-p --model $Model --dangerously-skip-permissions --session-id $SessionId"
 # #3575: MCP budget inherited by the spawned claude (posed just before Start-Process).
 # Defined here so the DryRun preview advertises the same values the spawn will set.
+# 180000 is a FLOOR, not an override: the documented fleet setting is 300000
+# (PROJECT_MEMORY.md, setx machine-wide for sk-agent's slow semantic_kernel load),
+# and this spawn must never LOWER a machine-level startup budget.
 $McpStartupTimeoutMs = '180000'
+if ($env:MCP_TIMEOUT -match '^\d+$' -and [int64]$env:MCP_TIMEOUT -gt [int64]$McpStartupTimeoutMs) {
+    $McpStartupTimeoutMs = $env:MCP_TIMEOUT
+}
 $McpToolTimeoutMs = '900000'
 
 if ($DryRun) {
