@@ -97,6 +97,48 @@ Le champ `reason` du `ScheduleWakeup` doit être informatif (visible en télém�
 
 ---
 
+## Harness Amplification Control
+
+Le harnais doit terminer des obligations, pas maximiser le nombre d'actions. Le contrat #3647 garde
+l'obligation de continuer tout en retirant les quotas numériques qui transformaient chaque résultat
+en prétexte pour ouvrir une nouvelle tâche.
+
+### Ledger turn-local
+
+Le ledger est une vue de travail du tour, jamais un fichier, une base ou un service supplémentaire :
+
+| Champ | Rôle |
+|---|---|
+| `candidate` | issue, PR ou condition suivie |
+| `state` | `active`, `done`, `blocked`, `handed-off` |
+| `WAIT_FOR` | condition qui bloque réellement |
+| `RESUME_WHEN` | événement nommé qui justifie un réexamen |
+| `observer` | unique mécanisme chargé de signaler la fin |
+| `evidence` | résultat ou preuve déjà lu dans ce tour |
+
+Avant tout sweep spéculatif, chaque obligation est terminée, bloquée avec reprise nommée, ou remise
+explicitement à un destinataire. Une candidate bloquée sort temporairement de la file ;
+`always-pick-next` impose alors de prendre une autre issue en souffrance. Un événement de reprise
+permet seulement de réexaminer la candidate : il ne vaut ni autorisation humaine ni preuve que la
+condition est satisfaite.
+
+### Fraîcheur et observation
+
+Une lecture faite dans le tour est réutilisable. La rafraîchir seulement après une mutation pouvant
+changer l'état, l'intervention pertinente d'un acteur indépendant, ou une frontière de sécurité.
+Une condition asynchrone n'a qu'un observateur : si une tâche de fond, `Monitor` ou `gh run watch`
+notifiera, aucun second poll ne la surveille. L'observateur doit rendre tous les états terminaux :
+succès, échec, annulation, timeout et terminaison inattendue.
+
+### Attribution et communication
+
+Attribuer une mesure par `session_id` avant toute agrégation machine ; distinguer
+`parent_session_id` et `subagent_id` quand ils existent. Une variation machine-wide ne prouve pas
+quelle session, quel parent ou quel sous-agent l'a produite. Les messages font 3-5 lignes par défaut ;
+les décisions, blocages et preuves discriminantes peuvent dépasser cette borne.
+
+---
+
 ## Git — Checkout Safety
 
 `git checkout -- <fichier>` restaure un fichier depuis l'**INDEX**, pas depuis « avant ma dernière modification ». Sur une branche de travail où un fix n'est jamais commité, ce checkout efface **l'intégralité du fix** — pas seulement la dernière manipulation.

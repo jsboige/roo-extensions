@@ -23,6 +23,11 @@ on:
       # guards must re-trigger it on main pushes (same principle as above).
       - 'scripts/testing/unit/**'
       - 'scripts/testing/run-pester-tests.ps1'
+      # #3647: static Pester guards cover these harness carriers. A main push
+      # changing a carrier must run the guard that validates it.
+      - '.claude/commands/**'
+      - '.claude/skills/**'
+      - '.claude/configs/user-global-claude.md'
       - 'scripts/mcp/set-mcp-env-var.ps1'
       - 'scripts/encoding/**'
       - 'scripts/common/**'

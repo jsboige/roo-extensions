@@ -153,6 +153,24 @@ Deux variantes de la meme cecite, mesurees le 2026-09-04 :
 quand l'autre pousse, pas quand je m'en souviens — et personne ne me reveille. Comme chez CoursIA,
 l'echappatoire se justifie **par ecrit** sur la PR ou l'issue ; elle ne se prend pas en silence.
 
+**Ledger turn-local (#3647).** Pendant le tour, tenir `candidate`, `state`, `WAIT_FOR`, `RESUME_WHEN`,
+`observer`, `evidence` pour chaque obligation ouverte — sans nouveau stockage persistant. Avant un
+nouveau dispatch ou sweep speculatif, chacune doit etre `done`, `blocked` avec reprise nommee, ou
+`handed-off` avec destinataire. Une candidate structurellement bloquee est exclue jusqu'a son
+`RESUME_WHEN`, puis reevaluee : le signal n'est ni une autorisation ni une preuve de resolution.
+**`always-pick-next` reste obligatoire** : prendre une autre issue en souffrance au lieu de relire la
+candidate bloquee.
+
+**Fraicheur et observation.** Reutiliser les lectures du tour, sauf mutation pertinente, acteur
+independant pertinent, ou frontiere de securite. Une condition asynchrone a **un seul observateur** :
+pas de polling concurrent si `Monitor`, une tache de fond ou `gh run watch` notifiera deja. Couvrir
+`success`, `failure`, `cancelled`, `timeout` et terminaison inattendue.
+
+**Attribution et communication.** Attribuer d'abord par `session_id`, puis machine ; distinguer
+`parent_session_id` et `subagent_id` quand disponibles. Une agregation machine-only ne prouve pas la
+cause. Messages de coordination : **3-5 lignes par defaut**, sauf decision, blocage ou preuve qui
+serait autrement invérifiable.
+
 **Incident fondateur (2026-09-02)** : 4 PRs sans review — dont une bloquant nommement po-2026
 (« je n'agis pas avant l'approbation formelle d'un approver flotte ») — 2 messages non lus, et une
 question posee a ma lane sur l'Epic #3188 restee **5 jours** sans reponse, pendant que je rapportais
