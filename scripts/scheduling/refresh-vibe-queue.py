@@ -131,6 +131,33 @@ def open_prs(slug, issue):
     return held, branches
 
 
+def merged_branches(slug):
+    """Branches whose PR was MERGED -- a delivered grain must leave the queue.
+
+    open_prs() only ever sees `--state open`, so a grain whose work HAS been
+    merged falls out of `open_branches` and looks in-flight again: keepable()
+    keeps it as long as its worktree carries commits, the feeder SKIPs it on
+    the stale baseSha every tick, and the refresh re-keeps it forever. Once
+    the worktree is gone the feeder re-seeds the base and REPLAYS it -- a paid
+    run on work already merged.
+
+    Measured 2026-09-14 on g1-genai: delivered by #16041 (00:19:53Z) and
+    #16067 (03:57:44Z), it SKIP-looped from the first tick after the merge,
+    and was replayed at 07:16:01Z as soon as its worktree was removed.
+
+    check=False: a gh failure must leave the queue as it is, never crash the
+    refresh -- an empty set simply drops nothing.
+    """
+    out = sh(["gh", "pr", "list", "--repo", slug, "--state", "merged", "--limit", "300",
+              "--json", "headRefName"], check=False)
+    if not out.strip():
+        return set()
+    try:
+        return {pr.get("headRefName") or "" for pr in json.loads(out)}
+    except ValueError:
+        return set()
+
+
 def split_domain(files):
     """Cut one domain's files into BALANCED chunks of <= MAX_FILES.
 
@@ -186,13 +213,19 @@ def plan(free):
     return [(n, c) for n, c, _ in bins]
 
 
-def keepable(queue, base, open_branches):
-    """In-flight grains survive; delivered ones (open PR) leave the queue."""
+def keepable(queue, base, delivered_branches):
+    """In-flight grains survive; delivered ones leave the queue.
+
+    `delivered_branches` carries BOTH states on purpose: a branch with an open
+    PR has its work staged, one with a merged PR has it landed. In both cases
+    there is nothing left for the grain to do -- and a grain kept past its
+    merge is not merely idle, it is replayable (see merged_branches).
+    """
     keep, dropped = [], []
     for g in queue.get("grains") or []:
         wt = g.get("worktree") or ""
         branch = g.get("branch") or ""
-        if branch in open_branches:
+        if branch in delivered_branches:
             dropped.append(g.get("id"))
             continue
         if not os.path.isdir(wt):
@@ -244,7 +277,8 @@ def main():
     if os.path.isfile(queue_path):
         with io.open(queue_path, encoding="utf-8") as fh:
             old = json.load(fh)
-    keep, dropped = keepable(old, base, open_branches)
+    delivered = open_branches | merged_branches(args.slug)
+    keep, dropped = keepable(old, base, delivered)
     if dropped:
         print("livres -> retires de la file: %s" % ", ".join(dropped))
     kept_paths = set()
