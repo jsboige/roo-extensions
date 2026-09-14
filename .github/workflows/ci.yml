@@ -27,6 +27,14 @@ on:
       - 'scripts/encoding/**'
       - 'scripts/common/**'
       - 'scripts/zoo-scheduler/**'
+      # Sixth instance of the same gap (#3639). sync-alwaysallow-active-extension.
+      # Tests.ps1 guards the two alwaysAllow entry points and the reference they
+      # write from, but only one of those three production paths (scripts/common/**,
+      # for the shared primitive) sat in this filter: a reference-only edit landing
+      # on main re-ran nothing -- the exact drift this suite exists to catch.
+      - 'scripts/mcp/sync-alwaysallow.ps1'
+      - 'roo-config/scripts/Sync-AlwaysAllow.ps1'
+      - 'roo-config/mcp/reference-alwaysallow.json'
       - 'scripts/claude/worktree-cleanup.ps1'
       # Same gap again, on the script that deploys the global harness: its two
       # copies diverged for three months (rules block added to one on 26/05,
@@ -276,8 +284,16 @@ jobs:
   unit-pester:
     runs-on: ubuntu-latest
     steps:
+      # #3639: submodules are required, not optional. The alwaysAllow suite's
+      # catalogue cross-check reads tool-definitions.ts from mcps/internal and
+      # skips itself when the file is absent -- without this, the only assertion
+      # anchoring reference-alwaysallow.json to the SERVED catalogue never ran in
+      # the pipeline, and the reference could drift from the server with the suite
+      # green (clusterManager-Myia, second review of #3644).
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install Pester
         shell: pwsh

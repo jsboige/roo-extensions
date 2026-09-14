@@ -93,6 +93,13 @@ if (-not $SkipAlwaysAllow) {
         $syncArgs = @()
         if ($DryRun) { $syncArgs += "-DryRun" }
         & $syncScript @syncArgs
+        # #3639: the sync refuses (exit 2) when no active seat is determinable
+        # and fails post-write verification with exit 3. Swallowing those here
+        # would report "Rebuild complete" over a sync that wrote nothing.
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  ERROR: alwaysAllow sync failed (exit $LASTEXITCODE)" -ForegroundColor Red
+            exit $LASTEXITCODE
+        }
         Write-Host "  alwaysAllow sync complete" -ForegroundColor Green
     } else {
         Write-Host "  WARNING: Sync-AlwaysAllow.ps1 not found at $syncScript" -ForegroundColor Yellow
