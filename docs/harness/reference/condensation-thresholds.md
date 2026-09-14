@@ -86,6 +86,34 @@ Seuil de déclenchement : 90%
 
 ---
 
+## Pourquoi la régression de 2026-08-22 était discrète
+
+`deploy-claude-mcp-settings.ps1` corrigeait le **pourcentage** seulement s'il était `< 90`, mais
+**réécrivait la fenêtre** dès qu'elle différait de `200000`. Cette **asymétrie** rendait la
+régression difficile à voir : un seul run rétrogradait une machine réglée à 280k/310k vers 200k
+**en préservant son pourcentage** — la moitié visible du réglage avait donc l'air respectée.
+
+## `[1m]` et la fenêtre sont DEUX réglages distincts
+
+| Réglage | Où | Ce qu'il dit |
+|---|---|---|
+| `[1m]` sur l'ID de modèle | `settings.json` | ce que le modèle **peut** tenir |
+| `CLAUDE_CODE_AUTO_COMPACT_WINDOW` | `settings.json` | ce qu'on **veut** laisser grandir avant de condenser |
+
+L'écart entre les deux est **intentionnel** (280k po-2023, 310k ai-01 ; décision user 2026-08-22) :
+garder les modèles frais et borner les coûts. **Ne pas « corriger » une fenêtre de 280k/310k vers
+1M** sous prétexte que le modèle le supporte — le mandat 200k était un bug parce qu'il **écrasait**
+un choix machine, pas parce que 200k était trop petit. Une valeur choisie se respecte dans les deux
+sens.
+
+## Machine neuve : déployer AVANT le premier spawn
+
+Le plancher #502 ne vit plus que dans `deploy-claude-mcp-settings.ps1` — les scripts de spawn ne le
+rattrapent plus depuis le retrait des overrides. Sur une machine dont `settings.json` n'a jamais été
+déployé, un `claude -p` tombe donc sur le défaut Claude Code (~50 %) et **retrouve la boucle #502**.
+Lancer `deploy-claude-mcp-settings.ps1` avant le premier spawn. Machine déjà en service : rien à
+faire, le pourcentage y est déjà ≥ 90.
+
 ## Distinction : condensation CONTEXTE vs condensation DASHBOARD
 
 Ne pas confondre (deux mécanismes distincts) :
