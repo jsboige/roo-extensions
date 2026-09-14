@@ -214,20 +214,29 @@ function Invoke-IdleQueuePick {
     if (-not $items -or @($items).Count -eq 0) {
         return $false
     }
-    $picked = @($items | Sort-Object {[DateTime]$_.updatedAt}) | Select-Object -First 1
-
-    # Anti-marteau : re-piquer la même issue seulement après QueueRetrySameIssueHours
-    # (le temps de la review/close par la lane — le picker ne sait pas closer).
-    if ($qState -and [int]$qState.lastIssueNumber -eq [int]$picked.number -and $qState.lastRunAt) {
+    # Anti-marteau : ecarter l'issue deja piquee recemment, PAS le tick entier.
+    # Le tri porte sur le pool ENTIER, donc l'issue ecartee est presque toujours
+    # la plus ancienne : avec un `return $false` ici, une seule issue sous
+    # anti-marteau rendait le picker muet 6 h durant alors que le reste du pool
+    # etait libre. Mesure 14/09 : etat lastIssueNumber=16120, #16120 plus ancienne
+    # du pool -> [SKIP] a 08:40 et a chaque tick suivant, #16119/#16121 inutilisees.
+    # On filtre AVANT de choisir ; $false ne subsiste que si le pool entier est
+    # sous anti-marteau (le picker ne sait pas closer, donc re-piquer la meme
+    # issue avant la review n'a pas de sens).
+    $hammered = -1
+    if ($qState -and $qState.lastRunAt -and $qState.lastIssueNumber) {
         try {
-            $last = [DateTime]$qState.lastRunAt
-            $sinceH = ((Get-Date).ToUniversalTime() - $last).TotalHours
-            if ($sinceH -lt $script:QueueRetrySameIssueHours) {
-                Write-Log ("[SKIP] idle-picker: issue #{0} already picked {1:N1}h ago (<{2}h) - awaiting review/close." -f [int]$picked.number, $sinceH, $script:QueueRetrySameIssueHours)
-                return $false
-            }
+            $sinceH = ((Get-Date).ToUniversalTime() - [DateTime]$qState.lastRunAt).TotalHours
+            if ($sinceH -lt $script:QueueRetrySameIssueHours) { $hammered = [int]$qState.lastIssueNumber }
         } catch { }
     }
+    $candidates = @($items | Where-Object { [int]$_.number -ne $hammered } |
+                    Sort-Object {[DateTime]$_.updatedAt})
+    if ($candidates.Count -eq 0) {
+        Write-Log ("[SKIP] idle-picker: tout le pool est sous anti-marteau (<{0}h) - tick no-op." -f $script:QueueRetrySameIssueHours)
+        return $false
+    }
+    $picked = $candidates | Select-Object -First 1
 
     # ===== Worktree OBLIGATOIRE (14/09) =====
     # Le payload doit porter une ligne `worktree:` : c'est la SEULE source dont le

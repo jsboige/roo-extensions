@@ -138,6 +138,23 @@ print("\n".join(out))
 }
 
 # ============================================================================
+# Test 4: a hammered issue must not starve the rest of the pool.
+# The sort runs over the WHOLE pool, so the hammered issue is almost always the
+# oldest -- and the original `return $false` on a match silenced the picker for
+# 6 h while #16119/#16121 sat free (measured 2026-09-14: state
+# lastIssueNumber=16120, #16120 the oldest of the pool, [SKIP] from 08:40 on).
+# ============================================================================
+Write-Host "`n=== Test 4: a hammered issue does not abort the tick ===" -ForegroundColor Cyan
+
+Assert-Equal 'candidates are filtered on the hammered number' $true `
+    ($body -match 'Where-Object\s*\{\s*\[int\]\$_.number -ne \$hammered')
+Assert-Equal 'the filter runs BEFORE the selection' $true `
+    ($body.IndexOf('$hammered = -1') -lt $body.IndexOf('$picked = $candidates'))
+Assert-Equal 'pool-exhaustion guard present' $true ($body -match 'tout le pool est sous anti-marteau')
+# Mutation bit: reinstating the per-tick abort turns this red.
+Assert-Equal 'the per-tick abort is gone' $false ($body -match 'already picked')
+
+# ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
 Write-Host "  Passed: $TestsPassed" -ForegroundColor Green
 Write-Host "  Failed: $TestsFailed" -ForegroundColor $(if ($TestsFailed -gt 0) { 'Red' } else { 'Green' })
