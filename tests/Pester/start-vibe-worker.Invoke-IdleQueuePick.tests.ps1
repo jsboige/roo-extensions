@@ -25,7 +25,7 @@ BeforeAll {
         $true
     )
 
-    foreach ($name in @('Get-QueueState', 'Save-QueueState', 'Invoke-IdleQueuePick')) {
+    foreach ($name in @('Get-QueueState', 'Save-QueueState', 'Get-QueueOpenPrs', 'Test-QueueIssueClaimed', 'Invoke-IdleQueuePick')) {
         $fd = $funcDefs | Where-Object { $_.Name -eq $name }
         if (-not $fd) { throw "$name not found in $resolvedPath" }
         $bodyText = $fd.Body.Extent.Text
@@ -42,6 +42,12 @@ BeforeAll {
     function Write-Log { param([string]$Message, [string]$Level = "INFO") $script:pickerLog += "$Message`n" }
     $script:pickerLog = ''
     $script:QueueRetrySameIssueHours = 6
+    $script:QueueClaimHours = 72
+    # Real bodies kept aside: BeforeEach mocks these names by default, so the
+    # direct function-level tests below invoke the SAVED scriptblock to test
+    # the real code (calling by name would hit the mock — vacuous, #3646 lesson).
+    $script:RealTestQueueIssueClaimed = ${function:Test-QueueIssueClaimed}
+    $script:RealGetQueueOpenPrs = ${function:Get-QueueOpenPrs}
     $script:TestStateDir = Join-Path ([System.IO.Path]::GetTempPath()) ("vibe-picker-tests-" + [guid]::NewGuid().ToString('N').Substring(0,8))
     New-Item -ItemType Directory -Path $script:TestStateDir -Force | Out-Null
     $script:QueueStateDir = $script:TestStateDir
@@ -95,6 +101,10 @@ BeforeEach {
     $script:profileObj = ('{"queue":{"repo":"jsboige/CoursIA","label":"vibe-target","maxIdleRunsPerDay":2,"worktreeRoot":"' + ($script:WtRoot -replace '\\', '/') + '"}}') | ConvertFrom-Json
     # Fresh state: none
     Remove-Item (Join-Path $script:TestStateDir 'vibe-queue-CoursIA.json') -Force -ErrorAction SilentlyContinue
+    # Anti-collision guards default to "nothing blocks" so pre-existing tests
+    # stay about the hammer/cap/worktree contract. Collision tests re-mock these.
+    Mock Get-QueueOpenPrs { ,@() }
+    Mock Test-QueueIssueClaimed { $false }
 }
 
 AfterAll {
@@ -200,6 +210,94 @@ It 'Re-picks the same issue once the retry window has expired' {
     Save-QueueState -Path (Join-Path $script:TestStateDir 'vibe-queue-CoursIA.json') -State @{ date = $now.ToString('yyyy-MM-dd'); idleRuns = 1; lastIssueNumber = 7; lastRunAt = $now.AddHours(-7).ToString('o') }
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
+}
+
+It 'Skips an issue covered by an OPEN PR (title #N, word boundary) and picks the next free one' {
+    # The 14/09 collision: the picker never looked at open PRs, so a delivered
+    # issue whose label never changed was re-pickable ($2.02 duplicate run).
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 55; title = 'fix(SemanticWeb): relabel for #7 in flight'; headRefName = 'feature/x' }) }
+    Mock gh { '[{"number":7,"title":"T7","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":9,"title":"T9","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #9'
+    $script:pickerLog | Should -Match 'PR ouverte #55 la couvre deja'
+}
+
+It 'Skips an issue whose number is only in the PR HEAD BRANCH, not the title (measured #16136/#16120)' {
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 16136; title = 'relabel 4 worked-examples + add 3 real exercises'; headRefName = 'feature/16120-sw14-exercises' }) }
+    Mock gh { '[{"number":16120,"title":"SW-14","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":16121,"title":"T","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #16121'
+    $script:pickerLog | Should -Match '#16120 ecartee'
+}
+
+It 'Does NOT skip #1612 when the PR head contains 16120 (word boundary holds)' {
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 16136; title = 'x'; headRefName = 'feature/16120-sw14' }) }
+    Mock gh { '[{"number":1612,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #1612'
+}
+
+It 'Quiet SKIP (noop) when the whole pool is covered by open PRs' {
+    Mock Get-QueueOpenPrs { ,@([pscustomobject]@{ number = 1; title = 'for #7'; headRefName = 'x' }) }
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'noop'
+    $script:pickerLog | Should -Match 'couvert par des PRs ouvertes'
+}
+
+It 'Skips a freshly [CLAIMED] issue and falls through to the next candidate' {
+    Mock Test-QueueIssueClaimed { param($Repo, $Number) $Number -eq 7 }
+    Mock gh { '[{"number":7,"title":"T7","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":9,"title":"T9","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #9'
+    $script:pickerLog | Should -Match '\[CLAIMED\] recent'
+}
+
+It 'Quiet SKIP (noop) when every remaining candidate carries a fresh [CLAIMED]' {
+    Mock Test-QueueIssueClaimed { $true }
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'noop'
+    $script:pickerLog | Should -Match 'porte un \[CLAIMED\] recent'
+}
+
+It 'REFUSES the pick (infrastructure) when the open-PR list cannot be verified (fail-closed)' {
+    Mock Get-QueueOpenPrs { throw 'gh pr list: sortie vide ou non-JSON' }
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:pickerLog | Should -Match 'REFUSE \(fail-closed anti-collision'
+}
+
+It 'REFUSES the pick (infrastructure) when the claim state of a candidate cannot be verified' {
+    Mock Test-QueueIssueClaimed { throw 'gh issue view #7 a echoue' }
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:pickerLog | Should -Match 'REFUSE \(fail-closed anti-collision'
+}
+
+It 'Test-QueueIssueClaimed: fresh claim matches, stale claim (>72h) does not' {
+    $fresh = (Get-Date).ToUniversalTime().AddHours(-3).ToString('o')
+    $stale = (Get-Date).ToUniversalTime().AddHours(-100).ToString('o')
+    Mock gh { '{"comments":[{"createdAt":"' + $fresh + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $true
+    Mock gh { '{"comments":[{"createdAt":"' + $stale + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $false
+    # A comment without the marker never claims, however fresh.
+    Mock gh { '{"comments":[{"createdAt":"' + $fresh + '","body":"just a note"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $false
+}
+
+It 'Get-QueueOpenPrs (real body): parses gh JSON, throws on empty/non-JSON output' {
+    Mock gh { '[{"number":1,"title":"t","headRefName":"h"},{"number":2,"title":"u","headRefName":"k"}]' }
+    # The function comma-wraps its return (0/1-element arrays must survive as
+    # arrays), so &-invocation emits ONE object: the array itself. Capture
+    # first, then count - @(& ...) would count 1 wrapper, not the elements.
+    $prs = & $script:RealGetQueueOpenPrs -Repo 'r'
+    @($prs).Count | Should -Be 2
+    Mock gh { '' }
+    { & $script:RealGetQueueOpenPrs -Repo 'r' } | Should -Throw
 }
 
 It 'Truncates an oversized issue body to keep the payload bounded' {

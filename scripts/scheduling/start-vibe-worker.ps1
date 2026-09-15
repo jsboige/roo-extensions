@@ -169,6 +169,7 @@ if ($DryRun) {
 
 $QueueStateDir = Join-Path $RepoRoot "outputs\scheduling\state"
 $script:QueueRetrySameIssueHours = 6
+$script:QueueClaimHours = 72
 
 function Get-QueueState {
     # Fail-closed (arbitrage #3649 decision 1, 14/09) : « absent » et « illisible »
@@ -201,6 +202,43 @@ function Save-QueueState {
     param([string]$Path, [object]$State)
     if (-not (Test-Path $QueueStateDir)) { New-Item -ItemType Directory -Path $QueueStateDir -Force | Out-Null }
     [System.IO.File]::WriteAllText($Path, ($State | ConvertTo-Json -Compress), [System.Text.UTF8Encoding]::new($false))
+}
+
+function Get-QueueOpenPrs {
+    # Anti-collision (15/09, mandat user) : les PRs ouvertes du depot, lues une
+    # seule fois par tick. Le picker ne lisait QUE `gh issue list` par label :
+    # une issue claimee/livree dont le label ne change pas restait piochable
+    # (collision #16120 du 14/09 : claim 07:49Z, PR #16136 ouverte 09:18Z, run
+    # duplique $2.02 a 18:05Z). Tout echec = throw : l'etat des collisions ne
+    # se devine pas, l'appelant refuse (fail-closed).
+    param([string]$Repo)
+    $raw = & gh pr list -R $Repo --state open --limit 100 --json number,title,headRefName 2>$null
+    # Vide explicite d'abord : `'' | ConvertFrom-Json` rend null SANS erreur
+    # (mesure 15/09) — sans cette garde, un stdout vide deviendrait « aucune PR »
+    # et le picker tirerait sans protection anti-collision.
+    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh pr list: sortie vide (repo $Repo)" }
+    try { return ,@($raw | ConvertFrom-Json -ErrorAction Stop) }
+    catch { throw "gh pr list: sortie non-JSON (repo $Repo)" }
+}
+
+function Test-QueueIssueClaimed {
+    # Anti-collision, garde 2 : un [CLAIMED] recent en commentaire prime sur le
+    # pick — la convention fleet vit dans les commentaires d'issue, pas dans les
+    # labels (#3407). Fenetre QueueClaimHours : un claim plus vieux est presume
+    # abandonne. Echec gh = throw (fail-closed, jamais fail-open).
+    param([string]$Repo, [int]$Number)
+    $raw = & gh issue view $Number -R $Repo --json comments 2>$null
+    # Meme garde que Get-QueueOpenPrs : '' rend null sans erreur via le pipeline.
+    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh issue view #$($Number): sortie vide" }
+    try { $data = $raw | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "gh issue view #$($Number): sortie non-JSON" }
+    $cutoff = (Get-Date).ToUniversalTime().AddHours(-1 * $script:QueueClaimHours)
+    foreach ($c in @($data.comments)) {
+        if (-not $c.createdAt) { continue }
+        try { $at = [DateTime]$c.createdAt } catch { continue }
+        if ($at -ge $cutoff -and "$($c.body)" -match '\[CLAIMED\]') { return $true }
+    }
+    return $false
 }
 
 function Invoke-IdleQueuePick {
@@ -275,7 +313,67 @@ function Invoke-IdleQueuePick {
         Write-Log ("[SKIP] idle-picker: tout le pool est sous anti-marteau (<{0}h) - tick no-op." -f $script:QueueRetrySameIssueHours)
         return $false
     }
-    $picked = $candidates | Select-Object -First 1
+
+    # ===== Anti-collision (15/09, mandat user) =====
+    # Garde 1 : PR ouverte referencant l'issue — titre `#N` OU head de branche
+    # portant le numero (#16136 head `feature/16120-sw14-exercises` livrait
+    # #16120 SANS le numero dans le titre, mesure 14/09). Frontiere de mot
+    # obligatoire (#3407) : `#1612` ne doit pas matcher `#16120`. Echec de
+    # verification = refus (fail-closed) : un duplicata coute ~$2, un tick
+    # saute ne coute rien — le tick suivant retente.
+    try { $openPrs = Get-QueueOpenPrs -Repo ([string]$queue.repo) }
+    catch {
+        $script:IdlePickOutcome = 'infrastructure'
+        $script:IdlePickFailure = "anti-collision non verifiable ($($_.Exception.Message))"
+        Write-Log ("[ERROR] idle-picker: {0} - tirage REFUSE (fail-closed anti-collision, arbitrage user 15/09)." -f $_.Exception.Message) "ERROR"
+        return $false
+    }
+    $coveredBy = @{}
+    foreach ($c in $candidates) {
+        $n = [int]$c.number
+        foreach ($pr in $openPrs) {
+            if ("$($pr.title)" -match ('#{0}([^0-9]|$)' -f $n) -or
+                "$($pr.headRefName)" -match ('(^|[^0-9]){0}([^0-9]|$)' -f $n)) {
+                $coveredBy[$n] = [int]$pr.number
+                break
+            }
+        }
+    }
+    foreach ($n in @($coveredBy.Keys)) {
+        Write-Log ("[SKIP] idle-picker: #{0} ecartee - PR ouverte #{1} la couvre deja." -f $n, $coveredBy[$n])
+    }
+    $free = @($candidates | Where-Object { -not $coveredBy.ContainsKey([int]$_.number) })
+    if ($free.Count -eq 0) {
+        Write-Log "[SKIP] idle-picker: tout le pool restant est couvert par des PRs ouvertes - tick no-op."
+        return $false
+    }
+
+    # Garde 2 : [CLAIMED] recent en commentaire — verifie uniquement les
+    # candidats libres, dans l'ordre, jusqu'au premier pick (1 appel gh par
+    # candidat examine, pas par candidat du pool). Un claim recent prime meme
+    # sans PR : le travail peut etre en cours sans livraison visible.
+    $picked = $null
+    foreach ($c in $free) {
+        $n = [int]$c.number
+        $claimed = $false
+        try { $claimed = Test-QueueIssueClaimed -Repo ([string]$queue.repo) -Number $n }
+        catch {
+            $script:IdlePickOutcome = 'infrastructure'
+            $script:IdlePickFailure = "anti-collision non verifiable ($($_.Exception.Message))"
+            Write-Log ("[ERROR] idle-picker: {0} - tirage REFUSE (fail-closed anti-collision, arbitrage user 15/09)." -f $_.Exception.Message) "ERROR"
+            return $false
+        }
+        if ($claimed) {
+            Write-Log ("[SKIP] idle-picker: #{0} ecartee - [CLAIMED] recent en commentaire (<{1}h, claim prime)." -f $n, $script:QueueClaimHours)
+            continue
+        }
+        $picked = $c
+        break
+    }
+    if (-not $picked) {
+        Write-Log "[SKIP] idle-picker: tout le pool restant porte un [CLAIMED] recent - tick no-op."
+        return $false
+    }
 
     # ===== Worktree OBLIGATOIRE (14/09) =====
     # Le payload doit porter une ligne `worktree:` : c'est la SEULE source dont le
