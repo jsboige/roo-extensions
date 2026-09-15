@@ -7,9 +7,12 @@
       1. WorkspacePathsFile entry (explicit override)
       2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
       3. Self-match (ws name == leaf of $RepoRoot)
-      4. ~/.claude.json projects keys (basename match)
-      5. Auto-detect: scan common parent roots
+      4. ~/.claude.json projects keys (basename match) — opt-in only (#3641)
+      5. Auto-detect: scan common parent roots — opt-in only (#3641)
       6. Not found → return $null
+    Levels 4-5 are gated by $script:AllowImplicitResolution (default OFF,
+    fail-closed #3641: a guessed tree can be a live interactive session's
+    working tree, and spawn-claude runs --dangerously-skip-permissions there).
 
 .NOTES
     Issue #2048 Subtask B
@@ -141,6 +144,11 @@ Describe 'Resolve-WorkspacePath' {
                     return $script:TestRepoRoot
                 }
             }
+            # #3641 : implicit levels 4-5 are opt-in (mirrors dashboard-listener.ps1)
+            if (-not $script:AllowImplicitResolution) {
+                $script:_wsPathCache[$ws] = $null
+                return $null
+            }
             # 4. ~/.claude.json projects
             $cjMap = Get-ClaudeJsonProjectsMap
             $key = $ws.ToLowerInvariant()
@@ -176,6 +184,7 @@ Describe 'Resolve-WorkspacePath' {
         $script:_wsPathFileMap = $null
         $script:_wsPathEnvMap = $null
         $script:_wsPathClaudeJsonMap = $null
+        $script:AllowImplicitResolution = $false
         $env:DASHBOARD_WATCHER_WORKSPACE_PATHS = $null
         $script:TestWorkspacePathsFile = ''
         $script:TestMcpConfig = ''
@@ -257,6 +266,7 @@ Describe 'Resolve-WorkspacePath' {
     Context 'Level 4: ~/.claude.json projects' {
         BeforeEach {
             $script:TestMcpConfig = $script:MockClaudeJson
+            $script:AllowImplicitResolution = $true
         }
 
         It 'Returns path from .claude.json when basename matches' {
@@ -282,9 +292,48 @@ Describe 'Resolve-WorkspacePath' {
     # =================================================================
 
     Context 'Level 5: Auto-detect (scan common roots)' {
+        BeforeEach { $script:AllowImplicitResolution = $true }
+
         It 'Finds workspace in parent of RepoRoot' {
             $script:TestRepoRoot = Join-Path $script:MockDevDir 'some-other-dir'
             Resolve-WorkspacePath 'roo-extensions' | Should -BeExactly (Join-Path $script:MockDevDir 'roo-extensions')
+        }
+    }
+
+    # =================================================================
+    # #3641: implicit resolution fail-closed by default
+    # =================================================================
+
+    Context '#3641: Implicit resolution disabled by default' {
+        It 'Returns null when .claude.json projects matches but gate is off' {
+            # The reported defect: a projects key (e.g. d:/CoursIA) whose basename
+            # matches the workspace must NOT resolve — that tree hosts a live
+            # interactive session and spawn runs --dangerously-skip-permissions.
+            $script:TestMcpConfig = $script:MockClaudeJson
+            $script:AllowImplicitResolution = $false
+
+            Resolve-WorkspacePath 'roo-extensions' | Should -BeNullOrEmpty
+        }
+
+        It 'Returns null when an auto-detect candidate exists but gate is off' {
+            $script:TestRepoRoot = Join-Path $script:MockDevDir 'some-other-dir'
+            $script:AllowImplicitResolution = $false
+
+            Resolve-WorkspacePath 'roo-extensions' | Should -BeNullOrEmpty
+        }
+
+        It 'Level 1 explicit mapping still resolves with gate off' {
+            $script:TestWorkspacePathsFile = $script:WorkspacePathsFile
+            $script:AllowImplicitResolution = $false
+
+            Resolve-WorkspacePath 'explicit-workspace' | Should -BeExactly (Join-Path $script:TestRoot 'explicit-dir')
+        }
+
+        It 'Level 3 self-match still resolves with gate off' {
+            $script:TestRepoRoot = Join-Path $script:TestRoot 'my-workspace'
+            $script:AllowImplicitResolution = $false
+
+            Resolve-WorkspacePath 'my-workspace' | Should -BeExactly (Join-Path $script:TestRoot 'my-workspace')
         }
     }
 
