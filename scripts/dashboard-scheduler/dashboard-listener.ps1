@@ -52,11 +52,15 @@
       1. WorkspacePathsFile entry (explicit override)
       2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
       3. Self-match (ws name == leaf of $RepoRoot) → $RepoRoot
-      4. ~/.claude.json `projects` keys — match by basename (Claude Code's own
-         workspace registry; the most reliable per-machine source after explicit
-         overrides).
-      5. Auto-detect: scan parent of $RepoRoot, then D:\, D:\dev, C:\, C:\dev
+      4. ~/.claude.json `projects` keys — REFUSED (#3641 §2, fail-closed):
+         that registry tracks interactive Claude Code sessions by cwd, so it can
+         hand the headless spawn the tree of a LIVE session. Log WARN, skip.
+      5. Auto-detect — DISABLED (#3641 §2): guessing '<root>\<ws>' has no
+         provenance and can land on a live session tree.
       6. If no match → log WARN and SKIP spawn (lastAck NOT advanced)
+
+    To wake a workspace that lives in an interactive tree, map it to a DEDICATED
+    listener tree via step 1 or 2 — never the interactive tree itself.
 
 .PARAMETER GitHubRepo
     GitHub repo for closed-issue sanity check (R11). Before spawning on a
@@ -286,31 +290,31 @@ function Resolve-WorkspacePath($ws) {
     }
 
     # 4. ~/.claude.json projects (Claude Code's own workspace registry)
+    # #3641 §2 — FAIL-CLOSED: this registry enumerates *interactive* Claude Code
+    # sessions by cwd. Resolving a wake target from it can hand the headless
+    # spawn (--dangerously-skip-permissions, spawn-claude.ps1) the working tree
+    # of a LIVE interactive session — a git checkout/stash from the spawn then
+    # moves the tree out from under that session, silently. We therefore refuse
+    # to resolve from this implicit source. To wake a workspace that lives in an
+    # interactive tree, point it at a DEDICATED listener tree via step 1
+    # ($WorkspacePathsFile) or step 2 (DASHBOARD_WATCHER_WORKSPACE_PATHS) — never
+    # the interactive tree itself.
     $cjMap = Get-ClaudeJsonProjectsMap
     $key = $ws.ToLowerInvariant()
     if ($cjMap.ContainsKey($key)) {
         $p = $cjMap[$key]
-        if (Test-Path $p -PathType Container) {
-            $script:_wsPathCache[$ws] = $p
-            return $p
-        }
-        Write-Log "WARN" "[$ws] .claude.json projects entry maps to non-existent path: $p"
+        Write-Log "WARN" "[$ws] ~/.claude.json projects resolves to '$p', an interactive-session tree. Refusing implicit resolution (fail-closed, #3641 §2) — map a dedicated listener tree in $WorkspacePathsFile instead."
+        $script:_wsPathCache[$ws] = $null
+        return $null
     }
 
-    # 5. Auto-detect: scan common roots
-    $candidateRoots = @(
-        (Split-Path $RepoRoot -Parent),
-        "D:\dev", "D:\", "C:\dev", "C:\"
-    )
-    foreach ($root in $candidateRoots) {
-        if ([string]::IsNullOrEmpty($root)) { continue }
-        if (-not (Test-Path $root -PathType Container)) { continue }
-        $candidate = Join-Path $root $ws
-        if (Test-Path $candidate -PathType Container) {
-            $script:_wsPathCache[$ws] = $candidate
-            return $candidate
-        }
-    }
+    # 5. Auto-detect — DISABLED (#3641 §2). Blindly joining the workspace name to
+    # a list of common roots (parent of $RepoRoot, D:\, D:\dev, C:\, C:\dev) is
+    # guesswork with no provenance: it resolves to whatever directory happens to
+    # share the name, including a live interactive tree. That is exactly the
+    # failure the fail-closed step-4 guard above exists to prevent, so leaving
+    # step 5 active would defeat it. Fail closed: no match.
+    Write-Log "WARN" "[$ws] Auto-detect disabled (#3641 §2): guessing '<root>\$ws' has no provenance and can land on a live session tree. Add an explicit entry to $WorkspacePathsFile (or DASHBOARD_WATCHER_WORKSPACE_PATHS)."
 
     # 6. Not found
     $script:_wsPathCache[$ws] = $null

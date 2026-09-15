@@ -186,8 +186,8 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
         }
     }
 
-    Context "Level 4: ~/.claude.json projects map" {
-        It "Uses claude.json projects entry when workspace basename matches" {
+    Context "Level 4: ~/.claude.json projects map — REFUSED (#3641 §2, fail-closed)" {
+        It "Refuses a claude.json projects match (interactive tree) and skips the spawn" {
             $ws = "test-ws-claude"
             $wsDir = Join-Path $wsDir $ws
             New-Item -ItemType Directory -Path $wsDir -Force | Out-Null
@@ -209,10 +209,12 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
 
             $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
 
-            $result.Output | Should -Match "resolved to.*$([regex]::Escape($wsDir))"
+            # Fail-closed: refuse to resolve from the interactive-session registry
+            $result.Output | Should -Match "Refusing implicit resolution|fail-closed|No path resolved|No on-disk workspace path resolved"
+            $result.Output | Should -Not -Match "resolved to.*$([regex]::Escape($wsDir))"
         }
 
-        It "Falls through when claude.json projects entry points to non-existent path" {
+        It "Still reports no path when claude.json projects entry points to non-existent path" {
             $ws = "test-ws-ghost"
             $pathsFile = Join-Path $testRoot "workspace-paths-empty.json"
             [System.IO.File]::WriteAllText($pathsFile, "{}", [System.Text.UTF8Encoding]::new($false))
@@ -230,8 +232,8 @@ Describe "Dashboard Listener - Integration: workspace path resolution" {
 
             $result = Invoke-ListenerOnce -WorkspaceList $ws -PathsFile $pathsFile -McpConfigPath $claudeJson
 
-            # Should warn about non-existent path and continue to Level 5
-            $result.Output | Should -Match "non-existent path|No path resolved|No on-disk workspace path resolved"
+            # Fail-closed refusal fires on the basename match regardless of on-disk existence
+            $result.Output | Should -Match "Refusing implicit resolution|non-existent path|No path resolved|No on-disk workspace path resolved"
         }
     }
 
