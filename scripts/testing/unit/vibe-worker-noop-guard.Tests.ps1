@@ -194,11 +194,14 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
 
     Context "Test-QueueIssueClaimed : le cutoff se compare en UTC, pas en heure locale" {
 
-        # `[DateTime]` sur un `...Z` rend un Kind=Local (pwsh convertit au fuseau de
-        # la machine) et PowerShell compare des Ticks : sans normalisation, un claim
-        # frais peut passer pour perime — et l'inverse — selon le fuseau du runner.
-        # Un runner CI en UTC ne peut pas discriminer les deux lectures par le
-        # comportement : c'est ici que la normalisation est tenue.
+        # Mesure 15/09 (pwsh 7.6.6) : un litteral `...Z` -- la forme que gh emet --
+        # est deja deserialise en Kind=Utc, donc le cast brut y est CORRECT et la
+        # normalisation n'y change rien. Elle est porteuse pour les autres formes
+        # (`+02:00` -> Kind=Local ; pas de zone -> Unspecified) et sous PS 5.1, ou
+        # ConvertFrom-Json ne coerise pas les dates du tout : la, `[DateTime]` rend
+        # Kind=Local et PowerShell compare des Ticks, donc l'heure murale est pesee
+        # contre un cutoff UTC. Un runner CI en UTC ne peut pas discriminer les deux
+        # lectures par le comportement : c'est ici que la normalisation est tenue.
         It "normalise createdAt en UTC avant comparaison" {
             # Ancree sur la forme complete du cast + normalisation : retirer
             # .ToUniversalTime() laisse la ligne en place mais fait rougir ceci.
@@ -206,6 +209,43 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
             # Garde-fou anti-rechute : la forme brute (cast nu, sans parenthese ni
             # normalisation) ne doit plus exister nulle part.
             ($content -match '\$at\s*=\s*\[DateTime\]\$c\.createdAt') | Should -Be $false
+        }
+    }
+
+    Context "Get-QueueOpenPrs : le retour doit rester enumerable sous TOUT shell" {
+
+        # `return ,@($raw | ConvertFrom-Json)` n'est pas portable. Mesure 15/09 sur
+        # le head merge, sonde differentielle contre la fonction reelle (AST) avec
+        # `gh` stubbe :
+        #   Windows PowerShell 5.1 : outerCount=1, `[int]$pr.number` LEVE
+        #   pwsh 7.6.6             : outerCount=2, casts OK
+        # Sous 5.1 l'appelant recoit l'ENVELOPPE : `foreach ($pr in $openPrs)` tourne
+        # une fois avec $pr = le tableau, `$pr.number` vaut {16136,16238} et le cast
+        # leve HORS du try du lookup — donc avant tout PICK, des qu'une PR matche
+        # (c'est le cas #16120/#16136 lui-meme). La divergence vient de la semantique
+        # de PIPELINE de ConvertFrom-Json, qui n'enumere pas le tableau de la meme
+        # facon selon la version ; `,@` applique a une VARIABLE est inocuous, ce qui
+        # rend une mutation `,@($parsed)` infidele — ne pas la prendre pour preuve.
+        #
+        # Pourquoi STATIQUE ici : le runner CI est ubuntu-latest, ou powershell.exe
+        # n'existe pas et ou le defaut est de toute facon INVISIBLE (pwsh 7 rend 2).
+        # La moitie comportementale vit dans scripts/testing/harness/test-vibe-idle-worktree.ps1
+        # (Test 8) et s'y SKIPPE hors Windows ; ici on tient la forme qui la rend
+        # correcte.
+
+        It "n'enveloppe plus le retour dans l'idiome non portable ,@(...)" {
+            # Scoped to CODE: the correction's own comment names the idiom, so a
+            # naive `-match` over the whole file matched the prose describing it
+            # (measured: this assertion was red on a correct file). Comment lines
+            # are dropped first, which keeps the pin biting on a real
+            # reintroduction while staying insensitive to documentation.
+            $codeOnly = (@($content -split "`n" | Where-Object { $_ -notmatch '^\s*#' })) -join "`n"
+            ($codeOnly -match ',\@\(') | Should -Be $false
+        }
+
+        It "parse dans une variable puis rend la collection" {
+            ($content -match '\$parsed\s*=\s*\$raw\s*\|\s*ConvertFrom-Json') | Should -Be $true
+            ($content -match 'return\s+@\(\$parsed\)') | Should -Be $true
         }
     }
 }

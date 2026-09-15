@@ -217,8 +217,19 @@ function Get-QueueOpenPrs {
     # (mesure 15/09) — sans cette garde, un stdout vide deviendrait « aucune PR »
     # et le picker tirerait sans protection anti-collision.
     if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh pr list: sortie vide (repo $Repo)" }
-    try { return ,@($raw | ConvertFrom-Json -ErrorAction Stop) }
+    # PARSE DANS UNE VARIABLE, puis rendre une collection enumerable. L'idiome
+    # `return ,@(...)` n'est PAS portable : sous Windows PowerShell 5.1 l'appelant
+    # recoit l'ENVELOPPE et non les PRs (mesure 15/09 sur le head exact, sonde
+    # differentielle : PS5.1 outerCount=1 / pwsh 7 outerCount=2). `$pr.number`
+    # vaut alors {16136,16238} et `[int]$pr.number` leve -- HORS du try du lookup,
+    # donc avant tout PICK, des qu'une PR matche. L'enveloppe n'etait pas
+    # necessaire : l'appelant enumere par `foreach`, qui traite identiquement
+    # $null, un scalaire et un tableau. Le fail-closed reste porte par le throw
+    # ci-dessous, pas par la forme du retour.
+    $parsed = $null
+    try { $parsed = $raw | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "gh pr list: sortie non-JSON (repo $Repo)" }
+    return @($parsed)
 }
 
 function Test-QueueIssueClaimed {
