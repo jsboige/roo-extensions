@@ -3,7 +3,7 @@
 **Statut :** étude d'analyse (rapport seulement — aucune modification de `background-services.ts`).
 **Périmètre :** `mcps/internal/servers/roo-state-manager/src/services/background-services.ts:699-903, 1075-1179`
 **Référence :** complémentaire de #2352 (élections Qdrant), préserve #1110 (zéro I/O bloquant), préserve #1747 (visibilité Tier 2/3).
-**Anti-double-claim vérifié (15/09 04:5xZ) :** 0 PR ouverte sur `#3661` dans `jsboige/roo-extensions` ni `jsboige/jsboige-mcp-servers`.
+**Anti-double-claim vérifié (15/09, 04:5x heure locale ≈ 02:5xZ) :** 0 PR ouverte sur `#3661` dans `jsboige/roo-extensions` ni `jsboige/jsboige-mcp-servers`.
 
 ---
 
@@ -66,7 +66,7 @@ Le commentaire mesuré (`:721-732`) est la vérité du terrain :
   - `verifyQdrantConsistency` + `scanForOutdatedQdrantIndex` : 29 → 1 exécution à froid.
   - `startProactiveMetadataRepair` : 29 → 1.
 - **Mécanisme** : réutiliser `tryAcquireLeaderLock(machineId)` avec un nom de lock distinct — `roosync-worker-a-leader-${machineId}.lock` — pour ne pas coupler le cycle de vie de Worker A à celui de Worker B (sinon un leader Qdrant mort paralyse aussi le refresh squelette).
-- **Risque** : si l'élection Worker A échoue (lock corrompu), ne **jamais** démarrer Worker A en double — dégrader en lecture seule (`state.isWorkerALeader = false`, skip le setInterval). Comportement fail-closed cohérent avec `:1145-1148` de Qdrant.
+- **Risque** : si l'élection Worker A échoue (lock corrompu), ne **jamais** démarrer Worker A en double — dégrader en lecture seule (`state.isWorkerALeader = false`, skip le setInterval). Ce fail-closed est un choix propre au Geste B, justifié sur ses propres trade-offs (voir §5.3) — il ne s'appuie sur aucun précédent : l'élection Qdrant existante (`:1145-1148`) est **fail-open** (erreur inattendue ⇒ assume le leadership pour ne pas bloquer l'indexation ; lock corrompu ⇒ écrasé puis leadership pris, `:1173-1176`).
 - **Critère test** : à N=8+ processus, `setInterval` actifs = 1, scans au démarrage = 1.
 
 ### Geste C — cache partagé inter-processus OU clients secondaires légers
@@ -84,6 +84,8 @@ Le commentaire mesuré (`:721-732`) est la vérité du terrain :
 | **1** | Geste A (`SKELETON_PREWARM=false` par défaut sur machines ≥10 hôtes) | -3 075 Mo | faible (lazy dégradé gracieux) | `PREWARM=true` |
 | **2** | Geste B (élection Worker A + scans) | -0 Mo (CPU/disk I/O) | moyen (logique d'élection à dupliquer) | lock retiré |
 | **3** | Geste C.2 (primary/secondary) | -2 125 Mo (Tier 3) | fort (refonte spawn) | flag `ROLE=primary` |
+
+**Les gains des étapes ne se somment pas.** Les −2 125 Mo (Tier 3) attribués à l'étape 3 recouvrent la composante Tier 3 déjà retirée par l'étape 1 (−2 125 des −3 075 Mo/hôte du Geste A) : une fois le prewarm éteint, les secondaires n'hydratent plus leur Tier 3 de toute façon. L'apport *additionnel* de l'étape 3 après l'étape 1 n'est pas de la mémoire, mais la disponibilité : un primary unique qui conserve le prewarm (Tier 3 chaud pour tous via l'accès partagé) là où l'étape 1 seule met toute la machine en lazy.
 
 L'étape 1 est **seule** à même de faire passer l'empreinte agrégée de **77 Go** à **~4-10 Go** (29 × 142 Mo + 1 × 3 075 Mo) ; les étapes 2 et 3 sont complémentaires (CPU, complexité, résilience).
 
@@ -106,9 +108,9 @@ L'étape 1 est **seule** à même de faire passer l'empreinte agrégée de **77 
 
 ## 5. Pièges à éviter (leçons incidents #1747, #2352, #1110)
 
-1. **Ne pas éteindre les tiers pour éteindre le prewarm** — `#1747` les a allumés pour rendre visibles les sessions Claude et les archives cross-machine. Étteindre un TIER est le coup de pendule inverse (cf. `indexing-controls.test.ts:213-218`). Le kill-switch doit porter **uniquement** sur l'hydratation eager, pas sur la disponibilité des tiers.
+1. **Ne pas éteindre les tiers pour éteindre le prewarm** — `#1747` les a allumés pour rendre visibles les sessions Claude et les archives cross-machine. Éteindre un TIER est le coup de pendule inverse (cf. `indexing-controls.test.ts:213-218`). Le kill-switch doit porter **uniquement** sur l'hydratation eager, pas sur la disponibilité des tiers.
 2. **Ne pas coupler les élections Worker A et Worker B** — utiliser des fichiers de lock distincts (`roosync-worker-a-leader-*.lock` vs `roosync-indexer-leader-*.lock`). Un leader Qdrant mort paralyse aussi le refresh squelette = boucle.
-3. **Fail-closed sur l'élection Worker A** — si `tryAcquireLeaderLock` échoue pour cause inattendue, **skipper** Worker A (cohérent avec `:1145-1148`), pas l'inverse.
+3. **Fail-closed sur l'élection Worker A — divergence assumée d'avec Qdrant** — si `tryAcquireLeaderLock` échoue pour cause inattendue, **skipper** Worker A. L'élection Qdrant (`:1145-1148`) fait l'inverse : elle assume le leadership en cas d'erreur inattendue pour ne pas bloquer l'indexation, et un lock corrompu est écrasé avant prise de leadership (`:1173-1176`). La divergence se justifie sur les trade-offs propres au Geste B : son objectif même est d'éliminer les N× Workers A — un fail-open qui fait de chaque hôte un leader en cas d'erreur réintroduit exactement N× timers dans le scénario d'erreur, c'est-à-dire le défaut que le geste corrige. L'asymétrie des coûts est acceptable : sans Worker A, les squelettes stagnent et les lectures lazy continuent de fonctionner (`awaitFreshnessWithBudget` dégrade en résultats locaux) ; avec N× Workers A, le défaut de multiplicité persiste.
 4. **Préserver le zéro I/O bloquant de #1110** — toute étape doit rester fire-and-forget. Pas de `await` au top-level de `initializeBackgroundServices`.
 5. **Pas d'auto-détection de multiplicité** — la décision « bascule PREWARM off » est opérationnelle, pas algorithmique. Un `.env` flag par machine est plus auditable qu'un compteur runtime.
 6. **Préserver la parité des tests `indexing-controls.test.ts`** — toute modification de `SKELETON_PREWARM` doit garder vert les 4 cas (defaut → on, `false` → off, `false` → tiers allumés, `'0'` → on).
