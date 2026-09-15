@@ -145,6 +145,34 @@ It 'Skips when the daily cap is reached (no gh call)' {
     $script:pickerLog | Should -Match 'daily cap reached \(2/2\)'
 }
 
+It 'REFUSES the pick (fail-closed, infrastructure) when the queue state is corrupt JSON - and preserves the file' {
+    # Arbitrage #3649 decision 1 : absent != illisible. L'ancien catch{} lisait
+    # les deux comme « premier run du jour » - plafond ET anti-marteau contournees
+    # en silence, puis la reecriture detruisait le compteur du jour sans journal.
+    $statePath = Join-Path $script:TestStateDir 'vibe-queue-CoursIA.json'
+    [System.IO.File]::WriteAllText($statePath, '{"idleRuns":2,"date":"CORRUPT', [System.Text.UTF8Encoding]::new($false))
+    Mock gh { throw 'gh must not be called when the queue state is unreadable' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:pickerLog | Should -Match 'ILLISIBLE'
+    # La preuve du defaut survit au tick : le refus ne reecrit pas le fichier.
+    (Get-Content $statePath -Raw) | Should -Match 'CORRUPT'
+}
+
+It 'REFUSES the pick when the state parses but lacks date/idleRuns (unexpected shape)' {
+    $statePath = Join-Path $script:TestStateDir 'vibe-queue-CoursIA.json'
+    [System.IO.File]::WriteAllText($statePath, '{"something":"else"}', [System.Text.UTF8Encoding]::new($false))
+    Mock gh { throw 'gh must not be called on an unexpected-shape state' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:pickerLog | Should -Match 'ILLISIBLE'
+}
+
+It 'An ABSENT state file stays a legitimate first run - fail-closed must not brick day one' {
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+}
+
 It 'Skips when the WHOLE pool is inside the retry window (anti-hammer)' {
     $now = (Get-Date).ToUniversalTime()
     Save-QueueState -Path (Join-Path $script:TestStateDir 'vibe-queue-CoursIA.json') -State @{ date = $now.ToString('yyyy-MM-dd'); idleRuns = 1; lastIssueNumber = 7; lastRunAt = $now.AddHours(-1).ToString('o') }

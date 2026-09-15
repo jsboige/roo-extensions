@@ -62,6 +62,9 @@ function Find-OAuthExpirySignal {
     return $hits
 }
 
+# #3605: absorbing-form streak state (machine-local, outside the repo).
+. (Join-Path $PSScriptRoot '..\common\executor-blockage-state.ps1')
+
 try {
     $branch = (& git -C $RepoRoot branch --show-current).Trim()
     if ($branch -ne 'main') {
@@ -106,12 +109,42 @@ try {
         throw "Freshness helper missing after pull: $helper"
     }
 
-    & powershell.exe -ExecutionPolicy Bypass -File $helper -RepoRoot $RepoRoot -RequireFresh
+    # Output captured (then re-emitted) so the #3605 discriminant can read the
+    # helper's status lines: [REBUILT] presence and the stale-hosts count.
+    # PS 5.1 wraps redirected child-stderr in ErrorRecords and EAP=Stop turns
+    # the first one into a terminating NativeCommandError (measured 14/09):
+    # relax around the call, restore right after.
+    $savedEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $helperOutput = @(& powershell.exe -ExecutionPolicy Bypass -File $helper -RepoRoot $RepoRoot -RequireFresh 2>&1 | ForEach-Object { "$_" })
+    $ErrorActionPreference = $savedEap
+    foreach ($line in $helperOutput) { Write-Host $line }
     $freshExit = $LASTEXITCODE
     if ($freshExit -eq 10) {
-        Write-Host '[executor-preflight][RESTART-REQUIRED] Build is fresh on disk, but live RSM hosts predate it. Restart VS Code now; do not continue this executor cycle.' -ForegroundColor Red
+        # #3605 (user-approved 2026-09-13): escalate after N=3 repetitions of the
+        # ABSORBING form -- live hosts predate a build this run did NOT rebuild.
+        # A [REBUILT] run changed the state, so it is a different signature, not
+        # a repetition. No kill, no auto-retry: the escalation asks for the
+        # interactive restart, the following cycles run short.
+        $rebuiltThisRun = [bool](@($helperOutput) | Where-Object { $_ -match '\[ensure-build-fresh\]\[REBUILT\]' })
+        $staleCount = 0
+        $armLine = @($helperOutput) | Where-Object { $_ -match '\[ensure-build-fresh\]\[ARM\]' -and $_ -match 'predating build/index\.js' } | Select-Object -First 1
+        if ($armLine -match '(\d+) predating build/index\.js') { $staleCount = [int]$Matches[1] }
+        $signature = Get-BlockageSignature -ProcessPrecedesBuild ($staleCount -gt 0) -StaleCount $staleCount -RebuiltThisRun $rebuiltThisRun
+        $blockage = $null
+        if ($signature) { $blockage = Update-BlockageState -Signature $signature -StatePath (Get-BlockageStatePath) }
+        if ($blockage -and $blockage.Escalate) {
+            Write-Host ("[executor-preflight][ESCALATE] Absorbing exit-10 repeated {0} time(s) (signature '{1}'): identical interactive blockage. Post ONE [ASK] to the user (full-quit VS Code restart), then run short cycles -- 1-line report, no Phase-1 collection, no new [ASK] -- until this pre-flight returns 0. No kill, no auto-retry (#3605)." -f $blockage.Streak, $signature) -ForegroundColor Magenta
+        } elseif ($blockage -and $blockage.ShortCycle) {
+            Write-Host ("[executor-preflight][SHORT-CYCLE] Absorbing exit-10 already escalated (streak {0}, signature '{1}'): 1-line report only, no full re-scan, no new [ASK] (#3605)." -f $blockage.Streak, $signature) -ForegroundColor Yellow
+        } else {
+            Write-Host '[executor-preflight][RESTART-REQUIRED] Build is fresh on disk, but live RSM hosts predate it. Restart VS Code now; do not continue this executor cycle.' -ForegroundColor Red
+        }
         exit 10
     }
+    # Any non-10 outcome means the absorbing form is not currently observed: the
+    # streak and the short-cycle flag reset with it (#3605).
+    Clear-BlockageState -StatePath (Get-BlockageStatePath)
     if ($freshExit -ne 0) {
         throw "ensure-build-fresh.ps1 could not guarantee freshness (exit $freshExit)."
     }
@@ -127,6 +160,9 @@ try {
     Write-Host '[executor-preflight][READY] Parent, submodule, and RSM build are synchronized.' -ForegroundColor Green
     exit 0
 } catch {
+    # A failed pre-flight does not observe the absorbing form either: reset the
+    # streak rather than escalate on memory (#3605).
+    Clear-BlockageState -StatePath (Get-BlockageStatePath)
     Write-Error "[executor-preflight][BLOCKED] $($_.Exception.Message)"
     exit 1
 }

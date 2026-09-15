@@ -115,7 +115,7 @@ For complex tasks (>50 LOC or >3 files): **team-plan → team-prd → team-exec 
 **Critiques :** [Tool Availability](.claude/rules/tool-availability.md) | [Validation](.claude/rules/validation.md) | [No Deletion + Surgical](.claude/rules/no-deletion-without-proof.md) | [PR Mandatory](.claude/rules/pr-mandatory.md) | [CI Guardrails](.claude/rules/ci-guardrails.md) | [Issue Closure](.claude/rules/issue-closure.md) | [Agent Claim](.claude/rules/agent-claim-discipline.md) | [Submod Pointer Safety](.claude/rules/submod-pointer-safety.md)
 **Ops :** File Writing (global `~/.claude/rules/file-writing.md`) | [SDDD](.claude/rules/sddd-grounding.md)
 **Com :** [INTERCOM](.claude/rules/intercom-protocol.md) | [Skepticism](.claude/rules/skepticism-protocol.md) | [Friction](.claude/rules/friction-protocol.md) | [MCP Diagnosis](.claude/rules/mcp-diagnosis.md) | [Shell Fallback](.claude/rules/shell-fallback.md)
-**Contexte :** [Context Window](.claude/rules/context-window.md) | [Security](.claude/rules/security.md)
+**Contexte :** [Context Window](.claude/rules/context-window.md) | [Security](.claude/rules/security.md) | [Harnais Tightening](.claude/rules/harnais-tightening.md) (15/09 — zero question bloquante, notebooks via MCP papermill, harnais maigre)
 
 ---
 
