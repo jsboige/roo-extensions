@@ -255,10 +255,16 @@ $fd = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.Fun
 if (-not $fd) { "no_function"; exit 1 }
 $body = $fd.Body.Extent.Text
 $inner = $body.Substring(1, $body.Length - 2)
+# $inner still carries the function's OWN `param([string]$Repo)` block, so the
+# scriptblock is built from it VERBATIM. Prepending a second `param(...)` gave
+# the scriptblock two param blocks: the child then wrote a `param:` error
+# record, and a PS 5.1 parent promotes native stderr to a terminating
+# NativeCommandError (measured 2026-09-15: parent 5.1 exited 1 at the
+# invocation, before any assertion; parent pwsh 7 reported a false 33/33).
 # Invoked directly rather than installed by name: installing a param-carrying
 # scriptblock via Set-Item emits a spurious `param is not recognized` error,
 # which $ErrorActionPreference='Stop' upstream would turn into a dead probe.
-$sb = [ScriptBlock]::Create("param([string]`$Repo)`n" + $inner)
+$sb = [ScriptBlock]::Create($inner)
 $script:ghJson = '[{"number":16136,"title":"x (#16120)","headRefName":"feature/16120-sw14-exercises"},{"number":16238,"title":"y","headRefName":"wt/vibe-g1"}]'
 function gh { return $script:ghJson }
 $prs = & $sb -Repo 'jsboige/CoursIA'
@@ -280,11 +286,25 @@ if ($probeShells.Count -eq 1) {
 }
 
 foreach ($sh in $probeShells) {
-    $out = & $sh -NoProfile -ExecutionPolicy Bypass -File $tmpProbe -Worker $workerPath 2>$null
+    # The child's stderr is taken as DATA, not as a parent-fatal error. Under a
+    # PS 5.1 parent a native command's stderr is promoted to a terminating
+    # NativeCommandError *regardless of a `2>$null` redirection*, so this loop
+    # used to die on the invocation line and never reach the assertions
+    # (measured 2026-09-15). Scoping the preference here and asserting the
+    # stream is empty below makes the property deterministic under BOTH parents,
+    # instead of letting a pwsh parent report a false green over a noisy child.
+    $errFile = [System.IO.Path]::GetTempFileName()
+    $savedEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $out = & $sh -NoProfile -ExecutionPolicy Bypass -File $tmpProbe -Worker $workerPath 2>$errFile }
+    finally { $ErrorActionPreference = $savedEap }
     $rc = $LASTEXITCODE
+    $errText = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+    Remove-Item $errFile -ErrorAction SilentlyContinue
     $countLine = @($out | Where-Object { "$_" -match '^outerCount=' })[0]
     $castLine = @($out | Where-Object { "$_" -match '^castError=' })[0]
     Assert-Equal "[$sh] probe ran" 0 $rc
+    Assert-Equal "[$sh] child stderr is empty" $true ([string]::IsNullOrWhiteSpace($errText))
     Assert-Equal "[$sh] returns both PRs (not the wrapper)" 'outerCount=2' "$countLine"
     Assert-Equal "[$sh] every element casts to an issue number" 'castError=False' "$castLine"
 }
