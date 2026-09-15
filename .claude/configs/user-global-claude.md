@@ -47,6 +47,14 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
 - **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet OK ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
 
+## Harness Amplification Control
+
+- Tenir un **ledger turn-local** des obligations ; avant un sweep, chacune est `done`, `blocked` avec `WAIT_FOR` + `RESUME_WHEN`, ou `handed-off` explicitement. Pas de nouveau registre persistant.
+- **`always-pick-next` reste obligatoire** : exclure la candidate bloquee jusqu'a son evenement de reprise et prendre une autre tache actionnable. L'evenement autorise le reexamen, pas l'action bloquee.
+- Une condition asynchrone a **un seul observateur** ; ne jamais poller en parallele d'une notification existante et couvrir succes, echec, annulation, timeout et terminaison inattendue.
+- Reutiliser les lectures du tour sauf mutation pertinente, acteur independant pertinent ou frontiere de securite. Attribuer par `session_id` avant machine, puis parent/sous-agent quand disponible.
+- Communication : **3-5 lignes par defaut** ; decision, blocage et preuve peuvent depasser ce format. [Detail](../../docs/harness/global-rules-detail.md#harness-amplification-control)
+
 ## Windows / PowerShell Gotchas
 
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.

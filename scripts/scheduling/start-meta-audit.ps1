@@ -164,7 +164,12 @@ if (Test-Path $EnsureBuildScript) {
         # PowerShell 5.1. ensure-build-fresh.ps1 carries no PS7-only syntax or runtime call
         # (parse-checked under 5.1.26100.9168, 2026-09-08).
         $psHost = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-        $BuildVerdict = & $psHost -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript -Headless 2>&1 | Select-Object -Last 3
+        # #3575: -RepoRoot is NOT optional here. The schtask chain (wscript/VBS) starts this
+        # script with a CWD outside the repo, so without it ensure-build-fresh's own
+        # git-rev-parse finds nothing and SKIPs — measured on ALL 9 runs 08-19..09-12
+        # ("[SKIP] Not in a git repo and -RepoRoot not given"): the one known reproducible
+        # cause of "RSM absent at spawn" (#2822) was never actually pre-flighted.
+        $BuildVerdict = & $psHost -NoProfile -ExecutionPolicy Bypass -File $EnsureBuildScript -RepoRoot $RepoRoot.Path -Headless 2>&1 | Select-Object -Last 3
         foreach ($line in $BuildVerdict) { Write-Log "  [BUILD] $line" }
     } catch {
         Write-Log "Pre-flight ensure-build-fresh echoue (non fatal): $_" "WARN"
@@ -324,10 +329,21 @@ $EncodedCwd = $RepoRoot.Path.ToLowerInvariant() -replace "\\", "-" -replace ":",
 $SessionProjectDir = Join-Path (Join-Path $env:USERPROFILE ".claude\projects") $EncodedCwd
 $ExpectedJsonl = Join-Path $SessionProjectDir "$SessionId.jsonl"
 $ClaudeArgs = "-p --model $Model --dangerously-skip-permissions --session-id $SessionId"
+# #3575: MCP budget inherited by the spawned claude (posed just before Start-Process).
+# Defined here so the DryRun preview advertises the same values the spawn will set.
+# 180000 is a FLOOR, not an override: the documented fleet setting is 300000
+# (PROJECT_MEMORY.md, setx machine-wide for sk-agent's slow semantic_kernel load),
+# and this spawn must never LOWER a machine-level startup budget.
+$McpStartupTimeoutMs = '180000'
+if ($env:MCP_TIMEOUT -match '^\d+$' -and [int64]$env:MCP_TIMEOUT -gt [int64]$McpStartupTimeoutMs) {
+    $McpStartupTimeoutMs = $env:MCP_TIMEOUT
+}
+$McpToolTimeoutMs = '900000'
 
 if ($DryRun) {
     Write-Log "[DRY-RUN] Commande qui serait executee:"
     Write-Log "  claude $ClaudeArgs  (stdin: $PromptFile, cwd: $RepoRoot)"
+    Write-Log "  env au spawn: MCP_TIMEOUT=$McpStartupTimeoutMs MCP_TOOL_TIMEOUT=$McpToolTimeoutMs"
     Write-Log "  JSONL de session attendu: $ExpectedJsonl"
     Write-Log "=== META-AUDIT DRY-RUN END ==="
     exit 0
@@ -377,6 +393,18 @@ try {
     # Code" - 7+ collisions measured in web1's own cycle, and post-merge the marker lives on
     # main, so its uniqueness erodes by being read. $ClaudeArgs and $ExpectedJsonl are built
     # once above the DryRun exit, so the preview and this call cannot drift apart.
+
+    # #3575: MCP budget for the headless child (inherited via Start-Process). Both no-RSM
+    # cycles (08-25, 09-10) started on a cold machine (09-10: boot 23:40, spawn 23:46 — 17s
+    # just for the CLI version check; 08-25: 6h without any claude process on the box) and
+    # lost the ENTIRE MCP layer — 0 mcp__* tool_use across ALL servers, not just RSM — with
+    # empty stderr and exit 0. Every stdio server is a cold node process; RSM's cold warmup
+    # alone measures 75-90s, past the default ~30s MCP startup timeout, after which claude -p
+    # proceeds WITHOUT the failed servers, silently. 180s startup = 2x the measured warmup.
+    # MCP_TOOL_TIMEOUT mirrors start-claude-worker.ps1: 900s > the 720s dashboard
+    # auto-condensation budget, so a mounted RSM is also USABLE for dashboard appends.
+    $env:MCP_TIMEOUT = $McpStartupTimeoutMs
+    $env:MCP_TOOL_TIMEOUT = $McpToolTimeoutMs
     $ClaudeProcess = Start-Process -FilePath $ClaudeCmd `
         -ArgumentList $ClaudeArgs `
         -WorkingDirectory $RepoRoot `
@@ -507,9 +535,24 @@ try {
         if (-not $SessionJsonl) {
             Write-Log "Post-run #3142: session JSONL non identifiee (UUID $SessionId introuvable et heuristique marqueur muette) — presence check annule" "WARN"
         } else {
-            $RsmLines = @(Select-String -Path $SessionJsonl.FullName -Pattern "mcp__roo-state-manager" -AllMatches -ErrorAction SilentlyContinue)
-            if ($RsmLines.Count -gt 0) {
-                Write-Log "Post-run #3142: OK — $($RsmLines.Count) ligne(s) mcp__roo-state-manager dans $($SessionJsonl.Name) (selection UUID)"
+            # #3575: count REAL invocations, not substring hits. The old Select-String matched
+            # the agent's own PROSE about the absent tools (plus the fallback file's Write
+            # call and agent-definition snapshots): both no-RSM cycles were declared "OK"
+            # (08-25: 8 substring hits, 09-10: 14) while the sessions contained 0 actual
+            # mcp__roo-state-manager__ call. Truth = tool_use blocks in assistant messages.
+            $RsmCallCount = 0
+            foreach ($JsonlLine in [System.IO.File]::ReadLines($SessionJsonl.FullName)) {
+                if ($JsonlLine -notlike '*mcp__roo-state-manager__*') { continue }
+                try { $Entry = $JsonlLine | ConvertFrom-Json } catch { continue }
+                if ($Entry.type -ne 'assistant') { continue }
+                foreach ($Block in @($Entry.message.content)) {
+                    if ($Block.type -eq 'tool_use' -and $Block.name -like 'mcp__roo-state-manager__*') {
+                        $RsmCallCount++
+                    }
+                }
+            }
+            if ($RsmCallCount -gt 0) {
+                Write-Log "Post-run #3142: OK — $RsmCallCount appel(s) mcp__roo-state-manager__* (tool_use verifies) dans $($SessionJsonl.Name) (selection UUID)"
             } else {
                 $FallbackFile = Join-Path $RepoRoot ".claude\local\META-INTERCOM-$MachineName.md"
                 $FallbackFresh = (Test-Path $FallbackFile) -and ((Get-Item $FallbackFile).LastWriteTime -ge $StartTime) -and ((Get-Content $FallbackFile -Raw -ErrorAction SilentlyContinue).Contains("[FALLBACK]"))
