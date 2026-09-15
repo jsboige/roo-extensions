@@ -143,7 +143,7 @@ Pour chaque étape 2-7 : `npx vitest run` côté submod + `npm run test:mcp` cô
 
 ## 6. Synthèse métrique
 
-- **Systèmes identifiés :** 19 (15 dans `roo-extensions` + 4 externes partiels). Les instances de siège §7.1 (po-204) sont des déploiements locaux de ces systèmes — elles n'ajoutent pas au total.
+- **Systèmes identifiés :** 19 (15 dans `roo-extensions` + 4 externes partiels). Les instances de siège §7.1 (po-2024) sont des déploiements locaux de ces systèmes — elles n'ajoutent pas au total.
 - **Occurrences noms en dur dans roo-extensions :** 226 (qwen3-32b 41 · qwen3.5-35b-a3b 37 · qwen3-30b-a3b 26 · qwen3-8b 22 · qwen3.6-35b-a3b 19 · qwen3-235b-a22b-fp8 19 · qwen3-14b 19 · qwen3-1.7b 18 · qwen3-embedding 15 · + variantes courtes).
 - **Clés à rotater au pire :** 7 (1 env RSM × 3 canaux × 7 écoles OWUI) — ramenées à **1** si tous les consommateurs passent par claudish (alias + clé unique `x-proxy-key`).
 - **PRs prévues :** 5 (1 ai-01 alias, 1 submod RSM, 1 submod sk-agent, 1 parent Roo+claudish+call-sk-agent, 1 ai-01 swap final).
