@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Guard for the delivered-grain eviction in refresh-vibe-queue.py (#3641).
+    Guard for the delivered-grain eviction in refresh-vibe-queue.py (#3643).
 .DESCRIPTION
     keepable() dropped a grain only when its branch carried an OPEN PR --
     open_prs() reads `gh pr list --state open`, nothing else. A grain whose PR
@@ -10,15 +10,26 @@
     it -- a paid run on work already merged.
 
     Measured 2026-09-14 on g1-genai, delivered by #16041 (00:19:53Z) and
-    #16067 (03:57:44Z): SKIP-looped from the first tick after the merge and was
-    replayed at 07:16:01Z, the moment its worktree was removed.
+    #16067 (03:57:44Z): SKIP-looped from the first tick after the merge and
+    was replayed at 07:16:01Z, the moment its worktree was removed.
 
-    Offline by construction: no gh, no network. The drop path returns before
-    any git call, so a non-existent worktree is enough to exercise it. The
-    static half asserts the wiring itself -- that the merged set is still
-    unioned into the set keepable() consults -- because that one-line union is
-    what a future "simplification" would drop while every functional case
-    above still passed against a hand-fed set.
+    Review #3643 (2026-09-15) added two discriminating guards this harness
+    pins:
+      - the merged lookup is EXACT per branch (`--head`), never a bulk
+        `--limit N` row window -- at the measured CoursIA rate 300 rows span
+        ~58 h and a merged grain queued past the window reopens the replay;
+      - a delivered NAME is not proof the GRAIN is delivered: branch names are
+        positional and get reused after a drain, so a delivered branch is
+        dropped only when its worktree is absent or provably empty. An
+        ahead/dirty worktree on a delivered name is an in-flight generation
+        and must be KEPT.
+
+    Offline by construction: no gh, no network. The git probes inside
+    keepable() are monkeypatched, so a plain temp directory stands in for the
+    worktree. The static half asserts the wiring itself -- that the merged set
+    is still unioned into the set keepable() consults -- because that one-line
+    union is what a future "simplification" would drop while every functional
+    case above still passed against a hand-fed set.
 
     Wired into the scheduling-harness job so a change to the production script
     landing on main re-runs it.
@@ -57,17 +68,23 @@ Assert-Equal 'the union is what keepable() receives' $true ($src -match 'keepabl
 # The stale read is what created the hole: a merged PR must not be reachable
 # only through the open list. Scoped to the function body -- an unanchored
 # search would pass on any `--state merged` anywhere in the file.
-$mbBody = [regex]::Match($src, '(?s)def merged_branches\(slug\):(.*?)(?=\ndef )')
+$mbBody = [regex]::Match($src, '(?s)def merged_branches\(slug[^)]*\):(.*?)(?=\ndef )')
 Assert-Equal 'merged_branches reads --state merged' $true `
     ($mbBody.Success -and $mbBody.Groups[1].Value -match '"--state",\s*"merged"')
+# Window independence (#3643 review): the merged answer must be an exact
+# per-branch `--head` lookup, never a bulk row window that history scrolls
+# past. Scoped to the function body for the same reason as above.
+Assert-Equal 'merged_branches queries --head per branch' $true `
+    ($mbBody.Success -and $mbBody.Groups[1].Value -match '"--head"')
 
 # ============================================================================
-# Tests 2-3: the drop behaviour itself, exercised offline. Both cases use a
-# worktree path that does not exist, which also pins the branch check as the
-# FIRST decision: were the order reversed, the missing worktree would skip the
-# grain and it would never be dropped.
+# Tests 2-4: the drop behaviour itself, exercised offline. keepable()'s git
+# probes are monkeypatched, so a temp directory stands in for the worktree and
+# the ahead/dirty state is whatever the fake says. Cases 3-4 are the review's
+# discriminating guard: a delivered branch NAME reused by an in-flight
+# generation must NOT be dropped.
 # ============================================================================
-Write-Host "`n=== Test 2: a delivered branch drops the grain ===" -ForegroundColor Cyan
+Write-Host "`n=== Test 2: a delivered branch with no in-flight work drops the grain ===" -ForegroundColor Cyan
 
 $py = $null
 foreach ($cand in @('python3', 'python')) {
@@ -78,22 +95,45 @@ if (-not $py) {
     $TestsFailed++
 } else {
     $probe = @'
-import importlib.util, json, sys
+import importlib.util, json, sys, tempfile
 spec = importlib.util.spec_from_file_location("rvq", sys.argv[1])
 m = importlib.util.module_from_spec(spec)
 sys.argv = ["rvq"]
 spec.loader.exec_module(m)
 
 MISSING = "D:/no/such/worktree/at/all"
-def run(branch, delivered):
-    q = {"grains": [{"id": "g", "worktree": MISSING, "branch": branch}]}
-    keep, dropped = m.keepable(q, "deadbeef", set(delivered))
-    return dropped
+REAL = tempfile.mkdtemp(prefix="rvq-keepable-")
 
-# delivered branch -> dropped, despite the worktree being gone
-print("delivered=%s" % json.dumps(run("wt/livree", ["wt/livree"])))
-# not delivered -> skipped (neither kept nor dropped), never a spurious drop
-print("inflight=%s" % json.dumps(run("wt/en-vol", ["wt/autre"])))
+STATE = {"ahead": "0", "dirty": ""}
+def fake_sh(cmd, cwd=None, check=True):
+    key = " ".join(cmd)
+    if "rev-list" in key:
+        return STATE["ahead"]
+    if "status" in key:
+        return STATE["dirty"]
+    return ""
+
+m.sh = fake_sh
+
+def run(wt, branch, delivered, ahead, dirty):
+    STATE["ahead"] = ahead
+    STATE["dirty"] = dirty
+    q = {"grains": [{"id": "g", "worktree": wt, "branch": branch}]}
+    keep, dropped = m.keepable(q, "deadbeef", set(delivered))
+    return {"kept": [g["id"] for g in keep], "dropped": dropped}
+
+# delivered + worktree absent -> dropped
+print("delivered_missing=%s" % json.dumps(run(MISSING, "wt/livree", ["wt/livree"], "0", "")))
+# not delivered + worktree absent -> neither kept nor journaled
+print("inflight_missing=%s" % json.dumps(run(MISSING, "wt/autre", ["wt/livree"], "0", "")))
+# delivered name + worktree 3 ahead -> KEPT (name reuse: in-flight generation)
+print("delivered_inflight=%s" % json.dumps(run(REAL, "wt/livree", ["wt/livree"], "3", "")))
+# delivered name + dirty-only worktree -> KEPT (uncommitted work is in flight)
+print("delivered_dirty=%s" % json.dumps(run(REAL, "wt/livree", ["wt/livree"], "0", "M f")))
+# delivered name + provably empty worktree -> dropped
+print("delivered_empty=%s" % json.dumps(run(REAL, "wt/livree", ["wt/livree"], "0", "")))
+# not delivered + 2 ahead -> kept
+print("inflight_kept=%s" % json.dumps(run(REAL, "wt/autre", ["wt/livree"], "2", "")))
 '@
     $utf8 = New-Object System.Text.UTF8Encoding($false)
     $tmpPy = [System.IO.Path]::GetTempFileName() + '.py'
@@ -102,9 +142,27 @@ print("inflight=%s" % json.dumps(run("wt/en-vol", ["wt/autre"])))
     $rc = $LASTEXITCODE
     Remove-Item $tmpPy -ErrorAction SilentlyContinue
 
+    # keepable() journals the name-reuse keeps on stdout; filter to the six
+    # result lines so the assertions do not depend on the WARN interleaving.
+    $lines = @($out | Where-Object { $_ -match '^(delivered_missing|inflight_missing|delivered_inflight|delivered_dirty|delivered_empty|inflight_kept)=' })
+
     Assert-Equal 'probe ran' 0 $rc
-    Assert-Equal 'delivered grain is dropped' 'delivered=["g"]' ($out[0])
-    Assert-Equal 'in-flight grain is not dropped' 'inflight=[]' ($out[1])
+    Assert-Equal 'probe emitted all six cases' 6 $lines.Count
+
+    Write-Host "`n=== Test 3: a delivered branch reused by an in-flight generation is KEPT ===" -ForegroundColor Cyan
+    Assert-Equal 'delivered + absent worktree is dropped' 'delivered_missing={"kept": [], "dropped": ["g"]}' $lines[0]
+    Assert-Equal 'not delivered + absent worktree is not journaled' 'inflight_missing={"kept": [], "dropped": []}' $lines[1]
+    Assert-Equal 'delivered name + 3 ahead is KEPT (name reuse)' 'delivered_inflight={"kept": ["g"], "dropped": []}' $lines[2]
+    Assert-Equal 'delivered name + dirty worktree is KEPT' 'delivered_dirty={"kept": ["g"], "dropped": []}' $lines[3]
+
+    Write-Host "`n=== Test 4: a delivered branch with provably empty work is dropped; plain in-flight kept ===" -ForegroundColor Cyan
+    Assert-Equal 'delivered + provably empty worktree is dropped' 'delivered_empty={"kept": [], "dropped": ["g"]}' $lines[4]
+    Assert-Equal 'not delivered + 2 ahead is kept' 'inflight_kept={"kept": ["g"], "dropped": []}' $lines[5]
+
+    # The name-reuse keep must be VISIBLE, not silent: one WARN per kept
+    # delivered-name grain (cases 3 and 4 above).
+    $warns = @($out | Where-Object { $_ -match 'WARN: branche livree .* reutilisee' })
+    Assert-Equal 'name-reuse keeps are journaled (WARN x2)' 2 $warns.Count
 }
 
 # ============================================================================

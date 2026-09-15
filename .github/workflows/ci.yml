@@ -196,15 +196,17 @@ jobs:
         shell: bash
         run: pwsh -File scripts/testing/harness/test-pr-negation-autoclose.ps1
 
-      # #3641: refresh-vibe-queue.py kept a grain whose PR had been MERGED.
+      # #3643: refresh-vibe-queue.py kept a grain whose PR had been MERGED.
       # open_prs() reads `gh pr list --state open` and nothing else, so a
       # delivered grain fell back into the in-flight set: it SKIP-looped on the
       # stale baseSha every tick, the refresh re-kept it, and the moment its
       # worktree disappeared the feeder re-seeded the base and REPLAYED it — a
       # paid run on work already merged. Measured 2026-09-14 on g1-genai
       # (delivered by #16041/#16067): replayed at 07:16:01Z, $0.56 for a NOOP.
-      # The harness pins both halves — the one-line union in main() and the
-      # drop decision itself. Offline: no gh, no network, no scheduler.
+      # The harness pins all three halves — the union in main(), the exact
+      # per-branch `--head` merged lookup (no row window), and the drop
+      # condition that a delivered NAME only drops a grain whose worktree is
+      # absent or provably empty. Offline: no gh, no network, no scheduler.
       - name: Run vibe queue delivered-grain harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-vibe-queue-delivered.ps1
