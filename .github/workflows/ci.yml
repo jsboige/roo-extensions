@@ -22,6 +22,7 @@ on:
       # scripts/testing/unit/; its runner and the production sources that suite
       # guards must re-trigger it on main pushes (same principle as above).
       - 'scripts/testing/unit/**'
+      - 'tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1'
       - 'scripts/testing/run-pester-tests.ps1'
       # #3647: static Pester guards cover these harness carriers. A main push
       # changing a carrier must run the guard that validates it.
@@ -338,6 +339,10 @@ jobs:
       - name: Run unit Pester suite
         shell: pwsh
         run: ./scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit -CI
+
+      - name: Run Vibe idle-picker Pester suite
+        shell: pwsh
+        run: ./scripts/testing/run-pester-tests.ps1 -Path tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1 -CI
 
   # Inventory drift guard (#3410): docs/sk-agent/AGENT_INVENTORY.md and the
   # deployment guide carry agent/model/MCP counts that are derived from

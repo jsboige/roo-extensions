@@ -2,9 +2,9 @@
 #
 # Exécuté en CI par le job `unit-pester` (.github/workflows/ci.yml, #3216) :
 #   pwsh -File scripts/testing/run-pester-tests.ps1 -Path scripts/testing/unit -CI
-# Le mode -CI fait sortir le process avec un exit code = nombre d'échecs (non-nul
-# → job rouge). Sans la propagation de la configuration, Invoke-Pester sortait 0
-# quel que soit le résultat — un runner qui ne peut pas échouer n'est pas un runner.
+# Toute invocation fait sortir le process avec un exit code = nombre d'échecs
+# (non-nul → appelant rouge). `-CI` reste accepté pour compatibilité des appelants,
+# mais omettre ce switch ne doit jamais transformer une suite rouge en succès.
 
 param (
     [Parameter(Mandatory=$false)]
@@ -27,12 +27,12 @@ try {
 
     # Configuration de Pester en tant que Hashtable.
     # Run.Exit (et pas un hypothétique Run.CI, qui n'existe pas et serait ignoré
-    # silencieusement) : c'est le seul réglage qui fait sortir le process avec
-    # exit code = nombre d'échecs — mesuré : sans lui, 1 test rouge sortait 0.
+    # silencieusement) : toute invocation doit propager les échecs au process.
+    # Le switch -CI reste dans l'interface pour les appelants historiques.
     $pesterConfig = @{
         Run = @{
             Path = $Path
-            Exit = $CI.IsPresent
+            Exit = $true
         }
         Output = @{
             Verbosity = 'Detailed'
