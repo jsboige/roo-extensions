@@ -147,4 +147,65 @@ Describe "Vibe worker - garde no-op du tick planifie (#3296)" {
             ($knownLine -match 'SimpleMatch\s+\$wtForMatch') | Should -Be $true
         }
     }
+
+    Context "Garde 3 (amend #3665) : un candidat porteur de contenu est ECARTE, pas fatal" {
+
+        # Arbitrage user 15/09 : un worktree qui porte du contenu doit produire un
+        # SKIP explicite puis laisser le scan CONTINUER, au lieu de figer le tick.
+        # Mesure 15/09 : #16120 a emis un [ERROR] par heure de 00:40Z a 07:40Z sans
+        # qu'aucun autre candidat soit jamais examine (refus classe 'infrastructure',
+        # donc fatal). Les cas comportementaux vivent dans
+        # tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1 ; ce chemin
+        # n'est pas cable en CI, ces epingles statiques sont ce que la CI enforce.
+
+        It "selectionne via une boucle sur \$free, pas un pick unique" {
+            ($content -match '\$picked\s*=\s*\$null') | Should -Be $true
+            ($content -match 'foreach\s*\(\$c\s+in\s+\$free\)') | Should -Be $true
+            $iNull = $content.IndexOf('$picked = $null')
+            $iLoop = $content.IndexOf('foreach ($c in $free)')
+            ($iNull -ge 0 -and $iLoop -gt $iNull) | Should -Be $true
+        }
+
+        It "prepare le worktree DANS la boucle, par candidat (\$n, pas \$picked)" {
+            # Si la preparation repasse hors de la boucle, elle porte sur le pick deja
+            # fait et un refus redevient fatal pour tout le tick — le defaut d'origine.
+            $iLoop = $content.IndexOf('foreach ($c in $free)')
+            $iPrep = $content.IndexOf('$wt = Join-Path $wtRoot ("idle-{0}" -f $n)')
+            ($iLoop -ge 0 -and $iPrep -gt $iLoop) | Should -Be $true
+        }
+
+        It "classe les DEUX refus de contenu (worktree en place, branche ahead)" {
+            ([regex]::Matches($content, '\$refusedForContent\s*=\s*\$true')).Count | Should -Be 2
+        }
+
+        It "le catch continue sur contenu, et n'atteint infrastructure qu'apres" {
+            $iGuard = $content.IndexOf('if ($refusedForContent) {')
+            $iCont = $content.IndexOf('continue', $iGuard)
+            $iInfra = $content.IndexOf("IdlePickOutcome = 'infrastructure'", $iGuard)
+            ($iGuard -ge 0) | Should -Be $true
+            ($iCont -gt $iGuard) | Should -Be $true
+            ($iInfra -gt $iCont) | Should -Be $true
+        }
+
+        It "publie un no-op explicite quand tout le pool est occupe localement" {
+            ($content -match 'occupe localement') | Should -Be $true
+        }
+    }
+
+    Context "Test-QueueIssueClaimed : le cutoff se compare en UTC, pas en heure locale" {
+
+        # `[DateTime]` sur un `...Z` rend un Kind=Local (pwsh convertit au fuseau de
+        # la machine) et PowerShell compare des Ticks : sans normalisation, un claim
+        # frais peut passer pour perime — et l'inverse — selon le fuseau du runner.
+        # Un runner CI en UTC ne peut pas discriminer les deux lectures par le
+        # comportement : c'est ici que la normalisation est tenue.
+        It "normalise createdAt en UTC avant comparaison" {
+            # Ancree sur la forme complete du cast + normalisation : retirer
+            # .ToUniversalTime() laisse la ligne en place mais fait rougir ceci.
+            ($content -match '\[DateTime\]\$c\.createdAt\)\.ToUniversalTime\(\)') | Should -Be $true
+            # Garde-fou anti-rechute : la forme brute (cast nu, sans parenthese ni
+            # normalisation) ne doit plus exister nulle part.
+            ($content -match '\$at\s*=\s*\[DateTime\]\$c\.createdAt') | Should -Be $false
+        }
+    }
 }
