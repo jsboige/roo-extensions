@@ -235,10 +235,22 @@ function Test-QueueIssueClaimed {
     $cutoff = (Get-Date).ToUniversalTime().AddHours(-1 * $script:QueueClaimHours)
     foreach ($c in @($data.comments)) {
         if (-not $c.createdAt) { continue }
-        # `[DateTime]` sur un `...Z` rend un Kind=Local (pwsh convertit au fuseau
-        # de la machine) : compare tel quel au cutoff UTC, un claim frais peut
-        # passer pour perime de plusieurs heures a l'ouest de Greenwich — et
-        # l'inverse a l'est. Normalisation obligatoire avant comparaison.
+        # Normalisation avant comparaison (revue ai-01, correction 1). Portee
+        # MESUREE le 15/09 sous pwsh 7.6.6, pas supposee :
+        #   * un litteral `...Z` -- la forme que gh emet -- est deja deserialise
+        #     par ConvertFrom-Json en Kind=Utc, donc le cast brut y est correct
+        #     et cette normalisation n'y change rien. C'est le cas nominal ;
+        #   * elle est PORTEUSE des que l'horodatage arrive sous une autre forme :
+        #     `...+02:00` sort en Kind=Local, et PowerShell compare des Ticks sans
+        #     egard au Kind, donc le cast brut pese l'heure murale contre un cutoff
+        #     UTC -- un claim de 73 h lu comme frais a l'est de Greenwich, et
+        #     l'inverse a l'ouest ;
+        #   * le meme cast brut est faux sous Windows PowerShell 5.1, ou
+        #     ConvertFrom-Json ne coerise pas les dates (mesure : chaine rendue
+        #     telle quelle -> Kind=Local).
+        # Le contrat accepte l'une ou l'autre forme : normaliser est gratuit et
+        # ferme les deux. Le cas comportemental qui discrimine (offset explicite)
+        # vit dans tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1.
         try { $at = ([DateTime]$c.createdAt).ToUniversalTime() } catch { continue }
         if ($at -ge $cutoff -and "$($c.body)" -match '\[CLAIMED\]') { return $true }
     }

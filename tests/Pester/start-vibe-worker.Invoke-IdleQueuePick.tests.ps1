@@ -471,4 +471,44 @@ It 'Test-QueueIssueClaimed: the 72h boundary holds at 71h/73h, not only at 3h/10
     Mock gh { '{"comments":[{"createdAt":"' + $justOutside + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
     & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $false
 }
+
+It 'Test-QueueIssueClaimed: an offset-carrying timestamp cannot revive a 72h+ claim' {
+    # The KIND discriminator (ai-01 review, correction 1). The 71h/73h and 3h/100h
+    # cases above pin the width of the window; they are green under BOTH readings,
+    # so none of them can distinguish the defect.
+    #
+    # Measured 15/09 under pwsh 7.6.6, because the shape decides everything:
+    #   '...Z'        -> Kind=Utc        (the raw cast is already right)
+    #   '...+02:00'   -> Kind=Local      (the raw cast is WRONG)
+    #   '...'         -> Kind=Unspecified
+    # gh emits the `Z` form, so today's nominal input is unaffected — this case
+    # therefore feeds the OFFSET form on purpose, which is the shape the raw cast
+    # mishandles: PowerShell compares DateTimes by Ticks without regard to Kind,
+    # so a Local value weighs WALL CLOCK against a UTC cutoff. The age is chosen
+    # from the runner's offset sign so the raw reading lands on the wrong side in
+    # both hemispheres: east of Greenwich a 73h claim looks fresh, west of it a
+    # 71h claim looks stale. On a UTC runner the two readings coincide and this
+    # case stays a control — the static pin in
+    # scripts/testing/unit/vibe-worker-noop-guard.Tests.ps1 is what holds there.
+    $nowUtc = (Get-Date).ToUniversalTime()
+    $offsetHours = [int][Math]::Round([TimeZoneInfo]::Local.GetUtcOffset($nowUtc).TotalHours)
+    $cutoffUtc = $nowUtc.AddHours(-72)
+    # East (>=0): 73h must read stale; West (<0): 71h must read fresh.
+    $ageHours = if ($offsetHours -ge 0) { 73 } else { 71 }
+    $expected = if ($offsetHours -ge 0) { $false } else { $true }
+    $claimLiteral = $nowUtc.AddHours(-1 * $ageHours).ToLocalTime().ToString('o')
+
+    if ($offsetHours -ne 0) {
+        # Premise of the discrimination, ASSERTED so this case cannot quietly decay
+        # into another control: on this host the raw reading really does land on the
+        # opposite side from the UTC-correct verdict. If it ever stops doing so, the
+        # case is no longer proving anything and should fail loudly rather than pass
+        # for the wrong reason.
+        $naiveVerdict = ([DateTime]$claimLiteral -ge $cutoffUtc)
+        $naiveVerdict | Should -Not -Be $expected -Because "at UTC+$($offsetHours.ToString('0;-0')) the raw cast reads ${ageHours}h as the wrong freshness"
+    }
+
+    Mock gh { '{"comments":[{"createdAt":"' + $claimLiteral + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $expected -Because "${ageHours}h is ${expected} the 72h window in UTC, whatever the timestamp shape"
+}
 }
