@@ -326,12 +326,15 @@ It 'Refuses to reattach an existing branch that carries commits (no blind reset)
     # The vector measured 2026-09-14: wt/vibe-g1-genai was reused with mutation
     # 42af9095b still inside. A branch ahead of origin/main holds unreviewed work;
     # it must not be reset just because the tick wanted a clean tree.
+    # Contract amend #3665 (user 15/09): the refusal ECARTE the candidate and the
+    # scan continues — it is no longer a tick-killing 'infrastructure' refusal.
     $script:MockBranchExists = 'wt/vibe-idle-7'
     $script:MockAhead = '3'
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $false
-    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:IdlePickOutcome | Should -Be 'noop'
     $script:pickerLog | Should -Match 'refus de la rattacher'
+    $script:pickerLog | Should -Match 'Contenu PRESERVE'
     $env:VIBE_WAKE_PAYLOAD | Should -BeNullOrEmpty
 }
 
@@ -340,8 +343,9 @@ It 'Refuses to reuse an in-place worktree that carries content' {
     $script:MockAhead = '2'
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $false
-    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:IdlePickOutcome | Should -Be 'noop'
     $script:pickerLog | Should -Match 'refus de le reutiliser'
+    $script:pickerLog | Should -Match 'Contenu PRESERVE'
 }
 
 It 'Reuses an in-place worktree that provably carries nothing' {
@@ -366,5 +370,105 @@ It 'Recognizes a git-printed worktree path despite the Join-Path separator mix' 
     Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
     Invoke-IdleQueuePick | Should -Be $true
     $script:WorktreeAddCalls | Should -Be 0
+}
+
+# ============================================================================
+# Amend #3665 (arbitrage user 15/09) — Garde 3: a content-bearing worktree
+# ECARTE its candidate and the scan CONTINUES. Measured 15/09: #16120 emitted
+# one [ERROR] per hour from 00:40Z to 07:40Z and no other candidate was ever
+# examined, because the refusal was classified 'infrastructure' (tick-fatal).
+# Three discriminating cases: (1) occupied-then-free selects the second;
+# (2) all occupied => quiet noop; (3) a real worktree-add failure stays fatal.
+# ============================================================================
+
+It 'Skips a content-bearing candidate and PICKS THE NEXT free one' {
+    # idle-7 is registered AND ahead by 1; idle-9 is untouched. The mock reads
+    # the `-C` path so "ahead" is per-candidate, as git makes it.
+    $script:MockKnownWt = $script:WtPath7
+    Mock git {
+        $global:LASTEXITCODE = 0
+        $a = @($args)
+        $i = [array]::IndexOf($a, '-C')
+        $leaf = if ($i -ge 0) { Split-Path $a[$i + 1] -Leaf } else { '' }
+        if ($a -contains 'status') { return }
+        if ($a -contains 'rev-list') { if ($leaf -eq 'idle-7') { return '1' } ; return '0' }
+        if ($a -contains 'worktree' -and $a -contains 'list') { return $script:MockKnownWt }
+        if ($a -contains 'rev-parse') { return 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }
+        if ($a -contains 'branch' -and $a -contains '--list') { return '' }
+        if ($a -contains 'worktree' -and $a -contains 'add') {
+            $script:WorktreeAddCalls++
+            New-Item -ItemType Directory -Path $a[[array]::IndexOf($a, 'add') + 1] -Force | Out-Null
+            return ''
+        }
+        return ''
+    }
+    Mock gh { '[{"number":7,"title":"Occupied","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":9,"title":"Next free","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $true
+    $script:pickerLog | Should -Match '\[SKIP\] idle-picker: #7 ecartee'
+    $script:pickerLog | Should -Match 'Contenu PRESERVE'
+    $script:pickerLog | Should -Not -Match '\[ERROR\]'
+    ($env:VIBE_WAKE_PAYLOAD | ConvertFrom-Json).content | Should -Match 'Issue #9: Next free'
+}
+
+It 'Quiet noop (not infrastructure) when EVERY free candidate carries content' {
+    # Every candidate has an existing branch ahead by 3 -> refused for content.
+    # The tick must report a no-op, with one SKIP per candidate and no [ERROR].
+    $script:MockBranchExists = 'wt/vibe-idle-7'
+    Mock git {
+        $global:LASTEXITCODE = 0
+        $a = @($args)
+        $i = [array]::IndexOf($a, '-C')
+        $leaf = if ($i -ge 0) { Split-Path $a[$i + 1] -Leaf } else { '' }
+        if ($a -contains 'status') { return }
+        # rev-list is called on the WORKSPACE for the branch check, on a worktree
+        # path for the dirty/ahead check: only the former must report commits.
+        if ($a -contains 'rev-list') { if ($leaf -like 'idle-*') { return '0' } ; return '3' }
+        if ($a -contains 'worktree' -and $a -contains 'list') { return '' }
+        if ($a -contains 'rev-parse') { return 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }
+        if ($a -contains 'branch' -and $a -contains '--list') { return $script:MockBranchExists }
+        return ''
+    }
+    Mock gh { '[{"number":7,"title":"A","body":"B","updatedAt":"2026-09-01T10:00:00Z"},{"number":9,"title":"C","body":"B","updatedAt":"2026-09-02T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'noop'
+    $script:pickerLog | Should -Match 'occupe localement'
+    $script:pickerLog | Should -Not -Match '\[ERROR\]'
+    ([regex]::Matches($script:pickerLog, 'Contenu PRESERVE')).Count | Should -Be 2
+}
+
+It 'Keeps infrastructure FATAL for a real worktree-add failure' {
+    # The distinction the amend exists for: only genuine git failures may kill
+    # the tick. Here `worktree add` fails -> infrastructure, and no SKIP.
+    Mock git {
+        $global:LASTEXITCODE = 0
+        $a = @($args)
+        if ($a -contains 'status') { return }
+        if ($a -contains 'rev-list') { return '0' }
+        if ($a -contains 'worktree' -and $a -contains 'list') { return '' }
+        if ($a -contains 'rev-parse') { return 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef' }
+        if ($a -contains 'branch' -and $a -contains '--list') { return '' }
+        if ($a -contains 'worktree' -and $a -contains 'add') { $global:LASTEXITCODE = 1 ; return '' }
+        return ''
+    }
+    Mock gh { '[{"number":7,"title":"T","body":"B","updatedAt":"2026-09-01T10:00:00Z"}]' }
+    Invoke-IdleQueuePick | Should -Be $false
+    $script:IdlePickOutcome | Should -Be 'infrastructure'
+    $script:pickerLog | Should -Match 'worktree add a echoue'
+    $script:pickerLog | Should -Not -Match 'Contenu PRESERVE'
+}
+
+It 'Test-QueueIssueClaimed: the 72h boundary holds at 71h/73h, not only at 3h/100h' {
+    # Boundary discrimination for the window itself. The Kind normalization
+    # (`[DateTime]` on a `...Z` yields Kind=Local, and PowerShell compares Ticks,
+    # so a raw value compares local wall-clock against a UTC cutoff) is enforced
+    # statically in scripts/testing/unit/vibe-worker-noop-guard.Tests.ps1 — on a
+    # UTC CI runner the two readings coincide, so a behavioural case alone could
+    # not discriminate them here.
+    $justInside = (Get-Date).ToUniversalTime().AddHours(-71).ToString('o')
+    $justOutside = (Get-Date).ToUniversalTime().AddHours(-73).ToString('o')
+    Mock gh { '{"comments":[{"createdAt":"' + $justInside + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $true
+    Mock gh { '{"comments":[{"createdAt":"' + $justOutside + '","body":"[CLAIMED] lane myia-po-2027:CoursIA-2"}]}' }
+    & $script:RealTestQueueIssueClaimed -Repo 'jsboige/CoursIA' -Number 7 | Should -Be $false
 }
 }
