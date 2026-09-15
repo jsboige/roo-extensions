@@ -169,6 +169,7 @@ if ($DryRun) {
 
 $QueueStateDir = Join-Path $RepoRoot "outputs\scheduling\state"
 $script:QueueRetrySameIssueHours = 6
+$script:QueueClaimHours = 72
 
 function Get-QueueState {
     # Fail-closed (arbitrage #3649 decision 1, 14/09) : « absent » et « illisible »
@@ -201,6 +202,59 @@ function Save-QueueState {
     param([string]$Path, [object]$State)
     if (-not (Test-Path $QueueStateDir)) { New-Item -ItemType Directory -Path $QueueStateDir -Force | Out-Null }
     [System.IO.File]::WriteAllText($Path, ($State | ConvertTo-Json -Compress), [System.Text.UTF8Encoding]::new($false))
+}
+
+function Get-QueueOpenPrs {
+    # Anti-collision (15/09, mandat user) : les PRs ouvertes du depot, lues une
+    # seule fois par tick. Le picker ne lisait QUE `gh issue list` par label :
+    # une issue claimee/livree dont le label ne change pas restait piochable
+    # (collision #16120 du 14/09 : claim 07:49Z, PR #16136 ouverte 09:18Z, run
+    # duplique $2.02 a 18:05Z). Tout echec = throw : l'etat des collisions ne
+    # se devine pas, l'appelant refuse (fail-closed).
+    param([string]$Repo)
+    $raw = & gh pr list -R $Repo --state open --limit 100 --json number,title,headRefName 2>$null
+    # Vide explicite d'abord : `'' | ConvertFrom-Json` rend null SANS erreur
+    # (mesure 15/09) — sans cette garde, un stdout vide deviendrait « aucune PR »
+    # et le picker tirerait sans protection anti-collision.
+    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh pr list: sortie vide (repo $Repo)" }
+    try { return ,@($raw | ConvertFrom-Json -ErrorAction Stop) }
+    catch { throw "gh pr list: sortie non-JSON (repo $Repo)" }
+}
+
+function Test-QueueIssueClaimed {
+    # Anti-collision, garde 2 : un [CLAIMED] recent en commentaire prime sur le
+    # pick — la convention fleet vit dans les commentaires d'issue, pas dans les
+    # labels (#3407). Fenetre QueueClaimHours : un claim plus vieux est presume
+    # abandonne. Echec gh = throw (fail-closed, jamais fail-open).
+    param([string]$Repo, [int]$Number)
+    $raw = & gh issue view $Number -R $Repo --json comments 2>$null
+    # Meme garde que Get-QueueOpenPrs : '' rend null sans erreur via le pipeline.
+    if ([string]::IsNullOrWhiteSpace($raw)) { throw "gh issue view #$($Number): sortie vide" }
+    try { $data = $raw | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "gh issue view #$($Number): sortie non-JSON" }
+    $cutoff = (Get-Date).ToUniversalTime().AddHours(-1 * $script:QueueClaimHours)
+    foreach ($c in @($data.comments)) {
+        if (-not $c.createdAt) { continue }
+        # Normalisation avant comparaison (revue ai-01, correction 1). Portee
+        # MESUREE le 15/09 sous pwsh 7.6.6, pas supposee :
+        #   * un litteral `...Z` -- la forme que gh emet -- est deja deserialise
+        #     par ConvertFrom-Json en Kind=Utc, donc le cast brut y est correct
+        #     et cette normalisation n'y change rien. C'est le cas nominal ;
+        #   * elle est PORTEUSE des que l'horodatage arrive sous une autre forme :
+        #     `...+02:00` sort en Kind=Local, et PowerShell compare des Ticks sans
+        #     egard au Kind, donc le cast brut pese l'heure murale contre un cutoff
+        #     UTC -- un claim de 73 h lu comme frais a l'est de Greenwich, et
+        #     l'inverse a l'ouest ;
+        #   * le meme cast brut est faux sous Windows PowerShell 5.1, ou
+        #     ConvertFrom-Json ne coerise pas les dates (mesure : chaine rendue
+        #     telle quelle -> Kind=Local).
+        # Le contrat accepte l'une ou l'autre forme : normaliser est gratuit et
+        # ferme les deux. Le cas comportemental qui discrimine (offset explicite)
+        # vit dans tests/Pester/start-vibe-worker.Invoke-IdleQueuePick.tests.ps1.
+        try { $at = ([DateTime]$c.createdAt).ToUniversalTime() } catch { continue }
+        if ($at -ge $cutoff -and "$($c.body)" -match '\[CLAIMED\]') { return $true }
+    }
+    return $false
 }
 
 function Invoke-IdleQueuePick {
@@ -275,8 +329,45 @@ function Invoke-IdleQueuePick {
         Write-Log ("[SKIP] idle-picker: tout le pool est sous anti-marteau (<{0}h) - tick no-op." -f $script:QueueRetrySameIssueHours)
         return $false
     }
-    $picked = $candidates | Select-Object -First 1
 
+    # ===== Anti-collision (15/09, mandat user) =====
+    # Garde 1 : PR ouverte referencant l'issue — titre `#N` OU head de branche
+    # portant le numero (#16136 head `feature/16120-sw14-exercises` livrait
+    # #16120 SANS le numero dans le titre, mesure 14/09). Frontiere de mot
+    # obligatoire (#3407) : `#1612` ne doit pas matcher `#16120`. Echec de
+    # verification = refus (fail-closed) : un duplicata coute ~$2, un tick
+    # saute ne coute rien — le tick suivant retente.
+    try { $openPrs = Get-QueueOpenPrs -Repo ([string]$queue.repo) }
+    catch {
+        $script:IdlePickOutcome = 'infrastructure'
+        $script:IdlePickFailure = "anti-collision non verifiable ($($_.Exception.Message))"
+        Write-Log ("[ERROR] idle-picker: {0} - tirage REFUSE (fail-closed anti-collision, arbitrage user 15/09)." -f $_.Exception.Message) "ERROR"
+        return $false
+    }
+    $coveredBy = @{}
+    foreach ($c in $candidates) {
+        $n = [int]$c.number
+        foreach ($pr in $openPrs) {
+            if ("$($pr.title)" -match ('#{0}([^0-9]|$)' -f $n) -or
+                "$($pr.headRefName)" -match ('(^|[^0-9]){0}([^0-9]|$)' -f $n)) {
+                $coveredBy[$n] = [int]$pr.number
+                break
+            }
+        }
+    }
+    foreach ($n in @($coveredBy.Keys)) {
+        Write-Log ("[SKIP] idle-picker: #{0} ecartee - PR ouverte #{1} la couvre deja." -f $n, $coveredBy[$n])
+    }
+    $free = @($candidates | Where-Object { -not $coveredBy.ContainsKey([int]$_.number) })
+    if ($free.Count -eq 0) {
+        Write-Log "[SKIP] idle-picker: tout le pool restant est couvert par des PRs ouvertes - tick no-op."
+        return $false
+    }
+
+    # Garde 2 : [CLAIMED] recent en commentaire — verifie uniquement les
+    # candidats libres, dans l'ordre, jusqu'au premier pick (1 appel gh par
+    # candidat examine, pas par candidat du pool). Un claim recent prime meme
+    # sans PR : le travail peut etre en cours sans livraison visible.
     # ===== Worktree OBLIGATOIRE (14/09) =====
     # Le payload doit porter une ligne `worktree:` : c'est la SEULE source dont le
     # driver sait tirer un cwd borne (vibe-acp-driver.py:resolve_session_cwd). Sans
@@ -303,60 +394,109 @@ function Invoke-IdleQueuePick {
     if ([string]::IsNullOrWhiteSpace($WorkspacePath) -or -not (Test-Path $WorkspacePath)) {
         $script:IdlePickOutcome = 'infrastructure'
         $script:IdlePickFailure = "workspacePath non resolu ($WorkspacePath)"
-        Write-Log ("[ERROR] idle-picker: workspacePath non resolu - impossible de preparer un worktree pour #{0}, pas de dispatch." -f [int]$picked.number) "ERROR"
+        Write-Log ("[ERROR] idle-picker: workspacePath non resolu - impossible de preparer un worktree, pas de dispatch.") "ERROR"
         return $false
     }
-    $wt = Join-Path $wtRoot ("idle-{0}" -f [int]$picked.number)
-    $branch = "wt/vibe-idle-{0}" -f [int]$picked.number
-    try {
-        if (-not (Test-Path $wtRoot)) { New-Item -ItemType Directory -Path $wtRoot -Force | Out-Null }
-        git -C $WorkspacePath fetch origin main 2>$null | Out-Null
-        $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
-        if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
-        $base = $base.Trim()
-        # git worktree list imprime des slashes ; Join-Path rend des backslashes sur
-        # Windows — sans normalisation, $known ne matche JAMAIS et le pick retombe
-        # sur "worktree add" (exit 128, deja enregistre). #3646 regression.
-        $wtForMatch = $wt -replace '\\', '/'
-        $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wtForMatch)
-        if ($known) {
-            # Worktree deja en place (tick precedent). On ne le reutilise QUE sur
-            # PREUVE qu'il ne porte rien : un residu non commite, ou des commits
-            # d'avance sur origin/main, sont du travail potentiellement non livre.
-            # Mesure 14/09 : wt/vibe-g1-genai a ete reutilise avec la mutation
-            # 42af9095b encore dedans — la reutilisation aveugle est le vecteur.
-            $dirty = @(git -C $wt status --porcelain 2>$null)
-            $ahead = (git -C $wt rev-list --count "origin/main..HEAD" 2>$null | Select-Object -First 1)
-            if ($dirty.Count -gt 0 -or "$ahead" -ne '0') {
-                throw ("worktree deja en place et porteur de contenu (dirty=$($dirty.Count) fichier(s), ahead=$ahead commit(s)) - refus de le reutiliser")
-            }
-            git -C $wt reset --hard $base 2>$null | Out-Null
-        } else {
-            if ((git -C $WorkspacePath branch --list $branch 2>$null)) {
-                # La branche survit au `worktree remove` (il ne la supprime pas) :
-                # sans repli, un `worktree add -b` echouerait a chaque tick sur
-                # l'issue deja piquee — meme motif que Prepare-Worktree cote feeder
-                # (#3518 W2). Mais rattacher sans garde, c'est reattacher une branche
-                # qui porte peut-etre du travail non livre : on exige d'abord
-                # qu'elle n'ait RIEN d'avance sur origin/main. La remettre sur la
-                # base fraiche ne perd alors rien (c'est la preuve qui l'autorise).
-                $ahead = (git -C $WorkspacePath rev-list --count "origin/main..$branch" 2>$null | Select-Object -First 1)
-                if ("$ahead" -ne '0') {
-                    throw ("branche $branch deja existante et $ahead commit(s) d'avance sur origin/main - refus de la rattacher")
-                }
-                git -C $WorkspacePath branch -f $branch $base 2>$null | Out-Null
-                git -C $WorkspacePath worktree add $wt $branch 2>$null | Out-Null
-            } else {
-                git -C $WorkspacePath worktree add $wt -b $branch $base 2>$null | Out-Null
-            }
-            if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wt)) {
-                throw "worktree add a echoue (exit $LASTEXITCODE)"
-            }
+
+    # Garde 3 (amend #3665, arbitrage user 15/09) : un candidat dont le worktree
+    # ou la branche porte du contenu non livre est ECARTE et le scan CONTINUE vers
+    # le suivant. Le figer en 'infrastructure' gelait le tick entier — mesure
+    # 15/09 : #16120 a produit un [ERROR] par heure de 00:40Z a 07:40Z sans
+    # qu'aucun autre candidat soit jamais examine. 'infrastructure' reste reserve
+    # aux vraies pannes (fetch, worktree add, origin/main illisible, anti-collision
+    # non verifiable), ou un dispatch aveugle couterait plus cher qu'un tick refuse.
+    $picked = $null
+    $wt = $null
+    $branch = $null
+    $skippedContent = 0
+    foreach ($c in $free) {
+        $n = [int]$c.number
+        $claimed = $false
+        try { $claimed = Test-QueueIssueClaimed -Repo ([string]$queue.repo) -Number $n }
+        catch {
+            $script:IdlePickOutcome = 'infrastructure'
+            $script:IdlePickFailure = "anti-collision non verifiable ($($_.Exception.Message))"
+            Write-Log ("[ERROR] idle-picker: {0} - tirage REFUSE (fail-closed anti-collision, arbitrage user 15/09)." -f $_.Exception.Message) "ERROR"
+            return $false
         }
-    } catch {
-        $script:IdlePickOutcome = 'infrastructure'
-        $script:IdlePickFailure = "$_"
-        Write-Log ("[ERROR] idle-picker: worktree indisponible pour #{0} ({1}) - pas de dispatch (un payload sans 'worktree:' pendrait sur session/new)." -f [int]$picked.number, $_) "ERROR"
+        if ($claimed) {
+            Write-Log ("[SKIP] idle-picker: #{0} ecartee - [CLAIMED] recent en commentaire (<{1}h, claim prime)." -f $n, $script:QueueClaimHours)
+            continue
+        }
+
+        $wt = Join-Path $wtRoot ("idle-{0}" -f $n)
+        $branch = "wt/vibe-idle-{0}" -f $n
+        $refusedForContent = $false
+        try {
+            if (-not (Test-Path $wtRoot)) { New-Item -ItemType Directory -Path $wtRoot -Force | Out-Null }
+            git -C $WorkspacePath fetch origin main 2>$null | Out-Null
+            $base = (git -C $WorkspacePath rev-parse origin/main 2>$null | Select-Object -First 1)
+            if ([string]::IsNullOrWhiteSpace($base)) { throw "origin/main illisible dans $WorkspacePath" }
+            $base = $base.Trim()
+            # git worktree list imprime des slashes ; Join-Path rend des backslashes sur
+            # Windows — sans normalisation, $known ne matche JAMAIS et le pick retombe
+            # sur "worktree add" (exit 128, deja enregistre). #3646 regression.
+            $wtForMatch = $wt -replace '\\', '/'
+            $known = (git -C $WorkspacePath worktree list 2>$null | Select-String -SimpleMatch $wtForMatch)
+            if ($known) {
+                # Worktree deja en place (tick precedent). On ne le reutilise QUE sur
+                # PREUVE qu'il ne porte rien : un residu non commite, ou des commits
+                # d'avance sur origin/main, sont du travail potentiellement non livre.
+                # Mesure 14/09 : wt/vibe-g1-genai a ete reutilise avec la mutation
+                # 42af9095b encore dedans — la reutilisation aveugle est le vecteur.
+                $dirty = @(git -C $wt status --porcelain 2>$null)
+                $ahead = (git -C $wt rev-list --count "origin/main..HEAD" 2>$null | Select-Object -First 1)
+                if ($dirty.Count -gt 0 -or "$ahead" -ne '0') {
+                    $refusedForContent = $true
+                    throw ("worktree deja en place et porteur de contenu (dirty=$($dirty.Count) fichier(s), ahead=$ahead commit(s)) - refus de le reutiliser")
+                }
+                git -C $wt reset --hard $base 2>$null | Out-Null
+            } else {
+                if ((git -C $WorkspacePath branch --list $branch 2>$null)) {
+                    # La branche survit au `worktree remove` (il ne la supprime pas) :
+                    # sans repli, un `worktree add -b` echouerait a chaque tick sur
+                    # l'issue deja piquee — meme motif que Prepare-Worktree cote feeder
+                    # (#3518 W2). Mais rattacher sans garde, c'est reattacher une branche
+                    # qui porte peut-etre du travail non livre : on exige d'abord
+                    # qu'elle n'ait RIEN d'avance sur origin/main. La remettre sur la
+                    # base fraiche ne perd alors rien (c'est la preuve qui l'autorise).
+                    $ahead = (git -C $WorkspacePath rev-list --count "origin/main..$branch" 2>$null | Select-Object -First 1)
+                    if ("$ahead" -ne '0') {
+                        $refusedForContent = $true
+                        throw ("branche $branch deja existante et $ahead commit(s) d'avance sur origin/main - refus de la rattacher")
+                    }
+                    git -C $WorkspacePath branch -f $branch $base 2>$null | Out-Null
+                    git -C $WorkspacePath worktree add $wt $branch 2>$null | Out-Null
+                } else {
+                    git -C $WorkspacePath worktree add $wt -b $branch $base 2>$null | Out-Null
+                }
+                if ($LASTEXITCODE -ne 0 -or -not (Test-Path $wt)) {
+                    throw "worktree add a echoue (exit $LASTEXITCODE)"
+                }
+            }
+        } catch {
+            if ($refusedForContent) {
+                # Amend #3665 (arbitrage user 15/09) : le candidat est ECARTE, son
+                # contenu est PRESERVE (ni retrait, ni deplacement), et le scan
+                # poursuit. Le figer en 'infrastructure' gelait le tick entier.
+                $skippedContent++
+                Write-Log ("[SKIP] idle-picker: #{0} ecartee - {1}. Contenu PRESERVE, scan poursuivi sur le candidat suivant." -f $n, $_)
+                continue
+            }
+            $script:IdlePickOutcome = 'infrastructure'
+            $script:IdlePickFailure = "$_"
+            Write-Log ("[ERROR] idle-picker: worktree indisponible pour #{0} ({1}) - pas de dispatch (un payload sans 'worktree:' pendrait sur session/new)." -f $n, $_) "ERROR"
+            return $false
+        }
+        $picked = $c
+        break
+    }
+    if (-not $picked) {
+        if ($skippedContent -gt 0) {
+            Write-Log ("[SKIP] idle-picker: tout le pool restant est occupe localement ({0} candidat(s) porteur(s) de contenu) - tick no-op." -f $skippedContent)
+        } else {
+            Write-Log "[SKIP] idle-picker: tout le pool restant porte un [CLAIMED] recent - tick no-op."
+        }
         return $false
     }
 

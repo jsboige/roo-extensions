@@ -172,7 +172,7 @@ Write-Host "`n=== Test 4: a hammered issue does not abort the tick ===" -Foregro
 Assert-Equal 'candidates are filtered on the hammered number' $true `
     ($body -match 'Where-Object\s*\{\s*\[int\]\$_.number -ne \$hammered')
 Assert-Equal 'the filter runs BEFORE the selection' $true `
-    ($body.IndexOf('$hammered = -1') -lt $body.IndexOf('$picked = $candidates'))
+    ($body.IndexOf('$hammered = -1') -lt $body.IndexOf('$picked = $null'))
 Assert-Equal 'pool-exhaustion guard present' $true ($body -match 'tout le pool est sous anti-marteau')
 # Mutation bit: reinstating the per-tick abort turns this red.
 Assert-Equal 'the per-tick abort is gone' $false ($body -match 'already picked')
