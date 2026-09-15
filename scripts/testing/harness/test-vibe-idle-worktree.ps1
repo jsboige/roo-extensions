@@ -220,6 +220,97 @@ Assert-Equal 'the caller exits non-zero on infrastructure' $true ($callerRegion 
 Assert-Equal 'the caller keeps exit 0 for a genuine no-op' $true ($callerRegion -match 'exit 0')
 
 # ============================================================================
+# Test 8: Get-QueueOpenPrs must hand back an ENUMERABLE collection under every
+# shell, not just the one that happens to run here.
+#
+# `return ,@(...)` is not portable. Measured 2026-09-15 on the merged head, with
+# a differential probe against the real function and a stubbed `gh`:
+#
+#   Windows PowerShell 5.1   outerCount=1   [int]$pr.number THROWS
+#   pwsh 7.6.6               outerCount=2   casts fine
+#
+# Under 5.1 the caller receives the WRAPPER, so `foreach ($pr in $openPrs)` runs
+# once with $pr being the array itself: `$pr.number` is {16136,16238} and the
+# cast throws -- OUTSIDE the try that guards the lookup, therefore before any
+# PICK, as soon as one PR matches. That is the #16120/#16136 case itself.
+#
+# SCOPE, stated rather than implied: the worker's schtask runs pwsh.exe, and
+# pwsh is the only shell on this CI runner (ubuntu-latest) -- where the defect is
+# INVISIBLE, so the pwsh half is a control, not a discriminator. The
+# discriminating half needs powershell.exe and is SKIPPED where it is absent.
+# What actually holds on CI is the static pin in
+# scripts/testing/unit/vibe-worker-noop-guard.Tests.ps1. Both are needed: this
+# one proves the behaviour where it can be observed, that one enforces the shape
+# where it cannot.
+# ============================================================================
+Write-Host "`n=== Test 8: Get-QueueOpenPrs cardinality is shell-independent ===" -ForegroundColor Cyan
+
+$probe = @'
+param([string]$Worker)
+$parseErrors = $null; $tokens = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($Worker, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors -and $parseErrors.Count) { "parse_errors=$($parseErrors.Count)"; exit 1 }
+$fd = $ast.FindAll({ param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] }, $true) |
+      Where-Object { $_.Name -eq 'Get-QueueOpenPrs' }
+if (-not $fd) { "no_function"; exit 1 }
+$body = $fd.Body.Extent.Text
+$inner = $body.Substring(1, $body.Length - 2)
+# $inner still carries the function's OWN `param([string]$Repo)` block, so the
+# scriptblock is built from it VERBATIM. Prepending a second `param(...)` gave
+# the scriptblock two param blocks: the child then wrote a `param:` error
+# record, and a PS 5.1 parent promotes native stderr to a terminating
+# NativeCommandError (measured 2026-09-15: parent 5.1 exited 1 at the
+# invocation, before any assertion; parent pwsh 7 reported a false 33/33).
+# Invoked directly rather than installed by name: installing a param-carrying
+# scriptblock via Set-Item emits a spurious `param is not recognized` error,
+# which $ErrorActionPreference='Stop' upstream would turn into a dead probe.
+$sb = [ScriptBlock]::Create($inner)
+$script:ghJson = '[{"number":16136,"title":"x (#16120)","headRefName":"feature/16120-sw14-exercises"},{"number":16238,"title":"y","headRefName":"wt/vibe-g1"}]'
+function gh { return $script:ghJson }
+$prs = & $sb -Repo 'jsboige/CoursIA'
+"outerCount=$(@($prs).Count)"
+$castError = $false
+try { foreach ($pr in $prs) { $null = [int]$pr.number } } catch { $castError = $true }
+"castError=$castError"
+'@
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+$tmpProbe = [System.IO.Path]::GetTempFileName() + '.ps1'
+[System.IO.File]::WriteAllText($tmpProbe, $probe, $utf8)
+
+$probeShells = @()
+if (Get-Command pwsh -ErrorAction SilentlyContinue) { $probeShells += 'pwsh' }
+# The discriminating shell. Absent on the ubuntu-latest runner by design.
+if (Get-Command powershell.exe -ErrorAction SilentlyContinue) { $probeShells += 'powershell.exe' }
+if ($probeShells.Count -eq 1) {
+    Write-Host "  NOTE: powershell.exe absent -- only the pwsh control runs here; the 5.1 discriminator is skipped (see the static pin in scripts/testing/unit/vibe-worker-noop-guard.Tests.ps1)." -ForegroundColor Yellow
+}
+
+foreach ($sh in $probeShells) {
+    # The child's stderr is taken as DATA, not as a parent-fatal error. Under a
+    # PS 5.1 parent a native command's stderr is promoted to a terminating
+    # NativeCommandError *regardless of a `2>$null` redirection*, so this loop
+    # used to die on the invocation line and never reach the assertions
+    # (measured 2026-09-15). Scoping the preference here and asserting the
+    # stream is empty below makes the property deterministic under BOTH parents,
+    # instead of letting a pwsh parent report a false green over a noisy child.
+    $errFile = [System.IO.Path]::GetTempFileName()
+    $savedEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { $out = & $sh -NoProfile -ExecutionPolicy Bypass -File $tmpProbe -Worker $workerPath 2>$errFile }
+    finally { $ErrorActionPreference = $savedEap }
+    $rc = $LASTEXITCODE
+    $errText = Get-Content $errFile -Raw -ErrorAction SilentlyContinue
+    Remove-Item $errFile -ErrorAction SilentlyContinue
+    $countLine = @($out | Where-Object { "$_" -match '^outerCount=' })[0]
+    $castLine = @($out | Where-Object { "$_" -match '^castError=' })[0]
+    Assert-Equal "[$sh] probe ran" 0 $rc
+    Assert-Equal "[$sh] child stderr is empty" $true ([string]::IsNullOrWhiteSpace($errText))
+    Assert-Equal "[$sh] returns both PRs (not the wrapper)" 'outerCount=2' "$countLine"
+    Assert-Equal "[$sh] every element casts to an issue number" 'castError=False' "$castLine"
+}
+Remove-Item $tmpProbe -ErrorAction SilentlyContinue
+
+# ============================================================================
 Write-Host "`n=== Summary ===" -ForegroundColor Cyan
 Write-Host "  Passed: $TestsPassed" -ForegroundColor Green
 Write-Host "  Failed: $TestsFailed" -ForegroundColor $(if ($TestsFailed -gt 0) { 'Red' } else { 'Green' })
