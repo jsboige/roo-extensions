@@ -20,7 +20,7 @@ Quand Claude Code est bloqué ou face à un problème qu'il ne peut résoudre av
 | **2** | **Sub-agent spécialisé** | Tâche complexe ou multi-fichier | code-fixer, test-investigator, Explore |
 | **3** | **sk-agent délibération** | Décision architecturale, trade-offs | deep-think, code-review, run_conversation |
 | **4** | **Recherche SDDD multi-pass** | Information introuvable par méthodes simples | codebase_search + conversation_browser + roosync_search |
-| **5** | **Escalade utilisateur** | Blocage, décision non-technique, approbation | Batch de questions via AskUserQuestion |
+| **5** | **Escalade utilisateur** | Blocage, décision non-technique, approbation | Registre des questions + restitution fin de session (#3656) |
 
 ---
 
@@ -133,24 +133,15 @@ sk-agent call_agent avec options:
 ### Niveau 5 : Escalade Utilisateur
 **Quand 2+ approches ont échoué ou une décision utilisateur est requise :**
 
-Utiliser l'outil `AskUserQuestion` avec un **batch de questions** :
-- Accumuler toutes les questions en une seule fois
-- Présenter avec contexte, options identifiées, recommendations
-- Ne pas poser une question à la fois (éviter les allers-retours)
+`AskUserQuestion` est retiré du harnais (mandat user 2026-09-15, #3656). L'escalade utilisateur se fait **par registre, pas par interruption** :
 
-**Exemple :**
-```typescript
-AskUserQuestion({
-  questions: [{
-    question: "Approche pour le refactoring du module auth ?",
-    header: "Architecture",
-    options: [
-      { label: "Rewrite complet", description: "Plus propre mais plus risqué" },
-      { label: "Refactor incrémental", description: "Plus sûr mais plus long" }
-    ]
-  }]
-})
-```
+- Écrire **immédiatement** chaque question dans le registre per-machine (`user-question-registry.md` dans la mémoire du workspace) — jamais dans le fil de session
+- Chaque entrée porte *ce qui est attendu du user* et *comment vérifier qu'elle est morte* (contexte, options identifiées, recommendation)
+- Le batch est naturel : les questions s'accumulent dans le registre au fil du cycle — l'anti-allers-retours vaut pour le registre, plus pour un appel d'outil
+- Le registre est **restitué en bloc** en fin de session ; sous cron, une question sans réponse se représente au cycle suivant
+- Un plan nécessitant validation s'écrit dans un scratchpad (`$TEMP`) — c'est le **chemin** qui est rendu
+
+**Référence :** [`global-rules-detail.md` — User Arbitration](../global-rules-detail.md#user-arbitration--registre-des-questions)
 
 ---
 
