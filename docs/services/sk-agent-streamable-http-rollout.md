@@ -1,7 +1,7 @@
 # sk-agent streamable-http — Rollout Runbook (OWUI + MCP proxy)
 
-**Issue:** #3412 (parent #794, crosses #3401) | **Status:** Gate 0 executed 2026-09-07 (persisting, re-verified 09/09 + 11/09 + 12/09); Step 0.5 (proxy canonicalization) decision pending — dossier updated 12/09 (**finding G: the root cause of finding F is identified in code — a pre-lazy-loading init latch, fixed upstream 2026-04-30; the frozen Feb build cannot recover from one failed init without a container restart**)
-**Validated from:** myia-po-2026 (consumer-side), 2026-09-04 | **Execution lane:** myia-ai-01 (Docker + OWUI access)
+**Issue:** #3412 (parent #794, crosses #3401) | **Status:** Gate 0 executed 2026-09-07 (persisting, re-verified 09/09 + 11/09 + 12/09); Step 0.5 (proxy canonicalization) decision pending — dossier updated 12/09 (**finding G: the root cause of finding F is identified in code — a pre-lazy-loading init latch, fixed upstream 2026-04-30; the frozen Feb build cannot recover from one failed init without a container restart**) — dossier updated 15/09 from the **ARR-edge machine** (**findings H/I: public-leg topology + 120 s ceiling confirmed firsthand, interacting with Step 0.5-C**)
+**Validated from:** myia-po-2026 (consumer-side), 2026-09-04 | myia-po-2023 (ARR edge), 2026-09-15 | **Execution lane:** myia-ai-01 (Docker + OWUI access)
 
 Goal: make the streamable-http container the canonical surface for remote consumers
 (OWUI tenants, MCP proxy), with no duplicated model config on the consumer side.
@@ -21,6 +21,13 @@ Goal: make the streamable-http container the canonical surface for remote consum
 
 Proxy routing: per-server paths (`/<server>/mcp`) — Go mcp-proxy behind bearer
 `authTokens` (values in local config, never in Git).
+
+**Public-leg routing confirmed firsthand from the ARR edge (po-203, 15/09 — finding H):**
+both public legs are IIS sites on **myia-po-2023** reverse-proxied to ai-01:
+`skagents.myia.io/* → http://192.168.0.47:8100/{R:1}` (container **direct**, not
+through mcp-proxy) and `mcp-tools.myia.io/* → http://192.168.0.47:9090/{R:1}`
+(mcp-proxy). Re-verified 15/09 from that machine: `healthz` 200 public
+(`models_enabled: 11`), 401 on all four legs including `:8100` direct.
 
 ### Authenticated smoke via proxy (streamable-http MCP, Bearer) — 04/09; attribution RESOLVED 11/09
 
@@ -92,6 +99,8 @@ the local leg, plus the production-leg differential of finding F).
 | E | **Proxy leg and container are two instances** (found ai-01 08/09): `mcp-tools.myia.io/sk-agent` serves a stdio copy baked into `myia-mcp-proxy:latest` (built 2026-02-28, 13 tools, v1.0.0), not the HTTP container (9 tools, v1.30.0). **25 commits** of drift as of 11/09 (24 on 08/09 — grows by itself); divergence in both directions (`diagnostics`/`review_pr` missing on proxy; `analyze_*`/`ask`/`list_models`/`zoom_image` missing on container) | Rebuilding the sk-agent container never updates the proxy leg; a consumer's tool surface depends on which leg it is on. Not a security hole (proxy stdio has no HTTP surface of its own; gated by `authTokens`) | **Step 0.5** below — decision A/B/C (recommendation: C, url-relay) |
 | F | **Production proxy leg cannot complete LLM tool calls** (po-2026, 11/09, authenticated): `list_agents` 200 in 38 ms (plumbing fine, roster correct), but `call_agent` (text, `analyst`) **hangs ≥180 s then the next attempt returns `{"error": "No agents initialized"}` instantly**. Differential: the po-2026 local leg (same stdio-through-proxy architecture, image 2026-05-28, current repo config) completes the identical call in 12.4 s — the breakage is specific to the production instance (Feb code and/or its env on ai-01), not the architecture. Root cause **IDENTIFIED in code 12/09 — see finding G**; the mechanism is deterministic, not an environment mystery | The production proxy leg is **functionally broken today** for any consumer needing an agent call, while looking healthy to handshake-level probes (401/initialize/tools_list — all previous probes stopped there). An OWUI tenant registered on this leg pre-canonicalization would see tools hang | Strengthens Step 0.5-C decisively (option A preserves a leg broken by a bug fixed 2026-04-30 — see §4bis); ai-01: capture `docker logs myia-mcp-proxy` during one `call_agent` to confirm the latch (expect a hang/traceback in the init path, then the instant `No agents initialized` on retry) |
 | G | **Root cause of finding F: the frozen Feb build carries a self-poisoning init latch** (po-2025, 12/09, code forensics on the submodule — no ai-01 access required). Pre-lazy `_get_manager()` assigned the global **before** awaiting init: `_manager = SKAgentManager(_config)` then `await _manager.start()`. If `start()` hangs or raises, `_manager` stays **set** to a half-built object whose `_sk_agents` is empty — every later call short-circuits on `_manager is not None` and returns instantly. The Feb build inits **eagerly** (`_init_model_pool` → `_init_mcp_pool`, spawning MCP stdio children → `_create_agent` for all **32** agents; each `memory.enabled` agent builds a `QdrantMemoryStore` against `https://qdrant.myia.io:443`). In this repo's config `analyst` alone carries 3 MCP plugins + memory, so any single init step hanging blocks `start()` forever. `list_agents` keeps answering 200 because its roster comes from **config**, not `_sk_agents` — which is why every handshake-level probe looked healthy. **Two independent code-vintage proofs:** (1) the captured string `No agents initialized` was renamed to `No agents configured` in `9b03bbf85` (2026-03-08) — it cannot exist in any newer code; (2) the resilience fix `3e9ba2c55` (« on failure, `_manager` stays None so the next call retries », #1408) landed **2026-04-30** and is an ancestor of current submod HEAD `5511f0d1`. The frozen 2026-02-28 image predates both | Finding F is **not** an unresolved environment incident — it is an already-fixed bug still served only by the legacy leg. Option A would ship a surface that is broken by construction and cannot self-heal without a container restart; the current container (v1.30.0) carries both fixes | No ai-01 code fix is needed — Step 0.5 (B or C) resolves it. Residual ai-01 action is **confirmation only**: `docker logs myia-mcp-proxy` during one `call_agent` to see *which* init step hangs (MCP stdio spawn vs Qdrant/embeddings), documenting the trigger rather than the mechanism. The concurrent embeddings-key rotation is a plausible **trigger**, no longer the mechanism |
+| H | **ARR edge = myia-po-203; public-leg topology confirmed firsthand** (po-203, 15/09 — the edge machine itself, a vantage no prior session had). Both public legs are IIS sites on po-203: `skagents.myia.io` (site id 42) rewrites to `http://192.168.0.47:8100/{R:1}` — the container **directly**, not through mcp-proxy — and `mcp-tools.myia.io` (site id 45) to `http://192.168.0.47:9090/{R:1}` (mcp-proxy). web1's 13/09 inference "same ARR host serves both" is confirmed and named. **Mechanism correction to web1's rollback note:** the lever is a per-site `web.config` edit (`D:\Production\<site>\web.config`, rewrite `url=`), picked up live by IIS — no "ARR redeploy", no restart, other sites unaffected. Bonus inventory (firsthand, same IIS): all 8 OWUI tenants live on this edge — interne `:2090`, epf `:3010`, esg `:3011`, ece `:3012`, genai.epf `:3013`, epita `:3014`, pauwels `:3016` (**demo aliases pauwels' `:3016`**) | §5 gains an ARR rollback layer (0 downtime, one line); rollout steps 2–9 tenant list is confirmed from the edge; `skagents` leg reaching the container directly means container-level rollbacks are immediately visible on the public leg with no proxy in between | None (inventory + topology). ai-01/ops can use the tenant→backend map as the canonical checklist for steps 2–9 |
+| I | **ARR request timeout = 120 s on both public legs** (po-203, 15/09): the `skagents.myia.io` site sets `<proxy timeout="120">` explicitly; the `mcp-tools.myia.io` site declares no `<proxy>` timeout → ARR default (120 s). Measured tool calls fit comfortably (text 12.4 s / vision 6.5 s / conversation 4.4 s, po-2026 11/09), but heavy document/video analysis can exceed 120 s → consumer receives a 502 from the edge regardless of any timeout configured behind it. **Interacts with Step 0.5-C:** the proposed relay entry sets `"timeout": "5m"` — effective on the LAN leg (`:9090` direct), **silently capped at 120 s through the public leg**. Secondary asymmetries: `skagents` site sets `responseBufferLimit="0"` + `preserveHostHeader="true"` (streaming-friendly, host preserved for the backend); the `mcp-tools` site sets neither and lacks the BadHost protection rule present on `skagents` and on every school tenant. OWUI tenants themselves are mixed: interne/epf/esg at ARR default, ece/epita/pauwels/genai.epf/demo at `1800` | Any tool call >120 s fails through the public legs with a misleading 502 — the soak pilot would surface it as "Tool Server flaky" with nothing in sk-agent logs. LAN legs (`:8100`/`:9090` direct) bypass IIS and are not affected | **Ops decision pre-Step 1:** accept + document the 120 s ceiling, or bump both sites' `<proxy timeout>` to match tenant practice (one-line `web.config` edit, live pickup — same lever as finding H). If >120 s tool calls are expected for document analysis, bump before the pilot |
 
 ---
 
@@ -137,6 +146,11 @@ Post-registration smoke (per consumer, ~1 min):
 4. auth    call_agent (vision, attachment URL) → expect image_seen / images_analyzed
 5. auth    run_conversation          → expect multi-agent reply
 ```
+
+**ARR ceiling (finding I):** requests through either public leg cap at **120 s**
+at the IIS edge on po-203 — a `tools/call` exceeding it returns 502 to the
+consumer regardless of proxy/container timeouts behind. LAN legs (`:8100` /
+`:9090` direct) bypass IIS and are not affected.
 
 ---
 
@@ -202,6 +216,13 @@ Config diff — gitignored `docker/mcp-proxy/config.json` on ai-01 (key stays ou
 }
 ```
 
+**Timeout interaction (finding I, po-203 15/09):** the `"timeout": "5m"` above is
+effective on the LAN leg (`:9090` direct), but through the public leg
+`mcp-tools.myia.io` the IIS ARR edge on po-203 caps the whole request at **120 s**
+(site has no `<proxy timeout>` override → ARR default). Align the site's
+`<proxy timeout>` with the chosen ceiling (one-line `web.config` edit, live
+pickup) before relying on >120 s tool calls through the public leg.
+
 **Grace period (ancien/nouveau — same pattern as the model aliases of §2):**
 mcp-proxy serves one route per `mcpServers` key, so during migration keep the
 frozen copy under a second name (`"sk-agent-legacy": {command…}`) — consumers of
@@ -222,6 +243,7 @@ the legacy entry until migrated (the capability itself remains reachable via
 | Layer | Rollback | Downtime |
 |---|---|---|
 | OWUI tenant | Disable the Tool Server connection (admin UI) — chat keeps working via direct models; sk-agent tools disappear only | 0 (feature-level) |
+| ARR edge (po-203, finding H) | One-line repoint in the site's `web.config` (`D:\Production\<site>\web.config`, rewrite `url=`) — e.g. `skagents.myia.io` from `:8100` to a previous backend; IIS picks it up live, no restart, other sites unaffected | 0 |
 | sk-agent container | Keep previous image tagged `sk-agent:<yyyymmdd>` before each redeploy; `docker tag` back + `up -d --force-recreate` (~seconds) | seconds, in-flight calls only |
 | Config | `sk_agent_config.json` previous copy retained (`.bak-<date>`); restore + `--force-recreate` | seconds |
 | MCP proxy | Container recreate; under Step 0.5-C, revert the url-relay entry (legacy stdio entry if kept) | seconds |
@@ -236,10 +258,10 @@ recreate from versioned image + config file so state stays reproducible.
 
 | Acceptance item | Evidence produced |
 |---|---|
-| 401 sans auth + smoke authentifié via proxy | Done po-2026 (§1) for proxy legs; repeated ai-01 08/09 on both legs (3-leg 401 matrix, authenticated smoke, positive + negative auth controls); healthz 200 re-verified po-2026 09/09; **full 5-check smoke re-run with clean attribution po-2026 11/09** (local leg 5/5; production leg handshake OK but LLM calls broken — finding F); **3-leg 401 matrix + `/healthz` 200 re-verified po-2025 12/09** (0.03 s / 0.06 s / 0.002 s — the 06/09 hairpin latency variance did not reproduce; relay target `:8100` 200 in 3.5 ms) |
+| 401 sans auth + smoke authentifié via proxy | Done po-2026 (§1) for proxy legs; repeated ai-01 08/09 on both legs (3-leg 401 matrix, authenticated smoke, positive + negative auth controls); healthz 200 re-verified po-2026 09/09; **full 5-check smoke re-run with clean attribution po-2026 11/09** (local leg 5/5; production leg handshake OK but LLM calls broken — finding F); **3-leg 401 matrix + `/healthz` 200 re-verified po-2025 12/09** (0.03 s / 0.06 s / 0.002 s — the 06/09 hairpin latency variance did not reproduce; relay target `:8100` 200 in 3.5 ms); **re-verified 15/09 from the ARR-edge machine itself (po-203)**: `healthz` 200 public + 401 on all four legs including `:8100` direct, public-leg routing read in the live IIS config (finding H) |
 | OWUI interne + école pilote appellent texte, vision/document, conversation | Steps 1–2 evidence (ai-01 lane) |
 | Aucun ID physique requis côté consommateur | By construction (§2): consumers use agent IDs; verified in config + code (`get_model` / `model_id` indirection) |
-| Plan séquentiel validé pour les sept écoles | This doc — **awaiting ai-01/user validation** |
+| Plan séquentiel validé pour les sept écoles | This doc — **awaiting ai-01/user validation**; tenant checklist confirmed firsthand from the ARR edge (po-203 15/09, finding H): interne `:2090`, epf `:3010`, esg `:3011`, ece `:3012`, genai.epf `:3013`, epita `:3014`, pauwels `:3016` (+`demo` aliasing `:3016`) |
 
 ---
 
