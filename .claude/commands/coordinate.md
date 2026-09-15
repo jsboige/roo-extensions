@@ -85,10 +85,11 @@ Si l'audit retourne des problèmes CRITICAL ou WARNING, les traiter AVANT de con
 4. **Tour de sync initial** : Lance `/sync-tour` pour etat des lieux complet
 5. **Analyse rapports** : Traiter messages RooSync entrants
 6. **Balayage des dettes** : solder ce qui attend sur MOI **avant** de distribuer du travail (voir section ci-dessous). Position empruntee a `coordinate.md` d'Epita, dont la Phase 3 « Merger ce qui est mergeable » precede la Phase 5 « Dispatcher ».
-7. **Planification** : Ventiler le travail (task-planner ou manuel)
-8. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
-9. **Suivi GitHub** : Mettre a jour Project #67
-10. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
+7. **Pré-mâchage des merges** : lancer en parallèle agents, sous-agents et bots de review sur chaque PR active ; le coordinateur conserve la décision, l'action GitHub et le merge.
+8. **Planification** : Ventiler une deep-queue d'au moins 5 h par machine (task-planner ou manuel)
+9. **Dispatch** : Envoyer instructions via RooSync (avec claim obligatoire)
+10. **Suivi GitHub** : Mettre a jour Project #67
+11. **Mise a jour INTERCOM** : Informer Roo des decisions et prochaines etapes
 
 ### Balayage des dettes — ce qui attend sur MOI (AVANT tout dispatch)
 
@@ -119,6 +120,15 @@ submod #861, brouillon en conflit depuis le 14/07, remontait en dette d'approbat
 
 ⚠️ Le depot submodule est **`jsboige/jsboige-mcp-servers`**, pas
 `roo-state-manager` : une PR submod s'oublie deux fois, son depot ne porte pas le nom du produit.
+
+**Pré-mâchage parallèle obligatoire.** Pour chaque PR non-draft qui attend le coordinateur, lancer
+une passe indépendante via agent/sous-agent ou bot de review. Le rapport doit avoir lu le body
+complet, tous les commentaires, toutes les reviews avec `state` et `commit_id`, le diff complet,
+les checks et `closingIssuesReferences`, puis rendre : head exact, demandes antérieures adressées ou
+non, findings, verdict `MERGE` / `CHANGES` / `WAIT`, et commande proposée sans l'exécuter. Pour une
+PR >50 LOC de code, inclure l'integration tracing. Ces rapports **préparent** la décision : ils ne
+commentent, n'approuvent et ne mergent jamais. Le coordinateur relit les preuves déterminantes,
+rafraîchit les portes mutables, décide, puis agit lui-même avec une identité gardée et `--body-file`.
 
 **2. Inbox** : `roosync_messages(action: "inbox", status: "unread")` — un non-lu est une dette.
 
@@ -503,22 +513,22 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence (coordinateur ai-01 et executeurs **a 4h** depuis 2026-09-13)
+### Wakeup Cycle Cadence (coordinateur ai-01 **à 5h** ; exécuteurs **à 4h** depuis 2026-09-15)
 
-**Cadence coordinateur ai-01 : 4h via `CronCreate`** (décision user 2026-09-13, « Réarme un cron 4h stp », minute :23 conservée). Supersede la cadence coordinateur 6h du 2026-09-12. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 4h passe donc par cron.
+**Cadence coordinateur ai-01 : 5h via `CronCreate`** (décision user 2026-09-15, « Réarme un cron 5h stp », minute :23 conservée). Supersede la cadence coordinateur 4h du 2026-09-13. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 5h passe donc par cron.
 
 > ⚠️ **Le changement de cadence ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne change rien au-delà de la session courante.
 
-> **Portée : le coordinateur revient à 4h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire à **00/04/08/12/16/20**:23 et les exécuteurs à :41 : les **18 min** d'écart évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
+> **Portée : seul le coordinateur passe à 5h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire toutes les cinq heures à :23 et les exécuteurs à :41 : les **18 min** d'écart à leurs heures communes évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
 
 ```
-# ai-01 coordinateur — cadence 4h (job session-only, auto-expire 7j) :
-# minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe sur l'API.
-CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
+# ai-01 coordinateur — cadence 5h (job session-only, auto-expire 7j) :
+# minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe aux heures communes.
+CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
-- **À chaque réveil**, dispatch deep-queue substantielle (**≥4h de matière**) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
+- **À chaque réveil**, dispatch deep-queue substantielle (**≥5h de matière**) par machine. Caps IDLE levés (07-03, #1417+#2185 relâchés) : deep-queue illimitée, anti-spam ≥1 artefact/cycle sinon `[INFO]`.
 - **Sessions interactives coord/worker NON-cron** : `ScheduleWakeup(delaySeconds: 3540, ...)` (≤1h, plafond technique fallback) pour ne pas rompre le ping-pong. C'est le clamp, pas un mandat de cadence. Voir `~/.claude/CLAUDE.md` § « Multi-Machine Ping-Pong ».
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne sur dashboard append). Réveille un exécutant stallé sans attendre son tick.
 - **NE PAS varier** l'intervalle selon « charge perçue » — l'auto-régulation se fait via anti-spam + [WAKE-CLAUDE], pas via timer adaptatif.
@@ -526,16 +536,16 @@ CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
 
 ### Post-Continuation Cron Verification (#2832 — anti-silent-coordinator)
 
-**Problème (user-authored #2832) :** Le job `CronCreate` est **session-only** (in-memory, perdu à la fin de la session Claude). Une **continuation de contexte** (seuil condensation 200k/90%) redémarre la boucle avec un nouveau contexte mais **ne re-arme pas le cron**. Le coordinateur poste alors son bilan et s'endort **sans cron armé** → aucun tick suivant ne le relance → l'utilisateur doit taper « Reprends stp » manuellement (observé **3× en 4 jours**).
+**Problème (user-authored #2832) :** Le job `CronCreate` est **session-only** (in-memory, perdu à la fin de la session Claude). Une **continuation de contexte** redémarre la boucle avec un nouveau contexte mais **ne re-arme pas le cron**. Le coordinateur poste alors son bilan et s'endort **sans cron armé** → aucun tick suivant ne le relance → l'utilisateur doit taper « Reprends stp » manuellement (observé **3× en 4 jours**).
 
 **Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
 
-1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */4 * * *`) est présent dans `CronList`.
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */5 * * *`) est présent dans `CronList`.
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
 **Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
 ```
-CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
 ```
 puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
 
@@ -687,7 +697,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 **Exceptions :** Bugs critiques bloquants (mais informer immédiatement)
 
 ### Règles Générales
-- Tour de sync toutes les 2-3 heures ou à chaque nouveau rapport
+- Tour de sync coordinateur toutes les 5 heures via cron, ou immédiatement sur signal urgent `[WAKE-CLAUDE]`
 - Toujours référencer les issues GitHub dans les communications
 - Claude Code peut et DOIT fixer du code technique quand nécessaire (bugs, consolidations)
 - Documenter les décisions dans les commentaires d'issues

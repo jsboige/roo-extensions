@@ -265,7 +265,7 @@ function Invoke-IdleQueuePick {
     $hammered = -1
     if ($qState -and $qState.lastRunAt -and $qState.lastIssueNumber) {
         try {
-            $sinceH = ((Get-Date).ToUniversalTime() - [DateTime]$qState.lastRunAt).TotalHours
+            $sinceH = ((Get-Date).ToUniversalTime() - ([DateTime]$qState.lastRunAt).ToUniversalTime()).TotalHours
             if ($sinceH -lt $script:QueueRetrySameIssueHours) { $hammered = [int]$qState.lastIssueNumber }
         } catch { }
     }

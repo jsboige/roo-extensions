@@ -508,25 +508,25 @@ function Test-ActionableContent($content) {
     return $false
 }
 
-# #2117 + #2240: Parse target machine from [WAKE-CLAUDE] <machine>[:<workspace>] pattern.
-# Returns the target machine ID (lowercase) or $null for broadcast messages.
-# Accepts the documented routing variants:
-#   [WAKE-CLAUDE] myia-po-2023 — ...
-#   [WAKE-CLAUDE] → myia-po-2026:Embeddings — ...   (optional arrow prefix)
-#   [WAKE-CLAUDE] myia-po-2023:IISManagement — ...  (optional :workspace suffix)
-#   [WAKE-CLAUDE] myia-po-2025:roo-extensions — ...  (#2240 workspace-targeted)
+# #2117 + #2240 + #3647: Parse a targeted WAKE-CLAUDE instruction.
+# The prefix is line-anchored so prose citations stay inert. Dispatchers may add
+# classification tags between WAKE-CLAUDE and the target; without this allowance,
+# e.g. `[WAKE-CLAUDE][TASK] myia-po-2026:roo-extensions` parsed as broadcast and
+# woke every machine (measured 15/09: duplicate review plus three off-target lanes).
+# Accepted forms include an optional Markdown header, zero or more intermediate
+# tags, an optional arrow, and an optional :workspace suffix.
 function Get-WakeTargetMachine($content) {
-    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*(myia-[a-z0-9]+(?:-[a-z0-9]+)*)(?::([a-zA-Z0-9_.-]+))?') {
+    if ($content -match '(?m)^(?:#{1,3}\s*)?\[WAKE-CLAUDE\](?:\[[A-Z0-9_-]+\])*\s*(?:→|->)?\s*(myia-[a-z0-9]+(?:-[a-z0-9]+)*)(?::([a-zA-Z0-9_.-]+))?') {
         return $Matches[1].ToLowerInvariant()
     }
     return $null
 }
 
-# #2240: Extract optional workspace suffix from [WAKE-CLAUDE] <machine>:<workspace>.
-# Returns the workspace name (original case) or $null if no workspace specified.
-# When $null, the wake targets ALL workspaces on the matched machine (backward compat).
+# #2240 + #3647: Extract the workspace through the same anchored, multi-tag
+# instruction prefix as Get-WakeTargetMachine. Keeping the prefixes identical is
+# load-bearing: parsing only the machine would still broadcast across workspaces.
 function Get-WakeTargetWorkspace($content) {
-    if ($content -match '\[WAKE-CLAUDE\]\s*(?:→|->)?\s*myia-[a-z0-9]+(?:-[a-z0-9]+)*:([a-zA-Z0-9_.-]+)') {
+    if ($content -match '(?m)^(?:#{1,3}\s*)?\[WAKE-CLAUDE\](?:\[[A-Z0-9_-]+\])*\s*(?:→|->)?\s*myia-[a-z0-9]+(?:-[a-z0-9]+)*:([a-zA-Z0-9_.-]+)') {
         return $Matches[1]
     }
     return $null
