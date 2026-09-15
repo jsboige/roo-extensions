@@ -141,6 +141,46 @@ def open_prs(slug, issue):
     return held, branches
 
 
+def merged_branches(slug, branches):
+    """Which of these grain branches carry a MERGED PR -- exact per-branch lookup.
+
+    open_prs() only ever sees `--state open`, so a grain whose work HAS been
+    merged falls out of `open_branches` and looks in-flight again: keepable()
+    keeps it as long as its worktree carries commits, the feeder SKIPs it on
+    the stale baseSha every tick, and the refresh re-keeps it forever. Once
+    the worktree is gone the feeder re-seeds the base and REPLAYS it -- a paid
+    run on work already merged.
+
+    Measured 2026-09-14 on g1-genai: delivered by #16041 (00:19:53Z) and
+    #16067 (03:57:44Z), it SKIP-looped from the first tick after the merge,
+    and was replayed at 07:16:01Z as soon as its worktree was removed.
+
+    The lookup is per QUEUED branch with `--head`, not a bulk
+    `--state merged --limit N` row window: at the measured CoursIA rate 300
+    rows span ~58 h, and a merged grain still queued past the window would
+    become invisible -- reopening the exact replay this closes (#3643
+    review). One call per queued branch (the queue holds a handful), with no
+    dependence on how fast history scrolls.
+
+    check=False: a gh failure must leave the queue as it is, never crash the
+    refresh. A failed or unreadable lookup says so on stdout and leaves that
+    branch undelivered -- it drops nothing and never widens the drop.
+    """
+    delivered = set()
+    for b in sorted(branches):
+        out = sh(["gh", "pr", "list", "--repo", slug, "--state", "merged",
+                  "--head", b, "--json", "number", "--limit", "1"], check=False)
+        if not out.strip():
+            print("WARN: lookup merged sans reponse pour %s — branche traitee non livree" % b)
+            continue
+        try:
+            if json.loads(out):
+                delivered.add(b)
+        except ValueError:
+            print("WARN: lookup merged illisible pour %s — branche traitee non livree" % b)
+    return delivered
+
+
 def split_domain(files):
     """Cut one domain's files into BALANCED chunks of <= MAX_FILES.
 
@@ -196,20 +236,41 @@ def plan(free):
     return [(n, c) for n, c, _ in bins]
 
 
-def keepable(queue, base, open_branches):
-    """In-flight grains survive; delivered ones (open PR) leave the queue."""
+def keepable(queue, base, delivered_branches):
+    """In-flight grains survive; delivered ones leave the queue.
+
+    `delivered_branches` carries BOTH states on purpose: a branch with an open
+    PR has its work staged, one with a merged PR has it landed. In both cases
+    there is nothing left for the grain to do -- and a grain kept past its
+    merge is not merely idle, it is replayable (see merged_branches).
+
+    A delivered NAME is not proof that this GRAIN is delivered, though: grain
+    IDs and branch names are positional, and `wt/vibe-g1-genai` was already
+    reused by several merged PRs with diverged tips, which is what happens
+    when a deterministic grain ID comes back after a queue drain (#3643
+    review). A delivered branch is therefore dropped only when its worktree is
+    ABSENT or provably EMPTY (no commits beyond base, nothing dirty); a
+    delivered name carrying an ahead/dirty worktree is an in-flight
+    generation that merely reuses the name, and the grain stays.
+    """
     keep, dropped = [], []
     for g in queue.get("grains") or []:
         wt = g.get("worktree") or ""
         branch = g.get("branch") or ""
-        if branch in open_branches:
-            dropped.append(g.get("id"))
+        in_flight = False
+        if os.path.isdir(wt):
+            ahead = sh(["git", "-C", wt, "rev-list", "--count", "%s..HEAD" % base], check=False).strip()
+            dirty = sh(["git", "-C", wt, "status", "--porcelain"], check=False).strip()
+            in_flight = (ahead.isdigit() and int(ahead) > 0) or bool(dirty)
+        if branch in delivered_branches:
+            if in_flight:
+                print("WARN: branche livree %s reutilisee par un worktree en vol — grain %s conserve (generation en cours)"
+                      % (branch, g.get("id")))
+                keep.append(g)
+            else:
+                dropped.append(g.get("id"))
             continue
-        if not os.path.isdir(wt):
-            continue
-        ahead = sh(["git", "-C", wt, "rev-list", "--count", "%s..HEAD" % base], check=False).strip()
-        dirty = sh(["git", "-C", wt, "status", "--porcelain"], check=False).strip()
-        if (ahead.isdigit() and int(ahead) > 0) or dirty:
+        if in_flight:
             keep.append(g)
     return keep, dropped
 
@@ -254,7 +315,10 @@ def main():
     if os.path.isfile(queue_path):
         with io.open(queue_path, encoding="utf-8") as fh:
             old = json.load(fh)
-    keep, dropped = keepable(old, base, open_branches)
+    queue_branches = {g.get("branch") for g in (old.get("grains") or []) if g.get("branch")}
+    delivered = open_branches | merged_branches(args.slug, queue_branches)
+    print("branches livrees (ouvertes + merged au lookup exact par branche): %d" % len(delivered))
+    keep, dropped = keepable(old, base, delivered)
     if dropped:
         print("livres -> retires de la file: %s" % ", ".join(dropped))
     kept_paths = set()
