@@ -13,7 +13,7 @@ triggers:
   priority: normal
 metadata:
   author: "Roo Extensions Team"
-  version: "3.8.4"
+  version: "3.9.1"
   compatibility:
     surfaces: ["claude-code"]
     restrictions: "Requiert acces aux MCPs roo-state-manager"
@@ -21,9 +21,9 @@ metadata:
 
 # Skill: Executor - Session d'Execution RooSync
 
-**Version:** 3.9.0 (escalade après N=3 formes absorbantes exit-10 — #3605, spec user 2026-09-13)
+**Version:** 3.9.1 (cadence coordinateur ai-01 4h→5h — #3660, directive user 2026-09-15 ; exécuteurs inchangés à 4h)
 **Cree:** 2026-03-28
-**MAJ:** 2026-09-14 (escalade après N=3 formes absorbantes exit-10, #3605 — spec user 13/09 : `[ESCALATE]`/`[SHORT-CYCLE]`/`[RESTART-REQUIRED]`, ni kill ni retry auto, streak par signature) — 2026-09-13 (cadence coordinateur ai-01 6h→4h, #3629 — directive user « Réarme un cron 4h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-12 (cadence coordinateur ai-01 4h→6h, #3610 — mandat user ; **portée asymétrique** : les exécuteurs restent à `41 */4`, ne pas uniformiser dans un sens ni dans l'autre) — 2026-09-11 (cadence coordinateur ai-01 3h→4h — flotte réalignée à 4h) — 2026-09-09 (cadence coordinateur ai-01 8h→3h, #3547) — 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
+**MAJ:** 2026-09-15 (cadence coordinateur ai-01 4h→5h, #3660 — directive user « Réarme un cron 5h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-14 (escalade après N=3 formes absorbantes exit-10, #3605 — spec user 13/09 : `[ESCALATE]`/`[SHORT-CYCLE]`/`[RESTART-REQUIRED]`, ni kill ni retry auto, streak par signature) — 2026-09-13 (cadence coordinateur ai-01 6h→4h, #3629 — directive user « Réarme un cron 4h stp » ; minute `:23` conservée, exécuteurs **inchangés** à `41 */4`) — 2026-09-12 (cadence coordinateur ai-01 4h→6h, #3610 — mandat user ; **portée asymétrique** : les exécuteurs restent à `41 */4`, ne pas uniformiser dans un sens ni dans l'autre) — 2026-09-11 (cadence coordinateur ai-01 3h→4h — flotte réalignée à 4h) — 2026-09-09 (cadence coordinateur ai-01 8h→3h, #3547) — 2026-09-05 (anti-double-claim étendu aux 2 dépôts, #3407) — 2026-09-04 (pre-flight : pwsh -> powershell 5.1, #2368) (arbitrage user revert #3141 : `CronCreate` INTERACTIF = primaire, schtask `Claude-Executor-Cron` = interdite — Phase 0 étape 6 + section cadence inversées ; relay web1 c.283, appliqué web1/po-2025/po-204 le 18/08)
 **Usage:** `/executor`
 **Methodologie:** SDDD triple grounding (voir `docs/harness/reference/sddd-conversational-grounding.md`)
 
@@ -66,7 +66,7 @@ Executer une session de travail autonome sur les machines executantes (myia-po-2
 6. **Cron re-arm verification — PROVIDER-AWARE** (#2539 ; cadence unifiée 4h mandates user 2026-08-15/17 ; **arbitrage user 2026-08-18 : cron INTERACTIF primaire, schtask executor-cron interdite**) :
    - `CronList` — vérifier qu'un job récurrent pour `/executor` existe à la cadence **de VOTRE provider** :
      - **Executors z.ai** (po-2023/24/25/26, web1) : `*/4` → `CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)` — cadence unifiée 4h (mandates user 2026-08-15/17 ; l'AUTO-STOP cap #2185 gère les cycles IDLE, pas de timer adaptatif)
-     - **ai-01 (Anthropic, coordinateur)** : `4h` — `23 */4` (directive user **2026-09-13**, #3629 ; supersede le 6h de #3610 (12/09), le 4h du 09-11, le 3h #3547). Coord et exécuteurs tirent donc aux **mêmes heures**, séparés par la seule minute — `:23` pour le coord, `:41` pour les exécuteurs : ces **18 min** sont la protection contre un tir groupé sur l'API, **ne pas « corriger » `:23` vers `:41`**. Supersede l'ancienne consigne d'asymétrie assumée (annulée par le retour à 4h).
+     - **ai-01 (Anthropic, coordinateur)** : `5h` — `23 */5` (directive user **2026-09-15**, #3660 ; supersede le 4h de #3629 (13/09), le 6h de #3610 (12/09), le 4h du 09-11, le 3h #3547). Le coord tire à `:23`, les exécuteurs à `:41` : aux **heures communes**, ces **18 min** sont la protection contre un tir groupé sur l'API, **ne pas « corriger » `:23` vers `:41`**.
    - **Le cron doit vivre dans la session INTERACTIVE** (arbitrage user 2026-08-18, revert #3141, relay web1 c.283 : « je préfère un cron avec lequel je peux interagir quand je passe sur la machine… j'ai besoin de trouver la dernière conversation interactive dans VS Code quand je débarque sur la machine »). Les cycles atterrissent dans LA conversation que l'utilisateur rouvre — jamais dans des sessions headless séparées. Le trade-off « pas de cycles si VS Code fermé » est accepté par le user.
    - **Schtask résiduelle à SUPPRIMER — mais ARMER D'ABORD, RETIRER ENSUITE** (le rollout #3141/#3161 est rendu interdit par l'arbitrage). Une schtask executor-cron spawn des sessions headless invisibles/indépendantes de la conversation interactive, donc elle doit partir. **L'ordre n'est pas cosmétique** :
      1. `CronCreate(...)` — armer le cron interactif ;
@@ -248,20 +248,19 @@ roosync_dashboard(action: "append", type: "workspace", tags: ["ACK", "claude-int
 # Executors z.ai (po-2023/24/25/26, web1) — 4h (mandates user 2026-08-15/17) :
 CronCreate(cron: "41 */4 * * *", prompt: "/executor", recurring: true)
 
-# ai-01 coordinateur (Anthropic) — 4h (directive user 2026-09-13, #3629 ; supersede le 6h de #3610) :
-# minute 23 : hors :00/:30 et hors du :41 des exécuteurs — pas de tir groupé sur l'API.
-# Coord et exécuteurs partagent les MÊMES heures (4h) : la minute est la SEULE séparation.
+# ai-01 coordinateur (Anthropic) — 5h (directive user 2026-09-15, #3660 ; supersede le 4h de #3629) :
+# minute 23 : hors :00/:30 — aux heures communes avec les exécuteurs (:41), les 18 min d'écart évitent le tir groupé.
 # Ne pas « corriger » :23 vers :41, ne pas décaler l'un pour « aérer » — c'est l'arbitrage.
-CronCreate(cron: "23 */4 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
 ```
 
 | Machine | Provider | Cadence | Condition |
 |---------|----------|---------|-----------|
-| ai-01 (coordinateur) | Anthropic | **4h** | Directive user 2026-09-13 (#3629) — supersede le 6h de #3610, le 4h du 09-11 et le 3h #3547 ; minute `:23` (les exécuteurs sont à `:41`) |
+| ai-01 (coordinateur) | Anthropic | **5h** | Directive user 2026-09-15 (#3660) — supersede le 4h de #3629 (13/09) et le 6h de #3610 (12/09) ; minute `:23` (les exécuteurs sont à `:41`) |
 | po-2023/24/25/26, web1 (executors) | z.ai | **4h** | Unifiée par mandates user 2026-08-15/17 (supersede le 2h-conditionnel 2026-07-20) |
 
 - **Bar de production** : la cadence se mérite par un travail substantiel (fix/PR/review/investigation livrée), PAS par défaut. Si IDLE-storm répété → l'AUTO-STOP cap #2185 gère ; **NE PAS ajuster par timer adaptatif** (l'auto-régulation se fait via AUTO-STOP + WAKE-CLAUDE, pas via timer).
-- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard) → brief schtask rollout #3141/#3161 (17-18/08) → **arbitrage user 2026-08-18 : retour au CronCreate interactif**, schtask executor-cron interdite (motif : continuité conversationnelle dans VS Code) → **coordinateur ai-01 : 8h #3396 (2026-09-03) → 4h #3485 (06/09) → 3h #3505 (07/09) → 2h #3539 (08/09 15:40Z) → 3h #3547 (2026-09-09) → 4h (2026-09-11, mandat user direct) → **6h #3610 (2026-09-12, mandat user)** → **4h #3629 (2026-09-13, directive user)** (chaîne complète, cf. `coordinate.md` ; citation périmée = restaure silencieusement l'ancienne cadence) — **exécuteurs inchangés à 4h depuis le 15/08. Depuis #3629, coord et exécuteurs partagent les mêmes heures (4h) : la minute (`:23` coord / `:41` exécuteurs) est la seule séparation. La parenthèse asymétrique de #3610 aura vécu ~1 jour — ne pas la restaurer au motif qu'elle « aérerait » l'API.**
+- **Historique** : 3h-uniforme 2026-07-14 → provider split 2026-07-20 (2h-conditionnel exécuteurs) → **4h unifié 2026-08-15/17** (mandates user directs aux 5 machines : po-204 c.227 + re-confirmation 17/08, po-2023, po-2025, web1 — cron IDs visibles dans les [DONE] dashboard) → brief schtask rollout #3141/#3161 (17-18/08) → **arbitrage user 2026-08-18 : retour au CronCreate interactif**, schtask executor-cron interdite (motif : continuité conversationnelle dans VS Code) → **coordinateur ai-01 : 8h #3396 (2026-09-03) → 4h #3485 (06/09) → 3h #3505 (07/09) → 2h #3539 (08/09 15:40Z) → 3h #3547 (2026-09-09) → 4h (2026-09-11, mandat user direct) → **6h #3610 (2026-09-12, mandat user)** → **4h #3629 (2026-09-13, directive user)** → **5h #3660 (2026-09-15, directive user)** (chaîne complète, cf. `coordinate.md` ; citation périmée = restaure silencieusement l'ancienne cadence) — **exécuteurs inchangés à 4h depuis le 15/08. Depuis #3660 (15/09), coordinateur à 5h et exécuteurs à 4h : l'asymétrie est l'état voulu — ne pas « réaligner » l'un sur l'autre dans un sens ni dans l'autre ; aux heures communes, la minute (`:23` coord / `:41` exécuteurs) sépare les tirs de 18 min.**
 - **Session-only**, auto-expire 7j. **Phase 0 vérifie** à chaque cycle que le cron est actif à VOTRE cadence provider et le réarme si besoin (#2539).
 - **Cap 3-IDLE** (#2185) → executors z.ai : 3 cycles × 4h = 12h avant AUTO-STOP.
 - **Override urgent : `[WAKE-CLAUDE]`** routé `machine:workspace` (début de ligne, dashboard append). Permet réveil immédiat sans attendre le tick cadence.
