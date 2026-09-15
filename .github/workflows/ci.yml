@@ -28,6 +28,10 @@ on:
       - '.claude/commands/**'
       - '.claude/skills/**'
       - '.claude/configs/user-global-claude.md'
+      # #3656: user-arbitration-registry.Tests.ps1 guards the carrier above AND
+      # escalation-protocol.md level 5 (AskUserQuestion removed from the
+      # harness) -- the doc's own path must re-trigger the suite too.
+      - 'docs/harness/reference/escalation-protocol.md'
       - 'scripts/mcp/set-mcp-env-var.ps1'
       - 'scripts/encoding/**'
       - 'scripts/common/**'

@@ -55,6 +55,19 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - Reutiliser les lectures du tour sauf mutation pertinente, acteur independant pertinent ou frontiere de securite. Attribuer par `session_id` avant machine, puis parent/sous-agent quand disponible.
 - Communication : **3-5 lignes par defaut** ; decision, blocage et preuve peuvent depasser ce format. [Detail](../../docs/harness/global-rules-detail.md#harness-amplification-control)
 
+## User Arbitration — Questions au registre, pas au fil
+
+Mandat user 2026-09-15 (#3656) : **aucune question a l'arbitrage user n'est posee en cours de session.** Le user arbitre **par pull, pas par push** — une question en plein cycle le force a arbitrer au rythme de l'agent, et sous cron elle part dans un tour qu'il ne lira peut-etre jamais. Le registre remplace une **interruption** par une **restitution**.
+
+1. Une question a l'arbitrage user s'ecrit **immediatement** dans le registre per-machine : `user-question-registry.md` dans la memoire du workspace (`~/.claude/projects/<hash>/memory/`), indexe dans `MEMORY.md`. Jamais dans le fil de session.
+2. En **fin de session**, le registre est restitue **en bloc** (questions ouvertes) dans le rapport final.
+3. Une question sans reponse **survit aux reprises de cron** : elle se represente au cycle suivant (auto-chargee via `MEMORY.md`), sans se re-poster dans le fil.
+4. Chaque entree porte deux champs obligatoires : **ce qui est attendu du user** et **comment verifier qu'elle est morte** — sans mecanisme de retrait, une question repondue se re-pose indefiniment.
+5. Une entree repondue **sort des ouvertes** (section courte « repondues »).
+6. Un plan demandant validation s'ecrit dans un **scratchpad** (`$TEMP`) ; c'est le **chemin** du scratchpad qui est rendu en fin de session, pas le plan recopie dans le fil.
+
+Cablage au signalement existant : le tag signale (`ASK` dashboard, `[ASK USER]`, « Actions user en attente »), **le registre porte l'etat entre deux sessions** — une seule liste, jamais deux qui derivent. [Detail](../../docs/harness/global-rules-detail.md#user-arbitration--registre-des-questions)
+
 ## Windows / PowerShell Gotchas
 
 - **UTF-8 BOM** : `Set-Content`/`Out-File` ajoutent un BOM -> casse les parsers. Utiliser `[System.IO.File]::WriteAllText($path, $content, [System.Text.UTF8Encoding]::new($false))` ou PS7+ `-Encoding utf8NoBOM`.

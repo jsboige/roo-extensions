@@ -139,6 +139,73 @@ les décisions, blocages et preuves discriminantes peuvent dépasser cette borne
 
 ---
 
+## User Arbitration — Registre des questions
+
+Mandat user 2026-09-15 (issue #3656), donné en session directe (myia-ai-01, workspace CoursIA) — portée **machine-globale**, la règle vit dans le harnais global :
+
+> « Je prefere que tu gardes tes questions pour la fin de session, et si jamais le cron reprend, que tu les gardes tant qu'elles sont pas repondues dans une memoire que tu dois restituer en fin de session. Ca va demander une MAJ du harnais global en coordination avec roo-extensions »
+
+> « Pour le mode plan utilisez un scratchpad et si une validation utilisateur est necessaire, donner le chemin du scratchpad en fin de session »
+
+### Pourquoi le registre (le mécanisme rend la règle auto-applicable)
+
+Le user arbitre **par pull, pas par push**. Une question posée en plein cycle le force à arbitrer au rythme de la session de l'agent plutôt qu'au sien. Sous cron c'est pire : la question part dans un tour qu'il ne lira peut-être jamais — et l'agent la perd au cycle suivant. Le registre remplace une **interruption** par une **restitution**.
+
+### Emplacement canonique et format
+
+| Élément | Valeur |
+|---|---|
+| Fichier | `user-question-registry.md` |
+| Répertoire | la mémoire auto-chargée du workspace : `~/.claude/projects/<hash>/memory/` (per-machine, jamais commité) |
+| Index | une ligne dans `MEMORY.md` (toujours chargée en contexte) portant le **nombre de questions ouvertes** |
+| Frontmatter | `type: project` |
+
+La ligne d'index dans `MEMORY.md` est le mécanisme du point 3 (survie aux reprises de cron) : la question ouverte se ré-presente au cycle suivant **sans se re-poster dans le fil**, parce que `MEMORY.md` est injectée à chaque session.
+
+Format d'une entrée — les deux champs marqués OBLIGATOIRES sont le seul anti-pourrissement : sans mécanisme de retrait, une question répondue se re-pose indéfiniment (défaut mesuré des anciennes listes de bloqueurs, qui re-postaient des items morts de cycle en cycle) :
+
+    ## Ouvertes
+
+    | # | Question | Attendu du user (OBLIGATOIRE) | Comment vérifier qu'elle est morte (OBLIGATOIRE) | Depuis |
+    |---|---|---|---|---|
+    | 1 | Faut-il révoquer la clé X avant le 20/09 ? | oui/non + date | `gh api` retourne `revoked:true`, ou commentaire user du 19/09 | 2026-09-15 |
+
+    ## Répondues
+
+    - 2026-09-16 #1 — répondue (commentaire user) : oui, révoquée. Sortie des ouvertes.
+
+### Câblage au signalement existant (une seule liste, jamais deux)
+
+Le signalement de fin de session reste : tag `ASK` sur le dashboard (Session Pattern), `[ASK USER]` côté workers, section « Actions user en attente » côté coordinateur (`user-blocker-signaling.md`, règle qui vit côté CoursIA, pas dans ce dépôt). **Le tag signale, le registre porte l'état entre deux sessions.** Les deux gestes sont câblés : la restitution de fin de session EST le contenu pointé par le tag — poster le tag sans lire le registre, ou tenir une seconde liste de questions dans le fil, recrée exactement la dérive que le champ « comment vérifier qu'elle est morte » existe pour éteindre.
+
+Où la règle `user-blocker-signaling.md` existe, elle doit renvoyer vers ce registre (convergence à traiter côté CoursIA).
+
+### Plans : scratchpad, pas le fil
+
+Un plan demandant validation s'écrit dans un scratchpad sous `$TEMP` (jamais dans `.claude/` — sanctuaire, fichiers temporaires → `$TEMP`). Seul le **chemin** est rendu en fin de session. Si la validation est toujours en attente au cycle suivant, l'entrée de registre porte le chemin — le plan n'est jamais recopié dans le fil.
+
+### Outils d'interactivité retirés par le user (déjà fait, côté user)
+
+| Outil retiré | Substitut |
+|---|---|
+| `AskUserQuestion` | registre mémoire + restitution en fin de session |
+| `Plan` / `ExitPlanMode` | plan écrit dans le **scratchpad**, seul le **chemin** est rendu en fin de session |
+| `NotebookEdit` | MCP `jupyter-papermill` (qui exécute en outre) |
+| bundledSkills | skills du projet et de l'utilisateur uniquement |
+| remote control, connecteurs ClaudeAI | MCP locaux |
+
+Ce n'est plus une préférence contournable : c'est une **impossibilité** outillage.
+
+### Point vérifié — `disableBundledSkills` (évite une fausse alerte)
+
+`"disableBundledSkills": true` dans `settings.json` ne coupe **que** les skills livrés par Anthropic. Les skills **de projet** (`.claude/skills/`) et utilisateur restent chargés — vérifié empiriquement (2026-09-15) : le cron a invoqué `/coordinate` (skill de projet) normalement avec ce réglage déjà actif. Aucune action requise ; noté parce qu'une mauvaise réponse aurait cassé la cadence de coordination de toute la flotte.
+
+### Garde
+
+`scripts/testing/unit/user-arbitration-registry.Tests.ps1` — garde statique Pester (#3656) : les 6 points, la justification pull/push, le câblage au signalement et le nom canonique du fichier doivent rester présents dans le porteur `.claude/configs/user-global-claude.md`, et l'escalade niveau 5 (`escalation-protocol.md`) ne doit plus instruire d'utiliser `AskUserQuestion`.
+
+---
+
 ## Git — Checkout Safety
 
 `git checkout -- <fichier>` restaure un fichier depuis l'**INDEX**, pas depuis « avant ma dernière modification ». Sur une branche de travail où un fix n'est jamais commité, ce checkout efface **l'intégralité du fix** — pas seulement la dernière manipulation.
