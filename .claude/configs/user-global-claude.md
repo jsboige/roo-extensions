@@ -47,6 +47,18 @@ Anti-patterns : « le titre dit X » · « le bot a APPROVED, je merge » · « 
 - **Build + test** apres tout changement de code. Ne jamais commiter du code casse.
 - **Large persisted outputs (#1340)** : `<50 KB` -> `Read` complet OK ; `50-500 KB` -> `Read` avec `offset`/`limit` ; `>500 KB` -> `Bash` + `head`/`grep`/`jq`. Ne JAMAIS `Read` un fichier persiste enorme : l'explosion de contexte tue la tache.
 
+## Harnais serré (15/09, #3657)
+
+`settings.json` deny `EnterPlanMode`/`ExitPlanMode`/`DesignSync`/`AskUserQuestion` ; `mode: auto-approve` ;
+`outputStyle: Proactive` ; `ENABLE_TOOL_SEARCH: "true"` ; `disableBundledSkills` ; `disableClaudeAiConnectors` ;
+`disableRemoteControl`. Conséquences opérationnelles :
+- **Zéro question bloquante** — toute question non bloquante vit dans un registre persistant
+  (`memory/open-questions-ledger.md` par workspace), représenté à chaque fin de cycle, et n'en sort
+  **que sur réponse user**. Détail : [`harnais-tightening.md`](../../.claude/rules/harnais-tightening.md).
+- **Notebooks** via MCP `jupyter-papermill` (activé au besoin). `NotebookEdit` est deny, pas de fallback.
+- **Harnais maigre** — schémas MCP en différé (mesure #99 du 13/09 : ~64 % du prompt en définitions
+  inline pour 0,4 % d'appels). Effet à mesurer par lane.
+
 ## Harness Amplification Control
 
 - Tenir un **ledger turn-local** des obligations ; avant un sweep, chacune est `done`, `blocked` avec `WAIT_FOR` + `RESUME_WHEN`, ou `handed-off` explicitement. Pas de nouveau registre persistant.
