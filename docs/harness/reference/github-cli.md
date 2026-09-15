@@ -178,14 +178,17 @@ Le MCP github-projects-mcp est déprécié. Utiliser exclusivement `gh` CLI.
 
 ### ⚠️ Quota GraphQL : ne pas croire le REST `GET /rate_limit`
 
-Le REST `.resources.graphql` rend **5000/0 en toutes circonstances** pour ce compte — y compris quand
-le quota GraphQL réel est épuisé (le champ `reset` y est roulant, `now + 3600`, pas la fenêtre ancrée
-qui sert les requêtes). Conséquence : `gh pr view`, `gh issue view` et les `search` (chemins GraphQL)
+Le REST `GET /rate_limit` rend **un bucket frais pour l'ensemble des ressources** — `graphql` ET
+`core` annoncent `5000/0` en toutes circonstances, y compris quand la session vient d'enchaîner
+des appels dessus (le champ `reset` y est roulant, `now + 3600`, pas la fenêtre ancrée qui sert
+les requêtes). Conséquence : `gh pr view`, `gh issue view` et les `search` (chemins GraphQL)
 échouent d'un bloc sur « API rate limit already exceeded » **pendant que le REST annonce 5000/5000**.
 
 - Ne jamais conclure « quota plein / réessayer » sur un échec GraphQL sans vérifier **le compte
   réellement utilisé** (l'erreur ne nomme que l'id numérique).
 - Contournements : routes REST (`gh api repos/O/R/issues/N`, `.../pulls/N`) et `GH_TOKEN` explicite.
+- Le repli REST **n'a pas d'indicateur de charge** : `/rate_limit` ne le mesure pas non plus
+  (cf. §3 du commentaire ai-01 sur #3623). Le doser à l'aveugle, ou compter côté client.
 
 Détail, mesures firsthand et mécanisme : [`github-rate-limit-instrument.md`](github-rate-limit-instrument.md) (#3623).
 

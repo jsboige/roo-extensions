@@ -119,3 +119,88 @@ l'**instrument de mesure trompeur** — c'est #3623, et ce document.
 
 **Voir aussi :** [`github-cli.md`](github-cli.md) (commandes, scopes, Project #67) ·
 [`gh-identity-concurrency.md`](gh-identity-concurrency.md) (concurrence multi-processus).
+
+---
+
+## Datapoints ultérieurs (2026-09-13, après merge de #3624)
+
+Les sections qui suivent ne sont **pas** dans la mesure d'origine : elles élargissent le constat
+au-delà du seul `resources.graphql` et ferment deux hypothèses résiduelles.
+
+### `/rate_limit` ment pour **toutes** les ressources, pas seulement `graphql` (ai-01)
+
+Mesure ai-01 ~13:23Z, compte `jsboige`, dans la même session où des appels REST venaient d'être
+comptabilisés sur le budget `core` (`/repos/O/R/pulls/N/reviews`, `/issues/N/comments`,
+`/pulls/3618/reviews`) :
+
+| Instrument | Résultat |
+|---|---|
+| REST `/rate_limit` → `.resources.core` | `remaining=5000, used=0` |
+| REST `/rate_limit` → `.resources.graphql` | `remaining=5000, used=0` |
+| GraphQL `POST { rateLimit }` | `remaining=3690, used=1310, resetAt=2026-09-13T13:32:44Z` |
+
+**Le défaut n'est pas propre à `graphql`** : `core` présente exactement la même `used=0` alors
+que la session enchaînait des appels dessus. `GET /rate_limit` rend un bucket frais pour
+**l'ensemble** des ressources. L'hypothèse « bug isolé au reporting GraphQL » est exclue.
+
+### Conséquence pour le repli REST — il n'a plus d'indicateur de charge
+
+Le repli REST reste valide en traversée (les routes traversent), mais **sa justification écrite —
+« budget REST séparé, 5000/h, quasi intact »** — se lit sur `/rate_limit`, c'est-à-dire sur
+l'instrument que cette issue déclare non fiable. La mesure `core: 5000/0` ci-dessus en est la
+démonstration directe : je sais avoir consommé, l'instrument dit non.
+
+Conséquence opérationnelle :
+
+> Un harnais qui bascule sur REST puis surveille `/rate_limit` pour savoir quand ralentir **ne verra
+> jamais approcher la limite**. Le repli n'a aucun indicateur de charge — il faut soit le doser
+> à l'aveugle, soit compter les appels soi-même côté client.
+
+### La fenêtre GraphQL est **par-compte et stable** — corroboration à 36 min d'écart (ai-01)
+
+Deux observateurs, deux sièges, **même `resetAt`** :
+
+- po-2023 ~12:47Z : `resetAt=13:32:44Z`, `used=381`
+- ai-01    ~13:23Z : `resetAt=13:32:44Z`, `used=1310`
+
+36 min d'écart, `used` qui a crû de 381 → 1310 (929 requêtes), `resetAt` inchangé. La fenêtre
+GraphQL est **par-compte et stable**, ce qui n'était jusqu'ici établi que depuis un seul siège.
+
+### Le REST ne se recale pas à la frontière de fenêtre (Hermes, po-2026)
+
+Mesure **à cheval** sur la frontière mesurée de `jsboige` (13:32:44Z → 14:32:47Z). Deux lectures,
+T0 = 4 min avant la frontière, T1 = 20 s après.
+
+| | REST `GET /rate_limit` → `.resources.graphql` | POST `{ rateLimit }` |
+|---|---|---|
+| `jsboige` T0 | `used=0, remaining=5000, reset=1789309729` | `used=1710 → 1716, resetAt=13:32:44Z` |
+| `jsboige` T1 (**après** frontière) | `used=0, remaining=5000, reset=1789309986` | `used=18, remaining=4982, resetAt=14:32:47Z` |
+
+Le chiffre qui tranche est le `reset` du REST : **1789309729 → 1789309986 = +257 s**, exactement
+le temps mural écoulé entre les deux lectures. Le POST, lui, a réellement changé de fenêtre.
+
+**L'hypothèse résiduelle — « le miroir REST est dégénéré mais se réaligne au changement de
+fenêtre, donc il décrit la bonne fenêtre en régime établi » — tombe.** Le `reset` du REST n'est
+pas le miroir décalé d'une fenêtre : il est **découplé** de celle qu'applique l'endpoint GraphQL.
+Il n'y a pas de recalage, ni au coup par coup, ni à la frontière.
+
+### Piège Windows — réécriture MSYS du `/` initial (ai-01)
+
+Sous Git Bash, **`gh api /rate_limit`** (avec barre oblique initiale) est réécrit par MSYS en
+`C:/Program Files/Git/rate_limit` et échoue avec :
+
+```
+invalid API endpoint: … Your shell might be rewriting URL paths as filesystem paths
+```
+
+Un lecteur pressé en conclut que l'endpoint a disparu. Forme portable, à utiliser sur tout
+siège Windows : **`gh api rate_limit`**, sans slash initial. Idem pour tout chemin `gh api` que
+MSYS pourrait tenter de résoudre localement.
+
+---
+
+**Sources des datapoints :**
+- ai-01 : commentaires #3623 de jsboige (2026-09-13 ~13:27Z) — reproduction depuis un 3ᵉ siège,
+  élargissement à `core`, MSYS pitfall.
+- Hermes po-2026 : commentaires #3623 de clusterManager-Myia (2026-09-13 ~13:34Z) — mesure à
+  cheval sur la frontière, élimination de l'hypothèse « recalage à la frontière ».
