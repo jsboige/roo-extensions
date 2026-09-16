@@ -10,15 +10,19 @@
 
 ## 1. Le constat (audit live, 16/08, PR #3155)
 
-Le watchdog GDriveFS (`scripts/gdrivefs-watchdog/gdrivefs-watchdog.ps1`, lignes 110-120, 514-518)
-**fait correctement son travail** mais signale ses alertes **via le périmètre qu'il vient de détecter comme mort** :
+Le watchdog GDriveFS (`scripts/gdrivefs-watchdog/gdrivefs-watchdog.ps1`, lignes 110-120, 460, 511-517)
+**fait correctement son travail** et signale ses alertes **uniquement en local** (fichier + Event Log).
+Les canaux de coordination de la flotte — ceux qui auraient permis de prévenir les autres machines —
+ne sont **pas appelés par le watchdog** et sont de toute façon **muets pendant l'outage** (ils passent
+par le mount `G:\` que la panne vient de tuer) :
 
 | Stade watchdog | Canal d'alerte | Survit à l'outage GDrive ? |
 |---|---|---|
 | C0/C1 `FAIL` (relaunch) | `Write-Log` → fichier local `outputs\gdrivefs-watchdog\watchdog-YYYYMMDD.log` | OUI (disque local) |
-| C2 escalation | `Write-EventLog` source `GDriveFS-Watchdog` EventId 2001 | OUI (Event Log Windows local) |
-| Toute alerte | Dashboard `workspace` (comment `[ALERT]`) | **NON — passe par GDriveFS** |
-| Toute alerte | RooSync `messages.send(to: ...)` | **NON — passe par GDriveFS** |
+| C2 escalation | `Write-EventLog` source `GDriveFS-Watchdog` EventId 2001 (script l.460) | OUI (Event Log Windows local) |
+| Fin de cycle | `Write-EventLog` EventIds 1000 (info, l.511) / 2000 (alerte, l.517) | OUI (Event Log Windows local) |
+| *(non appelé par le watchdog)* | Dashboard `workspace` (comment `[ALERT]`) — canal de coordination **indisponible pendant l'outage** | **NON — passe par GDriveFS** |
+| *(non appelé par le watchdog)* | RooSync `messages.send(to: ...)` — canal de coordination **indisponible pendant l'outage** | **NON — passe par GDriveFS** |
 
 L'incident du 16/08 (~15 min sourdes et muettes) ne résultait **pas** d'un défaut de détection :
 le watchdog a vu la panne, a relancé DriveFS, et a marqué le retour à `mount-stat+enum-ok` dans
@@ -84,13 +88,13 @@ l'absence d'événement « OK » dépasse le seuil).
 Aucun canal unique ne couvre tous les cas. La proposition est :
 
 **Couche 1 — Local, persistante, gratuite (déjà en place) :**
-- `Write-EventLog` EventId 2001 (déjà câblé, watchdog lignes 514-518). Rien à coder.
+- `Write-EventLog` EventIds 2001 (escalation, script l.460) et 1000/2000 (fin de cycle, l.511-517). Rien à coder.
 - `Write-Log` fichier `outputs\gdrivefs-watchdog\watchdog-YYYYMMDD.log` (déjà câblé). Rien à coder.
 
 **Couche 2 — Distante, persistante, à coût borné (à ajouter) :**
 - À chaque `cooldown` engagé (C2 escalation) OU à chaque `cooldown-skip` répété N fois dans une fenêtre, poster une **GitHub Issue** dans `jsboige/roo-extensions` avec le label `gdrivefs-watchdog-alert`, le timestamp, la raison, et l'état de l'instance.
-- Justification du choix GitHub : c'est le seul candidat qui **persiste** (l'Event Log est volatile au-delà de la taille du journal), **ne dépend pas de GDriveFS** (l'`gh` CLI tape l'API REST directement), et **est déjà outillé** (l'auth multi-bot est en place, voir `feedback-gh-multi-account-myia-web1`).
-- Garde anti-dédoublement : état JSON du watchdog garde un `last_github_alert_at` ; une nouvelle issue ne part que si `now - last_github_alert_at > 6 h`. **Coût plafond** : ~4 issues / 24 h en cas de panne continue, soit 0,08 % du quota horaire.
+- Justification du choix GitHub : c'est le seul candidat qui **persiste** (l'Event Log est volatile au-delà de la taille du journal), **ne dépend pas de GDriveFS** (l'`gh` CLI tape l'API REST directement), et **est déjà outillé** (l'auth multi-bot est en place, voir [`docs/harness/reference/gh-identity-concurrency.md`](../reference/gh-identity-concurrency.md)).
+- Garde anti-dédoublement : état JSON du watchdog garde un `last_github_alert_at` ; une nouvelle issue ne part que si `now - last_github_alert_at > 6 h`. **Coût plafond** : ~4 issues / 24 h en cas de panne continue (une par tranche de 6 h), soit ~0,2 appel/h contre un quota horaire de 5 000 — ~0,003 % du quota horaire.
 
 **Couche 3 — Détection croisée inter-machines (option, post-MVP) :**
 - Chaque machine, à chaque cycle `Claude-DashboardListener` (déjà déployé, ~5 min de heartbeat), vérifie l'Event Log des **autres** machines de la flotte via une commande win-cli (`Get-WinEvent -ComputerName <host> -FilterHashtable @{LogName='Application';ProviderName='GDriveFS-Watchdog'}`) si WinRM est ouvert, **OU** via la présence d'un ping GitHub périodique (chaque machine commit `watchdog-heartbeat-YYYYMMDD.json` toutes les ~30 min dans une branche dédiée `fleet-heartbeats`).
@@ -106,20 +110,24 @@ régresser le coût ». Proposition concrète :
 
 - **Poll normal : 15 min** (inchangé — coût de 96 polls / 24 h par machine).
 - **Poll rapide : 1 min, pendant 10 min, après un C2 escalation**, puis retour à 15 min si la machine est de nouveau saine, OU maintien en poll rapide si elle retombe.
-- **Coût marginal** : ~10 polls supplémentaires par escalation, vs 96 polls/jour de base → +10 % en cas d'incident, **nul en régime nominal**.
-- **Implémentation** : le watchdog expose un état `fast_poll_until` ; le schtask installe **deux** triggers (15 min repeat + 1 min repeat), le body vérifie `fast_poll_until` et sort tôt si on n'est pas en fenêtre rapide.
+- **Coût — deux implémentations possibles, deux coûts nominaux différents** :
+  - **(a) Deux triggers permanents** (15 min + 1 min installés en permanence, le body sort tôt hors fenêtre rapide) : coût marginal ~10 polls utiles par escalation, **mais coût nominal réel de ~1 440 démarrages PowerShell / 24 h / machine** (15× les 96 de base) — chaque démarrage paie l'init PowerShell même s'il sort aussitôt. **Pas nul en régime nominal.**
+  - **(b) Armement dynamique du trigger rapide** : le trigger 1 min n'existe qu'armé par le body à l'escalation (`Enable-ScheduledTask`), désarmé à la sortie de fenêtre — coût nominal réellement **nul** (+~10 polls par escalation), au prix d'une dépendance de fiabilité à l'activation/désactivation du trigger par le script.
+  - Recommandation : **(b)** pour PR-B ; le choix d'implémentation reste à PR-B, mais le coût affiché ici est celui de chaque option — ce proposal ne présuppose pas un « coût nul » que seul (b) délivre.
+- **Implémentation** : le watchdog expose un état `fast_poll_until` ; selon l'option retenue en PR-B, soit deux triggers (15 min + 1 min) avec sortie précoce hors fenêtre, soit un trigger rapide armé/désarmé dynamiquement.
 
 ## 5. Sur la cause racine #2875 (livrable 3)
 
-État actuel : **CLOSED comme contournement permanent** (watchdog #2933). L'investigation
-de la cause racine (`OOM kill silencieux`, conflit d'indexation, flakiness Drive File Stream
-v127) est **marquée inconclusive** par l'issue #2875 elle-même.
+État actuel : **CLOSED via le watchdog #2933 ; le caractère permanent du contournement reste
+l'objet de l'arbitrage §7** (l'issue #2875 est CLOSED/COMPLETED sans décision documentée de
+permanence). L'investigation de la cause racine (`OOM kill silencieux`, conflit d'indexation,
+flakiness Drive File Stream v127) est **marquée inconclusive** par l'issue #2875 elle-même.
 
-Proposition : **documenter le contournement comme permanent** dans le `README.md` du watchdog
-(statut passé de « interim fix » à « production control »), et **acter en ce sens dans une
-note `decision-history.md`** (ou équivalent). Aucune investigation supplémentaire n'est
-entreprise tant qu'un signal discriminant n'est pas remonté (un crash loggué, un comportement
-reproductible).
+Proposition **soumise à l'arbitrage §7** : le cas échéant, documenter le contournement comme
+permanent dans le `README.md` du watchdog (statut passé de « interim fix » à « production
+control »), et acter en ce sens dans une note `decision-history.md` (ou équivalent). Aucune
+investigation supplémentaire n'est entreprise tant qu'un signal discriminant n'est pas remonté
+(un crash loggué, un comportement reproductible).
 
 ## 6. Sur le registre de verrous hors GDrive (livrable 4)
 
