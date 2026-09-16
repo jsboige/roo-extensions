@@ -7,8 +7,9 @@
     reel et nomme la couche fautive parmi :
 
         HEALTHY                     -> 200 + JSON results
-        EDGE-IIS-BASIC-AUTH         -> 401 + WWW-Authenticate: Basic + signature IIS (edge IIS)
-        EDGE-BASIC-AUTH             -> 401 + WWW-Authenticate: Basic (edge non-IIS)
+        EDGE-IIS-BASIC-AUTH         -> 401 + WWW-Authenticate: Basic + signature IIS (edge IIS), client sans credential
+        EDGE-BASIC-AUTH             -> 401 + WWW-Authenticate: Basic (edge non-IIS), client sans credential
+        EDGE-*-BASIC-AUTH-REJECTED  -> 401 Basic alors que le client AVAIT envoye Authorization (couple refuse)
         EDGE-AUTH-<scheme>          -> 401 avec autre scheme (Bearer, Negotiate...)
         AUTH-UNSPECIFIED            -> 401 sans WWW-Authenticate
         BACKEND-SEARXNG-FORMAT      -> 403 SearXNG (format json non autorise)
@@ -18,13 +19,20 @@
         CONNECTIVITY-DNS|REFUSED|TIMEOUT|OTHER -> pas de reponse HTTP
         HTTP-4XX / BAD-JSON         -> non classe
 
-    Contexte #3264 : mcp-searxng v0.4.5 n'envoie AUCUNE credential et ne le peut pas
-    (fetch/undici refuse les URLs a userinfo : "Request cannot be constructed from a
-    URL that includes credentials"). Si l'edge exige Basic auth, aucune correction
-    client-side n'existe sans patch du package — voir mcps/external/searxng/TROUBLESHOOTING.md.
+    Contexte #3264 : depuis mcp-searxng 0.6.2, le package supporte NATIVEMENT Basic
+    auth via les env AUTH_USERNAME / AUTH_PASSWORD (header Authorization construit
+    dans dist/search.js — verifie firsthand dans le cache npx 2026-09-16). La
+    limitation v0.4.5 (undici refuse les URLs a userinfo) est levee. Decret user
+    13/09 : chemin authentifiable edge pour clients hors LAN ; le contournement
+    backend LAN reste transitoire jusqu'a la validation bout-en-bout — voir
+    mcps/external/searxng/TROUBLESHOOTING.md.
 
-    Hygiene secrets : aucune valeur d'Authorization n'est lue ni affichee ; les
-    userinfo eventuellement embarques dans une URL sont masques avant affichage.
+    Ce health-check peut porter la meme auth (parametres -AuthUsername/-AuthPassword,
+    defaut env AUTH_USERNAME/AUTH_PASSWORD) pour valider le chemin authentifie.
+
+    Hygiene secrets : aucune valeur d'Authorization n'est affichee ni incluse dans
+    le rapport (champ AuthUsed booleen uniquement) ; les userinfo eventuellement
+    embarques dans une URL sont masques avant affichage.
 
 .PARAMETER Url
     URL de l'instance a tester. Defaut : $env:SEARXNG_URL, sinon env du .mcp.json
@@ -70,6 +78,12 @@ param (
     [int]$TimeoutSec = 20,
 
     [Parameter(Mandatory = $false)]
+    [string]$AuthUsername = '',
+
+    [Parameter(Mandatory = $false)]
+    [string]$AuthPassword = '',
+
+    [Parameter(Mandatory = $false)]
     [switch]$Json
 )
 
@@ -88,7 +102,8 @@ function Get-SearxngVerdict {
         [int]$StatusCode = 0,
         [hashtable]$ResponseHeaders = @{},
         [string]$Body = '',
-        [string]$ErrorMessage = ''
+        [string]$ErrorMessage = '',
+        [bool]$AuthSent = $false
     )
 
     $wwwAuth = ''
@@ -136,11 +151,22 @@ function Get-SearxngVerdict {
                 $detail = "401 exige Basic auth"
                 if ($realm) { $detail += " (realm `"$realm`")" }
                 if ($isIis) { $detail += ", emis par l edge IIS AVANT le reverse proxy ARR" }
+                if ($AuthSent) {
+                    return [pscustomobject]@{
+                        Layer = "$layer-REJECTED"; HttpCode = 401
+                        Detail = "$detail ALORS que le client avait envoye Authorization (Basic)"
+                        Action = 'Couple username/password REFUSE par l edge. Verifier le credential emis ' +
+                            '(web1/IIS) et sa propagation dans AUTH_USERNAME/AUTH_PASSWORD du client. ' +
+                            'Aucune valeur de credential n apparait dans ce rapport.'
+                        ExitCode = 2
+                    }
+                }
                 return [pscustomobject]@{
                     Layer = $layer; HttpCode = 401; Detail = $detail
-                    Action = 'mcp-searxng v0.4.5 ne peut pas s authentifier (undici refuse les URLs a userinfo). ' +
-                        'Soit pointer SEARXNG_URL vers le backend LAN direct (flotte on-prem, ex http://192.168.0.47:8181/), ' +
-                        'soit arbitrer l auth anonyme de l edge (changement shared-infra, user-gated).'
+                    Action = 'Client sans credential. mcp-searxng >= 0.6.2 supporte Basic auth nativement : ' +
+                        'configurer AUTH_USERNAME/AUTH_PASSWORD (env du serveur MCP) pour l edge authentifie. ' +
+                        'Contournement transitoire autorise : SEARXNG_URL vers le backend LAN direct ' +
+                        '(flotte on-prem, ex http://192.168.0.47:8181/) — decision user 13/09 #3264.'
                     ExitCode = 2
                 }
             }
@@ -148,7 +174,7 @@ function Get-SearxngVerdict {
                 $scheme = ($wwwAuth -split '[ ,]')[0]
                 return [pscustomobject]@{
                     Layer = "EDGE-AUTH-$scheme"; HttpCode = 401; Detail = "401 exige $wwwAuth"
-                    Action = 'Auth edge non supportee par mcp-searxng v0.4.5 — arbitrage edge requis.'
+                    Action = "Auth edge scheme $scheme non couvert par les env AUTH_USERNAME/AUTH_PASSWORD (Basic only) — arbitrage edge requis."
                     ExitCode = 2
                 }
             }
@@ -197,22 +223,33 @@ function Get-SearxngVerdict {
 }
 
 function Invoke-SearxngProbe {
-    # Effectue l appel /search?q=<Query>&format=json. Ne lit ni n'envoie de credential.
+    # Effectue l appel /search?q=<Query>&format=json. Si un couple -AuthUsername/-AuthPassword
+    # est fourni, envoie Authorization: Basic (memes env que mcp-searxng >= 0.6.2) — la valeur
+    # n'apparait jamais dans le retour (AuthSent booleen uniquement).
     param (
         [Parameter(Mandatory = $true)][string]$BaseUrl,
         [Parameter(Mandatory = $true)][string]$Query,
-        [int]$TimeoutSec = 20
+        [int]$TimeoutSec = 20,
+        [string]$AuthUsername = '',
+        [string]$AuthPassword = ''
     )
     $searchUrl = ('{0}search?q={1}&format=json' -f ($BaseUrl.TrimEnd('/') + '/'), [uri]::EscapeDataString($Query))
+    $reqHeaders = @{ 'Accept' = 'application/json' }
+    $authSent = $false
+    if ($AuthUsername -and $AuthPassword) {
+        $b64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes("${AuthUsername}:${AuthPassword}"))
+        $reqHeaders['Authorization'] = "Basic $b64"
+        $authSent = $true
+    }
     try {
-        $resp = Invoke-WebRequest -Uri $searchUrl -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec -Headers @{ 'Accept' = 'application/json' }
+        $resp = Invoke-WebRequest -Uri $searchUrl -Method Get -UseBasicParsing -TimeoutSec $TimeoutSec -Headers $reqHeaders
         $headers = @{}
         if ($resp.Headers) {
             foreach ($k in $resp.Headers.Keys) { $headers[[string]$k] = [string]($resp.Headers[$k] -join ', ') }
         }
         $body = ''
         if ($resp.Content) { $body = [string]$resp.Content }
-        return @{ StatusCode = [int]$resp.StatusCode; Headers = $headers; Body = $body; ErrorMessage = ''; Url = $searchUrl }
+        return @{ StatusCode = [int]$resp.StatusCode; Headers = $headers; Body = $body; ErrorMessage = ''; Url = $searchUrl; AuthSent = $authSent }
     }
     catch {
         $r = $_.Exception.Response
@@ -248,9 +285,9 @@ function Invoke-SearxngProbe {
                 catch { }
             }
             if ($body -and $body.Length -gt 400) { $body = $body.Substring(0, 400) }
-            return @{ StatusCode = $code; Headers = $headers; Body = $body; ErrorMessage = $em; Url = $searchUrl }
+            return @{ StatusCode = $code; Headers = $headers; Body = $body; ErrorMessage = $em; Url = $searchUrl; AuthSent = $authSent }
         }
-        return @{ StatusCode = 0; Headers = @{}; Body = ''; ErrorMessage = $em; Url = $searchUrl }
+        return @{ StatusCode = 0; Headers = @{}; Body = ''; ErrorMessage = $em; Url = $searchUrl; AuthSent = $authSent }
     }
 }
 
@@ -276,13 +313,17 @@ function Resolve-SearxngUrl {
 if ($MyInvocation.InvocationName -ne '.') {
 
     $targetUrl = Resolve-SearxngUrl -RequestedUrl $Url
-    $probe = Invoke-SearxngProbe -BaseUrl $targetUrl -Query $Query -TimeoutSec $TimeoutSec
-    $verdict = Get-SearxngVerdict -StatusCode $probe.StatusCode -ResponseHeaders $probe.Headers -Body $probe.Body -ErrorMessage $probe.ErrorMessage
+    # Defaut env : memes variables que mcp-searxng >= 0.6.2 (AUTH_USERNAME/AUTH_PASSWORD).
+    if (-not $AuthUsername) { $AuthUsername = $env:AUTH_USERNAME }
+    if (-not $AuthPassword) { $AuthPassword = $env:AUTH_PASSWORD }
+    $probe = Invoke-SearxngProbe -BaseUrl $targetUrl -Query $Query -TimeoutSec $TimeoutSec -AuthUsername $AuthUsername -AuthPassword $AuthPassword
+    $verdict = Get-SearxngVerdict -StatusCode $probe.StatusCode -ResponseHeaders $probe.Headers -Body $probe.Body -ErrorMessage $probe.ErrorMessage -AuthSent $probe.AuthSent
 
     $report = [ordered]@{
         Timestamp = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         Target    = Get-MaskedUrl $targetUrl
         Query     = $Query
+        AuthUsed  = [bool]$probe.AuthSent
         Layer     = $verdict.Layer
         HttpCode  = $verdict.HttpCode
         Detail    = $verdict.Detail
