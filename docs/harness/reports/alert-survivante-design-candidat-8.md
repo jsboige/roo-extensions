@@ -4,7 +4,11 @@
 **Issue :** [#3678](https://github.com/jsboige/roo-extensions/issues/3678)
 **Dépendance :** [#3676](https://github.com/jsboige/roo-extensions/issues/3676) (candidat #3 — claim sur issue, registre de verrous hors GDrive)
 **Cause racine :** [#2875](https://github.com/jsboige/roo-extensions/issues/2875) (GoogleDriveFS silent-exit — état CLOSED, contournement par watchdog #2933)
-**Statut :** [PROPOSAL] — arbitrage user/coordinateur requis avant implémentation
+**Statut :** [PROPOSAL] — arbitrage user/coordinateur requis avant implémentation.
+**Mise à jour 2026-09-16 (po-2023) :** implémenté sur les défauts proposés au §7 (GitHub Issue
+label `gdrivefs-watchdog-alert`, 6 h, skip-threshold 2, poll rapide 1 min × 10 min option (b),
+#2875 acté permanent, couche 3 non-implémentée) — voir le README du watchdog et l'issue #3678.
+Les défauts restent réversibles : chaque valeur est un paramètre du body.
 
 ---
 

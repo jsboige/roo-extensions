@@ -1,7 +1,7 @@
 # GDriveFS Watchdog
 
-**Issues:** #2875 (silent-exit), #2933 (C1 mechanism + C2), #2938 (positive C1 liveness probe)
-**Date:** 2026-07-25
+**Issues:** #2875 (silent-exit), #2933 (C1 mechanism + C2), #2938 (positive C1 liveness probe), #3678 (survivor alert channel + fast-poll)
+**Date:** 2026-07-25 (updated 2026-09-16, #3678)
 **Owner:** myia-web1
 
 ---
@@ -90,7 +90,10 @@ State file `<LogDir>/watchdog-state.json` tracks:
   "consecutive_relaunch_failures": 0,
   "last_relaunch_attempt": "2026-07-24T...",
   "last_alert_at": "2026-07-24T...",
-  "cooldown_until": "2026-07-25T..."
+  "cooldown_until": "2026-07-25T...",
+  "last_github_alert_at": "2026-09-16T...",
+  "consecutive_cooldown_skips": 0,
+  "fast_poll_until": "2026-09-16T..."
 }
 ```
 
@@ -139,6 +142,71 @@ old, still in init). The old code (no grace) kills the in-init instance **(2
 kills)**; the grace guard kills it **zero** times, while still killing a
 genuinely-hung instance past the init window.
 
+### Survivor alert channel (#3678)
+
+During a GDrive outage, every fleet coordination channel (dashboard, RooSync
+inbox, `[WAKE-CLAUDE]`) runs through the dead `G:` mount — the incident of
+2026-08-16 left the fleet deaf and mute for ~15 min with **no one off-host
+aware**. The watchdog's local sinks (log file, Event Log 2001) worked, but they
+speak into the void. The defense is two layers:
+
+| Layer | Channel | Survives the GDrive outage? | Cost |
+|-------|---------|------------------------------|------|
+| 1 — local (already in place) | `watchdog-YYYYMMDD.log` + Event Log EventIds 2000/2001 | Yes (local disk) | zero |
+| 2 — remote (#3678) | **GitHub issue** (label `gdrivefs-watchdog-alert`) via `gh` CLI | **Yes — gh talks to api.github.com, not G:** | ~4 issues / 24 h max |
+
+Layer 2 triggers:
+
+- **At C2 escalation** (cooldown engaged) — first alert.
+- **On repeated cooldown-skips** (`CooldownSkipAlertThreshold`, default 2) —
+  the outage persists; a re-alert is attempted on each skip.
+- **Dedupe guard**: `last_github_alert_at` in the state file; a new issue only
+  goes out after `AlertMinIntervalHours` (default 6 h) — ceiling ≈ 4 issues /
+  24 h / machine under a continuous outage (~0.003 % of the 5 000/h GitHub quota).
+
+Failure behavior: `gh` missing, unauthenticated, or the label absent ⇒ the
+alert is skipped with a `WARN` in the local log. **A dead alert channel never
+breaks the watchdog's local duties** (relaunch, cooldown, Event Log).
+
+Prerequisites (once per repo): the label must exist —
+
+```powershell
+gh label create gdrivefs-watchdog-alert --repo jsboige/roo-extensions --color D93F0B
+```
+
+Pass `-AlertGitHubRepo ''` to disable remote alerting on a host (local sinks
+remain).
+
+This is a **persistence/observability** channel, not push notification: the
+human still has to look at GitHub. A cross-machine absence-detection heartbeat
+(design proposal §3 layer 3) is explicitly post-MVP.
+
+### Fast-poll window (#3678)
+
+The regular cadence is 15 min; after a C2 escalation that leaves up to 15 more
+minutes of blind time. The installer registers a **companion task**
+`GDriveFS-Watchdog-FastPoll` repeating every 1 min — **disabled** at rest. On
+escalation the body arms it (`Enable-ScheduledTask`) for
+`FastPollWindowMinutes` (default 10), records `fast_poll_until` in state, and
+disarms it at window expiry or on recovery.
+
+The companion invokes the same body with `-FastPoll`: outside the window, that
+invocation **disarms the task and exits before any probe**. Even if a disarm
+ever fails, the cost is one cheap no-op invocation per minute, not a full poll —
+nominal cost stays zero (this is proposal option (b): dynamic arm/disarm, not
+two permanent triggers).
+
+### Status of the #2875 workaround — permanent (production control)
+
+Original framing called this watchdog an interim fix pending a root-cause
+repair of the GoogleDriveFS silent-exit. The investigation (#2875) closed
+**inconclusive** — no crash log, no reproducible trigger; candidate causes
+(OOM kill, indexation conflict, DriveFS v127 flakiness) remain undiscriminated.
+**Decision (2026-09-16, #3678 deliverable 3): the workaround is permanent.**
+This watchdog is a *production control*, not a temporary bandage; no further
+root-cause investigation is planned unless a discriminating signal surfaces
+(a logged crash, a reproducible behavior).
+
 ### Why user context (NOT SYSTEM)
 
 GDriveFS binds its `core_controller` to the **user account token**. A
@@ -160,9 +228,9 @@ user re-auths) clears the cooldown and the watchdog resumes normal operation.
 
 | File | Role |
 |------|------|
-| `gdrivefs-watchdog.ps1` | Body — one-shot poll: detect (C0) + health-check (C1) + cooldown (C2) + relaunch + log. |
-| `test-gdrivefs-watchdog.ps1` | Regression tests for successful idle mount stat, error, disable, and bounded return behavior. |
-| `install-gdrivefs-watchdog-schtask.ps1` | Installer — registers the `GDriveFS-Watchdog` scheduled task. |
+| `gdrivefs-watchdog.ps1` | Body — one-shot poll: detect (C0) + health-check (C1) + cooldown (C2) + relaunch + log + survivor alert (#3678) + fast-poll window (#3678). |
+| `test-gdrivefs-watchdog.ps1` | Regression tests: mount probe (stat/enum/error/disable/bounded), startup-grace replay, survivor-channel alert (dedupe/mock gh), fast-poll window. |
+| `install-gdrivefs-watchdog-schtask.ps1` | Installer — registers `GDriveFS-Watchdog` + the companion `GDriveFS-Watchdog-FastPoll` task (disabled until armed). |
 
 ## Installation — [INTERACTIVE-ONLY]
 
@@ -180,6 +248,13 @@ This installs a task `GDriveFS-Watchdog` that:
 - `ExecutionTimeLimit` 5 min, `MultipleInstances IgnoreNew`
 - Restarts on failure (3× / 1 min)
 
+…plus the companion task `GDriveFS-Watchdog-FastPoll` (1-min repeat,
+**registered disabled** — the body arms/disarms it, see *Fast-poll window*).
+
+**Upgrading from a pre-#3678 install:** re-run the installer (it replaces both
+tasks idempotently) and make sure the `gdrivefs-watchdog-alert` label exists
+(see *Survivor alert channel*).
+
 Neither a cron worker nor a `[WAKE-CLAUDE]` can install it (chicken-and-egg: you
 cannot WAKE to repair the WAKE; elevation is not available from a non-elevated
 session).
@@ -189,6 +264,9 @@ session).
 ```powershell
 # Dry-run (probe only, never relaunch) — safe, no system change:
 pwsh -File scripts\gdrivefs-watchdog\gdrivefs-watchdog.ps1 -Mode dry-run
+
+# Dry-run as the fast-poll companion would (exercises the early-exit guard):
+pwsh -File scripts\gdrivefs-watchdog\gdrivefs-watchdog.ps1 -Mode dry-run -FastPoll
 
 # Run regression tests for the positive mount probe:
 pwsh -File scripts\gdrivefs-watchdog\test-gdrivefs-watchdog.ps1
@@ -214,8 +292,15 @@ Get-Content outputs\gdrivefs-watchdog\watchdog-$(Get-Date -Format yyyyMMdd).log 
 | `CooldownHours` (body) | `24` | C2 — hours to suppress further relaunches after threshold reached. |
 | `StartupGraceSeconds` (body) | `1200` | Guard (#3466) — never kill an instance younger than this. Derived from the measured init time (~11-20 min). The post-relaunch verdict window is this factor, not a fixed 90 s. |
 | `LogRetentionDays` (body) | `14` | Auto-prune logs older than N days. |
+| `AlertGitHubRepo` (body) | `jsboige/roo-extensions` | #3678 — repo for survivor-channel alert issues. Empty string disables remote alerting. |
+| `AlertMinIntervalHours` (body) | `6` | #3678 — minimum hours between two alert issues (ceiling ≈ 4 / 24 h). |
+| `CooldownSkipAlertThreshold` (body) | `2` | #3678 — consecutive cooldown-skips before re-alerting (outage persists). |
+| `FastPollWindowMinutes` (body) | `10` | #3678 — minutes of 1-min fast polling after a C2 escalation. |
+| `FastPollTaskName` (body) | `GDriveFS-Watchdog-FastPoll` | #3678 — companion task name (must match the installer's). |
+| `FastPoll` (body) | — | #3678 — switch set by the companion task invocation; enables the early-exit guard outside the window. |
 | `RepeatMinutes` (installer) | `15` | Poll cadence. |
 | `StartupDelayMinutes` (installer) | `2` | Delay after boot (let GDrive settle). |
+| `FastPollRepeatMinutes` (installer) | `1` | #3678 — companion task repeat interval. |
 
 Artifacts (gitignored):
 - **Logs**: `<LogDir>/watchdog-YYYYMMDD.log`
