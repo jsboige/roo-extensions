@@ -242,6 +242,14 @@ administrator` terminal):
 pwsh -ExecutionPolicy Bypass -File scripts\gdrivefs-watchdog\install-gdrivefs-watchdog-schtask.ps1
 ```
 
+**Preview before the single UAC window (#3690):** run the installer with `-DryRun`
+from a non-elevated session — it prints the exact task actions/settings (and
+which existing tasks it would replace) and exits without touching the schedule:
+
+```powershell
+pwsh -File scripts\gdrivefs-watchdog\install-gdrivefs-watchdog-schtask.ps1 -DryRun
+```
+
 This installs a task `GDriveFS-Watchdog` that:
 - Runs as the user, `Highest`, `Interactive`
 - Triggers: `AtLogOn` + `AtStartup`(+2m) + repeat every 15 min
@@ -273,6 +281,10 @@ pwsh -File scripts\gdrivefs-watchdog\test-gdrivefs-watchdog.ps1
 
 # Run the poll manually:
 pwsh -File scripts\gdrivefs-watchdog\gdrivefs-watchdog.ps1
+
+# Preview the installer (no elevation, no mutation):
+pwsh -File scripts\gdrivefs-watchdog\install-gdrivefs-watchdog-schtask.ps1 -DryRun
+pwsh -File scripts\gdrivefs-watchdog\install-gdrivefs-watchdog-schtask.ps1 -DryRun -Uninstall
 
 # Uninstall the task:
 pwsh -File scripts\gdrivefs-watchdog\install-gdrivefs-watchdog-schtask.ps1 -Uninstall
