@@ -161,19 +161,35 @@ forme ne couvre pas une **valeur nue** (cas fondateur), purge explicite §3.4.
 
 ## 6. Retrait d'un secret publié en DM RooSync (`roosync_messages`)
 
-**Version:** 1.2.0 (ajout, #3584)
+**Version:** 1.2.1 (#3584)
 
-### 6.1 Prévention à l'écriture (côté serveur MCP, depuis #3584)
+### 6.1 Prévention à l'écriture (côté serveur MCP) — deux couches
 
-`roosync_send` (action `send` / `reply` / `amend`) traverse `redactMessageForPublication`
-dans `tools/roosync/send.ts` AVANT `messageManager.sendMessage` / `amendMessage`. Le garde
-couvre les trois champs texte :
+**Couche primaire, LIVE depuis le 14/09 — #1156** (squash `8b2e467e`, MERGED
+2026-09-14) : `maskSecretTextForPublication` est câblé à la **boundary
+persistence** (`MessageManager.ts`) — unique point de mutation traversé par
+les DEUX branches du store (fichiers GDrive et PG-primaire) :
 
-- `body` (send, reply)
-- `subject` (send)
-- `new_content` (amend)
+- send : `subject` (L825) + `body` (L826)
+- amend : `new_content` (L2125) + `reason` (L2126)
 
-Deux couches appliquées à la chaîne (cf. `utils/secret-redaction.ts`) :
+Tout ce qui est persisté (`messages/sent/`, `messages/inbox/`, miroir PG,
+indexation) part de ces valeurs masquées. Signal de log :
+`[MESSAGES-REDACTION]` (pluriel) — « secret masqué à l'envoi / à
+l'amendement (#3584) ».
+
+**Couche secondaire, PROPOSÉE — submod #1164** (router boundary, en review) :
+`redactMessageForPublication` dans `tools/roosync/send.ts`, appliquée au
+routeur `roosyncSend` AVANT `messageManager.sendMessage` / `amendMessage`.
+Defense-in-depth : les valeurs traversent la partie amont (écho d'arguments
+au niveau routeur/outil, journalisation intermédiaire) déjà masquées, et la
+garde tient si un chemin futur contourne la boundary persistence. Champs
+couverts au routeur : `body` (send, reply), `subject` (send), `new_content`
+(amend). Signal de log : `[MESSAGE-REDACTION]` (singulier — routeur ; ne pas
+confondre avec le pluriel persistence ci-dessus).
+
+Les deux couches appliquent à la chaîne les mêmes détecteurs
+(cf. `utils/secret-redaction.ts`) :
 
 1. **Formes auto-descriptives** (`sk-`, `ghp_`, `Bearer`, `API_KEY=`, etc.) — attrape la
    valeur dès qu'elle voyage avec un contexte syntaxique.
@@ -182,14 +198,17 @@ Deux couches appliquées à la chaîne (cf. `utils/secret-redaction.ts`) :
    concatène `process.env.MY_KEY` dans le body : le serveur MCP, qui partage l'env,
    attrape la même valeur au passage.
 
-Le masquage journalise `[MESSAGE-REDACTION]` (champs masqués + action + `to`, jamais la
-valeur). Sans ce signal, l'auteur croirait avoir publié la valeur — c'est la même logique
+Sans signal de log, l'auteur croirait avoir publié la valeur — c'est la même logique
 que `[DASHBOARD-REDACTION]` côté dashboard.
 
-### 6.2 Retrait d'un message déjà publié (avant le bump submod + redémarrage du siège)
+### 6.2 Retrait d'un message déjà publié (fenêtre pré-#1156-par-hôte)
 
-Pour les DM émis **avant** que `send.ts` ne porte le patch (ou avant que le siège serveur
-n'ait redémarré) :
+La fenêtre d'exposition est antérieure au déploiement de la couche primaire :
+DM émis **avant** que le siège serveur ne serve un build ≥ `8b2e467e` (#1156
+appliqué par siège au restart). Après les redémarrages du 16/09, seul po-2026
+reste sur un build antérieur (hôte listener mort) — les DM émis depuis tout
+autre siège redémarré passent déjà par le masquage à la persistance (la
+détection, elle, reste celle des deux détecteurs ci-dessus).
 
 1. **Depuis l'expéditeur (siège détenteur de préférence)** : `action: "amend"` remplace
    `body` (et `subject` pour send) — passer `new_content` masqué manuellement. Limite :
@@ -223,7 +242,12 @@ n'ait redémarré) :
 ---
 
 **Amendements:**
-- **1.2.0** (16/09/2026, #3584) — section §6 ajoutée : le canal DM RooSync (`roosync_send`)
-  n'était pas couvert par les volets précédents (rédaction à l'écriture). Le patch `send.ts`
-  ferme l'avenir. La procédure de retrait des DM déjà publiés est ajoutée pour la fenêtre
-  pré-bump.
+- **1.2.1** (17/09/2026, #3584) — §6.1/§6.2 recadrées sur l'état réel de main (reviews #3693) :
+  la couche primaire est #1156 (boundary persistence, MERGED 14/09, `8b2e467e`) ; le patch
+  routeur `send.ts` (submod #1164, en review) est une couche secondaire defense-in-depth.
+  La fenêtre de retrait §6.2 devient pré-#1156-par-hôte (seul po-2026 reste en build
+  antérieur au 17/09).
+- **1.2.0** (16/09/2026, #3584) — section §6 ajoutée : procédure de retrait des DM déjà
+  publiés. La note de cadrage d'origine (« le canal DM RooSync n'était pas couvert par les
+  volets précédents ») était inexacte — corrigée en 1.2.1 : #1156 masquait déjà à la
+  persistance depuis le 14/09.
