@@ -1,10 +1,10 @@
-# ADR 014: Anti-tarissement des lanes — convergence CoursIA (picker 3 urnes, deep-queue, test-resultat)
+# ADR 015: Anti-tarissement des lanes — convergence CoursIA (picker 3 urnes, deep-queue, test-resultat)
 
-**Date:** 2026-09-15
+**Date:** 2026-09-15 (renuméroté 015 le 2026-09-16 — le numéro 014 est réservé à #3680 « claim locus », même Epic ; collision résolue côté rework #3681)
 **Status:** Accepted
 **Issue:** #3675 (Epic #3111 phase 2, candidat #2)
 **Related:** #2185 (cap IDLE 3), #2509 (`--limit 15` faux drain), #3111 (Epic convergence),
-#3155 (PR audit filesystem CoursIA), #1417 (catalogue idle I1-I8)
+#3155 (PR audit filesystem CoursIA), #1417 (catalogue idle I1-I8), #3680 (ADR 014 claim locus)
 
 ## Context
 
@@ -44,7 +44,7 @@ Le picker tire dans 3 urnes :
 |------|--------|-----------|------------------|
 | `grain` | Issues actionnables | `approved`, `bug`, `investigation` | 7 |
 | `umbrella` | Issues parentes/epics | `epic` | 2 |
-| `delivered` | PRs ouvertes (verrou commentaire) | (n/a) | 1 |
+| `delivered` | PRs ouvertes livrables (toutes — pas de lecture de verrou : une PR ouverte n'est pas encore un grain transforme) | (n/a) | 1 |
 
 **Parametres :**
 - `--limit 300` (defaut) : corrige #2509, echantillonne le backlog reel.
@@ -52,23 +52,45 @@ Le picker tire dans 3 urnes :
 - `--weights "grain:7,umbrella:2,delivered:1"` : override.
 - Scan les 2 depots (anti-double-claim #3407) : `jsboige/roo-extensions` + `jsboige/jsboige-mcp-servers`.
 
-**Verdict IDLE-REAL :** declenche UNIQUEMENT si `grain + umbrella + delivered = 0`. Sinon PICK.
+**Fail-closed (reviews #3681) :** toute panne instrument — gh exit non-nul, timeout, JSON invalide —
+rend un verdict `ERROR` avec **exit 2**, jamais un verdict de fond. Un instrument muet ne peut pas
+declarer le pool vide. Le stdout gh est decode en UTF-8 (`errors="replace"`) : les titres accentues
+ne crashent plus le reader sous Windows cp1252.
+
+**Sans filtre `--machine` :** le champ Machine de ce depot vit dans le Project #67 (fields), pas en
+labels ni assignees — un filtre local ne matchera jamais (mesure po-2027 16/09). L'attribution par
+lane passe par la discipline dashboard `[CLAIMED]`, pas par le picker.
+
+**Verdict IDLE-REAL :** declenche UNIQUEMENT si `grain + umbrella + delivered = 0` APRES collecte
+reussie sur les 2 depots. Sinon PICK.
 
 ### 2. Test de fin de cycle — `scripts/scheduling/test_cycle_end.py`
 
 Remplace « idle-honnete » (vocabulaire) par **test-resultat** (sortie).
 
 ```
-verdict = PASS  si backlog_actionnable == 0 (REELLEMENT draine)
-        |  PASS  si prs_delivered > 0 dans la fenetre
-        |  FAIL  sinon (echec de methode)
+verdict = PASS   si backlog_grain == 0 (urne grain REELLEMENT vide, collecte reussie)
+        |  PASS   si prs_delivered_fleet > 0 dans la fenetre
+        |  FAIL   sinon (echec de methode) → exit 1
+        |  ERROR  si panne instrument gh (fail-closed) → exit 2
 ```
 
-**Sortie :** exit 0 / exit 1, JSON pour CI.
+**Sortie :** exit 0 (PASS) / exit 1 (FAIL) / exit 2 (ERROR), JSON pour CI.
 
-**Integration executor :** Le SKILL.md Phase 2 gagne une etape 9 qui invoque le test avant
-de basculer sur le catalogue idle I1-I8. Si FAIL → l'agent doit reprendre Phase 2 (relire le
-picker, prendre un grain reel).
+**Portee FLOTTE assumee (reviews #3681) :** les PRs comptees sont celles de toute la flotte sur les
+2 depots. L'attribution par machine vit dans le Project #67 (champ Machine) et l'auteur gh est un
+compte partage (`jsboige`) — un filtre par auteur ne distingue pas les lanes. Ce test est un signal
+flotte ; la conformite de LA lane passe par la discipline `[CLAIMED]`/`[DONE]` dashboard. Le champ
+de sortie s'appelle `prs_delivered_fleet` et le compteur backlog ne mesure QUE l'urne grain
+(labels `approved`/`bug`/`investigation`) — le test ne rapporte que ce qu'il mesure.
+
+**Autorite des verdicts (asymetrie documentee) :** le picker (`IDLE_REAL` = 3 urnes vides) est un
+outil de SELECTION ; le test de fin de cycle (`PASS`-idle = grain==0 seul) est l'AUTORITE de fin de
+cycle. En cas de divergence, c'est le test qui fait foi.
+
+**Integration executor :** le SKILL.md executor gagne une section « Test de fin de cycle » qui
+invoque le test avant de basculer sur le catalogue idle I1-I8. Si FAIL → l'agent doit reprendre
+Phase 2 (relire le picker, prendre un grain reel).
 
 ### 3. Deep-queue par lane — pattern documente (non code)
 
@@ -91,6 +113,8 @@ gardes #2185 (cap IDLE 3) et le re-arm cron/WAKE restent la cadence locale de ro
 - **Anti-tarissement reel.** Le test-resultat bloque la sortie facile « idle honnete ».
 - **Anti-monoculture.** `--limit 300` + 3 urnes elargit l'espace de recherche.
 - **Reproductibilite.** `--seed` deterministe, `--reroll` pour explorer, `--json` pour CI.
+- **Fail-closed.** Une panne gh (rate-limit GraphQL #3623, auth, reseau) se lit comme ERROR
+  exit 2, jamais comme un pool vide.
 - **Compatibilite ascendante.** Le picker est un outil, pas un remplacement du Phase 2 du SKILL.md.
   Les priorites 1-6 (instructions directes, Machine=*, TODO detaille, bug, in-progress) restent.
 
@@ -101,22 +125,27 @@ gardes #2185 (cap IDLE 3) et le re-arm cron/WAKE restent la cadence locale de ro
   du worker (1 fois par cycle).
 - **Verdict FAIL peut surprendre.** Un agent peut se voir refuser IDLE alors qu'il pensait
   avoir respecte Phase 2. C'est le but — forcer la reflexion.
+- **Test-resultat a portee flotte.** Une livraison d'une autre lane fait PASSER le test pour
+  toutes — limite documentee, l'attribution fine exige le Project #67 (non implemente ici).
 
 ### Non-buts reaffirmes
 
 - Pas de migration cadence CoursIA (30 min cron).
 - Pas de modification `#2185` cap IDLE 3 (garde fleche, test-resultat s'y superpose).
 - Pas de suppression des priorites 1-6 du Phase 2.
+- Pas de requetage du Project #67 dans ces scripts v1 (le filtre `--machine` a ete SUPPRIME
+  plutot qu'implemente a moitie : labels `machine:*` inexistants, mesure po-2027 16/09).
 
 ## Implementation
 
 | Fichier | Role |
 |---------|------|
-| `scripts/scheduling/pick_idle_grain.py` | Picker 3 urnes (grain/umbrella/delivered), --limit 300, --seed, --reroll |
-| `scripts/scheduling/test_cycle_end.py` | Test-resultat : PASS si 0 backlog OU >0 livraison dans --since-hours |
-| `.claude/skills/executor/SKILL.md` | Phase 2 etape 9 : invoquer `test_cycle_end.py` avant I1-I8 |
+| `scripts/scheduling/pick_idle_grain.py` | Picker 3 urnes (grain/umbrella/delivered), --limit 300, --seed, --reroll, fail-closed ERROR exit 2 |
+| `scripts/scheduling/test_cycle_end.py` | Test-resultat flotte : PASS si 0 backlog grain OU >0 livraison ; FAIL exit 1 ; ERROR exit 2 |
+| `.claude/skills/executor/SKILL.md` | Sections picker + « Test de fin de cycle » : invoquer le test avant I1-I8 |
 | `.claude/commands/executor.md` | Section picker : commande canonique et exemple sortie |
-| `.claude/rules/validation.md` | Note : picker et test sont des outils CLI, validation par `python -m py_compile` |
+| `scripts/testing/python/test_lane_antitarissement.py` | Tests unitaires (unittest, mock subprocess) : pannes gh, UTF-8, verdicts/exit codes |
+| `scripts/testing/unit/lane-antitarissement.Tests.ps1` | Garde Pester (contenu + invocation des tests Python) — câblée au job CI `unit-pester` |
 
 ## References
 
@@ -126,5 +155,7 @@ gardes #2185 (cap IDLE 3) et le re-arm cron/WAKE restent la cadence locale de ro
 - Issue #2185 (cap IDLE 3 — reste en place)
 - Issue #3111 (Epic convergence)
 - Issue #3675 (candidat #2 de la phase 2, ce document)
-- Issue #3676 (candidat #3 — claim sur issue GitHub, livre par po-2026 #3680)
+- Issue #3676 (candidat #3 — claim sur issue GitHub, livre par po-2026 #3680, ADR 014)
 - Issue #3678 (candidat #8 — alertes survivantes, lien cross-pollinisation)
+- Reviews #3681 : ai-01 CHANGES_REQUESTED 15/09 23:12Z, po-2027 16/09 05:43Z (fail-open,
+  cp1252, `--machine`, collision ADR 014 — corrigés dans le rework)
