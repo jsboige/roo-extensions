@@ -1,6 +1,6 @@
 # Inventaire des consommateurs du modèle local — Issue #3401
 
-**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-13 (exécution étape 1 instance locale po-203 + découverte topologie relais → hub autoritaire po-2025 — po-2023)
+**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-15 (§7.1 qualifiée **instances de siège** avec mapping vers les systèmes §1, ligne doublon du système #7 retirée, coordonnées du défaut alignées sur la mesure fraîche `openai.ts:102`/`index.ts:97` en §1/§5 — po-2024 ; précédente 2026-09-14 : lane po-2024 §7 — déclaration de siège + re-mesure du gate end-to-end (toujours fermé) + provenance des clés ; 2026-09-13 : étape 1 instance locale po-203 + topologie relais → hub autoritaire po-2025 — po-2023)
 **Auteur :** web1 (lane executor)
 **Issue :** [#3401](https://github.com/jsboige/roo-extensions/issues/3401)
 **Sonde primaire :** `grep -rE 'qwen3[.\-][0-9a-zA-Z\-]+|OPENAI_BASE_URL|OPENAI_API_KEY|EMBEDDING_API_KEY|VLLM_API_KEY|ANTHROPIC_BASE_URL|claudish|models\.myia' --include='*.ps1' --include='*.json' --include='*.ts' --include='*.js' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.template*' --include='*.env*'` dans `/c/dev/roo-extensions` (working tree).
@@ -15,7 +15,7 @@
 |---|---------|--------------|---------------------|----------------------|----------------------|-------|---------|
 | 1 | **Claude Code (agents + coord)** | `ANTHROPIC_BASE_URL` → claudish (proxy `models.myia.io`) | `~/.claude/settings.json` (par machine) + template `.claude/configs/provider.claudish*.template.json` | `claude-opus-5[1m]` / `claude-sonnet-5[1m]` / `claude-haiku-4-5-20251001[1m]` — **alias stables**, pas de nom de version | clé = `ANTHROPIC_CUSTOM_HEADERS.x-proxy-key` (po-2023) ou `ANTHROPIC_AUTH_TOKEN` (ai-01 natif) | grep `ANTHROPIC_BASE_URL` dans `.claude/configs/` | **DEJA-VERS-CLAUDISH** ✅ |
 | 2 | **Claude Code (rôle haiku fallback modèle local)** | `ANTHROPIC_DEFAULT_HAIKU_MODEL` = `qwen3.6-35b-a3b` quand template free-tier | `.claude/configs/provider.claudish.template.json` l.8 ; `.claude/configs/provider.claudish-free-tier.template.json` l.9 | **`qwen3.6-35b-a3b`** ⚠️ (prod actuelle) | dérivée via claudish (routeur) | grep `ANTHROPIC_DEFAULT_HAIKU_MODEL` | **VERS-CLAUDISH-ALIAS** : remplacer par `claude-haiku-local` (alias) |
-| 3 | **roo-state-manager (condensation LLM + dashboards)** | SDK OpenAI direct via `OPENAI_BASE_URL` | `mcps/internal/servers/roo-state-manager/.env.template` l.6 (submod gitlink `0e5240df`) | **`qwen3.6-35b-a3b`** (defaut `openai.ts:97` + `index.ts:96`) | `OPENAI_API_KEY` (env conteneur) | grep `OPENAI_BASE_URL\|qwen3\.6` dans submod | **VERS-CLAUDISH** : SDK OpenAI de claudish côté `models.myia.io/v1` — alias `local-coding` |
+| 3 | **roo-state-manager (condensation LLM + dashboards)** | SDK OpenAI direct via `OPENAI_BASE_URL` | `mcps/internal/servers/roo-state-manager/.env.template` l.6 (submod gitlink `0e5240df`) | **`qwen3.6-35b-a3b`** (defaut `openai.ts:102` + `index.ts:97`, vérifié 15/09) | `OPENAI_API_KEY` (env conteneur) | grep `OPENAI_BASE_URL\|qwen3\.6` dans submod | **VERS-CLAUDISH** : SDK OpenAI de claudish côté `models.myia.io/v1` — alias `local-coding` |
 | 4 | **roo-state-manager (embeddings Qdrant)** | SDK OpenAI direct via `EMBEDDING_API_BASE_URL` (legacy) | submod `.env.example` l.59-66 ; `services/task-indexer/EmbeddingValidator.ts:54` | **`qwen3-4b-awq-embedding`** | `EMBEDDING_API_KEY` (env conteneur) | grep `EMBEDDING_API_KEY` dans submod | **VERS-CLAUDISH** : endpoint embeddings stable `https://models.myia.io/v1/embeddings` (API OpenAI supportée par claudish) — **GELÉ 06/09** : l'inférence « API OpenAI supportée ⇒ `/v1/embeddings` servi » est contredite par la sonde (404) ; bascule différée jusqu'à relais effectif (arbitrage user) |
 | 5 | **roo-state-manager (fallback embeddings cloud)** | OpenAI cloud API (`api.openai.com`) | submod `.env.example` l.248 (commentaire : "primary vLLM down → cloud") | variable (pas en dur) | `OPENAI_API_KEY` (cloud) | grep `OPENAI_API_KEY` dans submod | **RESTE-DIRECT** (cloud OpenAI officiel = chemin de secours, hors surface locale) |
 | 6 | **sk-agent (LLM endpoints du serveur)** | Config statique JSON + appel OpenAI-compat | `mcps/internal/servers/sk-agent/sk_agent_config.template.json` l.95/99/106/110/137/152 ; `sk_agent_config.py:469` ; `benchmark_models.py:91` ; `run_benchmark.py:31` | `qwen3.6-35b-a3b`, `qwen3.6-35b-no-thinking`, `owui-qwen3.6-35b`, etc. | `sk_agent_config.json` (deployé, hors repo) — clé passée par appelant | grep `sk_agent_config.template.json\|benchmark_models.py` | **VERS-CLAUDISH** : sk-agent expose déjà une API OpenAI-compat (consommée par `scripts/review/call-sk-agent.ps1`) → passer par `models.myia.io/v1` au lieu de `text-generation-webui.myia.io/v1` |
@@ -136,14 +136,14 @@ Pour chaque étape 2-7 : `npx vitest run` côté submod + `npm run test:mcp` cô
 - **Lane non couverte :** OWUI 7 écoles (#17) — la sonde ne peut pas atteindre les bases sans accès ai-01/ops-schools. **Donnée brute :** ai-01 a mesuré 2 occ. pour OWUI interne + 3-4 par école = 21-28 occ. estimées. **À confirmer firsthand par ai-01/ops-schools.**
 - **Notebooks CoursIA (#18), Docker render_envs (#19) :** hors `roo-extensions` — pas sondés. **À déclarer par les lanes CoursIA / ops-schools.**
 - **Watchdogs `scripts/mcp-watchdog/`, `scripts/mcp/` :** **0 hits** pour `qwen3|OPENAI_BASE_URL|OPENAI_API_KEY|VLLM_API_KEY`. Pas de consommateurs directs. ✅ contrôle négatif net.
-- **Tests Vitest :** occurrences nombreuses de `qwen3.6-35b-a3b` dans les tests du submod, mais ce sont des fixtures de string — pas des consommateurs runtime. **À distinguer** dans le PR #2 (étape 2) : remplacer seulement le default `openai.ts:97` et `index.ts:96`, laisser les tests qui assertent la précédence/fallback.
+- **Tests Vitest :** occurrences nombreuses de `qwen3.6-35b-a3b` dans les tests du submod, mais ce sont des fixtures de string — pas des consommateurs runtime. **À distinguer** dans le PR #2 (étape 2) : remplacer seulement le default `openai.ts:102` et `index.ts:97` (coordonnées vérifiées 15/09, cf. §7.1), laisser les tests qui assertent la précédence/fallback.
 - **Docs (`docs/sk-agent/`, `docs/investigation/unified-model-router.md`, `docs/deployment/claudish-per-machine.md`) :** occurrences documentaires (rapports d'évaluation, designs). **Hors scope** — ne pas modifier dans cette Epic, mais à mettre à jour quand la bascule est validée.
 
 ---
 
 ## 6. Synthèse métrique
 
-- **Systèmes identifiés :** 19 (15 dans `roo-extensions` + 4 externes partiels).
+- **Systèmes identifiés :** 19 (15 dans `roo-extensions` + 4 externes partiels). Les instances de siège §7.1 (po-2024) sont des déploiements locaux de ces systèmes — elles n'ajoutent pas au total.
 - **Occurrences noms en dur dans roo-extensions :** 226 (qwen3-32b 41 · qwen3.5-35b-a3b 37 · qwen3-30b-a3b 26 · qwen3-8b 22 · qwen3.6-35b-a3b 19 · qwen3-235b-a22b-fp8 19 · qwen3-14b 19 · qwen3-1.7b 18 · qwen3-embedding 15 · + variantes courtes).
 - **Clés à rotater au pire :** 7 (1 env RSM × 3 canaux × 7 écoles OWUI) — ramenées à **1** si tous les consommateurs passent par claudish (alias + clé unique `x-proxy-key`).
 - **PRs prévues :** 5 (1 ai-01 alias, 1 submod RSM, 1 submod sk-agent, 1 parent Roo+claudish+call-sk-agent, 1 ai-01 swap final).
@@ -151,4 +151,66 @@ Pour chaque étape 2-7 : `npx vitest run` côté submod + `npm run test:mcp` cô
 
 ---
 
-**Verdict global :** la surface est **réductible de 19 → 14** (5 OWUI écoles confondues derrière 1 script SQL, 1 clé RSM remplacée par `x-proxy-key` claudish). Le swap #2716 devient **invisible** des consommateurs : 1 ligne dans le routeur claudish.
+## 7. Lane po-2024 — déclaration firsthand (14/09) + re-mesure du gate vague 1
+
+**Sonde :** lecture directe des fichiers de config du siège (`~/.claude/settings.json`, `.env` RSM déployé, `sk_agent_config.json` déployé) + sondes HTTP live. **Clés jamais lues en clair** (longueur + sha8 seulement).
+
+### 7.1 Consommateurs du siège po-2024 — instances de siège des systèmes §1
+
+**Ces lignes sont les instances DE CE SIÈGE de systèmes déjà comptés dans le tableau fleet-level §1 — elles n'ajoutent AUCUN système au total de 19.** Mapping : 20→#1, 21→#3, 22→#4, 25→#6. Les lignes 23 (mini) et 24 (fallback cloud) sont des **canaux secondaires du déploiement RSM #3** (mêmes `.env`/verdicts RESTE-DIRECT hors surface de réduction, comme #5 et #8-#10). La ligne `call-sk-agent.ps1` de la rév. 14/09 a été retirée : **doublon exact du système fleet-level #7** (même script, mêmes l.118/137, même verdict — étape 4).
+
+| # | Système §1 | Système (siège) | Mode d'accès | Emplacement config | Nom de modèle | Provenance de la clé | Sonde | Verdict |
+|---|------------|-----------------|--------------|--------------------|---------------|----------------------|-------|---------|
+| 20 | #1 | **Claude Code po-2024** | `ANTHROPIC_BASE_URL=http://192.168.0.50:3000` (hub po-2025, LAN direct) | `~/.claude/settings.json` clé `env` | rôles `claude-*[1m]` — **aucun nom qwen en dur** | `x-proxy-key` dans `ANTHROPIC_CUSTOM_HEADERS` (len 64) | `grep ANTHROPIC_BASE_URL settings.json` | **DEJA-VERS-CLAUDISH** ✅ |
+| 21 | #3 | **RSM po-2024 — condensation LLM** | SDK OpenAI → `http://192.168.0.47:5002/v1` (`OPENAI_BASE_URL`) | `.env` RSM déployé (`mcps/internal/servers/roo-state-manager/.env`) | pas de `OPENAI_CHAT_MODEL_ID` → défaut code **`qwen3.6-35b-a3b`** (`index.ts:97`, `openai.ts:102`) | **`VLLM_API_KEY_MEDIUM`** — le build lit ce nom **en premier** (`chat-key.ts:37`) | `POST /v1/chat/completions` @ `.47:5002` | **RESTE-DIRECT** tant que le gate est fermé — cible `local-coding` (étape 2) |
+| 22 | #4 | **RSM po-2024 — embeddings Qdrant** | SDK OpenAI → `http://192.168.0.51:8004/v1` (`EMBEDDING_API_BASE_URL`) | idem | `qwen3-4b-awq-embedding` (`EMBEDDING_MODEL`) | `EMBEDDING_API_KEY` (len 64) | `POST /v1/embeddings` → **200**, `qwen3-4b-awq-embedding` | **RESTE-DIRECT** (gel 06/09 : pas d'ingress `/v1/embeddings` côté claudish) |
+| 23 | #3 · canal mini | **RSM po-2024 — vLLM mini** | SDK OpenAI → `https://api.mini.text-generation-webui.myia.io/v1` | idem | `zwz-8b` (`VLLM_MINI_MODEL_ID`) | `VLLM_API_KEY_MINI` | `grep VLLM_MINI` dans `.env` | hors surface prod |
+| 24 | #3 · canal fallback cloud | **RSM po-2024 — fallback cloud** | z.ai | idem | `glm-4.7` (`FALLBACK_LLM_MODEL_ID`) | `ZAI_API_KEY` | idem | **RESTE-DIRECT** (cloud) |
+| 25 | #6 | **sk-agent po-2024** | config JSON + appel OpenAI-compat, 3 endpoints | `mcps/internal/servers/sk-agent/sk_agent_config.json` **déployé** (hors repo, 49 KB) | 17 entrées dont **10 locales** : `qwen3.6-35b-a3b`, `qwen3.6-35b-no-thinking`, `omnicoder-9b`, 6 `owui-*` | clés inline **par entrée** — **3 provenances distinctes** (voir 7.3) | `json.load(…)['models']` | **VERS-CLAUDISH** (étape 5) — **2 entrées actuellement cassées**, cf. 7.3 |
+
+**Contrôle négatif :** `schtasks /query` du siège → **0** tâche claude/executor/watchdog/mcp ; `~/.claude.json` → aucune URL `192.168.0.*` / `myia.io` hormis le roster `ROO_FLEET_ROSTER`.
+
+### 7.2 Re-mesure du gate vague 1 (14/09) — **TOUJOURS FERMÉ**
+
+Le **catalogue** annonce désormais les alias (changement depuis le 13/09), mais **la résolution chat ne suit pas** :
+
+| Vantage | `GET /v1/models` | `POST /v1/chat/completions` `model=local-coding` |
+|---|---|---|
+| hub po-2025 `192.168.0.50:3000` | **200**, 23 modèles, `local-coding` + `local-fast` présents | **401** `{"error":{"message":"x-api-key header is required","type":"authentication_error"}}` |
+| relais po-203 `192.168.0.46:3000` | idem | **401** idem |
+| edge public `https://models.myia.io` | idem (23 modèles) | **401** idem |
+
+**Contrôles appariés (requêtes identiques, mêmes en-têtes) :**
+
+- `qwen3.6-35b-a3b` (baseline) → **200** sur le hub **et** sur le relais.
+- nom **volontairement bidon** (`totally-bogus-xyz`) → **401 aux mêmes octets** que `local-coding` ; `local-fast` idem. ⇒ l'alias **ne résout pas** — il tombe dans le même chemin que « modèle inconnu », exactement la panne silencieuse que cette Epic combat.
+- en-tête `x-api-key` (forme Anthropic) sur `/v1/chat/completions` → **401** identique ;
+- route Anthropic `/v1/messages` (`x-api-key` + `anthropic-version`) : `claude-sonnet-4-6` → **200** (rôle servi `deepseek-flash`), `local-coding` → **401** identique.
+
+**Conclusion :** le critère de gate (annoncé **ET** complétion 200 end-to-end via `192.168.0.46:3000`) **n'est pas satisfait**. Une lecture **catalog-only** conclurait « gate ouvert » **à tort** : c'est précisément le piège documenté §3 étape 1, ici mesuré sur les **3 vantages**. Les étapes 2-5 restent **gated**.
+
+### 7.3 Provenance des clés — une clé morte dupliquée que le build ne lit pas
+
+Le `.env` RSM déployé de po-2024 porte **deux** clés chat de 32 caractères, de **valeurs différentes** :
+
+| Variable | sha8 | `POST .47:5002/v1/chat/completions` (l'endpoint que `OPENAI_BASE_URL` désigne) | lue par le build ? |
+|---|---|---|---|
+| `VLLM_API_KEY_MEDIUM` | `299ad00b` | **200**, complétion réelle | **oui** — `chat-key.ts:37` la lit **en premier** |
+| `OPENAI_API_KEY` | `1c6a3bc7` | **401** `{"error":"Unauthorized"}` | non — repli seulement si `VLLM_API_KEY_MEDIUM` est absent |
+
+La même valeur morte `1c6a3bc7` est **dupliquée** dans `sk_agent_config.json` déployé sur les **deux** entrées vLLM direct :
+
+| Entrée sk-agent | `base_url` | sha8 clé configurée | `POST` sur cet endpoint |
+|---|---|---|---|
+| `qwen3.6-35b-a3b` | `api.medium.text-generation-webui.myia.io/v1` | `1c6a3bc7` | **401** `{"error":"Unauthorized"}` |
+| `qwen3.6-35b-no-thinking` | idem | `1c6a3bc7` | (idem entrée ci-dessus) |
+| *contrôle* : même endpoint, clé flotte | idem | `299ad00b` | **200** |
+
+**Deux conséquences pour l'inventaire :**
+
+1. **Méthode — nommer la variable que le BUILD lit.** Un audit qui teste la clé au nom le plus générique (`OPENAI_API_KEY`) conclut « consommateur cassé, 401 » et « corrige » le mauvais levier ; le build lit `VLLM_API_KEY_MEDIUM` (`chat-key.ts:37`), acceptée. C'est la même classe que #1147 (« la clé de chat doit correspondre à son endpoint »), vue depuis l'autre bout : ici la clé *morte* est présente, co-localisée, et **silencieusement inoffensive** pour RSM.
+2. **Surface de rotation — `1c6a3bc7` est une copie morte en 3 emplacements** (1 var RSM + 2 entrées sk-agent) : elle n'apparaît dans **aucun** inventaire dérivé d'un `.env` unique. Les 2 entrées sk-agent concernées sont **actuellement non fonctionnelles** (401 sur leur propre endpoint) — à traiter en **étape 5** (aucune correction appliquée ici : la mutation de config est gated par le plan synchronisé §3, cette Epic porte un recensement, pas une bascule).
+
+---
+
+**Verdict global :** la surface est **réductible de 19 → 14** (5 OWUI écoles confondues derrière 1 script SQL, 1 clé RSM remplacée par `x-proxy-key` claudish) — total inchangé par les instances de siège §7.1 (cf. §6). Le swap #2716 devient **invisible** des consommateurs : 1 ligne dans le routeur claudish.

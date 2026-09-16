@@ -66,7 +66,23 @@ function Find-OAuthExpirySignal {
 . (Join-Path $PSScriptRoot '..\common\executor-blockage-state.ps1')
 
 try {
-    $branch = (& git -C $RepoRoot branch --show-current).Trim()
+    # #3605-incident: when the cwd persists in a submodule (CWD inheritance from
+    # a previous Bash session) `git rev-parse --show-toplevel` at line 22-23
+    # silently auto-detects the submodule, then `git branch --show-current`
+    # returns an empty string for detached HEAD. Calling `.Trim()` on null
+    # throws a NullReferenceException with no actionable context. Guard
+    # explicitly: a missing current branch means the RepoRoot resolution was
+    # wrong, not that the user is on a non-main branch.
+    $branchRaw = & git -C $RepoRoot branch --show-current 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Could not read current branch from $RepoRoot (git exit $LASTEXITCODE): $branchRaw"
+    }
+    $branch = ($branchRaw | Out-String).Trim()
+    if ([string]::IsNullOrEmpty($branch)) {
+        throw ("Empty current branch at $RepoRoot — likely a detached HEAD, or " +
+               "git rev-parse --show-toplevel resolved to a submodule. Pass " +
+               "-RepoRoot explicitly when calling the pre-flight.")
+    }
     if ($branch -ne 'main') {
         throw "Executor pre-flight must run from main, not '$branch'."
     }
@@ -163,6 +179,15 @@ try {
     # A failed pre-flight does not observe the absorbing form either: reset the
     # streak rather than escalate on memory (#3605).
     Clear-BlockageState -StatePath (Get-BlockageStatePath)
-    Write-Error "[executor-preflight][BLOCKED] $($_.Exception.Message)"
+    # #3605-incident: when the failing statement throws a non-Exception ErrorRecord
+    # (NativeCommandError from the ensure-build-fresh helper, for instance), `$_.Exception`
+    # is `$null`. `$_.Exception.Message` then throws another NullReferenceException
+    # that masks the original error — the user sees "[BLOCKED] " with no actionable
+    # content. `$_.ToString()` is safe in every case (ErrorRecord and Exception
+    # both implement it) and includes the CategoryInfo / FullyQualifiedErrorId for
+    # native errors.
+    $detail = if ($_.Exception) { $_.Exception.Message } else { $_.ToString() }
+    if ([string]::IsNullOrWhiteSpace($detail)) { $detail = $_.ToString() }
+    Write-Error "[executor-preflight][BLOCKED] $detail"
     exit 1
 }
