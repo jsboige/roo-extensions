@@ -1,6 +1,7 @@
 # `gh` et la concurrence multi-processus
 
 **Créé le** 2026-08-05 — clôture de #3032, sur cadrage utilisateur.
+**Amendé le** 2026-09-16 — sérialisation des actions publiques au sein d'une session.
 
 ---
 
@@ -28,19 +29,21 @@ système tel qu'il est utilisé ici.
 Observé le 2026-08-04 : un worker local a changé l'identité entre deux de mes commandes. La garde
 décrite ci-dessous a fait son travail ; rien n'a été mergé sous la mauvaise identité.
 
-## L'adaptation retenue — la garde **dans** la commande agissante
+## L'adaptation retenue — garde inline + actions publiques séquentielles dans la session
 
-Le seul invariant qui tienne face à ça :
+Deux invariants complémentaires tiennent face à ça :
 
-> **Ne jamais séparer « choisir l'identité » de « agir ». La vérification d'identité doit être dans
-> la même commande shell que l'action.**
+1. **Ne jamais séparer « choisir l'identité » de « agir ».** La vérification d'identité doit être
+   dans la même commande shell que l'action.
+2. **Une même session ne lance jamais deux actions GitHub publiques en parallèle si elles font
+   chacune `gh auth switch`.** Les lectures peuvent rester parallèles ; reviews, commentaires,
+   merges, fermetures et créations sont sérialisés par la session qui les orchestre.
 
 ```bash
-# ✅ la garde et l'action sont atomiques du point de vue de l'agent
+# ✅ un seul bloc public à la fois dans cette session
 gh auth switch --user myia-ai-01 \
   && [ "$(gh api user --jq .login)" = "myia-ai-01" ] \
-  && gh pr review N --approve --body "..." \
-  && gh pr merge N --squash
+  && gh pr review N --approve --body-file review.md
 ```
 
 ```bash
@@ -52,6 +55,20 @@ gh pr merge N --squash          # sous quelle identité, réellement ?
 Corollaire : `gh auth status` lu au début d'une session ne dit **rien** de l'identité qu'aura la
 commande suivante. Une identité n'est vraie qu'au moment où elle est asserted, dans la commande qui
 agit.
+
+### Pourquoi deux blocs gardés en parallèle restent dangereux
+
+La garde inline ne constitue pas une transaction sur `hosts.yml`. Deux blocs parallèles d'une même
+session peuvent s'entrelacer ainsi : A bascule et vérifie A ; B bascule vers B ; A exécute ensuite
+son action sous B. C'est arrivé le 2026-09-16 avec deux commentaires Evidence lancés ensemble : l'un
+a été publié sous l'identité humaine `jsboige` malgré son assertion préalable de `myia-ai-01`. Une
+clarification publique a immédiatement établi que ce commentaire ne valait ni approbation ni consentement
+humain.
+
+Le correctif est local à l'orchestrateur : il groupe toujours les **lectures** indépendantes, mais
+émet les **actions publiques** une par une. Ce n'est ni un verrou de la machine ni une tentative de
+contrôler les autres sessions ; un autre processus peut toujours basculer l'identité, raison pour
+laquelle la garde inline reste obligatoire sur chaque action.
 
 ## Ce qu'on ne fait **pas** — et pourquoi
 
