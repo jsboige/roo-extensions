@@ -18,6 +18,11 @@ on:
       # path in this filter matched. The harness below guards that script, so
       # the script's own path has to be a trigger for it.
       - 'scripts/mcp-watchdog/**'
+      # #3690: same gap, measured rather than predicted — the survivor harness
+      # below guards scripts/gdrivefs-watchdog/*.ps1, so those paths have to be
+      # triggers for it: a watchdog change landing on main otherwise re-runs
+      # nothing (mcp-chain-watchdog precedent, f6580da6).
+      - 'scripts/gdrivefs-watchdog/**'
       # #3216: the unit-pester job below runs the Pester suite in
       # scripts/testing/unit/; its runner and the production sources that suite
       # guards must re-trigger it on main pushes (same principle as above).
@@ -269,6 +274,14 @@ jobs:
       - name: Run watchdog slow-vs-dead harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-watchdog-slow-vs-dead.ps1
+
+      # #3690: the GDriveFS watchdog survivor harness (20 assertions, mocked gh)
+      # extracts its probe/alert/fast-poll sections out of gdrivefs-watchdog.ps1
+      # and runs them standalone — no real gh, no schtask, no network. Same shape
+      # as the sibling harnesses, so it gates on ubuntu-latest pwsh.
+      - name: Run GDriveFS watchdog survivor harness
+        shell: bash
+        run: pwsh -File scripts/gdrivefs-watchdog/test-gdrivefs-watchdog.ps1
 
       # start-meta-audit.ps1 built its claude arguments twice: the -DryRun preview wrote its
       # own copy and exited ~50 lines before the real ArgumentList was assembled. #3166 added

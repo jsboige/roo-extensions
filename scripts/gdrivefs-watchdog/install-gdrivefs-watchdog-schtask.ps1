@@ -18,9 +18,22 @@
     (NOT SYSTEM) — a SYSTEM-context relaunch cannot associate the core_controller.
 
 .PARAMETER Uninstall
-    Remove the scheduled task instead of creating it.
+    Remove the scheduled tasks (main + fast-poll companion) instead of creating them.
+
+.PARAMETER DryRun
+    Print the exact task actions/settings that would be applied (or the tasks
+    that would be removed with -Uninstall) WITHOUT touching the schedule —
+    no elevation required. Use this to preview the UAC deployment before the
+    elevated window (#3690).
+
+.PARAMETER FastPollRepeatMinutes
+    #3678 — repeat interval of the companion fast-poll task (registered
+    DISABLED; the watchdog body arms it on C2 escalation and disarms it at
+    window expiry / recovery). Default: 1.
 
 .EXAMPLE
+    .\install-gdrivefs-watchdog-schtask.ps1 -DryRun
+    .\install-gdrivefs-watchdog-schtask.ps1 -DryRun -Uninstall
     .\install-gdrivefs-watchdog-schtask.ps1
     .\install-gdrivefs-watchdog-schtask.ps1 -Uninstall
 
@@ -32,8 +45,10 @@
 
 param(
     [switch]$Uninstall,
+    [switch]$DryRun,
     [int]$RepeatMinutes = 15,
     [int]$StartupDelayMinutes = 2,
+    [int]$FastPollRepeatMinutes = 1,
     [string]$MountPath = 'G:\',
     [ValidateRange(0, 60)]
     [int]$MountProbeTimeoutSeconds = 5
@@ -42,15 +57,23 @@ param(
 $scriptDir   = Split-Path $MyInvocation.MyCommand.Path -Parent
 $watchdogPs1 = Join-Path $scriptDir "gdrivefs-watchdog.ps1"
 $taskName    = "GDriveFS-Watchdog"
+$fastTaskName = "GDriveFS-Watchdog-FastPoll"
 
 if ($Uninstall) {
-    $existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-    if ($existing) {
-        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-        Write-Host "Removed scheduled task: $taskName"
-    } else {
-        Write-Host "Task not found: $taskName"
+    foreach ($t in @($taskName, $fastTaskName)) {
+        $existing = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+        if ($existing) {
+            if ($DryRun) {
+                Write-Host "DRY-RUN: would unregister task '$t' (state=$(if ($existing.State) { $existing.State } else { 'unknown' }))"
+            } else {
+                Unregister-ScheduledTask -TaskName $t -Confirm:$false
+                Write-Host "Removed scheduled task: $t"
+            }
+        } else {
+            Write-Host "Task not found: $t"
+        }
     }
+    if ($DryRun) { Write-Host "DRY-RUN: no mutation executed. Re-run without -DryRun (elevated) to apply." }
     exit 0
 }
 
@@ -84,13 +107,9 @@ if (-not (Test-Path $MountPath)) {
     }
 }
 
-# Remove old task if exists (idempotent reinstall).
-$existing = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
-if ($existing) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
-    Write-Host "Removed existing task: $taskName"
-}
-
+# pwsh path resolution and task definition build read-only objects: they run
+# first so the -DryRun preview below can print the exact plan with zero
+# mutations (non-elevated, #3690).
 $pwshPath = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
 if (-not $pwshPath) {
     Write-Host "ERROR: pwsh not found in PATH."
@@ -132,13 +151,72 @@ $settings = New-ScheduledTaskSettingsSet `
     -ExecutionTimeLimit (New-TimeSpan -Minutes 5) `
     -MultipleInstances IgnoreNew
 
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon, $trigStartup, $trigRepeat) -Principal $principal -Settings $settings -Description "GDriveFS silent-exit watchdog #2875 — relaunch GoogleDriveFS.exe (user context) when absent, every $RepeatMinutes min" | Out-Null
+# ---------- companion fast-poll task (#3678) ----------
+# Registered DISABLED: the watchdog body arms it (Enable-ScheduledTask) when C2
+# escalates, for a FastPollWindowMinutes window, and disarms it at expiry or
+# recovery. Dynamic arm/disarm keeps the nominal cost at zero — no second
+# permanently-running trigger. The body receives -FastPoll so its early-exit
+# guard can no-op (and re-attempt the disarm) once the window has closed.
+# Indefinite repetition ([TimeSpan]::MaxValue) is intentional: the body's
+# early-exit guard is the bound, so a missed disable degrades to one cheap
+# invocation per minute instead of a stuck task.
+$fastActionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds -FastPoll"
+$fastAction = New-ScheduledTaskAction -Execute $pwshPath -Argument $fastActionArguments
+$fastTrigRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $FastPollRepeatMinutes) -RepetitionDuration ([TimeSpan]::MaxValue)
+
+$taskDescription = "GDriveFS silent-exit watchdog #2875 — relaunch GoogleDriveFS.exe (user context) when absent, every $RepeatMinutes min"
+$fastDescription = "GDriveFS watchdog fast-poll #3678 — 1-min companion task, armed by the watchdog body on C2 escalation for a short window; stays disabled otherwise"
+
+if ($DryRun) {
+    Write-Host "DRY-RUN — install plan (#3690). No mutation executed; elevation not required to print this."
+    foreach ($t in @($taskName, $fastTaskName)) {
+        $existing = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+        if ($existing) {
+            Write-Host "  [unregister] existing '$t' (state=$(if ($existing.State) { $existing.State } else { 'unknown' })) — idempotent reinstall"
+        } else {
+            Write-Host "  [unregister] none ('$t' not present)"
+        }
+    }
+    Write-Host "  [register] $taskName"
+    Write-Host "    Action : $pwshPath $actionArguments"
+    Write-Host "    Trigger: AtLogOn; AtStartup +${StartupDelayMinutes}m; once-in-1m then repeat every ${RepeatMinutes}m (MultipleInstances IgnoreNew)"
+    Write-Host "    Principal: $env:USERNAME (RunLevel Highest, LogonType Interactive)"
+    Write-Host "    Settings: ExecutionTimeLimit 5m | RestartCount 3 (1m) | StartWhenAvailable | allow on batteries"
+    Write-Host "    Description: $taskDescription"
+    Write-Host "  [register] $fastTaskName, then [disable] (armed by the body on C2 escalation only)"
+    Write-Host "    Action : $pwshPath $fastActionArguments"
+    Write-Host "    Trigger: once-in-1m then repeat every ${FastPollRepeatMinutes}m, indefinite duration"
+    Write-Host "    Description: $fastDescription"
+    Write-Host ""
+    Write-Host "DRY-RUN — nothing registered/unregistered/disabled. Re-run without -DryRun from an elevated PowerShell to apply."
+    exit 0
+}
+
+# Remove old tasks if they exist (idempotent reinstall).
+foreach ($t in @($taskName, $fastTaskName)) {
+    $existing = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+    if ($existing) {
+        Unregister-ScheduledTask -TaskName $t -Confirm:$false
+        Write-Host "Removed existing task: $t"
+    }
+}
+
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon, $trigStartup, $trigRepeat) -Principal $principal -Settings $settings -Description $taskDescription | Out-Null
+
+Register-ScheduledTask -TaskName $fastTaskName -Action $fastAction -Trigger $fastTrigRepeat -Principal $principal -Settings $settings -Description $fastDescription | Out-Null
+Disable-ScheduledTask -TaskName $fastTaskName | Out-Null
 
 Write-Host "Installed scheduled task: $taskName"
 Write-Host "  Triggers: AtLogOn + AtStartup(+${StartupDelayMinutes}m) + repeat every ${RepeatMinutes}m | Principal: $env:USERNAME (Highest, Interactive)"
 Write-Host "  ExecutionTimeLimit: 5 min | MultipleInstances: IgnoreNew"
 Write-Host "  C1 positive probe: mount=$MountPath, timeout=${MountProbeTimeoutSeconds}s"
 Write-Host "  Body: $watchdogPs1"
+Write-Host "Installed companion task (DISABLED until the body arms it): $fastTaskName"
+Write-Host "  Trigger: repeat every ${FastPollRepeatMinutes}m (indefinite; bounded by the body's fast-poll window + early-exit guard)"
+Write-Host ""
+Write-Host "Prerequisite for the #3678 survivor channel (once per repo):"
+Write-Host "  gh label create gdrivefs-watchdog-alert --repo jsboige/roo-extensions --color D93F0B"
 Write-Host ""
 Write-Host "To start immediately: schtasks /run /tn `"$taskName`""
 Write-Host "To test the body standalone (no install): pwsh -File `"$watchdogPs1`" -Mode dry-run"
+Write-Host "To preview this install (no elevation, no mutation): .\install-gdrivefs-watchdog-schtask.ps1 -DryRun"

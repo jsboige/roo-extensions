@@ -22,6 +22,12 @@
                           attempts for a cooldown window and emit an Error-level
                           alert. Re-arms on next successful detection.
 
+    #3678 survivor channel: the C2 escalation alert ALSO goes out as a GitHub
+    issue via the gh API (independent of the dead G: mount — it survives the
+    outage it reports), with a bounded re-alert cadence while the outage
+    persists. A companion 1-min fast-poll task is armed for a short window
+    after escalation to shorten the fleet's blind time.
+
     Designed to run as a short-lived scheduled task every ~15 min.
 
     Limitation: if the account token was dropped (not just the process), a clean
@@ -62,6 +68,35 @@
     verdict. The post-relaunch verification window is this factor, not a fixed
     90s constant. Default: 1200 (20 min).
 
+.PARAMETER AlertGitHubRepo
+    #3678 survivor channel — GitHub repo ('owner/name') where escalation alerts
+    are posted as issues labeled 'gdrivefs-watchdog-alert'. The channel is
+    deliberately independent of GDrive (gh talks to api.github.com directly),
+    so it survives the very outage it reports. Empty string disables remote
+    alerting (local sinks remain). Default: 'jsboige/roo-extensions'.
+
+.PARAMETER AlertMinIntervalHours
+    #3678 — minimum hours between two GitHub alert issues from this host
+    (anti-spam ceiling: ~4 issues / 24 h under a continuous outage). Default: 6.
+
+.PARAMETER CooldownSkipAlertThreshold
+    #3678 — number of consecutive cooldown-skips before the survivor channel
+    re-alerts (the escalation alert already fired once when cooldown engaged;
+    skips signal the outage PERSISTS). Default: 2.
+
+.PARAMETER FastPollWindowMinutes
+    #3678 — minutes of 1-min fast polling after a C2 escalation (companion
+    task GDriveFS-Watchdog-FastPoll, armed/disarmed dynamically). Default: 10.
+
+.PARAMETER FastPollTaskName
+    #3678 — name of the companion fast-poll scheduled task (must match the
+    installer's registration). Default: 'GDriveFS-Watchdog-FastPoll'.
+
+.PARAMETER FastPoll
+    #3678 — switch appended by the companion fast-poll task invocation. Marks
+    this run as eligible for the early-exit guard when the fast-poll window has
+    expired (disarms the companion task, exits before any probe).
+
 .EXAMPLE
     .\gdrivefs-watchdog.ps1
     .\gdrivefs-watchdog.ps1 -Mode dry-run
@@ -79,7 +114,16 @@ param(
     [int]$MaxConsecutiveFailures = 3,
     [int]$CooldownHours = 24,
     [ValidateRange(0, 86400)]
-    [int]$StartupGraceSeconds = 1200
+    [int]$StartupGraceSeconds = 1200,
+    [string]$AlertGitHubRepo = 'jsboige/roo-extensions',
+    [ValidateRange(0, 168)]
+    [int]$AlertMinIntervalHours = 6,
+    [ValidateRange(1, 50)]
+    [int]$CooldownSkipAlertThreshold = 2,
+    [ValidateRange(1, 120)]
+    [int]$FastPollWindowMinutes = 10,
+    [string]$FastPollTaskName = 'GDriveFS-Watchdog-FastPoll',
+    [switch]$FastPoll
 )
 
 $ErrorActionPreference = 'Continue'
@@ -119,6 +163,84 @@ function Write-WatchdogEvent {
     } catch {}
 }
 
+# ---------- GitHub alert — survivor channel (#3678) ----------
+# The watchdog's other sinks (log file, Event Log) are LOCAL: during a GDrive
+# outage the fleet's coordination channels (dashboard, RooSync inbox) run
+# through the dead G: mount, so nobody off-host can see them. This channel is
+# deliberately independent of GDrive — gh talks to api.github.com directly, so
+# it survives the very outage it reports. It is a persistence/observability
+# channel (the human still has to look at GitHub), not a push notification.
+# Failure here must NEVER break the watchdog's local duties: every failure
+# mode returns Sent=$false + SkipReason and the caller logs at WARN at most.
+# Requires the label 'gdrivefs-watchdog-alert' to exist on the target repo.
+$script:GhExe = 'gh'   # injectable so tests can point at a mock
+
+function Send-GitHubAlert {
+    param(
+        [string]$Reason,
+        [string]$Detail,
+        [string]$Repo,
+        [int]$MinIntervalHours,
+        $LastAlertAt,
+        [datetime]$Now
+    )
+    if ([string]::IsNullOrWhiteSpace($Repo)) {
+        return @{ Sent = $false; SkipReason = 'repo-not-configured'; NewLastAlertAt = $null; IssueUrl = '' }
+    }
+    if ($LastAlertAt) {
+        try {
+            $lastAt = if ($LastAlertAt -is [datetime]) { $LastAlertAt } else { [datetime]::Parse([string]$LastAlertAt) }
+            if (($Now - $lastAt).TotalHours -lt $MinIntervalHours) {
+                return @{ Sent = $false; SkipReason = "alert-cooldown (<${MinIntervalHours}h since last)"; NewLastAlertAt = $null; IssueUrl = '' }
+            }
+        } catch {
+            # unparsable last-alert timestamp — treat as never alerted
+        }
+    }
+    if (-not (Get-Command $script:GhExe -ErrorAction SilentlyContinue)) {
+        return @{ Sent = $false; SkipReason = 'gh-not-found'; NewLastAlertAt = $null; IssueUrl = '' }
+    }
+    $title = "[WATCHDOG] GDriveFS outage on $env:COMPUTERNAME - $Reason"
+    $bodyLines = @(
+        "GDriveFS watchdog alert (survivor channel, #3678).",
+        "",
+        "- **Host:** $env:COMPUTERNAME ($env:USERNAME)",
+        "- **Time:** $($Now.ToString('o'))",
+        "- **Reason:** $Reason",
+        "- **Detail:** $Detail",
+        "",
+        "This issue was posted via the GitHub API, not GDrive: the coordination",
+        "channels that depend on the G: mount are presumed dead (that is what",
+        "this alert reports). Local sinks (watchdog log + Event Log 2000/2001)",
+        "carry the same event on the host.",
+        "",
+        "- [ ] Outage investigated / GDriveFS restored",
+        "- [ ] Fleet comm verified (dashboard read/write from another machine)",
+        "",
+        "Auto-generated by gdrivefs-watchdog.ps1 - closing is fine once handled."
+    )
+    $bodyFile = Join-Path ([System.IO.Path]::GetTempPath()) ("gdrivefs-alert-{0}.md" -f [guid]::NewGuid())
+    $sent = $false
+    $skip = ''
+    $issueUrl = ''
+    $newLast = $null
+    try {
+        [System.IO.File]::WriteAllText($bodyFile, ($bodyLines -join "`r`n"), [System.Text.UTF8Encoding]::new($false))
+        $issueUrl = (& $script:GhExe issue create --repo $Repo --title $title --body-file $bodyFile --label 'gdrivefs-watchdog-alert') -join ' '
+        if ($LASTEXITCODE -eq 0 -and $issueUrl) {
+            $sent = $true
+            $newLast = $Now.ToString('o')
+        } else {
+            $skip = "gh-exit-$LASTEXITCODE"
+        }
+    } catch {
+        $skip = "gh-threw: $($_.Exception.Message)"
+    } finally {
+        Remove-Item -LiteralPath $bodyFile -Force -ErrorAction SilentlyContinue
+    }
+    return @{ Sent = $sent; SkipReason = $skip; NewLastAlertAt = $newLast; IssueUrl = $issueUrl }
+}
+
 # ---------- state file (C2) ----------
 function Read-WatchdogState {
     if (-not (Test-Path $stateFile)) {
@@ -127,6 +249,9 @@ function Read-WatchdogState {
             last_relaunch_attempt         = $null
             last_alert_at                 = $null
             cooldown_until                = $null
+            last_github_alert_at          = $null
+            consecutive_cooldown_skips    = 0
+            fast_poll_until               = $null
         }
     }
     try {
@@ -137,6 +262,9 @@ function Read-WatchdogState {
             last_relaunch_attempt         = $obj.last_relaunch_attempt
             last_alert_at                 = $obj.last_alert_at
             cooldown_until                = $obj.cooldown_until
+            last_github_alert_at          = $obj.last_github_alert_at
+            consecutive_cooldown_skips    = [int]$obj.consecutive_cooldown_skips
+            fast_poll_until               = $obj.fast_poll_until
         }
     } catch {
         Write-Log 'WARN' "Could not parse state file ($stateFile) — starting fresh. ($($_.Exception.Message))"
@@ -145,6 +273,9 @@ function Read-WatchdogState {
             last_relaunch_attempt         = $null
             last_alert_at                 = $null
             cooldown_until                = $null
+            last_github_alert_at          = $null
+            consecutive_cooldown_skips    = 0
+            fast_poll_until               = $null
         }
     }
 }
@@ -301,6 +432,42 @@ function Test-CooldownActive {
     return $false
 }
 
+# ---------- fast-poll window (#3678) ----------
+# After a C2 escalation the regular 15-min cadence leaves the fleet blind for
+# up to 15 more minutes. The installer registers a companion task
+# ($FastPollTaskName) repeating every 1 min but starting DISABLED; this body
+# arms it at escalation (fast_poll_until = now + FastPollWindowMinutes) and
+# disarms it at window expiry or recovery. The -FastPoll switch marks an
+# invocation from that task: outside the window it disarms the companion task
+# and exits BEFORE any probe, so even a failed disarm costs only one cheap
+# invocation per minute instead of a full poll — nominal cost stays zero.
+function Test-FastPollWindowActive {
+    param($FastPollUntil, [datetime]$Now)
+    if (-not $FastPollUntil) { return $false }
+    try {
+        $until = if ($FastPollUntil -is [datetime]) { $FastPollUntil } else { [datetime]::Parse([string]$FastPollUntil) }
+        return ($until -gt $Now)
+    } catch {
+        return $false
+    }
+}
+
+function Set-WatchdogFastPollTask {
+    param([bool]$Enabled, [string]$TaskName)
+    $verb = if ($Enabled) { 'enable' } else { 'disable' }
+    try {
+        if ($Enabled) {
+            Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null
+        } else {
+            Disable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null
+        }
+        return $true
+    } catch {
+        Write-Log 'WARN' "Could not $verb fast-poll task '$TaskName': $($_.Exception.Message)"
+        return $false
+    }
+}
+
 # ---------- startup grace (A0.1/A0.2, #3466) ----------
 # GoogleDriveFS mount init takes ~11-20 min on slow hosts (measured ai-01
 # 2026-09-05, #3466). A watchdog that kills an instance younger than the
@@ -390,6 +557,22 @@ if ($Mode -ne 'dry-run') {
     Write-Log 'INFO' "C2 state: consecutive_failures=$($state.consecutive_relaunch_failures), cooldown_until=$($state.cooldown_until)"
 }
 
+# #3678 — fast-poll early-exit guard. This invocation comes from the companion
+# 1-min task: if the fast window has expired, disarm that task (best effort)
+# and exit before any probe. The regular 15-min task keeps full coverage, so
+# exiting here is never a coverage gap — it is the cost bound that keeps a
+# failed disarm at "one cheap invocation per minute" instead of a full poll.
+if ($FastPoll) {
+    if (-not (Test-FastPollWindowActive -FastPollUntil $state.fast_poll_until -Now (Get-Date))) {
+        Write-Log 'INFO' "Fast-poll invocation outside window (fast_poll_until=$($state.fast_poll_until)) — disarming '$FastPollTaskName' and exiting early."
+        if ($Mode -ne 'dry-run') {
+            $null = Set-WatchdogFastPollTask -Enabled $false -TaskName $FastPollTaskName
+        }
+        exit 0
+    }
+    Write-Log 'INFO' "Fast-poll invocation inside window (until $($state.fast_poll_until)) — running full poll."
+}
+
 $binary = Resolve-GDriveFSPath
 if (-not $binary -or -not (Test-Path $binary)) {
     Write-Log 'ERROR' "GDriveFS binary not found (HKCU Run + Program Files glob both empty). Cannot relaunch."
@@ -424,6 +607,22 @@ if (-not $binary -or -not (Test-Path $binary)) {
             $msg = "Cooldown active until $($state.cooldown_until) — SKIPPING relaunch (reason=$reason). Manual intervention or next AtLogOn trigger required."
             Write-Log 'WARN' $msg
             $script:alerts += "cooldown-skip: $reason"
+            # #3678: repeated cooldown-skips mean the outage persists and every
+            # GDrive-based coordination channel is still dead — re-alert the
+            # survivor channel (internal dedupe caps it at ~4 issues / 24 h).
+            if ($Mode -ne 'dry-run') {
+                $state.consecutive_cooldown_skips = [int]$state.consecutive_cooldown_skips + 1
+                if ([int]$state.consecutive_cooldown_skips -ge $CooldownSkipAlertThreshold) {
+                    $gh = Send-GitHubAlert -Reason 'cooldown-skip (outage persists)' -Detail "consecutive_skips=$($state.consecutive_cooldown_skips); last_reason=$reason; cooldown_until=$($state.cooldown_until)" -Repo $AlertGitHubRepo -MinIntervalHours $AlertMinIntervalHours -LastAlertAt $state.last_github_alert_at -Now (Get-Date)
+                    if ($gh.Sent) {
+                        Write-Log 'ALERT' "Survivor-channel alert sent ($($gh.IssueUrl))"
+                        $state.last_github_alert_at = $gh.NewLastAlertAt
+                    } elseif ($gh.SkipReason -notlike 'alert-cooldown*') {
+                        Write-Log 'WARN' "Survivor-channel alert NOT sent: $($gh.SkipReason)"
+                    }
+                }
+                Save-WatchdogState -State $state
+            }
         } else {
             # A0.1 (#3466): never kill an instance younger than the observed init
             # time. A C1-hung instance still inside its startup-grace window is a
@@ -454,11 +653,30 @@ if (-not $binary -or -not (Test-Path $binary)) {
                     if ($state.consecutive_relaunch_failures -ge $MaxConsecutiveFailures) {
                         $state.cooldown_until = (Get-Date).AddHours($CooldownHours).ToString('o')
                         $state.last_alert_at   = (Get-Date).ToString('o')
+                        $state.consecutive_cooldown_skips = 0
+                        # #3678: open the fast-poll window — the state records the
+                        # deadline even if arming the companion task fails, and the
+                        # early-exit guard closes the task when the window expires.
+                        $state.fast_poll_until = (Get-Date).AddMinutes($FastPollWindowMinutes).ToString('o')
                         Save-WatchdogState -State $state
                         $escMsg = "GDriveFS watchdog ESCALATION: $($state.consecutive_relaunch_failures) consecutive relaunch failures. Cooldown engaged until $((Get-Date).AddHours($CooldownHours)). Manual intervention required."
                         Write-Log 'ERROR' $escMsg
                         Write-WatchdogEvent -EventId 2001 -EntryType Error -Message $escMsg
                         $script:alerts += "escalation: cooldown-until $($state.cooldown_until)"
+                        if (-not (Set-WatchdogFastPollTask -Enabled $true -TaskName $FastPollTaskName)) {
+                            Write-Log 'WARN' "Fast-poll window recorded in state (until $($state.fast_poll_until)) but companion task '$FastPollTaskName' not armed — regular cadence only."
+                        }
+                        # #3678: survivor-channel alert — goes out via GitHub API,
+                        # deliberately NOT via the GDrive-based coordination
+                        # channels that this outage just killed.
+                        $gh = Send-GitHubAlert -Reason 'cooldown-escalation' -Detail "consecutive_failures=$($state.consecutive_relaunch_failures); cooldown_until=$($state.cooldown_until); fast_poll_until=$($state.fast_poll_until)" -Repo $AlertGitHubRepo -MinIntervalHours $AlertMinIntervalHours -LastAlertAt $state.last_github_alert_at -Now (Get-Date)
+                        if ($gh.Sent) {
+                            Write-Log 'ALERT' "Survivor-channel alert sent ($($gh.IssueUrl))"
+                            $state.last_github_alert_at = $gh.NewLastAlertAt
+                            Save-WatchdogState -State $state
+                        } elseif ($gh.SkipReason -notlike 'alert-cooldown*') {
+                            Write-Log 'WARN' "Survivor-channel alert NOT sent: $($gh.SkipReason)"
+                        }
                     } else {
                         Save-WatchdogState -State $state
                     }
@@ -483,6 +701,12 @@ if (-not $binary -or -not (Test-Path $binary)) {
                     if ($Mode -ne 'dry-run') {
                         $state.consecutive_relaunch_failures = 0
                         $state.cooldown_until                = $null
+                        $state.consecutive_cooldown_skips    = 0
+                        if ($state.fast_poll_until) {
+                            $state.fast_poll_until = $null
+                            $null = Set-WatchdogFastPollTask -Enabled $false -TaskName $FastPollTaskName
+                            Write-Log 'INFO' "Recovered — fast-poll window closed ('$FastPollTaskName' disarmed)."
+                        }
                         Save-WatchdogState -State $state
                     }
                 } else {
@@ -494,11 +718,19 @@ if (-not $binary -or -not (Test-Path $binary)) {
             }
         }
     } else {
-        # C2: alive + healthy → reset failure counter (catch-up recovery)
-        if ($Mode -ne 'dry-run' -and $state.consecutive_relaunch_failures -gt 0) {
-            Write-Log 'INFO' "C2 reset: GDriveFS healthy → clearing consecutive_relaunch_failures=$($state.consecutive_relaunch_failures)"
+        # C2: alive + healthy → reset failure counter (catch-up recovery).
+        # Also fires when only #3678 fields are set (skips pending / fast-poll
+        # window still open), so a hand-repaired host closes its own window.
+        if ($Mode -ne 'dry-run' -and ($state.consecutive_relaunch_failures -gt 0 -or [int]$state.consecutive_cooldown_skips -gt 0 -or $state.fast_poll_until)) {
+            Write-Log 'INFO' "C2 reset: GDriveFS healthy → clearing consecutive_relaunch_failures=$($state.consecutive_relaunch_failures), consecutive_cooldown_skips=$($state.consecutive_cooldown_skips)"
             $state.consecutive_relaunch_failures = 0
             $state.cooldown_until                = $null
+            $state.consecutive_cooldown_skips    = 0
+            if ($state.fast_poll_until) {
+                $state.fast_poll_until = $null
+                $null = Set-WatchdogFastPollTask -Enabled $false -TaskName $FastPollTaskName
+                Write-Log 'INFO' "Recovered — fast-poll window closed ('$FastPollTaskName' disarmed)."
+            }
             Save-WatchdogState -State $state
         }
     }
