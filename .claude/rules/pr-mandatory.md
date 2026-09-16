@@ -1,7 +1,7 @@
 # PR Obligatoire — Zero Push Direct sur Main
 
-**Version:** 3.5.1 (slim)
-**MAJ:** 2026-09-05 (anti-double-claim 2 dépôts #3407 ; word-boundary T#80)
+**Version:** 3.5.2 (slim)
+**MAJ:** 2026-09-16 (actions GitHub publiques sérialisées dans une session)
 
 ---
 
@@ -79,8 +79,14 @@ la meme machine. `gh` n'a **aucun** modele de concurrence : l'identite vit dans 
 
 ```bash
 gh auth switch --user <bot> && [ "$(gh api user --jq .login)" = "<bot>" ] \
-  && gh pr review N --approve --body "..." && gh pr merge N --squash
+  && gh pr review N --approve --body-file review.md
 ```
+
+**Ne jamais lancer en parallele deux actions GitHub publiques qui font chacune `gh auth switch` dans
+une meme session.** Deux blocs gardes peuvent s'entrelacer apres leurs assertions : A verifie A, B
+bascule vers B, puis A agit sous B. Parallelliser les lectures est permis ; reviews, commentaires,
+merges, fermetures et creations sont serialises par la session. Ce garde local n'est pas un verrou
+machine-global et ne remplace jamais l'assertion inline.
 
 Un `gh auth status` lu en debut de session ne dit rien de l'identite de la commande suivante.
 **Detail et pistes ecartees :** [`docs/harness/reference/gh-identity-concurrency.md`](../../docs/harness/reference/gh-identity-concurrency.md)
