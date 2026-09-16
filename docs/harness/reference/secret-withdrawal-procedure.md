@@ -155,3 +155,75 @@ jamais la valeur) : c'est le signal qu'un auteur reçoit que son message a été
 volet rétention/retrait (cette procédure + `scrub`) · amendements 1.1.0 (13/09) : précondition
 `scrub` exposée (sinon repli manuel §3.3) ; 11ᵉ ligne d'inventaire Qdrant — le masquage de
 forme ne couvre pas une **valeur nue** (cas fondateur), purge explicite §3.4.
+
+
+---
+
+## 6. Retrait d'un secret publié en DM RooSync (`roosync_messages`)
+
+**Version:** 1.2.0 (ajout, #3584)
+
+### 6.1 Prévention à l'écriture (côté serveur MCP, depuis #3584)
+
+`roosync_send` (action `send` / `reply` / `amend`) traverse `redactMessageForPublication`
+dans `tools/roosync/send.ts` AVANT `messageManager.sendMessage` / `amendMessage`. Le garde
+couvre les trois champs texte :
+
+- `body` (send, reply)
+- `subject` (send)
+- `new_content` (amend)
+
+Deux couches appliquées à la chaîne (cf. `utils/secret-redaction.ts`) :
+
+1. **Formes auto-descriptives** (`sk-`, `ghp_`, `Bearer`, `API_KEY=`, etc.) — attrape la
+   valeur dès qu'elle voyage avec un contexte syntaxique.
+2. **Valeurs connues du process** (`createKnownValueMasker`) — attrape la valeur nue SI
+   elle est déjà dans `process.env` du siège serveur. Couvre le cas où le caller
+   concatène `process.env.MY_KEY` dans le body : le serveur MCP, qui partage l'env,
+   attrape la même valeur au passage.
+
+Le masquage journalise `[MESSAGE-REDACTION]` (champs masqués + action + `to`, jamais la
+valeur). Sans ce signal, l'auteur croirait avoir publié la valeur — c'est la même logique
+que `[DASHBOARD-REDACTION]` côté dashboard.
+
+### 6.2 Retrait d'un message déjà publié (avant le bump submod + redémarrage du siège)
+
+Pour les DM émis **avant** que `send.ts` ne porte le patch (ou avant que le siège serveur
+n'ait redémarré) :
+
+1. **Depuis l'expéditeur (siège détenteur de préférence)** : `action: "amend"` remplace
+   `body` (et `subject` pour send) — passer `new_content` masqué manuellement. Limite :
+   `amend` n'est possible que si le destinataire n'a pas encore lu ; au-delà, repli.
+2. **Depuis l'expéditeur, post-lecture** : pas de retour arrière via l'API ; geste
+   opérateur sur le store GDrive (le fichier JSON source sous `messages/sent/<id>.json`).
+3. **Depuis le destinataire** : geste symétrique sur `messages/inbox/<id>.json`.
+4. **Si la valeur a transité** : considérer comme exposé, rotation (§3.5) — la décision
+   est à l'ayant-cause.
+
+### 6.3 Inventaire des copies d'un DM fautif (différent du dashboard)
+
+| # | Copie | Localisation | Retrait |
+|---|-------|--------------|---------|
+| 1 | Message émis | `messages/sent/<id>.json` (expéditeur) | amend si non-lu, sinon édition manuelle |
+| 2 | Message reçu | `messages/inbox/<id>.json` (destinataire) | édition manuelle |
+| 3 | Miroir PG | upsert sync à chaque écriture | dépend du dual-write de MessageManager ; après amend/édition manuelle, resync |
+| 4 | Transit LLM (transcripts indexés) | Qdrant (transcription conversationnelle) | masquage de forme à l'indexation, sinon purge explicite cf. §3.4 |
+| 5 | Pièces jointes | store RooSync (`attachments/<uuid>`) | l'attachement est un fichier ; supprimer le blob + la référence dans le message JSON |
+| 6 | Transcripts des agents qui ont lu | fichiers JSONL locaux des sessions (lecture terminal) | non retirable par construction — rotation (§3.5) |
+
+### 6.4 Qui peut amender / éditer un DM
+
+| Action | Siège | Pré-condition |
+|--------|-------|----------------|
+| `amend` | émetteur uniquement | destinataire n'a pas encore lu (#3029 + limite `amendMessage`) |
+| Édition manuelle `messages/sent/<id>.json` | émetteur | accès filesystem au store partagé |
+| Édition manuelle `messages/inbox/<id>.json` | destinataire | idem |
+| Rotation | ayant-cause + user | décision partagée, pas au découvreur |
+
+---
+
+**Amendements:**
+- **1.2.0** (16/09/2026, #3584) — section §6 ajoutée : le canal DM RooSync (`roosync_send`)
+  n'était pas couvert par les volets précédents (rédaction à l'écriture). Le patch `send.ts`
+  ferme l'avenir. La procédure de retrait des DM déjà publiés est ajoutée pour la fenêtre
+  pré-bump.
