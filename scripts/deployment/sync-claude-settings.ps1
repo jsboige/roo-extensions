@@ -31,7 +31,7 @@ $ErrorActionPreference = 'Stop'
 $BaseUrlTable = @{
   'myia-po-2023' = 'http://192.168.0.46:3000'   # hub (direct)
   'myia-ai-01'   = 'http://localhost:3000'      # sidecar local (vivant 22/08, .51:3000)
-  'myia-po-2024' = 'http://192.168.0.46:3000'   # hub direct (sidecar retiré c.184) — corrigé 23/08
+  'myia-po-2024' = 'http://192.168.0.50:3000'   # hub claudish po-2025 (repoint 13/09, bascule claudish-2 c.430) — corrigé 16/09 (#3671)
   'myia-po-2026' = 'https://models.myia.io'     # WAN (netstat :3000 = com.docker.backend, PAS un sidecar — corrigé 23/08, 3e stale-table)
   'myia-po-2025' = 'https://models.myia.io'     # WAN itinérante (domaine public, pas d'IP LAN)
   'myia-po-2027' = 'https://models.myia.io'     # WAN itinérante (2 IPs publiques observées, légitime user 23/08)
