@@ -1,0 +1,133 @@
+{
+  "chantier_id": "3111",
+  "epic_or_issue": "https://github.com/jsboige/roo-extensions/issues/3111",
+  "owner_machine": "myia-ai-01",
+  "created_at": "2026-09-16T02:30:00Z",
+  "updated_at": "2026-09-16T11:16:00Z",
+  "completed_at": null,
+  "config": {
+    "resume": true,
+    "parallel": 1,
+    "quality_target": null,
+    "max_iterations": null
+  },
+  "items": {
+    "phase-1-audit": {
+      "status": "completed",
+      "title": "Phase 1 — Audit croisé 4 passes",
+      "path": "docs/harness/reports/harness-convergence-audit-2026-08-17.md",
+      "started_at": "2026-08-15T00:00:00Z",
+      "completed_at": "2026-08-20T00:00:00Z",
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "4 passes : web1 15/08 (matrice 7 axes), po-2026 17/08 (CoursIA-2 + scheduler local), po-2023 20/08 (vision coordinateur + candidat #5 VERIFIE), po-2025 18/08 (synthèse 8 candidats phase 2)."
+    },
+    "phase-2-candidat-1": {
+      "status": "in_progress",
+      "title": "Candidat #1 — plans/progress ← CoursIA",
+      "path": "https://github.com/jsboige/roo-extensions/issues/3674",
+      "started_at": "2026-09-16T02:00:00Z",
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Livré par web1 dans cette PR. ADR 015 + schema doc + règle + pilote Epic #3111 lui-même."
+    },
+    "phase-2-candidat-2": {
+      "status": "in_progress",
+      "title": "Candidat #2 — anti-tarissement des lanes",
+      "path": "https://github.com/jsboige/roo-extensions/pull/3681",
+      "started_at": "2026-09-15T20:00:00Z",
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "PR #3681 par po-2025, OPEN avec CHANGES_REQUESTED (reviewDecision ai-01 exact-head 23:21Z). Auteur doit corriger avant merge."
+    },
+    "phase-2-candidat-3": {
+      "status": "pending",
+      "title": "Candidat #3 — claim cross-lane sur issue",
+      "path": null,
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "À arbitrer en phase 2."
+    },
+    "phase-2-candidat-4": {
+      "status": "pending",
+      "title": "Candidat #4 — pre-commit + gates CI sur mcps/internal",
+      "path": null,
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "À arbitrer en phase 2."
+    },
+    "phase-2-candidat-5": {
+      "status": "pending",
+      "title": "Candidat #5 — format « En attente d'arbitrage user » re-parcouru",
+      "path": "https://github.com/jsboige/roo-extensions/issues/3656",
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Cross-link avec registre open-questions #3656 (registre persistant, pas dans le fil)."
+    },
+    "phase-2-candidat-6": {
+      "status": "in_progress",
+      "title": "Candidat #6 — porteur schtask pour crons CoursIA",
+      "path": null,
+      "started_at": "2026-08-17T00:00:00Z",
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Transposition #3141/#3152/#3153 (déjà déployé roo-ext, à proposer côté CoursIA). Incident fondateur 2026-07-28 (60 h muette ×2 lanes)."
+    },
+    "phase-2-candidat-7": {
+      "status": "pending",
+      "title": "Candidat #7 — méta-doc + harness-hygiene 3-tiers",
+      "path": null,
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Requalifié passe 3 : défaut bilatéral (298 fichiers CoursIA vs 71 roo-ext, like-for-like). Patron commun à abstraire."
+    },
+    "phase-2-candidat-8": {
+      "status": "pending",
+      "title": "Candidat #8 — workspace blueprint",
+      "path": null,
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Abstraction des #1-#7 + porteur schtask. À arbitrer une fois les autres candidats livrés."
+    },
+    "phase-3-integration": {
+      "status": "pending",
+      "title": "Phase 3 — Intégration et bilan",
+      "path": null,
+      "started_at": null,
+      "completed_at": null,
+      "metric_before": null,
+      "metric_after": null,
+      "notes": "Mise à jour skills/agents, bilan Epic, décision archivage vs conservation du pilote."
+    }
+  },
+  "statistics": {
+    "total": 10,
+    "completed": 1,
+    "in_progress": 3,
+    "pending": 6,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checkpoints": [
+    {
+      "timestamp": "2026-09-16T02:30:00Z",
+      "item_id": "phase-2-candidat-1",
+      "action": "started",
+      "actor": "myia-web1:claude-interactive",
+      "note": "Démarrage du candidat #1 (livraison web1, ADR 015 + pilote Epic #3111)."
+    }
+  ]
+}
