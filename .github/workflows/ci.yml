@@ -74,9 +74,21 @@ on:
       # submodule, already covered by 'mcps/internal' above.
       - 'docs/sk-agent/AGENT_INVENTORY.md'
       - 'docs/services/sk-agent-deployment.md'
+      # #3673 livrable 5 : doc-tree-drift-scan.Tests.ps1 garde CLAUDE.md
+      # (decomptes #3321, liens, chemins backtick, parite gitleaks) -- un push
+      # main changeant le porteur ou la source du garde doit le re-declencher.
+      - 'CLAUDE.md'
+      - 'scripts/docs/scan-doc-tree-drift.ps1'
   pull_request:
     branches: [main]
     # No paths filter — CI always runs on PRs to enable required status checks
+  # #3673 (time-bomb du 15/09) : une fixture qui pourrit SUR main sans push
+  # (date figee + CLAUDE_SETTINGS_STALE_WARN_DAYS) ne rencontrait aucun CI
+  # avant la prochaine PR de la flotte -- rouge attribue a tort au diff. Un
+  # run quotidien de la suite sur main detecte la pourriture au jour le jour
+  # (adapte du pattern CoursIA stale-guard-red-sweep, minute off-:00).
+  schedule:
+    - cron: '43 2 * * *'
   workflow_dispatch:
 
 jobs:

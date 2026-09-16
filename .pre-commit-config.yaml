@@ -1,0 +1,32 @@
+# Pre-commit hooks for roo-extensions
+# Decision ADAPTER de CoursIA .pre-commit-config.yaml (#3673 livrable 4).
+#
+# Installation (opt-in par machine -- pre-commit exige Python) :
+#   pip install pre-commit && pre-commit install
+# Lancement manuel : pre-commit run --all-files
+#
+# PARITE DE VERSION (lecon CoursIA #10139) : `rev` ci-dessous DOIT egaler
+# GITLEAKS_VERSION dans .github/workflows/secret-scan.yml. Un drift entre les
+# deux surfaces fait qu'un pre-commit vert ne predit pas la CI -- assert
+# mecanique : scripts/docs/scan-doc-tree-drift.ps1 (check gitleaks-parity),
+# execute par la suite Pester unit-pester sur chaque PR.
+#
+# POURQUOI PAS LES HOOKS LOCAUX COURSIA : les 9 hooks locaux de CoursIA sont
+# du domaine notebook (strip probeAddresses, NuGet cache, papermill paths,
+# null-exec, cell-source-parses...) -- roo-extensions n'a pas de notebooks
+# versionnes. Candidats de hooks locaux propres a CE depot pour une phase
+# ulterieure (voir docs/harness/reports/coursia-gates-inventory-2026-09-16.md,
+# section pre-commit) : garde BOM (ps1 AVEC BOM, le reste SANS), garde
+# pointeur submodule au commit.
+
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.3
+    hooks:
+      - id: gitleaks
+        name: Secret scanner (gitleaks)
+        # Entree canonique amont depuis v8.22 : `git --pre-commit --redact
+        # --staged --verbose`. NE PAS surcharger `args` avec l'ancienne forme
+        # `detect --no-git` : gitleaks rejette les drapeaux combines (CoursIA
+        # #9888). La config allowlist (.gitleaks.toml) est decouverte
+        # automatiquement a la racine du depot.

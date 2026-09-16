@@ -1,0 +1,42 @@
+# gitleaks configuration — roo-extensions
+# Used by BOTH surfaces (they must agree, see #3673 / CoursIA #10139 lesson):
+#   1. pre-commit hook   -> .pre-commit-config.yaml `rev:` (gitleaks version)
+#   2. CI workflow       -> .github/workflows/secret-scan.yml `GITLEAKS_VERSION`
+# The version pin parity between those two files is asserted mechanically by
+# scripts/docs/scan-doc-tree-drift.ps1 (check `gitleaks-parity`).
+#
+# Baseline triage 2026-09-16 (gitleaks v8.24.3, worktree scan): 23 findings,
+# all benign, all covered below. Re-run any change here against the same scan:
+#   docker run --rm -v "<repo>:/repo" zricethezav/gitleaks:v8.24.3 dir /repo --redact
+
+title = "roo-extensions gitleaks configuration"
+
+# Vendored upstream documentation (github MCP server install/config/troubleshooting
+# guides) carrying example `Authorization: Bearer ghp_xxx` curl snippets in prose.
+# Upstream content, mirrored for reference — not our literals. 15 findings.
+[[allowlists]]
+description = "Vendored upstream github-MCP docs with example tokens in prose"
+paths = ['''(^|/)mcps/external/github/[A-Z]+\.md$''']
+
+# Test fixtures: fake key-shaped literals asserting parser/rotation behavior.
+# Key-shaped strings are the POINT of these files; path-allowlisting (precise
+# file paths, not whole dirs) keeps the gate red on real secrets elsewhere.
+[[allowlists]]
+description = "Test fixtures with fake key literals (roo-state-manager, sk-agent)"
+paths = [
+    '''(^|/)mcps/internal/servers/roo-state-manager/src/services/__tests__/ConfigNormalizationService\.test\.ts$''',
+    '''(^|/)mcps/internal/servers/roo-state-manager/src/services/task-indexer/__tests__/EmbeddingValidator\.test\.ts$''',
+    '''(^|/)mcps/internal/servers/roo-state-manager/tests/unit/services/EnvRotationService\.test\.ts$''',
+    '''(^|/)mcps/internal/servers/roo-state-manager/tests/unit/tools/roosync/compare-config\.test\.ts$''',
+    '''(^|/)mcps/internal/servers/sk-agent/test_sk_agent_schemas\.py$''',
+    '''(^|/)tests/servers/jupyter-mcp-server/config\.json$''',
+]
+
+# scripts/review/call-sk-agent.ps1:144 — the literal fallback string
+# "vllm-placeholder-key-2024". Allowlist on the VALUE (not the file path):
+# the script handles real keys at runtime (env / gitignored config); a path
+# allowlist would blind the gate on that whole file.
+[[allowlists]]
+description = "Explicit placeholder literal in call-sk-agent.ps1"
+regexTarget = "line"
+regexes = ['''vllm-placeholder-key-2024''']

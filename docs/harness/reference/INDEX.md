@@ -81,6 +81,7 @@
 | **VPS-4 2027 provisioning** | Runbook migration web1 → VPS-4 (Épic #3188, Phase 0) : extracteur web1, IIS/ARR/runtimes/certs, bindings par domaine, fenêtre ACME, inventaire IP po-2023 | `../machine-specific/vps4-2027-provisioning-runbook.md` |
 | **WSL/Docker Cascade** | Protocol investigation #1379 (myia-ai-01) | `wsl-docker-cascade-protocol.md` |
 | **Resource containment study (#3156)** | Étude dev containers vs CLI : RSM = poste dominant (33×~1,1 GB), mount G:/Docker ÉCHEC (depth ≥4 vide), A NO-GO ai-01, leviers natifs (sessions idle, cap heap, Job Objects) | `../reports/resource-containment-study-2026-08-18.md` |
+| **Inventaire gates CoursIA (#3673)** | 162 workflows classés par famille, verdicts porter/adapter/ignorer ; réalisé : secret-scan gitleaks + parité pre-commit, schedule CI main-vert (anti time-bomb), drift-scan doc↔arbre | `../reports/coursia-gates-inventory-2026-09-16.md` |
 | **Postmortem Template** | Structured template + investigation workflow for multi-agent incidents | `postmortem-template.md` |
 | **Redistribute-Memory V2** | 5 tiers, 6 antipatterns, dry-run par defaut. Issue #2223 | `redistribute-memory-skill.md` |
 | **Findability decisions historiques (#1819)** | Retrouvabilite des decisions historiques — ou chercher, ancrages, index | `findability-historical-decisions.md` |
