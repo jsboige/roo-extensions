@@ -513,18 +513,18 @@ EMBEDDING_API_KEY=<a remplacer par la bonne clé>
 | **INTERCOM local** | Fallback local (DEPRECATED) | Si MCP dashboard HS |
 | **GitHub #67** | Tâches techniques | Création avec validation |
 
-### Wakeup Cycle Cadence (coordinateur ai-01 **à 5h** ; exécuteurs **à 4h** depuis 2026-09-15)
+### Wakeup Cycle Cadence (coordinateur ai-01 **à 6h** ; exécuteurs **à 4h** depuis 2026-09-15)
 
-**Cadence coordinateur ai-01 : 5h via `CronCreate`** (décision user 2026-09-15, « Réarme un cron 5h stp », minute :23 conservée). Supersede la cadence coordinateur 4h du 2026-09-13. `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 5h passe donc par cron.
+**Cadence coordinateur ai-01 : 6h via `CronCreate`** (décision user 2026-09-17, « Réarme ton cron 6h stp », minute :23 conservée). Supersede la cadence coordinateur 5h du 2026-09-15 (elle-même supersede du 4h du 2026-09-13). `ScheduleWakeup` est clampé runtime à `[60, 3600]s` (max 1h) → il ne PEUT PAS porter un cycle multi-heures ; le 6h passe donc par cron.
 
 > ⚠️ **Le changement de cadence ne tient que si CE fichier change.** La règle #2832 ci-dessous fait ré-armer le cron deux fois par cycle : tant qu'elle cite l'ancienne valeur, la première continuation de contexte restaure silencieusement la cadence précédente. Changer le job vivant sans changer ces lignes ne change rien au-delà de la session courante.
 
-> **Portée : seul le coordinateur passe à 5h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire toutes les cinq heures à :23 et les exécuteurs à :41 : les **18 min** d'écart à leurs heures communes évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
+> **Portée : seul le coordinateur passe à 6h.** Les cinq exécuteurs (po-2023/24/25/26, web1) restent à **4h** (`/executor`, `.claude/skills/executor/SKILL.md`, `41 */4`). Le coordinateur tire toutes les six heures à :23 et les exécuteurs à :41 : les **18 min** d'écart à leurs heures communes évitent le tir groupé sur l'API. **Ne pas « corriger » la minute :23 vers :41.**
 
 ```
-# ai-01 coordinateur — cadence 5h (job session-only, auto-expire 7j) :
+# ai-01 coordinateur — cadence 6h (job session-only, auto-expire 7j) :
 # minute 23 : hors :00/:30, et hors du :41 des executeurs — pas de tir groupe aux heures communes.
-CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 # NE PAS re-armer un ScheduleWakeup par-dessus (cron-driven).
 ```
 
@@ -540,12 +540,12 @@ CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
 
 **Règle OBLIGATOIRE — vérifier `CronList` à DEUX moments de chaque cycle :**
 
-1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */5 * * *`) est présent dans `CronList`.
+1. **Début de cycle** (juste après STOP & REPAIR) : confirmer que le job `/coordinate` (cron `23 */6 * * *`) est présent dans `CronList`.
 2. **Fin de cycle (CRITIQUE)** : **AVANT de poster le bilan final et de s'endormir**, re-vérifier `CronList`. C'est le point de bascule — une continuation de contexte survenue *en cours de cycle* a pu perdre le job, et l'endormissement est le dernier moment où on peut le rattraper.
 
 **Si le job est absent à l'un ou l'autre moment → re-armer IMMÉDIATEMENT :**
 ```
-CronCreate(cron: "23 */5 * * *", prompt: "/coordinate", recurring: true)
+CronCreate(cron: "23 */6 * * *", prompt: "/coordinate", recurring: true)
 ```
 puis logger une ligne au dashboard workspace (`cron présent` / `cron ré-armé`).
 
@@ -697,7 +697,7 @@ gh pr merge N --repo OWNER/REPO --squash --delete-branch
 **Exceptions :** Bugs critiques bloquants (mais informer immédiatement)
 
 ### Règles Générales
-- Tour de sync coordinateur toutes les 5 heures via cron, ou immédiatement sur signal urgent `[WAKE-CLAUDE]`
+- Tour de sync coordinateur toutes les 6 heures via cron, ou immédiatement sur signal urgent `[WAKE-CLAUDE]`
 - Toujours référencer les issues GitHub dans les communications
 - Claude Code peut et DOIT fixer du code technique quand nécessaire (bugs, consolidations)
 - Documenter les décisions dans les commentaires d'issues
