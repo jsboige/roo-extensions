@@ -28,7 +28,23 @@ Describe 'Get-SearxngVerdict - classification par couches (#3264)' {
         $v.Layer | Should -Be 'EDGE-IIS-BASIC-AUTH'
         $v.ExitCode | Should -Be 2
         $v.Detail | Should -Match 'realm "myia"'
-        $v.Action | Should -Match 'undici refuse les URLs a userinfo'
+        $v.Action | Should -Match 'AUTH_USERNAME'
+    }
+
+    It '401 Basic + auth ENVOYEE + signature IIS -> EDGE-IIS-BASIC-AUTH-REJECTED (exit 2), couple refuse' {
+        $v = Get-SearxngVerdict -StatusCode 401 `
+            -ResponseHeaders @{ 'WWW-Authenticate' = 'Basic realm="myia"'; 'Server' = 'Microsoft-IIS/10.0' } `
+            -Body 'IIS 10.0 Detailed Error - 401.2 - Unauthorized' -AuthSent $true
+        $v.Layer | Should -Be 'EDGE-IIS-BASIC-AUTH-REJECTED'
+        $v.ExitCode | Should -Be 2
+        $v.Detail | Should -Match 'avait envoye Authorization'
+        $v.Action | Should -Match 'REFUSE par l edge'
+    }
+
+    It '401 Basic + auth ENVOYEE sans IIS -> EDGE-BASIC-AUTH-REJECTED (exit 2)' {
+        $v = Get-SearxngVerdict -StatusCode 401 -ResponseHeaders @{ 'WWW-Authenticate' = 'Basic realm="x"' } -Body 'denied' -AuthSent $true
+        $v.Layer | Should -Be 'EDGE-BASIC-AUTH-REJECTED'
+        $v.ExitCode | Should -Be 2
     }
 
     It '401 Basic sans signature IIS -> EDGE-BASIC-AUTH (exit 2)' {
@@ -87,6 +103,42 @@ Describe 'Get-SearxngVerdict - classification par couches (#3264)' {
     }
 }
 
+Describe 'Invoke-SearxngProbe - auth Basic optionnelle (#3264, decision user 13/09)' {
+
+    BeforeAll {
+        Mock Invoke-WebRequest {
+            [pscustomobject]@{
+                StatusCode = 200
+                Headers    = @{ 'Content-Type' = 'application/json' }
+                Content    = '{"results":[{"title":"ok"}]}'
+            }
+        }
+    }
+
+    It 'avec couple fourni : envoie Authorization Basic et rapporte AuthSent=true' {
+        $probe = Invoke-SearxngProbe -BaseUrl 'https://search.myia.io/' -Query 'test' -TimeoutSec 10 -AuthUsername 'svc-mcp' -AuthPassword 'hunter2-secret'
+        $probe.AuthSent | Should -BeTrue
+        $expected = 'Basic ' + [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes('svc-mcp:hunter2-secret'))
+        Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
+            $Headers['Authorization'] -eq $expected
+        }
+    }
+
+    It 'sans couple : aucun header Authorization, AuthSent=false' {
+        $probe = Invoke-SearxngProbe -BaseUrl 'https://search.myia.io/' -Query 'test' -TimeoutSec 10
+        $probe.AuthSent | Should -BeFalse
+        Should -Invoke Invoke-WebRequest -Times 1 -Exactly -ParameterFilter {
+            -not $Headers.ContainsKey('Authorization')
+        }
+    }
+
+    It 'hygiene : la valeur du credential ne fuit pas dans le resultat du probe' {
+        $probe = Invoke-SearxngProbe -BaseUrl 'https://search.myia.io/' -Query 'test' -TimeoutSec 10 -AuthUsername 'svc-mcp' -AuthPassword 'hunter2-secret'
+        ($probe | ConvertTo-Json -Depth 3) | Should -Not -Match 'hunter2-secret'
+        ($probe | ConvertTo-Json -Depth 3) | Should -Not -Match 'Authorization'
+    }
+}
+
 Describe 'Get-MaskedUrl - hygiene secrets (#3264)' {
 
     It 'masque le userinfo sans exposer le mot de passe' {
@@ -118,9 +170,10 @@ Describe 'Invoke-SearxngProbe + Get-SearxngVerdict - integration chemin 401 (#32
                 $l.Prefixes.Add("http://127.0.0.1:$port/")
                 $l.Start()
                 "$port"
-                for ($i = 0; $i -lt 4; $i++) {
+                for ($i = 0; $i -lt 6; $i++) {
                     $ctx = $l.GetContext()
-                    if ($ctx.Request.QueryString['q'] -eq 'healthy') {
+                    $hasAuth = [bool]$ctx.Request.Headers['Authorization']
+                    if ($ctx.Request.QueryString['q'] -eq 'healthy' -or $hasAuth) {
                         $ctx.Response.StatusCode = 200
                         $ctx.Response.ContentType = 'application/json'
                         $bytes = [System.Text.Encoding]::UTF8.GetBytes('{"results":[{"title":"ok"}]}')
@@ -184,6 +237,20 @@ Describe 'Invoke-SearxngProbe + Get-SearxngVerdict - integration chemin 401 (#32
             $probe = Invoke-SearxngProbe -BaseUrl "http://127.0.0.1:$($script:HcPort)/" -Query 'healthy' -TimeoutSec 10
             $probe.StatusCode | Should -Be 200
             $v = Get-SearxngVerdict -StatusCode $probe.StatusCode -ResponseHeaders $probe.Headers -Body $probe.Body -ErrorMessage $probe.ErrorMessage
+            $v.Layer | Should -Be 'HEALTHY'
+            $v.ExitCode | Should -Be 0
+        }
+    }
+
+    It 'chemin AUTHENTIFIE : Authorization envoyee -> 200 HEALTHY bout-en-bout (decision user 13/09)' {
+        if ($script:HcListenerError -or -not $script:HcPort) {
+            Set-ItResult -Skipped -Because "mock HttpListener indisponible ($($script:HcListenerError))"
+        }
+        else {
+            $probe = Invoke-SearxngProbe -BaseUrl "http://127.0.0.1:$($script:HcPort)/" -Query 'locked' -TimeoutSec 10 -AuthUsername 'svc' -AuthPassword 'pw'
+            $probe.AuthSent | Should -BeTrue
+            $probe.StatusCode | Should -Be 200
+            $v = Get-SearxngVerdict -StatusCode $probe.StatusCode -ResponseHeaders $probe.Headers -Body $probe.Body -ErrorMessage $probe.ErrorMessage -AuthSent $probe.AuthSent
             $v.Layer | Should -Be 'HEALTHY'
             $v.ExitCode | Should -Be 0
         }
