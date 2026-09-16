@@ -89,6 +89,7 @@ Puis (en parallele) :
    - ⚠️ **`--limit 100`, jamais 15** (bug #2509) : `--limit 15` rend les **15 issues les PLUS RECENTES**, pas un echantillon representatif. Si ces 15 sont toutes `needs-approval`/meta, tu conclus « pool draine » alors que des dizaines d'actionnables existent plus bas. Le backlog reel tourne autour de 80-90 ouvertes.
    - **Filtrage actionnable cote agent, apres recuperation** : exclure `needs-approval`, `deferred`, `blocked-on-gate`, `epic`. Ce chemin filtre **cote agent** et non dans la requete, a dessein — contrairement aux pools autonomes (`start-claude-worker.ps1` l.681, workflows Roo), un executeur interactif doit **voir** qu'une issue est gatee plutot qu'en etre aveugle.
    - **Source de verite** : `.claude/skills/executor/SKILL.md` l.97-100. Ne pas laisser les deux diverger.
+   - **Option avancee (#3675, ADR 016) — Picker 3 urnes** : si tu suspectes le pool etire (cycles successifs sans grain reel), preferer `python scripts/scheduling/pick_idle_grain.py --dry-run --json` qui scanne les 2 depots avec `--limit 300` et repartit dans 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1). Verdict `IDLE-REAL` strict = toutes urnes vides ; panne gh = `ERROR` exit 2 (fail-closed, jamais un verdict de fond).
 
 **Verification sceptique des instructions recues :**
 - Si une instruction du coordinateur contient une premisse sur l'infrastructure locale (GPU, RAM, services), la verifier contre CLAUDE.md/MEMORY.md

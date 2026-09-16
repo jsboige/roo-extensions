@@ -148,6 +148,25 @@ Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-
 
 > **Garde-fou anti-faux-drain (#2509)** : avant de declarer « aucune tache disponible », confirmer que le **backlog filtre complet** (`--limit 100` + labels actionnables, Phase 1 etape 3) a bien ete examine — pas seulement les 15 issues les plus recentes. Les priorites 3-5 (Machine=Any, TODO detaille, bug reproductible) sont quasi toujours servies par ce backlog. Passer aux idle tasks UNIQUEMENT si ce sous-ensemble est genuinement vide.
 
+#### Picker 3 urnes — option avancee (#3675, ADR 016)
+
+Pour les cycles ou le pool est suspecte etire (notamment en executeur isole sans coordinateur frais), preferer le **picker 3 urnes** au bare `gh issue list` :
+
+```bash
+# Tirage deterministe, verdict IDLE-REAL strict
+python scripts/scheduling/pick_idle_grain.py --dry-run --json
+
+# Re-tirage si le 1er candidat est deja CLAIMED ailleurs
+python scripts/scheduling/pick_idle_grain.py --reroll --json
+```
+
+Le picker scanne **les 2 depots** (anti-double-claim #3407) avec `--limit 300` (corrige #2509), repartit
+dans 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et declare `IDLE-REAL` UNIQUEMENT
+si toutes les urnes sont vides. **Fail-closed :** toute panne gh (exit non-nul, timeout, JSON invalide)
+rend un verdict `ERROR` avec **exit 2** — un instrument muet ne declare jamais le pool vide ; reparer
+gh puis relancer. Sans filtre machine : le champ Machine vit dans le Project #67, pas en labels —
+l'attribution par lane passe par la discipline `[CLAIMED]` dashboard. **Detail et rationale :** ADR 016.
+
 #### Catalogue Idle Tasks (#1417)
 
 Quand aucune issue GitHub n'est assignable, executer ces taches productives dans l'ordre :
@@ -164,6 +183,29 @@ Quand aucune issue GitHub n'est assignable, executer ces taches productives dans
 | I8 | Stale build artifacts | ACTIF | Scanner `build/` pour .js/.d.ts sans .ts source | Sous submodule seulement |
 
 **Regle :** Max 2 idle tasks par cycle. Poster resultat sur dashboard (`[DONE]` ou `[INFO]`). Issue staleness patrol INTERDIT sans arbitrage utilisateur (priorite 6 couvre si issue genuinely stale). Fermeture d'issue INTERDITE sans arbitrage utilisateur (voir `.claude/rules/issue-closure.md`).
+
+#### Test de fin de cycle — verifier AVANT de basculer en idle (#3675, ADR 016)
+
+Le vocabulaire d'idle (« backlog draine », « idle honnete ») peut etre contournable par label.
+Avant de basculer sur le catalogue I1-I8, executer le **test de fin de cycle** base sur le RESULTAT :
+
+```bash
+python scripts/scheduling/test_cycle_end.py --since-hours 24 --json
+```
+
+- **PASS + backlog_grain=0** : urne grain REELLEMENT vide (0 issue approved/bug/investigation), I1-I8 legitimes.
+- **PASS + prs_delivered_fleet>0** : au moins une PR livree par la flotte dans la fenetre, grain transforme.
+- **FAIL** (exit 1) : backlog grain >0 MAIS 0 livraison. **Echec de methode** — reprendre Phase 2 (relire
+  le picker, prendre un grain reel), NE PAS basculer en I1-I8.
+- **ERROR** (exit 2) : panne instrument gh (fail-closed). Aucun verdict de fond — reparer gh puis relancer.
+
+**Portee FLOTTE assumee :** les PRs comptees sont celles de toute la flotte (l'auteur gh est un
+compte partage, le champ Machine vit dans le Project #67). La conformite de TA lane passe par la
+discipline `[CLAIMED]`/`[DONE]` dashboard, pas par cet instrument. En cas de divergence avec le
+picker, c'est ce test qui fait foi.
+
+Ce test remplace le controle par vocabulaire par un controle par sortie. Il ne supprime pas le cap IDLE 3
+(#2185), il le double d'un garde-fou resultat.
 
 **Qui / Type / Contraintes (legende #1417) :** ce catalogue est le **versant Claude** (ce skill `executor` = agent Claude Code). Toutes les taches I1-I8 sont executables par Claude sauf restriction explicite en colonne *Contraintes* (ex. I4 = `Claude only`). Le **versant Roo** equivalent (patrouilles idle du scheduler) vit dans [`.roo/scheduler-workflow-executor.md`](../../../.roo/scheduler-workflow-executor.md) Option 2 — I2 (submodule drift) et I6 (TODO/FIXME) y sont desormais mirror. *Type* = `ACTIF` (modifie l'etat : commit/cleanup) ou `READ-ONLY` (diagnostic + rapport dashboard seulement).
 
