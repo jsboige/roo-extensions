@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests unitaires des scripts anti-tarissement (#3675, ADR 015).
+"""Tests unitaires des scripts anti-tarissement (#3675, ADR 016).
 
 Couvre les exigences des reviews PR #3681 :
   - fail-closed : panne gh (exit non-nul, timeout, JSON invalide) => verdict

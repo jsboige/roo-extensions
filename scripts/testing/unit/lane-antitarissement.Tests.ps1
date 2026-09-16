@@ -1,17 +1,17 @@
 ﻿<#
 .SYNOPSIS
-    Guards the anti-tarissement lane tooling (#3675, ADR 015) as reworked in
+    Guards the anti-tarissement lane tooling (#3675, ADR 016) as reworked in
     PR #3681 after the ai-01 CHANGES_REQUESTED and the po-2027 measured
     review: fail-closed gh instrumentation, UTF-8 subprocess decoding,
-    removed --machine flag, ADR renumbered 015 (014 reserved for #3680).
+    removed --machine flag, ADR renumbered 016 (014: #3680, 015: #3684).
 #>
 
-Describe 'Anti-tarissement lane tooling (#3675, ADR 015)' {
+Describe 'Anti-tarissement lane tooling (#3675, ADR 016)' {
     BeforeAll {
         $root = Join-Path $PSScriptRoot '..\..\..'
         $pickerPath = Join-Path $root 'scripts\scheduling\pick_idle_grain.py'
         $testPath = Join-Path $root 'scripts\scheduling\test_cycle_end.py'
-        $adr015Path = Join-Path $root 'docs\harness\adr\015-lane-anti-tarissement-convergence-coursia.md'
+        $adr016Path = Join-Path $root 'docs\harness\adr\016-lane-anti-tarissement-convergence-coursia.md'
         $adr014Path = Join-Path $root 'docs\harness\adr\014-lane-anti-tarissement-convergence-coursia.md'
         $skillPath = Join-Path $root '.claude\skills\executor\SKILL.md'
         $commandPath = Join-Path $root '.claude\commands\executor.md'
@@ -80,19 +80,19 @@ Describe 'Anti-tarissement lane tooling (#3675, ADR 015)' {
     }
 
     Context 'ADR numbering (collision with #3680 resolved)' {
-        It 'lane ADR lives at 015, not 014' {
-            (Test-Path $adr015Path) | Should -BeTrue
+        It 'lane ADR lives at 016, not 014 or 015' {
+            (Test-Path $adr016Path) | Should -BeTrue
             (Test-Path $adr014Path) | Should -BeFalse
-            (Get-Content $adr015Path -Raw) | Should -Match 'ADR 015'
+            (Get-Content $adr016Path -Raw) | Should -Match 'ADR 016'
         }
 
-        It 'SKILL.md and executor.md reference ADR 015' {
-            $skill | Should -Match 'ADR 015'
-            $command | Should -Match 'ADR 015'
+        It 'SKILL.md and executor.md reference ADR 016' {
+            $skill | Should -Match 'ADR 016'
+            $command | Should -Match 'ADR 016'
         }
 
         It 'ADR implementation table no longer cites an undelivered rules file' {
-            (Get-Content $adr015Path -Raw) | Should -Not -Match 'rules/validation\.md'
+            (Get-Content $adr016Path -Raw) | Should -Not -Match 'rules/validation\.md'
         }
     }
 

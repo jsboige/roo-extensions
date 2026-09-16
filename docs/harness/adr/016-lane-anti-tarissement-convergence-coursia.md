@@ -1,6 +1,6 @@
-# ADR 015: Anti-tarissement des lanes — convergence CoursIA (picker 3 urnes, deep-queue, test-resultat)
+# ADR 016: Anti-tarissement des lanes — convergence CoursIA (picker 3 urnes, deep-queue, test-resultat)
 
-**Date:** 2026-09-15 (renuméroté 015 le 2026-09-16 — le numéro 014 est réservé à #3680 « claim locus », même Epic ; collision résolue côté rework #3681)
+**Date:** 2026-09-15 (renuméroté 016 le 2026-09-16 — 014 réservé à #3680 « claim locus », 015 pris par #3684 « plans progress » ; double collision résolue côté rework #3681)
 **Status:** Accepted
 **Issue:** #3675 (Epic #3111 phase 2, candidat #2)
 **Related:** #2185 (cap IDLE 3), #2509 (`--limit 15` faux drain), #3111 (Epic convergence),

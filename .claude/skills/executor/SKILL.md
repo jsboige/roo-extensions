@@ -148,7 +148,7 @@ Cross-checker aussi avec les branches wt/ actives : si une branche `wt/*-{issue-
 
 > **Garde-fou anti-faux-drain (#2509)** : avant de declarer « aucune tache disponible », confirmer que le **backlog filtre complet** (`--limit 100` + labels actionnables, Phase 1 etape 3) a bien ete examine — pas seulement les 15 issues les plus recentes. Les priorites 3-5 (Machine=Any, TODO detaille, bug reproductible) sont quasi toujours servies par ce backlog. Passer aux idle tasks UNIQUEMENT si ce sous-ensemble est genuinement vide.
 
-#### Picker 3 urnes — option avancee (#3675, ADR 015)
+#### Picker 3 urnes — option avancee (#3675, ADR 016)
 
 Pour les cycles ou le pool est suspecte etire (notamment en executeur isole sans coordinateur frais), preferer le **picker 3 urnes** au bare `gh issue list` :
 
@@ -165,7 +165,7 @@ dans 3 urnes ponderees (`grain` 7 / `umbrella` 2 / `delivered` 1), et declare `I
 si toutes les urnes sont vides. **Fail-closed :** toute panne gh (exit non-nul, timeout, JSON invalide)
 rend un verdict `ERROR` avec **exit 2** — un instrument muet ne declare jamais le pool vide ; reparer
 gh puis relancer. Sans filtre machine : le champ Machine vit dans le Project #67, pas en labels —
-l'attribution par lane passe par la discipline `[CLAIMED]` dashboard. **Detail et rationale :** ADR 015.
+l'attribution par lane passe par la discipline `[CLAIMED]` dashboard. **Detail et rationale :** ADR 016.
 
 #### Catalogue Idle Tasks (#1417)
 
@@ -184,7 +184,7 @@ Quand aucune issue GitHub n'est assignable, executer ces taches productives dans
 
 **Regle :** Max 2 idle tasks par cycle. Poster resultat sur dashboard (`[DONE]` ou `[INFO]`). Issue staleness patrol INTERDIT sans arbitrage utilisateur (priorite 6 couvre si issue genuinely stale). Fermeture d'issue INTERDITE sans arbitrage utilisateur (voir `.claude/rules/issue-closure.md`).
 
-#### Test de fin de cycle — verifier AVANT de basculer en idle (#3675, ADR 015)
+#### Test de fin de cycle — verifier AVANT de basculer en idle (#3675, ADR 016)
 
 Le vocabulaire d'idle (« backlog draine », « idle honnete ») peut etre contournable par label.
 Avant de basculer sur le catalogue I1-I8, executer le **test de fin de cycle** base sur le RESULTAT :
