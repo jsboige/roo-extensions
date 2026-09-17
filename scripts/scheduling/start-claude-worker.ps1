@@ -2314,7 +2314,10 @@ function Remove-Worktree {
     # Strategy 1: git worktree remove --force with retry (handles everything including submodules)
     # #2495: Added retry loop — handles may release after initial failure.
     $GitRemoveRetries = 3
+    $rmAttempts = 0
+    $rmPermanent = $false
     for ($Attempt = 1; $Attempt -le $GitRemoveRetries; $Attempt++) {
+        $rmAttempts = $Attempt
         try {
             $prevPref = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
@@ -2326,6 +2329,21 @@ function Remove-Worktree {
                 Write-Log "Worktree supprimé (git worktree remove, attempt $Attempt)"
                 return
             }
+
+            # « is not a working tree » n'est PAS un verrou : la tentative precedente a deja
+            # desenregistre le worktree (git supprime les metadonnees AVANT d'echouer sur le
+            # dossier), et git ne se re-enregistre pas tout seul -- reessayer ne peut plus aboutir.
+            # Mesure du 17/09 (worker-20260917-184805.log, 19:12:08 et 19:12:13) : 2 des 3
+            # tentatives etaient dans ce cas, 10 s perdues, et la ligne de sortie annoncait une
+            # cause UNIQUE (« Windows file lock ») fausse pour ces deux-la. Une erreur permanente
+            # classee transitoire ne coute pas que du temps : elle envoie l'operateur chercher un
+            # verrou qui n'existe pas.
+            if (($rmOutput -join "`n") -match 'is not a working tree') {
+                $rmPermanent = $true
+                Write-Log "git worktree remove inoperant : worktree deja desenregistre (echec permanent, retry sans objet)" "WARN"
+                break
+            }
+
             if ($Attempt -lt $GitRemoveRetries) {
                 Write-Log "git worktree remove left dir (attempt $Attempt/$GitRemoveRetries), retrying in 5s..." "WARN"
                 Start-Sleep -Seconds 5
@@ -2338,7 +2356,11 @@ function Remove-Worktree {
             }
         }
     }
-    Write-Log "git worktree remove failed after $GitRemoveRetries attempts (Windows file lock)" "WARN"
+    if ($rmPermanent) {
+        Write-Log "git worktree remove inoperant apres $rmAttempts tentative(s) — metadonnees deja supprimees, le dossier restant releve du FS" "WARN"
+    } else {
+        Write-Log "git worktree remove failed after $rmAttempts attempts (Windows file lock)" "WARN"
+    }
 
     # #2123: git submodule deinit REMOVED — it is counterproductive on Windows.
     # It partially succeeds (unregisters submodule configs) but fails to delete directories,
