@@ -68,7 +68,7 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 
 ### Protocol de Claim (Anti Double-Traitement)
 
-Avant de travailler sur une tâche, **toujours la revendiquer** — le verrou vit sur l'issue (ADR 014, #3676) :
+Avant de travailler sur une tâche, **toujours la revendiquer** — le verrou vit sur l'issue (ADR 017, #3676) :
 
 ```bash
 # 1. Vérifier qu'aucune autre machine ne tient le verrou, puis poser le sien

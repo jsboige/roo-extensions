@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-15 (ajout `github/check_issue_claim.py` — verrou de claim sur issue, ADR 014 / #3676)
+**Dernière mise à jour :** 2026-09-15 (ajout `github/check_issue_claim.py` — verrou de claim sur issue, ADR 017 / #3676)
 
 ---
 

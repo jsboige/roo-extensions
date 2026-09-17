@@ -1,6 +1,8 @@
-# ADR 014: Claim locus — le verrou vit sur l'issue GitHub, le dashboard garde le récit
+# ADR 017: Claim locus — le verrou vit sur l'issue GitHub, le dashboard garde le récit
 
-**Date :** 2026-09-15
+**Date :** 2026-09-15 (renummering 014→017 le 2026-09-16 : le 014 brièvement occupé par
+le livrable #3675/#3681 pendant la revue croisée, renumeroté 016 à son merge — le 017
+écarte toute re-collision sans reoccuper le numero historique)
 **Status :** Accepted (GO user, 2026-09-15)
 **Issue :** #3676 (livrable) — Epic #3111 phase 2, candidat #3
 **Source :** Convergence ← CoursIA `lane-claim-protocol.md` (HARD) + `scripts/check_lane_claim.py`
@@ -90,6 +92,14 @@ propre surface.
 
 ## Non-buts / suivis hors périmètre
 
+- **Fenêtre TOCTOU claim↔claim (réserve explicitée, review #3680)** : « check puis pose » n'est
+  pas atomique — deux lanes peuvent passer le check dans la même seconde et poser chacune leur
+  `[CLAIMED]`. Le tie-break reste le `createdAt` serveur des commentaires : le poster le plus
+  tardif **rend la main** dès qu'il relit l'issue (le check de pre-delivery #3224 re-detecte le
+  claim concurrent). Fermer la fenêtre par verrou atomique vrai exigerait une écriture
+  conditionnelle que l'API commentaires GitHub n'expose pas ; la garde CI ci-dessous en serait
+  le palliatif partiel. Non-corrigé par choix : la fenêtre est de l'ordre de la seconde, contre
+  des cycles de plusieurs heures.
 - **Garde CI** (équivalent `lane-claim-guard.yml` CoursIA, refus d'une PR sans claim-issue) :
   follow-up possible si dérive observée — ne pas l'imposer avant mesure.
 - **Clause `paths:` fnmatch** (partitionnage multi-lanes par fichier) : non portée — roo-extensions

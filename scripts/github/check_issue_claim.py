@@ -8,9 +8,9 @@ is garbage-collected by auto-condensation at 92%, so a [CLAIMED] can vanish
 during the "I decided to work on X" -> "I pushed" window; (c) body stamps mixed
 local time and UTC. During the 2026-08-16 GDrive outage (PR #3155) the whole
 claim organ went down with the dashboard -- CoursIA, whose claims live on the
-GitHub issue, kept working (ADR 014).
+GitHub issue, kept working (ADR 017).
 
-This tool operationalises the worker side of ADR 014 (the locus change is in
+This tool operationalises the worker side of ADR 017 (the locus change is in
 .claude/rules/agent-claim-discipline.md v2.0):
 
   - **check** (default): before editing a file for work attached to issue #N, run
@@ -34,11 +34,11 @@ This tool operationalises the worker side of ADR 014 (the locus change is in
     local time wearing a `Z` suffix is impossible by construction.
 
   - **--release [--note "..."]**: post a `[RELEASED]` comment, closing the
-    active claim of this machine on the issue. Posting `[DONE]` on the issue at
-    delivery closes the claim too.
+    active claim of this machine on the issue. Posting `[DONE]` or `[RESULT]`
+    on the issue at delivery closes the claim too.
 
 The authoritative timestamp is the comment's server `createdAt`, NEVER a stamp
-written in the body (ADR 014, decision 1).
+written in the body (ADR 017, decision 1).
 
 Claim identity is the MACHINE token (`myia-ai-01`, `myia-po-2023`..`2027`,
 `myia-web1`) read from the marker line -- not the comment author: agents post
@@ -81,13 +81,16 @@ DEFAULT_REPO = "jsboige/roo-extensions"
 # Line-anchored: a marker mentioned mid-sentence is prose, not an event.
 MARKER_RE = re.compile(
     r"(?im)^#{0,6}\s*[-*]?\s*\*{0,2}\["
-    r"(?P<marker>CLAIMED|RELEASED|DONE|CANCELLED|ABANDONED|DELIVERED)"
+    r"(?P<marker>CLAIMED|RELEASED|RESULT|DONE|CANCELLED|ABANDONED|DELIVERED)"
     r"\]",
 )
 
-# Opening / closing semantics for the reducer.
+# Opening / closing semantics for the reducer. RESULT closes as well as DONE:
+# the worker protocol delivers as "[CLAIMED] by ..." then "[RESULT] ..." --
+# a delivery that does not release its own lock is a 24h false-block
+# (reproduced on live stock #3626 during the #3680 review).
 OPEN_MARKERS = {"CLAIMED"}
-CLOSE_MARKERS = {"RELEASED", "DONE", "CANCELLED", "ABANDONED", "DELIVERED"}
+CLOSE_MARKERS = {"RELEASED", "RESULT", "DONE", "CANCELLED", "ABANDONED", "DELIVERED"}
 
 # Machine identity token: the fleet's canonical lane id. Read from the marker
 # LINE (first match), not the whole body -- a repair comment may quote another
@@ -258,7 +261,7 @@ def default_agent() -> str | None:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(
         description="Issue-claim guard -- check/pose/lift the cross-machine claim "
-        "lock living on the GitHub issue (ADR 014, #3676)."
+        "lock living on the GitHub issue (ADR 017, #3676)."
     )
     parser.add_argument("issue", help="issue number")
     parser.add_argument("--repo", default=DEFAULT_REPO, help=f"default: {DEFAULT_REPO}")
@@ -299,8 +302,8 @@ def main(argv=None) -> int:
             return 2
         body = (
             f"[CLAIMED] {args.agent} -- {args.claim}\n"
-            "(lock per ADR 014 -- server createdAt is authoritative; "
-            "lift with --release or [DONE])"
+            "(lock per ADR 017 -- server createdAt is authoritative; "
+            "lift with --release, [DONE] or [RESULT])"
             if args.claim
             else f"[RELEASED] {args.agent}"
             + (f" -- {args.note}" if args.note else "")
