@@ -116,6 +116,16 @@ if ($TaskName) { $all = $all | Where-Object { $_.TaskName -in $TaskName } }
 $launcherPattern = '(?i)((?:[A-Za-z]:[/\\]|\\\\)[^"]*\.vbs)'
 $targetPattern   = '(?i)((?:[A-Za-z]:[/\\]|/[a-z]/)[^"''\r\n]*?\.(?:ps1|py|js|cjs|bat|cmd|exe))'
 
+# Population auditée, publiée comme DENOMINATEUR du rapport. Sans lui, « aucune cible perimee » est
+# vrai sur ce qui a ete lu et muet sur ce qui ne l'a pas ete : une omission invisible, qui ne se
+# distingue en rien d'un audit exhaustif. Un verdict faux se corrige en changeant le verdict ; une
+# omission, seulement en affichant la population sur laquelle le verdict porte.
+$wsTasks = @($all | Where-Object {
+    $a0 = $_.Actions | Select-Object -First 1
+    $a0.Execute -and (Split-Path $a0.Execute -Leaf) -ieq 'wscript.exe'
+})
+$launchersRead = 0
+
 $staleLaunchers = @(foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
@@ -142,7 +152,16 @@ $staleLaunchers = @(foreach ($t in $all) {
         continue
     }
 
-    $vbsText = Get-Content $vbsPath -Raw
+    # Un fichier illisible etait jusqu'ici AVORTANT (`$ErrorActionPreference = 'Stop'`) : un seul
+    # `.vbs` sous ACL hostile emportait tout l'audit au lieu du seul element concerne. Signale comme
+    # les autres cibles illisibles, et on poursuit -- un audit doit rapporter ce qu'il n'a pas pu
+    # lire, pas s'interrompre a la premiere porte fermee.
+    try { $vbsText = Get-Content $vbsPath -Raw -ErrorAction Stop }
+    catch {
+        [PSCustomObject]@{ Task = $t.TaskName; State = $t.State; Launcher = $vbsPath; Target = ('(fichier illisible : {0})' -f $_.Exception.Message) }
+        continue
+    }
+    $launchersRead++
     foreach ($m in [regex]::Matches($vbsText, $targetPattern)) {
         $target = $m.Groups[1].Value.Trim()
         if (-not (Test-Path $target)) {
@@ -158,9 +177,15 @@ $staleLaunchers = @(foreach ($t in $all) {
 $staleActive = @($staleLaunchers | Where-Object { $_ -and $_.State -ne 'Disabled' })
 
 function Write-LauncherAudit {
-    param($Findings)
+    param($Findings, [int]$Examined, [int]$Read)
+    # Le DENOMINATEUR est publie avec le verdict, et pas seulement les trouvailles : c'est lui qui
+    # rend le silence visible s'il revient. Un silence DECLARE et hors perimetre (hote wscript sur
+    # `.js`/`.wsf`) n'est pas un defaut ; c'est l'omission non comptee qui en est un.
+    $unread = $Examined - $Read
+    Write-Host ("Lanceurs durcis : {0} tache(s) wscript examinee(s), {1} lanceur(s) lu(s){2}." -f `
+        $Examined, $Read, $(if ($unread -gt 0) { ", $unread NON LU(S)" } else { '' })) -ForegroundColor $(if ($unread -gt 0) { 'Red' } else { 'DarkGray' })
     if (-not $Findings) {
-        Write-Host "Lanceurs durcis : aucune cible perimee." -ForegroundColor Green
+        Write-Host "  Aucune cible perimee parmi les lanceurs lus." -ForegroundColor Green
         return
     }
     Write-Host ""
@@ -226,7 +251,7 @@ if ($skippedForeign.Count -gt 0) {
 
 if (-not $plan) {
     Write-Host "Rien a faire : aucune tache eligible." -ForegroundColor Green
-    Write-LauncherAudit -Findings $staleLaunchers
+    Write-LauncherAudit -Findings $staleLaunchers -Examined $wsTasks.Count -Read $launchersRead
     if ($staleActive.Count -gt 0) { exit 1 }
     return
 }
@@ -332,6 +357,6 @@ if ($needElevation) {
     Write-Host ("  pwsh -File `"{0}`"" -f $PSCommandPath) -ForegroundColor Yellow
 }
 
-Write-LauncherAudit -Findings $staleLaunchers
+Write-LauncherAudit -Findings $staleLaunchers -Examined $wsTasks.Count -Read $launchersRead
 
 if ($failed -or $staleActive.Count -gt 0) { exit 1 }
