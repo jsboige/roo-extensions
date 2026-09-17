@@ -177,7 +177,7 @@ machine bi-lane (pattern CoursIA-2).
 - **Phase 2 de l'Epic** (décisions de convergence) : chaque candidat du §7 devient une sous-issue à
   arbitrer — aucun changement de harnais avant validation user (non-but de l'Epic).
 - **Première décision phase 2 matérialisée (15/09)** : candidat #3 (claim cross-lane sur issue) —
-  GO user, [ADR 014](../adr/014-issue-claim-locus.md) (#3676) : le verrou déménage sur l'issue
+  GO user, [ADR 017](../adr/017-issue-claim-locus.md) (#3676) : le verrou déménage sur l'issue
   (`scripts/github/check_issue_claim.py`), le dashboard garde le récit.
 - Le présent document rend la matrice **durable** (la passe 1 ne vivait que dans un commentaire
   d'issue). Toute itération future cite passe 1 (web1, 15/08) et passe 2 (po-2026, 17/08).

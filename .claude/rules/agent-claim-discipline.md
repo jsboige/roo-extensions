@@ -1,6 +1,6 @@
 # Agent Claim Discipline — No Unverified Success
 
-**Version:** 2.0.0 (slim) — locus du claim : **issue GitHub** (ADR 014, #3676)
+**Version:** 2.0.0 (slim) — locus du claim : **issue GitHub** (ADR 017, #3676)
 **Issues :** #1605, #1666 Phase A2, #1798, #3407 (pré-claim deux dépôts), word-boundary (T#80, 05/09), #3676 (locus issue)
 
 ---
@@ -21,7 +21,7 @@
    done
    ```
    — si une PR existe deja dans l'un des deux, STOP. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, pas de `\b` — fragilise par les couches de quoting bash→gh) : le filtre `--search "#NNN"` de GitHub est flou (mesure 05/09 : `#34` ramene des PRs sans rapport, meme quoté) et `#109` matche `#1091` — sans frontiere, une issue est skippee a tort.
-2. **Verifier et poser le verrou SUR L'ISSUE** (locus canon depuis v2.0, ADR 014) :
+2. **Verifier et poser le verrou SUR L'ISSUE** (locus canon depuis v2.0, ADR 017) :
    ```bash
    python scripts/github/check_issue_claim.py NNN                 # exit 1 = une AUTRE machine tient un claim actif
    python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
@@ -34,7 +34,7 @@
 
 **Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
 
-**Pourquoi le locus a demenage (v2.0, #3676)** : le claim-dashboard est silo par lane, condense a 92 % par auto-condensation, et melange heure locale/UTC ; pendant l'outage GDrive du 16/08 (PR #3155) tout l'organe claim est tombe avec le dashboard (SPOF) tandis que CoursIA (claims sur issue) conservait verrous, pool et merges. Detail : [ADR 014](../../docs/harness/adr/014-issue-claim-locus.md).
+**Pourquoi le locus a demenage (v2.0, #3676)** : le claim-dashboard est silo par lane, condense a 92 % par auto-condensation, et melange heure locale/UTC ; pendant l'outage GDrive du 16/08 (PR #3155) tout l'organe claim est tombe avec le dashboard (SPOF) tandis que CoursIA (claims sur issue) conservait verrous, pool et merges. Detail : [ADR 017](../../docs/harness/adr/017-issue-claim-locus.md).
 
 ## Pre-Delivery Discipline (#3224) — le claim garde le DEPART, pas la LIVRAISON
 

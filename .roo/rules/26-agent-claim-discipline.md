@@ -1,7 +1,7 @@
 # Agent Claim Discipline — Pas de Succes Non Verifie
 
-**Version:** 1.4.0 (Roo, synchronisee avec .claude/rules/ v1.4.0)
-**Issues :** #1605, #1613, #1666, #1697, #1786, #1798, #3224
+**Version:** 2.0.0 (Roo, synchronisee avec .claude/rules/ v2.0.0 — locus du claim : issue GitHub, ADR 017 / #3676)
+**Issues :** #1605, #1613, #1666, #1697, #1786, #1798, #3224, #3407 (pre-claim deux depots), #3676 (locus issue)
 
 ---
 
@@ -13,22 +13,37 @@
 
 **Avant de coder** sur un issue referencee dans un dispatch :
 
-1. **Verifier PR concurrente** : `gh pr list --search "#NNN" --state open` — si une PR existe deja, STOP
-2. **Lire dashboard workspace** : un autre agent a-t-il `[CLAIMED]` cet issue (< 2h) ?
-3. **Annoncer claim AVANT modification** : poster `[CLAIMED]` sur le dashboard avec numero issue et machine
-4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` horodate prime.
+1. **Verifier PR concurrente — dans les DEUX depots** (une PR submodule vit dans `jsboige/jsboige-mcp-servers`, invisible au check single-repo — trou #3407) :
+   ```bash
+   for R in jsboige/roo-extensions jsboige/jsboige-mcp-servers; do
+     gh pr list --repo "$R" --state open --json number,title \
+       --jq '.[] | select(.title | test("#NNN([^0-9]|$)"))'
+   done
+   ```
+   — si une PR existe deja dans l'un des deux, STOP. **Frontiere de mot OBLIGATOIRE** (`([^0-9]|$)`, pas `\b`) : le filtre `--search "#NNN"` de GitHub est flou et `#109` matche `#1091` — sans frontiere, une issue est skippee a tort.
+2. **Verifier et poser le verrou SUR L'ISSUE** (locus canon depuis v2.0, ADR 017) :
+   ```bash
+   python scripts/github/check_issue_claim.py NNN                 # exit 1 = une AUTRE machine tient un claim actif
+   python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
+   ```
+   Le check precede l'**edition**, pas le push. Pas de timestamp dans le corps du claim : le `createdAt` serveur fait foi. Claim sans machine identifiable = fail-closed (bloque). Péremption `--stale-threshold` (défaut 24 h) : un claim étranger périmé avertit sans bloquer, mais le nouveau claimant pose quand même son `[CLAIMED]`.
+3. **Narration dashboard (bienvenue, non autoritaire)** : le `[CLAIMED]` dashboard reste le récit de cycle ; le **registre de verrous** est le commentaire d'issue. Un claim-issue **prime sur un claim-dashboard, même antérieur** (tie-break HARD, un seul locus fait foi).
+4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` **sur l'issue** (createdAt serveur) prime.
+5. **Levier du verrou** : `--release` ou commentaire `[DONE]`/`[RESULT]` `<machine>` quand la PR atterrit.
 
 **Cout cycle 22ter** : 3 implementations paralleles de #1786 garbage_scan (PRs #233/#237/#238) = ~12h travail duplique. Cette section evite la recidive.
+
+**Pourquoi le locus a demenage (v2.0, #3676)** : le claim-dashboard est silo par lane, condense a 92 % par auto-condensation, et tombe entier pendant les outages GDrive (SPOF, #3155). Detail : `docs/harness/adr/017-issue-claim-locus.md`.
 
 ## Pre-Delivery Discipline (#3224) — le claim garde le DEPART, pas la LIVRAISON
 
 La section ci-dessus verifie l'etat du monde **avant de commencer**. Rien ne le reverifie **avant de
 livrer** — or c'est entre les deux que l'etat change.
 
-**Avant `gh pr create`, relire le dashboard workspace FRAIS** (`action: "read"`, `section: "intercom"`) :
+**Avant `gh pr create`, relire le dashboard workspace FRAIS** (`action: "read"`, `section: "intercom"`) **et re-checker l'issue** (`python scripts/github/check_issue_claim.py NNN`) :
 
 1. Un `[STOP]`, un `[BLOCKED]` ou un arbitrage contraire a-t-il ete poste **depuis ton claim** ?
-2. Une PR concurrente est-elle apparue depuis ? (`gh pr list --search "#NNN" --state open`)
+2. Une PR concurrente est-elle apparue depuis ? Un claim-issue concurrent a-t-il ete pose depuis ? (meme commande word-boundary que pre-claim #1 — **les deux depots**)
 3. Si oui a l'un des deux : **STOP**, poster `[ASK]` et attendre — ne pas livrer « puisque c'est
    deja ecrit ». Du travail jete coute moins cher qu'une collision a demeler.
 
@@ -94,7 +109,7 @@ Le output `npx vitest run` doit etre visible dans les logs du rapport.
 
 ---
 
-**Principe condense** : *"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse. Detached HEAD = STOP immediat. Pre-claim AVANT de coder."*
+**Principe condense** : *"Pas de SHA sans `git cat-file -e`. Pas de PR sans URL 200. Pas de `[DONE]` sur une promesse. Detached HEAD = STOP immediat. Pre-claim AVANT de coder, sur l'issue."*
 
-**Reference Claude :** `.claude/rules/agent-claim-discipline.md` v1.3.0
-**Details harness :** `docs/harness/reference/agent-claim-discipline-detailed.md`
+**Reference Claude :** `.claude/rules/agent-claim-discipline.md` v2.0.0
+**Details harness :** `docs/harness/reference/agent-claim-discipline-detailed.md` · `docs/harness/adr/017-issue-claim-locus.md`

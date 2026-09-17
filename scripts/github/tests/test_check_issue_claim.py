@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""test_check_issue_claim.py — tests unitaires pour #3676 (ADR 014).
+"""test_check_issue_claim.py — tests unitaires pour #3676 (ADR 017).
 
 Couverture :
   - parse_iso_utc : stamps serveur Z et +00:00
@@ -160,6 +160,45 @@ class TestReduceClaims(unittest.TestCase):
         self.assertEqual(state["myia-po-2023"]["state"], "released")
         self.assertEqual(state["myia-web1"]["state"], "active")
 
+    def test_result_releases_claim(self):
+        # le protocole worker livre "[CLAIMED] by ..." puis "[RESULT] ..." --
+        # si RESULT ne ferme pas, la machine garde un faux verrou 24h
+        # (reproduit sur le stock live #3626, review #3680 bloquant 1)
+        comments = [
+            comment("[CLAIMED] myia-po-2023 -- start", T0),
+            comment("[RESULT] myia-po-2023 -- PR #1 delivered, SHA abc123", T0 + timedelta(hours=2)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2023"]["state"], "released")
+
+    def test_result_releases_only_own_machine(self):
+        comments = [
+            comment("[CLAIMED] myia-po-2023 -- a", T0),
+            comment("[CLAIMED] myia-web1 -- b", T0 + timedelta(minutes=5)),
+            comment("[RESULT] myia-po-2023 -- a shipped", T0 + timedelta(hours=2)),
+        ]
+        state = reduce_claims(comments)
+        self.assertEqual(state["myia-po-2023"]["state"], "released")
+        self.assertEqual(state["myia-web1"]["state"], "active")
+
+    def test_result_scanned_as_event_and_decoration_tolerant(self):
+        for body in (
+            "[RESULT] myia-po-2023 -- shipped",
+            "**[RESULT] myia-po-2023 -- shipped**",
+            "## [RESULT] myia-po-2023 -- shipped",
+        ):
+            events = list(scan_comment_events(body))
+            self.assertEqual([e[0] for e in events], ["RESULT"], body)
+            self.assertEqual(events[0][1], "myia-po-2023", body)
+
+    def test_result_mentioned_in_prose_is_not_event(self):
+        body = (
+            "[CLAIMED] myia-po-2023 -- start\n"
+            "Delivered, see the `[RESULT]` convention in the rules.\n"  # prose
+        )
+        events = [e[0] for e in scan_comment_events(body)]
+        self.assertEqual(events, ["CLAIMED"])
+
 
 class TestClassify(unittest.TestCase):
     def _state(self, machine, since):
@@ -226,6 +265,18 @@ class TestMain(unittest.TestCase):
         issue = self._issue([comment("[CLAIMED] myia-po-2026 -- mine", T0)])
         with patch("check_issue_claim.fetch_issue", return_value=issue):
             with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=1)):
+                rc = main(["123", "--agent", "myia-po-2026"])
+        self.assertEqual(rc, 0)
+
+    def test_result_releases_block_end_to_end(self):
+        # reproduction #3626 : une AUTRE machine a livre via [RESULT] --
+        # le check doit rendre la voie libre (exit 0), pas bloquer 24h
+        issue = self._issue([
+            comment("[CLAIMED] myia-po-2025 -- on it", T0),
+            comment("[RESULT] myia-po-2025 -- delivered PR #99", T0 + timedelta(hours=1)),
+        ])
+        with patch("check_issue_claim.fetch_issue", return_value=issue):
+            with patch("check_issue_claim.now_utc", return_value=T0 + timedelta(hours=2)):
                 rc = main(["123", "--agent", "myia-po-2026"])
         self.assertEqual(rc, 0)
 
