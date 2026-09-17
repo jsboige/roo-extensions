@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Install or uninstall the Claude-ListenerZombieWatchdog scheduled task (#3687).
 

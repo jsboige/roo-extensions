@@ -144,7 +144,9 @@ zombie) + `Start-ScheduledTask`, non-élevé.
    documenté #3686).
 
 Conservateur par construction : un process vivant OU un heartbeat frais → verdict HEALTHY, aucune
-action. Tâche absente (NOT_INSTALLED) ou stopped → pas la classe zombie, pas d'action.
+action. Tâche absente (NOT_INSTALLED) ou stopped → pas la classe zombie, pas d'action. Cold-boot :
+`LastRunTime` < 300 s → verdict STARTING, aucune action (fenêtre de grâce anti-course — la tâche
+listener vient d'être lancée par son trigger AtLogOn/AtStartup et n'a pas encore pris son mutex).
 
 **Forensique avant restart** (demande 2 de #3686) : `LastTaskResult` + tail 30 lignes du log
 listener capturés dans `outputs/scheduling/logs/zombie-watchdog-forensics-<ts>Z.txt` avant tout

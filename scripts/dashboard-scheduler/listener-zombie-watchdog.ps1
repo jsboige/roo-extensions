@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Local watchdog for the Claude-DashboardListener zombie class (#3687).
 
@@ -37,9 +37,10 @@
     outputs/scheduling/logs/zombie-watchdog-forensics-<timestamp>.txt.
 
     Idempotent: if already healing (task Disabled/Queued/starting), if healthy
-    (live mutex/process OR fresh heartbeat), or if the task is absent
-    (NOT_INSTALLED is an [INTERACTIVE-ONLY] condition), it exits 0 without
-    touching anything.
+    (live mutex/process OR fresh heartbeat), if the task launched too recently
+    to have acquired its mutex yet (STARTING grace: LastRunTime < 300 s — cold
+    -boot race, no conviction), or if the task is absent (NOT_INSTALLED is an
+    [INTERACTIVE-ONLY] condition), it exits 0 without touching anything.
 
     Runs non-elevated as the task owner, typically every 15 min via
     install-listener-zombie-watchdog-schtask.ps1. Best-effort: any GDrive or
@@ -81,6 +82,13 @@ param(
 
 $ErrorActionPreference = "Continue"
 
+# Cold-boot STARTING grace (#3688 review): the listener task has AtLogOn/AtStartup
+# triggers; during the seconds before the wrapper acquires its mutex, every life
+# signal is negative while the listener is legitimately starting. A LastRunTime
+# this fresh means the task JUST launched — never convict as zombie. Local to
+# startup; does not weaken the 900-second heartbeat threshold.
+$startGraceSeconds = 300
+
 $taskName  = "Claude-DashboardListener"
 $scriptDir = Split-Path $MyInvocation.MyCommand.Path -Parent
 $RepoRoot  = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
@@ -97,7 +105,9 @@ $machineId = if ($env:ROOSYNC_MACHINE_ID) {
 
 function Write-WatchdogLog([string]$level, [string]$msg) {
     $line = "[{0}] [{1}] [zombie-watchdog] {2}" -f $nowUtc.ToString("yyyy-MM-ddTHH:mm:ssZ"), $level, $msg
-    Write-Output $line
+    # -Json: stdout must carry ONLY the final JSON object (machine-consumable);
+    # human log lines go to the file log regardless.
+    if (-not $Json) { Write-Output $line }
     if (-not (Test-Path $logDir)) {
         New-Item -ItemType Directory -Path $logDir -Force | Out-Null
     }
@@ -125,11 +135,13 @@ $taskState = if ($task) { [string]$task.State } else { "NOT_INSTALLED" }
 $taskInfo  = Get-ScheduledTaskInfo -TaskName $taskName -ErrorAction SilentlyContinue
 $lastResultHex = $null
 $lastRun = $null
+$lastRunAgeSeconds = $null
 $nextRun = $null
 if ($taskInfo) {
     $lastResultHex = ('0x{0:X}' -f $taskInfo.LastTaskResult)
     if ($taskInfo.LastRunTime -and $taskInfo.LastRunTime -gt [datetime]'2000-01-01') {
         $lastRun = $taskInfo.LastRunTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        $lastRunAgeSeconds = [int]($nowUtc - $taskInfo.LastRunTime.ToUniversalTime()).TotalSeconds
     }
     if ($taskInfo.NextRunTime -and $taskInfo.NextRunTime -gt [datetime]'2000-01-01') {
         $nextRun = $taskInfo.NextRunTime.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -226,6 +238,9 @@ if ($taskState -eq "NOT_INSTALLED") {
 } elseif (-not $hbStale) {
     $verdict = "HEALTHY"
     $reason  = "no live wrapper chain but $hbSource heartbeat is fresh (<=$StaleSeconds s) — treat as transient, never act"
+} elseif ($null -ne $lastRunAgeSeconds -and $lastRunAgeSeconds -lt $startGraceSeconds) {
+    $verdict = "STARTING"
+    $reason  = "State=Running + no live wrapper chain yet + stale $hbSource heartbeat, but LastRunTime was ${lastRunAgeSeconds}s ago (< ${startGraceSeconds}s grace) — cold-boot startup race, no action"
 } else {
     $verdict = "ZOMBIE"
     $reason  = "State=Running + no live wrapper chain (mutex free, 0 cmdline procs) + $hbSource heartbeat stale (>$StaleSeconds s)"
@@ -241,6 +256,7 @@ $result = [PSCustomObject]@{
     taskState      = $taskState
     lastTaskResult = $lastResultHex
     lastRunUtc     = $lastRun
+    lastRunAgeSeconds = $lastRunAgeSeconds
     nextRunUtc     = $nextRun
     liveProcesses  = $liveProcCount
     wrapperMutexHeld = $mutexHeld
