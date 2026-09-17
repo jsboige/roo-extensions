@@ -1,6 +1,6 @@
 # Inventaire des consommateurs du modèle local — Issue #3401
 
-**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-15 (§7.1 qualifiée **instances de siège** avec mapping vers les systèmes §1, ligne doublon du système #7 retirée, coordonnées du défaut alignées sur la mesure fraîche `openai.ts:102`/`index.ts:97` en §1/§5 — po-2024 ; précédente 2026-09-14 : lane po-2024 §7 — déclaration de siège + re-mesure du gate end-to-end (toujours fermé) + provenance des clés ; 2026-09-13 : étape 1 instance locale po-203 + topologie relais → hub autoritaire po-2025 — po-2023)
+**Date :** 2026-09-03 · **Dernière rév. :** 2026-09-17 (§8 — re-mesure du gate po-203 : alias `local-coding`/`local-fast` désormais **annoncés sur les DEUX catalogues** (local + hub po-2025), mais complétion **401** spécifique aux alias — blocage déplacé de « non déployé » vers « résolution hub cassée » ; précédente 2026-09-15 : §7.1 qualifiée **instances de siège** avec mapping vers les systèmes §1, ligne doublon du système #7 retirée, coordonnées du défaut alignées sur la mesure fraîche `openai.ts:102`/`index.ts:97` en §1/§5 — po-2024 ; 2026-09-14 : lane po-2024 §7 — déclaration de siège + re-mesure du gate end-to-end (toujours fermé) + provenance des clés ; 2026-09-13 : étape 1 instance locale po-203 + topologie relais → hub autoritaire po-2025 — po-2023)
 **Auteur :** web1 (lane executor)
 **Issue :** [#3401](https://github.com/jsboige/roo-extensions/issues/3401)
 **Sonde primaire :** `grep -rE 'qwen3[.\-][0-9a-zA-Z\-]+|OPENAI_BASE_URL|OPENAI_API_KEY|EMBEDDING_API_KEY|VLLM_API_KEY|ANTHROPIC_BASE_URL|claudish|models\.myia' --include='*.ps1' --include='*.json' --include='*.ts' --include='*.js' --include='*.py' --include='*.yml' --include='*.yaml' --include='*.sh' --include='*.template*' --include='*.env*'` dans `/c/dev/roo-extensions` (working tree).
@@ -210,6 +210,31 @@ La même valeur morte `1c6a3bc7` est **dupliquée** dans `sk_agent_config.json` 
 
 1. **Méthode — nommer la variable que le BUILD lit.** Un audit qui teste la clé au nom le plus générique (`OPENAI_API_KEY`) conclut « consommateur cassé, 401 » et « corrige » le mauvais levier ; le build lit `VLLM_API_KEY_MEDIUM` (`chat-key.ts:37`), acceptée. C'est la même classe que #1147 (« la clé de chat doit correspondre à son endpoint »), vue depuis l'autre bout : ici la clé *morte* est présente, co-localisée, et **silencieusement inoffensive** pour RSM.
 2. **Surface de rotation — `1c6a3bc7` est une copie morte en 3 emplacements** (1 var RSM + 2 entrées sk-agent) : elle n'apparaît dans **aucun** inventaire dérivé d'un `.env` unique. Les 2 entrées sk-agent concernées sont **actuellement non fonctionnelles** (401 sur leur propre endpoint) — à traiter en **étape 5** (aucune correction appliquée ici : la mutation de config est gated par le plan synchronisé §3, cette Epic porte un recensement, pas une bascule).
+
+---
+
+## 8. Lane po-2023 — re-mesure du gate vague 1 (17/09) : annonces apparues, résolution cassée
+
+Troisième re-mesure end-to-end du gate (après po-2023 08/09, web1 09/09 et 11/09, po-2024 14/09 — toutes **fermées** sur « alias absents des catalogues »). **L'état a changé de nature** : les alias sont désormais annoncés, mais leur résolution échoue. Sondes firsthand po-203, 17/09 ~15:0xZ — aucune valeur de clé lue ni affichée (codes HTTP et noms de modèles seulement).
+
+### 8.1 Sondes
+
+| # | Sonde | Périmètre | Résultat |
+|---|---|---|---|
+| 1 | `GET http://192.168.0.46:3000/v1/models` | catalogue **local** po-203 (relais) | `local-coding` + `local-fast` **présents** (23 modèles) |
+| 2 | `GET http://192.168.0.50:3000/v1/models` | catalogue **hub** po-2025 (autoritaire) | `local-coding` + `local-fast` **présents** (24 modèles ; `zai-glm-5-3` absent du local → les deux catalogues sont bien des snapshots distincts, les sondes 1 et 2 ne mesurent pas la même chose) |
+| 3 | `POST :46:3000/v1/chat/completions` model `qwen3.6-35b-a3b`, header `x-proxy-key` | **contrôle positif** — chaîne complète relais → hub → vLLM + clé cluster | **200**, complétion réelle (0,7 s) |
+| 4 | `POST :46:3000` model `local-coding` — 3 schémas d'auth : `x-proxy-key` / `x-api-key` / `Authorization: Bearer` | résolution end-to-end via le relais (gate vague 1) | **401** `{"error":{"message":"x-api-key header is required","type":"authentication_error"}}` — **identique pour les 3 schémas** |
+| 5 | `POST :50:3000` (hub direct) model `local-coding`, `x-proxy-key` puis `x-api-key` | résolution hub seule, relais exclu | **401** identique |
+| 6 | `POST :46:3000` model `local-fast`, `x-proxy-key` | second alias | **401** identique |
+
+### 8.2 Lecture
+
+- **Le gate vague 1 reste FERMÉ** : le critère « annoncé **ET** complétion 200 end-to-end via `192.168.0.46:3000` » (§3 étape 1 point 4) échoue sur la seconde moitié.
+- **Le blocage a changé de nature.** Au 14/09 (§7.2) : alias absents des catalogues — « pas déployés ». Au 17/09 : alias **annoncés des deux côtés**, mais toute demande sur un alias échoue **avant la résolution** avec une erreur d'auth. Le contrôle positif (sonde 3) prouve que la sonde, le relais, le hub et la clé cluster sont fonctionnels : l'échec est **spécifique aux entrées `local-*`**.
+- **L'erreur est mensongère en première lecture** : « x-api-key header is required » est renvoyé **même quand `x-api-key` est présent** (sondes 4-5). C'est une erreur de forme Anthropic émise par la chaîne de routage, pas un simple header manquant.
+- **Hypothèse de cause (SUPPOSÉ — non vérifiable depuis po-203)** : les entrées de routing `local-*` du hub référencent un fournisseur absent/mal défini dans la config po-2025 (p. ex. `vllm-myia` déployé sur po-203 en étape 1 mais pas défini côté hub), et la résolution retombe sur une chaîne par défaut exigeant une auth Anthropic que la clé cluster ne satisfait pas. À qualifier sur le siège po-2025 (`~/.claudish/config.json` at-rest + logs du conteneur au moment d'une demande `local-coding`).
+- **Propriétaire du fix :** lane **po-2025** (hub autoritaire). DM diagnostic envoyé 17/09. Les étapes 2-8 restent gated.
 
 ---
 
