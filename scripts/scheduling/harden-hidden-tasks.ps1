@@ -28,6 +28,14 @@
 
     L'action d'origine est sauvegardee en JSON a cote du VBS, ce qui rend -Rollback exact.
 
+    COROLLAIRE, et c'est un piege : la ligne de commande etant FIGEE dans le VBS, un chemin qui
+    bouge apres le durcissement (migration de depot, repointage de tache) laisse un VBS pointant
+    dans le vide ALORS QUE l'action de la tache reste parfaitement coherente. Le chemin perime ne
+    vit que DANS le VBS : tout audit au niveau des actions de tache est aveugle par construction.
+    Le script audite donc les lanceurs deja durcis a chaque passage, et sort en erreur si une
+    tache ACTIVE pointe dans le vide. Une cible perimee sur une tache Desactivee est seulement
+    signalee -- une tache legacy remplacee est un cas legitime, pas un defaut.
+
 .PARAMETER DryRun
     N'ecrit rien : affiche le plan (taches concernees, action avant/apres).
 
@@ -43,7 +51,8 @@
 
 .EXAMPLE
     pwsh -File scripts\scheduling\harden-hidden-tasks.ps1 -DryRun
-    Affiche ce qui serait modifie, sans rien changer.
+    Affiche ce qui serait modifie, sans rien changer -- et audite les lanceurs deja durcis
+    (cibles perimees), ce qui en fait le mode de controle a lancer apres une migration de depot.
 
 .EXAMPLE
     pwsh -File scripts\scheduling\harden-hidden-tasks.ps1
@@ -51,7 +60,9 @@
     (elles sont listees en fin de rapport avec la commande a rejouer en admin).
 
 .NOTES
-    Idempotent : une tache deja routee via wscript est laissee telle quelle.
+    Idempotent : une tache deja routee via wscript n'est pas re-routee -- mais son lanceur est
+    audite (voir le COROLLAIRE du .DESCRIPTION), car « deja durcie » ne veut pas dire « cible
+    encore valide ».
     Issue : gene de frappe signalee par l'utilisateur (flashes ~51/h mesures sur ai-01).
 #>
 [CmdletBinding()]
@@ -89,6 +100,62 @@ $consoleHosts = @('powershell.exe', 'pwsh.exe', 'cmd.exe')
 $all = Get-ScheduledTask | Where-Object { $_.TaskPath -notlike '\Microsoft\*' }
 if ($TaskName) { $all = $all | Where-Object { $_.TaskName -in $TaskName } }
 
+# --- Audit des lanceurs deja durcis ---------------------------------------------------------
+# Une tache deja routee via `wscript.exe` est « deja durcie » au sens de la FORME. Mais le VBS
+# embarque la ligne de commande FIGEE (cf. header) : si le chemin sous-jacent a bouge depuis le
+# durcissement (migration de depot, repointage de tache), le VBS garde l'ancien alors que
+# l'action de la tache, elle, reste coherente. Le chemin perime ne vit que DANS le VBS -- tout
+# audit au niveau des actions de tache est donc aveugle par construction. On le lit ici.
+$staleLaunchers = @(foreach ($t in $all) {
+    $action = $t.Actions | Select-Object -First 1
+    if (-not $action -or -not $action.Execute) { continue }
+    if ((Split-Path $action.Execute -Leaf) -ine 'wscript.exe') { continue }
+
+    $vbsMatch = [regex]::Match([string]$action.Arguments, '(?i)([A-Za-z]:\\[^"]*\.vbs)')
+    if (-not $vbsMatch.Success) { continue }
+    $vbsPath = $vbsMatch.Groups[1].Value
+
+    if (-not (Test-Path $vbsPath)) {
+        [PSCustomObject]@{ Task = $t.TaskName; State = $t.State; Launcher = $vbsPath; Target = '(lanceur introuvable)' }
+        continue
+    }
+
+    $vbsText = Get-Content $vbsPath -Raw
+    foreach ($m in [regex]::Matches($vbsText, '(?i)([A-Za-z]:\\[^"\r\n]*?\.(?:ps1|py|js|cjs|bat|cmd|exe))')) {
+        $target = $m.Groups[1].Value.Trim()
+        if (-not (Test-Path $target)) {
+            [PSCustomObject]@{ Task = $t.TaskName; State = $t.State; Launcher = $vbsPath; Target = $target }
+        }
+    }
+})
+# Une tache Desactivee a legitimement un lanceur perime (tache legacy remplacee) : informatif.
+# Une tache ACTIVE dont le lanceur pointe dans le vide echoue en silence -- c'est le defaut.
+# `$_ -and` est indispensable : `$null | Where-Object { $_.State -ne 'Disabled' }` laisse passer
+# le $null, parce que `$null -ne 'Disabled'` est VRAI -- le script sortirait 1 sur une machine
+# pourtant propre.
+$staleActive = @($staleLaunchers | Where-Object { $_ -and $_.State -ne 'Disabled' })
+
+function Write-LauncherAudit {
+    param($Findings)
+    if (-not $Findings) {
+        Write-Host "Lanceurs durcis : aucune cible perimee." -ForegroundColor Green
+        return
+    }
+    Write-Host ""
+    Write-Host "=== Lanceurs durcis : cibles perimees ===" -ForegroundColor Yellow
+    foreach ($f in $Findings) {
+        $color = if ($f.State -eq 'Disabled') { 'DarkGray' } else { 'Red' }
+        Write-Host ("  [{0}] {1}" -f $f.State, $f.Task) -ForegroundColor $color
+        Write-Host ("         lanceur : {0}" -f $f.Launcher) -ForegroundColor DarkGray
+        Write-Host ("         cible   : {0}  (introuvable)" -f $f.Target) -ForegroundColor $color
+    }
+    if ($Findings | Where-Object { $_.State -ne 'Disabled' }) {
+        Write-Host ""
+        Write-Host "  Une tache ACTIVE dont le lanceur pointe dans le vide echoue en silence." -ForegroundColor Red
+        Write-Host "  Reparer : re-router la tache (Set-ScheduledTask) ou la re-hardener (-Rollback puis APPLY)." -ForegroundColor Yellow
+    }
+}
+
 $plan = foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
@@ -112,6 +179,8 @@ $plan = foreach ($t in $all) {
 
 if (-not $plan) {
     Write-Host "Rien a faire : aucune tache eligible." -ForegroundColor Green
+    Write-LauncherAudit -Findings $staleLaunchers
+    if ($staleActive.Count -gt 0) { exit 1 }
     return
 }
 
@@ -216,4 +285,6 @@ if ($needElevation) {
     Write-Host ("  pwsh -File `"{0}`"" -f $PSCommandPath) -ForegroundColor Yellow
 }
 
-if ($failed) { exit 1 }
+Write-LauncherAudit -Findings $staleLaunchers
+
+if ($failed -or $staleActive.Count -gt 0) { exit 1 }
