@@ -106,8 +106,45 @@ compte actif de `hosts.yml`. La garde d'identité in-command (`.claude/rules/pr-
 concurrence entre processus ; elle ne protège pas du quota d'un compte épuisé. Poser le token
 explicite ferme les deux : identité déterministe **et** budget connu.
 
-Cette recommandation est **documentaire** : elle vise des crons hors de ce dépôt (po-2026) et ne
-se réécrit pas d'ici.
+Cette recommandation vise les crons Hermes de po-2026 (hors dépôt) **et les harnais schedulés de
+ce dépôt** — l'audit ci-dessous montre que ces derniers partagent exactement la même exposition.
+
+## Portée in-repo — audit des harnais schedulés (2026-09-17, po-2023)
+
+Les livraisons initiales (#3624, #3667) lisaient la demande de routage comme visant les seuls
+crons Hermes. **Audit du 17/09** (VERIFIÉ firsthand : grep `gh ` croisé avec `GH_TOKEN` /
+`--user` / `auth switch` sur `scripts/scheduling/`, `scripts/scheduler/`,
+`scripts/dashboard-scheduler/`, `scripts/github/`) :
+
+| Script | appels `gh` | chemins notables |
+|---|---|---|
+| `scheduling/start-claude-worker.ps1` | 24 | `gh issue view/list`, `gh pr list`, **`gh api graphql` direct** (l.606, champs Project #67) |
+| `scheduling/start-claude-coordinator.ps1` | 9 | même famille |
+| `scheduling/start-vibe-worker.ps1` | 8 | même famille |
+| `github/review-bot.ps1` | 5 | `gh pr list/view/diff/review` |
+| `scheduling/pick_idle_grain.py` | 2 vivants | `gh issue list`, `gh pr list` (l.83, l.95) |
+| `dashboard-scheduler/dashboard-listener.ps1` | 1 | `gh issue view` (l.628 — le listener de wake) |
+| `scheduler/workflow-meta-analyst.ps1` | 3 | — |
+| `scheduling/start-meta-audit.ps1` | 2 | — |
+
+**Aucun de ces 8 scripts ne référence `GH_TOKEN`, `gh auth switch` ni `--user`** : tous héritent
+du compte actif de `hosts.yml` — compte qui **drifte au restart** (constaté sur po-2023) et dont
+la valeur par défaut est `jsboige`, le compte partagé dont l'épuisement GraphQL est le fait
+générateur de #3623. La dégradation est propre (le worker rend `{}` sur erreur GraphQL,
+l.608-611) mais silencieuse : chaque lecture GraphQL perdue est un pickup, un champ Project ou un
+réveil qui n'a pas eu lieu.
+
+### Pourquoi le fix n'est pas un export global de `GH_TOKEN`
+
+`GH_TOKEN` prime sur `hosts.yml` **pour tout l'arbre de processus**. Un harnais qui poserait
+`$env:GH_TOKEN` en tête de script puis spawnerait ses sessions Claude neutraliserait la garde
+d'identité in-command (#3032, `gh auth switch --user X && assert`) chez **tous les enfants** :
+le switch devient no-op, l'assert lit le token épinglé. Le pinçage doit être **scopé** — env
+posé par appel, ou retiré avant chaque spawn. C'est un chantier dédié (multi-sites, par machine),
+pas un export en tête de script.
+
+En attendant : lectures en REST (`gh api repos/O/R/...`) là où GraphQL n'apporte rien — c'est le
+contournement §1, déjà applicable à tout siège.
 
 ## Ce qu'il ne faut PAS refaire
 
