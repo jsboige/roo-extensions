@@ -1,7 +1,7 @@
 # Wake-Claude — Listener, durabilité et observabilité
 
 **Déporté de** `.claude/rules/wake-claude-routing.md` (v1.1.0) le 2026-08-05.
-**Issues :** #2431 (durabilité + observabilité) · #2186 (routing vérifié-correct) · #2928 (détection fleet) · #2561 (choix du modèle)
+**Issues :** #2431 (durabilité + observabilité) · #2186 (routing vérifié-correct) · #2928 (détection fleet) · #2561 (choix du modèle) · #3686/#3687 (zombie watchdog)
 
 La règle auto-chargée garde le **contrat de routing** et les interdits. Tout ce qui suit est de la
 procédure et du contexte : on le lit quand on répare un listener, pas à chaque conversation.
@@ -119,8 +119,52 @@ Options de rollout (lane coordinator/user) : (1) ai-01 seul auto-monitore tout l
 (2) chaque machine installe → détection distribuée redondante, (3) garder ad-hoc. L'installeur ne
 décide pas — il supporte les trois selon qui l'installe.
 
+## Watchdog zombie (#3687)
+
+La détection fleet **alerte** mais n'agit pas. Or la classe de défaillance observée sur po-2026 le
+15-16/09 (#3686) rend l'auto-guérison structurellement impossible : la chaîne wrapper/listener meurt
+silencieusement, Task Scheduler garde `State=Running` **sans process vivant**, et
+`MultipleInstances=IgnoreNew` refuse chaque re-trigger 15-min (`LastTaskResult=0x800710E0`
+« operator refused »). Heartbeat gelé 36h, réparation seulement par intervention locale ~26h après
+la mort — pendant que la machine restait ONLINE et les crons vivants.
+
+`listener-zombie-watchdog.ps1` (cron 15 min via `Claude-ListenerZombieWatchdog`, par machine) ferme
+la classe avec le geste exact appliqué à la main le 16/09 06:22Z : `Stop-ScheduledTask` (purge
+zombie) + `Start-ScheduledTask`, non-élevé.
+
+**Détection = ET logique des trois signaux, jamais un seul :**
+
+1. tâche existe ET `State=Running` ;
+2. **aucun process wrapper vivant** — détecté par le **mutex kernel** `Global\RooSync-DashboardListener-Wrapper`
+   (probe `WaitOne(0)`) : un process vivant tient le mutex, le kernel le libère à sa mort. Le
+   balayage par ligne de commande est imprécis (CommandLine null sous Task Scheduler — mesuré po-2026
+   16/09 : le wrapper lancé par schtask n'expose PAS sa ligne de commande, seul le mutex prouve la vie) ;
+3. heartbeat **stale > 900 s** — mtime du fichier uniquement (local d'abord, partagé GDrive en
+   fallback). JAMAIS les lignes de log : elles stampent l'heure **locale avec un suffixe Z** (piège
+   documenté #3686).
+
+Conservateur par construction : un process vivant OU un heartbeat frais → verdict HEALTHY, aucune
+action. Tâche absente (NOT_INSTALLED) ou stopped → pas la classe zombie, pas d'action. Cold-boot :
+`LastRunTime` < 300 s → verdict STARTING, aucune action (fenêtre de grâce anti-course — la tâche
+listener vient d'être lancée par son trigger AtLogOn/AtStartup et n'a pas encore pris son mutex).
+
+**Forensique avant restart** (demande 2 de #3686) : `LastTaskResult` + tail 30 lignes du log
+listener capturés dans `outputs/scheduling/logs/zombie-watchdog-forensics-<ts>Z.txt` avant tout
+Stop/Start.
+
+```powershell
+pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-listener-zombie-watchdog-schtask.ps1 -DryRun   # preview
+pwsh -ExecutionPolicy Bypass -File scripts\dashboard-scheduler\install-listener-zombie-watchdog-schtask.ps1           # register (elevated)
+```
+
+Le mutex du wrapper existe depuis #3277 (garde single-instance) — le watchdog le réutilise comme
+signal de vie kernel-side, sans modification du listener. À installer sur chaque machine déployée
+en pwsh-direct (#3656) ; la registration est élevée `[INTERACTIVE-ONLY]`, le remediation runtime
+ne l'est pas.
+
 ---
 
 **Référence technique :** `dashboard-listener.ps1`, `dashboard-listener-wrapper.ps1`,
 `install-dashboard-listener-schtask.ps1`, `diagnose-wake-listener.ps1`, `check-all-listeners.ps1`,
-`install-check-all-listeners-schtask.ps1` (tous dans `scripts/dashboard-scheduler/`).
+`install-check-all-listeners-schtask.ps1`, `listener-zombie-watchdog.ps1`,
+`install-listener-zombie-watchdog-schtask.ps1` (tous dans `scripts/dashboard-scheduler/`).

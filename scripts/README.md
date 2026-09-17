@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-09 (ajout 2 scripts `github/` — watchguards #3381 D4/D13)
+**Dernière mise à jour :** 2026-09-16 (ajout 2 scripts `dashboard-scheduler/` — watchdog zombie listener #3687)
 
 ---
 
@@ -26,7 +26,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 | Répertoire | Scripts | Description |
 |------------|---------|-------------|
 | `roosync/` | 33 | Synchronisation multi-machines RooSync (indexation, storage, config sync) |
-| `dashboard-scheduler/` | 11 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation, listener diagnostics) |
+| `dashboard-scheduler/` | 13 | Dashboard listener + scheduler (wake-claude, heartbeat, condensation, listener diagnostics, zombie watchdog #3687) |
 | `messaging/` | 5 | Communication inter-machines (ventilation, inbox) |
 | `gdrive/` | 1 | Intégration Google Drive |
 | `gdrivefs-watchdog/` | 3 | Watchdog GoogleDriveFS.exe (silent-exit #2875 + hung-process + cooldown #2933) — relance auto quand le process meurt |
