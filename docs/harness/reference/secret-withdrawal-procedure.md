@@ -155,3 +155,99 @@ jamais la valeur) : c'est le signal qu'un auteur reçoit que son message a été
 volet rétention/retrait (cette procédure + `scrub`) · amendements 1.1.0 (13/09) : précondition
 `scrub` exposée (sinon repli manuel §3.3) ; 11ᵉ ligne d'inventaire Qdrant — le masquage de
 forme ne couvre pas une **valeur nue** (cas fondateur), purge explicite §3.4.
+
+
+---
+
+## 6. Retrait d'un secret publié en DM RooSync (`roosync_messages`)
+
+**Version:** 1.2.1 (#3584)
+
+### 6.1 Prévention à l'écriture (côté serveur MCP) — deux couches
+
+**Couche primaire, LIVE depuis le 14/09 — #1156** (squash `8b2e467e`, MERGED
+2026-09-14) : `maskSecretTextForPublication` est câblé à la **boundary
+persistence** (`MessageManager.ts`) — unique point de mutation traversé par
+les DEUX branches du store (fichiers GDrive et PG-primaire) :
+
+- send : `subject` (L825) + `body` (L826)
+- amend : `new_content` (L2125) + `reason` (L2126)
+
+Tout ce qui est persisté (`messages/sent/`, `messages/inbox/`, miroir PG,
+indexation) part de ces valeurs masquées. Signal de log :
+`[MESSAGES-REDACTION]` (pluriel) — « secret masqué à l'envoi / à
+l'amendement (#3584) ».
+
+**Couche secondaire, PROPOSÉE — submod #1164** (router boundary, en review) :
+`redactMessageForPublication` dans `tools/roosync/send.ts`, appliquée au
+routeur `roosyncSend` AVANT `messageManager.sendMessage` / `amendMessage`.
+Defense-in-depth : les valeurs traversent la partie amont (écho d'arguments
+au niveau routeur/outil, journalisation intermédiaire) déjà masquées, et la
+garde tient si un chemin futur contourne la boundary persistence. Champs
+couverts au routeur : `body` (send, reply), `subject` (send), `new_content`
+(amend). Signal de log : `[MESSAGE-REDACTION]` (singulier — routeur ; ne pas
+confondre avec le pluriel persistence ci-dessus).
+
+Les deux couches appliquent à la chaîne les mêmes détecteurs
+(cf. `utils/secret-redaction.ts`) :
+
+1. **Formes auto-descriptives** (`sk-`, `ghp_`, `Bearer`, `API_KEY=`, etc.) — attrape la
+   valeur dès qu'elle voyage avec un contexte syntaxique.
+2. **Valeurs connues du process** (`createKnownValueMasker`) — attrape la valeur nue SI
+   elle est déjà dans `process.env` du siège serveur. Couvre le cas où le caller
+   concatène `process.env.MY_KEY` dans le body : le serveur MCP, qui partage l'env,
+   attrape la même valeur au passage.
+
+Sans signal de log, l'auteur croirait avoir publié la valeur — c'est la même logique
+que `[DASHBOARD-REDACTION]` côté dashboard.
+
+### 6.2 Retrait d'un message déjà publié (fenêtre pré-#1156-par-hôte)
+
+La fenêtre d'exposition est antérieure au déploiement de la couche primaire :
+DM émis **avant** que le siège serveur ne serve un build ≥ `8b2e467e` (#1156
+appliqué par siège au restart). Après les redémarrages du 16/09, seul po-2026
+reste sur un build antérieur (hôte listener mort) — les DM émis depuis tout
+autre siège redémarré passent déjà par le masquage à la persistance (la
+détection, elle, reste celle des deux détecteurs ci-dessus).
+
+1. **Depuis l'expéditeur (siège détenteur de préférence)** : `action: "amend"` remplace
+   `body` (et `subject` pour send) — passer `new_content` masqué manuellement. Limite :
+   `amend` n'est possible que si le destinataire n'a pas encore lu ; au-delà, repli.
+2. **Depuis l'expéditeur, post-lecture** : pas de retour arrière via l'API ; geste
+   opérateur sur le store GDrive (le fichier JSON source sous `messages/sent/<id>.json`).
+3. **Depuis le destinataire** : geste symétrique sur `messages/inbox/<id>.json`.
+4. **Si la valeur a transité** : considérer comme exposé, rotation (§3.5) — la décision
+   est à l'ayant-cause.
+
+### 6.3 Inventaire des copies d'un DM fautif (différent du dashboard)
+
+| # | Copie | Localisation | Retrait |
+|---|-------|--------------|---------|
+| 1 | Message émis | `messages/sent/<id>.json` (expéditeur) | amend si non-lu, sinon édition manuelle |
+| 2 | Message reçu | `messages/inbox/<id>.json` (destinataire) | édition manuelle |
+| 3 | Miroir PG | upsert sync à chaque écriture | dépend du dual-write de MessageManager ; après amend/édition manuelle, resync |
+| 4 | Transit LLM (transcripts indexés) | Qdrant (transcription conversationnelle) | masquage de forme à l'indexation, sinon purge explicite cf. §3.4 |
+| 5 | Pièces jointes | store RooSync (`attachments/<uuid>`) | l'attachement est un fichier ; supprimer le blob + la référence dans le message JSON |
+| 6 | Transcripts des agents qui ont lu | fichiers JSONL locaux des sessions (lecture terminal) | non retirable par construction — rotation (§3.5) |
+
+### 6.4 Qui peut amender / éditer un DM
+
+| Action | Siège | Pré-condition |
+|--------|-------|----------------|
+| `amend` | émetteur uniquement | destinataire n'a pas encore lu (#3029 + limite `amendMessage`) |
+| Édition manuelle `messages/sent/<id>.json` | émetteur | accès filesystem au store partagé |
+| Édition manuelle `messages/inbox/<id>.json` | destinataire | idem |
+| Rotation | ayant-cause + user | décision partagée, pas au découvreur |
+
+---
+
+**Amendements:**
+- **1.2.1** (17/09/2026, #3584) — §6.1/§6.2 recadrées sur l'état réel de main (reviews #3693) :
+  la couche primaire est #1156 (boundary persistence, MERGED 14/09, `8b2e467e`) ; le patch
+  routeur `send.ts` (submod #1164, en review) est une couche secondaire defense-in-depth.
+  La fenêtre de retrait §6.2 devient pré-#1156-par-hôte (seul po-2026 reste en build
+  antérieur au 17/09).
+- **1.2.0** (16/09/2026, #3584) — section §6 ajoutée : procédure de retrait des DM déjà
+  publiés. La note de cadrage d'origine (« le canal DM RooSync n'était pas couvert par les
+  volets précédents ») était inexacte — corrigée en 1.2.1 : #1156 masquait déjà à la
+  persistance depuis le 14/09.
