@@ -122,7 +122,19 @@ $staleLaunchers = @(foreach ($t in $all) {
     if ((Split-Path $action.Execute -Leaf) -ine 'wscript.exe') { continue }
 
     $vbsMatch = [regex]::Match([string]$action.Arguments, $launcherPattern)
-    if (-not $vbsMatch.Success) { continue }
+    if (-not $vbsMatch.Success) {
+        # Ne PAS sortir en silence. Une garde en NEGATION eteint le bruit, mais elle transforme
+        # « je n'ai pas su lire » en « rien a signaler » : l'audit annoncerait « aucune cible
+        # perimee » pour un lanceur qu'il n'a jamais ouvert -- le faux vert exact que ce mode existe
+        # pour supprimer. On ne signale que le cas ou un `.vbs` est bien REFERENCE et reste
+        # illisible (ex. chemin a variable d'environnement, forme presente dans le parc) : un hote
+        # `wscript.exe` lance aussi du `.js`/`.wsf`, qui ne sont pas des artefacts de ce script et
+        # ne doivent pas produire un faux rouge.
+        if ([string]$action.Arguments -match '(?i)\.vbs\b') {
+            [PSCustomObject]@{ Task = $t.TaskName; State = $t.State; Launcher = [string]$action.Arguments; Target = '(chemin de lanceur illisible)' }
+        }
+        continue
+    }
     $vbsPath = $vbsMatch.Groups[1].Value
 
     if (-not (Test-Path $vbsPath)) {
@@ -157,7 +169,10 @@ function Write-LauncherAudit {
         $color = if ($f.State -eq 'Disabled') { 'DarkGray' } else { 'Red' }
         Write-Host ("  [{0}] {1}" -f $f.State, $f.Task) -ForegroundColor $color
         Write-Host ("         lanceur : {0}" -f $f.Launcher) -ForegroundColor DarkGray
-        Write-Host ("         cible   : {0}  (introuvable)" -f $f.Target) -ForegroundColor $color
+        # Le suffixe ne vaut que pour une CIBLE reelle : les cas « lanceur introuvable » et
+        # « chemin illisible » portent deja leur propre texte.
+        $suffix = if ($f.Target -match '^(?:[A-Za-z]:|\\\\|/)') { '  (introuvable)' } else { '' }
+        Write-Host ("         cible   : {0}{1}" -f $f.Target, $suffix) -ForegroundColor $color
     }
     if ($Findings | Where-Object { $_.State -ne 'Disabled' }) {
         Write-Host ""
