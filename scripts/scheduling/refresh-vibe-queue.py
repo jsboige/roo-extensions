@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Rebuild the Vibe grain queue from a fresh detector scan (#15719).
+"""Rebuild the Vibe grain queue from fresh detector scans (#15719, #16472).
+
+Multi-contrat depuis #16472 (GO ai-01 17/09, mandat user « résoudre
+définitivement le pb d'approvisionnement ») : la file est l'union des grains
+de chaque contrat actif — un détecteur épuisé n'assèche plus la lane.
 
 `outputs/vibe/feeder-queue.json` is a gitignored runtime file consumed by the
 Vibe-Feeder schtask, one grain per fire. Its grains were scoped by hand from a
@@ -86,6 +90,46 @@ N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule
 CHECKPOINT-COMMIT obligatoire, puis rapport : scan avant/apres par fichier (0 attendu), NOOP justifies (fichier + finding + motif), git status, liste des fichiers touches."""
 
 
+PAYLOAD_HINT = """[WAKE-VIBE] {gid} (sweep #16472, fournee dimensionnee sur re-scan frais)
+baseSha: {base}
+targetPath:
+{targets}
+worktree: {worktree}
+branch: {branch}
+
+Mission : faire passer CHAQUE fichier de targetPath a 0 finding de
+`python scripts/notebook_tools/scan_md_hierarchy.py <fichier>`
+(pathologies HINT-AS-HEADING et HEADING-IN-LIST), ou a un FP documente.
+REASSESSMENT OBLIGATOIRE avant tout fix (contrat #16472) : un heading qui est
+une VRAIE section intentionnelle (structure pedagogique voulue, ex. un
+### Solution : de section d'exercice referencee par la nav) ne se demote PAS —
+FP documente dans le rapport (heading + motif). Un finding = une decision
+citee, jamais un fix aveugle.
+Recettes (convention d'autorite CoursIA, precedents #8647/#8654/#8630) :
+- Famille curatoriee (Indices, Etapes, Astuces, Notes, Conseils, Remarques...)
+  ou variante parenthese/apostrophe/prefixe long : outil
+  `scripts/notebook_tools/demote_md_asides.py` depuis le worktree — demotion
+  en callout blockquote : `### Indices` devient `> **Indices :**` (texte
+  identique, deux-points attaches au gras).
+- HEADING-IN-LIST : `scripts/notebook_tools/fix_hint_headings.py` (couvre
+  exactement cette pathologie, invariant round-trip verifie par l'outil).
+- Hors liste curatee : demotion MANUELLE au format `> **<texte> :**` — MEME
+  transformation, jugement par contenu ; citer before/after dans le rapport.
+INTERDITS : renommer le texte, changer de niveau, supprimer du contenu, ajouter
+des headings artificiels, remplir le quota avec des fichiers sans defaut.
+Proteges anti-regression : cellules `# Solution` / `# Exemple resolu` =
+contenu pedagogique protege — au doute, NE PAS traiter, citer en FP douteux.
+Markdown-only byte-surgical : cellules code, outputs, execution_count,
+metadata et IDs byte-identiques. LF-only, ecriture binaire
+json.dumps().encode('utf-8'), JAMAIS nbformat.write, aucun scrubbing d'output.
+Rebaseline : `scan_md_hierarchy.py --update-baseline` dans la MEME PR que la
+fournee, jamais en avance.
+INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
+N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
+
+CHECKPOINT-COMMIT obligatoire, puis rapport : scan avant/apres par fichier (0 attendu), FPs documentes (heading + motif), before/after des demotions hors liste curatee, git status, liste des fichiers touches."""
+
+
 def sh(cmd, cwd=None, check=True):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
@@ -118,7 +162,7 @@ def ensure_scan_wt(repo, base, path):
     return path
 
 
-def scan(wt):
+def scan_md_table(wt):
     script = os.path.join(wt, "scripts", "notebook_tools", "scan_md_table_syntax.py")
     if not os.path.isfile(script):
         raise SystemExit("detecteur absent: %s" % script)
@@ -127,18 +171,103 @@ def scan(wt):
             for e in (data.get("files") or []) if e.get("findings")}
 
 
-def open_prs(slug, issue):
-    """(files held by an open PR claiming the issue, branches with an open PR)."""
-    pat = re.compile(r"#%d([^0-9]|$)" % issue)
+HIERARCHY_FINDING = re.compile(r"^\s+\[([A-Z-]+)\] cell (\d+)\s+L(\d+)\s+(.*)$")
+
+
+def parse_hierarchy_census(text):
+    """{path: [finding, ...]} from scan_md_hierarchy census output (no --json mode).
+
+    Format mesure (CRLF inclus) :
+        ## MyIA.AI.Notebooks/.../SL-7.ipynb
+          [HINT-AS-HEADING] cell 34  L4  Pistes pedagogiques
+        === 100/1317 notebooks flagged ===
+    """
+    found, path = {}, None
+    for line in (text or "").splitlines():
+        line = line.rstrip("\r")
+        if line.startswith("## "):
+            path = line[3:].strip().replace("\\", "/")
+            found.setdefault(path, [])
+        elif path is not None:
+            m = HIERARCHY_FINDING.match(line)
+            if m:
+                found[path].append("[%s] cell %s L%s %s" % m.groups())
+    return {p: f for p, f in found.items() if f}
+
+
+def scan_md_hierarchy(wt):
+    script = os.path.join(wt, "scripts", "notebook_tools", "scan_md_hierarchy.py")
+    if not os.path.isfile(script):
+        raise SystemExit("detecteur absent: %s" % script)
+    return parse_hierarchy_census(
+        sh([sys.executable, script, "MyIA.AI.Notebooks"], cwd=wt))
+
+
+# Un contrat = un detecteur, son payload de mission et son axe de regroupement
+# (index du segment de chemin qui definit le domaine/famille d'une fournee).
+# 15719 : md-table, domaine = parts[1] (GenAI, QuantConnect...) ;
+# 16472 : hierarchie markdown, famille = parts[2] (Audio, Image...) — le
+# contrat exige "une famille/serie par fournee".
+CONTRACTS = {
+    15719: {"scan": scan_md_table, "payload": PAYLOAD, "group": 1},
+    16472: {"scan": scan_md_hierarchy, "payload": PAYLOAD_HINT, "group": 2},
+}
+
+
+def open_prs(slug, issues):
+    """(files held by an open PR claiming ANY active contract, open branches).
+
+    Cross-contract: un fichier tenu par une PR reclamant n'importe quel
+    contrat actif est soustrait pour tous — deux PRs sur un meme fichier
+    entrent en conflit quel que soit le contrat qui les a engendrees.
+    """
+    pats = [re.compile(r"#%d([^0-9]|$)" % i) for i in issues]
     held, branches = {}, set()
-    out = sh(["gh", "pr", "list", "--repo", slug, "--state", "open", "--limit", "200",
+    out = sh(["gh", "pr", "list", "--repo", slug, "--state", "open", "--limit", "300",
               "--json", "number,title,headRefName,files"])
     for pr in json.loads(out):
         branches.add(pr.get("headRefName") or "")
-        if pat.search(pr.get("title") or ""):
+        if any(p.search(pr.get("title") or "") for p in pats):
             for f in pr.get("files") or []:
                 held[f["path"].replace("\\", "/")] = pr["number"]
     return held, branches
+
+
+CLAIM_TOKEN = re.compile(r"^[\w ./\\-]+\.(?:ipynb|md)$")
+
+
+def claimed_paths(bodies):
+    """Paths cites par des commentaires [CLAIMED...] sans PR encore ouverte.
+
+    Le 17/09 sur #16472, la fournée 1 a ete claimée par commentaires
+    [CLAIMED-AMEND] (4 posts, ~25 fichiers, aucune PR) : invisible pour une
+    deconfliction basee sur les PRs seules — exactement la classe de boucle
+    de re-dispatch fermee sur #15719.
+    """
+    out = set()
+    for body in bodies or []:
+        if "[CLAIMED" not in body or "paths:" not in body:
+            continue
+        tail = body.split("paths:", 1)[1]
+        for tok in re.split(r"[,\n]", tail):
+            tok = tok.strip().rstrip(".").strip()
+            if CLAIM_TOKEN.match(tok):
+                out.add(tok.replace("\\", "/"))
+    return out
+
+
+def issue_claims(slug, issues):
+    paths = set()
+    for issue in issues:
+        out = sh(["gh", "issue", "view", str(issue), "--repo", slug,
+                  "--json", "comments"], check=False)
+        try:
+            comments = (json.loads(out) or {}).get("comments") or []
+        except ValueError:
+            continue
+        for c in comments:
+            paths |= claimed_paths([c.get("body") or ""])
+    return paths
 
 
 def split_domain(files):
@@ -158,28 +287,47 @@ def split_domain(files):
     return chunks
 
 
-def plan(free):
+def plan(free, group_idx=1, pour_idx=1):
     """Bins that honour the fournee contract, plus the unusable leftover."""
-    by_domain = collections.defaultdict(dict)
-    for p, f in free.items():
+    def grain_key(p):
         parts = p.split("/")
-        by_domain[parts[1] if len(parts) > 1 else "divers"][p] = f
+        # parts[group_idx] n'est une famille que s'il existe un segment PLUS
+        # PROFOND (le fichier) : un notebook pose directement sous le domaine
+        # (GameTheory/GameTheory-04b.ipynb) aurait sinon le NOM DE FICHIER
+        # pour famille — une famille singleton sous le plancher, mesuré 17/09.
+        if len(parts) > group_idx + 1:
+            return parts[group_idx]
+        return parts[1] if len(parts) > 1 else "divers"
+
+    def pour_key(p):
+        parts = p.split("/")
+        return parts[pour_idx] if len(parts) > pour_idx else "divers"
+
+    by_domain = collections.defaultdict(dict)
+    pour_of = {}
+    for p, f in free.items():
+        by_domain[grain_key(p)][p] = f
+        pour_of[p] = pour_key(p)
 
     bins, pockets = [], []
     for dom in sorted(by_domain, key=lambda d: -n_findings(by_domain[d])):
         chunks = split_domain(by_domain[dom])
         for i, ch in enumerate(chunks):
             name = dom if len(chunks) == 1 else "%s-%d" % (dom, i + 1)
-            (bins if n_findings(ch) >= FLOOR else pockets).append([name, ch, dom])
+            entry = [name, ch, dom, pour_key(next(iter(ch)))]
+            (bins if n_findings(ch) >= FLOOR else pockets).append(entry)
 
-    # Une poche se verse d'abord chez un grain CONFORME DU MEME DOMAINE qui a la
-    # place : agrandir une fournee de son propre domaine reste une fournee.
-    # Passer la frontiere du domaine n'est tolere que comme residu explicite.
+    # Une poche se verse d'abord chez un grain CONFORME de sa FAMILLE, puis —
+    # meme mecanisme qu'#15719 au niveau domaine — chez un grain conforme de
+    # son DOMAINE qui a de la place : agrandir une fournee de son propre
+    # domaine reste une fournee. Passer la frontiere du domaine n'est tolere
+    # que comme residu explicite.
     residual = {}
-    for name, ch, dom in pockets:
+    for name, ch, family, pour in pockets:
         host = None
         for b in bins:
-            if b[2] == dom and len(b[1]) + len(ch) <= MAX_FILES \
+            if (b[2] == family or b[3] == pour) \
+                    and len(b[1]) + len(ch) <= MAX_FILES \
                     and (host is None or n_findings(b[1]) < n_findings(host[1])):
                 host = b
         if host is not None:
@@ -188,12 +336,12 @@ def plan(free):
             residual.update(ch)
     if residual:
         if n_findings(residual) >= FLOOR and len(residual) <= MAX_FILES:
-            bins.append(["residu-petits-domaines", residual, "residu"])
+            bins.append(["residu-petits-domaines", residual, "residu", "residu"])
         else:
             print("WARN: residu non livrable laisse hors file (%d findings / %d fichiers): %s"
                   % (n_findings(residual), len(residual),
                      ", ".join(sorted(residual)[:8])))
-    return [(n, c) for n, c, _ in bins]
+    return [(b[0], b[1]) for b in bins]
 
 
 def keepable(queue, base, open_branches):
@@ -234,20 +382,24 @@ def main():
     ap.add_argument("--repo", default="D:/dev/CoursIA", help="clone CoursIA (jamais le cwd de session)")
     ap.add_argument("--base", default="origin/main")
     ap.add_argument("--slug", default="jsboige/CoursIA")
-    ap.add_argument("--issue", type=int, default=15719)
+    ap.add_argument("--issue", type=int, action="append", default=None,
+                    help="contrat(s) a ravitailler (defaut: tous les contrats actifs)")
     ap.add_argument("--queue", default="outputs/vibe/feeder-queue.json")
     ap.add_argument("--scan-wt", default="D:/dev/CoursIA-vibe/_scan-queue")
     ap.add_argument("--wt-root", default="D:/dev/CoursIA-vibe")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
-    base = fresh_base(args.repo, args.base)
-    print("base: %s" % base)
+    issues = args.issue or sorted(CONTRACTS)
 
-    found = scan(ensure_scan_wt(args.repo, base, args.scan_wt))
-    held, open_branches = open_prs(args.slug, args.issue)
-    print("scan: %d fichiers avec findings | deconfliction: %d tenus par une PR ouverte sur #%d"
-          % (len(found), len(held), args.issue))
+    base = fresh_base(args.repo, args.base)
+    print("base: %s | contrats: %s" % (base, ", ".join("#%d" % i for i in issues)))
+
+    scan_wt = ensure_scan_wt(args.repo, base, args.scan_wt)
+    held, open_branches = open_prs(args.slug, issues)
+    claims = issue_claims(args.slug, issues)
+    print("deconfliction: %d tenus par une PR ouverte (%s) | %d claims sans PR"
+          % (len(held), ", ".join("#%d" % i for i in issues), len(claims)))
 
     queue_path = os.path.join(os.getcwd(), args.queue)
     old = {}
@@ -261,34 +413,47 @@ def main():
     for g in keep:
         kept_paths |= payload_paths(g)
 
-    free = {p: f for p, f in found.items() if p not in held and p not in kept_paths}
-    if not free:
+    grains = list(keep)
+    total, n_planned = 0, 0
+    for issue in issues:
+        contract = CONTRACTS[issue]
+        found = contract["scan"](scan_wt)
+        free = {p: f for p, f in found.items()
+                if p not in held and p not in kept_paths and p not in claims}
+        print("#%d: scan %d fichiers avec findings | %d libres apres deconfliction"
+              % (issue, len(found), len(free)))
+        if not free:
+            continue
+        planned = plan(free, contract["group"])
+        for name, ch in sorted(planned, key=lambda x: x[0]):
+            n_planned += 1
+            i = len(grains) + 1
+            gid = "g%d-%s" % (i, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:38])
+            wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
+            branch = "wt/vibe-%s" % gid
+            targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
+            grains.append({
+                "id": gid, "issue": issue, "baseSha": base, "worktree": wt,
+                "branch": branch,
+                "payload": contract["payload"].format(
+                    gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
+            })
+            n, k = n_findings(ch), len(ch)
+            print("  %-42s findings=%-3d fichiers=%-3d %s"
+                  % (gid, n, k, "OK" if (n >= FLOOR and k <= MAX_FILES) else "HORS CONTRAT"))
+        total += sum(n_findings(ch) for _, ch in planned)
+    if n_planned == 0:
         print("aucun finding libre — file inchangee")
         return
 
-    planned = plan(free)
-    grains = list(keep)
-    for i, (name, ch) in enumerate(sorted(planned, key=lambda x: x[0]), start=len(grains) + 1):
-        gid = "g%d-%s" % (i, re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:38])
-        wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
-        branch = "wt/vibe-%s" % gid
-        targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
-        grains.append({
-            "id": gid, "baseSha": base, "worktree": wt, "branch": branch,
-            "payload": PAYLOAD.format(gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
-        })
-        n, k = n_findings(ch), len(ch)
-        print("  %-42s findings=%-3d fichiers=%-3d %s"
-              % (gid, n, k, "OK" if (n >= FLOOR and k <= MAX_FILES) else "HORS CONTRAT"))
-
-    total = sum(n_findings(ch) for _, ch in planned)
     out = {
         "_comment": ("File de travail des grains Mistral Vibe (po-2025). Reconstruite par "
                      "scripts/scheduling/refresh-vibe-queue.py sur re-scan frais de %s : %d findings "
-                     "libres mesures, %d tenus par des PR ouvertes sur #%d, planifies en %d grain(s) "
-                     "de >= %d findings et <= %d fichiers (contrat de fournee #15719). Les grains en "
+                     "libres mesures, %d tenus par des PR ouvertes et %d claims sans PR (%s), "
+                     "planifies en %d grain(s) de >= %d findings et <= %d fichiers. Les grains en "
                      "vol non livres sont conserves tels quels."
-                     % (base[:12], total, len(held), args.issue, len(planned), FLOOR, MAX_FILES)),
+                     % (base[:12], total, len(held), len(claims),
+                        ", ".join("#%d" % i for i in issues), n_planned, FLOOR, MAX_FILES)),
         "grains": grains,
     }
 
