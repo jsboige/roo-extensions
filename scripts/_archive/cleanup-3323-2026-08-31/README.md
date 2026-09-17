@@ -29,7 +29,26 @@
 |--------|--------|--------|----------|
 | `scripts/diagnostic/fix-diffdetector-exports.ps1` | ARCHIVED | Applied, content already in DiffDetector.ts | grep: `export type DiffCategory` (line 856), `export interface DetectedDifference` (line 858), `export interface ComparisonReport` (line 893), `compareInventories` (line 751) — all 4 additions present |
 | `scripts/diagnostic/fix-compare-config-type.ps1` | ARCHIVED | Obsolete: target type structure changed, fix no longer applicable | grep compare-config.ts: no `DetectedDifference` import, no `(diff: DetectedDifference)` typing. Original fix target (line 127) is gone |
-| `scripts/diagnostic/verify-mcp-files.ps1` | ARCHIVED | Verifies 5 paths: 2 retired MCPs (`jupyter-mcp-server`, `jinavigator-server`, `github-projects-mcp`, `quickfiles-server`) + 1 wrong path | MCPs are retired per `tool-availability.md` Retires section |
+| `scripts/diagnostic/verify-mcp-files.ps1` | ARCHIVED | One-shot verifier: hardcoded `C:/dev/roo-extensions` paths (wrong on other hosts), 2 paths target runtime-retired MCPs (`github-projects-mcp`, `quickfiles-server` — removed from the submodule canon by #1093) | `tool-availability.md` Retires section. **Correction 2026-09-17**: the original "retired" claim also listed `jupyter-mcp-server` and `jinavigator-server` — measured FALSE (po-2024, 2026-09-16): both still exist in `mcps/internal/servers/`. The archive motive stands on the hardcoded-path + runtime-retired pair only. |
+
+### Cluster 3 (build MCP) — `compile-all-mcps.ps1` ARCHIVED (2026-09-17)
+
+Archived on the zero-caller + stale-subset motive (decision user 2026-09-13, relayed by ai-01 —
+never on the "retired MCPs" motive, measured false):
+
+- **Zero-caller**: only mentions are `docs/roosync/archive/` (archived doc) and inventory fixtures
+  (`scripts/inventory/test-inventory.json`, `scripts/inventory/inventories/*.json` — generated data).
+- **Stale subset**: hardcoded list of 3 servers (`jupyter-mcp-server`, `jinavigator-server`,
+  `roo-state-manager`) out of the 6 canonical servers in `mcps/internal/servers/` — missing
+  `jupyter-papermill-mcp-server`, `open-terminal-mcp`, `sk-agent`. "Compile ALL MCPs" compiled half
+  the fleet.
+- Build coverage lives in `scripts/claude/ensure-build-fresh.ps1` and
+  `scripts/mcp/validate-before-push.ps1`.
+- Sibling `scripts/mcp/deploy-environment.ps1` (same cluster 3 in the issue Context) was checked
+  and **KEPT**: it is referenced by live docs (`docs/architecture/repository-map.md`,
+  `scripts/mcp/README.md`, design doc) — the zero-caller proof does not hold for it.
+- Original preserved here: `compile-all-mcps.ps1`; a stub with this evidence remains at the
+  original path.
 
 ### Zero-ref scripts (diagnostic/hierarchy/ — campaign finished)
 

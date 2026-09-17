@@ -8,19 +8,20 @@
 #   4. C:/dev/roo-extensions/mcps/internal/servers/jinavigator-server/dist/index.js
 #   5. C:/dev/roo-extensions/mcps/internal/servers/quickfiles-server/build/index.js
 #
-# STATUS: 4 of 5 paths reference RETIRED MCPs that no longer exist:
-#   - jupyter-mcp-server (replaced by jupyter-papermill integration, retired)
-#   - github-projects-mcp (retired per .claude/rules/tool-availability.md)
-#   - jinavigator-server (not present in current fleet)
-#   - quickfiles-server (retired per .claude/rules/tool-availability.md)
-#
-# Only path #3 (roo-state-manager) is still valid, and use of hardcoded
-# "C:/dev/roo-extensions" path is incorrect for non-po-2023 machines.
+# STATUS (corrected 2026-09-17 — the original "4 retired MCPs" claim was
+# measured FALSE for two of them, see po-2024 comment on #3323):
+#   - github-projects-mcp, quickfiles-server: runtime-retired, removed from
+#     the submodule canon by #1093 (.claude/rules/tool-availability.md).
+#   - jupyter-mcp-server, jinavigator-server: STILL PRESENT in
+#     mcps/internal/servers/ — the earlier "retired" labels were wrong.
+#   - roo-state-manager: still valid.
+# All 5 paths hardcode "C:/dev/roo-extensions", incorrect for other hosts.
+# The archive motive stands on the hardcoded paths + runtime-retired pair.
 #
 # Original archived at:
 #   scripts/_archive/cleanup-3323-2026-08-31/verify-mcp-files.ps1
 
-Write-Host "[ARCHIVED] verify-mcp-files.ps1 — references 4 retired MCPs + 1 wrong hardcoded path." -ForegroundColor Yellow
+Write-Host "[ARCHIVED] verify-mcp-files.ps1 — hardcoded host-specific paths + 2 runtime-retired MCPs (#3323)." -ForegroundColor Yellow
 Write-Host "[ARCHIVED] Do not run. Use scripts/mcp/cleanup-mcp-zombies.ps1 for live MCP health." -ForegroundColor Yellow
 Write-Host "[ARCHIVED] See scripts/_archive/cleanup-3323-2026-08-31/README.md (#3323)." -ForegroundColor Yellow
 exit 0
