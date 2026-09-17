@@ -156,6 +156,9 @@ function Write-LauncherAudit {
     }
 }
 
+# Taches ecartees par la garde de propriete (cf. la boucle) -- rapportees, jamais silencieuses.
+$skippedForeign = @()
+
 $plan = foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
@@ -170,11 +173,24 @@ $plan = foreach ($t in $all) {
         continue
     }
 
+    # Garde de PROPRIETE. Une tache pilotee par le deployeur de staging d'une autre lane
+    # (`maint-scripts\`) ne doit pas voir son action routee vers NOTRE repertoire de lanceurs :
+    # cela ajouterait un artefact que l'audit de derive de cette lane n'attribuerait pas a sa
+    # portee, et qu'un nettoyage de claude-hidden-launchers\ casserait en silence. Exclusion par
+    # DEFAUT -- c'est une regle de propriete, pas une liste a maintenir. `-TaskName <nom>` reste
+    # l'opt-in explicite pour durcir une telle tache volontairement.
+    if (-not $TaskName -and $action.Arguments -like '*maint-scripts\*') { $skippedForeign += $t.TaskName; continue }
+
     if ($exeLeaf -ieq 'wscript.exe') { continue }                       # deja durcie
     if ($exeLeaf -notin $consoleHosts) { continue }                     # pas de console -> pas de flash
     if ($t.Principal.LogonType -ne 'Interactive') { continue }          # session 0 -> invisible deja
 
     [PSCustomObject]@{ Task = $t; Action = $action; Backup = $backupPath; Reason = 'harden' }
+}
+
+if ($skippedForeign.Count -gt 0) {
+    Write-Host ("Exclues (deployeur d'une autre lane, maint-scripts\) : {0}" -f ($skippedForeign -join ', ')) -ForegroundColor DarkGray
+    Write-Host "  Pour les durcir volontairement : relancer avec -TaskName <nom>" -ForegroundColor DarkGray
 }
 
 if (-not $plan) {
