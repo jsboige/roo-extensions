@@ -165,6 +165,31 @@ Describe "Worktree Husk Prevention - #1913 Fixes B/C/D/E" {
             ($content -match 'Worktree supprim.*git worktree remove') | Should -Be $true
             ($content -match 'Native rmdir /s /q succeeded') | Should -Be $true
         }
+
+        # Un echec PERMANENT ne doit pas etre retente comme un verrou (17/09). Apres la 1re
+        # tentative, git a deja desenregistre le worktree : les suivantes rendent
+        # « is not a working tree » et ne peuvent plus aboutir.
+        It "Must detect the permanent 'is not a working tree' failure" {
+            ($content -match "is not a working tree") | Should -Be $true
+        }
+
+        It "Must stop retrying on a permanent failure instead of burning the backoff" {
+            # Ancrer sur l'OCCURRENCE DE CODE, jamais sur la premiere occurrence textuelle :
+            # le commentaire du correctif cite la chaine cherchee, donc IndexOf() sur la
+            # chaine nue trouve la PROSE et le controle passe a cote du code. Mesure : ce
+            # test etait rouge parce que son propre sujet etait sa propre citation.
+            $codePos = $content.IndexOf("-match 'is not a working tree'")
+            $codePos | Should -BeGreaterThan 0
+            $window = $content.Substring($codePos, 300)
+            ($window -match 'break') | Should -Be $true
+        }
+
+        It "Must not assert a single cause when the failure was permanent" {
+            # La ligne « failed after N attempts (Windows file lock) » reste, mais
+            # desormais dans la SEULE branche ou la cause est vraie.
+            ($content -match 'if \(\$rmPermanent\)') | Should -Be $true
+            ($content -match 'git worktree remove failed after \$rmAttempts attempts \(Windows file lock\)') | Should -Be $true
+        }
     }
 
     # ---------------------------------------------------------------------------
