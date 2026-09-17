@@ -106,12 +106,22 @@ if ($TaskName) { $all = $all | Where-Object { $_.TaskName -in $TaskName } }
 # durcissement (migration de depot, repointage de tache), le VBS garde l'ancien alors que
 # l'action de la tache, elle, reste coherente. Le chemin perime ne vit que DANS le VBS -- tout
 # audit au niveau des actions de tache est donc aveugle par construction. On le lit ici.
+#
+# Les DEUX motifs ci-dessous forment une paire indissociable : le premier choisit le fichier a lire
+# (la porte), le second y cherche les cibles. Elargir l'un sans l'autre laisse la porte et sa
+# verification aveugles ENSEMBLE -- un garde et son controle qui partagent un motif partagent aussi
+# son angle mort. Ecritures acceptees : `C:\`, `C:/` (forme JSON) et UNC ; les trois existent dans
+# le parc. Le chemin RELATIF est volontairement refuse : il matcherait le commentaire d'en-tete que
+# ce script ecrit lui-meme dans chaque .vbs, et ferait sortir l'audit en erreur sur du sain.
+$launcherPattern = '(?i)((?:[A-Za-z]:[/\\]|\\\\)[^"]*\.vbs)'
+$targetPattern   = '(?i)((?:[A-Za-z]:[/\\]|/[a-z]/)[^"''\r\n]*?\.(?:ps1|py|js|cjs|bat|cmd|exe))'
+
 $staleLaunchers = @(foreach ($t in $all) {
     $action = $t.Actions | Select-Object -First 1
     if (-not $action -or -not $action.Execute) { continue }
     if ((Split-Path $action.Execute -Leaf) -ine 'wscript.exe') { continue }
 
-    $vbsMatch = [regex]::Match([string]$action.Arguments, '(?i)([A-Za-z]:\\[^"]*\.vbs)')
+    $vbsMatch = [regex]::Match([string]$action.Arguments, $launcherPattern)
     if (-not $vbsMatch.Success) { continue }
     $vbsPath = $vbsMatch.Groups[1].Value
 
@@ -121,7 +131,7 @@ $staleLaunchers = @(foreach ($t in $all) {
     }
 
     $vbsText = Get-Content $vbsPath -Raw
-    foreach ($m in [regex]::Matches($vbsText, '(?i)([A-Za-z]:\\[^"\r\n]*?\.(?:ps1|py|js|cjs|bat|cmd|exe))')) {
+    foreach ($m in [regex]::Matches($vbsText, $targetPattern)) {
         $target = $m.Groups[1].Value.Trim()
         if (-not (Test-Path $target)) {
             [PSCustomObject]@{ Task = $t.TaskName; State = $t.State; Launcher = $vbsPath; Target = $target }
