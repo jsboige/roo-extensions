@@ -179,7 +179,13 @@ $plan = foreach ($t in $all) {
     # portee, et qu'un nettoyage de claude-hidden-launchers\ casserait en silence. Exclusion par
     # DEFAUT -- c'est une regle de propriete, pas une liste a maintenir. `-TaskName <nom>` reste
     # l'opt-in explicite pour durcir une telle tache volontairement.
-    if (-not $TaskName -and $action.Arguments -like '*maint-scripts\*') { $skippedForeign += $t.TaskName; continue }
+    # Les TROIS champs sont testes, pas seulement Arguments : mesure du 17/09 sur cette machine,
+    # `prune_merged_worktrees` porte un chemin de script dans Execute (Execute n'est pas toujours
+    # un hote nu) et `MCP-Chain-Healthcheck` un chemin dans WorkingDirectory. Ne tester qu'un champ
+    # ferait dependre la garde de la FORME de la tache voisine -- une tache `Execute=<script>.cmd`
+    # passerait la garde et se ferait durcir.
+    $ownerFields = '{0} {1} {2}' -f $action.Execute, $action.Arguments, $action.WorkingDirectory
+    if (-not $TaskName -and $ownerFields -like '*maint-scripts\*') { $skippedForeign += $t.TaskName; continue }
 
     if ($exeLeaf -ieq 'wscript.exe') { continue }                       # deja durcie
     if ($exeLeaf -notin $consoleHosts) { continue }                     # pas de console -> pas de flash
