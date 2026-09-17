@@ -35,8 +35,8 @@
       "fuzzyMatchThreshold": 1,
       "modelTemperature": 0.7,
       "apiProvider": "openai",
-      "openAiBaseUrl": "https://api.z.ai/api/coding/paas/v4",
-      "openAiApiKey": "{{SECRET:ZAI_API_KEY}}",
+      "openAiBaseUrl": "http://192.168.0.50:3000/v1",
+      "openAiApiKey": "{{SECRET:CLAUDISH_PROXY_KEY}}",
       "openAiModelId": "glm-5.2",
       "openAiCustomModelInfo": {
         "maxTokens": -1,
