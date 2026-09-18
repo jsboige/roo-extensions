@@ -8,7 +8,7 @@
     Complete rebuild pipeline for roo-state-manager:
     1. Clean old build
     2. npm install + npm run build
-    3. Verify build/index.js exists
+    3. Verify the compiled entry exists (build-out/, legacy build/ fallback)
     4. Sync alwaysAllow from reference to Roo mcp_settings.json
 
     This script should be run after git pull when the MCP has changed,
@@ -57,9 +57,13 @@ Write-Host ""
 
 # Step 1: Clean (avec garde-fou pre-op)
 Write-Host "[1/4] Cleaning old build..." -ForegroundColor Yellow
-$buildDir = Join-Path $mcpDir "build"
+# #3713: tsc emits to build-out/ (scratch); publish-build.mjs copies it into
+# immutable build-<sha>/ vintages behind the build-current marker. Clean the
+# scratch dir here; the legacy frozen build/ is deliberately untouched.
+$buildDir = Join-Path $mcpDir "build-out"
 if (Test-Path $buildDir) {
-    # #3712 : backup pre-destruction (build/ est protege par defaut).
+    # #3712 : backup pre-destruction (build-out est regenerable ; les
+    # millésimes #3713 ne sont jamais detruits ici — la rétention publish les gère).
     if (Get-Command Invoke-DeployPreOpGuard -ErrorAction SilentlyContinue) {
         $guardResult = Invoke-DeployPreOpGuard -Operation "Remove-Item build (rebuild)" -LiteralPath $buildDir -Mode Backup -RepoRoot $repoRoot
         Write-Host "  [guard] Action=$($guardResult.Action) BackupDir=$($guardResult.BackupDir)" -ForegroundColor DarkGray
@@ -92,13 +96,17 @@ try {
         exit 1
     }
 
-    # Verify output
+    # Verify output — scratch dir first, legacy fixed path second (pre-#3713
+    # submodule on a not-yet-upgraded checkout still emits build/).
     $indexJs = Join-Path $buildDir "index.js"
+    if (-not (Test-Path $indexJs)) {
+        $indexJs = Join-Path $mcpDir "build" "index.js"
+    }
     if (Test-Path $indexJs) {
         $size = (Get-Item $indexJs).Length
         Write-Host "  Build OK - build/index.js ($size bytes)" -ForegroundColor Green
     } else {
-        Write-Host "  ERROR: build/index.js not found after build" -ForegroundColor Red
+        Write-Host "  ERROR: no index.js found after build (neither build-out/ nor legacy build/)" -ForegroundColor Red
         exit 1
     }
 } finally {
@@ -131,4 +139,5 @@ if (-not $SkipAlwaysAllow) {
 Write-Host ""
 Write-Host "=== Rebuild complete ===" -ForegroundColor Green
 Write-Host ""
-Write-Host "IMPORTANT: Restart VS Code for Roo to load the new MCP tools." -ForegroundColor Magenta
+Write-Host "IMPORTANT (pre-#3713 legacy path): restart VS Code to load the new build." -ForegroundColor Magenta
+Write-Host "Vintage pipeline (#3713, marker present): live v5 wrappers hot-swap on publish - no restart owed." -ForegroundColor DarkGray

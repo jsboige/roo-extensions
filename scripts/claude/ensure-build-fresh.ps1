@@ -248,8 +248,37 @@ function Test-BuildMatchesSource {
     return $true
 }
 
+# --- Vintage pipeline (#3713): marker-based freshness when present ---
+# When the content-addressed marker exists, freshness means "the current vintage
+# was built from exactly this source" — the mtime of the frozen legacy build/
+# carries no signal there (nothing rewrites it anymore). A vintage rebuild
+# publishes build-<sha>/ + switches the marker atomically; it rewrites NOTHING a
+# live process reads, so the ARM debt below is legacy-only: v5 wrappers
+# hot-swap on the marker switch, v4 wrappers keep serving the frozen build/
+# harmlessly until their session respawns.
+$markerFile = Join-Path $McpServerPath 'build-current'
+$vintageMode = $false
+$vintageStale = $false
+if (Test-Path $markerFile) {
+    $vintageName = (Get-Content -Raw -LiteralPath $markerFile -ErrorAction SilentlyContinue).Trim()
+    $vintageDir = Join-Path $McpServerPath $vintageName
+    if ($vintageName -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $vintageDir 'index.js'))) {
+        $vintageMode = $true
+        if (Test-BuildMatchesSource -BuildPath $vintageDir -McpServerPath $McpServerPath -RepoRoot $RepoRoot) {
+            Write-Result 'FRESH' "vintage $vintageName was built from the checked-out source (build-current marker)."
+            if ($liveHosts.Count -gt 0) {
+                Write-Result 'SKIP' "$($liveHosts.Count) legacy host(s) alive on the frozen build/ — they take the new vintage at their next session spawn; v5 wrappers hot-swap on publish. No restart is owed (#3713)."
+            }
+            exit 0
+        }
+        $vintageStale = $true
+        Write-Result 'WARN' "vintage $vintageName does not match the checked-out source — republishing (content-addressed rebuild arms nothing)."
+    }
+    # Invalid/absent marker content falls through to the legacy mtime path.
+}
+
 # --- Decision ---
-if ($buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
+if (-not $vintageStale -and $buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
     Write-Result 'FRESH' "build/ is up to date (newest build .js >= newest src .ts: $srcFileRel)."
     if ($RequireFresh -and $staleCount -gt 0) {
         Write-Result 'ARM' "$hostsDetail. Build is fresh on disk, but these live hosts still serve the previous build. Restart VS Code before continuing the executor cycle. $killHint"
@@ -261,7 +290,7 @@ if ($buildNewest -gt 0 -and $buildNewest -ge $srcNewest) {
 # mtime says STALE. Before paying for a rebuild -- and for the VS Code restart that a rebuild
 # OWES (ARM guard below) -- ask whether the source actually moved. Guarded on `$buildNewest -gt 0`:
 # an absent build/ carries no stamp to trust and must always be produced.
-if ($buildNewest -gt 0 -and (Test-BuildMatchesSource -BuildPath $BuildPath -McpServerPath $McpServerPath -RepoRoot $RepoRoot)) {
+if (-not $vintageMode -and $buildNewest -gt 0 -and (Test-BuildMatchesSource -BuildPath $BuildPath -McpServerPath $McpServerPath -RepoRoot $RepoRoot)) {
     $lagSec = [math]::Round(($srcNewest - $buildNewest) / 10000000)
     Write-Result 'FRESH' "build/ was produced from the checked-out source (build-info.json sha = submodule HEAD, src/ clean). Newest src .ts ($srcFileRel) leads by ${lagSec}s in MTIME ONLY -- a git checkout rewrites mtimes without changing content. No rebuild, so no restart is owed."
     # The ARM debt is NOT suppressed with the rebuild: a host predating build/index.js loaded an
@@ -295,7 +324,7 @@ if (-not $buildNewest) {
 # at stake (ai-01 review note, 2026-09-06 23:28Z). The ARMÉ signature is computed against
 # `build/index.js` processes specifically: they are the ones that loaded the ESM modules
 # the next dynamic import would mismatch.
-if ($liveHosts.Count -gt 0) {
+if ($liveHosts.Count -gt 0 -and -not $vintageMode) {
     if ($Headless -and -not $Arm) {
         Exit-NotFresh 'ARMED-DEFER' "$hostsDetail. Headless caller (worker/cron/pre-flight) cannot restart VS Code, so rebuilding here would leave the machine ARMED indefinitely (#3489) and inbox broken. Deferred — an interactive session must rebuild and restart. Pass -Arm to override under an explicit human mandate."
     }
@@ -323,6 +352,13 @@ if ($liveHosts.Count -gt 0) {
     }
 }
 
+# Vintage mode (#3713): the rebuild below republishes a content-addressed vintage and
+# rewrites nothing a live process reads - v5 wrappers hot-swap on the marker switch,
+# v4 wrappers keep serving the frozen build/. No restart is owed, so no ARM is emitted.
+if ($vintageMode -and $liveHosts.Count -gt 0) {
+    Write-Result 'SKIP' "$($liveHosts.Count) live host(s) - vintage rebuild arms nothing (v5 hot-swaps, v4 serves frozen build/) - no restart owed (#3713)."
+}
+
 if ($DryRun) {
     Exit-NotFresh 'SKIP' "-DryRun set: would run 'npm run build' in $McpServerPath."
 }
@@ -339,7 +375,8 @@ $guardScript = Join-Path $RepoRoot 'scripts/mcp/deploy-preop-guard.ps1'
 if (Test-Path -LiteralPath $guardScript) {
     try {
         . $guardScript
-        $guardResult = Invoke-DeployPreOpGuard -Operation "npm run build (ensure-build-fresh)" -LiteralPath $BuildPath -Mode Backup -RepoRoot $RepoRoot
+        $guardTarget = if ($vintageMode) { Join-Path $McpServerPath 'build-out' } else { $BuildPath }
+        $guardResult = Invoke-DeployPreOpGuard -Operation "npm run build (ensure-build-fresh)" -LiteralPath $guardTarget -Mode Backup -RepoRoot $RepoRoot
         Write-Result 'OK' "[guard] pre-op: Action=$($guardResult.Action) BackupDir=$($guardResult.BackupDir)"
     } catch {
         Write-Result 'WARN' "[guard] pre-op guard echoue (non-fatal, build continue): $_"
@@ -360,7 +397,11 @@ try {
     $buildOutput = & npm.cmd run build 2>&1
     $buildExit = $LASTEXITCODE
     if ($buildExit -eq 0) {
-        Write-Result 'REBUILT' "MCP build regenerated successfully. Restart VS Code to activate the new build ([INTERACTIVE-ONLY])."
+        if ($vintageMode) {
+            Write-Result 'REBUILT' "Vintage published and marker switched - live v5 wrappers hot-swap on their own; v4 hosts pick it up at next session spawn. No restart owed (#3713)."
+        } else {
+            Write-Result 'REBUILT' "MCP build regenerated successfully. Restart VS Code to activate the new build ([INTERACTIVE-ONLY])."
+        }
         if ($RequireFresh -and $restartRequired) { $exitCode = 10 }
     } else {
         $tail = ($buildOutput | Select-Object -Last 5 | Out-String).Trim()
