@@ -1,10 +1,11 @@
 ﻿<#
 .SYNOPSIS
     Guards the multi-contract Vibe grain queue (#16472, GO ai-01 17/09 —
-    mandat user « résoudre définitivement le pb d'approvisionnement »).
+    mandat user « résoudre définitivement le pb d'approvisionnement » ;
+    #13410 densité, dispatch ai-01 18/09 02:02Z).
 #>
 
-Describe 'Vibe queue multi-contrats (#16472)' {
+Describe 'Vibe queue multi-contrats (#16472, #13410)' {
     BeforeAll {
         $root = Join-Path $PSScriptRoot '..\..\..'
         $refresherPath = Join-Path $root 'scripts\scheduling\refresh-vibe-queue.py'
@@ -21,9 +22,10 @@ Describe 'Vibe queue multi-contrats (#16472)' {
     }
 
     Context 'Registre de contrats (anti-dépendance à un détecteur unique)' {
-        It 'déclare les deux contrats actifs avec scan, payload et axe de regroupement' {
+        It 'déclare les trois contrats actifs avec scan, payload et axe de regroupement' {
             $refresher | Should -Match '15719:\s*\{"scan": scan_md_table'
             $refresher | Should -Match '16472:\s*\{"scan": scan_md_hierarchy'
+            $refresher | Should -Match '13410:\s*\{"scan": scan_pedagogy_density'
             $refresher | Should -Match '"group": 2'
         }
 
@@ -36,6 +38,42 @@ Describe 'Vibe queue multi-contrats (#16472)' {
             $refresher | Should -Match 'fix_hint_headings\.py'
             $refresher | Should -Match 'REASSESSMENT OBLIGATOIRE'
             $refresher | Should -Match 'update-baseline'
+        }
+    }
+
+    Context 'Contrat #13410 densité — règle de taille propre, pas le moule findings' {
+        It 'porte floor=1 / max_files=2 (grain 1-2 notebooks, 1,67 fichier/PR mesuré)' {
+            $refresher | Should -Match '"floor": 1, "max_files": 2'
+        }
+
+        It 'main() passe la taille du contrat à plan() (le moule FLOOR=10 n exprime pas #13410)' {
+            $refresher | Should -Match 'floor=contract\.get\("floor"\)'
+            $refresher | Should -Match 'max_files=contract\.get\("max_files"\)'
+        }
+
+        It 'le payload #13410 porte les garde-fous éditoriaux de l incident 02/09 (30/41 accents détruits)' {
+            $refresher | Should -Match 'UTF-8 sans repli ASCII'
+            $refresher | Should -Match 'forme liste'
+            $refresher | Should -Match 'AUCUNE re-execution'
+            $refresher | Should -Match 'detect_solution_leaks'
+            $refresher | Should -Match 'JAMAIS fabriquer un chiffre'
+            $refresher | Should -Match '1200'
+        }
+
+        It 'le scan densité consomme pedagogy_density.py --json (advisory, exemptions du scanner)' {
+            $refresher | Should -Match 'pedagogy_density\.py'
+            $refresher | Should -Match 'below_threshold'
+        }
+    }
+
+    Context 'Angle mort census résorbé (95 flaggés / 89 résolus, mesuré 18/09)' {
+        It 'la regex findings est ÉPINGLÉE aux codes du contrat #16472' {
+            $refresher | Should -Match 'HIERARCHY_CONTRACTED = \("HINT-AS-HEADING", "HEADING-IN-LIST"\)'
+        }
+
+        It 'les exclusions H1 (MULTI-H1/H1-DEEP) sont comptées et rapportées, pas avalées' {
+            $refresher | Should -Match 'HIERARCHY_ANY_FINDING'
+            $refresher | Should -Match 'findings hors contrat'
         }
     }
 

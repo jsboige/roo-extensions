@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Rebuild the Vibe grain queue from fresh detector scans (#15719, #16472).
+"""Rebuild the Vibe grain queue from fresh detector scans (#15719, #16472, #13410).
 
 Multi-contrat depuis #16472 (GO ai-01 17/09, mandat user « résoudre
 définitivement le pb d'approvisionnement ») : la file est l'union des grains
 de chaque contrat actif — un détecteur épuisé n'assèche plus la lane.
+
+#13410 (densité pédagogique, dispatch ai-01 18/09 02:02Z) casse le moule
+« findings » : son unité est LE NOTEBOOK SOUS LE SEUIL (1200 chars de prose
+par cellule code), pas un finding dénombrable. Le contrat porte donc sa
+propre règle de taille (`floor`/`max_files` par entrée CONTRACTS) : grain =
+1-2 notebooks, conforme au 1,67 fichier/PR mesuré sur les 61 PRs ouvertes.
 
 `outputs/vibe/feeder-queue.json` is a gitignored runtime file consumed by the
 Vibe-Feeder schtask, one grain per fire. Its grains were scoped by hand from a
@@ -130,6 +136,42 @@ N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule
 CHECKPOINT-COMMIT obligatoire, puis rapport : scan avant/apres par fichier (0 attendu), FPs documentes (heading + motif), before/after des demotions hors liste curatee, git status, liste des fichiers touches."""
 
 
+PAYLOAD_DENSITY = """[WAKE-VIBE] {gid} (densite #13410, fournee dimensionnee sur re-scan frais)
+baseSha: {base}
+targetPath:
+{targets}
+worktree: {worktree}
+branch: {branch}
+
+Mission : relever CHAQUE notebook de targetPath au-dessus du seuil de densite
+pedagogique (1200 chars de prose par cellule code ; mesurable par
+`python scripts/notebook_tools/pedagogy_density.py <fichier>` : status ok
+attendu), en ajoutant 1 a 3 cellules markdown de LECTURE ANCREE.
+Convention etablie par les 61 PRs #13410 : une lecture explique le resultat
+d'une cellule de code DEMONSTRATION deja executee (output commite, cite tel
+quel). Deficit median mesure : 233 chars par notebook.
+
+GARDE-FOUX EDITORIAUX NON NEGOCIABLES (incident 02/09, 30/41 accents
+detruits) :
+- UTF-8 sans repli ASCII : accents conserves a l'octet pres.
+- `source` conserve en forme liste : JAMAIS re-serialise liste -> chaine.
+- Markdown-only : cellules code, outputs, execution_count, metadata et IDs
+  byte-identiques (aucune re-serialisation generale).
+- AUCUNE re-execution du notebook.
+- Ne JAMAIS narrer la sortie d'une cellule d'EXERCICE (detect_solution_leaks
+  doit rester a 0) : lire les cellules de demonstration, pas celles ou
+  l'eleve doit travailler.
+- Ne JAMAIS fabriquer un chiffre : une lecture cite la sortie commitee ou
+  elle n'existe pas.
+- Une lecture fait 1-2 phrases, en francais, et EXPLIQUE ce que la sortie
+  montre -- pas ce qu'elle est censee montrer.
+
+INTERDIT : push, PR, gh, catalogue, Lean/lake, backtest, toute commande GPU, tout fichier hors targetPath, toute ecriture dans D:/dev/CoursIA (le seul lieu d'ecriture est le worktree ci-dessus).
+N'utilise PAS l'outil fs/read_file pour lire/valider (refuse hors sandbox, brule le budget) : Python io.open uniquement.
+
+CHECKPOINT-COMMIT obligatoire, puis rapport : densite avant/apres par fichier (seuil 1200, ok attendu), lectures ajoutees (nombre + cellule ancre), git status, liste des fichiers touches."""
+
+
 def sh(cmd, cwd=None, check=True):
     r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
                        encoding="utf-8", errors="replace")
@@ -171,7 +213,17 @@ def scan_md_table(wt):
             for e in (data.get("files") or []) if e.get("findings")}
 
 
-HIERARCHY_FINDING = re.compile(r"^\s+\[([A-Z-]+)\] cell (\d+)\s+L(\d+)\s+(.*)$")
+#: Codes reellement traites par le contrat #16472. Les familles H1 (MULTI-H1,
+#: H1-DEEP) sont exclues a dessein : hygiene H1 mecanique, pas du travail Vibe
+#: (mesure ai-01 18/09). Pin explicite plutot que [A-Z-]+ : la regex generale
+#: avalait EN SILENCE les codes a chiffre — 6 notebooks flagges restaient sans
+#: aucune ligne resolue, angle mort mesure 18/09 (95 flagges / 89 resolus).
+HIERARCHY_CONTRACTED = ("HINT-AS-HEADING", "HEADING-IN-LIST")
+HIERARCHY_FINDING = re.compile(
+    r"^\s+\[(%s)\] cell (\d+)\s+L(\d+)\s+(.*)$" % "|".join(HIERARCHY_CONTRACTED))
+#: Toute ligne finding du census, contrat ou non — sert uniquement a rendre
+#: visible (WARN) le tally des exclusions au lieu de l'avaler en silence.
+HIERARCHY_ANY_FINDING = re.compile(r"^\s+\[([A-Z0-9-]+)\] cell \d+\s+L\d+")
 
 
 def parse_hierarchy_census(text):
@@ -199,18 +251,58 @@ def scan_md_hierarchy(wt):
     script = os.path.join(wt, "scripts", "notebook_tools", "scan_md_hierarchy.py")
     if not os.path.isfile(script):
         raise SystemExit("detecteur absent: %s" % script)
-    return parse_hierarchy_census(
-        sh([sys.executable, script, "MyIA.AI.Notebooks"], cwd=wt))
+    text = sh([sys.executable, script, "MyIA.AI.Notebooks"], cwd=wt)
+    excluded = len(HIERARCHY_ANY_FINDING.findall(text)) - len(HIERARCHY_FINDING.findall(text))
+    if excluded:
+        print("#16472: %d findings hors contrat (MULTI-H1/H1-DEEP) ignores — "
+              "hygiene H1 mecanique, pas du travail Vibe" % excluded)
+    return parse_hierarchy_census(text)
+
+
+def _repo_relative(path, wt):
+    """Le scanner densite joint son repo_root absolu (rev-parse) aux chemins :
+    ramener au repo-relatif que deconfliction et groupement attendent."""
+    rel = path.replace("\\", "/")
+    prefix = wt.replace("\\", "/").rstrip("/") + "/"
+    if rel.lower().startswith(prefix.lower()):
+        rel = rel[len(prefix):]
+    return rel
+
+
+def scan_pedagogy_density(wt):
+    """{path: [unite]} ou l'unite du contrat #13410 est le NOTEBOOK sous le
+    seuil — pas un finding denombrable. pedagogy_density.py est advisory par
+    design : sa sortie JSON below_threshold EST le stock ; les exemptions
+    (kinds hors corpus, setup) y sont deja soustraites par le scanner.
+    Sans normalisation, la deconfliction ne soustrait RIEN et le groupement
+    met toute la file dans la famille "dev" — mesure 18/09 sur le dry-run
+    (333 libres, 0 soustrait).
+    """
+    script = os.path.join(wt, "scripts", "notebook_tools", "pedagogy_density.py")
+    if not os.path.isfile(script):
+        raise SystemExit("detecteur absent: %s" % script)
+    data = json.loads(sh([sys.executable, script, "--json"], cwd=wt))
+    return {_repo_relative(v["path"], wt):
+            ["density=%s/%s cellules=%s" % (v.get("density"), v.get("threshold"),
+                                            v.get("code_cells"))]
+            for v in (data.get("below_threshold") or [])}
 
 
 # Un contrat = un detecteur, son payload de mission et son axe de regroupement
 # (index du segment de chemin qui definit le domaine/famille d'une fournee).
 # 15719 : md-table, domaine = parts[1] (GenAI, QuantConnect...) ;
 # 16472 : hierarchie markdown, famille = parts[2] (Audio, Image...) — le
-# contrat exige "une famille/serie par fournee".
+# contrat exige "une famille/serie par fournee" ;
+# 13410 : densite pedagogique, domaine = parts[1] — l'unite est le notebook
+# sous le seuil, la regle de taille est PROPRE au contrat (dispatch ai-01
+# 18/09 : "ne pas forcer #13410 dans le moule findings — ça produirait des
+# grains vides ou monstrueux") : grain = 1-2 notebooks, conforme au
+# 1,67 fichier/PR mesure sur les 61 PRs ouvertes.
 CONTRACTS = {
     15719: {"scan": scan_md_table, "payload": PAYLOAD, "group": 1},
     16472: {"scan": scan_md_hierarchy, "payload": PAYLOAD_HINT, "group": 2},
+    13410: {"scan": scan_pedagogy_density, "payload": PAYLOAD_DENSITY,
+            "group": 1, "floor": 1, "max_files": 2},
 }
 
 
@@ -270,25 +362,33 @@ def issue_claims(slug, issues):
     return paths
 
 
-def split_domain(files):
-    """Cut one domain's files into BALANCED chunks of <= MAX_FILES.
+def split_domain(files, max_files=None):
+    """Cut one domain's files into BALANCED chunks of <= max_files.
 
-    A greedy cut of MAX_FILES-then-tail leaves an under-floor tail on every
+    A greedy cut of max_files-then-tail leaves an under-floor tail on every
     domain that overflows, and a tail has no same-domain home — it then leaks
     into an unrelated grain, which is how QuantConnect files once ended up in a
     GameTheory fournee. Spreading the heaviest files round-robin across
-    ceil(n/MAX_FILES) chunks keeps every chunk above the floor instead.
+    ceil(n/max_files) chunks keeps every chunk above the floor instead.
     """
+    max_files = MAX_FILES if max_files is None else max_files
     items = sorted(files.items(), key=lambda kv: (-len(kv[1]), kv[0]))
-    n_chunks = max(1, -(-len(items) // MAX_FILES))
+    n_chunks = max(1, -(-len(items) // max_files))
     chunks = [{} for _ in range(n_chunks)]
     for i, (path, fs) in enumerate(items):
         chunks[i % n_chunks][path] = fs
     return chunks
 
 
-def plan(free, group_idx=1, pour_idx=1):
-    """Bins that honour the fournee contract, plus the unusable leftover."""
+def plan(free, group_idx=1, pour_idx=1, floor=None, max_files=None):
+    """Bins that honour the fournee contract, plus the unusable leftover.
+
+    `floor`/`max_files` viennent du contrat (CONTRACTS) : le moule findings
+    (FLOOR=10) n'exprime pas #13410, dont l'unite est le notebook sous le
+    seuil — grain = 1-2 notebooks.
+    """
+    floor = FLOOR if floor is None else floor
+    max_files = MAX_FILES if max_files is None else max_files
     def grain_key(p):
         parts = p.split("/")
         # parts[group_idx] n'est une famille que s'il existe un segment PLUS
@@ -311,11 +411,11 @@ def plan(free, group_idx=1, pour_idx=1):
 
     bins, pockets = [], []
     for dom in sorted(by_domain, key=lambda d: -n_findings(by_domain[d])):
-        chunks = split_domain(by_domain[dom])
+        chunks = split_domain(by_domain[dom], max_files)
         for i, ch in enumerate(chunks):
             name = dom if len(chunks) == 1 else "%s-%d" % (dom, i + 1)
             entry = [name, ch, dom, pour_key(next(iter(ch)))]
-            (bins if n_findings(ch) >= FLOOR else pockets).append(entry)
+            (bins if n_findings(ch) >= floor else pockets).append(entry)
 
     # Une poche se verse d'abord chez un grain CONFORME de sa FAMILLE, puis —
     # meme mecanisme qu'#15719 au niveau domaine — chez un grain conforme de
@@ -327,7 +427,7 @@ def plan(free, group_idx=1, pour_idx=1):
         host = None
         for b in bins:
             if (b[2] == family or b[3] == pour) \
-                    and len(b[1]) + len(ch) <= MAX_FILES \
+                    and len(b[1]) + len(ch) <= max_files \
                     and (host is None or n_findings(b[1]) < n_findings(host[1])):
                 host = b
         if host is not None:
@@ -335,7 +435,7 @@ def plan(free, group_idx=1, pour_idx=1):
         else:
             residual.update(ch)
     if residual:
-        if n_findings(residual) >= FLOOR and len(residual) <= MAX_FILES:
+        if n_findings(residual) >= floor and len(residual) <= max_files:
             bins.append(["residu-petits-domaines", residual, "residu", "residu"])
         else:
             print("WARN: residu non livrable laisse hors file (%d findings / %d fichiers): %s"
@@ -424,7 +524,9 @@ def main():
               % (issue, len(found), len(free)))
         if not free:
             continue
-        planned = plan(free, contract["group"])
+        planned = plan(free, contract["group"],
+                       floor=contract.get("floor"),
+                       max_files=contract.get("max_files"))
         for name, ch in sorted(planned, key=lambda x: x[0]):
             n_planned += 1
             i = len(grains) + 1
@@ -439,8 +541,10 @@ def main():
                     gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
             })
             n, k = n_findings(ch), len(ch)
+            ok = (n >= contract.get("floor", FLOOR)
+                  and k <= contract.get("max_files", MAX_FILES))
             print("  %-42s findings=%-3d fichiers=%-3d %s"
-                  % (gid, n, k, "OK" if (n >= FLOOR and k <= MAX_FILES) else "HORS CONTRAT"))
+                  % (gid, n, k, "OK" if ok else "HORS CONTRAT"))
         total += sum(n_findings(ch) for _, ch in planned)
     if n_planned == 0:
         print("aucun finding libre — file inchangee")
@@ -448,12 +552,13 @@ def main():
 
     out = {
         "_comment": ("File de travail des grains Mistral Vibe (po-2025). Reconstruite par "
-                     "scripts/scheduling/refresh-vibe-queue.py sur re-scan frais de %s : %d findings "
-                     "libres mesures, %d tenus par des PR ouvertes et %d claims sans PR (%s), "
-                     "planifies en %d grain(s) de >= %d findings et <= %d fichiers. Les grains en "
-                     "vol non livres sont conserves tels quels."
+                     "scripts/scheduling/refresh-vibe-queue.py sur re-scan frais de %s : %d unites "
+                     "libres mesurees (findings, ou notebooks sous le seuil pour #13410), %d tenues par "
+                     "des PR ouvertes et %d claims sans PR (%s), planifiees en %d grain(s) dont la "
+                     "taille est propre a chaque contrat. Les grains en vol non livres sont "
+                     "conserves tels quels."
                      % (base[:12], total, len(held), len(claims),
-                        ", ".join("#%d" % i for i in issues), n_planned, FLOOR, MAX_FILES)),
+                        ", ".join("#%d" % i for i in issues), n_planned)),
         "grains": grains,
     }
 

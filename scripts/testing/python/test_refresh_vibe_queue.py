@@ -32,6 +32,25 @@ CENSUS = (
     "=== 2/3 notebooks flagged ===\r\n"
 )
 
+#: Familles H1 du scanner : hors contrat #16472. Codes a CHIFFRE — c'est
+#: precisement ce que la regex historique [A-Z-]+ avalait en silence (6
+#: notebooks flagges sans ligne resolue, mesure 18/09 sur 95 flagges).
+#: WHATEVER-XYZ : code tout-alpha inconnu — l'ANCIENNE regex l'aurait pris
+#: pour un finding contrat (silence sur un code non contracte) ; le pin le
+#: rejette : c'est la difference de comportement que ce test doit pincer.
+CENSUS_H1 = (
+    "## MyIA.AI.Notebooks/GenAI/Audio/02-Advanced/06-1-AudioLDM.ipynb\r\n"
+    "  [MULTI-H1] cell 0  L1  6 H1 across cells [0, 27, 27, 27, 27, 27]\r\n"
+    "  [H1-DEEP] cell 27  L1  Indice : r\xe9utilisez timed_generate\r\n"
+    "\r\n"
+    "## MyIA.AI.Notebooks/GenAI/Audio/03-Future/unknown-code.ipynb\r\n"
+    "  [WHATEVER-XYZ] cell 3  L1  future detector kind\r\n"
+    "\r\n"
+    "## MyIA.AI.Notebooks/GenAI/Audio/01-Foundation/01-4-Whisper-Local.ipynb\r\n"
+    "  [HINT-AS-HEADING] cell 12  L2  Astuce\r\n"
+    "  [H1-DEEP] cell 20  L1  Note p\xe9dagogique\r\n"
+)
+
 
 class TestHierarchyCensus(unittest.TestCase):
     def test_parses_findings_with_crlf_and_skips_unflagged(self):
@@ -47,6 +66,22 @@ class TestHierarchyCensus(unittest.TestCase):
     def test_summary_line_and_blanks_are_not_findings(self):
         found = rvq.parse_hierarchy_census("=== 0/3 notebooks flagged ===\r\n")
         self.assertEqual(found, {})
+
+    def test_h1_family_findings_are_excluded_not_swallowed(self):
+        """Le pin census (18/09) : MULTI-H1/H1-DEEP hors contrat #16472.
+
+        Un notebook H1-only reste hors file (hygiene mecanique) ; un notebook
+        mixte garde SES findings contrat. Avant le pin, la regex [A-Z-]+
+        droppait ces lignes SANS les distinguer des vraies pertes.
+        """
+        found = rvq.parse_hierarchy_census(CENSUS_H1)
+        self.assertEqual(sorted(found),
+                         ["MyIA.AI.Notebooks/GenAI/Audio/01-Foundation/01-4-Whisper-Local.ipynb"])
+        self.assertEqual(found["MyIA.AI.Notebooks/GenAI/Audio/01-Foundation/01-4-Whisper-Local.ipynb"],
+                         ["[HINT-AS-HEADING] cell 12 L2 Astuce"])
+        # le tally des exclusions VOIT les codes a chiffre, la regex contrat non
+        self.assertTrue(rvq.HIERARCHY_ANY_FINDING.match("  [MULTI-H1] cell 0  L1  x"))
+        self.assertFalse(rvq.HIERARCHY_FINDING.match("  [MULTI-H1] cell 0  L1  x"))
 
 
 class TestClaimedPaths(unittest.TestCase):
@@ -97,10 +132,73 @@ class TestPlanGrouping(unittest.TestCase):
         # parts[2] = le nom de fichier : le fallback regroupe sous le domaine
         self.assertEqual([n for n, _ in bins], ["GameTheory"])
 
+    def test_density_contract_sizes_grains_of_one_to_two_notebooks(self):
+        """"#13410 : unite = notebook, regle de taille propre (dispatch ai-01
+        18/09) — grain 1-2 notebooks, jamais le moule findings FLOOR=10."""
+        free = {
+            "MyIA.AI.Notebooks/GenAI/Audio/a.ipynb": ["density=900/1200"],
+            "MyIA.AI.Notebooks/GenAI/Audio/b.ipynb": ["density=800/1200"],
+            "MyIA.AI.Notebooks/GenAI/Audio/c.ipynb": ["density=700/1200"],
+            "MyIA.AI.Notebooks/QuantConnect/q.ipynb": ["density=600/1200"],
+        }
+        bins = rvq.plan(free, group_idx=1, floor=1, max_files=2)
+        served = [p for _, ch in bins for p in ch]
+        self.assertEqual(sorted(served), sorted(free))  # aucun residu perdu
+        for _, ch in bins:
+            self.assertGreaterEqual(len(ch), 1)
+            self.assertLessEqual(len(ch), 2, "grain densite > 2 notebooks")
+
+
+class TestDensityScanNormalization(unittest.TestCase):
+    """Le scanner densite joint son repo_root ABSOLU : sans strip, la
+    deconfliction ne soustrait rien (333 libres / 0, mesure 18/09) et le
+    groupement met toute la file dans la famille "dev"."""
+
+    def test_absolute_prefix_is_stripped(self):
+        self.assertEqual(
+            rvq._repo_relative(
+                "D:/dev/CoursIA-vibe/_scan-queue/MyIA.AI.Notebooks/GenAI/A.ipynb",
+                "D:/dev/CoursIA-vibe/_scan-queue"),
+            "MyIA.AI.Notebooks/GenAI/A.ipynb")
+
+    def test_already_relative_path_is_untouched(self):
+        self.assertEqual(
+            rvq._repo_relative("MyIA.AI.Notebooks/GenAI/A.ipynb",
+                               "D:/dev/CoursIA-vibe/_scan-queue"),
+            "MyIA.AI.Notebooks/GenAI/A.ipynb")
+
+    def test_backslash_and_case_variants(self):
+        self.assertEqual(
+            rvq._repo_relative(
+                "D:\\dev\\CoursIA-vibe\\_scan-queue\\MyIA.AI.Notebooks\\B.ipynb",
+                "d:/dev/coursia-vibe/_scan-queue/"),
+            "MyIA.AI.Notebooks\\B.ipynb".replace("\\", "/"))
+
 
 class TestContracts(unittest.TestCase):
-    def test_registry_has_both_active_contracts(self):
-        self.assertEqual(sorted(rvq.CONTRACTS), [15719, 16472])
+    def test_registry_has_all_active_contracts(self):
+        self.assertEqual(sorted(rvq.CONTRACTS), [13410, 15719, 16472])
+
+    def test_density_contract_carries_its_own_sizing_rule(self):
+        """Moule findings inapplicable (dispatch ai-01 18/09) : 13410 definit
+        floor=1 (le notebook est l'unite) et max_files=2 (1,67 fichier/PR)."""
+        c = rvq.CONTRACTS[13410]
+        self.assertEqual(c["floor"], 1)
+        self.assertEqual(c["max_files"], 2)
+        for i in (15719, 16472):
+            self.assertNotIn("floor", rvq.CONTRACTS[i])
+            self.assertNotIn("max_files", rvq.CONTRACTS[i])
+
+    def test_payload_density_carries_editorial_guardrails(self):
+        """Incident 02/09 (30/41 accents detruits) : les garde-fous sont du
+        payload, pas de la doc peripherique — le run les lit pour s'y tenir."""
+        p = rvq.CONTRACTS[13410]["payload"]
+        for marker in ("#13410", "pedagogy_density.py", "1200", "LECTURE ANCREE",
+                       "UTF-8 sans repli ASCII", "forme liste",
+                       "AUCUNE re-execution", "detect_solution_leaks",
+                       "JAMAIS fabriquer un chiffre", "CHECKPOINT-COMMIT"):
+            self.assertIn(marker, p, "payload 13410 sans %r" % marker)
+        self.assertLessEqual(len(p.encode("utf-8")), 3 * 1024)
 
     def test_payload_hint_carries_contract_essentials(self):
         p = rvq.CONTRACTS[16472]["payload"]
