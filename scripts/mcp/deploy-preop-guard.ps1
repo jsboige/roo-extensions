@@ -221,13 +221,14 @@ function Backup-ProtectedPaths {
             continue
         }
         try {
+            # $relative est DEJA plat (les '/' sont remplaces par '__') : pas de decoupe
+            # Parent/Leaf — le Parent d'un nom plat est vide, et Join-Path avec un enfant
+            # vide a un comportement variable selon OS/version PS (rouge CI Ubuntu #3714).
             $relative = $ppN.Substring($RepoRoot.Length).TrimStart('/').Replace('/','__')
-            $destDir  = Join-Path $sessionDir (Split-Path $relative -Parent)
-            if (-not (Test-Path -LiteralPath $destDir)) {
-                New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+            $dest     = [IO.Path]::Combine($sessionDir, $relative)
+            if (-not (Test-Path -LiteralPath $sessionDir)) {
+                New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
             }
-            $destLeaf = Split-Path $relative -Leaf
-            $dest     = Join-Path $destDir $destLeaf
             if ((Get-Item -LiteralPath $p.FullPath).PSIsContainer) {
                 # -Recurse avec -Force (mais PAS -ErrorAction Stop -> continue on permission)
                 Copy-Item -LiteralPath $p.FullPath -Destination $dest -Recurse -Force
@@ -237,7 +238,7 @@ function Backup-ProtectedPaths {
             Write-PreOpGuardOk "BACKUP $($p.Pattern) -> $dest"
             $count++
         } catch {
-            Write-PreOpGuardWarn "BACKUP ECHEC pour $($p.Pattern): $($_.Exception.Message)"
+            Write-PreOpGuardWarn "BACKUP ECHEC pour $($p.Pattern): $($_.Exception.GetType().Name): $($_.Exception.Message) (guard ligne $($_.InvocationInfo.ScriptLineNumber))"
         }
     }
 
