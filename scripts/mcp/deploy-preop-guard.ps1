@@ -109,16 +109,18 @@ function Get-ProtectedPaths {
         if ($items.Count -gt 0) {
             foreach ($it in $items) {
                 $resolved += [pscustomobject]@{
-                    Pattern  = $p
-                    FullPath = $it.FullName
-                    Exists   = $true
+                    Pattern     = $p
+                    FullPath    = $it.FullName
+                    IsContainer = $it.PSIsContainer
+                    Exists      = $true
                 }
             }
         } else {
             $resolved += [pscustomobject]@{
-                Pattern  = $p
-                FullPath = $null
-                Exists   = $false
+                Pattern     = $p
+                FullPath    = $null
+                IsContainer = $false
+                Exists      = $false
             }
         }
     }
@@ -229,7 +231,7 @@ function Backup-ProtectedPaths {
             if (-not (Test-Path -LiteralPath $sessionDir)) {
                 New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
             }
-            if ((Get-Item -LiteralPath $p.FullPath).PSIsContainer) {
+            if ($p.IsContainer) {
                 # -Recurse avec -Force (mais PAS -ErrorAction Stop -> continue on permission)
                 Copy-Item -LiteralPath $p.FullPath -Destination $dest -Recurse -Force
             } else {
@@ -238,7 +240,7 @@ function Backup-ProtectedPaths {
             Write-PreOpGuardOk "BACKUP $($p.Pattern) -> $dest"
             $count++
         } catch {
-            Write-PreOpGuardWarn "BACKUP ECHEC pour $($p.Pattern): $($_.Exception.GetType().Name): $($_.Exception.Message) (guard ligne $($_.InvocationInfo.ScriptLineNumber))"
+            Write-PreOpGuardWarn "BACKUP ECHEC pour $($p.Pattern): $($_.Exception.GetType().Name): $($_.Exception.Message) (guard ligne $($_.InvocationInfo.ScriptLineNumber); FullPath=[$($p.FullPath)] len=$([string]$p.FullPath).Length)"
         }
     }
 
