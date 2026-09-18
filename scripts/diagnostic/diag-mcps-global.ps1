@@ -38,7 +38,19 @@ foreach ($serverKey in $config.mcpServers.PSObject.Properties.Name) {
             Push-Location -Path $mcpPath
             npm run build # Utiliser le script de build pour une compilation correcte
             Pop-Location
-            $startCommand = "node build/index.js" # Layout canonique (tsconfig rootDir ./src -> outDir ./build)
+            # #3713 W2: npm run build publie un millésime build-<sha16>/ derrière le marqueur
+            # build-current ; build/ legacy est gelé — jamais réécrit, absent d'un clone frais.
+            # Résoudre le marqueur d'abord : sinon clone frais = chute ts-node, machine legacy =
+            # millésime figé servi indéfiniment.
+            $serverEntry = "build/index.js" # Layout canonique pré-#3713 (fallback)
+            $markerFile = Join-Path $mcpPath "build-current"
+            if (Test-Path $markerFile) {
+                $vintageName = (Get-Content -Raw -LiteralPath $markerFile -ErrorAction SilentlyContinue).Trim()
+                if ($vintageName -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $mcpPath "$vintageName/index.js"))) {
+                    $serverEntry = "$vintageName/index.js"
+                }
+            }
+            $startCommand = "node $serverEntry"
         }
 
         $finalJsFile = $startCommand.Split(' ')[-1]

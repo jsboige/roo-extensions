@@ -104,7 +104,7 @@ try {
     }
     if (Test-Path $indexJs) {
         $size = (Get-Item $indexJs).Length
-        Write-Host "  Build OK - build/index.js ($size bytes)" -ForegroundColor Green
+        Write-Host "  Build OK - $indexJs ($size bytes)" -ForegroundColor Green
     } else {
         Write-Host "  ERROR: no index.js found after build (neither build-out/ nor legacy build/)" -ForegroundColor Red
         exit 1

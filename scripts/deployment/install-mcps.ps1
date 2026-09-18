@@ -411,7 +411,16 @@ if ($installedMcps.Count -eq 0) {
                 Write-ColorOutput "Application de la configuration spéciale pour 'roo-state-manager'..."
                 $mcpCwd = $path.Replace("\", "/")
                 $wrapperPath = ($mcpCwd + "/mcp-wrapper.cjs")
+                # #3713 W2: watchPaths doit désigner ce qui CHANGE au republish. build/index.js
+                # legacy est gelé (jamais réécrit) — un watcher Roo posé dessus ne verrait jamais
+                # rien. Le marqueur build-current bascule à chaque millésime publié : c'est le
+                # signal. Le legacy reste watched s'il existe (checkout pré-#3713 non upgradé).
+                $watchPaths = @()
+                $buildCurrentPath = ($mcpCwd + "/build-current")
+                if (Test-Path $buildCurrentPath) { $watchPaths += $buildCurrentPath }
                 $buildIndexPath = ($mcpCwd + "/build/index.js")
+                if (Test-Path $buildIndexPath) { $watchPaths += $buildIndexPath }
+                if ($watchPaths.Count -eq 0) { $watchPaths = @($buildIndexPath) } # rien construit : comportement inchangé
 
                 # Utilisation de [hashtable] explicite
                 [hashtable]$newEntry = @{
@@ -434,7 +443,7 @@ if ($installedMcps.Count -eq 0) {
                        "roosync_summarize"
                     )
                     options       = @{ cwd = ($mcpCwd + "/") }
-                    watchPaths    = @($buildIndexPath)
+                    watchPaths    = $watchPaths
                     enabled       = $true
                     timeout       = 300
                 }

@@ -343,7 +343,17 @@ Workspace: $WorkspaceRootNormalized
 # 5. Verify MCP server is built (roo-state-manager - github-projects-mcp deprecated #368)
 Write-Host ""
 Write-Host "5. MCP Server Build Status" -ForegroundColor White
+# #3713 W2: le build publié vit dans un millésime build-<sha16>/ derrière le marqueur
+# build-current ; build/ legacy est gelé et absent d'un clone frais — le tester seul
+# produit un faux "needs to be built" sur toute machine upgradée.
 $mcpDistPath = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/build/index.js"
+$buildCurrentMarker = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/build-current"
+if (Test-Path $buildCurrentMarker) {
+    $vintageName = (Get-Content -Raw -LiteralPath $buildCurrentMarker -ErrorAction SilentlyContinue).Trim()
+    if ($vintageName -match '^build-[0-9a-f]{16}$') {
+        $mcpDistPath = Join-Path $WorkspaceRoot "mcps/internal/servers/roo-state-manager/$vintageName/index.js"
+    }
+}
 if (Test-Path $mcpDistPath) {
     Write-Host "  [OK] roo-state-manager is built" -ForegroundColor Green
 } else {
