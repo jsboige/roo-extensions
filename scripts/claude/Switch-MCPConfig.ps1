@@ -54,6 +54,20 @@ if (-not (Test-Path $backupPath)) {
     Copy-Item $claudeJsonPath $backupPath
 }
 
+# Résolution de l'entrée serveur DIRECTE comme le fait le wrapper v5 (#3713 W2) :
+# le marqueur build-current nomme le millésime immutable publié ; sur un checkout
+# upgradé, le build/ legacy est gelé et servirait du code périmé à une session de
+# debug. Sans marqueur (checkout pré-#3713), on retombe sur le chemin fixe.
+$rsmRoot = "D:/Dev/roo-extensions/mcps/internal/servers/roo-state-manager"
+$rsmDirectEntry = Join-Path $rsmRoot "build/index.js"
+$rsmMarker = Join-Path $rsmRoot "build-current"
+if (Test-Path $rsmMarker) {
+    $rsmVintage = (Get-Content -Raw -LiteralPath $rsmMarker -ErrorAction SilentlyContinue).Trim()
+    if ($rsmVintage -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $rsmRoot "$rsmVintage/index.js"))) {
+        $rsmDirectEntry = Join-Path $rsmRoot "$rsmVintage/index.js"
+    }
+}
+
 # Définir les configs MCP (github-projects-mcp retiré - déprécié #368)
 $mcpConfigs = @{
     jupyter = @{
@@ -96,7 +110,7 @@ $mcpConfigs = @{
     'roo-state-manager-direct' = @{
         command = "node"
         args = @(
-            "D:/Dev/roo-extensions/mcps/internal/servers/roo-state-manager/build/index.js"
+            $rsmDirectEntry
         )
         cwd = "D:/Dev/roo-extensions/mcps/internal/servers/roo-state-manager/"
         env = @{

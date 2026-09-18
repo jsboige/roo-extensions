@@ -105,9 +105,23 @@ function Test-LocalWrapper {
     if (-not (Test-Path $wrapperPath)) {
         return @{ Ok = $false; Detail = 'wrapper file missing'; Hint = 'cd mcps/internal && git submodule update --init --recursive' }
     }
-    $buildPath = Join-Path $RsmServerDir 'build\index.js'
-    if (-not (Test-Path $buildPath)) {
-        return @{ Ok = $false; Detail = 'build/index.js missing'; Hint = 'cd mcps/internal/servers/roo-state-manager && npm run build' }
+    # #3713 W2: v5 wrappers resolve the build-current vintage themselves — the
+    # artifact precheck must accept the published vintage OR the legacy frozen
+    # build/ (pre-upgrade checkout). Requiring build/ specifically fails every
+    # upgraded machine whose legacy dir was never created.
+    $hasServeableEntry = $false
+    $markerPath = Join-Path $RsmServerDir 'build-current'
+    if (Test-Path $markerPath) {
+        $vintage = (Get-Content -Raw -LiteralPath $markerPath -ErrorAction SilentlyContinue).Trim()
+        if ($vintage -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $RsmServerDir "$vintage\index.js"))) {
+            $hasServeableEntry = $true
+        }
+    }
+    if (-not $hasServeableEntry) {
+        $buildPath = Join-Path $RsmServerDir 'build\index.js'
+        if (-not (Test-Path $buildPath)) {
+            return @{ Ok = $false; Detail = 'no serveable server entry (build-current vintage or legacy build/)'; Hint = 'cd mcps/internal/servers/roo-state-manager && npm run build' }
+        }
     }
 
     $stdin = @'

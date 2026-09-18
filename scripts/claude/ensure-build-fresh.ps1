@@ -262,19 +262,35 @@ $vintageStale = $false
 if (Test-Path $markerFile) {
     $vintageName = (Get-Content -Raw -LiteralPath $markerFile -ErrorAction SilentlyContinue).Trim()
     $vintageDir = Join-Path $McpServerPath $vintageName
-    if ($vintageName -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $vintageDir 'index.js'))) {
-        $vintageMode = $true
-        if (Test-BuildMatchesSource -BuildPath $vintageDir -McpServerPath $McpServerPath -RepoRoot $RepoRoot) {
-            Write-Result 'FRESH' "vintage $vintageName was built from the checked-out source (build-current marker)."
-            if ($liveHosts.Count -gt 0) {
-                Write-Result 'SKIP' "$($liveHosts.Count) legacy host(s) alive on the frozen build/ — they take the new vintage at their next session spawn; v5 wrappers hot-swap on publish. No restart is owed (#3713)."
+    if ($vintageName -match '^build-[0-9a-f]{16}$') {
+        if (-not (Test-Path (Join-Path $vintageDir 'index.js'))) {
+            # W3 (#3713): a marker naming a vintage whose index.js is gone (retention
+            # pruned the live one, publish interrupted) must not fall through to the
+            # legacy mtime path — that would ARM live hosts for a legacy rebuild while
+            # the correct recovery is a vintage republish, which arms nothing.
+            $vintageMode = $true
+            $vintageStale = $true
+            Write-Result 'WARN' "build-current points at '$vintageName' but its index.js is missing (retention pruned the live vintage? corrupted publish?) — republishing to repair the marker (#3713 W3)."
+        } else {
+            $vintageMode = $true
+            if (Test-BuildMatchesSource -BuildPath $vintageDir -McpServerPath $McpServerPath -RepoRoot $RepoRoot) {
+                Write-Result 'FRESH' "vintage $vintageName was built from the checked-out source (build-current marker)."
+                if ($liveHosts.Count -gt 0) {
+                    Write-Result 'SKIP' "$($liveHosts.Count) legacy host(s) alive on the frozen build/ — they take the new vintage at their next session spawn; v5 wrappers hot-swap on publish. No restart is owed (#3713)."
+                }
+                exit 0
             }
-            exit 0
+            $vintageStale = $true
+            Write-Result 'WARN' "vintage $vintageName does not match the checked-out source — republishing (content-addressed rebuild arms nothing)."
         }
-        $vintageStale = $true
-        Write-Result 'WARN' "vintage $vintageName does not match the checked-out source — republishing (content-addressed rebuild arms nothing)."
+    } else {
+        # W3 (#3713): the vintage naming pattern is duplicated between this guard and
+        # the submodule's publish-build.mjs. Content the guard does not recognize means
+        # the two have diverged — a SILENT fallthrough to the mtime path would read as
+        # "no vintages on this machine" and hide the drift. Say it, then fall through.
+        Write-Result 'WARN' "build-current marker content unrecognized ('$vintageName') — pattern divergence between this guard and publish-build.mjs (#3713 W3)? Falling back to the legacy mtime path."
     }
-    # Invalid/absent marker content falls through to the legacy mtime path.
+    # Absent marker = pre-#3713 checkout: legacy mtime path, normal and silent.
 }
 
 # --- Decision ---
