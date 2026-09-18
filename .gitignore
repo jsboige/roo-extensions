@@ -252,3 +252,12 @@ _archives/
 
 # Qdrant Docker runtime data (persistence volume mounted at docker/qdrant-storage/) — never commit
 /docker/qdrant-storage/
+
+# Materiel cryptographique — jamais versionne (#3188, 18/09 : deux .pfx trouves non suivis
+# et NON ignores dans l'arbre du submodule ; un `git add -A` les committait, cle privee incluse)
+*.pfx
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
