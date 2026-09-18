@@ -196,8 +196,11 @@ function Backup-ProtectedPaths {
     )
 
     $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
-    $backupRoot = Join-Path $env:USERPROFILE '.roo-state-manager\preop-backup'
-    $sessionDir = Join-Path $backupRoot $stamp
+    # GetFolderPath('UserProfile') : cross-platform ($env:USERPROFILE est null sur Unix,
+    # ce qui faisait crasher Backup-ProtectedPaths sur le runner CI Ubuntu). Combine :
+    # separateur natif + PS 5.1 safe (Join-Path a 3 args exige PS 6.2+).
+    $backupRoot = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
+    $sessionDir = [IO.Path]::Combine($backupRoot, $stamp)
     if (-not (Test-Path -LiteralPath $sessionDir)) {
         New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
     }
@@ -300,7 +303,7 @@ function Invoke-DeployPreOpGuard {
         }
         'Backup' {
             $n = Backup-ProtectedPaths -LiteralPath $LiteralPath -RepoRoot $RepoRoot
-            $sessionDir = Join-Path $env:USERPROFILE ".roo-state-manager\preop-backup" (Get-Date -Format 'yyyyMMdd-HHmmss')
+            $sessionDir = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup', (Get-Date -Format 'yyyyMMdd-HHmmss'))
             Write-PreOpGuardOk "Backup pre-op termine ($n chemins). Operation $Operation peut proceder."
             return [pscustomobject]@{ Action='BackedUp'; Reason=$result.Reason; BackupDir=(Split-Path $sessionDir -Parent) }
         }

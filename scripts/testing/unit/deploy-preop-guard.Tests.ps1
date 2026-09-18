@@ -32,7 +32,9 @@ Describe 'Deploy pre-op guard (#3712)' {
 
         # Construire un repo de test "git-blind" : un working tree OU .gitignore est absent
         # (pour valider que Test-ProtectedPath marche SANS dependre de l'etat git).
-        $script:tmpRoot = Join-Path $env:TEMP "preop-guard-test-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+        # GetTempPath() : cross-platform (TMPDIR sur Unix, TEMP sur Windows) — $env:TEMP
+        # est null sur le runner CI Ubuntu et faisait crasher tout le Describe (review #3714).
+        $script:tmpRoot = Join-Path ([System.IO.Path]::GetTempPath()) "preop-guard-test-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
         New-Item -ItemType Directory -Path $tmpRoot -Force | Out-Null
 
         # Arborescence type d'un deploy :
@@ -74,7 +76,7 @@ Describe 'Deploy pre-op guard (#3712)' {
             Remove-Item -LiteralPath $script:tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
         # Nettoyer les backups crees dans %USERPROFILE% pendant les tests.
-        $preopBackup = Join-Path $env:USERPROFILE '.roo-state-manager\preop-backup'
+        $preopBackup = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
         if (Test-Path -LiteralPath $preopBackup) {
             Get-ChildItem -LiteralPath $preopBackup -Directory |
                 Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
@@ -164,7 +166,7 @@ Describe 'Deploy pre-op guard (#3712)' {
         $r.BackupDir | Should -Not -BeNullOrEmpty
 
         # Verifier qu'au moins une copie existe sous preop-backup.
-        $preopBackup = Join-Path $env:USERPROFILE '.roo-state-manager\preop-backup'
+        $preopBackup = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
         $found = Get-ChildItem -LiteralPath $preopBackup -Recurse -Filter '.env' -File -ErrorAction SilentlyContinue |
                  Select-Object -First 1
         $found | Should -Not -BeNullOrEmpty
