@@ -59,6 +59,8 @@
 
   **Audit contenu 2026-09-08 (#3219, ai-01)** : sur les 30 dernières PRs mergées de roo-extensions, NanoClaw pèse ~2 reviews (toutes `COMMENTED`, #3496/#3500) contre ~14 pour Hermes — ratio ~7:1 qui **confirme** la mesure initiale. La faible couverture roo-extensions **n'est pas** une panne : le conteneur tire sur `:15/:45` et review des PRs **multi-dépôts** (#1128 jsboige, #15073/#15126/#15132) sous un **protocole « fenêtre structurelle »** (reads section + source refs, pas toujours de full diff). À retenir : attribuer par **signature**, pas par login (`clusterManager-Myia` est partagé) ; et la thèse initiale « Hermes = surface / NanoClaw = profondeur » n'est **pas établie par le contenu** (`n=2`, longueur ≠ profondeur) — seule l'**asymétrie de fréquence/approbation** l'est.
 
+  **MAJ 2026-09-18 (#3219, po-2023)** : l'asymétrie de fréquence s'est **réduite de ~7:1 à ~2,3:1** — fenêtre #3630→#3719 (13/09 20:17Z → 18/09, ~67 PRs, 156 reviews) : 27 reviews `[Hermes]` contre **12 `[NanoClaw]`** (~2,7/jour). Les 12 restent toutes `COMMENTED` (7 verdicts LGTM, 5 CONCERNS) — le point « 0 APPROVED » ci-dessus tient. Les minutes de post (`:17`-`:23` et `:48`-`:54`, aucun `:15`/`:45` littéral) **corroborent** la lecture « grille :15/:45 + durée de review » du paragraphe cadence ci-dessus.
+
 ## Wake-on-Demand
 
 Pour réveil immédiat hors cron tick (mécanisme listener #2244) :
