@@ -43,6 +43,7 @@ Describe 'Deploy pre-op guard (#3712)' {
         #   <root>/.claude.json          (gitignored)
         #   <root>/src/foo.ts            (tracked, NOT protected)
         $script:tmpEnv      = Join-Path $tmpRoot '.env'
+        $script:tmpEnvLocal = Join-Path $tmpRoot '.env.local'
         $script:tmpBuild    = Join-Path $tmpRoot 'build'
         $script:tmpBuildIdx = Join-Path $tmpBuild  'index.js'
         $script:tmpSettings = Join-Path $tmpRoot '.claude'
@@ -55,6 +56,7 @@ Describe 'Deploy pre-op guard (#3712)' {
         New-Item -ItemType Directory -Path $tmpSrc   -Force | Out-Null
 
         'API_KEY=sk-test-1234'                   | Set-Content -LiteralPath $tmpEnv
+        'API_KEY_LOCAL=sk-test-5678'             | Set-Content -LiteralPath $tmpEnvLocal
         'module.exports={}'                      | Set-Content -LiteralPath $tmpBuildIdx
         '{"CLAUDE_CODE_AUTO_COMPACT_WINDOW":"280000"}' | Set-Content -LiteralPath $tmpSetJson
         '{"mcpServers":{}}'                      | Set-Content -LiteralPath $tmpClaudeJ
@@ -105,6 +107,29 @@ Describe 'Deploy pre-op guard (#3712)' {
         $r = Test-ProtectedPath -LiteralPath $script:tmpBuild -RepoRoot $script:tmpRoot
         $r.IsProtected | Should -Be $true
         $r.Reason      | Should -Be 'ExactMatch'
+    }
+
+    It 'Detects .env.local as protected via the .env.* wildcard (review #3714: -LiteralPath never expanded patterns)' {
+        # Regression du defect signale en review : Resolve-Path -LiteralPath cherchait le
+        # fichier litteral ".env.*" (inexistant) -> pattern saut en silence -> .env.local
+        # non protege. Le fix expand les patterns via Get-Item -Path.
+        $r = Test-ProtectedPath -LiteralPath $script:tmpEnvLocal -RepoRoot $script:tmpRoot
+        $r.IsProtected | Should -Be $true
+        $r.Reason      | Should -Be 'ExactMatch'
+        $r.Pattern     | Should -Be '.env.*'
+    }
+
+    It 'Get-ProtectedPaths expands .env.* into one existing entry per matched file' {
+        $paths = Get-ProtectedPaths -RepoRoot $script:tmpRoot
+        $entries = @($paths | Where-Object { $_.Pattern -eq '.env.*' -and $_.Exists })
+        $entries.Count | Should -Be 1
+        $entries[0].FullPath | Should -Be $script:tmpEnvLocal
+    }
+
+    It 'Mode Block returns Action=Blocked for .env.local (wildcard variant)' {
+        $r = Invoke-DeployPreOpGuard -Operation 'rm .env.local' -LiteralPath $script:tmpEnvLocal -Mode Block -RepoRoot $script:tmpRoot
+        $r.Action | Should -Be 'Blocked'
+        Test-Path -LiteralPath $script:tmpEnvLocal | Should -Be $true
     }
 
     It 'Detects a file INSIDE build/ as protected (Reason=InsideProtectedDir)' {

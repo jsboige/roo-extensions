@@ -102,10 +102,24 @@ function Get-ProtectedPaths {
     $resolved = @()
     foreach ($p in $patterns) {
         $full = Join-Path $RepoRoot $p
-        $resolved += [pscustomobject]@{
-            Pattern  = $p
-            FullPath = (Resolve-Path -LiteralPath $full -ErrorAction SilentlyContinue).Path
-            Exists   = (Test-Path -LiteralPath $full)
+        # -Path (PAS -LiteralPath) : un pattern comme .env.* doit s'expandre en fichiers
+        # reels (.env.local, .env.production...). -LiteralPath chercherait le fichier
+        # litteral ".env.*" (inexistant) et sauterait le pattern en silence.
+        $items = @(Get-Item -Path $full -Force -ErrorAction SilentlyContinue)
+        if ($items.Count -gt 0) {
+            foreach ($it in $items) {
+                $resolved += [pscustomobject]@{
+                    Pattern  = $p
+                    FullPath = $it.FullName
+                    Exists   = $true
+                }
+            }
+        } else {
+            $resolved += [pscustomobject]@{
+                Pattern  = $p
+                FullPath = $null
+                Exists   = $false
+            }
         }
     }
     return $resolved
