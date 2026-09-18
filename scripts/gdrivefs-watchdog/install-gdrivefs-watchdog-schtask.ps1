@@ -135,6 +135,11 @@ $trigLogon   = New-ScheduledTaskTrigger -AtLogOn
 $trigStartup = New-ScheduledTaskTrigger -AtStartup
 $trigStartup.Delay = "PT${StartupDelayMinutes}M"
 $trigRepeat  = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $RepeatMinutes)
+# Explicit null-out (#3711, fleet finding #967): under Windows PowerShell 5.1
+# (Server 2019), -RepetitionInterval alone leaves Duration at a 1-day default,
+# silently stopping the self-healing repeat one day after install. Null
+# Duration = no <Duration> element in the task XML = repeat indefinitely.
+$trigRepeat.Repetition.Duration = $null
 
 # USER principal (NOT SYSTEM): GDriveFS binds its core_controller to the user
 # account token; a SYSTEM-context relaunch cannot restore the account association.
@@ -157,12 +162,18 @@ $settings = New-ScheduledTaskSettingsSet `
 # recovery. Dynamic arm/disarm keeps the nominal cost at zero — no second
 # permanently-running trigger. The body receives -FastPoll so its early-exit
 # guard can no-op (and re-attempt the disarm) once the window has closed.
-# Indefinite repetition ([TimeSpan]::MaxValue) is intentional: the body's
-# early-exit guard is the bound, so a missed disable degrades to one cheap
-# invocation per minute instead of a stuck task.
+# Indefinite repetition is intentional: the body's early-exit guard is the
+# bound, so a missed disable degrades to one cheap invocation per minute
+# instead of a stuck task. Duration is nulled explicitly rather than passing
+# -RepetitionDuration ([TimeSpan]::MaxValue): Server 2019 rejects that value
+# with 0x80041318 — and the error is non-terminating, so the pre-#3711 script
+# printed "Installed" and exited 0 on a trigger that never landed. Null
+# Duration = indefinite repetition (same path as setup-scheduler.ps1, #967).
 $fastActionArguments = "-ExecutionPolicy Bypass -NoProfile -WindowStyle Hidden -File `"$escapedWatchdogPath`" -MountPath `"$escapedMountPath`" -MountProbeTimeoutSeconds $MountProbeTimeoutSeconds -FastPoll"
 $fastAction = New-ScheduledTaskAction -Execute $pwshPath -Argument $fastActionArguments
-$fastTrigRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $FastPollRepeatMinutes) -RepetitionDuration ([TimeSpan]::MaxValue)
+$fastTrigRepeat = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes $FastPollRepeatMinutes)
+$fastTrigRepeat.Repetition.Duration = $null
+$fastTrigRepeat.Repetition.StopAtDurationEnd = $false
 
 $taskDescription = "GDriveFS silent-exit watchdog #2875 — relaunch GoogleDriveFS.exe (user context) when absent, every $RepeatMinutes min"
 $fastDescription = "GDriveFS watchdog fast-poll #3678 — 1-min companion task, armed by the watchdog body on C2 escalation for a short window; stays disabled otherwise"
@@ -192,6 +203,58 @@ if ($DryRun) {
     exit 0
 }
 
+# ---------- fail-loud guards (#3711) ----------
+# A silent install failure is only discovered at the first missed run.
+# Register-ScheduledTask errors are NON-terminating by default: on Server 2019
+# the 0x80041318 rejection printed red while this installer carried on to
+# "Installed" and exited 0 — a false success confirmation (reported web1
+# c.471, verified firsthand po-203). Two guards close every silent hole:
+#   1. -ErrorAction Stop + try/catch on each registration -> visible exit 1.
+#   2. Post-registration readback: the repetition must be ON THE REGISTERED
+#      task (read back from the scheduler), not merely in the in-memory
+#      objects built above — and the readback runs BEFORE any success output.
+
+function Get-TaskRepetitionTotalMinutes {
+    # ISO 8601 duration (PT15M, PT1H, P1DT2H30M...) -> total minutes, or $null
+    # when unparseable. The scheduler normalizes intervals across units, so the
+    # guard must compare minutes, not literal strings ("PT60M" vs "PT1H").
+    param([string]$IsoDuration)
+    if (-not $IsoDuration) { return $null }
+    if ($IsoDuration -notmatch '^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:([0-9]+(?:\.[0-9]+)?)S)?)?$') { return $null }
+    $total = 0.0
+    if ($Matches[1]) { $total += 1440.0 * [double]$Matches[1] }
+    if ($Matches[2]) { $total += 60.0 * [double]$Matches[2] }
+    if ($Matches[3]) { $total += [double]$Matches[3] }
+    if ($Matches[4]) { $total += [double]$Matches[4] / 60.0 }
+    return $total
+}
+
+function Assert-RegisteredRepetition {
+    param(
+        [string]$Name,
+        [double]$ExpectedMinutes
+    )
+    $task = Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue
+    if (-not $task) {
+        Write-Host "ERROR (#3711): task '$Name' is ABSENT after Register-ScheduledTask returned -- the registration failed silently. NOT reporting success."
+        exit 1
+    }
+    $repetitions = @($task.Triggers | Where-Object { $_.Repetition -and $_.Repetition.Interval })
+    $landed = @($repetitions | Where-Object {
+        $actual = Get-TaskRepetitionTotalMinutes $_.Repetition.Interval
+        ($null -ne $actual) -and ([Math]::Abs($actual - $ExpectedMinutes) -lt 0.5) -and (-not $_.Repetition.Duration)
+    })
+    if ($landed.Count -eq 0) {
+        $observed = if ($repetitions.Count) {
+            ($repetitions | ForEach-Object { "Interval=$($_.Repetition.Interval) Duration=$($_.Repetition.Duration)" }) -join '; '
+        } else {
+            'no repetition trigger at all'
+        }
+        Write-Host "ERROR (#3711): task '$Name' registered but its every-${ExpectedMinutes}-min repetition trigger did NOT land (indefinite Duration expected). Observed: $observed. NOT reporting success."
+        exit 1
+    }
+}
+
 # Remove old tasks if they exist (idempotent reinstall).
 foreach ($t in @($taskName, $fastTaskName)) {
     $existing = Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
@@ -201,10 +264,25 @@ foreach ($t in @($taskName, $fastTaskName)) {
     }
 }
 
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon, $trigStartup, $trigRepeat) -Principal $principal -Settings $settings -Description $taskDescription | Out-Null
+try {
+    Register-ScheduledTask -TaskName $taskName -Action $action -Trigger @($trigLogon, $trigStartup, $trigRepeat) -Principal $principal -Settings $settings -Description $taskDescription -ErrorAction Stop | Out-Null
+} catch {
+    Write-Host "ERROR (#3711): registration of '$taskName' failed: $($_.Exception.Message)"
+    exit 1
+}
 
-Register-ScheduledTask -TaskName $fastTaskName -Action $fastAction -Trigger $fastTrigRepeat -Principal $principal -Settings $settings -Description $fastDescription | Out-Null
-Disable-ScheduledTask -TaskName $fastTaskName | Out-Null
+try {
+    Register-ScheduledTask -TaskName $fastTaskName -Action $fastAction -Trigger $fastTrigRepeat -Principal $principal -Settings $settings -Description $fastDescription -ErrorAction Stop | Out-Null
+    Disable-ScheduledTask -TaskName $fastTaskName -ErrorAction Stop | Out-Null
+} catch {
+    Write-Host "ERROR (#3711): registration/disarm of '$fastTaskName' failed: $($_.Exception.Message)"
+    exit 1
+}
+
+# Readback guards run BEFORE the success output below: a repetition that did
+# not land must never coexist with an "Installed" line (#3711).
+Assert-RegisteredRepetition -Name $taskName -ExpectedMinutes $RepeatMinutes
+Assert-RegisteredRepetition -Name $fastTaskName -ExpectedMinutes $FastPollRepeatMinutes
 
 Write-Host "Installed scheduled task: $taskName"
 Write-Host "  Triggers: AtLogOn + AtStartup(+${StartupDelayMinutes}m) + repeat every ${RepeatMinutes}m | Principal: $env:USERNAME (Highest, Interactive)"
