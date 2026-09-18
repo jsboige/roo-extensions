@@ -166,8 +166,11 @@ Describe 'Deploy pre-op guard (#3712)' {
         $r.BackupDir | Should -Not -BeNullOrEmpty
 
         # Verifier qu'au moins une copie existe sous preop-backup.
+        # Where-Object (pas -Filter) : le filtrage natif -Filter '.env' ne matche
+        # pas les dotfiles sur Unix (rouge CI Ubuntu #3714).
         $preopBackup = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
-        $found = Get-ChildItem -LiteralPath $preopBackup -Recurse -Filter '.env' -File -ErrorAction SilentlyContinue |
+        $found = Get-ChildItem -LiteralPath $preopBackup -Recurse -File -ErrorAction SilentlyContinue |
+                 Where-Object { $_.Name -eq '.env' } |
                  Select-Object -First 1
         $found | Should -Not -BeNullOrEmpty
         ($found | Select-Object -First 1).FullName | Should -Match 'preop-backup'
