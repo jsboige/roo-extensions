@@ -405,12 +405,15 @@ if (Test-Path -LiteralPath $guardScript) {
 Push-Location $McpServerPath
 try {
     Write-Result 'OK' "Running 'npm run build' (clean rebuild)..."
-    # Use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to the npm.ps1
-    # wrapper, and invoking it via the call operator (`& npm ...`) corrupts arg
-    # passing (npm receives a mangled command → "Unknown command: pm", exit 1).
-    # The non-fatal design then silently keeps the stale build — exactly the
-    # STALE-TRAP this helper exists to prevent. npm.cmd bypasses the wrapper.
-    $buildOutput = & npm.cmd run build 2>&1
+    # Merge stderr at the cmd.exe layer. A PS-level `2>&1` lets PS 5.1 mint
+    # ErrorRecords from npm's stderr (npm warn allow-scripts ...), and an
+    # intermittent promotion to terminating fired the catch below on a build
+    # that had succeeded — vintage marker never published, false preflight
+    # exit 1 (po-2027, 2026-09-19 01:12Z, EAP=Continue in force). With cmd
+    # doing the merge, PS only ever sees strings: no ErrorRecord exists to
+    # promote, under any EAP. cmd owns PATH resolution now, which also
+    # retires the npm.cmd-vs-npm.ps1-wrapper hazard guarded here before.
+    $buildOutput = & cmd /c "npm run build 2>&1"
     $buildExit = $LASTEXITCODE
     if ($buildExit -eq 0) {
         if ($vintageMode) {

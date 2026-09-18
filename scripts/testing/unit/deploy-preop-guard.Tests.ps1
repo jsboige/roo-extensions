@@ -251,7 +251,7 @@ Describe 'Deploy pipeline entry points wire the guard (#3712)' {
         $scriptPath = Join-Path $PSScriptRoot '..\..\claude\ensure-build-fresh.ps1'
         $raw = Get-Content -LiteralPath $scriptPath -Raw
         $idxGuard   = $raw.IndexOf('Invoke-DeployPreOpGuard')
-        $idxNpmBuild = $raw.IndexOf("& npm.cmd run build")
+        $idxNpmBuild = $raw.IndexOf('cmd /c "npm run build 2>&1"')
         $idxGuard    | Should -BeGreaterOrEqual 0
         $idxNpmBuild | Should -BeGreaterOrEqual 0
         $idxGuard    | Should -BeLessThan $idxNpmBuild
