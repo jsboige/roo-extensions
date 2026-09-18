@@ -331,6 +331,23 @@ if (-not $PSCmdlet.ShouldProcess($McpServerPath, "Run 'npm run build' (clean + t
     Exit-NotFresh 'SKIP' "ShouldProcess declined — not rebuilding."
 }
 
+# --- Pre-op guard (#3712) : backup pre-destruction de build/ avant npm run build.
+# npm run build (clean + tsc) detruit build/ avant de le reconstruire. Le guard prend
+# un snapshot du build courant (s'il existe) dans %USERPROFILE%\.roo-state-manager\
+# preop-backup\ -- best-effort, n'echoue jamais.
+$guardScript = Join-Path $RepoRoot 'scripts/mcp/deploy-preop-guard.ps1'
+if (Test-Path -LiteralPath $guardScript) {
+    try {
+        . $guardScript
+        $guardResult = Invoke-DeployPreOpGuard -Operation "npm run build (ensure-build-fresh)" -LiteralPath $BuildPath -Mode Backup -RepoRoot $RepoRoot
+        Write-Result 'OK' "[guard] pre-op: Action=$($guardResult.Action) BackupDir=$($guardResult.BackupDir)"
+    } catch {
+        Write-Result 'WARN' "[guard] pre-op guard echoue (non-fatal, build continue): $_"
+    }
+} else {
+    Write-Result 'WARN' "[guard] deploy-preop-guard.ps1 introuvable, pre-op desactive."
+}
+
 # --- Rebuild (mirror worker Sync-McpSubmoduleBuild: clean:build + tsc, non-fatal on failure) ---
 Push-Location $McpServerPath
 try {

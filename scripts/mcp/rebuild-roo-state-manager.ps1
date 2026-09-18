@@ -40,15 +40,34 @@ $repoRoot = (Get-Item "$PSScriptRoot\..\..").FullName
 $mcpDir = Join-Path $repoRoot "mcps\internal\servers\roo-state-manager"
 $syncScript = Join-Path $repoRoot "roo-config\scripts\Sync-AlwaysAllow.ps1"
 
+# --- Pre-op guard (#3712) : empeche la destruction silencieuse d'un chemin protege. ---
+# Le rebuild detruit volontairement build/ ; le guard est appele en mode Backup pour
+# preserver un snapshot pre-destruction dans %USERPROFILE%\.roo-state-manager\preop-backup\.
+$guardScript = Join-Path $PSScriptRoot "deploy-preop-guard.ps1"
+if (Test-Path -LiteralPath $guardScript) {
+    . $guardScript
+} else {
+    Write-Host "WARN: deploy-preop-guard.ps1 introuvable, pre-op guard desactive." -ForegroundColor Yellow
+}
+
 Write-Host "=== Rebuild roo-state-manager ===" -ForegroundColor Cyan
 Write-Host "Repo root: $repoRoot"
 Write-Host "MCP dir:   $mcpDir"
 Write-Host ""
 
-# Step 1: Clean
+# Step 1: Clean (avec garde-fou pre-op)
 Write-Host "[1/4] Cleaning old build..." -ForegroundColor Yellow
 $buildDir = Join-Path $mcpDir "build"
 if (Test-Path $buildDir) {
+    # #3712 : backup pre-destruction (build/ est protege par defaut).
+    if (Get-Command Invoke-DeployPreOpGuard -ErrorAction SilentlyContinue) {
+        $guardResult = Invoke-DeployPreOpGuard -Operation "Remove-Item build (rebuild)" -LiteralPath $buildDir -Mode Backup -RepoRoot $repoRoot
+        Write-Host "  [guard] Action=$($guardResult.Action) BackupDir=$($guardResult.BackupDir)" -ForegroundColor DarkGray
+        if ($guardResult.Action -eq 'Blocked') {
+            Write-Host "  ABORT: pre-op guard refuse la suppression de $buildDir" -ForegroundColor Red
+            exit 3
+        }
+    }
     Remove-Item -Recurse -Force $buildDir
     Write-Host "  Removed $buildDir" -ForegroundColor Gray
 } else {
