@@ -24,8 +24,9 @@
             (timestamp + chemin relatif). Best-effort : ne fait JAMAIS echouer.
 
         Invoke-DeployPreOpGuard -Operation <name> -LiteralPath <target> [-Mode Block|Backup|Warn]
-            Mode Block (defaut) : refuse l'operation si <target> chevauche un chemin
-                                 protege et exit 3 (sans rien detuire).
+            Mode Block (defaut) : renvoie Action=Blocked si <target> chevauche un chemin
+                                 protege (rien n'est detruit ; en CLI standalone : exit 3,
+                                 en module : le caller decide sur le rendu).
             Mode Backup         : tente d'abord le backup, puis laisse l'appelant decider.
             Mode Warn           : laisse passer, mais affiche un WARNING colore.
 
@@ -148,7 +149,10 @@ function Test-ProtectedPath {
         $RepoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null | Out-String).Trim()
     }
     if (-not $RepoRoot) {
-        return [pscustomobject]@{ IsProtected=$false; Reason='NoRepoRoot'; Pattern=''; ProtectedPath='' }
+        # Fail-closed (review #3714) : sans RepoRoot la whitelist est incalculable —
+        # "je ne peux pas verifier" ne doit jamais etre rendu comme "ce n'est pas protege".
+        Write-PreOpGuardWarn "RepoRoot introuvable — '$LiteralPath' traite comme protege par precaution (fail-closed)."
+        return [pscustomobject]@{ IsProtected=$true; Reason='NoRepoRoot'; Pattern=''; ProtectedPath='' }
     }
 
     # Normaliser en chemin absolu.
@@ -156,11 +160,16 @@ function Test-ProtectedPath {
         $LiteralPath
     } else {
         # Relatif au cwd de l'appelant (pas du script), pour eviter une surprise si
-        # l'appelant est dans un sous-module.
-        $LiteralPath | Resolve-Path -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+        # l'appelant est dans un sous-module. -Force : sur Unix les dotfiles portent
+        # l'attribut Hidden et Resolve-Path sans -Force les ignore (lecon #3714).
+        $LiteralPath | Resolve-Path -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
     }
     if (-not $target) {
-        return [pscustomobject]@{ IsProtected=$false; Reason='PathNotResolved'; Pattern=''; ProtectedPath='' }
+        # Fail-closed (review #3714) : un chemin non resoluble est traite en suspect,
+        # jamais declare sur en silence. L'operation destructive est refusee jusqu'a
+        # clarification — bloquer une cible inexistante est un no-op, l'inverse non.
+        Write-PreOpGuardWarn "Chemin non resoluble : '$LiteralPath' — traite comme protege par precaution (fail-closed)."
+        return [pscustomobject]@{ IsProtected=$true; Reason='PathNotResolved'; Pattern=''; ProtectedPath='' }
     }
 
     $protected = Get-ProtectedPaths -RepoRoot $RepoRoot
@@ -194,15 +203,19 @@ function Backup-ProtectedPaths {
     #>
     param(
         [Parameter(Mandatory=$true)][string]$LiteralPath,
-        [string]$RepoRoot
+        [string]$RepoRoot,
+        [string]$Stamp
     )
 
-    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    # -Stamp laisse l'appelant (Invoke-DeployPreOpGuard) fixer LA session : deux
+    # Get-Date distincts produisaient un rendu BackupDir qui ne designait jamais la
+    # session reellement ecrite (review #3714).
+    if (-not $Stamp) { $Stamp = Get-Date -Format 'yyyyMMdd-HHmmss' }
     # GetFolderPath('UserProfile') : cross-platform ($env:USERPROFILE est null sur Unix,
     # ce qui faisait crasher Backup-ProtectedPaths sur le runner CI Ubuntu). Combine :
     # separateur natif + PS 5.1 safe (Join-Path a 3 args exige PS 6.2+).
     $backupRoot = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
-    $sessionDir = [IO.Path]::Combine($backupRoot, $stamp)
+    $sessionDir = [IO.Path]::Combine($backupRoot, $Stamp)
     if (-not (Test-Path -LiteralPath $sessionDir)) {
         New-Item -ItemType Directory -Path $sessionDir -Force | Out-Null
     }
@@ -264,9 +277,10 @@ function Invoke-DeployPreOpGuard {
         Chemin (fichier ou repertoire) que l'operation va detruire/recouvrir.
 
     .PARAMETER Mode
-        Block   (defaut) : exit 3 si protege (le caller abandonne l'operation).
-        Backup           : tente un backup, puis exit 0 (le caller decide).
-        Warn             : exit 0 mais affiche un WARN colore (le caller est sense savoir).
+        Block   (defaut) : renvoie Action=Blocked si protege (le caller abandonne ;
+                           en CLI standalone, exit 3).
+        Backup           : tente un backup, puis renvoie BackedUp (le caller decide).
+        Warn             : renvoie Warned + affiche un WARN colore (le caller est sense savoir).
 
     .PARAMETER RepoRoot
         Working tree de reference.
@@ -276,7 +290,8 @@ function Invoke-DeployPreOpGuard {
 
     .EXAMPLE
         Invoke-DeployPreOpGuard -Operation "Remove-Item build/" -LiteralPath "build" -Mode Block
-        # exit 3 si build/ est protege (=oui par defaut). Le caller abandonne.
+        # Rend Action=Blocked si build/ est protege (=oui par defaut). Le caller abandonne
+        # (le CLI standalone traduit Blocked en exit 3).
     #>
     [CmdletBinding()]
     param(
@@ -305,10 +320,15 @@ function Invoke-DeployPreOpGuard {
             return [pscustomobject]@{ Action='Blocked'; Reason=$result.Reason; BackupDir='' }
         }
         'Backup' {
-            $n = Backup-ProtectedPaths -LiteralPath $LiteralPath -RepoRoot $RepoRoot
-            $sessionDir = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup', (Get-Date -Format 'yyyyMMdd-HHmmss'))
+            # Un seul stamp pour l'ecriture ET le rendu : l'ancien code appelait
+            # Backup-ProtectedPaths (qui faisait SON Get-Date) puis recomposait un
+            # second Get-Date — BackupDir designait la racine preop-backup via
+            # Split-Path -Parent, jamais le snapshot reel (review #3714).
+            $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+            $n = Backup-ProtectedPaths -LiteralPath $LiteralPath -RepoRoot $RepoRoot -Stamp $stamp
+            $sessionDir = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup', $stamp)
             Write-PreOpGuardOk "Backup pre-op termine ($n chemins). Operation $Operation peut proceder."
-            return [pscustomobject]@{ Action='BackedUp'; Reason=$result.Reason; BackupDir=(Split-Path $sessionDir -Parent) }
+            return [pscustomobject]@{ Action='BackedUp'; Reason=$result.Reason; BackupDir=$sessionDir }
         }
         'Warn' {
             Write-PreOpGuardWarn "WARN : $Operation sur '$LiteralPath' menacerait un chemin protege. Procede par demande explicite."

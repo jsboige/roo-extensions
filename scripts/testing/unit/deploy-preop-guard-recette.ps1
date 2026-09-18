@@ -29,7 +29,9 @@ $ErrorActionPreference = 'Stop'
 
 $scriptPath    = $PSScriptRoot
 $guard         = Join-Path $scriptPath '..\..\mcp\deploy-preop-guard.ps1'
-$tmpRoot       = Join-Path $env:TEMP "preop-guard-recette-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
+# GetTempPath() : cross-platform — $env:TEMP est null sur le runner CI Ubuntu
+# (defaut deja corrige dans la suite de tests, ce site avait ete oublie, review #3714).
+$tmpRoot       = Join-Path ([System.IO.Path]::GetTempPath()) "preop-guard-recette-$([Guid]::NewGuid().ToString('N').Substring(0,8))"
 
 # --- Setup : creer un working tree simule ---
 New-Item -ItemType Directory -Path $tmpRoot -Force | Out-Null

@@ -69,19 +69,33 @@ Describe 'Deploy pre-op guard (#3712)' {
         # depuis un test, $PSScriptRoot = chemin du test. On surcharge $script:DefaultProtectedRelativePatterns
         # en faisant pointer le repoRoot de detection vers $tmpRoot via -RepoRoot.
         . $script:guard
+
+        # Capturer l'etat du stock de backup AVANT tout test. Le AfterAll ne doit
+        # nettoyer QUE les snapshots crees par CE run : le stock de production compose
+        # exactement le meme chemin avec le meme format yyyyMMdd-HHmmss — test et prod
+        # sont indiscernables par construction (bloquant review #3714).
+        $script:preopBackupRoot = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
+        $script:preopSnapshotsBefore = @()
+        if (Test-Path -LiteralPath $script:preopBackupRoot) {
+            $script:preopSnapshotsBefore = @(
+                Get-ChildItem -LiteralPath $script:preopBackupRoot -Directory -Force -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty Name
+            )
+        }
     }
 
     AfterAll {
         if (Test-Path -LiteralPath $script:tmpRoot) {
             Remove-Item -LiteralPath $script:tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
         }
-        # Nettoyer les backups crees dans %USERPROFILE% pendant les tests.
-        $preopBackup = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
-        if (Test-Path -LiteralPath $preopBackup) {
-            Get-ChildItem -LiteralPath $preopBackup -Directory |
-                Where-Object { $_.Name -match '^\d{8}-\d{6}$' } |
-                Sort-Object CreationTime -Descending |
-                Select-Object -Skip 5 |
+        # Nettoyer UNIQUEMENT les repertoires absents de la liste capturee au BeforeAll
+        # (= crees par ce run). Jamais de filtre par nom ni de plafond type Skip 5 :
+        # ^\d{8}-\d{6}$ matche precisement le format des snapshots de production, et
+        # Selection -Skip 5 emportait les plus anciens snapshots REELS en silence
+        # (bloquant review #3714).
+        if (Test-Path -LiteralPath $script:preopBackupRoot) {
+            Get-ChildItem -LiteralPath $script:preopBackupRoot -Directory -Force -ErrorAction SilentlyContinue |
+                Where-Object { $script:preopSnapshotsBefore -notcontains $_.Name } |
                 ForEach-Object { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
         }
     }
@@ -165,18 +179,30 @@ Describe 'Deploy pre-op guard (#3712)' {
         $r.Action | Should -Be 'BackedUp'
         $r.BackupDir | Should -Not -BeNullOrEmpty
 
-        # Verifier qu'au moins une copie existe sous preop-backup.
+        # BackupDir doit designer le snapshot EXACT de cette session (review #3714 :
+        # l'ancien rendu Split-Path -Parent designait toujours la racine preop-backup,
+        # jamais la session — le test ne verifiait que l'existence du parent et passait
+        # a vide sur la promesse). On enumere SOUS le BackupDir rendu.
         # -Force OBLIGATOIRE : sur Unix, PowerShell marque les dotfiles de
         # l'attribut Hidden et Get-ChildItem sans -Force ne les enumere PAS
         # (idem Get-Item sans -Force — cause racine commune des rouges CI
         # #3714 iterations 2 et 3). Where-Object en ceinture : -Filter '.env'
         # a aussi un comportement dotfile specifique Unix.
-        $preopBackup = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup')
-        $found = Get-ChildItem -LiteralPath $preopBackup -Recurse -File -Force -ErrorAction SilentlyContinue |
+        $found = Get-ChildItem -LiteralPath $r.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue |
                  Where-Object { $_.Name -eq '.env' } |
                  Select-Object -First 1
         $found | Should -Not -BeNullOrEmpty
-        ($found | Select-Object -First 1).FullName | Should -Match 'preop-backup'
+        $found.FullName | Should -BeLike "$($r.BackupDir)*"
+    }
+
+    It 'Treats an unresolvable relative path as protected (fail-closed, review #3714)' {
+        # Un garde ne doit jamais rendre "sur" un chemin qu'il n'a pas su resoudre :
+        # la direction d'erreur conservatrice est de refuser l'operation jusqu'a
+        # clarification. Masque aujourd'hui par des callers qui passent des absolus ;
+        # vivant des que la couverture .env s'elargit.
+        $r = Test-ProtectedPath -LiteralPath 'no-such-protected-file-xyz' -RepoRoot $script:tmpRoot
+        $r.IsProtected | Should -Be $true
+        $r.Reason      | Should -Be 'PathNotResolved'
     }
 
     It 'Mode Warn returns Action=Warned' {
