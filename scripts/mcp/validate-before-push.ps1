@@ -50,12 +50,25 @@ try {
         Write-Host "  DO NOT PUSH. Fix build errors first." -ForegroundColor Red
         exit 1
     }
-    $indexJs = Join-Path $mcpDir "build\index.js"
+    # #3713 W2: npm run build now publishes an immutable build-<sha16>/ vintage
+    # behind the build-current marker (tsc emits to build-out/ scratch). The
+    # artifact check must verify the PUBLISHED vintage; the legacy build/index.js
+    # stays valid only on checkouts that predate the vintage pipeline — on a
+    # fresh clone it never exists and this check would fail a green build.
+    $indexJs = $null
+    $markerFile = Join-Path $mcpDir "build-current"
+    if (Test-Path $markerFile) {
+        $vintage = (Get-Content -Raw -LiteralPath $markerFile -ErrorAction SilentlyContinue).Trim()
+        if ($vintage -match '^build-[0-9a-f]{16}$' -and (Test-Path (Join-Path $mcpDir "$vintage\index.js"))) {
+            $indexJs = Join-Path $mcpDir "$vintage\index.js"
+        }
+    }
+    if (-not $indexJs) { $indexJs = Join-Path $mcpDir "build\index.js" }
     if (-not (Test-Path $indexJs)) {
-        Write-Host "  FAIL: build/index.js not found!" -ForegroundColor Red
+        Write-Host "  FAIL: no server entry found (neither published vintage via build-current, nor legacy build/index.js)!" -ForegroundColor Red
         exit 1
     }
-    Write-Host "  PASS: Build OK" -ForegroundColor Green
+    Write-Host "  PASS: Build OK ($indexJs)" -ForegroundColor Green
 
     if ($Quick) {
         Write-Host "[2/2] Skipping tests (-Quick)" -ForegroundColor Gray

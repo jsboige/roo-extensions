@@ -152,9 +152,13 @@ if (-not $McpRoot) {
 
 $cutoffTime = (Get-Date).AddHours(-$OlderThanHours)
 
-# Build the list of command-line patterns to match
+# Build the list of command-line patterns to match.
+# #3713 W2: v5 wrappers spawn the server from an immutable build-<sha16>/ vintage
+# (`build-6bb7292cbd7b3fcb\index.js`), not the legacy frozen build/ — the pattern
+# must match BOTH or every v5 host becomes unlocatable (live-PID detection exits 2
+# and older-cluster zombies stay). Name stays the stable role key used downstream.
 $patterns = @(
-    @{ Name = "build/index.js";     Pattern = "build[\\/]+index\.js" },
+    @{ Name = "build/index.js";     Pattern = "build(-[0-9a-f]{16})?[\\/]+index\.js" },
     @{ Name = "mcp-wrapper.cjs";    Pattern = "mcp-wrapper\.cjs" }
 )
 if ($IncludeAllMcp) {
