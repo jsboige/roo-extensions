@@ -321,6 +321,15 @@ Describe 'Deploy pre-op guard (#3712)' {
             $r = Invoke-DeployPreOpGuard -Operation 'git clean -fdx' -LiteralPath $script:tmpRoot.ToUpper() -RepoRoot $script:tmpRoot -Mode Backup
             $r.Action   | Should -Be 'BackedUp'
             $r.BackupDir | Should -Not -BeNullOrEmpty
+            # C'EST CETTE ASSERTION QUI PORTE LA DISCRIMINANCE EN SUITE. Les deux
+            # Should -Contain ci-dessous relisent $r.BackupDir, dont le nom est horodate
+            # a la SECONDE (deploy-preop-guard.ps1 : 'yyyyMMdd-HHmmss') : dans la suite
+            # complete, le test precedent ecrit dans LE MEME repertoire pendant la meme
+            # seconde et y laisse .env + index.js. Mesure review #3737 sous 5.1 : sur la
+            # source PRE-correctif, ce test est ROUGE isole et VERT dans la suite (30/30)
+            # -- exactement le regime de la CI, ou une regression passerait donc au vert.
+            # Copied decrit CET APPEL, pas l'etat d'un dossier partage : immunise.
+            $r.Copied | Should -BeGreaterThan 0
             $names = @(Get-ChildItem -LiteralPath $r.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue |
                        Select-Object -ExpandProperty Name)
             # .env (fichier : casse tapee preservee sous pwsh ET 5.1) est le discriminant
