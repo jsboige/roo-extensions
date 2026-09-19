@@ -35,7 +35,10 @@ $ErrorActionPreference = "Stop"
 Write-Host "=== PR Submitter ===" -ForegroundColor Cyan
 
 # Verifier qu'on est dans un worktree (pas main)
-$currentBranch = git branch --show-current 2>$null
+# cmd-layer stderr discard (#3731 class, lot 2): a PS-level `2>$null` still lets
+# PS 5.1 mint ErrorRecords from stderr under the file-global EAP=Stop; `2>nul`
+# inside cmd never creates one, under any EAP.
+$currentBranch = (& cmd /c "git branch --show-current 2>nul") | Select-Object -First 1
 if (-not $currentBranch) {
     Write-Error "Pas dans un depot Git."
     exit 1
@@ -53,7 +56,7 @@ Write-Host ""
 
 # 1. Verifier qu'il y a des commits a pousser
 Write-Host "[1/4] Verification commits..." -ForegroundColor Yellow
-$commitCount = git rev-list --count "origin/main..$currentBranch" 2>$null
+$commitCount = (& cmd /c "git rev-list --count origin/main..$currentBranch 2>nul") | Select-Object -First 1
 if ($commitCount -eq 0) {
     Write-Warning "Aucun commit a pousser par rapport a origin/main."
     $response = Read-Host "Continuer quand meme? (o/N)"
@@ -111,12 +114,12 @@ $diffStat | ForEach-Object { Write-Host "    $_" }
 Write-Host "[4/4] Creation PR..." -ForegroundColor Yellow
 
 # Recuperer les commits pour le summary
-$commitLog = git log --oneline "origin/main..$currentBranch" 2>$null
+$commitLog = & cmd /c "git log --oneline origin/main..$currentBranch 2>nul"
 
 # Recuperer le titre de l'issue
 $prTitle = ""
 try {
-    $issueJson = gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>$null | ConvertFrom-Json
+    $issueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>nul" | ConvertFrom-Json
     $prTitle = $issueJson.title -replace '^\[.*?\]\s*', ''
 } catch {
     $prTitle = "Feature #$IssueNumber"
