@@ -73,7 +73,13 @@ try {
     # throws a NullReferenceException with no actionable context. Guard
     # explicitly: a missing current branch means the RepoRoot resolution was
     # wrong, not that the user is on a non-main branch.
-    $branchRaw = & git -C $RepoRoot branch --show-current 2>&1
+    # Merge stderr at the cmd.exe layer (#3731 class): a PS-level `2>&1` under
+    # EAP=Stop (global here) lets PS 5.1 mint ErrorRecords from any git stderr
+    # chatter (warnings, config advice) and promote it to a terminating
+    # NativeCommandError on a call that succeeded — intermittent by nature.
+    # cmd does the merge, PS only sees strings, and cmd propagates git's exit
+    # code to $LASTEXITCODE.
+    $branchRaw = & cmd /c "git -C ""$RepoRoot"" branch --show-current 2>&1"
     if ($LASTEXITCODE -ne 0) {
         throw "Could not read current branch from $RepoRoot (git exit $LASTEXITCODE): $branchRaw"
     }
@@ -127,13 +133,14 @@ try {
 
     # Output captured (then re-emitted) so the #3605 discriminant can read the
     # helper's status lines: [REBUILT] presence and the stale-hosts count.
-    # PS 5.1 wraps redirected child-stderr in ErrorRecords and EAP=Stop turns
-    # the first one into a terminating NativeCommandError (measured 14/09):
-    # relax around the call, restore right after.
-    $savedEap = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    $helperOutput = @(& powershell.exe -ExecutionPolicy Bypass -File $helper -RepoRoot $RepoRoot -RequireFresh 2>&1 | ForEach-Object { "$_" })
-    $ErrorActionPreference = $savedEap
+    # Merge stderr at the cmd.exe layer (#3731 class, lot 2): the helper's
+    # child (npm) can emit stderr on a successful build, and a PS-level `2>&1`
+    # let PS 5.1 wrap it in ErrorRecords — the EAP-relax previously kept here
+    # only suppressed the promotion instead of removing the ErrorRecords.
+    # With cmd doing the merge, PS only ever sees strings under any EAP, so
+    # the relax block is gone; cmd propagates the helper's exit code (incl.
+    # the 10 discriminated below) to $LASTEXITCODE.
+    $helperOutput = @(& cmd /c "powershell.exe -ExecutionPolicy Bypass -File ""$helper"" -RepoRoot ""$RepoRoot"" -RequireFresh 2>&1" | ForEach-Object { "$_" })
     foreach ($line in $helperOutput) { Write-Host $line }
     $freshExit = $LASTEXITCODE
     if ($freshExit -eq 10) {
