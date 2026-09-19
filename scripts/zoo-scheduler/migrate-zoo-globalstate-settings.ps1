@@ -307,7 +307,15 @@ function Invoke-VscdbHelper {
     )
     $helper = Write-StateVscdbHelper
     $spec = @{ op = $Op; query = $Query; params = $Params } | ConvertTo-Json -Compress -Depth 5
-    $output = $spec | & python $helper $Database 2>&1
+    # cmd-layer stderr merge (#3731 class, lot 2): a PS-level `2>&1` mints ErrorRecords
+    # from stderr; under the file-global EAP=Stop the first one terminates. Merging at the
+    # cmd.exe layer keeps stderr in $output for the throw below without any ErrorRecord.
+    # Both paths are quoted inside the cmd string: the PS form passed them as argv entries
+    # (spaces safe), splicing them bare into one command line is not. $Database is a
+    # caller-supplied parameter and $helper lives under $env:TEMP — both carry the user
+    # profile name, so a space is reachable. Measured under 5.1: bare form dies with
+    # "can't open file '...\sp'", quoted form passes the path intact.
+    $output = $spec | & cmd /c "python ""$helper"" ""$Database"" 2>&1"
     if ($LASTEXITCODE -ne 0) {
         throw "SQLite helper error ($Op): $output"
     }
@@ -367,7 +375,7 @@ function Invoke-ZooGlobalStateMigration {
 
     # --- Prereq: Python sqlite3 ---
     $null = Get-Command python -ErrorAction Stop
-    $pyVer = & python -c "import sqlite3; print(sqlite3.sqlite_version)" 2>&1
+    $pyVer = & cmd /c "python -c ""import sqlite3; print(sqlite3.sqlite_version)"" 2>&1"
     if ($LASTEXITCODE -ne 0) { throw "Python sqlite3 stdlib not available: $pyVer" }
     Write-Host "[OK] python + sqlite3 stdlib (sqlite $pyVer)" -ForegroundColor Green
 
