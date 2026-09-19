@@ -8,7 +8,10 @@ function Get-CommitDetails {
         [string]$Hash
     )
 
-    $details = git show --stat $Hash --format="%H|%an|%ae|%ad|%s|%b" --date=iso 2>&1
+    # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+    # turns stderr warnings into a terminating NativeCommandError. The pipes in
+    # --format need cmd-visible quoting, hence the doubled quotes.
+    $details = & cmd /c "git show --stat $Hash --format=""%H|%an|%ae|%ad|%s|%b"" --date=iso 2>&1"
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Erreur lors de l'analyse du commit $Hash"
         return $null
@@ -64,7 +67,7 @@ function Analyze-Commits {
         Write-Host "=== Analyse des $Count derniers commits de $RepoPath ===" -ForegroundColor Cyan
         Write-Host ""
 
-        $commits = git log --oneline -$Count 2>&1
+        $commits = & cmd /c "git log --oneline -$Count 2>&1"
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Erreur lors de la récupération des commits: $commits"
             return @()

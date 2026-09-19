@@ -151,7 +151,9 @@ if ($BuildCheck) {
             # Post build failure immediately to GitHub (don't wait for LLM review)
             if (-not $DryRun -and $IssueNumber -gt 0) {
                 $buildFailComment = "⚠️ **Build FAILED** on commit ``$shortHash`` ($commitMessage) on $env:COMPUTERNAME`n`n``````$($buildOutput -join "`n")``````"
-                $buildFailComment | gh issue comment $IssueNumber --repo "$RepoOwner/$RepoName" --body-file - 2>&1 | Out-Null
+                # cmd-layer stderr merge (#3731 class) — this site sits OUTSIDE the
+                # EAP-relax block above, so stderr here is terminating under EAP=Stop
+                $buildFailComment | & cmd /c "gh issue comment $IssueNumber --repo $RepoOwner/$RepoName --body-file - 2>&1" | Out-Null
                 Write-Host "[AUTO-REVIEW] Build failure posted to #$IssueNumber" -ForegroundColor Yellow
             }
         } elseif (-not $testOk) {
@@ -260,7 +262,7 @@ try {
     Write-Host "[AUTO-REVIEW] Posting to issue #$IssueNumber..." -ForegroundColor Cyan
 
     # Use gh CLI to post (handles auth automatically)
-    $fullComment | gh issue comment $IssueNumber --repo "$RepoOwner/$RepoName" --body-file - 2>&1
+    $fullComment | & cmd /c "gh issue comment $IssueNumber --repo $RepoOwner/$RepoName --body-file - 2>&1"
 
     if ($LASTEXITCODE -eq 0) {
         Write-Host "[AUTO-REVIEW] Posted to #$IssueNumber" -ForegroundColor Green

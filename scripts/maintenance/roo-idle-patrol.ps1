@@ -80,7 +80,9 @@ function Invoke-BuildAndTestScan {
         
         # Etape 1a: Build
         Write-PatrolLog "INFO" "  1a: npm run build..."
-        $buildOutput = npm run build 2>&1 | Select-Object -Last 20
+        # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+        # turns stderr warnings into a terminating NativeCommandError
+        $buildOutput = & cmd /c "npm run build 2>&1" | Select-Object -Last 20
         $buildExit = $LASTEXITCODE
         
         if ($buildExit -ne 0) {
@@ -93,7 +95,7 @@ function Invoke-BuildAndTestScan {
         # Etape 1b: Tests
         Write-PatrolLog "INFO" "  1b: npx vitest run..."
         $env:CI = "true"
-        $output = npx vitest run 2>&1 | Select-Object -Last 50
+        $output = & cmd /c "npx vitest run 2>&1" | Select-Object -Last 50
         $exitCode = $LASTEXITCODE
         
         if ($exitCode -ne 0) {
@@ -122,9 +124,9 @@ function Invoke-GitStatusCheck {
     Write-PatrolLog "INFO" "Check 2: Check git status uncommitted files (seuil: $MaxAgeDays jours)..."
     
     try {
-        $statusOutput = git -C $RepoRoot status --porcelain 2>&1
-        $stagedFiles = git -C $RepoRoot diff --cached --name-only 2>&1
-        $unstagedFiles = git -C $RepoRoot diff --name-only 2>&1
+        $statusOutput = & cmd /c "git -C $RepoRoot status --porcelain 2>&1"
+        $stagedFiles = & cmd /c "git -C $RepoRoot diff --cached --name-only 2>&1"
+        $unstagedFiles = & cmd /c "git -C $RepoRoot diff --name-only 2>&1"
         
         $allFiles = @()
         if ($stagedFiles) { $allFiles += $stagedFiles -split "`n" | Where-Object { $_ } }

@@ -173,7 +173,9 @@ function Invoke-SqliteQuery {
     # Depth 5 (not 3) so the 95-key merged Roo→Zoo state blob round-trips fully.
     # Piped via stdin to bypass the Windows argv length limit (review po-2026).
     $spec = @{ query = $Query; params = $Params; scalar = [bool]$Scalar } | ConvertTo-Json -Compress -Depth 5
-    $output = $spec | & python $script:SqliteHelperPath $Database 2>&1
+    # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+    # turns stderr warnings into a terminating NativeCommandError (stdin passes through cmd)
+    $output = $spec | & cmd /c "python $script:SqliteHelperPath $Database 2>&1"
     if ($LASTEXITCODE -ne 0) {
         # Honor -ErrorAction SilentlyContinue from callers (e.g. secret-existence probes).
         $PSCmdlet.WriteError([System.Management.Automation.ErrorRecord]::new(
@@ -203,7 +205,7 @@ Write-Status ""
 # === Prerequisites ===
 # Python 3 with stdlib sqlite3 (no external CLI required — issue #2629).
 $null = Get-Command python -ErrorAction Stop
-$pyCheck = & python -c "import sqlite3; print(sqlite3.sqlite_version)" 2>&1
+$pyCheck = & cmd /c "python -c ""import sqlite3; print(sqlite3.sqlite_version)"" 2>&1"
 if ($LASTEXITCODE -ne 0) {
     throw "Python sqlite3 stdlib not available: $pyCheck"
 }

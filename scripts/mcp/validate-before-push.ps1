@@ -44,7 +44,9 @@ Push-Location $mcpDir
 try {
     # Step 1: Build
     Write-Host "[1/2] Building TypeScript..." -ForegroundColor Yellow
-    npm run build 2>&1 | Out-Null
+    # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+    # turns stderr warnings into a terminating NativeCommandError
+    & cmd /c "npm run build 2>&1" | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  FAIL: TypeScript build failed!" -ForegroundColor Red
         Write-Host "  DO NOT PUSH. Fix build errors first." -ForegroundColor Red
@@ -85,7 +87,7 @@ try {
     # making vitest exit non-zero on a fully green tree. The Tests summary line is treated
     # as the source of truth, not the exit code. (dispatch ai-01 c.203/c.204)
     Write-Host "[2/2] Running CI tests (vitest.config.ci.ts)..." -ForegroundColor Yellow
-    $testResult = npx vitest run --config vitest.config.ci.ts 2>&1
+    $testResult = & cmd /c "npx vitest run --config vitest.config.ci.ts 2>&1"
     $vitestExit = $LASTEXITCODE
 
     # The Tests summary line ("Tests  N passed [| M failed] ...") is the authority.

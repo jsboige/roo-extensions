@@ -69,7 +69,9 @@ $mcpDir = Join-Path (git rev-parse --show-toplevel) "mcps" "internal" "servers" 
 if (Test-Path $mcpDir) {
     Push-Location $mcpDir
     try {
-        $buildResult = npx tsc --noEmit 2>&1
+        # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+        # turns stderr warnings into a terminating NativeCommandError
+        $buildResult = & cmd /c "npx tsc --noEmit 2>&1"
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Build TypeScript echoue! Corrigez avant de soumettre."
             Write-Host $buildResult -ForegroundColor Red
@@ -87,7 +89,7 @@ if (Test-Path $mcpDir) {
 
 # 3. Pousser la branche
 Write-Host "[3/4] Push branche vers origin..." -ForegroundColor Yellow
-git push -u origin $currentBranch 2>&1
+& cmd /c "git push -u origin $currentBranch 2>&1"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Push echoue."
     exit 1
@@ -96,7 +98,7 @@ Write-Host "  Branche poussee."
 
 # 3.5. Guard #1404: Verifier que le diff contient des changements reels
 Write-Host "[3.5/4] Verification changements reels..." -ForegroundColor Yellow
-$diffStat = git diff origin/main..$currentBranch --stat 2>&1
+$diffStat = & cmd /c "git diff origin/main..$currentBranch --stat 2>&1"
 if ($LASTEXITCODE -ne 0 -or $diffStat.Trim() -eq "") {
     Write-Warning "Aucun changement de fichier detecte dans le diff."
     Write-Warning "PR vide bloquee (issue #1404)."
@@ -155,7 +157,11 @@ if ($Draft) {
     $ghArgs += "--draft"
 }
 
-$prUrl = & gh @ghArgs 2>&1
+# #3731 class: no PS-level `2>&1` here — the splatted args (multiline --body) make the
+# cmd /c form unquoteable, and ANY PS redirect mints ErrorRecords that EAP=Stop turns
+# terminating (gh writes progress to stderr). Un-redirected stderr shows on console
+# and cannot terminate; the exit code below remains the gate.
+$prUrl = & gh @ghArgs
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Creation PR echouee: $prUrl"
     exit 1
