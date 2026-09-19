@@ -10,6 +10,23 @@ Write-Host "=" * 60 -ForegroundColor Gray
 # Nettoyer le build précédent
 Write-Host "`n🧹 Nettoyage du build précédent..." -ForegroundColor Yellow
 if (Test-Path "$projectPath/build") {
+    # #3712 : backup pre-destruction via le garde deploy (meme doctrine que
+    # rebuild-roo-state-manager.ps1 — le build/ est regenerable mais snapshotne).
+    $guardScript = Join-Path $PSScriptRoot '..\mcp\deploy-preop-guard.ps1'
+    if (Test-Path -LiteralPath $guardScript) {
+        # Le garde pose $ErrorActionPreference='Stop' au dot-source : restaurer
+        # apres, le reste du script vit en Continue (npm 2>&1 sous Stop est piegeux).
+        $guardPrevEap = $ErrorActionPreference
+        . $guardScript
+        $repoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null | Out-String).Trim()
+        $guardResult = Invoke-DeployPreOpGuard -Operation "Remove-Item build (test build)" -LiteralPath "$projectPath/build" -Mode Backup -RepoRoot $repoRoot
+        $ErrorActionPreference = $guardPrevEap
+        Write-Host "  [guard] Action=$($guardResult.Action) BackupDir=$($guardResult.BackupDir)" -ForegroundColor DarkGray
+        if ($guardResult.Action -eq 'Blocked') {
+            Write-Host "  ABORT: pre-op guard refuse la suppression de $projectPath/build" -ForegroundColor Red
+            exit 3
+        }
+    }
     Remove-Item "$projectPath/build" -Recurse -Force
     Write-Host "✅ Répertoire build supprimé" -ForegroundColor Green
 }

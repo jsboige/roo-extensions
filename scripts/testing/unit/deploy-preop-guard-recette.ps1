@@ -112,6 +112,52 @@ if ($buildAfter -ne $buildBefore) {
 Write-Host "OK: Block a refuse 'git clean -fdx', build/ intact." -ForegroundColor Green
 Write-Host ""
 
+# --- (d) Volet racine : cible = le WORKTREE ROOT lui-meme (volet #3712 restant) ---
+# Avant la detection d'ancetre, la cible root n'etant pas elle-meme protegee, le
+# garde rendait Proceeded SANS backup : l'exemple CLI documente etait decoratif.
+# scenarios :
+#   d1. Block sur le root (le vrai "git clean -fdx .") doit etre REFUSE et ne rien detruire.
+#   d2. Backup sur le root doit snapshotter .env ET build/ AVANT le clean simule.
+Write-Host "--- (d) Volet racine : Block puis Backup sur le worktree ROOT ---" -ForegroundColor Yellow
+
+# d1 : Block sur le root
+$result = Invoke-DeployPreOpGuard -Operation "git clean -fdx" -LiteralPath $tmpRoot -Mode Block -RepoRoot $tmpRoot
+if ($result.Action -ne 'Blocked') {
+    Write-Host "FAIL (d1): attendu Blocked sur cible racine, obtenu $($result.Action)" -ForegroundColor Red
+    exit 1
+}
+$envAfter   = (Get-Content -LiteralPath $envFile -Raw).Trim()
+$buildAfter = (Get-Content -LiteralPath $buildIdx -Raw).Trim()
+if ($envAfter -ne $envBefore -or $buildAfter -ne $buildBefore) {
+    Write-Host "FAIL (d1): un protege a ete modifie malgre Block racine !" -ForegroundColor Red
+    exit 1
+}
+Write-Host "OK (d1): Block a refuse le clean racine, .env et build/ intacts." -ForegroundColor Green
+
+# d2 : Backup sur le root — .env ET build/index.js dans le snapshot
+$result = Invoke-DeployPreOpGuard -Operation "git clean -fdx" -LiteralPath $tmpRoot -Mode Backup -RepoRoot $tmpRoot
+if ($result.Action -ne 'BackedUp') {
+    Write-Host "FAIL (d2): attendu BackedUp sur cible racine, obtenu $($result.Action)" -ForegroundColor Red
+    exit 1
+}
+if (-not $result.BackupDir -or -not (Test-Path -LiteralPath $result.BackupDir)) {
+    Write-Host "FAIL (d2): BackupDir absent ou introuvable : $($result.BackupDir)" -ForegroundColor Red
+    exit 1
+}
+# -Force : dotfiles caches sur Unix (lecon #3714)
+$snapped = @(Get-ChildItem -LiteralPath $result.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue |
+             Select-Object -ExpandProperty Name)
+if ($snapped -notcontains '.env') {
+    Write-Host "FAIL (d2): .env absent du snapshot racine (contenu: $($snapped -join ', '))" -ForegroundColor Red
+    exit 1
+}
+if ($snapped -notcontains 'index.js') {
+    Write-Host "FAIL (d2): build/index.js absent du snapshot racine (contenu: $($snapped -join ', '))" -ForegroundColor Red
+    exit 1
+}
+Write-Host "OK (d2): snapshot racine complet (.env + build/) dans $($result.BackupDir)." -ForegroundColor Green
+Write-Host ""
+
 # --- Cleanup ---
 Remove-Item -LiteralPath $tmpRoot -Recurse -Force -ErrorAction SilentlyContinue
 

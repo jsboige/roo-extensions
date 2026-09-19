@@ -222,6 +222,51 @@ Describe 'Deploy pre-op guard (#3712)' {
         $r = Test-ProtectedPath -LiteralPath $script:tmpBuild -RepoRoot $script:tmpRoot
         $r.IsProtected | Should -Be $true
     }
+
+    Context 'Root-level destructive ops (#3712 volet racine : git clean -fdx sur le worktree)' {
+        # L'exemple CLI documente (`deploy-preop-guard.ps1 'git clean -fdx' . Backup`)
+        # etait DECORATIF avant la detection d'ancetre : le root n'est pas lui-meme
+        # protege, donc Test-ProtectedPath rendait NotProtected et le Backup mode
+        # rendait 'Proceeded' SANS aucun snapshot. Un garde racine qui ne voit pas
+        # les proteges CONTENUS sous la cible ne bloque pas la classe d'incident
+        # visee par l'issue (le wipe au deploy).
+
+        It 'Detects protected paths CONTAINED under an ancestor target (Reason=ContainsProtectedPath)' {
+            $r = Test-ProtectedPath -LiteralPath $script:tmpRoot -RepoRoot $script:tmpRoot
+            $r.IsProtected | Should -Be $true
+            $r.Reason      | Should -Be 'ContainsProtectedPath'
+        }
+
+        It 'Mode Block on the worktree ROOT returns Blocked and destroys nothing' {
+            $r = Invoke-DeployPreOpGuard -Operation 'git clean -fdx' -LiteralPath $script:tmpRoot -Mode Block -RepoRoot $script:tmpRoot
+            $r.Action   | Should -Be 'Blocked'
+            $r.Reason   | Should -Be 'ContainsProtectedPath'
+            # Rien n'est detruit : .env, .env.local et build/ sont intacts.
+            Test-Path -LiteralPath $script:tmpEnv      | Should -Be $true
+            Test-Path -LiteralPath $script:tmpEnvLocal | Should -Be $true
+            Test-Path -LiteralPath $script:tmpBuildIdx | Should -Be $true
+        }
+
+        It 'Mode Backup on the worktree ROOT snapshots EVERY protected path under it (the documented CLI example is now honest)' {
+            $r = Invoke-DeployPreOpGuard -Operation 'git clean -fdx' -LiteralPath $script:tmpRoot -Mode Backup -RepoRoot $script:tmpRoot
+            $r.Action   | Should -Be 'BackedUp'
+            $r.BackupDir | Should -Not -BeNullOrEmpty
+            # .env, .env.local (wildcard) ET build/index.js doivent tous etre dans
+            # le snapshot — c'est la promesse du Backup mode racine.
+            # -Force : dotfiles caches sur Unix (lecon #3714).
+            $names = @(Get-ChildItem -LiteralPath $r.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue |
+                       Select-Object -ExpandProperty Name)
+            $names | Should -Contain '.env'
+            $names | Should -Contain '.env.local'
+            $names | Should -Contain 'index.js'
+        }
+
+        It 'A subtree with NO protected content stays Proceeded (no false positive on src/)' {
+            $r = Test-ProtectedPath -LiteralPath $script:tmpSrc -RepoRoot $script:tmpRoot
+            $r.IsProtected | Should -Be $false
+            $r.Reason      | Should -Be 'NotInWhitelist'
+        }
+    }
 }
 
 Describe 'Deploy pipeline entry points wire the guard (#3712)' {
@@ -255,5 +300,37 @@ Describe 'Deploy pipeline entry points wire the guard (#3712)' {
         $idxGuard    | Should -BeGreaterOrEqual 0
         $idxNpmBuild | Should -BeGreaterOrEqual 0
         $idxGuard    | Should -BeLessThan $idxNpmBuild
+    }
+
+    It 'start-claude-worker.ps1 invokes the guard in Backup mode before the maintenance git clean (#3712 volet racine)' {
+        # Reset-WorktreeForMaintenance est le seul site VIVANT de git clean racine du
+        # depot. Ses flags -e protegent .env/*.log/node_modules mais PAS .env.* (un
+        # -e .env ne matche que le litteral) : le garde fournit le snapshot de la
+        # liste centrale avant le clean.
+        $scriptPath = Join-Path $PSScriptRoot '..\..\scheduling\start-claude-worker.ps1'
+        $raw = Get-Content -LiteralPath $scriptPath -Raw
+        $idxGuard = $raw.IndexOf('Invoke-DeployPreOpGuard')
+        $idxClean = $raw.IndexOf('git -C $WorktreePath clean -fd -e .env')
+        $idxGuard | Should -BeGreaterOrEqual 0
+        $idxClean | Should -BeGreaterOrEqual 0
+        $idxGuard | Should -BeLessThan $idxClean
+        # Le wiring est bien DANS Reset-WorktreeForMaintenance (pas ailleurs dans le
+        # script de 2800 lignes) : la fenetre function...clean doit contenir l'appel.
+        $resetPos = $raw.IndexOf('function Reset-WorktreeForMaintenance')
+        $resetPos | Should -BeGreaterThan 0
+        $window   = $raw.Substring($resetPos, [Math]::Min(4000, $raw.Length - $resetPos))
+        ($window -match 'Invoke-DeployPreOpGuard') | Should -Be $true
+    }
+
+    It 'test-roo-state-manager-build.ps1 invokes the guard in Backup mode before Remove-Item build' {
+        # Meme doctrine que rebuild-roo-state-manager.ps1 : ce script detruisait
+        # build/ sans garde (classe d'incident ai-01 17/09).
+        $scriptPath = Join-Path $PSScriptRoot '..\test-roo-state-manager-build.ps1'
+        $raw = Get-Content -LiteralPath $scriptPath -Raw
+        $idxGuard  = $raw.IndexOf('Invoke-DeployPreOpGuard')
+        $idxRemove = $raw.IndexOf('Remove-Item "$projectPath/build" -Recurse -Force')
+        $idxGuard  | Should -BeGreaterOrEqual 0
+        $idxRemove | Should -BeGreaterOrEqual 0
+        $idxGuard  | Should -BeLessThan $idxRemove
     }
 }
