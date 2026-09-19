@@ -193,10 +193,13 @@ function Test-ProtectedPath {
         if ($target -eq $pp) {
             return [pscustomobject]@{ IsProtected=$true; Reason='ExactMatch'; Pattern=$p.Pattern; ProtectedPath=$pp }
         }
-        # Normaliser les separateurs pour la comparaison.
+        # Normaliser les separateurs pour la comparaison. OrdinalIgnoreCase : une
+        # cible absolue n'est jamais resolue et Get-Item preserve la casse tapee —
+        # un ecart de casse cible/RepoRoot faisait rater les deux passes de prefixe
+        # (mesure ai-01 19/09, suite #3732 ; voir le contexte 'Case-divergent' des tests).
         $targetN = $target -replace '\\','/'
         $ppN     = $pp     -replace '\\','/'
-        if ($targetN.StartsWith($ppN + '/')) {
+        if ($targetN.StartsWith($ppN + '/', [StringComparison]::OrdinalIgnoreCase)) {
             return [pscustomobject]@{ IsProtected=$true; Reason='InsideProtectedDir'; Pattern=$p.Pattern; ProtectedPath=$pp }
         }
     }
@@ -211,7 +214,7 @@ function Test-ProtectedPath {
     foreach ($p in $protected) {
         if (-not $p.Exists) { continue }
         $ppN = $p.FullPath -replace '\\','/'
-        if ($ppN.StartsWith($targetN.TrimEnd('/') + '/')) {
+        if ($ppN.StartsWith($targetN.TrimEnd('/') + '/', [StringComparison]::OrdinalIgnoreCase)) {
             return [pscustomobject]@{ IsProtected=$true; Reason='ContainsProtectedPath'; Pattern=$p.Pattern; ProtectedPath=$p.FullPath }
         }
     }

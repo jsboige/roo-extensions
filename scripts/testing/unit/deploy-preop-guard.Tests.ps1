@@ -267,6 +267,50 @@ Describe 'Deploy pre-op guard (#3712)' {
             $r.Reason      | Should -Be 'NotInWhitelist'
         }
     }
+
+    Context 'Case-divergent target/RepoRoot (OrdinalIgnoreCase — suite #3732)' {
+        # Mesure coordinateur (ai-01 19/09, post-merge #3732) : une cible absolue
+        # n'est JAMAIS resolue (cassee conservee telle que tapee) et Get-Item ne
+        # canonicalise pas la casse — donc un ecart de casse entre -LiteralPath et
+        # -RepoRoot laisse les deux passes de prefixe (culture-sensitives) rendre
+        # NotInWhitelist en silence : exactement l'incident #3712, Proceeded sans
+        # backup. Les deux formes de chemins ne RESOLVENT toutes les deux que sur
+        # un filesystem case-insensitive (Windows) — sur Unix la forme divergente
+        # n'existe pas sur disque, la classe de defaut ne s'y materialise pas.
+        # (Pester 5+ : une variable de corps de Context n'est PAS visible dans
+        # les It — l'affectation vit donc dans un BeforeAll.)
+        BeforeAll {
+            $script:onWindows = ($env:OS -eq 'Windows_NT')
+        }
+
+        It 'UPPERCASE target / canonical RepoRoot still detects (ContainsProtectedPath)' {
+            if (-not $script:onWindows) { Set-ItResult -Skipped -Because 'case-insensitive filesystem required (Windows-only defect class)'; return }
+            $r = Test-ProtectedPath -LiteralPath $script:tmpRoot.ToUpper() -RepoRoot $script:tmpRoot
+            $r.IsProtected | Should -Be $true
+            $r.Reason      | Should -Be 'ContainsProtectedPath'
+        }
+
+        It 'canonical target / UPPERCASE RepoRoot still detects (ContainsProtectedPath)' {
+            if (-not $script:onWindows) { Set-ItResult -Skipped -Because 'case-insensitive filesystem required (Windows-only defect class)'; return }
+            $r = Test-ProtectedPath -LiteralPath $script:tmpRoot -RepoRoot $script:tmpRoot.ToUpper()
+            $r.IsProtected | Should -Be $true
+            $r.Reason      | Should -Be 'ContainsProtectedPath'
+        }
+
+        It 'UPPERCASE target INSIDE build/ still detects (InsideProtectedDir)' {
+            if (-not $script:onWindows) { Set-ItResult -Skipped -Because 'case-insensitive filesystem required (Windows-only defect class)'; return }
+            $r = Test-ProtectedPath -LiteralPath $script:tmpBuildIdx.ToUpper() -RepoRoot $script:tmpRoot
+            $r.IsProtected | Should -Be $true
+            $r.Reason      | Should -Be 'InsideProtectedDir'
+        }
+
+        It 'ExactMatch is already case-insensitive (-eq default) — pinned so nobody "fixes" it to -ceq' {
+            if (-not $script:onWindows) { Set-ItResult -Skipped -Because 'case-insensitive filesystem required (Windows-only defect class)'; return }
+            $r = Test-ProtectedPath -LiteralPath $script:tmpEnv.ToUpper() -RepoRoot $script:tmpRoot
+            $r.IsProtected | Should -Be $true
+            $r.Reason      | Should -Be 'ExactMatch'
+        }
+    }
 }
 
 Describe 'Deploy pipeline entry points wire the guard (#3712)' {
