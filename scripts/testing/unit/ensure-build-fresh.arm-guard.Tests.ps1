@@ -52,7 +52,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         $content | Should -Match 'ARMED-DEFER'
         $headlessIdx = $content.IndexOf('$Headless -and -not $Arm')
         $deferIdx    = $content.IndexOf("Exit-NotFresh 'ARMED-DEFER'")
-        $buildIdx    = $content.IndexOf('& npm.cmd run build')
+        $buildIdx    = $content.IndexOf('cmd /c "npm run build 2>&1"')
         # the defer is gated by -Headless (overridable by -Arm), not by the host count alone
         $headlessIdx | Should -BeGreaterThan 0
         $deferIdx    | Should -BeGreaterThan $headlessIdx
@@ -75,7 +75,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
         # exists for). ARM is emitted, and the build is NOT skipped on that path.
         $content | Should -Match 'THE RESTART IS OWED'
         $armIdx   = $content.IndexOf("Write-Result 'ARM'")
-        $buildIdx = $content.IndexOf('& npm.cmd run build')
+        $buildIdx = $content.IndexOf('cmd /c "npm run build 2>&1"')
         $armIdx   | Should -BeGreaterThan 0
         $buildIdx | Should -BeGreaterThan $armIdx
     }
