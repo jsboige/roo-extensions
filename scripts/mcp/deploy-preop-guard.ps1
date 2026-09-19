@@ -259,10 +259,13 @@ function Backup-ProtectedPaths {
     foreach ($p in $protected) {
         if (-not $p.Exists) { continue }
         # Ne backuper que les chemins SOUS le LiteralPath (sinon on sauvegarde tout
-        # le repo a chaque deploy, ce qui n'est pas le but).
+        # le repo a chaque deploy, ce qui n'est pas le but). OrdinalIgnoreCase : 3e
+        # site de la classe casse (dispatch ai-01 19/09) — casse divergente rendait
+        # un snapshot VIDE avec Action='BackedUp', succes menteur sur lequel
+        # l'appelant detruit (le -ne adjacent est deja insensible par defaut).
         $ppN = $p.FullPath -replace '\\','/'
         $targetN = ($LiteralPath -replace '\\','/').TrimEnd('/')
-        if ($targetN -ne '' -and $ppN -ne $targetN -and -not $ppN.StartsWith($targetN + '/')) {
+        if ($targetN -ne '' -and $ppN -ne $targetN -and -not $ppN.StartsWith($targetN + '/', [StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
         try {
