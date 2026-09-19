@@ -18,7 +18,8 @@
     claude -p. Used to validate gating logic without consuming Opus tokens.
 
     Phase 2 (after 48h stub validation): wire spawn-claude.ps1 to actually
-    invoke claude -p with the Opus 4.7 model.
+    invoke claude -p. Sweeps spawn pinned to haiku (#1605 Bug #2: opus boot
+    thrash triggers rapid_refill_breaker — see spawn call below).
 
 .PARAMETER Workspaces
     Comma-separated list of workspace keys to poll (e.g., "nanoclaw,roo-extensions").

@@ -3,12 +3,12 @@
     Pester tests for Resolve-WorkspacePath function in dashboard-listener.ps1
 
 .DESCRIPTION
-    Tests the 6-level workspace path resolution order:
+    Tests the workspace path resolution order (#3641 §2: steps 4/5 fail closed):
       1. WorkspacePathsFile entry (explicit override)
       2. DASHBOARD_WATCHER_WORKSPACE_PATHS env var (JSON map)
       3. Self-match (ws name == leaf of $RepoRoot)
-      4. ~/.claude.json projects keys (basename match)
-      5. Auto-detect: scan common parent roots
+      4. ~/.claude.json projects keys — REFUSED (fail-closed, returns $null)
+      5. Auto-detect — DISABLED (always returns $null)
       6. Not found → return $null
 
 .NOTES
@@ -141,30 +141,17 @@ Describe 'Resolve-WorkspacePath' {
                     return $script:TestRepoRoot
                 }
             }
-            # 4. ~/.claude.json projects
+            # 4. ~/.claude.json projects — REFUSED (#3641 §2, fail-closed): that
+            # registry tracks interactive sessions by cwd; resolving from it can
+            # hand the headless spawn the tree of a LIVE session. Skip.
             $cjMap = Get-ClaudeJsonProjectsMap
             $key = $ws.ToLowerInvariant()
             if ($cjMap.ContainsKey($key)) {
-                $p = $cjMap[$key]
-                if (Test-Path $p -PathType Container) {
-                    $script:_wsPathCache[$ws] = $p
-                    return $p
-                }
+                $script:_wsPathCache[$ws] = $null
+                return $null
             }
-            # 5. Auto-detect
-            $candidateRoots = @()
-            if (-not [string]::IsNullOrEmpty($script:TestRepoRoot)) {
-                $candidateRoots += (Split-Path $script:TestRepoRoot -Parent)
-            }
-            $candidateRoots += @("D:\dev", "D:\", "C:\dev", "C:\")
-            foreach ($root in $candidateRoots) {
-                if ([string]::IsNullOrEmpty($root)) { continue }
-                $candidate = Join-Path $root $ws
-                if (Test-Path $candidate -PathType Container) {
-                    $script:_wsPathCache[$ws] = $candidate
-                    return $candidate
-                }
-            }
+            # 5. Auto-detect — DISABLED (#3641 §2): guessing '<root>\<ws>' has no
+            # provenance and can land on a live session tree. Fail closed.
             # 6. Not found
             $script:_wsPathCache[$ws] = $null
             return $null
@@ -251,23 +238,23 @@ Describe 'Resolve-WorkspacePath' {
     }
 
     # =================================================================
-    # Level 4: ~/.claude.json projects
+    # Level 4: ~/.claude.json projects — REFUSED (#3641 §2, fail-closed)
     # =================================================================
 
-    Context 'Level 4: ~/.claude.json projects' {
+    Context 'Level 4: ~/.claude.json projects (fail-closed, #3641 §2)' {
         BeforeEach {
             $script:TestMcpConfig = $script:MockClaudeJson
         }
 
-        It 'Returns path from .claude.json when basename matches' {
-            Resolve-WorkspacePath 'roo-extensions' | Should -BeExactly (Join-Path $script:MockDevDir 'roo-extensions')
+        It 'Refuses a match from .claude.json projects (interactive tree) and returns $null' {
+            Resolve-WorkspacePath 'roo-extensions' | Should -BeNullOrEmpty
         }
 
-        It 'Match is case-insensitive' {
-            Resolve-WorkspacePath 'Roo-Extensions' | Should -BeExactly (Join-Path $script:MockDevDir 'roo-extensions')
+        It 'Refusal is case-insensitive' {
+            Resolve-WorkspacePath 'Roo-Extensions' | Should -BeNullOrEmpty
         }
 
-        It 'Falls through when .claude.json path does not exist on disk' {
+        It 'Still returns $null when the .claude.json path does not exist on disk' {
             $badClaudeJson = Join-Path $script:TestRoot 'bad-claude.json'
             $badContent = @{ projects = @{ 'C:\nonexistent\workspace' = @{} } } | ConvertTo-Json -Depth 5
             [System.IO.File]::WriteAllText($badClaudeJson, $badContent, [System.Text.UTF8Encoding]::new($false))
@@ -275,16 +262,24 @@ Describe 'Resolve-WorkspacePath' {
             $script:TestMcpConfig = $badClaudeJson
             Resolve-WorkspacePath 'workspace' | Should -BeNullOrEmpty
         }
+
+        It 'An explicit file override still wins over the .claude.json refusal' {
+            # The refusal only governs the *implicit* step-4 source. A dedicated
+            # listener tree mapped via step 1 remains the supported way to wake a
+            # workspace that lives in an interactive tree.
+            $script:TestWorkspacePathsFile = $script:WorkspacePathsFile
+            Resolve-WorkspacePath 'roo-extensions' | Should -BeExactly (Join-Path $script:TestRoot 'explicit-dir')
+        }
     }
 
     # =================================================================
-    # Level 5: Auto-detect
+    # Level 5: Auto-detect — DISABLED (#3641 §2)
     # =================================================================
 
-    Context 'Level 5: Auto-detect (scan common roots)' {
-        It 'Finds workspace in parent of RepoRoot' {
+    Context 'Level 5: Auto-detect (disabled, #3641 §2)' {
+        It 'Never resolves by guessing <root>\<ws>' {
             $script:TestRepoRoot = Join-Path $script:MockDevDir 'some-other-dir'
-            Resolve-WorkspacePath 'roo-extensions' | Should -BeExactly (Join-Path $script:MockDevDir 'roo-extensions')
+            Resolve-WorkspacePath 'roo-extensions' | Should -BeNullOrEmpty
         }
     }
 
