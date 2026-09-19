@@ -259,10 +259,13 @@ function Backup-ProtectedPaths {
     foreach ($p in $protected) {
         if (-not $p.Exists) { continue }
         # Ne backuper que les chemins SOUS le LiteralPath (sinon on sauvegarde tout
-        # le repo a chaque deploy, ce qui n'est pas le but).
+        # le repo a chaque deploy, ce qui n'est pas le but). OrdinalIgnoreCase : 3e
+        # site de la classe casse (dispatch ai-01 19/09) — casse divergente rendait
+        # un snapshot VIDE avec Action='BackedUp', succes menteur sur lequel
+        # l'appelant detruit (le -ne adjacent est deja insensible par defaut).
         $ppN = $p.FullPath -replace '\\','/'
         $targetN = ($LiteralPath -replace '\\','/').TrimEnd('/')
-        if ($targetN -ne '' -and $ppN -ne $targetN -and -not $ppN.StartsWith($targetN + '/')) {
+        if ($targetN -ne '' -and $ppN -ne $targetN -and -not $ppN.StartsWith($targetN + '/', [StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
         try {
@@ -316,7 +319,12 @@ function Invoke-DeployPreOpGuard {
         Working tree de reference.
 
     .OUTPUTS
-        [pscustomobject]@{ Action='Blocked'|'BackedUp'|'Warned'|'Proceeded'; Reason=$string; BackupDir=$string }
+        [pscustomobject]@{ Action='Blocked'|'BackedUp'|'Warned'|'Proceeded'; Reason=$string; BackupDir=$string; Copied=$int }
+
+        Copied = nombre de chemins proteges REELLEMENT copies par cet appel (0 hors Mode Backup).
+        Le garde le savait deja (console "N chemins proteges copies") mais ne le RENDAIT pas :
+        l'appelant ne pouvait pas distinguer "sauvegarde 5" de "sauvegarde 0" avant de detruire,
+        et un test ne pouvait l'asserter qu'en relisant un repertoire partage (review #3737).
 
     .EXAMPLE
         Invoke-DeployPreOpGuard -Operation "Remove-Item build/" -LiteralPath "build" -Mode Block
@@ -335,7 +343,7 @@ function Invoke-DeployPreOpGuard {
 
     if (-not $result.IsProtected) {
         Write-PreOpGuardInfo "$Operation sur $LiteralPath : hors whitelist, procede."
-        return [pscustomobject]@{ Action='Proceeded'; Reason='NotProtected'; BackupDir='' }
+        return [pscustomobject]@{ Action='Proceeded'; Reason='NotProtected'; BackupDir=''; Copied=0 }
     }
 
     Write-PreOpGuardWarn "PROTEGE detecte : $LiteralPath ($($result.Reason), pattern=$($result.Pattern))"
@@ -347,7 +355,7 @@ function Invoke-DeployPreOpGuard {
             Write-PreOpGuardError "Pour ajouter une exception : definir DEPLOY_PROTECTED_PATHS (env) en retirant le pattern, ou appeler -Mode Backup pour un snapshot prealable."
             # NE PAS exit ici : l'appelant peut catcher via le return et choisir.
             # On laisse le choix au pipeline (le caller fait `if ($r.Action -eq 'Blocked') { exit 3 }`).
-            return [pscustomobject]@{ Action='Blocked'; Reason=$result.Reason; BackupDir='' }
+            return [pscustomobject]@{ Action='Blocked'; Reason=$result.Reason; BackupDir=''; Copied=0 }
         }
         'Backup' {
             # Un seul stamp pour l'ecriture ET le rendu : l'ancien code appelait
@@ -358,11 +366,11 @@ function Invoke-DeployPreOpGuard {
             $n = Backup-ProtectedPaths -LiteralPath $LiteralPath -RepoRoot $RepoRoot -Stamp $stamp
             $sessionDir = [IO.Path]::Combine([Environment]::GetFolderPath('UserProfile'), '.roo-state-manager', 'preop-backup', $stamp)
             Write-PreOpGuardOk "Backup pre-op termine ($n chemins). Operation $Operation peut proceder."
-            return [pscustomobject]@{ Action='BackedUp'; Reason=$result.Reason; BackupDir=$sessionDir }
+            return [pscustomobject]@{ Action='BackedUp'; Reason=$result.Reason; BackupDir=$sessionDir; Copied=$n }
         }
         'Warn' {
             Write-PreOpGuardWarn "WARN : $Operation sur '$LiteralPath' menacerait un chemin protege. Procede par demande explicite."
-            return [pscustomobject]@{ Action='Warned'; Reason=$result.Reason; BackupDir='' }
+            return [pscustomobject]@{ Action='Warned'; Reason=$result.Reason; BackupDir=''; Copied=0 }
         }
     }
 }
@@ -401,7 +409,7 @@ if ($MyInvocation.InvocationName -ne '.' -and $MyInvocation.MyCommand.Path -eq $
     $mode = if ($args[2]) { $args[2] } else { 'Block' }
     $root = if ($args[3]) { $args[3] } else { '' }
     $res = Invoke-DeployPreOpGuard -Operation $op -LiteralPath $path -Mode $mode -RepoRoot $root
-    Write-Host "Result: Action=$($res.Action) Reason=$($res.Reason) BackupDir=$($res.BackupDir)"
+    Write-Host "Result: Action=$($res.Action) Reason=$($res.Reason) BackupDir=$($res.BackupDir) Copied=$($res.Copied)"
     if ($res.Action -eq 'Blocked') { exit 3 }
     exit 0
 }

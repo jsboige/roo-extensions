@@ -310,6 +310,33 @@ Describe 'Deploy pre-op guard (#3712)' {
             $r.IsProtected | Should -Be $true
             $r.Reason      | Should -Be 'ExactMatch'
         }
+
+        It 'Mode Backup with UPPERCASE target snapshots the protected files — not an EMPTY success (3e site, Backup-ProtectedPaths)' {
+            # Suite dispatch ai-01 11:07Z : Backup-ProtectedPaths portait le TROISIEME
+            # StartsWith casse-sensitif (filtre d'appartenance sous la cible). Casse
+            # divergente -> 0 fichier snapshotte alors que l'Action rendue etait
+            # 'BackedUp' : un succes vide sur lequel l'appelant detruit. La detection
+            # (#3735) est corrigee, ce test epingle la moitie RECUPERABILITE.
+            if (-not $script:onWindows) { Set-ItResult -Skipped -Because 'case-insensitive filesystem required (Windows-only defect class)'; return }
+            $r = Invoke-DeployPreOpGuard -Operation 'git clean -fdx' -LiteralPath $script:tmpRoot.ToUpper() -RepoRoot $script:tmpRoot -Mode Backup
+            $r.Action   | Should -Be 'BackedUp'
+            $r.BackupDir | Should -Not -BeNullOrEmpty
+            # C'EST CETTE ASSERTION QUI PORTE LA DISCRIMINANCE EN SUITE. Les deux
+            # Should -Contain ci-dessous relisent $r.BackupDir, dont le nom est horodate
+            # a la SECONDE (deploy-preop-guard.ps1 : 'yyyyMMdd-HHmmss') : dans la suite
+            # complete, le test precedent ecrit dans LE MEME repertoire pendant la meme
+            # seconde et y laisse .env + index.js. Mesure review #3737 sous 5.1 : sur la
+            # source PRE-correctif, ce test est ROUGE isole et VERT dans la suite (30/30)
+            # -- exactement le regime de la CI, ou une regression passerait donc au vert.
+            # Copied decrit CET APPEL, pas l'etat d'un dossier partage : immunise.
+            $r.Copied | Should -BeGreaterThan 0
+            $names = @(Get-ChildItem -LiteralPath $r.BackupDir -Recurse -File -Force -ErrorAction SilentlyContinue |
+                       Select-Object -ExpandProperty Name)
+            # .env (fichier : casse tapee preservee sous pwsh ET 5.1) est le discriminant
+            # commun aux deux hotes ; index.js couvre l'entree build/.
+            $names | Should -Contain '.env'
+            $names | Should -Contain 'index.js'
+        }
     }
 }
 
