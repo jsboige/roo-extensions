@@ -15,7 +15,9 @@
 
         Test-ProtectedPath -LiteralPath <path>
             Renvoie $true si le chemin est dans la liste blanche des artefacts
-            proteges. La liste est CONFIGURABLE par machine (variable d'env
+            proteges, s'il est a l'INTERIEUR d'un chemin protege, ou s'il CONTIENT
+            un chemin protege (cas racine : `git clean -fdx .` — volet #3712).
+            La liste est CONFIGURABLE par machine (variable d'env
             DEPLOY_PROTECTED_PATHS, separate par ';'), avec DEFAULT robuste.
 
         Backup-ProtectedPaths -LiteralPath <root>
@@ -131,7 +133,8 @@ function Get-ProtectedPaths {
 function Test-ProtectedPath {
     <#
     .SYNOPSIS
-        Renvoie $true si -LiteralPath est DANS un chemin protege ou EST un chemin protege.
+        Renvoie $true si -LiteralPath est DANS un chemin protege, EST un chemin protege,
+        ou CONTIENT un chemin protege (cas racine : clean/reset du worktree entier).
         Accepte un fichier, un repertoire, ou un chemin relatif.
     .PARAMETER LiteralPath
         Chemin a tester (absolu ou relatif au cwd).
@@ -162,7 +165,16 @@ function Test-ProtectedPath {
         # Relatif au cwd de l'appelant (pas du script), pour eviter une surprise si
         # l'appelant est dans un sous-module. -Force : sur Unix les dotfiles portent
         # l'attribut Hidden et Resolve-Path sans -Force les ignore (lecon #3714).
-        $LiteralPath | Resolve-Path -Force -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+        # MAIS -Force n'existe pas sur Windows PowerShell 5.1 (ajoute en 7.x) : le
+        # passer aveuglement fait echouer le PARAMETER BINDING — ni -ErrorAction ni
+        # EAP n'attrapent un binding error — donc Test-ProtectedPath THROWAIT sur
+        # toute entree relative en 5.1 (constate po-2026 19/09 : test fail-closed
+        # rouge sur main non modifie). Splat conditionnel : -Force si le host le
+        # connait, comportement 5.1 sinon (Windows : dotfiles pas Hidden par defaut,
+        # la degradation est neutre).
+        $resolveArgs = @{}
+        if ((Get-Command Resolve-Path).Parameters.ContainsKey('Force')) { $resolveArgs['Force'] = $true }
+        $LiteralPath | Resolve-Path @resolveArgs -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
     }
     if (-not $target) {
         # Fail-closed (review #3714) : un chemin non resoluble est traite en suspect,
@@ -186,6 +198,21 @@ function Test-ProtectedPath {
         $ppN     = $pp     -replace '\\','/'
         if ($targetN.StartsWith($ppN + '/')) {
             return [pscustomobject]@{ IsProtected=$true; Reason='InsideProtectedDir'; Pattern=$p.Pattern; ProtectedPath=$pp }
+        }
+    }
+
+    # #3712 volet racine : une operation visee sur un ANCESTRE (ex: `git clean -fdx`
+    # sur le worktree root) detruit tout ce qui est sous la cible. Sans ce cas, la
+    # detection sautait tous les proteges CONTENUS dans la cible : le root n'est pas
+    # lui-meme protege, donc le garde rendait Proceeded SANS backup — un garde
+    # decoratif pour exactement la classe d'incident visee (l'exemple CLI documente
+    # `deploy-preop-guard.ps1 'git clean -fdx' . Backup` ne backupait rien).
+    $targetN = $target -replace '\\','/'
+    foreach ($p in $protected) {
+        if (-not $p.Exists) { continue }
+        $ppN = $p.FullPath -replace '\\','/'
+        if ($ppN.StartsWith($targetN.TrimEnd('/') + '/')) {
+            return [pscustomobject]@{ IsProtected=$true; Reason='ContainsProtectedPath'; Pattern=$p.Pattern; ProtectedPath=$p.FullPath }
         }
     }
     return [pscustomobject]@{ IsProtected=$false; Reason='NotInWhitelist'; Pattern=''; ProtectedPath='' }

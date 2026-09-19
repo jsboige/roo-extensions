@@ -1974,6 +1974,25 @@ function Reset-WorktreeForMaintenance {
         git -C $WorktreePath reset --hard origin/main 2>&1 | ForEach-Object { Write-Log "  $_" "GIT" }
         $resetExit = $LASTEXITCODE
 
+        # #3712 : snapshot pre-op des chemins proteges sous le worktree AVANT le
+        # clean. Les exclusions -e du clean ci-dessous protegent .env, *.log et
+        # node_modules, mais PAS le reste de la liste centrale du garde (.env.*
+        # — un -e .env ne matche que le .env litteral — .claude.json, ...). Le
+        # garde (mode Backup, best-effort) laisse une trace restaurable sans
+        # jamais bloquer le reset : l'operation est volontaire et connue.
+        $preopGuardScript = Join-Path $PSScriptRoot '..\mcp\deploy-preop-guard.ps1'
+        if (Test-Path -LiteralPath $preopGuardScript) {
+            $guardPrevEap = $ErrorActionPreference
+            try {
+                . $preopGuardScript
+                $preopResult = Invoke-DeployPreOpGuard -Operation "git maintenance reset (reset+clean)" -LiteralPath $WorktreePath -Mode Backup -RepoRoot $WorktreePath
+                Write-Log "  [guard] pre-op: Action=$($preopResult.Action) BackupDir=$($preopResult.BackupDir)" "GIT"
+            } catch {
+                Write-Log "pre-op guard error (non-fatal): $_" "WARN"
+            }
+            $ErrorActionPreference = $guardPrevEap
+        }
+
         # Clean untracked/ignored cruft, preserving .env, logs, and node_modules
         git -C $WorktreePath clean -fd -e .env -e '*.log' -e node_modules 2>&1 |
             ForEach-Object { Write-Log "  $_" "GIT" }
