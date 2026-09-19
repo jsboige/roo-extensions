@@ -307,7 +307,10 @@ function Invoke-VscdbHelper {
     )
     $helper = Write-StateVscdbHelper
     $spec = @{ op = $Op; query = $Query; params = $Params } | ConvertTo-Json -Compress -Depth 5
-    $output = $spec | & python $helper $Database 2>&1
+    # cmd-layer stderr merge (#3731 class, lot 2): a PS-level `2>&1` mints ErrorRecords
+    # from stderr; under the file-global EAP=Stop the first one terminates. Merging at the
+    # cmd.exe layer keeps stderr in $output for the throw below without any ErrorRecord.
+    $output = $spec | & cmd /c "python $helper $Database 2>&1"
     if ($LASTEXITCODE -ne 0) {
         throw "SQLite helper error ($Op): $output"
     }
@@ -367,7 +370,7 @@ function Invoke-ZooGlobalStateMigration {
 
     # --- Prereq: Python sqlite3 ---
     $null = Get-Command python -ErrorAction Stop
-    $pyVer = & python -c "import sqlite3; print(sqlite3.sqlite_version)" 2>&1
+    $pyVer = & cmd /c "python -c ""import sqlite3; print(sqlite3.sqlite_version)"" 2>&1"
     if ($LASTEXITCODE -ne 0) { throw "Python sqlite3 stdlib not available: $pyVer" }
     Write-Host "[OK] python + sqlite3 stdlib (sqlite $pyVer)" -ForegroundColor Green
 
