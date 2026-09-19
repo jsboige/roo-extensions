@@ -34,9 +34,19 @@ Describe 'migrate-zoo stderr class, lot 2 family (#3731)' {
     }
 
     It 'invokes the vscdb helper via cmd with the piped spec and exit-code guard intact' {
-        $script:src | Should -Match '\$output = \$spec \| & cmd /c "python \$helper \$Database 2>&1"'
+        $script:src | Should -Match '\$output = \$spec \| & cmd /c "python ""\$helper"" ""\$Database"" 2>&1"'
         $script:src | Should -Not -Match '\$spec \| & python \$helper \$Database 2>&1'
         # The downstream throw that carries $output survives.
         $script:src | Should -Match 'SQLite helper error \(\$Op\): \$output'
+    }
+
+    It 'quotes both interpolated paths inside the cmd string (space-in-path guard)' {
+        # $Database is caller-supplied and $helper lives under $env:TEMP: both carry the
+        # user profile name, so a space is reachable. The PS form passed them as argv
+        # entries; splicing them bare into one cmd line breaks on the first space.
+        # Measured under 5.1: bare form -> "can't open file '...\sp'"; quoted -> intact.
+        $script:src | Should -Not -Match 'cmd /c "python \$helper \$Database'
+        $script:src | Should -Match '""\$helper""'
+        $script:src | Should -Match '""\$Database""'
     }
 }
