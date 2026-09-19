@@ -363,7 +363,9 @@ function Remove-DeadRemoteBranches {
                 Write-Info "[WHATIF] Would delete: origin/$($branch.Name) ($reason)"
             }
             else {
-                $result = git push origin --delete $branch.Name 2>&1
+                # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native +
+                # EAP=Stop turns stderr warnings into a terminating NativeCommandError
+                $result = & cmd /c "git push origin --delete $($branch.Name) 2>&1"
                 if ($LASTEXITCODE -eq 0) {
                     Write-Success "Deleted: origin/$($branch.Name) ($reason)"
                     $deleted++

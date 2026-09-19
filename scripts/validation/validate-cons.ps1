@@ -290,7 +290,9 @@ if (-not $SkipBuild) {
     Write-Host "[4/5] Build TypeScript..." -ForegroundColor Yellow
     Push-Location $mcpRoot
     try {
-        $buildOutput = npx tsc --noEmit 2>&1
+        # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+        # turns stderr warnings into a terminating NativeCommandError
+        $buildOutput = & cmd /c "npx tsc --noEmit 2>&1"
         if ($LASTEXITCODE -ne 0) {
             Write-Host "  ERREUR: Build echoue" -ForegroundColor Red
             Write-Host $buildOutput -ForegroundColor Red
@@ -313,7 +315,7 @@ if (-not $SkipTests) {
     Write-Host "[5/5] Tests unitaires..." -ForegroundColor Yellow
     Push-Location $mcpRoot
     try {
-        $testOutput = npx vitest run --reporter=dot 2>&1
+        $testOutput = & cmd /c "npx vitest run --reporter=dot 2>&1"
         $lastLine = ($testOutput | Select-Object -Last 5) -join " "
 
         if ($LASTEXITCODE -ne 0) {

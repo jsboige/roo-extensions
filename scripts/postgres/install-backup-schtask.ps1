@@ -74,7 +74,9 @@ Write-Output 'Pre-flight checks:'
 $pgDump = $null
 try {
     $pgDump = (Get-Command pg_dump -ErrorAction Stop).Source
-    $version = (& pg_dump --version) 2>&1 | Select-Object -First 1
+    # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+    # turns stderr warnings into a terminating NativeCommandError
+    $version = (& cmd /c "pg_dump --version 2>&1") | Select-Object -First 1
     Write-Output "  [OK] pg_dump present: $pgDump ($version)"
 } catch {
     [Console]::Error.WriteLine("  [FAIL] pg_dump not in PATH: $($_.Exception.Message)")

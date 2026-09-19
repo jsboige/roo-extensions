@@ -82,7 +82,9 @@ if (Test-Path $buildDir) {
 Write-Host "[2/4] npm install..." -ForegroundColor Yellow
 Push-Location $mcpDir
 try {
-    npm install 2>&1 | Out-Null
+    # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+    # turns stderr warnings into a terminating NativeCommandError
+    & cmd /c "npm install 2>&1" | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ERROR: npm install failed" -ForegroundColor Red
         exit 1
@@ -90,7 +92,7 @@ try {
     Write-Host "  npm install OK" -ForegroundColor Green
 
     Write-Host "[3/4] npm run build..." -ForegroundColor Yellow
-    npm run build 2>&1 | Out-Null
+    & cmd /c "npm run build 2>&1" | Out-Null
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ERROR: npm run build failed" -ForegroundColor Red
         exit 1

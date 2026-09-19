@@ -208,7 +208,9 @@ function Invoke-SingleDiff {
         
         # Exécuter le script Node.js
         $nodeScript = Join-Path $PSScriptRoot "granular-diff-runner.js"
-        $result = & node $nodeScript 2>&1
+        # cmd-layer stderr merge (#3731 class): PS 5.1 `2>&1` on a native + EAP=Stop
+        # turns stderr warnings into a terminating NativeCommandError
+        $result = & cmd /c "node $nodeScript 2>&1"
         
         if ($LASTEXITCODE -ne 0) {
             throw "Erreur lors de l'exécution du diff: $result"
