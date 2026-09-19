@@ -66,6 +66,11 @@ Verified by `grep -r` for each script name across all non-archived source.
 
 ARCHIVED. One-shot diagnostic from a past investigation, no current usage.
 
+**Correction 2026-09-19 (#2992)**: the stub header originally claimed the issue
+was "resolved" — measured FALSE (issue still OPEN, gap never attributed, script
+never run on ai-01; see stub header for the FR-locale defect note). The
+zero-reference archival motive itself stands; only the resolution claim was wrong.
+
 ## Archive contents
 
 Files copied here are preserved untouched for historical reference.
