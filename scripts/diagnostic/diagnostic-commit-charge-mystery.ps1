@@ -17,7 +17,7 @@
 # between system commit charge and the sum of process commits has never been
 # attributed, and this script has never been run on ai-01 (no run report in
 # the issue thread). There is no other tooling in this repo covering commit
-# accounting (grep: zero live references to CommitLimit/CommittedBytes).
+# accounting (one incidental counter reference: advanced-monitoring.ps1:311).
 #
 # KNOWN DEFECT in the archived original: capture class 3 reads perf counters
 # by English name and silently skips localized counters (empty catch) — on
