@@ -50,7 +50,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Detecter le repo racine
-$RepoRoot = git rev-parse --show-toplevel 2>$null
+# cmd-layer stderr discard (#3731 class, lot 2): a PS-level `2>$null`/`2>&1` still lets
+# PS 5.1 mint ErrorRecords from stderr; under the file-global EAP=Stop the first one
+# terminates. `2>nul`/`2>&1` inside `& cmd /c "..."` never creates one, under any EAP.
+$RepoRoot = (& cmd /c "git rev-parse --show-toplevel 2>nul") | Select-Object -First 1
 if (-not $RepoRoot) {
     Write-Error "Pas dans un depot Git."
     exit 1
@@ -68,12 +71,12 @@ Write-Host ""
 # 1. Trouver la branche et le worktree correspondant
 Write-Host "[1/4] Recherche worktree pour issue #$IssueNumber..." -ForegroundColor Yellow
 
-$worktreeList = git worktree list --porcelain 2>$null
+$worktreeList = & cmd /c "git worktree list --porcelain 2>nul"
 $targetBranch = $null
 $targetPath = $null
 
 # Chercher dans les worktrees existants
-$worktrees = git worktree list 2>$null
+$worktrees = & cmd /c "git worktree list 2>nul"
 foreach ($wt in $worktrees) {
     if ($wt -match "\[(.+)\]") {
         $branch = $Matches[1]
@@ -87,7 +90,7 @@ foreach ($wt in $worktrees) {
 
 # Aussi chercher par nom de branche si worktree non trouve
 if (-not $targetBranch) {
-    $branches = git branch --list "feature/$IssueNumber-*" 2>$null
+    $branches = & cmd /c "git branch --list feature/$IssueNumber-* 2>nul"
     if ($branches) {
         # Strip BOTH git branch-list markers: '*' (current branch) AND '+' (checked
         # out in another worktree). The original regex `\*?` only stripped '*', so a
@@ -107,10 +110,10 @@ if (-not $targetBranch) {
 if (-not $targetBranch) {
     Write-Error "Aucun worktree ou branche trouve pour issue #$IssueNumber"
     Write-Host "Worktrees existants:"
-    git worktree list 2>$null
+    & cmd /c "git worktree list 2>nul"
     Write-Host ""
     Write-Host "Branches feature existantes:"
-    git branch --list "feature/*" 2>$null
+    & cmd /c "git branch --list feature/* 2>nul"
     exit 1
 }
 
@@ -120,7 +123,7 @@ Write-Host ""
 
 # 2. Verifier si la branche est mergee
 Write-Host "[2/4] Verification merge..." -ForegroundColor Yellow
-$isMerged = git branch --merged main --list $targetBranch 2>$null
+$isMerged = & cmd /c "git branch --merged main --list $targetBranch 2>nul"
 if (-not $isMerged -and -not $Force) {
     Write-Warning "La branche '$targetBranch' n'est PAS encore mergee dans main."
     $response = Read-Host "Supprimer quand meme? (o/N)"
@@ -137,11 +140,13 @@ if ($isMerged) {
 
 # 3. Supprimer le worktree
 Write-Host "[3/4] Suppression worktree..." -ForegroundColor Yellow
-if ($targetPath -and (git worktree list 2>$null | Select-String $targetPath)) {
+if ($targetPath -and (& cmd /c "git worktree list 2>nul" | Select-String $targetPath)) {
+    # $targetPath is a caller-reachable filesystem path — quoted doubled inside the
+    # cmd string (bare splicing breaks at the first space, measured under 5.1 in #3740).
     if ($Force) {
-        git worktree remove $targetPath --force 2>&1
+        & cmd /c "git worktree remove ""$targetPath"" --force 2>&1"
     } else {
-        git worktree remove $targetPath 2>&1
+        & cmd /c "git worktree remove ""$targetPath"" 2>&1"
     }
     Write-Host "  Worktree supprime."
 } elseif ($targetPath -and (Test-Path $targetPath)) {
@@ -153,21 +158,21 @@ if ($targetPath -and (git worktree list 2>$null | Select-String $targetPath)) {
 }
 
 # Nettoyer les references worktree invalides
-git worktree prune 2>$null
+& cmd /c "git worktree prune 2>nul"
 
 # 4. Supprimer les branches
 Write-Host "[4/4] Suppression branches..." -ForegroundColor Yellow
 
 # Branche locale
 $deleteFlag = if ($Force -or -not $isMerged) { "-D" } else { "-d" }
-git branch $deleteFlag $targetBranch 2>&1 | Out-Null
+& cmd /c "git branch $deleteFlag $targetBranch 2>&1" | Out-Null
 Write-Host "  Branche locale '$targetBranch' supprimee."
 
 # Branche remote
 if (-not $KeepRemote) {
-    $remoteBranch = git ls-remote --heads origin $targetBranch 2>$null
+    $remoteBranch = & cmd /c "git ls-remote --heads origin $targetBranch 2>nul"
     if ($remoteBranch) {
-        git push origin --delete $targetBranch 2>&1 | Out-Null
+        & cmd /c "git push origin --delete $targetBranch 2>&1" | Out-Null
         Write-Host "  Branche remote supprimee."
     } else {
         Write-Host "  Pas de branche remote a supprimer."
