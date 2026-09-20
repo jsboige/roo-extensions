@@ -27,12 +27,13 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         $script:worktreesRoot = Join-Path $root 'scripts\worktrees'
 
         $script:parseTargets = @(
-            $script:guardPath,
-            (Join-Path $script:worktreesRoot 'create-worktree.ps1')
+            $script:guardPath
         )
+        # create-worktree.ps1 is deliberately NOT asserted here: its leading-pipe
+        # repair is owned by PR #3745 (independent discovery, 1-char backtick).
+        # Once #3745 merges, extend pipeTargets with its path.
         $script:pipeTargets = @(
             $script:guardPath,
-            (Join-Path $script:worktreesRoot 'create-worktree.ps1'),
             (Join-Path $script:worktreesRoot 'cleanup-worktree.ps1'),
             (Join-Path $script:worktreesRoot 'check-worktrees.ps1'),
             (Join-Path $script:worktreesRoot 'submit-pr.ps1')
@@ -55,7 +56,7 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         }
     }
 
-    It 'the two repaired files parse cleanly under the running engine' {
+    It 'the repaired file parses cleanly under the running engine' {
         foreach ($p in $script:parseTargets) {
             $errors = $null
             [System.Management.Automation.Language.Parser]::ParseFile($p, [ref]$null, [ref]$errors) | Out-Null
