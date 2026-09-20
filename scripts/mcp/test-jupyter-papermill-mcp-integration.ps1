@@ -57,7 +57,10 @@ function Test-CondaEnvironment {
     Write-ColoredOutput "🔍 Vérification de l'environnement conda '$EnvName'..." $Yellow
     
     try {
-        $condaInfo = conda info --envs 2>$null | Select-String $EnvName
+        # cmd-layer stderr discard (#3731 class, lot 3): the file-global EAP=Stop makes a
+        # PS-level `2>$null` on native stderr a terminating ErrorRecord (conda prints
+        # activation notices on stderr). `2>nul` inside `& cmd /c` never mints one.
+        $condaInfo = & cmd /c "conda info --envs 2>nul" | Select-String $EnvName
         if (-not $condaInfo) {
             throw "Environnement conda '$EnvName' non trouvé"
         }
@@ -248,24 +251,31 @@ asyncio.run(test_tool())
                 "python", "-c", $pythonCode
             )
             
+            # NOT converted to the cmd layer (#3731 lot 3): the last argument is a
+            # multi-line here-string (python -c payload) that cannot be spliced into a
+            # `cmd /c "..."` string without breaking on embedded quotes/newlines. The
+            # PS-level `2>&1` is retained deliberately; the surrounding try/catch keeps
+            # any minted ErrorRecord non-fatal.
             $output = & $testCommand[0] $testCommand[1..($testCommand.Length-1)] 2>&1
             
             if ($output -match '"status"') {
                 $result = $output | ConvertFrom-Json
                 if ($result.status -eq "found") {
-                    Write-ColoredOutput "  ✅ $tool: Trouvé" $Green
+                    # `${tool}` delimiting: a bare `$tool:` inside a string is an invalid
+                    # scoped-variable reference — hard parse error under PS 5.1 (4 sites, lot 3).
+                    Write-ColoredOutput "  ✅ ${tool}: Trouvé" $Green
                     $results[$tool] = $true
                 } else {
-                    Write-ColoredOutput "  ❌ $tool: Non trouvé" $Red
+                    Write-ColoredOutput "  ❌ ${tool}: Non trouvé" $Red
                     $results[$tool] = $false
                 }
             } else {
-                Write-ColoredOutput "  ⚠️ $tool: Test inconclus" $Yellow
+                Write-ColoredOutput "  ⚠️ ${tool}: Test inconclus" $Yellow
                 $results[$tool] = $false
             }
         }
         catch {
-            Write-ColoredOutput "  ❌ $tool: Erreur - $_" $Red
+            Write-ColoredOutput "  ❌ ${tool}: Erreur - $_" $Red
             $results[$tool] = $false
         }
         finally {

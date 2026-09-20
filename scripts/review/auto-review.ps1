@@ -31,9 +31,12 @@ $ScriptDir = $PSScriptRoot
 Write-Host "[AUTO-REVIEW] Starting review (range: $DiffRange, mode: $Mode)" -ForegroundColor Green
 
 # --- Step 1: Get commit info ---
+# cmd-layer stderr discard (#3731 class, lot 3): a PS-level `2>$null`/`2>&1` still lets
+# PS 5.1 mint ErrorRecords from stderr; under the file-global EAP=Stop the first one
+# terminates. `2>nul`/`2>&1` inside `& cmd /c "..."` never creates one, under any EAP.
 try {
-    $currentHash = git rev-parse HEAD 2>$null
-    $parentHash = git rev-parse "$DiffRange" 2>$null
+    $currentHash = (& cmd /c "git rev-parse HEAD 2>nul") | Select-Object -First 1
+    $parentHash = (& cmd /c "git rev-parse $DiffRange 2>nul") | Select-Object -First 1
 
     if (-not $currentHash -or -not $parentHash) {
         Write-Host "[AUTO-REVIEW] Cannot resolve git range, exiting." -ForegroundColor Yellow
@@ -45,8 +48,8 @@ try {
         exit 0
     }
 
-    $commitMessage = git log --format="%s" -1 HEAD 2>$null
-    $commitAuthor = git log --format="%an" -1 HEAD 2>$null
+    $commitMessage = (& cmd /c "git log --format=""%s"" -1 HEAD 2>nul") | Select-Object -First 1
+    $commitAuthor = (& cmd /c "git log --format=""%an"" -1 HEAD 2>nul") | Select-Object -First 1
     $shortHash = $currentHash.Substring(0, 7)
 
     Write-Host "[AUTO-REVIEW] Commit: $shortHash - $commitMessage ($commitAuthor)" -ForegroundColor Cyan
@@ -57,8 +60,8 @@ try {
 
 # --- Step 2: Get diff ---
 try {
-    $diffStat = (git diff --stat "$DiffRange" HEAD 2>$null) -join "`n"
-    $diffFull = (git diff "$DiffRange" HEAD --no-color 2>$null) -join "`n"
+    $diffStat = (& cmd /c "git diff --stat $DiffRange HEAD 2>nul") -join "`n"
+    $diffFull = (& cmd /c "git diff $DiffRange HEAD --no-color 2>nul") -join "`n"
 
     if ([string]::IsNullOrWhiteSpace($diffFull)) {
         Write-Host "[AUTO-REVIEW] Empty diff, exiting." -ForegroundColor Yellow
@@ -114,21 +117,17 @@ if ($BuildCheck) {
     if ($buildDir) {
         Push-Location $buildDir
         try {
-            # Temporarily allow stderr (npm/vitest write progress to stderr)
-            $prevPref = $ErrorActionPreference
-            $ErrorActionPreference = "Continue"
-
             # Build — use `npm.cmd` explicitly: under pwsh, bare `npm` resolves to npm.ps1 and
             # `& npm ...` corrupts arg passing → "Unknown command: pm", false build-failure
             # (same as ensure-build-fresh.ps1 #2857). npm.cmd bypasses the wrapper.
-            $buildOutput = & npm.cmd run build 2>&1 | Select-Object -Last 10
+            # stderr merged at the cmd layer (#3731 lot 3): no ErrorRecord is ever minted,
+            # so the former scoped EAP-relax around these calls is superseded and removed.
+            $buildOutput = & cmd /c "npm.cmd run build 2>&1" | Select-Object -Last 10
             $buildOk = ($LASTEXITCODE -eq 0)
 
             # Tests (maxWorkers=1 for low-RAM machines)
-            $testOutput = & npx vitest run --maxWorkers=1 2>&1 | Select-Object -Last 20
+            $testOutput = & cmd /c "npx vitest run --maxWorkers=1 2>&1" | Select-Object -Last 20
             $testOk = ($LASTEXITCODE -eq 0)
-
-            $ErrorActionPreference = $prevPref
 
             # Extract test counts from output
             $testSummary = ($testOutput | Select-String -Pattern "Tests?\s+\d+" | Select-Object -Last 1)
@@ -139,7 +138,6 @@ if ($BuildCheck) {
                 testSummary = if ($testSummary) { $testSummary.Line.Trim() } else { "unknown" }
             }
         } catch {
-            $ErrorActionPreference = $prevPref
             throw
         } finally {
             Pop-Location
