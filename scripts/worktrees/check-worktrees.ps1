@@ -32,7 +32,10 @@ $worktreeDir = ".claude/worktrees"
 $exitCode = 0
 
 # 1. Get Git registered worktrees
-$gitWorktreesRaw = git worktree list --porcelain 2>$null
+# cmd-layer stderr discard (#3731 class, lot 2): this file runs under EAP=Continue so the
+# bare PS-level redirect cannot terminate it today, but the site is converted with the
+# family for uniformity and to survive any future EAP bump.
+$gitWorktreesRaw = & cmd /c "git worktree list --porcelain 2>nul"
 $gitWorktrees = @()
 $currentLine = ""
 foreach ($line in $gitWorktreesRaw) {

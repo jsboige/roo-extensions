@@ -35,7 +35,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Detecter le repo racine
-$RepoRoot = git rev-parse --show-toplevel 2>$null
+# cmd-layer stderr discard (#3731 class, lot 2): a PS-level `2>$null`/`2>&1` still lets
+# PS 5.1 mint ErrorRecords from stderr; under the file-global EAP=Stop the first one
+# terminates. `2>nul`/`2>&1` inside `& cmd /c "..."` never creates one, under any EAP.
+$RepoRoot = (& cmd /c "git rev-parse --show-toplevel 2>nul") | Select-Object -First 1
 if (-not $RepoRoot) {
     Write-Error "Pas dans un depot Git. Executez depuis roo-extensions."
     exit 1
@@ -57,7 +60,7 @@ Write-Host ""
 Write-Host "[1/6] Recuperation titre issue #$IssueNumber..." -ForegroundColor Yellow
 $issueTitle = ""
 try {
-    $issueJson = gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>$null | ConvertFrom-Json
+    $issueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json title 2>nul" | ConvertFrom-Json
     $issueTitle = $issueJson.title
 } catch {
     Write-Warning "Impossible de recuperer le titre de l'issue. Utilisation du numero seul."
@@ -86,7 +89,7 @@ Write-Host ""
 
 # 2. Verifier que la branche n'existe pas deja
 Write-Host "[2/6] Verification branche..." -ForegroundColor Yellow
-$existingBranch = git branch --list $branchName 2>$null
+$existingBranch = (& cmd /c "git branch --list $branchName 2>nul") | Select-Object -First 1
 if ($existingBranch) {
     Write-Warning "La branche '$branchName' existe deja."
     $response = Read-Host "Continuer avec la branche existante? (o/N)"
@@ -106,11 +109,11 @@ if (Test-Path $worktreePath) {
 Write-Host "[3/6] Mise a jour de $BaseBranch..." -ForegroundColor Yellow
 Push-Location $RepoRoot
 try {
-    git fetch origin 2>&1 | Out-Null
+    & cmd /c "git fetch origin 2>&1" | Out-Null
     # Verifier si on est sur la bonne branche
     $currentBranch = git branch --show-current
     if ($currentBranch -eq $BaseBranch) {
-        git pull origin $BaseBranch --ff-only 2>&1 | Out-Null
+        & cmd /c "git pull origin $BaseBranch --ff-only 2>&1" | Out-Null
         Write-Host "  $BaseBranch mis a jour."
     } else {
         Write-Host "  Branche courante: $currentBranch (fetch only, pas de pull)"
@@ -130,10 +133,12 @@ if (-not (Test-Path $WorktreeRoot)) {
 Push-Location $RepoRoot
 try {
     if (-not $existingBranch) {
-        git branch $branchName "origin/$BaseBranch" 2>&1 | Out-Null
+        & cmd /c "git branch $branchName origin/$BaseBranch 2>&1" | Out-Null
         Write-Host "  Branche '$branchName' creee depuis origin/$BaseBranch"
     }
-    git worktree add $worktreePath $branchName 2>&1
+    # $worktreePath is a caller-reachable filesystem path — quoted doubled inside the
+    # cmd string (bare splicing breaks at the first space, measured under 5.1 in #3740).
+    & cmd /c "git worktree add ""$worktreePath"" $branchName 2>&1"
     Write-Host "  Worktree cree: $worktreePath"
 } finally {
     Pop-Location
@@ -143,7 +148,7 @@ try {
 Write-Host "[5/6] Initialisation submodules..." -ForegroundColor Yellow
 Push-Location $worktreePath
 try {
-    git submodule update --init --recursive 2>&1 | Out-Null
+    & cmd /c "git submodule update --init --recursive 2>&1" | Out-Null
     Write-Host "  Submodules initialises."
 } catch {
     Write-Warning "Erreur init submodules: $_"
