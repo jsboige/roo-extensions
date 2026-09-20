@@ -70,7 +70,7 @@ $cleanTitle = if ($issueTitle) {
         -replace '[^a-zA-Z0-9\s-]', '' `
         -replace '\s+', '-' `
         -replace '-+', '-' `
-        -replace '^-|-$', ''
+        -replace '^-|-$', '' `
     | ForEach-Object { $_.ToLower().Substring(0, [Math]::Min($_.Length, 40)) }
 } else {
     "issue"
