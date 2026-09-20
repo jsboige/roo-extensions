@@ -192,7 +192,7 @@ $script:RecoveryBranchName = $null
 
 function Test-ClaudeCLI {
     try {
-        $Version = & claude --version 2>&1
+        $Version = (& cmd /c "claude --version 2>&1") | Select-Object -First 1
         Write-Log "Claude CLI: $Version"
         return $true
     } catch {
@@ -3482,7 +3482,7 @@ function Invoke-Claude {
                 $ReceivedResultEvent = $false
                 $ResultSubtype = $null  # terminal result subtype (success | error_max_budget_usd | error_during_execution | ...)
                 $AnyContentReceived = $false  # #2578: track whether the stream produced ANY text or tool_use block
-                Get-Content $PromptFile -Raw | & claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1 | ForEach-Object {
+                Get-Content $PromptFile -Raw | & cmd /c "claude --dangerously-skip-permissions --model $ModelToUse -p - --output-format stream-json --verbose --include-partial-messages 2>&1" | ForEach-Object {
                     $rawLine = $_.ToString()
                     # Raw JSON events to iteration-specific log (audit/debug)
                     Add-Content -Path $IterationOutputFile -Value $rawLine
