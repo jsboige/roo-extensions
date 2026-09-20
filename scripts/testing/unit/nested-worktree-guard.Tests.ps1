@@ -40,7 +40,7 @@ Describe "Nested Worktree Guard - #2351 (preventive, creation-time)" {
 
         It "Guard must run BEFORE the git worktree add call (prevention, not cleanup)" {
             $guardPos    = $content.IndexOf('Guard #2351')
-            $worktreeAdd = $content.IndexOf('git -C $RepoRoot worktree add')
+            $worktreeAdd = $content.IndexOf('git -C ""$RepoRoot"" worktree add')
             $guardPos    | Should -BeGreaterThan 0
             $worktreeAdd | Should -BeGreaterThan 0
             $worktreeAdd | Should -BeGreaterThan $guardPos
