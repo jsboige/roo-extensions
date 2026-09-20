@@ -7,13 +7,19 @@
     discriminator regex extracted from the production script: a real API error line
     (isApiErrorMessage":true + the OAuth message) must match, a quoted dashboard
     citation of the same message must not (measured 2026-08-27: 28 raw hits on web1
-    were 26 citations + 2 real errors — a naive grep overcounts 10x).
+    were 26 citations + 2 real errors — a naive grep overcounts 10x). Also guards the
+    last mile: both executor entry points (skill + command) must instruct the cycle
+    to relay the emitted WARN to the workspace dashboard.
 #>
 
 Describe 'Executor pre-flight OAuth expiry detection (#3169)' {
     BeforeAll {
         $preflightPath = Join-Path $PSScriptRoot '..\..\..\scripts\claude\executor-preflight.ps1'
         $preflight = Get-Content $preflightPath -Raw
+        $skillPath = Join-Path $PSScriptRoot '..\..\..\.claude\skills\executor\SKILL.md'
+        $commandPath = Join-Path $PSScriptRoot '..\..\..\.claude\commands\executor.md'
+        $skill = Get-Content $skillPath -Raw
+        $command = Get-Content $commandPath -Raw
 
         $errors = $null
         [System.Management.Automation.Language.Parser]::ParseFile($preflightPath, [ref]$null, [ref]$errors)
@@ -63,5 +69,16 @@ Describe 'Executor pre-flight OAuth expiry detection (#3169)' {
         $oauthBlock = [regex]::Match($preflight, '(?s)oauthExpiredSessions.Count -gt 0.*?exit 0')
         $oauthBlock.Success | Should -BeTrue
         $oauthBlock.Value | Should -Not -Match 'exit [1-9]'
+    }
+
+    It 'routes the OAUTH-EXPIRED warning to a dashboard relay in both executor entry points' {
+        # Last mile of option (b): the WARN becomes a visible signal only once the
+        # executor skill/command instruct the cycle to relay it to the workspace
+        # dashboard — the pre-flight emission alone stays in local output, which
+        # no other machine and no coordinator reads.
+        $skill | Should -Match '\[OAUTH-EXPIRED\]'
+        $command | Should -Match '\[OAUTH-EXPIRED\]'
+        $skill | Should -Match 'tag `WARN`'
+        $command | Should -Match '\[WARN\]'
     }
 }
