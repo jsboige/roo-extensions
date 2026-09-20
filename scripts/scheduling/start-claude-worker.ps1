@@ -1994,7 +1994,7 @@ function Reset-WorktreeForMaintenance {
         }
 
         # Clean untracked/ignored cruft, preserving .env, logs, and node_modules
-        & cmd /c "git -C ""$WorktreePath"" clean -fd -e .env -e '*.log' -e node_modules 2>&1" |
+        & cmd /c "git -C ""$WorktreePath"" clean -fd -e .env -e ""*.log"" -e node_modules 2>&1" |
             ForEach-Object { Write-Log "  $_" "GIT" }
 
         # Re-align mcps/internal only (reset --hard does not touch submodule
@@ -2959,7 +2959,7 @@ function Test-WorktreeHasChanges {
                 }
                 # Also stage any tracked modifications that git add -A would catch
                 # Guard #1799: Exclude submodule paths — workers should never commit submodule pointer changes.
-                & cmd /c "git add -u -- ':!mcps' ':!roo-code' 2>&1" | Out-Null
+                & cmd /c "git add -u -- "":!mcps"" "":!roo-code"" 2>&1" | Out-Null
                 # Two -m flags: git joins them with a blank line, byte-identical to the
                 # previous single multiline -m (which cannot cross the cmd.exe layer).
                 & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
@@ -3238,7 +3238,7 @@ function New-WorkerPR {
         }
 
         # Guard #1949: Trivial change detection — count effective non-submodule lines
-        $NonSubmoduleDiff = @((& cmd /c "git diff main..HEAD --numstat -- . ':!mcps' ':!roo-code' 2>&1") |
+        $NonSubmoduleDiff = @((& cmd /c "git diff main..HEAD --numstat -- . "":!mcps"" "":!roo-code"" 2>&1") |
             Where-Object { $_ -is [string] -and $_ -match '^\d+\s+\d+' })
         $EffectiveLines = 0
         foreach ($line in $NonSubmoduleDiff) {

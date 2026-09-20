@@ -62,6 +62,22 @@ Describe 'start-claude-worker git-family stderr class (#3731)' {
         @($offenders) | Should -Be @()
     }
 
+    It 'no single-quoted argument inside a git cmd string (single quotes survive cmd literally — po-204 review, PR #3748)' {
+        # PowerShell strips single quotes at parse time; cmd does NOT. A
+        # 'arg' inside a cmd /c "git …" string reaches git WITH its quotes:
+        # pathspec magic (':!path') dies with exit 128, and exclude patterns
+        # (-e '*.log') match nothing — the exclusion silently dies (probed
+        # firsthand in scratch repos under 5.1, 2026-09-20).
+        # The cmd-string CONTENT is extracted (up to the trailing 2>&1"/2>nul")
+        # so single quotes in downstream PS code after the string don't
+        # produce false positives.
+        $contents = @([regex]::Matches($script:src, 'cmd /c "git (.*?)(?: 2>&1| 2>nul)"') |
+            ForEach-Object { $_.Groups[1].Value })
+        $offenders = @($contents | Where-Object { $_ -match "'" })
+        $contents.Count | Should -BeGreaterThan 0
+        @($offenders) | Should -Be @()
+    }
+
     It 'auto-commit message uses two -m flags (a multiline -m cannot cross the cmd layer)' {
         $script:src | Should -Match 'git commit -m ""[^"]+"" -m ""'
     }
