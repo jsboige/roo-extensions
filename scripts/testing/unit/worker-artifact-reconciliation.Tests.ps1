@@ -59,7 +59,7 @@ Describe 'Worker artifact reconciliation (#3560)' {
         $code | Should -Match "gh pr list"
         $code | Should -Match "--search"
         $code | Should -Match "created:>="
-        $code | Should -Match 'git -C \$WorktreePath config --get user\.name'
+        $code | Should -Match 'git -C ""\$WorktreePath"" config --get user\.name'
         $code | Should -Match 'headRefName -eq \$ExpectedRef'
         $code | Should -Match '\$SubmoduleTop -ne \$ParentTop'
         $code | Should -Not -Match "gh api user"

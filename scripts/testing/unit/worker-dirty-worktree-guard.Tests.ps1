@@ -38,14 +38,14 @@ Describe "Worker - garde anti-force sur worktree de submodule SALE" {
         }
 
         It "Le corps isole doit contenir le retrait en --force (sinon la fenetre est fausse)" {
-            ($script:fnBody -match 'worktree remove --force \$smWtPath') | Should -Be $true
+            ($script:fnBody -match 'worktree remove --force ""\$smWtPath""') | Should -Be $true
         }
     }
 
     Context "Le garde existe" {
 
         It "Doit interroger l'etat du worktree avant de le retirer" {
-            ($script:fnBody -match 'git -C \$smWtPath status --porcelain') | Should -Be $true
+            ($script:fnBody -match 'git -C ""\$smWtPath"" status --porcelain') | Should -Be $true
         }
 
         It "Doit capturer le code de retour du status" {
@@ -78,8 +78,8 @@ Describe "Worker - garde anti-force sur worktree de submodule SALE" {
     Context "Le garde precede reellement le retrait (c'est l'ordre qui protege)" {
 
         It "Le status doit etre interroge AVANT le worktree remove --force" {
-            $statusPos = $script:fnBody.IndexOf('git -C $smWtPath status --porcelain')
-            $removePos = $script:fnBody.IndexOf('worktree remove --force $smWtPath')
+            $statusPos = $script:fnBody.IndexOf('git -C ""$smWtPath"" status --porcelain')
+            $removePos = $script:fnBody.IndexOf('worktree remove --force ""$smWtPath""')
             $statusPos | Should -BeGreaterThan 0
             $removePos | Should -BeGreaterThan 0
             $statusPos | Should -BeLessThan $removePos
@@ -101,7 +101,7 @@ Describe "Worker - garde anti-force sur worktree de submodule SALE" {
         It "Le retrait en --force doit etre conserve pour le cas propre" {
             # Le correctif est additif : il n'enleve pas le --force, il refuse
             # seulement de l'appliquer a un worktree qui porte du travail.
-            ($script:fnBody -match 'worktree remove --force \$smWtPath') | Should -Be $true
+            ($script:fnBody -match 'worktree remove --force ""\$smWtPath""') | Should -Be $true
         }
 
         It "Le saut #2501 (parent vivant) doit rester intact et rester le premier filtre" {

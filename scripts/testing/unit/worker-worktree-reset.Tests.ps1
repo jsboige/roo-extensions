@@ -30,15 +30,15 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
         }
 
         It "Reset must hard-reset to origin/main" {
-            ($content -match 'git -C \$WorktreePath reset --hard origin/main') | Should -Be $true
+            ($content -match 'git -C ""\$WorktreePath"" reset --hard origin/main') | Should -Be $true
         }
 
         It "Reset must fetch origin/main before resetting" {
-            ($content -match 'git -C \$WorktreePath fetch origin main') | Should -Be $true
+            ($content -match 'git -C ""\$WorktreePath"" fetch origin main') | Should -Be $true
         }
 
         It "Reset must run git clean to remove cruft" {
-            ($content -match 'git -C \$WorktreePath clean -fd') | Should -Be $true
+            ($content -match 'git -C ""\$WorktreePath"" clean -fd') | Should -Be $true
         }
 
         It "Reset must re-align submodules after hard reset" {
@@ -62,11 +62,12 @@ Describe "Worker Worktree Reset - #2834 maintenance-run reset" {
         }
 
         It "git clean must exclude *.log" {
-            ($content -match "-e '\*\.log'") | Should -Be $true
+            # Doubled quotes: single quotes do not cross the cmd.exe layer (#3748 review).
+            ($content -match '-e ""\*\.log""') | Should -Be $true
         }
 
         It "git clean must exclude node_modules (perf — junction-linked deps)" {
-            ($content -match 'clean -fd -e \.env -e ''\*\.log'' -e node_modules') | Should -Be $true
+            ($content -match 'clean -fd -e \.env -e ""\*\.log"" -e node_modules') | Should -Be $true
         }
     }
 

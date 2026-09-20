@@ -68,7 +68,7 @@ Describe "Test-SubmoduleCommitOnRemote - Guard #1156 v2 submodule pointer safety
         It "Must fetch origin main before checking containment" {
             $funcPos = $content.IndexOf('function Test-SubmoduleCommitOnRemote')
             $window  = $content.Substring($funcPos, 1500)
-            ($window -match 'git -C \$SubmodulePath fetch origin main') | Should -Be $true
+            ($window -match 'git -C ""\$SubmodulePath"" fetch origin main') | Should -Be $true
         }
 
         It "Must use --quiet on the fetch to keep logs clean" {

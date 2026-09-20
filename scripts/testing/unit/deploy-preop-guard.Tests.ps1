@@ -381,7 +381,7 @@ Describe 'Deploy pipeline entry points wire the guard (#3712)' {
         $scriptPath = Join-Path $PSScriptRoot '..\..\scheduling\start-claude-worker.ps1'
         $raw = Get-Content -LiteralPath $scriptPath -Raw
         $idxGuard = $raw.IndexOf('Invoke-DeployPreOpGuard')
-        $idxClean = $raw.IndexOf('git -C $WorktreePath clean -fd -e .env')
+        $idxClean = $raw.IndexOf('git -C ""$WorktreePath"" clean -fd -e .env')
         $idxGuard | Should -BeGreaterOrEqual 0
         $idxClean | Should -BeGreaterOrEqual 0
         $idxGuard | Should -BeLessThan $idxClean

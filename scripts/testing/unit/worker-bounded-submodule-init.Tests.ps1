@@ -225,12 +225,12 @@ Describe "Bounded Submodule Init - #2944 (worker hang prevention)" {
     Context "Regression - scope discipline (no undemanded refactors)" {
 
         It "Sync-McpSubmoduleBuild must keep its non-recursive submodule call untouched" {
-            # L1690-equivalent: `git submodule update --init mcps/internal` — single submodule,
-            # not recursive, different risk profile. Issue scope was the recursive call only.
+            # Single submodule, not recursive — different risk profile. Issue scope was
+            # the recursive call only. Moved to the cmd.exe layer by #3731 (still single).
             $syncPos = $content.IndexOf('function Sync-McpSubmoduleBuild')
             $syncEnd = $content.IndexOf('function Reset-WorktreeForMaintenance', $syncPos)
             $window = $content.Substring($syncPos, $syncEnd - $syncPos)
-            ($window -match 'git -C \$Path submodule update --init mcps/internal') | Should -Be $true
+            ($window -match 'git -C ""\$Path"" submodule update --init mcps/internal') | Should -Be $true
         }
 
         It "No unbounded recursive submodule update must remain outside the helper" {
