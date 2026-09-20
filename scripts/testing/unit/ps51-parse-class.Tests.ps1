@@ -56,10 +56,13 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
                     # backtick (escape continuation joins the two lines into
                     # one logical line -- the #3745 repair form). A leading
                     # `|` WITHOUT that continuation is the pwsh-7-only form.
-                    $prev = if ($i -gt 0) { $lines[$i - 1].TrimEnd() } else { '' }
-                    if ($prev -notmatch '`$') {
+                    # The RAW line is tested: a backtick followed by spaces
+                    # is NOT a continuation in PowerShell (po-204 review
+                    # nuance on #3750), so TrimEnd() would wrongly exempt it.
+                    $prevRaw = if ($i -gt 0) { $lines[$i - 1] } else { '' }
+                    if ($prevRaw -notmatch '`$') {
                         "${p}:$($i + 1) leads with a pipe not preceded by a backtick continuation" |
-                            Should -BeNullOrEmpty -Because "previous line: $prev"
+                            Should -BeNullOrEmpty -Because "previous line: $($prevRaw.TrimEnd())"
                     }
                 }
             }
