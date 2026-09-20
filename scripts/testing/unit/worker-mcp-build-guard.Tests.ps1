@@ -74,13 +74,19 @@ Describe 'Worker MCP build guard (#3489)' {
 
     It 'Invokes the guarded helper with the repo root AND -Headless' {
         # Asserts the invocation SHAPE, not the presence of the words somewhere in the function.
+        # Paths are quote-doubled since the #3731 cmd-layer conversion (this
+        # PR): the helper invocation crosses `cmd /c "..."` and bare
+        # interpolations would break on spaces (#3740 discipline).
         $fnCode | Should -Match 'ensure-build-fresh\.ps1'
-        $fnCode | Should -Match '-File\s+\$ensureScript\s+-RepoRoot\s+\$Path\s+-Headless'
+        $fnCode | Should -Match '-File\s+""\$ensureScript""\s+-RepoRoot\s+""\$Path""\s+-Headless'
     }
 
     It 'Invokes via powershell, not pwsh (PS7 absent on some fleet machines, #2368)' {
-        $fnCode | Should -Match '&\s*powershell\s'
-        $fnCode | Should -Not -Match '&\s*pwsh\s'
+        # Since the #3731 cmd-layer conversion the call operator fronts
+        # `cmd /c "powershell ..."` — powershell is still the engine, pwsh
+        # would still be the wrong one.
+        $fnCode | Should -Match 'cmd /c "powershell\s'
+        $fnCode | Should -Not -Match 'pwsh'
     }
 
     It 'Treats a missing helper as SKIP, never as licence to rebuild unguarded' {
