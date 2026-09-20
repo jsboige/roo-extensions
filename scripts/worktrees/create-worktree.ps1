@@ -70,8 +70,10 @@ $cleanTitle = if ($issueTitle) {
         -replace '[^a-zA-Z0-9\s-]', '' `
         -replace '\s+', '-' `
         -replace '-+', '-' `
-        -replace '^-|-$', ''
-    | ForEach-Object { $_.ToLower().Substring(0, [Math]::Min($_.Length, 40)) }
+        # PS 5.1 rejects a pipeline that starts with `|` on its own line (pwsh 7 accepts
+        # it) — this file never parsed under 5.1. Pipe at end of line parses everywhere.
+        -replace '^-|-$', '' |
+        ForEach-Object { $_.ToLower().Substring(0, [Math]::Min($_.Length, 40)) }
 } else {
     "issue"
 }
