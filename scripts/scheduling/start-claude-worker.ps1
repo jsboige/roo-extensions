@@ -525,8 +525,7 @@ function Test-IssueAlreadyProcessed {
     param([int]$IssueNumber)
 
     try {
-        $CommentsJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
-            --json comments --jq '.comments[-5:]' 2>&1
+        $CommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[-5:]"" 2>&1"
 
         if ($LASTEXITCODE -ne 0) { return $false }
 
@@ -603,7 +602,7 @@ function Get-IssueProjectFields {
         $RequestBody = @{ query = $Query } | ConvertTo-Json -Depth 2
         $TempFile = Join-Path $env:TEMP "gql-project-fields-$IssueNumber.json"
         [System.IO.File]::WriteAllText($TempFile, $RequestBody, [System.Text.UTF8Encoding]::new($false))
-        $ResultJson = & gh api graphql --input $TempFile 2>&1
+        $ResultJson = & cmd /c "gh api graphql --input ""$TempFile"" 2>&1"
         Remove-Item $TempFile -ErrorAction SilentlyContinue
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  GraphQL error for #$IssueNumber : $ResultJson" "WARN"
@@ -677,9 +676,7 @@ function Get-GitHubTask {
         # seule ligne, chacune candidate sur chaque machine et relancee a chaque liberation de claim —
         # le mecanisme de re-dispatch de #3463 multiplie par onze (arbitrage ai-01 2026-09-12 : aligner
         # l'implementation sur la regle ecrite est de l'execution, pas une nouvelle decision).
-        $IssuesJson = & gh issue list --repo jsboige/roo-extensions `
-            --search 'is:open no:assignee -label:harness-change -label:deferred -label:epic' `
-            --limit 30 --json number,title,body,labels,assignees 2>&1
+        $IssuesJson = & cmd /c "gh issue list --repo jsboige/roo-extensions --search ""is:open no:assignee -label:harness-change -label:deferred -label:epic"" --limit 30 --json number,title,body,labels,assignees 2>&1"
 
         if ($LASTEXITCODE -ne 0) { return $null }
 
@@ -718,8 +715,7 @@ function Get-GitHubTask {
                 # NB: this comment deliberately spells out no literal quoted jq call — the harness
                 # scans this whole file for that pattern, and prose would trip it (it did).
                 $jqExpr = '[.comments[-10:][] | {body, createdAt}]'
-                $DispatchJson = & gh issue view $Issue.number --repo jsboige/roo-extensions `
-                    --json comments --jq $jqExpr 2>&1
+                $DispatchJson = & cmd /c "gh issue view $($Issue.number) --repo jsboige/roo-extensions --json comments --jq ""$jqExpr"" 2>&1"
                 if ($LASTEXITCODE -eq 0 -and $DispatchJson) {
                     $DispatchComments = $DispatchJson | ConvertFrom-Json
                     foreach ($Dc in $DispatchComments) {
@@ -837,8 +833,7 @@ function Test-GitHubIssueLock {
     param([int]$IssueNumber)
 
     try {
-        $CommentsJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
-            --json comments --jq '.comments[-3:]' 2>&1
+        $CommentsJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[-3:]"" 2>&1"
 
         if ($LASTEXITCODE -ne 0) { return $false }
 
@@ -886,7 +881,7 @@ function Claim-GitHubIssue {
 
     try {
         # Step 1: Assign self (this is the "lock acquisition")
-        & gh issue edit $IssueNumber --repo jsboige/roo-extensions --add-assignee $GhUser 2>&1 | Out-Null
+        & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --add-assignee $GhUser 2>&1" | Out-Null
         if ($LASTEXITCODE -ne 0) {
             Write-Log "⚠️ Erreur assignee #$IssueNumber" "WARN"
             return $false
@@ -895,15 +890,14 @@ function Claim-GitHubIssue {
         # Step 2: Post [CLAIMED] comment for traceability and anti-doublon detection
         $Timestamp = Get-Date -Format "o"
         $Body = "[CLAIMED] by $AgentType on $MachineId at $Timestamp"
-        & gh issue comment $IssueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
+        & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""$Body"" 2>&1" | Out-Null
 
         # Step 3: Wait for competing claims to settle (GitHub API eventual consistency)
         Start-Sleep -Seconds 5
 
         # Step 4: Double-check — verify no competing [CLAIMED] from another machine
         $jqClaimExpr = '[.comments[-5:][] | .body | select(contains(\"[CLAIMED]\"))]'
-        $RecentComments = & gh issue view $IssueNumber --repo jsboige/roo-extensions `
-            --json comments --jq $jqClaimExpr 2>&1
+        $RecentComments = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq ""$jqClaimExpr"" 2>&1"
         if ($LASTEXITCODE -eq 0 -and $RecentComments) {
             $Claims = $RecentComments | ConvertFrom-Json
             $OtherClaims = @($Claims | Where-Object { $_ -notmatch $MachineId -and $_ -match "\[CLAIMED\]" })
@@ -914,9 +908,8 @@ function Claim-GitHubIssue {
                 # Since we can't reliably determine who was first, we yield if we detect competition.
                 Write-Log "⚠️ Race condition détectée sur #$IssueNumber — autre machine a aussi claimé. Yield." "WARN"
                 # Release: remove assignee and post release comment
-                & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
-                & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
-                    --body "[RELEASED] by $AgentType on $MachineId — race condition detected, yielding to other claimer." 2>&1 | Out-Null
+                & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
+                & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $MachineId — race condition detected, yielding to other claimer."" 2>&1" | Out-Null
                 return $false
             }
         }
@@ -925,8 +918,7 @@ function Claim-GitHubIssue {
         # Both repos: a submodule PR lives in jsboige/jsboige-mcp-servers and is invisible
         # to a product-repo-only check (#3407: #1091 open 26h, undetected).
         foreach ($PrRepo in @('jsboige/roo-extensions', 'jsboige/jsboige-mcp-servers')) {
-            $ExistingPR = & gh pr list --repo $PrRepo --state open `
-                --json title,headRefName --jq ".[].title" 2>&1
+            $ExistingPR = & cmd /c "gh pr list --repo $PrRepo --state open --json title,headRefName --jq "".[].title"" 2>&1"
             if ($LASTEXITCODE -eq 0 -and $ExistingPR) {
                 # \b = frontiere de mot des DEUX cotes : "#109" ne doit matcher ni "#1091"
                 # (suffixe) ni "issue 3109" (prefixe — ".*" absorberait le "3" sans l'ancre
@@ -935,9 +927,8 @@ function Claim-GitHubIssue {
                 $PRsForIssue = @($ExistingPR -split "`n" | Where-Object { $_ -match "#$IssueNumber\b" -or $_ -match "issue.*\b$IssueNumber\b" })
                 if ($PRsForIssue.Count -gt 0) {
                     Write-Log "⚠️ PR déjà ouverte pour #$IssueNumber ($PrRepo) — skip" "WARN"
-                    & gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1 | Out-Null
-                    & gh issue comment $IssueNumber --repo jsboige/roo-extensions `
-                        --body "[RELEASED] by $AgentType on $MachineId — PR already exists for this issue ($PrRepo)." 2>&1 | Out-Null
+                    & cmd /c "gh issue edit $IssueNumber --repo jsboige/roo-extensions --remove-assignee $GhUser 2>&1" | Out-Null
+                    & cmd /c "gh issue comment $IssueNumber --repo jsboige/roo-extensions --body ""[RELEASED] by $AgentType on $MachineId — PR already exists for this issue ($PrRepo)."" 2>&1" | Out-Null
                     return $false
                 }
             }
@@ -1113,12 +1104,18 @@ function Mark-TaskAsComplete {
                     if ($script:RecoveryBranchName) {
                         $Body += "`n`n[RECOVERY_BRANCH] Detached HEAD guard fired — work is on ``$($script:RecoveryBranchName)`` (pushed to origin). Coordinator: fetch and review/merge manually. (#1666 A2)"
                     }
-                    & gh issue comment $Task.issueNumber --repo jsboige/roo-extensions --body $Body 2>&1 | Out-Null
+                    # Multiline [RESULT] bodies cannot cross the cmd.exe layer as --body
+                    # args (newlines/markdown backticks break the command string): temp
+                    # body-file, same discipline as New-PullRequest.
+                    $ResultBodyFile = Join-Path $env:TEMP "worker-result-body-$PID-$($Task.issueNumber).md"
+                    [System.IO.File]::WriteAllText($ResultBodyFile, $Body, [System.Text.UTF8Encoding]::new($false))
+                    & cmd /c "gh issue comment $($Task.issueNumber) --repo jsboige/roo-extensions --body-file ""$ResultBodyFile"" 2>&1" | Out-Null
+                    Remove-Item $ResultBodyFile -ErrorAction SilentlyContinue
                     Write-Log "✅ [RESULT] posté sur #$($Task.issueNumber)"
                     # #1980 (c.122): symmetric release — Claim-GitHubIssue takes the lock via
                     # --add-assignee, Mark-TaskAsComplete must release it. Otherwise the
                     # assignee stays for ever and silences subsequent dispatches.
-                    & gh issue edit $Task.issueNumber --repo jsboige/roo-extensions --remove-assignee "jsboige" 2>&1 | Out-Null
+                    & cmd /c "gh issue edit $($Task.issueNumber) --repo jsboige/roo-extensions --remove-assignee jsboige 2>&1" | Out-Null
                     Write-Log "✅ Assignee retiré sur #$($Task.issueNumber) (#1980 release pair)"
                 } catch {
                     Write-Log "Erreur comment GitHub: $_" "WARN"
@@ -1226,7 +1223,7 @@ function Test-WaitStateReady {
         if ($TaskId -match "github-(\d+)") {
             $IssueNum = $Matches[1]
             try {
-                $IssueState = (& gh issue view $IssueNum --repo jsboige/roo-extensions --json state --jq '.state' 2>$null)
+                $IssueState = (& cmd /c "gh issue view $IssueNum --repo jsboige/roo-extensions --json state --jq "".state"" 2>nul") | Select-Object -First 1
                 if ($IssueState -eq "CLOSED") {
                     Write-Log "🗑️ Wait state pour issue FERMÉE (#$IssueNum) → suppression automatique" "WARN"
                     Remove-WaitState -TaskId $TaskId
@@ -1309,7 +1306,7 @@ function Test-UserApproval {
         $IssueNumber = if ($TaskId -match 'issue-(\d+)') { $Matches[1] } else { $null }
 
         if ($IssueNumber) {
-            $Comments = & gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq '.comments[].body' 2>&1
+            $Comments = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json comments --jq "".comments[].body"" 2>&1"
             if ($LASTEXITCODE -eq 0) {
                 $ApprovalPatterns = @(
                     '\[APPROVE\]', '\[APPROVED\]', '\[OK\]', '\[GO\]',
@@ -1405,7 +1402,7 @@ function Test-GitHubDecision {
         }
 
         # Récupérer l'état de l'issue
-        $IssueJson = & gh issue view $IssueNumber --repo jsboige/roo-extensions --json state,comments 2>&1
+        $IssueJson = & cmd /c "gh issue view $IssueNumber --repo jsboige/roo-extensions --json state,comments 2>&1"
 
         if ($LASTEXITCODE -ne 0) {
             Write-Log "  Erreur gh issue view: $IssueJson" "WARN"
@@ -3333,7 +3330,7 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
         # #2157: Check if PR already exists for this branch (graceful shutdown re-push scenario)
         $BranchName = & git rev-parse --abbrev-ref HEAD 2>&1
         if ($LASTEXITCODE -eq 0 -and $BranchName) {
-            $ExistingPR = & gh pr list --repo jsboige/roo-extensions --state open --head $BranchName --json url --jq '.[0].url' 2>&1
+            $ExistingPR = & cmd /c "gh pr list --repo jsboige/roo-extensions --state open --head $BranchName --json url --jq "".[0].url"" 2>&1"
             if ($LASTEXITCODE -eq 0 -and $ExistingPR -and "$ExistingPR".Trim() -ne '' -and "$ExistingPR".Trim() -ne '[]') {
                 Write-Log "PR already exists for branch ${BranchName}: $ExistingPR" "INFO"
                 Remove-Item $BodyFile -ErrorAction SilentlyContinue
@@ -3341,7 +3338,7 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
             }
         }
 
-        $PrOutput = & gh pr create --title $Title --body-file $BodyFile --repo jsboige/roo-extensions --base main 2>&1
+        $PrOutput = & cmd /c "gh pr create --title ""$Title"" --body-file ""$BodyFile"" --repo jsboige/roo-extensions --base main 2>&1"
         $PrExitCode = $LASTEXITCODE
         Remove-Item $BodyFile -ErrorAction SilentlyContinue
 
@@ -3936,7 +3933,7 @@ function Get-DeliveredArtifacts {
                 } else {
                     # Server-side issue/date search avoids the former newest-100 window. The exact issue
                     # boundary, timestamp, and author are still verified locally.
-                    $PrJson = & gh pr list --repo $Repository --state all --search $SearchQuery --limit 1000 --json number,url,title,body,headRefName,createdAt,author 2>$null
+                    $PrJson = & cmd /c "gh pr list --repo $Repository --state all --search ""$SearchQuery"" --limit 1000 --json number,url,title,body,headRefName,createdAt,author 2>nul"
                     $GhExitCode = $LASTEXITCODE
                     $PullRequests = if ($PrJson) { @($PrJson | ConvertFrom-Json | Where-Object { $null -ne $_ }) } else { @() }
                 }
