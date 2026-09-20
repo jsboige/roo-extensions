@@ -2,7 +2,7 @@
 
 Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés pour l'outillage et l'automatisation du projet RooSync.
 
-**Dernière mise à jour :** 2026-09-16 (ajout 2 scripts `dashboard-scheduler/` — watchdog zombie listener #3687)
+**Dernière mise à jour :** 2026-09-19 (ajout `github/check_issue_claim.py` — verrou de claim sur issue, ADR 017 / #3676 ; watchdog zombie listener #3687)
 
 ---
 
@@ -51,7 +51,7 @@ Ce répertoire centralise tous les scripts PowerShell et JavaScript utilisés po
 |------------|---------|-------------|
 | `git/` | 2 | Opérations Git (pre-commit hooks, branch triage) |
 | `git-workflow/` | 7 | Workflow Git avancé (submodules, commit, branches) |
-| `github/` | 7 | Intégration GitHub (sync-project, set-fields, review-bot, watchguards #3381 D4/D13) |
+| `github/` | 8 | Intégration GitHub (sync-project, set-fields, review-bot, watchguards #3381 D4/D13, claim guard issue #3676) |
 | `worktrees/` | 4 | Gestion des worktrees Git (création, cleanup, merge) |
 | `hermes-watchdog/` | 4 | Surveillance du bot Hermes (cluster manager) |
 

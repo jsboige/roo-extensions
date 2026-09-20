@@ -68,17 +68,18 @@ Roo Extensions est un **système multi-agent coordonné** qui orchestre Roo (ass
 
 ### Protocol de Claim (Anti Double-Traitement)
 
-Avant de travailler sur une tâche, **toujours la revendiquer** :
+Avant de travailler sur une tâche, **toujours la revendiquer** — le verrou vit sur l'issue (ADR 017, #3676) :
 
 ```bash
-# 1. Commenter l'issue
-gh issue comment {NUM} --repo jsboige/roo-extensions --body "🔒 Claimed by {MACHINE} (Claude Code)."
+# 1. Vérifier qu'aucune autre machine ne tient le verrou, puis poser le sien
+python scripts/github/check_issue_claim.py {NUM}                    # exit 1 = verrou tenu ailleurs
+python scripts/github/check_issue_claim.py {NUM} --claim "intention en une ligne"
 
 # 2. Mettre à jour Project #67
 gh api graphql -f query="mutation { updateProjectV2ItemFieldValue(...) }"
 ```
 
-Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
+Le `createdAt` serveur du commentaire fait foi (jamais de timestamp dans le corps). Le dashboard workspace garde le récit de cycle, il n'est plus le registre de verrous. Voir [CLAUDE.md](CLAUDE.md) pour les IDs des champs Machine/Agent.
 
 ---
 

@@ -90,7 +90,7 @@ arbitre à la création.
   livraison. Une intégration se fera **après** stabilisation, sur des cas d'usage
   suffisants.
 - **Pas d'import de cadence CoursIA.** La cadence 30 min vs 4 h est un double mandat user
-  légitime (cf. ADR 014, sibling #3675) — le pilote respecte 4 h côté roo-extensions.
+  légitime (cf. ADR 016, sibling #3675) — le pilote respecte 4 h côté roo-extensions.
 - **Pas d'automatisation de l'écriture.** Aucune écriture de progress.json pilotée par un
   hook ou un cron. C'est à l'agent (ou à l'outil qu'il lance, ex. jupyter-papermill) de
   mettre à jour le fichier à chaque jalon. L'écriture automatique silencieuse est la source
@@ -160,7 +160,7 @@ Livré dans le PR de cette ADR :
 - CoursIA — référence supprimée de git le 2026-09-02 (commit `8971a15e12`), convention
   toujours vivante via `.claude/agents/series-improver.md` +
   `scripts/series_progress_manager.py`
-- Sibling : ADR 014 (anti-tarissement, PRs #3680/#3681 — collisions de nommage)
+- Sibling : ADR 016 (anti-tarissement, PR #3681 — le n° 014 initialement revendiqué a été cédé à la collision)
 - Sibling : #3656 (registre open-questions, même cible = continuité inter-sessions)
 - Observation fondatrice : user n°1, « le coordinateur CoursIA maîtrise mieux l'avancement
   de ses chantiers longs », 2026-08-15

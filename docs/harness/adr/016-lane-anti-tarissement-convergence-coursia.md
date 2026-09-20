@@ -4,7 +4,7 @@
 **Status:** Accepted
 **Issue:** #3675 (Epic #3111 phase 2, candidat #2)
 **Related:** #2185 (cap IDLE 3), #2509 (`--limit 15` faux drain), #3111 (Epic convergence),
-#3155 (PR audit filesystem CoursIA), #1417 (catalogue idle I1-I8), #3680 (ADR 014 claim locus)
+#3155 (PR audit filesystem CoursIA), #1417 (catalogue idle I1-I8), #3680 (ADR 017 claim locus)
 
 ## Context
 
@@ -155,7 +155,7 @@ gardes #2185 (cap IDLE 3) et le re-arm cron/WAKE restent la cadence locale de ro
 - Issue #2185 (cap IDLE 3 — reste en place)
 - Issue #3111 (Epic convergence)
 - Issue #3675 (candidat #2 de la phase 2, ce document)
-- Issue #3676 (candidat #3 — claim sur issue GitHub, livre par po-2026 #3680, ADR 014)
+- Issue #3676 (candidat #3 — claim sur issue GitHub, livre par po-2026 #3680, ADR 017)
 - Issue #3678 (candidat #8 — alertes survivantes, lien cross-pollinisation)
 - Reviews #3681 : ai-01 CHANGES_REQUESTED 15/09 23:12Z, po-2027 16/09 05:43Z (fail-open,
   cp1252, `--machine`, collision ADR 014 — corrigés dans le rework)
