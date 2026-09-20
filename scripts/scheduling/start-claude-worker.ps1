@@ -238,7 +238,7 @@ function Test-SkAgentAvailable {
         $VenvPython = Join-Path $SkAgentDir "venv\Scripts\python.exe"
         $PythonExe = if (Test-Path $VenvPython) { $VenvPython } else { "python" }
         try {
-            $null = & $PythonExe --version 2>&1
+            $null = & cmd /c """$PythonExe"" --version 2>&1"
             if ($LASTEXITCODE -ne 0) { return $false }
         } catch {
             Write-Log "Python not available for sk-agent: $_" "WARN"
@@ -256,7 +256,7 @@ function Test-SkAgentAvailable {
         $InitRequest = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"worker-preflight","version":"1.0.0"}}}'
         $Job = Start-Job -ScriptBlock {
             param($Wrapper, $Request)
-            $Response = $Request | & powershell -ExecutionPolicy Bypass -NoProfile -File $Wrapper 2>&1
+            $Response = $Request | & cmd /c "powershell -ExecutionPolicy Bypass -NoProfile -File ""$Wrapper"" 2>&1"
             $Response | Select-Object -Last 5
         } -ArgumentList $WrapperScript, $InitRequest
 
@@ -1926,7 +1926,7 @@ function Sync-McpSubmoduleBuild {
             $ErrorActionPreference = "Continue"
             try {
                 # `powershell`, not `pwsh`: PS7 is absent on some fleet machines (#2368).
-                $guardOutput = & powershell -NoProfile -ExecutionPolicy Bypass -File $ensureScript -RepoRoot $Path -Headless 2>&1
+                $guardOutput = & cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File ""$ensureScript"" -RepoRoot ""$Path"" -Headless 2>&1"
                 $verdict = ($guardOutput | Select-Object -Last 3 | Out-String).Trim()
                 if ($verdict -match 'ARMED-DEFER') {
                     Write-Log "Host MCP rebuild DEFERRED under live RSM hosts (#3489): a worker cannot restart VS Code, so rebuilding would arm the ESM crash with nobody to disarm it. The machine stays STALE until an interactive session rebuilds — that is the safe failure mode, not a silent success. Verdict: $verdict" "WARN"
@@ -4159,7 +4159,7 @@ Voir: $LogFile
             # Body via fichier temp (quoting-safe) - sanctuary rule: body-files -> $TEMP
             [System.IO.File]::WriteAllText($BodyFile, $ReportMessage, [System.Text.UTF8Encoding]::new($false))
             $ErrorActionPreference = "Continue"
-            $CliOutput = (& node $SendCli --from $MachineId --to "myia-ai-01" --subject $Subject --body-file $BodyFile --priority $Priority --tags "worker-report,scheduler" 2>&1 | ForEach-Object { "$_" }) -join [Environment]::NewLine
+            $CliOutput = (& cmd /c "node ""$SendCli"" --from $MachineId --to ""myia-ai-01"" --subject ""$Subject"" --body-file ""$BodyFile"" --priority $Priority --tags ""worker-report,scheduler"" 2>&1" | ForEach-Object { "$_" }) -join [Environment]::NewLine
             $CliExit = $LASTEXITCODE
         }
         catch {
