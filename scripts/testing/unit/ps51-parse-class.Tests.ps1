@@ -27,13 +27,14 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
         $script:worktreesRoot = Join-Path $root 'scripts\worktrees'
 
         $script:parseTargets = @(
-            $script:guardPath
+            $script:guardPath,
+            (Join-Path $script:worktreesRoot 'create-worktree.ps1')
         )
-        # create-worktree.ps1 is deliberately NOT asserted here: its leading-pipe
-        # repair is owned by PR #3745 (independent discovery, 1-char backtick).
-        # Once #3745 merges, extend pipeTargets with its path.
+        # create-worktree.ps1 joined the targets after #3745 (leading-pipe
+        # repair, 1-char backtick) merged — it now parses under 5.1.
         $script:pipeTargets = @(
             $script:guardPath,
+            (Join-Path $script:worktreesRoot 'create-worktree.ps1'),
             (Join-Path $script:worktreesRoot 'cleanup-worktree.ps1'),
             (Join-Path $script:worktreesRoot 'check-worktrees.ps1'),
             (Join-Path $script:worktreesRoot 'submit-pr.ps1')
@@ -48,11 +49,20 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
 
     It 'no script starts a pipeline with a leading pipe (5.1 rejects, pwsh 7 accepts)' {
         foreach ($p in $script:pipeTargets) {
-            $src = Get-Content $p -Raw
-            # A line whose first non-blank token is `|` -- legal continuation in
-            # pwsh 7 only. (Does not match pipes inside strings/comments at
-            # line start because those begin with a quote or # character.)
-            $src | Should -Not -Match '(?m)^\s*\|\s'
+            $lines = Get-Content $p
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                if ($lines[$i] -match '^\s*\|\s') {
+                    # Legal in 5.1 too when the previous line ends with a
+                    # backtick (escape continuation joins the two lines into
+                    # one logical line -- the #3745 repair form). A leading
+                    # `|` WITHOUT that continuation is the pwsh-7-only form.
+                    $prev = if ($i -gt 0) { $lines[$i - 1].TrimEnd() } else { '' }
+                    if ($prev -notmatch '`$') {
+                        "${p}:$($i + 1) leads with a pipe not preceded by a backtick continuation" |
+                            Should -BeNullOrEmpty -Because "previous line: $prev"
+                    }
+                }
+            }
         }
     }
 
