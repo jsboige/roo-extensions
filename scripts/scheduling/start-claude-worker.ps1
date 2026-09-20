@@ -1774,19 +1774,19 @@ function Find-ExistingWorktree {
             $ErrorActionPreference = "Continue"
 
             # Récupérer le nom de la branche
-            $Branch = git -C $WorktreePath branch --show-current 2>&1
+            $Branch = (& cmd /c "git -C ""$WorktreePath"" branch --show-current 2>&1") | Select-Object -First 1
             if ($LASTEXITCODE -ne 0) {
                 $ErrorActionPreference = $PrevPref
                 continue
             }
-            $Branch = $Branch.Trim()
+            $Branch = "$Branch".Trim()
 
             # Vérifier s'il y a des changements
-            $StatusOutput = git -C $WorktreePath status --porcelain 2>&1
-            $HasChanges = $StatusOutput -and $StatusOutput.Trim().Length -gt 0
+            $StatusOutput = & cmd /c "git -C ""$WorktreePath"" status --porcelain 2>&1"
+            $HasChanges = $StatusOutput -and "$StatusOutput".Trim().Length -gt 0
 
             # Récupérer les derniers commits
-            $LogOutput = git -C $WorktreePath log --oneline -3 2>&1
+            $LogOutput = & cmd /c "git -C ""$WorktreePath"" log --oneline -3 2>&1"
 
             $ErrorActionPreference = $PrevPref
 
@@ -1806,8 +1806,8 @@ function Find-ExistingWorktree {
             # branch cut from origin/main. Fetch failure leaves origin/main
             # stale → is-ancestor under-detects → resume proceeds as before:
             # the frontier guard in New-WorkerPR still catches the outcome.
-            git -C $WorktreePath fetch origin main --quiet 2>&1 | Out-Null
-            git -C $WorktreePath merge-base --is-ancestor $Branch origin/main 2>&1 | Out-Null
+            & cmd /c "git -C ""$WorktreePath"" fetch origin main --quiet 2>&1" | Out-Null
+            & cmd /c "git -C ""$WorktreePath"" merge-base --is-ancestor $Branch origin/main 2>&1" | Out-Null
             if ($LASTEXITCODE -eq 0) {
                 Write-Log "Worktree branch '$Branch' already merged into origin/main (#3597) — candidate ignored (delivered by a prior run)" "WARN"
                 continue
@@ -1876,7 +1876,7 @@ function Sync-McpSubmoduleBuild {
         $ErrorActionPreference = "Continue"
 
         # Recorded pointer in the parent tree (what the parent expects)
-        $RecordedPointer = (git -C $Path ls-tree HEAD mcps/internal 2>$null)
+        $RecordedPointer = (& cmd /c "git -C ""$Path"" ls-tree HEAD mcps/internal 2>nul") | Select-Object -First 1
         if ($LASTEXITCODE -ne 0 -or -not $RecordedPointer) {
             $ErrorActionPreference = $prevPref
             return
@@ -1885,7 +1885,7 @@ function Sync-McpSubmoduleBuild {
         $RecordedSha = ($RecordedPointer -split '\s+')[2]
 
         # Current submodule HEAD in the working tree
-        $CurrentHead = (git -C $SubmodulePath rev-parse HEAD 2>$null)
+        $CurrentHead = (& cmd /c "git -C ""$SubmodulePath"" rev-parse HEAD 2>nul") | Select-Object -First 1
         $ErrorActionPreference = $prevPref
 
         if (-not $RecordedSha -or -not $CurrentHead) { return }
@@ -1899,7 +1899,7 @@ function Sync-McpSubmoduleBuild {
         # Align the main-tree submodule to the recorded pointer
         $prevPref2 = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        git -C $Path submodule update --init mcps/internal 2>&1 | Out-Null
+        & cmd /c "git -C ""$Path"" submodule update --init mcps/internal 2>&1" | Out-Null
         $ErrorActionPreference = $prevPref2
 
         # Rebuild so the host MCP serves the current source at next restart — THROUGH the
@@ -1968,10 +1968,10 @@ function Reset-WorktreeForMaintenance {
         $ErrorActionPreference = "Continue"
 
         # Fetch latest main so reset lands on the current parent tree
-        git -C $WorktreePath fetch origin main --quiet 2>&1 | Out-Null
+        & cmd /c "git -C ""$WorktreePath"" fetch origin main --quiet 2>&1" | Out-Null
 
         # Hard reset to origin/main (discards cruft commits + working-tree changes)
-        git -C $WorktreePath reset --hard origin/main 2>&1 | ForEach-Object { Write-Log "  $_" "GIT" }
+        & cmd /c "git -C ""$WorktreePath"" reset --hard origin/main 2>&1" | ForEach-Object { Write-Log "  $_" "GIT" }
         $resetExit = $LASTEXITCODE
 
         # #3712 : snapshot pre-op des chemins proteges sous le worktree AVANT le
@@ -1994,7 +1994,7 @@ function Reset-WorktreeForMaintenance {
         }
 
         # Clean untracked/ignored cruft, preserving .env, logs, and node_modules
-        git -C $WorktreePath clean -fd -e .env -e '*.log' -e node_modules 2>&1 |
+        & cmd /c "git -C ""$WorktreePath"" clean -fd -e .env -e '*.log' -e node_modules 2>&1" |
             ForEach-Object { Write-Log "  $_" "GIT" }
 
         # Re-align mcps/internal only (reset --hard does not touch submodule
@@ -2196,7 +2196,7 @@ function Create-Worktree {
 
     # Guard #2351: Prevent nested worktree creation inside submodule directories
     try {
-        $SubmodulePaths = @((git -C $RepoRoot config --file .gitmodules --get-regexp path 2>&1) |
+        $SubmodulePaths = @((& cmd /c "git -C ""$RepoRoot"" config --file .gitmodules --get-regexp path 2>&1") |
             Where-Object { $_ -is [string] -and $_ -match '^submodule\.\S+\.path\s+(.+)$' } |
             ForEach-Object { $Matches[1] })
 
@@ -2219,7 +2219,7 @@ function Create-Worktree {
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
 
-        git -C $RepoRoot fetch origin main --quiet 2>&1 | Out-Null
+        & cmd /c "git -C ""$RepoRoot"" fetch origin main --quiet 2>&1" | Out-Null
 
         # Deploy-lag mitigation (#2591 follow-up): if the fetched parent tree
         # moved the mcps/internal pointer, align + rebuild the MAIN-tree submodule
@@ -2228,7 +2228,7 @@ function Create-Worktree {
         Sync-McpSubmoduleBuild -Path $RepoRoot
 
         # Créer worktree with new branch from current HEAD
-        $wtOutput = git -C $RepoRoot worktree add $WorktreePath -b $BranchName 2>&1
+        $wtOutput = & cmd /c "git -C ""$RepoRoot"" worktree add ""$WorktreePath"" -b $BranchName 2>&1"
         $wtExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevPref
 
@@ -2340,7 +2340,7 @@ function Remove-Worktree {
         try {
             $prevPref = $ErrorActionPreference
             $ErrorActionPreference = "Continue"
-            $rmOutput = git -C $RepoRoot worktree remove $WorktreePath --force 2>&1
+            $rmOutput = & cmd /c "git -C ""$RepoRoot"" worktree remove ""$WorktreePath"" --force 2>&1"
             $ErrorActionPreference = $prevPref
             $rmOutput | ForEach-Object { Write-Log "$_" "GIT" }
 
@@ -2388,7 +2388,7 @@ function Remove-Worktree {
     # Previous: #2084 added deinit, but logs prove it consistently fails on mcps/internal.
 
     # Strategy 2: prune metadata first, brief pause for handle release, then native Windows rmdir
-    git -C $RepoRoot worktree prune 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+    & cmd /c "git -C ""$RepoRoot"" worktree prune 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
     Write-Log "Pruned worktree metadata, waiting 3s for handle release before FS removal..." "INFO"
     Start-Sleep -Seconds 3
 
@@ -2450,7 +2450,7 @@ function Remove-RemoteBranch {
     try {
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        $delOutput = git -C $RepoRoot push origin --delete $BranchName 2>&1
+        $delOutput = & cmd /c "git -C ""$RepoRoot"" push origin --delete $BranchName 2>&1"
         $delExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevPref
         $delOutput | ForEach-Object { Write-Log "$_" "GIT" }
@@ -2480,7 +2480,7 @@ function Test-OnlyAutoCommits {
         Push-Location $WorktreePath
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        $CommitMessages = @((git log main..HEAD --format="%s" 2>&1) | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
+        $CommitMessages = @((& cmd /c "git log main..HEAD --format=""%s"" 2>&1") | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
         $ErrorActionPreference = $prevPref
 
         if ($CommitMessages.Count -eq 0) { return $false }
@@ -2605,10 +2605,10 @@ function Test-SubmoduleCommitOnRemote {
 
     try {
         # Fetch latest origin/main to avoid staleness (commits pushed after worker start)
-        git -C $SubmodulePath fetch origin main --quiet 2>&1 | Out-Null
+        & cmd /c "git -C ""$SubmodulePath"" fetch origin main --quiet 2>&1" | Out-Null
 
         # Canonical containment check: is $Commit an ancestor of origin/main?
-        git -C $SubmodulePath merge-base --is-ancestor $Commit origin/main 2>&1 | Out-Null
+        & cmd /c "git -C ""$SubmodulePath"" merge-base --is-ancestor $Commit origin/main 2>&1" | Out-Null
         return ($LASTEXITCODE -eq 0)
     }
     catch {
@@ -2640,7 +2640,7 @@ function Reset-PhantomSubmodulePointers {
     try {
         # List all submodule entries that are modified in the working tree.
         # Submodule changes show as 'M' in git status with the submodule path.
-        $SubmoduleChanges = @((git -C $WorktreePath status --porcelain 2>&1) | Where-Object {
+        $SubmoduleChanges = @((& cmd /c "git -C ""$WorktreePath"" status --porcelain 2>&1") | Where-Object {
             $_ -is [string] -and $_ -match '^\s*M\s+(mcps/|roo-code)'
         })
 
@@ -2648,26 +2648,26 @@ function Reset-PhantomSubmodulePointers {
             if ($line -match '^\s*M\s+(\S+)') {
                 $SubmodulePath = $Matches[1]
                 # Get the new (working tree) HEAD of the submodule
-                $NewHead = (git -C "$WorktreePath/$SubmodulePath" rev-parse HEAD 2>&1).Trim()
+                $NewHead = ((& cmd /c "git -C ""$WorktreePath/$SubmodulePath"" rev-parse HEAD 2>&1") | Select-Object -First 1).Trim()
                 if ($NewHead -and $NewHead -match '^[a-f0-9]{7,40}$') {
                     if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath "$WorktreePath/$SubmodulePath" -Commit $NewHead)) {
                         Write-Log "PHANTOM POINTER DETECTED (#1156 v2): Submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) not on origin/main. Reverting." "WARN"
                         # Reset submodule to origin/main (discard local commit that was never pushed)
-                        git -C "$WorktreePath/$SubmodulePath" reset --hard origin/main 2>&1 | Out-Null
+                        & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" reset --hard origin/main 2>&1" | Out-Null
                         $ResetPaths += $SubmodulePath
                     } else {
                         # Guard #1799: Regression detection — reset if submodule HEAD is behind the
                         # base branch's recorded pointer. Prevents auto-commit from capturing backward
                         # submodule moves that ARE on origin/main (phantom guard misses these).
-                        $BasePointer = (git -C $WorktreePath ls-tree origin/main -- $SubmodulePath 2>&1)
+                        $BasePointer = (& cmd /c "git -C ""$WorktreePath"" ls-tree origin/main -- ""$SubmodulePath"" 2>&1") | Select-Object -First 1
                         if ($BasePointer -match '([a-f0-9]{40})') {
                             $BaseSha = $Matches[1]
                             if ($NewHead -ne $BaseSha) {
                                 # Check if NewHead is an ancestor of BaseSha (= behind = regression)
-                                git -C "$WorktreePath/$SubmodulePath" merge-base --is-ancestor $NewHead $BaseSha 2>&1 | Out-Null
+                                & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" merge-base --is-ancestor $NewHead $BaseSha 2>&1" | Out-Null
                                 if ($LASTEXITCODE -eq 0) {
                                     Write-Log "REGRESSION DETECTED (#1799): Submodule '$SubmodulePath' HEAD $($NewHead.Substring(0,8)) is behind base $($BaseSha.Substring(0,8)). Resetting." "WARN"
-                                    git -C "$WorktreePath/$SubmodulePath" reset --hard $BaseSha 2>&1 | Out-Null
+                                    & cmd /c "git -C ""$WorktreePath/$SubmodulePath"" reset --hard $BaseSha 2>&1" | Out-Null
                                     $ResetPaths += $SubmodulePath
                                 }
                             }
@@ -2706,14 +2706,14 @@ function Remove-NestedSubmoduleWorktrees {
     $RemovedCount = 0
     try {
         # Get submodule paths
-        $SubmodulePaths = @((git -C $RepoRoot config --file .gitmodules --get-regexp path 2>&1) |
+        $SubmodulePaths = @((& cmd /c "git -C ""$RepoRoot"" config --file .gitmodules --get-regexp path 2>&1") |
             Where-Object { $_ -is [string] -and $_ -match '^submodule\.\S+\.path\s+(.+)$' } |
             ForEach-Object { $Matches[1] })
 
         if ($SubmodulePaths.Count -eq 0) { return $RemovedCount }
 
         # List registered worktrees
-        $WorktreeList = @((git -C $RepoRoot worktree list --porcelain 2>&1) |
+        $WorktreeList = @((& cmd /c "git -C ""$RepoRoot"" worktree list --porcelain 2>&1") |
             Where-Object { $_ -is [string] -and $_ -match '^worktree\s+(.+)$' } |
             ForEach-Object { $Matches[1] })
 
@@ -2731,7 +2731,7 @@ function Remove-NestedSubmoduleWorktrees {
                     Write-Log "NESTED WORKTREE DETECTED (#2123): '$wtPath' inside submodule '$smPath'. Removing." "WARN"
                     $prevPref = $ErrorActionPreference
                     $ErrorActionPreference = "Continue"
-                    git -C $RepoRoot worktree remove --force $wtPath 2>&1 | Out-Null
+                    & cmd /c "git -C ""$RepoRoot"" worktree remove --force ""$wtPath"" 2>&1" | Out-Null
                     $ErrorActionPreference = $prevPref
 
                     if ($LASTEXITCODE -eq 0) {
@@ -2739,7 +2739,7 @@ function Remove-NestedSubmoduleWorktrees {
                         $RemovedCount++
                     } else {
                         # Deregister even if directory deletion fails (Windows rmdir issue)
-                        git -C $RepoRoot worktree prune 2>&1 | Out-Null
+                        & cmd /c "git -C ""$RepoRoot"" worktree prune 2>&1" | Out-Null
                         Write-Log "Worktree deregistered (directory may remain): $wtPath" "WARN"
                         $RemovedCount++
                     }
@@ -2758,7 +2758,7 @@ function Remove-NestedSubmoduleWorktrees {
             if (-not (Test-Path $smGitDir)) { continue }
 
             # List submodule worktrees using the submodule's git dir
-            $smWorktrees = @((& git --git-dir $smGitDir worktree list --porcelain 2>&1) |
+            $smWorktrees = @((& cmd /c "git --git-dir ""$smGitDir"" worktree list --porcelain 2>&1") |
                 Where-Object { $_ -is [string] -and $_ -match '^worktree\s+(.+)$' } |
                 ForEach-Object { $Matches[1] })
 
@@ -2806,7 +2806,7 @@ function Remove-NestedSubmoduleWorktrees {
                 # construction. On ne corrige pas la classification -- on cesse de passer outre la
                 # protection native : ca suffit, et ca ne se perime pas si un placement s'ajoute.
                 # Un worktree PROPRE reste retire exactement comme avant : aucune regression #2123.
-                $smWtStatus = @(& git -C $smWtPath status --porcelain 2>$null)
+                $smWtStatus = @(& cmd /c "git -C ""$smWtPath"" status --porcelain 2>nul")
                 $smWtStatusRc = $LASTEXITCODE
                 if ($smWtStatusRc -eq 0 -and $smWtStatus.Count -gt 0) {
                     $ErrorActionPreference = $prevPref
@@ -2815,14 +2815,14 @@ function Remove-NestedSubmoduleWorktrees {
                 }
 
                 Write-Log "ORPHAN SUBMODULE WORKTREE (#2123): '$smWtPath' (parent worktree gone). Removing." "WARN"
-                & git --git-dir $smGitDir worktree remove --force $smWtPath 2>&1 | Out-Null
+                & cmd /c "git --git-dir ""$smGitDir"" worktree remove --force ""$smWtPath"" 2>&1" | Out-Null
                 $ErrorActionPreference = $prevPref
 
                 if ($LASTEXITCODE -eq 0) {
                     Write-Log "Removed orphan submodule worktree: $smWtPath" "INFO"
                     $RemovedCount++
                 } else {
-                    & git --git-dir $smGitDir worktree prune 2>&1 | Out-Null
+                    & cmd /c "git --git-dir ""$smGitDir"" worktree prune 2>&1" | Out-Null
                     Write-Log "Submodule worktree deregistered: $smWtPath" "WARN"
                     $RemovedCount++
                 }
@@ -2874,8 +2874,8 @@ function Test-WorktreeHasChanges {
         # Guard #1913: Staleness check — refuse auto-commit if branch is far behind origin/main.
         # Prevents regression like b3a785e9 where worker auto-committed on obsolete branch.
         try {
-            git fetch origin main 2>&1 | Out-Null
-            $BehindCount = (git -C $WorktreePath rev-list HEAD..origin/main --count 2>&1).Trim()
+            & cmd /c "git fetch origin main 2>&1" | Out-Null
+            $BehindCount = (& cmd /c "git -C ""$WorktreePath"" rev-list HEAD..origin/main --count 2>&1").Trim()
             if ($BehindCount -match '^\d+$' -and [int]$BehindCount -gt 50) {
                 Write-Log "REFUSED auto-commit: branch is $BehindCount commits behind origin/main — manual rebase required (#1913)" "ERROR"
                 Pop-Location
@@ -2889,7 +2889,7 @@ function Test-WorktreeHasChanges {
 
         # Auto-commit any uncommitted changes left by Claude
         # Guard #1156: Filter out non-essential files (logs, temp, local) before auto-commit
-        $Uncommitted = (git status --porcelain 2>&1) | Where-Object { $_ -is [string] }
+        $Uncommitted = (& cmd /c "git status --porcelain 2>&1") | Where-Object { $_ -is [string] }
         if ($Uncommitted) {
             # Filter: exclude paths that should NOT trigger a PR
             # Guard #1156: logs, temp, local
@@ -2933,11 +2933,11 @@ function Test-WorktreeHasChanges {
 
             # Guard #1613: Detect and recover from detached HEAD before auto-commit.
             # Without this, commits on detached HEAD are orphaned and lost when the worktree is cleaned up.
-            $currentRef = git symbolic-ref -q HEAD 2>&1
+            $currentRef = & cmd /c "git symbolic-ref -q HEAD 2>&1"
             if ($LASTEXITCODE -ne 0 -or -not $currentRef) {
                 $recoveryBranch = "worker/recovery-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                 Write-Log "WARN" "Detached HEAD detected in worktree — creating recovery branch '$recoveryBranch' to preserve work (#1613)"
-                git checkout -b $recoveryBranch 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                & cmd /c "git checkout -b $recoveryBranch 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
                 if ($LASTEXITCODE -ne 0) {
                     Write-Log "ERROR" "Failed to create recovery branch from detached HEAD — aborting commit to prevent loss (#1613)"
                     $ErrorActionPreference = $prevPref
@@ -2954,28 +2954,29 @@ function Test-WorktreeHasChanges {
                 foreach ($change in $EssentialChanges) {
                     $filePath = $change -replace '^[^\s]+\s+', ''
                     if ($filePath) {
-                        git add $filePath 2>&1 | Out-Null
+                        & cmd /c "git add ""$filePath"" 2>&1" | Out-Null
                     }
                 }
                 # Also stage any tracked modifications that git add -A would catch
                 # Guard #1799: Exclude submodule paths — workers should never commit submodule pointer changes.
-                git add -u -- ':!mcps' ':!roo-code' 2>&1 | Out-Null
-                $CommitMsg = "chore: Auto-commit uncommitted worker changes`n`nCo-Authored-By: Claude-Code <noreply@anthropic.com>"
-                git commit -m $CommitMsg 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                & cmd /c "git add -u -- ':!mcps' ':!roo-code' 2>&1" | Out-Null
+                # Two -m flags: git joins them with a blank line, byte-identical to the
+                # previous single multiline -m (which cannot cross the cmd.exe layer).
+                & cmd /c "git commit -m ""chore: Auto-commit uncommitted worker changes"" -m ""Co-Authored-By: Claude-Code <noreply@anthropic.com>"" 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
 
                 # #1666 Phase A2 Guard A2.1: Post-commit verification.
                 # Even with Guard #1613 firing, verify HEAD is now attached AND the commit is reachable
                 # from a named branch. If not, we would silently lose the work on worktree cleanup.
-                $postCommitRef = git symbolic-ref -q HEAD 2>&1
+                $postCommitRef = & cmd /c "git symbolic-ref -q HEAD 2>&1"
                 if ($LASTEXITCODE -ne 0 -or -not $postCommitRef) {
                     Write-Log "CRITICAL: Post-commit verification failed — HEAD still detached after auto-commit. Work WILL be lost on worktree cleanup. (#1666 A2)" "ERROR"
                     # Last-ditch rescue: create a second recovery branch from the orphan commit.
-                    $orphanCommit = (git rev-parse HEAD 2>&1).Trim()
+                    $orphanCommit = (& cmd /c "git rev-parse HEAD 2>&1").Trim()
                     $rescueBranch = "worker/rescue-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
                     Write-Log "Attempting rescue: creating branch '$rescueBranch' from orphan commit $orphanCommit" "WARN"
-                    git branch $rescueBranch $orphanCommit 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                    & cmd /c "git branch $rescueBranch $orphanCommit 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
                     if ($LASTEXITCODE -eq 0) {
-                        git checkout $rescueBranch 2>&1 | ForEach-Object { Write-Log "$_" "GIT" }
+                        & cmd /c "git checkout $rescueBranch 2>&1" | ForEach-Object { Write-Log "$_" "GIT" }
                         $script:RecoveryBranchName = $rescueBranch
                         Write-Log "RESCUE OK: work now on '$rescueBranch'. Will be reported in [RESULT]." "WARN"
                     } else {
@@ -2985,8 +2986,8 @@ function Test-WorktreeHasChanges {
                     }
                 }
 
-                $postCommitSha = (git rev-parse HEAD 2>&1).Trim()
-                $commitBranches = @((git branch --contains $postCommitSha 2>&1) | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
+                $postCommitSha = (& cmd /c "git rev-parse HEAD 2>&1").Trim()
+                $commitBranches = @((& cmd /c "git branch --contains $postCommitSha 2>&1") | Where-Object { $_ -is [string] -and $_ -notmatch '^fatal:' })
                 if ($commitBranches.Count -eq 0) {
                     Write-Log "CRITICAL: Commit $postCommitSha not reachable from any local branch. Silent-loss scenario. (#1666 A2)" "ERROR"
                     $ErrorActionPreference = $prevPref
@@ -2998,7 +2999,7 @@ function Test-WorktreeHasChanges {
         }
 
         # Check if branch has commits ahead of main
-        $Ahead = (git rev-list main..HEAD --count 2>&1).Trim()
+        $Ahead = (& cmd /c "git rev-list main..HEAD --count 2>&1").Trim()
         $ErrorActionPreference = $prevPref
         $HasChanges = ([int]$Ahead) -gt 0
 
@@ -3038,7 +3039,7 @@ function Test-AllSubmoduleCommitsOnRemote {
         Write-Log "Checking submodule commits are on remote..." "INFO"
 
         # Get all submodule changes in the current commit vs main
-        $SubmoduleFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object {
+        $SubmoduleFiles = @((& cmd /c "git diff main..HEAD --name-only 2>&1") | Where-Object {
             $_ -is [string] -and ($_ -match '^(mcps/|roo-code$)')
         })
 
@@ -3049,7 +3050,7 @@ function Test-AllSubmoduleCommitsOnRemote {
 
         foreach ($SubmodulePath in $SubmoduleFiles) {
             # Get the new submodule pointer (commit hash)
-            $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) |
+            $NewPointer = (& cmd /c "git diff main..HEAD -- ""$SubmodulePath"" 2>&1") |
                 Select-String '\+Subproject commit ([a-f0-9]+)' |
                 ForEach-Object { $_.Matches.Groups[1].Value }
 
@@ -3097,7 +3098,7 @@ function Push-WorktreeBranch {
         }
 
         # Get current branch name
-        $BranchName = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
+        $BranchName = (& cmd /c "git rev-parse --abbrev-ref HEAD 2>&1").Trim()
 
         # #1666 Phase A2 Guard A2.2: Pre-push verification.
         # If branch name is "HEAD" we are detached — pushing would fail or push to the wrong ref.
@@ -3110,7 +3111,7 @@ function Push-WorktreeBranch {
 
         Write-Log "Pushing branch: $BranchName"
 
-        $pushOutput = git push -u origin $BranchName 2>&1
+        $pushOutput = & cmd /c "git push -u origin $BranchName 2>&1"
         $pushExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevPref
 
@@ -3124,8 +3125,8 @@ function Push-WorktreeBranch {
         # #1666 Phase A2 Guard A2.3: Post-push verification.
         # `git push` exit 0 is not proof the ref landed on the remote (stash/hook bypass can desync).
         # Verify the local HEAD commit is actually visible on origin/$BranchName.
-        $localHead = (git rev-parse HEAD 2>&1).Trim()
-        $remoteLs = (git ls-remote origin "refs/heads/$BranchName" 2>&1) | Where-Object { $_ -is [string] } | Select-Object -First 1
+        $localHead = (& cmd /c "git rev-parse HEAD 2>&1").Trim()
+        $remoteLs = (& cmd /c "git ls-remote origin ""refs/heads/$BranchName"" 2>&1") | Where-Object { $_ -is [string] } | Select-Object -First 1
         if (-not $remoteLs -or $remoteLs -notmatch "^[a-f0-9]{40}\s") {
             Write-Log "CRITICAL: Post-push verification failed — 'git ls-remote origin refs/heads/$BranchName' returned nothing. (#1666 A2)" "ERROR"
             return $false
@@ -3173,17 +3174,17 @@ function New-WorkerPR {
         Push-Location $WorktreePath
 
         # Current branch name (used for #1423 remote cleanup when guards fire)
-        $CurrentBranch = (git rev-parse --abbrev-ref HEAD 2>&1).Trim()
+        $CurrentBranch = (& cmd /c "git rev-parse --abbrev-ref HEAD 2>&1").Trim()
 
         # Guard #1156: Verify the diff contains real code changes, not just auto-commits or submodule pointer moves
-        $DiffFiles = @((git diff main..HEAD --name-only 2>&1) | Where-Object { $_ -is [string] })
+        $DiffFiles = @((& cmd /c "git diff main..HEAD --name-only 2>&1") | Where-Object { $_ -is [string] })
 
         # Guard #1156 v2 — Check 1: Block PR if ANY submodule pointer in the diff is phantom.
         # Previous version only checked when submodule was the ONLY change, allowing
         # phantom pointers to slip through when combined with other files.
         $SubmoduleFiles = @($DiffFiles | Where-Object { $_ -match '^(mcps/|roo-code$)' })
         foreach ($SubmodulePath in $SubmoduleFiles) {
-            $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) | Select-String '\+Subproject commit ([a-f0-9]+)' | ForEach-Object { $_.Matches.Groups[1].Value }
+            $NewPointer = (& cmd /c "git diff main..HEAD -- ""$SubmodulePath"" 2>&1") | Select-String '\+Subproject commit ([a-f0-9]+)' | ForEach-Object { $_.Matches.Groups[1].Value }
             if ($NewPointer) {
                 # Use canonical containment check (merge-base --is-ancestor) + fetch
                 if (-not (Test-SubmoduleCommitOnRemote -SubmodulePath $SubmodulePath -Commit $NewPointer)) {
@@ -3198,7 +3199,7 @@ function New-WorkerPR {
         }
 
         # Check 2: If all commits are just auto-commits with no real diff, skip PR
-        $CommitMessages = @((git log main..HEAD --format="%s" 2>&1) | Where-Object { $_ -is [string] })
+        $CommitMessages = @((& cmd /c "git log main..HEAD --format=""%s"" 2>&1") | Where-Object { $_ -is [string] })
         $AllAutoCommits = $true
         foreach ($msg in $CommitMessages) {
             if ($msg -notmatch 'Auto-commit uncommitted worker changes') {
@@ -3218,11 +3219,11 @@ function New-WorkerPR {
         # Guard #1949: Submodule pointer dedup — skip if target commit already on origin/main
         if ($SubmoduleFiles.Count -gt 0) {
             foreach ($SubmodulePath in $SubmoduleFiles) {
-                $NewPointer = (git diff main..HEAD -- $SubmodulePath 2>&1) |
+                $NewPointer = (& cmd /c "git diff main..HEAD -- ""$SubmodulePath"" 2>&1") |
                     Select-String '\+Subproject commit ([a-f0-9]+)' |
                     ForEach-Object { $_.Matches.Groups[1].Value }
                 if ($NewPointer) {
-                    $MainPointer = (git ls-tree origin/main -- $SubmodulePath 2>&1) |
+                    $MainPointer = (& cmd /c "git ls-tree origin/main -- ""$SubmodulePath"" 2>&1") |
                         Select-String "$([regex]::Escape($SubmodulePath))\s+commit\s+([a-f0-9]+)" |
                         ForEach-Object { $_.Matches.Groups[1].Value }
                     if ($MainPointer -eq $NewPointer) {
@@ -3237,7 +3238,7 @@ function New-WorkerPR {
         }
 
         # Guard #1949: Trivial change detection — count effective non-submodule lines
-        $NonSubmoduleDiff = @((git diff main..HEAD --numstat -- . ':!mcps' ':!roo-code' 2>&1) |
+        $NonSubmoduleDiff = @((& cmd /c "git diff main..HEAD --numstat -- . ':!mcps' ':!roo-code' 2>&1") |
             Where-Object { $_ -is [string] -and $_ -match '^\d+\s+\d+' })
         $EffectiveLines = 0
         foreach ($line in $NonSubmoduleDiff) {
@@ -3264,10 +3265,10 @@ function New-WorkerPR {
         # honest instrument: when the tree it produces equals origin/main's tree,
         # there is nothing to deliver. Fails OPEN when unavailable or conflicted
         # (absence of evidence is not evidence to block).
-        git fetch origin main --quiet 2>&1 | Out-Null
-        $MainTree = git rev-parse "origin/main^{tree}" 2>&1
+        & cmd /c "git fetch origin main --quiet 2>&1" | Out-Null
+        $MainTree = & cmd /c "git rev-parse ""origin/main^{tree}"" 2>&1"
         $MainTree = if ($LASTEXITCODE -eq 0) { "$MainTree".Trim() } else { $null }
-        $MergeOut = git merge-tree --write-tree origin/main HEAD 2>&1
+        $MergeOut = & cmd /c "git merge-tree --write-tree origin/main HEAD 2>&1"
         $MergeTree = if ($LASTEXITCODE -eq 0) { "$(@($MergeOut) | Select-Object -First 1)".Trim() } else { $null }
         if ($MainTree -and $MergeTree -and $MergeTree -eq $MainTree) {
             Write-Log "PHANTOM PR BLOCKED (#3597): merge of '$CurrentBranch' into origin/main contributes nothing — content already delivered by a prior run. Skipping PR creation." "WARN"
@@ -3283,8 +3284,8 @@ function New-WorkerPR {
         if ($Task.subject -match '#(\d+)') { $IssueNum = $Matches[1] }
 
         # Count commits for summary
-        $CommitCount = (git rev-list main..HEAD --count 2>&1).Trim()
-        $CommitLog = (git log main..HEAD --oneline 2>&1) -join "`n"
+        $CommitCount = (& cmd /c "git rev-list main..HEAD --count 2>&1").Trim()
+        $CommitLog = (& cmd /c "git log main..HEAD --oneline 2>&1") -join "`n"
 
         # PR title (max 70 chars)
         $CleanSubject = $Task.subject -replace '^\[TASK\]\s*', '' -replace '^\[URGENT\]\s*', ''
@@ -3321,7 +3322,7 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
         [System.IO.File]::WriteAllText($BodyFile, $Body, [System.Text.UTF8Encoding]::new($false))
 
         # #1404: Final guard — verify diff is non-empty right before PR creation
-        $FinalDiff = @((git diff main..HEAD --stat 2>&1) | Where-Object { $_ -is [string] -and $_.Trim() -ne '' })
+        $FinalDiff = @((& cmd /c "git diff main..HEAD --stat 2>&1") | Where-Object { $_ -is [string] -and $_.Trim() -ne '' })
         if ($FinalDiff.Count -eq 0) {
             Write-Log "EMPTY PR BLOCKED (#1404): No actual changes in diff. Skipping PR creation." "WARN"
             Remove-Item $BodyFile -ErrorAction SilentlyContinue
@@ -3331,7 +3332,7 @@ Generated by Claude Worker on $($env:COMPUTERNAME) at $(Get-Date -Format o)
         Write-Log "Creating PR: $Title"
 
         # #2157: Check if PR already exists for this branch (graceful shutdown re-push scenario)
-        $BranchName = & git rev-parse --abbrev-ref HEAD 2>&1
+        $BranchName = (& cmd /c "git rev-parse --abbrev-ref HEAD 2>&1") | Select-Object -First 1
         if ($LASTEXITCODE -eq 0 -and $BranchName) {
             $ExistingPR = & gh pr list --repo jsboige/roo-extensions --state open --head $BranchName --json url --jq '.[0].url' 2>&1
             if ($LASTEXITCODE -eq 0 -and $ExistingPR -and "$ExistingPR".Trim() -ne '' -and "$ExistingPR".Trim() -ne '[]') {
@@ -3831,7 +3832,7 @@ function Get-RealCommitHashes {
         $ErrorActionPreference = "Continue"
 
         # Get parent repo HEAD (short hash)
-        $parentHead = (git rev-parse HEAD 2>&1) | Select-Object -First 1
+        $parentHead = (& cmd /c "git rev-parse HEAD 2>&1") | Select-Object -First 1
         if ($parentHead -and $parentHead -notmatch 'fatal:') {
             $hashes.parent = $parentHead.Substring(0, [math]::Min(8, $parentHead.Length))
         }
@@ -3839,14 +3840,14 @@ function Get-RealCommitHashes {
         # Get submodule HEAD if exists
         $submodulePath = "mcps/internal/servers/roo-state-manager"
         if (Test-Path (Join-Path $WorktreePath $submodulePath)) {
-            $subHead = (git -C $submodulePath rev-parse HEAD 2>&1) | Select-Object -First 1
+            $subHead = (& cmd /c "git -C ""$submodulePath"" rev-parse HEAD 2>&1") | Select-Object -First 1
             if ($subHead -and $subHead -notmatch 'fatal:') {
                 $hashes.submodule = $subHead.Substring(0, [math]::Min(8, $subHead.Length))
             }
         }
 
         # Get recent commits on branch (if any ahead of main)
-        $recentCommits = (git log main..HEAD --format="%H" 2>&1 | Where-Object { $_ -is [string] -and $_ -notmatch 'fatal:' }) | Select-Object -First 5
+        $recentCommits = (& cmd /c "git log main..HEAD --format=""%H"" 2>&1" | Where-Object { $_ -is [string] -and $_ -notmatch 'fatal:' }) | Select-Object -First 5
         foreach ($fullHash in $recentCommits) {
             if ($fullHash) {
                 $hashes.commits += $fullHash.Substring(0, [math]::Min(8, $fullHash.Length))
@@ -3887,18 +3888,18 @@ function Get-DeliveredArtifacts {
     if (-not $ExpectedRefsByRepository) {
         $ExpectedRefsByRepository = @{}
         if ($WorktreePath -and (Test-Path $WorktreePath)) {
-            $ParentTop = [string](& git -C $WorktreePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
-            $ParentBranch = [string](& git -C $WorktreePath branch --show-current 2>$null | Select-Object -First 1)
+            $ParentTop = [string]((& cmd /c "git -C ""$WorktreePath"" rev-parse --show-toplevel 2>nul") | Select-Object -First 1)
+            $ParentBranch = [string]((& cmd /c "git -C ""$WorktreePath"" branch --show-current 2>nul") | Select-Object -First 1)
             if ($LASTEXITCODE -eq 0 -and $ParentBranch -and $ParentBranch -notin @('main', 'master')) {
                 $ExpectedRefsByRepository['jsboige/roo-extensions'] = $ParentBranch
             }
 
             $SubmodulePath = Join-Path $WorktreePath 'mcps/internal'
             if (Test-Path $SubmodulePath) {
-                $SubmoduleTop = [string](& git -C $SubmodulePath rev-parse --show-toplevel 2>$null | Select-Object -First 1)
+                $SubmoduleTop = [string]((& cmd /c "git -C ""$SubmodulePath"" rev-parse --show-toplevel 2>nul") | Select-Object -First 1)
                 $SubmoduleIsPopulated = $LASTEXITCODE -eq 0 -and $SubmoduleTop -and $SubmoduleTop -ne $ParentTop
                 if ($SubmoduleIsPopulated) {
-                    $SubmoduleBranch = [string](& git -C $SubmodulePath branch --show-current 2>$null | Select-Object -First 1)
+                    $SubmoduleBranch = [string]((& cmd /c "git -C ""$SubmodulePath"" branch --show-current 2>nul") | Select-Object -First 1)
                     if ($LASTEXITCODE -eq 0 -and $SubmoduleBranch -and $SubmoduleBranch -notin @('main', 'master')) {
                         $ExpectedRefsByRepository['jsboige/jsboige-mcp-servers'] = $SubmoduleBranch
                     }
@@ -3911,7 +3912,7 @@ function Get-DeliveredArtifacts {
         $PreviousPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            $ExpectedAuthor = [string](& git -C $WorktreePath config --get user.name 2>$null | Select-Object -First 1)
+            $ExpectedAuthor = [string]((& cmd /c "git -C ""$WorktreePath"" config --get user.name 2>nul") | Select-Object -First 1)
             if ($LASTEXITCODE -ne 0) { $ExpectedAuthor = $null }
         }
         catch {
@@ -3977,12 +3978,12 @@ function Get-DeliveredArtifacts {
         $PreviousPreference = $ErrorActionPreference
         try {
             $ErrorActionPreference = 'Continue'
-            $Branch = (& git -C $WorktreePath branch --show-current 2>$null | Select-Object -First 1)
+            $Branch = (& cmd /c "git -C ""$WorktreePath"" branch --show-current 2>nul") | Select-Object -First 1
             if ($LASTEXITCODE -eq 0 -and $Branch -and $Branch -notin @('main', 'master')) {
-                $RemoteLine = (& git -C $WorktreePath ls-remote origin "refs/heads/$Branch" 2>$null | Select-Object -First 1)
+                $RemoteLine = (& cmd /c "git -C ""$WorktreePath"" ls-remote origin ""refs/heads/$Branch"" 2>nul") | Select-Object -First 1
                 if ($LASTEXITCODE -eq 0 -and $RemoteLine -match '^([0-9a-f]{40})\s+') {
                     $RemoteHash = $Matches[1]
-                    $CommittedAtText = (& git -C $WorktreePath show -s --format=%cI $RemoteHash 2>$null | Select-Object -First 1)
+                    $CommittedAtText = (& cmd /c "git -C ""$WorktreePath"" show -s --format=%cI $RemoteHash 2>nul") | Select-Object -First 1
                     if ($LASTEXITCODE -eq 0 -and $CommittedAtText) {
                         $CommittedAt = [DateTime]::Parse(
                             [string]$CommittedAtText,
@@ -4036,8 +4037,8 @@ function Test-CommitHashExists {
         $ErrorActionPreference = "Continue"
 
         # Test both parent and submodule
-        $parentTest = git cat-file -t $Hash 2>&1
-        $submoduleTest = git -C "mcps/internal/servers/roo-state-manager" cat-file -t $Hash 2>&1
+        $parentTest = & cmd /c "git cat-file -t $Hash 2>&1"
+        $submoduleTest = & cmd /c "git -C ""mcps/internal/servers/roo-state-manager"" cat-file -t $Hash 2>&1"
 
         $ErrorActionPreference = $prevPref
         Pop-Location
@@ -4267,7 +4268,7 @@ function Invoke-GitSyncAndReview {
 
     try {
         # Record current HEAD before pull
-        $oldHead = (git -C $RepoRoot rev-parse HEAD 2>&1).Trim()
+        $oldHead = (& cmd /c "git -C ""$RepoRoot"" rev-parse HEAD 2>&1").Trim()
         Write-Log "Git HEAD before pull: $($oldHead.Substring(0, 7))"
 
         # Pull from origin (no-rebase to avoid conflicts)
@@ -4280,7 +4281,7 @@ function Invoke-GitSyncAndReview {
         $prevPref = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         try {
-            $pullOutput = git -C $RepoRoot pull --no-rebase origin main 2>&1
+            $pullOutput = & cmd /c "git -C ""$RepoRoot"" pull --no-rebase origin main 2>&1"
             $pullExitCode = $LASTEXITCODE
         } finally {
             $ErrorActionPreference = $prevPref
@@ -4293,14 +4294,14 @@ function Invoke-GitSyncAndReview {
         }
 
         $result.pullSuccess = $true
-        $newHead = (git -C $RepoRoot rev-parse HEAD 2>&1).Trim()
+        $newHead = (& cmd /c "git -C ""$RepoRoot"" rev-parse HEAD 2>&1").Trim()
         $result.newHead = $newHead
         Write-Log "Git HEAD after pull: $($newHead.Substring(0, 7))"
 
         # Check if HEAD changed
         if ($newHead -ne $oldHead) {
             $result.headChanged = $true
-            $commitCount = (git -C $RepoRoot rev-list "$oldHead..$newHead" --count 2>&1).Trim()
+            $commitCount = (& cmd /c "git -C ""$RepoRoot"" rev-list ""$oldHead..$newHead"" --count 2>&1").Trim()
             Write-Log "HEAD changed: $commitCount new commit(s) detected" "INFO"
 
             # Trigger auto-review (non-blocking, best-effort)
