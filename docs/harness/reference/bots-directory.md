@@ -4,7 +4,7 @@
 
 **Version:** 1.5.0
 **Issue :** #2243, #3219, #3413
-**MAJ:** 2026-09-08 (#3219 re-mesure : identité GitHub Hermes résolue — `clusterManager-Myia` **partagé** avec NanoClaw + `jsboige` ; λ.51 attributions par `clusterManager-Myia` révisées ; Hermes approuve désormais depuis ~09-06, NanoClaw reste `COMMENTED` ; note audit contenu + nom runtime conteneur NanoClaw). — 2026-09-04 (#3413 : accès RooSync Hermes corrigé — bridge mcp-remote, l'ancienne lecture « pas de RSM » est périmée ; adresse inbox NanoClaw corrigée — `myia-ai-01:roo-extensions` effectif, `:nanoclaw` n'aboutit pas)
+**MAJ:** 2026-09-21 (#3219, po-2025 ; fenêtre #3751→#3760 : ratio Hermes:NanoClaw 2:0, classe #3534/#3536 0/2 — 2ᵉ fenêtre consécutive à zéro, attestation par signature de corps seule clé valide confirmée ; blocker (b) NanoClaw 0 APPROVED cumulé inchangé ; datapoint governance #3760 APPROVE bot + APPROVE coord « APPROVE inéligible remplacé »). — 2026-09-08 (#3219 re-mesure : identité GitHub Hermes résolue — `clusterManager-Myia` **partagé** avec NanoClaw + `jsboige` ; λ.51 attributions par `clusterManager-Myia` révisées ; Hermes approuve désormais depuis ~09-06, NanoClaw reste `COMMENTED` ; note audit contenu + nom runtime conteneur NanoClaw). — 2026-09-04 (#3413 : accès RooSync Hermes corrigé — bridge mcp-remote, l'ancienne lecture « pas de RSM » est périmée ; adresse inbox NanoClaw corrigée — `myia-ai-01:roo-extensions` effectif, `:nanoclaw` n'aboutit pas)
 
 ---
 
@@ -67,6 +67,31 @@
 
   **MAJ 2026-09-20 (#3219, po-204 ; fenêtre #3738→#3750 — PRs créées 19/09 13:29Z → 20/09 11:50Z, 12 PRs réelles — #3743 inexistant —, 24 reviews)** : ratio Hermes:NanoClaw **6:5 (~1,2:1)** — trajectoire ~8:1 (22/08) → ~1,4:1 (19/09) → ~1,2:1. Les 5 reviews NanoClaw (5 LGTM, dont #3741 chaîne pointer→merge→blobs vérifiée firsthand) restent **toutes `COMMENTED` : 0 APPROVED, blocker (b) inchangé** ; minutes `:16 :47 :17 :48 :47` — deux grappes, grille `:15/:45` corroborée. **Hermes 6/6 événements formels (4 APPROVED + 2 CHANGES_REQUESTED), zéro review à verdict muet — la classe #3534/#3536 (2/7 le 19/09) ne s'est pas reproduite sur cette fenêtre (0/6)** ; les 2 CHANGES portent des findings réels (#3738 : claim « 2 LGTM muets » littéralement fausse, corroborée par deux instruments indépendants — re-dérivation REST po-204 15:16Z + consolidation ai-01 17:00Z ; #3749 : régression CI au head). **Première articulation explicite de la division du travail proto-B (#3741)** : l'APPROVED Hermes cite lui-même le LGTM NanoClaw comme non-qualifiant (« event formel posé car le LGTM NanoClaw (COMMENTED) ne peut pas lever `reviewDecision` ») — la passe structurelle précède l'événement formel, 3ᵉ séquence proto-B observée en nature (#3621, #3736, #3741). **Famille C : 0/11** — toutes les reviews `clusterManager-Myia` signées (6 Hermes + 5 NanoClaw), **0 merge sous ce login** (9 PRs mergées : 7 par `myia-ai-01`, 1 par `myia-po-2023`, 1 par `jsboige`) : engagement ai-01 du 18/09 23:20Z tenu sur une 2ᵉ fenêtre consécutive.
 
+  **MAJ 2026-09-21 (#3219, po-2025 ; fenêtre #3751→#3760 — PRs créées 20/09 11:50Z → 21/09 07:21Z, 8 PRs réelles, 13 reviews formelles via `pulls/N/reviews`)** : ratio Hermes:NanoClaw **2:0** — trajectoire ~8:1 (22/08) → ~2,5:1 (18/09) → ~1,4:1 (19/09) → ~1,2:1 (20/09) → **2:0 (21/09)**. ⚠ **Lecture prudente obligatoire** : l'échantillon est **petit (8 PRs, 13 reviews)** et la fenêtre est **homogène** — 6/8 PRs = `fix(scheduling)` cmd-stderr lot 2/3 (F1/F2/F3 de #3752 ; #3756 = lot M1/M2/M3 ; #3758 = bump submod #1179 ; #3753 = doc OAUTH-EXPIRED ; #3751 = la télémétrie 20/09 elle-même). La « fenêtre structurelle » NanoClaw (#3219 §6, doc lignes 60) **ne couvre pas cette classe de PRs de routine** — ce qui **explique au moins partiellement** le 0/8 sans conclure à une panne de cadence. La lecture inverse (« NanoClaw s'est tu ») reste **non prouvée** sur 8 PRs ; les minutes de post et le service sur ai-01 (Docker, NSSM, `~/.hermes/cron/jobs.json`) seraient les instruments qui trancheraient — non vérifiés firsthand cette passe. Données brutes : `$TEMP/pr-reviews-3219-21sep/` (po-2025, reproductibles via `gh pr view N --repo jsboige/roo-extensions --json reviews`, N ∈ [3751, 3760]).
+
+  **Détail par revue :**
+
+  | PR | #reviews | Hermes `[Hermes]` | NanoClaw `[NanoClaw]` | Autres |
+  |---:|---:|---:|---:|---|
+  | #3751 | 1 | 1 APPROVED (télémétrie 20/09, body `VERDICT: LGTM`) | 0 | 0 |
+  | #3752 | 2 | 0 | 0 | po-204 COMMENTED (probes drift-guard) + po-2023 APPROVED |
+  | #3753 | 1 | 0 | 0 | po-2023 APPROVED |
+  | #3754 | 1 | 0 | 0 | ai-01 APPROVED (coordinateur) |
+  | #3756 | 2 | 0 | 0 | ai-01 CHANGES_REQUESTED (`c566ff127`) puis APPROVED (`6f6a4eed`) — passe-fix #3756 lot M1/M2/M3 |
+  | #3758 | 1 | 0 | 0 | jsboige APPROVED (bump submod #1179) |
+  | #3759 | 2 | 0 | 0 | po-204 COMMENTED (F1/F2 vérifiés par probes) + po-2023 APPROVED |
+  | #3760 | 3 | 1 APPROVED (body `[Hermes]`, `VERDICT: LGTM (APPROVE)`, head `eea7a088`) | 0 | po-204 COMMENTED + ai-01 APPROVED |
+
+  **Hermes — 2/2 événements formels, classe #3534/#3536 à 0/2 (2ᵉ fenêtre consécutive à zéro)** : les 2 reviews Hermes sont **APPROVED**, signées `[Hermes]` dans le corps, `VERDICT:` en ligne 1 — convergentes avec le gabarit post-mandat du 13/09. **Datapoint d'attribution** : la review #3751 commence par `VERDICT: LGTM` SANS signature `[Hermes]`/`[NanoClaw]` ligne 1 — c'est la signature ligne 7 (`**[Hermes]** — #3751 review du head b58c5f1c`) qui tranche. La convergence de format du 19/09 reste vraie : attribution par 1ère ligne **morte**, signature de corps **seule clé valide** (règle (a) confirmée).
+
+  **Datapoint governance (faible gravité, login propre, disclosed)** : #3760 porte un APPROVE `clusterManager-Myia` à 07:28Z (Hermes, post-19/09 cycle :15) **+** un APPROVE `myia-ai-01` à 10:56Z (coord, explicitement *« Cet APPROVE n'est pas un doublon de courtoisie : il remplace un APPROVE inéligible »* — cite l'engagement option 1 du 18/09, mais constate qu'il **n'a pas été appliqué côté identité** sur ce cycle). Lecture : la règle d'or « ne pas review/merger sous `clusterManager-Myia` » est respectée pour les merges (8/8 sous openers machines), **mais pas** pour les reviews (2/2 `clusterManager-Myia` APPROVED sur la fenêtre). L'arbitrage option 1 vs 2 (retrait `hosts.yml` vs signature obligatoire) reste ouvert — le datapoint rapproche le ruling, mais ne le tranche pas. La passe coord d'ai-01 corrige *a posteriori* (#3760 APPROVED 10:56Z post-APPROVE-bot 07:28Z, écart 3h28) : c'est un filet de production, pas un dispositif de gouvernance.
+
+  **Blockers état au 21/09 :**
+
+  - **(a) Disponibilité NanoClaw** — streak sans gap observé côté GitHub ≥ 25 jours (26/08 → 21/09). Le 0/8 sur cette fenêtre est cohérent avec le profil « fenêtre structurelle » (multi-dépôts + pointer-bumps) et **ne démontre pas** de panne de cadence — vérification firsthand NSSM/Docker/jobs.json non conduite cette passe.
+  - **(b) Événement formel NanoClaw** — **0 APPROVED cumulé** sur l'ensemble du corpus #3219 (toujours). La question du 13/09 demeure, intacte : *NanoClaw reçoit-il le même mandat qu'Hermes, oui/non/variante gate ?*
+  - **(c) Gouvernance login partagé** — l'engagement ai-01 du 18/09 23:20Z est **partiellement tenu** : 0/8 merges sous `clusterManager-Myia` (axe merge ✅), 2/2 reviews APPROVED sous ce login (axe review ❌). Le ruling user (option 1 ou 2) reste nécessaire pour fermer ce volet.
+
 ## Wake-on-Demand
 
 Pour réveil immédiat hors cron tick (mécanisme listener #2244) :
@@ -103,4 +128,4 @@ historique non auditée". Une nouvelle mesure, idéalement côté scheduler inte
 - Bots inbox standardisé : #2241
 - Bots active polling : #2242
 - Wake-on-tag listener : #2244
-- Audit cadence bot : #3219 (po-2025, 2026-08-25 — correction scheduler NanoClaw)
+- Audit cadence bot : #3219 (po-2025, 2026-08-25 — correction scheduler NanoClaw ; po-2025, 2026-09-21 — fenêtre #3751→#3760 ratio 2:0, attestation convergence de format)
