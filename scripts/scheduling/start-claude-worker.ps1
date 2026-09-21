@@ -4140,7 +4140,9 @@ Voir: $LogFile
     # signalement d'échec doit survivre à sa propre chaîne d'outils.
     $MachineId = $env:COMPUTERNAME.ToLower()
     $Priority = if ($Result.success) { "LOW" } else { "HIGH" }
-    $Subject = "Worker Report - $($Task.subject)"
+    # #3752 F3 (po-204 review on #3759): same quote hazard as F1 — a " in
+    # the task subject closes the cmd.exe quoting context of --subject.
+    $Subject = "Worker Report - $($Task.subject -replace '"', '')"
     $SentViaCli = $false
 
     $SendCli = Join-Path $RepoRoot "mcps\internal\servers\roo-state-manager\scripts\send-roosync-message.mjs"
