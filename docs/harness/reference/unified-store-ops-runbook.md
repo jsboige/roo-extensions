@@ -146,7 +146,7 @@ par défaut **OFF** — aucun comportement ne change tant que les flags ne sont 
   PG-primary des autres.
 - **Dégradation gracieuse** : panne PG → fallback sur le chemin fichier d'origine (l'envoi n'est
   jamais perdu). La divergence résultante se re-synchronise par le backfill canal
-  (`scripts/backfill-roosync-channel.mjs`).
+  (`scripts/backfill-roosync-channel.mjs`, submod `servers/roo-state-manager/`).
 
 ### 7.2 Séquence d'activation d'une machine (canal)
 

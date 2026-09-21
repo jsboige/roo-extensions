@@ -783,17 +783,18 @@ foreach ($metric in $metrics.GetEnumerator()) {
 
 ### Documentation Technique
 - Protocole SDDD complet - ✅ À JOUR v1.1.0
-- `../scripts-transient/` - ✅ Scripts MCPs validés
+- `../scripts/mcp/` - Scripts MCPs (backup/restore, rebuild, zombie cleanup)
 - [Guides d'installation](./MCPs-INSTALLATION-GUIDE.md) - ✅ À JOUR v2.0.0
 - Configuration environnement - ✅ À JOUR v1.1.0
 - Guide utilisateur RooSync - ✅ NOUVEAU
 - Rapport mission MCPs - ✅ RÉCENT
 
 ### Outils de Diagnostic
-- Diagnostic complet (`../scripts/diagnostic/complete-sddd-diagnostic.ps1`)
-- Analyseur de performance (`../scripts/monitoring/performance-analyzer.ps1`)
-- Validateur de configuration (`../scripts/validation/config-validator.ps1`)
-- Générateur de rapports (`../scripts/reporting/report-generator.ps1`)
+> **Note (2026-09-21)** : les quatre scripts historiques (`complete-sddd-diagnostic.ps1`, `performance-analyzer.ps1`, `config-validator.ps1`, `report-generator.ps1`) ont été supprimés lors des consolidations de scripts. Équivalents actuels, vérifiés présents :
+- Diagnostic (`../scripts/diagnostic/run-diagnostic.ps1`)
+- Monitoring serveurs MCP (`../scripts/monitoring/monitor-mcp-servers.ps1`)
+- Validation configuration MCP (`../scripts/validation/validate-mcp-config.ps1`)
+- Rapport usage tokens (`../scripts/monitoring/token-usage-report.js`)
 
 ### Contacts Support
 - **Niveau 1** : Roo Debug Complex (diagnostic automatique)

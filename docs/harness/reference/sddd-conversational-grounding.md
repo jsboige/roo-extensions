@@ -331,7 +331,7 @@ Si un outil SDDD ne fonctionne pas (codebase_search timeout, roosync_search vide
 
 ## Référence Croisée - SDDD RooSync
 
-**Ce document** (`.claude/rules/sddd-conversational-grounding.md`) est le **protocole opérationnel Claude Code** pour le triple grounding SDDD. Il couvre les outils spécifiques à Claude Code :
+**Ce document** (ex-`.claude/rules/sddd-conversational-grounding.md`, relocalisé en `docs/harness/reference/`) est le **protocole opérationnel Claude Code** pour le triple grounding SDDD. Il couvre les outils spécifiques à Claude Code :
 - `conversation_browser` (outil unifié)
 - `bookend pattern` (début et fin de tâche)
 - `protocole multi-pass` pour `codebase_search`

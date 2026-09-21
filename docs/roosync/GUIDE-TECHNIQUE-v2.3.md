@@ -407,18 +407,18 @@ Le serveur MCP `roo-state-manager` expose **12 outils RooSync consolidés** (ét
 
 | Outil | Rôle | Phase Workflow | Outils Source |
 |-------|------|----------------|---------------|
-| `roosync_init` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/init.ts`) | Initialisation baseline + roadmap | Phase 1 (Création) | `init.ts` |
+| `roosync_init` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/roosync_init.ts`) | Initialisation baseline + roadmap | Phase 1 (Création) | `init.ts` |
 | `roosync_get_status` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-status.ts`) | État synchronisation global + dashboard | Monitoring | `get-status.ts` + `read-dashboard.ts` |
 | `roosync_compare_config` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/compare-config.ts`) | Détection divergences vs baseline | Phase 3 (Sync) | `compare-config.ts` |
 | `roosync_list_diffs` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/list-diffs.ts`) | Liste complète des différences | Phase 3 (Analyse) | `list-diffs.ts` |
-| `roosync_approve_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/approve-decision.ts`) | Approbation changement | Phase 3 (Validation) | `approve-decision.ts` |
-| `roosync_reject_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/reject-decision.ts`) | Rejet de changement | Phase 3 (Validation) | `reject-decision.ts` |
-| `roosync_apply_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/apply-decision.ts`) | Application changement approuvé | Phase 3 (Apply) | `apply-decision.ts` |
-| `roosync_rollback_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/rollback-decision.ts`) | Annulation changement | Gestion erreurs | `rollback-decision.ts` |
-| `roosync_get_decision_details` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/get-decision-details.ts`) | Détails complets d'une décision | Analyse | `get-decision-details.ts` |
-| `roosync_manage_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/manage-baseline.ts`) | Gestion versions (Backup/Restore) | Gestion baseline | `version-baseline.ts` + `restore-baseline.ts` |
-| `roosync_update_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/update-baseline.ts`) | Mise à jour baseline | Gestion baseline | `update-baseline.ts` |
-| `roosync_export_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/export-baseline.ts`) | Export baseline | Gestion baseline | `export-baseline.ts` |
+| `roosync_approve_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/decision.ts`) | Approbation changement | Phase 3 (Validation) | `approve-decision.ts` — fusionné dans `decision.ts` |
+| `roosync_reject_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/decision.ts`) | Rejet de changement | Phase 3 (Validation) | `reject-decision.ts` — fusionné dans `decision.ts` |
+| `roosync_apply_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/decision.ts`) | Application changement approuvé | Phase 3 (Apply) | `apply-decision.ts` — fusionné dans `decision.ts` |
+| `roosync_rollback_decision` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/decision.ts`) | Annulation changement | Gestion erreurs | `rollback-decision.ts` — fusionné dans `decision.ts` |
+| `roosync_get_decision_details` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/decision-info.ts`) | Détails complets d'une décision | Analyse | `get-decision-details.ts` — fusionné dans `decision-info.ts` |
+| `roosync_manage_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/baseline.ts`) | Gestion versions (Backup/Restore) | Gestion baseline | `version-baseline.ts` + `restore-baseline.ts` — fusionnés dans `baseline.ts` |
+| `roosync_update_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/baseline.ts`) | Mise à jour baseline | Gestion baseline | `update-baseline.ts` — fusionné dans `baseline.ts` |
+| `roosync_export_baseline` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/baseline.ts`) | Export baseline | Gestion baseline | `export-baseline.ts` — fusionné dans `baseline.ts` |
 
 ### 2.5 Services Intégrés
 
@@ -902,7 +902,7 @@ const message = await use_mcp_tool('roo-state-manager', 'roosync_get_message', {
 
 ### 3.7 Tests E2E
 
-Suite complète disponible : `src/tools/roosync/__tests__/amend_message.test.ts` (`../../mcps/internal/servers/roo-state-manager/src/tools/roosync/__tests__/amend_message.test.ts`)
+Suite complète disponible : `../../mcps/internal/servers/roo-state-manager/src/tools/roosync/__tests__/amend_message.test.ts`
 
 **7 tests couverts** (100% passés) :
 
@@ -1804,7 +1804,7 @@ export class StateManagerError extends Error {
 
 **Date** : 2026-01-24
 **Statut** : ⚠️ Déprécié
-**Migration** : Voir `docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`
+**Migration** : Voir `docs/harness/reference/github-cli.md` (référence GitHub actuelle — le répertoire `docs/suivi/github-projects-migration/` a été retiré)
 
 **Historique** :
 - 2026-01-23 : Implémentation des paramètres limit/summary (commit `51fbb7e`)
