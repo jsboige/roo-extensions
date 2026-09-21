@@ -12,6 +12,8 @@
  *   --profile <name>     Apply profile from model-configs.json (sets apiConfigId per mode)
  *   --model-configs <path> Path to model-configs.json (default: roo-config/model-configs.json)
  *   --deploy             Also copy to .roomodes at project root
+ *   --deploy-global      Also copy to the Roo global custom_modes.yaml (#595)
+ *   --global-path <path> Explicit target file for --deploy-global (default: VS Code globalStorage custom_modes.yaml)
  *   --format <json|yaml> Output format (default: json). YAML needed for Roo 3.51.1+ global deploy.
  */
 const fs = require('fs');
@@ -142,6 +144,8 @@ function parseArgs() {
     profile: null,
     modelConfigs: DEFAULT_MODEL_CONFIGS,
     deploy: false,
+    deployGlobal: false,
+    globalPath: null,
     format: 'json'
   };
 
@@ -154,6 +158,10 @@ function parseArgs() {
       args.modelConfigs = process.argv[++i];
     } else if (process.argv[i] === '--deploy') {
       args.deploy = true;
+    } else if (process.argv[i] === '--deploy-global') {
+      args.deployGlobal = true;
+    } else if (process.argv[i] === '--global-path' && i + 1 < process.argv.length) {
+      args.globalPath = process.argv[++i];
     } else if (process.argv[i] === '--format' && i + 1 < process.argv.length) {
       args.format = process.argv[++i];
       if (args.format !== 'json' && args.format !== 'yaml') {
@@ -163,7 +171,31 @@ function parseArgs() {
     }
   }
 
+  // #595: the Roo 3.51.1+ global modes file is YAML only. Validated after the
+  // loop so flag order (--format yaml before or after --deploy-global) does not matter.
+  if (args.deployGlobal && args.format !== 'yaml') {
+    console.error('ERROR: --deploy-global requires --format yaml (Roo 3.51.1+ global custom_modes.yaml is YAML).');
+    process.exit(1);
+  }
+
   return args;
+}
+
+// --- Global deploy path resolution (#595) ---
+
+function resolveGlobalModesPath(explicit) {
+  if (explicit) {
+    return explicit;
+  }
+  // Roo 3.51.1+ global modes file lives in the VS Code extension globalStorage.
+  var settingsDir;
+  if (process.platform === 'win32') {
+    settingsDir = path.join(process.env.APPDATA || '', 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings');
+  } else {
+    var configBase = process.env.XDG_CONFIG_HOME || path.join(process.env.HOME || '', '.config');
+    settingsDir = path.join(configBase, 'Code', 'User', 'globalStorage', 'rooveterinaryinc.roo-cline', 'settings');
+  }
+  return path.join(settingsDir, 'custom_modes.yaml');
 }
 
 // --- Main ---
@@ -306,6 +338,17 @@ function main() {
     var roomodesPath = path.join(ROOT, '.roomodes');
     fs.copyFileSync(args.output, roomodesPath);
     console.log('Deployed to: ' + roomodesPath);
+  }
+
+  // Deploy to the Roo global custom_modes.yaml if requested (#595)
+  if (args.deployGlobal) {
+    var globalModesPath = resolveGlobalModesPath(args.globalPath);
+    var globalModesDir = path.dirname(globalModesPath);
+    if (!fs.existsSync(globalModesDir)) {
+      fs.mkdirSync(globalModesDir, { recursive: true });
+    }
+    fs.copyFileSync(args.output, globalModesPath);
+    console.log('Deployed to global: ' + globalModesPath);
   }
 }
 
