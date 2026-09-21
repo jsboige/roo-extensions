@@ -67,10 +67,25 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
         }
 
         It "la consommation suit l'appel de post, pas l'inverse" {
+            # Le feeder peut avoir PLUSIEURS Write-Queue (eviction wtHead en
+            # #3755, avant le post ; puis consommation du post reussi) ; on
+            # cherche celle qui suit SPECIFIQUEMENT l'appel de post, pas la
+            # premiere du fichier. Pour cela on part de la position du post
+            # et on cherche la consommation qui suit -- pas celle qui precede.
             $iPost = $content.IndexOf('$posted = Invoke-RsmAppend')
-            $iConsume = $content.IndexOf('Write-Queue -Queue $outObj')
+            $iConsumeAfterPost = $content.IndexOf('Write-Queue -Queue $outObj', $iPost)
             $iPost | Should -BeGreaterThan 0
-            $iConsume | Should -BeGreaterThan $iPost
+            $iConsumeAfterPost | Should -BeGreaterThan $iPost
+        }
+
+        It "la consommation specifique au post reussi vit DANS la branche posted" {
+            # #3755 a ajoute une Write-Queue supplementaire (eviction wtHead,
+            # avant le post) ; on verifie que la consommation liee au POST
+            # REUSSI est strictement dans la branche `if ($posted)`, pas un
+            # accident de position. Scoped regex sur le bloc.
+            $postedBranch = [regex]::Match($content, '(?s)if \(\$posted\) \{.*?exit 0').Value
+            $postedBranch | Should -Not -BeNullOrEmpty
+            ($postedBranch -match 'Write-Queue -Queue \$outObj') | Should -Be $true
         }
     }
 
@@ -359,6 +374,61 @@ Describe "Vibe feeder - gardes du drainer (review #3518)" {
             ($delivered -match 'Write-Queue -Queue \$outObj') | Should -Be $true
             ($delivered -match '\$grains \| Where-Object \{ \$_\.id -ne \$g\.id \}') | Should -Be $true
             ($delivered -match '\$psHost -File') | Should -Be $false
+        }
+    }
+
+    Context "C6 : eviction feeder-level par discriminant de generation (#3755, reliquat #3643)" {
+
+        # PR #3643 ajoutait l'eviction dans refresh-vibe-queue.py -- mais
+        # seulement en passe 2, qui ne s'execute que si la passe 1 a trouve
+        # la file vide. Un grain livre etait REPOSTE avant que l'eviction
+        # ait la parole (cout : 0,56 $ de NOOP sur g1-genai le 14/09). #3755
+        # ajoute une eviction en passe 1 du feeder, cle sur wtHead -- SHA de
+        # tete du worktree capturee par l'organe au moment ou le grain est
+        # pose en file, comparee au HEAD reel avant chaque repost.
+
+        It "consulte le champ wtHead sur le grain" {
+            ($content -match '\$g\.wtHead') | Should -Be $true
+        }
+
+        It "compare wtHead au HEAD reel du worktree (pas a origin/main)" {
+            # Le discriminant est strictement local : deux lectures git, pas
+            # d'appel reseau, pas de Python, pas de gh. C'est precisement ce
+            # qui rend la garde operante en passe 1 sans dependre du refresh.
+            $evictBlock = [regex]::Match($content, '(?s)if \(\$g\.PSObject\.Properties\[.wtHead.\].*?continue\s*\n').Value
+            $evictBlock | Should -Not -BeNullOrEmpty
+            ($evictBlock -match '\$currentHead\s+-ne\s+\$g\.wtHead') | Should -Be $true
+            ($evictBlock -match 'rev-parse HEAD') | Should -Be $true
+        }
+
+        It "reecrit la file avec le grain filtre sur eviction" {
+            # L'eviction doit consommer le grain du tour, sinon il reste en
+            # tete et le tick suivant le re-poste. Meme contrat que la branche
+            # 'poste OK' et 'livre malgre timeout' (C1, C5).
+            $evictBlock = [regex]::Match($content, '(?s)if \(\$g\.PSObject\.Properties\[.wtHead.\].*?continue\s*\n').Value
+            ($evictBlock -match 'Write-Queue -Queue \$outObj') | Should -Be $true
+            ($evictBlock -match 'Where-Object \{ \$_\.id -ne \$g\.id \}') | Should -Be $true
+        }
+
+        It "l'eviction est AVANT Update-StaleGrainBase et AVANT le post" {
+            # Tout autre ordre rouvre la classe de replay que #3755 ferme :
+            # un grain livre passerait par Update-StaleGrainBase (qui ne voit
+            # que la baseSha, pas la generation) puis serait poste avant que
+            # l'eviction ne parle.
+            $iEvict = $content.IndexOf('EVICT ')
+            $iStale = $content.IndexOf('Update-StaleGrainBase -Grain $g')
+            $iPost  = $content.IndexOf('Invoke-RsmAppend -AppendOptions')
+            $iEvict  | Should -BeGreaterThan 0
+            $iStale  | Should -BeGreaterThan $iEvict
+            $iPost   | Should -BeGreaterThan $iEvict
+        }
+
+        It "court-circuite sur grain legacy sans wtHead" {
+            # Les grains queues AVANT #3755 n'ont pas de champ wtHead :
+            # la garde doit se taire pour eux (laissons l'organe les
+            # reecrire au prochain refresh) sans casser le tick.
+            ($content -match '\$g\.PSObject\.Properties\[.wtHead.\]') | Should -Be $true
+            ($content -match '\$g\.wtHead -and ') | Should -Be $true
         }
     }
 }

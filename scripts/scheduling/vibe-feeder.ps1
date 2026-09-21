@@ -403,6 +403,26 @@ for ($pass = 1; $pass -le 2; $pass++) {
     }
 
     foreach ($g in $grains) {
+        # Discriminant de generation (#3755) : si le grain porte un wtHead
+        # enregistre par l'organe de re-mesure et que la tete reelle du
+        # worktree en a diverge, le worktree a ete reutilise pour une
+        # generation ulterieure — ce grain est un NOM reutilise, pas la
+        # generation que la file pretend. Eviction SANS gh, SANS Python :
+        # deux lectures git locales, pas une seule hypothese sur main.
+        # Le grain du tour courant est immediatement retire de la file
+        # (Write-Queue avec le grain filtre) et le tick passe au suivant,
+        # sans poster.
+        if ($g.PSObject.Properties['wtHead'] -and $g.wtHead -and $g.worktree -and (Test-Path $g.worktree)) {
+            $currentHead = (git -C $g.worktree rev-parse HEAD) 2>$null
+            if ($currentHead -and $currentHead -ne $g.wtHead) {
+                Write-FeederLog -Level 'INFO' -Text ("EVICT {0}: worktree HEAD {1} != wtHead enregistre {2} (generation obsolete, worktree reutilise)" -f $g.id, $currentHead.Substring(0,[Math]::Min(12,$currentHead.Length)), $g.wtHead.Substring(0,[Math]::Min(12,$g.wtHead.Length)))
+                $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+                $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+                Write-Queue -Queue $outObj
+                Write-FeederLog -Level 'INFO' -Text ("file mise a jour (eviction wtHead): {0} grain(s) restant(s)" -f $remaining.Count)
+                continue
+            }
+        }
         # base fraiche ? (le worktree ne doit pas partir d'un main perime)
         $originMain = (git -C $runtimeDir rev-parse origin/main) 2>$null
         if ($originMain -match '^[0-9a-f]{40}$' -and $originMain -ne $g.baseSha) {

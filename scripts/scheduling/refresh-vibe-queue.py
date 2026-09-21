@@ -598,9 +598,19 @@ def main():
             wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
             branch = "wt/vibe-%s" % gid
             targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
+            # Discriminant de generation (#3755) : on capture la SHA de tete du
+            # worktree au moment ou le grain est pose en file. Le feeder
+            # comparera cette valeur au HEAD reel du worktree AVANT chaque
+            # repost : si elle diverge, le worktree a ete reutilise pour une
+            # nouvelle generation et le grain porte un nom mais pas la bonne
+            # tete — eviction sans appel a gh.
+            wt_head = ""
+            if os.path.isdir(wt):
+                wt_head = sh(["git", "-C", wt, "rev-parse", "HEAD"],
+                             check=False).strip()
             grains.append({
-                "id": gid, "issue": issue, "baseSha": base, "worktree": wt,
-                "branch": branch,
+                "id": gid, "issue": issue, "baseSha": base, "wtHead": wt_head,
+                "worktree": wt, "branch": branch,
                 "payload": contract["payload"].format(
                     gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
             })
