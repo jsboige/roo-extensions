@@ -106,6 +106,13 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
         $script:src | Should -Not -Match 'gh (issue|pr) \w+ \$\w+\.\w+ '
     }
 
+    It 'the worker-report subject is quote-stripped before crossing the cmd layer (#3752 F3)' {
+        # Same class as F1, node send-CLI site (worker-report): $Task.subject
+        # derives from issue titles, and a " would close the cmd.exe quoting
+        # context of --subject. Pinned here beside F1/F2 as the F-series home.
+        $script:src | Should -Match '\$Subject = "Worker Report - \$\(\$Task\.subject -replace ''"'', ''''\)"'
+    }
+
     It 'the converted file parses cleanly under the running engine' {
         $errors = $null
         [System.Management.Automation.Language.Parser]::ParseFile($script:scwPath, [ref]$null, [ref]$errors) | Out-Null
