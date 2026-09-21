@@ -185,12 +185,15 @@ cd "C:/dev/roo-extensions/sddd-tracking/scripts-transient"
 .\check-mcps-compilation-2025-10-23.ps1 -ValidateRealBuild
 
 # Vérifier présence des fichiers compilés (layout 2026 : vintages build-<sha>/ + pointeur build-current)
-Test-Path "mcps/internal/servers/roo-state-manager/build-current/index.js"
-Get-ChildItem "mcps/internal/servers/roo-state-manager/build/" -Directory
+# `build-current` est un FICHIER marqueur (contenu = nom du vintage) ; les vintages sont des
+# siblings à la racine RSM, pas des sous-répertoires de build/ (cf. resolve-build-dir.mjs).
+$v = (Get-Content "mcps/internal/servers/roo-state-manager/build-current" -Raw).Trim()
+Test-Path "mcps/internal/servers/roo-state-manager/$v/index.js"
+Get-ChildItem "mcps/internal/servers/roo-state-manager/" -Directory -Filter "build-*"
 ```
 
 **Analyse Niveau 2** :
-- Les fichiers dans `mcps/internal/servers/roo-state-manager/build/` sont des placeholders vides (le layout `dist/` de 2025 n'existe plus : le build publie des vintages `build/build-<sha>/` avec pointeur `build-current`)
+- Le marqueur `build-current` est absent, ou le vintage `build-<sha>/` qu'il désigne (sibling à la racine RSM) n'a pas d'`index.js` — le layout `dist/` de 2025 n'existe plus : le build publie des vintages avec pointeur `build-current`
 - `npm run build` n'a jamais été exécuté sur les MCPs TypeScript
 - Les scripts de validation précédents ne vérifiaient pas la compilation réelle
 - Problème masqué par des tests de surface superficiels
