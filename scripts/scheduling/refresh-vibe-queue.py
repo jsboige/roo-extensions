@@ -379,8 +379,8 @@ def merged_branches(slug, branches):
     The lookup is per QUEUED branch with `--head`, not a bulk
     `--state merged --limit N` row window: at the measured CoursIA rate 300
     rows span ~58 h, and a merged grain still queued past the window would
-    become invisible -- reopening the exact replay this closes (#3643
-    review). One call per queued branch (the queue holds a handful), with no
+    become invisible -- reopening the exact replay this closes (#3755
+    review; reliquat of #3643). One call per queued branch (the queue holds a handful), with no
     dependence on how fast history scrolls.
 
     check=False: a gh failure must leave the queue as it is, never crash the
@@ -495,8 +495,8 @@ def keepable(queue, base, delivered_branches):
     A delivered NAME is not proof that this GRAIN is delivered, though: grain
     IDs and branch names are positional, and `wt/vibe-g1-genai` was already
     reused by several merged PRs with diverged tips, which is what happens
-    when a deterministic grain ID comes back after a queue drain (#3643
-    review). A delivered branch is therefore dropped only when its worktree is
+    when a deterministic grain ID comes back after a queue drain (#3755
+    review; reliquat of #3643). A delivered branch is therefore dropped only when its worktree is
     ABSENT or provably EMPTY (no commits beyond base, nothing dirty); a
     delivered name carrying an ahead/dirty worktree is an in-flight
     generation that merely reuses the name, and the grain stays.
@@ -598,9 +598,19 @@ def main():
             wt = "%s/%s" % (args.wt_root.rstrip("/"), gid)
             branch = "wt/vibe-%s" % gid
             targets = "\n".join("- %s" % p for p, _ in sorted(ch.items()))
+            # Discriminant de generation (#3755) : on capture la SHA de tete du
+            # worktree au moment ou le grain est pose en file. Le feeder
+            # comparera cette valeur au HEAD reel du worktree AVANT chaque
+            # repost : si elle diverge, le worktree a ete reutilise pour une
+            # nouvelle generation et le grain porte un nom mais pas la bonne
+            # tete — eviction sans appel a gh.
+            wt_head = ""
+            if os.path.isdir(wt):
+                wt_head = sh(["git", "-C", wt, "rev-parse", "HEAD"],
+                             check=False).strip()
             grains.append({
-                "id": gid, "issue": issue, "baseSha": base, "worktree": wt,
-                "branch": branch,
+                "id": gid, "issue": issue, "baseSha": base, "wtHead": wt_head,
+                "worktree": wt, "branch": branch,
                 "payload": contract["payload"].format(
                     gid=gid, base=base, targets=targets, worktree=wt, branch=branch),
             })

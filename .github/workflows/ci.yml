@@ -255,6 +255,18 @@ jobs:
       # add RC=1 and it goes quiet while looking healthy. The harness reads that
       # list from the production AST and asserts both directions. Static (no
       # scheduler access), so ubuntu-latest is fine.
+
+      # #3755: feeder-level eviction guard. PR #3643 added eviction to
+      # refresh-vibe-queue.py but only on pass 2, which only runs when pass 1
+      # finds the queue empty -- a delivered grain was REPOSTED before eviction
+      # could speak. This harness pins the feeder-side guard (wtHead comparison,
+      # eviction rewrites the queue, ordering before the post) and exercises the
+      # predicate on a real git worktree. Cost on 14/09 on g1-genai: 0.56 $ of
+      # NOOP. Offline: no gh, no network, no scheduler.
+      - name: Run vibe feeder eviction harness
+        shell: bash
+        run: pwsh -File scripts/testing/harness/test-vibe-feeder-eviction.ps1
+
       - name: Run scheduled-task result filter harness
         shell: bash
         run: pwsh -File scripts/testing/harness/test-schtask-result-filter.ps1

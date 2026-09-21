@@ -26,18 +26,25 @@
 
 .PARAMETER TimeoutSec
     Deadline du post stdio (defaut 150).
+
+.PARAMETER RuntimeDir
+    Repertoire du clone de runtime CoursIA dont les worktrees partent.
+    Defaut : D:\dev\CoursIA-vibe-runtime. Expose en parametre pour le harnais
+    comportemental (test-vibe-feeder-eviction.ps1, review #3756 M1) : sans lui,
+    le test ne peut pas executer le feeder reel hors de la machine de prod.
 #>
 [CmdletBinding()]
 param(
     [switch]$DryRun,
     [string]$QueuePath = '',
-    [int]$TimeoutSec = 150
+    [int]$TimeoutSec = 150,
+    [string]$RuntimeDir = 'D:\dev\CoursIA-vibe-runtime'
 )
 $ErrorActionPreference = 'Continue'   # Continue : git ecrit du progres sur stderr (fin de pipe), Stop le transformerait en throw
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = (Split-Path (Split-Path $scriptDir -Parent) -Parent)
 if (-not $QueuePath) { $QueuePath = Join-Path $repoRoot 'outputs\vibe\feeder-queue.json' }
-$runtimeDir = 'D:\dev\CoursIA-vibe-runtime'
+$runtimeDir = $RuntimeDir
 $logDir = Join-Path $repoRoot 'outputs\scheduling\logs'
 $logFile = Join-Path $logDir ("vibe-feeder-{0}.log" -f (Get-Date -Format yyyyMMdd))
 $RsmServerDir = Join-Path $repoRoot 'mcps\internal\servers\roo-state-manager'
@@ -172,6 +179,12 @@ function Update-StaleGrainBase {
     # le 11/09).
     if (-not (Test-Path $Grain.worktree)) {
         $Grain.baseSha = $OriginMain
+        # Recaler AUSSI wtHead : Prepare-Worktree creera le worktree a la
+        # nouvelle base, et un wtHead perime y declencherait une fausse
+        # eviction au tick suivant (review #3756 M3). Sur un grain sans
+        # proprietes wtHead (schema ante-#3755), l'assignation la cree a la
+        # valeur coherente -- le garde devient exact des la creation.
+        $Grain.wtHead = $OriginMain
         Write-Queue -Queue $q
         Write-FeederLog -Level 'INFO' -Text ("{0}: baseSha recalee (grain en file, sans worktree) vers {1}" -f $Grain.id, $OriginMain)
         return $true
@@ -199,6 +212,11 @@ function Update-StaleGrainBase {
     }
 
     $Grain.baseSha = $OriginMain
+    # Le reset --hard vient de deplacer HEAD sur la nouvelle base : laisser
+    # wtHead a l'ancienne valeur fait lire au tick suivant un HEAD sain comme
+    # une generation obsolete, et evince a tort un grain dont le seul crime
+    # est un post echoue (review #3756 M3).
+    $Grain.wtHead = $OriginMain
     Write-Queue -Queue $q
     Write-FeederLog -Level 'INFO' -Text ("{0}: baseSha recalee dans le tick vers {1}" -f $Grain.id, $OriginMain)
     return $true
@@ -403,6 +421,37 @@ for ($pass = 1; $pass -le 2; $pass++) {
     }
 
     foreach ($g in $grains) {
+        # Discriminant de generation (#3755) : si le grain porte un wtHead
+        # enregistre par l'organe de re-mesure et que la tete reelle du
+        # worktree en a diverge, le worktree a ete reutilise pour une
+        # generation ulterieure — ce grain est un NOM reutilise, pas la
+        # generation que la file pretend. Eviction SANS gh, SANS Python :
+        # deux lectures git locales, pas une seule hypothese sur main.
+        # Le grain du tour courant est immediatement retire de la file
+        # (Write-Queue avec le grain filtre) et le tick passe au suivant,
+        # sans poster.
+        if ($g.PSObject.Properties['wtHead'] -and $g.wtHead -and $g.worktree -and (Test-Path $g.worktree)) {
+            $currentHead = (git -C $g.worktree rev-parse HEAD) 2>$null
+            $currentHead = "$currentHead".Trim()
+            if ($currentHead -and $currentHead -ne $g.wtHead) {
+                Write-FeederLog -Level 'INFO' -Text ("EVICT {0}: worktree HEAD {1} != wtHead enregistre {2} (generation obsolete, worktree reutilise)" -f $g.id, $currentHead.Substring(0,[Math]::Min(12,$currentHead.Length)), $g.wtHead.Substring(0,[Math]::Min(12,$g.wtHead.Length)))
+                $remaining = @($grains | Where-Object { $_.id -ne $g.id })
+                $outObj = [ordered]@{ _comment = $q._comment; grains = $remaining }
+                Write-Queue -Queue $outObj
+                # La file EN MEMOIRE doit suivre la file sur disque. Sans ce
+                # recalage, la premiere re-ecriture ulterieure de la passe
+                # ressuscite le grain evince : Update-StaleGrainBase ecrit $q
+                # ENTIER (grain evince compris), et la consommation post filtre
+                # $grains -- soit exactement le rejeu du grain livre que cette
+                # eviction existe pour fermer (review #3756 M2). Le foreach
+                # itere sur une copie prise au depart : le mettre a jour n'affecte
+                # pas les grains restants a visiter.
+                $grains = $remaining
+                $q.grains = $remaining
+                Write-FeederLog -Level 'INFO' -Text ("file mise a jour (eviction wtHead): {0} grain(s) restant(s)" -f $remaining.Count)
+                continue
+            }
+        }
         # base fraiche ? (le worktree ne doit pas partir d'un main perime)
         $originMain = (git -C $runtimeDir rev-parse origin/main) 2>$null
         if ($originMain -match '^[0-9a-f]{40}$' -and $originMain -ne $g.baseSha) {
