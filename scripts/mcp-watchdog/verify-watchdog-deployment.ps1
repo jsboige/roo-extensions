@@ -140,7 +140,7 @@ if (-not $logFiles -or $logFiles.Count -eq 0) {
     # Fenetre optionnelle : preuve "a-t-il tourne pendant l'episode ?"
     if ($From -and $To) {
         # PS 5.1: le [ref] exige une variable TYPee, sinon la resolution
-        # d'overload de TryParseExact echoue (mesure po-204, 5.1.26100).
+        # d'overload de TryParseExact echoue (mesure po-2024, 5.1.26100).
         [datetime]$fromTs = [datetime]::MinValue
         [datetime]$toTs   = [datetime]::MinValue
         $parsedFrom = [datetime]::TryParseExact($From, 'yyyy-MM-dd HH:mm', [cultureinfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::None, [ref]$fromTs)

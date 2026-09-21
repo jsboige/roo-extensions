@@ -69,7 +69,7 @@ The bounded operations provide a positive signal from DriveFS itself:
   timeout → hung (`mount-probe-timeout-Ns` / `mount-enum-timeout-Ns`).
 - Mount absent or serving errors: stat fails → unhealthy (`mount-probe-error`).
 
-The enumeration stage exists because of the 2026-09-05 incident (po-204): a
+The enumeration stage exists because of the 2026-09-05 incident (po-2024): a
 wedged DriveFS instance served stat normally while **every content read hung**
 (the whole fleet saw the machine go silent). A stat-only probe logged
 "healthy" through the entire outage. Stat answers "is the mount there?",

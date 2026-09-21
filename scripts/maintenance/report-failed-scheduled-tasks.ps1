@@ -120,11 +120,11 @@ function Test-BenignTaskResult {
 #       report on that machine would have carried the same noise row forever.
 #
 #   NahimicTask*                                  RC 0xC0000005 (Task64, po-2023) and
-#                                                 RC 0x40010004 (Task32, po-204), NextRun=never.
+#                                                 RC 0x40010004 (Task32, po-2024), NextRun=never.
 #       Access violation in an audio-driver task, registered at the root. Reported
-#       by po-2023 (Task64) and po-204 (Task32) on this PR. The first version
+#       by po-2023 (Task64) and po-2024 (Task32) on this PR. The first version
 #       excluded only the literal 'NahimicTask64' -- the spelling seen on po-2023 --
-#       and po-204's Task32 twin went straight through, same lesson as the OneDrive
+#       and po-2024's Task32 twin went straight through, same lesson as the OneDrive
 #       prefix above: a name taken from one machine is not the family. Both are
 #       frozen (no next run), so each would reappear in every single report.
 $ForeignRootTaskPatterns = @(

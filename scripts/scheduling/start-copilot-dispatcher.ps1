@@ -406,7 +406,7 @@ function Invoke-PhaseCDispatch {
         #   ask_user tool — without it the agent emits "Permission denied and could
         #   not request permission from user" on every tool call instead of running.
         # (kept --allow-all-tools, NOT --allow-all, to keep file-path/url scope
-        #  restricted — po-204 review #3274: blast radius.)
+        #  restricted — po-2024 review #3274: blast radius.)
         # Refs: #622 (dispatcher consumed premium but produced no real work), user mandate.
         # PS 5.1 + $ErrorActionPreference='Stop' (set at the top of this script) turns
         # ANY native stderr write into a TERMINATING error when it is merged with

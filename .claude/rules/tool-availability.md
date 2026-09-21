@@ -31,7 +31,7 @@
 
 ## MCP désactivés ≠ absents (#3137)
 
-Des MCP dédiés sont **désactivés** pour réduire la surface exposée — pas désinstallés. Leur config reste sur disque. L'état se lit à **TROIS emplacements** (finding ai-01 23/08 + vérif live po-204 24/08, #3137) :
+Des MCP dédiés sont **désactivés** pour réduire la surface exposée — pas désinstallés. Leur config reste sur disque. L'état se lit à **TROIS emplacements** (finding ai-01 23/08 + vérif live po-2024 24/08, #3137) :
 
 | # | Emplacement | Champ | Portée |
 |---|---|---|---|
@@ -39,7 +39,7 @@ Des MCP dédiés sont **désactivés** pour réduire la surface exposée — pas
 | 2 | `<workspace>/.mcp.json` | `disabled` bool par serveur | workspace |
 | 3 | `~/.claude.json` → `projects[<workspace>].disabledMcpServers` | **liste de noms** de serveurs | workspace, **prime sur l'activation user-scope** |
 
-**Priorité vérifiée en session** : une entrée dans `disabledMcpServers` (emplacement 3) désactive le serveur dans CE workspace **même s'il est `disabled:false` en user-scope** — piège mesuré sur ai-01 et po-204 : lire les emplacements 1-2 seul conclut « activé » à tort. L'instrument qui ne ment pas : la **présence effective des outils `mcp__<serveur>__*` en session**.
+**Priorité vérifiée en session** : une entrée dans `disabledMcpServers` (emplacement 3) désactive le serveur dans CE workspace **même s'il est `disabled:false` en user-scope** — piège mesuré sur ai-01 et po-2024 : lire les emplacements 1-2 seul conclut « activé » à tort. L'instrument qui ne ment pas : la **présence effective des outils `mcp__<serveur>__*` en session**.
 
 **Avant de proposer d'installer un nouveau client** (playwright, sk-agent, jupyter-papermill…), vérifier si le MCP dédié n'est pas simplement désactivé :
 

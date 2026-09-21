@@ -107,7 +107,7 @@ if (Test-Path $logDir) {
 # while the inner listener is dead and stops writing heartbeats. That case is
 # reported as ZOMBIE so interactive callers don't mistake it for ALIVE
 # (#2576 regression observed firsthand 2026-07-12: verdict "ALIVE" with a
-# 22.96h-stale heartbeat on po-204).
+# 22.96h-stale heartbeat on po-2024).
 $hbFresh = $localHb.exists -and $localHb.ageSeconds -lt $StaleSeconds
 if ($hbFresh) {
     $verdict = "ALIVE"

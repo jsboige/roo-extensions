@@ -57,7 +57,7 @@ Describe 'PS 5.1 parse/encoding class (2026-09-20)' {
                     # one logical line -- the #3745 repair form). A leading
                     # `|` WITHOUT that continuation is the pwsh-7-only form.
                     # The RAW line is tested: a backtick followed by spaces
-                    # is NOT a continuation in PowerShell (po-204 review
+                    # is NOT a continuation in PowerShell (po-2024 review
                     # nuance on #3750), so TrimEnd() would wrongly exempt it.
                     $prevRaw = if ($i -gt 0) { $lines[$i - 1] } else { '' }
                     if ($prevRaw -notmatch '`$') {

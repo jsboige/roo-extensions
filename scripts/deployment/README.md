@@ -4,7 +4,7 @@ Ce dossier contient des scripts PowerShell consolidés pour installer et gérer 
 
 ## sync-claude-settings.ps1
 
-Harmonisation flotte de `~/.claude/settings.json` (structure de référence po-2023). Porté du GDrive (`.shared-state/configs/claude-settings/`) vers ce dépôt le 23/08/2026 après l'incident de blocage DriveFS : 3 machines coupées du script pendant ~2 jours (po-204 a nécessité un reboot, po-2023 a dû relayer via gist). Le dépôt est déjà tiré par chaque machine au pre-flight (`git pull`) — la distribution ne dépend plus de l'état de G:.
+Harmonisation flotte de `~/.claude/settings.json` (structure de référence po-2023). Porté du GDrive (`.shared-state/configs/claude-settings/`) vers ce dépôt le 23/08/2026 après l'incident de blocage DriveFS : 3 machines coupées du script pendant ~2 jours (po-2024 a nécessité un reboot, po-2023 a dû relayer via gist). Le dépôt est déjà tiré par chaque machine au pre-flight (`git pull`) — la distribution ne dépend plus de l'état de G:.
 
 ```powershell
 # dry-run (lecture seule)

@@ -67,7 +67,7 @@ Describe 'provider-preflight guard (#3361)' {
     }
 
     It 'Distinguishes an EMPTY token from an absent key (executor auth may ride custom headers)' {
-        # po-204 datapoint 03/09: on executors the key exists but is empty - reporting
+        # po-2024 datapoint 03/09: on executors the key exists but is empty - reporting
         # "absent" sends the operator looking in the wrong place during a 401/402 incident.
         $content | Should -Match "ContainsKey\('ANTHROPIC_AUTH_TOKEN'\)"
         $content | Should -Match 'EMPTY in settings'

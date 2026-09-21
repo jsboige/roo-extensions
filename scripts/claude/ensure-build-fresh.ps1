@@ -132,7 +132,7 @@ $srcFileRel = $srcNewestFile.Substring($RepoRoot.Length).TrimStart('\','/')
 # the live hosts still serve the previous modules; strict executor pre-flight must preserve that
 # restart debt instead of forgetting it on the next cycle.
 function Test-ProcessExited {
-    # Ghost corroboration (po-204, 2026-09-12): Win32_Process keeps listing a process after
+    # Ghost corroboration (po-2024, 2026-09-12): Win32_Process keeps listing a process after
     # termination when a third party holds its object handle (observed: the unreaped child of a
     # killed mcp-wrapper -- CIM listed it with a 2.3 GB working set, taskkill said "no running
     # instance", the .NET view said HasExited=True). Counted as a live host, such a ghost wedges
@@ -173,7 +173,7 @@ $hostsDetail = "{0} RSM session(s) alive ($($wrapperHosts.Count) wrapper + $($in
 if ($staleCount -gt 0) {
     $hostsDetail += "; {0} predating build/index.js (ARMÉ signature)" -f $staleCount
 }
-# Kill remedy (host-kill validated po-204 2026-09-12; role discrimination corrected by po-2026
+# Kill remedy (host-kill validated po-2024 2026-09-12; role discrimination corrected by po-2026
 # 2026-09-13): kill ONLY the build/index.js children predating the build. $staleCount counts the
 # children alone, and the mcp-wrapper.cjs parent exits by itself when its child exits
 # (server.on('exit') -> process.exit in mcp-wrapper.cjs) -- so killing a child retires the pair,

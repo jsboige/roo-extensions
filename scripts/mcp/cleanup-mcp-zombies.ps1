@@ -73,7 +73,7 @@
 
 .NOTES
     Issue: #2830 — MCP host zombie processes accumulate on each restart
-    Finding: po-2023 c.38 (~51 zombies), po-204 c.46 (7 zombies)
+    Finding: po-2023 c.38 (~51 zombies), po-2024 c.46 (7 zombies)
     Gate: Livrable B (auto-scheduling) is USER-GATED. This script stays DORMANT in scheduled tasks.
 
     CONSOLIDATION (#3323, 2026-08-31):
@@ -91,7 +91,7 @@
       the ENTIRE newest cluster and cleans only older-cluster zombies. See below.
     - The kill uses `Stop-Process -Force` only after a clear log of which PIDs are about to die.
 
-    MULTI-SESSION MACHINES (#2830 follow-up, validated po-204):
+    MULTI-SESSION MACHINES (#2830 follow-up, validated po-2024):
     - A machine running 2+ concurrent MCP host sessions (interactive Claude + scheduled
       `claude -p`, or two IDE windows) produces a newest cluster with >1 build/index.js proc.
       The script cannot guess which is live, so it refuses to kill ANY newest-cluster member —
@@ -99,7 +99,7 @@
       (>OlderThanHours, not live).
     - This restores effectiveness without weakening safety: the zombie criterion (age +
       not-live + not-in-newest-cluster) is identical to the single-session path; only the
-      "refuse everything" over-reaction is removed. Validated firsthand on po-204 (newest
+      "refuse everything" over-reaction is removed. Validated firsthand on po-2024 (newest
       cluster = 2 build/index.js → 14 older-cluster zombies became cleanable that the prior
       exit-2 blocked).
 

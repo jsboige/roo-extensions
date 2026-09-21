@@ -398,7 +398,7 @@ function Test-GDriveFSMountLive {
         return @{ Live = $false; Reason = 'mount-probe-error: not-a-container' }
     }
 
-    # Stage 2 — bounded content enumeration. Incident 2026-09-05 (po-204 c.361):
+    # Stage 2 — bounded content enumeration. Incident 2026-09-05 (po-2024 c.361):
     # a wedged DriveFS served stat normally while EVERY content read hung — the
     # watchdog logged "healthy" through a full outage. Enumerating one entry
     # exercises the content path; completing with zero entries still counts as
