@@ -154,7 +154,7 @@ au défaut 2. Après édition : **restart de la session** (les hooks se chargent
 
 Toute évolution vers un canon (nouvelle clé ou fenêtre corrigée) = décision coordinateur/user.
 
-## Mesure de la fenêtre effective de la route Sol — MESURÉE (2026-09-12, po-204)
+## Mesure de la fenêtre effective de la route Sol — MESURÉE (2026-09-12, po-2024)
 
 **Pourquoi :** le canon pose `CLAUDE_CODE_MAX_CONTEXT_TOKENS=1000000` et
 `CLAUDE_CODE_AUTO_COMPACT_WINDOW=280000`, mais la fenêtre effective est celle du **modèle mappé
@@ -162,7 +162,7 @@ par le proxy** (mesuré Hermes 11/09 : Claudish `.50`/`.46` mappent sonnet→glm
 `gpt-5.6-sol` ; `.51` mappe glm-5.2). Si le backend acceptait < 280k, l'autocompact client ne se
 déclencherait **jamais** avant le rejet backend — dérive chronique pour toute session longue.
 
-**Méthode (reproductible) :** bisect authentifié depuis **po-204** (siège porteur d'une clé
+**Méthode (reproductible) :** bisect authentifié depuis **po-2024** (siège porteur d'une clé
 Claudish valide — `x-proxy-key` du `~/.claude/settings.json` local, jamais loggée) contre le hub
 `http://192.168.0.50:3000` : requêtes `POST /v1/messages` à padding gradué (`"a "` répété,
 calibré 1,14 tok/paire sur la sonde 100 tok, overhead constant +14), `max_tokens=16`, lecture du
@@ -219,4 +219,4 @@ claudish si souhaité.
 | 10/09 | Incident CoursIA : `Read` PDF `pages "1-15"` → 4,39 MB injectés, session bloquée toute la nuit |
 | 11/09 | #3579 ouvert (mesures JSONL firsthand + repro upstream) ; Hermes : exposition canon fleet-wide, gardes locaux contournés par le canon, bisect Sol à déléguer |
 | 11/09 | Script + tests synthétiques 8/8 + e2e VÉRIFIÉ sur po-2026 (Claude Code 2.1.41) + cette doc |
-| 12/09 | Bisect Sol exécuté depuis po-204 (siège Claudish) : fenêtre effective ∈ (900k, 925k) — 280k sûr, 1M surévalué ~10 %, dérive chronique falsifiée ; critère 5 de #3579 soldé |
+| 12/09 | Bisect Sol exécuté depuis po-2024 (siège Claudish) : fenêtre effective ∈ (900k, 925k) — 280k sûr, 1M surévalué ~10 %, dérive chronique falsifiée ; critère 5 de #3579 soldé |

@@ -62,7 +62,7 @@ Describe 'start-claude-worker git-family stderr class (#3731)' {
         @($offenders) | Should -Be @()
     }
 
-    It 'no single-quoted argument inside a git cmd string (single quotes survive cmd literally — po-204 review, PR #3748)' {
+    It 'no single-quoted argument inside a git cmd string (single quotes survive cmd literally — po-2024 review, PR #3748)' {
         # PowerShell strips single quotes at parse time; cmd does NOT. A
         # 'arg' inside a cmd /c "git …" string reaches git WITH its quotes:
         # pathspec magic (':!path') dies with exit 128, and exclude patterns

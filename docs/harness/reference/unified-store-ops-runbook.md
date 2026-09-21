@@ -36,7 +36,7 @@ UNIFIED_STORE_PG_URL=postgres://unified_store:<password>@pg.myia.io:5432/unified
 (URL exacte — hôte/port/SSL — à reprendre de la config prod ai-01 posée par #2553 ; la ligne ci-dessus est la forme attendue, le port 5432 étant la convention Postgres.)
 
 - Le mot de passe transite par **RooSync (GDrive)**, jamais par git (règle sécurité).
-- **Datapoint flotte :** po-204 a 0 clé `UNIFIED_STORE_*` en `.env` le 16/08 — le dual-write y est OFF (NullWriter). ai-01 l'a ON (10 955 conversations ingérées au 25/07).
+- **Datapoint flotte :** po-2024 a 0 clé `UNIFIED_STORE_*` en `.env` le 16/08 — le dual-write y est OFF (NullWriter). ai-01 l'a ON (10 955 conversations ingérées au 25/07).
 - Toute machine dont les 2 clés sont absentes = no-op silencieux par construction (factory). Aucun risque à ne rien faire.
 
 **Après ajout : restart du host MCP** (`[INTERACTIVE-ONLY]` — le process charge `.env` au démarrage). Vérification dans les logs de démarrage RSM :
@@ -68,7 +68,7 @@ node scripts/backfill-unified-store.mjs
 
 Sorties attendues : `Mode: DRY RUN (NullUnifiedStoreWriter)` / `Mode: LIVE (PgUnifiedStoreWriter)`, puis `total / processed / skipped / errors`.
 
-⚠️ **Prérequis submod — fix #993 (`cache-manager` timer unref) :** sans lui, le CLI **complete son travail puis ne se termine jamais** (timer de cleanup jamais `unref()`'d maintient l'event loop ; mesuré po-204 : run fini, 0 CPU, process vivant 28+ min — données OK, process jamais rendu). Sur un build antérieur au fix, wrapper avec `timeout`. Post-fix, validé firsthand : dry-run intégral EXIT=0 en secondes (14 squelettes po-204).
+⚠️ **Prérequis submod — fix #993 (`cache-manager` timer unref) :** sans lui, le CLI **complete son travail puis ne se termine jamais** (timer de cleanup jamais `unref()`'d maintient l'event loop ; mesuré po-2024 : run fini, 0 CPU, process vivant 28+ min — données OK, process jamais rendu). Sur un build antérieur au fix, wrapper avec `timeout`. Post-fix, validé firsthand : dry-run intégral EXIT=0 en secondes (14 squelettes po-2024).
 
 **Durée :** `--limit` borne le nombre d'*upserts*, pas la lecture — le CLI lit **tout** le corpus `.json` avant d'appliquer la limite (lecture directe dans le script). Sur le corpus ai-01 (~7 400 squelettes), lancer en tâche de fond et vérifier le EXIT=0.
 
@@ -127,7 +127,7 @@ SELECT machine_id, count(*) FROM conversations GROUP BY 1 ORDER BY 2 DESC;
 
 - Credentials PG vers les machines (canal RooSync, pas git).
 - Restart des hosts MCP (`[INTERACTIVE-ONLY]`, un par machine).
-- Décision pilote + GO rollout flotte (reco : po-204, host le plus GDrive-impacté = stress test réaliste).
+- Décision pilote + GO rollout flotte (reco : po-2024, host le plus GDrive-impacté = stress test réaliste).
 
 ## 7. Phase D (#3151) — retrait GDrive du canal messagerie
 
@@ -196,4 +196,4 @@ Vérification mensuelle : restaurer le dernier dump sur une DB jetable et compte
 
 ---
 
-**Historique :** 3 défauts diagnostiqués ai-01 c.73 (#2957) · fixes web1 (#898/#899) + po-2026 (#970) · verdict deploy-ready web1 12/08 · runbook po-204 16/08 — **séquence §2 validée firsthand** (dry-run intégral po-204 : 14 squelettes, 0 erreur, EXIT=0) + fix découverte au passage : submod #993 (timer unref, le CLI ne terminait pas).
+**Historique :** 3 défauts diagnostiqués ai-01 c.73 (#2957) · fixes web1 (#898/#899) + po-2026 (#970) · verdict deploy-ready web1 12/08 · runbook po-2024 16/08 — **séquence §2 validée firsthand** (dry-run intégral po-2024 : 14 squelettes, 0 erreur, EXIT=0) + fix découverte au passage : submod #993 (timer unref, le CLI ne terminait pas).

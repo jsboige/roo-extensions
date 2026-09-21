@@ -80,7 +80,7 @@ $baseUrl = $envMap['ANTHROPIC_BASE_URL']
 if ($baseUrl) { $baseUrl = $baseUrl.TrimEnd('/') }
 $token = $envMap['ANTHROPIC_AUTH_TOKEN']
 $hasToken = [bool]$token
-# Executor nuance (po-204 datapoint 03/09): the key may EXIST with an empty value while the
+# Executor nuance (po-2024 datapoint 03/09): the key may EXIST with an empty value while the
 # session auths through ANTHROPIC_CUSTOM_HEADERS - reporting "absent" misdirects the operator.
 $tokenKeyExists = $envMap.ContainsKey('ANTHROPIC_AUTH_TOKEN')
 $tokenLabel = if ($hasToken) { 'present (never printed)' }

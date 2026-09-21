@@ -253,7 +253,7 @@ Un hôte MCP (process VS Code / session Claude Code longue durée) charge `build
 
 ### Incidents
 
-- po-204 (c.14, confirmé firsthand : build stale 48 min après bump → rebuild → 12 422 tests verts ; puis signature `-32603 "no export named"` avec build fresh = couche hôte) · web1 (c.82 : mode hôte mémoire nommé « distinct failure mode ») · po-2026 (c.24 : signal initial du stale build). Promotion T5→T1 #2368 : la leçon survit au changement de machine — elle décrit le harnais (process hôte + build), pas une machine.
+- po-2024 (c.14, confirmé firsthand : build stale 48 min après bump → rebuild → 12 422 tests verts ; puis signature `-32603 "no export named"` avec build fresh = couche hôte) · web1 (c.82 : mode hôte mémoire nommé « distinct failure mode ») · po-2026 (c.24 : signal initial du stale build). Promotion T5→T1 #2368 : la leçon survit au changement de machine — elle décrit le harnais (process hôte + build), pas une machine.
 
 ---
 

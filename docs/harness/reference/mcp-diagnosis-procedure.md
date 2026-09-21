@@ -36,7 +36,7 @@ Le watchdog `mcp-chain-watchdog.ps1` tourne toutes les 2 minutes (scheduled task
 
 ## Verifier le watchdog lui-meme (#3394)
 
-**Symptome #3394** : fenetres `connection refused` sur `host.docker.internal:9091` (sparfenyuk, schtask `MCP-Proxy-RSM`) de 20-55 min qui se referment seules, buses NanoClaw/Hermes coupees. Depuis la flotte, le port 9091 n'est PAS sondable (firewall drop LAN — mesure po-204 : timeout, alors que :9090 repond en 4 ms) : la verification ne peut se faire que sur l'hote.
+**Symptome #3394** : fenetres `connection refused` sur `host.docker.internal:9091` (sparfenyuk, schtask `MCP-Proxy-RSM`) de 20-55 min qui se referment seules, buses NanoClaw/Hermes coupees. Depuis la flotte, le port 9091 n'est PAS sondable (firewall drop LAN — mesure po-2024 : timeout, alors que :9090 repond en 4 ms) : la verification ne peut se faire que sur l'hote.
 
 **Sur l'hote (ai-01), lecture seule :**
 

@@ -113,7 +113,7 @@ Chaîne parentale RSM / classification sessions : voir `Win32_Process` ParentPro
 - Pas de preuve causale entre les 33 instances RSM et les timeouts MCP constatés le 17/08 (corrélation mesurée, déjà qualifiée dans le commentaire baseline).
 - Cause racine du mount vide non diagnostiquée (comportement seul établi).
 - La décomposition par fenêtre VS Code (96 process « main » détectés, cmdline tronquée → décompte non fiable) n'est pas chiffrée ; le chiffre utile est le total 141/28 GB.
-- po-204 : la mesure « 64 Code.exe / 7 GB / 0,6 GB libres » (motivation initiale de #3156) n'incluait **pas** le recensement RSM — même requalification nécessaire sur cette machine (dispatch coordo déjà parti le 17/08).
+- po-2024 : la mesure « 64 Code.exe / 7 GB / 0,6 GB libres » (motivation initiale de #3156) n'incluait **pas** le recensement RSM — même requalification nécessaire sur cette machine (dispatch coordo déjà parti le 17/08).
 
 ---
 

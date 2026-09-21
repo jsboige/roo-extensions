@@ -145,8 +145,8 @@ La lane po-2023 exploite déjà wacs en auto (cert SAN 52 domaines, renew automa
 |---|---|---|
 | Livraison/accès VPS-4 GRA | owner | **clos** — livré 20/08 01:45 (facture FR79847228), OOBE déroulé 24/08, SSH 22 + RDP 3389 mesurés ouverts 28/08, accès SSH exercé depuis ai-01 (clé, compte `Administrator`, fiche d'accès sur ai-01) |
 | Audit allowlist vLLM (IP web1) | ai-01 | **clos 24/08** — l'IP figure dans `leaked_key_monitor.py` L74 mais cette liste est du **monitoring, pas un contrôle d'accès** (le gate est la clé API). Seule action au cutover : ajouter la nouvelle IP `51.75.200.22` à la liste pour éviter de fausses alertes |
-| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | **clos 22/08** (po-204 c.266 : 0 occurrence) |
-| Inventaire IP flotte (web1, po-2023, po-204, po-2025, po-2026, ai-01) | flotte | **clos 24/08 — 0 dépendance bloquante** (body de l'Épic) |
+| Audit IP dans `ArgumentumGames/Argumentum` (fichiers de prod) | lane Argumentum | **clos 22/08** (po-2024 c.266 : 0 occurrence) |
+| Inventaire IP flotte (web1, po-2023, po-2024, po-2025, po-2026, ai-01) | flotte | **clos 24/08 — 0 dépendance bloquante** (body de l'Épic) |
 | Snapshot extracteur §1 | web1 | **exécuté 23/08 14:14** (web1 c.318 → `vps4-snapshot-web1-20260823.txt`). ⚠️ **Périmé pour la bascule** : la synchro finale doit rattraper le delta de prod depuis le 23/08 |
 | Bascule DNS + fenêtre ACME | coordination Épic | repointage DNS **hors** 05/10→04/11 ; provisionnement non borné (arbitrage 07/09) |
 
@@ -167,7 +167,7 @@ Recherche exhaustive `37.187.180.135` sur **myia-po-2023** (lane IISManagement =
 
 **Conclusion : po-2023 ne dépend pas de l'IP web1.** Les sites Argumentum locaux (`argumentum.myia.io`, `dnn.argumentum.myia.io`) servent la **préprod locale** (`D:\Dev\Argumentum\*`), pas la prod web1. La bascule d'IP web1 n'impacte aucune config de cette machine.
 
-*Inventaire IP **clos flotte-wide** (web1 20/08, po-2023 21/08, po-204 + Argumentum 22/08, po-2025/po-2026 22/08, ai-01 24/08) : **0 dépendance bloquante** — body de l'Épic, case clos le 24/08.*
+*Inventaire IP **clos flotte-wide** (web1 20/08, po-2023 21/08, po-2024 + Argumentum 22/08, po-2025/po-2026 22/08, ai-01 24/08) : **0 dépendance bloquante** — body de l'Épic, case clos le 24/08.*
 
 ---
 

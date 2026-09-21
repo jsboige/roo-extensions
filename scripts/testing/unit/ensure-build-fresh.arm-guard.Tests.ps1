@@ -147,7 +147,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
     }
 
     It 'Corroborates CIM-listed hosts with the .NET view before counting (ghost tolerance)' {
-        # Finding by po-204 (2026-09-12, c.413): Win32_Process keeps listing a terminated
+        # Finding by po-2024 (2026-09-12, c.413): Win32_Process keeps listing a terminated
         # process whose object handle a third party retains (unreaped child of a killed
         # mcp-wrapper). CIM counted it; taskkill reported "no running instance"; the .NET view
         # reported HasExited=True. One such ghost held this guard at exit 10 across three
@@ -178,7 +178,7 @@ Describe 'ensure-build-fresh ARM guard (#3489)' {
 
     It 'States the corrected kill remedy on both exit-10 paths: kill the child, never the wrapper' {
         # Correction by po-2026 (2026-09-13, blocked cycle): the host-kill remedy (validated
-        # po-204 2026-09-12) must name the CHILD. $staleCount counts build/index.js hosts only,
+        # po-2024 2026-09-12) must name the CHILD. $staleCount counts build/index.js hosts only,
         # and mcp-wrapper.cjs exits by itself when its child exits -- killing a wrapper instead
         # ORPHANS the child, which stays counted here (and was the unreaped-ghost wedge this
         # guard's Test-ProcessExited had to tolerate). Before this fix the exit-10 message

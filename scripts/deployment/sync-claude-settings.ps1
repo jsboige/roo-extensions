@@ -25,8 +25,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# NB (23/08, incident po-204 c.272) : la table peut deriver de la topologie REELLE d'une machine
-# (po-204 a retire son sidecar c.184 → hub direct). La garde de connectivite ci-dessous bloque
+# NB (23/08, incident po-2024 c.272) : la table peut deriver de la topologie REELLE d'une machine
+# (po-2024 a retire son sidecar c.184 → hub direct). La garde de connectivite ci-dessous bloque
 # l'ecriture si l'endpoint ne repond pas ; si votre entree est périmée, surchargez -BaseUrl.
 $BaseUrlTable = @{
   'myia-po-2023' = 'http://192.168.0.46:3000'   # hub (direct)
@@ -92,7 +92,7 @@ try { $settings = $raw | ConvertFrom-Json } catch { throw "settings.json illisib
 Show-State 'AVANT' $settings
 if ($Verify) { exit 0 }
 
-# ── Garde connectivite (anti port mort — incident po-204 23/08 : table périmée = base_url cassé) ──
+# ── Garde connectivite (anti port mort — incident po-2024 23/08 : table périmée = base_url cassé) ──
 try { $u = [Uri]$BaseUrl } catch { throw "BaseUrl illisible : '$BaseUrl'" }
 $tcpOk = Test-NetConnection -ComputerName $u.Host -Port $u.Port -WarningAction SilentlyContinue
 if (-not $tcpOk.TcpTestSucceeded) {

@@ -436,7 +436,7 @@ function Read-DashboardMessages($ws) {
     $dashboardFile = Join-Path $SharedPath "dashboards/workspace-$ws.md"
     if (-not (Test-Path $dashboardFile)) { return @() }
 
-    # Fix #2926 (TOCTOU race, po-204 firsthand 2026-07-24) :
+    # Fix #2926 (TOCTOU race, po-2024 firsthand 2026-07-24) :
     # Test-Path ci-dessus passe, puis ReadAllText échoue → le cache online-only GDriveFS
     # a évincé le fichier OU le dossier parent entre le check et le read (time-of-check
     # vs time-of-use). Attendu/bénin → DEBUG + return @() (retry au prochain poll). On

@@ -27,7 +27,7 @@ La mesure ai-01 du 22/08 11:48Z (commentaire sur #3156) comptait « 66 instances
 
 Cohortes : 33 serveurs nés le 22/08 (spawn storm au restart VS Code, pattern po-2026), 1 ce jour.
 
-**Le chiffre « 66 » additionnait serveurs + wrappers.** La population réelle de serveurs est ~34. La conclusion directionnelle tient (34 serveurs / 38,6 Go vs 14,8 Go VS Code = **ratio 2,6×**), mais la magnitude de l'arbitrage était surestimée d'un facteur ~2. La mesure po-204 demandée en priorité doit impérativement utiliser le filtre corrigé (script fourni en annexe).
+**Le chiffre « 66 » additionnait serveurs + wrappers.** La population réelle de serveurs est ~34. La conclusion directionnelle tient (34 serveurs / 38,6 Go vs 14,8 Go VS Code = **ratio 2,6×**), mais la magnitude de l'arbitrage était surestimée d'un facteur ~2. La mesure po-2024 demandée en priorité doit impérativement utiliser le filtre corrigé (script fourni en annexe).
 
 ## 3. Ce que le code établit (VERIFIÉ)
 
@@ -108,14 +108,14 @@ Orphan-fix (incident 2026-05-26) : stdin EOF → kill cascade (`index.ts:818-823
 | 7 | Perte des features wrapper (cache tools/list <1 ms, filtrage logs) | nul | Serveur toujours chaud = le cache n'a plus d'objet ; logs côté daemon. |
 | 8 | Port/firewall | nul | Localhost only, port unique par machine dans le `.env`. |
 
-**Non-affirmé** : latence HTTP local vs stdio (à mesurer au POC — attendue négligeable sur loopback, mais non mesurée) ; comportement de reconnexion des clients en cas de restart du daemon sous charge (à observer au pilote) ; bénéfice causal sur les incidents G: po-204 (corrélation I/O ×34 → à valider par la mesure avant/après, pas affirmable ex ante).
+**Non-affirmé** : latence HTTP local vs stdio (à mesurer au POC — attendue négligeable sur loopback, mais non mesurée) ; comportement de reconnexion des clients en cas de restart du daemon sous charge (à observer au pilote) ; bénéfice causal sur les incidents G: po-2024 (corrélation I/O ×34 → à valider par la mesure avant/après, pas affirmable ex ante).
 
 ## 6. Gains attendus (projection, à confirmer par le pilote)
 
 | machine | aujourd'hui (serveurs RSM) | cible partagée | gain RAM | gain I/O |
 |---|---|---|---|---|
 | ai-01 | 34 / 38,6 Go | 1-2 instances / ~2-3 Go | **~36 Go** | scans ÷34, embeddings ÷34 |
-| po-204 (référence souffrante) | ~20-25 / 6,4 Go (à re-mesurer, filtre corrigé) | ~1-2 Go | **~5 Go sur 31,7 Go** (0,6 Go libres au 18/08) | idem — hypothèse de décompression DriveFS à valider |
+| po-2024 (référence souffrante) | ~20-25 / 6,4 Go (à re-mesurer, filtre corrigé) | ~1-2 Go | **~5 Go sur 31,7 Go** (0,6 Go libres au 18/08) | idem — hypothèse de décompression DriveFS à valider |
 | web1 | 2 / 3,9 Go | ~2 Go | faible (déjà quasi-partagé de fait) | archive race supprimée |
 
 Ordre de grandeur cohérent avec l'arbitrage : un facteur ~10-20 sur le poste dominant, à coût d'infrastructure très inférieur au devcontainer (pas de Docker, pas de WSL, pas de cascade #1379, pas de mount G: cassé — le serveur reste host-side natif).
@@ -124,10 +124,10 @@ Ordre de grandeur cohérent avec l'arbitrage : un facteur ~10-20 sur le poste do
 
 | étape | contenu | gate |
 |---|---|---|
-| 0 | **Mesure po-204** (dispatch [WAKE-CLAUDE] joint à cette étude, script annexe) — confirme/invalide le ratio 2,6× sur la machine souffrante | ratio comparable → GO étude ; divergent → le nombre de fenêtres domine, re-ranker l'option A |
+| 0 | **Mesure po-2024** (dispatch [WAKE-CLAUDE] joint à cette étude, script annexe) — confirme/invalide le ratio 2,6× sur la machine souffrante | ratio comparable → GO étude ; divergent → le nombre de fenêtres domine, re-ranker l'option A |
 | 1 | POC code : `RSM_TRANSPORT=http` derrière flag env + routage `?ws=` — zéro changement par défaut ; build + tests CI (`validate-before-push.ps1`) | CI verte |
-| 2 | Pilote : 1 worker headless sur po-204 vers le daemon ; mesurer RAM avant/après, latence outils, incidents G: | critères chiffrés (RAM ÷N, latence <2× stdio, 0 régression messagerie) |
-| 3 | Extension : tous les headless po-204 → headless flotte → fenêtres interactives (rollback 1 ligne/client à chaque palier) | revue user par palier |
+| 2 | Pilote : 1 worker headless sur po-2024 vers le daemon ; mesurer RAM avant/après, latence outils, incidents G: | critères chiffrés (RAM ÷N, latence <2× stdio, 0 régression messagerie) |
+| 3 | Extension : tous les headless po-2024 → headless flotte → fenêtres interactives (rollback 1 ligne/client à chaque palier) | revue user par palier |
 
 L'étape 0 est parallèle et préemptive : elle peut renverser la recommandation, conformément à l'arbitrage.
 
@@ -149,7 +149,7 @@ $srv | ForEach-Object { $_.CreationDate.ToString('yyyy-MM-dd HH:mm') } | Group-O
   ForEach-Object { "cohorte $($_.Name) : $($_.Count) instances" }
 ```
 
-*Note po-204 : sous le sandbox CIM, `Win32_Process` peut retourner WorkingSet64=0 — croiser avec `Get-Process` sur PID (méthode déjà utilisée dans le relevé du 18/08).*
+*Note po-2024 : sous le sandbox CIM, `Win32_Process` peut retourner WorkingSet64=0 — croiser avec `Get-Process` sur PID (méthode déjà utilisée dans le relevé du 18/08).*
 
 ---
 
