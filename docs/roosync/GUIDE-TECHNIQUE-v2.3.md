@@ -1804,7 +1804,7 @@ export class StateManagerError extends Error {
 
 **Date** : 2026-01-24
 **Statut** : ⚠️ Déprécié
-**Migration** : Voir `docs/suivi/github-projects-migration/GUIDE_MIGRATION.md`
+**Migration** : `docs/suivi/github-projects-migration/GUIDE_MIGRATION.md` — document **supprimé** avec le retrait du MCP (code retiré, Epic #2639 tâche C / #3423 ; voir [`.claude/rules/tool-availability.md` §Retirés](../../.claude/rules/tool-availability.md)). L'usage passe par `gh` CLI ([`docs/harness/reference/github-cli.md`](../harness/reference/github-cli.md)).
 
 **Historique** :
 - 2026-01-23 : Implémentation des paramètres limit/summary (commit `51fbb7e`)
