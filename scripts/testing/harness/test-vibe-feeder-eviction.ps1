@@ -19,7 +19,11 @@
 
     The wiring half (static) pins that the eviction sits BEFORE the post, on
     EVERY iteration. The behavioral half exercises the eviction against a
-    real git worktree:
+    real git worktree. Test 5 (review #3756 M1) goes one level up: it EXECUTES
+    the real feeder end-to-end in -DryRun against a staged copy with a
+    self-origin runtime repo and a three-grain queue, asserting on the
+    feeder's own log and the resulting queue FILE -- evidence that survives
+    any predicate rewrite inside this harness:
       - case A: worktree absent              -> no eviction (no wtHead mismatch)
       - case B: worktree at recorded wtHead   -> no eviction (same generation)
       - case C: worktree ahead of wtHead      -> EVICTION, grain removed from queue
@@ -83,8 +87,11 @@ $iEvict = $src.IndexOf('EVICT ')
 $iStale = $src.IndexOf('Update-StaleGrainBase -Grain $g')
 $iPost  = $src.IndexOf('Invoke-RsmAppend -AppendOptions')
 Assert-Equal 'eviction marker present'            $true ($iEvict -gt 0)
-Assert-Equal 'eviction sits before stale-base'    $true ($iStale -gt $iEvict)
-Assert-Equal 'eviction sits before post'          $true ($iPost -gt $iEvict)
+# Non-vacuous forms (review #3756): with the marker absent, $iEvict is -1 and
+# the bare index comparisons pass against ANY positive index. Gate each on
+# $iEvict -gt 0 so the absence of the guard fails the ordering too.
+Assert-Equal 'eviction sits before stale-base'    $true ($iEvict -gt 0 -and $iStale -gt $iEvict)
+Assert-Equal 'eviction sits before post'          $true ($iEvict -gt 0 -and $iPost -gt $iEvict)
 
 # (e) the post is GATED by the eviction -- we never reach Invoke-RsmAppend on
 # a grain whose wtHead mismatch was detected. Static check: both the eviction
@@ -156,12 +163,11 @@ try {
     & git -C $repo worktree add $wtC $baseSha 2>$null | Out-Null
     Set-Content -Path (Join-Path $wtC 'f.txt') -Value 'g2-work'
     & git -C $wtC commit -qam 'g2 commit'
-    $aheadSha = (git -C $wtC rev-parse HEAD).Trim()
     $gC = [pscustomobject]@{ id = 'g-C'; worktree = $wtC; wtHead = $baseSha; baseSha = $baseSha; branch = 'wt/C' }
     $currentC = (git -C $gC.worktree rev-parse HEAD).Trim()
     $verdictC = ($currentC -eq $gC.wtHead)
     Assert-Equal 'case C: HEAD diverges from wtHead -> EVICTION triggered' $false $verdictC
-    Assert-Equal 'case C: divergence is real (sha differs)' $true ($currentC -ne $aheadSha -or $true)
+    Assert-Equal 'case C: divergence is real (HEAD != wtHead)' $true ($currentC -ne $gC.wtHead)
     $ancestorOut = & git -C $wtC merge-base --is-ancestor $baseSha HEAD 2>$null
     $ancestorRc = $LASTEXITCODE
     Assert-Equal 'case C: ahead sha is a descendant of wtHead' $true ($ancestorRc -eq 0)
@@ -194,13 +200,97 @@ try {
     $wtHeadMismatch = ($currentF -ne $gF.wtHead)
     $postFixVerdict = if ($hasEvictionGuard -and $wtHeadMismatch) { 'EVICTED' } else { 'POSTED' }
     Assert-Equal 'criterion d''acceptation: post-fix evicts the delivered grain' 'EVICTED' $postFixVerdict
+
+    # --- Test 5 (behavioral, review #3756 M1): EXECUTE the real feeder. The
+    # stages above pin the order by reading the source or replaying a copy of
+    # the predicate -- an inversion the copy does not share stays invisible.
+    # This stage runs the feeder itself in -DryRun against a staged copy, a
+    # self-origin runtime repo, and a three-grain queue, then asserts on the
+    # feeder's own LOG FILE and the resulting queue FILE:
+    #   g-A: worktree ahead of its recorded wtHead -> EVICTED (replay class)
+    #   g-B: stale baseSha, sane worktree -> RECALé (reset + baseSha + wtHead
+    #        updated by Update-StaleGrainBase) and the one reaching DRY-RUN
+    #   g-C: healthy, never reached (DryRun exits at the first printable grain)
+    # Post-conditions prove M2 (g-A stays out of the queue even though g-B's
+    # Update-StaleGrainBase rewrites the queue afterwards) and M3 (g-B.wtHead
+    # follows the reset instead of staying at the pre-reset base).
+    Write-Host "`n=== Test 5: the real feeder, executed end-to-end in DryRun ===" -ForegroundColor Cyan
+    $stage = Join-Path $root 'stage'
+    New-Item -ItemType Directory -Path (Join-Path $stage 'scripts/scheduling') -Force | Out-Null
+    Copy-Item $srcPath (Join-Path $stage 'scripts/scheduling/vibe-feeder.ps1') -Force
+    # The feeder derives repoRoot from its own path -> $stage, so Test-RunInFlight
+    # reads an empty log dir and every post path is inert in DryRun.
+    $rt = Join-Path $root 'rt5'
+    & git init -q --initial-branch=main $rt
+    & git -C $rt config user.email 't@t'
+    & git -C $rt config user.name 't'
+    Set-Content -Path (Join-Path $rt 'f.txt') -Value 'base0'
+    & git -C $rt add f.txt
+    & git -C $rt commit -qm base0
+    $rtBase0 = (& git -C $rt rev-parse HEAD).Trim()
+    Set-Content -Path (Join-Path $rt 'f.txt') -Value 'base1'
+    & git -C $rt commit -qam base1
+    $rtBase1 = (& git -C $rt rev-parse HEAD).Trim()
+    # Self-referencing origin: the feeder's `fetch origin main` and
+    # `rev-parse origin/main` both resolve without any network.
+    & git -C $rt remote add origin $rt
+    & git -C $rt fetch -q origin main
+
+    # Queue worktree paths use FORWARD slashes: `git worktree list` prints
+    # them that way and Prepare-Worktree matches the grain path against that
+    # output verbatim (backslashes would never match -> spurious re-add).
+    $wtA5 = (Join-Path $root 'wtA5') -replace '\\', '/'
+    $wtB5 = (Join-Path $root 'wtB5') -replace '\\', '/'
+    & git -C $rt worktree add $wtA5 $rtBase0 2>$null | Out-Null
+    Set-Content -Path (Join-Path $wtA5 'f.txt') -Value 'g2-work'
+    & git -C $wtA5 commit -qam 'reused generation'
+    & git -C $rt worktree add $wtB5 $rtBase0 2>$null | Out-Null
+
+    $queue5 = [ordered]@{
+        _comment = 'behavioral stage (test 5)'
+        grains = @(
+            [ordered]@{ id = 'g-A'; issue = 1; baseSha = $rtBase0; branch = 'wt/vibe-gA'; worktree = $wtA5; wtHead = $rtBase0; payload = 'payload A' }
+            [ordered]@{ id = 'g-B'; issue = 2; baseSha = $rtBase0; branch = 'wt/vibe-gB'; worktree = $wtB5; wtHead = $rtBase0; payload = 'payload B' }
+            [ordered]@{ id = 'g-C'; issue = 3; baseSha = $rtBase1; branch = 'wt/vibe-gC'; worktree = ((Join-Path $root 'wtC5') -replace '\\', '/'); wtHead = $rtBase1; payload = 'payload C' }
+        )
+    }
+    $queuePath5 = Join-Path $root 'queue5.json'
+    [System.IO.File]::WriteAllText($queuePath5, ($queue5 | ConvertTo-Json -Depth 8), (New-Object System.Text.UTF8Encoding $false))
+
+    $childPs = (Get-Command pwsh -ErrorAction SilentlyContinue).Source
+    if (-not $childPs) { $childPs = 'powershell' }
+    $stagedFeeder = Join-Path $stage 'scripts/scheduling/vibe-feeder.ps1'
+    $null = & $childPs -NoProfile -ExecutionPolicy Bypass -File $stagedFeeder -DryRun -QueuePath $queuePath5 -RuntimeDir $rt 2>&1
+    $rc5 = $LASTEXITCODE
+    # Evidence lives in the feeder's OWN log file (Add-Content path, immune to
+    # Write-Host stream-capture differences between PS 5.1 and pwsh).
+    $logFile5 = Join-Path $stage ("outputs/scheduling/logs/vibe-feeder-{0}.log" -f (Get-Date -Format yyyyMMdd))
+    $log5 = ''
+    if (Test-Path $logFile5) { $log5 = Get-Content $logFile5 -Raw -Encoding utf8 }
+    Assert-Equal 'test5: feeder child exits 0'             0     $rc5
+    Assert-Equal 'test5: log file written by the child'    $true ($null -ne $log5 -and $log5.Length -gt 0)
+    Assert-Equal 'test5: g-A evicted (EVICT in feeder log)' $true ($log5 -match 'EVICT g-A')
+    Assert-Equal 'test5: g-B reaches the DRY-RUN print'    $true ($log5 -match 'grain pret: g-B')
+    Assert-Equal 'test5: g-A never reaches the DRY-RUN'    $false ($log5 -match 'grain pret: g-A')
+
+    $q5 = Get-Content $queuePath5 -Raw -Encoding utf8 | ConvertFrom-Json
+    $ids5 = (@($q5.grains) | ForEach-Object { $_.id }) -join ','
+    Assert-Equal 'test5 (M2): evicted grain stays out after Update-StaleGrainBase rewrite' 'g-B,g-C' $ids5
+    $gB5 = @($q5.grains | Where-Object { $_.id -eq 'g-B' })[0]
+    Assert-Equal 'test5 (M3): g-B baseSha recalé to new main' $rtBase1 $gB5.baseSha
+    Assert-Equal 'test5 (M3): g-B wtHead recalé to new main'  $rtBase1 $gB5.wtHead
+    Assert-Equal 'test5: g-B worktree reset to new main'      $rtBase1 ((& git -C $wtB5 rev-parse HEAD).Trim())
 }
 finally {
     $ErrorActionPreference = $savedEap
     if (Test-Path $root) {
         # Cleanup worktrees first (they hold locks on the repo), then the repo.
-        Get-ChildItem -Path $root -Recurse -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -eq '.git' -and $_.Parent.FullName -like '*wt*' } |
+        # A WORKTREE's .git is a FILE, not a directory -- the previous
+        # -Directory filter never matched anything and this git pass never ran
+        # (review #3756 minor). Files named .git under *wt* paths only; the
+        # runtime repos' own .git directories are excluded by the pattern.
+        Get-ChildItem -Path $root -Recurse -File -Filter '.git' -ErrorAction SilentlyContinue |
+            Where-Object { $_.Parent.FullName -like '*wt*' } |
             ForEach-Object { & git -C $_.Parent.FullName worktree remove --force 2>$null }
         Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
     }
