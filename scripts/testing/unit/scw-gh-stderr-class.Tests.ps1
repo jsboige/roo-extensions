@@ -84,6 +84,21 @@ Describe 'start-claude-worker gh-family stderr class (#3731)' {
         $script:src | Should -Match 'gh issue comment \$\(\$Task\.issueNumber\) --repo jsboige/roo-extensions --body-file ""\$ResultBodyFile"" 2>&1'
     }
 
+    It 'PR titles are quote-stripped before crossing the cmd layer (#3752 F1)' {
+        # A double-quote interpolated into `--title ""$Title""` closes the
+        # cmd.exe quoting context and mangles the argument list. Task
+        # subjects derive from issue titles, which can carry quotes — the
+        # strip must happen at construction, not at the call site.
+        $script:src | Should -Match '\$CleanSubject = [^\r\n]*-replace ''"'', '''''
+    }
+
+    It 'temp body-files are removed in finally blocks (#3752 F2 — no leak if the cmd call throws)' {
+        # Straight-line Remove-Item is skipped when the & cmd /c invocation
+        # throws; a finally guarantees cleanup on both paths.
+        $script:src | Should -Match '\} finally \{\s*\r?\n\s*Remove-Item \$BodyFile'
+        $script:src | Should -Match '\} finally \{\s*\r?\n\s*Remove-Item \$ResultBodyFile'
+    }
+
     It 'property-access gh arguments are subexpressions in the cmd string' {
         # `$Task.issueNumber` bare in a double-quoted string interpolates the
         # object, not the property — the issue number would arrive garbage.
