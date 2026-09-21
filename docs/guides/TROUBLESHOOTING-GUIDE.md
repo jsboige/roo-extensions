@@ -184,13 +184,16 @@ MCP server failed to start
 cd "C:/dev/roo-extensions/sddd-tracking/scripts-transient"
 .\check-mcps-compilation-2025-10-23.ps1 -ValidateRealBuild
 
-# Vérifier présence des fichiers compilés
-Test-Path "C:/dev/roo-extensions/mcps/internal/dist/index.js"
-Get-ChildItem "C:/dev/roo-extensions/mcps/internal/dist/" -Recurse
+# Vérifier présence des fichiers compilés (layout 2026 : vintages build-<sha>/ + pointeur build-current)
+# `build-current` est un FICHIER marqueur (contenu = nom du vintage) ; les vintages sont des
+# siblings à la racine RSM, pas des sous-répertoires de build/ (cf. resolve-build-dir.mjs).
+$v = (Get-Content "mcps/internal/servers/roo-state-manager/build-current" -Raw).Trim()
+Test-Path "mcps/internal/servers/roo-state-manager/$v/index.js"
+Get-ChildItem "mcps/internal/servers/roo-state-manager/" -Directory -Filter "build-*"
 ```
 
 **Analyse Niveau 2** :
-- Les fichiers dans `mcps/internal/dist/` sont des placeholders vides
+- Le marqueur `build-current` est absent, ou le vintage `build-<sha>/` qu'il désigne (sibling à la racine RSM) n'a pas d'`index.js` — le layout `dist/` de 2025 n'existe plus : le build publie des vintages avec pointeur `build-current`
 - `npm run build` n'a jamais été exécuté sur les MCPs TypeScript
 - Les scripts de validation précédents ne vérifiaient pas la compilation réelle
 - Problème masqué par des tests de surface superficiels
@@ -209,7 +212,7 @@ cd "C:/dev/roo-extensions/sddd-tracking/scripts-transient"
 .\check-mcps-compilation-2025-10-23.ps1 -ValidateRealBuild
 
 # Solution 4 : Réparation complète si nécessaire
-Remove-Item -Recurse -Force "mcps/internal/dist" -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force "mcps/internal/servers/roo-state-manager/build-out" -ErrorAction SilentlyContinue
 npm install
 npm run build
 ```
@@ -783,17 +786,24 @@ foreach ($metric in $metrics.GetEnumerator()) {
 
 ### Documentation Technique
 - Protocole SDDD complet - ✅ À JOUR v1.1.0
-- `../scripts-transient/` - ✅ Scripts MCPs validés
+- `../scripts/mcp/` - Scripts MCPs (backup/restore, rebuild, zombie cleanup)
 - [Guides d'installation](./MCPs-INSTALLATION-GUIDE.md) - ✅ À JOUR v2.0.0
 - Configuration environnement - ✅ À JOUR v1.1.0
 - Guide utilisateur RooSync - ✅ NOUVEAU
 - Rapport mission MCPs - ✅ RÉCENT
 
 ### Outils de Diagnostic
-- Diagnostic complet (`../scripts/diagnostic/complete-sddd-diagnostic.ps1`)
-- Analyseur de performance (`../scripts/monitoring/performance-analyzer.ps1`)
-- Validateur de configuration (`../scripts/validation/config-validator.ps1`)
-- Générateur de rapports (`../scripts/reporting/report-generator.ps1`)
+
+> Les quatre scripts historiques (`complete-sddd-diagnostic.ps1`, `performance-analyzer.ps1`,
+> `config-validator.ps1`, `report-generator.ps1`) n'ont jamais été versionnés à ces chemins — leur
+> contenu intégral est embarqué dans ce guide (sections « Script 1 » à « Script 4 » ci-dessus) et
+> s'exécute par copier-coller. Équivalents versionnés actuels :
+
+- Diagnostic complet (§ « Script 1 : Diagnostic Complet SDDD » ; versionné : `../scripts/diagnostic/run-diagnostic.ps1`)
+- Analyseur de performance, validateur de configuration, générateur de rapports (§ « Script 2 : Diagnostic Complet MCPs » et suivantes)
+- Monitoring serveurs MCP (`../scripts/monitoring/monitor-mcp-servers.ps1`)
+- Validation configuration MCP (`../scripts/validation/validate-mcp-config.ps1`)
+- Rapport usage tokens (`../scripts/monitoring/token-usage-report.js`)
 
 ### Contacts Support
 - **Niveau 1** : Roo Debug Complex (diagnostic automatique)
