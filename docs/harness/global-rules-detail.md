@@ -257,6 +257,30 @@ Un hôte MCP (process VS Code / session Claude Code longue durée) charge `build
 
 ---
 
+## Infra d'un autre workspace — demander, pas appliquer
+
+**Décision user (23/09/2026), verbatim :** « OK pour la règle (sauf exception urgence avec message d'excuse dans le dashboard cible) ». Règle proposée et portée par le coordinateur claudish (dashboard `global`, 22/09 22:18Z) ; déjà en vigueur côté claudish (SKILL coordinateur Phase 5b, PR claudish #221).
+
+1. Un `.env`, un `docker-compose` ou un conteneur d'**infra partagée** ne se modifie que depuis le **workspace qui le porte**.
+2. Une autre lane **demande** sur le dashboard du propriétaire. Elle ne fait pas le geste elle-même, même quand il paraît évident.
+3. **Exception urgence** (flotte à l'arrêt, tours perdus) : on agit, puis on poste **un message d'excuse et d'explication sur le dashboard du workspace propriétaire, dans le même cycle**.
+
+### Pourquoi
+
+Le propriétaire sait ce que la lane de passage ignore : qui consomme le service, ce qui est en vol, quel état est voulu. Un geste de bonne foi sur l'infra d'autrui coupe les flux de toute la flotte sans que personne ne l'ait annoncé — et un effet de bord non annoncé se lit comme une panne chez le voisin.
+
+### Incidents fondateurs (RAPPORTÉS par le coordinateur claudish, hub po-2025)
+
+- **17/09** — une session CoursIA-2 lance `compose up -d` ×4 sur le hub en déboguant un vrai défaut.
+- **19/09** — une session worker roo-extensions réécrit le `.env` du hub sur le modèle sidecar puis recrée le conteneur : le hub se relaie sur lui-même pendant **4 h 40** (193 bascules AUTONOMOUS).
+
+### Ce que la règle ne change pas
+
+- Dans **son** workspace, le geste reste libre — mais ses effets de bord sur les consommateurs des autres lanes s'**annoncent** (cf. « Escalade cross-workspace » : les effets de bord annoncés font partie du message).
+- Qui porte quoi : la table de propriété d'infra vit dans la mémoire de chaque machine et sur les dashboards ; en cas de doute sur le porteur, demander sur le dashboard `global`.
+
+---
+
 ## Voir aussi
 
 - [`.claude/configs/user-global-claude.md`](../../.claude/configs/user-global-claude.md) — le harnais global lui-même (règles succinctes)

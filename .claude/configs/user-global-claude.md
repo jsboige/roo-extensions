@@ -20,6 +20,7 @@ Quand une ligne d'un prompt/regle cause un mauvais comportement : **la supprimer
 
 - **Langue :** User = francais. Code/commits/docs = anglais OK. INTERCOM = francais.
 - **Scope workspace :** rester dans SON workspace. Ignorer les dispatchs d'autres workspaces.
+- **Infra d'un autre workspace : se demande, ne s'applique pas** (decision user 23/09). Un `.env`, un `docker-compose` ou un conteneur d'infra partagee ne se modifie que depuis le workspace qui le porte ; une autre lane **demande** sur le dashboard du proprietaire, meme quand le geste parait evident. **Exception urgence** (flotte a l'arret, tours perdus) : agir, puis poster excuse + explication sur le dashboard du workspace proprietaire **dans le meme cycle**. [Detail](../../docs/harness/global-rules-detail.md#infra-dun-autre-workspace--demander-pas-appliquer)
 - **Securite :** jamais de suppression sans preuve de preservation. Pas de secrets dans les commits. Preferer les actions reversibles.
 
 ## Git
