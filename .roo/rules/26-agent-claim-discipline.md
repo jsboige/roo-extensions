@@ -27,6 +27,7 @@
    python scripts/github/check_issue_claim.py NNN --claim "intention en une ligne"
    ```
    Le check precede l'**edition**, pas le push. Pas de timestamp dans le corps du claim : le `createdAt` serveur fait foi. Claim sans machine identifiable = fail-closed (bloque). Péremption `--stale-threshold` (défaut 24 h) : un claim étranger périmé avertit sans bloquer, mais le nouveau claimant pose quand même son `[CLAIMED]`.
+   **Depot (#3768) :** `--repo` n'a plus de defaut fige. Absent, le guard classe le numero dans les **deux** depots (cle `pull_request` de l'API REST) : un seul le porte comme issue -> resolu ; les deux -> **`AMBIGUOUS`, exit 3**, desambiguisation exigee. Il ne devine jamais, parce qu'un mauvais choix ne rate pas en silence : il **pose le verrou sur l'autre depot** et laisse le vrai grain libre. Mesure du 21/09 : `check_issue_claim.py 980` rendait `BLOCKED: MERGED` en lisant la **PR parent** #980 quand l'issue submod #980 etait OPEN.
 3. **Narration dashboard (bienvenue, non autoritaire)** : le `[CLAIMED]` dashboard reste le récit de cycle ; le **registre de verrous** est le commentaire d'issue. Un claim-issue **prime sur un claim-dashboard, même antérieur** (tie-break HARD, un seul locus fait foi).
 4. **Si conflit** : STOP, demander coordinateur arbitrage. Le premier `[CLAIMED]` **sur l'issue** (createdAt serveur) prime.
 5. **Levier du verrou** : `--release` ou commentaire `[DONE]`/`[RESULT]` `<machine>` quand la PR atterrit.
