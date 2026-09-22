@@ -15,6 +15,8 @@ Couvre chaque verdict de l'organe :
   - UNTRACKED        : chemins non suivis ; couvrent espaces et Unicode.
   - SUBMODULE_DRIFT  : submodule au mauvais SHA alors qu'il est propre en interne.
   - SUBMODULE_DIRTY  : submodule au bon SHA mais avec modifs internes.
+  - NON_PEUPLE       : submodule sans checkout (absent ou vide) — PAS un drift
+                       (review #3778) : classe unpopulated, verdict PASS.
   - NOT_REPOSITORY   : chemin qui n'est pas un depot git.
 
 Chaque test cree un depot temporaire, place les fixtures necessaires,
@@ -409,6 +411,69 @@ class TestSubmodule(unittest.TestCase):
             self.assertFalse(sub_states[0]["drift"])
             self.assertTrue(sub_states[0]["dirty"])
             self.assertEqual(state["verdict"], VERDICT_SUBMODULE_DIRTY)
+
+
+class TestSubmoduleUnpopulated(unittest.TestCase):
+    """Review #3778 : un submodule non peuple n'est PAS un drift.
+
+    Deux formes, meme classification `unpopulated` :
+      - repertoire ABSENT (clone sans --recurse-submodules) ;
+      - repertoire EXISTANT mais VIDE (gitlink pose via update-index
+        --cacheinfo + mkdir vide) : `git -C` remonte alors au PARENT et
+        rend son HEAD — le piege #3454. Pre-fix, cette forme rendait un
+        SUBMODULE_DRIFT permanent sur toute machine sans externes peuples.
+    """
+
+    def _repo_with_bare_gitlink(self, p: Path, create_empty_dir: bool) -> None:
+        """Depot parent dont l'index porte un gitlink `ext` sans checkout."""
+        init_repo(p, default_branch="main")
+        sub = sibling(p, ".submod")
+        sub.mkdir()
+        git(["init", "--initial-branch", "main"], cwd=sub)
+        git(["config", "user.email", "tester@example.com"], cwd=sub)
+        git(["config", "user.name", "tester"], cwd=sub)
+        write(sub / "sub.md", "submodule seed\n")
+        git(["add", "sub.md"], cwd=sub)
+        git(["commit", "-m", "sub initial"], cwd=sub)
+        sub_sha = git(["rev-parse", "HEAD"], cwd=sub).stdout.strip()
+        # Poser le gitlink SANS `submodule add` : l'etat d'un clone partiel
+        # qui a recupere l'index mais aucun checkout de submodule.
+        git(["update-index", "--add", "--cacheinfo", f"160000,{sub_sha},ext"], cwd=p)
+        if create_empty_dir:
+            (p / "ext").mkdir()
+        git(["commit", "-m", "gitlink without checkout"], cwd=p)
+        git(["push", "origin", "main"], cwd=p)
+
+    def _assert_unpopulated(self, p: Path) -> None:
+        state = collect_state(p)
+        sub_states = [s for s in state["submodules"] if s["path"] == "ext"]
+        self.assertEqual(len(sub_states), 1, msg=json.dumps(state, indent=2))
+        self.assertFalse(sub_states[0]["drift"], msg=json.dumps(state, indent=2))
+        self.assertTrue(sub_states[0].get("unpopulated"), msg=json.dumps(state, indent=2))
+        # Le verdict n'est PAS SUBMODULE_DRIFT : la machine est saine.
+        self.assertEqual(state["verdict"], VERDICTS_PASS, msg=json.dumps(state, indent=2))
+        return state
+
+    def test_existing_empty_dir_is_unpopulated_not_drift(self):
+        """Le trou exact trouve par la live probe : repertoire present mais vide."""
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "unpop-empty"
+            p.mkdir()
+            self._repo_with_bare_gitlink(p, create_empty_dir=True)
+            self.assertTrue((p / "ext").is_dir())
+            state = self._assert_unpopulated(p)
+            # Visibilite sans blocage : le rendu PASS mentionne l'info.
+            human = render_human(state)
+            self.assertIn("non peuple", human)
+
+    def test_absent_dir_is_unpopulated_not_drift(self):
+        """Clone partiel pur : le chemin du submodule n'existe pas du tout."""
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "unpop-absent"
+            p.mkdir()
+            self._repo_with_bare_gitlink(p, create_empty_dir=False)
+            self.assertFalse((p / "ext").exists())
+            self._assert_unpopulated(p)
 
 
 class TestEndToEnd(unittest.TestCase):

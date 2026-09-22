@@ -388,6 +388,11 @@ def collect_submodule_state(toplevel: Path) -> List[Dict]:
     Pour chaque submodule :
       - drift : le commit HEAD du submodule != le gitlink declare dans le parent
       - dirty : des modifs internes non commitees (meme arbre propre)
+      - unpopulated : le submodule n'est pas peuple (repertoire absent, ou
+        vide — `git -C` remonte alors au parent). Ce n'est PAS un drift :
+        c'est l'etat normal d'un clone partiel sans --recurse-submodules
+        (review #3778 : le classer drift rendait SUBMODULE_DRIFT permanent
+        sur toute machine qui ne peuple pas les externes).
     """
     rc, out, _ = run_git(["submodule", "foreach", "--quiet", "true"], cwd=toplevel)
     # foreach renvoie 0 meme si un submodule manque ; on continue.
@@ -418,9 +423,28 @@ def collect_submodule_state(toplevel: Path) -> List[Dict]:
                 "path": sub_path,
                 "gitlink": gitlink_sha,
                 "head": None,
-                "drift": True,
+                "drift": False,
                 "dirty": False,
-                "error": "submodule non peuple",
+                "unpopulated": True,
+                "error": "submodule non peuple (repertoire absent)",
+            })
+            continue
+
+        # #3454 (garde de MECANISME, review #3778) : sur un repertoire existant
+        # mais VIDE, `git -C sub_abs` ne rend pas d'erreur — il remonte au repo
+        # PARENT et repond en son nom, et son HEAD differe trivialement du
+        # gitlink (faux SUBMODULE_DRIFT sur toute machine sans externes peuples).
+        # On teste l'instrument AVANT toute lecture dependante de cwd.
+        rc_top, top_out, _ = run_git(["rev-parse", "--show-toplevel"], cwd=sub_abs)
+        if rc_top != 0 or Path(top_out.strip()).resolve() == toplevel.resolve():
+            results.append({
+                "path": sub_path,
+                "gitlink": gitlink_sha,
+                "head": None,
+                "drift": False,
+                "dirty": False,
+                "unpopulated": True,
+                "error": "submodule non peuple (repertoire vide, git -C remonte au parent)",
             })
             continue
 
@@ -456,6 +480,13 @@ def render_human(state: Dict) -> str:
         lines.append(f"  path        : {state.get('path')}")
         lines.append(f"  branch      : {state.get('branch')} (default: {state.get('default_branch')})")
         lines.append(f"  upstream    : {state.get('upstream')} (ahead={state.get('ahead',0)} behind={state.get('behind',0)})")
+        # Review #3778 : les submodules non peuples ne bloquent pas le verdict
+        # (etat normal d'un clone partiel) mais restent visibles en info.
+        unpop = [s for s in state.get("submodules", []) if s.get("unpopulated")]
+        if unpop:
+            sample = ", ".join(s["path"] for s in unpop[:5])
+            extra = f" (+{len(unpop) - 5} autres)" if len(unpop) > 5 else ""
+            lines.append(f"  submodules  : {len(unpop)} non peuple(s) (ignores, pas un drift) - {sample}{extra}")
         return "\n".join(lines)
 
     lines.append(f"[{verdict}] NON pret - signaux a traiter avant cloture :")
