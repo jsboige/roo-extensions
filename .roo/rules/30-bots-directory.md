@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0
 **Issue :** #2243
-**MAJ:** 2026-05-18
+**MAJ:** 2026-09-22 (adresse inbox NanoClaw, #2242)
 
 ---
 
@@ -20,7 +20,7 @@
 - **Rôle** : Cron review-pr, identité review CODEOWNERS, dashboard listener auxiliaire
 - **Host** : myia-ai-01
 - **Scheduler** : Cron `15,45 * * * *` (toutes les 30 min à :15/:45)
-- **Contacter** : Dashboard `tags: ["BOT-MENTION", "nanoclaw"]` ou inbox `to: "myia-ai-01:nanoclaw"`
+- **Contacter** : Dashboard `tags: ["BOT-MENTION", "nanoclaw"]` ou inbox `to: "myia-ai-01:roo-extensions"` (identité de chaîne du conteneur, #3413 ; `myia-ai-01:nanoclaw` n'aboutit pas, #2242)
 - **Cas d'usage** : Review PR coord ai-01 (workaround CODEOWNERS), co-hébergé OpenWebUI + sk-agent
 - **Ne PAS contacter pour** : Modifier code prod (use workers PR pattern)
 
