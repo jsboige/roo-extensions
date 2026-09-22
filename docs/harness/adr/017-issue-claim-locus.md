@@ -49,6 +49,12 @@ registre vivant, et le plus fragile.
    python scripts/github/check_issue_claim.py <N> --claim "intention"   # pose le verrou
    python scripts/github/check_issue_claim.py <N> --release             # lève le verrou
    ```
+   Codes de sortie : `0` libre · `1` bloqué · `2` erreur d'E/S ou `gh`, **ce qui inclut « dépôt
+   indéterminable »** (une lecture qui a échoué, ou un numéro qui n'est issue dans aucun des deux
+   dépôts) · `3` **ambiguïté de dépôt** (#3768 : le numéro est une issue dans les **deux** dépôts et
+   `--repo` n'a pas été passé — le garde refuse de deviner). `3` est réservé à une question qui a
+   **reçu** une réponse ambiguë ; une lecture qui n'a pas abouti sort en `2`, sans quoi une panne se
+   lirait comme une collision de numérotation inexistante.
    Validation par `createdAt` serveur uniquement ; péremption `--stale-threshold` (défaut 24 h) —
    un claim étranger plus vieux que le seuil ne bloque plus mais avertit (`STALE_CLAIM`) ; le
    nouveau claimant DOIT quand même poser son propre `[CLAIMED]` (pas de bypass silencieux).

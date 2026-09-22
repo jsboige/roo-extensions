@@ -60,8 +60,15 @@ comment-based. A merged PR referencing the issue is not auto-detected as a
 release -- post `--release` (or `[DONE]`) when the PR lands.
 
 Exit codes: 0 ok / 1 blocked (other machine holds active claim, unowned claim,
-or issue closed) / 2 io-or-gh error / 3 repo ambiguity (#3768: the number is an
-issue in BOTH repos and --repo was not given -- the guard refuses to guess).
+or issue closed) / 2 io-or-gh error, which INCLUDES "the repo could not be
+determined" -- a lookup that failed, or a number that is an issue in neither
+repo / 3 repo ambiguity (#3768: the number is an issue in BOTH repos and --repo
+was not given -- the guard refuses to guess).
+
+Exit 3 is reserved for a question that WAS answered and whose answer is
+ambiguous. A lookup that never happened is an io error (2), not an ambiguity:
+reporting an outage as an ambiguity would send the operator hunting for a
+collision that does not exist.
 """
 from __future__ import annotations
 
@@ -76,6 +83,11 @@ from datetime import datetime, timezone
 DEFAULT_REPO = "jsboige/roo-extensions"
 SUBMODULE_REPO = "jsboige/jsboige-mcp-servers"
 KNOWN_REPOS = (DEFAULT_REPO, SUBMODULE_REPO)
+
+# The ONE failure `gh api` reports that actually means "this number is not here".
+# Every other non-zero exit (403 secondary limit, auth, network) means the lookup
+# did not happen -- see classify_number.
+NOT_FOUND_RE = re.compile(r"HTTP 404|Not Found", re.IGNORECASE)
 
 # --- markers -----------------------------------------------------------------
 
@@ -203,8 +215,12 @@ def classify(state, agent, threshold_hours, now=None):
 # --- gh IO -------------------------------------------------------------------
 
 
-def run_gh(args, check=True):
-    """Run a gh command, return stdout. Raises RuntimeError with stderr on failure."""
+def _gh_exec(args):
+    """The single seam every gh invocation goes through.
+
+    Returns `(returncode, stdout, stderr)` instead of raising, so a caller can
+    tell a PROVEN 404 from a lookup that never happened. Tests patch this.
+    """
     proc = subprocess.run(
         ["gh", *args],
         capture_output=True,
@@ -212,51 +228,78 @@ def run_gh(args, check=True):
         encoding="utf-8",
         errors="replace",
     )
-    if check and proc.returncode != 0:
+    return proc.returncode, proc.stdout, proc.stderr
+
+
+def run_gh(args, check=True):
+    """Run a gh command, return stdout. Raises RuntimeError with stderr on failure."""
+    code, out, err = _gh_exec(args)
+    if check and code != 0:
         raise RuntimeError(
-            f"gh {' '.join(args)} failed (exit {proc.returncode}): "
-            f"{proc.stderr.strip() or proc.stdout.strip()}"
+            f"gh {' '.join(args)} failed (exit {code}): "
+            f"{err.strip() or out.strip()}"
         )
-    return proc.stdout
+    return out
 
 
 def classify_number(number: str, repo: str) -> str:
-    """Is `number` an ISSUE, a PULL REQUEST, or absent in `repo`?
+    """Is `number` an ISSUE, a PULL REQUEST, absent, or UNMEASURED in `repo`?
 
     Issues and PRs share ONE numbering space per repo, and `gh issue view` renders
     a PR without complaint. The discriminant is the `pull_request` key of the REST
     payload (#3768): #980 was a MERGED PR in the parent and an OPEN issue in the
     submodule, so reading the parent produced a sincere -- and false --
     "BLOCKED: issue #980 is MERGED", skipping a grain nobody had claimed.
+
+    Returns "issue", "pr", "absent" (a 404 the server actually returned) or
+    "error" (the question was never answered: 403 secondary limit, auth, network).
+    That last value is the whole point of this function's contract. Folding a
+    failed lookup into "absent" is fail-OPEN: `resolve_repo` would then see a
+    single candidate and silently resolve to the repo that happened to answer,
+    writing `--claim` on the wrong repo's ticket. "The instrument returned
+    nothing" is never "there is nothing".
     """
-    proc = subprocess.run(
+    code, out, err = _gh_exec(
         [
-            "gh",
             "api",
             f"repos/{repo}/issues/{number}",
             "--jq",
             'if .pull_request then "pr" else "issue" end',
-        ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
+        ]
     )
-    if proc.returncode != 0:
-        return "absent"
-    return proc.stdout.strip() or "absent"
+    if code == 0:
+        kind = out.strip()
+        return kind if kind in ("issue", "pr") else "error"
+    return "absent" if NOT_FOUND_RE.search(f"{err}\n{out}") else "error"
 
 
 def resolve_repo(number: str):
     """Pick the repo carrying issue `number` when --repo was NOT given.
 
-    Returns `(repo, note)` on a unique match, or `(None, message)` when the number
-    is ambiguous or is an issue nowhere. Fail-closed by construction: the guard
-    never picks between two candidates -- a wrong guess does not merely skip a
-    grain, it makes `--claim` write the lock on the WRONG repo's issue, leaving
-    the real grain unlocked while polluting an unrelated one.
+    Returns `(repo, note, 0)` on a unique match, or `(None, message, code)` with
+    the exit code the caller must use: 2 when the question could not be ANSWERED
+    (a lookup failed, or the number is an issue in neither repo), 3 when it was
+    answered and the answer is genuinely ambiguous.
+
+    Fail-closed by construction, and that includes PARTIAL failure: if either
+    repo could not be read, the guard refuses instead of resolving to the one
+    that answered. A wrong pick does not merely skip a grain -- it makes
+    `--claim` write the lock on the WRONG repo's issue, leaving the real grain
+    unlocked while polluting an unrelated one. Since the fleet meets GitHub's
+    secondary rate limit at active hours, "one repo did not answer" is an
+    ordinary condition here, not an exotic one.
     """
     kinds = {repo: classify_number(number, repo) for repo in KNOWN_REPOS}
+
+    unmeasured = [repo for repo, kind in kinds.items() if kind == "error"]
+    if unmeasured:
+        return None, (
+            f"error: cannot tell where #{number} lives -- the lookup FAILED in "
+            f"{', '.join(unmeasured)}.\n"
+            "       That is a measurement failure, not an absence (403 secondary\n"
+            "       limit, auth, network). Pass --repo explicitly, or retry."
+        ), 2
+
     candidates = [repo for repo, kind in kinds.items() if kind == "issue"]
     if len(candidates) == 1:
         other = next(r for r in KNOWN_REPOS if r != candidates[0])
@@ -266,19 +309,19 @@ def resolve_repo(number: str):
                 f"note: #{number} is a PULL REQUEST in {other}; resolved to "
                 f"{candidates[0]} (the #3768 trap)"
             )
-        return candidates[0], note
+        return candidates[0], note, 0
     if not candidates:
         detail = ", ".join(f"{r}={k}" for r, k in kinds.items())
         return None, (
             f"error: #{number} is an issue in neither known repo ({detail}).\n"
             "       Pass --repo explicitly if it lives somewhere else."
-        )
+        ), 2
     return None, (
-        f"AMBIGUOUS: #{number} is an OPEN numbering collision -- it is an issue in\n"
+        f"AMBIGUOUS: #{number} is a numbering collision -- it is an issue in\n"
         "           BOTH repos, and guessing would lock the wrong one. Re-run with:\n"
         f"             --repo {DEFAULT_REPO}\n"
         f"             --repo {SUBMODULE_REPO}"
-    )
+    ), 3
 
 
 def fetch_issue(issue_number: str, repo: str):
@@ -363,13 +406,20 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
 
     if args.repo is None:
-        resolved, message = resolve_repo(args.issue)
+        resolved, message, code = resolve_repo(args.issue)
         if resolved is None:
             print(message, file=sys.stderr)
-            return 3
+            return code
         args.repo = resolved
         if message:
             print(message, file=sys.stderr)
+        if args.claim or args.release:
+            # A mutation under an auto-detected repo must be legible in the log:
+            # the operator has to be able to see WHICH ticket got the lock.
+            print(
+                f"note: --repo was not given; this MUTATION targets {resolved}",
+                file=sys.stderr,
+            )
 
     if args.claim or args.release:
         if not args.agent:

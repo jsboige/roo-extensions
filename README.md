@@ -73,6 +73,7 @@ Avant de travailler sur une tâche, **toujours la revendiquer** — le verrou vi
 ```bash
 # 1. Vérifier qu'aucune autre machine ne tient le verrou, puis poser le sien
 python scripts/github/check_issue_claim.py {NUM}                    # exit 1 = verrou tenu ailleurs
+# exit 2 = erreur gh, ou depot indeterminable | exit 3 = numero ambigu entre les deux depots (#3768)
 python scripts/github/check_issue_claim.py {NUM} --claim "intention en une ligne"
 
 # 2. Mettre à jour Project #67
