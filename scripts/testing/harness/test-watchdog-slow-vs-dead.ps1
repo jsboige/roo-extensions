@@ -211,6 +211,37 @@ $idDefCount = ([regex]::Matches($Text, '\$fleetNoteId[ \t]*=')).Count
 Assert-That "la cle d'idempotence est definie UNE seule fois (partagee par les 2 routes)" `
     ($idDefCount -eq 1)
 
+# --- 7. Aucune etape ne demarre si elle ne peut pas finir dans le run (#3205) ---
+# La schtask coupe le run a 2 min (ExecutionTimeLimit). Le chemin de sonde seul
+# peut durer 20 + 60 + 20 + 60 = 160 s. Mesure 22/09 (watchdog-20260922.log) :
+# six runs coupes pendant la retente LAN, et une reparation coupee avant
+# d'ecrire lastRepairAt, d'ou une 2e reparation complete deux minutes plus
+# tard, sur un sparfenyuk trouve arrete.
+$Installer = [System.IO.Path]::GetFullPath("$PSScriptRoot/../../mcp-watchdog/install-watchdog-schtask.ps1")
+$InstallerText = if (Test-Path $Installer) { Get-Content $Installer -Raw } else { '' }
+Assert-That "le budget du run est ecrit dans le code" ($Text -match '\$TaskTimeLimitSec[ \t]*=[ \t]*(\d+)')
+$runLimit = if ($Text -match '\$TaskTimeLimitSec[ \t]*=[ \t]*(\d+)') { [int]$matches[1] } else { 0 }
+# Garde de derive : le budget ne doit pas depasser la limite que l'installeur
+# pose sur la tache. Lue dans l'installeur, pas recopiee ici.
+Assert-That "l'installeur pose une ExecutionTimeLimit en minutes" ($InstallerText -match 'ExecutionTimeLimit[ \t]+\(New-TimeSpan[ \t]+-Minutes[ \t]+(\d+)\)')
+if ($InstallerText -match 'ExecutionTimeLimit[ \t]+\(New-TimeSpan[ \t]+-Minutes[ \t]+(\d+)\)') {
+    $installedLimitSec = [int]$matches[1] * 60
+    Assert-That "le budget du run ne depasse pas la limite de la tache ($runLimit <= $installedLimitSec s)" ($runLimit -gt 0 -and $runLimit -le $installedLimitSec)
+}
+Assert-That "la retente LAN n'est lancee que si elle tient dans le temps restant" `
+    ($Text -match '\$lanResult\.TimedOut[ \t]*\)[ \t]*\{[ \t]*\r?\n[ \t]*if[ \t]*\(\(Get-RunSecondsLeft\)[ \t]+-ge[ \t]+\$SlowRetryTimeoutSec\)')
+# Le garde doit PRECEDER le bloc destructif, sinon il ne garde rien.
+Assert-That "une reparation qui ne tient pas dans le temps restant est differee" `
+    ($Text -match 'elseif[ \t]*\([ \t]*\(Get-RunSecondsLeft\)[ \t]+-lt[ \t]+\$RepairWorstCaseSec[ \t]*\)[\s\S]{0,1200}?\}[ \t]*else[ \t]*\{[ \t]*\r?\n[^\r\n]*running full repair sequence')
+if ($Text -match '\$RepairWorstCaseSec[ \t]*=[ \t]*(\d+)') {
+    # Plancher : les trois Start-Sleep de la reparation (3 + 10 + 15 s) plus le
+    # controle E2E de 20 s qui la suit. En dessous, le garde laisserait
+    # demarrer une reparation qui ne peut pas finir.
+    Assert-That "le pire cas de reparation couvre ses propres attentes (>= 48 s)" ([int]$matches[1] -ge 48)
+} else {
+    Assert-That "le pire cas de reparation est ecrit dans le code" $false
+}
+
 Write-Host ""
 if ($script:Fails -eq 0) { Write-Host "TOUT VERT" -ForegroundColor Green; exit 0 }
 else { Write-Host "$($script:Fails) ECHEC(S)" -ForegroundColor Red; exit 1 }
